@@ -52,17 +52,20 @@ de las tablas que los usan.
 ## FASE 1 — Núcleo
 
 ### Módulo 1 — Identidad
-- [ ] `personas` (T) — FK → sexos, generos, paises, entidades_federativas
-      (landlord). Índice FULLTEXT (nombre, apellidos, curp).
-- [ ] `roles` (TC)
-- [ ] `permisos` (TC) — vía Spatie (documentar permisos como seeder).
-- [ ] `temas` (TC)
-- [ ] `tema_tokens` (TC, FK → temas)
-- [ ] `usuarios` (T, FK → personas, roles, temas) — nota: mapea al modelo de
-      credenciales; convive con la tabla `users` de Laravel/Spatie.
+Slice sin auth (hecho):
+- [x] `personas` (T) — refs landlord SIN FK real (cross-DB). FULLTEXT
+      (nombre, apellidos, curp). Modelo con relaciones cross-DB.
+- [x] `temas` (TC) — sembrado (claro/oscuro/alto_contraste).
+- [x] `tema_tokens` (TC, FK → temas) — tokens de color por fila.
+
+Slice de auth (DIFERIDO a la fase de autenticación):
+- [ ] `roles` (TC) — ⚠️ colisión de nombre con la tabla `roles` de Spatie;
+      decidir unificar o renombrar con el usuario.
+- [ ] `usuarios` (T, FK → personas, roles, temas) — tabla de credenciales;
+      reconciliar con la tabla `users` de Laravel/Spatie.
 - [ ] `usuario_tema_override` (T, FK → usuarios)
 - [ ] `persona_rol` (T, FK → personas, roles) — PK compuesta, multi-rol.
-- [ ] `rol_permiso` (T) — vía Spatie.
+- [ ] `permisos` (TC) / `rol_permiso` (T) — vía Spatie (documentar seeder).
 
 ### Módulo 2 — Estructura académica
 Catálogos TC primero (antes de sus FKs):

@@ -144,3 +144,35 @@ la resolución se documenta aquí antes de implementar.
   MigrateDatabase, SeedDatabase, DeleteDatabase) exigen ese contrato en su
   firma. Sin él, la creación del tenant falla con TypeError. Es requisito del
   modo multi-database.
+
+## 2026-07-21 — Fase 1, Módulo 1 (Identidad, slice sin auth)
+
+### Referencias a catálogos LANDLORD: sin FK real (cross-database)
+- **Decisión:** las columnas de tablas TENANT que apuntan a catálogos landlord
+  (`personas.sexo_id`, `genero_id`, `pais_nacimiento_id`,
+  `entidad_nacimiento_id`, y futuras) son `unsignedBigInteger` **sin**
+  `constrained()`. Las FKs dentro de la misma BD de tenant sí son reales.
+- **Razón:** el tenant y la landlord son bases de datos distintas. Una FK
+  cruzada hardcodearía el nombre de la BD central y stancl la desaconseja. La
+  integridad se valida en la app; las relaciones Eloquent resuelven cross-DB
+  porque los modelos landlord usan `CentralConnection` (verificado:
+  `persona->sexo` consulta `mysql` mientras la persona vive en `tenant`).
+
+### Módulo 1 partido: identidad-sin-auth ahora, credenciales después
+- **Decisión:** de las 7 tablas del Módulo 1 se construyeron ahora solo
+  `personas`, `temas`, `tema_tokens`. Se difieren `roles`, `usuarios`,
+  `usuario_tema_override` y `persona_rol` a la fase de autenticación.
+- **Razón:** (1) el usuario pospuso el auth explícitamente; (2) `usuarios` es la
+  tabla de credenciales; (3) **colisión de nombre**: la spec define una tabla de
+  dominio `roles` (clave, nombre, tiempo_sesion) pero también recomienda
+  spatie/laravel-permission, que YA crea su propia tabla `roles`. Unificar los
+  roles de dominio con los de Spatie —o mantenerlos separados con otro nombre—
+  es una decisión de auth a tomar con el usuario. Pendiente registrado.
+
+### `personas`: FULLTEXT y `curp` único-nullable
+- **Decisión:** índice FULLTEXT sobre (nombre, primer_apellido,
+  segundo_apellido, curp); `curp` es UNIQUE y NULLable (MySQL permite múltiples
+  NULL en índice único). `sexo_id` es NOT NULL (per spec); los demás refs
+  landlord son nullable.
+- **Razón:** búsqueda de personas como en el legacy IMEP; la CURP es llave
+  natural cuando existe pero muchas personas se dan de alta sin ella todavía.
