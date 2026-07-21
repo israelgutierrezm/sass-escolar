@@ -40,6 +40,7 @@ class DatabaseSeeder extends Seeder
             CatalogosControlEscolarSeeder::class,
             CatalogosAsistenciaSeeder::class,
             RolSeeder::class,
+            PermisoSeeder::class,
             ReglaMatriculaSeeder::class,
         ]);
     }

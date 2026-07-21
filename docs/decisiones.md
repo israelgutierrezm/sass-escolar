@@ -283,6 +283,69 @@ Aclaraciones recibidas que afectan módulos ya construidos y por construir.
   - Verificado: publicar la v2 de un reglamento no altera las aceptaciones de
     la v1 y el sistema marca la re-aceptación como pendiente.
 
+## 2026-07-21 — Slice de autenticación (cierra el Módulo 1)
+
+### Roles unificados con Spatie, en dos niveles y con jerarquía
+- **Aclaración del cliente:** existen roles como administrativo, docente,
+  alumno, aspirante, tutor educativo y padre de familia; pero *dentro* de
+  administrativo hay roles propios con permisos acotados (director general,
+  director de un campus específico, encargado y auxiliar de admisiones,
+  encargado y auxiliar de control escolar...).
+- **Decisión:** un solo catálogo de roles, sobre la tabla `roles` de Spatie
+  extendida con `nombre`, `tiempo_sesion` y `rol_padre_id`. El `name` de Spatie
+  guarda la clave, así todo su API sigue operando.
+  - **Faceta** = rol sin padre (lo que la persona ES; es lo que agrupa).
+  - **Rol funcional** = cuelga de una faceta y HEREDA sus permisos
+    (`Rol::permisosEfectivos()` recorre la cadena de ancestros).
+  - Se descartó una bandera "es conmutable": la persona conmuta entre los roles
+    que tenga asignados; la jerarquía solo hereda permisos y agrupa en la UI.
+- **Razón:** la spec dice que los permisos se resuelven "acotados al
+  `rol_activo_id`", o sea el rol de dominio ES el que carga permisos. Mantener
+  dos catálogos obligaría a sincronizarlos y traducir en cada verificación.
+
+### Alcance del rol por campus
+- **Decisión:** `persona_rol` lleva `campus_id` nullable (NULL = alcance
+  global) y PK surrogate, porque una persona puede tener el mismo rol en varios
+  campus. Unique (persona_id, rol_id, campus_id).
+- **Razón:** resuelve "director de un campus específico" sin inventar un rol
+  por campus. Caveat: MySQL trata los NULL como distintos, así que el unique no
+  impide dos filas globales del mismo par persona-rol; se valida en la app.
+
+### `usuarios` es la tabla de credenciales; se eliminó `users`
+- **Decisión:** se creó `usuarios` (spec, Módulo 1) colgando de `personas`, y
+  se eliminaron la tabla `users` del scaffolding, el modelo `App\Models\User` y
+  su factory. La migración original se renombró a `create_sessions_table` y
+  conserva `sessions` y `password_reset_tokens`. `config/auth.php` apunta el
+  guard `web` a `App\Models\Identidad\Usuario`.
+- **Razón:** un solo concepto de usuario. El login es de PERSONAS con cualquier
+  rol activo — un aspirante necesita sesión desde el día uno para llenar
+  formularios, aceptar reglamentos y pagar, mucho antes de ser alumno.
+
+### Resolución de permisos vía Gate, no vía HasRoles en el usuario
+- **Decisión:** `Usuario` NO usa el trait `HasRoles` de Spatie. Los roles se
+  asignan a la PERSONA (`persona_rol`), y un `Gate::before` en
+  AppServiceProvider resuelve `can()` contra los permisos efectivos del rol
+  activo. Devuelve `null` (no `false`) cuando no concede, para no cortar la
+  cadena de policies.
+- **Razón:** Spatie asigna roles al modelo autenticable y no conoce la bandera
+  `activo` ni el alcance por campus. La verdad sobre qué es una persona vive en
+  `persona_rol`; Spatie aporta el catálogo de permisos y el mapeo rol→permiso.
+- El middleware `EstablecerRolActivo` (alias `rol.activo`) valida en CADA
+  request que el `rol_activo_id` siga entre los roles activos de la persona y,
+  si no, lo reasigna. Defensa contra manipulación del cliente.
+
+### HUECO CORREGIDO: la landlord no tenía tablas de infraestructura
+- **Problema detectado al sembrar permisos:** mover `cache`, `jobs` y
+  `sessions` a la capa tenant (decisión del arranque) dejó a la BD central sin
+  ellas. Con `CACHE_STORE=database`, spatie/laravel-permission cachea su tabla
+  de permisos y falla con
+  `Table 'acadion_landlord.cache' doesn't exist`.
+- **Decisión:** la landlord recupera sus propias `cache`, `cache_locks`,
+  `jobs`, `job_batches`, `failed_jobs`, `sessions` y `password_reset_tokens`.
+- **Razón:** la landlord también es una aplicación real (panel de super
+  admins) y necesita caché, colas y sesiones propias. Siguen siendo tablas
+  distintas de las de cada tenant, así que el aislamiento se mantiene.
+
 ### `personas`: FULLTEXT y `curp` único-nullable
 - **Decisión:** índice FULLTEXT sobre (nombre, primer_apellido,
   segundo_apellido, curp); `curp` es UNIQUE y NULLable (MySQL permite múltiples

@@ -58,14 +58,30 @@ Slice sin auth (hecho):
 - [x] `temas` (TC) — sembrado (claro/oscuro/alto_contraste).
 - [x] `tema_tokens` (TC, FK → temas) — tokens de color por fila.
 
-Slice de auth (DIFERIDO a la fase de autenticación):
-- [ ] `roles` (TC) — ⚠️ colisión de nombre con la tabla `roles` de Spatie;
-      decidir unificar o renombrar con el usuario.
-- [ ] `usuarios` (T, FK → personas, roles, temas) — tabla de credenciales;
-      reconciliar con la tabla `users` de Laravel/Spatie.
-- [ ] `usuario_tema_override` (T, FK → usuarios)
-- [ ] `persona_rol` (T, FK → personas, roles) — PK compuesta, multi-rol.
-- [ ] `permisos` (TC) / `rol_permiso` (T) — vía Spatie (documentar seeder).
+Slice de auth ✅ COMPLETO:
+- [x] `roles` (TC) — resuelta la colisión con Spatie: se UNIFICAN. Se extiende
+      la tabla de Spatie con `nombre`, `tiempo_sesion` y `rol_padre_id`
+      (jerarquía faceta → rol funcional, con herencia de permisos).
+- [x] `usuarios` (T, FK → personas, roles, temas) — tabla de credenciales.
+      Se eliminó la tabla `users` del scaffolding; el guard `web` apunta a
+      `App\Models\Identidad\Usuario`.
+- [x] `usuario_tema_override` (T, FK → usuarios)
+- [x] `persona_rol` (T, FK → personas, roles, campus) — multi-rol con bandera
+      `activo` y alcance por campus.
+- [x] `permisos` / `rol_permiso` — vía Spatie, con `PermisoSeeder` (23 permisos
+      en 6 dominios) que los asigna al rol más general gracias a la herencia.
+
+Infraestructura LANDLORD (corrección):
+- [x] `cache`, `cache_locks`, `jobs`, `job_batches`, `failed_jobs`, `sessions`,
+      `password_reset_tokens` en la BD central — faltaban desde el arranque y
+      rompían cualquier operación de caché en contexto central.
+
+> Prueba de integración (con rollback): herencia de permisos (encargado de
+> admisiones = 3 heredados + 7 propios, sin filtrarse los de finanzas),
+> conmutador de rol (mismo usuario, permisos distintos según rol activo),
+> alcance por campus (aplica en Norte, no en Sur), rechazo de conmutación a un
+> rol no asignado, y reasignación automática por el middleware al revocarle un
+> rol.
 
 ### Módulo 2 — Estructura académica  ✅ COMPLETO
 Catálogos TC (sembrados con CatalogosAcademicosSeeder):

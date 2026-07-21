@@ -11,7 +11,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Resuelve y valida el rol activo del usuario en cada request del tenant.
+        $middleware->alias([
+            'rol.activo' => App\Http\Middleware\EstablecerRolActivo::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
