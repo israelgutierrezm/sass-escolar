@@ -115,37 +115,46 @@ Tablas (la de respuestas se difiere a fase 1/módulo 4 por FK a matricula_oferta
 > condicional con auto-referencia, opciones relacionales, asignación a un
 > nivel de la landlord, unique y versionado v2 validados.
 
-### Módulo 4 — Matrícula y admisiones (CRM)
-Catálogos TC:
-- [ ] `situaciones_aspirante` (TC)
-- [ ] `situaciones_asesor` (TC)
-- [ ] `situaciones_tutor` (TC)
-- [ ] `estados_documento` (TC)
-- [ ] `etapas_crm` (TC)
-- [ ] `situaciones_alumno` (TC)
+### Módulo 4 — Matrícula y admisiones (CRM)  ✅ COMPLETO
+Catálogos TC (sembrados con CatalogosAdmisionesSeeder):
+- [x] `situaciones_aspirante` (TC)
+- [x] `situaciones_asesor` (TC)
+- [x] `situaciones_tutor` (TC)
+- [x] `estados_documento` (TC)
+- [x] `etapas_crm` (TC) — con `orden` (embudo).
+- [x] `situaciones_alumno` (TC)
 
 Tablas:
-- [ ] `aspirantes` (T, FK → personas, oferta, campus, situaciones_aspirante, ciclos)
-- [ ] `asesores` (T, FK → personas, situaciones_asesor) — PK persona_id.
-- [ ] `tutores_crm` (T, FK → personas, situaciones_tutor) — PK persona_id.
-- [ ] `aspirante_asesor` (T) — PK compuesta.
-- [ ] `aspirante_tutor_crm` (T) — PK compuesta.
-- [ ] `campus_asesor` (T), `campus_tutor` (T)
-- [ ] `promociones` (T)
-- [ ] `aspirante_promocion` (T) — PK compuesta.
-- [ ] `documentos_requeridos` (T)
-- [ ] `documento_carrera` (T, FK → documentos_requeridos, carreras)
-- [ ] `etiquetas_documento` (T), `documento_etiqueta` (T)
-- [ ] `expediente_documentos` (T, FK → aspirantes, documentos_requeridos,
+- [x] `aspirantes` (T, FK → personas, oferta, campus, situaciones_aspirante).
+      ⚠️ `ciclo_ingreso_id` SIN FK: `ciclos` es del Módulo 5. Falta migración
+      de seguimiento que agregue el constraint cuando exista.
+- [x] `asesores` (T, FK → personas, situaciones_asesor) — PK persona_id.
+- [x] `tutores_crm` (T, FK → personas, situaciones_tutor) — PK persona_id.
+- [x] `aspirante_asesor` (T) — PK compuesta.
+- [x] `aspirante_tutor_crm` (T) — PK compuesta.
+- [x] `campus_asesor` (T), `campus_tutor` (T)
+- [x] `promociones` (T)
+- [x] `aspirante_promocion` (T) — PK compuesta.
+- [x] `documentos_requeridos` (T)
+- [x] `documento_carrera` (T, FK → documentos_requeridos, carreras)
+- [x] `etiquetas_documento` (T), `documento_etiqueta` (T)
+- [x] `expediente_documentos` (T, FK → aspirantes, documentos_requeridos,
       carreras, estados_documento)
-- [ ] `reactivos_cleaver` (TC)
-- [ ] `cleaver_aspirante` (T, FK → aspirantes, reactivos_cleaver)
-- [ ] `alumnos` (T, FK → personas, situaciones_alumno) — PK persona_id.
-- [ ] `matricula_oferta` (T, FK → personas, oferta, situaciones_alumno) — "el
-      alumno" real. Índice único (persona_id, oferta_id) y (matricula).
-- [ ] `expedientes` (T, FK → matricula_oferta)
-- [ ] `respuestas_campo` (T, FK → campos_formulario, personas, matricula_oferta,
-      aspirantes) — **ahora sí** (cierra la dependencia del Módulo 3).
+- [x] `reactivos_cleaver` (TC) — creada, SIN sembrar (banco real del legacy).
+- [x] `cleaver_aspirante` (T, FK → aspirantes, reactivos_cleaver)
+- [x] `alumnos` (T, FK → personas, situaciones_alumno) — PK persona_id.
+- [x] `matricula_oferta` (T, FK → personas, oferta, situaciones_alumno) — "el
+      alumno" real. Únicos (persona_id, oferta_id) y (matricula) verificados.
+- [x] `expedientes` (T, FK → matricula_oferta)
+- [x] `respuestas_campo` (T, FK → campos_formulario, personas, matricula_oferta,
+      aspirantes) — **cierra la dependencia del Módulo 3**.
+
+> Prueba del flujo completo (con rollback) en el tenant demo: aspirante →
+> conversión a alumno con la MISMA persona_id (cero recaptura) → segunda
+> matrícula en maestría. El caso rector quedó demostrado: el mismo formulario
+> respondido dos veces con valores distintos por oferta, y `UPDATE ... WHERE
+> matricula_oferta_id AND campo_formulario_id` modificando una respuesta
+> puntual. Ambos índices únicos rechazaron los duplicados.
 
 ---
 
