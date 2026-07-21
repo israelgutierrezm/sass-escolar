@@ -11,6 +11,7 @@ use App\Models\Identidad\Persona;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * aspirantes (TENANT) — prospecto en el embudo de admisión.
@@ -78,5 +79,24 @@ class Aspirante extends Model
     {
         return $this->belongsToMany(TutorCrm::class, 'aspirante_tutor_crm', 'aspirante_id', 'persona_id')
             ->withTimestamps();
+    }
+
+    /** Promociones/descuentos de admisión otorgados. */
+    public function promociones(): BelongsToMany
+    {
+        return $this->belongsToMany(Promocion::class, 'aspirante_promocion', 'aspirante_id', 'promocion_id')
+            ->withTimestamps();
+    }
+
+    /** Documentos entregados en el expediente de admisión. */
+    public function expedienteDocumentos(): HasMany
+    {
+        return $this->hasMany(ExpedienteDocumento::class, 'aspirante_id');
+    }
+
+    /** Respuestas del test psicométrico Cleaver. */
+    public function respuestasCleaver(): HasMany
+    {
+        return $this->hasMany(CleaverAspirante::class, 'aspirante_id');
     }
 }
