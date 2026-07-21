@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\AspiranteController;
 use App\Http\Controllers\AutenticacionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\RolActivoController;
@@ -37,5 +38,19 @@ Route::middleware([
         Route::get('/panel', DashboardController::class)->name('tenant.dashboard');
         Route::put('/rol-activo', [RolActivoController::class, 'actualizar'])->name('tenant.rol-activo.actualizar');
         Route::post('/logout', [AutenticacionController::class, 'logout'])->name('tenant.logout');
+
+        /*
+         * Admisiones. Se protege con el `can:` de Laravel —no con el
+         * `permission:` de Spatie— porque nuestros roles cuelgan de la persona
+         * y no del usuario: la resolución pasa por el Gate::before que consulta
+         * los permisos efectivos del rol activo.
+         */
+        Route::controller(AspiranteController::class)->prefix('aspirantes')->name('tenant.aspirantes.')->group(function () {
+            Route::get('/', 'index')->middleware('can:ver-aspirantes')->name('index');
+            Route::get('/nuevo', 'create')->middleware('can:crear-aspirantes')->name('create');
+            Route::post('/', 'store')->middleware('can:crear-aspirantes')->name('store');
+            Route::get('/{aspirante}/editar', 'edit')->middleware('can:editar-aspirantes')->name('edit');
+            Route::put('/{aspirante}', 'update')->middleware('can:editar-aspirantes')->name('update');
+        });
     });
 });
