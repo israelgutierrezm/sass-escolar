@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Database\Seeders;
 
 use Database\Seeders\Tenant\CatalogosAcademicosSeeder;
+use Database\Seeders\Tenant\CatalogosFormulariosSeeder;
 use Database\Seeders\Tenant\ModuloSeeder;
 use Database\Seeders\Tenant\TemaSeeder;
 use Illuminate\Database\Seeder;
@@ -26,6 +27,7 @@ class DatabaseSeeder extends Seeder
             ModuloSeeder::class,
             TemaSeeder::class,
             CatalogosAcademicosSeeder::class,
+            CatalogosFormulariosSeeder::class,
         ]);
     }
 }
