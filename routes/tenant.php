@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 use App\Http\Controllers\AspiranteController;
 use App\Http\Controllers\AutenticacionController;
+use App\Http\Controllers\CampusController;
+use App\Http\Controllers\CarreraController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExpedienteAspiranteController;
+use App\Http\Controllers\OfertaController;
+use App\Http\Controllers\PlanEstudioController;
 use App\Http\Controllers\RolActivoController;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
@@ -56,6 +60,30 @@ Route::middleware([
             // La matrícula nace aquí, no antes.
             Route::post('/{aspirante}/convertir', 'convertir')->middleware('can:convertir-aspirante')->name('convertir');
         });
+
+        /*
+         * Catálogo académico. Campus y carreras son la base; los planes cuelgan
+         * de la carrera y la oferta los combina para definir qué se imparte
+         * dónde. Sin oferta abierta no hay a qué matricular a un aspirante.
+         */
+        Route::prefix('academico')->name('tenant.academico.')
+            ->middleware('can:ver-catalogo-academico')
+            ->group(function () {
+                $escritura = ['middleware' => 'can:editar-catalogo-academico'];
+
+                Route::get('campus', [CampusController::class, 'index'])->name('campus.index');
+                Route::get('carreras', [CarreraController::class, 'index'])->name('carreras.index');
+                Route::get('planes', [PlanEstudioController::class, 'index'])->name('planes.index');
+                Route::get('ofertas', [OfertaController::class, 'index'])->name('ofertas.index');
+
+                Route::middleware($escritura['middleware'])->group(function () {
+                    Route::resource('campus', CampusController::class)
+                        ->except(['index', 'show'])->parameters(['campus' => 'campus']);
+                    Route::resource('carreras', CarreraController::class)->except(['index', 'show']);
+                    Route::resource('planes', PlanEstudioController::class)->except(['index', 'show']);
+                    Route::resource('ofertas', OfertaController::class)->except(['index', 'show']);
+                });
+            });
 
         Route::controller(ExpedienteAspiranteController::class)->prefix('aspirantes/{aspirante}/expediente')->name('tenant.expediente.')->group(function () {
             Route::post('/', 'store')->middleware('can:editar-aspirantes')->name('store');

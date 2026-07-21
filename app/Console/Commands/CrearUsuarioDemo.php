@@ -70,8 +70,12 @@ class CrearUsuarioDemo extends Command
             ],
         );
 
+        // Varias figuras a propósito, para que el conmutador tenga qué conmutar
+        // y se note que cada una abre distintos menús: admisiones no puede
+        // editar el catálogo académico, dirección general sí.
         $roles = [
             ['encargado_admisiones', null],
+            ['director_general', null],
             ['docente', null],
             ['director_campus', $campus->id],
         ];

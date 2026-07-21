@@ -17,13 +17,23 @@ const menuAbierto = ref(false);
 /** El menú se arma con los permisos del rol ACTIVO: al conmutar, cambia. */
 const navegacion = computed(() =>
     [
-        { etiqueta: 'Panel', url: '/panel', permiso: null },
-        { etiqueta: 'Aspirantes', url: '/aspirantes', permiso: 'ver-aspirantes' },
+        { etiqueta: 'Panel', url: '/panel', prefijo: '/panel', permiso: null },
+        { etiqueta: 'Aspirantes', url: '/aspirantes', prefijo: '/aspirantes', permiso: 'ver-aspirantes' },
+        {
+            etiqueta: 'Académico',
+            url: '/academico/carreras',
+            // La sección agrupa campus, carreras, planes y oferta: se marca
+            // activa en cualquiera de ellas, no solo en la de entrada.
+            prefijo: '/academico',
+            permiso: 'ver-catalogo-academico',
+        },
     ].filter((item) => item.permiso === null || permisos.value.includes(item.permiso)),
 );
 
-function esRutaActual(url: string): boolean {
-    return page.url === url || page.url.startsWith(`${url}/`);
+function esRutaActual(prefijo: string): boolean {
+    const ruta = page.url.split('?')[0];
+
+    return ruta === prefijo || ruta.startsWith(`${prefijo}/`);
 }
 
 function conmutar(rolId: number): void {
@@ -53,7 +63,7 @@ function salir(): void {
                             :href="item.url"
                             class="rounded-lg px-3 py-1.5 text-sm transition"
                             :class="
-                                esRutaActual(item.url)
+                                esRutaActual(item.prefijo)
                                     ? 'bg-indigo-50 font-medium text-indigo-700'
                                     : 'text-slate-600 hover:bg-slate-50'
                             "
