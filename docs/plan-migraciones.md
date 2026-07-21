@@ -95,18 +95,25 @@ Tablas:
 > campus→carrera→plan→asignatura→plan_materia→evaluación→seriación→oferta;
 > relación cross-DB, seriación reflexiva, Σ%=100 y unique validados.
 
-### Módulo 3 — Formularios dinámicos
-Catálogos TC:
-- [ ] `tipos_campo` (TC)
-- [ ] `formulario_obligatoriedad` (TC)
-- [ ] `formulario_visibilidad` (TC)
-- [ ] `tipos_antecedente_academico` (TC)
+### Módulo 3 — Formularios dinámicos  ✅ (salvo respuestas_campo)
+Catálogos TC (sembrados con CatalogosFormulariosSeeder):
+- [x] `tipos_campo` (TC) — 11 tipos del legacy.
+- [x] `formulario_obligatoriedad` (TC)
+- [x] `formulario_visibilidad` (TC)
+- [x] `tipos_antecedente_academico` (TC)
 
 Tablas (la de respuestas se difiere a fase 1/módulo 4 por FK a matricula_oferta):
-- [ ] `formularios` (T) — índice único (clave, version).
-- [ ] `campos_formulario` (T, FK → formularios, tipos_campo, self campo_padre_id)
-- [ ] `opciones_campo` (T, FK → campos_formulario)
-- [ ] `formulario_asignacion` (T, FK → formularios) — polimórfico nivel/carrera/oferta/rol.
+- [x] `formularios` (T) — índice único (clave, version) verificado.
+- [x] `campos_formulario` (T, FK → formularios, tipos_campo, self campo_padre_id)
+- [x] `opciones_campo` (T, FK → campos_formulario)
+- [x] `formulario_asignacion` (T, FK → formularios) — polimórfico
+      nivel/carrera/oferta/rol; `aplica_a_id` sin FK, indexado por par.
+- [ ] `respuestas_campo` (T) — DIFERIDA: depende de `matricula_oferta` y
+      `aspirantes` (Módulo 4), como indica la nota de dependencias.
+
+> Prueba de integración (con rollback): formulario versionado, campo
+> condicional con auto-referencia, opciones relacionales, asignación a un
+> nivel de la landlord, unique y versionado v2 validados.
 
 ### Módulo 4 — Matrícula y admisiones (CRM)
 Catálogos TC:
