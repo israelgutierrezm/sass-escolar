@@ -1,25 +1,27 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Database\Seeders;
 
-use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use Database\Seeders\Tenant\ModuloSeeder;
 use Illuminate\Database\Seeder;
 
+/**
+ * Seeder raíz de TENANT. Se ejecuta en el contexto de cada escuela cuando se
+ * crea un tenant (job SeedDatabase del pipeline de stancl/tenancy) y con
+ * `php artisan tenants:seed`.
+ *
+ * Solo debe sembrar datos TENANT/TENANT-CONFIG (catálogos que toda escuela
+ * necesita). Los catálogos universales de la BD central los siembra
+ * Database\Seeders\Landlord\LandlordDatabaseSeeder, por separado.
+ */
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // User::factory(10)->create();
-
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        $this->call([
+            ModuloSeeder::class,
         ]);
     }
 }

@@ -32,11 +32,16 @@ de las tablas que los usan.
   - [x] `niveles_estudio` — 7 niveles con orden.
 
 ### 0.2 Feature flags y configuración por tenant
-- [ ] `modulos` (TC)
-- [ ] `modulos_activos` (T, FK → modulos) — PK compuesta.
-- [ ] `modulo_config` (T) — clave/valor por módulo.
-- [ ] `configuraciones` (T) — clave/valor escalar del tenant.
-- [ ] `auditoria` (T) — bitácora transversal (único uso de JSON justificado).
+- [x] `modulos` (TC) — sembrado con los 13 módulos (Tenant\ModuloSeeder).
+- [x] `modulos_activos` (T, FK → modulos) — PK modulo_id.
+- [x] `modulo_config` (T) — clave/valor por módulo, PK (modulo_id, clave).
+- [x] `configuraciones` (T) — clave/valor escalar del tenant, PK clave.
+- [x] `auditoria` (T) — bitácora transversal append-only (excepción de
+      auditoría; único uso de JSON justificado).
+
+> Tenant de prueba `demo` (BD `tenantdemo`, dominio `demo.localhost`) creado y
+> validado: 19 tablas InnoDB, 13 módulos sembrados, aislamiento confirmado.
+> Pipeline de creación: CreateDatabase → MigrateDatabase → SeedDatabase.
 
 > Infra ya lista: `users`, `cache`, `jobs` (migraciones default de Laravel)
 > viven en `database/migrations/tenant/`. `create_permission_tables` (Spatie)

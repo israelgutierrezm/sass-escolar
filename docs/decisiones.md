@@ -99,3 +99,48 @@ la resolución se documenta aquí antes de implementar.
   DF, ...), con NE para nacidos en el extranjero. Único por `(pais_id, clave)`.
 - **Razón:** es la clave que exige el título electrónico SEP y la que permite
   cross-validar la CURP. Se sembraron las 32 entidades + NE bajo México.
+
+## 2026-07-21 — Fase 0.2: configuración por tenant
+
+### Modelos de tenant organizados por módulo
+- **Decisión:** los modelos de la capa TENANT se agrupan por módulo de la spec.
+  Los de Fase 0.2 (plataforma/configuración) viven en `app/Models/Plataforma/`.
+- **Razón:** los modelos landlord se agrupan por capa (`Landlord/`); los de
+  tenant, por módulo (`Plataforma/`, luego `Identidad/`, `Academico/`, ...),
+  espejando la organización de la spec. Escala mejor con ~110 modelos tenant.
+
+### `auditoria` (bitácora): excepción a la convención de auditoría
+- **Decisión:** la tabla `auditoria` NO lleva las columnas estándar de auditoría
+  (`updated_at/deleted_at/created_by/updated_by`) ni soft delete; solo
+  `created_at`. Su modelo no usa el trait `TieneAuditoria` y desactiva
+  `updated_at` con `const UPDATED_AT = null`.
+- **Razón:** la spec la define append-only y con solo `created_at`. Una bitácora
+  que audita cambios de otras tablas no se audita a sí misma (sería recursivo).
+  Ambigüedad detectada frente a la regla "toda tabla TENANT lleva auditoría":
+  se resuelve tratándola como la excepción documentada. Es además el único uso
+  justificado de columnas JSON (`valores_anteriores`, `valores_nuevos`).
+
+### `DatabaseSeeder` es el seeder raíz de TENANT
+- **Decisión:** se reconvirtió `DatabaseSeeder` (quitando el "Test User" del
+  scaffolding) para que llame a los seeders de catálogos TENANT-CONFIG
+  (`Tenant\ModuloSeeder`, ...). Los seeders de tenant viven en
+  `database/seeders/Tenant/`.
+- **Razón:** `stancl/tenancy` usa `DatabaseSeeder` como seeder raíz por tenant
+  (`tenancy.seeder_parameters`). Debe sembrar solo datos de escuela, nunca los
+  catálogos universales (esos van por `LandlordDatabaseSeeder`, aparte).
+
+### `SeedDatabase` habilitado en el pipeline de creación de tenant
+- **Decisión:** se activó `Jobs\SeedDatabase` en el `JobPipeline` de
+  `TenantCreated` (TenancyServiceProvider). Ahora crear una escuela ejecuta
+  CreateDatabase → MigrateDatabase → SeedDatabase de forma síncrona.
+- **Razón:** cada nueva escuela debe nacer con su catálogo de módulos ya
+  sembrado, sin un paso manual.
+
+### `Tenant` implementa `TenantWithDatabase`
+- **Decisión:** `App\Models\Tenant` declara
+  `implements Stancl\Tenancy\Contracts\TenantWithDatabase` (además de usar
+  `HasDatabase`).
+- **Razón:** los jobs de gestión de BD por tenant (CreateDatabase,
+  MigrateDatabase, SeedDatabase, DeleteDatabase) exigen ese contrato en su
+  firma. Sin él, la creación del tenant falla con TypeError. Es requisito del
+  modo multi-database.
