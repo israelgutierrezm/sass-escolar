@@ -30,6 +30,7 @@ class DatabaseSeeder extends Seeder
             CatalogosAcademicosSeeder::class,
             CatalogosFormulariosSeeder::class,
             CatalogosAdmisionesSeeder::class,
+            CatalogosControlEscolarSeeder::class,
             ReglaMatriculaSeeder::class,
         ]);
     }
