@@ -8,6 +8,7 @@ use App\Models\Academico\PlanMateria;
 use App\Models\Concerns\TieneAuditoria;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -53,5 +54,28 @@ class AsignaturaGrupo extends Model
     public function horarios(): HasMany
     {
         return $this->hasMany(HorarioAsignaturaGrupo::class, 'asignatura_grupo_id');
+    }
+
+    /** Docentes de la materia, con su tipo (titular/adjunto) en el pivote. */
+    public function docentes(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Docente::class,
+            'docente_asignatura_grupo',
+            'asignatura_grupo_id',
+            'persona_id'
+        )->withPivot('tipo')->withTimestamps();
+    }
+
+    /** El docente titular: el único que puede firmar el acta. */
+    public function titular(): ?Docente
+    {
+        return $this->docentes()->wherePivot('tipo', 'titular')->first();
+    }
+
+    /** Tutores académicos asignados a la materia. */
+    public function tutores(): HasMany
+    {
+        return $this->hasMany(TutorAsignaturaGrupo::class, 'asignatura_grupo_id');
     }
 }
