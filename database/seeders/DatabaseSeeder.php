@@ -39,6 +39,7 @@ class DatabaseSeeder extends Seeder
             CatalogosAdmisionesSeeder::class,
             CatalogosControlEscolarSeeder::class,
             CatalogosAsistenciaSeeder::class,
+            DocumentoRequeridoSeeder::class,
             RolSeeder::class,
             PermisoSeeder::class,
             ReglaMatriculaSeeder::class,

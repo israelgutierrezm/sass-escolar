@@ -97,7 +97,12 @@ watch([busqueda, situacionId], () => {
                 <tbody class="divide-y divide-slate-100">
                     <tr v-for="aspirante in aspirantes.data" :key="aspirante.id" class="hover:bg-slate-50">
                         <td class="px-4 py-3">
-                            <span class="font-medium text-slate-800">{{ aspirante.nombre_completo }}</span>
+                            <a
+                                :href="`/aspirantes/${aspirante.id}`"
+                                class="font-medium text-indigo-600 hover:text-indigo-700"
+                            >
+                                {{ aspirante.nombre_completo }}
+                            </a>
                             <span v-if="aspirante.email" class="block text-xs text-slate-500">
                                 {{ aspirante.email }}
                             </span>

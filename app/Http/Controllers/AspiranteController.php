@@ -8,16 +8,21 @@ use App\Http\Requests\GuardarAspiranteRequest;
 use App\Models\Academico\Campus;
 use App\Models\Academico\Oferta;
 use App\Models\Admisiones\Aspirante;
+use App\Models\Admisiones\DocumentoRequerido;
+use App\Models\Admisiones\EstadoDocumento;
+use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\SituacionAspirante;
 use App\Models\Identidad\Persona;
 use App\Models\Landlord\EntidadFederativa;
 use App\Models\Landlord\Genero;
 use App\Models\Landlord\Sexo;
+use App\Services\ConvertidorAspirante;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
+use RuntimeException;
 
 /**
  * Alta y seguimiento de aspirantes (el embudo de admisión).
@@ -72,6 +77,127 @@ class AspiranteController extends Controller
             'puedeCrear' => $request->user()->can('crear-aspirantes'),
             'puedeEditar' => $request->user()->can('editar-aspirantes'),
         ]);
+    }
+
+    /**
+     * Ficha del aspirante: identidad, avance del proceso, expediente documental
+     * y —si procede— la conversión a alumno.
+     */
+    public function show(Request $request, Aspirante $aspirante, ConvertidorAspirante $convertidor): Response
+    {
+        $aspirante->load([
+            'persona.sexo',
+            'persona.entidadNacimiento',
+            'situacion',
+            'campus',
+            'ofertaInteres.carrera',
+            'ofertaInteres.plan',
+            'expedienteDocumentos.documento',
+            'expedienteDocumentos.estado',
+        ]);
+
+        $matricula = MatriculaOferta::query()
+            ->with('oferta.carrera')
+            ->where('persona_id', $aspirante->persona_id)
+            ->latest('id')
+            ->first();
+
+        return Inertia::render('Aspirantes/Detalle', [
+            'aspirante' => [
+                'id' => $aspirante->id,
+                'nombre_completo' => $aspirante->persona->nombreCompleto(),
+                'curp' => $aspirante->persona->curp,
+                'email' => $aspirante->persona->email,
+                'celular' => $aspirante->persona->celular,
+                'fecha_nacimiento' => $aspirante->persona->fecha_nacimiento?->toDateString(),
+                'sexo' => $aspirante->persona->sexo?->nombre,
+                'entidad_nacimiento' => $aspirante->persona->entidadNacimiento?->nombre,
+                'situacion' => $aspirante->situacion?->nombre,
+                'campus' => $aspirante->campus?->nombre,
+                'oferta' => $aspirante->ofertaInteres === null ? null : sprintf(
+                    '%s — %s',
+                    $aspirante->ofertaInteres->carrera?->nombre ?? 'Sin carrera',
+                    $aspirante->ofertaInteres->plan?->nombre ?? 'Sin plan',
+                ),
+                'origen' => $aspirante->origen,
+                'paso' => $aspirante->paso,
+                'acepto_terminos' => $aspirante->acepto_terminos,
+                'info_personal_completa' => $aspirante->info_personal_completa,
+                'cleaver_completo' => $aspirante->cleaver_completo,
+                'validado_admin' => $aspirante->validado_admin,
+            ],
+            'expediente' => $this->expediente($aspirante),
+            'estadosDocumento' => EstadoDocumento::query()->orderBy('id')->get(['id', 'nombre']),
+            'matricula' => $matricula === null ? null : [
+                'matricula' => $matricula->matricula,
+                'oferta' => $matricula->oferta?->carrera?->nombre,
+                'fecha_ingreso' => $matricula->fecha_ingreso?->toDateString(),
+            ],
+            'impedimentosConversion' => $convertidor->impedimentos($aspirante),
+            'permisos' => [
+                'editar' => $request->user()->can('editar-aspirantes'),
+                'validarExpediente' => $request->user()->can('validar-expediente'),
+                'convertir' => $request->user()->can('convertir-aspirante'),
+            ],
+        ]);
+    }
+
+    /**
+     * Convierte al aspirante en alumno. Aquí —y solo aquí— nace la matrícula.
+     */
+    public function convertir(Request $request, Aspirante $aspirante, ConvertidorAspirante $convertidor): RedirectResponse
+    {
+        $datos = $request->validate([
+            'generacion' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        try {
+            $matricula = $convertidor->convertir($aspirante, $datos['generacion'] ?? null);
+        } catch (RuntimeException $error) {
+            return back()->with('error', $error->getMessage());
+        }
+
+        return back()->with('exito', "Convertido en alumno. Matrícula asignada: {$matricula->matricula}.");
+    }
+
+    /**
+     * Documentos que la carrera exige, cruzados con lo que el aspirante ya
+     * entregó. Si no hay carrera definida se listan todos los del catálogo.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function expediente(Aspirante $aspirante): array
+    {
+        $carreraId = $aspirante->ofertaInteres?->carrera_id;
+
+        $requeridos = DocumentoRequerido::query()
+            ->when($carreraId !== null, fn ($q) => $q->whereHas(
+                'carreras',
+                fn ($sub) => $sub->where('carreras.id', $carreraId),
+            ))
+            ->orderByDesc('obligatorio')
+            ->orderBy('nombre')
+            ->get();
+
+        $entregados = $aspirante->expedienteDocumentos->keyBy('documento_id');
+
+        return $requeridos->map(function (DocumentoRequerido $documento) use ($entregados) {
+            $entrega = $entregados->get($documento->id);
+
+            return [
+                'documento_id' => $documento->id,
+                'nombre' => $documento->nombre,
+                'descripcion' => $documento->descripcion,
+                'obligatorio' => $documento->obligatorio,
+                'entrega' => $entrega === null ? null : [
+                    'id' => $entrega->id,
+                    'estado' => $entrega->estado?->nombre,
+                    'estado_id' => $entrega->estado_documento_id,
+                    'copia_certificada' => $entrega->copia_certificada,
+                    'documento_fisico' => $entrega->documento_fisico,
+                ],
+            ];
+        })->all();
     }
 
     public function create(): Response

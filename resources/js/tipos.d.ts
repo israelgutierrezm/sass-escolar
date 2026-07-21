@@ -7,6 +7,8 @@ export interface Rol {
     id: number;
     clave: string;
     nombre: string;
+    /** Faceta a la que pertenece: "Encargado de admisiones" → "Administrativo". */
+    faceta: string;
 }
 
 export interface RolDisponible extends Rol {

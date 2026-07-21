@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Middleware;
 
 use App\Models\Identidad\PersonaRol;
+use App\Models\Identidad\Rol;
 use App\Models\Identidad\Usuario;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -65,6 +66,10 @@ class HandleInertiaRequests extends Middleware
                 'id' => $usuario->rolActivo->id,
                 'clave' => $usuario->rolActivo->name,
                 'nombre' => $usuario->rolActivo->nombre,
+                // La faceta a la que pertenece: "Encargado de admisiones" es una
+                // figura DENTRO de "Administrativo". Mostrarla hace evidente la
+                // jerarquía en la interfaz.
+                'faceta' => $this->faceta($usuario->rolActivo),
             ],
             'roles_disponibles' => $this->rolesDisponibles($usuario),
             'permisos' => $usuario->rolActivo?->permisosEfectivos()->pluck('name')->sort()->values()->all() ?? [],
@@ -87,9 +92,21 @@ class HandleInertiaRequests extends Middleware
                 'id' => $asignacion->rol->id,
                 'clave' => $asignacion->rol->name,
                 'nombre' => $asignacion->rol->nombre,
+                'faceta' => $this->faceta($asignacion->rol),
                 'campus_id' => $asignacion->campus_id,
                 'campus_nombre' => $asignacion->campus?->nombre,
             ])
             ->all();
+    }
+
+    /**
+     * Faceta de un rol: el ancestro más alto de su cadena. Si el rol no tiene
+     * padre, él mismo ES la faceta (p. ej. "Docente" o "Alumno").
+     */
+    private function faceta(Rol $rol): string
+    {
+        $ancestros = $rol->ancestros();
+
+        return $ancestros === [] ? $rol->nombre : end($ancestros)->nombre;
     }
 }

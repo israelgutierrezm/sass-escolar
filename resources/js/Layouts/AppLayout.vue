@@ -74,7 +74,16 @@ function salir(): void {
                                 {{ usuario?.nombre_completo }}
                             </span>
                             <span class="block text-xs text-slate-500">
-                                {{ usuario?.rol_activo?.nombre ?? 'Sin rol activo' }}
+                                <template v-if="usuario?.rol_activo">
+                                    <span
+                                        v-if="usuario.rol_activo.faceta !== usuario.rol_activo.nombre"
+                                        class="text-slate-400"
+                                    >
+                                        {{ usuario.rol_activo.faceta }} ·
+                                    </span>
+                                    {{ usuario.rol_activo.nombre }}
+                                </template>
+                                <template v-else>Sin rol activo</template>
                             </span>
                         </span>
                         <span class="text-slate-400">▾</span>
@@ -98,6 +107,7 @@ function salir(): void {
                             <span>
                                 <span class="block">{{ rol.nombre }}</span>
                                 <span class="block text-xs text-slate-400">
+                                    <span v-if="rol.faceta !== rol.nombre">{{ rol.faceta }} · </span>
                                     {{ rol.campus_nombre ? `Acotado a ${rol.campus_nombre}` : 'Alcance global' }}
                                 </span>
                             </span>

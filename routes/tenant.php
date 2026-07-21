@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\AspiranteController;
 use App\Http\Controllers\AutenticacionController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ExpedienteAspiranteController;
 use App\Http\Controllers\RolActivoController;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
@@ -49,8 +50,17 @@ Route::middleware([
             Route::get('/', 'index')->middleware('can:ver-aspirantes')->name('index');
             Route::get('/nuevo', 'create')->middleware('can:crear-aspirantes')->name('create');
             Route::post('/', 'store')->middleware('can:crear-aspirantes')->name('store');
+            Route::get('/{aspirante}', 'show')->middleware('can:ver-aspirantes')->name('show');
             Route::get('/{aspirante}/editar', 'edit')->middleware('can:editar-aspirantes')->name('edit');
             Route::put('/{aspirante}', 'update')->middleware('can:editar-aspirantes')->name('update');
+            // La matrícula nace aquí, no antes.
+            Route::post('/{aspirante}/convertir', 'convertir')->middleware('can:convertir-aspirante')->name('convertir');
+        });
+
+        Route::controller(ExpedienteAspiranteController::class)->prefix('aspirantes/{aspirante}/expediente')->name('tenant.expediente.')->group(function () {
+            Route::post('/', 'store')->middleware('can:editar-aspirantes')->name('store');
+            Route::get('/{documento}/descargar', 'descargar')->middleware('can:ver-aspirantes')->name('descargar');
+            Route::put('/{documento}/estado', 'actualizarEstado')->middleware('can:validar-expediente')->name('estado');
         });
     });
 });
