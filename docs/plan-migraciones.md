@@ -67,29 +67,33 @@ Slice de auth (DIFERIDO a la fase de autenticación):
 - [ ] `persona_rol` (T, FK → personas, roles) — PK compuesta, multi-rol.
 - [ ] `permisos` (TC) / `rol_permiso` (T) — vía Spatie (documentar seeder).
 
-### Módulo 2 — Estructura académica
-Catálogos TC primero (antes de sus FKs):
-- [ ] `tipos_campus` (TC)
-- [ ] `tipos_periodo` (TC)
-- [ ] `tipos_plan_estudio` (TC)
-- [ ] `tipos_asignatura` (TC)
-- [ ] `clasificaciones_asignatura` (TC)
-- [ ] `areas` (TC)
-- [ ] `autorizaciones_reconocimiento` (TC)
-- [ ] `turnos` (TC)
+### Módulo 2 — Estructura académica  ✅ COMPLETO
+Catálogos TC (sembrados con CatalogosAcademicosSeeder):
+- [x] `tipos_campus` (TC)
+- [x] `tipos_periodo` (TC)
+- [x] `tipos_plan_estudio` (TC)
+- [x] `tipos_asignatura` (TC)
+- [x] `clasificaciones_asignatura` (TC)
+- [x] `areas` (TC)
+- [x] `autorizaciones_reconocimiento` (TC)
+- [x] `turnos` (TC)
 
-Luego las tablas:
-- [ ] `campus` (T, FK → tipos_campus, entidades_federativas)
-- [ ] `carreras` (T, FK → niveles_estudio)
-- [ ] `planes_estudio` (T, FK → carreras, autorizaciones_reconocimiento,
+Tablas:
+- [x] `campus` (T, FK real → tipos_campus; entidad_id → landlord sin FK)
+- [x] `carreras` (T; nivel_estudios_id → landlord sin FK)
+- [x] `planes_estudio` (T, FK → carreras, autorizaciones_reconocimiento,
       tipos_periodo)
-- [ ] `asignaturas` (T, FK → tipos_asignatura, clasificaciones_asignatura, areas)
-- [ ] `plan_materias` (T, FK → planes_estudio, asignaturas) — núcleo curricular.
-      Índice único (plan_id, clave_en_plan).
-- [ ] `esquema_evaluacion` (T, FK → plan_materias) — ponderación relacional (Σ=100).
-- [ ] `seriacion` (T, FK reflexiva → plan_materias) — DAG de prerequisitos.
-- [ ] `oferta` (T, FK → carreras, planes_estudio, campus, turnos) — índice único
+- [x] `asignaturas` (T, FK → tipos_asignatura, clasificaciones_asignatura, areas)
+- [x] `plan_materias` (T, FK → planes_estudio, asignaturas) — núcleo curricular.
+      Índice único (plan_id, clave_en_plan) verificado.
+- [x] `esquema_evaluacion` (T, FK → plan_materias) — ponderación relacional (Σ=100).
+- [x] `seriacion` (T, FK reflexiva → plan_materias) — DAG de prerequisitos.
+- [x] `oferta` (T, FK → carreras, planes_estudio, campus, turnos) — índice único
       (carrera_id, plan_id, campus_id, turno_id).
+
+> Prueba de integración (con rollback) en el tenant demo: cadena completa
+> campus→carrera→plan→asignatura→plan_materia→evaluación→seriación→oferta;
+> relación cross-DB, seriación reflexiva, Σ%=100 y unique validados.
 
 ### Módulo 3 — Formularios dinámicos
 Catálogos TC:
