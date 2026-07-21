@@ -53,3 +53,49 @@ la resolución se documenta aquí antes de implementar.
   son tablas TENANT/TENANT-CONFIG: cada escuela define y nombra sus propios
   roles y permisos. El caché de permisos de Spatie queda aislado por tenant
   gracias al `CacheTenancyBootstrapper` (ya activo).
+
+### Motor InnoDB explícito en `config/database.php`
+- **Decisión:** la conexión `mysql` fija `'engine' => 'InnoDB'`.
+- **Razón:** WAMP en esta máquina trae `default_storage_engine=MyISAM`, que
+  rompe FKs, transacciones y `FOR UPDATE SKIP LOCKED`. Mismo blindaje que el
+  proyecto IDP. Síntoma si se reintroduce el bug: error `1071 key too long`.
+
+## 2026-07-21 — Fase 0: bloque landlord (tablas)
+
+### Organización de modelos por capa: `App\Models\Landlord\`
+- **Decisión:** los modelos de la capa landlord (SuperAdmin y catálogos
+  universales) viven en `app/Models/Landlord/`. El modelo `Tenant` permanece en
+  `app/Models/Tenant.php` (ancla de tenancy, referenciado por `config/tenancy.php`).
+- **Razón:** con ~121 tablas por venir, agrupar por capa/módulo mantiene el
+  árbol navegable. Los modelos de negocio TENANT se organizarán igual por módulo.
+
+### Modelos landlord fijados a la conexión central
+- **Decisión:** todo modelo landlord usa el trait
+  `Stancl\Tenancy\Database\Concerns\CentralConnection`.
+- **Razón:** cuando hay un tenant inicializado, la conexión por defecto apunta a
+  la BD de la escuela. Sin fijar la conexión, un catálogo universal se
+  consultaría contra la BD equivocada. El trait lo ancla a
+  `tenancy.database.central_connection` (= `mysql`).
+
+### Seeders landlord separados de los de tenant
+- **Decisión:** los seeders de catálogos universales viven en
+  `database/seeders/Landlord/` y se orquestan con `LandlordDatabaseSeeder`, que
+  se ejecuta **explícitamente** (`db:seed --class=...LandlordDatabaseSeeder`).
+  NO se llaman desde `DatabaseSeeder`.
+- **Razón:** `DatabaseSeeder` es el seeder raíz que `stancl/tenancy` corre por
+  cada tenant. Meter datos landlord ahí contaminaría cada BD de escuela con
+  copias de los catálogos universales, que por diseño son compartidos y viven
+  solo en la central.
+
+### `super_admins`: columnas más allá del mínimo de la spec
+- **Decisión:** además de `id, nombre, email, password, rol`, la tabla lleva
+  `remember_token` y `timestamps`.
+- **Razón:** es una tabla de cuentas con login; `remember_token` habilita
+  "recordar sesión" y los timestamps dan trazabilidad de alta. No altera el
+  modelo de dominio.
+
+### `entidades_federativas.clave`: código RENAPO/CURP de 2 letras
+- **Decisión:** la `clave` usa el código de dos letras de RENAPO/CURP (AS, BC,
+  DF, ...), con NE para nacidos en el extranjero. Único por `(pais_id, clave)`.
+- **Razón:** es la clave que exige el título electrónico SEP y la que permite
+  cross-validar la CURP. Se sembraron las 32 entidades + NE bajo México.

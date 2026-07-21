@@ -23,13 +23,13 @@ de las tablas que los usan.
 ### 0.1 Landlord
 - [x] `tenants` (L) — creada por stancl/tenancy.
 - [x] `domains` (L) — creada por stancl/tenancy.
-- [ ] `super_admins` (L) — usuarios de la casa.
-- [ ] Catálogos universales (L), read-only para tenants:
-  - [ ] `paises`
-  - [ ] `entidades_federativas` (FK → paises)
-  - [ ] `sexos`
-  - [ ] `generos`
-  - [ ] `niveles_estudio`
+- [x] `super_admins` (L) — usuarios de la casa.
+- [x] Catálogos universales (L), read-only para tenants:
+  - [x] `paises` — sembrado (MEX, USA).
+  - [x] `entidades_federativas` (FK → paises) — 32 + NE (claves CURP).
+  - [x] `sexos` — H/M.
+  - [x] `generos` — 5 opciones.
+  - [x] `niveles_estudio` — 7 niveles con orden.
 
 ### 0.2 Feature flags y configuración por tenant
 - [ ] `modulos` (TC)
