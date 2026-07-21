@@ -25,7 +25,7 @@ class PermisoSeeder extends Seeder
     private const PERMISOS = [
         'entidades' => ['ver-personas', 'crear-personas', 'editar-personas'],
         'admisiones' => ['ver-aspirantes', 'crear-aspirantes', 'editar-aspirantes', 'validar-expediente', 'convertir-aspirante', 'generar-matricula'],
-        'control-escolar' => ['ver-alumnos', 'editar-alumnos', 'inscribir-alumnos', 'ver-kardex', 'asentar-acta', 'pasar-lista'],
+        'control-escolar' => ['ver-alumnos', 'editar-alumnos', 'inscribir-alumnos', 'ver-kardex', 'asentar-acta', 'pasar-lista', 'ver-grupos'],
         'academico' => ['ver-catalogo-academico', 'editar-catalogo-academico', 'abrir-grupos'],
         'finanzas' => ['ver-adeudos', 'registrar-pagos', 'condonar-adeudos', 'facturar'],
         'plataforma' => ['ver-configuracion', 'editar-configuracion', 'gestionar-usuarios', 'gestionar-roles'],
@@ -34,13 +34,13 @@ class PermisoSeeder extends Seeder
     /** Qué permisos concede cada rol, además de los que hereda de su padre. */
     private const ASIGNACIONES = [
         // Faceta administrativa: lo mínimo común a todo el personal.
-        'administrativo' => ['ver-personas', 'ver-alumnos', 'ver-catalogo-academico'],
+        'administrativo' => ['ver-personas', 'ver-alumnos', 'ver-catalogo-academico', 'ver-grupos'],
 
         'director_general' => [
             'crear-personas', 'editar-personas', 'ver-aspirantes', 'editar-alumnos',
             'ver-kardex', 'ver-adeudos', 'condonar-adeudos', 'ver-configuracion',
             'editar-configuracion', 'gestionar-usuarios', 'gestionar-roles',
-            'editar-catalogo-academico',
+            'editar-catalogo-academico', 'abrir-grupos', 'inscribir-alumnos',
         ],
         'director_campus' => [
             'crear-personas', 'editar-personas', 'ver-aspirantes', 'editar-alumnos',
@@ -61,7 +61,7 @@ class PermisoSeeder extends Seeder
         'auxiliar_finanzas' => ['ver-adeudos', 'registrar-pagos'],
 
         // Docencia.
-        'docente' => ['ver-alumnos', 'ver-kardex', 'pasar-lista', 'asentar-acta'],
+        'docente' => ['ver-alumnos', 'ver-kardex', 'pasar-lista', 'asentar-acta', 'ver-grupos'],
         'coordinador_academia' => ['ver-catalogo-academico', 'abrir-grupos'],
 
         // Facetas no administrativas: su alcance se resuelve además por

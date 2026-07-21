@@ -3,13 +3,16 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\AsignaturaController;
+use App\Http\Controllers\AsignaturaGrupoController;
 use App\Http\Controllers\AspiranteController;
 use App\Http\Controllers\AutenticacionController;
 use App\Http\Controllers\CampusController;
 use App\Http\Controllers\CarreraController;
+use App\Http\Controllers\CicloController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EsquemaEvaluacionController;
 use App\Http\Controllers\ExpedienteAspiranteController;
+use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\OfertaController;
 use App\Http\Controllers\PlanEstudioController;
 use App\Http\Controllers\PlanMateriaController;
@@ -104,6 +107,33 @@ Route::middleware([
                     Route::post('planes/{plan}/materias/{materia}/evaluacion', [EsquemaEvaluacionController::class, 'store'])->name('planes.evaluacion.store');
                     Route::put('planes/{plan}/materias/{materia}/evaluacion/{componente}', [EsquemaEvaluacionController::class, 'update'])->name('planes.evaluacion.update');
                     Route::delete('planes/{plan}/materias/{materia}/evaluacion/{componente}', [EsquemaEvaluacionController::class, 'destroy'])->name('planes.evaluacion.destroy');
+                });
+            });
+
+        /*
+         * Control escolar: ciclos, grupos y la apertura de materias.
+         * `ver-grupos` para consultar; `abrir-grupos` para modificar.
+         */
+        Route::prefix('escolar')->name('tenant.escolar.')
+            ->middleware('can:ver-grupos')
+            ->group(function () {
+                Route::get('ciclos', [CicloController::class, 'index'])->name('ciclos.index');
+                Route::get('grupos', [GrupoController::class, 'index'])->name('grupos.index');
+                // whereNumber evita que /grupos/create caiga aquí y falle al
+                // resolver un grupo con id "create": esta ruta se declara antes
+                // que las del resource.
+                Route::get('grupos/{grupo}', [GrupoController::class, 'show'])
+                    ->whereNumber('grupo')
+                    ->name('grupos.show');
+
+                Route::middleware('can:abrir-grupos')->group(function () {
+                    Route::resource('ciclos', CicloController::class)->except(['index', 'show']);
+                    Route::resource('grupos', GrupoController::class)->except(['index', 'show']);
+
+                    Route::post('grupos/{grupo}/materias', [AsignaturaGrupoController::class, 'store'])->name('grupos.materias.store');
+                    Route::delete('grupos/{grupo}/materias/{asignatura}', [AsignaturaGrupoController::class, 'destroy'])->name('grupos.materias.destroy');
+                    Route::post('grupos/{grupo}/materias/{asignatura}/docentes', [AsignaturaGrupoController::class, 'asignarDocente'])->name('grupos.docentes.store');
+                    Route::delete('grupos/{grupo}/materias/{asignatura}/docentes/{persona}', [AsignaturaGrupoController::class, 'quitarDocente'])->name('grupos.docentes.destroy');
                 });
             });
 

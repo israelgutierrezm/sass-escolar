@@ -27,6 +27,12 @@ const navegacion = computed(() =>
             prefijo: '/academico',
             permiso: 'ver-catalogo-academico',
         },
+        {
+            etiqueta: 'Control escolar',
+            url: '/escolar/ciclos',
+            prefijo: '/escolar',
+            permiso: 'ver-grupos',
+        },
     ].filter((item) => item.permiso === null || permisos.value.includes(item.permiso)),
 );
 
