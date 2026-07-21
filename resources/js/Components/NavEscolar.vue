@@ -7,6 +7,7 @@ const page = usePage();
 const secciones = [
     { etiqueta: 'Ciclos', url: '/escolar/ciclos' },
     { etiqueta: 'Grupos', url: '/escolar/grupos' },
+    { etiqueta: 'Inscripciones', url: '/escolar/inscripciones' },
 ];
 
 const actual = computed(() => page.url.split('?')[0]);

@@ -99,6 +99,7 @@ const navegacion = computed(() => {
             hijos: [
                 { etiqueta: 'Ciclos', url: '/escolar/ciclos', permiso: 'ver-grupos' },
                 { etiqueta: 'Grupos', url: '/escolar/grupos', permiso: 'ver-grupos' },
+                { etiqueta: 'Inscripciones', url: '/escolar/inscripciones', permiso: 'inscribir-alumnos' },
             ],
         },
     ];

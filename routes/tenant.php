@@ -13,6 +13,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EsquemaEvaluacionController;
 use App\Http\Controllers\ExpedienteAspiranteController;
 use App\Http\Controllers\GrupoController;
+use App\Http\Controllers\InscripcionController;
 use App\Http\Controllers\OfertaController;
 use App\Http\Controllers\PlanEstudioController;
 use App\Http\Controllers\PlanMateriaController;
@@ -124,6 +125,9 @@ Route::middleware([
             ->middleware('can:ver-grupos')
             ->group(function () {
                 Route::get('ciclos', [CicloController::class, 'index'])->name('ciclos.index');
+                Route::get('inscripciones', [InscripcionController::class, 'index'])
+                    ->middleware('can:inscribir-alumnos')
+                    ->name('inscripciones.index');
                 Route::get('grupos', [GrupoController::class, 'index'])->name('grupos.index');
                 // whereNumber evita que /grupos/create caiga aquí y falle al
                 // resolver un grupo con id "create": esta ruta se declara antes
@@ -131,6 +135,11 @@ Route::middleware([
                 Route::get('grupos/{grupo}', [GrupoController::class, 'show'])
                     ->whereNumber('grupo')
                     ->name('grupos.show');
+
+                Route::middleware('can:inscribir-alumnos')->group(function () {
+                    Route::post('inscripciones', [InscripcionController::class, 'store'])->name('inscripciones.store');
+                    Route::put('inscripciones/{inscripcion}/baja', [InscripcionController::class, 'baja'])->name('inscripciones.baja');
+                });
 
                 Route::middleware('can:abrir-grupos')->group(function () {
                     Route::resource('ciclos', CicloController::class)->except(['index', 'show']);
