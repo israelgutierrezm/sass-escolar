@@ -169,7 +169,15 @@ return [
         // Stancl\Tenancy\Features\UniversalRoutes::class,
         // Stancl\Tenancy\Features\TenantConfig::class, // https://tenancyforlaravel.com/docs/v3/features/tenant-config
         // Stancl\Tenancy\Features\CrossDomainRedirect::class, // https://tenancyforlaravel.com/docs/v3/features/cross-domain-redirect
-        // Stancl\Tenancy\Features\ViteBundler::class,
+
+        /**
+         * Necesaria con Vite. Sin ella, `asset_helper_tenancy` reescribe también
+         * las URLs de los bundles compilados hacia /tenancy/assets/, que es la
+         * ruta para archivos subidos POR cada escuela. Los bundles son
+         * compartidos, no por tenant: esta feature hace que Vite emita URLs
+         * globales relativas al dominio de la petición.
+         */
+        Stancl\Tenancy\Features\ViteBundler::class,
     ],
 
     /**

@@ -15,6 +15,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'rol.activo' => App\Http\Middleware\EstablecerRolActivo::class,
         ]);
+
+        // Inertia comparte el contexto de sesión (usuario, rol activo, permisos)
+        // con todas las páginas Vue.
+        $middleware->web(append: [
+            App\Http\Middleware\HandleInertiaRequests::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
