@@ -182,7 +182,11 @@ Aclaraciones recibidas que afectan módulos ya construidos y por construir.
   `clave_aspirante` (identificador de CRM); la columna `matricula` vive
   únicamente en `matricula_oferta`, que se crea al momento de la conversión.
 
-### Algoritmo de matrícula configurable por escuela  ⏳ PENDIENTE
+> **RESUELTAS el 2026-07-21.** Las tres decisiones se tomaron con el cliente;
+> abajo se conserva el análisis original y al final de cada una se anota la
+> resolución y su estado de implementación.
+
+### Algoritmo de matrícula configurable por escuela  ✅ RESUELTO E IMPLEMENTADO
 - **Aclaración:** cada escuela tiene su propio formato. Ejemplos: año (2 o 4
   dígitos) + clave de carrera o de plan + consecutivo por carrera/plan, o bien
   un consecutivo general. **El algoritmo es distinto en cada escuela.**
@@ -199,6 +203,24 @@ Aclaraciones recibidas que afectan módulos ya construidos y por construir.
      de la transacción de conversión, nunca un `MAX(matricula)+1`.
   3. El ámbito del consecutivo (por año, por carrera, por plan, global) es
      parte de la regla configurable.
+- **RESOLUCIÓN:** regla por escuela con override opcional por carrera o plan.
+  - `reglas_matricula` (TENANT-CONFIG): `ambito` global/carrera/plan +
+    `ambito_id`, `plantilla` con tokens, `ambito_consecutivo`. Gana la más
+    específica: plan → carrera → global.
+  - Tokens de plantilla: `{AAAA}` `{AA}` `{CARRERA}` `{PLAN}` `{CAMPUS}` y
+    `{####}` (el padding del consecutivo lo da la cantidad de `#`).
+  - `ambito_consecutivo`: global | anio | carrera | plan | carrera_anio |
+    plan_anio — define cada cuánto reinicia la numeración.
+  - `contadores_matricula` + `App\Services\GeneradorMatricula` resuelven el
+    consecutivo atómico. Regla por defecto sembrada: `{AAAA}-{####}` por año.
+- **Lección aprendida (bug real detectado por la prueba de unicidad):**
+  `contadores_matricula` NO debe tener columna `id` AUTO_INCREMENT. El
+  incremento atómico usa
+  `INSERT ... ON DUPLICATE KEY UPDATE valor = LAST_INSERT_ID(valor + 1)`, y un
+  INSERT sobre una tabla con AUTO_INCREMENT **sobreescribe** `LAST_INSERT_ID()`
+  con el id de la fila nueva. Con `id` la prueba daba 299 matrículas distintas
+  de 300; con `clave` como PK da 500 de 500. Si alguna vez se agrega un
+  surrogate id a esa tabla, se reintroduce el bug.
 
 ### El aspirante necesita sesión propia  ✅ encaja, sin cambio de esquema
 - **Aclaración:** en fase de aspirante ya debe poder entrar al sistema para
@@ -227,8 +249,19 @@ Aclaraciones recibidas que afectan módulos ya construidos y por construir.
      cobro; menos deseable.
 - **Recomendación preliminar:** opción 1 — mantiene un solo motor financiero y
   respeta que la matrícula nazca al final.
+- **RESOLUCIÓN (opción 1). VINCULANTE al construir el Módulo 7:** no hay nada
+  que implementar todavía porque `adeudos` y `pagos` son de la Fase 3. Cuando
+  se creen, deben nacer así:
+  - `adeudos.matricula_oferta_id` **nullable** + `adeudos.aspirante_id`
+    nullable. Exactamente uno de los dos presente (validar en la app; MySQL 8
+    permitiría un CHECK, evaluarlo entonces).
+  - Lo mismo para `pagos`.
+  - La conversión aspirante → alumno **re-liga** adeudos y pagos existentes a
+    la nueva `matricula_oferta` dentro de la misma transacción en la que se
+    genera la matrícula, conservando la trazabilidad del pago previo.
+  - Índices por `aspirante_id` además de por `matricula_oferta_id`.
 
-### HUECO: aceptación de reglamentos con valor legal  ⚠️ PENDIENTE
+### HUECO: aceptación de reglamentos con valor legal  ✅ RESUELTO E IMPLEMENTADO
 - **Problema:** hoy solo existe `aspirantes.acepto_terminos` (un booleano).
   Para efectos legales normalmente se requiere saber QUÉ documento se aceptó,
   en qué VERSIÓN, CUÁNDO y desde qué IP; y pueden ser varios documentos
@@ -237,6 +270,18 @@ Aclaraciones recibidas que afectan módulos ya construidos y por construir.
   versión, vigencia, ruta) + tabla `aceptaciones` (persona_id,
   documento_normativo_id, version, fecha, ip). El booleano actual queda como
   atajo de UI, no como la fuente de verdad.
+- **RESOLUCIÓN:** implementado tal cual.
+  - `documentos_normativos` versionado con unique (clave, version), mismo
+    patrón que `formularios`: al cambiar el texto se sube versión, no se muta.
+    Scope `vigentes($fecha)` para consultar qué rige en una fecha.
+  - `aceptaciones` cuelga de **`personas`** (no de aspirantes ni alumnos): la
+    misma persona acepta documentos en distintas etapas y la constancia no debe
+    perderse al convertirse en alumno. `version` se **copia** para congelar qué
+    texto se aceptó. Guarda `aceptado_en` e `ip`.
+  - `Aceptacion::estaVigente()` compara contra la versión actual del documento:
+    así se detecta a quién hay que pedirle re-aceptación tras una actualización.
+  - Verificado: publicar la v2 de un reglamento no altera las aceptaciones de
+    la v1 y el sistema marca la re-aceptación como pendiente.
 
 ### `personas`: FULLTEXT y `curp` único-nullable
 - **Decisión:** índice FULLTEXT sobre (nombre, primer_apellido,
