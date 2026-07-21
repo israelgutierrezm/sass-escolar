@@ -7,6 +7,7 @@ namespace Database\Seeders;
 use Database\Seeders\Tenant\CatalogosAcademicosSeeder;
 use Database\Seeders\Tenant\CatalogosFormulariosSeeder;
 use Database\Seeders\Tenant\ModuloSeeder;
+use Database\Seeders\Tenant\ReglaMatriculaSeeder;
 use Database\Seeders\Tenant\TemaSeeder;
 use Illuminate\Database\Seeder;
 
@@ -29,6 +30,7 @@ class DatabaseSeeder extends Seeder
             CatalogosAcademicosSeeder::class,
             CatalogosFormulariosSeeder::class,
             CatalogosAdmisionesSeeder::class,
+            ReglaMatriculaSeeder::class,
         ]);
     }
 }
