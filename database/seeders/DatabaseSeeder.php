@@ -28,6 +28,7 @@ class DatabaseSeeder extends Seeder
             TemaSeeder::class,
             CatalogosAcademicosSeeder::class,
             CatalogosFormulariosSeeder::class,
+            CatalogosAdmisionesSeeder::class,
         ]);
     }
 }
