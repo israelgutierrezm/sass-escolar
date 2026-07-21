@@ -160,31 +160,45 @@ Tablas:
 
 ## FASE 2 — Operación escolar
 
-### Módulo 5 — Control escolar
-Catálogos TC:
-- [ ] `situaciones_ciclo`, `situaciones_grupo`, `situaciones_asignatura_grupo`,
+### Módulo 5 — Control escolar  ✅ COMPLETO
+Catálogos TC (sembrados con CatalogosControlEscolarSeeder, 34 filas):
+- [x] `situaciones_ciclo`, `situaciones_grupo`, `situaciones_asignatura_grupo`,
       `situaciones_inscripcion`, `situaciones_docente`, `tipos_docente`,
-      `aulas`, `tipos_evaluacion`, `estatus_historial`,
-      `situaciones_reprobatoria`, `observaciones_historial` (todas TC).
+      `tipos_evaluacion`, `estatus_historial`, `situaciones_reprobatoria`,
+      `observaciones_historial` (uniformes).
+- [x] `aulas` (TC, FK → campus, con capacidad) — NO se siembra: espacios
+      físicos reales de cada escuela.
 
 Tablas:
-- [ ] `ciclos` (T, FK → campus, situaciones_ciclo)
-- [ ] `grupos` (T, FK → ciclos, campus, planes_estudio, turnos,
+- [x] `ciclos` (T, FK → campus, situaciones_ciclo) — ventanas de inscripción,
+      altas/bajas y captura. `campus_id` NULL = ciclo global.
+      ⚠️ La spec duplicaba fecha_inicio/fecha_fin e inicio/fin; se conservó un
+      solo par (`fecha_inicio`/`fecha_fin`).
+- [x] `grupos` (T, FK → ciclos, campus, planes_estudio, turnos,
       situaciones_grupo, self grupo_origen_id)
-- [ ] `asignatura_grupo` (T, FK → grupos, plan_materias, situaciones_asignatura_grupo)
-- [ ] `horarios_asignatura_grupo` (T, FK → asignatura_grupo, aulas)
-- [ ] `docentes` (T, FK → personas, tipos_docente, situaciones_docente) — PK
+- [x] `asignatura_grupo` (T, FK → grupos, plan_materias, situaciones_asignatura_grupo)
+- [x] `horarios_asignatura_grupo` (T, FK → asignatura_grupo, aulas)
+- [x] `docentes` (T, FK → personas, tipos_docente, situaciones_docente) — PK
       persona_id (rol materializado que faltaba en Fase 1).
-- [ ] `campus_docente` (T)
-- [ ] `docente_asignatura_grupo` (T, FK → asignatura_grupo, personas) — PK
+- [x] `campus_docente` (T)
+- [x] `docente_asignatura_grupo` (T, FK → asignatura_grupo, docentes) — PK
       compuesta, tipado titular/adjunto.
-- [ ] `tutor_asignatura_grupo` (T, FK → asignatura_grupo, personas) — tutor académico.
-- [ ] `inscripcion` (T, FK → matricula_oferta, asignatura_grupo, ciclos) — nivel
-      único. Índice único (matricula_oferta_id, asignatura_grupo_id).
-- [ ] `historial` (T, FK → matricula_oferta, plan_materias, ciclos,
+- [x] `tutor_asignatura_grupo` (T, FK → asignatura_grupo, personas) — tutor académico.
+- [x] `inscripcion` (T, FK → matricula_oferta, asignatura_grupo, ciclos) — nivel
+      único. Índice único (matricula_oferta_id, asignatura_grupo_id) verificado.
+- [x] `historial` (T, FK → matricula_oferta, plan_materias, ciclos,
       asignatura_grupo, tipos_evaluacion, estatus_historial,
       situaciones_reprobatoria, observaciones_historial) — kárdex.
-- [ ] `equivalencias` (T, FK → matricula_oferta, plan_materias)
+- [x] `equivalencias` (T, FK → matricula_oferta, plan_materias)
+- [x] **Pendiente del Módulo 4 cerrado**: migración de seguimiento que agrega
+      la FK real `aspirantes.ciclo_ingreso_id → ciclos`.
+
+> Prueba de integración (con rollback): ventanas del ciclo, TRONCO COMÚN (un
+> mismo grupo abriendo la misma asignatura de catálogo para dos planes, cada
+> uno con su clave de acta), detección de choque de horario, docente titular
+> que firma, inscripción de nivel único, asentamiento de acta al kárdex,
+> SERIACIÓN evaluada contra el historial aprobado, equivalencia externa y
+> rechazo de doble inscripción.
 
 ### Módulo 6 — Asistencia y reloj checador
 Catálogos TC:
