@@ -305,7 +305,14 @@ const etiquetaTipo = (tipo: string) => opcionesTipo.find((o) => o.valor === tipo
                                 </span>
                             </td>
                             <td class="px-6 py-3 text-right">
+                                <a
+                                    :href="`/academico/planes/${plan.id}/materias/${materia.id}`"
+                                    class="text-sm font-medium text-indigo-600 hover:text-indigo-700"
+                                >
+                                    Requisitos y evaluación
+                                </a>
                                 <template v-if="puedeEditar">
+                                    <span class="mx-2 text-slate-200">|</span>
                                     <button
                                         type="button"
                                         class="text-sm font-medium text-indigo-600 hover:text-indigo-700"

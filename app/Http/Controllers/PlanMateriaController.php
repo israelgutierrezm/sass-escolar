@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Academico\Asignatura;
+use App\Models\Academico\EsquemaEvaluacion;
 use App\Models\Academico\PlanEstudio;
 use App\Models\Academico\PlanMateria;
 use App\Models\ControlEscolar\AsignaturaGrupo;
@@ -69,6 +70,71 @@ class PlanMateriaController extends Controller
             'asignaturas' => Asignatura::query()
                 ->orderBy('nombre')
                 ->get(['id', 'clave', 'nombre', 'creditos']),
+            'puedeEditar' => $request->user()->can('editar-catalogo-academico'),
+        ]);
+    }
+
+    /**
+     * Detalle de una materia dentro del plan: sus prerrequisitos y la
+     * composición de su calificación.
+     */
+    public function show(Request $request, PlanEstudio $plan, PlanMateria $materia): Response
+    {
+        abort_unless($materia->plan_id === $plan->id, 404);
+
+        $materia->load([
+            'asignatura:id,clave,nombre,creditos',
+            'seriacion.requiere.asignatura:id,nombre',
+            'esquemaEvaluacion',
+        ]);
+
+        $plan->load('carrera:id,nombre');
+
+        $componentes = $materia->esquemaEvaluacion->sortBy('orden')->values();
+
+        return Inertia::render('Academico/Planes/DetalleMateria', [
+            'plan' => ['id' => $plan->id, 'nombre' => $plan->nombre, 'carrera' => $plan->carrera?->nombre],
+            'materia' => [
+                'id' => $materia->id,
+                'clave_en_plan' => $materia->clave_en_plan,
+                'asignatura' => $materia->asignatura?->nombre,
+                'periodo' => $materia->periodo,
+                'tipo' => $materia->tipo,
+                'creditos' => $materia->creditos_en_plan ?? $materia->asignatura?->creditos,
+            ],
+            'seriacion' => $materia->seriacion->map(fn ($requisito) => [
+                'id' => $requisito->id,
+                'tipo' => $requisito->tipo,
+                'minimo_creditos' => $requisito->minimo_creditos,
+                'requiere' => $requisito->requiere === null ? null : [
+                    'clave_en_plan' => $requisito->requiere->clave_en_plan,
+                    'nombre' => $requisito->requiere->asignatura?->nombre,
+                ],
+            ]),
+            'componentes' => $componentes->map(fn (EsquemaEvaluacion $componente) => [
+                'id' => $componente->id,
+                'componente' => $componente->componente,
+                'parcial' => $componente->parcial,
+                'porcentaje' => (float) $componente->porcentaje,
+                'orden' => $componente->orden,
+            ]),
+            'sumaPorcentajes' => (float) $componentes->sum('porcentaje'),
+            // Candidatas a requisito: el resto de materias del mismo plan.
+            'candidatas' => PlanMateria::query()
+                ->with('asignatura:id,nombre')
+                ->where('plan_id', $plan->id)
+                ->whereKeyNot($materia->id)
+                ->orderBy('periodo')
+                ->get()
+                ->map(fn (PlanMateria $otra) => [
+                    'id' => $otra->id,
+                    'etiqueta' => sprintf(
+                        '%s · %s%s',
+                        $otra->clave_en_plan,
+                        $otra->asignatura?->nombre ?? '',
+                        $otra->periodo !== null ? " (periodo {$otra->periodo})" : '',
+                    ),
+                ]),
             'puedeEditar' => $request->user()->can('editar-catalogo-academico'),
         ]);
     }
