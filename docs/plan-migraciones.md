@@ -200,14 +200,35 @@ Tablas:
 > SERIACIÓN evaluada contra el historial aprobado, equivalencia externa y
 > rechazo de doble inscripción.
 
-### Módulo 6 — Asistencia y reloj checador
+### Módulo 6 — Asistencia y reloj checador  ✅ COMPLETO
 Catálogos TC:
-- [ ] `tipos_dispositivo_checador` (TC)
+- [x] `tipos_dispositivo_checador` (TC) — qr, biométrico, geocerca, manual.
 
 Tablas:
-- [ ] `dispositivos_checador` (T, FK → campus)
-- [ ] `checadas` (T, FK → personas, dispositivos_checador) — índice (persona_id, momento).
-- [ ] `asistencia_clase` (T, FK → inscripcion, personas) — índice único (inscripcion_id, fecha).
+- [x] `dispositivos_checador` (T, FK → campus) — con geocerca (lat/lng/radio) y
+      tolerancia. Modelo con `dentroDeGeocerca()` (haversine, fail-closed si no
+      hay geocerca configurada).
+- [x] `checadas` (T, FK → personas, dispositivos_checador) — índice (persona_id, momento).
+- [x] `asistencia_clase` (T, FK → inscripcion, personas) — índice único (inscripcion_id, fecha).
+
+> **Separación deliberada** (regla de la spec): `checadas` es presencia laboral
+> /de acceso, y la consumirá Nómina (Fase 4) para horas e incidencias;
+> `asistencia_clase` es presencia académica por materia y alimenta las faltas
+> del alumno. No se mezclan.
+>
+> Prueba de integración (con rollback): geocerca aceptando a ~30 m y
+> rechazando a ~2 km, cálculo de 7.2 h desde entrada/salida, y conteo de
+> faltas que excluye correctamente justificadas y retardos.
+
+---
+
+## Estado al cierre de la Fase 2
+
+- **102 tablas** en la BD de tenant, todas InnoDB.
+- Fase 0 ✅ · Fase 1 ✅ (salvo slice de auth del Módulo 1) · Fase 2 ✅
+- Pendiente transversal: el slice de credenciales del Módulo 1 (`roles`,
+  `usuarios`, `persona_rol`, `usuario_tema_override`) y la reconciliación de
+  `roles` con spatie/laravel-permission.
 
 ---
 
