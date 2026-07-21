@@ -7,6 +7,7 @@ use App\Http\Controllers\AsignaturaGrupoController;
 use App\Http\Controllers\AspiranteController;
 use App\Http\Controllers\AutenticacionController;
 use App\Http\Controllers\CampusController;
+use App\Http\Controllers\CapturaCalificacionesController;
 use App\Http\Controllers\CarreraController;
 use App\Http\Controllers\CicloController;
 use App\Http\Controllers\DashboardController;
@@ -135,6 +136,22 @@ Route::middleware([
                 Route::get('grupos/{grupo}', [GrupoController::class, 'show'])
                     ->whereNumber('grupo')
                     ->name('grupos.show');
+
+                /*
+                 * Captura de calificaciones y acta. El permiso abre la puerta;
+                 * el controlador decide sobre QUÉ materia, porque un docente
+                 * solo califica las suyas y control escolar las de todos.
+                 */
+                Route::controller(CapturaCalificacionesController::class)
+                    ->prefix('captura')->name('captura.')
+                    ->middleware('can:capturar-calificaciones')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::get('{asignaturaGrupo}', 'show')->whereNumber('asignaturaGrupo')->name('show');
+                        Route::put('{asignaturaGrupo}', 'guardar')->whereNumber('asignaturaGrupo')->name('guardar');
+                        Route::post('{asignaturaGrupo}/cerrar', 'cerrar')->whereNumber('asignaturaGrupo')->name('cerrar');
+                        Route::post('{asignaturaGrupo}/corregir', 'corregir')->whereNumber('asignaturaGrupo')->name('corregir');
+                    });
 
                 Route::middleware('can:inscribir-alumnos')->group(function () {
                     Route::post('inscripciones', [InscripcionController::class, 'store'])->name('inscripciones.store');

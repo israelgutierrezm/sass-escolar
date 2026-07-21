@@ -78,4 +78,15 @@ class AsignaturaGrupo extends Model
     {
         return $this->hasMany(TutorAsignaturaGrupo::class, 'asignatura_grupo_id');
     }
+
+    public function inscripciones(): HasMany
+    {
+        return $this->hasMany(Inscripcion::class, 'asignatura_grupo_id');
+    }
+
+    /** Actas emitidas: la ordinaria y, si las hubo, sus correcciones. */
+    public function actas(): HasMany
+    {
+        return $this->hasMany(Acta::class, 'asignatura_grupo_id');
+    }
 }

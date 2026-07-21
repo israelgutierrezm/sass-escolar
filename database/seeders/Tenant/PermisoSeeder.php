@@ -25,7 +25,7 @@ class PermisoSeeder extends Seeder
     private const PERMISOS = [
         'entidades' => ['ver-personas', 'crear-personas', 'editar-personas'],
         'admisiones' => ['ver-aspirantes', 'crear-aspirantes', 'editar-aspirantes', 'validar-expediente', 'convertir-aspirante', 'generar-matricula'],
-        'control-escolar' => ['ver-alumnos', 'editar-alumnos', 'inscribir-alumnos', 'ver-kardex', 'asentar-acta', 'pasar-lista', 'ver-grupos'],
+        'control-escolar' => ['ver-alumnos', 'editar-alumnos', 'inscribir-alumnos', 'ver-kardex', 'capturar-calificaciones', 'asentar-acta', 'pasar-lista', 'ver-grupos'],
         'academico' => ['ver-catalogo-academico', 'editar-catalogo-academico', 'abrir-grupos'],
         'finanzas' => ['ver-adeudos', 'registrar-pagos', 'condonar-adeudos', 'facturar'],
         'plataforma' => ['ver-configuracion', 'editar-configuracion', 'gestionar-usuarios', 'gestionar-roles'],
@@ -53,15 +53,21 @@ class PermisoSeeder extends Seeder
         ],
         'auxiliar_admisiones' => ['ver-aspirantes', 'crear-aspirantes', 'editar-aspirantes'],
         'encargado_control_escolar' => [
-            'editar-alumnos', 'inscribir-alumnos', 'ver-kardex', 'asentar-acta',
+            'editar-alumnos', 'inscribir-alumnos', 'ver-kardex',
+            'capturar-calificaciones', 'asentar-acta',
             'abrir-grupos', 'editar-catalogo-academico',
         ],
-        'auxiliar_control_escolar' => ['inscribir-alumnos', 'ver-kardex'],
+        // Captura pero NO firma: puede vaciar las hojas que entrega el docente
+        // y es el titular quien asienta el acta.
+        'auxiliar_control_escolar' => ['inscribir-alumnos', 'ver-kardex', 'capturar-calificaciones'],
         'encargado_finanzas' => ['ver-adeudos', 'registrar-pagos', 'condonar-adeudos', 'facturar'],
         'auxiliar_finanzas' => ['ver-adeudos', 'registrar-pagos'],
 
         // Docencia.
-        'docente' => ['ver-alumnos', 'ver-kardex', 'pasar-lista', 'asentar-acta', 'ver-grupos'],
+        // El alcance del docente NO lo da el permiso sino la asignación en
+        // `docente_asignatura_grupo`: solo captura y firma las materias que
+        // imparte, y firmar es exclusivo del titular.
+        'docente' => ['ver-alumnos', 'ver-kardex', 'pasar-lista', 'capturar-calificaciones', 'asentar-acta', 'ver-grupos'],
         'coordinador_academia' => ['ver-catalogo-academico', 'abrir-grupos'],
 
         // Facetas no administrativas: su alcance se resuelve además por

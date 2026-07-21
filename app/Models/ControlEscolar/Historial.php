@@ -30,6 +30,7 @@ class Historial extends Model
         'calificacion',
         'situacion_reprobatoria_id',
         'acta_folio',
+        'acta_id',
         'observacion_id',
     ];
 
@@ -78,6 +79,12 @@ class Historial extends Model
     public function observacion(): BelongsTo
     {
         return $this->belongsTo(ObservacionHistorial::class, 'observacion_id');
+    }
+
+    /** El acta de la que salió este renglón. NULL si vino por dictamen. */
+    public function acta(): BelongsTo
+    {
+        return $this->belongsTo(Acta::class, 'acta_id');
     }
 
     /** Kárdex de una inscripción a oferta concreta. */

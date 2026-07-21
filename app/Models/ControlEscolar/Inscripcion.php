@@ -9,6 +9,7 @@ use App\Models\Concerns\TieneAuditoria;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * inscripcion (TENANT) — un alumno en UNA materia-grupo. Nivel único.
@@ -60,6 +61,18 @@ class Inscripcion extends Model
     public function situacion(): BelongsTo
     {
         return $this->belongsTo(SituacionInscripcion::class, 'situacion_id');
+    }
+
+    /** Lo capturado por el docente, componente por componente. */
+    public function calificaciones(): HasMany
+    {
+        return $this->hasMany(CalificacionComponente::class, 'inscripcion_id');
+    }
+
+    /** Una baja no se califica ni entra al acta. */
+    public function estaDeBaja(): bool
+    {
+        return $this->situacion?->clave === 'baja';
     }
 
     public function scopeDelCiclo(Builder $query, int $cicloId): Builder

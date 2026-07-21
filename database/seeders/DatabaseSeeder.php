@@ -9,6 +9,7 @@ use Database\Seeders\Tenant\CatalogosAdmisionesSeeder;
 use Database\Seeders\Tenant\CatalogosAsistenciaSeeder;
 use Database\Seeders\Tenant\CatalogosControlEscolarSeeder;
 use Database\Seeders\Tenant\CatalogosFormulariosSeeder;
+use Database\Seeders\Tenant\ConfiguracionSeeder;
 use Database\Seeders\Tenant\DocumentoRequeridoSeeder;
 use Database\Seeders\Tenant\ModuloSeeder;
 use Database\Seeders\Tenant\PermisoSeeder;
@@ -45,6 +46,7 @@ class DatabaseSeeder extends Seeder
             RolSeeder::class,
             PermisoSeeder::class,
             ReglaMatriculaSeeder::class,
+            ConfiguracionSeeder::class,
         ]);
     }
 }
