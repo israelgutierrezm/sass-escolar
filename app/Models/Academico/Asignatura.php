@@ -7,6 +7,7 @@ namespace App\Models\Academico;
 use App\Models\Concerns\TieneAuditoria;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * asignaturas (TENANT) — catálogo puro de materias.
@@ -53,5 +54,11 @@ class Asignatura extends Model
     public function area(): BelongsTo
     {
         return $this->belongsTo(Area::class, 'area_id');
+    }
+
+    /** Planes en los que se imparte esta asignatura (una fila por plan). */
+    public function planMaterias(): HasMany
+    {
+        return $this->hasMany(PlanMateria::class, 'asignatura_id');
     }
 }

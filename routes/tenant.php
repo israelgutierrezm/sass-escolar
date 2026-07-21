@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\AsignaturaController;
 use App\Http\Controllers\AspiranteController;
 use App\Http\Controllers\AutenticacionController;
 use App\Http\Controllers\CampusController;
@@ -10,6 +11,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExpedienteAspiranteController;
 use App\Http\Controllers\OfertaController;
 use App\Http\Controllers\PlanEstudioController;
+use App\Http\Controllers\PlanMateriaController;
 use App\Http\Controllers\RolActivoController;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
@@ -75,6 +77,10 @@ Route::middleware([
                 Route::get('carreras', [CarreraController::class, 'index'])->name('carreras.index');
                 Route::get('planes', [PlanEstudioController::class, 'index'])->name('planes.index');
                 Route::get('ofertas', [OfertaController::class, 'index'])->name('ofertas.index');
+                Route::get('asignaturas', [AsignaturaController::class, 'index'])->name('asignaturas.index');
+
+                // Malla curricular: qué asignaturas componen un plan.
+                Route::get('planes/{plan}/materias', [PlanMateriaController::class, 'index'])->name('planes.materias.index');
 
                 Route::middleware($escritura['middleware'])->group(function () {
                     Route::resource('campus', CampusController::class)
@@ -82,6 +88,11 @@ Route::middleware([
                     Route::resource('carreras', CarreraController::class)->except(['index', 'show']);
                     Route::resource('planes', PlanEstudioController::class)->except(['index', 'show']);
                     Route::resource('ofertas', OfertaController::class)->except(['index', 'show']);
+                    Route::resource('asignaturas', AsignaturaController::class)->except(['index', 'show']);
+
+                    Route::post('planes/{plan}/materias', [PlanMateriaController::class, 'store'])->name('planes.materias.store');
+                    Route::put('planes/{plan}/materias/{materia}', [PlanMateriaController::class, 'update'])->name('planes.materias.update');
+                    Route::delete('planes/{plan}/materias/{materia}', [PlanMateriaController::class, 'destroy'])->name('planes.materias.destroy');
                 });
             });
 

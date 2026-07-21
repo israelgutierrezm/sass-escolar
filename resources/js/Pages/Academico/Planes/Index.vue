@@ -76,9 +76,23 @@ function eliminar(id: number, nombre: string): void {
                         <td class="px-4 py-3 text-slate-600">{{ plan.periodo ?? '—' }}</td>
                         <td class="px-4 py-3 font-mono text-xs text-slate-500">{{ plan.rvoe }}</td>
                         <td class="px-4 py-3 text-slate-600">{{ plan.total_creditos }}</td>
-                        <td class="px-4 py-3 text-slate-600">{{ plan.materias_count }}</td>
+                        <td class="px-4 py-3">
+                            <a
+                                :href="`/academico/planes/${plan.id}/materias`"
+                                class="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
+                            >
+                                {{ plan.materias_count }} materia(s)
+                            </a>
+                        </td>
                         <td class="px-4 py-3 text-right">
+                            <a
+                                :href="`/academico/planes/${plan.id}/materias`"
+                                class="text-sm font-medium text-indigo-600 hover:text-indigo-700"
+                            >
+                                Malla
+                            </a>
                             <template v-if="puedeEditar">
+                                <span class="mx-2 text-slate-200">|</span>
                                 <a
                                     :href="`/academico/planes/${plan.id}/edit`"
                                     class="text-sm font-medium text-indigo-600 hover:text-indigo-700"

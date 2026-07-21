@@ -12,6 +12,7 @@ const page = usePage();
 const secciones = [
     { etiqueta: 'Campus', url: '/academico/campus' },
     { etiqueta: 'Carreras', url: '/academico/carreras' },
+    { etiqueta: 'Asignaturas', url: '/academico/asignaturas' },
     { etiqueta: 'Planes de estudio', url: '/academico/planes' },
     { etiqueta: 'Oferta', url: '/academico/ofertas' },
 ];
