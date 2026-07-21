@@ -169,6 +169,75 @@ la resolución se documenta aquí antes de implementar.
   roles de dominio con los de Spatie —o mantenerlos separados con otro nombre—
   es una decisión de auth a tomar con el usuario. Pendiente registrado.
 
+## 2026-07-21 — Aclaraciones del cliente sobre el ciclo del aspirante
+
+Aclaraciones recibidas que afectan módulos ya construidos y por construir.
+**Pendientes de decidir** antes de implementar Finanzas (Módulo 7) y el auth.
+
+### La matrícula se genera al final, no antes  ✅ el esquema ya lo cumple
+- **Aclaración:** un aspirante/interesado/prospecto NO tiene matrícula. La
+  matrícula la genera un administrador como último paso antes de convertirlo
+  en alumno.
+- **Estado actual:** correcto sin cambios. `aspirantes` solo lleva
+  `clave_aspirante` (identificador de CRM); la columna `matricula` vive
+  únicamente en `matricula_oferta`, que se crea al momento de la conversión.
+
+### Algoritmo de matrícula configurable por escuela  ⏳ PENDIENTE
+- **Aclaración:** cada escuela tiene su propio formato. Ejemplos: año (2 o 4
+  dígitos) + clave de carrera o de plan + consecutivo por carrera/plan, o bien
+  un consecutivo general. **El algoritmo es distinto en cada escuela.**
+- **Lo que ya existe:** `planes_estudio.clave_matricula` y
+  `clave_matricula_consecutivo` (previstos por la spec, per-plan).
+- **Lo que falta decidir:**
+  1. Dónde vive la regla: por plan (como hoy), por carrera, o a nivel escuela
+     en `configuraciones`. Probablemente una tabla `reglas_matricula` con
+     ámbito (global/carrera/plan) + plantilla de formato.
+  2. **Dónde vive el consecutivo y cómo se hace atómico.** Es el punto
+     crítico: dos administradores generando matrícula a la vez no deben
+     obtener el mismo número. Requiere una tabla de contadores con
+     `SELECT ... FOR UPDATE` (o `INSERT ... ON DUPLICATE KEY UPDATE`) dentro
+     de la transacción de conversión, nunca un `MAX(matricula)+1`.
+  3. El ámbito del consecutivo (por año, por carrera, por plan, global) es
+     parte de la regla configurable.
+
+### El aspirante necesita sesión propia  ✅ encaja, sin cambio de esquema
+- **Aclaración:** en fase de aspirante ya debe poder entrar al sistema para
+  llenar formularios, aceptar reglamentos/lineamientos, cargar documentación y
+  eventualmente pagar.
+- **Estado actual:** encaja sin cambios. Un aspirante ES una persona, y
+  `usuarios.persona_id` (tabla diferida al auth) apunta a `personas`.
+- **Input para la fase de auth:** el login NO es de alumnos — es de personas
+  con cualquier rol activo, incluido `aspirante`. El `rol_activo_id` gobierna
+  qué ve. Esto refuerza mantener `usuarios` colgando de `personas`, no de
+  `alumnos`.
+
+### HUECO: el pago de inscripción del aspirante no tiene dónde colgar  ⚠️ PENDIENTE
+- **Problema:** en la spec, `adeudos` y `pagos` (Módulo 7) cuelgan de
+  `matricula_oferta_id`. Pero si el aspirante paga su inscripción ANTES de ser
+  alumno, esa `matricula_oferta` todavía no existe: el pago no tiene ancla.
+- **Opciones a evaluar (con el cliente) antes del Módulo 7:**
+  1. Hacer `adeudos.matricula_oferta_id` nullable y agregar `aspirante_id`
+     nullable, con un CHECK de que exactamente uno esté presente. Al convertir
+     al aspirante, se re-ligan los adeudos/pagos a la nueva
+     `matricula_oferta`. Preserva la trazabilidad del pago previo.
+  2. Crear la `matricula_oferta` en estado "preinscrito" SIN matrícula
+     definitiva — obliga a que `matricula` sea nullable, lo que choca con la
+     aclaración de que la matrícula se genera al final.
+  3. Tabla aparte `pagos_admision` que luego se concilia. Duplica el motor de
+     cobro; menos deseable.
+- **Recomendación preliminar:** opción 1 — mantiene un solo motor financiero y
+  respeta que la matrícula nazca al final.
+
+### HUECO: aceptación de reglamentos con valor legal  ⚠️ PENDIENTE
+- **Problema:** hoy solo existe `aspirantes.acepto_terminos` (un booleano).
+  Para efectos legales normalmente se requiere saber QUÉ documento se aceptó,
+  en qué VERSIÓN, CUÁNDO y desde qué IP; y pueden ser varios documentos
+  (reglamento, lineamientos, aviso de privacidad LFPDPPP).
+- **Propuesta a evaluar:** catálogo `documentos_normativos` (clave, título,
+  versión, vigencia, ruta) + tabla `aceptaciones` (persona_id,
+  documento_normativo_id, version, fecha, ip). El booleano actual queda como
+  atajo de UI, no como la fuente de verdad.
+
 ### `personas`: FULLTEXT y `curp` único-nullable
 - **Decisión:** índice FULLTEXT sobre (nombre, primer_apellido,
   segundo_apellido, curp); `curp` es UNIQUE y NULLable (MySQL permite múltiples
