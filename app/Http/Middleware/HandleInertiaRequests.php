@@ -7,6 +7,7 @@ namespace App\Http\Middleware;
 use App\Models\Identidad\PersonaRol;
 use App\Models\Identidad\Rol;
 use App\Models\Identidad\Usuario;
+use App\Services\ResolutorTema;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -42,6 +43,10 @@ class HandleInertiaRequests extends Middleware
                 'id' => tenant('id'),
                 'nombre' => tenant('id'),
             ],
+
+            // Colores ya resueltos en cascada; el front solo los inyecta como
+            // CSS custom properties.
+            'tema' => fn () => app(ResolutorTema::class)->paraUsuario($usuario),
 
             'flash' => [
                 'exito' => fn () => $request->session()->get('exito'),

@@ -18,6 +18,7 @@ use App\Http\Controllers\PlanEstudioController;
 use App\Http\Controllers\PlanMateriaController;
 use App\Http\Controllers\RolActivoController;
 use App\Http\Controllers\SeriacionController;
+use App\Http\Controllers\TemaController;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
@@ -50,6 +51,11 @@ Route::middleware([
         Route::get('/panel', DashboardController::class)->name('tenant.dashboard');
         Route::put('/rol-activo', [RolActivoController::class, 'actualizar'])->name('tenant.rol-activo.actualizar');
         Route::post('/logout', [AutenticacionController::class, 'logout'])->name('tenant.logout');
+
+        // Apariencia: preferencia personal, sin permiso especial.
+        Route::put('/preferencias/tema', [TemaController::class, 'actualizar'])->name('tenant.tema.actualizar');
+        Route::put('/preferencias/tema/color', [TemaController::class, 'personalizar'])->name('tenant.tema.color');
+        Route::delete('/preferencias/tema/personalizacion', [TemaController::class, 'restablecer'])->name('tenant.tema.restablecer');
 
         /*
          * Admisiones. Se protege con el `can:` de Laravel —no con el
