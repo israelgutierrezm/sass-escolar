@@ -29,7 +29,48 @@ class Rol extends SpatieRole
         'guard_name',
         'tiempo_sesion',
         'rol_padre_id',
+        'protegido',
     ];
+
+    protected function casts(): array
+    {
+        return ['protegido' => 'boolean'];
+    }
+
+    /**
+     * Las personas que tienen este rol, con o sin la bandera `activo`. Es lo
+     * que impide borrar un rol que alguien está usando.
+     */
+    public function asignaciones(): HasMany
+    {
+        return $this->hasMany(PersonaRol::class, 'rol_id');
+    }
+
+    /**
+     * Si `$posible` puede ser padre de este rol sin formar un ciclo.
+     *
+     * Un rol que desciende de sí mismo no tendría permisos efectivos
+     * calculables: `ancestros()` corta el ciclo, pero la jerarquía quedaría
+     * describiendo algo que no existe.
+     */
+    public function admitePadre(?self $posible): bool
+    {
+        if ($posible === null) {
+            return true; // pasa a ser faceta
+        }
+
+        if ($posible->getKey() === $this->getKey()) {
+            return false;
+        }
+
+        foreach ($posible->ancestros() as $ancestro) {
+            if ($ancestro->getKey() === $this->getKey()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     public function padre(): BelongsTo
     {

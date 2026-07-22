@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Database\Seeders\Tenant;
 
 use App\Models\Identidad\Rol;
+use App\Support\CatalogoPermisos;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
@@ -22,23 +23,6 @@ use Spatie\Permission\PermissionRegistrar;
  */
 class PermisoSeeder extends Seeder
 {
-    /** Permisos por dominio. */
-    private const PERMISOS = [
-        'entidades' => ['ver-personas', 'crear-personas', 'editar-personas'],
-        'admisiones' => ['ver-aspirantes', 'crear-aspirantes', 'editar-aspirantes', 'validar-expediente', 'convertir-aspirante', 'generar-matricula', 'gestionar-documentos'],
-        'control-escolar' => ['ver-alumnos', 'editar-alumnos', 'inscribir-alumnos', 'ver-kardex', 'capturar-calificaciones', 'asentar-acta', 'gestionar-ventanas-captura', 'pasar-lista', 'ver-grupos'],
-        // Lo del docente sobre SÍ MISMO y sobre SUS materias. Separado del
-        // dominio de control escolar porque un docente no es personal
-        // administrativo: no gestiona la escuela, imparte clase en ella.
-        'docencia' => ['ver-mis-materias', 'editar-mi-expediente', 'ver-docentes', 'gestionar-docentes'],
-        'academico' => ['ver-catalogo-academico', 'editar-catalogo-academico', 'abrir-grupos'],
-        // `gestionar-planes-cobro` es distinto de `registrar-pagos`: el
-        // auxiliar de ventanilla cobra todo el día y no debe poder cambiarle el
-        // monto de la colegiatura a una carrera entera.
-        'finanzas' => ['ver-adeudos', 'registrar-pagos', 'condonar-adeudos', 'facturar', 'gestionar-planes-cobro', 'gestionar-emisores'],
-        'plataforma' => ['ver-configuracion', 'editar-configuracion', 'gestionar-usuarios', 'gestionar-roles', 'suplantar-usuarios', 'gestionar-formularios'],
-    ];
-
     /** Qué permisos concede cada rol, además de los que hereda de su padre. */
     private const ASIGNACIONES = [
         // Faceta administrativa: lo mínimo común a todo el personal.
@@ -114,10 +98,12 @@ class PermisoSeeder extends Seeder
         // que el caché expira. Se limpia antes y después de sembrar.
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-        foreach (self::PERMISOS as $permisos) {
-            foreach ($permisos as $permiso) {
-                Permission::findOrCreate($permiso, 'web');
-            }
+        // El catálogo vive en App\Support\CatalogoPermisos y NO aquí: lo
+        // consultan dos —este seeder al sembrar y la pantalla de roles al
+        // pintar las casillas agrupadas por dominio—. Tenerlo dentro del
+        // seeder dejaba esa agrupación invisible para la interfaz.
+        foreach (CatalogoPermisos::claves() as $permiso) {
+            Permission::findOrCreate($permiso, 'web');
         }
 
         foreach (self::ASIGNACIONES as $clave => $permisos) {

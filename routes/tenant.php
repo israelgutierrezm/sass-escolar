@@ -32,6 +32,7 @@ use App\Http\Controllers\PlanEstudioController;
 use App\Http\Controllers\PlanMateriaController;
 use App\Http\Controllers\PlantillaEvaluacionController;
 use App\Http\Controllers\RolActivoController;
+use App\Http\Controllers\RolController;
 use App\Http\Controllers\SeriacionController;
 use App\Http\Controllers\SuplantacionController;
 use App\Http\Controllers\TemaController;
@@ -480,6 +481,30 @@ Route::middleware([
                         ->middleware('can:condonar-adeudos')
                         ->name('adeudos.resolver');
                 });
+            });
+
+        /*
+         * Roles y permisos. Hasta ahora cambiar quién podía qué obligaba a
+         * tocar el seeder: ningún organigrama real cabe en los roles de
+         * ejemplo que trae el sistema.
+         *
+         * Los PERMISOS no se crean desde aquí a propósito — son llaves que
+         * consulta el código, y una inventada en pantalla no restringiría
+         * nada—. Lo configurable son los roles y qué lleva cada uno.
+         */
+        Route::controller(RolController::class)
+            ->prefix('plataforma/roles')->name('tenant.plataforma.roles.')
+            ->middleware('can:gestionar-roles')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'store')->name('store');
+                Route::get('/personas', 'buscarPersonas')->name('personas');
+                Route::get('/{rol}', 'show')->name('show');
+                Route::put('/{rol}', 'update')->name('update');
+                Route::put('/{rol}/permisos', 'sincronizarPermisos')->name('permisos');
+                Route::post('/{rol}/asignaciones', 'asignar')->name('asignar');
+                Route::delete('/{rol}/asignaciones/{asignacion}', 'desasignar')->name('desasignar');
+                Route::delete('/{rol}', 'destroy')->name('destroy');
             });
 
         Route::controller(ExpedienteAspiranteController::class)->prefix('aspirantes/{aspirante}/expediente')->name('tenant.expediente.')->group(function () {

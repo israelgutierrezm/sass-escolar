@@ -39,18 +39,40 @@ Los otros dos documentos vivos:
 3. **Convenciones de la spec al pie de la letra**: tablas en `snake_case`
    plural en español; toda tabla TENANT lleva `$table->auditoria()` (macro) y
    el trait `TieneAuditoria` en su modelo; catálogos TENANT-CONFIG con seeder.
-4. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
+4. **Configurable, no cableado.** Regla del cliente: «que esta plataforma sea
+   mejor y no una imagen de los ejemplos o ideas que puedo tener». Sus ejemplos
+   son UN caso del mecanismo, no el mecanismo. Un panel no se resuelve con
+   `if (rol == finanzas)` sino con tarjetas que declaran qué permiso exigen; los
+   roles de ejemplo deben poder borrarse. Cuando algo enumerable se cablea en el
+   código, hay que poder explicar por qué no es tabla.
+5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (16 suites, 428 verificaciones):
+   Las suites versionadas viven en `scripts/` (17 suites, 458 verificaciones):
    `prueba-actas`, `prueba-plantillas`, `prueba-ventanas-captura`,
    `prueba-ciclo-campus`, `prueba-apertura-grupos`, `prueba-alcance-docente`,
    `prueba-alumnos`, `prueba-docentes`, `prueba-documentos`,
    `prueba-formularios`, `prueba-multicarrera`, `prueba-suplantacion`,
-   `prueba-finanzas`, `prueba-cobro`, `prueba-facturacion`, `prueba-emisores`.
-   NO van en `tests/`:
+   `prueba-finanzas`, `prueba-cobro`, `prueba-facturacion`, `prueba-emisores`,
+   `prueba-roles`. NO van en `tests/`:
    phpunit corre contra SQLite en memoria y ahí se prueba justo lo que SQLite
    no sabe hacer (`LAST_INSERT_ID`, FKs reales, InnoDB).
+
+## Pedido del cliente en curso (2026-07-22)
+
+Cinco entregas, en este orden. A y B ✅ hechas; C, D y E pendientes:
+
+- **A** ✅ Roles y permisos desde pantalla.
+- **B** ✅ Menú por oficio (Alumnos y Docentes como secciones propias).
+- **C** ⏳ CRM de promoción: promotores, seguimiento de prospectos y
+  **comisiones** — decisión tomada: el promotor devenga al INSCRIBIRSE el
+  aspirante, con regla configurable (monto fijo o % de la inscripción).
+- **D** ⏳ Formulario público embebible en la web de la escuela. Decisión
+  tomada: **configurable por formulario** — cada uno declara si es solo
+  captación (deja un prospecto al CRM) o inscripción autogestiva completa.
+- **E** ⏳ Panel por rol: alumno y docente con su avance y pendientes;
+  administrativo con estadísticas acotadas a SUS permisos. Debe ser un registro
+  de tarjetas que declaran el permiso que exigen, no ramas por rol.
 
 ## Decisiones de arquitectura que NO se deben cambiar
 
@@ -221,7 +243,17 @@ npm run dev                # o npm run build
   de sello digital (disco privado) y sus credenciales del PAC (cifradas). El
   emisor se congela en la factura igual que el receptor. Pantalla
   `/finanzas/emisores`, permiso `gestionar-emisores`.
-- Pruebas: 16 suites en `scripts/`, 428 verificaciones, todas contra la BD real
+- **Roles y permisos configurables** (`/plataforma/roles`): la escuela crea sus
+  propios roles y decide qué lleva cada uno. Los PERMISOS no se crean desde
+  pantalla —son llaves que el código consulta— y viven en
+  `App\Support\CatalogoPermisos` con dominio, etiqueta y descripción. Las seis
+  facetas base van con `roles.protegido`: su clave no se toca porque hay código
+  que las conoce por nombre, pero sus permisos sí. Salvaguarda contra el
+  auto-encierro: no puedes quitarle `gestionar-roles` a tu propio rol activo.
+- **Menú agrupado por oficio**: Alumnos y Docentes son secciones propias, no
+  submenús de Control escolar (que se queda con ciclos y grupos). Las URLs no
+  cambiaron.
+- Pruebas: 17 suites en `scripts/`, 458 verificaciones, todas contra la BD real
   del tenant demo con `DB::rollBack()` al final.
 
 **Pendiente inmediato — aquí se retoma:**

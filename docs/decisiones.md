@@ -1580,3 +1580,75 @@ los tres catálogos y la re-ligadura en la conversión.
   asignada. **No se relajó la regla** —es la correcta— sino que la suite da de
   alta la suya como precondición, que es lo que hará cualquier escuela real
   antes de emitir su primer comprobante.
+
+---
+
+## 2026-07-22 — Roles configurables desde pantalla (entrega A) y menú por oficio (B)
+
+Contexto del cliente, que gobierna estas entregas y las que siguen:
+**«que esta plataforma sea mejor y no una imagen de los ejemplos o ideas que
+puedo tener»**. O sea: no se implementan sus ejemplos, se implementa el
+mecanismo del que sus ejemplos son un caso. Aplicado aquí, significa que los
+roles que trae el sistema pasan a ser datos borrables y no la estructura.
+
+### Los ROLES son configurables; los PERMISOS no, y es deliberado
+- **Decisión:** la escuela crea, edita y borra roles, y decide qué permisos
+  lleva cada uno. **No puede crear permisos.**
+- **Razón:** un permiso es una llave que el código consulta (`can:asentar-acta`).
+  Uno inventado desde la interfaz no lo comprobaría ninguna ruta: daría la
+  sensación de haber restringido algo sin restringir nada, que es peor que no
+  ofrecerlo. Lo que la escuela necesita configurar es su ORGANIGRAMA, y eso son
+  los roles.
+- El catálogo se mudó del seeder a `App\Support\CatalogoPermisos`, con dominio,
+  etiqueta y descripción por permiso. Lo consultan dos: el seeder al sembrar y
+  la pantalla al pintar las casillas. Atrapado en el seeder, el agrupamiento por
+  dominio era invisible para la interfaz, y "gestionar-documentos" frente a
+  "validar-expediente" son indistinguibles desde una casilla sin su descripción.
+
+### `roles.protegido`: la diferencia entre configurar y quitarle el piso al código
+- **Problema:** `CapturaCalificacionesController` acota al docente comprobando
+  que su rol activo sea la faceta `docente` o descienda de ella. Si alguien la
+  renombra desde la pantalla, ese filtro deja de aplicar **en silencio** y
+  cualquier docente podría calificar al grupo de otro.
+- **Decisión:** las seis facetas base se marcan `protegido`. Eso fija su clave y
+  su existencia; su nombre visible, su tiempo de sesión y **sus permisos siguen
+  siendo configurables**.
+- Los roles funcionales (encargado de admisiones, auxiliar de finanzas…) NO se
+  protegen: son ejemplos útiles y una escuela debe poder borrarlos si su
+  organigrama es otro. Es justo el punto del cliente.
+
+### Salvaguarda contra el auto-encierro
+- **Decisión:** no se puede quitar `gestionar-roles` del rol con el que se está
+  operando.
+- **Razón:** el primer clic de quien explora esta pantalla es despalomear cosas.
+  Si se quita esa llave a sí mismo, nadie vuelve a entrar y la única salida es
+  re-sembrar a mano contra la base. Se explica y se ofrece la alternativa
+  (concedérselo antes a otro rol) en vez de bloquear sin decir por qué.
+- Lo mismo al retirarse el propio rol activo: se pide conmutar primero.
+
+### Los permisos heredados se muestran marcados y bloqueados
+- **Decisión:** en el detalle de un rol funcional, lo que hereda de su faceta
+  aparece palomeado, en gris y no editable, con la nota de dónde cambiarlo.
+- **Razón:** ocultarlos haría que la pantalla mintiera — el rol puede cosas que
+  no están marcadas—. Mostrarlos editables haría creer que se desmarcan desde
+  ahí, cuando viven en el padre.
+
+### Ciclos en la jerarquía
+- `Rol::admitePadre()` rechaza colgarse de sí mismo o de un descendiente.
+  `ancestros()` ya cortaba el ciclo al calcular permisos, pero la jerarquía
+  quedaría describiendo algo que no existe.
+
+### (B) El menú se agrupa por OFICIO, no por pantalla
+- **Problema:** Alumnos y Docentes vivían dentro de Control escolar porque el
+  primer menú agrupó por lo que compartían técnicamente (todo exigía
+  `ver-grupos`), no por el trabajo que representan.
+- **Decisión:** Alumnos y Docentes suben a secciones propias, cada una con sus
+  opciones. Control escolar se queda con lo que de verdad lo es: ciclos y
+  grupos. Se agrega la sección Plataforma para roles y lo que venga de
+  configuración.
+- **Razón:** administrar alumnos, administrar docentes y abrir ciclos son tres
+  oficios distintos, y con frecuencia tres personas distintas. Un menú que los
+  mezcla obliga a cada una a pasar por las opciones de las otras dos.
+- Consecuencia anotada: las URLs NO cambiaron (`/escolar/alumnos` sigue siendo
+  esa). Mover rutas habría roto enlaces guardados y no aporta nada al problema
+  real, que era de agrupación visual.
