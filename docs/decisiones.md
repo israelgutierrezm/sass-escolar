@@ -1652,3 +1652,93 @@ roles que trae el sistema pasan a ser datos borrables y no la estructura.
 - Consecuencia anotada: las URLs NO cambiaron (`/escolar/alumnos` sigue siendo
   esa). Mover rutas habría roto enlaces guardados y no aporta nada al problema
   real, que era de agrupación visual.
+
+---
+
+## 2026-07-22 — CRM de promoción (entrega C)
+
+### HUECO GRANDE ENCONTRADO: el embudo era un catálogo huérfano
+- `etapas_crm` estaba sembrada desde la Fase 1 con seis etapas y **nadie la
+  usaba**: `aspirantes` nunca tuvo columna de etapa. El embudo existía como
+  catálogo y no como dato, así que no se podía saber en qué punto iba un
+  prospecto ni cuántos se caen entre una etapa y la siguiente — que es
+  literalmente para lo que sirve un CRM.
+- Se agrega `aspirantes.etapa_crm_id` con backfill a la primera etapa: dejarlos
+  sin etapa los volvería invisibles en el tablero, que es peor que colocarlos en
+  un punto discutible.
+
+### `origen` deja de ser texto libre
+- Pasa a catálogo `origenes_aspirante` con bandera `autogestivo`.
+- **Razón:** de él dependen dos cosas que no funcionan con texto a mano —
+  reportar cuántos llegaron por cada vía, y distinguir al que se registró SOLO
+  desde la web (entrega D) del que capturó un promotor. Es además la regla del
+  proyecto: todo lo enumerable es tabla.
+
+### `aspirante_asesor.titular`: quién responde y quién cobra
+- El pivote de asesores ya existía, pero sin decir cuál de ellos responde por el
+  prospecto. Sin titular no se sabe a quién pagarle cuando hay dos asesores
+  encima del mismo aspirante, y dos comisiones por el mismo alumno serían pagar
+  dos veces por un resultado. Asignar un titular nuevo quita el anterior.
+
+### La comisión se devenga al INSCRIBIRSE (decisión del cliente)
+- Se paga por resultado. Devengar al capturar premiaría capturar nombres y
+  llenaría el CRM de prospectos basura.
+- **El monto se CONGELA al devengarse.** Cambiar la regla después no lo
+  recalcula: era el trato vigente cuando ese alumno entró. Verificado en la
+  suite subiendo la regla de 10% a 50% y comprobando que lo ganado no se movió.
+- `DevengadorComisiones` corre DENTRO de la transacción de conversión, como el
+  religador de finanzas: una comisión sin matrícula, o una matrícula sin la
+  comisión que le tocaba, descuadran la nómina de promoción.
+- **Silencioso por diseño:** sin promotor titular o sin regla vigente no devenga
+  y NO falla. La conversión de un alumno no debe romperse porque falte
+  configurar comisiones — la mayoría de las escuelas no las usa.
+- Índice único (matricula_oferta_id, persona_id): si la conversión se reintenta,
+  no se paga dos veces.
+- El porcentaje se calcula sobre el monto BASE del adeudo, no sobre el total: si
+  al alumno se le dio una beca, el promotor no debería cobrar menos por un
+  descuento que no decidió él.
+- Una regla en modo porcentaje **exige concepto**: sin él, «10%» no dice de qué
+  —¿de la inscripción, de la colegiatura, del año?—. Se valida antes de guardar.
+
+### Alcance del promotor: dos capas, igual que el docente
+- El PERMISO dice qué puede hacer; la ASIGNACIÓN en `aspirante_asesor` dice
+  sobre quién. Un promotor con `ver-mis-prospectos` no ve los prospectos de
+  otro. Lo resuelve `EmbudoAdmision::acotar`, no la ruta.
+
+### BUG ENCONTRADO al probar por HTTP: el 403 imposible de explicar
+- **Síntoma:** dirección general recibía 403 en `/promocion` teniendo
+  `gestionar-promocion`. La ruta exigía `ver-mis-prospectos`, que no tenía.
+- **Lo que NO se hizo:** obligar a la escuela a conceder los dos permisos. Es
+  exactamente el tipo de dependencia oculta que produce un rebote inexplicable:
+  alguien arma «coordinador de admisiones», palomea «Coordinar promoción», y la
+  pantalla lo rechaza sin decirle que además necesitaba otra casilla.
+- **Decisión:** un permiso DERIVADO, `entrar-promocion`, definido con
+  `Gate::define` y abierto por cualquiera de los dos. No entra al catálogo a
+  propósito: no es asignable, se deduce. Uno asignable que nadie puede desmarcar
+  sería mentira. El menú del front espeja la regla con un campo `o`.
+- Vale como patrón para lo que venga: cuando dos permisos abren la misma puerta,
+  la puerta se declara aparte y no se le pide al usuario que adivine.
+
+### El tablero mira el ÚLTIMO seguimiento con fecha, no cualquiera
+- "Contactar hoy" toma el último seguimiento con `proximo_contacto` de cada
+  prospecto. Si se marcó "llamar el lunes" y el lunes se reagendó al viernes, el
+  lunes deja de aparecer. Con cualquier seguimiento, un prospecto bien atendido
+  se quedaría en la lista para siempre.
+
+### `exige_proximo_contacto` por tipo de seguimiento
+- Una llamada registrada sin siguiente paso es un prospecto que nadie va a
+  volver a marcar: es el hoyo clásico de un CRM. Cada escuela decide en qué
+  tipos lo exige — una nota interna no lo necesita, una llamada sí.
+
+### La etapa se congela en el seguimiento
+- `seguimientos_aspirante.etapa_crm_id` guarda la etapa que tenía el prospecto
+  ANTES de moverlo, no la actual. Es lo que permite medir cuánto tardó en
+  avanzar. Registrar el contacto y mover de etapa van en una transacción: mover
+  sin decir por qué deja un embudo que nadie puede auditar, y es el reclamo
+  clásico de "¿quién lo pasó a documentación si nunca contestó?".
+
+### Rol `promotor`
+- Nuevo rol funcional bajo `administrativo`: captura prospectos y les da
+  seguimiento, pero solo los suyos. NO valida expedientes ni convierte a
+  alumno — eso sigue siendo de admisiones. Es un ejemplo borrable, como todos
+  los funcionales.

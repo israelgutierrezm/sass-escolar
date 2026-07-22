@@ -47,6 +47,9 @@ class RolSeeder extends Seeder
             ['director_campus', 'Director de campus'],
             ['encargado_admisiones', 'Encargado de admisiones'],
             ['auxiliar_admisiones', 'Auxiliar de admisiones'],
+            // Personal de promoción: capta prospectos en la calle, ferias y
+            // referidos, y les da seguimiento. Ve SOLO los suyos.
+            ['promotor', 'Promotor'],
             ['encargado_control_escolar', 'Encargado de control escolar'],
             ['auxiliar_control_escolar', 'Auxiliar de control escolar'],
             ['encargado_finanzas', 'Encargado de finanzas'],

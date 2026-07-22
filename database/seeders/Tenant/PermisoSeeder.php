@@ -32,6 +32,7 @@ class PermisoSeeder extends Seeder
             'crear-personas', 'editar-personas', 'ver-aspirantes', 'editar-alumnos',
             'ver-kardex', 'ver-adeudos', 'registrar-pagos', 'condonar-adeudos',
             'gestionar-planes-cobro', 'gestionar-emisores', 'facturar', 'ver-configuracion',
+            'gestionar-promocion', 'gestionar-comisiones', 'configurar-comisiones',
             'editar-configuracion', 'gestionar-usuarios', 'gestionar-roles',
             'editar-catalogo-academico', 'abrir-grupos', 'inscribir-alumnos',
             'gestionar-ventanas-captura', 'ver-docentes', 'gestionar-docentes',
@@ -49,8 +50,22 @@ class PermisoSeeder extends Seeder
             'ver-aspirantes', 'crear-aspirantes', 'editar-aspirantes',
             'validar-expediente', 'convertir-aspirante', 'generar-matricula',
             'crear-personas', 'gestionar-documentos', 'gestionar-formularios',
+            // Coordina el embudo y la nómina de promoción.
+            'gestionar-promocion', 'gestionar-comisiones', 'configurar-comisiones',
+            'ver-mis-prospectos',
         ],
-        'auxiliar_admisiones' => ['ver-aspirantes', 'crear-aspirantes', 'editar-aspirantes'],
+        'auxiliar_admisiones' => ['ver-aspirantes', 'crear-aspirantes', 'editar-aspirantes', 'ver-mis-prospectos'],
+
+        /*
+         * Promotor: captura prospectos y les da seguimiento, pero SOLO los
+         * suyos. El alcance no lo da el permiso sino la asignación en
+         * `aspirante_asesor` — misma regla de dos capas que el docente.
+         * No valida expedientes ni convierte: eso es de admisiones.
+         */
+        'promotor' => [
+            'ver-aspirantes', 'crear-aspirantes', 'editar-aspirantes',
+            'crear-personas', 'ver-mis-prospectos',
+        ],
         'encargado_control_escolar' => [
             'editar-alumnos', 'inscribir-alumnos', 'ver-kardex',
             'capturar-calificaciones', 'asentar-acta', 'gestionar-ventanas-captura',

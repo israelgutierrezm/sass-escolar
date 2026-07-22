@@ -37,6 +37,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->registrarMacrosDeAuditoria();
         $this->registrarResolucionDePermisos();
+        $this->registrarPermisosDerivados();
     }
 
     /**
@@ -60,6 +61,32 @@ class AppServiceProvider extends ServiceProvider
 
             return $usuario->tienePermiso($permiso) ? true : null;
         });
+    }
+
+    /**
+     * Permisos que se DEDUCEN de otros, no se conceden.
+     *
+     * `entrar-promocion` es la puerta del CRM y la abre cualquiera de dos:
+     * `ver-mis-prospectos` (el promotor, que verá solo los suyos) o
+     * `gestionar-promocion` (quien coordina, que los ve todos). El alcance lo
+     * resuelve después `EmbudoAdmision::acotar`.
+     *
+     * Se hace así y NO exigiendo que la escuela conceda los dos porque es
+     * exactamente el tipo de dependencia oculta que produce un 403 imposible de
+     * explicar: alguien arma el rol «coordinador de admisiones», le palomea
+     * «Coordinar promoción», y la pantalla le rebota sin decir que además
+     * necesitaba otra casilla. La dependencia la conoce el código; la escuela
+     * no tiene por qué.
+     *
+     * No entra al catálogo de permisos a propósito: no es asignable, es
+     * derivado. Uno asignable que nadie puede desmarcar sería mentira.
+     */
+    protected function registrarPermisosDerivados(): void
+    {
+        Gate::define(
+            'entrar-promocion',
+            fn ($usuario) => $usuario->can('ver-mis-prospectos') || $usuario->can('gestionar-promocion')
+        );
     }
 
     /**

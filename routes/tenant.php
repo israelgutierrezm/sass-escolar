@@ -31,6 +31,7 @@ use App\Http\Controllers\PlanCobroController;
 use App\Http\Controllers\PlanEstudioController;
 use App\Http\Controllers\PlanMateriaController;
 use App\Http\Controllers\PlantillaEvaluacionController;
+use App\Http\Controllers\PromocionController;
 use App\Http\Controllers\RolActivoController;
 use App\Http\Controllers\RolController;
 use App\Http\Controllers\SeriacionController;
@@ -480,6 +481,45 @@ Route::middleware([
                     Route::put('/adeudos/{adeudo}/resolver', 'resolverAdeudo')
                         ->middleware('can:condonar-adeudos')
                         ->name('adeudos.resolver');
+                });
+            });
+
+        /*
+         * CRM de promoción. Dos permisos y dos alcances: `ver-mis-prospectos`
+         * deja entrar al promotor —que solo ve los que le asignaron— y
+         * `gestionar-promocion` abre el embudo completo. El alcance lo resuelve
+         * `EmbudoAdmision::acotar`, no la ruta.
+         */
+        Route::controller(PromocionController::class)
+            ->prefix('promocion')->name('tenant.promocion.')
+            ->group(function () {
+                // `entrar-promocion` es derivado: lo abre el promotor con
+                // `ver-mis-prospectos` o quien coordina con
+                // `gestionar-promocion`. El alcance lo acota el servicio.
+                Route::middleware('can:entrar-promocion')->group(function () {
+                    Route::get('/', 'index')->name('index');
+                    Route::get('/etapas/{etapa}', 'etapa')->name('etapa');
+                    Route::post('/aspirantes/{aspirante}/seguimientos', 'seguir')->name('seguir');
+                });
+
+                Route::middleware('can:gestionar-promocion')->group(function () {
+                    Route::post('/aspirantes/{aspirante}/promotores', 'asignarPromotor')->name('promotores.asignar');
+                    Route::delete('/aspirantes/{aspirante}/promotores/{personaId}', 'retirarPromotor')->name('promotores.retirar');
+                });
+
+                // Cada promotor ve las suyas; `gestionar-comisiones` las de
+                // todos. El filtro va dentro del controlador.
+                Route::get('/comisiones', 'comisiones')
+                    ->middleware('can:entrar-promocion')->name('comisiones');
+
+                Route::middleware('can:gestionar-comisiones')->group(function () {
+                    Route::post('/comisiones/pagar', 'pagarComisiones')->name('comisiones.pagar');
+                    Route::post('/comisiones/{comision}/cancelar', 'cancelarComision')->name('comisiones.cancelar');
+                });
+
+                Route::middleware('can:configurar-comisiones')->group(function () {
+                    Route::post('/reglas-comision', 'guardarRegla')->name('reglas.store');
+                    Route::delete('/reglas-comision/{regla}', 'eliminarRegla')->name('reglas.destroy');
                 });
             });
 

@@ -34,6 +34,7 @@ class ConvertidorAspirante
     public function __construct(
         private readonly GeneradorMatricula $generador,
         private readonly ReligadorFinanzas $religador,
+        private readonly DevengadorComisiones $comisiones,
     ) {}
 
     /**
@@ -66,6 +67,13 @@ class ConvertidorAspirante
 
             $this->religarRespuestas($aspirante, $matricula);
             $this->religador->religar($aspirante, $matricula);
+
+            // La comisión del promotor se devenga aquí, no al capturarlo: se
+            // paga por resultado. Es silencioso — sin promotor titular o sin
+            // regla vigente no devenga y no falla, porque la mayoría de las
+            // escuelas no usa comisiones y una conversión no debe romperse por
+            // eso.
+            $this->comisiones->devengar($aspirante, $matricula);
 
             $aspirante->update([
                 'situacion_id' => SituacionAspirante::query()->where('clave', 'inscrito')->value('id'),

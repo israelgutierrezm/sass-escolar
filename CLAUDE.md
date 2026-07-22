@@ -48,13 +48,13 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (17 suites, 458 verificaciones):
+   Las suites versionadas viven en `scripts/` (18 suites, 491 verificaciones):
    `prueba-actas`, `prueba-plantillas`, `prueba-ventanas-captura`,
    `prueba-ciclo-campus`, `prueba-apertura-grupos`, `prueba-alcance-docente`,
    `prueba-alumnos`, `prueba-docentes`, `prueba-documentos`,
    `prueba-formularios`, `prueba-multicarrera`, `prueba-suplantacion`,
    `prueba-finanzas`, `prueba-cobro`, `prueba-facturacion`, `prueba-emisores`,
-   `prueba-roles`. NO van en `tests/`:
+   `prueba-roles`, `prueba-crm`. NO van en `tests/`:
    phpunit corre contra SQLite en memoria y ahí se prueba justo lo que SQLite
    no sabe hacer (`LAST_INSERT_ID`, FKs reales, InnoDB).
 
@@ -64,9 +64,7 @@ Cinco entregas, en este orden. A y B ✅ hechas; C, D y E pendientes:
 
 - **A** ✅ Roles y permisos desde pantalla.
 - **B** ✅ Menú por oficio (Alumnos y Docentes como secciones propias).
-- **C** ⏳ CRM de promoción: promotores, seguimiento de prospectos y
-  **comisiones** — decisión tomada: el promotor devenga al INSCRIBIRSE el
-  aspirante, con regla configurable (monto fijo o % de la inscripción).
+- **C** ✅ CRM de promoción: embudo, seguimiento, promotores y comisiones.
 - **D** ⏳ Formulario público embebible en la web de la escuela. Decisión
   tomada: **configurable por formulario** — cada uno declara si es solo
   captación (deja un prospecto al CRM) o inscripción autogestiva completa.
@@ -253,7 +251,19 @@ npm run dev                # o npm run build
 - **Menú agrupado por oficio**: Alumnos y Docentes son secciones propias, no
   submenús de Control escolar (que se queda con ciclos y grupos). Las URLs no
   cambiaron.
-- Pruebas: 17 suites en `scripts/`, 458 verificaciones, todas contra la BD real
+- **CRM de promoción** (`/promocion`): cierra un hueco grande — `etapas_crm`
+  estaba sembrada desde la Fase 1 y **nadie la usaba**, `aspirantes` no tenia
+  columna de etapa. Ahora hay embudo real, `origenes_aspirante` como catalogo
+  (con bandera `autogestivo`), bitacora de contacto `seguimientos_aspirante`
+  con proximo contacto, y comisiones que **se devengan al inscribirse** el
+  prospecto (`DevengadorComisiones`, dentro de la transaccion de conversion).
+  El monto se congela al devengarse. Alcance en dos capas: el permiso dice que,
+  la asignacion en `aspirante_asesor` dice sobre quien.
+- **Permisos derivados**: `entrar-promocion` se define con `Gate::define` y lo
+  abre `ver-mis-prospectos` O `gestionar-promocion`. No es asignable ni esta en
+  el catalogo: cuando dos permisos abren la misma puerta, la puerta se declara
+  aparte en vez de pedirle a la escuela que adivine la dependencia.
+- Pruebas: 18 suites en `scripts/`, 491 verificaciones, todas contra la BD real
   del tenant demo con `DB::rollBack()` al final.
 
 **Pendiente inmediato — aquí se retoma:**

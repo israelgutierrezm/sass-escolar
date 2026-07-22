@@ -8,6 +8,8 @@ use App\Models\Academico\Campus;
 use App\Models\Academico\Oferta;
 use App\Models\Concerns\TieneAuditoria;
 use App\Models\Identidad\Persona;
+use App\Models\Promocion\OrigenAspirante;
+use App\Models\Promocion\SeguimientoAspirante;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -34,7 +36,9 @@ class Aspirante extends Model
         'cleaver_completo',
         'validado_admin',
         'origen',
+        'origen_id',
         'ciclo_ingreso_id',
+        'etapa_crm_id',
     ];
 
     protected function casts(): array
@@ -50,6 +54,29 @@ class Aspirante extends Model
     public function persona(): BelongsTo
     {
         return $this->belongsTo(Persona::class);
+    }
+
+    /**
+     * En qué punto del embudo va. `etapas_crm` estaba sembrada desde la Fase 1
+     * y no la usaba nadie: sin esta columna el embudo era un catálogo, no un
+     * dato, y no se podía saber cuántos se caen entre una etapa y otra.
+     */
+    public function etapa(): BelongsTo
+    {
+        return $this->belongsTo(EtapaCrm::class, 'etapa_crm_id');
+    }
+
+    public function origenAspirante(): BelongsTo
+    {
+        return $this->belongsTo(OrigenAspirante::class, 'origen_id');
+    }
+
+    /** La bitácora de contacto, del más reciente al más viejo. */
+    public function seguimientos(): HasMany
+    {
+        return $this->hasMany(SeguimientoAspirante::class, 'aspirante_id')
+            ->orderByDesc('momento')
+            ->orderByDesc('id');
     }
 
     public function ofertaInteres(): BelongsTo
@@ -71,6 +98,10 @@ class Aspirante extends Model
     public function asesores(): BelongsToMany
     {
         return $this->belongsToMany(Asesor::class, 'aspirante_asesor', 'aspirante_id', 'persona_id')
+            // `titular` dice CUÁL de ellos responde por el prospecto. Sin eso
+            // no se sabe a quién pagarle la comisión cuando hay dos asesores
+            // encima del mismo aspirante.
+            ->withPivot('titular')
             ->withTimestamps();
     }
 

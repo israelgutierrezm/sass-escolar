@@ -49,6 +49,13 @@ final class CatalogoPermisos
             'gestionar-documentos' => ['Administrar el catálogo de documentos', 'Definir qué papeles se le piden a cada tipo de persona.'],
         ],
 
+        'Promoción y CRM' => [
+            'ver-mis-prospectos' => ['Ver mis prospectos', 'El promotor ve y da seguimiento SOLO a los aspirantes que le asignaron.'],
+            'gestionar-promocion' => ['Coordinar promoción', 'Ver el embudo completo, asignar promotores y mover prospectos de etapa.'],
+            'gestionar-comisiones' => ['Administrar comisiones', 'Ver las comisiones de todos, marcarlas pagadas y cancelarlas. Sin esto, cada promotor ve solo las suyas.'],
+            'configurar-comisiones' => ['Configurar comisiones', 'Definir cuánto se paga por alumno inscrito y a qué carreras aplica.'],
+        ],
+
         'Control escolar' => [
             'ver-alumnos' => ['Ver alumnos', 'Buscar matrículas y consultar su expediente.'],
             'editar-alumnos' => ['Editar alumnos', 'Corregir su situación y su estatus de inscripción.'],
