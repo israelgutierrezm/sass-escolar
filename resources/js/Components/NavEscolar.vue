@@ -8,7 +8,6 @@ const secciones = [
     { etiqueta: 'Ciclos', url: '/escolar/ciclos' },
     { etiqueta: 'Grupos', url: '/escolar/grupos' },
     { etiqueta: 'Inscripciones', url: '/escolar/inscripciones' },
-    { etiqueta: 'Captura', url: '/escolar/captura' },
 ];
 
 const actual = computed(() => page.url.split('?')[0]);

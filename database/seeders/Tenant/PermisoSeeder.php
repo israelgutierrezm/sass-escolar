@@ -27,6 +27,10 @@ class PermisoSeeder extends Seeder
         'entidades' => ['ver-personas', 'crear-personas', 'editar-personas'],
         'admisiones' => ['ver-aspirantes', 'crear-aspirantes', 'editar-aspirantes', 'validar-expediente', 'convertir-aspirante', 'generar-matricula'],
         'control-escolar' => ['ver-alumnos', 'editar-alumnos', 'inscribir-alumnos', 'ver-kardex', 'capturar-calificaciones', 'asentar-acta', 'gestionar-ventanas-captura', 'pasar-lista', 'ver-grupos'],
+        // Lo del docente sobre SÍ MISMO y sobre SUS materias. Separado del
+        // dominio de control escolar porque un docente no es personal
+        // administrativo: no gestiona la escuela, imparte clase en ella.
+        'docencia' => ['ver-mis-materias', 'editar-mi-expediente', 'ver-docentes', 'gestionar-docentes'],
         'academico' => ['ver-catalogo-academico', 'editar-catalogo-academico', 'abrir-grupos'],
         'finanzas' => ['ver-adeudos', 'registrar-pagos', 'condonar-adeudos', 'facturar'],
         'plataforma' => ['ver-configuracion', 'editar-configuracion', 'gestionar-usuarios', 'gestionar-roles'],
@@ -42,11 +46,11 @@ class PermisoSeeder extends Seeder
             'ver-kardex', 'ver-adeudos', 'condonar-adeudos', 'ver-configuracion',
             'editar-configuracion', 'gestionar-usuarios', 'gestionar-roles',
             'editar-catalogo-academico', 'abrir-grupos', 'inscribir-alumnos',
-            'gestionar-ventanas-captura',
+            'gestionar-ventanas-captura', 'ver-docentes', 'gestionar-docentes',
         ],
         'director_campus' => [
             'crear-personas', 'editar-personas', 'ver-aspirantes', 'editar-alumnos',
-            'ver-kardex', 'ver-adeudos', 'abrir-grupos',
+            'ver-kardex', 'ver-adeudos', 'abrir-grupos', 'ver-docentes',
         ],
         'encargado_admisiones' => [
             'ver-aspirantes', 'crear-aspirantes', 'editar-aspirantes',
@@ -58,6 +62,7 @@ class PermisoSeeder extends Seeder
             'editar-alumnos', 'inscribir-alumnos', 'ver-kardex',
             'capturar-calificaciones', 'asentar-acta', 'gestionar-ventanas-captura',
             'abrir-grupos', 'editar-catalogo-academico',
+            'ver-docentes', 'gestionar-docentes',
         ],
         // Captura pero NO firma: puede vaciar las hojas que entrega el docente
         // y es el titular quien asienta el acta.
@@ -69,8 +74,16 @@ class PermisoSeeder extends Seeder
         // El alcance del docente NO lo da el permiso sino la asignación en
         // `docente_asignatura_grupo`: solo captura y firma las materias que
         // imparte, y firmar es exclusivo del titular.
-        'docente' => ['ver-alumnos', 'ver-kardex', 'pasar-lista', 'capturar-calificaciones', 'asentar-acta', 'ver-grupos'],
-        'coordinador_academia' => ['ver-catalogo-academico', 'abrir-grupos'],
+        //
+        // SIN `ver-grupos` ni `ver-alumnos`: esos son de personal
+        // administrativo y le abrían Control escolar entero —ciclos y grupos de
+        // toda la escuela— además de la futura pantalla de alumnos. El docente
+        // llega a sus alumnos por sus materias, no por un listado global.
+        'docente' => [
+            'ver-mis-materias', 'editar-mi-expediente',
+            'ver-kardex', 'pasar-lista', 'capturar-calificaciones', 'asentar-acta',
+        ],
+        'coordinador_academia' => ['ver-catalogo-academico', 'abrir-grupos', 'ver-docentes'],
 
         // Facetas no administrativas: su alcance se resuelve además por
         // pertenencia (un alumno solo ve SU kárdex), no solo por permiso.

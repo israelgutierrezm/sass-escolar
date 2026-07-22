@@ -2,7 +2,6 @@
 import { Head, router } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import NavEscolar from '@/Components/NavEscolar.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 
 interface Materia {
@@ -26,7 +25,7 @@ const props = defineProps<{
 const cicloId = ref(props.cicloId);
 
 watch(cicloId, () => {
-    router.get('/escolar/captura', { ciclo_id: cicloId.value }, { preserveState: true, replace: true });
+    router.get('/captura', { ciclo_id: cicloId.value }, { preserveState: true, replace: true });
 });
 
 const etiquetasDeActa: Record<Materia['acta']['estado'], string> = {
@@ -48,8 +47,6 @@ function colorDeActa(estado: Materia['acta']['estado']): string {
     <Head title="Captura de calificaciones" />
 
     <AppLayout titulo="Captura de calificaciones">
-        <NavEscolar />
-
         <section class="tarjeta p-6">
             <div class="grid gap-4 sm:grid-cols-2">
                 <CampoSelect
@@ -107,7 +104,7 @@ function colorDeActa(estado: Materia['acta']['estado']): string {
                         </td>
                         <td class="px-6 py-3 text-right">
                             <a
-                                :href="`/escolar/captura/${materia.id}`"
+                                :href="`/captura/${materia.id}`"
                                 class="text-sm font-medium"
                                 :style="{ color: 'var(--color-acento)' }"
                             >

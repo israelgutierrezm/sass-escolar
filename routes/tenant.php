@@ -11,8 +11,10 @@ use App\Http\Controllers\CapturaCalificacionesController;
 use App\Http\Controllers\CarreraController;
 use App\Http\Controllers\CicloController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DocenciaController;
 use App\Http\Controllers\EsquemaEvaluacionController;
 use App\Http\Controllers\ExpedienteAspiranteController;
+use App\Http\Controllers\ExpedienteDocenteController;
 use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\InscripcionController;
 use App\Http\Controllers\OfertaController;
@@ -77,6 +79,48 @@ Route::middleware([
             // La matrícula nace aquí, no antes.
             Route::post('/{aspirante}/convertir', 'convertir')->middleware('can:convertir-aspirante')->name('convertir');
         });
+
+        /*
+         * Portal del docente y captura de calificaciones.
+         *
+         * Viven FUERA del prefijo /escolar a propósito: ese grupo exige
+         * `ver-grupos`, un permiso de personal administrativo que el docente ya
+         * no tiene. Un docente no gestiona ciclos ni grupos de la escuela; ve
+         * las materias que imparte y captura sus calificaciones.
+         *
+         * La captura queda en su propio prefijo porque la usan los dos oficios:
+         * el docente sobre lo suyo y control escolar sobre cualquier materia.
+         */
+        Route::controller(DocenciaController::class)
+            ->prefix('docencia')->name('tenant.docencia.')
+            ->middleware('can:ver-mis-materias')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('materias/{asignaturaGrupo}', 'materia')
+                    ->whereNumber('asignaturaGrupo')->name('materia');
+            });
+
+        Route::controller(ExpedienteDocenteController::class)
+            ->prefix('docencia/expediente')->name('tenant.docencia.expediente.')
+            ->middleware('can:editar-mi-expediente')
+            ->group(function () {
+                Route::get('/', 'show')->name('show');
+                Route::put('/', 'actualizar')->name('actualizar');
+                Route::post('documentos', 'subir')->name('documentos.store');
+                Route::get('documentos/{documento}/descargar', 'descargar')->name('documentos.descargar');
+                Route::delete('documentos/{documento}', 'eliminar')->name('documentos.destroy');
+            });
+
+        Route::controller(CapturaCalificacionesController::class)
+            ->prefix('captura')->name('tenant.captura.')
+            ->middleware('can:capturar-calificaciones')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('{asignaturaGrupo}', 'show')->whereNumber('asignaturaGrupo')->name('show');
+                Route::put('{asignaturaGrupo}', 'guardar')->whereNumber('asignaturaGrupo')->name('guardar');
+                Route::post('{asignaturaGrupo}/cerrar', 'cerrar')->whereNumber('asignaturaGrupo')->name('cerrar');
+                Route::post('{asignaturaGrupo}/corregir', 'corregir')->whereNumber('asignaturaGrupo')->name('corregir');
+            });
 
         /*
          * Catálogo académico. Campus y carreras son la base; los planes cuelgan
@@ -179,22 +223,6 @@ Route::middleware([
                 Route::get('grupos/{grupo}', [GrupoController::class, 'show'])
                     ->whereNumber('grupo')
                     ->name('grupos.show');
-
-                /*
-                 * Captura de calificaciones y acta. El permiso abre la puerta;
-                 * el controlador decide sobre QUÉ materia, porque un docente
-                 * solo califica las suyas y control escolar las de todos.
-                 */
-                Route::controller(CapturaCalificacionesController::class)
-                    ->prefix('captura')->name('captura.')
-                    ->middleware('can:capturar-calificaciones')
-                    ->group(function () {
-                        Route::get('/', 'index')->name('index');
-                        Route::get('{asignaturaGrupo}', 'show')->whereNumber('asignaturaGrupo')->name('show');
-                        Route::put('{asignaturaGrupo}', 'guardar')->whereNumber('asignaturaGrupo')->name('guardar');
-                        Route::post('{asignaturaGrupo}/cerrar', 'cerrar')->whereNumber('asignaturaGrupo')->name('cerrar');
-                        Route::post('{asignaturaGrupo}/corregir', 'corregir')->whereNumber('asignaturaGrupo')->name('corregir');
-                    });
 
                 Route::middleware('can:inscribir-alumnos')->group(function () {
                     Route::post('inscripciones', [InscripcionController::class, 'store'])->name('inscripciones.store');

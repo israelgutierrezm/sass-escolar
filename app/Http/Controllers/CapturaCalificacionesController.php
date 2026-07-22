@@ -64,9 +64,12 @@ class CapturaCalificacionesController extends Controller
             ])
             ->when($ciclo !== null, fn ($q) => $q->whereHas('grupo', fn ($g) => $g->where('ciclo_id', $ciclo->id)))
             // Un docente solo ve lo suyo; control escolar ve todo el ciclo.
+            // La relación `docentes` apunta a la tabla `docentes` (PK
+            // persona_id), NO a `personas`: calificar la columna con la tabla
+            // equivocada revienta la consulta.
             ->when($soloLasMias, fn ($q) => $q->whereHas(
                 'docentes',
-                fn ($d) => $d->where('personas.id', $this->personaId($request))
+                fn ($d) => $d->where('docentes.persona_id', $this->personaId($request))
             ))
             ->get()
             ->map(fn (AsignaturaGrupo $materia) => [
@@ -83,7 +86,7 @@ class CapturaCalificacionesController extends Controller
             ->values()
             ->all();
 
-        return Inertia::render('ControlEscolar/Captura/Index', [
+        return Inertia::render('Captura/Index', [
             'ciclos' => Ciclo::query()
                 ->orderByDesc('fecha_inicio')
                 ->get(['id', 'clave', 'nombre'])
@@ -138,7 +141,7 @@ class CapturaCalificacionesController extends Controller
             })
             ->all();
 
-        return Inertia::render('ControlEscolar/Captura/Hoja', [
+        return Inertia::render('Captura/Hoja', [
             'materia' => [
                 'id' => $asignaturaGrupo->id,
                 'nombre' => $asignaturaGrupo->planMateria?->asignatura?->nombre,

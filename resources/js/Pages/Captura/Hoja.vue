@@ -2,7 +2,6 @@
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, reactive, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import NavEscolar from '@/Components/NavEscolar.vue';
 
 interface Componente {
     id: number;
@@ -117,7 +116,7 @@ function guardar(): void {
         }),
     );
 
-    form.put(`/escolar/captura/${props.materia.id}`, { preserveScroll: true });
+    form.put(`/captura/${props.materia.id}`, { preserveScroll: true });
 }
 
 /* Cierre y corrección */
@@ -127,7 +126,7 @@ const formCierre = useForm({});
 const formCorreccion = useForm({ motivo: '' });
 
 function cerrarActa(): void {
-    formCierre.post(`/escolar/captura/${props.materia.id}/cerrar`, {
+    formCierre.post(`/captura/${props.materia.id}/cerrar`, {
         preserveScroll: true,
         onSuccess: () => (confirmandoCierre.value = false),
     });
@@ -136,7 +135,7 @@ function cerrarActa(): void {
 const corrigiendo = ref(false);
 
 function abrirCorreccion(): void {
-    formCorreccion.post(`/escolar/captura/${props.materia.id}/corregir`, {
+    formCorreccion.post(`/captura/${props.materia.id}/corregir`, {
         preserveScroll: true,
         onSuccess: () => {
             corrigiendo.value = false;
@@ -205,8 +204,6 @@ const cortesPorExcepcion = computed(() =>
     <Head :title="`Captura · ${materia.nombre ?? ''}`" />
 
     <AppLayout titulo="Captura de calificaciones">
-        <NavEscolar />
-
         <!-- Cabecera de la materia -->
         <section class="tarjeta p-6">
             <div class="flex flex-wrap items-start justify-between gap-4">
@@ -222,7 +219,7 @@ const cortesPorExcepcion = computed(() =>
                         Captura hasta el {{ materia.captura_hasta }}
                     </p>
                 </div>
-                <a href="/escolar/captura" class="text-sm" :style="{ color: 'var(--color-acento)' }">
+                <a href="/captura" class="text-sm" :style="{ color: 'var(--color-acento)' }">
                     ← Volver
                 </a>
             </div>

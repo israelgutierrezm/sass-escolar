@@ -13,8 +13,10 @@ withDefaults(
         marcador?: string;
         mono?: boolean;
         maximo?: number;
+        /** Para mostrar un dato que el usuario no administra (lo fija la escuela). */
+        deshabilitado?: boolean;
     }>(),
-    { tipo: 'text', requerido: false, mono: false },
+    { tipo: 'text', requerido: false, mono: false, deshabilitado: false },
 );
 
 const modelo = defineModel<string | number | null>();
@@ -31,7 +33,8 @@ const modelo = defineModel<string | number | null>();
             :required="requerido"
             :placeholder="marcador"
             :maxlength="maximo"
-            class="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1"
+            :disabled="deshabilitado"
+            class="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500"
             :class="[
                 error
                     ? 'border-red-400 focus:border-red-500 focus:ring-red-500'

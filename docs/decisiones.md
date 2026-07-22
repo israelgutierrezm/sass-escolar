@@ -712,3 +712,58 @@ La demo tenía una sola carrera y tres materias, con lo que ninguna de estas tre
 pantallas se podía valorar. Se le cargó una segunda carrera (Derecho, con un
 plan también llamado "Plan 2026", a propósito) y una malla de catorce materias
 en cuatro periodos. Son datos de la BD local, no un seeder del repo.
+
+## 2026-07-21 — El docente no es personal administrativo
+
+### El problema, con datos
+El rol `docente` tenía `ver-grupos` y `ver-alumnos`, así que le aparecía Control
+escolar entero: ciclos y grupos de TODA la escuela, pantallas pensadas para otro
+oficio. `GrupoController::index` tampoco filtraba por pertenencia — cualquier
+docente podía abrir el detalle de cualquier grupo. Solo la captura estaba
+acotada.
+
+### RESOLUCIÓN: sección "Docencia" propia, no filtros sobre las ajenas
+- Al rol `docente` se le quitan `ver-grupos` y `ver-alumnos`. Gana
+  `ver-mis-materias` y `editar-mi-expediente`.
+- Rutas nuevas fuera de `/escolar`: `/docencia` (mis materias), 
+  `/docencia/materias/{ag}` (mis alumnos) y `/docencia/expediente`.
+- **La captura se mudó de `/escolar/captura` a `/captura`.** Estaba dentro del
+  grupo que exige `ver-grupos`, así que quitarle ese permiso al docente le
+  habría cerrado la captura. Vive en su propio prefijo porque la usan los dos
+  oficios: el docente sobre lo suyo y control escolar sobre cualquier materia.
+- Se descartó "mismo menú, todo filtrado": dejaría al docente dentro de
+  pantallas donde casi todo le queda vacío, y cualquier pantalla futura que se
+  olvide de filtrar se le abriría por accidente. Lo que no debe ver, no existe
+  para él.
+- El alcance sigue saliendo de `docente_asignatura_grupo`, no del permiso: cada
+  consulta arranca de ahí, así que no se llega a la materia de otro cambiando un
+  id en la URL. Verificado: 403 en materia ajena, 403 en su captura.
+
+### BUG ENCONTRADO: el filtro "solo mis materias" nunca se había ejecutado
+- `whereHas('docentes', fn ($q) => $q->where('personas.id', ...))` estaba mal:
+  la relación cuelga de la tabla `docentes` (PK `persona_id`), no de `personas`.
+  La consulta reventaba con `Unknown column 'personas.id'`.
+- **Por qué no se había visto:** ese filtro solo corre para docentes, y todas
+  las pruebas anteriores se hicieron con un usuario de control escolar, que
+  toma la otra rama. El bug estaba en `CapturaCalificacionesController` desde el
+  hito de captura y solo apareció al entrar por primera vez como docente real.
+- Lección: probar una rama con el rol equivocado no prueba nada. La suite
+  `prueba-alcance-docente.php` fija el caso.
+
+### `documentos_docente`: expediente mínimo, no Módulo 10
+- **Decisión:** tabla propia que espeja a `expediente_documentos` (el del
+  aspirante) y reutiliza sus catálogos: `documentos_requeridos` para el tipo y
+  `estados_documento` para la revisión. Son el mismo problema —alguien sube
+  comprobantes y otro los valida— y no merecen dos motores.
+- **Por qué no `expedientes_laborales`** (Módulo 10, Fase 4): aquello guarda
+  contrato, régimen fiscal, puesto y adscripciones, que captura RH y no el
+  docente. Adelantarlo metería media Fase 4 fuera de orden.
+- Único (persona_id, documento_id): **re-subir reemplaza, no acumula**, y borra
+  el archivo anterior del disco. Es lo que espera quien corrige un escaneo malo,
+  y evita amontonar datos personales que nadie va a consultar.
+- Re-subir **reinicia la revisión a pendiente**: el archivo cambió, así que el
+  visto bueno anterior ya no dice nada del nuevo.
+- Un documento ya **aceptado no lo borra el docente**: es el comprobante en el
+  que la escuela se apoyó para acreditarlo.
+- Lo que el docente NO controla y se le muestra de solo lectura: clave de
+  profesor, cédula, tipo, situación y campus. Subir un título no es acreditarlo.
