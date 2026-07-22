@@ -14,6 +14,7 @@ const secciones = [
     { etiqueta: 'Carreras', url: '/academico/carreras' },
     { etiqueta: 'Asignaturas', url: '/academico/asignaturas' },
     { etiqueta: 'Planes de estudio', url: '/academico/planes' },
+    { etiqueta: 'Evaluación', url: '/academico/plantillas' },
     { etiqueta: 'Oferta', url: '/academico/ofertas' },
 ];
 

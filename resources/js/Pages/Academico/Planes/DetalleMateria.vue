@@ -34,6 +34,7 @@ const props = defineProps<{
     seriacion: Requisito[];
     componentes: Componente[];
     sumaPorcentajes: number;
+    plantilla: { id: number; nombre: string } | null;
     candidatas: { id: number; etiqueta: string }[];
     puedeEditar: boolean;
 }>();
@@ -233,6 +234,20 @@ const etiquetaTipo = (tipo: string) => (tipo === 'aprobada' ? 'Aprobada' : 'Curs
                     <div>
                         <h2 class="text-base font-semibold text-slate-800">Composición de la calificación</h2>
                         <p class="mt-1 text-sm text-slate-500">Los porcentajes deben sumar 100%.</p>
+
+                        <!-- De dónde salió el esquema: importa porque decide si
+                             una re-propagación de la plantilla lo va a pisar. -->
+                        <p v-if="plantilla" class="mt-2 text-sm text-slate-500">
+                            Sigue la plantilla
+                            <a
+                                :href="`/academico/plantillas/${plantilla.id}`"
+                                class="font-medium text-indigo-600 hover:text-indigo-700"
+                            >{{ plantilla.nombre }}</a>. Si editas estos rubros, la materia se desliga y
+                            deja de actualizarse con ella.
+                        </p>
+                        <p v-else-if="componentes.length" class="mt-2 text-sm text-slate-500">
+                            Esquema propio de esta materia; ninguna plantilla lo modifica.
+                        </p>
                     </div>
                     <span
                         class="rounded-full px-3 py-1 text-sm font-medium"

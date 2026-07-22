@@ -37,6 +37,7 @@ class PlanEstudio extends Model
         'curp_responsable',
         'clave_matricula',
         'clave_matricula_consecutivo',
+        'plantilla_evaluacion_id',
         'vigente',
     ];
 
@@ -53,6 +54,12 @@ class PlanEstudio extends Model
     public function carrera(): BelongsTo
     {
         return $this->belongsTo(Carrera::class);
+    }
+
+    /** Criterio de evaluación por defecto para las materias de este plan. */
+    public function plantillaEvaluacion(): BelongsTo
+    {
+        return $this->belongsTo(PlantillaEvaluacion::class, 'plantilla_evaluacion_id');
     }
 
     public function autorizacionReconocimiento(): BelongsTo

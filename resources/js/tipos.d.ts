@@ -34,6 +34,8 @@ export interface Escuela {
 export interface Flash {
     exito: string | null;
     error: string | null;
+    /** La operación funcionó pero algo quedó fuera; se explica qué y por qué. */
+    advertencia: string | null;
 }
 
 export interface PropsCompartidas {

@@ -25,6 +25,7 @@ class PlanMateria extends Model
         'periodo',
         'tipo',
         'creditos_en_plan',
+        'plantilla_evaluacion_id',
     ];
 
     protected function casts(): array
@@ -47,6 +48,21 @@ class PlanMateria extends Model
     public function esquemaEvaluacion(): HasMany
     {
         return $this->hasMany(EsquemaEvaluacion::class, 'plan_materia_id');
+    }
+
+    /**
+     * Plantilla de la que salió su esquema. NULL = esquema propio, armado a
+     * mano; esas materias no se pisan al re-propagar una plantilla.
+     */
+    public function plantillaEvaluacion(): BelongsTo
+    {
+        return $this->belongsTo(PlantillaEvaluacion::class, 'plantilla_evaluacion_id');
+    }
+
+    /** ¿Su esquema se armó a mano, fuera de cualquier plantilla? */
+    public function tieneEsquemaPropio(): bool
+    {
+        return $this->plantilla_evaluacion_id === null && $this->esquemaEvaluacion()->exists();
     }
 
     /** Prerrequisitos de esta materia (filas de seriación donde es la que exige). */

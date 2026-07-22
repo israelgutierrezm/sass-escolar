@@ -18,6 +18,7 @@ use App\Http\Controllers\InscripcionController;
 use App\Http\Controllers\OfertaController;
 use App\Http\Controllers\PlanEstudioController;
 use App\Http\Controllers\PlanMateriaController;
+use App\Http\Controllers\PlantillaEvaluacionController;
 use App\Http\Controllers\RolActivoController;
 use App\Http\Controllers\SeriacionController;
 use App\Http\Controllers\TemaController;
@@ -92,6 +93,12 @@ Route::middleware([
                 Route::get('ofertas', [OfertaController::class, 'index'])->name('ofertas.index');
                 Route::get('asignaturas', [AsignaturaController::class, 'index'])->name('asignaturas.index');
 
+                // Plantillas de evaluación: el criterio de calificación
+                // definido una vez y aplicado al plan completo.
+                Route::get('plantillas', [PlantillaEvaluacionController::class, 'index'])->name('plantillas.index');
+                Route::get('plantillas/{plantilla}', [PlantillaEvaluacionController::class, 'show'])
+                    ->whereNumber('plantilla')->name('plantillas.show');
+
                 // Malla curricular: qué asignaturas componen un plan.
                 Route::get('planes/{plan}/materias', [PlanMateriaController::class, 'index'])->name('planes.materias.index');
                 Route::get('planes/{plan}/materias/{materia}', [PlanMateriaController::class, 'show'])->name('planes.materias.show');
@@ -111,6 +118,20 @@ Route::middleware([
                     // Prerrequisitos (el DAG de seriación) y composición de la calificación.
                     Route::post('planes/{plan}/materias/{materia}/seriacion', [SeriacionController::class, 'store'])->name('planes.seriacion.store');
                     Route::delete('planes/{plan}/materias/{materia}/seriacion/{seriacion}', [SeriacionController::class, 'destroy'])->name('planes.seriacion.destroy');
+
+                    Route::controller(PlantillaEvaluacionController::class)->prefix('plantillas')->name('plantillas.')->group(function () {
+                        Route::post('/', 'store')->name('store');
+                        Route::put('{plantilla}', 'update')->name('update');
+                        Route::delete('{plantilla}', 'destroy')->name('destroy');
+
+                        Route::post('{plantilla}/rubros', 'agregarComponente')->name('rubros.store');
+                        Route::put('{plantilla}/rubros/{componente}', 'actualizarComponente')->name('rubros.update');
+                        Route::delete('{plantilla}/rubros/{componente}', 'eliminarComponente')->name('rubros.destroy');
+
+                        Route::post('{plantilla}/repartir', 'repartirEquitativo')->name('repartir');
+                        Route::post('{plantilla}/aplicar', 'aplicarAPlan')->name('aplicar');
+                        Route::post('{plantilla}/repropagar', 'repropagar')->name('repropagar');
+                    });
 
                     Route::post('planes/{plan}/materias/{materia}/evaluacion', [EsquemaEvaluacionController::class, 'store'])->name('planes.evaluacion.store');
                     Route::put('planes/{plan}/materias/{materia}/evaluacion/{componente}', [EsquemaEvaluacionController::class, 'update'])->name('planes.evaluacion.update');

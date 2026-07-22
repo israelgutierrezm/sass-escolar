@@ -34,6 +34,8 @@ class EsquemaEvaluacionController extends Controller
             'orden' => $datos['orden'] ?? ($materia->esquemaEvaluacion()->max('orden') + 1),
         ]);
 
+        $this->desligarDePlantilla($materia);
+
         return back()->with('exito', 'Componente agregado.');
     }
 
@@ -47,6 +49,8 @@ class EsquemaEvaluacionController extends Controller
 
         $componente->update($datos);
 
+        $this->desligarDePlantilla($materia);
+
         return back()->with('exito', 'Componente actualizado.');
     }
 
@@ -56,7 +60,24 @@ class EsquemaEvaluacionController extends Controller
 
         $componente->delete();
 
+        $this->desligarDePlantilla($materia);
+
         return back()->with('exito', 'Componente eliminado.');
+    }
+
+    /**
+     * Tocar el esquema a mano desliga la materia de su plantilla.
+     *
+     * Sin esto, la siguiente re-propagación de la plantilla borraría el ajuste
+     * sin avisar. Que la materia se desligue sola es lo que hace segura la
+     * regla "editar la plantilla cambia todas": solo alcanza a las que no se
+     * han tocado.
+     */
+    private function desligarDePlantilla(PlanMateria $materia): void
+    {
+        if ($materia->plantilla_evaluacion_id !== null) {
+            $materia->update(['plantilla_evaluacion_id' => null]);
+        }
     }
 
     /**

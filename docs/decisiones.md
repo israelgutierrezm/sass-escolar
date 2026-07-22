@@ -537,3 +537,67 @@ con él antes de escribir código; tres eran de interfaz.
   para deseleccionar —cosa que casi nadie descubre— y no deja ver qué está
   marcado sin desplazarse. Con 4 campus un buscador estorba; con 50 materias es
   indispensable, de ahí el umbral.
+
+## 2026-07-21 — Plantillas de evaluación (bloque 2 de las aclaraciones)
+
+### El esquema por materia no escalaba  ✅ RESUELTO E IMPLEMENTADO
+- **Aclaración:** hay ofertas de 2 parciales, otras de 3, otras con rubros que
+  van directo al curso ("10% asistencia, 50% examen final, 40% actividades"), y
+  a veces se quiere una ponderación equitativa automática.
+- **Lo que ya servía sin tocar nada:** `esquema_evaluacion` (componente,
+  `parcial` nullable, porcentaje) YA expresa los tres casos. "Parcial 1:
+  asistencia 10% + examen 15%" son dos filas con `parcial=1`; "directo al curso"
+  son filas con `parcial=null`; 2 o 3 parciales es cuántas filas hay. No hizo
+  falta rediseñar nada de eso.
+- **Lo que faltaba:** el esquema cuelga de `plan_materias`, así que configurarlo
+  obligaba a repetir los mismos porcentajes en las 50 materias de un plan.
+- **RESOLUCIÓN:** `plantillas_evaluacion` + `plantilla_componentes`, con
+  `planes_estudio.plantilla_evaluacion_id` (criterio por defecto del plan) y
+  `plan_materias.plantilla_evaluacion_id` (de qué plantilla salió su esquema).
+  - **Los componentes se MATERIALIZAN**, no se leen en vivo. Al aplicar la
+    plantilla se copian como filas de `esquema_evaluacion` en cada materia.
+    Razón: `calificaciones_componente` apunta a `esquema_evaluacion_id`;
+    resolver el esquema en tiempo real obligaría a que una calificación
+    apuntara a veces a una tabla y a veces a otra, sin ganar nada.
+  - **`plantilla_evaluacion_id` en NULL = esquema propio**, armado a mano. Esas
+    materias no se pisan al re-propagar.
+  - **Editar el esquema de una materia la desliga sola de su plantilla**
+    (`EsquemaEvaluacionController`). Sin esto, la siguiente re-propagación
+    borraría el ajuste sin avisar; con esto, la regla "editar la plantilla
+    cambia todas" solo alcanza a las que nadie ha tocado.
+  - Una plantilla que no suma exactamente 100% **no se puede aplicar**: dejaría
+    materias que el motor de calificaciones no sabe calcular.
+  - Borrar una plantilla en uso está prohibido (dejaría materias con su esquema
+    materializado y sin saber de dónde salió); se desactiva en su lugar.
+
+### Lo capturado nunca se pisa
+- **Decisión:** una materia con calificaciones ya capturadas NO se re-aplica.
+  Se reporta como bloqueada, con su nombre, y el resto sí se actualiza.
+- **Razón:** reemplazar el esquema a media evaluación dejaría huérfano lo
+  capturado y movería calificaciones que un docente ya asentó. Se advierte
+  ANTES de guardar (la pantalla lista cuáles no se van a tocar) en vez de
+  sorprender después.
+
+### Reparto equitativo: el problema no es dividir, es que sume 100
+- **Decisión:** `RepartidorPorcentajes` usa el método del resto mayor: reparte
+  el piso en centésimas enteras y entrega los centavos sobrantes de uno en uno
+  a los primeros rubros.
+- **Razón:** 100 entre 3 no da un número exacto de centésimas. Redondear cada
+  parte por separado produce 33.33 × 3 = 99.99, y un esquema que no suma 100 es
+  precisamente el que el motor rechaza — o sea que el reparto "automático"
+  dejaría la materia sin poder calificarse. Con el resto mayor la suma es
+  exactamente 100 y la diferencia entre el rubro mayor y el menor nunca pasa de
+  0.01. Verificado para 1, 2, 3, 4, 6, 7, 9 y 11 rubros.
+- Se trabaja en centésimas enteras, no en flotantes, para que el reparto cuadre
+  al centavo.
+
+### HUECO CORREGIDO: los avisos que no eran ni éxito ni error se perdían
+- **Problema detectado al probar por HTTP:** `HandleInertiaRequests` solo
+  compartía `exito` y `error`. El mensaje más importante de esta feature —"se
+  aplicó a 40 materias, 3 no se tocaron porque ya tienen calificaciones"— usaba
+  una tercera clave y **desaparecía en silencio**.
+- **Decisión:** se agrega `advertencia` a las props compartidas, a la interfaz
+  `Flash` y al `AppLayout` (banda ámbar).
+- **Razón:** una operación puede terminar bien y aun así tener algo que el
+  usuario necesita saber. Forzar ese caso a "éxito" oculta información, y a
+  "error" miente sobre lo que pasó.

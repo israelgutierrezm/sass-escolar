@@ -51,6 +51,11 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'exito' => fn () => $request->session()->get('exito'),
                 'error' => fn () => $request->session()->get('error'),
+                // Una operación puede terminar bien y aun así tener algo que
+                // advertir —"se aplicó a 40 materias, 3 no se tocaron porque ya
+                // tienen calificaciones"—. Sin esta clave ese aviso se perdía
+                // en silencio, que es justo lo contrario de lo que se quiere.
+                'advertencia' => fn () => $request->session()->get('advertencia'),
             ],
         ];
     }

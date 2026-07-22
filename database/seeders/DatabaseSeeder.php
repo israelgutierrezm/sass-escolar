@@ -13,6 +13,7 @@ use Database\Seeders\Tenant\ConfiguracionSeeder;
 use Database\Seeders\Tenant\DocumentoRequeridoSeeder;
 use Database\Seeders\Tenant\ModuloSeeder;
 use Database\Seeders\Tenant\PermisoSeeder;
+use Database\Seeders\Tenant\PlantillaEvaluacionSeeder;
 use Database\Seeders\Tenant\ReglaMatriculaSeeder;
 use Database\Seeders\Tenant\RolSeeder;
 use Database\Seeders\Tenant\TemaSeeder;
@@ -47,6 +48,7 @@ class DatabaseSeeder extends Seeder
             PermisoSeeder::class,
             ReglaMatriculaSeeder::class,
             ConfiguracionSeeder::class,
+            PlantillaEvaluacionSeeder::class,
         ]);
     }
 }

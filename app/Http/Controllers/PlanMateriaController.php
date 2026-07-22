@@ -86,6 +86,7 @@ class PlanMateriaController extends Controller
             'asignatura:id,clave,nombre,creditos',
             'seriacion.requiere.asignatura:id,nombre',
             'esquemaEvaluacion',
+            'plantillaEvaluacion:id,nombre',
         ]);
 
         $plan->load('carrera:id,nombre');
@@ -119,6 +120,12 @@ class PlanMateriaController extends Controller
                 'orden' => $componente->orden,
             ]),
             'sumaPorcentajes' => (float) $componentes->sum('porcentaje'),
+            // De dónde salió el esquema. NULL significa que se armó a mano y
+            // que ninguna re-propagación de plantilla lo va a tocar.
+            'plantilla' => $materia->plantillaEvaluacion === null ? null : [
+                'id' => $materia->plantillaEvaluacion->id,
+                'nombre' => $materia->plantillaEvaluacion->nombre,
+            ],
             // Candidatas a requisito: el resto de materias del mismo plan.
             'candidatas' => PlanMateria::query()
                 ->with('asignatura:id,nombre')
