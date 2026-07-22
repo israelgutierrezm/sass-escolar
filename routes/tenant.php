@@ -27,6 +27,7 @@ use App\Http\Controllers\PlanMateriaController;
 use App\Http\Controllers\PlantillaEvaluacionController;
 use App\Http\Controllers\RolActivoController;
 use App\Http\Controllers\SeriacionController;
+use App\Http\Controllers\SuplantacionController;
 use App\Http\Controllers\TemaController;
 use App\Http\Controllers\VentanaCapturaController;
 use Illuminate\Support\Facades\Route;
@@ -60,6 +61,21 @@ Route::middleware([
     Route::middleware(['auth', 'rol.activo'])->group(function () {
         Route::get('/panel', DashboardController::class)->name('tenant.dashboard');
         Route::put('/rol-activo', [RolActivoController::class, 'actualizar'])->name('tenant.rol-activo.actualizar');
+
+        /*
+         * Suplantacion: ver el sistema como lo ve otra persona.
+         *
+         * Iniciar pide `suplantar-usuarios`; VOLVER no pide nada — mientras se
+         * suplanta se tienen los permisos del suplantado, y exigirle algo para
+         * salir podria dejar a alguien atrapado en una identidad ajena.
+         */
+        Route::post('/suplantar/{usuario}', [SuplantacionController::class, 'iniciar'])
+            ->whereNumber('usuario')
+            ->middleware('can:suplantar-usuarios')
+            ->name('tenant.suplantar.iniciar');
+
+        Route::delete('/suplantar', [SuplantacionController::class, 'terminar'])
+            ->name('tenant.suplantar.terminar');
         Route::post('/logout', [AutenticacionController::class, 'logout'])->name('tenant.logout');
 
         // Apariencia: preferencia personal, sin permiso especial.

@@ -39,6 +39,7 @@ const props = defineProps<{
     ofertasDisponibles: { id: number; etiqueta: string }[];
     puedeMatricular: boolean;
     situacionesDeBaja: { id: number; nombre: string }[];
+    suplantable: { usuario_id: number; usuario: string } | null;
     historial: Renglon[];
     resumen: Record<string, any>;
     carga: { ciclo: string; materias: any[] }[];
@@ -160,6 +161,23 @@ function quitarFoto(): void {
     if (!confirm('Quitar la foto?')) return;
     router.delete(`/personas/${props.persona.id}/foto`, { preserveScroll: true });
 }
+
+/*
+ * "Ver como": entrar con la cuenta de esta persona para reproducir lo que ella
+ * ve. Queda registrado en la bitacora, y la banda superior lo recuerda todo el
+ * tiempo mientras dure.
+ */
+function verComo(): void {
+    if (!props.suplantable) {
+        return;
+    }
+
+    if (!confirm(`Vas a entrar como ${props.suplantable.usuario}. Queda registrado quien lo hizo y cuando. Continuar?`)) {
+        return;
+    }
+
+    router.post(`/suplantar/${props.suplantable.usuario_id}`);
+}
 </script>
 
 <template>
@@ -232,6 +250,16 @@ function quitarFoto(): void {
                         <span v-if="alumno.fecha_ingreso" :style="{ color: 'var(--color-suave)' }"> · ingresó {{ alumno.fecha_ingreso }}</span>
                     </p>
                 </div>
+                    <button
+                        v-if="suplantable"
+                        type="button"
+                        class="rounded-lg border px-3 py-1.5 text-sm"
+                        :style="{ borderColor: 'var(--color-borde)' }"
+                        title="Entrar como esta persona para ver lo que ella ve. Queda en bitacora."
+                        @click="verComo"
+                    >
+                        Ver como {{ suplantable.usuario }}
+                    </button>
                 <a href="/escolar/alumnos" class="text-sm" :style="{ color: 'var(--color-acento)' }">← Alumnos</a>
             </div>
 

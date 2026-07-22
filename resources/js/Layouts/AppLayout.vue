@@ -11,6 +11,16 @@ const page = usePage<PropsCompartidas & { tema: any }>();
 const usuario = computed(() => page.props.auth.usuario);
 const escuela = computed(() => page.props.escuela);
 const flash = computed(() => page.props.flash);
+const suplantacion = computed(() => page.props.suplantacion);
+
+/**
+ * Volver a la cuenta propia. No depende de permisos: mientras se suplanta se
+ * tienen los del suplantado, y exigir algo para salir dejaria a alguien
+ * atrapado en una identidad ajena.
+ */
+function volverACuentaPropia(): void {
+    router.delete('/suplantar');
+}
 const tema = computed(() => page.props.tema);
 const permisos = computed(() => usuario.value?.permisos ?? []);
 
@@ -182,7 +192,34 @@ const iniciales = computed(() => {
 </script>
 
 <template>
+        <!-- Banda de suplantacion: fija, imposible de ignorar. Quien suplanta
+         tiene que saber en todo momento que no es el; olvidarlo es como se
+         firman actas por error. -->
+    <div
+        v-if="suplantacion"
+        class="sticky top-0 z-50 flex flex-wrap items-center justify-center gap-3 px-4 py-2 text-sm text-white"
+        style="background-color: #b45309"
+    >
+        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+        </svg>
+        <span>
+            Estas viendo el sistema como
+            <strong>{{ usuario?.nombre_completo ?? usuario?.usuario }}</strong>.
+            Tu cuenta real es <strong>{{ suplantacion.nombre ?? suplantacion.usuario }}</strong>.
+        </span>
+        <button
+            type="button"
+            class="rounded-lg bg-white/20 px-3 py-1 font-medium transition hover:bg-white/30"
+            @click="volverACuentaPropia"
+        >
+            Volver a mi cuenta
+        </button>
+    </div>
+
     <div class="flex min-h-screen">
+
         <!-- ===== Barra lateral ===== -->
         <aside
             class="fixed inset-y-0 left-0 z-30 flex flex-col transition-[width] duration-300 ease-out"

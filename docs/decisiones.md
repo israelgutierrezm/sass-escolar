@@ -995,3 +995,52 @@ acotada.
   administrar los documentos de los docentes. Quien no administra el catálogo no
   necesita verlo: los expedientes ya muestran los documentos que a cada quien le
   tocan.
+
+## 2026-07-21 — Suplantación de usuarios (bloque D)
+
+### Para qué, y por qué no basta una vista previa
+- **Decisión:** suplantación real. Se entra con la cuenta de la otra persona:
+  sus permisos, su rol activo, sus datos.
+- **Razón:** sirve para soporte real. Cuando alguien reporta "no me deja
+  inscribirme", la única forma de reproducir el problema exacto es ejecutar con
+  sus permisos. Un listado de permisos no lo reproduce, y una vista de solo
+  lectura deja fuera justo los fallos que dependen de ejecutar algo, que son los
+  que se reportan.
+
+### Tres salvaguardas que no son opcionales
+1. **Bitácora.** Cada entrada y cada salida quedan en `auditoria` con quién, a
+   quién, cuándo y desde qué IP. Sin eso, una acción hecha durante una
+   suplantación sería indistinguible de una hecha por la persona misma. El
+   registro cuelga del usuario SUPLANTADO porque la pregunta que se hace después
+   es "¿quién entró como esta persona?", no al revés.
+2. **Banda permanente** en la interfaz, a nivel raíz del layout para que salga
+   en todas las pantallas. Quien suplanta tiene que saber en todo momento que no
+   es él; olvidarlo es como se firman actas por error.
+3. **Sin escalada ni cadenas.** No se puede suplantar a alguien que también
+   tenga `suplantar-usuarios` —sería la vía para tomar los permisos de un par
+   sin que nadie te los diera— ni suplantar mientras ya se está suplantando.
+   Tampoco a una cuenta sin rol activo: no habría nada que ver.
+
+### Volver NO pide permisos
+- **Decisión:** `DELETE /suplantar` está fuera de cualquier `can:`.
+- **Razón:** mientras se suplanta se tienen los permisos del SUPLANTADO, que
+  normalmente son menores. Exigir `suplantar-usuarios` para salir dejaría a la
+  persona atrapada en una identidad ajena. El id real vive en la sesión y volver
+  solo depende de eso.
+- Si la cuenta real desapareció a media suplantación se cierra sesión, en vez de
+  dejar a alguien dentro con la identidad de otro.
+
+### Solo dirección general
+- `suplantar-usuarios` no se le dio a control escolar pese a que administra
+  alumnos y docentes: es la capacidad más delicada del sistema y no hace falta
+  para su trabajo diario.
+- El botón "Ver como" solo aparece si esa persona tiene cuenta con rol activo, y
+  el controlador lo resuelve —no el front—: decidir sobre permisos no es asunto
+  de la interfaz.
+
+### Verificado de punta a punta
+Entrando como dirección y suplantando a un docente: los permisos pasaron a ser
+los suyos (6 en vez de 21), `/escolar/alumnos`, `/escolar/docentes` y
+`/documentos` devolvieron 403, `/docencia` devolvió 200, la cadena de
+suplantación se bloqueó, y volver restauró la cuenta original. La bitácora
+quedó con los dos eventos, con IP y hora.

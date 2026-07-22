@@ -44,5 +44,7 @@ export interface PropsCompartidas {
     };
     escuela: Escuela | null;
     flash: Flash;
+    /** Usuario REAL cuando la sesion es una suplantacion; null si no. */
+    suplantacion: { usuario: string; nombre: string | null } | null;
     [key: string]: unknown;
 }

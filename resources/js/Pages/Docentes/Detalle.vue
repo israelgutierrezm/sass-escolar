@@ -32,6 +32,7 @@ const props = defineProps<{
     sexos: { id: number; nombre: string }[];
     generos: { id: number; nombre: string }[];
     puedeGestionar: boolean;
+    suplantable: { usuario_id: number; usuario: string } | null;
 }>();
 
 const pestana = ref<'materias' | 'documentos' | 'datos'>('materias');
@@ -119,6 +120,23 @@ function quitarFoto(): void {
     if (!confirm('Quitar la foto?')) return;
     router.delete(`/personas/${props.docente.id}/foto`, { preserveScroll: true });
 }
+
+/*
+ * "Ver como": entrar con la cuenta de esta persona para reproducir lo que ella
+ * ve. Queda registrado en la bitacora, y la banda superior lo recuerda todo el
+ * tiempo mientras dure.
+ */
+function verComo(): void {
+    if (!props.suplantable) {
+        return;
+    }
+
+    if (!confirm(`Vas a entrar como ${props.suplantable.usuario}. Queda registrado quien lo hizo y cuando. Continuar?`)) {
+        return;
+    }
+
+    router.post(`/suplantar/${props.suplantable.usuario_id}`);
+}
 </script>
 
 <template>
@@ -185,6 +203,16 @@ function quitarFoto(): void {
                         Cédula {{ docente.cedula_profesional }}
                     </p>
                 </div>
+                    <button
+                        v-if="suplantable"
+                        type="button"
+                        class="rounded-lg border px-3 py-1.5 text-sm"
+                        :style="{ borderColor: 'var(--color-borde)' }"
+                        title="Entrar como esta persona para ver lo que ella ve. Queda en bitacora."
+                        @click="verComo"
+                    >
+                        Ver como {{ suplantable.usuario }}
+                    </button>
                 <a href="/escolar/docentes" class="text-sm" :style="{ color: 'var(--color-acento)' }">← Docentes</a>
             </div>
         </section>

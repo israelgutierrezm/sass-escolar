@@ -8,6 +8,7 @@ use App\Models\Identidad\PersonaRol;
 use App\Models\Identidad\Rol;
 use App\Models\Identidad\Usuario;
 use App\Services\ResolutorTema;
+use App\Services\Suplantador;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -48,6 +49,9 @@ class HandleInertiaRequests extends Middleware
             // CSS custom properties.
             'tema' => fn () => app(ResolutorTema::class)->paraUsuario($usuario),
 
+            // Quien esta realmente detras de esta sesion. Null salvo que se
+            // este suplantando; con esto se pinta la banda del layout.
+            'suplantacion' => fn () => $this->suplantacion($request),
             'flash' => [
                 'exito' => fn () => $request->session()->get('exito'),
                 'error' => fn () => $request->session()->get('error'),
@@ -118,5 +122,27 @@ class HandleInertiaRequests extends Middleware
         $ancestros = $rol->ancestros();
 
         return $ancestros === [] ? $rol->nombre : end($ancestros)->nombre;
+    }
+
+    /**
+     * Datos del usuario REAL cuando la sesion es una suplantacion.
+     *
+     * Viaja en cada respuesta porque la banda tiene que estar visible en todas
+     * las pantallas: quien suplanta debe saber en todo momento que no es el.
+     *
+     * @return array<string, string|null>|null
+     */
+    private function suplantacion(Request $request): ?array
+    {
+        if (! $request->session()->has(Suplantador::CLAVE_SESION)) {
+            return null;
+        }
+
+        $real = Usuario::with('persona')->find($request->session()->get(Suplantador::CLAVE_SESION));
+
+        return $real === null ? null : [
+            'usuario' => $real->usuario,
+            'nombre' => $real->persona?->nombreCompleto(),
+        ];
     }
 }

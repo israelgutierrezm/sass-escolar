@@ -192,6 +192,9 @@ class AlumnoController extends Controller
                     )),
                 ]),
             'puedeMatricular' => $request->user()->can('generar-matricula'),
+            // Para el boton "Ver como": solo tiene sentido si esa persona
+            // tiene cuenta con la que entrar.
+            'suplantable' => $this->datosSuplantacion($request, $alumno->persona),
             'situacionesDeBaja' => app(MatriculadorOferta::class)->situacionesDeBaja()
                 ->map(fn ($s) => ['id' => $s->id, 'nombre' => $s->nombre]),
             'historial' => $historial->map(fn (Historial $h) => [

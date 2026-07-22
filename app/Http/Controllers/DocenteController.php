@@ -202,6 +202,7 @@ class DocenteController extends Controller
             'estadosDocumento' => EstadoDocumento::query()->orderBy('id')->get(['id', 'clave', 'nombre']),
             ...$this->catalogos(),
             'puedeGestionar' => $request->user()->can('gestionar-docentes'),
+            'suplantable' => $this->datosSuplantacion($request, $docente->persona),
         ]);
     }
 
@@ -281,6 +282,25 @@ class DocenteController extends Controller
     | Apoyo
     |--------------------------------------------------------------------------
     */
+
+    /**
+     * Si a este docente se le puede "ver como": necesita cuenta con rol activo,
+     * y quien mira necesita el permiso.
+     *
+     * @return array{usuario_id: int, usuario: string}|null
+     */
+    private function datosSuplantacion(Request $request, $persona): ?array
+    {
+        if ($persona === null || ! $request->user()->can('suplantar-usuarios')) {
+            return null;
+        }
+
+        $cuenta = $persona->usuario;
+
+        return $cuenta === null || $cuenta->rol_activo_id === null
+            ? null
+            : ['usuario_id' => $cuenta->id, 'usuario' => $cuenta->usuario];
+    }
 
     /**
      * @param  Builder<Docente>  $query
