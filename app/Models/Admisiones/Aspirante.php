@@ -33,7 +33,6 @@ class Aspirante extends Model
         'paso',
         'acepto_terminos',
         'info_personal_completa',
-        'cleaver_completo',
         'validado_admin',
         'origen',
         'origen_id',
@@ -46,7 +45,6 @@ class Aspirante extends Model
         return [
             'acepto_terminos' => 'boolean',
             'info_personal_completa' => 'boolean',
-            'cleaver_completo' => 'boolean',
             'validado_admin' => 'boolean',
         ];
     }
@@ -123,11 +121,5 @@ class Aspirante extends Model
     public function expedienteDocumentos(): HasMany
     {
         return $this->hasMany(ExpedienteDocumento::class, 'aspirante_id');
-    }
-
-    /** Respuestas del test psicométrico Cleaver. */
-    public function respuestasCleaver(): HasMany
-    {
-        return $this->hasMany(CleaverAspirante::class, 'aspirante_id');
     }
 }

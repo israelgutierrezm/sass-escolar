@@ -12,6 +12,7 @@ use App\Http\Controllers\CampusController;
 use App\Http\Controllers\CapturaCalificacionesController;
 use App\Http\Controllers\CarreraController;
 use App\Http\Controllers\CicloController;
+use App\Http\Controllers\ConfiguracionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocenciaController;
 use App\Http\Controllers\DocenteController;
@@ -558,6 +559,18 @@ Route::middleware([
          * consulta el código, y una inventada en pantalla no restringiría
          * nada—. Lo configurable son los roles y qué lleva cada uno.
          */
+        /*
+         * Reglas de operación de la escuela. `ver-configuracion` para
+         * consultarlas —vale la pena que un coordinador sepa por qué el
+         * sistema le bloqueó algo— y `editar-configuracion` para moverlas.
+         */
+        Route::controller(ConfiguracionController::class)
+            ->prefix('plataforma/configuracion')->name('tenant.plataforma.configuracion.')
+            ->group(function () {
+                Route::get('/', 'index')->middleware('can:ver-configuracion')->name('index');
+                Route::put('/', 'actualizar')->middleware('can:editar-configuracion')->name('actualizar');
+            });
+
         Route::controller(RolController::class)
             ->prefix('plataforma/roles')->name('tenant.plataforma.roles.')
             ->middleware('can:gestionar-roles')

@@ -123,7 +123,6 @@ class AspiranteController extends Controller
                 'paso' => $aspirante->paso,
                 'acepto_terminos' => $aspirante->acepto_terminos,
                 'info_personal_completa' => $aspirante->info_personal_completa,
-                'cleaver_completo' => $aspirante->cleaver_completo,
                 'validado_admin' => $aspirante->validado_admin,
             ],
             'expediente' => $this->expediente($aspirante),

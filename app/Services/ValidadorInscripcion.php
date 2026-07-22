@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Configuracion\Ajustes;
+use App\Configuracion\CatalogoAjustes;
 use App\Models\Academico\PlanMateria;
 use App\Models\Academico\Seriacion;
 use App\Models\Admisiones\MatriculaOferta;
@@ -11,6 +13,7 @@ use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Equivalencia;
 use App\Models\ControlEscolar\Historial;
 use App\Models\ControlEscolar\Inscripcion;
+use App\Models\Finanzas\BitacoraSituacionFinanciera;
 
 /**
  * Reglas para inscribir a un alumno en una materia-grupo.
@@ -24,6 +27,8 @@ use App\Models\ControlEscolar\Inscripcion;
  */
 class ValidadorInscripcion
 {
+    public function __construct(private readonly Ajustes $ajustes) {}
+
     /**
      * Motivos por los que NO se puede inscribir. Vacío = adelante.
      *
@@ -41,12 +46,113 @@ class ValidadorInscripcion
             $this->cupoLleno($materiaGrupo),
             ...$this->seriacionPendiente($matricula, $materiaGrupo),
             $this->choqueDeHorario($matricula, $materiaGrupo),
+            // Reglas configurables de la escuela. Solo estorban si están
+            // puestas en «bloquear»; si están en «advertir» salen por
+            // `advertencias()`.
+            $this->limiteConfigurable($matricula, $materiaGrupo, true),
+            $this->adeudoBloqueante($matricula),
+        ]));
+    }
+
+    /**
+     * Lo que hay que saber pero NO impide inscribir.
+     *
+     * Existe porque una regla de la escuela tiene dos formas legítimas de
+     * aplicarse: hay quien no permite el tercer recursamiento y quien sí, con
+     * el visto bueno de dirección. Forzar todo a bloqueo obligaría a apagar la
+     * regla para poder excepcionarla, y entonces nadie se enteraría.
+     *
+     * @return array<int, string>
+     */
+    public function advertencias(MatriculaOferta $matricula, AsignaturaGrupo $materiaGrupo): array
+    {
+        $matricula->loadMissing('oferta');
+        $materiaGrupo->loadMissing(['planMateria.asignatura', 'grupo.ciclo']);
+
+        return array_values(array_filter([
+            $this->limiteConfigurable($matricula, $materiaGrupo, false),
         ]));
     }
 
     public function puedeInscribir(MatriculaOferta $matricula, AsignaturaGrupo $materiaGrupo): bool
     {
         return $this->impedimentos($matricula, $materiaGrupo) === [];
+    }
+
+    /**
+     * Los dos límites que se comprueban al inscribir: recursamientos de la
+     * misma materia y carga del ciclo.
+     *
+     * `$bloqueantes` decide de qué lado sale cada uno según su acción
+     * configurada, así que la regla se evalúa UNA vez y se reparte, en vez de
+     * duplicar el conteo en dos métodos que podrían divergir.
+     */
+    private function limiteConfigurable(
+        MatriculaOferta $matricula,
+        AsignaturaGrupo $materiaGrupo,
+        bool $bloqueantes,
+    ): ?string {
+        $avisos = [];
+
+        // Recursamientos de ESTA materia del plan.
+        if ($this->ajustes->hayLimite(CatalogoAjustes::MAX_RECURSAMIENTOS)
+            && $this->ajustes->bloquea(CatalogoAjustes::ACCION_RECURSAMIENTOS) === $bloqueantes) {
+            $limite = $this->ajustes->entero(CatalogoAjustes::MAX_RECURSAMIENTOS);
+
+            $cursadas = Inscripcion::query()
+                ->where('matricula_oferta_id', $matricula->id)
+                ->whereHas('asignaturaGrupo', fn ($q) => $q->where('plan_materia_id', $materiaGrupo->plan_materia_id))
+                ->count();
+
+            // La primera vez es cursar, no recursar: el límite cuenta los
+            // INTENTOS ADICIONALES, que es como lo dice un reglamento.
+            if ($cursadas > $limite) {
+                $materia = $materiaGrupo->planMateria?->asignatura?->nombre ?? 'esta materia';
+                $avisos[] = "Ya cursó {$materia} {$cursadas} veces; el límite de recursamientos es {$limite}.";
+            }
+        }
+
+        // Carga del ciclo.
+        if ($this->ajustes->hayLimite(CatalogoAjustes::MAX_MATERIAS_CICLO)
+            && $this->ajustes->bloquea(CatalogoAjustes::ACCION_MATERIAS_CICLO) === $bloqueantes) {
+            $limite = $this->ajustes->entero(CatalogoAjustes::MAX_MATERIAS_CICLO);
+            $cicloId = $materiaGrupo->grupo?->ciclo_id;
+
+            if ($cicloId !== null) {
+                $llevadas = Inscripcion::query()
+                    ->where('matricula_oferta_id', $matricula->id)
+                    ->where('ciclo_id', $cicloId)
+                    ->count();
+
+                if ($llevadas >= $limite) {
+                    $avisos[] = "Ya lleva {$llevadas} materias este ciclo; el máximo configurado es {$limite}.";
+                }
+            }
+        }
+
+        return $avisos === [] ? null : implode(' ', $avisos);
+    }
+
+    /**
+     * El adeudo impide inscribirse, si la escuela lo configuró así.
+     *
+     * QUIÉN queda bloqueado no lo decide este interruptor sino el catálogo de
+     * `situaciones_pago`: el ajuste solo dice si esa bandera, que hasta ahora
+     * solo informaba, de verdad detiene el trámite.
+     */
+    private function adeudoBloqueante(MatriculaOferta $matricula): ?string
+    {
+        if (! $this->ajustes->bool(CatalogoAjustes::BLOQUEO_FINANCIERO)) {
+            return null;
+        }
+
+        $vigente = BitacoraSituacionFinanciera::vigenteDe($matricula->id);
+
+        if ($vigente?->situacion?->bloquea !== true) {
+            return null;
+        }
+
+        return 'Su situación financiera es «'.$vigente->situacion->nombre.'», que impide inscribir.';
     }
 
     private function yaInscrito(MatriculaOferta $matricula, AsignaturaGrupo $materiaGrupo): ?string

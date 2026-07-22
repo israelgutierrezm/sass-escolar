@@ -48,14 +48,14 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (20 suites, 551 verificaciones):
+   Las suites versionadas viven en `scripts/` (21 suites, 576 verificaciones):
    `prueba-actas`, `prueba-plantillas`, `prueba-ventanas-captura`,
    `prueba-ciclo-campus`, `prueba-apertura-grupos`, `prueba-alcance-docente`,
    `prueba-alumnos`, `prueba-docentes`, `prueba-documentos`,
    `prueba-formularios`, `prueba-multicarrera`, `prueba-suplantacion`,
    `prueba-finanzas`, `prueba-cobro`, `prueba-facturacion`, `prueba-emisores`,
-   `prueba-roles`, `prueba-crm`, `prueba-formulario-publico`, `prueba-panel`.
-   NO van en `tests/`:
+   `prueba-roles`, `prueba-crm`, `prueba-formulario-publico`, `prueba-panel`,
+   `prueba-configuracion`. NO van en `tests/`:
    phpunit corre contra SQLite en memoria y ahí se prueba justo lo que SQLite
    no sabe hacer (`LAST_INSERT_ID`, FKs reales, InnoDB).
 
@@ -74,8 +74,9 @@ Cinco entregas, en este orden. A y B ✅ hechas; C, D y E pendientes:
 - La **ficha del aspirante** (`Aspirantes/Show.vue`) no muestra todavía el
   seguimiento ni la asignación de promotor: los endpoints existen y están
   probados, pero hoy el CRM se opera desde `/promocion`.
-- Las **pantallas de configuración** de Alumnos y Docentes (las secciones
-  existen en el menú, falta decidir qué se configura en cada una).
+- ✅ Resuelto: las reglas de Alumnos y Docentes viven en
+  `/plataforma/configuracion`, como pidió el cliente («que alguien con ese
+  permiso configure todo antes de que existan registros»).
 - El **portal del alumno y del aspirante**: sin él, el modo «inscripción
   autogestiva» crea la cuenta pero no hay a dónde entrar, y el alumno no recibe
   accesos directos en su panel.
@@ -290,7 +291,20 @@ npm run dev                # o npm run build
   clase y registrarla. Regla de vacios: una COLA de trabajo vacia se oculta
   (ensena a ignorar la tarjeta); una METRICA propia en cero se muestra ("no
   debes nada" informa).
-- Pruebas: 20 suites en `scripts/`, 551 verificaciones, todas contra la BD real
+- **Reglas de operacion configurables** (`/plataforma/configuracion`):
+  `App\Configuracion\CatalogoAjustes` declara cada regla con su tipo, rango,
+  valor por omision y la CONSECUENCIA de cambiarla; `Ajustes` la lee. Cada
+  limite trae su ACCION —advertir o bloquear—, porque no es la misma decision
+  en todas las escuelas. Se aplican de verdad: recursamientos y carga del ciclo
+  en `ValidadorInscripcion` (que gana `advertencias()` junto a `impedimentos()`),
+  extraordinarios en `AsentadorActa` al FIRMAR, y el bloqueo por adeudo cierra
+  un hueco real —`situaciones_pago.bloquea` existia desde 7.1 y nadie la
+  consultaba—. Sin cache persistente: el bootstrapper de stancl envuelve el
+  cache en tags y el store `database` no los soporta.
+- **Se retiro el test Cleaver**: la spec lo previo, se migro, y su banco de
+  reactivos nunca se sembro, asi que no podia aplicarse. Se elimino en vez de
+  apagarlo — una tabla vacia que nadie va a llenar es una promesa falsa.
+- Pruebas: 21 suites en `scripts/`, 576 verificaciones, todas contra la BD real
   del tenant demo con `DB::rollBack()` al final.
 
 **Pendiente inmediato — aquí se retoma:**

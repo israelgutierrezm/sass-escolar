@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Configuracion\Ajustes;
+use App\Configuracion\CatalogoAjustes;
+use App\Models\Academico\EsquemaEvaluacion;
 use App\Models\ControlEscolar\Acta;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\EstatusHistorial;
@@ -35,6 +38,7 @@ class AsentadorActa
     public function __construct(
         private readonly CalculadoraCalificacion $calculadora,
         private readonly GeneradorFolioActa $folios,
+        private readonly Ajustes $ajustes,
     ) {}
 
     /**
@@ -69,6 +73,54 @@ class AsentadorActa
      *
      * @return array<int, string>
      */
+    /**
+     * Alumnos del acta que ya agotaron sus extraordinarios de esta materia.
+     *
+     * Solo aplica a actas de tipo extraordinaria y solo si la escuela puso un
+     * límite en «bloquear»: en «advertir» el acta se firma y el aviso lo da la
+     * pantalla. La regla vale POR MATERIA DEL PLAN, no por grupo: presentar en
+     * otro grupo la misma materia sigue siendo el mismo intento.
+     *
+     * @return array<int, string>
+     */
+    private function excedenExtraordinarios(Acta $acta): array
+    {
+        if (! $this->ajustes->hayLimite(CatalogoAjustes::MAX_EXTRAORDINARIOS)
+            || ! $this->ajustes->bloquea(CatalogoAjustes::ACCION_EXTRAORDINARIOS)) {
+            return [];
+        }
+
+        $tipo = $acta->tipoEvaluacion;
+
+        if ($tipo === null || ! str_starts_with((string) $tipo->clave, 'extraordinaria')) {
+            return [];
+        }
+
+        $limite = $this->ajustes->entero(CatalogoAjustes::MAX_EXTRAORDINARIOS);
+        $planMateriaId = $acta->asignaturaGrupo?->plan_materia_id;
+
+        if ($planMateriaId === null) {
+            return [];
+        }
+
+        $motivos = [];
+
+        foreach ($this->inscripcionesCalificables($acta->asignaturaGrupo) as $inscripcion) {
+            $previos = Historial::query()
+                ->where('matricula_oferta_id', $inscripcion->matricula_oferta_id)
+                ->where('plan_materia_id', $planMateriaId)
+                ->where('tipo_evaluacion_id', $tipo->id)
+                ->count();
+
+            if ($previos >= $limite) {
+                $nombre = $inscripcion->matriculaOferta?->matricula ?? ('matrícula #'.$inscripcion->matricula_oferta_id);
+                $motivos[] = "{$nombre} ya presentó {$previos} extraordinarios de esta materia; el límite es {$limite}.";
+            }
+        }
+
+        return $motivos;
+    }
+
     public function impedimentos(Acta $acta): array
     {
         if ($acta->estaCerrada()) {
@@ -85,6 +137,15 @@ class AsentadorActa
         // permite por la vía de la corrección, que sí sustituye lo anterior.
         if ($acta->acta_origen_id === null && $this->yaHayActaCerrada($acta)) {
             return ['Esta materia ya tiene acta asentada. Para cambiarla hay que emitir un acta de corrección.'];
+        }
+
+        // Límite de extraordinarios de la escuela. Se comprueba al FIRMAR y no
+        // al capturar: el intento queda asentado aquí, y hasta este momento el
+        // alumno todavía podía no presentarse.
+        $excedidos = $this->excedenExtraordinarios($acta);
+
+        if ($excedidos !== []) {
+            return $excedidos;
         }
 
         $materiaGrupo = $acta->asignaturaGrupo;
@@ -236,7 +297,7 @@ class AsentadorActa
     }
 
     /**
-     * @return Collection<int, \App\Models\Academico\EsquemaEvaluacion>
+     * @return Collection<int, EsquemaEvaluacion>
      */
     public function esquema(AsignaturaGrupo $materiaGrupo): Collection
     {

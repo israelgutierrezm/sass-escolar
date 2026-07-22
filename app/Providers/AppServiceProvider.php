@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Configuracion\Ajustes;
 use App\Models\Identidad\Usuario;
 use App\Panel\RegistroTarjetas;
 use App\Panel\Tarjetas\AccesosDirectos;
@@ -25,6 +26,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // Singleton para que la memoria de ajustes valga en toda la petición:
+        // el validador de inscripción los consulta materia por materia.
+        $this->app->singleton(Ajustes::class);
+
         // El PAC que timbra los CFDI. Se resuelve por configuración para que
         // ni el job ni `EmisorFactura` sepan cuál está en uso: cambiar de
         // proveedor es agregar su clase a `config/cfdi.php`.

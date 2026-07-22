@@ -282,7 +282,6 @@ function convertir(): void {
                             v-for="bandera in [
                                 { texto: 'Aceptó términos', valor: aspirante.acepto_terminos },
                                 { texto: 'Información personal completa', valor: aspirante.info_personal_completa },
-                                { texto: 'Test Cleaver terminado', valor: aspirante.cleaver_completo },
                                 { texto: 'Validado por admin', valor: aspirante.validado_admin },
                             ]"
                             :key="bandera.texto"

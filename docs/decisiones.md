@@ -1888,3 +1888,79 @@ roles que trae el sistema pasan a ser datos borrables y no la estructura.
   apuntan a pantallas administrativas o de docencia, porque el portal del alumno
   sigue sin existir. La tarjeta se oculta sola (devuelve null), así que no se ve
   rota — pero es el recordatorio de que esa pieza falta.
+
+---
+
+## 2026-07-22 — Reglas de operación configurables (entrega F)
+
+Aclaración del cliente: quiere poder decir cuántos extraordinarios se permiten
+de la misma materia, cuántos recursamientos, si se reutiliza la matrícula, y
+que **sobre eso funcione todo el sistema con alertas y bloqueos**. Y añade el
+matiz que gobierna el diseño: *«todo debería ser probablemente antes para la
+mejor función»* — o sea, configurar antes de que existan registros.
+
+### El catálogo es código; los valores, configuración
+- `App\Configuracion\CatalogoAjustes` declara cada ajuste con su tipo, rango,
+  valor por omisión y **la consecuencia de cambiarlo**. `Ajustes` lee y escribe.
+- Mismo criterio que `CatalogoPermisos` y por la misma razón: un ajuste existe
+  porque hay una línea que lo consulta. Uno inventado desde la pantalla no lo
+  leería nadie. Por eso `obtener()` de una clave fuera del catálogo **lanza
+  excepción** en vez de devolver null: null escondería una clave mal escrita.
+
+### Cada límite viene con su ACCIÓN: advertir o bloquear
+- No es la misma decisión en todas las escuelas: hay quien no permite el tercer
+  recursamiento y quien sí, con visto bueno de dirección. Forzar todo a bloqueo
+  obligaría a APAGAR la regla para poder excepcionarla, y entonces nadie se
+  enteraría del caso.
+- `ValidadorInscripcion` gana `advertencias()` junto a `impedimentos()`. La
+  regla se evalúa UNA vez y se reparte según su acción, en vez de duplicar el
+  conteo en dos métodos que podrían divergir.
+
+### Dónde se comprueba cada regla, y por qué ahí
+- **Recursamientos**: al inscribir. El límite cuenta los intentos ADICIONALES
+  —la primera vez es cursar, no recursar—, que es como lo redacta un reglamento.
+- **Extraordinarios**: al FIRMAR el acta, no al capturar. El intento queda
+  asentado al cerrar, y hasta ese momento el alumno todavía podía no
+  presentarse. Vale por MATERIA DEL PLAN, no por grupo: presentar en otro grupo
+  la misma materia sigue siendo el mismo intento.
+- **Carga del ciclo**: al inscribir.
+- **Adeudo**: al inscribir. Aquí se cierra un hueco real — `situaciones_pago`
+  tenía la bandera `bloquea` desde la entrega 7.1 y **nadie la consultaba**: solo
+  informaba. Ahora el ajuste dice si esa bandera detiene el trámite, pero QUIÉN
+  queda bloqueado lo sigue decidiendo el catálogo, no el interruptor.
+
+### Cero significa «sin límite», y se pregunta en un solo lugar
+- `Ajustes::hayLimite()` existe para no repetir —y equivocarse en— la
+  comparación en cada punto donde se aplica una regla.
+
+### La pantalla dice cuánta operación hay ya hecha
+- No bloquea: la escuela puede cambiar de criterio a media operación y tiene
+  derecho. Pero configurar en blanco y configurar encima de un ciclo en curso no
+  es lo mismo, y quien lo hace merece saber en cuál está.
+- El mensaje es explícito en lo que más se malinterpreta: **cambiar un límite no
+  reevalúa el pasado**. Quien ya lleva tres recursamientos no se da de baja
+  porque hoy el máximo pase a dos.
+
+### Sin caché persistente, y no por descuido
+- El `CacheTenancyBootstrapper` de stancl envuelve toda llamada al caché en TAGS
+  para aislar por escuela, y el store de esta instalación es `database`, que no
+  los soporta: revienta con «This cache store does not support tagging». Se
+  descubrió al correr la suite.
+- Se resuelve con memoización por petición y `Ajustes` como singleton. Una
+  consulta a una tabla de catorce filas por petición no justifica pelearse con
+  eso; si el store pasa a Redis, se puede reevaluar.
+
+### Se retira el test Cleaver
+- La spec lo previó y el proyecto migró sus tres piezas, pero **el banco de
+  reactivos nunca se sembró** —era del legacy y no debía inventarse—, así que el
+  test jamás pudo aplicarse. El cliente confirma que aquí no se usa.
+- Se ELIMINA en vez de dejarlo apagado: una tabla vacía que nadie va a llenar es
+  una promesa falsa, alguien la lee en el esquema y supone que el sistema evalúa
+  psicométricamente a sus aspirantes. Y `aspirantes.cleaver_completo` era peor —
+  una bandera del progreso del embudo que nunca podía ponerse en true, o sea un
+  paso que ningún aspirante podía completar.
+- `down()` reconstruye las tres vacías, que es exactamente el estado que tenían:
+  la vuelta atrás no puede inventar un banco que nunca existió.
+- Lección de higiene: borrar clases obliga a `composer dump-autoload`. Mientras
+  el classmap quede viejo, `class_exists()` intenta incluir un fichero borrado y
+  revienta. Por eso la suite comprueba el ARCHIVO y no la clase.

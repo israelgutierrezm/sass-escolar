@@ -10,13 +10,13 @@ use App\Models\Admisiones\SituacionAlumno;
 use App\Models\Admisiones\SituacionAsesor;
 use App\Models\Admisiones\SituacionAspirante;
 use App\Models\Admisiones\SituacionTutor;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
 
 /**
  * Catálogos TENANT-CONFIG del módulo de matrícula y admisiones. Idempotente
  * por clave.
  *
- * `reactivos_cleaver` NO se siembra aquí a propósito: el banco de reactivos del
  * test DISC proviene del sistema legacy y no debe inventarse.
  */
 class CatalogosAdmisionesSeeder extends Seeder
@@ -74,7 +74,7 @@ class CatalogosAdmisionesSeeder extends Seeder
     }
 
     /**
-     * @param  class-string<\Illuminate\Database\Eloquent\Model>  $modelo
+     * @param  class-string<Model>  $modelo
      * @param  array<int, array{clave: string, nombre: string}>  $filas
      */
     private function sembrar(string $modelo, array $filas): void
