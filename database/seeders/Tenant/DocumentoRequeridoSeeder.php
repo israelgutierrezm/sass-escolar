@@ -32,17 +32,25 @@ class DocumentoRequeridoSeeder extends Seeder
             )->id;
         }
 
+        // El cuarto elemento es a QUIÉN se le pide. Los de identidad se piden a
+        // todos porque son los mismos papeles: el acta de nacimiento de un
+        // docente no es un documento distinto del de un alumno.
         $documentos = [
-            ['Acta de nacimiento', 'Copia certificada.', true, 'identidad'],
-            ['CURP', 'Impresión reciente del formato oficial.', true, 'identidad'],
-            ['Identificación oficial', 'INE del aspirante o del tutor si es menor.', true, 'identidad'],
-            ['Certificado de estudios previos', 'Certificado del nivel inmediato anterior.', true, 'academico'],
-            ['Comprobante de domicilio', 'No mayor a 3 meses de antigüedad.', true, 'domicilio'],
-            ['Fotografías tamaño infantil', 'Seis, blanco y negro.', false, 'identidad'],
-            ['Certificado médico', 'Expedido por institución pública.', false, null],
+            ['Acta de nacimiento', 'Copia certificada.', true, 'identidad', ['aspirante', 'alumno', 'docente']],
+            ['CURP', 'Impresión reciente del formato oficial.', true, 'identidad', ['aspirante', 'alumno', 'docente']],
+            ['Identificación oficial', 'INE del aspirante o del tutor si es menor.', true, 'identidad', ['aspirante', 'alumno', 'docente', 'tutor']],
+            ['Certificado de estudios previos', 'Certificado del nivel inmediato anterior.', true, 'academico', ['aspirante']],
+            ['Comprobante de domicilio', 'No mayor a 3 meses de antigüedad.', true, 'domicilio', ['aspirante', 'docente']],
+            ['Fotografías tamaño infantil', 'Seis, blanco y negro.', false, 'identidad', ['aspirante']],
+            ['Certificado médico', 'Expedido por institución pública.', false, null, ['aspirante']],
+            // Propios del docente: lo que acredita que puede dar clase.
+            ['Título profesional', 'Copia del título registrado.', true, 'academico', ['docente']],
+            ['Cédula profesional', 'Frente y reverso.', true, 'academico', ['docente']],
+            ['Currículum vitae', 'Actualizado, con documentos probatorios.', false, 'academico', ['docente']],
+            ['RFC', 'Constancia de situación fiscal.', false, null, ['docente']],
         ];
 
-        foreach ($documentos as [$nombre, $descripcion, $obligatorio, $etiqueta]) {
+        foreach ($documentos as [$nombre, $descripcion, $obligatorio, $etiqueta, $ambitos]) {
             $documento = DocumentoRequerido::query()->updateOrCreate(
                 ['nombre' => $nombre],
                 ['descripcion' => $descripcion, 'obligatorio' => $obligatorio],
@@ -51,6 +59,12 @@ class DocumentoRequeridoSeeder extends Seeder
             if ($etiqueta !== null) {
                 $documento->etiquetas()->syncWithoutDetaching([$etiquetas[$etiqueta]]);
             }
+
+            // Los ámbitos se AGREGAN sin quitar los que la escuela haya puesto
+            // a mano: sembrar no debe deshacer una decisión de la escuela.
+            $documento->sincronizarAmbitos(array_values(array_unique(
+                array_merge($documento->ambitos(), $ambitos)
+            )));
         }
     }
 }

@@ -25,7 +25,7 @@ class PermisoSeeder extends Seeder
     /** Permisos por dominio. */
     private const PERMISOS = [
         'entidades' => ['ver-personas', 'crear-personas', 'editar-personas'],
-        'admisiones' => ['ver-aspirantes', 'crear-aspirantes', 'editar-aspirantes', 'validar-expediente', 'convertir-aspirante', 'generar-matricula'],
+        'admisiones' => ['ver-aspirantes', 'crear-aspirantes', 'editar-aspirantes', 'validar-expediente', 'convertir-aspirante', 'generar-matricula', 'gestionar-documentos'],
         'control-escolar' => ['ver-alumnos', 'editar-alumnos', 'inscribir-alumnos', 'ver-kardex', 'capturar-calificaciones', 'asentar-acta', 'gestionar-ventanas-captura', 'pasar-lista', 'ver-grupos'],
         // Lo del docente sobre SÍ MISMO y sobre SUS materias. Separado del
         // dominio de control escolar porque un docente no es personal
@@ -47,6 +47,7 @@ class PermisoSeeder extends Seeder
             'editar-configuracion', 'gestionar-usuarios', 'gestionar-roles',
             'editar-catalogo-academico', 'abrir-grupos', 'inscribir-alumnos',
             'gestionar-ventanas-captura', 'ver-docentes', 'gestionar-docentes',
+            'gestionar-documentos',
         ],
         'director_campus' => [
             'crear-personas', 'editar-personas', 'ver-aspirantes', 'editar-alumnos',
@@ -55,7 +56,7 @@ class PermisoSeeder extends Seeder
         'encargado_admisiones' => [
             'ver-aspirantes', 'crear-aspirantes', 'editar-aspirantes',
             'validar-expediente', 'convertir-aspirante', 'generar-matricula',
-            'crear-personas',
+            'crear-personas', 'gestionar-documentos',
         ],
         'auxiliar_admisiones' => ['ver-aspirantes', 'crear-aspirantes', 'editar-aspirantes'],
         'encargado_control_escolar' => [
@@ -66,6 +67,7 @@ class PermisoSeeder extends Seeder
             // Matricula reingresos y segundas carreras de quien ya es alumno de
             // la casa. La entrada de aspirantes sigue siendo de admisiones.
             'generar-matricula',
+            'gestionar-documentos',
         ],
         // Captura pero NO firma: puede vaciar las hojas que entrega el docente
         // y es el titular quien asienta el acta.

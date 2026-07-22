@@ -83,7 +83,10 @@ class ExpedienteDocenteController extends Controller
                     'vencido' => $d->estaVencido(),
                     'observaciones' => $d->observaciones,
                 ]),
+            // Solo lo que la escuela pide a los DOCENTES. Antes se ofrecía el
+            // catálogo entero, que era el del aspirante.
             'tiposDocumento' => DocumentoRequerido::query()
+                ->delAmbito(DocumentoRequerido::AMBITO_DOCENTE)
                 ->orderBy('nombre')
                 ->get(['id', 'nombre'])
                 ->map(fn (DocumentoRequerido $d) => ['id' => $d->id, 'nombre' => $d->nombre]),

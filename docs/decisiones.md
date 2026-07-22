@@ -945,3 +945,53 @@ acotada.
 - Ya era así, pero ahora se ve: la pestaña "Carreras" lista todas con su
   estatus, situación, generación y cuántas materias llevan en kárdex, y la
   pantalla rotula qué cambia a una y qué a todas.
+
+## 2026-07-21 — Catálogo de documentos con ámbito (bloque C)
+
+### El catálogo existía pero no tenía pantalla
+- **Problema:** `documentos_requeridos` vive en la base desde la Fase 1 y se
+  sembraba con un seeder. Para agregar un requisito había que tocar código, y la
+  tabla no distinguía destinatario: era el catálogo del aspirante, aunque al
+  docente se le pide su acta igual.
+- **RESOLUCIÓN:** pantalla en `/documentos` y pivote `documento_ambitos`
+  (aspirante / alumno / docente / tutor).
+
+### El ámbito es un pivote, no una columna
+- **Decisión:** un documento puede tener varios ámbitos.
+- **Razón:** "Acta de nacimiento" es UNA cosa aunque la entreguen aspirantes,
+  alumnos y docentes. Con una columna habría que darla de alta tres veces, con
+  tres nombres que acabarían divergiendo ("Acta", "Acta de nacimiento", "Acta
+  nac.") y tres reportes que no cuadran.
+- `ambito` va como varchar con constantes en el modelo, no como catálogo
+  TENANT-CONFIG: sus valores son los roles que el sistema conoce, no algo que
+  una escuela deba inventar.
+
+### Retirar un requisito ≠ borrarlo
+- **Decisión:** quitarle TODOS los ámbitos lo saca de las listas sin borrarlo.
+  Borrar está prohibido si alguien ya lo entregó, y la pantalla lo explica.
+- **Razón:** los archivos y su historial de revisión cuelgan del tipo. Borrarlo
+  dejaría expedientes con documentos huérfanos; la FK lo impide de todos modos,
+  pero es mejor explicarlo antes que reventar con un error de base de datos.
+- Al crear se exige al menos un ámbito —un documento que no se le pide a nadie
+  no tiene por qué nacer—; retirarlo después sí es válido.
+
+### Cada expediente ofrece solo lo que le toca
+- El expediente del docente ofrecía el catálogo completo, que era el del
+  aspirante: le proponía subir su "certificado de estudios previos" y sus
+  "fotografías tamaño infantil". Ahora cada uno filtra por su ámbito.
+
+### Quién valida y quién solo sube
+- Ya estaba implementado y aquí se confirma la regla: **quien sube no valida**.
+  El docente carga su expediente y control escolar lo acepta o lo rechaza con
+  observación; el aspirante carga el suyo y admisiones lo revisa con
+  `validar-expediente`. Alumnos y padres, cuando tengan portal, entran en la
+  misma categoría: subir sí, dictaminar no.
+- `gestionar-documentos` (catálogo) es distinto de `validar-expediente`
+  (dictaminar una entrega concreta): definir qué se pide y juzgar lo entregado
+  son dos oficios.
+
+### El permiso de LECTURA del catálogo es el mismo que el de escritura
+- Se probó primero con `ver-aspirantes` y control escolar recibía 403 pese a
+  administrar los documentos de los docentes. Quien no administra el catálogo no
+  necesita verlo: los expedientes ya muestran los documentos que a cada quien le
+  tocan.

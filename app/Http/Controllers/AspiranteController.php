@@ -171,6 +171,7 @@ class AspiranteController extends Controller
         $carreraId = $aspirante->ofertaInteres?->carrera_id;
 
         $requeridos = DocumentoRequerido::query()
+            ->delAmbito(DocumentoRequerido::AMBITO_ASPIRANTE)
             ->when($carreraId !== null, fn ($q) => $q->whereHas(
                 'carreras',
                 fn ($sub) => $sub->where('carreras.id', $carreraId),

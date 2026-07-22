@@ -14,6 +14,7 @@ use App\Http\Controllers\CicloController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocenciaController;
 use App\Http\Controllers\DocenteController;
+use App\Http\Controllers\DocumentoRequeridoController;
 use App\Http\Controllers\EsquemaEvaluacionController;
 use App\Http\Controllers\ExpedienteAspiranteController;
 use App\Http\Controllers\ExpedienteDocenteController;
@@ -134,6 +135,27 @@ Route::middleware([
                 Route::put('{asignaturaGrupo}', 'guardar')->whereNumber('asignaturaGrupo')->name('guardar');
                 Route::post('{asignaturaGrupo}/cerrar', 'cerrar')->whereNumber('asignaturaGrupo')->name('cerrar');
                 Route::post('{asignaturaGrupo}/corregir', 'corregir')->whereNumber('asignaturaGrupo')->name('corregir');
+            });
+
+        /*
+         * Catálogo de documentos: qué pide la escuela y a quién. Vive aparte de
+         * admisiones porque ya no es solo del aspirante — al docente se le pide
+         * su título igual que al alumno su acta.
+         */
+        Route::controller(DocumentoRequeridoController::class)
+            ->prefix('documentos')->name('tenant.documentos.')
+            ->middleware('can:gestionar-documentos')
+            ->group(function () {
+                // Lectura y escritura piden lo mismo: quien no administra el
+                // catálogo no necesita verlo — los expedientes ya muestran los
+                // documentos que a cada quien le tocan.
+                Route::get('/', 'index')->name('index');
+
+                Route::middleware('can:gestionar-documentos')->group(function () {
+                    Route::post('/', 'store')->name('store');
+                    Route::put('{documento}', 'update')->whereNumber('documento')->name('update');
+                    Route::delete('{documento}', 'destroy')->whereNumber('documento')->name('destroy');
+                });
             });
 
         /*
