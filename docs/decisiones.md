@@ -1044,3 +1044,58 @@ los suyos (6 en vez de 21), `/escolar/alumnos`, `/escolar/docentes` y
 `/documentos` devolvieron 403, `/docencia` devolvió 200, la cadena de
 suplantación se bloqueó, y volver restauró la cuenta original. La bitácora
 quedó con los dos eventos, con IP y hora.
+
+## 2026-07-22 — Constructor de formularios dinámicos (bloque E)
+
+### El motor llevaba desde la Fase 1 sin interfaz
+- **Problema:** formularios versionados, once tipos de campo, opciones, campos
+  condicionales y asignación polimórfica existían en la base y NUNCA se pudieron
+  usar: para pedir un dato nuevo había que insertar filas a mano.
+- **RESOLUCIÓN:** `/formularios` (listado por clave, agrupando versiones) y el
+  constructor por formulario.
+
+### Versionar en vez de mutar
+- **Decisión:** un formulario con respuestas capturadas se CONGELA. No se le
+  agregan, quitan ni cambian campos. Para modificarlo se publica una versión
+  nueva que copia campos, opciones y asignaciones.
+- **Razón:** las respuestas apuntan a un campo concreto. Cambiar la pregunta sin
+  tocar la respuesta haría que el expediente dijera algo que nadie contestó.
+  `respuestas_campo.formulario_version` ya guardaba la versión contestada: esta
+  regla es la que le da sentido.
+- Se valida en CADA acción (crear campo, editarlo, borrarlo, moverlo, tocar sus
+  opciones) y no una sola vez, porque cada una entra por su propia ruta.
+- La `clave` no se edita: identifica al formulario a través de sus versiones.
+
+### El versionado re-ata los condicionales en una segunda pasada
+- Al copiar, un campo puede depender de otro que todavía no existía. Se copian
+  primero todos y luego se reasignan los `campo_padre_id` a los equivalentes de
+  la versión nueva.
+- Sin eso, el hijo de la v2 apuntaría al padre de la v1: el condicional seguiría
+  "funcionando" pero contra un campo de otra versión. Fijado en la suite.
+
+### BUG ENCONTRADO: el soft delete no libera el índice único
+- **Síntoma:** borrar una versión y volver a versionar devolvía **500** con
+  `Duplicate entry 'datos_medicos-2'`.
+- **Causa:** `formularios` tiene unique (clave, version) y soft delete. Una
+  versión borrada sigue ocupando su número, pero `max('version')` no la cuenta
+  porque el modelo filtra los borrados. El siguiente intento chocaba contra una
+  fila que ya nadie ve.
+- **Arreglo:** el cálculo de la siguiente versión usa `withTrashed()`. Lo mismo
+  al comprobar si una clave ya existe.
+- **Lección general:** cualquier tabla con soft delete + índice único tiene esta
+  trampa. Vale para `documentos_requeridos.nombre` y para las claves de ciclos.
+
+### Salvaguardas del constructor
+- **Ciclos en los condicionales:** un campo no puede depender de sí mismo ni de
+  un descendiente suyo — ninguno de los dos se mostraría jamás.
+- **Condicional sin valor:** si se elige campo padre hay que decir CON QUÉ valor
+  se dispara; si no, el campo quedaría mudo.
+- **Expresión regular inválida:** se prueba al configurar. Sin eso, el error
+  aparecería al capturar cada respuesta y en la pantalla equivocada.
+- **Borrar un campo** limpia los condicionales que dependían de él, en vez de
+  dejar campos condicionados a algo inexistente.
+- **Borrar una opción** que dispara un condicional está prohibido: esa condición
+  no volvería a cumplirse nunca y el campo quedaría oculto para siempre.
+- **Opciones con el mismo valor** se rechazan: dos opciones indistinguibles en
+  la respuesta son un dato perdido. El valor se deriva de la etiqueta si no se
+  da, para no obligar a inventarlo en cada una.

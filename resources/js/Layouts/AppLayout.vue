@@ -89,6 +89,7 @@ const navegacion = computed(() => {
             hijos: [
                 { etiqueta: 'Aspirantes', url: '/aspirantes', permiso: 'ver-aspirantes' },
                 { etiqueta: 'Documentos', url: '/documentos', permiso: 'gestionar-documentos' },
+                { etiqueta: 'Formularios', url: '/formularios', permiso: 'gestionar-formularios' },
             ],
         },
         {

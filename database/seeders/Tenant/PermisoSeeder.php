@@ -33,7 +33,7 @@ class PermisoSeeder extends Seeder
         'docencia' => ['ver-mis-materias', 'editar-mi-expediente', 'ver-docentes', 'gestionar-docentes'],
         'academico' => ['ver-catalogo-academico', 'editar-catalogo-academico', 'abrir-grupos'],
         'finanzas' => ['ver-adeudos', 'registrar-pagos', 'condonar-adeudos', 'facturar'],
-        'plataforma' => ['ver-configuracion', 'editar-configuracion', 'gestionar-usuarios', 'gestionar-roles', 'suplantar-usuarios'],
+        'plataforma' => ['ver-configuracion', 'editar-configuracion', 'gestionar-usuarios', 'gestionar-roles', 'suplantar-usuarios', 'gestionar-formularios'],
     ];
 
     /** Qué permisos concede cada rol, además de los que hereda de su padre. */
@@ -51,6 +51,7 @@ class PermisoSeeder extends Seeder
             // Ver el sistema como lo ve otra persona. Solo direccion: es la
             // capacidad mas delicada y queda en bitacora.
             'suplantar-usuarios',
+            'gestionar-formularios',
         ],
         'director_campus' => [
             'crear-personas', 'editar-personas', 'ver-aspirantes', 'editar-alumnos',
@@ -59,7 +60,7 @@ class PermisoSeeder extends Seeder
         'encargado_admisiones' => [
             'ver-aspirantes', 'crear-aspirantes', 'editar-aspirantes',
             'validar-expediente', 'convertir-aspirante', 'generar-matricula',
-            'crear-personas', 'gestionar-documentos',
+            'crear-personas', 'gestionar-documentos', 'gestionar-formularios',
         ],
         'auxiliar_admisiones' => ['ver-aspirantes', 'crear-aspirantes', 'editar-aspirantes'],
         'encargado_control_escolar' => [

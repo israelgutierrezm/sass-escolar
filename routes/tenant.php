@@ -15,7 +15,9 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocenciaController;
 use App\Http\Controllers\DocenteController;
 use App\Http\Controllers\DocumentoRequeridoController;
+use App\Http\Controllers\CampoFormularioController;
 use App\Http\Controllers\EsquemaEvaluacionController;
+use App\Http\Controllers\FormularioController;
 use App\Http\Controllers\ExpedienteAspiranteController;
 use App\Http\Controllers\ExpedienteDocenteController;
 use App\Http\Controllers\FotoPersonaController;
@@ -154,7 +156,51 @@ Route::middleware([
             });
 
         /*
-         * Catálogo de documentos: qué pide la escuela y a quién. Vive aparte de
+         * Constructor de formularios dinamicos.
+         *
+         * El motor vive en la base desde la Fase 1 y no tenia interfaz: para
+         * pedir un dato nuevo habia que insertar filas a mano.
+         *
+         * Versionar en vez de mutar: un formulario con respuestas se congela,
+         * porque cambiarlo reescribiria preguntas que alguien ya contesto.
+         */
+        Route::prefix('formularios')->name('tenant.formularios.')
+            ->middleware('can:gestionar-formularios')
+            ->group(function () {
+                Route::get('/', [FormularioController::class, 'index'])->name('index');
+                Route::post('/', [FormularioController::class, 'store'])->name('store');
+                Route::get('{formulario}', [FormularioController::class, 'show'])
+                    ->whereNumber('formulario')->name('show');
+                Route::put('{formulario}', [FormularioController::class, 'update'])
+                    ->whereNumber('formulario')->name('update');
+                Route::delete('{formulario}', [FormularioController::class, 'destroy'])
+                    ->whereNumber('formulario')->name('destroy');
+                Route::post('{formulario}/versionar', [FormularioController::class, 'versionar'])
+                    ->whereNumber('formulario')->name('versionar');
+
+                Route::post('{formulario}/asignaciones', [FormularioController::class, 'asignar'])
+                    ->whereNumber('formulario')->name('asignaciones.store');
+                Route::delete('{formulario}/asignaciones/{asignacion}', [FormularioController::class, 'desasignar'])
+                    ->whereNumber('formulario')->name('asignaciones.destroy');
+
+                // Campos y sus opciones.
+                Route::controller(CampoFormularioController::class)
+                    ->prefix('{formulario}/campos')->name('campos.')
+                    ->whereNumber('formulario')
+                    ->group(function () {
+                        Route::post('/', 'store')->name('store');
+                        Route::put('{campo}', 'update')->whereNumber('campo')->name('update');
+                        Route::delete('{campo}', 'destroy')->whereNumber('campo')->name('destroy');
+                        Route::put('{campo}/mover', 'mover')->whereNumber('campo')->name('mover');
+
+                        Route::post('{campo}/opciones', 'agregarOpcion')->whereNumber('campo')->name('opciones.store');
+                        Route::delete('{campo}/opciones/{opcion}', 'eliminarOpcion')
+                            ->whereNumber('campo')->name('opciones.destroy');
+                    });
+            });
+
+        /*
+         * Catalogo de documentos: qué pide la escuela y a quién. Vive aparte de
          * admisiones porque ya no es solo del aspirante — al docente se le pide
          * su título igual que al alumno su acta.
          */
