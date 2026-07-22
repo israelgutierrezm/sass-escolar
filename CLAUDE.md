@@ -42,9 +42,11 @@ Los otros dos documentos vivos:
 4. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   La suite versionada es `php scripts/prueba-actas.php` (43 verificaciones).
-   NO va en `tests/`: phpunit corre contra SQLite en memoria y ahí se prueba
-   justo lo que SQLite no sabe hacer (`LAST_INSERT_ID`, FKs reales, InnoDB).
+   Las suites versionadas viven en `scripts/` (121 verificaciones en total):
+   `prueba-actas`, `prueba-plantillas`, `prueba-ventanas-captura`,
+   `prueba-ciclo-campus`, `prueba-apertura-grupos`. NO van en `tests/`:
+   phpunit corre contra SQLite en memoria y ahí se prueba justo lo que SQLite
+   no sabe hacer (`LAST_INSERT_ID`, FKs reales, InnoDB).
 
 ## Decisiones de arquitectura que NO se deben cambiar
 
@@ -89,6 +91,19 @@ Los otros dos documentos vivos:
   rol; estar en la tabla `docentes` dice SOBRE QUÉ materias. El permiso solo no
   basta — el rol `docente` tiene `asentar-acta`, así que no sirve para separar
   al docente de la materia de control escolar.
+- **El alcance por campus se resuelve con `persona_rol.campus_id`.**
+  `Usuario::campusVisibles()` devuelve `null` con alcance global y un arreglo
+  cuando está acotado; null ≠ arreglo vacío. Al guardar, lo que el usuario NO
+  alcanza se preserva: nunca se destruye lo que no se ve.
+- **Un ciclo aplica a N campus** (pivote `ciclo_campus`). Sin campus asignado =
+  ciclo global. La clave del ciclo es única en toda la escuela.
+- **Las plantillas de evaluación se MATERIALIZAN** en `esquema_evaluacion`, no
+  se leen en vivo: las calificaciones apuntan a esa tabla. Una materia con
+  calificaciones capturadas nunca se re-aplica, y editar su esquema a mano la
+  desliga de la plantilla.
+- **Sin ventanas de captura configuradas, el ciclo captura libre.** Configurar
+  una es lo que empieza a bloquear. Ojo: `ciclos.captura_calif_hasta` es otra
+  cosa —marca el acta como extemporánea al asentarla, no bloquea—.
 
 ## Entorno local
 
@@ -121,6 +136,13 @@ npm run dev                # o npm run build
   `CalculadoraCalificacion`, `GeneradorFolioActa` y `AsentadorActa`; pantallas
   `/escolar/captura` (listado) y la hoja por materia con cálculo en vivo,
   firma del acta y acta de corrección.
+- **Aclaraciones del cliente sobre operación escolar** (cuatro bloques):
+  ciclo multi-campus con alcance por rol; plantillas de evaluación
+  reutilizables (`/academico/plantillas`) con reparto equitativo; calendario
+  de captura por parcial con excepciones auditadas
+  (`/escolar/ciclos/{id}/ventanas`); e interfaz de grupos con cascada
+  carrera→plan, apertura de materias en lote por periodo y buscador de
+  docentes.
 - Interfaz: login, panel, conmutador de rol, CRUD de aspirantes con expediente
   y conversión a alumno, catálogo académico completo (campus, carreras,
   asignaturas, planes, malla curricular, seriación, esquema de evaluación,
@@ -136,6 +158,11 @@ npm run dev                # o npm run build
 2. Módulos 8 (LMS) y 9 (Titulación SEP) de la Fase 3; luego Fase 4.
 
 **Deuda conocida:**
+
+- **Ninguna pantalla nueva se ha validado en el navegador.** Todo está probado
+  por datos (suites con rollback) y por HTTP real contra el tenant demo, pero
+  el render no lo ha visto nadie: el navegador embebido no alcanza
+  `demo.localhost` y la extensión de Chrome no estaba conectada.
 
 - `reactivos_cleaver` está vacía a propósito: el banco real del test DISC viene
   del legacy y no debe inventarse.
