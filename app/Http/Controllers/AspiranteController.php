@@ -15,10 +15,8 @@ use App\Models\Admisiones\EstadoDocumento;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\SituacionAspirante;
 use App\Models\Identidad\Persona;
-use App\Models\Landlord\EntidadFederativa;
-use App\Models\Landlord\Genero;
-use App\Models\Landlord\Sexo;
 use App\Services\ConvertidorAspirante;
+use App\Services\IdentidadPersona;
 use App\Services\ProgresoSolicitud;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -237,19 +235,19 @@ class AspiranteController extends Controller
         ]);
     }
 
-    public function store(GuardarAspiranteRequest $request): RedirectResponse
+    public function store(GuardarAspiranteRequest $request, IdentidadPersona $identidad): RedirectResponse
     {
         $datos = $request->validated();
 
-        $aspirante = DB::transaction(function () use ($datos) {
-            $persona = $this->personaExistente($datos['curp'] ?? null);
+        $aspirante = DB::transaction(function () use ($datos, $identidad) {
+            $persona = $identidad->existentePorCurp($datos['curp'] ?? null);
 
             if ($persona === null) {
-                $persona = Persona::create($this->datosPersona($datos));
+                $persona = Persona::create($identidad->resolver($datos));
             } else {
                 // Ya existía: se completan los datos que vengan, sin pisar con vacíos.
                 $persona->fill(array_filter(
-                    $this->datosPersona($datos),
+                    $identidad->resolver($datos),
                     fn ($valor) => $valor !== null && $valor !== '',
                 ))->save();
             }
@@ -279,14 +277,17 @@ class AspiranteController extends Controller
         return Inertia::render('Aspirantes/Formulario', [
             'aspirante' => [
                 'id' => $aspirante->id,
+                // Para que el eco de la CURP no reporte a la persona como
+                // duplicado de sí misma al editar.
+                'persona_id' => $aspirante->persona_id,
                 'nombre' => $aspirante->persona->nombre,
                 'primer_apellido' => $aspirante->persona->primer_apellido,
                 'segundo_apellido' => $aspirante->persona->segundo_apellido,
                 'curp' => $aspirante->persona->curp,
                 'fecha_nacimiento' => $aspirante->persona->fecha_nacimiento?->toDateString(),
-                'sexo_id' => $aspirante->persona->sexo_id,
                 'genero_id' => $aspirante->persona->genero_id,
                 'entidad_nacimiento_id' => $aspirante->persona->entidad_nacimiento_id,
+                'pais_nacimiento_id' => $aspirante->persona->pais_nacimiento_id,
                 'email' => $aspirante->persona->email,
                 'celular' => $aspirante->persona->celular,
                 'oferta_interes_id' => $aspirante->oferta_interes_id,
@@ -300,51 +301,18 @@ class AspiranteController extends Controller
         ]);
     }
 
-    public function update(GuardarAspiranteRequest $request, Aspirante $aspirante): RedirectResponse
+    public function update(GuardarAspiranteRequest $request, Aspirante $aspirante, IdentidadPersona $identidad): RedirectResponse
     {
         $datos = $request->validated();
 
-        DB::transaction(function () use ($datos, $aspirante) {
-            $aspirante->persona->update($this->datosPersona($datos));
+        DB::transaction(function () use ($datos, $aspirante, $identidad) {
+            $aspirante->persona->update($identidad->resolver($datos));
             $aspirante->update($this->datosAspirante($datos));
         });
 
         return redirect()
             ->route('tenant.aspirantes.index')
             ->with('exito', 'Aspirante actualizado.');
-    }
-
-    /**
-     * Persona ya registrada con esa CURP, si la hay. La CURP es la llave
-     * natural: si coincide, es la misma persona.
-     */
-    private function personaExistente(?string $curp): ?Persona
-    {
-        if ($curp === null || $curp === '') {
-            return null;
-        }
-
-        return Persona::query()->where('curp', $curp)->first();
-    }
-
-    /**
-     * @param  array<string, mixed>  $datos
-     * @return array<string, mixed>
-     */
-    private function datosPersona(array $datos): array
-    {
-        return [
-            'nombre' => $datos['nombre'],
-            'primer_apellido' => $datos['primer_apellido'],
-            'segundo_apellido' => $datos['segundo_apellido'] ?? null,
-            'curp' => $datos['curp'] ?? null,
-            'fecha_nacimiento' => $datos['fecha_nacimiento'] ?? null,
-            'sexo_id' => $datos['sexo_id'],
-            'genero_id' => $datos['genero_id'] ?? null,
-            'entidad_nacimiento_id' => $datos['entidad_nacimiento_id'] ?? null,
-            'email' => $datos['email'] ?? null,
-            'celular' => $datos['celular'] ?? null,
-        ];
     }
 
     /**
@@ -359,12 +327,11 @@ class AspiranteController extends Controller
             'situacion_id' => $datos['situacion_id'],
             'origen_id' => $datos['origen_id'] ?? null,
             'origen' => $datos['origen'] ?? null,
-            'acepto_terminos' => $datos['acepto_terminos'] ?? false,
         ];
     }
 
     /**
-     * Catálogos del formulario. Sexos, géneros y entidades viven en la BD
+     * Catálogos del formulario. Géneros, entidades y países viven en la BD
      * central (landlord) y se resuelven cross-database.
      *
      * @return array<string, mixed>
@@ -372,9 +339,10 @@ class AspiranteController extends Controller
     private function catalogos(): array
     {
         return [
-            'sexos' => Sexo::query()->orderBy('id')->get(['id', 'nombre']),
-            'generos' => Genero::query()->orderBy('id')->get(['id', 'nombre']),
-            'entidades' => EntidadFederativa::query()->orderBy('nombre')->get(['id', 'nombre']),
+            // Sexo ya no se pregunta y entidades/países/géneros vienen de
+            // `IdentidadPersona`, que es quien decide el orden en que se
+            // muestran (extranjero arriba, no perdido en la N).
+            ...app(IdentidadPersona::class)->catalogosDeOrigen(),
             'situaciones' => SituacionAspirante::query()->orderBy('id')->get(['id', 'nombre']),
             // Los del CRM: de dónde llegó deja de ser texto libre también en el
             // alta manual, para que el prospecto capturado por promoción se

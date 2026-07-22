@@ -232,7 +232,9 @@ try {
         'nombre' => 'Alta',
         'primer_apellido' => 'Manual',
         'segundo_apellido' => (string) random_int(1000, 9999),
-        'sexo_id' => 1,
+        // Sin `sexo_id`: se dejó de preguntar (se deriva). Con correo: pasó a
+        // ser obligatorio porque es la credencial del portal del aspirante.
+        'email' => 'alta.manual.'.random_int(100000, 999999).'@ejemplo.mx',
         'situacion_id' => SituacionAspirante::query()->value('id'),
         'origen_id' => $origen?->id,
     ]);
@@ -244,7 +246,7 @@ try {
     $formulario->setContainer(app())->setRedirector(app('redirect'));
     $formulario->validateResolved();
 
-    $aspiranteController->store($formulario);
+    $aspiranteController->store($formulario, app(App\Services\IdentidadPersona::class));
 
     $nuevo = Aspirante::query()->latest('id')->first();
 

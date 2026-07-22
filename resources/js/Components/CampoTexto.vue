@@ -20,6 +20,13 @@ withDefaults(
 );
 
 const modelo = defineModel<string | number | null>();
+
+/**
+ * Los atributos y escuchas van al INPUT, no al div de fuera. Sin esto, un
+ * `@blur` puesto sobre el componente no se dispara nunca: se engancha al div y
+ * `blur` no burbujea.
+ */
+defineOptions({ inheritAttrs: false });
 </script>
 
 <template>
@@ -28,6 +35,7 @@ const modelo = defineModel<string | number | null>();
             {{ etiqueta }}<span v-if="requerido" class="text-red-500"> *</span>
         </label>
         <input
+            v-bind="$attrs"
             v-model="modelo"
             :type="tipo"
             :required="requerido"

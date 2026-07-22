@@ -2285,3 +2285,82 @@ prueba escribe su propia versión de la consulta.
 Detalle que costó un rato: al reenlazar `request` en el contenedor, el
 `AuthServiceProvider` vuelve a poner **su** resolutor de usuario y se lleva por
 delante el que puso la prueba. Primero se enlaza, después se dice quién eres.
+
+---
+
+## Identidad de la persona: la CURP como fuente, no como cadena opaca
+
+Pedido del cliente (varias cosas, una sola raíz): el alta de aspirante pedía
+«sexo» y «género» —lo mismo dos veces—; la CURP debería autollenar fecha y
+género en todos los formularios; debía poder escribirse EXTRANJERO; la entidad
+de nacimiento debía ofrecer «extranjero» arriba y luego país; el que captura no
+debería aceptar los términos por el aspirante; el correo debía ser obligatorio
+(es el usuario de acceso) y debía haber un método para no duplicar personas.
+
+Todo eso es una sola decisión de fondo: **la identidad de una persona se
+resuelve en un lugar** (`App\Services\IdentidadPersona` + `App\Support\Curp` +
+`App\Rules\CurpValida` + el componente `CamposIdentidad.vue`), no seis veces con
+seis criterios. Estaba repartida en aspirante, alumno, docente, expediente
+docente, usuario y formulario público.
+
+### El sexo se DERIVA; se dejó de preguntar
+`personas.sexo_id` pasó a nullable. Sale de la CURP (su posición 11) o del
+género cuando es inequívoco —Masculino→H, Femenino→M—; «No binario» y «Prefiere
+no decir» dan null a propósito. Se conserva la columna, no se borra: **sexo** es
+el dato legal binario que pide la SEP y que el módulo de titulación necesitará;
+**género** es autoidentificado, tiene cinco opciones y no sirve para un trámite.
+Preguntar los dos era pedir lo mismo dos veces; inventar un sexo para satisfacer
+un NOT NULL era peor. Es más honesto un hueco.
+
+### La CURP se lee
+`Curp::leer()` valida el dígito verificador —`size:18` aceptaba cualquier ristra
+de dieciocho— y extrae fecha, sexo y entidad. Dos sutilezas que cuestan caro si
+se ignoran: la **regla del siglo** (la homoclave es dígito para nacidos antes
+del 2000 y letra después; sin ella un alumno de 2006 se registra en 1906) y que
+`290230` pasa el patrón sin ser un día real, así que se valida con `checkdate`.
+El endpoint `POST /identidad/curp` devuelve eso en vivo y el formulario se
+autollena al teclear. Lo llenado queda EDITABLE: hay CURP mal emitidas y actas
+que las corrigen, y la CURP manda sobre lo tecleado pero solo sobre lo que ella
+sabe.
+
+### EXTRANJERO no es una CURP
+Es la marca de «no tengo». Guardar el literal en `personas.curp` —que es
+UNIQUE— permitiría exactamente UN extranjero en toda la escuela; el segundo
+chocaría con un error incomprensible. Se traduce a curp null + entidad «Nacido
+en el Extranjero» (clave NE) y entonces —y solo entonces— aparece el país. Con
+CURP el país se obvia: tenerla implica registro en México. En el selector,
+«Nacido en el extranjero» va arriba junto a «sin especificar», no perdido en la
+N entre Nayarit y Nuevo León: es una respuesta de otra naturaleza.
+
+### Duplicados: se avisan, no se bloquean
+`POST /identidad/duplicados` busca por CURP, por correo (insensible a
+mayúsculas) y por nombre completo + fecha de nacimiento. El nombre SOLO no basta
+—hay tocayos, y bloquear por homonimia obligaría a inventar variantes del
+nombre para poder capturar—. Se avisa al salir del nombre o del correo, no al
+guardar: avisar tras veinte campos llenos es avisar tarde.
+
+### HALLAZGO: el `unique` de la CURP contradecía la reutilización
+El alta REUTILIZA a la persona cuando la CURP ya existe —es el principio de cero
+recaptura—, pero la validación traía `unique` sobre curp y la rechazaba antes de
+llegar ahí. O sea que esa rama del controlador nunca corría: quien intentaba
+registrar a un egresado que vuelve por un posgrado se topaba con «ya existe una
+persona con esa CURP» y ningún camino para seguir. Reutilizar ES la protección
+contra duplicados; rechazar no lo es. El `unique` se quitó del alta y solo
+aplica al editar (dos personas distintas no pueden terminar con la misma CURP).
+
+### El correo, y los términos
+El correo pasó a obligatorio en aspirantes: es la credencial de su portal, sin
+ella hay que perseguirlo por teléfono para darle acceso. Y `acepto_terminos`
+dejó de aceptarse desde el alta administrativa: consentir el proceso de admisión
+es un acto del interesado; quien captura no puede hacerlo en su nombre. Solo el
+portal del aspirante lo escribe.
+
+### Marcado en rojo
+`CampoTexto` pinta el borde del control en rojo cuando falla, no solo el mensaje
+debajo. En una pantalla de veinte campos, el color en el propio control es lo
+que permite encontrar el que falló sin recorrerla entera. (Hubo que poner
+`inheritAttrs: false` + `v-bind="$attrs"` para que `@blur` llegue al input y no
+al div, donde `blur` no burbujea.)
+
+Suite nueva: `scripts/prueba-identidad.php` (34 checks). Total: 24 suites, 675
+verificaciones, verdes.

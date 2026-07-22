@@ -27,6 +27,7 @@ use App\Http\Controllers\FormularioController;
 use App\Http\Controllers\FormularioPublicoController;
 use App\Http\Controllers\FotoPersonaController;
 use App\Http\Controllers\GrupoController;
+use App\Http\Controllers\IdentidadController;
 use App\Http\Controllers\InscripcionController;
 use App\Http\Controllers\OfertaController;
 use App\Http\Controllers\PlanCobroController;
@@ -144,6 +145,16 @@ Route::middleware([
          * del alumno, la del docente y el expediente propio. El archivo vive en
          * el disco privado y se sirve por esta ruta autenticada.
          */
+        /*
+         * Eco de la CURP mientras se captura. Solo lee: devuelve lo que la CURP
+         * trae dentro (fecha, sexo, entidad) y si esa persona ya existe. Lo
+         * consume el bloque de identidad que comparten todos los formularios.
+         */
+        Route::controller(IdentidadController::class)->prefix('identidad')->name('tenant.identidad.')->group(function () {
+            Route::post('curp', 'analizarCurp')->name('curp');
+            Route::post('duplicados', 'posiblesDuplicados')->name('duplicados');
+        });
+
         Route::controller(FotoPersonaController::class)->prefix('personas/{persona}/foto')->name('tenant.personas.foto.')->group(function () {
             Route::get('/', 'mostrar')->name('mostrar');
             Route::post('/', 'actualizar')->name('actualizar');
