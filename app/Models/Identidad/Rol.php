@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models\Identidad;
 
+use App\Support\CatalogoPermisos;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -86,6 +87,44 @@ class Rol extends SpatieRole
     public function scopeFacetas(Builder $query): Builder
     {
         return $query->whereNull('rol_padre_id');
+    }
+
+    /**
+     * La faceta de la que cuelga este rol: el ancestro más alto, o él mismo si
+     * ya es faceta.
+     */
+    public function faceta(): self
+    {
+        $ancestros = $this->ancestros();
+
+        return $ancestros === [] ? $this : end($ancestros);
+    }
+
+    /**
+     * Qué conjunto de permisos le corresponde.
+     *
+     * Es la clave de su faceta cuando ésta es una de las que el sistema conoce.
+     * Una faceta creada por la escuela no tiene catálogo propio —nadie declaró
+     * qué significa— y se trata como ADMINISTRATIVA: las facetas con portal
+     * propio (docente, alumno, aspirante) son justamente las protegidas, así
+     * que una nueva es, en la práctica, una variante de personal.
+     */
+    public function ambitoDePermisos(): string
+    {
+        $faceta = $this->faceta();
+
+        $conocidas = [
+            CatalogoPermisos::ADMINISTRATIVO,
+            CatalogoPermisos::DOCENTE,
+            CatalogoPermisos::ALUMNO,
+            CatalogoPermisos::ASPIRANTE,
+            CatalogoPermisos::TUTOR,
+            CatalogoPermisos::PADRE,
+        ];
+
+        return in_array($faceta->name, $conocidas, true)
+            ? $faceta->name
+            : CatalogoPermisos::ADMINISTRATIVO;
     }
 
     /**

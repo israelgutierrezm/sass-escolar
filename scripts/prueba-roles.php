@@ -182,7 +182,69 @@ try {
     verificar('Conceder en la faceta alcanza a todos los que cuelgan de ella',
         $usuario->fresh()->can('facturar'));
 
-    echo PHP_EOL.'7. Salvaguarda contra el auto-encierro'.PHP_EOL;
+    echo PHP_EOL.'7. Un permiso pertenece a una FACETA'.PHP_EOL;
+
+    // La regla: un administrativo no puede concederse permisos del docente. Si
+    // pudiera, el conmutador de rol dejaría de tener sentido —nadie conmutaría—
+    // y el alcance por asignación quedaría colgando de un permiso que no toca.
+    verificar('«Ver mis materias» es del docente y solo del docente',
+        CatalogoPermisos::correspondeA('ver-mis-materias', CatalogoPermisos::DOCENTE)
+        && ! CatalogoPermisos::correspondeA('ver-mis-materias', CatalogoPermisos::ADMINISTRATIVO));
+    verificar('«Llenar mi solicitud» es del aspirante',
+        CatalogoPermisos::correspondeA('llenar-mi-solicitud', CatalogoPermisos::ASPIRANTE)
+        && ! CatalogoPermisos::correspondeA('llenar-mi-solicitud', CatalogoPermisos::ADMINISTRATIVO));
+    verificar('«Administrar roles» es del administrativo',
+        CatalogoPermisos::correspondeA('gestionar-roles', CatalogoPermisos::ADMINISTRATIVO)
+        && ! CatalogoPermisos::correspondeA('gestionar-roles', CatalogoPermisos::DOCENTE));
+
+    // Los compartidos lo son porque el oficio de verdad se comparte: control
+    // escolar captura en nombre del docente ausente.
+    verificar('«Capturar calificaciones» sí es de los dos oficios',
+        CatalogoPermisos::correspondeA('capturar-calificaciones', CatalogoPermisos::ADMINISTRATIVO)
+        && CatalogoPermisos::correspondeA('capturar-calificaciones', CatalogoPermisos::DOCENTE));
+    verificar('Y el kárdex lo consultan cinco perfiles',
+        collect([CatalogoPermisos::ADMINISTRATIVO, CatalogoPermisos::DOCENTE, CatalogoPermisos::ALUMNO,
+            CatalogoPermisos::TUTOR, CatalogoPermisos::PADRE])
+            ->every(fn ($f) => CatalogoPermisos::correspondeA('ver-kardex', $f)));
+
+    $direccion = Rol::where('name', 'director_general')->firstOrFail();
+    $docenteRol = Rol::where('name', 'docente')->firstOrFail();
+
+    verificar('El ámbito de un rol es el de su FACETA, no el suyo',
+        $direccion->ambitoDePermisos() === CatalogoPermisos::ADMINISTRATIVO,
+        $direccion->ambitoDePermisos());
+    verificar('Y el del docente es docente', $docenteRol->ambitoDePermisos() === CatalogoPermisos::DOCENTE);
+
+    $ofrecidos = collect(CatalogoPermisos::paraPantalla($direccion->ambitoDePermisos()))
+        ->flatMap(fn ($d) => collect($d['permisos'])->pluck('clave'));
+
+    verificar('La pantalla NO le ofrece a dirección los permisos del docente',
+        ! $ofrecidos->contains('ver-mis-materias') && ! $ofrecidos->contains('editar-mi-expediente'),
+        $ofrecidos->count().' permisos ofrecidos');
+    verificar('Pero sí los que de verdad comparte',
+        $ofrecidos->contains('capturar-calificaciones') && $ofrecidos->contains('ver-kardex'));
+
+    $delDocente = collect(CatalogoPermisos::paraPantalla(CatalogoPermisos::DOCENTE))
+        ->flatMap(fn ($d) => collect($d['permisos'])->pluck('clave'));
+
+    verificar('Y al docente no se le ofrece administrar la plataforma',
+        ! $delDocente->contains('gestionar-roles') && ! $delDocente->contains('gestionar-usuarios'),
+        $delDocente->implode(', '));
+
+    // Una faceta que la escuela invente no tiene catálogo propio: se trata como
+    // administrativa, porque las que tienen portal son las protegidas.
+    $inventadaFaceta = Rol::create([
+        'name' => 'consejo_directivo',
+        'nombre' => 'Consejo directivo',
+        'guard_name' => 'web',
+        'rol_padre_id' => null,
+        'protegido' => false,
+    ]);
+
+    verificar('Una faceta creada por la escuela se trata como administrativa',
+        $inventadaFaceta->ambitoDePermisos() === CatalogoPermisos::ADMINISTRATIVO);
+
+    echo PHP_EOL.'8. Salvaguarda contra el auto-encierro'.PHP_EOL;
 
     // Es la regla que impide que alguien se quite «gestionar-roles» de su
     // propio rol activo y deje la pantalla inalcanzable para todos.

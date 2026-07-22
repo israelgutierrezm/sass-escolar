@@ -73,7 +73,13 @@ class RolController extends Controller
                 'es_faceta' => $rol->rol_padre_id === null,
                 'personas' => $rol->asignaciones()->count(),
             ],
-            'catalogo' => CatalogoPermisos::paraPantalla(),
+            // Acotado a la faceta del rol: un administrativo no debe poder
+            // concederse permisos del docente. Si pudiera, el conmutador de rol
+            // dejaría de tener sentido —nadie conmutaría— y el alcance por
+            // asignación quedaría colgando de un permiso que no le toca.
+            'catalogo' => CatalogoPermisos::paraPantalla($rol->ambitoDePermisos()),
+            'ambito' => $rol->ambitoDePermisos(),
+            'facetaNombre' => $rol->faceta()->nombre,
             'propios' => $rol->permissions->pluck('name')->values(),
             // Los heredados se muestran marcados y bloqueados: explican por qué
             // el rol puede algo que aquí no está palomeado. Ocultarlos haría
@@ -157,12 +163,26 @@ class RolController extends Controller
             'permisos.*' => ['string'],
         ]);
 
-        // Solo permisos del catálogo. Uno que no exista en el código sería una
-        // casilla que no restringe nada.
+        // Dos filtros, y el segundo es el importante. Uno fuera del catálogo
+        // sería una casilla que no restringe nada; uno de OTRA FACETA rompería
+        // la separación de oficios, y el front no puede ser la única defensa
+        // porque un POST se arma a mano.
+        $ambito = $rol->ambitoDePermisos();
+
         $permisos = array_values(array_filter(
             $datos['permisos'],
-            fn (string $p) => CatalogoPermisos::existe($p)
+            fn (string $p) => CatalogoPermisos::existe($p) && CatalogoPermisos::correspondeA($p, $ambito)
         ));
+
+        $ajenos = array_diff($datos['permisos'], $permisos);
+
+        if ($ajenos !== []) {
+            return back()->with(
+                'error',
+                'Estos permisos no son de la faceta «'.$rol->faceta()->nombre.'» y se ignoraron: '
+                .implode(', ', $ajenos).'. Para que alguien los tenga, dale también el rol que les corresponde.'
+            );
+        }
 
         // Salvaguarda contra el auto-encierro: si quien edita se quita
         // `gestionar-roles` de SU rol activo, nadie vuelve a entrar a esta

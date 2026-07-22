@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (22 suites, 603 verificaciones):
+   Las suites versionadas viven en `scripts/` (22 suites, 615 verificaciones):
    `prueba-actas`, `prueba-plantillas`, `prueba-ventanas-captura`,
    `prueba-ciclo-campus`, `prueba-apertura-grupos`, `prueba-alcance-docente`,
    `prueba-alumnos`, `prueba-docentes`, `prueba-documentos`,
@@ -315,7 +315,17 @@ npm run dev                # o npm run build
   muestra informativamente en la ficha. Da igual quien llene: el mismo calculo
   sirve para el interesado y para el administrador. El controlador no recibe id
   por la URL, asi que no existe pedir el expediente de otro.
-- Pruebas: 22 suites en `scripts/`, 603 verificaciones, todas contra la BD real
+- **Un permiso pertenece a una FACETA.** `CatalogoPermisos` declara a que
+  facetas corresponde cada permiso, y un rol solo puede recibir los de la suya:
+  un administrativo NO puede concederse `ver-mis-materias`. Si pudiera, el
+  conmutador de rol dejaria de tener sentido y el alcance por asignacion
+  (`docente_asignatura_grupo`) quedaria colgando de un permiso que esa persona
+  no puede ejercer. Se filtra en el servidor, no solo en la pantalla.
+- **Pantalla de usuarios** (`/plataforma/usuarios`): `gestionar-usuarios`
+  existia desde el slice de auth SIN ninguna ruta. Alta de cuentas reutilizando
+  persona por CURP, asignacion de roles agrupados por faceta y restablecimiento
+  de contrasena. Las cuentas no se eliminan.
+- Pruebas: 22 suites en `scripts/`, 615 verificaciones, todas contra la BD real
   del tenant demo con `DB::rollBack()` al final.
 
 **Pendiente inmediato — aquí se retoma:**
@@ -353,10 +363,7 @@ npm run dev                # o npm run build
   CRUD del catálogo académico revienta en vez de explicarlo.
 - No hay panel para la app central (landlord): `super_admins` existe pero sin
   interfaz ni guard propio.
-- **No hay pantalla de administración de roles y permisos.** Los roles se
-  siembran con `PermisoSeeder`; para cambiar quién puede qué hay que tocar el
-  seeder y re-sembrar. Es lo primero que va a pedir el cliente cuando quiera
-  un rol nuevo.
+
 - **No existe portal del alumno ni del tutor.** La regla "alumnos y padres sólo
   suben documentos, no los validan" está implementada y probada en el backend,
   pero no hay pantalla desde la cual ejercerla. La suplantación permite ver el

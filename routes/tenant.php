@@ -40,6 +40,7 @@ use App\Http\Controllers\RolController;
 use App\Http\Controllers\SeriacionController;
 use App\Http\Controllers\SuplantacionController;
 use App\Http\Controllers\TemaController;
+use App\Http\Controllers\UsuarioController;
 use App\Http\Controllers\VentanaCapturaController;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
@@ -585,6 +586,22 @@ Route::middleware([
             ->group(function () {
                 Route::get('/', 'index')->middleware('can:ver-configuracion')->name('index');
                 Route::put('/', 'actualizar')->middleware('can:editar-configuracion')->name('actualizar');
+            });
+
+        /*
+         * Cuentas. `gestionar-usuarios` existía desde el slice de auth y no
+         * tenía pantalla: crear una cuenta obligaba a tocar la base.
+         */
+        Route::controller(UsuarioController::class)
+            ->prefix('plataforma/usuarios')->name('tenant.plataforma.usuarios.')
+            ->middleware('can:gestionar-usuarios')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'store')->name('store');
+                Route::post('/{usuario}/roles', 'asignarRol')->name('roles.asignar');
+                Route::delete('/{usuario}/roles/{asignacion}', 'retirarRol')->name('roles.retirar');
+                Route::put('/{usuario}/password', 'restablecerPassword')->name('password');
+                Route::delete('/{usuario}', 'destroy')->name('destroy');
             });
 
         Route::controller(RolController::class)

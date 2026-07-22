@@ -2088,3 +2088,64 @@ todo el ancho y mucho a lo alto, robando visibilidad».
   (altos, anchos, radios, presencia de iconos, alturas de cada columna), no una
   mirada humana al render. Es mucho más de lo que había —hasta ahora nada se
   había cargado en un navegador— pero no sustituye a que alguien lo mire.
+
+---
+
+## 2026-07-22 — Un permiso pertenece a una FACETA, y pantalla de usuarios
+
+### El hallazgo del cliente
+> «Si edito los permisos de un rol me deja agregarle permisos de roles como
+> alumno o docente, lo cual no debería ser… no podría tener un administrador
+> general que vea opciones de docente; si es docente tendría que cambiar de rol.»
+
+Tenía razón y era un agujero de diseño, no un detalle de pantalla.
+
+### Por qué importaba
+- Si un administrativo puede concederse `ver-mis-materias`, **el conmutador de
+  rol deja de tener sentido**: nadie conmuta, porque todo se ve desde el rol
+  administrativo. Y toda la separación de oficios que el proyecto construyó —el
+  docente en `/docencia`, el aspirante en `/mi-solicitud`— se vuelve decorativa.
+- Peor: el alcance de esos permisos NO sale del permiso sino de una asignación
+  (`docente_asignatura_grupo`, `aspirante_asesor`, la matrícula propia). Un
+  administrativo con `ver-mis-materias` no vería «sus» materias —no tiene—:
+  vería una pantalla vacía o, si algún filtro fallara, las de todos. El permiso
+  colgaría de una tabla en la que esa persona no está.
+
+### La regla
+- `CatalogoPermisos` declara, por permiso, **a qué facetas pertenece**. Un rol
+  solo puede recibir permisos de la faceta de la que cuelga.
+- Los que aparecen en VARIAS facetas es porque el oficio de verdad se comparte:
+  `capturar-calificaciones` y `asentar-acta` son de administrativo Y de docente
+  —control escolar captura en nombre del docente ausente, y eso ya era una
+  decisión tomada—; `ver-kardex` lo consultan cinco perfiles sobre alcances
+  distintos.
+- El ámbito de un rol es el de su FACETA, no el suyo: un «auxiliar de
+  admisiones» hereda el ámbito de `administrativo`.
+
+### Se filtra en el servidor, no en el front
+- La pantalla solo ofrece los de su faceta, pero `RolController` vuelve a
+  filtrar al guardar y AVISA cuáles ignoró. Un POST se arma a mano; la casilla
+  que no existe no es una defensa.
+
+### Una faceta creada por la escuela se trata como administrativa
+- No tiene catálogo propio —nadie declaró qué significa—, y las facetas con
+  portal propio (docente, alumno, aspirante) son justamente las protegidas. Una
+  faceta nueva es, en la práctica, una variante de personal.
+
+### Pantalla de usuarios: `gestionar-usuarios` existía sin dónde ejercerse
+- El permiso estaba en el catálogo desde el slice de auth y **no tenía ninguna
+  ruta**: crear una cuenta obligaba a tocar la base o a correr el comando de
+  demo. Es lo primero que hace falta al poner el sistema en manos de una escuela.
+- La cuenta cuelga de una PERSONA y no la reemplaza. Al dar de alta se busca por
+  CURP y se reutiliza: quien entra como docente pudo haber sido alumno, y
+  duplicarlo rompería su kárdex, sus roles y su expediente. Misma regla de cero
+  recaptura que el resto del sistema.
+- Los roles se ofrecen **agrupados por faceta**, que es lo que hace evidente que
+  dar «Docente» y dar «Encargado de admisiones» son decisiones de distinta
+  naturaleza y no dos opciones de la misma lista.
+- Tres salvaguardas: no se puede retirar el rol ACTIVO de una cuenta (quedaría
+  sin contexto a medio camino), ni su ÚNICO rol (no podría entrar), ni eliminar
+  la cuenta — quedarían sin autor las actas que firmó y lo que capturó. Se
+  retiran roles o se restablece la contraseña.
+- La contraseña actual no se muestra porque no se puede: está hasheada, que es
+  como debe estar.

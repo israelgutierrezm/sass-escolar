@@ -22,6 +22,8 @@ const props = defineProps<{
         personas: number;
     };
     catalogo: { dominio: string; permisos: Permiso[] }[];
+    ambito: string;
+    facetaNombre: string;
     propios: string[];
     heredados: string[];
     padresPosibles: { id: number; nombre: string }[];
@@ -174,6 +176,18 @@ function desasignar(id: number): void {
                         Los permisos <strong>heredados</strong> aparecen marcados y bloqueados: explican por
                         qué este rol puede algo que aquí no palomeaste. Se cambian en
                         {{ rol.padre ?? 'el rol padre' }}.
+                    </p>
+                    <!--
+                        Solo se ofrecen los permisos de SU faceta. Si un
+                        administrativo pudiera concederse los del docente, el
+                        conmutador de rol dejaría de tener sentido: nadie
+                        conmutaría, y el alcance por asignación quedaría
+                        colgando de un permiso que no le toca.
+                    -->
+                    <p class="mt-2 text-sm" :style="{ color: 'var(--color-suave)' }">
+                        Aquí solo salen los permisos de <strong>{{ facetaNombre }}</strong>. Los de otros
+                        oficios —docente, alumno, aspirante— no se pueden mezclar: para que una persona los
+                        tenga, se le da además ese rol y conmuta entre ellos.
                     </p>
                 </div>
                 <button
