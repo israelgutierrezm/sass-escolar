@@ -23,7 +23,22 @@ interface Renglon {
 const props = defineProps<{
     alumno: Record<string, any>;
     persona: Record<string, any>;
-    otrasMatriculas: { id: number; matricula: string; carrera: string | null; estatus: string }[];
+    carreras: {
+        id: number;
+        matricula: string;
+        carrera: string | null;
+        plan: string | null;
+        campus: string | null;
+        estatus: string;
+        situacion: string | null;
+        fecha_ingreso: string | null;
+        generacion: string | null;
+        materias_en_kardex: number;
+        es_actual: boolean;
+    }[];
+    ofertasDisponibles: { id: number; etiqueta: string }[];
+    puedeMatricular: boolean;
+    situacionesDeBaja: { id: number; nombre: string }[];
     historial: Renglon[];
     resumen: Record<string, any>;
     carga: { ciclo: string; materias: any[] }[];
@@ -33,7 +48,54 @@ const props = defineProps<{
     puedeEditar: boolean;
 }>();
 
-const pestana = ref<'kardex' | 'carga' | 'datos'>('kardex');
+const pestana = ref<'kardex' | 'carga' | 'carreras' | 'datos'>('kardex');
+
+/* Otras carreras de la misma persona */
+const agregando = ref(false);
+const formCarrera = useForm({ oferta_id: null as number | null, generacion: '' });
+
+function agregarCarrera(): void {
+    formCarrera.post(`/escolar/alumnos/${props.alumno.id}/carreras`, {
+        onSuccess: () => {
+            formCarrera.reset();
+            agregando.value = false;
+        },
+    });
+}
+
+/*
+ * Dar de baja pide CUÁL baja. `estatus` y `situacion_id` son dos ejes: el
+ * primero dice que ya no está activa, el segundo si fue temporal o definitiva
+ * — que es el dato que después responde "¿puede volver?".
+ */
+const bajando = ref<number | null>(null);
+const situacionBaja = ref<number | null>(props.situacionesDeBaja[0]?.id ?? null);
+
+function confirmarBaja(carreraId: number): void {
+    router.put(
+        `/escolar/alumnos/${props.alumno.id}/carreras/${carreraId}`,
+        { accion: 'baja', situacion_id: situacionBaja.value },
+        { preserveScroll: true, onFinish: () => (bajando.value = null) },
+    );
+}
+
+function reactivar(carreraId: number, matricula: string): void {
+    if (!confirm(`Reactivar la matricula ${matricula}?`)) {
+        return;
+    }
+
+    router.put(
+        `/escolar/alumnos/${props.alumno.id}/carreras/${carreraId}`,
+        { accion: 'reactivar' },
+        { preserveScroll: true },
+    );
+}
+
+const colorEstatusCarrera: Record<string, string> = {
+    activo: 'color-mix(in srgb, #16a34a 16%, transparent)',
+    egresado: 'color-mix(in srgb, var(--color-acento) 14%, transparent)',
+    baja: 'color-mix(in srgb, #dc2626 14%, transparent)',
+};
 
 const form = useForm({
     nombre: props.persona.nombre ?? '',
@@ -173,11 +235,13 @@ function quitarFoto(): void {
                 <a href="/escolar/alumnos" class="text-sm" :style="{ color: 'var(--color-acento)' }">← Alumnos</a>
             </div>
 
-            <!-- La misma persona puede tener otra carrera en curso -->
-            <p v-if="otrasMatriculas.length" class="mt-4 border-t pt-4 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
-                <span :style="{ color: 'var(--color-suave)' }">Esta persona también está matriculada en:</span>
+            <!-- La misma persona puede cursar varias carreras -->
+            <p v-if="carreras.length > 1" class="mt-4 border-t pt-4 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
+                <span :style="{ color: 'var(--color-suave)' }">
+                    Esta persona tiene {{ carreras.length }} carreras:
+                </span>
                 <a
-                    v-for="otra in otrasMatriculas"
+                    v-for="otra in carreras.filter((c) => !c.es_actual)"
                     :key="otra.id"
                     :href="`/escolar/alumnos/${otra.id}`"
                     class="ml-2"
@@ -232,6 +296,7 @@ function quitarFoto(): void {
                 v-for="opcion in [
                     { clave: 'kardex', texto: 'Kárdex' },
                     { clave: 'carga', texto: 'Carga por ciclo' },
+                    { clave: 'carreras', texto: `Carreras (${carreras.length})` },
                     { clave: 'datos', texto: 'Datos' },
                 ]"
                 :key="opcion.clave"
@@ -329,6 +394,165 @@ function quitarFoto(): void {
 
             <p v-if="!carga.length" class="tarjeta px-6 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
                 No tiene materias inscritas.
+            </p>
+        </section>
+
+        <!-- Carreras -->
+        <section v-else-if="pestana === 'carreras'" class="space-y-4">
+            <article
+                v-for="carrera in carreras"
+                :key="carrera.id"
+                class="tarjeta p-5"
+                :class="carrera.estatus === 'baja' ? 'opacity-70' : ''"
+            >
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <p class="font-mono text-xs" :style="{ color: 'var(--color-suave)' }">
+                            {{ carrera.matricula }}
+                            <span v-if="carrera.es_actual" class="ml-1 rounded-full px-2 py-0.5" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 14%, transparent)', color: 'var(--color-acento)' }">
+                                viendo esta
+                            </span>
+                        </p>
+                        <p class="mt-0.5 font-medium">{{ carrera.carrera }}</p>
+                        <p class="text-sm" :style="{ color: 'var(--color-suave)' }">
+                            {{ carrera.plan }}
+                            <span v-if="carrera.campus"> · {{ carrera.campus }}</span>
+                            <span v-if="carrera.generacion"> · generación {{ carrera.generacion }}</span>
+                        </p>
+                        <p class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">
+                            Ingresó {{ carrera.fecha_ingreso }} · {{ carrera.materias_en_kardex }} materias en kárdex
+                        </p>
+                    </div>
+
+                    <div class="flex flex-col items-end gap-2">
+                        <span class="rounded-full px-2 py-0.5 text-xs capitalize" :style="{ backgroundColor: colorEstatusCarrera[carrera.estatus] }">
+                            {{ carrera.estatus }}
+                        </span>
+                        <span class="text-xs" :style="{ color: 'var(--color-suave)' }">{{ carrera.situacion }}</span>
+
+                        <div class="flex gap-3 text-sm">
+                            <a v-if="!carrera.es_actual" :href="`/escolar/alumnos/${carrera.id}`" :style="{ color: 'var(--color-acento)' }">
+                                Abrir
+                            </a>
+                            <button
+                                v-if="puedeEditar && carrera.estatus !== 'baja'"
+                                type="button"
+                                class="transition hover:text-red-600"
+                                :style="{ color: 'var(--color-suave)' }"
+                                @click="bajando = bajando === carrera.id ? null : carrera.id"
+                            >
+                                Dar de baja
+                            </button>
+                            <button
+                                v-else-if="puedeEditar"
+                                type="button"
+                                :style="{ color: 'var(--color-acento)' }"
+                                @click="reactivar(carrera.id, carrera.matricula)"
+                            >
+                                Reactivar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Qué tipo de baja: el catálogo de la escuela manda -->
+                <div
+                    v-if="bajando === carrera.id"
+                    class="mt-4 flex flex-wrap items-end gap-3 rounded-lg p-3"
+                    style="background-color: color-mix(in srgb, currentColor 5%, transparent)"
+                >
+                    <div class="min-w-56">
+                        <CampoSelect
+                            v-model="situacionBaja"
+                            etiqueta="Tipo de baja"
+                            :opciones="situacionesDeBaja.map((s) => ({ valor: s.id, texto: s.nombre }))"
+                        />
+                    </div>
+                    <button
+                        type="button"
+                        class="rounded-lg px-3 py-2 text-sm font-medium text-white"
+                        style="background-color: #dc2626"
+                        @click="confirmarBaja(carrera.id)"
+                    >
+                        Confirmar baja
+                    </button>
+                    <button
+                        type="button"
+                        class="rounded-lg border px-3 py-2 text-sm"
+                        :style="{ borderColor: 'var(--color-borde)' }"
+                        @click="bajando = null"
+                    >
+                        Cancelar
+                    </button>
+                    <p class="w-full text-xs" :style="{ color: 'var(--color-suave)' }">
+                        Su kárdex se conserva; la matrícula solo deja de estar activa.
+                    </p>
+                </div>
+            </article>
+
+            <!-- Agregar otra carrera -->
+            <section v-if="puedeMatricular" class="tarjeta p-6">
+                <h3 class="text-base font-semibold">Agregar otra carrera</h3>
+                <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
+                    Para quien ya es alumno de la casa —la egresada que empieza la maestría, quien suma
+                    una segunda licenciatura—. Genera una matrícula nueva con la regla de la escuela;
+                    no hay que darlo de alta como aspirante otra vez.
+                </p>
+
+                <div v-if="ofertasDisponibles.length" class="mt-4">
+                    <div v-if="!agregando">
+                        <button
+                            type="button"
+                            class="rounded-lg px-4 py-2 text-sm font-medium"
+                            :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+                            @click="agregando = true"
+                        >
+                            Matricular en otra oferta
+                        </button>
+                    </div>
+
+                    <div v-else class="grid gap-3 sm:grid-cols-3">
+                        <div class="sm:col-span-2">
+                            <CampoSelect
+                                v-model="formCarrera.oferta_id"
+                                etiqueta="Oferta"
+                                :opciones="ofertasDisponibles.map((o) => ({ valor: o.id, texto: o.etiqueta }))"
+                                vacio="Elige la carrera, plan y campus…"
+                                :error="formCarrera.errors.oferta_id"
+                            />
+                        </div>
+                        <CampoTexto v-model="formCarrera.generacion" etiqueta="Generación" :error="formCarrera.errors.generacion" />
+
+                        <div class="flex gap-2 sm:col-span-3">
+                            <button
+                                type="button"
+                                :disabled="!formCarrera.oferta_id || formCarrera.processing"
+                                class="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
+                                :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+                                @click="agregarCarrera"
+                            >
+                                {{ formCarrera.processing ? 'Generando matrícula…' : 'Matricular' }}
+                            </button>
+                            <button
+                                type="button"
+                                class="rounded-lg border px-4 py-2 text-sm"
+                                :style="{ borderColor: 'var(--color-borde)' }"
+                                @click="agregando = false"
+                            >
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <p v-else class="mt-4 text-sm" :style="{ color: 'var(--color-suave)' }">
+                    Ya está matriculada en todas las ofertas abiertas de la escuela.
+                </p>
+            </section>
+
+            <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                Una matrícula no se elimina: su kárdex es historia escolar y las actas donde aparece
+                quedarían sin dueño. Se da de baja.
             </p>
         </section>
 

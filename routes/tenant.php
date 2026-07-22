@@ -219,6 +219,18 @@ Route::middleware([
                             ->whereNumber('alumno')
                             ->middleware('can:editar-alumnos')
                             ->name('update');
+
+                        // Otra carrera para quien ya es alumno de la casa.
+                        // Genera matrícula, así que pide `generar-matricula`.
+                        Route::post('{alumno}/carreras', 'agregarCarrera')
+                            ->whereNumber('alumno')
+                            ->middleware('can:generar-matricula')
+                            ->name('carreras.store');
+
+                        Route::put('{alumno}/carreras/{carrera}', 'cambiarEstadoCarrera')
+                            ->whereNumber('alumno')->whereNumber('carrera')
+                            ->middleware('can:editar-alumnos')
+                            ->name('carreras.estado');
                     });
 
                 /*

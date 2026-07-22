@@ -63,6 +63,9 @@ class PermisoSeeder extends Seeder
             'capturar-calificaciones', 'asentar-acta', 'gestionar-ventanas-captura',
             'abrir-grupos', 'editar-catalogo-academico',
             'ver-docentes', 'gestionar-docentes',
+            // Matricula reingresos y segundas carreras de quien ya es alumno de
+            // la casa. La entrada de aspirantes sigue siendo de admisiones.
+            'generar-matricula',
         ],
         // Captura pero NO firma: puede vaciar las hojas que entrega el docente
         // y es el titular quien asienta el acta.

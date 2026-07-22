@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Academico\Campus;
 use App\Models\Academico\Carrera;
+use App\Models\Academico\Oferta;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\SituacionAlumno;
 use App\Models\ControlEscolar\Ciclo;
@@ -14,13 +15,16 @@ use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Identidad\Usuario;
 use App\Models\Landlord\Genero;
 use App\Models\Landlord\Sexo;
+use App\Services\MatriculadorOferta;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use RuntimeException;
 
 /**
  * Alumnos: buscar, consultar el expediente completo y corregir sus datos.
@@ -147,19 +151,49 @@ class AlumnoController extends Controller
                 'foto' => $alumno->persona?->urlFoto(),
                 'entidad_nacimiento' => $alumno->persona?->entidadNacimiento?->nombre,
             ],
-            // Otras matrículas de la MISMA persona: es el caso que justifica que
-            // el alumno sea la matrícula y no la persona.
-            'otrasMatriculas' => MatriculaOferta::query()
-                ->with('oferta.carrera:id,nombre')
+            // TODAS las carreras de esta persona, la actual incluida: es el
+            // caso que justifica que el alumno sea la matrícula y no la
+            // persona, y quien la atiende necesita verlas juntas.
+            'carreras' => MatriculaOferta::query()
+                ->with(['oferta.carrera:id,nombre', 'oferta.plan:id,nombre', 'oferta.campus:id,nombre', 'situacion:id,nombre'])
+                ->withCount('historial')
                 ->where('persona_id', $alumno->persona_id)
-                ->whereKeyNot($alumno->id)
+                ->orderByDesc('fecha_ingreso')
                 ->get()
                 ->map(fn (MatriculaOferta $m) => [
                     'id' => $m->id,
                     'matricula' => $m->matricula,
                     'carrera' => $m->oferta?->carrera?->nombre,
+                    'plan' => $m->oferta?->plan?->nombre,
+                    'campus' => $m->oferta?->campus?->nombre,
                     'estatus' => $m->estatus,
+                    'situacion' => $m->situacion?->nombre,
+                    'fecha_ingreso' => $m->fecha_ingreso?->toDateString(),
+                    'generacion' => $m->generacion,
+                    'materias_en_kardex' => $m->historial_count,
+                    'es_actual' => $m->id === $alumno->id,
                 ]),
+            // Ofertas donde todavía NO está matriculada: son las que se le
+            // pueden agregar. Ofrecer las que ya tiene solo produce un error.
+            'ofertasDisponibles' => Oferta::query()
+                ->with(['carrera:id,nombre', 'plan:id,nombre', 'campus:id,nombre', 'turno:id,nombre'])
+                ->whereNotIn('id', MatriculaOferta::query()
+                    ->where('persona_id', $alumno->persona_id)
+                    ->pluck('oferta_id'))
+                ->get()
+                ->map(fn (Oferta $o) => [
+                    'id' => $o->id,
+                    'etiqueta' => trim(sprintf(
+                        '%s · %s%s%s',
+                        $o->carrera?->nombre ?? '',
+                        $o->plan?->nombre ?? '',
+                        $o->campus !== null ? ' · '.$o->campus->nombre : '',
+                        $o->turno !== null ? ' · '.$o->turno->nombre : '',
+                    )),
+                ]),
+            'puedeMatricular' => $request->user()->can('generar-matricula'),
+            'situacionesDeBaja' => app(MatriculadorOferta::class)->situacionesDeBaja()
+                ->map(fn ($s) => ['id' => $s->id, 'nombre' => $s->nombre]),
             'historial' => $historial->map(fn (Historial $h) => [
                 'id' => $h->id,
                 'clave_en_plan' => $h->planMateria?->clave_en_plan,
@@ -250,6 +284,68 @@ class AlumnoController extends Controller
         });
 
         return back()->with('exito', 'Datos del alumno actualizados.');
+    }
+
+    /**
+     * Matricula a esta persona en OTRA oferta.
+     *
+     * Es el camino para la egresada que empieza la maestría o el alumno que
+     * suma una segunda licenciatura: gente que la escuela ya conoce y a la que
+     * obligar a darse de alta como aspirante sería recapturar.
+     *
+     * Genera matrícula, así que exige `generar-matricula` y no solo
+     * `editar-alumnos`: numerar a un alumno es un acto distinto de corregirle
+     * el teléfono.
+     */
+    public function agregarCarrera(Request $request, MatriculaOferta $alumno, MatriculadorOferta $matriculador): RedirectResponse
+    {
+        $datos = $request->validate([
+            'oferta_id' => ['required', 'integer', Rule::exists('oferta', 'id')->whereNull('deleted_at')],
+            'generacion' => ['nullable', 'string', 'max:100'],
+        ], [], ['oferta_id' => 'oferta']);
+
+        $oferta = Oferta::findOrFail($datos['oferta_id']);
+
+        try {
+            $nueva = $matriculador->matricular($alumno->persona, $oferta, $datos['generacion'] ?? null);
+        } catch (RuntimeException $e) {
+            throw ValidationException::withMessages(['oferta_id' => $e->getMessage()]);
+        }
+
+        return redirect()
+            ->route('tenant.escolar.alumnos.show', $nueva->id)
+            ->with('exito', "Matrícula {$nueva->matricula} generada.");
+    }
+
+    /**
+     * Da de baja o reactiva UNA matrícula, sin tocar las otras carreras de la
+     * misma persona.
+     *
+     * No hay opción de eliminar: el kárdex de esa matrícula es historia escolar
+     * y las actas donde aparece quedarían sin dueño.
+     */
+    public function cambiarEstadoCarrera(Request $request, MatriculaOferta $alumno, MatriculaOferta $carrera, MatriculadorOferta $matriculador): RedirectResponse
+    {
+        // La matrícula a tocar tiene que ser de la MISMA persona del expediente
+        // abierto: sin esto, un id en la URL daría de baja a cualquiera.
+        abort_unless($carrera->persona_id === $alumno->persona_id, 404);
+
+        $datos = $request->validate([
+            'accion' => ['required', Rule::in(['baja', 'reactivar'])],
+            // Cuál baja: temporal o definitiva. El catálogo de la escuela
+            // decide qué opciones hay.
+            'situacion_id' => ['nullable', 'integer', Rule::exists('situaciones_alumno', 'id')->whereNull('deleted_at')],
+        ], [], ['situacion_id' => 'tipo de baja']);
+
+        if ($datos['accion'] === 'baja') {
+            $matriculador->darDeBaja($carrera, $datos['situacion_id'] ?? null);
+
+            return back()->with('exito', "Matrícula {$carrera->matricula} dada de baja.");
+        }
+
+        $matriculador->reactivar($carrera);
+
+        return back()->with('exito', "Matrícula {$carrera->matricula} reactivada.");
     }
 
     /**

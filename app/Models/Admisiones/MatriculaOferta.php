@@ -49,6 +49,12 @@ class MatriculaOferta extends Model
         return $this->belongsTo(Oferta::class);
     }
 
+    /** Su kárdex. Sirve para saber si la matrícula ya tiene historia. */
+    public function historial(): HasMany
+    {
+        return $this->hasMany(\App\Models\ControlEscolar\Historial::class, 'matricula_oferta_id');
+    }
+
     public function situacion(): BelongsTo
     {
         return $this->belongsTo(SituacionAlumno::class, 'situacion_id');

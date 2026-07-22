@@ -900,3 +900,48 @@ acotada.
 - **Decisión:** la prueba crea su propio usuario y su propia persona.
 - **Lección:** una prueba no debe alterar el estado que otros están usando, ni
   siquiera dentro de una transacción.
+
+## 2026-07-21 — Varias carreras de la misma persona (bloque B)
+
+### Matricular a quien YA es alumno de la casa
+- **Problema:** `ConvertidorAspirante` cubre la entrada normal, pero no el caso
+  de la egresada que empieza la maestría o el alumno que suma una segunda
+  licenciatura. Obligarlos a darse de alta como aspirantes sería recapturar a
+  alguien que la escuela ya conoce.
+- **Decisión:** servicio `MatriculadorOferta`, usado desde el expediente. Usa el
+  MISMO `GeneradorMatricula` con su consecutivo atómico: no hay dos formas de
+  numerar alumnos.
+- El rol materializado `alumnos` se respeta si ya existía: es de la persona, no
+  de cada matrícula.
+- Se ofrecen solo las ofertas donde NO está matriculada. Ofrecer las que ya
+  tiene solo produce un error evitable.
+- **Permiso `generar-matricula`, no `editar-alumnos`**: numerar a un alumno es
+  un acto distinto de corregirle el teléfono. Se le concedió a
+  `encargado_control_escolar` además de admisiones, porque los reingresos y las
+  segundas carreras los atiende control escolar; la entrada de aspirantes sigue
+  siendo de admisiones.
+
+### Dar de baja pide CUÁL baja
+- **Hallazgo al probar:** el servicio buscaba una situación de clave `baja` que
+  NO existe. El catálogo de la escuela tiene `baja_temporal` y
+  `baja_definitiva`, y la baja se quedaba con la situación anterior ("Activo"),
+  dejando una matrícula con estatus `baja` y situación `Activo`.
+- **Decisión:** la baja recibe la situación destino y la interfaz la pide.
+  `estatus` y `situacion_id` son **dos ejes**: el primero dice que ya no está
+  activa, el segundo si fue temporal o definitiva — que es justo el dato que
+  después responde "¿puede volver?".
+- Las opciones se detectan por prefijo de clave (`baja%`) y no con una lista
+  fija: cada escuela define su catálogo.
+
+### No se elimina una matrícula
+- **Decisión:** solo baja y reactivación.
+- **Razón:** su kárdex es historia escolar y las actas donde aparece quedarían
+  sin dueño. Verificado en la suite: se asienta una materia, se da de baja, y el
+  kárdex sigue ahí.
+- La opción de "eliminar la cargada por error" se descartó por ahora; si se
+  retoma, tendría que restringirse a matrículas sin kárdex ni pagos.
+
+### Corregir la identidad alcanza a todas las matrículas
+- Ya era así, pero ahora se ve: la pestaña "Carreras" lista todas con su
+  estatus, situación, generación y cuántas materias llevan en kárdex, y la
+  pantalla rotula qué cambia a una y qué a todas.
