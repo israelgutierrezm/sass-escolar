@@ -33,6 +33,7 @@ use App\Http\Controllers\PlanCobroController;
 use App\Http\Controllers\PlanEstudioController;
 use App\Http\Controllers\PlanMateriaController;
 use App\Http\Controllers\PlantillaEvaluacionController;
+use App\Http\Controllers\PortalAspiranteController;
 use App\Http\Controllers\PromocionController;
 use App\Http\Controllers\RolActivoController;
 use App\Http\Controllers\RolController;
@@ -500,6 +501,21 @@ Route::middleware([
                         ->middleware('can:condonar-adeudos')
                         ->name('adeudos.resolver');
                 });
+            });
+
+        /*
+         * Portal del interesado. Sin id en la URL a propósito: el controlador
+         * resuelve SIEMPRE la solicitud de la persona autenticada, así que no
+         * hay forma de pedir el expediente de otro cambiando un número.
+         */
+        Route::controller(PortalAspiranteController::class)
+            ->prefix('mi-solicitud')->name('tenant.portal.')
+            ->middleware('can:llenar-mi-solicitud')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::put('/datos', 'guardarDatos')->name('datos');
+                Route::post('/documentos', 'subirDocumento')->name('documentos');
+                Route::get('/documentos/{documento}', 'descargarDocumento')->name('documentos.descargar');
             });
 
         /*

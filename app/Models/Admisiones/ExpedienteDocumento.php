@@ -25,6 +25,7 @@ class ExpedienteDocumento extends Model
         'descripcion',
         'url',
         'estado_documento_id',
+        'observaciones',
         'copia_certificada',
         'documento_fisico',
     ];

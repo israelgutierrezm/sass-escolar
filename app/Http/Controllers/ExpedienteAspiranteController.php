@@ -67,7 +67,19 @@ class ExpedienteAspiranteController extends Controller
 
         $datos = $request->validate([
             'estado_documento_id' => ['required', 'integer', Rule::exists('estados_documento', 'id')->whereNull('deleted_at')],
+            'observaciones' => ['nullable', 'string', 'max:255'],
         ]);
+
+        $rechazado = EstadoDocumento::query()
+            ->whereKey($datos['estado_documento_id'])
+            ->value('clave') === 'rechazado';
+
+        // Rechazar sin motivo obliga al aspirante a adivinar qué corregir, y
+        // ahora él ve esa pantalla. Es la misma regla que ya rige el expediente
+        // del docente.
+        if ($rechazado && blank($datos['observaciones'] ?? null)) {
+            return back()->with('error', 'Para rechazar un documento hay que decir por qué: es lo único que el aspirante va a leer.');
+        }
 
         $documento->update($datos);
 

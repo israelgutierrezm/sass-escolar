@@ -48,14 +48,14 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (21 suites, 576 verificaciones):
+   Las suites versionadas viven en `scripts/` (22 suites, 603 verificaciones):
    `prueba-actas`, `prueba-plantillas`, `prueba-ventanas-captura`,
    `prueba-ciclo-campus`, `prueba-apertura-grupos`, `prueba-alcance-docente`,
    `prueba-alumnos`, `prueba-docentes`, `prueba-documentos`,
    `prueba-formularios`, `prueba-multicarrera`, `prueba-suplantacion`,
    `prueba-finanzas`, `prueba-cobro`, `prueba-facturacion`, `prueba-emisores`,
    `prueba-roles`, `prueba-crm`, `prueba-formulario-publico`, `prueba-panel`,
-   `prueba-configuracion`. NO van en `tests/`:
+   `prueba-configuracion`, `prueba-portal-aspirante`. NO van en `tests/`:
    phpunit corre contra SQLite en memoria y ahí se prueba justo lo que SQLite
    no sabe hacer (`LAST_INSERT_ID`, FKs reales, InnoDB).
 
@@ -77,9 +77,12 @@ Cinco entregas, en este orden. A y B ✅ hechas; C, D y E pendientes:
 - ✅ Resuelto: las reglas de Alumnos y Docentes viven en
   `/plataforma/configuracion`, como pidió el cliente («que alguien con ese
   permiso configure todo antes de que existan registros»).
-- El **portal del alumno y del aspirante**: sin él, el modo «inscripción
-  autogestiva» crea la cuenta pero no hay a dónde entrar, y el alumno no recibe
-  accesos directos en su panel.
+- ✅ Resuelto para el ASPIRANTE: `/mi-solicitud` ya existe, así que el modo
+  «inscripción autogestiva» del formulario público tiene a dónde entrar.
+- ⏳ Falta el **portal del ALUMNO** (kárdex, carga, estado de cuenta propios).
+  Por eso el alumno todavía no recibe accesos directos en su panel.
+- ⏳ El portal **no cobra**: muestra los cargos, pero no hay pasarela conectada.
+  `pagos` ya tiene `pasarela` y `pasarela_txn_id` esperándola desde 7.1.
 
 ## Decisiones de arquitectura que NO se deben cambiar
 
@@ -304,7 +307,15 @@ npm run dev                # o npm run build
 - **Se retiro el test Cleaver**: la spec lo previo, se migro, y su banco de
   reactivos nunca se sembro, asi que no podia aplicarse. Se elimino en vez de
   apagarlo — una tabla vacia que nadie va a llenar es una promesa falsa.
-- Pruebas: 21 suites en `scripts/`, 576 verificaciones, todas contra la BD real
+- **Portal del interesado** (`/mi-solicitud`): el aspirante captura sus datos,
+  sube su documentacion y consulta sus cargos. `ProgresoSolicitud` calcula el
+  avance sobre TRES PASOS FIJOS (datos, documentos, pago) — no varian por
+  campana ni carrera, por decision del cliente. **Ese avance NO es la etapa del
+  CRM**: el embudo lo mueve promocion con su criterio y el progreso solo se
+  muestra informativamente en la ficha. Da igual quien llene: el mismo calculo
+  sirve para el interesado y para el administrador. El controlador no recibe id
+  por la URL, asi que no existe pedir el expediente de otro.
+- Pruebas: 22 suites en `scripts/`, 603 verificaciones, todas contra la BD real
   del tenant demo con `DB::rollBack()` al final.
 
 **Pendiente inmediato — aquí se retoma:**

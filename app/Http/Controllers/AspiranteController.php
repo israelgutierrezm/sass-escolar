@@ -17,6 +17,7 @@ use App\Models\Landlord\EntidadFederativa;
 use App\Models\Landlord\Genero;
 use App\Models\Landlord\Sexo;
 use App\Services\ConvertidorAspirante;
+use App\Services\ProgresoSolicitud;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -103,6 +104,9 @@ class AspiranteController extends Controller
             ->first();
 
         return Inertia::render('Aspirantes/Detalle', [
+            // Avance del EXPEDIENTE, informativo. No es la etapa del CRM: esa
+            // la mueve promoción con su criterio y no debe avanzar sola.
+            'progresoSolicitud' => app(ProgresoSolicitud::class)->para($aspirante),
             'aspirante' => [
                 'id' => $aspirante->id,
                 'nombre_completo' => $aspirante->persona->nombreCompleto(),

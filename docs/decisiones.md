@@ -1964,3 +1964,73 @@ mejor función»* — o sea, configurar antes de que existan registros.
 - Lección de higiene: borrar clases obliga a `composer dump-autoload`. Mientras
   el classmap quede viejo, `class_exists()` intenta incluir un fichero borrado y
   revienta. Por eso la suite comprueba el ARCHIVO y no la clase.
+
+---
+
+## 2026-07-22 — Portal del interesado (entrega G)
+
+Dos aclaraciones del cliente que gobiernan el diseño y corrigieron mi plan:
+
+1. *«Los pasos son los mismos para toda la escuela siempre, no varían.»*
+2. *«El avance del seguimiento del equipo de promoción en el CRM es totalmente
+   aparte… tal vez solo informativamente… y si no, el administrador pueda
+   llenarlo.»*
+
+### Los pasos son código, no configuración
+- `ProgresoSolicitud` declara tres pasos fijos: datos, documentos, pago.
+- **Iba a hacerlos configurables por campaña y el cliente lo corrigió.** Se
+  agradece: una tabla de pasos que siempre tiene las mismas tres filas es
+  configuración falsa —da a elegir algo que nadie va a cambiar y obliga a
+  mantener una pantalla que no aporta—. Lo que sí varía entre escuelas (si el
+  expediente y el pago son REQUISITO para convertir) ya vive en
+  `CatalogoAjustes`.
+
+### El avance del expediente NO es la etapa del CRM
+- **Es la corrección más importante y estuve a punto de equivocarme:** mi plan
+  era mover `etapa_crm_id` automáticamente al completar pasos.
+- El embudo lo mueve promoción con su criterio. Que alguien haya subido sus
+  papeles no significa que esté "documentado": puede faltar validarlos, o el
+  promotor puede saber algo que el sistema no. Si el embudo avanzara solo,
+  dejaría de reflejar el trabajo del equipo y se volvería un contador de
+  formularios.
+- El progreso se muestra en la ficha del aspirante como dato **informativo**,
+  junto a la etapa, sin tocarla. Verificado en la suite: expediente al 100% y la
+  etapa intacta donde la dejó promoción.
+
+### Da igual quién llene qué
+- El mismo cálculo sirve si lo capturó el interesado desde `/mi-solicitud` o un
+  administrador desde la ficha. Es lo que pidió el cliente («si no, el
+  administrador pueda llenarlo») y sale gratis porque el progreso se DERIVA de
+  los datos, no se marca a mano.
+
+### Los pasos que no aplican no arrastran el porcentaje
+- Sin documentos configurados o sin cargos generados, ese paso queda fuera del
+  cálculo. Si contara, una escuela que no cobra ficha dejaría a todos sus
+  aspirantes atascados en 66% para siempre.
+
+### Un documento RECHAZADO vuelve a contar como faltante
+- Aunque el archivo esté ahí. Quien lo revisó dijo que no sirve, y dar por
+  completo ese paso escondería justo lo que hay que corregir.
+
+### INCONSISTENCIA CORREGIDA: al aspirante se le rechazaba sin motivo
+- Al docente ya no se le puede —decisión tomada en el hito de su expediente,
+  porque un rechazo sin motivo obliga a adivinar qué corregir— pero a
+  `expediente_documentos` le faltaba la columna: **al aspirante sí se podía**.
+- Nadie lo notó mientras solo un administrador miraba esa pantalla. Se vuelve
+  grave ahora que el interesado ve su propio expediente y lee «Rechazado» sin
+  más. Se agrega `observaciones` y se exige al rechazar.
+
+### El portal no recibe id por la URL
+- `PortalAspiranteController` resuelve SIEMPRE la solicitud de la persona
+  autenticada. No hay `/{aspirante}` que cambiar por otro número, así que no
+  existe la clase de fallo donde alguien pide el expediente ajeno. La descarga
+  de un documento sí valida además que sea suyo.
+- Permiso propio `llenar-mi-solicitud`, único de la faceta `aspirante`.
+  Verificado por HTTP: el aspirante entra a `/mi-solicitud` y recibe 403 en
+  `/aspirantes`; un administrativo recibe 403 en `/mi-solicitud`.
+
+### Lo que el portal NO hace, y hay que decirlo
+- **No cobra.** Muestra los cargos y su saldo, pero no hay pasarela: pagar sigue
+  siendo presencial o por los medios que la escuela indique. Conectar una
+  pasarela es trabajo aparte, y `pagos` ya tiene las columnas (`pasarela`,
+  `pasarela_txn_id`) esperándola desde la entrega 7.1.

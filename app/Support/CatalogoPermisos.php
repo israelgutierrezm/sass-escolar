@@ -49,6 +49,10 @@ final class CatalogoPermisos
             'gestionar-documentos' => ['Administrar el catálogo de documentos', 'Definir qué papeles se le piden a cada tipo de persona.'],
         ],
 
+        'Portal del interesado' => [
+            'llenar-mi-solicitud' => ['Llenar mi solicitud', 'El aspirante captura sus datos, sube su documentación y consulta lo que debe. Solo lo SUYO: no recibe id por la URL.'],
+        ],
+
         'Promoción y CRM' => [
             'ver-mis-prospectos' => ['Ver mis prospectos', 'El promotor ve y da seguimiento SOLO a los aspirantes que le asignaron.'],
             'gestionar-promocion' => ['Coordinar promoción', 'Ver el embudo completo, asignar promotores y mover prospectos de etapa.'],
