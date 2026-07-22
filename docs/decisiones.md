@@ -2149,3 +2149,58 @@ Tenía razón y era un agujero de diseño, no un detalle de pantalla.
   retiran roles o se restablece la contraseña.
 - La contraseña actual no se muestra porque no se puede: está hasheada, que es
   como debe estar.
+
+---
+
+## 2026-07-22 — Dirección general lo puede todo DENTRO de su oficio
+
+Petición del cliente: *«reinicia los permisos de director general… en teoría
+director general debe tener todos los permisos para poder ver o hacer cualquier
+cosa.»*
+
+### La tensión, y cómo se resuelve
+- Un turno antes el mismo cliente pidió lo contrario para un caso concreto: *«no
+  podría tener un administrador general que vea opciones de docente; si es
+  docente tendría que cambiar de rol.»*
+- **«Todos» se lee como todos los de SU FACETA**, no los 43 del catálogo. Son 40
+  de 43; los tres que quedan fuera son `ver-mis-materias`,
+  `editar-mi-expediente` y `llenar-mi-solicitud`.
+- No es una interpretación cómoda: darle esos tres **no funcionaría**. Su
+  alcance no sale del permiso sino de una asignación —estar en `docentes`,
+  tener un aspirante propio—. Dirección general con `ver-mis-materias` no vería
+  «sus» materias porque no tiene ninguna: vería una pantalla vacía. Para actuar
+  como docente se le da también ese rol y conmuta, que es justo lo que el
+  cliente describió.
+
+### La lista se DERIVA, no se escribe
+- `PermisoSeeder` marcaba a mano los permisos de dirección general. Una lista a
+  mano se queda vieja cada vez que se agrega un permiso — y ya había pasado:
+  `ver-mis-prospectos` nunca se le dio, y produjo el 403 inexplicable que se
+  parcheó con el permiso derivado `entrar-promocion`.
+- Ahora `director_general => TODOS_LOS_DE_SU_FACETA` y el seeder lo expande
+  desde `CatalogoPermisos::clavesDe()`. El seeder además FILTRA cualquier
+  permiso de otra faceta que alguien escriba en las listas: corre en cada
+  escuela y no debe poder sembrar una inconsistencia.
+
+### HALLAZGO: la regla nueva no deshacía lo viejo
+- El acotamiento por faceta se aplicó al catálogo, a la pantalla y al guardado,
+  pero **lo ya concedido siguió concedido**. En la escuela de prueba, dirección
+  general tenía `ver-mis-materias`, `editar-mi-expediente` y
+  `llenar-mi-solicitud` otorgados desde la pantalla antes del cambio — o sea,
+  exactamente el caso que el cliente reportó seguía vivo en los datos.
+- Se agrega una migración de limpieza que retira de TODOS los roles lo que no
+  corresponde a su faceta. Usa `revokePermissionTo` y no `syncPermissions`:
+  quita lo que sobra sin reescribir lo demás, para no perder nada que la escuela
+  hubiera configurado a mano y sí corresponda.
+- **Lección:** una regla de autorización nueva tiene tres frentes —el catálogo,
+  la escritura y los datos que ya existen—. Atender solo los dos primeros deja
+  el agujero abierto justo para quien ya lo había usado.
+
+### HALLAZGO: `coordinador_academia` estaba mal colgado
+- Colgaba de la faceta DOCENTE y todos sus permisos eran administrativos
+  (catálogo académico, abrir grupos, ver docentes): ninguno es de impartir
+  clase. Estaba así desde el `RolSeeder` original y solo se notó al aplicar la
+  regla de facetas, que lo delató como inconsistente.
+- Pasa a colgar de ADMINISTRATIVO. Coordinar la oferta es trabajo de gestión;
+  quien coordina y además da clase tiene los dos roles y conmuta — que es
+  precisamente lo que el modelo de facetas quiere que pase.

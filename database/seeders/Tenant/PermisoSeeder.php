@@ -23,25 +23,21 @@ use Spatie\Permission\PermissionRegistrar;
  */
 class PermisoSeeder extends Seeder
 {
+    /** Marca: este rol recibe TODOS los permisos de su faceta. */
+    private const TODOS_LOS_DE_SU_FACETA = ['*'];
+
     /** Qué permisos concede cada rol, además de los que hereda de su padre. */
     private const ASIGNACIONES = [
         // Faceta administrativa: lo mínimo común a todo el personal.
         'administrativo' => ['ver-personas', 'ver-alumnos', 'ver-catalogo-academico', 'ver-grupos'],
 
-        'director_general' => [
-            'crear-personas', 'editar-personas', 'ver-aspirantes', 'editar-alumnos',
-            'ver-kardex', 'ver-adeudos', 'registrar-pagos', 'condonar-adeudos',
-            'gestionar-planes-cobro', 'gestionar-emisores', 'facturar', 'ver-configuracion',
-            'gestionar-promocion', 'gestionar-comisiones', 'configurar-comisiones',
-            'editar-configuracion', 'gestionar-usuarios', 'gestionar-roles',
-            'editar-catalogo-academico', 'abrir-grupos', 'inscribir-alumnos',
-            'gestionar-ventanas-captura', 'ver-docentes', 'gestionar-docentes',
-            'gestionar-documentos',
-            // Ver el sistema como lo ve otra persona. Solo direccion: es la
-            // capacidad mas delicada y queda en bitacora.
-            'suplantar-usuarios',
-            'gestionar-formularios',
-        ],
+        // Dirección general se DERIVA del catálogo: todos los permisos de su
+        // faceta, sin lista a mano. Una lista escrita a mano se queda vieja
+        // cada vez que se agrega un permiso —fue exactamente lo que pasó con
+        // `ver-mis-prospectos`, y produjo un 403 que nadie sabía explicar—.
+        // Ver `permisosDe()` más abajo.
+        'director_general' => self::TODOS_LOS_DE_SU_FACETA,
+
         'director_campus' => [
             'crear-personas', 'editar-personas', 'ver-aspirantes', 'editar-alumnos',
             'ver-kardex', 'ver-adeudos', 'abrir-grupos', 'ver-docentes',
@@ -82,6 +78,12 @@ class PermisoSeeder extends Seeder
         'encargado_finanzas' => ['ver-adeudos', 'registrar-pagos', 'condonar-adeudos', 'facturar', 'gestionar-planes-cobro', 'gestionar-emisores'],
         'auxiliar_finanzas' => ['ver-adeudos', 'registrar-pagos'],
 
+        // Coordinador de academia cuelga de ADMINISTRATIVO, no de docencia:
+        // coordinar la oferta académica es trabajo de gestión. Quien además
+        // imparte clase tiene los dos roles y conmuta — que es justo lo que el
+        // modelo de facetas quiere que pase.
+        'coordinador_academia' => ['editar-catalogo-academico', 'abrir-grupos', 'ver-docentes'],
+
         // Docencia.
         // El alcance del docente NO lo da el permiso sino la asignación en
         // `docente_asignatura_grupo`: solo captura y firma las materias que
@@ -95,7 +97,6 @@ class PermisoSeeder extends Seeder
             'ver-mis-materias', 'editar-mi-expediente',
             'ver-kardex', 'pasar-lista', 'capturar-calificaciones', 'asentar-acta',
         ],
-        'coordinador_academia' => ['ver-catalogo-academico', 'abrir-grupos', 'ver-docentes'],
 
         // Facetas no administrativas: su alcance se resuelve además por
         // pertenencia (un alumno solo ve SU kárdex), no solo por permiso.
@@ -130,9 +131,34 @@ class PermisoSeeder extends Seeder
                 continue; // el rol no está sembrado en esta escuela
             }
 
-            $rol->syncPermissions($permisos);
+            $rol->syncPermissions($this->resolver($rol, $permisos));
         }
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
+    }
+
+    /**
+     * Expande la marca `*` a todos los permisos de la faceta del rol, y filtra
+     * lo que no le corresponda.
+     *
+     * El filtro no es paranoia: un permiso puesto a mano en la lista que
+     * pertenezca a otro oficio rompería la separación que el sistema sostiene,
+     * y este seeder corre en cada escuela.
+     *
+     * @param  array<int, string>  $permisos
+     * @return array<int, string>
+     */
+    private function resolver(Rol $rol, array $permisos): array
+    {
+        $ambito = $rol->ambitoDePermisos();
+
+        if ($permisos === self::TODOS_LOS_DE_SU_FACETA) {
+            return CatalogoPermisos::clavesDe($ambito);
+        }
+
+        return array_values(array_filter(
+            $permisos,
+            fn (string $p) => CatalogoPermisos::correspondeA($p, $ambito)
+        ));
     }
 }

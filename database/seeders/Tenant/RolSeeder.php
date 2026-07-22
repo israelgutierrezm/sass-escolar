@@ -60,8 +60,11 @@ class RolSeeder extends Seeder
             $this->rol($clave, $nombre, $ids['administrativo']);
         }
 
-        // Rol funcional dentro de docencia: coordinador de academia.
-        $this->rol('coordinador_academia', 'Coordinador de academia', $ids['docente']);
+        // Coordinador de academia cuelga de ADMINISTRATIVO y no de docencia:
+        // coordinar la oferta es trabajo de gestión, y sus permisos son
+        // administrativos. Quien además imparte clase tiene los dos roles y
+        // conmuta, que es lo que el modelo de facetas quiere que pase.
+        $this->rol('coordinador_academia', 'Coordinador de academia', $ids['administrativo']);
     }
 
     private function rol(string $clave, string $nombre, ?int $padreId = null): Rol

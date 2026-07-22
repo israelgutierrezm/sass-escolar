@@ -244,7 +244,47 @@ try {
     verificar('Una faceta creada por la escuela se trata como administrativa',
         $inventadaFaceta->ambitoDePermisos() === CatalogoPermisos::ADMINISTRATIVO);
 
-    echo PHP_EOL.'8. Salvaguarda contra el auto-encierro'.PHP_EOL;
+    echo PHP_EOL.'8. Dirección general lo puede TODO dentro de su oficio'.PHP_EOL;
+
+    // Su lista de permisos se DERIVA del catálogo: escrita a mano se queda
+    // vieja cada vez que se agrega uno, y eso ya produjo un 403 inexplicable
+    // con `ver-mis-prospectos`.
+    $dg = Rol::where('name', 'director_general')->firstOrFail();
+    $delAmbito = collect(CatalogoPermisos::clavesDe(CatalogoPermisos::ADMINISTRATIVO));
+    $efectivosDg = $dg->permisosEfectivos()->pluck('name');
+
+    verificar('No le falta NINGÚN permiso administrativo',
+        $delAmbito->diff($efectivosDg)->isEmpty(),
+        $delAmbito->diff($efectivosDg)->implode(', ') ?: 'no falta nada');
+    verificar('Y son todos los de su ámbito, ni uno menos',
+        $efectivosDg->intersect($delAmbito)->count() === $delAmbito->count(),
+        $efectivosDg->count().' efectivos de '.$delAmbito->count());
+
+    // Lo que NO puede: actuar como docente o como aspirante. Para eso conmuta.
+    verificar('Pero NO tiene los del docente: para eso conmuta de rol',
+        ! $efectivosDg->contains('ver-mis-materias')
+        && ! $efectivosDg->contains('editar-mi-expediente'));
+    verificar('Ni el del portal del interesado',
+        ! $efectivosDg->contains('llenar-mi-solicitud'));
+
+    echo PHP_EOL.'9. Ningún rol conserva permisos de otra faceta'.PHP_EOL;
+
+    // La regla nueva no deshace sola lo concedido bajo la anterior: hubo una
+    // migración de limpieza y esto la fija para que no se degrade otra vez.
+    $inconsistentes = Rol::all()->filter(function (Rol $r) {
+        return $r->permissions->pluck('name')
+            ->reject(fn ($p) => CatalogoPermisos::correspondeA($p, $r->ambitoDePermisos()))
+            ->isNotEmpty();
+    });
+
+    verificar('Ni uno solo', $inconsistentes->isEmpty(),
+        $inconsistentes->pluck('name')->implode(', ') ?: 'todos limpios');
+
+    verificar('Coordinador de academia cuelga de administrativo, no de docencia',
+        Rol::where('name', 'coordinador_academia')->first()?->ambitoDePermisos()
+        === CatalogoPermisos::ADMINISTRATIVO);
+
+    echo PHP_EOL.'10. Salvaguarda contra el auto-encierro'.PHP_EOL;
 
     // Es la regla que impide que alguien se quite «gestionar-roles» de su
     // propio rol activo y deje la pantalla inalcanzable para todos.

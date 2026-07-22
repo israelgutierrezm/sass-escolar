@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (22 suites, 615 verificaciones):
+   Las suites versionadas viven en `scripts/` (22 suites, 621 verificaciones):
    `prueba-actas`, `prueba-plantillas`, `prueba-ventanas-captura`,
    `prueba-ciclo-campus`, `prueba-apertura-grupos`, `prueba-alcance-docente`,
    `prueba-alumnos`, `prueba-docentes`, `prueba-documentos`,
@@ -325,7 +325,12 @@ npm run dev                # o npm run build
   existia desde el slice de auth SIN ninguna ruta. Alta de cuentas reutilizando
   persona por CURP, asignacion de roles agrupados por faceta y restablecimiento
   de contrasena. Las cuentas no se eliminan.
-- Pruebas: 22 suites en `scripts/`, 615 verificaciones, todas contra la BD real
+- **Dirección general se DERIVA del catálogo**: recibe todos los permisos de su
+  faceta (40 de 43), no una lista escrita a mano — una lista a mano se queda
+  vieja cada vez que se agrega un permiso, y eso ya produjo un 403
+  inexplicable. Los tres que NO tiene son de docente y de aspirante: para
+  actuar como tales se le da ese rol y conmuta.
+- Pruebas: 22 suites en `scripts/`, 621 verificaciones, todas contra la BD real
   del tenant demo con `DB::rollBack()` al final.
 
 **Pendiente inmediato — aquí se retoma:**
