@@ -118,6 +118,16 @@ const navegacion = computed(() => {
                 { etiqueta: 'Inscripciones', url: '/escolar/inscripciones', permiso: 'inscribir-alumnos' },
             ],
         },
+        {
+            clave: 'finanzas',
+            etiqueta: 'Finanzas',
+            prefijo: '/finanzas',
+            icono: 'M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
+            hijos: [
+                { etiqueta: 'Cartera', url: '/finanzas', permiso: 'ver-adeudos' },
+                { etiqueta: 'Planes de cobro', url: '/finanzas/planes', permiso: 'gestionar-planes-cobro' },
+            ],
+        },
         /*
          * Docencia: lo del docente sobre sus propias materias. Es una sección
          * aparte y no un submenú de Control escolar porque son dos oficios

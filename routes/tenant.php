@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
-use App\Http\Controllers\AsignaturaController;
 use App\Http\Controllers\AlumnoController;
+use App\Http\Controllers\AsignaturaController;
 use App\Http\Controllers\AsignaturaGrupoController;
 use App\Http\Controllers\AspiranteController;
 use App\Http\Controllers\AutenticacionController;
+use App\Http\Controllers\CampoFormularioController;
 use App\Http\Controllers\CampusController;
 use App\Http\Controllers\CapturaCalificacionesController;
 use App\Http\Controllers\CarreraController;
@@ -15,15 +16,16 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocenciaController;
 use App\Http\Controllers\DocenteController;
 use App\Http\Controllers\DocumentoRequeridoController;
-use App\Http\Controllers\CampoFormularioController;
 use App\Http\Controllers\EsquemaEvaluacionController;
-use App\Http\Controllers\FormularioController;
 use App\Http\Controllers\ExpedienteAspiranteController;
 use App\Http\Controllers\ExpedienteDocenteController;
+use App\Http\Controllers\FinanzasController;
+use App\Http\Controllers\FormularioController;
 use App\Http\Controllers\FotoPersonaController;
 use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\InscripcionController;
 use App\Http\Controllers\OfertaController;
+use App\Http\Controllers\PlanCobroController;
 use App\Http\Controllers\PlanEstudioController;
 use App\Http\Controllers\PlanMateriaController;
 use App\Http\Controllers\PlantillaEvaluacionController;
@@ -387,6 +389,52 @@ Route::middleware([
                     Route::delete('grupos/{grupo}/materias/{asignatura}', [AsignaturaGrupoController::class, 'destroy'])->name('grupos.materias.destroy');
                     Route::post('grupos/{grupo}/materias/{asignatura}/docentes', [AsignaturaGrupoController::class, 'asignarDocente'])->name('grupos.docentes.store');
                     Route::delete('grupos/{grupo}/materias/{asignatura}/docentes/{persona}', [AsignaturaGrupoController::class, 'quitarDocente'])->name('grupos.docentes.destroy');
+                });
+            });
+
+        /*
+         * Finanzas. `ver-adeudos` para consultar la cartera y el estado de
+         * cuenta; `registrar-pagos` para cobrar; `condonar-adeudos` para
+         * perdonar o cancelar un cargo; `gestionar-planes-cobro` para
+         * configurar el motor.
+         *
+         * Configurar el esquema de cobro es un permiso APARTE de cobrar: el
+         * auxiliar de ventanilla registra pagos todo el día y no debe poder
+         * cambiarle el monto de la colegiatura a una carrera entera.
+         */
+        Route::prefix('finanzas')->name('tenant.finanzas.')
+            ->middleware('can:ver-adeudos')
+            ->group(function () {
+                Route::controller(PlanCobroController::class)
+                    ->prefix('planes')->name('planes.')
+                    ->middleware('can:gestionar-planes-cobro')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::post('/', 'store')->name('store');
+                        Route::get('/{plan}', 'show')->name('show');
+                        Route::put('/{plan}', 'update')->name('update');
+                        Route::delete('/{plan}', 'destroy')->name('destroy');
+
+                        Route::post('/{plan}/reglas', 'guardarRegla')->name('reglas.store');
+                        Route::put('/{plan}/reglas/{regla}', 'actualizarRegla')->name('reglas.update');
+                        Route::delete('/{plan}/reglas/{regla}', 'eliminarRegla')->name('reglas.destroy');
+                    });
+
+                Route::controller(FinanzasController::class)->group(function () {
+                    Route::get('/', 'index')->name('index');
+                    Route::get('/cuentas/{matricula}', 'cuenta')->name('cuenta');
+
+                    Route::middleware('can:registrar-pagos')->group(function () {
+                        Route::post('/cuentas/{matricula}/generar', 'generar')->name('generar');
+                        Route::post('/cuentas/{matricula}/pagos', 'registrarPago')->name('pagos.store');
+                        Route::post('/pagos/{pago}/confirmar', 'confirmarPago')->name('pagos.confirmar');
+                        Route::post('/pagos/{pago}/revertir', 'revertirPago')->name('pagos.revertir');
+                        Route::put('/cuentas/{matricula}/situacion', 'cambiarSituacion')->name('situacion');
+                    });
+
+                    Route::put('/adeudos/{adeudo}/resolver', 'resolverAdeudo')
+                        ->middleware('can:condonar-adeudos')
+                        ->name('adeudos.resolver');
                 });
             });
 

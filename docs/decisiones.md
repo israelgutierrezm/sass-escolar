@@ -1224,3 +1224,146 @@ los tres catálogos y la re-ligadura en la conversión.
   punto de partida: el contador de cada escuela las confirma antes de timbrar.
 - Lo que NO se siembra son montos, planes de cobro ni reglas: son de cada
   escuela y no hay un valor por defecto razonable.
+
+---
+
+## 2026-07-22 — Módulo 7, entrega 7.2: el motor de cobro
+
+### La idempotencia no se confía al código
+- **Decisión:** índice único `(matricula_oferta_id, regla_id, periodo_etiqueta)`
+  además de la comprobación previa en `GeneradorAdeudos`.
+- **Razón:** el generador va a correr como job programado. Dos ejecuciones que
+  se traslapen —un reintento de la cola, el administrador que aprieta el botón
+  mientras el cron corre— pasan las dos por el SELECT antes de que ninguna
+  inserte. Un índice único es lo único que de verdad impide cobrarle dos veces
+  la colegiatura de marzo a un alumno. El `QueryException` de duplicado se traga
+  a propósito: significa que otra corrida ganó la carrera, que es justo lo que
+  el índice existe para resolver.
+- Los cargos capturados a mano llevan `regla_id` en NULL y MySQL trata los NULL
+  como distintos, así que quedan fuera del índice — lo cual es correcto: una
+  reposición de credencial cobrada dos veces son dos cargos legítimos.
+- La comprobación previa usa `withTrashed()` por la trampa conocida del
+  proyecto: **el soft delete no libera un índice único**. Y es además el
+  comportamiento deseado — si alguien canceló marzo, la siguiente corrida no
+  debe resucitarlo.
+
+### La etiqueta del periodo es una llave, no una decoración
+- `periodo_etiqueta` ("Marzo 2026", "Semana 12 de 2026") es la mitad de la
+  llave de idempotencia, así que **tiene que ser estable entre corridas**.
+- Por eso los nombres de mes van en un arreglo del propio servicio y NO salen
+  del locale: un cambio de configuración del servidor convertiría "Marzo 2026"
+  en "March 2026" y la siguiente corrida cobraría marzo otra vez.
+
+### BUG ENCONTRADO: las semanas dependían de la configuración
+- **Síntoma:** el mismo rango de cuatro semanas producía CINCO periodos, y dos
+  de ellos podían llevar la misma etiqueta.
+- **Causa:** `startOfWeek()` sin argumento respeta la configuración de la
+  aplicación, que aquí empieza en **domingo**, mientras la etiqueta se calcula
+  con `isoWeek()`, que siempre cuenta de lunes. Los límites y el nombre del
+  periodo hablaban de semanas distintas.
+- **Arreglo:** `startOfWeek(MONDAY)` / `endOfWeek(SUNDAY)` explícitos. Una llave
+  de idempotencia no puede depender de un ajuste que alguien cambie mañana.
+
+### BUG ENCONTRADO: el prorrateo nunca prorrateaba
+- **Síntoma:** quien ingresaba el 16 de marzo pagaba el mes completo.
+- **Causa:** el periodo se construía con `inicio = max(inicio del mes, fecha de
+  ingreso)`. Así "del 16 al 31" se creía un mes entero y
+  `proporcionDesde()` devolvía siempre 1.
+- **Arreglo:** el periodo lleva los límites REALES del mes; el recorte al
+  ingreso es asunto del generador, no del calendario.
+
+### BUG ENCONTRADO: Carbon 3 mide en días fraccionarios
+- **Síntoma:** con lo anterior arreglado, el prorrateo daba 1 646.87 en vez de
+  1 600 — unos pesos de más, todos los meses, en cada alta a media periodicidad.
+- **Causa:** `endOfMonth()` cae a las 23:59:59 y `diffInDays` de Carbon 3
+  devuelve **flotante**, así que marzo medía 31.99 días y la fracción salía
+  17/32 en vez de 16/31.
+- **Arreglo:** `proporcionDesde()` normaliza las tres fechas a medianoche y
+  castea el diff a entero. Lección: en aritmética de calendario, comparar
+  instantes cuando se quieren contar días es un error que no revienta — solo
+  cobra de más.
+
+### Un solo criterio de especificidad: el más específico gana
+- **Decisión:** `ResolutorPlanCobro` elige oferta → plan de estudios → carrera →
+  global, entre los vigentes. Mismo criterio que `reglas_matricula`.
+- **Razón:** la escuela define un esquema general y lo excepciona donde hace
+  falta ("todos pagan así, salvo la maestría en línea"). Sin la precedencia
+  habría que dar de alta un plan de cobro por oferta solo para repetir el mismo
+  monto. Si empatan dos del mismo nivel —configuración mal hecha— gana el de
+  `vigente_desde` más reciente: es el último que alguien quiso poner en marcha.
+
+### El estatus del adeudo se DERIVA; el del pago lo dicta el método
+- `RegistradorPago::actualizarEstatus` calcula pendiente/parcial/pagado a partir
+  de lo aplicado. Nunca se captura. Así no puede existir un adeudo "pagado" con
+  saldo ni uno "pendiente" ya cubierto.
+- El estatus del PAGO no lo elige el capturista: lo dicta
+  `metodos_pago.requiere_confirmacion`. Un pago en ventanilla nace cobrado; una
+  transferencia nace pendiente y solo confirmarla la vuelve dinero. Dejarlo a
+  criterio de quien cobra es exactamente cómo se da por pagado un adeudo con
+  dinero que nunca llegó.
+- `montoAplicado()` suma **solo pagos completados**, así que un SPEI registrado
+  y sin confirmar deja el saldo intacto. Verificado en la suite.
+- Cancelado y condonado se respetan: son decisiones administrativas y un pago
+  posterior no las revierte solo.
+
+### Revertir un pago no borra su aplicación
+- **Decisión:** marcar un pago como fallido o reembolsado reabre los adeudos que
+  cubría, pero las filas de `pago_adeudo` se conservan.
+- **Razón:** que un pago se haya intentado y rebotado es parte de la historia de
+  la cuenta. Borrarlo deja al alumno preguntando por un cargo que la semana
+  pasada aparecía cubierto.
+
+### El recargo se calcula sobre el monto BASE
+- No sobre el total ya recargado. Capitalizar la mora es otra decisión de
+  negocio y sería una que nadie tomó explícitamente.
+- `dias_gracia` es el colchón antes de que empiece a correr: casi ninguna
+  escuela cobra mora al día siguiente del vencimiento.
+- Un adeudo pagado, cancelado o condonado **no se recalcula**: moverle el monto
+  a algo ya liquidado descuadraría lo que el alumno pagó contra su recibo.
+- Las tres columnas (`monto`, `monto_recargos`, `monto_descuentos`) se conservan
+  por separado y la pantalla las desglosa. La pregunta de ventanilla es "¿por
+  qué me cobran 2 300 si la colegiatura son 2 000?", y un neto no la responde.
+
+### Los descuentos se acumulan pero nunca pasan del monto
+- Dos becas del 60% dejan el adeudo en cero, no en negativo. Un adeudo negativo
+  sería un saldo a favor, que es otra cosa y no se inventa aquí.
+
+### El prerrequisito impide emitir, no solo cobrar
+- Una regla con `concepto_prerequisito_id` **no genera** hasta que ese concepto
+  esté pagado (o condonado).
+- **Razón:** cobrarle las colegiaturas del semestre a quien nunca completó su
+  inscripción infla la cartera con dinero que la escuela cree tener y no tiene,
+  y le llega al alumno como un estado de cuenta que no reconoce.
+
+### Una matrícula de baja deja de devengar
+- El generador se detiene y **dice por qué**. Seguir emitiéndole colegiaturas
+  obliga a cancelarlas después una por una.
+
+### La situación financiera vive en la bitácora, no en una columna
+- Ya estaba decidido en 7.1 y aquí se consume: `EstadoCuenta::estaBloqueada`
+  lee la situación vigente, **no el saldo**. Hay escuelas que no bloquean nunca
+  y otras que bloquean al primer adeudo; esa decisión vive en el catálogo
+  (`situaciones_pago.bloquea`), no en el código.
+
+### `gestionar-planes-cobro`: configurar el cobro no es cobrar
+- **Decisión:** permiso nuevo, para dirección general y encargado de finanzas.
+  El `auxiliar_finanzas` tiene `registrar-pagos` pero NO este.
+- **Razón:** el auxiliar de ventanilla cobra todo el día y no debe poder
+  cambiarle el monto de la colegiatura a una carrera entera. Verificado por
+  HTTP: 200 en `/finanzas`, 403 en `/finanzas/planes`.
+
+### La cartera se agrega en SQL, no alumno por alumno
+- El listado calcula saldo y vencido con una subconsulta agregada y un
+  `leftJoinSub`. Recorrer las matrículas pidiéndole el saldo a cada modelo son
+  miles de consultas en la pantalla que se abre a diario.
+- Los totales salen de la misma agregación **sin el paginado**: de la página
+  actual dirían "la cartera son 40 mil pesos" cuando son los 40 mil de los 25
+  alumnos que se están viendo.
+
+### Editar una regla no reescribe los cargos ya emitidos
+- **Decisión:** cambiar el monto aplica a los siguientes; los emitidos
+  conservan el suyo, y la pantalla lo avisa.
+- **Razón:** un adeudo es lo que se le cobró al alumno ese mes, no una vista en
+  vivo de la regla. Una regla que ya emitió cargos tampoco se borra —sus
+  adeudos quedarían sin explicación de dónde salieron—: se retira el plan con
+  fecha de fin, que es como se retira un esquema de cobro en la vida real.

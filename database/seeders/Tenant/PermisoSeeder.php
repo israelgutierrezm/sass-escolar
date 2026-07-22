@@ -32,7 +32,10 @@ class PermisoSeeder extends Seeder
         // administrativo: no gestiona la escuela, imparte clase en ella.
         'docencia' => ['ver-mis-materias', 'editar-mi-expediente', 'ver-docentes', 'gestionar-docentes'],
         'academico' => ['ver-catalogo-academico', 'editar-catalogo-academico', 'abrir-grupos'],
-        'finanzas' => ['ver-adeudos', 'registrar-pagos', 'condonar-adeudos', 'facturar'],
+        // `gestionar-planes-cobro` es distinto de `registrar-pagos`: el
+        // auxiliar de ventanilla cobra todo el día y no debe poder cambiarle el
+        // monto de la colegiatura a una carrera entera.
+        'finanzas' => ['ver-adeudos', 'registrar-pagos', 'condonar-adeudos', 'facturar', 'gestionar-planes-cobro'],
         'plataforma' => ['ver-configuracion', 'editar-configuracion', 'gestionar-usuarios', 'gestionar-roles', 'suplantar-usuarios', 'gestionar-formularios'],
     ];
 
@@ -43,7 +46,8 @@ class PermisoSeeder extends Seeder
 
         'director_general' => [
             'crear-personas', 'editar-personas', 'ver-aspirantes', 'editar-alumnos',
-            'ver-kardex', 'ver-adeudos', 'condonar-adeudos', 'ver-configuracion',
+            'ver-kardex', 'ver-adeudos', 'registrar-pagos', 'condonar-adeudos',
+            'gestionar-planes-cobro', 'ver-configuracion',
             'editar-configuracion', 'gestionar-usuarios', 'gestionar-roles',
             'editar-catalogo-academico', 'abrir-grupos', 'inscribir-alumnos',
             'gestionar-ventanas-captura', 'ver-docentes', 'gestionar-docentes',
@@ -76,7 +80,7 @@ class PermisoSeeder extends Seeder
         // Captura pero NO firma: puede vaciar las hojas que entrega el docente
         // y es el titular quien asienta el acta.
         'auxiliar_control_escolar' => ['inscribir-alumnos', 'ver-kardex', 'capturar-calificaciones'],
-        'encargado_finanzas' => ['ver-adeudos', 'registrar-pagos', 'condonar-adeudos', 'facturar'],
+        'encargado_finanzas' => ['ver-adeudos', 'registrar-pagos', 'condonar-adeudos', 'facturar', 'gestionar-planes-cobro'],
         'auxiliar_finanzas' => ['ver-adeudos', 'registrar-pagos'],
 
         // Docencia.

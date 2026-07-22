@@ -301,11 +301,32 @@ Núcleo transaccional:
 - [x] Suite `scripts/prueba-finanzas.php` — 47 verificaciones contra la BD real
       con rollback.
 
-**Entrega 7.2** — motor de generación:
-- [ ] Servicio que recorre `reglas_generacion` vigentes y crea adeudos por
-      periodicidad. Idempotente: no duplica el adeudo de un periodo ya generado.
-- [ ] Aplicación de recargos por mora y de descuentos por beca.
-- [ ] Pantallas: planes de cobro, estado de cuenta del alumno, registro de pago.
+**Entrega 7.2** — motor de generación ✅ CERRADA:
+- [x] `GeneradorAdeudos` recorre las reglas del plan vigente y crea adeudos por
+      periodicidad. **Idempotente por índice único**
+      `(matricula_oferta_id, regla_id, periodo_etiqueta)`, no solo por SELECT
+      previo: el job programado puede traslaparse consigo mismo.
+- [x] `PeriodosCobro` + `PeriodoCobro`: el calendario aislado (único con
+      parcialidades, semanal ISO, quincenal, mensual). `por_ciclo` y
+      `por_materia` los resuelve el generador, que sí conoce ciclos e
+      inscripciones.
+- [x] `ResolutorPlanCobro`: gana el más específico vigente
+      (oferta → plan → carrera → global).
+- [x] `AplicadorRecargosDescuentos`: mora con días de gracia sobre el monto
+      base, becas vigentes al generar, recálculo de cartera.
+- [x] `RegistradorPago`: aplica a los más vencidos o al orden que elija quien
+      cobra, permite parciales y split, deriva el estatus del adeudo, y
+      confirma / revierte sin borrar la aplicación.
+- [x] `EstadoCuenta`: saldo, vencido, pagado, por confirmar y a favor.
+- [x] Pantallas: `/finanzas` (cartera con búsqueda y totales agregados en SQL),
+      `/finanzas/cuentas/{matricula}` (estado de cuenta con generación, cobro,
+      condonación y bitácora) y `/finanzas/planes` (+ detalle con sus reglas).
+- [x] Permiso nuevo `gestionar-planes-cobro`, separado de `registrar-pagos`.
+- [x] Suite `scripts/prueba-cobro.php` — 53 verificaciones.
+
+Pendiente de 7.2 para cuando exista el scheduler: enganchar
+`GeneradorAdeudos::generarParaTodas` y `recalcularCartera` a un job diario. El
+servicio ya está listo y es idempotente; solo falta quién lo dispare.
 
 **Entrega 7.3** — CFDI 4.0:
 - [ ] `facturas` (T, FK → matricula_oferta) — append-only, inmutable por
