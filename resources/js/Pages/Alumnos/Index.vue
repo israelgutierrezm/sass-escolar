@@ -84,7 +84,12 @@ const colorEstatus: Record<string, string> = {
     <Head title="Alumnos" />
 
     <AppLayout titulo="Alumnos">
-        <NavEscolar />
+        <NavEscolar
+            :secciones="[
+                { etiqueta: 'Listado', url: '/escolar/alumnos', permiso: 'ver-alumnos' },
+                { etiqueta: 'Inscripciones', url: '/escolar/inscripciones', permiso: 'inscribir-alumnos' },
+            ]"
+        />
 
         <section class="tarjeta p-6">
             <div class="flex flex-wrap items-end gap-3">

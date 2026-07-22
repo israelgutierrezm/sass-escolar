@@ -34,16 +34,34 @@ class UsuarioController extends Controller
 {
     public function index(Request $request): Response
     {
-        $busqueda = trim((string) $request->query('q', ''));
+        $filtros = [
+            'q' => trim((string) $request->query('q', '')),
+            'rol_id' => $request->query('rol_id'),
+            'campus_id' => $request->query('campus_id'),
+        ];
 
         $usuarios = Usuario::query()
-            ->with(['persona:id,nombre,primer_apellido,segundo_apellido,curp', 'rolActivo:id,name,nombre'])
-            ->when($busqueda !== '', fn ($q) => $q
+            ->with(['persona:id,nombre,primer_apellido,segundo_apellido,curp,foto_url', 'rolActivo:id,name,nombre'])
+            // El paréntesis no es adorno: al sumar los filtros de rol y campus,
+            // un `or` suelto se llevaría por delante la condición anterior y la
+            // pantalla devolvería usuarios que no cumplen ningún filtro.
+            ->when($filtros['q'] !== '', fn ($q) => $q->where(fn ($sub) => $sub
                 ->whereHas('persona', fn ($p) => $p
-                    ->whereRaw("concat_ws(' ', nombre, primer_apellido, segundo_apellido) like ?", ["%{$busqueda}%"])
-                    ->orWhere('curp', 'like', "%{$busqueda}%"))
-                ->orWhere('usuario', 'like', "%{$busqueda}%")
-                ->orWhere('email', 'like', "%{$busqueda}%"))
+                    ->whereRaw("concat_ws(' ', nombre, primer_apellido, segundo_apellido) like ?", ["%{$filtros['q']}%"])
+                    ->orWhere('curp', 'like', "%{$filtros['q']}%"))
+                ->orWhere('usuario', 'like', "%{$filtros['q']}%")
+                ->orWhere('email', 'like', "%{$filtros['q']}%")))
+            // Se filtra por la ASIGNACIÓN, no por el rol activo: alguien que hoy
+            // navega como docente sigue siendo encargado de admisiones, y quien
+            // busca «todos los de admisiones» espera encontrarlo.
+            ->when($filtros['rol_id'], fn ($q, $v) => $q->whereHas(
+                'persona.asignacionesRol',
+                fn ($r) => $r->where('rol_id', $v),
+            ))
+            ->when($filtros['campus_id'], fn ($q, $v) => $q->whereHas(
+                'persona.asignacionesRol',
+                fn ($r) => $r->where('campus_id', $v),
+            ))
             ->orderBy('usuario')
             ->paginate(25)
             ->withQueryString()
@@ -53,6 +71,7 @@ class UsuarioController extends Controller
                 'email' => $u->email,
                 'persona' => $u->persona?->nombreCompleto(),
                 'persona_id' => $u->persona_id,
+                'foto' => $u->persona?->urlFoto(),
                 'rol_activo' => $u->rolActivo?->nombre,
                 'roles' => PersonaRol::query()
                     ->with('rol:id,nombre', 'campus:id,nombre')
@@ -71,7 +90,7 @@ class UsuarioController extends Controller
 
         return Inertia::render('Plataforma/Usuarios', [
             'usuarios' => $usuarios,
-            'filtros' => ['q' => $busqueda],
+            'filtros' => $filtros,
             'roles' => Rol::query()
                 ->with('padre:id,nombre')
                 ->orderByRaw('rol_padre_id is not null')

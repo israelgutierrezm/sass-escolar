@@ -23,6 +23,7 @@ interface AspiranteEditable {
     oferta_interes_id: number | null;
     campus_id: number | null;
     situacion_id: number | null;
+    origen_id: number | null;
     origen: string | null;
     acepto_terminos: boolean;
 }
@@ -33,6 +34,7 @@ const props = defineProps<{
     generos: Opcion[];
     entidades: Opcion[];
     situaciones: Opcion[];
+    origenes: Opcion[];
     campus: Opcion[];
     ofertas: { id: number; etiqueta: string }[];
 }>();
@@ -53,6 +55,7 @@ const form = useForm({
     oferta_interes_id: props.aspirante?.oferta_interes_id ?? null,
     campus_id: props.aspirante?.campus_id ?? null,
     situacion_id: props.aspirante?.situacion_id ?? props.situaciones[0]?.id ?? null,
+    origen_id: props.aspirante?.origen_id ?? null,
     origen: props.aspirante?.origen ?? '',
     acepto_terminos: props.aspirante?.acepto_terminos ?? false,
 });
@@ -249,12 +252,24 @@ function enviar(): void {
                     </div>
 
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-slate-700">Origen</label>
+                        <label class="mb-1 block text-sm font-medium text-slate-700">Cómo llegó</label>
+                        <select
+                            v-model="form.origen_id"
+                            class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        >
+                            <option :value="null">Sin especificar</option>
+                            <option v-for="origen in origenes" :key="origen.id" :value="origen.id">
+                                {{ origen.nombre }}
+                            </option>
+                        </select>
+                        <!-- El texto libre se conserva para no perder lo que ya
+                             estaba capturado, pero deja de ser lo principal:
+                             el catálogo es lo que el CRM sabe contar. -->
                         <input
                             v-model="form.origen"
                             type="text"
-                            placeholder="Campaña, referido, web…"
-                            class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            placeholder="Detalle (campaña, quién refirió…)"
+                            class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                     </div>
                 </div>

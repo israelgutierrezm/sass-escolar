@@ -48,14 +48,15 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (22 suites, 621 verificaciones):
+   Las suites versionadas viven en `scripts/` (23 suites, 641 verificaciones):
    `prueba-actas`, `prueba-plantillas`, `prueba-ventanas-captura`,
    `prueba-ciclo-campus`, `prueba-apertura-grupos`, `prueba-alcance-docente`,
    `prueba-alumnos`, `prueba-docentes`, `prueba-documentos`,
    `prueba-formularios`, `prueba-multicarrera`, `prueba-suplantacion`,
    `prueba-finanzas`, `prueba-cobro`, `prueba-facturacion`, `prueba-emisores`,
    `prueba-roles`, `prueba-crm`, `prueba-formulario-publico`, `prueba-panel`,
-   `prueba-configuracion`, `prueba-portal-aspirante`. NO van en `tests/`:
+   `prueba-configuracion`, `prueba-portal-aspirante`, `prueba-listados`.
+   NO van en `tests/`:
    phpunit corre contra SQLite en memoria y ahí se prueba justo lo que SQLite
    no sabe hacer (`LAST_INSERT_ID`, FKs reales, InnoDB).
 
@@ -330,8 +331,20 @@ npm run dev                # o npm run build
   vieja cada vez que se agrega un permiso, y eso ya produjo un 403
   inexplicable. Los tres que NO tiene son de docente y de aspirante: para
   actuar como tales se le da ese rol y conmuta.
-- Pruebas: 22 suites en `scripts/`, 621 verificaciones, todas contra la BD real
-  del tenant demo con `DB::rollBack()` al final.
+- **Listados con filtros y vista lista/cuadrícula** en Aspirantes, Grupos,
+  Promoción por etapa y Usuarios, sobre cuatro componentes reutilizables:
+  `PanelFiltros`, `SelectorVista`, `TarjetaPersona` y `TarjetaRegistro` (este
+  último para lo que no es persona: un grupo no tiene cara). `NavEscolar` ya no
+  trae lista fija — cada pantalla declara sus pestañas y se filtran por permiso.
+  Grupos dejó de devolver TODOS los grupos sin paginar.
+- **Un aspirante dado de alta a mano nace en la primera etapa del embudo.**
+  Antes solo lo hacía el formulario público, así que el prospecto capturado por
+  personal quedaba con `etapa_crm_id` en null e **invisible para el CRM**.
+  Corregido en el controlador + migración de backfill.
+- Pruebas: 23 suites en `scripts/`, 641 verificaciones, todas contra la BD real
+  del tenant demo con `DB::rollBack()` al final. `prueba-listados` es la primera
+  que invoca a los CONTROLADORES y lee sus props de Inertia, en vez de
+  reimplementar la consulta: un `or` sin paréntesis no se detecta de otra forma.
 
 **Pendiente inmediato — aquí se retoma:**
 

@@ -7,6 +7,8 @@ namespace App\Http\Controllers;
 use App\Http\Requests\GuardarAspiranteRequest;
 use App\Models\Academico\Campus;
 use App\Models\Academico\Oferta;
+use App\Models\Admisiones\EtapaCrm;
+use App\Models\Promocion\OrigenAspirante;
 use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\Admisiones\EstadoDocumento;
@@ -38,13 +40,21 @@ class AspiranteController extends Controller
 {
     public function index(Request $request): Response
     {
+        // Los filtros que la escuela de verdad usa para acotar un embudo:
+        // en qué situación va, de dónde llegó, en qué etapa está, a qué
+        // programa aspira y de qué campus. `origen` dejó de ser texto libre en
+        // el CRM, así que ya se puede filtrar por él sin adivinar.
         $filtros = [
             'busqueda' => trim((string) $request->query('busqueda', '')),
             'situacion_id' => $request->query('situacion_id'),
+            'etapa_crm_id' => $request->query('etapa_crm_id'),
+            'origen_id' => $request->query('origen_id'),
+            'campus_id' => $request->query('campus_id'),
+            'oferta_id' => $request->query('oferta_id'),
         ];
 
         $aspirantes = Aspirante::query()
-            ->with(['persona', 'situacion', 'campus', 'ofertaInteres.carrera'])
+            ->with(['persona', 'situacion', 'campus', 'ofertaInteres.carrera', 'etapa:id,nombre', 'origenAspirante:id,nombre'])
             ->when($filtros['busqueda'] !== '', function ($query) use ($filtros) {
                 $termino = "%{$filtros['busqueda']}%";
 
@@ -54,7 +64,11 @@ class AspiranteController extends Controller
                     ->orWhere('segundo_apellido', 'like', $termino)
                     ->orWhere('curp', 'like', $termino));
             })
-            ->when($filtros['situacion_id'], fn ($q, $situacion) => $q->where('situacion_id', $situacion))
+            ->when($filtros['situacion_id'], fn ($q, $v) => $q->where('situacion_id', $v))
+            ->when($filtros['etapa_crm_id'], fn ($q, $v) => $q->where('etapa_crm_id', $v))
+            ->when($filtros['origen_id'], fn ($q, $v) => $q->where('origen_id', $v))
+            ->when($filtros['campus_id'], fn ($q, $v) => $q->where('campus_id', $v))
+            ->when($filtros['oferta_id'], fn ($q, $v) => $q->where('oferta_interes_id', $v))
             ->latest('id')
             ->paginate(15)
             ->withQueryString()
@@ -66,7 +80,10 @@ class AspiranteController extends Controller
                 'situacion' => $aspirante->situacion?->nombre,
                 'campus' => $aspirante->campus?->nombre,
                 'oferta' => $aspirante->ofertaInteres?->carrera?->nombre,
-                'origen' => $aspirante->origen,
+                'origen' => $aspirante->origenAspirante?->nombre ?? $aspirante->origen,
+                'etapa' => $aspirante->etapa?->nombre,
+                'celular' => $aspirante->persona?->celular,
+                'foto' => $aspirante->persona?->urlFoto(),
                 'paso' => $aspirante->paso,
                 'validado_admin' => $aspirante->validado_admin,
             ]);
@@ -75,6 +92,14 @@ class AspiranteController extends Controller
             'aspirantes' => $aspirantes,
             'filtros' => $filtros,
             'situaciones' => SituacionAspirante::query()->orderBy('id')->get(['id', 'nombre']),
+            'etapas' => EtapaCrm::query()->orderBy('orden')->get(['id', 'nombre']),
+            'origenes' => OrigenAspirante::query()->activos()->orderBy('nombre')->get(['id', 'nombre']),
+            'campusDisponibles' => Campus::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'ofertas' => Oferta::query()->with('carrera:id,nombre', 'campus:id,nombre')->get()
+                ->map(fn (Oferta $o) => [
+                    'id' => $o->id,
+                    'nombre' => ($o->carrera?->nombre ?? '—').' · '.($o->campus?->nombre ?? '—'),
+                ])->sortBy('nombre')->values(),
             'puedeCrear' => $request->user()->can('crear-aspirantes'),
             'puedeEditar' => $request->user()->can('editar-aspirantes'),
         ]);
@@ -232,6 +257,13 @@ class AspiranteController extends Controller
             return Aspirante::create([
                 ...$this->datosAspirante($datos),
                 'persona_id' => $persona->id,
+                // Nace en la PRIMERA etapa del embudo. Sin esto, un aspirante
+                // dado de alta a mano quedaba con `etapa_crm_id` en null: no
+                // aparecía en ninguna etapa del CRM ni en el filtro por etapa,
+                // así que promoción no lo veía nunca. El que llega por el
+                // formulario público sí la recibía (`RegistradorProspecto`), y
+                // esa asimetría es justo lo que se corrige.
+                'etapa_crm_id' => EtapaCrm::query()->orderBy('orden')->value('id'),
             ]);
         });
 
@@ -260,6 +292,7 @@ class AspiranteController extends Controller
                 'oferta_interes_id' => $aspirante->oferta_interes_id,
                 'campus_id' => $aspirante->campus_id,
                 'situacion_id' => $aspirante->situacion_id,
+                'origen_id' => $aspirante->origen_id,
                 'origen' => $aspirante->origen,
                 'acepto_terminos' => $aspirante->acepto_terminos,
             ],
@@ -324,6 +357,7 @@ class AspiranteController extends Controller
             'oferta_interes_id' => $datos['oferta_interes_id'] ?? null,
             'campus_id' => $datos['campus_id'] ?? null,
             'situacion_id' => $datos['situacion_id'],
+            'origen_id' => $datos['origen_id'] ?? null,
             'origen' => $datos['origen'] ?? null,
             'acepto_terminos' => $datos['acepto_terminos'] ?? false,
         ];
@@ -342,6 +376,10 @@ class AspiranteController extends Controller
             'generos' => Genero::query()->orderBy('id')->get(['id', 'nombre']),
             'entidades' => EntidadFederativa::query()->orderBy('nombre')->get(['id', 'nombre']),
             'situaciones' => SituacionAspirante::query()->orderBy('id')->get(['id', 'nombre']),
+            // Los del CRM: de dónde llegó deja de ser texto libre también en el
+            // alta manual, para que el prospecto capturado por promoción se
+            // pueda contar junto a los que entran por el formulario público.
+            'origenes' => OrigenAspirante::query()->activos()->orderBy('nombre')->get(['id', 'nombre']),
             'campus' => Campus::query()->orderBy('nombre')->get(['id', 'nombre']),
             'ofertas' => Oferta::query()
                 ->with(['carrera:id,nombre', 'campus:id,nombre'])

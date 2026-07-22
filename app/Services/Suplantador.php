@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\Identidad\Persona;
 use App\Models\Identidad\Usuario;
 use App\Models\Plataforma\Auditoria;
 use Illuminate\Http\Request;
@@ -36,6 +37,36 @@ class Suplantador
 {
     /** Clave en sesión donde vive el usuario real mientras se suplanta. */
     public const CLAVE_SESION = 'suplantador_id';
+
+    /**
+     * Con qué datos pintar el botón «Ver como» de una persona, o null si no
+     * procede.
+     *
+     * Vive aquí y NO en cada controlador porque la regla es una sola y ya la
+     * tuvimos duplicada a medias: `AlumnoController` llamaba a un método
+     * privado de `DocenteController`, así que abrir la ficha de un alumno
+     * reventaba con «Call to undefined method». Un fallo así no lo atrapa una
+     * suite de datos —es de composición— y solo aparece al entrar a la
+     * pantalla.
+     *
+     * Devuelve null cuando quien mira no tiene el permiso, cuando la persona no
+     * tiene cuenta, o cuando su cuenta no tiene rol activo: sin rol activo no
+     * habría nada que ver del otro lado.
+     *
+     * @return array{usuario_id: int, usuario: string}|null
+     */
+    public function datosPara(Request $request, ?Persona $persona): ?array
+    {
+        if ($persona === null || ! $request->user()?->can('suplantar-usuarios')) {
+            return null;
+        }
+
+        $cuenta = $persona->usuario;
+
+        return $cuenta === null || $cuenta->rol_activo_id === null
+            ? null
+            : ['usuario_id' => $cuenta->id, 'usuario' => $cuenta->usuario];
+    }
 
     public function iniciar(Request $request, Usuario $objetivo): void
     {

@@ -3,6 +3,7 @@ import { Head, useForm, router } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Paginacion from '@/Components/Paginacion.vue';
+import PanelFiltros from '@/Components/PanelFiltros.vue';
 
 interface Asignacion {
     id: number;
@@ -17,6 +18,7 @@ interface UsuarioFila {
     email: string | null;
     persona: string | null;
     persona_id: number;
+    foto: string | null;
     rol_activo: string | null;
     roles: Asignacion[];
     soy_yo: boolean;
@@ -30,7 +32,7 @@ const props = defineProps<{
         from: number | null;
         to: number | null;
     };
-    filtros: { q: string };
+    filtros: Record<string, any>;
     roles: { id: number; nombre: string; faceta: string; es_faceta: boolean }[];
     campus: { id: number; nombre: string }[];
 }>();
@@ -40,13 +42,33 @@ let temporizador: ReturnType<typeof setTimeout> | undefined;
 
 watch(busqueda, () => {
     clearTimeout(temporizador);
-    temporizador = setTimeout(() => {
-        router.get('/plataforma/usuarios', { q: busqueda.value || undefined }, {
-            preserveState: true,
-            replace: true,
-        });
-    }, 350);
+    temporizador = setTimeout(() => consultar({}), 350);
 });
+
+function consultar(cambios: Record<string, any>): void {
+    router.get(
+        '/plataforma/usuarios',
+        {
+            q: busqueda.value || undefined,
+            rol_id: props.filtros.rol_id || undefined,
+            campus_id: props.filtros.campus_id || undefined,
+            ...cambios,
+        },
+        { preserveState: true, replace: true, preserveScroll: true },
+    );
+}
+
+/**
+ * Se filtra por rol y por campus porque son las dos preguntas reales de quien
+ * administra cuentas: «quiénes son mis docentes» y «quién opera este campus».
+ * No hay vista en cuadrícula aquí a propósito: cada fila se despliega en un
+ * panel de administración —asignar roles, restablecer contraseña— y una
+ * tarjeta que solo enlaza a una ficha inexistente sería un paso de más.
+ */
+const definicionFiltros = [
+    { clave: 'rol_id', etiqueta: 'Rol asignado', opciones: props.roles.map((r) => ({ valor: r.id, texto: `${r.nombre} · ${r.faceta}` })) },
+    { clave: 'campus_id', etiqueta: 'Campus', opciones: props.campus.map((c) => ({ valor: c.id, texto: c.nombre })) },
+];
 
 // Los roles se ofrecen agrupados por faceta: es lo que hace evidente que dar
 // «Docente» y dar «Encargado de admisiones» son decisiones de distinta
@@ -209,6 +231,10 @@ function restablecer(u: UsuarioFila): void {
                 class="w-full max-w-md rounded-lg border px-3 py-2 text-sm"
                 :style="{ borderColor: 'var(--color-borde)' }"
             />
+
+            <div class="mt-4">
+                <PanelFiltros :filtros="definicionFiltros" :valores="filtros" @cambio="(valores) => consultar(valores)" />
+            </div>
         </section>
 
         <section class="tarjeta overflow-hidden">
@@ -225,9 +251,14 @@ function restablecer(u: UsuarioFila): void {
                     <template v-for="u in usuarios.data" :key="u.id">
                         <tr class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
                             <td class="px-6 py-3">
-                                <span class="font-medium">{{ u.persona }}</span>
-                                <span v-if="u.soy_yo" class="ml-2 rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">
-                                    tú
+                                <span class="flex items-center gap-2">
+                                    <img v-if="u.foto" :src="u.foto" alt="" class="h-8 w-8 rounded-full object-cover" loading="lazy" />
+                                    <span>
+                                        <span class="font-medium">{{ u.persona }}</span>
+                                        <span v-if="u.soy_yo" class="ml-2 rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">
+                                            tú
+                                        </span>
+                                    </span>
                                 </span>
                             </td>
                             <td class="px-4 py-3">

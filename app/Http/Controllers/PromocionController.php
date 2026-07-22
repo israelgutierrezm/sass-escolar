@@ -57,15 +57,39 @@ class PromocionController extends Controller
     /** Prospectos de una etapa concreta, con su último contacto. */
     public function etapa(Request $request, EtapaCrm $etapa): Response
     {
+        // La etapa ya acota la lista, pero dentro de una etapa llena —«contacto
+        // inicial» acumula cientos— lo que se busca es un nombre concreto, o de
+        // qué campaña salieron, o qué trae asignado tal promotor.
+        $filtros = [
+            'busqueda' => trim((string) $request->query('busqueda', '')),
+            'origen_id' => $request->query('origen_id'),
+            'oferta_id' => $request->query('oferta_id'),
+            'promotor_id' => $request->query('promotor_id'),
+        ];
+
         $aspirantes = $this->embudo
             ->acotar(Aspirante::query(), $request->user())
             ->with([
-                'persona:id,nombre,primer_apellido,segundo_apellido,celular,email',
+                'persona:id,nombre,primer_apellido,segundo_apellido,celular,email,foto_url',
                 'ofertaInteres.carrera:id,nombre',
                 'origenAspirante:id,nombre',
                 'asesores.persona:id,nombre,primer_apellido,segundo_apellido',
             ])
             ->where('etapa_crm_id', $etapa->id)
+            ->when($filtros['busqueda'] !== '', function ($query) use ($filtros) {
+                $termino = "%{$filtros['busqueda']}%";
+
+                $query->whereHas('persona', fn ($p) => $p
+                    ->whereRaw("concat_ws(' ', nombre, primer_apellido, segundo_apellido) like ?", [$termino])
+                    ->orWhere('celular', 'like', $termino)
+                    ->orWhere('email', 'like', $termino));
+            })
+            ->when($filtros['origen_id'], fn ($q, $v) => $q->where('origen_id', $v))
+            ->when($filtros['oferta_id'], fn ($q, $v) => $q->where('oferta_interes_id', $v))
+            ->when($filtros['promotor_id'], fn ($q, $v) => $q->whereHas(
+                'asesores',
+                fn ($a) => $a->where('asesores.persona_id', $v),
+            ))
             ->orderByDesc('id')
             ->paginate(30)
             ->withQueryString()
@@ -76,6 +100,7 @@ class PromocionController extends Controller
                 'email' => $a->persona?->email,
                 'carrera' => $a->ofertaInteres?->carrera?->nombre,
                 'origen' => $a->origenAspirante?->nombre,
+                'foto' => $a->persona?->urlFoto(),
                 'titular' => $a->asesores->first(fn ($x) => (bool) $x->pivot->titular)?->persona?->nombreCompleto(),
                 'ultimo_contacto' => $a->seguimientos()->value('momento'),
             ]);
@@ -84,6 +109,14 @@ class PromocionController extends Controller
             'etapa' => ['id' => $etapa->id, 'nombre' => $etapa->nombre, 'clave' => $etapa->clave],
             'aspirantes' => $aspirantes,
             'etapas' => EtapaCrm::orderBy('orden')->get(['id', 'nombre']),
+            'filtros' => $filtros,
+            'origenes' => OrigenAspirante::query()->activos()->orderBy('nombre')->get(['id', 'nombre']),
+            'ofertas' => Oferta::query()->with('carrera:id,nombre')->get()
+                ->map(fn (Oferta $o) => ['id' => $o->id, 'nombre' => $o->carrera?->nombre ?? '—'])
+                ->sortBy('nombre')->values(),
+            'promotores' => Asesor::query()->with('persona:id,nombre,primer_apellido,segundo_apellido')->get()
+                ->map(fn (Asesor $a) => ['id' => $a->persona_id, 'nombre' => $a->persona?->nombreCompleto() ?? '—'])
+                ->sortBy('nombre')->values(),
         ]);
     }
 

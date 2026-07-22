@@ -184,7 +184,12 @@ function verComo(): void {
     <Head :title="persona.nombre ? `${persona.nombre} ${persona.primer_apellido}` : 'Alumno'" />
 
     <AppLayout titulo="Expediente del alumno">
-        <NavEscolar />
+        <NavEscolar
+            :secciones="[
+                { etiqueta: 'Listado', url: '/escolar/alumnos', permiso: 'ver-alumnos' },
+                { etiqueta: 'Inscripciones', url: '/escolar/inscripciones', permiso: 'inscribir-alumnos' },
+            ]"
+        />
 
         <!-- Cabecera -->
         <section class="tarjeta p-6">

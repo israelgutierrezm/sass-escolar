@@ -50,6 +50,9 @@ class GuardarAspiranteRequest extends FormRequest
             'oferta_interes_id' => ['nullable', 'integer', Rule::exists('oferta', 'id')->whereNull('deleted_at')],
             'campus_id' => ['nullable', 'integer', Rule::exists('campus', 'id')->whereNull('deleted_at')],
             'situacion_id' => ['required', 'integer', Rule::exists('situaciones_aspirante', 'id')->whereNull('deleted_at')],
+            // `origen_id` es el catálogo del CRM; `origen` es el texto libre de
+            // antes, que se conserva para no perder lo ya capturado.
+            'origen_id' => ['nullable', 'integer', Rule::exists('origenes_aspirante', 'id')->whereNull('deleted_at')],
             'origen' => ['nullable', 'string', 'max:80'],
             'acepto_terminos' => ['boolean'],
         ];

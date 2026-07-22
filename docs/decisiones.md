@@ -2204,3 +2204,84 @@ cosa.»*
 - Pasa a colgar de ADMINISTRATIVO. Coordinar la oferta es trabajo de gestión;
   quien coordina y además da clase tiene los dos roles y conmuta — que es
   precisamente lo que el modelo de facetas quiere que pase.
+
+---
+
+## Listados: filtros, cuadrícula y lo que la paginación destapó
+
+Pedido del cliente: *«Agrega los filtros, vista tabla o cuadrícula en todos los
+listados que hagan referencia a persona o varios datos»*, más dos defectos
+concretos: las pestañas de control escolar seguían ofreciendo Alumnos y
+Docentes después de que subieran a secciones propias, y abrir la ficha de un
+alumno reventaba con `Call to undefined method AlumnoController::datosSuplantacion()`.
+
+### La regla del botón «Ver como» vivía en un solo controlador
+`AlumnoController` llamaba a un método **privado de `DocenteController`**. No
+era un descuido de tipeo: la regla es una sola —¿quién puede suplantar, y a
+quién?— y estaba escrita en el sitio equivocado. Se movió a
+`Suplantador::datosPara()`, que es donde ya vive el resto de esa decisión. Los
+dos controladores la piden al servicio.
+
+### Las pestañas se declaran, y se filtran por permiso
+`NavEscolar` traía una lista fija. Ahora cada pantalla declara las suyas y el
+componente las filtra por permiso, se oculta si queda una sola y marca como
+activa **la coincidencia más larga** (dos rutas que comparten prefijo se
+marcaban las dos). El filtro por permiso no es cosmético: la lista fija ofrecía
+«Inscripciones» a cualquiera que llegara a control escolar, y quien no tuviera
+`inscribir-alumnos` se comía un 403 al hacer clic en una pestaña que el propio
+sistema le había pintado.
+
+### Tres piezas reutilizables, no cuatro pantallas parecidas
+`PanelFiltros` (filtros a demanda, con fichas de lo aplicado siempre visibles
+aunque el panel esté cerrado — un filtro activo escondido es la causa clásica
+del «no aparece el alumno que busco»), `SelectorVista` (recuerda la preferencia
+en `localStorage` por listado) y `TarjetaPersona`. Se agrega `TarjetaRegistro`
+para lo que **no** es persona: un grupo no tiene cara ni iniciales que
+reconocer, y lo que se lee de un vistazo son pares dato/valor.
+
+Se aplicaron a **Aspirantes** (5 filtros), **Grupos** (5), **Promoción por
+etapa** (3) y **Usuarios** (2). Usuarios se queda sin cuadrícula a propósito:
+cada fila se despliega en un panel de administración —asignar roles,
+restablecer contraseña— y una tarjeta que solo enlaza a una ficha inexistente
+sería un paso de más.
+
+### Grupos devolvía TODOS los grupos, sin paginar
+Con dos ciclos sembrados aún se leía; una escuela con años de historia abre esa
+pantalla y recibe miles de filas donde busca una. Pasa a `paginate(20)`.
+
+### HALLAZGO: un `or` sin paréntesis anula el filtro anterior
+La búsqueda de usuarios era `whereHas(...)->orWhere(...)->orWhere(...)` sin
+agrupar. Funcionaba porque era la única condición. Al sumarle los filtros de rol
+y campus, el `or` se habría llevado por delante el filtro y la pantalla habría
+devuelto cuentas que no cumplían ninguno. Se agrupó en un `where(fn ...)`, y la
+suite fija el caso cruzado búsqueda + filtro.
+
+### HALLAZGO: la foto del aspirante nunca se mostraba
+El listado comprobaba `persona->foto`, columna que no existe: se llama
+`foto_url`. Como PHP devuelve null para un atributo inexistente, la condición
+era siempre falsa y jamás se generaba la ruta — sin error visible. Se usa
+`Persona::urlFoto()`, que es el único lugar donde esa decisión está escrita.
+
+### HALLAZGO (el más caro): el aspirante dado de alta a mano no existía para el CRM
+`RegistradorProspecto` —el camino del formulario público— asigna la primera
+etapa del embudo. `AspiranteController::store` **no**. Todo prospecto capturado
+por personal quedaba con `etapa_crm_id` en null: no salía en ninguna columna del
+embudo, ni en el conteo por etapa, ni ahora en el filtro por etapa. Para
+promoción, sencillamente no existía. Se vio porque `prueba-crm` empezó a fallar
+con dos aspirantes reales que el cliente había capturado desde la interfaz.
+
+Tres frentes, otra vez: el controlador ya lo asigna al crear; una migración de
+backfill mete a los que ya estaban fuera; y la suite fija que un alta manual
+nazca dentro del embudo. De paso, el alta manual ofrece ahora el catálogo
+`origenes_aspirante` en vez de solo texto libre, para que un prospecto capturado
+por promoción se pueda contar junto a los que entran por la web.
+
+### La suite invoca a los controladores
+`prueba-listados` es la primera que llama al controlador y lee las props que
+manda a Inertia, en vez de reimplementar la consulta. Es a propósito: un `or`
+sin paréntesis o un `whereHas` sobre la tabla equivocada no aparecen si la
+prueba escribe su propia versión de la consulta.
+
+Detalle que costó un rato: al reenlazar `request` en el contenedor, el
+`AuthServiceProvider` vuelve a poner **su** resolutor de usuario y se lleva por
+delante el que puso la prueba. Primero se enlaza, después se dice quién eres.

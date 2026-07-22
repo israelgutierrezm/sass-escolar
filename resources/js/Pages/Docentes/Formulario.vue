@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import NavEscolar from '@/Components/NavEscolar.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoCasillas from '@/Components/CampoCasillas.vue';
@@ -44,7 +43,6 @@ function enviar(): void {
     <Head title="Nuevo docente" />
 
     <AppLayout titulo="Nuevo docente">
-        <NavEscolar />
 
         <form class="max-w-4xl space-y-6" @submit.prevent="enviar">
             <section class="tarjeta p-6">

@@ -2,7 +2,6 @@
 import { Head, router } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import NavEscolar from '@/Components/NavEscolar.vue';
 import PanelFiltros from '@/Components/PanelFiltros.vue';
 import Paginacion from '@/Components/Paginacion.vue';
 import SelectorVista from '@/Components/SelectorVista.vue';
@@ -69,7 +68,6 @@ const definicionFiltros = [
     <Head title="Docentes" />
 
     <AppLayout titulo="Docentes">
-        <NavEscolar />
 
         <section class="tarjeta p-6">
             <div class="flex flex-wrap items-end gap-3">

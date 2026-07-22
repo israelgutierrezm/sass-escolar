@@ -32,25 +32,60 @@ class GrupoController extends Controller
 {
     public function index(Request $request): Response
     {
+        // Antes devolvía TODOS los grupos sin filtro ni paginación. Con dos o
+        // tres ciclos sembrados aún se leía; una escuela con años de historia
+        // abre esta pantalla y recibe miles de filas donde busca una. El filtro
+        // por ciclo es el que de verdad se usa a diario.
+        $filtros = [
+            'busqueda' => trim((string) $request->query('busqueda', '')),
+            'ciclo_id' => $request->query('ciclo_id'),
+            'campus_id' => $request->query('campus_id'),
+            'plan_id' => $request->query('plan_id'),
+            'turno_id' => $request->query('turno_id'),
+            'situacion_id' => $request->query('situacion_id'),
+        ];
+
+        $grupos = Grupo::query()
+            ->with(['ciclo:id,clave,nombre', 'campus:id,nombre', 'plan:id,nombre', 'turno:id,nombre', 'situacion:id,nombre'])
+            ->withCount('asignaturas')
+            ->when($filtros['busqueda'] !== '', function ($query) use ($filtros) {
+                $termino = "%{$filtros['busqueda']}%";
+
+                $query->where(fn ($q) => $q->where('clave', 'like', $termino)->orWhere('nombre', 'like', $termino));
+            })
+            ->when($filtros['ciclo_id'], fn ($q, $v) => $q->where('ciclo_id', $v))
+            ->when($filtros['campus_id'], fn ($q, $v) => $q->where('campus_id', $v))
+            ->when($filtros['plan_id'], fn ($q, $v) => $q->where('plan_id', $v))
+            ->when($filtros['turno_id'], fn ($q, $v) => $q->where('turno_id', $v))
+            ->when($filtros['situacion_id'], fn ($q, $v) => $q->where('situacion_id', $v))
+            ->orderByDesc('ciclo_id')
+            ->orderBy('clave')
+            ->paginate(20)
+            ->withQueryString()
+            ->through(fn (Grupo $grupo) => [
+                'id' => $grupo->id,
+                'clave' => $grupo->clave,
+                'nombre' => $grupo->nombre,
+                'ciclo' => $grupo->ciclo?->clave,
+                'campus' => $grupo->campus?->nombre,
+                'plan' => $grupo->plan?->nombre,
+                'turno' => $grupo->turno?->nombre,
+                'situacion' => $grupo->situacion?->nombre,
+                'cupo' => $grupo->cupo,
+                'materias_count' => $grupo->asignaturas_count,
+            ]);
+
         return Inertia::render('ControlEscolar/Grupos/Index', [
-            'grupos' => Grupo::query()
-                ->with(['ciclo:id,clave,nombre', 'campus:id,nombre', 'plan:id,nombre', 'turno:id,nombre', 'situacion:id,nombre'])
-                ->withCount('asignaturas')
-                ->orderByDesc('ciclo_id')
-                ->orderBy('clave')
-                ->get()
-                ->map(fn (Grupo $grupo) => [
-                    'id' => $grupo->id,
-                    'clave' => $grupo->clave,
-                    'nombre' => $grupo->nombre,
-                    'ciclo' => $grupo->ciclo?->clave,
-                    'campus' => $grupo->campus?->nombre,
-                    'plan' => $grupo->plan?->nombre,
-                    'turno' => $grupo->turno?->nombre,
-                    'situacion' => $grupo->situacion?->nombre,
-                    'cupo' => $grupo->cupo,
-                    'materias_count' => $grupo->asignaturas_count,
-                ]),
+            'grupos' => $grupos,
+            'filtros' => $filtros,
+            // El ciclo se reconoce por su clave, no por su nombre: en la tabla
+            // se muestra la clave y así el filtro habla el mismo idioma.
+            'ciclos' => Ciclo::query()->orderByDesc('id')->get(['id', 'clave', 'nombre'])
+                ->map(fn (Ciclo $ciclo) => ['id' => $ciclo->id, 'nombre' => $ciclo->clave]),
+            'campus' => Campus::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'planes' => PlanEstudio::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'turnos' => Turno::query()->orderBy('id')->get(['id', 'nombre']),
+            'situaciones' => SituacionGrupo::query()->orderBy('id')->get(['id', 'nombre']),
             'puedeEditar' => $request->user()->can('abrir-grupos'),
         ]);
     }
