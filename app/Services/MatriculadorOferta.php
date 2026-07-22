@@ -9,6 +9,7 @@ use App\Models\Admisiones\Alumno;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\SituacionAlumno;
 use App\Models\Identidad\Persona;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -26,7 +27,10 @@ use RuntimeException;
  */
 class MatriculadorOferta
 {
-    public function __construct(private readonly GeneradorMatricula $generador) {}
+    public function __construct(
+        private readonly GeneradorMatricula $generador,
+        private readonly ReligadorFinanzas $religador,
+    ) {}
 
     /**
      * @throws RuntimeException si la persona no puede matricularse en esa oferta
@@ -51,7 +55,7 @@ class MatriculadorOferta
                 ['situacion_id' => $situacionActivo],
             );
 
-            return MatriculaOferta::create([
+            $matricula = MatriculaOferta::create([
                 'persona_id' => $persona->id,
                 'oferta_id' => $oferta->id,
                 'matricula' => $this->generador->generar($oferta),
@@ -60,6 +64,13 @@ class MatriculadorOferta
                 'situacion_id' => $situacionActivo,
                 'estatus' => 'activo',
             ]);
+
+            // Si esta persona pasó por el embudo de admisión de ESTA oferta,
+            // lo que pagó entonces es de esta matrícula. Se acota a la oferta:
+            // los pagos de otra candidatura suya no le corresponden.
+            $this->religador->religarPorOferta($persona->id, $matricula);
+
+            return $matricula;
         });
     }
 
@@ -112,9 +123,9 @@ class MatriculadorOferta
      * Se detectan por prefijo de clave y no por una lista fija: cada escuela
      * puede tener las suyas.
      *
-     * @return \Illuminate\Support\Collection<int, SituacionAlumno>
+     * @return Collection<int, SituacionAlumno>
      */
-    public function situacionesDeBaja(): \Illuminate\Support\Collection
+    public function situacionesDeBaja(): Collection
     {
         return SituacionAlumno::query()
             ->where('clave', 'like', 'baja%')

@@ -1102,11 +1102,12 @@ quedó con los dos eventos, con IP y hora.
 
 ---
 
-## Módulo 7 — Finanzas (empezado, a medias)
+## Módulo 7 — Finanzas (entrega 7.1 cerrada)
 
-Se cerró la sesión con la primera entrega a la mitad: los catálogos y el motor
-configurable están migrados; el núcleo transaccional (`adeudos`, `pagos`,
-`pago_adeudo`, `bitacora_situacion_financiera`) todavía no existe.
+La primera entrega quedó completa: catálogos, motor configurable, núcleo
+transaccional (`adeudos`, `pagos`, `pago_adeudo`,
+`bitacora_situacion_financiera`), los modelos de todo el módulo, el seeder de
+los tres catálogos y la re-ligadura en la conversión.
 
 ### `metodos_pago` es tabla, no varchar
 - La especificación lo describía como una columna de texto en `pagos`.
@@ -1131,7 +1132,7 @@ configurable están migrados; el núcleo transaccional (`adeudos`, `pagos`,
   una carrera o una oferta. Se guarda el par (tipo, id) indexado, sin FK real,
   porque no hay una sola tabla a la cual apuntar.
 
-### DECISIÓN VINCULANTE para lo que falta: el aspirante ya paga
+### DECISIÓN VINCULANTE para lo que falta: el aspirante ya paga  ✅ IMPLEMENTADA
 - Un aspirante paga su ficha e inscripción **antes** de existir como alumno. Si
   `adeudos.matricula_oferta_id` fuera obligatorio, ese dinero no tendría dónde
   registrarse.
@@ -1144,3 +1145,82 @@ configurable están migrados; el núcleo transaccional (`adeudos`, `pagos`,
   matrícula. La alternativa —dejarlos colgando del aspirante— parte el estado
   de cuenta del alumno en dos y pierde la trazabilidad del pago de inscripción,
   que es justo el que siempre se reclama.
+- **IMPLEMENTADO tal cual.** El CHECK sí se creó: `chk_adeudos_titular` y
+  `chk_pagos_titular` con `(matricula_oferta_id IS NOT NULL) + (aspirante_id IS
+  NOT NULL) = 1`. Se agregan por `ALTER TABLE` solo cuando el driver es MySQL,
+  porque SQLite —el motor de phpunit— no admite añadir constraints después de
+  crear la tabla. Que la regla esté en la aplicación no es motivo para dejarla
+  fuera de la base: la app la impone donde pasa el código, la base donde pasa
+  cualquier cosa.
+- La re-ligadura vive en `App\Services\ReligadorFinanzas`, no dentro del
+  convertidor, porque hay **dos** caminos a una matrícula nueva y los dos
+  necesitan lo mismo: `ConvertidorAspirante` (el aspirante que se convierte) y
+  `MatriculadorOferta` (quien ya es alumno de la casa y suma otra carrera,
+  habiendo podido pagar su ficha como aspirante de ESA oferta).
+- **El re-ligado acota por oferta, no por persona.** `religarPorOferta` busca al
+  aspirante de esa misma oferta; los pagos de otra candidatura de la misma
+  persona no son de esta matrícula. Verificado en la suite: matricular en la
+  segunda oferta mueve el adeudo de su segunda candidatura y no toca los cinco
+  de la primera matrícula.
+- **Se pone `aspirante_id` en NULL al re-ligar**, no se dejan los dos. Es lo que
+  exige el CHECK y además es correcto: el titular del adeudo pasó a ser la
+  matrícula, y de qué aspirante venía lo sigue contando `aspirantes.persona_id`.
+
+### `estatus` en varchar con constantes, no catálogo TENANT-CONFIG
+- `adeudos.estatus` (pendiente/parcial/pagado/cancelado/condonado) y
+  `pagos.estatus` (pendiente/completado/fallido/reembolsado) van como varchar
+  con constantes en el modelo.
+- **Razón:** son la máquina de estados que el motor de cobro sabe interpretar,
+  no algo que una escuela deba renombrar. Mismo criterio que `actas.situacion`
+  e `inscripcion.tipo`. Lo que sí es catálogo —porque cada escuela lo define—
+  es `situaciones_pago`, con su bandera `bloquea`.
+
+### El default de la migración también va en el modelo
+- **Bug real detectado por la suite:** `Adeudo::create([...])` sin `estatus`
+  guardaba `pendiente` en la base (el default de la columna) pero devolvía el
+  modelo con `estatus` en **NULL**. Todo lo que pregunta por el estatus sobre
+  ese objeto —`porCobrar`, `estaVencido`— se equivocaba en silencio sobre un
+  renglón que en la base estaba perfectamente bien.
+- **Decisión:** `protected $attributes` repite en el modelo los defaults de la
+  migración (`estatus`, `monto_recargos`, `monto_descuentos`).
+- **Lección general:** un default de columna solo existe para la base. Si el
+  modelo recién creado no lo dice, el objeto y la fila discrepan hasta el
+  primer `fresh()`, y ese hueco es donde se cuelan los bugs que no revientan.
+
+### `pago_adeudo` es pivote con dato propio, y su borrado lógico se filtra a mano
+- `monto_aplicado` es lo que permite el pago parcial (un abono) y el split (un
+  depósito que liquida tres mensualidades). Sin esa columna un pago solo podría
+  cubrir adeudos completos, que no es como se cobra en una escuela.
+- PK compuesta (pago_id, adeudo_id): el mismo pago no se aplica dos veces al
+  mismo adeudo; se corrige la fila que ya existe.
+- **Trampa:** la tabla lleva `auditoria()` como toda tabla TENANT, o sea soft
+  delete, pero `belongsToMany` **no filtra `deleted_at` del pivote solo**. Una
+  aplicación retirada seguiría descontando del saldo. Las dos relaciones llevan
+  `->wherePivotNull('deleted_at')` explícito. Fijado en la suite.
+
+### El saldo solo cuenta dinero que llegó
+- `Adeudo::montoAplicado()` suma únicamente los pagos en estatus `completado`.
+- **Razón:** es la contraparte de `metodos_pago.requiere_confirmacion`. Un SPEI
+  registrado pero sin confirmar está aplicado al adeudo y aun así el saldo sigue
+  completo; al confirmarse se va a cero. Contar lo pendiente daría por liquidado
+  un adeudo con dinero que nunca llegó, que es exactamente lo que esa bandera
+  existe para evitar.
+
+### La situación financiera vigente es el último renglón de la bitácora
+- **Decisión:** no hay columna `situacion_pago_id` en `matricula_oferta`. La
+  situación se lee con `BitacoraSituacionFinanciera::vigenteDe()` y se cambia
+  con `::registrar()`, que agrega.
+- **Razón:** la pregunta que se hace meses después es "¿por qué no se pudo
+  reinscribir en marzo?", y eso solo lo responde saber qué situación tenía
+  ENTONCES. Con una columna, levantar un bloqueo borraría la razón por la que
+  existió. Levantarlo agrega un renglón; el motivo del bloqueo se conserva.
+
+### Las claves del SAT se siembran desde el primer día
+- El seeder deja `clave_sat` y `clave_unidad_sat` puestas (86121600 / E48 para
+  servicios educativos) aunque el CFDI sea la entrega 7.3, y marca gravado solo
+  lo que normalmente lo está (constancias, credenciales, titulación, recargos).
+- **Razón:** rellenarlas después obliga a un trabajo manual sobre conceptos que
+  ya tienen adeudos y pagos históricos colgando. Hoy cuestan nada. Quedan como
+  punto de partida: el contador de cada escuela las confirma antes de timbrar.
+- Lo que NO se siembra son montos, planes de cobro ni reglas: son de cada
+  escuela y no hay un valor por defecto razonable.

@@ -263,11 +263,11 @@ Tablas:
 
 ## FASE 3 — Módulos de valor
 
-### Módulo 7 — Finanzas  ⏳ EMPEZADO (7.1 a medias)
+### Módulo 7 — Finanzas  ⏳ EN CURSO (7.1 ✅ cerrada)
 
-> **Aquí se retoma.** Se partió en tres entregas; la primera quedó a la mitad.
+> Se partió en tres entregas. **Aquí se retoma: entrega 7.2.**
 
-Catálogos TC — **migrados, SIN seeder todavía**:
+Catálogos TC — migrados y **sembrados** (`CatalogosFinanzasSeeder`):
 - [x] `conceptos_pago` (TC) — con clave SAT, gravado y tasa de IVA para el CFDI.
 - [x] `situaciones_pago` (TC) — con bandera `bloquea` (si impide reinscribirse).
 - [x] `metodos_pago` (TC) — con `requiere_confirmacion`: un pago en ventanilla se
@@ -275,24 +275,31 @@ Catálogos TC — **migrados, SIN seeder todavía**:
       ⚠️ La spec lo describía como varchar en `pagos`; se hizo catálogo por
       coherencia con el resto del proyecto (ver decisiones.md).
 
-Motor configurable — **migrado, SIN modelos todavía**:
+Motor configurable — migrado, **con modelos** en `App\Models\Finanzas\`:
 - [x] `planes_cobro` (T) — `aplica_a_id` polimórfico sin FK, como
       `formulario_asignacion`.
 - [x] `reglas_generacion` (T, FK → planes_cobro, conceptos_pago, self)
 - [x] `recargos_descuentos` (T)
 - [x] `becas_alumno` (T, FK → matricula_oferta, recargos_descuentos, personas)
 
-**Lo que falta de 7.1** (nada de esto existe aún):
-- [ ] `adeudos` (T) — **DECISIÓN VINCULANTE**: `matricula_oferta_id` NULLABLE +
-      `aspirante_id` nullable, exactamente uno presente. Índices por ambos.
-- [ ] `pagos` (T) — igual que adeudos, nullable + aspirante_id.
-- [ ] `pago_adeudo` (T, FK → pagos, adeudos) — PK compuesta, con
+Núcleo transaccional:
+- [x] `adeudos` (T) — **DECISIÓN VINCULANTE cumplida**: `matricula_oferta_id`
+      NULLABLE + `aspirante_id` nullable, exactamente uno presente, con índices
+      por ambos y CHECK `chk_adeudos_titular` en MySQL.
+- [x] `pagos` (T) — igual que adeudos. `metodo_pago_id` (FK al catálogo) en vez
+      del varchar `metodo` que decía la spec.
+- [x] `pago_adeudo` (T, FK → pagos, adeudos) — PK compuesta, con
       `monto_aplicado` para pagos parciales y split.
-- [ ] `bitacora_situacion_financiera` (T, FK → matricula_oferta, situaciones_pago)
-- [ ] Modelos de todo lo anterior + seeder de los tres catálogos.
-- [ ] **Re-ligadura** en `ConvertidorAspirante` y `MatriculadorOferta`: al
-      convertir un aspirante, sus adeudos y pagos pasan a la nueva
-      `matricula_oferta` DENTRO de la misma transacción.
+- [x] `bitacora_situacion_financiera` (T, FK → matricula_oferta, situaciones_pago)
+      — append-only; la situación vigente es su último renglón.
+- [x] Modelos de todo el módulo (11) + `CatalogosFinanzasSeeder`, ya enganchado
+      en `DatabaseSeeder`.
+- [x] **Re-ligadura** (`App\Services\ReligadorFinanzas`) en
+      `ConvertidorAspirante` y `MatriculadorOferta`, DENTRO de la transacción
+      que genera la matrícula. En el segundo se acota por oferta: los pagos de
+      otra candidatura de la misma persona no son de esa matrícula.
+- [x] Suite `scripts/prueba-finanzas.php` — 47 verificaciones contra la BD real
+      con rollback.
 
 **Entrega 7.2** — motor de generación:
 - [ ] Servicio que recorre `reglas_generacion` vigentes y crea adeudos por

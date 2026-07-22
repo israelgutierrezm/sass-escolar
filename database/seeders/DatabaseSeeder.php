@@ -8,6 +8,7 @@ use Database\Seeders\Tenant\CatalogosAcademicosSeeder;
 use Database\Seeders\Tenant\CatalogosAdmisionesSeeder;
 use Database\Seeders\Tenant\CatalogosAsistenciaSeeder;
 use Database\Seeders\Tenant\CatalogosControlEscolarSeeder;
+use Database\Seeders\Tenant\CatalogosFinanzasSeeder;
 use Database\Seeders\Tenant\CatalogosFormulariosSeeder;
 use Database\Seeders\Tenant\ConfiguracionSeeder;
 use Database\Seeders\Tenant\DocumentoRequeridoSeeder;
@@ -43,6 +44,7 @@ class DatabaseSeeder extends Seeder
             CatalogosAdmisionesSeeder::class,
             CatalogosControlEscolarSeeder::class,
             CatalogosAsistenciaSeeder::class,
+            CatalogosFinanzasSeeder::class,
             DocumentoRequeridoSeeder::class,
             RolSeeder::class,
             PermisoSeeder::class,

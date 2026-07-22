@@ -42,10 +42,12 @@ Los otros dos documentos vivos:
 4. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (188 verificaciones en total):
+   Las suites versionadas viven en `scripts/` (13 suites, 304 verificaciones):
    `prueba-actas`, `prueba-plantillas`, `prueba-ventanas-captura`,
    `prueba-ciclo-campus`, `prueba-apertura-grupos`, `prueba-alcance-docente`,
-   `prueba-alumnos`, `prueba-docentes`. NO van en `tests/`:
+   `prueba-alumnos`, `prueba-docentes`, `prueba-documentos`,
+   `prueba-formularios`, `prueba-multicarrera`, `prueba-suplantacion`,
+   `prueba-finanzas`. NO van en `tests/`:
    phpunit corre contra SQLite en memoria y ahí se prueba justo lo que SQLite
    no sabe hacer (`LAST_INSERT_ID`, FKs reales, InnoDB).
 
@@ -183,22 +185,27 @@ npm run dev                # o npm run build
   asignaturas, planes, malla curricular, seriación, esquema de evaluación,
   oferta), control escolar, captura de calificaciones y layout de
   administración con temas.
-- Pruebas: 13 suites en `scripts/`, 257 verificaciones, todas contra la BD real
+- **Módulo 7 — Finanzas, entrega 7.1** (núcleo de datos, sin pantallas):
+  catálogos (`conceptos_pago`, `situaciones_pago`, `metodos_pago`) con seeder;
+  motor configurable (`planes_cobro`, `reglas_generacion`,
+  `recargos_descuentos`, `becas_alumno`); núcleo transaccional (`adeudos`,
+  `pagos`, `pago_adeudo`, `bitacora_situacion_financiera`); 11 modelos en
+  `App\Models\Finanzas\`. `adeudos` y `pagos` tienen titular DUAL —
+  `matricula_oferta_id` o `aspirante_id`, exactamente uno, con CHECK en MySQL —
+  porque el aspirante paga antes de tener matrícula;
+  `App\Services\ReligadorFinanzas` los pasa a la matrícula nueva dentro de la
+  transacción de `ConvertidorAspirante` y `MatriculadorOferta`.
+- Pruebas: 13 suites en `scripts/`, 304 verificaciones, todas contra la BD real
   del tenant demo con `DB::rollBack()` al final.
 
 **Pendiente inmediato — aquí se retoma:**
 
-1. **Módulo 7 — Finanzas** (Fase 3). **Ya empezado a medias**: están migrados
-   los catálogos (`conceptos_pago`, `situaciones_pago`, `metodos_pago`) y el
-   motor configurable (`planes_cobro`, `reglas_generacion`,
-   `recargos_descuentos`, `becas_alumno`), sin modelos ni seeder todavía.
-   Falta el núcleo: `adeudos`, `pagos`, `pago_adeudo`,
-   `bitacora_situacion_financiera`.
-   Trae una decisión ya tomada y **vinculante**: `adeudos` y `pagos` nacen con
-   `matricula_oferta_id` **nullable** más `aspirante_id` nullable (exactamente
-   uno de los dos presente, validado en la app), y la conversión
-   aspirante→alumno los **re-liga** dentro de la misma transacción. Ver
-   `docs/decisiones.md` y el checklist detallado en `docs/plan-migraciones.md`.
+1. **Módulo 7, entrega 7.2** — el motor de generación: servicio que recorre
+   `reglas_generacion` vigentes y crea adeudos por periodicidad (idempotente,
+   sin duplicar el periodo ya generado), aplicación de recargos por mora y
+   descuentos por beca, y las pantallas: planes de cobro, estado de cuenta del
+   alumno y registro de pago. Después, 7.3 (CFDI 4.0). Checklist detallado en
+   `docs/plan-migraciones.md`.
 2. Módulos 8 (LMS) y 9 (Titulación SEP) de la Fase 3; luego Fase 4.
 
 **Deuda conocida:**

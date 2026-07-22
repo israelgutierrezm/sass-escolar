@@ -24,12 +24,17 @@ use RuntimeException;
  * Cero recaptura: se conserva la MISMA persona, y las respuestas de formulario
  * que dio siendo aspirante se RE-LIGAN a su nueva matricula_oferta, para que no
  * tenga que volver a capturarlas.
+ *
+ * Lo mismo vale para el dinero: sus adeudos y pagos de aspirante —la ficha, la
+ * inscripción— pasan a la matrícula nueva en esta misma transacción. Dejarlos
+ * colgando del aspirante partiría el estado de cuenta del alumno en dos.
  */
 class ConvertidorAspirante
 {
-    public function __construct(private readonly GeneradorMatricula $generador)
-    {
-    }
+    public function __construct(
+        private readonly GeneradorMatricula $generador,
+        private readonly ReligadorFinanzas $religador,
+    ) {}
 
     /**
      * @throws RuntimeException si al aspirante le falta algo para convertirse
@@ -60,6 +65,7 @@ class ConvertidorAspirante
             ]);
 
             $this->religarRespuestas($aspirante, $matricula);
+            $this->religador->religar($aspirante, $matricula);
 
             $aspirante->update([
                 'situacion_id' => SituacionAspirante::query()->where('clave', 'inscrito')->value('id'),
