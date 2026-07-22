@@ -11,8 +11,11 @@ use App\Models\ControlEscolar\CalificacionComponente;
 use App\Models\ControlEscolar\Ciclo;
 use App\Models\ControlEscolar\Docente;
 use App\Models\ControlEscolar\Inscripcion;
+use App\Models\ControlEscolar\ExcepcionCaptura;
+use App\Models\ControlEscolar\VentanaCaptura;
 use App\Services\AsentadorActa;
 use App\Services\CalculadoraCalificacion;
+use App\Services\CalendarioCaptura;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -42,6 +45,7 @@ class CapturaCalificacionesController extends Controller
     public function __construct(
         private readonly AsentadorActa $asentador,
         private readonly CalculadoraCalificacion $calculadora,
+        private readonly CalendarioCaptura $calendario,
     ) {}
 
     /** Materias sobre las que este usuario puede capturar, por ciclo. */
@@ -157,6 +161,10 @@ class CapturaCalificacionesController extends Controller
                 'parcial' => $c->parcial,
                 'porcentaje' => (float) $c->porcentaje,
             ])->all(),
+            // Qué cortes se pueden capturar hoy y por qué no los demás. La hoja
+            // bloquea esas columnas: mostrar un campo editable que el servidor
+            // va a rechazar es peor que no mostrarlo.
+            'calendario' => $this->calendario->estadoPorParcial($asignaturaGrupo, $this->personaId($request)),
             'alumnos' => $alumnos,
             'actas' => $asignaturaGrupo->actas
                 ->sortByDesc('id')
@@ -225,11 +233,30 @@ class CapturaCalificacionesController extends Controller
             ->flip();
 
         $personaId = $this->personaId($request);
-        $guardadas = 0;
 
-        DB::transaction(function () use ($datos, $inscripciones, $componentes, $personaId, &$guardadas): void {
+        // El calendario decide qué cortes se pueden tocar hoy. Se revalida aquí
+        // aunque la hoja ya bloquee las columnas: la ventana pudo cerrarse entre
+        // que se pintó la pantalla y se envió el formulario.
+        $estadoDeCortes = $this->calendario->estadoPorParcial($asignaturaGrupo, $personaId);
+        $parcialPorComponente = EsquemaEvaluacion::query()
+            ->where('plan_materia_id', $asignaturaGrupo->plan_materia_id)
+            ->pluck('parcial', 'id');
+
+        $guardadas = 0;
+        $rechazados = [];
+
+        DB::transaction(function () use ($datos, $inscripciones, $componentes, $personaId, $estadoDeCortes, $parcialPorComponente, &$guardadas, &$rechazados): void {
             foreach ($datos['calificaciones'] as $fila) {
                 if (! $inscripciones->has($fila['inscripcion_id']) || ! $componentes->has($fila['esquema_evaluacion_id'])) {
+                    continue;
+                }
+
+                $parcial = $parcialPorComponente[$fila['esquema_evaluacion_id']] ?? null;
+                $corte = $estadoDeCortes[$parcial === null ? '' : (string) $parcial] ?? ['abierto' => true, 'motivo' => null];
+
+                if (! $corte['abierto']) {
+                    $rechazados[$corte['motivo'] ?? 'Corte cerrado.'] = true;
+
                     continue;
                 }
 
@@ -249,7 +276,20 @@ class CapturaCalificacionesController extends Controller
             }
         });
 
-        return back()->with('exito', "Calificaciones guardadas ({$guardadas}).");
+        if ($rechazados !== []) {
+            // Se guarda lo que sí se podía y se explica lo que no: hacer fallar
+            // toda la hoja por una columna cerrada le haría perder al docente la
+            // captura de las demás.
+            return back()->with('advertencia', sprintf(
+                '%s. %s',
+                $guardadas === 1 ? 'Se guardó 1 calificación' : "Se guardaron {$guardadas} calificaciones",
+                implode(' ', array_keys($rechazados)),
+            ));
+        }
+
+        return back()->with('exito', $guardadas === 1
+            ? 'Se guardó 1 calificación.'
+            : "Se guardaron {$guardadas} calificaciones.");
     }
 
     /** Firma el acta: calcula finales, genera folio y vuelca al kárdex. */

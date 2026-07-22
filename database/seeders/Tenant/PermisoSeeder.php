@@ -26,7 +26,7 @@ class PermisoSeeder extends Seeder
     private const PERMISOS = [
         'entidades' => ['ver-personas', 'crear-personas', 'editar-personas'],
         'admisiones' => ['ver-aspirantes', 'crear-aspirantes', 'editar-aspirantes', 'validar-expediente', 'convertir-aspirante', 'generar-matricula'],
-        'control-escolar' => ['ver-alumnos', 'editar-alumnos', 'inscribir-alumnos', 'ver-kardex', 'capturar-calificaciones', 'asentar-acta', 'pasar-lista', 'ver-grupos'],
+        'control-escolar' => ['ver-alumnos', 'editar-alumnos', 'inscribir-alumnos', 'ver-kardex', 'capturar-calificaciones', 'asentar-acta', 'gestionar-ventanas-captura', 'pasar-lista', 'ver-grupos'],
         'academico' => ['ver-catalogo-academico', 'editar-catalogo-academico', 'abrir-grupos'],
         'finanzas' => ['ver-adeudos', 'registrar-pagos', 'condonar-adeudos', 'facturar'],
         'plataforma' => ['ver-configuracion', 'editar-configuracion', 'gestionar-usuarios', 'gestionar-roles'],
@@ -42,6 +42,7 @@ class PermisoSeeder extends Seeder
             'ver-kardex', 'ver-adeudos', 'condonar-adeudos', 'ver-configuracion',
             'editar-configuracion', 'gestionar-usuarios', 'gestionar-roles',
             'editar-catalogo-academico', 'abrir-grupos', 'inscribir-alumnos',
+            'gestionar-ventanas-captura',
         ],
         'director_campus' => [
             'crear-personas', 'editar-personas', 'ver-aspirantes', 'editar-alumnos',
@@ -55,7 +56,7 @@ class PermisoSeeder extends Seeder
         'auxiliar_admisiones' => ['ver-aspirantes', 'crear-aspirantes', 'editar-aspirantes'],
         'encargado_control_escolar' => [
             'editar-alumnos', 'inscribir-alumnos', 'ver-kardex',
-            'capturar-calificaciones', 'asentar-acta',
+            'capturar-calificaciones', 'asentar-acta', 'gestionar-ventanas-captura',
             'abrir-grupos', 'editar-catalogo-academico',
         ],
         // Captura pero NO firma: puede vaciar las hojas que entrega el docente

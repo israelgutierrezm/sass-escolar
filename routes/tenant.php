@@ -22,6 +22,7 @@ use App\Http\Controllers\PlantillaEvaluacionController;
 use App\Http\Controllers\RolActivoController;
 use App\Http\Controllers\SeriacionController;
 use App\Http\Controllers\TemaController;
+use App\Http\Controllers\VentanaCapturaController;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
@@ -147,6 +148,27 @@ Route::middleware([
             ->middleware('can:ver-grupos')
             ->group(function () {
                 Route::get('ciclos', [CicloController::class, 'index'])->name('ciclos.index');
+
+                /*
+                 * Calendario de captura del ciclo: hasta cuándo puede calificar
+                 * el docente, parcial por parcial, y a quién se le reabre.
+                 */
+                Route::controller(VentanaCapturaController::class)
+                    ->prefix('ciclos/{ciclo}/ventanas')->name('ciclos.ventanas.')
+                    ->whereNumber('ciclo')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+
+                        Route::middleware('can:gestionar-ventanas-captura')->group(function () {
+                            Route::post('/', 'store')->name('store');
+                            Route::put('{ventana}', 'update')->name('update');
+                            Route::put('{ventana}/alternar', 'alternar')->name('alternar');
+                            Route::delete('{ventana}', 'destroy')->name('destroy');
+
+                            Route::post('{ventana}/excepciones', 'conceder')->name('excepciones.store');
+                            Route::delete('{ventana}/excepciones/{excepcion}', 'revocar')->name('excepciones.destroy');
+                        });
+                    });
                 Route::get('inscripciones', [InscripcionController::class, 'index'])
                     ->middleware('can:inscribir-alumnos')
                     ->name('inscripciones.index');

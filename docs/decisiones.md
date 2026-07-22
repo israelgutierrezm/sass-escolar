@@ -601,3 +601,67 @@ con él antes de escribir código; tres eran de interfaz.
 - **Razón:** una operación puede terminar bien y aun así tener algo que el
   usuario necesita saber. Forzar ese caso a "éxito" oculta información, y a
   "error" miente sobre lo que pasó.
+
+## 2026-07-21 — Calendario de captura por parcial (bloque 3)
+
+### `ciclos.captura_calif_hasta` no servía para lo que se pedía  ✅ RESUELTO
+- **Aclaración:** la captura de cada parcial debe poder activarse y desactivarse
+  a demanda, con sus propias fechas, y un administrador debe poder reabrírsela a
+  un docente concreto.
+- **Lo que había:** UNA sola fecha por ciclo que además **no bloquea nada**:
+  solo marca el acta como extemporánea al asentarla. Inútil para una escuela que
+  corta el primer parcial en octubre y el segundo en diciembre.
+- **RESOLUCIÓN:** `ventanas_captura` (por ciclo y parcial) + `excepciones_captura`.
+  - `parcial` en NULL cubre los rubros que van directo al curso, espejando a
+    `esquema_evaluacion`.
+  - **Sin ventanas configuradas, el ciclo captura libre.** Deliberado: la
+    escuela que no quiere gestionar calendario no configura nada, y los ciclos
+    que ya existían siguen comportándose igual que antes.
+  - **Un corte sin ventana propia, en un ciclo que sí las gestiona, también
+    queda abierto.** La escuela configuró unas y no otras; bloquear lo no
+    configurado sería adivinar su intención.
+  - `activa` apaga y enciende sin borrar, que es como se opera ("ábrele otra vez
+    el primer parcial una semana").
+  - **Las dos fechas conviven y son cosas distintas**, y así se explica en la
+    pantalla: `captura_calif_hasta` marca el acta como extemporánea al
+    asentarla; las ventanas impiden capturar. Se mantuvo la primera porque el
+    asentador la usa para `observaciones_historial`.
+
+### La excepción es una decisión administrativa y se audita
+- **Decisión:** `excepciones_captura` guarda hasta cuándo, el motivo (mínimo 10
+  caracteres) y **quién la autorizó**. Se concede por materia; `persona_id` en
+  NULL la extiende a cualquier docente de esa materia, que es el caso común
+  cuando el titular cambió a media captura.
+- **Razón:** reabrir una captura vencida es una decisión que después alguien va
+  a cuestionar. Sin autor ni motivo, la pregunta "¿quién le abrió esto?" no
+  tiene respuesta. Revocar usa soft delete: la excepción se concedió, y eso no
+  deja de ser cierto porque se haya retirado después.
+- Una ventana con excepciones colgando no se puede borrar (se llevaría el
+  rastro); se desactiva.
+
+### El "por qué no" importa tanto como el "no"
+- **Decisión:** `CalendarioCaptura` no devuelve un booleano sino el estado por
+  corte con su motivo redactado: "La captura de Primer parcial cerró el
+  11/07/2026", "…abre el 26/07", "…está desactivada", "Abierto por excepción
+  hasta el 28/07".
+- **Razón:** un docente que ve una columna bloqueada sin explicación llama a
+  control escolar. La hoja de captura deshabilita esas columnas y muestra el
+  motivo; un campo editable que el servidor va a rechazar es peor que uno
+  bloqueado.
+
+### Guardar parcialmente en vez de fallar entero
+- **Decisión:** si la hoja trae calificaciones de un corte cerrado, se guardan
+  las de los cortes abiertos y se advierte de las otras (`flash.advertencia`).
+- **Razón:** hacer fallar toda la hoja por una columna cerrada le haría perder
+  al docente la captura de las demás. El servidor revalida siempre, porque la
+  ventana pudo cerrarse entre que se pintó la pantalla y se envió el formulario.
+- Verificado por HTTP: enviando dos calificaciones, una a un corte cerrado y
+  otra a uno abierto, la cerrada conservó su valor anterior y la abierta se
+  actualizó.
+
+### Permiso propio: `gestionar-ventanas-captura`
+- **Decisión:** permiso nuevo, para director general y encargado de control
+  escolar. No se reutilizó `abrir-grupos`.
+- **Razón:** definir el calendario de captura y reabrírsela a un docente es una
+  facultad distinta de abrir grupos, y el proyecto favorece permisos granulares.
+  El docente NO lo tiene: se le concede la excepción, no se la otorga él.

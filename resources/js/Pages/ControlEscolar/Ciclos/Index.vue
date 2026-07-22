@@ -95,10 +95,17 @@ function eliminar(id: number, clave: string): void {
                         </td>
                         <td class="px-4 py-3 text-slate-600">{{ ciclo.grupos_count }}</td>
                         <td class="px-4 py-3 text-right">
+                            <a
+                                :href="`/escolar/ciclos/${ciclo.id}/ventanas`"
+                                class="text-sm font-medium text-indigo-600 hover:text-indigo-700"
+                                title="Hasta cuándo puede capturar el docente, parcial por parcial"
+                            >
+                                Captura
+                            </a>
                             <template v-if="puedeEditar">
                                 <a
                                     :href="`/escolar/ciclos/${ciclo.id}/edit`"
-                                    class="text-sm font-medium text-indigo-600 hover:text-indigo-700"
+                                    class="ml-3 text-sm font-medium text-indigo-600 hover:text-indigo-700"
                                 >
                                     Editar
                                 </a>

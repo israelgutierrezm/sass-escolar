@@ -38,6 +38,7 @@ const props = defineProps<{
         observaciones: string | null;
     }[];
     estado: { captura_abierta: boolean; en_correccion: boolean; impedimentos: string[] };
+    calendario: Record<string, { abierto: boolean; motivo: string | null; ventana: string | null; por_excepcion: boolean }>;
     permisos: { capturar: boolean; cerrar: boolean; corregir: boolean };
 }>();
 
@@ -164,6 +165,40 @@ function siguienteFila(evento: KeyboardEvent, indiceAlumno: number, componenteId
 function nombreLegible(componente: Componente): string {
     return componente.componente.replace(/_/g, ' ');
 }
+
+/*
+ * El calendario de captura del ciclo decide, corte por corte, qué columnas se
+ * pueden tocar hoy. Un campo editable que el servidor va a rechazar es peor que
+ * un campo bloqueado con su explicación al lado.
+ */
+function corteDe(componente: Componente) {
+    const llave = componente.parcial === null ? '' : String(componente.parcial);
+    return props.calendario[llave] ?? { abierto: true, motivo: null, ventana: null, por_excepcion: false };
+}
+
+function columnaAbierta(componente: Componente): boolean {
+    return corteDe(componente).abierto;
+}
+
+/** Los cortes cerrados, sin repetir el motivo por cada columna. */
+const cortesCerrados = computed(() =>
+    [...new Set(
+        props.componentes
+            .filter((c) => !columnaAbierta(c))
+            .map((c) => corteDe(c).motivo)
+            .filter((m): m is string => m !== null),
+    )],
+);
+
+/** Avisos de cortes abiertos por excepción: el docente debe saber que es temporal. */
+const cortesPorExcepcion = computed(() =>
+    [...new Set(
+        props.componentes
+            .filter((c) => corteDe(c).por_excepcion)
+            .map((c) => corteDe(c).motivo)
+            .filter((m): m is string => m !== null),
+    )],
+);
 </script>
 
 <template>
@@ -292,6 +327,25 @@ function nombreLegible(componente: Componente): string {
             </p>
         </div>
 
+        <!-- Calendario de captura -->
+        <div v-if="cortesCerrados.length" class="tarjeta border-l-4 border-amber-500 p-4 text-sm">
+            <p class="font-medium text-amber-700">Hay cortes fuera de fecha.</p>
+            <ul class="mt-1 space-y-0.5" :style="{ color: 'var(--color-suave)' }">
+                <li v-for="motivo in cortesCerrados" :key="motivo">{{ motivo }}</li>
+            </ul>
+            <p class="mt-2 text-xs" :style="{ color: 'var(--color-suave)' }">
+                Sus columnas están bloqueadas. Control escolar puede reabrirte la captura desde el
+                calendario del ciclo.
+            </p>
+        </div>
+
+        <div v-if="cortesPorExcepcion.length" class="tarjeta border-l-4 p-4 text-sm" style="border-left-color: #16a34a">
+            <p class="font-medium">Captura reabierta.</p>
+            <ul class="mt-1 space-y-0.5" :style="{ color: 'var(--color-suave)' }">
+                <li v-for="motivo in cortesPorExcepcion" :key="motivo">{{ motivo }}</li>
+            </ul>
+        </div>
+
         <!-- Hoja -->
         <section class="tarjeta overflow-hidden">
             <div class="flex flex-wrap items-center justify-between gap-3 border-b px-6 py-3" :style="{ borderColor: 'var(--color-borde)' }">
@@ -321,6 +375,11 @@ function nombreLegible(componente: Componente): string {
                             >
                                 {{ nombreLegible(componente) }}
                                 <span class="block font-normal normal-case">{{ componente.porcentaje }}%</span>
+                                <span
+                                    v-if="!columnaAbierta(componente)"
+                                    class="block font-normal normal-case text-amber-600"
+                                    :title="corteDe(componente).motivo ?? undefined"
+                                >cerrado</span>
                             </th>
                             <th class="px-4 py-3 text-center font-medium">Final</th>
                         </tr>
@@ -352,8 +411,9 @@ function nombreLegible(componente: Componente): string {
                                     step="0.01"
                                     :min="escala.minima ?? undefined"
                                     :max="escala.maxima ?? undefined"
-                                    :disabled="!permisos.capturar || !esquemaValido"
-                                    class="w-20 rounded-lg border px-2 py-1 text-center disabled:opacity-50"
+                                    :disabled="!permisos.capturar || !esquemaValido || !columnaAbierta(componente)"
+                                    :title="corteDe(componente).motivo ?? undefined"
+                                    class="w-20 rounded-lg border px-2 py-1 text-center disabled:cursor-not-allowed disabled:opacity-40"
                                     :style="{ borderColor: 'var(--color-borde)' }"
                                     @keydown.enter="siguienteFila($event, indice, componente.id)"
                                     @keydown.down="siguienteFila($event, indice, componente.id)"
