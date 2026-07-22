@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Academico\Campus;
+use App\Models\Academico\Carrera;
 use App\Models\Academico\PlanEstudio;
 use App\Models\Academico\PlanMateria;
 use App\Models\Academico\Turno;
@@ -109,6 +110,11 @@ class GrupoController extends Controller
                         ->where('pivot.tipo', 'adjunto')
                         ->map(fn ($d) => $d->persona?->nombreCompleto())
                         ->values(),
+                    // Los ids de quienes ya imparten esta materia, para que el
+                    // buscador no vuelva a ofrecerlos.
+                    'docentes_asignados' => $asignatura->docentes
+                        ->map(fn ($d) => ['id' => $d->persona_id, 'tipo' => $d->pivot->tipo])
+                        ->values(),
                     'inscritos' => Inscripcion::query()->where('asignatura_grupo_id', $asignatura->id)->count(),
                 ];
             }),
@@ -167,14 +173,22 @@ class GrupoController extends Controller
             ->when($grupo->plan_id !== null, fn ($q) => $q->where('plan_id', $grupo->plan_id))
             ->whereNotIn('id', $yaAbiertas)
             ->orderBy('periodo')
+            ->orderBy('clave_en_plan')
             ->get()
             ->map(fn (PlanMateria $materia) => [
                 'id' => $materia->id,
+                'clave_en_plan' => $materia->clave_en_plan,
+                'materia' => $materia->asignatura?->nombre,
+                'plan' => $materia->plan?->nombre,
+                // El periodo va suelto, no embebido en la etiqueta: la pantalla
+                // filtra por él para proponer "las de tercer semestre" en vez de
+                // obligar a leer una lista de cincuenta.
+                'periodo' => $materia->periodo,
+                'tipo' => $materia->tipo,
                 'etiqueta' => sprintf(
-                    '%s · %s%s',
+                    '%s · %s',
                     $materia->clave_en_plan,
                     $materia->asignatura?->nombre ?? '',
-                    $materia->periodo !== null ? " (periodo {$materia->periodo})" : '',
                 ),
             ])
             ->all();
@@ -220,7 +234,20 @@ class GrupoController extends Controller
             'ciclos' => Ciclo::query()->orderByDesc('fecha_inicio')->get(['id', 'clave', 'nombre'])
                 ->map(fn (Ciclo $ciclo) => ['id' => $ciclo->id, 'nombre' => "{$ciclo->clave} — {$ciclo->nombre}"]),
             'campus' => Campus::query()->orderBy('nombre')->get(['id', 'nombre']),
-            'planes' => PlanEstudio::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'carreras' => Carrera::query()->orderBy('nombre')->get(['id', 'nombre']),
+            // Los planes viajan con su carrera para que el formulario los
+            // filtre en cascada: una escuela con seis carreras y cuatro planes
+            // cada una presenta 24 opciones en un solo desplegable, y elegir el
+            // plan equivocado ata el grupo a una carrera que no era.
+            'planes' => PlanEstudio::query()
+                ->orderBy('nombre')
+                ->get(['id', 'nombre', 'carrera_id', 'clave'])
+                ->map(fn (PlanEstudio $plan) => [
+                    'id' => $plan->id,
+                    'nombre' => $plan->nombre,
+                    'clave' => $plan->clave,
+                    'carrera_id' => $plan->carrera_id,
+                ]),
             'turnos' => Turno::query()->orderBy('nombre')->get(['id', 'nombre']),
             'situaciones' => SituacionGrupo::query()->orderBy('id')->get(['id', 'nombre']),
         ];

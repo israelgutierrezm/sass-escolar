@@ -10,6 +10,7 @@ use App\Models\ControlEscolar\Inscripcion;
 use App\Models\ControlEscolar\SituacionAsignaturaGrupo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -22,30 +23,63 @@ use Illuminate\Validation\ValidationException;
  */
 class AsignaturaGrupoController extends Controller
 {
+    /**
+     * Abre una o varias materias de golpe.
+     *
+     * Se reciben en lote porque abrir un grupo es cargar el semestre completo:
+     * hacerlo de una en una son diez viajes al servidor y diez recargas para
+     * una sola decisión del usuario.
+     */
     public function store(Request $request, Grupo $grupo): RedirectResponse
     {
         $datos = $request->validate([
-            'plan_materia_id' => ['required', 'integer', Rule::exists('plan_materias', 'id')->whereNull('deleted_at')],
-        ], [], ['plan_materia_id' => 'materia']);
+            'plan_materia_ids' => ['required', 'array', 'min:1'],
+            'plan_materia_ids.*' => ['integer', Rule::exists('plan_materias', 'id')->whereNull('deleted_at')],
+        ], [
+            'plan_materia_ids.required' => 'Elige al menos una materia.',
+            'plan_materia_ids.min' => 'Elige al menos una materia.',
+        ], ['plan_materia_ids' => 'materias']);
 
-        $duplicada = AsignaturaGrupo::query()
+        $pedidas = array_values(array_unique(array_map('intval', $datos['plan_materia_ids'])));
+
+        $yaAbiertas = AsignaturaGrupo::query()
             ->where('grupo_id', $grupo->id)
-            ->where('plan_materia_id', $datos['plan_materia_id'])
-            ->exists();
+            ->whereIn('plan_materia_id', $pedidas)
+            ->pluck('plan_materia_id')
+            ->all();
 
-        if ($duplicada) {
+        $nuevas = array_values(array_diff($pedidas, $yaAbiertas));
+
+        if ($nuevas === []) {
             throw ValidationException::withMessages([
-                'plan_materia_id' => 'Esa materia ya está abierta en este grupo.',
+                'plan_materia_ids' => count($pedidas) === 1
+                    ? 'Esa materia ya está abierta en este grupo.'
+                    : 'Todas las materias elegidas ya están abiertas en este grupo.',
             ]);
         }
 
-        AsignaturaGrupo::create([
-            'grupo_id' => $grupo->id,
-            'plan_materia_id' => $datos['plan_materia_id'],
-            'situacion_id' => SituacionAsignaturaGrupo::query()->where('clave', 'activa')->value('id'),
-        ]);
+        $activa = SituacionAsignaturaGrupo::query()->where('clave', 'activa')->value('id');
 
-        return back()->with('exito', 'Materia abierta en el grupo.');
+        DB::transaction(function () use ($nuevas, $grupo, $activa): void {
+            foreach ($nuevas as $planMateriaId) {
+                AsignaturaGrupo::create([
+                    'grupo_id' => $grupo->id,
+                    'plan_materia_id' => $planMateriaId,
+                    'situacion_id' => $activa,
+                ]);
+            }
+        });
+
+        $mensaje = count($nuevas) === 1
+            ? 'Materia abierta en el grupo.'
+            : count($nuevas).' materias abiertas en el grupo.';
+
+        // Si venían repetidas se dice, en vez de fingir que se abrieron todas.
+        if ($yaAbiertas !== []) {
+            return back()->with('advertencia', $mensaje.' '.count($yaAbiertas).' ya estaban abiertas y se omitieron.');
+        }
+
+        return back()->with('exito', $mensaje);
     }
 
     /**

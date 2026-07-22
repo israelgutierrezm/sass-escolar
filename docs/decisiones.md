@@ -665,3 +665,50 @@ con él antes de escribir código; tres eran de interfaz.
 - **Razón:** definir el calendario de captura y reabrírsela a un docente es una
   facultad distinta de abrir grupos, y el proyecto favorece permisos granulares.
   El docente NO lo tiene: se le concede la excepción, no se la otorga él.
+
+## 2026-07-21 — Interfaz de grupos (bloque 4)
+
+Tres cambios de pantalla, sin esquema nuevo.
+
+### Carrera → plan, en cascada
+- **Problema:** el formulario de grupo ofrecía UN desplegable con todos los
+  planes de la escuela. Con seis carreras de cuatro planes cada una son 24
+  opciones, y —caso real reproducido en la demo— dos carreras distintas pueden
+  tener un plan llamado igual ("Plan 2026"): en la lista son indistinguibles y
+  es fácil atar el grupo a la carrera equivocada.
+- **Decisión:** selector de carrera que filtra los planes. La carrera **no se
+  persiste**: el grupo sigue guardando solo `plan_id`, porque la carrera ya se
+  deduce del plan. Es un filtro de pantalla, y así se rotula.
+- Al editar, la carrera se deduce del plan guardado. Cambiar de carrera limpia
+  el plan si dejó de pertenecer a ella, en vez de dejar una selección inválida.
+- Los planes se listan como "CLAVE · nombre", que es lo que los distingue.
+
+### Apertura de materias: filtro por periodo y selección múltiple
+- **Problema:** las materias se abrían de una en una en un desplegable con toda
+  la malla. Un plan de nueve semestres trae cincuenta materias y abrir un grupo
+  casi siempre significa "las de tercero".
+- **Decisión:** `materiasDisponibles` devuelve `periodo` como campo suelto (ya
+  no embebido en la etiqueta), la pantalla filtra por él y las materias se
+  marcan con casillas. `POST .../materias` recibe `plan_materia_ids` en lote.
+- **Las repetidas se omiten y se dicen**, no se fallan: si el lote trae tres ya
+  abiertas y una nueva, se abre la nueva y se advierte de las tres. Rechazar el
+  lote entero obligaría a rehacer la selección por un dato que el usuario no
+  tenía por qué recordar.
+
+### Buscador de docentes con los asignados marcados, no ocultos
+- **Problema:** un `<select>` con todos los docentes es impracticable en una
+  escuela con doscientos, y volvía a ofrecer a quien ya impartía la materia.
+- **Decisión:** componente `CampoBuscador.vue` (selección única con filtro por
+  texto). Los docentes ya asignados aparecen **deshabilitados con su papel al
+  lado** ("ya es titular"), no desaparecen.
+- **Razón de no ocultarlos:** ver el nombre marcado explica por qué no se puede
+  elegir; que el nombre no aparezca hace dudar de si esa persona está dada de
+  alta como docente, y manda al usuario a buscarla al catálogo.
+- El controlador expone `docentes_asignados` (id + tipo) por materia; antes solo
+  viajaban los nombres, con los que no se puede comparar.
+
+### Nota sobre los datos de la escuela de prueba
+La demo tenía una sola carrera y tres materias, con lo que ninguna de estas tres
+pantallas se podía valorar. Se le cargó una segunda carrera (Derecho, con un
+plan también llamado "Plan 2026", a propósito) y una malla de catorce materias
+en cuatro periodos. Son datos de la BD local, no un seeder del repo.

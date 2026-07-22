@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavEscolar from '@/Components/NavEscolar.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
@@ -10,7 +10,8 @@ const props = defineProps<{
     grupo: Record<string, any> | null;
     ciclos: { id: number; nombre: string }[];
     campus: { id: number; nombre: string }[];
-    planes: { id: number; nombre: string }[];
+    carreras: { id: number; nombre: string }[];
+    planes: { id: number; nombre: string; clave: string; carrera_id: number }[];
     turnos: { id: number; nombre: string }[];
     situaciones: { id: number; nombre: string }[];
 }>();
@@ -30,6 +31,35 @@ const form = useForm({
 
 const opciones = (lista: { id: number; nombre: string }[]) =>
     lista.map((item) => ({ valor: item.id, texto: item.nombre }));
+
+/*
+ * Carrera → plan, en cascada.
+ *
+ * El grupo solo guarda `plan_id`; la carrera es un filtro de la pantalla, no un
+ * dato que se persista. Se ofrecía un único desplegable con TODOS los planes de
+ * la escuela, donde "Plan 2026" de dos carreras distintas se ve idéntico y es
+ * fácil atar el grupo a la carrera equivocada.
+ *
+ * Al editar, la carrera se deduce del plan que ya tiene guardado.
+ */
+const carreraId = ref<number | null>(
+    props.planes.find((plan) => plan.id === props.grupo?.plan_id)?.carrera_id ?? null,
+);
+
+const planesDeLaCarrera = computed(() =>
+    carreraId.value === null
+        ? props.planes
+        : props.planes.filter((plan) => plan.carrera_id === carreraId.value),
+);
+
+// Cambiar de carrera invalida el plan elegido si ya no pertenece a ella.
+watch(carreraId, () => {
+    const sigueSiendoValido = planesDeLaCarrera.value.some((plan) => plan.id === form.plan_id);
+
+    if (!sigueSiendoValido) {
+        form.plan_id = null;
+    }
+});
 
 function enviar(): void {
     esEdicion.value ? form.put(`/escolar/grupos/${props.grupo!.id}`) : form.post('/escolar/grupos');
@@ -63,10 +93,17 @@ function enviar(): void {
                 <CampoTexto v-model="form.clave" etiqueta="Clave" requerido mono :error="form.errors.clave" />
                 <CampoTexto v-model="form.nombre" etiqueta="Nombre" :error="form.errors.nombre" />
                 <CampoSelect
+                    v-model="carreraId"
+                    etiqueta="Carrera"
+                    :opciones="opciones(carreras)"
+                    vacio="Todas las carreras"
+                    ayuda="Filtra los planes de abajo. No se guarda en el grupo."
+                />
+                <CampoSelect
                     v-model="form.plan_id"
                     etiqueta="Plan de estudios"
-                    :opciones="opciones(planes)"
-                    vacio="Sin plan fijo"
+                    :opciones="planesDeLaCarrera.map((p) => ({ valor: p.id, texto: `${p.clave} · ${p.nombre}` }))"
+                    :vacio="carreraId === null ? 'Sin plan fijo' : 'Sin plan fijo (de esta carrera)'"
                     :error="form.errors.plan_id"
                     ayuda="Si lo fijas, solo se podrán abrir materias de ese plan."
                 />

@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavEscolar from '@/Components/NavEscolar.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
+import CampoCasillas from '@/Components/CampoCasillas.vue';
+import CampoBuscador from '@/Components/CampoBuscador.vue';
 
 interface MateriaAbierta {
     id: number;
@@ -14,24 +16,77 @@ interface MateriaAbierta {
     titular: string | null;
     adjuntos: string[];
     inscritos: number;
+    docentes_asignados: { id: number; tipo: string }[];
+}
+
+interface MateriaDisponible {
+    id: number;
+    clave_en_plan: string;
+    materia: string | null;
+    plan: string | null;
+    periodo: number | null;
+    tipo: string;
+    etiqueta: string;
 }
 
 const props = defineProps<{
     grupo: Record<string, any>;
     asignaturas: MateriaAbierta[];
-    materiasDisponibles: { id: number; etiqueta: string }[];
+    materiasDisponibles: MateriaDisponible[];
     docentes: { id: number; nombre: string }[];
     puedeEditar: boolean;
 }>();
 
-const formMateria = useForm({ plan_materia_id: null as number | null });
+/*
+ * Apertura de materias: primero se acota por periodo y luego se marcan varias.
+ *
+ * Un plan de nueve semestres puede traer cincuenta materias, y abrir un grupo
+ * casi siempre significa "las de tercero". Elegirlas de una en una en un
+ * desplegable de cincuenta era el trabajo más tedioso de la pantalla.
+ */
+const formMateria = useForm({ plan_materia_ids: [] as number[] });
+
+const periodoFiltro = ref<number | null>(null);
+
+const periodosDisponibles = computed(() => {
+    const periodos = [...new Set(props.materiasDisponibles.map((m) => m.periodo))]
+        .filter((p): p is number => p !== null)
+        .sort((a, b) => a - b);
+
+    return periodos;
+});
+
+const materiasDelPeriodo = computed(() =>
+    periodoFiltro.value === null
+        ? props.materiasDisponibles
+        : props.materiasDisponibles.filter((m) => m.periodo === periodoFiltro.value),
+);
 const formDocente = useForm({ persona_id: null as number | null, tipo: 'titular' });
 const asignandoEn = ref<number | null>(null);
 
-function abrirMateria(): void {
+function abrirMaterias(): void {
     formMateria.post(`/escolar/grupos/${props.grupo.id}/materias`, {
         preserveScroll: true,
         onSuccess: () => formMateria.reset(),
+    });
+}
+
+/**
+ * Docentes que se le pueden asignar a una materia. Los que ya la imparten
+ * siguen visibles pero bloqueados, con su papel al lado: verlos marcados
+ * explica por qué no se pueden elegir; que desaparecieran haría dudar de si
+ * están dados de alta.
+ */
+function docentesPara(asignatura: MateriaAbierta) {
+    return props.docentes.map((d) => {
+        const asignado = asignatura.docentes_asignados.find((a) => a.id === d.id);
+
+        return {
+            valor: d.id,
+            texto: d.nombre ?? '',
+            deshabilitada: asignado !== undefined,
+            razon: asignado ? `ya es ${asignado.tipo}` : undefined,
+        };
     });
 }
 
@@ -80,27 +135,45 @@ function asignarDocente(asignaturaId: number): void {
 
         <!-- Abrir materia -->
         <section v-if="puedeEditar" class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-            <h2 class="text-base font-semibold text-slate-800">Abrir una materia</h2>
+            <h2 class="text-base font-semibold text-slate-800">Abrir materias</h2>
             <p class="mt-1 text-sm text-slate-500">
-                Abrir una materia es lo que la vuelve inscribible en este ciclo.
+                Abrir una materia es lo que la vuelve inscribible en este ciclo. Filtra por
+                semestre y marca todas las que vayas a abrir.
             </p>
 
-            <form class="mt-4 flex flex-wrap items-end gap-3" @submit.prevent="abrirMateria">
-                <div class="min-w-80 flex-1">
+            <form class="mt-4 space-y-4" @submit.prevent="abrirMaterias">
+                <div v-if="periodosDisponibles.length" class="sm:max-w-xs">
                     <CampoSelect
-                        v-model="formMateria.plan_materia_id"
-                        etiqueta="Materia del plan"
-                        :opciones="materiasDisponibles.map((m) => ({ valor: m.id, texto: m.etiqueta }))"
-                        vacio="Selecciona…"
-                        :error="formMateria.errors.plan_materia_id"
+                        v-model="periodoFiltro"
+                        etiqueta="Semestre / cuatrimestre"
+                        :opciones="periodosDisponibles.map((p) => ({ valor: p, texto: `Periodo ${p}` }))"
+                        vacio="Todos los periodos"
+                        ayuda="Solo filtra la lista de abajo."
                     />
                 </div>
+
+                <CampoCasillas
+                    v-model="formMateria.plan_materia_ids"
+                    etiqueta="Materias del plan"
+                    :opciones="materiasDelPeriodo.map((m) => ({
+                        valor: m.id,
+                        texto: `${m.clave_en_plan} · ${m.materia ?? ''}`,
+                        ayuda: [m.periodo ? `periodo ${m.periodo}` : null, m.tipo].filter(Boolean).join(' · '),
+                    }))"
+                    :error="formMateria.errors.plan_materia_ids"
+                    vacio="No hay materias disponibles en este periodo."
+                />
+
                 <button
                     type="submit"
-                    :disabled="formMateria.processing || !materiasDisponibles.length"
+                    :disabled="formMateria.processing || formMateria.plan_materia_ids.length === 0"
                     class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
                 >
-                    Abrir materia
+                    {{
+                        formMateria.plan_materia_ids.length > 1
+                            ? `Abrir ${formMateria.plan_materia_ids.length} materias`
+                            : 'Abrir materia'
+                    }}
                 </button>
             </form>
 
@@ -167,11 +240,12 @@ function asignarDocente(asignaturaId: number): void {
                         @submit.prevent="asignarDocente(asignatura.id)"
                     >
                         <div class="min-w-64 flex-1">
-                            <CampoSelect
+                            <CampoBuscador
                                 v-model="formDocente.persona_id"
                                 etiqueta="Docente"
-                                :opciones="docentes.map((d) => ({ valor: d.id, texto: d.nombre }))"
-                                vacio="Selecciona…"
+                                :opciones="docentesPara(asignatura)"
+                                marcador="Busca por nombre o apellido…"
+                                vacio="No hay docentes dados de alta."
                                 :error="formDocente.errors.persona_id"
                             />
                         </div>
