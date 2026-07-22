@@ -155,18 +155,50 @@ npm run dev                # o npm run build
   (`/escolar/ciclos/{id}/ventanas`); e interfaz de grupos con cascada
   carrera→plan, apertura de materias en lote por periodo y buscador de
   docentes.
+- **Separación docente / control escolar**: el docente dejó de ser un
+  administrador con menos botones. No ve `/escolar`; entra por `/docencia` y
+  sólo alcanza sus propias materias (el filtro va por `docentes.persona_id`, no
+  por `personas.id` — ese bug hacía que el alcance nunca se aplicara). La
+  captura vive en `/captura`, fuera de `/escolar`, porque el docente perdió
+  `ver-grupos`.
+- **Tanda de interfaz pedida por el cliente** (bloques A–E):
+  - `PanelFiltros.vue` — botón que despliega los filtros disponibles y se
+    activan con casilla; `Paginacion.vue`; `SelectorVista.vue` con vista de
+    lista y de cuadrícula (`TarjetaPersona.vue`, tarjetas con foto).
+  - **Fotos de perfil**: `personas.foto`, servidas desde disco privado por
+    `FotoPersonaController` (son datos personales; nunca `public/`).
+  - **Multicarrera**: una alumna con dos programas se ve como dos
+    `matricula_oferta` de la misma persona, con alta, baja (preguntando cuál
+    situación de baja) y kárdex independiente por cada una.
+  - **Documentos requeridos con ámbito** (`documento_ambitos`): el expediente
+    del docente ya no ofrece papeles de aspirante. Los administradores validan
+    o rechazan; alumnos y tutores sólo suben.
+  - **Constructor de formularios** (`/formularios`): versionado que re-ata los
+    campos condicionales al padre de SU versión, y congelamiento en cuanto hay
+    una respuesta capturada.
+  - **Suplantación** (`Suplantador`): ver la plataforma como la ve un alumno o
+    un docente, con rastro en `auditoria`; sin escalar privilegios ni encadenar.
 - Interfaz: login, panel, conmutador de rol, CRUD de aspirantes con expediente
   y conversión a alumno, catálogo académico completo (campus, carreras,
   asignaturas, planes, malla curricular, seriación, esquema de evaluación,
   oferta), control escolar, captura de calificaciones y layout de
   administración con temas.
+- Pruebas: 13 suites en `scripts/`, 257 verificaciones, todas contra la BD real
+  del tenant demo con `DB::rollBack()` al final.
 
-**Pendiente inmediato:**
+**Pendiente inmediato — aquí se retoma:**
 
-1. **Módulo 7 — Finanzas** (Fase 3). Trae una decisión ya tomada y vinculante:
-   `adeudos` y `pagos` nacen con `matricula_oferta_id` **nullable** más
-   `aspirante_id`, y la conversión aspirante→alumno los **re-liga**. Ver
-   `docs/decisiones.md`.
+1. **Módulo 7 — Finanzas** (Fase 3). **Ya empezado a medias**: están migrados
+   los catálogos (`conceptos_pago`, `situaciones_pago`, `metodos_pago`) y el
+   motor configurable (`planes_cobro`, `reglas_generacion`,
+   `recargos_descuentos`, `becas_alumno`), sin modelos ni seeder todavía.
+   Falta el núcleo: `adeudos`, `pagos`, `pago_adeudo`,
+   `bitacora_situacion_financiera`.
+   Trae una decisión ya tomada y **vinculante**: `adeudos` y `pagos` nacen con
+   `matricula_oferta_id` **nullable** más `aspirante_id` nullable (exactamente
+   uno de los dos presente, validado en la app), y la conversión
+   aspirante→alumno los **re-liga** dentro de la misma transacción. Ver
+   `docs/decisiones.md` y el checklist detallado en `docs/plan-migraciones.md`.
 2. Módulos 8 (LMS) y 9 (Titulación SEP) de la Fase 3; luego Fase 4.
 
 **Deuda conocida:**
@@ -187,3 +219,11 @@ npm run dev                # o npm run build
   CRUD del catálogo académico revienta en vez de explicarlo.
 - No hay panel para la app central (landlord): `super_admins` existe pero sin
   interfaz ni guard propio.
+- **No hay pantalla de administración de roles y permisos.** Los roles se
+  siembran con `PermisoSeeder`; para cambiar quién puede qué hay que tocar el
+  seeder y re-sembrar. Es lo primero que va a pedir el cliente cuando quiera
+  un rol nuevo.
+- **No existe portal del alumno ni del tutor.** La regla "alumnos y padres sólo
+  suben documentos, no los validan" está implementada y probada en el backend,
+  pero no hay pantalla desde la cual ejercerla. La suplantación permite ver el
+  lado del docente; el del alumno todavía no tiene qué mostrar.

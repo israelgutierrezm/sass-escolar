@@ -253,6 +253,7 @@ Tablas:
 ## Estado al cierre de la Fase 2
 
 - **105 tablas** en la BD de tenant, todas InnoDB.
+- Tras la Fase 3 parcial y las tandas de interfaz: **119 tablas**.
 - Fase 0 ✅ · Fase 1 ✅ (salvo slice de auth del Módulo 1) · Fase 2 ✅
 - Pendiente transversal: el slice de credenciales del Módulo 1 (`roles`,
   `usuarios`, `persona_rol`, `usuario_tema_override`) y la reconciliación de
@@ -262,21 +263,48 @@ Tablas:
 
 ## FASE 3 — Módulos de valor
 
-### Módulo 7 — Finanzas
-Catálogos TC:
-- [ ] `conceptos_pago` (TC), `situaciones_pago` (TC), `metodos_pago` (TC)
+### Módulo 7 — Finanzas  ⏳ EMPEZADO (7.1 a medias)
 
-Tablas:
-- [ ] `planes_cobro` (T)
-- [ ] `reglas_generacion` (T, FK → planes_cobro, conceptos_pago, self concepto_prerequisito_id)
-- [ ] `recargos_descuentos` (T)
-- [ ] `becas_alumno` (T, FK → matricula_oferta, recargos_descuentos, personas)
-- [ ] `adeudos` (T, FK → matricula_oferta, conceptos_pago, reglas_generacion, ciclos)
-- [ ] `pagos` (T, FK → matricula_oferta)
-- [ ] `pago_adeudo` (T, FK → pagos, adeudos) — PK compuesta.
+> **Aquí se retoma.** Se partió en tres entregas; la primera quedó a la mitad.
+
+Catálogos TC — **migrados, SIN seeder todavía**:
+- [x] `conceptos_pago` (TC) — con clave SAT, gravado y tasa de IVA para el CFDI.
+- [x] `situaciones_pago` (TC) — con bandera `bloquea` (si impide reinscribirse).
+- [x] `metodos_pago` (TC) — con `requiere_confirmacion`: un pago en ventanilla se
+      da por cobrado al registrarlo, uno por pasarela no hasta el webhook.
+      ⚠️ La spec lo describía como varchar en `pagos`; se hizo catálogo por
+      coherencia con el resto del proyecto (ver decisiones.md).
+
+Motor configurable — **migrado, SIN modelos todavía**:
+- [x] `planes_cobro` (T) — `aplica_a_id` polimórfico sin FK, como
+      `formulario_asignacion`.
+- [x] `reglas_generacion` (T, FK → planes_cobro, conceptos_pago, self)
+- [x] `recargos_descuentos` (T)
+- [x] `becas_alumno` (T, FK → matricula_oferta, recargos_descuentos, personas)
+
+**Lo que falta de 7.1** (nada de esto existe aún):
+- [ ] `adeudos` (T) — **DECISIÓN VINCULANTE**: `matricula_oferta_id` NULLABLE +
+      `aspirante_id` nullable, exactamente uno presente. Índices por ambos.
+- [ ] `pagos` (T) — igual que adeudos, nullable + aspirante_id.
+- [ ] `pago_adeudo` (T, FK → pagos, adeudos) — PK compuesta, con
+      `monto_aplicado` para pagos parciales y split.
 - [ ] `bitacora_situacion_financiera` (T, FK → matricula_oferta, situaciones_pago)
-- [ ] `facturas` (T, FK → matricula_oferta) — CFDI 4.0, append-only.
+- [ ] Modelos de todo lo anterior + seeder de los tres catálogos.
+- [ ] **Re-ligadura** en `ConvertidorAspirante` y `MatriculadorOferta`: al
+      convertir un aspirante, sus adeudos y pagos pasan a la nueva
+      `matricula_oferta` DENTRO de la misma transacción.
+
+**Entrega 7.2** — motor de generación:
+- [ ] Servicio que recorre `reglas_generacion` vigentes y crea adeudos por
+      periodicidad. Idempotente: no duplica el adeudo de un periodo ya generado.
+- [ ] Aplicación de recargos por mora y de descuentos por beca.
+- [ ] Pantallas: planes de cobro, estado de cuenta del alumno, registro de pago.
+
+**Entrega 7.3** — CFDI 4.0:
+- [ ] `facturas` (T, FK → matricula_oferta) — append-only, inmutable por
+      regulación: correcciones = cancelación + refactura, nunca UPDATE.
 - [ ] `factura_conceptos` (T, FK → facturas, pagos)
+- [ ] Timbrado en cola (el PAC puede tardar o fallar).
 
 ### Módulo 8 — LMS
 Catálogos TC:

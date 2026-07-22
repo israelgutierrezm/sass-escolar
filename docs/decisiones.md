@@ -1099,3 +1099,48 @@ quedó con los dos eventos, con IP y hora.
 - **Opciones con el mismo valor** se rechazan: dos opciones indistinguibles en
   la respuesta son un dato perdido. El valor se deriva de la etiqueta si no se
   da, para no obligar a inventarlo en cada una.
+
+---
+
+## Módulo 7 — Finanzas (empezado, a medias)
+
+Se cerró la sesión con la primera entrega a la mitad: los catálogos y el motor
+configurable están migrados; el núcleo transaccional (`adeudos`, `pagos`,
+`pago_adeudo`, `bitacora_situacion_financiera`) todavía no existe.
+
+### `metodos_pago` es tabla, no varchar
+- La especificación lo describía como una columna de texto en `pagos`.
+- Se hizo catálogo por la regla del proyecto: **todo lo enumerable es tabla**.
+  El método de pago necesita además dos atributos que un varchar no puede
+  llevar: la `clave_sat` (obligatoria para timbrar el CFDI) y
+  `requiere_confirmacion`.
+- `requiere_confirmacion` es la diferencia entre cobrar y prometer: un pago en
+  ventanilla se da por cobrado al registrarlo; uno por pasarela o transferencia
+  no lo está hasta que llega la confirmación. Sin esa bandera, el sistema daría
+  por pagado un adeudo con dinero que nunca llegó.
+
+### Los conceptos de pago nacen listos para facturar
+- `conceptos_pago` lleva `clave_sat`, `clave_unidad_sat`, `gravado` y
+  `tasa_iva` desde la primera migración, aunque el CFDI sea la entrega 7.3.
+- Agregarlos después obligaría a rellenar a mano las claves fiscales de
+  conceptos que ya tienen adeudos y pagos históricos colgando. Cuestan nada hoy
+  y son un desastre retroactivo mañana.
+
+### `planes_cobro.aplica_a_id` es polimórfico sin FK
+- Mismo patrón que `formulario_asignacion`: un plan puede aplicar a un nivel,
+  una carrera o una oferta. Se guarda el par (tipo, id) indexado, sin FK real,
+  porque no hay una sola tabla a la cual apuntar.
+
+### DECISIÓN VINCULANTE para lo que falta: el aspirante ya paga
+- Un aspirante paga su ficha e inscripción **antes** de existir como alumno. Si
+  `adeudos.matricula_oferta_id` fuera obligatorio, ese dinero no tendría dónde
+  registrarse.
+- Por eso `adeudos` y `pagos` llevan `matricula_oferta_id` **nullable** y
+  `aspirante_id` **nullable**, con exactamente uno de los dos presente
+  (validado en la aplicación; con MySQL 8 se puede evaluar un CHECK). Índices
+  por ambas columnas.
+- La conversión aspirante → alumno **re-liga** sus adeudos y pagos a la nueva
+  `matricula_oferta` dentro de **la misma transacción** en la que se genera la
+  matrícula. La alternativa —dejarlos colgando del aspirante— parte el estado
+  de cuenta del alumno en dos y pierde la trazabilidad del pago de inscripción,
+  que es justo el que siempre se reclama.
