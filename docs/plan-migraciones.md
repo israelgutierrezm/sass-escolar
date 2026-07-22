@@ -209,6 +209,18 @@ Tablas:
 - [x] **Pendiente del Módulo 4 cerrado**: migración de seguimiento que agrega
       la FK real `aspirantes.ciclo_ingreso_id → ciclos`.
 
+Captura de calificaciones y acta (huecos de la spec, resueltos con el cliente —
+ver `docs/decisiones.md`):
+- [x] `calificaciones_componente` (T, FK → inscripcion, esquema_evaluacion) —
+      lo que el docente captura. Único (inscripcion_id, esquema_evaluacion_id).
+      NULL ≠ 0: sin capturar bloquea el cierre, no pondera como cero.
+- [x] `actas` (T, FK → asignatura_grupo, tipos_evaluacion, personas, self
+      acta_origen_id) — el acta como entidad, no un varchar suelto.
+- [x] `contadores_acta` (T) — consecutivo atómico del folio. SIN `id`
+      AUTO_INCREMENT, misma lección que `contadores_matricula`.
+- [x] `historial.acta_id` (migración de seguimiento) — FK real al acta;
+      `acta_folio` se conserva porque es lo que se imprime.
+
 > Prueba de integración (con rollback): ventanas del ciclo, TRONCO COMÚN (un
 > mismo grupo abriendo la misma asignatura de catálogo para dos planes, cada
 > uno con su clave de acta), detección de choque de horario, docente titular
@@ -240,7 +252,7 @@ Tablas:
 
 ## Estado al cierre de la Fase 2
 
-- **102 tablas** en la BD de tenant, todas InnoDB.
+- **105 tablas** en la BD de tenant, todas InnoDB.
 - Fase 0 ✅ · Fase 1 ✅ (salvo slice de auth del Módulo 1) · Fase 2 ✅
 - Pendiente transversal: el slice de credenciales del Módulo 1 (`roles`,
   `usuarios`, `persona_rol`, `usuario_tema_override`) y la reconciliación de
@@ -383,3 +395,17 @@ Tablas:
   `tenants:migrate`, en el contexto de cada tenant.
 - Verificar siempre que las migraciones corran sobre **InnoDB** (no MyISAM):
   las FKs, transacciones y `FOR UPDATE SKIP LOCKED` lo exigen.
+
+---
+
+## Suite de integración versionada
+
+`php scripts/prueba-actas.php` — 43 verificaciones contra la BD real del tenant
+demo, todo dentro de una transacción con `DB::rollBack()`. Cubre ponderación,
+rechazo del acta incompleta, volcado al kárdex, recursamiento, extemporaneidad,
+corrección con soft delete de los renglones previos, regresión del doble
+asentamiento y 200 folios sin colisión.
+
+No vive en `tests/` porque phpunit corre contra SQLite en memoria y aquí se
+prueba lo que SQLite no sabe hacer: `LAST_INSERT_ID` de MySQL, FKs reales e
+InnoDB bajo transacción.

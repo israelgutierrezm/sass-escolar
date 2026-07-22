@@ -42,6 +42,9 @@ Los otros dos documentos vivos:
 4. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
+   La suite versionada es `php scripts/prueba-actas.php` (43 verificaciones).
+   NO va en `tests/`: phpunit corre contra SQLite en memoria y ahí se prueba
+   justo lo que SQLite no sabe hacer (`LAST_INSERT_ID`, FKs reales, InnoDB).
 
 ## Decisiones de arquitectura que NO se deben cambiar
 
@@ -73,6 +76,19 @@ Los otros dos documentos vivos:
   incremento atómico y produce duplicados).
 - **Temas relacionales**: `tema_tokens` guarda un color por FILA. Cascada:
   tema de la escuela → tema del usuario → `usuario_tema_override`.
+- **La calificación asentada no se edita.** Un acta cerrada es historia
+  escolar: para cambiar un número se emite un **acta de corrección**
+  (`actas.acta_origen_id`) que da de baja lógica los renglones de kárdex de la
+  original y asienta los nuevos. Ambas actas se conservan. Y una materia se
+  asienta **una sola vez**: un segundo cierre ordinario duplicaría al alumno en
+  su kárdex.
+- **NULL no es cero en la captura.** Un componente sin capturar deja la
+  calificación incompleta y bloquea el cierre del acta; nunca se pondera como
+  0. Un cero es una calificación; un NULL es que el docente no llegó ahí.
+- **Autorización de captura en dos capas**: el permiso dice QUÉ puede hacer el
+  rol; estar en la tabla `docentes` dice SOBRE QUÉ materias. El permiso solo no
+  basta — el rol `docente` tiene `asentar-acta`, así que no sirve para separar
+  al docente de la materia de control escolar.
 
 ## Entorno local
 
@@ -100,21 +116,24 @@ npm run dev                # o npm run build
   académica, Formularios dinámicos, Matrícula y admisiones.
 - Fase 2 completa: Control escolar (ciclos, grupos, apertura de materias,
   inscripción validada) y Asistencia/reloj checador.
+- **Captura de calificaciones y acta** (cierra la operación diaria): tablas
+  `calificaciones_componente`, `actas` y `contadores_acta`; servicios
+  `CalculadoraCalificacion`, `GeneradorFolioActa` y `AsentadorActa`; pantallas
+  `/escolar/captura` (listado) y la hoja por materia con cálculo en vivo,
+  firma del acta y acta de corrección.
 - Interfaz: login, panel, conmutador de rol, CRUD de aspirantes con expediente
   y conversión a alumno, catálogo académico completo (campus, carreras,
   asignaturas, planes, malla curricular, seriación, esquema de evaluación,
-  oferta), control escolar y layout de administración con temas.
+  oferta), control escolar, captura de calificaciones y layout de
+  administración con temas.
 
 **Pendiente inmediato:**
 
-1. **Captura de calificaciones y asentamiento de acta** — cierra la operación
-   diaria. El titular del `asignatura_grupo` captura, se calcula la final desde
-   `esquema_evaluacion` y se vuelca a `historial` con `acta_folio`.
-2. **Módulo 7 — Finanzas** (Fase 3). Trae una decisión ya tomada y vinculante:
+1. **Módulo 7 — Finanzas** (Fase 3). Trae una decisión ya tomada y vinculante:
    `adeudos` y `pagos` nacen con `matricula_oferta_id` **nullable** más
    `aspirante_id`, y la conversión aspirante→alumno los **re-liga**. Ver
    `docs/decisiones.md`.
-3. Módulos 8 (LMS) y 9 (Titulación SEP) de la Fase 3; luego Fase 4.
+2. Módulos 8 (LMS) y 9 (Titulación SEP) de la Fase 3; luego Fase 4.
 
 **Deuda conocida:**
 
@@ -122,5 +141,10 @@ npm run dev                # o npm run build
   del legacy y no debe inventarse.
 - Falta pantalla para horarios de `asignatura_grupo`; sin ellos la validación
   de choque no bloquea.
+- Falta la **impresión del acta** (PDF con folio, firmas y lista de alumnos).
+  Hoy el acta existe y es consultable en pantalla, pero no se puede imprimir.
+- `esquema_evaluacion` no se puede editar una vez que hay calificaciones
+  capturadas contra él: la FK de `calificaciones_componente` lo impide y el
+  CRUD del catálogo académico revienta en vez de explicarlo.
 - No hay panel para la app central (landlord): `super_admins` existe pero sin
   interfaz ni guard propio.

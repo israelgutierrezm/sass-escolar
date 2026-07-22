@@ -120,10 +120,13 @@ class CapturaCalificacionesController extends Controller
                     'matricula' => $inscripcion->matriculaOferta?->matricula,
                     'nombre' => $inscripcion->matriculaOferta?->persona?->nombreCompleto(),
                     'tipo' => $inscripcion->tipo,
-                    'calificaciones' => $inscripcion->calificaciones
+                    // Se fuerza a objeto: una colección vacía serializaría como
+                    // `[]` y el front espera un mapa componente → nota.
+                    'calificaciones' => (object) $inscripcion->calificaciones
                         ->mapWithKeys(fn (CalificacionComponente $c) => [
                             (string) $c->esquema_evaluacion_id => $c->calificacion === null ? null : (float) $c->calificacion,
-                        ]),
+                        ])
+                        ->all(),
                     'final' => $resultado->final,
                     'completa' => $resultado->completa,
                     'aprobada' => $resultado->aprobada,
@@ -256,8 +259,20 @@ class CapturaCalificacionesController extends Controller
             throw new AccessDeniedHttpException('Solo el docente titular de la materia o control escolar pueden firmar el acta.');
         }
 
-        $acta = $this->correccionAbierta($asignaturaGrupo)
-            ?? $this->asentador->actaDeTrabajo($asignaturaGrupo);
+        $acta = $this->correccionAbierta($asignaturaGrupo);
+
+        if ($acta === null) {
+            // Sin corrección en curso, un acta cerrada significa que esta
+            // materia ya se asentó. Se corta aquí para no dejar un borrador
+            // que el servicio rechazaría de todos modos.
+            if ($this->actaCerrada($asignaturaGrupo) !== null) {
+                throw ValidationException::withMessages([
+                    'acta' => 'Esta materia ya tiene acta asentada. Para cambiarla hay que emitir un acta de corrección.',
+                ]);
+            }
+
+            $acta = $this->asentador->actaDeTrabajo($asignaturaGrupo);
+        }
 
         try {
             $acta = $this->asentador->cerrar($acta, $this->personaId($request));
@@ -377,7 +392,26 @@ class CapturaCalificacionesController extends Controller
     {
         $personaId = $this->personaId($request);
 
-        return $personaId !== null && Docente::query()->whereKey($personaId)->exists();
+        if ($personaId === null) {
+            return true; // sin persona no hay alcance que conceder
+        }
+
+        if (Docente::query()->whereKey($personaId)->exists()) {
+            return true;
+        }
+
+        // También cuenta quien opera CON rol docente aunque le falte el
+        // expediente en `docentes`. Ante datos incompletos se elige acotar de
+        // más y no de menos: lo contrario le daría a un docente sin expediente
+        // el alcance de control escolar sobre todas las materias.
+        $rol = $request->user()?->rolActivo;
+
+        if ($rol === null) {
+            return true;
+        }
+
+        return $rol->name === 'docente'
+            || collect($rol->ancestros())->contains(fn ($ancestro) => $ancestro->name === 'docente');
     }
 
     /** ¿Imparte esta materia, con cualquier tipo (titular o adjunto)? */

@@ -353,3 +353,113 @@ Aclaraciones recibidas que afectan módulos ya construidos y por construir.
   landlord son nullable.
 - **Razón:** búsqueda de personas como en el legacy IMEP; la CURP es llave
   natural cuando existe pero muchas personas se dan de alta sin ella todavía.
+
+## 2026-07-21 — Fase 2, cierre: captura de calificaciones y acta
+
+Dos huecos de la spec detectados al implementar. Ambos se consultaron con el
+cliente antes de escribir código, según la regla del proyecto.
+
+### HUECO: no había dónde vivieran las calificaciones capturadas  ✅ RESUELTO
+- **Problema:** `esquema_evaluacion` define CÓMO se compone la calificación
+  (parcial_1 30%, final 40%...) y `inscripcion.calificacion_final` guarda el
+  resultado, pero la spec no define ninguna tabla para los valores que el
+  docente captura. La regla de negocio dice "combinando parciales capturados"
+  sin decir dónde.
+- **Opciones evaluadas:** (1) tabla relacional por componente; (2) capturar
+  solo la final, dejando `esquema_evaluacion` como documentación; (3) columna
+  JSON en `inscripcion`.
+- **RESOLUCIÓN (opción 1):** `calificaciones_componente` (TENANT), una fila por
+  `inscripcion` × componente del `esquema_evaluacion`, con `capturado_por`
+  (persona) y `capturado_en`. Único (inscripcion_id, esquema_evaluacion_id).
+  - Se descartó el JSON por coherencia: `esquema_evaluacion` existe justamente
+    porque se rechazó el `ponderacion_config` jsonb del legacy.
+  - Se descartó capturar solo la final porque no permite recalcular, no deja
+    traza de quién puso cada número, y el LMS (Módulo 8) no tendría dónde
+    volcar su componente cuando se construya.
+  - `calificacion` es NULLable a propósito: **NULL no es cero**. Un componente
+    sin capturar deja la calificación INCOMPLETA y bloquea el cierre del acta;
+    no se pondera como 0. Un cero es una calificación (no presentó); un NULL es
+    que el docente todavía no llega ahí. Cerrar el acta tratándolos igual
+    reprobaría alumnos por descuido.
+
+### HUECO: el acta era un varchar, no una entidad  ✅ RESUELTO
+- **Problema:** la spec solo previó `historial.acta_folio varchar(50)`. Con eso
+  no se sabe quién firmó el acta, cuándo, ni se puede reimprimir o corregir de
+  forma controlada. Además el folio necesita un consecutivo sin colisiones, el
+  mismo problema que ya resolvió la matrícula.
+- **RESOLUCIÓN:** tabla `actas` (TENANT) + `contadores_acta`.
+  - `actas`: asignatura_grupo, tipo_evaluacion, folio único, situación
+    (abierta/cerrada/cancelada), `cerrada_por` (PERSONA, no usuario: quien firma
+    es el docente y su cuenta puede desaparecer), `cerrada_en`, `acta_origen_id`
+    y observaciones.
+  - `historial.acta_folio` **se conserva** (es el dato de la spec y lo que se
+    imprime) y se acompaña de `historial.acta_id` como FK real.
+  - `situacion` va como varchar con constantes en el modelo, NO como catálogo
+    TENANT-CONFIG: sus tres valores son la máquina de estados del código, no
+    algo que una escuela deba renombrar. Mismo criterio que `inscripcion.tipo`.
+  - **Corregir no es editar.** Una calificación asentada no se toca: se emite
+    un acta de corrección (`acta_origen_id`), y al firmarla los renglones de
+    kárdex de la original se dan de baja lógica y se asientan los nuevos. Ambas
+    actas quedan. Es lo que ya insinuaba `observaciones_historial` con
+    "Corrección de calificación".
+  - `contadores_acta` repite el patrón de `contadores_matricula`, **incluida la
+    ausencia de `id` AUTO_INCREMENT**: un INSERT sobre una tabla que lo tenga
+    sobreescribe LAST_INSERT_ID() y rompe el incremento atómico.
+  - El folio se emite al CERRAR, no al abrir: un acta abandonada sin capturar
+    no debe quemar un número del consecutivo del archivo. Si la transacción de
+    cierre falla, el consecutivo se pierde — un hueco en la numeración es
+    preferible a un folio repetido.
+  - Formato configurable desde `configuraciones` (`acta.formato_folio`,
+    `acta.ambito_consecutivo`) y no con una tabla de reglas propia como la
+    matrícula: a diferencia de aquella, que la escuela quiere distinta por
+    carrera y plan, el folio del acta es un consecutivo de archivo, uno solo
+    para toda la escuela.
+
+### Autorización de la captura: el permiso no basta, hace falta el alcance
+- **Decisión:** dos capas. El permiso (`capturar-calificaciones` nuevo,
+  `asentar-acta` ya existente) dice QUÉ puede hacer el rol activo; estar dado
+  de alta en la tabla `docentes` dice SOBRE QUÉ materias.
+  - Docente titular: captura y firma sus materias. Adjunto: captura, no firma.
+  - Control escolar (no aparece en `docentes`): captura y firma cualquiera —
+    ausencia o baja del docente. El auxiliar captura pero no firma.
+- **Razón:** el rol `docente` TIENE `asentar-acta` (firma sus propias actas),
+  así que ese permiso no puede distinguir "el docente de esta materia" de
+  "control escolar". Sin la segunda capa, cualquier docente calificaría al
+  grupo de otro.
+- Caso de datos incompletos: si la persona opera con rol `docente` (o un rol
+  que desciende de esa faceta) pero le falta el expediente en `docentes`, se le
+  acota igual a sus materias. Ante datos inconsistentes se elige restringir de
+  más, nunca de menos.
+
+### Una materia se asienta UNA vez
+- **Decisión:** `AsentadorActa::impedimentos` rechaza cerrar un acta ordinaria
+  si la materia ya tiene otra cerrada del mismo tipo de evaluación. Reasentar
+  solo se hace por la vía de la corrección, que sí sustituye lo anterior.
+- **Razón (bug real detectado en la prueba por HTTP):** sin esa regla se podía
+  firmar una segunda acta ordinaria sobre la misma materia-grupo y el kárdex
+  quedaba con el alumno DUPLICADO en la misma materia, sin ningún aviso. La
+  captura ya estaba protegida; el cierre no. Caso agregado a la suite de
+  regresión (`scripts/prueba-actas.php`, sección 5b).
+
+### Otras reglas del motor de cálculo
+- Si los porcentajes del `esquema_evaluacion` no suman 100, NO se calcula nada
+  y se reporta el motivo. Vale más una materia sin calificación que un kárdex
+  con números que nadie puede reproducir.
+- Aprobado lo define `planes_estudio.calificacion_minima_aprobatoria`, no una
+  constante: cada plan tiene su escala.
+- Un recursamiento se asienta en el kárdex con `tipos_evaluacion` =
+  recursamiento aunque el acta del grupo sea la ordinaria.
+- Un acta firmada después de `ciclos.captura_calif_hasta` marca el renglón como
+  `acta_extemporanea`; no se bloquea (la escuela sabrá por qué se atrasó).
+- Los alumnos con inscripción dada de baja NO entran al acta.
+- El motivo de reprobación (examen, faltas, no presentó) queda en NULL: el
+  sistema no puede deducirlo de un número. Lo asienta control escolar.
+
+### Las pruebas de integración se versionan
+- **Decisión:** `scripts/prueba-actas.php` entra al repo (43 verificaciones con
+  rollback contra el tenant demo).
+- **Razón:** phpunit está configurado contra SQLite en memoria y aquí se prueba
+  justamente lo que SQLite no sabe hacer: `LAST_INSERT_ID` de MySQL, FKs reales
+  e InnoDB bajo transacción. Hasta ahora estos scripts eran efímeros; el bug
+  del doble asentamiento apareció por accidente y se habría perdido sin una
+  suite que lo fijara.

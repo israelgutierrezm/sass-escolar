@@ -7,6 +7,7 @@ namespace Database\Seeders\Tenant;
 use App\Models\Identidad\Rol;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\PermissionRegistrar;
 
 /**
  * Catálogo de permisos por dominio y su asignación a los roles base.
@@ -80,6 +81,12 @@ class PermisoSeeder extends Seeder
 
     public function run(): void
     {
+        // Spatie cachea el catálogo de permisos en el store configurado
+        // (database), así que sobrevive entre procesos: sin este olvido, un
+        // permiso recién sembrado existe en la tabla pero NADIE lo ve hasta
+        // que el caché expira. Se limpia antes y después de sembrar.
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
         foreach (self::PERMISOS as $permisos) {
             foreach ($permisos as $permiso) {
                 Permission::findOrCreate($permiso, 'web');
@@ -95,5 +102,7 @@ class PermisoSeeder extends Seeder
 
             $rol->syncPermissions($permisos);
         }
+
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 }

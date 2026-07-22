@@ -79,6 +79,14 @@ class AsentadorActa
             return ['El acta está cancelada.'];
         }
 
+        // Una materia se asienta UNA vez. Un segundo cierre "ordinario"
+        // duplicaría los renglones del kárdex sin que nadie lo note: el alumno
+        // aparecería dos veces en la misma materia. Volver a asentar solo se
+        // permite por la vía de la corrección, que sí sustituye lo anterior.
+        if ($acta->acta_origen_id === null && $this->yaHayActaCerrada($acta)) {
+            return ['Esta materia ya tiene acta asentada. Para cambiarla hay que emitir un acta de corrección.'];
+        }
+
         $materiaGrupo = $acta->asignaturaGrupo;
         $inscripciones = $this->inscripcionesCalificables($materiaGrupo);
 
@@ -275,6 +283,17 @@ class AsentadorActa
         $limite = $materiaGrupo->grupo?->ciclo?->captura_calif_hasta;
 
         return $limite !== null && now()->toDateString() > $limite->toDateString();
+    }
+
+    /** ¿La materia ya tiene un acta firmada de este mismo tipo de evaluación? */
+    private function yaHayActaCerrada(Acta $acta): bool
+    {
+        return Acta::query()
+            ->where('asignatura_grupo_id', $acta->asignatura_grupo_id)
+            ->where('tipo_evaluacion_id', $acta->tipo_evaluacion_id)
+            ->where('situacion', Acta::CERRADA)
+            ->when($acta->exists, fn ($q) => $q->whereKeyNot($acta->getKey()))
+            ->exists();
     }
 
     private function tipoOrdinaria(): TipoEvaluacion
