@@ -5,6 +5,7 @@ import { computed } from 'vue';
 const page = usePage();
 
 const secciones = [
+    { etiqueta: 'Alumnos', url: '/escolar/alumnos' },
     { etiqueta: 'Ciclos', url: '/escolar/ciclos' },
     { etiqueta: 'Grupos', url: '/escolar/grupos' },
     { etiqueta: 'Inscripciones', url: '/escolar/inscripciones' },

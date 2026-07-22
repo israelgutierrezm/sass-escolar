@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\AsignaturaController;
+use App\Http\Controllers\AlumnoController;
 use App\Http\Controllers\AsignaturaGrupoController;
 use App\Http\Controllers\AspiranteController;
 use App\Http\Controllers\AutenticacionController;
@@ -191,6 +192,22 @@ Route::middleware([
         Route::prefix('escolar')->name('tenant.escolar.')
             ->middleware('can:ver-grupos')
             ->group(function () {
+                /*
+                 * Alumnos. `ver-alumnos` para buscar y consultar el expediente;
+                 * `editar-alumnos` para corregir identidad y situación.
+                 */
+                Route::controller(AlumnoController::class)
+                    ->prefix('alumnos')->name('alumnos.')
+                    ->middleware('can:ver-alumnos')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::get('{alumno}', 'show')->whereNumber('alumno')->name('show');
+                        Route::put('{alumno}', 'update')
+                            ->whereNumber('alumno')
+                            ->middleware('can:editar-alumnos')
+                            ->name('update');
+                    });
+
                 Route::get('ciclos', [CicloController::class, 'index'])->name('ciclos.index');
 
                 /*

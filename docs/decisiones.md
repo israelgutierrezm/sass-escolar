@@ -767,3 +767,46 @@ acotada.
   que la escuela se apoyó para acreditarlo.
 - Lo que el docente NO controla y se le muestra de solo lectura: clave de
   profesor, cédula, tipo, situación y campus. Subir un título no es acreditarlo.
+
+## 2026-07-21 — Gestión de alumnos
+
+### El alumno es la MATRÍCULA, no la persona
+- **Decisión:** el listado y el expediente cuelgan de `matricula_oferta`, no de
+  `personas`. La búsqueda devuelve matrículas.
+- **Razón:** la misma persona puede cursar una licenciatura y una maestría, y
+  cada una tiene su matrícula, su kárdex y su situación. Quien busca en control
+  escolar busca una matrícula concreta, no "a la persona". El expediente lista
+  las OTRAS matrículas de esa persona con enlace, que es como se navega entre
+  ellas.
+- Consecuencia visible en la edición, y por eso se rotula en la pantalla:
+  corregir el nombre alcanza a TODAS sus matrículas —es la misma persona—,
+  mientras que situación y estatus son de esta inscripción a oferta. Verificado
+  en la suite: se cambia el estatus de una y la otra no se entera.
+
+### La carga de materias no se edita aquí
+- **Decisión:** el expediente MUESTRA la carga por ciclo pero no deja
+  inscribir ni dar de baja; eso sigue en Inscripciones.
+- **Razón:** ahí vive `ValidadorInscripcion` con sus seis reglas (seriación,
+  cupo, choque de horario, ventana del ciclo). Duplicar la operación aquí daría
+  dos caminos para lo mismo y uno de los dos acabaría sin validar.
+
+### Búsqueda con LIKE, no con el índice FULLTEXT
+- **Decisión:** se busca por matrícula (que vive en `matricula_oferta`), CURP y
+  nombre completo con `CONCAT_WS(...) LIKE`, pese a que `personas` tiene un
+  índice FULLTEXT.
+- **Razón:** FULLTEXT indexa palabras completas, así que escribir "Her" no
+  encuentra "Hernández" — y una caja de búsqueda se teclea de a poco, con
+  resultados en vivo. `CONCAT_WS` además permite teclear "nombre apellido"
+  juntos, que es como se busca de verdad.
+- La colación `utf8mb4_unicode_ci` ignora acentos, así que "Ibanez" encuentra
+  "Ibáñez" y "Nuno" encuentra "Ñuño". Verificado, porque nadie teclea acentos
+  cuando busca de prisa.
+- **Deuda anotada:** con decenas de miles de alumnos el `LIKE '%...%'` deja de
+  usar índice. Ahí es donde habría que cambiar a FULLTEXT en modo booleano con
+  comodín, o a una columna de búsqueda normalizada.
+
+### El promedio no cuenta lo que no tiene calificación
+- **Decisión:** `resumen.promedio` solo promedia los renglones del kárdex con
+  número. Una materia en curso no promedia como cero.
+- **Razón:** lo contrario haría que el promedio bajara al inscribirse, que es
+  exactamente al revés de lo que significa.
