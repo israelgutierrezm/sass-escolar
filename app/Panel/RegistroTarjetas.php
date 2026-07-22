@@ -60,6 +60,7 @@ class RegistroTarjetas
                 'clave' => $tarjeta->clave(),
                 'titulo' => $tarjeta->titulo(),
                 'tipo' => $tarjeta->tipo(),
+                'icono' => $tarjeta->icono(),
                 'ancho' => max(1, min(4, $tarjeta->ancho())),
                 'datos' => $datos,
             ];

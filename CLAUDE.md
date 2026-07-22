@@ -330,10 +330,17 @@ npm run dev                # o npm run build
 
 **Deuda conocida:**
 
-- **Ninguna pantalla nueva se ha validado en el navegador.** Todo está probado
-  por datos (suites con rollback) y por HTTP real contra el tenant demo, pero
-  el render no lo ha visto nadie: el navegador embebido no alcanza
-  `demo.localhost` y la extensión de Chrome no estaba conectada.
+- **El navegador SÍ alcanza `demo.localhost`** — la deuda anterior era falsa.
+  No resuelve por DNS (`gethostbyname` devuelve el nombre), pero Chromium mapea
+  `*.localhost` a loopback por su cuenta, sin tocar el archivo `hosts`. Se
+  verificó el panel entrando con la cuenta demo. Para levantarlo:
+  `php artisan serve` y navegar a `http://demo.localhost:8000`.
+- **Las capturas de pantalla se agotan por tiempo** en este entorno. Lo que sí
+  funciona es medir el DOM con `javascript_tool` (altos, anchos, presencia de
+  elementos), que sirve para comprobar geometría y estructura — pero NO
+  sustituye a que un humano mire el render.
+- **Solo el PANEL se ha visto renderizado.** Las demás pantallas siguen
+  probadas por datos y por HTTP, sin verificación visual.
 
 - `reactivos_cleaver` está vacía a propósito: el banco real del test DISC viene
   del legacy y no debe inventarse.

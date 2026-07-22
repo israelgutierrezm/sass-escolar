@@ -2034,3 +2034,57 @@ Dos aclaraciones del cliente que gobiernan el diseño y corrigieron mi plan:
   siendo presencial o por los medios que la escuela indique. Conectar una
   pasarela es trabajo aparte, y `pagos` ya tiene las columnas (`pasarela`,
   `pasarela_txn_id`) esperándola desde la entrega 7.1.
+
+---
+
+## 2026-07-22 — Peso visual del panel
+
+Observación del cliente: los accesos se ven «muy cuadrados» y la gráfica «ocupa
+todo el ancho y mucho a lo alto, robando visibilidad».
+
+### Una serie de 24 puntos va en COLUMNAS, no en barras
+- `barras` (horizontales) y `columnas` (verticales) son la misma información con
+  forma distinta, y la distinción no es estética: veinticuatro barras
+  horizontales son veinticuatro RENGLONES apilados. Medían ~750 px de alto y a
+  ancho completo, o sea que se comían la pantalla y empujaban el resto del panel
+  fuera de la vista.
+- En columnas: 246 px de alto y media anchura. La forma de la jornada se lee de
+  un vistazo y queda sitio al lado para otra tarjeta.
+- Regla que queda: una serie LARGA (horas, días) va en columnas; una corta con
+  etiquetas largas —las etapas del embudo— sigue en barras, porque ahí el texto
+  necesita el ancho.
+- Las columnas en cero se pintan como marca de 2 px y no como nada: «casi nadie»
+  y «nadie» no son lo mismo, y una hora vacía que desaparece rompe la lectura
+  del eje. Por eso también hay un alto mínimo del 6% para lo que sí tiene valor.
+- Con 24 columnas no caben 24 etiquetas: se rotula cada tercera. Ponerlas todas
+  las vuelve ilegibles a todas.
+
+### Los accesos son un mosaico con icono
+- Eran rectángulos con solo texto: había que leer los once para encontrar uno, y
+  estos botones existen justamente para NO tener que leer.
+- Ahora cada acceso declara su propio trazo SVG y se pinta como tarjeta de
+  147×89 con el icono en un círculo del color de acento.
+
+### El icono lo declara la TARJETA, no la pantalla
+- `TarjetaPanel` gana `icono()`. Es coherente con el resto del registro: quien
+  agregue una tarjeta nueva no debería editar el Vue para que se vea como las
+  demás.
+
+### `items-start` en el grid
+- Sin él, la fila estira TODAS las tarjetas al alto de la más grande: una
+  métrica de un solo número quedaba de 246 px con el 60% en blanco, que es
+  exactamente el espacio robado del que se quejaba el cliente. Con `items-start`
+  bajó a 148 px.
+- Se prefiere denso y algo irregular a alineado y vacío.
+
+### Y por fin: se pudo VER en el navegador
+- La deuda decía que el navegador embebido no alcanzaba `demo.localhost`. Es
+  cierto que **no resuelve por DNS** (`gethostbyname` devuelve el nombre), pero
+  los navegadores basados en Chromium mapean `*.localhost` a loopback por su
+  cuenta, sin tocar el archivo `hosts`. Se entró con la cuenta demo y se
+  verificó el panel renderizado.
+- Con una limitación honesta: **las capturas de pantalla se agotan por tiempo**
+  en este entorno, así que lo verificado es la GEOMETRÍA medida desde el DOM
+  (altos, anchos, radios, presencia de iconos, alturas de cada columna), no una
+  mirada humana al render. Es mucho más de lo que había —hasta ahora nada se
+  había cargado en un navegador— pero no sustituye a que alguien lo mire.

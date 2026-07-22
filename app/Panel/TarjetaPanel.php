@@ -33,7 +33,15 @@ interface TarjetaPanel
 
     /**
      * Cómo se pinta: `metrica` (un número grande), `lista` (renglones),
-     * `barras` (serie con etiquetas) o `accesos` (botones directos).
+     * `barras` (serie horizontal con etiquetas), `columnas` (serie vertical
+     * compacta, para cosas como las 24 horas del día) o `accesos` (mosaico de
+     * atajos).
+     *
+     * `barras` y `columnas` son la misma información con forma distinta, y la
+     * distinción importa: veinticuatro barras horizontales apiladas ocupan
+     * media pantalla de alto y roban visibilidad a todo lo demás. Una serie
+     * larga va en columnas; una corta con etiquetas largas —las etapas del
+     * embudo— va en barras.
      *
      * El tipo lo decide la tarjeta y no la pantalla: el front sabe pintar
      * cuatro formas, y una tarjeta nueva que use una de ellas no necesita
@@ -43,6 +51,15 @@ interface TarjetaPanel
 
     /** Ancho en columnas de 1 a 4. Una serie por hora no cabe en un cuarto. */
     public function ancho(): int;
+
+    /**
+     * El trazo `d` de un SVG de 24×24 para el icono de la tarjeta.
+     *
+     * Va en la tarjeta y no en la pantalla porque es parte de lo que la tarjeta
+     * ES: quien agrega una nueva no debería tener que editar el Vue para que se
+     * vea como las demás.
+     */
+    public function icono(): string;
 
     /**
      * Los datos ya listos para pintar. Devuelve null si esta tarjeta no aplica

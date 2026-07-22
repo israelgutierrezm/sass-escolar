@@ -36,14 +36,24 @@ class ActividadPorHora implements TarjetaPanel
         return 'ver-configuracion';
     }
 
+    /**
+     * Columnas, no barras: veinticuatro barras horizontales apiladas ocupaban
+     * media pantalla de alto y le robaban visibilidad a todo lo demás. Una
+     * serie de 24 puntos es naturalmente ancha y baja.
+     */
     public function tipo(): string
     {
-        return 'barras';
+        return 'columnas';
     }
 
     public function ancho(): int
     {
-        return 4;
+        return 2;
+    }
+
+    public function icono(): string
+    {
+        return 'M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z';
     }
 
     public function datos(Usuario $usuario): ?array

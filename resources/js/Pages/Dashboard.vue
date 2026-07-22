@@ -13,8 +13,9 @@ interface JerarquiaRol {
 interface Tarjeta {
     clave: string;
     titulo: string;
-    tipo: 'metrica' | 'lista' | 'barras' | 'accesos';
+    tipo: 'metrica' | 'lista' | 'barras' | 'columnas' | 'accesos';
     ancho: number;
+    icono: string;
     datos: Record<string, any>;
 }
 
@@ -37,6 +38,27 @@ function ancho(serie: { valor: number }[], valor: number): string {
     const mayor = Math.max(1, ...serie.map((s) => s.valor));
 
     return Math.round((valor / mayor) * 100) + '%';
+}
+
+/**
+ * Alto de una columna, con mínimo visible.
+ *
+ * Una hora con actividad 1 sobre un máximo de 200 daría medio píxel y se vería
+ * igual que una hora en cero. El mínimo de 6% es la diferencia entre "casi
+ * nadie" y "nadie", que no es lo mismo.
+ */
+function alto(serie: { valor: number }[], valor: number): string {
+    if (valor === 0) return '0%';
+
+    const mayor = Math.max(1, ...serie.map((s) => s.valor));
+
+    return Math.max(6, Math.round((valor / mayor) * 100)) + '%';
+}
+
+// Con 24 columnas no caben 24 etiquetas: se rotula cada tercera y las demás
+// quedan como referencia muda. Poner todas las volvería ilegibles a las dos.
+function rotula(i: number, total: number): boolean {
+    return total <= 8 || i % 3 === 0;
 }
 
 const page = usePage<PropsCompartidas>();
@@ -67,7 +89,13 @@ function conmutar(rolId: number): void {
             esta persona puede ver, y aquí solo se saben pintar cuatro formas.
             Una tarjeta nueva que use una de ellas no toca este archivo.
         -->
-        <section v-if="props.tarjetas.length" class="grid gap-4 sm:grid-cols-4">
+        <!--
+            `items-start`: sin él, la fila del grid estira TODAS las tarjetas al
+            alto de la más grande, y una métrica de un solo número quedaba de
+            246px con el 60% en blanco. Un panel se lee mejor denso y algo
+            irregular que alineado y vacío.
+        -->
+        <section v-if="props.tarjetas.length" class="grid items-start gap-4 sm:grid-cols-4">
             <div
                 v-for="tarjeta in props.tarjetas"
                 :key="tarjeta.clave"
@@ -80,11 +108,32 @@ function conmutar(rolId: number): void {
                 }"
             >
                 <div class="flex items-start justify-between gap-2">
-                    <h2 class="text-sm font-semibold">{{ tarjeta.titulo }}</h2>
+                    <div class="flex items-center gap-2.5">
+                        <!--
+                            El icono lo declara la tarjeta, no la pantalla: quien
+                            agregue una nueva no debería editar este archivo para
+                            que se vea como las demás.
+                        -->
+                        <span
+                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+                            :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)' }"
+                        >
+                            <svg
+                                class="h-4 w-4"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke-width="1.7"
+                                :stroke="'var(--color-acento)'"
+                            >
+                                <path stroke-linecap="round" stroke-linejoin="round" :d="tarjeta.icono" />
+                            </svg>
+                        </span>
+                        <h2 class="text-sm font-semibold">{{ tarjeta.titulo }}</h2>
+                    </div>
                     <a
                         v-if="tarjeta.datos.enlace"
                         :href="tarjeta.datos.enlace"
-                        class="text-xs font-medium"
+                        class="shrink-0 text-xs font-medium"
                         :style="{ color: 'var(--color-acento)' }"
                     >
                         Ver
@@ -94,14 +143,14 @@ function conmutar(rolId: number): void {
                 <!-- Métrica: un número grande y su contexto. -->
                 <template v-if="tarjeta.tipo === 'metrica'">
                     <p
-                        class="mt-2 text-2xl font-semibold tabular-nums"
+                        class="mt-3 text-3xl font-semibold tracking-tight tabular-nums"
                         :class="tarjeta.datos.alerta ? 'text-red-600' : ''"
                     >
                         {{ formatear(tarjeta.datos.valor, tarjeta.datos.formato) }}
                     </p>
                     <p
-                        class="text-xs"
-                        :class="tarjeta.datos.alerta ? 'text-red-600' : ''"
+                        class="mt-0.5 text-xs"
+                        :class="tarjeta.datos.alerta ? 'font-medium text-red-600' : ''"
                         :style="tarjeta.datos.alerta ? {} : { color: 'var(--color-suave)' }"
                     >
                         {{ tarjeta.datos.pie }}
@@ -180,17 +229,74 @@ function conmutar(rolId: number): void {
                     </p>
                 </template>
 
-                <!-- Accesos: botones a lo que esta persona usa a diario. -->
+                <!--
+                    Columnas: una serie larga —las 24 horas— es naturalmente
+                    ancha y BAJA. Como barras horizontales apiladas ocupaba
+                    media pantalla de alto y tapaba el resto del panel.
+                -->
+                <template v-else-if="tarjeta.tipo === 'columnas'">
+                    <div class="mt-4 flex h-28 items-end gap-[3px]">
+                        <div
+                            v-for="(punto, i) in tarjeta.datos.series"
+                            :key="i"
+                            class="group relative flex-1"
+                            :title="`${punto.etiqueta}: ${punto.valor}`"
+                        >
+                            <div class="flex h-28 items-end">
+                                <div
+                                    class="w-full rounded-t transition-all group-hover:opacity-80"
+                                    :style="{
+                                        height: alto(tarjeta.datos.series, punto.valor),
+                                        backgroundColor:
+                                            punto.valor === 0
+                                                ? 'var(--color-borde)'
+                                                : 'var(--color-acento)',
+                                        minHeight: punto.valor === 0 ? '2px' : undefined,
+                                    }"
+                                ></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-1.5 flex gap-[3px]">
+                        <span
+                            v-for="(punto, i) in tarjeta.datos.series"
+                            :key="i"
+                            class="flex-1 text-center text-[10px] leading-none"
+                            :style="{ color: 'var(--color-suave)' }"
+                        >
+                            {{ rotula(i, tarjeta.datos.series.length) ? punto.etiqueta.replace('h', '') : '' }}
+                        </span>
+                    </div>
+
+                    <p v-if="tarjeta.datos.pie" class="mt-3 text-xs" :style="{ color: 'var(--color-suave)' }">
+                        {{ tarjeta.datos.pie }}
+                    </p>
+                </template>
+
+                <!--
+                    Accesos: mosaico con icono. Antes eran rectángulos con solo
+                    texto y había que leer los once para encontrar uno — y estos
+                    botones existen justamente para no tener que leer.
+                -->
                 <template v-else-if="tarjeta.tipo === 'accesos'">
-                    <div class="mt-3 flex flex-wrap gap-2">
+                    <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
                         <a
                             v-for="acceso in tarjeta.datos.accesos"
                             :key="acceso.enlace"
                             :href="acceso.enlace"
-                            class="rounded-lg border px-3 py-1.5 text-sm"
+                            class="group flex flex-col items-center gap-2 rounded-xl border px-2 py-3 text-center transition hover:-translate-y-0.5"
                             :style="{ borderColor: 'var(--color-borde)' }"
                         >
-                            {{ acceso.etiqueta }}
+                            <span
+                                class="flex h-10 w-10 items-center justify-center rounded-xl transition"
+                                :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)' }"
+                            >
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.6" :stroke="'var(--color-acento)'">
+                                    <path stroke-linecap="round" stroke-linejoin="round" :d="acceso.icono" />
+                                </svg>
+                            </span>
+                            <span class="text-xs font-medium leading-tight">{{ acceso.etiqueta }}</span>
                         </a>
                     </div>
                 </template>

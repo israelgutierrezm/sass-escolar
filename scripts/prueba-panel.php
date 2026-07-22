@@ -28,6 +28,7 @@ use App\Models\Identidad\Rol;
 use App\Models\Identidad\Usuario;
 use App\Models\Tenant;
 use App\Panel\RegistroTarjetas;
+use App\Panel\Tarjetas\ActividadPorHora;
 use App\Services\MatriculadorOferta;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\DB;
@@ -93,14 +94,24 @@ try {
 
     verificar('Hay tarjetas registradas', count($registro->registradas()) >= 8,
         count($registro->registradas()).' tarjetas');
-    verificar('Cada una declara clave, tipo y ancho',
+    verificar('Cada una declara clave, tipo, ancho e icono',
         collect($registro->registradas())->every(function (string $clase) {
             $t = app($clase);
 
             return $t->clave() !== ''
-                && in_array($t->tipo(), ['metrica', 'lista', 'barras', 'accesos'], true)
-                && $t->ancho() >= 1 && $t->ancho() <= 4;
+                && in_array($t->tipo(), ['metrica', 'lista', 'barras', 'columnas', 'accesos'], true)
+                && $t->ancho() >= 1 && $t->ancho() <= 4
+                && $t->icono() !== '';
         }));
+
+    // Una serie de 24 puntos no puede pintarse como barras horizontales: son
+    // 24 renglones apilados que se comen la pantalla a lo alto.
+    verificar('La serie por hora va en COLUMNAS y no ocupa todo el ancho',
+        (function () {
+            $t = app(ActividadPorHora::class);
+
+            return $t->tipo() === 'columnas' && $t->ancho() <= 2;
+        })());
     verificar('Las claves no se repiten',
         (function () use ($registro) {
             $claves = array_map(fn (string $c) => app($c)->clave(), $registro->registradas());
@@ -226,8 +237,12 @@ try {
         $bien = match ($tipo) {
             'metrica' => array_key_exists('valor', $datos),
             'lista' => array_key_exists('renglones', $datos) && $datos['renglones'] !== [],
-            'barras' => array_key_exists('series', $datos) && $datos['series'] !== [],
-            'accesos' => array_key_exists('accesos', $datos) && $datos['accesos'] !== [],
+            'barras', 'columnas' => array_key_exists('series', $datos) && $datos['series'] !== [],
+            // Cada acceso lleva su icono: sin él el mosaico vuelve a ser una
+            // lista de rectángulos que hay que leer entera.
+            'accesos' => array_key_exists('accesos', $datos)
+                && $datos['accesos'] !== []
+                && collect($datos['accesos'])->every(fn ($a) => ($a['icono'] ?? '') !== ''),
             default => false,
         };
 
