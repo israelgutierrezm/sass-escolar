@@ -49,7 +49,7 @@ class DocenteController extends Controller
 
         $docentes = Docente::query()
             ->with([
-                'persona:id,nombre,primer_apellido,segundo_apellido,curp,email,celular',
+                'persona:id,nombre,primer_apellido,segundo_apellido,curp,email,celular,foto_url',
                 'tipoDocente:id,nombre',
                 'situacion:id,clave,nombre',
                 'campus:id,nombre',
@@ -64,6 +64,7 @@ class DocenteController extends Controller
             ->through(fn (Docente $d) => [
                 'id' => $d->persona_id,
                 'nombre_completo' => $d->persona?->nombreCompleto(),
+                'foto' => $d->persona?->urlFoto(),
                 'clave_profesor' => $d->clave_profesor,
                 'cedula_profesional' => $d->cedula_profesional,
                 'curp' => $d->persona?->curp,
@@ -179,6 +180,7 @@ class DocenteController extends Controller
                 'email' => $docente->persona?->email,
                 'correo_institucional' => $docente->persona?->correo_institucional,
                 'celular' => $docente->persona?->celular,
+                'foto' => $docente->persona?->urlFoto(),
             ],
             'materias' => $materias,
             'documentos' => DocumentoDocente::query()

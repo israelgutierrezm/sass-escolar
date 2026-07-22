@@ -17,6 +17,7 @@ use App\Http\Controllers\DocenteController;
 use App\Http\Controllers\EsquemaEvaluacionController;
 use App\Http\Controllers\ExpedienteAspiranteController;
 use App\Http\Controllers\ExpedienteDocenteController;
+use App\Http\Controllers\FotoPersonaController;
 use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\InscripcionController;
 use App\Http\Controllers\OfertaController;
@@ -93,6 +94,17 @@ Route::middleware([
          * La captura queda en su propio prefijo porque la usan los dos oficios:
          * el docente sobre lo suyo y control escolar sobre cualquier materia.
          */
+        /*
+         * Foto de perfil. Un solo punto para toda la escuela: la usan la ficha
+         * del alumno, la del docente y el expediente propio. El archivo vive en
+         * el disco privado y se sirve por esta ruta autenticada.
+         */
+        Route::controller(FotoPersonaController::class)->prefix('personas/{persona}/foto')->name('tenant.personas.foto.')->group(function () {
+            Route::get('/', 'mostrar')->name('mostrar');
+            Route::post('/', 'actualizar')->name('actualizar');
+            Route::delete('/', 'eliminar')->name('eliminar');
+        });
+
         Route::controller(DocenciaController::class)
             ->prefix('docencia')->name('tenant.docencia.')
             ->middleware('can:ver-mis-materias')

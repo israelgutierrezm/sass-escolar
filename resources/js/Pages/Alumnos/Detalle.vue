@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavEscolar from '@/Components/NavEscolar.vue';
@@ -71,6 +71,33 @@ function colorCalificacion(r: Renglon): string {
     if (r.estatus_clave === 'reprobada') return '#dc2626';
     return 'var(--color-suave)';
 }
+
+/* Foto de perfil */
+const formFoto = useForm({ foto: null as File | null });
+const entradaFoto = ref<HTMLInputElement | null>(null);
+
+function subirFoto(evento: Event): void {
+    const archivos = (evento.target as HTMLInputElement).files;
+
+    if (!archivos || archivos.length === 0) {
+        return;
+    }
+
+    formFoto.foto = archivos[0];
+    formFoto.post(`/personas/${props.persona.id}/foto`, {
+        preserveScroll: true,
+        forceFormData: true,
+        onFinish: () => {
+            formFoto.reset();
+            if (entradaFoto.value) entradaFoto.value.value = '';
+        },
+    });
+}
+
+function quitarFoto(): void {
+    if (!confirm('Quitar la foto?')) return;
+    router.delete(`/personas/${props.persona.id}/foto`, { preserveScroll: true });
+}
 </script>
 
 <template>
@@ -82,6 +109,47 @@ function colorCalificacion(r: Renglon): string {
         <!-- Cabecera -->
         <section class="tarjeta p-6">
             <div class="flex flex-wrap items-start justify-between gap-4">
+                <div class="flex flex-col items-center gap-2">
+                    <img
+                        v-if="persona.foto"
+                        :src="persona.foto"
+                        alt=""
+                        class="h-24 w-24 rounded-full object-cover"
+                    />
+                    <span
+                        v-else
+                        class="flex h-24 w-24 items-center justify-center rounded-full text-2xl font-semibold"
+                        :style="{
+                            backgroundColor: 'color-mix(in srgb, var(--color-acento) 14%, transparent)',
+                            color: 'var(--color-acento)',
+                        }"
+                    >
+                        {{ (persona.nombre?.[0] ?? '') + (persona.primer_apellido?.[0] ?? '') }}
+                    </span>
+
+                    <div v-if="puedeEditar" class="flex gap-2 text-xs">
+                        <label class="cursor-pointer" :style="{ color: 'var(--color-acento)' }">
+                            {{ persona.foto ? 'Cambiar' : 'Subir foto' }}
+                            <input
+                                ref="entradaFoto"
+                                type="file"
+                                accept="image/*"
+                                class="hidden"
+                                @change="subirFoto"
+                            />
+                        </label>
+                        <button
+                            v-if="persona.foto"
+                            type="button"
+                            :style="{ color: 'var(--color-suave)' }"
+                            @click="quitarFoto"
+                        >
+                            Quitar
+                        </button>
+                    </div>
+                    <p v-if="formFoto.errors.foto" class="text-xs text-red-600">{{ formFoto.errors.foto }}</p>
+                </div>
+
                 <div>
                     <p class="font-mono text-sm" :style="{ color: 'var(--color-suave)' }">{{ alumno.matricula }}</p>
                     <h2 class="text-lg font-semibold">

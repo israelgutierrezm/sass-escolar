@@ -850,3 +850,53 @@ acotada.
   sus documentos. Lo demás lo ve de solo lectura.
 - La frontera es la misma en las dos pantallas y así se rotula en ambas: subir
   un título no es acreditarlo.
+
+## 2026-07-21 — UI transversal de listados (bloque A de la segunda tanda)
+
+### Filtros a demanda, con fichas de lo aplicado
+- **Decisión:** componente `PanelFiltros.vue`. Un botón despliega el panel, una
+  casilla activa cada filtro y solo entonces aparece su selector. Lo aplicado se
+  muestra siempre como fichas con "×", aunque el panel esté cerrado.
+- **Razón:** con cuatro o cinco desplegables siempre visibles, el encabezado del
+  listado ocupa más pantalla que los resultados, y en la mayoría de las búsquedas
+  no se usa ninguno. Las fichas son la otra mitad de la decisión: **un filtro
+  activo escondido es la causa clásica del "no aparece el alumno que busco"**.
+- Desmarcar la casilla limpia el valor, no solo lo oculta. Dejarlo puesto pero
+  invisible mantendría la lista filtrada sin que se vea por qué.
+
+### La foto vive en `personas`, no en `usuarios`
+- **Decisión:** `personas.foto_url`, servida por `/personas/{id}/foto` desde el
+  disco privado.
+- **Razón:** `usuarios.url_perfil` ya existía, pero es el avatar de la CUENTA y
+  no todos tienen cuenta: un alumno de primer ingreso, un docente recién dado de
+  alta o un tutor pueden no tenerla y aun así su ficha necesita cara. La foto es
+  de la persona, igual que su nombre.
+- Nunca en `public/`: es un dato personal (LFPDPPP) y se sirve por ruta
+  autenticada. Verificado que sin sesión no se alcanza.
+- Un solo endpoint para toda la escuela. Quién puede cambiarla: uno mismo
+  siempre, y quien administre a esa clase de persona —se comprueba contra lo que
+  la persona ES (alumno, docente) y no contra un permiso genérico que no
+  distingue a quién—.
+
+### Vista de lista y de cuadrícula
+- **Decisión:** `SelectorVista.vue` alterna ambas y recuerda la preferencia POR
+  LISTADO en localStorage. `TarjetaPersona.vue` sirve igual a alumnos y docentes.
+- **Razón:** lo que cambia entre un alumno y un docente son los datos
+  secundarios, no la forma: cara, nombre, identificador y dos líneas de
+  contexto. Un componente por rol habría sido el mismo archivo copiado.
+- Sin foto se muestran las **iniciales**, no un icono genérico: en una cuadrícula
+  de veinte personas, veinte iconos idénticos no distinguen a nadie.
+
+### `Paginacion.vue` extraído
+- El mismo bloque estaba copiado en cada listado, y cada copia era una
+  oportunidad de que una lista quedara sin paginar y cargara la escuela entera.
+
+### CORRECCIÓN DE HIGIENE: las pruebas no deben mutar el estado compartido
+- **Problema:** `prueba-ciclo-campus.php` tomaba `Usuario::first()` —la cuenta
+  demo— y le cambiaba el rol activo. Aunque corre en una transacción con
+  rollback, el efecto se filtraba a las sesiones abiertas del navegador y dejaba
+  a esa cuenta con un rol que nadie eligió. **Tres veces** se diagnosticó un 403
+  que era residuo de la propia prueba.
+- **Decisión:** la prueba crea su propio usuario y su propia persona.
+- **Lección:** una prueba no debe alterar el estado que otros están usando, ni
+  siquiera dentro de una transacción.

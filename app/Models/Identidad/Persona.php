@@ -8,6 +8,8 @@ use App\Models\Concerns\TieneAuditoria;
 use App\Models\Landlord\EntidadFederativa;
 use App\Models\Landlord\Genero;
 use App\Models\Landlord\Pais;
+use App\Models\Admisiones\MatriculaOferta;
+use App\Models\ControlEscolar\Docente;
 use App\Models\Landlord\Sexo;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -43,6 +45,7 @@ class Persona extends Model
         'email',
         'correo_institucional',
         'celular',
+        'foto_url',
     ];
 
     protected function casts(): array
@@ -91,6 +94,27 @@ class Persona extends Model
     public function usuario(): HasOne
     {
         return $this->hasOne(Usuario::class, 'persona_id');
+    }
+
+    /**
+     * Sus matrículas: una persona puede cursar varias carreras a la vez o a lo
+     * largo del tiempo, y cada una es un "alumno" distinto con su kárdex.
+     */
+    public function matriculas(): HasMany
+    {
+        return $this->hasMany(MatriculaOferta::class, 'persona_id');
+    }
+
+    /** Su registro docente, si da clase. PK compartida con personas. */
+    public function docente(): HasOne
+    {
+        return $this->hasOne(Docente::class, 'persona_id');
+    }
+
+    /** Ruta autenticada de su foto; null si no tiene. Nunca la ruta del disco. */
+    public function urlFoto(): ?string
+    {
+        return $this->foto_url === null ? null : "/personas/{$this->id}/foto";
     }
 
     public function nombreCompleto(): string

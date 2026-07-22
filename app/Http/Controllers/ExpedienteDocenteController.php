@@ -58,6 +58,8 @@ class ExpedienteDocenteController extends Controller
                 'email' => $persona?->email,
                 'correo_institucional' => $persona?->correo_institucional,
                 'celular' => $persona?->celular,
+                'foto' => $persona?->urlFoto(),
+                'persona_id' => $persona?->id,
             ],
             // De solo lectura: lo administra control escolar, no el docente.
             'docente' => [

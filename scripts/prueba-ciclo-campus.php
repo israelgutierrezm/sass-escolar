@@ -17,6 +17,7 @@ use App\Models\Academico\Campus;
 use App\Models\Academico\TipoCampus;
 use App\Models\ControlEscolar\Ciclo;
 use App\Models\ControlEscolar\SituacionCiclo;
+use App\Models\Identidad\Persona;
 use App\Models\Identidad\PersonaRol;
 use App\Models\Identidad\Rol;
 use App\Models\Identidad\Usuario;
@@ -102,11 +103,29 @@ try {
 
     echo PHP_EOL.'3. El alcance sale de persona_rol'.PHP_EOL;
 
-    $usuario = Usuario::first();
+    // La prueba crea SU PROPIO usuario en vez de mutar el de la escuela.
+    //
+    // Antes tomaba `Usuario::first()` y le cambiaba el rol activo. Aunque todo
+    // corre dentro de una transacción con rollback, el efecto se filtraba a las
+    // sesiones abiertas del navegador y dejaba a la cuenta demo con un rol que
+    // nadie eligió — tres veces se perdió tiempo diagnosticando un 403 que era
+    // residuo de la propia prueba. Una prueba no debe alterar el estado que
+    // otros están usando.
+    $personaPrueba = Persona::create([
+        'nombre' => 'Prueba',
+        'primer_apellido' => 'Alcance',
+        'sexo_id' => 1,
+    ]);
+
+    $usuario = Usuario::create([
+        'persona_id' => $personaPrueba->id,
+        'usuario' => 'prueba-alcance-'.$sufijo,
+        'email' => 'prueba-alcance-'.$sufijo.'@ejemplo.mx',
+        'password' => 'irrelevante',
+    ]);
+
     $rolAcotado = Rol::where('name', 'director_campus')->firstOrFail();
 
-    // Se limpia cualquier asignación previa de ese rol para aislar la prueba.
-    PersonaRol::where('persona_id', $usuario->persona_id)->where('rol_id', $rolAcotado->id)->delete();
     PersonaRol::create([
         'persona_id' => $usuario->persona_id,
         'rol_id' => $rolAcotado->id,
@@ -123,6 +142,14 @@ try {
     verificar('NO alcanza un campus ajeno', ! $usuario->alcanzaCampus($sur->id));
 
     $rolGlobal = Rol::where('name', 'director_general')->firstOrFail();
+
+    PersonaRol::create([
+        'persona_id' => $usuario->persona_id,
+        'rol_id' => $rolGlobal->id,
+        'campus_id' => null,
+        'activo' => true,
+    ]);
+
     $usuario->forceFill(['rol_activo_id' => $rolGlobal->id])->save();
     $usuario->refresh();
 

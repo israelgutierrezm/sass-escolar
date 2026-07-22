@@ -49,7 +49,7 @@ class AlumnoController extends Controller
 
         $alumnos = MatriculaOferta::query()
             ->with([
-                'persona:id,nombre,primer_apellido,segundo_apellido,curp,email,celular',
+                'persona:id,nombre,primer_apellido,segundo_apellido,curp,email,celular,foto_url',
                 'oferta.carrera:id,nombre',
                 'oferta.plan:id,nombre',
                 'oferta.campus:id,nombre',
@@ -69,6 +69,7 @@ class AlumnoController extends Controller
                 'nombre_completo' => $m->persona?->nombreCompleto(),
                 'curp' => $m->persona?->curp,
                 'email' => $m->persona?->email,
+                'foto' => $m->persona?->urlFoto(),
                 'carrera' => $m->oferta?->carrera?->nombre,
                 'plan' => $m->oferta?->plan?->nombre,
                 'campus' => $m->oferta?->campus?->nombre,
@@ -143,6 +144,7 @@ class AlumnoController extends Controller
                 'email' => $alumno->persona?->email,
                 'correo_institucional' => $alumno->persona?->correo_institucional,
                 'celular' => $alumno->persona?->celular,
+                'foto' => $alumno->persona?->urlFoto(),
                 'entidad_nacimiento' => $alumno->persona?->entidadNacimiento?->nombre,
             ],
             // Otras matrículas de la MISMA persona: es el caso que justifica que

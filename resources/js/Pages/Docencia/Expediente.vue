@@ -84,6 +84,33 @@ function colorEstado(clave: string | null): string {
         rechazado: 'color-mix(in srgb, #dc2626 18%, transparent)',
     }[clave ?? ''] ?? 'color-mix(in srgb, #f59e0b 18%, transparent)';
 }
+
+/* Foto de perfil */
+const formFoto = useForm({ foto: null as File | null });
+const entradaFoto = ref<HTMLInputElement | null>(null);
+
+function subirFoto(evento: Event): void {
+    const archivos = (evento.target as HTMLInputElement).files;
+
+    if (!archivos || archivos.length === 0) {
+        return;
+    }
+
+    formFoto.foto = archivos[0];
+    formFoto.post(`/personas/${props.persona.persona_id}/foto`, {
+        preserveScroll: true,
+        forceFormData: true,
+        onFinish: () => {
+            formFoto.reset();
+            if (entradaFoto.value) entradaFoto.value.value = '';
+        },
+    });
+}
+
+function quitarFoto(): void {
+    if (!confirm('Quitar la foto?')) return;
+    router.delete(`/personas/${props.persona.persona_id}/foto`, { preserveScroll: true });
+}
 </script>
 
 <template>
@@ -127,6 +154,47 @@ function colorEstado(clave: string | null): string {
             <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
                 Manténlos al día: de aquí salen tus datos en actas y documentos oficiales.
             </p>
+
+                <div class="flex flex-col items-center gap-2">
+                    <img
+                        v-if="persona.foto"
+                        :src="persona.foto"
+                        alt=""
+                        class="h-24 w-24 rounded-full object-cover"
+                    />
+                    <span
+                        v-else
+                        class="flex h-24 w-24 items-center justify-center rounded-full text-2xl font-semibold"
+                        :style="{
+                            backgroundColor: 'color-mix(in srgb, var(--color-acento) 14%, transparent)',
+                            color: 'var(--color-acento)',
+                        }"
+                    >
+                        {{ (persona.nombre?.[0] ?? '') + (persona.primer_apellido?.[0] ?? '') }}
+                    </span>
+
+                    <div v-if="true" class="flex gap-2 text-xs">
+                        <label class="cursor-pointer" :style="{ color: 'var(--color-acento)' }">
+                            {{ persona.foto ? 'Cambiar' : 'Subir foto' }}
+                            <input
+                                ref="entradaFoto"
+                                type="file"
+                                accept="image/*"
+                                class="hidden"
+                                @change="subirFoto"
+                            />
+                        </label>
+                        <button
+                            v-if="persona.foto"
+                            type="button"
+                            :style="{ color: 'var(--color-suave)' }"
+                            @click="quitarFoto"
+                        >
+                            Quitar
+                        </button>
+                    </div>
+                    <p v-if="formFoto.errors.foto" class="text-xs text-red-600">{{ formFoto.errors.foto }}</p>
+                </div>
 
             <div class="mt-5 grid gap-4 sm:grid-cols-3">
                 <CampoTexto v-model="form.nombre" etiqueta="Nombre(s)" requerido :error="form.errors.nombre" />
