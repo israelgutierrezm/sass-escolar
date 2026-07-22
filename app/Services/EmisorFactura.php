@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Jobs\TimbrarFactura;
+use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Finanzas\ConceptoPago;
 use App\Models\Finanzas\Factura;
 use App\Models\Finanzas\FacturaConcepto;
@@ -27,7 +28,10 @@ use RuntimeException;
  */
 class EmisorFactura
 {
-    public function __construct(private readonly Pac $pac) {}
+    public function __construct(
+        private readonly Pac $pac,
+        private readonly ResolutorEmisorFiscal $resolutorEmisor,
+    ) {}
 
     /**
      * Crea el borrador y lo manda a la cola.
@@ -41,7 +45,15 @@ class EmisorFactura
     {
         $pagos = $this->pagosFacturables($matriculaOfertaId, $pagoIds, $sustituyeA);
 
-        return DB::transaction(function () use ($matriculaOfertaId, $pagos, $receptor, $sustituyeA) {
+        // Con qué razón social se emite. Se resuelve ANTES de crear nada: una
+        // escuela con varias personas morales factura bachillerato con una y
+        // posgrado con otra, y emitir a nombre equivocado no se corrige con un
+        // UPDATE sino cancelando ante el SAT.
+        $emisor = $this->resolutorEmisor->datosPara(
+            MatriculaOferta::findOrFail($matriculaOfertaId)
+        );
+
+        return DB::transaction(function () use ($matriculaOfertaId, $pagos, $receptor, $sustituyeA, $emisor) {
             $renglones = $pagos->map(fn (Pago $pago) => $this->renglonDe($pago));
 
             $subtotal = round($renglones->sum('importe'), 2);
@@ -49,6 +61,10 @@ class EmisorFactura
 
             $factura = Factura::create([
                 'matricula_oferta_id' => $matriculaOfertaId,
+                // El emisor se COPIA, igual que el receptor: si la escuela
+                // corrige su razón social o cambia de régimen, el comprobante
+                // ya timbrado debe seguir diciendo lo que se timbró.
+                ...$emisor,
                 'receptor_rfc' => strtoupper(trim($receptor['rfc'])),
                 'receptor_razon_social' => trim($receptor['razon_social']),
                 'receptor_uso_cfdi' => $receptor['uso_cfdi'] ?? config('cfdi.uso_cfdi_default'),

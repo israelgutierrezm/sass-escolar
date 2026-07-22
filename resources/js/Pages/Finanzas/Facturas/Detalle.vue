@@ -20,6 +20,10 @@ const props = defineProps<{
         id: number;
         uuid: string | null;
         estatus: string;
+        emisor_rfc: string | null;
+        emisor_razon_social: string | null;
+        emisor_regimen_fiscal: string | null;
+        emisor_cp: string | null;
         receptor_rfc: string;
         receptor_razon_social: string;
         receptor_uso_cfdi: string;
@@ -277,6 +281,29 @@ const colorEstatus: Record<string, string> = {
                     Cancelar factura
                 </button>
             </form>
+        </section>
+
+        <!--
+            El emisor se muestra porque la escuela puede tener varias razones
+            sociales: sin verlo, "por qué esta factura salió con el RFC de la
+            otra" no tiene respuesta en pantalla.
+        -->
+        <section class="tarjeta p-6">
+            <h2 class="text-base font-semibold">Emisor</h2>
+            <dl class="mt-3 grid gap-3 text-sm sm:grid-cols-4">
+                <div>
+                    <dt :style="{ color: 'var(--color-suave)' }">RFC</dt>
+                    <dd class="font-mono">{{ factura.emisor_rfc ?? '—' }}</dd>
+                </div>
+                <div class="sm:col-span-2">
+                    <dt :style="{ color: 'var(--color-suave)' }">Razón social</dt>
+                    <dd>{{ factura.emisor_razon_social ?? '—' }}</dd>
+                </div>
+                <div>
+                    <dt :style="{ color: 'var(--color-suave)' }">Régimen · CP</dt>
+                    <dd>{{ factura.emisor_regimen_fiscal ?? '—' }} · {{ factura.emisor_cp ?? '—' }}</dd>
+                </div>
+            </dl>
         </section>
 
         <section class="tarjeta p-6">

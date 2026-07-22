@@ -16,6 +16,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocenciaController;
 use App\Http\Controllers\DocenteController;
 use App\Http\Controllers\DocumentoRequeridoController;
+use App\Http\Controllers\EmisorFiscalController;
 use App\Http\Controllers\EsquemaEvaluacionController;
 use App\Http\Controllers\ExpedienteAspiranteController;
 use App\Http\Controllers\ExpedienteDocenteController;
@@ -442,6 +443,25 @@ Route::middleware([
                         Route::post('/{factura}/cancelar', 'cancelar')->name('cancelar');
                         Route::delete('/{factura}', 'destroy')->name('destroy');
                         Route::get('/{factura}/descargar/{tipo}', 'descargar')->name('descargar');
+                    });
+
+                /*
+                 * Razones sociales. Configurar con qué persona moral factura
+                 * cada carrera es distinto de emitir un CFDI: lo primero lo
+                 * define la dirección una vez, lo segundo se hace a diario.
+                 * Aquí además se guardan certificados de sello digital.
+                 */
+                Route::controller(EmisorFiscalController::class)
+                    ->prefix('emisores')->name('emisores.')
+                    ->middleware('can:gestionar-emisores')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::post('/', 'store')->name('store');
+                        Route::put('/{emisor}', 'update')->name('update');
+                        Route::post('/{emisor}/credenciales', 'credenciales')->name('credenciales');
+                        Route::post('/{emisor}/asignaciones', 'asignar')->name('asignar');
+                        Route::delete('/{emisor}/asignaciones/{asignacion}', 'desasignar')->name('desasignar');
+                        Route::delete('/{emisor}', 'destroy')->name('destroy');
                     });
 
                 Route::controller(FinanzasController::class)->group(function () {

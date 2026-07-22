@@ -22,6 +22,8 @@ use App\Jobs\TimbrarFactura;
 use App\Models\Academico\Oferta;
 use App\Models\Finanzas\Adeudo;
 use App\Models\Finanzas\ConceptoPago;
+use App\Models\Finanzas\EmisorAsignacion;
+use App\Models\Finanzas\EmisorFiscal;
 use App\Models\Finanzas\Factura;
 use App\Models\Finanzas\MetodoPago;
 use App\Models\Finanzas\Pago;
@@ -85,6 +87,17 @@ try {
     verificar('La colegiatura está exenta y la constancia gravada al 16%',
         $colegiatura->gravado === false && $constancia->gravado === true
         && (float) $constancia->tasa_iva === 0.16);
+
+    // Precondición desde que la escuela puede tener varias razones sociales:
+    // sin una asignada, facturar se rechaza a propósito. Aquí basta la global.
+    // La precedencia entre razones sociales se prueba en `prueba-emisores`.
+    $emisorEscuela = EmisorFiscal::create([
+        'rfc' => 'AAA010101AAA',
+        'razon_social' => 'ESCUELA DEMO SC',
+        'regimen_fiscal' => '603',
+        'cp' => '44100',
+    ]);
+    $emisorEscuela->asignaciones()->create(['aplica_a_tipo' => EmisorAsignacion::APLICA_GLOBAL]);
 
     $persona = Persona::create(['nombre' => 'María', 'primer_apellido' => 'Gutiérrez', 'sexo_id' => 2]);
     $matricula = app(MatriculadorOferta::class)->matricular($persona, Oferta::firstOrFail(), '2026-2030');

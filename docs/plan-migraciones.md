@@ -352,6 +352,19 @@ servicio ya está listo y es idempotente; solo falta quién lo dispare.
       ventanilla tienen.
 - [x] Suite `scripts/prueba-facturacion.php` — 47 verificaciones.
 
+Ampliación pedida por el cliente (varias razones sociales) ✅:
+- [x] `emisores_fiscales` (T) — RFC, razón social, régimen, CP y las
+      credenciales de timbrado (certificado y llave en disco privado;
+      contraseñas con cast `encrypted`).
+- [x] `emisor_asignaciones` (T, pivote) — `aplica_a_tipo` global/nivel/carrera.
+      Una razón social cubre varias cosas a la vez.
+- [x] `facturas` gana `emisor_id` + los cuatro campos del emisor COPIADOS.
+- [x] `ResolutorEmisorFiscal` con precedencia carrera → nivel → global, y error
+      explícito cuando hay emisores pero ninguno cubre esa carrera.
+- [x] Pantalla `/finanzas/emisores` con asignaciones, carga de certificados y
+      aviso de carreras sin asignar. Permiso `gestionar-emisores`.
+- [x] Suite `scripts/prueba-emisores.php` — 24 verificaciones.
+
 Pendiente de 7.3 para cuando haya PAC contratado: escribir el driver real
 (implementar `Pac`, registrarlo en `config/cfdi.php`) y llenar
 `CFDI_EMISOR_*` en el `.env`. Nada más cambia — ni el job ni el servicio saben

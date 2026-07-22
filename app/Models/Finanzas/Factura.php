@@ -62,6 +62,11 @@ class Factura extends Model
 
     protected $fillable = [
         'matricula_oferta_id',
+        'emisor_id',
+        'emisor_rfc',
+        'emisor_razon_social',
+        'emisor_regimen_fiscal',
+        'emisor_cp',
         'receptor_rfc',
         'receptor_razon_social',
         'receptor_uso_cfdi',
@@ -105,6 +110,17 @@ class Factura extends Model
     public function conceptos(): HasMany
     {
         return $this->hasMany(FacturaConcepto::class, 'factura_id');
+    }
+
+    /**
+     * La razón social con la que se emitió. Es solo la referencia de dónde
+     * salieron los datos: los que valen son las columnas `emisor_*` copiadas
+     * aquí. Un real PAC sí necesita este vínculo, porque de él saca el
+     * certificado con el que firma.
+     */
+    public function emisor(): BelongsTo
+    {
+        return $this->belongsTo(EmisorFiscal::class, 'emisor_id');
     }
 
     /** La factura que ésta vino a sustituir (cancelación con relación 01). */

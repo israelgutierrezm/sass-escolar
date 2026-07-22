@@ -42,12 +42,13 @@ Los otros dos documentos vivos:
 4. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (15 suites, 404 verificaciones):
+   Las suites versionadas viven en `scripts/` (16 suites, 428 verificaciones):
    `prueba-actas`, `prueba-plantillas`, `prueba-ventanas-captura`,
    `prueba-ciclo-campus`, `prueba-apertura-grupos`, `prueba-alcance-docente`,
    `prueba-alumnos`, `prueba-docentes`, `prueba-documentos`,
    `prueba-formularios`, `prueba-multicarrera`, `prueba-suplantacion`,
-   `prueba-finanzas`, `prueba-cobro`, `prueba-facturacion`. NO van en `tests/`:
+   `prueba-finanzas`, `prueba-cobro`, `prueba-facturacion`, `prueba-emisores`.
+   NO van en `tests/`:
    phpunit corre contra SQLite en memoria y ahí se prueba justo lo que SQLite
    no sabe hacer (`LAST_INSERT_ID`, FKs reales, InnoDB).
 
@@ -213,7 +214,14 @@ npm run dev                # o npm run build
   factura timbrada NO se edita: `refacturar()` emite la sustituta y luego se
   cancela la original con motivo 01. Pantallas bajo `/finanzas/facturas`,
   permiso `facturar`.
-- Pruebas: 15 suites en `scripts/`, 404 verificaciones, todas contra la BD real
+- **Varias razones sociales por escuela** (aclaración del cliente): una escuela
+  factura bachillerato con una persona moral, licenciatura con otra. Tablas
+  `emisores_fiscales` + `emisor_asignaciones` (pivote), con precedencia
+  carrera → nivel de estudios → global. Cada razón social guarda SU certificado
+  de sello digital (disco privado) y sus credenciales del PAC (cifradas). El
+  emisor se congela en la factura igual que el receptor. Pantalla
+  `/finanzas/emisores`, permiso `gestionar-emisores`.
+- Pruebas: 16 suites en `scripts/`, 428 verificaciones, todas contra la BD real
   del tenant demo con `DB::rollBack()` al final.
 
 **Pendiente inmediato — aquí se retoma:**

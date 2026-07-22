@@ -1490,3 +1490,93 @@ los tres catálogos y la re-ligadura en la conversión.
   un acto fiscal a nombre de la escuela, distinto de cobrar. Solo
   `encargado_finanzas` y dirección general. Verificado por HTTP: el auxiliar
   recibe 403 en `/finanzas/facturas`.
+
+---
+
+## 2026-07-22 — Aclaración del cliente: varias razones sociales por escuela
+
+### El hueco, y por qué era grave
+- **Aclaración:** una escuela puede facturar con más de una persona moral. Todo
+  bachillerato con una razón social, licenciatura con otra, posgrado con otra;
+  y a veces una carrera suelta con la suya.
+- **Lo que había:** el emisor era UNO, en `config/cfdi.php`. Con eso, la mitad
+  de los CFDI de una escuela así habrían salido a nombre equivocado. No es un
+  detalle cosmético: un comprobante con el emisor incorrecto es inválido y
+  corregirlo no es un UPDATE, es cancelar ante el SAT y refacturar.
+
+### La asignación va en pivote, no en una columna
+- **Decisión:** `emisores_fiscales` + `emisor_asignaciones` (emisor,
+  `aplica_a_tipo`, `aplica_a_id`).
+- **Razón:** una misma razón social factura VARIAS cosas a la vez —todo
+  bachillerato Y además la maestría en derecho—. Con una columna en el emisor
+  habría que dar de alta la misma persona moral tres veces, con tres RFC
+  iguales y tres juegos de certificados que acabarían divergiendo. Es el mismo
+  argumento que ya se usó para `documento_ambitos`.
+- `aplica_a_id` sin FK, porque apunta a `carreras` (del tenant) o a
+  `niveles_estudio` (de la landlord, que por decisión del proyecto nunca lleva
+  FK cruzada).
+
+### Precedencia: carrera → nivel de estudios → global
+- Tercera vez que aparece este patrón (`reglas_matricula`, `planes_cobro` y
+  ahora esto), y por la misma razón: la escuela dice "todo con la A, salvo
+  posgrado, que va con la B" sin repetir la A en cada una de sus veinte
+  carreras.
+- Se eligió el eje NIVEL y no el campus porque es como el cliente describió el
+  problema. Si más adelante un plantel resulta ser otra persona moral, se
+  agrega un cuarto tipo — y habrá que decidir entonces quién gana entre campus
+  y carrera, que hoy no tiene respuesta obvia.
+- Una asignación por tipo+destinatario: dos razones sociales para la misma
+  carrera es una ambigüedad que después nadie sabe cómo se resolvió. Se rechaza
+  al asignar, diciendo cuál la tiene ya.
+
+### Distinguir "no hay ninguna" de "ninguna aplica"
+- **Decisión:** si NO hay razones sociales dadas de alta, se cae a
+  `config('cfdi.emisor')` —el emisor único de antes— por compatibilidad. Si SÍ
+  las hay pero ninguna cubre esa carrera, se **lanza un error** que nombra la
+  carrera.
+- **Razón:** son dos situaciones distintas. La primera es una instalación que
+  todavía no llega aquí; la segunda es una configuración incompleta, y taparla
+  facturando con "la primera que aparezca" emitiría el comprobante a nombre
+  equivocado. Vale más que la facturación se detenga con un mensaje claro.
+- La pantalla además **lista las carreras sin asignar** antes de que alguien
+  intente facturar: descubrirlo ahí es mucho más barato que descubrirlo en
+  ventanilla con el alumno enfrente.
+
+### Cada persona moral timbra con SU certificado
+- **Decisión del cliente:** sí, cada razón social tiene su propio CSD y sus
+  credenciales del PAC. Dejan de vivir en el `.env` y pasan a
+  `emisores_fiscales`.
+- Los archivos (.cer/.key) van al disco **privado**; las contraseñas y el
+  usuario del PAC llevan cast `encrypted`, así que un volcado de la base —o un
+  respaldo que acabe donde no debe— no entrega la llave con la que se timbra a
+  nombre de la escuela. Además van en `$hidden`: no se serializan al front
+  nunca. Verificado en la suite leyendo la columna cruda.
+- Un campo de contraseña en blanco significa "no lo cambies", no "bórralo": el
+  formulario nunca muestra lo guardado, así que enviarlo vacío es lo normal
+  cuando solo se sube un archivo.
+- Un emisor sin certificado se puede dar de alta —la escuela captura primero y
+  sube los archivos después— pero `puedeTimbrar()` es false y la pantalla lo
+  rotula.
+
+### El emisor se congela en la factura, igual que el receptor
+- `facturas` gana `emisor_rfc`, `emisor_razon_social`, `emisor_regimen_fiscal`
+  y `emisor_cp` copiados, más `emisor_id` como referencia de dónde salieron.
+- **Razón:** ya era la regla para el receptor y vale idéntico aquí. Verificado:
+  corregir la razón social o quitarle la asignación a la carrera NO altera un
+  comprobante ya timbrado.
+- Una razón social que ya facturó **no se borra**: sus comprobantes son el
+  respaldo de lo que se declaró. Se desactiva, que es como se retira una
+  persona moral que dejó de operar.
+
+### `gestionar-emisores`, separado de `facturar`
+- Definir con qué persona moral factura cada carrera —y cargar sus
+  certificados— es una decisión de dirección que se toma una vez; emitir un
+  CFDI se hace a diario. Tercer permiso del módulo con el mismo criterio que
+  `gestionar-planes-cobro` frente a `registrar-pagos`. Verificado por HTTP:
+  el auxiliar de finanzas recibe 403 en `/finanzas/emisores`.
+
+### Consecuencia en la suite anterior
+- `prueba-facturacion` empezó a fallar: facturar ahora exige razón social
+  asignada. **No se relajó la regla** —es la correcta— sino que la suite da de
+  alta la suya como precondición, que es lo que hará cualquier escuela real
+  antes de emitir su primer comprobante.

@@ -67,6 +67,10 @@ class FacturaController extends Controller
 
         return Inertia::render('Finanzas/Facturas/Detalle', [
             'factura' => array_merge($this->resumen($factura), [
+                'emisor_rfc' => $factura->emisor_rfc,
+                'emisor_razon_social' => $factura->emisor_razon_social,
+                'emisor_regimen_fiscal' => $factura->emisor_regimen_fiscal,
+                'emisor_cp' => $factura->emisor_cp,
                 'receptor_uso_cfdi' => $factura->receptor_uso_cfdi,
                 'receptor_regimen_fiscal' => $factura->receptor_regimen_fiscal,
                 'receptor_cp' => $factura->receptor_cp,
@@ -280,6 +284,7 @@ class FacturaController extends Controller
             'estatus' => $factura->estatus,
             'receptor_rfc' => $factura->receptor_rfc,
             'receptor_razon_social' => $factura->receptor_razon_social,
+            'emisor' => $factura->emisor_razon_social,
             'total' => (float) $factura->total,
             'fecha_timbrado' => $factura->fecha_timbrado?->toDateTimeString(),
             'matricula_id' => $factura->matricula_oferta_id,
