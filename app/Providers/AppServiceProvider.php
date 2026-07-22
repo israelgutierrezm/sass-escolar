@@ -3,6 +3,16 @@
 namespace App\Providers;
 
 use App\Models\Identidad\Usuario;
+use App\Panel\RegistroTarjetas;
+use App\Panel\Tarjetas\AccesosDirectos;
+use App\Panel\Tarjetas\ActividadPorHora;
+use App\Panel\Tarjetas\CarteraDeLaEscuela;
+use App\Panel\Tarjetas\ComisionesPorPagar;
+use App\Panel\Tarjetas\EmbudoDeAdmision;
+use App\Panel\Tarjetas\MiAvanceAcademico;
+use App\Panel\Tarjetas\MiEstadoDeCuenta;
+use App\Panel\Tarjetas\MisMateriasDocente;
+use App\Panel\Tarjetas\ProspectosPorContactar;
 use App\Services\Cfdi\Pac;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Gate;
@@ -38,6 +48,7 @@ class AppServiceProvider extends ServiceProvider
         $this->registrarMacrosDeAuditoria();
         $this->registrarResolucionDePermisos();
         $this->registrarPermisosDerivados();
+        $this->registrarTarjetasDelPanel();
     }
 
     /**
@@ -87,6 +98,41 @@ class AppServiceProvider extends ServiceProvider
             'entrar-promocion',
             fn ($usuario) => $usuario->can('ver-mis-prospectos') || $usuario->can('gestionar-promocion')
         );
+    }
+
+    /**
+     * Las tarjetas del panel.
+     *
+     * El panel NO se arma con ramas por rol. Cada tarjeta declara qué permiso
+     * exige y `RegistroTarjetas` le entrega a cada persona las que puede ver,
+     * así que un rol nuevo armado desde `/plataforma/roles` obtiene su panel
+     * solo, sin tocar código.
+     *
+     * El orden de este arreglo es el orden en que se pintan: primero lo
+     * personal (lo que le toca a quien entra), después lo agregado de la
+     * escuela, y los accesos directos al final.
+     */
+    protected function registrarTarjetasDelPanel(): void
+    {
+        $this->app->singleton(RegistroTarjetas::class, function () {
+            $registro = new RegistroTarjetas;
+
+            foreach ([
+                MiAvanceAcademico::class,
+                MiEstadoDeCuenta::class,
+                MisMateriasDocente::class,
+                ProspectosPorContactar::class,
+                CarteraDeLaEscuela::class,
+                ComisionesPorPagar::class,
+                EmbudoDeAdmision::class,
+                ActividadPorHora::class,
+                AccesosDirectos::class,
+            ] as $tarjeta) {
+                $registro->registrar($tarjeta);
+            }
+
+            return $registro;
+        });
     }
 
     /**

@@ -1827,3 +1827,64 @@ roles que trae el sistema pasan a ser datos borrables y no la estructura.
   en una transacción: la petición abre su propia conexión y no ve lo que no está
   confirmado. Se descubrió aquí (404 en tokens que sí existían). El de este
   módulo crea, prueba y borra con precisión lo que creó.
+
+---
+
+## 2026-07-22 — Panel por rol (entrega E)
+
+### El panel es un REGISTRO de tarjetas, no ramas por rol
+- **Decisión:** `App\Panel\TarjetaPanel` (interfaz) + `RegistroTarjetas`. Cada
+  tarjeta declara su clave, su título, **el permiso que exige**, cómo se pinta y
+  cuánto ancho ocupa. El controlador no conoce ninguna tarjeta concreta: le pide
+  al registro las que este usuario puede ver.
+- **Razón, y es literal el pedido del cliente:** un panel resuelto con
+  `if (rol == finanzas)` obliga a tocar código cada vez que la escuela invente
+  un puesto. Con el registro, un rol nuevo armado desde `/plataforma/roles`
+  obtiene su panel solo, según lo que le hayan palomeado. Verificado en la suite
+  creando un «coordinador inventado» y comprobando que recibe justo las tarjetas
+  de sus permisos.
+- Agregar una tarjeta = agregar una clase y registrarla en
+  `AppServiceProvider::registrarTarjetasDelPanel`. El Vue no se toca: sabe
+  pintar cuatro formas (`metrica`, `lista`, `barras`, `accesos`) y una tarjeta
+  nueva que use una de ellas ya está pintada.
+
+### Una tarjeta se descarta por DOS motivos distintos
+1. **No tiene el permiso** — no le toca verla.
+2. **Lo tiene, pero la tarjeta devolvió null** — le toca, pero no aplica a él.
+- El segundo caso es el importante y no es teórico: control escolar tiene
+  `ver-kardex` y no es alumno de nada, así que «Mi avance» le saldría vacío.
+  Un alumno tiene `ver-adeudos` para lo suyo y no debe ver la cartera de la
+  escuela, así que esa tarjeta pide además un permiso de operación
+  (`registrar-pagos` o `gestionar-planes-cobro`). Ambos casos están en la suite.
+
+### Cuándo una tarjeta vacía se muestra y cuándo no
+- **Cola de trabajo vacía: NO se muestra.** «Contactar hoy» sin pendientes
+  desaparece. Una tarjeta que dice "nada" todos los días enseña a ignorarla, y
+  el día que sí tenga algo tampoco se mirará.
+- **Métrica propia en cero: SÍ se muestra.** «Mi estado de cuenta» en $0 informa
+  — "no debes nada" es justo lo que el alumno quiere ver confirmado.
+- La distinción salió de un fallo de la suite donde mi expectativa estaba mal,
+  no el código: había escrito que el saldo cero debía ocultarse.
+
+### Las barras se miden contra el MAYOR, no contra el total
+- Un embudo que arranca con 200 y termina con 3 deja las últimas etapas
+  invisibles si se mide contra el total — y son justo las que interesan, porque
+  ahí es donde se cae la gente.
+
+### La tarjeta no reimplementa el alcance: se lo pide al servicio
+- «Embudo» y «Contactar hoy» llaman a `EmbudoAdmision`, el mismo que usa la
+  pantalla de promoción. Si la tarjeta filtrara por su cuenta, el panel y la
+  pantalla podrían acabar diciendo números distintos sobre lo mismo.
+
+### «Actividad por hora» se rotula por lo que el dato dice
+- Sale de `sessions.last_activity`, así que una sesión abierta a las 8 y usada a
+  las 11 cuenta en las 11. Por eso se llama **actividad** y no "accesos":
+  llamarle accesos sería afirmar algo que el dato no sostiene.
+- Se pintan las 24 horas aunque estén en cero: mostrar solo las horas con
+  actividad esconde la forma de la jornada, que es lo que se quiere ver.
+
+### Deuda que este panel deja a la vista
+- El **alumno no recibe accesos directos**: todas las entradas del catálogo
+  apuntan a pantallas administrativas o de docencia, porque el portal del alumno
+  sigue sin existir. La tarjeta se oculta sola (devuelve null), así que no se ve
+  rota — pero es el recordatorio de que esa pieza falta.

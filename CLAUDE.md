@@ -48,13 +48,13 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (19 suites, 522 verificaciones):
+   Las suites versionadas viven en `scripts/` (20 suites, 551 verificaciones):
    `prueba-actas`, `prueba-plantillas`, `prueba-ventanas-captura`,
    `prueba-ciclo-campus`, `prueba-apertura-grupos`, `prueba-alcance-docente`,
    `prueba-alumnos`, `prueba-docentes`, `prueba-documentos`,
    `prueba-formularios`, `prueba-multicarrera`, `prueba-suplantacion`,
    `prueba-finanzas`, `prueba-cobro`, `prueba-facturacion`, `prueba-emisores`,
-   `prueba-roles`, `prueba-crm`, `prueba-formulario-publico`.
+   `prueba-roles`, `prueba-crm`, `prueba-formulario-publico`, `prueba-panel`.
    NO van en `tests/`:
    phpunit corre contra SQLite en memoria y ahí se prueba justo lo que SQLite
    no sabe hacer (`LAST_INSERT_ID`, FKs reales, InnoDB).
@@ -67,9 +67,18 @@ Cinco entregas, en este orden. A y B ✅ hechas; C, D y E pendientes:
 - **B** ✅ Menú por oficio (Alumnos y Docentes como secciones propias).
 - **C** ✅ CRM de promoción: embudo, seguimiento, promotores y comisiones.
 - **D** ✅ Formulario público embebible, con modo captación o inscripción.
-- **E** ⏳ Panel por rol: alumno y docente con su avance y pendientes;
-  administrativo con estadísticas acotadas a SUS permisos. Debe ser un registro
-  de tarjetas que declaran el permiso que exigen, no ramas por rol.
+- **E** ✅ Panel por rol, con registro de tarjetas por permiso.
+
+**Lo que quedó pendiente de este pedido y hay que retomar:**
+
+- La **ficha del aspirante** (`Aspirantes/Show.vue`) no muestra todavía el
+  seguimiento ni la asignación de promotor: los endpoints existen y están
+  probados, pero hoy el CRM se opera desde `/promocion`.
+- Las **pantallas de configuración** de Alumnos y Docentes (las secciones
+  existen en el menú, falta decidir qué se configura en cada una).
+- El **portal del alumno y del aspirante**: sin él, el modo «inscripción
+  autogestiva» crea la cuenta pero no hay a dónde entrar, y el alumno no recibe
+  accesos directos en su panel.
 
 ## Decisiones de arquitectura que NO se deben cambiar
 
@@ -272,7 +281,16 @@ npm run dev                # o npm run build
   una persona existente, deduplica SOLO por CURP, no repite prospecto, no toca
   credenciales de quien ya tenia cuenta, honeypot y `throttle`. Admin en
   `/promocion/publicaciones`.
-- Pruebas: 19 suites en `scripts/`, 522 verificaciones, todas contra la BD real
+- **Panel por rol** (`/panel`): es un REGISTRO de tarjetas
+  (`App\Panel\TarjetaPanel` + `RegistroTarjetas`), no ramas por rol. Cada
+  tarjeta declara el permiso que exige y si aplica a esa persona; el
+  controlador no conoce ninguna concreta. Un rol nuevo armado desde
+  `/plataforma/roles` obtiene su panel solo. El Vue sabe pintar cuatro formas
+  (metrica, lista, barras, accesos), asi que agregar una tarjeta es agregar una
+  clase y registrarla. Regla de vacios: una COLA de trabajo vacia se oculta
+  (ensena a ignorar la tarjeta); una METRICA propia en cero se muestra ("no
+  debes nada" informa).
+- Pruebas: 20 suites en `scripts/`, 551 verificaciones, todas contra la BD real
   del tenant demo con `DB::rollBack()` al final.
 
 **Pendiente inmediato — aquí se retoma:**

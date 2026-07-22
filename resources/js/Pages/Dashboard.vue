@@ -10,10 +10,34 @@ interface JerarquiaRol {
     propios: string[];
 }
 
+interface Tarjeta {
+    clave: string;
+    titulo: string;
+    tipo: 'metrica' | 'lista' | 'barras' | 'accesos';
+    ancho: number;
+    datos: Record<string, any>;
+}
+
 const props = defineProps<{
+    tarjetas: Tarjeta[];
     jerarquiaRol: JerarquiaRol | null;
     campusDelRol: number[];
 }>();
+
+const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
+
+function formatear(valor: number, formato?: string): string {
+    return formato === 'moneda' ? pesos.format(valor) : String(valor);
+}
+
+// La barra se mide contra el MAYOR de la serie, no contra el total: en un
+// embudo que arranca con 200 y termina con 3, medir contra el total deja las
+// últimas etapas invisibles — que son justo las que interesan.
+function ancho(serie: { valor: number }[], valor: number): string {
+    const mayor = Math.max(1, ...serie.map((s) => s.valor));
+
+    return Math.round((valor / mayor) * 100) + '%';
+}
 
 const page = usePage<PropsCompartidas>();
 
@@ -38,6 +62,146 @@ function conmutar(rolId: number): void {
     <Head title="Panel" />
 
     <AppLayout titulo="Panel">
+        <!--
+            El panel NO tiene ramas por rol: el backend entrega las tarjetas que
+            esta persona puede ver, y aquí solo se saben pintar cuatro formas.
+            Una tarjeta nueva que use una de ellas no toca este archivo.
+        -->
+        <section v-if="props.tarjetas.length" class="grid gap-4 sm:grid-cols-4">
+            <div
+                v-for="tarjeta in props.tarjetas"
+                :key="tarjeta.clave"
+                class="tarjeta p-5"
+                :class="{
+                    'sm:col-span-1': tarjeta.ancho === 1,
+                    'sm:col-span-2': tarjeta.ancho === 2,
+                    'sm:col-span-3': tarjeta.ancho === 3,
+                    'sm:col-span-4': tarjeta.ancho === 4,
+                }"
+            >
+                <div class="flex items-start justify-between gap-2">
+                    <h2 class="text-sm font-semibold">{{ tarjeta.titulo }}</h2>
+                    <a
+                        v-if="tarjeta.datos.enlace"
+                        :href="tarjeta.datos.enlace"
+                        class="text-xs font-medium"
+                        :style="{ color: 'var(--color-acento)' }"
+                    >
+                        Ver
+                    </a>
+                </div>
+
+                <!-- Métrica: un número grande y su contexto. -->
+                <template v-if="tarjeta.tipo === 'metrica'">
+                    <p
+                        class="mt-2 text-2xl font-semibold tabular-nums"
+                        :class="tarjeta.datos.alerta ? 'text-red-600' : ''"
+                    >
+                        {{ formatear(tarjeta.datos.valor, tarjeta.datos.formato) }}
+                    </p>
+                    <p
+                        class="text-xs"
+                        :class="tarjeta.datos.alerta ? 'text-red-600' : ''"
+                        :style="tarjeta.datos.alerta ? {} : { color: 'var(--color-suave)' }"
+                    >
+                        {{ tarjeta.datos.pie }}
+                    </p>
+                </template>
+
+                <!-- Lista: renglones con su valor a la derecha. -->
+                <template v-else-if="tarjeta.tipo === 'lista'">
+                    <ul class="mt-3 space-y-3">
+                        <li v-for="(renglon, i) in tarjeta.datos.renglones" :key="i" class="text-sm">
+                            <div class="flex flex-wrap items-baseline justify-between gap-2">
+                                <component
+                                    :is="renglon.enlace ? 'a' : 'span'"
+                                    :href="renglon.enlace"
+                                    class="font-medium"
+                                    :style="renglon.enlace ? { color: 'var(--color-acento)' } : {}"
+                                >
+                                    {{ renglon.etiqueta }}
+                                </component>
+                                <span
+                                    class="text-xs tabular-nums"
+                                    :class="renglon.alerta ? 'font-semibold text-red-600' : ''"
+                                    :style="renglon.alerta ? {} : { color: 'var(--color-suave)' }"
+                                >
+                                    {{ renglon.valor }}
+                                </span>
+                            </div>
+                            <p v-if="renglon.detalle" class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                                {{ renglon.detalle }}
+                            </p>
+                            <div
+                                v-if="renglon.progreso !== null && renglon.progreso !== undefined"
+                                class="mt-1 h-1.5 w-full rounded-full"
+                                :style="{ backgroundColor: 'var(--color-borde)' }"
+                            >
+                                <div
+                                    class="h-1.5 rounded-full"
+                                    :style="{ width: renglon.progreso + '%', backgroundColor: 'var(--color-acento)' }"
+                                ></div>
+                            </div>
+                            <p v-if="renglon.pie" class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                                {{ renglon.pie }}
+                            </p>
+                        </li>
+                    </ul>
+                    <p v-if="tarjeta.datos.pie" class="mt-3 text-xs" :style="{ color: 'var(--color-suave)' }">
+                        {{ tarjeta.datos.pie }}
+                    </p>
+                </template>
+
+                <!-- Barras: una serie con etiqueta. CSS puro, sin lib de charts. -->
+                <template v-else-if="tarjeta.tipo === 'barras'">
+                    <ul class="mt-3 space-y-2">
+                        <li v-for="(punto, i) in tarjeta.datos.series" :key="i">
+                            <component :is="punto.enlace ? 'a' : 'div'" :href="punto.enlace" class="block">
+                                <div class="flex items-center justify-between text-xs">
+                                    <span>{{ punto.etiqueta }}</span>
+                                    <span class="tabular-nums" :style="{ color: 'var(--color-suave)' }">
+                                        {{ punto.valor }}
+                                    </span>
+                                </div>
+                                <div class="mt-0.5 h-1.5 w-full rounded-full" :style="{ backgroundColor: 'var(--color-borde)' }">
+                                    <div
+                                        class="h-1.5 rounded-full"
+                                        :style="{
+                                            width: ancho(tarjeta.datos.series, punto.valor),
+                                            backgroundColor: 'var(--color-acento)',
+                                        }"
+                                    ></div>
+                                </div>
+                            </component>
+                        </li>
+                    </ul>
+                    <p v-if="tarjeta.datos.pie" class="mt-3 text-xs" :style="{ color: 'var(--color-suave)' }">
+                        {{ tarjeta.datos.pie }}
+                    </p>
+                </template>
+
+                <!-- Accesos: botones a lo que esta persona usa a diario. -->
+                <template v-else-if="tarjeta.tipo === 'accesos'">
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        <a
+                            v-for="acceso in tarjeta.datos.accesos"
+                            :key="acceso.enlace"
+                            :href="acceso.enlace"
+                            class="rounded-lg border px-3 py-1.5 text-sm"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                        >
+                            {{ acceso.etiqueta }}
+                        </a>
+                    </div>
+                </template>
+            </div>
+        </section>
+
+        <section v-else class="tarjeta px-6 py-8 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
+            Tu rol activo todavía no tiene nada que mostrar aquí. Las tarjetas del panel aparecen según
+            los permisos que tenga.
+        </section>
+
         <!-- Conmutador de rol -->
         <section class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
             <h2 class="text-base font-semibold text-slate-800">Cambiar de rol</h2>
