@@ -328,11 +328,35 @@ Pendiente de 7.2 para cuando exista el scheduler: enganchar
 `GeneradorAdeudos::generarParaTodas` y `recalcularCartera` a un job diario. El
 servicio ya está listo y es idempotente; solo falta quién lo dispare.
 
-**Entrega 7.3** — CFDI 4.0:
-- [ ] `facturas` (T, FK → matricula_oferta) — append-only, inmutable por
-      regulación: correcciones = cancelación + refactura, nunca UPDATE.
-- [ ] `factura_conceptos` (T, FK → facturas, pagos)
-- [ ] Timbrado en cola (el PAC puede tardar o fallar).
+**Entrega 7.3** — CFDI 4.0 ✅ CERRADA:
+- [x] `facturas` (T, FK → matricula_oferta y self `factura_sustituye_id`).
+      Inmutable: no hay ruta de edición para una timbrada. Lleva además del
+      mínimo de la spec lo que el flujo exige — `forma_pago_sat`,
+      `metodo_pago_sat`, `intentos`, `ultimo_error`, `cancelada_en`,
+      `motivo_cancelacion` y la relación de sustitución.
+- [x] `factura_conceptos` (T, FK → facturas, pagos) con IVA por renglón.
+- [x] Timbrado en cola: job `TimbrarFactura` con reintentos de espera creciente,
+      `failed()` que rescata lo colgado en "timbrando" y defensa contra el doble
+      timbrado.
+- [x] `App\Services\Cfdi\Pac` (interfaz) + `PacFalso` + `ResultadoTimbrado`,
+      registrados por `config/cfdi.php`. **Sin implementación real todavía**:
+      se agrega la clase del PAC cuando la escuela contrate uno.
+- [x] `EmisorFactura`: emisión contra pagos cobrados, desglose de IVA por
+      concepto, `refacturar()` (emite la sustituta antes de cancelar) y
+      `cancelar()` con los cuatro motivos del SAT.
+- [x] Pantallas `/finanzas/facturas` (listado con filtro por estatus), su
+      detalle (descargas, reintento, refacturación y cancelación) y
+      `/finanzas/facturas/emitir/{matricula}`. Enlazadas desde el estado de
+      cuenta.
+- [x] Todo bajo el permiso `facturar`, que ni control escolar ni el auxiliar de
+      ventanilla tienen.
+- [x] Suite `scripts/prueba-facturacion.php` — 47 verificaciones.
+
+Pendiente de 7.3 para cuando haya PAC contratado: escribir el driver real
+(implementar `Pac`, registrarlo en `config/cfdi.php`) y llenar
+`CFDI_EMISOR_*` en el `.env`. Nada más cambia — ni el job ni el servicio saben
+cuál está en uso. Falta también la representación impresa (PDF): hoy se guarda
+el que devuelva el PAC, y `PacFalso` no devuelve ninguno.
 
 ### Módulo 8 — LMS
 Catálogos TC:

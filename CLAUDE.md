@@ -42,12 +42,12 @@ Los otros dos documentos vivos:
 4. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (14 suites, 357 verificaciones):
+   Las suites versionadas viven en `scripts/` (15 suites, 404 verificaciones):
    `prueba-actas`, `prueba-plantillas`, `prueba-ventanas-captura`,
    `prueba-ciclo-campus`, `prueba-apertura-grupos`, `prueba-alcance-docente`,
    `prueba-alumnos`, `prueba-docentes`, `prueba-documentos`,
    `prueba-formularios`, `prueba-multicarrera`, `prueba-suplantacion`,
-   `prueba-finanzas`, `prueba-cobro`. NO van en `tests/`:
+   `prueba-finanzas`, `prueba-cobro`, `prueba-facturacion`. NO van en `tests/`:
    phpunit corre contra SQLite en memoria y ahí se prueba justo lo que SQLite
    no sabe hacer (`LAST_INSERT_ID`, FKs reales, InnoDB).
 
@@ -205,20 +205,26 @@ npm run dev                # o npm run build
   `requiere_confirmacion`) y `EstadoCuenta`. Pantallas `/finanzas` (cartera),
   `/finanzas/cuentas/{matricula}` y `/finanzas/planes`. Permiso nuevo
   `gestionar-planes-cobro`, separado de `registrar-pagos`.
-- Pruebas: 14 suites en `scripts/`, 357 verificaciones, todas contra la BD real
+- **Módulo 7 — Finanzas, entrega 7.3** (CFDI 4.0): `facturas` y
+  `factura_conceptos`; `App\Services\Cfdi\Pac` como interfaz con `PacFalso`
+  (el driver real se agrega en `config/cfdi.php` cuando haya PAC contratado);
+  `EmisorFactura` (se factura contra PAGOS cobrados, IVA desglosado por
+  concepto y hacia atrás desde lo cobrado) y el job `TimbrarFactura`. Una
+  factura timbrada NO se edita: `refacturar()` emite la sustituta y luego se
+  cancela la original con motivo 01. Pantallas bajo `/finanzas/facturas`,
+  permiso `facturar`.
+- Pruebas: 15 suites en `scripts/`, 404 verificaciones, todas contra la BD real
   del tenant demo con `DB::rollBack()` al final.
 
 **Pendiente inmediato — aquí se retoma:**
 
-1. **Módulo 7, entrega 7.3** — CFDI 4.0: tablas `facturas` y
-   `factura_conceptos` (append-only, inmutables por regulación: corregir es
-   cancelar y refacturar, nunca UPDATE) y timbrado en cola, porque el PAC puede
-   tardar o fallar. Checklist en `docs/plan-migraciones.md`.
-2. Enganchar `GeneradorAdeudos::generarParaTodas` y
-   `AplicadorRecargosDescuentos::recalcularCartera` a un job diario cuando haya
-   scheduler. Los servicios ya están listos y son idempotentes; falta el
-   disparador.
-3. Módulos 8 (LMS) y 9 (Titulación SEP) de la Fase 3; luego Fase 4.
+1. **Módulo 8 — LMS** de la Fase 3 (cursos, unidades, actividades, reactivos,
+   entregas, foros). Checklist en `docs/plan-migraciones.md`.
+2. Módulo 9 (Titulación SEP); luego Fase 4.
+3. Trabajo de cola pendiente, para cuando haya scheduler: enganchar
+   `GeneradorAdeudos::generarParaTodas` y
+   `AplicadorRecargosDescuentos::recalcularCartera` a un job diario. Los
+   servicios ya están listos y son idempotentes; falta el disparador.
 
 **Deuda conocida:**
 

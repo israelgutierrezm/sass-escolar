@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\Identidad\Usuario;
+use App\Services\Cfdi\Pac;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -14,7 +15,19 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // El PAC que timbra los CFDI. Se resuelve por configuración para que
+        // ni el job ni `EmisorFactura` sepan cuál está en uso: cambiar de
+        // proveedor es agregar su clase a `config/cfdi.php`.
+        $this->app->bind(Pac::class, function () {
+            $driver = (string) config('cfdi.driver', 'falso');
+            $clase = config("cfdi.drivers.{$driver}");
+
+            if ($clase === null) {
+                throw new \RuntimeException("No hay PAC registrado con la clave '{$driver}' en config/cfdi.php.");
+            }
+
+            return $this->app->make($clase);
+        });
     }
 
     /**

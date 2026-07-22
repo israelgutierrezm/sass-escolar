@@ -1360,10 +1360,133 @@ los tres catálogos y la re-ligadura en la conversión.
   actual dirían "la cartera son 40 mil pesos" cuando son los 40 mil de los 25
   alumnos que se están viendo.
 
-### Editar una regla no reescribe los cargos ya emitidos
+### (7.2) Editar una regla no reescribe los cargos ya emitidos
 - **Decisión:** cambiar el monto aplica a los siguientes; los emitidos
   conservan el suyo, y la pantalla lo avisa.
 - **Razón:** un adeudo es lo que se le cobró al alumno ese mes, no una vista en
   vivo de la regla. Una regla que ya emitió cargos tampoco se borra —sus
   adeudos quedarían sin explicación de dónde salieron—: se retira el plan con
   fecha de fin, que es como se retira un esquema de cobro en la vida real.
+
+---
+
+## 2026-07-22 — Módulo 7, entrega 7.3: facturación CFDI 4.0
+
+### Se factura contra PAGOS, no contra adeudos
+- **Decisión:** los renglones del CFDI cuelgan de `pagos`, y solo de los
+  cobrados.
+- **Razón:** el comprobante ampara dinero que entró, no dinero que se espera.
+  Facturar un adeudo pendiente emitiría un documento fiscal por algo que el
+  alumno todavía no pagó — y si nunca paga, la escuela declaró un ingreso que
+  no tuvo. Un pago sin confirmar es una promesa y tampoco se factura;
+  verificado en la suite.
+- `factura_conceptos.pago_id` es lo que permite responder "¿este pago ya se
+  facturó?" sin adivinar por importes, y por tanto lo que impide facturar dos
+  veces el mismo dinero.
+
+### El IVA se desglosa por concepto y hacia atrás
+- Cada renglón toma `gravado` y `tasa_iva` de su `conceptos_pago`. En una misma
+  factura conviven la colegiatura exenta y la constancia gravada; calcular el
+  impuesto sobre el total las mezclaría.
+- **El pago es el total CON impuesto**, así que la base se obtiene dividiendo
+  (`monto / 1.16`), no multiplicando. Al revés, la factura sumaría más de lo
+  que se cobró. Verificado: 232 cobrados = 200 de base + 32 de IVA.
+
+### Inmutable, pero el ciclo de vida sí se registra
+- **La distinción que sostiene todo el módulo:** los DATOS FISCALES de un CFDI
+  timbrado no se tocan —no hay ruta de edición, y `esEditable()` responde por
+  el UUID, no por el estatus—, pero cancelar sí escribe `cancelada_en`, el
+  motivo del SAT y la relación con su sustituta. Sin esas columnas la
+  cancelación no tendría dónde constar y la regla "cancelación + refactura"
+  quedaría en el aire.
+- Una factura timbrada **no se elimina** aunque esté cancelada: es el respaldo
+  de lo que se declaró. Solo se borra un borrador o un intento rechazado, que
+  nunca fueron documentos fiscales.
+- La descripción y la clave del SAT se **copian** del catálogo al emitir. Si la
+  escuela renombra "Colegiatura" a "Cuota mensual", el comprobante ya timbrado
+  debe seguir diciendo lo que se timbró. Lo mismo con los datos del receptor:
+  se congelan por factura y no se leen de una tabla que puede cambiar.
+
+### TENSIÓN RESUELTA: el orden del SAT chocaba con "no facturar dos veces"
+- **El problema, encontrado al escribir la suite:** para cancelar con motivo 01
+  hay que citar el UUID de la sustituta, o sea que la sustituta debe existir y
+  estar timbrada ANTES de cancelar la original. Pero mientras tanto la original
+  sigue viva ocupando esos pagos, y la regla de no refacturar los bloqueaba. El
+  motivo 01 era inalcanzable.
+- **Decisión:** `EmisorFactura::refacturar()` declara la sustitución AL EMITIR
+  (`factura_sustituye_id` se escribe en la nueva, no al cancelar). Una factura
+  que ya tiene sustituta viva deja de amparar sus pagos, así que la nueva puede
+  tomarlos sin que la vieja desaparezca. El flujo queda en dos pasos
+  explícitos: emitir la sustituta → cuando tenga UUID, cancelar la original con
+  motivo 01 citándola.
+- **Se descartó "cancelar primero y volver a facturar"**: deja a la escuela sin
+  ningún comprobante vigente en el hueco entre las dos operaciones, y si el
+  segundo timbrado falla, sin ninguno en absoluto.
+- Cancelar con motivo 01 valida que la sustituta esté timbrada y que se haya
+  emitido para sustituir a ESA factura. Citar una ajena se rechaza.
+- El motivo 02 (sin relación) sigue siendo el camino simple: cancela y libera
+  los pagos, que vuelven a ser facturables.
+
+### El timbrado va en cola, y el rechazo NO es una excepción
+- **Decisión:** `TimbrarFactura` es un job. El PAC es un tercero que puede
+  tardar diez segundos o estar caído media hora; timbrar dentro del request
+  dejaría al usuario ante una pantalla colgada y un timeout no le diría si el
+  comprobante se emitió o no.
+- **`ResultadoTimbrado` en vez de excepciones para el rechazo.** Que el SAT
+  rechace un comprobante —RFC inexistente, régimen que no corresponde al uso,
+  certificado vencido— es una respuesta normal del trámite y hay que
+  mostrársela al usuario tal cual. Las excepciones se reservan para lo que sí
+  conviene reintentar: que el PAC no conteste.
+- Por eso un rechazo **no se reintenta** (la respuesta sería la misma): la
+  factura queda en `error` con el motivo, alguien corrige el dato y reemite.
+  Los reintentos con espera creciente (60s, 5min, 15min) son solo para la falta
+  de respuesta.
+- `failed()` marca como `error` lo que se quedó en `timbrando`: sin eso, una
+  factura cuyo PAC nunca contestó se quedaría en ese estado para siempre y
+  nadie sabría que hay que reintentarla.
+- **Defensa contra el doble timbrado:** el job sale de inmediato si la factura
+  ya tiene UUID. Emitir dos comprobantes por el mismo cobro obliga a cancelar
+  uno ante el SAT, que es un trámite y no un `delete`. Verificado corriendo el
+  job dos veces sobre la misma factura.
+- El `dispatch` va DENTRO de la transacción a propósito: la cola es `database`
+  y su tabla vive en la misma base del tenant, así que si la factura no se
+  guarda, el job tampoco existe. Con una cola externa habría que usar
+  `afterCommit()`. El job es tenant-aware sin hacer nada gracias al
+  `QueueTenancyBootstrapper` ya encendido — por eso viaja con el ID y no con el
+  modelo.
+
+### El PAC es una interfaz, y NO se escribió una implementación real
+- **Decisión:** `App\Services\Cfdi\Pac` con `PacFalso` como único driver, y el
+  proveedor real registrado en `config/cfdi.php` cuando la escuela contrate uno.
+- **Razón:** escribir un cliente de Facturama sin credenciales para probarlo
+  produciría código que parece funcionar y que nadie ha visto responder. Es la
+  clase de deuda que se descubre el día del primer timbrado real. `PacFalso`
+  valida lo mismo que rechazaría un PAC en su primera revisión (forma del RFC,
+  total mayor que cero, al menos un concepto) para que el camino del error se
+  ejercite en desarrollo, que es cuando conviene verlo.
+- El PAC es configuración de INSTALACIÓN, no de escuela: todas las escuelas de
+  esta instancia timbran por el mismo proveedor, con las credenciales de quien
+  opera el SaaS. Por eso vive en `config/` y no en `configuraciones` del tenant.
+- Los certificados y el RFC del emisor van en el `.env`: un certificado fiscal
+  no debería poder cambiarse desde una pantalla de administración.
+
+### Lo que NO lleva `facturas`, y por qué
+- **Serie y folio interno.** En CFDI 4.0 son opcionales y el identificador
+  fiscal es el UUID. Un consecutivo propio obligaría a otra tabla de contadores
+  —el patrón de `contadores_acta`— para algo que hoy nadie pidió.
+- **Datos fiscales del receptor en tabla aparte.** Se capturan por factura y se
+  copian. Es lo correcto además de lo simple: si el alumno cambia de régimen el
+  año que entra, la factura vieja debe seguir diciendo lo que decía. Lo que sí
+  se hace es precargar el formulario con los de su última factura, para no
+  obligarlo a recapturar su RFC cada mes.
+
+### El XML y el PDF van al disco privado
+- Nunca a `public/`: un CFDI trae RFC, razón social y domicilio fiscal del
+  receptor, que son datos personales que la LFPDPPP obliga a proteger. Se
+  sirven por ruta autenticada bajo el permiso `facturar`.
+
+### `facturar` es un permiso que casi nadie tiene
+- Ni control escolar ni el auxiliar de ventanilla lo tienen: emitir un CFDI es
+  un acto fiscal a nombre de la escuela, distinto de cobrar. Solo
+  `encargado_finanzas` y dirección general. Verificado por HTTP: el auxiliar
+  recibe 403 en `/finanzas/facturas`.

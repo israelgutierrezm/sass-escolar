@@ -19,6 +19,7 @@ use App\Http\Controllers\DocumentoRequeridoController;
 use App\Http\Controllers\EsquemaEvaluacionController;
 use App\Http\Controllers\ExpedienteAspiranteController;
 use App\Http\Controllers\ExpedienteDocenteController;
+use App\Http\Controllers\FacturaController;
 use App\Http\Controllers\FinanzasController;
 use App\Http\Controllers\FormularioController;
 use App\Http\Controllers\FotoPersonaController;
@@ -418,6 +419,29 @@ Route::middleware([
                         Route::post('/{plan}/reglas', 'guardarRegla')->name('reglas.store');
                         Route::put('/{plan}/reglas/{regla}', 'actualizarRegla')->name('reglas.update');
                         Route::delete('/{plan}/reglas/{regla}', 'eliminarRegla')->name('reglas.destroy');
+                    });
+
+                /*
+                 * Facturación. Todo bajo `facturar`, que ni control escolar ni
+                 * el auxiliar de ventanilla tienen: emitir un CFDI es un acto
+                 * fiscal a nombre de la escuela.
+                 *
+                 * No hay ruta de edición. Un comprobante timbrado no se
+                 * corrige: se cancela y se emite otro.
+                 */
+                Route::controller(FacturaController::class)
+                    ->prefix('facturas')->name('facturas.')
+                    ->middleware('can:facturar')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::get('/emitir/{matricula}', 'facturables')->name('emitir');
+                        Route::post('/emitir/{matricula}', 'store')->name('store');
+                        Route::get('/{factura}', 'show')->name('show');
+                        Route::post('/{factura}/reintentar', 'reintentar')->name('reintentar');
+                        Route::post('/{factura}/refacturar', 'refacturar')->name('refacturar');
+                        Route::post('/{factura}/cancelar', 'cancelar')->name('cancelar');
+                        Route::delete('/{factura}', 'destroy')->name('destroy');
+                        Route::get('/{factura}/descargar/{tipo}', 'descargar')->name('descargar');
                     });
 
                 Route::controller(FinanzasController::class)->group(function () {

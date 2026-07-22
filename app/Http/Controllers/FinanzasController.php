@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Finanzas\Adeudo;
 use App\Models\Finanzas\BitacoraSituacionFinanciera;
+use App\Models\Finanzas\Factura;
 use App\Models\Finanzas\MetodoPago;
 use App\Models\Finanzas\Pago;
 use App\Models\Finanzas\SituacionPago;
@@ -150,7 +151,19 @@ class FinanzasController extends Controller
             'permisos' => [
                 'registrarPagos' => $request->user()->can('registrar-pagos'),
                 'condonar' => $request->user()->can('condonar-adeudos'),
+                'facturar' => $request->user()->can('facturar'),
             ],
+            'facturas' => Factura::query()
+                ->where('matricula_oferta_id', $matricula->id)
+                ->orderByDesc('id')
+                ->get()
+                ->map(fn (Factura $f) => [
+                    'id' => $f->id,
+                    'uuid' => $f->uuid,
+                    'estatus' => $f->estatus,
+                    'total' => (float) $f->total,
+                    'fecha_timbrado' => $f->fecha_timbrado?->toDateTimeString(),
+                ])->values(),
         ]);
     }
 

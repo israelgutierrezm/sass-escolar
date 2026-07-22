@@ -62,7 +62,8 @@ const props = defineProps<{
     planCobro: { id: number; nombre: string; aplica_a: string; reglas: number } | null;
     metodosPago: { id: number; clave: string; nombre: string; requiere_confirmacion: boolean }[];
     situacionesPago: { id: number; clave: string; nombre: string; bloquea: boolean }[];
-    permisos: { registrarPagos: boolean; condonar: boolean };
+    permisos: { registrarPagos: boolean; condonar: boolean; facturar: boolean };
+    facturas: { id: number; uuid: string | null; estatus: string; total: number; fecha_timbrado: string | null }[];
 }>();
 
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
@@ -159,6 +160,10 @@ const colorEstatus: Record<string, string> = {
     completado: 'text-emerald-700 bg-emerald-50',
     fallido: 'text-red-700 bg-red-50',
     reembolsado: 'text-slate-600 bg-slate-100',
+    borrador: 'text-slate-600 bg-slate-100',
+    timbrando: 'text-blue-700 bg-blue-50',
+    timbrada: 'text-emerald-700 bg-emerald-50',
+    error: 'text-red-700 bg-red-50',
 };
 </script>
 
@@ -215,6 +220,14 @@ const colorEstatus: Record<string, string> = {
                 >
                     Cambiar situación
                 </button>
+                <a
+                    v-if="permisos.facturar"
+                    :href="`/finanzas/facturas/emitir/${matricula.id}`"
+                    class="rounded-lg border px-4 py-2 text-sm"
+                    :style="{ borderColor: 'var(--color-borde)' }"
+                >
+                    Emitir factura
+                </a>
             </div>
 
             <p v-if="!planCobro" class="mt-3 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -555,6 +568,42 @@ const colorEstatus: Record<string, string> = {
             <p v-else class="px-6 py-10 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
                 Sin pagos registrados.
             </p>
+        </section>
+
+        <section v-if="permisos.facturar && facturas.length" class="tarjeta overflow-hidden">
+            <header class="px-6 py-4">
+                <h2 class="text-base font-semibold">Facturas</h2>
+            </header>
+            <table class="w-full text-sm">
+                <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
+                    <tr>
+                        <th class="px-6 py-3 font-medium">Folio fiscal</th>
+                        <th class="px-4 py-3 font-medium">Timbrado</th>
+                        <th class="px-4 py-3 text-right font-medium">Total</th>
+                        <th class="px-4 py-3 font-medium">Estatus</th>
+                        <th class="px-6 py-3"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="f in facturas" :key="f.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
+                        <td class="px-6 py-3 font-mono text-xs">{{ f.uuid ?? '—' }}</td>
+                        <td class="px-4 py-3 tabular-nums" :style="{ color: 'var(--color-suave)' }">
+                            {{ f.fecha_timbrado ?? '—' }}
+                        </td>
+                        <td class="px-4 py-3 text-right tabular-nums">{{ pesos.format(f.total) }}</td>
+                        <td class="px-4 py-3">
+                            <span class="rounded px-2 py-0.5 text-xs font-medium" :class="colorEstatus[f.estatus] ?? ''">
+                                {{ f.estatus }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-3 text-right">
+                            <a :href="`/finanzas/facturas/${f.id}`" class="text-xs font-medium" :style="{ color: 'var(--color-acento)' }">
+                                Ver
+                            </a>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </section>
 
         <section v-if="cuenta.bitacora.length" class="tarjeta p-6">
