@@ -93,17 +93,40 @@ class CrearUsuarioDemo extends Command
             );
         }
 
-        $rolInicial = Rol::query()->where('name', 'encargado_admisiones')->value('id');
+        $usuario = Usuario::query()->firstOrNew(['persona_id' => $persona->id]);
 
-        $usuario = Usuario::query()->updateOrCreate(
-            ['persona_id' => $persona->id],
-            [
-                'usuario' => (string) $this->option('usuario'),
-                'email' => $this->option('usuario').'@escuela.mx',
-                'password' => (string) $this->option('password'),
-                'rol_activo_id' => $rolInicial,
-            ],
-        );
+        $usuario->fill([
+            'usuario' => (string) $this->option('usuario'),
+            'email' => $this->option('usuario').'@escuela.mx',
+            'password' => (string) $this->option('password'),
+        ]);
+
+        /*
+         * El rol activo NO se pisa al re-correr el comando.
+         *
+         * Antes se fijaba siempre a `encargado_admisiones` con un
+         * updateOrCreate, así que volver a ejecutarlo —cosa que se hace seguido
+         * durante el desarrollo— sacaba al usuario del rol en el que estaba
+         * trabajando, sin decir nada. Restablecer la CONTRASEÑA sí es el
+         * propósito del comando; cambiarle el contexto de trabajo, no.
+         *
+         * Solo se asigna cuando el usuario nace, o cuando el rol que trae dejó
+         * de estar entre sus roles activos.
+         */
+        $rolValido = $usuario->rol_activo_id !== null
+            && $usuario->exists
+            && $usuario->puedeUsarRol((int) $usuario->rol_activo_id);
+
+        if (! $rolValido) {
+            $usuario->rol_activo_id = Rol::query()->where('name', 'encargado_admisiones')->value('id');
+        }
+
+        $usuario->save();
+
+        // Se reportan los roles REALES que tiene la persona, no una lista fija:
+        // el usuario demo acumula roles conforme se prueban módulos.
+        $susRoles = $persona->rolesActivos()->pluck('nombre')->implode(', ');
+        $rolActivo = Rol::find($usuario->rol_activo_id)?->nombre ?? 'ninguno';
 
         tenancy()->end();
 
@@ -112,7 +135,8 @@ class CrearUsuarioDemo extends Command
         $this->line("  Escuela:    {$tenant->id}");
         $this->line("  Usuario:    {$usuario->usuario}");
         $this->line("  Contraseña: {$this->option('password')}");
-        $this->line('  Roles:      Encargado de admisiones, Docente, Director de campus (Campus Central)');
+        $this->line("  Roles:      {$susRoles}");
+        $this->line("  Rol activo: {$rolActivo}");
         $this->newLine();
         $this->line("  Entra en:   http://{$tenant->domains()->value('domain')}:8000");
 

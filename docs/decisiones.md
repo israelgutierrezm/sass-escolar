@@ -455,6 +455,22 @@ cliente antes de escribir código, según la regla del proyecto.
 - El motivo de reprobación (examen, faltas, no presentó) queda en NULL: el
   sistema no puede deducirlo de un número. Lo asienta control escolar.
 
+### `acadion:usuario-demo` ya no pisa el rol activo
+- **Síntoma observado:** el usuario demo aparecía de pronto con
+  `rol_activo_id` = encargado_admisiones sin que nadie hubiera conmutado.
+- **Causa (reproducida):** el comando hacía `Usuario::updateOrCreate` con
+  `'rol_activo_id' => encargado_admisiones` fijo, así que **cada** ejecución
+  —cosa que se hace seguido durante el desarrollo— sacaba al usuario del rol
+  en el que estaba trabajando, en silencio. No era un fallo del login ni del
+  middleware: ambos se verificaron y se comportan como su contrato dice.
+- **Decisión:** el comando fija el rol activo **solo al crear** el usuario, o
+  cuando el que trae dejó de estar entre sus roles activos. Restablecer la
+  CONTRASEÑA sí es su propósito; cambiarle el contexto de trabajo, no. De paso
+  reporta los roles reales de la persona en vez de una lista hardcodeada.
+- **Verificado:** el rol sobrevive a dos ejecuciones seguidas, y revocando el
+  rol activo en `persona_rol` el middleware `EstablecerRolActivo` sigue
+  reasignando al siguiente request, como se diseñó.
+
 ### Las pruebas de integración se versionan
 - **Decisión:** `scripts/prueba-actas.php` entra al repo (43 verificaciones con
   rollback contra el tenant demo).
