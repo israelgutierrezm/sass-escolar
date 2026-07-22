@@ -48,13 +48,14 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (18 suites, 491 verificaciones):
+   Las suites versionadas viven en `scripts/` (19 suites, 522 verificaciones):
    `prueba-actas`, `prueba-plantillas`, `prueba-ventanas-captura`,
    `prueba-ciclo-campus`, `prueba-apertura-grupos`, `prueba-alcance-docente`,
    `prueba-alumnos`, `prueba-docentes`, `prueba-documentos`,
    `prueba-formularios`, `prueba-multicarrera`, `prueba-suplantacion`,
    `prueba-finanzas`, `prueba-cobro`, `prueba-facturacion`, `prueba-emisores`,
-   `prueba-roles`, `prueba-crm`. NO van en `tests/`:
+   `prueba-roles`, `prueba-crm`, `prueba-formulario-publico`.
+   NO van en `tests/`:
    phpunit corre contra SQLite en memoria y ahí se prueba justo lo que SQLite
    no sabe hacer (`LAST_INSERT_ID`, FKs reales, InnoDB).
 
@@ -65,9 +66,7 @@ Cinco entregas, en este orden. A y B ✅ hechas; C, D y E pendientes:
 - **A** ✅ Roles y permisos desde pantalla.
 - **B** ✅ Menú por oficio (Alumnos y Docentes como secciones propias).
 - **C** ✅ CRM de promoción: embudo, seguimiento, promotores y comisiones.
-- **D** ⏳ Formulario público embebible en la web de la escuela. Decisión
-  tomada: **configurable por formulario** — cada uno declara si es solo
-  captación (deja un prospecto al CRM) o inscripción autogestiva completa.
+- **D** ✅ Formulario público embebible, con modo captación o inscripción.
 - **E** ⏳ Panel por rol: alumno y docente con su avance y pendientes;
   administrativo con estadísticas acotadas a SUS permisos. Debe ser un registro
   de tarjetas que declaran el permiso que exigen, no ramas por rol.
@@ -263,7 +262,17 @@ npm run dev                # o npm run build
   abre `ver-mis-prospectos` O `gestionar-promocion`. No es asignable ni esta en
   el catalogo: cuando dos permisos abren la misma puerta, la puerta se declara
   aparte en vez de pedirle a la escuela que adivine la dependencia.
-- Pruebas: 18 suites en `scripts/`, 491 verificaciones, todas contra la BD real
+- **Formulario público embebible** (`/p/{token}`, sin sesion): la escuela
+  publica un formulario y lo pega en su pagina web con un `<iframe>`. Va en
+  **Blade y no en Inertia** — se carga dentro del sitio de la escuela y no debe
+  arrastrar la SPA administrativa. Tabla `formularios_publicos` (la publicacion)
+  aparte de `formularios` (el cuestionario); token UUID, no consecutivo. Modo
+  `captacion` o `inscripcion` (esta ultima crea la cuenta del aspirante).
+  Salvaguardas porque los datos los escribe un desconocido: nunca sobreescribe
+  una persona existente, deduplica SOLO por CURP, no repite prospecto, no toca
+  credenciales de quien ya tenia cuenta, honeypot y `throttle`. Admin en
+  `/promocion/publicaciones`.
+- Pruebas: 19 suites en `scripts/`, 522 verificaciones, todas contra la BD real
   del tenant demo con `DB::rollBack()` al final.
 
 **Pendiente inmediato — aquí se retoma:**

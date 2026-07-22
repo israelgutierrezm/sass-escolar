@@ -23,6 +23,7 @@ use App\Http\Controllers\ExpedienteDocenteController;
 use App\Http\Controllers\FacturaController;
 use App\Http\Controllers\FinanzasController;
 use App\Http\Controllers\FormularioController;
+use App\Http\Controllers\FormularioPublicoController;
 use App\Http\Controllers\FotoPersonaController;
 use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\InscripcionController;
@@ -59,6 +60,22 @@ Route::middleware([
     InitializeTenancyByDomain::class,
     PreventAccessFromCentralDomains::class,
 ])->group(function () {
+    /*
+     * Formulario público embebible en la web de la escuela.
+     *
+     * FUERA de `auth` y de `guest`: lo abre un desconocido y también alguien
+     * que ya tiene sesión (el promotor probando su propia campaña). Con
+     * `guest` le rebotaría al segundo.
+     *
+     * El envío va con `throttle`: es un endpoint anónimo que escribe en la
+     * base, o sea el candidato perfecto para inundar el CRM de basura. Seis
+     * por minuto por IP no estorba a nadie que lo llene a mano.
+     */
+    Route::controller(FormularioPublicoController::class)->prefix('p')->name('tenant.publico.')->group(function () {
+        Route::get('/{token}', 'mostrar')->name('formulario');
+        Route::post('/{token}', 'enviar')->middleware('throttle:6,1')->name('enviar');
+    });
+
     Route::middleware('guest')->group(function () {
         Route::get('/', [AutenticacionController::class, 'mostrarLogin'])->name('tenant.login');
         Route::post('/login', [AutenticacionController::class, 'login'])->name('tenant.login.enviar');
@@ -515,6 +532,15 @@ Route::middleware([
                 Route::middleware('can:gestionar-comisiones')->group(function () {
                     Route::post('/comisiones/pagar', 'pagarComisiones')->name('comisiones.pagar');
                     Route::post('/comisiones/{comision}/cancelar', 'cancelarComision')->name('comisiones.cancelar');
+                });
+
+                // Publicaciones: qué formulario se ofrece en la web, con qué
+                // token y a quién se le asignan los que lleguen.
+                Route::middleware('can:gestionar-promocion')->group(function () {
+                    Route::get('/publicaciones', 'publicaciones')->name('publicaciones');
+                    Route::post('/publicaciones', 'guardarPublicacion')->name('publicaciones.store');
+                    Route::put('/publicaciones/{publicacion}', 'actualizarPublicacion')->name('publicaciones.update');
+                    Route::delete('/publicaciones/{publicacion}', 'eliminarPublicacion')->name('publicaciones.destroy');
                 });
 
                 Route::middleware('can:configurar-comisiones')->group(function () {

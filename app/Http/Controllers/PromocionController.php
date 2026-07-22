@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\Academico\Campus;
 use App\Models\Academico\Carrera;
 use App\Models\Academico\Oferta;
 use App\Models\Admisiones\Asesor;
 use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\EtapaCrm;
 use App\Models\Finanzas\ConceptoPago;
+use App\Models\Formularios\Formulario;
 use App\Models\Promocion\Comision;
+use App\Models\Promocion\FormularioPublico;
 use App\Models\Promocion\OrigenAspirante;
 use App\Models\Promocion\ReglaComision;
 use App\Models\Promocion\SeguimientoAspirante;
@@ -307,6 +310,111 @@ class PromocionController extends Controller
         $regla->delete();
 
         return back()->with('exito', 'Regla eliminada.');
+    }
+
+    /**
+     * Las publicaciones: qué formulario se ofrece en la web de la escuela.
+     *
+     * Se muestra el `<iframe>` listo para copiar. La escuela no debería tener
+     * que armar el HTML ni acordarse del dominio de su tenant.
+     */
+    public function publicaciones(Request $request): Response
+    {
+        return Inertia::render('Promocion/Publicaciones', [
+            'publicaciones' => FormularioPublico::query()
+                ->with('formulario:id,clave,titulo,version', 'origen:id,nombre', 'etapa:id,nombre',
+                    'oferta.carrera:id,nombre', 'campus:id,nombre', 'asesor.persona:id,nombre,primer_apellido,segundo_apellido')
+                ->orderByDesc('id')
+                ->get()
+                ->map(fn (FormularioPublico $p) => [
+                    'id' => $p->id,
+                    'nombre' => $p->nombre,
+                    'titulo' => $p->titulo,
+                    'modo' => $p->modo,
+                    'formulario_id' => $p->formulario_id,
+                    'token' => $p->token,
+                    'url' => url('/p/'.$p->token),
+                    'formulario' => $p->formulario?->titulo.' v'.$p->formulario?->version,
+                    'origen' => $p->origen?->nombre,
+                    'etapa' => $p->etapa?->nombre,
+                    'oferta' => $p->oferta?->carrera?->nombre,
+                    'campus' => $p->campus?->nombre,
+                    'asesor' => $p->asesor?->persona?->nombreCompleto(),
+                    'activo' => $p->activo,
+                    'abierto' => $p->estaAbierto(),
+                    'vigente_desde' => $p->vigente_desde?->toDateString(),
+                    'vigente_hasta' => $p->vigente_hasta?->toDateString(),
+                    'visitas' => $p->visitas,
+                    'envios' => $p->envios,
+                ]),
+            'formularios' => Formulario::query()->orderBy('titulo')->orderByDesc('version')
+                ->get(['id', 'clave', 'titulo', 'version'])
+                ->map(fn (Formulario $f) => ['id' => $f->id, 'nombre' => $f->titulo.' (v'.$f->version.')']),
+            'origenes' => OrigenAspirante::activos()->orderBy('nombre')->get(['id', 'nombre', 'autogestivo']),
+            'etapas' => EtapaCrm::orderBy('orden')->get(['id', 'nombre']),
+            'campus' => Campus::orderBy('nombre')->get(['id', 'nombre']),
+            'ofertas' => Oferta::with('carrera:id,nombre', 'campus:id,nombre')->get()
+                ->map(fn ($o) => ['id' => $o->id, 'nombre' => ($o->carrera?->nombre ?? '—').' · '.($o->campus?->nombre ?? '—')]),
+            'promotores' => Asesor::query()->with('persona:id,nombre,primer_apellido,segundo_apellido')->get()
+                ->map(fn (Asesor $a) => ['persona_id' => $a->persona_id, 'nombre' => $a->persona?->nombreCompleto()]),
+        ]);
+    }
+
+    public function guardarPublicacion(Request $request): RedirectResponse
+    {
+        FormularioPublico::create($this->validarPublicacion($request));
+
+        return back()->with('exito', 'Formulario publicado. Copia el código para embeberlo en tu página.');
+    }
+
+    public function actualizarPublicacion(Request $request, FormularioPublico $publicacion): RedirectResponse
+    {
+        $publicacion->update($this->validarPublicacion($request));
+
+        return back()->with('exito', 'Publicación actualizada.');
+    }
+
+    /**
+     * Una publicación que ya recibió gente NO se borra: sus prospectos vienen
+     * de ahí y perder de dónde llegaron es perder la medición de la campaña.
+     * Se desactiva, que además es lo que se quiere cuando cierra.
+     */
+    public function eliminarPublicacion(FormularioPublico $publicacion): RedirectResponse
+    {
+        if ($publicacion->envios > 0) {
+            return back()->with(
+                'error',
+                "Esta publicación ya recibió {$publicacion->envios} solicitudes. Desactívala en vez de borrarla: "
+                .'si desaparece, se pierde de dónde llegaron esos prospectos.'
+            );
+        }
+
+        $publicacion->delete();
+
+        return back()->with('exito', 'Publicación eliminada.');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function validarPublicacion(Request $request): array
+    {
+        return $request->validate([
+            'formulario_id' => ['required', Rule::exists('formularios', 'id')],
+            'nombre' => ['required', 'string', 'max:150'],
+            'titulo' => ['required', 'string', 'max:200'],
+            'modo' => ['required', Rule::in([FormularioPublico::MODO_CAPTACION, FormularioPublico::MODO_INSCRIPCION])],
+            'bienvenida' => ['nullable', 'string', 'max:1000'],
+            'gracias' => ['nullable', 'string', 'max:1000'],
+            'origen_id' => ['nullable', Rule::exists('origenes_aspirante', 'id')],
+            'etapa_crm_id' => ['nullable', Rule::exists('etapas_crm', 'id')],
+            'campus_id' => ['nullable', Rule::exists('campus', 'id')],
+            'oferta_id' => ['nullable', Rule::exists('oferta', 'id')],
+            'asesor_persona_id' => ['nullable', Rule::exists('asesores', 'persona_id')],
+            'activo' => ['boolean'],
+            'vigente_desde' => ['nullable', 'date'],
+            'vigente_hasta' => ['nullable', 'date', 'after_or_equal:vigente_desde'],
+        ]);
     }
 
     /** Catálogos que consume la ficha del aspirante. */

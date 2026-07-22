@@ -1742,3 +1742,88 @@ roles que trae el sistema pasan a ser datos borrables y no la estructura.
   seguimiento, pero solo los suyos. NO valida expedientes ni convierte a
   alumno — eso sigue siendo de admisiones. Es un ejemplo borrable, como todos
   los funcionales.
+
+---
+
+## 2026-07-22 — Formulario público embebible (entrega D)
+
+### Va en Blade, no en Inertia
+- **Decisión:** el formulario público se sirve con vistas Blade autocontenidas,
+  con los estilos en línea, fuera de la SPA.
+- **Razón:** se carga dentro de un `<iframe>` en la página de la escuela. Montar
+  ahí la SPA administrativa —medio megabyte de JavaScript, más las props
+  compartidas de sesión, permisos y tema— para pintarle ocho campos a un anónimo
+  arrastraría todo el peso del panel al sitio de la escuela. Además, la vista no
+  sabe nada de la sesión, que es exactamente lo que debe saber alguien que no ha
+  entrado.
+- Lleva `noindex`: un buscador que indexe una convocatoria seguiría mandando
+  gente a un formulario muerto cuando cierre.
+
+### Tabla aparte, no columnas en `formularios`
+- `formularios_publicos` es la PUBLICACIÓN; `formularios` es el cuestionario.
+  Son cosas distintas: el formulario es qué se pregunta —versionado y congelado
+  en cuanto alguien contesta—, la publicación es cómo y dónde se ofrece. La
+  escuela publica el mismo formulario dos veces —una para la feria, otra para la
+  página— y cada publicación mide por separado.
+- Apunta a una VERSIÓN concreta. Publicar la v2 es otra publicación, y así las
+  respuestas de la v1 siguen queriendo decir lo que decían.
+
+### El token es UUID, no un consecutivo
+- Cualquiera en internet puede probar `/p/1`, `/p/2`. Un id adivinable convierte
+  un formulario retirado en uno que sigue recibiendo. Se genera solo: uno
+  elegido a mano acaba siendo "inscripciones2026", que también se adivina.
+
+### Tres reglas porque los datos los escribe un desconocido
+1. **Nunca se sobreescribe una persona existente.** Si la CURP ya está en la
+   base se liga el prospecto a esa persona sin tocarle un dato. Un formulario
+   anónimo capaz de corregir el nombre o el teléfono de alguien es una forma de
+   secuestrar un expediente. Verificado mandando la misma CURP con datos falsos.
+2. **La deduplicación es por CURP y SOLO por CURP.** El correo no identifica: es
+   trivial teclear el de otro, y ligar por correo metería a un tercero dentro de
+   un expediente ajeno. Sin CURP se crea persona nueva y que admisiones
+   consolide — un duplicado se arregla; un secuestro de expediente, no.
+3. **No se repite el prospecto.** Si esa persona ya tiene solicitud viva para la
+   misma oferta, no se crea otra: el reintento se registra como seguimiento, que
+   para promoción es señal de interés y no ruido. Sin esto, quien llena el
+   formulario cinco veces produce cinco prospectos y cinco llamadas.
+
+### Y dos más sobre las credenciales
+- En modo inscripción se crea la cuenta, pero **si la persona ya tenía una no se
+  toca**: un formulario anónimo que pudiera reescribir una contraseña sería la
+  vía más simple para tomar la cuenta de alguien. Verificado.
+- Los ids de campo que llegan en el POST se filtran contra los del formulario
+  publicado: uno ajeno colado en el envío ensuciaría las respuestas de otro.
+
+### Anti-abuso sin captcha
+- Honeypot (un campo oculto que una persona nunca llena) más `throttle:6,1` por
+  IP en el envío. Es un endpoint anónimo que ESCRIBE en la base, o sea el
+  candidato perfecto para inundar el CRM.
+- Se descartó un captcha: exige contratar un servicio y le cobra fricción al
+  visitante legítimo. Si el spam se vuelve un problema real, se agrega entonces.
+
+### La vigencia se revalida al ENVIAR, no solo al pintar
+- La campaña pudo cerrarse entre que alguien abrió la pestaña y mandó el
+  formulario. Es la misma regla que ya gobierna las ventanas de captura.
+- Una convocatoria cerrada NO devuelve 404: el visitante llegó por un enlace
+  legítimo y merece saber que cerró, no toparse con un error que parece de la
+  escuela.
+
+### `personas.sexo_id` obligó a preguntar el sexo
+- Es NOT NULL por decisión de la spec, así que el formulario público lo pregunta
+  en vez de inventar un valor por omisión: un dato de identidad no se rellena a
+  espaldas de quien lo da. Apareció al correr la suite, no al diseñar.
+
+### Al prospecto autogestivo se le asigna dueño al nacer
+- La publicación puede fijar el promotor titular. Un prospecto que llega solo y
+  cae en tierra de nadie es al que nadie llama — y además es quien devengará la
+  comisión si se inscribe.
+
+### Una publicación que ya recibió gente no se borra
+- Se desactiva. Si desaparece se pierde de dónde llegaron esos prospectos, que
+  es toda la medición de la campaña.
+
+### Nota sobre las pruebas por HTTP
+- Los scripts de humo que hacen peticiones reales NO pueden envolver sus datos
+  en una transacción: la petición abre su propia conexión y no ve lo que no está
+  confirmado. Se descubrió aquí (404 en tokens que sí existían). El de este
+  módulo crea, prueba y borra con precisión lo que creó.

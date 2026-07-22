@@ -90,6 +90,7 @@ const navegacion = computed(() => {
                 { etiqueta: 'Aspirantes', url: '/aspirantes', permiso: 'ver-aspirantes' },
                 { etiqueta: 'Promoción (CRM)', url: '/promocion', permiso: 'ver-mis-prospectos', o: 'gestionar-promocion' },
                 { etiqueta: 'Comisiones', url: '/promocion/comisiones', permiso: 'ver-mis-prospectos', o: 'gestionar-promocion' },
+                { etiqueta: 'Formularios web', url: '/promocion/publicaciones', permiso: 'gestionar-promocion' },
                 { etiqueta: 'Documentos', url: '/documentos', permiso: 'gestionar-documentos' },
                 { etiqueta: 'Formularios', url: '/formularios', permiso: 'gestionar-formularios' },
             ],
