@@ -479,3 +479,61 @@ cliente antes de escribir código, según la regla del proyecto.
   e InnoDB bajo transacción. Hasta ahora estos scripts eran efímeros; el bug
   del doble asentamiento apareció por accidente y se habría perdido sin una
   suite que lo fijara.
+
+## 2026-07-21 — Aclaraciones del cliente sobre operación escolar
+
+Seis observaciones al probar la captura. Tres tocaban esquema y se resolvieron
+con él antes de escribir código; tres eran de interfaz.
+
+### Un ciclo aplica a VARIOS campus  ✅ RESUELTO E IMPLEMENTADO
+- **Aclaración:** una escuela con 5 campus abre el mismo ciclo en 2 o 3, no en
+  uno solo ni en todos.
+- **Lo que había:** `ciclos.campus_id` (un campus, o NULL = global), con unique
+  (campus_id, clave). Para aplicar un ciclo a tres campus había que crear tres
+  ciclos con la misma clave, y entonces "2026-2027/1" dejaba de ser UN periodo:
+  las inscripciones quedaban repartidas entre ciclos que eran el mismo.
+- **RESOLUCIÓN:** pivote `ciclo_campus` (N:M). Se eliminó `ciclos.campus_id` y
+  la clave pasa a ser única en toda la escuela, porque el campus ya no forma
+  parte de la identidad del ciclo.
+  - **Sin filas en el pivote = ciclo global.** Misma semántica que tenía el
+    NULL, ahora expresada por ausencia.
+  - `scopeDelAlcance` y `scopeParaCampus` incluyen siempre los globales: son de
+    la escuela entera, así que son de todos.
+  - Migración con backfill (los ciclos existentes conservan su campus) y
+    re-ejecutable: MySQL no tiene DDL transaccional, así que cada paso comprueba
+    su estado y un fallo a medias no obliga a limpiar a mano. La FK de
+    `campus_id` se suelta en su propia sentencia porque se apoya en el índice
+    unique que hay que borrar y MySQL no deja soltar ese índice antes.
+  - `down()` conserva un solo campus por ciclo (el de menor id): la vuelta atrás
+    no puede representar lo multi-campus, y es honesto decirlo.
+
+### "Los campus del administrador" = el alcance de su ROL  ✅ IMPLEMENTADO
+- **Aclaración:** un administrador solo debe ver y elegir los campus que tiene
+  dados de alta.
+- **RESOLUCIÓN:** se usa `persona_rol.campus_id`, que existía desde el slice de
+  auth para resolver "director de un campus específico" y no se estaba usando
+  para filtrar NADA. Se descartó interpretarlo como "los campus que esa persona
+  creó" (`created_by`): si un administrador da de alta un campus y luego lo
+  administra otro, el segundo no lo vería.
+  - `Usuario::campusVisibles()` devuelve **null** con alcance global y un
+    arreglo cuando está acotado. Se distingue null de arreglo vacío a
+    propósito: null es "todos", y vacío sería "ninguno", que nunca es lo que se
+    quiere decir. `alcanzaCampus()` es el predicado puntual.
+  - **Editar no destruye lo que no se ve.** Un administrador acotado que edita
+    un ciclo multi-campus solo sincroniza los suyos; los demás se preservan.
+    Sin esa regla, guardar desde un campus habría desvinculado los otros.
+  - **El formulario solo recibe los campus que el usuario puede tocar** (bug de
+    usabilidad detectado al probar por HTTP): si se le mandaban todos, abría el
+    ciclo, no tocaba nada, guardaba, y le rebotaba un "campus fuera de tu
+    alcance" por un valor que él nunca eligió. Los ajenos se listan aparte como
+    contexto de solo lectura.
+  - Un id de campus ajeno enviado en el payload se rechaza con mensaje, no en
+    silencio: suele delatar una pantalla que ya no corresponde al rol activo.
+
+### Selección múltiple con casillas, no `<select multiple>`
+- **Decisión:** componente `CampoCasillas.vue`, con buscador que aparece solo
+  cuando la lista pasa de 8 opciones.
+- **Razón:** el `<select multiple>` nativo exige Ctrl+clic para marcar varias y
+  para deseleccionar —cosa que casi nadie descubre— y no deja ver qué está
+  marcado sin desplazarse. Con 4 campus un buscador estorba; con 50 materias es
+  indispensable, de ahí el umbral.

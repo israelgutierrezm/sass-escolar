@@ -126,4 +126,33 @@ class Usuario extends Authenticatable
             ->pluck('campus_id')
             ->all();
     }
+
+    /**
+     * Campus que este usuario puede VER y sobre los que puede operar.
+     *
+     * Devuelve `null` cuando el alcance es global —el rol no está acotado a
+     * ningún campus— y un arreglo de ids cuando sí lo está. Se distingue null
+     * de arreglo vacío a propósito: null es "todos", y un arreglo vacío sería
+     * "ninguno", que nunca es lo que queremos decir aquí.
+     *
+     * Es la contraparte de `persona_rol.campus_id`, que existía desde el slice
+     * de auth para resolver "director de un campus específico" pero no se
+     * estaba usando para filtrar nada.
+     *
+     * @return array<int, int>|null
+     */
+    public function campusVisibles(): ?array
+    {
+        $campus = $this->campusDelRolActivo();
+
+        return $campus === [] ? null : $campus;
+    }
+
+    /** ¿Puede operar sobre este campus? Con alcance global, siempre. */
+    public function alcanzaCampus(int $campusId): bool
+    {
+        $visibles = $this->campusVisibles();
+
+        return $visibles === null || in_array($campusId, $visibles, true);
+    }
 }

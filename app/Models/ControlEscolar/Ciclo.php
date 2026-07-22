@@ -9,6 +9,7 @@ use App\Models\Concerns\TieneAuditoria;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -21,7 +22,6 @@ class Ciclo extends Model
     protected $table = 'ciclos';
 
     protected $fillable = [
-        'campus_id',
         'clave',
         'nombre',
         'fecha_inicio',
@@ -45,9 +45,16 @@ class Ciclo extends Model
         ];
     }
 
-    public function campus(): BelongsTo
+    /** Campus donde aplica el ciclo. Vacío = ciclo global de la escuela. */
+    public function campus(): BelongsToMany
     {
-        return $this->belongsTo(Campus::class);
+        return $this->belongsToMany(Campus::class, 'ciclo_campus', 'ciclo_id', 'campus_id')
+            ->withTimestamps();
+    }
+
+    public function esGlobal(): bool
+    {
+        return $this->campus()->doesntExist();
     }
 
     public function situacion(): BelongsTo
@@ -60,10 +67,30 @@ class Ciclo extends Model
         return $this->hasMany(Grupo::class, 'ciclo_id');
     }
 
-    /** Ciclos del campus dado más los globales (campus_id NULL). */
+    /** Ciclos del campus dado más los globales (sin campus asignado). */
     public function scopeParaCampus(Builder $query, int $campusId): Builder
     {
-        return $query->where(fn ($q) => $q->where('campus_id', $campusId)->orWhereNull('campus_id'));
+        return $query->where(fn ($q) => $q
+            ->whereHas('campus', fn ($c) => $c->where('campus.id', $campusId))
+            ->orWhereDoesntHave('campus'));
+    }
+
+    /**
+     * Ciclos visibles para un alcance de campus. `null` = alcance global (los
+     * ve todos); un arreglo acota a esos campus más los ciclos globales, que
+     * son de la escuela entera y por tanto de todos.
+     *
+     * @param  array<int, int>|null  $campusIds
+     */
+    public function scopeDelAlcance(Builder $query, ?array $campusIds): Builder
+    {
+        if ($campusIds === null) {
+            return $query;
+        }
+
+        return $query->where(fn ($q) => $q
+            ->whereHas('campus', fn ($c) => $c->whereIn('campus.id', $campusIds))
+            ->orWhereDoesntHave('campus'));
     }
 
     /** ¿La ventana de inscripción está abierta en la fecha dada? */

@@ -5,17 +5,21 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import NavEscolar from '@/Components/NavEscolar.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
+import CampoCasillas from '@/Components/CampoCasillas.vue';
 
 const props = defineProps<{
     ciclo: Record<string, any> | null;
     campus: { id: number; nombre: string }[];
     situaciones: { id: number; nombre: string }[];
+    alcanceAcotado: boolean;
 }>();
 
 const esEdicion = computed(() => props.ciclo !== null);
 
+const campusAjenos = computed<string[]>(() => props.ciclo?.campus_ajenos ?? []);
+
 const form = useForm({
-    campus_id: props.ciclo?.campus_id ?? null,
+    campus_ids: (props.ciclo?.campus_ids ?? []) as number[],
     clave: props.ciclo?.clave ?? '',
     nombre: props.ciclo?.nombre ?? '',
     fecha_inicio: props.ciclo?.fecha_inicio ?? '',
@@ -56,14 +60,6 @@ function enviar(): void {
                     />
                     <CampoTexto v-model="form.nombre" etiqueta="Nombre" requerido :error="form.errors.nombre" />
                     <CampoSelect
-                        v-model="form.campus_id"
-                        etiqueta="Campus"
-                        :opciones="opciones(campus)"
-                        vacio="Todos (ciclo global)"
-                        :error="form.errors.campus_id"
-                        ayuda="Déjalo vacío si el ciclo aplica a toda la escuela."
-                    />
-                    <CampoSelect
                         v-model="form.situacion_id"
                         etiqueta="Situación"
                         requerido
@@ -84,6 +80,30 @@ function enviar(): void {
                         requerido
                         :error="form.errors.fecha_fin"
                     />
+                </div>
+
+                <div class="mt-5">
+                    <CampoCasillas
+                        v-model="form.campus_ids"
+                        etiqueta="Campus donde aplica"
+                        :opciones="opciones(campus)"
+                        :error="form.errors.campus_ids"
+                        vacio="No tienes campus asignados."
+                        :ayuda="
+                            alcanceAcotado
+                                ? 'Solo aparecen los campus de tu alcance. Sin marcar ninguno, el ciclo es global de la escuela.'
+                                : 'Marca uno o varios. Sin marcar ninguno, el ciclo es global de la escuela.'
+                        "
+                    />
+
+                    <!-- Campus del ciclo que este administrador no gestiona: se
+                         muestran para que sepa que el ciclo es más amplio de lo
+                         que ve, y se conservan intactos al guardar. -->
+                    <p v-if="campusAjenos.length" class="mt-2 text-xs text-slate-500">
+                        Este ciclo también aplica en
+                        <span class="font-medium">{{ campusAjenos.join(', ') }}</span>, fuera de tu
+                        alcance. No se modificarán al guardar.
+                    </p>
                 </div>
             </section>
 

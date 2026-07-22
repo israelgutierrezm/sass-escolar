@@ -8,7 +8,7 @@ defineProps<{
         id: number;
         clave: string;
         nombre: string;
-        campus: string | null;
+        campus: string[];
         situacion: string | null;
         fecha_inicio: string | null;
         fecha_fin: string | null;
@@ -65,7 +65,18 @@ function eliminar(id: number, clave: string): void {
                     <tr v-for="ciclo in ciclos" :key="ciclo.id" class="hover:bg-slate-50">
                         <td class="px-4 py-3 font-mono text-xs text-slate-600">{{ ciclo.clave }}</td>
                         <td class="px-4 py-3 font-medium text-slate-800">{{ ciclo.nombre }}</td>
-                        <td class="px-4 py-3 text-slate-600">{{ ciclo.campus ?? 'Todos (global)' }}</td>
+                        <td class="px-4 py-3 text-slate-600">
+                            <span v-if="ciclo.campus.length === 0" class="text-slate-500">Todos (global)</span>
+                            <span v-else class="flex flex-wrap gap-1">
+                                <span
+                                    v-for="nombre in ciclo.campus"
+                                    :key="nombre"
+                                    class="rounded-full bg-slate-100 px-2 py-0.5 text-xs"
+                                >
+                                    {{ nombre }}
+                                </span>
+                            </span>
+                        </td>
                         <td class="px-4 py-3 text-xs text-slate-500">
                             {{ ciclo.fecha_inicio }} → {{ ciclo.fecha_fin }}
                         </td>
