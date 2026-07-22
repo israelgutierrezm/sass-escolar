@@ -810,3 +810,43 @@ acotada.
   número. Una materia en curso no promedia como cero.
 - **Razón:** lo contrario haría que el promedio bajara al inscribirse, que es
   exactamente al revés de lo que significa.
+
+## 2026-07-21 — Catálogo de docentes
+
+### El alta reutiliza a la persona
+- **Decisión:** dar de alta un docente busca la CURP primero; si existe, se
+  reutiliza esa persona y solo se crea el registro `docentes`. Los campos vacíos
+  del alta NO pisan lo que ya estaba.
+- **Razón:** mismo principio de cero recaptura que en admisiones. Quien entra
+  como docente pudo haber sido alumno, ser tutor de alguien o haber estado dado
+  de alta antes; duplicar la persona rompe el kárdex, los roles y el expediente
+  que ya tuviera.
+- `docentes` tiene PK `persona_id`, así que la reutilización es literal: el
+  docente ES esa persona.
+
+### La revisión de documentos cierra el ciclo que faltaba
+- **Problema:** el portal del docente ya permitía cargar comprobantes, pero
+  nadie tenía pantalla para validarlos. Todo se quedaba en "Pendiente" para
+  siempre y el expediente no acreditaba nada.
+- **Decisión:** en la ficha del docente se acepta o se rechaza cada documento.
+  **Rechazar sin observación está prohibido**: se valida en el servidor.
+- **Razón:** un rechazo sin motivo obliga al docente a adivinar qué corregir, y
+  la observación es justo lo que él ve en su portal. Ciclo verificado de punta a
+  punta: sube → rechazo con motivo → lo lee → re-sube → vuelve a pendiente.
+- El listado muestra cuántos documentos tiene cada docente **por revisar**: es
+  la acción pendiente de control escolar y no debería haber que entrar a cada
+  ficha para descubrirla.
+
+### Dar de baja no es borrar
+- **Decisión:** un docente con materias asignadas no se elimina; se cambia su
+  situación a baja.
+- **Razón:** firmó actas y su nombre aparece en el kárdex de sus alumnos.
+  Borrarlo dejaría esas actas sin responsable.
+
+### Qué edita cada quien sobre el mismo docente
+- Control escolar: clave de profesor, cédula, tipo, situación, campus y alcance
+  de edición en el LMS. Son las credenciales que la escuela otorga.
+- El docente, desde `/docencia/expediente`: sus datos de identidad y contacto, y
+  sus documentos. Lo demás lo ve de solo lectura.
+- La frontera es la misma en las dos pantallas y así se rotula en ambas: subir
+  un título no es acreditarlo.

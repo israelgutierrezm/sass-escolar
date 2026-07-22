@@ -42,9 +42,10 @@ Los otros dos documentos vivos:
 4. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (121 verificaciones en total):
+   Las suites versionadas viven en `scripts/` (188 verificaciones en total):
    `prueba-actas`, `prueba-plantillas`, `prueba-ventanas-captura`,
-   `prueba-ciclo-campus`, `prueba-apertura-grupos`. NO van en `tests/`:
+   `prueba-ciclo-campus`, `prueba-apertura-grupos`, `prueba-alcance-docente`,
+   `prueba-alumnos`, `prueba-docentes`. NO van en `tests/`:
    phpunit corre contra SQLite en memoria y ahí se prueba justo lo que SQLite
    no sabe hacer (`LAST_INSERT_ID`, FKs reales, InnoDB).
 
@@ -104,6 +105,14 @@ Los otros dos documentos vivos:
 - **Sin ventanas de captura configuradas, el ciclo captura libre.** Configurar
   una es lo que empieza a bloquear. Ojo: `ciclos.captura_calif_hasta` es otra
   cosa —marca el acta como extemporánea al asentarla, no bloquea—.
+- **El docente NO es personal administrativo.** No tiene `ver-grupos` ni
+  `ver-alumnos`; opera en `/docencia` (sus materias, sus alumnos, su
+  expediente). Su alcance sale de `docente_asignatura_grupo`, no del permiso.
+  La captura vive en `/captura` —fuera de `/escolar`— porque la usan los dos
+  oficios.
+- **El alumno es la MATRÍCULA, no la persona.** Una persona puede tener varias
+  matrículas; corregir su identidad alcanza a todas, la situación es de cada
+  una.
 
 ## Entorno local
 
@@ -136,6 +145,9 @@ npm run dev                # o npm run build
   `CalculadoraCalificacion`, `GeneradorFolioActa` y `AsentadorActa`; pantallas
   `/escolar/captura` (listado) y la hoja por materia con cálculo en vivo,
   firma del acta y acta de corrección.
+- **Portal del docente** (`/docencia`) y **catálogo administrativo de docentes**
+  (`/escolar/docentes`) con revisión de su expediente; **gestión de alumnos**
+  (`/escolar/alumnos`) con búsqueda, kárdex y edición.
 - **Aclaraciones del cliente sobre operación escolar** (cuatro bloques):
   ciclo multi-campus con alcance por rol; plantillas de evaluación
   reutilizables (`/academico/plantillas`) con reparto equitativo; calendario

@@ -13,6 +13,7 @@ use App\Http\Controllers\CarreraController;
 use App\Http\Controllers\CicloController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocenciaController;
+use App\Http\Controllers\DocenteController;
 use App\Http\Controllers\EsquemaEvaluacionController;
 use App\Http\Controllers\ExpedienteAspiranteController;
 use App\Http\Controllers\ExpedienteDocenteController;
@@ -206,6 +207,30 @@ Route::middleware([
                             ->whereNumber('alumno')
                             ->middleware('can:editar-alumnos')
                             ->name('update');
+                    });
+
+                /*
+                 * Docentes: catálogo administrativo. Es la contraparte de
+                 * `/docencia` — aquí control escolar da de alta al docente,
+                 * mantiene lo que él no controla y revisa sus documentos.
+                 */
+                Route::controller(DocenteController::class)
+                    ->prefix('docentes')->name('docentes.')
+                    ->middleware('can:ver-docentes')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::get('nuevo', 'create')->middleware('can:gestionar-docentes')->name('create');
+                        Route::get('{docente}', 'show')->whereNumber('docente')->name('show');
+                        Route::get('{docente}/documentos/{documento}/descargar', 'descargarDocumento')
+                            ->whereNumber('docente')->name('documentos.descargar');
+
+                        Route::middleware('can:gestionar-docentes')->group(function () {
+                            Route::post('/', 'store')->name('store');
+                            Route::put('{docente}', 'update')->whereNumber('docente')->name('update');
+                            Route::delete('{docente}', 'destroy')->whereNumber('docente')->name('destroy');
+                            Route::put('{docente}/documentos/{documento}', 'revisarDocumento')
+                                ->whereNumber('docente')->name('documentos.revisar');
+                        });
                     });
 
                 Route::get('ciclos', [CicloController::class, 'index'])->name('ciclos.index');
