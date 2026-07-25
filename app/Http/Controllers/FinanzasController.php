@@ -50,10 +50,20 @@ class FinanzasController extends Controller
         $soloVencidos = $request->boolean('vencidos');
         $hoy = now()->toDateString();
 
+        // ¿Ve la cartera de la escuela, o solo la suya? La misma permission
+        // `ver-adeudos` la tienen el administrativo de finanzas Y el alumno; lo
+        // que cambia es SOBRE QUIÉN, y eso lo dice la faceta del rol activo, no
+        // el permiso. Un alumno (o un padre, o un tutor) ve únicamente sus
+        // matrículas — sin esto veía la cartera completa de todos, con
+        // buscador incluido, que es una fuga, no solo un buscador de más.
+        $ambito = $request->user()->rolActivo?->ambitoDePermisos();
+        $soloPropias = in_array($ambito, ['alumno', 'padre', 'tutor'], true);
+
         $consulta = MatriculaOferta::query()
             ->leftJoinSub($this->saldosPorMatricula($hoy), 'f', 'f.matricula_oferta_id', '=', 'matricula_oferta.id')
             ->join('personas', 'personas.id', '=', 'matricula_oferta.persona_id')
             ->with(['persona:id,nombre,primer_apellido,segundo_apellido', 'oferta.carrera:id,nombre', 'oferta.campus:id,nombre'])
+            ->when($soloPropias, fn ($q) => $q->where('matricula_oferta.persona_id', $request->user()->persona_id))
             ->select([
                 'matricula_oferta.*',
                 DB::raw('coalesce(f.saldo, 0) as saldo'),
@@ -61,7 +71,10 @@ class FinanzasController extends Controller
                 DB::raw('coalesce(f.adeudos, 0) as adeudos_abiertos'),
             ]);
 
-        if ($busqueda !== '') {
+        // El buscador y los filtros de cartera solo tienen sentido sobre un
+        // universo de muchos. Sobre las propias matrículas —una o dos— no se
+        // busca a nadie.
+        if (! $soloPropias && $busqueda !== '') {
             $consulta->where(function ($q) use ($busqueda) {
                 $q->where('matricula_oferta.matricula', 'like', "%{$busqueda}%")
                     ->orWhere('personas.curp', 'like', "%{$busqueda}%")
@@ -100,15 +113,20 @@ class FinanzasController extends Controller
 
         // Los totales se sacan de la misma agregación, sin el paginado: si
         // salieran de la página actual dirían "la cartera son 40 mil pesos"
-        // cuando son los 40 mil de los 25 alumnos que se están viendo.
+        // cuando son los 40 mil de los 25 alumnos que se están viendo. Cuando
+        // es un alumno, se acotan a lo suyo por la misma razón que la lista:
+        // no debe ver el total de la escuela.
         $totales = DB::query()
-            ->fromSub($this->saldosPorMatricula($hoy), 'f')
+            ->fromSub($this->saldosPorMatricula($hoy, $soloPropias ? $request->user()->persona_id : null), 'f')
             ->selectRaw('coalesce(sum(f.saldo), 0) as saldo, coalesce(sum(f.vencido), 0) as vencido, count(*) as deudores')
             ->first();
 
         return Inertia::render('Finanzas/Index', [
             'matriculas' => $matriculas,
             'filtros' => ['q' => $busqueda, 'deudores' => $soloDeudores, 'vencidos' => $soloVencidos],
+            // La vista oculta el buscador, los filtros y el encabezado de
+            // "cartera de la escuela" cuando cada quien ve solo lo suyo.
+            'soloPropias' => $soloPropias,
             'totales' => [
                 'saldo' => round((float) ($totales->saldo ?? 0), 2),
                 'vencido' => round((float) ($totales->vencido ?? 0), 2),
@@ -120,6 +138,17 @@ class FinanzasController extends Controller
 
     public function cuenta(Request $request, MatriculaOferta $matricula): Response
     {
+        // Que la lista se acote no basta: sin esto, un alumno cambia el id en la
+        // URL y ve el estado de cuenta de cualquier otro. La faceta que solo ve
+        // lo suyo solo entra a lo suyo.
+        $ambito = $request->user()->rolActivo?->ambitoDePermisos();
+
+        abort_if(
+            in_array($ambito, ['alumno', 'padre', 'tutor'], true)
+                && $matricula->persona_id !== $request->user()->persona_id,
+            403,
+        );
+
         $matricula->load(['persona', 'oferta.carrera:id,nombre', 'oferta.campus:id,nombre', 'situacion:id,nombre']);
 
         $plan = $this->resolutor->para($matricula);
@@ -310,7 +339,7 @@ class FinanzasController extends Controller
      * puede tener varios pagos: sumarlo en el mismo GROUP BY multiplicaría el
      * `monto_total` por cuantos pagos tenga encima.
      */
-    private function saldosPorMatricula(string $hoy): Builder
+    private function saldosPorMatricula(string $hoy, ?int $personaId = null): Builder
     {
         $aplicados = DB::table('pago_adeudo as pa')
             ->join('pagos as p', 'p.id', '=', 'pa.pago_id')
@@ -325,6 +354,12 @@ class FinanzasController extends Controller
             ->whereNull('a.deleted_at')
             ->whereNotNull('a.matricula_oferta_id')
             ->whereIn('a.estatus', [Adeudo::ESTATUS_PENDIENTE, Adeudo::ESTATUS_PARCIAL])
+            // Para el total del alumno: se acota a sus matrículas por join, así
+            // el «vencido» y el «saldo» del encabezado son solo suyos.
+            ->when($personaId, fn ($q) => $q->whereIn(
+                'a.matricula_oferta_id',
+                DB::table('matricula_oferta')->where('persona_id', $personaId)->select('id'),
+            ))
             ->groupBy('a.matricula_oferta_id')
             ->select('a.matricula_oferta_id')
             ->selectRaw('sum(a.monto_total - coalesce(ap.aplicado, 0)) as saldo')

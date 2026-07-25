@@ -82,7 +82,14 @@ try {
     // (la FK las protege) y las actas previas de la materia.
     $componentesViejos = EsquemaEvaluacion::where('plan_materia_id', $planMateria->id)->pluck('id');
     Historial::withTrashed()->whereNotNull('acta_id')->forceDelete();
-    Acta::withTrashed()->whereNotNull('acta_origen_id')->forceDelete();
+    // Las actas que corrigen a otra (`acta_origen_id`) se borran de la MÁS
+    // NUEVA a la más vieja, no todas de un golpe. Con una cadena de dos
+    // correcciones (152←153←154) un `delete` masivo puede tocar 153 —todavía
+    // referenciada por 154— antes que 154, y la FK autorreferenciada truena.
+    // El id descendente es hijo→padre porque la corrección siempre nace después
+    // de lo que corrige.
+    Acta::withTrashed()->whereNotNull('acta_origen_id')->orderByDesc('id')
+        ->get()->each->forceDelete();
     Acta::withTrashed()->forceDelete();
     CalificacionComponente::withTrashed()->whereIn('esquema_evaluacion_id', $componentesViejos)->forceDelete();
     EsquemaEvaluacion::where('plan_materia_id', $planMateria->id)->forceDelete();

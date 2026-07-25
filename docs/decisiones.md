@@ -2364,3 +2364,59 @@ al div, donde `blur` no burbujea.)
 
 Suite nueva: `scripts/prueba-identidad.php` (34 checks). Total: 24 suites, 675
 verificaciones, verdes.
+
+---
+
+## Toasts, y Finanzas que solo se ve a sí mismo
+
+Dos pedidos pequeños del cliente: un toastr para Vue —mensajes dinámicos tras
+cada acción, en vez de la barra fija— y que un alumno en Finanzas no vea un
+buscador de CURP/matrícula/nombre, «si un alumno solo puede ser el propio
+alumno».
+
+### Toasts con vue-sonner
+`<Toaster>` global en `AppLayout`, abajo a la derecha, con `rich-colors` y
+`close-button`. Los flash del backend (`->with('exito'|'error'|'advertencia')`)
+se disparan como toast; se conservan las mismas tres claves que ya usaba la
+barra, así que ningún controlador cambió. Las tres barras fijas se quitaron:
+empujaban el contenido y se quedaban clavadas hasta cambiar de pantalla —un
+«guardado» seguía visible mientras ya editabas otra cosa—.
+
+**HALLAZGO: el primer toast de cada página se perdía.** El primer intento usó un
+watcher `immediate`. Al navegar, el flash llega junto con el montaje del layout,
+y el `immediate` corría ANTES de que el `<Toaster>` —hijo del mismo componente—
+existiera, así que el aviso se emitía al vacío. Se movió a `onMounted`, que corre
+después de que los hijos se montaron; el watcher se queda solo para las visitas
+parciales que no remontan el layout. Verificado en el navegador: al guardar un
+aspirante aparece «Aspirante actualizado.» abajo a la derecha.
+
+### Finanzas: la misma permission, distinto alcance
+`ver-adeudos` la tienen el administrativo de finanzas Y el alumno. Es la misma
+permission; lo que cambia es SOBRE QUIÉN, y eso lo dice la FACETA del rol
+activo, no el permiso —la regla de dos capas de siempre—. Un rol de faceta
+`alumno`/`padre`/`tutor` ve únicamente sus matrículas.
+
+No era solo un buscador de más: **era una fuga**. Con `ver-adeudos`, un alumno
+entraba a `/finanzas` y veía la cartera completa de la escuela, con el saldo
+total de todos y un buscador para hurgar en cualquiera. Ahora la lista se acota
+a sus matrículas, los totales también (`saldosPorMatricula` acepta un
+`personaId`), el encabezado dice «Mi saldo / Mis matrículas» y el buscador y los
+filtros de cartera desaparecen: sobre una o dos matrículas propias no se busca a
+nadie. Y `cuenta()` verifica dueño: sin eso, un alumno cambiaba el id en la URL
+y leía el estado de cuenta de cualquier otro.
+
+Suite nueva `prueba-finanzas-alcance` (7 checks): invoca al controlador y
+comprueba que el alumno no reciba nada ajeno ni por la lista, ni por los
+totales, ni saltando por la URL (403).
+
+### De paso: dos teardown frágiles
+- `prueba-finanzas-alcance` fabricaba su alumno reutilizando la persona de la
+  primera matrícula sembrada, que ya tenía usuario → chocaba con el índice
+  único. Ahora se crea su propia persona y matrícula: no depende de qué haya
+  sembrado.
+- `prueba-actas` borraba todas las actas con `acta_origen_id` en un solo
+  `delete`. Con una cadena de dos correcciones (152←153←154), MySQL podía tocar
+  la intermedia antes que la que la referencia y la FK autorreferenciada
+  tronaba. Se borra de la más nueva a la más vieja (id descendente = hijo→padre).
+
+Total: 26 suites, 682 verificaciones, verdes.

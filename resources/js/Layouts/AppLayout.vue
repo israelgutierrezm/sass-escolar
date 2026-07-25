@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { computed, onMounted, ref, watch } from 'vue';
+import { Toaster, toast } from 'vue-sonner';
+import 'vue-sonner/style.css';
 import PanelTema from '@/Components/PanelTema.vue';
 import type { PropsCompartidas } from '@/tipos';
 
@@ -12,6 +14,32 @@ const usuario = computed(() => page.props.auth.usuario);
 const escuela = computed(() => page.props.escuela);
 const flash = computed(() => page.props.flash);
 const suplantacion = computed(() => page.props.suplantacion);
+
+/**
+ * Los mensajes del backend salen como TOAST, no como una barra fija arriba de
+ * la página.
+ *
+ * La barra empujaba el contenido y se quedaba clavada hasta cambiar de
+ * pantalla: un «guardado» seguía visible mientras ya editabas otra cosa. El
+ * toast aparece, cuenta lo que pasó y se va solo.
+ *
+ * El disparo NO va en un watcher `immediate`: al navegar, el flash llega junto
+ * con el montaje de este layout, y un `immediate` corría antes de que el
+ * <Toaster> —que es hijo de este mismo componente— existiera, así que el primer
+ * aviso de cada página se perdía. `onMounted` corre DESPUÉS de que los hijos se
+ * montaron, así que el Toaster ya está listo para recibirlo.
+ */
+function anunciar(f: typeof flash.value): void {
+    if (f?.exito) toast.success(f.exito);
+    if (f?.error) toast.error(f.error);
+    if (f?.advertencia) toast.warning(f.advertencia);
+}
+
+onMounted(() => anunciar(flash.value));
+
+// Y para las navegaciones que NO remontan el layout (visitas parciales de
+// Inertia), el watcher cubre el flash que llega después.
+watch(() => flash.value, anunciar, { deep: true });
 
 /**
  * Volver a la cuenta propia. No depende de permisos: mientras se suplanta se
@@ -530,57 +558,15 @@ const iniciales = computed(() => {
             <!-- Página -->
             <main class="flex-1 p-6">
                 <div :key="rutaActual" class="animar-entrada mx-auto max-w-7xl space-y-6">
-                    <Transition
-                        enter-active-class="transition duration-300 ease-out"
-                        enter-from-class="opacity-0 -translate-y-2"
-                    >
-                        <div
-                            v-if="flash.exito"
-                            class="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
-                        >
-                            <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                            </svg>
-                            {{ flash.exito }}
-                        </div>
-                    </Transition>
-
-                    <Transition
-                        enter-active-class="transition duration-300 ease-out"
-                        enter-from-class="opacity-0 -translate-y-2"
-                    >
-                        <div
-                            v-if="flash.error"
-                            class="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
-                        >
-                            <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
-                            </svg>
-                            {{ flash.error }}
-                        </div>
-                    </Transition>
-
-                    <!-- La operación funcionó, pero hay algo que el usuario
-                         necesita saber: qué NO alcanzó a hacerse y por qué. -->
-                    <Transition
-                        enter-active-class="transition duration-300 ease-out"
-                        enter-from-class="opacity-0 -translate-y-2"
-                    >
-                        <div
-                            v-if="flash.advertencia"
-                            class="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
-                        >
-                            <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-                            </svg>
-                            {{ flash.advertencia }}
-                        </div>
-                    </Transition>
-
                     <slot />
                 </div>
             </main>
         </div>
+
+        <!-- Toasts globales. `rich-colors` y `close-button` para que un error
+             se distinga de un éxito de un vistazo y se pueda cerrar antes de que
+             expire. Bajo la derecha para no tapar la barra superior. -->
+        <Toaster position="bottom-right" rich-colors close-button />
 
         <PanelTema :abierto="panelTema" @cerrar="panelTema = false" />
     </div>

@@ -27,6 +27,8 @@ const props = defineProps<{
     filtros: { q: string; deudores: boolean; vencidos: boolean };
     totales: { saldo: number; vencido: number; deudores: number };
     puedeRegistrarPagos: boolean;
+    /** El usuario ve solo SUS matrículas (alumno/padre/tutor): sin buscador. */
+    soloPropias: boolean;
 }>();
 
 const busqueda = ref(props.filtros.q);
@@ -62,10 +64,12 @@ const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN
 <template>
     <Head title="Cartera" />
 
-    <AppLayout titulo="Finanzas">
+    <AppLayout :titulo="soloPropias ? 'Mis finanzas' : 'Finanzas'">
         <section class="grid gap-4 sm:grid-cols-3">
             <div class="tarjeta p-5">
-                <p class="text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">Saldo total</p>
+                <p class="text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
+                    {{ soloPropias ? 'Mi saldo' : 'Saldo total' }}
+                </p>
                 <p class="mt-1 text-2xl font-semibold">{{ pesos.format(totales.saldo) }}</p>
             </div>
             <div class="tarjeta p-5">
@@ -75,13 +79,17 @@ const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN
                 </p>
             </div>
             <div class="tarjeta p-5">
-                <p class="text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">Con saldo</p>
+                <p class="text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
+                    {{ soloPropias ? 'Mis matrículas' : 'Con saldo' }}
+                </p>
                 <p class="mt-1 text-2xl font-semibold">{{ totales.deudores }}</p>
                 <p class="text-xs" :style="{ color: 'var(--color-suave)' }">matrículas</p>
             </div>
         </section>
 
-        <section class="tarjeta p-5">
+        <!-- El buscador y los filtros de cartera solo aparecen para quien ve a
+             MUCHOS. Un alumno se ve a sí mismo: no hay a quién buscar. -->
+        <section v-if="!soloPropias" class="tarjeta p-5">
             <div class="flex flex-wrap items-center gap-4">
                 <input
                     v-model="busqueda"
