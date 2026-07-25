@@ -21,7 +21,6 @@ const form = useForm({
     nombre: props.carrera?.nombre ?? '',
     nivel_estudios_id: props.carrera?.nivel_estudios_id ?? null,
     clave_sat: props.carrera?.clave_sat ?? '',
-    objetivo: props.carrera?.objetivo ?? '',
     imagen_url: props.carrera?.imagen_url ?? '',
     documentos: [...props.documentosSeleccionados],
 });
@@ -69,14 +68,6 @@ function enviar(): void {
                         :error="form.errors.clave_sat"
                         ayuda="ClaveProdServ para el CFDI de colegiaturas."
                     />
-                    <div class="sm:col-span-2">
-                        <label class="mb-1 block text-sm font-medium text-slate-700">Objetivo</label>
-                        <textarea
-                            v-model="form.objetivo"
-                            rows="3"
-                            class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        ></textarea>
-                    </div>
                 </div>
             </section>
 

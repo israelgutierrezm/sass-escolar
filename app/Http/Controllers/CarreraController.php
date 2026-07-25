@@ -65,7 +65,7 @@ class CarreraController extends Controller
         return Inertia::render('Academico/Carreras/Formulario', [
             'carrera' => $carrera->only([
                 'id', 'identificador', 'clave', 'nombre', 'nivel_estudios_id',
-                'clave_sat', 'objetivo', 'imagen_url',
+                'clave_sat', 'imagen_url',
             ]),
             'documentosSeleccionados' => $carrera->documentos()->pluck('documentos_requeridos.id'),
             ...$this->catalogos(),
@@ -110,7 +110,8 @@ class CarreraController extends Controller
             'nombre' => ['required', 'string', 'max:255'],
             'nivel_estudios_id' => ['required', 'integer'],
             'clave_sat' => ['nullable', 'string', 'max:15'],
-            'objetivo' => ['nullable', 'string'],
+            // «Objetivo» se retiró del formulario a pedido del cliente. La
+            // columna se conserva por si vuelve, pero ya no se captura aquí.
             'imagen_url' => ['nullable', 'string', 'max:255'],
             'documentos' => ['array'],
             'documentos.*' => ['integer'],

@@ -88,7 +88,7 @@ function enviar(): void {
                     />
                     <CampoSelect
                         v-model="form.autorizacion_reconocimiento_id"
-                        etiqueta="Tipo de autorización"
+                        etiqueta="Autorización o Reconocimiento"
                         requerido
                         :opciones="opciones(autorizaciones)"
                         vacio="Selecciona…"
@@ -133,7 +133,7 @@ function enviar(): void {
                     />
                     <CampoTexto
                         v-model="form.calificacion_maxima"
-                        etiqueta="Calificación máxima"
+                        etiqueta="Calificación máxima asignable"
                         tipo="number"
                         requerido
                         :error="form.errors.calificacion_maxima"
@@ -148,7 +148,7 @@ function enviar(): void {
 
                     <CampoTexto
                         v-model="form.minimo_creditos"
-                        etiqueta="Créditos para titularse"
+                        etiqueta="Créditos para completar la carrera"
                         tipo="number"
                         requerido
                         :error="form.errors.minimo_creditos"
@@ -158,6 +158,7 @@ function enviar(): void {
                         etiqueta="Créditos totales del plan"
                         tipo="number"
                         requerido
+                        tooltip="Total de créditos obligatorios + total de créditos optativos."
                         :error="form.errors.total_creditos"
                     />
                     <CampoTexto

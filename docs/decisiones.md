@@ -2575,3 +2575,32 @@ Total: 27 suites, 698 verificaciones.
 
 Pendiente de que estos dos catálogos globales tengan pantalla de administración
 (super-admin), junto con el módulo Configuración/Catálogos.
+
+---
+
+## Académico > Carreras y Plan de estudios (módulos 3 y 4)
+
+Dos bloques chicos de la revisión, ambos sobre formularios.
+
+**Carreras**: se retiró el campo «Objetivo» del formulario. La columna se
+conserva en la BD por si vuelve, pero ya no se captura ni se valida.
+
+**Plan de estudios**: renombres pedidos por el cliente, sin tocar datos ni
+lógica —solo la etiqueta que ve el usuario—:
+- «Tipo de autorización» → «Autorización o Reconocimiento».
+- «Calificación máxima» → «Calificación máxima asignable».
+- «Créditos para titularse» → «Créditos para completar la carrera».
+- «Créditos totales del plan» conserva su nombre y gana un tooltip: «Total de
+  créditos obligatorios + total de créditos optativos».
+
+Para el tooltip se agregó una prop `tooltip` a `CampoTexto`: una ⓘ junto a la
+etiqueta con la nota al pasar el cursor. Es reutilizable, no un parche local.
+
+Las 9 opciones del catálogo «Autorización o Reconocimiento» (RVOE Federal/
+Estatal, Autorización Federal/Estatal, Acta de Sesión, Acuerdo de Incorporación,
+Acuerdo Secretarial SEP, Decreto de Creación, Otro) se alinean en el módulo de
+Catálogos, junto con su pantalla de administración: mutar ahora un catálogo que
+los planes ya referencian, sin la UI para revisarlo, sería a ciegas.
+
+Verificado en el navegador: Carrera ya no muestra «Objetivo»; Plan de estudios
+muestra las tres etiquetas nuevas y el tooltip. Suites de carrera/plan en verde.

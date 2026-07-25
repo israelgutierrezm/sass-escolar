@@ -10,6 +10,8 @@ withDefaults(
         tipo?: string;
         requerido?: boolean;
         ayuda?: string;
+        /** Nota al pasar el cursor sobre la ⓘ junto a la etiqueta. */
+        tooltip?: string;
         marcador?: string;
         mono?: boolean;
         maximo?: number;
@@ -31,8 +33,16 @@ defineOptions({ inheritAttrs: false });
 
 <template>
     <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700">
-            {{ etiqueta }}<span v-if="requerido" class="text-red-500"> *</span>
+        <label class="mb-1 flex items-center gap-1 text-sm font-medium text-slate-700">
+            <span>{{ etiqueta }}<span v-if="requerido" class="text-red-500"> *</span></span>
+            <span
+                v-if="tooltip"
+                :title="tooltip"
+                class="inline-grid h-4 w-4 cursor-help place-items-center rounded-full text-[10px] font-bold text-slate-400 ring-1 ring-slate-300"
+                aria-label="Más información"
+            >
+                i
+            </span>
         </label>
         <input
             v-bind="$attrs"
