@@ -9,6 +9,12 @@ export interface Rol {
     nombre: string;
     /** Faceta a la que pertenece: "Encargado de admisiones" → "Administrativo". */
     faceta: string;
+    /**
+     * Ámbito canónico (administrativo/docente/alumno/aspirante/tutor/padre).
+     * Es con lo que el menú decide qué secciones mostrar. Solo viaja en el rol
+     * ACTIVO; los disponibles no lo necesitan.
+     */
+    ambito?: string;
 }
 
 export interface RolDisponible extends Rol {

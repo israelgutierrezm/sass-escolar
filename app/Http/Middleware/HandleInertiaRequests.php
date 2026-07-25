@@ -84,6 +84,13 @@ class HandleInertiaRequests extends Middleware
                 // figura DENTRO de "Administrativo". Mostrarla hace evidente la
                 // jerarquía en la interfaz.
                 'faceta' => $this->faceta($usuario->rolActivo),
+                // El ámbito (clave canónica: administrativo/docente/alumno/…) es
+                // con lo que el menú decide qué SECCIONES mostrar. No basta
+                // filtrar por permiso: `capturar-calificaciones` es de admin Y
+                // de docente, y por sí solo colaba la sección «Docencia» a un
+                // administrativo. Una faceta creada por la escuela cuenta como
+                // administrativa, que es justo lo que hace `ambitoDePermisos`.
+                'ambito' => $usuario->rolActivo->ambitoDePermisos(),
             ],
             'roles_disponibles' => $this->rolesDisponibles($usuario),
             'permisos' => $usuario->rolActivo?->permisosEfectivos()->pluck('name')->sort()->values()->all() ?? [],

@@ -215,6 +215,15 @@ try {
         $direccion->ambitoDePermisos());
     verificar('Y el del docente es docente', $docenteRol->ambitoDePermisos() === CatalogoPermisos::DOCENTE);
 
+    // El menú lateral se filtra por ESTE ámbito, no por permiso suelto. Que
+    // dirección general tenga `capturar-calificaciones` —permiso compartido con
+    // docente— no debe hacer que su ámbito sea docente: si lo fuera, le
+    // aparecería la sección «Docencia» que el cliente pidió no ver. La sección
+    // se decide por ámbito; la opción «Captura», por el permiso.
+    verificar('Un permiso compartido con docente NO cambia el ámbito administrativo',
+        $direccion->permisosEfectivos()->pluck('name')->contains('capturar-calificaciones')
+        && $direccion->ambitoDePermisos() === CatalogoPermisos::ADMINISTRATIVO);
+
     $ofrecidos = collect(CatalogoPermisos::paraPantalla($direccion->ambitoDePermisos()))
         ->flatMap(fn ($d) => collect($d['permisos'])->pluck('clave'));
 

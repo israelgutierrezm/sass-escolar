@@ -2420,3 +2420,36 @@ totales, ni saltando por la URL (403).
   tronaba. Se borra de la más nueva a la más vieja (id descendente = hijo→padre).
 
 Total: 26 suites, 682 verificaciones, verdes.
+
+---
+
+## El menú lateral se filtra por ÁMBITO, no solo por permiso
+
+Queja del cliente: operando como administrativo seguía viendo apartados de
+docente. «Aunque lo tenga dado de alta no debo ver las opciones que no son del
+rol; para verlas debo cambiar de rol.»
+
+La causa era fina: el menú filtraba cada opción por permiso, y
+`capturar-calificaciones` es un permiso COMPARTIDO entre administrativo y
+docente —control escolar asienta en nombre del docente ausente, decisión ya
+tomada—. Como dirección general lo tiene, la opción «Captura» pasaba el filtro y
+con ella asomaba toda la sección «Docencia». El permiso estaba bien concedido; lo
+que estaba mal era que una sección de un oficio apareciera en otro.
+
+La regla nueva: la SECCIÓN se filtra por el ÁMBITO del rol activo
+(administrativo/docente/alumno/aspirante/tutor/padre), y solo después cada
+opción por permiso. El ámbito lo expone el backend en `rol_activo.ambito`
+(= `Rol::ambitoDePermisos()`, que además mapea cualquier faceta creada por la
+escuela a «administrativo»). Cada sección declara `facetas: string[]`; el Panel
+es universal (`null`).
+
+«Captura» se movió a Control escolar para el administrativo, y se quedó en
+Docencia para el docente. Es el mismo permiso, distinta puerta según el oficio;
+nadie ve las dos a la vez porque las secciones ya no se cruzan de ámbito.
+
+Verificado en el navegador conmutando el rol activo: como dirección general ya
+NO aparece «Docencia»; como docente solo se ven «Panel» y «Docencia», ninguna de
+admin; como control escolar, «Captura» cuelga de Control escolar. `prueba-roles`
+sube a 48 checks y fija que un permiso compartido con docente no cambie el
+ámbito administrativo —el que decide la sección—. Total: 26 suites, 683
+verificaciones.
