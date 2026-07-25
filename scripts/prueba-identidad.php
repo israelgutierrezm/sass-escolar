@@ -16,6 +16,7 @@ $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
 use App\Models\Identidad\Persona;
 use App\Models\Landlord\EntidadFederativa;
+use App\Models\Landlord\IdentidadFederativa;
 use App\Models\Landlord\Genero;
 use App\Models\Landlord\Pais;
 use App\Models\Landlord\Sexo;
@@ -104,7 +105,9 @@ try {
     $masculino = Genero::where('nombre', 'Masculino')->firstOrFail();
     $noBinario = Genero::where('nombre', 'No binario')->firstOrFail();
     $mexico = Pais::where('clave_iso', 'MEX')->firstOrFail();
-    $extranjeroEnt = EntidadFederativa::where('clave', 'NE')->firstOrFail();
+    // El nacimiento de una PERSONA usa el catálogo de IDENTIDAD (su 33 dice
+    // «Nacido en el extranjero»), no el de lugares.
+    $extranjeroEnt = IdentidadFederativa::where('clave', 'NE')->firstOrFail();
 
     $conCurp = $identidad->resolver([
         'nombre' => 'Ignacio', 'primer_apellido' => 'Gutiérrez',
@@ -220,6 +223,19 @@ try {
         count($catalogos['entidades']) === 32, (string) count($catalogos['entidades']));
 
     verificar('Y se ofrecen países', count($catalogos['paises']) > 0);
+
+    echo PHP_EOL.'7. Los catálogos federativos están DESDOBLADOS'.PHP_EOL;
+
+    // Mismos ids (para no migrar el dato de las personas), distinta redacción
+    // del 33 según el contexto: un plantel está en el «Extranjero», una persona
+    // «Nace en el extranjero».
+    verificar('El de lugares (Entidad) dice «Extranjero» en el 33',
+        EntidadFederativa::where('clave', 'NE')->value('nombre') === 'Extranjero');
+    verificar('El de personas (Identidad) dice «Nacido en el extranjero» en el 33',
+        IdentidadFederativa::where('clave', 'NE')->value('nombre') === 'Nacido en el extranjero');
+    verificar('Comparten id para que entidad_nacimiento_id siga cuadrando',
+        EntidadFederativa::where('clave', 'NE')->value('id')
+        === IdentidadFederativa::where('clave', 'NE')->value('id'));
 } finally {
     DB::rollBack();
     echo PHP_EOL.'-- rollback aplicado, la base queda como estaba --'.PHP_EOL;

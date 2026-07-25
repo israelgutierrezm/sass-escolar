@@ -2529,3 +2529,49 @@ Carreras (quitar Objetivo), Plan de estudios (renombres + tooltip), Asignaturas
 (Tipo a 4 fijas, Descriptores como catálogo multiselección, 3 imágenes de
 diseño), y el módulo Configuración/Catálogos con el desdoble Entidad↔Identidad
 Federativa.
+
+---
+
+## Académico > Campus, y el desdoble Entidad ↔ Identidad Federativa (módulo 2)
+
+Segundo bloque de la revisión de Académico. El cliente pidió, en Campus: un
+selector de Institución (informativo, preseleccionado si solo hay una); quitar
+«Nacido en el extranjero» del selector de entidad —un campus es un LUGAR, no una
+persona—; y que la Entidad Federativa sea obligatoria.
+
+### El desdoble, decidido como global (landlord)
+El cliente resolvió que Entidad e Identidad Federativa son catálogos GLOBALES
+(compartidos entre escuelas, super-admin), y Nivel de estudios por tenant.
+
+Hasta ahora había UN solo catálogo landlord (`entidades_federativas`) que servía
+a la vez para lugares (campus) y personas (nacimiento), con el 33 = «Nacido en
+el Extranjero» —redacción de persona— aun cuando etiquetara un plantel. Se
+desdobló en dos, ambos landlord:
+- `entidades_federativas` (LUGARES): el 33 pasa a «Extranjero».
+- `identidades_federativas` (PERSONAS, tabla nueva): el 33 es «Nacido en el
+  extranjero».
+
+**Clave de la migración: la tabla nueva hereda los MISMOS ids (1..33).** Las
+personas ya guardan `entidad_nacimiento_id` en ese rango; al repuntar
+`IdentidadPersona` y `Persona::entidadNacimiento()` al catálogo de identidad,
+los ids siguen cuadrando y NO hubo que migrar dato alguno de las personas. Las
+claves de dos letras (AS…NE) son idénticas en ambos, así que la lectura de la
+CURP no se enteró del cambio.
+
+### Campus
+- `campus.institucion_id` (del módulo 1) se expone en el formulario como
+  selector informativo; con una sola institución se preselecciona —obligar a
+  elegir cuando no hay decisión es un clic vacío—.
+- `entidad_id` pasa a obligatorio y apunta al catálogo de LUGARES (33 =
+  «Extranjero»). Sin `exists` en la validación: el catálogo vive en la landlord
+  (otra conexión) y se referencia sin FK, como el resto de refs centrales.
+- El listado gana columna Institución.
+
+Verificado en el navegador: en Campus el selector de Entidad muestra
+«Extranjero» y ya no «Nacido en el extranjero»; con una sola institución queda
+preseleccionada; el listado trae la columna Institución. `prueba-identidad` sube
+a 37 checks fijando el desdoble (redacciones distintas del 33, ids compartidos).
+Total: 27 suites, 698 verificaciones.
+
+Pendiente de que estos dos catálogos globales tengan pantalla de administración
+(super-admin), junto con el módulo Configuración/Catálogos.

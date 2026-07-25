@@ -8,6 +8,7 @@ defineProps<{
         id: number;
         clave: string;
         nombre: string;
+        institucion: string | null;
         tipo: string | null;
         entidad: string | null;
         online: boolean;
@@ -48,6 +49,7 @@ function eliminar(id: number, nombre: string): void {
                     <tr>
                         <th class="px-4 py-3 font-medium">Clave</th>
                         <th class="px-4 py-3 font-medium">Nombre</th>
+                        <th class="px-4 py-3 font-medium">Institución</th>
                         <th class="px-4 py-3 font-medium">Tipo</th>
                         <th class="px-4 py-3 font-medium">Entidad</th>
                         <th class="px-4 py-3 font-medium">Oferta</th>
@@ -66,6 +68,7 @@ function eliminar(id: number, nombre: string): void {
                                 En línea
                             </span>
                         </td>
+                        <td class="px-4 py-3 text-slate-600">{{ sede.institucion ?? '—' }}</td>
                         <td class="px-4 py-3 text-slate-600">{{ sede.tipo ?? '—' }}</td>
                         <td class="px-4 py-3 text-slate-600">{{ sede.entidad ?? '—' }}</td>
                         <td class="px-4 py-3 text-slate-600">{{ sede.ofertas_count }}</td>

@@ -22,6 +22,7 @@ class LandlordDatabaseSeeder extends Seeder
         $this->call([
             PaisSeeder::class,
             EntidadFederativaSeeder::class,
+            IdentidadFederativaSeeder::class,
             SexoSeeder::class,
             GeneroSeeder::class,
             NivelEstudioSeeder::class,

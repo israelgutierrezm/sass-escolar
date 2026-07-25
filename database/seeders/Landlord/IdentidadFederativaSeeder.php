@@ -4,16 +4,19 @@ declare(strict_types=1);
 
 namespace Database\Seeders\Landlord;
 
-use App\Models\Landlord\EntidadFederativa;
+use App\Models\Landlord\IdentidadFederativa;
 use App\Models\Landlord\Pais;
 use Illuminate\Database\Seeder;
 
 /**
- * Las 32 entidades federativas de México + NE (nacido en el extranjero).
- * La `clave` es el código de dos letras de RENAPO/CURP, usado en el título
- * electrónico SEP y para cross-validar la CURP. Idempotente por (pais_id, clave).
+ * El catálogo federativo para PERSONAS (lugar de nacimiento): 32 entidades de
+ * México + NE = «Nacido en el extranjero».
+ *
+ * Gemelo de `EntidadFederativaSeeder` (lugares); comparten claves y difieren
+ * solo en el texto del 33 —un plantel está en el extranjero, una persona nace
+ * en él—. Idempotente por (pais_id, clave).
  */
-class EntidadFederativaSeeder extends Seeder
+class IdentidadFederativaSeeder extends Seeder
 {
     public function run(): void
     {
@@ -57,13 +60,11 @@ class EntidadFederativaSeeder extends Seeder
             'VZ' => 'Veracruz de Ignacio de la Llave',
             'YN' => 'Yucatán',
             'ZS' => 'Zacatecas',
-            // Este catálogo es de LUGARES (dónde está un campus): «Extranjero»,
-            // no «Nacido en…». El de personas es `identidades_federativas`.
-            'NE' => 'Extranjero',
+            'NE' => 'Nacido en el extranjero',
         ];
 
         foreach ($entidades as $clave => $nombre) {
-            EntidadFederativa::query()->updateOrCreate(
+            IdentidadFederativa::query()->updateOrCreate(
                 ['pais_id' => $mexico->id, 'clave' => $clave],
                 ['nombre' => $nombre],
             );

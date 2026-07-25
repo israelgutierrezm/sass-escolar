@@ -11,6 +11,7 @@ const props = defineProps<{
     campus: Record<string, any> | null;
     tiposCampus: { id: number; nombre: string }[];
     entidades: { id: number; nombre: string }[];
+    instituciones: { id: number; nombre: string }[];
 }>();
 
 const esEdicion = computed(() => props.campus !== null);
@@ -18,6 +19,9 @@ const esEdicion = computed(() => props.campus !== null);
 const form = useForm({
     clave: props.campus?.clave ?? '',
     nombre: props.campus?.nombre ?? '',
+    // Si solo hay una institución, se preselecciona: con una sola no hay
+    // decisión que tomar y obligar a elegirla es un clic vacío.
+    institucion_id: props.campus?.institucion_id ?? (props.instituciones.length === 1 ? props.instituciones[0].id : null),
     tipo_campus_id: props.campus?.tipo_campus_id ?? null,
     online: props.campus?.online ?? false,
     entidad_id: props.campus?.entidad_id ?? null,
@@ -25,6 +29,7 @@ const form = useForm({
 
 const opcionesTipo = computed(() => props.tiposCampus.map((t) => ({ valor: t.id, texto: t.nombre })));
 const opcionesEntidad = computed(() => props.entidades.map((e) => ({ valor: e.id, texto: e.nombre })));
+const opcionesInstitucion = computed(() => props.instituciones.map((i) => ({ valor: i.id, texto: i.nombre })));
 
 function enviar(): void {
     esEdicion.value ? form.put(`/academico/campus/${props.campus!.id}`) : form.post('/academico/campus');
@@ -42,6 +47,14 @@ function enviar(): void {
                 <CampoTexto v-model="form.clave" etiqueta="Clave" requerido :error="form.errors.clave" mono />
                 <CampoTexto v-model="form.nombre" etiqueta="Nombre" requerido :error="form.errors.nombre" />
                 <CampoSelect
+                    v-model="form.institucion_id"
+                    etiqueta="Institución"
+                    :opciones="opcionesInstitucion"
+                    vacio="Sin especificar"
+                    :error="form.errors.institucion_id"
+                    ayuda="Informativo: la persona moral a la que pertenece este plantel."
+                />
+                <CampoSelect
                     v-model="form.tipo_campus_id"
                     etiqueta="Tipo de campus"
                     requerido
@@ -52,10 +65,11 @@ function enviar(): void {
                 <CampoSelect
                     v-model="form.entidad_id"
                     etiqueta="Entidad federativa"
+                    requerido
                     :opciones="opcionesEntidad"
-                    vacio="Sin especificar"
+                    vacio="Selecciona…"
                     :error="form.errors.entidad_id"
-                    ayuda="Catálogo compartido entre todas las escuelas."
+                    ayuda="Dónde está el plantel. Catálogo compartido entre escuelas."
                 />
                 <div class="sm:col-span-2">
                     <CampoCheckbox

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Models\Identidad;
 
 use App\Models\Concerns\TieneAuditoria;
-use App\Models\Landlord\EntidadFederativa;
+use App\Models\Landlord\IdentidadFederativa;
 use App\Models\Landlord\Genero;
 use App\Models\Landlord\Pais;
 use App\Models\Admisiones\MatriculaOferta;
@@ -72,7 +72,7 @@ class Persona extends Model
 
     public function entidadNacimiento(): BelongsTo
     {
-        return $this->belongsTo(EntidadFederativa::class, 'entidad_nacimiento_id');
+        return $this->belongsTo(IdentidadFederativa::class, 'entidad_nacimiento_id');
     }
 
     /** Asignaciones de rol (multi-rol simultáneo, con alcance por campus). */

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Academico\Campus;
+use App\Models\Academico\Institucion;
 use App\Models\Academico\TipoCampus;
 use App\Models\Landlord\EntidadFederativa;
 use Illuminate\Http\RedirectResponse;
@@ -23,7 +24,7 @@ class CampusController extends Controller
     {
         return Inertia::render('Academico/Campus/Index', [
             'campus' => Campus::query()
-                ->with(['tipoCampus:id,nombre', 'entidad:id,nombre'])
+                ->with(['tipoCampus:id,nombre', 'entidad:id,nombre', 'institucion:id,nombre'])
                 ->withCount('ofertas')
                 ->orderBy('nombre')
                 ->get()
@@ -31,6 +32,7 @@ class CampusController extends Controller
                     'id' => $campus->id,
                     'clave' => $campus->clave,
                     'nombre' => $campus->nombre,
+                    'institucion' => $campus->institucion?->nombre,
                     'tipo' => $campus->tipoCampus?->nombre,
                     'entidad' => $campus->entidad?->nombre,
                     'online' => $campus->online,
@@ -58,7 +60,7 @@ class CampusController extends Controller
     public function edit(Campus $campus): Response
     {
         return Inertia::render('Academico/Campus/Formulario', [
-            'campus' => $campus->only(['id', 'clave', 'nombre', 'tipo_campus_id', 'online', 'entidad_id']),
+            'campus' => $campus->only(['id', 'clave', 'nombre', 'institucion_id', 'tipo_campus_id', 'online', 'entidad_id']),
             ...$this->catalogos(),
         ]);
     }
@@ -93,10 +95,18 @@ class CampusController extends Controller
         return $request->validate([
             'clave' => ['required', 'string', 'max:50', Rule::unique('campus', 'clave')->ignore($id)->whereNull('deleted_at')],
             'nombre' => ['required', 'string', 'max:255'],
+            // Informativo, no condiciona nada; por eso nullable. La UI lo
+            // preselecciona cuando solo hay una institución.
+            'institucion_id' => ['nullable', 'integer', Rule::exists('instituciones', 'id')->whereNull('deleted_at')],
             'tipo_campus_id' => ['required', 'integer', Rule::exists('tipos_campus', 'id')->whereNull('deleted_at')],
             'online' => ['boolean'],
-            'entidad_id' => ['nullable', 'integer'],
+            // La entidad federativa (LUGARES) pasa a OBLIGATORIA: un plantel
+            // siempre está en algún lado —aunque ese lado sea «Extranjero»—.
+            // Sin `exists`: el catálogo vive en la landlord (otra conexión) y se
+            // referencia sin FK, igual que el resto de refs a datos centrales.
+            'entidad_id' => ['required', 'integer'],
         ], [], [
+            'institucion_id' => 'institución',
             'tipo_campus_id' => 'tipo de campus',
             'entidad_id' => 'entidad federativa',
         ]);
@@ -109,7 +119,9 @@ class CampusController extends Controller
     {
         return [
             'tiposCampus' => TipoCampus::query()->orderBy('nombre')->get(['id', 'nombre']),
+            // Entidad de LUGARES (el 33 es «Extranjero», no «Nacido en…»).
             'entidades' => EntidadFederativa::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'instituciones' => Institucion::query()->orderBy('nombre')->get(['id', 'nombre']),
         ];
     }
 }

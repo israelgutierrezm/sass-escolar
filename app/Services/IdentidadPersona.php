@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Identidad\Persona;
-use App\Models\Landlord\EntidadFederativa;
+use App\Models\Landlord\IdentidadFederativa;
 use App\Models\Landlord\Genero;
 use App\Models\Landlord\Pais;
 use App\Models\Landlord\Sexo;
@@ -196,15 +196,15 @@ class IdentidadPersona
      */
     public function catalogosDeOrigen(): array
     {
-        $entidades = EntidadFederativa::query()->orderBy('nombre')->get(['id', 'clave', 'nombre']);
+        $entidades = IdentidadFederativa::query()->orderBy('nombre')->get(['id', 'clave', 'nombre']);
 
         $extranjero = $entidades->firstWhere('clave', self::ENTIDAD_EXTRANJERO);
 
         return [
             'entidades' => $entidades
-                ->reject(fn (EntidadFederativa $e) => $e->clave === self::ENTIDAD_EXTRANJERO)
+                ->reject(fn (IdentidadFederativa $e) => $e->clave === self::ENTIDAD_EXTRANJERO)
                 ->values()
-                ->map(fn (EntidadFederativa $e) => ['id' => $e->id, 'nombre' => $e->nombre])
+                ->map(fn (IdentidadFederativa $e) => ['id' => $e->id, 'nombre' => $e->nombre])
                 ->all(),
             'entidadExtranjero' => $extranjero === null
                 ? null
@@ -282,14 +282,14 @@ class IdentidadPersona
         ];
     }
 
-    private function entidadExtranjero(): ?EntidadFederativa
+    private function entidadExtranjero(): ?IdentidadFederativa
     {
         return $this->entidadPorClave(self::ENTIDAD_EXTRANJERO);
     }
 
-    private function entidadPorClave(string $clave): ?EntidadFederativa
+    private function entidadPorClave(string $clave): ?IdentidadFederativa
     {
-        return EntidadFederativa::query()->where('clave', $clave)->first();
+        return IdentidadFederativa::query()->where('clave', $clave)->first();
     }
 
     private function sexoPorClave(string $clave): ?Sexo
