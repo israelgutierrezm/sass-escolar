@@ -4,6 +4,7 @@ import { computed, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
+import CampoCasillas from '@/Components/CampoCasillas.vue';
 
 const props = defineProps<{
     oferta: Record<string, any> | null;
@@ -11,27 +12,40 @@ const props = defineProps<{
     planes: { id: number; nombre: string; clave: string; carrera_id: number }[];
     campus: { id: number; nombre: string }[];
     turnos: { id: number; nombre: string }[];
+    modalidades: { clave: string; nombre: string }[];
 }>();
 
 const esEdicion = computed(() => props.oferta !== null);
 
-const form = useForm({
-    carrera_id: props.oferta?.carrera_id ?? null,
-    plan_id: props.oferta?.plan_id ?? null,
-    campus_id: props.oferta?.campus_id ?? null,
-    turno_id: props.oferta?.turno_id ?? null,
-    modalidad: props.oferta?.modalidad ?? 'presencial',
-    estatus: props.oferta?.estatus ?? 'abierta',
-});
+// El alta genera una oferta por combinación (fan-out): campus, modalidades y
+// turnos se eligen en conjunto. La edición toca UNA oferta concreta, así que
+// esos tres vuelven a ser de un solo valor.
+const form = useForm(
+    esEdicion.value
+        ? {
+              carrera_id: props.oferta!.carrera_id,
+              plan_id: props.oferta!.plan_id,
+              campus_id: props.oferta!.campus_id,
+              turno_id: props.oferta!.turno_id,
+              modalidad: props.oferta!.modalidad,
+              estatus: props.oferta!.estatus,
+          }
+        : {
+              carrera_id: null as number | null,
+              plan_id: null as number | null,
+              campus_ids: [] as number[],
+              turno_ids: [] as number[],
+              modalidades: [] as string[],
+              estatus: 'abierta',
+          },
+);
 
-/** El plan debe pertenecer a la carrera: se filtra el selector en consecuencia. */
 const planesDeLaCarrera = computed(() =>
     props.planes
         .filter((plan) => plan.carrera_id === form.carrera_id)
         .map((plan) => ({ valor: plan.id, texto: `${plan.nombre} (${plan.clave})` })),
 );
 
-// Si cambia la carrera, un plan de la anterior dejaría de ser válido.
 watch(
     () => form.carrera_id,
     () => {
@@ -43,6 +57,19 @@ watch(
 
 const opciones = (lista: { id: number; nombre: string }[]) =>
     lista.map((item) => ({ valor: item.id, texto: item.nombre }));
+
+const opcionesModalidad = computed(() => props.modalidades.map((m) => ({ valor: m.clave, texto: m.nombre })));
+
+// Cuántas ofertas generará la combinación elegida, para avisar antes de guardar.
+const combinaciones = computed(() => {
+    if (esEdicion.value) {
+        return 1;
+    }
+
+    const turnos = form.turno_ids.length || 1;
+
+    return form.campus_ids.length * turnos * form.modalidades.length;
+});
 
 function enviar(): void {
     esEdicion.value ? form.put(`/academico/ofertas/${props.oferta!.id}`) : form.post('/academico/ofertas');
@@ -56,10 +83,14 @@ function enviar(): void {
         <NavAcademico />
 
         <form class="max-w-3xl space-y-6" @submit.prevent="enviar">
-            <section class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-                <h2 class="text-base font-semibold text-slate-800">Qué se imparte y dónde</h2>
-                <p class="mt-1 text-sm text-slate-500">
-                    No puede repetirse la misma combinación de carrera, plan, campus y turno.
+            <section class="tarjeta p-6">
+                <h2 class="text-base font-semibold">Qué se imparte</h2>
+                <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
+                    <template v-if="esEdicion">No puede repetirse la misma combinación de carrera, plan, campus y turno.</template>
+                    <template v-else>
+                        Elige la carrera y el plan, y los campus, modalidades y turnos donde se ofrecerá. Se
+                        creará una oferta por cada combinación.
+                    </template>
                 </p>
 
                 <div class="mt-5 grid gap-4 sm:grid-cols-2">
@@ -87,6 +118,58 @@ function enviar(): void {
                         "
                     />
                     <CampoSelect
+                        v-model="form.estatus"
+                        etiqueta="Estatus"
+                        requerido
+                        :opciones="[
+                            { valor: 'abierta', texto: 'Abierta' },
+                            { valor: 'cerrada', texto: 'Cerrada' },
+                        ]"
+                        :error="form.errors.estatus"
+                        ayuda="Solo las abiertas aparecen al registrar aspirantes."
+                    />
+                </div>
+            </section>
+
+            <!-- ALTA: dónde y cómo, en conjunto (fan-out). -->
+            <section v-if="!esEdicion" class="tarjeta p-6">
+                <h2 class="text-base font-semibold">Dónde y cómo se ofrece</h2>
+
+                <div class="mt-5 grid gap-6 sm:grid-cols-3">
+                    <CampoCasillas
+                        v-model="form.campus_ids"
+                        etiqueta="Campus"
+                        :opciones="opciones(campus)"
+                        :error="form.errors.campus_ids"
+                        vacio="Elige al menos uno."
+                    />
+                    <CampoCasillas
+                        v-model="form.modalidades"
+                        etiqueta="Modalidades"
+                        :opciones="opcionesModalidad"
+                        :error="form.errors.modalidades"
+                    />
+                    <CampoCasillas
+                        v-model="form.turno_ids"
+                        etiqueta="Turnos"
+                        :opciones="opciones(turnos)"
+                        :error="form.errors.turno_ids"
+                        ayuda="Sin turno = una oferta sin turno específico."
+                    />
+                </div>
+
+                <p v-if="combinaciones > 0" class="mt-4 text-sm" :style="{ color: 'var(--color-suave)' }">
+                    Se {{ combinaciones === 1 ? 'creará 1 oferta' : `crearán ${combinaciones} ofertas` }}
+                    (las que ya existan se omiten).
+                </p>
+            </section>
+
+            <!-- EDICIÓN: una oferta concreta, un solo valor de cada cosa. -->
+            <section v-else class="tarjeta p-6">
+                <h2 class="text-base font-semibold">Dónde y cómo</h2>
+
+                <div class="mt-5 grid gap-4 sm:grid-cols-2">
+                    <CampoSelect
                         v-model="form.campus_id"
                         etiqueta="Campus"
                         requerido
@@ -105,23 +188,9 @@ function enviar(): void {
                         v-model="form.modalidad"
                         etiqueta="Modalidad"
                         requerido
-                        :opciones="[
-                            { valor: 'presencial', texto: 'Presencial' },
-                            { valor: 'online', texto: 'En línea' },
-                            { valor: 'mixta', texto: 'Mixta' },
-                        ]"
+                        :opciones="opcionesModalidad"
+                        vacio="Selecciona…"
                         :error="form.errors.modalidad"
-                    />
-                    <CampoSelect
-                        v-model="form.estatus"
-                        etiqueta="Estatus"
-                        requerido
-                        :opciones="[
-                            { valor: 'abierta', texto: 'Abierta' },
-                            { valor: 'cerrada', texto: 'Cerrada' },
-                        ]"
-                        :error="form.errors.estatus"
-                        ayuda="Solo las abiertas aparecen al registrar aspirantes."
                     />
                 </div>
             </section>
@@ -130,13 +199,15 @@ function enviar(): void {
                 <button
                     type="submit"
                     :disabled="form.processing"
-                    class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+                    class="rounded-lg px-5 py-2.5 text-sm font-medium disabled:opacity-60"
+                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
                 >
-                    {{ form.processing ? 'Guardando…' : esEdicion ? 'Guardar cambios' : 'Crear oferta' }}
+                    {{ form.processing ? 'Guardando…' : esEdicion ? 'Guardar cambios' : 'Crear oferta(s)' }}
                 </button>
                 <a
                     href="/academico/ofertas"
-                    class="rounded-lg border border-slate-300 px-5 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                    class="rounded-lg border px-5 py-2.5 text-sm"
+                    :style="{ borderColor: 'var(--color-borde)' }"
                 >
                     Cancelar
                 </a>

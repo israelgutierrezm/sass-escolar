@@ -19,10 +19,21 @@ interface Catalogo {
     items: Item[];
 }
 
+interface CatalogoGlobal {
+    etiqueta: string;
+    descripcion: string;
+    items: { clave: string; nombre: string }[];
+}
+
 const props = defineProps<{
     catalogos: Catalogo[];
+    globales: CatalogoGlobal[];
     puedeEditar: boolean;
 }>();
+
+// Los globales se muestran plegados: son 33 filas cada uno y casi nunca se
+// consultan, pero deben poder verse sin salir de la pantalla.
+const globalAbierto = ref<string | null>(null);
 
 // Los catálogos se muestran agrupados por dónde se usan (Asignaturas, Plan de
 // estudios, Carreras), que es como el cliente los pensó.
@@ -209,10 +220,38 @@ function esEditando(catalogo: string, id: number): boolean {
                 General
             </h2>
             <p class="mt-2 text-sm" :style="{ color: 'var(--color-suave)' }">
-                <strong>Entidad Federativa</strong> e <strong>Identidad Federativa</strong> son catálogos
-                globales, compartidos entre todas las escuelas. Los administra el responsable de la
-                plataforma, no cada escuela, para que las claves oficiales no diverjan.
+                <strong>Entidad</strong> e <strong>Identidad Federativa</strong> son catálogos globales,
+                compartidos entre todas las escuelas. Aquí solo se consultan; los administra el
+                responsable de la plataforma, no cada escuela, para que las claves oficiales no diverjan.
             </p>
+
+            <div class="mt-4 space-y-2">
+                <div v-for="cat in globales" :key="cat.etiqueta" class="rounded-lg border" :style="{ borderColor: 'var(--color-borde)' }">
+                    <button
+                        type="button"
+                        class="flex w-full items-center justify-between gap-2 px-4 py-3 text-left"
+                        @click="globalAbierto = globalAbierto === cat.etiqueta ? null : cat.etiqueta"
+                    >
+                        <span>
+                            <span class="text-sm font-medium">{{ cat.etiqueta }}</span>
+                            <span class="ml-2 rounded-full px-2 py-0.5 text-[11px]" :style="{ backgroundColor: 'var(--color-borde)', color: 'var(--color-suave)' }">
+                                solo lectura
+                            </span>
+                            <span class="mt-0.5 block text-xs" :style="{ color: 'var(--color-suave)' }">{{ cat.descripcion }}</span>
+                        </span>
+                        <span class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                            {{ globalAbierto === cat.etiqueta ? 'Ocultar' : `Ver ${cat.items.length}` }}
+                        </span>
+                    </button>
+
+                    <div v-if="globalAbierto === cat.etiqueta" class="grid gap-x-6 gap-y-1 border-t p-4 sm:grid-cols-2 lg:grid-cols-3" :style="{ borderColor: 'var(--color-borde)' }">
+                        <div v-for="item in cat.items" :key="item.clave" class="flex items-baseline gap-2 text-sm">
+                            <span class="w-8 shrink-0 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ item.clave }}</span>
+                            <span>{{ item.nombre }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </section>
     </AppLayout>
 </template>

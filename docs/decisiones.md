@@ -2716,3 +2716,50 @@ Verificado en el navegador: Nivel aparece ordenado en Catálogos con Licenciatur
 
 Queda de la parte B: admin super-admin de Entidad/Identidad Federativa, y ligar
 la modalidad de la oferta al catálogo con multiselección de campus/modalidad/turno.
+
+---
+
+## Módulo 6 parte B (2/3 y 3/3): globales solo lectura, y Oferta fan-out
+
+### Catálogos globales, solo lectura (decisión del cliente)
+Entidad e Identidad Federativa se muestran en la pantalla de Catálogos pero NO
+se editan desde una escuela: son datos centrales (landlord) que comparten todas,
+y editarlos ahí cambiaría el catálogo de todas a la vez. Se listan plegados
+(33+33 registros) con distintivo «solo lectura» y una nota de que los administra
+el responsable de la plataforma. Su edición real espera a que exista un panel de
+dueño de plataforma (no hay rol super-admin en Acadion hoy; el más alto es
+dirección general, que es de una escuela).
+
+### Oferta: alta en lote (fan-out)
+El cliente pidió que una carrera pueda ofertarse en varios campus, modalidades y
+turnos. En vez de reestructurar `oferta` a muchos-a-muchos —que habría tocado
+matriculación, pagos y resolutores fiscales que dependen de `oferta.campus_id`
+único—, el alta hace **fan-out**: se eligen los conjuntos y se genera una Oferta
+CONCRETA por combinación (campus × modalidad × turno). Cada Oferta sigue con un
+solo campus/turno/modalidad, así que nada de lo que depende de eso cambia; solo
+se crea en lote. Lo que ya existe se omite y se avisa cuántas. La edición sigue
+tocando UNA oferta (selects simples).
+
+La **modalidad** pasó de enum fijo (`presencial/online/mixta`) a referenciar el
+catálogo `modalidades` (se guarda su clave; se resuelve el nombre para mostrar).
+Y como ahora una carrera puede ofertarse en presencial Y en línea en el mismo
+campus+turno, la modalidad entró al índice único de `oferta`
+(`carrera+plan+campus+turno+modalidad`). La migración crea el índice nuevo ANTES
+de tirar el viejo, porque el viejo sostiene la FK de `carrera_id` y MySQL no deja
+quitarlo mientras sea el único que la respalda.
+
+**Y el propósito de todo esto**: al registrar un aspirante, elegir un campus
+ahora FILTRA las ofertas a solo las que se imparten ahí (el campus viaja en cada
+oferta y el formulario filtra), en vez de ofrecer programas que ese plantel no
+tiene. Si la oferta elegida deja de pertenecer al campus, se limpia.
+
+Suite nueva `prueba-oferta-fanout` (6 checks): fan-out por combinación, no
+duplica al reejecutar, turno nulo, modalidad validada contra catálogo, plan de
+la carrera. Verificado en el navegador: alta con casillas y contador de
+combinaciones reactivo; en aspirante, elegir campus baja las ofertas de 3 a 1.
+Total: 30 suites, 720 verificaciones.
+
+Con esto se cierra la revisión de Académico. Único pendiente consciente: el
+panel de super-admin para editar los catálogos globales (necesita definir dónde
+vive la administración de plataforma). Backlog del cliente (CURP como select con
+catálogo de Responsables de Titulación) queda sin implementar, como se pidió.

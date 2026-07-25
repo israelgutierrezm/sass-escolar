@@ -349,19 +349,28 @@ class AspiranteController extends Controller
             // pueda contar junto a los que entran por el formulario público.
             'origenes' => OrigenAspirante::query()->activos()->orderBy('nombre')->get(['id', 'nombre']),
             'campus' => Campus::query()->orderBy('nombre')->get(['id', 'nombre']),
-            'ofertas' => Oferta::query()
-                ->with(['carrera:id,nombre', 'campus:id,nombre'])
-                ->where('estatus', 'abierta')
-                ->get()
-                ->map(fn (Oferta $oferta) => [
-                    'id' => $oferta->id,
-                    'etiqueta' => trim(sprintf(
-                        '%s — %s (%s)',
-                        $oferta->carrera?->nombre ?? 'Sin carrera',
-                        ucfirst($oferta->modalidad),
-                        $oferta->campus?->nombre ?? 'Sin campus',
-                    )),
-                ]),
+            'ofertas' => (function () {
+                $modalidades = \App\Models\Academico\Modalidad::query()->pluck('nombre', 'clave');
+
+                return Oferta::query()
+                    ->with(['carrera:id,nombre', 'campus:id,nombre'])
+                    ->where('estatus', 'abierta')
+                    ->get()
+                    ->map(fn (Oferta $oferta) => [
+                        'id' => $oferta->id,
+                        // El campus viaja aparte para que el formulario filtre
+                        // las ofertas por el campus elegido: al seleccionar un
+                        // campus, solo se ofrecen las que de verdad se imparten
+                        // ahí, no todas.
+                        'campus_id' => $oferta->campus_id,
+                        'etiqueta' => trim(sprintf(
+                            '%s — %s (%s)',
+                            $oferta->carrera?->nombre ?? 'Sin carrera',
+                            $modalidades[$oferta->modalidad] ?? $oferta->modalidad,
+                            $oferta->campus?->nombre ?? 'Sin campus',
+                        )),
+                    ]);
+            })(),
         ];
     }
 }

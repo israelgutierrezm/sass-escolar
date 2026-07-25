@@ -1,0 +1,189 @@
+<?php
+
+/**
+ * Alta de oferta en LOTE (fan-out): una carrera+plan por varios campus,
+ * modalidades y turnos genera una Oferta por combinación, sin duplicar.
+ * Contra la BD real, con rollback.
+ *
+ * Se corre con `php scripts/prueba-oferta-fanout.php` desde la raíz.
+ */
+
+$raiz = dirname(__DIR__);
+
+require $raiz.'/vendor/autoload.php';
+$app = require $raiz.'/bootstrap/app.php';
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+use App\Http\Controllers\OfertaController;
+use App\Models\Academico\Campus;
+use App\Models\Academico\Modalidad;
+use App\Models\Academico\Oferta;
+use App\Models\Academico\PlanEstudio;
+use App\Models\Academico\Turno;
+use App\Models\Identidad\Persona;
+use App\Models\Identidad\Rol;
+use App\Models\Identidad\Usuario;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+
+tenancy()->initialize(App\Models\Tenant::find('demo'));
+
+$ok = 0;
+$fallos = [];
+
+function verificar(string $titulo, bool $condicion, string $detalle = ''): void
+{
+    global $ok, $fallos;
+
+    if ($condicion) {
+        $ok++;
+        echo "  OK   {$titulo}".($detalle !== '' ? "  [{$detalle}]" : '').PHP_EOL;
+    } else {
+        $fallos[] = $titulo;
+        echo "  FALLA {$titulo}".($detalle !== '' ? "  [{$detalle}]" : '').PHP_EOL;
+    }
+}
+
+function admin(): Usuario
+{
+    $persona = Persona::create(['nombre' => 'Of', 'primer_apellido' => 'Admin', 'segundo_apellido' => (string) random_int(1000, 9999)]);
+    $rolId = Rol::where('name', 'director_general')->firstOrFail()->id;
+    $u = Usuario::create([
+        'persona_id' => $persona->id,
+        'usuario' => 'prueba_of_'.random_int(100000, 999999),
+        'email' => 'prueba_of_'.random_int(100000, 999999).'@ejemplo.mx',
+        'password' => Hash::make('secreto12345'),
+        'rol_activo_id' => $rolId,
+    ]);
+    $persona->asignacionesRol()->create(['rol_id' => $rolId, 'activo' => true]);
+
+    return $u->fresh(['persona', 'rolActivo']);
+}
+
+function pet(array $datos, Usuario $u): Request
+{
+    $r = Request::create('/academico/ofertas', 'POST', $datos);
+    app()->instance('request', $r);
+    $r->setUserResolver(fn () => $u);
+
+    return $r;
+}
+
+DB::beginTransaction();
+
+try {
+    $u = admin();
+    $c = new OfertaController;
+
+    $plan = PlanEstudio::query()->firstOrFail();
+    $carreraId = $plan->carrera_id;
+
+    // Dos campus, dos modalidades, un turno → 2×2×1 = 4 combinaciones.
+    $campusIds = Campus::query()->take(2)->pluck('id')->all();
+    $modalidades = Modalidad::query()->take(2)->pluck('clave')->all();
+    $turnoId = Turno::query()->value('id');
+
+    $antes = Oferta::query()->where('plan_id', $plan->id)->count();
+
+    echo '1. El fan-out genera una oferta por combinación'.PHP_EOL;
+
+    $c->store(pet([
+        'carrera_id' => $carreraId,
+        'plan_id' => $plan->id,
+        'campus_ids' => $campusIds,
+        'modalidades' => $modalidades,
+        'turno_ids' => [$turnoId],
+        'estatus' => 'abierta',
+    ], $u));
+
+    $despues = Oferta::query()->where('plan_id', $plan->id)->count();
+    $esperadas = count($campusIds) * count($modalidades) * 1;
+
+    verificar('Se crearon las combinaciones que no existían',
+        ($despues - $antes) === $esperadas, "creadas ".($despues - $antes)." de $esperadas");
+
+    verificar('Cada oferta quedó con UN solo campus y UNA modalidad',
+        Oferta::query()->where('plan_id', $plan->id)->whereIn('campus_id', $campusIds)
+            ->get()->every(fn (Oferta $o) => $o->campus_id !== null && $o->modalidad !== null));
+
+    echo PHP_EOL.'2. Re-ejecutar el mismo lote NO duplica'.PHP_EOL;
+
+    $c->store(pet([
+        'carrera_id' => $carreraId,
+        'plan_id' => $plan->id,
+        'campus_ids' => $campusIds,
+        'modalidades' => $modalidades,
+        'turno_ids' => [$turnoId],
+        'estatus' => 'abierta',
+    ], $u));
+
+    verificar('El total no cambió: todas ya existían',
+        Oferta::query()->where('plan_id', $plan->id)->count() === $despues,
+        (string) Oferta::query()->where('plan_id', $plan->id)->count());
+
+    echo PHP_EOL.'3. Sin turnos, se genera con turno nulo'.PHP_EOL;
+
+    $otroPlan = PlanEstudio::query()->where('id', '!=', $plan->id)->first() ?? $plan;
+    $campusUno = [Campus::query()->value('id')];
+
+    $c->store(pet([
+        'carrera_id' => $otroPlan->carrera_id,
+        'plan_id' => $otroPlan->id,
+        'campus_ids' => $campusUno,
+        'modalidades' => [$modalidades[0]],
+        'turno_ids' => [],
+        'estatus' => 'abierta',
+    ], $u));
+
+    verificar('Existe la oferta con turno nulo',
+        Oferta::query()->where('plan_id', $otroPlan->id)->where('campus_id', $campusUno[0])
+            ->whereNull('turno_id')->where('modalidad', $modalidades[0])->exists());
+
+    echo PHP_EOL.'4. La modalidad se valida contra el catálogo'.PHP_EOL;
+
+    $rechazada = false;
+
+    try {
+        $c->store(pet([
+            'carrera_id' => $carreraId, 'plan_id' => $plan->id,
+            'campus_ids' => $campusUno, 'modalidades' => ['inventada'], 'turno_ids' => [],
+            'estatus' => 'abierta',
+        ], $u));
+    } catch (Illuminate\Validation\ValidationException $e) {
+        $rechazada = array_key_exists('modalidades.0', $e->errors());
+    }
+
+    verificar('Una modalidad fuera del catálogo se rechaza', $rechazada);
+
+    echo PHP_EOL.'5. El plan debe pertenecer a la carrera'.PHP_EOL;
+
+    $carreraAjena = \App\Models\Academico\Carrera::query()->where('id', '!=', $carreraId)->value('id');
+
+    if ($carreraAjena !== null) {
+        $malPlan = false;
+
+        try {
+            $c->store(pet([
+                'carrera_id' => $carreraAjena, 'plan_id' => $plan->id,
+                'campus_ids' => $campusUno, 'modalidades' => [$modalidades[0]], 'turno_ids' => [],
+                'estatus' => 'abierta',
+            ], $u));
+        } catch (Illuminate\Validation\ValidationException $e) {
+            $malPlan = array_key_exists('plan_id', $e->errors());
+        }
+
+        verificar('Un plan de otra carrera se rechaza', $malPlan);
+    }
+} finally {
+    DB::rollBack();
+    echo PHP_EOL.'-- rollback aplicado, la base queda como estaba --'.PHP_EOL;
+}
+
+echo PHP_EOL.'Resultado: '.$ok.' correctas, '.count($fallos).' fallidas'.PHP_EOL;
+
+if ($fallos !== []) {
+    echo 'Fallaron: '.implode(' · ', $fallos).PHP_EOL;
+}
+
+exit($fallos === [] ? 0 : 1);

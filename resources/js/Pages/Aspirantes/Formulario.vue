@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import CamposIdentidad from '@/Components/CamposIdentidad.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
@@ -40,7 +40,7 @@ const props = defineProps<{
     situaciones: Opcion[];
     origenes: Opcion[];
     campus: Opcion[];
-    ofertas: { id: number; etiqueta: string }[];
+    ofertas: { id: number; etiqueta: string; campus_id: number | null }[];
 }>();
 
 const esEdicion = computed(() => props.aspirante !== null);
@@ -62,6 +62,24 @@ const form = useForm({
     origen_id: props.aspirante?.origen_id ?? null,
     origen: props.aspirante?.origen ?? '',
 });
+
+// Al elegir un campus, solo se ofrecen las ofertas que de verdad se imparten
+// ahí. Sin campus se muestran todas. Es el propósito del fan-out: que el campus
+// filtre la oferta y no aparezcan programas que ese plantel no tiene.
+const ofertasVisibles = computed(() =>
+    props.ofertas.filter((o) => !form.campus_id || o.campus_id === form.campus_id),
+);
+
+// Si la oferta elegida ya no pertenece al campus seleccionado, se limpia: no
+// tiene sentido conservar un interés en un programa que ese campus no ofrece.
+watch(
+    () => form.campus_id,
+    () => {
+        if (form.oferta_interes_id && !ofertasVisibles.value.some((o) => o.id === form.oferta_interes_id)) {
+            form.oferta_interes_id = null;
+        }
+    },
+);
 
 function enviar(): void {
     if (esEdicion.value) {
@@ -109,9 +127,15 @@ function enviar(): void {
                         v-model="form.oferta_interes_id"
                         etiqueta="Oferta de interés"
                         vacio="Sin definir"
-                        :opciones="ofertas.map((o) => ({ valor: o.id, texto: o.etiqueta }))"
+                        :opciones="ofertasVisibles.map((o) => ({ valor: o.id, texto: o.etiqueta }))"
                         :error="form.errors.oferta_interes_id"
-                        :ayuda="ofertas.length ? undefined : 'No hay ofertas abiertas registradas todavía.'"
+                        :ayuda="
+                            !ofertas.length
+                                ? 'No hay ofertas abiertas registradas todavía.'
+                                : form.campus_id && !ofertasVisibles.length
+                                  ? 'Ese campus no tiene ofertas abiertas.'
+                                  : undefined
+                        "
                     />
 
                     <CampoSelect

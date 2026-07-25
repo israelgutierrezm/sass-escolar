@@ -11,6 +11,8 @@ use App\Models\Academico\Descriptor;
 use App\Models\Academico\Modalidad;
 use App\Models\Academico\NivelEstudio;
 use App\Models\Academico\Turno;
+use App\Models\Landlord\EntidadFederativa;
+use App\Models\Landlord\IdentidadFederativa;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -130,6 +132,21 @@ class CatalogoAcademicoController extends Controller
 
         return Inertia::render('Academico/Catalogos/Index', [
             'catalogos' => $catalogos,
+            // Los globales (landlord) viajan como SOLO LECTURA: se muestran para
+            // consulta, pero no se editan desde una escuela porque los comparten
+            // todas. Su administración real vive fuera del ámbito de una escuela.
+            'globales' => [
+                [
+                    'etiqueta' => 'Entidad Federativa',
+                    'descripcion' => 'Para lugares (campus, institución). El 33 es «Extranjero».',
+                    'items' => EntidadFederativa::query()->orderBy('id')->get(['clave', 'nombre']),
+                ],
+                [
+                    'etiqueta' => 'Identidad Federativa',
+                    'descripcion' => 'Para personas (lugar de nacimiento). El 33 es «Nacido en el extranjero».',
+                    'items' => IdentidadFederativa::query()->orderBy('id')->get(['clave', 'nombre']),
+                ],
+            ],
             'puedeEditar' => $puedeEditar,
         ]);
     }
