@@ -23,6 +23,9 @@ class Ciclo extends Model
 
     protected $fillable = [
         'clave',
+        'anio',
+        'numero_periodo',
+        'nivel_estudios_id',
         'nombre',
         'fecha_inicio',
         'fecha_fin',
@@ -60,6 +63,15 @@ class Ciclo extends Model
     public function situacion(): BelongsTo
     {
         return $this->belongsTo(SituacionCiclo::class, 'situacion_id');
+    }
+
+    /**
+     * Nivel de estudios al que se acota el ciclo (opcional). Si está puesto, los
+     * grupos del ciclo solo pueden ser de ese nivel.
+     */
+    public function nivelEstudios(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Academico\NivelEstudio::class, 'nivel_estudios_id');
     }
 
     public function grupos(): HasMany

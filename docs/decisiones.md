@@ -2763,3 +2763,35 @@ Con esto se cierra la revisión de Académico. Único pendiente consciente: el
 panel de super-admin para editar los catálogos globales (necesita definir dónde
 vive la administración de plataforma). Backlog del cliente (CURP como select con
 catálogo de Responsables de Titulación) queda sin implementar, como se pidió.
+
+---
+
+## Control Escolar > Ciclos: año + periodo, clave generada, nivel opcional
+
+Revisión del cliente sobre Ciclos.
+
+**La clave dejó de teclearse.** Se capturan por separado Año (4 dígitos) y
+Número de periodo (1–4), y la clave se genera de ambos con guión: 2026 + 1 →
+«2026-1» (separador confirmado por el cliente; el formato viejo «2026-2027/1» se
+respeta en los ciclos existentes vía backfill: se lee el año de los primeros 4
+dígitos y el periodo tras el último separador). Como la clave no viaja del
+formulario, su unicidad se valida a mano sobre la clave generada.
+
+**Tipo de periodo: no se captura** (el cliente lo retiró; era un malentendido).
+
+**Nivel de estudios opcional en el ciclo.** Si se pone, acota qué grupos caben
+dentro. `nivel_estudios_id` nullable con `nullOnDelete`. El formulario muestra
+un aviso reactivo de lo que el ciclo restringe (nivel y/o campus) para que quien
+lo crea sepa qué está acotando antes de guardar — la restricción real sobre los
+grupos se aplica en el formulario del grupo (siguiente módulo).
+
+Campus del ciclo ya era muchos-a-muchos (pivote `ciclo_campus`), así que la
+parte de «uno o varios campus» ya estaba; lo nuevo es que ese conjunto acotará
+los grupos.
+
+Suite nueva `prueba-ciclo-clave` (7 checks): clave generada con guión, año y
+periodo guardados, nivel ligado, clave no duplicable, año de 4 dígitos, periodo
+1–4, nivel opcional. Verificado en el navegador: el formulario muestra Año +
+Número de periodo con la clave «2026-1» de vista previa, sin campo de clave
+manual, y el aviso de restricción al elegir nivel. Total: 31 suites, 727
+verificaciones.

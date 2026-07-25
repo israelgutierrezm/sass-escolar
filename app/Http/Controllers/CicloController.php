@@ -37,7 +37,7 @@ class CicloController extends Controller
     {
         return Inertia::render('ControlEscolar/Ciclos/Index', [
             'ciclos' => Ciclo::query()
-                ->with(['campus:id,nombre', 'situacion:id,nombre'])
+                ->with(['campus:id,nombre', 'situacion:id,nombre', 'nivelEstudios:id,nombre'])
                 ->withCount('grupos')
                 ->delAlcance($this->alcance($request))
                 ->orderByDesc('fecha_inicio')
@@ -46,6 +46,7 @@ class CicloController extends Controller
                     'id' => $ciclo->id,
                     'clave' => $ciclo->clave,
                     'nombre' => $ciclo->nombre,
+                    'nivel' => $ciclo->nivelEstudios?->nombre,
                     'campus' => $ciclo->campus->pluck('nombre')->all(),
                     'situacion' => $ciclo->situacion?->nombre,
                     'fecha_inicio' => $ciclo->fecha_inicio?->toDateString(),
@@ -95,7 +96,7 @@ class CicloController extends Controller
 
         return Inertia::render('ControlEscolar/Ciclos/Formulario', [
             'ciclo' => [
-                ...$ciclo->only(['id', 'clave', 'nombre', 'situacion_id']),
+                ...$ciclo->only(['id', 'clave', 'anio', 'numero_periodo', 'nivel_estudios_id', 'nombre', 'situacion_id']),
                 'campus_ids' => $suyos[0]->pluck('id')->all(),
                 'campus_ajenos' => $suyos[1]->pluck('nombre')->all(),
                 'fecha_inicio' => $ciclo->fecha_inicio?->toDateString(),
@@ -235,10 +236,11 @@ class CicloController extends Controller
             // El pivote se sincroniza aparte; aquí solo se valida su forma.
             'campus_ids' => ['present', 'array'],
             'campus_ids.*' => ['integer', Rule::exists('campus', 'id')->whereNull('deleted_at')],
-            'clave' => [
-                'required', 'string', 'max:50',
-                Rule::unique('ciclos', 'clave')->ignore($id)->whereNull('deleted_at'),
-            ],
+            // La clave ya NO se teclea: se arma de año + periodo.
+            'anio' => ['required', 'integer', 'digits:4', 'min:2000', 'max:2100'],
+            'numero_periodo' => ['required', 'integer', 'between:1,4'],
+            // Nivel opcional: si se pone, acota los grupos del ciclo a ese nivel.
+            'nivel_estudios_id' => ['nullable', 'integer', Rule::exists('niveles_estudio', 'id')->whereNull('deleted_at')],
             'nombre' => ['required', 'string', 'max:120'],
             'fecha_inicio' => ['required', 'date'],
             'fecha_fin' => ['required', 'date', 'after:fecha_inicio'],
@@ -250,13 +252,32 @@ class CicloController extends Controller
         ], [
             'fecha_fin.after' => 'El fin del ciclo debe ser posterior a su inicio.',
             'inscripcion_hasta.after_or_equal' => 'El cierre de inscripción no puede ser antes de su apertura.',
-            'clave.unique' => 'Ya existe un ciclo con esa clave en la escuela.',
+            'anio.digits' => 'El año debe tener 4 dígitos.',
+            'numero_periodo.between' => 'El número de periodo va del 1 al 4.',
         ], [
             'campus_ids' => 'campus',
             'situacion_id' => 'situación',
             'fecha_inicio' => 'fecha de inicio',
             'fecha_fin' => 'fecha de fin',
+            'numero_periodo' => 'número de periodo',
+            'nivel_estudios_id' => 'nivel de estudios',
         ]);
+
+        // La clave se genera aquí: año + guión + periodo (2026-1). Y se valida
+        // su unicidad a mano, porque no viene del formulario y no se puede
+        // colgar una regla `unique` de un input inexistente.
+        $validados['clave'] = $validados['anio'].'-'.$validados['numero_periodo'];
+
+        $repetida = Ciclo::query()
+            ->where('clave', $validados['clave'])
+            ->when($id !== null, fn ($q) => $q->whereKeyNot($id))
+            ->exists();
+
+        if ($repetida) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'numero_periodo' => "Ya existe el ciclo {$validados['clave']} en la escuela.",
+            ]);
+        }
 
         unset($validados['campus_ids']);
 
@@ -276,6 +297,8 @@ class CicloController extends Controller
                 ->orderBy('nombre')
                 ->get(['id', 'nombre']),
             'situaciones' => SituacionCiclo::query()->orderBy('id')->get(['id', 'nombre']),
+            // Para acotar (opcionalmente) el ciclo a un nivel de estudios.
+            'niveles' => \App\Models\Academico\NivelEstudio::query()->orderBy('orden')->get(['id', 'nombre']),
             'alcanceAcotado' => $alcance !== null,
         ];
     }
