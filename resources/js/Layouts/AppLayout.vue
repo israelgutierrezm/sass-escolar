@@ -4,6 +4,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { Toaster, toast } from 'vue-sonner';
 import 'vue-sonner/style.css';
 import PanelTema from '@/Components/PanelTema.vue';
+import PanelRoles from '@/Components/PanelRoles.vue';
 import type { PropsCompartidas } from '@/tipos';
 
 defineProps<{ titulo?: string }>();
@@ -55,7 +56,11 @@ const permisos = computed(() => usuario.value?.permisos ?? []);
 const compacta = ref(false);
 const menuUsuario = ref(false);
 const panelTema = ref(false);
+const panelRoles = ref(false);
 const gruposAbiertos = ref<Record<string, boolean>>({});
+
+// El icono de cambio de rol solo aparece si hay algo que cambiar.
+const tieneVariosRoles = computed(() => (usuario.value?.roles_disponibles?.length ?? 0) > 1);
 
 /**
  * Los colores del tema viven en la base de datos (una fila por token) y se
@@ -300,11 +305,6 @@ function alternarGrupo(clave: string): void {
     gruposAbiertos.value[clave] = !gruposAbiertos.value[clave];
 }
 
-function conmutarRol(rolId: number): void {
-    menuUsuario.value = false;
-    router.put('/rol-activo', { rol_id: rolId }, { preserveScroll: true });
-}
-
 function salir(): void {
     router.post('/logout');
 }
@@ -497,6 +497,20 @@ const iniciales = computed(() => {
                 <span v-else />
 
                 <div class="flex items-center gap-2">
+                    <!-- Cambiar de rol: junto a Apariencia, como pidió el
+                         cliente. Solo si hay más de un rol que elegir. -->
+                    <button
+                        v-if="tieneVariosRoles"
+                        type="button"
+                        class="rounded-xl p-2 transition duration-200 hover:bg-black/5"
+                        title="Cambiar de rol"
+                        @click="panelRoles = true"
+                    >
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                        </svg>
+                    </button>
+
                     <!-- Apariencia -->
                     <button
                         type="button"
@@ -544,37 +558,34 @@ const iniciales = computed(() => {
                             leave-active-class="transition duration-150 ease-in"
                             leave-to-class="opacity-0 -translate-y-2 scale-95"
                         >
+                            <!-- El menú de perfil es para la CUENTA, no para el
+                                 rol: cambiar de rol se hace desde su propio
+                                 panel lateral. Aquí van los datos de la persona
+                                 (nombre, foto, contraseña) y salir. -->
                             <div
                                 v-if="menuUsuario"
-                                class="absolute right-0 top-full mt-2 w-72 overflow-hidden rounded-xl border shadow-xl"
+                                class="absolute right-0 top-full mt-2 w-64 overflow-hidden rounded-xl border shadow-xl"
                                 :style="{ backgroundColor: 'var(--color-superficie)', borderColor: 'var(--color-borde)', color: 'var(--color-contenido)' }"
                             >
-                                <p class="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                                    Cambiar de rol
-                                </p>
+                                <div class="border-b px-3 py-3" :style="{ borderColor: 'var(--color-borde)' }">
+                                    <p class="truncate text-sm font-medium">{{ usuario?.nombre_completo }}</p>
+                                    <p class="truncate text-[11px]" :style="{ color: 'var(--color-suave)' }">
+                                        {{ usuario?.email }}
+                                    </p>
+                                </div>
 
-                                <button
-                                    v-for="rol in usuario?.roles_disponibles ?? []"
-                                    :key="`${rol.id}-${rol.campus_id ?? 'g'}`"
-                                    type="button"
-                                    class="flex w-full items-start justify-between gap-2 px-3 py-2 text-left text-sm transition hover:bg-black/5"
-                                    @click="conmutarRol(rol.id)"
+                                <Link
+                                    href="/mi-perfil"
+                                    class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition hover:bg-black/5"
+                                    @click="menuUsuario = false"
                                 >
-                                    <span class="min-w-0">
-                                        <span class="block truncate">{{ rol.nombre }}</span>
-                                        <span class="block truncate text-[11px]" :style="{ color: 'var(--color-suave)' }">
-                                            <span v-if="rol.faceta !== rol.nombre">{{ rol.faceta }} · </span>
-                                            {{ rol.campus_nombre ? `Acotado a ${rol.campus_nombre}` : 'Alcance global' }}
-                                        </span>
-                                    </span>
-                                    <span
-                                        v-if="usuario?.rol_activo?.id === rol.id"
-                                        class="mt-1 h-2 w-2 shrink-0 rounded-full"
-                                        :style="{ backgroundColor: 'var(--color-acento)' }"
-                                    />
-                                </button>
+                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                                    </svg>
+                                    Mi perfil
+                                </Link>
 
-                                <div class="mt-1 border-t" :style="{ borderColor: 'var(--color-borde)' }">
+                                <div class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
                                     <button
                                         type="button"
                                         class="w-full px-3 py-2.5 text-left text-sm transition hover:bg-black/5"
@@ -603,5 +614,6 @@ const iniciales = computed(() => {
         <Toaster position="bottom-right" rich-colors close-button />
 
         <PanelTema :abierto="panelTema" @cerrar="panelTema = false" />
+        <PanelRoles :abierto="panelRoles" @cerrar="panelRoles = false" />
     </div>
 </template>

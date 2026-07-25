@@ -2453,3 +2453,41 @@ admin; como control escolar, «Captura» cuelga de Control escolar. `prueba-role
 sube a 48 checks y fija que un permiso compartido con docente no cambie el
 ámbito administrativo —el que decide la sección—. Total: 26 suites, 683
 verificaciones.
+
+---
+
+## Cambio de rol a barra derecha, y «Mi perfil» aparte
+
+El cliente pidió reorganizar la esquina de la cuenta: el cambio de rol enterrado
+en el dropdown de perfil debía pasar a un icono que abre una barra lateral
+derecha (como Apariencia), y el dropdown de perfil debía quedar para los datos
+de la persona —nombre, foto, contraseña— o cerrar sesión.
+
+Es correcto de raíz: conmutar de rol es una acción frecuente y de primer nivel,
+no un ajuste de cuenta; mezclarla con «cerrar sesión» y con editar el perfil las
+igualaba a todas. Ahora:
+
+- `PanelRoles.vue` —espejo de `PanelTema`— lista los roles disponibles a la
+  derecha; el icono solo aparece si hay más de uno (con uno no hay nada que
+  elegir). Cada rol muestra su faceta y su alcance (global o acotado a campus).
+  Conmutar al rol que ya está activo no reconsulta: evita redibujar todo el
+  menú, el tema y los permisos por hacer clic donde ya estás.
+- El dropdown de perfil se reduce a identidad + «Mi perfil» + «Cerrar sesión».
+- `PerfilController` + `Perfil/Index.vue`: sin id en la URL —siempre la cuenta
+  autenticada—, edita nombre y correo, cambia la foto por el endpoint de
+  siempre (el mismo de la ficha del alumno) y la contraseña **exigiendo la
+  actual**. Esto último no es burocracia: cambiar la contraseña propia sin
+  conocer la vigente convertiría una sesión abierta olvidada en un secuestro de
+  cuenta.
+
+De paso, el correo del perfil respeta unicidad (es la credencial de acceso) y el
+segundo apellido vacío se guarda como null, no como cadena vacía: «sin segundo
+apellido» es ausencia del dato, y debe compararse igual que quien nunca lo tuvo.
+
+Verificado en el navegador: el panel lateral conmuta el rol y el menú reacciona
+(a Docente queda Panel + Docencia); «Mi perfil» carga con foto, datos y cambio
+de contraseña. Suite nueva `prueba-perfil` (7 checks). Total: 27 suites, 690
+verificaciones.
+
+Pendiente del mismo pedido, para retomar: al INICIAR sesión, si hay más de un
+rol, preguntar con cuál entrar (hoy entra con el último activo).

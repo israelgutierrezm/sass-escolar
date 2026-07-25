@@ -30,6 +30,7 @@ use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\IdentidadController;
 use App\Http\Controllers\InscripcionController;
 use App\Http\Controllers\OfertaController;
+use App\Http\Controllers\PerfilController;
 use App\Http\Controllers\PlanCobroController;
 use App\Http\Controllers\PlanEstudioController;
 use App\Http\Controllers\PlanMateriaController;
@@ -90,6 +91,14 @@ Route::middleware([
     Route::middleware(['auth', 'rol.activo'])->group(function () {
         Route::get('/panel', DashboardController::class)->name('tenant.dashboard');
         Route::put('/rol-activo', [RolActivoController::class, 'actualizar'])->name('tenant.rol-activo.actualizar');
+
+        /*
+         * Mi perfil: datos de la propia cuenta. Sin permiso especial ni id en la
+         * URL —siempre es el usuario autenticado—, como suplantar o el tema.
+         */
+        Route::get('/mi-perfil', [PerfilController::class, 'show'])->name('tenant.perfil.show');
+        Route::put('/mi-perfil', [PerfilController::class, 'actualizar'])->name('tenant.perfil.actualizar');
+        Route::put('/mi-perfil/password', [PerfilController::class, 'password'])->name('tenant.perfil.password');
 
         /*
          * Suplantacion: ver el sistema como lo ve otra persona.
