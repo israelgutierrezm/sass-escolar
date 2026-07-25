@@ -94,9 +94,40 @@ function aplicarTema(tokens: Record<string, string>): void {
     }
 }
 
+/**
+ * Tamaño de fuente ajustable.
+ *
+ * Se guarda en `sessionStorage`, NO en la base ni en localStorage: el cliente
+ * lo pidió por SESIÓN, de modo que cada vez que alguien vuelve a entrar arranca
+ * en el tamaño normal. Es una ayuda momentánea (una pantalla que se ve chica en
+ * tal monitor), no una preferencia que deba perseguir a la persona.
+ *
+ * Se aplica como font-size del elemento raíz en porcentaje: como la interfaz
+ * mide en `rem`, mover la raíz escala todo el conjunto de forma proporcional.
+ */
+const ESCALA_MIN = 80;
+const ESCALA_MAX = 140;
+const ESCALA_PASO = 10;
+
+const escalaFuente = ref(100);
+
+function aplicarEscala(valor: number): void {
+    escalaFuente.value = Math.min(ESCALA_MAX, Math.max(ESCALA_MIN, valor));
+    document.documentElement.style.fontSize = `${escalaFuente.value}%`;
+    sessionStorage.setItem('acadion.escala-fuente', String(escalaFuente.value));
+}
+
+function ajustarFuente(delta: number): void {
+    aplicarEscala(escalaFuente.value + delta);
+}
+
 onMounted(() => {
     compacta.value = localStorage.getItem('acadion.barra.compacta') === '1';
     aplicarTema(tema.value?.tokens ?? {});
+
+    // Se retoma solo dentro de la MISMA sesión de navegador; una nueva empieza
+    // en 100 porque sessionStorage viene vacío.
+    aplicarEscala(Number(sessionStorage.getItem('acadion.escala-fuente')) || 100);
 });
 
 watch(() => tema.value?.tokens, (tokens) => aplicarTema(tokens ?? {}), { deep: true });
@@ -615,5 +646,34 @@ const iniciales = computed(() => {
 
         <PanelTema :abierto="panelTema" @cerrar="panelTema = false" />
         <PanelRoles :abierto="panelRoles" @cerrar="panelRoles = false" />
+
+        <!-- Control flotante de tamaño de fuente. Abajo a la IZQUIERDA para no
+             pelearse con los toasts, que salen abajo a la derecha. -->
+        <div
+            class="fixed bottom-5 left-5 z-30 flex items-center gap-1 rounded-full px-2 py-1 shadow-lg ring-1"
+            :style="{ backgroundColor: 'var(--color-superficie)', '--tw-ring-color': 'var(--color-borde)' }"
+        >
+            <button
+                type="button"
+                class="grid h-8 w-8 place-items-center rounded-full transition hover:bg-black/5 disabled:opacity-40"
+                title="Reducir tamaño de letra"
+                :disabled="escalaFuente <= 80"
+                @click="ajustarFuente(-ESCALA_PASO)"
+            >
+                <span class="text-xs font-semibold">A−</span>
+            </button>
+            <span class="w-10 text-center text-xs tabular-nums" :style="{ color: 'var(--color-suave)' }">
+                {{ escalaFuente }}%
+            </span>
+            <button
+                type="button"
+                class="grid h-8 w-8 place-items-center rounded-full transition hover:bg-black/5 disabled:opacity-40"
+                title="Aumentar tamaño de letra"
+                :disabled="escalaFuente >= 140"
+                @click="ajustarFuente(ESCALA_PASO)"
+            >
+                <span class="text-base font-semibold">A+</span>
+            </button>
+        </div>
     </div>
 </template>

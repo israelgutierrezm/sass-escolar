@@ -2826,3 +2826,30 @@ del ciclo rechazado, campus del ciclo aceptado, plan de otro nivel rechazado,
 plan del nivel aceptado. Verificado en el navegador: el formulario tiene
 Semestre; el detalle muestra el docente con su tipo y botón «quitar». Total: 32
 suites, 732 verificaciones.
+
+---
+
+## Interfaz: control flotante de tamaño de fuente (por sesión)
+
+El cliente pidió un botón flotante para subir o bajar el tamaño de letra,
+guardado «en una variable de sesión, no en base de datos, para que cada sesión
+nueva inicie con el tamaño por defecto».
+
+Se implementó en `AppLayout` con `sessionStorage` —no localStorage ni BD—: eso
+es exactamente «por sesión de navegador», así que persiste mientras se navega
+(la SPA de Inertia no recarga) pero una sesión nueva arranca en 100 % porque el
+almacén viene vacío. Es una ayuda momentánea (una pantalla que se ve chica en
+tal monitor), no una preferencia que deba perseguir a la persona —para eso está
+Apariencia, que sí se guarda—.
+
+Se aplica como `font-size` del elemento raíz en porcentaje (80–140 %, pasos de
+10): como la interfaz mide en `rem`, mover la raíz escala todo proporcional. El
+control va abajo a la IZQUIERDA para no pelearse con los toasts, que salen abajo
+a la derecha.
+
+Verificado en el navegador: A+/A− cambian el tamaño, se guarda en sessionStorage
+(no en localStorage), persiste al navegar dentro de la sesión, y hace tope en
+80 % y 140 %. Total: 32 suites, 732 verificaciones (el control es solo frontend;
+la suite se corrió como regresión y siguió en verde).
+
+Con esto se cierra esta revisión (Ciclos, Grupos e interfaz).
