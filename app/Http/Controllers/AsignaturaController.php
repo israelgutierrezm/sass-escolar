@@ -7,13 +7,16 @@ namespace App\Http\Controllers;
 use App\Models\Academico\Area;
 use App\Models\Academico\Asignatura;
 use App\Models\Academico\ClasificacionAsignatura;
+use App\Models\Academico\Descriptor;
 use App\Models\Academico\PlanMateria;
 use App\Models\Academico\TipoAsignatura;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Catálogo de asignaturas.
@@ -73,26 +76,48 @@ class AsignaturaController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        Asignatura::create($this->validar($request));
+        $datos = $this->validar($request);
 
-        return redirect()->route('tenant.academico.asignaturas.index')->with('exito', 'Asignatura creada.');
+        $asignatura = Asignatura::create($datos);
+
+        // Al crear, si no se tocó nada, van TODOS los descriptores marcados
+        // —es el default que pidió el cliente—. Solo si vino la clave y quedó
+        // vacía a propósito se guardan cero.
+        $descriptores = $request->has('descriptores')
+            ? ($datos['descriptores'] ?? [])
+            : Descriptor::query()->pluck('id')->all();
+
+        $asignatura->descriptores()->sync($descriptores);
+
+        return redirect()
+            ->route('tenant.academico.asignaturas.edit', $asignatura)
+            ->with('exito', 'Asignatura creada. Ahora puedes subir sus imágenes de diseño.');
     }
 
     public function edit(Asignatura $asignatura): Response
     {
+        $asignatura->load('descriptores:id');
+
         return Inertia::render('Academico/Asignaturas/Formulario', [
-            'asignatura' => $asignatura->only([
-                'id', 'identificador', 'clave', 'nombre', 'creditos', 'tipo_asignatura_id',
-                'clasificacion_id', 'area_id', 'horas_teoria', 'horas_practica',
-                'horas_acompanamiento', 'horas_independientes', 'objetivos_desc', 'bibliografia_desc',
-            ]),
+            'asignatura' => [
+                ...$asignatura->only([
+                    'id', 'identificador', 'clave', 'nombre', 'creditos', 'tipo_asignatura_id',
+                    'clasificacion_id', 'area_id', 'horas_teoria', 'horas_practica',
+                    'horas_acompanamiento', 'horas_independientes',
+                ]),
+                'descriptores' => $asignatura->descriptores->pluck('id'),
+                'imagenes' => $asignatura->urlsDiseno(),
+            ],
             ...$this->catalogos(),
         ]);
     }
 
     public function update(Request $request, Asignatura $asignatura): RedirectResponse
     {
-        $asignatura->update($this->validar($request, $asignatura->id));
+        $datos = $this->validar($request, $asignatura->id);
+
+        $asignatura->update($datos);
+        $asignatura->descriptores()->sync($datos['descriptores'] ?? []);
 
         return redirect()->route('tenant.academico.asignaturas.index')->with('exito', 'Asignatura actualizada.');
     }
@@ -129,8 +154,11 @@ class AsignaturaController extends Controller
             'horas_practica' => ['nullable', 'integer', 'min:0'],
             'horas_acompanamiento' => ['nullable', 'integer', 'min:0'],
             'horas_independientes' => ['nullable', 'integer', 'min:0'],
-            'objetivos_desc' => ['nullable', 'string'],
-            'bibliografia_desc' => ['nullable', 'string'],
+            // Los descriptores son ahora una selección múltiple del catálogo,
+            // no dos textos libres. Las columnas objetivos/bibliografía siguen
+            // en la tabla pero ya no se capturan aquí.
+            'descriptores' => ['array'],
+            'descriptores.*' => ['integer', Rule::exists('descriptores', 'id')->whereNull('deleted_at')],
         ], [], [
             'tipo_asignatura_id' => 'tipo de asignatura',
             'clasificacion_id' => 'clasificación',
@@ -148,9 +176,73 @@ class AsignaturaController extends Controller
     private function catalogos(): array
     {
         return [
-            'tiposAsignatura' => TipoAsignatura::query()->orderBy('nombre')->get(['id', 'nombre']),
+            // El Tipo queda en cuatro fijas (Obligatoria, Optativa, Adicional,
+            // Complementaria); se ordena por id para respetar ese orden y no
+            // alfabetizarlo.
+            'tiposAsignatura' => TipoAsignatura::query()->orderBy('id')->get(['id', 'nombre']),
             'clasificaciones' => ClasificacionAsignatura::query()->orderBy('nombre')->get(['id', 'nombre']),
             'areas' => Area::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'descriptores' => Descriptor::query()->orderBy('id')->get(['id', 'nombre']),
         ];
+    }
+
+    /**
+     * Las tres imágenes de diseño se suben por separado, después de crear la
+     * asignatura (necesitan su id), igual que la foto de una persona. Cada una
+     * a su ranura: materia, miniatura o portada.
+     */
+    public function subirImagen(Request $request, Asignatura $asignatura, string $tipo): RedirectResponse
+    {
+        $columna = $this->columnaDeImagen($tipo);
+
+        $request->validate([
+            'imagen' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+        ], [
+            'imagen.image' => 'El archivo debe ser una imagen.',
+            'imagen.max' => 'La imagen no puede pasar de 4 MB.',
+        ]);
+
+        $anterior = $asignatura->{$columna};
+
+        $asignatura->update([$columna => $request->file('imagen')->store('asignaturas', 'local')]);
+
+        if ($anterior !== null && $anterior !== $asignatura->{$columna}) {
+            Storage::disk('local')->delete($anterior);
+        }
+
+        return back()->with('exito', 'Imagen actualizada.');
+    }
+
+    public function quitarImagen(Asignatura $asignatura, string $tipo): RedirectResponse
+    {
+        $columna = $this->columnaDeImagen($tipo);
+
+        if ($asignatura->{$columna} !== null) {
+            Storage::disk('local')->delete($asignatura->{$columna});
+            $asignatura->update([$columna => null]);
+        }
+
+        return back()->with('exito', 'Imagen eliminada.');
+    }
+
+    public function mostrarImagen(Asignatura $asignatura, string $tipo): StreamedResponse
+    {
+        $columna = $this->columnaDeImagen($tipo);
+
+        abort_if($asignatura->{$columna} === null, 404);
+        abort_unless(Storage::disk('local')->exists($asignatura->{$columna}), 404);
+
+        return Storage::disk('local')->response($asignatura->{$columna});
+    }
+
+    /** Traduce la ranura pública (materia/miniatura/portada) a su columna. */
+    private function columnaDeImagen(string $tipo): string
+    {
+        return match ($tipo) {
+            'materia' => 'imagen_materia_url',
+            'miniatura' => 'imagen_miniatura_url',
+            'portada' => 'foto_portada_url',
+            default => abort(404),
+        };
     }
 }

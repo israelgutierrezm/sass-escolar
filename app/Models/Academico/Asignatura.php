@@ -7,6 +7,7 @@ namespace App\Models\Academico;
 use App\Models\Concerns\TieneAuditoria;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -32,12 +33,30 @@ class Asignatura extends Model
         'horas_independientes',
         'objetivos_desc',
         'bibliografia_desc',
+        'imagen_materia_url',
+        'imagen_miniatura_url',
+        'foto_portada_url',
     ];
 
     protected function casts(): array
     {
         return [
             'creditos' => 'float',
+        ];
+    }
+
+    /**
+     * Rutas autenticadas de las tres imágenes de diseño; null la que no exista.
+     * Nunca la ruta del disco.
+     *
+     * @return array<string, ?string>
+     */
+    public function urlsDiseno(): array
+    {
+        return [
+            'materia' => $this->imagen_materia_url === null ? null : "/academico/asignaturas/{$this->id}/imagen/materia",
+            'miniatura' => $this->imagen_miniatura_url === null ? null : "/academico/asignaturas/{$this->id}/imagen/miniatura",
+            'portada' => $this->foto_portada_url === null ? null : "/academico/asignaturas/{$this->id}/imagen/portada",
         ];
     }
 
@@ -60,5 +79,11 @@ class Asignatura extends Model
     public function planMaterias(): HasMany
     {
         return $this->hasMany(PlanMateria::class, 'asignatura_id');
+    }
+
+    /** Descriptores del programa que esta asignatura incluye. */
+    public function descriptores(): BelongsToMany
+    {
+        return $this->belongsToMany(Descriptor::class, 'asignatura_descriptor')->withTimestamps();
     }
 }

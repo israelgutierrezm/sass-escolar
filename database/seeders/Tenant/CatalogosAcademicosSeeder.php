@@ -7,6 +7,7 @@ namespace Database\Seeders\Tenant;
 use App\Models\Academico\Area;
 use App\Models\Academico\AutorizacionReconocimiento;
 use App\Models\Academico\ClasificacionAsignatura;
+use App\Models\Academico\Descriptor;
 use App\Models\Academico\TipoAsignatura;
 use App\Models\Academico\TipoCampus;
 use App\Models\Academico\TipoPeriodo;
@@ -42,11 +43,20 @@ class CatalogosAcademicosSeeder extends Seeder
             ['clave' => 'mixto', 'nombre' => 'Mixto'],
         ]);
 
+        // El Tipo queda en cuatro fijas, sin agregar más (decisión del cliente).
         $this->sembrar(TipoAsignatura::class, [
             ['clave' => 'obligatoria', 'nombre' => 'Obligatoria'],
             ['clave' => 'optativa', 'nombre' => 'Optativa'],
-            ['clave' => 'seminario', 'nombre' => 'Seminario'],
-            ['clave' => 'taller', 'nombre' => 'Taller'],
+            ['clave' => 'adicional', 'nombre' => 'Adicional'],
+            ['clave' => 'complementaria', 'nombre' => 'Complementaria'],
+        ]);
+
+        // Descriptores del programa de una asignatura. Nace con cuatro; admite más.
+        $this->sembrar(Descriptor::class, [
+            ['clave' => 'bienvenida', 'nombre' => 'Bienvenida'],
+            ['clave' => 'contenido_tematico', 'nombre' => 'Contenido temático'],
+            ['clave' => 'actividades_aprendizaje', 'nombre' => 'Actividades de aprendizaje'],
+            ['clave' => 'criterios_evaluacion', 'nombre' => 'Criterios de evaluación'],
         ]);
 
         $this->sembrar(ClasificacionAsignatura::class, [

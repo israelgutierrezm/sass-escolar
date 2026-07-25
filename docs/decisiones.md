@@ -2604,3 +2604,40 @@ los planes ya referencian, sin la UI para revisarlo, sería a ciegas.
 
 Verificado en el navegador: Carrera ya no muestra «Objetivo»; Plan de estudios
 muestra las tres etiquetas nuevas y el tooltip. Suites de carrera/plan en verde.
+
+---
+
+## Académico > Asignaturas: Tipo fijo, Descriptores como catálogo, imágenes de diseño (módulo 5)
+
+Tres cambios sobre la misma entidad, juntos.
+
+**Tipo a cuatro fijas** — Obligatoria, Optativa, Adicional, Complementaria, y
+nada más. El catálogo traía «Seminario» y «Taller»; como no los usaba ninguna
+asignatura, se RENOMBRARON a los dos que faltaban en vez de borrarlos y crear
+otros: el id se conserva y nada que apuntara ahí se rompe. Es un catálogo fijo,
+no de los que la escuela amplía.
+
+**Descriptores de campo libre a catálogo multiselección** — antes eran dos
+textos (objetivos/bibliografía); ahora son una selección de casillas contra el
+catálogo `descriptores` (Bienvenida, Contenido temático, Actividades de
+aprendizaje, Criterios de evaluación; admite más). **Al crear una asignatura
+vienen TODOS marcados**, como pidió el cliente; el default lo pone el
+controlador cuando el formulario no manda la clave, para que valga también si
+alguien crea por API. Las columnas de texto se conservan por si hay algo
+capturado, pero el formulario ya no las usa.
+
+**Diseño de asignatura** — tres imágenes por materia (la de la materia, la
+miniatura para listados, la portada). Se manejan como la foto de una persona o
+el logo de la institución: disco privado + ruta autenticada, una ranura por
+imagen (`/asignaturas/{id}/imagen/{materia|miniatura|portada}`). La sección solo
+aparece al EDITAR: las imágenes se cuelgan del id de la asignatura ya creada,
+así que el alta redirige a la edición con un aviso para subirlas.
+
+Verificado en el navegador: Tipo ofrece las cuatro; al crear, los cuatro
+descriptores salen marcados; «Diseño» no aparece en alta y sí en edición con las
+tres ranuras. Suite nueva `prueba-asignaturas` (7 checks). Total: 28 suites, 705
+verificaciones.
+
+Queda para el módulo de Catálogos la pantalla de administración de Descriptores,
+Clasificación y Área (agregar/renombrar), y alinear las 9 opciones de
+Autorización o Reconocimiento.

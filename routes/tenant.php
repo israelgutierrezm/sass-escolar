@@ -287,6 +287,11 @@ Route::middleware([
                 Route::get('planes', [PlanEstudioController::class, 'index'])->name('planes.index');
                 Route::get('ofertas', [OfertaController::class, 'index'])->name('ofertas.index');
                 Route::get('asignaturas', [AsignaturaController::class, 'index'])->name('asignaturas.index');
+                // Las imágenes de diseño se sirven en LECTURA a quien pueda ver
+                // el catálogo; por eso fuera del grupo de escritura.
+                Route::get('asignaturas/{asignatura}/imagen/{tipo}', [AsignaturaController::class, 'mostrarImagen'])
+                    ->whereNumber('asignatura')->whereIn('tipo', ['materia', 'miniatura', 'portada'])
+                    ->name('asignaturas.imagen');
 
                 // Plantillas de evaluación: el criterio de calificación
                 // definido una vez y aplicado al plan completo.
@@ -307,6 +312,12 @@ Route::middleware([
                     Route::resource('planes', PlanEstudioController::class)->except(['index', 'show']);
                     Route::resource('ofertas', OfertaController::class)->except(['index', 'show']);
                     Route::resource('asignaturas', AsignaturaController::class)->except(['index', 'show']);
+                    Route::post('asignaturas/{asignatura}/imagen/{tipo}', [AsignaturaController::class, 'subirImagen'])
+                        ->whereNumber('asignatura')->whereIn('tipo', ['materia', 'miniatura', 'portada'])
+                        ->name('asignaturas.imagen.subir');
+                    Route::delete('asignaturas/{asignatura}/imagen/{tipo}', [AsignaturaController::class, 'quitarImagen'])
+                        ->whereNumber('asignatura')->whereIn('tipo', ['materia', 'miniatura', 'portada'])
+                        ->name('asignaturas.imagen.quitar');
 
                     Route::post('planes/{plan}/materias', [PlanMateriaController::class, 'store'])->name('planes.materias.store');
                     Route::put('planes/{plan}/materias/{materia}', [PlanMateriaController::class, 'update'])->name('planes.materias.update');
