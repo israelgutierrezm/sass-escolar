@@ -10,6 +10,7 @@ import { computed } from 'vue';
 const page = usePage();
 
 const secciones = [
+    { etiqueta: 'Institución', url: '/academico/instituciones' },
     { etiqueta: 'Campus', url: '/academico/campus' },
     { etiqueta: 'Carreras', url: '/academico/carreras' },
     { etiqueta: 'Asignaturas', url: '/academico/asignaturas' },

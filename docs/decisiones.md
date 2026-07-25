@@ -2491,3 +2491,41 @@ verificaciones.
 
 Pendiente del mismo pedido, para retomar: al INICIAR sesión, si hay más de un
 rol, preguntar con cuál entrar (hoy entra con el último activo).
+
+---
+
+## Académico > Institución (módulo 1 de la revisión de Académico)
+
+Primer bloque de la revisión del cliente sobre el módulo Académico. Apartado
+nuevo «Institución»: la persona moral educativa dueña de los campus, con clave,
+nombre y logo.
+
+Es un dato de ENCABEZADO, no una entidad con reglas: membreta lo que la escuela
+emite y nada más. Por eso `instituciones` es un catálogo simple, y el vínculo
+`campus.institucion_id` es informativo —nullable, `nullOnDelete`—, no una
+restricción sobre la oferta ni los grupos.
+
+Decisiones:
+- **Se siembra una institución por defecto** («PRINCIPAL», con el nombre del
+  tenant) en la propia migración, y los campus existentes se enganchan a ella.
+  Así la preselección «si solo hay una, va automática» —que pide el cliente para
+  el formulario de Campus— arranca con algo que preseleccionar, y ningún
+  plantel queda huérfano.
+- **El logo se maneja como la foto de una persona**: disco privado + ruta
+  autenticada (`/academico/instituciones/{id}/logo`), no archivo público. Un
+  logo no es secreto, pero abrir el disco al mundo por un caso que no lo exige
+  es abrir de más. Se reutiliza el mismo patrón ya probado.
+- **No se borra una institución con campus**: se perdería a qué persona moral
+  pertenecen. Primero se reasignan.
+
+Suite nueva `prueba-instituciones` (5 checks): default sembrado, alta, unicidad
+de clave, salvaguarda de borrado. Verificado en el navegador: el apartado sale
+en la sub-nav de Académico, lista la institución sembrada con sus 3 campus, y el
+alta muestra el toast y aparece en la lista.
+
+Pendiente del mismo pedido (módulos siguientes, en orden): Campus (selector de
+institución + Entidad Federativa obligatoria, quitar «Nacido en el extranjero»),
+Carreras (quitar Objetivo), Plan de estudios (renombres + tooltip), Asignaturas
+(Tipo a 4 fijas, Descriptores como catálogo multiselección, 3 imágenes de
+diseño), y el módulo Configuración/Catálogos con el desdoble Entidad↔Identidad
+Federativa.

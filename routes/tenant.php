@@ -28,6 +28,7 @@ use App\Http\Controllers\FormularioPublicoController;
 use App\Http\Controllers\FotoPersonaController;
 use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\IdentidadController;
+use App\Http\Controllers\InstitucionController;
 use App\Http\Controllers\InscripcionController;
 use App\Http\Controllers\OfertaController;
 use App\Http\Controllers\PerfilController;
@@ -276,6 +277,11 @@ Route::middleware([
             ->group(function () {
                 $escritura = ['middleware' => 'can:editar-catalogo-academico'];
 
+                Route::get('instituciones', [InstitucionController::class, 'index'])->name('instituciones.index');
+                // El logo se sirve en LECTURA a cualquiera que pueda ver el
+                // catálogo; por eso queda fuera del grupo de escritura.
+                Route::get('instituciones/{institucion}/logo', [InstitucionController::class, 'logo'])
+                    ->whereNumber('institucion')->name('instituciones.logo');
                 Route::get('campus', [CampusController::class, 'index'])->name('campus.index');
                 Route::get('carreras', [CarreraController::class, 'index'])->name('carreras.index');
                 Route::get('planes', [PlanEstudioController::class, 'index'])->name('planes.index');
@@ -293,6 +299,8 @@ Route::middleware([
                 Route::get('planes/{plan}/materias/{materia}', [PlanMateriaController::class, 'show'])->name('planes.materias.show');
 
                 Route::middleware($escritura['middleware'])->group(function () {
+                    Route::resource('instituciones', InstitucionController::class)
+                        ->except(['index', 'show'])->parameters(['instituciones' => 'institucion']);
                     Route::resource('campus', CampusController::class)
                         ->except(['index', 'show'])->parameters(['campus' => 'campus']);
                     Route::resource('carreras', CarreraController::class)->except(['index', 'show']);

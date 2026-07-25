@@ -22,6 +22,7 @@ class Campus extends Model
     protected $fillable = [
         'clave',
         'nombre',
+        'institucion_id',
         'tipo_campus_id',
         'online',
         'entidad_id',
@@ -32,6 +33,11 @@ class Campus extends Model
         return [
             'online' => 'boolean',
         ];
+    }
+
+    public function institucion(): BelongsTo
+    {
+        return $this->belongsTo(Institucion::class);
     }
 
     public function tipoCampus(): BelongsTo
