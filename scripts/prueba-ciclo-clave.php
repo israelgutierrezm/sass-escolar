@@ -83,7 +83,7 @@ try {
         'campus_ids' => [],
         'anio' => $anio,
         'numero_periodo' => 3,
-        'nivel_estudios_id' => $nivel,
+        'nivel_ids' => [$nivel],
         'nombre' => 'Ciclo de prueba',
         'fecha_inicio' => "$anio-01-15",
         'fecha_fin' => "$anio-06-15",
@@ -94,7 +94,7 @@ try {
 
     verificar('La clave es «AÑO-PERIODO» con guión', $creado?->clave === "$anio-3", $creado?->clave);
     verificar('Guardó año y número de periodo', $creado?->anio === $anio && $creado?->numero_periodo === 3);
-    verificar('Guardó el nivel de estudios ligado', $creado?->nivel_estudios_id === $nivel);
+    verificar('Guardó el nivel de estudios ligado (pivote)', $creado?->niveles()->pluck('niveles_estudio.id')->contains($nivel));
 
     echo PHP_EOL.'2. La clave no se puede repetir'.PHP_EOL;
 
@@ -152,7 +152,25 @@ try {
     ], $u));
 
     verificar('Se crea sin nivel (cualquier nivel)',
-        Ciclo::where('anio', $anio2)->where('numero_periodo', 1)->whereNull('nivel_estudios_id')->exists());
+        Ciclo::where('anio', $anio2)->where('numero_periodo', 1)->first()?->niveles()->doesntExist());
+
+    echo PHP_EOL.'5. El ciclo admite VARIOS niveles a la vez'.PHP_EOL;
+
+    $dosNiveles = NivelEstudio::query()->orderBy('id')->take(2)->pluck('id')->all();
+    $anio3 = $anio + 2;
+
+    $c->store(pet([
+        'campus_ids' => [], 'anio' => $anio3, 'numero_periodo' => 1,
+        'nivel_ids' => $dosNiveles,
+        'nombre' => 'Dos niveles', 'fecha_inicio' => "$anio3-01-15", 'fecha_fin' => "$anio3-06-15",
+        'situacion_id' => $situacion,
+    ], $u));
+
+    $multi = Ciclo::where('anio', $anio3)->where('numero_periodo', 1)->first();
+
+    verificar('Guarda los dos niveles marcados',
+        $multi?->niveles()->count() === 2
+        && collect($dosNiveles)->every(fn ($n) => $multi->niveles()->pluck('niveles_estudio.id')->contains($n)));
 } finally {
     DB::rollBack();
     echo PHP_EOL.'-- rollback aplicado, la base queda como estaba --'.PHP_EOL;

@@ -25,7 +25,6 @@ class Ciclo extends Model
         'clave',
         'anio',
         'numero_periodo',
-        'nivel_estudios_id',
         'nombre',
         'fecha_inicio',
         'fecha_fin',
@@ -66,12 +65,14 @@ class Ciclo extends Model
     }
 
     /**
-     * Nivel de estudios al que se acota el ciclo (opcional). Si está puesto, los
-     * grupos del ciclo solo pueden ser de ese nivel.
+     * Niveles de estudio a los que se acota el ciclo (opcional). Si hay alguno,
+     * los grupos del ciclo solo pueden ser de esos niveles. Vacío = cualquier
+     * nivel.
      */
-    public function nivelEstudios(): BelongsTo
+    public function niveles(): BelongsToMany
     {
-        return $this->belongsTo(\App\Models\Academico\NivelEstudio::class, 'nivel_estudios_id');
+        return $this->belongsToMany(\App\Models\Academico\NivelEstudio::class, 'ciclo_nivel', 'ciclo_id', 'nivel_estudios_id')
+            ->withTimestamps();
     }
 
     public function grupos(): HasMany

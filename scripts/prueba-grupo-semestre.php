@@ -145,8 +145,8 @@ try {
         $cicloNivel = Ciclo::create([
             'clave' => '2098-3', 'anio' => 2098, 'numero_periodo' => 3, 'nombre' => 'Nivel',
             'fecha_inicio' => '2098-01-15', 'fecha_fin' => '2098-06-15', 'situacion_id' => $sitCiclo,
-            'nivel_estudios_id' => $otroNivel,
         ]);
+        $cicloNivel->niveles()->sync([$otroNivel]);
 
         $nivelMal = false;
 
@@ -166,8 +166,8 @@ try {
     $cicloOk = Ciclo::create([
         'clave' => '2098-4', 'anio' => 2098, 'numero_periodo' => 4, 'nombre' => 'NivelOk',
         'fecha_inicio' => '2098-01-15', 'fecha_fin' => '2098-06-15', 'situacion_id' => $sitCiclo,
-        'nivel_estudios_id' => $nivelDelPlan,
     ]);
+    $cicloOk->niveles()->sync([$nivelDelPlan]);
 
     $c->store(pet([
         'ciclo_id' => $cicloOk->id, 'campus_id' => $campusA, 'plan_id' => $plan->id,

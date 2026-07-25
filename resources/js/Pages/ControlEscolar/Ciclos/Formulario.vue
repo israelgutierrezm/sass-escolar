@@ -24,7 +24,7 @@ const form = useForm({
     // La clave ya no se teclea: se arma de año + periodo.
     anio: props.ciclo?.anio ?? new Date().getFullYear(),
     numero_periodo: props.ciclo?.numero_periodo ?? 1,
-    nivel_estudios_id: props.ciclo?.nivel_estudios_id ?? null,
+    nivel_ids: (props.ciclo?.nivel_ids ?? []) as number[],
     nombre: props.ciclo?.nombre ?? '',
     fecha_inicio: props.ciclo?.fecha_inicio ?? '',
     fecha_fin: props.ciclo?.fecha_fin ?? '',
@@ -48,17 +48,17 @@ const clavePrevia = computed(() =>
 // que quien lo crea sepa qué está acotando antes de guardar.
 const avisoRestriccion = computed(() => {
     const partes: string[] = [];
-    const nivel = props.niveles.find((n) => n.id === form.nivel_estudios_id);
+    const nombresNivel = props.niveles.filter((n) => form.nivel_ids.includes(n.id)).map((n) => n.nombre);
 
-    if (nivel) {
-        partes.push(`solo grupos de nivel ${nivel.nombre}`);
+    if (nombresNivel.length) {
+        partes.push(`solo grupos de nivel ${nombresNivel.join(', ')}`);
     }
 
     if (form.campus_ids.length) {
         partes.push('solo grupos de los campus marcados');
     }
 
-    return partes.length ? `Los grupos de este ciclo aceptarán ${partes.join(' y ')}.` : null;
+    return partes.length ? `Los grupos de este ciclo aceptarán ${partes.join('; y ')}.` : null;
 });
 
 function enviar(): void {
@@ -106,14 +106,15 @@ function enviar(): void {
                         :opciones="opciones(situaciones)"
                         :error="form.errors.situacion_id"
                     />
-                    <CampoSelect
-                        v-model="form.nivel_estudios_id"
-                        etiqueta="Nivel de estudios (opcional)"
-                        vacio="Cualquier nivel"
-                        :opciones="opciones(niveles)"
-                        :error="form.errors.nivel_estudios_id"
-                        ayuda="Si lo eliges, los grupos del ciclo solo podrán ser de ese nivel."
-                    />
+                    <div class="sm:col-span-2">
+                        <CampoCasillas
+                            v-model="form.nivel_ids"
+                            etiqueta="Niveles de estudio (opcional)"
+                            :opciones="opciones(niveles)"
+                            :error="form.errors.nivel_ids"
+                            ayuda="Marca uno o varios. Si marcas alguno, los grupos del ciclo solo podrán ser de esos niveles; sin marcar ninguno, cualquier nivel."
+                        />
+                    </div>
                     <CampoTexto
                         v-model="form.fecha_inicio"
                         etiqueta="Inicio del ciclo"

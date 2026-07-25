@@ -10,7 +10,7 @@ interface Ciclo {
     id: number;
     nombre: string;
     campus_ids: number[];
-    nivel_estudios_id: number | null;
+    nivel_ids: number[];
 }
 
 const props = defineProps<{
@@ -50,11 +50,13 @@ const campusVisibles = computed(() => {
     return ids.length ? props.campus.filter((c) => ids.includes(c.id)) : props.campus;
 });
 
-// Carreras ofrecidas: si el ciclo se acota a un nivel, solo las de ese nivel.
+// Carreras ofrecidas: si el ciclo se acota a niveles, solo las de esos niveles.
 const carrerasVisibles = computed(() => {
-    const nivel = cicloElegido.value?.nivel_estudios_id ?? null;
+    const niveles = cicloElegido.value?.nivel_ids ?? [];
 
-    return nivel ? props.carreras.filter((c) => c.nivel_estudios_id === nivel) : props.carreras;
+    return niveles.length
+        ? props.carreras.filter((c) => c.nivel_estudios_id !== null && niveles.includes(c.nivel_estudios_id))
+        : props.carreras;
 });
 
 const restriccionCiclo = computed(() => {
@@ -68,8 +70,8 @@ const restriccionCiclo = computed(() => {
         partes.push('a los campus del ciclo');
     }
 
-    if (cicloElegido.value.nivel_estudios_id) {
-        partes.push('a las carreras de su nivel de estudios');
+    if (cicloElegido.value.nivel_ids.length) {
+        partes.push('a las carreras de sus niveles de estudio');
     }
 
     return partes.length ? `Este ciclo acota el grupo ${partes.join(' y ')}.` : null;

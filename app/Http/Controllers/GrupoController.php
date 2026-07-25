@@ -282,7 +282,7 @@ class GrupoController extends Controller
      */
     private function exigirRestriccionesDelCiclo(array $datos): void
     {
-        $ciclo = Ciclo::query()->with('campus:id')->find($datos['ciclo_id']);
+        $ciclo = Ciclo::query()->with(['campus:id', 'niveles:id'])->find($datos['ciclo_id']);
 
         if ($ciclo === null) {
             return;
@@ -298,17 +298,20 @@ class GrupoController extends Controller
             ]);
         }
 
-        // Si el ciclo se acota a un nivel, el plan del grupo debe ser de una
-        // carrera de ese nivel. Sin plan no hay nivel que contradecir.
-        if ($ciclo->nivel_estudios_id !== null && ! empty($datos['plan_id'])) {
+        // Si el ciclo se acota a uno o varios niveles, el plan del grupo debe
+        // ser de una carrera de alguno de esos niveles. Sin plan no hay nivel
+        // que contradecir.
+        $nivelesDelCiclo = $ciclo->niveles->pluck('id');
+
+        if ($nivelesDelCiclo->isNotEmpty() && ! empty($datos['plan_id'])) {
             $nivelDelPlan = PlanEstudio::query()
                 ->join('carreras', 'carreras.id', '=', 'planes_estudio.carrera_id')
                 ->where('planes_estudio.id', $datos['plan_id'])
                 ->value('carreras.nivel_estudios_id');
 
-            if ((int) $nivelDelPlan !== (int) $ciclo->nivel_estudios_id) {
+            if (! $nivelesDelCiclo->contains((int) $nivelDelPlan)) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    'plan_id' => 'Ese plan no es del nivel de estudios al que está acotado el ciclo.',
+                    'plan_id' => 'Ese plan no es de los niveles de estudio a los que está acotado el ciclo.',
                 ]);
             }
         }
@@ -323,13 +326,13 @@ class GrupoController extends Controller
             // Cada ciclo viaja con lo que ACOTA: sus campus y su nivel. El
             // formulario lo usa para ofrecer solo campus y planes válidos según
             // el ciclo elegido.
-            'ciclos' => Ciclo::query()->with('campus:id')->orderByDesc('fecha_inicio')
-                ->get(['id', 'clave', 'nombre', 'nivel_estudios_id'])
+            'ciclos' => Ciclo::query()->with(['campus:id', 'niveles:id'])->orderByDesc('fecha_inicio')
+                ->get(['id', 'clave', 'nombre'])
                 ->map(fn (Ciclo $ciclo) => [
                     'id' => $ciclo->id,
                     'nombre' => "{$ciclo->clave} — {$ciclo->nombre}",
                     'campus_ids' => $ciclo->campus->pluck('id')->all(),
-                    'nivel_estudios_id' => $ciclo->nivel_estudios_id,
+                    'nivel_ids' => $ciclo->niveles->pluck('id')->all(),
                 ]),
             'campus' => Campus::query()->orderBy('nombre')->get(['id', 'nombre']),
             // La carrera viaja con su nivel para poder filtrar por el del ciclo.

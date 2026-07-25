@@ -2853,3 +2853,28 @@ Verificado en el navegador: A+/A− cambian el tamaño, se guarda en sessionStor
 la suite se corrió como regresión y siguió en verde).
 
 Con esto se cierra esta revisión (Ciclos, Grupos e interfaz).
+
+---
+
+## Ciclos: el nivel de estudios pasa de uno a VARIOS
+
+Ajuste pedido por el cliente: al crear un ciclo, el nivel de estudios debía ser
+de selección múltiple, igual que el campus, no de uno solo.
+
+`ciclos.nivel_estudios_id` (columna única) se sustituyó por el pivote
+`ciclo_nivel`, espejo de `ciclo_campus`; la relación del modelo pasó de
+`nivelEstudios()` (belongsTo) a `niveles()` (belongsToMany). El valor único que
+cada ciclo tuviera se copió al pivote antes de tirar la columna, así ningún
+acotamiento existente se perdió.
+
+En el formulario, el selector de nivel se volvió casillas (`CampoCasillas`, el
+mismo componente del campus). La restricción sobre los grupos ahora es de
+conjunto: si el ciclo tiene niveles, el plan del grupo debe ser de una carrera
+cuyo nivel esté ENTRE ellos (`whereIn`), no igual a uno solo. El aviso del
+formulario lista todos los niveles marcados.
+
+Suites actualizadas: `prueba-ciclo-clave` sube a 8 (incluye un caso de varios
+niveles a la vez); `prueba-grupo-semestre` crea los ciclos y sincroniza sus
+niveles por el pivote. Verificado en el navegador: el formulario ofrece niveles
+como casillas y el aviso lista los dos marcados («Bachillerato, Licenciatura»).
+Total: 32 suites, 733 verificaciones.

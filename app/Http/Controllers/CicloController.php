@@ -37,7 +37,7 @@ class CicloController extends Controller
     {
         return Inertia::render('ControlEscolar/Ciclos/Index', [
             'ciclos' => Ciclo::query()
-                ->with(['campus:id,nombre', 'situacion:id,nombre', 'nivelEstudios:id,nombre'])
+                ->with(['campus:id,nombre', 'situacion:id,nombre', 'niveles:id,nombre'])
                 ->withCount('grupos')
                 ->delAlcance($this->alcance($request))
                 ->orderByDesc('fecha_inicio')
@@ -46,7 +46,7 @@ class CicloController extends Controller
                     'id' => $ciclo->id,
                     'clave' => $ciclo->clave,
                     'nombre' => $ciclo->nombre,
-                    'nivel' => $ciclo->nivelEstudios?->nombre,
+                    'niveles' => $ciclo->niveles->pluck('nombre')->all(),
                     'campus' => $ciclo->campus->pluck('nombre')->all(),
                     'situacion' => $ciclo->situacion?->nombre,
                     'fecha_inicio' => $ciclo->fecha_inicio?->toDateString(),
@@ -70,9 +70,12 @@ class CicloController extends Controller
     {
         $datos = $this->validar($request);
         $campus = $this->campusAutorizados($request);
+        $niveles = array_map('intval', $request->input('nivel_ids', []) ?? []);
 
-        DB::transaction(function () use ($datos, $campus): void {
-            Ciclo::create($datos)->campus()->sync($campus);
+        DB::transaction(function () use ($datos, $campus, $niveles): void {
+            $ciclo = Ciclo::create($datos);
+            $ciclo->campus()->sync($campus);
+            $ciclo->niveles()->sync($niveles);
         });
 
         return redirect()->route('tenant.escolar.ciclos.index')->with('exito', 'Ciclo creado.');
@@ -96,7 +99,8 @@ class CicloController extends Controller
 
         return Inertia::render('ControlEscolar/Ciclos/Formulario', [
             'ciclo' => [
-                ...$ciclo->only(['id', 'clave', 'anio', 'numero_periodo', 'nivel_estudios_id', 'nombre', 'situacion_id']),
+                ...$ciclo->only(['id', 'clave', 'anio', 'numero_periodo', 'nombre', 'situacion_id']),
+                'nivel_ids' => $ciclo->niveles()->pluck('niveles_estudio.id')->all(),
                 'campus_ids' => $suyos[0]->pluck('id')->all(),
                 'campus_ajenos' => $suyos[1]->pluck('nombre')->all(),
                 'fecha_inicio' => $ciclo->fecha_inicio?->toDateString(),
@@ -116,8 +120,9 @@ class CicloController extends Controller
 
         $datos = $this->validar($request, $ciclo->id);
         $campus = $this->campusAutorizados($request);
+        $niveles = array_map('intval', $request->input('nivel_ids', []) ?? []);
 
-        DB::transaction(function () use ($ciclo, $datos, $campus, $request): void {
+        DB::transaction(function () use ($ciclo, $datos, $campus, $niveles, $request): void {
             $ciclo->update($datos);
 
             // Un administrador acotado no puede desvincular campus que no ve:
@@ -126,6 +131,8 @@ class CicloController extends Controller
             $fueraDeAlcance = $this->campusFueraDeAlcance($request, $ciclo);
 
             $ciclo->campus()->sync([...$campus, ...$fueraDeAlcance]);
+            // Los niveles no tienen alcance por campus: se sincronizan directo.
+            $ciclo->niveles()->sync($niveles);
         });
 
         return redirect()->route('tenant.escolar.ciclos.index')->with('exito', 'Ciclo actualizado.');
@@ -239,8 +246,10 @@ class CicloController extends Controller
             // La clave ya NO se teclea: se arma de año + periodo.
             'anio' => ['required', 'integer', 'digits:4', 'min:2000', 'max:2100'],
             'numero_periodo' => ['required', 'integer', 'between:1,4'],
-            // Nivel opcional: si se pone, acota los grupos del ciclo a ese nivel.
-            'nivel_estudios_id' => ['nullable', 'integer', Rule::exists('niveles_estudio', 'id')->whereNull('deleted_at')],
+            // Niveles opcionales: si hay alguno, acotan los grupos del ciclo a
+            // esos niveles. Se sincronizan aparte (como el pivote de campus).
+            'nivel_ids' => ['nullable', 'array'],
+            'nivel_ids.*' => ['integer', Rule::exists('niveles_estudio', 'id')->whereNull('deleted_at')],
             'nombre' => ['required', 'string', 'max:120'],
             'fecha_inicio' => ['required', 'date'],
             'fecha_fin' => ['required', 'date', 'after:fecha_inicio'],
@@ -260,7 +269,7 @@ class CicloController extends Controller
             'fecha_inicio' => 'fecha de inicio',
             'fecha_fin' => 'fecha de fin',
             'numero_periodo' => 'número de periodo',
-            'nivel_estudios_id' => 'nivel de estudios',
+            'nivel_ids' => 'niveles de estudio',
         ]);
 
         // La clave se genera aquí: año + guión + periodo (2026-1). Y se valida
@@ -279,7 +288,9 @@ class CicloController extends Controller
             ]);
         }
 
-        unset($validados['campus_ids']);
+        // El pivote de niveles y el de campus se sincronizan aparte; no son
+        // columnas de la tabla.
+        unset($validados['campus_ids'], $validados['nivel_ids']);
 
         return $validados;
     }
