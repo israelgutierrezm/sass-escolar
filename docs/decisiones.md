@@ -2641,3 +2641,45 @@ verificaciones.
 Queda para el módulo de Catálogos la pantalla de administración de Descriptores,
 Clasificación y Área (agregar/renombrar), y alinear las 9 opciones de
 Autorización o Reconocimiento.
+
+---
+
+## Académico > Configuración / Catálogos — Parte A (módulo 6)
+
+Módulo nuevo: una sola pantalla (`/academico/catalogos`) para administrar los
+catálogos simples (clave + nombre) que alimentan los formularios de Académico.
+
+**Genérico, no un controlador por catálogo.** `CatalogoAcademicoController`
+tiene un REGISTRO catálogo→modelo; alta, edición y borrado son el mismo código
+para los seis. Multiplicar el CRUD por catálogo solo multiplica los lugares
+donde arreglar el mismo error. Cada entrada del registro declara además CÓMO
+saber si un ítem está en uso —lo que distingue borrar un área que nadie asignó
+de una que sostiene veinte asignaturas—; lo que está en uso no se puede
+eliminar (el botón se deshabilita y el backend lo rechaza igual, porque un POST
+se arma a mano).
+
+Catálogos incluidos, agrupados por dónde se usan como pidió el cliente:
+- **Asignaturas**: Clasificación, Área, Descriptores.
+- **Plan de estudios**: Autorización o Reconocimiento.
+- **Carreras**: Turnos, Modalidades.
+
+Se creó el catálogo **Modalidades** (Presencial, En línea, Mixta) —antes la
+modalidad de una oferta era un string suelto— y se ALINEARON las nueve opciones
+de **Autorización o Reconocimiento** de forma aditiva: se agregaron las que
+faltaban y se conservaron las dos previas («Universidad Autónoma», «Incorporación
+a universidad») porque un plan podría estar apuntándolas. Podarlas es justo lo
+que esta pantalla permite, ahora que se ve qué está en uso.
+
+**Entidad / Identidad Federativa NO se editan aquí**: son globales (landlord),
+compartidas entre escuelas, y las administra el dueño de la plataforma. La
+pantalla lo dice explícitamente para que no parezca un olvido.
+
+Suite nueva `prueba-catalogos` (7 checks): agrupación, alta, unicidad de clave,
+edición, borrado bloqueado en uso, borrado libre sin uso, catálogo inexistente
+rechazado. Verificado en el navegador: los seis catálogos agrupados, alta en
+vivo con toast. Total: 29 suites, 712 verificaciones.
+
+**Parte B pendiente** (lo delicado, para retomar): mover Nivel de estudios de
+landlord a tenant (con backfill de `carreras.nivel_estudios_id`), la pantalla de
+super-admin para Entidad/Identidad Federativa, y ligar la modalidad de la oferta
+al catálogo (hoy es string) con selección múltiple de campus/modalidad/turno.

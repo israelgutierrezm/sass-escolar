@@ -11,6 +11,7 @@ use App\Http\Controllers\CampoFormularioController;
 use App\Http\Controllers\CampusController;
 use App\Http\Controllers\CapturaCalificacionesController;
 use App\Http\Controllers\CarreraController;
+use App\Http\Controllers\CatalogoAcademicoController;
 use App\Http\Controllers\CicloController;
 use App\Http\Controllers\ConfiguracionController;
 use App\Http\Controllers\DashboardController;
@@ -286,6 +287,7 @@ Route::middleware([
                 Route::get('carreras', [CarreraController::class, 'index'])->name('carreras.index');
                 Route::get('planes', [PlanEstudioController::class, 'index'])->name('planes.index');
                 Route::get('ofertas', [OfertaController::class, 'index'])->name('ofertas.index');
+                Route::get('catalogos', [CatalogoAcademicoController::class, 'index'])->name('catalogos.index');
                 Route::get('asignaturas', [AsignaturaController::class, 'index'])->name('asignaturas.index');
                 // Las imágenes de diseño se sirven en LECTURA a quien pueda ver
                 // el catálogo; por eso fuera del grupo de escritura.
@@ -311,6 +313,14 @@ Route::middleware([
                     Route::resource('carreras', CarreraController::class)->except(['index', 'show']);
                     Route::resource('planes', PlanEstudioController::class)->except(['index', 'show']);
                     Route::resource('ofertas', OfertaController::class)->except(['index', 'show']);
+                    // Configuración de catálogos: un CRUD genérico por clave de
+                    // catálogo (clasificacion, area, descriptor, turno…).
+                    Route::post('catalogos/{catalogo}', [CatalogoAcademicoController::class, 'store'])->name('catalogos.store');
+                    Route::put('catalogos/{catalogo}/{item}', [CatalogoAcademicoController::class, 'update'])
+                        ->whereNumber('item')->name('catalogos.update');
+                    Route::delete('catalogos/{catalogo}/{item}', [CatalogoAcademicoController::class, 'destroy'])
+                        ->whereNumber('item')->name('catalogos.destroy');
+
                     Route::resource('asignaturas', AsignaturaController::class)->except(['index', 'show']);
                     Route::post('asignaturas/{asignatura}/imagen/{tipo}', [AsignaturaController::class, 'subirImagen'])
                         ->whereNumber('asignatura')->whereIn('tipo', ['materia', 'miniatura', 'portada'])

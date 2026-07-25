@@ -17,6 +17,7 @@ const secciones = [
     { etiqueta: 'Planes de estudio', url: '/academico/planes' },
     { etiqueta: 'Evaluación', url: '/academico/plantillas' },
     { etiqueta: 'Oferta', url: '/academico/ofertas' },
+    { etiqueta: 'Catálogos', url: '/academico/catalogos' },
 ];
 
 const actual = computed(() => page.url.split('?')[0]);
