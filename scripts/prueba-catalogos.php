@@ -81,9 +81,20 @@ try {
     $props = json_decode($c->index(pet('GET', '/academico/catalogos', [], $u))->toResponse(pet('GET', '/', [], $u))->getContent(), true)['props'];
     $claves = array_column($props['catalogos'], 'clave');
 
-    verificar('Incluye los seis catálogos administrables',
-        empty(array_diff(['clasificacion', 'area', 'descriptor', 'autorizacion', 'turno', 'modalidad'], $claves)),
+    verificar('Incluye los siete catálogos administrables',
+        empty(array_diff(['clasificacion', 'area', 'descriptor', 'autorizacion', 'nivel', 'turno', 'modalidad'], $claves)),
         implode(', ', $claves));
+
+    // Nivel de estudios pasó de landlord a tenant: debe listarse por `orden`
+    // (progresión), no alfabético, y las carreras deben seguir resolviéndolo.
+    $nivel = collect($props['catalogos'])->firstWhere('clave', 'nivel');
+    $nombres = array_column($nivel['items'], 'nombre');
+
+    verificar('El nivel se lista por progresión (Bachillerato antes que Licenciatura)',
+        array_search('Bachillerato', $nombres, true) < array_search('Licenciatura', $nombres, true));
+
+    verificar('Un nivel usado por una carrera aparece «en uso»',
+        collect($nivel['items'])->contains(fn ($i) => $i['en_uso'] === true));
 
     echo PHP_EOL.'2. Alta y unicidad de clave'.PHP_EOL;
 

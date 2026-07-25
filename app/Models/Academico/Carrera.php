@@ -6,14 +6,13 @@ namespace App\Models\Academico;
 
 use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\Concerns\TieneAuditoria;
-use App\Models\Landlord\NivelEstudio;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * carreras (TENANT). `nivelEstudios` resuelve cross-DB contra la landlord.
+ * carreras (TENANT). `nivelEstudios` apunta al catálogo tenant homónimo.
  */
 class Carrera extends Model
 {

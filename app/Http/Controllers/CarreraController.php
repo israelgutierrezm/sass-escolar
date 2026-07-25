@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Academico\Carrera;
+use App\Models\Academico\NivelEstudio;
 use App\Models\Admisiones\DocumentoRequerido;
-use App\Models\Landlord\NivelEstudio;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -108,7 +108,9 @@ class CarreraController extends Controller
             'identificador' => ['required', 'string', 'max:50'],
             'clave' => ['required', 'string', 'max:50', Rule::unique('carreras', 'clave')->ignore($id)->whereNull('deleted_at')],
             'nombre' => ['required', 'string', 'max:255'],
-            'nivel_estudios_id' => ['required', 'integer'],
+            // Ya es catálogo TENANT (misma conexión), así que se puede validar
+            // que exista de verdad, cosa que con la landlord no se hacía.
+            'nivel_estudios_id' => ['required', 'integer', Rule::exists('niveles_estudio', 'id')->whereNull('deleted_at')],
             'clave_sat' => ['nullable', 'string', 'max:15'],
             // «Objetivo» se retiró del formulario a pedido del cliente. La
             // columna se conserva por si vuelve, pero ya no se captura aquí.

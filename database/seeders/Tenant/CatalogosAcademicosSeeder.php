@@ -8,6 +8,8 @@ use App\Models\Academico\Area;
 use App\Models\Academico\AutorizacionReconocimiento;
 use App\Models\Academico\ClasificacionAsignatura;
 use App\Models\Academico\Descriptor;
+use App\Models\Academico\Modalidad;
+use App\Models\Academico\NivelEstudio;
 use App\Models\Academico\TipoAsignatura;
 use App\Models\Academico\TipoCampus;
 use App\Models\Academico\TipoPeriodo;
@@ -84,19 +86,41 @@ class CatalogosAcademicosSeeder extends Seeder
             ['clave' => 'mixto', 'nombre' => 'Mixto'],
             ['clave' => 'sabatino', 'nombre' => 'Sabatino'],
         ]);
+
+        // Nivel de estudios pasó a catálogo TENANT. `orden` fija la progresión
+        // académica. La migración ya lo siembra copiando de la landlord; esto es
+        // para instalaciones nuevas.
+        $this->sembrar(NivelEstudio::class, [
+            ['clave' => 'bachillerato', 'nombre' => 'Bachillerato', 'orden' => 1],
+            ['clave' => 'tecnico_superior', 'nombre' => 'Técnico Superior Universitario', 'orden' => 2],
+            ['clave' => 'licenciatura', 'nombre' => 'Licenciatura', 'orden' => 3],
+            ['clave' => 'especialidad', 'nombre' => 'Especialidad', 'orden' => 4],
+            ['clave' => 'maestria', 'nombre' => 'Maestría', 'orden' => 5],
+            ['clave' => 'doctorado', 'nombre' => 'Doctorado', 'orden' => 6],
+            ['clave' => 'diplomado', 'nombre' => 'Diplomado', 'orden' => 7],
+        ]);
+
+        // Modalidades: catálogo TENANT nuevo (presencial / en línea / mixta).
+        $this->sembrar(Modalidad::class, [
+            ['clave' => 'presencial', 'nombre' => 'Presencial'],
+            ['clave' => 'en_linea', 'nombre' => 'En línea'],
+            ['clave' => 'mixta', 'nombre' => 'Mixta'],
+        ]);
     }
 
     /**
      * @param  class-string<\Illuminate\Database\Eloquent\Model>  $modelo
-     * @param  array<int, array{clave: string, nombre: string}>  $filas
+     * @param  array<int, array<string, mixed>>  $filas  cada una con clave, nombre y lo que aporte
      */
     private function sembrar(string $modelo, array $filas): void
     {
         foreach ($filas as $fila) {
-            $modelo::query()->updateOrCreate(
-                ['clave' => $fila['clave']],
-                ['nombre' => $fila['nombre']],
-            );
+            // Todo lo que no sea la clave (que identifica) va como atributo a
+            // fijar: así el mismo helper siembra catálogos con `orden` u otros
+            // campos, no solo clave+nombre.
+            $atributos = collect($fila)->except('clave')->all();
+
+            $modelo::query()->updateOrCreate(['clave' => $fila['clave']], $atributos);
         }
     }
 }

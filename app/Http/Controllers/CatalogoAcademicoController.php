@@ -9,11 +9,13 @@ use App\Models\Academico\AutorizacionReconocimiento;
 use App\Models\Academico\ClasificacionAsignatura;
 use App\Models\Academico\Descriptor;
 use App\Models\Academico\Modalidad;
+use App\Models\Academico\NivelEstudio;
 use App\Models\Academico\Turno;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -71,6 +73,13 @@ class CatalogoAcademicoController extends Controller
                 'grupo' => 'Plan de estudios',
                 'enUso' => fn (int $id) => DB::table('planes_estudio')->whereNull('deleted_at')->where('autorizacion_reconocimiento_id', $id)->exists(),
             ],
+            'nivel' => [
+                'modelo' => NivelEstudio::class,
+                'etiqueta' => 'Nivel de estudios',
+                'singular' => 'nivel',
+                'grupo' => 'Carreras',
+                'enUso' => fn (int $id) => DB::table('carreras')->whereNull('deleted_at')->where('nivel_estudios_id', $id)->exists(),
+            ],
             'turno' => [
                 'modelo' => Turno::class,
                 'etiqueta' => 'Turnos',
@@ -99,12 +108,17 @@ class CatalogoAcademicoController extends Controller
             /** @var class-string<Model> $modelo */
             $modelo = $def['modelo'];
 
+            // Un catálogo con `orden` (los niveles) se lista por progresión, no
+            // alfabético: bachillerato antes que licenciatura, no «Bachillerato»
+            // por la B.
+            $ordenable = Schema::hasColumn((new $modelo)->getTable(), 'orden');
+
             return [
                 'clave' => $clave,
                 'etiqueta' => $def['etiqueta'],
                 'singular' => $def['singular'],
                 'grupo' => $def['grupo'],
-                'items' => $modelo::query()->orderBy('nombre')->get(['id', 'clave', 'nombre'])
+                'items' => $modelo::query()->orderBy($ordenable ? 'orden' : 'nombre')->get(['id', 'clave', 'nombre'])
                     ->map(fn (Model $m) => [
                         'id' => $m->id,
                         'clave' => $m->clave,
@@ -124,6 +138,14 @@ class CatalogoAcademicoController extends Controller
     {
         $def = $this->definicion($catalogo);
         $datos = $this->validar($request, $def);
+
+        $tabla = (new $def['modelo'])->getTable();
+
+        // Un catálogo ordenable nace al final de la progresión: se le asigna el
+        // siguiente `orden`, para que la escuela luego lo reacomode si quiere.
+        if (Schema::hasColumn($tabla, 'orden')) {
+            $datos['orden'] = (int) DB::table($tabla)->max('orden') + 1;
+        }
 
         $def['modelo']::create($datos);
 

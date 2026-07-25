@@ -2683,3 +2683,36 @@ vivo con toast. Total: 29 suites, 712 verificaciones.
 landlord a tenant (con backfill de `carreras.nivel_estudios_id`), la pantalla de
 super-admin para Entidad/Identidad Federativa, y ligar la modalidad de la oferta
 al catálogo (hoy es string) con selección múltiple de campus/modalidad/turno.
+
+---
+
+## Nivel de estudios: de landlord a tenant (módulo 6, parte B — 1/3)
+
+Primer paso de la parte B. El cliente decidió que Nivel de estudios sea por
+ESCUELA, no compartido: un bachillerato no oferta doctorados y cada escuela debe
+administrar los suyos desde Configuración / Catálogos. (Entidad e Identidad
+Federativa se quedan globales porque son claves oficiales que no deben diverger;
+el nivel es oferta, no clave oficial.)
+
+Se movió `niveles_estudio` de la landlord a una tabla tenant, con el mismo truco
+del desdoble federativo: **la tabla tenant hereda los MISMOS ids** que traía la
+landlord (copiando de ella en la migración, con fallback a la lista estándar de
+la SEP por si la central no responde). Las carreras ya guardaban
+`nivel_estudios_id` en ese rango, así que al repuntar `Carrera::nivelEstudios()`
+al catálogo tenant los ids siguen cuadrando y NO hubo que migrar dato de las
+carreras (verificado: 0 carreras quedaron sin nivel resuelto). Ahora que es
+tenant (misma conexión), la validación de carrera sí comprueba que el nivel
+exista, cosa que con la landlord no se hacía.
+
+Nivel entra al admin de Catálogos como séptimo catálogo. Como tiene `orden`
+(progresión académica), el controlador genérico ganó soporte mínimo: lista por
+`orden` cuando la tabla lo tiene y asigna el siguiente al crear. Bachillerato se
+lista antes que Licenciatura, no por la B.
+
+`prueba-catalogos` sube a 9 checks (nivel por progresión, nivel en uso).
+Verificado en el navegador: Nivel aparece ordenado en Catálogos con Licenciatura
+«en uso»; el formulario de Carreras carga los niveles del catálogo tenant. Total:
+29 suites, 714 verificaciones.
+
+Queda de la parte B: admin super-admin de Entidad/Identidad Federativa, y ligar
+la modalidad de la oferta al catálogo con multiselección de campus/modalidad/turno.
