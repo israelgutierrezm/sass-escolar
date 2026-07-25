@@ -25,6 +25,7 @@ class Grupo extends Model
         'ciclo_id',
         'campus_id',
         'plan_id',
+        'semestre',
         'clave',
         'nombre',
         'cupo',

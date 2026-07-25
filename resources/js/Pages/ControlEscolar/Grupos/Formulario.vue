@@ -6,11 +6,18 @@ import NavEscolar from '@/Components/NavEscolar.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 
+interface Ciclo {
+    id: number;
+    nombre: string;
+    campus_ids: number[];
+    nivel_estudios_id: number | null;
+}
+
 const props = defineProps<{
     grupo: Record<string, any> | null;
-    ciclos: { id: number; nombre: string }[];
+    ciclos: Ciclo[];
     campus: { id: number; nombre: string }[];
-    carreras: { id: number; nombre: string }[];
+    carreras: { id: number; nombre: string; nivel_estudios_id: number | null }[];
     planes: { id: number; nombre: string; clave: string; carrera_id: number }[];
     turnos: { id: number; nombre: string }[];
     situaciones: { id: number; nombre: string }[];
@@ -22,6 +29,7 @@ const form = useForm({
     ciclo_id: props.grupo?.ciclo_id ?? null,
     campus_id: props.grupo?.campus_id ?? null,
     plan_id: props.grupo?.plan_id ?? null,
+    semestre: props.grupo?.semestre ?? null,
     clave: props.grupo?.clave ?? '',
     nombre: props.grupo?.nombre ?? '',
     cupo: props.grupo?.cupo ?? null,
@@ -31,6 +39,41 @@ const form = useForm({
 
 const opciones = (lista: { id: number; nombre: string }[]) =>
     lista.map((item) => ({ valor: item.id, texto: item.nombre }));
+
+// El ciclo elegido acota el grupo: a sus campus y a su nivel de estudios.
+const cicloElegido = computed(() => props.ciclos.find((c) => c.id === form.ciclo_id) ?? null);
+
+// Campus ofrecidos: si el ciclo tiene campus, solo esos; si no, todos.
+const campusVisibles = computed(() => {
+    const ids = cicloElegido.value?.campus_ids ?? [];
+
+    return ids.length ? props.campus.filter((c) => ids.includes(c.id)) : props.campus;
+});
+
+// Carreras ofrecidas: si el ciclo se acota a un nivel, solo las de ese nivel.
+const carrerasVisibles = computed(() => {
+    const nivel = cicloElegido.value?.nivel_estudios_id ?? null;
+
+    return nivel ? props.carreras.filter((c) => c.nivel_estudios_id === nivel) : props.carreras;
+});
+
+const restriccionCiclo = computed(() => {
+    if (!cicloElegido.value) {
+        return null;
+    }
+
+    const partes: string[] = [];
+
+    if (cicloElegido.value.campus_ids.length) {
+        partes.push('a los campus del ciclo');
+    }
+
+    if (cicloElegido.value.nivel_estudios_id) {
+        partes.push('a las carreras de su nivel de estudios');
+    }
+
+    return partes.length ? `Este ciclo acota el grupo ${partes.join(' y ')}.` : null;
+});
 
 /*
  * Carrera → plan, en cascada.
@@ -61,6 +104,21 @@ watch(carreraId, () => {
     }
 });
 
+// Al cambiar de ciclo, lo que ya no cabe en su acotamiento se limpia: un campus
+// que el nuevo ciclo no incluye, o una carrera/plan de otro nivel.
+watch(
+    () => form.ciclo_id,
+    () => {
+        if (form.campus_id && !campusVisibles.value.some((c) => c.id === form.campus_id)) {
+            form.campus_id = null;
+        }
+
+        if (carreraId.value && !carrerasVisibles.value.some((c) => c.id === carreraId.value)) {
+            carreraId.value = null;
+        }
+    },
+);
+
 function enviar(): void {
     esEdicion.value ? form.put(`/escolar/grupos/${props.grupo!.id}`) : form.post('/escolar/grupos');
 }
@@ -86,7 +144,7 @@ function enviar(): void {
                     v-model="form.campus_id"
                     etiqueta="Campus"
                     requerido
-                    :opciones="opciones(campus)"
+                    :opciones="opciones(campusVisibles)"
                     vacio="Selecciona…"
                     :error="form.errors.campus_id"
                 />
@@ -95,7 +153,7 @@ function enviar(): void {
                 <CampoSelect
                     v-model="carreraId"
                     etiqueta="Carrera"
-                    :opciones="opciones(carreras)"
+                    :opciones="opciones(carrerasVisibles)"
                     vacio="Todas las carreras"
                     ayuda="Filtra los planes de abajo. No se guarda en el grupo."
                 />
@@ -106,6 +164,13 @@ function enviar(): void {
                     :vacio="carreraId === null ? 'Sin plan fijo' : 'Sin plan fijo (de esta carrera)'"
                     :error="form.errors.plan_id"
                     ayuda="Si lo fijas, solo se podrán abrir materias de ese plan."
+                />
+                <CampoTexto
+                    v-model="form.semestre"
+                    etiqueta="Semestre (opcional)"
+                    tipo="number"
+                    :error="form.errors.semestre"
+                    ayuda="Si lo pones, al abrir materias se filtra por él por defecto."
                 />
                 <CampoSelect
                     v-model="form.turno_id"
@@ -128,6 +193,14 @@ function enviar(): void {
                     :opciones="opciones(situaciones)"
                     :error="form.errors.situacion_id"
                 />
+
+                <p
+                    v-if="restriccionCiclo"
+                    class="sm:col-span-2 rounded-lg p-3 text-sm"
+                    style="background-color: color-mix(in srgb, #6366f1 8%, transparent)"
+                >
+                    {{ restriccionCiclo }}
+                </p>
             </section>
 
             <div class="flex items-center gap-3">

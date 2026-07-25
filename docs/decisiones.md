@@ -2795,3 +2795,34 @@ periodo guardados, nivel ligado, clave no duplicable, año de 4 dígitos, period
 Número de periodo con la clave «2026-1» de vista previa, sin campo de clave
 manual, y el aviso de restricción al elegir nivel. Total: 31 suites, 727
 verificaciones.
+
+---
+
+## Control Escolar > Grupos: semestre, restricción del ciclo y quitar docente
+
+Revisión del cliente sobre Grupos.
+
+**Semestre opcional.** No es obligatorio —hay grupos de tronco común que mezclan
+semestres—, pero cuando lo tiene sirve de default: al abrir materias, el filtro
+de «Abrir materias» arranca en ese semestre (que es el `periodo` de la malla) en
+vez de mostrar los cincuenta reactivos del plan. Comodidad de captura, no regla.
+
+**El ciclo acota los grupos (aplicado en el formulario del grupo, como se
+acordó).** Si el ciclo tiene campus, el grupo solo puede ser de esos campus; si
+el ciclo se acota a un nivel de estudios, el plan del grupo debe ser de una
+carrera de ese nivel. El formulario ofrece solo lo válido (los ciclos viajan con
+sus `campus_ids` y su `nivel_estudios_id`, las carreras con su nivel) y el
+servidor lo vuelve a exigir —una casilla que no existe no es defensa—. El nivel
+del grupo se deriva del plan→carrera; no se agregó columna de nivel al grupo.
+
+**Quitar/cambiar docente.** El backend ya tenía `quitarDocente`; lo que faltaba
+era exponerlo. El detalle del grupo ahora lista cada docente asignado con su
+tipo (titular/adjunto) y un botón «quitar». «Cambiar» es quitar el equivocado y
+asignar el correcto: no hace falta un flujo aparte. Antes solo se veían los
+nombres sin forma de retirarlos.
+
+Suite nueva `prueba-grupo-semestre` (5 checks): semestre guardado, campus fuera
+del ciclo rechazado, campus del ciclo aceptado, plan de otro nivel rechazado,
+plan del nivel aceptado. Verificado en el navegador: el formulario tiene
+Semestre; el detalle muestra el docente con su tipo y botón «quitar». Total: 32
+suites, 732 verificaciones.

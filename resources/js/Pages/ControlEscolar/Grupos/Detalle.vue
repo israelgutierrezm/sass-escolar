@@ -16,7 +16,7 @@ interface MateriaAbierta {
     titular: string | null;
     adjuntos: string[];
     inscritos: number;
-    docentes_asignados: { id: number; tipo: string }[];
+    docentes_asignados: { id: number; nombre: string | null; tipo: string }[];
 }
 
 interface MateriaDisponible {
@@ -46,7 +46,11 @@ const props = defineProps<{
  */
 const formMateria = useForm({ plan_materia_ids: [] as number[] });
 
-const periodoFiltro = ref<number | null>(null);
+// El filtro arranca en el semestre del grupo (si lo tiene): abrir materias de
+// un grupo de tercero casi siempre significa abrir las de tercero. Si ese
+// semestre no tiene materias pendientes, se deja en «todos» para no mostrar
+// vacío.
+const periodoFiltro = ref<number | null>(props.grupo.semestre ?? null);
 
 const periodosDisponibles = computed(() => {
     const periodos = [...new Set(props.materiasDisponibles.map((m) => m.periodo))]
@@ -105,6 +109,21 @@ function asignarDocente(asignaturaId: number): void {
             formDocente.reset();
             asignandoEn.value = null;
         },
+    });
+}
+
+/**
+ * Quitar a un docente de una materia (por si se cargó al equivocado).
+ * «Cambiar» es quitar el que sobra y asignar el correcto: no hace falta un
+ * flujo aparte.
+ */
+function quitarDocente(asignaturaId: number, personaId: number, nombre: string | null): void {
+    if (!confirm(`¿Quitar a ${nombre ?? 'este docente'} de la materia?`)) {
+        return;
+    }
+
+    router.delete(`/escolar/grupos/${props.grupo.id}/materias/${asignaturaId}/docentes/${personaId}`, {
+        preserveScroll: true,
     });
 }
 </script>
@@ -202,18 +221,32 @@ function asignarDocente(asignaturaId: number): void {
                                 {{ asignatura.plan }} · {{ asignatura.inscritos }} inscrito(s)
                             </p>
 
-                            <p class="mt-2 text-sm">
-                                <span class="text-slate-500">Titular:</span>
-                                <span v-if="asignatura.titular" class="ml-1 text-slate-800">
-                                    {{ asignatura.titular }}
-                                </span>
-                                <span v-else class="ml-1 text-amber-600">
-                                    sin asignar — nadie podría firmar el acta
-                                </span>
+                            <p v-if="!asignatura.docentes_asignados.length" class="mt-2 text-sm text-amber-600">
+                                Sin docente — nadie podría firmar el acta.
                             </p>
-                            <p v-if="asignatura.adjuntos.length" class="text-xs text-slate-500">
-                                Adjuntos: {{ asignatura.adjuntos.join(', ') }}
-                            </p>
+                            <ul v-else class="mt-2 space-y-1">
+                                <li
+                                    v-for="d in asignatura.docentes_asignados"
+                                    :key="d.id"
+                                    class="flex items-center gap-2 text-sm"
+                                >
+                                    <span class="text-slate-800">{{ d.nombre }}</span>
+                                    <span
+                                        class="rounded-full px-2 py-0.5 text-[11px]"
+                                        :class="d.tipo === 'titular' ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-600'"
+                                    >
+                                        {{ d.tipo }}
+                                    </span>
+                                    <button
+                                        v-if="puedeEditar"
+                                        type="button"
+                                        class="text-xs text-slate-400 hover:text-red-600"
+                                        @click="quitarDocente(asignatura.id, d.id, d.nombre)"
+                                    >
+                                        quitar
+                                    </button>
+                                </li>
+                            </ul>
                         </div>
 
                         <div v-if="puedeEditar" class="flex items-center gap-3">

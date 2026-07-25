@@ -130,6 +130,8 @@ class GrupoController extends Controller
                 'plan' => $grupo->plan?->nombre,
                 'situacion' => $grupo->situacion?->nombre,
                 'cupo' => $grupo->cupo,
+                // El semestre del grupo preselecciona el filtro de «Abrir materias».
+                'semestre' => $grupo->semestre,
             ],
             'asignaturas' => $asignaturas->map(function (AsignaturaGrupo $asignatura) {
                 $titular = $asignatura->docentes->firstWhere('pivot.tipo', 'titular');
@@ -145,10 +147,15 @@ class GrupoController extends Controller
                         ->where('pivot.tipo', 'adjunto')
                         ->map(fn ($d) => $d->persona?->nombreCompleto())
                         ->values(),
-                    // Los ids de quienes ya imparten esta materia, para que el
-                    // buscador no vuelva a ofrecerlos.
+                    // Los ids de quienes ya imparten esta materia, con nombre y
+                    // tipo: el buscador no vuelve a ofrecerlos, y cada uno puede
+                    // quitarse (por si se cargó al docente equivocado).
                     'docentes_asignados' => $asignatura->docentes
-                        ->map(fn ($d) => ['id' => $d->persona_id, 'tipo' => $d->pivot->tipo])
+                        ->map(fn ($d) => [
+                            'id' => $d->persona_id,
+                            'nombre' => $d->persona?->nombreCompleto(),
+                            'tipo' => $d->pivot->tipo,
+                        ])
                         ->values(),
                     'inscritos' => Inscripcion::query()->where('asignatura_grupo_id', $asignatura->id)->count(),
                 ];
@@ -170,7 +177,7 @@ class GrupoController extends Controller
     {
         return Inertia::render('ControlEscolar/Grupos/Formulario', [
             'grupo' => $grupo->only([
-                'id', 'ciclo_id', 'campus_id', 'plan_id', 'clave', 'nombre', 'cupo', 'turno_id', 'situacion_id',
+                'id', 'ciclo_id', 'campus_id', 'plan_id', 'semestre', 'clave', 'nombre', 'cupo', 'turno_id', 'situacion_id',
             ]),
             ...$this->catalogos(),
         ]);
@@ -234,10 +241,11 @@ class GrupoController extends Controller
      */
     private function validar(Request $request, ?int $id = null): array
     {
-        return $request->validate([
+        $datos = $request->validate([
             'ciclo_id' => ['required', 'integer', Rule::exists('ciclos', 'id')->whereNull('deleted_at')],
             'campus_id' => ['required', 'integer', Rule::exists('campus', 'id')->whereNull('deleted_at')],
             'plan_id' => ['nullable', 'integer', Rule::exists('planes_estudio', 'id')->whereNull('deleted_at')],
+            'semestre' => ['nullable', 'integer', 'min:1', 'max:20'],
             'clave' => [
                 'required', 'string', 'max:70',
                 Rule::unique('grupos', 'clave')
@@ -258,6 +266,52 @@ class GrupoController extends Controller
             'turno_id' => 'turno',
             'situacion_id' => 'situación',
         ]);
+
+        $this->exigirRestriccionesDelCiclo($datos);
+
+        return $datos;
+    }
+
+    /**
+     * El ciclo puede acotar sus grupos: a ciertos campus y/o a un nivel de
+     * estudios. El formulario ya ofrece solo lo válido, pero un POST se arma a
+     * mano, así que el servidor lo vuelve a exigir: una casilla que no existe no
+     * es defensa.
+     *
+     * @param  array<string, mixed>  $datos
+     */
+    private function exigirRestriccionesDelCiclo(array $datos): void
+    {
+        $ciclo = Ciclo::query()->with('campus:id')->find($datos['ciclo_id']);
+
+        if ($ciclo === null) {
+            return;
+        }
+
+        $campusDelCiclo = $ciclo->campus->pluck('id');
+
+        // Si el ciclo tiene campus asignados, el grupo debe ser de uno de ellos.
+        // Sin campus, el ciclo es global y no restringe.
+        if ($campusDelCiclo->isNotEmpty() && ! $campusDelCiclo->contains((int) $datos['campus_id'])) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'campus_id' => 'Ese campus no está entre los del ciclo.',
+            ]);
+        }
+
+        // Si el ciclo se acota a un nivel, el plan del grupo debe ser de una
+        // carrera de ese nivel. Sin plan no hay nivel que contradecir.
+        if ($ciclo->nivel_estudios_id !== null && ! empty($datos['plan_id'])) {
+            $nivelDelPlan = PlanEstudio::query()
+                ->join('carreras', 'carreras.id', '=', 'planes_estudio.carrera_id')
+                ->where('planes_estudio.id', $datos['plan_id'])
+                ->value('carreras.nivel_estudios_id');
+
+            if ((int) $nivelDelPlan !== (int) $ciclo->nivel_estudios_id) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'plan_id' => 'Ese plan no es del nivel de estudios al que está acotado el ciclo.',
+                ]);
+            }
+        }
     }
 
     /**
@@ -266,10 +320,20 @@ class GrupoController extends Controller
     private function catalogos(): array
     {
         return [
-            'ciclos' => Ciclo::query()->orderByDesc('fecha_inicio')->get(['id', 'clave', 'nombre'])
-                ->map(fn (Ciclo $ciclo) => ['id' => $ciclo->id, 'nombre' => "{$ciclo->clave} — {$ciclo->nombre}"]),
+            // Cada ciclo viaja con lo que ACOTA: sus campus y su nivel. El
+            // formulario lo usa para ofrecer solo campus y planes válidos según
+            // el ciclo elegido.
+            'ciclos' => Ciclo::query()->with('campus:id')->orderByDesc('fecha_inicio')
+                ->get(['id', 'clave', 'nombre', 'nivel_estudios_id'])
+                ->map(fn (Ciclo $ciclo) => [
+                    'id' => $ciclo->id,
+                    'nombre' => "{$ciclo->clave} — {$ciclo->nombre}",
+                    'campus_ids' => $ciclo->campus->pluck('id')->all(),
+                    'nivel_estudios_id' => $ciclo->nivel_estudios_id,
+                ]),
             'campus' => Campus::query()->orderBy('nombre')->get(['id', 'nombre']),
-            'carreras' => Carrera::query()->orderBy('nombre')->get(['id', 'nombre']),
+            // La carrera viaja con su nivel para poder filtrar por el del ciclo.
+            'carreras' => Carrera::query()->orderBy('nombre')->get(['id', 'nombre', 'nivel_estudios_id']),
             // Los planes viajan con su carrera para que el formulario los
             // filtre en cascada: una escuela con seis carreras y cuatro planes
             // cada una presenta 24 opciones en un solo desplegable, y elegir el
