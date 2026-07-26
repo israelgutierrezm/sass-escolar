@@ -114,23 +114,19 @@
      * cualquier navegador.
      */
     .icono-anim {
-        transition:
-            transform 0.25s ease,
-            color 0.2s ease;
+        transition: transform 0.3s ease;
     }
 
-    /*
-     * Iconos de contorno (cambiar de rol, apariencia): crecen un poco y toman
-     * el color de acento al pasar el cursor, el mismo gesto sobrio del avatar
-     * de perfil que sí convence. El color se liga al TEMA (var), así el hover
-     * combina siempre con el azul elegido.
-     */
-    .anim-icono:hover .icono-anim {
-        transform: scale(1.15);
-        color: var(--color-acento);
+    /* Iconos de la barra superior: sus gestos de siempre, que ya convencían. */
+    .anim-girar:hover .icono-anim {
+        transform: rotate(180deg);
     }
 
-    /* Avatar (tiene fondo propio): solo crece; teñirlo no aplica. */
+    .anim-pincel:hover .icono-anim {
+        transform: rotate(-12deg) scale(1.1);
+    }
+
+    /* Avatar de perfil. */
     .anim-crecer:hover .icono-anim {
         transform: scale(1.1);
     }

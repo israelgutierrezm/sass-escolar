@@ -73,7 +73,7 @@ const estilo = computed(() =>
         :href="href && !disabled ? href : undefined"
         :type="href ? undefined : 'button'"
         :disabled="disabled || undefined"
-        class="inline-flex items-center gap-1.5 rounded-lg text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40"
+        class="boton-accion inline-flex items-center gap-1.5 rounded-lg text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40"
         :class="[
             esPrimario ? 'px-3.5 py-2 shadow-sm hover:brightness-110' : 'boton-fantasma px-2.5 py-1.5',
             soloIcono ? '!px-2' : '',
@@ -81,7 +81,7 @@ const estilo = computed(() =>
         :style="estilo"
         @click="!href && emit('click')"
     >
-        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+        <svg class="icono-boton h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" :d="cfg.icono" />
         </svg>
         <span v-if="!soloIcono">{{ etiqueta }}</span>
@@ -92,5 +92,16 @@ const estilo = computed(() =>
 /* Fondo tenue del color de la acción al pasar el cursor (solo en los fantasma). */
 .boton-fantasma:hover {
     background-color: var(--tinte);
+}
+
+/* El icono se mueve un poco al pasar el cursor: es el gesto que el cliente
+   quería en las acciones (crear, editar, ver, eliminar), no en los iconos de
+   la barra superior. Un salto pequeño hacia arriba, sobrio. */
+.icono-boton {
+    transition: transform 0.2s ease;
+}
+
+.boton-accion:hover .icono-boton {
+    transform: translateY(-1px) scale(1.12);
 }
 </style>
