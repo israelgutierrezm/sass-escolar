@@ -43,17 +43,36 @@ class InstitucionController extends Controller
                     'logo' => $i->urlLogo(),
                     'campus_count' => $i->campus_count,
                 ]),
+            // Con una institución ya registrada no se permite crear otra: la
+            // escuela ES una institución. El botón se oculta con esta bandera y
+            // el backend lo vuelve a exigir.
+            'puedeCrear' => $request->user()->can('editar-catalogo-academico') && Institucion::query()->doesntExist(),
             'puedeEditar' => $request->user()->can('editar-catalogo-academico'),
         ]);
     }
 
-    public function create(): Response
+    public function create(): Response|RedirectResponse
     {
+        // Solo puede haber UNA. Si ya existe, se manda a editarla en vez de
+        // ofrecer un alta que se rechazaría.
+        $existente = Institucion::query()->first();
+
+        if ($existente !== null) {
+            return redirect()->route('tenant.academico.instituciones.edit', $existente);
+        }
+
         return Inertia::render('Academico/Instituciones/Formulario', ['institucion' => null]);
     }
 
     public function store(Request $request): RedirectResponse
     {
+        // Una sola institución por escuela. El formulario ya oculta el botón,
+        // pero un POST se arma a mano: aquí se rechaza de todos modos.
+        if (Institucion::query()->exists()) {
+            return redirect()->route('tenant.academico.instituciones.index')
+                ->with('error', 'Ya existe una institución. Solo puedes editarla.');
+        }
+
         $institucion = Institucion::create($this->validar($request));
 
         $this->guardarLogo($request, $institucion);
@@ -82,24 +101,8 @@ class InstitucionController extends Controller
         return redirect()->route('tenant.academico.instituciones.index')->with('exito', 'Institución actualizada.');
     }
 
-    /**
-     * No se elimina una institución con campus: se perdería a qué persona moral
-     * pertenecen. Primero se reasignan o se cierran esos campus.
-     */
-    public function destroy(Institucion $institucion): RedirectResponse
-    {
-        if ($institucion->campus()->exists()) {
-            return back()->with('error', 'No se puede eliminar: tiene campus asociados. Reasígnalos primero.');
-        }
-
-        if ($institucion->logo_url !== null) {
-            Storage::disk('local')->delete($institucion->logo_url);
-        }
-
-        $institucion->delete();
-
-        return back()->with('exito', 'Institución eliminada.');
-    }
+    // Una institución NO se elimina: es la escuela misma. Solo se edita. Por eso
+    // no hay `destroy` ni ruta de borrado.
 
     /** Sirve el logo en línea (no forza descarga) para que el <img> lo pinte. */
     public function logo(Institucion $institucion): StreamedResponse

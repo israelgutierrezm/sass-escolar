@@ -306,8 +306,9 @@ Route::middleware([
                 Route::get('planes/{plan}/materias/{materia}', [PlanMateriaController::class, 'show'])->name('planes.materias.show');
 
                 Route::middleware($escritura['middleware'])->group(function () {
+                    // Sin `destroy`: una institución no se elimina, solo se edita.
                     Route::resource('instituciones', InstitucionController::class)
-                        ->except(['index', 'show'])->parameters(['instituciones' => 'institucion']);
+                        ->except(['index', 'show', 'destroy'])->parameters(['instituciones' => 'institucion']);
                     Route::resource('campus', CampusController::class)
                         ->except(['index', 'show'])->parameters(['campus' => 'campus']);
                     Route::resource('carreras', CarreraController::class)->except(['index', 'show']);

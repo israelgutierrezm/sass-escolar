@@ -117,9 +117,13 @@ function esEditando(catalogo: string, id: number): boolean {
         </p>
 
         <div v-for="({ grupo, catalogos: lista }) in grupos" :key="grupo" class="space-y-4">
-            <h2 class="text-sm font-semibold uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                {{ grupo }}
-            </h2>
+            <!-- Divisor de grupo: barra de acento + título + línea, para que
+                 separe con claridad los catálogos de cada sección. -->
+            <div class="flex items-center gap-3">
+                <span class="h-5 w-1.5 rounded-full" :style="{ backgroundColor: 'var(--color-acento)' }" />
+                <h2 class="text-base font-bold">{{ grupo }}</h2>
+                <span class="h-px flex-1" :style="{ backgroundColor: 'var(--color-borde)' }" />
+            </div>
 
             <div class="grid gap-4 lg:grid-cols-2">
                 <section v-for="catalogo in lista" :key="catalogo.clave" class="tarjeta p-5">
@@ -214,18 +218,21 @@ function esEditando(catalogo: string, id: number): boolean {
 
         <!-- Los catálogos globales (Entidad / Identidad Federativa) no se editan
              aquí: son compartidos entre escuelas y los administra el dueño del
-             sistema. Se dice explícitamente para que no parezca un olvido. -->
-        <section class="tarjeta p-5">
-            <h2 class="text-sm font-semibold uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                General
-            </h2>
-            <p class="mt-2 text-sm" :style="{ color: 'var(--color-suave)' }">
-                <strong>Entidad</strong> e <strong>Identidad Federativa</strong> son catálogos globales,
-                compartidos entre todas las escuelas. Aquí solo se consultan; los administra el
-                responsable de la plataforma, no cada escuela, para que las claves oficiales no diverjan.
-            </p>
+             sistema. Mismo divisor que los demás grupos para que se lea igual. -->
+        <div class="space-y-4">
+            <div class="flex items-center gap-3">
+                <span class="h-5 w-1.5 rounded-full" :style="{ backgroundColor: 'var(--color-acento)' }" />
+                <h2 class="text-base font-bold">General</h2>
+                <span class="h-px flex-1" :style="{ backgroundColor: 'var(--color-borde)' }" />
+            </div>
 
-            <div class="mt-4 space-y-2">
+            <section class="tarjeta p-5">
+                <p class="text-sm" :style="{ color: 'var(--color-suave)' }">
+                    <strong>Entidad</strong> e <strong>Identidad Federativa</strong> son catálogos globales,
+                    compartidos entre todas las escuelas.
+                </p>
+
+                <div class="mt-4 space-y-2">
                 <div v-for="cat in globales" :key="cat.etiqueta" class="rounded-lg border" :style="{ borderColor: 'var(--color-borde)' }">
                     <button
                         type="button"
@@ -252,6 +259,7 @@ function esEditando(catalogo: string, id: number): boolean {
                     </div>
                 </div>
             </div>
-        </section>
+            </section>
+        </div>
     </AppLayout>
 </template>

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
+import { Head } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 
 defineProps<{
     instituciones: {
@@ -11,16 +12,9 @@ defineProps<{
         logo: string | null;
         campus_count: number;
     }[];
+    puedeCrear: boolean;
     puedeEditar: boolean;
 }>();
-
-function eliminar(id: number, nombre: string): void {
-    if (!confirm(`¿Eliminar la institución "${nombre}"?`)) {
-        return;
-    }
-
-    router.delete(`/academico/instituciones/${id}`, { preserveScroll: true });
-}
 </script>
 
 <template>
@@ -30,18 +24,14 @@ function eliminar(id: number, nombre: string): void {
         <NavAcademico />
 
         <div class="tarjeta">
-            <div class="flex items-center justify-between border-b p-4" :style="{ borderColor: 'var(--color-borde)' }">
+            <div class="flex items-center justify-between gap-3 border-b p-4" :style="{ borderColor: 'var(--color-borde)' }">
                 <p class="text-sm" :style="{ color: 'var(--color-suave)' }">
-                    La persona moral educativa dueña de los campus. Su nombre y logo membretan lo que la escuela emite.
+                    La persona moral educativa dueña de los campus. Solo puede haber una; su nombre y logo
+                    membretan lo que la escuela emite.
                 </p>
-                <a
-                    v-if="puedeEditar"
-                    href="/academico/instituciones/create"
-                    class="rounded-lg px-4 py-2 text-sm font-medium"
-                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                >
-                    Nueva institución
-                </a>
+                <!-- Solo se ofrece crear si NO existe ninguna: la escuela es una
+                     institución. Una vez cargada, solo se edita. -->
+                <BotonAccion v-if="puedeCrear" variante="nuevo" texto="Registrar institución" href="/academico/instituciones/create" />
             </div>
 
             <table v-if="instituciones.length" class="w-full text-sm">
@@ -73,31 +63,18 @@ function eliminar(id: number, nombre: string): void {
                         <td class="px-4 py-3 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ inst.clave }}</td>
                         <td class="px-4 py-3 font-medium">{{ inst.nombre }}</td>
                         <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ inst.campus_count }}</td>
-                        <td class="px-4 py-3 text-right">
-                            <template v-if="puedeEditar">
-                                <a
-                                    :href="`/academico/instituciones/${inst.id}/edit`"
-                                    class="text-sm font-medium"
-                                    :style="{ color: 'var(--color-acento)' }"
-                                >
-                                    Editar
-                                </a>
-                                <button
-                                    type="button"
-                                    class="ml-3 text-sm"
-                                    :style="{ color: 'var(--color-suave)' }"
-                                    @click="eliminar(inst.id, inst.nombre)"
-                                >
-                                    Eliminar
-                                </button>
-                            </template>
+                        <td class="px-4 py-3">
+                            <!-- Sin «Eliminar»: una institución no se borra, solo se edita. -->
+                            <div class="flex justify-end">
+                                <BotonAccion v-if="puedeEditar" variante="editar" :href="`/academico/instituciones/${inst.id}/edit`" />
+                            </div>
                         </td>
                     </tr>
                 </tbody>
             </table>
 
             <p v-else class="px-4 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
-                Aún no hay instituciones registradas.
+                Aún no hay institución registrada.
             </p>
         </div>
     </AppLayout>
