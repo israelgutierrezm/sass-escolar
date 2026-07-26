@@ -63,7 +63,7 @@ class UsuarioController extends Controller
                 fn ($r) => $r->where('campus_id', $v),
             ))
             ->orderBy('usuario')
-            ->paginate(25)
+            ->paginate(10)
             ->withQueryString()
             ->through(fn (Usuario $u) => [
                 'id' => $u->id,

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { Head, useForm, router } from '@inertiajs/vue3';
-import { computed, ref, watch } from 'vue';
+import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Paginacion from '@/Components/Paginacion.vue';
-import PanelFiltros from '@/Components/PanelFiltros.vue';
+import BarraListado from '@/Components/BarraListado.vue';
 
 interface Asignacion {
     id: number;
@@ -36,27 +36,6 @@ const props = defineProps<{
     roles: { id: number; nombre: string; faceta: string; es_faceta: boolean }[];
     campus: { id: number; nombre: string }[];
 }>();
-
-const busqueda = ref(props.filtros.q);
-let temporizador: ReturnType<typeof setTimeout> | undefined;
-
-watch(busqueda, () => {
-    clearTimeout(temporizador);
-    temporizador = setTimeout(() => consultar({}), 350);
-});
-
-function consultar(cambios: Record<string, any>): void {
-    router.get(
-        '/plataforma/usuarios',
-        {
-            q: busqueda.value || undefined,
-            rol_id: props.filtros.rol_id || undefined,
-            campus_id: props.filtros.campus_id || undefined,
-            ...cambios,
-        },
-        { preserveState: true, replace: true, preserveScroll: true },
-    );
-}
 
 /**
  * Se filtra por rol y por campus porque son las dos preguntas reales de quien
@@ -223,19 +202,13 @@ function restablecer(u: UsuarioFila): void {
             </form>
         </section>
 
-        <section class="tarjeta p-5">
-            <input
-                v-model="busqueda"
-                type="search"
-                placeholder="Buscar por nombre, CURP, usuario o correo"
-                class="w-full max-w-md rounded-lg border px-3 py-2 text-sm"
-                :style="{ borderColor: 'var(--color-borde)' }"
-            />
-
-            <div class="mt-4">
-                <PanelFiltros :filtros="definicionFiltros" :valores="filtros" @cambio="(valores) => consultar(valores)" />
-            </div>
-        </section>
+        <BarraListado
+            url="/plataforma/usuarios"
+            clave-busqueda="q"
+            :valores="filtros"
+            :filtros="definicionFiltros"
+            placeholder="Buscar por nombre, CURP, usuario o correo"
+        />
 
         <section class="tarjeta overflow-hidden">
             <table v-if="usuarios.data.length" class="w-full text-sm">

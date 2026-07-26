@@ -35,14 +35,20 @@ class CicloController extends Controller
 {
     public function index(Request $request): Response
     {
+        $busqueda = trim((string) $request->query('busqueda', ''));
+
         return Inertia::render('ControlEscolar/Ciclos/Index', [
             'ciclos' => Ciclo::query()
                 ->with(['campus:id,nombre', 'situacion:id,nombre', 'niveles:id,nombre'])
                 ->withCount('grupos')
                 ->delAlcance($this->alcance($request))
+                ->when($busqueda !== '', fn ($q) => $q->where(fn ($sub) => $sub
+                    ->where('clave', 'like', "%{$busqueda}%")
+                    ->orWhere('nombre', 'like', "%{$busqueda}%")))
                 ->orderByDesc('fecha_inicio')
-                ->get()
-                ->map(fn (Ciclo $ciclo) => [
+                ->paginate(10)
+                ->withQueryString()
+                ->through(fn (Ciclo $ciclo) => [
                     'id' => $ciclo->id,
                     'clave' => $ciclo->clave,
                     'nombre' => $ciclo->nombre,
@@ -54,6 +60,7 @@ class CicloController extends Controller
                     'inscripcion_abierta' => $ciclo->inscripcionAbierta(),
                     'grupos_count' => $ciclo->grupos_count,
                 ]),
+            'filtros' => ['busqueda' => $busqueda],
             'puedeEditar' => $request->user()->can('abrir-grupos'),
         ]);
     }
