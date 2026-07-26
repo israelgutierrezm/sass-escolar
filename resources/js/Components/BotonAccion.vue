@@ -28,15 +28,18 @@ const props = withDefaults(
 const emit = defineEmits<{ click: [] }>();
 
 // Cada variante: su etiqueta por defecto, el color y el trazo del icono.
+//  - «nuevo» sigue el ACENTO del tema (var), para que combine si se cambia de
+//    tema; el resto llevan colores fijos porque su significado no cambia:
+//    editar es un ámbar discreto, ver un azul, eliminar un rojo.
 const CONFIG = {
     nuevo: {
         etiqueta: 'Nuevo',
-        color: '#4f46e5',
+        color: 'var(--color-acento)',
         icono: 'M12 4.5v15m7.5-7.5h-15',
     },
     editar: {
         etiqueta: 'Editar',
-        color: '#4f46e5',
+        color: '#B7791F',
         icono: 'm16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125',
     },
     eliminar: {
@@ -46,7 +49,7 @@ const CONFIG = {
     },
     ver: {
         etiqueta: 'Ver',
-        color: '#475569',
+        color: '#0077B6',
         icono: 'M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178ZM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
     },
 } as const;
@@ -59,7 +62,7 @@ const esPrimario = computed(() => props.variante === 'nuevo');
 // tenue al pasar el cursor (mismo color al 12 %).
 const estilo = computed(() =>
     esPrimario.value
-        ? { backgroundColor: cfg.value.color, color: '#fff' }
+        ? { backgroundColor: cfg.value.color, color: 'var(--color-acento-texto)' }
         : { color: cfg.value.color, '--tinte': `color-mix(in srgb, ${cfg.value.color} 12%, transparent)` },
 );
 </script>

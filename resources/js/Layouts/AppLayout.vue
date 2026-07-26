@@ -533,7 +533,7 @@ const iniciales = computed(() => {
                     <button
                         v-if="tieneVariosRoles"
                         type="button"
-                        class="anim-girar rounded-xl p-2 transition duration-200 hover:bg-black/5"
+                        class="anim-icono rounded-xl p-2 transition duration-200 hover:bg-black/5"
                         title="Cambiar de rol"
                         @click="panelRoles = true"
                     >
@@ -547,7 +547,7 @@ const iniciales = computed(() => {
                     <!-- Apariencia -->
                     <button
                         type="button"
-                        class="anim-pincel rounded-xl p-2 transition duration-200 hover:bg-black/5"
+                        class="anim-icono rounded-xl p-2 transition duration-200 hover:bg-black/5"
                         title="Apariencia"
                         @click="panelTema = true"
                     >

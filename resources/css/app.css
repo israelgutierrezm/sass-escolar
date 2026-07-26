@@ -33,19 +33,19 @@
      * Al exponerlos como colores de Tailwind se pueden usar como cualquier otro:
      * bg-superficie, text-suave, border-borde...
      */
-    --color-barra-lateral: #1e1b4b;
-    --color-barra-lateral-suave: #312e81;
-    --color-barra-lateral-texto: #c7d2fe;
-    --color-barra-lateral-activo: #4f46e5;
+    --color-barra-lateral: #00344d;
+    --color-barra-lateral-suave: #00527c;
+    --color-barra-lateral-texto: #b8dcec;
+    --color-barra-lateral-activo: #0077b6;
     --color-barra-superior: #ffffff;
-    --color-barra-superior-texto: #1e293b;
-    --color-acento: #4f46e5;
+    --color-barra-superior-texto: #0f2a3a;
+    --color-acento: #006a89;
     --color-acento-texto: #ffffff;
-    --color-fondo: #f1f5f9;
+    --color-fondo: #f2f6f9;
     --color-superficie: #ffffff;
-    --color-borde: #e2e8f0;
-    --color-contenido: #0f172a;
-    --color-suave: #64748b;
+    --color-borde: #dce6ec;
+    --color-contenido: #0f2233;
+    --color-suave: #5a7382;
 }
 
 @layer base {
@@ -114,17 +114,23 @@
      * cualquier navegador.
      */
     .icono-anim {
-        transition: transform 0.3s ease;
+        transition:
+            transform 0.25s ease,
+            color 0.2s ease;
     }
 
-    .anim-girar:hover .icono-anim {
-        transform: rotate(180deg);
+    /*
+     * Iconos de contorno (cambiar de rol, apariencia): crecen un poco y toman
+     * el color de acento al pasar el cursor, el mismo gesto sobrio del avatar
+     * de perfil que sí convence. El color se liga al TEMA (var), así el hover
+     * combina siempre con el azul elegido.
+     */
+    .anim-icono:hover .icono-anim {
+        transform: scale(1.15);
+        color: var(--color-acento);
     }
 
-    .anim-pincel:hover .icono-anim {
-        transform: rotate(-12deg) scale(1.1);
-    }
-
+    /* Avatar (tiene fondo propio): solo crece; teñirlo no aplica. */
     .anim-crecer:hover .icono-anim {
         transform: scale(1.1);
     }

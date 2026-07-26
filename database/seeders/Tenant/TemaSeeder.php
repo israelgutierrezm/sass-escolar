@@ -27,9 +27,33 @@ class TemaSeeder extends Seeder
      */
     private const TEMAS = [
         [
+            // Tema principal: azul océano. Paleta pedida por el cliente
+            // (#0077B6 / #006A89 / #00527C / #006DB2) sobre una base neutra
+            // clara, para que se vea elegante sin cansar.
+            'clave' => 'oceano',
+            'nombre' => 'Océano',
+            'es_default' => true,
+            'permite_override_usuario' => true,
+            'tokens' => [
+                'barra_lateral' => '#00344D',
+                'barra_lateral_suave' => '#00527C',
+                'barra_lateral_texto' => '#B8DCEC',
+                'barra_lateral_activo' => '#0077B6',
+                'barra_superior' => '#FFFFFF',
+                'barra_superior_texto' => '#0F2A3A',
+                'acento' => '#006A89',
+                'acento_texto' => '#FFFFFF',
+                'fondo' => '#F2F6F9',
+                'superficie' => '#FFFFFF',
+                'borde' => '#DCE6EC',
+                'texto' => '#0F2233',
+                'texto_suave' => '#5A7382',
+            ],
+        ],
+        [
             'clave' => 'indigo',
             'nombre' => 'Índigo',
-            'es_default' => true,
+            'es_default' => false,
             'permite_override_usuario' => true,
             'tokens' => [
                 'barra_lateral' => '#1E1B4B',
