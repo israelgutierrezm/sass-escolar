@@ -73,6 +73,9 @@ class UsuarioController extends Controller
                 'persona_id' => $u->persona_id,
                 'foto' => $u->persona?->urlFoto(),
                 'rol_activo' => $u->rolActivo?->nombre,
+                // Cuenta de censo: existe y se lista, pero aún no tiene una
+                // contraseña usable (se habilita en la etapa de acceso).
+                'acceso_configurado' => (bool) $u->acceso_configurado,
                 'roles' => PersonaRol::query()
                     ->with('rol:id,nombre', 'campus:id,nombre')
                     ->where('persona_id', $u->persona_id)

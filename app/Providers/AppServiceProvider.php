@@ -54,6 +54,22 @@ class AppServiceProvider extends ServiceProvider
         $this->registrarResolucionDePermisos();
         $this->registrarPermisosDerivados();
         $this->registrarTarjetasDelPanel();
+        $this->registrarObservadoresDeAcceso();
+    }
+
+    /**
+     * El invariante «toda persona con un rol es un usuario».
+     *
+     * Al materializar cada población se le crea su rol y su cuenta (censo, sin
+     * acceso aún). Se hace con observers y no con líneas sueltas en cada
+     * controlador para que se cumpla venga de donde venga el alta.
+     * Ver App\Services\AprovisionadorAcceso.
+     */
+    protected function registrarObservadoresDeAcceso(): void
+    {
+        \App\Models\ControlEscolar\Docente::observe(\App\Observers\DocenteObserver::class);
+        \App\Models\Admisiones\Alumno::observe(\App\Observers\AlumnoObserver::class);
+        \App\Models\Admisiones\Aspirante::observe(\App\Observers\AspiranteObserver::class);
     }
 
     /**

@@ -10,8 +10,6 @@ use App\Models\Admisiones\RespuestaCampo;
 use App\Models\Admisiones\SituacionAspirante;
 use App\Models\Formularios\CampoFormulario;
 use App\Models\Identidad\Persona;
-use App\Models\Identidad\PersonaRol;
-use App\Models\Identidad\Rol;
 use App\Models\Identidad\Usuario;
 use App\Models\Promocion\FormularioPublico;
 use App\Models\Promocion\OrigenAspirante;
@@ -190,60 +188,36 @@ class RegistradorProspecto
     }
 
     /**
-     * La cuenta con la que el aspirante continúa solo (modo inscripción).
+     * Fija el acceso del aspirante en modo autoservicio (formulario público).
      *
-     * Si la persona YA tenía cuenta no se le crea otra ni se le cambia la
-     * contraseña: un formulario anónimo que pudiera reescribir credenciales
-     * sería la forma más simple de tomar la cuenta de alguien más.
+     * La cuenta y el rol `aspirante` ya los creó el observer al insertar el
+     * aspirante (ver App\Services\AprovisionadorAcceso). Aquí solo se le pone la
+     * contraseña que la persona eligió y se marca su acceso como configurado.
+     *
+     * Si la persona YA tenía una cuenta CON acceso —suya, de antes— no se toca:
+     * un formulario anónimo que pudiera reescribir credenciales sería la forma
+     * más simple de tomar la cuenta de alguien más.
      */
     private function crearCuenta(Persona $persona, array $datos): ?Usuario
     {
-        if (Usuario::query()->where('persona_id', $persona->id)->exists()) {
-            return null;
-        }
-
         $password = (string) ($datos['password'] ?? '');
 
         if ($password === '') {
             return null;
         }
 
-        $rolAspirante = Rol::query()->where('name', 'aspirante')->first();
+        $usuario = Usuario::query()->where('persona_id', $persona->id)->first();
 
-        if ($rolAspirante === null) {
-            return null;
+        if ($usuario === null || $usuario->acceso_configurado) {
+            return $usuario;
         }
 
-        $usuario = Usuario::create([
-            'persona_id' => $persona->id,
-            'usuario' => $this->usuarioDisponible($persona, $datos),
-            'email' => $persona->email,
+        $usuario->forceFill([
             'password' => Hash::make($password),
-            'rol_activo_id' => $rolAspirante->id,
-        ]);
-
-        PersonaRol::create([
-            'persona_id' => $persona->id,
-            'rol_id' => $rolAspirante->id,
-            'activo' => true,
-        ]);
+            'acceso_configurado' => true,
+        ])->save();
 
         return $usuario;
-    }
-
-    /** Un nombre de usuario libre, derivado del correo o del nombre. */
-    private function usuarioDisponible(Persona $persona, array $datos): string
-    {
-        $base = strtolower((string) (explode('@', (string) ($datos['email'] ?? ''))[0] ?: $persona->nombre));
-        $base = preg_replace('/[^a-z0-9._-]/', '', $base) ?: 'aspirante';
-        $candidato = $base;
-        $n = 1;
-
-        while (Usuario::query()->where('usuario', $candidato)->exists()) {
-            $candidato = $base.(++$n);
-        }
-
-        return $candidato;
     }
 
     private function origenAutogestivoPorDefecto(): ?int

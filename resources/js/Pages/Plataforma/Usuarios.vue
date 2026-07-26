@@ -20,6 +20,7 @@ interface UsuarioFila {
     persona_id: number;
     foto: string | null;
     rol_activo: string | null;
+    acceso_configurado: boolean;
     roles: Asignacion[];
     soy_yo: boolean;
 }
@@ -236,7 +237,15 @@ function restablecer(u: UsuarioFila): void {
                             </td>
                             <td class="px-4 py-3">
                                 <span class="font-mono text-xs">{{ u.usuario }}</span>
-                                <span class="block text-xs" :style="{ color: 'var(--color-suave)' }">{{ u.email }}</span>
+                                <span class="block text-xs" :style="{ color: 'var(--color-suave)' }">{{ u.email ?? 'sin correo' }}</span>
+                                <span
+                                    v-if="!u.acceso_configurado"
+                                    class="mt-1 inline-block rounded-full px-2 py-0.5 text-xs"
+                                    style="background-color: color-mix(in srgb, #f59e0b 20%, transparent)"
+                                    title="La cuenta existe pero aún no tiene contraseña de acceso"
+                                >
+                                    Sin acceso
+                                </span>
                             </td>
                             <td class="px-4 py-3">
                                 <span class="text-xs" :style="{ color: 'var(--color-suave)' }">

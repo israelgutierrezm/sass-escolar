@@ -30,6 +30,7 @@ class Usuario extends Authenticatable
         'usuario',
         'email',
         'password',
+        'acceso_configurado',
         'url_perfil',
         'conectado',
         'rol_activo_id',
@@ -46,6 +47,7 @@ class Usuario extends Authenticatable
         return [
             'password' => 'hashed',
             'conectado' => 'boolean',
+            'acceso_configurado' => 'boolean',
         ];
     }
 
