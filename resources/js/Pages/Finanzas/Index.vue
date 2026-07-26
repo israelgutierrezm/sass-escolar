@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
-import { ref, watch } from 'vue';
+import { Head } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BarraListado from '@/Components/BarraListado.vue';
 import Paginacion from '@/Components/Paginacion.vue';
+import TarjetaListado from '@/Components/TarjetaListado.vue';
 
 interface Fila {
     id: number;
@@ -31,32 +33,12 @@ const props = defineProps<{
     soloPropias: boolean;
 }>();
 
-const busqueda = ref(props.filtros.q);
-const soloDeudores = ref(props.filtros.deudores);
-const soloVencidos = ref(props.filtros.vencidos);
+const vista = ref<'lista' | 'cuadricula'>('lista');
 
-let temporizador: ReturnType<typeof setTimeout> | undefined;
-
-function consultar(): void {
-    router.get(
-        '/finanzas',
-        {
-            q: busqueda.value || undefined,
-            deudores: soloDeudores.value ? 1 : undefined,
-            vencidos: soloVencidos.value ? 1 : undefined,
-        },
-        { preserveState: true, replace: true },
-    );
-}
-
-// La búsqueda se teclea de a poco; sin la espera se dispara una consulta por
-// letra contra una tabla que agrega toda la cartera.
-watch(busqueda, () => {
-    clearTimeout(temporizador);
-    temporizador = setTimeout(consultar, 350);
-});
-
-watch([soloDeudores, soloVencidos], consultar);
+const definicionFiltros = [
+    { clave: 'deudores', etiqueta: 'Solo con saldo', tipo: 'booleano' as const },
+    { clave: 'vencidos', etiqueta: 'Solo con vencido', tipo: 'booleano' as const },
+];
 
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
 </script>
@@ -89,27 +71,53 @@ const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN
 
         <!-- El buscador y los filtros de cartera solo aparecen para quien ve a
              MUCHOS. Un alumno se ve a sí mismo: no hay a quién buscar. -->
-        <section v-if="!soloPropias" class="tarjeta p-5">
-            <div class="flex flex-wrap items-center gap-4">
-                <input
-                    v-model="busqueda"
-                    type="search"
-                    placeholder="Matrícula, CURP o nombre"
-                    class="min-w-64 flex-1 rounded-lg border px-3 py-2 text-sm"
-                    :style="{ borderColor: 'var(--color-borde)' }"
-                />
-                <label class="flex items-center gap-2 text-sm">
-                    <input v-model="soloDeudores" type="checkbox" class="rounded" />
-                    Solo con saldo
-                </label>
-                <label class="flex items-center gap-2 text-sm">
-                    <input v-model="soloVencidos" type="checkbox" class="rounded" />
-                    Solo con vencido
-                </label>
-            </div>
-        </section>
+        <BarraListado
+            v-if="!soloPropias"
+            v-model:vista="vista"
+            url="/finanzas"
+            vista-clave="finanzas.cartera"
+            clave-busqueda="q"
+            :valores="filtros"
+            :filtros="definicionFiltros"
+            placeholder="Matrícula, CURP o nombre"
+        />
 
-        <section class="tarjeta overflow-hidden">
+        <!-- Cuadrícula -->
+        <template v-if="vista === 'cuadricula'">
+            <section v-if="matriculas.data.length" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <TarjetaListado
+                    v-for="fila in matriculas.data"
+                    :key="fila.id"
+                    :titulo="fila.nombre"
+                    :clave="fila.matricula"
+                    :href="`/finanzas/cuentas/${fila.id}`"
+                    :metas="[
+                        { etiqueta: 'Carrera', valor: fila.carrera },
+                        { etiqueta: 'Cargos', valor: fila.adeudos },
+                        { etiqueta: 'Saldo', valor: fila.saldo > 0 ? pesos.format(fila.saldo) : '—' },
+                        { etiqueta: 'Vencido', valor: fila.vencido > 0 ? pesos.format(fila.vencido) : '—' },
+                    ]"
+                >
+                    <template v-if="fila.estatus !== 'activo'" #insignia>
+                        <span class="shrink-0 rounded px-1.5 py-0.5 text-xs" :style="{ backgroundColor: 'var(--color-borde)', color: 'var(--color-suave)' }">
+                            {{ fila.estatus }}
+                        </span>
+                    </template>
+                </TarjetaListado>
+            </section>
+
+            <p v-else class="tarjeta px-6 py-10 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
+                No hay matrículas que coincidan.
+            </p>
+
+            <section v-if="matriculas.links.length > 3" class="tarjeta">
+                <Paginacion :enlaces="matriculas.links" :total="matriculas.total" :desde="matriculas.from" :hasta="matriculas.to" />
+            </section>
+        </template>
+
+        <!-- Lista -->
+        <section v-else class="tarjeta overflow-hidden">
+            <div class="overflow-x-auto">
             <table v-if="matriculas.data.length" class="w-full text-sm">
                 <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
                     <tr>
@@ -167,6 +175,7 @@ const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN
             <p v-else class="px-6 py-10 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
                 No hay matrículas que coincidan.
             </p>
+            </div>
 
             <Paginacion
                 :enlaces="matriculas.links"

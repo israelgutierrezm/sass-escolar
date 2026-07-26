@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
-import { ref, watch } from 'vue';
+import { Head } from '@inertiajs/vue3';
+import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BarraListado from '@/Components/BarraListado.vue';
 import Paginacion from '@/Components/Paginacion.vue';
+import TarjetaListado from '@/Components/TarjetaListado.vue';
 
 interface Fila {
     id: number;
@@ -28,11 +30,11 @@ const props = defineProps<{
     estatus: string[];
 }>();
 
-const filtro = ref(props.filtros.estatus);
+const vista = ref<'lista' | 'cuadricula'>('lista');
 
-watch(filtro, () => {
-    router.get('/finanzas/facturas', { estatus: filtro.value || undefined }, { preserveState: true, replace: true });
-});
+const definicionFiltros = [
+    { clave: 'estatus', etiqueta: 'Estatus', opciones: props.estatus.map((e) => ({ valor: e, texto: e })) },
+];
 
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
 
@@ -49,74 +51,106 @@ const colorEstatus: Record<string, string> = {
     <Head title="Facturas" />
 
     <AppLayout titulo="Facturación electrónica">
-        <section class="tarjeta p-6">
-            <div class="flex flex-wrap items-start justify-between gap-4">
-                <p class="max-w-2xl text-sm" :style="{ color: 'var(--color-suave)' }">
-                    Los CFDI se emiten contra PAGOS cobrados, no contra adeudos: el comprobante ampara
-                    dinero que entró. Una factura timbrada no se edita — corregirla es cancelarla y emitir
-                    otra, y las dos quedan.
-                </p>
+        <p class="max-w-2xl text-sm" :style="{ color: 'var(--color-suave)' }">
+            Los CFDI se emiten contra PAGOS cobrados, no contra adeudos: el comprobante ampara
+            dinero que entró. Una factura timbrada no se edita — corregirla es cancelarla y emitir
+            otra, y las dos quedan.
+        </p>
 
-                <select
-                    v-model="filtro"
-                    class="rounded-lg border px-3 py-2 text-sm"
-                    :style="{ borderColor: 'var(--color-borde)' }"
+        <BarraListado
+            v-model:vista="vista"
+            url="/finanzas/facturas"
+            vista-clave="finanzas.facturas"
+            sin-buscador
+            :valores="filtros"
+            :filtros="definicionFiltros"
+        />
+
+        <!-- Cuadrícula -->
+        <template v-if="vista === 'cuadricula'">
+            <section v-if="facturas.data.length" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <TarjetaListado
+                    v-for="f in facturas.data"
+                    :key="f.id"
+                    :titulo="f.receptor_razon_social"
+                    :clave="f.receptor_rfc"
+                    :href="`/finanzas/facturas/${f.id}`"
+                    :metas="[
+                        { etiqueta: 'Alumno', valor: f.alumno },
+                        { etiqueta: 'Total', valor: pesos.format(f.total) },
+                        { etiqueta: 'Timbrado', valor: f.fecha_timbrado },
+                        { etiqueta: 'Folio', valor: f.uuid },
+                    ]"
                 >
-                    <option value="">Todos los estatus</option>
-                    <option v-for="e in estatus" :key="e" :value="e">{{ e }}</option>
-                </select>
-            </div>
-        </section>
+                    <template #insignia>
+                        <span class="shrink-0 rounded px-2 py-0.5 text-xs font-medium" :class="colorEstatus[f.estatus] ?? ''">
+                            {{ f.estatus }}
+                        </span>
+                    </template>
+                </TarjetaListado>
+            </section>
 
-        <section class="tarjeta overflow-hidden">
-            <table v-if="facturas.data.length" class="w-full text-sm">
-                <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                    <tr>
-                        <th class="px-6 py-3 font-medium">Folio fiscal</th>
-                        <th class="px-4 py-3 font-medium">Receptor</th>
-                        <th class="px-4 py-3 font-medium">Alumno</th>
-                        <th class="px-4 py-3 text-right font-medium">Total</th>
-                        <th class="px-4 py-3 font-medium">Timbrado</th>
-                        <th class="px-4 py-3 font-medium">Estatus</th>
-                        <th class="px-6 py-3"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="f in facturas.data" :key="f.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                        <td class="px-6 py-3 font-mono text-xs">
-                            {{ f.uuid ?? '—' }}
-                        </td>
-                        <td class="px-4 py-3">
-                            <span class="font-medium">{{ f.receptor_razon_social }}</span>
-                            <span class="block font-mono text-xs" :style="{ color: 'var(--color-suave)' }">
-                                {{ f.receptor_rfc }}
-                            </span>
-                        </td>
-                        <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">
-                            {{ f.alumno ?? '—' }}
-                            <span v-if="f.matricula" class="block font-mono text-xs">{{ f.matricula }}</span>
-                        </td>
-                        <td class="px-4 py-3 text-right font-medium tabular-nums">{{ pesos.format(f.total) }}</td>
-                        <td class="px-4 py-3 tabular-nums" :style="{ color: 'var(--color-suave)' }">
-                            {{ f.fecha_timbrado ?? '—' }}
-                        </td>
-                        <td class="px-4 py-3">
-                            <span class="rounded px-2 py-0.5 text-xs font-medium" :class="colorEstatus[f.estatus] ?? ''">
-                                {{ f.estatus }}
-                            </span>
-                        </td>
-                        <td class="px-6 py-3 text-right">
-                            <a :href="`/finanzas/facturas/${f.id}`" class="text-sm font-medium" :style="{ color: 'var(--color-acento)' }">
-                                Ver
-                            </a>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <p v-else class="px-6 py-10 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
+            <p v-else class="tarjeta px-6 py-10 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
                 No hay facturas que coincidan. Se emiten desde el estado de cuenta del alumno.
             </p>
+
+            <section v-if="facturas.links.length > 3" class="tarjeta">
+                <Paginacion :enlaces="facturas.links" :total="facturas.total" :desde="facturas.from" :hasta="facturas.to" />
+            </section>
+        </template>
+
+        <!-- Lista -->
+        <section v-else class="tarjeta overflow-hidden">
+            <div class="overflow-x-auto">
+                <table v-if="facturas.data.length" class="w-full text-sm">
+                    <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
+                        <tr>
+                            <th class="px-6 py-3 font-medium">Folio fiscal</th>
+                            <th class="px-4 py-3 font-medium">Receptor</th>
+                            <th class="px-4 py-3 font-medium">Alumno</th>
+                            <th class="px-4 py-3 text-right font-medium">Total</th>
+                            <th class="px-4 py-3 font-medium">Timbrado</th>
+                            <th class="px-4 py-3 font-medium">Estatus</th>
+                            <th class="px-6 py-3"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="f in facturas.data" :key="f.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
+                            <td class="px-6 py-3 font-mono text-xs">
+                                {{ f.uuid ?? '—' }}
+                            </td>
+                            <td class="px-4 py-3">
+                                <span class="font-medium">{{ f.receptor_razon_social }}</span>
+                                <span class="block font-mono text-xs" :style="{ color: 'var(--color-suave)' }">
+                                    {{ f.receptor_rfc }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">
+                                {{ f.alumno ?? '—' }}
+                                <span v-if="f.matricula" class="block font-mono text-xs">{{ f.matricula }}</span>
+                            </td>
+                            <td class="px-4 py-3 text-right font-medium tabular-nums">{{ pesos.format(f.total) }}</td>
+                            <td class="px-4 py-3 tabular-nums" :style="{ color: 'var(--color-suave)' }">
+                                {{ f.fecha_timbrado ?? '—' }}
+                            </td>
+                            <td class="px-4 py-3">
+                                <span class="rounded px-2 py-0.5 text-xs font-medium" :class="colorEstatus[f.estatus] ?? ''">
+                                    {{ f.estatus }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-3 text-right">
+                                <a :href="`/finanzas/facturas/${f.id}`" class="text-sm font-medium" :style="{ color: 'var(--color-acento)' }">
+                                    Ver
+                                </a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <p v-else class="px-6 py-10 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
+                    No hay facturas que coincidan. Se emiten desde el estado de cuenta del alumno.
+                </p>
+            </div>
 
             <Paginacion :enlaces="facturas.links" :total="facturas.total" :desde="facturas.from" :hasta="facturas.to" />
         </section>

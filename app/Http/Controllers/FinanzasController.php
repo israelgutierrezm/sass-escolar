@@ -97,7 +97,7 @@ class FinanzasController extends Controller
             ->orderByDesc('vencido')
             ->orderByDesc('saldo')
             ->orderBy('matricula_oferta.matricula')
-            ->paginate(25)
+            ->paginate(10)
             ->withQueryString()
             ->through(fn (MatriculaOferta $m) => [
                 'id' => $m->id,

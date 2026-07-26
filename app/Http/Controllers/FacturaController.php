@@ -39,7 +39,7 @@ class FacturaController extends Controller
             ->with(['matriculaOferta.persona:id,nombre,primer_apellido,segundo_apellido'])
             ->when($estatus !== '', fn ($q) => $q->where('estatus', $estatus))
             ->orderByDesc('id')
-            ->paginate(25)
+            ->paginate(10)
             ->withQueryString()
             ->through(fn (Factura $f) => $this->resumen($f));
 
