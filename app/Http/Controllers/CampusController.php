@@ -22,10 +22,21 @@ class CampusController extends Controller
 {
     public function index(Request $request): Response
     {
+        $filtros = [
+            'busqueda' => trim((string) $request->query('busqueda', '')),
+            'institucion_id' => $request->query('institucion_id'),
+            'tipo_campus_id' => $request->query('tipo_campus_id'),
+        ];
+
         return Inertia::render('Academico/Campus/Index', [
             'campus' => Campus::query()
                 ->with(['tipoCampus:id,nombre', 'entidad:id,nombre', 'institucion:id,nombre'])
                 ->withCount('ofertas')
+                ->when($filtros['busqueda'] !== '', fn ($q) => $q->where(fn ($sub) => $sub
+                    ->where('clave', 'like', "%{$filtros['busqueda']}%")
+                    ->orWhere('nombre', 'like', "%{$filtros['busqueda']}%")))
+                ->when($filtros['institucion_id'], fn ($q, $v) => $q->where('institucion_id', $v))
+                ->when($filtros['tipo_campus_id'], fn ($q, $v) => $q->where('tipo_campus_id', $v))
                 ->orderBy('nombre')
                 ->get()
                 ->map(fn (Campus $campus) => [
@@ -38,6 +49,9 @@ class CampusController extends Controller
                     'online' => $campus->online,
                     'ofertas_count' => $campus->ofertas_count,
                 ]),
+            'filtros' => $filtros,
+            'instituciones' => Institucion::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'tiposCampus' => TipoCampus::query()->orderBy('nombre')->get(['id', 'nombre']),
             'puedeEditar' => $request->user()->can('editar-catalogo-academico'),
         ]);
     }

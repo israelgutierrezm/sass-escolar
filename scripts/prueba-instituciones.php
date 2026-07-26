@@ -81,42 +81,27 @@ try {
     verificar('Existe la institución sembrada (PRINCIPAL)',
         Institucion::where('clave', 'PRINCIPAL')->exists());
 
-    echo PHP_EOL.'2. Alta'.PHP_EOL;
+    echo PHP_EOL.'2. Solo puede haber UNA institución'.PHP_EOL;
 
-    $clave = 'UNIV-'.random_int(1000, 9999);
-    $controlador->store(req(['clave' => $clave, 'nombre' => 'Universidad de Prueba'], $admin));
+    // Con la sembrada ya presente, un alta debe rechazarse (redirige con error)
+    // y NO crear otra.
+    $antes = Institucion::count();
+    $respuesta = $controlador->store(req(['clave' => 'UNIV-'.random_int(1000, 9999), 'nombre' => 'Otra'], $admin));
 
-    $creada = Institucion::where('clave', $clave)->first();
-    verificar('Se crea con clave y nombre', $creada !== null && $creada->nombre === 'Universidad de Prueba');
-    verificar('Sin logo, urlLogo es null', $creada?->urlLogo() === null);
+    verificar('El alta se rechaza si ya existe una',
+        $respuesta->getSession()?->get('error') !== null && Institucion::count() === $antes);
 
-    echo PHP_EOL.'3. La clave no se repite'.PHP_EOL;
+    echo PHP_EOL.'3. La existente sí se puede editar'.PHP_EOL;
 
-    $choco = false;
+    $existente = Institucion::query()->first();
+    $controlador->update(req(['clave' => $existente->clave, 'nombre' => 'Nombre Editado'], $admin), $existente);
 
-    try {
-        $controlador->store(req(['clave' => $clave, 'nombre' => 'Otra'], $admin));
-    } catch (ValidationException $e) {
-        $choco = array_key_exists('clave', $e->errors());
-    }
+    verificar('Editar la institución funciona', $existente->fresh()->nombre === 'Nombre Editado');
 
-    verificar('Una clave repetida se rechaza', $choco);
+    echo PHP_EOL.'4. No existe forma de eliminarla'.PHP_EOL;
 
-    echo PHP_EOL.'4. No se borra una institución con campus'.PHP_EOL;
-
-    $tipo = TipoCampus::query()->first() ?? TipoCampus::create(['clave' => 'T', 'nombre' => 'Tipo']);
-    Campus::create([
-        'clave' => 'CMP-'.random_int(1000, 9999),
-        'nombre' => 'Campus de prueba',
-        'tipo_campus_id' => $tipo->id,
-        'institucion_id' => $creada->id,
-    ]);
-
-    $respuesta = $controlador->destroy($creada);
-    $errores = $respuesta->getSession()?->get('error');
-
-    verificar('Con campus asociados, el borrado se bloquea',
-        $errores !== null && Institucion::whereKey($creada->id)->exists());
+    verificar('El controlador no tiene método destroy',
+        ! method_exists(InstitucionController::class, 'destroy'));
 } finally {
     DB::rollBack();
     echo PHP_EOL.'-- rollback aplicado, la base queda como estaba --'.PHP_EOL;

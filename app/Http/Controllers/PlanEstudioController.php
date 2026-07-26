@@ -27,10 +27,24 @@ class PlanEstudioController extends Controller
 {
     public function index(Request $request): Response
     {
+        $filtros = [
+            'busqueda' => trim((string) $request->query('busqueda', '')),
+            'carrera_id' => $request->query('carrera_id'),
+            'vigente' => $request->query('vigente'),
+        ];
+
         return Inertia::render('Academico/Planes/Index', [
             'planes' => PlanEstudio::query()
                 ->with(['carrera:id,nombre', 'tipoPeriodo:id,nombre'])
                 ->withCount('planMaterias')
+                ->when($filtros['busqueda'] !== '', fn ($q) => $q->where(fn ($sub) => $sub
+                    ->where('clave', 'like', "%{$filtros['busqueda']}%")
+                    ->orWhere('nombre', 'like', "%{$filtros['busqueda']}%")
+                    ->orWhere('rvoe', 'like', "%{$filtros['busqueda']}%")))
+                ->when($filtros['carrera_id'], fn ($q, $v) => $q->where('carrera_id', $v))
+                // 'si'/'no' llegan como texto desde la URL del filtro.
+                ->when($filtros['vigente'] === 'si', fn ($q) => $q->where('vigente', true))
+                ->when($filtros['vigente'] === 'no', fn ($q) => $q->where('vigente', false))
                 ->orderBy('carrera_id')
                 ->orderByDesc('vigente')
                 ->get()
@@ -45,6 +59,8 @@ class PlanEstudioController extends Controller
                     'total_creditos' => $plan->total_creditos,
                     'materias_count' => $plan->plan_materias_count,
                 ]),
+            'filtros' => $filtros,
+            'carreras' => Carrera::query()->orderBy('nombre')->get(['id', 'nombre']),
             'puedeEditar' => $request->user()->can('editar-catalogo-academico'),
         ]);
     }

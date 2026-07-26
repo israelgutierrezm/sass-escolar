@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
+import BarraListado from '@/Components/BarraListado.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 
-defineProps<{
+const props = defineProps<{
     carreras: {
         id: number;
         clave: string;
@@ -12,8 +15,14 @@ defineProps<{
         clave_sat: string | null;
         planes_count: number;
     }[];
+    filtros: Record<string, any>;
+    niveles: { id: number; nombre: string }[];
     puedeEditar: boolean;
 }>();
+
+const definicionFiltros = computed(() => [
+    { clave: 'nivel_estudios_id', etiqueta: 'Nivel de estudios', opciones: props.niveles.map((n) => ({ valor: n.id, texto: n.nombre })) },
+]);
 
 function eliminar(id: number, nombre: string): void {
     if (!confirm(`¿Eliminar la carrera "${nombre}"?`)) {
@@ -30,20 +39,19 @@ function eliminar(id: number, nombre: string): void {
     <AppLayout titulo="Catálogo académico">
         <NavAcademico />
 
-        <div class="rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-            <div class="flex items-center justify-between border-b border-slate-100 p-4">
-                <p class="text-sm text-slate-500">Programas que ofrece la escuela.</p>
-                <a
-                    v-if="puedeEditar"
-                    href="/academico/carreras/create"
-                    class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-                >
-                    Nueva carrera
-                </a>
-            </div>
+        <BarraListado
+            url="/academico/carreras"
+            :valores="filtros"
+            :filtros="definicionFiltros"
+            placeholder="Buscar por clave, nombre o identificador…"
+            :puede-crear="puedeEditar"
+            nuevo-texto="Nueva carrera"
+            nuevo-href="/academico/carreras/create"
+        />
 
+        <div class="tarjeta overflow-hidden">
             <table v-if="carreras.length" class="w-full text-sm">
-                <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
                     <tr>
                         <th class="px-4 py-3 font-medium">Clave</th>
                         <th class="px-4 py-3 font-medium">Nombre</th>
@@ -53,36 +61,27 @@ function eliminar(id: number, nombre: string): void {
                         <th class="px-4 py-3"></th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100">
-                    <tr v-for="carrera in carreras" :key="carrera.id" class="hover:bg-slate-50">
-                        <td class="px-4 py-3 font-mono text-xs text-slate-600">{{ carrera.clave }}</td>
-                        <td class="px-4 py-3 font-medium text-slate-800">{{ carrera.nombre }}</td>
-                        <td class="px-4 py-3 text-slate-600">{{ carrera.nivel ?? '—' }}</td>
-                        <td class="px-4 py-3 font-mono text-xs text-slate-500">{{ carrera.clave_sat ?? '—' }}</td>
-                        <td class="px-4 py-3 text-slate-600">{{ carrera.planes_count }}</td>
-                        <td class="px-4 py-3 text-right">
-                            <template v-if="puedeEditar">
-                                <a
-                                    :href="`/academico/carreras/${carrera.id}/edit`"
-                                    class="text-sm font-medium text-indigo-600 hover:text-indigo-700"
-                                >
-                                    Editar
-                                </a>
-                                <button
-                                    type="button"
-                                    class="ml-3 text-sm text-slate-400 hover:text-red-600"
-                                    @click="eliminar(carrera.id, carrera.nombre)"
-                                >
-                                    Eliminar
-                                </button>
-                            </template>
+                <tbody>
+                    <tr v-for="carrera in carreras" :key="carrera.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
+                        <td class="px-4 py-3 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ carrera.clave }}</td>
+                        <td class="px-4 py-3 font-medium">{{ carrera.nombre }}</td>
+                        <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ carrera.nivel ?? '—' }}</td>
+                        <td class="px-4 py-3 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ carrera.clave_sat ?? '—' }}</td>
+                        <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ carrera.planes_count }}</td>
+                        <td class="px-4 py-3">
+                            <div v-if="puedeEditar" class="flex justify-end gap-1">
+                                <BotonAccion variante="editar" solo-icono :href="`/academico/carreras/${carrera.id}/edit`" />
+                                <BotonAccion variante="eliminar" solo-icono @click="eliminar(carrera.id, carrera.nombre)" />
+                            </div>
                         </td>
                     </tr>
                 </tbody>
             </table>
 
-            <p v-else class="px-4 py-12 text-center text-sm text-slate-500">
-                Aún no hay carreras registradas.
+            <p v-else class="px-4 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
+                {{ filtros.busqueda || filtros.nivel_estudios_id
+                    ? 'Ninguna carrera coincide con la búsqueda.'
+                    : 'Aún no hay carreras registradas.' }}
             </p>
         </div>
     </AppLayout>

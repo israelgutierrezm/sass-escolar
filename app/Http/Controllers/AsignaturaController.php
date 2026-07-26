@@ -34,19 +34,27 @@ class AsignaturaController extends Controller
 {
     public function index(Request $request): Response
     {
-        $busqueda = trim((string) $request->query('busqueda', ''));
+        $filtros = [
+            'busqueda' => trim((string) $request->query('busqueda', '')),
+            'tipo_asignatura_id' => $request->query('tipo_asignatura_id'),
+            'clasificacion_id' => $request->query('clasificacion_id'),
+            'area_id' => $request->query('area_id'),
+        ];
 
         return Inertia::render('Academico/Asignaturas/Index', [
             'asignaturas' => Asignatura::query()
                 ->with(['tipoAsignatura:id,nombre', 'clasificacion:id,nombre', 'area:id,nombre'])
                 ->withCount('planMaterias')
-                ->when($busqueda !== '', function ($query) use ($busqueda) {
-                    $termino = "%{$busqueda}%";
+                ->when($filtros['busqueda'] !== '', function ($query) use ($filtros) {
+                    $termino = "%{$filtros['busqueda']}%";
 
                     $query->where(fn ($q) => $q
                         ->where('nombre', 'like', $termino)
                         ->orWhere('clave', 'like', $termino));
                 })
+                ->when($filtros['tipo_asignatura_id'], fn ($q, $v) => $q->where('tipo_asignatura_id', $v))
+                ->when($filtros['clasificacion_id'], fn ($q, $v) => $q->where('clasificacion_id', $v))
+                ->when($filtros['area_id'], fn ($q, $v) => $q->where('area_id', $v))
                 ->orderBy('nombre')
                 ->paginate(20)
                 ->withQueryString()
@@ -61,7 +69,10 @@ class AsignaturaController extends Controller
                     'horas' => $asignatura->horas_teoria + $asignatura->horas_practica,
                     'planes_count' => $asignatura->plan_materias_count,
                 ]),
-            'filtros' => ['busqueda' => $busqueda],
+            'filtros' => $filtros,
+            'tiposAsignatura' => TipoAsignatura::query()->orderBy('id')->get(['id', 'nombre']),
+            'clasificaciones' => ClasificacionAsignatura::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'areas' => Area::query()->orderBy('nombre')->get(['id', 'nombre']),
             'puedeEditar' => $request->user()->can('editar-catalogo-academico'),
         ]);
     }

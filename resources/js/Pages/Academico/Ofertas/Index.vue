@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
+import BarraListado from '@/Components/BarraListado.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 
-defineProps<{
+const props = defineProps<{
     ofertas: {
         id: number;
         carrera: string | null;
@@ -15,8 +18,26 @@ defineProps<{
         estatus: string;
         matriculas_count: number;
     }[];
+    filtros: Record<string, any>;
+    campus: { id: number; nombre: string }[];
+    turnos: { id: number; nombre: string }[];
+    modalidades: { clave: string; nombre: string }[];
     puedeEditar: boolean;
 }>();
+
+const definicionFiltros = computed(() => [
+    { clave: 'campus_id', etiqueta: 'Campus', opciones: props.campus.map((c) => ({ valor: c.id, texto: c.nombre })) },
+    { clave: 'modalidad', etiqueta: 'Modalidad', opciones: props.modalidades.map((m) => ({ valor: m.clave, texto: m.nombre })) },
+    { clave: 'turno_id', etiqueta: 'Turno', opciones: props.turnos.map((t) => ({ valor: t.id, texto: t.nombre })) },
+    {
+        clave: 'estatus',
+        etiqueta: 'Estatus',
+        opciones: [
+            { valor: 'abierta', texto: 'Abierta' },
+            { valor: 'cerrada', texto: 'Cerrada' },
+        ],
+    },
+]);
 
 function eliminar(id: number): void {
     if (!confirm('¿Eliminar esta oferta?')) {
@@ -33,22 +54,19 @@ function eliminar(id: number): void {
     <AppLayout titulo="Catálogo académico">
         <NavAcademico />
 
-        <div class="rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-            <div class="flex items-center justify-between border-b border-slate-100 p-4">
-                <p class="text-sm text-slate-500">
-                    Qué se imparte y dónde. Es la unidad a la que se matriculan los alumnos.
-                </p>
-                <a
-                    v-if="puedeEditar"
-                    href="/academico/ofertas/create"
-                    class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-                >
-                    Nueva oferta
-                </a>
-            </div>
+        <BarraListado
+            url="/academico/ofertas"
+            :valores="filtros"
+            :filtros="definicionFiltros"
+            placeholder="Buscar por carrera o plan…"
+            :puede-crear="puedeEditar"
+            nuevo-texto="Nueva oferta"
+            nuevo-href="/academico/ofertas/create"
+        />
 
+        <div class="tarjeta overflow-hidden">
             <table v-if="ofertas.length" class="w-full text-sm">
-                <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
                     <tr>
                         <th class="px-4 py-3 font-medium">Carrera</th>
                         <th class="px-4 py-3 font-medium">Plan</th>
@@ -60,52 +78,41 @@ function eliminar(id: number): void {
                         <th class="px-4 py-3"></th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100">
-                    <tr v-for="oferta in ofertas" :key="oferta.id" class="hover:bg-slate-50">
-                        <td class="px-4 py-3 font-medium text-slate-800">{{ oferta.carrera ?? '—' }}</td>
-                        <td class="px-4 py-3 text-slate-600">
+                <tbody>
+                    <tr v-for="oferta in ofertas" :key="oferta.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
+                        <td class="px-4 py-3 font-medium">{{ oferta.carrera ?? '—' }}</td>
+                        <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">
                             {{ oferta.plan ?? '—' }}
-                            <span class="block font-mono text-xs text-slate-400">{{ oferta.plan_clave }}</span>
+                            <span class="block font-mono text-xs">{{ oferta.plan_clave }}</span>
                         </td>
-                        <td class="px-4 py-3 text-slate-600">{{ oferta.campus ?? '—' }}</td>
-                        <td class="px-4 py-3 capitalize text-slate-600">{{ oferta.modalidad }}</td>
-                        <td class="px-4 py-3 text-slate-600">{{ oferta.turno ?? 'Sin turno' }}</td>
+                        <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ oferta.campus ?? '—' }}</td>
+                        <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ oferta.modalidad }}</td>
+                        <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ oferta.turno ?? 'Sin turno' }}</td>
                         <td class="px-4 py-3">
                             <span
                                 class="rounded-full px-2 py-1 text-xs capitalize"
-                                :class="
-                                    oferta.estatus === 'abierta'
-                                        ? 'bg-emerald-100 text-emerald-700'
-                                        : 'bg-slate-100 text-slate-600'
-                                "
+                                :style="oferta.estatus === 'abierta'
+                                    ? { backgroundColor: 'color-mix(in srgb, #16a34a 16%, transparent)' }
+                                    : { backgroundColor: 'var(--color-borde)', color: 'var(--color-suave)' }"
                             >
                                 {{ oferta.estatus }}
                             </span>
                         </td>
-                        <td class="px-4 py-3 text-slate-600">{{ oferta.matriculas_count }}</td>
-                        <td class="px-4 py-3 text-right">
-                            <template v-if="puedeEditar">
-                                <a
-                                    :href="`/academico/ofertas/${oferta.id}/edit`"
-                                    class="text-sm font-medium text-indigo-600 hover:text-indigo-700"
-                                >
-                                    Editar
-                                </a>
-                                <button
-                                    type="button"
-                                    class="ml-3 text-sm text-slate-400 hover:text-red-600"
-                                    @click="eliminar(oferta.id)"
-                                >
-                                    Eliminar
-                                </button>
-                            </template>
+                        <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ oferta.matriculas_count }}</td>
+                        <td class="px-4 py-3">
+                            <div v-if="puedeEditar" class="flex justify-end gap-1">
+                                <BotonAccion variante="editar" solo-icono :href="`/academico/ofertas/${oferta.id}/edit`" />
+                                <BotonAccion variante="eliminar" solo-icono @click="eliminar(oferta.id)" />
+                            </div>
                         </td>
                     </tr>
                 </tbody>
             </table>
 
-            <p v-else class="px-4 py-12 text-center text-sm text-slate-500">
-                Aún no hay oferta registrada. Necesitas al menos una carrera, un plan y un campus.
+            <p v-else class="px-4 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
+                {{ filtros.busqueda || filtros.campus_id || filtros.modalidad || filtros.turno_id || filtros.estatus
+                    ? 'Ninguna oferta coincide con la búsqueda.'
+                    : 'Aún no hay oferta registrada. Necesitas al menos una carrera, un plan y un campus.' }}
             </p>
         </div>
     </AppLayout>

@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
-import { ref, watch } from 'vue';
+import { computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
+import BarraListado from '@/Components/BarraListado.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
+import Paginacion from '@/Components/Paginacion.vue';
 
 interface Fila {
     id: number;
@@ -24,20 +27,18 @@ const props = defineProps<{
         from: number | null;
         to: number | null;
     };
-    filtros: { busqueda: string };
+    filtros: Record<string, any>;
+    tiposAsignatura: { id: number; nombre: string }[];
+    clasificaciones: { id: number; nombre: string }[];
+    areas: { id: number; nombre: string }[];
     puedeEditar: boolean;
 }>();
 
-const busqueda = ref(props.filtros.busqueda);
-let temporizador: ReturnType<typeof setTimeout> | undefined;
-
-watch(busqueda, () => {
-    clearTimeout(temporizador);
-
-    temporizador = setTimeout(() => {
-        router.get('/academico/asignaturas', { busqueda: busqueda.value }, { preserveState: true, replace: true });
-    }, 300);
-});
+const definicionFiltros = computed(() => [
+    { clave: 'tipo_asignatura_id', etiqueta: 'Tipo', opciones: props.tiposAsignatura.map((t) => ({ valor: t.id, texto: t.nombre })) },
+    { clave: 'clasificacion_id', etiqueta: 'Clasificación', opciones: props.clasificaciones.map((c) => ({ valor: c.id, texto: c.nombre })) },
+    { clave: 'area_id', etiqueta: 'Área', opciones: props.areas.map((a) => ({ valor: a.id, texto: a.nombre })) },
+]);
 
 function eliminar(id: number, nombre: string): void {
     if (!confirm(`¿Eliminar la asignatura "${nombre}"?`)) {
@@ -54,30 +55,19 @@ function eliminar(id: number, nombre: string): void {
     <AppLayout titulo="Catálogo académico">
         <NavAcademico />
 
-        <div class="rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-            <div class="flex flex-wrap items-center gap-3 border-b border-slate-100 p-4">
-                <div class="flex-1">
-                    <input
-                        v-model="busqueda"
-                        type="search"
-                        placeholder="Buscar por nombre o clave…"
-                        class="w-full min-w-64 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    />
-                    <p class="mt-1 text-xs text-slate-400">
-                        Catálogo compartido: la misma asignatura se reutiliza en varios planes.
-                    </p>
-                </div>
-                <a
-                    v-if="puedeEditar"
-                    href="/academico/asignaturas/create"
-                    class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-                >
-                    Nueva asignatura
-                </a>
-            </div>
+        <BarraListado
+            url="/academico/asignaturas"
+            :valores="filtros"
+            :filtros="definicionFiltros"
+            placeholder="Buscar por clave o nombre…"
+            :puede-crear="puedeEditar"
+            nuevo-texto="Nueva asignatura"
+            nuevo-href="/academico/asignaturas/create"
+        />
 
+        <div class="tarjeta overflow-hidden">
             <table v-if="asignaturas.data.length" class="w-full text-sm">
-                <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
                     <tr>
                         <th class="px-4 py-3 font-medium">Clave</th>
                         <th class="px-4 py-3 font-medium">Nombre</th>
@@ -89,81 +79,42 @@ function eliminar(id: number, nombre: string): void {
                         <th class="px-4 py-3"></th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100">
-                    <tr v-for="asignatura in asignaturas.data" :key="asignatura.id" class="hover:bg-slate-50">
-                        <td class="px-4 py-3 font-mono text-xs text-slate-600">{{ asignatura.clave }}</td>
+                <tbody>
+                    <tr v-for="asignatura in asignaturas.data" :key="asignatura.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
+                        <td class="px-4 py-3 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ asignatura.clave }}</td>
                         <td class="px-4 py-3">
-                            <span class="font-medium text-slate-800">{{ asignatura.nombre }}</span>
-                            <span v-if="asignatura.area" class="block text-xs text-slate-400">
-                                {{ asignatura.area }}
-                            </span>
+                            <span class="font-medium">{{ asignatura.nombre }}</span>
+                            <span v-if="asignatura.area" class="block text-xs" :style="{ color: 'var(--color-suave)' }">{{ asignatura.area }}</span>
                         </td>
-                        <td class="px-4 py-3 text-slate-600">{{ asignatura.tipo ?? '—' }}</td>
-                        <td class="px-4 py-3 text-slate-600">{{ asignatura.clasificacion ?? '—' }}</td>
-                        <td class="px-4 py-3 text-slate-600">{{ asignatura.creditos }}</td>
-                        <td class="px-4 py-3 text-slate-600">{{ asignatura.horas || '—' }}</td>
+                        <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ asignatura.tipo ?? '—' }}</td>
+                        <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ asignatura.clasificacion ?? '—' }}</td>
+                        <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ asignatura.creditos }}</td>
+                        <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ asignatura.horas || '—' }}</td>
                         <td class="px-4 py-3">
                             <span
                                 class="rounded-full px-2 py-1 text-xs"
-                                :class="
-                                    asignatura.planes_count
-                                        ? 'bg-indigo-50 text-indigo-700'
-                                        : 'bg-slate-100 text-slate-500'
-                                "
+                                :style="asignatura.planes_count
+                                    ? { backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }
+                                    : { backgroundColor: 'var(--color-borde)', color: 'var(--color-suave)' }"
                             >
                                 {{ asignatura.planes_count }}
                             </span>
                         </td>
-                        <td class="px-4 py-3 text-right">
-                            <template v-if="puedeEditar">
-                                <a
-                                    :href="`/academico/asignaturas/${asignatura.id}/edit`"
-                                    class="text-sm font-medium text-indigo-600 hover:text-indigo-700"
-                                >
-                                    Editar
-                                </a>
-                                <button
-                                    type="button"
-                                    class="ml-3 text-sm text-slate-400 hover:text-red-600"
-                                    @click="eliminar(asignatura.id, asignatura.nombre)"
-                                >
-                                    Eliminar
-                                </button>
-                            </template>
+                        <td class="px-4 py-3">
+                            <div v-if="puedeEditar" class="flex justify-end gap-1">
+                                <BotonAccion variante="editar" solo-icono :href="`/academico/asignaturas/${asignatura.id}/edit`" />
+                                <BotonAccion variante="eliminar" solo-icono @click="eliminar(asignatura.id, asignatura.nombre)" />
+                            </div>
                         </td>
                     </tr>
                 </tbody>
             </table>
 
-            <p v-else class="px-4 py-12 text-center text-sm text-slate-500">
+            <p v-else class="px-4 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
                 No hay asignaturas que coincidan con la búsqueda.
             </p>
 
-            <div
-                v-if="asignaturas.data.length"
-                class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3"
-            >
-                <p class="text-xs text-slate-500">
-                    Mostrando {{ asignaturas.from }}–{{ asignaturas.to }} de {{ asignaturas.total }}
-                </p>
-                <div class="flex flex-wrap gap-1">
-                    <component
-                        :is="enlace.url ? 'a' : 'span'"
-                        v-for="enlace in asignaturas.links"
-                        :key="enlace.label"
-                        :href="enlace.url ?? undefined"
-                        class="rounded px-2.5 py-1 text-xs"
-                        :class="
-                            enlace.active
-                                ? 'bg-indigo-600 text-white'
-                                : enlace.url
-                                  ? 'text-slate-600 hover:bg-slate-100'
-                                  : 'text-slate-300'
-                        "
-                        v-html="enlace.label"
-                    />
-                </div>
-            </div>
+            <Paginacion :enlaces="asignaturas.links" :total="asignaturas.total" :desde="asignaturas.from" :hasta="asignaturas.to" />
         </div>
     </AppLayout>
 </template>

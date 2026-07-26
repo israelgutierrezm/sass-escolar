@@ -33,10 +33,28 @@ class OfertaController extends Controller
         // nombre del catálogo (una clave como «en_linea» no se enseña cruda).
         $nombresModalidad = Modalidad::query()->pluck('nombre', 'clave');
 
+        $filtros = [
+            'busqueda' => trim((string) $request->query('busqueda', '')),
+            'campus_id' => $request->query('campus_id'),
+            'modalidad' => $request->query('modalidad'),
+            'turno_id' => $request->query('turno_id'),
+            'estatus' => $request->query('estatus'),
+        ];
+
         return Inertia::render('Academico/Ofertas/Index', [
             'ofertas' => Oferta::query()
                 ->with(['carrera:id,nombre', 'plan:id,nombre,clave', 'campus:id,nombre', 'turno:id,nombre'])
                 ->withCount('matriculas')
+                // La búsqueda cae sobre la carrera y el plan (por su nombre),
+                // que es como la gente reconoce una oferta.
+                ->when($filtros['busqueda'] !== '', fn ($q) => $q->where(fn ($sub) => $sub
+                    ->whereHas('carrera', fn ($c) => $c->where('nombre', 'like', "%{$filtros['busqueda']}%"))
+                    ->orWhereHas('plan', fn ($p) => $p->where('nombre', 'like', "%{$filtros['busqueda']}%")
+                        ->orWhere('clave', 'like', "%{$filtros['busqueda']}%"))))
+                ->when($filtros['campus_id'], fn ($q, $v) => $q->where('campus_id', $v))
+                ->when($filtros['modalidad'], fn ($q, $v) => $q->where('modalidad', $v))
+                ->when($filtros['turno_id'], fn ($q, $v) => $q->where('turno_id', $v))
+                ->when($filtros['estatus'], fn ($q, $v) => $q->where('estatus', $v))
                 ->orderBy('carrera_id')
                 ->get()
                 ->map(fn (Oferta $oferta) => [
@@ -50,6 +68,10 @@ class OfertaController extends Controller
                     'estatus' => $oferta->estatus,
                     'matriculas_count' => $oferta->matriculas_count,
                 ]),
+            'filtros' => $filtros,
+            'campus' => Campus::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'turnos' => Turno::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'modalidades' => Modalidad::query()->orderBy('nombre')->get(['clave', 'nombre']),
             'puedeEditar' => $request->user()->can('editar-catalogo-academico'),
         ]);
     }

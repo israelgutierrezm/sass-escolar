@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
+import BarraListado from '@/Components/BarraListado.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 
-defineProps<{
+const props = defineProps<{
     campus: {
         id: number;
         clave: string;
@@ -14,8 +17,16 @@ defineProps<{
         online: boolean;
         ofertas_count: number;
     }[];
+    filtros: Record<string, any>;
+    instituciones: { id: number; nombre: string }[];
+    tiposCampus: { id: number; nombre: string }[];
     puedeEditar: boolean;
 }>();
+
+const definicionFiltros = computed(() => [
+    { clave: 'institucion_id', etiqueta: 'Institución', opciones: props.instituciones.map((i) => ({ valor: i.id, texto: i.nombre })) },
+    { clave: 'tipo_campus_id', etiqueta: 'Tipo de campus', opciones: props.tiposCampus.map((t) => ({ valor: t.id, texto: t.nombre })) },
+]);
 
 function eliminar(id: number, nombre: string): void {
     if (!confirm(`¿Eliminar el campus "${nombre}"?`)) {
@@ -32,20 +43,19 @@ function eliminar(id: number, nombre: string): void {
     <AppLayout titulo="Catálogo académico">
         <NavAcademico />
 
-        <div class="rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-            <div class="flex items-center justify-between border-b border-slate-100 p-4">
-                <p class="text-sm text-slate-500">Planteles donde la escuela imparte su oferta.</p>
-                <a
-                    v-if="puedeEditar"
-                    href="/academico/campus/create"
-                    class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-                >
-                    Nuevo campus
-                </a>
-            </div>
+        <BarraListado
+            url="/academico/campus"
+            :valores="filtros"
+            :filtros="definicionFiltros"
+            placeholder="Buscar por clave o nombre…"
+            :puede-crear="puedeEditar"
+            nuevo-texto="Nuevo campus"
+            nuevo-href="/academico/campus/create"
+        />
 
+        <div class="tarjeta overflow-hidden">
             <table v-if="campus.length" class="w-full text-sm">
-                <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
                     <tr>
                         <th class="px-4 py-3 font-medium">Clave</th>
                         <th class="px-4 py-3 font-medium">Nombre</th>
@@ -56,45 +66,37 @@ function eliminar(id: number, nombre: string): void {
                         <th class="px-4 py-3"></th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100">
-                    <tr v-for="sede in campus" :key="sede.id" class="hover:bg-slate-50">
-                        <td class="px-4 py-3 font-mono text-xs text-slate-600">{{ sede.clave }}</td>
+                <tbody>
+                    <tr v-for="sede in campus" :key="sede.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
+                        <td class="px-4 py-3 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ sede.clave }}</td>
                         <td class="px-4 py-3">
-                            <span class="font-medium text-slate-800">{{ sede.nombre }}</span>
+                            <span class="font-medium">{{ sede.nombre }}</span>
                             <span
                                 v-if="sede.online"
-                                class="ml-2 rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-700"
+                                class="ml-2 rounded px-1.5 py-0.5 text-xs"
+                                style="background-color: color-mix(in srgb, #0ea5e9 16%, transparent)"
                             >
                                 En línea
                             </span>
                         </td>
-                        <td class="px-4 py-3 text-slate-600">{{ sede.institucion ?? '—' }}</td>
-                        <td class="px-4 py-3 text-slate-600">{{ sede.tipo ?? '—' }}</td>
-                        <td class="px-4 py-3 text-slate-600">{{ sede.entidad ?? '—' }}</td>
-                        <td class="px-4 py-3 text-slate-600">{{ sede.ofertas_count }}</td>
-                        <td class="px-4 py-3 text-right">
-                            <template v-if="puedeEditar">
-                                <a
-                                    :href="`/academico/campus/${sede.id}/edit`"
-                                    class="text-sm font-medium text-indigo-600 hover:text-indigo-700"
-                                >
-                                    Editar
-                                </a>
-                                <button
-                                    type="button"
-                                    class="ml-3 text-sm text-slate-400 hover:text-red-600"
-                                    @click="eliminar(sede.id, sede.nombre)"
-                                >
-                                    Eliminar
-                                </button>
-                            </template>
+                        <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ sede.institucion ?? '—' }}</td>
+                        <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ sede.tipo ?? '—' }}</td>
+                        <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ sede.entidad ?? '—' }}</td>
+                        <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ sede.ofertas_count }}</td>
+                        <td class="px-4 py-3">
+                            <div v-if="puedeEditar" class="flex justify-end gap-1">
+                                <BotonAccion variante="editar" solo-icono :href="`/academico/campus/${sede.id}/edit`" />
+                                <BotonAccion variante="eliminar" solo-icono @click="eliminar(sede.id, sede.nombre)" />
+                            </div>
                         </td>
                     </tr>
                 </tbody>
             </table>
 
-            <p v-else class="px-4 py-12 text-center text-sm text-slate-500">
-                Aún no hay campus registrados.
+            <p v-else class="px-4 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
+                {{ filtros.busqueda || filtros.institucion_id || filtros.tipo_campus_id
+                    ? 'Ningún campus coincide con la búsqueda.'
+                    : 'Aún no hay campus registrados.' }}
             </p>
         </div>
     </AppLayout>

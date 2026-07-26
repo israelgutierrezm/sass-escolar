@@ -21,10 +21,20 @@ class CarreraController extends Controller
 {
     public function index(Request $request): Response
     {
+        $filtros = [
+            'busqueda' => trim((string) $request->query('busqueda', '')),
+            'nivel_estudios_id' => $request->query('nivel_estudios_id'),
+        ];
+
         return Inertia::render('Academico/Carreras/Index', [
             'carreras' => Carrera::query()
                 ->with('nivelEstudios:id,nombre')
                 ->withCount('planes')
+                ->when($filtros['busqueda'] !== '', fn ($q) => $q->where(fn ($sub) => $sub
+                    ->where('clave', 'like', "%{$filtros['busqueda']}%")
+                    ->orWhere('nombre', 'like', "%{$filtros['busqueda']}%")
+                    ->orWhere('identificador', 'like', "%{$filtros['busqueda']}%")))
+                ->when($filtros['nivel_estudios_id'], fn ($q, $v) => $q->where('nivel_estudios_id', $v))
                 ->orderBy('nombre')
                 ->get()
                 ->map(fn (Carrera $carrera) => [
@@ -35,6 +45,8 @@ class CarreraController extends Controller
                     'clave_sat' => $carrera->clave_sat,
                     'planes_count' => $carrera->planes_count,
                 ]),
+            'filtros' => $filtros,
+            'niveles' => NivelEstudio::query()->orderBy('orden')->get(['id', 'nombre']),
             'puedeEditar' => $request->user()->can('editar-catalogo-academico'),
         ]);
     }
