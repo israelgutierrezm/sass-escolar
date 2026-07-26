@@ -60,7 +60,7 @@ class GrupoController extends Controller
             ->when($filtros['situacion_id'], fn ($q, $v) => $q->where('situacion_id', $v))
             ->orderByDesc('ciclo_id')
             ->orderBy('clave')
-            ->paginate(20)
+            ->paginate(10)
             ->withQueryString()
             ->through(fn (Grupo $grupo) => [
                 'id' => $grupo->id,

@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
-import { ref, watch } from 'vue';
+import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavEscolar from '@/Components/NavEscolar.vue';
-import PanelFiltros from '@/Components/PanelFiltros.vue';
+import BarraListado from '@/Components/BarraListado.vue';
 import Paginacion from '@/Components/Paginacion.vue';
-import SelectorVista from '@/Components/SelectorVista.vue';
 import TarjetaRegistro from '@/Components/TarjetaRegistro.vue';
 
 interface FilaGrupo {
@@ -38,31 +37,7 @@ const props = defineProps<{
     puedeEditar: boolean;
 }>();
 
-const busqueda = ref(props.filtros.busqueda);
 const vista = ref<'lista' | 'cuadricula'>('lista');
-
-let temporizador: ReturnType<typeof setTimeout> | undefined;
-
-watch(busqueda, () => {
-    clearTimeout(temporizador);
-    temporizador = setTimeout(() => consultar({}), 350);
-});
-
-function consultar(cambios: Record<string, any>): void {
-    router.get(
-        '/escolar/grupos',
-        {
-            busqueda: busqueda.value || undefined,
-            ciclo_id: props.filtros.ciclo_id || undefined,
-            campus_id: props.filtros.campus_id || undefined,
-            plan_id: props.filtros.plan_id || undefined,
-            turno_id: props.filtros.turno_id || undefined,
-            situacion_id: props.filtros.situacion_id || undefined,
-            ...cambios,
-        },
-        { preserveState: true, replace: true, preserveScroll: true },
-    );
-}
 
 const definicionFiltros = [
     { clave: 'ciclo_id', etiqueta: 'Ciclo', opciones: props.ciclos.map((c) => ({ valor: c.id, texto: c.nombre })) },
@@ -87,40 +62,17 @@ function eliminar(id: number, clave: string): void {
     <AppLayout titulo="Control escolar">
         <NavEscolar />
 
-        <section class="tarjeta p-6">
-            <div class="flex flex-wrap items-end gap-3">
-                <div class="min-w-64 flex-1">
-                    <label class="block text-sm font-medium">Buscar</label>
-                    <input
-                        v-model="busqueda"
-                        type="search"
-                        placeholder="Clave o nombre del grupo…"
-                        class="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
-                        :style="{ borderColor: 'var(--color-borde)' }"
-                    />
-                </div>
-                <SelectorVista v-model="vista" clave="grupos" />
-                <a
-                    v-if="puedeEditar"
-                    href="/escolar/grupos/create"
-                    class="rounded-lg px-4 py-2 text-sm font-medium"
-                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                >
-                    Nuevo grupo
-                </a>
-            </div>
-
-            <div class="mt-4">
-                <PanelFiltros :filtros="definicionFiltros" :valores="filtros" @cambio="(valores) => consultar(valores)" />
-            </div>
-
-            <p class="mt-4 text-sm" :style="{ color: 'var(--color-suave)' }">
-                Contenedor de materias en un ciclo. Una materia solo es cursable si está abierta en un grupo.
-                <template v-if="grupos.total">
-                    · {{ grupos.from }}–{{ grupos.to }} de {{ grupos.total }}
-                </template>
-            </p>
-        </section>
+        <BarraListado
+            v-model:vista="vista"
+            url="/escolar/grupos"
+            vista-clave="grupos"
+            :valores="filtros"
+            :filtros="definicionFiltros"
+            placeholder="Clave o nombre del grupo…"
+            :puede-crear="puedeEditar"
+            nuevo-texto="Nuevo grupo"
+            nuevo-href="/escolar/grupos/create"
+        />
 
         <!-- Cuadrícula -->
         <template v-if="vista === 'cuadricula'">

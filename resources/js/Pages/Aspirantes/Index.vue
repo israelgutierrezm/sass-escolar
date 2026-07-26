@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
-import { ref, watch } from 'vue';
+import { Head } from '@inertiajs/vue3';
+import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import PanelFiltros from '@/Components/PanelFiltros.vue';
+import BarraListado from '@/Components/BarraListado.vue';
 import Paginacion from '@/Components/Paginacion.vue';
-import SelectorVista from '@/Components/SelectorVista.vue';
 import TarjetaPersona from '@/Components/TarjetaPersona.vue';
 
 interface FilaAspirante {
@@ -41,32 +40,7 @@ const props = defineProps<{
     puedeEditar: boolean;
 }>();
 
-const busqueda = ref(props.filtros.busqueda);
 const vista = ref<'lista' | 'cuadricula'>('lista');
-
-let temporizador: ReturnType<typeof setTimeout> | undefined;
-
-/** La búsqueda espera a que dejes de teclear: sin la pausa, cada tecla consulta. */
-watch(busqueda, () => {
-    clearTimeout(temporizador);
-    temporizador = setTimeout(() => consultar({}), 350);
-});
-
-function consultar(cambios: Record<string, any>): void {
-    router.get(
-        '/aspirantes',
-        {
-            busqueda: busqueda.value || undefined,
-            situacion_id: props.filtros.situacion_id || undefined,
-            etapa_crm_id: props.filtros.etapa_crm_id || undefined,
-            origen_id: props.filtros.origen_id || undefined,
-            campus_id: props.filtros.campus_id || undefined,
-            oferta_id: props.filtros.oferta_id || undefined,
-            ...cambios,
-        },
-        { preserveState: true, replace: true, preserveScroll: true },
-    );
-}
 
 const definicionFiltros = [
     { clave: 'situacion_id', etiqueta: 'Situación', opciones: props.situaciones.map((s) => ({ valor: s.id, texto: s.nombre })) },
@@ -81,46 +55,21 @@ const definicionFiltros = [
     <Head title="Aspirantes" />
 
     <AppLayout titulo="Aspirantes">
-        <section class="tarjeta p-6">
-            <div class="flex flex-wrap items-end gap-3">
-                <div class="min-w-64 flex-1">
-                    <label class="block text-sm font-medium">Buscar</label>
-                    <input
-                        v-model="busqueda"
-                        type="search"
-                        placeholder="Nombre o CURP…"
-                        class="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
-                        :style="{ borderColor: 'var(--color-borde)' }"
-                    />
-                </div>
-                <SelectorVista v-model="vista" clave="aspirantes" />
-                <a
-                    v-if="puedeCrear"
-                    href="/aspirantes/nuevo"
-                    class="rounded-lg px-4 py-2 text-sm font-medium"
-                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                >
-                    Nuevo aspirante
-                </a>
-            </div>
-
-            <div class="mt-4">
-                <PanelFiltros
-                    :filtros="definicionFiltros"
-                    :valores="filtros"
-                    @cambio="(valores) => consultar(valores)"
-                />
-            </div>
-
-            <p class="mt-4 text-sm" :style="{ color: 'var(--color-suave)' }">
-                <template v-if="aspirantes.total">{{ aspirantes.from }}–{{ aspirantes.to }} de {{ aspirantes.total }}</template>
-                <template v-else>Sin resultados</template>
-            </p>
-        </section>
+        <BarraListado
+            v-model:vista="vista"
+            url="/aspirantes"
+            vista-clave="aspirantes"
+            :valores="filtros"
+            :filtros="definicionFiltros"
+            placeholder="Nombre o CURP…"
+            :puede-crear="puedeCrear"
+            nuevo-texto="Nuevo aspirante"
+            nuevo-href="/aspirantes/nuevo"
+        />
 
         <!-- Cuadrícula -->
         <template v-if="vista === 'cuadricula'">
-            <section v-if="aspirantes.data.length" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <section v-if="aspirantes.data.length" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 <TarjetaPersona
                     v-for="aspirante in aspirantes.data"
                     :key="aspirante.id"

@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
-import { ref, watch } from 'vue';
+import { Head } from '@inertiajs/vue3';
+import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import PanelFiltros from '@/Components/PanelFiltros.vue';
+import BarraListado from '@/Components/BarraListado.vue';
 import Paginacion from '@/Components/Paginacion.vue';
-import SelectorVista from '@/Components/SelectorVista.vue';
 import TarjetaPersona from '@/Components/TarjetaPersona.vue';
 
 interface Docente {
@@ -32,33 +31,10 @@ const props = defineProps<{
     puedeGestionar: boolean;
 }>();
 
-const busqueda = ref(props.filtros.busqueda);
 const vista = ref<'lista' | 'cuadricula'>('lista');
 
-let temporizador: ReturnType<typeof setTimeout> | undefined;
-
-/** La busqueda espera a que dejes de teclear: sin la pausa, cada tecla consulta. */
-watch(busqueda, () => {
-    clearTimeout(temporizador);
-    temporizador = setTimeout(() => consultar({}), 350);
-});
-
-function consultar(cambios: Record<string, any>): void {
-    router.get(
-        '/escolar/docentes',
-        {
-            busqueda: busqueda.value || undefined,
-            situacion_id: props.filtros.situacion_id || undefined,
-            tipo_docente_id: props.filtros.tipo_docente_id || undefined,
-            campus_id: props.filtros.campus_id || undefined,
-            ...cambios,
-        },
-        { preserveState: true, replace: true, preserveScroll: true },
-    );
-}
-
 const definicionFiltros = [
-    { clave: 'situacion_id', etiqueta: 'Situacion', opciones: props.situaciones.map((s) => ({ valor: s.id, texto: s.nombre })) },
+    { clave: 'situacion_id', etiqueta: 'Situación', opciones: props.situaciones.map((s) => ({ valor: s.id, texto: s.nombre })) },
     { clave: 'tipo_docente_id', etiqueta: 'Tipo', opciones: props.tipos.map((t) => ({ valor: t.id, texto: t.nombre })) },
     { clave: 'campus_id', etiqueta: 'Campus', opciones: props.campus.map((c) => ({ valor: c.id, texto: c.nombre })) },
 ];
@@ -69,41 +45,20 @@ const definicionFiltros = [
 
     <AppLayout titulo="Docentes">
 
-        <section class="tarjeta p-6">
-            <div class="flex flex-wrap items-end gap-3">
-                <div class="min-w-64 flex-1">
-                    <label class="block text-sm font-medium">Buscar</label>
-                    <input
-                        v-model="busqueda"
-                        type="search"
-                        placeholder="Nombre, clave, cedula o CURP..."
-                        class="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
-                        :style="{ borderColor: 'var(--color-borde)' }"
-                    />
-                </div>
-                <SelectorVista v-model="vista" clave="docentes" />
-                <a
-                    v-if="puedeGestionar"
-                    href="/escolar/docentes/nuevo"
-                    class="rounded-lg px-4 py-2 text-sm font-medium"
-                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                >
-                    Nuevo docente
-                </a>
-            </div>
-
-            <div class="mt-4">
-                <PanelFiltros :filtros="definicionFiltros" :valores="filtros" @cambio="(valores) => consultar(valores)" />
-            </div>
-
-            <p class="mt-4 text-sm" :style="{ color: 'var(--color-suave)' }">
-                <template v-if="docentes.total">{{ docentes.from }}-{{ docentes.to }} de {{ docentes.total }}</template>
-                <template v-else>Sin resultados</template>
-            </p>
-        </section>
+        <BarraListado
+            v-model:vista="vista"
+            url="/escolar/docentes"
+            vista-clave="docentes"
+            :valores="filtros"
+            :filtros="definicionFiltros"
+            placeholder="Nombre, clave, cédula o CURP…"
+            :puede-crear="puedeGestionar"
+            nuevo-texto="Nuevo docente"
+            nuevo-href="/escolar/docentes/nuevo"
+        />
 
         <template v-if="vista === 'cuadricula'">
-            <section v-if="docentes.data.length" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <section v-if="docentes.data.length" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 <TarjetaPersona
                     v-for="docente in docentes.data"
                     :key="docente.id"

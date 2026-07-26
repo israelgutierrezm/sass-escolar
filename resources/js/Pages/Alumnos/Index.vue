@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
-import { ref, watch } from 'vue';
+import { Head } from '@inertiajs/vue3';
+import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavEscolar from '@/Components/NavEscolar.vue';
-import PanelFiltros from '@/Components/PanelFiltros.vue';
+import BarraListado from '@/Components/BarraListado.vue';
 import Paginacion from '@/Components/Paginacion.vue';
-import SelectorVista from '@/Components/SelectorVista.vue';
 import TarjetaPersona from '@/Components/TarjetaPersona.vue';
 
 interface Alumno {
@@ -32,31 +31,7 @@ const props = defineProps<{
     puedeEditar: boolean;
 }>();
 
-const busqueda = ref(props.filtros.busqueda);
 const vista = ref<'lista' | 'cuadricula'>('lista');
-
-let temporizador: ReturnType<typeof setTimeout> | undefined;
-
-/** La búsqueda espera a que dejes de teclear: sin la pausa, cada tecla consulta. */
-watch(busqueda, () => {
-    clearTimeout(temporizador);
-    temporizador = setTimeout(() => consultar({}), 350);
-});
-
-function consultar(cambios: Record<string, any>): void {
-    router.get(
-        '/escolar/alumnos',
-        {
-            busqueda: busqueda.value || undefined,
-            carrera_id: props.filtros.carrera_id || undefined,
-            campus_id: props.filtros.campus_id || undefined,
-            situacion_id: props.filtros.situacion_id || undefined,
-            estatus: props.filtros.estatus || undefined,
-            ...cambios,
-        },
-        { preserveState: true, replace: true, preserveScroll: true },
-    );
-}
 
 const definicionFiltros = [
     { clave: 'carrera_id', etiqueta: 'Carrera', opciones: props.carreras.map((c) => ({ valor: c.id, texto: c.nombre })) },
@@ -91,38 +66,18 @@ const colorEstatus: Record<string, string> = {
             ]"
         />
 
-        <section class="tarjeta p-6">
-            <div class="flex flex-wrap items-end gap-3">
-                <div class="min-w-64 flex-1">
-                    <label class="block text-sm font-medium">Buscar</label>
-                    <input
-                        v-model="busqueda"
-                        type="search"
-                        placeholder="Matrícula, nombre o CURP…"
-                        class="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
-                        :style="{ borderColor: 'var(--color-borde)' }"
-                    />
-                </div>
-                <SelectorVista v-model="vista" clave="alumnos" />
-            </div>
-
-            <div class="mt-4">
-                <PanelFiltros
-                    :filtros="definicionFiltros"
-                    :valores="filtros"
-                    @cambio="(valores) => consultar(valores)"
-                />
-            </div>
-
-            <p class="mt-4 text-sm" :style="{ color: 'var(--color-suave)' }">
-                <template v-if="alumnos.total">{{ alumnos.from }}–{{ alumnos.to }} de {{ alumnos.total }}</template>
-                <template v-else>Sin resultados</template>
-            </p>
-        </section>
+        <BarraListado
+            v-model:vista="vista"
+            url="/escolar/alumnos"
+            vista-clave="alumnos"
+            :valores="filtros"
+            :filtros="definicionFiltros"
+            placeholder="Matrícula, nombre o CURP…"
+        />
 
         <!-- Cuadrícula -->
         <template v-if="vista === 'cuadricula'">
-            <section v-if="alumnos.data.length" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <section v-if="alumnos.data.length" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 <TarjetaPersona
                     v-for="alumno in alumnos.data"
                     :key="alumno.id"

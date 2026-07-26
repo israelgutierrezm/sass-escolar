@@ -68,7 +68,7 @@ class AspiranteController extends Controller
             ->when($filtros['campus_id'], fn ($q, $v) => $q->where('campus_id', $v))
             ->when($filtros['oferta_id'], fn ($q, $v) => $q->where('oferta_interes_id', $v))
             ->latest('id')
-            ->paginate(15)
+            ->paginate(10)
             ->withQueryString()
             ->through(fn (Aspirante $aspirante) => [
                 'id' => $aspirante->id,

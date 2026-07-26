@@ -66,7 +66,7 @@ class AlumnoController extends Controller
             ->when($filtros['situacion_id'], fn ($q, $id) => $q->where('situacion_id', $id))
             ->when($filtros['estatus'], fn ($q, $e) => $q->where('estatus', $e))
             ->orderBy('matricula')
-            ->paginate(20)
+            ->paginate(10)
             ->withQueryString()
             ->through(fn (MatriculaOferta $m) => [
                 'id' => $m->id,

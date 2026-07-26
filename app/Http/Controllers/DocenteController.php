@@ -60,7 +60,7 @@ class DocenteController extends Controller
             ->when($filtros['situacion_id'], fn ($q, $id) => $q->where('situacion_id', $id))
             ->when($filtros['tipo_docente_id'], fn ($q, $id) => $q->where('tipo_docente_id', $id))
             ->when($filtros['campus_id'], fn ($q, $id) => $q->whereHas('campus', fn ($c) => $c->where('campus.id', $id)))
-            ->paginate(20)
+            ->paginate(10)
             ->withQueryString()
             ->through(fn (Docente $d) => [
                 'id' => $d->persona_id,
