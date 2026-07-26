@@ -47,8 +47,9 @@ class PlanEstudioController extends Controller
                 ->when($filtros['vigente'] === 'no', fn ($q) => $q->where('vigente', false))
                 ->orderBy('carrera_id')
                 ->orderByDesc('vigente')
-                ->get()
-                ->map(fn (PlanEstudio $plan) => [
+                ->paginate(10)
+                ->withQueryString()
+                ->through(fn (PlanEstudio $plan) => [
                     'id' => $plan->id,
                     'clave' => $plan->clave,
                     'nombre' => $plan->nombre,

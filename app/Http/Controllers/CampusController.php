@@ -38,8 +38,9 @@ class CampusController extends Controller
                 ->when($filtros['institucion_id'], fn ($q, $v) => $q->where('institucion_id', $v))
                 ->when($filtros['tipo_campus_id'], fn ($q, $v) => $q->where('tipo_campus_id', $v))
                 ->orderBy('nombre')
-                ->get()
-                ->map(fn (Campus $campus) => [
+                ->paginate(10)
+                ->withQueryString()
+                ->through(fn (Campus $campus) => [
                     'id' => $campus->id,
                     'clave' => $campus->clave,
                     'nombre' => $campus->nombre,

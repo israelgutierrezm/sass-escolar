@@ -56,8 +56,9 @@ class OfertaController extends Controller
                 ->when($filtros['turno_id'], fn ($q, $v) => $q->where('turno_id', $v))
                 ->when($filtros['estatus'], fn ($q, $v) => $q->where('estatus', $v))
                 ->orderBy('carrera_id')
-                ->get()
-                ->map(fn (Oferta $oferta) => [
+                ->paginate(10)
+                ->withQueryString()
+                ->through(fn (Oferta $oferta) => [
                     'id' => $oferta->id,
                     'carrera' => $oferta->carrera?->nombre,
                     'plan' => $oferta->plan?->nombre,

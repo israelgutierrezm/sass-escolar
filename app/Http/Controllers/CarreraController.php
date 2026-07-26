@@ -36,8 +36,9 @@ class CarreraController extends Controller
                     ->orWhere('identificador', 'like', "%{$filtros['busqueda']}%")))
                 ->when($filtros['nivel_estudios_id'], fn ($q, $v) => $q->where('nivel_estudios_id', $v))
                 ->orderBy('nombre')
-                ->get()
-                ->map(fn (Carrera $carrera) => [
+                ->paginate(10)
+                ->withQueryString()
+                ->through(fn (Carrera $carrera) => [
                     'id' => $carrera->id,
                     'clave' => $carrera->clave,
                     'nombre' => $carrera->nombre,

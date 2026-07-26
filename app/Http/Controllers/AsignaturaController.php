@@ -56,7 +56,7 @@ class AsignaturaController extends Controller
                 ->when($filtros['clasificacion_id'], fn ($q, $v) => $q->where('clasificacion_id', $v))
                 ->when($filtros['area_id'], fn ($q, $v) => $q->where('area_id', $v))
                 ->orderBy('nombre')
-                ->paginate(20)
+                ->paginate(10)
                 ->withQueryString()
                 ->through(fn (Asignatura $asignatura) => [
                     'id' => $asignatura->id,

@@ -54,6 +54,9 @@ const tema = computed(() => page.props.tema);
 const permisos = computed(() => usuario.value?.permisos ?? []);
 
 const compacta = ref(false);
+// El cajón lateral en móvil/tableta: fuera de pantalla hasta que se toca el
+// botón de menú. En escritorio (lg+) la barra es fija y este estado no aplica.
+const menuMovil = ref(false);
 const menuUsuario = ref(false);
 const panelTema = ref(false);
 const panelRoles = ref(false);
@@ -319,6 +322,10 @@ function esActiva(prefijo: string): boolean {
     return rutaActual.value === prefijo || rutaActual.value.startsWith(`${prefijo}/`);
 }
 
+// Al navegar se cierra el cajón móvil: si no, el menú se quedaría tapando la
+// página recién abierta.
+watch(rutaActual, () => (menuMovil.value = false));
+
 // El grupo de la ruta actual aparece desplegado al entrar.
 watch(
     navegacion,
@@ -381,10 +388,30 @@ const iniciales = computed(() => {
 
     <div class="flex min-h-screen">
 
-        <!-- ===== Barra lateral ===== -->
+        <!-- Fondo oscuro tras el cajón en móvil: al tocarlo se cierra. Solo
+             existe cuando el cajón está abierto y solo por debajo de lg. -->
+        <Transition
+            enter-active-class="transition-opacity duration-300"
+            enter-from-class="opacity-0"
+            leave-active-class="transition-opacity duration-200"
+            leave-to-class="opacity-0"
+        >
+            <div
+                v-if="menuMovil"
+                class="fixed inset-0 z-30 bg-black/40 lg:hidden"
+                @click="menuMovil = false"
+            />
+        </Transition>
+
+        <!-- ===== Barra lateral =====
+             En móvil/tableta es un cajón que entra desde la izquierda; en
+             escritorio (lg+) es fija y solo alterna entre ancha y compacta. -->
         <aside
-            class="fixed inset-y-0 left-0 z-30 flex flex-col transition-[width] duration-300 ease-out"
-            :class="compacta ? 'w-[72px]' : 'w-64'"
+            class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col transition-all duration-300 ease-out lg:translate-x-0"
+            :class="[
+                menuMovil ? 'translate-x-0 shadow-2xl' : '-translate-x-full',
+                compacta ? 'lg:w-[72px]' : 'lg:w-64',
+            ]"
             :style="{ backgroundColor: 'var(--color-barra-lateral)', color: 'var(--color-barra-lateral-texto)' }"
         >
             <!-- Marca -->
@@ -408,6 +435,19 @@ const iniciales = computed(() => {
                         </span>
                     </span>
                 </Transition>
+
+                <!-- Cerrar el cajón (solo móvil). En escritorio no hace falta:
+                     la barra siempre está a la vista. -->
+                <button
+                    type="button"
+                    class="ms-auto rounded-lg p-1.5 transition hover:bg-white/10 lg:hidden"
+                    title="Cerrar menú"
+                    @click="menuMovil = false"
+                >
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
             </div>
 
             <!-- Navegación -->
@@ -493,10 +533,10 @@ const iniciales = computed(() => {
                 </template>
             </nav>
 
-            <!-- Colapsar -->
+            <!-- Colapsar (solo escritorio: en móvil el cajón siempre va ancho). -->
             <button
                 type="button"
-                class="m-3 flex items-center justify-center gap-2 rounded-xl py-2 text-xs opacity-70 transition hover:bg-white/5 hover:opacity-100"
+                class="m-3 hidden items-center justify-center gap-2 rounded-xl py-2 text-xs opacity-70 transition hover:bg-white/5 hover:opacity-100 lg:flex"
                 @click="compacta = !compacta"
             >
                 <svg
@@ -513,19 +553,34 @@ const iniciales = computed(() => {
             </button>
         </aside>
 
-        <!-- ===== Contenido ===== -->
-        <div class="flex min-w-0 flex-1 flex-col transition-[margin] duration-300 ease-out" :class="compacta ? 'ml-[72px]' : 'ml-64'">
+        <!-- ===== Contenido =====
+             Sin margen en móvil (el cajón flota encima); en escritorio deja el
+             hueco de la barra fija, ancha o compacta. -->
+        <div class="flex min-w-0 flex-1 flex-col transition-[margin] duration-300 ease-out" :class="compacta ? 'lg:ml-[72px]' : 'lg:ml-64'">
             <!-- Barra superior -->
             <header
-                class="sticky top-0 z-20 flex h-16 items-center justify-between gap-4 border-b px-6 backdrop-blur-sm"
+                class="sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b px-4 backdrop-blur-sm sm:gap-4 sm:px-6"
                 :style="{
                     backgroundColor: 'color-mix(in srgb, var(--color-barra-superior) 85%, transparent)',
                     color: 'var(--color-barra-superior-texto)',
                     borderColor: 'var(--color-borde)',
                 }"
             >
-                <h1 v-if="titulo" class="truncate text-base font-semibold">{{ titulo }}</h1>
-                <span v-else />
+                <div class="flex min-w-0 items-center gap-2">
+                    <!-- Botón de menú: abre el cajón lateral. Solo en móvil/tableta. -->
+                    <button
+                        type="button"
+                        class="-ms-1 shrink-0 rounded-xl p-2 transition hover:bg-black/5 lg:hidden"
+                        title="Menú"
+                        @click="menuMovil = true"
+                    >
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                        </svg>
+                    </button>
+
+                    <h1 v-if="titulo" class="truncate text-base font-semibold">{{ titulo }}</h1>
+                </div>
 
                 <div class="flex items-center gap-2">
                     <!-- Cambiar de rol: junto a Apariencia, como pidió el
@@ -637,8 +692,8 @@ const iniciales = computed(() => {
             </header>
 
             <!-- Página -->
-            <main class="flex-1 p-6">
-                <div :key="rutaActual" class="animar-entrada mx-auto max-w-7xl space-y-6">
+            <main class="flex-1 p-4 sm:p-6">
+                <div :key="rutaActual" class="animar-entrada mx-auto max-w-7xl space-y-4 sm:space-y-6">
                     <slot />
                 </div>
             </main>
