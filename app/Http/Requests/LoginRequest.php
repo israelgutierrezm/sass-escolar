@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
+use App\Models\Identidad\Usuario;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
@@ -14,10 +15,11 @@ use Illuminate\Validation\ValidationException;
 /**
  * Validación e intento de acceso.
  *
- * El identificador acepta el nombre de usuario O el correo: en una escuela es
- * común que el alumno recuerde uno y el administrativo el otro.
+ * Se entra con el CORREO. La CURP se acepta como alternativa para quien no lo
+ * recuerde, pero el correo es el identificador principal: no todos tienen CURP
+ * (extranjeros) y puede repetirse. El nombre de usuario ya NO sirve para entrar.
  *
- * Lleva limitación por intentos (5 por combinación usuario+IP) para que la
+ * Lleva limitación por intentos (5 por combinación identificador+IP) para que la
  * pantalla de acceso no sea un oráculo de fuerza bruta.
  */
 class LoginRequest extends FormRequest
@@ -45,7 +47,7 @@ class LoginRequest extends FormRequest
     public function attributes(): array
     {
         return [
-            'identificador' => 'usuario o correo',
+            'identificador' => 'correo',
             'password' => 'contraseña',
         ];
     }
@@ -57,16 +59,21 @@ class LoginRequest extends FormRequest
     {
         $this->asegurarQueNoEstaBloqueado();
 
-        $identificador = (string) $this->input('identificador');
-        $campo = Str::contains($identificador, '@') ? 'email' : 'usuario';
+        $usuario = $this->resolverUsuario((string) $this->input('identificador'));
+        $password = (string) $this->input('password');
 
-        $credenciales = [
-            $campo => $identificador,
-            'password' => (string) $this->input('password'),
-        ];
-
-        if (! Auth::attempt($credenciales, $this->boolean('recordarme'))) {
+        // Se autentica por id ya resuelto: así el correo y la CURP comparten un
+        // solo camino y el hash de la contraseña se valida igual en ambos.
+        if ($usuario === null || ! Auth::attempt(['id' => $usuario->id, 'password' => $password], $this->boolean('recordarme'))) {
             RateLimiter::hit($this->llaveDeIntentos());
+
+            // Mensaje útil para las cuentas de censo: existen pero todavía no
+            // tienen contraseña de acceso, así que ninguna contraseña entra.
+            if ($usuario !== null && ! $usuario->acceso_configurado) {
+                throw ValidationException::withMessages([
+                    'identificador' => 'Tu cuenta todavía no tiene acceso configurado. Pídele a tu escuela que te lo habilite.',
+                ]);
+            }
 
             throw ValidationException::withMessages([
                 'identificador' => 'Las credenciales no coinciden con nuestros registros.',
@@ -74,6 +81,30 @@ class LoginRequest extends FormRequest
         }
 
         RateLimiter::clear($this->llaveDeIntentos());
+    }
+
+    /**
+     * La cuenta que corresponde al identificador: por correo, o por CURP como
+     * alternativa. Se prefiere una cuenta con acceso configurado cuando dos
+     * comparten correo, para que la de censo no le gane a la real.
+     */
+    private function resolverUsuario(string $identificador): ?Usuario
+    {
+        $identificador = trim($identificador);
+
+        if ($identificador === '') {
+            return null;
+        }
+
+        $consulta = Usuario::query()->orderByDesc('acceso_configurado');
+
+        if (Str::contains($identificador, '@')) {
+            return $consulta->where('email', $identificador)->first();
+        }
+
+        return $consulta
+            ->whereHas('persona', fn ($p) => $p->where('curp', strtoupper($identificador)))
+            ->first();
     }
 
     private function asegurarQueNoEstaBloqueado(): void

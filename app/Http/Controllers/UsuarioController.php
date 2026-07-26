@@ -150,13 +150,19 @@ class UsuarioController extends Controller
                 'campus_id' => $datos['campus_id'] ?? null,
             ], ['activo' => true]);
 
-            Usuario::create([
-                'persona_id' => $persona->id,
-                'usuario' => $datos['usuario'],
-                'email' => $datos['email'],
-                'password' => Hash::make($datos['password']),
-                'rol_activo_id' => $datos['rol_id'],
-            ]);
+            // updateOrCreate y no create: si la persona ya tenía cuenta de censo
+            // (es docente, alumno…), esto le CONFIGURA el acceso en vez de
+            // reventar contra el índice único de persona_id.
+            Usuario::updateOrCreate(
+                ['persona_id' => $persona->id],
+                [
+                    'usuario' => $datos['usuario'],
+                    'email' => $datos['email'],
+                    'password' => Hash::make($datos['password']),
+                    'acceso_configurado' => true,
+                    'rol_activo_id' => $datos['rol_id'],
+                ],
+            );
         });
 
         return back()->with('exito', 'Cuenta creada.');
@@ -215,7 +221,12 @@ class UsuarioController extends Controller
     {
         $datos = $request->validate(['password' => ['required', 'string', 'min:8']]);
 
-        $usuario->update(['password' => Hash::make($datos['password'])]);
+        // Ponerle contraseña ES habilitarle el acceso: si era una cuenta de
+        // censo, deja de estar «sin acceso».
+        $usuario->update([
+            'password' => Hash::make($datos['password']),
+            'acceso_configurado' => true,
+        ]);
 
         return back()->with('exito', 'Contraseña restablecida. Dísela por un medio seguro y pídele que la cambie.');
     }

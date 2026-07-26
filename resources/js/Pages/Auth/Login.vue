@@ -37,17 +37,20 @@ function enviar(): void {
             >
                 <div>
                     <label for="identificador" class="mb-1 block text-sm font-medium text-slate-700">
-                        Usuario o correo
+                        Correo
                     </label>
                     <input
                         id="identificador"
                         v-model="form.identificador"
                         type="text"
+                        inputmode="email"
                         autocomplete="username"
                         autofocus
                         required
+                        placeholder="tucorreo@ejemplo.mx"
                         class="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
+                    <p class="mt-1 text-xs text-slate-400">También puedes entrar con tu CURP.</p>
                     <p v-if="form.errors.identificador" class="mt-1 text-sm text-red-600">
                         {{ form.errors.identificador }}
                     </p>
