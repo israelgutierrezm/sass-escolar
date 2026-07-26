@@ -27,12 +27,37 @@ class TemaSeeder extends Seeder
      */
     private const TEMAS = [
         [
-            // Tema principal: azul océano. Paleta pedida por el cliente
+            // Tema PREDETERMINADO: clásico. Sobrio y profesional, con la
+            // limpieza de los «light» de Bootstrap como referencia. Azul
+            // #272F7A como identidad (barra lateral y acento), sobre grises
+            // neutros claros; el azul NO invade fondos ni textos.
+            'clave' => 'clasico',
+            'nombre' => 'Clásico',
+            'es_default' => true,
+            'permite_override_usuario' => true,
+            'tokens' => [
+                'barra_lateral' => '#272F7A',
+                'barra_lateral_suave' => '#353E8C',
+                'barra_lateral_texto' => '#C5CAE9',
+                'barra_lateral_activo' => '#4A55B0',
+                'barra_superior' => '#FFFFFF',
+                'barra_superior_texto' => '#212A3E',
+                'acento' => '#272F7A',
+                'acento_texto' => '#FFFFFF',
+                'fondo' => '#F5F6F8',
+                'superficie' => '#FFFFFF',
+                'borde' => '#DEE2E6',
+                'texto' => '#212A3E',
+                'texto_suave' => '#6C757D',
+            ],
+        ],
+        [
+            // Tema azul océano. Paleta pedida por el cliente
             // (#0077B6 / #006A89 / #00527C / #006DB2) sobre una base neutra
             // clara, para que se vea elegante sin cansar.
             'clave' => 'oceano',
             'nombre' => 'Océano',
-            'es_default' => true,
+            'es_default' => false,
             'permite_override_usuario' => true,
             'tokens' => [
                 'barra_lateral' => '#00344D',
@@ -114,24 +139,28 @@ class TemaSeeder extends Seeder
             ],
         ],
         [
-            'clave' => 'grafito',
-            'nombre' => 'Grafito',
+            // Rosa crema: pastel cálido y sofisticado. Rosa empolvado
+            // (#B76E79) como identidad y acento —con mesura—, barra lateral
+            // en malva oscuro (#6F4E63), fondos crema/marfil y textos en
+            // ciruela grisácea. Nada de rosa fuerte ni contrastes agresivos.
+            'clave' => 'rosa_crema',
+            'nombre' => 'Rosa crema',
             'es_default' => false,
             'permite_override_usuario' => true,
             'tokens' => [
-                'barra_lateral' => '#18181B',
-                'barra_lateral_suave' => '#27272A',
-                'barra_lateral_texto' => '#A1A1AA',
-                'barra_lateral_activo' => '#F59E0B',
-                'barra_superior' => '#FFFFFF',
-                'barra_superior_texto' => '#18181B',
-                'acento' => '#D97706',
+                'barra_lateral' => '#6F4E63',
+                'barra_lateral_suave' => '#5B3F52',
+                'barra_lateral_texto' => '#E7D3DA',
+                'barra_lateral_activo' => '#B76E79',
+                'barra_superior' => '#FFFCF9',
+                'barra_superior_texto' => '#3F3438',
+                'acento' => '#B76E79',
                 'acento_texto' => '#FFFFFF',
-                'fondo' => '#FAFAFA',
-                'superficie' => '#FFFFFF',
-                'borde' => '#E4E4E7',
-                'texto' => '#18181B',
-                'texto_suave' => '#71717A',
+                'fondo' => '#FAF6F2',
+                'superficie' => '#FFFCF9',
+                'borde' => '#E8D8D2',
+                'texto' => '#3F3438',
+                'texto_suave' => '#7D6C70',
             ],
         ],
         [
@@ -163,7 +192,7 @@ class TemaSeeder extends Seeder
      * Temas de una versión anterior del seeder, con un juego de tokens
      * incompleto. Se retiran porque se verían rotos junto a los actuales.
      */
-    private const OBSOLETOS = ['claro', 'oscuro'];
+    private const OBSOLETOS = ['claro', 'oscuro', 'grafito'];
 
     public function run(): void
     {
