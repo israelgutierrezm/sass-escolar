@@ -391,6 +391,18 @@ Route::middleware([
                             ->whereNumber('alumno')->whereNumber('carrera')
                             ->middleware('can:editar-alumnos')
                             ->name('carreras.estado');
+
+                        // Padres/tutores del alumno: vincularlos los vuelve
+                        // usuarios con rol de padre de familia.
+                        Route::post('{alumno}/tutores', 'vincularTutor')
+                            ->whereNumber('alumno')
+                            ->middleware('can:editar-alumnos')
+                            ->name('tutores.store');
+
+                        Route::delete('{alumno}/tutores/{tutor}', 'desvincularTutor')
+                            ->whereNumber('alumno')->whereNumber('tutor')
+                            ->middleware('can:editar-alumnos')
+                            ->name('tutores.destroy');
                     });
 
                 /*

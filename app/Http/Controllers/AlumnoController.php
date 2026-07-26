@@ -12,9 +12,12 @@ use App\Models\Admisiones\SituacionAlumno;
 use App\Models\ControlEscolar\Ciclo;
 use App\Models\ControlEscolar\Historial;
 use App\Models\ControlEscolar\Inscripcion;
+use App\Models\Identidad\Persona;
+use App\Models\Identidad\TutorAlumno;
 use App\Models\Identidad\Usuario;
 use App\Models\Landlord\Genero;
 use App\Models\Landlord\Sexo;
+use App\Services\AprovisionadorAcceso;
 use App\Services\MatriculadorOferta;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -152,6 +155,21 @@ class AlumnoController extends Controller
                 'foto' => $alumno->persona?->urlFoto(),
                 'entidad_nacimiento' => $alumno->persona?->entidadNacimiento?->nombre,
             ],
+            // Padres/tutores ligados a este alumno. Cada uno es —o pasa a ser—
+            // usuario con rol de padre de familia al vincularlo.
+            'tutores' => TutorAlumno::query()
+                ->with('tutor:id,nombre,primer_apellido,segundo_apellido,curp,email')
+                ->where('alumno_persona_id', $alumno->persona_id)
+                ->get()
+                ->map(fn (TutorAlumno $v) => [
+                    'id' => $v->id,
+                    'nombre' => trim(($v->tutor?->nombre ?? '').' '.($v->tutor?->primer_apellido ?? '').' '.($v->tutor?->segundo_apellido ?? '')),
+                    'curp' => $v->tutor?->curp,
+                    'email' => $v->tutor?->email,
+                    'parentesco' => $v->parentesco,
+                    'puede_ver_academico' => $v->puede_ver_academico,
+                    'puede_ver_finanzas' => $v->puede_ver_finanzas,
+                ]),
             // TODAS las carreras de esta persona, la actual incluida: es el
             // caso que justifica que el alumno sea la matrícula y no la
             // persona, y quien la atiende necesita verlas juntas.
@@ -350,6 +368,78 @@ class AlumnoController extends Controller
         $matriculador->reactivar($carrera);
 
         return back()->with('exito', "Matrícula {$carrera->matricula} reactivada.");
+    }
+
+    /**
+     * Vincula un padre/tutor al alumno. Al hacerlo, esa persona pasa a ser
+     * usuario con rol de padre de familia (censo, sin acceso hasta que se le
+     * configure una contraseña). Cero recaptura: si la CURP ya existe, se liga
+     * esa persona sin duplicarla.
+     */
+    public function vincularTutor(Request $request, MatriculaOferta $alumno, AprovisionadorAcceso $aprovisionador): RedirectResponse
+    {
+        $datos = $request->validate([
+            'nombre' => ['required', 'string', 'max:255'],
+            'primer_apellido' => ['required', 'string', 'max:255'],
+            'segundo_apellido' => ['nullable', 'string', 'max:255'],
+            'curp' => ['nullable', 'string', 'max:18'],
+            'email' => ['nullable', 'email', 'max:150'],
+            'celular' => ['nullable', 'string', 'max:20'],
+            'parentesco' => ['required', Rule::in(['padre', 'madre', 'tutor', 'otro'])],
+            'puede_ver_academico' => ['boolean'],
+            'puede_ver_finanzas' => ['boolean'],
+        ]);
+
+        $curp = strtoupper(trim((string) ($datos['curp'] ?? '')));
+        $tutor = $curp !== '' ? Persona::query()->where('curp', $curp)->first() : null;
+
+        if ($tutor !== null && $tutor->id === $alumno->persona_id) {
+            return back()->with('error', 'Una persona no puede ser tutora de sí misma.');
+        }
+
+        if ($tutor !== null && TutorAlumno::query()
+            ->where('tutor_persona_id', $tutor->id)
+            ->where('alumno_persona_id', $alumno->persona_id)
+            ->exists()
+        ) {
+            return back()->with('error', 'Ese tutor ya está vinculado a este alumno.');
+        }
+
+        DB::transaction(function () use ($datos, $curp, $alumno, $aprovisionador, &$tutor) {
+            $tutor ??= Persona::create([
+                'nombre' => $datos['nombre'],
+                'primer_apellido' => $datos['primer_apellido'],
+                'segundo_apellido' => $datos['segundo_apellido'] ?? null,
+                'curp' => $curp !== '' ? $curp : null,
+                'email' => $datos['email'] ?? null,
+                'celular' => $datos['celular'] ?? null,
+            ]);
+
+            TutorAlumno::create([
+                'tutor_persona_id' => $tutor->id,
+                'alumno_persona_id' => $alumno->persona_id,
+                'parentesco' => $datos['parentesco'],
+                'puede_ver_academico' => $datos['puede_ver_academico'] ?? true,
+                'puede_ver_finanzas' => $datos['puede_ver_finanzas'] ?? true,
+            ]);
+
+            $aprovisionador->paraPersona($tutor, 'padre_familia');
+        });
+
+        return back()->with('exito', 'Padre/tutor vinculado. Ya es usuario del sistema.');
+    }
+
+    /**
+     * Quita el vínculo. NO borra la cuenta del tutor: puede ser padre de otros
+     * alumnos, y su cuenta es historia igual que la de cualquiera.
+     */
+    public function desvincularTutor(MatriculaOferta $alumno, TutorAlumno $tutor): RedirectResponse
+    {
+        abort_unless($tutor->alumno_persona_id === $alumno->persona_id, 404);
+
+        $tutor->delete();
+
+        return back()->with('exito', 'Vínculo eliminado.');
     }
 
     /**

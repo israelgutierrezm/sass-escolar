@@ -111,6 +111,36 @@ class Persona extends Model
         return $this->hasOne(Docente::class, 'persona_id');
     }
 
+    /** Vínculos en los que esta persona es el TUTOR (padre/madre/tutor). */
+    public function vinculosComoTutor(): HasMany
+    {
+        return $this->hasMany(TutorAlumno::class, 'tutor_persona_id');
+    }
+
+    /** Vínculos en los que esta persona es el ALUMNO. */
+    public function vinculosComoAlumno(): HasMany
+    {
+        return $this->hasMany(TutorAlumno::class, 'alumno_persona_id');
+    }
+
+    /** Los alumnos (personas) a cargo de esta persona como tutor. */
+    public function hijos(): BelongsToMany
+    {
+        // El vínculo se borra en lógico (auditoría); un pivote soft-deleted no
+        // cuenta como hijo vigente.
+        return $this->belongsToMany(self::class, 'tutores_alumno', 'tutor_persona_id', 'alumno_persona_id')
+            ->withPivot(['parentesco', 'puede_ver_academico', 'puede_ver_finanzas', 'acceso_materia'])
+            ->wherePivotNull('deleted_at');
+    }
+
+    /** Los tutores (personas) de esta persona como alumno. */
+    public function tutoresFamiliares(): BelongsToMany
+    {
+        return $this->belongsToMany(self::class, 'tutores_alumno', 'alumno_persona_id', 'tutor_persona_id')
+            ->withPivot(['parentesco', 'puede_ver_academico', 'puede_ver_finanzas', 'acceso_materia'])
+            ->wherePivotNull('deleted_at');
+    }
+
     /** Ruta autenticada de su foto; null si no tiene. Nunca la ruta del disco. */
     public function urlFoto(): ?string
     {

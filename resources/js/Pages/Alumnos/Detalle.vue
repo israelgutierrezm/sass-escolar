@@ -5,6 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import NavEscolar from '@/Components/NavEscolar.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 
 interface Renglon {
     id: number;
@@ -37,6 +38,15 @@ const props = defineProps<{
         es_actual: boolean;
     }[];
     ofertasDisponibles: { id: number; etiqueta: string }[];
+    tutores: {
+        id: number;
+        nombre: string;
+        curp: string | null;
+        email: string | null;
+        parentesco: string;
+        puede_ver_academico: boolean;
+        puede_ver_finanzas: boolean;
+    }[];
     puedeMatricular: boolean;
     situacionesDeBaja: { id: number; nombre: string }[];
     suplantable: { usuario_id: number; usuario: string } | null;
@@ -49,7 +59,47 @@ const props = defineProps<{
     puedeEditar: boolean;
 }>();
 
-const pestana = ref<'kardex' | 'carga' | 'carreras' | 'datos'>('kardex');
+const pestana = ref<'kardex' | 'carga' | 'carreras' | 'tutores' | 'datos'>('kardex');
+
+/* Padres y tutores del alumno */
+const formTutor = useForm({
+    nombre: '',
+    primer_apellido: '',
+    segundo_apellido: '',
+    curp: '',
+    email: '',
+    celular: '',
+    parentesco: 'padre',
+    puede_ver_academico: true,
+    puede_ver_finanzas: true,
+});
+
+const agregandoTutor = ref(false);
+
+function vincularTutor(): void {
+    formTutor.post(`/escolar/alumnos/${props.alumno.id}/tutores`, {
+        preserveScroll: true,
+        onSuccess: () => {
+            formTutor.reset();
+            agregandoTutor.value = false;
+        },
+    });
+}
+
+function desvincularTutor(id: number, nombre: string): void {
+    if (!confirm(`¿Quitar a "${nombre}" como padre/tutor de este alumno?`)) {
+        return;
+    }
+
+    router.delete(`/escolar/alumnos/${props.alumno.id}/tutores/${id}`, { preserveScroll: true });
+}
+
+const etiquetaParentesco: Record<string, string> = {
+    padre: 'Padre',
+    madre: 'Madre',
+    tutor: 'Tutor',
+    otro: 'Otro',
+};
 
 /* Otras carreras de la misma persona */
 const agregando = ref(false);
@@ -330,6 +380,7 @@ function verComo(): void {
                     { clave: 'kardex', texto: 'Kárdex' },
                     { clave: 'carga', texto: 'Carga por ciclo' },
                     { clave: 'carreras', texto: `Carreras (${carreras.length})` },
+                    { clave: 'tutores', texto: `Padres/tutores (${tutores.length})` },
                     { clave: 'datos', texto: 'Datos' },
                 ]"
                 :key="opcion.clave"
@@ -586,6 +637,117 @@ function verComo(): void {
             <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
                 Una matrícula no se elimina: su kárdex es historia escolar y las actas donde aparece
                 quedarían sin dueño. Se da de baja.
+            </p>
+        </section>
+
+        <!-- Padres / tutores -->
+        <section v-else-if="pestana === 'tutores'" class="space-y-4">
+            <div class="tarjeta p-6">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div class="max-w-2xl">
+                        <h2 class="text-base font-semibold">Padres y tutores</h2>
+                        <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
+                            Al vincular a un padre o tutor, esa persona pasa a ser usuario del sistema
+                            (con rol de padre de familia) y podrá ver la información de este alumno una
+                            vez que se le habilite el acceso.
+                        </p>
+                    </div>
+                    <BotonAccion
+                        v-if="puedeEditar && !agregandoTutor"
+                        variante="nuevo"
+                        texto="Agregar"
+                        @click="agregandoTutor = true"
+                    />
+                </div>
+
+                <!-- Alta -->
+                <form v-if="agregandoTutor" class="mt-5 border-t pt-5" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="vincularTutor">
+                    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <CampoTexto v-model="formTutor.nombre" etiqueta="Nombre(s)" requerido :error="formTutor.errors.nombre" />
+                        <CampoTexto v-model="formTutor.primer_apellido" etiqueta="Primer apellido" requerido :error="formTutor.errors.primer_apellido" />
+                        <CampoTexto v-model="formTutor.segundo_apellido" etiqueta="Segundo apellido" :error="formTutor.errors.segundo_apellido" />
+                        <CampoTexto v-model="formTutor.curp" etiqueta="CURP" mono :error="formTutor.errors.curp" ayuda="Si ya existe, se reutiliza esa persona." />
+                        <CampoTexto v-model="formTutor.email" etiqueta="Correo" tipo="email" :error="formTutor.errors.email" ayuda="Con él entrará a la plataforma." />
+                        <CampoTexto v-model="formTutor.celular" etiqueta="Celular" :error="formTutor.errors.celular" />
+                        <CampoSelect
+                            v-model="formTutor.parentesco"
+                            etiqueta="Parentesco"
+                            :opciones="[
+                                { valor: 'padre', texto: 'Padre' },
+                                { valor: 'madre', texto: 'Madre' },
+                                { valor: 'tutor', texto: 'Tutor' },
+                                { valor: 'otro', texto: 'Otro' },
+                            ]"
+                            :error="formTutor.errors.parentesco"
+                        />
+                    </div>
+
+                    <div class="mt-4 flex flex-wrap gap-5 text-sm">
+                        <label class="flex items-center gap-2">
+                            <input v-model="formTutor.puede_ver_academico" type="checkbox" class="rounded" />
+                            Puede ver lo académico (historial y avance)
+                        </label>
+                        <label class="flex items-center gap-2">
+                            <input v-model="formTutor.puede_ver_finanzas" type="checkbox" class="rounded" />
+                            Puede ver lo financiero (pagos y facturas)
+                        </label>
+                    </div>
+
+                    <div class="mt-5 flex gap-2">
+                        <BotonAccion variante="nuevo" texto="Vincular" :disabled="formTutor.processing" @click="vincularTutor" />
+                        <button
+                            type="button"
+                            class="rounded-lg border px-4 py-2 text-sm"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                            @click="agregandoTutor = false"
+                        >
+                            Cancelar
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Listado -->
+            <div v-if="tutores.length" class="tarjeta overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
+                            <tr>
+                                <th class="px-4 py-3 font-medium">Nombre</th>
+                                <th class="px-4 py-3 font-medium">Parentesco</th>
+                                <th class="px-4 py-3 font-medium">CURP</th>
+                                <th class="px-4 py-3 font-medium">Correo</th>
+                                <th class="px-4 py-3 font-medium">Puede ver</th>
+                                <th class="px-4 py-3"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="t in tutores" :key="t.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
+                                <td class="px-4 py-3 font-medium">{{ t.nombre }}</td>
+                                <td class="px-4 py-3">
+                                    <span class="rounded-full px-2 py-0.5 text-xs" :style="{ backgroundColor: 'var(--color-borde)' }">
+                                        {{ etiquetaParentesco[t.parentesco] ?? t.parentesco }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ t.curp ?? '—' }}</td>
+                                <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ t.email ?? 'sin correo' }}</td>
+                                <td class="px-4 py-3 text-xs" :style="{ color: 'var(--color-suave)' }">
+                                    <span v-if="t.puede_ver_academico">Académico</span>
+                                    <span v-if="t.puede_ver_academico && t.puede_ver_finanzas"> · </span>
+                                    <span v-if="t.puede_ver_finanzas">Finanzas</span>
+                                    <span v-if="!t.puede_ver_academico && !t.puede_ver_finanzas">—</span>
+                                </td>
+                                <td class="px-4 py-3 text-right">
+                                    <BotonAccion v-if="puedeEditar" variante="eliminar" solo-icono @click="desvincularTutor(t.id, t.nombre)" />
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <p v-else class="tarjeta px-6 py-10 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
+                Este alumno no tiene padres o tutores vinculados.
             </p>
         </section>
 
