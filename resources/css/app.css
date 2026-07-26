@@ -1,5 +1,19 @@
 @import 'tailwindcss';
 
+/*
+ * Hover en TODO dispositivo.
+ *
+ * Tailwind 4 encierra por defecto las variantes `hover:` en
+ * `@media (hover: hover)`, así que en equipos con pantalla táctil —muchos
+ * laptops Windows— el navegador reporta `hover: none` y NINGÚN `hover:` se
+ * aplica: ni el fondo de un botón ni la animación de un icono. Se redefine la
+ * variante para que dependa solo de `:hover`, como en Tailwind 3. El efecto en
+ * un móvil real (sin ratón) es inocuo: si no hay puntero, no hay hover que
+ * disparar. `group-hover` se deriva de esta misma definición, así que también
+ * queda cubierto.
+ */
+@custom-variant hover (&:hover);
+
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 @source '../**/*.blade.php';
@@ -87,6 +101,32 @@
             0 4px 12px -2px rgb(0 0 0 / 0.08),
             0 2px 6px -2px rgb(0 0 0 / 0.05);
         transform: translateY(-1px);
+    }
+
+    /*
+     * Iconos que se animan al pasar el cursor sobre su botón.
+     *
+     * Se hacen con `transform` plano y un `:hover` propio, NO con las utilidades
+     * `scale-*`/`rotate-*` de Tailwind: esas dependen de `@property --tw-scale-*`
+     * (que este entorno no honra: la utilidad computa `scale: none`) y de
+     * `@media (hover: hover)` (que un laptop táctil reporta como `none`). El
+     * `transform` clásico no arrastra ninguna de las dos fragilidades y anda en
+     * cualquier navegador.
+     */
+    .icono-anim {
+        transition: transform 0.3s ease;
+    }
+
+    .anim-girar:hover .icono-anim {
+        transform: rotate(180deg);
+    }
+
+    .anim-pincel:hover .icono-anim {
+        transform: rotate(-12deg) scale(1.1);
+    }
+
+    .anim-crecer:hover .icono-anim {
+        transform: scale(1.1);
     }
 }
 

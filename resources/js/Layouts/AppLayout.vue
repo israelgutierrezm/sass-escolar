@@ -533,19 +533,13 @@ const iniciales = computed(() => {
                     <button
                         v-if="tieneVariosRoles"
                         type="button"
-                        class="group rounded-xl p-2 transition duration-200 hover:bg-black/5"
+                        class="anim-girar rounded-xl p-2 transition duration-200 hover:bg-black/5"
                         title="Cambiar de rol"
                         @click="panelRoles = true"
                     >
                         <!-- Icono de flechas de intercambio: gira media vuelta,
                              como quien voltea entre dos roles. -->
-                        <svg
-                            class="h-5 w-5 transition-transform duration-300 ease-out group-hover:rotate-180"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke-width="1.6"
-                            stroke="currentColor"
-                        >
+                        <svg class="icono-anim h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
                         </svg>
                     </button>
@@ -553,20 +547,14 @@ const iniciales = computed(() => {
                     <!-- Apariencia -->
                     <button
                         type="button"
-                        class="group rounded-xl p-2 transition duration-200 hover:bg-black/5"
+                        class="anim-pincel rounded-xl p-2 transition duration-200 hover:bg-black/5"
                         title="Apariencia"
                         @click="panelTema = true"
                     >
                         <!-- El pincel se ladea y crece un poco; la animación va
                              en el icono, no en el botón, para que el fondo del
                              hover no gire con él. -->
-                        <svg
-                            class="h-5 w-5 transition-transform duration-300 ease-out group-hover:-rotate-12 group-hover:scale-110"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke-width="1.6"
-                            stroke="currentColor"
-                        >
+                        <svg class="icono-anim h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4.098 19.902a3.75 3.75 0 0 0 5.304 0l6.401-6.402M6.75 21A3.75 3.75 0 0 1 3 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 0 0 3.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.879 2.88M6.75 17.25h.008v.008H6.75v-.008Z" />
                         </svg>
                     </button>
@@ -575,11 +563,11 @@ const iniciales = computed(() => {
                     <div class="relative">
                         <button
                             type="button"
-                            class="group flex items-center gap-2.5 rounded-xl py-1.5 pl-1.5 pr-3 transition duration-200 hover:bg-black/5"
+                            class="anim-crecer flex items-center gap-2.5 rounded-xl py-1.5 pl-1.5 pr-3 transition duration-200 hover:bg-black/5"
                             @click="menuUsuario = !menuUsuario"
                         >
                             <span
-                                class="grid h-8 w-8 place-items-center rounded-lg text-xs font-semibold transition-transform duration-200 group-hover:scale-110"
+                                class="icono-anim grid h-8 w-8 place-items-center rounded-lg text-xs font-semibold"
                                 :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
                             >
                                 {{ iniciales }}
