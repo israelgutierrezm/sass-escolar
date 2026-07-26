@@ -33,18 +33,18 @@
      * Al exponerlos como colores de Tailwind se pueden usar como cualquier otro:
      * bg-superficie, text-suave, border-borde...
      */
-    --color-barra-lateral: #272f7a;
-    --color-barra-lateral-suave: #353e8c;
-    --color-barra-lateral-texto: #c5cae9;
-    --color-barra-lateral-activo: #4a55b0;
+    --color-barra-lateral: #343a40;
+    --color-barra-lateral-suave: #3d444b;
+    --color-barra-lateral-texto: #ced4da;
+    --color-barra-lateral-activo: #565d65;
     --color-barra-superior: #ffffff;
-    --color-barra-superior-texto: #212a3e;
-    --color-acento: #272f7a;
+    --color-barra-superior-texto: #212529;
+    --color-acento: #343a40;
     --color-acento-texto: #ffffff;
-    --color-fondo: #f5f6f8;
+    --color-fondo: #f8f9fa;
     --color-superficie: #ffffff;
     --color-borde: #dee2e6;
-    --color-contenido: #212a3e;
+    --color-contenido: #212529;
     --color-suave: #6c757d;
 }
 

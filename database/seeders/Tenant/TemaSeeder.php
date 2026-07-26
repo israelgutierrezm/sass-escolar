@@ -27,27 +27,30 @@ class TemaSeeder extends Seeder
      */
     private const TEMAS = [
         [
-            // Tema PREDETERMINADO: clásico. Sobrio y profesional, con la
-            // limpieza de los «light» de Bootstrap como referencia. Azul
-            // #272F7A como identidad (barra lateral y acento), sobre grises
-            // neutros claros; el azul NO invade fondos ni textos.
+            // Tema PREDETERMINADO: clásico. TOTALMENTE NEUTRO, escala de grises
+            // al estilo «light» de Bootstrap: barra lateral en charcoal neutro
+            // (#343A40, el gris-800 de Bootstrap), cuerpo gris muy claro,
+            // tarjetas blancas, texto casi negro y bordes discretos. Sin azul
+            // ni ningún tinte de color —el acento también es el mismo gris
+            // oscuro— para que no se confunda con Océano. La barra no es blanca
+            // porque el layout lleva texto blanco fijo en ella.
             'clave' => 'clasico',
             'nombre' => 'Clásico',
             'es_default' => true,
             'permite_override_usuario' => true,
             'tokens' => [
-                'barra_lateral' => '#272F7A',
-                'barra_lateral_suave' => '#353E8C',
-                'barra_lateral_texto' => '#C5CAE9',
-                'barra_lateral_activo' => '#4A55B0',
+                'barra_lateral' => '#343A40',
+                'barra_lateral_suave' => '#3D444B',
+                'barra_lateral_texto' => '#CED4DA',
+                'barra_lateral_activo' => '#565D65',
                 'barra_superior' => '#FFFFFF',
-                'barra_superior_texto' => '#212A3E',
-                'acento' => '#272F7A',
+                'barra_superior_texto' => '#212529',
+                'acento' => '#343A40',
                 'acento_texto' => '#FFFFFF',
-                'fondo' => '#F5F6F8',
+                'fondo' => '#F8F9FA',
                 'superficie' => '#FFFFFF',
                 'borde' => '#DEE2E6',
-                'texto' => '#212A3E',
+                'texto' => '#212529',
                 'texto_suave' => '#6C757D',
             ],
         ],
