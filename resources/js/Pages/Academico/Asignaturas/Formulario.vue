@@ -5,6 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
+import CampoCasillas from '@/Components/CampoCasillas.vue';
 import EditorTexto from '@/Components/EditorTexto.vue';
 
 interface Opcion {
@@ -52,17 +53,19 @@ const disponibles = computed(() =>
     props.descriptores.filter((d) => !form.descriptores.some((e) => e.descriptor_id === d.id)),
 );
 
-const porAgregar = ref<number | null>(null);
+// Selección múltiple: se marcan varios del catálogo y se agregan de un tirón.
+const porAgregar = ref<number[]>([]);
+const eligiendo = ref(false);
 
-function agregarDescriptor(): void {
-    const elegido = props.descriptores.find((d) => d.id === porAgregar.value);
-
-    if (!elegido) {
-        return;
+function agregarSeleccionados(): void {
+    for (const id of porAgregar.value) {
+        const elegido = props.descriptores.find((d) => d.id === id);
+        if (elegido && !form.descriptores.some((e) => e.descriptor_id === id)) {
+            form.descriptores.push({ descriptor_id: elegido.id, nombre: elegido.nombre, contenido: '' });
+        }
     }
-
-    form.descriptores.push({ descriptor_id: elegido.id, nombre: elegido.nombre, contenido: '' });
-    porAgregar.value = null;
+    porAgregar.value = [];
+    eligiendo.value = false;
 }
 
 function quitarDescriptor(indice: number): void {
@@ -170,7 +173,7 @@ function quitarImagen(tipo: string): void {
             </section>
 
             <section class="tarjeta p-6">
-                <div class="flex flex-wrap items-end justify-between gap-4">
+                <div class="flex flex-wrap items-start justify-between gap-4">
                     <div>
                         <h2 class="text-base font-semibold">Descriptores del programa</h2>
                         <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
@@ -178,23 +181,49 @@ function quitarImagen(tipo: string): void {
                         </p>
                     </div>
 
-                    <div class="flex items-end gap-2">
-                        <div class="w-56">
-                            <CampoSelect
-                                v-model="porAgregar"
-                                etiqueta="Agregar apartado"
-                                :opciones="opciones(disponibles)"
-                                :vacio="disponibles.length ? 'Elige del catálogo…' : 'Ya agregaste todos'"
-                            />
-                        </div>
+                    <button
+                        v-if="!eligiendo && disponibles.length"
+                        type="button"
+                        class="rounded-lg px-4 py-2 text-sm font-medium"
+                        :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+                        @click="eligiendo = true"
+                    >
+                        Agregar apartados
+                    </button>
+                    <span v-else-if="!disponibles.length" class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                        Ya agregaste todos los del catálogo
+                    </span>
+                </div>
+
+                <!-- Selección múltiple: marca uno o varios y agrégalos de un tirón. -->
+                <div
+                    v-if="eligiendo"
+                    class="mt-5 rounded-lg border p-4"
+                    :style="{ borderColor: 'var(--color-borde)', backgroundColor: 'var(--color-fondo)' }"
+                >
+                    <CampoCasillas
+                        v-model="porAgregar"
+                        etiqueta="Elige del catálogo"
+                        :opciones="opciones(disponibles)"
+                        vacio="No quedan apartados por agregar."
+                    />
+                    <div class="mt-3 flex gap-2">
                         <button
                             type="button"
-                            :disabled="porAgregar === null"
-                            class="mb-0.5 rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
+                            :disabled="porAgregar.length === 0"
+                            class="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
                             :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                            @click="agregarDescriptor"
+                            @click="agregarSeleccionados"
                         >
-                            Agregar
+                            Agregar {{ porAgregar.length || '' }} seleccionado{{ porAgregar.length === 1 ? '' : 's' }}
+                        </button>
+                        <button
+                            type="button"
+                            class="rounded-lg border px-4 py-2 text-sm"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                            @click="eligiendo = false; porAgregar = []"
+                        >
+                            Cancelar
                         </button>
                     </div>
                 </div>
@@ -204,7 +233,7 @@ function quitarImagen(tipo: string): void {
                     class="mt-5 rounded-lg border border-dashed px-4 py-6 text-center text-sm"
                     :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }"
                 >
-                    Aún no has agregado apartados. Elige uno del catálogo para capturar su contenido.
+                    Aún no has agregado apartados. Elige uno o varios del catálogo para capturar su contenido.
                 </p>
 
                 <div v-else class="mt-5 space-y-5">
