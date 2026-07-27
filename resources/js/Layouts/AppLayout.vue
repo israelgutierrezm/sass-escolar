@@ -299,6 +299,8 @@ const navegacion = computed(() => {
                 { etiqueta: 'Accesos', url: '/plataforma/accesos', permiso: 'ver-accesos' },
                 { etiqueta: 'Roles y permisos', url: '/plataforma/roles', permiso: 'gestionar-roles' },
                 { etiqueta: 'Reglas de la escuela', url: '/plataforma/configuracion', permiso: 'ver-configuracion' },
+                { etiqueta: 'Config. facturación', url: '/plataforma/configuraciones/facturacion', permiso: 'configurar-facturacion' },
+                { etiqueta: 'Config. correo', url: '/plataforma/configuraciones/correo', permiso: 'configurar-correo' },
             ],
         },
     ];

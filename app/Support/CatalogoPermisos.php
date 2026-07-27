@@ -133,6 +133,8 @@ final class CatalogoPermisos
             'editar-configuracion' => ['Editar la configuración', 'Cambiar los parámetros de la escuela.', [self::ADMINISTRATIVO]],
             'gestionar-usuarios' => ['Administrar usuarios', 'Crear cuentas y asignarles roles.', [self::ADMINISTRATIVO]],
             'ver-accesos' => ['Ver la bitácora de accesos', 'Consultar el registro y la gráfica de entradas y salidas de las cuentas.', [self::ADMINISTRATIVO]],
+            'configurar-facturacion' => ['Configurar facturación', 'Conectar la escuela con Facturapi: credenciales, ambiente y predeterminados de CFDI.', [self::ADMINISTRATIVO]],
+            'configurar-correo' => ['Configurar correo', 'Ajustar el envío de correo de la escuela.', [self::ADMINISTRATIVO]],
             'gestionar-roles' => ['Administrar roles', 'Crear roles y decidir qué puede hacer cada uno. Incluye este permiso.', [self::ADMINISTRATIVO]],
             'suplantar-usuarios' => ['Ver como otra persona', 'Entrar con la identidad de alguien más para dar soporte. Queda en bitácora.', [self::ADMINISTRATIVO]],
             'gestionar-formularios' => ['Constructor de formularios', 'Definir qué datos se piden y en qué versión.', [self::ADMINISTRATIVO]],

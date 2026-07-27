@@ -38,6 +38,7 @@ use App\Http\Controllers\PlanEstudioController;
 use App\Http\Controllers\PlanMateriaController;
 use App\Http\Controllers\PlantillaEvaluacionController;
 use App\Http\Controllers\AccesosController;
+use App\Http\Controllers\FacturacionConfigController;
 use App\Http\Controllers\PadreController;
 use App\Http\Controllers\RecuperacionController;
 use App\Http\Controllers\PortalAspiranteController;
@@ -682,6 +683,18 @@ Route::middleware([
         Route::get('plataforma/accesos', [AccesosController::class, 'index'])
             ->middleware('can:ver-accesos')
             ->name('tenant.plataforma.accesos.index');
+
+        // Configuraciones de la plataforma.
+        Route::controller(FacturacionConfigController::class)
+            ->prefix('plataforma/configuraciones')->name('tenant.plataforma.config.')
+            ->group(function () {
+                Route::middleware('can:configurar-facturacion')->group(function () {
+                    Route::get('facturacion', 'facturacion')->name('facturacion');
+                    Route::put('facturacion', 'guardar')->name('facturacion.guardar');
+                    Route::post('facturacion/probar', 'probar')->name('facturacion.probar');
+                });
+                Route::get('correo', 'correo')->middleware('can:configurar-correo')->name('correo');
+            });
 
         Route::controller(UsuarioController::class)
             ->prefix('plataforma/usuarios')->name('tenant.plataforma.usuarios.')
