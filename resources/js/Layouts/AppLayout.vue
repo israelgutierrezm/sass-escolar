@@ -721,10 +721,12 @@ const iniciales = computed(() => {
         <PanelTema :abierto="panelTema" @cerrar="panelTema = false" />
         <PanelRoles :abierto="panelRoles" @cerrar="panelRoles = false" />
 
-        <!-- Control flotante de tamaño de fuente. Abajo a la IZQUIERDA para no
-             pelearse con los toasts, que salen abajo a la derecha. -->
+        <!-- Control flotante de tamaño de fuente. Centrado abajo (antes iba a la
+             izquierda, donde la barra lateral fija lo tapaba en escritorio). Es
+             una comodidad de escritorio: en móvil se oculta (ahí se usa el zoom
+             del navegador) y no estorba con el pulgar. -->
         <div
-            class="fixed bottom-5 left-5 z-30 flex items-center gap-1 rounded-full px-2 py-1 shadow-lg ring-1"
+            class="fixed bottom-5 left-1/2 z-30 hidden -translate-x-1/2 items-center gap-1 rounded-full px-2 py-1 shadow-lg ring-1 lg:flex"
             :style="{ backgroundColor: 'var(--color-superficie)', '--tw-ring-color': 'var(--color-borde)' }"
         >
             <button

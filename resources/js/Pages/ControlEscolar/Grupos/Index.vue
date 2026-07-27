@@ -4,6 +4,7 @@ import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavEscolar from '@/Components/NavEscolar.vue';
 import BarraListado from '@/Components/BarraListado.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 import Paginacion from '@/Components/Paginacion.vue';
 import TarjetaRegistro from '@/Components/TarjetaRegistro.vue';
 
@@ -94,12 +95,10 @@ function eliminar(id: number, clave: string): void {
                     ]"
                 >
                     <template #acciones>
-                        <a :href="`/escolar/grupos/${grupo.id}`" :style="{ color: 'var(--color-acento)' }">Abrir</a>
+                        <BotonAccion variante="ver" texto="Abrir" :href="`/escolar/grupos/${grupo.id}`" />
                         <template v-if="puedeEditar">
-                            <a :href="`/escolar/grupos/${grupo.id}/edit`" :style="{ color: 'var(--color-suave)' }">Editar</a>
-                            <button type="button" :style="{ color: 'var(--color-suave)' }" @click="eliminar(grupo.id, grupo.clave)">
-                                Eliminar
-                            </button>
+                            <BotonAccion variante="editar" :href="`/escolar/grupos/${grupo.id}/edit`" />
+                            <BotonAccion variante="eliminar" @click="eliminar(grupo.id, grupo.clave)" />
                         </template>
                     </template>
                 </TarjetaRegistro>
@@ -160,27 +159,14 @@ function eliminar(id: number, clave: string): void {
                                     {{ grupo.situacion }}
                                 </span>
                             </td>
-                            <td class="px-6 py-3 text-right whitespace-nowrap">
-                                <a :href="`/escolar/grupos/${grupo.id}`" class="text-sm font-medium" :style="{ color: 'var(--color-acento)' }">
-                                    Abrir
-                                </a>
-                                <template v-if="puedeEditar">
-                                    <a
-                                        :href="`/escolar/grupos/${grupo.id}/edit`"
-                                        class="ml-3 text-sm"
-                                        :style="{ color: 'var(--color-suave)' }"
-                                    >
-                                        Editar
-                                    </a>
-                                    <button
-                                        type="button"
-                                        class="ml-3 text-sm"
-                                        :style="{ color: 'var(--color-suave)' }"
-                                        @click="eliminar(grupo.id, grupo.clave)"
-                                    >
-                                        Eliminar
-                                    </button>
-                                </template>
+                            <td class="px-6 py-3">
+                                <div class="flex items-center justify-end gap-1">
+                                    <BotonAccion variante="ver" texto="Abrir" :href="`/escolar/grupos/${grupo.id}`" />
+                                    <template v-if="puedeEditar">
+                                        <BotonAccion variante="editar" :href="`/escolar/grupos/${grupo.id}/edit`" />
+                                        <BotonAccion variante="eliminar" @click="eliminar(grupo.id, grupo.clave)" />
+                                    </template>
+                                </div>
                             </td>
                         </tr>
                     </tbody>

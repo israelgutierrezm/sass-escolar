@@ -64,6 +64,15 @@ const cfg = computed(() => CONFIG[props.variante]);
 const etiqueta = computed(() => props.texto ?? cfg.value.etiqueta);
 const esPrimario = computed(() => props.variante === 'nuevo');
 
+// Regla homologada en TODO el sistema: «editar» y «eliminar» son SIEMPRE
+// solo-icono (con la palabra revelándose al pasar el cursor), sin importar cómo
+// se invoque el botón. Así ninguna pantalla puede volver a mostrarlos como
+// texto suelto. «nuevo» y «ver» respetan lo que pida quien los use (llevan
+// texto porque su destino no es obvio: «Nueva carrera», «Malla», «Captura»).
+const soloIconoEfectivo = computed(
+    () => props.soloIcono || props.variante === 'editar' || props.variante === 'eliminar',
+);
+
 // El botón principal va relleno; los demás, fantasma con su color y un fondo
 // tenue PERMANENTE (mismo color al 12 %); el detalle de hover vive en el CSS.
 const estilo = computed(() =>
@@ -79,12 +88,12 @@ const estilo = computed(() =>
         :href="href && !disabled ? href : undefined"
         :type="href ? undefined : 'button'"
         :disabled="disabled || undefined"
-        :title="soloIcono ? etiqueta : undefined"
-        :aria-label="soloIcono ? etiqueta : undefined"
+        :title="soloIconoEfectivo ? etiqueta : undefined"
+        :aria-label="soloIconoEfectivo ? etiqueta : undefined"
         class="boton-accion inline-flex items-center gap-1.5 rounded-lg text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40"
         :class="[
             esPrimario ? 'px-3.5 py-2 shadow-sm hover:brightness-110' : 'boton-fantasma py-1.5',
-            esPrimario ? '' : soloIcono ? 'px-2' : 'px-2.5',
+            esPrimario ? '' : soloIconoEfectivo ? 'px-2' : 'px-2.5',
         ]"
         :style="estilo"
         @click="!href && emit('click')"
@@ -94,7 +103,7 @@ const estilo = computed(() =>
         </svg>
         <!-- Solo-icono en reposo (web y móvil); en escritorio se revela la
              palabra al pasar el cursor. -->
-        <span :class="soloIcono ? 'etiqueta-revelable' : ''">{{ etiqueta }}</span>
+        <span :class="soloIconoEfectivo ? 'etiqueta-revelable' : ''">{{ etiqueta }}</span>
     </component>
 </template>
 
