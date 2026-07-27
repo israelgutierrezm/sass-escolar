@@ -87,10 +87,29 @@ function enviar(): void {
             <button
                 type="submit"
                 :disabled="form.processing"
-                class="w-full rounded-lg bg-indigo-600 px-4 py-2.5 font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                class="boton-entrar w-full rounded-lg px-4 py-2.5 font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-60"
             >
                 {{ form.processing ? 'Entrando…' : 'Entrar' }}
             </button>
         </form>
     </AuthWaves>
 </template>
+
+<style scoped>
+/* Botón de acceso: degradado azul y un leve realce al pasar el cursor. */
+.boton-entrar {
+    background-image: linear-gradient(135deg, #2f6fed, #4f46e5);
+    box-shadow: 0 10px 24px -10px rgba(79, 70, 229, 0.7);
+}
+
+.boton-entrar:hover:not(:disabled) {
+    filter: brightness(1.06);
+    transform: translateY(-1px);
+    box-shadow: 0 14px 28px -10px rgba(79, 70, 229, 0.8);
+}
+
+.boton-entrar:active:not(:disabled) {
+    transform: translateY(0);
+}
+</style>
+
