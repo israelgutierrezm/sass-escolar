@@ -44,7 +44,10 @@ defineProps<{
     permisos: { academico: boolean; finanzas: boolean };
     academico: Academico[] | null;
     finanzas: Finanza[] | null;
+    accesos: { tipo: string; ip: string | null; navegador: string | null; equipo: string | null; momento: string | null }[];
 }>();
+
+const etiquetaAcceso: Record<string, string> = { entrada: 'Entró', salida: 'Salió' };
 
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
 
@@ -179,8 +182,45 @@ function colorCalif(estatusClave: string | null): string | undefined {
             </section>
         </template>
 
+        <!-- Accesos del hijo -->
+        <section v-if="accesos.length" class="tarjeta overflow-hidden">
+            <div class="border-b p-5" :style="{ borderColor: 'var(--color-borde)' }">
+                <h3 class="font-semibold">Accesos recientes</h3>
+                <p class="text-xs" :style="{ color: 'var(--color-suave)' }">Cuándo y desde dónde entró y salió tu hijo.</p>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
+                        <tr>
+                            <th class="px-5 py-3 font-medium">Movimiento</th>
+                            <th class="px-4 py-3 font-medium">Fecha y hora</th>
+                            <th class="px-4 py-3 font-medium">Equipo</th>
+                            <th class="px-4 py-3 font-medium">Navegador</th>
+                            <th class="px-4 py-3 font-medium">IP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(ac, i) in accesos" :key="i" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
+                            <td class="px-5 py-2.5">
+                                <span
+                                    class="rounded-full px-2 py-0.5 text-xs"
+                                    :style="{ backgroundColor: ac.tipo === 'entrada' ? 'color-mix(in srgb, #16a34a 16%, transparent)' : 'var(--color-borde)' }"
+                                >
+                                    {{ etiquetaAcceso[ac.tipo] ?? ac.tipo }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-2.5 tabular-nums" :style="{ color: 'var(--color-suave)' }">{{ ac.momento ?? '—' }}</td>
+                            <td class="px-4 py-2.5">{{ ac.equipo ?? '—' }}</td>
+                            <td class="px-4 py-2.5">{{ ac.navegador ?? '—' }}</td>
+                            <td class="px-4 py-2.5 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ ac.ip ?? '—' }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
         <p
-            v-if="!permisos.academico && !permisos.finanzas"
+            v-if="!permisos.academico && !permisos.finanzas && !accesos.length"
             class="tarjeta px-6 py-12 text-center text-sm"
             :style="{ color: 'var(--color-suave)' }"
         >

@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\LoginRequest;
 use App\Models\Identidad\PersonaRol;
 use App\Models\Identidad\Usuario;
+use App\Services\BitacoraAccesos;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -26,7 +27,7 @@ class AutenticacionController extends Controller
         return Inertia::render('Auth/Login');
     }
 
-    public function login(LoginRequest $request): RedirectResponse
+    public function login(LoginRequest $request, BitacoraAccesos $bitacora): RedirectResponse
     {
         $request->autenticar();
         $request->session()->regenerate();
@@ -38,15 +39,23 @@ class AutenticacionController extends Controller
 
         $usuario->forceFill(['conectado' => true])->save();
 
+        // Se asienta la ENTRADA con el equipo, navegador e IP desde donde entró.
+        $bitacora->entrada($usuario, $request);
+
         return redirect()->intended(route('tenant.dashboard'));
     }
 
-    public function logout(Request $request): RedirectResponse
+    public function logout(Request $request, BitacoraAccesos $bitacora): RedirectResponse
     {
         /** @var Usuario|null $usuario */
         $usuario = Auth::user();
 
         $usuario?->forceFill(['conectado' => false])->save();
+
+        // La SALIDA se asienta antes de cerrar la sesión, mientras aún hay usuario.
+        if ($usuario !== null) {
+            $bitacora->salida($usuario, $request);
+        }
 
         Auth::logout();
         $request->session()->invalidate();

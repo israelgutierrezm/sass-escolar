@@ -37,6 +37,7 @@ use App\Http\Controllers\PlanCobroController;
 use App\Http\Controllers\PlanEstudioController;
 use App\Http\Controllers\PlanMateriaController;
 use App\Http\Controllers\PlantillaEvaluacionController;
+use App\Http\Controllers\AccesosController;
 use App\Http\Controllers\PadreController;
 use App\Http\Controllers\PortalAspiranteController;
 use App\Http\Controllers\PromocionController;
@@ -668,6 +669,10 @@ Route::middleware([
          * Cuentas. `gestionar-usuarios` existía desde el slice de auth y no
          * tenía pantalla: crear una cuenta obligaba a tocar la base.
          */
+        Route::get('plataforma/accesos', [AccesosController::class, 'index'])
+            ->middleware('can:ver-accesos')
+            ->name('tenant.plataforma.accesos.index');
+
         Route::controller(UsuarioController::class)
             ->prefix('plataforma/usuarios')->name('tenant.plataforma.usuarios.')
             ->middleware('can:gestionar-usuarios')

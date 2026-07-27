@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\Historial;
 use App\Models\Finanzas\Factura;
+use App\Models\Identidad\BitacoraAcceso;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\TutorAlumno;
 use App\Services\EstadoCuenta;
@@ -90,6 +91,21 @@ class PadreController extends Controller
             'finanzas' => $vinculo->puede_ver_finanzas
                 ? $matriculas->map(fn (MatriculaOferta $m) => $this->finanzasDe($m))->values()
                 : null,
+            // Los accesos del hijo: un padre puede vigilar cuándo y desde dónde
+            // entra su hijo, aunque no vea sus calificaciones ni sus finanzas.
+            'accesos' => BitacoraAcceso::query()
+                ->where('persona_id', $hijo->id)
+                ->whereIn('tipo', [BitacoraAcceso::ENTRADA, BitacoraAcceso::SALIDA])
+                ->orderByDesc('creado_en')
+                ->limit(20)
+                ->get()
+                ->map(fn (BitacoraAcceso $b) => [
+                    'tipo' => $b->tipo,
+                    'ip' => $b->ip,
+                    'navegador' => $b->navegador,
+                    'equipo' => $b->equipo,
+                    'momento' => $b->creado_en?->toDateTimeString(),
+                ]),
         ]);
     }
 
