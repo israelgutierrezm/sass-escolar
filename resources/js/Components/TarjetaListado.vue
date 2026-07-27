@@ -23,7 +23,7 @@ defineProps<{
     <component
         :is="href ? 'a' : 'div'"
         :href="href"
-        class="tarjeta flex flex-col gap-3 p-4"
+        class="tarjeta flex flex-col gap-3 p-4 transition duration-200 hover:-translate-y-0.5 hover:shadow-lg"
         :class="href ? 'tarjeta-interactiva' : ''"
     >
         <div class="flex items-start justify-between gap-2">

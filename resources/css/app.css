@@ -130,6 +130,32 @@
     .anim-crecer:hover .icono-anim {
         transform: scale(1.1);
     }
+
+    /* Realce de la fila bajo el cursor en las tablas de un listado. Se pinta
+       con un tinte neutro del color de contenido para que funcione en cualquier
+       tema. Solo el cuerpo (no la cabecera). */
+    .tarjeta table tbody tr {
+        transition: background-color 0.15s ease;
+    }
+
+    .tarjeta table tbody tr:hover {
+        background-color: color-mix(in srgb, var(--color-contenido) 5%, transparent);
+    }
+
+    /* Pulso sobrio para el icono de «Filtros» mientras hay algún filtro puesto:
+       un recordatorio discreto de que la lista viene acotada. */
+    @keyframes pulso-filtro {
+        0%, 100% {
+            transform: scale(1);
+        }
+        50% {
+            transform: scale(1.12);
+        }
+    }
+
+    .filtro-activo .icono-anim {
+        animation: pulso-filtro 1.8s ease-in-out infinite;
+    }
 }
 
 @layer utilities {

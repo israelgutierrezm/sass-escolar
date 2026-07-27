@@ -12,11 +12,10 @@ import { computed } from 'vue';
  * el resto son botones fantasma con un fondo tenue de su color, un icono dentro
  * de un pequeño círculo blanco al pasar el cursor y un borde de su propio color.
  *
- * `solo-icono` NO significa ya "sin texto": significa "texto en móvil, solo
- * icono en escritorio". En pantallas chicas el usuario ve la palabra de la
- * acción (más claro con el dedo); en escritorio, donde ya se reconoce el icono
- * y sobran filas, queda compacto. Las acciones poco evidentes (p. ej. «Malla»)
- * se dejan SIN `solo-icono`, así conservan su texto también en escritorio.
+ * `solo-icono` muestra SOLO el icono en reposo (web y móvil). En escritorio,
+ * al pasar el cursor, se revela la palabra de la acción y el icono se anima.
+ * Las acciones poco evidentes (p. ej. «Malla») se dejan SIN `solo-icono`, así
+ * conservan su texto siempre.
  *
  * Con `href` se renderiza como enlace de Inertia; sin él, como `<button>` que
  * emite `click`.
@@ -65,8 +64,8 @@ const cfg = computed(() => CONFIG[props.variante]);
 const etiqueta = computed(() => props.texto ?? cfg.value.etiqueta);
 const esPrimario = computed(() => props.variante === 'nuevo');
 
-// El botón principal va relleno; los demás, fantasma con su color, un fondo
-// tenue PERMANENTE (mismo color al 12 %) y el detalle de hover en el CSS.
+// El botón principal va relleno; los demás, fantasma con su color y un fondo
+// tenue PERMANENTE (mismo color al 12 %); el detalle de hover vive en el CSS.
 const estilo = computed(() =>
     esPrimario.value
         ? { backgroundColor: cfg.value.color, color: 'var(--color-acento-texto)' }
@@ -85,55 +84,40 @@ const estilo = computed(() =>
         class="boton-accion inline-flex items-center gap-1.5 rounded-lg text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40"
         :class="[
             esPrimario ? 'px-3.5 py-2 shadow-sm hover:brightness-110' : 'boton-fantasma py-1.5',
-            esPrimario ? '' : soloIcono ? 'px-2.5 sm:px-2' : 'px-2.5',
+            esPrimario ? '' : soloIcono ? 'px-2' : 'px-2.5',
         ]"
         :style="estilo"
         @click="!href && emit('click')"
     >
-        <span class="icono-caja">
-            <svg class="icono-boton h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" :d="cfg.icono" />
-            </svg>
-        </span>
-        <!-- Texto: siempre visible salvo en escritorio cuando es solo-icono. -->
-        <span :class="soloIcono ? 'sm:hidden' : ''">{{ etiqueta }}</span>
+        <svg class="icono-boton h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" :d="cfg.icono" />
+        </svg>
+        <!-- Solo-icono en reposo (web y móvil); en escritorio se revela la
+             palabra al pasar el cursor. -->
+        <span :class="soloIcono ? 'etiqueta-revelable' : ''">{{ etiqueta }}</span>
     </component>
 </template>
 
 <style scoped>
-/* Los fantasma llevan su fondo tenue SIEMPRE (antes solo en hover) y un borde
-   transparente que se reserva el espacio para no saltar al aparecer en hover. */
+/* Los fantasma llevan su fondo tenue SIEMPRE (mismo color al 12 %). */
 .boton-fantasma {
     background-color: var(--tinte);
-    border: 1px solid transparent;
 }
 
-/* Al pasar el cursor: aparece el borde del color de la acción. El tamaño del
-   botón no cambia (el borde ya estaba reservado). */
-.boton-fantasma:hover {
-    border-color: currentColor;
+/* Etiqueta de un botón solo-icono: oculta en reposo (web y móvil). Se revela
+   al pasar el cursor. No se usa `@media (hover: hover)` a propósito: un laptop
+   táctil lo reporta como `none` y dejaría el texto inaccesible con el mouse.
+   En táctil el `:hover` no persiste, así que en la práctica queda como icono. */
+.etiqueta-revelable {
+    display: none;
 }
 
-/* El icono vive dentro de una cajita circular de tamaño fijo: en reposo es
-   invisible; en hover se pinta de blanco (la superficie del tema) sin sobresalir
-   del botón. */
-.icono-caja {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: 1.5rem;
-    width: 1.5rem;
-    flex-shrink: 0;
-    border-radius: 9999px;
-    transition: background-color 0.2s ease;
+.boton-fantasma:hover .etiqueta-revelable {
+    display: inline;
 }
 
-.boton-fantasma:hover .icono-caja {
-    background-color: var(--color-superficie);
-}
-
-/* La animación del icono ocurre solo en hover (un salto sobrio hacia arriba),
-   no en reposo. */
+/* La animación del icono ocurre al pasar el cursor (un salto sobrio hacia
+   arriba): el mismo gesto en todas las acciones, incluido «Nuevo». */
 .icono-boton {
     transition: transform 0.2s ease;
 }
