@@ -164,40 +164,6 @@ class FacturacionConfigController extends Controller
      */
     private function catalogos(): array
     {
-        return [
-            'usos_cfdi' => [
-                ['clave' => 'G01', 'texto' => 'G01 · Adquisición de mercancías'],
-                ['clave' => 'G03', 'texto' => 'G03 · Gastos en general'],
-                ['clave' => 'D10', 'texto' => 'D10 · Pagos por servicios educativos'],
-                ['clave' => 'P01', 'texto' => 'P01 · Por definir'],
-                ['clave' => 'S01', 'texto' => 'S01 · Sin efectos fiscales'],
-            ],
-            'formas_pago' => [
-                ['clave' => '01', 'texto' => '01 · Efectivo'],
-                ['clave' => '03', 'texto' => '03 · Transferencia electrónica'],
-                ['clave' => '04', 'texto' => '04 · Tarjeta de crédito'],
-                ['clave' => '28', 'texto' => '28 · Tarjeta de débito'],
-                ['clave' => '99', 'texto' => '99 · Por definir'],
-            ],
-            'metodos_pago' => [
-                ['clave' => 'PUE', 'texto' => 'PUE · Pago en una sola exhibición'],
-                ['clave' => 'PPD', 'texto' => 'PPD · Pago en parcialidades o diferido'],
-            ],
-            'exportacion' => [
-                ['clave' => '01', 'texto' => '01 · No aplica'],
-                ['clave' => '02', 'texto' => '02 · Definitiva'],
-                ['clave' => '03', 'texto' => '03 · Temporal'],
-            ],
-            'objeto_impuesto' => [
-                ['clave' => '01', 'texto' => '01 · No objeto de impuesto'],
-                ['clave' => '02', 'texto' => '02 · Sí objeto de impuesto'],
-                ['clave' => '03', 'texto' => '03 · Sí objeto, no obligado al desglose'],
-                ['clave' => '04', 'texto' => '04 · Sí objeto, no causa impuesto'],
-            ],
-            'monedas' => [
-                ['clave' => 'MXN', 'texto' => 'MXN · Peso mexicano'],
-                ['clave' => 'USD', 'texto' => 'USD · Dólar estadounidense'],
-            ],
-        ];
+        return \App\Support\CatalogosSat::todos();
     }
 }

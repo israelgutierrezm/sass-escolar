@@ -2,6 +2,7 @@
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import DatosFiscalesEmisor from '@/Components/DatosFiscalesEmisor.vue';
 
 interface Asignacion {
     id: number;
@@ -13,8 +14,27 @@ interface Emisor {
     id: number;
     rfc: string;
     razon_social: string;
+    nombre_comercial: string | null;
     regimen_fiscal: string;
     cp: string;
+    correo_fiscal: string | null;
+    telefono: string | null;
+    calle: string | null;
+    num_exterior: string | null;
+    num_interior: string | null;
+    colonia: string | null;
+    municipio: string | null;
+    estado: string | null;
+    pais: string | null;
+    facturapi_id: string | null;
+    uso_cfdi_default: string | null;
+    serie_default: string | null;
+    folio_inicial: number | null;
+    moneda_default: string | null;
+    forma_pago_default: string | null;
+    metodo_pago_default: string | null;
+    exportacion_default: string | null;
+    objeto_impuesto_default: string | null;
     activo: boolean;
     puede_timbrar: boolean;
     tiene_certificado: boolean;
@@ -27,12 +47,27 @@ const props = defineProps<{
     emisores: Emisor[];
     destinos: { nivel: { id: number; nombre: string }[]; carrera: { id: number; nombre: string }[] };
     carrerasSinAsignar: string[];
+    catalogos: Record<string, { clave: string; texto: string }[]>;
 }>();
 
 const creando = ref(false);
 const expandido = ref<number | null>(null);
 
-const alta = useForm({ rfc: '', razon_social: '', regimen_fiscal: '601', cp: '', activo: true });
+/** Campos fiscales en blanco (para el alta). */
+function fiscalVacio() {
+    return {
+        rfc: '', razon_social: '', nombre_comercial: '', regimen_fiscal: '601', cp: '',
+        correo_fiscal: '', telefono: '',
+        calle: '', num_exterior: '', num_interior: '', colonia: '', municipio: '', estado: '', pais: 'MEX',
+        facturapi_id: '',
+        uso_cfdi_default: '', serie_default: '', folio_inicial: null as number | null,
+        moneda_default: '', forma_pago_default: '', metodo_pago_default: '',
+        exportacion_default: '', objeto_impuesto_default: '',
+        activo: true,
+    };
+}
+
+const alta = useForm(fiscalVacio());
 
 function crear(): void {
     alta.post('/finanzas/emisores', {
@@ -41,6 +76,29 @@ function crear(): void {
             creando.value = false;
         },
     });
+}
+
+/* Edición de los datos fiscales de una razón social ya creada. */
+const datos = useForm(fiscalVacio());
+
+function abrirConfig(emisor: Emisor): void {
+    if (expandido.value === emisor.id) {
+        expandido.value = null;
+        return;
+    }
+
+    expandido.value = emisor.id;
+
+    // Solo los campos fiscales del emisor entran al formulario (nada de id,
+    // asignaciones ni banderas de UI).
+    const base = fiscalVacio();
+    for (const clave of Object.keys(base) as (keyof typeof base)[]) {
+        (datos as any)[clave] = (emisor as any)[clave] ?? base[clave];
+    }
+}
+
+function guardarDatos(emisor: Emisor): void {
+    datos.put(`/finanzas/emisores/${emisor.id}`, { preserveScroll: true });
 }
 
 const asignacion = useForm({ aplica_a_tipo: 'nivel', aplica_a_id: null as number | null });
@@ -136,26 +194,7 @@ const etiquetaTipo: Record<string, string> = {
             </div>
 
             <form v-if="creando" class="mt-5 border-t pt-5" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="crear">
-                <div class="grid gap-4 sm:grid-cols-4">
-                    <label class="text-sm">
-                        <span class="mb-1 block font-medium">RFC</span>
-                        <input v-model="alta.rfc" type="text" required maxlength="13" class="w-full rounded-lg border px-3 py-2 font-mono text-sm uppercase" :style="{ borderColor: 'var(--color-borde)' }" />
-                        <span v-if="alta.errors.rfc" class="text-xs text-red-600">{{ alta.errors.rfc }}</span>
-                    </label>
-                    <label class="text-sm sm:col-span-2">
-                        <span class="mb-1 block font-medium">Razón social</span>
-                        <input v-model="alta.razon_social" type="text" required class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                    </label>
-                    <label class="text-sm">
-                        <span class="mb-1 block font-medium">Régimen fiscal</span>
-                        <input v-model="alta.regimen_fiscal" type="text" required maxlength="5" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                    </label>
-                    <label class="text-sm">
-                        <span class="mb-1 block font-medium">CP fiscal</span>
-                        <input v-model="alta.cp" type="text" required maxlength="5" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                        <span v-if="alta.errors.cp" class="text-xs text-red-600">{{ alta.errors.cp }}</span>
-                    </label>
-                </div>
+                <DatosFiscalesEmisor :form="alta" :catalogos="catalogos" />
                 <div class="mt-4 flex gap-2">
                     <button type="submit" :disabled="alta.processing" class="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50" :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }">
                         Crear
@@ -186,7 +225,7 @@ const etiquetaTipo: Record<string, string> = {
                     </p>
                 </div>
                 <div class="flex gap-2">
-                    <button type="button" class="rounded-lg border px-3 py-1.5 text-sm" :style="{ borderColor: 'var(--color-borde)' }" @click="expandido = expandido === emisor.id ? null : emisor.id">
+                    <button type="button" class="rounded-lg border px-3 py-1.5 text-sm" :style="{ borderColor: 'var(--color-borde)' }" @click="abrirConfig(emisor)">
                         {{ expandido === emisor.id ? 'Cerrar' : 'Configurar' }}
                     </button>
                     <button v-if="emisor.facturas_count === 0" type="button" class="rounded-lg border px-3 py-1.5 text-sm text-red-600" :style="{ borderColor: 'var(--color-borde)' }" @click="eliminar(emisor)">
@@ -212,7 +251,18 @@ const etiquetaTipo: Record<string, string> = {
             </div>
 
             <div v-if="expandido === emisor.id" class="mt-5 space-y-6 border-t pt-5" :style="{ borderColor: 'var(--color-borde)' }">
-                <form class="grid gap-3 sm:grid-cols-[auto_1fr_auto]" @submit.prevent="asignar(emisor)">
+                <form @submit.prevent="guardarDatos(emisor)">
+                    <h4 class="text-sm font-semibold">Datos fiscales</h4>
+                    <p class="mb-3 text-sm" :style="{ color: 'var(--color-suave)' }">
+                        Los que Facturapi necesita para timbrar a nombre de esta razón social.
+                    </p>
+                    <DatosFiscalesEmisor :form="datos" :catalogos="catalogos" />
+                    <button type="submit" :disabled="datos.processing" class="mt-4 rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50" :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }">
+                        Guardar datos fiscales
+                    </button>
+                </form>
+
+                <form class="grid gap-3 border-t pt-5 sm:grid-cols-[auto_1fr_auto]" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="asignar(emisor)">
                     <label class="text-sm">
                         <span class="mb-1 block font-medium">Aplica a</span>
                         <select v-model="asignacion.aplica_a_tipo" class="rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
