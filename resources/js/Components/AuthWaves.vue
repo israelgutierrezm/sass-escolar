@@ -7,18 +7,18 @@ import WAVES from 'vanta/dist/vanta.waves.min';
 import BIRDS from 'vanta/dist/vanta.birds.min';
 
 /**
- * Marco de las pantallas de acceso: el FORMULARIO a la izquierda y, a la
- * derecha, un CÍRCULO con un efecto animado de vanta.js adentro —«Waves» u
- * «Birds», elegido al azar en cada visita—. El efecto se recorta al círculo,
- * así queda contenido y no invade la lectura del formulario.
+ * Marco de las pantallas de acceso.
  *
- * Se usan los COLORES POR DEFECTO de vanta (el azul propio de Waves y la
- * parvada de Birds), que sí se aprecian; un color forzado dejaba el agua
- * invisible. Si vanta o WebGL fallan, el círculo queda con su degradado y el
- * acceso sigue funcionando.
+ * En escritorio: el FORMULARIO a la izquierda y a la DERECHA un panel completo
+ * con un efecto animado de vanta.js —«Waves» u «Birds», al azar—, con sus
+ * colores por defecto (el azul del ejemplo, que sí se aprecia).
  *
- * En pantallas chicas el panel del círculo se oculta y el formulario ocupa todo
- * el ancho.
+ * En móvil: el mismo efecto se vuelve una CABECERA azul arriba, con un borde
+ * ondulado que baja hacia el formulario blanco —al estilo de las apps de
+ * acceso—, y el formulario debajo.
+ *
+ * Si vanta o WebGL fallan, el panel queda con su degradado azul y el acceso
+ * sigue funcionando.
  */
 const fondo = ref<HTMLElement | null>(null);
 let efecto: { destroy: () => void } | null = null;
@@ -41,10 +41,15 @@ onMounted(() => {
     };
 
     try {
-        // Colores por defecto de cada efecto: nada de overrides de color.
-        efecto = Math.random() < 0.5 ? BIRDS(base) : WAVES(base);
+        // Ambos efectos en AZUL: el ejemplo de Waves (0x005588) se ve muy
+        // oscuro a escala chica, así que se sube a un azul claro; Birds recibe
+        // un fondo azul en vez del navy casi negro de fábrica. Así la cabecera
+        // (móvil) y el panel (escritorio) quedan francamente azules.
+        efecto = Math.random() < 0.5
+            ? BIRDS({ ...base, backgroundColor: 0x1e40af, color1: 0x60a5fa, color2: 0xbfdbfe })
+            : WAVES({ ...base, color: 0x1e5fd0, shininess: 55, waveHeight: 18, waveSpeed: 0.85 });
     } catch {
-        // Sin WebGL el círculo se queda con su degradado; el acceso no se rompe.
+        // Sin WebGL queda el degradado; el acceso no se rompe.
     }
 });
 
@@ -58,9 +63,25 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <div class="flex min-h-screen w-full">
-        <!-- IZQUIERDA: formulario -->
-        <div class="flex w-full items-center justify-center bg-white px-6 py-10 lg:w-[46%]">
+    <div class="flex min-h-screen flex-col lg:flex-row">
+        <!-- Panel de vanta: cabecera arriba en móvil, columna derecha en escritorio -->
+        <div class="panel-vanta relative order-first h-56 w-full overflow-hidden sm:h-64 lg:order-last lg:h-auto lg:w-[52%]">
+            <div ref="fondo" class="absolute inset-0"></div>
+
+            <!-- Onda blanca inferior: transición suave hacia el formulario. Solo móvil. -->
+            <svg
+                class="absolute inset-x-0 -bottom-px h-12 w-full lg:hidden"
+                viewBox="0 0 1440 120"
+                preserveAspectRatio="none"
+                fill="#ffffff"
+                aria-hidden="true"
+            >
+                <path d="M0,70 C240,120 480,20 720,55 C960,90 1200,25 1440,65 L1440,120 L0,120 Z" />
+            </svg>
+        </div>
+
+        <!-- Panel del formulario -->
+        <div class="order-2 flex flex-1 items-center justify-center bg-white px-6 py-8 lg:order-first lg:py-10">
             <div class="entra w-full max-w-sm">
                 <div class="mb-8 flex flex-col items-center text-center lg:items-start lg:text-left">
                     <span class="logo grid h-14 w-14 place-items-center rounded-2xl text-white shadow-lg">
@@ -77,22 +98,6 @@ onBeforeUnmount(() => {
                 <slot />
             </div>
         </div>
-
-        <!-- DERECHA: círculo con el efecto de vanta -->
-        <div class="panel-derecho relative hidden w-[54%] items-center justify-center overflow-hidden lg:flex">
-            <!-- Anillos decorativos detrás del círculo -->
-            <div class="anillo absolute aspect-square w-[92%] max-w-[680px] rounded-full border border-white/40"></div>
-            <div class="anillo anillo-2 absolute aspect-square w-[78%] max-w-[580px] rounded-full border border-white/30"></div>
-
-            <!-- El círculo con vanta adentro -->
-            <div class="flota relative aspect-square w-[70%] max-w-[520px]">
-                <div class="absolute inset-0 overflow-hidden rounded-full shadow-2xl ring-8 ring-white/40">
-                    <div ref="fondo" class="h-full w-full" style="background: linear-gradient(135deg, #0b3d66, #0a6e8f)"></div>
-                </div>
-                <!-- Brillo sobre el círculo para darle volumen -->
-                <div class="pointer-events-none absolute inset-0 rounded-full" style="background: radial-gradient(60% 50% at 35% 25%, rgba(255,255,255,0.35), transparent 60%)"></div>
-            </div>
-        </div>
     </div>
 </template>
 
@@ -101,11 +106,12 @@ onBeforeUnmount(() => {
     background-image: linear-gradient(135deg, #2f6fed, #4f46e5);
 }
 
-.panel-derecho {
-    background-image: linear-gradient(135deg, #eaf1ff 0%, #dfe7ff 55%, #eef2ff 100%);
+/* Degradado azul de respaldo: se ve mientras carga vanta o si WebGL falla.
+   Mantiene la cabecera «azul» aunque el efecto no aparezca. */
+.panel-vanta {
+    background-image: linear-gradient(140deg, #1e3a8a 0%, #2563eb 55%, #0ea5e9 100%);
 }
 
-/* Entrada del formulario. */
 @keyframes entrar {
     from {
         opacity: 0;
@@ -121,41 +127,8 @@ onBeforeUnmount(() => {
     animation: entrar 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* El círculo flota con calma. */
-@keyframes flotar {
-    0%,
-    100% {
-        transform: translateY(0) scale(1);
-    }
-    50% {
-        transform: translateY(-12px) scale(1.015);
-    }
-}
-
-.flota {
-    animation: flotar 7s ease-in-out infinite;
-}
-
-/* Los anillos giran despacio en sentidos opuestos. */
-@keyframes girar {
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-.anillo {
-    animation: girar 60s linear infinite;
-}
-
-.anillo-2 {
-    animation-direction: reverse;
-    animation-duration: 45s;
-}
-
 @media (prefers-reduced-motion: reduce) {
-    .entra,
-    .flota,
-    .anillo {
+    .entra {
         animation: none;
     }
 }
