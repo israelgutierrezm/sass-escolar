@@ -43,9 +43,11 @@ defineProps<{
             </div>
         </dl>
 
+        <!-- En la cuadrícula las acciones se separan a los extremos: editar a la
+             izquierda, eliminar a la derecha (y lo que haya en medio, al centro). -->
         <div
             v-if="$slots.acciones"
-            class="mt-auto flex items-center justify-end gap-1 border-t pt-3"
+            class="mt-auto flex items-center justify-between gap-1 border-t pt-3"
             :style="{ borderColor: 'var(--color-borde)' }"
         >
             <slot name="acciones" />
