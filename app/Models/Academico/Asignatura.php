@@ -81,9 +81,11 @@ class Asignatura extends Model
         return $this->hasMany(PlanMateria::class, 'asignatura_id');
     }
 
-    /** Descriptores del programa que esta asignatura incluye. */
+    /** Descriptores del programa que esta asignatura incluye, con su contenido. */
     public function descriptores(): BelongsToMany
     {
-        return $this->belongsToMany(Descriptor::class, 'asignatura_descriptor')->withTimestamps();
+        return $this->belongsToMany(Descriptor::class, 'asignatura_descriptor')
+            ->withPivot('contenido')
+            ->withTimestamps();
     }
 }

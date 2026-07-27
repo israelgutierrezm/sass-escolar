@@ -91,14 +91,7 @@ class AsignaturaController extends Controller
 
         $asignatura = Asignatura::create($datos);
 
-        // Al crear, si no se tocó nada, van TODOS los descriptores marcados
-        // —es el default que pidió el cliente—. Solo si vino la clave y quedó
-        // vacía a propósito se guardan cero.
-        $descriptores = $request->has('descriptores')
-            ? ($datos['descriptores'] ?? [])
-            : Descriptor::query()->pluck('id')->all();
-
-        $asignatura->descriptores()->sync($descriptores);
+        $asignatura->descriptores()->sync($this->pivoteDescriptores($datos['descriptores'] ?? []));
 
         return redirect()
             ->route('tenant.academico.asignaturas.edit', $asignatura)
@@ -107,7 +100,7 @@ class AsignaturaController extends Controller
 
     public function edit(Asignatura $asignatura): Response
     {
-        $asignatura->load('descriptores:id');
+        $asignatura->load('descriptores');
 
         return Inertia::render('Academico/Asignaturas/Formulario', [
             'asignatura' => [
@@ -116,7 +109,11 @@ class AsignaturaController extends Controller
                     'clasificacion_id', 'area_id', 'horas_teoria', 'horas_practica',
                     'horas_acompanamiento', 'horas_independientes',
                 ]),
-                'descriptores' => $asignatura->descriptores->pluck('id'),
+                'descriptores' => $asignatura->descriptores->map(fn (Descriptor $d) => [
+                    'descriptor_id' => $d->id,
+                    'nombre' => $d->nombre,
+                    'contenido' => $d->pivot->contenido,
+                ])->values(),
                 'imagenes' => $asignatura->urlsDiseno(),
             ],
             ...$this->catalogos(),
@@ -128,7 +125,7 @@ class AsignaturaController extends Controller
         $datos = $this->validar($request, $asignatura->id);
 
         $asignatura->update($datos);
-        $asignatura->descriptores()->sync($datos['descriptores'] ?? []);
+        $asignatura->descriptores()->sync($this->pivoteDescriptores($datos['descriptores'] ?? []));
 
         return redirect()->route('tenant.academico.asignaturas.index')->with('exito', 'Asignatura actualizada.');
     }
@@ -165,11 +162,13 @@ class AsignaturaController extends Controller
             'horas_practica' => ['nullable', 'integer', 'min:0'],
             'horas_acompanamiento' => ['nullable', 'integer', 'min:0'],
             'horas_independientes' => ['nullable', 'integer', 'min:0'],
-            // Los descriptores son ahora una selección múltiple del catálogo,
-            // no dos textos libres. Las columnas objetivos/bibliografía siguen
-            // en la tabla pero ya no se capturan aquí.
+            // Los descriptores son ahora bloques de texto enriquecido tomados
+            // del catálogo: cada uno trae su id y su contenido (HTML) propio de
+            // ESTA asignatura. Las columnas objetivos/bibliografía siguen en la
+            // tabla pero ya no se capturan aquí.
             'descriptores' => ['array'],
-            'descriptores.*' => ['integer', Rule::exists('descriptores', 'id')->whereNull('deleted_at')],
+            'descriptores.*.descriptor_id' => ['required', 'integer', Rule::exists('descriptores', 'id')->whereNull('deleted_at')],
+            'descriptores.*.contenido' => ['nullable', 'string'],
         ], [], [
             'tipo_asignatura_id' => 'tipo de asignatura',
             'clasificacion_id' => 'clasificación',
@@ -179,6 +178,22 @@ class AsignaturaController extends Controller
             'horas_acompanamiento' => 'horas de acompañamiento',
             'horas_independientes' => 'horas independientes',
         ]);
+    }
+
+    /**
+     * Traduce la lista `[{descriptor_id, contenido}]` del formulario al formato
+     * que espera `sync()`: `[descriptor_id => ['contenido' => ...]]`. Descarta
+     * duplicados quedándose con el último (si el front mandara dos veces el
+     * mismo descriptor, gana el contenido más reciente).
+     *
+     * @param  array<int, array{descriptor_id: int, contenido?: string|null}>  $descriptores
+     * @return array<int, array{contenido: string|null}>
+     */
+    private function pivoteDescriptores(array $descriptores): array
+    {
+        return collect($descriptores)
+            ->mapWithKeys(fn (array $d) => [$d['descriptor_id'] => ['contenido' => $d['contenido'] ?? null]])
+            ->all();
     }
 
     /**

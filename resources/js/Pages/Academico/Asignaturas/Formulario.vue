@@ -5,11 +5,17 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
-import CampoCasillas from '@/Components/CampoCasillas.vue';
+import EditorTexto from '@/Components/EditorTexto.vue';
 
 interface Opcion {
     id: number;
     nombre: string;
+}
+
+interface DescriptorAsignatura {
+    descriptor_id: number;
+    nombre: string;
+    contenido: string | null;
 }
 
 const props = defineProps<{
@@ -34,14 +40,34 @@ const form = useForm({
     horas_practica: props.asignatura?.horas_practica ?? null,
     horas_acompanamiento: props.asignatura?.horas_acompanamiento ?? null,
     horas_independientes: props.asignatura?.horas_independientes ?? null,
-    // Al crear, TODOS los descriptores vienen marcados (lo pidió el cliente);
-    // al editar, los que la asignatura ya tenía.
-    descriptores: esEdicion.value
-        ? [...(props.asignatura?.descriptores ?? [])]
-        : props.descriptores.map((d) => d.id),
+    // Cada descriptor incluido lleva su propio texto enriquecido. Se agregan a
+    // demanda desde el catálogo; no vienen todos por defecto.
+    descriptores: [...((props.asignatura?.descriptores ?? []) as DescriptorAsignatura[])],
 });
 
 const opciones = (lista: Opcion[]) => lista.map((item) => ({ valor: item.id, texto: item.nombre }));
+
+// Descriptores del catálogo que aún no se han agregado a esta asignatura.
+const disponibles = computed(() =>
+    props.descriptores.filter((d) => !form.descriptores.some((e) => e.descriptor_id === d.id)),
+);
+
+const porAgregar = ref<number | null>(null);
+
+function agregarDescriptor(): void {
+    const elegido = props.descriptores.find((d) => d.id === porAgregar.value);
+
+    if (!elegido) {
+        return;
+    }
+
+    form.descriptores.push({ descriptor_id: elegido.id, nombre: elegido.nombre, contenido: '' });
+    porAgregar.value = null;
+}
+
+function quitarDescriptor(indice: number): void {
+    form.descriptores.splice(indice, 1);
+}
 
 function enviar(): void {
     esEdicion.value
@@ -144,19 +170,61 @@ function quitarImagen(tipo: string): void {
             </section>
 
             <section class="tarjeta p-6">
-                <h2 class="text-base font-semibold">Descriptores</h2>
-                <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                    Los apartados que tendrá el programa de esta asignatura. Al crearla vienen todos marcados.
+                <div class="flex flex-wrap items-end justify-between gap-4">
+                    <div>
+                        <h2 class="text-base font-semibold">Descriptores del programa</h2>
+                        <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
+                            Agrega los apartados que tendrá el programa de esta asignatura y captura su contenido.
+                        </p>
+                    </div>
+
+                    <div class="flex items-end gap-2">
+                        <div class="w-56">
+                            <CampoSelect
+                                v-model="porAgregar"
+                                etiqueta="Agregar apartado"
+                                :opciones="opciones(disponibles)"
+                                :vacio="disponibles.length ? 'Elige del catálogo…' : 'Ya agregaste todos'"
+                            />
+                        </div>
+                        <button
+                            type="button"
+                            :disabled="porAgregar === null"
+                            class="mb-0.5 rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
+                            :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+                            @click="agregarDescriptor"
+                        >
+                            Agregar
+                        </button>
+                    </div>
+                </div>
+
+                <p
+                    v-if="form.descriptores.length === 0"
+                    class="mt-5 rounded-lg border border-dashed px-4 py-6 text-center text-sm"
+                    :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }"
+                >
+                    Aún no has agregado apartados. Elige uno del catálogo para capturar su contenido.
                 </p>
 
-                <div class="mt-5">
-                    <CampoCasillas
-                        v-model="form.descriptores"
-                        etiqueta="Apartados incluidos"
-                        :opciones="opciones(descriptores)"
-                        :error="form.errors.descriptores"
-                    />
+                <div v-else class="mt-5 space-y-5">
+                    <div v-for="(descriptor, indice) in form.descriptores" :key="descriptor.descriptor_id">
+                        <div class="mb-1.5 flex items-center justify-between">
+                            <label class="text-sm font-medium">{{ descriptor.nombre }}</label>
+                            <button
+                                type="button"
+                                class="text-xs"
+                                :style="{ color: 'var(--color-suave)' }"
+                                @click="quitarDescriptor(indice)"
+                            >
+                                Quitar
+                            </button>
+                        </div>
+                        <EditorTexto v-model="descriptor.contenido" />
+                    </div>
                 </div>
+
+                <p v-if="form.errors.descriptores" class="mt-2 text-sm text-red-600">{{ form.errors.descriptores }}</p>
             </section>
 
             <!-- Diseño de asignatura: solo en edición, porque las imágenes se
