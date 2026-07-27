@@ -103,6 +103,10 @@ final class CatalogoPermisos
             'asentar-acta' => ['Firmar actas', 'Cerrar el acta y asentar en kárdex. Una calificación asentada ya no se edita.', [self::ADMINISTRATIVO, self::DOCENTE]],
         ],
 
+        'Familia' => [
+            'ver-mis-hijos' => ['Ver a mis hijos', 'Portal del padre o tutor familiar: la información de los alumnos que tiene vinculados.', [self::PADRE]],
+        ],
+
         'Docencia' => [
             'ver-mis-materias' => ['Ver mis materias', 'Portal del docente: solo las materias que imparte.', [self::DOCENTE]],
             'editar-mi-expediente' => ['Editar mi expediente', 'Que el docente corrija sus datos y suba sus comprobantes.', [self::DOCENTE]],

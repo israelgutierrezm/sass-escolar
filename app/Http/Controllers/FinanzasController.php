@@ -144,7 +144,7 @@ class FinanzasController extends Controller
         $ambito = $request->user()->rolActivo?->ambitoDePermisos();
 
         abort_if(
-            in_array($ambito, ['alumno', 'padre', 'tutor'], true)
+            in_array($ambito, ['alumno', 'padre_familia', 'tutor_educativo'], true)
                 && $matricula->persona_id !== $request->user()->persona_id,
             403,
         );

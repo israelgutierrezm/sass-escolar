@@ -37,6 +37,7 @@ use App\Http\Controllers\PlanCobroController;
 use App\Http\Controllers\PlanEstudioController;
 use App\Http\Controllers\PlanMateriaController;
 use App\Http\Controllers\PlantillaEvaluacionController;
+use App\Http\Controllers\PadreController;
 use App\Http\Controllers\PortalAspiranteController;
 use App\Http\Controllers\PromocionController;
 use App\Http\Controllers\RolActivoController;
@@ -579,6 +580,19 @@ Route::middleware([
                 Route::put('/datos', 'guardarDatos')->name('datos');
                 Route::post('/documentos', 'subirDocumento')->name('documentos');
                 Route::get('/documentos/{documento}', 'descargarDocumento')->name('documentos.descargar');
+            });
+
+        /*
+         * Portal del padre / tutor familiar. El permiso `ver-mis-hijos` deja
+         * entrar; el alcance real —a QUÉ hijos y a QUÉ de cada uno— lo resuelve
+         * el vínculo `tutores_alumno` dentro del controlador, no la ruta.
+         */
+        Route::controller(PadreController::class)
+            ->prefix('mis-hijos')->name('tenant.padre.')
+            ->middleware('can:ver-mis-hijos')
+            ->group(function () {
+                Route::get('/', 'misHijos')->name('index');
+                Route::get('{hijo}', 'hijo')->whereNumber('hijo')->name('hijo');
             });
 
         /*

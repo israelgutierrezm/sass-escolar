@@ -105,7 +105,7 @@ class PermisoSeeder extends Seeder
         // su alcance es su propia persona, no un permiso amplio.
         'aspirante' => ['llenar-mi-solicitud'],
         'tutor_educativo' => ['ver-alumnos', 'ver-kardex'],
-        'padre_familia' => ['ver-kardex', 'ver-adeudos'],
+        'padre_familia' => ['ver-mis-hijos', 'ver-kardex', 'ver-adeudos'],
     ];
 
     public function run(): void
