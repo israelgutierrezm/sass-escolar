@@ -39,6 +39,7 @@ use App\Http\Controllers\PlanMateriaController;
 use App\Http\Controllers\PlantillaEvaluacionController;
 use App\Http\Controllers\AccesosController;
 use App\Http\Controllers\PadreController;
+use App\Http\Controllers\RecuperacionController;
 use App\Http\Controllers\PortalAspiranteController;
 use App\Http\Controllers\PromocionController;
 use App\Http\Controllers\RolActivoController;
@@ -88,6 +89,15 @@ Route::middleware([
     Route::middleware('guest')->group(function () {
         Route::get('/', [AutenticacionController::class, 'mostrarLogin'])->name('tenant.login');
         Route::post('/login', [AutenticacionController::class, 'login'])->name('tenant.login.enviar');
+
+        // Recuperación de contraseña. Los nombres van SIN prefijo `tenant.`
+        // porque la notificación de Laravel arma la URL con `route('password.reset')`.
+        Route::controller(RecuperacionController::class)->group(function () {
+            Route::get('/recuperar', 'solicitar')->name('password.request');
+            Route::post('/recuperar', 'enviarEnlace')->name('password.email');
+            Route::get('/restablecer/{token}', 'restablecer')->name('password.reset');
+            Route::post('/restablecer', 'actualizar')->name('password.update');
+        });
     });
 
     // `rol.activo` revalida en cada request que el rol activo siga siendo

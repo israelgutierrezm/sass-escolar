@@ -21,6 +21,8 @@
         "vue-tsc": "^3.3.7"
     },
     "dependencies": {
+        "three": "^0.185.1",
+        "vanta": "^0.5.24",
         "vue-sonner": "^2.0.9"
     }
 }
