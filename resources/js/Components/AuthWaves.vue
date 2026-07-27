@@ -7,22 +7,23 @@ import WAVES from 'vanta/dist/vanta.waves.min';
 import BIRDS from 'vanta/dist/vanta.birds.min';
 
 /**
- * Marco de las pantallas de acceso (login, recuperación): un fondo animado que
- * alterna AL AZAR entre dos efectos de vanta.js —«Waves» (olas) y «Birds»
- * (parvada)—, con la figura y la tarjeta translúcida encima. Cada visita puede
- * traer uno u otro, para que la entrada no se sienta siempre igual.
+ * Marco de las pantallas de acceso: el FORMULARIO a la izquierda y, a la
+ * derecha, un CÍRCULO con un efecto animado de vanta.js adentro —«Waves» u
+ * «Birds», elegido al azar en cada visita—. El efecto se recorta al círculo,
+ * así queda contenido y no invade la lectura del formulario.
  *
- * El efecto es decorativo: si vanta o WebGL fallan, se descarta el error y
- * queda el fondo sólido, sin romper el acceso. Los dos efectos comparten el
- * mismo azul marino de fondo para que la tarjeta se vea igual caiga cual caiga.
+ * Se usan los COLORES POR DEFECTO de vanta (el azul propio de Waves y la
+ * parvada de Birds), que sí se aprecian; un color forzado dejaba el agua
+ * invisible. Si vanta o WebGL fallan, el círculo queda con su degradado y el
+ * acceso sigue funcionando.
+ *
+ * En pantallas chicas el panel del círculo se oculta y el formulario ocupa todo
+ * el ancho.
  */
-const FONDO = 0x0b1f3a;
-
 const fondo = ref<HTMLElement | null>(null);
-const efectoActivo = ref<'olas' | 'parvada'>('olas');
 let efecto: { destroy: () => void } | null = null;
 
-function iniciar(): void {
+onMounted(() => {
     if (fondo.value === null) {
         return;
     }
@@ -39,38 +40,13 @@ function iniciar(): void {
         scaleMobile: 1,
     };
 
-    const usarParvada = Math.random() < 0.5;
-    efectoActivo.value = usarParvada ? 'parvada' : 'olas';
-
     try {
-        efecto = usarParvada
-            ? BIRDS({
-                ...base,
-                backgroundColor: FONDO,
-                color1: 0x2f6fed,
-                color2: 0x39c0f0,
-                birdSize: 1.2,
-                wingSpan: 26,
-                speedLimit: 4,
-                separation: 45,
-                alignment: 28,
-                cohesion: 28,
-                quantity: 3,
-            })
-            : WAVES({
-                ...base,
-                color: 0x102a4c,
-                shininess: 45,
-                waveHeight: 17,
-                waveSpeed: 0.8,
-                zoom: 0.9,
-            });
+        // Colores por defecto de cada efecto: nada de overrides de color.
+        efecto = Math.random() < 0.5 ? BIRDS(base) : WAVES(base);
     } catch {
-        // Sin WebGL el fondo se queda sólido; el acceso sigue funcionando.
+        // Sin WebGL el círculo se queda con su degradado; el acceso no se rompe.
     }
-}
-
-onMounted(iniciar);
+});
 
 onBeforeUnmount(() => {
     try {
@@ -82,49 +58,54 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <div class="marco relative min-h-screen w-full overflow-hidden" :style="{ backgroundColor: '#0b1f3a' }">
-        <!-- Lienzo del efecto de vanta -->
-        <div ref="fondo" class="absolute inset-0"></div>
-
-        <!-- Velo con degradado para dar profundidad y que el texto contraste. -->
-        <div class="velo pointer-events-none absolute inset-0"></div>
-
-        <!-- Contenido -->
-        <div class="relative z-10 flex min-h-screen items-center justify-center px-4 py-10">
-            <div class="w-full max-w-md">
-                <div class="mb-6 flex flex-col items-center text-center">
-                    <span class="entra logo grid h-16 w-16 place-items-center rounded-2xl bg-white/10 ring-1 ring-white/20 backdrop-blur">
-                        <svg class="flota h-9 w-9 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+    <div class="flex min-h-screen w-full">
+        <!-- IZQUIERDA: formulario -->
+        <div class="flex w-full items-center justify-center bg-white px-6 py-10 lg:w-[46%]">
+            <div class="entra w-full max-w-sm">
+                <div class="mb-8 flex flex-col items-center text-center lg:items-start lg:text-left">
+                    <span class="logo grid h-14 w-14 place-items-center rounded-2xl text-white shadow-lg">
+                        <svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 14l9-5-9-5-9 5 9 5z" />
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 14l6.16-3.42A12 12 0 0 1 12 21a12 12 0 0 1-6.16-10.42L12 14z" />
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 9v5" />
                         </svg>
                     </span>
-                    <h1 class="entra d1 mt-3 text-3xl font-bold tracking-tight text-white drop-shadow">Acadion</h1>
-                    <div class="entra d2">
-                        <slot name="subtitulo" />
-                    </div>
+                    <h1 class="mt-4 text-2xl font-bold tracking-tight text-slate-800">Acadion</h1>
+                    <slot name="subtitulo" />
                 </div>
 
-                <div class="entra d3 tarjeta-acceso rounded-2xl border border-white/20 bg-white/95 p-8 shadow-2xl backdrop-blur-xl">
-                    <slot />
+                <slot />
+            </div>
+        </div>
+
+        <!-- DERECHA: círculo con el efecto de vanta -->
+        <div class="panel-derecho relative hidden w-[54%] items-center justify-center overflow-hidden lg:flex">
+            <!-- Anillos decorativos detrás del círculo -->
+            <div class="anillo absolute aspect-square w-[92%] max-w-[680px] rounded-full border border-white/40"></div>
+            <div class="anillo anillo-2 absolute aspect-square w-[78%] max-w-[580px] rounded-full border border-white/30"></div>
+
+            <!-- El círculo con vanta adentro -->
+            <div class="flota relative aspect-square w-[70%] max-w-[520px]">
+                <div class="absolute inset-0 overflow-hidden rounded-full shadow-2xl ring-8 ring-white/40">
+                    <div ref="fondo" class="h-full w-full" style="background: linear-gradient(135deg, #0b3d66, #0a6e8f)"></div>
                 </div>
+                <!-- Brillo sobre el círculo para darle volumen -->
+                <div class="pointer-events-none absolute inset-0 rounded-full" style="background: radial-gradient(60% 50% at 35% 25%, rgba(255,255,255,0.35), transparent 60%)"></div>
             </div>
         </div>
     </div>
 </template>
 
 <style scoped>
-/* Velo: oscurece las orillas y añade un tinte para que el fondo animado no
-   compita con la tarjeta ni con el texto. */
-.velo {
-    background:
-        radial-gradient(120% 90% at 50% 0%, transparent 40%, rgba(4, 12, 26, 0.55) 100%),
-        linear-gradient(180deg, rgba(4, 12, 26, 0.15), rgba(4, 12, 26, 0.45));
+.logo {
+    background-image: linear-gradient(135deg, #2f6fed, #4f46e5);
 }
 
-/* Entrada escalonada: el logo, el título y la tarjeta suben y aparecen en
-   secuencia. Sobrio, no aparatoso. */
+.panel-derecho {
+    background-image: linear-gradient(135deg, #eaf1ff 0%, #dfe7ff 55%, #eef2ff 100%);
+}
+
+/* Entrada del formulario. */
 @keyframes entrar {
     from {
         opacity: 0;
@@ -140,42 +121,41 @@ onBeforeUnmount(() => {
     animation: entrar 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.d1 {
-    animation-delay: 0.08s;
-}
-
-.d2 {
-    animation-delay: 0.16s;
-}
-
-.d3 {
-    animation-delay: 0.24s;
-}
-
-/* Flotar: el birrete sube y baja apenas, con calma. */
+/* El círculo flota con calma. */
 @keyframes flotar {
     0%,
     100% {
-        transform: translateY(0);
+        transform: translateY(0) scale(1);
     }
     50% {
-        transform: translateY(-4px);
+        transform: translateY(-12px) scale(1.015);
     }
 }
 
 .flota {
-    animation: flotar 4s ease-in-out infinite;
+    animation: flotar 7s ease-in-out infinite;
 }
 
-.tarjeta-acceso {
-    box-shadow:
-        0 24px 60px -20px rgba(0, 0, 0, 0.55),
-        0 0 0 1px rgba(255, 255, 255, 0.06);
+/* Los anillos giran despacio en sentidos opuestos. */
+@keyframes girar {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.anillo {
+    animation: girar 60s linear infinite;
+}
+
+.anillo-2 {
+    animation-direction: reverse;
+    animation-duration: 45s;
 }
 
 @media (prefers-reduced-motion: reduce) {
     .entra,
-    .flota {
+    .flota,
+    .anillo {
         animation: none;
     }
 }
