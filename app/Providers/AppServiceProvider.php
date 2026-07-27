@@ -33,7 +33,24 @@ class AppServiceProvider extends ServiceProvider
         // El PAC que timbra los CFDI. Se resuelve por configuración para que
         // ni el job ni `EmisorFactura` sepan cuál está en uso: cambiar de
         // proveedor es agregar su clase a `config/cfdi.php`.
+        // FacturapiService siempre lee la configuración GUARDADA de la escuela
+        // (no una instancia vacía): por eso se resuelve con `paraLaEscuela`.
+        $this->app->bind(
+            \App\Services\Facturacion\FacturapiService::class,
+            fn () => \App\Services\Facturacion\FacturapiService::paraLaEscuela(),
+        );
+
         $this->app->bind(Pac::class, function () {
+            // Si la escuela ACTIVÓ Facturapi, se timbra por ahí. Sin tenant o sin
+            // la tabla (contexto landlord, migraciones), cae al driver de config.
+            try {
+                if (\App\Models\Facturacion\FacturacionConfig::actual()->activo) {
+                    return $this->app->make(\App\Services\Cfdi\FacturapiPac::class);
+                }
+            } catch (\Throwable) {
+                // sigue con el driver de configuración
+            }
+
             $driver = (string) config('cfdi.driver', 'falso');
             $clase = config("cfdi.drivers.{$driver}");
 

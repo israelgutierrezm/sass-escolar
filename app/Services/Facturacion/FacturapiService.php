@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Facturacion;
 
 use App\Models\Facturacion\FacturacionConfig;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
@@ -12,16 +13,18 @@ use RuntimeException;
 /**
  * Punto ÚNICO de contacto con Facturapi.
  *
- * Ningún controlador llama a Facturapi directamente: todo pasa por aquí. Así la
- * API key vive en un solo lugar, nunca se registra en logs, y el día que
- * cambie el proveedor se toca una sola clase.
+ * Ningún controlador ni el PAC hablan con Facturapi por su cuenta: todo pasa por
+ * aquí, así la API key vive en un solo lugar y nunca se registra en logs.
  *
- * El AMBIENTE (pruebas/producción) de la configuración decide qué llave se usa;
- * el endpoint es el mismo —Facturapi separa los mundos por el tipo de llave
+ * El AMBIENTE (pruebas/producción) de la configuración decide qué llave usar; el
+ * endpoint es el mismo —Facturapi separa los mundos por el tipo de llave
  * (`sk_test_` vs `sk_live_`)—.
  *
- * Hoy sólo `probarConexion()` está implementado. El resto de operaciones quedan
- * declaradas y documentadas para construirse después sin reabrir el diseño.
+ * Distinción clave de errores:
+ *  - RECHAZO (4xx: RFC inválido, régimen, etc.) → `FacturapiRechazo`: no se
+ *    reintenta, se le muestra al usuario.
+ *  - FALLA de comunicación (5xx / sin respuesta) → excepción de transporte, que
+ *    la cola sí reintenta.
  */
 class FacturapiService
 {
@@ -35,131 +38,180 @@ class FacturapiService
     }
 
     /**
-     * Prueba la conexión con el ambiente activo. NO registra la llave.
-     *
      * @return array{ok: bool, mensaje: string}
      */
     public function probarConexion(): array
     {
-        $key = $this->config->apiKeyActiva();
-
-        if (blank($key)) {
-            return ['ok' => false, 'mensaje' => "Falta la API key de {$this->config->ambiente}."];
-        }
-
         try {
-            $respuesta = $this->cliente($key)->get(self::BASE.'/customers', ['limit' => 1]);
+            $this->obtener('/customers', ['limit' => 1]);
 
-            if ($respuesta->successful()) {
-                return ['ok' => true, 'mensaje' => "Conexión exitosa con Facturapi ({$this->config->ambiente})."];
-            }
-
-            if ($respuesta->status() === 401) {
-                return ['ok' => false, 'mensaje' => 'La API key no es válida (401 no autorizado).'];
-            }
-
-            return ['ok' => false, 'mensaje' => "Facturapi respondió {$respuesta->status()}: ".$this->mensajeDeError($respuesta)];
+            return ['ok' => true, 'mensaje' => "Conexión exitosa con Facturapi ({$this->config->ambiente})."];
+        } catch (FacturapiRechazo $e) {
+            return ['ok' => false, 'mensaje' => $e->getMessage()];
         } catch (\Throwable $e) {
-            // El mensaje de la excepción no trae la llave (va en el header).
             return ['ok' => false, 'mensaje' => 'No se pudo conectar con Facturapi: '.$e->getMessage()];
         }
     }
 
-    // ---------------------------------------------------------------------
-    // Operaciones preparadas (pendientes de implementar). Firmas y contrato
-    // definidos para construirlas después sin tocar el resto del sistema.
-    // ---------------------------------------------------------------------
+    // --------------------------------------------------------------- Clientes
 
-    /**
-     * Alta de cliente (normalmente el alumno, pero la factura puede ir a un
-     * tercero: por eso el cliente es un dato aparte del alumno).
-     *
-     * @param  array<string, mixed>  $datos  nombre/razón social, RFC, régimen, CP, correo, uso CFDI…
-     */
+    /** @param array<string, mixed> $datos */
     public function crearCliente(array $datos): array
     {
-        return $this->pendiente('crearCliente');
+        return $this->enviar('post', '/customers', $datos);
     }
 
     /** @param array<string, mixed> $datos */
     public function actualizarCliente(string $clienteId, array $datos): array
     {
-        return $this->pendiente('actualizarCliente');
+        return $this->enviar('put', "/customers/{$clienteId}", $datos);
     }
 
-    /** @param array<string, mixed> $datos  clave SAT del producto/servicio, objeto de impuesto, precio… */
+    // -------------------------------------------------------------- Productos
+
+    /** @param array<string, mixed> $datos */
     public function crearProducto(array $datos): array
     {
-        return $this->pendiente('crearProducto');
+        return $this->enviar('post', '/products', $datos);
     }
+
+    // --------------------------------------------------------------- Facturas
 
     /** @param array<string, mixed> $datos */
     public function emitirFactura(array $datos): array
     {
-        return $this->pendiente('emitirFactura');
+        return $this->enviar('post', '/invoices', $datos);
     }
 
-    /** Factura global (público en general) de un periodo. @param array<string, mixed> $datos */
+    /**
+     * Factura global (público en general) de un periodo: es una factura normal
+     * con el objeto `global` y el cliente genérico. @param array<string, mixed> $datos
+     */
     public function emitirFacturaGlobal(array $datos): array
     {
-        return $this->pendiente('emitirFacturaGlobal');
+        return $this->enviar('post', '/invoices', $datos);
     }
 
-    public function cancelarFactura(string $facturaId, string $motivo, ?string $facturaSustituta = null): array
+    /** Complemento de pago (CFDI tipo P). @param array<string, mixed> $datos */
+    public function complementoPago(array $datos): array
     {
-        return $this->pendiente('cancelarFactura');
+        return $this->enviar('post', '/invoices', $datos + ['type' => 'payment']);
     }
 
-    public function descargarXml(string $facturaId): string
+    public function cancelarFactura(string $facturaId, string $motivo, ?string $sustitutaFacturapiId = null): array
     {
-        return $this->pendiente('descargarXml');
-    }
+        $params = ['motive' => $motivo];
 
-    public function descargarPdf(string $facturaId): string
-    {
-        return $this->pendiente('descargarPdf');
-    }
+        if ($sustitutaFacturapiId !== null) {
+            $params['substitution'] = $sustitutaFacturapiId;
+        }
 
-    public function enviarPorCorreo(string $facturaId, ?string $correo = null): array
-    {
-        return $this->pendiente('enviarPorCorreo');
+        return $this->pedir('delete', "/invoices/{$facturaId}", $params);
     }
 
     public function consultarEstado(string $facturaId): array
     {
-        return $this->pendiente('consultarEstado');
+        return $this->obtener("/invoices/{$facturaId}");
     }
 
-    /** Catálogo de motivos de cancelación del SAT. */
-    public function motivosCancelacion(): array
+    public function descargarXml(string $facturaId): string
     {
-        return $this->pendiente('motivosCancelacion');
+        return $this->crudo("/invoices/{$facturaId}/xml");
     }
 
-    /** Complemento de pago (recepción de pagos, CFDI de tipo P). @param array<string, mixed> $datos */
-    public function complementoPago(array $datos): array
+    public function descargarPdf(string $facturaId): string
     {
-        return $this->pendiente('complementoPago');
+        return $this->crudo("/invoices/{$facturaId}/pdf");
     }
 
-    // ---------------------------------------------------------------------
-
-    /** Cliente HTTP autenticado. La llave va como usuario en Basic Auth. */
-    private function cliente(string $key)
+    public function enviarPorCorreo(string $facturaId, ?string $correo = null): array
     {
-        return Http::withBasicAuth($key, '')->acceptJson()->timeout(15);
-    }
-
-    private function mensajeDeError(Response $respuesta): string
-    {
-        return (string) ($respuesta->json('message') ?? $respuesta->json('error') ?? 'error desconocido');
+        return $this->enviar('post', "/invoices/{$facturaId}/email", $correo !== null ? ['email' => $correo] : []);
     }
 
     /**
-     * @return never
+     * Catálogo de motivos de cancelación del SAT (no requiere red).
+     *
+     * @return array<int, array{clave: string, texto: string}>
      */
-    private function pendiente(string $operacion): array
+    public function motivosCancelacion(): array
     {
-        throw new RuntimeException("La operación de facturación «{$operacion}» aún no está implementada.");
+        return [
+            ['clave' => '01', 'texto' => '01 · Comprobante emitido con errores con relación (hay sustituta)'],
+            ['clave' => '02', 'texto' => '02 · Comprobante emitido con errores sin relación'],
+            ['clave' => '03', 'texto' => '03 · No se llevó a cabo la operación'],
+            ['clave' => '04', 'texto' => '04 · Operación nominativa relacionada en una factura global'],
+        ];
+    }
+
+    // ---------------------------------------------------------------- Interno
+
+    /** @param array<string, mixed> $query @return array<string, mixed> */
+    private function obtener(string $ruta, array $query = []): array
+    {
+        return $this->pedir('get', $ruta, $query);
+    }
+
+    /** @param array<string, mixed> $cuerpo @return array<string, mixed> */
+    private function enviar(string $metodo, string $ruta, array $cuerpo): array
+    {
+        return $this->manejar($this->cliente()->{$metodo}(self::BASE.$ruta, $cuerpo));
+    }
+
+    /** @param array<string, mixed> $query @return array<string, mixed> */
+    private function pedir(string $metodo, string $ruta, array $query = []): array
+    {
+        return $this->manejar($this->cliente()->{$metodo}(self::BASE.$ruta.($query ? '?'.http_build_query($query) : '')));
+    }
+
+    /** Descarga cruda (XML/PDF). */
+    private function crudo(string $ruta): string
+    {
+        $respuesta = $this->cliente()->get(self::BASE.$ruta);
+
+        if ($respuesta->failed()) {
+            $this->reventar($respuesta);
+        }
+
+        return $respuesta->body();
+    }
+
+    /** @return array<string, mixed> */
+    private function manejar(Response $respuesta): array
+    {
+        if ($respuesta->failed()) {
+            $this->reventar($respuesta);
+        }
+
+        return (array) $respuesta->json();
+    }
+
+    /**
+     * Convierte una respuesta con error en la excepción correcta: rechazo (4xx)
+     * o falla de comunicación (5xx / conexión).
+     */
+    private function reventar(Response $respuesta): never
+    {
+        $mensaje = (string) ($respuesta->json('message') ?? $respuesta->json('error') ?? 'error desconocido');
+        $codigo = $respuesta->json('code');
+
+        if ($respuesta->clientError()) {
+            throw new FacturapiRechazo($mensaje, $codigo !== null ? (string) $codigo : null);
+        }
+
+        // 5xx: es cosa de Facturapi/red; conviene reintentar.
+        throw new RuntimeException("Facturapi respondió {$respuesta->status()}: {$mensaje}");
+    }
+
+    /** Cliente HTTP autenticado. La llave va como usuario en Basic Auth. */
+    private function cliente(): PendingRequest
+    {
+        $key = $this->config->apiKeyActiva();
+
+        if (blank($key)) {
+            throw new FacturapiRechazo("Falta la API key de {$this->config->ambiente}.");
+        }
+
+        return Http::withBasicAuth($key, '')->acceptJson()->timeout(30);
     }
 }

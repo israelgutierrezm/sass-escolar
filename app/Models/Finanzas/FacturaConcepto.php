@@ -41,6 +41,7 @@ class FacturaConcepto extends Model
         'valor_unitario',
         'importe',
         'iva',
+        'objeto_impuesto',
     ];
 
     protected function casts(): array

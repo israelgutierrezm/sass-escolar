@@ -79,6 +79,7 @@ class Factura extends Model
         'iva',
         'total',
         'uuid',
+        'facturapi_id',
         'pac',
         'estatus',
         'xml_ruta',

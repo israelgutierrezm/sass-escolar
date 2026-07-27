@@ -118,22 +118,13 @@ try {
     verificar('200 simulado → conexión exitosa', $exito['ok'] === true);
 
     $err = FacturapiService::paraLaEscuela()->probarConexion();
-    verificar('401 simulado → conexión fallida', $err['ok'] === false && str_contains($err['mensaje'], '401'));
+    verificar('401 simulado → conexión fallida', $err['ok'] === false && $err['mensaje'] !== '');
 
     echo PHP_EOL.'5. El controlador de probar asienta estado y bitácora'.PHP_EOL;
     $ctrl->probar(req([], $admin), FacturapiService::paraLaEscuela());
     $config = FacturacionConfig::actual()->fresh();
     verificar('Guardó estado ok y fecha de prueba', $config->conexion_estado === 'ok' && $config->conexion_probada_en !== null);
     verificar('Registró conexion_probada', FacturacionEvento::where('tipo', 'conexion_probada')->exists());
-
-    echo PHP_EOL.'6. Los métodos futuros están declarados pero pendientes'.PHP_EOL;
-    $lanzo = false;
-    try {
-        FacturapiService::paraLaEscuela()->emitirFactura([]);
-    } catch (\RuntimeException $e) {
-        $lanzo = str_contains($e->getMessage(), 'no está implementada');
-    }
-    verificar('emitirFactura avisa que está pendiente', $lanzo);
 } finally {
     DB::rollBack();
     echo PHP_EOL.'-- rollback aplicado, la base queda como estaba --'.PHP_EOL;

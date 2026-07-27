@@ -304,6 +304,9 @@ class EmisorFactura
             'valor_unitario' => $base,
             'importe' => $base,
             'iva' => $iva,
+            // Se copia el objeto de impuesto del concepto: lo exige el CFDI 4.0
+            // por renglón y debe quedar congelado en el comprobante.
+            'objeto_impuesto' => $concepto?->objeto_impuesto ?? '02',
         ];
     }
 

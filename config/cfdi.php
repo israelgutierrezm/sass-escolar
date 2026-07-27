@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+use App\Services\Cfdi\FacturapiPac;
 use App\Services\Cfdi\PacFalso;
 
 /*
@@ -26,6 +27,7 @@ return [
 
     'drivers' => [
         'falso' => PacFalso::class,
+        'facturapi' => FacturapiPac::class,
     ],
 
     /*
