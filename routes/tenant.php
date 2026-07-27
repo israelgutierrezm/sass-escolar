@@ -38,6 +38,7 @@ use App\Http\Controllers\PlanEstudioController;
 use App\Http\Controllers\PlanMateriaController;
 use App\Http\Controllers\PlantillaEvaluacionController;
 use App\Http\Controllers\AccesosController;
+use App\Http\Controllers\CorreoConfigController;
 use App\Http\Controllers\FacturacionConfigController;
 use App\Http\Controllers\PadreController;
 use App\Http\Controllers\RecuperacionController;
@@ -693,7 +694,15 @@ Route::middleware([
                     Route::put('facturacion', 'guardar')->name('facturacion.guardar');
                     Route::post('facturacion/probar', 'probar')->name('facturacion.probar');
                 });
-                Route::get('correo', 'correo')->middleware('can:configurar-correo')->name('correo');
+            });
+
+        Route::controller(CorreoConfigController::class)
+            ->prefix('plataforma/configuraciones/correo')->name('tenant.plataforma.config.correo.')
+            ->middleware('can:configurar-correo')
+            ->group(function () {
+                Route::get('/', 'correo')->name('index');
+                Route::put('/', 'guardar')->name('guardar');
+                Route::post('/probar', 'probar')->name('probar');
             });
 
         Route::controller(UsuarioController::class)

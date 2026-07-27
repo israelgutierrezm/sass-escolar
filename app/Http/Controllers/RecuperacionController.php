@@ -31,9 +31,12 @@ class RecuperacionController extends Controller
         return Inertia::render('Auth/Recuperar');
     }
 
-    public function enviarEnlace(Request $request, BitacoraAccesos $bitacora): RedirectResponse
+    public function enviarEnlace(Request $request, BitacoraAccesos $bitacora, \App\Services\Correo\CorreoService $correo): RedirectResponse
     {
         $datos = $request->validate(['email' => ['required', 'email']]);
+
+        // Si la escuela configuró su correo (Gmail), el enlace sale por ahí.
+        $correo->aplicar();
 
         $status = Password::sendResetLink(['email' => $datos['email']]);
 

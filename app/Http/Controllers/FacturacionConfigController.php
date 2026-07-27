@@ -110,11 +110,6 @@ class FacturacionConfigController extends Controller
         return back()->with($resultado['ok'] ? 'exito' : 'error', $resultado['mensaje']);
     }
 
-    public function correo(): Response
-    {
-        return Inertia::render('Plataforma/Configuraciones/Correo');
-    }
-
     /**
      * @return array<string, mixed>
      */

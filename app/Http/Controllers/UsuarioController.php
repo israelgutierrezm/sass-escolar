@@ -264,6 +264,9 @@ class UsuarioController extends Controller
         }
 
         try {
+            // Si la escuela configuró su correo (Gmail), sale por ahí.
+            app(\App\Services\Correo\CorreoService::class)->aplicar();
+
             Mail::to($correo)->send(new CredencialesAcceso(
                 nombre: $usuario->persona?->nombreCompleto() ?? 'Hola',
                 correo: $correo,
