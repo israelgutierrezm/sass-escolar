@@ -9,19 +9,21 @@ import BIRDS from 'vanta/dist/vanta.birds.min';
 /**
  * Marco de las pantallas de acceso.
  *
- * En escritorio: el FORMULARIO a la izquierda y a la DERECHA un panel completo
- * con un efecto animado de vanta.js —«Waves» u «Birds», al azar—, con sus
- * colores por defecto (el azul del ejemplo, que sí se aprecia).
+ * Escritorio: FORMULARIO a la izquierda; a la DERECHA el panel completo con un
+ * efecto animado de vanta.js —«Waves» u «Birds», al azar— con SUS COLORES POR
+ * DEFECTO (los del demo de vanta).
  *
- * En móvil: el mismo efecto se vuelve una CABECERA azul arriba, con un borde
- * ondulado que baja hacia el formulario blanco —al estilo de las apps de
- * acceso—, y el formulario debajo.
+ * Móvil: el mismo efecto se vuelve una CABECERA arriba con una onda blanca que
+ * baja hacia el formulario blanco.
  *
- * Si vanta o WebGL fallan, el panel queda con su degradado azul y el acceso
- * sigue funcionando.
+ * El panel lleva altura explícita (`lg:h-screen`) y, tras montar, se fuerza un
+ * `resize()` del efecto: si vanta arrancara antes de que el panel tuviera su
+ * tamaño final —lo que hacía que en escritorio no se viera nada—, el reajuste
+ * lo corrige. Si WebGL falla, queda el fondo neutro y el acceso no se rompe.
  */
 const fondo = ref<HTMLElement | null>(null);
-let efecto: { destroy: () => void } | null = null;
+let efecto: { destroy: () => void; resize: () => void } | null = null;
+let observador: ResizeObserver | null = null;
 
 onMounted(() => {
     if (fondo.value === null) {
@@ -41,19 +43,34 @@ onMounted(() => {
     };
 
     try {
-        // Ambos efectos en AZUL: el ejemplo de Waves (0x005588) se ve muy
-        // oscuro a escala chica, así que se sube a un azul claro; Birds recibe
-        // un fondo azul en vez del navy casi negro de fábrica. Así la cabecera
-        // (móvil) y el panel (escritorio) quedan francamente azules.
-        efecto = Math.random() < 0.5
-            ? BIRDS({ ...base, backgroundColor: 0x1e40af, color1: 0x60a5fa, color2: 0xbfdbfe })
-            : WAVES({ ...base, color: 0x1e5fd0, shininess: 55, waveHeight: 18, waveSpeed: 0.85 });
+        // Colores por defecto (los del demo de vanta): sin overrides.
+        efecto = Math.random() < 0.5 ? BIRDS(base) : WAVES(base);
     } catch {
-        // Sin WebGL queda el degradado; el acceso no se rompe.
+        return; // sin WebGL queda el fondo neutro
+    }
+
+    // Reajuste tras el layout: en escritorio el panel toma su alto por flex y
+    // vanta podía quedar montado con un tamaño equivocado.
+    const reajustar = () => {
+        try {
+            efecto?.resize();
+        } catch {
+            // nada
+        }
+    };
+
+    requestAnimationFrame(reajustar);
+    setTimeout(reajustar, 300);
+
+    if (typeof ResizeObserver !== 'undefined') {
+        observador = new ResizeObserver(reajustar);
+        observador.observe(fondo.value);
     }
 });
 
 onBeforeUnmount(() => {
+    observador?.disconnect();
+
     try {
         efecto?.destroy();
     } catch {
@@ -64,11 +81,12 @@ onBeforeUnmount(() => {
 
 <template>
     <div class="flex min-h-screen flex-col lg:flex-row">
-        <!-- Panel de vanta: cabecera arriba en móvil, columna derecha en escritorio -->
-        <div class="panel-vanta relative order-first h-56 w-full overflow-hidden sm:h-64 lg:order-last lg:h-auto lg:w-[52%]">
+        <!-- Panel de vanta: cabecera arriba en móvil, columna derecha (alto
+             completo) en escritorio. -->
+        <div class="panel-vanta relative order-first h-56 w-full overflow-hidden sm:h-64 lg:order-last lg:h-screen lg:w-[52%]">
             <div ref="fondo" class="absolute inset-0"></div>
 
-            <!-- Onda blanca inferior: transición suave hacia el formulario. Solo móvil. -->
+            <!-- Onda blanca inferior: transición hacia el formulario. Solo móvil. -->
             <svg
                 class="absolute inset-x-0 -bottom-px h-12 w-full lg:hidden"
                 viewBox="0 0 1440 120"
@@ -106,10 +124,10 @@ onBeforeUnmount(() => {
     background-image: linear-gradient(135deg, #2f6fed, #4f46e5);
 }
 
-/* Degradado azul de respaldo: se ve mientras carga vanta o si WebGL falla.
-   Mantiene la cabecera «azul» aunque el efecto no aparezca. */
+/* Fondo neutro oscuro mientras vanta pinta (o si WebGL falla): no compite con
+   los colores del efecto ni impone un azul. */
 .panel-vanta {
-    background-image: linear-gradient(140deg, #1e3a8a 0%, #2563eb 55%, #0ea5e9 100%);
+    background-color: #0a1420;
 }
 
 @keyframes entrar {
