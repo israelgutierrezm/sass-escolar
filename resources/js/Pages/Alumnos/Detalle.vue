@@ -47,6 +47,18 @@ const props = defineProps<{
         puede_ver_academico: boolean;
         puede_ver_finanzas: boolean;
     }[];
+    facturacion: {
+        quiere_factura: boolean;
+        es_tercero: boolean;
+        rfc: string | null;
+        razon_social: string | null;
+        regimen_fiscal: string | null;
+        cp: string | null;
+        uso_cfdi: string | null;
+        correo_fiscal: string | null;
+        tiene_cliente_facturapi: boolean;
+    };
+    catalogosFacturacion: { usos_cfdi: { clave: string; texto: string }[]; regimenes: { clave: string; texto: string }[] };
     puedeMatricular: boolean;
     situacionesDeBaja: { id: number; nombre: string }[];
     suplantable: { usuario_id: number; usuario: string } | null;
@@ -59,7 +71,23 @@ const props = defineProps<{
     puedeEditar: boolean;
 }>();
 
-const pestana = ref<'kardex' | 'carga' | 'carreras' | 'tutores' | 'datos'>('kardex');
+const pestana = ref<'kardex' | 'carga' | 'carreras' | 'tutores' | 'facturacion' | 'datos'>('kardex');
+
+/* Datos de facturación del alumno */
+const factForm = useForm({
+    quiere_factura: props.facturacion.quiere_factura,
+    es_tercero: props.facturacion.es_tercero,
+    rfc: props.facturacion.rfc ?? '',
+    razon_social: props.facturacion.razon_social ?? '',
+    regimen_fiscal: props.facturacion.regimen_fiscal ?? '',
+    cp: props.facturacion.cp ?? '',
+    uso_cfdi: props.facturacion.uso_cfdi ?? '',
+    correo_fiscal: props.facturacion.correo_fiscal ?? '',
+});
+
+function guardarFacturacion(): void {
+    factForm.put(`/escolar/alumnos/${props.alumno.id}/facturacion`, { preserveScroll: true });
+}
 
 /* Padres y tutores del alumno */
 const formTutor = useForm({
@@ -381,6 +409,7 @@ function verComo(): void {
                     { clave: 'carga', texto: 'Carga por ciclo' },
                     { clave: 'carreras', texto: `Carreras (${carreras.length})` },
                     { clave: 'tutores', texto: `Padres/tutores (${tutores.length})` },
+                    { clave: 'facturacion', texto: 'Facturación' },
                     { clave: 'datos', texto: 'Datos' },
                 ]"
                 :key="opcion.clave"
@@ -749,6 +778,61 @@ function verComo(): void {
             <p v-else class="tarjeta px-6 py-10 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
                 Este alumno no tiene padres o tutores vinculados.
             </p>
+        </section>
+
+        <!-- Facturación -->
+        <section v-else-if="pestana === 'facturacion'" class="tarjeta p-6">
+            <h2 class="text-base font-semibold">Datos de facturación</h2>
+            <p class="mt-1 max-w-2xl text-sm" :style="{ color: 'var(--color-suave)' }">
+                Indica si el alumno quiere factura y a nombre de quién se emite. El receptor puede ser
+                el propio alumno o un tercero (un padre, una empresa).
+            </p>
+
+            <label class="mt-4 flex items-center gap-2 text-sm">
+                <input v-model="factForm.quiere_factura" type="checkbox" class="rounded" />
+                <span class="font-medium">El alumno quiere factura</span>
+            </label>
+
+            <div v-if="factForm.quiere_factura" class="mt-4 space-y-4">
+                <label class="flex items-center gap-2 text-sm">
+                    <input v-model="factForm.es_tercero" type="checkbox" class="rounded" />
+                    La factura va a nombre de un tercero (no del alumno)
+                </label>
+
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <CampoTexto v-model="factForm.rfc" etiqueta="RFC del receptor" mono :error="factForm.errors.rfc" />
+                    <CampoTexto v-model="factForm.razon_social" etiqueta="Nombre / razón social" :error="factForm.errors.razon_social" ayuda="Tal cual en la Constancia de Situación Fiscal." />
+                    <CampoTexto v-model="factForm.cp" etiqueta="CP fiscal" :error="factForm.errors.cp" />
+                    <CampoSelect
+                        v-model="factForm.regimen_fiscal"
+                        etiqueta="Régimen fiscal"
+                        :opciones="catalogosFacturacion.regimenes.map((r) => ({ valor: r.clave, texto: r.texto }))"
+                        :error="factForm.errors.regimen_fiscal"
+                    />
+                    <CampoSelect
+                        v-model="factForm.uso_cfdi"
+                        etiqueta="Uso de CFDI"
+                        :opciones="catalogosFacturacion.usos_cfdi.map((u) => ({ valor: u.clave, texto: u.texto }))"
+                        :error="factForm.errors.uso_cfdi"
+                    />
+                    <CampoTexto v-model="factForm.correo_fiscal" etiqueta="Correo para la factura" tipo="email" :error="factForm.errors.correo_fiscal" />
+                </div>
+            </div>
+            <p v-else class="mt-3 text-sm" :style="{ color: 'var(--color-suave)' }">
+                El alumno no requiere factura. Sus pagos se registran sin CFDI.
+            </p>
+
+            <div class="mt-5">
+                <button
+                    type="button"
+                    :disabled="factForm.processing"
+                    class="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
+                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+                    @click="guardarFacturacion"
+                >
+                    {{ factForm.processing ? 'Guardando…' : 'Guardar datos de facturación' }}
+                </button>
+            </div>
         </section>
 
         <!-- Datos -->

@@ -12,9 +12,11 @@ use App\Models\Admisiones\SituacionAlumno;
 use App\Models\ControlEscolar\Ciclo;
 use App\Models\ControlEscolar\Historial;
 use App\Models\ControlEscolar\Inscripcion;
+use App\Models\Finanzas\DatosFacturacion;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\TutorAlumno;
 use App\Models\Identidad\Usuario;
+use App\Support\CatalogosSat;
 use App\Models\Landlord\Genero;
 use App\Models\Landlord\Sexo;
 use App\Services\AprovisionadorAcceso;
@@ -170,6 +172,13 @@ class AlumnoController extends Controller
                     'puede_ver_academico' => $v->puede_ver_academico,
                     'puede_ver_finanzas' => $v->puede_ver_finanzas,
                 ]),
+            // Datos de facturación del alumno: si quiere factura y a nombre de
+            // quién (él mismo o un tercero).
+            'facturacion' => $this->facturacionDe($alumno->persona_id),
+            'catalogosFacturacion' => [
+                'usos_cfdi' => CatalogosSat::usosCfdi(),
+                'regimenes' => CatalogosSat::regimenesFiscales(),
+            ],
             // TODAS las carreras de esta persona, la actual incluida: es el
             // caso que justifica que el alumno sea la matrícula y no la
             // persona, y quien la atiende necesita verlas juntas.
@@ -440,6 +449,59 @@ class AlumnoController extends Controller
         $tutor->delete();
 
         return back()->with('exito', 'Vínculo eliminado.');
+    }
+
+    /**
+     * Guarda los datos de facturación del alumno: si quiere factura y los datos
+     * fiscales del receptor (él mismo o un tercero).
+     *
+     * Si NO quiere factura, no se exigen los datos fiscales; si SÍ, el RFC, la
+     * razón social, el régimen, el CP y el uso de CFDI son obligatorios —sin
+     * ellos el CFDI no timbra—.
+     */
+    public function guardarFacturacion(Request $request, MatriculaOferta $alumno): RedirectResponse
+    {
+        $quiere = $request->boolean('quiere_factura');
+
+        $reglaSiQuiere = $quiere ? ['required'] : ['nullable'];
+
+        $datos = $request->validate([
+            'quiere_factura' => ['boolean'],
+            'es_tercero' => ['boolean'],
+            'rfc' => [...$reglaSiQuiere, 'string', 'min:12', 'max:13'],
+            'razon_social' => [...$reglaSiQuiere, 'string', 'max:255'],
+            'regimen_fiscal' => [...$reglaSiQuiere, 'string', 'max:5'],
+            'cp' => [...$reglaSiQuiere, 'string', 'size:5'],
+            'uso_cfdi' => [...$reglaSiQuiere, 'string', 'max:4'],
+            'correo_fiscal' => ['nullable', 'email', 'max:190'],
+        ]);
+
+        DatosFacturacion::updateOrCreate(
+            ['persona_id' => $alumno->persona_id],
+            $datos + ['quiere_factura' => $quiere, 'es_tercero' => $request->boolean('es_tercero')],
+        );
+
+        return back()->with('exito', 'Datos de facturación guardados.');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function facturacionDe(int $personaId): array
+    {
+        $d = DatosFacturacion::query()->where('persona_id', $personaId)->first();
+
+        return [
+            'quiere_factura' => (bool) $d?->quiere_factura,
+            'es_tercero' => (bool) $d?->es_tercero,
+            'rfc' => $d?->rfc,
+            'razon_social' => $d?->razon_social,
+            'regimen_fiscal' => $d?->regimen_fiscal,
+            'cp' => $d?->cp,
+            'uso_cfdi' => $d?->uso_cfdi,
+            'correo_fiscal' => $d?->correo_fiscal,
+            'tiene_cliente_facturapi' => filled($d?->facturapi_customer_id),
+        ];
     }
 
     /**

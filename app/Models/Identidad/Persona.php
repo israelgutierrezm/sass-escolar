@@ -111,6 +111,12 @@ class Persona extends Model
         return $this->hasOne(Docente::class, 'persona_id');
     }
 
+    /** Sus datos de facturación (si quiere factura y a nombre de quién). */
+    public function datosFacturacion(): HasOne
+    {
+        return $this->hasOne(\App\Models\Finanzas\DatosFacturacion::class, 'persona_id');
+    }
+
     /** Vínculos en los que esta persona es el TUTOR (padre/madre/tutor). */
     public function vinculosComoTutor(): HasMany
     {

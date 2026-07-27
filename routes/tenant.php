@@ -418,6 +418,13 @@ Route::middleware([
                             ->whereNumber('alumno')->whereNumber('tutor')
                             ->middleware('can:editar-alumnos')
                             ->name('tutores.destroy');
+
+                        // Datos de facturación del alumno (si quiere factura y a
+                        // nombre de quién).
+                        Route::put('{alumno}/facturacion', 'guardarFacturacion')
+                            ->whereNumber('alumno')
+                            ->middleware('can:editar-alumnos')
+                            ->name('facturacion');
                     });
 
                 /*
