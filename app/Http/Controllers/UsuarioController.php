@@ -4,15 +4,19 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Mail\CredencialesAcceso;
 use App\Models\Academico\Campus;
+use App\Models\Identidad\BitacoraAcceso;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\PersonaRol;
 use App\Models\Identidad\Rol;
 use App\Models\Identidad\Usuario;
+use App\Services\BitacoraAccesos;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -127,6 +131,7 @@ class UsuarioController extends Controller
             'password' => ['required', 'string', 'min:8'],
             'rol_id' => ['required', Rule::exists('roles', 'id')],
             'campus_id' => ['nullable', Rule::exists('campus', 'id')],
+            'enviar_credenciales' => ['boolean'],
         ]);
 
         DB::transaction(function () use ($datos) {
@@ -153,7 +158,7 @@ class UsuarioController extends Controller
             // updateOrCreate y no create: si la persona ya tenía cuenta de censo
             // (es docente, alumno…), esto le CONFIGURA el acceso en vez de
             // reventar contra el índice único de persona_id.
-            Usuario::updateOrCreate(
+            $usuario = Usuario::updateOrCreate(
                 ['persona_id' => $persona->id],
                 [
                     'usuario' => $datos['usuario'],
@@ -163,6 +168,10 @@ class UsuarioController extends Controller
                     'rol_activo_id' => $datos['rol_id'],
                 ],
             );
+
+            if ($datos['enviar_credenciales'] ?? false) {
+                $this->enviarCredenciales($usuario, $datos['password']);
+            }
         });
 
         return back()->with('exito', 'Cuenta creada.');
@@ -219,7 +228,10 @@ class UsuarioController extends Controller
      */
     public function restablecerPassword(Request $request, Usuario $usuario): RedirectResponse
     {
-        $datos = $request->validate(['password' => ['required', 'string', 'min:8']]);
+        $datos = $request->validate([
+            'password' => ['required', 'string', 'min:8'],
+            'enviar_credenciales' => ['boolean'],
+        ]);
 
         // Ponerle contraseña ES habilitarle el acceso: si era una cuenta de
         // censo, deja de estar «sin acceso».
@@ -228,7 +240,48 @@ class UsuarioController extends Controller
             'acceso_configurado' => true,
         ]);
 
+        if ($datos['enviar_credenciales'] ?? false) {
+            $this->enviarCredenciales($usuario, $datos['password']);
+
+            return back()->with('exito', 'Contraseña restablecida y enviada por correo.');
+        }
+
         return back()->with('exito', 'Contraseña restablecida. Dísela por un medio seguro y pídele que la cambie.');
+    }
+
+    /**
+     * Manda por correo las credenciales de la cuenta y lo asienta en la
+     * bitácora. Silencioso ante fallas de correo: no debe tumbar el alta ni el
+     * restablecimiento. Sin correo en la cuenta, no hay a dónde mandarlas.
+     */
+    private function enviarCredenciales(Usuario $usuario, string $password): void
+    {
+        $usuario->loadMissing('persona');
+        $correo = $usuario->email;
+
+        if (blank($correo)) {
+            return;
+        }
+
+        try {
+            Mail::to($correo)->send(new CredencialesAcceso(
+                nombre: $usuario->persona?->nombreCompleto() ?? 'Hola',
+                correo: $correo,
+                password: $password,
+                urlAcceso: route('tenant.login'),
+                escuela: tenant()?->id,
+            ));
+
+            app(BitacoraAccesos::class)->registrar(
+                BitacoraAcceso::CREDENCIALES_ENVIADAS,
+                request(),
+                $usuario,
+                $usuario->persona_id,
+                ['email' => $correo],
+            );
+        } catch (\Throwable) {
+            // El correo es un extra: su falla no rompe el alta ni el reset.
+        }
     }
 
     /**

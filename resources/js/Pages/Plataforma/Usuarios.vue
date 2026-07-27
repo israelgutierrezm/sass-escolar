@@ -76,6 +76,7 @@ const alta = useForm({
     password: '',
     rol_id: props.roles[0]?.id ?? null,
     campus_id: null as number | null,
+    enviar_credenciales: true,
 });
 
 function crear(): void {
@@ -89,7 +90,7 @@ function crear(): void {
 
 const expandido = ref<number | null>(null);
 const asignacion = useForm({ rol_id: props.roles[0]?.id ?? null, campus_id: null as number | null });
-const clave = useForm({ password: '' });
+const clave = useForm({ password: '', enviar_credenciales: false });
 
 function asignar(u: UsuarioFila): void {
     asignacion.post(`/plataforma/usuarios/${u.id}/roles`, {
@@ -190,6 +191,11 @@ function restablecer(u: UsuarioFila): void {
                         <option :value="null">Toda la escuela</option>
                         <option v-for="c in campus" :key="c.id" :value="c.id">{{ c.nombre }}</option>
                     </select>
+                </label>
+
+                <label class="flex items-center gap-2 text-sm sm:col-span-4">
+                    <input v-model="alta.enviar_credenciales" type="checkbox" class="rounded" />
+                    Enviar las credenciales por correo a la persona
                 </label>
 
                 <div class="flex items-end gap-2 sm:col-span-3">
@@ -317,6 +323,10 @@ function restablecer(u: UsuarioFila): void {
                                             <button type="submit" class="rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
                                                 Restablecer
                                             </button>
+                                            <label class="flex w-full items-center gap-2 text-xs" :style="{ color: 'var(--color-suave)' }">
+                                                <input v-model="clave.enviar_credenciales" type="checkbox" class="rounded" />
+                                                Enviársela por correo
+                                            </label>
                                         </form>
                                     </div>
                                 </div>
