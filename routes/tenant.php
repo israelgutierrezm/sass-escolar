@@ -38,6 +38,7 @@ use App\Http\Controllers\PlanEstudioController;
 use App\Http\Controllers\PlanMateriaController;
 use App\Http\Controllers\PlantillaEvaluacionController;
 use App\Http\Controllers\AccesosController;
+use App\Http\Controllers\ConceptoPagoController;
 use App\Http\Controllers\CorreoConfigController;
 use App\Http\Controllers\FacturacionConfigController;
 use App\Http\Controllers\PadreController;
@@ -518,6 +519,17 @@ Route::middleware([
                         Route::post('/{plan}/reglas', 'guardarRegla')->name('reglas.store');
                         Route::put('/{plan}/reglas/{regla}', 'actualizarRegla')->name('reglas.update');
                         Route::delete('/{plan}/reglas/{regla}', 'eliminarRegla')->name('reglas.destroy');
+                    });
+
+                // Catálogo de conceptos de pago con sus datos fiscales.
+                Route::controller(ConceptoPagoController::class)
+                    ->prefix('conceptos')->name('conceptos.')
+                    ->middleware('can:gestionar-planes-cobro')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::post('/', 'store')->name('store');
+                        Route::put('/{concepto}', 'update')->name('update');
+                        Route::delete('/{concepto}', 'destroy')->name('destroy');
                     });
 
                 /*

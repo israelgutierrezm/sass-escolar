@@ -266,6 +266,7 @@ const navegacion = computed(() => {
                 { etiqueta: 'Cartera', url: '/finanzas', permiso: 'ver-adeudos' },
                 { etiqueta: 'Facturas', url: '/finanzas/facturas', permiso: 'facturar' },
                 { etiqueta: 'Planes de cobro', url: '/finanzas/planes', permiso: 'gestionar-planes-cobro' },
+                { etiqueta: 'Conceptos de pago', url: '/finanzas/conceptos', permiso: 'gestionar-planes-cobro' },
                 { etiqueta: 'Razones sociales', url: '/finanzas/emisores', permiso: 'gestionar-emisores' },
             ],
         },

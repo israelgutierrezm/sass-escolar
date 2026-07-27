@@ -6,6 +6,7 @@ namespace App\Models\Finanzas;
 
 use App\Models\Concerns\TieneAuditoria;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * conceptos_pago (TENANT-CONFIG) — QUÉ se cobra.
@@ -28,6 +29,7 @@ class ConceptoPago extends Model
         'clave_unidad_sat',
         'gravado',
         'tasa_iva',
+        'objeto_impuesto',
         'cuenta_contable',
     ];
 
@@ -37,5 +39,15 @@ class ConceptoPago extends Model
             'gravado' => 'boolean',
             'tasa_iva' => 'decimal:4',
         ];
+    }
+
+    public function adeudos(): HasMany
+    {
+        return $this->hasMany(Adeudo::class, 'concepto_id');
+    }
+
+    public function reglas(): HasMany
+    {
+        return $this->hasMany(ReglaGeneracion::class, 'concepto_id');
     }
 }
