@@ -42,6 +42,7 @@ class FacturacionConfigController extends Controller
             // Las llaves son opcionales: si vienen vacías se conserva la guardada.
             'api_key_pruebas' => ['nullable', 'string', 'max:255'],
             'api_key_produccion' => ['nullable', 'string', 'max:255'],
+            'api_key_usuario' => ['nullable', 'string', 'max:255'],
             'organizacion_id' => ['nullable', 'string', 'max:100'],
             'uso_cfdi_default' => ['nullable', 'string', 'max:4'],
             'serie_default' => ['nullable', 'string', 'max:25'],
@@ -65,7 +66,10 @@ class FacturacionConfigController extends Controller
         if (filled($datos['api_key_produccion'] ?? null)) {
             $llaves['api_key_produccion'] = $datos['api_key_produccion'];
         }
-        unset($datos['api_key_pruebas'], $datos['api_key_produccion']);
+        if (filled($datos['api_key_usuario'] ?? null)) {
+            $llaves['api_key_usuario'] = $datos['api_key_usuario'];
+        }
+        unset($datos['api_key_pruebas'], $datos['api_key_produccion'], $datos['api_key_usuario']);
 
         $config->fill($datos + $llaves)->save();
 
@@ -121,8 +125,10 @@ class FacturacionConfigController extends Controller
             'ambiente' => $config->ambiente,
             'tiene_key_pruebas' => filled($config->api_key_pruebas),
             'tiene_key_produccion' => filled($config->api_key_produccion),
+            'tiene_key_usuario' => filled($config->api_key_usuario),
             'hint_key_pruebas' => FacturacionConfig::enmascarar($config->api_key_pruebas),
             'hint_key_produccion' => FacturacionConfig::enmascarar($config->api_key_produccion),
+            'hint_key_usuario' => FacturacionConfig::enmascarar($config->api_key_usuario),
             'organizacion_id' => $config->organizacion_id,
             'conexion_estado' => $config->conexion_estado,
             'conexion_mensaje' => $config->conexion_mensaje,

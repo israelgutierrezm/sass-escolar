@@ -146,6 +146,67 @@ class FacturapiService
 
     // ---------------------------------------------------------------- Interno
 
+    // ---------------------------------------------- Organizaciones y CSD (Admin)
+    //
+    // Estos endpoints NO usan la llave de facturación por organización, sino la
+    // SECRET ADMIN KEY de la cuenta (`sk_user_...`). Con ella se crea la
+    // organización, se le sube el CSD y se pide su llave de pruebas — todo lo
+    // que hace falta para que dar de alta una razón social deje el
+    // `organization_id` correcto sin teclearlo.
+
+    /**
+     * Crea una organización (una razón social/emisor en Facturapi) a partir de
+     * sus datos legales. Devuelve el objeto de la organización, incluido su `id`.
+     *
+     * @param  array<string, mixed>  $datos  al menos: name (razón social)
+     * @return array<string, mixed>
+     */
+    public function crearOrganizacion(array $datos): array
+    {
+        return $this->manejar($this->clienteAdmin()->post(self::BASE.'/organizations', $datos));
+    }
+
+    /** @return array<string, mixed> */
+    public function obtenerOrganizacion(string $organizacionId): array
+    {
+        return $this->manejar($this->clienteAdmin()->get(self::BASE."/organizations/{$organizacionId}"));
+    }
+
+    /**
+     * Sube el CSD (.cer + .key + contraseña) a una organización. Los archivos
+     * viajan como multipart; nunca se registran sus contenidos.
+     *
+     * @return array<string, mixed>
+     */
+    public function subirCertificado(string $organizacionId, string $cerContenido, string $keyContenido, string $password): array
+    {
+        $respuesta = $this->clienteAdmin()
+            ->attach('cer', $cerContenido, 'csd.cer')
+            ->attach('key', $keyContenido, 'csd.key')
+            ->put(self::BASE."/organizations/{$organizacionId}/certificates", ['password' => $password]);
+
+        return $this->manejar($respuesta);
+    }
+
+    /**
+     * La llave de PRUEBAS de una organización (`sk_test_...`), con la que ya se
+     * puede timbrar en el ambiente de pruebas. Facturapi la devuelve como una
+     * cadena JSON.
+     */
+    public function obtenerLlavePruebas(string $organizacionId): string
+    {
+        $respuesta = $this->clienteAdmin()->get(self::BASE."/organizations/{$organizacionId}/test-api-key");
+
+        if ($respuesta->failed()) {
+            $this->reventar($respuesta);
+        }
+
+        // Puede venir como cadena JSON ("sk_test_...") o como texto crudo.
+        $valor = $respuesta->json();
+
+        return is_string($valor) ? $valor : trim($respuesta->body(), '"');
+    }
+
     /** @param array<string, mixed> $query @return array<string, mixed> */
     private function obtener(string $ruta, array $query = []): array
     {
@@ -213,5 +274,21 @@ class FacturapiService
         }
 
         return Http::withBasicAuth($key, '')->acceptJson()->timeout(30);
+    }
+
+    /**
+     * Cliente para la API de administración (organizaciones y CSD), autenticado
+     * con la Secret Admin Key. Timeout más largo: subir un CSD tarda más que un
+     * request normal.
+     */
+    private function clienteAdmin(): PendingRequest
+    {
+        $key = $this->config->apiKeyUsuario();
+
+        if (blank($key)) {
+            throw new FacturapiRechazo('Falta la Secret Admin Key de Facturapi (necesaria para crear organizaciones y subir el CSD).');
+        }
+
+        return Http::withBasicAuth($key, '')->acceptJson()->timeout(60);
     }
 }

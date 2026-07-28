@@ -39,6 +39,7 @@ class FacturacionConfig extends Model
         'ambiente',
         'api_key_pruebas',
         'api_key_produccion',
+        'api_key_usuario',
         'organizacion_id',
         'conexion_estado',
         'conexion_mensaje',
@@ -62,6 +63,8 @@ class FacturacionConfig extends Model
             // Cifrado en reposo: la llave nunca queda en claro en la BD.
             'api_key_pruebas' => 'encrypted',
             'api_key_produccion' => 'encrypted',
+            // Secret Admin Key (sk_user_...): administra organizaciones y CSD.
+            'api_key_usuario' => 'encrypted',
             'conexion_probada_en' => 'datetime',
             'validado_en' => 'datetime',
         ];
@@ -83,6 +86,12 @@ class FacturacionConfig extends Model
     public function apiKeyActiva(): ?string
     {
         return $this->esProduccion() ? $this->api_key_produccion : $this->api_key_pruebas;
+    }
+
+    /** La Secret Admin Key de la cuenta (para organizaciones y CSD). */
+    public function apiKeyUsuario(): ?string
+    {
+        return $this->api_key_usuario;
     }
 
     /**

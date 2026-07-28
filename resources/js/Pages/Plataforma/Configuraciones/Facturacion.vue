@@ -10,8 +10,10 @@ interface Config {
     ambiente: 'pruebas' | 'produccion';
     tiene_key_pruebas: boolean;
     tiene_key_produccion: boolean;
+    tiene_key_usuario: boolean;
     hint_key_pruebas: string | null;
     hint_key_produccion: string | null;
+    hint_key_usuario: string | null;
     organizacion_id: string | null;
     conexion_estado: 'ok' | 'error' | null;
     conexion_mensaje: string | null;
@@ -38,6 +40,7 @@ const form = useForm({
     ambiente: props.config.ambiente,
     api_key_pruebas: '',
     api_key_produccion: '',
+    api_key_usuario: '',
     organizacion_id: props.config.organizacion_id ?? '',
     uso_cfdi_default: props.config.uso_cfdi_default ?? '',
     serie_default: props.config.serie_default ?? '',
@@ -77,6 +80,7 @@ function guardar(): void {
         onSuccess: () => {
             form.api_key_pruebas = '';
             form.api_key_produccion = '';
+            form.api_key_usuario = '';
         },
     });
 }
@@ -171,6 +175,15 @@ function probar(): void {
                     mono
                     :error="form.errors.api_key_produccion"
                     :ayuda="config.tiene_key_produccion ? `Guardada: ${config.hint_key_produccion}` : 'Aún no configurada.'"
+                />
+                <CampoTexto
+                    v-model="form.api_key_usuario"
+                    etiqueta="Secret Admin Key (sk_user_…)"
+                    tipo="password"
+                    mono
+                    class="sm:col-span-2"
+                    :error="form.errors.api_key_usuario"
+                    :ayuda="config.tiene_key_usuario ? `Guardada: ${config.hint_key_usuario}` : 'Llave de administración de la cuenta. Necesaria para crear la organización y subir el CSD al dar de alta una razón social.'"
                 />
                 <CampoTexto v-model="form.organizacion_id" etiqueta="Identificador de la organización" mono :error="form.errors.organizacion_id" />
             </div>
