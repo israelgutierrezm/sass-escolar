@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { Head, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
+import { toast } from 'vue-sonner';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 
@@ -35,14 +36,19 @@ const vistaPrevia = ref<string | null>(props.institucion?.logo ?? null);
 const entradaLogo = ref<HTMLInputElement | null>(null);
 
 function elegirLogo(evento: Event): void {
-    const archivo = (evento.target as HTMLInputElement).files?.[0];
+    const entrada = evento.target as HTMLInputElement;
+    const archivo = entrada.files?.[0];
     if (!archivo) {
         return;
     }
     form.logo = archivo;
     vistaPrevia.value = URL.createObjectURL(archivo);
-    // Subir el logo es una acción propia, no requiere el modo edición.
+    // Subir el logo es una acción propia, no requiere el modo edición: en cuanto
+    // se elige una imagen nueva se guarda sola.
     guardar();
+    // Se limpia la entrada para poder reelegir el MISMO archivo y que vuelva a
+    // dispararse el change (si no, seleccionar el mismo no hace nada).
+    entrada.value = '';
 }
 
 function cancelar(): void {
@@ -68,6 +74,16 @@ function guardar(): void {
             onSuccess: () => {
                 form.logo = null;
                 editando.value = false;
+            },
+            onError: (errores) => {
+                // El logo se sube fuera del modo edición; si algo falla no hay
+                // botón visible cerca, así que se avisa por toast y se revierte
+                // la vista previa a la guardada.
+                if (errores.logo) {
+                    toast.error(errores.logo);
+                    vistaPrevia.value = props.institucion?.logo ?? null;
+                    form.logo = null;
+                }
             },
         });
 }
@@ -123,6 +139,18 @@ function guardar(): void {
                             <span v-else class="text-3xl font-bold" :style="{ color: 'var(--color-acento)' }">
                                 {{ institucion.nombre?.[0]?.toUpperCase() ?? 'I' }}
                             </span>
+
+                            <!-- Mientras sube el logo, un velo con spinner sobre el cuadro. -->
+                            <div
+                                v-if="form.processing && form.logo"
+                                class="absolute inset-0 grid place-items-center rounded-2xl"
+                                :style="{ backgroundColor: 'color-mix(in srgb, #000 45%, transparent)' }"
+                            >
+                                <svg class="h-6 w-6 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z" />
+                                </svg>
+                            </div>
                         </div>
                         <button
                             v-if="puedeEditar"

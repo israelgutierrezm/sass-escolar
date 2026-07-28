@@ -134,9 +134,12 @@ class InstitucionController extends Controller
             'nombre' => ['required', 'string', 'max:255'],
             'nombre_mostrar' => ['nullable', 'string', 'max:255'],
             'siglas' => ['nullable', 'string', 'max:30'],
-            'logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,svg', 'max:2048'],
+            // `file` + `mimes` en vez de `image`: la regla `image` usa
+            // getimagesize(), que NO reconoce SVG y lo rechazaría pese a ofrecerlo
+            // la UI. `mimes` ya restringe a tipos de imagen.
+            'logo' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,svg', 'max:2048'],
         ], [
-            'logo.image' => 'El logo debe ser una imagen.',
+            'logo.mimes' => 'El logo debe ser una imagen JPG, PNG, WEBP o SVG.',
             'logo.max' => 'El logo no puede pasar de 2 MB.',
         ], [
             'clave' => 'clave',

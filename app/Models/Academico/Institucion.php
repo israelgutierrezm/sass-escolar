@@ -37,6 +37,14 @@ class Institucion extends Model
     /** Ruta autenticada del logo; null si no tiene. Nunca la ruta del disco. */
     public function urlLogo(): ?string
     {
-        return $this->logo_url === null ? null : "/academico/instituciones/{$this->id}/logo";
+        if ($this->logo_url === null) {
+            return null;
+        }
+
+        // Cache-busting con `updated_at`: la ruta del logo es estable, así que
+        // sin versión el navegador seguiría sirviendo el logo anterior de caché
+        // tras subir uno nuevo (mismo criterio que el logo público en
+        // HandleInertiaRequests).
+        return "/academico/instituciones/{$this->id}/logo?v=".($this->updated_at?->timestamp ?? '');
     }
 }
