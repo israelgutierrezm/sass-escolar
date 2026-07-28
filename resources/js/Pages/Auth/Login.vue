@@ -115,9 +115,14 @@ function enviar(): void {
             <button
                 type="submit"
                 :disabled="form.processing"
-                class="boton-entrar w-full rounded-lg px-4 py-2.5 font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-60"
+                class="boton-entrar grupo-entrar flex w-full items-center justify-center gap-2.5 rounded-lg px-4 py-2.5 font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-60"
             >
-                {{ form.processing ? 'Entrando…' : 'Entrar' }}
+                <span>{{ form.processing ? 'Entrando…' : 'Iniciar sesión' }}</span>
+                <span v-if="!form.processing" class="flechas" aria-hidden="true">
+                    <svg v-for="n in 3" :key="n" class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m9 6 6 6-6 6" />
+                    </svg>
+                </span>
             </button>
         </form>
 
@@ -211,11 +216,64 @@ function enviar(): void {
 
 .boton-entrar:hover:not(:disabled) {
     filter: brightness(1.06);
-    transform: translateY(-1px);
-    box-shadow: 0 14px 28px -10px rgba(79, 70, 229, 0.8);
+    transform: translateY(-2px);
+    box-shadow: 0 16px 30px -10px rgba(79, 70, 229, 0.85);
 }
 
 .boton-entrar:active:not(:disabled) {
-    transform: translateY(0);
+    transform: translateY(-1px);
+}
+
+/* Flechas del botón: en reposo se ve UNA (la primera); al pasar el cursor se
+   van «creando» más, fluyendo hacia la derecha en cadena. */
+.flechas {
+    position: relative;
+    display: inline-flex;
+    width: 1.1rem;
+    height: 1.1rem;
+}
+
+.chev {
+    position: absolute;
+    inset: 0;
+    width: 1.1rem;
+    height: 1.1rem;
+    opacity: 0;
+}
+
+.chev:first-child {
+    opacity: 1;
+}
+
+.grupo-entrar:hover:not(:disabled) .chev {
+    animation: fluir 0.9s ease-in-out infinite;
+}
+
+.grupo-entrar:hover:not(:disabled) .chev:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.grupo-entrar:hover:not(:disabled) .chev:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes fluir {
+    0% {
+        opacity: 0;
+        transform: translateX(-6px);
+    }
+    35% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+        transform: translateX(9px);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .grupo-entrar:hover:not(:disabled) .chev {
+        animation: none;
+    }
 }
 </style>
