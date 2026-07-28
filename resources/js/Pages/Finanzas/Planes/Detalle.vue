@@ -291,7 +291,7 @@ const etiquetaPeriodicidad = computed(() =>
                         <th class="px-4 py-3 font-medium">Emite / vence</th>
                         <th class="px-4 py-3 font-medium">Condiciones</th>
                         <th class="px-4 py-3 font-medium">Emitidos</th>
-                        <th class="px-6 py-3"></th>
+                        <th class="px-6 py-3 font-medium text-right">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>

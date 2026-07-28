@@ -105,7 +105,7 @@ const mayorOrigen = Math.max(1, ...props.origenes.map((o) => o.total));
                         <th class="px-6 py-3 font-medium">Prospecto</th>
                         <th class="px-4 py-3 font-medium">Etapa</th>
                         <th class="px-4 py-3 font-medium">Tocaba</th>
-                        <th class="px-6 py-3"></th>
+                        <th class="px-6 py-3 font-medium text-right">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>

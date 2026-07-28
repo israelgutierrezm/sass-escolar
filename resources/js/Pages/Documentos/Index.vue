@@ -200,7 +200,7 @@ const nombreAmbito = (clave: string) => props.ambitos.find((a) => a.clave === cl
                         <th class="px-4 py-3 font-medium">Se le pide a</th>
                         <th class="px-4 py-3 font-medium">Carreras</th>
                         <th class="px-4 py-3 font-medium">Entregados</th>
-                        <th class="px-6 py-3"></th>
+                        <th class="px-6 py-3 font-medium text-right">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>

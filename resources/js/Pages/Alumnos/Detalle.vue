@@ -748,7 +748,7 @@ function verComo(): void {
                                 <th class="px-4 py-3 font-medium">CURP</th>
                                 <th class="px-4 py-3 font-medium">Correo</th>
                                 <th class="px-4 py-3 font-medium">Puede ver</th>
-                                <th class="px-4 py-3"></th>
+                                <th class="px-4 py-3 font-medium text-right">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>

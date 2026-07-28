@@ -248,7 +248,7 @@ function verComo(): void {
                         <th class="px-4 py-3 font-medium">Grupo</th>
                         <th class="px-4 py-3 font-medium">Ciclo</th>
                         <th class="px-4 py-3 font-medium">Papel</th>
-                        <th class="px-6 py-3"></th>
+                        <th class="px-6 py-3 font-medium text-right">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>

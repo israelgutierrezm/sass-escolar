@@ -231,7 +231,7 @@ const rolesResumen = (u: UsuarioFila): string =>
                         <th class="px-6 py-3 font-medium">Persona</th>
                         <th class="px-4 py-3 font-medium">Cuenta</th>
                         <th class="px-4 py-3 font-medium">Roles</th>
-                        <th class="px-6 py-3"></th>
+                        <th class="px-6 py-3 font-medium text-right">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>

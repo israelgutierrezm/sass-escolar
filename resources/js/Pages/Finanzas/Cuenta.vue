@@ -368,7 +368,7 @@ const colorEstatus: Record<string, string> = {
                         <th class="px-4 py-3 text-right font-medium">Monto</th>
                         <th class="px-4 py-3 text-right font-medium">Saldo</th>
                         <th class="px-4 py-3 font-medium">Estatus</th>
-                        <th class="px-6 py-3"></th>
+                        <th class="px-6 py-3 font-medium text-right">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -495,7 +495,7 @@ const colorEstatus: Record<string, string> = {
                         <th class="px-4 py-3 font-medium">Cubre</th>
                         <th class="px-4 py-3 text-right font-medium">Monto</th>
                         <th class="px-4 py-3 font-medium">Estatus</th>
-                        <th class="px-6 py-3"></th>
+                        <th class="px-6 py-3 font-medium text-right">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -564,7 +564,7 @@ const colorEstatus: Record<string, string> = {
                         <th class="px-4 py-3 font-medium">Timbrado</th>
                         <th class="px-4 py-3 text-right font-medium">Total</th>
                         <th class="px-4 py-3 font-medium">Estatus</th>
-                        <th class="px-6 py-3"></th>
+                        <th class="px-6 py-3 font-medium text-right">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>

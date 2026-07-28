@@ -76,7 +76,7 @@ function colorDeActa(estado: Materia['acta']['estado']): string {
                         <th class="px-4 py-3 font-medium">Titular</th>
                         <th class="px-4 py-3 font-medium">Inscritos</th>
                         <th class="px-4 py-3 font-medium">Acta</th>
-                        <th class="px-6 py-3"></th>
+                        <th class="px-6 py-3 font-medium text-right">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>

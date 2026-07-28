@@ -146,7 +146,7 @@ const objImp = (clave: string | null) =>
                             <th class="px-4 py-3 font-medium">Unidad</th>
                             <th class="px-4 py-3 font-medium">Objeto de impuesto</th>
                             <th class="px-4 py-3 font-medium">IVA</th>
-                            <th class="px-4 py-3"></th>
+                            <th class="px-4 py-3 font-medium text-right">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>

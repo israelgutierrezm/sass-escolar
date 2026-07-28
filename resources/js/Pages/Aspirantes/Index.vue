@@ -101,7 +101,7 @@ const definicionFiltros = [
                             <th class="px-4 py-3 font-medium">Etapa</th>
                             <th class="px-4 py-3 font-medium">Situación</th>
                             <th class="px-4 py-3 font-medium">Cómo llegó</th>
-                            <th class="px-6 py-3"></th>
+                            <th class="px-6 py-3 font-medium text-right">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>

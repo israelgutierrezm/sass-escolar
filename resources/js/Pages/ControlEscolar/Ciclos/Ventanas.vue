@@ -141,7 +141,7 @@ function revocar(ventanaId: number, excepcionId: number): void {
                         <th class="px-4 py-3 font-medium">Hasta</th>
                         <th class="px-4 py-3 font-medium">Estado</th>
                         <th class="px-4 py-3 font-medium">Excepciones</th>
-                        <th class="px-6 py-3"></th>
+                        <th class="px-6 py-3 font-medium text-right">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>

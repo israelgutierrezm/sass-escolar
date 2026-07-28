@@ -174,7 +174,7 @@ const etiquetaTipo: Record<string, string> = {
                         <th class="px-4 py-3 font-medium">Aplica a</th>
                         <th class="px-4 py-3 font-medium">Vigencia</th>
                         <th class="px-4 py-3 font-medium">Reglas</th>
-                        <th class="px-6 py-3"></th>
+                        <th class="px-6 py-3 font-medium text-right">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>

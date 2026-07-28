@@ -90,7 +90,7 @@ const definicionFiltros = [
                             <th class="px-4 py-3 font-medium">Campus</th>
                             <th class="px-4 py-3 font-medium">Materias</th>
                             <th class="px-4 py-3 font-medium">Situación</th>
-                            <th class="px-6 py-3"></th>
+                            <th class="px-6 py-3 font-medium text-right">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>

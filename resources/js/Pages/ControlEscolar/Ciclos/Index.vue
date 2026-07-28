@@ -122,7 +122,7 @@ function eliminar(id: number, clave: string): void {
                             <th class="px-4 py-3 font-medium">Situación</th>
                             <th class="px-4 py-3 font-medium">Inscripción</th>
                             <th class="px-4 py-3 font-medium">Grupos</th>
-                            <th class="px-4 py-3"></th>
+                            <th class="px-4 py-3 font-medium text-right">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>

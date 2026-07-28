@@ -141,7 +141,7 @@ const definicionFiltros = [
                         <th class="px-4 py-3 font-medium">Origen</th>
                         <th class="px-4 py-3 font-medium">Promotor</th>
                         <th class="px-4 py-3 font-medium">Último contacto</th>
-                        <th class="px-6 py-3"></th>
+                        <th class="px-6 py-3 font-medium text-right">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>

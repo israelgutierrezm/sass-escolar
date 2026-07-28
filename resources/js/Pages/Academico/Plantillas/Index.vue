@@ -89,7 +89,7 @@ function crear(): void {
                         <th class="px-4 py-3 font-medium">Parciales</th>
                         <th class="px-4 py-3 font-medium">Suma</th>
                         <th class="px-4 py-3 font-medium">En uso</th>
-                        <th class="px-6 py-3"></th>
+                        <th class="px-6 py-3 font-medium text-right">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>

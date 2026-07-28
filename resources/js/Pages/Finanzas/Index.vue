@@ -127,7 +127,7 @@ const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN
                         <th class="px-4 py-3 text-right font-medium">Cargos</th>
                         <th class="px-4 py-3 text-right font-medium">Saldo</th>
                         <th class="px-4 py-3 text-right font-medium">Vencido</th>
-                        <th class="px-6 py-3"></th>
+                        <th class="px-6 py-3 font-medium text-right">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
