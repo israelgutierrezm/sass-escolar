@@ -128,8 +128,22 @@ class AsignaturaController extends Controller
             ->with('exito', 'Asignatura creada y ligada al plan. Ahora puedes subir sus imágenes de diseño.');
     }
 
-    public function edit(Asignatura $asignatura): Response
+    public function edit(Asignatura $asignatura): Response|RedirectResponse
     {
+        // Homologado con el plan: editar una asignatura es lo mismo aquí que
+        // desde la malla, así que se abre la MISMA ficha rica (datos,
+        // descriptores, imágenes, ubicación, requisitos, evaluación) en vez de
+        // duplicar formularios. Se usa su plan más reciente; si aún no está en
+        // ningún plan (caso borde/heredado), cae al editor de asignatura.
+        $materia = PlanMateria::query()
+            ->where('asignatura_id', $asignatura->id)
+            ->orderByDesc('id')
+            ->first();
+
+        if ($materia !== null) {
+            return redirect()->route('tenant.academico.planes.materias.show', [$materia->plan_id, $materia->id]);
+        }
+
         $asignatura->load('descriptores');
 
         return Inertia::render('Academico/Asignaturas/Formulario', [
