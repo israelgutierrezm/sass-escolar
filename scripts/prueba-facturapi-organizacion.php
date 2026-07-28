@@ -72,10 +72,13 @@ try {
         if (str_ends_with($url, '/organizations')) {
             return Http::response(['id' => 'org_ABC123', 'legal' => ['name' => 'ESCUELA DEMO SA']], 200);
         }
-        if (str_contains($url, '/certificates')) {
+        if (str_ends_with($url, '/legal')) {
+            return Http::response(['id' => 'org_ABC123', 'legal' => ['name' => 'ESCUELA DEMO SA']], 200);
+        }
+        if (str_ends_with($url, '/certificate')) {
             return Http::response(['status' => 'ok'], 200);
         }
-        if (str_contains($url, '/test-api-key')) {
+        if (str_ends_with($url, '/apikeys/test')) {
             return Http::response('"sk_test_ORGABC"', 200, ['Content-Type' => 'application/json']);
         }
 
@@ -95,21 +98,26 @@ try {
             && $auth === $esperado;
     });
 
-    echo PHP_EOL.'3. subirCertificado → PUT /organizations/{id}/certificates (multipart)'.PHP_EOL;
+    echo PHP_EOL.'3. configurarDatosFiscales → PUT /organizations/{id}/legal'.PHP_EOL;
+    $legal = $servicio->configurarDatosFiscales('org_ABC123', ['legal_name' => 'ESCUELA DEMO SA', 'tax_system' => '601']);
+    verificar('Responde con la organización', ($legal['id'] ?? null) === 'org_ABC123');
+    Http::assertSent(fn ($request) => $request->method() === 'PUT' && str_ends_with($request->url(), '/organizations/org_ABC123/legal'));
+
+    echo PHP_EOL.'4. subirCertificado → PUT /organizations/{id}/certificate (multipart, singular)'.PHP_EOL;
     $res = $servicio->subirCertificado('org_ABC123', 'CONTENIDO_CER', 'CONTENIDO_KEY', 'micontraseña');
     verificar('Responde ok', ($res['status'] ?? null) === 'ok');
     Http::assertSent(function ($request) {
-        $esCert = str_ends_with($request->url(), '/organizations/org_ABC123/certificates');
+        $esCert = str_ends_with($request->url(), '/organizations/org_ABC123/certificate');
         $esMultipart = str_contains($request->header('Content-Type')[0] ?? '', 'multipart/form-data');
 
         return $request->method() === 'PUT' && $esCert && $esMultipart;
     });
 
-    echo PHP_EOL.'4. obtenerLlavePruebas → GET /organizations/{id}/test-api-key'.PHP_EOL;
+    echo PHP_EOL.'5. obtenerLlavePruebas → GET /organizations/{id}/apikeys/test'.PHP_EOL;
     $llave = $servicio->obtenerLlavePruebas('org_ABC123');
     verificar('Devuelve la llave de pruebas', $llave === 'sk_test_ORGABC', $llave);
 
-    echo PHP_EOL.'5. Un rechazo de Facturapi (4xx) se traduce a FacturapiRechazo'.PHP_EOL;
+    echo PHP_EOL.'6. Un rechazo de Facturapi (4xx) se traduce a FacturapiRechazo'.PHP_EOL;
     $modo = 'rechazo';
     $rechazado = false;
     try {
@@ -119,7 +127,7 @@ try {
     }
     verificar('Lanza FacturapiRechazo con el mensaje de Facturapi', $rechazado);
 
-    echo PHP_EOL.'6. Sin Admin Key configurada, revienta con mensaje claro'.PHP_EOL;
+    echo PHP_EOL.'7. Sin Admin Key configurada, revienta con mensaje claro'.PHP_EOL;
     $config->forceFill(['api_key_usuario' => null])->save();
     $sinLlave = false;
     try {

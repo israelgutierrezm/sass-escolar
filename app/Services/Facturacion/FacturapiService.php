@@ -173,8 +173,21 @@ class FacturapiService
     }
 
     /**
+     * Configura los datos legales/fiscales de la organización (razón social,
+     * régimen, domicilio). El RFC NO va aquí: Facturapi lo toma del CSD.
+     *
+     * @param  array<string, mixed>  $datos
+     * @return array<string, mixed>
+     */
+    public function configurarDatosFiscales(string $organizacionId, array $datos): array
+    {
+        return $this->manejar($this->clienteAdmin()->put(self::BASE."/organizations/{$organizacionId}/legal", $datos));
+    }
+
+    /**
      * Sube el CSD (.cer + .key + contraseña) a una organización. Los archivos
-     * viajan como multipart; nunca se registran sus contenidos.
+     * viajan como multipart; nunca se registran sus contenidos. Facturapi toma
+     * el RFC del propio certificado.
      *
      * @return array<string, mixed>
      */
@@ -183,7 +196,7 @@ class FacturapiService
         $respuesta = $this->clienteAdmin()
             ->attach('cer', $cerContenido, 'csd.cer')
             ->attach('key', $keyContenido, 'csd.key')
-            ->put(self::BASE."/organizations/{$organizacionId}/certificates", ['password' => $password]);
+            ->put(self::BASE."/organizations/{$organizacionId}/certificate", ['password' => $password]);
 
         return $this->manejar($respuesta);
     }
@@ -195,7 +208,7 @@ class FacturapiService
      */
     public function obtenerLlavePruebas(string $organizacionId): string
     {
-        $respuesta = $this->clienteAdmin()->get(self::BASE."/organizations/{$organizacionId}/test-api-key");
+        $respuesta = $this->clienteAdmin()->get(self::BASE."/organizations/{$organizacionId}/apikeys/test");
 
         if ($respuesta->failed()) {
             $this->reventar($respuesta);
