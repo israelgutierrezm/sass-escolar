@@ -27,7 +27,8 @@ const creando = ref(false);
 const form = useForm({ clave: '', titulo: '', instruccion: '', obligatorio: false, orden: 0 });
 
 function crear(): void {
-    form.post('/formularios', { onSuccess: () => { form.reset(); creando.value = false; } });
+    // Se queda abierto tras agregar para encadenar altas (se cierra con «Cancelar»).
+    form.post('/formularios', { onSuccess: () => form.reset() });
 }
 
 function eliminar(f: Formulario): void {

@@ -39,10 +39,8 @@ const datos = useForm(vacio());
 function crear(): void {
     alta.post('/finanzas/conceptos', {
         preserveScroll: true,
-        onSuccess: () => {
-            alta.reset();
-            creando.value = false;
-        },
+        // Se queda abierto tras agregar para encadenar altas (se cierra con «Cancelar»).
+        onSuccess: () => alta.reset(),
     });
 }
 

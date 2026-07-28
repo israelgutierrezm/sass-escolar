@@ -71,9 +71,10 @@ function guardar(): void {
 
     form.post('/documentos', {
         preserveScroll: true,
+        // Se queda abierto tras agregar para encadenar altas (se cierra con «Cancelar»).
         onSuccess: () => {
             form.reset();
-            creando.value = false;
+            form.ambitos = props.filtros.ambito ? [props.filtros.ambito] : ['aspirante'];
         },
     });
 }

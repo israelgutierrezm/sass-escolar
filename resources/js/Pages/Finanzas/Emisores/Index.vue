@@ -73,10 +73,8 @@ const alta = useForm(fiscalVacio());
 
 function crear(): void {
     alta.post('/finanzas/emisores', {
-        onSuccess: () => {
-            alta.reset();
-            creando.value = false;
-        },
+        // Se queda abierto tras agregar para encadenar altas (se cierra con «Cancelar»).
+        onSuccess: () => alta.reset(),
     });
 }
 

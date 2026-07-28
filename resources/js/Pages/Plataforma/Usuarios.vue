@@ -84,10 +84,8 @@ const alta = useForm({
 
 function crear(): void {
     alta.post('/plataforma/usuarios', {
-        onSuccess: () => {
-            alta.reset();
-            creando.value = false;
-        },
+        // Se queda abierto tras agregar para encadenar altas (se cierra con «Cancelar»).
+        onSuccess: () => alta.reset(),
     });
 }
 

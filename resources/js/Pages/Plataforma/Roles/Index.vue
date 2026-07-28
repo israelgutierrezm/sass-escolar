@@ -35,10 +35,8 @@ const form = useForm({
 
 function crear(): void {
     form.post('/plataforma/roles', {
-        onSuccess: () => {
-            form.reset();
-            creando.value = false;
-        },
+        // Se queda abierto tras agregar para encadenar altas (se cierra con «Cancelar»).
+        onSuccess: () => form.reset(),
     });
 }
 

@@ -29,10 +29,8 @@ const form = useForm({ clave: '', nombre: '', descripcion: '', activa: true });
 
 function crear(): void {
     form.post('/academico/plantillas', {
-        onSuccess: () => {
-            form.reset();
-            creando.value = false;
-        },
+        // Se queda abierto tras agregar para encadenar altas (se cierra con «Cancelar»).
+        onSuccess: () => form.reset(),
     });
 }
 </script>

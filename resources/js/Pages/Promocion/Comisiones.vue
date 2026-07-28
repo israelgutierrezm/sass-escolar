@@ -102,10 +102,8 @@ const opcionesDestino = computed<{ id: number; nombre: string }[]>(() => {
 function guardarRegla(): void {
     regla.post('/promocion/reglas-comision', {
         preserveScroll: true,
-        onSuccess: () => {
-            regla.reset();
-            creandoRegla.value = false;
-        },
+        // Se queda abierta tras agregar para encadenar altas (se cierra con «Cancelar»).
+        onSuccess: () => regla.reset(),
     });
 }
 
