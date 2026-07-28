@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
@@ -17,6 +17,8 @@ interface Materia {
     tipo: string;
     creditos: number | null;
     creditos_sobreescritos: boolean;
+    area: string | null;
+    area_color: string | null;
 }
 
 const props = defineProps<{
@@ -39,7 +41,26 @@ const props = defineProps<{
 
 const mostrarAlta = ref(false);
 
+// Vista de la malla: «lista» (tabla por periodo) o «cuadrícula» (tarjetas por
+// nivel, coloreadas por área). Se recuerda la preferida entre visitas.
+const vista = ref<'lista' | 'cuadricula'>(
+    (localStorage.getItem('malla-vista') as 'lista' | 'cuadricula') || 'lista',
+);
+watch(vista, (v) => localStorage.setItem('malla-vista', v));
+
 const opciones = (lista: { id: number; nombre: string }[]) => lista.map((x) => ({ valor: x.id, texto: x.nombre }));
+
+// Leyenda de áreas presentes en la malla (nombre → color), para leer la
+// cuadrícula sin adivinar qué academia es cada color.
+const leyendaAreas = computed(() => {
+    const mapa = new Map<string, string | null>();
+    for (const m of props.materias) {
+        if (m.area && !mapa.has(m.area)) {
+            mapa.set(m.area, m.area_color);
+        }
+    }
+    return [...mapa].map(([nombre, color]) => ({ nombre, color }));
+});
 
 // La asignatura se CREA aquí (ya no se elige una del catálogo). El form lleva sus
 // datos + la ubicación en el plan (periodo y tipo: obligatoria/optativa…).
@@ -134,6 +155,20 @@ function quitar(materia: Materia): void {
 }
 
 const etiquetaTipo = (tipo: string) => opcionesTipo.find((o) => o.valor === tipo)?.texto ?? tipo;
+
+// El color del área pinta la tarjeta; el texto se elige oscuro o claro según la
+// luminancia para que se lea sobre cualquier color (el usuario puede editarlo).
+function fondoArea(color: string | null): string {
+    return color || '#EAE8E6';
+}
+function textoSobre(color: string | null): string {
+    const hex = (color || '#EAE8E6').replace('#', '');
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b = parseInt(hex.slice(4, 6), 16);
+    const luminancia = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminancia > 0.6 ? '#1e293b' : '#ffffff';
+}
 </script>
 
 <template>
@@ -285,7 +320,92 @@ const etiquetaTipo = (tipo: string) => opcionesTipo.find((o) => o.valor === tipo
         </section>
 
         <!-- Malla agrupada (periodos + un bloque de Optativas) -->
-        <section v-if="materias.length" class="space-y-4">
+        <template v-if="materias.length">
+            <!-- Barra: conmutador de vista + leyenda de áreas por color. -->
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="inline-flex rounded-lg border p-0.5" :style="{ borderColor: 'var(--color-borde)' }">
+                    <button
+                        v-for="opcion in [{ v: 'lista', t: 'Lista' }, { v: 'cuadricula', t: 'Cuadrícula' }]"
+                        :key="opcion.v"
+                        type="button"
+                        class="rounded-md px-3 py-1.5 text-sm font-medium transition"
+                        :style="vista === opcion.v
+                            ? { backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }
+                            : { color: 'var(--color-suave)' }"
+                        @click="vista = opcion.v as 'lista' | 'cuadricula'"
+                    >
+                        {{ opcion.t }}
+                    </button>
+                </div>
+
+                <div v-if="vista === 'cuadricula' && leyendaAreas.length" class="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                    <span
+                        v-for="area in leyendaAreas"
+                        :key="area.nombre"
+                        class="inline-flex items-center gap-1.5 text-xs"
+                        :style="{ color: 'var(--color-suave)' }"
+                    >
+                        <span class="h-3 w-3 rounded-sm border" :style="{ backgroundColor: fondoArea(area.color), borderColor: 'var(--color-borde)' }" />
+                        {{ area.nombre }}
+                    </span>
+                </div>
+            </div>
+
+            <!-- VISTA CUADRÍCULA: una columna por nivel; cada materia es una
+                 tarjeta con el color de su área. Toda la tarjeta abre la ficha. -->
+            <section v-if="vista === 'cuadricula'" class="overflow-x-auto pb-2">
+                <div class="flex gap-4" :style="{ minWidth: 'min-content' }">
+                    <div v-for="grupo in grupos" :key="grupo.clave" class="w-60 shrink-0">
+                        <div
+                            class="mb-3 flex items-center justify-between gap-2 rounded-lg px-3 py-2"
+                            :style="grupo.optativa
+                                ? { backgroundColor: 'color-mix(in srgb, var(--color-acento) 10%, transparent)', color: 'var(--color-acento)' }
+                                : { backgroundColor: 'var(--color-suave-fondo, color-mix(in srgb, var(--color-acento) 5%, transparent))', color: 'var(--color-contenido)' }"
+                        >
+                            <span class="flex items-center gap-1.5 text-sm font-semibold">
+                                <svg v-if="grupo.optativa" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" /></svg>
+                                {{ grupo.titulo }}
+                            </span>
+                            <span class="text-xs opacity-70">{{ grupo.lista.length }}</span>
+                        </div>
+
+                        <div class="space-y-3">
+                            <a
+                                v-for="materia in grupo.lista"
+                                :key="materia.id"
+                                :href="`/academico/planes/${plan.id}/materias/${materia.id}`"
+                                class="block rounded-xl border p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                                :style="{ backgroundColor: fondoArea(materia.area_color), borderColor: 'color-mix(in srgb, #000 8%, transparent)', color: textoSobre(materia.area_color) }"
+                            >
+                                <div class="flex items-center justify-between gap-2">
+                                    <span class="font-mono text-[11px] opacity-80">{{ materia.clave_en_plan }}</span>
+                                    <span class="shrink-0 text-[11px] font-semibold opacity-90">
+                                        {{ materia.creditos ?? '—' }} cr
+                                    </span>
+                                </div>
+                                <p class="mt-1.5 text-sm font-semibold leading-snug">{{ materia.asignatura }}</p>
+                                <div class="mt-2 flex items-center justify-between gap-2">
+                                    <span class="truncate text-[11px] opacity-80">{{ materia.area || 'Sin área' }}</span>
+                                    <span
+                                        v-if="materia.tipo === 'optativa'"
+                                        class="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                                        :style="{ backgroundColor: 'color-mix(in srgb, #000 12%, transparent)' }"
+                                    >
+                                        Optativa
+                                    </span>
+                                </div>
+                            </a>
+
+                            <p v-if="!grupo.lista.length" class="rounded-lg border border-dashed p-3 text-center text-xs" :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }">
+                                Sin materias
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VISTA LISTA: la tabla por periodo de siempre. -->
+            <section v-else class="space-y-4">
             <div
                 v-for="grupo in grupos"
                 :key="grupo.clave"
@@ -355,7 +475,8 @@ const etiquetaTipo = (tipo: string) => opcionesTipo.find((o) => o.valor === tipo
                     </tbody>
                 </table>
             </div>
-        </section>
+            </section>
+        </template>
 
         <p v-else class="rounded-xl bg-white px-4 py-12 text-center text-sm text-slate-500 shadow-sm ring-1 ring-slate-200">
             Este plan aún no tiene materias. Agrégalas desde el catálogo de asignaturas.

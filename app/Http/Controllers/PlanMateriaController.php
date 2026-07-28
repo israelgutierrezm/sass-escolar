@@ -38,7 +38,11 @@ class PlanMateriaController extends Controller
         $plan->load('carrera:id,nombre');
 
         $materias = PlanMateria::query()
-            ->with(['asignatura:id,clave,nombre,creditos,tipo_asignatura_id', 'asignatura.tipoAsignatura:id,nombre'])
+            ->with([
+                'asignatura:id,clave,nombre,creditos,tipo_asignatura_id,area_id',
+                'asignatura.tipoAsignatura:id,nombre',
+                'asignatura.area:id,nombre,color',
+            ])
             ->where('plan_id', $plan->id)
             ->orderBy('periodo')
             ->orderBy('clave_en_plan')
@@ -70,6 +74,9 @@ class PlanMateriaController extends Controller
                 'tipo' => $materia->tipo,
                 'creditos' => $materia->creditos_en_plan ?? $materia->asignatura?->creditos,
                 'creditos_sobreescritos' => $materia->creditos_en_plan !== null,
+                // Para la vista de cuadrícula: el color del área pinta la tarjeta.
+                'area' => $materia->asignatura?->area?->nombre,
+                'area_color' => $materia->asignatura?->area?->color,
             ]),
             'creditosCargados' => $creditosCargados,
             // Ya no se elige una asignatura existente: se CREA aquí mismo. Por eso
