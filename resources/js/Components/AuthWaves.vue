@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { usePage } from '@inertiajs/vue3';
 import * as THREE from 'three';
 // @ts-expect-error — vanta no trae tipos
 import WAVES from 'vanta/dist/vanta.waves.min';
@@ -21,6 +22,9 @@ import BIRDS from 'vanta/dist/vanta.birds.min';
  * tamaño final —lo que hacía que en escritorio no se viera nada—, el reajuste
  * lo corrige. Si WebGL falla, queda el fondo neutro y el acceso no se rompe.
  */
+// La institución (nombre + logo) para membretar el acceso, si ya está cargada.
+const institucion = computed(() => (usePage().props.escuela as any)?.institucion ?? null);
+
 const fondo = ref<HTMLElement | null>(null);
 let efecto: { destroy: () => void; resize: () => void } | null = null;
 let observador: ResizeObserver | null = null;
@@ -102,14 +106,24 @@ onBeforeUnmount(() => {
         <div class="order-2 flex flex-1 items-center justify-center bg-white px-6 py-8 lg:order-first lg:py-10">
             <div class="entra w-full max-w-sm">
                 <div class="mb-8 flex flex-col items-center text-center lg:items-start lg:text-left">
-                    <span class="logo grid h-14 w-14 place-items-center rounded-2xl text-white shadow-lg">
+                    <!-- Una vez cargado, el logo de la institución reemplaza la
+                         marca genérica. Sin logo, cae al ícono por defecto. -->
+                    <img
+                        v-if="institucion?.logo"
+                        :src="institucion.logo"
+                        :alt="institucion.nombre"
+                        class="h-16 w-16 rounded-2xl bg-white object-contain shadow-lg ring-1 ring-slate-200"
+                    />
+                    <span v-else class="logo grid h-14 w-14 place-items-center rounded-2xl text-white shadow-lg">
                         <svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 14l9-5-9-5-9 5 9 5z" />
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 14l6.16-3.42A12 12 0 0 1 12 21a12 12 0 0 1-6.16-10.42L12 14z" />
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 9v5" />
                         </svg>
                     </span>
-                    <h1 class="mt-4 text-2xl font-bold tracking-tight text-slate-800">Acadion</h1>
+                    <h1 class="mt-4 text-2xl font-bold tracking-tight text-slate-800">
+                        {{ institucion?.nombre ?? 'Acadion' }}
+                    </h1>
                     <slot name="subtitulo" />
                 </div>
 

@@ -31,22 +31,17 @@ class InstitucionController extends Controller
 
     public function index(Request $request): Response
     {
+        // Solo puede haber una: se pasa como objeto único (o null), no como lista.
+        $institucion = Institucion::query()->withCount('campus')->first();
+
         return Inertia::render('Academico/Instituciones/Index', [
-            'instituciones' => Institucion::query()
-                ->withCount('campus')
-                ->orderBy('nombre')
-                ->get()
-                ->map(fn (Institucion $i) => [
-                    'id' => $i->id,
-                    'clave' => $i->clave,
-                    'nombre' => $i->nombre,
-                    'logo' => $i->urlLogo(),
-                    'campus_count' => $i->campus_count,
-                ]),
-            // Con una institución ya registrada no se permite crear otra: la
-            // escuela ES una institución. El botón se oculta con esta bandera y
-            // el backend lo vuelve a exigir.
-            'puedeCrear' => $request->user()->can('editar-catalogo-academico') && Institucion::query()->doesntExist(),
+            'institucion' => $institucion === null ? null : [
+                'id' => $institucion->id,
+                'clave' => $institucion->clave,
+                'nombre' => $institucion->nombre,
+                'logo' => $institucion->urlLogo(),
+                'campus_count' => $institucion->campus_count,
+            ],
             'puedeEditar' => $request->user()->can('editar-catalogo-academico'),
         ]);
     }
@@ -108,6 +103,20 @@ class InstitucionController extends Controller
     public function logo(Institucion $institucion): StreamedResponse
     {
         abort_if($institucion->logo_url === null, 404);
+        abort_unless(Storage::disk('local')->exists($institucion->logo_url), 404);
+
+        return Storage::disk('local')->response($institucion->logo_url);
+    }
+
+    /**
+     * El logo de la ÚNICA institución, sin autenticación: lo usan el login y la
+     * barra lateral. Como solo puede haber una, no lleva id en la URL.
+     */
+    public function logoPublico(): StreamedResponse
+    {
+        $institucion = Institucion::query()->whereNotNull('logo_url')->first();
+
+        abort_if($institucion === null, 404);
         abort_unless(Storage::disk('local')->exists($institucion->logo_url), 404);
 
         return Storage::disk('local')->response($institucion->logo_url);

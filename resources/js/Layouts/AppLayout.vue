@@ -430,11 +430,18 @@ const iniciales = computed(() => {
         >
             <!-- Marca -->
             <div class="flex h-16 items-center gap-3 px-4">
+                <img
+                    v-if="escuela?.institucion?.logo"
+                    :src="escuela.institucion.logo"
+                    :alt="escuela.institucion.nombre"
+                    class="h-9 w-9 shrink-0 rounded-xl bg-white object-contain shadow-lg"
+                />
                 <span
+                    v-else
                     class="grid h-9 w-9 shrink-0 place-items-center rounded-xl font-bold shadow-lg transition-transform duration-300 hover:rotate-6"
                     :style="{ backgroundColor: 'var(--color-barra-lateral-activo)', color: 'var(--color-acento-texto)' }"
                 >
-                    A
+                    {{ escuela?.institucion?.nombre?.[0]?.toUpperCase() ?? 'A' }}
                 </span>
                 <Transition
                     enter-active-class="transition-all duration-200"
@@ -443,9 +450,11 @@ const iniciales = computed(() => {
                     leave-to-class="opacity-0 -translate-x-2"
                 >
                     <span v-if="!compacta" class="min-w-0">
-                        <span class="block truncate text-sm font-semibold text-white">Acadion</span>
-                        <span v-if="escuela" class="block truncate text-[11px] opacity-70">
-                            {{ escuela.nombre }}
+                        <span class="block truncate text-sm font-semibold text-white">
+                            {{ escuela?.institucion?.nombre ?? 'Acadion' }}
+                        </span>
+                        <span v-if="escuela?.institucion?.clave ?? escuela?.nombre" class="block truncate text-[11px] opacity-70">
+                            {{ escuela?.institucion?.clave ?? escuela?.nombre }}
                         </span>
                     </span>
                 </Transition>

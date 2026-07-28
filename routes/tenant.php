@@ -89,6 +89,11 @@ Route::middleware([
         Route::post('/{token}', 'enviar')->middleware('throttle:6,1')->name('enviar');
     });
 
+    // Logo de la institución, PÚBLICO: lo pinta la pantalla de login (a la que
+    // llega quien no ha iniciado sesión) y la barra lateral. Un logo no es un
+    // secreto; de hecho su razón de ser es que se vea antes de entrar.
+    Route::get('/institucion/logo', [InstitucionController::class, 'logoPublico'])->name('tenant.institucion.logo');
+
     Route::middleware('guest')->group(function () {
         Route::get('/', [AutenticacionController::class, 'mostrarLogin'])->name('tenant.login');
         Route::post('/login', [AutenticacionController::class, 'login'])->name('tenant.login.enviar');

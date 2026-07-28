@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Models\Academico\Institucion;
 use App\Models\Identidad\PersonaRol;
 use App\Models\Identidad\Rol;
 use App\Models\Identidad\Usuario;
@@ -43,6 +44,10 @@ class HandleInertiaRequests extends Middleware
             'escuela' => tenant() === null ? null : [
                 'id' => tenant('id'),
                 'nombre' => tenant('id'),
+                // La institución (nombre, clave y logo público) para membretar la
+                // barra lateral y el login. Lazy: solo se consulta cuando la
+                // página la usa.
+                'institucion' => fn () => $this->institucion(),
             ],
 
             // Colores ya resueltos en cascada; el front solo los inyecta como
@@ -150,6 +155,30 @@ class HandleInertiaRequests extends Middleware
         return $real === null ? null : [
             'usuario' => $real->usuario,
             'nombre' => $real->persona?->nombreCompleto(),
+        ];
+    }
+
+    /**
+     * La institución de la escuela (solo puede haber una) para membretar la
+     * barra lateral y el login. El logo va como URL pública con un parámetro de
+     * versión, para que al cambiarlo no se quede el del navegador en caché.
+     *
+     * @return array{nombre: string, clave: string, logo: ?string}|null
+     */
+    private function institucion(): ?array
+    {
+        $institucion = Institucion::query()->first();
+
+        if ($institucion === null) {
+            return null;
+        }
+
+        return [
+            'nombre' => $institucion->nombre,
+            'clave' => $institucion->clave,
+            'logo' => $institucion->logo_url === null
+                ? null
+                : route('tenant.institucion.logo').'?v='.$institucion->updated_at?->timestamp,
         ];
     }
 }
