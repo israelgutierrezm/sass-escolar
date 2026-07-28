@@ -30,15 +30,32 @@ const props = defineProps<{
     };
     materias: Materia[];
     creditosCargados: number;
-    asignaturas: { id: number; clave: string; nombre: string; creditos: number }[];
+    tiposAsignatura: { id: number; nombre: string }[];
+    clasificaciones: { id: number; nombre: string }[];
+    areas: { id: number; nombre: string }[];
     puedeEditar: boolean;
 }>();
 
 const editando = ref<number | null>(null);
+const editandoNombre = ref<string | null>(null);
 const mostrarAlta = ref(false);
 
+const opciones = (lista: { id: number; nombre: string }[]) => lista.map((x) => ({ valor: x.id, texto: x.nombre }));
+
+// La asignatura se CREA aquí (ya no se elige una del catálogo). El form lleva sus
+// datos + la ubicación en el plan (periodo y tipo: obligatoria/optativa…).
 const form = useForm({
-    asignatura_id: null as number | null,
+    // Asignatura nueva
+    identificador: '',
+    clave: '',
+    nombre: '',
+    creditos: null as number | null,
+    tipo_asignatura_id: null as number | null,
+    clasificacion_id: null as number | null,
+    area_id: null as number | null,
+    horas_teoria: null as number | null,
+    horas_practica: null as number | null,
+    // Ubicación en el plan
     clave_en_plan: '',
     periodo: null as number | null,
     tipo: 'obligatoria',
@@ -61,10 +78,6 @@ const porPeriodo = computed(() => {
     });
 });
 
-const opcionesAsignatura = computed(() =>
-    props.asignaturas.map((a) => ({ valor: a.id, texto: `${a.clave} · ${a.nombre} (${a.creditos} cr.)` })),
-);
-
 const opcionesTipo = [
     { valor: 'obligatoria', texto: 'Obligatoria' },
     { valor: 'optativa', texto: 'Optativa' },
@@ -84,8 +97,9 @@ function abrirAlta(): void {
 function abrirEdicion(materia: Materia): void {
     mostrarAlta.value = false;
     editando.value = materia.id;
+    editandoNombre.value = materia.asignatura;
     form.clearErrors();
-    form.asignatura_id = materia.asignatura_id;
+    // Al editar solo se toca la ubicación en el plan.
     form.clave_en_plan = materia.clave_en_plan;
     form.periodo = materia.periodo;
     form.tipo = materia.tipo;
@@ -191,50 +205,77 @@ const etiquetaTipo = (tipo: string) => opcionesTipo.find((o) => o.valor === tipo
 
             <form
                 v-if="mostrarAlta || editando !== null"
-                class="mt-5 grid gap-4 sm:grid-cols-5"
+                class="mt-5 grid gap-4 sm:grid-cols-6"
                 @submit.prevent="guardar"
             >
-                <div class="sm:col-span-2">
+                <!-- ALTA: se crea la asignatura aquí mismo. -->
+                <template v-if="editando === null">
+                    <div class="sm:col-span-3">
+                        <CampoTexto v-model="form.nombre" etiqueta="Nombre de la asignatura" requerido :error="form.errors.nombre" />
+                    </div>
+                    <CampoTexto v-model="form.clave" etiqueta="Clave" requerido mono :error="form.errors.clave" />
+                    <CampoTexto v-model="form.identificador" etiqueta="Identificador" requerido :error="form.errors.identificador" />
+                    <CampoTexto v-model="form.creditos" etiqueta="Créditos" tipo="number" requerido :error="form.errors.creditos" />
+
                     <CampoSelect
-                        v-model="form.asignatura_id"
-                        etiqueta="Asignatura"
+                        v-model="form.tipo_asignatura_id"
+                        etiqueta="Tipo de asignatura"
                         requerido
-                        :opciones="opcionesAsignatura"
+                        :opciones="opciones(tiposAsignatura)"
                         vacio="Selecciona…"
-                        :error="form.errors.asignatura_id"
+                        :error="form.errors.tipo_asignatura_id"
                     />
-                </div>
-                <CampoTexto
-                    v-model="form.clave_en_plan"
-                    etiqueta="Clave en el plan"
-                    requerido
-                    mono
-                    :error="form.errors.clave_en_plan"
-                />
-                <CampoTexto
-                    v-model="form.periodo"
-                    etiqueta="Periodo"
-                    tipo="number"
-                    :error="form.errors.periodo"
-                />
-                <CampoSelect
-                    v-model="form.tipo"
-                    etiqueta="Tipo"
-                    requerido
-                    :opciones="opcionesTipo"
-                    :error="form.errors.tipo"
-                />
-                <div class="sm:col-span-2">
-                    <CampoTexto
-                        v-model="form.creditos_en_plan"
-                        etiqueta="Créditos en este plan"
-                        tipo="number"
-                        :error="form.errors.creditos_en_plan"
-                        ayuda="Déjalo vacío para usar los del catálogo."
-                    />
+                    <CampoSelect v-model="form.clasificacion_id" etiqueta="Clasificación" :opciones="opciones(clasificaciones)" vacio="Sin especificar" :error="form.errors.clasificacion_id" />
+                    <CampoSelect v-model="form.area_id" etiqueta="Área" :opciones="opciones(areas)" vacio="Sin especificar" :error="form.errors.area_id" />
+                    <CampoTexto v-model="form.horas_teoria" etiqueta="Horas teoría" tipo="number" :error="form.errors.horas_teoria" />
+                    <CampoTexto v-model="form.horas_practica" etiqueta="Horas práctica" tipo="number" :error="form.errors.horas_practica" />
+                </template>
+
+                <!-- EDICIÓN: la asignatura ya existe; solo se ajusta su lugar. -->
+                <div v-else class="sm:col-span-6">
+                    <span class="text-sm" :style="{ color: 'var(--color-suave)' }">Editando la ubicación de</span>
+                    <p class="font-medium">{{ editandoNombre }}</p>
+                    <p class="text-xs" :style="{ color: 'var(--color-suave)' }">La asignatura en sí se edita en «Asignaturas».</p>
                 </div>
 
-                <div class="flex items-end gap-2 sm:col-span-3">
+                <!-- Ubicación en el plan (para alta y edición). -->
+                <div class="sm:col-span-6 border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">
+                    <p class="mb-3 text-xs font-semibold uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">Ubicación en el plan</p>
+                    <div class="grid gap-4 sm:grid-cols-6">
+                        <CampoTexto
+                            v-model="form.periodo"
+                            etiqueta="Periodo"
+                            tipo="number"
+                            :error="form.errors.periodo"
+                            ayuda="Vacío = sin periodo fijo (p. ej. optativas)."
+                        />
+                        <CampoSelect
+                            v-model="form.tipo"
+                            etiqueta="Tipo en el plan"
+                            requerido
+                            :opciones="opcionesTipo"
+                            :error="form.errors.tipo"
+                        />
+                        <CampoTexto
+                            v-model="form.clave_en_plan"
+                            etiqueta="Clave de acta"
+                            mono
+                            :error="form.errors.clave_en_plan"
+                            :ayuda="editando === null ? 'Vacío = usa la clave de la asignatura.' : ''"
+                        />
+                        <div class="sm:col-span-3">
+                            <CampoTexto
+                                v-model="form.creditos_en_plan"
+                                etiqueta="Créditos en este plan"
+                                tipo="number"
+                                :error="form.errors.creditos_en_plan"
+                                ayuda="Déjalo vacío para usar los de la asignatura."
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-end gap-2 sm:col-span-6">
                     <button
                         type="submit"
                         :disabled="form.processing"
