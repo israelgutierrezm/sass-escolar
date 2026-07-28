@@ -47,6 +47,8 @@ class EmisorFiscal extends Model
         'estado',
         'pais',
         'facturapi_id',
+        'facturapi_key_pruebas',
+        'facturapi_sincronizado_en',
         'uso_cfdi_default',
         'serie_default',
         'folio_inicial',
@@ -77,6 +79,9 @@ class EmisorFiscal extends Model
             'llave_password' => 'encrypted',
             'pac_usuario' => 'encrypted',
             'pac_password' => 'encrypted',
+            // La llave de pruebas de la organización también va cifrada.
+            'facturapi_key_pruebas' => 'encrypted',
+            'facturapi_sincronizado_en' => 'datetime',
         ];
     }
 
@@ -85,6 +90,7 @@ class EmisorFiscal extends Model
         'llave_password',
         'pac_usuario',
         'pac_password',
+        'facturapi_key_pruebas',
     ];
 
     public function asignaciones(): HasMany

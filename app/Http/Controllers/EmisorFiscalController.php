@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Academico\Carrera;
+use App\Models\Facturacion\FacturacionConfig;
 use App\Models\Finanzas\EmisorAsignacion;
 use App\Models\Finanzas\EmisorFiscal;
 use App\Models\Finanzas\Factura;
 use App\Models\Landlord\NivelEstudio;
+use App\Services\Facturacion\FacturapiRechazo;
+use App\Services\Facturacion\SincronizadorEmisorFacturapi;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -144,8 +147,66 @@ class EmisorFiscalController extends Controller
         }
 
         $emisor->update($cambios);
+        $emisor->refresh();
 
-        return back()->with('exito', 'Credenciales de timbrado actualizadas.');
+        // Con el CSD ya guardado, se intenta crear/actualizar la organización en
+        // Facturapi automáticamente: es la razón de ser de este flujo —que el
+        // usuario NO tenga que entrar a Facturapi ni copiar el organization_id—.
+        $aviso = $this->sincronizarConFacturapi($request, $emisor);
+
+        return back()->with($aviso['tipo'], $aviso['mensaje']);
+    }
+
+    /**
+     * Crea/actualiza la organización de la razón social en Facturapi con el CSD
+     * recién guardado. Solo corre si el módulo está activo y hay Secret Admin
+     * Key; si falta el CSD completo, avisa qué falta sin romper nada.
+     *
+     * @return array{tipo: string, mensaje: string}
+     */
+    private function sincronizarConFacturapi(Request $request, EmisorFiscal $emisor): array
+    {
+        $base = 'Credenciales de timbrado actualizadas.';
+        $config = FacturacionConfig::actual();
+
+        // Sin módulo activo o sin Admin Key, se guarda local y no se toca la API.
+        if (! $config->activo || blank($config->apiKeyUsuario())) {
+            return ['tipo' => 'exito', 'mensaje' => $base];
+        }
+
+        $cer = $this->contenidoCredencial($request, 'certificado', $emisor->certificado_ruta);
+        $key = $this->contenidoCredencial($request, 'llave', $emisor->llave_ruta);
+        $password = filled($request->input('llave_password')) ? $request->input('llave_password') : $emisor->llave_password;
+
+        if ($cer === null || $key === null || blank($password)) {
+            return ['tipo' => 'advertencia', 'mensaje' => $base.' Falta el .cer, el .key o la contraseña para crear la organización en Facturapi.'];
+        }
+
+        try {
+            SincronizadorEmisorFacturapi::paraLaEscuela()->sincronizar($emisor, $cer, $key, (string) $password);
+        } catch (FacturapiRechazo $e) {
+            // Rechazo de negocio (RFC del CSD, contraseña, régimen): se muestra.
+            return ['tipo' => 'error', 'mensaje' => 'Se guardó el CSD, pero Facturapi lo rechazó: '.$e->getMessage()];
+        } catch (\Throwable $e) {
+            // Falla de comunicación: el CSD quedó guardado, se puede reintentar.
+            return ['tipo' => 'advertencia', 'mensaje' => 'Se guardó el CSD, pero no se pudo contactar a Facturapi ahora. Reintenta más tarde.'];
+        }
+
+        return ['tipo' => 'exito', 'mensaje' => 'Razón social sincronizada con Facturapi: organización creada y CSD cargado. Ya puedes timbrar en pruebas.'];
+    }
+
+    /** Contenido crudo de una credencial: del archivo recién subido o del disco. */
+    private function contenidoCredencial(Request $request, string $campo, ?string $ruta): ?string
+    {
+        if ($request->hasFile($campo)) {
+            return $request->file($campo)->get();
+        }
+
+        if ($ruta !== null && Storage::disk('local')->exists($ruta)) {
+            return Storage::disk('local')->get($ruta);
+        }
+
+        return null;
     }
 
     public function asignar(Request $request, EmisorFiscal $emisor): RedirectResponse
