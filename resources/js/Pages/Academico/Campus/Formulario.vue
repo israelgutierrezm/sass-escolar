@@ -81,13 +81,7 @@ function enviar(): void {
             </section>
 
             <div class="flex items-center gap-3">
-                <button
-                    type="submit"
-                    :disabled="form.processing"
-                    class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
-                >
-                    {{ form.processing ? 'Guardando…' : esEdicion ? 'Guardar cambios' : 'Crear campus' }}
-                </button>
+                <BotonPrincipal :procesando="form.processing" :texto="esEdicion ? 'Guardar cambios' : 'Crear campus'" />
                 <a
                     href="/academico/campus"
                     class="rounded-lg border border-slate-300 px-5 py-2.5 text-sm text-slate-700 hover:bg-slate-50"

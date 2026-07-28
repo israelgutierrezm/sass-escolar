@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoCasillas from '@/Components/CampoCasillas.vue';
@@ -129,14 +130,7 @@ function enviar(): void {
             </section>
 
             <div class="flex items-center gap-3">
-                <button
-                    type="submit"
-                    :disabled="form.processing"
-                    class="rounded-lg px-5 py-2.5 text-sm font-medium disabled:opacity-60"
-                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                >
-                    {{ form.processing ? 'Guardando…' : 'Dar de alta' }}
-                </button>
+                <BotonPrincipal :procesando="form.processing" texto="Dar de alta" />
                 <a
                     href="/escolar/docentes"
                     class="rounded-lg border px-5 py-2.5 text-sm"

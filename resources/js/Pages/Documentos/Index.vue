@@ -3,6 +3,7 @@ import { Head, router, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoCheckbox from '@/Components/CampoCheckbox.vue';
 import CampoCasillas from '@/Components/CampoCasillas.vue';
@@ -178,15 +179,7 @@ const nombreAmbito = (clave: string) => props.ambitos.find((a) => a.clave === cl
             </div>
 
             <div class="mt-5 flex gap-2">
-                <button
-                    type="button"
-                    :disabled="form.processing"
-                    class="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
-                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                    @click="guardar"
-                >
-                    {{ form.processing ? 'Guardando…' : 'Guardar' }}
-                </button>
+                <BotonPrincipal tipo="button" :procesando="form.processing" texto="Guardar" @click="guardar" />
                 <button
                     type="button"
                     class="rounded-lg border px-4 py-2 text-sm"

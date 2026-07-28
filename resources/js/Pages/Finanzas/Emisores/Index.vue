@@ -3,6 +3,7 @@ import { Head, useForm, router } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import DatosFiscalesEmisor from '@/Components/DatosFiscalesEmisor.vue';
 
 interface Asignacion {
@@ -189,9 +190,7 @@ const etiquetaTipo: Record<string, string> = {
             <form v-if="creando" class="mt-5 border-t pt-5" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="crear">
                 <DatosFiscalesEmisor :form="alta" :catalogos="catalogos" />
                 <div class="mt-4 flex gap-2">
-                    <button type="submit" :disabled="alta.processing" class="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50" :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }">
-                        Crear
-                    </button>
+                    <BotonPrincipal :procesando="alta.processing" texto="Crear" icono="crear" />
                     <button type="button" class="rounded-lg border px-4 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" @click="creando = false">
                         Cancelar
                     </button>
@@ -248,9 +247,7 @@ const etiquetaTipo: Record<string, string> = {
                         Los que Facturapi necesita para timbrar a nombre de esta razón social.
                     </p>
                     <DatosFiscalesEmisor :form="datos" :catalogos="catalogos" />
-                    <button type="submit" :disabled="datos.processing" class="mt-4 rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50" :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }">
-                        Guardar datos fiscales
-                    </button>
+                    <BotonPrincipal :procesando="datos.processing" texto="Guardar datos fiscales" class="mt-4" />
                 </form>
 
                 <form class="grid gap-3 border-t pt-5 sm:grid-cols-[auto_1fr_auto]" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="asignar(emisor)">
@@ -311,9 +308,7 @@ const etiquetaTipo: Record<string, string> = {
                         </label>
                     </div>
 
-                    <button type="submit" :disabled="credenciales.processing" class="mt-4 rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50" :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }">
-                        Guardar credenciales
-                    </button>
+                    <BotonPrincipal :procesando="credenciales.processing" texto="Guardar credenciales" class="mt-4" />
                 </form>
             </div>
         </section>

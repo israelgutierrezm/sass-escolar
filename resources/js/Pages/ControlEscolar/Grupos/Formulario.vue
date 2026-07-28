@@ -2,6 +2,7 @@
 import { Head, useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import NavEscolar from '@/Components/NavEscolar.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
@@ -206,13 +207,7 @@ function enviar(): void {
             </section>
 
             <div class="flex items-center gap-3">
-                <button
-                    type="submit"
-                    :disabled="form.processing"
-                    class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
-                >
-                    {{ form.processing ? 'Guardando…' : esEdicion ? 'Guardar cambios' : 'Crear grupo' }}
-                </button>
+                <BotonPrincipal :procesando="form.processing" :texto="esEdicion ? 'Guardar cambios' : 'Crear grupo'" />
                 <a
                     href="/escolar/grupos"
                     class="rounded-lg border border-slate-300 px-5 py-2.5 text-sm text-slate-700 hover:bg-slate-50"

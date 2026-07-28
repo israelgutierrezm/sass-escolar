@@ -3,6 +3,7 @@ import { Head, useForm, router } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import Paginacion from '@/Components/Paginacion.vue';
 
 interface Regla {
@@ -203,9 +204,7 @@ const colorEstatus: Record<string, string> = {
                     <input v-model="regla.vigente_hasta" type="date" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
                 </label>
                 <div class="flex items-end gap-2 sm:col-span-4">
-                    <button type="submit" :disabled="regla.processing" class="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50" :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }">
-                        Crear regla
-                    </button>
+                    <BotonPrincipal :procesando="regla.processing" texto="Crear regla" icono="crear" />
                     <button type="button" class="rounded-lg border px-4 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" @click="creandoRegla = false">
                         Cancelar
                     </button>

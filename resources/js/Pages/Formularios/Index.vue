@@ -5,6 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoCheckbox from '@/Components/CampoCheckbox.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 
 interface Formulario {
     id: number;
@@ -87,14 +88,7 @@ const porClave = computed(() => {
                     <CampoCheckbox v-model="form.obligatorio" etiqueta="Obligatorio" ayuda="Sin él, el expediente queda incompleto." />
                 </div>
                 <div class="mt-4 flex gap-2">
-                    <button
-                        type="submit"
-                        :disabled="form.processing"
-                        class="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
-                        :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                    >
-                        Crear
-                    </button>
+                    <BotonPrincipal :procesando="form.processing" texto="Crear" icono="crear" />
                     <button
                         type="button"
                         class="rounded-lg border px-4 py-2 text-sm"

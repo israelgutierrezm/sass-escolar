@@ -3,6 +3,7 @@ import { Head, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { prepararImagen } from '@/utils/imagen';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 
@@ -88,14 +89,7 @@ function enviar(): void {
             </section>
 
             <div class="flex items-center gap-3">
-                <button
-                    type="submit"
-                    :disabled="form.processing"
-                    class="rounded-lg px-5 py-2.5 text-sm font-medium disabled:opacity-60"
-                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                >
-                    {{ form.processing ? 'Guardando…' : esEdicion ? 'Guardar cambios' : 'Crear institución' }}
-                </button>
+                <BotonPrincipal :procesando="form.processing" :texto="esEdicion ? 'Guardar cambios' : 'Crear institución'" />
                 <a
                     href="/academico/instituciones"
                     class="rounded-lg border px-5 py-2.5 text-sm"

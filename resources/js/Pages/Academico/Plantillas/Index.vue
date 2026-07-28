@@ -3,6 +3,7 @@ import { Head, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 
@@ -65,14 +66,7 @@ function crear(): void {
                     <CampoTexto v-model="form.descripcion" etiqueta="Descripción" :error="form.errors.descripcion" />
                 </div>
                 <div class="mt-4 flex gap-2">
-                    <button
-                        type="submit"
-                        :disabled="form.processing"
-                        class="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
-                        :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                    >
-                        Crear
-                    </button>
+                    <BotonPrincipal :procesando="form.processing" texto="Crear" icono="crear" />
                     <button
                         type="button"
                         class="rounded-lg border px-4 py-2 text-sm"

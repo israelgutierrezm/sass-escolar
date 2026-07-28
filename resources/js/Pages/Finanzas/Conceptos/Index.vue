@@ -3,6 +3,7 @@ import { Head, router, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 
 interface Concepto {
     id: number;
@@ -126,9 +127,7 @@ const objImp = (clave: string | null) =>
                     </label>
                 </div>
                 <div class="mt-4 flex gap-2">
-                    <button type="submit" :disabled="alta.processing" class="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50" :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }">
-                        Crear
-                    </button>
+                    <BotonPrincipal :procesando="alta.processing" texto="Crear" icono="crear" />
                     <button type="button" class="rounded-lg border px-4 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" @click="creando = false">
                         Cancelar
                     </button>
@@ -204,9 +203,7 @@ const objImp = (clave: string | null) =>
                                             <input v-model.number="datos.tasa_iva" type="number" step="0.01" min="0" max="1" placeholder="0.16" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
                                         </label>
                                         <div class="sm:col-span-3 lg:col-span-4">
-                                            <button type="submit" :disabled="datos.processing" class="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50" :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }">
-                                                Guardar
-                                            </button>
+                                            <BotonPrincipal :procesando="datos.processing" texto="Guardar" />
                                         </div>
                                     </form>
                                 </td>

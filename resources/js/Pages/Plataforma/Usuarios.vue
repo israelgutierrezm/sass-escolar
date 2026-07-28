@@ -3,6 +3,7 @@ import { Head, Link, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import Paginacion from '@/Components/Paginacion.vue';
 import BarraListado from '@/Components/BarraListado.vue';
 
@@ -174,9 +175,7 @@ const rolesResumen = (u: UsuarioFila): string =>
                 </label>
 
                 <div class="flex items-end gap-2 sm:col-span-3">
-                    <button type="submit" :disabled="alta.processing" class="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50" :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }">
-                        Crear cuenta
-                    </button>
+                    <BotonPrincipal :procesando="alta.processing" texto="Crear cuenta" icono="crear" />
                     <button type="button" class="rounded-lg border px-4 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" @click="creando = false">
                         Cancelar
                     </button>
