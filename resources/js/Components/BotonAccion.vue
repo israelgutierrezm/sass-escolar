@@ -5,24 +5,23 @@ import { computed } from 'vue';
 /**
  * Botón de acción con icono y color propio por tipo.
  *
- * Unifica cómo se ven «Nuevo», «Editar», «Eliminar» y «Ver» en toda la app: se
- * repetían como texto suelto, cada listado con su propio tono, y era imposible
- * reconocer una acción de un vistazo. Aquí cada variante trae su icono y un
- * color discreto pero particular; «Nuevo» va relleno (es la acción principal),
- * el resto son botones fantasma con un fondo tenue de su color, un icono dentro
- * de un pequeño círculo blanco al pasar el cursor y un borde de su propio color.
+ * Unifica cómo se ven «Nuevo», «Editar», «Eliminar», «Ver» y «Cerrar» en toda
+ * la app: se repetían como texto suelto, cada listado con su propio tono, y era
+ * imposible reconocer una acción de un vistazo. Aquí cada variante trae su icono
+ * y un color discreto pero particular; «Nuevo» va relleno (es la acción
+ * principal), el resto son botones fantasma con un fondo tenue de su color; al
+ * pasar el cursor solo se anima el icono.
  *
- * `solo-icono` muestra SOLO el icono en reposo (web y móvil). En escritorio,
- * al pasar el cursor, se revela la palabra de la acción y el icono se anima.
- * Las acciones poco evidentes (p. ej. «Malla») se dejan SIN `solo-icono`, así
- * conservan su texto siempre.
+ * «editar», «eliminar» y «cerrar» son SIEMPRE solo-icono (sin texto, solo su
+ * tooltip). `solo-icono` fuerza ese modo también en otras variantes. Las
+ * acciones poco evidentes (p. ej. «Malla», «Captura») se dejan con texto.
  *
  * Con `href` se renderiza como enlace de Inertia; sin él, como `<button>` que
  * emite `click`.
  */
 const props = withDefaults(
     defineProps<{
-        variante: 'nuevo' | 'editar' | 'eliminar' | 'ver';
+        variante: 'nuevo' | 'editar' | 'eliminar' | 'ver' | 'cerrar';
         href?: string;
         texto?: string;
         soloIcono?: boolean;
@@ -58,19 +57,27 @@ const CONFIG = {
         color: '#0077B6',
         icono: 'M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178ZM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
     },
+    // «cerrar» es el reverso de «editar» en las tablas con edición en línea: el
+    // lápiz se vuelve una X para plegar la fila. Color neutro del tema porque no
+    // es una acción con carga (crear/editar/borrar) sino un simple «ocultar».
+    cerrar: {
+        etiqueta: 'Cerrar',
+        color: 'var(--color-suave)',
+        icono: 'M6 18 18 6M6 6l12 12',
+    },
 } as const;
 
 const cfg = computed(() => CONFIG[props.variante]);
 const etiqueta = computed(() => props.texto ?? cfg.value.etiqueta);
 const esPrimario = computed(() => props.variante === 'nuevo');
 
-// Regla homologada en TODO el sistema: «editar» y «eliminar» son SIEMPRE
-// solo-icono (con la palabra revelándose al pasar el cursor), sin importar cómo
-// se invoque el botón. Así ninguna pantalla puede volver a mostrarlos como
-// texto suelto. «nuevo» y «ver» respetan lo que pida quien los use (llevan
-// texto porque su destino no es obvio: «Nueva carrera», «Malla», «Captura»).
+// Regla homologada en TODO el sistema: «editar», «eliminar» y «cerrar» son
+// SIEMPRE solo-icono (sin texto, solo su tooltip), sin importar cómo se invoque
+// el botón. Así ninguna pantalla puede volver a mostrarlos como texto suelto.
+// «nuevo» y «ver» respetan lo que pida quien los use (llevan texto porque su
+// destino no es obvio: «Nueva carrera», «Malla», «Captura»).
 const soloIconoEfectivo = computed(
-    () => props.soloIcono || props.variante === 'editar' || props.variante === 'eliminar',
+    () => props.soloIcono || ['editar', 'eliminar', 'cerrar'].includes(props.variante),
 );
 
 // El botón principal va relleno; los demás, fantasma con su color y un fondo
@@ -101,9 +108,9 @@ const estilo = computed(() =>
         <svg class="icono-boton h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" :d="cfg.icono" />
         </svg>
-        <!-- Solo-icono en reposo (web y móvil); en escritorio se revela la
-             palabra al pasar el cursor. -->
-        <span :class="soloIconoEfectivo ? 'etiqueta-revelable' : ''">{{ etiqueta }}</span>
+        <!-- Los solo-icono no muestran texto (solo su tooltip): en ellos el
+             gesto al pasar el cursor es únicamente la animación del icono. -->
+        <span v-if="!soloIconoEfectivo">{{ etiqueta }}</span>
     </component>
 </template>
 
@@ -111,18 +118,6 @@ const estilo = computed(() =>
 /* Los fantasma llevan su fondo tenue SIEMPRE (mismo color al 12 %). */
 .boton-fantasma {
     background-color: var(--tinte);
-}
-
-/* Etiqueta de un botón solo-icono: oculta en reposo (web y móvil). Se revela
-   al pasar el cursor. No se usa `@media (hover: hover)` a propósito: un laptop
-   táctil lo reporta como `none` y dejaría el texto inaccesible con el mouse.
-   En táctil el `:hover` no persiste, así que en la práctica queda como icono. */
-.etiqueta-revelable {
-    display: none;
-}
-
-.boton-fantasma:hover .etiqueta-revelable {
-    display: inline;
 }
 
 /* La animación del icono ocurre al pasar el cursor (un salto sobrio hacia

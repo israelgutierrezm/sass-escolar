@@ -4,6 +4,7 @@ import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoCheckbox from '@/Components/CampoCheckbox.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 
 interface Formulario {
     id: number;
@@ -146,19 +147,13 @@ const porClave = computed(() => {
                         </p>
                     </div>
 
-                    <div class="flex items-center gap-3">
-                        <a :href="`/formularios/${f.id}`" class="text-sm font-medium" :style="{ color: 'var(--color-acento)' }">
-                            {{ f.respuestas ? 'Ver' : 'Editar' }}
-                        </a>
-                        <button
-                            v-if="puedeEditar && !f.respuestas"
-                            type="button"
-                            class="text-sm transition hover:text-red-600"
-                            :style="{ color: 'var(--color-suave)' }"
-                            @click="eliminar(f)"
-                        >
-                            Eliminar
-                        </button>
+                    <div class="flex items-center gap-1">
+                        <BotonAccion
+                            :variante="f.respuestas ? 'ver' : 'editar'"
+                            :texto="f.respuestas ? 'Ver' : undefined"
+                            :href="`/formularios/${f.id}`"
+                        />
+                        <BotonAccion v-if="puedeEditar && !f.respuestas" variante="eliminar" @click="eliminar(f)" />
                     </div>
                 </li>
             </ul>

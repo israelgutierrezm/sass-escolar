@@ -5,6 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoCheckbox from '@/Components/CampoCheckbox.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 
 interface Opcion {
     id: number;
@@ -77,6 +78,13 @@ function abrirNuevoCampo(): void {
 }
 
 function abrirEdicionCampo(campo: Campo): void {
+    // El mismo botón alterna: si ya se está editando este campo, se pliega.
+    if (editandoCampo.value === campo.id) {
+        editandoCampo.value = null;
+
+        return;
+    }
+
     formCampo.pregunta = campo.pregunta;
     formCampo.descripcion = campo.descripcion ?? '';
     formCampo.tipo_campo_id = campo.tipo_campo_id;
@@ -322,8 +330,8 @@ const etiquetaTipo = (tipo: string) =>
                                 <button type="button" :disabled="i === 0" class="disabled:opacity-30" :style="{ color: 'var(--color-suave)' }" @click="mover(campo, 'arriba')">▲</button>
                                 <button type="button" :disabled="i === campos.length - 1" class="disabled:opacity-30" :style="{ color: 'var(--color-suave)' }" @click="mover(campo, 'abajo')">▼</button>
                             </span>
-                            <button type="button" :style="{ color: 'var(--color-acento)' }" @click="abrirEdicionCampo(campo)">Editar</button>
-                            <button type="button" class="transition hover:text-red-600" :style="{ color: 'var(--color-suave)' }" @click="eliminarCampo(campo)">Quitar</button>
+                            <BotonAccion :variante="editandoCampo === campo.id ? 'cerrar' : 'editar'" @click="abrirEdicionCampo(campo)" />
+                            <BotonAccion variante="eliminar" texto="Quitar" @click="eliminarCampo(campo)" />
                         </div>
                     </div>
                 </li>

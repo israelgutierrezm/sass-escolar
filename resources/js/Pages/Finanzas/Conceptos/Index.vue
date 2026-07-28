@@ -2,6 +2,7 @@
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 
 interface Concepto {
     id: number;
@@ -170,11 +171,11 @@ const objImp = (clave: string | null) =>
                                 <td class="px-4 py-3 text-xs" :style="{ color: 'var(--color-suave)' }">
                                     {{ c.gravado ? `${Math.round(Number(c.tasa_iva ?? 0) * 100)}%` : 'Exento' }}
                                 </td>
-                                <td class="px-4 py-3 text-right whitespace-nowrap">
-                                    <button type="button" class="text-sm font-medium" :style="{ color: 'var(--color-acento)' }" @click="abrirEdicion(c)">
-                                        {{ editando === c.id ? 'Cerrar' : 'Editar' }}
-                                    </button>
-                                    <button v-if="!c.en_uso" type="button" class="ml-3 text-sm text-red-600" @click="eliminar(c)">Eliminar</button>
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center justify-end gap-1">
+                                        <BotonAccion :variante="editando === c.id ? 'cerrar' : 'editar'" @click="abrirEdicion(c)" />
+                                        <BotonAccion v-if="!c.en_uso" variante="eliminar" @click="eliminar(c)" />
+                                    </div>
                                 </td>
                             </tr>
                             <tr v-if="editando === c.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
