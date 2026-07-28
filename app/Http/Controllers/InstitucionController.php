@@ -141,6 +141,11 @@ class InstitucionController extends Controller
         ], [
             'logo.mimes' => 'El logo debe ser una imagen JPG, PNG, WEBP o SVG.',
             'logo.max' => 'El logo no puede pasar de 2 MB.',
+            // Mensaje por defecto de la regla `uploaded` (en inglés): salta
+            // cuando PHP descarta el archivo por exceder upload_max_filesize /
+            // post_max_size antes de validar el tamaño. El frontend ya reduce la
+            // imagen para que no ocurra; esto es red de seguridad, en español.
+            'logo.uploaded' => 'No se pudo subir el logo: la imagen es demasiado pesada para el servidor. Prueba con una más ligera (menos de 2 MB).',
         ], [
             'clave' => 'clave',
         ]);

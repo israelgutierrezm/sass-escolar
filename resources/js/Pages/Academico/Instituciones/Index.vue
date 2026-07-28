@@ -2,6 +2,7 @@
 import { Head, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { toast } from 'vue-sonner';
+import { prepararImagen } from '@/utils/imagen';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 
@@ -35,20 +36,23 @@ const form = useForm<{ clave: string; nombre: string; nombre_mostrar: string; si
 const vistaPrevia = ref<string | null>(props.institucion?.logo ?? null);
 const entradaLogo = ref<HTMLInputElement | null>(null);
 
-function elegirLogo(evento: Event): void {
+async function elegirLogo(evento: Event): Promise<void> {
     const entrada = evento.target as HTMLInputElement;
-    const archivo = entrada.files?.[0];
-    if (!archivo) {
+    const original = entrada.files?.[0];
+    // Se limpia la entrada de una vez para poder reelegir el MISMO archivo y que
+    // vuelva a dispararse el change (si no, seleccionar el mismo no hace nada).
+    entrada.value = '';
+    if (!original) {
         return;
     }
+    // Se reduce en el navegador si es un raster grande, para no chocar con el
+    // límite de subida de PHP (que devuelve un críptico «failed to upload»).
+    const archivo = await prepararImagen(original);
     form.logo = archivo;
     vistaPrevia.value = URL.createObjectURL(archivo);
     // Subir el logo es una acción propia, no requiere el modo edición: en cuanto
     // se elige una imagen nueva se guarda sola.
     guardar();
-    // Se limpia la entrada para poder reelegir el MISMO archivo y que vuelva a
-    // dispararse el change (si no, seleccionar el mismo no hace nada).
-    entrada.value = '';
 }
 
 function cancelar(): void {

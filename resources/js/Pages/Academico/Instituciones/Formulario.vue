@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
+import { prepararImagen } from '@/utils/imagen';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
@@ -20,8 +21,10 @@ const form = useForm({
 // Vista previa: la que ya está guardada, o la recién elegida sin subir aún.
 const previa = ref<string | null>(props.institucion?.logo ?? null);
 
-function elegirLogo(evento: Event): void {
-    const archivo = (evento.target as HTMLInputElement).files?.[0] ?? null;
+async function elegirLogo(evento: Event): Promise<void> {
+    const original = (evento.target as HTMLInputElement).files?.[0] ?? null;
+    // Se reduce si es un raster grande (evita el límite de subida de PHP).
+    const archivo = original ? await prepararImagen(original) : null;
     form.logo = archivo;
     previa.value = archivo ? URL.createObjectURL(archivo) : (props.institucion?.logo ?? null);
 }
