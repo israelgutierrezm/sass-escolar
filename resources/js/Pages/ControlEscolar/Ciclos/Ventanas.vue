@@ -3,6 +3,7 @@ import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import NavEscolar from '@/Components/NavEscolar.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
@@ -278,14 +279,7 @@ function revocar(ventanaId: number, excepcionId: number): void {
                     <CampoTexto v-model="formVentana.desde" etiqueta="Desde" tipo="date" requerido :error="formVentana.errors.desde" />
                     <CampoTexto v-model="formVentana.hasta" etiqueta="Hasta" tipo="date" requerido :error="formVentana.errors.hasta" />
                     <div class="flex items-end">
-                        <button
-                            type="submit"
-                            :disabled="formVentana.processing"
-                            class="w-full rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
-                            :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                        >
-                            Agregar
-                        </button>
+                        <BotonPrincipal :procesando="formVentana.processing" texto="Agregar" icono="crear" class="w-full" />
                     </div>
                 </div>
             </form>

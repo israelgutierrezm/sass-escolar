@@ -6,6 +6,7 @@ import NavEscolar from '@/Components/NavEscolar.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 
 interface Renglon {
     id: number;
@@ -906,15 +907,7 @@ function verComo(): void {
                 <CampoTexto v-model="form.generacion" etiqueta="Generación" :error="form.errors.generacion" :deshabilitado="!puedeEditar" />
             </div>
 
-            <button
-                v-if="puedeEditar"
-                type="submit"
-                :disabled="form.processing"
-                class="mt-6 rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
-                :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-            >
-                {{ form.processing ? 'Guardando…' : 'Guardar cambios' }}
-            </button>
+            <BotonPrincipal v-if="puedeEditar" :procesando="form.processing" texto="Guardar cambios" class="mt-6" />
             <p v-else class="mt-6 text-sm" :style="{ color: 'var(--color-suave)' }">
                 Solo consulta: no tienes permiso para editar alumnos.
             </p>

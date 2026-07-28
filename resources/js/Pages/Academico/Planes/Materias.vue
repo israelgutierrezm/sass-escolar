@@ -6,6 +6,7 @@ import NavAcademico from '@/Components/NavAcademico.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 
 interface Materia {
     id: number;
@@ -294,13 +295,7 @@ function textoSobre(color: string | null): string {
                 </div>
 
                 <div class="flex items-end gap-2 sm:col-span-6">
-                    <button
-                        type="submit"
-                        :disabled="form.processing"
-                        class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
-                    >
-                        {{ form.processing ? 'Guardando…' : 'Agregar' }}
-                    </button>
+                    <BotonPrincipal :procesando="form.processing" texto="Agregar" icono="crear" />
                     <button
                         type="button"
                         class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"

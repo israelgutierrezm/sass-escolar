@@ -4,6 +4,7 @@ import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoCasillas from '@/Components/CampoCasillas.vue';
@@ -242,9 +243,7 @@ const etiquetaTipoReq = (tipo: string) => (tipo === 'aprobada' ? 'Aprobada' : 'C
                     <CampoTexto v-model="formAsignatura.horas_independientes" etiqueta="Horas independientes" tipo="number" :error="formAsignatura.errors.horas_independientes" />
                 </div>
                 <div v-if="puedeEditar" class="mt-4">
-                    <button type="button" :disabled="formAsignatura.processing" class="rounded-lg px-5 py-2.5 text-sm font-medium disabled:opacity-60" :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }" @click="guardarAsignatura">
-                        {{ formAsignatura.processing ? 'Guardando…' : 'Guardar datos y descriptores' }}
-                    </button>
+                    <BotonPrincipal tipo="button" :procesando="formAsignatura.processing" texto="Guardar datos y descriptores" @click="guardarAsignatura" />
                 </div>
             </section>
 
@@ -256,9 +255,7 @@ const etiquetaTipoReq = (tipo: string) => (tipo === 'aprobada' ? 'Aprobada' : 'C
                     <CampoTexto v-model="formUbicacion.creditos_en_plan" etiqueta="Créditos en este plan" tipo="number" :error="formUbicacion.errors.creditos_en_plan" ayuda="Vacío = los de la asignatura." />
                 </div>
                 <div v-if="puedeEditar" class="mt-4">
-                    <button type="button" :disabled="formUbicacion.processing" class="rounded-lg px-5 py-2.5 text-sm font-medium disabled:opacity-60" :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }" @click="guardarUbicacion">
-                        {{ formUbicacion.processing ? 'Guardando…' : 'Guardar ubicación' }}
-                    </button>
+                    <BotonPrincipal tipo="button" :procesando="formUbicacion.processing" texto="Guardar ubicación" @click="guardarUbicacion" />
                 </div>
             </section>
         </div>
@@ -295,9 +292,7 @@ const etiquetaTipoReq = (tipo: string) => (tipo === 'aprobada' ? 'Aprobada' : 'C
             </div>
 
             <div v-if="puedeEditar" class="mt-6 border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">
-                <button type="button" :disabled="formAsignatura.processing" class="rounded-lg px-5 py-2.5 text-sm font-medium disabled:opacity-60" :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }" @click="guardarAsignatura">
-                    {{ formAsignatura.processing ? 'Guardando…' : 'Guardar descriptores' }}
-                </button>
+                <BotonPrincipal tipo="button" :procesando="formAsignatura.processing" texto="Guardar descriptores" @click="guardarAsignatura" />
             </div>
         </section>
 
@@ -354,7 +349,7 @@ const etiquetaTipoReq = (tipo: string) => (tipo === 'aprobada' ? 'Aprobada' : 'C
                     <CampoSelect v-model="formRequisito.tipo" etiqueta="Debe estar" :opciones="[{ valor: 'aprobada', texto: 'Aprobada' }, { valor: 'cursada', texto: 'Cursada (basta con haberla llevado)' }]" :error="formRequisito.errors.tipo" />
                 </template>
                 <CampoTexto v-else v-model="formRequisito.minimo_creditos" etiqueta="Créditos mínimos acumulados" tipo="number" :error="formRequisito.errors.minimo_creditos" />
-                <button type="submit" :disabled="formRequisito.processing" class="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60" :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }">Agregar requisito</button>
+                <BotonPrincipal :procesando="formRequisito.processing" texto="Agregar requisito" icono="crear" />
             </form>
         </section>
 
@@ -397,7 +392,7 @@ const etiquetaTipoReq = (tipo: string) => (tipo === 'aprobada' ? 'Aprobada' : 'C
                     <CampoTexto v-model="formComponente.porcentaje" etiqueta="Porcentaje" tipo="number" requerido :error="formComponente.errors.porcentaje" />
                 </div>
                 <div class="flex gap-2">
-                    <button type="submit" :disabled="formComponente.processing" class="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60" :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }">{{ editandoComponente !== null ? 'Guardar' : 'Agregar componente' }}</button>
+                    <BotonPrincipal :procesando="formComponente.processing" :texto="editandoComponente !== null ? 'Guardar' : 'Agregar componente'" />
                     <button v-if="editandoComponente !== null" type="button" class="rounded-lg border px-4 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" @click="editandoComponente = null; formComponente.reset()">Cancelar</button>
                 </div>
             </form>

@@ -3,6 +3,7 @@ import { Head, router, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 
@@ -238,14 +239,7 @@ function quitarFoto(): void {
                 <CampoTexto v-model="form.celular" etiqueta="Celular" :error="form.errors.celular" />
             </div>
 
-            <button
-                type="submit"
-                :disabled="form.processing"
-                class="mt-5 rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
-                :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-            >
-                {{ form.processing ? 'Guardando…' : 'Guardar mis datos' }}
-            </button>
+            <BotonPrincipal :procesando="form.processing" texto="Guardar mis datos" class="mt-5" />
         </form>
 
         <!-- Documentos -->
@@ -331,14 +325,14 @@ function quitarFoto(): void {
                         ayuda="Solo si vence."
                     />
                     <div class="flex items-end">
-                        <button
-                            type="submit"
-                            :disabled="formDoc.processing || !formDoc.documento_id || !formDoc.archivo"
-                            class="w-full rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
-                            :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                        >
-                            {{ formDoc.processing ? 'Subiendo…' : 'Subir' }}
-                        </button>
+                        <BotonPrincipal
+                            :procesando="formDoc.processing"
+                            :deshabilitado="!formDoc.documento_id || !formDoc.archivo"
+                            texto="Subir"
+                            cargando="Subiendo…"
+                            icono="ninguno"
+                            class="w-full"
+                        />
                     </div>
                 </div>
             </form>

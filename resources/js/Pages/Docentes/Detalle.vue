@@ -2,6 +2,7 @@
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoCasillas from '@/Components/CampoCasillas.vue';
@@ -446,15 +447,7 @@ function verComo(): void {
                 />
             </div>
 
-            <button
-                v-if="puedeGestionar"
-                type="submit"
-                :disabled="form.processing"
-                class="mt-6 rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
-                :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-            >
-                {{ form.processing ? 'Guardando…' : 'Guardar cambios' }}
-            </button>
+            <BotonPrincipal v-if="puedeGestionar" :procesando="form.processing" texto="Guardar cambios" class="mt-6" />
             <p v-else class="mt-6 text-sm" :style="{ color: 'var(--color-suave)' }">
                 Solo consulta: no tienes permiso para gestionar docentes.
             </p>
