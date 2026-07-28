@@ -2,6 +2,7 @@
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 
 interface Perfil {
@@ -173,14 +174,7 @@ const iniciales = (props.perfil.nombre ?? props.perfil.usuario)
                             ayuda="Es tu usuario de acceso."
                         />
                         <div class="sm:col-span-2">
-                            <button
-                                type="submit"
-                                :disabled="datos.processing"
-                                class="rounded-lg px-5 py-2.5 text-sm font-medium disabled:opacity-60"
-                                :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                            >
-                                {{ datos.processing ? 'Guardando…' : 'Guardar cambios' }}
-                            </button>
+                            <BotonPrincipal :procesando="datos.processing" texto="Guardar cambios" />
                         </div>
                     </form>
                 </section>
@@ -214,14 +208,7 @@ const iniciales = (props.perfil.nombre ?? props.perfil.usuario)
                             requerido
                         />
                         <div class="sm:col-span-2">
-                            <button
-                                type="submit"
-                                :disabled="clave.processing"
-                                class="rounded-lg px-5 py-2.5 text-sm font-medium disabled:opacity-60"
-                                :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                            >
-                                {{ clave.processing ? 'Guardando…' : 'Cambiar contraseña' }}
-                            </button>
+                            <BotonPrincipal :procesando="clave.processing" texto="Cambiar contraseña" />
                         </div>
                     </form>
                 </section>

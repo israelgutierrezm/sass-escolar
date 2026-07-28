@@ -3,6 +3,7 @@ import { Head, useForm, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 
 interface Paso {
     clave: string;
@@ -203,9 +204,7 @@ const colorEstado: Record<string, string> = {
                 </label>
 
                 <div class="sm:col-span-3">
-                    <button type="submit" :disabled="datos.processing" class="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50" :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }">
-                        Guardar mis datos
-                    </button>
+                    <BotonPrincipal :procesando="datos.processing" texto="Guardar mis datos" />
                 </div>
             </form>
         </section>

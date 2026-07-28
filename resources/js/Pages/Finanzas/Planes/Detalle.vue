@@ -3,6 +3,7 @@ import { Head, useForm, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 
 interface Regla {
     id: number;
@@ -146,14 +147,7 @@ const etiquetaPeriodicidad = computed(() =>
                 </label>
 
                 <div class="flex gap-2 sm:col-span-4">
-                    <button
-                        type="submit"
-                        :disabled="vigencia.processing"
-                        class="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
-                        :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                    >
-                        Guardar
-                    </button>
+                    <BotonPrincipal :procesando="vigencia.processing" texto="Guardar" />
                     <button
                         type="button"
                         class="rounded-lg border px-4 py-2 text-sm text-red-600"
@@ -276,14 +270,7 @@ const etiquetaPeriodicidad = computed(() =>
                 </div>
 
                 <div class="mt-4 flex gap-2">
-                    <button
-                        type="submit"
-                        :disabled="nueva.processing"
-                        class="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
-                        :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                    >
-                        Agregar
-                    </button>
+                    <BotonPrincipal :procesando="nueva.processing" texto="Agregar" icono="crear" />
                     <button
                         type="button"
                         class="rounded-lg border px-4 py-2 text-sm"

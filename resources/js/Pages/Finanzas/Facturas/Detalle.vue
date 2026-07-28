@@ -2,6 +2,7 @@
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 
 interface Concepto {
     id: number;
@@ -240,13 +241,7 @@ const colorEstatus: Record<string, string> = {
                     <span class="mb-1 block font-medium">CP fiscal</span>
                     <input v-model="refactura.cp" type="text" required maxlength="5" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
                 </label>
-                <button
-                    type="submit"
-                    class="self-end rounded-lg px-4 py-2 text-sm font-medium"
-                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                >
-                    Emitir la sustituta
-                </button>
+                <BotonPrincipal texto="Emitir la sustituta" class="self-end" />
             </form>
 
             <form v-if="cancelando" class="mt-4 grid gap-3 border-t pt-4 sm:grid-cols-[1fr_auto_auto]" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="cancelar">

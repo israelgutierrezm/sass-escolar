@@ -3,6 +3,7 @@ import { Head, useForm, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 
 interface Publicacion {
     id: number;
@@ -222,9 +223,7 @@ function conversion(p: Publicacion): string {
                 </label>
 
                 <div class="flex items-end gap-2 sm:col-span-3">
-                    <button type="submit" :disabled="form.processing" class="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50" :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }">
-                        Publicar
-                    </button>
+                    <BotonPrincipal :procesando="form.processing" texto="Publicar" />
                     <button type="button" class="rounded-lg border px-4 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" @click="creando = false">
                         Cancelar
                     </button>

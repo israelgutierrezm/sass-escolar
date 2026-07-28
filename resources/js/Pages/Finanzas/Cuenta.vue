@@ -3,6 +3,7 @@ import { Head, useForm, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 
 interface Adeudo {
     id: number;
@@ -256,13 +257,7 @@ const colorEstatus: Record<string, string> = {
                     class="rounded-lg border px-3 py-2 text-sm"
                     :style="{ borderColor: 'var(--color-borde)' }"
                 />
-                <button
-                    type="submit"
-                    class="rounded-lg px-4 py-2 text-sm font-medium"
-                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                >
-                    Registrar
-                </button>
+                <BotonPrincipal texto="Registrar" icono="crear" />
             </form>
         </section>
 
@@ -360,14 +355,7 @@ const colorEstatus: Record<string, string> = {
                     </template>
                 </p>
 
-                <button
-                    type="submit"
-                    :disabled="pago.processing"
-                    class="mt-3 rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
-                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                >
-                    Registrar pago
-                </button>
+                <BotonPrincipal :procesando="pago.processing" texto="Registrar pago" icono="crear" class="mt-3" />
             </form>
 
             <table v-if="cuenta.adeudos.length" class="w-full text-sm">
@@ -480,13 +468,7 @@ const colorEstatus: Record<string, string> = {
                     class="rounded-lg border px-3 py-2 text-sm"
                     :style="{ borderColor: 'var(--color-borde)' }"
                 />
-                <button
-                    type="submit"
-                    class="rounded-lg px-4 py-2 text-sm font-medium"
-                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                >
-                    Aplicar
-                </button>
+                <BotonPrincipal texto="Aplicar" />
                 <button
                     type="button"
                     class="rounded-lg border px-4 py-2 text-sm"

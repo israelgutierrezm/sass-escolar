@@ -2,6 +2,7 @@
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 
 interface Asignacion {
     id: number;
@@ -141,7 +142,7 @@ function restablecer(): void {
                             <option v-for="c in campus" :key="c.id" :value="c.id">{{ c.nombre }}</option>
                         </select>
                     </label>
-                    <button type="submit" class="rounded-lg px-3 py-2 text-sm font-medium" :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }">Asignar</button>
+                    <BotonPrincipal texto="Asignar" />
                 </form>
             </section>
 
@@ -198,9 +199,7 @@ function restablecer(): void {
                         Enviársela por correo
                     </label>
 
-                    <button type="submit" :disabled="clave.processing" class="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60" :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }">
-                        {{ clave.processing ? 'Cambiando…' : 'Cambiar contraseña' }}
-                    </button>
+                    <BotonPrincipal :procesando="clave.processing" texto="Cambiar contraseña" cargando="Cambiando…" />
                 </form>
             </section>
         </div>

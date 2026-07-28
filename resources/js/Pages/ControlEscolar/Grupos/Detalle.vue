@@ -2,6 +2,7 @@
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import NavEscolar from '@/Components/NavEscolar.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoCasillas from '@/Components/CampoCasillas.vue';
@@ -183,17 +184,12 @@ function quitarDocente(asignaturaId: number, personaId: number, nombre: string |
                     vacio="No hay materias disponibles en este periodo."
                 />
 
-                <button
-                    type="submit"
-                    :disabled="formMateria.processing || formMateria.plan_materia_ids.length === 0"
-                    class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
-                >
-                    {{
-                        formMateria.plan_materia_ids.length > 1
-                            ? `Abrir ${formMateria.plan_materia_ids.length} materias`
-                            : 'Abrir materia'
-                    }}
-                </button>
+                <BotonPrincipal
+                    :procesando="formMateria.processing"
+                    :deshabilitado="formMateria.plan_materia_ids.length === 0"
+                    :texto="formMateria.plan_materia_ids.length > 1 ? `Abrir ${formMateria.plan_materia_ids.length} materias` : 'Abrir materia'"
+                    icono="crear"
+                />
             </form>
 
             <p v-if="!materiasDisponibles.length" class="mt-2 text-xs text-amber-600">
@@ -293,13 +289,7 @@ function quitarDocente(asignaturaId: number, personaId: number, nombre: string |
                                 :error="formDocente.errors.tipo"
                             />
                         </div>
-                        <button
-                            type="submit"
-                            :disabled="formDocente.processing"
-                            class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
-                        >
-                            Asignar
-                        </button>
+                        <BotonPrincipal :procesando="formDocente.processing" texto="Asignar" />
                         <p v-if="!docentes.length" class="w-full text-xs text-amber-600">
                             No hay docentes registrados todavía.
                         </p>

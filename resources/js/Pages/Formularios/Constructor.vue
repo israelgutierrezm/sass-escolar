@@ -6,6 +6,7 @@ import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoCheckbox from '@/Components/CampoCheckbox.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 
 interface Opcion {
     id: number;
@@ -394,14 +395,7 @@ const etiquetaTipo = (tipo: string) =>
                 </div>
 
                 <div class="mt-4 flex gap-2">
-                    <button
-                        type="submit"
-                        :disabled="formCampo.processing"
-                        class="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
-                        :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                    >
-                        Guardar campo
-                    </button>
+                    <BotonPrincipal :procesando="formCampo.processing" texto="Guardar campo" />
                     <button
                         type="button"
                         class="rounded-lg border px-4 py-2 text-sm"
@@ -475,14 +469,12 @@ const etiquetaTipo = (tipo: string) =>
                         />
                     </div>
                     <div class="flex items-end">
-                        <button
-                            type="submit"
-                            :disabled="!formAsignacion.aplica_a_id || formAsignacion.processing"
-                            class="w-full rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
-                            :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                        >
-                            Asignar
-                        </button>
+                        <BotonPrincipal
+                            :procesando="formAsignacion.processing"
+                            :deshabilitado="!formAsignacion.aplica_a_id"
+                            texto="Asignar"
+                            class="w-full"
+                        />
                     </div>
                 </div>
             </form>

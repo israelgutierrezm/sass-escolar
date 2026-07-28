@@ -2,6 +2,7 @@
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 
 interface Permiso {
     clave: string;
@@ -158,9 +159,7 @@ function desasignar(id: number): void {
                     </select>
                 </label>
                 <div class="flex items-end gap-2">
-                    <button type="submit" :disabled="datos.processing" class="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50" :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }">
-                        Guardar
-                    </button>
+                    <BotonPrincipal :procesando="datos.processing" texto="Guardar" />
                     <button v-if="!rol.protegido" type="button" class="rounded-lg border px-4 py-2 text-sm text-red-600" :style="{ borderColor: 'var(--color-borde)' }" @click="eliminar">
                         Eliminar
                     </button>

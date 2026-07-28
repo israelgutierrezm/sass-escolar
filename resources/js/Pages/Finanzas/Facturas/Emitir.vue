@@ -2,6 +2,7 @@
 import { Head, useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 
 interface PagoFacturable {
     id: number;
@@ -210,14 +211,13 @@ const regimenes = [
                     </label>
                 </div>
 
-                <button
-                    type="submit"
-                    :disabled="form.processing || form.pago_ids.length === 0"
-                    class="mt-5 rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
-                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                >
-                    Emitir y timbrar
-                </button>
+                <BotonPrincipal
+                    :procesando="form.processing"
+                    :deshabilitado="form.pago_ids.length === 0"
+                    texto="Emitir y timbrar"
+                    cargando="Timbrando…"
+                    class="mt-5"
+                />
                 <p class="mt-2 text-xs" :style="{ color: 'var(--color-suave)' }">
                     El timbrado corre en segundo plano porque el PAC puede tardar. El folio fiscal aparece
                     en cuanto responda.

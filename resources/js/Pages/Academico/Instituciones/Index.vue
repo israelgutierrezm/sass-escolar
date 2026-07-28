@@ -6,6 +6,7 @@ import { prepararImagen } from '@/utils/imagen';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 
 interface Institucion {
     id: number;
@@ -238,14 +239,7 @@ function guardar(): void {
                             Editar datos
                         </button>
                         <template v-else>
-                            <button
-                                type="submit"
-                                :disabled="form.processing"
-                                class="rounded-lg px-5 py-2.5 text-sm font-medium disabled:opacity-60"
-                                :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                            >
-                                {{ form.processing ? 'Guardando…' : 'Guardar cambios' }}
-                            </button>
+                            <BotonPrincipal :procesando="form.processing" texto="Guardar cambios" />
                             <button type="button" class="rounded-lg border px-4 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" @click="cancelar">
                                 Cancelar
                             </button>
