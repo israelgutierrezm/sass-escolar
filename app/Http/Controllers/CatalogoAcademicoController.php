@@ -60,6 +60,11 @@ class CatalogoAcademicoController extends Controller
                 'singular' => 'área',
                 'grupo' => 'Asignaturas',
                 'enUso' => fn (int $id) => DB::table('asignaturas')->whereNull('deleted_at')->where('area_id', $id)->exists(),
+                // Campos extra más allá de clave+nombre. El color pinta la
+                // materia en la vista de cuadrícula de la malla.
+                'extras' => [
+                    'color' => ['tipo' => 'color', 'etiqueta' => 'Color'],
+                ],
             ],
             'descriptor' => [
                 'modelo' => Descriptor::class,
@@ -114,19 +119,24 @@ class CatalogoAcademicoController extends Controller
             // alfabético: bachillerato antes que licenciatura, no «Bachillerato»
             // por la B.
             $ordenable = Schema::hasColumn((new $modelo)->getTable(), 'orden');
+            $extras = $def['extras'] ?? [];
 
             return [
                 'clave' => $clave,
                 'etiqueta' => $def['etiqueta'],
                 'singular' => $def['singular'],
                 'grupo' => $def['grupo'],
-                'items' => $modelo::query()->orderBy($ordenable ? 'orden' : 'nombre')->get(['id', 'clave', 'nombre'])
-                    ->map(fn (Model $m) => [
+                // Metadatos de los campos extra (p. ej. color) para que la UI
+                // sepa qué input pintar; vacío para los catálogos simples.
+                'extras' => $extras,
+                'items' => $modelo::query()->orderBy($ordenable ? 'orden' : 'nombre')
+                    ->get(array_merge(['id', 'clave', 'nombre'], array_keys($extras)))
+                    ->map(fn (Model $m) => array_merge([
                         'id' => $m->id,
                         'clave' => $m->clave,
                         'nombre' => $m->nombre,
                         'en_uso' => ($def['enUso'])($m->id),
-                    ]),
+                    ], collect($extras)->keys()->mapWithKeys(fn (string $k) => [$k => $m->{$k}])->all())),
             ];
         })->values();
 
@@ -162,6 +172,12 @@ class CatalogoAcademicoController extends Controller
         // siguiente `orden`, para que la escuela luego lo reacomode si quiere.
         if (Schema::hasColumn($tabla, 'orden')) {
             $datos['orden'] = (int) DB::table($tabla)->max('orden') + 1;
+        }
+
+        // Un color no asignado al alta nace en un tono pastel aleatorio: la
+        // cuadrícula de la malla nunca queda sin color, y cada área se distingue.
+        if (array_key_exists('color', $def['extras'] ?? []) && empty($datos['color'])) {
+            $datos['color'] = $this->colorPastelAleatorio();
         }
 
         $def['modelo']::create($datos);
@@ -203,12 +219,34 @@ class CatalogoAcademicoController extends Controller
     {
         $tabla = (new $def['modelo'])->getTable();
 
-        return $request->validate([
+        $reglas = [
             'clave' => ['required', 'string', 'max:50', Rule::unique($tabla, 'clave')->ignore($id)->whereNull('deleted_at')],
             'nombre' => ['required', 'string', 'max:255'],
-        ], [
+        ];
+
+        // Los campos extra se validan según su tipo. Hoy sólo `color` (hex #RRGGBB).
+        foreach ($def['extras'] ?? [] as $campo => $meta) {
+            $reglas[$campo] = match ($meta['tipo']) {
+                'color' => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+                default => ['nullable', 'string', 'max:255'],
+            };
+        }
+
+        return $request->validate($reglas, [
             'clave.unique' => 'Ya existe un registro con esa clave en este catálogo.',
+            'color.regex' => 'El color debe ser hexadecimal, por ejemplo #A3D9C7.',
         ]);
+    }
+
+    /**
+     * Un color pastel aleatorio: cada canal se mezcla a medias con blanco, así
+     * el tono siempre sale claro y suave (127–255 por canal), legible como fondo.
+     */
+    private function colorPastelAleatorio(): string
+    {
+        $canal = fn () => (int) round((random_int(0, 255) + 255) / 2);
+
+        return sprintf('#%02X%02X%02X', $canal(), $canal(), $canal());
     }
 
     /**

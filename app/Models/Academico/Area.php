@@ -14,5 +14,5 @@ class Area extends Model
 
     protected $table = 'areas';
 
-    protected $fillable = ['clave', 'nombre'];
+    protected $fillable = ['clave', 'nombre', 'color'];
 }

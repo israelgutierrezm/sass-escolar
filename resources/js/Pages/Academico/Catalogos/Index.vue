@@ -9,6 +9,12 @@ interface Item {
     clave: string;
     nombre: string;
     en_uso: boolean;
+    color?: string | null;
+}
+
+interface Extra {
+    tipo: string;
+    etiqueta: string;
 }
 
 interface Catalogo {
@@ -16,6 +22,7 @@ interface Catalogo {
     etiqueta: string;
     singular: string;
     grupo: string;
+    extras: Record<string, Extra>;
     items: Item[];
 }
 
@@ -51,42 +58,67 @@ const grupos = computed(() => {
     return Array.from(mapa, ([grupo, catalogos]) => ({ grupo, catalogos }));
 });
 
-// Un borrador de alta por catálogo (clave + nombre), y cuál se está editando.
-const nuevos = reactive<Record<string, { clave: string; nombre: string }>>(
-    Object.fromEntries(props.catalogos.map((c) => [c.clave, { clave: '', nombre: '' }])),
+// Un tono pastel aleatorio para sugerir color al crear un área: cada canal a
+// medias con blanco, siempre claro y suave. El backend también lo genera si
+// llega vacío, así que esto es sólo la sugerencia visible en el input.
+function pastelAleatorio(): string {
+    const c = () => Math.round((Math.random() * 255 + 255) / 2).toString(16).padStart(2, '0');
+    return `#${c()}${c()}${c()}`;
+}
+
+function tieneColor(catalogo: Catalogo): boolean {
+    return !!catalogo.extras?.color;
+}
+
+// Un borrador de alta por catálogo (clave + nombre + color cuando aplica), y
+// cuál se está editando.
+const nuevos = reactive<Record<string, { clave: string; nombre: string; color: string }>>(
+    Object.fromEntries(props.catalogos.map((c) => [c.clave, { clave: '', nombre: '', color: pastelAleatorio() }])),
 );
 
 const editando = ref<{ catalogo: string; id: number } | null>(null);
-const edicion = reactive({ clave: '', nombre: '' });
+const edicion = reactive({ clave: '', nombre: '', color: '#CCCCCC' });
 
-function agregar(catalogo: string): void {
-    const borrador = nuevos[catalogo];
+function agregar(catalogo: Catalogo): void {
+    const borrador = nuevos[catalogo.clave];
 
     if (!borrador.clave.trim() || !borrador.nombre.trim()) {
         return;
     }
 
-    router.post(`/academico/catalogos/${catalogo}`, borrador, {
+    const carga: Record<string, string> = { clave: borrador.clave, nombre: borrador.nombre };
+    if (tieneColor(catalogo)) {
+        carga.color = borrador.color;
+    }
+
+    router.post(`/academico/catalogos/${catalogo.clave}`, carga, {
         preserveScroll: true,
         onSuccess: () => {
             borrador.clave = '';
             borrador.nombre = '';
+            borrador.color = pastelAleatorio();
         },
     });
 }
 
-function abrirEdicion(catalogo: string, item: Item): void {
-    editando.value = { catalogo, id: item.id };
+function abrirEdicion(catalogo: Catalogo, item: Item): void {
+    editando.value = { catalogo: catalogo.clave, id: item.id };
     edicion.clave = item.clave;
     edicion.nombre = item.nombre;
+    edicion.color = item.color || pastelAleatorio();
 }
 
-function guardarEdicion(): void {
+function guardarEdicion(catalogo: Catalogo): void {
     if (!editando.value) {
         return;
     }
 
-    router.put(`/academico/catalogos/${editando.value.catalogo}/${editando.value.id}`, { ...edicion }, {
+    const carga: Record<string, string> = { clave: edicion.clave, nombre: edicion.nombre };
+    if (tieneColor(catalogo)) {
+        carga.color = edicion.color;
+    }
+
+    router.put(`/academico/catalogos/${editando.value.catalogo}/${editando.value.id}`, carga, {
         preserveScroll: true,
         onSuccess: () => (editando.value = null),
     });
@@ -129,48 +161,79 @@ function esEditando(catalogo: string, id: number): boolean {
                 <section v-for="catalogo in lista" :key="catalogo.clave" class="tarjeta p-5">
                     <h3 class="text-base font-semibold">{{ catalogo.etiqueta }}</h3>
 
-                    <ul class="mt-3 divide-y" :style="{ borderColor: 'var(--color-borde)' }">
+                    <!-- Encabezado de columnas: da a la lista lectura de tabla
+                         (clave | descripción | color) y evita que se lean como
+                         un texto corrido pegado. -->
+                    <div
+                        class="mt-3 flex items-center gap-3 border-b pb-1.5 text-[11px] font-semibold uppercase tracking-wide"
+                        :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }"
+                    >
+                        <span class="w-24 shrink-0">Clave</span>
+                        <span class="flex-1">Descripción</span>
+                        <span v-if="tieneColor(catalogo)" class="w-12 shrink-0 text-center">Color</span>
+                        <span v-if="puedeEditar" class="w-28 shrink-0 text-right">Acciones</span>
+                    </div>
+
+                    <ul class="divide-y" :style="{ borderColor: 'var(--color-borde)' }">
                         <li
                             v-for="item in catalogo.items"
                             :key="item.id"
-                            class="flex items-center gap-2 py-2"
+                            class="flex items-center gap-3 py-2"
                             :style="{ borderColor: 'var(--color-borde)' }"
                         >
                             <template v-if="esEditando(catalogo.clave, item.id)">
                                 <input
                                     v-model="edicion.clave"
-                                    class="w-28 rounded border px-2 py-1 font-mono text-xs"
+                                    class="w-24 shrink-0 rounded border px-2 py-1 font-mono text-xs"
                                     :style="{ borderColor: 'var(--color-borde)' }"
                                 />
                                 <input
                                     v-model="edicion.nombre"
-                                    class="flex-1 rounded border px-2 py-1 text-sm"
+                                    class="min-w-0 flex-1 rounded border px-2 py-1 text-sm"
                                     :style="{ borderColor: 'var(--color-borde)' }"
-                                    @keyup.enter="guardarEdicion"
+                                    @keyup.enter="guardarEdicion(catalogo)"
                                 />
-                                <button type="button" class="text-sm font-medium" :style="{ color: 'var(--color-acento)' }" @click="guardarEdicion">
-                                    Guardar
-                                </button>
-                                <button type="button" class="text-sm" :style="{ color: 'var(--color-suave)' }" @click="editando = null">
-                                    Cancelar
-                                </button>
+                                <input
+                                    v-if="tieneColor(catalogo)"
+                                    v-model="edicion.color"
+                                    type="color"
+                                    class="h-8 w-12 shrink-0 cursor-pointer rounded border"
+                                    :style="{ borderColor: 'var(--color-borde)' }"
+                                />
+                                <span class="flex w-28 shrink-0 justify-end gap-2">
+                                    <button type="button" class="text-sm font-medium" :style="{ color: 'var(--color-acento)' }" @click="guardarEdicion(catalogo)">
+                                        Guardar
+                                    </button>
+                                    <button type="button" class="text-sm" :style="{ color: 'var(--color-suave)' }" @click="editando = null">
+                                        Cancelar
+                                    </button>
+                                </span>
                             </template>
 
                             <template v-else>
-                                <span class="w-28 shrink-0 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">
+                                <span class="w-24 shrink-0 break-all font-mono text-xs" :style="{ color: 'var(--color-suave)' }">
                                     {{ item.clave }}
                                 </span>
-                                <span class="flex-1">{{ item.nombre }}</span>
-                                <span
-                                    v-if="item.en_uso"
-                                    class="rounded-full px-2 py-0.5 text-[11px]"
-                                    :style="{ backgroundColor: 'var(--color-borde)', color: 'var(--color-suave)' }"
-                                    title="Está en uso; no se puede eliminar"
-                                >
-                                    en uso
+                                <span class="flex min-w-0 flex-1 items-center gap-2">
+                                    <span class="min-w-0 break-words">{{ item.nombre }}</span>
+                                    <span
+                                        v-if="item.en_uso"
+                                        class="shrink-0 rounded-full px-2 py-0.5 text-[11px]"
+                                        :style="{ backgroundColor: 'var(--color-borde)', color: 'var(--color-suave)' }"
+                                        title="Está en uso; no se puede eliminar"
+                                    >
+                                        en uso
+                                    </span>
                                 </span>
-                                <template v-if="puedeEditar">
-                                    <button type="button" class="text-sm" :style="{ color: 'var(--color-acento)' }" @click="abrirEdicion(catalogo.clave, item)">
+                                <span v-if="tieneColor(catalogo)" class="flex w-12 shrink-0 justify-center">
+                                    <span
+                                        class="h-5 w-5 rounded border"
+                                        :style="{ backgroundColor: item.color || 'transparent', borderColor: 'var(--color-borde)' }"
+                                        :title="item.color || 'Sin color'"
+                                    />
+                                </span>
+                                <span v-if="puedeEditar" class="flex w-28 shrink-0 justify-end gap-2">
+                                    <button type="button" class="text-sm" :style="{ color: 'var(--color-acento)' }" @click="abrirEdicion(catalogo, item)">
                                         Editar
                                     </button>
                                     <button
@@ -182,7 +245,7 @@ function esEditando(catalogo: string, id: number): boolean {
                                     >
                                         Eliminar
                                     </button>
-                                </template>
+                                </span>
                             </template>
                         </li>
 
@@ -191,22 +254,30 @@ function esEditando(catalogo: string, id: number): boolean {
                         </li>
                     </ul>
 
-                    <form v-if="puedeEditar" class="mt-3 flex items-center gap-2" @submit.prevent="agregar(catalogo.clave)">
+                    <form v-if="puedeEditar" class="mt-3 flex items-center gap-3" @submit.prevent="agregar(catalogo)">
                         <input
                             v-model="nuevos[catalogo.clave].clave"
                             placeholder="clave"
-                            class="w-28 rounded border px-2 py-1.5 font-mono text-xs"
+                            class="w-24 shrink-0 rounded border px-2 py-1.5 font-mono text-xs"
                             :style="{ borderColor: 'var(--color-borde)' }"
                         />
                         <input
                             v-model="nuevos[catalogo.clave].nombre"
                             :placeholder="`Nueva ${catalogo.singular}`"
-                            class="flex-1 rounded border px-2 py-1.5 text-sm"
+                            class="min-w-0 flex-1 rounded border px-2 py-1.5 text-sm"
                             :style="{ borderColor: 'var(--color-borde)' }"
+                        />
+                        <input
+                            v-if="tieneColor(catalogo)"
+                            v-model="nuevos[catalogo.clave].color"
+                            type="color"
+                            class="h-9 w-12 shrink-0 cursor-pointer rounded border"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                            title="Color del área (se genera uno pastel si no lo cambias)"
                         />
                         <button
                             type="submit"
-                            class="rounded-lg px-3 py-1.5 text-sm font-medium"
+                            class="shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium"
                             :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
                         >
                             Agregar

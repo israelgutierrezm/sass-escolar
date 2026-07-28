@@ -207,9 +207,9 @@ class PlanMateriaController extends Controller
             PlanMateria::create([
                 'plan_id' => $plan->id,
                 'asignatura_id' => $asignatura->id,
-                // Si no se captura una clave de acta propia, se usa la de la
-                // asignatura (que ya es única).
-                'clave_en_plan' => filled($datos['clave_en_plan'] ?? null) ? $datos['clave_en_plan'] : $datos['clave'],
+                // La materia en el plan se identifica por la clave de la
+                // asignatura (ya única). No hay «clave de acta» aparte.
+                'clave_en_plan' => $datos['clave'],
                 'periodo' => $datos['periodo'] ?? null,
                 'tipo' => $datos['tipo'],
                 'creditos_en_plan' => $datos['creditos_en_plan'] ?? null,
@@ -265,6 +265,12 @@ class PlanMateriaController extends Controller
 
         $asignatura->update(collect($datos)->except('descriptores')->all());
 
+        // La materia en el plan se identifica por la clave de la asignatura;
+        // si ésta cambió, la materia la sigue para no quedar desfasada.
+        if ($materia->clave_en_plan !== $asignatura->clave) {
+            $materia->update(['clave_en_plan' => $asignatura->clave]);
+        }
+
         $sync = collect($datos['descriptores'] ?? [])
             ->mapWithKeys(fn (array $d) => [$d['descriptor_id'] => ['contenido' => $d['contenido'] ?? null]])
             ->all();
@@ -308,21 +314,15 @@ class PlanMateriaController extends Controller
             'area_id' => ['nullable', 'integer', Rule::exists('areas', 'id')->whereNull('deleted_at')],
             'horas_teoria' => ['nullable', 'integer', 'min:0'],
             'horas_practica' => ['nullable', 'integer', 'min:0'],
-            // Ubicación en el plan (clave de acta opcional; si falta se usa la
-            // clave de la asignatura). El periodo puede ser optativo → `tipo`.
-            'clave_en_plan' => [
-                'nullable', 'string', 'max:50',
-                Rule::unique('plan_materias', 'clave_en_plan')->where('plan_id', $plan->id)->whereNull('deleted_at'),
-            ],
+            // Ubicación en el plan. La materia se identifica por la clave de la
+            // asignatura; el periodo puede ser optativo → `tipo`.
             'periodo' => ['nullable', 'integer', 'min:1', 'max:30'],
             'tipo' => ['required', Rule::in(['obligatoria', 'optativa', 'tronco_comun'])],
             'creditos_en_plan' => ['nullable', 'numeric', 'min:0'],
         ], [
             'clave.unique' => 'Ya existe una asignatura con esa clave.',
-            'clave_en_plan.unique' => 'Ya hay una materia con esa clave de acta en este plan.',
         ], [
             'tipo_asignatura_id' => 'tipo de asignatura',
-            'clave_en_plan' => 'clave de acta',
             'creditos' => 'créditos',
             'creditos_en_plan' => 'créditos en el plan',
         ]);
@@ -336,20 +336,10 @@ class PlanMateriaController extends Controller
     private function validarUbicacion(Request $request, PlanEstudio $plan, int $id): array
     {
         return $request->validate([
-            'clave_en_plan' => [
-                'required', 'string', 'max:50',
-                Rule::unique('plan_materias', 'clave_en_plan')
-                    ->where('plan_id', $plan->id)
-                    ->ignore($id)
-                    ->whereNull('deleted_at'),
-            ],
             'periodo' => ['nullable', 'integer', 'min:1', 'max:30'],
             'tipo' => ['required', Rule::in(['obligatoria', 'optativa', 'tronco_comun'])],
             'creditos_en_plan' => ['nullable', 'numeric', 'min:0'],
-        ], [
-            'clave_en_plan.unique' => 'Ya hay una materia con esa clave de acta en este plan.',
-        ], [
-            'clave_en_plan' => 'clave de acta',
+        ], [], [
             'creditos_en_plan' => 'créditos en el plan',
         ]);
     }

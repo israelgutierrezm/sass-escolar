@@ -80,14 +80,14 @@ try {
 
     echo PHP_EOL.'2. Editar solo cambia la ubicación (no crea otra asignatura)'.PHP_EOL;
     $antesAsig = Asignatura::query()->count();
+    // Ya no se captura «clave de acta»: la ubicación sólo toca periodo/tipo/créditos.
     $ctrl->update(req([
-        'clave_en_plan' => "ACTA-$u",
         'periodo' => 3,
         'tipo' => 'obligatoria',
     ], 'PUT'), $plan, $pm);
     $pm->refresh();
     verificar('Cambió periodo y tipo', $pm->periodo === 3 && $pm->tipo === 'obligatoria');
-    verificar('Cambió la clave de acta', $pm->clave_en_plan === "ACTA-$u");
+    verificar('La clave en el plan sigue siendo la de la asignatura', $pm->clave_en_plan === "OPT-$u");
     verificar('NO creó otra asignatura', Asignatura::query()->count() === $antesAsig);
     verificar('La asignatura sigue siendo la misma', $pm->asignatura_id === $asig->id);
 

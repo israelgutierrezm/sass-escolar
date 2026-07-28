@@ -99,7 +99,6 @@ function quitarDescriptor(indice: number): void {
 
 // --- Ubicación en el plan ---
 const formUbicacion = useForm({
-    clave_en_plan: props.materia.clave_en_plan,
     periodo: props.materia.periodo,
     tipo: props.materia.tipo,
     creditos_en_plan: props.materia.creditos_en_plan,
@@ -250,10 +249,9 @@ const etiquetaTipoReq = (tipo: string) => (tipo === 'aprobada' ? 'Aprobada' : 'C
 
             <section class="tarjeta p-6">
                 <h3 class="text-base font-semibold">Ubicación en el plan</h3>
-                <div class="mt-4 grid gap-4 sm:grid-cols-4">
+                <div class="mt-4 grid gap-4 sm:grid-cols-3">
                     <CampoTexto v-model="formUbicacion.periodo" etiqueta="Periodo" tipo="number" :error="formUbicacion.errors.periodo" ayuda="Vacío = optativa sin periodo fijo." />
                     <CampoSelect v-model="formUbicacion.tipo" etiqueta="Tipo en el plan" requerido :opciones="opcionesTipoPlan" :error="formUbicacion.errors.tipo" />
-                    <CampoTexto v-model="formUbicacion.clave_en_plan" etiqueta="Clave de acta" requerido mono :error="formUbicacion.errors.clave_en_plan" />
                     <CampoTexto v-model="formUbicacion.creditos_en_plan" etiqueta="Créditos en este plan" tipo="number" :error="formUbicacion.errors.creditos_en_plan" ayuda="Vacío = los de la asignatura." />
                 </div>
                 <div v-if="puedeEditar" class="mt-4">

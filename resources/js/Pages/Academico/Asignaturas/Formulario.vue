@@ -196,7 +196,7 @@ function quitarImagen(tipo: string): void {
             <section class="tarjeta p-6">
                 <h2 class="text-base font-semibold">Identificación</h2>
                 <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                    La clave de acta se define después, al incluir la asignatura en un plan.
+                    La clave de catálogo identifica a la asignatura en toda la escuela y en sus planes.
                 </p>
 
                 <div class="mt-5 grid gap-4 sm:grid-cols-3">
