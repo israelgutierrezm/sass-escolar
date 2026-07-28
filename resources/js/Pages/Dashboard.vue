@@ -1,14 +1,8 @@
 <script setup lang="ts">
 import { Head, router, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import type { PropsCompartidas } from '@/tipos';
-
-interface JerarquiaRol {
-    faceta: string;
-    heredados: string[];
-    propios: string[];
-}
 
 interface Tarjeta {
     clave: string;
@@ -21,9 +15,33 @@ interface Tarjeta {
 
 const props = defineProps<{
     tarjetas: Tarjeta[];
-    jerarquiaRol: JerarquiaRol | null;
     campusDelRol: number[];
 }>();
+
+// Un color propio por tarjeta (según su clave) para que el panel sea más vistoso
+// sin perder la sobriedad: solo se usa en el icono y un acento, no en el fondo.
+const COLORES_TARJETA: Record<string, string> = {
+    cartera: '#059669',
+    embudo: '#7C3AED',
+    'por-contactar': '#DB2777',
+    'comisiones-por-pagar': '#D97706',
+    'actividad-por-hora': '#0891B2',
+    'mi-avance': '#2563EB',
+    'mi-saldo': '#059669',
+    'mis-materias': '#4F46E5',
+    accesos: '#475569',
+};
+
+function colorTarjeta(clave: string): string {
+    return COLORES_TARJETA[clave] ?? 'var(--color-acento)';
+}
+
+const mostrarRoles = ref(false);
+
+const saludo = computed(() => {
+    const h = new Date().getHours();
+    return h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches';
+});
 
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
 
@@ -84,6 +102,51 @@ function conmutar(rolId: number): void {
     <Head title="Panel" />
 
     <AppLayout titulo="Panel">
+        <!-- Cabecera de bienvenida: saludo, quién eres y con qué rol operas. -->
+        <section
+            class="animar-entrada mb-4 overflow-hidden rounded-2xl p-6 text-white shadow-lg"
+            :style="{ background: 'linear-gradient(120deg, var(--color-acento), color-mix(in srgb, var(--color-acento) 55%, #000))' }"
+        >
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div class="min-w-0">
+                    <p class="text-sm opacity-80">{{ saludo }},</p>
+                    <h1 class="truncate text-2xl font-bold">{{ usuario?.nombre_completo ?? usuario?.usuario }}</h1>
+                    <p v-if="usuario?.rol_activo" class="mt-1 text-sm opacity-90">
+                        Operas como <strong>{{ usuario.rol_activo.nombre }}</strong>
+                    </p>
+                </div>
+                <button
+                    v-if="rolesDisponibles.length > 1"
+                    type="button"
+                    class="inline-flex items-center gap-2 rounded-xl bg-white/15 px-4 py-2.5 text-sm font-medium backdrop-blur transition hover:bg-white/25"
+                    @click="mostrarRoles = !mostrarRoles"
+                >
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" /></svg>
+                    Cambiar de rol
+                </button>
+            </div>
+
+            <!-- Conmutador de rol (se despliega desde el botón). -->
+            <div v-if="mostrarRoles && rolesDisponibles.length" class="mt-5 grid gap-2 border-t border-white/20 pt-4 sm:grid-cols-2 lg:grid-cols-3">
+                <button
+                    v-for="rol in rolesDisponibles"
+                    :key="`${rol.id}-${rol.campus_id ?? 'global'}`"
+                    type="button"
+                    class="rounded-xl px-4 py-3 text-left text-sm transition"
+                    :class="esActivo(rol.id) ? 'bg-white text-slate-800 shadow' : 'bg-white/10 hover:bg-white/20'"
+                    @click="conmutar(rol.id)"
+                >
+                    <span class="flex items-center justify-between gap-2">
+                        <span class="font-medium">{{ rol.nombre }}</span>
+                        <span v-if="esActivo(rol.id)" class="rounded-full px-2 py-0.5 text-[10px] font-semibold" :style="{ backgroundColor: 'var(--color-acento)', color: '#fff' }">Activo</span>
+                    </span>
+                    <span class="mt-0.5 block text-xs opacity-80">
+                        {{ rol.campus_nombre ? `Acotado a ${rol.campus_nombre}` : 'Alcance global' }}
+                    </span>
+                </button>
+            </div>
+        </section>
+
         <!--
             El panel NO tiene ramas por rol: el backend entrega las tarjetas que
             esta persona puede ver, y aquí solo se saben pintar cuatro formas.
@@ -97,33 +160,34 @@ function conmutar(rolId: number): void {
         -->
         <section v-if="props.tarjetas.length" class="grid items-start gap-4 sm:grid-cols-4">
             <div
-                v-for="tarjeta in props.tarjetas"
+                v-for="(tarjeta, i) in props.tarjetas"
                 :key="tarjeta.clave"
-                class="tarjeta p-5"
+                class="tarjeta tarjeta-panel animar-entrada p-5"
                 :class="{
                     'sm:col-span-1': tarjeta.ancho === 1,
                     'sm:col-span-2': tarjeta.ancho === 2,
                     'sm:col-span-3': tarjeta.ancho === 3,
                     'sm:col-span-4': tarjeta.ancho === 4,
                 }"
+                :style="{ '--color-tarjeta': colorTarjeta(tarjeta.clave), animationDelay: `${i * 45}ms` }"
             >
                 <div class="flex items-start justify-between gap-2">
                     <div class="flex items-center gap-2.5">
                         <!--
                             El icono lo declara la tarjeta, no la pantalla: quien
                             agregue una nueva no debería editar este archivo para
-                            que se vea como las demás.
+                            que se vea como las demás. Cada tarjeta lleva su color.
                         -->
                         <span
                             class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
-                            :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)' }"
+                            :style="{ backgroundColor: 'color-mix(in srgb, var(--color-tarjeta) 14%, transparent)' }"
                         >
                             <svg
                                 class="h-4 w-4"
                                 fill="none"
                                 viewBox="0 0 24 24"
                                 stroke-width="1.7"
-                                :stroke="'var(--color-acento)'"
+                                :stroke="'var(--color-tarjeta)'"
                             >
                                 <path stroke-linecap="round" stroke-linejoin="round" :d="tarjeta.icono" />
                             </svg>
@@ -134,7 +198,7 @@ function conmutar(rolId: number): void {
                         v-if="tarjeta.datos.enlace"
                         :href="tarjeta.datos.enlace"
                         class="shrink-0 text-xs font-medium"
-                        :style="{ color: 'var(--color-acento)' }"
+                        :style="{ color: 'var(--color-tarjeta)' }"
                     >
                         Ver
                     </a>
@@ -307,107 +371,21 @@ function conmutar(rolId: number): void {
             Tu rol activo todavía no tiene nada que mostrar aquí. Las tarjetas del panel aparecen según
             los permisos que tenga.
         </section>
-
-        <!-- Conmutador de rol -->
-        <section class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-            <h2 class="text-base font-semibold text-slate-800">Cambiar de rol</h2>
-            <p class="mt-1 text-sm text-slate-500">
-                Una misma persona puede tener varios roles. El rol activo define qué permisos aplican y
-                qué información ves.
-            </p>
-
-            <div v-if="rolesDisponibles.length" class="mt-4 grid gap-3 sm:grid-cols-2">
-                <button
-                    v-for="rol in rolesDisponibles"
-                    :key="`${rol.id}-${rol.campus_id ?? 'global'}`"
-                    type="button"
-                    class="rounded-lg border px-4 py-3 text-left transition"
-                    :class="
-                        esActivo(rol.id)
-                            ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500'
-                            : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                    "
-                    @click="conmutar(rol.id)"
-                >
-                    <span class="flex items-center justify-between">
-                        <span class="font-medium text-slate-800">{{ rol.nombre }}</span>
-                        <span
-                            v-if="esActivo(rol.id)"
-                            class="rounded-full bg-indigo-600 px-2 py-0.5 text-xs font-medium text-white"
-                        >
-                            Activo
-                        </span>
-                    </span>
-                    <span class="mt-1 block text-xs text-slate-500">
-                        {{ rol.campus_nombre ? `Acotado a ${rol.campus_nombre}` : 'Alcance global' }}
-                    </span>
-                </button>
-            </div>
-            <p v-else class="mt-4 text-sm text-slate-500">
-                No tienes roles activos asignados. Contacta a un administrador.
-            </p>
-        </section>
-
-        <!-- Qué te concede el rol activo -->
-        <section v-if="props.jerarquiaRol" class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-            <h2 class="text-base font-semibold text-slate-800">Permisos del rol activo</h2>
-            <p class="mt-1 text-sm text-slate-500">
-                Pertenece a la faceta
-                <span class="font-medium text-slate-700">{{ props.jerarquiaRol.faceta }}</span
-                >, de la que hereda permisos.
-            </p>
-
-            <div class="mt-4 grid gap-6 sm:grid-cols-2">
-                <div>
-                    <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Heredados ({{ props.jerarquiaRol.heredados.length }})
-                    </h3>
-                    <ul v-if="props.jerarquiaRol.heredados.length" class="mt-2 space-y-1">
-                        <li
-                            v-for="permiso in props.jerarquiaRol.heredados"
-                            :key="permiso"
-                            class="text-sm text-slate-600"
-                        >
-                            {{ permiso }}
-                        </li>
-                    </ul>
-                    <p v-else class="mt-2 text-sm text-slate-400">Ninguno</p>
-                </div>
-
-                <div>
-                    <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Propios ({{ props.jerarquiaRol.propios.length }})
-                    </h3>
-                    <ul v-if="props.jerarquiaRol.propios.length" class="mt-2 space-y-1">
-                        <li
-                            v-for="permiso in props.jerarquiaRol.propios"
-                            :key="permiso"
-                            class="text-sm text-slate-600"
-                        >
-                            {{ permiso }}
-                        </li>
-                    </ul>
-                    <p v-else class="mt-2 text-sm text-slate-400">Ninguno</p>
-                </div>
-            </div>
-
-            <div class="mt-6 border-t border-slate-100 pt-4">
-                <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Efectivos ({{ permisos.length }})
-                </h3>
-                <div class="mt-2 flex flex-wrap gap-1.5">
-                    <span
-                        v-for="permiso in permisos"
-                        :key="permiso"
-                        class="rounded bg-slate-100 px-2 py-1 text-xs text-slate-700"
-                    >
-                        {{ permiso }}
-                    </span>
-                </div>
-                <p v-if="props.campusDelRol.length" class="mt-4 text-sm text-slate-500">
-                    Este rol está acotado a {{ props.campusDelRol.length }} campus; fuera de ellos no aplica.
-                </p>
-            </div>
-        </section>
     </AppLayout>
 </template>
+
+<style scoped>
+/* Cada tarjeta lleva un acento superior de su color y una elevación al pasar el
+   cursor teñida del mismo color: vistoso pero sobrio (el fondo sigue neutro). */
+.tarjeta-panel {
+    border-top: 3px solid var(--color-tarjeta);
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.tarjeta-panel:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px -8px color-mix(in srgb, var(--color-tarjeta) 45%, transparent);
+}
+</style>

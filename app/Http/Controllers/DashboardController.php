@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Models\Identidad\Rol;
 use App\Models\Identidad\Usuario;
 use App\Panel\RegistroTarjetas;
 use Illuminate\Support\Facades\Auth;
@@ -33,27 +32,9 @@ class DashboardController extends Controller
         /** @var Usuario $usuario */
         $usuario = Auth::user();
 
-        $rolActivo = $usuario->rolActivo;
-
         return Inertia::render('Dashboard', [
             'tarjetas' => $this->registro->para($usuario),
-            'jerarquiaRol' => $rolActivo === null ? null : [
-                'faceta' => $this->faceta($rolActivo),
-                'heredados' => $rolActivo->padre?->permisosEfectivos()->pluck('name')->sort()->values()->all() ?? [],
-                'propios' => $rolActivo->permissions->pluck('name')->sort()->values()->all(),
-            ],
             'campusDelRol' => $usuario->campusDelRolActivo(),
         ]);
-    }
-
-    /**
-     * Nombre de la faceta a la que pertenece el rol activo: el ancestro más
-     * alto de su cadena (o él mismo, si ya es una faceta).
-     */
-    private function faceta(Rol $rol): string
-    {
-        $ancestros = $rol->ancestros();
-
-        return $ancestros === [] ? $rol->nombre : end($ancestros)->nombre;
     }
 }
