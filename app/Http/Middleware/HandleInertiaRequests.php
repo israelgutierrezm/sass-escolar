@@ -178,7 +178,13 @@ class HandleInertiaRequests extends Middleware
             return null;
         }
 
-        return MenuRol::query()->where('rol_id', $rolId)->value('estructura');
+        $menu = MenuRol::query()->where('rol_id', $rolId)->first(['estructura', 'ocultos']);
+
+        if ($menu === null) {
+            return null;
+        }
+
+        return ['arbol' => $menu->estructura, 'ocultos' => $menu->ocultos ?? []];
     }
 
     /**

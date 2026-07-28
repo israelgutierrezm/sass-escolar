@@ -4,116 +4,42 @@ import { ref, watch } from 'vue';
 import draggable from 'vuedraggable';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import MenuNodo from './MenuNodo.vue';
-import { CATALOGO_MENU, indiceCatalogo } from '@/menu/catalogo';
-
-interface Nodo {
-    clave: string;
-    etiqueta: string;
-    esGrupo: boolean;
-    hijos: Nodo[];
-}
+import { construirParaEditor, type NodoNav } from '@/menu/construir';
 
 interface Rol {
     id: number;
     nombre: string;
+    ambito: string;
+    permisos: string[];
     estructura: { clave: string; hijos: any[] }[] | null;
+    ocultos: string[];
 }
 
 const props = defineProps<{ roles: Rol[] }>();
 
 const rolId = ref<number | null>(props.roles[0]?.id ?? null);
-const arbol = ref<Nodo[]>([]);
+const arbol = ref<NodoNav[]>([]);
+const ocultos = ref<NodoNav[]>([]);
 const guardando = ref(false);
-
-const indice = indiceCatalogo();
-
-// --- Construcción del árbol de trabajo ---
-function nodoDesde(clave: string, hijos: any[] = []): Nodo | null {
-    const base = indice[clave];
-    if (!base) {
-        return null; // clave que ya no existe en el catálogo: se descarta
-    }
-    const esGrupo = 'icono' in base;
-
-    return {
-        clave,
-        etiqueta: base.etiqueta,
-        esGrupo,
-        hijos: (hijos ?? []).map((h) => nodoDesde(h.clave, h.hijos)).filter((n): n is Nodo => n !== null),
-    };
-}
-
-function arbolPorDefecto(): Nodo[] {
-    return CATALOGO_MENU.map((g) => ({
-        clave: g.clave,
-        etiqueta: g.etiqueta,
-        esGrupo: true,
-        hijos: g.hijos.map((h) => ({ clave: h.clave, etiqueta: h.etiqueta, esGrupo: false, hijos: [] })),
-    }));
-}
-
-function recorrer(nodos: Nodo[], set: Set<string>): void {
-    for (const n of nodos) {
-        set.add(n.clave);
-        recorrer(n.hijos, set);
-    }
-}
-
-function buscar(nodos: Nodo[], clave: string): Nodo | null {
-    for (const n of nodos) {
-        if (n.clave === clave) {
-            return n;
-        }
-        const enHijo = buscar(n.hijos, clave);
-        if (enHijo) {
-            return enHijo;
-        }
-    }
-    return null;
-}
-
-// Agrega al final los grupos/opciones del catálogo que no estén en el árbol
-// guardado: así una opción nueva (p. ej. "Menú") aparece aunque el rol ya tenga
-// un menú viejo guardado.
-function fusionarFaltantes(base: Nodo[]): Nodo[] {
-    const presentes = new Set<string>();
-    recorrer(base, presentes);
-
-    for (const g of CATALOGO_MENU) {
-        let grupo = buscar(base, g.clave);
-        if (!grupo) {
-            grupo = { clave: g.clave, etiqueta: g.etiqueta, esGrupo: true, hijos: [] };
-            base.push(grupo);
-            presentes.add(g.clave);
-        }
-        for (const h of g.hijos) {
-            if (!presentes.has(h.clave)) {
-                grupo.hijos.push({ clave: h.clave, etiqueta: h.etiqueta, esGrupo: false, hijos: [] });
-                presentes.add(h.clave);
-            }
-        }
-    }
-    return base;
-}
 
 function cargarArbol(): void {
     const rol = props.roles.find((r) => r.id === rolId.value);
     if (!rol) {
         arbol.value = [];
+        ocultos.value = [];
         return;
     }
-    if (!rol.estructura) {
-        arbol.value = arbolPorDefecto();
-        return;
-    }
-    const base = rol.estructura.map((n) => nodoDesde(n.clave, n.hijos)).filter((n): n is Nodo => n !== null);
-    arbol.value = fusionarFaltantes(base);
+    // El editor solo muestra lo que ESE rol podría ver (su ámbito y permisos);
+    // los ocultos se separan en su propio cajón para poder devolverlos.
+    const { visible, ocultos: bin } = construirParaEditor(rol.estructura ?? null, rol.ocultos ?? [], rol.permisos, rol.ambito);
+    arbol.value = visible;
+    ocultos.value = bin;
 }
 
 watch(rolId, cargarArbol, { immediate: true });
 
 // --- Guardar / restablecer ---
-function aEstructura(nodos: Nodo[]): { clave: string; hijos: any[] }[] {
+function aEstructura(nodos: NodoNav[]): { clave: string; hijos: any[] }[] {
     return nodos.map((n) => ({ clave: n.clave, hijos: aEstructura(n.hijos) }));
 }
 
@@ -122,7 +48,10 @@ function guardar(): void {
         return;
     }
     guardando.value = true;
-    router.put(`/plataforma/menu/${rolId.value}`, { estructura: aEstructura(arbol.value) }, {
+    router.put(`/plataforma/menu/${rolId.value}`, {
+        estructura: aEstructura(arbol.value),
+        ocultos: ocultos.value.map((n) => n.clave),
+    }, {
         preserveScroll: true,
         onFinish: () => (guardando.value = false),
     });
@@ -135,10 +64,10 @@ function restablecer(): void {
     router.delete(`/plataforma/menu/${rolId.value}`, {
         preserveScroll: true,
         onSuccess: () => {
-            // Sin fila guardada, vuelve al default.
             const rol = props.roles.find((r) => r.id === rolId.value);
             if (rol) {
                 rol.estructura = null;
+                rol.ocultos = [];
             }
             cargarArbol();
         },
@@ -157,8 +86,9 @@ function restablecer(): void {
                     <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
                         Arrastra los grupos y opciones para reordenarlos o anidarlos (hasta 3 niveles): p. ej.
                         sube <strong>Admisiones</strong>, o mete <strong>Docentes</strong> dentro de
-                        <strong>Control escolar</strong>. Ordenar no da acceso: cada quien sigue viendo solo lo
-                        que su rol y permisos permiten.
+                        <strong>Control escolar</strong>. Solo se muestra lo que ese rol puede ver. Para
+                        <strong>ocultar</strong> algo, arrástralo a «Ocultos». Ordenar u ocultar no cambia
+                        permisos, solo la barra.
                     </p>
                 </div>
                 <label class="text-sm">
@@ -174,8 +104,10 @@ function restablecer(): void {
             </div>
         </section>
 
-        <div class="tarjeta p-6">
-            <div class="mx-auto max-w-2xl">
+        <div class="grid gap-4 lg:grid-cols-3">
+            <!-- Árbol visible -->
+            <div class="tarjeta p-6 lg:col-span-2">
+                <h3 class="mb-3 text-sm font-semibold">Menú visible</h3>
                 <draggable
                     :list="arbol"
                     group="menu-arrastrable"
@@ -183,7 +115,7 @@ function restablecer(): void {
                     :animation="150"
                     handle=".asa"
                     ghost-class="fantasma-arrastre"
-                    class="flex flex-col gap-2"
+                    class="flex min-h-[3rem] flex-col gap-2"
                 >
                     <template #item="{ element }">
                         <div class="rounded-lg border" :style="{ borderColor: 'var(--color-borde)', backgroundColor: 'var(--color-superficie)' }">
@@ -212,27 +144,56 @@ function restablecer(): void {
                         </div>
                     </template>
                 </draggable>
-
-                <div class="mt-6 flex items-center gap-3 border-t pt-5" :style="{ borderColor: 'var(--color-borde)' }">
-                    <button
-                        type="button"
-                        :disabled="guardando"
-                        class="rounded-lg px-5 py-2.5 text-sm font-medium disabled:opacity-60"
-                        :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                        @click="guardar"
-                    >
-                        {{ guardando ? 'Guardando…' : 'Guardar menú' }}
-                    </button>
-                    <button
-                        type="button"
-                        class="rounded-lg border px-4 py-2 text-sm"
-                        :style="{ borderColor: 'var(--color-borde)' }"
-                        @click="restablecer"
-                    >
-                        Restablecer al default
-                    </button>
-                </div>
             </div>
+
+            <!-- Cajón de ocultos -->
+            <div class="tarjeta p-6">
+                <h3 class="mb-1 text-sm font-semibold">Ocultos</h3>
+                <p class="mb-3 text-xs" :style="{ color: 'var(--color-suave)' }">
+                    Arrastra aquí lo que este rol no debe ver en la barra. Puedes devolverlo cuando quieras.
+                </p>
+                <draggable
+                    :list="ocultos"
+                    group="menu-arrastrable"
+                    item-key="clave"
+                    :animation="150"
+                    handle=".asa"
+                    ghost-class="fantasma-arrastre"
+                    class="flex min-h-[6rem] flex-col gap-1.5 rounded-lg border border-dashed p-2"
+                    :style="{ borderColor: 'var(--color-borde)' }"
+                >
+                    <template #item="{ element }">
+                        <div class="flex items-center gap-2 rounded-lg border px-2 py-1.5" :style="{ borderColor: 'var(--color-borde)', backgroundColor: 'var(--color-fondo)' }">
+                            <span class="asa cursor-grab select-none text-base leading-none" :style="{ color: 'var(--color-suave)' }" title="Arrastrar">⠿</span>
+                            <span class="text-sm" :style="{ color: 'var(--color-suave)' }">{{ element.etiqueta }}</span>
+                            <span class="ml-auto text-[10px] uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">{{ element.esGrupo ? 'Grupo' : 'Opción' }}</span>
+                        </div>
+                    </template>
+                </draggable>
+                <p v-if="!ocultos.length" class="mt-2 text-center text-xs italic" :style="{ color: 'var(--color-suave)' }">
+                    Nada oculto.
+                </p>
+            </div>
+        </div>
+
+        <div class="tarjeta flex items-center gap-3 p-4">
+            <button
+                type="button"
+                :disabled="guardando"
+                class="rounded-lg px-5 py-2.5 text-sm font-medium disabled:opacity-60"
+                :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+                @click="guardar"
+            >
+                {{ guardando ? 'Guardando…' : 'Guardar menú' }}
+            </button>
+            <button
+                type="button"
+                class="rounded-lg border px-4 py-2 text-sm"
+                :style="{ borderColor: 'var(--color-borde)' }"
+                @click="restablecer"
+            >
+                Restablecer al default
+            </button>
         </div>
     </AppLayout>
 </template>

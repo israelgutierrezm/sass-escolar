@@ -93,12 +93,16 @@ function buscar(nodos: NodoNav[], clave: string): NodoNav | null {
     return null;
 }
 
-/** Agrega grupos/opciones del catálogo que falten en una disposición vieja. */
-function fusionarFaltantes(base: NodoNav[]): NodoNav[] {
+/** Agrega grupos/opciones del catálogo que falten en una disposición vieja,
+ *  salvo las claves ocultas por el editor. */
+function fusionarFaltantes(base: NodoNav[], ocultos: Set<string>): NodoNav[] {
     const presentes = new Set<string>();
     recorrer(base, presentes);
 
     for (const g of CATALOGO_MENU) {
+        if (ocultos.has(g.clave)) {
+            continue; // grupo oculto: ni se agrega
+        }
         let grupo = buscar(base, g.clave);
         if (!grupo) {
             grupo = resolver(g.clave, []) as NodoNav;
@@ -106,10 +110,11 @@ function fusionarFaltantes(base: NodoNav[]): NodoNav[] {
             presentes.add(g.clave);
         }
         for (const h of g.hijos) {
-            if (!presentes.has(h.clave)) {
-                grupo.hijos.push(resolver(h.clave, []) as NodoNav);
-                presentes.add(h.clave);
+            if (ocultos.has(h.clave) || presentes.has(h.clave)) {
+                continue; // opción oculta o ya presente
             }
+            grupo.hijos.push(resolver(h.clave, []) as NodoNav);
+            presentes.add(h.clave);
         }
     }
     return base;
@@ -119,10 +124,14 @@ function hojaVisible(nodo: NodoNav, permisos: string[]): boolean {
     return nodo.permiso == null || permisos.includes(nodo.permiso) || (nodo.o != null && permisos.includes(nodo.o));
 }
 
-function filtrar(nodos: NodoNav[], permisos: string[], ambito: string | null): NodoNav[] {
+function filtrar(nodos: NodoNav[], permisos: string[], ambito: string | null, ocultos: Set<string>): NodoNav[] {
     const resultado: NodoNav[] = [];
 
     for (const nodo of nodos) {
+        if (ocultos.has(nodo.clave)) {
+            continue; // oculto por el editor para este rol
+        }
+
         if (!nodo.esGrupo) {
             if (hojaVisible(nodo, permisos)) {
                 resultado.push({ ...nodo, hijos: [] });
@@ -142,7 +151,7 @@ function filtrar(nodos: NodoNav[], permisos: string[], ambito: string | null): N
             continue;
         }
 
-        const hijos = filtrar(nodo.hijos, permisos, ambito);
+        const hijos = filtrar(nodo.hijos, permisos, ambito, ocultos);
         if (hijos.length > 0) {
             resultado.push({ ...nodo, hijos });
         }
@@ -155,14 +164,61 @@ export function construirNavegacion(
     arreglo: NodoArreglo[] | null,
     permisos: string[],
     ambito: string | null,
+    ocultos: string[] = [],
 ): NodoNav[] {
+    const set = new Set(ocultos);
     const base = arreglo
         ? fusionarFaltantes(
             arreglo.map((n) => resolver(n.clave, n.hijos)).filter((n): n is NodoNav => n !== null),
+            set,
         )
-        : arbolPorDefecto();
+        : fusionarFaltantes(arbolPorDefecto(), set);
 
-    return filtrar(base, permisos, ambito).map((n) => ({ ...n, icono: n.icono ?? ICONO_GENERICO }));
+    return filtrar(base, permisos, ambito, set).map((n) => ({ ...n, icono: n.icono ?? ICONO_GENERICO }));
+}
+
+/** Saca de un árbol las claves ocultas y las junta (con su subárbol) en `bin`. */
+function podarOcultos(nodos: NodoNav[], ocultos: Set<string>, bin: NodoNav[]): NodoNav[] {
+    const visibles: NodoNav[] = [];
+
+    for (const nodo of nodos) {
+        if (ocultos.has(nodo.clave)) {
+            bin.push(nodo);
+            continue;
+        }
+        nodo.hijos = podarOcultos(nodo.hijos, ocultos, bin);
+        visibles.push(nodo);
+    }
+
+    return visibles;
+}
+
+/**
+ * Para el EDITOR: el árbol del rol filtrado por su ámbito y permisos (así solo
+ * ve lo que ese rol podría ver), separado en la parte VISIBLE (a ordenar) y la
+ * de OCULTOS (el «cajón»). A diferencia de la barra, aquí los ocultos NO se
+ * eliminan: se muestran aparte para poder devolverlos.
+ */
+export function construirParaEditor(
+    arreglo: NodoArreglo[] | null,
+    ocultos: string[],
+    permisos: string[],
+    ambito: string | null,
+): { visible: NodoNav[]; ocultos: NodoNav[] } {
+    const vacio = new Set<string>();
+    const base = arreglo
+        ? fusionarFaltantes(
+            arreglo.map((n) => resolver(n.clave, n.hijos)).filter((n): n is NodoNav => n !== null),
+            vacio,
+        )
+        : fusionarFaltantes(arbolPorDefecto(), vacio);
+
+    const completo = filtrar(base, permisos, ambito, vacio).map((n) => ({ ...n, icono: n.icono ?? ICONO_GENERICO }));
+
+    const bin: NodoNav[] = [];
+    const visible = podarOcultos(completo, new Set(ocultos), bin);
+
+    return { visible, ocultos: bin };
 }
 
 /** Todas las claves de nodos activos por prefijo, para abrir sus ancestros. */

@@ -25,15 +25,20 @@ class MenuRolController extends Controller
 
     public function index(): Response
     {
-        $menus = MenuRol::query()->pluck('estructura', 'rol_id');
+        $menus = MenuRol::query()->get(['rol_id', 'estructura', 'ocultos'])->keyBy('rol_id');
 
         return Inertia::render('Plataforma/Menu', [
-            'roles' => Rol::query()->orderBy('nombre')->get(['id', 'nombre'])
+            'roles' => Rol::query()->orderBy('nombre')->get()
                 ->map(fn (Rol $rol) => [
                     'id' => $rol->id,
                     'nombre' => $rol->nombre,
-                    // La estructura guardada (o null → el editor parte del default).
-                    'estructura' => $menus[$rol->id] ?? null,
+                    // Ámbito y permisos del rol: el editor recorta el catálogo a
+                    // lo que ese rol podría ver (no muestra grupos de otro oficio).
+                    'ambito' => $rol->ambitoDePermisos(),
+                    'permisos' => $rol->permisosEfectivos()->pluck('name')->values(),
+                    // Lo guardado (o null → el editor parte del default del rol).
+                    'estructura' => $menus->get($rol->id)?->estructura,
+                    'ocultos' => $menus->get($rol->id)?->ocultos ?? [],
                 ]),
         ]);
     }
@@ -42,11 +47,16 @@ class MenuRolController extends Controller
     {
         $datos = $request->validate([
             'estructura' => ['present', 'array'],
+            'ocultos' => ['present', 'array'],
+            'ocultos.*' => ['string'],
         ]);
 
         MenuRol::updateOrCreate(
             ['rol_id' => $rol->id],
-            ['estructura' => $this->sanear($datos['estructura'])],
+            [
+                'estructura' => $this->sanear($datos['estructura']),
+                'ocultos' => array_values(array_unique($datos['ocultos'])),
+            ],
         );
 
         return back()->with('exito', "Menú de «{$rol->nombre}» guardado.");
@@ -54,9 +64,10 @@ class MenuRolController extends Controller
 
     public function restablecer(Rol $rol): RedirectResponse
     {
-        // Volver al default = borrar la fila: sin fila, la barra usa el catálogo
-        // en su orden original.
-        MenuRol::query()->where('rol_id', $rol->id)->delete();
+        // Volver al default = quitar la fila del todo (hard delete): es config
+        // transitoria, no dato con historia, y un soft delete dejaría la clave
+        // única ocupada estorbando al próximo guardado.
+        MenuRol::query()->where('rol_id', $rol->id)->forceDelete();
 
         return back()->with('exito', "Menú de «{$rol->nombre}» restablecido al orden por defecto.");
     }

@@ -149,10 +149,10 @@ watch(compacta, (valor) => localStorage.setItem('acadion.barra.compacta', valor 
  * opción por permiso. Ordenar en el editor NO otorga acceso: esto lo garantiza.
  */
 const navegacion = computed<NodoNav[]>(() => {
-    const arreglo = (page.props.menu as { clave: string; hijos?: any[] }[] | null) ?? null;
+    const menu = page.props.menu as { arbol: { clave: string; hijos?: any[] }[] | null; ocultos: string[] } | null;
     const ambito = usuario.value?.rol_activo?.ambito ?? null;
 
-    return construirNavegacion(arreglo, permisos.value, ambito);
+    return construirNavegacion(menu?.arbol ?? null, permisos.value, ambito, menu?.ocultos ?? []);
 });
 
 const rutaActual = computed(() => page.url.split('?')[0]);

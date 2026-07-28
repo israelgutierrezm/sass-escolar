@@ -23,11 +23,15 @@ class MenuRol extends Model
 
     protected $table = 'menus_rol';
 
-    protected $fillable = ['rol_id', 'estructura'];
+    protected $fillable = ['rol_id', 'estructura', 'ocultos'];
 
     protected function casts(): array
     {
-        return ['estructura' => 'array'];
+        return [
+            'estructura' => 'array',
+            // Claves del catálogo que este rol NO muestra en la barra.
+            'ocultos' => 'array',
+        ];
     }
 
     public function rol(): BelongsTo

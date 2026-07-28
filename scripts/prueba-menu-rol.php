@@ -63,6 +63,7 @@ try {
             ]],
             ['clave' => 'admisiones', 'hijos' => []],
         ],
+        'ocultos' => [],
     ]), $rol);
 
     $guardado = MenuRol::query()->where('rol_id', $rol->id)->value('estructura');
@@ -87,6 +88,7 @@ try {
             ['hijos' => []],
             ['clave' => 123, 'hijos' => []], // clave no-string: se descarta
         ],
+        'ocultos' => [],
     ]), $rol);
     $s = MenuRol::query()->where('rol_id', $rol->id)->value('estructura');
     verificar('Solo quedó el nodo con clave válida', count($s) === 1 && $s[0]['clave'] === 'a1');
@@ -94,15 +96,25 @@ try {
         ($s[0]['hijos'][0]['hijos'][0]['clave'] ?? null) === 'c3'
         && ($s[0]['hijos'][0]['hijos'][0]['hijos'] ?? null) === []);
 
-    echo PHP_EOL.'3. index() expone la estructura por rol'.PHP_EOL;
+    echo PHP_EOL.'3. Guardar ocultos los persiste (dedup)'.PHP_EOL;
+    $ctrl->guardar(req([
+        'estructura' => [['clave' => 'escolar', 'hijos' => []]],
+        'ocultos' => ['docentes', 'finanzas', 'docentes'], // duplicado
+    ]), $rol);
+    $fila = MenuRol::query()->where('rol_id', $rol->id)->first();
+    verificar('Guardó los ocultos sin duplicar', $fila->ocultos === ['docentes', 'finanzas']);
+
+    echo PHP_EOL.'4. index() expone estructura, ocultos, ámbito y permisos por rol'.PHP_EOL;
     $reqI = req([], 'GET');
     $reqI->headers->set('X-Inertia', 'true');
     $props = $ctrl->index()->toResponse($reqI)->getData(true)['props'];
     $rolEnLista = collect($props['roles'])->firstWhere('id', $rol->id);
-    verificar('El rol viene con su estructura', ($rolEnLista['estructura'][0]['clave'] ?? null) === 'a1');
+    verificar('El rol viene con su estructura y ocultos', ($rolEnLista['estructura'][0]['clave'] ?? null) === 'escolar' && $rolEnLista['ocultos'] === ['docentes', 'finanzas']);
+    verificar('Cada rol trae su ámbito', is_string($rolEnLista['ambito'] ?? null) && $rolEnLista['ambito'] !== '');
+    verificar('Cada rol trae la lista de sus permisos', is_array($rolEnLista['permisos'] ?? null));
     verificar('Otros roles vienen con estructura null', collect($props['roles'])->where('id', '!=', $rol->id)->every(fn ($r) => $r['estructura'] === null));
 
-    echo PHP_EOL.'4. Restablecer borra la fila (vuelve al default)'.PHP_EOL;
+    echo PHP_EOL.'5. Restablecer borra la fila (vuelve al default)'.PHP_EOL;
     $ctrl->restablecer($rol);
     verificar('Ya no hay fila para el rol', MenuRol::query()->where('rol_id', $rol->id)->doesntExist());
 } finally {
