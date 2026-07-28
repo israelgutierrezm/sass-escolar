@@ -186,6 +186,36 @@ class IdentidadPersona
     }
 
     /**
+     * Persona que YA usa este correo como identidad o como credencial de acceso,
+     * si la hay y no es la que se está escribiendo.
+     *
+     * El correo es la llave del login: dos cuentas con el mismo correo cruzan
+     * sesiones. Se busca en `personas` (el correo de contacto) y en `usuarios`
+     * (el correo con el que se entra) porque una cuenta puede tener correo de
+     * login aunque su persona no lo tenga en `personas` (así está el admin).
+     * `$excluirPersonaId` evita reportar a la propia persona al editarla o al
+     * reutilizarla por CURP.
+     */
+    public function correoEnUso(?string $email, ?int $excluirPersonaId = null): ?Persona
+    {
+        $email = filled($email) ? mb_strtolower(trim((string) $email)) : null;
+
+        if ($email === null) {
+            return null;
+        }
+
+        // Ids de persona que usan ese correo, sea en `personas` (contacto) o en
+        // `usuarios` (login). Se unen, se descarta la que se está escribiendo, y
+        // la primera que quede es el conflicto.
+        $ids = Persona::query()->whereRaw('lower(email) = ?', [$email])->pluck('id')
+            ->merge(\App\Models\Identidad\Usuario::query()->whereRaw('lower(email) = ?', [$email])->pluck('persona_id'))
+            ->unique()
+            ->reject(fn ($id) => $excluirPersonaId !== null && (int) $id === $excluirPersonaId);
+
+        return $ids->isEmpty() ? null : Persona::query()->whereKey($ids)->first();
+    }
+
+    /**
      * Catálogos de nacimiento, ya ordenados como se deben mostrar.
      *
      * «Nacido en el Extranjero» va ARRIBA, junto a «sin especificar», y no

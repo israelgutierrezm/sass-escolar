@@ -11,6 +11,7 @@ withDefaults(
         requerido?: boolean;
         vacio?: string;
         ayuda?: string;
+        deshabilitado?: boolean;
     }>(),
     { requerido: false },
 );
@@ -26,7 +27,8 @@ const modelo = defineModel<string | number | null>();
         <select
             v-model="modelo"
             :required="requerido"
-            class="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1"
+            :disabled="deshabilitado"
+            class="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1 disabled:cursor-not-allowed disabled:opacity-60"
             :class="
                 error
                     ? 'border-red-400 focus:border-red-500 focus:ring-red-500'

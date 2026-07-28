@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests;
 
 use App\Rules\CurpValida;
+use App\Services\IdentidadPersona;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -66,7 +67,17 @@ class GuardarAspiranteRequest extends FormRequest
             // El correo pasa a OBLIGATORIO: es la credencial con la que el
             // aspirante entrará a su portal. Sin él hay que perseguirlo por
             // teléfono para darle acceso, que es justo lo que el portal evita.
-            'email' => ['required', 'email', 'max:150'],
+            //
+            // Y ÚNICO en la plataforma: dos cuentas con el mismo correo cruzan
+            // sesiones en el login. Se excluye la persona que se reutiliza por
+            // CURP (o se edita), que sí puede conservar el suyo.
+            'email' => ['required', 'email', 'max:150', function (string $atributo, mixed $valor, \Closure $fallar) {
+                $conflicto = app(IdentidadPersona::class)->correoEnUso($valor, $this->personaDestino());
+
+                if ($conflicto !== null) {
+                    $fallar('Ese correo ya está registrado con otra persona ('.$conflicto->nombreCompleto().'). Usa otro, o captura su CURP para reutilizarla.');
+                }
+            }],
             'celular' => ['nullable', 'string', 'max:20'],
 
             // Aspirante
@@ -117,6 +128,18 @@ class GuardarAspiranteRequest extends FormRequest
     {
         $this->merge([
             'curp' => $this->filled('curp') ? mb_strtoupper(trim((string) $this->input('curp'))) : null,
+            'email' => $this->filled('email') ? mb_strtolower(trim((string) $this->input('email'))) : null,
         ]);
+    }
+
+    /**
+     * La persona a la que se escribirán los datos: al editar, la del aspirante;
+     * al crear, la que se reutilizará si la CURP ya existe. Es a quien NO se le
+     * reporta el correo como duplicado (es su propio correo).
+     */
+    private function personaDestino(): ?int
+    {
+        return $this->route('aspirante')?->persona_id
+            ?? app(IdentidadPersona::class)->existentePorCurp($this->input('curp'))?->id;
     }
 }

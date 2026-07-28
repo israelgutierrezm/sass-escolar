@@ -71,13 +71,32 @@ class AprovisionadorAcceso
         return Usuario::create([
             'persona_id' => $persona->id,
             'usuario' => $this->usuarioDisponible($persona),
-            'email' => $persona->email,
+            // El correo es la llave del login y es ÚNICO: si otra cuenta ya lo
+            // usa, esta cuenta de censo nace SIN correo (existe y se lista, pero
+            // no se entra por un correo ajeno). Que no colisione lo garantiza,
+            // además, el índice único de `usuarios.email`.
+            'email' => $this->correoLibre($persona->email),
             // Contraseña inservible a propósito: la cuenta existe para el censo,
             // pero no se entra con ella hasta la etapa de acceso.
             'password' => Hash::make(Str::random(40)),
             'acceso_configurado' => false,
             'rol_activo_id' => $rol->id,
         ]);
+    }
+
+    /**
+     * El correo si nadie más lo usa como credencial; null si ya está tomado.
+     * Evita que dos cuentas compartan correo de login (cruce de sesiones).
+     */
+    private function correoLibre(?string $email): ?string
+    {
+        if (! filled($email)) {
+            return null;
+        }
+
+        $tomado = Usuario::query()->whereRaw('lower(email) = ?', [mb_strtolower(trim($email))])->exists();
+
+        return $tomado ? null : $email;
     }
 
     /**

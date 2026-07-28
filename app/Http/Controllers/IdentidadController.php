@@ -58,4 +58,25 @@ class IdentidadController extends Controller
             'coincidencias' => $identidad->posiblesDuplicados($datos, $datos['persona_id'] ?? null),
         ]);
     }
+
+    /**
+     * ¿Este correo ya está en uso por otra persona? Se consulta al teclearlo
+     * para avisar de inmediato: el correo es la llave del login y no puede
+     * repetirse. Devuelve el nombre de quien lo tiene, para que quien captura
+     * sepa si es la misma persona.
+     */
+    public function correoEnUso(Request $request, IdentidadPersona $identidad): JsonResponse
+    {
+        $datos = $request->validate([
+            'email' => ['nullable', 'string', 'max:150'],
+            'persona_id' => ['nullable', 'integer'],
+        ]);
+
+        $conflicto = $identidad->correoEnUso($datos['email'] ?? null, $datos['persona_id'] ?? null);
+
+        return response()->json([
+            'en_uso' => $conflicto !== null,
+            'nombre' => $conflicto?->nombreCompleto(),
+        ]);
+    }
 }

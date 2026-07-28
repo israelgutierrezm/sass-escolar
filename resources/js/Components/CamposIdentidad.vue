@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
+import SelectorBuscador from '@/Components/SelectorBuscador.vue';
 import { consultar } from '@/consultas';
 
 /**
@@ -59,6 +60,9 @@ interface Analisis {
 
 const analisis = ref<Analisis | null>(null);
 const duplicados = ref<Ficha[]>([]);
+// Nombre de quien ya usa el correo tecleado (o null si está libre). Se consulta
+// al escribir para avisar de inmediato: el correo es la llave del login.
+const correoConflicto = ref<string | null>(null);
 
 const esExtranjero = computed(
     () =>
@@ -86,6 +90,39 @@ watch(
         temporizador = setTimeout(leerCurp, 400);
     },
 );
+
+let tempCorreo: ReturnType<typeof setTimeout> | undefined;
+
+watch(
+    () => props.form.email,
+    () => {
+        clearTimeout(tempCorreo);
+        tempCorreo = setTimeout(verificarCorreo, 400);
+    },
+);
+
+/**
+ * Consulta si el correo ya está en uso por otra persona. Excluye a la propia
+ * (al editar) y a la que se reutiliza por CURP —su correo no es un conflicto—.
+ */
+async function verificarCorreo(): Promise<void> {
+    const email = String(props.form.email ?? '').trim();
+    correoConflicto.value = null;
+
+    if (email === '' || !email.includes('@')) {
+        return;
+    }
+
+    try {
+        const datos = await consultar<{ en_uso: boolean; nombre: string | null }>('/identidad/correo', {
+            email,
+            persona_id: props.personaId ?? analisis.value?.persona_existente?.id ?? null,
+        });
+        correoConflicto.value = datos.en_uso ? (datos.nombre ?? 'otra persona') : null;
+    } catch {
+        correoConflicto.value = null;
+    }
+}
 
 async function leerCurp(): Promise<void> {
     const texto = String(props.form.curp ?? '').trim();
@@ -224,13 +261,14 @@ const notaCurp = computed(() => {
             :error="form.errors.entidad_nacimiento_id"
         />
 
-        <CampoSelect
+        <SelectorBuscador
             v-if="pidePais"
             v-model="form.pais_nacimiento_id"
             etiqueta="País de nacimiento"
             vacio="Sin especificar"
             :opciones="paises.map((p) => ({ valor: p.id, texto: p.nombre }))"
             :error="form.errors.pais_nacimiento_id"
+            ayuda="Escribe para buscar entre los países."
         />
 
         <CampoTexto
@@ -238,7 +276,7 @@ const notaCurp = computed(() => {
             etiqueta="Correo"
             tipo="email"
             :requerido="correoRequerido"
-            :error="form.errors.email"
+            :error="form.errors.email ?? (correoConflicto ? `Ya registrado con ${correoConflicto}. Usa otro, o captura su CURP para reutilizarla.` : undefined)"
             ayuda="Es el usuario con el que entrará al sistema."
             @blur="buscarDuplicados"
         />

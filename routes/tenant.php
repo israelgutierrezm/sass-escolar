@@ -187,6 +187,7 @@ Route::middleware([
         Route::controller(IdentidadController::class)->prefix('identidad')->name('tenant.identidad.')->group(function () {
             Route::post('curp', 'analizarCurp')->name('curp');
             Route::post('duplicados', 'posiblesDuplicados')->name('duplicados');
+            Route::post('correo', 'correoEnUso')->name('correo');
         });
 
         Route::controller(FotoPersonaController::class)->prefix('personas/{persona}/foto')->name('tenant.personas.foto.')->group(function () {

@@ -123,27 +123,33 @@ function enviar(): void {
                 </p>
 
                 <div class="mt-5 grid gap-4 sm:grid-cols-2">
-                    <CampoSelect
-                        v-model="form.oferta_interes_id"
-                        etiqueta="Oferta de interés"
-                        vacio="Sin definir"
-                        :opciones="ofertasVisibles.map((o) => ({ valor: o.id, texto: o.etiqueta }))"
-                        :error="form.errors.oferta_interes_id"
-                        :ayuda="
-                            !ofertas.length
-                                ? 'No hay ofertas abiertas registradas todavía.'
-                                : form.campus_id && !ofertasVisibles.length
-                                  ? 'Ese campus no tiene ofertas abiertas.'
-                                  : undefined
-                        "
-                    />
-
+                    <!-- Primero el campus: la oferta de carrera depende de él.
+                         Elegir una oferta de otro campus no tiene sentido, así
+                         que la oferta se filtra y se habilita solo con campus. -->
                     <CampoSelect
                         v-model="form.campus_id"
                         etiqueta="Campus"
                         vacio="Sin definir"
                         :opciones="campus.map((c) => ({ valor: c.id, texto: c.nombre }))"
                         :error="form.errors.campus_id"
+                    />
+
+                    <CampoSelect
+                        v-model="form.oferta_interes_id"
+                        etiqueta="Oferta de interés"
+                        vacio="Sin definir"
+                        :deshabilitado="!form.campus_id"
+                        :opciones="ofertasVisibles.map((o) => ({ valor: o.id, texto: o.etiqueta }))"
+                        :error="form.errors.oferta_interes_id"
+                        :ayuda="
+                            !form.campus_id
+                                ? 'Elige primero un campus para ver sus ofertas.'
+                                : !ofertas.length
+                                  ? 'No hay ofertas abiertas registradas todavía.'
+                                  : !ofertasVisibles.length
+                                    ? 'Ese campus no tiene ofertas abiertas.'
+                                    : undefined
+                        "
                     />
 
                     <CampoSelect
