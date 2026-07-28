@@ -34,6 +34,12 @@ onMounted(() => {
         return;
     }
 
+    // En MÓVIL no se produce nada: sin vanta, sin lienzo WebGL. La pantalla es
+    // solo el formulario con el logo. El panel animado es de escritorio.
+    if (!window.matchMedia('(min-width: 1024px)').matches) {
+        return;
+    }
+
     const base = {
         el: fondo.value,
         THREE,
@@ -85,21 +91,10 @@ onBeforeUnmount(() => {
 
 <template>
     <div class="flex min-h-screen flex-col lg:flex-row">
-        <!-- Panel de vanta: cabecera arriba en móvil, columna derecha (alto
-             completo) en escritorio. -->
-        <div class="panel-vanta relative order-first h-56 w-full overflow-hidden sm:h-64 lg:order-last lg:h-screen lg:w-[52%]">
+        <!-- Panel de vanta: SOLO escritorio (columna derecha, alto completo).
+             En móvil no se muestra: la pantalla queda solo con el formulario. -->
+        <div class="panel-vanta relative hidden overflow-hidden lg:order-last lg:block lg:h-screen lg:w-[52%]">
             <div ref="fondo" class="absolute inset-0"></div>
-
-            <!-- Onda blanca inferior: transición hacia el formulario. Solo móvil. -->
-            <svg
-                class="absolute inset-x-0 -bottom-px h-12 w-full lg:hidden"
-                viewBox="0 0 1440 120"
-                preserveAspectRatio="none"
-                fill="#ffffff"
-                aria-hidden="true"
-            >
-                <path d="M0,70 C240,120 480,20 720,55 C960,90 1200,25 1440,65 L1440,120 L0,120 Z" />
-            </svg>
         </div>
 
         <!-- Panel del formulario -->

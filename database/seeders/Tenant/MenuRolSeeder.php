@@ -32,12 +32,19 @@ class MenuRolSeeder extends Seeder
             ['clave' => 'escolar', 'hijos' => []],
         ];
 
-        // Roles ADMINISTRADORES: la faceta administrativa y las direcciones
-        // (ven el menú completo, donde Académico y Control escolar son lo
-        // central). Se incluyen también `admin`/`super-admin` por si un tenant
-        // usa ese esquema en vez del organigrama.
+        // Roles ADMINISTRADORES: la faceta administrativa y TODOS sus roles
+        // funcionales (direcciones, encargados, auxiliares, coordinaciones).
+        // Para los especializados, Académico/Control escolar se filtran solos
+        // si el rol no los ve; lo que gana cada uno es tener Panel primero y un
+        // orden base consistente. Se incluyen también `admin`/`super-admin` por
+        // si un tenant usa ese esquema en vez del organigrama.
+        $administrativo = Rol::query()->where('name', 'administrativo')->first();
+
         $roles = Rol::query()
-            ->whereIn('name', ['administrativo', 'director_general', 'director_campus', 'admin', 'super-admin'])
+            ->when($administrativo, fn ($q) => $q
+                ->where('id', $administrativo->id)
+                ->orWhere('rol_padre_id', $administrativo->id))
+            ->orWhereIn('name', ['admin', 'super-admin'])
             ->pluck('id');
 
         foreach ($roles as $rolId) {
