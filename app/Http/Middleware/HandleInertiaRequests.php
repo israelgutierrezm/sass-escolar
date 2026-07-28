@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Middleware;
 
 use App\Models\Academico\Institucion;
+use App\Models\Identidad\MenuRol;
 use App\Models\Identidad\PersonaRol;
 use App\Models\Identidad\Rol;
 use App\Models\Identidad\Usuario;
@@ -49,6 +50,11 @@ class HandleInertiaRequests extends Middleware
                 // página la usa.
                 'institucion' => fn () => $this->institucion(),
             ],
+
+            // Disposición del menú lateral del ROL ACTIVO (orden y anidamiento
+            // que definió la escuela). Null → la barra usa el orden por defecto
+            // del catálogo. Lazy: solo se consulta si la página lo usa.
+            'menu' => fn () => $this->menuDelRolActivo($usuario),
 
             // Colores ya resueltos en cascada; el front solo los inyecta como
             // CSS custom properties.
@@ -156,6 +162,23 @@ class HandleInertiaRequests extends Middleware
             'usuario' => $real->usuario,
             'nombre' => $real->persona?->nombreCompleto(),
         ];
+    }
+
+    /**
+     * La disposición del menú del rol activo (árbol de claves) o null si ese rol
+     * no tiene una configurada (usa el orden por defecto del catálogo).
+     *
+     * @return array<int, mixed>|null
+     */
+    private function menuDelRolActivo(?Usuario $usuario): ?array
+    {
+        $rolId = $usuario?->rolActivo?->id;
+
+        if ($rolId === null) {
+            return null;
+        }
+
+        return MenuRol::query()->where('rol_id', $rolId)->value('estructura');
     }
 
     /**

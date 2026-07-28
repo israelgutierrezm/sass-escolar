@@ -47,6 +47,7 @@ use App\Http\Controllers\RecuperacionController;
 use App\Http\Controllers\PortalAspiranteController;
 use App\Http\Controllers\PromocionController;
 use App\Http\Controllers\RolActivoController;
+use App\Http\Controllers\MenuRolController;
 use App\Http\Controllers\RolController;
 use App\Http\Controllers\SeriacionController;
 use App\Http\Controllers\SuplantacionController;
@@ -764,6 +765,16 @@ Route::middleware([
                 Route::post('/{rol}/asignaciones', 'asignar')->name('asignar');
                 Route::delete('/{rol}/asignaciones/{asignacion}', 'desasignar')->name('desasignar');
                 Route::delete('/{rol}', 'destroy')->name('destroy');
+            });
+
+        // Editor del menú lateral por rol (arrastrar y soltar).
+        Route::controller(MenuRolController::class)
+            ->prefix('plataforma/menu')->name('tenant.plataforma.menu.')
+            ->middleware('can:gestionar-roles')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::put('/{rol}', 'guardar')->name('guardar');
+                Route::delete('/{rol}', 'restablecer')->name('restablecer');
             });
 
         Route::controller(ExpedienteAspiranteController::class)->prefix('aspirantes/{aspirante}/expediente')->name('tenant.expediente.')->group(function () {

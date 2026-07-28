@@ -299,6 +299,7 @@ const navegacion = computed(() => {
                 { etiqueta: 'Usuarios', url: '/plataforma/usuarios', permiso: 'gestionar-usuarios' },
                 { etiqueta: 'Accesos', url: '/plataforma/accesos', permiso: 'ver-accesos' },
                 { etiqueta: 'Roles y permisos', url: '/plataforma/roles', permiso: 'gestionar-roles' },
+                { etiqueta: 'Menú', url: '/plataforma/menu', permiso: 'gestionar-roles' },
                 { etiqueta: 'Reglas de la escuela', url: '/plataforma/configuracion', permiso: 'ver-configuracion' },
                 { etiqueta: 'Config. facturación', url: '/plataforma/configuraciones/facturacion', permiso: 'configurar-facturacion' },
                 { etiqueta: 'Pasarelas de pago', url: '/plataforma/configuraciones/pasarelas', permiso: 'configurar-facturacion' },

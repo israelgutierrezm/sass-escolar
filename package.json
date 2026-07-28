@@ -29,6 +29,7 @@
         "@tiptap/vue-3": "^3.29.1",
         "three": "^0.185.1",
         "vanta": "^0.5.24",
-        "vue-sonner": "^2.0.9"
+        "vue-sonner": "^2.0.9",
+        "vuedraggable": "^4.1.0"
     }
 }
