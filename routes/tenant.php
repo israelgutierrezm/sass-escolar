@@ -41,6 +41,7 @@ use App\Http\Controllers\AccesosController;
 use App\Http\Controllers\ConceptoPagoController;
 use App\Http\Controllers\CorreoConfigController;
 use App\Http\Controllers\FacturacionConfigController;
+use App\Http\Controllers\PasarelaPagoController;
 use App\Http\Controllers\PadreController;
 use App\Http\Controllers\RecuperacionController;
 use App\Http\Controllers\PortalAspiranteController;
@@ -727,6 +728,15 @@ Route::middleware([
                 Route::get('/', 'correo')->name('index');
                 Route::put('/', 'guardar')->name('guardar');
                 Route::post('/probar', 'probar')->name('probar');
+            });
+
+        // Pasarelas de pago: mismo público que factura (configura cobros).
+        Route::controller(PasarelaPagoController::class)
+            ->prefix('plataforma/configuraciones/pasarelas')->name('tenant.plataforma.config.pasarelas.')
+            ->middleware('can:configurar-facturacion')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::put('/{clave}', 'guardar')->name('guardar');
             });
 
         Route::controller(UsuarioController::class)
