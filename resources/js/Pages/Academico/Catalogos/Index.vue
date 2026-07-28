@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
-import { computed, reactive, ref } from 'vue';
+import { computed, nextTick, reactive, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
@@ -81,6 +81,26 @@ const nuevos = reactive<Record<string, { clave: string; nombre: string; color: s
 const editando = ref<{ catalogo: string; id: number } | null>(null);
 const edicion = reactive({ clave: '', nombre: '', color: '#CCCCCC' });
 
+// Qué catálogos tienen abierto su formulario de alta. Es por catálogo
+// (independiente) para no llenar la pantalla de campos que casi nunca se usan:
+// se abre solo el que se va a cargar, y se queda abierto tras agregar para
+// encadenar varias altas seguidas sin volver a pulsar el botón.
+const abiertos = reactive<Record<string, boolean>>({});
+
+/** Enfoca el campo «clave» del catálogo, para teclear de inmediato. */
+function enfocarClave(clave: string): void {
+    nextTick(() => document.getElementById(`alta-${clave}`)?.focus());
+}
+
+function abrirAlta(clave: string): void {
+    abiertos[clave] = true;
+    enfocarClave(clave);
+}
+
+function cerrarAlta(clave: string): void {
+    abiertos[clave] = false;
+}
+
 function agregar(catalogo: Catalogo): void {
     const borrador = nuevos[catalogo.clave];
 
@@ -99,6 +119,9 @@ function agregar(catalogo: Catalogo): void {
             borrador.clave = '';
             borrador.nombre = '';
             borrador.color = pastelAleatorio();
+            // Se queda abierto y con el foco en la clave: la siguiente alta se
+            // teclea sin tocar el ratón.
+            enfocarClave(catalogo.clave);
         },
     });
 }
@@ -248,29 +271,44 @@ function esEditando(catalogo: string, id: number): boolean {
                         </li>
                     </ul>
 
-                    <form v-if="puedeEditar" class="mt-3 flex items-center gap-3" @submit.prevent="agregar(catalogo)">
-                        <input
-                            v-model="nuevos[catalogo.clave].clave"
-                            placeholder="clave"
-                            class="w-24 shrink-0 rounded border px-2 py-1.5 font-mono text-xs"
-                            :style="{ borderColor: 'var(--color-borde)' }"
+                    <template v-if="puedeEditar">
+                        <!-- Botón «Agregar» (ícono + texto): abre el form de alta
+                             SOLO en este catálogo. Se queda abierto tras agregar. -->
+                        <BotonAccion
+                            v-if="!abiertos[catalogo.clave]"
+                            variante="nuevo"
+                            texto="Agregar"
+                            class="mt-3"
+                            @click="abrirAlta(catalogo.clave)"
                         />
-                        <input
-                            v-model="nuevos[catalogo.clave].nombre"
-                            :placeholder="`Nueva ${catalogo.singular}`"
-                            class="min-w-0 flex-1 rounded border px-2 py-1.5 text-sm"
-                            :style="{ borderColor: 'var(--color-borde)' }"
-                        />
-                        <input
-                            v-if="tieneColor(catalogo)"
-                            v-model="nuevos[catalogo.clave].color"
-                            type="color"
-                            class="h-9 w-12 shrink-0 cursor-pointer rounded border"
-                            :style="{ borderColor: 'var(--color-borde)' }"
-                            title="Color del área (se genera uno pastel si no lo cambias)"
-                        />
-                        <BotonPrincipal solo-icono icono="crear-circulo" texto="Agregar" class="shrink-0" />
-                    </form>
+
+                        <form v-else class="mt-3 flex items-center gap-3" @submit.prevent="agregar(catalogo)">
+                            <input
+                                :id="`alta-${catalogo.clave}`"
+                                v-model="nuevos[catalogo.clave].clave"
+                                placeholder="clave"
+                                class="w-24 shrink-0 rounded border px-2 py-1.5 font-mono text-xs"
+                                :style="{ borderColor: 'var(--color-borde)' }"
+                            />
+                            <input
+                                v-model="nuevos[catalogo.clave].nombre"
+                                :placeholder="`Nueva ${catalogo.singular}`"
+                                class="min-w-0 flex-1 rounded border px-2 py-1.5 text-sm"
+                                :style="{ borderColor: 'var(--color-borde)' }"
+                                @keyup.esc="cerrarAlta(catalogo.clave)"
+                            />
+                            <input
+                                v-if="tieneColor(catalogo)"
+                                v-model="nuevos[catalogo.clave].color"
+                                type="color"
+                                class="h-9 w-12 shrink-0 cursor-pointer rounded border"
+                                :style="{ borderColor: 'var(--color-borde)' }"
+                                title="Color del área (se genera uno pastel si no lo cambias)"
+                            />
+                            <BotonPrincipal solo-icono icono="crear-circulo" texto="Agregar" class="shrink-0" />
+                            <BotonAccion variante="cerrar" @click="cerrarAlta(catalogo.clave)" />
+                        </form>
+                    </template>
                 </section>
             </div>
         </div>
