@@ -2,6 +2,7 @@
 import { Head, useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 
 interface Plan {
     id: number;
@@ -83,15 +84,7 @@ const etiquetaTipo: Record<string, string> = {
                     </p>
                 </div>
 
-                <button
-                    v-if="!creando"
-                    type="button"
-                    class="rounded-lg px-4 py-2 text-sm font-medium"
-                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                    @click="creando = true"
-                >
-                    Nuevo plan
-                </button>
+                <BotonAccion v-if="!creando" variante="nuevo" texto="Nuevo plan" @click="creando = true" />
             </div>
 
             <form v-if="creando" class="mt-5 border-t pt-5" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="crear">

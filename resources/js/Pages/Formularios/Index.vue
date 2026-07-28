@@ -59,15 +59,7 @@ const porClave = computed(() => {
                     </p>
                 </div>
 
-                <button
-                    v-if="puedeEditar && !creando"
-                    type="button"
-                    class="rounded-lg px-4 py-2 text-sm font-medium"
-                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                    @click="creando = true"
-                >
-                    Nuevo formulario
-                </button>
+                <BotonAccion v-if="puedeEditar && !creando" variante="nuevo" texto="Nuevo formulario" @click="creando = true" />
             </div>
 
             <form v-if="creando" class="mt-5 border-t pt-5" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="crear">

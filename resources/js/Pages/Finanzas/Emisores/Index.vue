@@ -172,15 +172,7 @@ const etiquetaTipo: Record<string, string> = {
                     </p>
                 </div>
 
-                <button
-                    v-if="!creando"
-                    type="button"
-                    class="rounded-lg px-4 py-2 text-sm font-medium"
-                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                    @click="creando = true"
-                >
-                    Nueva razón social
-                </button>
+                <BotonAccion v-if="!creando" variante="nuevo" texto="Nueva razón social" @click="creando = true" />
             </div>
 
             <!--

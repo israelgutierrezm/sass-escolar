@@ -2,6 +2,7 @@
 import { Head, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 
@@ -52,15 +53,7 @@ function crear(): void {
                     </p>
                 </div>
 
-                <button
-                    v-if="puedeEditar && !creando"
-                    type="button"
-                    class="rounded-lg px-4 py-2 text-sm font-medium"
-                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                    @click="creando = true"
-                >
-                    Nueva plantilla
-                </button>
+                <BotonAccion v-if="puedeEditar && !creando" variante="nuevo" texto="Nueva plantilla" @click="creando = true" />
             </div>
 
             <form v-if="creando" class="mt-5 border-t pt-5" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="crear">

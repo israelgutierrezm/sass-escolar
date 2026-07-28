@@ -87,15 +87,7 @@ const objImp = (clave: string | null) =>
                         el CFDI salga bien sin capturarlos en cada factura.
                     </p>
                 </div>
-                <button
-                    v-if="!creando"
-                    type="button"
-                    class="rounded-lg px-4 py-2 text-sm font-medium"
-                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                    @click="creando = true"
-                >
-                    Nuevo concepto
-                </button>
+                <BotonAccion v-if="!creando" variante="nuevo" texto="Nuevo concepto" @click="creando = true" />
             </div>
 
             <!-- Alta -->

@@ -174,15 +174,7 @@ const etiquetaPeriodicidad = computed(() =>
                         Cada regla emite un cargo por periodo. Repetir la generación no duplica nada.
                     </p>
                 </div>
-                <button
-                    v-if="!agregando"
-                    type="button"
-                    class="rounded-lg px-4 py-2 text-sm font-medium"
-                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                    @click="agregando = true"
-                >
-                    Agregar regla
-                </button>
+                <BotonAccion v-if="!agregando" variante="nuevo" texto="Agregar regla" @click="agregando = true" />
             </header>
 
             <form v-if="agregando" class="border-t px-6 py-4" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="agregar">

@@ -145,15 +145,7 @@ const colorEstatus: Record<string, string> = {
                         Gana la más específica: oferta → carrera → toda la escuela.
                     </p>
                 </div>
-                <button
-                    v-if="!creandoRegla"
-                    type="button"
-                    class="rounded-lg px-4 py-2 text-sm font-medium"
-                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                    @click="creandoRegla = true"
-                >
-                    Nueva regla
-                </button>
+                <BotonAccion v-if="!creandoRegla" variante="nuevo" texto="Nueva regla" @click="creandoRegla = true" />
             </div>
 
             <p v-if="!hayReglaVigente" class="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">

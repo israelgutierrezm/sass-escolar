@@ -270,9 +270,7 @@ const etiquetaTipoReq = (tipo: string) => (tipo === 'aprobada' ? 'Aprobada' : 'C
                     <h3 class="text-base font-semibold">Descriptores del programa</h3>
                     <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">Los apartados con su contenido enriquecido.</p>
                 </div>
-                <button v-if="puedeEditar && !eligiendo && disponiblesDesc.length" type="button" class="rounded-lg px-4 py-2 text-sm font-medium" :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }" @click="eligiendo = true">
-                    Agregar apartados
-                </button>
+                <BotonAccion v-if="puedeEditar && !eligiendo && disponiblesDesc.length" variante="nuevo" texto="Agregar apartados" @click="eligiendo = true" />
             </div>
 
             <div v-if="eligiendo" class="mt-5 rounded-lg border p-4" :style="{ borderColor: 'var(--color-borde)', backgroundColor: 'var(--color-fondo)' }">

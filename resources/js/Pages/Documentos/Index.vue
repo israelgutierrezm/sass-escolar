@@ -107,15 +107,7 @@ const nombreAmbito = (clave: string) => props.ambitos.find((a) => a.clave === cl
                     </p>
                 </div>
 
-                <button
-                    v-if="puedeEditar && !creando"
-                    type="button"
-                    class="rounded-lg px-4 py-2 text-sm font-medium"
-                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                    @click="abrirNuevo"
-                >
-                    Nuevo documento
-                </button>
+                <BotonAccion v-if="puedeEditar && !creando" variante="nuevo" texto="Nuevo documento" @click="abrirNuevo" />
             </div>
 
             <!-- Filtro por ámbito -->

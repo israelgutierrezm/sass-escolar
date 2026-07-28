@@ -231,14 +231,7 @@ function textoSobre(color: string | null): string {
                         existente usa el botón «Editar» de la malla.
                     </p>
                 </div>
-                <button
-                    v-if="!mostrarAlta"
-                    type="button"
-                    class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-                    @click="abrirAlta"
-                >
-                    Agregar materia
-                </button>
+                <BotonAccion v-if="!mostrarAlta" variante="nuevo" texto="Agregar materia" @click="abrirAlta" />
             </div>
 
             <form

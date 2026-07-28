@@ -5,6 +5,7 @@ import { toast } from 'vue-sonner';
 import { prepararImagen } from '@/utils/imagen';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 
 interface Institucion {
     id: number;
@@ -116,14 +117,12 @@ function guardar(): void {
                     membretan lo que la escuela emite y la pantalla de acceso.
                 </p>
             </div>
-            <a
+            <BotonAccion
                 v-if="puedeEditar"
+                variante="nuevo"
+                texto="Registrar institución"
                 href="/academico/instituciones/create"
-                class="rounded-lg px-4 py-2 text-sm font-medium"
-                :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-            >
-                Registrar institución
-            </a>
+            />
         </div>
 
         <!-- Ficha de la institución, con edición directa. -->

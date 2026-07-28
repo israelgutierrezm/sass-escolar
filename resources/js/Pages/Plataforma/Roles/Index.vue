@@ -2,6 +2,7 @@
 import { Head, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 
 interface RolResumen {
     id: number;
@@ -81,15 +82,7 @@ const totalPermisos = props.catalogo.reduce((s, d) => s + d.permisos.length, 0);
                     </p>
                 </div>
 
-                <button
-                    v-if="!creando"
-                    type="button"
-                    class="rounded-lg px-4 py-2 text-sm font-medium"
-                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                    @click="creando = true"
-                >
-                    Nuevo rol
-                </button>
+                <BotonAccion v-if="!creando" variante="nuevo" texto="Nuevo rol" @click="creando = true" />
             </div>
 
             <form v-if="creando" class="mt-5 border-t pt-5" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="crear">
