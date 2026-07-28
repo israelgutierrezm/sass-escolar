@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
@@ -19,12 +19,19 @@ interface DescriptorAsignatura {
     contenido: string | null;
 }
 
+interface Carrera {
+    id: number;
+    nombre: string;
+    planes: { id: number; nombre: string }[];
+}
+
 const props = defineProps<{
     asignatura: Record<string, any> | null;
     tiposAsignatura: Opcion[];
     clasificaciones: Opcion[];
     areas: Opcion[];
     descriptores: Opcion[];
+    carreras?: Carrera[];
 }>();
 
 const esEdicion = computed(() => props.asignatura !== null);
@@ -44,9 +51,27 @@ const form = useForm({
     // Cada descriptor incluido lleva su propio texto enriquecido. Se agregan a
     // demanda desde el catálogo; no vienen todos por defecto.
     descriptores: [...((props.asignatura?.descriptores ?? []) as DescriptorAsignatura[])],
+    // Solo al crear: a qué plan se liga (con su periodo y tipo).
+    plan_id: null as number | null,
+    periodo: null as number | null,
+    tipo_en_plan: 'obligatoria',
 });
 
 const opciones = (lista: Opcion[]) => lista.map((item) => ({ valor: item.id, texto: item.nombre }));
+
+// Cascada carrera → plan (solo al crear).
+const carreraId = ref<number | null>(null);
+const planesDeCarrera = computed(() => props.carreras?.find((c) => c.id === carreraId.value)?.planes ?? []);
+
+watch(carreraId, () => {
+    form.plan_id = null;
+});
+
+const opcionesTipoPlan = [
+    { valor: 'obligatoria', texto: 'Obligatoria' },
+    { valor: 'optativa', texto: 'Optativa' },
+    { valor: 'tronco_comun', texto: 'Tronco común' },
+];
 
 // Descriptores del catálogo que aún no se han agregado a esta asignatura.
 const disponibles = computed(() =>
@@ -124,6 +149,50 @@ function quitarImagen(tipo: string): void {
         <NavAcademico />
 
         <form class="max-w-4xl space-y-6" @submit.prevent="enviar">
+            <!-- Al crear, la asignatura se liga a un plan (carrera → plan). -->
+            <section v-if="!esEdicion" class="tarjeta p-6">
+                <h2 class="text-base font-semibold">Plan al que pertenece</h2>
+                <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
+                    Una asignatura se carga dentro de un plan de estudios. Elige la carrera y su plan, y
+                    cómo entra (obligatoria u optativa).
+                </p>
+                <div class="mt-5 grid gap-4 sm:grid-cols-4">
+                    <div class="sm:col-span-2">
+                        <CampoSelect
+                            v-model="carreraId"
+                            etiqueta="Carrera"
+                            requerido
+                            :opciones="opciones(carreras ?? [])"
+                            vacio="Selecciona…"
+                        />
+                    </div>
+                    <div class="sm:col-span-2">
+                        <CampoSelect
+                            v-model="form.plan_id"
+                            etiqueta="Plan de estudios"
+                            requerido
+                            :opciones="planesDeCarrera.map((p) => ({ valor: p.id, texto: p.nombre }))"
+                            :vacio="carreraId ? 'Selecciona…' : 'Elige una carrera primero'"
+                            :error="form.errors.plan_id"
+                        />
+                    </div>
+                    <CampoTexto
+                        v-model="form.periodo"
+                        etiqueta="Periodo"
+                        tipo="number"
+                        :error="form.errors.periodo"
+                        ayuda="Vacío = optativa sin periodo fijo."
+                    />
+                    <CampoSelect
+                        v-model="form.tipo_en_plan"
+                        etiqueta="Tipo en el plan"
+                        requerido
+                        :opciones="opcionesTipoPlan"
+                        :error="form.errors.tipo_en_plan"
+                    />
+                </div>
+            </section>
+
             <section class="tarjeta p-6">
                 <h2 class="text-base font-semibold">Identificación</h2>
                 <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">

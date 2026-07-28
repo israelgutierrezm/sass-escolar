@@ -6,12 +6,15 @@ namespace App\Http\Controllers;
 
 use App\Models\Academico\Area;
 use App\Models\Academico\Asignatura;
+use App\Models\Academico\Carrera;
 use App\Models\Academico\ClasificacionAsignatura;
 use App\Models\Academico\Descriptor;
+use App\Models\Academico\PlanEstudio;
 use App\Models\Academico\PlanMateria;
 use App\Models\Academico\TipoAsignatura;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -81,6 +84,13 @@ class AsignaturaController extends Controller
     {
         return Inertia::render('Academico/Asignaturas/Formulario', [
             'asignatura' => null,
+            // Al crear se liga a un plan: se ofrece la carrera y sus planes.
+            'carreras' => Carrera::query()->orderBy('nombre')->get(['id', 'nombre'])
+                ->map(fn (Carrera $c) => [
+                    'id' => $c->id,
+                    'nombre' => $c->nombre,
+                    'planes' => PlanEstudio::query()->where('carrera_id', $c->id)->orderBy('nombre')->get(['id', 'nombre']),
+                ]),
             ...$this->catalogos(),
         ]);
     }
@@ -89,13 +99,33 @@ class AsignaturaController extends Controller
     {
         $datos = $this->validar($request);
 
-        $asignatura = Asignatura::create($datos);
+        // Al crear desde «Asignaturas» también se elige el plan (y carrera) al que
+        // se liga, con su periodo y tipo (obligatoria/optativa). Todo en una
+        // transacción: la asignatura no queda suelta si la liga falla.
+        $liga = $request->validate([
+            'plan_id' => ['required', 'integer', Rule::exists('planes_estudio', 'id')->whereNull('deleted_at')],
+            'periodo' => ['nullable', 'integer', 'min:1', 'max:30'],
+            'tipo_en_plan' => ['required', Rule::in(['obligatoria', 'optativa', 'tronco_comun'])],
+        ], [], ['tipo_en_plan' => 'tipo en el plan']);
 
-        $asignatura->descriptores()->sync($this->pivoteDescriptores($datos['descriptores'] ?? []));
+        $asignatura = DB::transaction(function () use ($datos, $liga) {
+            $asignatura = Asignatura::create($datos);
+            $asignatura->descriptores()->sync($this->pivoteDescriptores($datos['descriptores'] ?? []));
+
+            PlanMateria::create([
+                'plan_id' => $liga['plan_id'],
+                'asignatura_id' => $asignatura->id,
+                'clave_en_plan' => $asignatura->clave,
+                'periodo' => $liga['periodo'] ?? null,
+                'tipo' => $liga['tipo_en_plan'],
+            ]);
+
+            return $asignatura;
+        });
 
         return redirect()
             ->route('tenant.academico.asignaturas.edit', $asignatura)
-            ->with('exito', 'Asignatura creada. Ahora puedes subir sus imágenes de diseño.');
+            ->with('exito', 'Asignatura creada y ligada al plan. Ahora puedes subir sus imágenes de diseño.');
     }
 
     public function edit(Asignatura $asignatura): Response
