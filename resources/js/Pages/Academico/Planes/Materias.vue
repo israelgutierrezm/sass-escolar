@@ -5,6 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 
 interface Materia {
     id: number;
@@ -62,20 +63,42 @@ const form = useForm({
     creditos_en_plan: null as number | null,
 });
 
-/** Las materias se agrupan por periodo; las que no lo tienen van al final. */
-const porPeriodo = computed(() => {
-    const grupos = new Map<number | null, Materia[]>();
+/**
+ * Malla agrupada: las obligatorias y de tronco común van por periodo; TODAS las
+ * optativas se juntan en su propio bloque al final (no pertenecen a un periodo
+ * fijo, el alumno las elige). Así se leen ordenadas y no se mezclan.
+ */
+const grupos = computed(() => {
+    const porPeriodo = new Map<number | null, Materia[]>();
+    const optativas: Materia[] = [];
 
     for (const materia of props.materias) {
+        if (materia.tipo === 'optativa') {
+            optativas.push(materia);
+            continue;
+        }
         const clave = materia.periodo ?? null;
-        grupos.set(clave, [...(grupos.get(clave) ?? []), materia]);
+        porPeriodo.set(clave, [...(porPeriodo.get(clave) ?? []), materia]);
     }
 
-    return [...grupos.entries()].sort((a, b) => {
-        if (a[0] === null) return 1;
-        if (b[0] === null) return -1;
-        return a[0] - b[0];
-    });
+    const ordenados = [...porPeriodo.entries()]
+        .sort((a, b) => {
+            if (a[0] === null) return 1;
+            if (b[0] === null) return -1;
+            return a[0] - b[0];
+        })
+        .map(([periodo, lista]) => ({
+            clave: periodo === null ? 'sin-periodo' : `periodo-${periodo}`,
+            titulo: periodo === null ? 'Sin periodo asignado' : `Periodo ${periodo}`,
+            optativa: false,
+            lista,
+        }));
+
+    if (optativas.length) {
+        ordenados.push({ clave: 'optativas', titulo: 'Optativas', optativa: true, lista: optativas });
+    }
+
+    return ordenados;
 });
 
 const opcionesTipo = [
@@ -210,6 +233,9 @@ const etiquetaTipo = (tipo: string) => opcionesTipo.find((o) => o.valor === tipo
             >
                 <!-- ALTA: se crea la asignatura aquí mismo. -->
                 <template v-if="editando === null">
+                    <p class="sm:col-span-6 text-xs font-semibold uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
+                        Datos de la asignatura
+                    </p>
                     <div class="sm:col-span-3">
                         <CampoTexto v-model="form.nombre" etiqueta="Nombre de la asignatura" requerido :error="form.errors.nombre" />
                     </div>
@@ -298,77 +324,63 @@ const etiquetaTipo = (tipo: string) => opcionesTipo.find((o) => o.valor === tipo
             </form>
         </section>
 
-        <!-- Malla por periodo -->
+        <!-- Malla agrupada (periodos + un bloque de Optativas) -->
         <section v-if="materias.length" class="space-y-4">
             <div
-                v-for="[periodo, lista] in porPeriodo"
-                :key="periodo ?? 'sin-periodo'"
-                class="rounded-xl bg-white shadow-sm ring-1 ring-slate-200"
+                v-for="grupo in grupos"
+                :key="grupo.clave"
+                class="tarjeta overflow-hidden"
             >
-                <div class="flex items-center justify-between border-b border-slate-100 px-6 py-3">
-                    <h3 class="text-sm font-semibold text-slate-700">
-                        {{ periodo === null ? 'Sin periodo asignado' : `Periodo ${periodo}` }}
+                <div
+                    class="flex items-center justify-between border-b px-6 py-3"
+                    :style="grupo.optativa
+                        ? { borderColor: 'var(--color-borde)', backgroundColor: 'color-mix(in srgb, var(--color-acento) 6%, transparent)' }
+                        : { borderColor: 'var(--color-borde)' }"
+                >
+                    <h3 class="flex items-center gap-2 text-sm font-semibold">
+                        <svg v-if="grupo.optativa" class="h-4 w-4" :style="{ color: 'var(--color-acento)' }" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" /></svg>
+                        {{ grupo.titulo }}
                     </h3>
-                    <span class="text-xs text-slate-400">
-                        {{ lista.length }} materia(s) ·
-                        {{ lista.reduce((suma, m) => suma + (m.creditos ?? 0), 0) }} créditos
+                    <span class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                        {{ grupo.lista.length }} materia(s) ·
+                        {{ grupo.lista.reduce((suma, m) => suma + (m.creditos ?? 0), 0) }} créditos
                     </span>
                 </div>
 
                 <table class="w-full text-sm">
-                    <tbody class="divide-y divide-slate-100">
-                        <tr v-for="materia in lista" :key="materia.id" class="hover:bg-slate-50">
-                            <td class="px-6 py-3 font-mono text-xs text-slate-600">{{ materia.clave_en_plan }}</td>
+                    <tbody>
+                        <tr v-for="materia in grupo.lista" :key="materia.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
+                            <td class="px-6 py-3 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ materia.clave_en_plan }}</td>
                             <td class="px-4 py-3">
-                                <span class="font-medium text-slate-800">{{ materia.asignatura }}</span>
-                                <span class="block font-mono text-xs text-slate-400">
+                                <span class="font-medium">{{ materia.asignatura }}</span>
+                                <span class="block font-mono text-xs" :style="{ color: 'var(--color-suave)' }">
                                     catálogo: {{ materia.asignatura_clave }}
                                 </span>
                             </td>
                             <td class="px-4 py-3">
                                 <span
                                     class="rounded-full px-2 py-1 text-xs"
-                                    :class="
-                                        materia.tipo === 'tronco_comun'
-                                            ? 'bg-sky-100 text-sky-700'
-                                            : materia.tipo === 'optativa'
-                                              ? 'bg-slate-100 text-slate-600'
-                                              : 'bg-indigo-50 text-indigo-700'
-                                    "
+                                    :class="{
+                                        'bg-sky-100 text-sky-700': materia.tipo === 'tronco_comun',
+                                        'bg-indigo-50 text-indigo-700': materia.tipo === 'obligatoria',
+                                    }"
+                                    :style="materia.tipo === 'optativa' ? { backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' } : {}"
                                 >
                                     {{ etiquetaTipo(materia.tipo) }}
                                 </span>
                             </td>
-                            <td class="px-4 py-3 text-slate-600">
+                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">
                                 {{ materia.creditos }} cr.
-                                <span v-if="materia.creditos_sobreescritos" class="text-xs text-amber-600">
-                                    (ajustado)
-                                </span>
+                                <span v-if="materia.creditos_sobreescritos" class="text-xs text-amber-600">(ajustado)</span>
                             </td>
-                            <td class="px-6 py-3 text-right">
-                                <a
-                                    :href="`/academico/planes/${plan.id}/materias/${materia.id}`"
-                                    class="text-sm font-medium text-indigo-600 hover:text-indigo-700"
-                                >
-                                    Requisitos y evaluación
-                                </a>
-                                <template v-if="puedeEditar">
-                                    <span class="mx-2 text-slate-200">|</span>
-                                    <button
-                                        type="button"
-                                        class="text-sm font-medium text-indigo-600 hover:text-indigo-700"
-                                        @click="abrirEdicion(materia)"
-                                    >
-                                        Editar
-                                    </button>
-                                    <button
-                                        type="button"
-                                        class="ml-3 text-sm text-slate-400 hover:text-red-600"
-                                        @click="quitar(materia)"
-                                    >
-                                        Quitar
-                                    </button>
-                                </template>
+                            <td class="px-6 py-3">
+                                <div class="flex items-center justify-end gap-1">
+                                    <BotonAccion variante="ver" texto="Requisitos" :href="`/academico/planes/${plan.id}/materias/${materia.id}`" />
+                                    <template v-if="puedeEditar">
+                                        <BotonAccion variante="editar" @click="abrirEdicion(materia)" />
+                                        <BotonAccion variante="eliminar" @click="quitar(materia)" />
+                                    </template>
+                                </div>
                             </td>
                         </tr>
                     </tbody>
