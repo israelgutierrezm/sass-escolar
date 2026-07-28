@@ -153,7 +153,7 @@ const etiquetaTipo: Record<string, string> = {
                 </div>
 
                 <div class="mt-4 flex gap-2">
-                    <BotonPrincipal :procesando="form.processing" texto="Crear" icono="crear" />
+                    <BotonPrincipal :procesando="form.processing" texto="Crear" icono="crear-circulo" solo-icono />
                     <button
                         type="button"
                         class="rounded-lg border px-4 py-2 text-sm"

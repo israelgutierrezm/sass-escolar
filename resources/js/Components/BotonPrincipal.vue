@@ -27,10 +27,12 @@ const props = withDefaults(
         deshabilitado?: boolean;
         /** `submit` (por defecto) envía el form; `button` solo emite `click`. */
         tipo?: 'submit' | 'button';
-        /** Ícono de arranque: check para guardar, «+» para crear, o ninguno. */
-        icono?: 'guardar' | 'crear' | 'ninguno';
+        /** Ícono de arranque: check (guardar), «+» (crear), «⊕» (crear-circulo) o ninguno. */
+        icono?: 'guardar' | 'crear' | 'crear-circulo' | 'ninguno';
+        /** Solo el ícono (sin texto): la etiqueta pasa al tooltip. Botón compacto. */
+        soloIcono?: boolean;
     }>(),
-    { cargando: 'Guardando…', procesando: false, deshabilitado: false, tipo: 'submit', icono: 'guardar' },
+    { cargando: 'Guardando…', procesando: false, deshabilitado: false, tipo: 'submit', icono: 'guardar', soloIcono: false },
 );
 
 const emit = defineEmits<{ click: [] }>();
@@ -38,6 +40,7 @@ const emit = defineEmits<{ click: [] }>();
 const ICONOS = {
     guardar: 'm4.5 12.75 6 6 9-13.5', // check
     crear: 'M12 4.5v15m7.5-7.5h-15', // +
+    'crear-circulo': 'M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z', // plus-circle
     ninguno: '',
 } as const;
 
@@ -49,7 +52,10 @@ const inhabilitado = computed(() => props.procesando || props.deshabilitado);
     <button
         :type="tipo"
         :disabled="inhabilitado || undefined"
-        class="boton-principal inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+        :title="soloIcono ? texto : undefined"
+        :aria-label="soloIcono ? texto : undefined"
+        class="boton-principal inline-flex items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+        :class="soloIcono ? 'px-2.5' : 'px-4'"
         :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
         @click="emit('click')"
     >
@@ -69,8 +75,10 @@ const inhabilitado = computed(() => props.procesando || props.deshabilitado);
             <path stroke-linecap="round" stroke-linejoin="round" :d="iconoPath" />
         </svg>
 
-        <span v-if="procesando">{{ cargando }}</span>
-        <span v-else><slot>{{ texto }}</slot></span>
+        <template v-if="!soloIcono">
+            <span v-if="procesando">{{ cargando }}</span>
+            <span v-else><slot>{{ texto }}</slot></span>
+        </template>
     </button>
 </template>
 

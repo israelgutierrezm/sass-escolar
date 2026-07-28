@@ -175,7 +175,7 @@ const rolesResumen = (u: UsuarioFila): string =>
                 </label>
 
                 <div class="flex items-end gap-2 sm:col-span-3">
-                    <BotonPrincipal :procesando="alta.processing" texto="Crear cuenta" icono="crear" />
+                    <BotonPrincipal :procesando="alta.processing" texto="Crear cuenta" icono="crear-circulo" solo-icono />
                     <button type="button" class="rounded-lg border px-4 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" @click="creando = false">
                         Cancelar
                     </button>

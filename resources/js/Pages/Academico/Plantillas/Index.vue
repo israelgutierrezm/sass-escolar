@@ -66,7 +66,7 @@ function crear(): void {
                     <CampoTexto v-model="form.descripcion" etiqueta="Descripción" :error="form.errors.descripcion" />
                 </div>
                 <div class="mt-4 flex gap-2">
-                    <BotonPrincipal :procesando="form.processing" texto="Crear" icono="crear" />
+                    <BotonPrincipal :procesando="form.processing" texto="Crear" icono="crear-circulo" solo-icono />
                     <button
                         type="button"
                         class="rounded-lg border px-4 py-2 text-sm"
@@ -122,14 +122,10 @@ function crear(): void {
                             {{ plantilla.materias_count }} materias
                             <span v-if="plantilla.planes_count"> · {{ plantilla.planes_count }} planes</span>
                         </td>
-                        <td class="px-6 py-3 text-right">
-                            <a
-                                :href="`/academico/plantillas/${plantilla.id}`"
-                                class="text-sm font-medium"
-                                :style="{ color: 'var(--color-acento)' }"
-                            >
-                                Abrir
-                            </a>
+                        <td class="px-6 py-3">
+                            <div class="flex justify-end">
+                                <BotonAccion variante="ver" solo-icono texto="Abrir" :href="`/academico/plantillas/${plantilla.id}`" />
+                            </div>
                         </td>
                     </tr>
                 </tbody>

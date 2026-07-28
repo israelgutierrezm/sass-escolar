@@ -4,6 +4,7 @@ import { computed, reactive, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 
 interface Item {
     id: number;
@@ -268,13 +269,7 @@ function esEditando(catalogo: string, id: number): boolean {
                             :style="{ borderColor: 'var(--color-borde)' }"
                             title="Color del área (se genera uno pastel si no lo cambias)"
                         />
-                        <button
-                            type="submit"
-                            class="shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium"
-                            :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                        >
-                            Agregar
-                        </button>
+                        <BotonPrincipal solo-icono icono="crear-circulo" texto="Agregar" class="shrink-0" />
                     </form>
                 </section>
             </div>
