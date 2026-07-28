@@ -114,6 +114,51 @@ class UsuarioController extends Controller
     }
 
     /**
+     * Ficha de una cuenta: aquí se administran sus roles y su contraseña, en su
+     * propia página (antes era un panel que se desplegaba en la fila).
+     */
+    public function show(Request $request, Usuario $usuario): Response
+    {
+        $usuario->load(['persona:id,nombre,primer_apellido,segundo_apellido,curp,foto_url', 'rolActivo:id,name,nombre']);
+
+        return Inertia::render('Plataforma/UsuarioDetalle', [
+            'usuario' => [
+                'id' => $usuario->id,
+                'usuario' => $usuario->usuario,
+                'email' => $usuario->email,
+                'persona' => $usuario->persona?->nombreCompleto(),
+                'foto' => $usuario->persona?->urlFoto(),
+                'rol_activo' => $usuario->rolActivo?->nombre,
+                'acceso_configurado' => (bool) $usuario->acceso_configurado,
+                'soy_yo' => $usuario->id === $request->user()->id,
+                'roles' => PersonaRol::query()
+                    ->with('rol:id,nombre', 'campus:id,nombre')
+                    ->where('persona_id', $usuario->persona_id)
+                    ->get()
+                    ->map(fn (PersonaRol $a) => [
+                        'id' => $a->id,
+                        'nombre' => $a->rol?->nombre,
+                        'campus' => $a->campus?->nombre,
+                        'activo' => (bool) $a->activo,
+                        // Marca el rol con el que la cuenta opera: la UI no deja
+                        // retirarlo (el backend también lo rechaza).
+                        'es_activo' => $a->rol_id === $usuario->rol_activo_id,
+                    ])->values(),
+            ],
+            'roles' => Rol::query()
+                ->orderByRaw('rol_padre_id is not null')
+                ->orderBy('nombre')
+                ->get()
+                ->map(fn (Rol $r) => [
+                    'id' => $r->id,
+                    'nombre' => $r->nombre,
+                    'faceta' => $r->faceta()->nombre,
+                ]),
+            'campus' => Campus::orderBy('nombre')->get(['id', 'nombre']),
+        ]);
+    }
+
+    /**
      * Crea la cuenta. Si la CURP ya existe se reutiliza esa persona: quien
      * entra como docente pudo haber sido alumno, y duplicarlo rompería su
      * kárdex, sus roles y su expediente.
@@ -229,7 +274,9 @@ class UsuarioController extends Controller
     public function restablecerPassword(Request $request, Usuario $usuario): RedirectResponse
     {
         $datos = $request->validate([
-            'password' => ['required', 'string', 'min:8'],
+            // `confirmed` exige que llegue `password_confirmation` igual: la ficha
+            // pide capturarla dos veces para no fijar una contraseña con un dedazo.
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
             'enviar_credenciales' => ['boolean'],
         ]);
 

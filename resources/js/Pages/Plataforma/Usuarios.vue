@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, useForm, router } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Paginacion from '@/Components/Paginacion.vue';
@@ -41,10 +41,11 @@ const props = defineProps<{
 /**
  * Se filtra por rol y por campus porque son las dos preguntas reales de quien
  * administra cuentas: «quiénes son mis docentes» y «quién opera este campus».
- * No hay vista en cuadrícula aquí a propósito: cada fila se despliega en un
- * panel de administración —asignar roles, restablecer contraseña— y una
- * tarjeta que solo enlaza a una ficha inexistente sería un paso de más.
+ * Administrar una cuenta (roles, contraseña) abre su ficha propia; el listado se
+ * puede ver como tabla o cuadrícula.
  */
+const vista = ref<'lista' | 'cuadricula'>('lista');
+
 const definicionFiltros = [
     { clave: 'rol_id', etiqueta: 'Rol asignado', opciones: props.roles.map((r) => ({ valor: r.id, texto: `${r.nombre} · ${r.faceta}` })) },
     { clave: 'campus_id', etiqueta: 'Campus', opciones: props.campus.map((c) => ({ valor: c.id, texto: c.nombre })) },
@@ -88,27 +89,8 @@ function crear(): void {
     });
 }
 
-const expandido = ref<number | null>(null);
-const asignacion = useForm({ rol_id: props.roles[0]?.id ?? null, campus_id: null as number | null });
-const clave = useForm({ password: '', enviar_credenciales: false });
-
-function asignar(u: UsuarioFila): void {
-    asignacion.post(`/plataforma/usuarios/${u.id}/roles`, {
-        preserveScroll: true,
-        onSuccess: () => asignacion.reset('campus_id'),
-    });
-}
-
-function retirar(u: UsuarioFila, a: Asignacion): void {
-    router.delete(`/plataforma/usuarios/${u.id}/roles/${a.id}`, { preserveScroll: true });
-}
-
-function restablecer(u: UsuarioFila): void {
-    clave.put(`/plataforma/usuarios/${u.id}/password`, {
-        preserveScroll: true,
-        onSuccess: () => clave.reset(),
-    });
-}
+const rolesResumen = (u: UsuarioFila): string =>
+    `${u.roles.length} rol(es) · opera como ${u.rol_activo ?? '—'}`;
 </script>
 
 <template>
@@ -210,14 +192,47 @@ function restablecer(u: UsuarioFila): void {
         </section>
 
         <BarraListado
+            v-model:vista="vista"
             url="/plataforma/usuarios"
+            vista-clave="plataforma.usuarios"
             clave-busqueda="q"
             :valores="filtros"
             :filtros="definicionFiltros"
             placeholder="Buscar por nombre, CURP, usuario o correo"
         />
 
-        <section class="tarjeta overflow-hidden">
+        <!-- Cuadrícula -->
+        <template v-if="vista === 'cuadricula'">
+            <section v-if="usuarios.data.length" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <div v-for="u in usuarios.data" :key="u.id" class="tarjeta flex flex-col gap-3 p-4 transition duration-200 hover:-translate-y-0.5 hover:shadow-lg">
+                    <div class="flex items-center gap-3">
+                        <img v-if="u.foto" :src="u.foto" alt="" class="h-11 w-11 rounded-full object-cover" loading="lazy" />
+                        <span v-else class="grid h-11 w-11 shrink-0 place-items-center rounded-full text-sm font-semibold" :style="{ backgroundColor: 'var(--color-fondo)', color: 'var(--color-suave)' }">
+                            {{ (u.persona ?? u.usuario)?.[0]?.toUpperCase() }}
+                        </span>
+                        <div class="min-w-0">
+                            <p class="truncate font-medium">
+                                {{ u.persona ?? u.usuario }}
+                                <span v-if="u.soy_yo" class="ml-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] text-emerald-700">tú</span>
+                            </p>
+                            <p class="truncate font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ u.usuario }}</p>
+                        </div>
+                    </div>
+                    <p class="text-xs" :style="{ color: 'var(--color-suave)' }">{{ u.email ?? 'sin correo' }}</p>
+                    <p class="text-xs" :style="{ color: 'var(--color-suave)' }">{{ rolesResumen(u) }}</p>
+                    <span v-if="!u.acceso_configurado" class="w-fit rounded-full px-2 py-0.5 text-xs" style="background-color: color-mix(in srgb, #f59e0b 20%, transparent)">Sin acceso</span>
+                    <Link :href="`/plataforma/usuarios/${u.id}`" class="mt-auto rounded-lg border px-3 py-2 text-center text-sm font-medium" :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-acento)' }">
+                        Administrar
+                    </Link>
+                </div>
+            </section>
+            <p v-else class="tarjeta px-6 py-10 text-center text-sm" :style="{ color: 'var(--color-suave)' }">No hay cuentas que coincidan.</p>
+            <section v-if="usuarios.links.length > 3" class="tarjeta">
+                <Paginacion :enlaces="usuarios.links" :total="usuarios.total" :desde="usuarios.from" :hasta="usuarios.to" />
+            </section>
+        </template>
+
+        <section v-else class="tarjeta overflow-hidden">
             <table v-if="usuarios.data.length" class="w-full text-sm">
                 <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
                     <tr>
@@ -259,77 +274,9 @@ function restablecer(u: UsuarioFila): void {
                                 </span>
                             </td>
                             <td class="px-6 py-3 text-right">
-                                <button
-                                    type="button"
-                                    class="text-sm font-medium"
-                                    :style="{ color: 'var(--color-acento)' }"
-                                    @click="expandido = expandido === u.id ? null : u.id"
-                                >
-                                    {{ expandido === u.id ? 'Cerrar' : 'Administrar' }}
-                                </button>
-                            </td>
-                        </tr>
-
-                        <tr v-if="expandido === u.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                            <td colspan="4" class="px-6 py-4">
-                                <div class="grid gap-5 sm:grid-cols-2">
-                                    <div>
-                                        <h4 class="text-sm font-semibold">Sus roles</h4>
-                                        <ul class="mt-2 space-y-1">
-                                            <li v-for="a in u.roles" :key="a.id" class="flex items-center justify-between gap-2 text-sm">
-                                                <span>
-                                                    {{ a.nombre }}
-                                                    <span class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                                                        {{ a.campus ? `solo en ${a.campus}` : 'toda la escuela' }}
-                                                    </span>
-                                                </span>
-                                                <button type="button" class="text-xs font-medium text-red-600" @click="retirar(u, a)">
-                                                    Retirar
-                                                </button>
-                                            </li>
-                                        </ul>
-
-                                        <form class="mt-3 flex flex-wrap items-end gap-2" @submit.prevent="asignar(u)">
-                                            <select v-model="asignacion.rol_id" class="rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
-                                                <optgroup v-for="(lista, faceta) in rolesPorFaceta" :key="faceta" :label="faceta">
-                                                    <option v-for="r in lista" :key="r.id" :value="r.id">{{ r.nombre }}</option>
-                                                </optgroup>
-                                            </select>
-                                            <select v-model="asignacion.campus_id" class="rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
-                                                <option :value="null">Toda la escuela</option>
-                                                <option v-for="c in campus" :key="c.id" :value="c.id">{{ c.nombre }}</option>
-                                            </select>
-                                            <button type="submit" class="rounded-lg px-3 py-2 text-sm font-medium" :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }">
-                                                Asignar
-                                            </button>
-                                        </form>
-                                    </div>
-
-                                    <div>
-                                        <h4 class="text-sm font-semibold">Restablecer contraseña</h4>
-                                        <p class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">
-                                            No se puede mostrar la actual: está hasheada, que es como debe estar.
-                                        </p>
-                                        <form class="mt-2 flex flex-wrap items-end gap-2" @submit.prevent="restablecer(u)">
-                                            <input
-                                                v-model="clave.password"
-                                                type="text"
-                                                minlength="8"
-                                                required
-                                                placeholder="Nueva contraseña"
-                                                class="rounded-lg border px-3 py-2 text-sm"
-                                                :style="{ borderColor: 'var(--color-borde)' }"
-                                            />
-                                            <button type="submit" class="rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
-                                                Restablecer
-                                            </button>
-                                            <label class="flex w-full items-center gap-2 text-xs" :style="{ color: 'var(--color-suave)' }">
-                                                <input v-model="clave.enviar_credenciales" type="checkbox" class="rounded" />
-                                                Enviársela por correo
-                                            </label>
-                                        </form>
-                                    </div>
-                                </div>
+                                <Link :href="`/plataforma/usuarios/${u.id}`" class="text-sm font-medium" :style="{ color: 'var(--color-acento)' }">
+                                    Administrar
+                                </Link>
                             </td>
                         </tr>
                     </template>

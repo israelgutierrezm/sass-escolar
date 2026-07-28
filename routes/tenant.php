@@ -746,6 +746,7 @@ Route::middleware([
             ->group(function () {
                 Route::get('/', 'index')->name('index');
                 Route::post('/', 'store')->name('store');
+                Route::get('/{usuario}', 'show')->name('show');
                 Route::post('/{usuario}/roles', 'asignarRol')->name('roles.asignar');
                 Route::delete('/{usuario}/roles/{asignacion}', 'retirarRol')->name('roles.retirar');
                 Route::put('/{usuario}/password', 'restablecerPassword')->name('password');
