@@ -2,6 +2,7 @@
 import { Head } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 import BarraListado from '@/Components/BarraListado.vue';
 import Paginacion from '@/Components/Paginacion.vue';
 import TarjetaListado from '@/Components/TarjetaListado.vue';
@@ -138,10 +139,10 @@ const colorEstatus: Record<string, string> = {
                                     {{ f.estatus }}
                                 </span>
                             </td>
-                            <td class="px-6 py-3 text-right">
-                                <a :href="`/finanzas/facturas/${f.id}`" class="text-sm font-medium" :style="{ color: 'var(--color-acento)' }">
-                                    Ver
-                                </a>
+                            <td class="px-6 py-3">
+                                <div class="flex justify-end">
+                                    <BotonAccion variante="ver" solo-icono :href="`/finanzas/facturas/${f.id}`" />
+                                </div>
                             </td>
                         </tr>
                     </tbody>

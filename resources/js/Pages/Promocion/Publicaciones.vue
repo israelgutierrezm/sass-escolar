@@ -2,6 +2,7 @@
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 
 interface Publicacion {
     id: number;
@@ -261,15 +262,11 @@ function conversion(p: Publicacion): string {
                     <button type="button" class="rounded-lg border px-3 py-1.5 text-sm" :style="{ borderColor: 'var(--color-borde)' }" @click="alternarActivo(p)">
                         {{ p.activo ? 'Desactivar' : 'Activar' }}
                     </button>
-                    <button
+                    <BotonAccion
                         v-if="p.envios === 0"
-                        type="button"
-                        class="rounded-lg border px-3 py-1.5 text-sm text-red-600"
-                        :style="{ borderColor: 'var(--color-borde)' }"
+                        variante="eliminar"
                         @click="router.delete(`/promocion/publicaciones/${p.id}`, { preserveScroll: true })"
-                    >
-                        Eliminar
-                    </button>
+                    />
                 </div>
             </div>
 

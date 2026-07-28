@@ -2,6 +2,7 @@
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 
 interface Entrega {
     id: number;
@@ -93,13 +94,11 @@ function convertir(): void {
                 <section class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
                     <div class="flex items-start justify-between">
                         <h2 class="text-base font-semibold text-slate-800">Datos personales</h2>
-                        <a
+                        <BotonAccion
                             v-if="permisos.editar"
+                            variante="editar"
                             :href="`/aspirantes/${aspirante.id}/editar`"
-                            class="text-sm font-medium text-indigo-600 hover:text-indigo-700"
-                        >
-                            Editar
-                        </a>
+                        />
                     </div>
 
                     <dl class="mt-4 grid gap-4 sm:grid-cols-3">

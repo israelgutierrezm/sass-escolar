@@ -3,6 +3,7 @@ import { Head } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BarraListado from '@/Components/BarraListado.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 import Paginacion from '@/Components/Paginacion.vue';
 import TarjetaPersona from '@/Components/TarjetaPersona.vue';
 
@@ -148,15 +149,11 @@ const definicionFiltros = [
                                 </span>
                             </td>
                             <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ aspirante.origen ?? '—' }}</td>
-                            <td class="px-6 py-3 text-right">
-                                <a
-                                    v-if="puedeEditar"
-                                    :href="`/aspirantes/${aspirante.id}/editar`"
-                                    class="text-sm font-medium"
-                                    :style="{ color: 'var(--color-acento)' }"
-                                >
-                                    Editar
-                                </a>
+                            <td class="px-6 py-3">
+                                <div class="flex items-center justify-end gap-1">
+                                    <BotonAccion variante="ver" solo-icono :href="`/aspirantes/${aspirante.id}`" />
+                                    <BotonAccion v-if="puedeEditar" variante="editar" :href="`/aspirantes/${aspirante.id}/editar`" />
+                                </div>
                             </td>
                         </tr>
                     </tbody>

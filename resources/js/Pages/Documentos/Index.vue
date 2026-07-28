@@ -2,6 +2,7 @@
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoCheckbox from '@/Components/CampoCheckbox.vue';
 import CampoCasillas from '@/Components/CampoCasillas.vue';
@@ -256,19 +257,9 @@ const nombreAmbito = (clave: string) => props.ambitos.find((a) => a.clave === cl
                         </td>
                         <td class="px-4 py-3">{{ doc.entregados || '—' }}</td>
                         <td class="px-6 py-3 text-right">
-                            <span v-if="puedeEditar" class="flex justify-end gap-3">
-                                <button type="button" class="text-sm" :style="{ color: 'var(--color-acento)' }" @click="abrirEdicion(doc)">
-                                    Editar
-                                </button>
-                                <button
-                                    type="button"
-                                    class="text-sm transition hover:text-red-600"
-                                    :style="{ color: 'var(--color-suave)' }"
-                                    :title="doc.entregados ? 'Ya hay entregas: quítale los ámbitos en vez de borrarlo' : ''"
-                                    @click="eliminar(doc)"
-                                >
-                                    Eliminar
-                                </button>
+                            <span v-if="puedeEditar" class="flex items-center justify-end gap-1">
+                                <BotonAccion variante="editar" @click="abrirEdicion(doc)" />
+                                <BotonAccion variante="eliminar" @click="eliminar(doc)" />
                             </span>
                         </td>
                     </tr>

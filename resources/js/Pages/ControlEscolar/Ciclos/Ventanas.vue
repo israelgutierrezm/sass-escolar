@@ -2,6 +2,7 @@
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 import NavEscolar from '@/Components/NavEscolar.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
@@ -183,14 +184,7 @@ function revocar(ventanaId: number, excepcionId: number): void {
                                 >
                                     {{ ventana.activa ? 'Desactivar' : 'Activar' }}
                                 </button>
-                                <button
-                                    type="button"
-                                    class="text-sm transition hover:text-red-600"
-                                    :style="{ color: 'var(--color-suave)' }"
-                                    @click="eliminar(ventana)"
-                                >
-                                    Eliminar
-                                </button>
+                                <BotonAccion variante="eliminar" @click="eliminar(ventana)" />
                             </span>
                         </td>
                     </tr>

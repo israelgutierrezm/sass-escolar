@@ -2,6 +2,7 @@
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 
 interface Regla {
     id: number;
@@ -329,18 +330,17 @@ const etiquetaPeriodicidad = computed(() =>
                             <span v-if="!regla.obligatorio" class="block">Opcional</span>
                         </td>
                         <td class="px-4 py-3 tabular-nums">{{ regla.adeudos }}</td>
-                        <td class="px-6 py-3 text-right">
-                            <button
-                                v-if="regla.adeudos === 0"
-                                type="button"
-                                class="text-xs font-medium text-red-600"
-                                @click="eliminarRegla(regla)"
-                            >
-                                Eliminar
-                            </button>
-                            <span v-else class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                                En uso
-                            </span>
+                        <td class="px-6 py-3">
+                            <div class="flex justify-end">
+                                <BotonAccion
+                                    v-if="regla.adeudos === 0"
+                                    variante="eliminar"
+                                    @click="eliminarRegla(regla)"
+                                />
+                                <span v-else class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                                    En uso
+                                </span>
+                            </div>
                         </td>
                     </tr>
                 </tbody>

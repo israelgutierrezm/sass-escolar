@@ -2,6 +2,7 @@
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 
 interface Paso {
     clave: string;
@@ -242,14 +243,12 @@ const colorEstado: Record<string, string> = {
                         </span>
                         <span v-else class="text-xs" :style="{ color: 'var(--color-suave)' }">Sin entregar</span>
 
-                        <a
+                        <BotonAccion
                             v-if="doc.entrega_id"
+                            variante="ver"
+                            solo-icono
                             :href="`/mi-solicitud/documentos/${doc.entrega_id}`"
-                            class="text-xs font-medium"
-                            :style="{ color: 'var(--color-acento)' }"
-                        >
-                            Ver
-                        </a>
+                        />
 
                         <label class="cursor-pointer rounded-lg border px-3 py-1.5 text-xs" :style="{ borderColor: 'var(--color-borde)' }">
                             {{ doc.entrega_id ? 'Reemplazar' : 'Subir' }}

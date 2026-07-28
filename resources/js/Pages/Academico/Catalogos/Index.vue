@@ -3,6 +3,7 @@ import { Head, router } from '@inertiajs/vue3';
 import { computed, reactive, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 
 interface Item {
     id: number;
@@ -200,13 +201,11 @@ function esEditando(catalogo: string, id: number): boolean {
                                     class="h-8 w-12 shrink-0 cursor-pointer rounded border"
                                     :style="{ borderColor: 'var(--color-borde)' }"
                                 />
-                                <span class="flex w-28 shrink-0 justify-end gap-2">
+                                <span class="flex w-28 shrink-0 items-center justify-end gap-1">
                                     <button type="button" class="text-sm font-medium" :style="{ color: 'var(--color-acento)' }" @click="guardarEdicion(catalogo)">
                                         Guardar
                                     </button>
-                                    <button type="button" class="text-sm" :style="{ color: 'var(--color-suave)' }" @click="editando = null">
-                                        Cancelar
-                                    </button>
+                                    <BotonAccion variante="cerrar" @click="editando = null" />
                                 </span>
                             </template>
 
@@ -232,19 +231,13 @@ function esEditando(catalogo: string, id: number): boolean {
                                         :title="item.color || 'Sin color'"
                                     />
                                 </span>
-                                <span v-if="puedeEditar" class="flex w-28 shrink-0 justify-end gap-2">
-                                    <button type="button" class="text-sm" :style="{ color: 'var(--color-acento)' }" @click="abrirEdicion(catalogo, item)">
-                                        Editar
-                                    </button>
-                                    <button
-                                        type="button"
-                                        class="text-sm disabled:opacity-40"
-                                        :style="{ color: 'var(--color-suave)' }"
+                                <span v-if="puedeEditar" class="flex w-28 shrink-0 items-center justify-end gap-1">
+                                    <BotonAccion variante="editar" @click="abrirEdicion(catalogo, item)" />
+                                    <BotonAccion
+                                        variante="eliminar"
                                         :disabled="item.en_uso"
                                         @click="eliminar(catalogo.clave, item)"
-                                    >
-                                        Eliminar
-                                    </button>
+                                    />
                                 </span>
                             </template>
                         </li>

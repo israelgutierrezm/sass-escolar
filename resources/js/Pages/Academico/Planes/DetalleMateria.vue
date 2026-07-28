@@ -3,6 +3,7 @@ import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoCasillas from '@/Components/CampoCasillas.vue';
@@ -340,7 +341,7 @@ const etiquetaTipoReq = (tipo: string) => (tipo === 'aprobada' ? 'Aprobada' : 'C
                         </template>
                         <template v-else>Mínimo {{ requisito.minimo_creditos }} créditos acumulados</template>
                     </div>
-                    <button v-if="puedeEditar" type="button" class="text-xs text-red-600" @click="quitarRequisito(requisito.id)">Quitar</button>
+                    <BotonAccion v-if="puedeEditar" variante="eliminar" texto="Quitar" @click="quitarRequisito(requisito.id)" />
                 </li>
             </ul>
             <p v-else class="mt-4 rounded-lg px-3 py-4 text-center text-sm" :style="{ backgroundColor: 'var(--color-fondo)', color: 'var(--color-suave)' }">Sin requisitos: se puede cursar desde el inicio.</p>
@@ -382,8 +383,8 @@ const etiquetaTipoReq = (tipo: string) => (tipo === 'aprobada' ? 'Aprobada' : 'C
                     <div class="flex items-center gap-3">
                         <span class="text-sm font-medium">{{ componente.porcentaje }}%</span>
                         <template v-if="puedeEditar">
-                            <button type="button" class="text-xs" :style="{ color: 'var(--color-acento)' }" @click="editarComponente(componente)">Editar</button>
-                            <button type="button" class="text-xs text-red-600" @click="quitarComponente(componente.id)">Quitar</button>
+                            <BotonAccion variante="editar" @click="editarComponente(componente)" />
+                            <BotonAccion variante="eliminar" texto="Quitar" @click="quitarComponente(componente.id)" />
                         </template>
                     </div>
                 </li>

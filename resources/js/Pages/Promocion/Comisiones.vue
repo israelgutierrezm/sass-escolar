@@ -2,6 +2,7 @@
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 import Paginacion from '@/Components/Paginacion.vue';
 
 interface Regla {
@@ -230,14 +231,11 @@ const colorEstatus: Record<string, string> = {
                             <template v-if="r.devengadas"> · {{ r.devengadas }} devengadas</template>
                         </span>
                     </span>
-                    <button
+                    <BotonAccion
                         v-if="r.devengadas === 0"
-                        type="button"
-                        class="text-xs font-medium text-red-600"
+                        variante="eliminar"
                         @click="router.delete(`/promocion/reglas-comision/${r.id}`, { preserveScroll: true })"
-                    >
-                        Eliminar
-                    </button>
+                    />
                     <span v-else class="text-xs" :style="{ color: 'var(--color-suave)' }">en uso</span>
                 </li>
             </ul>

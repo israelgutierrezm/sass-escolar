@@ -2,6 +2,7 @@
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 
@@ -288,15 +289,11 @@ function quitarFoto(): void {
                         >
                             Descargar
                         </a>
-                        <button
+                        <BotonAccion
                             v-if="doc.estado_clave !== 'aceptado'"
-                            type="button"
-                            class="text-sm transition hover:text-red-600"
-                            :style="{ color: 'var(--color-suave)' }"
+                            variante="eliminar"
                             @click="eliminar(doc)"
-                        >
-                            Eliminar
-                        </button>
+                        />
                     </div>
                 </li>
             </ul>

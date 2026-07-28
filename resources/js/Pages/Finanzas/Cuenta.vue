@@ -2,6 +2,7 @@
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 
 interface Adeudo {
     id: number;
@@ -596,10 +597,10 @@ const colorEstatus: Record<string, string> = {
                                 {{ f.estatus }}
                             </span>
                         </td>
-                        <td class="px-6 py-3 text-right">
-                            <a :href="`/finanzas/facturas/${f.id}`" class="text-xs font-medium" :style="{ color: 'var(--color-acento)' }">
-                                Ver
-                            </a>
+                        <td class="px-6 py-3">
+                            <div class="flex justify-end">
+                                <BotonAccion variante="ver" solo-icono :href="`/finanzas/facturas/${f.id}`" />
+                            </div>
                         </td>
                     </tr>
                 </tbody>

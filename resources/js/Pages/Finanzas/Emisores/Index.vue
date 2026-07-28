@@ -2,6 +2,7 @@
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 import DatosFiscalesEmisor from '@/Components/DatosFiscalesEmisor.vue';
 
 interface Asignacion {
@@ -228,9 +229,7 @@ const etiquetaTipo: Record<string, string> = {
                     <button type="button" class="rounded-lg border px-3 py-1.5 text-sm" :style="{ borderColor: 'var(--color-borde)' }" @click="abrirConfig(emisor)">
                         {{ expandido === emisor.id ? 'Cerrar' : 'Configurar' }}
                     </button>
-                    <button v-if="emisor.facturas_count === 0" type="button" class="rounded-lg border px-3 py-1.5 text-sm text-red-600" :style="{ borderColor: 'var(--color-borde)' }" @click="eliminar(emisor)">
-                        Eliminar
-                    </button>
+                    <BotonAccion v-if="emisor.facturas_count === 0" variante="eliminar" @click="eliminar(emisor)" />
                 </div>
             </div>
 
