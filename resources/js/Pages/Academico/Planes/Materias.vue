@@ -355,7 +355,7 @@ function textoSobre(color: string | null): string {
                  tarjeta con el color de su área. Toda la tarjeta abre la ficha. -->
             <section v-if="vista === 'cuadricula'" class="overflow-x-auto pb-2">
                 <div class="flex gap-4" :style="{ minWidth: 'min-content' }">
-                    <div v-for="grupo in grupos" :key="grupo.clave" class="w-60 shrink-0">
+                    <div v-for="grupo in grupos" :key="grupo.clave" class="w-52 shrink-0 sm:w-60">
                         <div
                             class="mb-3 flex items-center justify-between gap-2 rounded-lg px-3 py-2"
                             :style="grupo.optativa
