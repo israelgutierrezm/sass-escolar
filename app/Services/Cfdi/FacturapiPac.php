@@ -22,7 +22,8 @@ use App\Services\Facturacion\FacturapiService;
  */
 class FacturapiPac implements Pac
 {
-    public function __construct(private readonly FacturapiService $facturapi) {}
+    // El servicio se construye por factura (con la llave de su emisor), no se
+    // inyecta uno global: cada razón social timbra con su propia organización.
 
     public function nombre(): string
     {
@@ -31,10 +32,11 @@ class FacturapiPac implements Pac
 
     public function timbrar(Factura $factura): ResultadoTimbrado
     {
-        $factura->loadMissing('conceptos');
+        $factura->loadMissing('conceptos', 'emisor');
+        $servicio = FacturapiService::paraEmisor($factura->emisor);
 
         try {
-            $respuesta = $this->facturapi->emitirFactura($this->cuerpoDe($factura));
+            $respuesta = $servicio->emitirFactura($this->cuerpoDe($factura));
         } catch (FacturapiRechazo $e) {
             return ResultadoTimbrado::rechazado($e->getMessage(), $e->codigo);
         }
@@ -54,8 +56,8 @@ class FacturapiPac implements Pac
         // timbrada: no se pierde, se podrá bajar después con su facturapi_id.
         return ResultadoTimbrado::timbrado(
             (string) $uuid,
-            xml: $this->descargarSilencioso((string) $facturapiId, 'xml'),
-            pdf: $this->descargarSilencioso((string) $facturapiId, 'pdf'),
+            xml: $this->descargarSilencioso($servicio, (string) $facturapiId, 'xml'),
+            pdf: $this->descargarSilencioso($servicio, (string) $facturapiId, 'pdf'),
         );
     }
 
@@ -65,6 +67,9 @@ class FacturapiPac implements Pac
             return ResultadoTimbrado::rechazado('Esta factura no tiene id de Facturapi: no se puede cancelar allá.');
         }
 
+        $factura->loadMissing('emisor');
+        $servicio = FacturapiService::paraEmisor($factura->emisor);
+
         // El motivo 01 exige la sustituta; Facturapi la identifica por SU id, no
         // por el UUID del SAT, así que se resuelve a partir del folio fiscal.
         $sustitutaId = null;
@@ -73,7 +78,7 @@ class FacturapiPac implements Pac
         }
 
         try {
-            $this->facturapi->cancelarFactura($factura->facturapi_id, $motivo, $sustitutaId);
+            $servicio->cancelarFactura($factura->facturapi_id, $motivo, $sustitutaId);
         } catch (FacturapiRechazo $e) {
             return ResultadoTimbrado::rechazado($e->getMessage(), $e->codigo);
         }
@@ -122,12 +127,12 @@ class FacturapiPac implements Pac
         ];
     }
 
-    private function descargarSilencioso(string $facturapiId, string $tipo): ?string
+    private function descargarSilencioso(FacturapiService $servicio, string $facturapiId, string $tipo): ?string
     {
         try {
             return $tipo === 'xml'
-                ? $this->facturapi->descargarXml($facturapiId)
-                : $this->facturapi->descargarPdf($facturapiId);
+                ? $servicio->descargarXml($facturapiId)
+                : $servicio->descargarPdf($facturapiId);
         } catch (\Throwable) {
             return null;
         }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Facturacion;
 
 use App\Models\Facturacion\FacturacionConfig;
+use App\Models\Finanzas\EmisorFiscal;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -30,11 +31,27 @@ class FacturapiService
 {
     private const BASE = 'https://www.facturapi.io/v2';
 
+    /**
+     * Cuando se factura a nombre de una razón social concreta, se usa la llave
+     * de SU organización (cada emisor tiene la suya). Si no hay emisor o no tiene
+     * llave, se cae a la llave de la configuración general.
+     */
+    private ?EmisorFiscal $emisor = null;
+
     public function __construct(private readonly FacturacionConfig $config) {}
 
     public static function paraLaEscuela(): self
     {
         return new self(FacturacionConfig::actual());
+    }
+
+    /** El servicio, pero timbrando con la llave de la organización del emisor. */
+    public static function paraEmisor(?EmisorFiscal $emisor): self
+    {
+        $servicio = self::paraLaEscuela();
+        $servicio->emisor = $emisor;
+
+        return $servicio;
     }
 
     /**
@@ -280,13 +297,28 @@ class FacturapiService
     /** Cliente HTTP autenticado. La llave va como usuario en Basic Auth. */
     private function cliente(): PendingRequest
     {
-        $key = $this->config->apiKeyActiva();
+        $key = $this->llaveDeFacturacion();
 
         if (blank($key)) {
             throw new FacturapiRechazo("Falta la API key de {$this->config->ambiente}.");
         }
 
         return Http::withBasicAuth($key, '')->acceptJson()->timeout(30);
+    }
+
+    /**
+     * La llave con la que se timbra: en PRUEBAS, si el emisor trae la de su
+     * organización, se usa esa (timbra a nombre de esa razón social); si no, la
+     * de la configuración general. En producción se usa la de la config (la
+     * llave `sk_live_` por organización aún no se captura por API).
+     */
+    private function llaveDeFacturacion(): ?string
+    {
+        if (! $this->config->esProduccion() && filled($this->emisor?->facturapi_key_pruebas)) {
+            return $this->emisor->facturapi_key_pruebas;
+        }
+
+        return $this->config->apiKeyActiva();
     }
 
     /**
