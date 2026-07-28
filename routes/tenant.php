@@ -75,6 +75,7 @@ Route::middleware([
     'web',
     InitializeTenancyByDomain::class,
     PreventAccessFromCentralDomains::class,
+    App\Http\Middleware\EscuelaActiva::class,
 ])->group(function () {
     /*
      * Formulario público embebible en la web de la escuela.

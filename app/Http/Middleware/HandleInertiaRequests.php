@@ -32,8 +32,11 @@ class HandleInertiaRequests extends Middleware
 
     public function share(Request $request): array
     {
+        // Explícitamente el guard `web` (el de las escuelas): este middleware es
+        // del app de tenant. En el dominio central el usuario autenticado es un
+        // SuperAdmin (guard `central`) y NO debe tratarse como Usuario de escuela.
         /** @var Usuario|null $usuario */
-        $usuario = $request->user();
+        $usuario = $request->user('web');
 
         return [
             ...parent::share($request),

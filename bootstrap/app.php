@@ -54,6 +54,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->respond(function (Response $respuesta, \Throwable $excepcion, Request $peticion) {
             $estado = $respuesta->getStatusCode();
 
+            // El panel de la casa (dominios centrales) es Blade puro: sus errores
+            // no se renderizan con la página Inertia de las escuelas.
+            if (in_array($peticion->getHost(), config('tenancy.central_domains'), true)) {
+                return $respuesta;
+            }
+
             if (! in_array($estado, [403, 404, 419, 500, 503], true)) {
                 return $respuesta;
             }

@@ -42,6 +42,13 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // Guard de la CASA (landlord): los super admins que administran las
+        // escuelas desde el dominio central. Sesión aparte de la de un tenant.
+        'central' => [
+            'driver' => 'session',
+            'provider' => 'super_admins',
+        ],
     ],
 
     /*
@@ -65,6 +72,11 @@ return [
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', Usuario::class),
+        ],
+
+        'super_admins' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\Landlord\SuperAdmin::class,
         ],
 
         // 'users' => [

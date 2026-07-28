@@ -26,6 +26,7 @@ class LandlordDatabaseSeeder extends Seeder
             SexoSeeder::class,
             GeneroSeeder::class,
             NivelEstudioSeeder::class,
+            SuperAdminSeeder::class,
         ]);
     }
 }
