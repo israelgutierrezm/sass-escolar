@@ -23,6 +23,8 @@ class Institucion extends Model
     protected $fillable = [
         'clave',
         'nombre',
+        'nombre_mostrar',
+        'siglas',
         'logo_url',
     ];
 

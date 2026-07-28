@@ -192,7 +192,7 @@ class HandleInertiaRequests extends Middleware
      * barra lateral y el login. El logo va como URL pública con un parámetro de
      * versión, para que al cambiarlo no se quede el del navegador en caché.
      *
-     * @return array{nombre: string, clave: string, logo: ?string}|null
+     * @return array{nombre: string, clave: string, siglas: ?string, logo: ?string}|null
      */
     private function institucion(): ?array
     {
@@ -203,8 +203,10 @@ class HandleInertiaRequests extends Middleware
         }
 
         return [
-            'nombre' => $institucion->nombre,
+            // Para membretar se usa el nombre A MOSTRAR; si no hay, el oficial.
+            'nombre' => $institucion->nombre_mostrar ?: $institucion->nombre,
             'clave' => $institucion->clave,
+            'siglas' => $institucion->siglas,
             'logo' => $institucion->logo_url === null
                 ? null
                 : route('tenant.institucion.logo').'?v='.$institucion->updated_at?->timestamp,

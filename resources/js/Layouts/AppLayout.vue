@@ -298,7 +298,7 @@ const iniciales = computed(() => {
                     class="grid h-9 w-9 shrink-0 place-items-center rounded-xl font-bold shadow-lg transition-transform duration-300 hover:rotate-6"
                     :style="{ backgroundColor: 'var(--color-barra-lateral-activo)', color: 'var(--color-acento-texto)' }"
                 >
-                    {{ escuela?.institucion?.nombre?.[0]?.toUpperCase() ?? 'A' }}
+                    {{ escuela?.institucion?.siglas || escuela?.institucion?.nombre?.[0]?.toUpperCase() || 'A' }}
                 </span>
                 <Transition
                     enter-active-class="transition-all duration-200"

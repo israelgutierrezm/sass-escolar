@@ -8,6 +8,8 @@ interface Institucion {
     id: number;
     clave: string;
     nombre: string;
+    nombre_mostrar: string | null;
+    siglas: string | null;
     logo: string | null;
     campus_count: number;
 }
@@ -17,11 +19,15 @@ const props = defineProps<{
     puedeEditar: boolean;
 }>();
 
-// Edición directa: los campos viven en un form que se envía al guardar. El logo
-// se sube al vuelo (multipart) contra el mismo endpoint de actualización.
-const form = useForm<{ clave: string; nombre: string; logo: File | null }>({
+// Los datos NO se editan al vuelo: se ven de solo lectura hasta pulsar «Editar».
+// Así no se cambian por accidente. El logo sí se sube al momento (aparte).
+const editando = ref(false);
+
+const form = useForm<{ clave: string; nombre: string; nombre_mostrar: string; siglas: string; logo: File | null }>({
     clave: props.institucion?.clave ?? '',
     nombre: props.institucion?.nombre ?? '',
+    nombre_mostrar: props.institucion?.nombre_mostrar ?? '',
+    siglas: props.institucion?.siglas ?? '',
     logo: null,
 });
 
@@ -35,6 +41,17 @@ function elegirLogo(evento: Event): void {
     }
     form.logo = archivo;
     vistaPrevia.value = URL.createObjectURL(archivo);
+    // Subir el logo es una acción propia, no requiere el modo edición.
+    guardar();
+}
+
+function cancelar(): void {
+    form.clave = props.institucion?.clave ?? '';
+    form.nombre = props.institucion?.nombre ?? '';
+    form.nombre_mostrar = props.institucion?.nombre_mostrar ?? '';
+    form.siglas = props.institucion?.siglas ?? '';
+    form.clearErrors();
+    editando.value = false;
 }
 
 function guardar(): void {
@@ -48,7 +65,10 @@ function guardar(): void {
         .post(`/academico/instituciones/${props.institucion.id}`, {
             preserveScroll: true,
             forceFormData: true,
-            onSuccess: () => (form.logo = null),
+            onSuccess: () => {
+                form.logo = null;
+                editando.value = false;
+            },
         });
 }
 </script>
@@ -127,43 +147,78 @@ function guardar(): void {
                     </div>
                 </div>
 
-                <!-- Campos con edición directa -->
-                <form class="mt-6 grid gap-4 sm:grid-cols-3" @submit.prevent="guardar">
-                    <label class="text-sm sm:col-span-2">
-                        <span class="mb-1 block font-medium">Nombre</span>
+                <!-- Datos: de solo lectura hasta pulsar «Editar». -->
+                <form class="mt-6 grid gap-4 sm:grid-cols-6" @submit.prevent="guardar">
+                    <label class="text-sm sm:col-span-4">
+                        <span class="mb-1 block font-medium">Nombre oficial</span>
                         <input
                             v-model="form.nombre"
                             type="text"
-                            :readonly="!puedeEditar"
-                            class="w-full rounded-lg border px-3 py-2 text-sm read-only:opacity-70"
-                            :style="{ borderColor: 'var(--color-borde)' }"
+                            :readonly="!editando"
+                            class="w-full rounded-lg border px-3 py-2 text-sm read-only:opacity-60"
+                            :style="{ borderColor: 'var(--color-borde)', backgroundColor: editando ? 'var(--color-superficie)' : 'var(--color-fondo)' }"
                         />
                         <span v-if="form.errors.nombre" class="text-xs text-red-600">{{ form.errors.nombre }}</span>
                     </label>
-                    <label class="text-sm">
+                    <label class="text-sm sm:col-span-2">
                         <span class="mb-1 block font-medium">Clave</span>
                         <input
                             v-model="form.clave"
                             type="text"
-                            :readonly="!puedeEditar"
-                            class="w-full rounded-lg border px-3 py-2 font-mono text-sm read-only:opacity-70"
-                            :style="{ borderColor: 'var(--color-borde)' }"
+                            :readonly="!editando"
+                            class="w-full rounded-lg border px-3 py-2 font-mono text-sm read-only:opacity-60"
+                            :style="{ borderColor: 'var(--color-borde)', backgroundColor: editando ? 'var(--color-superficie)' : 'var(--color-fondo)' }"
                         />
                         <span v-if="form.errors.clave" class="text-xs text-red-600">{{ form.errors.clave }}</span>
                     </label>
+                    <label class="text-sm sm:col-span-4">
+                        <span class="mb-1 block font-medium">Nombre a mostrar</span>
+                        <input
+                            v-model="form.nombre_mostrar"
+                            type="text"
+                            :readonly="!editando"
+                            placeholder="El que se ve en la barra y el acceso (si se deja vacío, se usa el oficial)"
+                            class="w-full rounded-lg border px-3 py-2 text-sm read-only:opacity-60"
+                            :style="{ borderColor: 'var(--color-borde)', backgroundColor: editando ? 'var(--color-superficie)' : 'var(--color-fondo)' }"
+                        />
+                        <span v-if="form.errors.nombre_mostrar" class="text-xs text-red-600">{{ form.errors.nombre_mostrar }}</span>
+                    </label>
+                    <label class="text-sm sm:col-span-2">
+                        <span class="mb-1 block font-medium">Siglas</span>
+                        <input
+                            v-model="form.siglas"
+                            type="text"
+                            :readonly="!editando"
+                            placeholder="Ej. UDG"
+                            class="w-full rounded-lg border px-3 py-2 text-sm uppercase read-only:opacity-60"
+                            :style="{ borderColor: 'var(--color-borde)', backgroundColor: editando ? 'var(--color-superficie)' : 'var(--color-fondo)' }"
+                        />
+                        <span v-if="form.errors.siglas" class="text-xs text-red-600">{{ form.errors.siglas }}</span>
+                    </label>
 
-                    <div v-if="puedeEditar" class="sm:col-span-3">
+                    <div v-if="puedeEditar" class="flex items-center gap-3 sm:col-span-6">
                         <button
-                            type="submit"
-                            :disabled="form.processing"
-                            class="rounded-lg px-5 py-2.5 text-sm font-medium disabled:opacity-60"
-                            :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+                            v-if="!editando"
+                            type="button"
+                            class="rounded-lg border px-4 py-2 text-sm font-medium"
+                            :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
+                            @click="editando = true"
                         >
-                            {{ form.processing ? 'Guardando…' : 'Guardar cambios' }}
+                            Editar datos
                         </button>
-                        <span v-if="form.logo" class="ml-3 text-xs" :style="{ color: 'var(--color-suave)' }">
-                            Logo nuevo listo para guardar.
-                        </span>
+                        <template v-else>
+                            <button
+                                type="submit"
+                                :disabled="form.processing"
+                                class="rounded-lg px-5 py-2.5 text-sm font-medium disabled:opacity-60"
+                                :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+                            >
+                                {{ form.processing ? 'Guardando…' : 'Guardar cambios' }}
+                            </button>
+                            <button type="button" class="rounded-lg border px-4 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" @click="cancelar">
+                                Cancelar
+                            </button>
+                        </template>
                     </div>
                 </form>
             </div>

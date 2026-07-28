@@ -39,6 +39,8 @@ class InstitucionController extends Controller
                 'id' => $institucion->id,
                 'clave' => $institucion->clave,
                 'nombre' => $institucion->nombre,
+                'nombre_mostrar' => $institucion->nombre_mostrar,
+                'siglas' => $institucion->siglas,
                 'logo' => $institucion->urlLogo(),
                 'campus_count' => $institucion->campus_count,
             ],
@@ -130,6 +132,8 @@ class InstitucionController extends Controller
         return $request->validate([
             'clave' => ['required', 'string', 'max:50', Rule::unique('instituciones', 'clave')->ignore($id)->whereNull('deleted_at')],
             'nombre' => ['required', 'string', 'max:255'],
+            'nombre_mostrar' => ['nullable', 'string', 'max:255'],
+            'siglas' => ['nullable', 'string', 'max:30'],
             'logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,svg', 'max:2048'],
         ], [
             'logo.image' => 'El logo debe ser una imagen.',
