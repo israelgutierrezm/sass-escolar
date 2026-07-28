@@ -6,7 +6,6 @@ import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
-import CampoCheckbox from '@/Components/CampoCheckbox.vue';
 
 const props = defineProps<{
     campus: Record<string, any> | null;
@@ -24,7 +23,6 @@ const form = useForm({
     // decisión que tomar y obligar a elegirla es un clic vacío.
     institucion_id: props.campus?.institucion_id ?? (props.instituciones.length === 1 ? props.instituciones[0].id : null),
     tipo_campus_id: props.campus?.tipo_campus_id ?? null,
-    online: props.campus?.online ?? false,
     entidad_id: props.campus?.entidad_id ?? null,
 });
 
@@ -72,13 +70,6 @@ function enviar(): void {
                     :error="form.errors.entidad_id"
                     ayuda="Dónde está el plantel. Catálogo compartido entre escuelas."
                 />
-                <div class="sm:col-span-2">
-                    <CampoCheckbox
-                        v-model="form.online"
-                        etiqueta="Campus 100% en línea"
-                        ayuda="Sin sede física; su oferta se imparte a distancia."
-                    />
-                </div>
             </section>
 
             <div class="flex items-center gap-3">

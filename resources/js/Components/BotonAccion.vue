@@ -26,8 +26,11 @@ const props = withDefaults(
         texto?: string;
         soloIcono?: boolean;
         disabled?: boolean;
+        /** Texto en peso normal (no medium): para botones discretos, p. ej. el
+         *  «Agregar» de los formularios pequeños de catálogo. */
+        fino?: boolean;
     }>(),
-    { soloIcono: false, disabled: false },
+    { soloIcono: false, disabled: false, fino: false },
 );
 
 const emit = defineEmits<{ click: [] }>();
@@ -97,8 +100,9 @@ const estilo = computed(() =>
         :disabled="disabled || undefined"
         :title="soloIconoEfectivo ? etiqueta : undefined"
         :aria-label="soloIconoEfectivo ? etiqueta : undefined"
-        class="boton-accion inline-flex items-center gap-1.5 rounded-lg text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40"
+        class="boton-accion inline-flex items-center gap-1.5 rounded-lg text-sm transition disabled:cursor-not-allowed disabled:opacity-40"
         :class="[
+            fino ? 'font-normal' : 'font-medium',
             esPrimario ? 'px-3.5 py-2 shadow-sm hover:brightness-110' : 'boton-fantasma py-1.5',
             esPrimario ? '' : soloIconoEfectivo ? 'px-2' : 'px-2.5',
         ]"

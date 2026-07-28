@@ -174,7 +174,16 @@ export function construirNavegacion(
         )
         : fusionarFaltantes(arbolPorDefecto(), set);
 
-    return filtrar(base, permisos, ambito, set).map((n) => ({ ...n, icono: n.icono ?? ICONO_GENERICO }));
+    const nav = filtrar(base, permisos, ambito, set).map((n) => ({ ...n, icono: n.icono ?? ICONO_GENERICO }));
+
+    // «Panel» es la puerta de entrada de TODOS: va siempre primero, sin importar
+    // la disposición que tenga el rol (nadie puede empujarlo hacia abajo).
+    const iPanel = nav.findIndex((n) => n.clave === 'panel');
+    if (iPanel > 0) {
+        nav.unshift(nav.splice(iPanel, 1)[0]);
+    }
+
+    return nav;
 }
 
 /** Saca de un árbol las claves ocultas y las junta (con su subárbol) en `bin`. */

@@ -278,6 +278,7 @@ function esEditando(catalogo: string, id: number): boolean {
                             v-if="!abiertos[catalogo.clave]"
                             variante="nuevo"
                             texto="Agregar"
+                            fino
                             class="mt-3"
                             @click="abrirAlta(catalogo.clave)"
                         />

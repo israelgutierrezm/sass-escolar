@@ -107,14 +107,13 @@ class CampusController extends Controller
      */
     private function validar(Request $request, ?int $id = null): array
     {
-        return $request->validate([
+        $datos = $request->validate([
             'clave' => ['required', 'string', 'max:50', Rule::unique('campus', 'clave')->ignore($id)->whereNull('deleted_at')],
             'nombre' => ['required', 'string', 'max:255'],
             // Informativo, no condiciona nada; por eso nullable. La UI lo
             // preselecciona cuando solo hay una institución.
             'institucion_id' => ['nullable', 'integer', Rule::exists('instituciones', 'id')->whereNull('deleted_at')],
             'tipo_campus_id' => ['required', 'integer', Rule::exists('tipos_campus', 'id')->whereNull('deleted_at')],
-            'online' => ['boolean'],
             // La entidad federativa (LUGARES) pasa a OBLIGATORIA: un plantel
             // siempre está en algún lado —aunque ese lado sea «Extranjero»—.
             // Sin `exists`: el catálogo vive en la landlord (otra conexión) y se
@@ -125,6 +124,12 @@ class CampusController extends Controller
             'tipo_campus_id' => 'tipo de campus',
             'entidad_id' => 'entidad federativa',
         ]);
+
+        // «En línea» ya no es un checkbox aparte —era doble confirmación—: se
+        // deriva del tipo de campus (la clave `en_linea` del catálogo).
+        $datos['online'] = TipoCampus::query()->whereKey($datos['tipo_campus_id'])->value('clave') === 'en_linea';
+
+        return $datos;
     }
 
     /**
