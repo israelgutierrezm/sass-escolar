@@ -7,6 +7,7 @@ use App\Http\Controllers\AsignaturaController;
 use App\Http\Controllers\AsignaturaGrupoController;
 use App\Http\Controllers\AspiranteController;
 use App\Http\Controllers\AutenticacionController;
+use App\Http\Controllers\SsoGoogleController;
 use App\Http\Controllers\CampoFormularioController;
 use App\Http\Controllers\CampusController;
 use App\Http\Controllers\CapturaCalificacionesController;
@@ -101,6 +102,10 @@ Route::middleware([
     Route::middleware('guest')->group(function () {
         Route::get('/', [AutenticacionController::class, 'mostrarLogin'])->name('tenant.login');
         Route::post('/login', [AutenticacionController::class, 'login'])->name('tenant.login.enviar');
+
+        // SSO con Google: empareja por correo con una cuenta existente.
+        Route::get('/auth/google/redirect', [SsoGoogleController::class, 'redirigir'])->name('tenant.sso.google.redirect');
+        Route::get('/auth/google/callback', [SsoGoogleController::class, 'callback'])->name('tenant.sso.google.callback');
 
         // Recuperación de contraseña. Los nombres van SIN prefijo `tenant.`
         // porque la notificación de Laravel arma la URL con `route('password.reset')`.

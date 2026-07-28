@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Http\Requests\LoginRequest;
-use App\Models\Identidad\PersonaRol;
 use App\Models\Identidad\Usuario;
 use App\Services\BitacoraAccesos;
+use App\Services\IniciadorSesion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -24,10 +24,13 @@ class AutenticacionController extends Controller
 {
     public function mostrarLogin(): Response
     {
-        return Inertia::render('Auth/Login');
+        return Inertia::render('Auth/Login', [
+            // Solo se ofrece «Continuar con Google» si el SSO está habilitado.
+            'googleSso' => config('services.google.modo') !== 'off',
+        ]);
     }
 
-    public function login(LoginRequest $request, BitacoraAccesos $bitacora): RedirectResponse
+    public function login(LoginRequest $request, IniciadorSesion $iniciador): RedirectResponse
     {
         $request->autenticar();
         $request->session()->regenerate();
@@ -35,12 +38,7 @@ class AutenticacionController extends Controller
         /** @var Usuario $usuario */
         $usuario = Auth::user();
 
-        $this->asegurarRolActivo($usuario);
-
-        $usuario->forceFill(['conectado' => true])->save();
-
-        // Se asienta la ENTRADA con el equipo, navegador e IP desde donde entró.
-        $bitacora->entrada($usuario, $request);
+        $iniciador->finalizar($usuario, $request);
 
         return redirect()->intended(route('tenant.dashboard'));
     }
@@ -62,23 +60,5 @@ class AutenticacionController extends Controller
         $request->session()->regenerateToken();
 
         return redirect()->route('tenant.login');
-    }
-
-    /**
-     * Al entrar, si el usuario no trae rol activo válido se le asigna el
-     * primero disponible. Sin rol activo no podría ver nada.
-     */
-    private function asegurarRolActivo(Usuario $usuario): void
-    {
-        if ($usuario->rol_activo_id !== null && $usuario->puedeUsarRol($usuario->rol_activo_id)) {
-            return;
-        }
-
-        $primerRol = PersonaRol::query()
-            ->where('persona_id', $usuario->persona_id)
-            ->where('activo', true)
-            ->value('rol_id');
-
-        $usuario->forceFill(['rol_activo_id' => $primerRol])->save();
     }
 }

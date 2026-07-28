@@ -35,4 +35,24 @@ return [
         ],
     ],
 
+    /*
+     | SSO con Google (Socialite) para el acceso de las ESCUELAS (tenants).
+     |
+     | `modo`:
+     |  - real: flujo OAuth de verdad (requiere client id/secret registrados y
+     |    las URIs de redirección de cada tenant en la consola de Google).
+     |  - fake: simula el retorno de Google (para probar en local sin OAuth,
+     |    donde los subdominios *.localhost no valen como redirect_uri).
+     |  - off: no se ofrece el botón «Continuar con Google».
+     |
+     | El `redirect` se arma dinámico por tenant (dominio de la escuela) en el
+     | controlador; se deja el env por si se quiere fijar uno.
+     */
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI'),
+        'modo' => env('SSO_GOOGLE_MODO', 'off'),
+    ],
+
 ];
