@@ -56,6 +56,10 @@ const tema = computed(() => page.props.tema);
 const permisos = computed(() => usuario.value?.permisos ?? []);
 
 const compacta = ref(false);
+// Si la barra estaba contraída y se abre un grupo (lo que la expande para ver el
+// submenú), se recuerda para volver a contraerla al navegar. Si no estaba
+// contraída, se queda como estaba.
+const eraCompacta = ref(false);
 // El cajón lateral en móvil/tableta: fuera de pantalla hasta que se toca el
 // botón de menú. En escritorio (lg+) la barra es fija y este estado no aplica.
 const menuMovil = ref(false);
@@ -137,7 +141,16 @@ onMounted(() => {
 
 watch(() => tema.value?.tokens, (tokens) => aplicarTema(tokens ?? {}), { deep: true });
 
-watch(compacta, (valor) => localStorage.setItem('acadion.barra.compacta', valor ? '1' : '0'));
+// La preferencia de contraída se recuerda, PERO la expansión temporal (abrir un
+// menú desde la barra contraída) no se persiste: así, al navegar y remontar el
+// layout, `localStorage` la devuelve a contraída (deja la barra como estaba).
+let persistirCompacta = true;
+watch(compacta, (valor) => {
+    if (persistirCompacta) {
+        localStorage.setItem('acadion.barra.compacta', valor ? '1' : '0');
+    }
+    persistirCompacta = true;
+});
 
 /**
  * Navegación (hasta 3 niveles), armada desde el CATÁLOGO compartido y ORDENADA
@@ -163,7 +176,15 @@ function esActiva(prefijo: string): boolean {
 
 // Al navegar se cierra el cajón móvil: si no, el menú se quedaría tapando la
 // página recién abierta.
-watch(rutaActual, () => (menuMovil.value = false));
+watch(rutaActual, () => {
+    menuMovil.value = false;
+    // Al navegar, si la barra se había expandido solo para abrir un menú, se
+    // vuelve a contraer (deja la barra como estaba antes de elegir la opción).
+    if (eraCompacta.value) {
+        compacta.value = true;
+        eraCompacta.value = false;
+    }
+});
 
 // Los grupos (y subgrupos) que contienen la ruta actual aparecen desplegados.
 watch(
@@ -178,6 +199,19 @@ watch(
 
 function alternarGrupo(clave: string): void {
     gruposAbiertos.value[clave] = !gruposAbiertos.value[clave];
+}
+
+// Clic en un grupo de nivel 1: si la barra está contraída, la expande (y marca
+// para recontraerla al navegar) abriendo ese grupo; si no, solo lo alterna.
+function activarGrupo(clave: string): void {
+    if (compacta.value) {
+        eraCompacta.value = true;
+        persistirCompacta = false; // expansión temporal: no cambia la preferencia
+        compacta.value = false;
+        gruposAbiertos.value[clave] = true;
+        return;
+    }
+    alternarGrupo(clave);
 }
 
 function salir(): void {
@@ -322,7 +356,7 @@ const iniciales = computed(() => {
                             :class="esActiva(seccion.prefijo) ? 'text-white' : 'hover:bg-white/5 hover:text-white'"
                             :style="esActiva(seccion.prefijo) ? { backgroundColor: 'var(--color-barra-lateral-suave)' } : {}"
                             :title="compacta ? seccion.etiqueta : undefined"
-                            @click="compacta ? (compacta = false) : alternarGrupo(seccion.clave)"
+                            @click="activarGrupo(seccion.clave)"
                         >
                             <svg class="h-5 w-5 shrink-0 transition-transform duration-200 group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" :d="seccion.icono" />

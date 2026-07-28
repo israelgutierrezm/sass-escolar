@@ -105,17 +105,17 @@ onBeforeUnmount(() => {
         <!-- Panel del formulario -->
         <div class="order-2 flex flex-1 items-center justify-center bg-white px-6 py-8 lg:order-first lg:py-10">
             <div class="entra w-full max-w-sm">
-                <div class="mb-8 flex flex-col items-center text-center lg:items-start lg:text-left">
-                    <!-- Una vez cargado, el logo de la institución reemplaza la
-                         marca genérica. Sin logo, cae al ícono por defecto. -->
+                <div class="mb-8 flex flex-col items-center text-center">
+                    <!-- El logo de la institución va centrado y grande, sin marco.
+                         Sin logo, cae al ícono genérico. -->
                     <img
                         v-if="institucion?.logo"
                         :src="institucion.logo"
                         :alt="institucion.nombre"
-                        class="h-16 w-16 rounded-2xl bg-white object-contain shadow-lg ring-1 ring-slate-200"
+                        class="h-28 w-auto max-w-[16rem] object-contain sm:h-32"
                     />
-                    <span v-else class="logo grid h-14 w-14 place-items-center rounded-2xl text-white shadow-lg">
-                        <svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                    <span v-else class="logo grid h-20 w-20 place-items-center rounded-2xl text-white shadow-lg">
+                        <svg class="h-11 w-11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 14l9-5-9-5-9 5 9 5z" />
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 14l6.16-3.42A12 12 0 0 1 12 21a12 12 0 0 1-6.16-10.42L12 14z" />
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 9v5" />
