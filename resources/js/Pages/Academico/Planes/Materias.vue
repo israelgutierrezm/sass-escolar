@@ -375,11 +375,20 @@ const etiquetaTipo = (tipo: string) => opcionesTipo.find((o) => o.valor === tipo
                             </td>
                             <td class="px-6 py-3">
                                 <div class="flex items-center justify-end gap-1">
-                                    <BotonAccion variante="ver" texto="Requisitos" :href="`/academico/planes/${plan.id}/materias/${materia.id}`" />
-                                    <template v-if="puedeEditar">
-                                        <BotonAccion variante="editar" @click="abrirEdicion(materia)" />
-                                        <BotonAccion variante="eliminar" @click="quitar(materia)" />
-                                    </template>
+                                    <!-- «Editar» abre la ficha completa: datos, descriptores, imágenes,
+                                         requisitos y evaluación en un solo lugar. -->
+                                    <BotonAccion
+                                        v-if="puedeEditar"
+                                        variante="editar"
+                                        :href="`/academico/planes/${plan.id}/materias/${materia.id}`"
+                                    />
+                                    <BotonAccion
+                                        v-else
+                                        variante="ver"
+                                        texto="Ver"
+                                        :href="`/academico/planes/${plan.id}/materias/${materia.id}`"
+                                    />
+                                    <BotonAccion v-if="puedeEditar" variante="eliminar" @click="quitar(materia)" />
                                 </div>
                             </td>
                         </tr>

@@ -355,6 +355,7 @@ Route::middleware([
 
                     Route::post('planes/{plan}/materias', [PlanMateriaController::class, 'store'])->name('planes.materias.store');
                     Route::put('planes/{plan}/materias/{materia}', [PlanMateriaController::class, 'update'])->name('planes.materias.update');
+                    Route::put('planes/{plan}/materias/{materia}/asignatura', [PlanMateriaController::class, 'actualizarAsignatura'])->name('planes.materias.asignatura');
                     Route::delete('planes/{plan}/materias/{materia}', [PlanMateriaController::class, 'destroy'])->name('planes.materias.destroy');
 
                     // Prerrequisitos (el DAG de seriación) y composición de la calificación.

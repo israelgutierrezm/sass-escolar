@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Models\Academico\Area;
 use App\Models\Academico\Asignatura;
 use App\Models\Academico\ClasificacionAsignatura;
+use App\Models\Academico\Descriptor;
 use App\Models\Academico\EsquemaEvaluacion;
 use App\Models\Academico\PlanEstudio;
 use App\Models\Academico\PlanMateria;
@@ -89,7 +90,7 @@ class PlanMateriaController extends Controller
         abort_unless($materia->plan_id === $plan->id, 404);
 
         $materia->load([
-            'asignatura:id,clave,nombre,creditos',
+            'asignatura.descriptores',
             'seriacion.requiere.asignatura:id,nombre',
             'esquemaEvaluacion',
             'plantillaEvaluacion:id,nombre',
@@ -98,17 +99,46 @@ class PlanMateriaController extends Controller
         $plan->load('carrera:id,nombre');
 
         $componentes = $materia->esquemaEvaluacion->sortBy('orden')->values();
+        $asig = $materia->asignatura;
 
         return Inertia::render('Academico/Planes/DetalleMateria', [
             'plan' => ['id' => $plan->id, 'nombre' => $plan->nombre, 'carrera' => $plan->carrera?->nombre],
             'materia' => [
                 'id' => $materia->id,
                 'clave_en_plan' => $materia->clave_en_plan,
-                'asignatura' => $materia->asignatura?->nombre,
+                'asignatura' => $asig?->nombre,
+                'asignatura_id' => $materia->asignatura_id,
                 'periodo' => $materia->periodo,
                 'tipo' => $materia->tipo,
-                'creditos' => $materia->creditos_en_plan ?? $materia->asignatura?->creditos,
+                'creditos_en_plan' => $materia->creditos_en_plan,
+                'creditos' => $materia->creditos_en_plan ?? $asig?->creditos,
             ],
+            // Datos completos de la asignatura para editarla desde aquí (todo en
+            // un solo lugar: datos, descriptores, imágenes, requisitos, evaluación).
+            'asignatura' => $asig === null ? null : [
+                'id' => $asig->id,
+                'identificador' => $asig->identificador,
+                'clave' => $asig->clave,
+                'nombre' => $asig->nombre,
+                'creditos' => $asig->creditos,
+                'tipo_asignatura_id' => $asig->tipo_asignatura_id,
+                'clasificacion_id' => $asig->clasificacion_id,
+                'area_id' => $asig->area_id,
+                'horas_teoria' => $asig->horas_teoria,
+                'horas_practica' => $asig->horas_practica,
+                'horas_acompanamiento' => $asig->horas_acompanamiento,
+                'horas_independientes' => $asig->horas_independientes,
+                'descriptores' => $asig->descriptores->map(fn (Descriptor $d) => [
+                    'descriptor_id' => $d->id,
+                    'nombre' => $d->nombre,
+                    'contenido' => $d->pivot->contenido,
+                ])->values(),
+                'imagenes' => $asig->urlsDiseno(),
+            ],
+            'tiposAsignatura' => TipoAsignatura::query()->orderBy('id')->get(['id', 'nombre']),
+            'clasificaciones' => ClasificacionAsignatura::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'areas' => Area::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'catalogoDescriptores' => Descriptor::query()->orderBy('id')->get(['id', 'nombre']),
             'seriacion' => $materia->seriacion->map(fn ($requisito) => [
                 'id' => $requisito->id,
                 'tipo' => $requisito->tipo,
@@ -200,7 +230,47 @@ class PlanMateriaController extends Controller
 
         $materia->update($this->validarUbicacion($request, $plan, $materia->id));
 
-        return back()->with('exito', 'Materia actualizada.');
+        return back()->with('exito', 'Ubicación actualizada.');
+    }
+
+    /**
+     * Editar la ASIGNATURA de la materia (datos + descriptores) desde la ficha
+     * del plan, sin salir de ella (por eso `back()`, no como el update de
+     * «Asignaturas» que manda al índice). Las imágenes usan los endpoints de
+     * asignatura; requisitos y evaluación tienen los suyos.
+     */
+    public function actualizarAsignatura(Request $request, PlanEstudio $plan, PlanMateria $materia): RedirectResponse
+    {
+        abort_unless($materia->plan_id === $plan->id, 404);
+
+        $asignatura = $materia->asignatura;
+        abort_if($asignatura === null, 404);
+
+        $datos = $request->validate([
+            'identificador' => ['required', 'string', 'max:50'],
+            'clave' => ['required', 'string', 'max:50', Rule::unique('asignaturas', 'clave')->ignore($asignatura->id)->whereNull('deleted_at')],
+            'nombre' => ['required', 'string', 'max:255'],
+            'creditos' => ['required', 'numeric', 'min:0'],
+            'tipo_asignatura_id' => ['required', 'integer', Rule::exists('tipos_asignatura', 'id')->whereNull('deleted_at')],
+            'clasificacion_id' => ['nullable', 'integer', Rule::exists('clasificaciones_asignatura', 'id')->whereNull('deleted_at')],
+            'area_id' => ['nullable', 'integer', Rule::exists('areas', 'id')->whereNull('deleted_at')],
+            'horas_teoria' => ['nullable', 'integer', 'min:0'],
+            'horas_practica' => ['nullable', 'integer', 'min:0'],
+            'horas_acompanamiento' => ['nullable', 'integer', 'min:0'],
+            'horas_independientes' => ['nullable', 'integer', 'min:0'],
+            'descriptores' => ['array'],
+            'descriptores.*.descriptor_id' => ['required', 'integer', Rule::exists('descriptores', 'id')->whereNull('deleted_at')],
+            'descriptores.*.contenido' => ['nullable', 'string'],
+        ], [], ['tipo_asignatura_id' => 'tipo de asignatura']);
+
+        $asignatura->update(collect($datos)->except('descriptores')->all());
+
+        $sync = collect($datos['descriptores'] ?? [])
+            ->mapWithKeys(fn (array $d) => [$d['descriptor_id'] => ['contenido' => $d['contenido'] ?? null]])
+            ->all();
+        $asignatura->descriptores()->sync($sync);
+
+        return back()->with('exito', 'Datos de la asignatura actualizados.');
     }
 
     /**
