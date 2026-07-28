@@ -155,6 +155,7 @@ export const CATALOGO_MENU: GrupoMenu[] = [
             { clave: 'accesos', etiqueta: 'Accesos', url: '/plataforma/accesos', permiso: 'ver-accesos' },
             { clave: 'roles', etiqueta: 'Roles y permisos', url: '/plataforma/roles', permiso: 'gestionar-roles' },
             { clave: 'menu', etiqueta: 'Menú', url: '/plataforma/menu', permiso: 'gestionar-roles' },
+            { clave: 'tarjetas', etiqueta: 'Panel por rol', url: '/plataforma/tarjetas', permiso: 'gestionar-roles' },
             { clave: 'reglas', etiqueta: 'Reglas de la escuela', url: '/plataforma/configuracion', permiso: 'ver-configuracion' },
             { clave: 'config-facturacion', etiqueta: 'Config. facturación', url: '/plataforma/configuraciones/facturacion', permiso: 'configurar-facturacion' },
             { clave: 'config-pasarelas', etiqueta: 'Pasarelas de pago', url: '/plataforma/configuraciones/pasarelas', permiso: 'configurar-facturacion' },

@@ -49,6 +49,7 @@ use App\Http\Controllers\PromocionController;
 use App\Http\Controllers\RolActivoController;
 use App\Http\Controllers\MenuRolController;
 use App\Http\Controllers\RolController;
+use App\Http\Controllers\TarjetaRolController;
 use App\Http\Controllers\SeriacionController;
 use App\Http\Controllers\SuplantacionController;
 use App\Http\Controllers\TemaController;
@@ -771,6 +772,16 @@ Route::middleware([
         // Editor del menú lateral por rol (arrastrar y soltar).
         Route::controller(MenuRolController::class)
             ->prefix('plataforma/menu')->name('tenant.plataforma.menu.')
+            ->middleware('can:gestionar-roles')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::put('/{rol}', 'guardar')->name('guardar');
+                Route::delete('/{rol}', 'restablecer')->name('restablecer');
+            });
+
+        // Editor del panel (tarjetas/widgets) por rol.
+        Route::controller(TarjetaRolController::class)
+            ->prefix('plataforma/tarjetas')->name('tenant.plataforma.tarjetas.')
             ->middleware('can:gestionar-roles')
             ->group(function () {
                 Route::get('/', 'index')->name('index');
