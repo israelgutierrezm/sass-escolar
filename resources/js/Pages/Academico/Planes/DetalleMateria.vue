@@ -9,6 +9,7 @@ import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoCasillas from '@/Components/CampoCasillas.vue';
 import EditorTexto from '@/Components/EditorTexto.vue';
+import FormularioAsignatura from '@/Components/FormularioAsignatura.vue';
 
 interface Opcion { id: number; nombre: string }
 interface DescriptorAsignatura { descriptor_id: number; nombre: string; contenido: string | null }
@@ -45,7 +46,6 @@ const props = defineProps<{
 }>();
 
 const base = computed(() => `/academico/planes/${props.plan.id}/materias/${props.materia.id}`);
-const opciones = (lista: Opcion[]) => lista.map((x) => ({ valor: x.id, texto: x.nombre }));
 
 const pestanas = [
     { clave: 'datos', etiqueta: 'Datos y ubicación' },
@@ -231,18 +231,13 @@ const etiquetaTipoReq = (tipo: string) => (tipo === 'aprobada' ? 'Aprobada' : 'C
         <div v-show="tab === 'datos'" class="space-y-4">
             <section class="tarjeta p-6">
                 <h3 class="text-base font-semibold">Datos de la asignatura</h3>
-                <div class="mt-4 grid gap-4 sm:grid-cols-4">
-                    <div class="sm:col-span-2"><CampoTexto v-model="formAsignatura.nombre" etiqueta="Nombre" requerido :error="formAsignatura.errors.nombre" /></div>
-                    <CampoTexto v-model="formAsignatura.clave" etiqueta="Clave" requerido mono :error="formAsignatura.errors.clave" />
-                    <CampoTexto v-model="formAsignatura.identificador" etiqueta="Identificador" requerido :error="formAsignatura.errors.identificador" />
-                    <CampoTexto v-model="formAsignatura.creditos" etiqueta="Créditos" tipo="number" requerido :error="formAsignatura.errors.creditos" />
-                    <CampoSelect v-model="formAsignatura.tipo_asignatura_id" etiqueta="Tipo de asignatura" requerido :opciones="opciones(tiposAsignatura)" vacio="Selecciona…" :error="formAsignatura.errors.tipo_asignatura_id" />
-                    <CampoSelect v-model="formAsignatura.clasificacion_id" etiqueta="Clasificación" :opciones="opciones(clasificaciones)" vacio="Sin especificar" :error="formAsignatura.errors.clasificacion_id" />
-                    <CampoSelect v-model="formAsignatura.area_id" etiqueta="Área" :opciones="opciones(areas)" vacio="Sin especificar" :error="formAsignatura.errors.area_id" />
-                    <CampoTexto v-model="formAsignatura.horas_teoria" etiqueta="Horas teoría" tipo="number" :error="formAsignatura.errors.horas_teoria" />
-                    <CampoTexto v-model="formAsignatura.horas_practica" etiqueta="Horas práctica" tipo="number" :error="formAsignatura.errors.horas_practica" />
-                    <CampoTexto v-model="formAsignatura.horas_acompanamiento" etiqueta="Horas acompañamiento" tipo="number" :error="formAsignatura.errors.horas_acompanamiento" />
-                    <CampoTexto v-model="formAsignatura.horas_independientes" etiqueta="Horas independientes" tipo="number" :error="formAsignatura.errors.horas_independientes" />
+                <div class="mt-4">
+                    <FormularioAsignatura
+                        :form="formAsignatura"
+                        :tipos-asignatura="tiposAsignatura"
+                        :clasificaciones="clasificaciones"
+                        :areas="areas"
+                    />
                 </div>
                 <div v-if="puedeEditar" class="mt-4">
                     <BotonPrincipal tipo="button" :procesando="formAsignatura.processing" texto="Guardar datos y descriptores" @click="guardarAsignatura" />

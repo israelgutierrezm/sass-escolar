@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
-import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
+import FormularioAsignatura from '@/Components/FormularioAsignatura.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import ZonaArchivo from '@/Components/ZonaArchivo.vue';
@@ -68,7 +68,13 @@ const vista = ref<'lista' | 'cuadricula'>(
 );
 watch(vista, (v) => localStorage.setItem('malla-vista', v));
 
-const opciones = (lista: { id: number; nombre: string }[]) => lista.map((x) => ({ valor: x.id, texto: x.nombre }));
+// Si se llega desde «Nueva asignatura» del catálogo (…/materias?nueva=1), se
+// abre el alta directo.
+onMounted(() => {
+    if (props.puedeEditar && new URLSearchParams(window.location.search).get('nueva') === '1') {
+        abrirAlta();
+    }
+});
 
 // Leyenda de áreas presentes en la malla (nombre → color), para leer la
 // cuadrícula sin adivinar qué academia es cada color.
@@ -307,41 +313,24 @@ function textoSobre(color: string | null): string {
                 </div>
             </div>
 
-            <form
-                v-if="mostrarAlta"
-                class="mt-5 grid gap-4 sm:grid-cols-6"
-                @submit.prevent="guardar"
-            >
-                <!-- Se crea la asignatura aquí mismo. -->
-                <p class="sm:col-span-6 text-xs font-semibold uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                    Datos de la asignatura
-                </p>
-                <div class="sm:col-span-3">
-                    <CampoTexto v-model="form.nombre" etiqueta="Nombre de la asignatura" requerido :error="form.errors.nombre" />
+            <form v-if="mostrarAlta" class="mt-5 space-y-4" @submit.prevent="guardar">
+                <!-- Datos de la asignatura: mismo componente que la ficha del plan. -->
+                <div>
+                    <p class="mb-3 text-xs font-semibold uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
+                        Datos de la asignatura
+                    </p>
+                    <FormularioAsignatura
+                        :form="form"
+                        :tipos-asignatura="tiposAsignatura"
+                        :clasificaciones="clasificaciones"
+                        :areas="areas"
+                    />
                 </div>
-                <CampoTexto v-model="form.clave" etiqueta="Clave" requerido mono :error="form.errors.clave" />
-                <CampoTexto v-model="form.identificador" etiqueta="Identificador" requerido :error="form.errors.identificador" />
-                <CampoTexto v-model="form.creditos" etiqueta="Créditos" tipo="number" requerido :error="form.errors.creditos" />
-
-                <CampoSelect
-                    v-model="form.tipo_asignatura_id"
-                    etiqueta="Tipo de asignatura"
-                    requerido
-                    :opciones="opciones(tiposAsignatura)"
-                    vacio="Selecciona…"
-                    :error="form.errors.tipo_asignatura_id"
-                />
-                <CampoSelect v-model="form.clasificacion_id" etiqueta="Clasificación" :opciones="opciones(clasificaciones)" vacio="Sin especificar" :error="form.errors.clasificacion_id" />
-                <CampoSelect v-model="form.area_id" etiqueta="Área" :opciones="opciones(areas)" vacio="Sin especificar" :error="form.errors.area_id" />
-                <CampoTexto v-model="form.horas_teoria" etiqueta="Horas teoría" tipo="number" :error="form.errors.horas_teoria" />
-                <CampoTexto v-model="form.horas_practica" etiqueta="Horas práctica" tipo="number" :error="form.errors.horas_practica" />
-                <CampoTexto v-model="form.horas_acompanamiento" etiqueta="Horas acompañamiento" tipo="number" :error="form.errors.horas_acompanamiento" />
-                <CampoTexto v-model="form.horas_independientes" etiqueta="Horas independientes" tipo="number" :error="form.errors.horas_independientes" />
 
                 <!-- Ubicación en el plan. -->
-                <div class="sm:col-span-6 border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">
+                <div class="border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">
                     <p class="mb-3 text-xs font-semibold uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">Ubicación en el plan</p>
-                    <div class="grid gap-4 sm:grid-cols-6">
+                    <div class="grid gap-4 sm:grid-cols-4">
                         <CampoSelect
                             v-model="form.periodo"
                             etiqueta="Periodo"
@@ -359,7 +348,7 @@ function textoSobre(color: string | null): string {
                     </div>
                 </div>
 
-                <div class="flex items-end gap-2 sm:col-span-6">
+                <div class="flex items-end gap-2">
                     <BotonPrincipal :procesando="form.processing" texto="Agregar" icono="crear" />
                     <button
                         type="button"
