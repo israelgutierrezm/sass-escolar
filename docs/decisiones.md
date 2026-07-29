@@ -2902,3 +2902,23 @@ decisión cambiara a una columna dedicada.
 En la UI, los formularios de Institución y Carrera etiquetan ese campo como
 «Clave oficial (SEP)» / «Clave (SEP)» con ayuda que aclara que es la
 cveInstitucion / cveCarrera del título.
+
+---
+
+## Documentos por carrera: era vestigio, se elimina
+
+El formulario de carrera tenía una sección «Documentos de admisión» (pivote
+`documento_carrera`). Al revisarlo, ESE pivote NO alimentaba el flujo real: los
+documentos que se piden a un aspirante salen de `documento_ambitos` (por
+ámbito/etapa), que consumen `ProgresoSolicitud` y `PortalAspiranteController`.
+Los checkboxes de la carrera guardaban datos que nadie leía.
+
+Decisión del cliente: la documentación no va en carrera —Académico debe ser
+carga de datos generales—. Se elimina el vestigio (sección del formulario,
+relaciones `Carrera::documentos()` / `DocumentoRequerido::carreras()`, el seed
+de CrearOfertaDemo y la tabla `documento_carrera`).
+
+PENDIENTE: la documentación requerida por PLAN de estudios y su administración
+se harán desde Admisiones, sobre el flujo real (`documento_ambitos`), con la
+granularidad que se defina (por plan/ámbito). No se creó `documento_plan` ahora
+para no dejar otro pivote sin consumir.

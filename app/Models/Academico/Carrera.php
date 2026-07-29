@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace App\Models\Academico;
 
-use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\Concerns\TieneAuditoria;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -47,16 +45,5 @@ class Carrera extends Model
     public function planes(): HasMany
     {
         return $this->hasMany(PlanEstudio::class, 'carrera_id');
-    }
-
-    /** Documentos que esta carrera exige en admisión. */
-    public function documentos(): BelongsToMany
-    {
-        return $this->belongsToMany(
-            DocumentoRequerido::class,
-            'documento_carrera',
-            'carrera_id',
-            'documento_id'
-        )->withTimestamps();
     }
 }

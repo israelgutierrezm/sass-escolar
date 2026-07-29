@@ -11,7 +11,6 @@ use App\Models\Academico\Oferta;
 use App\Models\Academico\PlanEstudio;
 use App\Models\Academico\TipoCampus;
 use App\Models\Academico\TipoPeriodo;
-use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\Landlord\NivelEstudio;
 use App\Models\Tenant;
 use Illuminate\Console\Command;
@@ -92,11 +91,6 @@ class CrearOfertaDemo extends Command
                 'turno_id' => null,
             ],
             ['modalidad' => 'presencial', 'estatus' => 'abierta'],
-        );
-
-        // Los documentos del catálogo se exigen a esta carrera.
-        $carrera->documentos()->syncWithoutDetaching(
-            DocumentoRequerido::query()->pluck('id')->all()
         );
 
         tenancy()->end();

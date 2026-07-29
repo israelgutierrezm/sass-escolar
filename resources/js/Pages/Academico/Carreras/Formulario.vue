@@ -9,9 +9,7 @@ import CampoSelect from '@/Components/CampoSelect.vue';
 
 const props = defineProps<{
     carrera: Record<string, any> | null;
-    documentosSeleccionados: number[];
     niveles: { id: number; nombre: string }[];
-    documentos: { id: number; nombre: string; obligatorio: boolean }[];
 }>();
 
 const esEdicion = computed(() => props.carrera !== null);
@@ -22,7 +20,6 @@ const form = useForm({
     nombre: props.carrera?.nombre ?? '',
     nivel_estudios_id: props.carrera?.nivel_estudios_id ?? null,
     imagen_url: props.carrera?.imagen_url ?? '',
-    documentos: [...props.documentosSeleccionados],
 });
 
 const opcionesNivel = computed(() => props.niveles.map((n) => ({ valor: n.id, texto: n.nombre })));
@@ -69,35 +66,6 @@ function enviar(): void {
                         vacio="Selecciona…"
                         :error="form.errors.nivel_estudios_id"
                     />
-                </div>
-            </section>
-
-            <section class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-                <h2 class="text-base font-semibold text-slate-800">Documentos de admisión</h2>
-                <p class="mt-1 text-sm text-slate-500">
-                    Qué se le pide al aspirante que quiere entrar a esta carrera.
-                </p>
-
-                <div class="mt-4 grid gap-2 sm:grid-cols-2">
-                    <label
-                        v-for="documento in documentos"
-                        :key="documento.id"
-                        class="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                    >
-                        <input
-                            v-model="form.documentos"
-                            type="checkbox"
-                            :value="documento.id"
-                            class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                        />
-                        <span class="text-slate-700">{{ documento.nombre }}</span>
-                        <span
-                            v-if="documento.obligatorio"
-                            class="ml-auto rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700"
-                        >
-                            Obligatorio
-                        </span>
-                    </label>
                 </div>
             </section>
 

@@ -6,7 +6,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Academico\Carrera;
 use App\Models\Academico\NivelEstudio;
-use App\Models\Admisiones\DocumentoRequerido;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -55,19 +54,13 @@ class CarreraController extends Controller
     {
         return Inertia::render('Academico/Carreras/Formulario', [
             'carrera' => null,
-            'documentosSeleccionados' => [],
             ...$this->catalogos(),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
-        $datos = $this->validar($request);
-        $documentos = $datos['documentos'] ?? [];
-        unset($datos['documentos']);
-
-        $carrera = Carrera::create($datos);
-        $carrera->documentos()->sync($documentos);
+        Carrera::create($this->validar($request));
 
         return redirect()->route('tenant.academico.carreras.index')->with('exito', 'Carrera creada.');
     }
@@ -79,19 +72,13 @@ class CarreraController extends Controller
                 'id', 'identificador', 'clave', 'nombre', 'nivel_estudios_id',
                 'imagen_url',
             ]),
-            'documentosSeleccionados' => $carrera->documentos()->pluck('documentos_requeridos.id'),
             ...$this->catalogos(),
         ]);
     }
 
     public function update(Request $request, Carrera $carrera): RedirectResponse
     {
-        $datos = $this->validar($request, $carrera->id);
-        $documentos = $datos['documentos'] ?? [];
-        unset($datos['documentos']);
-
-        $carrera->update($datos);
-        $carrera->documentos()->sync($documentos);
+        $carrera->update($this->validar($request, $carrera->id));
 
         return redirect()->route('tenant.academico.carreras.index')->with('exito', 'Carrera actualizada.');
     }
@@ -126,8 +113,6 @@ class CarreraController extends Controller
             // «Objetivo» se retiró del formulario a pedido del cliente. La
             // columna se conserva por si vuelve, pero ya no se captura aquí.
             'imagen_url' => ['nullable', 'string', 'max:255'],
-            'documentos' => ['array'],
-            'documentos.*' => ['integer'],
         ], [], [
             'nivel_estudios_id' => 'nivel de estudios',
         ]);
@@ -142,7 +127,6 @@ class CarreraController extends Controller
             // La clave SAT ya no se captura por carrera: vive en el nivel de
             // estudios (el SAT la asigna por nivel).
             'niveles' => NivelEstudio::query()->orderBy('orden')->get(['id', 'nombre']),
-            'documentos' => DocumentoRequerido::query()->orderBy('nombre')->get(['id', 'nombre', 'obligatorio']),
         ];
     }
 }

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Models\Admisiones;
 
-use App\Models\Academico\Carrera;
 use App\Models\Concerns\TieneAuditoria;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -45,13 +44,6 @@ class DocumentoRequerido extends Model
         return [
             'obligatorio' => 'boolean',
         ];
-    }
-
-    /** Carreras que exigen este documento. */
-    public function carreras(): BelongsToMany
-    {
-        return $this->belongsToMany(Carrera::class, 'documento_carrera', 'documento_id', 'carrera_id')
-            ->withTimestamps();
     }
 
     /**
