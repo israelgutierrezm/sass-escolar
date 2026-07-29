@@ -35,28 +35,41 @@ class ResponsableController extends Controller
         $tipo = (int) $request->route('tipo');
         $seccion = (string) $request->route('seccion');
 
+        $responsables = Responsable::deTipo($tipo)
+            ->with(['cargo:id,nombre', 'tituloProfesional:id,abreviatura,descripcion'])
+            ->orderByDesc('activo')
+            ->orderByDesc('id')
+            ->get();
+
         return Inertia::render('Emision/Responsables', [
             'seccion' => $seccion,
             'tituloSeccion' => $this->tituloSeccion($seccion),
             'maximo' => self::MAXIMO[$tipo] ?? 1,
-            'responsables' => Responsable::deTipo($tipo)
-                ->with(['cargo:id,nombre', 'tituloProfesional:id,abreviatura,descripcion'])
-                ->orderBy('id')
-                ->get()
-                ->map(fn (Responsable $r) => [
-                    'id' => $r->id,
-                    'nombre_completo' => $r->nombreCompleto(),
-                    'curp' => $r->curp,
-                    'cargo' => $r->cargo?->nombre,
-                    'titulo' => $r->tituloProfesional?->abreviatura,
-                    'cer_titular' => $r->cer_titular,
-                    'cer_serial' => $r->cer_serial,
-                    'vigencia_inicio' => $r->cer_vigencia_inicio?->format('d/m/Y'),
-                    'vigencia_fin' => $r->cer_vigencia_fin?->format('d/m/Y'),
-                ]),
+            // El alta se ofrece mientras haya cupo entre los ACTIVOS.
+            'activos' => $responsables->where('activo', true)->values()->map($this->aArreglo(...)),
+            // Los desactivados quedan como historial (sus firmas siguen ligadas).
+            'historial' => $responsables->where('activo', false)->values()->map($this->aArreglo(...)),
             'cargos' => Cargo::orderBy('nombre')->get(['id', 'nombre']),
             'titulos' => TituloProfesional::orderBy('abreviatura')->get(['id', 'abreviatura', 'descripcion']),
         ]);
+    }
+
+    /** @return array<string, mixed> */
+    private function aArreglo(Responsable $r): array
+    {
+        return [
+            'id' => $r->id,
+            'nombre_completo' => $r->nombreCompleto(),
+            'curp' => $r->curp,
+            'cargo' => $r->cargo?->nombre,
+            'titulo' => $r->tituloProfesional?->abreviatura,
+            'activo' => $r->activo,
+            'tiene_cer_guardado' => filled($r->cer_pem),
+            'cer_titular' => $r->cer_titular,
+            'cer_serial' => $r->cer_serial,
+            'vigencia_inicio' => $r->cer_vigencia_inicio?->format('d/m/Y'),
+            'vigencia_fin' => $r->cer_vigencia_fin?->format('d/m/Y'),
+        ];
     }
 
     /**
@@ -84,12 +97,14 @@ class ResponsableController extends Controller
             'certificado' => ['required', 'file', 'max:64'],
             'cargo_id' => ['required', 'integer', Rule::exists('cargos', 'id')],
             'titulo_profesional_id' => ['required', 'integer', Rule::exists('titulos_profesionales', 'id')],
+            'guardar_cer' => ['boolean'],
         ]);
 
-        // El límite es regla de negocio: certificación 1, titulación 2.
+        // El límite aplica a los ACTIVOS: certificación 1, titulación 2. Para
+        // reemplazar (cert vencido o cambio de responsable) se desactiva uno.
         $maximo = self::MAXIMO[$tipo] ?? 1;
-        if (Responsable::deTipo($tipo)->count() >= $maximo) {
-            return back()->with('error', "Este apartado admite máximo {$maximo} responsable(s). Elimina uno para agregar otro.");
+        if (Responsable::deTipo($tipo)->activos()->count() >= $maximo) {
+            return back()->with('error', "Ya hay {$maximo} responsable(s) activo(s). Desactiva uno para agregar otro.");
         }
 
         // La identidad SIEMPRE se toma del certificado (server-side), no del
@@ -116,22 +131,44 @@ class ResponsableController extends Controller
             'curp' => $cert['curp'],
             'cargo_id' => $datos['cargo_id'],
             'titulo_profesional_id' => $datos['titulo_profesional_id'],
+            'activo' => true,
             'cer_titular' => $cert['titular'],
             'cer_serial' => $cert['serial'],
             'cer_vigencia_inicio' => $cert['vigencia_inicio'],
             'cer_vigencia_fin' => $cert['vigencia_fin'],
+            // «Guardar mi .cer»: se almacena el certificado (público) para no
+            // volver a subirlo al firmar. El .key (privado) irá después, cifrado.
+            'cer_pem' => ($datos['guardar_cer'] ?? false) ? $lector->pem($contenido) : null,
         ]);
 
         return back()->with('exito', 'Responsable guardado.');
     }
 
+    /** Desactiva (retira) un responsable activo: se conserva como historial. */
+    public function desactivar(Request $request, Responsable $responsable): RedirectResponse
+    {
+        abort_unless($responsable->tipo_responsable_id === (int) $request->route('tipo'), 404);
+
+        $responsable->update(['activo' => false]);
+
+        return back()->with('exito', 'Responsable desactivado. Queda en el historial.');
+    }
+
+    /**
+     * Elimina un responsable del historial. Solo se permite sobre INACTIVOS: uno
+     * activo se desactiva primero, y más adelante se bloqueará si ya firmó algo.
+     */
     public function destroy(Request $request, Responsable $responsable): RedirectResponse
     {
         abort_unless($responsable->tipo_responsable_id === (int) $request->route('tipo'), 404);
 
+        if ($responsable->activo) {
+            return back()->with('error', 'Desactiva al responsable antes de eliminarlo.');
+        }
+
         $responsable->delete();
 
-        return back()->with('exito', 'Responsable eliminado.');
+        return back()->with('exito', 'Responsable eliminado del historial.');
     }
 
     private function tituloSeccion(string $seccion): string

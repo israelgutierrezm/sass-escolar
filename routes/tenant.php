@@ -831,6 +831,8 @@ Route::middleware([
                             Route::get('/', 'index')->defaults('seccion', $seccion)->defaults('tipo', $cfg['tipo'])->name('index');
                             Route::post('/leer-certificado', 'leerCertificado')->name('leer');
                             Route::post('/', 'store')->defaults('seccion', $seccion)->defaults('tipo', $cfg['tipo'])->name('store');
+                            Route::put('/{responsable}/desactivar', 'desactivar')->whereNumber('responsable')
+                                ->defaults('seccion', $seccion)->defaults('tipo', $cfg['tipo'])->name('desactivar');
                             Route::delete('/{responsable}', 'destroy')->whereNumber('responsable')
                                 ->defaults('seccion', $seccion)->defaults('tipo', $cfg['tipo'])->name('destroy');
                         });

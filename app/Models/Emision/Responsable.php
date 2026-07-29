@@ -26,10 +26,12 @@ class Responsable extends Model
         'curp',
         'cargo_id',
         'titulo_profesional_id',
+        'activo',
         'cer_titular',
         'cer_serial',
         'cer_vigencia_inicio',
         'cer_vigencia_fin',
+        'cer_pem',
     ];
 
     protected function casts(): array
@@ -37,6 +39,7 @@ class Responsable extends Model
         return [
             'cer_vigencia_inicio' => 'date',
             'cer_vigencia_fin' => 'date',
+            'activo' => 'boolean',
         ];
     }
 
@@ -59,6 +62,12 @@ class Responsable extends Model
     public function scopeDeTipo($query, int $tipoId)
     {
         return $query->where('tipo_responsable_id', $tipoId);
+    }
+
+    /** @param  \Illuminate\Database\Eloquent\Builder<Responsable>  $query */
+    public function scopeActivos($query)
+    {
+        return $query->where('activo', true);
     }
 
     public function nombreCompleto(): string

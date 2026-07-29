@@ -70,6 +70,12 @@ class LectorCertificado
         return '';
     }
 
+    /** El certificado en PEM, para guardarlo (dato público) y reusarlo al firmar. */
+    public function pem(string $contenido): string
+    {
+        return (new Certificate($contenido))->pem();
+    }
+
     /** True si el contenido es un certificado legible. */
     public function esValido(string $contenido): bool
     {
