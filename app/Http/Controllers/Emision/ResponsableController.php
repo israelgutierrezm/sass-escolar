@@ -127,15 +127,18 @@ class ResponsableController extends Controller
             }
         }
 
-        // Una serie de certificado no se registra dos veces (ni en otra persona).
-        if (CertificadoResponsable::query()->where('serie', $cert['serial'])->exists()) {
-            return back()->with('error', "Ese certificado (serie {$cert['serial']}) ya está registrado.");
-        }
-
         $existente = Responsable::deTipo($tipo)->where('curp', $cert['curp'])->first();
 
         if ($existente && $existente->activo) {
             return back()->with('error', 'Esa persona ya es responsable activo. Edítala para renovar su certificado.');
+        }
+
+        // Una serie no puede estar registrada en OTRA persona (la propia sí se reutiliza).
+        $serieAjena = CertificadoResponsable::query()->where('serie', $cert['serial'])
+            ->when($existente, fn ($q) => $q->where('responsable_id', '!=', $existente->id))
+            ->exists();
+        if ($serieAjena) {
+            return back()->with('error', "Ese certificado (serie {$cert['serial']}) ya está registrado con otro responsable.");
         }
 
         // El límite aplica a los ACTIVOS. Reactivar o crear suma uno activo.
@@ -156,7 +159,7 @@ class ResponsableController extends Controller
                 'activo' => true,
             ])->save();
 
-            $this->agregarCertificado($responsable, $cert, $contenido, (bool) ($datos['guardar_cer'] ?? false), $lector);
+            $this->guardarCertificado($responsable, $cert, $contenido, (bool) ($datos['guardar_cer'] ?? false), $lector);
         });
 
         return back()->with('exito', 'Responsable guardado.');
@@ -193,12 +196,13 @@ class ResponsableController extends Controller
             if (mb_strtoupper((string) $cert['curp']) !== mb_strtoupper((string) $responsable->curp)) {
                 return back()->with('error', 'El certificado es de otra persona (CURP distinta). Para cambiar de responsable, desactiva este y agrega uno nuevo.');
             }
-            if (CertificadoResponsable::query()->where('serie', $cert['serial'])->where('responsable_id', '!=', $responsable->id)->exists()
-                || CertificadoResponsable::query()->where('serie', $cert['serial'])->where('responsable_id', $responsable->id)->exists()) {
-                return back()->with('error', "Ese certificado (serie {$cert['serial']}) ya está registrado.");
+            // Solo es conflicto si la serie está en OTRA persona; la propia se
+            // reutiliza (p. ej. se subió sin guardar y ahora se quiere almacenar).
+            if (CertificadoResponsable::query()->where('serie', $cert['serial'])->where('responsable_id', '!=', $responsable->id)->exists()) {
+                return back()->with('error', "Ese certificado (serie {$cert['serial']}) ya está registrado con otro responsable.");
             }
 
-            $certActual = $this->agregarCertificado($responsable, $cert, $contenido, (bool) ($datos['guardar_cer'] ?? false), $lector);
+            $certActual = $this->guardarCertificado($responsable, $cert, $contenido, (bool) ($datos['guardar_cer'] ?? false), $lector);
         }
 
         // 2) Cargar la llave (opcional) sobre el certificado vigente.
@@ -229,14 +233,21 @@ class ResponsableController extends Controller
     }
 
     /**
-     * Agrega un certificado al historial y lo marca vigente (desactivando la
-     * vigencia de los anteriores). Guarda el .cer solo si se pidió.
+     * Registra el certificado como vigente de la persona. Si ya tiene ESE mismo
+     * cert (misma serie) NO lo duplica: lo reutiliza —así, si antes se subió sin
+     * guardar, ahora se puede almacenar—. Marca vigente y guarda el .cer si se pidió.
      */
-    private function agregarCertificado(Responsable $responsable, array $cert, string $contenido, bool $guardarCer, LectorCertificado $lector): CertificadoResponsable
+    private function guardarCertificado(Responsable $responsable, array $cert, string $contenido, bool $guardarCer, LectorCertificado $lector): CertificadoResponsable
     {
-        $responsable->certificados()->where('vigente', true)->update(['vigente' => false]);
+        $certificado = $responsable->certificados()->where('serie', $cert['serial'])->first()
+            ?? $responsable->certificados()->make();
 
-        $certificado = $responsable->certificados()->create([
+        // El vigente pasa a ser este; los demás dejan de serlo.
+        $responsable->certificados()->where('vigente', true)
+            ->when($certificado->exists, fn ($q) => $q->where('id', '!=', $certificado->id))
+            ->update(['vigente' => false]);
+
+        $certificado->fill([
             'serie' => $cert['serial'],
             'titular' => $cert['titular'],
             'vigencia_inicio' => $cert['vigencia_inicio'],
@@ -244,9 +255,12 @@ class ResponsableController extends Controller
             'vigente' => true,
         ]);
 
+        // cer_pem no es fillable (asignación directa lo evita); se guarda solo si se pidió.
         if ($guardarCer) {
-            $certificado->forceFill(['cer_pem' => $lector->pem($contenido)])->save();
+            $certificado->cer_pem = $lector->pem($contenido);
         }
+
+        $certificado->save();
 
         return $certificado;
     }
