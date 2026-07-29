@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
@@ -115,42 +115,66 @@ const opcionesPeriodo = computed(() =>
     Array.from({ length: props.plan.total_periodos ?? 0 }, (_, i) => ({ valor: i + 1, texto: `${props.plan.periodo_unidad} ${i + 1}` })),
 );
 
+interface GrupoMalla {
+    clave: string;
+    titulo: string;
+    /** Periodo destino para el botón «+» y el arrastre; null = sin periodo/optativas. */
+    periodo: number | null;
+    optativa: boolean;
+    lista: Materia[];
+}
+
 /**
- * Malla agrupada: las obligatorias y de tronco común van por periodo; TODAS las
- * optativas se juntan en su propio bloque al final (no pertenecen a un periodo
- * fijo, el alumno las elige). Así se leen ordenadas y no se mezclan.
+ * Malla agrupada. Se muestran SIEMPRE los N periodos que declara el plan (aunque
+ * estén vacíos), para poder cargar en cualquiera desde el inicio. Las materias
+ * sin periodo (o fuera de rango) caen en un bloque «sin periodo», y TODAS las
+ * optativas en el suyo al final (no pertenecen a un periodo fijo).
  */
-const grupos = computed(() => {
-    const porPeriodo = new Map<number | null, Materia[]>();
+const grupos = computed<GrupoMalla[]>(() => {
+    const porPeriodo = new Map<number, Materia[]>();
+    const sinPeriodo: Materia[] = [];
     const optativas: Materia[] = [];
+    const total = props.plan.total_periodos ?? 0;
 
     for (const materia of props.materias) {
         if (materia.tipo === 'optativa') {
             optativas.push(materia);
             continue;
         }
-        const clave = materia.periodo ?? null;
-        porPeriodo.set(clave, [...(porPeriodo.get(clave) ?? []), materia]);
+        if (materia.periodo !== null && materia.periodo >= 1 && materia.periodo <= total) {
+            porPeriodo.set(materia.periodo, [...(porPeriodo.get(materia.periodo) ?? []), materia]);
+        } else {
+            sinPeriodo.push(materia);
+        }
     }
 
-    const ordenados = [...porPeriodo.entries()]
-        .sort((a, b) => {
-            if (a[0] === null) return 1;
-            if (b[0] === null) return -1;
-            return a[0] - b[0];
-        })
-        .map(([periodo, lista]) => ({
-            clave: periodo === null ? 'sin-periodo' : `periodo-${periodo}`,
-            titulo: periodo === null ? `Sin ${props.plan.periodo_unidad.toLowerCase()} asignado` : `${props.plan.periodo_unidad} ${periodo}`,
+    const grupos: GrupoMalla[] = [];
+
+    for (let p = 1; p <= total; p++) {
+        grupos.push({
+            clave: `periodo-${p}`,
+            titulo: `${props.plan.periodo_unidad} ${p}`,
+            periodo: p,
             optativa: false,
-            lista,
-        }));
+            lista: porPeriodo.get(p) ?? [],
+        });
+    }
+
+    if (sinPeriodo.length) {
+        grupos.push({
+            clave: 'sin-periodo',
+            titulo: `Sin ${props.plan.periodo_unidad.toLowerCase()} asignado`,
+            periodo: null,
+            optativa: false,
+            lista: sinPeriodo,
+        });
+    }
 
     if (optativas.length) {
-        ordenados.push({ clave: 'optativas', titulo: 'Optativas', optativa: true, lista: optativas });
+        grupos.push({ clave: 'optativas', titulo: 'Optativas', periodo: null, optativa: true, lista: optativas });
     }
 
-    return ordenados;
+    return grupos;
 });
 
 const opcionesTipo = [
@@ -168,6 +192,15 @@ function abrirAlta(): void {
     mostrarAlta.value = true;
     form.reset();
     form.clearErrors();
+}
+
+// «+» de un periodo: abre el alta ya apuntando a ese periodo (y como optativa si
+// se pulsó en el bloque de optativas). Sube al formulario para capturar.
+function abrirAltaEn(grupo: GrupoMalla): void {
+    abrirAlta();
+    form.periodo = grupo.periodo;
+    form.tipo = grupo.optativa ? 'optativa' : 'obligatoria';
+    nextTick(() => document.getElementById('alta-materia')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
 }
 
 // La ubicación de una materia ya existente se edita en la ficha (hub), no aquí:
@@ -258,7 +291,7 @@ function textoSobre(color: string | null): string {
         </section>
 
         <!-- Alta -->
-        <section v-if="puedeEditar" class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+        <section id="alta-materia" v-if="puedeEditar" class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
             <div class="flex items-center justify-between">
                 <div>
                     <h2 class="text-base font-semibold text-slate-800">Agregar materia</h2>
@@ -368,7 +401,7 @@ function textoSobre(color: string | null): string {
         </section>
 
         <!-- Malla agrupada (periodos + un bloque de Optativas) -->
-        <template v-if="materias.length">
+        <template v-if="grupos.length">
             <!-- Barra: conmutador de vista + leyenda de áreas por color. -->
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div class="inline-flex rounded-lg border p-0.5" :style="{ borderColor: 'var(--color-borde)' }">
@@ -414,7 +447,19 @@ function textoSobre(color: string | null): string {
                                 <svg v-if="grupo.optativa" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" /></svg>
                                 {{ grupo.titulo }}
                             </span>
-                            <span class="text-xs opacity-70">{{ grupo.lista.length }}</span>
+                            <span class="flex items-center gap-1">
+                                <span class="text-xs opacity-70">{{ grupo.lista.length }}</span>
+                                <button
+                                    v-if="puedeEditar"
+                                    type="button"
+                                    class="grid h-5 w-5 place-items-center rounded-md text-base leading-none transition hover:brightness-110"
+                                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+                                    :title="`Agregar en ${grupo.titulo}`"
+                                    @click="abrirAltaEn(grupo)"
+                                >
+                                    +
+                                </button>
+                            </span>
                         </div>
 
                         <div class="space-y-3">
@@ -469,14 +514,31 @@ function textoSobre(color: string | null): string {
                         <svg v-if="grupo.optativa" class="h-4 w-4" :style="{ color: 'var(--color-acento)' }" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" /></svg>
                         {{ grupo.titulo }}
                     </h3>
-                    <span class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                        {{ grupo.lista.length }} materia(s) ·
-                        {{ grupo.lista.reduce((suma, m) => suma + (m.creditos ?? 0), 0) }} créditos
+                    <span class="flex items-center gap-3">
+                        <span class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                            {{ grupo.lista.length }} materia(s) ·
+                            {{ grupo.lista.reduce((suma, m) => suma + (m.creditos ?? 0), 0) }} créditos
+                        </span>
+                        <button
+                            v-if="puedeEditar"
+                            type="button"
+                            class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition hover:brightness-110"
+                            :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+                            :title="`Agregar en ${grupo.titulo}`"
+                            @click="abrirAltaEn(grupo)"
+                        >
+                            + Agregar
+                        </button>
                     </span>
                 </div>
 
                 <table class="w-full text-sm">
                     <tbody>
+                        <tr v-if="!grupo.lista.length">
+                            <td colspan="5" class="px-6 py-4 text-center text-xs" :style="{ color: 'var(--color-suave)' }">
+                                Sin materias en este {{ plan.periodo_unidad.toLowerCase() }}.
+                            </td>
+                        </tr>
                         <tr v-for="materia in grupo.lista" :key="materia.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
                             <td class="px-6 py-3 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ materia.clave_en_plan }}</td>
                             <td class="px-4 py-3">
@@ -526,7 +588,7 @@ function textoSobre(color: string | null): string {
         </template>
 
         <p v-else class="rounded-xl bg-white px-4 py-12 text-center text-sm text-slate-500 shadow-sm ring-1 ring-slate-200">
-            Este plan aún no tiene materias. Agrégalas desde el catálogo de asignaturas.
+            Este plan no declara periodos todavía. Define el total de periodos del plan para armar la malla.
         </p>
     </AppLayout>
 </template>
