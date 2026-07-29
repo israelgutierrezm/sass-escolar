@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import draggable from 'vuedraggable';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
@@ -129,8 +130,13 @@ interface GrupoMalla {
  * estén vacíos), para poder cargar en cualquiera desde el inicio. Las materias
  * sin periodo (o fuera de rango) caen en un bloque «sin periodo», y TODAS las
  * optativas en el suyo al final (no pertenecen a un periodo fijo).
+ *
+ * Es un `ref` (no computed) porque `vuedraggable` muta las listas al arrastrar;
+ * se reconstruye cuando cambian las materias del servidor.
  */
-const grupos = computed<GrupoMalla[]>(() => {
+const grupos = ref<GrupoMalla[]>([]);
+
+function construirGrupos(): void {
     const porPeriodo = new Map<number, Materia[]>();
     const sinPeriodo: Materia[] = [];
     const optativas: Materia[] = [];
@@ -148,10 +154,10 @@ const grupos = computed<GrupoMalla[]>(() => {
         }
     }
 
-    const grupos: GrupoMalla[] = [];
+    const nuevos: GrupoMalla[] = [];
 
     for (let p = 1; p <= total; p++) {
-        grupos.push({
+        nuevos.push({
             clave: `periodo-${p}`,
             titulo: `${props.plan.periodo_unidad} ${p}`,
             periodo: p,
@@ -161,7 +167,7 @@ const grupos = computed<GrupoMalla[]>(() => {
     }
 
     if (sinPeriodo.length) {
-        grupos.push({
+        nuevos.push({
             clave: 'sin-periodo',
             titulo: `Sin ${props.plan.periodo_unidad.toLowerCase()} asignado`,
             periodo: null,
@@ -171,11 +177,29 @@ const grupos = computed<GrupoMalla[]>(() => {
     }
 
     if (optativas.length) {
-        grupos.push({ clave: 'optativas', titulo: 'Optativas', periodo: null, optativa: true, lista: optativas });
+        nuevos.push({ clave: 'optativas', titulo: 'Optativas', periodo: null, optativa: true, lista: optativas });
     }
 
-    return grupos;
-});
+    grupos.value = nuevos;
+}
+
+watch(() => props.materias, construirGrupos, { immediate: true, deep: true });
+
+// Al soltar una materia en otro periodo (evento `added` de vuedraggable), se
+// persiste su nuevo periodo; el tipo no cambia. Optativas quedan fuera del
+// arrastre. Al confirmar el servidor recarga la malla y se reconstruyen grupos.
+function alMover(grupo: GrupoMalla, evento: any): void {
+    const movida = evento?.added?.element as Materia | undefined;
+
+    if (!movida || grupo.optativa) {
+        return;
+    }
+
+    router.put(`/academico/planes/${props.plan.id}/materias/${movida.id}`, {
+        periodo: grupo.periodo,
+        tipo: movida.tipo,
+    }, { preserveScroll: true });
+}
 
 const opcionesTipo = [
     { valor: 'obligatoria', texto: 'Obligatoria' },
@@ -462,37 +486,55 @@ function textoSobre(color: string | null): string {
                             </span>
                         </div>
 
-                        <div class="space-y-3">
-                            <a
-                                v-for="materia in grupo.lista"
-                                :key="materia.id"
-                                :href="`/academico/planes/${plan.id}/materias/${materia.id}`"
-                                class="block rounded-xl border p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                                :style="{ backgroundColor: fondoArea(materia.area_color), borderColor: 'color-mix(in srgb, #000 8%, transparent)', color: textoSobre(materia.area_color) }"
-                            >
-                                <div class="flex items-center justify-between gap-2">
-                                    <span class="font-mono text-[11px] opacity-80">{{ materia.clave_en_plan }}</span>
-                                    <span class="shrink-0 text-[11px] font-semibold opacity-90">
-                                        {{ materia.creditos ?? '—' }} cr
-                                    </span>
-                                </div>
-                                <p class="mt-1.5 text-sm font-semibold leading-snug">{{ materia.asignatura }}</p>
-                                <div class="mt-2 flex items-center justify-between gap-2">
-                                    <span class="truncate text-[11px] opacity-80">{{ materia.area || 'Sin área' }}</span>
-                                    <span
-                                        v-if="materia.tipo === 'optativa'"
-                                        class="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
-                                        :style="{ backgroundColor: 'color-mix(in srgb, #000 12%, transparent)' }"
-                                    >
-                                        Optativa
-                                    </span>
-                                </div>
-                            </a>
+                        <draggable
+                            :list="grupo.lista"
+                            :group="grupo.optativa ? { name: 'malla-opt', pull: false, put: false } : 'malla-materias'"
+                            :disabled="!puedeEditar"
+                            item-key="id"
+                            :animation="150"
+                            handle=".asa-materia"
+                            ghost-class="fantasma-arrastre"
+                            class="min-h-[2.5rem] space-y-3"
+                            @change="(e) => alMover(grupo, e)"
+                        >
+                            <template #item="{ element: materia }">
+                                <a
+                                    :href="`/academico/planes/${plan.id}/materias/${materia.id}`"
+                                    class="block rounded-xl border p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                                    :style="{ backgroundColor: fondoArea(materia.area_color), borderColor: 'color-mix(in srgb, #000 8%, transparent)', color: textoSobre(materia.area_color) }"
+                                >
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span class="flex items-center gap-1">
+                                            <span
+                                                v-if="puedeEditar"
+                                                class="asa-materia cursor-grab select-none text-sm leading-none opacity-70"
+                                                title="Arrastrar a otro periodo"
+                                                @click.prevent
+                                            >⠿</span>
+                                            <span class="font-mono text-[11px] opacity-80">{{ materia.clave_en_plan }}</span>
+                                        </span>
+                                        <span class="shrink-0 text-[11px] font-semibold opacity-90">
+                                            {{ materia.creditos ?? '—' }} cr
+                                        </span>
+                                    </div>
+                                    <p class="mt-1.5 text-sm font-semibold leading-snug">{{ materia.asignatura }}</p>
+                                    <div class="mt-2 flex items-center justify-between gap-2">
+                                        <span class="truncate text-[11px] opacity-80">{{ materia.area || 'Sin área' }}</span>
+                                        <span
+                                            v-if="materia.tipo === 'optativa'"
+                                            class="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                                            :style="{ backgroundColor: 'color-mix(in srgb, #000 12%, transparent)' }"
+                                        >
+                                            Optativa
+                                        </span>
+                                    </div>
+                                </a>
+                            </template>
+                        </draggable>
 
-                            <p v-if="!grupo.lista.length" class="rounded-lg border border-dashed p-3 text-center text-xs" :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }">
-                                Sin materias
-                            </p>
-                        </div>
+                        <p v-if="!grupo.lista.length" class="mt-1 rounded-lg border border-dashed p-3 text-center text-xs" :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }">
+                            Sin materias
+                        </p>
                     </div>
                 </div>
             </section>
@@ -533,52 +575,76 @@ function textoSobre(color: string | null): string {
                 </div>
 
                 <table class="w-full text-sm">
-                    <tbody>
-                        <tr v-if="!grupo.lista.length">
+                    <draggable
+                        tag="tbody"
+                        :list="grupo.lista"
+                        :group="grupo.optativa ? { name: 'malla-opt', pull: false, put: false } : 'malla-materias'"
+                        :disabled="!puedeEditar"
+                        item-key="id"
+                        :animation="150"
+                        handle=".asa-fila"
+                        ghost-class="fantasma-arrastre"
+                        @change="(e) => alMover(grupo, e)"
+                    >
+                        <template #item="{ element: materia }">
+                            <tr class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
+                                <td class="px-6 py-3 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">
+                                    <span class="flex items-center gap-1.5">
+                                        <span
+                                            v-if="puedeEditar"
+                                            class="asa-fila cursor-grab select-none text-sm opacity-60"
+                                            title="Arrastrar a otro periodo"
+                                            @click.stop
+                                        >⠿</span>
+                                        {{ materia.clave_en_plan }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <span class="font-medium">{{ materia.asignatura }}</span>
+                                    <span class="block font-mono text-xs" :style="{ color: 'var(--color-suave)' }">
+                                        catálogo: {{ materia.asignatura_clave }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <span
+                                        class="rounded-full px-2 py-1 text-xs"
+                                        :class="{
+                                            'bg-sky-100 text-sky-700': materia.tipo === 'tronco_comun',
+                                            'bg-indigo-50 text-indigo-700': materia.tipo === 'obligatoria',
+                                        }"
+                                        :style="materia.tipo === 'optativa' ? { backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' } : {}"
+                                    >
+                                        {{ etiquetaTipo(materia.tipo) }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">
+                                    {{ materia.creditos }} cr.
+                                </td>
+                                <td class="px-6 py-3">
+                                    <div class="flex items-center justify-end gap-1">
+                                        <!-- «Editar» abre la ficha completa: datos, descriptores, imágenes,
+                                             requisitos y evaluación en un solo lugar. -->
+                                        <BotonAccion
+                                            v-if="puedeEditar"
+                                            variante="editar"
+                                            :href="`/academico/planes/${plan.id}/materias/${materia.id}`"
+                                        />
+                                        <BotonAccion
+                                            v-else
+                                            variante="ver"
+                                            texto="Ver"
+                                            :href="`/academico/planes/${plan.id}/materias/${materia.id}`"
+                                        />
+                                        <BotonAccion v-if="puedeEditar" variante="eliminar" @click="quitar(materia)" />
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
+                    </draggable>
+                    <tbody v-if="!grupo.lista.length">
+                        <tr>
                             <td colspan="5" class="px-6 py-4 text-center text-xs" :style="{ color: 'var(--color-suave)' }">
                                 Sin materias en este {{ plan.periodo_unidad.toLowerCase() }}.
-                            </td>
-                        </tr>
-                        <tr v-for="materia in grupo.lista" :key="materia.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                            <td class="px-6 py-3 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ materia.clave_en_plan }}</td>
-                            <td class="px-4 py-3">
-                                <span class="font-medium">{{ materia.asignatura }}</span>
-                                <span class="block font-mono text-xs" :style="{ color: 'var(--color-suave)' }">
-                                    catálogo: {{ materia.asignatura_clave }}
-                                </span>
-                            </td>
-                            <td class="px-4 py-3">
-                                <span
-                                    class="rounded-full px-2 py-1 text-xs"
-                                    :class="{
-                                        'bg-sky-100 text-sky-700': materia.tipo === 'tronco_comun',
-                                        'bg-indigo-50 text-indigo-700': materia.tipo === 'obligatoria',
-                                    }"
-                                    :style="materia.tipo === 'optativa' ? { backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' } : {}"
-                                >
-                                    {{ etiquetaTipo(materia.tipo) }}
-                                </span>
-                            </td>
-                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">
-                                {{ materia.creditos }} cr.
-                            </td>
-                            <td class="px-6 py-3">
-                                <div class="flex items-center justify-end gap-1">
-                                    <!-- «Editar» abre la ficha completa: datos, descriptores, imágenes,
-                                         requisitos y evaluación en un solo lugar. -->
-                                    <BotonAccion
-                                        v-if="puedeEditar"
-                                        variante="editar"
-                                        :href="`/academico/planes/${plan.id}/materias/${materia.id}`"
-                                    />
-                                    <BotonAccion
-                                        v-else
-                                        variante="ver"
-                                        texto="Ver"
-                                        :href="`/academico/planes/${plan.id}/materias/${materia.id}`"
-                                    />
-                                    <BotonAccion v-if="puedeEditar" variante="eliminar" @click="quitar(materia)" />
-                                </div>
                             </td>
                         </tr>
                     </tbody>
@@ -592,3 +658,10 @@ function textoSobre(color: string | null): string {
         </p>
     </AppLayout>
 </template>
+
+<style scoped>
+/* La materia que se arrastra se ve translúcida en su hueco original. */
+.fantasma-arrastre {
+    opacity: 0.4;
+}
+</style>
