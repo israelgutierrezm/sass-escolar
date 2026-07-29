@@ -99,7 +99,7 @@ function enviar(): void {
                         :error="form.errors.numero_periodo"
                         :ayuda="`Clave del ciclo: ${clavePrevia} (se genera sola)`"
                     />
-                    <CampoTexto v-model="form.nombre" etiqueta="Nombre" requerido :error="form.errors.nombre" />
+                    <CampoTexto v-model="form.nombre" etiqueta="Nombre interno" requerido :error="form.errors.nombre" />
                     <CampoSelect
                         v-model="form.situacion_id"
                         etiqueta="Situación"
