@@ -43,7 +43,12 @@ class AsignaturaController extends Controller
 
         return Inertia::render('Academico/Asignaturas/Index', [
             'asignaturas' => Asignatura::query()
-                ->with(['tipoAsignatura:id,nombre', 'clasificacion:id,nombre', 'area:id,nombre'])
+                ->with([
+                    'tipoAsignatura:id,nombre', 'clasificacion:id,nombre', 'area:id,nombre',
+                    // Para el badge: cuando la asignatura vive en UN solo plan se
+                    // muestra su clave; en varios, el conteo. Catálogo puro dixit.
+                    'planMaterias:id,asignatura_id,plan_id', 'planMaterias.plan:id,clave',
+                ])
                 ->withCount('planMaterias')
                 ->when($filtros['busqueda'] !== '', function ($query) use ($filtros) {
                     $termino = "%{$filtros['busqueda']}%";
@@ -68,6 +73,11 @@ class AsignaturaController extends Controller
                     'area' => $asignatura->area?->nombre,
                     'horas' => $asignatura->horas_teoria + $asignatura->horas_practica,
                     'planes_count' => $asignatura->plan_materias_count,
+                    // Clave del plan cuando es exactamente uno; null si es
+                    // compartida entre varios o si aún no está en ninguno.
+                    'plan_clave' => $asignatura->plan_materias_count === 1
+                        ? $asignatura->planMaterias->first()?->plan?->clave
+                        : null,
                 ]),
             'filtros' => $filtros,
             'tiposAsignatura' => TipoAsignatura::query()->orderBy('id')->get(['id', 'nombre']),

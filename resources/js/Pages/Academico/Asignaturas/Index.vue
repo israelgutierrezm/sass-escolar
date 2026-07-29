@@ -18,6 +18,16 @@ interface Fila {
     area: string | null;
     horas: number;
     planes_count: number;
+    plan_clave: string | null;
+}
+
+// Texto del badge de planes. Catálogo puro: una asignatura puede vivir en
+// varios planes. Cuando está en uno solo se muestra su clave (más útil que
+// "1 plan"); en varios, el conteo; huérfana, "Sin plan".
+function etiquetaPlanes(fila: Fila): string {
+    if (fila.planes_count === 0) return 'Sin plan';
+    if (fila.planes_count === 1) return fila.plan_clave ?? '1 plan';
+    return `${fila.planes_count} planes`;
 }
 
 const props = defineProps<{
@@ -91,11 +101,12 @@ function eliminar(id: number, nombre: string): void {
                     <template #insignia>
                         <span
                             class="shrink-0 rounded-full px-2 py-1 text-xs"
+                            :class="{ 'font-mono': asignatura.planes_count === 1 && asignatura.plan_clave }"
                             :style="asignatura.planes_count
                                 ? { backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }
                                 : { backgroundColor: 'var(--color-borde)', color: 'var(--color-suave)' }"
                         >
-                            {{ asignatura.planes_count }} planes
+                            {{ etiquetaPlanes(asignatura) }}
                         </span>
                     </template>
                     <template v-if="puedeEditar" #acciones>
@@ -144,11 +155,12 @@ function eliminar(id: number, nombre: string): void {
                             <td class="px-4 py-3">
                                 <span
                                     class="rounded-full px-2 py-1 text-xs"
+                                    :class="{ 'font-mono': asignatura.planes_count === 1 && asignatura.plan_clave }"
                                     :style="asignatura.planes_count
                                         ? { backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }
                                         : { backgroundColor: 'var(--color-borde)', color: 'var(--color-suave)' }"
                                 >
-                                    {{ asignatura.planes_count }}
+                                    {{ etiquetaPlanes(asignatura) }}
                                 </span>
                             </td>
                             <td class="px-4 py-3">
