@@ -50,7 +50,14 @@ function enviar(): void {
                         :error="form.errors.identificador"
                         ayuda="ID estable, se conserva entre migraciones."
                     />
-                    <CampoTexto v-model="form.clave" etiqueta="Clave" requerido :error="form.errors.clave" mono />
+                    <CampoTexto
+                        v-model="form.clave"
+                        etiqueta="Clave (SEP)"
+                        requerido
+                        mono
+                        :error="form.errors.clave"
+                        ayuda="Clave oficial de la carrera ante la SEP (cveCarrera del título). El «Identificador» es interno."
+                    />
                     <div class="sm:col-span-2">
                         <CampoTexto v-model="form.nombre" etiqueta="Nombre" requerido :error="form.errors.nombre" />
                     </div>

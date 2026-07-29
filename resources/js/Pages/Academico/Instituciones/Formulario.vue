@@ -54,7 +54,14 @@ function enviar(): void {
 
         <form class="max-w-3xl space-y-6" @submit.prevent="enviar">
             <section class="tarjeta grid gap-4 p-6 sm:grid-cols-2">
-                <CampoTexto v-model="form.clave" etiqueta="Clave" requerido :error="form.errors.clave" mono />
+                <CampoTexto
+                    v-model="form.clave"
+                    etiqueta="Clave oficial (SEP)"
+                    requerido
+                    mono
+                    :error="form.errors.clave"
+                    ayuda="Clave de la institución ante la SEP; es la cveInstitucion del título electrónico."
+                />
                 <CampoTexto v-model="form.nombre" etiqueta="Nombre" requerido :error="form.errors.nombre" />
 
                 <div class="sm:col-span-2">

@@ -34,6 +34,16 @@ class Institucion extends Model
         return $this->hasMany(Campus::class, 'institucion_id');
     }
 
+    /**
+     * `cveInstitucion` del título electrónico de la SEP: se reutiliza la `clave`
+     * de la institución (por decisión, no hay columna oficial aparte). Punto
+     * único que consumirá el generador del XML de titulación.
+     */
+    public function cveInstitucion(): string
+    {
+        return $this->clave;
+    }
+
     /** Ruta autenticada del logo; null si no tiene. Nunca la ruta del disco. */
     public function urlLogo(): ?string
     {

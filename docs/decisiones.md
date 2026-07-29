@@ -2878,3 +2878,27 @@ niveles a la vez); `prueba-grupo-semestre` crea los ciclos y sincroniza sus
 niveles por el pivote. Verificado en el navegador: el formulario ofrece niveles
 como casillas y el aviso lista los dos marcados («Bachillerato, Licenciatura»).
 Total: 32 suites, 733 verificaciones.
+
+---
+
+## Clave oficial SEP (cveInstitucion / cveCarrera): se reutiliza la clave interna
+
+El título electrónico de la SEP (`SEP_XSDTituloElectronico.xsd`) exige
+`cveInstitucion` en el nodo Institución y `cveCarrera` en el nodo Carrera: la
+clave OFICIAL de la institución y de la carrera ante la SEP.
+
+Decisión del cliente: NO se agregan columnas oficiales aparte. Se reutiliza la
+`clave` que ya se captura en `instituciones` y en `carreras` como la clave
+oficial SEP; se asume que la clave que la escuela captura ES la de la SEP.
+En carreras, el `identificador` sigue siendo el id interno estable (academyx),
+distinto de la clave oficial.
+
+Para que la equivalencia quede explícita y estable de cara al futuro módulo de
+titulación, los modelos exponen `Institucion::cveInstitucion()` y
+`Carrera::cveCarrera()`, ambos devuelven `->clave`. El generador del XML de
+titulación consumirá esos métodos, no la columna directa, por si algún día la
+decisión cambiara a una columna dedicada.
+
+En la UI, los formularios de Institución y Carrera etiquetan ese campo como
+«Clave oficial (SEP)» / «Clave (SEP)» con ayuda que aclara que es la
+cveInstitucion / cveCarrera del título.
