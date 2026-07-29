@@ -247,8 +247,9 @@ class CicloController extends Controller
     private function validar(Request $request, ?int $id = null): array
     {
         $validados = $request->validate([
-            // El pivote se sincroniza aparte; aquí solo se valida su forma.
-            'campus_ids' => ['present', 'array'],
+            // El campus donde aplica es OBLIGATORIO: al menos uno. El pivote se
+            // sincroniza aparte; aquí solo se valida su forma.
+            'campus_ids' => ['required', 'array', 'min:1'],
             'campus_ids.*' => ['integer', Rule::exists('campus', 'id')->whereNull('deleted_at')],
             // La clave ya NO se teclea: se arma de año + periodo.
             'anio' => ['required', 'integer', 'digits:4', 'min:2000', 'max:2100'],
@@ -270,6 +271,8 @@ class CicloController extends Controller
             'inscripcion_hasta.after_or_equal' => 'El cierre de inscripción no puede ser antes de su apertura.',
             'anio.digits' => 'El año debe tener 4 dígitos.',
             'numero_periodo.between' => 'El número de periodo va del 1 al 4.',
+            'campus_ids.required' => 'Marca al menos un campus donde aplica el ciclo.',
+            'campus_ids.min' => 'Marca al menos un campus donde aplica el ciclo.',
         ], [
             'campus_ids' => 'campus',
             'situacion_id' => 'situación',

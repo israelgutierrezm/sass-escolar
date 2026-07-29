@@ -107,15 +107,6 @@ function enviar(): void {
                         :opciones="opciones(situaciones)"
                         :error="form.errors.situacion_id"
                     />
-                    <div class="sm:col-span-2">
-                        <CampoCasillas
-                            v-model="form.nivel_ids"
-                            etiqueta="Niveles de estudio (opcional)"
-                            :opciones="opciones(niveles)"
-                            :error="form.errors.nivel_ids"
-                            ayuda="Marca uno o varios. Si marcas alguno, los grupos del ciclo solo podrán ser de esos niveles; sin marcar ninguno, cualquier nivel."
-                        />
-                    </div>
                     <CampoTexto
                         v-model="form.fecha_inicio"
                         etiqueta="Inicio del ciclo"
@@ -135,14 +126,14 @@ function enviar(): void {
                 <div class="mt-5">
                     <CampoCasillas
                         v-model="form.campus_ids"
-                        etiqueta="Campus donde aplica"
+                        etiqueta="Campus donde aplica *"
                         :opciones="opciones(campus)"
                         :error="form.errors.campus_ids"
                         vacio="No tienes campus asignados."
                         :ayuda="
                             alcanceAcotado
-                                ? 'Solo aparecen los campus de tu alcance. Sin marcar ninguno, el ciclo es global de la escuela.'
-                                : 'Marca uno o varios. Sin marcar ninguno, el ciclo es global de la escuela.'
+                                ? 'Obligatorio. Solo aparecen los campus de tu alcance; marca al menos uno.'
+                                : 'Obligatorio. Marca al menos un campus donde aplicará el ciclo.'
                         "
                     />
 
@@ -154,6 +145,17 @@ function enviar(): void {
                         <span class="font-medium">{{ campusAjenos.join(', ') }}</span>, fuera de tu
                         alcance. No se modificarán al guardar.
                     </p>
+
+                    <!-- Niveles de estudio: debajo de campus, donde aplica. -->
+                    <div class="mt-5">
+                        <CampoCasillas
+                            v-model="form.nivel_ids"
+                            etiqueta="Niveles de estudio (opcional)"
+                            :opciones="opciones(niveles)"
+                            :error="form.errors.nivel_ids"
+                            ayuda="Marca uno o varios. Si marcas alguno, los grupos del ciclo solo podrán ser de esos niveles; sin marcar ninguno, cualquier nivel."
+                        />
+                    </div>
 
                     <!-- Aviso de lo que el ciclo acota: nivel y/o campus limitan
                          qué grupos podrán crearse dentro. -->

@@ -223,16 +223,14 @@ class OfertaController extends Controller
             'carrera_id' => ['required', 'integer', Rule::exists('carreras', 'id')->whereNull('deleted_at')],
             'plan_id' => ['required', 'integer', Rule::exists('planes_estudio', 'id')->whereNull('deleted_at')],
             'campus_id' => ['required', 'integer', Rule::exists('campus', 'id')->whereNull('deleted_at')],
-            'turno_id' => ['nullable', 'integer', Rule::exists('turnos', 'id')->whereNull('deleted_at')],
             // Ahora la modalidad sale del catálogo `modalidades` (se guarda su
-            // clave), no de un enum fijo.
+            // clave), no de un enum fijo. El turno ya no forma parte de la oferta.
             'modalidad' => ['required', Rule::in($modalidades)],
             'estatus' => ['required', Rule::in(['abierta', 'cerrada'])],
         ], [], [
             'carrera_id' => 'carrera',
             'plan_id' => 'plan de estudios',
             'campus_id' => 'campus',
-            'turno_id' => 'turno',
         ]);
 
         $this->validarCoherencia($request, $datos, $id);
@@ -254,9 +252,8 @@ class OfertaController extends Controller
     /**
      * Dos reglas que el esquema no puede expresar solo con FKs:
      *  1. El plan debe pertenecer a la carrera elegida.
-     *  2. No puede repetirse la misma combinación carrera+plan+campus+turno+
-     *     modalidad. (El índice único existe, pero MySQL trata los NULL de
-     *     turno como distintos, así que la duplicidad sin turno se valida aquí.)
+     *  2. No puede repetirse la misma combinación carrera+plan+campus+modalidad
+     *     (el turno ya no forma parte de la oferta).
      *
      * @param  array<string, mixed>  $datos
      */
@@ -269,17 +266,12 @@ class OfertaController extends Controller
             ->where('plan_id', $datos['plan_id'])
             ->where('campus_id', $datos['campus_id'])
             ->where('modalidad', $datos['modalidad'])
-            ->when(
-                $datos['turno_id'] === null,
-                fn ($q) => $q->whereNull('turno_id'),
-                fn ($q) => $q->where('turno_id', $datos['turno_id']),
-            )
             ->when($id !== null, fn ($q) => $q->whereKeyNot($id))
             ->exists();
 
         if ($duplicada) {
             throw ValidationException::withMessages([
-                'campus_id' => 'Ya existe esa combinación de carrera, plan, campus, turno y modalidad.',
+                'campus_id' => 'Ya existe esa combinación de carrera, plan, campus y modalidad.',
             ]);
         }
     }
