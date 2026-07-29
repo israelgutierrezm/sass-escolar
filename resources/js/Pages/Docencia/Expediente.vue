@@ -6,6 +6,7 @@ import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
+import TitulosDocente from '@/Components/TitulosDocente.vue';
 
 interface Documento {
     id: number;
@@ -20,8 +21,9 @@ interface Documento {
 
 const props = defineProps<{
     persona: Record<string, any>;
-    docente: { clave_profesor: string | null; cedula_profesional: string | null; tipo: string | null; situacion: string | null; campus: string[] };
+    docente: { clave_profesor: string | null; tipo: string | null; situacion: string | null; campus: string[] };
     documentos: Documento[];
+    titulos: { id: number; grado: string; titulo_obtenido: string; cedula: string | null; institucion: string | null; anio: number | null; archivo: string | null }[];
     tiposDocumento: { id: number; nombre: string }[];
     sexos: { id: number; nombre: string }[];
     generos: { id: number; nombre: string }[];
@@ -132,10 +134,6 @@ function quitarFoto(): void {
                     <dd class="mt-0.5 font-mono">{{ docente.clave_profesor ?? '—' }}</dd>
                 </div>
                 <div>
-                    <dt :style="{ color: 'var(--color-suave)' }">Cédula profesional</dt>
-                    <dd class="mt-0.5 font-mono">{{ docente.cedula_profesional ?? '—' }}</dd>
-                </div>
-                <div>
                     <dt :style="{ color: 'var(--color-suave)' }">Tipo</dt>
                     <dd class="mt-0.5">{{ docente.tipo ?? '—' }}</dd>
                 </div>
@@ -149,6 +147,9 @@ function quitarFoto(): void {
                 </div>
             </dl>
         </section>
+
+        <!-- Mis títulos / grados (los administra el propio docente) -->
+        <TitulosDocente :titulos="titulos" base="/docencia/expediente/titulos" :puede-editar="true" />
 
         <!-- Lo que sí mantiene el docente -->
         <form class="tarjeta p-6" @submit.prevent="guardar">

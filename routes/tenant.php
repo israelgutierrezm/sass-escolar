@@ -223,6 +223,10 @@ Route::middleware([
                 Route::post('documentos', 'subir')->name('documentos.store');
                 Route::get('documentos/{documento}/descargar', 'descargar')->name('documentos.descargar');
                 Route::delete('documentos/{documento}', 'eliminar')->name('documentos.destroy');
+                // Títulos/grados: el docente los administra él mismo.
+                Route::post('titulos', 'agregarTitulo')->name('titulos.store');
+                Route::get('titulos/{titulo}/archivo', 'descargarTitulo')->whereNumber('titulo')->name('titulos.archivo');
+                Route::delete('titulos/{titulo}', 'quitarTitulo')->whereNumber('titulo')->name('titulos.destroy');
             });
 
         Route::controller(CapturaCalificacionesController::class)

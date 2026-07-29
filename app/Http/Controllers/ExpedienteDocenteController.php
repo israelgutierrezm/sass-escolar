@@ -8,9 +8,11 @@ use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\Admisiones\EstadoDocumento;
 use App\Models\ControlEscolar\Docente;
 use App\Models\ControlEscolar\DocumentoDocente;
+use App\Models\ControlEscolar\TituloDocente;
 use App\Models\Identidad\Usuario;
 use App\Models\Landlord\Genero;
 use App\Models\Landlord\Sexo;
+use App\Services\GestorTitulosDocente;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -41,7 +43,7 @@ class ExpedienteDocenteController extends Controller
     public function show(Request $request): Response
     {
         $docente = $this->miDocente($request);
-        $docente->load(['persona', 'tipoDocente:id,nombre', 'situacion:id,nombre', 'campus:id,nombre']);
+        $docente->load(['persona', 'tipoDocente:id,nombre', 'situacion:id,nombre', 'campus:id,nombre', 'titulos']);
 
         $persona = $docente->persona;
 
@@ -64,11 +66,21 @@ class ExpedienteDocenteController extends Controller
             // De solo lectura: lo administra control escolar, no el docente.
             'docente' => [
                 'clave_profesor' => $docente->clave_profesor,
-                'cedula_profesional' => $docente->cedula_profesional,
                 'tipo' => $docente->tipoDocente?->nombre,
                 'situacion' => $docente->situacion?->nombre,
                 'campus' => $docente->campus->pluck('nombre')->all(),
             ],
+            // Sus títulos/grados: los administra él mismo. La URL del archivo
+            // apunta a la descarga del autoservicio.
+            'titulos' => $docente->titulos->map(fn (TituloDocente $t) => [
+                'id' => $t->id,
+                'grado' => $t->grado,
+                'titulo_obtenido' => $t->titulo_obtenido,
+                'cedula' => $t->cedula,
+                'institucion' => $t->institucion,
+                'anio' => $t->anio,
+                'archivo' => $t->archivo_url === null ? null : "/docencia/expediente/titulos/{$t->id}/archivo",
+            ]),
             'documentos' => DocumentoDocente::query()
                 ->with(['documento:id,nombre', 'estado:id,clave,nombre'])
                 ->where('persona_id', $docente->persona_id)
@@ -203,6 +215,32 @@ class ExpedienteDocenteController extends Controller
         $documento->delete();
 
         return back()->with('exito', 'Documento eliminado.');
+    }
+
+    public function agregarTitulo(Request $request, GestorTitulosDocente $gestor): RedirectResponse
+    {
+        $docente = $this->miDocente($request);
+        $datos = $request->validate($gestor->reglas());
+        $gestor->agregar($docente->persona_id, $datos, $request->file('archivo'));
+
+        return back()->with('exito', 'Título agregado.');
+    }
+
+    public function quitarTitulo(Request $request, TituloDocente $titulo, GestorTitulosDocente $gestor): RedirectResponse
+    {
+        $docente = $this->miDocente($request);
+        abort_unless($titulo->persona_id === $docente->persona_id, 404);
+        $gestor->quitar($titulo);
+
+        return back()->with('exito', 'Título eliminado.');
+    }
+
+    public function descargarTitulo(Request $request, TituloDocente $titulo, GestorTitulosDocente $gestor): StreamedResponse
+    {
+        $docente = $this->miDocente($request);
+        abort_unless($titulo->persona_id === $docente->persona_id, 404);
+
+        return $gestor->descargar($titulo);
     }
 
     /**
