@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
+import { toast } from 'vue-sonner';
 import axios from 'axios';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 
@@ -42,12 +42,11 @@ const props = defineProps<{
 const base = computed(() => `/${props.seccion}/configuracion/responsables`);
 const puedeAgregar = computed(() => props.responsables.length < props.maximo);
 
-// Datos leídos del .cer; null hasta que se carga uno válido. El formulario
-// (título y cargo) solo se habilita cuando hay certificado leído.
+// Datos leídos del .cer; null hasta que se carga uno válido. El formulario solo
+// aparece (y se puede guardar) cuando hay certificado leído.
 const cert = ref<DatosCert | null>(null);
 const listo = computed(() => cert.value !== null);
 const leyendo = ref(false);
-const errorCert = ref<string | null>(null);
 const arrastrando = ref(false);
 const entrada = ref<HTMLInputElement | null>(null);
 
@@ -59,7 +58,6 @@ const form = useForm<{ certificado: File | null; cargo_id: number | null; titulo
 
 async function procesar(archivo: File | null): Promise<void> {
     cert.value = null;
-    errorCert.value = null;
     form.certificado = archivo;
 
     if (!archivo) {
@@ -67,8 +65,8 @@ async function procesar(archivo: File | null): Promise<void> {
     }
 
     if (!archivo.name.toLowerCase().endsWith('.cer')) {
-        errorCert.value = 'El archivo debe ser un certificado con extensión .cer';
         form.certificado = null;
+        toast.error('El archivo debe ser un certificado con extensión .cer');
 
         return;
     }
@@ -77,11 +75,12 @@ async function procesar(archivo: File | null): Promise<void> {
     try {
         const datos = new FormData();
         datos.append('certificado', archivo);
-        const { data } = await axios.post(`${base.value}/leer-certificado`, datos);
+        const { data } = await axios.post<DatosCert>(`${base.value}/leer-certificado`, datos);
         cert.value = data;
+        toast.success(`Certificado leído: ${data.titular}`);
     } catch (e: any) {
-        errorCert.value = e?.response?.data?.error ?? 'No se pudo leer el certificado.';
         form.certificado = null;
+        toast.error(e?.response?.data?.error ?? 'No se pudo leer el certificado.');
     } finally {
         leyendo.value = false;
     }
@@ -98,7 +97,6 @@ function alCambiarInput(evento: Event): void {
 
 function limpiarCert(): void {
     cert.value = null;
-    errorCert.value = null;
     form.certificado = null;
     if (entrada.value) {
         entrada.value.value = '';
@@ -123,6 +121,15 @@ function eliminar(r: Responsable): void {
 
 const opcionesCargo = computed(() => props.cargos.map((c) => ({ valor: c.id, texto: c.nombre })));
 const opcionesTitulo = computed(() => props.titulos.map((t) => ({ valor: t.id, texto: `${t.abreviatura} — ${t.descripcion}` })));
+
+const datosCert = computed(() => [
+    { etiqueta: 'Nombre', valor: cert.value?.nombre, mono: false },
+    { etiqueta: 'Apellido paterno', valor: cert.value?.apellido_paterno, mono: false },
+    { etiqueta: 'Apellido materno', valor: cert.value?.apellido_materno || '—', mono: false },
+    { etiqueta: 'CURP', valor: cert.value?.curp, mono: true },
+    { etiqueta: 'Número de serie', valor: cert.value?.serial, mono: true },
+    { etiqueta: 'Vigencia', valor: `${cert.value?.vigencia_inicio} – ${cert.value?.vigencia_fin}`, mono: false },
+]);
 </script>
 
 <template>
@@ -147,9 +154,9 @@ const opcionesTitulo = computed(() => props.titulos.map((t) => ({ valor: t.id, t
                         <button type="button" class="shrink-0 text-sm text-red-600 hover:text-red-700" @click="eliminar(r)">Eliminar</button>
                     </div>
                     <dl class="mt-3 border-t pt-3 text-xs" :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }">
-                        <div class="flex justify-between"><dt>Titular del .cer</dt><dd class="text-right">{{ r.cer_titular }}</dd></div>
-                        <div class="mt-1 flex justify-between"><dt>Número de serie</dt><dd class="font-mono">{{ r.cer_serial }}</dd></div>
-                        <div class="mt-1 flex justify-between"><dt>Vigencia</dt><dd>{{ r.vigencia_inicio }} – {{ r.vigencia_fin }}</dd></div>
+                        <div class="flex justify-between gap-2"><dt>Titular del .cer</dt><dd class="truncate text-right">{{ r.cer_titular }}</dd></div>
+                        <div class="mt-1 flex justify-between gap-2"><dt>Número de serie</dt><dd class="font-mono">{{ r.cer_serial }}</dd></div>
+                        <div class="mt-1 flex justify-between gap-2"><dt>Vigencia</dt><dd>{{ r.vigencia_inicio }} – {{ r.vigencia_fin }}</dd></div>
                     </dl>
                 </div>
             </div>
@@ -160,65 +167,63 @@ const opcionesTitulo = computed(() => props.titulos.map((t) => ({ valor: t.id, t
             <h2 class="text-base font-semibold">Agregar responsable</h2>
             <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
                 Carga el certificado (<b>.cer</b>) del responsable. Sus datos se leen del archivo; solo
-                completas el título y el cargo.
+                completas el título y el cargo. Todos los campos son obligatorios.
             </p>
 
-            <form class="mt-5 space-y-5" @submit.prevent="guardar">
-                <!-- Zona de carga: arrastrar y soltar, o clic para elegir -->
-                <div v-if="!listo">
-                    <div
-                        class="zona"
-                        :class="{ 'zona--activa': arrastrando }"
-                        role="button"
-                        tabindex="0"
-                        @click="entrada?.click()"
-                        @keydown.enter.prevent="entrada?.click()"
-                        @dragover.prevent="arrastrando = true"
-                        @dragenter.prevent="arrastrando = true"
-                        @dragleave.prevent="arrastrando = false"
-                        @drop.prevent="alSoltar"
-                    >
-                        <input ref="entrada" type="file" accept=".cer" class="hidden" @change="alCambiarInput" />
-                        <svg class="mx-auto h-9 w-9" :style="{ color: 'var(--color-acento)' }" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
-                        </svg>
-                        <p class="mt-2 text-sm font-medium">
-                            <span v-if="leyendo">Leyendo certificado…</span>
-                            <span v-else>Arrastra el <b>.cer</b> aquí o haz clic para seleccionarlo</span>
-                        </p>
-                        <p class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">Solo archivos .cer del responsable</p>
+            <!-- Sin certificado: solo la zona de carga -->
+            <div v-if="!listo" class="mt-5">
+                <div
+                    class="zona"
+                    :class="{ 'zona--activa': arrastrando }"
+                    role="button"
+                    tabindex="0"
+                    @click="entrada?.click()"
+                    @keydown.enter.prevent="entrada?.click()"
+                    @dragover.prevent="arrastrando = true"
+                    @dragenter.prevent="arrastrando = true"
+                    @dragleave.prevent="arrastrando = false"
+                    @drop.prevent="alSoltar"
+                >
+                    <input ref="entrada" type="file" accept=".cer" class="hidden" @change="alCambiarInput" />
+                    <svg class="mx-auto h-8 w-8" :style="{ color: 'var(--color-acento)' }" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                    </svg>
+                    <p class="mt-2 text-sm font-medium">
+                        <span v-if="leyendo">Leyendo certificado…</span>
+                        <span v-else>Arrastra el <b>.cer</b> aquí o haz clic para seleccionarlo</span>
+                    </p>
+                    <p class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">Solo el archivo .cer del responsable</p>
+                </div>
+            </div>
+
+            <!-- Con certificado: datos leídos + lo que se completa -->
+            <form v-else class="mt-5 space-y-5" @submit.prevent="guardar">
+                <div class="rounded-xl border p-4" :style="{ borderColor: 'var(--color-borde)' }">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">Datos del certificado</p>
+                            <p class="mt-0.5 truncate font-semibold">{{ cert!.titular }}</p>
+                        </div>
+                        <button type="button" class="shrink-0 text-sm font-medium" :style="{ color: 'var(--color-acento)' }" @click="limpiarCert">
+                            Cambiar .cer
+                        </button>
                     </div>
-                    <p v-if="errorCert" class="mt-2 text-sm text-red-600">{{ errorCert }}</p>
+
+                    <dl class="mt-4 grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+                        <div v-for="d in datosCert" :key="d.etiqueta">
+                            <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">{{ d.etiqueta }}</dt>
+                            <dd class="mt-0.5 text-sm" :class="d.mono ? 'font-mono' : ''">{{ d.valor }}</dd>
+                        </div>
+                    </dl>
                 </div>
 
-                <!-- Resumen del certificado leído -->
-                <div v-else class="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4" :style="{ borderColor: 'var(--color-acento)', backgroundColor: 'color-mix(in srgb, var(--color-acento) 6%, transparent)' }">
-                    <div class="min-w-0">
-                        <p class="text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">Certificado cargado</p>
-                        <p class="truncate font-semibold">{{ cert!.titular }}</p>
-                        <p class="mt-0.5 text-xs" :style="{ color: 'var(--color-suave)' }">
-                            Serie {{ cert!.serial }} · vigente {{ cert!.vigencia_inicio }} – {{ cert!.vigencia_fin }}
-                        </p>
-                    </div>
-                    <button type="button" class="text-sm font-medium" :style="{ color: 'var(--color-acento)' }" @click="limpiarCert">
-                        Cambiar .cer
-                    </button>
-                </div>
-
-                <!-- Datos del responsable: identidad del .cer (solo lectura) + lo que se completa -->
                 <div class="grid gap-4 sm:grid-cols-2">
-                    <CampoTexto :model-value="cert?.nombre ?? ''" etiqueta="Nombre" deshabilitado />
-                    <CampoTexto :model-value="cert?.curp ?? ''" etiqueta="CURP" mono deshabilitado />
-                    <CampoTexto :model-value="cert?.apellido_paterno ?? ''" etiqueta="Apellido paterno" deshabilitado />
-                    <CampoTexto :model-value="cert?.apellido_materno ?? ''" etiqueta="Apellido materno" deshabilitado />
-
                     <CampoSelect
                         v-model="form.titulo_profesional_id"
                         etiqueta="Título profesional"
                         requerido
                         vacio="Seleccione una opción"
                         :opciones="opcionesTitulo"
-                        :deshabilitado="!listo"
                         :error="form.errors.titulo_profesional_id"
                     />
                     <CampoSelect
@@ -227,13 +232,16 @@ const opcionesTitulo = computed(() => props.titulos.map((t) => ({ valor: t.id, t
                         requerido
                         vacio="Seleccione una opción"
                         :opciones="opcionesCargo"
-                        :deshabilitado="!listo"
                         :error="form.errors.cargo_id"
                     />
                 </div>
 
                 <div class="flex justify-end">
-                    <BotonPrincipal :procesando="form.processing" texto="Guardar responsable" :deshabilitado="!listo" />
+                    <BotonPrincipal
+                        :procesando="form.processing"
+                        texto="Guardar responsable"
+                        :deshabilitado="!form.titulo_profesional_id || !form.cargo_id"
+                    />
                 </div>
             </form>
         </section>

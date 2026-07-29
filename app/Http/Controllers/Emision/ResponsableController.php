@@ -100,6 +100,14 @@ class ResponsableController extends Controller
         }
         $cert = $lector->leer($contenido);
 
+        // Todos los datos son obligatorios: si el certificado no trae la
+        // identidad completa, no se guarda a medias.
+        foreach (['curp' => 'la CURP', 'nombre' => 'el nombre', 'apellido_paterno' => 'el apellido paterno'] as $clave => $etiqueta) {
+            if (blank($cert[$clave] ?? null)) {
+                return back()->with('error', "El certificado no contiene {$etiqueta}. Verifica que sea el .cer correcto del responsable.");
+            }
+        }
+
         Responsable::create([
             'tipo_responsable_id' => $tipo,
             'nombre' => $cert['nombre'],

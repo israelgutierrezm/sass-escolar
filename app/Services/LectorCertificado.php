@@ -25,8 +25,7 @@ class LectorCertificado
     {
         $cert = new Certificate($contenido);
 
-        $partes = preg_split('/\s+/', trim($cert->subjectData('x500UniqueIdentifier'))) ?: [];
-        $curp = $partes[1] ?? '';
+        $curp = $this->extraerCurp($cert);
 
         $titular = $cert->legalName();
         [$nombre, $paterno, $materno] = $this->separarNombre($titular);
@@ -45,6 +44,30 @@ class LectorCertificado
             'vigencia_inicio' => $cert->validFromDateTime()->format('Y-m-d'),
             'vigencia_fin' => $cert->validToDateTime()->format('Y-m-d'),
         ];
+    }
+
+    /**
+     * Saca la CURP del certificado. En los .cer del SAT viene junto al RFC en
+     * `x500UniqueIdentifier`, pero el SEPARADOR varía (" ", " / ", "/"), así que
+     * NO se puede tomar por posición: se busca el patrón de CURP. Se intenta en
+     * ese campo y, si no, en `serialNumber` y en el nombre distinguido completo.
+     */
+    private function extraerCurp(Certificate $cert): string
+    {
+        // 18: 4 letras (2ª vocal) + 6 dígitos + sexo + 5 letras + homoclave + verificador.
+        $patron = '/\b([A-Z][AEIOUX][A-Z]{2}\d{6}[HM][A-Z]{5}[A-Z\d]\d)\b/i';
+
+        foreach ([
+            $cert->subjectData('x500UniqueIdentifier'),
+            $cert->subjectData('serialNumber'),
+            $cert->name(),
+        ] as $fuente) {
+            if (preg_match($patron, (string) $fuente, $m)) {
+                return mb_strtoupper($m[1]);
+            }
+        }
+
+        return '';
     }
 
     /** True si el contenido es un certificado legible. */
