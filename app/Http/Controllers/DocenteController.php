@@ -394,9 +394,9 @@ class DocenteController extends Controller
      */
     private function datosPersona(array $datos): array
     {
-        // IdentidadPersona resuelve sexo (derivado), entidad y país desde la
-        // CURP; el RFC no pasa por ahí, se agrega aparte.
-        return app(IdentidadPersona::class)->resolver($datos) + ['rfc' => $datos['rfc'] ?? null];
+        // IdentidadPersona resuelve todo: sexo (derivado), entidad y país desde
+        // la CURP, y el RFC normalizado. Es el único traductor de identidad.
+        return app(IdentidadPersona::class)->resolver($datos);
     }
 
     /**

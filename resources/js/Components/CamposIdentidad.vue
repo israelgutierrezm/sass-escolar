@@ -231,107 +231,113 @@ const notaCurp = computed(() => {
 </script>
 
 <template>
-    <div class="grid gap-4 sm:grid-cols-3">
-        <CampoTexto
-            v-model="form.nombre"
-            etiqueta="Nombre(s)"
-            requerido
-            :error="form.errors.nombre"
-            @blur="buscarDuplicados"
-        />
-        <CampoTexto
-            v-model="form.primer_apellido"
-            etiqueta="Primer apellido"
-            requerido
-            :error="form.errors.primer_apellido"
-            @blur="buscarDuplicados"
-        />
-        <CampoTexto
-            v-model="form.segundo_apellido"
-            etiqueta="Segundo apellido"
-            :error="form.errors.segundo_apellido"
-        />
+    <div class="space-y-4">
+        <!-- Nombre, identificadores y nacimiento: tres filas de tres. -->
+        <div class="grid gap-4 sm:grid-cols-3">
+            <CampoTexto
+                v-model="form.nombre"
+                etiqueta="Nombre(s)"
+                requerido
+                :error="form.errors.nombre"
+                @blur="buscarDuplicados"
+            />
+            <CampoTexto
+                v-model="form.primer_apellido"
+                etiqueta="Primer apellido"
+                requerido
+                :error="form.errors.primer_apellido"
+                @blur="buscarDuplicados"
+            />
+            <CampoTexto
+                v-model="form.segundo_apellido"
+                etiqueta="Segundo apellido"
+                :error="form.errors.segundo_apellido"
+            />
 
-        <CampoTexto
-            v-model="form.curp"
-            etiqueta="CURP"
-            mono
-            :maximo="18"
-            marcador="18 caracteres, o EXTRANJERO"
-            :error="form.errors.curp"
-            :ayuda="notaCurp ?? 'Al escribirla se llenan solos fecha, género y entidad.'"
-        />
+            <CampoTexto
+                v-model="form.curp"
+                etiqueta="CURP"
+                mono
+                :maximo="18"
+                marcador="18 caracteres, o EXTRANJERO"
+                :error="form.errors.curp"
+                :ayuda="notaCurp ?? 'Al escribirla se llenan solos fecha, género y entidad.'"
+            />
 
-        <CampoTexto
-            v-if="conRfc"
-            v-model="form.rfc"
-            etiqueta="RFC"
-            mono
-            :maximo="13"
-            :error="form.errors.rfc"
-            ayuda="Se prellena de la CURP (sin homoclave); complétalo si aplica."
-        />
+            <CampoTexto
+                v-if="conRfc"
+                v-model="form.rfc"
+                etiqueta="RFC"
+                mono
+                :maximo="13"
+                :error="form.errors.rfc"
+                ayuda="Se prellena de la CURP (sin homoclave); complétalo si aplica."
+            />
 
-        <CampoTexto
-            v-model="form.fecha_nacimiento"
-            etiqueta="Fecha de nacimiento"
-            tipo="date"
-            :error="form.errors.fecha_nacimiento"
-        />
+            <CampoTexto
+                v-model="form.fecha_nacimiento"
+                etiqueta="Fecha de nacimiento"
+                tipo="date"
+                :error="form.errors.fecha_nacimiento"
+            />
 
-        <CampoSelect
-            v-model="form.genero_id"
-            etiqueta="Género"
-            vacio="Sin especificar"
-            :opciones="generos.map((g) => ({ valor: g.id, texto: g.nombre }))"
-            :error="form.errors.genero_id"
-        />
+            <CampoSelect
+                v-model="form.genero_id"
+                etiqueta="Género"
+                vacio="Sin especificar"
+                :opciones="generos.map((g) => ({ valor: g.id, texto: g.nombre }))"
+                :error="form.errors.genero_id"
+            />
 
-        <CampoSelect
-            v-model="form.entidad_nacimiento_id"
-            etiqueta="Entidad de nacimiento"
-            vacio="Sin especificar"
-            :opciones="opcionesEntidad"
-            :error="form.errors.entidad_nacimiento_id"
-        />
+            <CampoSelect
+                v-model="form.entidad_nacimiento_id"
+                etiqueta="Entidad de nacimiento"
+                vacio="Sin especificar"
+                :opciones="opcionesEntidad"
+                :error="form.errors.entidad_nacimiento_id"
+            />
 
-        <SelectorBuscador
-            v-model="form.pais_nacimiento_id"
-            etiqueta="País de nacimiento"
-            vacio="Sin especificar"
-            :opciones="paises.map((p) => ({ valor: p.id, texto: p.nombre }))"
-            :deshabilitado="!esExtranjero"
-            :error="form.errors.pais_nacimiento_id"
-            :ayuda="esExtranjero ? 'Escribe para buscar entre los países.' : 'Se llena solo: México (por la CURP o el estado elegido).'"
-        />
+            <SelectorBuscador
+                v-model="form.pais_nacimiento_id"
+                etiqueta="País de nacimiento"
+                vacio="Sin especificar"
+                :opciones="paises.map((p) => ({ valor: p.id, texto: p.nombre }))"
+                :deshabilitado="!esExtranjero"
+                :error="form.errors.pais_nacimiento_id"
+                :ayuda="esExtranjero ? 'Escribe para buscar entre los países.' : 'Se llena solo: México (por la CURP o el estado elegido).'"
+            />
+        </div>
 
-        <CampoTexto
-            v-model="form.email"
-            etiqueta="Correo"
-            tipo="email"
-            :requerido="correoRequerido"
-            :error="form.errors.email ?? (correoConflicto ? `Ya registrado con ${correoConflicto}. Usa otro, o captura su CURP para reutilizarla.` : undefined)"
-            ayuda="Es el usuario con el que entrará al sistema."
-            @blur="buscarDuplicados"
-        />
+        <!-- Contacto: dos filas de dos. Correos juntos, teléfonos juntos. -->
+        <div class="grid gap-4 sm:grid-cols-2">
+            <CampoTexto
+                v-model="form.email"
+                etiqueta="Correo personal"
+                tipo="email"
+                :requerido="correoRequerido"
+                :error="form.errors.email ?? (correoConflicto ? `Ya registrado con ${correoConflicto}. Usa otro, o captura su CURP para reutilizarla.` : undefined)"
+                ayuda="Es el usuario con el que entrará al sistema."
+                @blur="buscarDuplicados"
+            />
 
-        <CampoTexto
-            v-model="form.correo_institucional"
-            etiqueta="Correo institucional"
-            tipo="email"
-            :error="form.errors.correo_institucional"
-            ayuda="Opcional. El correo de la escuela, si ya lo tiene."
-        />
+            <CampoTexto
+                v-model="form.correo_institucional"
+                etiqueta="Correo institucional"
+                tipo="email"
+                :error="form.errors.correo_institucional"
+                ayuda="Opcional. El correo de la escuela, si ya lo tiene."
+            />
 
-        <CampoTexto v-model="form.celular" etiqueta="Celular" tipo="tel" :error="form.errors.celular" />
+            <CampoTexto v-model="form.telefono_local" etiqueta="Teléfono local" tipo="tel" :error="form.errors.telefono_local" />
 
-        <CampoTexto v-model="form.telefono_local" etiqueta="Teléfono local" tipo="tel" :error="form.errors.telefono_local" />
+            <CampoTexto v-model="form.celular" etiqueta="Celular" tipo="tel" :error="form.errors.celular" />
+        </div>
 
         <!-- Posibles duplicados: se avisan, no se bloquean. Dos hermanos
              comparten apellidos y a veces el correo de la casa. -->
         <div
             v-if="duplicados.length"
-            class="rounded-lg border p-3 text-sm sm:col-span-3"
+            class="rounded-lg border p-3 text-sm"
             style="border-color: #f59e0b; background-color: color-mix(in srgb, #f59e0b 8%, transparent)"
         >
             <p class="font-medium">Puede que esta persona ya esté registrada</p>

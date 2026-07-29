@@ -81,6 +81,16 @@ class IdentidadPersona
         $resuelto['entidad_nacimiento_id'] = $entidad;
         $resuelto['pais_nacimiento_id'] = $pais;
 
+        // El RFC no se deriva de nada —es captura, no dato verificado como la
+        // CURP—, pero vive aquí para que TODOS los roles lo guarden igual y con
+        // el mismo formato. El formulario lo prellena con los primeros 10 de la
+        // CURP (mismas 4 letras + fecha); aquí solo se normaliza. Se escribe solo
+        // si viene: así, al reutilizar una persona por CURP, dejarlo en blanco no
+        // borra el RFC que ya tenía.
+        if (filled($datos['rfc'] ?? null)) {
+            $resuelto['rfc'] = mb_strtoupper(trim((string) $datos['rfc']));
+        }
+
         return $resuelto;
     }
 

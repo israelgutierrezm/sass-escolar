@@ -284,6 +284,7 @@ class AspiranteController extends Controller
                 'primer_apellido' => $aspirante->persona->primer_apellido,
                 'segundo_apellido' => $aspirante->persona->segundo_apellido,
                 'curp' => $aspirante->persona->curp,
+                'rfc' => $aspirante->persona->rfc,
                 'fecha_nacimiento' => $aspirante->persona->fecha_nacimiento?->toDateString(),
                 'genero_id' => $aspirante->persona->genero_id,
                 'entidad_nacimiento_id' => $aspirante->persona->entidad_nacimiento_id,

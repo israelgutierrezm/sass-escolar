@@ -149,6 +149,7 @@ class AlumnoController extends Controller
             'primer_apellido' => ['required', 'string', 'max:255'],
             'segundo_apellido' => ['nullable', 'string', 'max:255'],
             'curp' => array_filter(['nullable', 'string', 'max:20', new CurpValida]),
+            'rfc' => ['nullable', 'string', 'max:13'],
             'fecha_nacimiento' => ['nullable', 'date', 'before:today'],
             'genero_id' => ['nullable', 'integer'],
             'entidad_nacimiento_id' => ['nullable', 'integer'],

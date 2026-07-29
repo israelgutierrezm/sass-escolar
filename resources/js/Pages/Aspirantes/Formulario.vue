@@ -19,6 +19,7 @@ interface AspiranteEditable {
     primer_apellido: string;
     segundo_apellido: string | null;
     curp: string | null;
+    rfc: string | null;
     fecha_nacimiento: string | null;
     genero_id: number | null;
     entidad_nacimiento_id: number | null;
@@ -54,6 +55,7 @@ const form = useForm({
     primer_apellido: props.aspirante?.primer_apellido ?? '',
     segundo_apellido: props.aspirante?.segundo_apellido ?? '',
     curp: props.aspirante?.curp ?? '',
+    rfc: props.aspirante?.rfc ?? '',
     fecha_nacimiento: props.aspirante?.fecha_nacimiento ?? '',
     genero_id: props.aspirante?.genero_id ?? null,
     entidad_nacimiento_id: props.aspirante?.entidad_nacimiento_id ?? null,
@@ -119,6 +121,7 @@ function enviar(): void {
                         :mexico-id="mexicoId"
                         :persona-id="aspirante?.persona_id ?? null"
                         correo-requerido
+                        con-rfc
                     />
                 </div>
             </section>

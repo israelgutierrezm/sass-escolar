@@ -28,6 +28,7 @@ const form = useForm({
     primer_apellido: '',
     segundo_apellido: '',
     curp: '',
+    rfc: '',
     fecha_nacimiento: '',
     genero_id: null as number | null,
     entidad_nacimiento_id: null as number | null,
@@ -83,6 +84,7 @@ function enviar(): void {
                         :paises="paises"
                         :mexico-id="mexicoId"
                         correo-requerido
+                        con-rfc
                     />
                 </div>
             </section>

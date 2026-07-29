@@ -185,6 +185,7 @@ class UsuarioController extends Controller
             // reutilización por CURP (abajo), no un `unique` que rechazaría a un
             // egresado que vuelve como personal.
             'curp' => array_filter(['nullable', 'string', 'max:20', new CurpValida]),
+            'rfc' => ['nullable', 'string', 'max:13'],
             'fecha_nacimiento' => ['nullable', 'date', 'before:today'],
             'genero_id' => ['nullable', 'integer'],
             'entidad_nacimiento_id' => ['nullable', 'integer'],

@@ -58,6 +58,7 @@ class GuardarAspiranteRequest extends FormRequest
                     ? null
                     : Rule::unique('personas', 'curp')->ignore($personaId)->whereNull('deleted_at'),
             ]),
+            'rfc' => ['nullable', 'string', 'max:13'],
             'fecha_nacimiento' => ['nullable', 'date', 'before:today'],
             // `sexo_id` ya no se pregunta: se deriva de la CURP o del género en
             // `IdentidadPersona`. Preguntarlo era pedir dos veces lo mismo.
