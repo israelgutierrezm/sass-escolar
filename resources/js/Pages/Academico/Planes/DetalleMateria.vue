@@ -21,7 +21,7 @@ interface Requisito {
 interface Componente { id: number; componente: string; parcial: number | null; porcentaje: number; orden: number }
 
 const props = defineProps<{
-    plan: { id: number; nombre: string; carrera: string | null; total_periodos: number | null };
+    plan: { id: number; nombre: string; carrera: string | null; total_periodos: number | null; periodo_unidad: string };
     materia: {
         id: number;
         clave_en_plan: string;
@@ -105,7 +105,7 @@ const formUbicacion = useForm({
 });
 // El periodo se elige de 1 al total de periodos del plan; vacío = sin periodo.
 const opcionesPeriodo = computed(() =>
-    Array.from({ length: props.plan.total_periodos ?? 0 }, (_, i) => ({ valor: i + 1, texto: `Periodo ${i + 1}` })),
+    Array.from({ length: props.plan.total_periodos ?? 0 }, (_, i) => ({ valor: i + 1, texto: `${props.plan.periodo_unidad} ${i + 1}` })),
 );
 const opcionesTipoPlan = [
     { valor: 'obligatoria', texto: 'Obligatoria' },
@@ -201,7 +201,7 @@ const etiquetaTipoReq = (tipo: string) => (tipo === 'aprobada' ? 'Aprobada' : 'C
                     <h2 class="text-lg font-semibold">{{ materia.asignatura }}</h2>
                     <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
                         {{ plan.nombre }} · {{ plan.carrera }}
-                        <span v-if="materia.periodo"> · Periodo {{ materia.periodo }}</span>
+                        <span v-if="materia.periodo"> · {{ plan.periodo_unidad }} {{ materia.periodo }}</span>
                         · {{ materia.creditos }} créditos
                     </p>
                 </div>

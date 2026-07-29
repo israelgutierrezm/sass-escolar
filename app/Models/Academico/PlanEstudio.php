@@ -72,6 +72,25 @@ class PlanEstudio extends Model
         return $this->belongsTo(TipoPeriodo::class);
     }
 
+    /**
+     * Etiqueta singular con la que se numera la malla según el tipo de periodo
+     * del plan: «Semestre», «Cuatrimestre», etc. Los tipos que son adjetivo
+     * (MODULAR, ANUAL) se traducen a su sustantivo. Sin tipo cae a «Periodo».
+     */
+    public function unidadPeriodo(): string
+    {
+        $nombre = $this->tipoPeriodo?->nombre;
+
+        if ($nombre === null || $nombre === '') {
+            return 'Periodo';
+        }
+
+        $especiales = ['MODULAR' => 'Módulo', 'ANUAL' => 'Año'];
+
+        return $especiales[mb_strtoupper($nombre)]
+            ?? mb_strtoupper(mb_substr($nombre, 0, 1)).mb_strtolower(mb_substr($nombre, 1));
+    }
+
     public function planMaterias(): HasMany
     {
         return $this->hasMany(PlanMateria::class, 'plan_id');

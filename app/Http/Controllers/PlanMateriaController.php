@@ -35,7 +35,7 @@ class PlanMateriaController extends Controller
 {
     public function index(Request $request, PlanEstudio $plan): Response
     {
-        $plan->load('carrera:id,nombre');
+        $plan->load('carrera:id,nombre', 'tipoPeriodo:id,nombre');
 
         $materias = PlanMateria::query()
             ->with([
@@ -63,6 +63,8 @@ class PlanMateriaController extends Controller
                 'total_periodos' => $plan->total_periodos,
                 'total_creditos' => $plan->total_creditos,
                 'minimo_creditos' => $plan->minimo_creditos,
+                // Etiqueta del periodo según el tipo del plan (Semestre, Cuatrimestre…).
+                'periodo_unidad' => $plan->unidadPeriodo(),
             ],
             'materias' => $materias->map(fn (PlanMateria $materia) => [
                 'id' => $materia->id,
@@ -103,13 +105,13 @@ class PlanMateriaController extends Controller
             'plantillaEvaluacion:id,nombre',
         ]);
 
-        $plan->load('carrera:id,nombre');
+        $plan->load('carrera:id,nombre', 'tipoPeriodo:id,nombre');
 
         $componentes = $materia->esquemaEvaluacion->sortBy('orden')->values();
         $asig = $materia->asignatura;
 
         return Inertia::render('Academico/Planes/DetalleMateria', [
-            'plan' => ['id' => $plan->id, 'nombre' => $plan->nombre, 'carrera' => $plan->carrera?->nombre, 'total_periodos' => $plan->total_periodos],
+            'plan' => ['id' => $plan->id, 'nombre' => $plan->nombre, 'carrera' => $plan->carrera?->nombre, 'total_periodos' => $plan->total_periodos, 'periodo_unidad' => $plan->unidadPeriodo()],
             'materia' => [
                 'id' => $materia->id,
                 'clave_en_plan' => $materia->clave_en_plan,

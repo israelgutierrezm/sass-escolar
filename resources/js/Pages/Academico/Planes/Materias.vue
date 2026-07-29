@@ -32,6 +32,7 @@ const props = defineProps<{
         total_periodos: number | null;
         total_creditos: number | null;
         minimo_creditos: number;
+        periodo_unidad: string;
     };
     materias: Materia[];
     creditosCargados: number;
@@ -105,7 +106,7 @@ const form = useForm({
 // El periodo se elige de una lista de 1 al total de periodos del plan: no tiene
 // sentido teclear un número fuera de la malla. Vacío = sin periodo fijo (optativas).
 const opcionesPeriodo = computed(() =>
-    Array.from({ length: props.plan.total_periodos ?? 0 }, (_, i) => ({ valor: i + 1, texto: `Periodo ${i + 1}` })),
+    Array.from({ length: props.plan.total_periodos ?? 0 }, (_, i) => ({ valor: i + 1, texto: `${props.plan.periodo_unidad} ${i + 1}` })),
 );
 
 /**
@@ -134,7 +135,7 @@ const grupos = computed(() => {
         })
         .map(([periodo, lista]) => ({
             clave: periodo === null ? 'sin-periodo' : `periodo-${periodo}`,
-            titulo: periodo === null ? 'Sin periodo asignado' : `Periodo ${periodo}`,
+            titulo: periodo === null ? `Sin ${props.plan.periodo_unidad.toLowerCase()} asignado` : `${props.plan.periodo_unidad} ${periodo}`,
             optativa: false,
             lista,
         }));
