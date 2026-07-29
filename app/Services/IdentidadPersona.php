@@ -61,7 +61,9 @@ class IdentidadPersona
             'curp' => $curp?->valor,
             'genero_id' => $datos['genero_id'] ?? null,
             'email' => $datos['email'] ?? null,
+            'correo_institucional' => $datos['correo_institucional'] ?? null,
             'celular' => $datos['celular'] ?? null,
+            'telefono_local' => $datos['telefono_local'] ?? null,
         ];
 
         // La CURP manda sobre lo tecleado: es dato verificado con dígito
@@ -241,6 +243,9 @@ class IdentidadPersona
                 : ['id' => $extranjero->id, 'nombre' => 'Nacido en el extranjero'],
             'paises' => Pais::query()->orderBy('nombre')->get(['id', 'nombre']),
             'generos' => Genero::query()->orderBy('id')->get(['id', 'nombre']),
+            // Id de México, para que el bloque de identidad autollene el país al
+            // elegir un estado mexicano (sin CURP no hay de dónde deducirlo).
+            'mexicoId' => $this->mexico()?->id,
         ];
     }
 

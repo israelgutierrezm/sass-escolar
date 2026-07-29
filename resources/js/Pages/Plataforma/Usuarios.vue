@@ -6,6 +6,12 @@ import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import Paginacion from '@/Components/Paginacion.vue';
 import BarraListado from '@/Components/BarraListado.vue';
+import CamposIdentidad from '@/Components/CamposIdentidad.vue';
+
+interface Opcion {
+    id: number;
+    nombre: string;
+}
 
 interface Asignacion {
     id: number;
@@ -38,6 +44,11 @@ const props = defineProps<{
     filtros: Record<string, any>;
     roles: { id: number; nombre: string; faceta: string; es_faceta: boolean }[];
     campus: { id: number; nombre: string }[];
+    generos: Opcion[];
+    entidades: Opcion[];
+    entidadExtranjero: Opcion | null;
+    paises: Opcion[];
+    mexicoId: number | null;
 }>();
 
 /**
@@ -73,9 +84,14 @@ const alta = useForm({
     primer_apellido: '',
     segundo_apellido: '',
     curp: '',
-    sexo_id: 1,
-    usuario: '',
+    fecha_nacimiento: '',
+    genero_id: null as number | null,
+    entidad_nacimiento_id: null as number | null,
+    pais_nacimiento_id: null as number | null,
     email: '',
+    correo_institucional: '',
+    celular: '',
+    telefono_local: '',
     password: '',
     rol_id: props.roles[0]?.id ?? null,
     campus_id: null as number | null,
@@ -117,62 +133,50 @@ const rolesResumen = (u: UsuarioFila): string =>
                 <BotonAccion v-if="!creando" variante="nuevo" texto="Nueva cuenta" @click="creando = true" />
             </div>
 
-            <form v-if="creando" class="mt-5 grid gap-4 border-t pt-5 sm:grid-cols-4" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="crear">
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Nombre(s)</span>
-                    <input v-model="alta.nombre" type="text" required class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                </label>
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Primer apellido</span>
-                    <input v-model="alta.primer_apellido" type="text" required class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                </label>
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Segundo apellido</span>
-                    <input v-model="alta.segundo_apellido" type="text" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                </label>
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">CURP</span>
-                    <input v-model="alta.curp" type="text" maxlength="18" class="w-full rounded-lg border px-3 py-2 font-mono text-sm uppercase" :style="{ borderColor: 'var(--color-borde)' }" />
-                    <span class="text-xs" :style="{ color: 'var(--color-suave)' }">Si ya existe, se reutiliza esa persona.</span>
-                </label>
+            <form v-if="creando" class="mt-5 space-y-5 border-t pt-5" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="crear">
+                <!-- Mismo bloque de identidad que aspirantes: CURP con
+                     autollenado, correo como usuario, aviso de duplicados. -->
+                <CamposIdentidad
+                    :form="alta"
+                    :generos="generos"
+                    :entidades="entidades"
+                    :entidad-extranjero="entidadExtranjero"
+                    :paises="paises"
+                    :mexico-id="mexicoId"
+                    correo-requerido
+                />
 
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Usuario</span>
-                    <input v-model="alta.usuario" type="text" required class="w-full rounded-lg border px-3 py-2 font-mono text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                    <span v-if="alta.errors.usuario" class="text-xs text-red-600">{{ alta.errors.usuario }}</span>
-                </label>
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Correo</span>
-                    <input v-model="alta.email" type="email" required class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                    <span v-if="alta.errors.email" class="text-xs text-red-600">{{ alta.errors.email }}</span>
-                </label>
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Contraseña inicial</span>
-                    <input v-model="alta.password" type="text" required minlength="8" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                    <span class="text-xs" :style="{ color: 'var(--color-suave)' }">Dísela por un medio seguro.</span>
-                </label>
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Rol inicial</span>
-                    <select v-model="alta.rol_id" required class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
-                        <optgroup v-for="(lista, faceta) in rolesPorFaceta" :key="faceta" :label="faceta">
-                            <option v-for="r in lista" :key="r.id" :value="r.id">{{ r.nombre }}</option>
-                        </optgroup>
-                    </select>
-                </label>
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Acotar a campus</span>
-                    <select v-model="alta.campus_id" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
-                        <option :value="null">Toda la escuela</option>
-                        <option v-for="c in campus" :key="c.id" :value="c.id">{{ c.nombre }}</option>
-                    </select>
-                </label>
+                <div class="grid gap-4 sm:grid-cols-3">
+                    <label class="text-sm">
+                        <span class="mb-1 block font-medium">Contraseña inicial</span>
+                        <input v-model="alta.password" type="text" required minlength="8" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
+                        <span v-if="alta.errors.password" class="text-xs text-red-600">{{ alta.errors.password }}</span>
+                        <span v-else class="text-xs" :style="{ color: 'var(--color-suave)' }">Dísela por un medio seguro.</span>
+                    </label>
+                    <label class="text-sm">
+                        <span class="mb-1 block font-medium">Rol inicial</span>
+                        <select v-model="alta.rol_id" required class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
+                            <optgroup v-for="(lista, faceta) in rolesPorFaceta" :key="faceta" :label="faceta">
+                                <option v-for="r in lista" :key="r.id" :value="r.id">{{ r.nombre }}</option>
+                            </optgroup>
+                        </select>
+                        <span v-if="alta.errors.rol_id" class="text-xs text-red-600">{{ alta.errors.rol_id }}</span>
+                    </label>
+                    <label class="text-sm">
+                        <span class="mb-1 block font-medium">Acotar a campus</span>
+                        <select v-model="alta.campus_id" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
+                            <option :value="null">Toda la escuela</option>
+                            <option v-for="c in campus" :key="c.id" :value="c.id">{{ c.nombre }}</option>
+                        </select>
+                    </label>
+                </div>
 
-                <label class="flex items-center gap-2 text-sm sm:col-span-4">
+                <label class="flex items-center gap-2 text-sm">
                     <input v-model="alta.enviar_credenciales" type="checkbox" class="rounded" />
                     Enviar las credenciales por correo a la persona
                 </label>
 
-                <div class="flex items-end gap-2 sm:col-span-3">
+                <div class="flex items-center gap-2">
                     <BotonPrincipal :procesando="alta.processing" texto="Crear cuenta" icono="crear-circulo" solo-icono />
                     <button type="button" class="rounded-lg border px-4 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" @click="creando = false">
                         Cancelar

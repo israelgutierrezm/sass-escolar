@@ -24,7 +24,9 @@ interface AspiranteEditable {
     entidad_nacimiento_id: number | null;
     pais_nacimiento_id: number | null;
     email: string | null;
+    correo_institucional: string | null;
     celular: string | null;
+    telefono_local: string | null;
     oferta_interes_id: number | null;
     campus_id: number | null;
     situacion_id: number | null;
@@ -38,6 +40,7 @@ const props = defineProps<{
     entidades: Opcion[];
     entidadExtranjero: Opcion | null;
     paises: Opcion[];
+    mexicoId: number | null;
     situaciones: Opcion[];
     origenes: Opcion[];
     campus: Opcion[];
@@ -56,7 +59,9 @@ const form = useForm({
     entidad_nacimiento_id: props.aspirante?.entidad_nacimiento_id ?? null,
     pais_nacimiento_id: props.aspirante?.pais_nacimiento_id ?? null,
     email: props.aspirante?.email ?? '',
+    correo_institucional: props.aspirante?.correo_institucional ?? '',
     celular: props.aspirante?.celular ?? '',
+    telefono_local: props.aspirante?.telefono_local ?? '',
     oferta_interes_id: props.aspirante?.oferta_interes_id ?? null,
     campus_id: props.aspirante?.campus_id ?? null,
     situacion_id: props.aspirante?.situacion_id ?? props.situaciones[0]?.id ?? null,
@@ -111,6 +116,7 @@ function enviar(): void {
                         :entidades="entidades"
                         :entidad-extranjero="entidadExtranjero"
                         :paises="paises"
+                        :mexico-id="mexicoId"
                         :persona-id="aspirante?.persona_id ?? null"
                         correo-requerido
                     />

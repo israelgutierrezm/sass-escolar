@@ -34,6 +34,8 @@ const props = defineProps<{
     entidades: Opcion[];
     entidadExtranjero: Opcion | null;
     paises: Opcion[];
+    /** Id de México: para autollenar el país al elegir un estado mexicano. */
+    mexicoId?: number | null;
     /** Al editar, para no reportarse como duplicado de sí mismo. */
     personaId?: number | null;
     /** El correo es la credencial de acceso; casi siempre obligatorio. */
@@ -71,9 +73,6 @@ const esExtranjero = computed(
             props.form.entidad_nacimiento_id === props.entidadExtranjero.id),
 );
 
-/** Con CURP no se pregunta el país: tenerla implica registro en México. */
-const pidePais = computed(() => esExtranjero.value);
-
 const opcionesEntidad = computed(() => [
     // El extranjero va ARRIBA, pegado a «sin especificar», no perdido en la N
     // entre Nayarit y Nuevo León: es una respuesta de otra naturaleza.
@@ -88,6 +87,23 @@ watch(
     () => {
         clearTimeout(temporizador);
         temporizador = setTimeout(leerCurp, 400);
+    },
+);
+
+// El país se autollena: si la entidad de nacimiento es un estado mexicano, el
+// país es México; si es «extranjero», se deja que lo elijan a mano.
+watch(
+    () => props.form.entidad_nacimiento_id,
+    (entidad) => {
+        if (!('pais_nacimiento_id' in props.form) || props.mexicoId == null) {
+            return;
+        }
+
+        const esExtranjera = props.entidadExtranjero !== null && entidad === props.entidadExtranjero.id;
+
+        if (entidad != null && !esExtranjera) {
+            props.form.pais_nacimiento_id = props.mexicoId;
+        }
     },
 );
 
@@ -262,13 +278,13 @@ const notaCurp = computed(() => {
         />
 
         <SelectorBuscador
-            v-if="pidePais"
             v-model="form.pais_nacimiento_id"
             etiqueta="País de nacimiento"
             vacio="Sin especificar"
             :opciones="paises.map((p) => ({ valor: p.id, texto: p.nombre }))"
+            :deshabilitado="!esExtranjero"
             :error="form.errors.pais_nacimiento_id"
-            ayuda="Escribe para buscar entre los países."
+            :ayuda="esExtranjero ? 'Escribe para buscar entre los países.' : 'Se llena solo: México (por la CURP o el estado elegido).'"
         />
 
         <CampoTexto
@@ -281,7 +297,17 @@ const notaCurp = computed(() => {
             @blur="buscarDuplicados"
         />
 
+        <CampoTexto
+            v-model="form.correo_institucional"
+            etiqueta="Correo institucional"
+            tipo="email"
+            :error="form.errors.correo_institucional"
+            ayuda="Opcional. El correo de la escuela, si ya lo tiene."
+        />
+
         <CampoTexto v-model="form.celular" etiqueta="Celular" tipo="tel" :error="form.errors.celular" />
+
+        <CampoTexto v-model="form.telefono_local" etiqueta="Teléfono local" tipo="tel" :error="form.errors.telefono_local" />
 
         <!-- Posibles duplicados: se avisan, no se bloquean. Dos hermanos
              comparten apellidos y a veces el correo de la casa. -->

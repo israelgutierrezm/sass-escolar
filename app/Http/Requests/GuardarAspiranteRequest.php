@@ -78,7 +78,9 @@ class GuardarAspiranteRequest extends FormRequest
                     $fallar('Ese correo ya está registrado con otra persona ('.$conflicto->nombreCompleto().'). Usa otro, o captura su CURP para reutilizarla.');
                 }
             }],
+            'correo_institucional' => ['nullable', 'email', 'max:150'],
             'celular' => ['nullable', 'string', 'max:20'],
+            'telefono_local' => ['nullable', 'string', 'max:20'],
 
             // Aspirante
             'oferta_interes_id' => ['nullable', 'integer', Rule::exists('oferta', 'id')->whereNull('deleted_at')],

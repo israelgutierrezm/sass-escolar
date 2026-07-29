@@ -11,7 +11,10 @@ use App\Models\Identidad\Persona;
 use App\Models\Identidad\PersonaRol;
 use App\Models\Identidad\Rol;
 use App\Models\Identidad\Usuario;
+use App\Rules\CurpValida;
+use App\Services\AprovisionadorAcceso;
 use App\Services\BitacoraAccesos;
+use App\Services\IdentidadPersona;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -110,6 +113,10 @@ class UsuarioController extends Controller
                     'es_faceta' => $r->rol_padre_id === null,
                 ]),
             'campus' => Campus::orderBy('nombre')->get(['id', 'nombre']),
+            // Catálogos del bloque de identidad compartido (géneros, entidades,
+            // países, id de México). El alta de la cuenta captura la persona
+            // igual que aspirantes: CURP con autollenado, correo como usuario.
+            ...app(IdentidadPersona::class)->catalogosDeOrigen(),
         ]);
     }
 
@@ -163,36 +170,54 @@ class UsuarioController extends Controller
      * entra como docente pudo haber sido alumno, y duplicarlo rompería su
      * kárdex, sus roles y su expediente.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, IdentidadPersona $identidad): RedirectResponse
     {
+        // Se captura la PERSONA con el mismo bloque de identidad que aspirantes:
+        // la CURP se lee (autollena fecha, género, entidad, país) y el correo es
+        // la credencial —no hay un «usuario» aparte—. Ambos, CURP y correo, son
+        // únicos por escuela: no puede haber dos personas iguales en un tenant.
         $datos = $request->validate([
-            'nombre' => ['required', 'string', 'max:100'],
-            'primer_apellido' => ['required', 'string', 'max:100'],
-            'segundo_apellido' => ['nullable', 'string', 'max:100'],
-            'curp' => ['nullable', 'string', 'size:18'],
-            'sexo_id' => ['required', 'integer'],
-            'usuario' => ['required', 'string', 'max:60', Rule::unique('usuarios', 'usuario')],
-            'email' => ['required', 'email', 'max:150', Rule::unique('usuarios', 'email')],
+            'nombre' => ['required', 'string', 'max:255'],
+            'primer_apellido' => ['required', 'string', 'max:255'],
+            'segundo_apellido' => ['nullable', 'string', 'max:255'],
+            // Sin `size:18`: hay que dejar pasar EXTRANJERO; `CurpValida`
+            // comprueba el dígito verificador. La unicidad de la CURP la da la
+            // reutilización por CURP (abajo), no un `unique` que rechazaría a un
+            // egresado que vuelve como personal.
+            'curp' => array_filter(['nullable', 'string', 'max:20', new CurpValida]),
+            'fecha_nacimiento' => ['nullable', 'date', 'before:today'],
+            'genero_id' => ['nullable', 'integer'],
+            'entidad_nacimiento_id' => ['nullable', 'integer'],
+            'pais_nacimiento_id' => ['nullable', 'integer'],
+            // Correo obligatorio (es el usuario del login) y único en la
+            // plataforma; se excluye a la persona que se reutiliza por CURP.
+            'email' => ['required', 'email', 'max:150', function (string $atributo, mixed $valor, \Closure $fallar) use ($identidad, $request) {
+                $excluir = $identidad->existentePorCurp($request->input('curp'))?->id;
+                $conflicto = $identidad->correoEnUso($valor, $excluir);
+
+                if ($conflicto !== null) {
+                    $fallar('Ese correo ya está registrado con otra persona ('.$conflicto->nombreCompleto().'). Usa otro, o captura su CURP para reutilizarla.');
+                }
+            }],
+            'correo_institucional' => ['nullable', 'email', 'max:150'],
+            'celular' => ['nullable', 'string', 'max:20'],
+            'telefono_local' => ['nullable', 'string', 'max:20'],
             'password' => ['required', 'string', 'min:8'],
             'rol_id' => ['required', Rule::exists('roles', 'id')],
             'campus_id' => ['nullable', Rule::exists('campus', 'id')],
             'enviar_credenciales' => ['boolean'],
         ]);
 
-        DB::transaction(function () use ($datos) {
-            $persona = filled($datos['curp'] ?? null)
-                ? Persona::query()->where('curp', strtoupper($datos['curp']))->first()
-                : null;
+        $datos['curp'] = filled($datos['curp'] ?? null) ? mb_strtoupper(trim($datos['curp'])) : null;
+        $datos['email'] = mb_strtolower(trim($datos['email']));
 
-            // Los campos vacíos del alta NO pisan lo que ya estaba: si la
-            // persona existe, se le agrega la cuenta y nada más.
-            $persona ??= Persona::create([
-                'nombre' => $datos['nombre'],
-                'primer_apellido' => $datos['primer_apellido'],
-                'segundo_apellido' => $datos['segundo_apellido'] ?? null,
-                'curp' => filled($datos['curp'] ?? null) ? strtoupper($datos['curp']) : null,
-                'sexo_id' => $datos['sexo_id'],
-            ]);
+        DB::transaction(function () use ($datos, $identidad) {
+            // La CURP manda: si ya existe esa persona se reutiliza (no se
+            // duplica su expediente) y se le completan los datos.
+            $persona = $identidad->existentePorCurp($datos['curp']);
+            $persona === null
+                ? $persona = Persona::create($identidad->resolver($datos))
+                : $persona->update($identidad->resolver($datos));
 
             PersonaRol::firstOrCreate([
                 'persona_id' => $persona->id,
@@ -200,19 +225,22 @@ class UsuarioController extends Controller
                 'campus_id' => $datos['campus_id'] ?? null,
             ], ['activo' => true]);
 
-            // updateOrCreate y no create: si la persona ya tenía cuenta de censo
-            // (es docente, alumno…), esto le CONFIGURA el acceso en vez de
-            // reventar contra el índice único de persona_id.
-            $usuario = Usuario::updateOrCreate(
-                ['persona_id' => $persona->id],
-                [
-                    'usuario' => $datos['usuario'],
-                    'email' => $datos['email'],
-                    'password' => Hash::make($datos['password']),
-                    'acceso_configurado' => true,
-                    'rol_activo_id' => $datos['rol_id'],
-                ],
-            );
+            // firstOrNew y no updateOrCreate: si la persona ya tenía cuenta de
+            // censo (es docente, alumno…), se le CONFIGURA el acceso sin pisarle
+            // el nombre de usuario que ya tenía. El `usuario` es un identificador
+            // técnico —el login es por correo— derivado del correo la primera vez.
+            $usuario = Usuario::firstOrNew(['persona_id' => $persona->id]);
+
+            if (! $usuario->exists) {
+                $usuario->usuario = app(AprovisionadorAcceso::class)->usuarioDisponible($persona);
+            }
+
+            $usuario->fill([
+                'email' => $datos['email'],
+                'password' => Hash::make($datos['password']),
+                'acceso_configurado' => true,
+                'rol_activo_id' => $datos['rol_id'],
+            ])->save();
 
             if ($datos['enviar_credenciales'] ?? false) {
                 $this->enviarCredenciales($usuario, $datos['password']);

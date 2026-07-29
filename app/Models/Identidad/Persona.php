@@ -45,6 +45,7 @@ class Persona extends Model
         'email',
         'correo_institucional',
         'celular',
+        'telefono_local',
         'foto_url',
     ];
 
