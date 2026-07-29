@@ -261,10 +261,11 @@ function textoSobre(color: string | null): string {
                 <div class="flex items-center gap-2">
                     <button
                         type="button"
-                        class="rounded-lg border border-indigo-600 px-3 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50"
+                        class="rounded-lg border px-4 py-2 text-sm font-medium"
+                        :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
                         @click="mostrarCarga = !mostrarCarga"
                     >
-                        {{ mostrarCarga ? 'Ocultar carga' : 'Cargar por Excel' }}
+                        {{ mostrarCarga ? 'Ocultar' : 'Cargar desde Excel' }}
                     </button>
                     <BotonAccion v-if="!mostrarAlta" variante="nuevo" texto="Agregar materia" @click="abrirAlta" />
                 </div>
@@ -274,7 +275,8 @@ function textoSobre(color: string | null): string {
             <div v-if="mostrarCarga" class="mt-5 space-y-4 border-t border-slate-100 pt-5">
                 <a
                     :href="`/academico/planes/${plan.id}/plantilla-asignaturas`"
-                    class="inline-flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+                    class="inline-flex items-center gap-2 text-sm font-medium"
+                    :style="{ color: 'var(--color-acento)' }"
                 >
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 3v13.5m0 0 4.5-4.5M12 16.5 7.5 12" /></svg>
                     Descargar plantilla de asignaturas (.xlsx)
@@ -289,7 +291,11 @@ function textoSobre(color: string | null): string {
                     @archivo="subirAsignaturas"
                 />
 
-                <div v-if="erroresCarga.length" class="rounded-lg border border-amber-400 bg-amber-50 p-3 text-sm">
+                <div
+                    v-if="erroresCarga.length"
+                    class="rounded-lg border p-3 text-sm"
+                    :style="{ borderColor: '#f59e0b', backgroundColor: 'color-mix(in srgb, #f59e0b 8%, transparent)' }"
+                >
                     <p class="font-medium">El archivo tiene {{ erroresCarga.length }} error(es); corrígelos y vuelve a subirlo:</p>
                     <ul class="mt-2 max-h-64 space-y-1 overflow-auto text-xs">
                         <li v-for="(e, i) in erroresCarga" :key="i">
