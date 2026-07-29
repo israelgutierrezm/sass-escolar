@@ -122,6 +122,9 @@ class CatalogoAcademicoController extends Controller
             // Catálogos de valores oficiales (niveles, tipos de periodo) traen
             // `protegido`; el resto no tiene la columna.
             $protegible = Schema::hasColumn((new $modelo)->getTable(), 'protegido');
+            // La clave SAT (hoy sólo en niveles) se muestra como informativa: es
+            // dato oficial derivado del nivel, no editable desde aquí.
+            $conClaveSat = Schema::hasColumn((new $modelo)->getTable(), 'clave_sat');
             $extras = $def['extras'] ?? [];
 
             return [
@@ -133,14 +136,15 @@ class CatalogoAcademicoController extends Controller
                 // sepa qué input pintar; vacío para los catálogos simples.
                 'extras' => $extras,
                 'items' => $modelo::query()->orderBy($ordenable ? 'orden' : 'nombre')
-                    ->get(array_merge(['id', 'clave', 'nombre'], $protegible ? ['protegido'] : [], array_keys($extras)))
+                    ->get(array_merge(['id', 'clave', 'nombre'], $protegible ? ['protegido'] : [], $conClaveSat ? ['clave_sat'] : [], array_keys($extras)))
                     ->map(fn (Model $m) => array_merge([
                         'id' => $m->id,
                         'clave' => $m->clave,
                         'nombre' => $m->nombre,
                         'en_uso' => ($def['enUso'])($m->id),
                         'protegido' => $protegible ? (bool) $m->protegido : false,
-                    ], collect($extras)->keys()->mapWithKeys(fn (string $k) => [$k => $m->{$k}])->all())),
+                    ], $conClaveSat ? ['clave_sat' => $m->clave_sat] : [],
+                        collect($extras)->keys()->mapWithKeys(fn (string $k) => [$k => $m->{$k}])->all())),
             ];
         })->values();
 

@@ -50,7 +50,6 @@ class PlantillaAcademica
             'Los encabezados con * son obligatorios.',
             'Carrera (clave) en «Planes» debe coincidir con una Clave de la hoja «Carreras».',
             'Plan (clave) en «Asignaturas» debe coincidir con una Clave de la hoja «Planes».',
-            'La clave SAT de las carreras se asigna sola según el nivel; no va aquí.',
         ]);
 
         $this->hoja($libro, 'Campus', [

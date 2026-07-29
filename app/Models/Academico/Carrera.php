@@ -25,7 +25,6 @@ class Carrera extends Model
         'clave',
         'nombre',
         'nivel_estudios_id',
-        'clave_sat',
         'objetivo',
         'imagen_url',
     ];

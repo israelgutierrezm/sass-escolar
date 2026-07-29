@@ -94,14 +94,16 @@ class CatalogosAcademicosSeeder extends Seeder
 
         // Niveles de estudio OFICIALES: id fijo = clave, protegidos. `orden` fija
         // la progresión académica (asociado → TSU → licenciatura → especialidad →
-        // maestría → doctorado). Solo en tenants nuevos con estos ids.
+        // maestría → doctorado). El 4º valor es la clave SAT (ClaveProdServ del
+        // CFDI de colegiaturas): sólo el TSU lleva 86121803; el resto 86121804.
+        // Solo en tenants nuevos con estos ids.
         $this->sembrarFijos(NivelEstudio::class, [
-            [83, 'PROFESIONAL ASOCIADO', 1],
-            [84, 'TÉCNICO SUPERIOR UNIVERSITARIO', 2],
-            [81, 'LICENCIATURA', 3],
-            [85, 'ESPECIALIDAD', 4],
-            [82, 'MAESTRÍA', 5],
-            [95, 'DOCTORADO', 6],
+            [83, 'PROFESIONAL ASOCIADO', 1, '86121804'],
+            [84, 'TÉCNICO SUPERIOR UNIVERSITARIO', 2, '86121803'],
+            [81, 'LICENCIATURA', 3, '86121804'],
+            [85, 'ESPECIALIDAD', 4, '86121804'],
+            [82, 'MAESTRÍA', 5, '86121804'],
+            [95, 'DOCTORADO', 6, '86121804'],
         ]);
 
         // Modalidades: catálogo TENANT nuevo (presencial / en línea / mixta).
@@ -137,7 +139,7 @@ class CatalogosAcademicosSeeder extends Seeder
      * no colisionar con los ids ya asignados a sus carreras/planes.
      *
      * @param  class-string<\Illuminate\Database\Eloquent\Model>  $modelo
-     * @param  array<int, array{0: int, 1: string, 2?: int}>  $filas  [id, nombre, orden?]
+     * @param  array<int, array{0: int, 1: string, 2?: int, 3?: string}>  $filas  [id, nombre, orden?, claveSat?]
      */
     private function sembrarFijos(string $modelo, array $filas): void
     {
@@ -150,7 +152,9 @@ class CatalogosAcademicosSeeder extends Seeder
                 'clave' => (string) $id,
                 'nombre' => $nombre,
                 'protegido' => true,
-            ] + (isset($fila[2]) ? ['orden' => $fila[2]] : []))->save();
+            ]
+                + (isset($fila[2]) ? ['orden' => $fila[2]] : [])
+                + (isset($fila[3]) ? ['clave_sat' => $fila[3]] : []))->save();
         }
 
         // El catálogo queda EXACTAMENTE con estos valores: se quita lo demás

@@ -105,7 +105,7 @@ class ImportadorAcademico
                     'identificador' => trim((string) $r[0]),
                     'nombre' => trim((string) $r[2]),
                     'nivel_estudios_id' => $nivel['id'],
-                    'clave_sat' => $this->claveSat($nivel['clave']),
+                    // La clave SAT ya no se guarda por carrera: vive en el nivel.
                 ]);
                 $carreraId[trim((string) $r[1])] = $c->id;
                 $resumen['carreras']++;
@@ -341,11 +341,6 @@ class ImportadorAcademico
         $delArchivo = array_filter(array_map(fn ($f) => filled($f[1][$col] ?? null) ? trim((string) $f[1][$col]) : null, $filas));
 
         return array_values(array_unique(array_merge($existentes, $delArchivo)));
-    }
-
-    private function claveSat(string $claveNivel): string
-    {
-        return in_array($claveNivel, ['84', 'tecnico_superior'], true) ? '86121803' : '86121804';
     }
 
     private function norm(mixed $valor): string

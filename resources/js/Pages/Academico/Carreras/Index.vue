@@ -13,7 +13,6 @@ interface Carrera {
     clave: string;
     nombre: string;
     nivel: string | null;
-    clave_sat: string | null;
     planes_count: number;
 }
 
@@ -80,7 +79,6 @@ function eliminar(id: number, nombre: string): void {
                     :clave="carrera.clave"
                     :metas="[
                         { etiqueta: 'Nivel', valor: carrera.nivel },
-                        { etiqueta: 'Clave SAT', valor: carrera.clave_sat },
                         { etiqueta: 'Planes', valor: carrera.planes_count },
                     ]"
                 >
@@ -109,7 +107,6 @@ function eliminar(id: number, nombre: string): void {
                             <th class="px-4 py-3 font-medium">Clave</th>
                             <th class="px-4 py-3 font-medium">Nombre</th>
                             <th class="px-4 py-3 font-medium">Nivel</th>
-                            <th class="px-4 py-3 font-medium">Clave SAT</th>
                             <th class="px-4 py-3 font-medium">Planes</th>
                             <th class="px-4 py-3 font-medium text-right">Acciones</th>
                         </tr>
@@ -119,7 +116,6 @@ function eliminar(id: number, nombre: string): void {
                             <td class="px-4 py-3 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ carrera.clave }}</td>
                             <td class="px-4 py-3 font-medium">{{ carrera.nombre }}</td>
                             <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ carrera.nivel ?? '—' }}</td>
-                            <td class="px-4 py-3 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ carrera.clave_sat ?? '—' }}</td>
                             <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ carrera.planes_count }}</td>
                             <td class="px-4 py-3">
                                 <div v-if="puedeEditar" class="flex justify-end gap-1">

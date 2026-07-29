@@ -25,5 +25,8 @@ class NivelEstudio extends Model
         'clave',
         'nombre',
         'orden',
+        // ClaveProdServ del SAT para el CFDI de colegiaturas: la asigna el SAT
+        // por nivel, no por carrera.
+        'clave_sat',
     ];
 }

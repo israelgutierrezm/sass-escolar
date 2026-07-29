@@ -43,7 +43,6 @@ class CarreraController extends Controller
                     'clave' => $carrera->clave,
                     'nombre' => $carrera->nombre,
                     'nivel' => $carrera->nivelEstudios?->nombre,
-                    'clave_sat' => $carrera->clave_sat,
                     'planes_count' => $carrera->planes_count,
                 ]),
             'filtros' => $filtros,
@@ -78,7 +77,7 @@ class CarreraController extends Controller
         return Inertia::render('Academico/Carreras/Formulario', [
             'carrera' => $carrera->only([
                 'id', 'identificador', 'clave', 'nombre', 'nivel_estudios_id',
-                'clave_sat', 'imagen_url',
+                'imagen_url',
             ]),
             'documentosSeleccionados' => $carrera->documentos()->pluck('documentos_requeridos.id'),
             ...$this->catalogos(),
@@ -124,7 +123,6 @@ class CarreraController extends Controller
             // Ya es catálogo TENANT (misma conexión), así que se puede validar
             // que exista de verdad, cosa que con la landlord no se hacía.
             'nivel_estudios_id' => ['required', 'integer', Rule::exists('niveles_estudio', 'id')->whereNull('deleted_at')],
-            'clave_sat' => ['nullable', 'string', 'max:15'],
             // «Objetivo» se retiró del formulario a pedido del cliente. La
             // columna se conserva por si vuelve, pero ya no se captura aquí.
             'imagen_url' => ['nullable', 'string', 'max:255'],
@@ -132,7 +130,6 @@ class CarreraController extends Controller
             'documentos.*' => ['integer'],
         ], [], [
             'nivel_estudios_id' => 'nivel de estudios',
-            'clave_sat' => 'clave SAT',
         ]);
     }
 
@@ -142,26 +139,10 @@ class CarreraController extends Controller
     private function catalogos(): array
     {
         return [
-            // Cada nivel sugiere su ClaveProdServ del SAT (la asigna el SAT según
-            // el nivel de estudios); el formulario la autollena al elegirlo.
-            'niveles' => NivelEstudio::query()->orderBy('orden')->get(['id', 'nombre', 'clave'])
-                ->map(fn (NivelEstudio $n) => [
-                    'id' => $n->id,
-                    'nombre' => $n->nombre,
-                    'clave_sat_sugerida' => self::claveSatDeNivel($n->clave),
-                ]),
+            // La clave SAT ya no se captura por carrera: vive en el nivel de
+            // estudios (el SAT la asigna por nivel).
+            'niveles' => NivelEstudio::query()->orderBy('orden')->get(['id', 'nombre']),
             'documentos' => DocumentoRequerido::query()->orderBy('nombre')->get(['id', 'nombre', 'obligatorio']),
         ];
-    }
-
-    /**
-     * ClaveProdServ del SAT según el nivel: el Técnico Superior Universitario
-     * lleva 86121803 y todos los demás (licenciatura, maestría, especialidad,
-     * doctorado, profesional asociado) 86121804. Cubre la clave nueva («84») y
-     * la vieja («tecnico_superior») para funcionar en cualquier escuela.
-     */
-    private static function claveSatDeNivel(?string $claveNivel): string
-    {
-        return in_array($claveNivel, ['84', 'tecnico_superior'], true) ? '86121803' : '86121804';
     }
 }

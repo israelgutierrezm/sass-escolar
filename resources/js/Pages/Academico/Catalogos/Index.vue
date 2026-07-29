@@ -13,6 +13,7 @@ interface Item {
     en_uso: boolean;
     protegido?: boolean;
     color?: string | null;
+    clave_sat?: string | null;
 }
 
 interface Extra {
@@ -240,6 +241,14 @@ function esEditando(catalogo: string, id: number): boolean {
                                 </span>
                                 <span class="flex min-w-0 flex-1 items-center gap-2">
                                     <span class="min-w-0 break-words">{{ item.nombre }}</span>
+                                    <span
+                                        v-if="item.clave_sat"
+                                        class="shrink-0 rounded px-1.5 py-0.5 font-mono text-[11px]"
+                                        :style="{ backgroundColor: 'var(--color-fondo)', color: 'var(--color-suave)' }"
+                                        title="Clave SAT (ClaveProdServ) para el CFDI de colegiaturas"
+                                    >
+                                        SAT {{ item.clave_sat }}
+                                    </span>
                                     <span
                                         v-if="item.en_uso"
                                         class="shrink-0 rounded-full px-2 py-0.5 text-[11px]"
