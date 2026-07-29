@@ -17,7 +17,7 @@
             Al crearla se genera su base de datos, se migra y se siembra con los catálogos base. Toma unos segundos.
         </p>
 
-        <form method="POST" action="/escuelas">
+        <form method="POST" action="/escuelas" id="form-crear-escuela">
             @csrf
             <div style="display: grid; gap: 1rem; grid-template-columns: 1fr 1fr 1fr; align-items: end">
                 <div>
@@ -96,13 +96,32 @@
             </fieldset>
 
             <div style="margin-top: 1.2rem">
-                <button type="submit" class="btn">
+                <button type="submit" class="btn" id="btn-crear-escuela">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
                     Crear escuela
                 </button>
             </div>
         </form>
     </div>
+
+    {{-- Provisionar una escuela es síncrono y tarda unos segundos: al enviar se
+         bloquea el botón y se muestra un spinner para evitar el doble clic y la
+         sensación de que no respondió. El envío nativo ya arrancó cuando esto
+         corre, así que deshabilitar aquí NO cancela el POST. --}}
+    <script>
+        (function () {
+            var form = document.getElementById('form-crear-escuela');
+            var btn = document.getElementById('btn-crear-escuela');
+            if (!form || !btn) return;
+
+            form.addEventListener('submit', function () {
+                if (btn.disabled) return;
+                btn.disabled = true;
+                btn.setAttribute('aria-disabled', 'true');
+                btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Creando escuela…';
+            });
+        })();
+    </script>
 
     {{-- Listado --}}
     <div class="tarjeta" style="padding: 0; overflow: hidden">

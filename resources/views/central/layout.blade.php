@@ -76,7 +76,14 @@
             color: #fff; transition: filter .15s;
         }
         .btn:hover { filter: brightness(1.08); text-decoration: none; }
+        .btn:disabled, .btn[aria-disabled=true] { cursor: not-allowed; opacity: .7; filter: none; pointer-events: none; }
         .btn svg { width: 16px; height: 16px; }
+        .spinner {
+            width: 15px; height: 15px; border-radius: 50%;
+            border: 2px solid rgba(255,255,255,.45); border-top-color: #fff;
+            animation: giro .7s linear infinite; flex: none;
+        }
+        @keyframes giro { to { transform: rotate(360deg); } }
         .btn-fantasma { background: transparent; border-color: var(--borde); color: var(--texto); }
         .btn-peligro { background: transparent; border-color: rgba(242,109,109,.5); color: var(--rojo); }
         .btn-chico { padding: .38rem .7rem; font-size: .82rem; }
