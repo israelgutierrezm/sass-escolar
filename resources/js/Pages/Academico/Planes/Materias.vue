@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
@@ -7,6 +7,7 @@ import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
+import ZonaArchivo from '@/Components/ZonaArchivo.vue';
 
 interface Materia {
     id: number;
@@ -41,6 +42,24 @@ const props = defineProps<{
 }>();
 
 const mostrarAlta = ref(false);
+
+// Carga de asignaturas por Excel.
+const page = usePage();
+const erroresCarga = computed(() => ((page.props as any).flash?.erroresCarga ?? []) as { hoja: string; fila: number; mensaje: string }[]);
+const mostrarCarga = ref(false);
+const carga = useForm<{ archivo: File | null }>({ archivo: null });
+
+function subirAsignaturas(archivo: File | null): void {
+    if (!archivo) {
+        return;
+    }
+    carga.archivo = archivo;
+    carga.post(`/academico/planes/${props.plan.id}/asignaturas/importar`, {
+        forceFormData: true,
+        preserveScroll: true,
+        onFinish: () => carga.reset(),
+    });
+}
 
 // Vista de la malla: «lista» (tabla por periodo) o «cuadrícula» (tarjetas por
 // nivel, coloreadas por área). Se recuerda la preferida entre visitas.
@@ -239,7 +258,45 @@ function textoSobre(color: string | null): string {
                         existente usa el botón «Editar» de la malla.
                     </p>
                 </div>
-                <BotonAccion v-if="!mostrarAlta" variante="nuevo" texto="Agregar materia" @click="abrirAlta" />
+                <div class="flex items-center gap-2">
+                    <button
+                        type="button"
+                        class="rounded-lg border border-indigo-600 px-3 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50"
+                        @click="mostrarCarga = !mostrarCarga"
+                    >
+                        {{ mostrarCarga ? 'Ocultar carga' : 'Cargar por Excel' }}
+                    </button>
+                    <BotonAccion v-if="!mostrarAlta" variante="nuevo" texto="Agregar materia" @click="abrirAlta" />
+                </div>
+            </div>
+
+            <!-- Carga de asignaturas por Excel -->
+            <div v-if="mostrarCarga" class="mt-5 space-y-4 border-t border-slate-100 pt-5">
+                <a
+                    :href="`/academico/planes/${plan.id}/plantilla-asignaturas`"
+                    class="inline-flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+                >
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 3v13.5m0 0 4.5-4.5M12 16.5 7.5 12" /></svg>
+                    Descargar plantilla de asignaturas (.xlsx)
+                </a>
+
+                <ZonaArchivo
+                    accept=".xlsx"
+                    texto="Arrastra la plantilla llena (.xlsx) o haz clic para seleccionarla"
+                    ayuda="Las asignaturas se agregan a este plan; se valida antes de crear nada."
+                    :cargado="null"
+                    :ocupado="carga.processing"
+                    @archivo="subirAsignaturas"
+                />
+
+                <div v-if="erroresCarga.length" class="rounded-lg border border-amber-400 bg-amber-50 p-3 text-sm">
+                    <p class="font-medium">El archivo tiene {{ erroresCarga.length }} error(es); corrígelos y vuelve a subirlo:</p>
+                    <ul class="mt-2 max-h-64 space-y-1 overflow-auto text-xs">
+                        <li v-for="(e, i) in erroresCarga" :key="i">
+                            <span class="font-medium">{{ e.hoja }} · fila {{ e.fila }}:</span> {{ e.mensaje }}
+                        </li>
+                    </ul>
+                </div>
             </div>
 
             <form

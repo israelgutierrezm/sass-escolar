@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { Head, useForm, usePage } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
 import { toast } from 'vue-sonner';
 import { prepararImagen } from '@/utils/imagen';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
+import ZonaArchivo from '@/Components/ZonaArchivo.vue';
 
 interface Institucion {
     id: number;
@@ -64,6 +65,24 @@ function cancelar(): void {
     form.siglas = props.institucion?.siglas ?? '';
     form.clearErrors();
     editando.value = false;
+}
+
+// --- Carga masiva por Excel ---
+const page = usePage();
+const erroresCarga = computed(() => ((page.props as any).flash?.erroresCarga ?? []) as { hoja: string; fila: number; mensaje: string }[]);
+const mostrarCarga = ref(false);
+const carga = useForm<{ archivo: File | null }>({ archivo: null });
+
+function subirExcel(archivo: File | null): void {
+    if (!archivo) {
+        return;
+    }
+    carga.archivo = archivo;
+    carga.post('/academico/carga/importar', {
+        forceFormData: true,
+        preserveScroll: true,
+        onFinish: () => carga.reset(),
+    });
 }
 
 function guardar(): void {
@@ -248,5 +267,59 @@ function guardar(): void {
                 </form>
             </div>
         </div>
+
+        <!-- Carga masiva por Excel -->
+        <section v-if="puedeEditar" class="tarjeta mt-6 p-6">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div class="max-w-xl">
+                    <h2 class="text-base font-semibold">Cargar desde Excel</h2>
+                    <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
+                        Da de alta institución, campus, carreras, planes de estudio y asignaturas de una sola vez
+                        con la plantilla. Trae listas desplegables y valida los datos antes de crearlos.
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    class="rounded-lg border px-4 py-2 text-sm font-medium"
+                    :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
+                    @click="mostrarCarga = !mostrarCarga"
+                >
+                    {{ mostrarCarga ? 'Ocultar' : 'Cargar desde Excel' }}
+                </button>
+            </div>
+
+            <div v-if="mostrarCarga" class="mt-5 space-y-4 border-t pt-5" :style="{ borderColor: 'var(--color-borde)' }">
+                <a
+                    href="/academico/carga/plantilla"
+                    class="inline-flex items-center gap-2 text-sm font-medium"
+                    :style="{ color: 'var(--color-acento)' }"
+                >
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" transform="rotate(180 12 12)" /></svg>
+                    Descargar plantilla (.xlsx)
+                </a>
+
+                <ZonaArchivo
+                    accept=".xlsx"
+                    texto="Arrastra la plantilla llena (.xlsx) o haz clic para seleccionarla"
+                    ayuda="Se validará todo antes de crear nada."
+                    :cargado="null"
+                    :ocupado="carga.processing"
+                    @archivo="subirExcel"
+                />
+
+                <div
+                    v-if="erroresCarga.length"
+                    class="rounded-lg border p-3 text-sm"
+                    :style="{ borderColor: '#f59e0b', backgroundColor: 'color-mix(in srgb, #f59e0b 8%, transparent)' }"
+                >
+                    <p class="font-medium">El archivo tiene {{ erroresCarga.length }} error(es); corrígelos y vuelve a subirlo:</p>
+                    <ul class="mt-2 max-h-64 space-y-1 overflow-auto text-xs">
+                        <li v-for="(e, i) in erroresCarga" :key="i">
+                            <span class="font-medium">{{ e.hoja }} · fila {{ e.fila }}:</span> {{ e.mensaje }}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </section>
     </AppLayout>
 </template>

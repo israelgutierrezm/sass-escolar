@@ -69,6 +69,8 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'exito' => fn () => $request->session()->get('exito'),
                 'error' => fn () => $request->session()->get('error'),
+                // Errores detallados de una carga masiva (hoja, fila, mensaje).
+                'erroresCarga' => fn () => $request->session()->get('erroresCarga'),
                 // Una operación puede terminar bien y aun así tener algo que
                 // advertir —"se aplicó a 40 materias, 3 no se tocaron porque ya
                 // tienen calificaciones"—. Sin esta clave ese aviso se perdía

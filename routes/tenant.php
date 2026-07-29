@@ -9,6 +9,7 @@ use App\Http\Controllers\AspiranteController;
 use App\Http\Controllers\AutenticacionController;
 use App\Http\Controllers\SsoGoogleController;
 use App\Http\Controllers\CampoFormularioController;
+use App\Http\Controllers\Academico\CargaMasivaController;
 use App\Http\Controllers\CampusController;
 use App\Http\Controllers\CapturaCalificacionesController;
 use App\Http\Controllers\CarreraController;
@@ -338,6 +339,15 @@ Route::middleware([
                 Route::get('planes/{plan}/materias/{materia}', [PlanMateriaController::class, 'show'])->name('planes.materias.show');
 
                 Route::middleware($escritura['middleware'])->group(function () {
+                    // Carga masiva por Excel: plantilla completa (desde
+                    // Institución) y por plan (desde la malla).
+                    Route::get('carga/plantilla', [CargaMasivaController::class, 'plantilla'])->name('carga.plantilla');
+                    Route::post('carga/importar', [CargaMasivaController::class, 'importar'])->name('carga.importar');
+                    Route::get('planes/{plan}/plantilla-asignaturas', [CargaMasivaController::class, 'plantillaPlan'])
+                        ->whereNumber('plan')->name('planes.plantilla-asignaturas');
+                    Route::post('planes/{plan}/asignaturas/importar', [CargaMasivaController::class, 'importarPlan'])
+                        ->whereNumber('plan')->name('planes.asignaturas.importar');
+
                     // Sin `destroy`: una institución no se elimina, solo se edita.
                     Route::resource('instituciones', InstitucionController::class)
                         ->except(['index', 'show', 'destroy'])->parameters(['instituciones' => 'institucion']);
