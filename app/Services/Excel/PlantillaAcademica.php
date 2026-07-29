@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Excel;
 
 use App\Models\Academico\Area;
+use App\Models\Academico\AutorizacionReconocimiento;
 use App\Models\Academico\ClasificacionAsignatura;
 use App\Models\Academico\NivelEstudio;
 use App\Models\Academico\TipoAsignatura;
@@ -67,8 +68,9 @@ class PlantillaAcademica
             ['Carrera (clave) *', null], ['Clave *', null], ['Nombre *', null],
             ['Tipo de periodo *', $rangos['tiposPeriodo']], ['Total de periodos *', null],
             ['Núm. asignaturas', null], ['Calif. mínima *', null], ['Calif. máxima *', null],
-            ['Calif. mínima aprobatoria *', null], ['RVOE', null], ['Vigente', $rangos['siNo']],
-        ], ['ISC-2024', 'PLAN-ISC-24', 'Plan ISC 2024', $this->primero(TipoPeriodo::class), 9, 50, 0, 100, 70, '', 'Sí']);
+            ['Calif. mínima aprobatoria *', null], ['Tipo de autorización *', $rangos['autorizaciones']],
+            ['RVOE', null], ['Vigente', $rangos['siNo']],
+        ], ['ISC-2024', 'PLAN-ISC-24', 'Plan ISC 2024', $this->primero(TipoPeriodo::class), 9, 50, 0, 100, 70, $this->primero(AutorizacionReconocimiento::class), 'RVOE-12345', 'Sí']);
 
         $this->hoja($libro, 'Asignaturas', [
             ['Plan (clave) *', null], ['Identificador *', null], ['Clave *', null], ['Nombre *', null],
@@ -137,6 +139,7 @@ class PlantillaAcademica
             'F' => ['clasificaciones', ClasificacionAsignatura::query()->orderBy('nombre')->pluck('nombre')->all()],
             'G' => ['siNo', ['Sí', 'No']],
             'H' => ['ubicacion', ['Obligatoria', 'Optativa', 'Tronco común']],
+            'I' => ['autorizaciones', AutorizacionReconocimiento::query()->orderBy('nombre')->pluck('nombre')->all()],
         ];
 
         $rangos = [];

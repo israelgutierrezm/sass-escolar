@@ -72,8 +72,9 @@ class ImportadorAcademico
             $this->enCatalogo('Carreras', $fila, $r[3] ?? null, $cat['niveles'], 'Nivel');
         }
         foreach ($planes as [$fila, $r]) {
-            $this->requerido('Planes', $fila, $r, [0 => 'Carrera (clave)', 1 => 'Clave', 2 => 'Nombre', 3 => 'Tipo de periodo', 4 => 'Total de periodos', 6 => 'Calif. mínima', 7 => 'Calif. máxima', 8 => 'Calif. mínima aprobatoria']);
+            $this->requerido('Planes', $fila, $r, [0 => 'Carrera (clave)', 1 => 'Clave', 2 => 'Nombre', 3 => 'Tipo de periodo', 4 => 'Total de periodos', 6 => 'Calif. mínima', 7 => 'Calif. máxima', 8 => 'Calif. mínima aprobatoria', 9 => 'Tipo de autorización']);
             $this->enCatalogo('Planes', $fila, $r[3] ?? null, $cat['tiposPeriodo'], 'Tipo de periodo');
+            $this->enCatalogo('Planes', $fila, $r[9] ?? null, $cat['autorizaciones'], 'Tipo de autorización');
             $this->refExiste('Planes', $fila, $r[0] ?? null, $clavesCarrera, 'La carrera (clave)');
             $this->entero('Planes', $fila, $r[4] ?? null, 'Total de periodos');
         }
@@ -122,10 +123,6 @@ class ImportadorAcademico
                 $resumen['carreras']++;
             }
 
-            // Autorización SEP: no va en la plantilla (se simplifica); se toma la
-            // primera del catálogo y la escuela la ajusta luego en el plan.
-            $autorizacionId = \App\Models\Academico\AutorizacionReconocimiento::query()->value('id');
-
             $planId = PlanEstudio::query()->pluck('id', 'clave')->all();
             foreach ($planes as [, $r]) {
                 $p = PlanEstudio::query()->updateOrCreate(['clave' => trim((string) $r[1])], [
@@ -138,9 +135,9 @@ class ImportadorAcademico
                     'calificacion_maxima' => (int) $r[7],
                     'calificacion_minima_aprobatoria' => (int) $r[8],
                     'minimo_creditos' => 0,
-                    'autorizacion_reconocimiento_id' => $autorizacionId,
-                    'rvoe' => $this->str($r[9] ?? null) ?? 'N/D',
-                    'vigente' => $this->norm($r[10] ?? 'sí') !== 'no',
+                    'autorizacion_reconocimiento_id' => $cat['autorizaciones'][$this->norm($r[9])]['id'],
+                    'rvoe' => $this->str($r[10] ?? null) ?? 'N/D',
+                    'vigente' => $this->norm($r[11] ?? 'sí') !== 'no',
                 ]);
                 $planId[trim((string) $r[1])] = $p->id;
                 $resumen['planes']++;
@@ -266,6 +263,7 @@ class ImportadorAcademico
             'tiposAsignatura' => $mapa(TipoAsignatura::class),
             'areas' => $mapa(Area::class),
             'clasificaciones' => $mapa(ClasificacionAsignatura::class),
+            'autorizaciones' => $mapa(\App\Models\Academico\AutorizacionReconocimiento::class),
         ];
     }
 
