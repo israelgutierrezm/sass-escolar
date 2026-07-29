@@ -5,14 +5,18 @@ import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoCasillas from '@/Components/CampoCasillas.vue';
+import CamposIdentidad from '@/Components/CamposIdentidad.vue';
 
 const props = defineProps<{
     docente: Record<string, any> | null;
     situaciones: { id: number; nombre: string }[];
     tipos: { id: number; nombre: string }[];
     campus: { id: number; nombre: string }[];
-    sexos: { id: number; nombre: string }[];
     generos: { id: number; nombre: string }[];
+    entidades: { id: number; nombre: string }[];
+    entidadExtranjero: { id: number; nombre: string } | null;
+    paises: { id: number; nombre: string }[];
+    mexicoId: number | null;
 }>();
 
 const form = useForm({
@@ -22,11 +26,13 @@ const form = useForm({
     curp: '',
     rfc: '',
     fecha_nacimiento: '',
-    sexo_id: null as number | null,
     genero_id: null as number | null,
+    entidad_nacimiento_id: null as number | null,
+    pais_nacimiento_id: null as number | null,
     email: '',
     correo_institucional: '',
     celular: '',
+    telefono_local: '',
     clave_profesor: '',
     cedula_profesional: '',
     tipo_docente_id: null as number | null,
@@ -53,35 +59,17 @@ function enviar(): void {
                     reutiliza esa persona y solo se le crea el registro docente. No se duplica gente.
                 </p>
 
-                <div class="mt-5 grid gap-4 sm:grid-cols-3">
-                    <CampoTexto v-model="form.nombre" etiqueta="Nombre(s)" requerido :error="form.errors.nombre" />
-                    <CampoTexto v-model="form.primer_apellido" etiqueta="Primer apellido" requerido :error="form.errors.primer_apellido" />
-                    <CampoTexto v-model="form.segundo_apellido" etiqueta="Segundo apellido" :error="form.errors.segundo_apellido" />
-
-                    <CampoTexto v-model="form.curp" etiqueta="CURP" mono :error="form.errors.curp" maximo="18" />
-                    <CampoTexto v-model="form.rfc" etiqueta="RFC" mono :error="form.errors.rfc" />
-                    <CampoTexto v-model="form.fecha_nacimiento" etiqueta="Fecha de nacimiento" tipo="date" :error="form.errors.fecha_nacimiento" />
-
-                    <CampoSelect
-                        v-model="form.sexo_id"
-                        etiqueta="Sexo"
-                        requerido
-                        :opciones="sexos.map((s) => ({ valor: s.id, texto: s.nombre }))"
-                        vacio="Selecciona…"
-                        :error="form.errors.sexo_id"
+                <div class="mt-5">
+                    <CamposIdentidad
+                        :form="form"
+                        :generos="generos"
+                        :entidades="entidades"
+                        :entidad-extranjero="entidadExtranjero"
+                        :paises="paises"
+                        :mexico-id="mexicoId"
+                        :persona-id="null"
+                        con-rfc
                     />
-                    <CampoSelect
-                        v-model="form.genero_id"
-                        etiqueta="Género"
-                        :opciones="generos.map((g) => ({ valor: g.id, texto: g.nombre }))"
-                        vacio="Sin especificar"
-                        :error="form.errors.genero_id"
-                    />
-                    <div></div>
-
-                    <CampoTexto v-model="form.email" etiqueta="Correo personal" tipo="email" :error="form.errors.email" />
-                    <CampoTexto v-model="form.correo_institucional" etiqueta="Correo institucional" tipo="email" :error="form.errors.correo_institucional" />
-                    <CampoTexto v-model="form.celular" etiqueta="Celular" :error="form.errors.celular" />
                 </div>
             </section>
 

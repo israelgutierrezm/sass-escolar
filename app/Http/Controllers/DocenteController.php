@@ -12,8 +12,7 @@ use App\Models\ControlEscolar\DocumentoDocente;
 use App\Models\ControlEscolar\SituacionDocente;
 use App\Models\ControlEscolar\TipoDocente;
 use App\Models\Identidad\Persona;
-use App\Models\Landlord\Genero;
-use App\Models\Landlord\Sexo;
+use App\Services\IdentidadPersona;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use App\Services\Suplantador;
@@ -330,11 +329,14 @@ class DocenteController extends Controller
             'curp' => ['nullable', 'string', 'size:18', Rule::unique('personas', 'curp')->ignore($personaId)->whereNull('deleted_at')],
             'rfc' => ['nullable', 'string', 'max:13'],
             'fecha_nacimiento' => ['nullable', 'date', 'before:today'],
-            'sexo_id' => ['required', 'integer'],
+            // El sexo NO se pregunta: lo deriva IdentidadPersona de la CURP o el género.
             'genero_id' => ['nullable', 'integer'],
+            'entidad_nacimiento_id' => ['nullable', 'integer'],
+            'pais_nacimiento_id' => ['nullable', 'integer'],
             'email' => ['nullable', 'email', 'max:150'],
             'correo_institucional' => ['nullable', 'email', 'max:150'],
             'celular' => ['nullable', 'string', 'max:20'],
+            'telefono_local' => ['nullable', 'string', 'max:20'],
 
             'clave_profesor' => ['nullable', 'string', 'max:50'],
             'cedula_profesional' => ['nullable', 'string', 'max:30'],
@@ -347,7 +349,6 @@ class DocenteController extends Controller
             'curp.size' => 'La CURP tiene 18 caracteres.',
             'curp.unique' => 'Esa CURP ya está registrada en otra persona.',
         ], [
-            'sexo_id' => 'sexo',
             'genero_id' => 'género',
             'tipo_docente_id' => 'tipo de docente',
             'situacion_id' => 'situación',
@@ -361,19 +362,9 @@ class DocenteController extends Controller
      */
     private function datosPersona(array $datos): array
     {
-        return [
-            'nombre' => $datos['nombre'],
-            'primer_apellido' => $datos['primer_apellido'],
-            'segundo_apellido' => $datos['segundo_apellido'] ?? null,
-            'curp' => $datos['curp'] ?? null,
-            'rfc' => $datos['rfc'] ?? null,
-            'fecha_nacimiento' => $datos['fecha_nacimiento'] ?? null,
-            'sexo_id' => $datos['sexo_id'],
-            'genero_id' => $datos['genero_id'] ?? null,
-            'email' => $datos['email'] ?? null,
-            'correo_institucional' => $datos['correo_institucional'] ?? null,
-            'celular' => $datos['celular'] ?? null,
-        ];
+        // IdentidadPersona resuelve sexo (derivado), entidad y país desde la
+        // CURP; el RFC no pasa por ahí, se agrega aparte.
+        return app(IdentidadPersona::class)->resolver($datos) + ['rfc' => $datos['rfc'] ?? null];
     }
 
     /**
@@ -400,8 +391,9 @@ class DocenteController extends Controller
             'situaciones' => SituacionDocente::query()->orderBy('id')->get(['id', 'nombre']),
             'tipos' => TipoDocente::query()->orderBy('id')->get(['id', 'nombre']),
             'campus' => Campus::query()->orderBy('nombre')->get(['id', 'nombre']),
-            'sexos' => Sexo::query()->orderBy('id')->get(['id', 'nombre']),
-            'generos' => Genero::query()->orderBy('id')->get(['id', 'nombre']),
+            // Géneros, entidades, países y México para el bloque de identidad
+            // compartido (autollenado por CURP).
+            ...app(IdentidadPersona::class)->catalogosDeOrigen(),
         ];
     }
 }

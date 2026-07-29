@@ -40,6 +40,8 @@ const props = defineProps<{
     personaId?: number | null;
     /** El correo es la credencial de acceso; casi siempre obligatorio. */
     correoRequerido?: boolean;
+    /** Muestra el RFC (no todos los roles lo capturan). Se prellena de la CURP. */
+    conRfc?: boolean;
 }>();
 
 interface Ficha {
@@ -174,6 +176,12 @@ async function leerCurp(): Promise<void> {
         props.form.entidad_nacimiento_id = datos.entidad_nacimiento_id ?? props.form.entidad_nacimiento_id;
         props.form.genero_id = props.form.genero_id ?? datos.genero_id ?? null;
 
+        // El RFC sin homoclave son los primeros 10 caracteres de la CURP (mismas
+        // 4 letras + misma fecha). Se prellena si está vacío; queda editable.
+        if ('rfc' in props.form && !props.form.rfc) {
+            props.form.rfc = texto.slice(0, 10);
+        }
+
         if ('pais_nacimiento_id' in props.form) {
             props.form.pais_nacimiento_id = datos.pais_nacimiento_id ?? props.form.pais_nacimiento_id;
         }
@@ -252,6 +260,16 @@ const notaCurp = computed(() => {
             marcador="18 caracteres, o EXTRANJERO"
             :error="form.errors.curp"
             :ayuda="notaCurp ?? 'Al escribirla se llenan solos fecha, género y entidad.'"
+        />
+
+        <CampoTexto
+            v-if="conRfc"
+            v-model="form.rfc"
+            etiqueta="RFC"
+            mono
+            :maximo="13"
+            :error="form.errors.rfc"
+            ayuda="Se prellena de la CURP (sin homoclave); complétalo si aplica."
         />
 
         <CampoTexto
