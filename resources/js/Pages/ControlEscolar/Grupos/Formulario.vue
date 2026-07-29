@@ -19,7 +19,7 @@ const props = defineProps<{
     ciclos: Ciclo[];
     campus: { id: number; nombre: string }[];
     carreras: { id: number; nombre: string; nivel_estudios_id: number | null }[];
-    planes: { id: number; nombre: string; clave: string; carrera_id: number; total_periodos: number | null }[];
+    planes: { id: number; nombre: string; clave: string; carrera_id: number; total_periodos: number | null; unidad_periodo: string }[];
     ofertas: { carrera_id: number; plan_id: number; campus_id: number }[];
     turnos: { id: number; nombre: string }[];
     situaciones: { id: number; nombre: string }[];
@@ -119,12 +119,17 @@ const planesVisibles = computed(() => {
 // Plan elegido → cuántos periodos tiene, para ofrecer el select de periodo.
 const planElegido = computed(() => props.planes.find((plan) => plan.id === form.plan_id) ?? null);
 
-// Periodo 1..N según el plan (semestral, cuatrimestral, etc.). Sin plan fijo no
-// se sabe el máximo, así que el campo queda deshabilitado.
+// El nombre real del periodo según el plan: «Semestre», «Cuatrimestre»,
+// «Módulo», etc. Sin plan fijo se cae al genérico «Periodo».
+const unidadPeriodo = computed(() => planElegido.value?.unidad_periodo ?? 'Periodo');
+
+// Periodo 1..N según el plan, numerado con su nombre real: «Semestre 1»,
+// «Cuatrimestre 1», etc. Sin plan fijo no se sabe el máximo, así que el campo
+// queda deshabilitado.
 const opcionesPeriodo = computed(() => {
     const total = planElegido.value?.total_periodos ?? 0;
 
-    return Array.from({ length: total }, (_, i) => ({ valor: i + 1, texto: `Periodo ${i + 1}` }));
+    return Array.from({ length: total }, (_, i) => ({ valor: i + 1, texto: `${unidadPeriodo.value} ${i + 1}` }));
 });
 
 // Cambiar de carrera invalida el plan elegido si ya no pertenece a ella.
@@ -226,11 +231,13 @@ function enviar(): void {
                 />
                 <CampoSelect
                     v-model="form.semestre"
-                    etiqueta="Periodo (opcional)"
+                    :etiqueta="`${unidadPeriodo} (opcional)`"
                     :opciones="opcionesPeriodo"
-                    :vacio="planElegido ? 'Sin periodo fijo' : 'Fija un plan primero'"
+                    :vacio="planElegido ? `Sin ${unidadPeriodo.toLowerCase()} fijo` : 'Fija un plan primero'"
                     :error="form.errors.semestre"
-                    ayuda="Del 1 al total de periodos del plan (semestral, cuatrimestral, etc.). Si lo pones, al abrir materias se filtra por él por defecto."
+                    :ayuda="planElegido
+                        ? `Del 1 al ${planElegido.total_periodos ?? '—'}. Si lo pones, al abrir materias se preseleccionan las de ese ${unidadPeriodo.toLowerCase()}.`
+                        : 'Fija un plan y se numerará según su tipo de periodo.'"
                 />
                 <CampoSelect
                     v-model="form.turno_id"

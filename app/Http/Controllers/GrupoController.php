@@ -114,7 +114,7 @@ class GrupoController extends Controller
      */
     public function show(Request $request, Grupo $grupo): Response
     {
-        $grupo->load(['ciclo:id,clave,nombre', 'campus:id,nombre', 'plan:id,nombre', 'situacion:id,nombre']);
+        $grupo->load(['ciclo:id,clave,nombre', 'campus:id,nombre', 'plan:id,nombre,tipo_periodo_id', 'plan.tipoPeriodo:id,nombre', 'situacion:id,nombre']);
 
         $asignaturas = AsignaturaGrupo::query()
             ->with(['planMateria.asignatura:id,nombre', 'planMateria.plan:id,nombre', 'situacion:id,nombre', 'docentes.persona'])
@@ -131,8 +131,14 @@ class GrupoController extends Controller
                 'plan' => $grupo->plan?->nombre,
                 'situacion' => $grupo->situacion?->nombre,
                 'cupo' => $grupo->cupo,
-                // El semestre del grupo preselecciona el filtro de «Abrir materias».
+                // El semestre del grupo preselecciona las materias de ese periodo
+                // al «Abrir materias».
                 'semestre' => $grupo->semestre,
+                // Nombre real del periodo del plan del grupo (Semestre,
+                // Cuatrimestre…). Null si el grupo no tiene plan fijo: ahí las
+                // materias pueden venir de planes con periodicidades distintas y
+                // se cae al genérico «Periodo».
+                'unidad_periodo' => $grupo->plan?->unidadPeriodo(),
             ],
             'asignaturas' => $asignaturas->map(function (AsignaturaGrupo $asignatura) {
                 $titular = $asignatura->docentes->firstWhere('pivot.tipo', 'titular');
@@ -345,14 +351,19 @@ class GrupoController extends Controller
             // `total_periodos` alimenta el select de periodo (1..N), que respeta
             // si la carrera es semestral, cuatrimestral, etc.
             'planes' => PlanEstudio::query()
+                ->with('tipoPeriodo:id,nombre')
                 ->orderBy('nombre')
-                ->get(['id', 'nombre', 'carrera_id', 'clave', 'total_periodos'])
+                ->get(['id', 'nombre', 'carrera_id', 'clave', 'total_periodos', 'tipo_periodo_id'])
                 ->map(fn (PlanEstudio $plan) => [
                     'id' => $plan->id,
                     'nombre' => $plan->nombre,
                     'clave' => $plan->clave,
                     'carrera_id' => $plan->carrera_id,
                     'total_periodos' => $plan->total_periodos,
+                    // Nombre real del periodo (Semestre, Cuatrimestre, Módulo…):
+                    // el formulario nombra el campo con él en vez del genérico
+                    // "Periodo".
+                    'unidad_periodo' => $plan->unidadPeriodo(),
                 ]),
             // La oferta manda: un grupo solo puede abrirse para una carrera+plan
             // que ya esté ofertada en ese campus. Se envían las combinaciones

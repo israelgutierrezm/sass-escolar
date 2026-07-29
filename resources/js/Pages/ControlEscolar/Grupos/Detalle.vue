@@ -45,12 +45,23 @@ const props = defineProps<{
  * casi siempre significa "las de tercero". Elegirlas de una en una en un
  * desplegable de cincuenta era el trabajo más tedioso de la pantalla.
  */
-const formMateria = useForm({ plan_materia_ids: [] as number[] });
+// Nombre real del periodo del plan del grupo («Semestre», «Cuatrimestre»…).
+// Null cuando el grupo no tiene plan fijo (materias de varios planes): ahí se
+// cae al genérico «Periodo».
+const unidadPeriodo = computed(() => props.grupo.unidad_periodo ?? 'Periodo');
 
-// El filtro arranca en el semestre del grupo (si lo tiene): abrir materias de
-// un grupo de tercero casi siempre significa abrir las de tercero. Si ese
-// semestre no tiene materias pendientes, se deja en «todos» para no mostrar
-// vacío.
+// Si el grupo trae periodo fijo, sus materias pendientes de ese periodo arrancan
+// YA marcadas: abrir un grupo de tercero casi siempre es abrir las de tercero,
+// y así solo hay que confirmar. Quedan desmarcables una a una.
+const materiasDelPeriodoInicial = props.grupo.semestre
+    ? props.materiasDisponibles.filter((m) => m.periodo === props.grupo.semestre).map((m) => m.id)
+    : [];
+
+const formMateria = useForm({ plan_materia_ids: materiasDelPeriodoInicial });
+
+// El filtro arranca en el periodo del grupo (si lo tiene): abrir materias de un
+// grupo de tercero casi siempre significa abrir las de tercero. Si ese periodo
+// no tiene materias pendientes, se deja en «todos» para no mostrar vacío.
 const periodoFiltro = ref<number | null>(props.grupo.semestre ?? null);
 
 const periodosDisponibles = computed(() => {
@@ -158,16 +169,16 @@ function quitarDocente(asignaturaId: number, personaId: number, nombre: string |
             <h2 class="text-base font-semibold text-contenido">Abrir materias</h2>
             <p class="mt-1 text-sm text-suave">
                 Abrir una materia es lo que la vuelve inscribible en este ciclo. Filtra por
-                semestre y marca todas las que vayas a abrir.
+                {{ unidadPeriodo.toLowerCase() }} y marca todas las que vayas a abrir.
             </p>
 
             <form class="mt-4 space-y-4" @submit.prevent="abrirMaterias">
                 <div v-if="periodosDisponibles.length" class="sm:max-w-xs">
                     <CampoSelect
                         v-model="periodoFiltro"
-                        etiqueta="Semestre / cuatrimestre"
-                        :opciones="periodosDisponibles.map((p) => ({ valor: p, texto: `Periodo ${p}` }))"
-                        vacio="Todos los periodos"
+                        :etiqueta="unidadPeriodo"
+                        :opciones="periodosDisponibles.map((p) => ({ valor: p, texto: `${unidadPeriodo} ${p}` }))"
+                        :vacio="`Todos los ${unidadPeriodo.toLowerCase()}s`"
                         ayuda="Solo filtra la lista de abajo."
                     />
                 </div>
@@ -178,7 +189,7 @@ function quitarDocente(asignaturaId: number, personaId: number, nombre: string |
                     :opciones="materiasDelPeriodo.map((m) => ({
                         valor: m.id,
                         texto: `${m.clave_en_plan} · ${m.materia ?? ''}`,
-                        ayuda: [m.periodo ? `periodo ${m.periodo}` : null, m.tipo].filter(Boolean).join(' · '),
+                        ayuda: [m.periodo ? `${unidadPeriodo.toLowerCase()} ${m.periodo}` : null, m.tipo].filter(Boolean).join(' · '),
                     }))"
                     :error="formMateria.errors.plan_materia_ids"
                     vacio="No hay materias disponibles en este periodo."
