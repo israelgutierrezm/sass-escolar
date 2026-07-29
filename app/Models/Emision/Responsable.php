@@ -7,10 +7,14 @@ namespace App\Models\Emision;
 use App\Models\Concerns\TieneAuditoria;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
- * responsables (TENANT) — quien firma certificaciones (tipo 1) y titulaciones
- * (tipo 2). Su identidad se lee del `.cer`; se completa con cargo y título.
+ * responsables (TENANT) — la PERSONA que firma certificaciones (tipo 1) y
+ * titulaciones (tipo 2). Es única por (tipo, CURP): una persona, un registro.
+ * Sus certificados viven en `certificados_responsable`; al renovar se agrega uno
+ * nuevo a la MISMA persona (historial), no una persona nueva.
  */
 class Responsable extends Model
 {
@@ -27,23 +31,11 @@ class Responsable extends Model
         'cargo_id',
         'titulo_profesional_id',
         'activo',
-        'cer_titular',
-        'cer_serial',
-        'cer_vigencia_inicio',
-        'cer_vigencia_fin',
-        'cer_pem',
     ];
-
-    // Material del certificado/llave: nunca se serializa hacia el frontend.
-    protected $hidden = ['cer_pem', 'key_encriptado'];
 
     protected function casts(): array
     {
-        return [
-            'cer_vigencia_inicio' => 'date',
-            'cer_vigencia_fin' => 'date',
-            'activo' => 'boolean',
-        ];
+        return ['activo' => 'boolean'];
     }
 
     public function tipoResponsable(): BelongsTo
@@ -59,6 +51,17 @@ class Responsable extends Model
     public function tituloProfesional(): BelongsTo
     {
         return $this->belongsTo(TituloProfesional::class);
+    }
+
+    public function certificados(): HasMany
+    {
+        return $this->hasMany(CertificadoResponsable::class)->latest('id');
+    }
+
+    /** El certificado con el que firma hoy (el vigente). */
+    public function certificadoVigente(): HasOne
+    {
+        return $this->hasOne(CertificadoResponsable::class)->where('vigente', true)->latestOfMany();
     }
 
     /** @param  \Illuminate\Database\Eloquent\Builder<Responsable>  $query */

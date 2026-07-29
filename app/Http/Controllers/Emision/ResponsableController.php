@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Emision;
 
 use App\Http\Controllers\Controller;
 use App\Models\Emision\Cargo;
+use App\Models\Emision\CertificadoResponsable;
 use App\Models\Emision\Responsable;
 use App\Models\Emision\TipoResponsable;
 use App\Models\Emision\TituloProfesional;
@@ -14,18 +15,19 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Responsables que firman la certificación (tipo 1) y la titulación (tipo 2).
- * Un mismo controlador sirve ambas secciones: el tipo y la sección llegan como
- * defaults de la ruta. Certificación admite 1 responsable; Titulación hasta 2.
+ * Responsables (personas) que firman certificación (tipo 1) y titulación
+ * (tipo 2). Una persona por CURP; sus certificados son un historial (al renovar
+ * se agrega uno nuevo a la misma persona). Certificación admite 1 responsable
+ * ACTIVO; Titulación hasta 2.
  */
 class ResponsableController extends Controller
 {
-    /** Cuántos responsables admite cada tipo. */
     private const MAXIMO = [
         TipoResponsable::CERTIFICACION => 1,
         TipoResponsable::TITULACION => 2,
@@ -37,19 +39,19 @@ class ResponsableController extends Controller
         $seccion = (string) $request->route('seccion');
 
         $responsables = Responsable::deTipo($tipo)
-            ->with(['cargo:id,nombre', 'tituloProfesional:id,abreviatura,descripcion'])
+            ->with(['cargo:id,nombre', 'tituloProfesional:id,abreviatura,descripcion', 'certificados'])
             ->orderByDesc('activo')
-            ->orderByDesc('id')
+            ->orderBy('nombre')
             ->get();
 
         return Inertia::render('Emision/Responsables', [
             'seccion' => $seccion,
             'tituloSeccion' => $this->tituloSeccion($seccion),
             'maximo' => self::MAXIMO[$tipo] ?? 1,
-            // El alta se ofrece mientras haya cupo entre los ACTIVOS.
             'activos' => $responsables->where('activo', true)->values()->map($this->aArreglo(...)),
-            // Los desactivados quedan como historial (sus firmas siguen ligadas).
-            'historial' => $responsables->where('activo', false)->values()->map($this->aArreglo(...)),
+            // El historial es TODA persona registrada (activa o no), con su
+            // historial de certificados.
+            'responsables' => $responsables->map($this->aArreglo(...)),
             'cargos' => Cargo::orderBy('nombre')->get(['id', 'nombre']),
             'titulos' => TituloProfesional::orderBy('abreviatura')->get(['id', 'abreviatura', 'descripcion']),
         ]);
@@ -58,6 +60,8 @@ class ResponsableController extends Controller
     /** @return array<string, mixed> */
     private function aArreglo(Responsable $r): array
     {
+        $vigente = $r->certificados->firstWhere('vigente', true);
+
         return [
             'id' => $r->id,
             'nombre_completo' => $r->nombreCompleto(),
@@ -67,25 +71,31 @@ class ResponsableController extends Controller
             'titulo' => $r->tituloProfesional?->abreviatura,
             'titulo_profesional_id' => $r->titulo_profesional_id,
             'activo' => $r->activo,
-            'tiene_cer_guardado' => filled($r->cer_pem),
-            'tiene_key' => filled($r->key_encriptado),
-            'cer_titular' => $r->cer_titular,
-            'cer_serial' => $r->cer_serial,
-            'vigencia_inicio' => $r->cer_vigencia_inicio?->format('d/m/Y'),
-            'vigencia_fin' => $r->cer_vigencia_fin?->format('d/m/Y'),
+            'cer_serial' => $vigente?->serie,
+            'vigencia_inicio' => $vigente?->vigencia_inicio?->format('d/m/Y'),
+            'vigencia_fin' => $vigente?->vigencia_fin?->format('d/m/Y'),
+            'tiene_cer_guardado' => filled($vigente?->cer_pem),
+            'tiene_key' => filled($vigente?->key_encriptado),
+            // Historial de certificados de la persona.
+            'certificados' => $r->certificados->map(fn (CertificadoResponsable $c) => [
+                'id' => $c->id,
+                'serie' => $c->serie,
+                'vigencia_inicio' => $c->vigencia_inicio?->format('d/m/Y'),
+                'vigencia_fin' => $c->vigencia_fin?->format('d/m/Y'),
+                'vigente' => $c->vigente,
+                'registrado' => $c->created_at?->format('d/m/Y'),
+                'tiene_cer_guardado' => filled($c->cer_pem),
+                'tiene_key' => filled($c->key_encriptado),
+            ])->values(),
         ];
     }
 
-    /**
-     * Lee un .cer subido y devuelve sus datos (sin guardar): el formulario los
-     * muestra para que el usuario solo complete cargo y título.
-     */
+    /** Lee un .cer subido y devuelve sus datos (sin guardar) para previsualizar. */
     public function leerCertificado(Request $request, LectorCertificado $lector): JsonResponse
     {
         $request->validate(['certificado' => ['required', 'file', 'max:64']]);
 
         $contenido = (string) file_get_contents($request->file('certificado')->getRealPath());
-
         if (! $lector->esValido($contenido)) {
             return response()->json(['error' => 'El archivo no es un certificado (.cer) válido.'], 422);
         }
@@ -93,6 +103,7 @@ class ResponsableController extends Controller
         return response()->json($lector->leer($contenido));
     }
 
+    /** Alta: crea la persona (o reactiva la que ya existe por CURP) y su cert. */
     public function store(Request $request, LectorCertificado $lector): RedirectResponse
     {
         $tipo = (int) $request->route('tipo');
@@ -104,127 +115,142 @@ class ResponsableController extends Controller
             'guardar_cer' => ['boolean'],
         ]);
 
-        // El límite aplica a los ACTIVOS: certificación 1, titulación 2. Para
-        // reemplazar (cert vencido o cambio de responsable) se desactiva uno.
-        $maximo = self::MAXIMO[$tipo] ?? 1;
-        if (Responsable::deTipo($tipo)->activos()->count() >= $maximo) {
-            return back()->with('error', "Ya hay {$maximo} responsable(s) activo(s). Desactiva uno para agregar otro.");
-        }
-
-        // La identidad SIEMPRE se toma del certificado (server-side), no del
-        // formulario: es el dato de confianza. Solo cargo y título los pone el usuario.
         $contenido = (string) file_get_contents($request->file('certificado')->getRealPath());
         if (! $lector->esValido($contenido)) {
             return back()->with('error', 'El archivo no es un certificado (.cer) válido.');
         }
         $cert = $lector->leer($contenido);
 
-        // Todos los datos son obligatorios: si el certificado no trae la
-        // identidad completa, no se guarda a medias.
         foreach (['curp' => 'la CURP', 'nombre' => 'el nombre', 'apellido_paterno' => 'el apellido paterno'] as $clave => $etiqueta) {
             if (blank($cert[$clave] ?? null)) {
-                return back()->with('error', "El certificado no contiene {$etiqueta}. Verifica que sea el .cer correcto del responsable.");
+                return back()->with('error', "El certificado no contiene {$etiqueta}. Verifica que sea el .cer correcto.");
             }
         }
 
-        Responsable::create([
-            'tipo_responsable_id' => $tipo,
-            'nombre' => $cert['nombre'],
-            'apellido_paterno' => $cert['apellido_paterno'],
-            'apellido_materno' => $cert['apellido_materno'] ?: null,
-            'curp' => $cert['curp'],
-            'cargo_id' => $datos['cargo_id'],
-            'titulo_profesional_id' => $datos['titulo_profesional_id'],
-            'activo' => true,
-            'cer_titular' => $cert['titular'],
-            'cer_serial' => $cert['serial'],
-            'cer_vigencia_inicio' => $cert['vigencia_inicio'],
-            'cer_vigencia_fin' => $cert['vigencia_fin'],
-            // «Guardar mi .cer»: se almacena el certificado (público) para no
-            // volver a subirlo al firmar. El .key (privado) irá después, cifrado.
-            'cer_pem' => ($datos['guardar_cer'] ?? false) ? $lector->pem($contenido) : null,
-        ]);
+        // Una serie de certificado no se registra dos veces (ni en otra persona).
+        if (CertificadoResponsable::query()->where('serie', $cert['serial'])->exists()) {
+            return back()->with('error', "Ese certificado (serie {$cert['serial']}) ya está registrado.");
+        }
+
+        $existente = Responsable::deTipo($tipo)->where('curp', $cert['curp'])->first();
+
+        if ($existente && $existente->activo) {
+            return back()->with('error', 'Esa persona ya es responsable activo. Edítala para renovar su certificado.');
+        }
+
+        // El límite aplica a los ACTIVOS. Reactivar o crear suma uno activo.
+        $maximo = self::MAXIMO[$tipo] ?? 1;
+        if (Responsable::deTipo($tipo)->activos()->count() >= $maximo) {
+            return back()->with('error', "Ya hay {$maximo} responsable(s) activo(s). Desactiva uno para agregar otro.");
+        }
+
+        DB::transaction(function () use ($tipo, $existente, $cert, $datos, $lector, $contenido) {
+            $responsable = $existente ?? new Responsable(['tipo_responsable_id' => $tipo]);
+            $responsable->fill([
+                'nombre' => $cert['nombre'],
+                'apellido_paterno' => $cert['apellido_paterno'],
+                'apellido_materno' => $cert['apellido_materno'] ?: null,
+                'curp' => $cert['curp'],
+                'cargo_id' => $datos['cargo_id'],
+                'titulo_profesional_id' => $datos['titulo_profesional_id'],
+                'activo' => true,
+            ])->save();
+
+            $this->agregarCertificado($responsable, $cert, $contenido, (bool) ($datos['guardar_cer'] ?? false), $lector);
+        });
 
         return back()->with('exito', 'Responsable guardado.');
     }
 
-    /**
-     * Edita un responsable ya cargado: puede renovar su certificado (mismo
-     * responsable, cert vencido/nuevo), cargar su llave (.key) para firmar solo
-     * con la contraseña después, y ajustar título y cargo.
-     */
+    /** Edita: renueva cert (historial), carga la llave y ajusta cargo/título. */
     public function update(Request $request, Responsable $responsable, LectorCertificado $lector): RedirectResponse
     {
         abort_unless($responsable->tipo_responsable_id === (int) $request->route('tipo'), 404);
 
         $datos = $request->validate([
             'certificado' => ['nullable', 'file', 'max:64'],
+            'guardar_cer' => ['boolean'],
             'llave' => ['nullable', 'file', 'max:64'],
             'llave_password' => ['nullable', 'string', 'required_with:llave'],
+            'guardar_key' => ['boolean'],
             'cargo_id' => ['required', 'integer', Rule::exists('cargos', 'id')],
             'titulo_profesional_id' => ['required', 'integer', Rule::exists('titulos_profesionales', 'id')],
         ], [
             'llave_password.required_with' => 'La contraseña de la llave es obligatoria para cargarla.',
         ]);
 
-        $cambios = [
-            'cargo_id' => $datos['cargo_id'],
-            'titulo_profesional_id' => $datos['titulo_profesional_id'],
-        ];
-        $keyEncriptado = null;
+        $responsable->load('certificadoVigente');
+        $certActual = $responsable->certificadoVigente;
 
-        // 1) Renovar certificado (opcional). La identidad se re-lee del nuevo .cer.
+        // 1) Renovar certificado (opcional): nuevo cert al historial de la misma persona.
         if ($request->hasFile('certificado')) {
             $contenido = (string) file_get_contents($request->file('certificado')->getRealPath());
             if (! $lector->esValido($contenido)) {
                 return back()->with('error', 'El certificado (.cer) no es válido.');
             }
             $cert = $lector->leer($contenido);
-            foreach (['curp', 'nombre', 'apellido_paterno'] as $req) {
-                if (blank($cert[$req] ?? null)) {
-                    return back()->with('error', 'El certificado no contiene la identidad completa (CURP/nombre).');
-                }
+
+            if (mb_strtoupper((string) $cert['curp']) !== mb_strtoupper((string) $responsable->curp)) {
+                return back()->with('error', 'El certificado es de otra persona (CURP distinta). Para cambiar de responsable, desactiva este y agrega uno nuevo.');
             }
-            $cambios += [
-                'nombre' => $cert['nombre'],
-                'apellido_paterno' => $cert['apellido_paterno'],
-                'apellido_materno' => $cert['apellido_materno'] ?: null,
-                'curp' => $cert['curp'],
-                'cer_titular' => $cert['titular'],
-                'cer_serial' => $cert['serial'],
-                'cer_vigencia_inicio' => $cert['vigencia_inicio'],
-                'cer_vigencia_fin' => $cert['vigencia_fin'],
-                'cer_pem' => $lector->pem($contenido),
-            ];
+            if (CertificadoResponsable::query()->where('serie', $cert['serial'])->where('responsable_id', '!=', $responsable->id)->exists()
+                || CertificadoResponsable::query()->where('serie', $cert['serial'])->where('responsable_id', $responsable->id)->exists()) {
+                return back()->with('error', "Ese certificado (serie {$cert['serial']}) ya está registrado.");
+            }
+
+            $certActual = $this->agregarCertificado($responsable, $cert, $contenido, (bool) ($datos['guardar_cer'] ?? false), $lector);
         }
 
-        // 2) Cargar la llave (opcional). Se valida contra el certificado vigente
-        //    (el recién subido o el guardado) con la contraseña, y se guarda
-        //    CIFRADA en reposo. La contraseña NO se almacena.
+        // 2) Cargar la llave (opcional) sobre el certificado vigente.
         if ($request->hasFile('llave')) {
-            $certPem = $cambios['cer_pem'] ?? $responsable->cer_pem;
-            if (blank($certPem)) {
-                return back()->with('error', 'Para cargar la llave primero guarda el certificado (marca «Guardar mi .cer» o súbelo aquí).');
+            if ($certActual === null) {
+                return back()->with('error', 'No hay un certificado vigente al cual asociar la llave.');
+            }
+            if (blank($certActual->cer_pem)) {
+                return back()->with('error', 'Para cargar la llave, guarda también el certificado (marca «Guardar el certificado»).');
             }
 
             $llave = (string) file_get_contents($request->file('llave')->getRealPath());
-            if (! $lector->llaveCorresponde($certPem, $llave, (string) $datos['llave_password'])) {
+            if (! $lector->llaveCorresponde($certActual->cer_pem, $llave, (string) $datos['llave_password'])) {
                 return back()->with('error', 'La llave no corresponde al certificado o la contraseña es incorrecta.');
             }
 
-            $keyEncriptado = Crypt::encryptString($llave);
+            if ($datos['guardar_key'] ?? false) {
+                $certActual->forceFill(['key_encriptado' => Crypt::encryptString($llave)])->save();
+            }
         }
 
-        $responsable->update($cambios);
-        // key_encriptado NO es fillable (dato sensible): se asigna con forceFill.
-        if ($keyEncriptado !== null) {
-            $responsable->forceFill(['key_encriptado' => $keyEncriptado])->save();
-        }
+        $responsable->update([
+            'cargo_id' => $datos['cargo_id'],
+            'titulo_profesional_id' => $datos['titulo_profesional_id'],
+        ]);
 
         return back()->with('exito', 'Responsable actualizado.');
     }
 
-    /** Desactiva (retira) un responsable activo: se conserva como historial. */
+    /**
+     * Agrega un certificado al historial y lo marca vigente (desactivando la
+     * vigencia de los anteriores). Guarda el .cer solo si se pidió.
+     */
+    private function agregarCertificado(Responsable $responsable, array $cert, string $contenido, bool $guardarCer, LectorCertificado $lector): CertificadoResponsable
+    {
+        $responsable->certificados()->where('vigente', true)->update(['vigente' => false]);
+
+        $certificado = $responsable->certificados()->create([
+            'serie' => $cert['serial'],
+            'titular' => $cert['titular'],
+            'vigencia_inicio' => $cert['vigencia_inicio'],
+            'vigencia_fin' => $cert['vigencia_fin'],
+            'vigente' => true,
+        ]);
+
+        if ($guardarCer) {
+            $certificado->forceFill(['cer_pem' => $lector->pem($contenido)])->save();
+        }
+
+        return $certificado;
+    }
+
     public function desactivar(Request $request, Responsable $responsable): RedirectResponse
     {
         abort_unless($responsable->tipo_responsable_id === (int) $request->route('tipo'), 404);
@@ -234,10 +260,7 @@ class ResponsableController extends Controller
         return back()->with('exito', 'Responsable desactivado. Queda en el historial.');
     }
 
-    /**
-     * Elimina un responsable del historial. Solo se permite sobre INACTIVOS: uno
-     * activo se desactiva primero, y más adelante se bloqueará si ya firmó algo.
-     */
+    /** Elimina por completo a una persona del historial (y sus certificados). */
     public function destroy(Request $request, Responsable $responsable): RedirectResponse
     {
         abort_unless($responsable->tipo_responsable_id === (int) $request->route('tipo'), 404);
@@ -246,7 +269,7 @@ class ResponsableController extends Controller
             return back()->with('error', 'Desactiva al responsable antes de eliminarlo.');
         }
 
-        $responsable->delete();
+        $responsable->forceDelete();
 
         return back()->with('exito', 'Responsable eliminado del historial.');
     }
