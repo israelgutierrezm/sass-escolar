@@ -10,12 +10,15 @@ use App\Models\Academico\Oferta;
 use App\Models\Academico\PlanEstudio;
 use App\Models\Academico\PlanMateria;
 use App\Models\Academico\Turno;
+use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Ciclo;
 use App\Models\ControlEscolar\Docente;
 use App\Models\ControlEscolar\Grupo;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\ControlEscolar\SituacionGrupo;
+use App\Models\ControlEscolar\SituacionInscripcion;
+use App\Models\ControlEscolar\TipoEvaluacion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -117,13 +120,21 @@ class GrupoController extends Controller
         $grupo->load(['ciclo:id,clave,nombre', 'campus:id,nombre', 'plan:id,nombre,tipo_periodo_id', 'plan.tipoPeriodo:id,nombre', 'situacion:id,nombre']);
 
         $asignaturas = AsignaturaGrupo::query()
-            ->with(['planMateria.asignatura:id,nombre', 'planMateria.plan:id,nombre', 'situacion:id,nombre', 'docentes.persona'])
+            ->with([
+                'planMateria.asignatura:id,nombre', 'planMateria.plan:id,nombre', 'situacion:id,nombre', 'docentes.persona',
+                // Para gestionar inscritos desde el propio grupo: quién está en
+                // cada materia, con qué tipo de evaluación y en qué situación.
+                'inscripciones.matriculaOferta.persona',
+                'inscripciones.tipoEvaluacion:id,nombre',
+                'inscripciones.situacion:id,clave,nombre',
+            ])
             ->where('grupo_id', $grupo->id)
             ->get();
 
         return Inertia::render('ControlEscolar/Grupos/Detalle', [
             'grupo' => [
                 'id' => $grupo->id,
+                'ciclo_id' => $grupo->ciclo_id,
                 'clave' => $grupo->clave,
                 'nombre' => $grupo->nombre,
                 'ciclo' => $grupo->ciclo?->clave,
@@ -164,7 +175,19 @@ class GrupoController extends Controller
                             'tipo' => $d->pivot->tipo,
                         ])
                         ->values(),
-                    'inscritos' => Inscripcion::query()->where('asignatura_grupo_id', $asignatura->id)->count(),
+                    // Inscritos vigentes (no los dados de baja): a quién gestionar
+                    // en esta materia. La baja conserva historia, pero no lista aquí.
+                    'inscritos' => $asignatura->inscripciones
+                        ->reject(fn (Inscripcion $i) => $i->situacion?->clave === 'baja')
+                        ->map(fn (Inscripcion $i) => [
+                            'inscripcion_id' => $i->id,
+                            'matricula_oferta_id' => $i->matricula_oferta_id,
+                            'matricula' => $i->matriculaOferta?->matricula,
+                            'alumno' => $i->matriculaOferta?->persona?->nombreCompleto(),
+                            'tipo_evaluacion' => $i->tipoEvaluacion?->nombre,
+                            'situacion' => $i->situacion?->nombre,
+                        ])
+                        ->values(),
                 ];
             }),
             // Materias del plan que aún no se abren en este grupo.
@@ -176,7 +199,24 @@ class GrupoController extends Controller
                     'id' => $docente->persona_id,
                     'nombre' => $docente->persona?->nombreCompleto(),
                 ]),
+            // Alumnos que se pueden inscribir uno a uno a una materia: activos y,
+            // si el grupo tiene plan fijo, de ese plan. El validador de servidor
+            // vuelve a comprobar seriación/cupo/duplicado al inscribir.
+            'alumnos' => MatriculaOferta::query()
+                ->with(['persona', 'oferta.carrera:id,nombre'])
+                ->where('estatus', 'activo')
+                ->when($grupo->plan_id !== null, fn ($q) => $q->whereHas('oferta', fn ($o) => $o->where('plan_id', $grupo->plan_id)))
+                ->orderBy('matricula')
+                ->get()
+                ->map(fn (MatriculaOferta $m) => [
+                    'id' => $m->id,
+                    'nombre' => trim(sprintf('%s · %s', $m->matricula, $m->persona?->nombreCompleto() ?? '')),
+                ]),
+            // Tipo de evaluación con el que se inscribe: ordinaria por defecto,
+            // extraordinaria, a título, etc.
+            'tiposEvaluacion' => TipoEvaluacion::query()->orderBy('id')->get(['id', 'nombre']),
             'puedeEditar' => $request->user()->can('abrir-grupos'),
+            'puedeInscribir' => $request->user()->can('inscribir-alumnos'),
         ]);
     }
 
@@ -206,6 +246,30 @@ class GrupoController extends Controller
         $grupo->delete();
 
         return back()->with('exito', 'Grupo eliminado.');
+    }
+
+    /**
+     * Da de baja a un alumno de TODO el grupo: sus inscripciones vigentes en
+     * cualquier materia de este grupo pasan a situación «baja». No se borran —la
+     * baja es historia escolar—; para quitar de una sola materia se usa la baja
+     * por inscripción. Es el «me equivoqué de alumno» de un clic.
+     */
+    public function bajarAlumno(Grupo $grupo, MatriculaOferta $matricula): RedirectResponse
+    {
+        $bajaId = SituacionInscripcion::query()->where('clave', 'baja')->value('id');
+
+        $afectadas = Inscripcion::query()
+            ->where('matricula_oferta_id', $matricula->id)
+            ->whereHas('asignaturaGrupo', fn ($q) => $q->where('grupo_id', $grupo->id))
+            ->where('situacion_id', '!=', $bajaId)
+            ->update(['situacion_id' => $bajaId]);
+
+        return back()->with(
+            $afectadas > 0 ? 'exito' : 'error',
+            $afectadas > 0
+                ? "Alumno dado de baja del grupo ({$afectadas} materia(s))."
+                : 'Ese alumno no tenía inscripciones vigentes en el grupo.',
+        );
     }
 
     /**

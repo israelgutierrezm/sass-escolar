@@ -8,6 +8,15 @@ import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoCasillas from '@/Components/CampoCasillas.vue';
 import CampoBuscador from '@/Components/CampoBuscador.vue';
 
+interface Inscrito {
+    inscripcion_id: number;
+    matricula_oferta_id: number;
+    matricula: string | null;
+    alumno: string | null;
+    tipo_evaluacion: string | null;
+    situacion: string | null;
+}
+
 interface MateriaAbierta {
     id: number;
     clave_en_plan: string | null;
@@ -16,7 +25,7 @@ interface MateriaAbierta {
     situacion: string | null;
     titular: string | null;
     adjuntos: string[];
-    inscritos: number;
+    inscritos: Inscrito[];
     docentes_asignados: { id: number; nombre: string | null; tipo: string }[];
 }
 
@@ -35,7 +44,10 @@ const props = defineProps<{
     asignaturas: MateriaAbierta[];
     materiasDisponibles: MateriaDisponible[];
     docentes: { id: number; nombre: string }[];
+    alumnos: { id: number; nombre: string }[];
+    tiposEvaluacion: { id: number; nombre: string }[];
     puedeEditar: boolean;
+    puedeInscribir: boolean;
 }>();
 
 /*
@@ -79,6 +91,91 @@ const materiasDelPeriodo = computed(() =>
 );
 const formDocente = useForm({ persona_id: null as number | null, tipo: 'titular' });
 const asignandoEn = ref<number | null>(null);
+
+// --- Inscripción individual a una materia ---
+// El tipo de evaluación arranca en «ordinaria» (lo normal); el select deja
+// elegir extraordinaria, a título, etc.
+const tipoOrdinaria = computed(
+    () => props.tiposEvaluacion.find((t) => /ordinaria/i.test(t.nombre))?.id ?? props.tiposEvaluacion[0]?.id ?? null,
+);
+
+const formInscribir = useForm({
+    matricula_oferta_id: null as number | null,
+    asignatura_grupo_id: null as number | null,
+    tipo_evaluacion_id: null as number | null,
+});
+
+// Qué materia tiene abierto su formulario de "inscribir un alumno".
+const inscribiendoEn = ref<number | null>(null);
+
+function abrirInscripcion(materiaId: number): void {
+    inscribiendoEn.value = inscribiendoEn.value === materiaId ? null : materiaId;
+    formInscribir.reset();
+    formInscribir.clearErrors();
+    formInscribir.asignatura_grupo_id = materiaId;
+    formInscribir.tipo_evaluacion_id = tipoOrdinaria.value;
+}
+
+// Alumnos que aún no están (vigentes) en esta materia: el buscador no ofrece a
+// quien ya está inscrito.
+function alumnosPara(materia: MateriaAbierta) {
+    const yaInscritos = new Set(materia.inscritos.map((i) => i.matricula_oferta_id));
+
+    return props.alumnos
+        .filter((a) => !yaInscritos.has(a.id))
+        .map((a) => ({ valor: a.id, texto: a.nombre }));
+}
+
+function inscribirAlumno(): void {
+    formInscribir.post('/escolar/inscripciones', {
+        preserveScroll: true,
+        onSuccess: () => {
+            formInscribir.reset();
+            inscribiendoEn.value = null;
+        },
+    });
+}
+
+// Baja de UNA materia (una inscripción). Conserva historia.
+function bajaMateria(inscripcionId: number, alumno: string | null): void {
+    if (!confirm(`¿Dar de baja a ${alumno ?? 'este alumno'} de la materia?`)) {
+        return;
+    }
+
+    router.put(`/escolar/inscripciones/${inscripcionId}/baja`, {}, { preserveScroll: true });
+}
+
+// Alumnos distintos inscritos en el grupo (en cualquier materia), para poder
+// darlos de baja de TODO el grupo de un tirón.
+const alumnosDelGrupo = computed(() => {
+    const mapa = new Map<number, { matricula_oferta_id: number; matricula: string | null; alumno: string | null; materias: number }>();
+
+    for (const materia of props.asignaturas) {
+        for (const inscrito of materia.inscritos) {
+            const previo = mapa.get(inscrito.matricula_oferta_id);
+            if (previo) {
+                previo.materias += 1;
+            } else {
+                mapa.set(inscrito.matricula_oferta_id, {
+                    matricula_oferta_id: inscrito.matricula_oferta_id,
+                    matricula: inscrito.matricula,
+                    alumno: inscrito.alumno,
+                    materias: 1,
+                });
+            }
+        }
+    }
+
+    return [...mapa.values()].sort((a, b) => (a.matricula ?? '').localeCompare(b.matricula ?? ''));
+});
+
+function bajaGrupo(matriculaOfertaId: number, alumno: string | null): void {
+    if (!confirm(`¿Dar de baja a ${alumno ?? 'este alumno'} de TODO el grupo? Se dan de baja todas sus materias aquí.`)) {
+        return;
+    }
+
+    router.put(`/escolar/grupos/${props.grupo.id}/alumnos/${matriculaOfertaId}/baja`, {}, { preserveScroll: true });
+}
 
 function abrirMaterias(): void {
     formMateria.post(`/escolar/grupos/${props.grupo.id}/materias`, {
@@ -158,10 +255,44 @@ function quitarDocente(asignaturaId: number, personaId: number, nombre: string |
                         <span v-if="grupo.cupo"> · cupo {{ grupo.cupo }}</span>
                     </p>
                 </div>
-                <a href="/escolar/grupos" class="text-sm text-indigo-600 hover:text-indigo-700">
-                    ← Volver a grupos
-                </a>
+                <div class="flex flex-col items-end gap-2">
+                    <a
+                        v-if="puedeInscribir && asignaturas.length"
+                        :href="`/escolar/inscripciones/masiva?ciclo_id=${grupo.ciclo_id}&grupo_id=${grupo.id}`"
+                        class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                    >
+                        Inscribir alumnos (masivo)
+                    </a>
+                    <a href="/escolar/grupos" class="text-sm text-indigo-600 hover:text-indigo-700">
+                        ← Volver a grupos
+                    </a>
+                </div>
             </div>
+        </section>
+
+        <!-- Alumnos del grupo: para dar de baja de TODAS sus materias si se
+             cargó al alumno equivocado. -->
+        <section v-if="puedeInscribir && alumnosDelGrupo.length" class="tarjeta p-6">
+            <h2 class="text-base font-semibold text-contenido">Alumnos del grupo ({{ alumnosDelGrupo.length }})</h2>
+            <p class="mt-1 text-sm text-suave">
+                Inscritos en al menos una materia del grupo. Dar de baja aquí los saca de todas.
+            </p>
+            <ul class="mt-3 divide-y divide-borde">
+                <li v-for="a in alumnosDelGrupo" :key="a.matricula_oferta_id" class="flex items-center justify-between gap-3 py-2">
+                    <span class="text-sm text-contenido">
+                        <span class="font-mono text-xs text-suave">{{ a.matricula }}</span>
+                        · {{ a.alumno }}
+                        <span class="text-xs text-suave">· {{ a.materias }} materia(s)</span>
+                    </span>
+                    <button
+                        type="button"
+                        class="text-xs text-suave hover:text-red-600"
+                        @click="bajaGrupo(a.matricula_oferta_id, a.alumno)"
+                    >
+                        Baja del grupo
+                    </button>
+                </li>
+            </ul>
         </section>
 
         <!-- Abrir materia -->
@@ -225,7 +356,7 @@ function quitarDocente(asignaturaId: number, personaId: number, nombre: string |
                                 · {{ asignatura.materia }}
                             </p>
                             <p class="mt-0.5 text-xs text-suave">
-                                {{ asignatura.plan }} · {{ asignatura.inscritos }} inscrito(s)
+                                {{ asignatura.plan }} · {{ asignatura.inscritos.length }} inscrito(s)
                             </p>
 
                             <p v-if="!asignatura.docentes_asignados.length" class="mt-2 text-sm text-amber-600">
@@ -256,8 +387,17 @@ function quitarDocente(asignaturaId: number, personaId: number, nombre: string |
                             </ul>
                         </div>
 
-                        <div v-if="puedeEditar" class="flex items-center gap-3">
+                        <div v-if="puedeEditar || puedeInscribir" class="flex items-center gap-3">
                             <button
+                                v-if="puedeInscribir"
+                                type="button"
+                                class="text-sm text-indigo-600 hover:text-indigo-700"
+                                @click="abrirInscripcion(asignatura.id)"
+                            >
+                                Inscribir alumno
+                            </button>
+                            <button
+                                v-if="puedeEditar"
                                 type="button"
                                 class="text-sm text-indigo-600 hover:text-indigo-700"
                                 @click="asignandoEn = asignandoEn === asignatura.id ? null : asignatura.id"
@@ -265,6 +405,7 @@ function quitarDocente(asignaturaId: number, personaId: number, nombre: string |
                                 Asignar docente
                             </button>
                             <button
+                                v-if="puedeEditar"
                                 type="button"
                                 class="text-sm text-suave hover:text-red-600"
                                 @click="quitarMateria(asignatura)"
@@ -305,6 +446,59 @@ function quitarDocente(asignaturaId: number, personaId: number, nombre: string |
                             No hay docentes registrados todavía.
                         </p>
                     </form>
+
+                    <!-- Inscribir un alumno puntual a esta materia -->
+                    <form
+                        v-if="inscribiendoEn === asignatura.id"
+                        class="mt-3 flex flex-wrap items-end gap-3 rounded-lg bg-fondo p-3"
+                        @submit.prevent="inscribirAlumno"
+                    >
+                        <div class="min-w-64 flex-1">
+                            <CampoBuscador
+                                v-model="formInscribir.matricula_oferta_id"
+                                etiqueta="Alumno"
+                                :opciones="alumnosPara(asignatura)"
+                                marcador="Busca por matrícula o nombre…"
+                                vacio="No hay alumnos activos por inscribir."
+                                :error="formInscribir.errors.matricula_oferta_id ?? formInscribir.errors.asignatura_grupo_id"
+                            />
+                        </div>
+                        <div class="w-48">
+                            <CampoSelect
+                                v-model="formInscribir.tipo_evaluacion_id"
+                                etiqueta="Tipo"
+                                :opciones="tiposEvaluacion.map((t) => ({ valor: t.id, texto: t.nombre }))"
+                                :error="formInscribir.errors.tipo_evaluacion_id"
+                            />
+                        </div>
+                        <BotonPrincipal :procesando="formInscribir.processing" texto="Inscribir" />
+                    </form>
+
+                    <!-- Inscritos vigentes en esta materia -->
+                    <ul v-if="asignatura.inscritos.length" class="mt-3 space-y-1">
+                        <li
+                            v-for="i in asignatura.inscritos"
+                            :key="i.inscripcion_id"
+                            class="flex items-center gap-2 text-sm"
+                        >
+                            <span class="font-mono text-xs text-suave">{{ i.matricula }}</span>
+                            <span class="text-contenido">{{ i.alumno }}</span>
+                            <span
+                                v-if="i.tipo_evaluacion"
+                                class="rounded-full bg-fondo px-2 py-0.5 text-[11px] text-suave"
+                            >
+                                {{ i.tipo_evaluacion }}
+                            </span>
+                            <button
+                                v-if="puedeInscribir"
+                                type="button"
+                                class="text-xs text-suave hover:text-red-600"
+                                @click="bajaMateria(i.inscripcion_id, i.alumno)"
+                            >
+                                baja
+                            </button>
+                        </li>
+                    </ul>
                 </li>
             </ul>
         </section>

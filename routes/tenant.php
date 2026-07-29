@@ -554,6 +554,9 @@ Route::middleware([
                     Route::post('inscripciones', [InscripcionController::class, 'store'])->name('inscripciones.store');
                     Route::post('inscripciones/masiva', [InscripcionController::class, 'inscribirMasiva'])->name('inscripciones.masiva.store');
                     Route::put('inscripciones/{inscripcion}/baja', [InscripcionController::class, 'baja'])->name('inscripciones.baja');
+                    // Baja de un alumno de TODO el grupo (todas sus materias), desde
+                    // el detalle del grupo.
+                    Route::put('grupos/{grupo}/alumnos/{matricula}/baja', [GrupoController::class, 'bajarAlumno'])->name('grupos.alumnos.baja');
                 });
 
                 Route::middleware('can:abrir-grupos')->group(function () {
