@@ -32,7 +32,8 @@ class PlantillaAcademica
     private const FILAS = 300;
 
     /**
-     * Plantilla COMPLETA: institución, campus, carreras, planes y asignaturas.
+     * Plantilla COMPLETA: campus, carreras, planes y asignaturas. La institución
+     * NO va aquí; se carga aparte, a mano, porque hay una sola por escuela.
      *
      * @return string ruta del .xlsx temporal
      */
@@ -52,12 +53,8 @@ class PlantillaAcademica
             'La clave SAT de las carreras se asigna sola según el nivel; no va aquí.',
         ]);
 
-        $this->hoja($libro, 'Institución', [
-            ['Nombre *', null], ['Nombre para mostrar', null], ['Siglas', null],
-        ], ['Universidad Ejemplo', 'U. Ejemplo', 'UE']);
-
         $this->hoja($libro, 'Campus', [
-            ['Clave *', null], ['Nombre *', null], ['Tipo de campus *', $rangos['tiposCampus']],
+            ['Clave *', null], ['Nombre *', null], ['Tipo de campus', $rangos['tiposCampus']],
         ], ['CEN', 'Campus Central', $this->primero(TipoCampus::class)]);
 
         $this->hoja($libro, 'Carreras', [

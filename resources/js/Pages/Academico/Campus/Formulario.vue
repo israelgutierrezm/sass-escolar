@@ -56,10 +56,10 @@ function enviar(): void {
                 <CampoSelect
                     v-model="form.tipo_campus_id"
                     etiqueta="Tipo de campus"
-                    requerido
                     :opciones="opcionesTipo"
-                    vacio="Selecciona…"
+                    vacio="Sin especificar"
                     :error="form.errors.tipo_campus_id"
+                    ayuda="Opcional: clasifica el plantel (matriz, extensión, en línea…)."
                 />
                 <CampoSelect
                     v-model="form.entidad_id"

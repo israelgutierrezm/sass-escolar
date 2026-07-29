@@ -9,7 +9,6 @@ use App\Models\Academico\Asignatura;
 use App\Models\Academico\Campus;
 use App\Models\Academico\Carrera;
 use App\Models\Academico\ClasificacionAsignatura;
-use App\Models\Academico\Institucion;
 use App\Models\Academico\NivelEstudio;
 use App\Models\Academico\PlanEstudio;
 use App\Models\Academico\PlanMateria;
@@ -32,7 +31,8 @@ class ImportadorAcademico
     private array $errores = [];
 
     /**
-     * Carga completa: institución, campus, carreras, planes y asignaturas.
+     * Carga completa: campus, carreras, planes y asignaturas. La institución se
+     * carga aparte (una por escuela), no por esta plantilla.
      *
      * @return array{errores: array<int, array<string, mixed>>, resumen: array<string, int>}
      */
@@ -43,7 +43,6 @@ class ImportadorAcademico
 
         $cat = $this->catalogos();
 
-        $institucion = $this->leer($libro, 'Institución');
         $campus = $this->leer($libro, 'Campus');
         $carreras = $this->leer($libro, 'Carreras');
         $planes = $this->leer($libro, 'Planes');
@@ -56,7 +55,8 @@ class ImportadorAcademico
 
         // ---- Validaciones ----
         foreach ($campus as [$fila, $r]) {
-            $this->requerido('Campus', $fila, $r, [0 => 'Clave', 1 => 'Nombre', 2 => 'Tipo de campus']);
+            $this->requerido('Campus', $fila, $r, [0 => 'Clave', 1 => 'Nombre']);
+            // Tipo de campus opcional: si viene, tiene que estar en el catálogo.
             $this->enCatalogo('Campus', $fila, $r[2] ?? null, $cat['tiposCampus'], 'Tipo de campus');
         }
         foreach ($carreras as [$fila, $r]) {
@@ -85,18 +85,15 @@ class ImportadorAcademico
         // ---- Creación ----
         $resumen = ['campus' => 0, 'carreras' => 0, 'planes' => 0, 'asignaturas' => 0];
 
-        DB::transaction(function () use ($institucion, $campus, $carreras, $planes, $asignaturas, $cat, &$resumen) {
-            if ($institucion !== [] && filled($institucion[0][1][0] ?? null)) {
-                $i = $institucion[0][1];
-                $reg = Institucion::query()->first() ?? new Institucion(['clave' => 'principal']);
-                $reg->fill(['nombre' => trim((string) $i[0]), 'nombre_mostrar' => $this->str($i[1] ?? null), 'siglas' => $this->str($i[2] ?? null)])->save();
-            }
-
+        DB::transaction(function () use ($campus, $carreras, $planes, $asignaturas, $cat, &$resumen) {
             foreach ($campus as [, $r]) {
+                // El tipo es opcional: si la celda viene vacía, no hay tipo ni
+                // «online» que derivar.
+                $tipo = $cat['tiposCampus'][$this->norm($r[2] ?? null)] ?? null;
                 Campus::query()->updateOrCreate(['clave' => trim((string) $r[0])], [
                     'nombre' => trim((string) $r[1]),
-                    'tipo_campus_id' => $cat['tiposCampus'][$this->norm($r[2])]['id'],
-                    'online' => ($cat['tiposCampus'][$this->norm($r[2])]['clave'] ?? '') === 'en_linea',
+                    'tipo_campus_id' => $tipo['id'] ?? null,
+                    'online' => ($tipo['clave'] ?? '') === 'en_linea',
                 ]);
                 $resumen['campus']++;
             }
