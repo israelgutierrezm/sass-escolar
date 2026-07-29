@@ -135,7 +135,7 @@ function restablecer(): void {
                         :style="{ backgroundColor: estado[t.clave] ? 'var(--color-acento)' : 'var(--color-borde)' }"
                         @click.prevent="estado[t.clave] = !estado[t.clave]"
                     >
-                        <span class="absolute top-1 h-4 w-4 rounded-full bg-white transition-all" :style="{ left: estado[t.clave] ? '1.5rem' : '0.25rem' }" />
+                        <span class="absolute top-1 h-4 w-4 rounded-full bg-superficie transition-all" :style="{ left: estado[t.clave] ? '1.5rem' : '0.25rem' }" />
                     </button>
                 </label>
             </div>

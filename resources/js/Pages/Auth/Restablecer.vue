@@ -28,7 +28,7 @@ function enviar(): void {
 
     <AuthWaves>
         <template #subtitulo>
-            <p class="mt-1 text-sm text-slate-500">Nueva contraseña</p>
+            <p class="mt-1 text-sm text-suave">Nueva contraseña</p>
         </template>
 
         <form class="space-y-5" @submit.prevent="enviar">

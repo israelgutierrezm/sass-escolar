@@ -89,7 +89,7 @@ function probar(): void {
                     :style="{ backgroundColor: form.activo ? 'var(--color-acento)' : 'var(--color-borde)' }"
                     @click="form.activo = !form.activo"
                 >
-                    <span class="absolute top-1 h-5 w-5 rounded-full bg-white transition-all" :style="{ left: form.activo ? '1.5rem' : '0.25rem' }"></span>
+                    <span class="absolute top-1 h-5 w-5 rounded-full bg-superficie transition-all" :style="{ left: form.activo ? '1.5rem' : '0.25rem' }"></span>
                 </button>
             </div>
         </section>

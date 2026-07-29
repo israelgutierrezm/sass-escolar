@@ -92,7 +92,7 @@ function eliminar(): void {
 }
 
 const colorEstatus: Record<string, string> = {
-    borrador: 'text-slate-600 bg-slate-100',
+    borrador: 'text-suave bg-fondo',
     timbrando: 'text-blue-700 bg-blue-50',
     timbrada: 'text-emerald-700 bg-emerald-50',
     error: 'text-red-700 bg-red-50',

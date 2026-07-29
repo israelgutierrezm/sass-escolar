@@ -118,7 +118,7 @@ function conmutar(rolId: number): void {
                 <button
                     v-if="rolesDisponibles.length > 1"
                     type="button"
-                    class="inline-flex items-center gap-2 rounded-xl bg-white/15 px-4 py-2.5 text-sm font-medium backdrop-blur transition hover:bg-white/25"
+                    class="inline-flex items-center gap-2 rounded-xl bg-superficie/15 px-4 py-2.5 text-sm font-medium backdrop-blur transition hover:bg-superficie/25"
                     @click="mostrarRoles = !mostrarRoles"
                 >
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" /></svg>
@@ -133,7 +133,7 @@ function conmutar(rolId: number): void {
                     :key="`${rol.id}-${rol.campus_id ?? 'global'}`"
                     type="button"
                     class="rounded-xl px-4 py-3 text-left text-sm transition"
-                    :class="esActivo(rol.id) ? 'bg-white text-slate-800 shadow' : 'bg-white/10 hover:bg-white/20'"
+                    :class="esActivo(rol.id) ? 'bg-superficie text-contenido shadow' : 'bg-superficie/10 hover:bg-superficie/20'"
                     @click="conmutar(rol.id)"
                 >
                     <span class="flex items-center justify-between gap-2">

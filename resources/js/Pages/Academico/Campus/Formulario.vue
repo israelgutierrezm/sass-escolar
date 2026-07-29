@@ -76,7 +76,7 @@ function enviar(): void {
                 <BotonPrincipal :procesando="form.processing" :texto="esEdicion ? 'Guardar cambios' : 'Crear campus'" />
                 <a
                     href="/academico/campus"
-                    class="rounded-lg border border-slate-300 px-5 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                    class="rounded-lg border border-borde px-5 py-2.5 text-sm text-contenido hover:bg-fondo"
                 >
                     Cancelar
                 </a>

@@ -139,9 +139,9 @@ function quitarDocente(asignaturaId: number, personaId: number, nombre: string |
         <section class="tarjeta p-6">
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                    <p class="font-mono text-sm text-slate-500">{{ grupo.clave }}</p>
-                    <h2 class="text-lg font-semibold text-slate-800">{{ grupo.nombre ?? 'Grupo' }}</h2>
-                    <p class="mt-1 text-sm text-slate-500">
+                    <p class="font-mono text-sm text-suave">{{ grupo.clave }}</p>
+                    <h2 class="text-lg font-semibold text-contenido">{{ grupo.nombre ?? 'Grupo' }}</h2>
+                    <p class="mt-1 text-sm text-suave">
                         Ciclo {{ grupo.ciclo }} · {{ grupo.campus }}
                         <span v-if="grupo.plan"> · {{ grupo.plan }}</span>
                         <span v-if="grupo.cupo"> · cupo {{ grupo.cupo }}</span>
@@ -155,8 +155,8 @@ function quitarDocente(asignaturaId: number, personaId: number, nombre: string |
 
         <!-- Abrir materia -->
         <section v-if="puedeEditar" class="tarjeta p-6">
-            <h2 class="text-base font-semibold text-slate-800">Abrir materias</h2>
-            <p class="mt-1 text-sm text-slate-500">
+            <h2 class="text-base font-semibold text-contenido">Abrir materias</h2>
+            <p class="mt-1 text-sm text-suave">
                 Abrir una materia es lo que la vuelve inscribible en este ciclo. Filtra por
                 semestre y marca todas las que vayas a abrir.
             </p>
@@ -199,21 +199,21 @@ function quitarDocente(asignaturaId: number, personaId: number, nombre: string |
 
         <!-- Materias abiertas -->
         <section v-if="asignaturas.length" class="tarjeta">
-            <div class="border-b border-slate-100 px-6 py-3">
-                <h2 class="text-base font-semibold text-slate-800">
+            <div class="border-b border-borde px-6 py-3">
+                <h2 class="text-base font-semibold text-contenido">
                     Materias abiertas ({{ asignaturas.length }})
                 </h2>
             </div>
 
-            <ul class="divide-y divide-slate-100">
+            <ul class="divide-y divide-borde">
                 <li v-for="asignatura in asignaturas" :key="asignatura.id" class="px-6 py-4">
                     <div class="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                            <p class="text-sm font-medium text-slate-800">
-                                <span class="font-mono text-xs text-slate-500">{{ asignatura.clave_en_plan }}</span>
+                            <p class="text-sm font-medium text-contenido">
+                                <span class="font-mono text-xs text-suave">{{ asignatura.clave_en_plan }}</span>
                                 · {{ asignatura.materia }}
                             </p>
-                            <p class="mt-0.5 text-xs text-slate-400">
+                            <p class="mt-0.5 text-xs text-suave">
                                 {{ asignatura.plan }} · {{ asignatura.inscritos }} inscrito(s)
                             </p>
 
@@ -226,17 +226,17 @@ function quitarDocente(asignaturaId: number, personaId: number, nombre: string |
                                     :key="d.id"
                                     class="flex items-center gap-2 text-sm"
                                 >
-                                    <span class="text-slate-800">{{ d.nombre }}</span>
+                                    <span class="text-contenido">{{ d.nombre }}</span>
                                     <span
                                         class="rounded-full px-2 py-0.5 text-[11px]"
-                                        :class="d.tipo === 'titular' ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-600'"
+                                        :class="d.tipo === 'titular' ? 'bg-indigo-50 text-indigo-700' : 'bg-fondo text-suave'"
                                     >
                                         {{ d.tipo }}
                                     </span>
                                     <button
                                         v-if="puedeEditar"
                                         type="button"
-                                        class="text-xs text-slate-400 hover:text-red-600"
+                                        class="text-xs text-suave hover:text-red-600"
                                         @click="quitarDocente(asignatura.id, d.id, d.nombre)"
                                     >
                                         quitar
@@ -255,7 +255,7 @@ function quitarDocente(asignaturaId: number, personaId: number, nombre: string |
                             </button>
                             <button
                                 type="button"
-                                class="text-sm text-slate-400 hover:text-red-600"
+                                class="text-sm text-suave hover:text-red-600"
                                 @click="quitarMateria(asignatura)"
                             >
                                 Quitar
@@ -265,7 +265,7 @@ function quitarDocente(asignaturaId: number, personaId: number, nombre: string |
 
                     <form
                         v-if="asignandoEn === asignatura.id"
-                        class="mt-3 flex flex-wrap items-end gap-3 rounded-lg bg-slate-50 p-3"
+                        class="mt-3 flex flex-wrap items-end gap-3 rounded-lg bg-fondo p-3"
                         @submit.prevent="asignarDocente(asignatura.id)"
                     >
                         <div class="min-w-64 flex-1">

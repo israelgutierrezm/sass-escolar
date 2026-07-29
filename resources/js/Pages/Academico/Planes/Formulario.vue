@@ -50,7 +50,7 @@ function enviar(): void {
 
         <form class="max-w-3xl space-y-6" @submit.prevent="enviar">
             <section class="tarjeta p-6">
-                <h2 class="text-base font-semibold text-slate-800">Identificación</h2>
+                <h2 class="text-base font-semibold text-contenido">Identificación</h2>
 
                 <div class="mt-5 grid gap-4 sm:grid-cols-2">
                     <CampoSelect
@@ -73,8 +73,8 @@ function enviar(): void {
             </section>
 
             <section class="tarjeta p-6">
-                <h2 class="text-base font-semibold text-slate-800">Reconocimiento oficial</h2>
-                <p class="mt-1 text-sm text-slate-500">Datos que exige la SEP para el título electrónico.</p>
+                <h2 class="text-base font-semibold text-contenido">Reconocimiento oficial</h2>
+                <p class="mt-1 text-sm text-suave">Datos que exige la SEP para el título electrónico.</p>
 
                 <div class="mt-5 grid gap-4 sm:grid-cols-2">
                     <CampoTexto v-model="form.rvoe" etiqueta="RVOE" requerido :error="form.errors.rvoe" mono />
@@ -103,7 +103,7 @@ function enviar(): void {
             </section>
 
             <section class="tarjeta p-6">
-                <h2 class="text-base font-semibold text-slate-800">Reglas académicas</h2>
+                <h2 class="text-base font-semibold text-contenido">Reglas académicas</h2>
 
                 <div class="mt-5 grid gap-4 sm:grid-cols-3">
                     <CampoSelect
@@ -164,7 +164,7 @@ function enviar(): void {
                 <BotonPrincipal :procesando="form.processing" :texto="esEdicion ? 'Guardar cambios' : 'Crear plan'" />
                 <a
                     href="/academico/planes"
-                    class="rounded-lg border border-slate-300 px-5 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                    class="rounded-lg border border-borde px-5 py-2.5 text-sm text-contenido hover:bg-fondo"
                 >
                     Cancelar
                 </a>

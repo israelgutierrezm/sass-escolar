@@ -9,11 +9,11 @@ const modelo = defineModel<boolean>();
         <input
             v-model="modelo"
             type="checkbox"
-            class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            class="mt-0.5 rounded border-borde text-indigo-600 focus:ring-indigo-500"
         />
         <span>
-            <span class="block text-sm text-slate-700">{{ etiqueta }}</span>
-            <span v-if="ayuda" class="block text-xs text-slate-400">{{ ayuda }}</span>
+            <span class="block text-sm text-contenido">{{ etiqueta }}</span>
+            <span v-if="ayuda" class="block text-xs text-suave">{{ ayuda }}</span>
         </span>
     </label>
 </template>

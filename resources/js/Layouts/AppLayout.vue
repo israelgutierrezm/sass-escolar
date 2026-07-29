@@ -250,7 +250,7 @@ const iniciales = computed(() => {
         </span>
         <button
             type="button"
-            class="rounded-lg bg-white/20 px-3 py-1 font-medium transition hover:bg-white/30"
+            class="rounded-lg bg-superficie/20 px-3 py-1 font-medium transition hover:bg-superficie/30"
             @click="volverACuentaPropia"
         >
             Volver a mi cuenta
@@ -291,7 +291,7 @@ const iniciales = computed(() => {
                     v-if="escuela?.institucion?.logo"
                     :src="escuela.institucion.logo"
                     :alt="escuela.institucion.nombre"
-                    class="h-9 w-9 shrink-0 rounded-xl bg-white object-contain shadow-lg"
+                    class="h-9 w-9 shrink-0 rounded-xl bg-superficie object-contain shadow-lg"
                 />
                 <span
                     v-else
@@ -320,7 +320,7 @@ const iniciales = computed(() => {
                      la barra siempre está a la vista. -->
                 <button
                     type="button"
-                    class="ms-auto rounded-lg p-1.5 transition hover:bg-white/10 lg:hidden"
+                    class="ms-auto rounded-lg p-1.5 transition hover:bg-superficie/10 lg:hidden"
                     title="Cerrar menú"
                     @click="menuMovil = false"
                 >
@@ -338,7 +338,7 @@ const iniciales = computed(() => {
                         v-if="!seccion.hijos.length"
                         :href="seccion.url!"
                         class="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200"
-                        :class="esActiva(seccion.prefijo) ? 'font-medium text-white' : 'hover:bg-white/5 hover:text-white'"
+                        :class="esActiva(seccion.prefijo) ? 'font-medium text-white' : 'hover:bg-superficie/5 hover:text-white'"
                         :style="esActiva(seccion.prefijo) ? { backgroundColor: 'var(--color-barra-lateral-activo)' } : {}"
                         :title="compacta ? seccion.etiqueta : undefined"
                     >
@@ -353,7 +353,7 @@ const iniciales = computed(() => {
                         <button
                             type="button"
                             class="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200"
-                            :class="esActiva(seccion.prefijo) ? 'text-white' : 'hover:bg-white/5 hover:text-white'"
+                            :class="esActiva(seccion.prefijo) ? 'text-white' : 'hover:bg-superficie/5 hover:text-white'"
                             :style="esActiva(seccion.prefijo) ? { backgroundColor: 'var(--color-barra-lateral-suave)' } : {}"
                             :title="compacta ? seccion.etiqueta : undefined"
                             @click="activarGrupo(seccion.clave)"
@@ -400,7 +400,7 @@ const iniciales = computed(() => {
             <!-- Colapsar (solo escritorio: en móvil el cajón siempre va ancho). -->
             <button
                 type="button"
-                class="m-3 hidden items-center justify-center gap-2 rounded-xl py-2 text-xs opacity-70 transition hover:bg-white/5 hover:opacity-100 lg:flex"
+                class="m-3 hidden items-center justify-center gap-2 rounded-xl py-2 text-xs opacity-70 transition hover:bg-superficie/5 hover:opacity-100 lg:flex"
                 @click="compacta = !compacta"
             >
                 <svg

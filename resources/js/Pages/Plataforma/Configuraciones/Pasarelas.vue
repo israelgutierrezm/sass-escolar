@@ -102,7 +102,7 @@ const activas = computed(() => props.pasarelas.filter((p) => p.activa).length);
                             :style="{ backgroundColor: forms[p.clave].activa ? p.color : 'var(--color-borde)' }"
                             @click="forms[p.clave].activa = !forms[p.clave].activa"
                         >
-                            <span class="absolute top-1 h-4 w-4 rounded-full bg-white transition-all" :style="{ left: forms[p.clave].activa ? '1.5rem' : '0.25rem' }" />
+                            <span class="absolute top-1 h-4 w-4 rounded-full bg-superficie transition-all" :style="{ left: forms[p.clave].activa ? '1.5rem' : '0.25rem' }" />
                         </button>
                         <span class="text-[11px]" :style="{ color: forms[p.clave].activa ? p.color : 'var(--color-suave)' }">
                             {{ forms[p.clave].activa ? 'Activa' : 'Inactiva' }}

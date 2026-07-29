@@ -35,7 +35,7 @@ function enviar(): void {
 
     <AuthWaves>
         <template #subtitulo>
-            <p class="mt-1 text-sm text-slate-500">
+            <p class="mt-1 text-sm text-suave">
                 Ingreso a la plataforma<template v-if="escuela"> · {{ escuela.nombre }}</template>
             </p>
         </template>
@@ -99,11 +99,11 @@ function enviar(): void {
             </div>
 
             <div class="flex items-center justify-between">
-                <label class="flex items-center gap-2 text-sm text-slate-600">
+                <label class="flex items-center gap-2 text-sm text-suave">
                     <input
                         v-model="form.recordarme"
                         type="checkbox"
-                        class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        class="rounded border-borde text-indigo-600 focus:ring-indigo-500"
                     />
                     Recordarme
                 </label>
@@ -129,15 +129,15 @@ function enviar(): void {
         <!-- SSO de Google: navegación de página completa (sale a OAuth), no
              Inertia. Solo si la escuela lo habilitó. -->
         <template v-if="googleSso">
-            <div class="my-5 flex items-center gap-3 text-xs text-slate-400">
-                <span class="h-px flex-1 bg-slate-200"></span>
+            <div class="my-5 flex items-center gap-3 text-xs text-suave">
+                <span class="h-px flex-1 bg-borde"></span>
                 o
-                <span class="h-px flex-1 bg-slate-200"></span>
+                <span class="h-px flex-1 bg-borde"></span>
             </div>
 
             <a
                 href="/auth/google/redirect"
-                class="flex w-full items-center justify-center gap-3 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                class="flex w-full items-center justify-center gap-3 rounded-lg border border-borde px-4 py-2.5 text-sm font-medium text-contenido transition hover:bg-fondo"
             >
                 <svg class="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09Z" />

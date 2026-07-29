@@ -18,10 +18,10 @@ function enviar(): void {
 
     <AuthWaves>
         <template #subtitulo>
-            <p class="mt-1 text-sm text-slate-500">Recuperar contraseña</p>
+            <p class="mt-1 text-sm text-suave">Recuperar contraseña</p>
         </template>
 
-        <p class="mb-5 text-sm text-slate-500">
+        <p class="mb-5 text-sm text-suave">
             Escribe tu correo y te enviaremos un enlace para restablecerla.
         </p>
 
@@ -53,7 +53,7 @@ function enviar(): void {
                 {{ form.processing ? 'Enviando…' : 'Enviar enlace' }}
             </button>
 
-            <Link href="/" class="block text-center text-sm text-slate-500 hover:text-slate-700">← Volver al acceso</Link>
+            <Link href="/" class="block text-center text-sm text-suave hover:text-contenido">← Volver al acceso</Link>
         </form>
     </AuthWaves>
 </template>

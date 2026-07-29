@@ -37,7 +37,7 @@ function enviar(): void {
 
         <form class="max-w-3xl space-y-6" @submit.prevent="enviar">
             <section class="tarjeta p-6">
-                <h2 class="text-base font-semibold text-slate-800">Datos de la carrera</h2>
+                <h2 class="text-base font-semibold text-contenido">Datos de la carrera</h2>
 
                 <div class="mt-5 grid gap-4 sm:grid-cols-2">
                     <CampoTexto
@@ -73,7 +73,7 @@ function enviar(): void {
                 <BotonPrincipal :procesando="form.processing" :texto="esEdicion ? 'Guardar cambios' : 'Crear carrera'" />
                 <a
                     href="/academico/carreras"
-                    class="rounded-lg border border-slate-300 px-5 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                    class="rounded-lg border border-borde px-5 py-2.5 text-sm text-contenido hover:bg-fondo"
                 >
                     Cancelar
                 </a>

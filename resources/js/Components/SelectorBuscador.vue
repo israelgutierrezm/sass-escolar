@@ -81,7 +81,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', alClicFuera));
 
 <template>
     <div ref="contenedor" class="relative">
-        <label class="mb-1 block text-sm font-medium text-slate-700">
+        <label class="mb-1 block text-sm font-medium text-contenido">
             {{ etiqueta }}<span v-if="requerido" class="text-red-500"> *</span>
         </label>
 
@@ -92,14 +92,14 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', alClicFuera));
             :class="
                 error
                     ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
-                    : 'border-slate-300 focus:border-indigo-500 focus:ring-indigo-500'
+                    : 'border-borde focus:border-indigo-500 focus:ring-indigo-500'
             "
             @click="abierto ? cerrar() : abrir()"
         >
-            <span :class="textoSeleccionado ? 'text-slate-900' : 'text-slate-400'">
+            <span :class="textoSeleccionado ? 'text-contenido' : 'text-suave'">
                 {{ textoSeleccionado || vacio || 'Selecciona…' }}
             </span>
-            <svg class="h-4 w-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <svg class="h-4 w-4 shrink-0 text-suave" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
             </svg>
         </button>
@@ -107,7 +107,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', alClicFuera));
         <!-- Panel: buscador + lista filtrada. -->
         <div
             v-if="abierto"
-            class="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border bg-white shadow-lg"
+            class="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border bg-superficie shadow-lg"
             style="border-color: #cbd5e1"
         >
             <div class="border-b p-2" style="border-color: #e2e8f0">
@@ -116,7 +116,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', alClicFuera));
                     v-model="busqueda"
                     type="text"
                     placeholder="Buscar…"
-                    class="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    class="w-full rounded-md border border-borde px-2 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     @keydown.esc="cerrar"
                 />
             </div>
@@ -125,7 +125,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', alClicFuera));
                 <li v-if="vacio">
                     <button
                         type="button"
-                        class="w-full px-3 py-1.5 text-left text-slate-400 hover:bg-slate-50"
+                        class="w-full px-3 py-1.5 text-left text-suave hover:bg-fondo"
                         @click="elegir(null)"
                     >
                         {{ vacio }}
@@ -134,8 +134,8 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', alClicFuera));
                 <li v-for="opcion in filtradas" :key="opcion.valor">
                     <button
                         type="button"
-                        class="flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-slate-50"
-                        :class="opcion.valor === modelo ? 'font-medium text-indigo-600' : 'text-slate-900'"
+                        class="flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-fondo"
+                        :class="opcion.valor === modelo ? 'font-medium text-indigo-600' : 'text-contenido'"
                         @click="elegir(opcion.valor)"
                     >
                         {{ opcion.texto }}
@@ -144,13 +144,13 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', alClicFuera));
                         </svg>
                     </button>
                 </li>
-                <li v-if="!filtradas.length" class="px-3 py-3 text-center text-xs text-slate-400">
+                <li v-if="!filtradas.length" class="px-3 py-3 text-center text-xs text-suave">
                     Sin coincidencias.
                 </li>
             </ul>
         </div>
 
         <p v-if="error" class="mt-1 text-xs text-red-600">{{ error }}</p>
-        <p v-else-if="ayuda" class="mt-1 text-xs text-slate-400">{{ ayuda }}</p>
+        <p v-else-if="ayuda" class="mt-1 text-xs text-suave">{{ ayuda }}</p>
     </div>
 </template>

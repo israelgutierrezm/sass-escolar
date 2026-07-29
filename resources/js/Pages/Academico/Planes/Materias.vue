@@ -274,8 +274,8 @@ function textoSobre(color: string | null): string {
         <section class="tarjeta p-6">
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                    <h2 class="text-base font-semibold text-slate-800">{{ plan.nombre }}</h2>
-                    <p class="mt-0.5 text-sm text-slate-500">
+                    <h2 class="text-base font-semibold text-contenido">{{ plan.nombre }}</h2>
+                    <p class="mt-0.5 text-sm text-suave">
                         {{ plan.carrera }} · <span class="font-mono text-xs">{{ plan.clave }}</span>
                     </p>
                 </div>
@@ -284,21 +284,21 @@ function textoSobre(color: string | null): string {
                 </a>
             </div>
 
-            <dl class="mt-5 grid gap-4 border-t border-slate-100 pt-4 sm:grid-cols-4">
+            <dl class="mt-5 grid gap-4 border-t border-borde pt-4 sm:grid-cols-4">
                 <div>
-                    <dt class="text-xs uppercase tracking-wide text-slate-400">Materias</dt>
-                    <dd class="mt-0.5 text-lg font-semibold text-slate-800">{{ materias.length }}</dd>
+                    <dt class="text-xs uppercase tracking-wide text-suave">Materias</dt>
+                    <dd class="mt-0.5 text-lg font-semibold text-contenido">{{ materias.length }}</dd>
                 </div>
                 <div>
-                    <dt class="text-xs uppercase tracking-wide text-slate-400">Créditos cargados</dt>
-                    <dd class="mt-0.5 text-lg font-semibold text-slate-800">{{ creditosCargados }}</dd>
+                    <dt class="text-xs uppercase tracking-wide text-suave">Créditos cargados</dt>
+                    <dd class="mt-0.5 text-lg font-semibold text-contenido">{{ creditosCargados }}</dd>
                 </div>
                 <div v-if="plan.total_creditos != null">
-                    <dt class="text-xs uppercase tracking-wide text-slate-400">Declarados en el plan</dt>
-                    <dd class="mt-0.5 text-lg font-semibold text-slate-800">{{ plan.total_creditos }}</dd>
+                    <dt class="text-xs uppercase tracking-wide text-suave">Declarados en el plan</dt>
+                    <dd class="mt-0.5 text-lg font-semibold text-contenido">{{ plan.total_creditos }}</dd>
                 </div>
                 <div v-if="plan.total_creditos != null">
-                    <dt class="text-xs uppercase tracking-wide text-slate-400">Diferencia</dt>
+                    <dt class="text-xs uppercase tracking-wide text-suave">Diferencia</dt>
                     <dd
                         class="mt-0.5 text-lg font-semibold"
                         :class="diferenciaCreditos === 0 ? 'text-emerald-600' : 'text-amber-600'"
@@ -318,8 +318,8 @@ function textoSobre(color: string | null): string {
         <section id="alta-materia" v-if="puedeEditar" class="tarjeta p-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <h2 class="text-base font-semibold text-slate-800">Agregar materia</h2>
-                    <p class="mt-1 text-sm text-slate-500">
+                    <h2 class="text-base font-semibold text-contenido">Agregar materia</h2>
+                    <p class="mt-1 text-sm text-suave">
                         La asignatura se crea aquí mismo y queda ligada a este plan. Para editar una ya
                         existente usa el botón «Editar» de la malla.
                     </p>
@@ -338,7 +338,7 @@ function textoSobre(color: string | null): string {
             </div>
 
             <!-- Carga de asignaturas por Excel -->
-            <div v-if="mostrarCarga" class="mt-5 space-y-4 border-t border-slate-100 pt-5">
+            <div v-if="mostrarCarga" class="mt-5 space-y-4 border-t border-borde pt-5">
                 <a
                     :href="`/academico/planes/${plan.id}/plantilla-asignaturas`"
                     class="inline-flex items-center gap-2 text-sm font-medium"
@@ -415,7 +415,7 @@ function textoSobre(color: string | null): string {
                     <BotonPrincipal :procesando="form.processing" texto="Agregar" icono="crear" />
                     <button
                         type="button"
-                        class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                        class="rounded-lg border border-borde px-4 py-2 text-sm text-contenido hover:bg-fondo"
                         @click="mostrarAlta = false; form.reset();"
                     >
                         Cancelar

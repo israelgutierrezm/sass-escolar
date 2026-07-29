@@ -112,7 +112,7 @@ const hayReglaVigente = computed(() => props.reglas.some((r) => r.activo && !r.v
 const colorEstatus: Record<string, string> = {
     devengada: 'text-amber-700 bg-amber-50',
     pagada: 'text-emerald-700 bg-emerald-50',
-    cancelada: 'text-slate-600 bg-slate-100',
+    cancelada: 'text-suave bg-fondo',
 };
 </script>
 

@@ -75,7 +75,7 @@ function enviar(): void {
 
         <form class="max-w-3xl space-y-6" @submit.prevent="enviar">
             <section class="tarjeta p-6">
-                <h2 class="text-base font-semibold text-slate-800">Identificación y periodo</h2>
+                <h2 class="text-base font-semibold text-contenido">Identificación y periodo</h2>
 
                 <div class="mt-5 grid gap-4 sm:grid-cols-2">
                     <CampoTexto
@@ -140,7 +140,7 @@ function enviar(): void {
                     <!-- Campus del ciclo que este administrador no gestiona: se
                          muestran para que sepa que el ciclo es más amplio de lo
                          que ve, y se conservan intactos al guardar. -->
-                    <p v-if="campusAjenos.length" class="mt-2 text-xs text-slate-500">
+                    <p v-if="campusAjenos.length" class="mt-2 text-xs text-suave">
                         Este ciclo también aplica en
                         <span class="font-medium">{{ campusAjenos.join(', ') }}</span>, fuera de tu
                         alcance. No se modificarán al guardar.
@@ -173,8 +173,8 @@ function enviar(): void {
             </section>
 
             <section class="tarjeta p-6">
-                <h2 class="text-base font-semibold text-slate-800">Ventanas</h2>
-                <p class="mt-1 text-sm text-slate-500">
+                <h2 class="text-base font-semibold text-contenido">Ventanas</h2>
+                <p class="mt-1 text-sm text-suave">
                     Gobiernan qué se puede hacer y cuándo. Fuera de la ventana de inscripción, el sistema no
                     deja inscribir.
                 </p>
@@ -211,7 +211,7 @@ function enviar(): void {
                 <BotonPrincipal :procesando="form.processing" :texto="esEdicion ? 'Guardar cambios' : 'Crear ciclo'" />
                 <a
                     href="/escolar/ciclos"
-                    class="rounded-lg border border-slate-300 px-5 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                    class="rounded-lg border border-borde px-5 py-2.5 text-sm text-contenido hover:bg-fondo"
                 >
                     Cancelar
                 </a>

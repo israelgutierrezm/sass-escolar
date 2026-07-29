@@ -119,7 +119,7 @@ onBeforeUnmount(() => {
                 </svg>
 
                 <h2 class="text-3xl font-bold leading-tight tracking-tight drop-shadow-sm xl:text-4xl">{{ frase }}</h2>
-                <span class="mt-5 block h-1 w-14 rounded-full bg-white/70"></span>
+                <span class="mt-5 block h-1 w-14 rounded-full bg-superficie/70"></span>
 
                 <p class="mt-6 max-w-sm text-base text-white/85">
                     Todo lo que necesitas para tu formación académica en un solo lugar.
@@ -128,7 +128,7 @@ onBeforeUnmount(() => {
         </div>
 
         <!-- Panel del formulario -->
-        <div class="order-2 flex flex-1 items-center justify-center bg-white px-6 py-8 lg:order-first lg:py-10">
+        <div class="order-2 flex flex-1 items-center justify-center bg-superficie px-6 py-8 lg:order-first lg:py-10">
             <div class="entra w-full max-w-sm">
                 <div class="mb-8 flex flex-col items-center text-center">
                     <!-- El logo de la institución va centrado y grande, sin marco.
@@ -146,7 +146,7 @@ onBeforeUnmount(() => {
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 9v5" />
                         </svg>
                     </span>
-                    <h1 class="mt-4 text-2xl font-bold tracking-tight text-slate-800">
+                    <h1 class="mt-4 text-2xl font-bold tracking-tight text-contenido">
                         {{ institucion?.nombre ?? 'Acadion' }}
                     </h1>
                     <slot name="subtitulo" />
@@ -155,10 +155,10 @@ onBeforeUnmount(() => {
                 <slot />
 
                 <!-- Aviso de privacidad y soporte. Destinos por definir. -->
-                <div class="mt-9 text-center text-xs text-slate-400">
-                    <a href="#aviso-de-privacidad" class="transition hover:text-slate-600">Aviso de privacidad</a>
-                    <span class="mx-2 text-slate-300">•</span>
-                    <a href="mailto:soporte@acadion.mx" class="transition hover:text-slate-600">Soporte</a>
+                <div class="mt-9 text-center text-xs text-suave">
+                    <a href="#aviso-de-privacidad" class="transition hover:text-suave">Aviso de privacidad</a>
+                    <span class="mx-2 text-suave">•</span>
+                    <a href="mailto:soporte@acadion.mx" class="transition hover:text-suave">Soporte</a>
                 </div>
             </div>
         </div>

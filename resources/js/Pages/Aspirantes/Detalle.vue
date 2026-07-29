@@ -93,7 +93,7 @@ function convertir(): void {
             <div class="space-y-6 lg:col-span-2">
                 <section class="tarjeta p-6">
                     <div class="flex items-start justify-between">
-                        <h2 class="text-base font-semibold text-slate-800">Datos personales</h2>
+                        <h2 class="text-base font-semibold text-contenido">Datos personales</h2>
                         <BotonAccion
                             v-if="permisos.editar"
                             variante="editar"
@@ -103,30 +103,30 @@ function convertir(): void {
 
                     <dl class="mt-4 grid gap-4 sm:grid-cols-3">
                         <div>
-                            <dt class="text-xs uppercase tracking-wide text-slate-400">CURP</dt>
-                            <dd class="mt-0.5 font-mono text-sm text-slate-700">{{ aspirante.curp ?? '—' }}</dd>
+                            <dt class="text-xs uppercase tracking-wide text-suave">CURP</dt>
+                            <dd class="mt-0.5 font-mono text-sm text-contenido">{{ aspirante.curp ?? '—' }}</dd>
                         </div>
                         <div>
-                            <dt class="text-xs uppercase tracking-wide text-slate-400">Sexo</dt>
-                            <dd class="mt-0.5 text-sm text-slate-700">{{ aspirante.sexo ?? '—' }}</dd>
+                            <dt class="text-xs uppercase tracking-wide text-suave">Sexo</dt>
+                            <dd class="mt-0.5 text-sm text-contenido">{{ aspirante.sexo ?? '—' }}</dd>
                         </div>
                         <div>
-                            <dt class="text-xs uppercase tracking-wide text-slate-400">Nacimiento</dt>
-                            <dd class="mt-0.5 text-sm text-slate-700">
+                            <dt class="text-xs uppercase tracking-wide text-suave">Nacimiento</dt>
+                            <dd class="mt-0.5 text-sm text-contenido">
                                 {{ aspirante.fecha_nacimiento ?? '—' }}
                             </dd>
                         </div>
                         <div>
-                            <dt class="text-xs uppercase tracking-wide text-slate-400">Correo</dt>
-                            <dd class="mt-0.5 text-sm text-slate-700">{{ aspirante.email ?? '—' }}</dd>
+                            <dt class="text-xs uppercase tracking-wide text-suave">Correo</dt>
+                            <dd class="mt-0.5 text-sm text-contenido">{{ aspirante.email ?? '—' }}</dd>
                         </div>
                         <div>
-                            <dt class="text-xs uppercase tracking-wide text-slate-400">Celular</dt>
-                            <dd class="mt-0.5 text-sm text-slate-700">{{ aspirante.celular ?? '—' }}</dd>
+                            <dt class="text-xs uppercase tracking-wide text-suave">Celular</dt>
+                            <dd class="mt-0.5 text-sm text-contenido">{{ aspirante.celular ?? '—' }}</dd>
                         </div>
                         <div>
-                            <dt class="text-xs uppercase tracking-wide text-slate-400">Entidad</dt>
-                            <dd class="mt-0.5 text-sm text-slate-700">
+                            <dt class="text-xs uppercase tracking-wide text-suave">Entidad</dt>
+                            <dd class="mt-0.5 text-sm text-contenido">
                                 {{ aspirante.entidad_nacimiento ?? '—' }}
                             </dd>
                         </div>
@@ -135,9 +135,9 @@ function convertir(): void {
 
                 <!-- Expediente -->
                 <section class="tarjeta">
-                    <div class="border-b border-slate-100 p-6 pb-4">
-                        <h2 class="text-base font-semibold text-slate-800">Expediente documental</h2>
-                        <p class="mt-1 text-sm text-slate-500">
+                    <div class="border-b border-borde p-6 pb-4">
+                        <h2 class="text-base font-semibold text-contenido">Expediente documental</h2>
+                        <p class="mt-1 text-sm text-suave">
                             <span v-if="obligatoriosPendientes">
                                 Faltan {{ obligatoriosPendientes }} documento(s) obligatorio(s).
                             </span>
@@ -145,11 +145,11 @@ function convertir(): void {
                         </p>
                     </div>
 
-                    <ul v-if="expediente.length" class="divide-y divide-slate-100">
+                    <ul v-if="expediente.length" class="divide-y divide-borde">
                         <li v-for="fila in expediente" :key="fila.documento_id" class="p-6 py-4">
                             <div class="flex flex-wrap items-start justify-between gap-3">
                                 <div>
-                                    <p class="text-sm font-medium text-slate-800">
+                                    <p class="text-sm font-medium text-contenido">
                                         {{ fila.nombre }}
                                         <span
                                             v-if="fila.obligatorio"
@@ -158,7 +158,7 @@ function convertir(): void {
                                             Obligatorio
                                         </span>
                                     </p>
-                                    <p v-if="fila.descripcion" class="mt-0.5 text-xs text-slate-500">
+                                    <p v-if="fila.descripcion" class="mt-0.5 text-xs text-suave">
                                         {{ fila.descripcion }}
                                     </p>
                                 </div>
@@ -174,7 +174,7 @@ function convertir(): void {
                                         <select
                                             v-if="permisos.validarExpediente"
                                             :value="fila.entrega.estado_id"
-                                            class="rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                                            class="rounded-lg border border-borde px-2 py-1 text-xs"
                                             @change="
                                                 cambiarEstado(
                                                     fila.entrega!.id,
@@ -192,7 +192,7 @@ function convertir(): void {
                                         </select>
                                         <span
                                             v-else
-                                            class="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-700"
+                                            class="rounded-full bg-fondo px-2 py-1 text-xs text-contenido"
                                         >
                                             {{ fila.entrega.estado }}
                                         </span>
@@ -201,7 +201,7 @@ function convertir(): void {
                                     <button
                                         v-if="permisos.editar"
                                         type="button"
-                                        class="rounded-lg border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                                        class="rounded-lg border border-borde px-3 py-1 text-xs text-contenido hover:bg-fondo"
                                         @click="abrirSubida(fila.documento_id)"
                                     >
                                         {{ fila.entrega ? 'Reemplazar' : 'Cargar' }}
@@ -211,7 +211,7 @@ function convertir(): void {
 
                             <form
                                 v-if="subiendoPara === fila.documento_id"
-                                class="mt-3 flex flex-wrap items-center gap-3 rounded-lg bg-slate-50 p-3"
+                                class="mt-3 flex flex-wrap items-center gap-3 rounded-lg bg-fondo p-3"
                                 @submit.prevent="subir"
                             >
                                 <input
@@ -221,7 +221,7 @@ function convertir(): void {
                                     class="text-xs"
                                     @change="seleccionarArchivo"
                                 />
-                                <label class="flex items-center gap-1.5 text-xs text-slate-600">
+                                <label class="flex items-center gap-1.5 text-xs text-suave">
                                     <input v-model="formArchivo.copia_certificada" type="checkbox" class="rounded" />
                                     Copia certificada
                                 </label>
@@ -234,7 +234,7 @@ function convertir(): void {
                                 </button>
                                 <button
                                     type="button"
-                                    class="text-xs text-slate-500"
+                                    class="text-xs text-suave"
                                     @click="subiendoPara = null"
                                 >
                                     Cancelar
@@ -246,7 +246,7 @@ function convertir(): void {
                         </li>
                     </ul>
 
-                    <p v-else class="p-6 text-sm text-slate-500">
+                    <p v-else class="p-6 text-sm text-suave">
                         No hay documentos configurados para esta carrera.
                     </p>
                 </section>
@@ -255,28 +255,28 @@ function convertir(): void {
             <!-- Columna lateral: proceso y conversión -->
             <div class="space-y-6">
                 <section class="tarjeta p-6">
-                    <h2 class="text-base font-semibold text-slate-800">Proceso</h2>
+                    <h2 class="text-base font-semibold text-contenido">Proceso</h2>
 
                     <dl class="mt-4 space-y-3 text-sm">
                         <div class="flex justify-between">
-                            <dt class="text-slate-500">Situación</dt>
-                            <dd class="font-medium text-slate-800">{{ aspirante.situacion }}</dd>
+                            <dt class="text-suave">Situación</dt>
+                            <dd class="font-medium text-contenido">{{ aspirante.situacion }}</dd>
                         </div>
                         <div class="flex justify-between">
-                            <dt class="text-slate-500">Interés</dt>
-                            <dd class="text-right text-slate-700">{{ aspirante.oferta ?? '—' }}</dd>
+                            <dt class="text-suave">Interés</dt>
+                            <dd class="text-right text-contenido">{{ aspirante.oferta ?? '—' }}</dd>
                         </div>
                         <div class="flex justify-between">
-                            <dt class="text-slate-500">Campus</dt>
-                            <dd class="text-slate-700">{{ aspirante.campus ?? '—' }}</dd>
+                            <dt class="text-suave">Campus</dt>
+                            <dd class="text-contenido">{{ aspirante.campus ?? '—' }}</dd>
                         </div>
                         <div class="flex justify-between">
-                            <dt class="text-slate-500">Origen</dt>
-                            <dd class="text-slate-700">{{ aspirante.origen ?? '—' }}</dd>
+                            <dt class="text-suave">Origen</dt>
+                            <dd class="text-contenido">{{ aspirante.origen ?? '—' }}</dd>
                         </div>
                     </dl>
 
-                    <ul class="mt-4 space-y-2 border-t border-slate-100 pt-4 text-sm">
+                    <ul class="mt-4 space-y-2 border-t border-borde pt-4 text-sm">
                         <li
                             v-for="bandera in [
                                 { texto: 'Aceptó términos', valor: aspirante.acepto_terminos },
@@ -286,8 +286,8 @@ function convertir(): void {
                             :key="bandera.texto"
                             class="flex items-center gap-2"
                         >
-                            <span :class="bandera.valor ? 'text-emerald-600' : 'text-slate-300'">●</span>
-                            <span :class="bandera.valor ? 'text-slate-700' : 'text-slate-400'">
+                            <span :class="bandera.valor ? 'text-emerald-600' : 'text-suave'">●</span>
+                            <span :class="bandera.valor ? 'text-contenido' : 'text-suave'">
                                 {{ bandera.texto }}
                             </span>
                         </li>
@@ -296,7 +296,7 @@ function convertir(): void {
 
                 <!-- Conversión a alumno -->
                 <section class="tarjeta p-6">
-                    <h2 class="text-base font-semibold text-slate-800">Conversión a alumno</h2>
+                    <h2 class="text-base font-semibold text-contenido">Conversión a alumno</h2>
 
                     <div v-if="matricula" class="mt-4 rounded-lg bg-emerald-50 p-4 ring-1 ring-emerald-200">
                         <p class="text-xs uppercase tracking-wide text-emerald-700">Matrícula asignada</p>
@@ -309,7 +309,7 @@ function convertir(): void {
                     </div>
 
                     <template v-else>
-                        <p class="mt-1 text-sm text-slate-500">
+                        <p class="mt-1 text-sm text-suave">
                             La matrícula se genera en este paso, no antes.
                         </p>
 
@@ -324,14 +324,14 @@ function convertir(): void {
 
                         <form v-if="puedeConvertir" class="mt-4 space-y-3" @submit.prevent="convertir">
                             <div>
-                                <label class="mb-1 block text-xs font-medium text-slate-600">
+                                <label class="mb-1 block text-xs font-medium text-suave">
                                     Generación (opcional)
                                 </label>
                                 <input
                                     v-model="formConversion.generacion"
                                     type="text"
                                     placeholder="2026-2030"
-                                    class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                                    class="w-full rounded-lg border border-borde px-3 py-2 text-sm"
                                 />
                             </div>
                             <button
@@ -343,7 +343,7 @@ function convertir(): void {
                             </button>
                         </form>
 
-                        <p v-else-if="!permisos.convertir" class="mt-3 text-xs text-slate-400">
+                        <p v-else-if="!permisos.convertir" class="mt-3 text-xs text-suave">
                             Tu rol no tiene permiso para convertir aspirantes.
                         </p>
                     </template>

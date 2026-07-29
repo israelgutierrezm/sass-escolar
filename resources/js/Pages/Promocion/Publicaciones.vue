@@ -236,7 +236,7 @@ function conversion(p: Publicacion): string {
                 <div>
                     <div class="flex flex-wrap items-center gap-2">
                         <h3 class="text-base font-semibold">{{ p.nombre }}</h3>
-                        <span class="rounded px-2 py-0.5 text-xs" :class="p.modo === 'inscripcion' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'">
+                        <span class="rounded px-2 py-0.5 text-xs" :class="p.modo === 'inscripcion' ? 'bg-emerald-50 text-emerald-700' : 'bg-fondo text-suave'">
                             {{ p.modo === 'inscripcion' ? 'inscripción autogestiva' : 'captación' }}
                         </span>
                         <span v-if="!p.abierto" class="rounded bg-amber-50 px-2 py-0.5 text-xs text-amber-800">

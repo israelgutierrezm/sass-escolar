@@ -21,7 +21,7 @@ const modelo = defineModel<string | number | null>();
 
 <template>
     <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700">
+        <label class="mb-1 block text-sm font-medium text-contenido">
             {{ etiqueta }}<span v-if="requerido" class="text-red-500"> *</span>
         </label>
         <select
@@ -32,7 +32,7 @@ const modelo = defineModel<string | number | null>();
             :class="
                 error
                     ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
-                    : 'border-slate-300 focus:border-indigo-500 focus:ring-indigo-500'
+                    : 'border-borde focus:border-indigo-500 focus:ring-indigo-500'
             "
         >
             <option v-if="vacio" :value="null">{{ vacio }}</option>
@@ -41,6 +41,6 @@ const modelo = defineModel<string | number | null>();
             </option>
         </select>
         <p v-if="error" class="mt-1 text-xs text-red-600">{{ error }}</p>
-        <p v-else-if="ayuda" class="mt-1 text-xs text-slate-400">{{ ayuda }}</p>
+        <p v-else-if="ayuda" class="mt-1 text-xs text-suave">{{ ayuda }}</p>
     </div>
 </template>

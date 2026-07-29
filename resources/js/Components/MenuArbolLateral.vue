@@ -24,7 +24,7 @@ const emit = defineEmits<{ alternar: [clave: string] }>();
                 v-if="!nodo.esGrupo"
                 :href="nodo.url!"
                 class="relative flex items-center rounded-lg py-2 pl-5 pr-3 text-[13px] transition-all duration-200"
-                :class="esActiva(nodo.url!) ? 'font-medium text-white' : 'opacity-80 hover:bg-white/5 hover:opacity-100'"
+                :class="esActiva(nodo.url!) ? 'font-medium text-white' : 'opacity-80 hover:bg-superficie/5 hover:opacity-100'"
             >
                 <span
                     class="absolute left-0 h-1.5 w-1.5 rounded-full transition-all duration-200"
@@ -41,7 +41,7 @@ const emit = defineEmits<{ alternar: [clave: string] }>();
                 <button
                     type="button"
                     class="flex w-full items-center gap-2 rounded-lg py-2 pl-3 pr-3 text-[13px] transition-all duration-200"
-                    :class="esActiva(nodo.prefijo) ? 'text-white' : 'opacity-80 hover:bg-white/5 hover:opacity-100'"
+                    :class="esActiva(nodo.prefijo) ? 'text-white' : 'opacity-80 hover:bg-superficie/5 hover:opacity-100'"
                     @click="emit('alternar', nodo.clave)"
                 >
                     <svg

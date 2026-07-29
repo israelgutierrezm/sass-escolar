@@ -47,11 +47,11 @@ const contenido = computed(() => {
 <template>
     <Head :title="contenido.titulo" />
 
-    <div class="flex min-h-screen items-center justify-center bg-slate-100 px-4">
+    <div class="flex min-h-screen items-center justify-center bg-fondo px-4">
         <div class="w-full max-w-md text-center">
-            <p class="font-mono text-5xl font-semibold text-slate-300">{{ estado }}</p>
-            <h1 class="mt-4 text-xl font-semibold text-slate-800">{{ contenido.titulo }}</h1>
-            <p class="mt-2 text-sm text-slate-500">{{ contenido.detalle }}</p>
+            <p class="font-mono text-5xl font-semibold text-suave">{{ estado }}</p>
+            <h1 class="mt-4 text-xl font-semibold text-contenido">{{ contenido.titulo }}</h1>
+            <p class="mt-2 text-sm text-suave">{{ contenido.detalle }}</p>
 
             <div class="mt-8 flex justify-center gap-3">
                 <a
@@ -62,7 +62,7 @@ const contenido = computed(() => {
                 </a>
                 <button
                     type="button"
-                    class="rounded-lg border border-slate-300 px-5 py-2.5 text-sm text-slate-700 transition hover:bg-white"
+                    class="rounded-lg border border-borde px-5 py-2.5 text-sm text-contenido transition hover:bg-superficie"
                     @click="regresar"
                 >
                     Regresar
