@@ -19,8 +19,11 @@ use App\Models\Identidad\Usuario;
 use App\Support\CatalogosSat;
 use App\Models\Landlord\Genero;
 use App\Models\Landlord\Sexo;
+use App\Rules\CurpValida;
 use App\Services\AprovisionadorAcceso;
+use App\Services\IdentidadPersona;
 use App\Services\MatriculadorOferta;
+use App\Models\Academico\Modalidad;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use App\Services\Suplantador;
@@ -95,7 +98,94 @@ class AlumnoController extends Controller
             'campus' => Campus::query()->orderBy('nombre')->get(['id', 'nombre']),
             'situaciones' => SituacionAlumno::query()->orderBy('id')->get(['id', 'nombre']),
             'puedeEditar' => $request->user()->can('editar-alumnos'),
+            // Alta directa de alumno (revalidaciones que se saltan admisión).
+            'puedeRegistrar' => $request->user()->can('generar-matricula'),
         ]);
+    }
+
+    /**
+     * Formulario de ALTA DIRECTA de un alumno: para casos que se saltan el
+     * embudo de admisión (revalidaciones, traslados). Captura la persona con el
+     * bloque de identidad compartido y la matricula en una oferta ya existente.
+     */
+    public function create(IdentidadPersona $identidad): Response
+    {
+        $modalidades = Modalidad::query()->pluck('nombre', 'clave');
+
+        return Inertia::render('Alumnos/Registrar', [
+            ...$identidad->catalogosDeOrigen(),
+            'ofertas' => Oferta::query()
+                ->with(['carrera:id,nombre', 'plan:id,nombre,clave', 'campus:id,nombre'])
+                ->where('estatus', 'abierta')
+                ->get()
+                ->map(fn (Oferta $o) => [
+                    'id' => $o->id,
+                    'campus_id' => $o->campus_id,
+                    'etiqueta' => implode(' · ', array_filter([
+                        $o->carrera?->nombre,
+                        $o->plan?->nombre,
+                        $o->campus?->nombre,
+                        $modalidades[$o->modalidad] ?? $o->modalidad,
+                    ])),
+                ])
+                ->values(),
+            'campus' => Campus::query()->orderBy('nombre')->get(['id', 'nombre']),
+        ]);
+    }
+
+    /**
+     * Da de alta al alumno: reutiliza/crea la persona por CURP (bloque de
+     * identidad) y la matricula en la oferta elegida. La matrícula/boleta se
+     * autogenera salvo que se capture una a mano (alumno que ya la trae).
+     */
+    public function store(Request $request, IdentidadPersona $identidad, MatriculadorOferta $matriculador): RedirectResponse
+    {
+        $datos = $request->validate([
+            'nombre' => ['required', 'string', 'max:255'],
+            'primer_apellido' => ['required', 'string', 'max:255'],
+            'segundo_apellido' => ['nullable', 'string', 'max:255'],
+            'curp' => array_filter(['nullable', 'string', 'max:20', new CurpValida]),
+            'fecha_nacimiento' => ['nullable', 'date', 'before:today'],
+            'genero_id' => ['nullable', 'integer'],
+            'entidad_nacimiento_id' => ['nullable', 'integer'],
+            'pais_nacimiento_id' => ['nullable', 'integer'],
+            'email' => ['required', 'email', 'max:150', function (string $atributo, mixed $valor, \Closure $fallar) use ($identidad, $request) {
+                $conflicto = $identidad->correoEnUso($valor, $identidad->existentePorCurp($request->input('curp'))?->id);
+
+                if ($conflicto !== null) {
+                    $fallar('Ese correo ya está registrado con otra persona ('.$conflicto->nombreCompleto().'). Usa otro, o captura su CURP para reutilizarla.');
+                }
+            }],
+            'correo_institucional' => ['nullable', 'email', 'max:150'],
+            'celular' => ['nullable', 'string', 'max:20'],
+            'telefono_local' => ['nullable', 'string', 'max:20'],
+            // Datos del alumno
+            'oferta_id' => ['required', 'integer', Rule::exists('oferta', 'id')->whereNull('deleted_at')],
+            'generacion' => ['nullable', 'string', 'max:100'],
+            // Boleta/matrícula opcional: si viene, es única; si no, se autogenera.
+            'matricula' => ['nullable', 'string', 'max:50', Rule::unique('matricula_oferta', 'matricula')->whereNull('deleted_at')],
+        ]);
+
+        $datos['curp'] = filled($datos['curp'] ?? null) ? mb_strtoupper(trim($datos['curp'])) : null;
+        $datos['email'] = mb_strtolower(trim($datos['email']));
+
+        try {
+            $matricula = DB::transaction(function () use ($datos, $identidad, $matriculador) {
+                $persona = $identidad->existentePorCurp($datos['curp']);
+                $persona === null
+                    ? $persona = Persona::create($identidad->resolver($datos))
+                    : $persona->update($identidad->resolver($datos));
+
+                $oferta = Oferta::query()->findOrFail($datos['oferta_id']);
+
+                return $matriculador->matricular($persona, $oferta, $datos['generacion'] ?? null, filled($datos['matricula'] ?? null) ? trim($datos['matricula']) : null);
+            });
+        } catch (RuntimeException $e) {
+            return back()->with('error', $e->getMessage())->withInput();
+        }
+
+        return redirect()->route('tenant.escolar.alumnos.show', $matricula->id)
+            ->with('exito', "Alumno registrado con matrícula {$matricula->matricula}.");
     }
 
     /** Expediente del alumno: identidad, kárdex y su carga por ciclo. */

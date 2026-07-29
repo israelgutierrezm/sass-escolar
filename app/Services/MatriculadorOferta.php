@@ -35,9 +35,15 @@ class MatriculadorOferta
     /**
      * @throws RuntimeException si la persona no puede matricularse en esa oferta
      */
-    public function matricular(Persona $persona, Oferta $oferta, ?string $generacion = null): MatriculaOferta
+    public function matricular(Persona $persona, Oferta $oferta, ?string $generacion = null, ?string $matricula = null): MatriculaOferta
     {
         $impedimentos = $this->impedimentos($persona, $oferta);
+
+        // Alta directa (revalidación): puede traer su boleta/matrícula. Si no,
+        // se autogenera. La capturada debe ser única en la escuela.
+        if ($matricula !== null && MatriculaOferta::query()->where('matricula', $matricula)->exists()) {
+            $impedimentos[] = "La boleta/matrícula «{$matricula}» ya está en uso.";
+        }
 
         if ($impedimentos !== []) {
             throw new RuntimeException(implode(' ', $impedimentos));
@@ -45,7 +51,7 @@ class MatriculadorOferta
 
         $oferta->loadMissing(['carrera', 'plan', 'campus']);
 
-        return DB::transaction(function () use ($persona, $oferta, $generacion) {
+        return DB::transaction(function () use ($persona, $oferta, $generacion, $matricula) {
             $situacionActivo = SituacionAlumno::query()->where('clave', 'activo')->value('id');
 
             // El rol materializado; si ya lo tenía por su otra carrera, se
@@ -55,10 +61,10 @@ class MatriculadorOferta
                 ['situacion_id' => $situacionActivo],
             );
 
-            $matricula = MatriculaOferta::create([
+            $matriculaCreada = MatriculaOferta::create([
                 'persona_id' => $persona->id,
                 'oferta_id' => $oferta->id,
-                'matricula' => $this->generador->generar($oferta),
+                'matricula' => $matricula ?? $this->generador->generar($oferta),
                 'generacion' => $generacion,
                 'fecha_ingreso' => now()->toDateString(),
                 'situacion_id' => $situacionActivo,
@@ -68,9 +74,9 @@ class MatriculadorOferta
             // Si esta persona pasó por el embudo de admisión de ESTA oferta,
             // lo que pagó entonces es de esta matrícula. Se acota a la oferta:
             // los pagos de otra candidatura suya no le corresponden.
-            $this->religador->religarPorOferta($persona->id, $matricula);
+            $this->religador->religarPorOferta($persona->id, $matriculaCreada);
 
-            return $matricula;
+            return $matriculaCreada;
         });
     }
 

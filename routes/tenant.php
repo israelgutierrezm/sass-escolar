@@ -405,6 +405,14 @@ Route::middleware([
                     ->middleware('can:ver-alumnos')
                     ->group(function () {
                         Route::get('/', 'index')->name('index');
+
+                        // Alta directa de alumno (revalidaciones que se saltan
+                        // admisión). Va ANTES de {alumno} y genera matrícula.
+                        Route::get('registrar', 'create')
+                            ->middleware('can:generar-matricula')->name('create');
+                        Route::post('/', 'store')
+                            ->middleware('can:generar-matricula')->name('store');
+
                         Route::get('{alumno}', 'show')->whereNumber('alumno')->name('show');
                         Route::put('{alumno}', 'update')
                             ->whereNumber('alumno')

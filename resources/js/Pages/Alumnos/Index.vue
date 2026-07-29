@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavEscolar from '@/Components/NavEscolar.vue';
@@ -29,6 +29,7 @@ const props = defineProps<{
     campus: { id: number; nombre: string }[];
     situaciones: { id: number; nombre: string }[];
     puedeEditar: boolean;
+    puedeRegistrar: boolean;
 }>();
 
 const vista = ref<'lista' | 'cuadricula'>('lista');
@@ -65,6 +66,17 @@ const colorEstatus: Record<string, string> = {
                 { etiqueta: 'Inscripciones', url: '/escolar/inscripciones', permiso: 'inscribir-alumnos' },
             ]"
         />
+
+        <div v-if="puedeRegistrar" class="mb-3 flex justify-end">
+            <Link
+                href="/escolar/alumnos/registrar"
+                class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white"
+                :style="{ backgroundColor: 'var(--color-acento)' }"
+            >
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                Registrar alumno
+            </Link>
+        </div>
 
         <BarraListado
             v-model:vista="vista"
