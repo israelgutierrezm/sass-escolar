@@ -90,7 +90,7 @@ class PlanEstudioController extends Controller
                     'autorizacion_reconocimiento_id', 'tipo_periodo_id', 'total_periodos',
                     'calificacion_minima', 'calificacion_maxima', 'calificacion_minima_aprobatoria',
                     'minimo_creditos', 'minimo_asignaturas',
-                    'curp_responsable', 'vigente',
+                    'curp_responsable',
                 ]),
                 'fecha_rvoe' => $plane->fecha_rvoe?->toDateString(),
             ],
@@ -141,7 +141,6 @@ class PlanEstudioController extends Controller
             'minimo_creditos' => ['required', 'numeric', 'min:0'],
             'minimo_asignaturas' => ['nullable', 'integer', 'min:0'],
             'curp_responsable' => ['nullable', 'string', 'size:18'],
-            'vigente' => ['boolean'],
         ], [
             'calificacion_maxima.gt' => 'La calificación máxima debe ser mayor que la mínima.',
             'calificacion_minima_aprobatoria.gte' => 'La mínima aprobatoria no puede ser menor que la calificación mínima.',

@@ -95,6 +95,8 @@ const form = useForm({
     area_id: null as number | null,
     horas_teoria: null as number | null,
     horas_practica: null as number | null,
+    horas_acompanamiento: null as number | null,
+    horas_independientes: null as number | null,
     // Ubicación en el plan
     periodo: null as number | null,
     tipo: 'obligatoria',
@@ -333,6 +335,8 @@ function textoSobre(color: string | null): string {
                 <CampoSelect v-model="form.area_id" etiqueta="Área" :opciones="opciones(areas)" vacio="Sin especificar" :error="form.errors.area_id" />
                 <CampoTexto v-model="form.horas_teoria" etiqueta="Horas teoría" tipo="number" :error="form.errors.horas_teoria" />
                 <CampoTexto v-model="form.horas_practica" etiqueta="Horas práctica" tipo="number" :error="form.errors.horas_practica" />
+                <CampoTexto v-model="form.horas_acompanamiento" etiqueta="Horas acompañamiento" tipo="number" :error="form.errors.horas_acompanamiento" />
+                <CampoTexto v-model="form.horas_independientes" etiqueta="Horas independientes" tipo="number" :error="form.errors.horas_independientes" />
 
                 <!-- Ubicación en el plan. -->
                 <div class="sm:col-span-6 border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">

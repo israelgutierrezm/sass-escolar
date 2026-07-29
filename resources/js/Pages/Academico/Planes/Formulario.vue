@@ -6,7 +6,6 @@ import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
-import CampoCheckbox from '@/Components/CampoCheckbox.vue';
 
 const props = defineProps<{
     plan: Record<string, any> | null;
@@ -33,7 +32,6 @@ const form = useForm({
     minimo_creditos: props.plan?.minimo_creditos ?? null,
     minimo_asignaturas: props.plan?.minimo_asignaturas ?? null,
     curp_responsable: props.plan?.curp_responsable ?? '',
-    vigente: props.plan?.vigente ?? true,
 });
 
 const opciones = (lista: { id: number; nombre: string }[]) =>
@@ -158,14 +156,6 @@ function enviar(): void {
                         etiqueta="Número de asignaturas para completar la carrera"
                         tipo="number"
                         :error="form.errors.minimo_asignaturas"
-                    />
-                </div>
-
-                <div class="mt-5 border-t border-slate-100 pt-4">
-                    <CampoCheckbox
-                        v-model="form.vigente"
-                        etiqueta="Plan vigente"
-                        ayuda="Los no vigentes siguen vivos para quienes los cursan, pero no reciben alumnos nuevos."
                     />
                 </div>
             </section>

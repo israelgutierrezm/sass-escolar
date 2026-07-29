@@ -208,6 +208,8 @@ class PlanMateriaController extends Controller
                 'area_id' => $datos['area_id'] ?? null,
                 'horas_teoria' => $datos['horas_teoria'] ?? null,
                 'horas_practica' => $datos['horas_practica'] ?? null,
+                'horas_acompanamiento' => $datos['horas_acompanamiento'] ?? null,
+                'horas_independientes' => $datos['horas_independientes'] ?? null,
             ]);
 
             PlanMateria::create([
@@ -323,6 +325,8 @@ class PlanMateriaController extends Controller
             'area_id' => ['nullable', 'integer', Rule::exists('areas', 'id')->whereNull('deleted_at')],
             'horas_teoria' => ['nullable', 'integer', 'min:0'],
             'horas_practica' => ['nullable', 'integer', 'min:0'],
+            'horas_acompanamiento' => ['nullable', 'integer', 'min:0'],
+            'horas_independientes' => ['nullable', 'integer', 'min:0'],
             // Ubicación en el plan. La materia se identifica por la clave de la
             // asignatura; el periodo puede ser optativo → `tipo`.
             'periodo' => ['nullable', 'integer', 'min:1', 'max:30'],

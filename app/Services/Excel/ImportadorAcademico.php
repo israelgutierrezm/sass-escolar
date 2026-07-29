@@ -28,14 +28,6 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
  */
 class ImportadorAcademico
 {
-    /** Mapa a plan_materia.tipo desde la «Ubicación en el plan». */
-    private const UBICACION = [
-        'obligatoria' => 'obligatoria',
-        'optativa' => 'optativa',
-        'tronco común' => 'tronco_comun',
-        'tronco comun' => 'tronco_comun',
-    ];
-
     /** @var array<int, array{hoja: string, fila: int, mensaje: string}> */
     private array $errores = [];
 
@@ -72,19 +64,18 @@ class ImportadorAcademico
             $this->enCatalogo('Carreras', $fila, $r[3] ?? null, $cat['niveles'], 'Nivel');
         }
         foreach ($planes as [$fila, $r]) {
-            $this->requerido('Planes', $fila, $r, [0 => 'Carrera (clave)', 1 => 'Clave', 2 => 'Nombre', 3 => 'Tipo de periodo', 4 => 'Total de periodos', 6 => 'Calif. mínima', 7 => 'Calif. máxima', 8 => 'Calif. mínima aprobatoria', 9 => 'Tipo de autorización']);
+            $this->requerido('Planes', $fila, $r, [0 => 'Carrera (clave)', 1 => 'Clave', 2 => 'Nombre', 3 => 'Tipo de periodo', 4 => 'Total de periodos', 7 => 'Calif. mínima', 8 => 'Calif. máxima', 9 => 'Calif. mínima aprobatoria', 10 => 'Tipo de autorización']);
             $this->enCatalogo('Planes', $fila, $r[3] ?? null, $cat['tiposPeriodo'], 'Tipo de periodo');
-            $this->enCatalogo('Planes', $fila, $r[9] ?? null, $cat['autorizaciones'], 'Tipo de autorización');
+            $this->enCatalogo('Planes', $fila, $r[10] ?? null, $cat['autorizaciones'], 'Tipo de autorización');
             $this->refExiste('Planes', $fila, $r[0] ?? null, $clavesCarrera, 'La carrera (clave)');
             $this->entero('Planes', $fila, $r[4] ?? null, 'Total de periodos');
         }
         foreach ($asignaturas as [$fila, $r]) {
-            $this->requerido('Asignaturas', $fila, $r, [0 => 'Plan (clave)', 1 => 'Identificador', 2 => 'Clave', 3 => 'Nombre', 4 => 'Créditos', 5 => 'Tipo de asignatura', 6 => 'Ubicación en el plan']);
+            $this->requerido('Asignaturas', $fila, $r, [0 => 'Plan (clave)', 1 => 'Identificador', 2 => 'Clave', 3 => 'Nombre', 4 => 'Créditos', 5 => 'Tipo de asignatura']);
             $this->enCatalogo('Asignaturas', $fila, $r[5] ?? null, $cat['tiposAsignatura'], 'Tipo de asignatura');
-            $this->enCatalogo('Asignaturas', $fila, $r[6] ?? null, array_keys(self::UBICACION), 'Ubicación en el plan');
             $this->refExiste('Asignaturas', $fila, $r[0] ?? null, $clavesPlan, 'El plan (clave)');
-            $this->enCatalogo('Asignaturas', $fila, $r[10] ?? null, $cat['areas'], 'Área', opcional: true);
-            $this->enCatalogo('Asignaturas', $fila, $r[11] ?? null, $cat['clasificaciones'], 'Clasificación', opcional: true);
+            $this->enCatalogo('Asignaturas', $fila, $r[11] ?? null, $cat['areas'], 'Área', opcional: true);
+            $this->enCatalogo('Asignaturas', $fila, $r[12] ?? null, $cat['clasificaciones'], 'Clasificación', opcional: true);
         }
 
         if ($this->errores !== []) {
@@ -131,20 +122,20 @@ class ImportadorAcademico
                     'tipo_periodo_id' => $cat['tiposPeriodo'][$this->norm($r[3])]['id'],
                     'total_periodos' => (int) $r[4],
                     'minimo_asignaturas' => filled($r[5] ?? null) ? (int) $r[5] : null,
-                    'calificacion_minima' => (int) $r[6],
-                    'calificacion_maxima' => (int) $r[7],
-                    'calificacion_minima_aprobatoria' => (int) $r[8],
-                    'minimo_creditos' => 0,
-                    'autorizacion_reconocimiento_id' => $cat['autorizaciones'][$this->norm($r[9])]['id'],
-                    'rvoe' => $this->str($r[10] ?? null) ?? 'N/D',
-                    'vigente' => $this->norm($r[11] ?? 'sí') !== 'no',
+                    'minimo_creditos' => filled($r[6] ?? null) ? (float) $r[6] : 0,
+                    'calificacion_minima' => (int) $r[7],
+                    'calificacion_maxima' => (int) $r[8],
+                    'calificacion_minima_aprobatoria' => (int) $r[9],
+                    'autorizacion_reconocimiento_id' => $cat['autorizaciones'][$this->norm($r[10])]['id'],
+                    'rvoe' => $this->str($r[11] ?? null) ?? 'N/D',
+                    'fecha_rvoe' => $this->fecha($r[12] ?? null),
                 ]);
                 $planId[trim((string) $r[1])] = $p->id;
                 $resumen['planes']++;
             }
 
             foreach ($asignaturas as [, $r]) {
-                $this->crearAsignatura($planId[trim((string) $r[0])], $r, $cat, 1);
+                $this->crearAsignatura($planId[trim((string) $r[0])], $r, $cat);
                 $resumen['asignaturas']++;
             }
         });
@@ -166,11 +157,10 @@ class ImportadorAcademico
         $asignaturas = $this->leer($libro, 'Asignaturas');
 
         foreach ($asignaturas as [$fila, $r]) {
-            $this->requerido('Asignaturas', $fila, $r, [0 => 'Identificador', 1 => 'Clave', 2 => 'Nombre', 3 => 'Créditos', 4 => 'Tipo de asignatura', 5 => 'Ubicación en el plan']);
+            $this->requerido('Asignaturas', $fila, $r, [0 => 'Identificador', 1 => 'Clave', 2 => 'Nombre', 3 => 'Créditos', 4 => 'Tipo de asignatura']);
             $this->enCatalogo('Asignaturas', $fila, $r[4] ?? null, $cat['tiposAsignatura'], 'Tipo de asignatura');
-            $this->enCatalogo('Asignaturas', $fila, $r[5] ?? null, array_keys(self::UBICACION), 'Ubicación en el plan');
-            $this->enCatalogo('Asignaturas', $fila, $r[9] ?? null, $cat['areas'], 'Área', opcional: true);
-            $this->enCatalogo('Asignaturas', $fila, $r[10] ?? null, $cat['clasificaciones'], 'Clasificación', opcional: true);
+            $this->enCatalogo('Asignaturas', $fila, $r[10] ?? null, $cat['areas'], 'Área', opcional: true);
+            $this->enCatalogo('Asignaturas', $fila, $r[11] ?? null, $cat['clasificaciones'], 'Clasificación', opcional: true);
         }
 
         if ($this->errores !== []) {
@@ -180,8 +170,8 @@ class ImportadorAcademico
         $n = 0;
         DB::transaction(function () use ($asignaturas, $plan, $cat, &$n) {
             foreach ($asignaturas as [, $r]) {
-                // Sin columna de plan: se corren las posiciones una a la izquierda.
-                $this->crearAsignatura($plan->id, array_merge([null], $r), $cat, 1);
+                // Sin columna de plan: se antepone un null para alinear posiciones.
+                $this->crearAsignatura($plan->id, array_merge([null], $r), $cat);
                 $n++;
             }
         });
@@ -192,31 +182,51 @@ class ImportadorAcademico
     /**
      * Crea la asignatura y su renglón en el plan. `$r` usa las posiciones de la
      * hoja completa (índice 0 = plan); para la malla se antepone un null.
+     * La ubicación en el plan (obligatoria/optativa) se DERIVA del tipo de
+     * asignatura, así el layout solo pide «Tipo de asignatura».
      *
      * @param  array<int, mixed>  $r
      * @param  array<string, mixed>  $cat
      */
-    private function crearAsignatura(int $planId, array $r, array $cat, int $_ignora): void
+    private function crearAsignatura(int $planId, array $r, array $cat): void
     {
         $asignatura = Asignatura::query()->updateOrCreate(['clave' => trim((string) $r[2])], [
             'identificador' => trim((string) $r[1]),
             'nombre' => trim((string) $r[3]),
             'creditos' => (float) $r[4],
             'tipo_asignatura_id' => $cat['tiposAsignatura'][$this->norm($r[5])]['id'],
-            'clasificacion_id' => $this->idOpcional($cat['clasificaciones'], $r[11] ?? null),
-            'area_id' => $this->idOpcional($cat['areas'], $r[10] ?? null),
-            'horas_teoria' => filled($r[8] ?? null) ? (int) $r[8] : null,
-            'horas_practica' => filled($r[9] ?? null) ? (int) $r[9] : null,
+            'clasificacion_id' => $this->idOpcional($cat['clasificaciones'], $r[12] ?? null),
+            'area_id' => $this->idOpcional($cat['areas'], $r[11] ?? null),
+            'horas_teoria' => $this->entOpc($r[7] ?? null),
+            'horas_practica' => $this->entOpc($r[8] ?? null),
+            'horas_acompanamiento' => $this->entOpc($r[9] ?? null),
+            'horas_independientes' => $this->entOpc($r[10] ?? null),
         ]);
 
         PlanMateria::query()->updateOrCreate(
             ['plan_id' => $planId, 'asignatura_id' => $asignatura->id],
             [
                 'clave_en_plan' => trim((string) $r[2]),
-                'periodo' => filled($r[7] ?? null) ? (int) $r[7] : null,
-                'tipo' => self::UBICACION[$this->norm($r[6])] ?? 'obligatoria',
+                'periodo' => $this->entOpc($r[6] ?? null),
+                'tipo' => $this->tipoEnPlan($r[5]),
             ],
         );
+    }
+
+    /** Ubicación en el plan derivada del tipo de asignatura. */
+    private function tipoEnPlan(mixed $tipoAsignatura): string
+    {
+        $n = $this->norm($tipoAsignatura);
+
+        return match (true) {
+            str_contains($n, 'optativa') => 'optativa',
+            default => 'obligatoria',
+        };
+    }
+
+    private function entOpc(mixed $valor): ?int
+    {
+        return filled($valor) ? (int) $valor : null;
     }
 
     // ---------- Lectura ----------
@@ -349,5 +359,22 @@ class ImportadorAcademico
     private function str(mixed $valor): ?string
     {
         return filled($valor) ? trim((string) $valor) : null;
+    }
+
+    /** Normaliza una fecha (texto AAAA-MM-DD o número serial de Excel) a Y-m-d. */
+    private function fecha(mixed $valor): ?string
+    {
+        if (blank($valor)) {
+            return null;
+        }
+        try {
+            if (is_numeric($valor)) {
+                return \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float) $valor)->format('Y-m-d');
+            }
+
+            return \Illuminate\Support\Carbon::parse((string) $valor)->format('Y-m-d');
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

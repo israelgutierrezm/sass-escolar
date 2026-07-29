@@ -67,18 +67,17 @@ class PlantillaAcademica
         $this->hoja($libro, 'Planes', [
             ['Carrera (clave) *', null], ['Clave *', null], ['Nombre *', null],
             ['Tipo de periodo *', $rangos['tiposPeriodo']], ['Total de periodos *', null],
-            ['Núm. asignaturas', null], ['Calif. mínima *', null], ['Calif. máxima *', null],
-            ['Calif. mínima aprobatoria *', null], ['Tipo de autorización *', $rangos['autorizaciones']],
-            ['RVOE', null], ['Vigente', $rangos['siNo']],
-        ], ['ISC-2024', 'PLAN-ISC-24', 'Plan ISC 2024', $this->primero(TipoPeriodo::class), 9, 50, 0, 100, 70, $this->primero(AutorizacionReconocimiento::class), 'RVOE-12345', 'Sí']);
+            ['Número de asignaturas para completar la carrera', null], ['Créditos para completar la carrera', null],
+            ['Calif. mínima *', null], ['Calif. máxima *', null], ['Calif. mínima aprobatoria *', null],
+            ['Tipo de autorización *', $rangos['autorizaciones']], ['RVOE', null], ['Fecha de RVOE (AAAA-MM-DD)', null],
+        ], ['ISC-2024', 'PLAN-ISC-24', 'Plan ISC 2024', $this->primero(TipoPeriodo::class), 9, 50, 300, 0, 100, 70, $this->primero(AutorizacionReconocimiento::class), 'RVOE-12345', '2024-08-15']);
 
         $this->hoja($libro, 'Asignaturas', [
             ['Plan (clave) *', null], ['Identificador *', null], ['Clave *', null], ['Nombre *', null],
-            ['Créditos *', null], ['Tipo de asignatura *', $rangos['tiposAsignatura']],
-            ['Ubicación en el plan *', $rangos['ubicacion']], ['Periodo', null],
-            ['Horas teoría', null], ['Horas práctica', null],
+            ['Créditos *', null], ['Tipo de asignatura *', $rangos['tiposAsignatura']], ['Periodo', null],
+            ['Horas teoría', null], ['Horas práctica', null], ['Horas acompañamiento', null], ['Horas independientes', null],
             ['Área', $rangos['areas']], ['Clasificación', $rangos['clasificaciones']],
-        ], ['PLAN-ISC-24', 'MAT-101', 'MAT-101', 'Cálculo I', 8, $this->primero(TipoAsignatura::class), 'Obligatoria', 1, 3, 2, $this->primero(Area::class), $this->primero(ClasificacionAsignatura::class)]);
+        ], ['PLAN-ISC-24', 'MAT-101', 'MAT-101', 'Cálculo I', 8, $this->primero(TipoAsignatura::class), 1, 3, 2, 1, 2, $this->primero(Area::class), $this->primero(ClasificacionAsignatura::class)]);
 
         $libro->setActiveSheetIndexByName('Instrucciones');
 
@@ -107,11 +106,10 @@ class PlantillaAcademica
 
         $this->hoja($libro, 'Asignaturas', [
             ['Identificador *', null], ['Clave *', null], ['Nombre *', null],
-            ['Créditos *', null], ['Tipo de asignatura *', $rangos['tiposAsignatura']],
-            ['Ubicación en el plan *', $rangos['ubicacion']], ['Periodo', null],
-            ['Horas teoría', null], ['Horas práctica', null],
+            ['Créditos *', null], ['Tipo de asignatura *', $rangos['tiposAsignatura']], ['Periodo', null],
+            ['Horas teoría', null], ['Horas práctica', null], ['Horas acompañamiento', null], ['Horas independientes', null],
             ['Área', $rangos['areas']], ['Clasificación', $rangos['clasificaciones']],
-        ], ['MAT-101', 'MAT-101', 'Cálculo I', 8, $this->primero(TipoAsignatura::class), 'Obligatoria', 1, 3, 2, $this->primero(Area::class), $this->primero(ClasificacionAsignatura::class)]);
+        ], ['MAT-101', 'MAT-101', 'Cálculo I', 8, $this->primero(TipoAsignatura::class), 1, 3, 2, 1, 2, $this->primero(Area::class), $this->primero(ClasificacionAsignatura::class)]);
 
         $libro->setActiveSheetIndexByName('Instrucciones');
 
