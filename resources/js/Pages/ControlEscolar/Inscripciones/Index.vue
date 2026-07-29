@@ -29,10 +29,12 @@ const props = defineProps<{
         clave_en_plan: string | null;
         grupo: string | null;
         tipo: string;
+        tipo_evaluacion: string | null;
         situacion: string | null;
         calificacion_final: string | null;
     }[];
     disponibles: Disponible[];
+    tiposEvaluacion: { id: number; nombre: string }[];
     puedeInscribir: boolean;
 }>();
 
@@ -47,16 +49,24 @@ watch([matriculaId, cicloId], () => {
     );
 });
 
+// Tipo de evaluación con el que se inscribe (ordinaria por defecto). Un solo
+// selector para toda la lista de materias abiertas.
+const tipoEvaluacionId = ref<number | null>(
+    props.tiposEvaluacion.find((t) => t.nombre.toLowerCase().startsWith('ordinaria'))?.id
+        ?? props.tiposEvaluacion[0]?.id
+        ?? null,
+);
+
 const form = useForm({
     matricula_oferta_id: null as number | null,
     asignatura_grupo_id: null as number | null,
-    tipo: 'ordinaria',
+    tipo_evaluacion_id: null as number | null,
 });
 
-function inscribir(materia: Disponible, tipo: string): void {
+function inscribir(materia: Disponible): void {
     form.matricula_oferta_id = matriculaId.value;
     form.asignatura_grupo_id = materia.id;
-    form.tipo = tipo;
+    form.tipo_evaluacion_id = tipoEvaluacionId.value;
     form.post('/escolar/inscripciones', { preserveScroll: true });
 }
 
@@ -145,7 +155,7 @@ function darDeBaja(id: number): void {
                             <td class="px-4 py-3">{{ inscripcion.grupo }}</td>
                             <td class="px-4 py-3">
                                 <span
-                                    class="rounded-full px-2 py-0.5 text-xs capitalize"
+                                    class="rounded-full px-2 py-0.5 text-xs"
                                     :style="{
                                         backgroundColor:
                                             inscripcion.tipo === 'recursamiento'
@@ -153,7 +163,7 @@ function darDeBaja(id: number): void {
                                                 : 'color-mix(in srgb, var(--color-acento) 12%, transparent)',
                                     }"
                                 >
-                                    {{ inscripcion.tipo }}
+                                    {{ inscripcion.tipo_evaluacion ?? inscripcion.tipo }}
                                 </span>
                             </td>
                             <td class="px-4 py-3">{{ inscripcion.situacion }}</td>
@@ -180,11 +190,20 @@ function darDeBaja(id: number): void {
 
             <!-- Disponibles -->
             <section class="tarjeta overflow-hidden">
-                <div class="border-b px-6 py-3" :style="{ borderColor: 'var(--color-borde)' }">
-                    <h2 class="text-base font-semibold">Materias abiertas en el ciclo</h2>
-                    <p class="mt-0.5 text-sm" :style="{ color: 'var(--color-suave)' }">
-                        Cada materia se valida contra seriación, cupo, horario y la ventana del ciclo.
-                    </p>
+                <div class="flex flex-wrap items-end justify-between gap-4 border-b px-6 py-3" :style="{ borderColor: 'var(--color-borde)' }">
+                    <div>
+                        <h2 class="text-base font-semibold">Materias abiertas en el ciclo</h2>
+                        <p class="mt-0.5 text-sm" :style="{ color: 'var(--color-suave)' }">
+                            Cada materia se valida contra seriación, cupo, horario y la ventana del ciclo.
+                        </p>
+                    </div>
+                    <div v-if="puedeInscribir" class="w-full sm:w-64">
+                        <CampoSelect
+                            v-model="tipoEvaluacionId"
+                            etiqueta="Inscribir como"
+                            :opciones="tiposEvaluacion.map((t) => ({ valor: t.id, texto: t.nombre }))"
+                        />
+                    </div>
                 </div>
 
                 <ul v-if="disponibles.length">
@@ -234,19 +253,9 @@ function darDeBaja(id: number): void {
                                         backgroundColor: 'var(--color-acento)',
                                         color: 'var(--color-acento-texto)',
                                     }"
-                                    @click="inscribir(materia, 'ordinaria')"
+                                    @click="inscribir(materia)"
                                 >
                                     Inscribir
-                                </button>
-                                <button
-                                    type="button"
-                                    :disabled="!materia.inscribible || form.processing"
-                                    class="rounded-lg border px-3 py-1.5 text-sm transition duration-200 disabled:cursor-not-allowed disabled:opacity-40"
-                                    :style="{ borderColor: 'var(--color-borde)' }"
-                                    title="Registrar como recursamiento"
-                                    @click="inscribir(materia, 'recursamiento')"
-                                >
-                                    Recursar
                                 </button>
                             </div>
                         </div>

@@ -9,6 +9,7 @@ use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Ciclo;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\ControlEscolar\SituacionInscripcion;
+use App\Models\ControlEscolar\TipoEvaluacion;
 use App\Services\ValidadorInscripcion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -66,6 +67,9 @@ class InscripcionController extends Controller
             ],
             'inscritas' => $this->inscritas($matricula, $ciclo),
             'disponibles' => $this->disponibles($matricula, $ciclo, $validador),
+            // Con qué tipo de evaluación se inscribe (ordinaria, extraordinaria,
+            // a título, recursamiento, revalidación, regularización).
+            'tiposEvaluacion' => TipoEvaluacion::query()->orderBy('id')->get(['id', 'nombre']),
             'puedeInscribir' => $request->user()->can('inscribir-alumnos'),
         ]);
     }
@@ -75,10 +79,11 @@ class InscripcionController extends Controller
         $datos = $request->validate([
             'matricula_oferta_id' => ['required', 'integer', Rule::exists('matricula_oferta', 'id')->whereNull('deleted_at')],
             'asignatura_grupo_id' => ['required', 'integer', Rule::exists('asignatura_grupo', 'id')->whereNull('deleted_at')],
-            'tipo' => ['required', Rule::in([Inscripcion::TIPO_ORDINARIA, Inscripcion::TIPO_RECURSAMIENTO])],
+            'tipo_evaluacion_id' => ['required', 'integer', Rule::exists('tipos_evaluacion', 'id')],
         ], [], [
             'matricula_oferta_id' => 'alumno',
             'asignatura_grupo_id' => 'materia',
+            'tipo_evaluacion_id' => 'tipo de evaluación',
         ]);
 
         $matricula = MatriculaOferta::findOrFail($datos['matricula_oferta_id']);
@@ -94,11 +99,19 @@ class InscripcionController extends Controller
             ]);
         }
 
+        // El `tipo` (ordinaria/recursamiento) —que consultan el validador y el
+        // asentador— se deriva del tipo de evaluación elegido.
+        $claveEval = TipoEvaluacion::query()->whereKey($datos['tipo_evaluacion_id'])->value('clave');
+        $tipo = $claveEval === Inscripcion::TIPO_RECURSAMIENTO
+            ? Inscripcion::TIPO_RECURSAMIENTO
+            : Inscripcion::TIPO_ORDINARIA;
+
         Inscripcion::create([
             'matricula_oferta_id' => $matricula->id,
             'asignatura_grupo_id' => $materiaGrupo->id,
             'ciclo_id' => $materiaGrupo->grupo->ciclo_id,
-            'tipo' => $datos['tipo'],
+            'tipo' => $tipo,
+            'tipo_evaluacion_id' => $datos['tipo_evaluacion_id'],
             'forma_inscripcion' => Inscripcion::FORMA_ADMINISTRATIVA,
             'situacion_id' => SituacionInscripcion::query()->where('clave', 'inscrito')->value('id'),
         ]);
@@ -145,7 +158,7 @@ class InscripcionController extends Controller
         }
 
         return Inscripcion::query()
-            ->with(['asignaturaGrupo.planMateria.asignatura:id,nombre', 'asignaturaGrupo.grupo:id,clave', 'situacion:id,nombre'])
+            ->with(['asignaturaGrupo.planMateria.asignatura:id,nombre', 'asignaturaGrupo.grupo:id,clave', 'situacion:id,nombre', 'tipoEvaluacion:id,nombre'])
             ->where('matricula_oferta_id', $matricula->id)
             ->where('ciclo_id', $ciclo->id)
             ->get()
@@ -155,6 +168,7 @@ class InscripcionController extends Controller
                 'clave_en_plan' => $inscripcion->asignaturaGrupo?->planMateria?->clave_en_plan,
                 'grupo' => $inscripcion->asignaturaGrupo?->grupo?->clave,
                 'tipo' => $inscripcion->tipo,
+                'tipo_evaluacion' => $inscripcion->tipoEvaluacion?->nombre,
                 'situacion' => $inscripcion->situacion?->nombre,
                 'calificacion_final' => $inscripcion->calificacion_final,
             ])

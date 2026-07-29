@@ -337,6 +337,12 @@ class AsentadorActa
      */
     private function tipoEvaluacionDelRenglon(Acta $acta, Inscripcion $inscripcion): int
     {
+        // Si la inscripción trae su tipo de evaluación (ordinaria, extraordinaria,
+        // a título…), ese manda: es con el que el alumno cursó la materia.
+        if ($inscripcion->tipo_evaluacion_id !== null) {
+            return $inscripcion->tipo_evaluacion_id;
+        }
+
         if ($inscripcion->tipo !== Inscripcion::TIPO_RECURSAMIENTO) {
             return $acta->tipo_evaluacion_id;
         }

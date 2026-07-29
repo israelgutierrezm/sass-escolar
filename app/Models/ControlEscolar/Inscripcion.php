@@ -31,6 +31,7 @@ class Inscripcion extends Model
         'asignatura_grupo_id',
         'ciclo_id',
         'tipo',
+        'tipo_evaluacion_id',
         'forma_inscripcion',
         'situacion_id',
         'calificacion_final',
@@ -61,6 +62,12 @@ class Inscripcion extends Model
     public function situacion(): BelongsTo
     {
         return $this->belongsTo(SituacionInscripcion::class, 'situacion_id');
+    }
+
+    /** Con qué tipo de evaluación cursa (ordinaria, extraordinaria, a título…). */
+    public function tipoEvaluacion(): BelongsTo
+    {
+        return $this->belongsTo(TipoEvaluacion::class, 'tipo_evaluacion_id');
     }
 
     /** Lo capturado por el docente, componente por componente. */
