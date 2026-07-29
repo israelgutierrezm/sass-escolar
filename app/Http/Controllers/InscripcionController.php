@@ -7,12 +7,14 @@ namespace App\Http\Controllers;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Ciclo;
+use App\Models\ControlEscolar\Grupo;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\ControlEscolar\SituacionInscripcion;
 use App\Models\ControlEscolar\TipoEvaluacion;
 use App\Services\ValidadorInscripcion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -130,6 +132,153 @@ class InscripcionController extends Controller
         ]);
 
         return back()->with('exito', 'Inscripción dada de baja.');
+    }
+
+    /**
+     * Inscripción masiva a un grupo: se ven los grupos del ciclo y, por grupo,
+     * se sugiere a los alumnos de su plan que van en el grado del grupo, están
+     * activos y aún no tienen inscripción en ese ciclo. Un buscador permite
+     * añadir a cualquier otro alumno activo del plan.
+     */
+    public function masiva(Request $request): Response
+    {
+        $ciclo = $this->cicloSeleccionado($request);
+
+        $grupo = $request->query('grupo_id') === null
+            ? null
+            : Grupo::query()
+                ->with(['plan:id,nombre', 'ciclo:id,clave', 'asignaturas.planMateria.asignatura:id,nombre'])
+                ->find($request->query('grupo_id'));
+
+        return Inertia::render('ControlEscolar/Inscripciones/Masiva', [
+            'ciclos' => Ciclo::query()->orderByDesc('fecha_inicio')->get(['id', 'clave', 'nombre'])
+                ->map(fn (Ciclo $c) => ['id' => $c->id, 'etiqueta' => "{$c->clave} — {$c->nombre}"]),
+            'grupos' => $ciclo === null ? [] : Grupo::query()->with('plan:id,nombre')
+                ->where('ciclo_id', $ciclo->id)->orderBy('clave')->get()
+                ->map(fn (Grupo $g) => ['id' => $g->id, 'etiqueta' => trim($g->clave.' · '.($g->plan?->nombre ?? 'sin plan'))]),
+            'seleccion' => ['ciclo_id' => $ciclo?->id, 'grupo_id' => $grupo?->id],
+            'grupo' => $grupo === null ? null : $this->datosGrupoMasiva($grupo),
+            'candidatos' => $grupo === null ? [] : $this->candidatosMasiva($grupo),
+            'puedeInscribir' => $request->user()->can('inscribir-alumnos'),
+        ]);
+    }
+
+    /**
+     * Inscribe a los alumnos seleccionados en TODAS las materias del grupo. Cada
+     * materia se valida por separado: la que no pase (seriación, cupo, ya
+     * inscrito) se omite, no truena la carga completa.
+     */
+    public function inscribirMasiva(Request $request, ValidadorInscripcion $validador): RedirectResponse
+    {
+        $datos = $request->validate([
+            'grupo_id' => ['required', 'integer', Rule::exists('grupos', 'id')->whereNull('deleted_at')],
+            'matricula_oferta_ids' => ['required', 'array', 'min:1'],
+            'matricula_oferta_ids.*' => ['integer', Rule::exists('matricula_oferta', 'id')->whereNull('deleted_at')],
+        ], [], ['matricula_oferta_ids' => 'alumnos']);
+
+        $grupo = Grupo::with('asignaturas')->findOrFail($datos['grupo_id']);
+
+        if ($grupo->asignaturas->isEmpty()) {
+            return back()->with('error', 'El grupo no tiene materias abiertas.');
+        }
+
+        $ordinaria = TipoEvaluacion::query()->where('clave', Inscripcion::TIPO_ORDINARIA)->value('id');
+        $inscritoId = SituacionInscripcion::query()->where('clave', 'inscrito')->value('id');
+
+        $renglones = 0;
+        $omitidos = 0;
+
+        DB::transaction(function () use ($datos, $grupo, $validador, $ordinaria, $inscritoId, &$renglones, &$omitidos) {
+            foreach ($datos['matricula_oferta_ids'] as $matriculaId) {
+                $matricula = MatriculaOferta::find($matriculaId);
+
+                if ($matricula === null) {
+                    continue;
+                }
+
+                foreach ($grupo->asignaturas as $materiaGrupo) {
+                    if ($validador->impedimentos($matricula, $materiaGrupo) !== []) {
+                        $omitidos++;
+
+                        continue;
+                    }
+
+                    Inscripcion::create([
+                        'matricula_oferta_id' => $matricula->id,
+                        'asignatura_grupo_id' => $materiaGrupo->id,
+                        'ciclo_id' => $grupo->ciclo_id,
+                        'tipo' => Inscripcion::TIPO_ORDINARIA,
+                        'tipo_evaluacion_id' => $ordinaria,
+                        'forma_inscripcion' => Inscripcion::FORMA_ADMINISTRATIVA,
+                        'situacion_id' => $inscritoId,
+                    ]);
+                    $renglones++;
+                }
+            }
+        });
+
+        $mensaje = "{$renglones} renglón(es) inscritos".
+            ($omitidos > 0 ? ", {$omitidos} omitidos por validación." : '.');
+
+        return back()->with($renglones > 0 ? 'exito' : 'error', $mensaje);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function datosGrupoMasiva(Grupo $grupo): array
+    {
+        return [
+            'id' => $grupo->id,
+            'clave' => $grupo->clave,
+            'plan' => $grupo->plan?->nombre,
+            'ciclo' => $grupo->ciclo?->clave,
+            'periodo_objetivo' => $this->periodoObjetivo($grupo),
+            'materias' => $grupo->asignaturas->map(fn (AsignaturaGrupo $ag) => [
+                'clave_en_plan' => $ag->planMateria?->clave_en_plan,
+                'nombre' => $ag->planMateria?->asignatura?->nombre,
+                'periodo' => $ag->planMateria?->periodo,
+            ])->values()->all(),
+        ];
+    }
+
+    /**
+     * Alumnos activos del plan del grupo sin inscripción en el ciclo.
+     * `sugerido` = va en el grado del grupo (periodo_actual = periodo objetivo).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function candidatosMasiva(Grupo $grupo): array
+    {
+        $objetivo = $this->periodoObjetivo($grupo);
+
+        $yaEnCiclo = Inscripcion::query()->where('ciclo_id', $grupo->ciclo_id)->distinct()->pluck('matricula_oferta_id');
+
+        return MatriculaOferta::query()
+            ->with(['persona', 'oferta.carrera:id,nombre'])
+            ->where('estatus', 'activo')
+            ->whereHas('oferta', fn ($q) => $q->where('plan_id', $grupo->plan_id))
+            ->whereNotIn('id', $yaEnCiclo)
+            ->orderBy('matricula')
+            ->get()
+            ->map(fn (MatriculaOferta $m) => [
+                'id' => $m->id,
+                'matricula' => $m->matricula,
+                'nombre' => $m->persona?->nombreCompleto(),
+                'carrera' => $m->oferta?->carrera?->nombre,
+                'periodo_actual' => $m->periodo_actual,
+                'foto' => $m->persona?->urlFoto(),
+                'sugerido' => $objetivo !== null && $m->periodo_actual === $objetivo,
+            ])
+            ->all();
+    }
+
+    /** Periodo (grado) del grupo: el más común entre sus materias. */
+    private function periodoObjetivo(Grupo $grupo): ?int
+    {
+        $periodos = $grupo->asignaturas->map(fn (AsignaturaGrupo $ag) => $ag->planMateria?->periodo)->filter()->values();
+
+        return $periodos->isEmpty() ? null : (int) $periodos->mode()[0];
     }
 
     private function matriculaSeleccionada(Request $request): ?MatriculaOferta

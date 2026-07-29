@@ -528,6 +528,10 @@ Route::middleware([
                 Route::get('inscripciones', [InscripcionController::class, 'index'])
                     ->middleware('can:inscribir-alumnos')
                     ->name('inscripciones.index');
+                // Antes de cualquier `inscripciones/{...}`: inscripción masiva por grupo.
+                Route::get('inscripciones/masiva', [InscripcionController::class, 'masiva'])
+                    ->middleware('can:inscribir-alumnos')
+                    ->name('inscripciones.masiva');
                 Route::get('grupos', [GrupoController::class, 'index'])->name('grupos.index');
                 // whereNumber evita que /grupos/create caiga aquí y falle al
                 // resolver un grupo con id "create": esta ruta se declara antes
@@ -538,6 +542,7 @@ Route::middleware([
 
                 Route::middleware('can:inscribir-alumnos')->group(function () {
                     Route::post('inscripciones', [InscripcionController::class, 'store'])->name('inscripciones.store');
+                    Route::post('inscripciones/masiva', [InscripcionController::class, 'inscribirMasiva'])->name('inscripciones.masiva.store');
                     Route::put('inscripciones/{inscripcion}/baja', [InscripcionController::class, 'baja'])->name('inscripciones.baja');
                 });
 

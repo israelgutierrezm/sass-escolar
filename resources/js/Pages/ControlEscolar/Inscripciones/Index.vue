@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavEscolar from '@/Components/NavEscolar.vue';
@@ -87,6 +87,15 @@ function darDeBaja(id: number): void {
 
         <!-- Selección -->
         <section class="tarjeta p-6">
+            <div class="mb-4 flex justify-end">
+                <Link
+                    href="/escolar/inscripciones/masiva"
+                    class="text-sm font-medium"
+                    :style="{ color: 'var(--color-acento)' }"
+                >
+                    Inscripción masiva por grupo →
+                </Link>
+            </div>
             <div class="grid gap-4 sm:grid-cols-2">
                 <CampoSelect
                     v-model="matriculaId"
