@@ -10,6 +10,7 @@ import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoCasillas from '@/Components/CampoCasillas.vue';
 import EditorTexto from '@/Components/EditorTexto.vue';
 import FormularioAsignatura from '@/Components/FormularioAsignatura.vue';
+import CargaHoraria from '@/Components/CargaHoraria.vue';
 
 interface Opcion { id: number; nombre: string }
 interface DescriptorAsignatura { descriptor_id: number; nombre: string; contenido: string | null }
@@ -239,10 +240,19 @@ const etiquetaTipoReq = (tipo: string) => (tipo === 'aprobada' ? 'Aprobada' : 'C
                         :areas="areas"
                     />
                 </div>
-                <div v-if="puedeEditar" class="mt-4">
-                    <BotonPrincipal tipo="button" :procesando="formAsignatura.processing" texto="Guardar datos y descriptores" @click="guardarAsignatura" />
+            </section>
+
+            <!-- Carga horaria en su propia tarjeta (mismo formulario de la asignatura). -->
+            <section class="tarjeta p-6">
+                <h3 class="text-base font-semibold">Carga horaria</h3>
+                <div class="mt-4">
+                    <CargaHoraria :form="formAsignatura" />
                 </div>
             </section>
+
+            <div v-if="puedeEditar">
+                <BotonPrincipal tipo="button" :procesando="formAsignatura.processing" texto="Guardar datos y descriptores" @click="guardarAsignatura" />
+            </div>
 
             <section class="tarjeta p-6">
                 <h3 class="text-base font-semibold">Ubicación en el plan</h3>

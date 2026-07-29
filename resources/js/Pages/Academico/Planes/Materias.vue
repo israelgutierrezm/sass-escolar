@@ -5,6 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import FormularioAsignatura from '@/Components/FormularioAsignatura.vue';
+import CargaHoraria from '@/Components/CargaHoraria.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import ZonaArchivo from '@/Components/ZonaArchivo.vue';
@@ -325,6 +326,11 @@ function textoSobre(color: string | null): string {
                         :clasificaciones="clasificaciones"
                         :areas="areas"
                     />
+                </div>
+
+                <div class="border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">
+                    <p class="mb-3 text-xs font-semibold uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">Carga horaria</p>
+                    <CargaHoraria :form="form" />
                 </div>
 
                 <!-- Ubicación en el plan. -->

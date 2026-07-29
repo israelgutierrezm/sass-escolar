@@ -53,17 +53,5 @@ const opciones = (lista: Opcion[]) => lista.map((x) => ({ valor: x.id, texto: x.
             vacio="Sin especificar"
             :error="form.errors.area_id"
         />
-
-        <div class="sm:col-span-4">
-            <p class="mb-2 text-xs font-semibold uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                Carga horaria
-            </p>
-            <div class="grid gap-4 sm:grid-cols-4">
-                <CampoTexto v-model="form.horas_teoria" etiqueta="Teoría" tipo="number" :error="form.errors.horas_teoria" />
-                <CampoTexto v-model="form.horas_practica" etiqueta="Práctica" tipo="number" :error="form.errors.horas_practica" />
-                <CampoTexto v-model="form.horas_acompanamiento" etiqueta="Acompañamiento" tipo="number" :error="form.errors.horas_acompanamiento" />
-                <CampoTexto v-model="form.horas_independientes" etiqueta="Independientes" tipo="number" :error="form.errors.horas_independientes" />
-            </div>
-        </div>
     </div>
 </template>
