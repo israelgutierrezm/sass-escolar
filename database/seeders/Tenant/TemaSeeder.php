@@ -27,40 +27,12 @@ class TemaSeeder extends Seeder
      */
     private const TEMAS = [
         [
-            // Tema PREDETERMINADO: clásico. TOTALMENTE NEUTRO, escala de grises
-            // al estilo «light» de Bootstrap: barra lateral en charcoal neutro
-            // (#343A40, el gris-800 de Bootstrap), cuerpo gris muy claro,
-            // tarjetas blancas, texto casi negro y bordes discretos. Sin azul
-            // ni ningún tinte de color —el acento también es el mismo gris
-            // oscuro— para que no se confunda con Océano. La barra no es blanca
-            // porque el layout lleva texto blanco fijo en ella.
-            'clave' => 'clasico',
-            'nombre' => 'Clásico',
-            'es_default' => true,
-            'permite_override_usuario' => true,
-            'tokens' => [
-                'barra_lateral' => '#343A40',
-                'barra_lateral_suave' => '#3D444B',
-                'barra_lateral_texto' => '#CED4DA',
-                'barra_lateral_activo' => '#565D65',
-                'barra_superior' => '#FFFFFF',
-                'barra_superior_texto' => '#212529',
-                'acento' => '#343A40',
-                'acento_texto' => '#FFFFFF',
-                'fondo' => '#F8F9FA',
-                'superficie' => '#FFFFFF',
-                'borde' => '#DEE2E6',
-                'texto' => '#212529',
-                'texto_suave' => '#6C757D',
-            ],
-        ],
-        [
-            // Tema azul océano. Paleta pedida por el cliente
+            // Tema PREDETERMINADO: azul océano. Paleta pedida por el cliente
             // (#0077B6 / #006A89 / #00527C / #006DB2) sobre una base neutra
             // clara, para que se vea elegante sin cansar.
             'clave' => 'oceano',
             'nombre' => 'Océano',
-            'es_default' => false,
+            'es_default' => true,
             'permite_override_usuario' => true,
             'tokens' => [
                 'barra_lateral' => '#00344D',
@@ -195,7 +167,7 @@ class TemaSeeder extends Seeder
      * Temas de una versión anterior del seeder, con un juego de tokens
      * incompleto. Se retiran porque se verían rotos junto a los actuales.
      */
-    private const OBSOLETOS = ['claro', 'oscuro', 'grafito'];
+    private const OBSOLETOS = ['claro', 'oscuro', 'grafito', 'clasico'];
 
     public function run(): void
     {

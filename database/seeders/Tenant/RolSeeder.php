@@ -13,10 +13,12 @@ use Illuminate\Database\Seeder;
  *  1. FACETAS (sin padre) — lo que una persona ES: administrativo, docente,
  *     alumno, aspirante, tutor educativo, padre de familia.
  *  2. ROLES FUNCIONALES — cuelgan de una faceta y son los que de verdad acotan
- *     menús y permisos: director general, encargado de admisiones, auxiliar de
- *     control escolar... Heredan los permisos de su faceta.
+ *     menús y permisos. Heredan los permisos de su faceta.
  *
- * La escuela puede agregar más roles funcionales sin tocar código.
+ * De los administrativos SOLO se siembra `director_general` (el administrador
+ * de la escuela, con todos los permisos de la faceta). Las demás variantes
+ * —encargados, auxiliares, promotor, director de campus, coordinador de
+ * academia— las crea cada escuela según su organigrama, sin tocar código.
  * El alcance por campus ("director del campus Norte") NO se define aquí: va en
  * `persona_rol.campus_id` al asignar el rol a la persona.
  *
@@ -37,41 +39,28 @@ class RolSeeder extends Seeder
 
         $ids = [];
 
+        // Las facetas son roles del sistema: `protegido` para que no se puedan
+        // eliminar ni recolgar de otro rol (hay código que las conoce por nombre).
         foreach ($facetas as [$clave, $nombre]) {
-            $ids[$clave] = $this->rol($clave, $nombre)->getKey();
+            $ids[$clave] = $this->rol($clave, $nombre, protegido: true)->getKey();
         }
 
-        // Roles funcionales dentro de la faceta administrativa.
-        $administrativos = [
-            ['director_general', 'Director general'],
-            ['director_campus', 'Director de campus'],
-            ['encargado_admisiones', 'Encargado de admisiones'],
-            ['auxiliar_admisiones', 'Auxiliar de admisiones'],
-            // Personal de promoción: capta prospectos en la calle, ferias y
-            // referidos, y les da seguimiento. Ve SOLO los suyos.
-            ['promotor', 'Promotor'],
-            ['encargado_control_escolar', 'Encargado de control escolar'],
-            ['auxiliar_control_escolar', 'Auxiliar de control escolar'],
-            ['encargado_finanzas', 'Encargado de finanzas'],
-            ['auxiliar_finanzas', 'Auxiliar de finanzas'],
-        ];
-
-        foreach ($administrativos as [$clave, $nombre]) {
-            $this->rol($clave, $nombre, $ids['administrativo']);
-        }
-
-        // Coordinador de academia cuelga de ADMINISTRATIVO y no de docencia:
-        // coordinar la oferta es trabajo de gestión, y sus permisos son
-        // administrativos. Quien además imparte clase tiene los dos roles y
-        // conmuta, que es lo que el modelo de facetas quiere que pase.
-        $this->rol('coordinador_academia', 'Coordinador de academia', $ids['administrativo']);
+        // ÚNICO rol administrativo funcional que se siembra: Director general.
+        // Es el administrador de la escuela (se le asigna al crear el tenant),
+        // recibe TODOS los permisos de la faceta administrativa (ver
+        // PermisoSeeder) y es `protegido` para que no se pueda eliminar: siempre
+        // debe existir. Las demás variantes administrativas —director de campus,
+        // encargados, auxiliares, promotor, coordinador de academia— las crea
+        // cada escuela según su organigrama desde /plataforma/roles; no se
+        // siembran.
+        $this->rol('director_general', 'Director general', $ids['administrativo'], protegido: true);
     }
 
-    private function rol(string $clave, string $nombre, ?int $padreId = null): Rol
+    private function rol(string $clave, string $nombre, ?int $padreId = null, bool $protegido = false): Rol
     {
         return Rol::query()->updateOrCreate(
             ['name' => $clave, 'guard_name' => 'web'],
-            ['nombre' => $nombre, 'rol_padre_id' => $padreId],
+            ['nombre' => $nombre, 'rol_padre_id' => $padreId, 'protegido' => $protegido],
         );
     }
 }

@@ -38,51 +38,11 @@ class PermisoSeeder extends Seeder
         // Ver `permisosDe()` más abajo.
         'director_general' => self::TODOS_LOS_DE_SU_FACETA,
 
-        'director_campus' => [
-            'crear-personas', 'editar-personas', 'ver-aspirantes', 'editar-alumnos',
-            'ver-kardex', 'ver-adeudos', 'abrir-grupos', 'ver-docentes',
-        ],
-        'encargado_admisiones' => [
-            'ver-aspirantes', 'crear-aspirantes', 'editar-aspirantes',
-            'validar-expediente', 'convertir-aspirante', 'generar-matricula',
-            'crear-personas', 'gestionar-documentos', 'gestionar-formularios',
-            // Coordina el embudo y la nómina de promoción.
-            'gestionar-promocion', 'gestionar-comisiones', 'configurar-comisiones',
-            'ver-mis-prospectos',
-        ],
-        'auxiliar_admisiones' => ['ver-aspirantes', 'crear-aspirantes', 'editar-aspirantes', 'ver-mis-prospectos'],
-
-        /*
-         * Promotor: captura prospectos y les da seguimiento, pero SOLO los
-         * suyos. El alcance no lo da el permiso sino la asignación en
-         * `aspirante_asesor` — misma regla de dos capas que el docente.
-         * No valida expedientes ni convierte: eso es de admisiones.
-         */
-        'promotor' => [
-            'ver-aspirantes', 'crear-aspirantes', 'editar-aspirantes',
-            'crear-personas', 'ver-mis-prospectos',
-        ],
-        'encargado_control_escolar' => [
-            'editar-alumnos', 'inscribir-alumnos', 'ver-kardex',
-            'capturar-calificaciones', 'asentar-acta', 'gestionar-ventanas-captura',
-            'abrir-grupos', 'editar-catalogo-academico',
-            'ver-docentes', 'gestionar-docentes',
-            // Matricula reingresos y segundas carreras de quien ya es alumno de
-            // la casa. La entrada de aspirantes sigue siendo de admisiones.
-            'generar-matricula',
-            'gestionar-documentos',
-        ],
-        // Captura pero NO firma: puede vaciar las hojas que entrega el docente
-        // y es el titular quien asienta el acta.
-        'auxiliar_control_escolar' => ['inscribir-alumnos', 'ver-kardex', 'capturar-calificaciones'],
-        'encargado_finanzas' => ['ver-adeudos', 'registrar-pagos', 'condonar-adeudos', 'facturar', 'gestionar-planes-cobro', 'gestionar-emisores'],
-        'auxiliar_finanzas' => ['ver-adeudos', 'registrar-pagos'],
-
-        // Coordinador de academia cuelga de ADMINISTRATIVO, no de docencia:
-        // coordinar la oferta académica es trabajo de gestión. Quien además
-        // imparte clase tiene los dos roles y conmuta — que es justo lo que el
-        // modelo de facetas quiere que pase.
-        'coordinador_academia' => ['editar-catalogo-academico', 'abrir-grupos', 'ver-docentes'],
+        // Las variantes administrativas (director de campus, encargados,
+        // auxiliares, promotor, coordinador de academia) YA NO se siembran:
+        // las crea cada escuela desde /plataforma/roles y ahí les palomea sus
+        // permisos —siempre acotados a la faceta administrativa—. Por eso aquí
+        // solo quedan la faceta base y `director_general` (que se lleva todo).
 
         // Docencia.
         // El alcance del docente NO lo da el permiso sino la asignación en
