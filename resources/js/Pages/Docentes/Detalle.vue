@@ -6,6 +6,7 @@ import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoCasillas from '@/Components/CampoCasillas.vue';
+import TitulosDocente from '@/Components/TitulosDocente.vue';
 
 interface DocumentoDoc {
     id: number;
@@ -31,11 +32,12 @@ const props = defineProps<{
     campus: { id: number; nombre: string }[];
     sexos: { id: number; nombre: string }[];
     generos: { id: number; nombre: string }[];
+    titulos: { id: number; grado: string; titulo_obtenido: string; cedula: string | null; institucion: string | null; anio: number | null; archivo: string | null }[];
     puedeGestionar: boolean;
     suplantable: { usuario_id: number; usuario: string } | null;
 }>();
 
-const pestana = ref<'materias' | 'documentos' | 'datos'>('materias');
+const pestana = ref<'materias' | 'documentos' | 'titulos' | 'datos'>('materias');
 
 const pendientes = computed(() => props.documentos.filter((d) => d.estado_clave === 'pendiente').length);
 
@@ -52,7 +54,6 @@ const form = useForm({
     correo_institucional: props.persona.correo_institucional ?? '',
     celular: props.persona.celular ?? '',
     clave_profesor: props.docente.clave_profesor ?? '',
-    cedula_profesional: props.docente.cedula_profesional ?? '',
     tipo_docente_id: props.docente.tipo_docente_id ?? null,
     situacion_id: props.docente.situacion_id ?? null,
     edicion_contenido: props.docente.edicion_contenido ?? 1,
@@ -198,9 +199,6 @@ function verComo(): void {
                         {{ docente.tipo ?? 'sin tipo' }} · {{ docente.situacion }}
                         <span v-if="docente.campus.length"> · {{ docente.campus.join(', ') }}</span>
                     </p>
-                    <p v-if="docente.cedula_profesional" class="mt-0.5 text-sm" :style="{ color: 'var(--color-suave)' }">
-                        Cédula {{ docente.cedula_profesional }}
-                    </p>
                 </div>
                     <button
                         v-if="suplantable"
@@ -221,6 +219,7 @@ function verComo(): void {
                 v-for="opcion in [
                     { clave: 'materias', texto: `Materias (${materias.length})` },
                     { clave: 'documentos', texto: `Documentos${pendientes ? ` · ${pendientes} por revisar` : ''}` },
+                    { clave: 'titulos', texto: `Títulos (${titulos.length})` },
                     { clave: 'datos', texto: 'Datos' },
                 ]"
                 :key="opcion.clave"
@@ -369,6 +368,15 @@ function verComo(): void {
             </p>
         </section>
 
+        <!-- Títulos / grados (CV) -->
+        <div v-else-if="pestana === 'titulos'">
+            <TitulosDocente
+                :titulos="titulos"
+                :base="`/escolar/docentes/${docente.id}/titulos`"
+                :puede-editar="puedeGestionar"
+            />
+        </div>
+
         <!-- Datos -->
         <form v-else class="tarjeta p-6" @submit.prevent="guardar">
             <h2 class="text-base font-semibold">Identidad</h2>
@@ -411,7 +419,6 @@ function verComo(): void {
 
             <div class="mt-5 grid gap-4 sm:grid-cols-3">
                 <CampoTexto v-model="form.clave_profesor" etiqueta="Clave de profesor" mono :error="form.errors.clave_profesor" :deshabilitado="!puedeGestionar" />
-                <CampoTexto v-model="form.cedula_profesional" etiqueta="Cédula profesional" mono :error="form.errors.cedula_profesional" :deshabilitado="!puedeGestionar" />
                 <CampoSelect
                     v-model="form.tipo_docente_id"
                     etiqueta="Tipo de docente"

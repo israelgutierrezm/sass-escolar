@@ -493,6 +493,8 @@ Route::middleware([
                         Route::get('{docente}', 'show')->whereNumber('docente')->name('show');
                         Route::get('{docente}/documentos/{documento}/descargar', 'descargarDocumento')
                             ->whereNumber('docente')->name('documentos.descargar');
+                        Route::get('{docente}/titulos/{titulo}/archivo', 'descargarTitulo')
+                            ->whereNumber('docente')->whereNumber('titulo')->name('titulos.archivo');
 
                         Route::middleware('can:gestionar-docentes')->group(function () {
                             Route::post('/', 'store')->name('store');
@@ -500,6 +502,10 @@ Route::middleware([
                             Route::delete('{docente}', 'destroy')->whereNumber('docente')->name('destroy');
                             Route::put('{docente}/documentos/{documento}', 'revisarDocumento')
                                 ->whereNumber('docente')->name('documentos.revisar');
+                            // Títulos/grados del docente (CV).
+                            Route::post('{docente}/titulos', 'agregarTitulo')->whereNumber('docente')->name('titulos.store');
+                            Route::delete('{docente}/titulos/{titulo}', 'quitarTitulo')
+                                ->whereNumber('docente')->whereNumber('titulo')->name('titulos.destroy');
                         });
                     });
 

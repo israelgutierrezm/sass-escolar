@@ -34,7 +34,6 @@ const form = useForm({
     celular: '',
     telefono_local: '',
     clave_profesor: '',
-    cedula_profesional: '',
     tipo_docente_id: null as number | null,
     situacion_id: props.situaciones[0]?.id ?? null,
     edicion_contenido: 1,
@@ -78,7 +77,6 @@ function enviar(): void {
 
                 <div class="mt-5 grid gap-4 sm:grid-cols-3">
                     <CampoTexto v-model="form.clave_profesor" etiqueta="Clave de profesor" mono :error="form.errors.clave_profesor" />
-                    <CampoTexto v-model="form.cedula_profesional" etiqueta="Cédula profesional" mono :error="form.errors.cedula_profesional" />
                     <CampoSelect
                         v-model="form.tipo_docente_id"
                         etiqueta="Tipo de docente"

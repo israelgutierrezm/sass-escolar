@@ -10,6 +10,7 @@ use App\Models\Identidad\Persona;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * docentes (TENANT) — rol materializado. PK = persona_id.
@@ -68,5 +69,11 @@ class Docente extends Model
             'persona_id',
             'asignatura_grupo_id'
         )->withPivot('tipo')->withTimestamps();
+    }
+
+    /** Grados/títulos del docente (CV académico). Cuelgan de la persona. */
+    public function titulos(): HasMany
+    {
+        return $this->hasMany(TituloDocente::class, 'persona_id', 'persona_id');
     }
 }

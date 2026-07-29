@@ -11,7 +11,9 @@ use App\Models\ControlEscolar\Docente;
 use App\Models\ControlEscolar\DocumentoDocente;
 use App\Models\ControlEscolar\SituacionDocente;
 use App\Models\ControlEscolar\TipoDocente;
+use App\Models\ControlEscolar\TituloDocente;
 use App\Models\Identidad\Persona;
+use App\Services\GestorTitulosDocente;
 use App\Services\IdentidadPersona;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -66,7 +68,6 @@ class DocenteController extends Controller
                 'nombre_completo' => $d->persona?->nombreCompleto(),
                 'foto' => $d->persona?->urlFoto(),
                 'clave_profesor' => $d->clave_profesor,
-                'cedula_profesional' => $d->cedula_profesional,
                 'curp' => $d->persona?->curp,
                 'email' => $d->persona?->email,
                 'tipo' => $d->tipoDocente?->nombre,
@@ -131,7 +132,7 @@ class DocenteController extends Controller
     /** Ficha del docente: sus datos, sus materias y su expediente por revisar. */
     public function show(Request $request, Docente $docente): Response
     {
-        $docente->load(['persona.sexo', 'persona.genero', 'tipoDocente', 'situacion', 'campus:id,nombre']);
+        $docente->load(['persona.sexo', 'persona.genero', 'tipoDocente', 'situacion', 'campus:id,nombre', 'titulos']);
 
         $materias = AsignaturaGrupo::query()
             ->with([
@@ -158,7 +159,6 @@ class DocenteController extends Controller
             'docente' => [
                 'id' => $docente->persona_id,
                 'clave_profesor' => $docente->clave_profesor,
-                'cedula_profesional' => $docente->cedula_profesional,
                 'tipo_docente_id' => $docente->tipo_docente_id,
                 'tipo' => $docente->tipoDocente?->nombre,
                 'situacion_id' => $docente->situacion_id,
@@ -200,10 +200,44 @@ class DocenteController extends Controller
                     'subido' => $d->created_at?->format('d/m/Y'),
                 ]),
             'estadosDocumento' => EstadoDocumento::query()->orderBy('id')->get(['id', 'clave', 'nombre']),
+            // Títulos/grados del docente (CV). La URL del documento apunta a la
+            // ruta de descarga administrativa (control escolar).
+            'titulos' => $docente->titulos->map(fn (TituloDocente $t) => [
+                'id' => $t->id,
+                'grado' => $t->grado,
+                'titulo_obtenido' => $t->titulo_obtenido,
+                'cedula' => $t->cedula,
+                'institucion' => $t->institucion,
+                'anio' => $t->anio,
+                'archivo' => $t->archivo_url === null ? null : "/escolar/docentes/{$docente->persona_id}/titulos/{$t->id}/archivo",
+            ]),
             ...$this->catalogos(),
             'puedeGestionar' => $request->user()->can('gestionar-docentes'),
             'suplantable' => app(Suplantador::class)->datosPara($request, $docente->persona),
         ]);
+    }
+
+    public function agregarTitulo(Request $request, Docente $docente, GestorTitulosDocente $gestor): RedirectResponse
+    {
+        $datos = $request->validate($gestor->reglas());
+        $gestor->agregar($docente->persona_id, $datos, $request->file('archivo'));
+
+        return back()->with('exito', 'Título agregado.');
+    }
+
+    public function quitarTitulo(Docente $docente, TituloDocente $titulo, GestorTitulosDocente $gestor): RedirectResponse
+    {
+        abort_unless($titulo->persona_id === $docente->persona_id, 404);
+        $gestor->quitar($titulo);
+
+        return back()->with('exito', 'Título eliminado.');
+    }
+
+    public function descargarTitulo(Docente $docente, TituloDocente $titulo, GestorTitulosDocente $gestor): StreamedResponse
+    {
+        abort_unless($titulo->persona_id === $docente->persona_id, 404);
+
+        return $gestor->descargar($titulo);
     }
 
     public function update(Request $request, Docente $docente): RedirectResponse
@@ -293,7 +327,6 @@ class DocenteController extends Controller
 
         return $query->where(fn ($q) => $q
             ->where('clave_profesor', 'like', "%{$termino}%")
-            ->orWhere('cedula_profesional', 'like', "%{$termino}%")
             ->orWhereHas('persona', fn ($p) => $p
                 ->where('curp', 'like', "%{$termino}%")
                 ->orWhereRaw("CONCAT_WS(' ', nombre, primer_apellido, segundo_apellido) LIKE ?", [$like])));
@@ -339,7 +372,6 @@ class DocenteController extends Controller
             'telefono_local' => ['nullable', 'string', 'max:20'],
 
             'clave_profesor' => ['nullable', 'string', 'max:50'],
-            'cedula_profesional' => ['nullable', 'string', 'max:30'],
             'tipo_docente_id' => ['nullable', 'integer', Rule::exists('tipos_docente', 'id')->whereNull('deleted_at')],
             'situacion_id' => ['required', 'integer', Rule::exists('situaciones_docente', 'id')->whereNull('deleted_at')],
             'edicion_contenido' => ['required', 'integer', 'min:0', 'max:2'],
@@ -375,7 +407,6 @@ class DocenteController extends Controller
     {
         return [
             'clave_profesor' => $datos['clave_profesor'] ?? null,
-            'cedula_profesional' => $datos['cedula_profesional'] ?? null,
             'tipo_docente_id' => $datos['tipo_docente_id'] ?? null,
             'situacion_id' => $datos['situacion_id'],
             'edicion_contenido' => $datos['edicion_contenido'],
@@ -394,6 +425,8 @@ class DocenteController extends Controller
             // Géneros, entidades, países y México para el bloque de identidad
             // compartido (autollenado por CURP).
             ...app(IdentidadPersona::class)->catalogosDeOrigen(),
+            // El detalle (edición inline) todavía muestra el selector de sexo.
+            'sexos' => \App\Models\Landlord\Sexo::query()->orderBy('id')->get(['id', 'nombre']),
         ];
     }
 }
