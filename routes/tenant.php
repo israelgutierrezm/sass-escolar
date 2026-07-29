@@ -364,7 +364,10 @@ Route::middleware([
                     Route::delete('catalogos/{catalogo}/{item}', [CatalogoAcademicoController::class, 'destroy'])
                         ->whereNumber('item')->name('catalogos.destroy');
 
-                    Route::resource('asignaturas', AsignaturaController::class)->except(['index', 'show']);
+                    // La asignatura ya no tiene alta/edición propias: se crea en la
+                    // malla del plan y se edita en la ficha. Aquí sólo quedan el
+                    // paso «elegir plan» (create), el redirect de edición y borrar.
+                    Route::resource('asignaturas', AsignaturaController::class)->only(['create', 'edit', 'destroy']);
                     Route::post('asignaturas/{asignatura}/imagen/{tipo}', [AsignaturaController::class, 'subirImagen'])
                         ->whereNumber('asignatura')->whereIn('tipo', ['materia', 'miniatura', 'portada'])
                         ->name('asignaturas.imagen.subir');

@@ -8,15 +8,12 @@ use App\Models\Academico\Area;
 use App\Models\Academico\Asignatura;
 use App\Models\Academico\Carrera;
 use App\Models\Academico\ClasificacionAsignatura;
-use App\Models\Academico\Descriptor;
 use App\Models\Academico\PlanEstudio;
 use App\Models\Academico\PlanMateria;
 use App\Models\Academico\TipoAsignatura;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -80,61 +77,31 @@ class AsignaturaController extends Controller
         ]);
     }
 
+    /**
+     * Alta de asignatura: como toda asignatura nace ligada a un plan, primero se
+     * elige carrera → plan y de ahí se cae en el alta de la malla de ese plan
+     * (la ÚNICA alta; ya no hay un formulario de asignatura aparte).
+     */
     public function create(): Response
     {
-        return Inertia::render('Academico/Asignaturas/Formulario', [
-            'asignatura' => null,
-            // Al crear se liga a un plan: se ofrece la carrera y sus planes.
+        return Inertia::render('Academico/Asignaturas/ElegirPlan', [
             'carreras' => Carrera::query()->orderBy('nombre')->get(['id', 'nombre'])
                 ->map(fn (Carrera $c) => [
                     'id' => $c->id,
                     'nombre' => $c->nombre,
                     'planes' => PlanEstudio::query()->where('carrera_id', $c->id)->orderBy('nombre')->get(['id', 'nombre']),
                 ]),
-            ...$this->catalogos(),
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    /**
+     * Editar una asignatura es editar la materia en su plan: se redirige a la
+     * ficha del plan (datos, descriptores, imágenes, ubicación, requisitos,
+     * evaluación en un solo lugar). Si la asignatura no está en ningún plan
+     * (caso borde), no hay ficha: se pide agregarla a un plan primero.
+     */
+    public function edit(Asignatura $asignatura): RedirectResponse
     {
-        $datos = $this->validar($request);
-
-        // Al crear desde «Asignaturas» también se elige el plan (y carrera) al que
-        // se liga, con su periodo y tipo (obligatoria/optativa). Todo en una
-        // transacción: la asignatura no queda suelta si la liga falla.
-        $liga = $request->validate([
-            'plan_id' => ['required', 'integer', Rule::exists('planes_estudio', 'id')->whereNull('deleted_at')],
-            'periodo' => ['nullable', 'integer', 'min:1', 'max:30'],
-            'tipo_en_plan' => ['required', Rule::in(['obligatoria', 'optativa', 'tronco_comun'])],
-        ], [], ['tipo_en_plan' => 'tipo en el plan']);
-
-        $asignatura = DB::transaction(function () use ($datos, $liga) {
-            $asignatura = Asignatura::create($datos);
-            $asignatura->descriptores()->sync($this->pivoteDescriptores($datos['descriptores'] ?? []));
-
-            PlanMateria::create([
-                'plan_id' => $liga['plan_id'],
-                'asignatura_id' => $asignatura->id,
-                'clave_en_plan' => $asignatura->clave,
-                'periodo' => $liga['periodo'] ?? null,
-                'tipo' => $liga['tipo_en_plan'],
-            ]);
-
-            return $asignatura;
-        });
-
-        return redirect()
-            ->route('tenant.academico.asignaturas.edit', $asignatura)
-            ->with('exito', 'Asignatura creada y ligada al plan. Ahora puedes subir sus imágenes de diseño.');
-    }
-
-    public function edit(Asignatura $asignatura): Response|RedirectResponse
-    {
-        // Homologado con el plan: editar una asignatura es lo mismo aquí que
-        // desde la malla, así que se abre la MISMA ficha rica (datos,
-        // descriptores, imágenes, ubicación, requisitos, evaluación) en vez de
-        // duplicar formularios. Se usa su plan más reciente; si aún no está en
-        // ningún plan (caso borde/heredado), cae al editor de asignatura.
         $materia = PlanMateria::query()
             ->where('asignatura_id', $asignatura->id)
             ->orderByDesc('id')
@@ -144,34 +111,8 @@ class AsignaturaController extends Controller
             return redirect()->route('tenant.academico.planes.materias.show', [$materia->plan_id, $materia->id]);
         }
 
-        $asignatura->load('descriptores');
-
-        return Inertia::render('Academico/Asignaturas/Formulario', [
-            'asignatura' => [
-                ...$asignatura->only([
-                    'id', 'identificador', 'clave', 'nombre', 'creditos', 'tipo_asignatura_id',
-                    'clasificacion_id', 'area_id', 'horas_teoria', 'horas_practica',
-                    'horas_acompanamiento', 'horas_independientes',
-                ]),
-                'descriptores' => $asignatura->descriptores->map(fn (Descriptor $d) => [
-                    'descriptor_id' => $d->id,
-                    'nombre' => $d->nombre,
-                    'contenido' => $d->pivot->contenido,
-                ])->values(),
-                'imagenes' => $asignatura->urlsDiseno(),
-            ],
-            ...$this->catalogos(),
-        ]);
-    }
-
-    public function update(Request $request, Asignatura $asignatura): RedirectResponse
-    {
-        $datos = $this->validar($request, $asignatura->id);
-
-        $asignatura->update($datos);
-        $asignatura->descriptores()->sync($this->pivoteDescriptores($datos['descriptores'] ?? []));
-
-        return redirect()->route('tenant.academico.asignaturas.index')->with('exito', 'Asignatura actualizada.');
+        return redirect()->route('tenant.academico.asignaturas.index')
+            ->with('error', 'Esta asignatura no pertenece a ningún plan; agrégala a uno para editarla.');
     }
 
     /**
@@ -187,73 +128,6 @@ class AsignaturaController extends Controller
         $asignatura->delete();
 
         return back()->with('exito', 'Asignatura eliminada.');
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function validar(Request $request, ?int $id = null): array
-    {
-        return $request->validate([
-            'identificador' => ['required', 'string', 'max:50'],
-            'clave' => ['required', 'string', 'max:50', Rule::unique('asignaturas', 'clave')->ignore($id)->whereNull('deleted_at')],
-            'nombre' => ['required', 'string', 'max:255'],
-            'creditos' => ['required', 'numeric', 'min:0'],
-            'tipo_asignatura_id' => ['required', 'integer', Rule::exists('tipos_asignatura', 'id')->whereNull('deleted_at')],
-            'clasificacion_id' => ['nullable', 'integer', Rule::exists('clasificaciones_asignatura', 'id')->whereNull('deleted_at')],
-            'area_id' => ['nullable', 'integer', Rule::exists('areas', 'id')->whereNull('deleted_at')],
-            'horas_teoria' => ['nullable', 'integer', 'min:0'],
-            'horas_practica' => ['nullable', 'integer', 'min:0'],
-            'horas_acompanamiento' => ['nullable', 'integer', 'min:0'],
-            'horas_independientes' => ['nullable', 'integer', 'min:0'],
-            // Los descriptores son ahora bloques de texto enriquecido tomados
-            // del catálogo: cada uno trae su id y su contenido (HTML) propio de
-            // ESTA asignatura. Las columnas objetivos/bibliografía siguen en la
-            // tabla pero ya no se capturan aquí.
-            'descriptores' => ['array'],
-            'descriptores.*.descriptor_id' => ['required', 'integer', Rule::exists('descriptores', 'id')->whereNull('deleted_at')],
-            'descriptores.*.contenido' => ['nullable', 'string'],
-        ], [], [
-            'tipo_asignatura_id' => 'tipo de asignatura',
-            'clasificacion_id' => 'clasificación',
-            'area_id' => 'área',
-            'horas_teoria' => 'horas de teoría',
-            'horas_practica' => 'horas de práctica',
-            'horas_acompanamiento' => 'horas de acompañamiento',
-            'horas_independientes' => 'horas independientes',
-        ]);
-    }
-
-    /**
-     * Traduce la lista `[{descriptor_id, contenido}]` del formulario al formato
-     * que espera `sync()`: `[descriptor_id => ['contenido' => ...]]`. Descarta
-     * duplicados quedándose con el último (si el front mandara dos veces el
-     * mismo descriptor, gana el contenido más reciente).
-     *
-     * @param  array<int, array{descriptor_id: int, contenido?: string|null}>  $descriptores
-     * @return array<int, array{contenido: string|null}>
-     */
-    private function pivoteDescriptores(array $descriptores): array
-    {
-        return collect($descriptores)
-            ->mapWithKeys(fn (array $d) => [$d['descriptor_id'] => ['contenido' => $d['contenido'] ?? null]])
-            ->all();
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function catalogos(): array
-    {
-        return [
-            // El Tipo queda en cuatro fijas (Obligatoria, Optativa, Adicional,
-            // Complementaria); se ordena por id para respetar ese orden y no
-            // alfabetizarlo.
-            'tiposAsignatura' => TipoAsignatura::query()->orderBy('id')->get(['id', 'nombre']),
-            'clasificaciones' => ClasificacionAsignatura::query()->orderBy('nombre')->get(['id', 'nombre']),
-            'areas' => Area::query()->orderBy('nombre')->get(['id', 'nombre']),
-            'descriptores' => Descriptor::query()->orderBy('id')->get(['id', 'nombre']),
-        ];
     }
 
     /**

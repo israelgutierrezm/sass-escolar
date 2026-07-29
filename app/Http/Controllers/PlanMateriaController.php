@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\AgregarMateriaRequest;
+use App\Http\Requests\GuardarAsignaturaRequest;
 use App\Models\Academico\Area;
 use App\Models\Academico\Asignatura;
 use App\Models\Academico\ClasificacionAsignatura;
@@ -194,33 +196,19 @@ class PlanMateriaController extends Controller
      * catálogo, la da de alta. Ambas cosas (asignatura y su lugar en el plan) van
      * en una transacción para que no quede una asignatura suelta si algo falla.
      */
-    public function store(Request $request, PlanEstudio $plan): RedirectResponse
+    public function store(AgregarMateriaRequest $request, PlanEstudio $plan): RedirectResponse
     {
-        $datos = $this->validarNueva($request, $plan);
-
-        DB::transaction(function () use ($datos, $plan) {
-            $asignatura = Asignatura::create([
-                'identificador' => $datos['identificador'],
-                'clave' => $datos['clave'],
-                'nombre' => $datos['nombre'],
-                'creditos' => $datos['creditos'],
-                'tipo_asignatura_id' => $datos['tipo_asignatura_id'],
-                'clasificacion_id' => $datos['clasificacion_id'] ?? null,
-                'area_id' => $datos['area_id'] ?? null,
-                'horas_teoria' => $datos['horas_teoria'] ?? null,
-                'horas_practica' => $datos['horas_practica'] ?? null,
-                'horas_acompanamiento' => $datos['horas_acompanamiento'] ?? null,
-                'horas_independientes' => $datos['horas_independientes'] ?? null,
-            ]);
+        DB::transaction(function () use ($request, $plan) {
+            $asignatura = Asignatura::create($request->datosAsignatura());
 
             PlanMateria::create([
                 'plan_id' => $plan->id,
                 'asignatura_id' => $asignatura->id,
                 // La materia en el plan se identifica por la clave de la
                 // asignatura (ya única). No hay «clave de acta» aparte.
-                'clave_en_plan' => $datos['clave'],
-                'periodo' => $datos['periodo'] ?? null,
-                'tipo' => $datos['tipo'],
+                'clave_en_plan' => $asignatura->clave,
+                'periodo' => $request->validated('periodo'),
+                'tipo' => $request->validated('tipo'),
             ]);
         });
 
@@ -249,31 +237,14 @@ class PlanMateriaController extends Controller
      * es donde el usuario ve el efecto del cambio. Las imágenes usan los
      * endpoints de asignatura; requisitos y evaluación tienen los suyos.
      */
-    public function actualizarAsignatura(Request $request, PlanEstudio $plan, PlanMateria $materia): RedirectResponse
+    public function actualizarAsignatura(GuardarAsignaturaRequest $request, PlanEstudio $plan, PlanMateria $materia): RedirectResponse
     {
         abort_unless($materia->plan_id === $plan->id, 404);
 
         $asignatura = $materia->asignatura;
         abort_if($asignatura === null, 404);
 
-        $datos = $request->validate([
-            'identificador' => ['required', 'string', 'max:50'],
-            'clave' => ['required', 'string', 'max:50', Rule::unique('asignaturas', 'clave')->ignore($asignatura->id)->whereNull('deleted_at')],
-            'nombre' => ['required', 'string', 'max:255'],
-            'creditos' => ['required', 'numeric', 'min:0'],
-            'tipo_asignatura_id' => ['required', 'integer', Rule::exists('tipos_asignatura', 'id')->whereNull('deleted_at')],
-            'clasificacion_id' => ['nullable', 'integer', Rule::exists('clasificaciones_asignatura', 'id')->whereNull('deleted_at')],
-            'area_id' => ['nullable', 'integer', Rule::exists('areas', 'id')->whereNull('deleted_at')],
-            'horas_teoria' => ['nullable', 'integer', 'min:0'],
-            'horas_practica' => ['nullable', 'integer', 'min:0'],
-            'horas_acompanamiento' => ['nullable', 'integer', 'min:0'],
-            'horas_independientes' => ['nullable', 'integer', 'min:0'],
-            'descriptores' => ['array'],
-            'descriptores.*.descriptor_id' => ['required', 'integer', Rule::exists('descriptores', 'id')->whereNull('deleted_at')],
-            'descriptores.*.contenido' => ['nullable', 'string'],
-        ], [], ['tipo_asignatura_id' => 'tipo de asignatura']);
-
-        $asignatura->update(collect($datos)->except('descriptores')->all());
+        $asignatura->update($request->datosAsignatura());
 
         // La materia en el plan se identifica por la clave de la asignatura;
         // si ésta cambió, la materia la sigue para no quedar desfasada.
@@ -281,10 +252,7 @@ class PlanMateriaController extends Controller
             $materia->update(['clave_en_plan' => $asignatura->clave]);
         }
 
-        $sync = collect($datos['descriptores'] ?? [])
-            ->mapWithKeys(fn (array $d) => [$d['descriptor_id'] => ['contenido' => $d['contenido'] ?? null]])
-            ->all();
-        $asignatura->descriptores()->sync($sync);
+        $asignatura->descriptores()->sync($request->descriptoresSync());
 
         return redirect()->route('tenant.academico.planes.materias.index', $plan)
             ->with('exito', 'Datos de la asignatura actualizados.');
@@ -305,38 +273,6 @@ class PlanMateriaController extends Controller
         $materia->delete();
 
         return back()->with('exito', 'Materia retirada del plan.');
-    }
-
-    /**
-     * Alta: datos de la asignatura NUEVA + su ubicación en el plan.
-     *
-     * @return array<string, mixed>
-     */
-    private function validarNueva(Request $request, PlanEstudio $plan): array
-    {
-        return $request->validate([
-            // Asignatura nueva.
-            'identificador' => ['required', 'string', 'max:50'],
-            'clave' => ['required', 'string', 'max:50', Rule::unique('asignaturas', 'clave')->whereNull('deleted_at')],
-            'nombre' => ['required', 'string', 'max:255'],
-            'creditos' => ['required', 'numeric', 'min:0'],
-            'tipo_asignatura_id' => ['required', 'integer', Rule::exists('tipos_asignatura', 'id')->whereNull('deleted_at')],
-            'clasificacion_id' => ['nullable', 'integer', Rule::exists('clasificaciones_asignatura', 'id')->whereNull('deleted_at')],
-            'area_id' => ['nullable', 'integer', Rule::exists('areas', 'id')->whereNull('deleted_at')],
-            'horas_teoria' => ['nullable', 'integer', 'min:0'],
-            'horas_practica' => ['nullable', 'integer', 'min:0'],
-            'horas_acompanamiento' => ['nullable', 'integer', 'min:0'],
-            'horas_independientes' => ['nullable', 'integer', 'min:0'],
-            // Ubicación en el plan. La materia se identifica por la clave de la
-            // asignatura; el periodo puede ser optativo → `tipo`.
-            'periodo' => ['nullable', 'integer', 'min:1', 'max:30'],
-            'tipo' => ['required', Rule::in(['obligatoria', 'optativa', 'tronco_comun'])],
-        ], [
-            'clave.unique' => 'Ya existe una asignatura con esa clave.',
-        ], [
-            'tipo_asignatura_id' => 'tipo de asignatura',
-            'creditos' => 'créditos',
-        ]);
     }
 
     /**
