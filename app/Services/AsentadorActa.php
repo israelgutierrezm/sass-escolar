@@ -35,6 +35,19 @@ use RuntimeException;
  */
 class AsentadorActa
 {
+    /**
+     * tipo_evaluacion.clave → id oficial de `observaciones_asignatura` (SEP).
+     * Lo no mapeado cae a NORMAL/ORDINARIO (100).
+     */
+    private const OBSERVACION_POR_TIPO = [
+        'ordinaria' => 100,
+        'extraordinaria' => 71,
+        'a_titulo' => 72,
+        'recursamiento' => 74,
+        'revalidacion' => 78,
+        'regularizacion' => 104,
+    ];
+
     public function __construct(
         private readonly CalculadoraCalificacion $calculadora,
         private readonly GeneradorFolioActa $folios,
@@ -201,6 +214,11 @@ class AsentadorActa
             $reprobada = EstatusHistorial::query()->where('clave', 'reprobada')->firstOrFail();
             $observacionId = $this->observacionDelActa($acta, $materiaGrupo);
 
+            // Observación de asignatura (SEP) por tipo de evaluación, precalculada
+            // una vez: tipo_evaluacion_id → id oficial.
+            $observacionAsignaturaPorTipo = TipoEvaluacion::query()->pluck('clave', 'id')
+                ->map(fn (string $clave) => self::OBSERVACION_POR_TIPO[$clave] ?? 100);
+
             // Un solo folio para todo el acta, emitido aquí y estampado en cada
             // renglón. Si la transacción falla, el consecutivo se pierde: es
             // preferible un hueco en la numeración a un folio repetido.
@@ -217,12 +235,14 @@ class AsentadorActa
 
                 $inscripcion->update(['calificacion_final' => $resultado->final]);
 
+                $tipoRenglon = $this->tipoEvaluacionDelRenglon($acta, $inscripcion);
+
                 Historial::create([
                     'matricula_oferta_id' => $inscripcion->matricula_oferta_id,
                     'plan_materia_id' => $materiaGrupo->plan_materia_id,
                     'ciclo_id' => $inscripcion->ciclo_id,
                     'asignatura_grupo_id' => $materiaGrupo->id,
-                    'tipo_evaluacion_id' => $this->tipoEvaluacionDelRenglon($acta, $inscripcion),
+                    'tipo_evaluacion_id' => $tipoRenglon,
                     'estatus_id' => $resultado->aprobada ? $aprobada->id : $reprobada->id,
                     'calificacion' => $resultado->final,
                     // El motivo de reprobación (examen, faltas, no presentó) no
@@ -232,6 +252,8 @@ class AsentadorActa
                     'acta_folio' => $folio,
                     'acta_id' => $acta->id,
                     'observacion_id' => $observacionId,
+                    // Estatus académico oficial SEP, derivado del tipo de evaluación.
+                    'observacion_asignatura_id' => $observacionAsignaturaPorTipo[$tipoRenglon] ?? 100,
                 ]);
             }
 

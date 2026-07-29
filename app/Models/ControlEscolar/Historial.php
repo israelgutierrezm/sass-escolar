@@ -32,6 +32,7 @@ class Historial extends Model
         'acta_folio',
         'acta_id',
         'observacion_id',
+        'observacion_asignatura_id',
     ];
 
     protected function casts(): array
@@ -79,6 +80,12 @@ class Historial extends Model
     public function observacion(): BelongsTo
     {
         return $this->belongsTo(ObservacionHistorial::class, 'observacion_id');
+    }
+
+    /** Estatus académico oficial SEP con el que se cursó/cargó la asignatura. */
+    public function observacionAsignatura(): BelongsTo
+    {
+        return $this->belongsTo(ObservacionAsignatura::class, 'observacion_asignatura_id');
     }
 
     /** El acta de la que salió este renglón. NULL si vino por dictamen. */
