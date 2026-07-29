@@ -42,7 +42,7 @@ function enviar(): void {
         <NavAcademico />
 
         <form class="max-w-3xl space-y-6" @submit.prevent="enviar">
-            <section class="grid gap-4 rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200 sm:grid-cols-2">
+            <section class="tarjeta grid gap-4 p-6 sm:grid-cols-2">
                 <CampoTexto v-model="form.clave" etiqueta="Clave" requerido :error="form.errors.clave" mono />
                 <CampoTexto v-model="form.nombre" etiqueta="Nombre" requerido :error="form.errors.nombre" />
                 <CampoSelect

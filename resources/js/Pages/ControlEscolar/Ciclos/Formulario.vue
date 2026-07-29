@@ -74,7 +74,7 @@ function enviar(): void {
         <NavEscolar />
 
         <form class="max-w-3xl space-y-6" @submit.prevent="enviar">
-            <section class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+            <section class="tarjeta p-6">
                 <h2 class="text-base font-semibold text-slate-800">Identificación y periodo</h2>
 
                 <div class="mt-5 grid gap-4 sm:grid-cols-2">
@@ -172,7 +172,7 @@ function enviar(): void {
                 </div>
             </section>
 
-            <section class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+            <section class="tarjeta p-6">
                 <h2 class="text-base font-semibold text-slate-800">Ventanas</h2>
                 <p class="mt-1 text-sm text-slate-500">
                     Gobiernan qué se puede hacer y cuándo. Fuera de la ventana de inscripción, el sistema no

@@ -50,12 +50,11 @@ function enviar(): void {
 
     <AppLayout titulo="Nuevo docente">
 
-        <form class="max-w-4xl space-y-6" @submit.prevent="enviar">
+        <form class="space-y-6" @submit.prevent="enviar">
             <section class="tarjeta p-6">
-                <h2 class="text-base font-semibold">Identidad</h2>
+                <h2 class="text-base font-semibold">Datos de la persona</h2>
                 <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                    Si la CURP ya está registrada —fue alumno, es tutor o ya estuvo dado de alta— se
-                    reutiliza esa persona y solo se le crea el registro docente. No se duplica gente.
+                    Si la CURP ya está registrada, se reutiliza esa persona en lugar de duplicarla.
                 </p>
 
                 <div class="mt-5">

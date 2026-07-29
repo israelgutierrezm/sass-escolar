@@ -136,7 +136,7 @@ function quitarDocente(asignaturaId: number, personaId: number, nombre: string |
         <NavEscolar />
 
         <!-- Cabecera -->
-        <section class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+        <section class="tarjeta p-6">
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <p class="font-mono text-sm text-slate-500">{{ grupo.clave }}</p>
@@ -154,7 +154,7 @@ function quitarDocente(asignaturaId: number, personaId: number, nombre: string |
         </section>
 
         <!-- Abrir materia -->
-        <section v-if="puedeEditar" class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+        <section v-if="puedeEditar" class="tarjeta p-6">
             <h2 class="text-base font-semibold text-slate-800">Abrir materias</h2>
             <p class="mt-1 text-sm text-slate-500">
                 Abrir una materia es lo que la vuelve inscribible en este ciclo. Filtra por
@@ -198,7 +198,7 @@ function quitarDocente(asignaturaId: number, personaId: number, nombre: string |
         </section>
 
         <!-- Materias abiertas -->
-        <section v-if="asignaturas.length" class="rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+        <section v-if="asignaturas.length" class="tarjeta">
             <div class="border-b border-slate-100 px-6 py-3">
                 <h2 class="text-base font-semibold text-slate-800">
                     Materias abiertas ({{ asignaturas.length }})
@@ -298,7 +298,7 @@ function quitarDocente(asignaturaId: number, personaId: number, nombre: string |
             </ul>
         </section>
 
-        <p v-else class="rounded-xl bg-white px-4 py-12 text-center text-sm text-slate-500 shadow-sm ring-1 ring-slate-200">
+        <p v-else class="tarjeta px-4 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
             Este grupo no tiene materias abiertas.
         </p>
     </AppLayout>

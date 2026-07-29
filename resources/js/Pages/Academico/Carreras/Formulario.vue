@@ -36,7 +36,7 @@ function enviar(): void {
         <NavAcademico />
 
         <form class="max-w-3xl space-y-6" @submit.prevent="enviar">
-            <section class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+            <section class="tarjeta p-6">
                 <h2 class="text-base font-semibold text-slate-800">Datos de la carrera</h2>
 
                 <div class="mt-5 grid gap-4 sm:grid-cols-2">

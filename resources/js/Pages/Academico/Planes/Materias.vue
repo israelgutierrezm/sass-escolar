@@ -271,7 +271,7 @@ function textoSobre(color: string | null): string {
         <NavAcademico />
 
         <!-- Encabezado del plan -->
-        <section class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+        <section class="tarjeta p-6">
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <h2 class="text-base font-semibold text-slate-800">{{ plan.nombre }}</h2>
@@ -315,7 +315,7 @@ function textoSobre(color: string | null): string {
         </section>
 
         <!-- Alta -->
-        <section id="alta-materia" v-if="puedeEditar" class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+        <section id="alta-materia" v-if="puedeEditar" class="tarjeta p-6">
             <div class="flex items-center justify-between">
                 <div>
                     <h2 class="text-base font-semibold text-slate-800">Agregar materia</h2>
@@ -649,7 +649,7 @@ function textoSobre(color: string | null): string {
             </section>
         </template>
 
-        <p v-else class="rounded-xl bg-white px-4 py-12 text-center text-sm text-slate-500 shadow-sm ring-1 ring-slate-200">
+        <p v-else class="tarjeta px-4 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
             Este plan no declara periodos todavía. Define el total de periodos del plan para armar la malla.
         </p>
     </AppLayout>

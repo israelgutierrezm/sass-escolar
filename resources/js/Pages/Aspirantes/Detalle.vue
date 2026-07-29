@@ -91,7 +91,7 @@ function convertir(): void {
         <div class="grid gap-6 lg:grid-cols-3">
             <!-- Identidad y proceso -->
             <div class="space-y-6 lg:col-span-2">
-                <section class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+                <section class="tarjeta p-6">
                     <div class="flex items-start justify-between">
                         <h2 class="text-base font-semibold text-slate-800">Datos personales</h2>
                         <BotonAccion
@@ -134,7 +134,7 @@ function convertir(): void {
                 </section>
 
                 <!-- Expediente -->
-                <section class="rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+                <section class="tarjeta">
                     <div class="border-b border-slate-100 p-6 pb-4">
                         <h2 class="text-base font-semibold text-slate-800">Expediente documental</h2>
                         <p class="mt-1 text-sm text-slate-500">
@@ -254,7 +254,7 @@ function convertir(): void {
 
             <!-- Columna lateral: proceso y conversión -->
             <div class="space-y-6">
-                <section class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+                <section class="tarjeta p-6">
                     <h2 class="text-base font-semibold text-slate-800">Proceso</h2>
 
                     <dl class="mt-4 space-y-3 text-sm">
@@ -295,7 +295,7 @@ function convertir(): void {
                 </section>
 
                 <!-- Conversión a alumno -->
-                <section class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+                <section class="tarjeta p-6">
                     <h2 class="text-base font-semibold text-slate-800">Conversión a alumno</h2>
 
                     <div v-if="matricula" class="mt-4 rounded-lg bg-emerald-50 p-4 ring-1 ring-emerald-200">

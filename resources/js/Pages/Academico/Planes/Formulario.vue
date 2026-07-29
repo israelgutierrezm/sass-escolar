@@ -48,8 +48,8 @@ function enviar(): void {
     <AppLayout :titulo="esEdicion ? 'Editar plan de estudios' : 'Nuevo plan de estudios'">
         <NavAcademico />
 
-        <form class="max-w-4xl space-y-6" @submit.prevent="enviar">
-            <section class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+        <form class="max-w-3xl space-y-6" @submit.prevent="enviar">
+            <section class="tarjeta p-6">
                 <h2 class="text-base font-semibold text-slate-800">Identificación</h2>
 
                 <div class="mt-5 grid gap-4 sm:grid-cols-2">
@@ -72,7 +72,7 @@ function enviar(): void {
                 </div>
             </section>
 
-            <section class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+            <section class="tarjeta p-6">
                 <h2 class="text-base font-semibold text-slate-800">Reconocimiento oficial</h2>
                 <p class="mt-1 text-sm text-slate-500">Datos que exige la SEP para el título electrónico.</p>
 
@@ -102,7 +102,7 @@ function enviar(): void {
                 </div>
             </section>
 
-            <section class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+            <section class="tarjeta p-6">
                 <h2 class="text-base font-semibold text-slate-800">Reglas académicas</h2>
 
                 <div class="mt-5 grid gap-4 sm:grid-cols-3">

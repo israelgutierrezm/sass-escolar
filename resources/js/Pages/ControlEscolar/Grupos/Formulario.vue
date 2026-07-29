@@ -190,7 +190,7 @@ function enviar(): void {
         <NavEscolar />
 
         <form class="max-w-3xl space-y-6" @submit.prevent="enviar">
-            <section class="grid gap-4 rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200 sm:grid-cols-2">
+            <section class="tarjeta grid gap-4 p-6 sm:grid-cols-2">
                 <CampoSelect
                     v-model="form.ciclo_id"
                     etiqueta="Ciclo"
