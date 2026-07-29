@@ -27,6 +27,7 @@ class MatriculaOferta extends Model
         'oferta_id',
         'matricula',
         'generacion',
+        'periodo_actual',
         'fecha_ingreso',
         'situacion_id',
         'estatus',

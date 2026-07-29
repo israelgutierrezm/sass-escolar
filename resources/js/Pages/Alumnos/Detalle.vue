@@ -230,6 +230,7 @@ const form = useForm({
     situacion_id: props.alumno.situacion_id ?? null,
     estatus: props.alumno.estatus ?? 'activo',
     generacion: props.alumno.generacion ?? '',
+    periodo_actual: props.alumno.periodo_actual ?? null,
 });
 
 function guardar(): void {
@@ -1050,6 +1051,14 @@ function verComo(): void {
                     :error="form.errors.estatus"
                 />
                 <CampoTexto v-model="form.generacion" etiqueta="Generación" :error="form.errors.generacion" :deshabilitado="!puedeEditar" />
+                <CampoTexto
+                    v-model="form.periodo_actual"
+                    etiqueta="Periodo actual"
+                    tipo="number"
+                    :error="form.errors.periodo_actual"
+                    :deshabilitado="!puedeEditar"
+                    ayuda="El grado en que va el alumno; lo usa la inscripción masiva."
+                />
             </div>
 
             <BotonPrincipal v-if="puedeEditar" :procesando="form.processing" texto="Guardar cambios" class="mt-6" />

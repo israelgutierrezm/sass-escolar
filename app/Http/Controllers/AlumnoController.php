@@ -227,6 +227,7 @@ class AlumnoController extends Controller
                 'id' => $alumno->id,
                 'matricula' => $alumno->matricula,
                 'generacion' => $alumno->generacion,
+                'periodo_actual' => $alumno->periodo_actual,
                 'fecha_ingreso' => $alumno->fecha_ingreso?->toDateString(),
                 'estatus' => $alumno->estatus,
                 'situacion_id' => $alumno->situacion_id,
@@ -458,6 +459,7 @@ class AlumnoController extends Controller
             'situacion_id' => ['required', 'integer', Rule::exists('situaciones_alumno', 'id')->whereNull('deleted_at')],
             'estatus' => ['required', Rule::in(['activo', 'egresado', 'baja'])],
             'generacion' => ['nullable', 'string', 'max:100'],
+            'periodo_actual' => ['nullable', 'integer', 'min:1', 'max:30'],
         ], [
             'curp.size' => 'La CURP tiene 18 caracteres.',
             'curp.unique' => 'Esa CURP ya está registrada en otra persona.',
@@ -486,6 +488,7 @@ class AlumnoController extends Controller
                 'situacion_id' => $datos['situacion_id'],
                 'estatus' => $datos['estatus'],
                 'generacion' => $datos['generacion'] ?? null,
+                'periodo_actual' => $datos['periodo_actual'] ?? null,
             ]);
         });
 
