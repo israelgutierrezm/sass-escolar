@@ -109,11 +109,14 @@ class Ciclo extends Model
     /** ¿La ventana de inscripción está abierta en la fecha dada? */
     public function inscripcionAbierta(?string $fecha = null): bool
     {
-        $fecha = $fecha ?? now()->toDateString();
-
+        // Sin fechas configuradas la ventana NO está habilitada: no restringe,
+        // así que la inscripción está abierta. La restricción solo aplica cuando
+        // se capturan las fechas.
         if ($this->inscripcion_desde === null || $this->inscripcion_hasta === null) {
-            return false;
+            return true;
         }
+
+        $fecha = $fecha ?? now()->toDateString();
 
         return $fecha >= $this->inscripcion_desde->toDateString()
             && $fecha <= $this->inscripcion_hasta->toDateString();

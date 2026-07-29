@@ -19,7 +19,8 @@ const props = defineProps<{
     ciclos: Ciclo[];
     campus: { id: number; nombre: string }[];
     carreras: { id: number; nombre: string; nivel_estudios_id: number | null }[];
-    planes: { id: number; nombre: string; clave: string; carrera_id: number }[];
+    planes: { id: number; nombre: string; clave: string; carrera_id: number; total_periodos: number | null }[];
+    ofertas: { carrera_id: number; plan_id: number; campus_id: number }[];
     turnos: { id: number; nombre: string }[];
     situaciones: { id: number; nombre: string }[];
 }>();
@@ -51,13 +52,24 @@ const campusVisibles = computed(() => {
     return ids.length ? props.campus.filter((c) => ids.includes(c.id)) : props.campus;
 });
 
-// Carreras ofrecidas: si el ciclo se acota a niveles, solo las de esos niveles.
+// Ofertas del campus elegido: lo que se cargó en «Oferta» para ese campus. Sin
+// campus todavía no hay nada que ofrecer.
+const ofertasDelCampus = computed(() =>
+    form.campus_id === null ? [] : props.ofertas.filter((o) => o.campus_id === form.campus_id),
+);
+
+// Carreras ofrecidas: dentro de los niveles del ciclo Y con oferta abierta en el
+// campus elegido. La oferta manda: si una carrera no está ofertada en ese
+// campus, no puede abrirse un grupo suyo ahí.
 const carrerasVisibles = computed(() => {
     const niveles = cicloElegido.value?.nivel_ids ?? [];
+    const ofertadas = new Set(ofertasDelCampus.value.map((o) => o.carrera_id));
 
-    return niveles.length
-        ? props.carreras.filter((c) => c.nivel_estudios_id !== null && niveles.includes(c.nivel_estudios_id))
-        : props.carreras;
+    return props.carreras.filter(
+        (c) =>
+            ofertadas.has(c.id) &&
+            (niveles.length === 0 || (c.nivel_estudios_id !== null && niveles.includes(c.nivel_estudios_id))),
+    );
 });
 
 const restriccionCiclo = computed(() => {
@@ -92,20 +104,64 @@ const carreraId = ref<number | null>(
     props.planes.find((plan) => plan.id === props.grupo?.plan_id)?.carrera_id ?? null,
 );
 
-const planesDeLaCarrera = computed(() =>
-    carreraId.value === null
-        ? props.planes
-        : props.planes.filter((plan) => plan.carrera_id === carreraId.value),
-);
+// Planes ofrecidos en el campus elegido; si ya se eligió carrera, solo los suyos.
+// También sale de la oferta: no se puede fijar un plan que no esté ofertado ahí.
+const planesVisibles = computed(() => {
+    const ofertados = new Set(
+        ofertasDelCampus.value
+            .filter((o) => carreraId.value === null || o.carrera_id === carreraId.value)
+            .map((o) => o.plan_id),
+    );
+
+    return props.planes.filter((plan) => ofertados.has(plan.id));
+});
+
+// Plan elegido → cuántos periodos tiene, para ofrecer el select de periodo.
+const planElegido = computed(() => props.planes.find((plan) => plan.id === form.plan_id) ?? null);
+
+// Periodo 1..N según el plan (semestral, cuatrimestral, etc.). Sin plan fijo no
+// se sabe el máximo, así que el campo queda deshabilitado.
+const opcionesPeriodo = computed(() => {
+    const total = planElegido.value?.total_periodos ?? 0;
+
+    return Array.from({ length: total }, (_, i) => ({ valor: i + 1, texto: `Periodo ${i + 1}` }));
+});
 
 // Cambiar de carrera invalida el plan elegido si ya no pertenece a ella.
 watch(carreraId, () => {
-    const sigueSiendoValido = planesDeLaCarrera.value.some((plan) => plan.id === form.plan_id);
+    const sigueSiendoValido = planesVisibles.value.some((plan) => plan.id === form.plan_id);
 
     if (!sigueSiendoValido) {
         form.plan_id = null;
     }
 });
+
+// Cambiar de campus rehace la oferta disponible: se limpian carrera y plan que
+// ya no estén ofertados en el nuevo campus.
+watch(
+    () => form.campus_id,
+    () => {
+        if (carreraId.value && !carrerasVisibles.value.some((c) => c.id === carreraId.value)) {
+            carreraId.value = null;
+        }
+
+        if (form.plan_id && !planesVisibles.value.some((p) => p.id === form.plan_id)) {
+            form.plan_id = null;
+        }
+    },
+);
+
+// Cambiar de plan invalida el periodo si se sale del rango del nuevo plan.
+watch(
+    () => form.plan_id,
+    () => {
+        const total = planElegido.value?.total_periodos ?? 0;
+
+        if (form.semestre && Number(form.semestre) > total) {
+            form.semestre = null;
+        }
+    },
+);
 
 // Al cambiar de ciclo, lo que ya no cabe en su acotamiento se limpia: un campus
 // que el nuevo ciclo no incluye, o una carrera/plan de otro nivel.
@@ -157,23 +213,24 @@ function enviar(): void {
                     v-model="carreraId"
                     etiqueta="Carrera"
                     :opciones="opciones(carrerasVisibles)"
-                    vacio="Todas las carreras"
-                    ayuda="Filtra los planes de abajo. No se guarda en el grupo."
+                    :vacio="!form.campus_id ? 'Elige campus primero' : 'Todas las ofertadas'"
+                    ayuda="Solo las carreras ofertadas en el campus. Filtra los planes de abajo; no se guarda en el grupo."
                 />
                 <CampoSelect
                     v-model="form.plan_id"
                     etiqueta="Plan de estudios"
-                    :opciones="planesDeLaCarrera.map((p) => ({ valor: p.id, texto: `${p.clave} · ${p.nombre}` }))"
-                    :vacio="carreraId === null ? 'Sin plan fijo' : 'Sin plan fijo (de esta carrera)'"
+                    :opciones="planesVisibles.map((p) => ({ valor: p.id, texto: `${p.clave} · ${p.nombre}` }))"
+                    :vacio="!form.campus_id ? 'Elige campus primero' : (carreraId === null ? 'Sin plan fijo' : 'Sin plan fijo (de esta carrera)')"
                     :error="form.errors.plan_id"
-                    ayuda="Si lo fijas, solo se podrán abrir materias de ese plan."
+                    ayuda="Solo los planes ofertados en el campus. Si lo fijas, solo se podrán abrir materias de ese plan."
                 />
-                <CampoTexto
+                <CampoSelect
                     v-model="form.semestre"
-                    etiqueta="Semestre (opcional)"
-                    tipo="number"
+                    etiqueta="Periodo (opcional)"
+                    :opciones="opcionesPeriodo"
+                    :vacio="planElegido ? 'Sin periodo fijo' : 'Fija un plan primero'"
                     :error="form.errors.semestre"
-                    ayuda="Si lo pones, al abrir materias se filtra por él por defecto."
+                    ayuda="Del 1 al total de periodos del plan (semestral, cuatrimestral, etc.). Si lo pones, al abrir materias se filtra por él por defecto."
                 />
                 <CampoSelect
                     v-model="form.turno_id"

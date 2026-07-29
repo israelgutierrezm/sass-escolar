@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Academico\Campus;
 use App\Models\Academico\Carrera;
+use App\Models\Academico\Oferta;
 use App\Models\Academico\PlanEstudio;
 use App\Models\Academico\PlanMateria;
 use App\Models\Academico\Turno;
@@ -341,15 +342,32 @@ class GrupoController extends Controller
             // filtre en cascada: una escuela con seis carreras y cuatro planes
             // cada una presenta 24 opciones en un solo desplegable, y elegir el
             // plan equivocado ata el grupo a una carrera que no era.
+            // `total_periodos` alimenta el select de periodo (1..N), que respeta
+            // si la carrera es semestral, cuatrimestral, etc.
             'planes' => PlanEstudio::query()
                 ->orderBy('nombre')
-                ->get(['id', 'nombre', 'carrera_id', 'clave'])
+                ->get(['id', 'nombre', 'carrera_id', 'clave', 'total_periodos'])
                 ->map(fn (PlanEstudio $plan) => [
                     'id' => $plan->id,
                     'nombre' => $plan->nombre,
                     'clave' => $plan->clave,
                     'carrera_id' => $plan->carrera_id,
+                    'total_periodos' => $plan->total_periodos,
                 ]),
+            // La oferta manda: un grupo solo puede abrirse para una carrera+plan
+            // que ya esté ofertada en ese campus. Se envían las combinaciones
+            // abiertas para que el formulario filtre carrera y plan según el
+            // campus elegido.
+            'ofertas' => Oferta::query()
+                ->where('estatus', 'abierta')
+                ->get(['carrera_id', 'plan_id', 'campus_id'])
+                ->map(fn (Oferta $oferta) => [
+                    'carrera_id' => $oferta->carrera_id,
+                    'plan_id' => $oferta->plan_id,
+                    'campus_id' => $oferta->campus_id,
+                ])
+                ->unique(fn (array $o) => "{$o['carrera_id']}-{$o['plan_id']}-{$o['campus_id']}")
+                ->values(),
             'turnos' => Turno::query()->orderBy('nombre')->get(['id', 'nombre']),
             'situaciones' => SituacionGrupo::query()->orderBy('id')->get(['id', 'nombre']),
         ];
