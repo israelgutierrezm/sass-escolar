@@ -51,7 +51,7 @@ class PlanMateriaController extends Controller
         // Los créditos efectivos son los del plan si se sobreescribieron, o los
         // del catálogo si no.
         $creditosCargados = $materias->sum(
-            fn (PlanMateria $materia) => $materia->creditos_en_plan ?? $materia->asignatura?->creditos ?? 0
+            fn (PlanMateria $materia) => $materia->asignatura?->creditos ?? 0
         );
 
         return Inertia::render('Academico/Planes/Materias', [
@@ -74,8 +74,7 @@ class PlanMateriaController extends Controller
                 'clave_en_plan' => $materia->clave_en_plan,
                 'periodo' => $materia->periodo,
                 'tipo' => $materia->tipo,
-                'creditos' => $materia->creditos_en_plan ?? $materia->asignatura?->creditos,
-                'creditos_sobreescritos' => $materia->creditos_en_plan !== null,
+                'creditos' => $materia->asignatura?->creditos,
                 // Para la vista de cuadrícula: el color del área pinta la tarjeta.
                 'area' => $materia->asignatura?->area?->nombre,
                 'area_color' => $materia->asignatura?->area?->color,
@@ -222,7 +221,6 @@ class PlanMateriaController extends Controller
                 'clave_en_plan' => $datos['clave'],
                 'periodo' => $datos['periodo'] ?? null,
                 'tipo' => $datos['tipo'],
-                'creditos_en_plan' => $datos['creditos_en_plan'] ?? null,
             ]);
         });
 
@@ -333,13 +331,11 @@ class PlanMateriaController extends Controller
             // asignatura; el periodo puede ser optativo → `tipo`.
             'periodo' => ['nullable', 'integer', 'min:1', 'max:30'],
             'tipo' => ['required', Rule::in(['obligatoria', 'optativa', 'tronco_comun'])],
-            'creditos_en_plan' => ['nullable', 'numeric', 'min:0'],
         ], [
             'clave.unique' => 'Ya existe una asignatura con esa clave.',
         ], [
             'tipo_asignatura_id' => 'tipo de asignatura',
             'creditos' => 'créditos',
-            'creditos_en_plan' => 'créditos en el plan',
         ]);
     }
 
@@ -353,9 +349,6 @@ class PlanMateriaController extends Controller
         return $request->validate([
             'periodo' => ['nullable', 'integer', 'min:1', 'max:30'],
             'tipo' => ['required', Rule::in(['obligatoria', 'optativa', 'tronco_comun'])],
-            'creditos_en_plan' => ['nullable', 'numeric', 'min:0'],
-        ], [], [
-            'creditos_en_plan' => 'créditos en el plan',
         ]);
     }
 }

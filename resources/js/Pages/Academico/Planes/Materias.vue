@@ -18,7 +18,6 @@ interface Materia {
     periodo: number | null;
     tipo: string;
     creditos: number | null;
-    creditos_sobreescritos: boolean;
     area: string | null;
     area_color: string | null;
 }
@@ -505,7 +504,6 @@ function textoSobre(color: string | null): string {
                             </td>
                             <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">
                                 {{ materia.creditos }} cr.
-                                <span v-if="materia.creditos_sobreescritos" class="text-xs text-amber-600">(ajustado)</span>
                             </td>
                             <td class="px-6 py-3">
                                 <div class="flex items-center justify-end gap-1">

@@ -319,7 +319,7 @@ class AlumnoController extends Controller
                 'id' => $h->id,
                 'clave_en_plan' => $h->planMateria?->clave_en_plan,
                 'materia' => $h->planMateria?->asignatura?->nombre,
-                'creditos' => $h->planMateria?->creditos_en_plan ?? $h->planMateria?->asignatura?->creditos,
+                'creditos' => $h->planMateria?->asignatura?->creditos,
                 'ciclo' => $h->ciclo?->clave,
                 'calificacion' => $h->calificacion,
                 'estatus' => $h->estatus?->nombre,
@@ -333,7 +333,7 @@ class AlumnoController extends Controller
                 'aprobadas' => $aprobadas->count(),
                 'reprobadas' => $historial->filter(fn (Historial $h) => $h->estatus?->clave === 'reprobada')->count(),
                 'creditos' => round($aprobadas->sum(
-                    fn (Historial $h) => (float) ($h->planMateria?->creditos_en_plan ?? $h->planMateria?->asignatura?->creditos ?? 0)
+                    fn (Historial $h) => (float) ($h->planMateria?->asignatura?->creditos ?? 0)
                 ), 2),
                 'promedio' => $this->promedio($historial),
                 'creditos_del_plan' => $alumno->oferta?->plan?->total_creditos,

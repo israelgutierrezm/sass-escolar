@@ -24,16 +24,8 @@ class PlanMateria extends Model
         'clave_en_plan',
         'periodo',
         'tipo',
-        'creditos_en_plan',
         'plantilla_evaluacion_id',
     ];
-
-    protected function casts(): array
-    {
-        return [
-            'creditos_en_plan' => 'float',
-        ];
-    }
 
     public function plan(): BelongsTo
     {

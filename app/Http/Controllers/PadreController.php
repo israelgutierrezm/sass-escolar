@@ -133,7 +133,7 @@ class PadreController extends Controller
                 ? null
                 : round((float) $conCalif->avg(fn (Historial $h) => (float) $h->calificacion), 2),
             'creditos' => round($aprobadas->sum(
-                fn (Historial $h) => (float) ($h->planMateria?->creditos_en_plan ?? $h->planMateria?->asignatura?->creditos ?? 0)
+                fn (Historial $h) => (float) ($h->planMateria?->asignatura?->creditos ?? 0)
             ), 1),
             'creditos_del_plan' => $m->oferta?->plan?->total_creditos,
             'materias' => $historial->map(fn (Historial $h) => [

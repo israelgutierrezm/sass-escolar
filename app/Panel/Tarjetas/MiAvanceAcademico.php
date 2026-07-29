@@ -105,8 +105,7 @@ class MiAvanceAcademico implements TarjetaPanel
             ->where('historial.matricula_oferta_id', $matricula->id)
             ->whereNull('historial.deleted_at')
             ->where('eh.clave', 'aprobada')
-            // `creditos_en_plan` es el override de la malla; si no lo hay vale
-            // el del catálogo de asignaturas.
-            ->sum(DB::raw('coalesce(pm.creditos_en_plan, a.creditos)'));
+            // Los créditos son los del catálogo de la asignatura.
+            ->sum(DB::raw('a.creditos'));
     }
 }

@@ -315,7 +315,7 @@ class ValidadorInscripcion
             ->with('asignatura:id,creditos')
             ->whereIn('id', $planMateriaIds)
             ->get()
-            ->sum(fn (PlanMateria $materia) => $materia->creditos_en_plan ?? $materia->asignatura?->creditos ?? 0);
+            ->sum(fn (PlanMateria $materia) => $materia->asignatura?->creditos ?? 0);
     }
 
     /**
