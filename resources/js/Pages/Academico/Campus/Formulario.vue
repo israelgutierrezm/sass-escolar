@@ -46,14 +46,6 @@ function enviar(): void {
                 <CampoTexto v-model="form.clave" etiqueta="Clave" requerido :error="form.errors.clave" mono />
                 <CampoTexto v-model="form.nombre" etiqueta="Nombre" requerido :error="form.errors.nombre" />
                 <CampoSelect
-                    v-model="form.institucion_id"
-                    etiqueta="Institución"
-                    :opciones="opcionesInstitucion"
-                    vacio="Sin especificar"
-                    :error="form.errors.institucion_id"
-                    ayuda="Informativo: la persona moral a la que pertenece este plantel."
-                />
-                <CampoSelect
                     v-model="form.tipo_campus_id"
                     etiqueta="Tipo de campus"
                     :opciones="opcionesTipo"
@@ -69,6 +61,14 @@ function enviar(): void {
                     vacio="Selecciona…"
                     :error="form.errors.entidad_id"
                     ayuda="Dónde está el plantel. Catálogo compartido entre escuelas."
+                />
+                <CampoSelect
+                    v-model="form.institucion_id"
+                    etiqueta="Institución"
+                    :opciones="opcionesInstitucion"
+                    vacio="Sin especificar"
+                    :error="form.errors.institucion_id"
+                    ayuda="Informativo: la persona moral a la que pertenece este plantel."
                 />
             </section>
 
