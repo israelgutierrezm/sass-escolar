@@ -334,16 +334,6 @@ function verComo(): void {
                         <span v-if="alumno.fecha_ingreso" :style="{ color: 'var(--color-suave)' }"> · ingresó {{ alumno.fecha_ingreso }}</span>
                     </p>
                 </div>
-                    <button
-                        v-if="suplantable"
-                        type="button"
-                        class="rounded-lg border px-3 py-1.5 text-sm"
-                        :style="{ borderColor: 'var(--color-borde)' }"
-                        title="Entrar como esta persona para ver lo que ella ve. Queda en bitacora."
-                        @click="verComo"
-                    >
-                        Ver como {{ suplantable.usuario }}
-                    </button>
                 <a href="/escolar/alumnos" class="text-sm" :style="{ color: 'var(--color-acento)' }">← Alumnos</a>
             </div>
 
@@ -362,6 +352,20 @@ function verComo(): void {
                     {{ otra.carrera }} ({{ otra.matricula }})
                 </a>
             </p>
+
+            <!-- «Ver como alumno»: entrar con su cuenta para ver lo que ve.
+                 Abajo a la derecha del recuadro; queda en bitácora. -->
+            <div v-if="suplantable" class="mt-4 flex justify-end border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">
+                <button
+                    type="button"
+                    class="rounded-lg border px-3 py-1.5 text-sm"
+                    :style="{ borderColor: 'var(--color-borde)' }"
+                    title="Entrar como este alumno para ver lo que ve. Queda en bitácora."
+                    @click="verComo"
+                >
+                    Ver como alumno
+                </button>
+            </div>
         </section>
 
         <!-- Resumen académico -->

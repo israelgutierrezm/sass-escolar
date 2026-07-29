@@ -79,8 +79,13 @@ const form = useForm({
     // Ubicación en el plan
     periodo: null as number | null,
     tipo: 'obligatoria',
-    creditos_en_plan: null as number | null,
 });
+
+// El periodo se elige de una lista de 1 al total de periodos del plan: no tiene
+// sentido teclear un número fuera de la malla. Vacío = sin periodo fijo (optativas).
+const opcionesPeriodo = computed(() =>
+    Array.from({ length: props.plan.total_periodos ?? 0 }, (_, i) => ({ valor: i + 1, texto: `Periodo ${i + 1}` })),
+);
 
 /**
  * Malla agrupada: las obligatorias y de tronco común van por periodo; TODAS las
@@ -268,12 +273,12 @@ function textoSobre(color: string | null): string {
                 <div class="sm:col-span-6 border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">
                     <p class="mb-3 text-xs font-semibold uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">Ubicación en el plan</p>
                     <div class="grid gap-4 sm:grid-cols-6">
-                        <CampoTexto
+                        <CampoSelect
                             v-model="form.periodo"
                             etiqueta="Periodo"
-                            tipo="number"
+                            :opciones="opcionesPeriodo"
+                            vacio="Sin periodo fijo (optativas)"
                             :error="form.errors.periodo"
-                            ayuda="Vacío = sin periodo fijo (p. ej. optativas)."
                         />
                         <CampoSelect
                             v-model="form.tipo"
@@ -282,15 +287,6 @@ function textoSobre(color: string | null): string {
                             :opciones="opcionesTipo"
                             :error="form.errors.tipo"
                         />
-                        <div class="sm:col-span-2">
-                            <CampoTexto
-                                v-model="form.creditos_en_plan"
-                                etiqueta="Créditos en este plan"
-                                tipo="number"
-                                :error="form.errors.creditos_en_plan"
-                                ayuda="Déjalo vacío para usar los de la asignatura."
-                            />
-                        </div>
                     </div>
                 </div>
 

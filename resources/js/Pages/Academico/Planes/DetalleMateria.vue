@@ -21,7 +21,7 @@ interface Requisito {
 interface Componente { id: number; componente: string; parcial: number | null; porcentaje: number; orden: number }
 
 const props = defineProps<{
-    plan: { id: number; nombre: string; carrera: string | null };
+    plan: { id: number; nombre: string; carrera: string | null; total_periodos: number | null };
     materia: {
         id: number;
         clave_en_plan: string;
@@ -29,7 +29,6 @@ const props = defineProps<{
         asignatura_id: number;
         periodo: number | null;
         tipo: string;
-        creditos_en_plan: number | null;
         creditos: number | null;
     };
     asignatura: Record<string, any> | null;
@@ -103,8 +102,11 @@ function quitarDescriptor(indice: number): void {
 const formUbicacion = useForm({
     periodo: props.materia.periodo,
     tipo: props.materia.tipo,
-    creditos_en_plan: props.materia.creditos_en_plan,
 });
+// El periodo se elige de 1 al total de periodos del plan; vacío = sin periodo.
+const opcionesPeriodo = computed(() =>
+    Array.from({ length: props.plan.total_periodos ?? 0 }, (_, i) => ({ valor: i + 1, texto: `Periodo ${i + 1}` })),
+);
 const opcionesTipoPlan = [
     { valor: 'obligatoria', texto: 'Obligatoria' },
     { valor: 'optativa', texto: 'Optativa' },
@@ -249,10 +251,9 @@ const etiquetaTipoReq = (tipo: string) => (tipo === 'aprobada' ? 'Aprobada' : 'C
 
             <section class="tarjeta p-6">
                 <h3 class="text-base font-semibold">Ubicación en el plan</h3>
-                <div class="mt-4 grid gap-4 sm:grid-cols-3">
-                    <CampoTexto v-model="formUbicacion.periodo" etiqueta="Periodo" tipo="number" :error="formUbicacion.errors.periodo" ayuda="Vacío = optativa sin periodo fijo." />
+                <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                    <CampoSelect v-model="formUbicacion.periodo" etiqueta="Periodo" :opciones="opcionesPeriodo" vacio="Sin periodo fijo (optativas)" :error="formUbicacion.errors.periodo" />
                     <CampoSelect v-model="formUbicacion.tipo" etiqueta="Tipo en el plan" requerido :opciones="opcionesTipoPlan" :error="formUbicacion.errors.tipo" />
-                    <CampoTexto v-model="formUbicacion.creditos_en_plan" etiqueta="Créditos en este plan" tipo="number" :error="formUbicacion.errors.creditos_en_plan" ayuda="Vacío = los de la asignatura." />
                 </div>
                 <div v-if="puedeEditar" class="mt-4">
                     <BotonPrincipal tipo="button" :procesando="formUbicacion.processing" texto="Guardar ubicación" @click="guardarUbicacion" />

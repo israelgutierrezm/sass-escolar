@@ -109,7 +109,7 @@ class PlanMateriaController extends Controller
         $asig = $materia->asignatura;
 
         return Inertia::render('Academico/Planes/DetalleMateria', [
-            'plan' => ['id' => $plan->id, 'nombre' => $plan->nombre, 'carrera' => $plan->carrera?->nombre],
+            'plan' => ['id' => $plan->id, 'nombre' => $plan->nombre, 'carrera' => $plan->carrera?->nombre, 'total_periodos' => $plan->total_periodos],
             'materia' => [
                 'id' => $materia->id,
                 'clave_en_plan' => $materia->clave_en_plan,
@@ -117,8 +117,7 @@ class PlanMateriaController extends Controller
                 'asignatura_id' => $materia->asignatura_id,
                 'periodo' => $materia->periodo,
                 'tipo' => $materia->tipo,
-                'creditos_en_plan' => $materia->creditos_en_plan,
-                'creditos' => $materia->creditos_en_plan ?? $asig?->creditos,
+                'creditos' => $asig?->creditos,
             ],
             // Datos completos de la asignatura para editarla desde aquí (todo en
             // un solo lugar: datos, descriptores, imágenes, requisitos, evaluación).
@@ -237,14 +236,16 @@ class PlanMateriaController extends Controller
 
         $materia->update($this->validarUbicacion($request, $plan, $materia->id));
 
-        return back()->with('exito', 'Ubicación actualizada.');
+        // Al terminar de editar se vuelve a la malla del plan, no a la ficha.
+        return redirect()->route('tenant.academico.planes.materias.index', $plan)
+            ->with('exito', 'Ubicación actualizada.');
     }
 
     /**
      * Editar la ASIGNATURA de la materia (datos + descriptores) desde la ficha
-     * del plan, sin salir de ella (por eso `back()`, no como el update de
-     * «Asignaturas» que manda al índice). Las imágenes usan los endpoints de
-     * asignatura; requisitos y evaluación tienen los suyos.
+     * del plan. Al guardar se regresa a la MALLA del plan (no a la ficha), que
+     * es donde el usuario ve el efecto del cambio. Las imágenes usan los
+     * endpoints de asignatura; requisitos y evaluación tienen los suyos.
      */
     public function actualizarAsignatura(Request $request, PlanEstudio $plan, PlanMateria $materia): RedirectResponse
     {
@@ -283,7 +284,8 @@ class PlanMateriaController extends Controller
             ->all();
         $asignatura->descriptores()->sync($sync);
 
-        return back()->with('exito', 'Datos de la asignatura actualizados.');
+        return redirect()->route('tenant.academico.planes.materias.index', $plan)
+            ->with('exito', 'Datos de la asignatura actualizados.');
     }
 
     /**

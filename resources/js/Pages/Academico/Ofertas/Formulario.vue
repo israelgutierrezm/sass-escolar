@@ -27,7 +27,6 @@ const form = useForm(
               carrera_id: props.oferta!.carrera_id,
               plan_id: props.oferta!.plan_id,
               campus_id: props.oferta!.campus_id,
-              turno_id: props.oferta!.turno_id,
               modalidad: props.oferta!.modalidad,
               estatus: props.oferta!.estatus,
           }
@@ -35,7 +34,6 @@ const form = useForm(
               carrera_id: null as number | null,
               plan_id: null as number | null,
               campus_ids: [] as number[],
-              turno_ids: [] as number[],
               modalidades: [] as string[],
               estatus: 'abierta',
           },
@@ -67,9 +65,7 @@ const combinaciones = computed(() => {
         return 1;
     }
 
-    const turnos = form.turno_ids.length || 1;
-
-    return form.campus_ids.length * turnos * form.modalidades.length;
+    return form.campus_ids.length * form.modalidades.length;
 });
 
 function enviar(): void {
@@ -150,13 +146,6 @@ function enviar(): void {
                         :opciones="opcionesModalidad"
                         :error="form.errors.modalidades"
                     />
-                    <CampoCasillas
-                        v-model="form.turno_ids"
-                        etiqueta="Turnos"
-                        :opciones="opciones(turnos)"
-                        :error="form.errors.turno_ids"
-                        ayuda="Sin turno = una oferta sin turno específico."
-                    />
                 </div>
 
                 <p v-if="combinaciones > 0" class="mt-4 text-sm" :style="{ color: 'var(--color-suave)' }">
@@ -177,13 +166,6 @@ function enviar(): void {
                         :opciones="opciones(campus)"
                         vacio="Selecciona…"
                         :error="form.errors.campus_id"
-                    />
-                    <CampoSelect
-                        v-model="form.turno_id"
-                        etiqueta="Turno"
-                        :opciones="opciones(turnos)"
-                        vacio="Sin turno específico"
-                        :error="form.errors.turno_id"
                     />
                     <CampoSelect
                         v-model="form.modalidad"
