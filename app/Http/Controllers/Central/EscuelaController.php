@@ -5,7 +5,13 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Central;
 
 use App\Http\Controllers\Controller;
+use App\Models\Identidad\Persona;
+use App\Models\Identidad\PersonaRol;
+use App\Models\Identidad\Rol;
+use App\Models\Identidad\Usuario;
+use App\Models\Landlord\Sexo;
 use App\Models\Tenant;
+use App\Services\AprovisionadorAcceso;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -35,6 +41,9 @@ class EscuelaController extends Controller
         return view('central.escuelas.index', [
             'escuelas' => $escuelas,
             'dominioBase' => self::DOMINIO_BASE,
+            // El catálogo de sexos es landlord (H/M): la persona del
+            // administrador exige `sexo_id` (NOT NULL).
+            'sexos' => Sexo::orderBy('nombre')->get(['id', 'nombre']),
         ]);
     }
 
@@ -43,9 +52,22 @@ class EscuelaController extends Controller
         $datos = $request->validate([
             'nombre' => ['required', 'string', 'max:150'],
             'clave' => ['required', 'string', 'max:40', 'regex:/^[a-z][a-z0-9-]*$/', Rule::unique('tenants', 'id')],
+            // Administrador inicial de la escuela: sin él, la escuela nace sin
+            // nadie que pueda entrar. Recibe el rol `director_general`, que
+            // concentra todos los permisos de la faceta administrativa.
+            'admin_nombre' => ['required', 'string', 'max:100'],
+            'admin_primer_apellido' => ['required', 'string', 'max:100'],
+            'admin_segundo_apellido' => ['nullable', 'string', 'max:100'],
+            'admin_sexo_id' => ['required', Rule::exists('sexos', 'id')],
+            'admin_email' => ['required', 'email', 'max:150'],
+            // `confirmed` exige `admin_password_confirmation` para no fijar una
+            // contraseña con un dedazo.
+            'admin_password' => ['required', 'string', 'min:8', 'confirmed'],
         ], [
             'clave.regex' => 'La clave va en minúsculas: letras, números y guiones, empezando con letra.',
             'clave.unique' => 'Ya existe una escuela con esa clave.',
+            'admin_sexo_id.exists' => 'Selecciona el sexo del administrador.',
+            'admin_password.confirmed' => 'La confirmación de la contraseña no coincide.',
         ]);
 
         $dominio = $datos['clave'].'.'.self::DOMINIO_BASE;
@@ -55,8 +77,58 @@ class EscuelaController extends Controller
         $tenant = Tenant::create(['id' => $datos['clave'], 'nombre' => $datos['nombre']]);
         $tenant->domains()->create(['domain' => $dominio]);
 
+        // Y su administrador, ya dentro de la BD recién sembrada.
+        $this->crearAdministrador($tenant, $datos);
+
         return redirect('/escuelas/'.$tenant->id)
-            ->with('exito', "Escuela «{$datos['nombre']}» creada. Ya puede entrar en {$dominio}.");
+            ->with('exito', "Escuela «{$datos['nombre']}» creada con su administrador. Ya puede entrar en {$dominio}.");
+    }
+
+    /**
+     * Crea al administrador de la escuela DENTRO del contexto del tenant recién
+     * provisionado: su persona, el rol `director_general` (todos los permisos
+     * administrativos) y la cuenta con acceso ya configurado.
+     *
+     * @param  array<string, mixed>  $datos
+     */
+    private function crearAdministrador(Tenant $tenant, array $datos): void
+    {
+        tenancy()->initialize($tenant);
+
+        try {
+            $rol = Rol::query()->where('name', 'director_general')->first();
+
+            $persona = Persona::create([
+                'nombre' => $datos['admin_nombre'],
+                'primer_apellido' => $datos['admin_primer_apellido'],
+                'segundo_apellido' => $datos['admin_segundo_apellido'] ?? null,
+                'sexo_id' => (int) $datos['admin_sexo_id'],
+                'email' => $datos['admin_email'],
+            ]);
+
+            if ($rol !== null) {
+                PersonaRol::create([
+                    'persona_id' => $persona->id,
+                    'rol_id' => $rol->id,
+                    'activo' => true,
+                ]);
+            }
+
+            Usuario::create([
+                'persona_id' => $persona->id,
+                'usuario' => app(AprovisionadorAcceso::class)->usuarioDisponible($persona),
+                'email' => $datos['admin_email'],
+                // El cast `hashed` del modelo la cifra al guardar; nunca se
+                // registra ni se expone en claro.
+                'password' => $datos['admin_password'],
+                'acceso_configurado' => true,
+                'rol_activo_id' => $rol?->id,
+            ]);
+        } finally {
+            // Pase lo que pase, se cierra el contexto para no contaminar el
+            // resto del request (que corre en el dominio central).
+            tenancy()->end();
+        }
     }
 
     public function show(string $id): View

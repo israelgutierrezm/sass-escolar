@@ -36,6 +36,65 @@
                            style="opacity:.7" title="Se arma como clave.{{ $dominioBase }}">
                 </div>
             </div>
+
+            {{-- Administrador inicial: sin él la escuela nace sin nadie que
+                 pueda entrar. Recibe el rol «Director general», que reúne todos
+                 los permisos administrativos. --}}
+            <fieldset style="margin-top: 1.6rem; border: 1px solid var(--borde); border-radius: 10px; padding: 1.1rem 1.2rem 1.3rem">
+                <legend style="padding: 0 .5rem; font-weight: 600; font-size: .92rem">Administrador de la escuela</legend>
+                <p style="margin: 0 0 1.1rem; color: var(--suave); font-size: .84rem">
+                    Se crea con el rol <strong>Director general</strong> (todos los permisos). Podrá entrar de inmediato con este correo y contraseña.
+                </p>
+
+                <div style="display: grid; gap: 1rem; grid-template-columns: 1fr 1fr 1fr">
+                    <div>
+                        <label for="admin_nombre">Nombre(s)</label>
+                        <input id="admin_nombre" name="admin_nombre" type="text" value="{{ old('admin_nombre') }}" placeholder="María" required>
+                        @error('admin_nombre')<p class="error">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label for="admin_primer_apellido">Primer apellido</label>
+                        <input id="admin_primer_apellido" name="admin_primer_apellido" type="text" value="{{ old('admin_primer_apellido') }}" placeholder="González" required>
+                        @error('admin_primer_apellido')<p class="error">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label for="admin_segundo_apellido">Segundo apellido <small>opcional</small></label>
+                        <input id="admin_segundo_apellido" name="admin_segundo_apellido" type="text" value="{{ old('admin_segundo_apellido') }}" placeholder="Ruiz">
+                        @error('admin_segundo_apellido')<p class="error">{{ $message }}</p>@enderror
+                    </div>
+                </div>
+
+                <div style="display: grid; gap: 1rem; grid-template-columns: 1fr 1fr 1fr; margin-top: 1rem">
+                    <div>
+                        <label for="admin_sexo_id">Sexo</label>
+                        <select id="admin_sexo_id" name="admin_sexo_id" required>
+                            <option value="" disabled {{ old('admin_sexo_id') ? '' : 'selected' }}>Selecciona…</option>
+                            @foreach ($sexos as $sexo)
+                                <option value="{{ $sexo->id }}" {{ (string) old('admin_sexo_id') === (string) $sexo->id ? 'selected' : '' }}>{{ $sexo->nombre }}</option>
+                            @endforeach
+                        </select>
+                        @error('admin_sexo_id')<p class="error">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label for="admin_email">Correo</label>
+                        <input id="admin_email" name="admin_email" type="email" value="{{ old('admin_email') }}" placeholder="admin@escuela.mx" required>
+                        @error('admin_email')<p class="error">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label for="admin_password">Contraseña <small>mínimo 8</small></label>
+                        <input id="admin_password" name="admin_password" type="password" autocomplete="new-password" required>
+                        @error('admin_password')<p class="error">{{ $message }}</p>@enderror
+                    </div>
+                </div>
+
+                <div style="display: grid; gap: 1rem; grid-template-columns: 1fr 1fr 1fr; margin-top: 1rem">
+                    <div>
+                        <label for="admin_password_confirmation">Repite la contraseña</label>
+                        <input id="admin_password_confirmation" name="admin_password_confirmation" type="password" autocomplete="new-password" required>
+                    </div>
+                </div>
+            </fieldset>
+
             <div style="margin-top: 1.2rem">
                 <button type="submit" class="btn">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>

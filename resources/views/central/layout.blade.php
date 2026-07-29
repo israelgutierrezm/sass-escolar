@@ -63,11 +63,12 @@
         code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
         label { display: block; font-weight: 500; margin-bottom: .3rem; }
         label small { display: block; font-weight: 400; color: var(--suave); }
-        input[type=text], input[type=email], input[type=password] {
+        input[type=text], input[type=email], input[type=password], select {
             width: 100%; padding: .6rem .7rem; border-radius: 9px;
             border: 1px solid var(--borde); background: #0c1826; color: var(--texto); font-size: .9rem;
         }
-        input:focus { outline: none; border-color: var(--acento); box-shadow: 0 0 0 3px rgba(79,124,240,.2); }
+        select option { color: #0f172a; }
+        input:focus, select:focus { outline: none; border-color: var(--acento); box-shadow: 0 0 0 3px rgba(79,124,240,.2); }
         .btn {
             display: inline-flex; align-items: center; gap: .45rem; cursor: pointer;
             padding: .6rem 1.05rem; border-radius: 9px; font-size: .9rem; font-weight: 600;
