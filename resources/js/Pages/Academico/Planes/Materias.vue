@@ -468,11 +468,6 @@ function textoSobre(color: string | null): string {
                                 : { backgroundColor: 'var(--color-suave-fondo, color-mix(in srgb, var(--color-acento) 5%, transparent))', color: 'var(--color-contenido)' }"
                         >
                             <span class="flex items-center gap-1.5 text-sm font-semibold">
-                                <svg v-if="grupo.optativa" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" /></svg>
-                                {{ grupo.titulo }}
-                            </span>
-                            <span class="flex items-center gap-1">
-                                <span class="text-xs opacity-70">{{ grupo.lista.length }}</span>
                                 <button
                                     v-if="puedeEditar"
                                     type="button"
@@ -483,7 +478,10 @@ function textoSobre(color: string | null): string {
                                 >
                                     +
                                 </button>
+                                <svg v-if="grupo.optativa" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" /></svg>
+                                {{ grupo.titulo }}
                             </span>
+                            <span class="text-xs opacity-70">{{ grupo.lista.length }}</span>
                         </div>
 
                         <draggable
@@ -553,24 +551,22 @@ function textoSobre(color: string | null): string {
                         : { borderColor: 'var(--color-borde)' }"
                 >
                     <h3 class="flex items-center gap-2 text-sm font-semibold">
-                        <svg v-if="grupo.optativa" class="h-4 w-4" :style="{ color: 'var(--color-acento)' }" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" /></svg>
-                        {{ grupo.titulo }}
-                    </h3>
-                    <span class="flex items-center gap-3">
-                        <span class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                            {{ grupo.lista.length }} materia(s) ·
-                            {{ grupo.lista.reduce((suma, m) => suma + (m.creditos ?? 0), 0) }} créditos
-                        </span>
                         <button
                             v-if="puedeEditar"
                             type="button"
-                            class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition hover:brightness-110"
+                            class="grid h-5 w-5 place-items-center rounded-md text-base leading-none transition hover:brightness-110"
                             :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
                             :title="`Agregar en ${grupo.titulo}`"
                             @click="abrirAltaEn(grupo)"
                         >
-                            + Agregar
+                            +
                         </button>
+                        <svg v-if="grupo.optativa" class="h-4 w-4" :style="{ color: 'var(--color-acento)' }" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" /></svg>
+                        {{ grupo.titulo }}
+                    </h3>
+                    <span class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                        {{ grupo.lista.length }} materia(s) ·
+                        {{ grupo.lista.reduce((suma, m) => suma + (m.creditos ?? 0), 0) }} créditos
                     </span>
                 </div>
 
