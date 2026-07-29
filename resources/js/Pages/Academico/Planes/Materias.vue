@@ -29,7 +29,7 @@ const props = defineProps<{
         clave: string;
         carrera: string | null;
         total_periodos: number | null;
-        total_creditos: number;
+        total_creditos: number | null;
         minimo_creditos: number;
     };
     materias: Materia[];
@@ -132,7 +132,9 @@ const opcionesTipo = [
 ];
 
 /** Diferencia entre lo cargado y lo que el plan declara: ayuda a cuadrar la malla. */
-const diferenciaCreditos = computed(() => props.creditosCargados - props.plan.total_creditos);
+const diferenciaCreditos = computed(() =>
+    props.plan.total_creditos == null ? 0 : props.creditosCargados - props.plan.total_creditos,
+);
 
 function abrirAlta(): void {
     mostrarAlta.value = true;
@@ -206,11 +208,11 @@ function textoSobre(color: string | null): string {
                     <dt class="text-xs uppercase tracking-wide text-slate-400">Créditos cargados</dt>
                     <dd class="mt-0.5 text-lg font-semibold text-slate-800">{{ creditosCargados }}</dd>
                 </div>
-                <div>
+                <div v-if="plan.total_creditos != null">
                     <dt class="text-xs uppercase tracking-wide text-slate-400">Declarados en el plan</dt>
                     <dd class="mt-0.5 text-lg font-semibold text-slate-800">{{ plan.total_creditos }}</dd>
                 </div>
-                <div>
+                <div v-if="plan.total_creditos != null">
                     <dt class="text-xs uppercase tracking-wide text-slate-400">Diferencia</dt>
                     <dd
                         class="mt-0.5 text-lg font-semibold"
@@ -221,7 +223,7 @@ function textoSobre(color: string | null): string {
                 </div>
             </dl>
 
-            <p v-if="diferenciaCreditos !== 0 && materias.length" class="mt-3 text-xs text-amber-600">
+            <p v-if="plan.total_creditos != null && diferenciaCreditos !== 0 && materias.length" class="mt-3 text-xs text-amber-600">
                 Los créditos cargados no cuadran con los declarados en el plan. Revisa la malla o ajusta el
                 total del plan.
             </p>

@@ -142,8 +142,26 @@ class CarreraController extends Controller
     private function catalogos(): array
     {
         return [
-            'niveles' => NivelEstudio::query()->orderBy('orden')->get(['id', 'nombre']),
+            // Cada nivel sugiere su ClaveProdServ del SAT (la asigna el SAT según
+            // el nivel de estudios); el formulario la autollena al elegirlo.
+            'niveles' => NivelEstudio::query()->orderBy('orden')->get(['id', 'nombre', 'clave'])
+                ->map(fn (NivelEstudio $n) => [
+                    'id' => $n->id,
+                    'nombre' => $n->nombre,
+                    'clave_sat_sugerida' => self::claveSatDeNivel($n->clave),
+                ]),
             'documentos' => DocumentoRequerido::query()->orderBy('nombre')->get(['id', 'nombre', 'obligatorio']),
         ];
+    }
+
+    /**
+     * ClaveProdServ del SAT según el nivel: el Técnico Superior Universitario
+     * lleva 86121803 y todos los demás (licenciatura, maestría, especialidad,
+     * doctorado, profesional asociado) 86121804. Cubre la clave nueva («84») y
+     * la vieja («tecnico_superior») para funcionar en cualquier escuela.
+     */
+    private static function claveSatDeNivel(?string $claveNivel): string
+    {
+        return in_array($claveNivel, ['84', 'tecnico_superior'], true) ? '86121803' : '86121804';
     }
 }

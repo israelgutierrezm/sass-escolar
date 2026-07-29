@@ -89,7 +89,7 @@ class PlanEstudioController extends Controller
                     'id', 'carrera_id', 'clave', 'abreviacion', 'nombre', 'rvoe',
                     'autorizacion_reconocimiento_id', 'tipo_periodo_id', 'total_periodos',
                     'calificacion_minima', 'calificacion_maxima', 'calificacion_minima_aprobatoria',
-                    'minimo_creditos', 'minimo_asignaturas', 'total_creditos',
+                    'minimo_creditos', 'minimo_asignaturas',
                     'curp_responsable', 'vigente',
                 ]),
                 'fecha_rvoe' => $plane->fecha_rvoe?->toDateString(),
@@ -140,14 +140,12 @@ class PlanEstudioController extends Controller
             'calificacion_minima_aprobatoria' => ['required', 'integer', 'gte:calificacion_minima', 'lte:calificacion_maxima'],
             'minimo_creditos' => ['required', 'numeric', 'min:0'],
             'minimo_asignaturas' => ['nullable', 'integer', 'min:0'],
-            'total_creditos' => ['required', 'numeric', 'gte:minimo_creditos'],
             'curp_responsable' => ['nullable', 'string', 'size:18'],
             'vigente' => ['boolean'],
         ], [
             'calificacion_maxima.gt' => 'La calificación máxima debe ser mayor que la mínima.',
             'calificacion_minima_aprobatoria.gte' => 'La mínima aprobatoria no puede ser menor que la calificación mínima.',
             'calificacion_minima_aprobatoria.lte' => 'La mínima aprobatoria no puede superar la calificación máxima.',
-            'total_creditos.gte' => 'El total de créditos no puede ser menor que el mínimo para titularse.',
         ], [
             'carrera_id' => 'carrera',
             'autorizacion_reconocimiento_id' => 'tipo de autorización',

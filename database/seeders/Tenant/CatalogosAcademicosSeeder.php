@@ -50,11 +50,12 @@ class CatalogosAcademicosSeeder extends Seeder
         ]);
 
         // El Tipo queda en cuatro fijas, sin agregar más (decisión del cliente).
-        $this->sembrar(TipoAsignatura::class, [
-            ['clave' => 'obligatoria', 'nombre' => 'Obligatoria'],
-            ['clave' => 'optativa', 'nombre' => 'Optativa'],
-            ['clave' => 'adicional', 'nombre' => 'Adicional'],
-            ['clave' => 'complementaria', 'nombre' => 'Complementaria'],
+        // Tipos de asignatura OFICIALES: id fijo = clave, protegidos.
+        $this->sembrarFijos(TipoAsignatura::class, [
+            [263, 'OBLIGATORIA'],
+            [264, 'OPTATIVA'],
+            [265, 'ADICIONAL'],
+            [266, 'COMPLEMENTARIA'],
         ]);
 
         // Descriptores del programa de una asignatura. Nace con cuatro; admite más.

@@ -32,7 +32,6 @@ const form = useForm({
     calificacion_minima_aprobatoria: props.plan?.calificacion_minima_aprobatoria ?? 6,
     minimo_creditos: props.plan?.minimo_creditos ?? null,
     minimo_asignaturas: props.plan?.minimo_asignaturas ?? null,
-    total_creditos: props.plan?.total_creditos ?? null,
     curp_responsable: props.plan?.curp_responsable ?? '',
     vigente: props.plan?.vigente ?? true,
 });
@@ -155,16 +154,8 @@ function enviar(): void {
                         :error="form.errors.minimo_creditos"
                     />
                     <CampoTexto
-                        v-model="form.total_creditos"
-                        etiqueta="Créditos totales del plan"
-                        tipo="number"
-                        requerido
-                        tooltip="Total de créditos obligatorios + total de créditos optativos."
-                        :error="form.errors.total_creditos"
-                    />
-                    <CampoTexto
                         v-model="form.minimo_asignaturas"
-                        etiqueta="Mínimo de asignaturas"
+                        etiqueta="Número de asignaturas para completar la carrera"
                         tipo="number"
                         :error="form.errors.minimo_asignaturas"
                     />

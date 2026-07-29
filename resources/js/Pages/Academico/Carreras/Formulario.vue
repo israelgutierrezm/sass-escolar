@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
@@ -10,7 +10,7 @@ import CampoSelect from '@/Components/CampoSelect.vue';
 const props = defineProps<{
     carrera: Record<string, any> | null;
     documentosSeleccionados: number[];
-    niveles: { id: number; nombre: string }[];
+    niveles: { id: number; nombre: string; clave_sat_sugerida: string }[];
     documentos: { id: number; nombre: string; obligatorio: boolean }[];
 }>();
 
@@ -27,6 +27,18 @@ const form = useForm({
 });
 
 const opcionesNivel = computed(() => props.niveles.map((n) => ({ valor: n.id, texto: n.nombre })));
+
+// El SAT asigna la ClaveProdServ según el nivel: al elegirlo se autollena.
+// Queda editable por si un caso lo requiere distinto.
+watch(
+    () => form.nivel_estudios_id,
+    (id) => {
+        const nivel = props.niveles.find((n) => n.id === id);
+        if (nivel) {
+            form.clave_sat = nivel.clave_sat_sugerida;
+        }
+    },
+);
 
 function enviar(): void {
     esEdicion.value ? form.put(`/academico/carreras/${props.carrera!.id}`) : form.post('/academico/carreras');
