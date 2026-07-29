@@ -128,6 +128,11 @@ final class CatalogoPermisos
             'gestionar-emisores' => ['Administrar razones sociales', 'Dar de alta personas morales y cargar sus certificados de sello digital.', [self::ADMINISTRATIVO]],
         ],
 
+        'Certificación y titulación' => [
+            'gestionar-certificacion' => ['Certificación electrónica', 'Administrar la configuración de la certificación: responsables que firman y sus catálogos.', [self::ADMINISTRATIVO]],
+            'gestionar-titulacion' => ['Titulación electrónica', 'Administrar la configuración de la titulación: responsables que firman y sus catálogos.', [self::ADMINISTRATIVO]],
+        ],
+
         'Plataforma' => [
             'ver-configuracion' => ['Ver la configuración', 'Consultar los parámetros de la escuela.', [self::ADMINISTRATIVO]],
             'editar-configuracion' => ['Editar la configuración', 'Cambiar los parámetros de la escuela.', [self::ADMINISTRATIVO]],

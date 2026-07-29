@@ -19,6 +19,8 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocenciaController;
 use App\Http\Controllers\DocenteController;
 use App\Http\Controllers\DocumentoRequeridoController;
+use App\Http\Controllers\Emision\ResponsableController;
+use App\Http\Controllers\Emision\TituloProfesionalController;
 use App\Http\Controllers\EmisorFiscalController;
 use App\Http\Controllers\EsquemaEvaluacionController;
 use App\Http\Controllers\ExpedienteAspiranteController;
@@ -810,5 +812,37 @@ Route::middleware([
             Route::get('/{documento}/descargar', 'descargar')->middleware('can:ver-aspirantes')->name('descargar');
             Route::put('/{documento}/estado', 'actualizarEstado')->middleware('can:validar-expediente')->name('estado');
         });
+
+        /*
+         * Certificación (tipo 1) y Titulación (tipo 2) electrónicas. Misma
+         * estructura para ambas: Configuración → Responsables y → Catálogos.
+         * El `tipo` y la `seccion` viajan como defaults de la ruta, así un
+         * mismo par de controladores sirve las dos secciones.
+         */
+        foreach ([
+            'certificacion' => ['tipo' => 1, 'permiso' => 'gestionar-certificacion'],
+            'titulacion' => ['tipo' => 2, 'permiso' => 'gestionar-titulacion'],
+        ] as $seccion => $cfg) {
+            Route::prefix("{$seccion}/configuracion")->name("tenant.{$seccion}.")
+                ->middleware("can:{$cfg['permiso']}")
+                ->group(function () use ($seccion, $cfg) {
+                    Route::controller(ResponsableController::class)->prefix('responsables')->name('responsables.')
+                        ->group(function () use ($seccion, $cfg) {
+                            Route::get('/', 'index')->defaults('seccion', $seccion)->defaults('tipo', $cfg['tipo'])->name('index');
+                            Route::post('/leer-certificado', 'leerCertificado')->name('leer');
+                            Route::post('/', 'store')->defaults('seccion', $seccion)->defaults('tipo', $cfg['tipo'])->name('store');
+                            Route::delete('/{responsable}', 'destroy')->whereNumber('responsable')
+                                ->defaults('seccion', $seccion)->defaults('tipo', $cfg['tipo'])->name('destroy');
+                        });
+
+                    Route::controller(TituloProfesionalController::class)->prefix('catalogos')->name('catalogos.')
+                        ->group(function () use ($seccion) {
+                            Route::get('/', 'index')->defaults('seccion', $seccion)->name('index');
+                            Route::post('/', 'store')->defaults('seccion', $seccion)->name('store');
+                            Route::put('/{titulo}', 'update')->whereNumber('titulo')->defaults('seccion', $seccion)->name('update');
+                            Route::delete('/{titulo}', 'destroy')->whereNumber('titulo')->defaults('seccion', $seccion)->name('destroy');
+                        });
+                });
+        }
     });
 });

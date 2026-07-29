@@ -57,12 +57,29 @@ function resolver(clave: string, hijos: NodoArreglo[] = []): NodoNav | null {
         };
     }
 
+    // Subgrupo (nivel 2/3): una opción con hijos es un encabezado plegable, sin
+    // URL propia. Si el arreglo no trae su anidamiento, se toma del catálogo.
+    if (base.hijos && base.hijos.length > 0) {
+        const arreglo = hijos.length > 0 ? hijos : base.hijos.map((h) => ({ clave: h.clave }));
+
+        return {
+            clave,
+            etiqueta: base.etiqueta,
+            esGrupo: true,
+            prefijo: base.prefijo ?? '',
+            url: base.prefijo,
+            facetas: null, // hereda el ámbito del grupo padre
+            hijos: arreglo.map((h) => resolver(h.clave, h.hijos)).filter((n): n is NodoNav => n !== null),
+        };
+    }
+
+    // Hoja.
     return {
         clave,
         etiqueta: base.etiqueta,
         esGrupo: false,
         url: base.url,
-        prefijo: base.url,
+        prefijo: base.url ?? '',
         permiso: base.permiso,
         o: base.o,
         hijos: [],

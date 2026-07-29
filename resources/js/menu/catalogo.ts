@@ -14,10 +14,15 @@
 export interface OpcionMenu {
     clave: string;
     etiqueta: string;
-    url: string;
-    permiso: string | null;
+    /** URL de la HOJA. Un subgrupo (con `hijos`) no la lleva. */
+    url?: string;
+    permiso?: string | null;
     /** Permiso alternativo: la opción se muestra con cualquiera de los dos. */
     o?: string;
+    /** Prefijo para marcar activo un SUBGRUPO (nivel 2 con hijos). */
+    prefijo?: string;
+    /** Opciones anidadas: convierten a esta opción en un subgrupo plegable. */
+    hijos?: OpcionMenu[];
 }
 
 export interface GrupoMenu {
@@ -165,15 +170,59 @@ export const CATALOGO_MENU: GrupoMenu[] = [
             { clave: 'config-correo', etiqueta: 'Config. correo', url: '/plataforma/configuraciones/correo', permiso: 'configurar-correo' },
         ],
     },
+    {
+        clave: 'certificacion',
+        etiqueta: 'Certificación electrónica',
+        prefijo: '/certificacion',
+        facetas: ['administrativo'],
+        icono: 'M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z',
+        hijos: [
+            {
+                clave: 'config-certificacion',
+                etiqueta: 'Configuración',
+                prefijo: '/certificacion/configuracion',
+                hijos: [
+                    { clave: 'responsables-certificacion', etiqueta: 'Responsables', url: '/certificacion/configuracion/responsables', permiso: 'gestionar-certificacion' },
+                    { clave: 'catalogos-certificacion', etiqueta: 'Catálogos', url: '/certificacion/configuracion/catalogos', permiso: 'gestionar-certificacion' },
+                ],
+            },
+        ],
+    },
+    {
+        clave: 'titulacion',
+        etiqueta: 'Titulación electrónica',
+        prefijo: '/titulacion',
+        facetas: ['administrativo'],
+        icono: 'M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443m-7.007 11.55A5.981 5.981 0 0 0 6.75 15.75v-1.5',
+        hijos: [
+            {
+                clave: 'config-titulacion',
+                etiqueta: 'Configuración',
+                prefijo: '/titulacion/configuracion',
+                hijos: [
+                    { clave: 'responsables-titulacion', etiqueta: 'Responsables', url: '/titulacion/configuracion/responsables', permiso: 'gestionar-titulacion' },
+                    { clave: 'catalogos-titulacion', etiqueta: 'Catálogos', url: '/titulacion/configuracion/catalogos', permiso: 'gestionar-titulacion' },
+                ],
+            },
+        ],
+    },
 ];
 
 /** Todos los nodos indexados por clave (grupos y opciones), para el editor. */
 export function indiceCatalogo(): Record<string, GrupoMenu | OpcionMenu> {
     const indice: Record<string, GrupoMenu | OpcionMenu> = {};
+
+    const indexarOpcion = (opcion: OpcionMenu): void => {
+        indice[opcion.clave] = opcion;
+        for (const nieto of opcion.hijos ?? []) {
+            indexarOpcion(nieto);
+        }
+    };
+
     for (const grupo of CATALOGO_MENU) {
         indice[grupo.clave] = grupo;
         for (const hijo of grupo.hijos) {
-            indice[hijo.clave] = hijo;
+            indexarOpcion(hijo);
         }
     }
     return indice;
