@@ -78,11 +78,19 @@ class CatalogosAcademicosSeeder extends Seeder
             ['clave' => 'complementaria', 'nombre' => 'Área complementaria'],
         ]);
 
-        $this->sembrar(AutorizacionReconocimiento::class, [
-            ['clave' => 'rvoe_federal', 'nombre' => 'RVOE Federal (SEP)'],
-            ['clave' => 'rvoe_estatal', 'nombre' => 'RVOE Estatal'],
-            ['clave' => 'autonoma', 'nombre' => 'Universidad Autónoma'],
-            ['clave' => 'incorporacion_uni', 'nombre' => 'Incorporación a universidad'],
+        // Autorización/Reconocimiento OFICIALES de la SEP: id fijo = valor del
+        // catálogo `idAutorizacionReconocimiento` del título electrónico, para
+        // que el id del plan sea directamente el que exige la SEP. Protegidos.
+        $this->sembrarFijos(AutorizacionReconocimiento::class, [
+            [1, 'RVOE FEDERAL'],
+            [2, 'RVOE ESTATAL'],
+            [3, 'AUTORIZACIÓN FEDERAL'],
+            [4, 'AUTORIZACIÓN ESTATAL'],
+            [5, 'ACTA DE SESIÓN'],
+            [6, 'ACUERDO DE INCORPORACIÓN'],
+            [7, 'ACUERDO SECRETARIAL SEP'],
+            [8, 'DECRETO DE CREACIÓN'],
+            [9, 'OTRO'],
         ]);
 
         $this->sembrar(Turno::class, [
