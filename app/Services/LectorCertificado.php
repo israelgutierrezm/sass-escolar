@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use PhpCfdi\Credentials\Certificate;
+use PhpCfdi\Credentials\Credential;
 use Throwable;
 
 /**
@@ -74,6 +75,21 @@ class LectorCertificado
     public function pem(string $contenido): string
     {
         return (new Certificate($contenido))->pem();
+    }
+
+    /**
+     * True si la llave (.key) abre con la contraseña Y corresponde al
+     * certificado. `Credential::create` valida ambas cosas y lanza si no.
+     */
+    public function llaveCorresponde(string $certPem, string $keyContents, string $password): bool
+    {
+        try {
+            Credential::create($certPem, $keyContents, $password);
+
+            return true;
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     /** True si el contenido es un certificado legible. */

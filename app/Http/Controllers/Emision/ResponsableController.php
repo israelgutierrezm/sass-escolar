@@ -13,6 +13,7 @@ use App\Services\LectorCertificado;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -62,9 +63,12 @@ class ResponsableController extends Controller
             'nombre_completo' => $r->nombreCompleto(),
             'curp' => $r->curp,
             'cargo' => $r->cargo?->nombre,
+            'cargo_id' => $r->cargo_id,
             'titulo' => $r->tituloProfesional?->abreviatura,
+            'titulo_profesional_id' => $r->titulo_profesional_id,
             'activo' => $r->activo,
             'tiene_cer_guardado' => filled($r->cer_pem),
+            'tiene_key' => filled($r->key_encriptado),
             'cer_titular' => $r->cer_titular,
             'cer_serial' => $r->cer_serial,
             'vigencia_inicio' => $r->cer_vigencia_inicio?->format('d/m/Y'),
@@ -142,6 +146,82 @@ class ResponsableController extends Controller
         ]);
 
         return back()->with('exito', 'Responsable guardado.');
+    }
+
+    /**
+     * Edita un responsable ya cargado: puede renovar su certificado (mismo
+     * responsable, cert vencido/nuevo), cargar su llave (.key) para firmar solo
+     * con la contraseña después, y ajustar título y cargo.
+     */
+    public function update(Request $request, Responsable $responsable, LectorCertificado $lector): RedirectResponse
+    {
+        abort_unless($responsable->tipo_responsable_id === (int) $request->route('tipo'), 404);
+
+        $datos = $request->validate([
+            'certificado' => ['nullable', 'file', 'max:64'],
+            'llave' => ['nullable', 'file', 'max:64'],
+            'llave_password' => ['nullable', 'string', 'required_with:llave'],
+            'cargo_id' => ['required', 'integer', Rule::exists('cargos', 'id')],
+            'titulo_profesional_id' => ['required', 'integer', Rule::exists('titulos_profesionales', 'id')],
+        ], [
+            'llave_password.required_with' => 'La contraseña de la llave es obligatoria para cargarla.',
+        ]);
+
+        $cambios = [
+            'cargo_id' => $datos['cargo_id'],
+            'titulo_profesional_id' => $datos['titulo_profesional_id'],
+        ];
+        $keyEncriptado = null;
+
+        // 1) Renovar certificado (opcional). La identidad se re-lee del nuevo .cer.
+        if ($request->hasFile('certificado')) {
+            $contenido = (string) file_get_contents($request->file('certificado')->getRealPath());
+            if (! $lector->esValido($contenido)) {
+                return back()->with('error', 'El certificado (.cer) no es válido.');
+            }
+            $cert = $lector->leer($contenido);
+            foreach (['curp', 'nombre', 'apellido_paterno'] as $req) {
+                if (blank($cert[$req] ?? null)) {
+                    return back()->with('error', 'El certificado no contiene la identidad completa (CURP/nombre).');
+                }
+            }
+            $cambios += [
+                'nombre' => $cert['nombre'],
+                'apellido_paterno' => $cert['apellido_paterno'],
+                'apellido_materno' => $cert['apellido_materno'] ?: null,
+                'curp' => $cert['curp'],
+                'cer_titular' => $cert['titular'],
+                'cer_serial' => $cert['serial'],
+                'cer_vigencia_inicio' => $cert['vigencia_inicio'],
+                'cer_vigencia_fin' => $cert['vigencia_fin'],
+                'cer_pem' => $lector->pem($contenido),
+            ];
+        }
+
+        // 2) Cargar la llave (opcional). Se valida contra el certificado vigente
+        //    (el recién subido o el guardado) con la contraseña, y se guarda
+        //    CIFRADA en reposo. La contraseña NO se almacena.
+        if ($request->hasFile('llave')) {
+            $certPem = $cambios['cer_pem'] ?? $responsable->cer_pem;
+            if (blank($certPem)) {
+                return back()->with('error', 'Para cargar la llave primero guarda el certificado (marca «Guardar mi .cer» o súbelo aquí).');
+            }
+
+            $llave = (string) file_get_contents($request->file('llave')->getRealPath());
+            if (! $lector->llaveCorresponde($certPem, $llave, (string) $datos['llave_password'])) {
+                return back()->with('error', 'La llave no corresponde al certificado o la contraseña es incorrecta.');
+            }
+
+            $keyEncriptado = Crypt::encryptString($llave);
+        }
+
+        $responsable->update($cambios);
+        // key_encriptado NO es fillable (dato sensible): se asigna con forceFill.
+        if ($keyEncriptado !== null) {
+            $responsable->forceFill(['key_encriptado' => $keyEncriptado])->save();
+        }
+
+        return back()->with('exito', 'Responsable actualizado.');
     }
 
     /** Desactiva (retira) un responsable activo: se conserva como historial. */

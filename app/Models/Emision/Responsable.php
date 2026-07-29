@@ -34,6 +34,9 @@ class Responsable extends Model
         'cer_pem',
     ];
 
+    // Material del certificado/llave: nunca se serializa hacia el frontend.
+    protected $hidden = ['cer_pem', 'key_encriptado'];
+
     protected function casts(): array
     {
         return [
