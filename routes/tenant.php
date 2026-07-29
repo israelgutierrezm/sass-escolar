@@ -464,6 +464,19 @@ Route::middleware([
                             ->whereNumber('alumno')
                             ->middleware('can:editar-alumnos')
                             ->name('facturacion');
+
+                        // Carga manual al historial (equivalencias, revalidaciones,
+                        // kárdex histórico). Es administración del expediente del
+                        // alumno → `editar-alumnos` (control escolar/dirección; no
+                        // el docente, que solo firma sus propias actas).
+                        Route::post('{alumno}/historial', 'agregarHistorial')
+                            ->whereNumber('alumno')
+                            ->middleware('can:editar-alumnos')
+                            ->name('historial.store');
+                        Route::delete('{alumno}/historial/{historial}', 'quitarHistorial')
+                            ->whereNumber('alumno')->whereNumber('historial')
+                            ->middleware('can:editar-alumnos')
+                            ->name('historial.destroy');
                     });
 
                 /*

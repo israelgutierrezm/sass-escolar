@@ -20,6 +20,8 @@ interface Renglon {
     tipo_evaluacion: string | null;
     acta_folio: string | null;
     observacion: string | null;
+    observacion_asignatura: string | null;
+    manual: boolean;
 }
 
 const props = defineProps<{
@@ -66,6 +68,12 @@ const props = defineProps<{
     historial: Renglon[];
     resumen: Record<string, any>;
     carga: { ciclo: string; materias: any[] }[];
+    materiasDelPlan: { id: number; etiqueta: string }[];
+    estatusHistorial: { id: number; nombre: string }[];
+    tiposEvaluacion: { id: number; nombre: string }[];
+    observacionesAsignatura: { id: number; nombre: string; abreviatura: string | null }[];
+    ciclos: { id: number; clave: string }[];
+    puedeCargarHistorial: boolean;
     situaciones: { id: number; nombre: string }[];
     sexos: { id: number; nombre: string }[];
     generos: { id: number; nombre: string }[];
@@ -73,6 +81,36 @@ const props = defineProps<{
 }>();
 
 const pestana = ref<'kardex' | 'carga' | 'carreras' | 'tutores' | 'facturacion' | 'datos'>('kardex');
+
+/* Carga manual al historial (equivalencias, revalidaciones, kárdex histórico) */
+const mostrarCargaHistorial = ref(false);
+const opciones = (lista: { id: number; nombre: string }[]) => lista.map((x) => ({ valor: x.id, texto: x.nombre }));
+
+const formHistorial = useForm({
+    plan_materia_id: null as number | null,
+    ciclo_id: null as number | null,
+    tipo_evaluacion_id: null as number | null,
+    observacion_asignatura_id: null as number | null,
+    estatus_id: null as number | null,
+    calificacion: null as number | null,
+});
+
+function agregarHistorial(): void {
+    formHistorial.post(`/escolar/alumnos/${props.alumno.id}/historial`, {
+        preserveScroll: true,
+        onSuccess: () => {
+            formHistorial.reset();
+            mostrarCargaHistorial.value = false;
+        },
+    });
+}
+
+function quitarHistorial(id: number): void {
+    if (!confirm('¿Retirar este renglón cargado a mano del historial?')) {
+        return;
+    }
+    router.delete(`/escolar/alumnos/${props.alumno.id}/historial/${id}`, { preserveScroll: true });
+}
 
 /* Datos de facturación del alumno */
 const factForm = useForm({
@@ -433,7 +471,84 @@ function verComo(): void {
         </div>
 
         <!-- Kárdex -->
-        <section v-if="pestana === 'kardex'" class="tarjeta overflow-hidden">
+        <section v-if="pestana === 'kardex'" class="space-y-4">
+            <!-- Carga manual al historial (equivalencias, revalidaciones, histórico). -->
+            <div v-if="puedeCargarHistorial" class="tarjeta p-6">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <h3 class="text-base font-semibold">Agregar materia al historial</h3>
+                        <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
+                            Para equivalencias, revalidaciones o kárdex histórico de otra institución. Se carga directo, sin acta.
+                        </p>
+                    </div>
+                    <BotonAccion v-if="!mostrarCargaHistorial" variante="nuevo" texto="Agregar" @click="mostrarCargaHistorial = true" />
+                </div>
+
+                <form v-if="mostrarCargaHistorial" class="mt-5 grid gap-4 sm:grid-cols-3" @submit.prevent="agregarHistorial">
+                    <div class="sm:col-span-3">
+                        <CampoSelect
+                            v-model="formHistorial.plan_materia_id"
+                            etiqueta="Materia del plan"
+                            requerido
+                            :opciones="materiasDelPlan.map((m) => ({ valor: m.id, texto: m.etiqueta }))"
+                            vacio="Selecciona…"
+                            :error="formHistorial.errors.plan_materia_id"
+                        />
+                    </div>
+                    <CampoSelect
+                        v-model="formHistorial.tipo_evaluacion_id"
+                        etiqueta="Tipo de evaluación"
+                        requerido
+                        :opciones="opciones(tiposEvaluacion)"
+                        vacio="Selecciona…"
+                        :error="formHistorial.errors.tipo_evaluacion_id"
+                    />
+                    <CampoSelect
+                        v-model="formHistorial.observacion_asignatura_id"
+                        etiqueta="Observación (SEP)"
+                        requerido
+                        :opciones="opciones(observacionesAsignatura)"
+                        vacio="Selecciona…"
+                        :error="formHistorial.errors.observacion_asignatura_id"
+                        ayuda="Estatus académico: equivalencia, revalidación, ordinario…"
+                    />
+                    <CampoSelect
+                        v-model="formHistorial.estatus_id"
+                        etiqueta="Estatus"
+                        requerido
+                        :opciones="opciones(estatusHistorial)"
+                        vacio="Selecciona…"
+                        :error="formHistorial.errors.estatus_id"
+                    />
+                    <CampoTexto
+                        v-model="formHistorial.calificacion"
+                        etiqueta="Calificación"
+                        tipo="number"
+                        :error="formHistorial.errors.calificacion"
+                        ayuda="Opcional (exento/acreditado puede no llevar número)."
+                    />
+                    <CampoSelect
+                        v-model="formHistorial.ciclo_id"
+                        etiqueta="Ciclo (opcional)"
+                        :opciones="ciclos.map((c) => ({ valor: c.id, texto: c.clave }))"
+                        vacio="Sin ciclo"
+                        :error="formHistorial.errors.ciclo_id"
+                    />
+                    <div class="flex items-end gap-2 sm:col-span-3">
+                        <BotonPrincipal :procesando="formHistorial.processing" texto="Agregar al historial" icono="crear" />
+                        <button
+                            type="button"
+                            class="rounded-lg border px-4 py-2 text-sm"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                            @click="mostrarCargaHistorial = false; formHistorial.reset();"
+                        >
+                            Cancelar
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="tarjeta overflow-hidden">
             <table v-if="historial.length" class="w-full text-sm">
                 <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
                     <tr>
@@ -443,7 +558,7 @@ function verComo(): void {
                         <th class="px-4 py-3 font-medium">Tipo</th>
                         <th class="px-4 py-3 font-medium">Calif.</th>
                         <th class="px-4 py-3 font-medium">Estatus</th>
-                        <th class="px-6 py-3 font-medium">Acta</th>
+                        <th class="px-6 py-3 font-medium">Acta / origen</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -459,6 +574,13 @@ function verComo(): void {
                             <span v-if="renglon.observacion && renglon.observacion !== 'Sin observación'" class="block text-xs italic" :style="{ color: 'var(--color-suave)' }">
                                 {{ renglon.observacion }}
                             </span>
+                            <span
+                                v-if="renglon.observacion_asignatura && renglon.observacion_asignatura !== 'NORMAL / ORDINARIO'"
+                                class="mt-0.5 inline-block rounded px-1.5 py-0.5 text-[10px]"
+                                :style="{ backgroundColor: 'var(--color-fondo)', color: 'var(--color-suave)' }"
+                            >
+                                {{ renglon.observacion_asignatura }}
+                            </span>
                         </td>
                         <td class="px-4 py-2">{{ renglon.ciclo }}</td>
                         <td class="px-4 py-2 text-xs">{{ renglon.tipo_evaluacion }}</td>
@@ -467,7 +589,25 @@ function verComo(): void {
                         </td>
                         <td class="px-4 py-2">{{ renglon.estatus }}</td>
                         <td class="px-6 py-2 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">
-                            {{ renglon.acta_folio ?? '—' }}
+                            <div class="flex items-center justify-between gap-2">
+                                <span v-if="renglon.acta_folio">{{ renglon.acta_folio }}</span>
+                                <span
+                                    v-else
+                                    class="rounded px-1.5 py-0.5 text-[10px]"
+                                    :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }"
+                                >
+                                    Manual
+                                </span>
+                                <button
+                                    v-if="renglon.manual && puedeCargarHistorial"
+                                    type="button"
+                                    class="shrink-0 text-red-600 hover:text-red-700"
+                                    title="Retirar del historial"
+                                    @click="quitarHistorial(renglon.id)"
+                                >
+                                    ✕
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 </tbody>
@@ -476,6 +616,7 @@ function verComo(): void {
             <p v-else class="px-6 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
                 Sin materias asentadas en el kárdex todavía.
             </p>
+            </div>
         </section>
 
         <!-- Carga por ciclo -->

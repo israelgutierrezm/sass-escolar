@@ -7,11 +7,15 @@ namespace App\Http\Controllers;
 use App\Models\Academico\Campus;
 use App\Models\Academico\Carrera;
 use App\Models\Academico\Oferta;
+use App\Models\Academico\PlanMateria;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\SituacionAlumno;
 use App\Models\ControlEscolar\Ciclo;
+use App\Models\ControlEscolar\EstatusHistorial;
 use App\Models\ControlEscolar\Historial;
 use App\Models\ControlEscolar\Inscripcion;
+use App\Models\ControlEscolar\ObservacionAsignatura;
+use App\Models\ControlEscolar\TipoEvaluacion;
 use App\Models\Finanzas\DatosFacturacion;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\TutorAlumno;
@@ -209,6 +213,7 @@ class AlumnoController extends Controller
                 'estatus:id,clave,nombre',
                 'tipoEvaluacion:id,nombre',
                 'observacion:id,nombre',
+                'observacionAsignatura:id,nombre',
             ])
             ->where('matricula_oferta_id', $alumno->id)
             ->get()
@@ -327,6 +332,10 @@ class AlumnoController extends Controller
                 'tipo_evaluacion' => $h->tipoEvaluacion?->nombre,
                 'acta_folio' => $h->acta_folio,
                 'observacion' => $h->observacion?->nombre,
+                // Estatus académico oficial SEP (equivalencia, revalidación…).
+                'observacion_asignatura' => $h->observacionAsignatura?->nombre,
+                // Renglón cargado a mano (sin acta): se puede retirar desde aquí.
+                'manual' => $h->acta_id === null,
             ]),
             'resumen' => [
                 'materias_cursadas' => $historial->count(),
@@ -339,11 +348,87 @@ class AlumnoController extends Controller
                 'creditos_del_plan' => $alumno->oferta?->plan?->total_creditos,
             ],
             'carga' => $this->cargaPorCiclo($alumno),
+            // Carga manual al historial (equivalencias, revalidaciones, históricos):
+            // la malla del plan del alumno + los catálogos de estatus/observación.
+            'materiasDelPlan' => PlanMateria::query()
+                ->with('asignatura:id,nombre')
+                ->where('plan_id', $alumno->oferta?->plan_id)
+                ->orderBy('periodo')->orderBy('clave_en_plan')
+                ->get()
+                ->map(fn (PlanMateria $pm) => [
+                    'id' => $pm->id,
+                    'etiqueta' => trim(($pm->clave_en_plan ?? '').' · '.($pm->asignatura?->nombre ?? '')),
+                ]),
+            'estatusHistorial' => EstatusHistorial::query()->orderBy('id')->get(['id', 'nombre']),
+            'tiposEvaluacion' => TipoEvaluacion::query()->orderBy('id')->get(['id', 'nombre']),
+            'observacionesAsignatura' => ObservacionAsignatura::query()->orderBy('id')->get(['id', 'nombre', 'abreviatura']),
+            'ciclos' => Ciclo::query()->orderByDesc('id')->get(['id', 'clave']),
+            'puedeCargarHistorial' => $request->user()->can('editar-alumnos'),
             'situaciones' => SituacionAlumno::query()->orderBy('id')->get(['id', 'nombre']),
             'sexos' => Sexo::query()->orderBy('id')->get(['id', 'nombre']),
             'generos' => Genero::query()->orderBy('id')->get(['id', 'nombre']),
             'puedeEditar' => $request->user()->can('editar-alumnos'),
         ]);
+    }
+
+    /**
+     * Carga una materia directo al historial de este alumno, sin pasar por un
+     * acta: para equivalencias, revalidaciones y kárdex histórico de otra
+     * institución. Lleva su estatus académico oficial SEP (`observacion_
+     * asignatura`) y NO queda ligada a acta (por eso se puede retirar aquí).
+     */
+    public function agregarHistorial(Request $request, MatriculaOferta $alumno): RedirectResponse
+    {
+        $alumno->loadMissing('oferta');
+        $planId = $alumno->oferta?->plan_id;
+        abort_if($planId === null, 404);
+
+        $datos = $request->validate([
+            'plan_materia_id' => ['required', 'integer', Rule::exists('plan_materias', 'id')->where('plan_id', $planId)->whereNull('deleted_at')],
+            'ciclo_id' => ['nullable', 'integer', Rule::exists('ciclos', 'id')->whereNull('deleted_at')],
+            'estatus_id' => ['required', 'integer', Rule::exists('estatus_historial', 'id')],
+            'tipo_evaluacion_id' => ['required', 'integer', Rule::exists('tipos_evaluacion', 'id')],
+            'observacion_asignatura_id' => ['required', 'integer', Rule::exists('observaciones_asignatura', 'id')],
+            'calificacion' => ['nullable', 'numeric', 'min:0'],
+        ], [
+            'plan_materia_id.exists' => 'La materia no pertenece al plan del alumno.',
+        ], [
+            'plan_materia_id' => 'materia',
+            'estatus_id' => 'estatus',
+            'tipo_evaluacion_id' => 'tipo de evaluación',
+            'observacion_asignatura_id' => 'observación de asignatura',
+        ]);
+
+        Historial::create([
+            'matricula_oferta_id' => $alumno->id,
+            'plan_materia_id' => $datos['plan_materia_id'],
+            'ciclo_id' => $datos['ciclo_id'] ?? null,
+            'asignatura_grupo_id' => null,
+            'tipo_evaluacion_id' => $datos['tipo_evaluacion_id'],
+            'estatus_id' => $datos['estatus_id'],
+            'calificacion' => $datos['calificacion'] ?? null,
+            'observacion_asignatura_id' => $datos['observacion_asignatura_id'],
+        ]);
+
+        return back()->with('exito', 'Materia agregada al historial.');
+    }
+
+    /**
+     * Retira un renglón del historial. Solo las cargas MANUALES (sin acta): lo
+     * asentado por un acta se corrige con un acta de corrección, no borrando el
+     * kárdex a mano.
+     */
+    public function quitarHistorial(MatriculaOferta $alumno, Historial $historial): RedirectResponse
+    {
+        abort_unless($historial->matricula_oferta_id === $alumno->id, 404);
+
+        if ($historial->acta_id !== null) {
+            return back()->with('error', 'Este renglón salió de un acta; corrígelo con un acta de corrección.');
+        }
+
+        $historial->delete();
+
+        return back()->with('exito', 'Renglón retirado del historial.');
     }
 
     /**
