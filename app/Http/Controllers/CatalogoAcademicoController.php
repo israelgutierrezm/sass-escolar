@@ -119,6 +119,9 @@ class CatalogoAcademicoController extends Controller
             // alfabético: bachillerato antes que licenciatura, no «Bachillerato»
             // por la B.
             $ordenable = Schema::hasColumn((new $modelo)->getTable(), 'orden');
+            // Catálogos de valores oficiales (niveles, tipos de periodo) traen
+            // `protegido`; el resto no tiene la columna.
+            $protegible = Schema::hasColumn((new $modelo)->getTable(), 'protegido');
             $extras = $def['extras'] ?? [];
 
             return [
@@ -130,12 +133,13 @@ class CatalogoAcademicoController extends Controller
                 // sepa qué input pintar; vacío para los catálogos simples.
                 'extras' => $extras,
                 'items' => $modelo::query()->orderBy($ordenable ? 'orden' : 'nombre')
-                    ->get(array_merge(['id', 'clave', 'nombre'], array_keys($extras)))
+                    ->get(array_merge(['id', 'clave', 'nombre'], $protegible ? ['protegido'] : [], array_keys($extras)))
                     ->map(fn (Model $m) => array_merge([
                         'id' => $m->id,
                         'clave' => $m->clave,
                         'nombre' => $m->nombre,
                         'en_uso' => ($def['enUso'])($m->id),
+                        'protegido' => $protegible ? (bool) $m->protegido : false,
                     ], collect($extras)->keys()->mapWithKeys(fn (string $k) => [$k => $m->{$k}])->all())),
             ];
         })->values();
@@ -190,6 +194,12 @@ class CatalogoAcademicoController extends Controller
         $def = $this->definicion($catalogo);
         $registro = $def['modelo']::query()->findOrFail($item);
 
+        // Los valores oficiales (niveles, tipos de periodo) son fijos: no se
+        // editan aunque llegue un POST armado a mano.
+        if ($registro->protegido ?? false) {
+            return back()->with('error', "Este valor de {$def['singular']} es oficial y no se puede modificar.");
+        }
+
         $registro->update($this->validar($request, $def, $item));
 
         return back()->with('exito', ucfirst($def['singular']).' actualizada.');
@@ -199,6 +209,10 @@ class CatalogoAcademicoController extends Controller
     {
         $def = $this->definicion($catalogo);
         $registro = $def['modelo']::query()->findOrFail($item);
+
+        if ($registro->protegido ?? false) {
+            return back()->with('error', "Este valor de {$def['singular']} es oficial y no se puede eliminar.");
+        }
 
         // No se borra lo que algo usa: dejaría planes, asignaturas u ofertas
         // apuntando a un catálogo que ya no existe.

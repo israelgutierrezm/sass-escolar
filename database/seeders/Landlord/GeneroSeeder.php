@@ -8,26 +8,31 @@ use App\Models\Landlord\Genero;
 use Illuminate\Database\Seeder;
 
 /**
- * Catálogo de identidad de género (separado del sexo biológico). Idempotente
- * por clave. Cada escuela puede ajustarlo si lo requiere.
+ * Catálogo CENTRAL de género. Por decisión del sistema son SOLO dos, con id
+ * fijo (= clave) y `protegido`: no se editan ni se eliminan. Es catálogo
+ * compartido por todas las escuelas. La derivación de sexo se apoya en estos
+ * nombres (ver App\Services\IdentidadPersona::GENERO_A_SEXO).
  */
 class GeneroSeeder extends Seeder
 {
+    private const GENEROS = [
+        [250, 'MUJER'],
+        [251, 'HOMBRE'],
+    ];
+
     public function run(): void
     {
-        $generos = [
-            ['clave' => 'masculino', 'nombre' => 'Masculino'],
-            ['clave' => 'femenino', 'nombre' => 'Femenino'],
-            ['clave' => 'no_binario', 'nombre' => 'No binario'],
-            ['clave' => 'otro', 'nombre' => 'Otro'],
-            ['clave' => 'prefiere_no_decir', 'nombre' => 'Prefiere no decir'],
-        ];
-
-        foreach ($generos as $genero) {
-            Genero::query()->updateOrCreate(
-                ['clave' => $genero['clave']],
-                ['nombre' => $genero['nombre']],
-            );
+        foreach (self::GENEROS as [$id, $nombre]) {
+            $registro = Genero::query()->firstOrNew(['id' => $id]);
+            $registro->forceFill([
+                'id' => $id,
+                'clave' => (string) $id,
+                'nombre' => $nombre,
+                'protegido' => true,
+            ])->save();
         }
+
+        // Cualquier otro género queda fuera: el catálogo es exactamente estos dos.
+        Genero::query()->whereNotIn('id', array_column(self::GENEROS, 0))->delete();
     }
 }

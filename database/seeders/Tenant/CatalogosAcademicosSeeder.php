@@ -31,12 +31,16 @@ class CatalogosAcademicosSeeder extends Seeder
             ['clave' => 'online', 'nombre' => 'En línea'],
         ]);
 
-        $this->sembrar(TipoPeriodo::class, [
-            ['clave' => 'semestral', 'nombre' => 'Semestral'],
-            ['clave' => 'cuatrimestral', 'nombre' => 'Cuatrimestral'],
-            ['clave' => 'trimestral', 'nombre' => 'Trimestral'],
-            ['clave' => 'anual', 'nombre' => 'Anual'],
-            ['clave' => 'modular', 'nombre' => 'Modular'],
+        // Tipos de periodo OFICIALES: id fijo = clave, protegidos (no se editan
+        // ni se eliminan). Solo se siembran en tenants nuevos con estos ids.
+        $this->sembrarFijos(TipoPeriodo::class, [
+            [91, 'SEMESTRE'],
+            [92, 'BIMESTRE'],
+            [93, 'CUATRIMESTRE'],
+            [94, 'TETRAMESTRE'],
+            [260, 'TRIMESTRE'],
+            [261, 'MODULAR'],
+            [262, 'ANUAL'],
         ]);
 
         $this->sembrar(TipoPlanEstudio::class, [
@@ -87,17 +91,16 @@ class CatalogosAcademicosSeeder extends Seeder
             ['clave' => 'sabatino', 'nombre' => 'Sabatino'],
         ]);
 
-        // Nivel de estudios pasó a catálogo TENANT. `orden` fija la progresión
-        // académica. La migración ya lo siembra copiando de la landlord; esto es
-        // para instalaciones nuevas.
-        $this->sembrar(NivelEstudio::class, [
-            ['clave' => 'bachillerato', 'nombre' => 'Bachillerato', 'orden' => 1],
-            ['clave' => 'tecnico_superior', 'nombre' => 'Técnico Superior Universitario', 'orden' => 2],
-            ['clave' => 'licenciatura', 'nombre' => 'Licenciatura', 'orden' => 3],
-            ['clave' => 'especialidad', 'nombre' => 'Especialidad', 'orden' => 4],
-            ['clave' => 'maestria', 'nombre' => 'Maestría', 'orden' => 5],
-            ['clave' => 'doctorado', 'nombre' => 'Doctorado', 'orden' => 6],
-            ['clave' => 'diplomado', 'nombre' => 'Diplomado', 'orden' => 7],
+        // Niveles de estudio OFICIALES: id fijo = clave, protegidos. `orden` fija
+        // la progresión académica (asociado → TSU → licenciatura → especialidad →
+        // maestría → doctorado). Solo en tenants nuevos con estos ids.
+        $this->sembrarFijos(NivelEstudio::class, [
+            [83, 'PROFESIONAL ASOCIADO', 1],
+            [84, 'TÉCNICO SUPERIOR UNIVERSITARIO', 2],
+            [81, 'LICENCIATURA', 3],
+            [85, 'ESPECIALIDAD', 4],
+            [82, 'MAESTRÍA', 5],
+            [95, 'DOCTORADO', 6],
         ]);
 
         // Modalidades: catálogo TENANT nuevo (presencial / en línea / mixta).
@@ -122,5 +125,37 @@ class CatalogosAcademicosSeeder extends Seeder
 
             $modelo::query()->updateOrCreate(['clave' => $fila['clave']], $atributos);
         }
+    }
+
+    /**
+     * Catálogos de valores fijos con id explícito (= clave) y `protegido`.
+     *
+     * Se identifican por id para que el id sea el pedido; `forceFill` porque el
+     * id no es fillable. Idempotente: re-sembrar no duplica. Pensado para
+     * tenants nuevos —donde la tabla está vacía—; en existentes NO se corre para
+     * no colisionar con los ids ya asignados a sus carreras/planes.
+     *
+     * @param  class-string<\Illuminate\Database\Eloquent\Model>  $modelo
+     * @param  array<int, array{0: int, 1: string, 2?: int}>  $filas  [id, nombre, orden?]
+     */
+    private function sembrarFijos(string $modelo, array $filas): void
+    {
+        foreach ($filas as $fila) {
+            [$id, $nombre] = $fila;
+
+            $registro = $modelo::query()->firstOrNew(['id' => $id]);
+            $registro->forceFill([
+                'id' => $id,
+                'clave' => (string) $id,
+                'nombre' => $nombre,
+                'protegido' => true,
+            ] + (isset($fila[2]) ? ['orden' => $fila[2]] : []))->save();
+        }
+
+        // El catálogo queda EXACTAMENTE con estos valores: se quita lo demás
+        // (p. ej. los niveles que la migración copió de la landlord). Seguro en
+        // tenants nuevos (sin carreras/planes); por eso NO se re-siembra sobre
+        // tenants existentes, donde borraría valores en uso.
+        $modelo::query()->whereNotIn('id', array_column($filas, 0))->delete();
     }
 }

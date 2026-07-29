@@ -36,8 +36,11 @@ class IdentidadPersona
     /** Clave de la entidad que la CURP usa para quien nació fuera de México. */
     private const ENTIDAD_EXTRANJERO = 'NE';
 
-    /** Géneros que sí determinan el sexo legal. Los demás, a propósito, no. */
-    private const GENERO_A_SEXO = ['Masculino' => 'H', 'Femenino' => 'M'];
+    /**
+     * Géneros que determinan el sexo legal. El catálogo central son solo estos
+     * dos (ver GeneroSeeder), así que ambos mapean; sus NOMBRES deben coincidir.
+     */
+    private const GENERO_A_SEXO = ['HOMBRE' => 'H', 'MUJER' => 'M'];
 
     /**
      * Traduce lo que llegó del formulario a columnas de `personas`.

@@ -11,6 +11,7 @@ interface Item {
     clave: string;
     nombre: string;
     en_uso: boolean;
+    protegido?: boolean;
     color?: string | null;
 }
 
@@ -256,12 +257,24 @@ function esEditando(catalogo: string, id: number): boolean {
                                     />
                                 </span>
                                 <span v-if="puedeEditar" class="flex w-28 shrink-0 items-center justify-end gap-1">
-                                    <BotonAccion variante="editar" @click="abrirEdicion(catalogo, item)" />
-                                    <BotonAccion
-                                        variante="eliminar"
-                                        :disabled="item.en_uso"
-                                        @click="eliminar(catalogo.clave, item)"
-                                    />
+                                    <!-- Los valores oficiales (niveles, tipos de
+                                         periodo) no se editan ni se eliminan. -->
+                                    <span
+                                        v-if="item.protegido"
+                                        class="rounded px-2 py-0.5 text-xs"
+                                        :style="{ color: 'var(--color-suave)', backgroundColor: 'var(--color-fondo)' }"
+                                        title="Valor oficial: no se puede modificar ni eliminar"
+                                    >
+                                        Oficial
+                                    </span>
+                                    <template v-else>
+                                        <BotonAccion variante="editar" @click="abrirEdicion(catalogo, item)" />
+                                        <BotonAccion
+                                            variante="eliminar"
+                                            :disabled="item.en_uso"
+                                            @click="eliminar(catalogo.clave, item)"
+                                        />
+                                    </template>
                                 </span>
                             </template>
                         </li>
