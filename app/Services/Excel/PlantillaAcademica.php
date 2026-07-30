@@ -48,13 +48,22 @@ class PlantillaAcademica
             'Llena una fila por registro. La primera fila (gris) es solo un ejemplo: bórrala o reemplázala.',
             'Las columnas con lista desplegable solo aceptan valores del catálogo de tu escuela.',
             'Los encabezados con * son obligatorios.',
+            'Institución (clave) en «Campus» debe coincidir con una Clave de la hoja «Institución».',
             'Carrera (clave) en «Planes» debe coincidir con una Clave de la hoja «Carreras».',
             'Plan (clave) en «Asignaturas» debe coincidir con una Clave de la hoja «Planes».',
+            'Para el certificado electrónico, el campus necesita entidad federativa y estar ligado a una institución.',
         ]);
 
+        // La institución (nombre oficial): una o varias por escuela. El campus se
+        // liga a ella por clave.
+        $this->hoja($libro, 'Institución', [
+            ['Clave *', null], ['Nombre oficial *', null], ['Nombre a mostrar', null], ['Siglas', null],
+        ], ['IPES-DEMO', 'Instituto Demo de Educación Superior', 'Instituto Demo', 'IDES']);
+
         $this->hoja($libro, 'Campus', [
-            ['Clave *', null], ['Nombre *', null], ['Tipo de campus', $rangos['tiposCampus']],
-        ], ['CEN', 'Campus Central', $this->primero(TipoCampus::class)]);
+            ['Clave *', null], ['Nombre *', null], ['Institución (clave)', null],
+            ['Entidad federativa', $rangos['entidades']], ['Tipo de campus', $rangos['tiposCampus']],
+        ], ['CEN', 'Campus Central', 'IPES-DEMO', $this->primero(\App\Models\Landlord\EntidadFederativa::class), $this->primero(TipoCampus::class)]);
 
         $this->hoja($libro, 'Carreras', [
             ['Identificador *', null], ['Clave *', null], ['Nombre *', null], ['Nivel *', $rangos['niveles']],
@@ -134,6 +143,7 @@ class PlantillaAcademica
             'G' => ['siNo', ['Sí', 'No']],
             'H' => ['ubicacion', ['Obligatoria', 'Optativa', 'Tronco común']],
             'I' => ['autorizaciones', AutorizacionReconocimiento::query()->orderBy('nombre')->pluck('nombre')->all()],
+            'J' => ['entidades', \App\Models\Landlord\EntidadFederativa::query()->orderBy('nombre')->pluck('nombre')->all()],
         ];
 
         $rangos = [];

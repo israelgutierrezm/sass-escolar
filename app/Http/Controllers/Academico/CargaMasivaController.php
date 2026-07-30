@@ -36,7 +36,7 @@ class CargaMasivaController extends Controller
         }
 
         return $this->responder($resultado, function (array $r) {
-            return "Carga completa: {$r['campus']} campus, {$r['carreras']} carreras, {$r['planes']} planes, {$r['asignaturas']} asignaturas.";
+            return "Carga completa: {$r['instituciones']} instituciones, {$r['campus']} campus, {$r['carreras']} carreras, {$r['planes']} planes, {$r['asignaturas']} asignaturas.";
         });
     }
 

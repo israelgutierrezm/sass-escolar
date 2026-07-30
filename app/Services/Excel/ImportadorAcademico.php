@@ -9,6 +9,7 @@ use App\Models\Academico\Asignatura;
 use App\Models\Academico\Campus;
 use App\Models\Academico\Carrera;
 use App\Models\Academico\ClasificacionAsignatura;
+use App\Models\Academico\Institucion;
 use App\Models\Academico\NivelEstudio;
 use App\Models\Academico\PlanEstudio;
 use App\Models\Academico\PlanMateria;
@@ -43,6 +44,7 @@ class ImportadorAcademico
 
         $cat = $this->catalogos();
 
+        $instituciones = $this->leer($libro, 'Institución');
         $campus = $this->leer($libro, 'Campus');
         $carreras = $this->leer($libro, 'Carreras');
         $planes = $this->leer($libro, 'Planes');
@@ -50,14 +52,19 @@ class ImportadorAcademico
 
         // Claves conocidas (las del archivo + las que ya existen) para validar
         // refs. La CLAVE de la carrera es la columna 1 (0 es el identificador).
+        $clavesInstitucion = $this->union($instituciones, 0, Institucion::query()->pluck('clave')->all());
         $clavesCarrera = $this->union($carreras, 1, Carrera::query()->pluck('clave')->all());
         $clavesPlan = $this->union($planes, 1, PlanEstudio::query()->pluck('clave')->all());
 
         // ---- Validaciones ----
+        foreach ($instituciones as [$fila, $r]) {
+            $this->requerido('Institución', $fila, $r, [0 => 'Clave', 1 => 'Nombre oficial']);
+        }
         foreach ($campus as [$fila, $r]) {
             $this->requerido('Campus', $fila, $r, [0 => 'Clave', 1 => 'Nombre']);
-            // Tipo de campus opcional: si viene, tiene que estar en el catálogo.
-            $this->enCatalogo('Campus', $fila, $r[2] ?? null, $cat['tiposCampus'], 'Tipo de campus');
+            $this->refExiste('Campus', $fila, $r[2] ?? null, $clavesInstitucion, 'La institución (clave)');
+            $this->enCatalogo('Campus', $fila, $r[3] ?? null, $cat['entidades'], 'Entidad federativa', opcional: true);
+            $this->enCatalogo('Campus', $fila, $r[4] ?? null, $cat['tiposCampus'], 'Tipo de campus');
         }
         foreach ($carreras as [$fila, $r]) {
             $this->requerido('Carreras', $fila, $r, [0 => 'Identificador', 1 => 'Clave', 2 => 'Nombre', 3 => 'Nivel']);
@@ -83,15 +90,28 @@ class ImportadorAcademico
         }
 
         // ---- Creación ----
-        $resumen = ['campus' => 0, 'carreras' => 0, 'planes' => 0, 'asignaturas' => 0];
+        $resumen = ['instituciones' => 0, 'campus' => 0, 'carreras' => 0, 'planes' => 0, 'asignaturas' => 0];
 
-        DB::transaction(function () use ($campus, $carreras, $planes, $asignaturas, $cat, &$resumen) {
+        DB::transaction(function () use ($instituciones, $campus, $carreras, $planes, $asignaturas, $cat, &$resumen) {
+            $institucionId = Institucion::query()->pluck('id', 'clave')->all();
+            foreach ($instituciones as [, $r]) {
+                $ins = Institucion::query()->updateOrCreate(['clave' => trim((string) $r[0])], [
+                    'nombre' => trim((string) $r[1]),
+                    'nombre_mostrar' => $this->str($r[2] ?? null),
+                    'siglas' => $this->str($r[3] ?? null),
+                ]);
+                $institucionId[trim((string) $r[0])] = $ins->id;
+                $resumen['instituciones']++;
+            }
+
             foreach ($campus as [, $r]) {
                 // El tipo es opcional: si la celda viene vacía, no hay tipo ni
                 // «online» que derivar.
-                $tipo = $cat['tiposCampus'][$this->norm($r[2] ?? null)] ?? null;
+                $tipo = $cat['tiposCampus'][$this->norm($r[4] ?? null)] ?? null;
                 Campus::query()->updateOrCreate(['clave' => trim((string) $r[0])], [
                     'nombre' => trim((string) $r[1]),
+                    'institucion_id' => filled($r[2] ?? null) ? ($institucionId[trim((string) $r[2])] ?? null) : null,
+                    'entidad_id' => $this->idOpcional($cat['entidades'], $r[3] ?? null),
                     'tipo_campus_id' => $tipo['id'] ?? null,
                     'online' => ($tipo['clave'] ?? '') === 'en_linea',
                 ]);
@@ -271,6 +291,7 @@ class ImportadorAcademico
             'areas' => $mapa(Area::class),
             'clasificaciones' => $mapa(ClasificacionAsignatura::class),
             'autorizaciones' => $mapa(\App\Models\Academico\AutorizacionReconocimiento::class),
+            'entidades' => $mapa(\App\Models\Landlord\EntidadFederativa::class),
         ];
     }
 
