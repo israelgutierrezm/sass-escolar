@@ -5,6 +5,7 @@ import axios from 'axios';
 import { toast } from 'vue-sonner';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 
 interface Lote {
     id: number;
@@ -61,15 +62,18 @@ const esBorrador = computed(() => props.lote.estado === 'borrador');
 const enEsperaFirma = computed(() => props.lote.estado === 'en_espera_firma');
 const firmado = computed(() => props.lote.estado === 'firmado');
 
-const clasesBadge: Record<string, string> = {
-    gris: 'bg-gray-100 text-gray-700 dark:bg-gray-700/40 dark:text-gray-200',
-    ambar: 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300',
-    verde: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300',
-    rojo: 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300',
+// Badges con tinte del color (color-mix sobre transparente): mismo criterio que
+// el resto del sistema —p. ej. las insignias de Ciclos—, así funcionan en claro
+// y oscuro sin utilidades de color sueltas.
+const estilosBadge: Record<string, { backgroundColor: string; color: string }> = {
+    gris: { backgroundColor: 'var(--color-borde)', color: 'var(--color-suave)' },
+    ambar: { backgroundColor: 'color-mix(in srgb, #d97706 18%, transparent)', color: '#b45309' },
+    verde: { backgroundColor: 'color-mix(in srgb, #16a34a 18%, transparent)', color: '#15803d' },
+    rojo: { backgroundColor: 'color-mix(in srgb, #dc2626 18%, transparent)', color: '#b91c1c' },
 };
 
-function badgeAlumno(estado: string): string {
-    return { pendiente: clasesBadge.gris, certificado: clasesBadge.verde, error: clasesBadge.rojo }[estado] ?? clasesBadge.gris;
+function badgeAlumno(estado: string): { backgroundColor: string; color: string } {
+    return { pendiente: estilosBadge.gris, certificado: estilosBadge.verde, error: estilosBadge.rojo }[estado] ?? estilosBadge.gris;
 }
 
 function etiquetaAlumno(estado: string): string {
@@ -181,7 +185,7 @@ function firmar(): void {
                 <div>
                     <div class="flex items-center gap-3">
                         <h2 class="font-mono text-lg font-semibold">{{ lote.folio }}</h2>
-                        <span class="rounded-full px-2.5 py-1 text-xs font-medium" :class="clasesBadge[lote.estado_color]">
+                        <span class="rounded-full px-2.5 py-1 text-xs font-medium" :style="estilosBadge[lote.estado_color]">
                             {{ lote.estado_label }}
                         </span>
                     </div>
@@ -195,16 +199,8 @@ function firmar(): void {
                     </dl>
                 </div>
 
-                <div class="flex flex-wrap gap-2">
-                    <button
-                        v-if="esBorrador"
-                        type="button"
-                        class="rounded-lg px-4 py-2 text-sm font-medium text-white"
-                        :style="{ backgroundColor: 'var(--color-acento)' }"
-                        @click="cerrar"
-                    >
-                        Cerrar lote
-                    </button>
+                <div class="flex flex-wrap items-center gap-2">
+                    <BotonPrincipal v-if="esBorrador" tipo="button" icono="ninguno" texto="Cerrar lote" @click="cerrar" />
                     <button
                         v-if="enEsperaFirma"
                         type="button"
@@ -214,24 +210,8 @@ function firmar(): void {
                     >
                         Reabrir
                     </button>
-                    <button
-                        v-if="enEsperaFirma"
-                        type="button"
-                        class="rounded-lg px-4 py-2 text-sm font-medium text-white"
-                        :style="{ backgroundColor: 'var(--color-acento)' }"
-                        @click="abrirFirma"
-                    >
-                        Firmar lote
-                    </button>
-                    <button
-                        v-if="!firmado"
-                        type="button"
-                        class="rounded-lg border px-4 py-2 text-sm text-red-600 hover:text-red-700"
-                        :style="{ borderColor: 'var(--color-borde)' }"
-                        @click="eliminar"
-                    >
-                        Eliminar
-                    </button>
+                    <BotonPrincipal v-if="enEsperaFirma" tipo="button" icono="ninguno" texto="Firmar lote" @click="abrirFirma" />
+                    <BotonAccion v-if="!firmado" variante="eliminar" solo-icono @click="eliminar" />
                 </div>
             </div>
         </section>
@@ -357,23 +337,21 @@ function firmar(): void {
                         </td>
                         <td class="px-5 py-3" :style="{ color: 'var(--color-suave)' }">{{ a.campus ?? '—' }}</td>
                         <td class="px-5 py-3">
-                            <span class="rounded-full px-2.5 py-1 text-xs font-medium" :class="badgeAlumno(a.estado)">
+                            <span class="rounded-full px-2.5 py-1 text-xs font-medium" :style="badgeAlumno(a.estado)">
                                 {{ etiquetaAlumno(a.estado) }}
                             </span>
                             <div v-if="a.error_mensaje" class="mt-1 text-xs text-red-600">{{ a.error_mensaje }}</div>
                         </td>
-                        <td class="px-5 py-3 text-right">
-                            <a v-if="a.xml_url" :href="a.xml_url" class="text-sm font-medium" :style="{ color: 'var(--color-acento)' }">
-                                Descargar XML
-                            </a>
-                            <button
-                                v-else-if="esBorrador"
-                                type="button"
-                                class="text-sm text-red-600 hover:text-red-700"
-                                @click="quitar(a)"
-                            >
-                                Quitar
-                            </button>
+                        <td class="px-5 py-3">
+                            <div class="flex items-center justify-end gap-2">
+                                <a v-if="a.xml_url" :href="a.xml_url" class="inline-flex items-center gap-1.5 text-sm font-medium" :style="{ color: 'var(--color-acento)' }">
+                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-6L12 15m0 0 4.5-4.5M12 15V3" />
+                                    </svg>
+                                    XML
+                                </a>
+                                <BotonAccion v-else-if="esBorrador" variante="eliminar" solo-icono texto="Quitar del lote" @click="quitar(a)" />
+                            </div>
                         </td>
                     </tr>
                     <tr v-if="alumnos.length === 0">

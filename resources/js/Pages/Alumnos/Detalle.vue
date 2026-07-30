@@ -899,15 +899,7 @@ function verComo(): void {
                             {{ l.folio }}<span v-if="l.nombre"> — {{ l.nombre }}</span>
                         </option>
                     </select>
-                    <button
-                        type="button"
-                        class="rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-                        :style="{ backgroundColor: 'var(--color-acento)' }"
-                        :disabled="agregandoALote"
-                        @click="agregarALote"
-                    >
-                        Agregar
-                    </button>
+                    <BotonPrincipal tipo="button" icono="ninguno" texto="Agregar" :procesando="agregandoALote" @click="agregarALote" />
                     <a href="/certificacion/lotes" class="text-sm" :style="{ color: 'var(--color-suave)' }">o gestionar lotes →</a>
                 </div>
                 <p v-else class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">

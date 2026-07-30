@@ -35,10 +35,12 @@ function crear(): void {
     });
 }
 
-const clasesBadge: Record<string, string> = {
-    gris: 'bg-gray-100 text-gray-700 dark:bg-gray-700/40 dark:text-gray-200',
-    ambar: 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300',
-    verde: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300',
+// Tinte del color (color-mix sobre transparente): mismo criterio que las
+// insignias del resto del sistema, funciona en claro y oscuro.
+const estilosBadge: Record<string, { backgroundColor: string; color: string }> = {
+    gris: { backgroundColor: 'var(--color-borde)', color: 'var(--color-suave)' },
+    ambar: { backgroundColor: 'color-mix(in srgb, #d97706 18%, transparent)', color: '#b45309' },
+    verde: { backgroundColor: 'color-mix(in srgb, #16a34a 18%, transparent)', color: '#15803d' },
 };
 </script>
 
@@ -51,15 +53,7 @@ const clasesBadge: Record<string, string> = {
                 Agrupa alumnos que ya cerraron su plan para certificarlos juntos. Arma el lote, agrégale
                 alumnos, ciérralo y fírmalo con la e.firma del responsable: cada alumno recibe su XML sellado.
             </p>
-            <button
-                v-if="!creando"
-                type="button"
-                class="shrink-0 rounded-lg px-4 py-2 text-sm font-medium text-white"
-                :style="{ backgroundColor: 'var(--color-acento)' }"
-                @click="creando = true"
-            >
-                Nuevo lote
-            </button>
+            <BotonAccion v-if="!creando" variante="nuevo" texto="Nuevo lote" class="shrink-0" @click="creando = true" />
         </div>
 
         <form v-if="creando" class="tarjeta mb-6 p-5" @submit.prevent="crear">
@@ -107,7 +101,7 @@ const clasesBadge: Record<string, string> = {
                         <td class="px-5 py-3 font-mono font-medium">{{ lote.folio }}</td>
                         <td class="px-5 py-3">{{ lote.nombre ?? '—' }}</td>
                         <td class="px-5 py-3">
-                            <span class="rounded-full px-2.5 py-1 text-xs font-medium" :class="clasesBadge[lote.estado_color]">
+                            <span class="rounded-full px-2.5 py-1 text-xs font-medium" :style="estilosBadge[lote.estado_color]">
                                 {{ lote.estado_label }}
                             </span>
                         </td>

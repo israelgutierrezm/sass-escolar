@@ -89,6 +89,7 @@ class PoblarInstitucionDemoSeeder extends Seeder
             'contadores_acta', 'actas',
             'horarios_asignatura_grupo', 'docente_asignatura_grupo', 'tutor_asignatura_grupo',
             'asignatura_grupo', 'grupos',
+            'certificaciones', 'lotes_certificacion',
             'respuestas_campo', 'expedientes', 'matricula_oferta', 'alumnos',
             'documentos_docente', 'titulos_docente', 'campus_docente', 'docentes',
             'aspirantes',
@@ -333,6 +334,7 @@ class PoblarInstitucionDemoSeeder extends Seeder
     {
         $centro = $campus[0]->id;
         $norte = ($campus[1] ?? $campus[0])->id;
+        $rolDocente = DB::table('roles')->where('name', 'docente')->value('id');
 
         // [nombre, ap1, ap2, sexo, tipo_docente_id, campusIds]
         $defs = [
@@ -385,6 +387,9 @@ class PoblarInstitucionDemoSeeder extends Seeder
             ]);
 
             $docente->campus()->sync($campusIds);
+
+            // Cuenta de acceso con rol docente (para «Ver como» y su portal).
+            $this->crearCuenta($persona, $rolDocente, $campusIds[0], 'docente.demo.'.($i + 1));
         }
     }
 
@@ -395,6 +400,33 @@ class PoblarInstitucionDemoSeeder extends Seeder
      *
      * @param  Campus[]  $campus
      */
+    /**
+     * Provisiona la cuenta de acceso de una persona con un rol dado. Así los
+     * alumnos y docentes de la demo SON usuarios y se puede «Ver como» ellos
+     * (alineado con la decisión de que todos los roles entren al sistema).
+     * Idempotente: si ya tiene cuenta, no hace nada.
+     */
+    private function crearCuenta(Persona $persona, ?int $rolId, ?int $campusId, string $usuario): void
+    {
+        if ($rolId === null || Usuario::where('persona_id', $persona->id)->exists()) {
+            return;
+        }
+
+        PersonaRol::firstOrCreate(
+            ['persona_id' => $persona->id, 'rol_id' => $rolId, 'campus_id' => $campusId],
+            ['activo' => true],
+        );
+
+        Usuario::create([
+            'persona_id' => $persona->id,
+            'usuario' => $usuario,
+            'email' => $persona->email,
+            'password' => Hash::make('password'),
+            'acceso_configurado' => true,
+            'rol_activo_id' => $rolId,
+        ]);
+    }
+
     private function crearStaffPorCampus(array $campus): void
     {
         $rolId = DB::table('roles')->where('name', 'administrativo')->value('id');
@@ -444,6 +476,7 @@ class PoblarInstitucionDemoSeeder extends Seeder
 
         $activo = SituacionAlumno::where('clave', 'activo')->value('id');
         $egresado = SituacionAlumno::where('clave', 'egresado')->value('id');
+        $rolAlumno = DB::table('roles')->where('name', 'alumno')->value('id');
 
         $campusIds = Campus::orderBy('id')->pluck('id')->all();
         $centro = $campusIds[0];
@@ -489,6 +522,9 @@ class PoblarInstitucionDemoSeeder extends Seeder
                 'situacion_id' => $activo,
                 'created_at' => now(), 'updated_at' => now(),
             ]);
+
+            // Cuenta de acceso con rol alumno: para poder «Ver como» el alumno.
+            $this->crearCuenta($persona, $rolAlumno, null, 'alumno.demo.'.($i + 1));
 
             $a = $lics[$i % count($lics)];
             $b = $lics[($i + 3) % count($lics)];
