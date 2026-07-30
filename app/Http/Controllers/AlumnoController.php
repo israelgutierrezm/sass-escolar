@@ -298,6 +298,8 @@ class AlumnoController extends Controller
                     'parentesco' => $v->parentesco,
                     'puede_ver_academico' => $v->puede_ver_academico,
                     'puede_ver_finanzas' => $v->puede_ver_finanzas,
+                    // «Ver como» el padre/tutor: solo si tiene cuenta con la que entrar.
+                    'suplantable' => app(Suplantador::class)->datosPara($request, $v->tutor),
                 ]),
             // Datos de facturación del alumno: si quiere factura y a nombre de
             // quién (él mismo o un tercero).

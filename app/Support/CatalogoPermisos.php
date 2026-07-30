@@ -105,6 +105,7 @@ final class CatalogoPermisos
 
         'Familia' => [
             'ver-mis-hijos' => ['Ver a mis hijos', 'Portal del padre o tutor familiar: la información de los alumnos que tiene vinculados.', [self::PADRE]],
+            'ver-tutores' => ['Ver padres y tutores', 'Consultar el directorio de padres y tutores y a qué alumnos están vinculados.', [self::ADMINISTRATIVO]],
         ],
 
         'Docencia' => [

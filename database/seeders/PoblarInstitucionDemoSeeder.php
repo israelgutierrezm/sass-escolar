@@ -17,6 +17,7 @@ use App\Models\ControlEscolar\Docente;
 use App\Models\ControlEscolar\Historial;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\PersonaRol;
+use App\Models\Identidad\TutorAlumno;
 use App\Models\Identidad\Usuario;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -71,6 +72,7 @@ class PoblarInstitucionDemoSeeder extends Seeder
         $carreras = $this->crearCarrerasYPlanes();
         $this->crearOfertas($carreras, $campus);
         $this->crearAlumnos($carreras);
+        $this->crearTutores();
         $this->crearDocentes($campus);
         $this->crearStaffPorCampus($campus);
 
@@ -79,9 +81,11 @@ class PoblarInstitucionDemoSeeder extends Seeder
 
     private function limpiar(): void
     {
-        // IDs de personas que son alumnos o docentes: se purgan con sus cuentas.
+        // IDs de personas que son alumnos, docentes o tutores: se purgan con
+        // sus cuentas (el tutor es una persona más, ligada por tutores_alumno).
         $personasPurgar = DB::table('alumnos')->pluck('persona_id')
             ->merge(DB::table('docentes')->pluck('persona_id'))
+            ->merge(DB::table('tutores_alumno')->pluck('tutor_persona_id'))
             ->unique()->filter()->all();
 
         $tablas = [
@@ -90,6 +94,7 @@ class PoblarInstitucionDemoSeeder extends Seeder
             'horarios_asignatura_grupo', 'docente_asignatura_grupo', 'tutor_asignatura_grupo',
             'asignatura_grupo', 'grupos',
             'certificaciones', 'lotes_certificacion',
+            'tutores_alumno',
             'respuestas_campo', 'expedientes', 'matricula_oferta', 'alumnos',
             'documentos_docente', 'titulos_docente', 'campus_docente', 'docentes',
             'aspirantes',
@@ -425,6 +430,68 @@ class PoblarInstitucionDemoSeeder extends Seeder
             'acceso_configurado' => true,
             'rol_activo_id' => $rolId,
         ]);
+    }
+
+    /**
+     * Unos padres/tutores de ejemplo, cada uno con cuenta (rol padre de familia)
+     * y vinculado a uno o más alumnos. Así el directorio de padres no sale vacío
+     * y se puede «Ver como» ellos. Idempotente por correo.
+     */
+    private function crearTutores(): void
+    {
+        $rolPadre = DB::table('roles')->where('name', 'padre_familia')->value('id');
+        $alumnoPersonaIds = DB::table('alumnos')->pluck('persona_id')->values();
+
+        if ($alumnoPersonaIds->isEmpty()) {
+            return;
+        }
+
+        // [nombre, ap1, ap2, parentesco, cuántos alumnos vincular]
+        $defs = [
+            ['Jorge', 'Ramírez', 'Soto', 'padre', 2],
+            ['Laura', 'Domínguez', 'Vega', 'madre', 1],
+            ['Ernesto', 'Campos', 'Ruiz', 'tutor', 2],
+        ];
+
+        foreach ($defs as $i => [$nom, $ap1, $ap2, $parentesco, $cuantos]) {
+            $email = 'tutor.demo.'.($i + 1).'@escuela.mx';
+
+            if (Persona::query()->where('email', $email)->exists()) {
+                continue;
+            }
+
+            $dob = now()->subYears(42 + $i)->subDays($i * 7);
+            $yy = $dob->format('ymd');
+            $sexo = $parentesco === 'madre' ? 'M' : 'H';
+            $a1 = $this->sinAcentos($ap1);
+            $a2 = $this->sinAcentos($ap2);
+            $no = $this->sinAcentos($nom);
+            $l4 = mb_strtoupper(mb_substr($a1, 0, 2).mb_substr($a2, 0, 1).mb_substr($no, 0, 1));
+            $cons = mb_strtoupper(mb_substr($a1, 2, 1).mb_substr($a2, 2, 1).mb_substr($no, 2, 1));
+
+            $persona = Persona::create([
+                'nombre' => $nom,
+                'primer_apellido' => $ap1,
+                'segundo_apellido' => $ap2,
+                'curp' => $l4.$yy.$sexo.'DF'.$cons.'09',
+                'rfc' => $l4.$yy,
+                'fecha_nacimiento' => $dob->toDateString(),
+                'email' => $email,
+                'celular' => '55'.str_pad((string) random_int(0, 99999999), 8, '0', STR_PAD_LEFT),
+            ]);
+
+            $this->crearCuenta($persona, $rolPadre, null, 'tutor.demo.'.($i + 1));
+
+            foreach ($alumnoPersonaIds->slice($i, $cuantos) as $alumnoPersonaId) {
+                TutorAlumno::create([
+                    'tutor_persona_id' => $persona->id,
+                    'alumno_persona_id' => $alumnoPersonaId,
+                    'parentesco' => $parentesco,
+                    'puede_ver_academico' => true,
+                    'puede_ver_finanzas' => $i === 0,
+                ]);
+            }
+        }
     }
 
     private function crearStaffPorCampus(array $campus): void

@@ -52,6 +52,7 @@ const props = defineProps<{
         parentesco: string;
         puede_ver_academico: boolean;
         puede_ver_finanzas: boolean;
+        suplantable: { usuario_id: number; usuario: string } | null;
     }[];
     facturacion: {
         quiere_factura: boolean;
@@ -526,15 +527,24 @@ function quitarFoto(): void {
  * tiempo mientras dure.
  */
 function verComo(): void {
-    if (!props.suplantable) {
+    entrarComo(props.suplantable);
+}
+
+/** «Ver como» un padre/tutor de la lista (misma bitácora que el alumno). */
+function verComoTutor(suplantable: { usuario_id: number; usuario: string } | null): void {
+    entrarComo(suplantable);
+}
+
+function entrarComo(suplantable: { usuario_id: number; usuario: string } | null): void {
+    if (!suplantable) {
         return;
     }
 
-    if (!confirm(`Vas a entrar como ${props.suplantable.usuario}. Queda registrado quien lo hizo y cuando. Continuar?`)) {
+    if (!confirm(`Vas a entrar como ${suplantable.usuario}. Queda registrado quién lo hizo y cuándo. ¿Continuar?`)) {
         return;
     }
 
-    router.post(`/suplantar/${props.suplantable.usuario_id}`);
+    router.post(`/suplantar/${suplantable.usuario_id}`);
 }
 </script>
 
@@ -1469,8 +1479,20 @@ function verComo(): void {
                                     <span v-if="t.puede_ver_finanzas">Finanzas</span>
                                     <span v-if="!t.puede_ver_academico && !t.puede_ver_finanzas">—</span>
                                 </td>
-                                <td class="px-4 py-3 text-right">
-                                    <BotonAccion v-if="puedeEditar" variante="eliminar" solo-icono @click="desvincularTutor(t.id, t.nombre)" />
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button
+                                            v-if="t.suplantable"
+                                            type="button"
+                                            class="rounded-lg border px-2.5 py-1 text-xs"
+                                            :style="{ borderColor: 'var(--color-borde)' }"
+                                            title="Entrar como este padre/tutor para ver lo que ve. Queda en bitácora."
+                                            @click="verComoTutor(t.suplantable)"
+                                        >
+                                            Ver como
+                                        </button>
+                                        <BotonAccion v-if="puedeEditar" variante="eliminar" solo-icono @click="desvincularTutor(t.id, t.nombre)" />
+                                    </div>
                                 </td>
                             </tr>
                         </tbody>

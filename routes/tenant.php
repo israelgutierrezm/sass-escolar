@@ -48,6 +48,7 @@ use App\Http\Controllers\CorreoConfigController;
 use App\Http\Controllers\FacturacionConfigController;
 use App\Http\Controllers\PasarelaPagoController;
 use App\Http\Controllers\PadreController;
+use App\Http\Controllers\TutorController;
 use App\Http\Controllers\RecuperacionController;
 use App\Http\Controllers\PortalAspiranteController;
 use App\Http\Controllers\PromocionController;
@@ -413,6 +414,15 @@ Route::middleware([
          * Control escolar: ciclos, grupos y la apertura de materias.
          * `ver-grupos` para consultar; `abrir-grupos` para modificar.
          */
+        /*
+         * Directorio de padres y tutores (administración). El VÍNCULO se
+         * administra en el expediente del alumno; aquí es solo el panorama y el
+         * «Ver como». Gated por su propio permiso, no por el de control escolar.
+         */
+        Route::get('/padres-tutores', [TutorController::class, 'index'])
+            ->middleware('can:ver-tutores')
+            ->name('tenant.padres.index');
+
         Route::prefix('escolar')->name('tenant.escolar.')
             ->middleware('can:ver-grupos')
             ->group(function () {

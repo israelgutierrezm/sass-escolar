@@ -18,6 +18,7 @@ use App\Models\Identidad\Persona;
 use App\Services\ConvertidorAspirante;
 use App\Services\IdentidadPersona;
 use App\Services\ProgresoSolicitud;
+use App\Services\Suplantador;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -165,6 +166,8 @@ class AspiranteController extends Controller
                 'validarExpediente' => $request->user()->can('validar-expediente'),
                 'convertir' => $request->user()->can('convertir-aspirante'),
             ],
+            // «Ver como» el aspirante: solo si tiene cuenta con la que entrar.
+            'suplantable' => app(Suplantador::class)->datosPara($request, $aspirante->persona),
         ]);
     }
 

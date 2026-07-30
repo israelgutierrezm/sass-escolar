@@ -27,7 +27,16 @@ const props = defineProps<{
     matricula: { matricula: string; oferta: string | null; fecha_ingreso: string | null } | null;
     impedimentosConversion: string[];
     permisos: { editar: boolean; validarExpediente: boolean; convertir: boolean };
+    suplantable: { usuario_id: number; usuario: string } | null;
 }>();
+
+// «Ver como»: entrar con la cuenta del aspirante para ver lo que ve. Queda en
+// bitácora, y la banda superior lo recuerda mientras dure.
+function verComo(): void {
+    if (!props.suplantable) return;
+    if (!confirm(`Vas a entrar como ${props.suplantable.usuario}. Queda registrado quién lo hizo y cuándo. ¿Continuar?`)) return;
+    router.post(`/suplantar/${props.suplantable.usuario_id}`);
+}
 
 const subiendoPara = ref<number | null>(null);
 
@@ -94,11 +103,23 @@ function convertir(): void {
                 <section class="tarjeta p-6">
                     <div class="flex items-start justify-between">
                         <h2 class="text-base font-semibold text-contenido">Datos personales</h2>
-                        <BotonAccion
-                            v-if="permisos.editar"
-                            variante="editar"
-                            :href="`/aspirantes/${aspirante.id}/editar`"
-                        />
+                        <div class="flex items-center gap-2">
+                            <button
+                                v-if="suplantable"
+                                type="button"
+                                class="rounded-lg border px-3 py-1.5 text-sm"
+                                :style="{ borderColor: 'var(--color-borde)' }"
+                                title="Entrar como este aspirante para ver lo que ve. Queda en bitácora."
+                                @click="verComo"
+                            >
+                                Ver como {{ suplantable.usuario }}
+                            </button>
+                            <BotonAccion
+                                v-if="permisos.editar"
+                                variante="editar"
+                                :href="`/aspirantes/${aspirante.id}/editar`"
+                            />
+                        </div>
                     </div>
 
                     <dl class="mt-4 grid gap-4 sm:grid-cols-3">
