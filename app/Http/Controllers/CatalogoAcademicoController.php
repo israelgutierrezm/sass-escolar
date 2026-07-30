@@ -92,8 +92,8 @@ class CatalogoAcademicoController extends Controller
                 'etiqueta' => 'Turnos',
                 'singular' => 'turno',
                 'grupo' => 'Carreras',
-                'enUso' => fn (int $id) => DB::table('oferta')->whereNull('deleted_at')->where('turno_id', $id)->exists()
-                    || DB::table('grupos')->whereNull('deleted_at')->where('turno_id', $id)->exists(),
+                // El turno se eliminó de la oferta; hoy solo lo usan los grupos.
+                'enUso' => fn (int $id) => DB::table('grupos')->whereNull('deleted_at')->where('turno_id', $id)->exists(),
             ],
             'modalidad' => [
                 'modelo' => Modalidad::class,
