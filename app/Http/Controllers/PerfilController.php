@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\Admisiones\MatriculaOferta;
+use App\Models\ControlEscolar\Inscripcion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -44,7 +46,63 @@ class PerfilController extends Controller
             // El rol activo, informativo: para recordar con qué identidad se
             // está operando mientras se editan los datos personales.
             'rolActivo' => $usuario->rolActivo?->nombre,
+            // «Mis materias»: solo trae algo si la persona es alumno con
+            // inscripciones vigentes. Son las materias abiertas en grupos donde
+            // está inscrito —las que después tendrán actividades en el LMS—.
+            'materias' => $this->misMaterias($usuario->persona_id),
         ]);
+    }
+
+    /**
+     * Materias activas del alumno: sus inscripciones vigentes (no de baja) a
+     * materias abiertas en grupos. Vacío si la persona no es alumno o no tiene
+     * inscripciones. Ordenadas por ciclo (más reciente primero) y materia.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function misMaterias(?int $personaId): array
+    {
+        if ($personaId === null) {
+            return [];
+        }
+
+        $matriculaIds = MatriculaOferta::query()->where('persona_id', $personaId)->pluck('id');
+
+        if ($matriculaIds->isEmpty()) {
+            return [];
+        }
+
+        return Inscripcion::query()
+            ->with([
+                'asignaturaGrupo.planMateria.asignatura:id,nombre',
+                'asignaturaGrupo.grupo:id,clave,ciclo_id',
+                'asignaturaGrupo.grupo.ciclo:id,clave,nombre',
+                'asignaturaGrupo.docentes.persona',
+                'situacion:id,clave,nombre',
+                'tipoEvaluacion:id,nombre',
+            ])
+            ->whereIn('matricula_oferta_id', $matriculaIds)
+            ->whereHas('situacion', fn ($q) => $q->where('clave', '!=', 'baja'))
+            ->get()
+            ->map(function (Inscripcion $i) {
+                $ag = $i->asignaturaGrupo;
+                $titular = $ag?->docentes->firstWhere('pivot.tipo', 'titular');
+
+                return [
+                    'id' => $i->id,
+                    'materia' => $ag?->planMateria?->asignatura?->nombre,
+                    'clave_en_plan' => $ag?->planMateria?->clave_en_plan,
+                    'grupo' => $ag?->grupo?->clave,
+                    'ciclo' => $ag?->grupo?->ciclo?->clave,
+                    'ciclo_nombre' => $ag?->grupo?->ciclo?->nombre,
+                    'docente' => $titular?->persona?->nombreCompleto(),
+                    'tipo_evaluacion' => $i->tipoEvaluacion?->nombre,
+                    'situacion' => $i->situacion?->nombre,
+                ];
+            })
+            ->sortByDesc('ciclo')
+            ->values()
+            ->all();
     }
 
     /**

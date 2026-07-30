@@ -16,9 +16,22 @@ interface Perfil {
     persona_id: number;
 }
 
+interface Materia {
+    id: number;
+    materia: string | null;
+    clave_en_plan: string | null;
+    grupo: string | null;
+    ciclo: string | null;
+    ciclo_nombre: string | null;
+    docente: string | null;
+    tipo_evaluacion: string | null;
+    situacion: string | null;
+}
+
 const props = defineProps<{
     perfil: Perfil;
     rolActivo: string | null;
+    materias: Materia[];
 }>();
 
 const datos = useForm({
@@ -83,6 +96,39 @@ const iniciales = (props.perfil.nombre ?? props.perfil.usuario)
     <Head title="Mi perfil" />
 
     <AppLayout titulo="Mi perfil">
+        <!-- Mis materias: solo para alumnos con inscripciones vigentes. Son las
+             materias abiertas en grupos donde está inscrito; después traerán
+             actividades en el LMS. -->
+        <section v-if="materias.length" class="tarjeta mb-6 overflow-hidden">
+            <div class="flex items-center justify-between border-b border-borde px-6 py-3">
+                <h2 class="text-base font-semibold">Mis materias</h2>
+                <span class="text-xs" :style="{ color: 'var(--color-suave)' }">{{ materias.length }} activa(s)</span>
+            </div>
+            <ul class="divide-y divide-borde">
+                <li v-for="m in materias" :key="m.id" class="flex flex-wrap items-start justify-between gap-3 px-6 py-4">
+                    <div>
+                        <p class="text-sm font-medium">
+                            <span class="font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ m.clave_en_plan }}</span>
+                            · {{ m.materia }}
+                        </p>
+                        <p class="mt-0.5 text-xs" :style="{ color: 'var(--color-suave)' }">
+                            <span v-if="m.grupo">Grupo {{ m.grupo }}</span>
+                            <span v-if="m.ciclo"> · Ciclo {{ m.ciclo }}</span>
+                            <span v-if="m.docente"> · {{ m.docente }}</span>
+                            <span v-else> · sin docente asignado</span>
+                        </p>
+                    </div>
+                    <span
+                        v-if="m.tipo_evaluacion && !/ordinaria/i.test(m.tipo_evaluacion)"
+                        class="shrink-0 rounded-full px-2 py-1 text-xs"
+                        :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }"
+                    >
+                        {{ m.tipo_evaluacion }}
+                    </span>
+                </li>
+            </ul>
+        </section>
+
         <div class="grid gap-6 lg:grid-cols-3">
             <!-- Identidad + foto -->
             <section class="tarjeta p-6 lg:col-span-1">
