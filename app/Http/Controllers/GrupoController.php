@@ -49,9 +49,14 @@ class GrupoController extends Controller
             'situacion_id' => $request->query('situacion_id'),
         ];
 
+        // Alcance por campus del rol: un administrativo de un solo campus solo ve
+        // los grupos de ese campus. Vacío = global.
+        $campusVisibles = $request->user()->campusDelRolActivo();
+
         $grupos = Grupo::query()
             ->with(['ciclo:id,clave,nombre', 'campus:id,nombre', 'plan:id,nombre', 'turno:id,nombre', 'situacion:id,nombre'])
             ->withCount('asignaturas')
+            ->when($campusVisibles !== [], fn ($q) => $q->whereIn('campus_id', $campusVisibles))
             ->when($filtros['busqueda'] !== '', function ($query) use ($filtros) {
                 $termino = "%{$filtros['busqueda']}%";
 
@@ -86,7 +91,9 @@ class GrupoController extends Controller
             // se muestra la clave y así el filtro habla el mismo idioma.
             'ciclos' => Ciclo::query()->orderByDesc('id')->get(['id', 'clave', 'nombre'])
                 ->map(fn (Ciclo $ciclo) => ['id' => $ciclo->id, 'nombre' => $ciclo->clave]),
-            'campus' => Campus::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'campus' => Campus::query()
+                ->when($campusVisibles !== [], fn ($q) => $q->whereIn('id', $campusVisibles))
+                ->orderBy('nombre')->get(['id', 'nombre']),
             'planes' => PlanEstudio::query()->orderBy('nombre')->get(['id', 'nombre']),
             'turnos' => Turno::query()->orderBy('id')->get(['id', 'nombre']),
             'situaciones' => SituacionGrupo::query()->orderBy('id')->get(['id', 'nombre']),

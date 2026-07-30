@@ -146,18 +146,23 @@ class InscripcionController extends Controller
     public function masiva(Request $request): Response
     {
         $ciclo = $this->cicloSeleccionado($request);
+        // Alcance por campus del rol: solo grupos del/los campus del usuario.
+        $campusVisibles = $request->user()->campusDelRolActivo();
 
         $grupo = $request->query('grupo_id') === null
             ? null
             : Grupo::query()
                 ->with(['plan:id,nombre', 'ciclo:id,clave', 'asignaturas.planMateria.asignatura:id,nombre'])
+                ->when($campusVisibles !== [], fn ($q) => $q->whereIn('campus_id', $campusVisibles))
                 ->find($request->query('grupo_id'));
 
         return Inertia::render('ControlEscolar/Inscripciones/Masiva', [
             'ciclos' => Ciclo::query()->orderByDesc('fecha_inicio')->get(['id', 'clave', 'nombre'])
                 ->map(fn (Ciclo $c) => ['id' => $c->id, 'etiqueta' => "{$c->clave} — {$c->nombre}"]),
             'grupos' => $ciclo === null ? [] : Grupo::query()->with('plan:id,nombre')
-                ->where('ciclo_id', $ciclo->id)->orderBy('clave')->get()
+                ->where('ciclo_id', $ciclo->id)
+                ->when($campusVisibles !== [], fn ($q) => $q->whereIn('campus_id', $campusVisibles))
+                ->orderBy('clave')->get()
                 ->map(fn (Grupo $g) => ['id' => $g->id, 'etiqueta' => trim($g->clave.' · '.($g->plan?->nombre ?? 'sin plan'))]),
             'seleccion' => ['ciclo_id' => $ciclo?->id, 'grupo_id' => $grupo?->id],
             'grupo' => $grupo === null ? null : $this->datosGrupoMasiva($grupo),

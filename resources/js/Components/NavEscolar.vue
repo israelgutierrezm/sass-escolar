@@ -23,7 +23,6 @@ const props = withDefaults(
         secciones: () => [
             { etiqueta: 'Ciclos', url: '/escolar/ciclos', permiso: 'ver-grupos' },
             { etiqueta: 'Grupos', url: '/escolar/grupos', permiso: 'abrir-grupos' },
-            { etiqueta: 'Inscripciones', url: '/escolar/inscripciones', permiso: 'inscribir-alumnos' },
         ],
     },
 );

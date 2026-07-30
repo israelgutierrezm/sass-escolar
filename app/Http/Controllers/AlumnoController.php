@@ -887,7 +887,9 @@ class AlumnoController extends Controller
         return Inscripcion::query()
             ->with([
                 'asignaturaGrupo.planMateria.asignatura:id,nombre',
-                'asignaturaGrupo.grupo:id,clave',
+                'asignaturaGrupo.grupo:id,clave,campus_id',
+                'asignaturaGrupo.grupo.campus:id,nombre',
+                'asignaturaGrupo.docentes.persona',
                 'ciclo:id,clave,nombre,fecha_inicio',
                 'situacion:id,clave,nombre',
             ])
@@ -896,16 +898,23 @@ class AlumnoController extends Controller
             ->groupBy(fn (Inscripcion $i) => $i->ciclo?->clave ?? 'sin ciclo')
             ->map(fn ($inscripciones, $clave) => [
                 'ciclo' => $clave,
-                'materias' => $inscripciones->map(fn (Inscripcion $i) => [
-                    'id' => $i->id,
-                    'clave_en_plan' => $i->asignaturaGrupo?->planMateria?->clave_en_plan,
-                    'materia' => $i->asignaturaGrupo?->planMateria?->asignatura?->nombre,
-                    'grupo' => $i->asignaturaGrupo?->grupo?->clave,
-                    'tipo' => $i->tipo,
-                    'situacion' => $i->situacion?->nombre,
-                    'de_baja' => $i->situacion?->clave === 'baja',
-                    'calificacion_final' => $i->calificacion_final,
-                ])->values(),
+                'ciclo_nombre' => $inscripciones->first()->ciclo?->nombre,
+                'materias' => $inscripciones->map(function (Inscripcion $i) {
+                    $titular = $i->asignaturaGrupo?->docentes->firstWhere('pivot.tipo', 'titular');
+
+                    return [
+                        'id' => $i->id,
+                        'clave_en_plan' => $i->asignaturaGrupo?->planMateria?->clave_en_plan,
+                        'materia' => $i->asignaturaGrupo?->planMateria?->asignatura?->nombre,
+                        'grupo' => $i->asignaturaGrupo?->grupo?->clave,
+                        'campus' => $i->asignaturaGrupo?->grupo?->campus?->nombre,
+                        'docente' => $titular?->persona?->nombreCompleto(),
+                        'tipo' => $i->tipo,
+                        'situacion' => $i->situacion?->nombre,
+                        'de_baja' => $i->situacion?->clave === 'baja',
+                        'calificacion_final' => $i->calificacion_final,
+                    ];
+                })->values(),
             ])
             ->sortByDesc('ciclo')
             ->values()

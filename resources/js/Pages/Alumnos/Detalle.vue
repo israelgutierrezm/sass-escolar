@@ -88,6 +88,12 @@ const props = defineProps<{
 
 const pestana = ref<'kardex' | 'carga' | 'carreras' | 'tutores' | 'facturacion' | 'datos'>('kardex');
 
+// Alternar la carrera en foco: navega al detalle de esa matrícula (misma
+// persona, otra carrera). Todo lo académico se recarga para la elegida.
+function cambiarCarrera(id: string | number): void {
+    router.get(`/escolar/alumnos/${id}`);
+}
+
 /* Carga manual al historial (equivalencias, revalidaciones, kárdex histórico) */
 const mostrarCargaHistorial = ref(false);
 const opciones = (lista: { id: number; nombre: string }[]) => lista.map((x) => ({ valor: x.id, texto: x.nombre }));
@@ -431,7 +437,6 @@ function verComo(): void {
         <NavEscolar
             :secciones="[
                 { etiqueta: 'Listado', url: '/escolar/alumnos', permiso: 'ver-alumnos' },
-                { etiqueta: 'Inscripciones', url: '/escolar/inscripciones', permiso: 'inscribir-alumnos' },
             ]"
         />
 
@@ -480,42 +485,51 @@ function verComo(): void {
                 </div>
 
                 <div>
-                    <p class="font-mono text-sm" :style="{ color: 'var(--color-suave)' }">{{ alumno.matricula }}</p>
                     <h2 class="text-lg font-semibold">
                         {{ [persona.nombre, persona.primer_apellido, persona.segundo_apellido].filter(Boolean).join(' ') }}
                     </h2>
                     <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                        {{ alumno.carrera }}
-                        <span v-if="alumno.plan"> · {{ alumno.plan }}</span>
-                        <span v-if="alumno.campus"> · {{ alumno.campus }}</span>
-                    </p>
-                    <p class="mt-1 text-sm">
-                        <span class="rounded-full px-2 py-0.5 text-xs capitalize" style="background-color: color-mix(in srgb, #16a34a 14%, transparent)">
-                            {{ alumno.estatus }}
-                        </span>
-                        <span class="ml-2" :style="{ color: 'var(--color-suave)' }">{{ alumno.situacion }}</span>
-                        <span v-if="alumno.generacion" :style="{ color: 'var(--color-suave)' }"> · generación {{ alumno.generacion }}</span>
-                        <span v-if="alumno.fecha_ingreso" :style="{ color: 'var(--color-suave)' }"> · ingresó {{ alumno.fecha_ingreso }}</span>
+                        <span v-if="persona.curp" class="font-mono">{{ persona.curp }}</span>
+                        <span v-if="carreras.length > 1"> · {{ carreras.length }} carreras</span>
                     </p>
                 </div>
                 <a href="/escolar/alumnos" class="text-sm" :style="{ color: 'var(--color-acento)' }">← Alumnos</a>
             </div>
 
-            <!-- La misma persona puede cursar varias carreras -->
-            <p v-if="carreras.length > 1" class="mt-4 border-t pt-4 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
-                <span :style="{ color: 'var(--color-suave)' }">
-                    Esta persona tiene {{ carreras.length }} carreras:
-                </span>
-                <a
-                    v-for="otra in carreras.filter((c) => !c.es_actual)"
-                    :key="otra.id"
-                    :href="`/escolar/alumnos/${otra.id}`"
-                    class="ml-2"
-                    :style="{ color: 'var(--color-acento)' }"
-                >
-                    {{ otra.carrera }} ({{ otra.matricula }})
-                </a>
-            </p>
+            <!-- Carrera en foco: el select alterna entre las carreras de la
+                 persona y todo lo académico de abajo refleja la elegida. -->
+            <div class="mt-4 border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">
+                <div class="flex flex-wrap items-center gap-3">
+                    <label class="text-sm font-medium">Carrera</label>
+                    <select
+                        v-if="carreras.length > 1"
+                        :value="alumno.id"
+                        class="rounded-lg border px-3 py-1.5 text-sm"
+                        :style="{ borderColor: 'var(--color-borde)' }"
+                        @change="cambiarCarrera(($event.target as HTMLSelectElement).value)"
+                    >
+                        <option v-for="c in carreras" :key="c.id" :value="c.id">
+                            {{ c.carrera }} · {{ c.campus }} ({{ c.estatus }})
+                        </option>
+                    </select>
+                    <span v-else class="text-sm font-medium">{{ alumno.carrera }}</span>
+                </div>
+
+                <p class="mt-2 text-sm" :style="{ color: 'var(--color-suave)' }">
+                    <span class="font-mono">{{ alumno.matricula }}</span>
+                    <span v-if="alumno.plan"> · {{ alumno.plan }}</span>
+                    <span v-if="alumno.campus"> · {{ alumno.campus }}</span>
+                    <span
+                        class="ml-2 rounded-full px-2 py-0.5 text-xs capitalize"
+                        style="background-color: color-mix(in srgb, #16a34a 14%, transparent); color: #166534"
+                    >
+                        {{ alumno.estatus }}
+                    </span>
+                    <span class="ml-1">{{ alumno.situacion }}</span>
+                    <span v-if="alumno.generacion"> · generación {{ alumno.generacion }}</span>
+                    <span v-if="alumno.fecha_ingreso"> · ingresó {{ alumno.fecha_ingreso }}</span>
+                </p>
+            </div>
 
             <!-- «Ver como alumno»: entrar con su cuenta para ver lo que ve.
                  Abajo a la derecha del recuadro; queda en bitácora. -->
@@ -807,23 +821,31 @@ function verComo(): void {
         <!-- Carga por ciclo -->
         <section v-else-if="pestana === 'carga'" class="space-y-4">
             <article v-for="bloque in carga" :key="bloque.ciclo" class="tarjeta overflow-hidden">
-                <div class="border-b px-6 py-3" :style="{ borderColor: 'var(--color-borde)' }">
-                    <h3 class="text-sm font-semibold">Ciclo {{ bloque.ciclo }} ({{ bloque.materias.length }} materias)</h3>
+                <div class="flex items-center justify-between gap-3 border-b px-6 py-3" :style="{ borderColor: 'var(--color-borde)' }">
+                    <h3 class="text-sm font-semibold">
+                        Ciclo {{ bloque.ciclo }}
+                        <span v-if="bloque.ciclo_nombre" class="font-normal" :style="{ color: 'var(--color-suave)' }"> · {{ bloque.ciclo_nombre }}</span>
+                    </h3>
+                    <span class="text-xs" :style="{ color: 'var(--color-suave)' }">{{ bloque.materias.length }} materia(s)</span>
                 </div>
                 <ul>
                     <li
                         v-for="materia in bloque.materias"
                         :key="materia.id"
-                        class="flex flex-wrap items-center justify-between gap-3 border-t px-6 py-2 text-sm"
+                        class="flex flex-wrap items-start justify-between gap-3 border-t px-6 py-3 text-sm"
                         :class="materia.de_baja ? 'opacity-50' : ''"
                         :style="{ borderColor: 'var(--color-borde)' }"
                     >
-                        <span>
+                        <span class="min-w-0">
                             <span class="font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ materia.clave_en_plan }}</span>
                             · {{ materia.materia }}
-                            <span class="text-xs" :style="{ color: 'var(--color-suave)' }">grupo {{ materia.grupo }}</span>
+                            <span class="mt-0.5 block text-xs" :style="{ color: 'var(--color-suave)' }">
+                                Grupo {{ materia.grupo ?? '—' }}
+                                <span v-if="materia.campus"> · {{ materia.campus }}</span>
+                                <span v-if="materia.docente"> · {{ materia.docente }}</span>
+                            </span>
                         </span>
-                        <span class="flex items-center gap-3">
+                        <span class="flex shrink-0 items-center gap-3">
                             <span
                                 v-if="materia.tipo === 'recursamiento'"
                                 class="rounded-full px-2 py-0.5 text-xs"

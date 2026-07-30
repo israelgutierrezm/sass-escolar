@@ -72,7 +72,6 @@ const colorEstatus: Record<string, string> = {
         <NavEscolar
             :secciones="[
                 { etiqueta: 'Listado', url: '/escolar/alumnos', permiso: 'ver-alumnos' },
-                { etiqueta: 'Inscripciones', url: '/escolar/inscripciones', permiso: 'inscribir-alumnos' },
             ]"
         />
 
