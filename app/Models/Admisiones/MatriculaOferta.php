@@ -71,4 +71,10 @@ class MatriculaOferta extends Model
     {
         return $this->hasMany(RespuestaCampo::class, 'matricula_oferta_id');
     }
+
+    /** Sus certificaciones (renglones de lote). Emitida, pendiente o en error. */
+    public function certificaciones(): HasMany
+    {
+        return $this->hasMany(\App\Models\Emision\Certificacion::class, 'matricula_oferta_id');
+    }
 }

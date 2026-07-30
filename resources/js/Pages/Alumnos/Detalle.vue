@@ -81,6 +81,16 @@ const props = defineProps<{
     observacionesAsignatura: { id: number; nombre: string; abreviatura: string | null }[];
     ciclos: { id: number; clave: string }[];
     puedeCargarHistorial: boolean;
+    certificacion: {
+        estado: string;
+        folio: string | null;
+        lote_id: number | null;
+        lote_folio: string | null;
+        fecha: string | null;
+        xml_url: string | null;
+    } | null;
+    lotesAbiertos: { id: number; folio: string; nombre: string | null }[];
+    puedeCertificar: boolean;
     situaciones: { id: number; nombre: string }[];
     generos: { id: number; nombre: string }[];
     entidades: { id: number; nombre: string }[];
@@ -91,6 +101,21 @@ const props = defineProps<{
 }>();
 
 const pestana = ref<'kardex' | 'carga' | 'carreras' | 'tutores' | 'facturacion' | 'datos'>('kardex');
+
+// ── Certificación desde el expediente ─────────────────────────────────────
+const loteElegido = ref<number | null>(props.lotesAbiertos[0]?.id ?? null);
+const agregandoALote = ref(false);
+
+function agregarALote(): void {
+    if (loteElegido.value === null) return;
+    agregandoALote.value = true;
+    router.post(`/certificacion/lotes/${loteElegido.value}/alumnos`, {
+        matricula_oferta_ids: [props.alumno.id],
+    }, {
+        preserveScroll: true,
+        onFinish: () => { agregandoALote.value = false; },
+    });
+}
 
 // Alternar la carrera en foco: navega al detalle de esa matrícula (misma
 // persona, otra carrera). Todo lo académico se recarga para la elegida.
@@ -820,6 +845,74 @@ function verComo(): void {
                         {{ resumen.aprobadas }} / {{ resumen.materias_para_completar }} materias del plan aprobadas
                     </p>
                 </div>
+            </div>
+
+            <!-- Estado de certificación de esta matrícula -->
+            <!-- Ya tiene certificado emitido: descargar su XML sellado. -->
+            <div
+                v-if="certificacion && certificacion.estado === 'certificado'"
+                class="mt-3 flex flex-wrap items-center gap-3 rounded-lg border px-4 py-2.5"
+                :style="{ borderColor: '#16a34a', backgroundColor: 'color-mix(in srgb, #16a34a 8%, transparent)' }"
+            >
+                <span class="grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm font-bold text-white" :style="{ backgroundColor: '#16a34a' }">✓</span>
+                <div>
+                    <p class="text-sm font-medium" :style="{ color: '#16a34a' }">Certificado emitido</p>
+                    <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                        Folio {{ certificacion.folio }} · Lote {{ certificacion.lote_folio }}<span v-if="certificacion.fecha"> · {{ certificacion.fecha }}</span>
+                    </p>
+                </div>
+                <a v-if="certificacion.xml_url" :href="certificacion.xml_url" class="ml-auto text-sm font-medium" :style="{ color: 'var(--color-acento)' }">
+                    Descargar XML
+                </a>
+            </div>
+
+            <!-- Está en un lote pero aún sin firmar. -->
+            <div
+                v-else-if="certificacion"
+                class="mt-3 flex flex-wrap items-center gap-3 rounded-lg border px-4 py-2.5"
+                :style="{ borderColor: 'var(--color-borde)' }"
+            >
+                <span class="grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm font-bold text-white" :style="{ backgroundColor: 'var(--color-suave)' }">…</span>
+                <div>
+                    <p class="text-sm font-medium">En espera de firma</p>
+                    <p class="text-xs" :style="{ color: 'var(--color-suave)' }">Agregado al lote {{ certificacion.lote_folio }}</p>
+                </div>
+                <a v-if="puedeCertificar && certificacion.lote_id" :href="`/certificacion/lotes/${certificacion.lote_id}`" class="ml-auto text-sm font-medium" :style="{ color: 'var(--color-acento)' }">
+                    Ver lote
+                </a>
+            </div>
+
+            <!-- No está en ningún lote y ya cerró el plan: se puede agregar a uno. -->
+            <div
+                v-else-if="resumen.disponible_certificar && puedeCertificar"
+                class="mt-3 rounded-lg border px-4 py-3"
+                :style="{ borderColor: 'var(--color-borde)' }"
+            >
+                <p class="text-sm font-medium">Agregar a un lote de certificación</p>
+                <div v-if="lotesAbiertos.length" class="mt-2 flex flex-wrap items-end gap-2">
+                    <select
+                        v-model="loteElegido"
+                        class="rounded-lg border px-3 py-2 text-sm"
+                        :style="{ borderColor: 'var(--color-borde)', backgroundColor: 'var(--color-superficie)' }"
+                    >
+                        <option v-for="l in lotesAbiertos" :key="l.id" :value="l.id">
+                            {{ l.folio }}<span v-if="l.nombre"> — {{ l.nombre }}</span>
+                        </option>
+                    </select>
+                    <button
+                        type="button"
+                        class="rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                        :style="{ backgroundColor: 'var(--color-acento)' }"
+                        :disabled="agregandoALote"
+                        @click="agregarALote"
+                    >
+                        Agregar
+                    </button>
+                    <a href="/certificacion/lotes" class="text-sm" :style="{ color: 'var(--color-suave)' }">o gestionar lotes →</a>
+                </div>
+                <p v-else class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">
+                    No hay lotes abiertos. <a href="/certificacion/lotes" :style="{ color: 'var(--color-acento)' }">Crea uno</a> para certificar a este alumno.
+                </p>
             </div>
         </section>
 

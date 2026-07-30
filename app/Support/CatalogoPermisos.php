@@ -131,6 +131,7 @@ final class CatalogoPermisos
         'Certificación y titulación' => [
             'gestionar-certificacion' => ['Certificación electrónica', 'Administrar la configuración de la certificación: responsables que firman y sus catálogos.', [self::ADMINISTRATIVO]],
             'gestionar-titulacion' => ['Titulación electrónica', 'Administrar la configuración de la titulación: responsables que firman y sus catálogos.', [self::ADMINISTRATIVO]],
+            'certificar-alumnos' => ['Certificar alumnos', 'Armar lotes de certificación, agregar alumnos que ya cerraron su plan y firmar sus certificados. Descargar el XML sellado.', [self::ADMINISTRATIVO]],
         ],
 
         'Plataforma' => [

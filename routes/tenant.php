@@ -20,6 +20,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocenciaController;
 use App\Http\Controllers\DocenteController;
 use App\Http\Controllers\DocumentoRequeridoController;
+use App\Http\Controllers\Emision\LoteCertificacionController;
 use App\Http\Controllers\Emision\ResponsableController;
 use App\Http\Controllers\Emision\TituloProfesionalController;
 use App\Http\Controllers\EmisorFiscalController;
@@ -896,5 +897,32 @@ Route::middleware([
                         });
                 });
         }
+
+        /*
+         * Lotes de certificación: el flujo operativo (no la configuración). Se
+         * arma un bloque de alumnos, se cierra y lo firma el responsable. Sólo
+         * certificación por ahora; titulación reusará este patrón.
+         */
+        Route::controller(LoteCertificacionController::class)
+            ->prefix('certificacion/lotes')->name('tenant.certificacion.lotes.')
+            ->middleware('can:certificar-alumnos')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'store')->name('store');
+                Route::get('/candidatos', 'candidatos')->name('candidatos');
+                Route::get('/{lote}', 'show')->whereNumber('lote')->name('show');
+                Route::post('/{lote}/alumnos', 'agregar')->whereNumber('lote')->name('alumnos.store');
+                Route::delete('/{lote}/alumnos/{certificacion}', 'quitar')->whereNumber('lote')->whereNumber('certificacion')->name('alumnos.destroy');
+                Route::put('/{lote}/cerrar', 'cerrar')->whereNumber('lote')->name('cerrar');
+                Route::put('/{lote}/reabrir', 'reabrir')->whereNumber('lote')->name('reabrir');
+                Route::post('/{lote}/firmar', 'firmar')->whereNumber('lote')->name('firmar');
+                Route::delete('/{lote}', 'destroy')->whereNumber('lote')->name('destroy');
+            });
+
+        // Descarga del XML sellado de un alumno (desde el lote o el expediente).
+        Route::get('certificacion/certificaciones/{certificacion}/xml', [LoteCertificacionController::class, 'xml'])
+            ->whereNumber('certificacion')
+            ->middleware('can:certificar-alumnos')
+            ->name('tenant.certificacion.certificaciones.xml');
     });
 });

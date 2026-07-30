@@ -10,6 +10,8 @@ use App\Models\Academico\Oferta;
 use App\Models\Academico\PlanMateria;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\SituacionAlumno;
+use App\Models\Emision\LoteCertificacion;
+use App\Services\EstadoCertificacion;
 use App\Models\ControlEscolar\Ciclo;
 use App\Models\ControlEscolar\EstatusHistorial;
 use App\Models\ControlEscolar\Historial;
@@ -385,6 +387,15 @@ class AlumnoController extends Controller
                 // Cerró el plan: aprobó al menos las materias que exige.
                 'disponible_certificar' => $metaMaterias > 0 && $aprobadas->count() >= $metaMaterias,
             ],
+            // Estado de certificación de ESTA matrícula: si ya tiene certificado
+            // emitido (con su XML), o está pendiente dentro de un lote. Más los
+            // lotes abiertos a los que se le puede agregar desde el expediente.
+            'certificacion' => $this->certificacionDe($alumno->id),
+            'lotesAbiertos' => $request->user()->can('certificar-alumnos')
+                ? LoteCertificacion::abiertos()->orderByDesc('id')->get(['id', 'folio', 'nombre'])
+                    ->map(fn (LoteCertificacion $l) => ['id' => $l->id, 'folio' => $l->folio, 'nombre' => $l->nombre])
+                : [],
+            'puedeCertificar' => $request->user()->can('certificar-alumnos'),
             // Nombre real del periodo del plan (Semestre, Cuatrimestre…), para
             // titular los bloques del kárdex agrupado.
             'unidadPeriodo' => $alumno->oferta?->plan?->unidadPeriodo() ?? 'Periodo',
@@ -972,6 +983,33 @@ class AlumnoController extends Controller
      * Promedio de lo calificado. Solo cuenta lo que tiene número: una materia
      * en curso no promedia como cero.
      */
+    /**
+     * Estado de certificación de una matrícula para el expediente: null si nunca
+     * ha entrado a un lote; si no, su estado, el lote y —si ya está certificado—
+     * la ruta de descarga del XML sellado.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function certificacionDe(int $matriculaId): ?array
+    {
+        $cert = app(EstadoCertificacion::class)->certificacionVigente($matriculaId);
+
+        if ($cert === null) {
+            return null;
+        }
+
+        return [
+            'estado' => $cert->estado,
+            'folio' => $cert->folio,
+            'lote_id' => $cert->lote_id,
+            'lote_folio' => $cert->lote?->folio,
+            'fecha' => $cert->fecha_certificacion?->format('d/m/Y'),
+            'xml_url' => $cert->estaCertificado()
+                ? route('tenant.certificacion.certificaciones.xml', $cert)
+                : null,
+        ];
+    }
+
     private function promedio($historial): ?float
     {
         $conCalificacion = $historial->filter(fn (Historial $h) => $h->calificacion !== null);
