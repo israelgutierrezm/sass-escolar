@@ -10,6 +10,8 @@ use App\Models\Academico\ClasificacionAsignatura;
 use App\Models\Academico\Descriptor;
 use App\Models\Academico\Modalidad;
 use App\Models\Academico\NivelEstudio;
+use App\Models\Academico\TipoAsignatura;
+use App\Models\Academico\TipoPeriodo;
 use App\Models\Academico\Turno;
 use App\Models\Landlord\EntidadFederativa;
 use App\Models\Landlord\IdentidadFederativa;
@@ -86,6 +88,24 @@ class CatalogoAcademicoController extends Controller
                 'singular' => 'nivel',
                 'grupo' => 'Carreras',
                 'enUso' => fn (int $id) => DB::table('carreras')->whereNull('deleted_at')->where('nivel_estudios_id', $id)->exists(),
+                // Identificador oficial (SEP) que viaja en el certificado electrónico.
+                'extras' => ['identificador' => ['tipo' => 'texto', 'etiqueta' => 'Identificador']],
+            ],
+            'tipoperiodo' => [
+                'modelo' => TipoPeriodo::class,
+                'etiqueta' => 'Tipos de periodo',
+                'singular' => 'tipo de periodo',
+                'grupo' => 'Plan de estudios',
+                'enUso' => fn (int $id) => DB::table('planes_estudio')->whereNull('deleted_at')->where('tipo_periodo_id', $id)->exists(),
+                'extras' => ['identificador' => ['tipo' => 'texto', 'etiqueta' => 'Identificador']],
+            ],
+            'tipoasignatura' => [
+                'modelo' => TipoAsignatura::class,
+                'etiqueta' => 'Tipos de asignatura',
+                'singular' => 'tipo de asignatura',
+                'grupo' => 'Asignaturas',
+                'enUso' => fn (int $id) => DB::table('plan_materias')->whereNull('deleted_at')->where('tipo_asignatura_id', $id)->exists(),
+                'extras' => ['identificador' => ['tipo' => 'texto', 'etiqueta' => 'Identificador']],
             ],
             'turno' => [
                 'modelo' => Turno::class,

@@ -18,6 +18,7 @@ const esEdicion = computed(() => props.campus !== null);
 
 const form = useForm({
     clave: props.campus?.clave ?? '',
+    identificador: props.campus?.identificador ?? '',
     nombre: props.campus?.nombre ?? '',
     // Si solo hay una institución, se preselecciona: con una sola no hay
     // decisión que tomar y obligar a elegirla es un clic vacío.
@@ -44,6 +45,7 @@ function enviar(): void {
         <form class="max-w-3xl space-y-6" @submit.prevent="enviar">
             <section class="tarjeta grid gap-4 p-6 sm:grid-cols-2">
                 <CampoTexto v-model="form.clave" etiqueta="Clave" requerido :error="form.errors.clave" mono />
+                <CampoTexto v-model="form.identificador" etiqueta="Identificador" :error="form.errors.identificador" mono ayuda="Identificador oficial del campus para el certificado electrónico." />
                 <CampoTexto v-model="form.nombre" etiqueta="Nombre" requerido :error="form.errors.nombre" />
                 <CampoSelect
                     v-model="form.tipo_campus_id"

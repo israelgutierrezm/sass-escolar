@@ -14,6 +14,7 @@ interface Item {
     protegido?: boolean;
     color?: string | null;
     clave_sat?: string | null;
+    identificador?: string | null;
 }
 
 interface Extra {
@@ -74,14 +75,20 @@ function tieneColor(catalogo: Catalogo): boolean {
     return !!catalogo.extras?.color;
 }
 
-// Un borrador de alta por catálogo (clave + nombre + color cuando aplica), y
-// cuál se está editando.
-const nuevos = reactive<Record<string, { clave: string; nombre: string; color: string }>>(
-    Object.fromEntries(props.catalogos.map((c) => [c.clave, { clave: '', nombre: '', color: pastelAleatorio() }])),
+// Identificador oficial (SEP): campo de texto opcional en algunos catálogos
+// (nivel, tipo de periodo, tipo de asignatura) para el certificado electrónico.
+function tieneIdentificador(catalogo: Catalogo): boolean {
+    return !!catalogo.extras?.identificador;
+}
+
+// Un borrador de alta por catálogo (clave + nombre + color/identificador cuando
+// aplica), y cuál se está editando.
+const nuevos = reactive<Record<string, { clave: string; nombre: string; color: string; identificador: string }>>(
+    Object.fromEntries(props.catalogos.map((c) => [c.clave, { clave: '', nombre: '', color: pastelAleatorio(), identificador: '' }])),
 );
 
 const editando = ref<{ catalogo: string; id: number } | null>(null);
-const edicion = reactive({ clave: '', nombre: '', color: '#CCCCCC' });
+const edicion = reactive({ clave: '', nombre: '', color: '#CCCCCC', identificador: '' });
 
 // Qué catálogos tienen abierto su formulario de alta. Es por catálogo
 // (independiente) para no llenar la pantalla de campos que casi nunca se usan:
@@ -114,12 +121,16 @@ function agregar(catalogo: Catalogo): void {
     if (tieneColor(catalogo)) {
         carga.color = borrador.color;
     }
+    if (tieneIdentificador(catalogo)) {
+        carga.identificador = borrador.identificador;
+    }
 
     router.post(`/academico/catalogos/${catalogo.clave}`, carga, {
         preserveScroll: true,
         onSuccess: () => {
             borrador.clave = '';
             borrador.nombre = '';
+            borrador.identificador = '';
             borrador.color = pastelAleatorio();
             // Se queda abierto y con el foco en la clave: la siguiente alta se
             // teclea sin tocar el ratón.
@@ -133,6 +144,7 @@ function abrirEdicion(catalogo: Catalogo, item: Item): void {
     edicion.clave = item.clave;
     edicion.nombre = item.nombre;
     edicion.color = item.color || pastelAleatorio();
+    edicion.identificador = item.identificador ?? '';
 }
 
 function guardarEdicion(catalogo: Catalogo): void {
@@ -143,6 +155,9 @@ function guardarEdicion(catalogo: Catalogo): void {
     const carga: Record<string, string> = { clave: edicion.clave, nombre: edicion.nombre };
     if (tieneColor(catalogo)) {
         carga.color = edicion.color;
+    }
+    if (tieneIdentificador(catalogo)) {
+        carga.identificador = edicion.identificador;
     }
 
     router.put(`/academico/catalogos/${editando.value.catalogo}/${editando.value.id}`, carga, {
@@ -221,6 +236,14 @@ function esEditando(catalogo: string, id: number): boolean {
                                     @keyup.enter="guardarEdicion(catalogo)"
                                 />
                                 <input
+                                    v-if="tieneIdentificador(catalogo)"
+                                    v-model="edicion.identificador"
+                                    placeholder="identificador"
+                                    class="w-28 shrink-0 rounded border px-2 py-1 font-mono text-xs"
+                                    :style="{ borderColor: 'var(--color-borde)' }"
+                                    title="Identificador oficial para el certificado electrónico"
+                                />
+                                <input
                                     v-if="tieneColor(catalogo)"
                                     v-model="edicion.color"
                                     type="color"
@@ -248,6 +271,14 @@ function esEditando(catalogo: string, id: number): boolean {
                                         title="Clave SAT (ClaveProdServ) para el CFDI de colegiaturas"
                                     >
                                         SAT {{ item.clave_sat }}
+                                    </span>
+                                    <span
+                                        v-if="tieneIdentificador(catalogo)"
+                                        class="shrink-0 rounded px-1.5 py-0.5 font-mono text-[11px]"
+                                        :style="{ backgroundColor: 'var(--color-fondo)', color: 'var(--color-suave)' }"
+                                        title="Identificador oficial para el certificado electrónico"
+                                    >
+                                        ID {{ item.identificador ?? '—' }}
                                     </span>
                                     <span
                                         v-if="item.en_uso"
@@ -319,6 +350,14 @@ function esEditando(catalogo: string, id: number): boolean {
                                 class="min-w-0 flex-1 rounded border px-2 py-1.5 text-sm"
                                 :style="{ borderColor: 'var(--color-borde)' }"
                                 @keyup.esc="cerrarAlta(catalogo.clave)"
+                            />
+                            <input
+                                v-if="tieneIdentificador(catalogo)"
+                                v-model="nuevos[catalogo.clave].identificador"
+                                placeholder="identificador"
+                                class="w-28 shrink-0 rounded border px-2 py-1.5 font-mono text-xs"
+                                :style="{ borderColor: 'var(--color-borde)' }"
+                                title="Identificador oficial para el certificado electrónico"
                             />
                             <input
                                 v-if="tieneColor(catalogo)"

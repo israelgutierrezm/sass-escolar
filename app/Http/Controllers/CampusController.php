@@ -75,7 +75,7 @@ class CampusController extends Controller
     public function edit(Campus $campus): Response
     {
         return Inertia::render('Academico/Campus/Formulario', [
-            'campus' => $campus->only(['id', 'clave', 'nombre', 'institucion_id', 'tipo_campus_id', 'online', 'entidad_id']),
+            'campus' => $campus->only(['id', 'clave', 'identificador', 'nombre', 'institucion_id', 'tipo_campus_id', 'online', 'entidad_id']),
             ...$this->catalogos(),
         ]);
     }
@@ -109,6 +109,7 @@ class CampusController extends Controller
     {
         $datos = $request->validate([
             'clave' => ['required', 'string', 'max:50', Rule::unique('campus', 'clave')->ignore($id)->whereNull('deleted_at')],
+            'identificador' => ['nullable', 'string', 'max:40'],
             'nombre' => ['required', 'string', 'max:255'],
             // Informativo, no condiciona nada; por eso nullable. La UI lo
             // preselecciona cuando solo hay una institución.
