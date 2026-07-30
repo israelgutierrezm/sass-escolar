@@ -21,6 +21,7 @@ class Campus extends Model
 
     protected $fillable = [
         'clave',
+        'identificador',
         'nombre',
         'institucion_id',
         'tipo_campus_id',

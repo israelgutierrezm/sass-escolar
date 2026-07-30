@@ -23,6 +23,7 @@ class EntidadFederativa extends Model
     protected $fillable = [
         'pais_id',
         'clave',
+        'identificador',
         'nombre',
     ];
 

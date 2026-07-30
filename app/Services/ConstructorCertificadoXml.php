@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\Academico\NivelEstudio;
+use App\Models\Academico\TipoAsignatura;
+use App\Models\Academico\TipoPeriodo;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\Historial;
+use App\Models\Landlord\EntidadFederativa;
+use App\Models\Landlord\Genero;
 use Carbon\CarbonInterface;
 use DOMDocument;
 use DOMElement;
@@ -49,9 +54,19 @@ class ConstructorCertificadoXml
         $institucion = $campus?->institucion;
 
         $historial = Historial::query()
-            ->with(['planMateria.asignatura:id,nombre,creditos', 'estatus:id,nombre,clave', 'ciclo:id,clave'])
+            ->with(['planMateria.asignatura:id,identificador,nombre,creditos', 'estatus:id,nombre,clave', 'ciclo:id,clave'])
             ->where('matricula_oferta_id', $matricula->id)
             ->get();
+
+        // Identificadores oficiales de catálogo (no el id auto-incremental).
+        $idNivel = $this->idCatalogo(NivelEstudio::class, $carrera?->nivel_estudios_id);
+        $idTipoPeriodo = $this->idCatalogo(TipoPeriodo::class, $plan?->tipo_periodo_id);
+        $idGenero = $this->idGeneroSep($persona);
+        $idEntidad = $this->idCatalogo(EntidadFederativa::class, $campus?->entidad_id);
+        // Mapa id → identificador de tipos de asignatura usados.
+        $tiposAsig = TipoAsignatura::query()
+            ->whereIn('id', $historial->pluck('planMateria.tipo_asignatura_id')->filter()->unique())
+            ->pluck('identificador', 'id');
 
         // Mejor intento por materia: una materia aprobada a título tras tronar el
         // ordinario cuenta una vez, como aprobada.
@@ -66,13 +81,12 @@ class ConstructorCertificadoXml
         $asignaturas = $mejores
             ->sortBy(fn (Historial $h) => [$h->planMateria?->periodo ?? 0, $h->planMateria?->clave_en_plan ?? ''])
             ->map(fn (Historial $h) => [
-                // idAsignatura: placeholder local (id de la asignatura).
-                'idAsignatura' => (string) ($h->planMateria?->asignatura_id ?? $h->plan_materia_id ?? '0'),
+                'idAsignatura' => (string) ($h->planMateria?->asignatura?->identificador ?? $h->planMateria?->asignatura_id ?? '0'),
                 'claveAsignatura' => $h->planMateria?->clave_en_plan,
                 'nombre' => $h->planMateria?->asignatura?->nombre,
                 'ciclo' => $h->ciclo?->clave ?? 'NA',
                 'calificacion' => (string) ($h->calificacion ?? '0'),
-                'idTipoAsignatura' => (string) ($h->planMateria?->tipo_asignatura_id ?? '263'),
+                'idTipoAsignatura' => (string) ($tiposAsig[$h->planMateria?->tipo_asignatura_id] ?? $h->planMateria?->tipo_asignatura_id ?? '0'),
                 'tipoAsignatura' => 'OBLIGATORIA',
                 'creditos' => (string) ($h->planMateria?->asignatura?->creditos ?? '0'),
             ])->values()->all();
@@ -88,19 +102,19 @@ class ConstructorCertificadoXml
             // Ipes
             'idNombreInstitucion' => (string) ($institucion?->clave ?? $institucion?->id ?? '0'),
             'nombreInstitucion' => $institucion?->nombre,
-            'idCampus' => (string) ($campus?->clave ?? $campus?->id ?? '0'),
+            'idCampus' => (string) ($campus?->identificador ?? $campus?->clave ?? $campus?->id ?? '0'),
             'campus' => $campus?->nombre,
-            'idEntidadFederativa' => (string) ($campus?->entidad_id ?? '0'),
+            'idEntidadFederativa' => (string) ($idEntidad ?? $campus?->entidad_id ?? '0'),
             // Rvoe
             'numeroRvoe' => (string) ($plan?->rvoe ?? 'SIN-RVOE'),
             'fechaExpedicionRvoe' => $this->fechaHora($plan?->fecha_rvoe),
             // Carrera
-            'idCarrera' => (string) ($carrera?->id ?? '0'),
+            'idCarrera' => (string) ($carrera?->identificador ?? $carrera?->id ?? '0'),
             'claveCarrera' => $carrera?->clave,
             'nombreCarrera' => $carrera?->nombre,
-            'idTipoPeriodo' => (string) ($plan?->tipo_periodo_id ?? '0'),
+            'idTipoPeriodo' => (string) ($idTipoPeriodo ?? $plan?->tipo_periodo_id ?? '0'),
             'clavePlan' => (string) ($plan?->clave ?? 'SIN-PLAN'),
-            'idNivelEstudios' => (string) ($carrera?->nivel_estudios_id ?? '0'),
+            'idNivelEstudios' => (string) ($idNivel ?? $carrera?->nivel_estudios_id ?? '0'),
             'calificacionMinima' => (string) ($plan?->calificacion_minima ?? '0'),
             'calificacionMaxima' => (string) ($plan?->calificacion_maxima ?? '10'),
             'calificacionMinimaAprobatoria' => (string) ($plan?->calificacion_minima_aprobatoria ?? '6'),
@@ -110,13 +124,13 @@ class ConstructorCertificadoXml
             'nombre' => $persona?->nombre,
             'primerApellido' => $persona?->primer_apellido,
             'segundoApellido' => $persona?->segundo_apellido,
-            'idGenero' => (int) ($persona?->sexo_id ?? $persona?->genero_id ?? 1),
+            'idGenero' => $idGenero,
             'fechaNacimiento' => $this->fechaHora($persona?->fecha_nacimiento),
             // Expedicion
             'idTipoCertificacion' => '79', // 79 = Total
             'tipoCertificacion' => 'Total',
             'fechaExpedicion' => $this->fechaHora(now()),
-            'idLugarExpedicion' => (string) ($campus?->entidad_id ?? '0'),
+            'idLugarExpedicion' => (string) ($idEntidad ?? $campus?->entidad_id ?? '0'),
             'lugarExpedicion' => $campus?->nombre,
             // Asignaturas (totales)
             'total' => count($asignaturas),
@@ -279,6 +293,44 @@ class ConstructorCertificadoXml
         }
 
         return $el;
+    }
+
+    /**
+     * Identificador oficial de un registro de catálogo por su id local. Devuelve
+     * null si no hay id o no existe; el llamador cae al id local como respaldo.
+     *
+     * @param  class-string<\Illuminate\Database\Eloquent\Model>  $modelo
+     */
+    private function idCatalogo(string $modelo, mixed $id): ?string
+    {
+        if (blank($id)) {
+            return null;
+        }
+
+        $identificador = $modelo::query()->whereKey($id)->value('identificador');
+
+        return filled($identificador) ? (string) $identificador : (string) $id;
+    }
+
+    /**
+     * Identificador oficial del género (idGenero: 250 = Mujer, 251 = Hombre).
+     * Preferencia: género capturado; si no, se deriva del sexo de la CURP
+     * (posición 11: H/M), que siempre está presente.
+     */
+    private function idGeneroSep(mixed $persona): int
+    {
+        if ($persona?->genero_id !== null) {
+            $id = Genero::query()->whereKey($persona->genero_id)->value('identificador');
+            if (filled($id)) {
+                return (int) $id;
+            }
+        }
+
+        $letra = mb_strtoupper(mb_substr((string) ($persona?->curp ?? ''), 10, 1));
+        $nombre = $letra === 'M' ? 'MUJER' : 'HOMBRE';
+        $id = Genero::query()->where('nombre', $nombre)->value('identificador');
+
+        return (int) ($id ?? ($letra === 'M' ? 250 : 251));
     }
 
     /** Formatea una fecha al `xs:dateTime` que exige el DEC (con hora). */

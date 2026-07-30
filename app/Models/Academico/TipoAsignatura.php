@@ -14,5 +14,5 @@ class TipoAsignatura extends Model
 
     protected $table = 'tipos_asignatura';
 
-    protected $fillable = ['clave', 'nombre'];
+    protected $fillable = ['clave', 'identificador', 'nombre'];
 }

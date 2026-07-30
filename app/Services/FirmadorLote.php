@@ -55,7 +55,7 @@ class FirmadorLote
             'responsable_nombre' => $responsable->nombre,
             'responsable_primer_apellido' => $responsable->apellido_paterno,
             'responsable_segundo_apellido' => $responsable->apellido_materno,
-            'responsable_id_cargo' => (string) ($responsable->cargo_id ?? '0'),
+            'responsable_id_cargo' => (string) ($responsable->cargo?->identificador ?? $responsable->cargo_id ?? '0'),
             'responsable_cargo' => $responsable->cargo?->nombre,
         ];
 

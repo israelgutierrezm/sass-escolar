@@ -7,12 +7,16 @@ namespace App\Models\Emision;
 use App\Models\Concerns\TieneAuditoria;
 use Illuminate\Database\Eloquent\Model;
 
-/** cargos (TENANT-CONFIG) — puesto del responsable. Catálogo oficial protegido. */
-class Cargo extends Model
+/**
+ * tipos_certificacion (TENANT) — tipo de Documento Electrónico de Certificación
+ * de la SEP: 79 = Total, 80 = Parcial. El `identificador` es el valor oficial
+ * que viaja en el XML (atributo idTipoCertificacion).
+ */
+class TipoCertificacion extends Model
 {
     use TieneAuditoria;
 
-    protected $table = 'cargos';
+    protected $table = 'tipos_certificacion';
 
     protected $fillable = ['clave', 'identificador', 'nombre', 'protegido'];
 

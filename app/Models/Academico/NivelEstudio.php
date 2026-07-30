@@ -23,6 +23,7 @@ class NivelEstudio extends Model
 
     protected $fillable = [
         'clave',
+        'identificador',
         'nombre',
         'orden',
         // ClaveProdServ del SAT para el CFDI de colegiaturas: la asigna el SAT

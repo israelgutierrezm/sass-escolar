@@ -14,5 +14,5 @@ class TipoPeriodo extends Model
 
     protected $table = 'tipos_periodo';
 
-    protected $fillable = ['clave', 'nombre'];
+    protected $fillable = ['clave', 'identificador', 'nombre'];
 }

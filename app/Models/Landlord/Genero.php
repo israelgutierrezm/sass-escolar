@@ -20,6 +20,7 @@ class Genero extends Model
 
     protected $fillable = [
         'clave',
+        'identificador',
         'nombre',
     ];
 }
