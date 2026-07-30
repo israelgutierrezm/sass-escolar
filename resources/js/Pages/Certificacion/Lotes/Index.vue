@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 
 interface Lote {
@@ -93,6 +94,7 @@ const clasesBadge: Record<string, string> = {
                         <th class="px-5 py-3 text-center font-medium">Alumnos</th>
                         <th class="px-5 py-3 font-medium">Responsable</th>
                         <th class="px-5 py-3 font-medium">Creado</th>
+                        <th class="px-5 py-3 text-right font-medium"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -102,11 +104,7 @@ const clasesBadge: Record<string, string> = {
                         class="border-b transition hover:bg-black/[.02] dark:hover:bg-white/[.03]"
                         :style="{ borderColor: 'var(--color-borde)' }"
                     >
-                        <td class="px-5 py-3">
-                            <Link :href="`/certificacion/lotes/${lote.id}`" class="font-mono font-medium" :style="{ color: 'var(--color-acento)' }">
-                                {{ lote.folio }}
-                            </Link>
-                        </td>
+                        <td class="px-5 py-3 font-mono font-medium">{{ lote.folio }}</td>
                         <td class="px-5 py-3">{{ lote.nombre ?? '—' }}</td>
                         <td class="px-5 py-3">
                             <span class="rounded-full px-2.5 py-1 text-xs font-medium" :class="clasesBadge[lote.estado_color]">
@@ -121,9 +119,12 @@ const clasesBadge: Record<string, string> = {
                         </td>
                         <td class="px-5 py-3" :style="{ color: 'var(--color-suave)' }">{{ lote.responsable ?? '—' }}</td>
                         <td class="px-5 py-3" :style="{ color: 'var(--color-suave)' }">{{ lote.creado_en }}</td>
+                        <td class="px-5 py-3 text-right">
+                            <BotonAccion variante="ver" texto="Abrir" :href="`/certificacion/lotes/${lote.id}`" />
+                        </td>
                     </tr>
                     <tr v-if="lotes.length === 0">
-                        <td colspan="6" class="px-5 py-10 text-center" :style="{ color: 'var(--color-suave)' }">
+                        <td colspan="7" class="px-5 py-10 text-center" :style="{ color: 'var(--color-suave)' }">
                             Aún no hay lotes. Crea el primero para empezar a certificar.
                         </td>
                     </tr>
