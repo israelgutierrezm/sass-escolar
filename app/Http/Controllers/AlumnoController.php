@@ -25,6 +25,7 @@ use App\Models\Landlord\Genero;
 use App\Models\Landlord\Sexo;
 use App\Rules\CurpValida;
 use App\Services\AprovisionadorAcceso;
+use App\Services\CiclosCongruentes;
 use App\Services\EstatusAcademico;
 use App\Services\IdentidadPersona;
 use App\Services\MatriculadorOferta;
@@ -464,21 +465,7 @@ class AlumnoController extends Controller
      */
     private function ciclosCongruentes(MatriculaOferta $alumno): \Illuminate\Support\Collection
     {
-        $alumno->loadMissing('oferta.carrera');
-        $campusId = $alumno->oferta?->campus_id;
-        $nivelId = $alumno->oferta?->carrera?->nivel_estudios_id;
-
-        return Ciclo::query()
-            ->with(['campus:id', 'niveles:id'])
-            ->orderByDesc('id')
-            ->get(['id', 'clave'])
-            ->filter(function (Ciclo $ciclo) use ($campusId, $nivelId) {
-                $campusOk = $ciclo->campus->isEmpty() || ($campusId !== null && $ciclo->campus->contains('id', $campusId));
-                $nivelOk = $ciclo->niveles->isEmpty() || ($nivelId !== null && $ciclo->niveles->contains('id', $nivelId));
-
-                return $campusOk && $nivelOk;
-            })
-            ->values();
+        return app(CiclosCongruentes::class)->paraAlumno($alumno);
     }
 
     private function tipoEvaluacionDesdeObservacion(int $observacionAsignaturaId): int

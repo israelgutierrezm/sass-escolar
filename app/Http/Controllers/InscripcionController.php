@@ -11,6 +11,7 @@ use App\Models\ControlEscolar\Grupo;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\ControlEscolar\SituacionInscripcion;
 use App\Models\ControlEscolar\TipoEvaluacion;
+use App\Services\CiclosCongruentes;
 use App\Services\ValidadorInscripcion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -53,9 +54,11 @@ class InscripcionController extends Controller
                         $m->oferta?->carrera?->nombre ?? 'sin carrera',
                     ),
                 ]),
-            'ciclos' => Ciclo::query()
-                ->orderByDesc('fecha_inicio')
-                ->get(['id', 'clave', 'nombre'])
+            // Los ciclos se acotan al alumno elegido (su campus y nivel), igual
+            // que en el kárdex. Sin alumno todavía, se muestran todos.
+            'ciclos' => ($matricula === null
+                ? Ciclo::query()->orderByDesc('fecha_inicio')->get(['id', 'clave', 'nombre'])
+                : app(CiclosCongruentes::class)->paraAlumno($matricula))
                 ->map(fn (Ciclo $c) => ['id' => $c->id, 'etiqueta' => "{$c->clave} — {$c->nombre}"]),
             'seleccion' => [
                 'matricula_oferta_id' => $matricula?->id,
