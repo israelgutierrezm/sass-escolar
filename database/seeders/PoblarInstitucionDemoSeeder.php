@@ -377,11 +377,27 @@ class PoblarInstitucionDemoSeeder extends Seeder
         $apellidos = ['García', 'Martínez', 'López', 'Hernández', 'González', 'Pérez', 'Ramírez', 'Torres', 'Flores', 'Rivera', 'Gómez', 'Díaz', 'Cruz', 'Morales', 'Reyes', 'Ortiz'];
 
         for ($i = 0; $i < 15; $i++) {
+            $nom = $nombres[$i];
+            $ap1 = $apellidos[$i % count($apellidos)];
+            $ap2 = $apellidos[($i + 5) % count($apellidos)];
+
+            // Cumpleaños escalonados: el alumno 0 cumple HOY, el resto en 5, 10…
+            // días, para lucir la cuenta regresiva del encabezado. Edad ~20-25.
+            $dob = now()->addDays($i * 5)->subYears(20 + ($i % 6));
+            $yy = $dob->format('ymd');
+            $l4 = mb_strtoupper(mb_substr($ap1, 0, 2).mb_substr($ap2, 0, 1).mb_substr($nom, 0, 1));
+            $cons = mb_strtoupper(mb_substr($ap1, 2, 1).mb_substr($ap2, 2, 1).mb_substr($nom, 2, 1));
+            $curp = $l4.$yy.($i % 2 === 0 ? 'H' : 'M').'DF'.$cons.'09';
+
             $persona = Persona::create([
-                'nombre' => $nombres[$i],
-                'primer_apellido' => $apellidos[$i % count($apellidos)],
-                'segundo_apellido' => $apellidos[($i + 5) % count($apellidos)],
+                'nombre' => $nom,
+                'primer_apellido' => $ap1,
+                'segundo_apellido' => $ap2,
+                'curp' => $curp,
+                'rfc' => $l4.$yy,
+                'fecha_nacimiento' => $dob->toDateString(),
                 'email' => 'alumno.demo.'.($i + 1).'@escuela.mx',
+                'correo_institucional' => mb_strtolower($nom.'.'.$ap1).'@alumnos.escuela.mx',
                 'celular' => '55'.str_pad((string) random_int(0, 99999999), 8, '0', STR_PAD_LEFT),
             ]);
 

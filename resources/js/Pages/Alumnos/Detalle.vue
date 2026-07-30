@@ -94,6 +94,35 @@ function cambiarCarrera(id: string | number): void {
     router.get(`/escolar/alumnos/${id}`);
 }
 
+// Edad y cuenta regresiva al próximo cumpleaños, a partir de la fecha de
+// nacimiento. Un detalle humano para que el encabezado no se sienta vacío.
+const cumple = computed(() => {
+    const f = props.persona.fecha_nacimiento;
+    if (!f) return null;
+
+    const nac = new Date(`${f}T00:00:00`);
+    if (isNaN(nac.getTime())) return null;
+
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    let edad = hoy.getFullYear() - nac.getFullYear();
+    let prox = new Date(hoy.getFullYear(), nac.getMonth(), nac.getDate());
+    if (prox.getTime() < hoy.getTime()) {
+        prox = new Date(hoy.getFullYear() + 1, nac.getMonth(), nac.getDate());
+    }
+
+    const dias = Math.round((prox.getTime() - hoy.getTime()) / 86400000);
+    const esHoy = dias === 0;
+    // Edad que cumplirá (o cumplió hoy): años completos al próximo cumpleaños.
+    if (!esHoy && prox.getMonth() < nac.getMonth()) { /* no aplica */ }
+    const edadActual = hoy.getMonth() > nac.getMonth() || (hoy.getMonth() === nac.getMonth() && hoy.getDate() >= nac.getDate())
+        ? edad
+        : edad - 1;
+
+    return { dias, esHoy, edad: edadActual };
+});
+
 /* Carga manual al historial (equivalencias, revalidaciones, kárdex histórico) */
 const mostrarCargaHistorial = ref(false);
 const opciones = (lista: { id: number; nombre: string }[]) => lista.map((x) => ({ valor: x.id, texto: x.nombre }));
@@ -484,14 +513,64 @@ function verComo(): void {
                     <p v-if="formFoto.errors.foto" class="text-xs text-red-600">{{ formFoto.errors.foto }}</p>
                 </div>
 
-                <div>
-                    <h2 class="text-lg font-semibold">
-                        {{ [persona.nombre, persona.primer_apellido, persona.segundo_apellido].filter(Boolean).join(' ') }}
-                    </h2>
-                    <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                        <span v-if="persona.curp" class="font-mono">{{ persona.curp }}</span>
-                        <span v-if="carreras.length > 1"> · {{ carreras.length }} carreras</span>
-                    </p>
+                <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <h2 class="text-lg font-semibold">
+                            {{ [persona.nombre, persona.primer_apellido, persona.segundo_apellido].filter(Boolean).join(' ') }}
+                        </h2>
+                        <span
+                            v-if="carreras.length > 1"
+                            class="rounded-full px-2 py-0.5 text-xs"
+                            :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }"
+                        >
+                            {{ carreras.length }} carreras
+                        </span>
+                    </div>
+
+                    <!-- Cumpleaños: un guiño humano. -->
+                    <div
+                        v-if="cumple"
+                        class="mt-2 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs"
+                        :style="{
+                            backgroundColor: cumple.esHoy ? 'color-mix(in srgb, #ec4899 16%, transparent)' : 'var(--color-fondo)',
+                            color: cumple.esHoy ? '#be185d' : 'var(--color-suave)',
+                        }"
+                    >
+                        <span aria-hidden="true">🎂</span>
+                        <span v-if="cumple.esHoy" class="font-medium">¡Hoy cumple {{ cumple.edad }} años!</span>
+                        <span v-else>{{ cumple.edad }} años · faltan {{ cumple.dias }} día(s) para su cumpleaños</span>
+                    </div>
+
+                    <!-- Datos generales de la persona. -->
+                    <dl class="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+                        <div v-if="persona.curp" class="min-w-0">
+                            <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">CURP</dt>
+                            <dd class="truncate font-mono text-xs">{{ persona.curp }}</dd>
+                        </div>
+                        <div v-if="persona.rfc" class="min-w-0">
+                            <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">RFC</dt>
+                            <dd class="truncate font-mono text-xs">{{ persona.rfc }}</dd>
+                        </div>
+                        <div v-if="persona.email" class="min-w-0">
+                            <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">Correo</dt>
+                            <dd class="truncate">{{ persona.email }}</dd>
+                        </div>
+                        <div v-if="persona.correo_institucional" class="min-w-0">
+                            <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">Correo institucional</dt>
+                            <dd class="truncate">{{ persona.correo_institucional }}</dd>
+                        </div>
+                        <div v-if="persona.celular" class="min-w-0">
+                            <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">Celular</dt>
+                            <dd>{{ persona.celular }}</dd>
+                        </div>
+                        <div v-if="persona.fecha_nacimiento" class="min-w-0">
+                            <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">Nacimiento</dt>
+                            <dd>
+                                {{ persona.fecha_nacimiento }}
+                                <span v-if="persona.entidad_nacimiento" :style="{ color: 'var(--color-suave)' }"> · {{ persona.entidad_nacimiento }}</span>
+                            </dd>
+                        </div>
+                    </dl>
                 </div>
                 <a href="/escolar/alumnos" class="text-sm" :style="{ color: 'var(--color-acento)' }">← Alumnos</a>
             </div>
