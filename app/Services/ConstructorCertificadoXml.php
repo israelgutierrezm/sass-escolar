@@ -37,8 +37,10 @@ class ConstructorCertificadoXml
      *
      * @return array<string, mixed>
      */
-    public function snapshot(MatriculaOferta $matricula): array
+    public function snapshot(MatriculaOferta $matricula, string $tipo = 'total'): array
     {
+        $parcial = $tipo === 'parcial';
+
         $matricula->loadMissing([
             'persona',
             'oferta.carrera',
@@ -127,8 +129,8 @@ class ConstructorCertificadoXml
             'idGenero' => $idGenero,
             'fechaNacimiento' => $this->fechaHora($persona?->fecha_nacimiento),
             // Expedicion
-            'idTipoCertificacion' => '79', // 79 = Total
-            'tipoCertificacion' => 'Total',
+            'idTipoCertificacion' => $parcial ? '80' : '79', // 79 = Total, 80 = Parcial
+            'tipoCertificacion' => $parcial ? 'Parcial' : 'Total',
             'fechaExpedicion' => $this->fechaHora(now()),
             'idLugarExpedicion' => (string) ($idEntidad ?? $campus?->entidad_id ?? '0'),
             'lugarExpedicion' => $campus?->nombre,

@@ -388,14 +388,16 @@ class AlumnoController extends Controller
                 'materias_para_completar' => $metaMaterias,
                 // Cerró el plan: aprobó al menos las materias que exige.
                 'disponible_certificar' => $metaMaterias > 0 && $aprobadas->count() >= $metaMaterias,
+                // Tiene avance pero NO cerró el plan: le toca certificado parcial.
+                'disponible_parcial' => $metaMaterias > 0 && $aprobadas->count() > 0 && $aprobadas->count() < $metaMaterias,
             ],
             // Estado de certificación de ESTA matrícula: si ya tiene certificado
             // emitido (con su XML), o está pendiente dentro de un lote. Más los
             // lotes abiertos a los que se le puede agregar desde el expediente.
             'certificacion' => $this->certificacionDe($alumno->id),
             'lotesAbiertos' => $request->user()->can('certificar-alumnos')
-                ? LoteCertificacion::abiertos()->orderByDesc('id')->get(['id', 'folio', 'nombre'])
-                    ->map(fn (LoteCertificacion $l) => ['id' => $l->id, 'folio' => $l->folio, 'nombre' => $l->nombre])
+                ? LoteCertificacion::abiertos()->orderByDesc('id')->get(['id', 'folio', 'nombre', 'tipo'])
+                    ->map(fn (LoteCertificacion $l) => ['id' => $l->id, 'folio' => $l->folio, 'nombre' => $l->nombre, 'tipo' => $l->tipo])
                 : [],
             'puedeCertificar' => $request->user()->can('certificar-alumnos'),
             // Nombre real del periodo del plan (Semestre, Cuatrimestre…), para

@@ -942,6 +942,7 @@ Route::middleware([
                 Route::put('/{lote}/cerrar', 'cerrar')->whereNumber('lote')->name('cerrar');
                 Route::put('/{lote}/reabrir', 'reabrir')->whereNumber('lote')->name('reabrir');
                 Route::post('/{lote}/firmar', 'firmar')->whereNumber('lote')->name('firmar');
+                Route::get('/{lote}/xml-zip', 'xmlZip')->whereNumber('lote')->name('xml-zip');
                 Route::delete('/{lote}', 'destroy')->whereNumber('lote')->name('destroy');
             });
 

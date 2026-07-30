@@ -53,6 +53,7 @@ class LoteCertificacionController extends Controller
     {
         $datos = $request->validate([
             'nombre' => ['nullable', 'string', 'max:160'],
+            'tipo' => ['required', 'in:total,parcial'],
         ]);
 
         $lote = DB::transaction(function () use ($datos) {
@@ -61,6 +62,7 @@ class LoteCertificacionController extends Controller
             return LoteCertificacion::create([
                 'folio' => 'LOTE-CERT-'.str_pad((string) $consecutivo, 4, '0', STR_PAD_LEFT),
                 'nombre' => $datos['nombre'] ?? null,
+                'tipo' => $datos['tipo'],
                 'estado' => EstadoLoteCertificacion::Borrador,
             ]);
         });
@@ -89,6 +91,9 @@ class LoteCertificacionController extends Controller
     public function candidatos(Request $request, EstadoCertificacion $estado): JsonResponse
     {
         $q = trim((string) $request->query('q', ''));
+        // Un lote parcial busca alumnos con avance sin cerrar el plan; uno total,
+        // los que ya lo cerraron.
+        $tipo = $request->query('tipo') === 'parcial' ? 'parcial' : 'total';
         $campusVisibles = $request->user()->campusDelRolActivo();
 
         $matriculas = MatriculaOferta::query()
@@ -108,7 +113,7 @@ class LoteCertificacionController extends Controller
             ->get();
 
         $elegibles = $matriculas
-            ->filter(fn (MatriculaOferta $m) => $estado->disponible($m))
+            ->filter(fn (MatriculaOferta $m) => $tipo === 'parcial' ? $estado->disponibleParcial($m) : $estado->disponible($m))
             ->take(40)
             ->map(fn (MatriculaOferta $m) => [
                 'matricula_oferta_id' => $m->id,
@@ -140,10 +145,11 @@ class LoteCertificacionController extends Controller
         foreach (array_unique($datos['matricula_oferta_ids']) as $id) {
             $matricula = MatriculaOferta::with('oferta.plan')->find($id);
 
-            // Fuera de mi alcance de campus, o no elegible, o ya en un lote.
+            // Fuera de mi alcance de campus, o no elegible para el TIPO del lote,
+            // o ya en un lote.
             if ($matricula === null
                 || ($campusVisibles !== [] && ! in_array($matricula->oferta?->campus_id, $campusVisibles, true))
-                || ! $estado->elegibleParaLote($matricula)) {
+                || ! $estado->elegibleParaLote($matricula, $lote->tipo)) {
                 $omitidos++;
 
                 continue;
@@ -317,6 +323,29 @@ class LoteCertificacionController extends Controller
             ->with('exito', 'Lote eliminado.');
     }
 
+    /** Descarga en un ZIP todos los XML firmados de un lote. */
+    public function xmlZip(LoteCertificacion $lote): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    {
+        abort_unless($lote->estado === EstadoLoteCertificacion::Firmado, 404);
+
+        $certs = $lote->certificaciones()->emitidas()->with('matricula')->get();
+        abort_if($certs->isEmpty(), 404);
+
+        $tmp = tempnam(sys_get_temp_dir(), 'lote').'.zip';
+        $zip = new \ZipArchive;
+        $zip->open($tmp, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+
+        foreach ($certs as $c) {
+            if (filled($c->xml_path) && Storage::disk('local')->exists($c->xml_path)) {
+                $zip->addFromString(($c->matricula?->matricula ?? $c->id).'.xml', Storage::disk('local')->get($c->xml_path));
+            }
+        }
+
+        $zip->close();
+
+        return response()->download($tmp, "{$lote->folio}.zip")->deleteFileAfterSend(true);
+    }
+
     /** Descarga el XML firmado de un alumno. */
     public function xml(Certificacion $certificacion): StreamedResponse
     {
@@ -335,6 +364,8 @@ class LoteCertificacionController extends Controller
             'id' => $lote->id,
             'folio' => $lote->folio,
             'nombre' => $lote->nombre,
+            'tipo' => $lote->tipo,
+            'tipo_label' => $lote->tipo === LoteCertificacion::PARCIAL ? 'Parcial' : 'Total',
             'estado' => $lote->estado->value,
             'estado_label' => $lote->estado->etiqueta(),
             'estado_color' => $lote->estado->color(),

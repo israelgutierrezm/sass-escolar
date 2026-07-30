@@ -10,6 +10,8 @@ interface Lote {
     id: number;
     folio: string;
     nombre: string | null;
+    tipo: string;
+    tipo_label: string;
     estado: string;
     estado_label: string;
     estado_color: string;
@@ -24,7 +26,7 @@ interface Lote {
 defineProps<{ lotes: Lote[] }>();
 
 const creando = ref(false);
-const form = useForm({ nombre: '' });
+const form = useForm({ nombre: '', tipo: 'total' });
 
 function crear(): void {
     form.post('/certificacion/lotes', {
@@ -73,6 +75,23 @@ const estilosBadge: Record<string, { backgroundColor: string; color: string }> =
                         :error="form.errors.nombre"
                     />
                 </div>
+                <div>
+                    <label class="mb-1 block text-sm font-medium">Tipo de certificado</label>
+                    <div class="flex rounded-lg border p-0.5" :style="{ borderColor: 'var(--color-borde)' }">
+                        <button
+                            v-for="op in [{ v: 'total', t: 'Total' }, { v: 'parcial', t: 'Parcial' }]"
+                            :key="op.v"
+                            type="button"
+                            class="rounded-md px-4 py-1.5 text-sm font-medium transition"
+                            :style="form.tipo === op.v
+                                ? { backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }
+                                : { color: 'var(--color-suave)' }"
+                            @click="form.tipo = op.v"
+                        >
+                            {{ op.t }}
+                        </button>
+                    </div>
+                </div>
                 <BotonPrincipal :procesando="form.processing" texto="Crear lote" />
                 <button
                     type="button"
@@ -106,7 +125,10 @@ const estilosBadge: Record<string, { backgroundColor: string; color: string }> =
                         :style="{ borderColor: 'var(--color-borde)' }"
                     >
                         <td class="px-5 py-3 font-mono font-medium">{{ lote.folio }}</td>
-                        <td class="px-5 py-3">{{ lote.nombre ?? '—' }}</td>
+                        <td class="px-5 py-3">
+                            {{ lote.nombre ?? '—' }}
+                            <span class="ml-1 rounded-full px-2 py-0.5 text-[11px]" :style="{ backgroundColor: 'var(--color-borde)', color: 'var(--color-suave)' }">{{ lote.tipo_label }}</span>
+                        </td>
                         <td class="px-5 py-3">
                             <span class="rounded-full px-2.5 py-1 text-xs font-medium" :style="estilosBadge[lote.estado_color]">
                                 {{ lote.estado_label }}

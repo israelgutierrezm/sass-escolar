@@ -91,7 +91,7 @@ const props = defineProps<{
         fecha: string | null;
         xml_url: string | null;
     } | null;
-    lotesAbiertos: { id: number; folio: string; nombre: string | null }[];
+    lotesAbiertos: { id: number; folio: string; nombre: string | null; tipo: string }[];
     puedeCertificar: boolean;
     situaciones: { id: number; nombre: string }[];
     generos: { id: number; nombre: string }[];
@@ -105,7 +105,18 @@ const props = defineProps<{
 const pestana = ref<'kardex' | 'carga' | 'carreras' | 'tutores' | 'facturacion' | 'datos'>('kardex');
 
 // ── Certificación desde el expediente ─────────────────────────────────────
-const loteElegido = ref<number | null>(props.lotesAbiertos[0]?.id ?? null);
+// Según su avance, al alumno le toca certificado total (cerró el plan) o
+// parcial (tiene avance sin cerrarlo); se le ofrecen solo lotes de ese tipo.
+const tipoCertificado = computed<'total' | 'parcial' | null>(() =>
+    props.resumen.disponible_certificar ? 'total' : (props.resumen.disponible_parcial ? 'parcial' : null),
+);
+const lotesElegibles = computed(() => props.lotesAbiertos.filter((l) => l.tipo === tipoCertificado.value));
+const loteElegido = ref<number | null>(null);
+watch(lotesElegibles, (lista) => {
+    if (loteElegido.value === null || !lista.some((l) => l.id === loteElegido.value)) {
+        loteElegido.value = lista[0]?.id ?? null;
+    }
+}, { immediate: true });
 const agregandoALote = ref(false);
 
 function agregarALote(): void {
@@ -893,9 +904,10 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                 </a>
             </div>
 
-            <!-- No está en ningún lote y ya cerró el plan: se puede agregar a uno. -->
+            <!-- No está en ningún lote: se puede agregar a uno del tipo que le
+                 toca (total si cerró el plan; parcial si tiene avance sin cerrar). -->
             <div
-                v-else-if="resumen.disponible_certificar && puedeCertificar"
+                v-else-if="tipoCertificado && puedeCertificar"
                 class="mt-3 flex items-start gap-3 rounded-xl border px-4 py-3.5"
                 :style="{
                     borderColor: 'color-mix(in srgb, var(--color-acento) 30%, var(--color-borde))',
@@ -911,24 +923,28 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                     </svg>
                 </span>
                 <div class="min-w-0 flex-1">
-                    <p class="text-sm font-semibold">Listo para certificar</p>
-                    <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                        Agrégalo a un lote abierto para emitir su certificado.
+                    <p class="text-sm font-semibold">
+                        {{ tipoCertificado === 'total' ? 'Listo para certificado total' : 'Disponible para certificado parcial' }}
                     </p>
-                    <div v-if="lotesAbiertos.length" class="mt-2.5 flex flex-wrap items-center gap-2">
+                    <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                        <template v-if="tipoCertificado === 'total'">Cerró su plan. Agrégalo a un lote total para emitir su certificado.</template>
+                        <template v-else>Aún no cierra su plan; se le puede emitir un certificado parcial de lo cursado.</template>
+                    </p>
+                    <div v-if="lotesElegibles.length" class="mt-2.5 flex flex-wrap items-center gap-2">
                         <select
                             v-model="loteElegido"
                             class="rounded-lg border px-3 py-2 text-sm"
                             :style="{ borderColor: 'var(--color-borde)', backgroundColor: 'var(--color-superficie)' }"
                         >
-                            <option v-for="l in lotesAbiertos" :key="l.id" :value="l.id">
+                            <option v-for="l in lotesElegibles" :key="l.id" :value="l.id">
                                 {{ l.folio }}<span v-if="l.nombre"> — {{ l.nombre }}</span>
                             </option>
                         </select>
                         <BotonPrincipal tipo="button" icono="ninguno" texto="Agregar" :procesando="agregandoALote" @click="agregarALote" />
                     </div>
                     <p v-else class="mt-1.5 text-xs" :style="{ color: 'var(--color-suave)' }">
-                        No hay lotes abiertos. <a href="/certificacion/lotes" :style="{ color: 'var(--color-acento)' }">Crea uno</a> para certificar a este alumno.
+                        No hay lotes {{ tipoCertificado === 'total' ? 'totales' : 'parciales' }} abiertos.
+                        <a href="/certificacion/lotes" :style="{ color: 'var(--color-acento)' }">Crea uno</a> para certificar a este alumno.
                     </p>
                 </div>
             </div>

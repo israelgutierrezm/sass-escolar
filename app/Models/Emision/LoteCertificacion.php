@@ -21,9 +21,13 @@ class LoteCertificacion extends Model
 
     protected $table = 'lotes_certificacion';
 
+    public const TOTAL = 'total';
+    public const PARCIAL = 'parcial';
+
     protected $fillable = [
         'folio',
         'nombre',
+        'tipo',
         'estado',
         'responsable_id',
         'certificado_responsable_id',

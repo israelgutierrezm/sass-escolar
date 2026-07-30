@@ -203,13 +203,30 @@ function alternarGrupo(clave: string): void {
 
 // Clic en un grupo de nivel 1: si la barra está contraída, la expande (y marca
 // para recontraerla al navegar) abriendo ese grupo; si no, solo lo alterna.
+// Acordeón: al ABRIR un grupo de nivel 1 se cierran los demás de nivel 1, para
+// no acumular submenús y evitar un scroll largo en la barra.
+function cerrarOtrosGruposRaiz(clave: string): void {
+    for (const seccion of navegacion.value) {
+        if (seccion.esGrupo && seccion.clave !== clave) {
+            gruposAbiertos.value[seccion.clave] = false;
+        }
+    }
+}
+
 function activarGrupo(clave: string): void {
+    const abriendo = !gruposAbiertos.value[clave];
+
     if (compacta.value) {
         eraCompacta.value = true;
         persistirCompacta = false; // expansión temporal: no cambia la preferencia
         compacta.value = false;
+        cerrarOtrosGruposRaiz(clave);
         gruposAbiertos.value[clave] = true;
         return;
+    }
+
+    if (abriendo) {
+        cerrarOtrosGruposRaiz(clave);
     }
     alternarGrupo(clave);
 }

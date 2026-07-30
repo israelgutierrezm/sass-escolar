@@ -76,7 +76,7 @@ class FirmadorLote
                     throw new \RuntimeException('La matrícula ya no existe.');
                 }
 
-                $datos = $this->constructor->snapshot($matricula);
+                $datos = $this->constructor->snapshot($matricula, $lote->tipo);
                 $folio = sprintf('%s-%03d', $lote->folio, $i);
 
                 // Se sella la cadena original (incluye datos del responsable).

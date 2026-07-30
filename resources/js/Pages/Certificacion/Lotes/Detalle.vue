@@ -13,6 +13,8 @@ interface Lote {
     id: number;
     folio: string;
     nombre: string | null;
+    tipo: string;
+    tipo_label: string;
     estado: string;
     estado_label: string;
     estado_color: string;
@@ -97,7 +99,7 @@ function buscar(): void {
     temporizador = setTimeout(async () => {
         buscando.value = true;
         try {
-            const { data } = await axios.get('/certificacion/lotes/candidatos', { params: { q: busqueda.value } });
+            const { data } = await axios.get('/certificacion/lotes/candidatos', { params: { q: busqueda.value, tipo: props.lote.tipo } });
             resultados.value = data.resultados;
         } finally {
             buscando.value = false;
@@ -141,11 +143,6 @@ function cerrar(): void {
 
 function reabrir(): void {
     router.put(`/certificacion/lotes/${props.lote.id}/reabrir`, {}, { preserveScroll: true });
-}
-
-function eliminar(): void {
-    if (!confirm(`¿Eliminar el lote ${props.lote.folio}? Esta acción no se puede deshacer.`)) return;
-    router.delete(`/certificacion/lotes/${props.lote.id}`);
 }
 
 // ── Firma ─────────────────────────────────────────────────────────────────
@@ -228,6 +225,9 @@ function firmar(): void {
                         <span class="rounded-full px-2.5 py-1 text-xs font-medium" :style="estilosBadge[lote.estado_color]">
                             {{ lote.estado_label }}
                         </span>
+                        <span class="rounded-full px-2.5 py-1 text-xs font-medium" :style="{ backgroundColor: 'var(--color-borde)', color: 'var(--color-suave)' }">
+                            {{ lote.tipo_label }}
+                        </span>
                     </div>
                     <p v-if="lote.nombre" class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">{{ lote.nombre }}</p>
                     <dl class="mt-3 flex flex-wrap gap-x-8 gap-y-1 text-sm" :style="{ color: 'var(--color-suave)' }">
@@ -251,7 +251,17 @@ function firmar(): void {
                         Reabrir
                     </button>
                     <BotonPrincipal v-if="enEsperaFirma" tipo="button" icono="ninguno" texto="Firmar lote" @click="abrirFirma" />
-                    <BotonAccion v-if="!firmado" variante="eliminar" solo-icono @click="eliminar" />
+                    <a
+                        v-if="firmado"
+                        :href="`/certificacion/lotes/${lote.id}/xml-zip`"
+                        class="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white"
+                        :style="{ backgroundColor: 'var(--color-acento)' }"
+                    >
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-6L12 15m0 0 4.5-4.5M12 15V3" />
+                        </svg>
+                        Descargar XML (ZIP)
+                    </a>
                 </div>
             </div>
         </section>
@@ -347,7 +357,9 @@ function firmar(): void {
         <section v-if="esBorrador" class="tarjeta mb-6 p-6">
             <h3 class="text-base font-semibold">Agregar alumnos</h3>
             <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                Sólo aparecen los que ya cerraron su plan, sin certificado emitido y dentro de tus campus.
+                <template v-if="lote.tipo === 'parcial'">Lote parcial: sólo aparecen alumnos con avance que <strong>aún no cierran</strong> su plan,</template>
+                <template v-else>Lote total: sólo aparecen los que <strong>ya cerraron</strong> su plan,</template>
+                sin certificado emitido y dentro de tus campus.
             </p>
 
             <input

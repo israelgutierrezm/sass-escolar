@@ -70,10 +70,28 @@ class EstadoCertificacion
             ->first();
     }
 
-    /** Se puede agregar a un lote: cerró su plan y no está ya en uno. */
-    public function elegibleParaLote(MatriculaOferta $matricula): bool
+    /**
+     * Elegible para un certificado PARCIAL: tiene avance (al menos una materia
+     * aprobada) pero AÚN NO cerró su plan —si ya lo cerró, le toca el total—.
+     */
+    public function disponibleParcial(MatriculaOferta $matricula): bool
     {
-        return $this->disponible($matricula)
-            && $this->certificacionVigente($matricula->id) === null;
+        return ! $this->disponible($matricula)
+            && $this->aprobadasDistintas($matricula->id) > 0;
+    }
+
+    /**
+     * Se puede agregar a un lote del tipo dado (total/parcial) y no está ya en
+     * otro lote. Total: cerró su plan. Parcial: tiene avance sin cerrarlo.
+     */
+    public function elegibleParaLote(MatriculaOferta $matricula, string $tipo = 'total'): bool
+    {
+        if ($this->certificacionVigente($matricula->id) !== null) {
+            return false;
+        }
+
+        return $tipo === 'parcial'
+            ? $this->disponibleParcial($matricula)
+            : $this->disponible($matricula);
     }
 }
