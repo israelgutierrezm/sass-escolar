@@ -25,6 +25,7 @@ use App\Models\Landlord\Genero;
 use App\Models\Landlord\Sexo;
 use App\Rules\CurpValida;
 use App\Services\AprovisionadorAcceso;
+use App\Services\EstatusAcademico;
 use App\Services\IdentidadPersona;
 use App\Services\MatriculadorOferta;
 use App\Models\Academico\Modalidad;
@@ -361,7 +362,10 @@ class AlumnoController extends Controller
                     'id' => $pm->id,
                     'etiqueta' => trim(($pm->clave_en_plan ?? '').' · '.($pm->asignatura?->nombre ?? '')),
                 ]),
-            'estatusHistorial' => EstatusHistorial::query()->orderBy('id')->get(['id', 'nombre']),
+            'estatusHistorial' => EstatusHistorial::query()->orderBy('id')->get(['id', 'nombre', 'clave']),
+            // Mínimo aprobatorio del plan del alumno: alimenta la regla que
+            // deduce el estatus a partir de la calificación en la carga de kárdex.
+            'minimoAprobatorio' => (float) ($alumno->oferta?->plan?->calificacion_minima_aprobatoria ?? 0),
             'tiposEvaluacion' => TipoEvaluacion::query()->orderBy('id')->get(['id', 'nombre']),
             'observacionesAsignatura' => ObservacionAsignatura::query()->orderBy('id')->get(['id', 'nombre', 'abreviatura']),
             'ciclos' => Ciclo::query()->orderByDesc('id')->get(['id', 'clave']),
@@ -379,9 +383,9 @@ class AlumnoController extends Controller
      * institución. Lleva su estatus académico oficial SEP (`observacion_
      * asignatura`) y NO queda ligada a acta (por eso se puede retirar aquí).
      */
-    public function agregarHistorial(Request $request, MatriculaOferta $alumno): RedirectResponse
+    public function agregarHistorial(Request $request, MatriculaOferta $alumno, EstatusAcademico $estatusAcademico): RedirectResponse
     {
-        $alumno->loadMissing('oferta');
+        $alumno->loadMissing('oferta.plan');
         $planId = $alumno->oferta?->plan_id;
         abort_if($planId === null, 404);
 
@@ -400,6 +404,19 @@ class AlumnoController extends Controller
             'tipo_evaluacion_id' => 'tipo de evaluación',
             'observacion_asignatura_id' => 'observación de asignatura',
         ]);
+
+        // El estatus no es libre: lo manda la calificación contra el mínimo
+        // aprobatorio del plan (regla única en EstatusAcademico). El front ya lo
+        // fuerza, pero un POST se arma a mano, así que el servidor lo reexige.
+        $minima = (float) ($alumno->oferta?->plan?->calificacion_minima_aprobatoria ?? 0);
+        $calificacion = $datos['calificacion'] === null ? null : (float) $datos['calificacion'];
+        $claveEstatus = EstatusHistorial::query()->whereKey($datos['estatus_id'])->value('clave');
+
+        if (! $estatusAcademico->permite($calificacion, $minima, $claveEstatus)) {
+            throw ValidationException::withMessages([
+                'estatus_id' => 'Ese estatus no corresponde a la calificación: con esa nota la regla del plan determina otro.',
+            ]);
+        }
 
         Historial::create([
             'matricula_oferta_id' => $alumno->id,

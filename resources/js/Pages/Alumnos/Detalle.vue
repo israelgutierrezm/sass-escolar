@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavEscolar from '@/Components/NavEscolar.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
@@ -69,7 +69,8 @@ const props = defineProps<{
     resumen: Record<string, any>;
     carga: { ciclo: string; materias: any[] }[];
     materiasDelPlan: { id: number; etiqueta: string }[];
-    estatusHistorial: { id: number; nombre: string }[];
+    estatusHistorial: { id: number; nombre: string; clave: string }[];
+    minimoAprobatorio: number;
     tiposEvaluacion: { id: number; nombre: string }[];
     observacionesAsignatura: { id: number; nombre: string; abreviatura: string | null }[];
     ciclos: { id: number; clave: string }[];
@@ -94,6 +95,48 @@ const formHistorial = useForm({
     estatus_id: null as number | null,
     calificacion: null as number | null,
 });
+
+// Regla única calificación → estatus (misma que EstatusAcademico en el backend):
+//  >= mínimo → aprobada (fijo); >0 y <mínimo → reprobada (fijo); ==0 → reprobada
+//  o no presentó (a elegir); sin calificación → libre.
+const reglaEstatus = computed<{ claves: string[] | null; bloqueado: boolean }>(() => {
+    const bruto = formHistorial.calificacion;
+
+    if (bruto === null || bruto === ('' as any) || isNaN(Number(bruto))) {
+        return { claves: null, bloqueado: false }; // sin nota: libre
+    }
+
+    const c = Number(bruto);
+
+    if (c >= props.minimoAprobatorio) return { claves: ['aprobada'], bloqueado: true };
+    if (c > 0) return { claves: ['reprobada'], bloqueado: true };
+
+    return { claves: ['reprobada', 'no_presento'], bloqueado: false };
+});
+
+// Estatus ofrecidos: todos si la regla no acota, o solo los admitidos.
+const opcionesEstatus = computed(() =>
+    props.estatusHistorial
+        .filter((e) => reglaEstatus.value.claves === null || reglaEstatus.value.claves.includes(e.clave))
+        .map((e) => ({ valor: e.id, texto: e.nombre })),
+);
+
+// Al cambiar la calificación, se ajusta el estatus: si el actual ya no aplica se
+// reemplaza por el primero admitido; si la regla deja uno solo, ese queda fijo.
+watch(
+    () => formHistorial.calificacion,
+    () => {
+        const permitidos = opcionesEstatus.value.map((o) => o.valor);
+
+        if (formHistorial.estatus_id !== null && !permitidos.includes(formHistorial.estatus_id)) {
+            formHistorial.estatus_id = null;
+        }
+
+        if (reglaEstatus.value.bloqueado && permitidos.length === 1) {
+            formHistorial.estatus_id = permitidos[0];
+        }
+    },
+);
 
 function agregarHistorial(): void {
     formHistorial.post(`/escolar/alumnos/${props.alumno.id}/historial`, {
@@ -513,20 +556,28 @@ function verComo(): void {
                         :error="formHistorial.errors.observacion_asignatura_id"
                         ayuda="Estatus académico: equivalencia, revalidación, ordinario…"
                     />
-                    <CampoSelect
-                        v-model="formHistorial.estatus_id"
-                        etiqueta="Estatus"
-                        requerido
-                        :opciones="opciones(estatusHistorial)"
-                        vacio="Selecciona…"
-                        :error="formHistorial.errors.estatus_id"
-                    />
                     <CampoTexto
                         v-model="formHistorial.calificacion"
                         etiqueta="Calificación"
                         tipo="number"
                         :error="formHistorial.errors.calificacion"
-                        ayuda="Opcional (exento/acreditado puede no llevar número)."
+                        :ayuda="`Opcional. El mínimo aprobatorio del plan es ${minimoAprobatorio}.`"
+                    />
+                    <CampoSelect
+                        v-model="formHistorial.estatus_id"
+                        etiqueta="Estatus"
+                        requerido
+                        :opciones="opcionesEstatus"
+                        vacio="Selecciona…"
+                        :deshabilitado="reglaEstatus.bloqueado"
+                        :error="formHistorial.errors.estatus_id"
+                        :ayuda="
+                            reglaEstatus.bloqueado
+                                ? 'Lo determina la calificación (no se puede cambiar).'
+                                : reglaEstatus.claves && reglaEstatus.claves.length === 2
+                                  ? 'Con calificación 0: elige si reprobó o no se presentó.'
+                                  : undefined
+                        "
                     />
                     <CampoSelect
                         v-model="formHistorial.ciclo_id"
