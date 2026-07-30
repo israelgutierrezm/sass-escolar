@@ -16,10 +16,19 @@ interface Alumno {
     foto: string | null;
     carrera: string | null;
     plan: string | null;
-    campus: string | null;
+    carreras_activas: number;
+    campus: string[];
     situacion: string | null;
     estatus: string;
     generacion: string | null;
+}
+
+// Texto de campus: uno → "Campus: X"; varios → "Múltiples campus: A, B". Se
+// acota a los campus que el rol del usuario puede ver (lo resuelve el backend).
+function textoCampus(campus: string[]): string {
+    if (campus.length === 0) return '—';
+    if (campus.length === 1) return `Campus: ${campus[0]}`;
+    return `Múltiples campus: ${campus.join(', ')}`;
 }
 
 const props = defineProps<{
@@ -96,7 +105,7 @@ const colorEstatus: Record<string, string> = {
                     :nombre="alumno.nombre_completo"
                     :identificador="alumno.matricula"
                     :foto="alumno.foto"
-                    :lineas="[alumno.carrera, alumno.campus]"
+                    :lineas="[alumno.carreras_activas >= 2 ? `${alumno.carreras_activas} carreras activas` : alumno.carrera, textoCampus(alumno.campus)]"
                     :estado="alumno.estatus"
                     :color-estado="colorEstatus[alumno.estatus]"
                     :atenuada="alumno.estatus === 'baja'"
@@ -118,7 +127,7 @@ const colorEstatus: Record<string, string> = {
                             <th class="px-6 py-3 font-medium">Matrícula</th>
                             <th class="px-4 py-3 font-medium">Alumno</th>
                             <th class="px-4 py-3 font-medium">CURP</th>
-                            <th class="px-4 py-3 font-medium">Carrera</th>
+                            <th class="px-4 py-3 font-medium">Carreras</th>
                             <th class="px-4 py-3 font-medium">Campus</th>
                             <th class="px-4 py-3 font-medium">Estatus</th>
                             <th class="px-6 py-3 font-medium text-right">Acciones</th>
@@ -145,12 +154,17 @@ const colorEstatus: Record<string, string> = {
                             </td>
                             <td class="px-4 py-3 font-mono text-xs">{{ alumno.curp ?? '—' }}</td>
                             <td class="px-4 py-3">
-                                {{ alumno.carrera ?? '—' }}
-                                <span v-if="alumno.plan" class="block text-xs" :style="{ color: 'var(--color-suave)' }">
-                                    {{ alumno.plan }}
-                                </span>
+                                <template v-if="alumno.carreras_activas >= 2">
+                                    <span class="font-medium">{{ alumno.carreras_activas }} carreras activas</span>
+                                </template>
+                                <template v-else>
+                                    {{ alumno.carrera ?? '—' }}
+                                    <span v-if="alumno.plan" class="block text-xs" :style="{ color: 'var(--color-suave)' }">
+                                        {{ alumno.plan }}
+                                    </span>
+                                </template>
                             </td>
-                            <td class="px-4 py-3">{{ alumno.campus ?? '—' }}</td>
+                            <td class="px-4 py-3">{{ textoCampus(alumno.campus) }}</td>
                             <td class="px-4 py-3">
                                 <span class="rounded-full px-2 py-0.5 text-xs capitalize" :style="{ backgroundColor: colorEstatus[alumno.estatus] ?? 'transparent' }">
                                     {{ alumno.estatus }}

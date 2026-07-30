@@ -319,6 +319,10 @@ class PoblarInstitucionDemoSeeder extends Seeder
         $activo = SituacionAlumno::where('clave', 'activo')->value('id');
         $egresado = SituacionAlumno::where('clave', 'egresado')->value('id');
 
+        $campusIds = Campus::orderBy('id')->pluck('id')->all();
+        $centro = $campusIds[0];
+        $norte = $campusIds[1] ?? $campusIds[0];
+
         $nombres = ['Sofía', 'Mateo', 'Valentina', 'Santiago', 'Regina', 'Emiliano', 'Ximena', 'Diego', 'Fernanda', 'Sebastián', 'Camila', 'Leonardo', 'Renata', 'Alejandro', 'Andrea'];
         $apellidos = ['García', 'Martínez', 'López', 'Hernández', 'González', 'Pérez', 'Ramírez', 'Torres', 'Flores', 'Rivera', 'Gómez', 'Díaz', 'Cruz', 'Morales', 'Reyes', 'Ortiz'];
 
@@ -337,27 +341,31 @@ class PoblarInstitucionDemoSeeder extends Seeder
                 'created_at' => now(), 'updated_at' => now(),
             ]);
 
-            // Combinación de carreras según el alumno.
-            if ($i < 8) {
-                // Dos licenciaturas: una concluida (plan antiguo) y otra en curso.
-                $a = $lics[$i % count($lics)];
-                $b = $lics[($i + 3) % count($lics)];
-                $this->matricular($persona, $a, antiguo: true, concluida: true, egresado: $egresado, activo: $activo, anioIngreso: 2016 + ($i % 3));
-                $this->matricular($persona, $b, antiguo: false, concluida: false, egresado: $egresado, activo: $activo, anioIngreso: 2023);
+            $a = $lics[$i % count($lics)];
+            $b = $lics[($i + 3) % count($lics)];
+
+            if ($i < 3) {
+                // DOS licenciaturas EN CURSO a la vez, en campus distintos (para
+                // ver «2 carreras activas» y «Múltiples campus»).
+                $this->matricular($persona, $a, antiguo: false, concluida: false, egresado: $egresado, activo: $activo, anioIngreso: 2022, campusId: $centro);
+                $this->matricular($persona, $b, antiguo: false, concluida: false, egresado: $egresado, activo: $activo, anioIngreso: 2023, campusId: $norte);
+            } elseif ($i < 8) {
+                // Una licenciatura concluida (plan antiguo, Centro) y otra en
+                // curso; la activa alterna de campus.
+                $this->matricular($persona, $a, antiguo: true, concluida: true, egresado: $egresado, activo: $activo, anioIngreso: 2016 + ($i % 3), campusId: $centro);
+                $this->matricular($persona, $b, antiguo: false, concluida: false, egresado: $egresado, activo: $activo, anioIngreso: 2023, campusId: ($i % 2 === 0 ? $centro : $norte));
             } elseif ($i < 13) {
                 // Licenciatura concluida + maestría en curso.
-                $a = $lics[$i % count($lics)];
                 $m = $posgrados[$i % count($posgrados)];
-                $this->matricular($persona, $a, antiguo: true, concluida: true, egresado: $egresado, activo: $activo, anioIngreso: 2016 + ($i % 3));
-                $this->matricular($persona, $m, antiguo: false, concluida: false, egresado: $egresado, activo: $activo, anioIngreso: 2024);
+                $this->matricular($persona, $a, antiguo: true, concluida: true, egresado: $egresado, activo: $activo, anioIngreso: 2016 + ($i % 3), campusId: $centro);
+                $this->matricular($persona, $m, antiguo: false, concluida: false, egresado: $egresado, activo: $activo, anioIngreso: 2024, campusId: ($i % 2 === 0 ? $centro : $norte));
             } else {
                 // Licenciatura + maestría concluidas + doctorado en curso.
-                $a = $lics[$i % count($lics)];
                 $m = $posgrados[0];
                 $d = $posgrados[count($posgrados) - 1];
-                $this->matricular($persona, $a, antiguo: true, concluida: true, egresado: $egresado, activo: $activo, anioIngreso: 2016);
-                $this->matricular($persona, $m, antiguo: true, concluida: true, egresado: $egresado, activo: $activo, anioIngreso: 2021);
-                $this->matricular($persona, $d, antiguo: false, concluida: false, egresado: $egresado, activo: $activo, anioIngreso: 2025);
+                $this->matricular($persona, $a, antiguo: true, concluida: true, egresado: $egresado, activo: $activo, anioIngreso: 2016, campusId: $centro);
+                $this->matricular($persona, $m, antiguo: true, concluida: true, egresado: $egresado, activo: $activo, anioIngreso: 2021, campusId: $centro);
+                $this->matricular($persona, $d, antiguo: false, concluida: false, egresado: $egresado, activo: $activo, anioIngreso: 2025, campusId: $norte);
             }
         }
     }
@@ -365,10 +373,13 @@ class PoblarInstitucionDemoSeeder extends Seeder
     /**
      * @param  array<string, mixed>  $carrera
      */
-    private function matricular(Persona $persona, array $carrera, bool $antiguo, bool $concluida, int $egresado, int $activo, int $anioIngreso): void
+    private function matricular(Persona $persona, array $carrera, bool $antiguo, bool $concluida, int $egresado, int $activo, int $anioIngreso, ?int $campusId = null): void
     {
         $p = $carrera['planes'][$antiguo ? 0 : 1];
-        $oferta = Oferta::where('plan_id', $p['plan']->id)->first();
+        $oferta = Oferta::where('plan_id', $p['plan']->id)
+            ->when($campusId !== null, fn ($q) => $q->where('campus_id', $campusId))
+            ->first()
+            ?? Oferta::where('plan_id', $p['plan']->id)->first();
 
         if ($oferta === null) {
             return;

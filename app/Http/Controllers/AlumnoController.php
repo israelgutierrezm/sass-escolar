@@ -66,36 +66,43 @@ class AlumnoController extends Controller
             'estatus' => $request->query('estatus'),
         ];
 
-        $alumnos = MatriculaOferta::query()
-            ->with([
-                'persona:id,nombre,primer_apellido,segundo_apellido,curp,email,celular,foto_url',
-                'oferta.carrera:id,nombre',
-                'oferta.plan:id,nombre',
-                'oferta.campus:id,nombre',
-                'situacion:id,nombre',
-            ])
-            ->when($filtros['busqueda'] !== '', fn ($q) => $this->buscar($q, $filtros['busqueda']))
-            ->when($filtros['carrera_id'], fn ($q, $id) => $q->whereHas('oferta', fn ($o) => $o->where('carrera_id', $id)))
-            ->when($filtros['campus_id'], fn ($q, $id) => $q->whereHas('oferta', fn ($o) => $o->where('campus_id', $id)))
-            ->when($filtros['situacion_id'], fn ($q, $id) => $q->where('situacion_id', $id))
-            ->when($filtros['estatus'], fn ($q, $e) => $q->where('estatus', $e))
-            ->orderBy('matricula')
+        // El alcance del rol activo: a qué campus se acota. Vacío = global (ve
+        // todos). Todo lo que se muestre —carreras y campus— se limita a estos.
+        $campusVisibles = $request->user()->campusDelRolActivo();
+
+        // Filtros sobre las matrículas de una persona (incluye el acotamiento por
+        // campus del rol): sirve tanto para decidir si la persona entra al
+        // listado como para cargar solo sus matrículas visibles.
+        $matriculaVisible = function ($q) use ($filtros, $campusVisibles) {
+            $q->when($campusVisibles !== [], fn ($qq) => $qq->whereHas('oferta', fn ($o) => $o->whereIn('campus_id', $campusVisibles)))
+                ->when($filtros['carrera_id'], fn ($qq, $id) => $qq->whereHas('oferta', fn ($o) => $o->where('carrera_id', $id)))
+                ->when($filtros['campus_id'], fn ($qq, $id) => $qq->whereHas('oferta', fn ($o) => $o->where('campus_id', $id)))
+                ->when($filtros['situacion_id'], fn ($qq, $id) => $qq->where('situacion_id', $id))
+                ->when($filtros['estatus'], fn ($qq, $e) => $qq->where('estatus', $e));
+        };
+
+        // La fila del listado es la PERSONA (un alumno con dos carreras es UNA
+        // fila, no dos). Aparece si tiene al menos una matrícula visible que pase
+        // los filtros.
+        $alumnos = Persona::query()
+            ->whereHas('matriculas', $matriculaVisible)
+            ->when($filtros['busqueda'] !== '', function ($q) use ($filtros) {
+                $like = '%'.str_replace(' ', '%', $filtros['busqueda']).'%';
+                $q->where(fn ($w) => $w
+                    ->where('curp', 'like', "%{$filtros['busqueda']}%")
+                    ->orWhereRaw("CONCAT_WS(' ', nombre, primer_apellido, segundo_apellido) LIKE ?", [$like])
+                    ->orWhereHas('matriculas', fn ($m) => $m->where('matricula', 'like', "%{$filtros['busqueda']}%")));
+            })
+            ->with(['matriculas' => function ($q) use ($campusVisibles) {
+                $q->with(['oferta.carrera:id,nombre', 'oferta.plan:id,nombre', 'oferta.campus:id,nombre', 'situacion:id,nombre'])
+                    ->when($campusVisibles !== [], fn ($qq) => $qq->whereHas('oferta', fn ($o) => $o->whereIn('campus_id', $campusVisibles)))
+                    ->orderByDesc('fecha_ingreso');
+            }])
+            ->orderBy('primer_apellido')
+            ->orderBy('nombre')
             ->paginate(10)
             ->withQueryString()
-            ->through(fn (MatriculaOferta $m) => [
-                'id' => $m->id,
-                'matricula' => $m->matricula,
-                'nombre_completo' => $m->persona?->nombreCompleto(),
-                'curp' => $m->persona?->curp,
-                'email' => $m->persona?->email,
-                'foto' => $m->persona?->urlFoto(),
-                'carrera' => $m->oferta?->carrera?->nombre,
-                'plan' => $m->oferta?->plan?->nombre,
-                'campus' => $m->oferta?->campus?->nombre,
-                'situacion' => $m->situacion?->nombre,
-                'estatus' => $m->estatus,
-                'generacion' => $m->generacion,
-            ]);
+            ->through(fn (Persona $p) => $this->filaAlumno($p));
 
         return Inertia::render('Alumnos/Index', [
             'alumnos' => $alumnos,
@@ -817,6 +824,48 @@ class AlumnoController extends Controller
      * @param  Builder<MatriculaOferta>  $query
      * @return Builder<MatriculaOferta>
      */
+    /**
+     * Arma la fila del listado para una persona a partir de sus matrículas
+     * visibles (ya acotadas por el campus del rol).
+     *
+     * @return array<string, mixed>
+     */
+    private function filaAlumno(Persona $persona): array
+    {
+        $matriculas = $persona->matriculas;
+        $activas = $matriculas->where('estatus', 'activo')->values();
+
+        // Fila representativa (para el enlace al detalle): la activa más
+        // reciente, o la más reciente si no hay activas.
+        $rep = $activas->first() ?? $matriculas->first();
+
+        // Campus distintos entre sus matrículas visibles.
+        $campus = $matriculas
+            ->map(fn (MatriculaOferta $m) => $m->oferta?->campus?->nombre)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        return [
+            'id' => $rep?->id,
+            'matricula' => $rep?->matricula,
+            'nombre_completo' => $persona->nombreCompleto(),
+            'curp' => $persona->curp,
+            'email' => $persona->email,
+            'foto' => $persona->urlFoto(),
+            // Carrera: si cursa 2+ a la vez se resume; si solo una (o ninguna
+            // activa), se muestra la representativa como hasta ahora.
+            'carreras_activas' => $activas->count(),
+            'carrera' => $rep?->oferta?->carrera?->nombre,
+            'plan' => $rep?->oferta?->plan?->nombre,
+            'situacion' => $rep?->situacion?->nombre,
+            'estatus' => $rep?->estatus,
+            'generacion' => $rep?->generacion,
+            'campus' => $campus,
+        ];
+    }
+
     private function buscar(Builder $query, string $termino): Builder
     {
         $like = '%'.str_replace(' ', '%', $termino).'%';
