@@ -583,37 +583,60 @@ function verComo(): void {
 
             <!-- Carrera en foco: el select alterna entre las carreras de la
                  persona y todo lo académico de abajo refleja la elegida. -->
-            <div class="mt-4 border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">
-                <div class="flex flex-wrap items-center gap-3">
-                    <label class="text-sm font-medium">Carrera</label>
-                    <select
-                        v-if="carreras.length > 1"
-                        :value="alumno.id"
-                        class="rounded-lg border px-3 py-1.5 text-sm"
-                        :style="{ borderColor: 'var(--color-borde)' }"
-                        @change="cambiarCarrera(($event.target as HTMLSelectElement).value)"
-                    >
-                        <option v-for="c in carreras" :key="c.id" :value="c.id">
-                            {{ c.carrera }} · {{ c.campus }} ({{ c.estatus }})
-                        </option>
-                    </select>
-                    <span v-else class="text-sm font-medium">{{ alumno.carrera }}</span>
-                </div>
-
-                <p class="mt-2 text-sm" :style="{ color: 'var(--color-suave)' }">
-                    <span class="font-mono">{{ alumno.matricula }}</span>
-                    <span v-if="alumno.plan"> · {{ alumno.plan }}</span>
-                    <span v-if="alumno.campus"> · {{ alumno.campus }}</span>
+            <div
+                class="mt-4 rounded-xl border p-4"
+                :style="{ borderColor: 'var(--color-borde)', backgroundColor: 'var(--color-fondo)' }"
+            >
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="text-xs font-medium uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">Carrera</span>
+                        <select
+                            v-if="carreras.length > 1"
+                            :value="alumno.id"
+                            class="rounded-lg border bg-transparent px-3 py-1.5 text-sm font-medium"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                            @change="cambiarCarrera(($event.target as HTMLSelectElement).value)"
+                        >
+                            <option v-for="c in carreras" :key="c.id" :value="c.id">
+                                {{ c.carrera }} · {{ c.campus }} ({{ c.estatus }})
+                            </option>
+                        </select>
+                        <span v-else class="text-sm font-medium">{{ alumno.carrera }}</span>
+                    </div>
                     <span
-                        class="ml-2 rounded-full px-2 py-0.5 text-xs capitalize"
-                        style="background-color: color-mix(in srgb, #16a34a 14%, transparent); color: #166534"
+                        class="rounded-full px-2.5 py-1 text-xs font-medium capitalize"
+                        :style="{ backgroundColor: colorEstatusCarrera[alumno.estatus] ?? 'var(--color-fondo)' }"
                     >
                         {{ alumno.estatus }}
                     </span>
-                    <span class="ml-1">{{ alumno.situacion }}</span>
-                    <span v-if="alumno.generacion"> · generación {{ alumno.generacion }}</span>
-                    <span v-if="alumno.fecha_ingreso"> · ingresó {{ alumno.fecha_ingreso }}</span>
-                </p>
+                </div>
+
+                <dl class="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
+                    <div>
+                        <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">Matrícula</dt>
+                        <dd class="font-mono text-sm">{{ alumno.matricula }}</dd>
+                    </div>
+                    <div v-if="alumno.plan">
+                        <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">Plan</dt>
+                        <dd class="text-sm">{{ alumno.plan }}</dd>
+                    </div>
+                    <div v-if="alumno.campus">
+                        <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">Campus</dt>
+                        <dd class="text-sm">{{ alumno.campus }}</dd>
+                    </div>
+                    <div v-if="alumno.situacion">
+                        <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">Situación</dt>
+                        <dd class="text-sm">{{ alumno.situacion }}</dd>
+                    </div>
+                    <div v-if="alumno.generacion">
+                        <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">Generación</dt>
+                        <dd class="text-sm">{{ alumno.generacion }}</dd>
+                    </div>
+                    <div v-if="alumno.fecha_ingreso">
+                        <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">Ingreso</dt>
+                        <dd class="text-sm">{{ alumno.fecha_ingreso }}</dd>
+                    </div>
+                </dl>
             </div>
 
             <!-- «Ver como alumno»: entrar con su cuenta para ver lo que ve.
