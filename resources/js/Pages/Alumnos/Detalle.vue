@@ -583,10 +583,7 @@ function verComo(): void {
 
             <!-- Carrera en foco: el select alterna entre las carreras de la
                  persona y todo lo académico de abajo refleja la elegida. -->
-            <div
-                class="mt-4 rounded-xl border p-4"
-                :style="{ borderColor: 'var(--color-borde)', backgroundColor: 'var(--color-fondo)' }"
-            >
+            <div class="mt-4 border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <div class="flex flex-wrap items-center gap-2">
                         <span class="text-xs font-medium uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">Carrera</span>
