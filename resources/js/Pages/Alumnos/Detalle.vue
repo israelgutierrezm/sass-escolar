@@ -567,11 +567,12 @@ function verComo(): void {
                         v-model="formHistorial.calificacion"
                         etiqueta="Calificación"
                         tipo="number"
+                        requerido
                         :min="calificacionMinima"
                         :max="calificacionMaxima"
                         step="0.1"
                         :error="formHistorial.errors.calificacion"
-                        :ayuda="`Opcional. Escala ${calificacionMinima}–${calificacionMaxima}; aprueba desde ${minimoAprobatorio}.`"
+                        :ayuda="`Escala ${calificacionMinima}–${calificacionMaxima}; aprueba desde ${minimoAprobatorio}.`"
                     />
                     <CampoSelect
                         v-if="calificacionCapturada"
@@ -590,9 +591,10 @@ function verComo(): void {
                     />
                     <CampoSelect
                         v-model="formHistorial.ciclo_id"
-                        etiqueta="Ciclo (opcional)"
+                        etiqueta="Ciclo"
+                        requerido
                         :opciones="ciclos.map((c) => ({ valor: c.id, texto: c.clave }))"
-                        vacio="Sin ciclo"
+                        vacio="Selecciona…"
                         :error="formHistorial.errors.ciclo_id"
                     />
                     <div class="flex items-end gap-2 sm:col-span-3">

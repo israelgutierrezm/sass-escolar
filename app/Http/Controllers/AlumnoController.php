@@ -395,52 +395,45 @@ class AlumnoController extends Controller
 
         $datos = $request->validate([
             'plan_materia_id' => ['required', 'integer', Rule::exists('plan_materias', 'id')->where('plan_id', $planId)->whereNull('deleted_at')],
-            'ciclo_id' => ['nullable', 'integer', Rule::exists('ciclos', 'id')->whereNull('deleted_at')],
-            // El estatus llega solo cuando hay calificación (el front lo esconde
-            // si no la hay); por eso es nullable aquí.
-            'estatus_id' => ['nullable', 'integer', Rule::exists('estatus_historial', 'id')],
+            // Ciclo y calificación son los datos mínimos de un renglón de kárdex:
+            // ambos obligatorios.
+            'ciclo_id' => ['required', 'integer', Rule::exists('ciclos', 'id')->whereNull('deleted_at')],
+            'estatus_id' => ['required', 'integer', Rule::exists('estatus_historial', 'id')],
             // «Tipo de evaluación» en la UI = observación oficial SEP. El
             // tipo_evaluacion interno se deriva de aquí; ya no se captura aparte.
             'observacion_asignatura_id' => ['required', 'integer', Rule::exists('observaciones_asignatura', 'id')],
-            'calificacion' => ['nullable', 'numeric', "min:{$minCalif}", "max:{$maxima}"],
+            'calificacion' => ['required', 'numeric', "min:{$minCalif}", "max:{$maxima}"],
         ], [
             'plan_materia_id.exists' => 'La materia no pertenece al plan del alumno.',
             'calificacion.max' => "La calificación no puede pasar de {$maxima} (escala del plan).",
             'calificacion.min' => "La calificación no puede ser menor a {$minCalif}.",
         ], [
             'plan_materia_id' => 'materia',
+            'ciclo_id' => 'ciclo',
             'estatus_id' => 'estatus',
             'observacion_asignatura_id' => 'tipo de evaluación',
         ]);
 
-        $calificacion = ($datos['calificacion'] ?? null) === null ? null : (float) $datos['calificacion'];
+        $calificacion = (float) $datos['calificacion'];
         $minima = (float) ($plan?->calificacion_minima_aprobatoria ?? 0);
 
-        // El estatus lo manda la calificación (regla única EstatusAcademico):
-        //  - Con nota: el estatus enviado debe cumplir la regla (el front ya la
-        //    fuerza, pero un POST se arma a mano).
-        //  - Sin nota: es una carga histórica acreditada; se asienta aprobada.
-        if ($calificacion === null) {
-            $estatusId = EstatusHistorial::query()->where('clave', 'aprobada')->value('id');
-        } else {
-            $claveEstatus = EstatusHistorial::query()->whereKey($datos['estatus_id'])->value('clave');
+        // El estatus lo manda la calificación (regla única EstatusAcademico): el
+        // front ya la fuerza, pero un POST se arma a mano, así que se reexige.
+        $claveEstatus = EstatusHistorial::query()->whereKey($datos['estatus_id'])->value('clave');
 
-            if (! $estatusAcademico->permite($calificacion, $minima, $claveEstatus)) {
-                throw ValidationException::withMessages([
-                    'estatus_id' => 'Ese estatus no corresponde a la calificación: con esa nota la regla del plan determina otro.',
-                ]);
-            }
-
-            $estatusId = $datos['estatus_id'];
+        if (! $estatusAcademico->permite($calificacion, $minima, $claveEstatus)) {
+            throw ValidationException::withMessages([
+                'estatus_id' => 'Ese estatus no corresponde a la calificación: con esa nota la regla del plan determina otro.',
+            ]);
         }
 
         Historial::create([
             'matricula_oferta_id' => $alumno->id,
             'plan_materia_id' => $datos['plan_materia_id'],
-            'ciclo_id' => $datos['ciclo_id'] ?? null,
+            'ciclo_id' => $datos['ciclo_id'],
             'asignatura_grupo_id' => null,
             'tipo_evaluacion_id' => $this->tipoEvaluacionDesdeObservacion((int) $datos['observacion_asignatura_id']),
-            'estatus_id' => $estatusId,
+            'estatus_id' => $datos['estatus_id'],
             'calificacion' => $calificacion,
             'observacion_asignatura_id' => $datos['observacion_asignatura_id'],
         ]);
