@@ -168,13 +168,28 @@ export const CATALOGO_MENU: GrupoMenu[] = [
         hijos: [
             { clave: 'usuarios', etiqueta: 'Usuarios', url: '/plataforma/usuarios', permiso: 'gestionar-usuarios' },
             { clave: 'accesos', etiqueta: 'Accesos', url: '/plataforma/accesos', permiso: 'ver-accesos' },
-            { clave: 'roles', etiqueta: 'Roles y permisos', url: '/plataforma/roles', permiso: 'gestionar-roles' },
-            { clave: 'menu', etiqueta: 'Menú', url: '/plataforma/menu', permiso: 'gestionar-roles' },
-            { clave: 'tarjetas', etiqueta: 'Panel por rol', url: '/plataforma/tarjetas', permiso: 'gestionar-roles' },
-            { clave: 'reglas', etiqueta: 'Reglas de la escuela', url: '/plataforma/configuracion', permiso: 'ver-configuracion' },
-            { clave: 'config-facturacion', etiqueta: 'Config. facturación', url: '/plataforma/configuraciones/facturacion', permiso: 'configurar-facturacion' },
-            { clave: 'config-pasarelas', etiqueta: 'Pasarelas de pago', url: '/plataforma/configuraciones/pasarelas', permiso: 'configurar-facturacion' },
-            { clave: 'config-correo', etiqueta: 'Config. correo', url: '/plataforma/configuraciones/correo', permiso: 'configurar-correo' },
+            {
+                clave: 'plataforma-roles',
+                etiqueta: 'Roles',
+                prefijo: '/plataforma/roles',
+                hijos: [
+                    { clave: 'roles', etiqueta: 'Roles y permisos', url: '/plataforma/roles', permiso: 'gestionar-roles' },
+                    { clave: 'menu', etiqueta: 'Menú', url: '/plataforma/menu', permiso: 'gestionar-roles' },
+                    { clave: 'tarjetas', etiqueta: 'Panel por rol', url: '/plataforma/tarjetas', permiso: 'gestionar-roles' },
+                ],
+            },
+            {
+                clave: 'plataforma-configuracion',
+                etiqueta: 'Configuración',
+                prefijo: '/plataforma/configuracion',
+                hijos: [
+                    { clave: 'config-catalogos', etiqueta: 'Catálogos', url: '/plataforma/configuracion/catalogos', permiso: 'editar-configuracion' },
+                    { clave: 'reglas', etiqueta: 'Reglas institucionales', url: '/plataforma/configuracion', permiso: 'ver-configuracion' },
+                    { clave: 'config-correo', etiqueta: 'Envío de correos', url: '/plataforma/configuraciones/correo', permiso: 'configurar-correo' },
+                    { clave: 'config-facturacion', etiqueta: 'API Facturación', url: '/plataforma/configuraciones/facturacion', permiso: 'configurar-facturacion' },
+                    { clave: 'config-pasarelas', etiqueta: 'API Pasarelas', url: '/plataforma/configuraciones/pasarelas', permiso: 'configurar-facturacion' },
+                ],
+            },
         ],
     },
     {
