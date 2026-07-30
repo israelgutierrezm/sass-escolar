@@ -4,6 +4,8 @@ import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
+import CampoTexto from '@/Components/CampoTexto.vue';
+import CampoSelect from '@/Components/CampoSelect.vue';
 import Paginacion from '@/Components/Paginacion.vue';
 import BarraListado from '@/Components/BarraListado.vue';
 import CamposIdentidad from '@/Components/CamposIdentidad.vue';
@@ -149,28 +151,31 @@ const rolesResumen = (u: UsuarioFila): string =>
                 />
 
                 <div class="grid gap-4 sm:grid-cols-3">
-                    <label class="text-sm">
-                        <span class="mb-1 block font-medium">Contraseña inicial</span>
-                        <input v-model="alta.password" type="text" required minlength="8" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                        <span v-if="alta.errors.password" class="text-xs text-red-600">{{ alta.errors.password }}</span>
-                        <span v-else class="text-xs" :style="{ color: 'var(--color-suave)' }">Dísela por un medio seguro.</span>
-                    </label>
-                    <label class="text-sm">
-                        <span class="mb-1 block font-medium">Rol inicial</span>
-                        <select v-model="alta.rol_id" required class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
+                    <CampoTexto
+                        v-model="alta.password"
+                        etiqueta="Contraseña inicial"
+                        requerido
+                        :error="alta.errors.password"
+                        ayuda="Dísela por un medio seguro."
+                    />
+                    <!-- Rol crudo a propósito: se agrupa por faceta con <optgroup>,
+                         que CampoSelect (lista plana) no puede expresar. -->
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-contenido">Rol inicial<span class="text-red-500"> *</span></label>
+                        <select v-model="alta.rol_id" required class="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1 border-borde focus:border-indigo-500 focus:ring-indigo-500">
                             <optgroup v-for="(lista, faceta) in rolesPorFaceta" :key="faceta" :label="faceta">
                                 <option v-for="r in lista" :key="r.id" :value="r.id">{{ r.nombre }}</option>
                             </optgroup>
                         </select>
-                        <span v-if="alta.errors.rol_id" class="text-xs text-red-600">{{ alta.errors.rol_id }}</span>
-                    </label>
-                    <label class="text-sm">
-                        <span class="mb-1 block font-medium">Acotar a campus</span>
-                        <select v-model="alta.campus_id" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
-                            <option :value="null">Toda la escuela</option>
-                            <option v-for="c in campus" :key="c.id" :value="c.id">{{ c.nombre }}</option>
-                        </select>
-                    </label>
+                        <p v-if="alta.errors.rol_id" class="mt-1 text-xs text-red-600">{{ alta.errors.rol_id }}</p>
+                    </div>
+                    <CampoSelect
+                        v-model="alta.campus_id"
+                        etiqueta="Acotar a campus"
+                        :opciones="campus.map((c) => ({ valor: c.id, texto: c.nombre }))"
+                        vacio="Toda la escuela"
+                        :error="alta.errors.campus_id"
+                    />
                 </div>
 
                 <label class="flex items-center gap-2 text-sm">

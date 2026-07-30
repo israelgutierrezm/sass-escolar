@@ -4,6 +4,9 @@ import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
+import CampoTexto from '@/Components/CampoTexto.vue';
+import CampoSelect from '@/Components/CampoSelect.vue';
+import CampoTextarea from '@/Components/CampoTextarea.vue';
 
 interface Publicacion {
     id: number;
@@ -119,108 +122,109 @@ function conversion(p: Publicacion): string {
                     </p>
                 </div>
 
-                <button
-                    v-if="!creando"
-                    type="button"
-                    class="rounded-lg px-4 py-2 text-sm font-medium"
-                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                    @click="creando = true"
-                >
-                    Publicar formulario
-                </button>
+                <BotonAccion v-if="!creando" variante="nuevo" texto="Publicar formulario" @click="creando = true" />
             </div>
 
             <form v-if="creando" class="mt-5 grid gap-4 border-t pt-5 sm:grid-cols-3" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="crear">
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Formulario</span>
-                    <select v-model="form.formulario_id" required class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
-                        <option v-for="f in formularios" :key="f.id" :value="f.id">{{ f.nombre }}</option>
-                    </select>
-                    <span class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                        Apunta a una versión concreta: si publicas la v2, es otra publicación.
-                    </span>
-                </label>
+                <CampoSelect
+                    v-model="form.formulario_id"
+                    etiqueta="Formulario"
+                    requerido
+                    :opciones="formularios.map((f) => ({ valor: f.id, texto: f.nombre }))"
+                    :error="form.errors.formulario_id"
+                    ayuda="Apunta a una versión concreta: si publicas la v2, es otra publicación."
+                />
 
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Nombre interno</span>
-                    <input v-model="form.nombre" type="text" required placeholder="Campaña feria marzo" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                </label>
+                <CampoTexto
+                    v-model="form.nombre"
+                    etiqueta="Nombre interno"
+                    requerido
+                    marcador="Campaña feria marzo"
+                    :error="form.errors.nombre"
+                />
 
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Modo</span>
-                    <select v-model="form.modo" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
-                        <option value="captacion">Captación de interés</option>
-                        <option value="inscripcion">Inscripción autogestiva</option>
-                    </select>
-                </label>
+                <CampoSelect
+                    v-model="form.modo"
+                    etiqueta="Modo"
+                    :opciones="[
+                        { valor: 'captacion', texto: 'Captación de interés' },
+                        { valor: 'inscripcion', texto: 'Inscripción autogestiva' },
+                    ]"
+                    :error="form.errors.modo"
+                />
 
-                <label class="text-sm sm:col-span-3">
-                    <span class="mb-1 block font-medium">Título que ve el visitante</span>
-                    <input v-model="form.titulo" type="text" required placeholder="Solicita informes de nuestras licenciaturas" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                </label>
+                <div class="sm:col-span-3">
+                    <CampoTexto
+                        v-model="form.titulo"
+                        etiqueta="Título que ve el visitante"
+                        requerido
+                        marcador="Solicita informes de nuestras licenciaturas"
+                        :error="form.errors.titulo"
+                    />
+                </div>
 
-                <label class="text-sm sm:col-span-3">
-                    <span class="mb-1 block font-medium">Texto de bienvenida</span>
-                    <textarea v-model="form.bienvenida" rows="2" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }"></textarea>
-                </label>
+                <div class="sm:col-span-3">
+                    <CampoTextarea v-model="form.bienvenida" etiqueta="Texto de bienvenida" :error="form.errors.bienvenida" />
+                </div>
 
-                <label class="text-sm sm:col-span-3">
-                    <span class="mb-1 block font-medium">Texto de agradecimiento</span>
-                    <textarea v-model="form.gracias" rows="2" placeholder="Alguien de la escuela te contactará muy pronto." class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }"></textarea>
-                </label>
+                <div class="sm:col-span-3">
+                    <CampoTextarea
+                        v-model="form.gracias"
+                        etiqueta="Texto de agradecimiento"
+                        marcador="Alguien de la escuela te contactará muy pronto."
+                        :error="form.errors.gracias"
+                    />
+                </div>
 
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Origen que se les atribuye</span>
-                    <select v-model="form.origen_id" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
-                        <option :value="null">Autogestivo por omisión</option>
-                        <option v-for="o in origenes" :key="o.id" :value="o.id">{{ o.nombre }}</option>
-                    </select>
-                </label>
+                <CampoSelect
+                    v-model="form.origen_id"
+                    etiqueta="Origen que se les atribuye"
+                    vacio="Autogestivo por omisión"
+                    :opciones="origenes.map((o) => ({ valor: o.id, texto: o.nombre }))"
+                    :error="form.errors.origen_id"
+                />
 
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Entran en la etapa</span>
-                    <select v-model="form.etapa_crm_id" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
-                        <option v-for="e in etapas" :key="e.id" :value="e.id">{{ e.nombre }}</option>
-                    </select>
-                </label>
+                <CampoSelect
+                    v-model="form.etapa_crm_id"
+                    etiqueta="Entran en la etapa"
+                    :opciones="etapas.map((e) => ({ valor: e.id, texto: e.nombre }))"
+                    :error="form.errors.etapa_crm_id"
+                />
 
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Promotor titular</span>
-                    <select v-model="form.asesor_persona_id" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
-                        <option :value="null">Sin asignar</option>
-                        <option v-for="p in promotores" :key="p.persona_id" :value="p.persona_id">{{ p.nombre }}</option>
-                    </select>
-                    <span class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                        También es quien devengará la comisión si se inscriben.
-                    </span>
-                </label>
+                <CampoSelect
+                    v-model="form.asesor_persona_id"
+                    etiqueta="Promotor titular"
+                    vacio="Sin asignar"
+                    :opciones="promotores.map((p) => ({ valor: p.persona_id, texto: p.nombre }))"
+                    :error="form.errors.asesor_persona_id"
+                    ayuda="También es quien devengará la comisión si se inscriben."
+                />
 
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Oferta fija</span>
-                    <select v-model="form.oferta_id" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
-                        <option :value="null">Que el visitante elija</option>
-                        <option v-for="o in ofertas" :key="o.id" :value="o.id">{{ o.nombre }}</option>
-                    </select>
-                </label>
+                <CampoSelect
+                    v-model="form.oferta_id"
+                    etiqueta="Oferta fija"
+                    vacio="Que el visitante elija"
+                    :opciones="ofertas.map((o) => ({ valor: o.id, texto: o.nombre }))"
+                    :error="form.errors.oferta_id"
+                />
 
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Campus</span>
-                    <select v-model="form.campus_id" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
-                        <option :value="null">Ninguno en particular</option>
-                        <option v-for="c in campus" :key="c.id" :value="c.id">{{ c.nombre }}</option>
-                    </select>
-                </label>
+                <CampoSelect
+                    v-model="form.campus_id"
+                    etiqueta="Campus"
+                    vacio="Ninguno en particular"
+                    :opciones="campus.map((c) => ({ valor: c.id, texto: c.nombre }))"
+                    :error="form.errors.campus_id"
+                />
 
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Recibe desde</span>
-                    <input v-model="form.vigente_desde" type="date" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                </label>
+                <CampoTexto v-model="form.vigente_desde" tipo="date" etiqueta="Recibe desde" :error="form.errors.vigente_desde" />
 
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Recibe hasta</span>
-                    <input v-model="form.vigente_hasta" type="date" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                    <span class="text-xs" :style="{ color: 'var(--color-suave)' }">En blanco, sin fecha de cierre.</span>
-                </label>
+                <CampoTexto
+                    v-model="form.vigente_hasta"
+                    tipo="date"
+                    etiqueta="Recibe hasta"
+                    :error="form.errors.vigente_hasta"
+                    ayuda="En blanco, sin fecha de cierre."
+                />
 
                 <div class="flex items-end gap-2 sm:col-span-3">
                     <BotonPrincipal :procesando="form.processing" texto="Publicar" />
