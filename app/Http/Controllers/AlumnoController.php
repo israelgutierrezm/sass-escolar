@@ -454,18 +454,21 @@ class AlumnoController extends Controller
             ]);
         }
 
-        // Una materia no puede repetirse con el MISMO tipo de evaluación (dos
-        // ordinarios, dos títulos…). Sí puede con otro tipo —ordinario y luego
-        // a título—, y entonces conviven ambos renglones; el promedio toma el mejor.
+        // Una materia no puede repetirse con el MISMO tipo de evaluación en el
+        // MISMO ciclo (dos ordinarios, dos títulos, dos extraordinarios en el
+        // mismo ciclo), tengan la misma calificación o no. Sí puede con otro
+        // tipo —ordinario y a título— o en otro ciclo, y entonces conviven ambos
+        // renglones; el promedio toma el mejor.
         $duplicada = Historial::query()
             ->where('matricula_oferta_id', $alumno->id)
             ->where('plan_materia_id', $datos['plan_materia_id'])
             ->where('observacion_asignatura_id', $datos['observacion_asignatura_id'])
+            ->where('ciclo_id', $datos['ciclo_id'])
             ->exists();
 
         if ($duplicada) {
             throw ValidationException::withMessages([
-                'observacion_asignatura_id' => 'Esa materia ya está en el kárdex con ese tipo de evaluación. Usa otro tipo (extraordinario, a título…) o retira el renglón anterior.',
+                'observacion_asignatura_id' => 'Esa materia ya está en el kárdex con ese tipo de evaluación en ese ciclo. Cambia el tipo o el ciclo, o retira el renglón anterior.',
             ]);
         }
 

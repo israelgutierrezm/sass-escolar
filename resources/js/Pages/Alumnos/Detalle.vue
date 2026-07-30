@@ -736,8 +736,8 @@ function verComo(): void {
                                     </span>
                                     <span
                                         v-if="!g.idsQueCuentan.has(renglon.id)"
-                                        class="rounded px-1.5 py-0.5 text-[10px]"
-                                        :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 15%, transparent)' }"
+                                        class="rounded px-1.5 py-0.5 text-[10px] font-medium"
+                                        style="background-color: color-mix(in srgb, #dc2626 12%, transparent); color: #dc2626"
                                         title="Hay un intento con mejor calificación; este no cuenta para el promedio"
                                     >
                                         no promedia
