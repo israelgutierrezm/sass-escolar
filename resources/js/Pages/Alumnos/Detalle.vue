@@ -1293,6 +1293,7 @@ function verComo(): void {
                         :persona-id="persona.id"
                         con-rfc
                         correo-requerido
+                        curp-requerido
                     />
                 </div>
 

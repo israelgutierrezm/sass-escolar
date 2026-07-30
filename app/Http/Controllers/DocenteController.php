@@ -13,6 +13,7 @@ use App\Models\ControlEscolar\SituacionDocente;
 use App\Models\ControlEscolar\TipoDocente;
 use App\Models\ControlEscolar\TituloDocente;
 use App\Models\Identidad\Persona;
+use App\Rules\CurpValida;
 use App\Services\GestorTitulosDocente;
 use App\Services\IdentidadPersona;
 use Illuminate\Database\Eloquent\Builder;
@@ -180,6 +181,9 @@ class DocenteController extends Controller
                 'email' => $docente->persona?->email,
                 'correo_institucional' => $docente->persona?->correo_institucional,
                 'celular' => $docente->persona?->celular,
+                'telefono_local' => $docente->persona?->telefono_local,
+                'entidad_nacimiento_id' => $docente->persona?->entidad_nacimiento_id,
+                'pais_nacimiento_id' => $docente->persona?->pais_nacimiento_id,
                 'foto' => $docente->persona?->urlFoto(),
             ],
             'materias' => $materias,
@@ -359,14 +363,21 @@ class DocenteController extends Controller
             'nombre' => ['required', 'string', 'max:255'],
             'primer_apellido' => ['required', 'string', 'max:255'],
             'segundo_apellido' => ['nullable', 'string', 'max:255'],
-            'curp' => ['nullable', 'string', 'size:18', Rule::unique('personas', 'curp')->ignore($personaId)->whereNull('deleted_at')],
+            // CURP obligatoria (autovalidable) y única.
+            'curp' => ['required', 'string', 'max:20', new CurpValida, Rule::unique('personas', 'curp')->ignore($personaId)->whereNull('deleted_at')],
             'rfc' => ['nullable', 'string', 'max:13'],
             'fecha_nacimiento' => ['nullable', 'date', 'before:today'],
             // El sexo NO se pregunta: lo deriva IdentidadPersona de la CURP o el género.
             'genero_id' => ['nullable', 'integer'],
             'entidad_nacimiento_id' => ['nullable', 'integer'],
             'pais_nacimiento_id' => ['nullable', 'integer'],
-            'email' => ['nullable', 'email', 'max:150'],
+            // Correo obligatorio (credencial) y único en la plataforma.
+            'email' => ['required', 'email', 'max:150', function (string $atributo, mixed $valor, \Closure $fallar) use ($personaId) {
+                $conflicto = app(IdentidadPersona::class)->correoEnUso($valor, $personaId);
+                if ($conflicto !== null) {
+                    $fallar('Ese correo ya está registrado con otra persona ('.$conflicto->nombreCompleto().').');
+                }
+            }],
             'correo_institucional' => ['nullable', 'email', 'max:150'],
             'celular' => ['nullable', 'string', 'max:20'],
             'telefono_local' => ['nullable', 'string', 'max:20'],
@@ -378,10 +389,10 @@ class DocenteController extends Controller
             'campus_ids' => ['present', 'array'],
             'campus_ids.*' => ['integer', Rule::exists('campus', 'id')->whereNull('deleted_at')],
         ], [
-            'curp.size' => 'La CURP tiene 18 caracteres.',
             'curp.unique' => 'Esa CURP ya está registrada en otra persona.',
         ], [
             'genero_id' => 'género',
+            'email' => 'correo',
             'tipo_docente_id' => 'tipo de docente',
             'situacion_id' => 'situación',
             'campus_ids' => 'campus',
@@ -423,10 +434,9 @@ class DocenteController extends Controller
             'tipos' => TipoDocente::query()->orderBy('id')->get(['id', 'nombre']),
             'campus' => Campus::query()->orderBy('nombre')->get(['id', 'nombre']),
             // Géneros, entidades, países y México para el bloque de identidad
-            // compartido (autollenado por CURP).
+            // compartido (autollenado por CURP), tanto en el alta como en el
+            // detalle: ambos usan CamposIdentidad.
             ...app(IdentidadPersona::class)->catalogosDeOrigen(),
-            // El detalle (edición inline) todavía muestra el selector de sexo.
-            'sexos' => \App\Models\Landlord\Sexo::query()->orderBy('id')->get(['id', 'nombre']),
         ];
     }
 }

@@ -40,6 +40,8 @@ const props = defineProps<{
     personaId?: number | null;
     /** El correo es la credencial de acceso; casi siempre obligatorio. */
     correoRequerido?: boolean;
+    /** Marca la CURP como obligatoria (el backend la exige en ese form). */
+    curpRequerido?: boolean;
     /** Muestra el RFC (no todos los roles lo capturan). Se prellena de la CURP. */
     conRfc?: boolean;
 }>();
@@ -258,6 +260,7 @@ const notaCurp = computed(() => {
                 v-model="form.curp"
                 etiqueta="CURP"
                 mono
+                :requerido="curpRequerido"
                 :maximo="18"
                 marcador="18 caracteres, o EXTRANJERO"
                 :error="form.errors.curp"

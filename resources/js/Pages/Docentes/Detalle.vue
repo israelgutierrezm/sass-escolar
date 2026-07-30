@@ -6,6 +6,7 @@ import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoCasillas from '@/Components/CampoCasillas.vue';
+import CamposIdentidad from '@/Components/CamposIdentidad.vue';
 import TitulosDocente from '@/Components/TitulosDocente.vue';
 
 interface DocumentoDoc {
@@ -30,8 +31,11 @@ const props = defineProps<{
     situaciones: { id: number; nombre: string }[];
     tipos: { id: number; nombre: string }[];
     campus: { id: number; nombre: string }[];
-    sexos: { id: number; nombre: string }[];
     generos: { id: number; nombre: string }[];
+    entidades: { id: number; nombre: string }[];
+    entidadExtranjero: { id: number; nombre: string } | null;
+    paises: { id: number; nombre: string }[];
+    mexicoId: number | null;
     titulos: { id: number; grado: string; titulo_obtenido: string; cedula: string | null; institucion: string | null; anio: number | null; archivo: string | null }[];
     puedeGestionar: boolean;
     suplantable: { usuario_id: number; usuario: string } | null;
@@ -48,11 +52,13 @@ const form = useForm({
     curp: props.persona.curp ?? '',
     rfc: props.persona.rfc ?? '',
     fecha_nacimiento: props.persona.fecha_nacimiento ?? '',
-    sexo_id: props.persona.sexo_id ?? null,
     genero_id: props.persona.genero_id ?? null,
+    entidad_nacimiento_id: props.persona.entidad_nacimiento_id ?? null,
+    pais_nacimiento_id: props.persona.pais_nacimiento_id ?? null,
     email: props.persona.email ?? '',
     correo_institucional: props.persona.correo_institucional ?? '',
     celular: props.persona.celular ?? '',
+    telefono_local: props.persona.telefono_local ?? '',
     clave_profesor: props.docente.clave_profesor ?? '',
     tipo_docente_id: props.docente.tipo_docente_id ?? null,
     situacion_id: props.docente.situacion_id ?? null,
@@ -378,86 +384,76 @@ function verComo(): void {
         </div>
 
         <!-- Datos -->
-        <form v-else class="tarjeta p-6" @submit.prevent="guardar">
-            <h2 class="text-base font-semibold">Identidad</h2>
+        <section v-else class="tarjeta p-6">
+            <form v-if="puedeGestionar" @submit.prevent="guardar">
+                <h2 class="text-base font-semibold">Identidad</h2>
+                <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
+                    La CURP autollena fecha, género y entidad. CURP y correo son obligatorios.
+                </p>
 
-            <div class="mt-5 grid gap-4 sm:grid-cols-3">
-                <CampoTexto v-model="form.nombre" etiqueta="Nombre(s)" requerido :error="form.errors.nombre" :deshabilitado="!puedeGestionar" />
-                <CampoTexto v-model="form.primer_apellido" etiqueta="Primer apellido" requerido :error="form.errors.primer_apellido" :deshabilitado="!puedeGestionar" />
-                <CampoTexto v-model="form.segundo_apellido" etiqueta="Segundo apellido" :error="form.errors.segundo_apellido" :deshabilitado="!puedeGestionar" />
+                <div class="mt-5">
+                    <CamposIdentidad
+                        :form="form"
+                        :generos="generos"
+                        :entidades="entidades"
+                        :entidad-extranjero="entidadExtranjero"
+                        :paises="paises"
+                        :mexico-id="mexicoId"
+                        :persona-id="persona.id"
+                        con-rfc
+                        correo-requerido
+                        curp-requerido
+                    />
+                </div>
 
-                <CampoTexto v-model="form.curp" etiqueta="CURP" mono :error="form.errors.curp" :deshabilitado="!puedeGestionar" />
-                <CampoTexto v-model="form.rfc" etiqueta="RFC" mono :error="form.errors.rfc" :deshabilitado="!puedeGestionar" />
-                <CampoTexto v-model="form.fecha_nacimiento" etiqueta="Fecha de nacimiento" tipo="date" :error="form.errors.fecha_nacimiento" :deshabilitado="!puedeGestionar" />
+                <h2 class="mt-8 text-base font-semibold">Registro docente</h2>
+                <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
+                    Esto es lo que el docente ve de solo lectura en su portal.
+                </p>
 
-                <CampoSelect
-                    v-model="form.sexo_id"
-                    etiqueta="Sexo"
-                    requerido
-                    :opciones="sexos.map((s) => ({ valor: s.id, texto: s.nombre }))"
-                    vacio="Selecciona…"
-                    :error="form.errors.sexo_id"
-                />
-                <CampoSelect
-                    v-model="form.genero_id"
-                    etiqueta="Género"
-                    :opciones="generos.map((g) => ({ valor: g.id, texto: g.nombre }))"
-                    vacio="Sin especificar"
-                    :error="form.errors.genero_id"
-                />
-                <div></div>
+                <div class="mt-5 grid gap-4 sm:grid-cols-3">
+                    <CampoTexto v-model="form.clave_profesor" etiqueta="Clave de profesor" mono :error="form.errors.clave_profesor" />
+                    <CampoSelect
+                        v-model="form.tipo_docente_id"
+                        etiqueta="Tipo de docente"
+                        :opciones="tipos.map((t) => ({ valor: t.id, texto: t.nombre }))"
+                        vacio="Sin especificar"
+                        :error="form.errors.tipo_docente_id"
+                    />
+                    <CampoSelect
+                        v-model="form.situacion_id"
+                        etiqueta="Situación"
+                        requerido
+                        :opciones="situaciones.map((s) => ({ valor: s.id, texto: s.nombre }))"
+                        :error="form.errors.situacion_id"
+                    />
+                    <CampoSelect
+                        v-model="form.edicion_contenido"
+                        etiqueta="Edición de contenido"
+                        :opciones="[
+                            { valor: 0, texto: 'Ninguna' },
+                            { valor: 1, texto: 'Solo sus grupos' },
+                            { valor: 2, texto: 'Todos los grupos' },
+                        ]"
+                        :error="form.errors.edicion_contenido"
+                    />
+                </div>
 
-                <CampoTexto v-model="form.email" etiqueta="Correo personal" tipo="email" :error="form.errors.email" :deshabilitado="!puedeGestionar" />
-                <CampoTexto v-model="form.correo_institucional" etiqueta="Correo institucional" tipo="email" :error="form.errors.correo_institucional" :deshabilitado="!puedeGestionar" />
-                <CampoTexto v-model="form.celular" etiqueta="Celular" :error="form.errors.celular" :deshabilitado="!puedeGestionar" />
-            </div>
+                <div class="mt-5">
+                    <CampoCasillas
+                        v-model="form.campus_ids"
+                        etiqueta="Campus donde imparte"
+                        :opciones="campus.map((c) => ({ valor: c.id, texto: c.nombre }))"
+                        :error="form.errors.campus_ids"
+                    />
+                </div>
 
-            <h2 class="mt-8 text-base font-semibold">Registro docente</h2>
-            <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                Esto es lo que el docente ve de solo lectura en su portal.
-            </p>
+                <BotonPrincipal :procesando="form.processing" texto="Guardar cambios" class="mt-6" />
+            </form>
 
-            <div class="mt-5 grid gap-4 sm:grid-cols-3">
-                <CampoTexto v-model="form.clave_profesor" etiqueta="Clave de profesor" mono :error="form.errors.clave_profesor" :deshabilitado="!puedeGestionar" />
-                <CampoSelect
-                    v-model="form.tipo_docente_id"
-                    etiqueta="Tipo de docente"
-                    :opciones="tipos.map((t) => ({ valor: t.id, texto: t.nombre }))"
-                    vacio="Sin especificar"
-                    :error="form.errors.tipo_docente_id"
-                />
-                <CampoSelect
-                    v-model="form.situacion_id"
-                    etiqueta="Situación"
-                    requerido
-                    :opciones="situaciones.map((s) => ({ valor: s.id, texto: s.nombre }))"
-                    :error="form.errors.situacion_id"
-                />
-                <CampoSelect
-                    v-model="form.edicion_contenido"
-                    etiqueta="Edición de contenido"
-                    :opciones="[
-                        { valor: 0, texto: 'Ninguna' },
-                        { valor: 1, texto: 'Solo sus grupos' },
-                        { valor: 2, texto: 'Todos los grupos' },
-                    ]"
-                    :error="form.errors.edicion_contenido"
-                />
-            </div>
-
-            <div class="mt-5">
-                <CampoCasillas
-                    v-model="form.campus_ids"
-                    etiqueta="Campus donde imparte"
-                    :opciones="campus.map((c) => ({ valor: c.id, texto: c.nombre }))"
-                    :error="form.errors.campus_ids"
-                />
-            </div>
-
-            <BotonPrincipal v-if="puedeGestionar" :procesando="form.processing" texto="Guardar cambios" class="mt-6" />
-            <p v-else class="mt-6 text-sm" :style="{ color: 'var(--color-suave)' }">
+            <p v-else class="text-sm" :style="{ color: 'var(--color-suave)' }">
                 Solo consulta: no tienes permiso para gestionar docentes.
             </p>
-        </form>
+        </section>
     </AppLayout>
 </template>

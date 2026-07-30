@@ -67,6 +67,8 @@ function enviar(): void {
                         :mexico-id="mexicoId"
                         :persona-id="null"
                         con-rfc
+                        correo-requerido
+                        curp-requerido
                     />
                 </div>
             </section>
