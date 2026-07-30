@@ -368,7 +368,10 @@ class AlumnoController extends Controller
             'calificacionMaxima' => (float) ($alumno->oferta?->plan?->calificacion_maxima ?? 10),
             'tiposEvaluacion' => TipoEvaluacion::query()->orderBy('id')->get(['id', 'nombre']),
             'observacionesAsignatura' => ObservacionAsignatura::query()->orderBy('id')->get(['id', 'nombre', 'abreviatura']),
-            'ciclos' => Ciclo::query()->orderByDesc('id')->get(['id', 'clave']),
+            // Solo los ciclos congruentes con dónde cursa el alumno (su campus y
+            // su nivel de estudios). Un ciclo de otro campus/nivel no aplica.
+            'ciclos' => $this->ciclosCongruentes($alumno)
+                ->map(fn (Ciclo $ciclo) => ['id' => $ciclo->id, 'clave' => $ciclo->clave]),
             'puedeCargarHistorial' => $request->user()->can('editar-alumnos'),
             'situaciones' => SituacionAlumno::query()->orderBy('id')->get(['id', 'nombre']),
             'sexos' => Sexo::query()->orderBy('id')->get(['id', 'nombre']),
@@ -392,12 +395,15 @@ class AlumnoController extends Controller
 
         $maxima = (float) ($plan?->calificacion_maxima ?? 10);
         $minCalif = (float) ($plan?->calificacion_minima ?? 0);
+        // El ciclo debe ser de los congruentes con el campus y nivel del alumno
+        // (no basta que exista): mismo criterio que ofrece el desplegable.
+        $ciclosOk = $this->ciclosCongruentes($alumno)->pluck('id')->all();
 
         $datos = $request->validate([
             'plan_materia_id' => ['required', 'integer', Rule::exists('plan_materias', 'id')->where('plan_id', $planId)->whereNull('deleted_at')],
             // Ciclo y calificación son los datos mínimos de un renglón de kárdex:
             // ambos obligatorios.
-            'ciclo_id' => ['required', 'integer', Rule::exists('ciclos', 'id')->whereNull('deleted_at')],
+            'ciclo_id' => ['required', 'integer', Rule::in($ciclosOk)],
             'estatus_id' => ['required', 'integer', Rule::exists('estatus_historial', 'id')],
             // «Tipo de evaluación» en la UI = observación oficial SEP. El
             // tipo_evaluacion interno se deriva de aquí; ya no se captura aparte.
@@ -405,6 +411,7 @@ class AlumnoController extends Controller
             'calificacion' => ['required', 'numeric', "min:{$minCalif}", "max:{$maxima}"],
         ], [
             'plan_materia_id.exists' => 'La materia no pertenece al plan del alumno.',
+            'ciclo_id.in' => 'Ese ciclo no corresponde al campus y nivel donde cursa el alumno.',
             'calificacion.max' => "La calificación no puede pasar de {$maxima} (escala del plan).",
             'calificacion.min' => "La calificación no puede ser menor a {$minCalif}.",
         ], [
@@ -447,6 +454,33 @@ class AlumnoController extends Controller
      * casos claros mapean directo; el resto —normal, exento, acreditado,
      * reingreso…— cae a «ordinaria». La observación SEP conserva el detalle fino.
      */
+    /**
+     * Ciclos válidos para el kárdex de este alumno: los que incluyen su campus
+     * (o no acotan campus) y su nivel de estudios (o no acotan nivel). Un ciclo
+     * de otro campus/nivel no corresponde a donde cursa. Es la MISMA regla de
+     * acotamiento que usan los grupos.
+     *
+     * @return \Illuminate\Support\Collection<int, Ciclo>
+     */
+    private function ciclosCongruentes(MatriculaOferta $alumno): \Illuminate\Support\Collection
+    {
+        $alumno->loadMissing('oferta.carrera');
+        $campusId = $alumno->oferta?->campus_id;
+        $nivelId = $alumno->oferta?->carrera?->nivel_estudios_id;
+
+        return Ciclo::query()
+            ->with(['campus:id', 'niveles:id'])
+            ->orderByDesc('id')
+            ->get(['id', 'clave'])
+            ->filter(function (Ciclo $ciclo) use ($campusId, $nivelId) {
+                $campusOk = $ciclo->campus->isEmpty() || ($campusId !== null && $ciclo->campus->contains('id', $campusId));
+                $nivelOk = $ciclo->niveles->isEmpty() || ($nivelId !== null && $ciclo->niveles->contains('id', $nivelId));
+
+                return $campusOk && $nivelOk;
+            })
+            ->values();
+    }
+
     private function tipoEvaluacionDesdeObservacion(int $observacionAsignaturaId): int
     {
         $obsClave = ObservacionAsignatura::query()->whereKey($observacionAsignaturaId)->value('clave');
