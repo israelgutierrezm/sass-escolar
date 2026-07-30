@@ -7,6 +7,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
+import ZonaArchivo from '@/Components/ZonaArchivo.vue';
 
 interface Lote {
     id: number;
@@ -45,6 +46,9 @@ interface Firma {
     tiene_cer: boolean;
     tiene_key: boolean;
     serie: string | null;
+    vigencia_fin: string | null;
+    dias_restantes: number | null;
+    vencido: boolean;
 }
 
 interface Candidato {
@@ -146,6 +150,8 @@ function eliminar(): void {
 
 // ── Firma ─────────────────────────────────────────────────────────────────
 const mostrarFirma = ref(false);
+const nombreCer = ref<string | null>(null);
+const nombreKey = ref<string | null>(null);
 const formFirma = useForm<{ password: string; certificado: File | null; llave: File | null }>({
     password: '',
     certificado: null,
@@ -157,17 +163,50 @@ function abrirFirma(): void {
         toast.error('No hay un responsable de certificación activo. Regístralo en Configuración → Responsables.');
         return;
     }
+    if (props.firma.vencido) {
+        toast.error(`El certificado del responsable venció el ${props.firma.vigencia_fin}. Actualízalo en Configuración → Responsables antes de firmar.`);
+        return;
+    }
     mostrarFirma.value = true;
+}
+
+/** Al cargar el .cer: lo adjunta y avisa si coincide (o no) con el registrado. */
+async function alCer(file: File | null): Promise<void> {
+    formFirma.certificado = file;
+    nombreCer.value = file?.name ?? null;
+    if (!file) return;
+
+    const fd = new FormData();
+    fd.append('certificado', file);
+    try {
+        const { data } = await axios.post('/certificacion/lotes/verificar-certificado', fd);
+        if (data.coincide) {
+            toast.success(`El certificado coincide con el registrado (serie ${data.serie}).`);
+        } else {
+            toast.warning(`Ese .cer NO es el certificado registrado del responsable (subiste la serie ${data.serie}, se esperaba ${data.serie_esperada}).`);
+        }
+    } catch (e: any) {
+        toast.error(e?.response?.data?.error ?? 'No se pudo leer el certificado.');
+    }
+}
+
+function alKey(file: File | null): void {
+    formFirma.llave = file;
+    nombreKey.value = file?.name ?? null;
+}
+
+function cerrarFirma(): void {
+    mostrarFirma.value = false;
+    formFirma.reset();
+    nombreCer.value = null;
+    nombreKey.value = null;
 }
 
 function firmar(): void {
     formFirma.post(`/certificacion/lotes/${props.lote.id}/firmar`, {
         preserveScroll: true,
         forceFormData: true,
-        onSuccess: () => {
-            mostrarFirma.value = false;
-            formFirma.reset();
-        },
+        onSuccess: cerrarFirma,
     });
 }
 </script>
@@ -217,27 +256,76 @@ function firmar(): void {
             </div>
         </section>
 
-        <!-- Modal de firma -->
-        <section v-if="mostrarFirma" class="tarjeta mb-6 border-2 p-6" :style="{ borderColor: 'var(--color-acento)' }">
-            <h3 class="text-base font-semibold">Firmar el lote</h3>
-            <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                Firmará <strong>{{ firma.responsable }}</strong><span v-if="firma.serie"> · certificado {{ firma.serie }}</span>.
-                Se sellará cada alumno del lote y se generará su XML.
-            </p>
+        <!-- Panel de firma -->
+        <section v-if="mostrarFirma" class="tarjeta mb-6 overflow-hidden">
+            <!-- Encabezado con ícono -->
+            <div
+                class="flex items-start gap-3 border-b px-6 py-4"
+                :style="{ borderColor: 'var(--color-borde)', backgroundColor: 'color-mix(in srgb, var(--color-acento) 6%, transparent)' }"
+            >
+                <span
+                    class="grid h-10 w-10 shrink-0 place-items-center rounded-full"
+                    :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 15%, transparent)', color: 'var(--color-acento)' }"
+                >
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                    </svg>
+                </span>
+                <div>
+                    <h3 class="text-base font-semibold">Firmar el lote</h3>
+                    <p class="mt-0.5 text-sm" :style="{ color: 'var(--color-suave)' }">
+                        Se sellará cada alumno del lote y se generará su XML. La contraseña no se guarda.
+                    </p>
+                </div>
+            </div>
 
-            <form class="mt-4 space-y-4" @submit.prevent="firmar">
-                <div v-if="!firma.tiene_cer">
-                    <label class="block text-sm font-medium">Certificado (.cer)</label>
-                    <input type="file" accept=".cer" class="mt-1 block w-full text-sm"
-                        @change="formFirma.certificado = ($event.target as HTMLInputElement).files?.[0] ?? null" />
-                    <p v-if="formFirma.errors.certificado" class="mt-1 text-xs text-red-600">{{ formFirma.errors.certificado }}</p>
+            <form class="space-y-5 p-6" @submit.prevent="firmar">
+                <!-- Quién firma + vigencia del certificado -->
+                <div class="rounded-lg border px-4 py-3" :style="{ borderColor: 'var(--color-borde)' }">
+                    <p class="text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">Firma</p>
+                    <p class="mt-0.5 font-medium">{{ firma.responsable }}</p>
+                    <p v-if="firma.serie" class="text-xs" :style="{ color: 'var(--color-suave)' }">Certificado {{ firma.serie }}</p>
+                    <p v-if="firma.vigencia_fin" class="mt-1.5 flex items-center gap-1.5 text-xs">
+                        <span class="inline-block h-2 w-2 rounded-full" :style="{ backgroundColor: firma.vencido ? '#dc2626' : (firma.dias_restantes !== null && firma.dias_restantes <= 30 ? '#d97706' : '#16a34a') }" />
+                        <span v-if="firma.vencido" class="font-medium text-red-600">Vencido el {{ firma.vigencia_fin }}</span>
+                        <span v-else :style="{ color: 'var(--color-suave)' }">Vigente hasta {{ firma.vigencia_fin }} · {{ firma.dias_restantes }} día(s)</span>
+                    </p>
                 </div>
-                <div v-if="!firma.tiene_key">
-                    <label class="block text-sm font-medium">Llave privada (.key)</label>
-                    <input type="file" accept=".key" class="mt-1 block w-full text-sm"
-                        @change="formFirma.llave = ($event.target as HTMLInputElement).files?.[0] ?? null" />
-                    <p v-if="formFirma.errors.llave" class="mt-1 text-xs text-red-600">{{ formFirma.errors.llave }}</p>
+
+                <!-- Material: dropzones si no está guardado; aviso si ya lo está. -->
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <div>
+                        <label class="mb-1 block text-sm font-medium">Certificado (.cer)</label>
+                        <ZonaArchivo
+                            v-if="!firma.tiene_cer"
+                            accept=".cer"
+                            texto="Arrastra el .cer o haz clic para seleccionarlo"
+                            :cargado="nombreCer"
+                            @archivo="alCer"
+                        />
+                        <p v-else class="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }">
+                            <svg class="h-4 w-4 shrink-0 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                            Ya guardado en su ficha
+                        </p>
+                        <p v-if="formFirma.errors.certificado" class="mt-1 text-xs text-red-600">{{ formFirma.errors.certificado }}</p>
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-sm font-medium">Llave privada (.key)</label>
+                        <ZonaArchivo
+                            v-if="!firma.tiene_key"
+                            accept=".key"
+                            texto="Arrastra el .key o haz clic para seleccionarlo"
+                            :cargado="nombreKey"
+                            @archivo="alKey"
+                        />
+                        <p v-else class="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }">
+                            <svg class="h-4 w-4 shrink-0 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                            Ya cargada en su ficha
+                        </p>
+                        <p v-if="formFirma.errors.llave" class="mt-1 text-xs text-red-600">{{ formFirma.errors.llave }}</p>
+                    </div>
                 </div>
+
                 <div class="max-w-sm">
                     <CampoTexto
                         v-model="formFirma.password"
@@ -247,10 +335,10 @@ function firmar(): void {
                     />
                 </div>
 
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-3 border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">
                     <BotonPrincipal :procesando="formFirma.processing" texto="Firmar y sellar" cargando="Firmando…" />
                     <button type="button" class="rounded-lg border px-4 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }"
-                        @click="mostrarFirma = false">Cancelar</button>
+                        @click="cerrarFirma">Cancelar</button>
                 </div>
             </form>
         </section>

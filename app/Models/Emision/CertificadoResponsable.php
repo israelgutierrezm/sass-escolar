@@ -43,4 +43,24 @@ class CertificadoResponsable extends Model
     {
         return $this->belongsTo(Responsable::class);
     }
+
+    /** Días que faltan para que venza (negativo si ya venció); null si no hay fecha. */
+    public function diasRestantes(): ?int
+    {
+        if ($this->vigencia_fin === null) {
+            return null;
+        }
+
+        // Se compara por día (startOfDay) para que «hoy» cuente como 0, no como
+        // vencido por unas horas.
+        return (int) now()->startOfDay()->diffInDays($this->vigencia_fin->startOfDay(), false);
+    }
+
+    /** True si el certificado sigue vigente hoy. */
+    public function estaVigente(): bool
+    {
+        $dias = $this->diasRestantes();
+
+        return $dias === null ? true : $dias >= 0;
+    }
 }

@@ -223,9 +223,16 @@ class LoteCertificacionController extends Controller
             return back()->with('error', 'El responsable no tiene un certificado vigente.');
         }
 
+        // El certificado no debe estar vencido: se sella con una e.firma vigente.
+        if (! $certificado->estaVigente()) {
+            return back()->with('error', "El certificado del responsable venció el {$certificado->vigencia_fin?->format('d/m/Y')}. Actualízalo en Configuración → Responsables antes de firmar.");
+        }
+
+        $lector = new \App\Services\LectorCertificado;
+
         // Certificado (.cer): el subido en el formulario o el guardado en su ficha.
         $certPem = $request->hasFile('certificado')
-            ? (new \App\Services\LectorCertificado)->pem((string) file_get_contents($request->file('certificado')->getRealPath()))
+            ? $lector->pem((string) file_get_contents($request->file('certificado')->getRealPath()))
             : $certificado->cer_pem;
 
         if (blank($certPem)) {
@@ -241,10 +248,20 @@ class LoteCertificacionController extends Controller
             return back()->with('error', 'Sube la llave (.key) del responsable, o cárgala en su ficha para firmar con solo la contraseña.');
         }
 
+        // Diagnóstico previo para dar un mensaje preciso: contraseña vs. llave
+        // que no corresponde al certificado.
+        $diagnostico = $lector->diagnosticarLlave($certPem, $keyContents, (string) $datos['password']);
+        if ($diagnostico === 'password') {
+            return back()->with('error', 'La contraseña de la llave es incorrecta.');
+        }
+        if ($diagnostico === 'mismatch') {
+            return back()->with('error', 'La llave (.key) no corresponde al certificado (.cer). Verifica que sean del mismo responsable.');
+        }
+
         try {
             $resultado = $firmador->firmar($lote, $responsable, $certificado, $certPem, $keyContents, (string) $datos['password']);
         } catch (Throwable $e) {
-            return back()->with('error', 'No se pudo firmar: la contraseña o la llave no corresponden al certificado.');
+            return back()->with('error', 'No se pudo firmar el lote. Revisa el certificado y la llave del responsable.');
         }
 
         if ($resultado['certificados'] === 0) {
@@ -254,6 +271,36 @@ class LoteCertificacionController extends Controller
         $msg = "Lote firmado: {$resultado['certificados']} certificado(s) emitido(s).".($resultado['errores'] > 0 ? " {$resultado['errores']} con error." : '');
 
         return back()->with('exito', $msg);
+    }
+
+    /**
+     * Lee un .cer subido y dice si coincide con el certificado registrado del
+     * responsable de certificación activo (por número de serie). Alimenta el
+     * aviso «coincide / no coincide» al cargar el archivo en el panel de firma.
+     */
+    public function verificarCertificado(Request $request): JsonResponse
+    {
+        $request->validate(['certificado' => ['required', 'file', 'max:64']]);
+
+        $lector = new \App\Services\LectorCertificado;
+        $contenido = (string) file_get_contents($request->file('certificado')->getRealPath());
+
+        if (! $lector->esValido($contenido)) {
+            return response()->json(['error' => 'El archivo no es un certificado (.cer) válido.'], 422);
+        }
+
+        $datos = $lector->leer($contenido);
+
+        $cert = Responsable::deTipo(TipoResponsable::CERTIFICACION)
+            ->activos()
+            ->with('certificadoVigente')
+            ->first()?->certificadoVigente;
+
+        return response()->json([
+            'coincide' => $cert !== null && $cert->serie === $datos['serial'],
+            'serie' => $datos['serial'],
+            'serie_esperada' => $cert?->serie,
+        ]);
     }
 
     public function destroy(LoteCertificacion $lote): RedirectResponse
@@ -343,6 +390,9 @@ class LoteCertificacionController extends Controller
             'tiene_cer' => filled($cert?->cer_pem),
             'tiene_key' => filled($cert?->key_encriptado),
             'serie' => $cert?->serie,
+            'vigencia_fin' => $cert?->vigencia_fin?->format('d/m/Y'),
+            'dias_restantes' => $cert?->diasRestantes(),
+            'vencido' => $cert !== null && ! $cert->estaVigente(),
         ];
     }
 }

@@ -920,6 +920,7 @@ Route::middleware([
                 Route::get('/', 'index')->name('index');
                 Route::post('/', 'store')->name('store');
                 Route::get('/candidatos', 'candidatos')->name('candidatos');
+                Route::post('/verificar-certificado', 'verificarCertificado')->name('verificar-certificado');
                 Route::get('/{lote}', 'show')->whereNumber('lote')->name('show');
                 Route::post('/{lote}/alumnos', 'agregar')->whereNumber('lote')->name('alumnos.store');
                 Route::delete('/{lote}/alumnos/{certificacion}', 'quitar')->whereNumber('lote')->whereNumber('certificacion')->name('alumnos.destroy');

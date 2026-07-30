@@ -33,6 +33,8 @@ interface Responsable {
     cer_serial: string | null;
     vigencia_inicio: string | null;
     vigencia_fin: string | null;
+    vigente_hoy: boolean | null;
+    dias_restantes: number | null;
     tiene_cer_guardado: boolean;
     tiene_key: boolean;
     certificados: Certificado[];
@@ -62,6 +64,19 @@ const props = defineProps<{
 const base = computed(() => `/${props.seccion}/configuracion/responsables`);
 const puedeAgregar = computed(() => props.activos.length < props.maximo);
 const tab = ref<'activos' | 'historial'>('activos');
+
+// Estado de vigencia del certificado: rojo vencido, ámbar por vencer (≤30 días),
+// verde vigente. Se usa como color del punto y del texto de la insignia.
+function estadoVigencia(r: Responsable): { color: string; backgroundColor: string } {
+    const color = r.vigente_hoy === false ? '#dc2626' : (r.dias_restantes !== null && r.dias_restantes <= 30 ? '#d97706' : '#16a34a');
+    return { color, backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)` };
+}
+
+function textoVigencia(r: Responsable): string {
+    if (r.vigente_hoy === false) return 'Vencido';
+    if (r.dias_restantes !== null && r.dias_restantes <= 30) return `Por vencer · ${r.dias_restantes} día(s)`;
+    return `Vigente · ${r.dias_restantes} día(s)`;
+}
 
 const opcionesCargo = computed(() => props.cargos.map((c) => ({ valor: c.id, texto: c.nombre })));
 const opcionesTitulo = computed(() => props.titulos.map((t) => ({ valor: t.id, texto: `${t.abreviatura} — ${t.descripcion}` })));
@@ -229,9 +244,18 @@ function eliminar(r: Responsable): void {
                             </div>
                         </div>
 
-                        <dl class="mt-3 flex flex-wrap gap-x-6 gap-y-1 border-t pt-3 text-xs" :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }">
+                        <dl class="mt-3 flex flex-wrap items-center gap-x-6 gap-y-1 border-t pt-3 text-xs" :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }">
                             <div class="flex gap-1"><dt>Serie vigente:</dt><dd class="font-mono">{{ r.cer_serial ?? '—' }}</dd></div>
                             <div class="flex gap-1"><dt>Vigencia:</dt><dd>{{ r.vigencia_inicio }} – {{ r.vigencia_fin }}</dd></div>
+                            <!-- Estado de vigencia: verde vigente, ámbar por vencer, rojo vencido. -->
+                            <span
+                                v-if="r.vigente_hoy !== null"
+                                class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium"
+                                :style="estadoVigencia(r)"
+                            >
+                                <span class="inline-block h-1.5 w-1.5 rounded-full" :style="{ backgroundColor: estadoVigencia(r).color }" />
+                                {{ textoVigencia(r) }}
+                            </span>
                             <div class="flex gap-1"><dt>.cer:</dt><dd>{{ r.tiene_cer_guardado ? 'guardado' : 'no guardado' }}</dd></div>
                             <div class="flex gap-1"><dt>.key:</dt><dd>{{ r.tiene_key ? 'cargada' : 'no cargada' }}</dd></div>
                         </dl>

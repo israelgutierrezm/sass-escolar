@@ -4,6 +4,8 @@ import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
+import CampoTexto from '@/Components/CampoTexto.vue';
+import CampoSelect from '@/Components/CampoSelect.vue';
 
 interface Paso {
     clave: string;
@@ -159,49 +161,28 @@ const colorEstado: Record<string, string> = {
             </p>
 
             <form class="mt-4 grid gap-4 sm:grid-cols-3" @submit.prevent="guardarDatos">
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Nombre(s)</span>
-                    <input v-model="datos.nombre" type="text" required class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                </label>
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Primer apellido</span>
-                    <input v-model="datos.primer_apellido" type="text" required class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                </label>
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Segundo apellido</span>
-                    <input v-model="datos.segundo_apellido" type="text" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                </label>
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">CURP</span>
-                    <input v-model="datos.curp" type="text" maxlength="18" class="w-full rounded-lg border px-3 py-2 font-mono text-sm uppercase" :style="{ borderColor: 'var(--color-borde)' }" />
-                    <span v-if="datos.errors.curp" class="text-xs text-red-600">{{ datos.errors.curp }}</span>
-                </label>
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Fecha de nacimiento</span>
-                    <input v-model="datos.fecha_nacimiento" type="date" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                </label>
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Sexo</span>
-                    <select v-model="datos.sexo_id" required class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
-                        <option :value="null" disabled>Elige…</option>
-                        <option v-for="s in sexos" :key="s.id" :value="s.id">{{ s.nombre }}</option>
-                    </select>
-                </label>
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Correo</span>
-                    <input v-model="datos.email" type="email" required class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                </label>
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Celular</span>
-                    <input v-model="datos.celular" type="tel" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                </label>
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Programa de interés</span>
-                    <select v-model="datos.oferta_id" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
-                        <option :value="null">Sin elegir</option>
-                        <option v-for="o in ofertas" :key="o.id" :value="o.id">{{ o.nombre }}</option>
-                    </select>
-                </label>
+                <CampoTexto v-model="datos.nombre" etiqueta="Nombre(s)" requerido :error="datos.errors.nombre" />
+                <CampoTexto v-model="datos.primer_apellido" etiqueta="Primer apellido" requerido :error="datos.errors.primer_apellido" />
+                <CampoTexto v-model="datos.segundo_apellido" etiqueta="Segundo apellido" :error="datos.errors.segundo_apellido" />
+                <CampoTexto v-model="datos.curp" etiqueta="CURP" mono :maximo="18" :error="datos.errors.curp" />
+                <CampoTexto v-model="datos.fecha_nacimiento" tipo="date" etiqueta="Fecha de nacimiento" :error="datos.errors.fecha_nacimiento" />
+                <CampoSelect
+                    v-model="datos.sexo_id"
+                    etiqueta="Sexo"
+                    requerido
+                    vacio="Elige…"
+                    :opciones="sexos.map((s) => ({ valor: s.id, texto: s.nombre }))"
+                    :error="datos.errors.sexo_id"
+                />
+                <CampoTexto v-model="datos.email" tipo="email" etiqueta="Correo" requerido :error="datos.errors.email" />
+                <CampoTexto v-model="datos.celular" tipo="tel" etiqueta="Celular" :error="datos.errors.celular" />
+                <CampoSelect
+                    v-model="datos.oferta_id"
+                    etiqueta="Programa de interés"
+                    vacio="Sin elegir"
+                    :opciones="ofertas.map((o) => ({ valor: o.id, texto: o.nombre }))"
+                    :error="datos.errors.oferta_id"
+                />
 
                 <div class="sm:col-span-3">
                     <BotonPrincipal :procesando="datos.processing" texto="Guardar mis datos" />

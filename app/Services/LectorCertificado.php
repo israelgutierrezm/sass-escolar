@@ -6,6 +6,7 @@ namespace App\Services;
 
 use PhpCfdi\Credentials\Certificate;
 use PhpCfdi\Credentials\Credential;
+use PhpCfdi\Credentials\PrivateKey;
 use Throwable;
 
 /**
@@ -90,6 +91,22 @@ class LectorCertificado
         } catch (Throwable) {
             return false;
         }
+    }
+
+    /**
+     * Diagnostica por qué una llave no sirve, para dar un mensaje preciso al
+     * firmar: 'password' (contraseña incorrecta o llave ilegible), 'mismatch'
+     * (la llave no corresponde al certificado) u 'ok'.
+     */
+    public function diagnosticarLlave(string $certPem, string $keyContents, string $password): string
+    {
+        try {
+            $llave = new PrivateKey($keyContents, $password);
+        } catch (Throwable) {
+            return 'password';
+        }
+
+        return $llave->belongsToPEMCertificate($certPem) ? 'ok' : 'mismatch';
     }
 
     /** True si el contenido es un certificado legible. */

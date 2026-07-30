@@ -74,6 +74,10 @@ class ResponsableController extends Controller
             'cer_serial' => $vigente?->serie,
             'vigencia_inicio' => $vigente?->vigencia_inicio?->format('d/m/Y'),
             'vigencia_fin' => $vigente?->vigencia_fin?->format('d/m/Y'),
+            // Estado de vigencia del certificado activo: para avisar en la ficha
+            // si está por vencer o ya venció (hay que renovarlo antes de firmar).
+            'vigente_hoy' => $vigente ? $vigente->estaVigente() : null,
+            'dias_restantes' => $vigente?->diasRestantes(),
             'tiene_cer_guardado' => filled($vigente?->cer_pem),
             'tiene_key' => filled($vigente?->key_encriptado),
             // Historial de certificados de la persona.
