@@ -15,8 +15,11 @@ use App\Models\Admisiones\SituacionAlumno;
 use App\Models\ControlEscolar\Ciclo;
 use App\Models\ControlEscolar\Historial;
 use App\Models\Identidad\Persona;
+use App\Models\Identidad\PersonaRol;
+use App\Models\Identidad\Usuario;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 /**
@@ -67,6 +70,7 @@ class PoblarInstitucionDemoSeeder extends Seeder
         $carreras = $this->crearCarrerasYPlanes();
         $this->crearOfertas($carreras, $campus);
         $this->crearAlumnos($carreras);
+        $this->crearStaffPorCampus($campus);
 
         $this->command?->info('Institución demo poblada.');
     }
@@ -305,6 +309,52 @@ class PoblarInstitucionDemoSeeder extends Seeder
                     ]);
                 }
             }
+        }
+    }
+
+    /**
+     * Dos cuentas de personal «administrativo» acotadas cada una a un campus,
+     * para probar el alcance por campus del listado (staff.centro / staff.norte,
+     * contraseña «password»). Idempotente por correo.
+     *
+     * @param  Campus[]  $campus
+     */
+    private function crearStaffPorCampus(array $campus): void
+    {
+        $rolId = DB::table('roles')->where('name', 'administrativo')->value('id');
+
+        if ($rolId === null) {
+            return;
+        }
+
+        foreach ([[$campus[0], 'staff.centro'], [$campus[1] ?? $campus[0], 'staff.norte']] as [$ca, $usuario]) {
+            $email = $usuario.'@escuela.mx';
+
+            if (Usuario::where('email', $email)->exists()) {
+                continue;
+            }
+
+            $persona = Persona::create([
+                'nombre' => 'Staff',
+                'primer_apellido' => $ca->nombre,
+                'email' => $email,
+            ]);
+
+            PersonaRol::create([
+                'persona_id' => $persona->id,
+                'rol_id' => $rolId,
+                'campus_id' => $ca->id,
+                'activo' => true,
+            ]);
+
+            Usuario::create([
+                'persona_id' => $persona->id,
+                'usuario' => $usuario,
+                'email' => $email,
+                'password' => Hash::make('password'),
+                'acceso_configurado' => true,
+                'rol_activo_id' => $rolId,
+            ]);
         }
     }
 
