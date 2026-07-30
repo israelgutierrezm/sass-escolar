@@ -282,6 +282,15 @@ class PoblarInstitucionDemoSeeder extends Seeder
         return $nombres;
     }
 
+    private function sinAcentos(string $s): string
+    {
+        return strtr($s, [
+            'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u',
+            'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U',
+            'ñ' => 'n', 'Ñ' => 'N',
+        ]);
+    }
+
     private function romano(int $n): string
     {
         return ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'][$n - 1] ?? (string) $n;
@@ -376,28 +385,35 @@ class PoblarInstitucionDemoSeeder extends Seeder
         $nombres = ['Sofía', 'Mateo', 'Valentina', 'Santiago', 'Regina', 'Emiliano', 'Ximena', 'Diego', 'Fernanda', 'Sebastián', 'Camila', 'Leonardo', 'Renata', 'Alejandro', 'Andrea'];
         $apellidos = ['García', 'Martínez', 'López', 'Hernández', 'González', 'Pérez', 'Ramírez', 'Torres', 'Flores', 'Rivera', 'Gómez', 'Díaz', 'Cruz', 'Morales', 'Reyes', 'Ortiz'];
 
+        // Sexo alineado a $nombres (índice par = mujer): la CURP lo respeta.
         for ($i = 0; $i < 15; $i++) {
             $nom = $nombres[$i];
             $ap1 = $apellidos[$i % count($apellidos)];
             $ap2 = $apellidos[($i + 5) % count($apellidos)];
+            $sexo = $i % 2 === 0 ? 'M' : 'H';
 
             // Cumpleaños escalonados: el alumno 0 cumple HOY, el resto en 5, 10…
             // días, para lucir la cuenta regresiva del encabezado. Edad ~20-25.
             $dob = now()->addDays($i * 5)->subYears(20 + ($i % 6));
             $yy = $dob->format('ymd');
-            $l4 = mb_strtoupper(mb_substr($ap1, 0, 2).mb_substr($ap2, 0, 1).mb_substr($nom, 0, 1));
-            $cons = mb_strtoupper(mb_substr($ap1, 2, 1).mb_substr($ap2, 2, 1).mb_substr($nom, 2, 1));
-            $curp = $l4.$yy.($i % 2 === 0 ? 'H' : 'M').'DF'.$cons.'09';
+
+            // CURP/RFC con formato plausible, sin acentos y coherentes con el
+            // sexo (es dato de prueba: no llevan dígito verificador real).
+            $a1 = $this->sinAcentos($ap1);
+            $a2 = $this->sinAcentos($ap2);
+            $no = $this->sinAcentos($nom);
+            $l4 = mb_strtoupper(mb_substr($a1, 0, 2).mb_substr($a2, 0, 1).mb_substr($no, 0, 1));
+            $cons = mb_strtoupper(mb_substr($a1, 2, 1).mb_substr($a2, 2, 1).mb_substr($no, 2, 1));
 
             $persona = Persona::create([
                 'nombre' => $nom,
                 'primer_apellido' => $ap1,
                 'segundo_apellido' => $ap2,
-                'curp' => $curp,
+                'curp' => $l4.$yy.$sexo.'DF'.$cons.'09',
                 'rfc' => $l4.$yy,
                 'fecha_nacimiento' => $dob->toDateString(),
                 'email' => 'alumno.demo.'.($i + 1).'@escuela.mx',
-                'correo_institucional' => mb_strtolower($nom.'.'.$ap1).'@alumnos.escuela.mx',
+                'correo_institucional' => mb_strtolower($no.'.'.$a1).'@alumnos.escuela.mx',
                 'celular' => '55'.str_pad((string) random_int(0, 99999999), 8, '0', STR_PAD_LEFT),
             ]);
 

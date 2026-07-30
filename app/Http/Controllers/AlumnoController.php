@@ -276,8 +276,11 @@ class AlumnoController extends Controller
                 'email' => $alumno->persona?->email,
                 'correo_institucional' => $alumno->persona?->correo_institucional,
                 'celular' => $alumno->persona?->celular,
+                'telefono_local' => $alumno->persona?->telefono_local,
                 'foto' => $alumno->persona?->urlFoto(),
                 'entidad_nacimiento' => $alumno->persona?->entidadNacimiento?->nombre,
+                'entidad_nacimiento_id' => $alumno->persona?->entidad_nacimiento_id,
+                'pais_nacimiento_id' => $alumno->persona?->pais_nacimiento_id,
             ],
             // Padres/tutores ligados a este alumno. Cada uno es —o pasa a ser—
             // usuario con rol de padre de familia al vincularlo.
@@ -412,8 +415,9 @@ class AlumnoController extends Controller
                 ->map(fn (Ciclo $ciclo) => ['id' => $ciclo->id, 'clave' => $ciclo->clave]),
             'puedeCargarHistorial' => $request->user()->can('editar-alumnos'),
             'situaciones' => SituacionAlumno::query()->orderBy('id')->get(['id', 'nombre']),
-            'sexos' => Sexo::query()->orderBy('id')->get(['id', 'nombre']),
-            'generos' => Genero::query()->orderBy('id')->get(['id', 'nombre']),
+            // Catálogos de origen para el bloque de identidad compartido
+            // (géneros, entidades, países, id de México) — autollenado por CURP.
+            ...app(IdentidadPersona::class)->catalogosDeOrigen(),
             'puedeEditar' => $request->user()->can('editar-alumnos'),
         ]);
     }
@@ -568,7 +572,7 @@ class AlumnoController extends Controller
      * importa: el nombre corregido alcanza a TODAS las matrículas de la persona
      * —es la misma—, mientras que la situación es de esta inscripción a oferta.
      */
-    public function update(Request $request, MatriculaOferta $alumno): RedirectResponse
+    public function update(Request $request, MatriculaOferta $alumno, IdentidadPersona $identidad): RedirectResponse
     {
         $persona = $alumno->persona;
 
@@ -576,42 +580,41 @@ class AlumnoController extends Controller
             'nombre' => ['required', 'string', 'max:255'],
             'primer_apellido' => ['required', 'string', 'max:255'],
             'segundo_apellido' => ['nullable', 'string', 'max:255'],
-            'curp' => ['nullable', 'string', 'size:18', Rule::unique('personas', 'curp')->ignore($persona?->id)->whereNull('deleted_at')],
+            // CURP obligatoria (autovalidable con dígito verificador) y única.
+            'curp' => ['required', 'string', 'max:20', new CurpValida, Rule::unique('personas', 'curp')->ignore($persona?->id)->whereNull('deleted_at')],
             'rfc' => ['nullable', 'string', 'max:13'],
             'fecha_nacimiento' => ['nullable', 'date', 'before:today'],
-            'sexo_id' => ['required', 'integer'],
+            // El sexo se deriva de la CURP/género; ya no se captura.
             'genero_id' => ['nullable', 'integer'],
-            'email' => ['nullable', 'email', 'max:150'],
+            'entidad_nacimiento_id' => ['nullable', 'integer'],
+            'pais_nacimiento_id' => ['nullable', 'integer'],
+            // Correo obligatorio (credencial) y único en la plataforma.
+            'email' => ['required', 'email', 'max:150', function (string $atributo, mixed $valor, \Closure $fallar) use ($identidad, $persona) {
+                $conflicto = $identidad->correoEnUso($valor, $persona?->id);
+                if ($conflicto !== null) {
+                    $fallar('Ese correo ya está registrado con otra persona ('.$conflicto->nombreCompleto().').');
+                }
+            }],
             'correo_institucional' => ['nullable', 'email', 'max:150'],
             'celular' => ['nullable', 'string', 'max:20'],
+            'telefono_local' => ['nullable', 'string', 'max:20'],
 
             'situacion_id' => ['required', 'integer', Rule::exists('situaciones_alumno', 'id')->whereNull('deleted_at')],
             'estatus' => ['required', Rule::in(['activo', 'egresado', 'baja'])],
             'generacion' => ['nullable', 'string', 'max:100'],
             'periodo_actual' => ['nullable', 'integer', 'min:1', 'max:30'],
         ], [
-            'curp.size' => 'La CURP tiene 18 caracteres.',
             'curp.unique' => 'Esa CURP ya está registrada en otra persona.',
         ], [
-            'sexo_id' => 'sexo',
             'genero_id' => 'género',
             'situacion_id' => 'situación',
+            'email' => 'correo',
         ]);
 
-        DB::transaction(function () use ($alumno, $persona, $datos): void {
-            $persona?->update([
-                'nombre' => $datos['nombre'],
-                'primer_apellido' => $datos['primer_apellido'],
-                'segundo_apellido' => $datos['segundo_apellido'] ?? null,
-                'curp' => $datos['curp'] ?? null,
-                'rfc' => $datos['rfc'] ?? null,
-                'fecha_nacimiento' => $datos['fecha_nacimiento'] ?? null,
-                'sexo_id' => $datos['sexo_id'],
-                'genero_id' => $datos['genero_id'] ?? null,
-                'email' => $datos['email'] ?? null,
-                'correo_institucional' => $datos['correo_institucional'] ?? null,
-                'celular' => $datos['celular'] ?? null,
-            ]);
+        DB::transaction(function () use ($alumno, $persona, $datos, $identidad): void {
+            // IdentidadPersona resuelve sexo (derivado), entidad/país y RFC, y
+            // deja las columnas de la persona listas.
+            $persona?->update($identidad->resolver($datos));
 
             $alumno->update([
                 'situacion_id' => $datos['situacion_id'],
