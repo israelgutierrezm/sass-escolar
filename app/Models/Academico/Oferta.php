@@ -11,7 +11,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * oferta (TENANT) — combinación carrera+plan+campus (+ modalidad y turno).
+ * oferta (TENANT) — combinación carrera+plan+campus que la escuela imparte.
+ *
+ * Es la unidad a la que se matriculan los alumnos y su llave única. La
+ * `modalidad` es un atributo OPCIONAL (no delimita). El turno se administra en
+ * los grupos, no en la oferta.
  */
 class Oferta extends Model
 {
@@ -24,7 +28,6 @@ class Oferta extends Model
         'plan_id',
         'campus_id',
         'modalidad',
-        'turno_id',
         'estatus',
     ];
 
@@ -41,11 +44,6 @@ class Oferta extends Model
     public function campus(): BelongsTo
     {
         return $this->belongsTo(Campus::class);
-    }
-
-    public function turno(): BelongsTo
-    {
-        return $this->belongsTo(Turno::class, 'turno_id');
     }
 
     /** Alumnos matriculados en esta oferta. */

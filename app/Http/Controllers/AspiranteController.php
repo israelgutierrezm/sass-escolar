@@ -353,8 +353,6 @@ class AspiranteController extends Controller
             'origenes' => OrigenAspirante::query()->activos()->orderBy('nombre')->get(['id', 'nombre']),
             'campus' => Campus::query()->orderBy('nombre')->get(['id', 'nombre']),
             'ofertas' => (function () {
-                $modalidades = \App\Models\Academico\Modalidad::query()->pluck('nombre', 'clave');
-
                 return Oferta::query()
                     ->with(['carrera:id,nombre', 'campus:id,nombre'])
                     ->where('estatus', 'abierta')
@@ -367,9 +365,8 @@ class AspiranteController extends Controller
                         // ahí, no todas.
                         'campus_id' => $oferta->campus_id,
                         'etiqueta' => trim(sprintf(
-                            '%s — %s (%s)',
+                            '%s — %s',
                             $oferta->carrera?->nombre ?? 'Sin carrera',
-                            $modalidades[$oferta->modalidad] ?? $oferta->modalidad,
                             $oferta->campus?->nombre ?? 'Sin campus',
                         )),
                     ]);

@@ -258,7 +258,7 @@ class PlanCobroController extends Controller
             'oferta' => Oferta::query()->with(['carrera:id,nombre', 'campus:id,nombre'])->get()
                 ->map(fn (Oferta $o) => [
                     'id' => $o->id,
-                    'nombre' => ($o->carrera?->nombre ?? '—').' · '.($o->campus?->nombre ?? '—').' · '.$o->modalidad,
+                    'nombre' => ($o->carrera?->nombre ?? '—').' · '.($o->campus?->nombre ?? '—'),
                 ]),
         ];
     }

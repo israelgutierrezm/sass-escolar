@@ -12,29 +12,28 @@ const props = defineProps<{
     carreras: { id: number; nombre: string }[];
     planes: { id: number; nombre: string; clave: string; carrera_id: number }[];
     campus: { id: number; nombre: string }[];
-    turnos: { id: number; nombre: string }[];
     modalidades: { clave: string; nombre: string }[];
 }>();
 
 const esEdicion = computed(() => props.oferta !== null);
 
-// El alta genera una oferta por combinación (fan-out): campus, modalidades y
-// turnos se eligen en conjunto. La edición toca UNA oferta concreta, así que
-// esos tres vuelven a ser de un solo valor.
+// El alta genera una oferta por cada campus elegido (fan-out). La edición toca
+// UNA oferta concreta, así que el campus vuelve a ser de un solo valor. La
+// modalidad es opcional en ambos casos: no delimita la oferta, solo la describe.
 const form = useForm(
     esEdicion.value
         ? {
               carrera_id: props.oferta!.carrera_id,
               plan_id: props.oferta!.plan_id,
               campus_id: props.oferta!.campus_id,
-              modalidad: props.oferta!.modalidad,
+              modalidad: props.oferta!.modalidad ?? null,
               estatus: props.oferta!.estatus,
           }
         : {
               carrera_id: null as number | null,
               plan_id: null as number | null,
               campus_ids: [] as number[],
-              modalidades: [] as string[],
+              modalidad: null as string | null,
               estatus: 'abierta',
           },
 );
@@ -59,14 +58,8 @@ const opciones = (lista: { id: number; nombre: string }[]) =>
 
 const opcionesModalidad = computed(() => props.modalidades.map((m) => ({ valor: m.clave, texto: m.nombre })));
 
-// Cuántas ofertas generará la combinación elegida, para avisar antes de guardar.
-const combinaciones = computed(() => {
-    if (esEdicion.value) {
-        return 1;
-    }
-
-    return form.campus_ids.length * form.modalidades.length;
-});
+// Cuántas ofertas generará el alta: una por campus elegido.
+const combinaciones = computed(() => (esEdicion.value ? 1 : form.campus_ids.length));
 
 function enviar(): void {
     esEdicion.value ? form.put(`/academico/ofertas/${props.oferta!.id}`) : form.post('/academico/ofertas');
@@ -83,10 +76,9 @@ function enviar(): void {
             <section class="tarjeta p-6">
                 <h2 class="text-base font-semibold">Qué se imparte</h2>
                 <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                    <template v-if="esEdicion">No puede repetirse la misma combinación de carrera, plan, campus y turno.</template>
+                    <template v-if="esEdicion">No puede repetirse la misma combinación de carrera, plan y campus.</template>
                     <template v-else>
-                        Elige la carrera y el plan, y los campus, modalidades y turnos donde se ofrecerá. Se
-                        creará una oferta por cada combinación.
+                        Elige la carrera y el plan, y los campus donde se ofrecerá. Se creará una oferta por campus.
                     </template>
                 </p>
 
@@ -125,26 +117,28 @@ function enviar(): void {
                         :error="form.errors.estatus"
                         ayuda="Solo las abiertas aparecen al registrar aspirantes."
                     />
+                    <CampoSelect
+                        v-model="form.modalidad"
+                        etiqueta="Modalidad (opcional)"
+                        :opciones="opcionesModalidad"
+                        vacio="Sin especificar"
+                        :error="form.errors.modalidad"
+                        ayuda="No delimita la oferta; solo la describe."
+                    />
                 </div>
             </section>
 
-            <!-- ALTA: dónde y cómo, en conjunto (fan-out). -->
+            <!-- ALTA: en qué campus, en conjunto (fan-out). -->
             <section v-if="!esEdicion" class="tarjeta p-6">
-                <h2 class="text-base font-semibold">Dónde y cómo se ofrece</h2>
+                <h2 class="text-base font-semibold">Dónde se ofrece</h2>
 
-                <div class="mt-5 grid gap-6 sm:grid-cols-3">
+                <div class="mt-5">
                     <CampoCasillas
                         v-model="form.campus_ids"
                         etiqueta="Campus"
                         :opciones="opciones(campus)"
                         :error="form.errors.campus_ids"
                         vacio="Elige al menos uno."
-                    />
-                    <CampoCasillas
-                        v-model="form.modalidades"
-                        etiqueta="Modalidades"
-                        :opciones="opcionesModalidad"
-                        :error="form.errors.modalidades"
                     />
                 </div>
 
@@ -154,9 +148,9 @@ function enviar(): void {
                 </p>
             </section>
 
-            <!-- EDICIÓN: una oferta concreta, un solo valor de cada cosa. -->
+            <!-- EDICIÓN: una oferta concreta. -->
             <section v-else class="tarjeta p-6">
-                <h2 class="text-base font-semibold">Dónde y cómo</h2>
+                <h2 class="text-base font-semibold">Dónde</h2>
 
                 <div class="mt-5 grid gap-4 sm:grid-cols-2">
                     <CampoSelect
@@ -166,14 +160,6 @@ function enviar(): void {
                         :opciones="opciones(campus)"
                         vacio="Selecciona…"
                         :error="form.errors.campus_id"
-                    />
-                    <CampoSelect
-                        v-model="form.modalidad"
-                        etiqueta="Modalidad"
-                        requerido
-                        :opciones="opcionesModalidad"
-                        vacio="Selecciona…"
-                        :error="form.errors.modalidad"
                     />
                 </div>
             </section>

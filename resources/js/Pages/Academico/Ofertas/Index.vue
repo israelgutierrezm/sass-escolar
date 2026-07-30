@@ -14,8 +14,7 @@ interface Oferta {
     plan: string | null;
     plan_clave: string | null;
     campus: string | null;
-    turno: string | null;
-    modalidad: string;
+    modalidad: string | null;
     estatus: string;
     matriculas_count: number;
 }
@@ -30,7 +29,6 @@ const props = defineProps<{
     };
     filtros: Record<string, any>;
     campus: { id: number; nombre: string }[];
-    turnos: { id: number; nombre: string }[];
     modalidades: { clave: string; nombre: string }[];
     puedeEditar: boolean;
 }>();
@@ -40,7 +38,6 @@ const vista = ref<'lista' | 'cuadricula'>('lista');
 const definicionFiltros = computed(() => [
     { clave: 'campus_id', etiqueta: 'Campus', opciones: props.campus.map((c) => ({ valor: c.id, texto: c.nombre })) },
     { clave: 'modalidad', etiqueta: 'Modalidad', opciones: props.modalidades.map((m) => ({ valor: m.clave, texto: m.nombre })) },
-    { clave: 'turno_id', etiqueta: 'Turno', opciones: props.turnos.map((t) => ({ valor: t.id, texto: t.nombre })) },
     {
         clave: 'estatus',
         etiqueta: 'Estatus',
@@ -53,7 +50,7 @@ const definicionFiltros = computed(() => [
 
 const vacio = computed(() => !props.ofertas.data.length);
 const mensajeVacio = computed(() =>
-    props.filtros.busqueda || props.filtros.campus_id || props.filtros.modalidad || props.filtros.turno_id || props.filtros.estatus
+    props.filtros.busqueda || props.filtros.campus_id || props.filtros.modalidad || props.filtros.estatus
         ? 'Ninguna oferta coincide con la búsqueda.'
         : 'Aún no hay oferta registrada. Necesitas al menos una carrera, un plan y un campus.',
 );
@@ -96,8 +93,7 @@ function eliminar(id: number): void {
                     :metas="[
                         { etiqueta: 'Plan', valor: oferta.plan },
                         { etiqueta: 'Campus', valor: oferta.campus },
-                        { etiqueta: 'Modalidad', valor: oferta.modalidad },
-                        { etiqueta: 'Turno', valor: oferta.turno ?? 'Sin turno' },
+                        { etiqueta: 'Modalidad', valor: oferta.modalidad ?? '—' },
                         { etiqueta: 'Alumnos', valor: oferta.matriculas_count },
                     ]"
                 >
@@ -137,7 +133,6 @@ function eliminar(id: number): void {
                             <th class="px-4 py-3 font-medium">Plan</th>
                             <th class="px-4 py-3 font-medium">Campus</th>
                             <th class="px-4 py-3 font-medium">Modalidad</th>
-                            <th class="px-4 py-3 font-medium">Turno</th>
                             <th class="px-4 py-3 font-medium">Estatus</th>
                             <th class="px-4 py-3 font-medium">Alumnos</th>
                             <th class="px-4 py-3 font-medium text-right">Acciones</th>
@@ -151,8 +146,7 @@ function eliminar(id: number): void {
                                 <span class="block font-mono text-xs">{{ oferta.plan_clave }}</span>
                             </td>
                             <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ oferta.campus ?? '—' }}</td>
-                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ oferta.modalidad }}</td>
-                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ oferta.turno ?? 'Sin turno' }}</td>
+                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ oferta.modalidad ?? '—' }}</td>
                             <td class="px-4 py-3">
                                 <span
                                     class="rounded-full px-2 py-1 text-xs capitalize"

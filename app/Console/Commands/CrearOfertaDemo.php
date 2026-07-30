@@ -88,7 +88,6 @@ class CrearOfertaDemo extends Command
                 'carrera_id' => $carrera->id,
                 'plan_id' => $plan->id,
                 'campus_id' => $campus->id,
-                'turno_id' => null,
             ],
             ['modalidad' => 'presencial', 'estatus' => 'abierta'],
         );
