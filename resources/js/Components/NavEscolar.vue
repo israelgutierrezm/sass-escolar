@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { usePage } from '@inertiajs/vue3';
+import { router, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import type { PropsCompartidas } from '@/tipos';
 
@@ -46,31 +46,57 @@ const activa = computed(() => {
 
     return coincidencias[0]?.url ?? null;
 });
+
+const seccionActual = computed(() => activa.value ?? visibles.value[0]?.url ?? '');
+
+function ir(url: string): void {
+    if (url !== seccionActual.value) {
+        router.visit(url);
+    }
+}
 </script>
 
 <template>
     <!-- Una sola pestaña no es una navegación: se omite. -->
-    <nav
-        v-if="visibles.length > 1"
-        class="flex flex-wrap gap-1 border-b pb-3"
-        :style="{ borderColor: 'var(--color-borde)' }"
-    >
-        <a
-            v-for="seccion in visibles"
-            :key="seccion.url"
-            :href="seccion.url"
-            class="rounded-lg px-3 py-1.5 text-sm transition"
-            :style="
-                activa === seccion.url
-                    ? {
-                          backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)',
-                          color: 'var(--color-acento)',
-                          fontWeight: 500,
-                      }
-                    : { color: 'var(--color-suave)' }
-            "
-        >
-            {{ seccion.etiqueta }}
-        </a>
-    </nav>
+    <div v-if="visibles.length > 1" class="mb-6">
+        <!-- Móvil: selector desplegable -->
+        <div class="sm:hidden">
+            <label class="sr-only" for="nav-escolar">Sección</label>
+            <select
+                id="nav-escolar"
+                class="w-full rounded-lg border px-3 py-2.5 text-sm font-medium"
+                :style="{ borderColor: 'var(--color-borde)', backgroundColor: 'var(--color-superficie)', color: 'var(--color-contenido)' }"
+                :value="seccionActual"
+                @change="ir(($event.target as HTMLSelectElement).value)"
+            >
+                <option v-for="s in visibles" :key="s.url" :value="s.url">{{ s.etiqueta }}</option>
+            </select>
+        </div>
+
+        <!-- Escritorio: pestañas con subrayado del activo -->
+        <nav class="hidden border-b sm:flex sm:flex-wrap" :style="{ borderColor: 'var(--color-borde)' }">
+            <a
+                v-for="seccion in visibles"
+                :key="seccion.url"
+                :href="seccion.url"
+                class="tab relative px-3 py-2.5 text-sm transition-colors"
+                :class="activa === seccion.url ? 'tab-activa font-semibold' : ''"
+                :style="{ color: activa === seccion.url ? 'var(--color-acento)' : 'var(--color-suave)' }"
+            >
+                {{ seccion.etiqueta }}
+                <span
+                    v-if="activa === seccion.url"
+                    class="absolute inset-x-2 -bottom-px h-0.5 rounded-full"
+                    :style="{ backgroundColor: 'var(--color-acento)' }"
+                />
+            </a>
+        </nav>
+    </div>
 </template>
+
+<style scoped>
+/* Realce suave al pasar el cursor sobre una pestaña inactiva. */
+.tab:not(.tab-activa):hover {
+    color: var(--color-contenido) !important;
+}
+</style>
