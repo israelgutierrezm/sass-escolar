@@ -586,18 +586,32 @@ function verComo(): void {
             <div class="mt-4 border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <div class="flex flex-wrap items-center gap-2">
-                        <span class="text-xs font-medium uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">Carrera</span>
-                        <select
-                            v-if="carreras.length > 1"
-                            :value="alumno.id"
-                            class="rounded-lg border bg-transparent px-3 py-1.5 text-sm font-medium"
-                            :style="{ borderColor: 'var(--color-borde)' }"
-                            @change="cambiarCarrera(($event.target as HTMLSelectElement).value)"
-                        >
-                            <option v-for="c in carreras" :key="c.id" :value="c.id">
-                                {{ c.carrera }} · {{ c.campus }} ({{ c.estatus }})
-                            </option>
-                        </select>
+                        <span class="text-sm font-medium">Carrera</span>
+                        <div v-if="carreras.length > 1" class="relative flex items-center">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke-width="2"
+                                stroke="currentColor"
+                                class="pointer-events-none absolute left-2.5 h-4 w-4"
+                                :style="{ color: 'var(--color-acento)' }"
+                                aria-hidden="true"
+                            >
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-9L21 7.5m0 0L16.5 3M21 7.5H7.5" />
+                            </svg>
+                            <select
+                                :value="alumno.id"
+                                class="rounded-lg border bg-transparent py-1.5 pl-8 pr-3 text-sm font-medium"
+                                :style="{ borderColor: 'var(--color-borde)' }"
+                                title="Cambiar de carrera"
+                                @change="cambiarCarrera(($event.target as HTMLSelectElement).value)"
+                            >
+                                <option v-for="c in carreras" :key="c.id" :value="c.id">
+                                    {{ c.carrera }} · {{ c.campus }} ({{ c.estatus }})
+                                </option>
+                            </select>
+                        </div>
                         <span v-else class="text-sm font-medium">{{ alumno.carrera }}</span>
                     </div>
                     <span
