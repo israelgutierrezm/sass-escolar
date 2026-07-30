@@ -10,6 +10,7 @@ use App\Models\Academico\Carrera;
 use App\Models\Academico\Oferta;
 use App\Models\Academico\PlanEstudio;
 use App\Models\Academico\PlanMateria;
+use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\SituacionAlumno;
 use App\Models\ControlEscolar\Ciclo;
@@ -73,6 +74,7 @@ class PoblarInstitucionDemoSeeder extends Seeder
         $this->crearOfertas($carreras, $campus);
         $this->crearAlumnos($carreras);
         $this->crearTutores();
+        $this->crearAspirantes();
         $this->crearDocentes($campus);
         $this->crearStaffPorCampus($campus);
 
@@ -86,6 +88,7 @@ class PoblarInstitucionDemoSeeder extends Seeder
         $personasPurgar = DB::table('alumnos')->pluck('persona_id')
             ->merge(DB::table('docentes')->pluck('persona_id'))
             ->merge(DB::table('tutores_alumno')->pluck('tutor_persona_id'))
+            ->merge(DB::table('aspirantes')->pluck('persona_id'))
             ->unique()->filter()->all();
 
         $tablas = [
@@ -491,6 +494,79 @@ class PoblarInstitucionDemoSeeder extends Seeder
                     'puede_ver_finanzas' => $i === 0,
                 ]);
             }
+        }
+    }
+
+    /**
+     * Aspirantes de ejemplo en distintas etapas del embudo (del prospecto recién
+     * llegado al aceptado), cada uno con cuenta (rol aspirante) para poder «Ver
+     * como» ellos. Su oferta de interés y campus salen de las ofertas ya creadas.
+     * Idempotente por correo.
+     */
+    private function crearAspirantes(): void
+    {
+        $rolAspirante = DB::table('roles')->where('name', 'aspirante')->value('id');
+        $ofertas = Oferta::query()->orderBy('id')->take(6)->get(['id', 'campus_id']);
+
+        if ($ofertas->isEmpty()) {
+            return;
+        }
+
+        // [nombre, ap1, ap2, sexo, situacion_id, etapa_crm_id, origen, aceptó, info_completa, validado]
+        $defs = [
+            ['Daniela', 'Estrada', 'Marín', 'M', 1, 1, 'web', false, false, false],
+            ['Iker', 'Zamora', 'León', 'H', 2, 3, 'referido', true, true, false],
+            ['Paola', 'Cortés', 'Nava', 'M', 2, 4, 'redes', true, true, true],
+            ['Bruno', 'Aguilar', 'Rosas', 'H', 3, 5, 'campaña', true, true, true],
+            ['Melissa', 'Vázquez', 'Peña', 'M', 1, 2, 'web', true, false, false],
+        ];
+
+        foreach ($defs as $i => [$nom, $ap1, $ap2, $sexo, $sit, $etapa, $origen, $terminos, $info, $validado]) {
+            $email = 'aspirante.demo.'.($i + 1).'@correo.mx';
+
+            if (Persona::query()->where('email', $email)->exists()) {
+                continue;
+            }
+
+            // Jóvenes de ~18 años (prospectos a licenciatura).
+            $dob = now()->subYears(18)->subDays($i * 40);
+            $yy = $dob->format('ymd');
+            $a1 = $this->sinAcentos($ap1);
+            $a2 = $this->sinAcentos($ap2);
+            $no = $this->sinAcentos($nom);
+            $l4 = mb_strtoupper(mb_substr($a1, 0, 2).mb_substr($a2, 0, 1).mb_substr($no, 0, 1));
+            $cons = mb_strtoupper(mb_substr($a1, 2, 1).mb_substr($a2, 2, 1).mb_substr($no, 2, 1));
+
+            $persona = Persona::create([
+                'nombre' => $nom,
+                'primer_apellido' => $ap1,
+                'segundo_apellido' => $ap2,
+                'curp' => $l4.$yy.$sexo.'DF'.$cons.'09',
+                'rfc' => $l4.$yy,
+                'fecha_nacimiento' => $dob->toDateString(),
+                'email' => $email,
+                'celular' => '55'.str_pad((string) random_int(0, 99999999), 8, '0', STR_PAD_LEFT),
+            ]);
+
+            // La cuenta se crea ANTES del Aspirante: si un observer provisiona una
+            // cuenta «censo», ésta ya existe y es la usable (con rol activo).
+            $this->crearCuenta($persona, $rolAspirante, null, 'aspirante.demo.'.($i + 1));
+
+            $oferta = $ofertas[$i % $ofertas->count()];
+
+            Aspirante::create([
+                'persona_id' => $persona->id,
+                'oferta_interes_id' => $oferta->id,
+                'campus_id' => $oferta->campus_id,
+                'clave_aspirante' => sprintf('ASP-2026-%03d', $i + 1),
+                'situacion_id' => $sit,
+                'etapa_crm_id' => $etapa,
+                'paso' => $info ? 3 : 1,
+                'acepto_terminos' => $terminos,
+                'info_personal_completa' => $info,
+                'validado_admin' => $validado,
+                'origen' => $origen,
+            ]);
         }
     }
 
