@@ -360,9 +360,12 @@ class AlumnoController extends Controller
                     'etiqueta' => trim(($pm->clave_en_plan ?? '').' · '.($pm->asignatura?->nombre ?? '')),
                 ]),
             'estatusHistorial' => EstatusHistorial::query()->orderBy('id')->get(['id', 'nombre', 'clave']),
-            // Mínimo aprobatorio del plan del alumno: alimenta la regla que
-            // deduce el estatus a partir de la calificación en la carga de kárdex.
+            // Escala de calificación del plan: el mínimo aprobatorio alimenta la
+            // regla de estatus; mínima/máxima acotan lo capturable (no un 11 en
+            // escala 0–10).
             'minimoAprobatorio' => (float) ($alumno->oferta?->plan?->calificacion_minima_aprobatoria ?? 0),
+            'calificacionMinima' => (float) ($alumno->oferta?->plan?->calificacion_minima ?? 0),
+            'calificacionMaxima' => (float) ($alumno->oferta?->plan?->calificacion_maxima ?? 10),
             'tiposEvaluacion' => TipoEvaluacion::query()->orderBy('id')->get(['id', 'nombre']),
             'observacionesAsignatura' => ObservacionAsignatura::query()->orderBy('id')->get(['id', 'nombre', 'abreviatura']),
             'ciclos' => Ciclo::query()->orderByDesc('id')->get(['id', 'clave']),
@@ -383,36 +386,52 @@ class AlumnoController extends Controller
     public function agregarHistorial(Request $request, MatriculaOferta $alumno, EstatusAcademico $estatusAcademico): RedirectResponse
     {
         $alumno->loadMissing('oferta.plan');
+        $plan = $alumno->oferta?->plan;
         $planId = $alumno->oferta?->plan_id;
         abort_if($planId === null, 404);
+
+        $maxima = (float) ($plan?->calificacion_maxima ?? 10);
+        $minCalif = (float) ($plan?->calificacion_minima ?? 0);
 
         $datos = $request->validate([
             'plan_materia_id' => ['required', 'integer', Rule::exists('plan_materias', 'id')->where('plan_id', $planId)->whereNull('deleted_at')],
             'ciclo_id' => ['nullable', 'integer', Rule::exists('ciclos', 'id')->whereNull('deleted_at')],
-            'estatus_id' => ['required', 'integer', Rule::exists('estatus_historial', 'id')],
-            'tipo_evaluacion_id' => ['required', 'integer', Rule::exists('tipos_evaluacion', 'id')],
+            // El estatus llega solo cuando hay calificación (el front lo esconde
+            // si no la hay); por eso es nullable aquí.
+            'estatus_id' => ['nullable', 'integer', Rule::exists('estatus_historial', 'id')],
+            // «Tipo de evaluación» en la UI = observación oficial SEP. El
+            // tipo_evaluacion interno se deriva de aquí; ya no se captura aparte.
             'observacion_asignatura_id' => ['required', 'integer', Rule::exists('observaciones_asignatura', 'id')],
-            'calificacion' => ['nullable', 'numeric', 'min:0'],
+            'calificacion' => ['nullable', 'numeric', "min:{$minCalif}", "max:{$maxima}"],
         ], [
             'plan_materia_id.exists' => 'La materia no pertenece al plan del alumno.',
+            'calificacion.max' => "La calificación no puede pasar de {$maxima} (escala del plan).",
+            'calificacion.min' => "La calificación no puede ser menor a {$minCalif}.",
         ], [
             'plan_materia_id' => 'materia',
             'estatus_id' => 'estatus',
-            'tipo_evaluacion_id' => 'tipo de evaluación',
-            'observacion_asignatura_id' => 'observación de asignatura',
+            'observacion_asignatura_id' => 'tipo de evaluación',
         ]);
 
-        // El estatus no es libre: lo manda la calificación contra el mínimo
-        // aprobatorio del plan (regla única en EstatusAcademico). El front ya lo
-        // fuerza, pero un POST se arma a mano, así que el servidor lo reexige.
-        $minima = (float) ($alumno->oferta?->plan?->calificacion_minima_aprobatoria ?? 0);
-        $calificacion = $datos['calificacion'] === null ? null : (float) $datos['calificacion'];
-        $claveEstatus = EstatusHistorial::query()->whereKey($datos['estatus_id'])->value('clave');
+        $calificacion = ($datos['calificacion'] ?? null) === null ? null : (float) $datos['calificacion'];
+        $minima = (float) ($plan?->calificacion_minima_aprobatoria ?? 0);
 
-        if (! $estatusAcademico->permite($calificacion, $minima, $claveEstatus)) {
-            throw ValidationException::withMessages([
-                'estatus_id' => 'Ese estatus no corresponde a la calificación: con esa nota la regla del plan determina otro.',
-            ]);
+        // El estatus lo manda la calificación (regla única EstatusAcademico):
+        //  - Con nota: el estatus enviado debe cumplir la regla (el front ya la
+        //    fuerza, pero un POST se arma a mano).
+        //  - Sin nota: es una carga histórica acreditada; se asienta aprobada.
+        if ($calificacion === null) {
+            $estatusId = EstatusHistorial::query()->where('clave', 'aprobada')->value('id');
+        } else {
+            $claveEstatus = EstatusHistorial::query()->whereKey($datos['estatus_id'])->value('clave');
+
+            if (! $estatusAcademico->permite($calificacion, $minima, $claveEstatus)) {
+                throw ValidationException::withMessages([
+                    'estatus_id' => 'Ese estatus no corresponde a la calificación: con esa nota la regla del plan determina otro.',
+                ]);
+            }
+
+            $estatusId = $datos['estatus_id'];
         }
 
         Historial::create([
@@ -420,13 +439,39 @@ class AlumnoController extends Controller
             'plan_materia_id' => $datos['plan_materia_id'],
             'ciclo_id' => $datos['ciclo_id'] ?? null,
             'asignatura_grupo_id' => null,
-            'tipo_evaluacion_id' => $datos['tipo_evaluacion_id'],
-            'estatus_id' => $datos['estatus_id'],
-            'calificacion' => $datos['calificacion'] ?? null,
+            'tipo_evaluacion_id' => $this->tipoEvaluacionDesdeObservacion((int) $datos['observacion_asignatura_id']),
+            'estatus_id' => $estatusId,
+            'calificacion' => $calificacion,
             'observacion_asignatura_id' => $datos['observacion_asignatura_id'],
         ]);
 
         return back()->with('exito', 'Materia agregada al historial.');
+    }
+
+    /**
+     * Deriva el tipo de evaluación interno a partir de la observación oficial
+     * SEP elegida (que en la UI se presenta como «tipo de evaluación»). Los
+     * casos claros mapean directo; el resto —normal, exento, acreditado,
+     * reingreso…— cae a «ordinaria». La observación SEP conserva el detalle fino.
+     */
+    private function tipoEvaluacionDesdeObservacion(int $observacionAsignaturaId): int
+    {
+        $obsClave = ObservacionAsignatura::query()->whereKey($observacionAsignaturaId)->value('clave');
+
+        $mapa = [
+            'examen_extraordinario' => 'extraordinaria',
+            'a_titulo_suficiencia' => 'a_titulo',
+            'recursamiento' => 'recursamiento',
+            'acuerdo_regularizacion' => 'regularizacion',
+            'curso_regularizacion' => 'regularizacion',
+            'revalidacion_estudios' => 'revalidacion',
+            'equivalencia_estudios' => 'revalidacion',
+        ];
+
+        $tipoClave = $mapa[$obsClave] ?? 'ordinaria';
+
+        return TipoEvaluacion::query()->where('clave', $tipoClave)->value('id')
+            ?? TipoEvaluacion::query()->where('clave', 'ordinaria')->value('id');
     }
 
     /**

@@ -71,6 +71,8 @@ const props = defineProps<{
     materiasDelPlan: { id: number; etiqueta: string }[];
     estatusHistorial: { id: number; nombre: string; clave: string }[];
     minimoAprobatorio: number;
+    calificacionMinima: number;
+    calificacionMaxima: number;
     tiposEvaluacion: { id: number; nombre: string }[];
     observacionesAsignatura: { id: number; nombre: string; abreviatura: string | null }[];
     ciclos: { id: number; clave: string }[];
@@ -90,10 +92,17 @@ const opciones = (lista: { id: number; nombre: string }[]) => lista.map((x) => (
 const formHistorial = useForm({
     plan_materia_id: null as number | null,
     ciclo_id: null as number | null,
-    tipo_evaluacion_id: null as number | null,
     observacion_asignatura_id: null as number | null,
     estatus_id: null as number | null,
     calificacion: null as number | null,
+});
+
+// ¿Ya se capturó una calificación? El estatus solo aparece entonces: es la nota
+// la que lo determina (una carga sin nota es una acreditación histórica).
+const calificacionCapturada = computed(() => {
+    const c = formHistorial.calificacion;
+
+    return c !== null && (c as any) !== '' && !isNaN(Number(c));
 });
 
 // Regla única calificación → estatus (misma que EstatusAcademico en el backend):
@@ -126,6 +135,13 @@ const opcionesEstatus = computed(() =>
 watch(
     () => formHistorial.calificacion,
     () => {
+        // Sin calificación no hay estatus a elegir (se asienta en el servidor).
+        if (!calificacionCapturada.value) {
+            formHistorial.estatus_id = null;
+
+            return;
+        }
+
         const permitidos = opcionesEstatus.value.map((o) => o.valor);
 
         if (formHistorial.estatus_id !== null && !permitidos.includes(formHistorial.estatus_id)) {
@@ -539,30 +555,26 @@ function verComo(): void {
                         />
                     </div>
                     <CampoSelect
-                        v-model="formHistorial.tipo_evaluacion_id"
-                        etiqueta="Tipo de evaluación"
-                        requerido
-                        :opciones="opciones(tiposEvaluacion)"
-                        vacio="Selecciona…"
-                        :error="formHistorial.errors.tipo_evaluacion_id"
-                    />
-                    <CampoSelect
                         v-model="formHistorial.observacion_asignatura_id"
-                        etiqueta="Observación (SEP)"
+                        etiqueta="Tipo de evaluación"
                         requerido
                         :opciones="opciones(observacionesAsignatura)"
                         vacio="Selecciona…"
                         :error="formHistorial.errors.observacion_asignatura_id"
-                        ayuda="Estatus académico: equivalencia, revalidación, ordinario…"
+                        ayuda="Catálogo oficial SEP: ordinario, extraordinario, equivalencia, revalidación…"
                     />
                     <CampoTexto
                         v-model="formHistorial.calificacion"
                         etiqueta="Calificación"
                         tipo="number"
+                        :min="calificacionMinima"
+                        :max="calificacionMaxima"
+                        step="0.1"
                         :error="formHistorial.errors.calificacion"
-                        :ayuda="`Opcional. El mínimo aprobatorio del plan es ${minimoAprobatorio}.`"
+                        :ayuda="`Opcional. Escala ${calificacionMinima}–${calificacionMaxima}; aprueba desde ${minimoAprobatorio}.`"
                     />
                     <CampoSelect
+                        v-if="calificacionCapturada"
                         v-model="formHistorial.estatus_id"
                         etiqueta="Estatus"
                         requerido
@@ -573,9 +585,7 @@ function verComo(): void {
                         :ayuda="
                             reglaEstatus.bloqueado
                                 ? 'Lo determina la calificación (no se puede cambiar).'
-                                : reglaEstatus.claves && reglaEstatus.claves.length === 2
-                                  ? 'Con calificación 0: elige si reprobó o no se presentó.'
-                                  : undefined
+                                : 'Con calificación 0: elige si reprobó o no se presentó.'
                         "
                     />
                     <CampoSelect
