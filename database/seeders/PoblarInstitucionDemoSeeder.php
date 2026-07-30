@@ -13,6 +13,7 @@ use App\Models\Academico\PlanMateria;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\SituacionAlumno;
 use App\Models\ControlEscolar\Ciclo;
+use App\Models\ControlEscolar\Docente;
 use App\Models\ControlEscolar\Historial;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\PersonaRol;
@@ -70,6 +71,7 @@ class PoblarInstitucionDemoSeeder extends Seeder
         $carreras = $this->crearCarrerasYPlanes();
         $this->crearOfertas($carreras, $campus);
         $this->crearAlumnos($carreras);
+        $this->crearDocentes($campus);
         $this->crearStaffPorCampus($campus);
 
         $this->command?->info('Institución demo poblada.');
@@ -318,6 +320,71 @@ class PoblarInstitucionDemoSeeder extends Seeder
                     ]);
                 }
             }
+        }
+    }
+
+    /**
+     * Docentes de ejemplo, repartidos por campus (algunos en uno, otros en los
+     * dos). Cada uno con CURP/RFC/correo, tipo, situación activa y clave.
+     *
+     * @param  Campus[]  $campus
+     */
+    private function crearDocentes(array $campus): void
+    {
+        $centro = $campus[0]->id;
+        $norte = ($campus[1] ?? $campus[0])->id;
+
+        // [nombre, ap1, ap2, sexo, tipo_docente_id, campusIds]
+        $defs = [
+            ['Roberto', 'Guzmán', 'Herrera', 'H', 1, [$centro]],
+            ['Adriana', 'Salas', 'Vega', 'M', 1, [$centro]],
+            ['Héctor', 'Navarro', 'Ríos', 'H', 2, [$centro]],
+            ['Patricia', 'Fuentes', 'Mora', 'M', 1, [$norte]],
+            ['Jorge', 'Cabrera', 'Luna', 'H', 2, [$norte]],
+            ['Gabriela', 'Ibarra', 'Solís', 'M', 1, [$norte]],
+            ['Arturo', 'Peña', 'Castro', 'H', 1, [$centro, $norte]],
+            ['Verónica', 'Rangel', 'Ponce', 'M', 1, [$centro, $norte]],
+            ['Guillermo', 'Tapia', 'Franco', 'H', 3, [$centro, $norte]],
+        ];
+
+        foreach ($defs as $i => [$nom, $ap1, $ap2, $sexo, $tipo, $campusIds]) {
+            $email = 'docente.demo.'.($i + 1).'@escuela.mx';
+
+            if (Persona::query()->where('email', $email)->exists()) {
+                continue;
+            }
+
+            // Adultos de 35-54 años; CURP/RFC sin acentos y coherentes con el sexo.
+            $dob = now()->subYears(35 + ($i % 20))->subDays($i * 11);
+            $yy = $dob->format('ymd');
+            $a1 = $this->sinAcentos($ap1);
+            $a2 = $this->sinAcentos($ap2);
+            $no = $this->sinAcentos($nom);
+            $l4 = mb_strtoupper(mb_substr($a1, 0, 2).mb_substr($a2, 0, 1).mb_substr($no, 0, 1));
+            $cons = mb_strtoupper(mb_substr($a1, 2, 1).mb_substr($a2, 2, 1).mb_substr($no, 2, 1));
+
+            $persona = Persona::create([
+                'nombre' => $nom,
+                'primer_apellido' => $ap1,
+                'segundo_apellido' => $ap2,
+                'curp' => $l4.$yy.$sexo.'DF'.$cons.'09',
+                'rfc' => $l4.$yy,
+                'fecha_nacimiento' => $dob->toDateString(),
+                'email' => $email,
+                'correo_institucional' => mb_strtolower($no.'.'.$a1).'@docentes.escuela.mx',
+                'celular' => '55'.str_pad((string) random_int(0, 99999999), 8, '0', STR_PAD_LEFT),
+            ]);
+
+            $docente = Docente::create([
+                'persona_id' => $persona->id,
+                'clave_profesor' => sprintf('PROF-%03d', $i + 1),
+                'cedula_profesional' => (string) random_int(1000000, 9999999),
+                'tipo_docente_id' => $tipo,
+                'situacion_id' => 1, // Activo
+                'edicion_contenido' => 1,
+            ]);
+
+            $docente->campus()->sync($campusIds);
         }
     }
 
