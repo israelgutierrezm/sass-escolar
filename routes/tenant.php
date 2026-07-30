@@ -22,6 +22,7 @@ use App\Http\Controllers\DocenteController;
 use App\Http\Controllers\DocumentoRequeridoController;
 use App\Http\Controllers\Emision\LoteCertificacionController;
 use App\Http\Controllers\Emision\ResponsableController;
+use App\Http\Controllers\Emision\TipoCertificacionController;
 use App\Http\Controllers\Emision\TituloProfesionalController;
 use App\Http\Controllers\EmisorFiscalController;
 use App\Http\Controllers\EsquemaEvaluacionController;
@@ -907,6 +908,20 @@ Route::middleware([
                         });
                 });
         }
+
+        /*
+         * Catálogo de tipos de certificación (79 Total / 80 Parcial) que
+         * alimenta el DEC. Bajo Certificación → Configuración.
+         */
+        Route::controller(TipoCertificacionController::class)
+            ->prefix('certificacion/configuracion/tipos-certificacion')->name('tenant.certificacion.tipos-certificacion.')
+            ->middleware('can:gestionar-certificacion')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'store')->name('store');
+                Route::put('/{tipo}', 'update')->whereNumber('tipo')->name('update');
+                Route::delete('/{tipo}', 'destroy')->whereNumber('tipo')->name('destroy');
+            });
 
         /*
          * Lotes de certificación: el flujo operativo (no la configuración). Se

@@ -192,6 +192,7 @@ export const CATALOGO_MENU: GrupoMenu[] = [
                 hijos: [
                     { clave: 'responsables-certificacion', etiqueta: 'Responsables', url: '/certificacion/configuracion/responsables', permiso: 'gestionar-certificacion' },
                     { clave: 'catalogos-certificacion', etiqueta: 'Catálogos', url: '/certificacion/configuracion/catalogos', permiso: 'gestionar-certificacion' },
+                    { clave: 'tipos-certificacion', etiqueta: 'Tipos de certificación', url: '/certificacion/configuracion/tipos-certificacion', permiso: 'gestionar-certificacion' },
                 ],
             },
         ],
