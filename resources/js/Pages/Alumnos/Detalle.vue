@@ -405,7 +405,6 @@ function verComo(): void {
                         {{ alumno.carrera }}
                         <span v-if="alumno.plan"> · {{ alumno.plan }}</span>
                         <span v-if="alumno.campus"> · {{ alumno.campus }}</span>
-                        <span v-if="alumno.turno"> · {{ alumno.turno }}</span>
                     </p>
                     <p class="mt-1 text-sm">
                         <span class="rounded-full px-2 py-0.5 text-xs capitalize" style="background-color: color-mix(in srgb, #16a34a 14%, transparent)">

@@ -204,7 +204,6 @@ class AlumnoController extends Controller
             'oferta.carrera',
             'oferta.plan',
             'oferta.campus',
-            'oferta.turno',
             'situacion',
         ]);
 
@@ -237,7 +236,6 @@ class AlumnoController extends Controller
                 'carrera' => $alumno->oferta?->carrera?->nombre,
                 'plan' => $alumno->oferta?->plan?->nombre,
                 'campus' => $alumno->oferta?->campus?->nombre,
-                'turno' => $alumno->oferta?->turno?->nombre,
             ],
             'persona' => [
                 'id' => $alumno->persona?->id,
@@ -302,7 +300,7 @@ class AlumnoController extends Controller
             // Ofertas donde todavía NO está matriculada: son las que se le
             // pueden agregar. Ofrecer las que ya tiene solo produce un error.
             'ofertasDisponibles' => Oferta::query()
-                ->with(['carrera:id,nombre', 'plan:id,nombre', 'campus:id,nombre', 'turno:id,nombre'])
+                ->with(['carrera:id,nombre', 'plan:id,nombre', 'campus:id,nombre'])
                 ->whereNotIn('id', MatriculaOferta::query()
                     ->where('persona_id', $alumno->persona_id)
                     ->pluck('oferta_id'))
@@ -310,11 +308,10 @@ class AlumnoController extends Controller
                 ->map(fn (Oferta $o) => [
                     'id' => $o->id,
                     'etiqueta' => trim(sprintf(
-                        '%s · %s%s%s',
+                        '%s · %s%s',
                         $o->carrera?->nombre ?? '',
                         $o->plan?->nombre ?? '',
                         $o->campus !== null ? ' · '.$o->campus->nombre : '',
-                        $o->turno !== null ? ' · '.$o->turno->nombre : '',
                     )),
                 ]),
             'puedeMatricular' => $request->user()->can('generar-matricula'),

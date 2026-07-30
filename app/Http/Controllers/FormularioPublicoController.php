@@ -142,14 +142,13 @@ class FormularioPublicoController extends Controller
     private function ofertas()
     {
         return Oferta::query()
-            ->with('carrera:id,nombre', 'campus:id,nombre', 'turno:id,nombre')
+            ->with('carrera:id,nombre', 'campus:id,nombre')
             ->get()
             ->map(fn (Oferta $o) => [
                 'id' => $o->id,
                 'nombre' => trim(
                     ($o->carrera?->nombre ?? 'Programa')
                     .' · '.($o->campus?->nombre ?? '')
-                    .($o->turno?->nombre ? ' · '.$o->turno->nombre : '')
                 ),
             ])
             ->sortBy('nombre')
