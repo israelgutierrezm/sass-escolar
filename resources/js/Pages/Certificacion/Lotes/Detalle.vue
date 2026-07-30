@@ -6,6 +6,7 @@ import { toast } from 'vue-sonner';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import CampoTexto from '@/Components/CampoTexto.vue';
 
 interface Lote {
     id: number;
@@ -238,11 +239,12 @@ function firmar(): void {
                     <p v-if="formFirma.errors.llave" class="mt-1 text-xs text-red-600">{{ formFirma.errors.llave }}</p>
                 </div>
                 <div class="max-w-sm">
-                    <label class="block text-sm font-medium">Contraseña de la llave</label>
-                    <input v-model="formFirma.password" type="password" autocomplete="off"
-                        class="mt-1 block w-full rounded-lg border px-3 py-2 text-sm"
-                        :style="{ borderColor: 'var(--color-borde)', backgroundColor: 'var(--color-superficie)' }" />
-                    <p v-if="formFirma.errors.password" class="mt-1 text-xs text-red-600">{{ formFirma.errors.password }}</p>
+                    <CampoTexto
+                        v-model="formFirma.password"
+                        tipo="password"
+                        etiqueta="Contraseña de la llave"
+                        :error="formFirma.errors.password"
+                    />
                 </div>
 
                 <div class="flex items-center gap-3">

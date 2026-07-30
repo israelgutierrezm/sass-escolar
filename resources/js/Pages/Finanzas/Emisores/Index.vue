@@ -264,9 +264,7 @@ const etiquetaTipo: Record<string, string> = {
                             <option v-for="d in opcionesDestino" :key="d.id" :value="d.id">{{ d.nombre }}</option>
                         </select>
                     </label>
-                    <button type="submit" class="self-end rounded-lg px-4 py-2 text-sm font-medium" :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }">
-                        Asignar
-                    </button>
+                    <BotonPrincipal icono="ninguno" texto="Asignar" class="self-end" />
                 </form>
 
                 <form class="border-t pt-5" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="subirCredenciales(emisor)">
