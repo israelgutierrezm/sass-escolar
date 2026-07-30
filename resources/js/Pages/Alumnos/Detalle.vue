@@ -568,6 +568,34 @@ function verComo(): void {
                 </div>
                 <p class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">{{ avance }}% de créditos del plan</p>
             </div>
+
+            <!-- Disponible para certificar: aprobó todas las materias que el
+                 plan exige (materias distintas aprobadas ≥ materias para completar). -->
+            <div
+                class="mt-4 flex items-center gap-3 rounded-lg border px-4 py-2.5"
+                :style="{
+                    borderColor: resumen.disponible_certificar ? '#16a34a' : 'var(--color-borde)',
+                    backgroundColor: resumen.disponible_certificar ? 'color-mix(in srgb, #16a34a 8%, transparent)' : 'transparent',
+                }"
+            >
+                <span
+                    class="grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm font-bold text-white"
+                    :style="{ backgroundColor: resumen.disponible_certificar ? '#16a34a' : 'var(--color-suave)' }"
+                >
+                    {{ resumen.disponible_certificar ? '✓' : '…' }}
+                </span>
+                <div>
+                    <p
+                        class="text-sm font-medium"
+                        :style="{ color: resumen.disponible_certificar ? '#16a34a' : 'var(--color-contenido)' }"
+                    >
+                        {{ resumen.disponible_certificar ? 'Disponible para certificar' : 'Aún no disponible para certificar' }}
+                    </p>
+                    <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                        {{ resumen.aprobadas }} / {{ resumen.materias_para_completar }} materias del plan aprobadas
+                    </p>
+                </div>
+            </div>
         </section>
 
         <!-- Pestañas -->

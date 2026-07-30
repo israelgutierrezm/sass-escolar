@@ -146,14 +146,14 @@ function enviar(): void {
 
                     <CampoTexto
                         v-model="form.minimo_creditos"
-                        etiqueta="Créditos para completar la carrera"
+                        etiqueta="Créditos para completar el plan"
                         tipo="number"
                         requerido
                         :error="form.errors.minimo_creditos"
                     />
                     <CampoTexto
                         v-model="form.minimo_asignaturas"
-                        etiqueta="Número de asignaturas para completar la carrera"
+                        etiqueta="Materias para completar el plan"
                         tipo="number"
                         :error="form.errors.minimo_asignaturas"
                     />

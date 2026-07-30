@@ -234,6 +234,14 @@ class AlumnoController extends Controller
 
         $aprobadas = $mejores->filter(fn (Historial $h) => $h->estatus?->clave === 'aprobada');
 
+        // Disponible para certificar: aprobó todas las materias que el plan
+        // exige para completarse (`minimo_asignaturas`). Se mide por conteo de
+        // materias distintas aprobadas; los créditos/promedio no bastan (podría
+        // faltar una materia). Si el plan no fija el mínimo, se cae al número de
+        // materias cargadas en su malla.
+        $metaMaterias = (int) ($alumno->oferta?->plan?->minimo_asignaturas
+            ?: PlanMateria::query()->where('plan_id', $alumno->oferta?->plan_id)->count());
+
         return Inertia::render('Alumnos/Detalle', [
             'alumno' => [
                 'id' => $alumno->id,
@@ -363,6 +371,9 @@ class AlumnoController extends Controller
                 ), 2),
                 'promedio' => $this->promedio($mejores),
                 'creditos_del_plan' => $alumno->oferta?->plan?->total_creditos,
+                'materias_para_completar' => $metaMaterias,
+                // Cerró el plan: aprobó al menos las materias que exige.
+                'disponible_certificar' => $metaMaterias > 0 && $aprobadas->count() >= $metaMaterias,
             ],
             // Nombre real del periodo del plan (Semestre, Cuatrimestre…), para
             // titular los bloques del kárdex agrupado.
