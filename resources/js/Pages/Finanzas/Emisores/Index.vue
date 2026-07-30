@@ -4,6 +4,8 @@ import { computed, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
+import CampoTexto from '@/Components/CampoTexto.vue';
+import CampoSelect from '@/Components/CampoSelect.vue';
 import DatosFiscalesEmisor from '@/Components/DatosFiscalesEmisor.vue';
 
 interface Asignacion {
@@ -249,21 +251,23 @@ const etiquetaTipo: Record<string, string> = {
                 </form>
 
                 <form class="grid gap-3 border-t pt-5 sm:grid-cols-[auto_1fr_auto]" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="asignar(emisor)">
-                    <label class="text-sm">
-                        <span class="mb-1 block font-medium">Aplica a</span>
-                        <select v-model="asignacion.aplica_a_tipo" class="rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
-                            <option value="global">Toda la escuela</option>
-                            <option value="nivel">Un nivel de estudios</option>
-                            <option value="carrera">Una carrera</option>
-                        </select>
-                    </label>
-                    <label v-if="asignacion.aplica_a_tipo !== 'global'" class="text-sm">
-                        <span class="mb-1 block font-medium">¿Cuál?</span>
-                        <select v-model="asignacion.aplica_a_id" required class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
-                            <option :value="null" disabled>Elige…</option>
-                            <option v-for="d in opcionesDestino" :key="d.id" :value="d.id">{{ d.nombre }}</option>
-                        </select>
-                    </label>
+                    <CampoSelect
+                        v-model="asignacion.aplica_a_tipo"
+                        etiqueta="Aplica a"
+                        :opciones="[
+                            { valor: 'global', texto: 'Toda la escuela' },
+                            { valor: 'nivel', texto: 'Un nivel de estudios' },
+                            { valor: 'carrera', texto: 'Una carrera' },
+                        ]"
+                    />
+                    <CampoSelect
+                        v-if="asignacion.aplica_a_tipo !== 'global'"
+                        v-model="asignacion.aplica_a_id"
+                        etiqueta="¿Cuál?"
+                        requerido
+                        vacio="Elige…"
+                        :opciones="opcionesDestino.map((d) => ({ valor: d.id, texto: d.nombre }))"
+                    />
                     <BotonPrincipal icono="ninguno" texto="Asignar" class="self-end" />
                 </form>
 
@@ -290,18 +294,9 @@ const etiquetaTipo: Record<string, string> = {
                             </span>
                             <input type="file" class="w-full text-sm" @input="credenciales.llave = ($event.target as HTMLInputElement).files?.[0] ?? null" />
                         </label>
-                        <label class="text-sm">
-                            <span class="mb-1 block font-medium">Contraseña de la llave</span>
-                            <input v-model="credenciales.llave_password" type="password" autocomplete="new-password" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                        </label>
-                        <label class="text-sm">
-                            <span class="mb-1 block font-medium">Usuario del PAC</span>
-                            <input v-model="credenciales.pac_usuario" type="text" autocomplete="off" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                        </label>
-                        <label class="text-sm">
-                            <span class="mb-1 block font-medium">Contraseña del PAC</span>
-                            <input v-model="credenciales.pac_password" type="password" autocomplete="new-password" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                        </label>
+                        <CampoTexto v-model="credenciales.llave_password" tipo="password" etiqueta="Contraseña de la llave" autocomplete="new-password" :error="credenciales.errors.llave_password" />
+                        <CampoTexto v-model="credenciales.pac_usuario" etiqueta="Usuario del PAC" autocomplete="off" :error="credenciales.errors.pac_usuario" />
+                        <CampoTexto v-model="credenciales.pac_password" tipo="password" etiqueta="Contraseña del PAC" autocomplete="new-password" :error="credenciales.errors.pac_password" />
                     </div>
 
                     <BotonPrincipal :procesando="credenciales.processing" texto="Guardar credenciales" class="mt-4" />

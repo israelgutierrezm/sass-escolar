@@ -4,6 +4,8 @@ import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
+import CampoTexto from '@/Components/CampoTexto.vue';
+import CampoSelect from '@/Components/CampoSelect.vue';
 
 interface Adeudo {
     id: number;
@@ -308,37 +310,16 @@ const colorEstatus: Record<string, string> = {
 
             <form v-if="cobrando" class="border-t px-6 py-4" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="cobrar">
                 <div class="grid gap-3 sm:grid-cols-4">
-                    <label class="text-sm">
-                        <span class="mb-1 block font-medium">Método</span>
-                        <select
-                            v-model="pago.metodo_pago_id"
-                            class="w-full rounded-lg border px-3 py-2 text-sm"
-                            :style="{ borderColor: 'var(--color-borde)' }"
-                        >
-                            <option v-for="m in metodosPago" :key="m.id" :value="m.id">{{ m.nombre }}</option>
-                        </select>
-                    </label>
-                    <label class="text-sm">
-                        <span class="mb-1 block font-medium">Monto</span>
-                        <input
-                            v-model="pago.monto"
-                            type="number"
-                            step="0.01"
-                            min="0.01"
-                            required
-                            class="w-full rounded-lg border px-3 py-2 text-sm"
-                            :style="{ borderColor: 'var(--color-borde)' }"
-                        />
-                    </label>
-                    <label class="text-sm sm:col-span-2">
-                        <span class="mb-1 block font-medium">Referencia</span>
-                        <input
-                            v-model="pago.referencia"
-                            type="text"
-                            class="w-full rounded-lg border px-3 py-2 text-sm"
-                            :style="{ borderColor: 'var(--color-borde)' }"
-                        />
-                    </label>
+                    <CampoSelect
+                        v-model="pago.metodo_pago_id"
+                        etiqueta="Método"
+                        :opciones="metodosPago.map((m) => ({ valor: m.id, texto: m.nombre }))"
+                        :error="pago.errors.metodo_pago_id"
+                    />
+                    <CampoTexto v-model="pago.monto" tipo="number" etiqueta="Monto" requerido step="0.01" min="0.01" :error="pago.errors.monto" />
+                    <div class="sm:col-span-2">
+                        <CampoTexto v-model="pago.referencia" etiqueta="Referencia" :error="pago.errors.referencia" />
+                    </div>
                 </div>
 
                 <p v-if="metodoElegido?.requiere_confirmacion" class="mt-3 rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-800">

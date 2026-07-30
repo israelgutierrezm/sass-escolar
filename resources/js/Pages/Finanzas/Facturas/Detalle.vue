@@ -3,6 +3,8 @@ import { Head, useForm, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
+import CampoTexto from '@/Components/CampoTexto.vue';
+import CampoSelect from '@/Components/CampoSelect.vue';
 
 interface Concepto {
     id: number;
@@ -221,44 +223,27 @@ const colorEstatus: Record<string, string> = {
                     Se emite un comprobante nuevo por los mismos pagos, ligado a éste. Cuando el PAC le dé
                     folio, vuelve aquí y cancela éste con motivo 01.
                 </p>
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">RFC</span>
-                    <input v-model="refactura.rfc" type="text" required maxlength="13" class="w-full rounded-lg border px-3 py-2 font-mono text-sm uppercase" :style="{ borderColor: 'var(--color-borde)' }" />
-                </label>
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Razón social</span>
-                    <input v-model="refactura.razon_social" type="text" required class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                </label>
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Uso del CFDI</span>
-                    <input v-model="refactura.uso_cfdi" type="text" required maxlength="5" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                </label>
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Régimen fiscal</span>
-                    <input v-model="refactura.regimen_fiscal" type="text" required maxlength="5" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                </label>
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">CP fiscal</span>
-                    <input v-model="refactura.cp" type="text" required maxlength="5" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                </label>
+                <CampoTexto v-model="refactura.rfc" etiqueta="RFC" requerido mono :maximo="13" :error="refactura.errors.rfc" />
+                <CampoTexto v-model="refactura.razon_social" etiqueta="Razón social" requerido :error="refactura.errors.razon_social" />
+                <CampoTexto v-model="refactura.uso_cfdi" etiqueta="Uso del CFDI" requerido :maximo="5" :error="refactura.errors.uso_cfdi" />
+                <CampoTexto v-model="refactura.regimen_fiscal" etiqueta="Régimen fiscal" requerido :maximo="5" :error="refactura.errors.regimen_fiscal" />
+                <CampoTexto v-model="refactura.cp" etiqueta="CP fiscal" requerido :maximo="5" :error="refactura.errors.cp" />
                 <BotonPrincipal texto="Emitir la sustituta" class="self-end" />
             </form>
 
             <form v-if="cancelando" class="mt-4 grid gap-3 border-t pt-4 sm:grid-cols-[1fr_auto_auto]" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="cancelar">
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Motivo de cancelación (SAT)</span>
-                    <select
+                <div>
+                    <CampoSelect
                         v-model="cancelacion.motivo"
-                        class="w-full rounded-lg border px-3 py-2 text-sm"
-                        :style="{ borderColor: 'var(--color-borde)' }"
-                    >
-                        <option v-for="m in motivos" :key="m.valor" :value="m.valor">{{ m.etiqueta }}</option>
-                    </select>
-                    <span v-if="cancelacion.motivo === '01'" class="text-xs text-amber-700">
+                        etiqueta="Motivo de cancelación (SAT)"
+                        :opciones="motivos.map((m) => ({ valor: m.valor, texto: m.etiqueta }))"
+                        :error="cancelacion.errors.motivo"
+                    />
+                    <p v-if="cancelacion.motivo === '01'" class="mt-1 text-xs text-amber-700">
                         El motivo 01 exige que ya exista la factura que la sustituye. Emítela primero y
                         captura su id aquí.
-                    </span>
-                </label>
+                    </p>
+                </div>
                 <label v-if="cancelacion.motivo === '01'" class="text-sm">
                     <span class="mb-1 block font-medium">Id de la sustituta</span>
                     <input

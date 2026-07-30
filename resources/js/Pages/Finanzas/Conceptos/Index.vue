@@ -4,6 +4,8 @@ import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
+import CampoTexto from '@/Components/CampoTexto.vue';
+import CampoSelect from '@/Components/CampoSelect.vue';
 
 interface Concepto {
     id: number;
@@ -92,29 +94,21 @@ const objImp = (clave: string | null) =>
             <!-- Alta -->
             <form v-if="creando" class="mt-5 border-t pt-5" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="crear">
                 <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                    <label class="text-sm">
-                        <span class="mb-1 block font-medium">Clave</span>
-                        <input v-model="alta.clave" type="text" required class="w-full rounded-lg border px-3 py-2 font-mono text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                        <span v-if="alta.errors.clave" class="text-xs text-red-600">{{ alta.errors.clave }}</span>
-                    </label>
-                    <label class="text-sm lg:col-span-2">
-                        <span class="mb-1 block font-medium">Nombre</span>
-                        <input v-model="alta.nombre" type="text" required class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                    </label>
-                    <label class="text-sm">
-                        <span class="mb-1 block font-medium">Clave SAT (ProdServ)</span>
-                        <input v-model="alta.clave_sat" type="text" class="w-full rounded-lg border px-3 py-2 font-mono text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                    </label>
-                    <label class="text-sm">
-                        <span class="mb-1 block font-medium">Clave de unidad</span>
-                        <input v-model="alta.clave_unidad_sat" type="text" class="w-full rounded-lg border px-3 py-2 font-mono text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                    </label>
-                    <label class="text-sm lg:col-span-2">
-                        <span class="mb-1 block font-medium">Objeto de impuesto</span>
-                        <select v-model="alta.objeto_impuesto" required class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
-                            <option v-for="o in catalogos.objeto_impuesto" :key="o.clave" :value="o.clave">{{ o.texto }}</option>
-                        </select>
-                    </label>
+                    <CampoTexto v-model="alta.clave" etiqueta="Clave" mono requerido :error="alta.errors.clave" />
+                    <div class="lg:col-span-2">
+                        <CampoTexto v-model="alta.nombre" etiqueta="Nombre" requerido :error="alta.errors.nombre" />
+                    </div>
+                    <CampoTexto v-model="alta.clave_sat" etiqueta="Clave SAT (ProdServ)" mono :error="alta.errors.clave_sat" />
+                    <CampoTexto v-model="alta.clave_unidad_sat" etiqueta="Clave de unidad" mono :error="alta.errors.clave_unidad_sat" />
+                    <div class="lg:col-span-2">
+                        <CampoSelect
+                            v-model="alta.objeto_impuesto"
+                            etiqueta="Objeto de impuesto"
+                            requerido
+                            :opciones="catalogos.objeto_impuesto.map((o) => ({ valor: o.clave, texto: o.texto }))"
+                            :error="alta.errors.objeto_impuesto"
+                        />
+                    </div>
                     <label class="flex items-center gap-2 text-sm">
                         <input v-model="alta.gravado" type="checkbox" class="rounded" />
                         Causa IVA
@@ -170,28 +164,21 @@ const objImp = (clave: string | null) =>
                             <tr v-if="editando === c.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
                                 <td colspan="6" class="px-4 py-4" style="background-color: color-mix(in srgb, var(--color-acento) 4%, transparent)">
                                     <form class="grid gap-3 sm:grid-cols-3 lg:grid-cols-4" @submit.prevent="guardar(c)">
-                                        <label class="text-sm">
-                                            <span class="mb-1 block font-medium">Clave</span>
-                                            <input v-model="datos.clave" type="text" required class="w-full rounded-lg border px-3 py-2 font-mono text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                                        </label>
-                                        <label class="text-sm lg:col-span-2">
-                                            <span class="mb-1 block font-medium">Nombre</span>
-                                            <input v-model="datos.nombre" type="text" required class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                                        </label>
-                                        <label class="text-sm">
-                                            <span class="mb-1 block font-medium">Clave SAT (ProdServ)</span>
-                                            <input v-model="datos.clave_sat" type="text" class="w-full rounded-lg border px-3 py-2 font-mono text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                                        </label>
-                                        <label class="text-sm">
-                                            <span class="mb-1 block font-medium">Clave de unidad</span>
-                                            <input v-model="datos.clave_unidad_sat" type="text" class="w-full rounded-lg border px-3 py-2 font-mono text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
-                                        </label>
-                                        <label class="text-sm lg:col-span-2">
-                                            <span class="mb-1 block font-medium">Objeto de impuesto</span>
-                                            <select v-model="datos.objeto_impuesto" required class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
-                                                <option v-for="o in catalogos.objeto_impuesto" :key="o.clave" :value="o.clave">{{ o.texto }}</option>
-                                            </select>
-                                        </label>
+                                        <CampoTexto v-model="datos.clave" etiqueta="Clave" mono requerido :error="datos.errors.clave" />
+                                        <div class="lg:col-span-2">
+                                            <CampoTexto v-model="datos.nombre" etiqueta="Nombre" requerido :error="datos.errors.nombre" />
+                                        </div>
+                                        <CampoTexto v-model="datos.clave_sat" etiqueta="Clave SAT (ProdServ)" mono :error="datos.errors.clave_sat" />
+                                        <CampoTexto v-model="datos.clave_unidad_sat" etiqueta="Clave de unidad" mono :error="datos.errors.clave_unidad_sat" />
+                                        <div class="lg:col-span-2">
+                                            <CampoSelect
+                                                v-model="datos.objeto_impuesto"
+                                                etiqueta="Objeto de impuesto"
+                                                requerido
+                                                :opciones="catalogos.objeto_impuesto.map((o) => ({ valor: o.clave, texto: o.texto }))"
+                                                :error="datos.errors.objeto_impuesto"
+                                            />
+                                        </div>
                                         <label class="flex items-center gap-2 text-sm">
                                             <input v-model="datos.gravado" type="checkbox" class="rounded" />
                                             Causa IVA

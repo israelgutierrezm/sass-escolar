@@ -4,6 +4,8 @@ import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
+import CampoTexto from '@/Components/CampoTexto.vue';
+import CampoSelect from '@/Components/CampoSelect.vue';
 
 interface Regla {
     id: number;
@@ -116,35 +118,11 @@ const etiquetaPeriodicidad = computed(() =>
             </div>
 
             <form class="mt-5 grid gap-4 border-t pt-5 sm:grid-cols-4" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="guardarVigencia">
-                <label class="text-sm sm:col-span-2">
-                    <span class="mb-1 block font-medium">Nombre</span>
-                    <input
-                        v-model="vigencia.nombre"
-                        type="text"
-                        required
-                        class="w-full rounded-lg border px-3 py-2 text-sm"
-                        :style="{ borderColor: 'var(--color-borde)' }"
-                    />
-                </label>
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Vigente desde</span>
-                    <input
-                        v-model="vigencia.vigente_desde"
-                        type="date"
-                        required
-                        class="w-full rounded-lg border px-3 py-2 text-sm"
-                        :style="{ borderColor: 'var(--color-borde)' }"
-                    />
-                </label>
-                <label class="text-sm">
-                    <span class="mb-1 block font-medium">Vigente hasta</span>
-                    <input
-                        v-model="vigencia.vigente_hasta"
-                        type="date"
-                        class="w-full rounded-lg border px-3 py-2 text-sm"
-                        :style="{ borderColor: 'var(--color-borde)' }"
-                    />
-                </label>
+                <div class="sm:col-span-2">
+                    <CampoTexto v-model="vigencia.nombre" etiqueta="Nombre" requerido :error="vigencia.errors.nombre" />
+                </div>
+                <CampoTexto v-model="vigencia.vigente_desde" tipo="date" etiqueta="Vigente desde" requerido :error="vigencia.errors.vigente_desde" />
+                <CampoTexto v-model="vigencia.vigente_hasta" tipo="date" etiqueta="Vigente hasta" :error="vigencia.errors.vigente_hasta" />
 
                 <div class="flex gap-2 sm:col-span-4">
                     <BotonPrincipal :procesando="vigencia.processing" texto="Guardar" />
@@ -173,52 +151,37 @@ const etiquetaPeriodicidad = computed(() =>
 
             <form v-if="agregando" class="border-t px-6 py-4" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="agregar">
                 <div class="grid gap-4 sm:grid-cols-4">
-                    <label class="text-sm">
-                        <span class="mb-1 block font-medium">Concepto</span>
-                        <select
-                            v-model="nueva.concepto_id"
-                            class="w-full rounded-lg border px-3 py-2 text-sm"
-                            :style="{ borderColor: 'var(--color-borde)' }"
-                        >
-                            <option v-for="c in conceptos" :key="c.id" :value="c.id">{{ c.nombre }}</option>
-                        </select>
-                    </label>
+                    <CampoSelect
+                        v-model="nueva.concepto_id"
+                        etiqueta="Concepto"
+                        :opciones="conceptos.map((c) => ({ valor: c.id, texto: c.nombre }))"
+                        :error="nueva.errors.concepto_id"
+                    />
 
-                    <label class="text-sm">
-                        <span class="mb-1 block font-medium">Periodicidad</span>
-                        <select
-                            v-model="nueva.periodicidad"
-                            class="w-full rounded-lg border px-3 py-2 text-sm"
-                            :style="{ borderColor: 'var(--color-borde)' }"
-                        >
-                            <option v-for="p in periodicidades" :key="p.valor" :value="p.valor">{{ p.etiqueta }}</option>
-                        </select>
-                    </label>
+                    <CampoSelect
+                        v-model="nueva.periodicidad"
+                        etiqueta="Periodicidad"
+                        :opciones="periodicidades.map((p) => ({ valor: p.valor, texto: p.etiqueta }))"
+                        :error="nueva.errors.periodicidad"
+                    />
 
-                    <label class="text-sm">
-                        <span class="mb-1 block font-medium">Monto</span>
-                        <input
-                            v-model="nueva.monto_base"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            required
-                            class="w-full rounded-lg border px-3 py-2 text-sm"
-                            :style="{ borderColor: 'var(--color-borde)' }"
-                        />
-                    </label>
+                    <CampoTexto
+                        v-model="nueva.monto_base"
+                        tipo="number"
+                        etiqueta="Monto"
+                        requerido
+                        step="0.01"
+                        min="0"
+                        :error="nueva.errors.monto_base"
+                    />
 
-                    <label class="text-sm">
-                        <span class="mb-1 block font-medium">Requiere pagado antes</span>
-                        <select
-                            v-model="nueva.concepto_prerequisito_id"
-                            class="w-full rounded-lg border px-3 py-2 text-sm"
-                            :style="{ borderColor: 'var(--color-borde)' }"
-                        >
-                            <option :value="null">Nada</option>
-                            <option v-for="c in conceptos" :key="c.id" :value="c.id">{{ c.nombre }}</option>
-                        </select>
-                    </label>
+                    <CampoSelect
+                        v-model="nueva.concepto_prerequisito_id"
+                        etiqueta="Requiere pagado antes"
+                        vacio="Nada"
+                        :opciones="conceptos.map((c) => ({ valor: c.id, texto: c.nombre }))"
+                        :error="nueva.errors.concepto_prerequisito_id"
+                    />
 
                     <template v-if="usaDiasDelMes || usaDiasDeSemana">
                         <label class="text-sm">

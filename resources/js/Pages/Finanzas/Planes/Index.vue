@@ -4,6 +4,8 @@ import { computed, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
+import CampoTexto from '@/Components/CampoTexto.vue';
+import CampoSelect from '@/Components/CampoSelect.vue';
 
 interface Plan {
     id: number;
@@ -88,66 +90,41 @@ const etiquetaTipo: Record<string, string> = {
 
             <form v-if="creando" class="mt-5 border-t pt-5" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="crear">
                 <div class="grid gap-4 sm:grid-cols-2">
-                    <label class="text-sm">
-                        <span class="mb-1 block font-medium">Nombre</span>
-                        <input
-                            v-model="form.nombre"
-                            type="text"
-                            required
-                            placeholder="Colegiatura mensual licenciaturas"
-                            class="w-full rounded-lg border px-3 py-2 text-sm"
-                            :style="{ borderColor: 'var(--color-borde)' }"
-                        />
-                        <span v-if="form.errors.nombre" class="text-xs text-red-600">{{ form.errors.nombre }}</span>
-                    </label>
+                    <CampoTexto
+                        v-model="form.nombre"
+                        etiqueta="Nombre"
+                        requerido
+                        marcador="Colegiatura mensual licenciaturas"
+                        :error="form.errors.nombre"
+                    />
 
-                    <label class="text-sm">
-                        <span class="mb-1 block font-medium">Aplica a</span>
-                        <select
-                            v-model="form.aplica_a_tipo"
-                            class="w-full rounded-lg border px-3 py-2 text-sm"
-                            :style="{ borderColor: 'var(--color-borde)' }"
-                        >
-                            <option v-for="(texto, valor) in etiquetaTipo" :key="valor" :value="valor">{{ texto }}</option>
-                        </select>
-                    </label>
+                    <CampoSelect
+                        v-model="form.aplica_a_tipo"
+                        etiqueta="Aplica a"
+                        :opciones="Object.entries(etiquetaTipo).map(([valor, texto]) => ({ valor, texto }))"
+                        :error="form.errors.aplica_a_tipo"
+                    />
 
-                    <label v-if="form.aplica_a_tipo !== 'global'" class="text-sm sm:col-span-2">
-                        <span class="mb-1 block font-medium">¿Cuál?</span>
-                        <select
+                    <div v-if="form.aplica_a_tipo !== 'global'" class="sm:col-span-2">
+                        <CampoSelect
                             v-model="form.aplica_a_id"
-                            required
-                            class="w-full rounded-lg border px-3 py-2 text-sm"
-                            :style="{ borderColor: 'var(--color-borde)' }"
-                        >
-                            <option :value="null" disabled>Elige…</option>
-                            <option v-for="d in opcionesDestino" :key="d.id" :value="d.id">{{ d.nombre }}</option>
-                        </select>
-                    </label>
-
-                    <label class="text-sm">
-                        <span class="mb-1 block font-medium">Vigente desde</span>
-                        <input
-                            v-model="form.vigente_desde"
-                            type="date"
-                            required
-                            class="w-full rounded-lg border px-3 py-2 text-sm"
-                            :style="{ borderColor: 'var(--color-borde)' }"
+                            etiqueta="¿Cuál?"
+                            requerido
+                            vacio="Elige…"
+                            :opciones="opcionesDestino.map((d) => ({ valor: d.id, texto: d.nombre }))"
+                            :error="form.errors.aplica_a_id"
                         />
-                    </label>
+                    </div>
 
-                    <label class="text-sm">
-                        <span class="mb-1 block font-medium">Vigente hasta</span>
-                        <input
-                            v-model="form.vigente_hasta"
-                            type="date"
-                            class="w-full rounded-lg border px-3 py-2 text-sm"
-                            :style="{ borderColor: 'var(--color-borde)' }"
-                        />
-                        <span class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                            En blanco, sigue vigente hasta nuevo aviso.
-                        </span>
-                    </label>
+                    <CampoTexto v-model="form.vigente_desde" tipo="date" etiqueta="Vigente desde" requerido :error="form.errors.vigente_desde" />
+
+                    <CampoTexto
+                        v-model="form.vigente_hasta"
+                        tipo="date"
+                        etiqueta="Vigente hasta"
+                        :error="form.errors.vigente_hasta"
+                        ayuda="En blanco, sigue vigente hasta nuevo aviso."
+                    />
                 </div>
 
                 <div class="mt-4 flex gap-2">
