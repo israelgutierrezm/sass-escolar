@@ -13,6 +13,7 @@ interface Renglon {
     clave_en_plan: string | null;
     materia: string | null;
     creditos: number | null;
+    periodo: number | null;
     ciclo: string | null;
     calificacion: string | null;
     estatus: string | null;
@@ -66,6 +67,7 @@ const props = defineProps<{
     situacionesDeBaja: { id: number; nombre: string }[];
     suplantable: { usuario_id: number; usuario: string } | null;
     historial: Renglon[];
+    unidadPeriodo: string;
     resumen: Record<string, any>;
     carga: { ciclo: string; materias: any[] }[];
     materiasDelPlan: { id: number; etiqueta: string }[];
@@ -310,6 +312,52 @@ function colorCalificacion(r: Renglon): string {
     if (r.estatus_clave === 'aprobada') return '#16a34a';
     if (r.estatus_clave === 'reprobada') return '#dc2626';
     return 'var(--color-suave)';
+}
+
+// Fondo tenue para el chip de calificación, del mismo color que el texto.
+function fondoCalificacion(r: Renglon): string {
+    return `color-mix(in srgb, ${colorCalificacion(r)} 12%, transparent)`;
+}
+
+// El kárdex agrupado por periodo (grado) del plan, con las estadísticas de cada
+// bloque: cuántas materias, créditos aprobados y promedio del periodo. Es la
+// forma en que se lee un kárdex —por semestre/cuatrimestre—, no como lista plana.
+const historialPorPeriodo = computed(() => {
+    const grupos = new Map<number, Renglon[]>();
+
+    for (const r of props.historial) {
+        const p = r.periodo ?? 0; // 0 = sin periodo asignado
+        (grupos.get(p) ?? grupos.set(p, []).get(p)!).push(r);
+    }
+
+    return [...grupos.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([periodo, renglones]) => {
+            const conNota = renglones.filter((r) => r.calificacion !== null && !isNaN(Number(r.calificacion)));
+            const promedio = conNota.length
+                ? (conNota.reduce((s, r) => s + Number(r.calificacion), 0) / conNota.length).toFixed(1)
+                : null;
+            const creditos = renglones
+                .filter((r) => r.estatus_clave === 'aprobada')
+                .reduce((s, r) => s + Number(r.creditos ?? 0), 0);
+            const reprobadas = renglones.filter((r) => r.estatus_clave === 'reprobada').length;
+
+            return {
+                periodo,
+                titulo: periodo === 0 ? 'Sin periodo' : `${props.unidadPeriodo} ${periodo}`,
+                renglones,
+                promedio,
+                creditos: Math.round(creditos * 100) / 100,
+                reprobadas,
+            };
+        });
+});
+
+// Color del promedio del bloque (contra el mínimo aprobatorio del plan).
+function colorPromedio(promedio: string | null): string {
+    if (promedio === null) return 'var(--color-suave)';
+
+    return Number(promedio) >= props.minimoAprobatorio ? '#16a34a' : '#dc2626';
 }
 
 /* Foto de perfil */
@@ -611,49 +659,69 @@ function verComo(): void {
                 </form>
             </div>
 
-            <div class="tarjeta overflow-hidden">
-            <table v-if="historial.length" class="w-full text-sm">
-                <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                    <tr>
-                        <th class="px-6 py-3 font-medium">Clave</th>
-                        <th class="px-4 py-3 font-medium">Materia</th>
-                        <th class="px-4 py-3 font-medium">Ciclo</th>
-                        <th class="px-4 py-3 font-medium">Tipo</th>
-                        <th class="px-4 py-3 font-medium">Calif.</th>
-                        <th class="px-4 py-3 font-medium">Estatus</th>
-                        <th class="px-6 py-3 font-medium">Acta / origen</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr
-                        v-for="renglon in historial"
-                        :key="renglon.id"
-                        class="border-t"
+            <div v-if="historialPorPeriodo.length" class="space-y-4">
+                <article v-for="g in historialPorPeriodo" :key="g.periodo" class="tarjeta overflow-hidden">
+                    <header
+                        class="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3"
                         :style="{ borderColor: 'var(--color-borde)' }"
                     >
-                        <td class="px-6 py-2 font-mono text-xs">{{ renglon.clave_en_plan }}</td>
-                        <td class="px-4 py-2">
-                            {{ renglon.materia }}
-                            <span v-if="renglon.observacion && renglon.observacion !== 'Sin observación'" class="block text-xs italic" :style="{ color: 'var(--color-suave)' }">
-                                {{ renglon.observacion }}
-                            </span>
+                        <div class="flex items-center gap-3">
                             <span
-                                v-if="renglon.observacion_asignatura && renglon.observacion_asignatura !== 'NORMAL / ORDINARIO'"
-                                class="mt-0.5 inline-block rounded px-1.5 py-0.5 text-[10px]"
-                                :style="{ backgroundColor: 'var(--color-fondo)', color: 'var(--color-suave)' }"
+                                class="grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-semibold"
+                                :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 14%, transparent)', color: 'var(--color-acento)' }"
                             >
-                                {{ renglon.observacion_asignatura }}
+                                {{ g.periodo || '—' }}
                             </span>
-                        </td>
-                        <td class="px-4 py-2">{{ renglon.ciclo }}</td>
-                        <td class="px-4 py-2 text-xs">{{ renglon.tipo_evaluacion }}</td>
-                        <td class="px-4 py-2 font-medium" :style="{ color: colorCalificacion(renglon) }">
-                            {{ renglon.calificacion ?? '—' }}
-                        </td>
-                        <td class="px-4 py-2">{{ renglon.estatus }}</td>
-                        <td class="px-6 py-2 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">
-                            <div class="flex items-center justify-between gap-2">
-                                <span v-if="renglon.acta_folio">{{ renglon.acta_folio }}</span>
+                            <div>
+                                <h3 class="text-sm font-semibold">{{ g.titulo }}</h3>
+                                <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                                    {{ g.renglones.length }} materia(s) · {{ g.creditos }} créditos
+                                    <span v-if="g.reprobadas" class="text-red-600"> · {{ g.reprobadas }} reprobada(s)</span>
+                                </p>
+                            </div>
+                        </div>
+                        <div v-if="g.promedio" class="text-right">
+                            <p class="text-[10px] uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">Promedio</p>
+                            <p class="text-lg font-semibold" :style="{ color: colorPromedio(g.promedio) }">{{ g.promedio }}</p>
+                        </div>
+                    </header>
+
+                    <ul class="divide-y" :style="{ borderColor: 'var(--color-borde)' }">
+                        <li
+                            v-for="renglon in g.renglones"
+                            :key="renglon.id"
+                            class="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3"
+                        >
+                            <span
+                                class="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-sm font-semibold"
+                                :style="{ backgroundColor: fondoCalificacion(renglon), color: colorCalificacion(renglon) }"
+                            >
+                                {{ renglon.calificacion ?? '—' }}
+                            </span>
+
+                            <div class="min-w-0 flex-1">
+                                <p class="truncate text-sm font-medium">
+                                    <span class="font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ renglon.clave_en_plan }}</span>
+                                    · {{ renglon.materia }}
+                                </p>
+                                <p class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs" :style="{ color: 'var(--color-suave)' }">
+                                    <span>{{ renglon.estatus }}</span>
+                                    <span v-if="renglon.ciclo">· Ciclo {{ renglon.ciclo }}</span>
+                                    <span v-if="renglon.tipo_evaluacion">· {{ renglon.tipo_evaluacion }}</span>
+                                    <span
+                                        v-if="renglon.observacion_asignatura && renglon.observacion_asignatura !== 'NORMAL / ORDINARIO'"
+                                        class="rounded px-1.5 py-0.5 text-[10px]"
+                                        :style="{ backgroundColor: 'var(--color-fondo)' }"
+                                    >
+                                        {{ renglon.observacion_asignatura }}
+                                    </span>
+                                </p>
+                            </div>
+
+                            <div class="flex shrink-0 items-center gap-2">
+                                <span v-if="renglon.acta_folio" class="font-mono text-xs" :style="{ color: 'var(--color-suave)' }">
+                                    {{ renglon.acta_folio }}
+                                </span>
                                 <span
                                     v-else
                                     class="rounded px-1.5 py-0.5 text-[10px]"
@@ -671,15 +739,14 @@ function verComo(): void {
                                     ✕
                                 </button>
                             </div>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+                        </li>
+                    </ul>
+                </article>
+            </div>
 
-            <p v-else class="px-6 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
+            <p v-else class="tarjeta px-6 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
                 Sin materias asentadas en el kárdex todavía.
             </p>
-            </div>
         </section>
 
         <!-- Carga por ciclo -->

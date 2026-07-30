@@ -326,6 +326,8 @@ class AlumnoController extends Controller
                 'clave_en_plan' => $h->planMateria?->clave_en_plan,
                 'materia' => $h->planMateria?->asignatura?->nombre,
                 'creditos' => $h->planMateria?->asignatura?->creditos,
+                // El periodo (grado) de la materia en el plan: agrupa el kárdex.
+                'periodo' => $h->planMateria?->periodo,
                 'ciclo' => $h->ciclo?->clave,
                 'calificacion' => $h->calificacion,
                 'estatus' => $h->estatus?->nombre,
@@ -348,6 +350,9 @@ class AlumnoController extends Controller
                 'promedio' => $this->promedio($historial),
                 'creditos_del_plan' => $alumno->oferta?->plan?->total_creditos,
             ],
+            // Nombre real del periodo del plan (Semestre, Cuatrimestre…), para
+            // titular los bloques del kárdex agrupado.
+            'unidadPeriodo' => $alumno->oferta?->plan?->unidadPeriodo() ?? 'Periodo',
             'carga' => $this->cargaPorCiclo($alumno),
             // Carga manual al historial (equivalencias, revalidaciones, históricos):
             // la malla del plan del alumno + los catálogos de estatus/observación.
