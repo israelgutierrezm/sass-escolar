@@ -16,7 +16,6 @@ use App\Http\Controllers\CarreraController;
 use App\Http\Controllers\CatalogoAcademicoController;
 use App\Http\Controllers\CicloController;
 use App\Http\Controllers\ConfiguracionController;
-use App\Http\Controllers\Plataforma\CatalogoPlataformaController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocenciaController;
 use App\Http\Controllers\DocenteController;
@@ -781,20 +780,6 @@ Route::middleware([
             ->group(function () {
                 Route::get('/', 'index')->middleware('can:ver-configuracion')->name('index');
                 Route::put('/', 'actualizar')->middleware('can:editar-configuracion')->name('actualizar');
-            });
-
-        /*
-         * Catálogos de plataforma (género y demás no-académicos) que alimentan
-         * el certificado electrónico. Bajo Plataforma → Configuración → Catálogos.
-         */
-        Route::controller(CatalogoPlataformaController::class)
-            ->prefix('plataforma/configuracion/catalogos')->name('tenant.plataforma.catalogos.')
-            ->middleware('can:editar-configuracion')
-            ->group(function () {
-                Route::get('/', 'index')->name('index');
-                Route::post('/generos', 'storeGenero')->name('generos.store');
-                Route::put('/generos/{genero}', 'updateGenero')->whereNumber('genero')->name('generos.update');
-                Route::delete('/generos/{genero}', 'destroyGenero')->whereNumber('genero')->name('generos.destroy');
             });
 
         /*

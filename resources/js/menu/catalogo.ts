@@ -183,7 +183,6 @@ export const CATALOGO_MENU: GrupoMenu[] = [
                 etiqueta: 'Configuración',
                 prefijo: '/plataforma/configuracion',
                 hijos: [
-                    { clave: 'config-catalogos', etiqueta: 'Catálogos', url: '/plataforma/configuracion/catalogos', permiso: 'editar-configuracion' },
                     { clave: 'reglas', etiqueta: 'Reglas institucionales', url: '/plataforma/configuracion', permiso: 'ver-configuracion' },
                     { clave: 'config-correo', etiqueta: 'Envío de correos', url: '/plataforma/configuraciones/correo', permiso: 'configurar-correo' },
                     { clave: 'config-facturacion', etiqueta: 'API Facturación', url: '/plataforma/configuraciones/facturacion', permiso: 'configurar-facturacion' },
