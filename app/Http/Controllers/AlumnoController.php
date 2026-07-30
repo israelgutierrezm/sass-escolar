@@ -697,9 +697,14 @@ class AlumnoController extends Controller
      */
     public function vincularTutor(Request $request, MatriculaOferta $alumno, AprovisionadorAcceso $aprovisionador): RedirectResponse
     {
+        // Puede venir una persona YA existente elegida en el buscador (un padre
+        // ya registrado por un hermano); entonces no se piden sus datos.
+        $existenteId = $request->input('tutor_persona_id');
+
         $datos = $request->validate([
-            'nombre' => ['required', 'string', 'max:255'],
-            'primer_apellido' => ['required', 'string', 'max:255'],
+            'tutor_persona_id' => ['nullable', 'integer', Rule::exists('personas', 'id')->whereNull('deleted_at')],
+            'nombre' => [Rule::requiredIf(empty($existenteId)), 'nullable', 'string', 'max:255'],
+            'primer_apellido' => [Rule::requiredIf(empty($existenteId)), 'nullable', 'string', 'max:255'],
             'segundo_apellido' => ['nullable', 'string', 'max:255'],
             'curp' => ['nullable', 'string', 'max:18'],
             'email' => ['nullable', 'email', 'max:150'],
@@ -709,8 +714,12 @@ class AlumnoController extends Controller
             'puede_ver_finanzas' => ['boolean'],
         ]);
 
+        // La persona a ligar: la elegida en el buscador, o la que coincide por
+        // CURP, o una nueva.
         $curp = strtoupper(trim((string) ($datos['curp'] ?? '')));
-        $tutor = $curp !== '' ? Persona::query()->where('curp', $curp)->first() : null;
+        $tutor = ! empty($datos['tutor_persona_id'])
+            ? Persona::find($datos['tutor_persona_id'])
+            : ($curp !== '' ? Persona::query()->where('curp', $curp)->first() : null);
 
         if ($tutor !== null && $tutor->id === $alumno->persona_id) {
             return back()->with('error', 'Una persona no puede ser tutora de sí misma.');
@@ -746,6 +755,41 @@ class AlumnoController extends Controller
         });
 
         return back()->with('exito', 'Padre/tutor vinculado. Ya es usuario del sistema.');
+    }
+
+    /**
+     * Busca personas ya registradas que se puedan ligar como padre/tutor —un
+     * padre dado de alta por un hermano, por ejemplo—. Excluye al propio alumno
+     * y a quienes ya están vinculados. Por nombre, CURP o correo.
+     */
+    public function buscarTutores(Request $request, MatriculaOferta $alumno): \Illuminate\Http\JsonResponse
+    {
+        $q = trim((string) $request->query('q', ''));
+
+        if (mb_strlen($q) < 2) {
+            return response()->json([]);
+        }
+
+        $like = '%'.str_replace(' ', '%', $q).'%';
+        $yaLigados = TutorAlumno::query()->where('alumno_persona_id', $alumno->persona_id)->pluck('tutor_persona_id');
+
+        $personas = Persona::query()
+            ->whereKeyNot($alumno->persona_id)
+            ->whereNotIn('id', $yaLigados)
+            ->where(fn ($w) => $w
+                ->whereRaw("CONCAT_WS(' ', nombre, primer_apellido, segundo_apellido) LIKE ?", [$like])
+                ->orWhere('curp', 'like', "%{$q}%")
+                ->orWhereRaw('lower(email) = ?', [mb_strtolower($q)]))
+            ->orderBy('primer_apellido')
+            ->limit(8)
+            ->get();
+
+        return response()->json($personas->map(fn (Persona $p) => [
+            'id' => $p->id,
+            'nombre' => $p->nombreCompleto(),
+            'curp' => $p->curp,
+            'email' => $p->email,
+        ])->all());
     }
 
     /**

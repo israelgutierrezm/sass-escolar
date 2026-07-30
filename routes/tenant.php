@@ -452,6 +452,10 @@ Route::middleware([
 
                         // Padres/tutores del alumno: vincularlos los vuelve
                         // usuarios con rol de padre de familia.
+                        Route::get('{alumno}/tutores/buscar', 'buscarTutores')
+                            ->whereNumber('alumno')
+                            ->middleware('can:editar-alumnos')
+                            ->name('tutores.buscar');
                         Route::post('{alumno}/tutores', 'vincularTutor')
                             ->whereNumber('alumno')
                             ->middleware('can:editar-alumnos')

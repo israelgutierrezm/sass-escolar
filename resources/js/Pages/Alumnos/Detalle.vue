@@ -231,6 +231,7 @@ function guardarFacturacion(): void {
 
 /* Padres y tutores del alumno */
 const formTutor = useForm({
+    tutor_persona_id: null as number | null,
     nombre: '',
     primer_apellido: '',
     segundo_apellido: '',
@@ -244,13 +245,60 @@ const formTutor = useForm({
 
 const agregandoTutor = ref(false);
 
+// Buscador de padres/tutores YA registrados (p. ej. el padre de un hermano):
+// se teclea nombre/CURP/correo y se elige, sin recapturar sus datos.
+interface TutorCandidato { id: number; nombre: string; curp: string | null; email: string | null }
+const tutorBusqueda = ref('');
+const tutorResultados = ref<TutorCandidato[]>([]);
+const tutorElegido = ref<TutorCandidato | null>(null);
+let tempTutor: ReturnType<typeof setTimeout> | undefined;
+
+watch(tutorBusqueda, (q) => {
+    clearTimeout(tempTutor);
+    if (tutorElegido.value) return;
+
+    const term = q.trim();
+    if (term.length < 2) {
+        tutorResultados.value = [];
+        return;
+    }
+
+    tempTutor = setTimeout(async () => {
+        try {
+            const r = await fetch(`/escolar/alumnos/${props.alumno.id}/tutores/buscar?q=${encodeURIComponent(term)}`, {
+                headers: { Accept: 'application/json' },
+            });
+            tutorResultados.value = r.ok ? await r.json() : [];
+        } catch {
+            tutorResultados.value = [];
+        }
+    }, 300);
+});
+
+function elegirTutor(p: TutorCandidato): void {
+    tutorElegido.value = p;
+    formTutor.tutor_persona_id = p.id;
+    tutorBusqueda.value = p.nombre;
+    tutorResultados.value = [];
+}
+
+function limpiarTutorElegido(): void {
+    tutorElegido.value = null;
+    formTutor.tutor_persona_id = null;
+    tutorBusqueda.value = '';
+    tutorResultados.value = [];
+}
+
+function cerrarFormTutor(): void {
+    formTutor.reset();
+    limpiarTutorElegido();
+    agregandoTutor.value = false;
+}
+
 function vincularTutor(): void {
     formTutor.post(`/escolar/alumnos/${props.alumno.id}/tutores`, {
         preserveScroll: true,
-        onSuccess: () => {
-            formTutor.reset();
-            agregandoTutor.value = false;
-        },
+        onSuccess: cerrarFormTutor,
     });
 }
 
@@ -614,12 +662,56 @@ function verComo(): void {
                         </div>
                         <span v-else class="text-sm font-medium">{{ alumno.carrera }}</span>
                     </div>
-                    <span
-                        class="rounded-full px-2.5 py-1 text-xs font-medium capitalize"
-                        :style="{ backgroundColor: colorEstatusCarrera[alumno.estatus] ?? 'var(--color-fondo)' }"
+                    <div class="flex flex-col items-end gap-1.5">
+                        <span
+                            class="rounded-full px-2.5 py-1 text-xs font-medium capitalize"
+                            :style="{ backgroundColor: colorEstatusCarrera[alumno.estatus] ?? 'var(--color-fondo)' }"
+                        >
+                            {{ alumno.estatus }}
+                        </span>
+                        <button
+                            v-if="puedeEditar && alumno.estatus !== 'baja'"
+                            type="button"
+                            class="text-xs transition hover:text-red-600"
+                            :style="{ color: 'var(--color-suave)' }"
+                            @click="bajando = bajando === alumno.id ? null : alumno.id"
+                        >
+                            Dar de baja
+                        </button>
+                        <button
+                            v-else-if="puedeEditar"
+                            type="button"
+                            class="text-xs"
+                            :style="{ color: 'var(--color-acento)' }"
+                            @click="reactivar(alumno.id, alumno.matricula)"
+                        >
+                            Reactivar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Baja de la carrera en foco: mismo flujo que la pestaña Carreras. -->
+                <div
+                    v-if="bajando === alumno.id"
+                    class="mt-4 flex flex-wrap items-end gap-3 rounded-lg p-3"
+                    style="background-color: color-mix(in srgb, currentColor 5%, transparent)"
+                >
+                    <div class="min-w-56">
+                        <CampoSelect
+                            v-model="situacionBaja"
+                            etiqueta="Tipo de baja"
+                            :opciones="situacionesDeBaja.map((s) => ({ valor: s.id, texto: s.nombre }))"
+                        />
+                    </div>
+                    <BotonAccion variante="eliminar" texto="Confirmar baja" @click="confirmarBaja(alumno.id)" />
+                    <button
+                        type="button"
+                        class="rounded-lg border px-4 py-2 text-sm"
+                        :style="{ borderColor: 'var(--color-borde)' }"
+                        @click="bajando = null"
                     >
-                        {{ alumno.estatus }}
-                    </span>
+                        Cancelar
+                    </button>
                 </div>
 
                 <dl class="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -1163,13 +1255,67 @@ function verComo(): void {
 
                 <!-- Alta -->
                 <form v-if="agregandoTutor" class="mt-5 border-t pt-5" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="vincularTutor">
+                    <!-- Buscar un padre/tutor ya registrado (p. ej. de un hermano). -->
+                    <div class="relative mb-5 max-w-lg">
+                        <label class="mb-1 block text-sm font-medium">Buscar padre/tutor existente</label>
+                        <div class="flex items-center gap-2">
+                            <input
+                                v-model="tutorBusqueda"
+                                type="text"
+                                :disabled="!!tutorElegido"
+                                placeholder="Nombre, CURP o correo…"
+                                class="w-full rounded-lg border px-3 py-2 text-sm disabled:opacity-60"
+                                :style="{ borderColor: 'var(--color-borde)' }"
+                            />
+                            <button
+                                v-if="tutorElegido"
+                                type="button"
+                                class="shrink-0 text-sm"
+                                :style="{ color: 'var(--color-acento)' }"
+                                @click="limpiarTutorElegido"
+                            >
+                                Quitar
+                            </button>
+                        </div>
+                        <p class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">
+                            Si ya está registrado, selecciónalo y no captures sus datos. Si no, llénalos abajo.
+                        </p>
+
+                        <ul
+                            v-if="tutorResultados.length && !tutorElegido"
+                            class="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border shadow-lg"
+                            :style="{ borderColor: 'var(--color-borde)', backgroundColor: 'var(--color-superficie)' }"
+                        >
+                            <li
+                                v-for="p in tutorResultados"
+                                :key="p.id"
+                                class="cursor-pointer px-3 py-2 text-sm hover:bg-fondo"
+                                @click="elegirTutor(p)"
+                            >
+                                <span class="font-medium">{{ p.nombre }}</span>
+                                <span v-if="p.curp" class="ml-2 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ p.curp }}</span>
+                                <span v-if="p.email" class="ml-2 text-xs" :style="{ color: 'var(--color-suave)' }">{{ p.email }}</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div
+                        v-if="tutorElegido"
+                        class="mb-5 rounded-lg border p-3 text-sm"
+                        :style="{ borderColor: 'var(--color-acento)', backgroundColor: 'color-mix(in srgb, var(--color-acento) 8%, transparent)' }"
+                    >
+                        Se vinculará a <strong>{{ tutorElegido.nombre }}</strong> (ya registrado).
+                    </div>
+
                     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        <CampoTexto v-model="formTutor.nombre" etiqueta="Nombre(s)" requerido :error="formTutor.errors.nombre" />
-                        <CampoTexto v-model="formTutor.primer_apellido" etiqueta="Primer apellido" requerido :error="formTutor.errors.primer_apellido" />
-                        <CampoTexto v-model="formTutor.segundo_apellido" etiqueta="Segundo apellido" :error="formTutor.errors.segundo_apellido" />
-                        <CampoTexto v-model="formTutor.curp" etiqueta="CURP" mono :error="formTutor.errors.curp" ayuda="Si ya existe, se reutiliza esa persona." />
-                        <CampoTexto v-model="formTutor.email" etiqueta="Correo" tipo="email" :error="formTutor.errors.email" ayuda="Con él entrará a la plataforma." />
-                        <CampoTexto v-model="formTutor.celular" etiqueta="Celular" :error="formTutor.errors.celular" />
+                        <template v-if="!tutorElegido">
+                            <CampoTexto v-model="formTutor.nombre" etiqueta="Nombre(s)" requerido :error="formTutor.errors.nombre" />
+                            <CampoTexto v-model="formTutor.primer_apellido" etiqueta="Primer apellido" requerido :error="formTutor.errors.primer_apellido" />
+                            <CampoTexto v-model="formTutor.segundo_apellido" etiqueta="Segundo apellido" :error="formTutor.errors.segundo_apellido" />
+                            <CampoTexto v-model="formTutor.curp" etiqueta="CURP" mono :error="formTutor.errors.curp" ayuda="Si ya existe, se reutiliza esa persona." />
+                            <CampoTexto v-model="formTutor.email" etiqueta="Correo" tipo="email" :error="formTutor.errors.email" ayuda="Con él entrará a la plataforma." />
+                            <CampoTexto v-model="formTutor.celular" etiqueta="Celular" :error="formTutor.errors.celular" />
+                        </template>
                         <CampoSelect
                             v-model="formTutor.parentesco"
                             etiqueta="Parentesco"
@@ -1200,7 +1346,7 @@ function verComo(): void {
                             type="button"
                             class="rounded-lg border px-4 py-2 text-sm"
                             :style="{ borderColor: 'var(--color-borde)' }"
-                            @click="agregandoTutor = false"
+                            @click="cerrarFormTutor"
                         >
                             Cancelar
                         </button>
