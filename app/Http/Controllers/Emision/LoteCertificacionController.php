@@ -215,6 +215,13 @@ class LoteCertificacionController extends Controller
             'password.required' => 'La contraseña de la llave es obligatoria para firmar.',
         ]);
 
+        // Antes de sellar: los datos deben bastar para un DEC válido y congruente
+        // con el XSD. Si no, se listan TODOS los errores y no se firma nada.
+        $erroresDec = app(\App\Services\ValidadorDec::class)->validarLote($lote);
+        if ($erroresDec !== []) {
+            return back()->with('errores_firma', $erroresDec);
+        }
+
         $responsable = Responsable::deTipo(TipoResponsable::CERTIFICACION)
             ->activos()
             ->with(['cargo', 'certificadoVigente'])

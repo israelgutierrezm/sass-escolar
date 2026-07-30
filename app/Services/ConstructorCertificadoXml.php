@@ -46,6 +46,7 @@ class ConstructorCertificadoXml
             'oferta.carrera',
             'oferta.plan',
             'oferta.campus.institucion',
+            'oferta.campus.entidad',
         ]);
 
         $persona = $matricula->persona;
@@ -54,6 +55,7 @@ class ConstructorCertificadoXml
         $carrera = $oferta?->carrera;
         $campus = $oferta?->campus;
         $institucion = $campus?->institucion;
+        $entidad = $campus?->entidad;
 
         $historial = Historial::query()
             ->with(['planMateria.asignatura:id,identificador,nombre,creditos', 'estatus:id,nombre,clave', 'ciclo:id,clave'])
@@ -107,6 +109,7 @@ class ConstructorCertificadoXml
             'idCampus' => (string) ($campus?->identificador ?? $campus?->clave ?? $campus?->id ?? '0'),
             'campus' => $campus?->nombre,
             'idEntidadFederativa' => (string) ($idEntidad ?? $campus?->entidad_id ?? '0'),
+            'entidadFederativa' => $entidad?->nombre,
             // Rvoe
             'numeroRvoe' => (string) ($plan?->rvoe ?? 'SIN-RVOE'),
             'fechaExpedicionRvoe' => $this->fechaHora($plan?->fecha_rvoe),
@@ -133,7 +136,7 @@ class ConstructorCertificadoXml
             'tipoCertificacion' => $parcial ? 'Parcial' : 'Total',
             'fechaExpedicion' => $this->fechaHora(now()),
             'idLugarExpedicion' => (string) ($idEntidad ?? $campus?->entidad_id ?? '0'),
-            'lugarExpedicion' => $campus?->nombre,
+            'lugarExpedicion' => $entidad?->nombre,
             // Asignaturas (totales)
             'total' => count($asignaturas),
             'asignadas' => $aprobadas->count(),
@@ -211,6 +214,7 @@ class ConstructorCertificadoXml
             'idCampus' => $d['idCampus'],
             'campus' => $d['campus'],
             'idEntidadFederativa' => $d['idEntidadFederativa'],
+            'entidadFederativa' => $d['entidadFederativa'] ?? null,
         ]);
         $ipes->appendChild($this->nodo($dom, 'Responsable', [
             'curp' => $firma['responsable_curp'] ?? '',

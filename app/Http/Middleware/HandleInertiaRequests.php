@@ -71,6 +71,9 @@ class HandleInertiaRequests extends Middleware
                 'error' => fn () => $request->session()->get('error'),
                 // Errores detallados de una carga masiva (hoja, fila, mensaje).
                 'erroresCarga' => fn () => $request->session()->get('erroresCarga'),
+                // Errores de validación al firmar un lote de certificados: se
+                // muestran TODOS en un alert persistente, no como toast.
+                'errores_firma' => fn () => $request->session()->get('errores_firma'),
                 // Una operación puede terminar bien y aun así tener algo que
                 // advertir —"se aplicó a 40 materias, 3 no se tocaron porque ya
                 // tienen calificaciones"—. Sin esta clave ese aviso se perdía

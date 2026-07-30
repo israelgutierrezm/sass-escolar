@@ -123,9 +123,22 @@ class PoblarInstitucionDemoSeeder extends Seeder
     /** @return Campus[] */
     private function crearCampus(): array
     {
+        // La institución (nombre oficial) y la entidad federativa son datos que
+        // el certificado electrónico exige; se dejan capturados en la demo.
+        $institucion = \App\Models\Academico\Institucion::firstOrCreate(
+            ['clave' => 'IPES-DEMO'],
+            ['nombre' => 'Instituto Demo de Educación Superior', 'nombre_mostrar' => 'Instituto Demo', 'siglas' => 'IDES'],
+        );
+
+        $entidad = \App\Models\Landlord\EntidadFederativa::query()
+            ->where('nombre', 'like', '%Ciudad de M%')->value('id')
+            ?? \App\Models\Landlord\EntidadFederativa::query()->min('id');
+
+        $base = ['entidad_id' => $entidad, 'institucion_id' => $institucion->id];
+
         return [
-            Campus::create(['clave' => 'CENTRO', 'nombre' => 'Campus Centro']),
-            Campus::create(['clave' => 'NORTE', 'nombre' => 'Campus Norte']),
+            Campus::create(['clave' => 'CENTRO', 'nombre' => 'Campus Centro', ...$base]),
+            Campus::create(['clave' => 'NORTE', 'nombre' => 'Campus Norte', ...$base]),
         ];
     }
 

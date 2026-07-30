@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
+import { computed, ref, watch } from 'vue';
 import axios from 'axios';
 import { toast } from 'vue-sonner';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -206,6 +206,16 @@ function firmar(): void {
         onSuccess: cerrarFirma,
     });
 }
+
+// Errores de validación del DEC al intentar firmar: se muestran TODOS en un
+// alert que permanece hasta que el usuario lo cierra (no es un toast).
+const page = usePage();
+const erroresFirma = ref<string[]>([]);
+watch(
+    () => (page.props.flash as any)?.errores_firma as string[] | null,
+    (e) => { if (e && e.length) erroresFirma.value = e; },
+    { immediate: true },
+);
 </script>
 
 <template>
@@ -214,6 +224,32 @@ function firmar(): void {
     <AppLayout :titulo="`Lote ${lote.folio}`">
         <div class="mb-4">
             <Link href="/certificacion/lotes" class="text-sm" :style="{ color: 'var(--color-suave)' }">← Volver a lotes</Link>
+        </div>
+
+        <!-- Errores de validación al firmar: persistente hasta cerrarlo. -->
+        <div
+            v-if="erroresFirma.length"
+            class="mb-6 rounded-lg border border-l-4 p-4"
+            :style="{ borderColor: '#dc2626', backgroundColor: 'color-mix(in srgb, #dc2626 7%, transparent)' }"
+        >
+            <div class="flex items-start justify-between gap-3">
+                <div class="flex items-start gap-2">
+                    <svg class="mt-0.5 h-5 w-5 shrink-0 text-red-600" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                    </svg>
+                    <div>
+                        <p class="text-sm font-semibold text-red-700">
+                            No se firmó el lote: corrige {{ erroresFirma.length }} problema(s) antes de continuar.
+                        </p>
+                        <ul class="mt-2 list-disc space-y-1 pl-5 text-sm" :style="{ color: 'var(--color-contenido)' }">
+                            <li v-for="(e, i) in erroresFirma" :key="i">{{ e }}</li>
+                        </ul>
+                    </div>
+                </div>
+                <button type="button" class="shrink-0 rounded p-1 text-red-600 hover:bg-red-600/10" title="Cerrar" @click="erroresFirma = []">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
         </div>
 
         <!-- Encabezado del lote -->
