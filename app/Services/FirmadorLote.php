@@ -47,8 +47,17 @@ class FirmadorLote
 
         $noCertificado = $certificado->serie;
         $certB64 = base64_encode($certPem);
-        $responsableNombre = $responsable->nombreCompleto();
-        $cargo = $responsable->cargo?->nombre ?? '';
+
+        // Datos del responsable que van al nodo Ipes/Responsable y a la cadena
+        // original (curp e idCargo son parte de lo sellado, ver spec 6.5).
+        $datosResponsable = [
+            'responsable_curp' => $responsable->curp,
+            'responsable_nombre' => $responsable->nombre,
+            'responsable_primer_apellido' => $responsable->apellido_paterno,
+            'responsable_segundo_apellido' => $responsable->apellido_materno,
+            'responsable_id_cargo' => (string) ($responsable->cargo_id ?? '0'),
+            'responsable_cargo' => $responsable->cargo?->nombre,
+        ];
 
         $pendientes = $lote->certificaciones()
             ->where('estado', '!=', Certificacion::CERTIFICADO)
@@ -68,20 +77,20 @@ class FirmadorLote
                 }
 
                 $datos = $this->constructor->snapshot($matricula);
-                $cadena = $this->constructor->cadenaOriginal($datos);
-                $sello = base64_encode($credencial->sign($cadena));
                 $folio = sprintf('%s-%03d', $lote->folio, $i);
 
-                $xml = $this->constructor->xml($datos, [
+                // Se sella la cadena original (incluye datos del responsable).
+                $cadena = $this->constructor->cadenaOriginal($datos, $datosResponsable);
+                $sello = base64_encode($credencial->sign($cadena));
+
+                $firma = [...$datosResponsable,
                     'folio' => $folio,
-                    'fecha_firma' => now()->toIso8601String(),
                     'no_certificado' => $noCertificado,
-                    'responsable' => $responsableNombre,
-                    'cargo' => $cargo,
-                    'cadena_original' => $cadena,
                     'sello' => $sello,
                     'certificado' => $certB64,
-                ]);
+                ];
+
+                $xml = $this->constructor->xml($datos, $firma);
 
                 $ruta = "certificados/{$lote->folio}/{$matricula->matricula}.xml";
                 Storage::disk('local')->put($ruta, $xml);

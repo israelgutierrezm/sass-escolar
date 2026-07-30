@@ -6,26 +6,29 @@ namespace App\Services;
 
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\Historial;
+use Carbon\CarbonInterface;
 use DOMDocument;
+use DOMElement;
 
 /**
- * Arma el certificado de estudios de un alumno-carrera: primero una FOTO de su
- * expediente académico (snapshot), luego la cadena original y el XML.
+ * Construye el Documento Electrónico de Certificación (DEC) de la SEP/SIGED:
+ * el nodo raíz `Dec` (namespace https://www.siged.sep.gob.mx/certificados/,
+ * versión 3.0, tipoCertificado 5 = IPES) con la estructura y el orden exactos
+ * de la especificación técnica 3.0, la cadena original y su sellado.
  *
- * El snapshot se congela al certificar (se guarda en `certificaciones.datos_json`)
- * para que el documento no cambie si después se corrige el kárdex. La cadena
- * original es la representación canónica que se SELLA con la e.firma del
- * responsable; el sello y el certificado los inyecta el FirmadorLote.
+ * `snapshot()` congela los datos ACADÉMICOS del alumno; los datos del RESPONSABLE
+ * y el sello los inyecta el FirmadorLote en `$firma` al momento de firmar.
  *
- * Nota: este XML es una primera versión estructural propia de la escuela, no el
- * XSD oficial de la SEP todavía. Cuando se integre el formato SEP, sólo cambia
- * este constructor; el flujo de lotes y el sellado no se tocan.
+ * Los identificadores oficiales de catálogos SEP (idEntidad, idCampus,
+ * idCarrera, idAsignatura, etc.) todavía no se mapean: se rellenan con los ids
+ * y claves LOCALES como placeholder para que el XML valide estructuralmente.
+ * Cuando la escuela tenga sus claves SEP, solo cambian estos valores aquí.
  */
 class ConstructorCertificadoXml
 {
-    /**
-     * Foto del expediente académico para certificar. Todo lo que el XML necesita
-     * queda aquí, resuelto una sola vez.
+    private const NS = 'https://www.siged.sep.gob.mx/certificados/';
+
+    /** Foto académica del alumno-carrera, en el vocabulario del DEC.
      *
      * @return array<string, mixed>
      */
@@ -50,8 +53,8 @@ class ConstructorCertificadoXml
             ->where('matricula_oferta_id', $matricula->id)
             ->get();
 
-        // Mejor intento por materia para los totales (una materia aprobada a
-        // título tras tronar el ordinario cuenta una vez, como aprobada).
+        // Mejor intento por materia: una materia aprobada a título tras tronar el
+        // ordinario cuenta una vez, como aprobada.
         $mejores = $historial
             ->filter(fn (Historial $h) => $h->plan_materia_id !== null)
             ->groupBy('plan_materia_id')
@@ -60,99 +63,108 @@ class ConstructorCertificadoXml
 
         $aprobadas = $mejores->filter(fn (Historial $h) => $h->estatus?->clave === 'aprobada');
 
-        $materias = $mejores
+        $asignaturas = $mejores
             ->sortBy(fn (Historial $h) => [$h->planMateria?->periodo ?? 0, $h->planMateria?->clave_en_plan ?? ''])
             ->map(fn (Historial $h) => [
-                'clave' => $h->planMateria?->clave_en_plan,
+                // idAsignatura: placeholder local (id de la asignatura).
+                'idAsignatura' => (string) ($h->planMateria?->asignatura_id ?? $h->plan_materia_id ?? '0'),
+                'claveAsignatura' => $h->planMateria?->clave_en_plan,
                 'nombre' => $h->planMateria?->asignatura?->nombre,
-                'periodo' => $h->planMateria?->periodo,
-                'creditos' => $h->planMateria?->asignatura?->creditos,
-                'calificacion' => $h->calificacion,
-                'estatus' => $h->estatus?->nombre,
-                'ciclo' => $h->ciclo?->clave,
+                'ciclo' => $h->ciclo?->clave ?? 'NA',
+                'calificacion' => (string) ($h->calificacion ?? '0'),
+                'idTipoAsignatura' => (string) ($h->planMateria?->tipo_asignatura_id ?? '263'),
+                'tipoAsignatura' => 'OBLIGATORIA',
+                'creditos' => (string) ($h->planMateria?->asignatura?->creditos ?? '0'),
             ])->values()->all();
 
+        $numeroCiclos = $mejores->map(fn (Historial $h) => $h->ciclo?->clave)->filter()->unique()->count();
+
         return [
-            'version' => 1,
+            'version' => '3.0',
+            'tipoCertificado' => '5',
             'emitido_en' => now()->toIso8601String(),
-            'institucion' => [
-                'clave' => $institucion?->clave,
-                'nombre' => $institucion?->nombre,
-                'siglas' => $institucion?->siglas,
-            ],
-            'campus' => [
-                'clave' => $campus?->clave,
-                'nombre' => $campus?->nombre,
-            ],
-            'alumno' => [
-                'matricula' => $matricula->matricula,
-                'curp' => $persona?->curp,
-                'nombre' => $persona?->nombre,
-                'primer_apellido' => $persona?->primer_apellido,
-                'segundo_apellido' => $persona?->segundo_apellido,
-                'nombre_completo' => trim(implode(' ', array_filter([
-                    $persona?->nombre, $persona?->primer_apellido, $persona?->segundo_apellido,
-                ]))),
-            ],
-            'programa' => [
-                'carrera' => $carrera?->nombre,
-                'carrera_clave' => $carrera?->clave,
-                'plan' => $plan?->nombre,
-                'rvoe' => $plan?->rvoe,
-                'fecha_rvoe' => $plan?->fecha_rvoe?->toDateString(),
-                'total_creditos' => $plan?->total_creditos,
-                'calificacion_minima' => $plan?->calificacion_minima,
-                'calificacion_maxima' => $plan?->calificacion_maxima,
-                'calificacion_aprobatoria' => $plan?->calificacion_minima_aprobatoria,
-            ],
-            'resumen' => [
-                'materias_aprobadas' => $aprobadas->count(),
-                'creditos' => round($aprobadas->sum(fn (Historial $h) => (float) ($h->planMateria?->asignatura?->creditos ?? 0)), 2),
-                'promedio' => $this->promedio($mejores),
-            ],
-            'materias' => $materias,
+            // ServicioFirmante
+            'idEntidad' => (string) ($institucion?->id ?? '0'),
+            // Ipes
+            'idNombreInstitucion' => (string) ($institucion?->clave ?? $institucion?->id ?? '0'),
+            'nombreInstitucion' => $institucion?->nombre,
+            'idCampus' => (string) ($campus?->clave ?? $campus?->id ?? '0'),
+            'campus' => $campus?->nombre,
+            'idEntidadFederativa' => (string) ($campus?->entidad_id ?? '0'),
+            // Rvoe
+            'numeroRvoe' => (string) ($plan?->rvoe ?? 'SIN-RVOE'),
+            'fechaExpedicionRvoe' => $this->fechaHora($plan?->fecha_rvoe),
+            // Carrera
+            'idCarrera' => (string) ($carrera?->id ?? '0'),
+            'claveCarrera' => $carrera?->clave,
+            'nombreCarrera' => $carrera?->nombre,
+            'idTipoPeriodo' => (string) ($plan?->tipo_periodo_id ?? '0'),
+            'clavePlan' => (string) ($plan?->clave ?? 'SIN-PLAN'),
+            'idNivelEstudios' => (string) ($carrera?->nivel_estudios_id ?? '0'),
+            'calificacionMinima' => (string) ($plan?->calificacion_minima ?? '0'),
+            'calificacionMaxima' => (string) ($plan?->calificacion_maxima ?? '10'),
+            'calificacionMinimaAprobatoria' => (string) ($plan?->calificacion_minima_aprobatoria ?? '6'),
+            // Alumno
+            'numeroControl' => (string) ($matricula->matricula ?? 'SN'),
+            'curpAlumno' => $persona?->curp,
+            'nombre' => $persona?->nombre,
+            'primerApellido' => $persona?->primer_apellido,
+            'segundoApellido' => $persona?->segundo_apellido,
+            'idGenero' => (int) ($persona?->sexo_id ?? $persona?->genero_id ?? 1),
+            'fechaNacimiento' => $this->fechaHora($persona?->fecha_nacimiento),
+            // Expedicion
+            'idTipoCertificacion' => '79', // 79 = Total
+            'tipoCertificacion' => 'Total',
+            'fechaExpedicion' => $this->fechaHora(now()),
+            'idLugarExpedicion' => (string) ($campus?->entidad_id ?? '0'),
+            'lugarExpedicion' => $campus?->nombre,
+            // Asignaturas (totales)
+            'total' => count($asignaturas),
+            'asignadas' => $aprobadas->count(),
+            'promedio' => (string) ($this->promedio($mejores) ?? '0'),
+            'totalCreditos' => (string) ($plan?->total_creditos ?? '0'),
+            'creditosObtenidos' => (string) round($aprobadas->sum(fn (Historial $h) => (float) ($h->planMateria?->asignatura?->creditos ?? 0)), 2),
+            'numeroCiclos' => $numeroCiclos,
+            'asignaturas' => $asignaturas,
         ];
     }
 
     /**
-     * Cadena original: los datos en un orden fijo, separados por `|`. Es lo que
-     * se sella; cualquier cambio en los datos cambia el sello.
+     * Cadena original del DEC según la secuencia 6.5 de la especificación:
+     * `||` al inicio y al final, `|` como separador, sin el carácter `|` dentro
+     * de los valores. Es lo que se SELLA.
      *
      * @param  array<string, mixed>  $d
+     * @param  array<string, mixed>  $firma  responsable_curp, responsable_id_cargo
      */
-    public function cadenaOriginal(array $d): string
+    public function cadenaOriginal(array $d, array $firma): string
     {
         $partes = [
-            'ACADION-CERT',
-            $d['version'] ?? 1,
-            $d['institucion']['clave'] ?? '',
-            $d['institucion']['nombre'] ?? '',
-            $d['campus']['clave'] ?? '',
-            $d['alumno']['matricula'] ?? '',
-            $d['alumno']['curp'] ?? '',
-            $d['alumno']['nombre_completo'] ?? '',
-            $d['programa']['carrera'] ?? '',
-            $d['programa']['plan'] ?? '',
-            $d['programa']['rvoe'] ?? '',
-            $d['resumen']['materias_aprobadas'] ?? '',
-            $d['resumen']['creditos'] ?? '',
-            $d['resumen']['promedio'] ?? '',
+            $d['version'], $d['tipoCertificado'],
+            $d['idEntidad'],
+            $d['idNombreInstitucion'], $d['idCampus'], $d['idEntidadFederativa'],
+            $firma['responsable_curp'] ?? '', $firma['responsable_id_cargo'] ?? '',
+            $d['numeroRvoe'], $d['fechaExpedicionRvoe'],
+            $d['idCarrera'], $d['idTipoPeriodo'], $d['clavePlan'], $d['idNivelEstudios'],
+            $d['calificacionMinima'], $d['calificacionMaxima'], $d['calificacionMinimaAprobatoria'],
+            $d['numeroControl'], $d['curpAlumno'], $d['nombre'], $d['primerApellido'], $d['segundoApellido'],
+            $d['idGenero'], $d['fechaNacimiento'],
+            $d['idTipoCertificacion'], $d['fechaExpedicion'], $d['idLugarExpedicion'],
+            $d['total'], $d['asignadas'], $d['promedio'], $d['totalCreditos'], $d['creditosObtenidos'], $d['numeroCiclos'],
         ];
 
-        foreach ($d['materias'] ?? [] as $m) {
-            $partes[] = ($m['clave'] ?? '').':'.($m['calificacion'] ?? '');
+        foreach ($d['asignaturas'] as $a) {
+            array_push($partes, $a['idAsignatura'], $a['ciclo'], $a['calificacion'], $a['idTipoAsignatura'], $a['creditos']);
         }
 
-        // Normaliza separadores internos para que el `|` sea inequívoco.
-        $limpia = array_map(fn ($p) => str_replace(['|', "\n", "\r"], ' ', (string) $p), $partes);
+        $limpias = array_map(fn ($p) => str_replace(['|', "\n", "\r"], ' ', (string) $p), $partes);
 
-        return '|'.implode('|', $limpia).'|';
+        return '||'.implode('|', $limpias).'||';
     }
 
     /**
-     * XML del certificado. `$firma` trae lo que produce el sellado:
-     * sello (base64), no_certificado (serie), certificado (PEM base64),
-     * fecha_firma, responsable (nombre y cargo).
+     * XML del DEC. `$firma` trae lo del sellado: sello (base64),
+     * certificado (base64), no_certificado (serie) y los datos del responsable.
      *
      * @param  array<string, mixed>  $d
      * @param  array<string, mixed>  $firma
@@ -162,65 +174,129 @@ class ConstructorCertificadoXml
         $dom = new DOMDocument('1.0', 'UTF-8');
         $dom->formatOutput = true;
 
-        $cert = $dom->createElement('Certificado');
-        $cert->setAttribute('version', (string) ($d['version'] ?? 1));
-        $cert->setAttribute('tipo', 'certificacion');
-        $cert->setAttribute('emitidoEn', (string) ($firma['fecha_firma'] ?? $d['emitido_en'] ?? ''));
-        $cert->setAttribute('folio', (string) ($firma['folio'] ?? ''));
-        $dom->appendChild($cert);
-
-        $cert->appendChild($this->nodo($dom, 'Institucion', $d['institucion'] ?? []));
-        $cert->appendChild($this->nodo($dom, 'Campus', $d['campus'] ?? []));
-        $cert->appendChild($this->nodo($dom, 'Alumno', $d['alumno'] ?? []));
-        $cert->appendChild($this->nodo($dom, 'Programa', $d['programa'] ?? []));
-        $cert->appendChild($this->nodo($dom, 'Resumen', $d['resumen'] ?? []));
-
-        $materias = $dom->createElement('Materias');
-        foreach ($d['materias'] ?? [] as $m) {
-            $materias->appendChild($this->nodo($dom, 'Materia', $m));
+        $dec = $dom->createElementNS(self::NS, 'Dec');
+        $dom->appendChild($dec);
+        $dec->setAttribute('version', $d['version']);
+        $dec->setAttribute('tipoCertificado', $d['tipoCertificado']);
+        if (filled($firma['folio'] ?? null)) {
+            $dec->setAttribute('folioControl', (string) $firma['folio']);
         }
-        $cert->appendChild($materias);
+        $dec->setAttribute('sello', (string) ($firma['sello'] ?? ''));
+        $dec->setAttribute('certificadoResponsable', (string) ($firma['certificado'] ?? ''));
+        $dec->setAttribute('noCertificadoResponsable', (string) ($firma['no_certificado'] ?? ''));
 
-        // Sello y datos de quien firma.
-        $sello = $dom->createElement('Sello');
-        $sello->setAttribute('noCertificado', (string) ($firma['no_certificado'] ?? ''));
-        $sello->setAttribute('responsable', (string) ($firma['responsable'] ?? ''));
-        $sello->setAttribute('cargo', (string) ($firma['cargo'] ?? ''));
-        $sello->appendChild($dom->createElement('CadenaOriginal', $this->escapar((string) ($firma['cadena_original'] ?? ''))));
-        $sello->appendChild($dom->createElement('SelloDigital', (string) ($firma['sello'] ?? '')));
-        $sello->appendChild($dom->createElement('Certificado', (string) ($firma['certificado'] ?? '')));
-        $cert->appendChild($sello);
+        // 1) ServicioFirmante
+        $dec->appendChild($this->nodo($dom, 'ServicioFirmante', ['idEntidad' => $d['idEntidad']]));
+
+        // 2) Ipes + Responsable
+        $ipes = $this->nodo($dom, 'Ipes', [
+            'idNombreInstitucion' => $d['idNombreInstitucion'],
+            'nombreInstitucion' => $d['nombreInstitucion'],
+            'idCampus' => $d['idCampus'],
+            'campus' => $d['campus'],
+            'idEntidadFederativa' => $d['idEntidadFederativa'],
+        ]);
+        $ipes->appendChild($this->nodo($dom, 'Responsable', [
+            'curp' => $firma['responsable_curp'] ?? '',
+            'nombre' => $firma['responsable_nombre'] ?? '',
+            'primerApellido' => $firma['responsable_primer_apellido'] ?? '',
+            'segundoApellido' => $firma['responsable_segundo_apellido'] ?? null,
+            'idCargo' => $firma['responsable_id_cargo'] ?? '0',
+            'cargo' => $firma['responsable_cargo'] ?? null,
+        ]));
+        $dec->appendChild($ipes);
+
+        // 3) Rvoe
+        $dec->appendChild($this->nodo($dom, 'Rvoe', [
+            'numero' => $d['numeroRvoe'],
+            'fechaExpedicion' => $d['fechaExpedicionRvoe'],
+        ]));
+
+        // 4) Carrera
+        $dec->appendChild($this->nodo($dom, 'Carrera', [
+            'idCarrera' => $d['idCarrera'],
+            'claveCarrera' => $d['claveCarrera'],
+            'nombreCarrera' => $d['nombreCarrera'],
+            'idTipoPeriodo' => $d['idTipoPeriodo'],
+            'clavePlan' => $d['clavePlan'],
+            'idNivelEstudios' => $d['idNivelEstudios'],
+            'calificacionMinima' => $d['calificacionMinima'],
+            'calificacionMaxima' => $d['calificacionMaxima'],
+            'calificacionMinimaAprobatoria' => $d['calificacionMinimaAprobatoria'],
+        ]));
+
+        // 5) Alumno
+        $dec->appendChild($this->nodo($dom, 'Alumno', [
+            'numeroControl' => $d['numeroControl'],
+            'curp' => $d['curpAlumno'],
+            'nombre' => $d['nombre'],
+            'primerApellido' => $d['primerApellido'],
+            'segundoApellido' => $d['segundoApellido'],
+            'idGenero' => $d['idGenero'],
+            'fechaNacimiento' => $d['fechaNacimiento'],
+        ]));
+
+        // 6) Expedicion
+        $dec->appendChild($this->nodo($dom, 'Expedicion', [
+            'idTipoCertificacion' => $d['idTipoCertificacion'],
+            'tipoCertificacion' => $d['tipoCertificacion'],
+            'fecha' => $d['fechaExpedicion'],
+            'idLugarExpedicion' => $d['idLugarExpedicion'],
+            'lugarExpedicion' => $d['lugarExpedicion'],
+        ]));
+
+        // 7) Asignaturas
+        $asignaturas = $this->nodo($dom, 'Asignaturas', [
+            'total' => $d['total'],
+            'asignadas' => $d['asignadas'],
+            'promedio' => $d['promedio'],
+            'totalCreditos' => $d['totalCreditos'],
+            'creditosObtenidos' => $d['creditosObtenidos'],
+            'numeroCiclos' => $d['numeroCiclos'],
+        ]);
+        foreach ($d['asignaturas'] as $a) {
+            $asignaturas->appendChild($this->nodo($dom, 'Asignatura', $a));
+        }
+        $dec->appendChild($asignaturas);
 
         return (string) $dom->saveXML();
     }
 
     /**
-     * Crea un nodo con cada valor del arreglo como atributo (los nulos se
-     * omiten). Suficiente para datos planos.
+     * Crea un nodo con cada valor como atributo (los nulos/vacíos se omiten:
+     * los opcionales del DEC no deben aparecer vacíos).
      *
      * @param  array<string, mixed>  $datos
      */
-    private function nodo(DOMDocument $dom, string $nombre, array $datos): \DOMElement
+    private function nodo(DOMDocument $dom, string $nombre, array $datos): DOMElement
     {
-        $el = $dom->createElement($nombre);
+        $el = $dom->createElementNS(self::NS, $nombre);
         foreach ($datos as $clave => $valor) {
             if ($valor === null || $valor === '') {
                 continue;
             }
-            $el->setAttribute($this->camelCase($clave), (string) $valor);
+            $el->setAttribute($clave, (string) $valor);
         }
 
         return $el;
     }
 
-    private function camelCase(string $s): string
+    /** Formatea una fecha al `xs:dateTime` que exige el DEC (con hora). */
+    private function fechaHora(mixed $valor): string
     {
-        return lcfirst(str_replace(' ', '', ucwords(str_replace('_', ' ', $s))));
-    }
+        if ($valor instanceof CarbonInterface) {
+            return $valor->format('Y-m-d\TH:i:s');
+        }
 
-    private function escapar(string $s): string
-    {
-        return $s;
+        if (is_string($valor) && $valor !== '') {
+            try {
+                return \Illuminate\Support\Carbon::parse($valor)->format('Y-m-d\TH:i:s');
+            } catch (\Throwable) {
+                // cae al placeholder
+            }
+        }
+
+        return '1900-01-01T00:00:00';
     }
 
     /** @param  \Illuminate\Support\Collection<int, Historial>  $mejores */
