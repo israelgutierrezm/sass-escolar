@@ -3,6 +3,7 @@ import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
+import PestanasPagina from '@/Components/PestanasPagina.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
@@ -213,20 +214,7 @@ const etiquetaTipoReq = (tipo: string) => (tipo === 'aprobada' ? 'Aprobada' : 'C
         </section>
 
         <!-- Pestañas -->
-        <nav class="flex flex-wrap gap-1 border-b" :style="{ borderColor: 'var(--color-borde)' }">
-            <button
-                v-for="p in pestanas"
-                :key="p.clave"
-                type="button"
-                class="relative px-3 py-2.5 text-sm transition-colors"
-                :class="tab === p.clave ? 'font-semibold' : ''"
-                :style="{ color: tab === p.clave ? 'var(--color-acento)' : 'var(--color-suave)' }"
-                @click="tab = p.clave"
-            >
-                {{ p.etiqueta }}
-                <span v-if="tab === p.clave" class="absolute inset-x-2 -bottom-px h-0.5 rounded-full" :style="{ backgroundColor: 'var(--color-acento)' }" />
-            </button>
-        </nav>
+        <PestanasPagina :pestanas="pestanas" :model-value="tab" @update:model-value="tab = $event as any" />
 
         <!-- DATOS Y UBICACIÓN -->
         <div v-show="tab === 'datos'" class="space-y-4">

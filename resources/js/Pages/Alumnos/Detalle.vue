@@ -8,6 +8,7 @@ import CampoSelect from '@/Components/CampoSelect.vue';
 import CamposIdentidad from '@/Components/CamposIdentidad.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
+import PestanasPagina from '@/Components/PestanasPagina.vue';
 
 interface Renglon {
     id: number;
@@ -919,30 +920,18 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
         </section>
 
         <!-- Pestañas -->
-        <div class="flex flex-wrap gap-1 border-b" :style="{ borderColor: 'var(--color-borde)' }">
-            <button
-                v-for="opcion in [
-                    { clave: 'kardex', texto: 'Kárdex' },
-                    { clave: 'carga', texto: 'Carga por ciclo' },
-                    { clave: 'carreras', texto: `Carreras (${carreras.length})` },
-                    { clave: 'tutores', texto: `Padres/tutores (${tutores.length})` },
-                    { clave: 'facturacion', texto: 'Facturación' },
-                    { clave: 'datos', texto: 'Datos' },
-                ]"
-                :key="opcion.clave"
-                type="button"
-                class="rounded-t-lg px-4 py-2 text-sm"
-                :class="pestana === opcion.clave ? 'font-medium' : ''"
-                :style="
-                    pestana === opcion.clave
-                        ? { color: 'var(--color-acento)', borderBottom: '2px solid var(--color-acento)' }
-                        : { color: 'var(--color-suave)' }
-                "
-                @click="pestana = opcion.clave as any"
-            >
-                {{ opcion.texto }}
-            </button>
-        </div>
+        <PestanasPagina
+            :pestanas="[
+                { clave: 'kardex', etiqueta: 'Kárdex' },
+                { clave: 'carga', etiqueta: 'Carga por ciclo' },
+                { clave: 'carreras', etiqueta: `Carreras (${carreras.length})` },
+                { clave: 'tutores', etiqueta: `Padres/tutores (${tutores.length})` },
+                { clave: 'facturacion', etiqueta: 'Facturación' },
+                { clave: 'datos', etiqueta: 'Datos' },
+            ]"
+            :model-value="pestana"
+            @update:model-value="pestana = $event as any"
+        />
 
         <!-- Kárdex -->
         <section v-if="pestana === 'kardex'" class="space-y-4">

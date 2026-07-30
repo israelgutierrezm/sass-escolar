@@ -3,6 +3,7 @@ import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
+import PestanasPagina from '@/Components/PestanasPagina.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoCasillas from '@/Components/CampoCasillas.vue';
@@ -220,28 +221,16 @@ function verComo(): void {
             </div>
         </section>
 
-        <div class="flex flex-wrap gap-1 border-b" :style="{ borderColor: 'var(--color-borde)' }">
-            <button
-                v-for="opcion in [
-                    { clave: 'materias', texto: `Materias (${materias.length})` },
-                    { clave: 'documentos', texto: `Documentos${pendientes ? ` · ${pendientes} por revisar` : ''}` },
-                    { clave: 'titulos', texto: `Títulos (${titulos.length})` },
-                    { clave: 'datos', texto: 'Datos' },
-                ]"
-                :key="opcion.clave"
-                type="button"
-                class="rounded-t-lg px-4 py-2 text-sm"
-                :class="pestana === opcion.clave ? 'font-medium' : ''"
-                :style="
-                    pestana === opcion.clave
-                        ? { color: 'var(--color-acento)', borderBottom: '2px solid var(--color-acento)' }
-                        : { color: 'var(--color-suave)' }
-                "
-                @click="pestana = opcion.clave as any"
-            >
-                {{ opcion.texto }}
-            </button>
-        </div>
+        <PestanasPagina
+            :pestanas="[
+                { clave: 'materias', etiqueta: `Materias (${materias.length})` },
+                { clave: 'documentos', etiqueta: `Documentos${pendientes ? ` · ${pendientes} por revisar` : ''}` },
+                { clave: 'titulos', etiqueta: `Títulos (${titulos.length})` },
+                { clave: 'datos', etiqueta: 'Datos' },
+            ]"
+            :model-value="pestana"
+            @update:model-value="pestana = $event as any"
+        />
 
         <!-- Materias -->
         <section v-if="pestana === 'materias'" class="tarjeta overflow-hidden">

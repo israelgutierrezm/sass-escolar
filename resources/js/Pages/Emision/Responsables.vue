@@ -7,6 +7,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
+import PestanasPagina from '@/Components/PestanasPagina.vue';
 import ZonaArchivo from '@/Components/ZonaArchivo.vue';
 
 interface Certificado {
@@ -195,24 +196,14 @@ function eliminar(r: Responsable): void {
 
     <AppLayout :titulo="`${tituloSeccion} · Responsables`">
         <!-- Pestañas -->
-        <div class="mb-6 flex gap-1 border-b" :style="{ borderColor: 'var(--color-borde)' }">
-            <button
-                type="button"
-                class="-mb-px border-b-2 px-4 py-2 text-sm font-medium"
-                :style="{ borderColor: tab === 'activos' ? 'var(--color-acento)' : 'transparent', color: tab === 'activos' ? 'var(--color-acento)' : 'var(--color-suave)' }"
-                @click="tab = 'activos'"
-            >
-                Responsables
-            </button>
-            <button
-                type="button"
-                class="-mb-px border-b-2 px-4 py-2 text-sm font-medium"
-                :style="{ borderColor: tab === 'historial' ? 'var(--color-acento)' : 'transparent', color: tab === 'historial' ? 'var(--color-acento)' : 'var(--color-suave)' }"
-                @click="tab = 'historial'"
-            >
-                Historial ({{ responsables.length }})
-            </button>
-        </div>
+        <PestanasPagina
+            :pestanas="[
+                { clave: 'activos', etiqueta: 'Responsables' },
+                { clave: 'historial', etiqueta: `Historial (${responsables.length})` },
+            ]"
+            :model-value="tab"
+            @update:model-value="tab = $event as any"
+        />
 
         <!-- ===== TAB RESPONSABLES ===== -->
         <template v-if="tab === 'activos'">

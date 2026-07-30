@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, router, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
@@ -33,6 +33,13 @@ function crear(): void {
             creando.value = false;
         },
     });
+}
+
+// Eliminar desde el listado (como en Ciclos): la misma acción, en el mismo
+// lugar. Un lote firmado no se elimina (ya emitió certificados).
+function eliminar(lote: Lote): void {
+    if (!confirm(`¿Eliminar el lote ${lote.folio}? Esta acción no se puede deshacer.`)) return;
+    router.delete(`/certificacion/lotes/${lote.id}`);
 }
 
 // Tinte del color (color-mix sobre transparente): mismo criterio que las
@@ -113,8 +120,11 @@ const estilosBadge: Record<string, { backgroundColor: string; color: string }> =
                         </td>
                         <td class="px-5 py-3" :style="{ color: 'var(--color-suave)' }">{{ lote.responsable ?? '—' }}</td>
                         <td class="px-5 py-3" :style="{ color: 'var(--color-suave)' }">{{ lote.creado_en }}</td>
-                        <td class="px-5 py-3 text-right">
-                            <BotonAccion variante="ver" texto="Abrir" :href="`/certificacion/lotes/${lote.id}`" />
+                        <td class="px-5 py-3">
+                            <div class="flex items-center justify-end gap-2">
+                                <BotonAccion variante="ver" texto="Abrir" :href="`/certificacion/lotes/${lote.id}`" />
+                                <BotonAccion v-if="lote.estado !== 'firmado'" variante="eliminar" solo-icono @click="eliminar(lote)" />
+                            </div>
                         </td>
                     </tr>
                     <tr v-if="lotes.length === 0">
