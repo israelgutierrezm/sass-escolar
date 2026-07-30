@@ -222,7 +222,17 @@ class AlumnoController extends Controller
             ->sortBy([['ciclo.clave', 'asc'], ['planMateria.clave_en_plan', 'asc']])
             ->values();
 
-        $aprobadas = $historial->filter(fn (Historial $h) => $h->estatus?->clave === 'aprobada');
+        // Una materia puede aparecer varias veces (ordinario, a título…). Para
+        // las estadísticas —promedio, créditos, conteos— cada materia se colapsa
+        // a su MEJOR intento (la calificación más alta). El kárdex sí muestra
+        // todos los renglones; esto solo alimenta los totales.
+        $mejores = $historial
+            ->filter(fn (Historial $h) => $h->plan_materia_id !== null)
+            ->groupBy('plan_materia_id')
+            ->map(fn ($intentos) => $intentos->sortByDesc(fn (Historial $h) => (float) ($h->calificacion ?? -1))->first())
+            ->values();
+
+        $aprobadas = $mejores->filter(fn (Historial $h) => $h->estatus?->clave === 'aprobada');
 
         return Inertia::render('Alumnos/Detalle', [
             'alumno' => [
@@ -323,6 +333,7 @@ class AlumnoController extends Controller
                 ->map(fn ($s) => ['id' => $s->id, 'nombre' => $s->nombre]),
             'historial' => $historial->map(fn (Historial $h) => [
                 'id' => $h->id,
+                'plan_materia_id' => $h->plan_materia_id,
                 'clave_en_plan' => $h->planMateria?->clave_en_plan,
                 'materia' => $h->planMateria?->asignatura?->nombre,
                 'creditos' => $h->planMateria?->asignatura?->creditos,
@@ -341,13 +352,16 @@ class AlumnoController extends Controller
                 'manual' => $h->acta_id === null,
             ]),
             'resumen' => [
-                'materias_cursadas' => $historial->count(),
+                // Conteos y créditos sobre el MEJOR intento por materia (no por
+                // renglón): una materia aprobada por título tras tronar el
+                // ordinario cuenta una vez, y como aprobada.
+                'materias_cursadas' => $mejores->count(),
                 'aprobadas' => $aprobadas->count(),
-                'reprobadas' => $historial->filter(fn (Historial $h) => $h->estatus?->clave === 'reprobada')->count(),
+                'reprobadas' => $mejores->filter(fn (Historial $h) => $h->estatus?->clave === 'reprobada')->count(),
                 'creditos' => round($aprobadas->sum(
                     fn (Historial $h) => (float) ($h->planMateria?->asignatura?->creditos ?? 0)
                 ), 2),
-                'promedio' => $this->promedio($historial),
+                'promedio' => $this->promedio($mejores),
                 'creditos_del_plan' => $alumno->oferta?->plan?->total_creditos,
             ],
             // Nombre real del periodo del plan (Semestre, Cuatrimestre…), para
@@ -437,6 +451,21 @@ class AlumnoController extends Controller
         if (! $estatusAcademico->permite($calificacion, $minima, $claveEstatus)) {
             throw ValidationException::withMessages([
                 'estatus_id' => 'Ese estatus no corresponde a la calificación: con esa nota la regla del plan determina otro.',
+            ]);
+        }
+
+        // Una materia no puede repetirse con el MISMO tipo de evaluación (dos
+        // ordinarios, dos títulos…). Sí puede con otro tipo —ordinario y luego
+        // a título—, y entonces conviven ambos renglones; el promedio toma el mejor.
+        $duplicada = Historial::query()
+            ->where('matricula_oferta_id', $alumno->id)
+            ->where('plan_materia_id', $datos['plan_materia_id'])
+            ->where('observacion_asignatura_id', $datos['observacion_asignatura_id'])
+            ->exists();
+
+        if ($duplicada) {
+            throw ValidationException::withMessages([
+                'observacion_asignatura_id' => 'Esa materia ya está en el kárdex con ese tipo de evaluación. Usa otro tipo (extraordinario, a título…) o retira el renglón anterior.',
             ]);
         }
 

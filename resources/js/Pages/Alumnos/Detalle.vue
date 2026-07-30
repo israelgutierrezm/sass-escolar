@@ -10,6 +10,7 @@ import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 
 interface Renglon {
     id: number;
+    plan_materia_id: number | null;
     clave_en_plan: string | null;
     materia: string | null;
     creditos: number | null;
@@ -333,19 +334,37 @@ const historialPorPeriodo = computed(() => {
     return [...grupos.entries()]
         .sort((a, b) => a[0] - b[0])
         .map(([periodo, renglones]) => {
-            const conNota = renglones.filter((r) => r.calificacion !== null && !isNaN(Number(r.calificacion)));
+            // Una materia puede tener varios intentos (ordinario, a título…). Para
+            // el promedio y los créditos se toma SOLO el mejor de cada materia;
+            // se muestran todos los renglones, pero el resto se marca como que no
+            // promedia.
+            const mejorPorMateria = new Map<number | string, Renglon>();
+            for (const r of renglones) {
+                const clave = r.plan_materia_id ?? r.clave_en_plan ?? r.id;
+                const previo = mejorPorMateria.get(clave);
+                const nota = r.calificacion === null ? -1 : Number(r.calificacion);
+                const notaPrevia = previo ? (previo.calificacion === null ? -1 : Number(previo.calificacion)) : -Infinity;
+                if (!previo || nota > notaPrevia) mejorPorMateria.set(clave, r);
+            }
+
+            const mejores = [...mejorPorMateria.values()];
+            const idsQueCuentan = new Set(mejores.map((r) => r.id));
+
+            const conNota = mejores.filter((r) => r.calificacion !== null && !isNaN(Number(r.calificacion)));
             const promedio = conNota.length
                 ? (conNota.reduce((s, r) => s + Number(r.calificacion), 0) / conNota.length).toFixed(1)
                 : null;
-            const creditos = renglones
+            const creditos = mejores
                 .filter((r) => r.estatus_clave === 'aprobada')
                 .reduce((s, r) => s + Number(r.creditos ?? 0), 0);
-            const reprobadas = renglones.filter((r) => r.estatus_clave === 'reprobada').length;
+            const reprobadas = mejores.filter((r) => r.estatus_clave === 'reprobada').length;
 
             return {
                 periodo,
                 titulo: periodo === 0 ? 'Sin periodo' : `${props.unidadPeriodo} ${periodo}`,
                 renglones,
+                materias: mejores.length,
+                idsQueCuentan,
                 promedio,
                 creditos: Math.round(creditos * 100) / 100,
                 reprobadas,
@@ -675,7 +694,7 @@ function verComo(): void {
                             <div>
                                 <h3 class="text-sm font-semibold">{{ g.titulo }}</h3>
                                 <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                                    {{ g.renglones.length }} materia(s) · {{ g.creditos }} créditos
+                                    {{ g.materias }} materia(s) · {{ g.creditos }} créditos
                                     <span v-if="g.reprobadas" class="text-red-600"> · {{ g.reprobadas }} reprobada(s)</span>
                                 </p>
                             </div>
@@ -714,6 +733,14 @@ function verComo(): void {
                                         :style="{ backgroundColor: 'var(--color-fondo)' }"
                                     >
                                         {{ renglon.observacion_asignatura }}
+                                    </span>
+                                    <span
+                                        v-if="!g.idsQueCuentan.has(renglon.id)"
+                                        class="rounded px-1.5 py-0.5 text-[10px]"
+                                        :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 15%, transparent)' }"
+                                        title="Hay un intento con mejor calificación; este no cuenta para el promedio"
+                                    >
+                                        no promedia
                                     </span>
                                 </p>
                             </div>
