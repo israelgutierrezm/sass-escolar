@@ -5,6 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
+import PildoraEstado from '@/Components/PildoraEstado.vue';
 
 interface Lote {
     id: number;
@@ -51,6 +52,14 @@ function estiloEtapa(etapa: string): { backgroundColor: string; color: string } 
     const c = etapa === 'produccion' ? '#16a34a' : '#d97706';
     return { backgroundColor: `color-mix(in srgb, ${c} 15%, transparent)`, color: c };
 }
+
+// Color SÓLIDO por color de estado del lote (para PildoraEstado).
+const colorEstadoSolido: Record<string, string> = {
+    gris: 'var(--color-suave)',
+    ambar: '#d97706',
+    azul: '#2563eb',
+    verde: '#16a34a',
+};
 </script>
 
 <template>
@@ -94,44 +103,43 @@ function estiloEtapa(etapa: string): { backgroundColor: string; color: string } 
         <div class="tarjeta overflow-hidden">
             <table class="w-full text-sm">
                 <thead>
-                    <tr class="border-b text-left" :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }">
-                        <th class="px-5 py-3 font-medium">Folio</th>
-                        <th class="px-5 py-3 font-medium">Nombre</th>
-                        <th class="px-5 py-3 font-medium">Etapa</th>
-                        <th class="px-5 py-3 font-medium">Estado</th>
-                        <th class="px-5 py-3 text-center font-medium">Egresados</th>
-                        <th class="px-5 py-3 font-medium">Responsable</th>
-                        <th class="px-5 py-3 font-medium">Creado</th>
-                        <th class="px-5 py-3 text-right font-medium"></th>
+                    <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
+                        <th class="px-6 py-3 font-semibold">Lote</th>
+                        <th class="px-4 py-3 font-semibold">Etapa</th>
+                        <th class="px-4 py-3 font-semibold">Estado</th>
+                        <th class="px-4 py-3 text-center font-semibold">Egresados</th>
+                        <th class="px-4 py-3 font-semibold">Responsable</th>
+                        <th class="px-4 py-3 font-semibold">Creado</th>
+                        <th class="px-6 py-3 text-right font-semibold">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr
                         v-for="lote in lotes"
                         :key="lote.id"
-                        class="border-b transition hover:bg-black/[.02] dark:hover:bg-white/[.03]"
+                        class="fila-nueva border-t transition-colors"
                         :style="{ borderColor: 'var(--color-borde)' }"
                     >
-                        <td class="px-5 py-3 font-mono font-medium">{{ lote.folio }}</td>
-                        <td class="px-5 py-3">{{ lote.nombre ?? '—' }}</td>
-                        <td class="px-5 py-3">
-                            <span class="rounded-full px-2.5 py-1 text-xs font-medium capitalize" :style="estiloEtapa(lote.etapa)">
-                                {{ lote.etapa }}
-                            </span>
-                            <span v-if="!lote.etapa_coincide" class="ml-1 text-xs" :style="{ color: '#dc2626' }" title="La etapa del lote no coincide con la activa">⚠</span>
+                        <td class="px-6 py-4">
+                            <span class="block font-mono font-semibold text-contenido">{{ lote.folio }}</span>
+                            <span v-if="lote.nombre" class="mt-0.5 block text-[11px]" :style="{ color: 'var(--color-suave)' }">{{ lote.nombre }}</span>
                         </td>
-                        <td class="px-5 py-3">
-                            <span class="rounded-full px-2.5 py-1 text-xs font-medium" :style="estilosBadge[lote.estado_color]">
-                                {{ lote.estado_label }}
+                        <td class="px-4 py-4">
+                            <span class="inline-flex items-center gap-1">
+                                <PildoraEstado :texto="lote.etapa" :color="lote.etapa === 'produccion' ? '#16a34a' : '#d97706'" />
+                                <span v-if="!lote.etapa_coincide" class="text-xs" :style="{ color: '#dc2626' }" title="La etapa del lote no coincide con la activa">⚠</span>
                             </span>
                         </td>
-                        <td class="px-5 py-3 text-center">
-                            <span v-if="lote.titulados > 0" :style="{ color: 'var(--color-suave)' }">{{ lote.titulados }}/{{ lote.total }}</span>
+                        <td class="px-4 py-4">
+                            <PildoraEstado :texto="lote.estado_label" :color="colorEstadoSolido[lote.estado_color] ?? 'var(--color-suave)'" sin-capitalizar />
+                        </td>
+                        <td class="px-4 py-4 text-center tabular-nums" :style="{ color: 'var(--color-suave)' }">
+                            <span v-if="lote.titulados > 0">{{ lote.titulados }}/{{ lote.total }}</span>
                             <span v-else>{{ lote.total }}</span>
                         </td>
-                        <td class="px-5 py-3" :style="{ color: 'var(--color-suave)' }">{{ lote.responsable ?? '—' }}</td>
-                        <td class="px-5 py-3" :style="{ color: 'var(--color-suave)' }">{{ lote.creado_en }}</td>
-                        <td class="px-5 py-3">
+                        <td class="px-4 py-4" :style="{ color: 'var(--color-suave)' }">{{ lote.responsable ?? '—' }}</td>
+                        <td class="px-4 py-4 text-xs" :style="{ color: 'var(--color-suave)' }">{{ lote.creado_en }}</td>
+                        <td class="px-6 py-4">
                             <div class="flex items-center justify-end gap-2">
                                 <BotonAccion variante="ver" texto="Abrir" :href="`/titulacion/lotes/${lote.id}`" />
                                 <BotonAccion v-if="lote.estado !== 'firmado' && lote.estado !== 'enviado'" variante="eliminar" solo-icono @click="eliminar(lote)" />
@@ -139,7 +147,7 @@ function estiloEtapa(etapa: string): { backgroundColor: string; color: string } 
                         </td>
                     </tr>
                     <tr v-if="lotes.length === 0">
-                        <td colspan="8" class="px-5 py-10 text-center" :style="{ color: 'var(--color-suave)' }">
+                        <td colspan="7" class="px-6 py-10 text-center" :style="{ color: 'var(--color-suave)' }">
                             Aún no hay lotes. Crea el primero para empezar a titular.
                         </td>
                     </tr>
@@ -148,3 +156,9 @@ function estiloEtapa(etapa: string): { backgroundColor: string; color: string } 
         </div>
     </AppLayout>
 </template>
+
+<style scoped>
+.fila-nueva:hover {
+    background-color: color-mix(in srgb, var(--color-acento) 5%, transparent);
+}
+</style>

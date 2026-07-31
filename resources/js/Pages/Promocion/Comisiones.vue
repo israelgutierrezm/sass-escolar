@@ -5,6 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import Paginacion from '@/Components/Paginacion.vue';
+import PildoraEstado from '@/Components/PildoraEstado.vue';
 
 interface Regla {
     id: number;
@@ -113,6 +114,13 @@ const colorEstatus: Record<string, string> = {
     devengada: 'text-amber-700 bg-amber-50',
     pagada: 'text-emerald-700 bg-emerald-50',
     cancelada: 'text-suave bg-fondo',
+};
+
+// Color SÓLIDO por estatus (para PildoraEstado).
+const colorEstatusSolido: Record<string, string> = {
+    devengada: '#d97706',
+    pagada: '#16a34a',
+    cancelada: 'var(--color-suave)',
 };
 </script>
 
@@ -251,37 +259,33 @@ const colorEstatus: Record<string, string> = {
             </header>
 
             <table v-if="comisiones.data.length" class="w-full text-sm">
-                <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                    <tr>
+                <thead>
+                    <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
                         <th v-if="puedeGestionar" class="px-6 py-3"></th>
-                        <th class="px-6 py-3 font-medium" :class="puedeGestionar ? 'pl-0' : ''">Promotor</th>
-                        <th class="px-4 py-3 font-medium">Matrícula</th>
-                        <th class="px-4 py-3 font-medium">Regla</th>
-                        <th class="px-4 py-3 text-right font-medium">Monto</th>
-                        <th class="px-4 py-3 font-medium">Devengada</th>
-                        <th class="px-4 py-3 font-medium">Estatus</th>
-                        <th class="px-6 py-3 font-medium text-right">Acciones</th>
+                        <th class="px-6 py-3 font-semibold" :class="puedeGestionar ? 'pl-0' : ''">Promotor</th>
+                        <th class="px-4 py-3 font-semibold">Matrícula</th>
+                        <th class="px-4 py-3 font-semibold">Regla</th>
+                        <th class="px-4 py-3 text-right font-semibold">Monto</th>
+                        <th class="px-4 py-3 font-semibold">Devengada</th>
+                        <th class="px-4 py-3 font-semibold">Estatus</th>
+                        <th class="px-6 py-3 font-semibold text-right">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-for="c in comisiones.data" :key="c.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                        <td v-if="puedeGestionar" class="px-6 py-3">
+                    <tr v-for="c in comisiones.data" :key="c.id" class="fila-nueva border-t transition-colors" :style="{ borderColor: 'var(--color-borde)' }">
+                        <td v-if="puedeGestionar" class="px-6 py-4">
                             <input v-if="c.estatus === 'devengada'" v-model="seleccionadas" type="checkbox" :value="c.id" class="rounded" />
                         </td>
-                        <td class="px-6 py-3 font-medium" :class="puedeGestionar ? 'pl-0' : ''">{{ c.promotor ?? '—' }}</td>
-                        <td class="px-4 py-3 font-mono text-xs">{{ c.matricula ?? '—' }}</td>
-                        <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ c.regla ?? '—' }}</td>
-                        <td class="px-4 py-3 text-right font-medium tabular-nums">{{ pesos.format(c.monto) }}</td>
-                        <td class="px-4 py-3 tabular-nums" :style="{ color: 'var(--color-suave)' }">{{ c.devengada_en }}</td>
-                        <td class="px-4 py-3">
-                            <span class="rounded px-2 py-0.5 text-xs font-medium" :class="colorEstatus[c.estatus] ?? ''">
-                                {{ c.estatus }}
-                            </span>
-                            <span v-if="c.motivo_cancelacion" class="block text-xs" :style="{ color: 'var(--color-suave)' }">
-                                {{ c.motivo_cancelacion }}
-                            </span>
+                        <td class="px-6 py-4 font-semibold text-contenido" :class="puedeGestionar ? 'pl-0' : ''">{{ c.promotor ?? '—' }}</td>
+                        <td class="px-4 py-4 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ c.matricula ?? '—' }}</td>
+                        <td class="px-4 py-4" :style="{ color: 'var(--color-suave)' }">{{ c.regla ?? '—' }}</td>
+                        <td class="px-4 py-4 text-right font-semibold tabular-nums">{{ pesos.format(c.monto) }}</td>
+                        <td class="px-4 py-4 tabular-nums text-xs" :style="{ color: 'var(--color-suave)' }">{{ c.devengada_en }}</td>
+                        <td class="px-4 py-4">
+                            <PildoraEstado :texto="c.estatus" :color="colorEstatusSolido[c.estatus] ?? 'var(--color-suave)'" />
+                            <span v-if="c.motivo_cancelacion" class="mt-0.5 block text-[11px]" :style="{ color: 'var(--color-suave)' }">{{ c.motivo_cancelacion }}</span>
                         </td>
-                        <td class="px-6 py-3 text-right">
+                        <td class="px-6 py-4 text-right">
                             <button
                                 v-if="puedeGestionar && c.estatus === 'devengada'"
                                 type="button"
@@ -324,3 +328,9 @@ const colorEstatus: Record<string, string> = {
         </section>
     </AppLayout>
 </template>
+
+<style scoped>
+.fila-nueva:hover {
+    background-color: color-mix(in srgb, var(--color-acento) 5%, transparent);
+}
+</style>

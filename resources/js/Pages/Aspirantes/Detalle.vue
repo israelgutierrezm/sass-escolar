@@ -3,6 +3,8 @@ import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
+import { ICONOS } from '@/iconos';
 
 interface Entrega {
     id: number;
@@ -100,9 +102,8 @@ function convertir(): void {
         <div class="grid gap-6 lg:grid-cols-3">
             <!-- Identidad y proceso -->
             <div class="space-y-6 lg:col-span-2">
-                <section class="tarjeta p-6">
-                    <div class="flex items-start justify-between">
-                        <h2 class="text-base font-semibold text-contenido">Datos personales</h2>
+                <TarjetaSeccion titulo="Datos personales" descripcion="Identidad del aspirante" :icono="ICONOS.persona">
+                    <template #insignia>
                         <div class="flex items-center gap-2">
                             <button
                                 v-if="suplantable"
@@ -120,9 +121,9 @@ function convertir(): void {
                                 :href="`/aspirantes/${aspirante.id}/editar`"
                             />
                         </div>
-                    </div>
+                    </template>
 
-                    <dl class="mt-4 grid gap-4 sm:grid-cols-3">
+                    <dl class="grid gap-4 sm:grid-cols-3">
                         <div>
                             <dt class="text-xs uppercase tracking-wide text-suave">CURP</dt>
                             <dd class="mt-0.5 font-mono text-sm text-contenido">{{ aspirante.curp ?? '—' }}</dd>
@@ -152,7 +153,7 @@ function convertir(): void {
                             </dd>
                         </div>
                     </dl>
-                </section>
+                </TarjetaSeccion>
 
                 <!-- Expediente -->
                 <section class="tarjeta">

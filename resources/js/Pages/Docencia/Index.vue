@@ -3,6 +3,7 @@ import { Head, router } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
+import PildoraEstado from '@/Components/PildoraEstado.vue';
 
 interface Horario {
     dia: number;
@@ -86,17 +87,11 @@ const totalAlumnos = computed(() => props.materias.reduce((t, m) => t + m.inscri
                             </p>
                             <h2 class="text-base font-semibold">{{ materia.materia }}</h2>
                         </div>
-                        <span
-                            class="shrink-0 rounded-full px-2 py-0.5 text-xs capitalize"
-                            :style="{
-                                backgroundColor:
-                                    materia.soy === 'titular'
-                                        ? 'color-mix(in srgb, var(--color-acento) 14%, transparent)'
-                                        : 'color-mix(in srgb, #64748b 16%, transparent)',
-                            }"
-                        >
-                            {{ materia.soy }}
-                        </span>
+                        <PildoraEstado
+                            class="shrink-0"
+                            :texto="materia.soy"
+                            :color="materia.soy === 'titular' ? 'var(--color-acento)' : 'var(--color-suave)'"
+                        />
                     </div>
 
                     <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
