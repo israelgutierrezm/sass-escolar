@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Finanzas\Adeudo;
+use App\Models\Finanzas\AdeudoAjuste;
 use App\Models\Finanzas\BitacoraSituacionFinanciera;
 use App\Models\Finanzas\Pago;
 use Carbon\CarbonImmutable;
@@ -30,7 +31,9 @@ class EstadoCuenta
         $fecha ??= CarbonImmutable::today();
 
         $adeudos = Adeudo::query()
-            ->with(['concepto', 'ciclo:id,clave'])
+            // `ajustes` explica por qué el total es el que es: sin él la pantalla
+            // muestra un número que nadie sabe defender cuando lo reclaman.
+            ->with(['concepto', 'ciclo:id,clave', 'ajustes'])
             ->deMatricula($matricula->id)
             ->orderBy('fecha_vencimiento')
             ->orderBy('id')
@@ -70,6 +73,14 @@ class EstadoCuenta
                 'dias_vencido' => $a->estaVencido($fecha->toDateString())
                     ? (int) $a->fecha_vencimiento->diffInDays($fecha)
                     : 0,
+                // Renglón por renglón: qué beca, qué descuento y qué recargo
+                // movieron el monto. El signo ya viene de la base.
+                'ajustes' => $a->ajustes->map(fn (AdeudoAjuste $j) => [
+                    'tipo' => $j->tipo,
+                    'etiqueta' => $j->etiqueta,
+                    'monto' => (float) $j->monto,
+                    'periodo' => $j->periodo_aplicado,
+                ])->values(),
             ])->values(),
 
             'pagos' => $pagos->map(fn (Pago $p) => [

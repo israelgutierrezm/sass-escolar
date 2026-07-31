@@ -7,6 +7,14 @@ import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 
+/** Un ajuste que movió el monto: beca, descuento o recargo. Monto CON signo. */
+interface Ajuste {
+    tipo: string;
+    etiqueta: string;
+    monto: number;
+    periodo: string | null;
+}
+
 interface Adeudo {
     id: number;
     concepto: string | null;
@@ -23,6 +31,7 @@ interface Adeudo {
     estatus: string;
     vencido: boolean;
     dias_vencido: number;
+    ajustes: Ajuste[];
 }
 
 interface PagoFila {
@@ -390,13 +399,27 @@ const colorEstatus: Record<string, string> = {
                                 responde.
                             -->
                             <span
-                                v-if="adeudo.recargos > 0 || adeudo.descuentos > 0"
-                                class="block text-xs"
+                                v-if="adeudo.ajustes.length"
+                                class="mt-0.5 block text-xs"
                                 :style="{ color: 'var(--color-suave)' }"
                             >
-                                {{ pesos.format(adeudo.monto) }}
-                                <span v-if="adeudo.recargos > 0" class="text-red-600">+{{ pesos.format(adeudo.recargos) }}</span>
-                                <span v-if="adeudo.descuentos > 0" class="text-emerald-600">−{{ pesos.format(adeudo.descuentos) }}</span>
+                                {{ pesos.format(adeudo.monto) }} base
+                            </span>
+                            <!--
+                                Cada ajuste con su NOMBRE: no basta decir
+                                "−400", hay que poder responder "de qué beca".
+                                La etiqueta es un snapshot, así que sigue
+                                explicando aunque la beca se renombre después.
+                            -->
+                            <span
+                                v-for="(j, i) in adeudo.ajustes"
+                                :key="i"
+                                class="block text-xs"
+                                :style="{ color: j.monto < 0 ? '#16a34a' : '#dc2626' }"
+                                :title="j.periodo ? `Periodo ${j.periodo}` : ''"
+                            >
+                                {{ j.monto < 0 ? '−' : '+' }}{{ pesos.format(Math.abs(j.monto)) }}
+                                <span :style="{ color: 'var(--color-suave)' }">{{ j.etiqueta }}</span>
                             </span>
                         </td>
                         <td class="px-4 py-3 text-right font-medium tabular-nums">

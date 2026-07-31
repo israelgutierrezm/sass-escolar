@@ -71,9 +71,14 @@ class CalculadorRecargos
             ? max(1, (int) ceil($inicioMora->diffInDays($hoy) / 30))
             : 1;
 
-        // El recargo se calcula sobre lo que realmente se debe, no sobre el
-        // bruto: quien ya abonó la mitad no debe recargar por el total.
-        $base = (float) $adeudo->monto_total - $this->pagado($adeudo);
+        // El recargo se calcula sobre el CAPITAL que se debe: monto menos
+        // descuentos menos lo abonado. Nunca sobre `monto_total`, porque ese ya
+        // trae el recargo anterior y el cálculo se compondría sobre sí mismo:
+        // correr el barrido a diario haría crecer la deuda sola (100 → 110 →
+        // 111…) aunque la regla sea de aplicación única.
+        $base = (float) $adeudo->monto
+            - (float) $adeudo->monto_descuentos
+            - $this->pagado($adeudo);
 
         return $base > 0 ? $regla->calcular($base, $periodos) : 0.0;
     }

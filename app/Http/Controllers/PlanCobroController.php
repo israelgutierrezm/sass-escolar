@@ -144,17 +144,7 @@ class PlanCobroController extends Controller
     {
         $datos = $this->validarAlcance($request);
 
-        $plan = PlanCobro::create([
-            'nombre' => $datos['nombre'],
-            'ciclo_id' => $datos['ciclo_id'],
-            'moneda' => 'MXN',
-            'tiene_fecha_limite' => $datos['tiene_fecha_limite'] ?? true,
-            'fecha_limite_modo' => $datos['fecha_limite_modo'],
-            'aplica_recargos' => $datos['aplica_recargos'] ?? false,
-            'afecta_estatus_deudor' => $datos['afecta_estatus_deudor'] ?? false,
-            'vigente_desde' => $datos['vigente_desde'],
-            'vigente_hasta' => $datos['vigente_hasta'] ?: null,
-        ]);
+        $plan = PlanCobro::create($this->camposDelPlan($datos));
 
         $this->sincronizarAlcance($plan, $datos);
 
@@ -221,16 +211,7 @@ class PlanCobroController extends Controller
     {
         $datos = $this->validarAlcance($request);
 
-        $plan->update([
-            'nombre' => $datos['nombre'],
-            'ciclo_id' => $datos['ciclo_id'],
-            'tiene_fecha_limite' => $datos['tiene_fecha_limite'] ?? true,
-            'fecha_limite_modo' => $datos['fecha_limite_modo'],
-            'aplica_recargos' => $datos['aplica_recargos'] ?? false,
-            'afecta_estatus_deudor' => $datos['afecta_estatus_deudor'] ?? false,
-            'vigente_desde' => $datos['vigente_desde'],
-            'vigente_hasta' => $datos['vigente_hasta'] ?: null,
-        ]);
+        $plan->update($this->camposDelPlan($datos));
 
         $this->sincronizarAlcance($plan, $datos);
 
@@ -406,6 +387,34 @@ class PlanCobroController extends Controller
     }
 
     // ---------- Apoyos ----------
+
+    /**
+     * Campos del plan, ya normalizados.
+     *
+     * Sin fecha límite no puede haber mora, así que `aplica_recargos` se apaga
+     * aunque venga marcado: la UI ya lo deshabilita, pero la regla tiene que
+     * vivir en el servidor —si no, un POST directo dejaría un plan que recarga
+     * cargos que nunca vencen.
+     *
+     * @param  array<string, mixed>  $datos
+     * @return array<string, mixed>
+     */
+    private function camposDelPlan(array $datos): array
+    {
+        $conLimite = (bool) ($datos['tiene_fecha_limite'] ?? true);
+
+        return [
+            'nombre' => $datos['nombre'],
+            'ciclo_id' => $datos['ciclo_id'],
+            'moneda' => 'MXN',
+            'tiene_fecha_limite' => $conLimite,
+            'fecha_limite_modo' => $datos['fecha_limite_modo'],
+            'aplica_recargos' => $conLimite && (bool) ($datos['aplica_recargos'] ?? false),
+            'afecta_estatus_deudor' => (bool) ($datos['afecta_estatus_deudor'] ?? false),
+            'vigente_desde' => $datos['vigente_desde'],
+            'vigente_hasta' => $datos['vigente_hasta'] ?: null,
+        ];
+    }
 
     /** @return array<string, mixed> */
     private function validarAlcance(Request $request): array

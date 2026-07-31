@@ -8,6 +8,7 @@ use App\Models\Concerns\TieneAuditoria;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * conceptos_plan (TENANT) — una línea fechada del plan de cobro.
@@ -73,9 +74,9 @@ class ConceptoPlan extends Model
     }
 
     /** Override de recargo para esta línea (si lo tiene). */
-    public function reglaRecargo(): BelongsTo
+    public function reglaRecargo(): HasOne
     {
-        return $this->belongsTo(ReglaRecargo::class, 'id', 'concepto_plan_id');
+        return $this->hasOne(ReglaRecargo::class, 'concepto_plan_id');
     }
 
     public function adeudos(): HasMany
