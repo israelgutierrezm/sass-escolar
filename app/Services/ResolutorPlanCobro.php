@@ -65,12 +65,29 @@ class ResolutorPlanCobro
      * Alumnos ACTIVOS que caen en el alcance del plan y todavía no lo tienen
      * vinculado. Es la lista que ve el administrador para asignar en masa.
      *
+     * `$campusDelUsuario` acota además por el alcance de quien consulta (null =
+     * toda la escuela): un coordinador de campus no debe poder asignarle un
+     * plan a alumnos de otro, aunque el plan sí los alcance.
+     *
+     * @param  array<int, int>|null  $campusDelUsuario
      * @return Collection<int, MatriculaOferta>
      */
-    public function candidatos(PlanCobro $plan): Collection
+    public function candidatos(PlanCobro $plan, ?array $campusDelUsuario = null): Collection
     {
         $campus = $plan->campus->pluck('id')->all();
         $carreras = $plan->carreras->pluck('id')->all();
+
+        if ($campusDelUsuario !== null) {
+            // La intersección: lo que el plan alcanza Y el usuario administra.
+            $campus = $campus === []
+                ? $campusDelUsuario
+                : array_values(array_intersect($campus, $campusDelUsuario));
+
+            // Sin campus en común no hay a quién asignarle nada.
+            if ($campus === []) {
+                return new Collection;
+            }
+        }
 
         $yaAsignados = PlanCobroAlumno::query()
             ->where('plan_cobro_id', $plan->id)

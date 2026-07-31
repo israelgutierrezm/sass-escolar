@@ -15,6 +15,7 @@ use App\Models\Finanzas\PagoAdeudo;
 use App\Models\Finanzas\PlanCobro;
 use App\Models\Finanzas\PlanCobroAlumno;
 use App\Models\Finanzas\ReglaRecargo;
+use App\Models\Identidad\Usuario;
 use App\Models\Landlord\NivelEstudio;
 use App\Services\ExpansorColegiaturas;
 use App\Services\GeneradorAdeudos;
@@ -23,6 +24,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -98,12 +100,20 @@ class PlanCobroController extends Controller
      * Campus ligados a un ciclo. Si el ciclo es global (sin pivote), se ofrecen
      * todos: "global" significa que aplica en toda la escuela.
      */
-    public function campusDelCiclo(Ciclo $ciclo): JsonResponse
+    public function campusDelCiclo(Request $request, Ciclo $ciclo): JsonResponse
     {
         $campus = $ciclo->campus()->orderBy('nombre')->get(['campus.id', 'campus.nombre']);
 
         if ($campus->isEmpty()) {
             $campus = Campus::orderBy('nombre')->get(['id', 'nombre']);
+        }
+
+        // Un coordinador acotado a un campus no debe siquiera VER los otros:
+        // cobrarle a alumnos de un campus ajeno no es una decisión suya.
+        $suyos = $this->alcance($request);
+
+        if ($suyos !== null) {
+            $campus = $campus->whereIn('id', $suyos)->values();
         }
 
         return response()->json($campus);
@@ -121,6 +131,9 @@ class PlanCobroController extends Controller
             'campus.*' => ['integer'],
             'nivel_estudios_id' => ['nullable', 'integer'],
         ]);
+
+        // Mismo candado que al guardar: no se listan carreras de campus ajenos.
+        $this->exigirCampusPropios($request, $datos['campus']);
 
         $carreraIds = Oferta::query()
             ->whereIn('campus_id', $datos['campus'])
@@ -154,7 +167,7 @@ class PlanCobroController extends Controller
     }
 
     /** Paso 2: conceptos, recargos y asignación. */
-    public function show(PlanCobro $plan, ResolutorPlanCobro $resolutor): Response
+    public function show(Request $request, PlanCobro $plan, ResolutorPlanCobro $resolutor): Response
     {
         $plan->load([
             'ciclo:id,nombre,fecha_inicio,fecha_fin',
@@ -203,7 +216,7 @@ class PlanCobroController extends Controller
                 ->get()
                 ->keyBy('concepto_plan_id'),
             'asignados' => $plan->asignaciones()->activos()->count(),
-            'candidatos' => $resolutor->candidatos($plan)->map(fn ($m) => [
+            'candidatos' => $resolutor->candidatos($plan, $this->alcance($request))->map(fn ($m) => [
                 'id' => $m->id,
                 'matricula' => $m->matricula,
                 'nombre' => $m->persona?->nombreCompleto(),
@@ -409,7 +422,7 @@ class PlanCobroController extends Controller
 
     // ---------- Asignación masiva ----------
 
-    public function asignar(Request $request, PlanCobro $plan, GeneradorAdeudos $generador): RedirectResponse
+    public function asignar(Request $request, PlanCobro $plan, GeneradorAdeudos $generador, ResolutorPlanCobro $resolutor): RedirectResponse
     {
         $datos = $request->validate([
             'matriculas' => ['required', 'array', 'min:1'],
@@ -418,6 +431,17 @@ class PlanCobroController extends Controller
 
         if ($plan->conceptos()->count() === 0) {
             return back()->with('error', 'El plan no cobra nada todavía: agrégale conceptos antes de asignarlo.');
+        }
+
+        // Solo se asigna a quien de verdad es candidato para ESTE usuario: la
+        // lista viene del cliente y podría traer alumnos de otro campus.
+        $permitidos = $resolutor->candidatos($plan, $this->alcance($request))->pluck('id')->all();
+        $ajenos = array_diff($datos['matriculas'], $permitidos);
+
+        if ($ajenos !== []) {
+            throw ValidationException::withMessages([
+                'matriculas' => 'Hay alumnos seleccionados que están fuera del alcance de este plan o de tus campus.',
+            ]);
         }
 
         $r = $generador->asignarPlan($plan, $datos['matriculas']);
@@ -467,10 +491,50 @@ class PlanCobroController extends Controller
         ];
     }
 
+    /** Campus que el usuario puede administrar; null = toda la escuela. */
+    private function alcance(Request $request): ?array
+    {
+        /** @var Usuario $usuario */
+        $usuario = $request->user();
+
+        return $usuario->campusVisibles();
+    }
+
+    /**
+     * Un plan solo puede cobrar en campus que el usuario administra.
+     *
+     * La UI ya solo ofrece los suyos, pero la regla vive aquí: sin esto, un
+     * POST directo dejaría a un coordinador de campus generándole cargos a los
+     * alumnos de otro. No se ignora en silencio —se explica— porque suele ser
+     * el síntoma de una pantalla abierta con un rol que ya cambió.
+     *
+     * @param  array<int, int>  $enviados
+     */
+    private function exigirCampusPropios(Request $request, array $enviados): void
+    {
+        /** @var Usuario $usuario */
+        $usuario = $request->user();
+
+        if ($usuario->campusVisibles() === null) {
+            return;
+        }
+
+        $ajenos = array_values(array_filter(
+            array_map('intval', $enviados),
+            fn (int $id) => ! $usuario->alcanzaCampus($id),
+        ));
+
+        if ($ajenos !== []) {
+            throw ValidationException::withMessages([
+                'campus' => 'Hay campus seleccionados que están fuera de tu alcance.',
+            ]);
+        }
+    }
+
     /** @return array<string, mixed> */
     private function validarAlcance(Request $request): array
     {
-        return $request->validate([
+        $datos = $request->validate([
             'nombre' => ['required', 'string', 'max:150'],
             'ciclo_id' => ['required', 'integer', Rule::exists('ciclos', 'id')],
             'campus' => ['required', 'array', 'min:1'],
@@ -484,6 +548,10 @@ class PlanCobroController extends Controller
             'vigente_desde' => ['required', 'date'],
             'vigente_hasta' => ['nullable', 'date', 'after_or_equal:vigente_desde'],
         ]);
+
+        $this->exigirCampusPropios($request, $datos['campus']);
+
+        return $datos;
     }
 
     /** @param  array<string, mixed>  $datos */
