@@ -3,6 +3,8 @@ import { Head, useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
+import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
+import { ICONOS } from '@/iconos';
 
 interface PagoFacturable {
     id: number;
@@ -85,16 +87,10 @@ const regimenes = [
         </section>
 
         <form @submit.prevent="emitir">
-            <section class="tarjeta overflow-hidden">
-                <header class="px-6 py-4">
-                    <h2 class="text-base font-semibold">Pagos por facturar</h2>
-                    <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                        Solo aparecen los pagos <strong>cobrados</strong> que no están ya en una factura
-                        vigente. Un pago sin confirmar es una promesa: facturarlo emitiría un comprobante
-                        por dinero que todavía puede no llegar.
-                    </p>
-                </header>
-
+            <TarjetaSeccion titulo="Pagos por facturar" :icono="ICONOS.dinero" sin-relleno>
+                <template #descripcion>
+                    Solo aparecen los pagos <strong>cobrados</strong> que no están ya en una factura vigente. Un pago sin confirmar es una promesa: facturarlo emitiría un comprobante por dinero que todavía puede no llegar.
+                </template>
                 <table v-if="pagos.length" class="w-full text-sm">
                     <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
                         <tr>
@@ -129,16 +125,10 @@ const regimenes = [
                 <p v-else class="px-6 py-10 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
                     No hay pagos cobrados pendientes de facturar.
                 </p>
-            </section>
+            </TarjetaSeccion>
 
-            <section v-if="pagos.length" class="tarjeta p-6">
-                <h2 class="text-base font-semibold">Datos fiscales del receptor</h2>
-                <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                    Se copian a la factura y ahí se congelan: si el receptor cambia de régimen el año que
-                    entra, este comprobante debe seguir diciendo lo que decía.
-                </p>
-
-                <div class="mt-4 grid gap-4 sm:grid-cols-2">
+            <TarjetaSeccion v-if="pagos.length" titulo="Datos fiscales del receptor" descripcion="Se copian a la factura y ahí se congelan: si el receptor cambia de régimen el año que entra, este comprobante debe seguir diciendo lo que decía." :icono="ICONOS.documento">
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <label class="text-sm">
                         <span class="mb-1 block font-medium">RFC</span>
                         <input
@@ -222,7 +212,7 @@ const regimenes = [
                     El timbrado corre en segundo plano porque el PAC puede tardar. El folio fiscal aparece
                     en cuanto responda.
                 </p>
-            </section>
+            </TarjetaSeccion>
         </form>
     </AppLayout>
 </template>
