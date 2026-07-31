@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\AcotaPorCampus;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Finanzas\Adeudo;
 use App\Models\Finanzas\BitacoraSituacionFinanciera;
@@ -35,6 +36,8 @@ use RuntimeException;
  */
 class FinanzasController extends Controller
 {
+    use AcotaPorCampus;
+
     public function __construct(
         private readonly EstadoCuenta $estadoCuenta,
         private readonly GeneradorAdeudos $generador,
@@ -70,6 +73,11 @@ class FinanzasController extends Controller
                 DB::raw('coalesce(f.vencido, 0) as vencido'),
                 DB::raw('coalesce(f.adeudos, 0) as adeudos_abiertos'),
             ]);
+
+        // Además de la faceta, el ALCANCE POR CAMPUS: un coordinador acotado a
+        // un campus no debe ver la cartera de los otros. Son dos recortes
+        // distintos y se aplican los dos.
+        $this->acotarMatriculas($consulta, $request);
 
         // El buscador y los filtros de cartera solo tienen sentido sobre un
         // universo de muchos. Sobre las propias matrículas —una o dos— no se
@@ -148,6 +156,11 @@ class FinanzasController extends Controller
                 && $matricula->persona_id !== $request->user()->persona_id,
             403,
         );
+
+        // Y el administrativo acotado a campus tampoco entra a un alumno ajeno
+        // cambiando el id: filtrar la lista sin cerrar el detalle no cierra nada.
+        $matricula->loadMissing('oferta:id,campus_id');
+        $this->autorizarMatricula($request, $matricula);
 
         $matricula->load(['persona', 'oferta.carrera:id,nombre', 'oferta.campus:id,nombre', 'situacion:id,nombre']);
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\AcotaPorCampus;
 use App\Jobs\TimbrarFactura;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Finanzas\Factura;
@@ -29,15 +30,22 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class FacturaController extends Controller
 {
+    use AcotaPorCampus;
+
     public function __construct(private readonly EmisorFactura $emisor) {}
 
     public function index(Request $request): Response
     {
         $estatus = (string) $request->query('estatus', '');
 
-        $facturas = Factura::query()
+        $consulta = Factura::query()
             ->with(['matriculaOferta.persona:id,nombre,primer_apellido,segundo_apellido'])
-            ->when($estatus !== '', fn ($q) => $q->where('estatus', $estatus))
+            ->when($estatus !== '', fn ($q) => $q->where('estatus', $estatus));
+
+        // Las facturas cuelgan de una matrícula: se acotan al campus del rol.
+        $this->acotarMatriculas($consulta, $request, 'matriculaOferta');
+
+        $facturas = $consulta
             ->orderByDesc('id')
             ->paginate(10)
             ->withQueryString()

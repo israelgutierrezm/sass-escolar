@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\AcotaPorCampus;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\Ciclo;
 use App\Models\Finanzas\Beca;
@@ -30,6 +31,8 @@ use Inertia\Response;
  */
 class BecaController extends Controller
 {
+    use AcotaPorCampus;
+
     public function __construct(
         private readonly GeneradorAdeudos $generador,
         private readonly EvaluadorBecas $evaluador,
@@ -119,12 +122,16 @@ class BecaController extends Controller
     // ---------- Otorgamiento ----------
 
     /** Alumnos con esta beca, y a quiénes se les puede otorgar. */
-    public function show(Beca $beca): Response
+    public function show(Request $request, Beca $beca): Response
     {
         $beca->load('conceptos:id,nombre');
 
-        $otorgadas = BecaAlumno::query()
-            ->where('beca_id', $beca->id)
+        $consulta = BecaAlumno::query()->where('beca_id', $beca->id);
+
+        // Solo los becarios de sus campus: la beca es global, los alumnos no.
+        $this->acotarMatriculas($consulta, $request, 'matricula');
+
+        $otorgadas = $consulta
             ->with([
                 'matricula.persona:id,nombre,primer_apellido,segundo_apellido',
                 'matricula.oferta.carrera:id,nombre',
@@ -185,8 +192,13 @@ class BecaController extends Controller
             return response()->json([]);
         }
 
-        $alumnos = MatriculaOferta::query()
-            ->where('estatus', 'activo')
+        $consulta = MatriculaOferta::query()->where('estatus', 'activo');
+
+        // No se puede becar a quien no se administra: el buscador solo
+        // encuentra alumnos de los campus del usuario.
+        $this->acotarMatriculas($consulta, $request);
+
+        $alumnos = $consulta
             ->where(function ($query) use ($q) {
                 $query->where('matricula', 'like', "%{$q}%")
                     ->orWhereHas('persona', fn ($p) => $p
@@ -222,6 +234,10 @@ class BecaController extends Controller
             'motivo' => ['nullable', 'string', 'max:255'],
         ]);
 
+        // El id viaja en el POST: filtrar el buscador no basta.
+        $destino = MatriculaOferta::with('oferta:id,campus_id')->findOrFail($datos['matricula_oferta_id']);
+        $this->autorizarMatricula($request, $destino);
+
         $yaTiene = BecaAlumno::query()
             ->where('beca_id', $beca->id)
             ->where('matricula_oferta_id', $datos['matricula_oferta_id'])
@@ -253,6 +269,7 @@ class BecaController extends Controller
     public function revocar(Request $request, Beca $beca, BecaAlumno $otorgada): RedirectResponse
     {
         abort_unless($otorgada->beca_id === $beca->id, 404);
+        $this->autorizarOtorgada($request, $otorgada);
 
         $datos = $request->validate(['motivo' => ['required', 'string', 'max:255']]);
 
@@ -265,6 +282,7 @@ class BecaController extends Controller
     public function renovar(Request $request, Beca $beca, BecaAlumno $otorgada): RedirectResponse
     {
         abort_unless($otorgada->beca_id === $beca->id, 404);
+        $this->autorizarOtorgada($request, $otorgada);
 
         $datos = $request->validate([
             'ciclo_id' => ['required', 'integer', Rule::exists('ciclos', 'id')],
@@ -319,6 +337,19 @@ class BecaController extends Controller
             "Ciclo «{$ciclo->nombre}» evaluado sobre {$r['evaluados']} alumno(s): "
             ."{$r['por_renovar']} por renovar, {$r['no_renovadas']} sin renovar, {$r['perdidas']} perdida(s)."
         );
+    }
+
+    /** Una beca otorgada solo la toca quien administra el campus del alumno. */
+    private function autorizarOtorgada(Request $request, BecaAlumno $otorgada): void
+    {
+        $matricula = $otorgada->matricula;
+
+        if ($matricula === null) {
+            return;
+        }
+
+        $matricula->loadMissing('oferta:id,campus_id');
+        $this->autorizarMatricula($request, $matricula);
     }
 
     /** @return array<string, mixed> */

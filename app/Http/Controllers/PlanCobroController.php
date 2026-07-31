@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\AcotaPorCampus;
 use App\Models\Academico\Campus;
 use App\Models\Academico\Carrera;
 use App\Models\Academico\Oferta;
@@ -15,7 +16,6 @@ use App\Models\Finanzas\PagoAdeudo;
 use App\Models\Finanzas\PlanCobro;
 use App\Models\Finanzas\PlanCobroAlumno;
 use App\Models\Finanzas\ReglaRecargo;
-use App\Models\Identidad\Usuario;
 use App\Models\Landlord\NivelEstudio;
 use App\Services\ExpansorColegiaturas;
 use App\Services\GeneradorAdeudos;
@@ -44,6 +44,8 @@ use Inertia\Response;
  */
 class PlanCobroController extends Controller
 {
+    use AcotaPorCampus;
+
     public function index(): Response
     {
         $planes = PlanCobro::query()
@@ -110,7 +112,7 @@ class PlanCobroController extends Controller
 
         // Un coordinador acotado a un campus no debe siquiera VER los otros:
         // cobrarle a alumnos de un campus ajeno no es una decisión suya.
-        $suyos = $this->alcance($request);
+        $suyos = $this->alcanceCampus($request);
 
         if ($suyos !== null) {
             $campus = $campus->whereIn('id', $suyos)->values();
@@ -216,7 +218,7 @@ class PlanCobroController extends Controller
                 ->get()
                 ->keyBy('concepto_plan_id'),
             'asignados' => $plan->asignaciones()->activos()->count(),
-            'candidatos' => $resolutor->candidatos($plan, $this->alcance($request))->map(fn ($m) => [
+            'candidatos' => $resolutor->candidatos($plan, $this->alcanceCampus($request))->map(fn ($m) => [
                 'id' => $m->id,
                 'matricula' => $m->matricula,
                 'nombre' => $m->persona?->nombreCompleto(),
@@ -435,7 +437,7 @@ class PlanCobroController extends Controller
 
         // Solo se asigna a quien de verdad es candidato para ESTE usuario: la
         // lista viene del cliente y podría traer alumnos de otro campus.
-        $permitidos = $resolutor->candidatos($plan, $this->alcance($request))->pluck('id')->all();
+        $permitidos = $resolutor->candidatos($plan, $this->alcanceCampus($request))->pluck('id')->all();
         $ajenos = array_diff($datos['matriculas'], $permitidos);
 
         if ($ajenos !== []) {
@@ -491,45 +493,6 @@ class PlanCobroController extends Controller
         ];
     }
 
-    /** Campus que el usuario puede administrar; null = toda la escuela. */
-    private function alcance(Request $request): ?array
-    {
-        /** @var Usuario $usuario */
-        $usuario = $request->user();
-
-        return $usuario->campusVisibles();
-    }
-
-    /**
-     * Un plan solo puede cobrar en campus que el usuario administra.
-     *
-     * La UI ya solo ofrece los suyos, pero la regla vive aquí: sin esto, un
-     * POST directo dejaría a un coordinador de campus generándole cargos a los
-     * alumnos de otro. No se ignora en silencio —se explica— porque suele ser
-     * el síntoma de una pantalla abierta con un rol que ya cambió.
-     *
-     * @param  array<int, int>  $enviados
-     */
-    private function exigirCampusPropios(Request $request, array $enviados): void
-    {
-        /** @var Usuario $usuario */
-        $usuario = $request->user();
-
-        if ($usuario->campusVisibles() === null) {
-            return;
-        }
-
-        $ajenos = array_values(array_filter(
-            array_map('intval', $enviados),
-            fn (int $id) => ! $usuario->alcanzaCampus($id),
-        ));
-
-        if ($ajenos !== []) {
-            throw ValidationException::withMessages([
-                'campus' => 'Hay campus seleccionados que están fuera de tu alcance.',
-            ]);
-        }
-    }
 
     /** @return array<string, mixed> */
     private function validarAlcance(Request $request): array
