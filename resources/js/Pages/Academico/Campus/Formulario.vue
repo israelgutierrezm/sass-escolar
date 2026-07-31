@@ -6,6 +6,8 @@ import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
+import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
+import { ICONOS } from '@/iconos';
 
 const props = defineProps<{
     campus: Record<string, any> | null;
@@ -42,47 +44,50 @@ function enviar(): void {
     <AppLayout :titulo="esEdicion ? 'Editar campus' : 'Nuevo campus'">
         <NavAcademico />
 
-        <form class="max-w-3xl space-y-6" @submit.prevent="enviar">
-            <section class="tarjeta grid gap-4 p-6 sm:grid-cols-2">
-                <CampoTexto v-model="form.clave" etiqueta="Clave" requerido :error="form.errors.clave" mono />
-                <CampoTexto v-model="form.identificador" etiqueta="Identificador" :error="form.errors.identificador" mono ayuda="Identificador oficial del campus para el certificado electrónico." />
-                <CampoTexto v-model="form.nombre" etiqueta="Nombre" requerido :error="form.errors.nombre" />
-                <CampoSelect
-                    v-model="form.tipo_campus_id"
-                    etiqueta="Tipo de campus"
-                    :opciones="opcionesTipo"
-                    vacio="Sin especificar"
-                    :error="form.errors.tipo_campus_id"
-                    ayuda="Opcional: clasifica el plantel (matriz, extensión, en línea…)."
-                />
-                <CampoSelect
-                    v-model="form.entidad_id"
-                    etiqueta="Entidad federativa"
-                    requerido
-                    :opciones="opcionesEntidad"
-                    vacio="Selecciona…"
-                    :error="form.errors.entidad_id"
-                    ayuda="Dónde está el plantel. Catálogo compartido entre escuelas."
-                />
-                <CampoSelect
-                    v-model="form.institucion_id"
-                    etiqueta="Institución"
-                    :opciones="opcionesInstitucion"
-                    vacio="Sin especificar"
-                    :error="form.errors.institucion_id"
-                    ayuda="Informativo: la persona moral a la que pertenece este plantel."
-                />
-            </section>
-
-            <div class="flex items-center gap-3">
-                <BotonPrincipal :procesando="form.processing" :texto="esEdicion ? 'Guardar cambios' : 'Crear campus'" />
-                <a
-                    href="/academico/campus"
-                    class="rounded-lg border border-borde px-5 py-2.5 text-sm text-contenido hover:bg-fondo"
-                >
-                    Cancelar
-                </a>
-            </div>
+        <form @submit.prevent="enviar">
+            <TarjetaSeccion titulo="Datos del campus" descripcion="Identificación y ubicación del plantel." :icono="ICONOS.edificio">
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <CampoTexto v-model="form.clave" etiqueta="Clave" requerido :error="form.errors.clave" mono />
+                    <CampoTexto v-model="form.identificador" etiqueta="Identificador" :error="form.errors.identificador" mono ayuda="Identificador oficial del campus para el certificado electrónico." />
+                    <CampoTexto v-model="form.nombre" etiqueta="Nombre" requerido :error="form.errors.nombre" />
+                    <CampoSelect
+                        v-model="form.tipo_campus_id"
+                        etiqueta="Tipo de campus"
+                        :opciones="opcionesTipo"
+                        vacio="Sin especificar"
+                        :error="form.errors.tipo_campus_id"
+                        ayuda="Opcional: clasifica el plantel (matriz, extensión, en línea…)."
+                    />
+                    <CampoSelect
+                        v-model="form.entidad_id"
+                        etiqueta="Entidad federativa"
+                        requerido
+                        :opciones="opcionesEntidad"
+                        vacio="Selecciona…"
+                        :error="form.errors.entidad_id"
+                        ayuda="Dónde está el plantel. Catálogo compartido entre escuelas."
+                    />
+                    <CampoSelect
+                        v-model="form.institucion_id"
+                        etiqueta="Institución"
+                        :opciones="opcionesInstitucion"
+                        vacio="Sin especificar"
+                        :error="form.errors.institucion_id"
+                        ayuda="Informativo: la persona moral a la que pertenece este plantel."
+                    />
+                </div>
+                <template #pie>
+                    <div class="flex items-center gap-3">
+                        <BotonPrincipal :procesando="form.processing" :texto="esEdicion ? 'Guardar cambios' : 'Crear campus'" />
+                        <a
+                            href="/academico/campus"
+                            class="rounded-lg border border-borde px-5 py-2.5 text-sm text-contenido hover:bg-fondo"
+                        >
+                            Cancelar
+                        </a>
+                    </div>
+                </template>
+            </TarjetaSeccion>
         </form>
     </AppLayout>
 </template>

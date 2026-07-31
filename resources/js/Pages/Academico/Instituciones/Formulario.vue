@@ -6,6 +6,8 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
+import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
+import { ICONOS } from '@/iconos';
 
 const props = defineProps<{
     institucion: { id: number; clave: string; nombre: string; logo: string | null } | null;
@@ -52,8 +54,9 @@ function enviar(): void {
     <AppLayout :titulo="esEdicion ? 'Editar institución' : 'Nueva institución'">
         <NavAcademico />
 
-        <form class="max-w-3xl space-y-6" @submit.prevent="enviar">
-            <section class="tarjeta grid gap-4 p-6 sm:grid-cols-2">
+        <form class="max-w-3xl" @submit.prevent="enviar">
+            <TarjetaSeccion titulo="Datos de la institución" descripcion="Persona moral que emite los documentos oficiales." :icono="ICONOS.edificio">
+                <div class="grid gap-4 sm:grid-cols-2">
                 <CampoTexto
                     v-model="form.clave"
                     etiqueta="Clave oficial (SEP)"
@@ -93,18 +96,20 @@ function enviar(): void {
                         PNG, JPG, WEBP o SVG, hasta 2 MB.
                     </p>
                 </div>
-            </section>
-
-            <div class="flex items-center gap-3">
-                <BotonPrincipal :procesando="form.processing" :texto="esEdicion ? 'Guardar cambios' : 'Crear institución'" />
-                <a
-                    href="/academico/instituciones"
-                    class="rounded-lg border px-5 py-2.5 text-sm"
-                    :style="{ borderColor: 'var(--color-borde)' }"
-                >
-                    Cancelar
-                </a>
-            </div>
+                </div>
+                <template #pie>
+                    <div class="flex items-center gap-3">
+                        <BotonPrincipal :procesando="form.processing" :texto="esEdicion ? 'Guardar cambios' : 'Crear institución'" />
+                        <a
+                            href="/academico/instituciones"
+                            class="rounded-lg border px-5 py-2.5 text-sm"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                        >
+                            Cancelar
+                        </a>
+                    </div>
+                </template>
+            </TarjetaSeccion>
         </form>
     </AppLayout>
 </template>

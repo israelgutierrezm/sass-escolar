@@ -6,6 +6,8 @@ import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
+import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
+import { ICONOS } from '@/iconos';
 
 const props = defineProps<{
     carrera: Record<string, any> | null;
@@ -35,11 +37,9 @@ function enviar(): void {
     <AppLayout :titulo="esEdicion ? 'Editar carrera' : 'Nueva carrera'">
         <NavAcademico />
 
-        <form class="max-w-3xl space-y-6" @submit.prevent="enviar">
-            <section class="tarjeta p-6">
-                <h2 class="text-base font-semibold text-contenido">Datos de la carrera</h2>
-
-                <div class="mt-5 grid gap-4 sm:grid-cols-2">
+        <form @submit.prevent="enviar">
+            <TarjetaSeccion titulo="Datos de la carrera" descripcion="Identificación y nivel de estudios." :icono="ICONOS.birrete">
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <CampoTexto
                         v-model="form.identificador"
                         etiqueta="Identificador"
@@ -55,9 +55,7 @@ function enviar(): void {
                         :error="form.errors.clave"
                         ayuda="Clave oficial de la carrera ante la SEP (cveCarrera del título). El «Identificador» es interno."
                     />
-                    <div class="sm:col-span-2">
-                        <CampoTexto v-model="form.nombre" etiqueta="Nombre" requerido :error="form.errors.nombre" />
-                    </div>
+                    <CampoTexto v-model="form.nombre" etiqueta="Nombre" requerido :error="form.errors.nombre" />
                     <CampoSelect
                         v-model="form.nivel_estudios_id"
                         etiqueta="Nivel de estudios"
@@ -67,17 +65,18 @@ function enviar(): void {
                         :error="form.errors.nivel_estudios_id"
                     />
                 </div>
-            </section>
-
-            <div class="flex items-center gap-3">
-                <BotonPrincipal :procesando="form.processing" :texto="esEdicion ? 'Guardar cambios' : 'Crear carrera'" />
-                <a
-                    href="/academico/carreras"
-                    class="rounded-lg border border-borde px-5 py-2.5 text-sm text-contenido hover:bg-fondo"
-                >
-                    Cancelar
-                </a>
-            </div>
+                <template #pie>
+                    <div class="flex items-center gap-3">
+                        <BotonPrincipal :procesando="form.processing" :texto="esEdicion ? 'Guardar cambios' : 'Crear carrera'" />
+                        <a
+                            href="/academico/carreras"
+                            class="rounded-lg border border-borde px-5 py-2.5 text-sm text-contenido hover:bg-fondo"
+                        >
+                            Cancelar
+                        </a>
+                    </div>
+                </template>
+            </TarjetaSeccion>
         </form>
     </AppLayout>
 </template>

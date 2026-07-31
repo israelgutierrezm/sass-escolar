@@ -6,6 +6,8 @@ import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
+import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
+import { ICONOS } from '@/iconos';
 
 const props = defineProps<{
     plan: Record<string, any> | null;
@@ -48,11 +50,9 @@ function enviar(): void {
     <AppLayout :titulo="esEdicion ? 'Editar plan de estudios' : 'Nuevo plan de estudios'">
         <NavAcademico />
 
-        <form class="max-w-3xl space-y-6" @submit.prevent="enviar">
-            <section class="tarjeta p-6">
-                <h2 class="text-base font-semibold text-contenido">Identificación</h2>
-
-                <div class="mt-5 grid gap-4 sm:grid-cols-2">
+        <form class="space-y-6" @submit.prevent="enviar">
+            <TarjetaSeccion titulo="Identificación" descripcion="A qué carrera pertenece y cómo se identifica." :icono="ICONOS.birrete">
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <CampoSelect
                         v-model="form.carrera_id"
                         etiqueta="Carrera"
@@ -70,13 +70,10 @@ function enviar(): void {
                         ayuda="Se imprime en el título."
                     />
                 </div>
-            </section>
+            </TarjetaSeccion>
 
-            <section class="tarjeta p-6">
-                <h2 class="text-base font-semibold text-contenido">Reconocimiento oficial</h2>
-                <p class="mt-1 text-sm text-suave">Datos que exige la SEP para el título electrónico.</p>
-
-                <div class="mt-5 grid gap-4 sm:grid-cols-2">
+            <TarjetaSeccion titulo="Reconocimiento oficial" descripcion="Datos que exige la SEP para el título electrónico." :icono="ICONOS.escudo">
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <CampoTexto v-model="form.rvoe" etiqueta="RVOE" requerido :error="form.errors.rvoe" mono />
                     <CampoTexto
                         v-model="form.fecha_rvoe"
@@ -100,12 +97,10 @@ function enviar(): void {
                         :maximo="18"
                     />
                 </div>
-            </section>
+            </TarjetaSeccion>
 
-            <section class="tarjeta p-6">
-                <h2 class="text-base font-semibold text-contenido">Reglas académicas</h2>
-
-                <div class="mt-5 grid gap-4 sm:grid-cols-3">
+            <TarjetaSeccion titulo="Reglas académicas" descripcion="Periodos y escala de calificación del plan." :icono="ICONOS.ajustes">
+                <div class="grid gap-4 sm:grid-cols-3">
                     <CampoSelect
                         v-model="form.tipo_periodo_id"
                         etiqueta="Tipo de periodo"
@@ -158,7 +153,7 @@ function enviar(): void {
                         :error="form.errors.minimo_asignaturas"
                     />
                 </div>
-            </section>
+            </TarjetaSeccion>
 
             <div class="flex items-center gap-3">
                 <BotonPrincipal :procesando="form.processing" :texto="esEdicion ? 'Guardar cambios' : 'Crear plan'" />

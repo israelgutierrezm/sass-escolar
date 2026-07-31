@@ -6,6 +6,8 @@ import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoCasillas from '@/Components/CampoCasillas.vue';
+import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
+import { ICONOS } from '@/iconos';
 
 const props = defineProps<{
     oferta: Record<string, any> | null;
@@ -72,17 +74,13 @@ function enviar(): void {
     <AppLayout :titulo="esEdicion ? 'Editar oferta' : 'Nueva oferta'">
         <NavAcademico />
 
-        <form class="max-w-3xl space-y-6" @submit.prevent="enviar">
-            <section class="tarjeta p-6">
-                <h2 class="text-base font-semibold">Qué se imparte</h2>
-                <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
+        <form class="space-y-6" @submit.prevent="enviar">
+            <TarjetaSeccion titulo="Qué se imparte" :icono="ICONOS.birrete">
+                <template #descripcion>
                     <template v-if="esEdicion">No puede repetirse la misma combinación de carrera, plan y campus.</template>
-                    <template v-else>
-                        Elige la carrera y el plan, y los campus donde se ofrecerá. Se creará una oferta por campus.
-                    </template>
-                </p>
-
-                <div class="mt-5 grid gap-4 sm:grid-cols-2">
+                    <template v-else>Elige la carrera y el plan, y los campus donde se ofrecerá. Se creará una oferta por campus.</template>
+                </template>
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <CampoSelect
                         v-model="form.carrera_id"
                         etiqueta="Carrera"
@@ -126,33 +124,26 @@ function enviar(): void {
                         ayuda="No delimita la oferta; solo la describe."
                     />
                 </div>
-            </section>
+            </TarjetaSeccion>
 
             <!-- ALTA: en qué campus, en conjunto (fan-out). -->
-            <section v-if="!esEdicion" class="tarjeta p-6">
-                <h2 class="text-base font-semibold">Dónde se ofrece</h2>
-
-                <div class="mt-5">
-                    <CampoCasillas
-                        v-model="form.campus_ids"
-                        etiqueta="Campus"
-                        :opciones="opciones(campus)"
-                        :error="form.errors.campus_ids"
-                        vacio="Elige al menos uno."
-                    />
-                </div>
-
+            <TarjetaSeccion v-if="!esEdicion" titulo="Dónde se ofrece" :icono="ICONOS.ubicacion">
+                <CampoCasillas
+                    v-model="form.campus_ids"
+                    etiqueta="Campus"
+                    :opciones="opciones(campus)"
+                    :error="form.errors.campus_ids"
+                    vacio="Elige al menos uno."
+                />
                 <p v-if="combinaciones > 0" class="mt-4 text-sm" :style="{ color: 'var(--color-suave)' }">
                     Se {{ combinaciones === 1 ? 'creará 1 oferta' : `crearán ${combinaciones} ofertas` }}
                     (las que ya existan se omiten).
                 </p>
-            </section>
+            </TarjetaSeccion>
 
             <!-- EDICIÓN: una oferta concreta. -->
-            <section v-else class="tarjeta p-6">
-                <h2 class="text-base font-semibold">Dónde</h2>
-
-                <div class="mt-5 grid gap-4 sm:grid-cols-2">
+            <TarjetaSeccion v-else titulo="Dónde" :icono="ICONOS.ubicacion">
+                <div class="grid gap-4 sm:grid-cols-2">
                     <CampoSelect
                         v-model="form.campus_id"
                         etiqueta="Campus"
@@ -162,7 +153,7 @@ function enviar(): void {
                         :error="form.errors.campus_id"
                     />
                 </div>
-            </section>
+            </TarjetaSeccion>
 
             <div class="flex items-center gap-3">
                 <BotonPrincipal :procesando="form.processing" :texto="esEdicion ? 'Guardar cambios' : 'Crear oferta(s)'" />
