@@ -196,6 +196,12 @@ class PlanCobroController extends Controller
             'tiposPago' => collect(ConceptoPlan::TIPOS)->map(fn ($t, $v) => ['valor' => $v, 'etiqueta' => $t])->values(),
             'cadencias' => collect(ExpansorColegiaturas::CADENCIAS)->map(fn ($t, $v) => ['valor' => $v, 'etiqueta' => $t])->values(),
             'reglaRecargo' => $plan->reglaRecargoBase(),
+            // Excepciones por línea, indexadas por concepto_plan_id para que la
+            // UI sepa cuáles ya tienen override sin recorrer nada.
+            'overridesRecargo' => $plan->reglasRecargo()
+                ->whereNotNull('concepto_plan_id')
+                ->get()
+                ->keyBy('concepto_plan_id'),
             'asignados' => $plan->asignaciones()->activos()->count(),
             'candidatos' => $resolutor->candidatos($plan)->map(fn ($m) => [
                 'id' => $m->id,
@@ -354,6 +360,51 @@ class PlanCobroController extends Controller
         );
 
         return back()->with('exito', 'Regla de recargo guardada.');
+    }
+
+    /**
+     * Excepción de recargo para una línea concreta. Existe porque no todo se
+     * recarga igual: una escuela puede penalizar fuerte la colegiatura y
+     * suavemente la credencial. Sin override, la línea usa la regla del plan.
+     */
+    public function guardarRecargoConcepto(Request $request, PlanCobro $plan, ConceptoPlan $concepto): RedirectResponse
+    {
+        abort_unless($concepto->plan_cobro_id === $plan->id, 404);
+
+        $datos = $request->validate([
+            'modo' => ['required', Rule::in([ReglaRecargo::MODO_MONTO_FIJO, ReglaRecargo::MODO_PORCENTAJE])],
+            'valor' => ['required', 'numeric', 'min:0'],
+            'frecuencia' => ['required', Rule::in([ReglaRecargo::FRECUENCIA_UNICA, ReglaRecargo::FRECUENCIA_MENSUAL])],
+            'dias_gracia' => ['required', 'integer', 'min:0', 'max:90'],
+            'tope_monto' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        if (! $plan->aplica_recargos) {
+            return back()->with('error', 'Este plan no admite recargos.');
+        }
+
+        if (! $concepto->aplica_recargos) {
+            return back()->with('error', 'Ese concepto está marcado sin recargos: actívaselos antes de darle una excepción.');
+        }
+
+        ReglaRecargo::updateOrCreate(
+            ['plan_cobro_id' => $plan->id, 'concepto_plan_id' => $concepto->id],
+            $datos + ['activo' => true],
+        );
+
+        return back()->with('exito', 'Excepción de recargo guardada.');
+    }
+
+    /** Quita la excepción: la línea vuelve a la regla del plan. */
+    public function eliminarRecargoConcepto(PlanCobro $plan, ConceptoPlan $concepto): RedirectResponse
+    {
+        abort_unless($concepto->plan_cobro_id === $plan->id, 404);
+
+        ReglaRecargo::where('plan_cobro_id', $plan->id)
+            ->where('concepto_plan_id', $concepto->id)
+            ->delete();
+
+        return back()->with('exito', 'Excepción eliminada: esa línea vuelve a la regla del plan.');
     }
 
     // ---------- Asignación masiva ----------

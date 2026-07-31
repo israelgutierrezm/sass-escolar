@@ -22,6 +22,9 @@ class BecaAlumnoMovimiento extends Model
 
     public const RENOVADA = 'renovada';
 
+    /** Pasó el corte del ciclo y espera que alguien confirme la renovación. */
+    public const POR_RENOVAR = 'por_renovar';
+
     public const SUSPENDIDA = 'suspendida';
 
     public const REACTIVADA = 'reactivada';

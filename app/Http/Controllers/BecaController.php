@@ -65,6 +65,13 @@ class BecaController extends Controller
         return Inertia::render('Finanzas/Becas/Index', [
             'becas' => $becas,
             'catalogoConceptos' => ConceptoPago::orderBy('nombre')->get(['id', 'nombre']),
+            'ciclos' => Ciclo::orderByDesc('fecha_inicio')->get(['id', 'nombre']),
+            // Cuántas becas renovables hay vivas: si no hay ninguna, la
+            // herramienta de renovación no tiene sobre qué operar.
+            'renovables' => BecaAlumno::query()
+                ->activas()
+                ->whereHas('beca', fn ($q) => $q->where('requiere_renovacion', true))
+                ->count(),
             'efectosAtraso' => [
                 ['valor' => Beca::ATRASO_NINGUNO, 'etiqueta' => 'No pasa nada'],
                 ['valor' => Beca::ATRASO_SUSPENDE_PERIODO, 'etiqueta' => 'Ese cargo se cobra completo'],
@@ -284,6 +291,34 @@ class BecaController extends Controller
         }
 
         return back()->with('exito', 'Beca renovada para el ciclo nuevo.');
+    }
+
+    /**
+     * Cierra un ciclo para efectos de becas: con el promedio de cada alumno
+     * decide cuáles quedan por renovar, cuáles no se renuevan y cuáles se
+     * pierden.
+     *
+     * Las que sí califican quedan en `por_renovar`, NO renovadas solas: renovar
+     * una beca es autorizar un gasto y debe hacerlo una persona.
+     */
+    public function evaluarRenovacion(Request $request): RedirectResponse
+    {
+        $datos = $request->validate([
+            'ciclo_id' => ['required', 'integer', Rule::exists('ciclos', 'id')],
+        ]);
+
+        $ciclo = Ciclo::findOrFail($datos['ciclo_id']);
+        $r = $this->evaluador->renovarCiclo($ciclo);
+
+        if ($r['evaluados'] === 0) {
+            return back()->with('advertencia', "El ciclo «{$ciclo->nombre}» no tiene calificaciones finales capturadas: no hay con qué evaluar los promedios.");
+        }
+
+        return back()->with(
+            'exito',
+            "Ciclo «{$ciclo->nombre}» evaluado sobre {$r['evaluados']} alumno(s): "
+            ."{$r['por_renovar']} por renovar, {$r['no_renovadas']} sin renovar, {$r['perdidas']} perdida(s)."
+        );
     }
 
     /** @return array<string, mixed> */

@@ -10,6 +10,7 @@ use App\Models\Finanzas\Beca;
 use App\Models\Finanzas\BecaAlumno;
 use App\Models\Finanzas\BecaAlumnoMovimiento;
 use App\Models\ControlEscolar\Ciclo;
+use App\Models\ControlEscolar\Inscripcion;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -175,6 +176,9 @@ class EvaluadorBecas
             $reprueba = $minimo !== null && $promedio !== null && $promedio < $minimo;
 
             if ($reprueba && $beca->efecto_promedio === Beca::PROMEDIO_PIERDE) {
+                // Se guarda el promedio ANTES de perderla: es la evidencia de
+                // por qué se le quitó, y después nadie podría reconstruirla.
+                $becaAlumno->update(['promedio_evaluado' => $promedio]);
                 $this->perder($becaAlumno, "Promedio {$promedio} por debajo del mínimo {$minimo}.");
                 $perdidas++;
 
@@ -194,15 +198,51 @@ class EvaluadorBecas
             }
 
             $becaAlumno->update(['estatus' => BecaAlumno::POR_RENOVAR, 'promedio_evaluado' => $promedio]);
+            // Se registra como POR_RENOVAR, no como suspendida: el alumno cumplió
+            // y está esperando autorización. Ponerle "suspendida" en la bitácora
+            // haría parecer un castigo lo que es un trámite pendiente.
             $this->registrar(
                 $becaAlumno,
-                BecaAlumnoMovimiento::SUSPENDIDA,
-                'Candidata a renovación'.($promedio !== null ? " (promedio {$promedio})" : '').'.'
+                BecaAlumnoMovimiento::POR_RENOVAR,
+                'Cumple para renovar'.($promedio !== null ? " (promedio {$promedio})" : '').'.'
             );
             $porRenovar++;
         }
 
         return ['por_renovar' => $porRenovar, 'no_renovadas' => $noRenovadas, 'perdidas' => $perdidas];
+    }
+
+    /**
+     * Promedio de cada alumno en un ciclo, a partir de sus calificaciones
+     * finales. Solo cuenta lo ya calificado: una materia sin calificar no debe
+     * arrastrar el promedio hacia abajo y costarle la beca a alguien.
+     *
+     * @return array<int, float>  matricula_oferta_id => promedio
+     */
+    public function promediosDe(Ciclo $ciclo): array
+    {
+        return Inscripcion::query()
+            ->where('ciclo_id', $ciclo->id)
+            ->whereNotNull('calificacion_final')
+            ->groupBy('matricula_oferta_id')
+            ->selectRaw('matricula_oferta_id, AVG(calificacion_final) as promedio')
+            ->pluck('promedio', 'matricula_oferta_id')
+            ->map(fn ($p) => round((float) $p, 2))
+            ->all();
+    }
+
+    /**
+     * Cierra el ciclo para efectos de becas: calcula los promedios y decide qué
+     * se renueva. Es el punto de entrada único, para que la UI y el comando no
+     * calculen el promedio cada uno por su lado.
+     *
+     * @return array{por_renovar: int, no_renovadas: int, perdidas: int, evaluados: int}
+     */
+    public function renovarCiclo(Ciclo $ciclo): array
+    {
+        $promedios = $this->promediosDe($ciclo);
+
+        return $this->evaluarRenovacion($ciclo, $promedios) + ['evaluados' => count($promedios)];
     }
 
     /** Deja constancia del movimiento con su autor. */

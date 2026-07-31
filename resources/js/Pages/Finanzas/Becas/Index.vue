@@ -35,9 +35,27 @@ interface Beca {
 const props = defineProps<{
     becas: Beca[];
     catalogoConceptos: { id: number; nombre: string }[];
+    ciclos: { id: number; nombre: string }[];
+    renovables: number;
     efectosAtraso: { valor: string; etiqueta: string }[];
     efectosPromedio: { valor: string; etiqueta: string }[];
 }>();
+
+// Cierre de ciclo: evalúa el promedio de cada becario para decidir renovaciones.
+const renovacion = useForm({ ciclo_id: null as number | null });
+
+function evaluarRenovacion(): void {
+    const ciclo = props.ciclos.find((c) => c.id === renovacion.ciclo_id);
+    if (!ciclo) return;
+    if (!confirm(
+        `Se evaluará el promedio de cada becario en «${ciclo.nombre}».\n\n`
+        + 'Las que no alcancen el mínimo se marcarán como no renovadas o perdidas, '
+        + 'según lo que diga cada beca. Las que sí califiquen quedarán "por renovar" '
+        + 'para que las confirmes una por una.\n\n¿Continuar?'
+    )) return;
+
+    renovacion.post('/finanzas/becas/renovacion', { preserveScroll: true });
+}
 
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
 
@@ -135,6 +153,45 @@ const etiquetaPromedio: Record<string, string> = {
                 <BotonAccion v-if="!creando && editando === null" variante="nuevo" texto="Nueva beca" @click="abrirNueva" />
             </div>
         </section>
+
+        <!-- Cierre de ciclo -->
+        <TarjetaSeccion
+            v-if="renovables > 0"
+            titulo="Renovación por cierre de ciclo"
+            descripcion="Evalúa el promedio de cada becario para decidir qué becas siguen."
+            :icono="ICONOS.calendario"
+        >
+            <template #insignia>
+                <span class="rounded-full px-3 py-1 text-xs font-medium" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }">
+                    {{ renovables }} beca(s) renovable(s)
+                </span>
+            </template>
+
+            <div class="grid items-end gap-4 sm:grid-cols-3">
+                <div class="sm:col-span-2">
+                    <CampoSelect
+                        v-model="renovacion.ciclo_id"
+                        etiqueta="Ciclo que termina"
+                        vacio="Selecciona el ciclo…"
+                        :opciones="ciclos.map((c) => ({ valor: c.id, texto: c.nombre }))"
+                        :error="renovacion.errors.ciclo_id"
+                        ayuda="Se usa el promedio de las calificaciones finales de ese ciclo."
+                    />
+                </div>
+                <BotonPrincipal
+                    :procesando="renovacion.processing"
+                    texto="Evaluar renovación"
+                    :deshabilitado="!renovacion.ciclo_id"
+                    @click="evaluarRenovacion"
+                />
+            </div>
+
+            <p class="mt-4 rounded-lg px-4 py-3 text-xs" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 8%, transparent)', color: 'var(--color-suave)' }">
+                Las becas que califican quedan <strong>«por renovar»</strong>, no se renuevan solas:
+                renovar es autorizar un gasto y lo tiene que hacer una persona. Cada movimiento queda
+                en la bitácora del alumno.
+            </p>
+        </TarjetaSeccion>
 
         <!-- Alta / edición -->
         <form v-if="creando || editando !== null" class="space-y-4 sm:space-y-6" @submit.prevent="guardar">

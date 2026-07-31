@@ -32,6 +32,7 @@ const props = defineProps<{
     tiposPago: { valor: string; etiqueta: string }[];
     cadencias: { valor: string; etiqueta: string }[];
     reglaRecargo: Record<string, any> | null;
+    overridesRecargo: Record<string, any>;
     asignados: number;
     candidatos: { id: number; matricula: string; nombre: string | null; carrera: string | null; campus: string | null }[];
 }>();
@@ -72,6 +73,45 @@ const recargo = useForm({
     dias_gracia: props.reglaRecargo?.dias_gracia ?? 0,
     tope_monto: props.reglaRecargo?.tope_monto ?? '',
 });
+
+// --- Excepción de recargo por línea ---
+const excepcionDe = ref<number | null>(null);
+const excepcion = useForm({
+    modo: 'porcentaje',
+    valor: 0.1,
+    frecuencia: 'unica',
+    dias_gracia: 0,
+    tope_monto: '' as string | number,
+});
+
+// Solo tiene sentido para líneas que sí cobran recargo.
+const conRecargo = computed(() => props.conceptos.filter((c) => c.aplica_recargos));
+
+function abrirExcepcion(c: Concepto): void {
+    if (excepcionDe.value === c.id) {
+        excepcionDe.value = null;
+        return;
+    }
+    excepcionDe.value = c.id;
+    const o = props.overridesRecargo?.[c.id];
+    excepcion.modo = o?.modo ?? 'porcentaje';
+    excepcion.valor = o?.valor ?? 0.1;
+    excepcion.frecuencia = o?.frecuencia ?? 'unica';
+    excepcion.dias_gracia = o?.dias_gracia ?? 0;
+    excepcion.tope_monto = o?.tope_monto ?? '';
+}
+
+function guardarExcepcion(c: Concepto): void {
+    excepcion.post(`/finanzas/planes/${props.plan.id}/conceptos/${c.id}/recargo`, {
+        preserveScroll: true,
+        onSuccess: () => (excepcionDe.value = null),
+    });
+}
+
+function quitarExcepcion(c: Concepto): void {
+    if (!confirm('¿Quitar la excepción? Esa línea volverá a usar la regla del plan.')) return;
+    router.delete(`/finanzas/planes/${props.plan.id}/conceptos/${c.id}/recargo`, { preserveScroll: true });
+}
 
 // --- Asignación masiva ---
 const seleccionados = ref<number[]>([]);
@@ -369,6 +409,83 @@ function todos(): void {
                     <BotonPrincipal :procesando="recargo.processing" texto="Guardar regla" />
                 </div>
             </form>
+
+            <!--
+                Excepciones: no todo se recarga igual. Se listan solo las líneas
+                que sí cobran recargo, porque darle una excepción a una que no
+                los cobra no significaría nada.
+            -->
+            <div v-if="plan.aplica_recargos && conRecargo.length" class="mt-6 border-t pt-6" :style="{ borderColor: 'var(--color-borde)' }">
+                <h3 class="text-sm font-semibold">Excepciones por concepto</h3>
+                <p class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">
+                    Sin excepción, cada línea usa la regla de arriba. Útil cuando la colegiatura se
+                    penaliza distinto que un trámite suelto.
+                </p>
+
+                <ul class="mt-4 space-y-2">
+                    <li
+                        v-for="c in conRecargo"
+                        :key="c.id"
+                        class="rounded-lg border p-3"
+                        :style="{ borderColor: 'var(--color-borde)' }"
+                    >
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div class="min-w-0">
+                                <span class="text-sm font-medium">{{ c.concepto }}</span>
+                                <span v-if="c.periodo" class="ml-1 text-xs" :style="{ color: 'var(--color-suave)' }">· {{ c.periodo }}</span>
+                                <span
+                                    v-if="overridesRecargo?.[c.id]"
+                                    class="ml-2 rounded-full px-2 py-0.5 text-[11px] font-medium"
+                                    :style="{ backgroundColor: 'color-mix(in srgb, #d97706 16%, transparent)', color: '#b45309' }"
+                                >
+                                    {{ overridesRecargo[c.id].modo === 'porcentaje'
+                                        ? `${Math.round(overridesRecargo[c.id].valor * 100)}%`
+                                        : pesos.format(overridesRecargo[c.id].valor) }}
+                                    · {{ overridesRecargo[c.id].frecuencia === 'unica' ? 'única' : 'mensual' }}
+                                </span>
+                                <span v-else class="ml-2 text-[11px]" :style="{ color: 'var(--color-suave)' }">usa la regla del plan</span>
+                            </div>
+                            <div class="flex shrink-0 items-center gap-3">
+                                <button type="button" class="text-xs font-medium" :style="{ color: 'var(--color-acento)' }" @click="abrirExcepcion(c)">
+                                    {{ excepcionDe === c.id ? 'Cerrar' : (overridesRecargo?.[c.id] ? 'Editar' : 'Agregar excepción') }}
+                                </button>
+                                <button v-if="overridesRecargo?.[c.id]" type="button" class="text-xs font-medium text-red-600" @click="quitarExcepcion(c)">
+                                    Quitar
+                                </button>
+                            </div>
+                        </div>
+
+                        <form v-if="excepcionDe === c.id" class="mt-3 grid gap-3 border-t pt-3 sm:grid-cols-3" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="guardarExcepcion(c)">
+                            <CampoSelect
+                                v-model="excepcion.modo"
+                                etiqueta="Cómo se calcula"
+                                :opciones="[{ valor: 'porcentaje', texto: 'Porcentaje del saldo' }, { valor: 'monto_fijo', texto: 'Monto fijo' }]"
+                            />
+                            <CampoTexto
+                                v-model="excepcion.valor"
+                                tipo="number"
+                                step="0.0001"
+                                min="0"
+                                :etiqueta="excepcion.modo === 'porcentaje' ? 'Porcentaje (0.10 = 10%)' : 'Monto'"
+                                requerido
+                            />
+                            <CampoSelect
+                                v-model="excepcion.frecuencia"
+                                etiqueta="Cada cuándo"
+                                :opciones="[
+                                    { valor: 'unica', texto: 'Una sola vez' },
+                                    { valor: 'mensual_acumulativa', texto: 'Cada mes de atraso' },
+                                ]"
+                            />
+                            <CampoTexto v-model="excepcion.dias_gracia" tipo="number" min="0" max="90" etiqueta="Días de gracia" />
+                            <CampoTexto v-model="excepcion.tope_monto" tipo="number" step="0.01" min="0" etiqueta="Tope" ayuda="En blanco, sin tope." />
+                            <div class="flex items-end">
+                                <BotonPrincipal :procesando="excepcion.processing" texto="Guardar excepción" />
+                            </div>
+                        </form>
+                    </li>
+                </ul>
+            </div>
         </TarjetaSeccion>
 
         <!-- ===== ALUMNOS ===== -->

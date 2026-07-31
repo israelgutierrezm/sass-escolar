@@ -648,6 +648,9 @@ Route::middleware([
                         Route::delete('/{plan}/grupos/{grupo}', 'eliminarGrupo')->name('grupos.destroy');
 
                         Route::post('/{plan}/recargo', 'guardarReglaRecargo')->name('recargo.store');
+                        // Excepción de recargo para una línea concreta.
+                        Route::post('/{plan}/conceptos/{concepto}/recargo', 'guardarRecargoConcepto')->name('recargo.concepto.store');
+                        Route::delete('/{plan}/conceptos/{concepto}/recargo', 'eliminarRecargoConcepto')->name('recargo.concepto.destroy');
 
                         Route::post('/{plan}/asignar', 'asignar')->name('asignar');
                         Route::delete('/{plan}/asignaciones/{asignacion}', 'quitarAsignacion')->name('asignaciones.destroy');
@@ -665,6 +668,8 @@ Route::middleware([
                         Route::get('/', 'index')->name('index');
                         Route::post('/', 'store')->name('store');
                         Route::get('/alumnos', 'buscarAlumnos')->name('alumnos');
+                        // Cierre de ciclo: decide qué becas se renuevan.
+                        Route::post('/renovacion', 'evaluarRenovacion')->name('renovacion');
                         Route::get('/{beca}', 'show')->name('show');
                         Route::put('/{beca}', 'update')->name('update');
                         Route::delete('/{beca}', 'destroy')->name('destroy');
