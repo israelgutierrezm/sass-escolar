@@ -5,7 +5,6 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import BarraListado from '@/Components/BarraListado.vue';
 import Paginacion from '@/Components/Paginacion.vue';
 import TarjetaPersona from '@/Components/TarjetaPersona.vue';
-import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 import ZonaArchivo from '@/Components/ZonaArchivo.vue';
 
 // Tabla con el mismo lenguaje visual de las tarjetas de formulario
@@ -88,7 +87,16 @@ function subirExcel(archivo: File | null): void {
             :puede-crear="puedeGestionar"
             nuevo-texto="Nuevo docente"
             nuevo-href="/escolar/docentes/nuevo"
-        />
+            titulo="Docentes"
+            descripcion="Listado del personal docente"
+            :icono="ICONO_DOCENTE"
+        >
+            <template #conteo>
+                <span class="rounded-full px-3 py-1 text-xs font-medium" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }">
+                    {{ docentes.total }} en total
+                </span>
+            </template>
+        </BarraListado>
 
         <!-- Carga masiva por Excel -->
         <section v-if="puedeGestionar" class="tarjeta mb-4 p-4">
@@ -154,14 +162,7 @@ function subirExcel(archivo: File | null): void {
         </template>
 
         <template v-else>
-            <TarjetaSeccion titulo="Docentes" :icono="ICONO_DOCENTE" sin-relleno>
-                <template #descripcion>Listado del personal docente</template>
-                <template #insignia>
-                    <span class="rounded-full px-3 py-1 text-xs font-medium" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }">
-                        {{ docentes.total }} en total
-                    </span>
-                </template>
-
+            <section class="tarjeta overflow-hidden">
                 <div class="overflow-x-auto">
                     <table v-if="docentes.data.length" class="w-full text-sm">
                         <thead>
@@ -267,10 +268,8 @@ function subirExcel(archivo: File | null): void {
                     </p>
                 </div>
 
-                <template #pie>
-                    <Paginacion :enlaces="docentes.links" :total="docentes.total" :desde="docentes.from" :hasta="docentes.to" />
-                </template>
-            </TarjetaSeccion>
+                <Paginacion :enlaces="docentes.links" :total="docentes.total" :desde="docentes.from" :hasta="docentes.to" />
+            </section>
         </template>
     </AppLayout>
 </template>

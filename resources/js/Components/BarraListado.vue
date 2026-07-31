@@ -51,6 +51,15 @@ const props = withDefaults(
          * preferencia con esta clave. Sin ella, el listado solo tiene tabla.
          */
         vistaClave?: string;
+        /**
+         * Encabezado opcional del listado (ícono + título + descripción) DENTRO
+         * de la barra, para que sea el encabezado de todo y abajo solo la tabla.
+         * Si se omiten, la barra se ve como siempre (los demás listados no cambian).
+         */
+        titulo?: string;
+        descripcion?: string;
+        /** `d` de un <path> SVG (heroicons, viewBox 0 0 24 24, trazo). */
+        icono?: string;
     }>(),
     { placeholder: 'Buscar…', puedeCrear: false, nuevoTexto: 'Nuevo', sinBuscador: false, claveBusqueda: 'busqueda' },
 );
@@ -106,6 +115,33 @@ function limpiarFiltros(): void {
 
 <template>
     <section class="tarjeta space-y-3 p-3 sm:p-4">
+        <!-- Encabezado opcional del listado (ícono + título + descripción):
+             cuando se pasa, la barra es el encabezado de todo. -->
+        <div
+            v-if="titulo || $slots.conteo"
+            class="flex items-center justify-between gap-3 border-b pb-3"
+            :style="{ borderColor: 'var(--color-borde)' }"
+        >
+            <div class="flex items-center gap-3">
+                <span
+                    v-if="icono"
+                    class="grid h-9 w-9 shrink-0 place-items-center rounded-full"
+                    :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 14%, transparent)', color: 'var(--color-acento)' }"
+                >
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" :d="icono" />
+                    </svg>
+                </span>
+                <div class="min-w-0">
+                    <h2 v-if="titulo" class="text-sm font-semibold text-contenido">{{ titulo }}</h2>
+                    <p v-if="descripcion" class="text-xs" :style="{ color: 'var(--color-suave)' }">{{ descripcion }}</p>
+                </div>
+            </div>
+            <div v-if="$slots.conteo" class="shrink-0">
+                <slot name="conteo" />
+            </div>
+        </div>
+
         <!-- Fila 1: buscador + vista + «Filtros» + «Nuevo». En una línea en
              pantallas grandes; en móvil el buscador ocupa su renglón y los
              controles bajan debajo, alineados a la derecha. -->
