@@ -41,6 +41,30 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class DocenteController extends Controller
 {
+    /** Descarga la plantilla de carga masiva de docentes. */
+    public function plantillaCarga(\App\Services\Excel\PlantillaDocentes $plantilla): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    {
+        return response()->download($plantilla->generar(), 'plantilla-docentes.xlsx')->deleteFileAfterSend();
+    }
+
+    /** Importa el .xlsx de docentes; si hay errores los devuelve sin crear nada. */
+    public function importarCarga(Request $request, \App\Services\Excel\ImportadorDocentes $importador): RedirectResponse
+    {
+        $request->validate(['archivo' => ['required', 'file', 'max:5120']]);
+
+        try {
+            $resultado = $importador->importar($request->file('archivo')->getRealPath());
+        } catch (\Throwable) {
+            return back()->with('error', 'No se pudo leer el archivo. Sube el .xlsx de la plantilla sin cambiar su estructura.');
+        }
+
+        if ($resultado['errores'] !== []) {
+            return back()->with('error', 'El archivo tiene errores; corrígelos y vuelve a subirlo.')->with('erroresCarga', $resultado['errores']);
+        }
+
+        return back()->with('exito', "Se cargaron {$resultado['resumen']['docentes']} docentes.");
+    }
+
     public function index(Request $request): Response
     {
         $filtros = [

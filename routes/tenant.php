@@ -509,6 +509,8 @@ Route::middleware([
                     ->middleware('can:ver-docentes')
                     ->group(function () {
                         Route::get('/', 'index')->name('index');
+                        Route::get('carga/plantilla', 'plantillaCarga')->middleware('can:gestionar-docentes')->name('carga.plantilla');
+                        Route::post('carga/importar', 'importarCarga')->middleware('can:gestionar-docentes')->name('carga.importar');
                         Route::get('nuevo', 'create')->middleware('can:gestionar-docentes')->name('create');
                         Route::get('{docente}', 'show')->whereNumber('docente')->name('show');
                         Route::get('{docente}/documentos/{documento}/descargar', 'descargarDocumento')
