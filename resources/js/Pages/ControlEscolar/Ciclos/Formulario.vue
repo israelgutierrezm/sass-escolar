@@ -7,6 +7,8 @@ import NavEscolar from '@/Components/NavEscolar.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoCasillas from '@/Components/CampoCasillas.vue';
+import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
+import { ICONOS } from '@/iconos';
 
 const props = defineProps<{
     ciclo: Record<string, any> | null;
@@ -73,11 +75,9 @@ function enviar(): void {
     <AppLayout :titulo="esEdicion ? 'Editar ciclo' : 'Nuevo ciclo'">
         <NavEscolar />
 
-        <form class="max-w-3xl space-y-6" @submit.prevent="enviar">
-            <section class="tarjeta p-6">
-                <h2 class="text-base font-semibold text-contenido">Identificación y periodo</h2>
-
-                <div class="mt-5 grid gap-4 sm:grid-cols-2">
+        <form class="space-y-6" @submit.prevent="enviar">
+            <TarjetaSeccion titulo="Identificación y periodo" descripcion="Clave, fechas y dónde aplica el ciclo." :icono="ICONOS.calendario">
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <CampoTexto
                         v-model="form.anio"
                         etiqueta="Año"
@@ -170,16 +170,10 @@ function enviar(): void {
                         <span>{{ avisoRestriccion }}</span>
                     </div>
                 </div>
-            </section>
+            </TarjetaSeccion>
 
-            <section class="tarjeta p-6">
-                <h2 class="text-base font-semibold text-contenido">Ventanas</h2>
-                <p class="mt-1 text-sm text-suave">
-                    Gobiernan qué se puede hacer y cuándo. Fuera de la ventana de inscripción, el sistema no
-                    deja inscribir.
-                </p>
-
-                <div class="mt-5 grid gap-4 sm:grid-cols-2">
+            <TarjetaSeccion titulo="Ventanas" descripcion="Gobiernan qué se puede hacer y cuándo. Fuera de la ventana de inscripción, el sistema no deja inscribir." :icono="ICONOS.reloj">
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <CampoTexto
                         v-model="form.inscripcion_desde"
                         etiqueta="Inscripción desde"
@@ -205,7 +199,7 @@ function enviar(): void {
                         :error="form.errors.captura_calif_hasta"
                     />
                 </div>
-            </section>
+            </TarjetaSeccion>
 
             <div class="flex items-center gap-3">
                 <BotonPrincipal :procesando="form.processing" :texto="esEdicion ? 'Guardar cambios' : 'Crear ciclo'" />

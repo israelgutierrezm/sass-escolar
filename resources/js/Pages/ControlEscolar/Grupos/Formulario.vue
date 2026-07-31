@@ -6,6 +6,8 @@ import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import NavEscolar from '@/Components/NavEscolar.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
+import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
+import { ICONOS } from '@/iconos';
 
 interface Ciclo {
     id: number;
@@ -194,8 +196,9 @@ function enviar(): void {
     <AppLayout :titulo="esEdicion ? 'Editar grupo' : 'Nuevo grupo'">
         <NavEscolar />
 
-        <form class="max-w-3xl space-y-6" @submit.prevent="enviar">
-            <section class="tarjeta grid gap-4 p-6 sm:grid-cols-2">
+        <form class="space-y-6" @submit.prevent="enviar">
+            <TarjetaSeccion titulo="Datos del grupo" descripcion="Ciclo, campus y plan que abre el grupo; el ciclo acota lo disponible." :icono="ICONOS.personas">
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <CampoSelect
                     v-model="form.ciclo_id"
                     etiqueta="Ciclo"
@@ -263,22 +266,24 @@ function enviar(): void {
 
                 <p
                     v-if="restriccionCiclo"
-                    class="sm:col-span-2 rounded-lg p-3 text-sm"
+                    class="rounded-lg p-3 text-sm sm:col-span-2 lg:col-span-3"
                     style="background-color: color-mix(in srgb, #6366f1 8%, transparent)"
                 >
                     {{ restriccionCiclo }}
                 </p>
-            </section>
-
-            <div class="flex items-center gap-3">
-                <BotonPrincipal :procesando="form.processing" :texto="esEdicion ? 'Guardar cambios' : 'Crear grupo'" />
-                <a
-                    href="/escolar/grupos"
-                    class="rounded-lg border border-borde px-5 py-2.5 text-sm text-contenido hover:bg-fondo"
-                >
-                    Cancelar
-                </a>
-            </div>
+                </div>
+                <template #pie>
+                    <div class="flex items-center gap-3">
+                        <BotonPrincipal :procesando="form.processing" :texto="esEdicion ? 'Guardar cambios' : 'Crear grupo'" />
+                        <a
+                            href="/escolar/grupos"
+                            class="rounded-lg border border-borde px-5 py-2.5 text-sm text-contenido hover:bg-fondo"
+                        >
+                            Cancelar
+                        </a>
+                    </div>
+                </template>
+            </TarjetaSeccion>
         </form>
     </AppLayout>
 </template>
