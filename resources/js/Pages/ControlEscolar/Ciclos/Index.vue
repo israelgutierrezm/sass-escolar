@@ -7,6 +7,10 @@ import BarraListado from '@/Components/BarraListado.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import TarjetaListado from '@/Components/TarjetaListado.vue';
 import Paginacion from '@/Components/Paginacion.vue';
+import PildoraEstado from '@/Components/PildoraEstado.vue';
+
+const ICONO_CICLO =
+    'M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5';
 
 interface Ciclo {
     id: number;
@@ -65,7 +69,16 @@ function eliminar(id: number, clave: string): void {
             :puede-crear="puedeEditar"
             nuevo-texto="Nuevo ciclo"
             nuevo-href="/escolar/ciclos/create"
-        />
+            titulo="Ciclos escolares"
+            descripcion="Periodos lectivos"
+            :icono="ICONO_CICLO"
+        >
+            <template #conteo>
+                <span class="rounded-full px-3 py-1 text-xs font-medium" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }">
+                    {{ ciclos.total }} en total
+                </span>
+            </template>
+        </BarraListado>
 
         <!-- Cuadrícula -->
         <template v-if="vista === 'cuadricula'">
@@ -113,51 +126,44 @@ function eliminar(id: number, clave: string): void {
         <div v-else class="tarjeta overflow-hidden">
             <div class="overflow-x-auto">
                 <table v-if="!vacio" class="w-full text-sm">
-                    <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                        <tr>
-                            <th class="px-4 py-3 font-medium">Clave</th>
-                            <th class="px-4 py-3 font-medium">Nombre</th>
-                            <th class="px-4 py-3 font-medium">Campus</th>
-                            <th class="px-4 py-3 font-medium">Periodo</th>
-                            <th class="px-4 py-3 font-medium">Situación</th>
-                            <th class="px-4 py-3 font-medium">Inscripción</th>
-                            <th class="px-4 py-3 font-medium">Grupos</th>
-                            <th class="px-4 py-3 font-medium text-right">Acciones</th>
+                    <thead>
+                        <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
+                            <th class="px-6 py-3 font-semibold">Ciclo</th>
+                            <th class="px-4 py-3 font-semibold">Campus</th>
+                            <th class="px-4 py-3 font-semibold">Periodo</th>
+                            <th class="px-4 py-3 font-semibold text-center">Grupos</th>
+                            <th class="px-4 py-3 font-semibold">Inscripción</th>
+                            <th class="px-6 py-3 font-semibold text-right">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="ciclo in ciclos.data" :key="ciclo.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                            <td class="px-4 py-3 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ ciclo.clave }}</td>
-                            <td class="px-4 py-3 font-medium">{{ ciclo.nombre }}</td>
-                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">
-                                <span v-if="ciclo.campus.length === 0">Todos (global)</span>
+                        <tr v-for="ciclo in ciclos.data" :key="ciclo.id" class="fila-nueva border-t transition-colors" :style="{ borderColor: 'var(--color-borde)' }">
+                            <!-- Ciclo: nombre + clave + situación -->
+                            <td class="px-6 py-4">
+                                <span class="block font-semibold text-contenido">{{ ciclo.nombre }}</span>
+                                <span class="mt-1 block font-mono text-[11px]" :style="{ color: 'var(--color-suave)' }">
+                                    {{ ciclo.clave }}<template v-if="ciclo.situacion"> · {{ ciclo.situacion }}</template>
+                                </span>
+                            </td>
+                            <td class="px-4 py-4">
+                                <span v-if="ciclo.campus.length === 0" class="text-xs" :style="{ color: 'var(--color-suave)' }">Todos (global)</span>
                                 <span v-else class="flex flex-wrap gap-1">
                                     <span
                                         v-for="nombre in ciclo.campus"
                                         :key="nombre"
-                                        class="rounded-full px-2 py-0.5 text-xs"
-                                        :style="{ backgroundColor: 'var(--color-borde)' }"
-                                    >
-                                        {{ nombre }}
-                                    </span>
+                                        class="rounded-full px-2 py-0.5 text-[11px]"
+                                        :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 10%, transparent)', color: 'var(--color-acento)' }"
+                                    >{{ nombre }}</span>
                                 </span>
                             </td>
-                            <td class="px-4 py-3 text-xs" :style="{ color: 'var(--color-suave)' }">
+                            <td class="px-4 py-4 text-xs tabular-nums" :style="{ color: 'var(--color-suave)' }">
                                 {{ ciclo.fecha_inicio }} → {{ ciclo.fecha_fin }}
                             </td>
-                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ ciclo.situacion }}</td>
-                            <td class="px-4 py-3">
-                                <span
-                                    class="rounded-full px-2 py-1 text-xs"
-                                    :style="ciclo.inscripcion_abierta
-                                        ? { backgroundColor: 'color-mix(in srgb, #16a34a 16%, transparent)' }
-                                        : { backgroundColor: 'var(--color-borde)', color: 'var(--color-suave)' }"
-                                >
-                                    {{ ciclo.inscripcion_abierta ? 'Abierta' : 'Cerrada' }}
-                                </span>
+                            <td class="px-4 py-4 text-center tabular-nums" :style="{ color: 'var(--color-suave)' }">{{ ciclo.grupos_count }}</td>
+                            <td class="px-4 py-4">
+                                <PildoraEstado :texto="ciclo.inscripcion_abierta ? 'Abierta' : 'Cerrada'" :color="ciclo.inscripcion_abierta ? '#16a34a' : 'var(--color-suave)'" />
                             </td>
-                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ ciclo.grupos_count }}</td>
-                            <td class="px-4 py-3">
+                            <td class="px-6 py-4">
                                 <div class="flex justify-end gap-1">
                                     <BotonAccion variante="ver" texto="Captura" :href="`/escolar/ciclos/${ciclo.id}/ventanas`" />
                                     <BotonAccion v-if="puedeEditar" variante="editar" solo-icono :href="`/escolar/ciclos/${ciclo.id}/edit`" />
@@ -177,3 +183,9 @@ function eliminar(id: number, clave: string): void {
         </div>
     </AppLayout>
 </template>
+
+<style scoped>
+.fila-nueva:hover {
+    background-color: color-mix(in srgb, var(--color-acento) 5%, transparent);
+}
+</style>

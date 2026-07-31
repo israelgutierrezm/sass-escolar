@@ -6,7 +6,11 @@ import NavEscolar from '@/Components/NavEscolar.vue';
 import BarraListado from '@/Components/BarraListado.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import Paginacion from '@/Components/Paginacion.vue';
+import PildoraEstado from '@/Components/PildoraEstado.vue';
 import TarjetaRegistro from '@/Components/TarjetaRegistro.vue';
+
+const ICONO_GRUPO =
+    'M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z';
 
 interface FilaGrupo {
     id: number;
@@ -73,7 +77,16 @@ function eliminar(id: number, clave: string): void {
             :puede-crear="puedeEditar"
             nuevo-texto="Nuevo grupo"
             nuevo-href="/escolar/grupos/create"
-        />
+            titulo="Grupos"
+            descripcion="Grupos abiertos por ciclo y campus"
+            :icono="ICONO_GRUPO"
+        >
+            <template #conteo>
+                <span class="rounded-full px-3 py-1 text-xs font-medium" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }">
+                    {{ grupos.total }} en total
+                </span>
+            </template>
+        </BarraListado>
 
         <!-- Cuadrícula -->
         <template v-if="vista === 'cuadricula'">
@@ -113,53 +126,44 @@ function eliminar(id: number, clave: string): void {
         <section v-else class="tarjeta overflow-hidden">
             <div class="overflow-x-auto">
                 <table v-if="grupos.data.length" class="w-full text-sm">
-                    <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                        <tr>
-                            <th class="px-6 py-3 font-medium">Clave</th>
-                            <th class="px-4 py-3 font-medium">Ciclo</th>
-                            <th class="px-4 py-3 font-medium">Campus</th>
-                            <th class="px-4 py-3 font-medium">Plan</th>
-                            <th class="px-4 py-3 font-medium">Turno</th>
-                            <th class="px-4 py-3 font-medium">Cupo</th>
-                            <th class="px-4 py-3 font-medium">Materias</th>
-                            <th class="px-4 py-3 font-medium">Situación</th>
-                            <th class="px-6 py-3 font-medium text-right">Acciones</th>
+                    <thead>
+                        <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
+                            <th class="px-6 py-3 font-semibold">Grupo</th>
+                            <th class="px-4 py-3 font-semibold">Ciclo</th>
+                            <th class="px-4 py-3 font-semibold">Campus</th>
+                            <th class="px-4 py-3 font-semibold">Plan</th>
+                            <th class="px-4 py-3 font-semibold">Turno</th>
+                            <th class="px-4 py-3 font-semibold text-center">Cupo</th>
+                            <th class="px-4 py-3 font-semibold text-center">Materias</th>
+                            <th class="px-4 py-3 font-semibold">Situación</th>
+                            <th class="px-6 py-3 font-semibold text-right">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr
                             v-for="grupo in grupos.data"
                             :key="grupo.id"
-                            class="border-t"
+                            class="fila-nueva border-t transition-colors"
                             :style="{ borderColor: 'var(--color-borde)' }"
                         >
-                            <td class="px-6 py-3">
-                                <a
-                                    :href="`/escolar/grupos/${grupo.id}`"
-                                    class="font-mono text-xs font-medium"
-                                    :style="{ color: 'var(--color-acento)' }"
-                                >
-                                    {{ grupo.clave }}
-                                </a>
-                                <span v-if="grupo.nombre" class="block text-xs" :style="{ color: 'var(--color-suave)' }">
-                                    {{ grupo.nombre }}
-                                </span>
+                            <!-- Grupo: clave + nombre -->
+                            <td class="px-6 py-4">
+                                <a :href="`/escolar/grupos/${grupo.id}`" class="block font-mono text-xs font-semibold" :style="{ color: 'var(--color-acento)' }">{{ grupo.clave }}</a>
+                                <span v-if="grupo.nombre" class="mt-0.5 block text-[11px]" :style="{ color: 'var(--color-suave)' }">{{ grupo.nombre }}</span>
                             </td>
-                            <td class="px-4 py-3 font-mono text-xs">{{ grupo.ciclo }}</td>
-                            <td class="px-4 py-3">{{ grupo.campus }}</td>
-                            <td class="px-4 py-3">{{ grupo.plan ?? 'Sin plan fijo' }}</td>
-                            <td class="px-4 py-3">{{ grupo.turno ?? '—' }}</td>
-                            <td class="px-4 py-3">{{ grupo.cupo ?? '—' }}</td>
-                            <td class="px-4 py-3">{{ grupo.materias_count }}</td>
-                            <td class="px-4 py-3">
-                                <span
-                                    class="rounded-full px-2 py-0.5 text-xs"
-                                    style="background-color: color-mix(in srgb, currentColor 10%, transparent)"
-                                >
-                                    {{ grupo.situacion }}
-                                </span>
+                            <td class="px-4 py-4 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ grupo.ciclo }}</td>
+                            <td class="px-4 py-4" :style="{ color: 'var(--color-suave)' }">{{ grupo.campus }}</td>
+                            <td class="px-4 py-4" :style="{ color: 'var(--color-suave)' }">{{ grupo.plan ?? 'Sin plan fijo' }}</td>
+                            <td class="px-4 py-4">
+                                <span v-if="grupo.turno" class="inline-block rounded-full px-2.5 py-0.5 text-[11px]" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 10%, transparent)', color: 'var(--color-suave)' }">{{ grupo.turno }}</span>
+                                <span v-else :style="{ color: 'var(--color-suave)' }">—</span>
                             </td>
-                            <td class="px-6 py-3">
+                            <td class="px-4 py-4 text-center tabular-nums" :style="{ color: 'var(--color-suave)' }">{{ grupo.cupo ?? '—' }}</td>
+                            <td class="px-4 py-4 text-center tabular-nums" :style="{ color: 'var(--color-suave)' }">{{ grupo.materias_count }}</td>
+                            <td class="px-4 py-4">
+                                <PildoraEstado :texto="grupo.situacion" />
+                            </td>
+                            <td class="px-6 py-4">
                                 <div class="flex items-center justify-end gap-1">
                                     <BotonAccion variante="ver" texto="Abrir" :href="`/escolar/grupos/${grupo.id}`" />
                                     <template v-if="puedeEditar">
@@ -185,3 +189,9 @@ function eliminar(id: number, clave: string): void {
         </section>
     </AppLayout>
 </template>
+
+<style scoped>
+.fila-nueva:hover {
+    background-color: color-mix(in srgb, var(--color-acento) 5%, transparent);
+}
+</style>

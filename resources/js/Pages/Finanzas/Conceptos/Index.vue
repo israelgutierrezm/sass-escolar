@@ -131,30 +131,35 @@ const objImp = (clave: string | null) =>
         <div class="tarjeta overflow-hidden">
             <div class="overflow-x-auto">
                 <table v-if="conceptos.length" class="w-full text-sm">
-                    <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                        <tr>
-                            <th class="px-4 py-3 font-medium">Concepto</th>
-                            <th class="px-4 py-3 font-medium">Clave SAT</th>
-                            <th class="px-4 py-3 font-medium">Unidad</th>
-                            <th class="px-4 py-3 font-medium">Objeto de impuesto</th>
-                            <th class="px-4 py-3 font-medium">IVA</th>
-                            <th class="px-4 py-3 font-medium text-right">Acciones</th>
+                    <thead>
+                        <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
+                            <th class="px-6 py-3 font-semibold">Concepto</th>
+                            <th class="px-4 py-3 font-semibold">Clave SAT</th>
+                            <th class="px-4 py-3 font-semibold">Unidad</th>
+                            <th class="px-4 py-3 font-semibold">Objeto de impuesto</th>
+                            <th class="px-4 py-3 font-semibold">IVA</th>
+                            <th class="px-6 py-3 font-semibold text-right">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         <template v-for="c in conceptos" :key="c.id">
-                            <tr class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                                <td class="px-4 py-3">
-                                    <span class="font-medium">{{ c.nombre }}</span>
-                                    <span class="block font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ c.clave }}</span>
+                            <tr class="fila-nueva border-t transition-colors" :style="{ borderColor: 'var(--color-borde)' }">
+                                <td class="px-6 py-4">
+                                    <span class="block font-semibold text-contenido">{{ c.nombre }}</span>
+                                    <span class="mt-0.5 block font-mono text-[11px]" :style="{ color: 'var(--color-suave)' }">{{ c.clave }}</span>
                                 </td>
-                                <td class="px-4 py-3 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ c.clave_sat ?? '—' }}</td>
-                                <td class="px-4 py-3 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ c.clave_unidad_sat ?? '—' }}</td>
-                                <td class="px-4 py-3 text-xs">{{ objImp(c.objeto_impuesto) }}</td>
-                                <td class="px-4 py-3 text-xs" :style="{ color: 'var(--color-suave)' }">
-                                    {{ c.gravado ? `${Math.round(Number(c.tasa_iva ?? 0) * 100)}%` : 'Exento' }}
+                                <td class="px-4 py-4 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ c.clave_sat ?? '—' }}</td>
+                                <td class="px-4 py-4 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ c.clave_unidad_sat ?? '—' }}</td>
+                                <td class="px-4 py-4 text-xs">{{ objImp(c.objeto_impuesto) }}</td>
+                                <td class="px-4 py-4">
+                                    <span
+                                        class="inline-block rounded-full px-2.5 py-0.5 text-[11px] font-medium"
+                                        :style="c.gravado
+                                            ? { backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }
+                                            : { backgroundColor: 'color-mix(in srgb, var(--color-suave) 10%, transparent)', color: 'var(--color-suave)' }"
+                                    >{{ c.gravado ? `IVA ${Math.round(Number(c.tasa_iva ?? 0) * 100)}%` : 'Exento' }}</span>
                                 </td>
-                                <td class="px-4 py-3">
+                                <td class="px-6 py-4">
                                     <div class="flex items-center justify-end gap-1">
                                         <BotonAccion :variante="editando === c.id ? 'cerrar' : 'editar'" @click="abrirEdicion(c)" />
                                         <BotonAccion v-if="!c.en_uso" variante="eliminar" @click="eliminar(c)" />
@@ -204,3 +209,9 @@ const objImp = (clave: string | null) =>
         </div>
     </AppLayout>
 </template>
+
+<style scoped>
+.fila-nueva:hover {
+    background-color: color-mix(in srgb, var(--color-acento) 5%, transparent);
+}
+</style>

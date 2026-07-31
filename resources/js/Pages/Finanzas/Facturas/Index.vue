@@ -5,6 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BarraListado from '@/Components/BarraListado.vue';
 import Paginacion from '@/Components/Paginacion.vue';
+import PildoraEstado from '@/Components/PildoraEstado.vue';
 import TarjetaListado from '@/Components/TarjetaListado.vue';
 
 interface Fila {
@@ -46,6 +47,18 @@ const colorEstatus: Record<string, string> = {
     error: 'text-red-700 bg-red-50',
     cancelada: 'text-violet-700 bg-violet-50',
 };
+
+// Color SÓLIDO por estatus para la PildoraEstado de la tabla.
+const colorEstatusSolido: Record<string, string> = {
+    borrador: 'var(--color-suave)',
+    timbrando: '#2563eb',
+    timbrada: '#16a34a',
+    error: '#dc2626',
+    cancelada: '#7c3aed',
+};
+
+const ICONO_FACTURA =
+    'M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25Z';
 </script>
 
 <template>
@@ -65,7 +78,16 @@ const colorEstatus: Record<string, string> = {
             sin-buscador
             :valores="filtros"
             :filtros="definicionFiltros"
-        />
+            titulo="Facturas"
+            descripcion="CFDI emitidos"
+            :icono="ICONO_FACTURA"
+        >
+            <template #conteo>
+                <span class="rounded-full px-3 py-1 text-xs font-medium" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }">
+                    {{ facturas.total }} en total
+                </span>
+            </template>
+        </BarraListado>
 
         <!-- Cuadrícula -->
         <template v-if="vista === 'cuadricula'">
@@ -104,42 +126,36 @@ const colorEstatus: Record<string, string> = {
         <section v-else class="tarjeta overflow-hidden">
             <div class="overflow-x-auto">
                 <table v-if="facturas.data.length" class="w-full text-sm">
-                    <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                        <tr>
-                            <th class="px-6 py-3 font-medium">Folio fiscal</th>
-                            <th class="px-4 py-3 font-medium">Receptor</th>
-                            <th class="px-4 py-3 font-medium">Alumno</th>
-                            <th class="px-4 py-3 text-right font-medium">Total</th>
-                            <th class="px-4 py-3 font-medium">Timbrado</th>
-                            <th class="px-4 py-3 font-medium">Estatus</th>
-                            <th class="px-6 py-3 font-medium text-right">Acciones</th>
+                    <thead>
+                        <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
+                            <th class="px-6 py-3 font-semibold">Receptor</th>
+                            <th class="px-4 py-3 font-semibold">Alumno</th>
+                            <th class="px-4 py-3 font-semibold">Folio fiscal</th>
+                            <th class="px-4 py-3 text-right font-semibold">Total</th>
+                            <th class="px-4 py-3 font-semibold">Estatus</th>
+                            <th class="px-6 py-3 font-semibold text-right">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="f in facturas.data" :key="f.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                            <td class="px-6 py-3 font-mono text-xs">
-                                {{ f.uuid ?? '—' }}
+                        <tr v-for="f in facturas.data" :key="f.id" class="fila-nueva border-t transition-colors" :style="{ borderColor: 'var(--color-borde)' }">
+                            <!-- Receptor -->
+                            <td class="px-6 py-4">
+                                <span class="block font-semibold text-contenido">{{ f.receptor_razon_social }}</span>
+                                <span class="mt-0.5 block font-mono text-[11px]" :style="{ color: 'var(--color-suave)' }">{{ f.receptor_rfc }}</span>
                             </td>
-                            <td class="px-4 py-3">
-                                <span class="font-medium">{{ f.receptor_razon_social }}</span>
-                                <span class="block font-mono text-xs" :style="{ color: 'var(--color-suave)' }">
-                                    {{ f.receptor_rfc }}
-                                </span>
-                            </td>
-                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">
+                            <td class="px-4 py-4" :style="{ color: 'var(--color-suave)' }">
                                 {{ f.alumno ?? '—' }}
-                                <span v-if="f.matricula" class="block font-mono text-xs">{{ f.matricula }}</span>
+                                <span v-if="f.matricula" class="block font-mono text-[11px]">{{ f.matricula }}</span>
                             </td>
-                            <td class="px-4 py-3 text-right font-medium tabular-nums">{{ pesos.format(f.total) }}</td>
-                            <td class="px-4 py-3 tabular-nums" :style="{ color: 'var(--color-suave)' }">
-                                {{ f.fecha_timbrado ?? '—' }}
+                            <td class="px-4 py-4 font-mono text-[11px]" :style="{ color: 'var(--color-suave)' }">
+                                {{ f.uuid ?? '—' }}
+                                <span v-if="f.fecha_timbrado" class="mt-0.5 block tabular-nums">{{ f.fecha_timbrado }}</span>
                             </td>
-                            <td class="px-4 py-3">
-                                <span class="rounded px-2 py-0.5 text-xs font-medium" :class="colorEstatus[f.estatus] ?? ''">
-                                    {{ f.estatus }}
-                                </span>
+                            <td class="px-4 py-4 text-right font-semibold tabular-nums">{{ pesos.format(f.total) }}</td>
+                            <td class="px-4 py-4">
+                                <PildoraEstado :texto="f.estatus" :color="colorEstatusSolido[f.estatus] ?? 'var(--color-suave)'" />
                             </td>
-                            <td class="px-6 py-3">
+                            <td class="px-6 py-4">
                                 <div class="flex justify-end">
                                     <BotonAccion variante="ver" solo-icono :href="`/finanzas/facturas/${f.id}`" />
                                 </div>
@@ -157,3 +173,9 @@ const colorEstatus: Record<string, string> = {
         </section>
     </AppLayout>
 </template>
+
+<style scoped>
+.fila-nueva:hover {
+    background-color: color-mix(in srgb, var(--color-acento) 5%, transparent);
+}
+</style>

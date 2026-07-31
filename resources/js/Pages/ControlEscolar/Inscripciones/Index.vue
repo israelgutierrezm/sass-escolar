@@ -4,6 +4,7 @@ import { ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavEscolar from '@/Components/NavEscolar.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
+import PildoraEstado from '@/Components/PildoraEstado.vue';
 
 interface Disponible {
     id: number;
@@ -141,43 +142,44 @@ function darDeBaja(id: number): void {
                 </div>
 
                 <table v-if="inscritas.length" class="w-full text-sm">
-                    <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                        <tr>
-                            <th class="px-6 py-3 font-medium">Clave</th>
-                            <th class="px-4 py-3 font-medium">Materia</th>
-                            <th class="px-4 py-3 font-medium">Grupo</th>
-                            <th class="px-4 py-3 font-medium">Tipo</th>
-                            <th class="px-4 py-3 font-medium">Situación</th>
-                            <th class="px-4 py-3 font-medium">Calif.</th>
-                            <th class="px-6 py-3 font-medium text-right">Acciones</th>
+                    <thead>
+                        <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
+                            <th class="px-6 py-3 font-semibold">Materia</th>
+                            <th class="px-4 py-3 font-semibold">Grupo</th>
+                            <th class="px-4 py-3 font-semibold">Tipo</th>
+                            <th class="px-4 py-3 font-semibold">Situación</th>
+                            <th class="px-4 py-3 font-semibold text-center">Calif.</th>
+                            <th class="px-6 py-3 font-semibold text-right">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr
                             v-for="inscripcion in inscritas"
                             :key="inscripcion.id"
-                            class="border-t transition"
+                            class="fila-nueva border-t transition-colors"
                             :style="{ borderColor: 'var(--color-borde)' }"
                         >
-                            <td class="px-6 py-3 font-mono text-xs">{{ inscripcion.clave_en_plan }}</td>
-                            <td class="px-4 py-3 font-medium">{{ inscripcion.materia }}</td>
-                            <td class="px-4 py-3">{{ inscripcion.grupo }}</td>
-                            <td class="px-4 py-3">
+                            <!-- Materia: nombre + clave -->
+                            <td class="px-6 py-4">
+                                <span class="block font-semibold text-contenido">{{ inscripcion.materia }}</span>
+                                <span class="mt-0.5 block font-mono text-[11px]" :style="{ color: 'var(--color-suave)' }">{{ inscripcion.clave_en_plan }}</span>
+                            </td>
+                            <td class="px-4 py-4" :style="{ color: 'var(--color-suave)' }">{{ inscripcion.grupo }}</td>
+                            <td class="px-4 py-4">
                                 <span
-                                    class="rounded-full px-2 py-0.5 text-xs"
-                                    :style="{
-                                        backgroundColor:
-                                            inscripcion.tipo === 'recursamiento'
-                                                ? 'color-mix(in srgb, #f59e0b 18%, transparent)'
-                                                : 'color-mix(in srgb, var(--color-acento) 12%, transparent)',
-                                    }"
+                                    class="rounded-full px-2.5 py-0.5 text-[11px] font-medium"
+                                    :style="inscripcion.tipo === 'recursamiento'
+                                        ? { backgroundColor: 'color-mix(in srgb, #f59e0b 18%, transparent)', color: '#b45309' }
+                                        : { backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }"
                                 >
                                     {{ inscripcion.tipo_evaluacion ?? inscripcion.tipo }}
                                 </span>
                             </td>
-                            <td class="px-4 py-3">{{ inscripcion.situacion }}</td>
-                            <td class="px-4 py-3">{{ inscripcion.calificacion_final ?? '—' }}</td>
-                            <td class="px-6 py-3 text-right">
+                            <td class="px-4 py-4">
+                                <PildoraEstado :texto="inscripcion.situacion" :color="inscripcion.situacion === 'Baja' ? '#dc2626' : '#16a34a'" />
+                            </td>
+                            <td class="px-4 py-4 text-center tabular-nums font-medium">{{ inscripcion.calificacion_final ?? '—' }}</td>
+                            <td class="px-6 py-4 text-right">
                                 <button
                                     v-if="puedeInscribir && inscripcion.situacion !== 'Baja'"
                                     type="button"
@@ -278,3 +280,9 @@ function darDeBaja(id: number): void {
         </template>
     </AppLayout>
 </template>
+
+<style scoped>
+.fila-nueva:hover {
+    background-color: color-mix(in srgb, var(--color-acento) 5%, transparent);
+}
+</style>

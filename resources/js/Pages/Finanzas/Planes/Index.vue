@@ -6,6 +6,7 @@ import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
+import PildoraEstado from '@/Components/PildoraEstado.vue';
 
 interface Plan {
     id: number;
@@ -142,49 +143,70 @@ const etiquetaTipo: Record<string, string> = {
         </section>
 
         <section class="tarjeta overflow-hidden">
-            <table v-if="planes.length" class="w-full text-sm">
-                <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                    <tr>
-                        <th class="px-6 py-3 font-medium">Plan</th>
-                        <th class="px-4 py-3 font-medium">Aplica a</th>
-                        <th class="px-4 py-3 font-medium">Vigencia</th>
-                        <th class="px-4 py-3 font-medium">Reglas</th>
-                        <th class="px-6 py-3 font-medium text-right">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="plan in planes" :key="plan.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                        <td class="px-6 py-3">
-                            <span class="font-medium">{{ plan.nombre }}</span>
-                            <span v-if="!plan.vigente" class="ml-2 text-xs" :style="{ color: 'var(--color-suave)' }">
-                                (fuera de vigencia)
-                            </span>
-                        </td>
-                        <td class="px-4 py-3">
-                            {{ plan.destinatario }}
-                            <span class="block text-xs" :style="{ color: 'var(--color-suave)' }">
-                                {{ etiquetaTipo[plan.aplica_a_tipo] ?? plan.aplica_a_tipo }}
-                            </span>
-                        </td>
-                        <td class="px-4 py-3 tabular-nums" :style="{ color: 'var(--color-suave)' }">
-                            {{ plan.vigente_desde }} → {{ plan.vigente_hasta ?? 'sin fin' }}
-                        </td>
-                        <td class="px-4 py-3">
-                            {{ plan.reglas_count }}
-                            <span v-if="plan.reglas_count === 0" class="text-xs text-amber-700">— no cobra nada</span>
-                        </td>
-                        <td class="px-6 py-3 text-right">
-                            <a :href="`/finanzas/planes/${plan.id}`" class="text-sm font-medium" :style="{ color: 'var(--color-acento)' }">
-                                Configurar
-                            </a>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+            <div class="overflow-x-auto">
+                <table v-if="planes.length" class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
+                            <th class="px-6 py-3 font-semibold">Plan</th>
+                            <th class="px-4 py-3 font-semibold">Aplica a</th>
+                            <th class="px-4 py-3 font-semibold">Vigencia</th>
+                            <th class="px-4 py-3 font-semibold text-center">Reglas</th>
+                            <th class="px-4 py-3 font-semibold">Estado</th>
+                            <th class="px-6 py-3 font-semibold text-right">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="plan in planes" :key="plan.id" class="fila-nueva border-t transition-colors" :style="{ borderColor: 'var(--color-borde)' }">
+                            <td class="px-6 py-4 font-semibold text-contenido">{{ plan.nombre }}</td>
+                            <td class="px-4 py-4">
+                                <span class="text-contenido">{{ plan.destinatario }}</span>
+                                <span class="mt-0.5 block text-[11px]" :style="{ color: 'var(--color-suave)' }">
+                                    {{ etiquetaTipo[plan.aplica_a_tipo] ?? plan.aplica_a_tipo }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-4 tabular-nums text-xs" :style="{ color: 'var(--color-suave)' }">
+                                {{ plan.vigente_desde }} → {{ plan.vigente_hasta ?? 'sin fin' }}
+                            </td>
+                            <td class="px-4 py-4 text-center">
+                                <span
+                                    class="inline-grid h-7 min-w-7 place-items-center rounded-full px-2 text-xs font-semibold"
+                                    :style="plan.reglas_count === 0
+                                        ? { backgroundColor: 'color-mix(in srgb, #f59e0b 18%, transparent)', color: '#b45309' }
+                                        : { backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)' }"
+                                    :title="plan.reglas_count === 0 ? 'Sin reglas: no cobra nada' : ''"
+                                >{{ plan.reglas_count }}</span>
+                            </td>
+                            <td class="px-4 py-4">
+                                <PildoraEstado :texto="plan.vigente ? 'Vigente' : 'Fuera de vigencia'" :color="plan.vigente ? '#16a34a' : 'var(--color-suave)'" />
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <a
+                                    :href="`/finanzas/planes/${plan.id}`"
+                                    class="btn-ficha inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors"
+                                    :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-acento)' }"
+                                >
+                                    Configurar
+                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+                                </a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
 
-            <p v-else class="px-6 py-10 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
-                Todavía no hay planes de cobro. Sin al menos uno, generar cargos no produce nada.
-            </p>
+                <p v-else class="px-6 py-10 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
+                    Todavía no hay planes de cobro. Sin al menos uno, generar cargos no produce nada.
+                </p>
+            </div>
         </section>
     </AppLayout>
 </template>
+
+<style scoped>
+.fila-nueva:hover {
+    background-color: color-mix(in srgb, var(--color-acento) 5%, transparent);
+}
+.fila-nueva:hover .btn-ficha {
+    border-color: transparent;
+    background-color: color-mix(in srgb, var(--color-acento) 12%, transparent);
+}
+</style>
