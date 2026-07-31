@@ -78,60 +78,69 @@ function crear(): void {
         </section>
 
         <section class="tarjeta overflow-hidden">
-            <table v-if="plantillas.length" class="w-full text-sm">
-                <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                    <tr>
-                        <th class="px-6 py-3 font-medium">Clave</th>
-                        <th class="px-4 py-3 font-medium">Nombre</th>
-                        <th class="px-4 py-3 font-medium">Rubros</th>
-                        <th class="px-4 py-3 font-medium">Parciales</th>
-                        <th class="px-4 py-3 font-medium">Suma</th>
-                        <th class="px-4 py-3 font-medium">En uso</th>
-                        <th class="px-6 py-3 font-medium text-right">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr
-                        v-for="plantilla in plantillas"
-                        :key="plantilla.id"
-                        class="border-t"
-                        :style="{ borderColor: 'var(--color-borde)' }"
-                    >
-                        <td class="px-6 py-3 font-mono text-xs">{{ plantilla.clave }}</td>
-                        <td class="px-4 py-3">
-                            <span class="font-medium">{{ plantilla.nombre }}</span>
-                            <span v-if="!plantilla.activa" class="ml-2 text-xs" :style="{ color: 'var(--color-suave)' }">
-                                (inactiva)
-                            </span>
-                            <p v-if="plantilla.descripcion" class="mt-0.5 text-xs" :style="{ color: 'var(--color-suave)' }">
-                                {{ plantilla.descripcion }}
-                            </p>
-                        </td>
-                        <td class="px-4 py-3">{{ plantilla.componentes }}</td>
-                        <td class="px-4 py-3">
-                            {{ plantilla.parciales === 0 ? 'sin cortes' : plantilla.parciales }}
-                        </td>
-                        <td class="px-4 py-3">
-                            <span :class="plantilla.completa ? 'text-green-600' : 'text-amber-600'">
-                                {{ plantilla.suma }}%
-                            </span>
-                        </td>
-                        <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">
-                            {{ plantilla.materias_count }} materias
-                            <span v-if="plantilla.planes_count"> · {{ plantilla.planes_count }} planes</span>
-                        </td>
-                        <td class="px-6 py-3">
-                            <div class="flex justify-end">
-                                <BotonAccion variante="ver" solo-icono texto="Abrir" :href="`/academico/plantillas/${plantilla.id}`" />
-                            </div>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+            <div class="overflow-x-auto">
+                <table v-if="plantillas.length" class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
+                            <th class="px-6 py-3 font-semibold">Plantilla</th>
+                            <th class="px-4 py-3 font-semibold text-center">Rubros</th>
+                            <th class="px-4 py-3 font-semibold text-center">Parciales</th>
+                            <th class="px-4 py-3 font-semibold text-center">Suma</th>
+                            <th class="px-4 py-3 font-semibold">En uso</th>
+                            <th class="px-6 py-3 font-semibold text-right">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr
+                            v-for="plantilla in plantillas"
+                            :key="plantilla.id"
+                            class="fila-nueva border-t transition-colors"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                        >
+                            <!-- Plantilla: nombre + clave + descripción -->
+                            <td class="px-6 py-4">
+                                <span class="flex items-center gap-2">
+                                    <span class="font-semibold text-contenido">{{ plantilla.nombre }}</span>
+                                    <span v-if="!plantilla.activa" class="rounded-full px-2 py-0.5 text-[11px] font-medium" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)', color: 'var(--color-suave)' }">Inactiva</span>
+                                </span>
+                                <span class="mt-1 block font-mono text-[11px]" :style="{ color: 'var(--color-suave)' }">{{ plantilla.clave }}</span>
+                                <p v-if="plantilla.descripcion" class="mt-0.5 text-[11px]" :style="{ color: 'var(--color-suave)' }">{{ plantilla.descripcion }}</p>
+                            </td>
+                            <td class="px-4 py-4 text-center tabular-nums">{{ plantilla.componentes }}</td>
+                            <td class="px-4 py-4 text-center" :style="{ color: 'var(--color-suave)' }">
+                                {{ plantilla.parciales === 0 ? 'sin cortes' : plantilla.parciales }}
+                            </td>
+                            <td class="px-4 py-4 text-center">
+                                <span
+                                    class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium tabular-nums"
+                                    :style="{ color: plantilla.completa ? '#16a34a' : '#d97706', backgroundColor: `color-mix(in srgb, ${plantilla.completa ? '#16a34a' : '#d97706'} 14%, transparent)` }"
+                                >
+                                    {{ plantilla.suma }}%
+                                </span>
+                            </td>
+                            <td class="px-4 py-4 text-xs" :style="{ color: 'var(--color-suave)' }">
+                                {{ plantilla.materias_count }} materias
+                                <span v-if="plantilla.planes_count"> · {{ plantilla.planes_count }} planes</span>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex justify-end">
+                                    <BotonAccion variante="ver" solo-icono texto="Abrir" :href="`/academico/plantillas/${plantilla.id}`" />
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
 
-            <p v-else class="px-6 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
-                Todavía no hay plantillas.
-            </p>
+                <p v-else class="px-6 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
+                    Todavía no hay plantillas.
+                </p>
+            </div>
         </section>
     </AppLayout>
 </template>
+
+<style scoped>
+.fila-nueva:hover {
+    background-color: color-mix(in srgb, var(--color-acento) 5%, transparent);
+}
+</style>

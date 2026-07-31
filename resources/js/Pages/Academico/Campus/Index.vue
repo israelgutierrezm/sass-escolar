@@ -35,6 +35,9 @@ const props = defineProps<{
 
 const vista = ref<'lista' | 'cuadricula'>('lista');
 
+const ICONO_CAMPUS =
+    'M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Z';
+
 const definicionFiltros = computed(() => [
     { clave: 'institucion_id', etiqueta: 'Institución', opciones: props.instituciones.map((i) => ({ valor: i.id, texto: i.nombre })) },
     { clave: 'tipo_campus_id', etiqueta: 'Tipo de campus', opciones: props.tiposCampus.map((t) => ({ valor: t.id, texto: t.nombre })) },
@@ -72,7 +75,16 @@ function eliminar(id: number, nombre: string): void {
             :puede-crear="puedeEditar"
             nuevo-texto="Nuevo campus"
             nuevo-href="/academico/campus/create"
-        />
+            titulo="Campus"
+            descripcion="Sedes de la institución"
+            :icono="ICONO_CAMPUS"
+        >
+            <template #conteo>
+                <span class="rounded-full px-3 py-1 text-xs font-medium" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }">
+                    {{ campus.total }} en total
+                </span>
+            </template>
+        </BarraListado>
 
         <!-- Cuadrícula -->
         <template v-if="vista === 'cuadricula'">
@@ -114,35 +126,40 @@ function eliminar(id: number, nombre: string): void {
         <div v-else class="tarjeta overflow-hidden">
             <div class="overflow-x-auto">
                 <table v-if="!vacio" class="w-full text-sm">
-                    <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                        <tr>
-                            <th class="px-4 py-3 font-medium">Clave</th>
-                            <th class="px-4 py-3 font-medium">Nombre</th>
-                            <th class="px-4 py-3 font-medium">Institución</th>
-                            <th class="px-4 py-3 font-medium">Tipo</th>
-                            <th class="px-4 py-3 font-medium">Entidad</th>
-                            <th class="px-4 py-3 font-medium">Oferta</th>
-                            <th class="px-4 py-3 font-medium text-right">Acciones</th>
+                    <thead>
+                        <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
+                            <th class="px-6 py-3 font-semibold">Campus</th>
+                            <th class="px-4 py-3 font-semibold">Institución</th>
+                            <th class="px-4 py-3 font-semibold">Tipo</th>
+                            <th class="px-4 py-3 font-semibold">Entidad</th>
+                            <th class="px-4 py-3 font-semibold text-center">Oferta</th>
+                            <th class="px-6 py-3 font-semibold text-right">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="sede in campus.data" :key="sede.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                            <td class="px-4 py-3 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ sede.clave }}</td>
-                            <td class="px-4 py-3">
-                                <span class="font-medium">{{ sede.nombre }}</span>
-                                <span
-                                    v-if="sede.online"
-                                    class="ml-2 rounded px-1.5 py-0.5 text-xs"
-                                    style="background-color: color-mix(in srgb, #0ea5e9 16%, transparent)"
-                                >
-                                    En línea
+                        <tr v-for="sede in campus.data" :key="sede.id" class="fila-nueva border-t transition-colors" :style="{ borderColor: 'var(--color-borde)' }">
+                            <!-- Campus: nombre + clave + En línea -->
+                            <td class="px-6 py-4">
+                                <span class="flex items-center gap-2">
+                                    <span class="font-semibold text-contenido">{{ sede.nombre }}</span>
+                                    <span
+                                        v-if="sede.online"
+                                        class="rounded-full px-2 py-0.5 text-[11px] font-medium"
+                                        :style="{ backgroundColor: 'color-mix(in srgb, #0ea5e9 16%, transparent)', color: '#0284c7' }"
+                                    >En línea</span>
                                 </span>
+                                <span class="mt-1 block font-mono text-[11px]" :style="{ color: 'var(--color-suave)' }">{{ sede.clave }}</span>
                             </td>
-                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ sede.institucion ?? '—' }}</td>
-                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ sede.tipo ?? '—' }}</td>
-                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ sede.entidad ?? '—' }}</td>
-                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ sede.ofertas_count }}</td>
-                            <td class="px-4 py-3">
+                            <td class="px-4 py-4" :style="{ color: 'var(--color-suave)' }">{{ sede.institucion ?? '—' }}</td>
+                            <td class="px-4 py-4">
+                                <span v-if="sede.tipo" class="inline-block rounded-full px-2.5 py-0.5 text-[11px]" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 10%, transparent)', color: 'var(--color-suave)' }">{{ sede.tipo }}</span>
+                                <span v-else :style="{ color: 'var(--color-suave)' }">—</span>
+                            </td>
+                            <td class="px-4 py-4" :style="{ color: 'var(--color-suave)' }">{{ sede.entidad ?? '—' }}</td>
+                            <td class="px-4 py-4 text-center">
+                                <span class="inline-grid h-7 min-w-7 place-items-center rounded-full px-2 text-xs font-semibold" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)' }">{{ sede.ofertas_count }}</span>
+                            </td>
+                            <td class="px-6 py-4">
                                 <div v-if="puedeEditar" class="flex justify-end gap-1">
                                     <BotonAccion variante="editar" solo-icono :href="`/academico/campus/${sede.id}/edit`" />
                                     <BotonAccion variante="eliminar" solo-icono @click="eliminar(sede.id, sede.nombre)" />
@@ -161,3 +178,9 @@ function eliminar(id: number, nombre: string): void {
         </div>
     </AppLayout>
 </template>
+
+<style scoped>
+.fila-nueva:hover {
+    background-color: color-mix(in srgb, var(--color-acento) 5%, transparent);
+}
+</style>

@@ -7,6 +7,7 @@ import BarraListado from '@/Components/BarraListado.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import TarjetaListado from '@/Components/TarjetaListado.vue';
 import Paginacion from '@/Components/Paginacion.vue';
+import PildoraEstado from '@/Components/PildoraEstado.vue';
 
 interface Oferta {
     id: number;
@@ -34,6 +35,9 @@ const props = defineProps<{
 }>();
 
 const vista = ref<'lista' | 'cuadricula'>('lista');
+
+const ICONO_OFERTA =
+    'M6 6.878V6a2.25 2.25 0 0 1 2.25-2.25h7.5A2.25 2.25 0 0 1 18 6v.878m-12 0c.235-.083.487-.128.75-.128h10.5c.263 0 .515.045.75.128m-12 0A2.25 2.25 0 0 0 4.5 9v.878m13.5-3A2.25 2.25 0 0 1 19.5 9v.878m0 0a2.246 2.246 0 0 0-.75-.128H5.25c-.263 0-.515.045-.75.128m15 0A2.25 2.25 0 0 1 21 12v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6c0-.98.626-1.813 1.5-2.122';
 
 const definicionFiltros = computed(() => [
     { clave: 'campus_id', etiqueta: 'Campus', opciones: props.campus.map((c) => ({ valor: c.id, texto: c.nombre })) },
@@ -80,7 +84,16 @@ function eliminar(id: number): void {
             :puede-crear="puedeEditar"
             nuevo-texto="Nueva oferta"
             nuevo-href="/academico/ofertas/create"
-        />
+            titulo="Oferta educativa"
+            descripcion="Carrera + plan + campus abiertos a matrícula"
+            :icono="ICONO_OFERTA"
+        >
+            <template #conteo>
+                <span class="rounded-full px-3 py-1 text-xs font-medium" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }">
+                    {{ ofertas.total }} en total
+                </span>
+            </template>
+        </BarraListado>
 
         <!-- Cuadrícula -->
         <template v-if="vista === 'cuadricula'">
@@ -127,38 +140,35 @@ function eliminar(id: number): void {
         <div v-else class="tarjeta overflow-hidden">
             <div class="overflow-x-auto">
                 <table v-if="!vacio" class="w-full text-sm">
-                    <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                        <tr>
-                            <th class="px-4 py-3 font-medium">Carrera</th>
-                            <th class="px-4 py-3 font-medium">Plan</th>
-                            <th class="px-4 py-3 font-medium">Campus</th>
-                            <th class="px-4 py-3 font-medium">Modalidad</th>
-                            <th class="px-4 py-3 font-medium">Estatus</th>
-                            <th class="px-4 py-3 font-medium">Alumnos</th>
-                            <th class="px-4 py-3 font-medium text-right">Acciones</th>
+                    <thead>
+                        <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
+                            <th class="px-6 py-3 font-semibold">Carrera / Plan</th>
+                            <th class="px-4 py-3 font-semibold">Campus</th>
+                            <th class="px-4 py-3 font-semibold">Modalidad</th>
+                            <th class="px-4 py-3 font-semibold text-center">Alumnos</th>
+                            <th class="px-4 py-3 font-semibold">Estatus</th>
+                            <th class="px-6 py-3 font-semibold text-right">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="oferta in ofertas.data" :key="oferta.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                            <td class="px-4 py-3 font-medium">{{ oferta.carrera ?? '—' }}</td>
-                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">
-                                {{ oferta.plan ?? '—' }}
-                                <span class="block font-mono text-xs">{{ oferta.plan_clave }}</span>
-                            </td>
-                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ oferta.campus ?? '—' }}</td>
-                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ oferta.modalidad ?? '—' }}</td>
-                            <td class="px-4 py-3">
-                                <span
-                                    class="rounded-full px-2 py-1 text-xs capitalize"
-                                    :style="oferta.estatus === 'abierta'
-                                        ? { backgroundColor: 'color-mix(in srgb, #16a34a 16%, transparent)' }
-                                        : { backgroundColor: 'var(--color-borde)', color: 'var(--color-suave)' }"
-                                >
-                                    {{ oferta.estatus }}
+                        <tr v-for="oferta in ofertas.data" :key="oferta.id" class="fila-nueva border-t transition-colors" :style="{ borderColor: 'var(--color-borde)' }">
+                            <!-- Carrera + plan -->
+                            <td class="px-6 py-4">
+                                <span class="block font-semibold text-contenido">{{ oferta.carrera ?? '—' }}</span>
+                                <span class="mt-1 block text-[11px]" :style="{ color: 'var(--color-suave)' }">
+                                    {{ oferta.plan ?? '—' }}<template v-if="oferta.plan_clave"> · <span class="font-mono">{{ oferta.plan_clave }}</span></template>
                                 </span>
                             </td>
-                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ oferta.matriculas_count }}</td>
-                            <td class="px-4 py-3">
+                            <td class="px-4 py-4" :style="{ color: 'var(--color-suave)' }">{{ oferta.campus ?? '—' }}</td>
+                            <td class="px-4 py-4">
+                                <span v-if="oferta.modalidad" class="inline-block rounded-full px-2.5 py-0.5 text-[11px]" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 10%, transparent)', color: 'var(--color-suave)' }">{{ oferta.modalidad }}</span>
+                                <span v-else :style="{ color: 'var(--color-suave)' }">—</span>
+                            </td>
+                            <td class="px-4 py-4 text-center tabular-nums" :style="{ color: 'var(--color-suave)' }">{{ oferta.matriculas_count }}</td>
+                            <td class="px-4 py-4">
+                                <PildoraEstado :texto="oferta.estatus" :color="oferta.estatus === 'abierta' ? '#16a34a' : 'var(--color-suave)'" />
+                            </td>
+                            <td class="px-6 py-4">
                                 <div v-if="puedeEditar" class="flex justify-end gap-1">
                                     <BotonAccion variante="editar" solo-icono :href="`/academico/ofertas/${oferta.id}/edit`" />
                                     <BotonAccion variante="eliminar" solo-icono @click="eliminar(oferta.id)" />
@@ -177,3 +187,9 @@ function eliminar(id: number): void {
         </div>
     </AppLayout>
 </template>
+
+<style scoped>
+.fila-nueva:hover {
+    background-color: color-mix(in srgb, var(--color-acento) 5%, transparent);
+}
+</style>

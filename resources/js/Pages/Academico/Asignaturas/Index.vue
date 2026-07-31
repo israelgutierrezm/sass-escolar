@@ -47,6 +47,9 @@ const props = defineProps<{
 
 const vista = ref<'lista' | 'cuadricula'>('lista');
 
+const ICONO_ASIGNATURA =
+    'M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25';
+
 const definicionFiltros = computed(() => [
     { clave: 'tipo_asignatura_id', etiqueta: 'Tipo', opciones: props.tiposAsignatura.map((t) => ({ valor: t.id, texto: t.nombre })) },
     { clave: 'clasificacion_id', etiqueta: 'Clasificación', opciones: props.clasificaciones.map((c) => ({ valor: c.id, texto: c.nombre })) },
@@ -80,7 +83,16 @@ function eliminar(id: number, nombre: string): void {
             :puede-crear="puedeEditar"
             nuevo-texto="Nueva asignatura"
             nuevo-href="/academico/asignaturas/create"
-        />
+            titulo="Asignaturas"
+            descripcion="Catálogo de materias"
+            :icono="ICONO_ASIGNATURA"
+        >
+            <template #conteo>
+                <span class="rounded-full px-3 py-1 text-xs font-medium" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }">
+                    {{ asignaturas.total }} en total
+                </span>
+            </template>
+        </BarraListado>
 
         <!-- Cuadrícula -->
         <template v-if="vista === 'cuadricula'">
@@ -129,41 +141,45 @@ function eliminar(id: number, nombre: string): void {
         <div v-else class="tarjeta overflow-hidden">
             <div class="overflow-x-auto">
                 <table v-if="!vacio" class="w-full text-sm">
-                    <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                        <tr>
-                            <th class="px-4 py-3 font-medium">Clave</th>
-                            <th class="px-4 py-3 font-medium">Nombre</th>
-                            <th class="px-4 py-3 font-medium">Tipo</th>
-                            <th class="px-4 py-3 font-medium">Clasificación</th>
-                            <th class="px-4 py-3 font-medium">Créditos</th>
-                            <th class="px-4 py-3 font-medium">Horas</th>
-                            <th class="px-4 py-3 font-medium">Planes</th>
-                            <th class="px-4 py-3 font-medium text-right">Acciones</th>
+                    <thead>
+                        <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
+                            <th class="px-6 py-3 font-semibold">Asignatura</th>
+                            <th class="px-4 py-3 font-semibold">Tipo</th>
+                            <th class="px-4 py-3 font-semibold">Clasificación</th>
+                            <th class="px-4 py-3 font-semibold text-center">Créditos</th>
+                            <th class="px-4 py-3 font-semibold text-center">Horas</th>
+                            <th class="px-4 py-3 font-semibold">Planes</th>
+                            <th class="px-6 py-3 font-semibold text-right">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="asignatura in asignaturas.data" :key="asignatura.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                            <td class="px-4 py-3 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ asignatura.clave }}</td>
-                            <td class="px-4 py-3">
-                                <span class="font-medium">{{ asignatura.nombre }}</span>
-                                <span v-if="asignatura.area" class="block text-xs" :style="{ color: 'var(--color-suave)' }">{{ asignatura.area }}</span>
+                        <tr v-for="asignatura in asignaturas.data" :key="asignatura.id" class="fila-nueva border-t transition-colors" :style="{ borderColor: 'var(--color-borde)' }">
+                            <!-- Asignatura: nombre + clave + área -->
+                            <td class="px-6 py-4">
+                                <span class="block font-semibold text-contenido">{{ asignatura.nombre }}</span>
+                                <span class="mt-1 block font-mono text-[11px]" :style="{ color: 'var(--color-suave)' }">
+                                    {{ asignatura.clave }}<template v-if="asignatura.area"> · {{ asignatura.area }}</template>
+                                </span>
                             </td>
-                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ asignatura.tipo ?? '—' }}</td>
-                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ asignatura.clasificacion ?? '—' }}</td>
-                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ asignatura.creditos }}</td>
-                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ asignatura.horas || '—' }}</td>
-                            <td class="px-4 py-3">
+                            <td class="px-4 py-4">
+                                <span v-if="asignatura.tipo" class="inline-block rounded-full px-2.5 py-0.5 text-[11px]" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 10%, transparent)', color: 'var(--color-suave)' }">{{ asignatura.tipo }}</span>
+                                <span v-else :style="{ color: 'var(--color-suave)' }">—</span>
+                            </td>
+                            <td class="px-4 py-4" :style="{ color: 'var(--color-suave)' }">{{ asignatura.clasificacion ?? '—' }}</td>
+                            <td class="px-4 py-4 text-center tabular-nums">{{ asignatura.creditos }}</td>
+                            <td class="px-4 py-4 text-center tabular-nums" :style="{ color: 'var(--color-suave)' }">{{ asignatura.horas || '—' }}</td>
+                            <td class="px-4 py-4">
                                 <span
-                                    class="rounded-full px-2 py-1 text-xs"
+                                    class="rounded-full px-2 py-0.5 text-[11px]"
                                     :class="{ 'font-mono': asignatura.planes_count === 1 && asignatura.plan_clave }"
                                     :style="asignatura.planes_count
                                         ? { backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }
-                                        : { backgroundColor: 'var(--color-borde)', color: 'var(--color-suave)' }"
+                                        : { backgroundColor: 'color-mix(in srgb, var(--color-suave) 10%, transparent)', color: 'var(--color-suave)' }"
                                 >
                                     {{ etiquetaPlanes(asignatura) }}
                                 </span>
                             </td>
-                            <td class="px-4 py-3">
+                            <td class="px-6 py-4">
                                 <div v-if="puedeEditar" class="flex justify-end gap-1">
                                     <BotonAccion variante="editar" solo-icono :href="`/academico/asignaturas/${asignatura.id}/edit`" />
                                     <BotonAccion variante="eliminar" solo-icono @click="eliminar(asignatura.id, asignatura.nombre)" />
@@ -182,3 +198,9 @@ function eliminar(id: number, nombre: string): void {
         </div>
     </AppLayout>
 </template>
+
+<style scoped>
+.fila-nueva:hover {
+    background-color: color-mix(in srgb, var(--color-acento) 5%, transparent);
+}
+</style>

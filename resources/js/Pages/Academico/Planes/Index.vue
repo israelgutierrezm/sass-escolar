@@ -7,6 +7,7 @@ import BarraListado from '@/Components/BarraListado.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import TarjetaListado from '@/Components/TarjetaListado.vue';
 import Paginacion from '@/Components/Paginacion.vue';
+import PildoraEstado from '@/Components/PildoraEstado.vue';
 
 interface Plan {
     id: number;
@@ -34,6 +35,9 @@ const props = defineProps<{
 }>();
 
 const vista = ref<'lista' | 'cuadricula'>('lista');
+
+const ICONO_PLAN =
+    'M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25Z';
 
 const definicionFiltros = computed(() => [
     { clave: 'carrera_id', etiqueta: 'Carrera', opciones: props.carreras.map((c) => ({ valor: c.id, texto: c.nombre })) },
@@ -79,7 +83,16 @@ function eliminar(id: number, nombre: string): void {
             :puede-crear="puedeEditar"
             nuevo-texto="Nuevo plan"
             nuevo-href="/academico/planes/create"
-        />
+            titulo="Planes de estudio"
+            descripcion="Mallas curriculares por carrera"
+            :icono="ICONO_PLAN"
+        >
+            <template #conteo>
+                <span class="rounded-full px-3 py-1 text-xs font-medium" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }">
+                    {{ planes.total }} en total
+                </span>
+            </template>
+        </BarraListado>
 
         <!-- Cuadrícula -->
         <template v-if="vista === 'cuadricula'">
@@ -123,37 +136,36 @@ function eliminar(id: number, nombre: string): void {
         <div v-else class="tarjeta overflow-hidden">
             <div class="overflow-x-auto">
                 <table v-if="!vacio" class="w-full text-sm">
-                    <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                        <tr>
-                            <th class="px-4 py-3 font-medium">Clave</th>
-                            <th class="px-4 py-3 font-medium">Plan</th>
-                            <th class="px-4 py-3 font-medium">Carrera</th>
-                            <th class="px-4 py-3 font-medium">Periodo</th>
-                            <th class="px-4 py-3 font-medium">RVOE</th>
-                            <th class="px-4 py-3 font-medium">Créditos</th>
-                            <th class="px-4 py-3 font-medium">Materias</th>
-                            <th class="px-4 py-3 font-medium text-right">Acciones</th>
+                    <thead>
+                        <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
+                            <th class="px-6 py-3 font-semibold">Plan</th>
+                            <th class="px-4 py-3 font-semibold">Carrera</th>
+                            <th class="px-4 py-3 font-semibold">RVOE</th>
+                            <th class="px-4 py-3 font-semibold text-center">Créditos</th>
+                            <th class="px-4 py-3 font-semibold text-center">Materias</th>
+                            <th class="px-4 py-3 font-semibold">Estado</th>
+                            <th class="px-6 py-3 font-semibold text-right">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="plan in planes.data" :key="plan.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                            <td class="px-4 py-3 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ plan.clave }}</td>
-                            <td class="px-4 py-3">
-                                <span class="font-medium">{{ plan.nombre }}</span>
-                                <span
-                                    v-if="plan.vigente"
-                                    class="ml-2 rounded px-1.5 py-0.5 text-xs"
-                                    style="background-color: color-mix(in srgb, #16a34a 16%, transparent)"
-                                >
-                                    Vigente
+                        <tr v-for="plan in planes.data" :key="plan.id" class="fila-nueva border-t transition-colors" :style="{ borderColor: 'var(--color-borde)' }">
+                            <!-- Plan: nombre + clave + periodo -->
+                            <td class="px-6 py-4">
+                                <span class="block font-semibold text-contenido">{{ plan.nombre }}</span>
+                                <span class="mt-1 block font-mono text-[11px]" :style="{ color: 'var(--color-suave)' }">
+                                    {{ plan.clave }}<template v-if="plan.periodo"> · {{ plan.periodo }}</template>
                                 </span>
                             </td>
-                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ plan.carrera ?? '—' }}</td>
-                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ plan.periodo ?? '—' }}</td>
-                            <td class="px-4 py-3 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ plan.rvoe }}</td>
-                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ plan.total_creditos }}</td>
-                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ plan.materias_count }}</td>
-                            <td class="px-4 py-3">
+                            <td class="px-4 py-4" :style="{ color: 'var(--color-suave)' }">{{ plan.carrera ?? '—' }}</td>
+                            <td class="px-4 py-4">
+                                <span class="inline-block rounded-md px-2 py-0.5 font-mono text-[11px]" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)' }">{{ plan.rvoe }}</span>
+                            </td>
+                            <td class="px-4 py-4 text-center tabular-nums">{{ plan.total_creditos }}</td>
+                            <td class="px-4 py-4 text-center tabular-nums" :style="{ color: 'var(--color-suave)' }">{{ plan.materias_count }}</td>
+                            <td class="px-4 py-4">
+                                <PildoraEstado :texto="plan.vigente ? 'Vigente' : 'No vigente'" :color="plan.vigente ? '#16a34a' : 'var(--color-suave)'" />
+                            </td>
+                            <td class="px-6 py-4">
                                 <div class="flex justify-end gap-1">
                                     <BotonAccion variante="ver" texto="Malla" :href="`/academico/planes/${plan.id}/materias`" />
                                     <BotonAccion v-if="puedeEditar" variante="editar" solo-icono :href="`/academico/planes/${plan.id}/edit`" />
@@ -173,3 +185,9 @@ function eliminar(id: number, nombre: string): void {
         </div>
     </AppLayout>
 </template>
+
+<style scoped>
+.fila-nueva:hover {
+    background-color: color-mix(in srgb, var(--color-acento) 5%, transparent);
+}
+</style>
