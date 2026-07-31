@@ -11,6 +11,7 @@ use App\Models\ControlEscolar\Ciclo;
 use App\Models\Finanzas\Adeudo;
 use App\Models\Finanzas\ConceptoPago;
 use App\Models\Finanzas\ConceptoPlan;
+use App\Models\Finanzas\PagoAdeudo;
 use App\Models\Finanzas\PlanCobro;
 use App\Models\Finanzas\PlanCobroAlumno;
 use App\Models\Finanzas\ReglaRecargo;
@@ -45,7 +46,10 @@ class PlanCobroController extends Controller
     {
         $planes = PlanCobro::query()
             ->with(['ciclo:id,nombre', 'campus:id,nombre', 'carreras:id,nombre'])
-            ->withCount(['conceptos', 'asignaciones'])
+            ->withCount([
+                'conceptos',
+                'asignaciones as asignaciones_count' => fn ($q) => $q->where('estatus', PlanCobroAlumno::ACTIVO),
+            ])
             ->orderByDesc('id')
             ->get()
             ->map(fn (PlanCobro $p) => [
@@ -61,11 +65,24 @@ class PlanCobroController extends Controller
                 'vigente_desde' => $p->vigente_desde?->toDateString(),
                 'vigente_hasta' => $p->vigente_hasta?->toDateString(),
                 'vigente' => $p->vigente_hasta === null || $p->vigente_hasta->isFuture(),
+                // Un plan que ya tocó a alguien no se borra: se le pone fecha de
+                // fin. Se calcula aquí para que el botón lo diga antes de
+                // intentarlo, en vez de fallar al hacer clic.
+                'puede_eliminar' => $p->asignaciones_count === 0 && ! $this->tieneCargos($p),
+                'motivo_no_eliminar' => $p->asignaciones_count > 0
+                    ? "Está vinculado a {$p->asignaciones_count} alumno(s)"
+                    : ($this->tieneCargos($p) ? 'Ya emitió cargos a alumnos' : null),
             ]);
 
         return Inertia::render('Finanzas/Planes/Index', [
             'planes' => $planes,
         ]);
+    }
+
+    /** ¿Este plan ya emitió cargos a alguien? */
+    private function tieneCargos(PlanCobro $plan): bool
+    {
+        return Adeudo::whereIn('concepto_plan_id', $plan->conceptos()->select('id'))->exists();
     }
 
     /** Paso 1 del wizard. */
@@ -225,12 +242,34 @@ class PlanCobroController extends Controller
         return back()->with('exito', 'Plan actualizado.');
     }
 
+    /**
+     * Eliminar un plan solo se permite mientras no haya tocado a nadie. Un plan
+     * que ya cobró es parte del historial financiero del alumno: si ya no debe
+     * usarse se le pone fecha de fin, no se borra.
+     */
     public function destroy(PlanCobro $plan): RedirectResponse
     {
-        $emitidos = Adeudo::whereIn('concepto_plan_id', $plan->conceptos()->pluck('id'))->count();
+        $lineas = $plan->conceptos()->pluck('id');
+
+        // Dinero recibido: es lo más grave, se revisa primero.
+        $conPagos = PagoAdeudo::query()
+            ->whereIn('adeudo_id', Adeudo::whereIn('concepto_plan_id', $lineas)->select('id'))
+            ->exists();
+
+        if ($conPagos) {
+            return back()->with('error', 'No se puede eliminar: ya tiene pagos aplicados. Ponle fecha de fin para que deje de aplicar.');
+        }
+
+        $emitidos = Adeudo::whereIn('concepto_plan_id', $lineas)->count();
 
         if ($emitidos > 0) {
-            return back()->with('error', "No se puede eliminar: ya emitió {$emitidos} cargo(s). Ponle fecha de fin para que deje de aplicar.");
+            return back()->with('error', "No se puede eliminar: ya emitió {$emitidos} cargo(s) a alumnos. Ponle fecha de fin para que deje de aplicar.");
+        }
+
+        $alumnos = $plan->asignaciones()->activos()->count();
+
+        if ($alumnos > 0) {
+            return back()->with('error', "No se puede eliminar: está vinculado a {$alumnos} alumno(s). Quítaselos primero.");
         }
 
         $plan->delete();

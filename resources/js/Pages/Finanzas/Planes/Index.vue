@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
+import { Head, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
@@ -18,9 +18,16 @@ interface Plan {
     vigente_desde: string | null;
     vigente_hasta: string | null;
     vigente: boolean;
+    puede_eliminar: boolean;
+    motivo_no_eliminar: string | null;
 }
 
 defineProps<{ planes: Plan[] }>();
+
+function eliminar(plan: Plan): void {
+    if (!confirm(`¿Eliminar el plan "${plan.nombre}"? Esta acción no se puede deshacer.`)) return;
+    router.delete(`/finanzas/planes/${plan.id}`, { preserveScroll: true });
+}
 </script>
 
 <template>
@@ -99,8 +106,24 @@ defineProps<{ planes: Plan[] }>();
                                 </div>
                             </td>
 
-                            <td class="px-6 py-4 text-right">
-                                <BotonExpediente :href="`/finanzas/planes/${plan.id}`" texto="Configurar" />
+                            <td class="px-6 py-4">
+                                <div class="flex items-center justify-end gap-2">
+                                    <BotonExpediente :href="`/finanzas/planes/${plan.id}`" texto="Configurar" />
+                                    <BotonAccion
+                                        v-if="plan.puede_eliminar"
+                                        variante="eliminar"
+                                        solo-icono
+                                        @click="eliminar(plan)"
+                                    />
+                                    <!-- Un plan que ya cobró es historial financiero: se le pone
+                                         fecha de fin, no se borra. -->
+                                    <span
+                                        v-else
+                                        class="text-[11px]"
+                                        :style="{ color: 'var(--color-suave)' }"
+                                        :title="plan.motivo_no_eliminar ?? ''"
+                                    >En uso</span>
+                                </div>
                             </td>
                         </tr>
                     </tbody>
