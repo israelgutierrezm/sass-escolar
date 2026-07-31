@@ -47,6 +47,8 @@ class TituloAntecedente extends Model
 
     public function nivel(): BelongsTo
     {
-        return $this->belongsTo(NivelEstudio::class, 'nivel_antecedente_id');
+        // withTrashed: un nivel puede ser antecedente aunque la escuela ya no lo
+        // oferte como programa (p. ej. Bachillerato para una licenciatura).
+        return $this->belongsTo(NivelEstudio::class, 'nivel_antecedente_id')->withTrashed();
     }
 }
