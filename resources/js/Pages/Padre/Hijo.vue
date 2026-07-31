@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import PildoraEstado from '@/Components/PildoraEstado.vue';
 
 interface Materia {
     materia: string | null;
@@ -51,14 +52,17 @@ const etiquetaAcceso: Record<string, string> = { entrada: 'Entró', salida: 'Sal
 
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
 
-function colorCalif(estatusClave: string | null): string | undefined {
-    if (estatusClave === 'aprobada') {
-        return 'color-mix(in srgb, #16a34a 16%, transparent)';
-    }
-    if (estatusClave === 'reprobada') {
-        return 'color-mix(in srgb, #dc2626 16%, transparent)';
-    }
-    return undefined;
+function iniciales(nombre: string | null): string {
+    if (!nombre) return '—';
+    const partes = nombre.trim().split(/\s+/);
+    return ((partes[0]?.[0] ?? '') + (partes[1]?.[0] ?? '')).toUpperCase() || '—';
+}
+
+// Color SÓLIDO por resultado de la materia (aprobada/reprobada; neutro si va en curso).
+function colorCalif(estatusClave: string | null): string {
+    if (estatusClave === 'aprobada') return '#16a34a';
+    if (estatusClave === 'reprobada') return '#dc2626';
+    return 'var(--color-suave)';
 }
 </script>
 
@@ -70,7 +74,12 @@ function colorCalif(estatusClave: string | null): string | undefined {
 
         <!-- Encabezado -->
         <section class="tarjeta flex flex-wrap items-center gap-4 p-6">
-            <img v-if="hijo.foto" :src="hijo.foto" alt="" class="h-16 w-16 rounded-full object-cover" />
+            <img v-if="hijo.foto" :src="hijo.foto" alt="" class="h-16 w-16 rounded-full object-cover ring-1 ring-black/5" />
+            <span
+                v-else
+                class="grid h-16 w-16 shrink-0 place-items-center rounded-full text-lg font-semibold ring-1 ring-black/5"
+                :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 15%, transparent)', color: 'var(--color-acento)' }"
+            >{{ iniciales(hijo.nombre) }}</span>
             <div>
                 <h2 class="text-lg font-semibold">{{ hijo.nombre }}</h2>
                 <p class="text-sm capitalize" :style="{ color: 'var(--color-suave)' }">
@@ -106,24 +115,27 @@ function colorCalif(estatusClave: string | null): string | undefined {
 
                 <div class="overflow-x-auto">
                     <table v-if="a.materias.length" class="w-full text-sm">
-                        <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                            <tr>
-                                <th class="px-5 py-3 font-medium">Materia</th>
-                                <th class="px-4 py-3 font-medium">Ciclo</th>
-                                <th class="px-4 py-3 font-medium">Calif.</th>
-                                <th class="px-4 py-3 font-medium">Estatus</th>
+                        <thead>
+                            <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
+                                <th class="px-6 py-3 font-semibold">Materia</th>
+                                <th class="px-4 py-3 font-semibold">Ciclo</th>
+                                <th class="px-4 py-3 font-semibold text-center">Calif.</th>
+                                <th class="px-4 py-3 font-semibold">Estatus</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="(m, j) in a.materias" :key="j" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                                <td class="px-5 py-2.5">{{ m.materia ?? '—' }}</td>
-                                <td class="px-4 py-2.5 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ m.ciclo ?? '—' }}</td>
-                                <td class="px-4 py-2.5">
-                                    <span class="rounded px-2 py-0.5" :style="{ backgroundColor: colorCalif(m.estatus_clave) }">
-                                        {{ m.calificacion ?? '—' }}
-                                    </span>
+                            <tr v-for="(m, j) in a.materias" :key="j" class="fila-nueva border-t transition-colors" :style="{ borderColor: 'var(--color-borde)' }">
+                                <td class="px-6 py-3 font-medium text-contenido">{{ m.materia ?? '—' }}</td>
+                                <td class="px-4 py-3 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ m.ciclo ?? '—' }}</td>
+                                <td class="px-4 py-3 text-center">
+                                    <span
+                                        class="inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums"
+                                        :style="{ color: colorCalif(m.estatus_clave), backgroundColor: `color-mix(in srgb, ${colorCalif(m.estatus_clave)} 14%, transparent)` }"
+                                    >{{ m.calificacion ?? '—' }}</span>
                                 </td>
-                                <td class="px-4 py-2.5" :style="{ color: 'var(--color-suave)' }">{{ m.estatus ?? '—' }}</td>
+                                <td class="px-4 py-3">
+                                    <PildoraEstado :texto="m.estatus" :color="colorCalif(m.estatus_clave)" />
+                                </td>
                             </tr>
                         </tbody>
                     </table>
@@ -150,11 +162,11 @@ function colorCalif(estatusClave: string | null): string | undefined {
 
                 <div v-if="f.adeudos.length" class="mt-4 overflow-x-auto">
                     <table class="w-full text-sm">
-                        <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                            <tr>
-                                <th class="py-2 font-medium">Concepto</th>
-                                <th class="py-2 text-right font-medium">Total</th>
-                                <th class="py-2 text-right font-medium">Saldo</th>
+                        <thead>
+                            <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)' }">
+                                <th class="py-2 font-semibold">Concepto</th>
+                                <th class="py-2 text-right font-semibold">Total</th>
+                                <th class="py-2 text-right font-semibold">Saldo</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -190,29 +202,24 @@ function colorCalif(estatusClave: string | null): string | undefined {
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
-                    <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                        <tr>
-                            <th class="px-5 py-3 font-medium">Movimiento</th>
-                            <th class="px-4 py-3 font-medium">Fecha y hora</th>
-                            <th class="px-4 py-3 font-medium">Equipo</th>
-                            <th class="px-4 py-3 font-medium">Navegador</th>
-                            <th class="px-4 py-3 font-medium">IP</th>
+                    <thead>
+                        <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
+                            <th class="px-6 py-3 font-semibold">Movimiento</th>
+                            <th class="px-4 py-3 font-semibold">Fecha y hora</th>
+                            <th class="px-4 py-3 font-semibold">Equipo</th>
+                            <th class="px-4 py-3 font-semibold">Navegador</th>
+                            <th class="px-6 py-3 font-semibold">IP</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="(ac, i) in accesos" :key="i" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                            <td class="px-5 py-2.5">
-                                <span
-                                    class="rounded-full px-2 py-0.5 text-xs"
-                                    :style="{ backgroundColor: ac.tipo === 'entrada' ? 'color-mix(in srgb, #16a34a 16%, transparent)' : 'var(--color-borde)' }"
-                                >
-                                    {{ etiquetaAcceso[ac.tipo] ?? ac.tipo }}
-                                </span>
+                        <tr v-for="(ac, i) in accesos" :key="i" class="fila-nueva border-t transition-colors" :style="{ borderColor: 'var(--color-borde)' }">
+                            <td class="px-6 py-3">
+                                <PildoraEstado :texto="etiquetaAcceso[ac.tipo] ?? ac.tipo" :color="ac.tipo === 'entrada' ? '#16a34a' : 'var(--color-suave)'" />
                             </td>
-                            <td class="px-4 py-2.5 tabular-nums" :style="{ color: 'var(--color-suave)' }">{{ ac.momento ?? '—' }}</td>
-                            <td class="px-4 py-2.5">{{ ac.equipo ?? '—' }}</td>
-                            <td class="px-4 py-2.5">{{ ac.navegador ?? '—' }}</td>
-                            <td class="px-4 py-2.5 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ ac.ip ?? '—' }}</td>
+                            <td class="px-4 py-3 tabular-nums" :style="{ color: 'var(--color-suave)' }">{{ ac.momento ?? '—' }}</td>
+                            <td class="px-4 py-3">{{ ac.equipo ?? '—' }}</td>
+                            <td class="px-4 py-3">{{ ac.navegador ?? '—' }}</td>
+                            <td class="px-6 py-3 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ ac.ip ?? '—' }}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -228,3 +235,9 @@ function colorCalif(estatusClave: string | null): string | undefined {
         </p>
     </AppLayout>
 </template>
+
+<style scoped>
+.fila-nueva:hover {
+    background-color: color-mix(in srgb, var(--color-acento) 5%, transparent);
+}
+</style>
