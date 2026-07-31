@@ -39,7 +39,7 @@ class ResponsableController extends Controller
         $seccion = (string) $request->route('seccion');
 
         $responsables = Responsable::deTipo($tipo)
-            ->with(['cargo:id,nombre', 'tituloProfesional:id,abreviatura,descripcion', 'certificados'])
+            ->with(['cargo:id,nombre,identificador', 'tituloProfesional:id,abreviatura,descripcion', 'certificados'])
             ->orderByDesc('activo')
             ->orderBy('nombre')
             ->get();
@@ -68,6 +68,7 @@ class ResponsableController extends Controller
             'curp' => $r->curp,
             'cargo' => $r->cargo?->nombre,
             'cargo_id' => $r->cargo_id,
+            'cargo_identificador' => $r->cargo?->identificador !== null ? (int) $r->cargo->identificador : null,
             'titulo' => $r->tituloProfesional?->abreviatura,
             'titulo_profesional_id' => $r->titulo_profesional_id,
             'activo' => $r->activo,
@@ -137,12 +138,14 @@ class ResponsableController extends Controller
             return back()->with('error', 'Esa persona ya es responsable activo. Edítala para renovar su certificado.');
         }
 
-        // Una serie no puede estar registrada en OTRA persona (la propia sí se reutiliza).
+        // Una serie no puede estar registrada en OTRA PERSONA (CURP distinta). La
+        // misma persona sí puede reusar su .cer, incluso entre certificación y
+        // titulación: los responsables de cada trámite son independientes.
         $serieAjena = CertificadoResponsable::query()->where('serie', $cert['serial'])
-            ->when($existente, fn ($q) => $q->where('responsable_id', '!=', $existente->id))
+            ->whereHas('responsable', fn ($q) => $q->withTrashed()->where('curp', '!=', $cert['curp']))
             ->exists();
         if ($serieAjena) {
-            return back()->with('error', "Ese certificado (serie {$cert['serial']}) ya está registrado con otro responsable.");
+            return back()->with('error', "Ese certificado (serie {$cert['serial']}) ya está registrado con otra persona.");
         }
 
         // El límite aplica a los ACTIVOS. Reactivar o crear suma uno activo.
@@ -200,10 +203,12 @@ class ResponsableController extends Controller
             if (mb_strtoupper((string) $cert['curp']) !== mb_strtoupper((string) $responsable->curp)) {
                 return back()->with('error', 'El certificado es de otra persona (CURP distinta). Para cambiar de responsable, desactiva este y agrega uno nuevo.');
             }
-            // Solo es conflicto si la serie está en OTRA persona; la propia se
-            // reutiliza (p. ej. se subió sin guardar y ahora se quiere almacenar).
-            if (CertificadoResponsable::query()->where('serie', $cert['serial'])->where('responsable_id', '!=', $responsable->id)->exists()) {
-                return back()->with('error', "Ese certificado (serie {$cert['serial']}) ya está registrado con otro responsable.");
+            // Solo es conflicto si la serie está en OTRA PERSONA (CURP distinta);
+            // la propia se reutiliza (incluso entre certificación y titulación).
+            if (CertificadoResponsable::query()->where('serie', $cert['serial'])
+                ->whereHas('responsable', fn ($q) => $q->withTrashed()->where('curp', '!=', $responsable->curp))
+                ->exists()) {
+                return back()->with('error', "Ese certificado (serie {$cert['serial']}) ya está registrado con otra persona.");
             }
 
             $certActual = $this->guardarCertificado($responsable, $cert, $contenido, (bool) ($datos['guardar_cer'] ?? false), $lector);

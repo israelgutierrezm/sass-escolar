@@ -27,6 +27,7 @@ interface Responsable {
     curp: string;
     cargo: string | null;
     cargo_id: number | null;
+    cargo_identificador: number | null;
     titulo: string | null;
     titulo_profesional_id: number | null;
     activo: boolean;
@@ -64,6 +65,18 @@ const props = defineProps<{
 const base = computed(() => `/${props.seccion}/configuracion/responsables`);
 const puedeAgregar = computed(() => props.activos.length < props.maximo);
 const tab = ref<'activos' | 'historial'>('activos');
+
+// Titulación firma con 1 responsable obligatorio + 1 opcional; el orden lo da el
+// idCargo (menor = firmante 1), igual que al sellar. Se muestra qué firmante es
+// cada uno.
+const esTitulacion = computed(() => props.seccion === 'titulacion');
+const ordenFirmante = computed(() => {
+    const m = new Map<number, number>();
+    [...props.activos]
+        .sort((a, b) => (a.cargo_identificador ?? 99) - (b.cargo_identificador ?? 99))
+        .forEach((r, i) => m.set(r.id, i + 1));
+    return m;
+});
 
 // Estado de vigencia del certificado: rojo vencido, ámbar por vencer (≤30 días),
 // verde vigente. Se usa como color del punto y del texto de la insignia.
@@ -222,6 +235,19 @@ function eliminar(r: Responsable): void {
 
         <!-- ===== TAB RESPONSABLES ===== -->
         <template v-if="tab === 'activos'">
+            <!-- Titulación: el título lo firman 1 o 2 responsables. -->
+            <section v-if="esTitulacion" class="tarjeta mb-6 p-5" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 5%, transparent)' }">
+                <p class="text-sm" :style="{ color: 'var(--color-suave)' }">
+                    El título lo firman <strong>uno o dos</strong> responsables. El <strong>firmante 1</strong>
+                    (menor cargo, p. ej. director) es <strong>obligatorio</strong>; el <strong>firmante 2</strong>
+                    es <strong>opcional</strong>. Son independientes de los de certificación: la misma persona
+                    puede ser responsable en ambos.
+                </p>
+                <p v-if="activos.length === 0" class="mt-2 text-sm font-medium" :style="{ color: '#b45309' }">
+                    ⚠ Aún no hay ningún responsable. Registra al menos el firmante obligatorio para poder firmar títulos.
+                </p>
+            </section>
+
             <section v-if="activos.length" class="tarjeta mb-6 p-6">
                 <div class="flex items-center justify-between">
                     <h2 class="text-base font-semibold">Responsables activos</h2>
@@ -232,6 +258,9 @@ function eliminar(r: Responsable): void {
                     <div v-for="r in activos" :key="r.id" class="rounded-xl border p-4" :style="{ borderColor: 'var(--color-borde)' }">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
+                                <span v-if="esTitulacion" class="mb-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium" :style="ordenFirmante.get(r.id) === 1 ? { backgroundColor: 'color-mix(in srgb, var(--color-acento) 14%, transparent)', color: 'var(--color-acento)' } : { backgroundColor: 'var(--color-borde)', color: 'var(--color-suave)' }">
+                                    {{ ordenFirmante.get(r.id) === 1 ? 'Firmante 1 · obligatorio' : 'Firmante 2 · opcional' }}
+                                </span>
                                 <p class="truncate font-semibold">{{ r.titulo ? `${r.titulo} ` : '' }}{{ r.nombre_completo }}</p>
                                 <p class="font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ r.curp }}</p>
                                 <p class="mt-1 text-sm">{{ r.cargo ?? '—' }}</p>
