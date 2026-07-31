@@ -58,6 +58,35 @@ use RuntimeException;
  */
 class AlumnoController extends Controller
 {
+    /** Plantilla de carga masiva de alumnos (variante «calificaciones» opcional). */
+    public function plantillaCarga(Request $request, \App\Services\Excel\PlantillaAlumnos $plantilla): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    {
+        $conCalif = $request->query('variante') === 'calificaciones';
+        $nombre = $conCalif ? 'plantilla-alumnos-calificaciones.xlsx' : 'plantilla-alumnos.xlsx';
+
+        return response()->download($plantilla->generar($conCalif), $nombre)->deleteFileAfterSend();
+    }
+
+    /** Importa el .xlsx de alumnos (y calificaciones si trae la hoja). */
+    public function importarCarga(Request $request, \App\Services\Excel\ImportadorAlumnos $importador): RedirectResponse
+    {
+        $request->validate(['archivo' => ['required', 'file', 'max:5120']]);
+
+        try {
+            $resultado = $importador->importar($request->file('archivo')->getRealPath());
+        } catch (\Throwable) {
+            return back()->with('error', 'No se pudo leer el archivo. Sube el .xlsx de la plantilla sin cambiar su estructura.');
+        }
+
+        if ($resultado['errores'] !== []) {
+            return back()->with('error', 'El archivo tiene errores; corrígelos y vuelve a subirlo.')->with('erroresCarga', $resultado['errores']);
+        }
+
+        $r = $resultado['resumen'];
+
+        return back()->with('exito', "Se cargaron {$r['alumnos']} alumnos, {$r['matriculas']} matrículas y {$r['calificaciones']} calificaciones.");
+    }
+
     public function index(Request $request): Response
     {
         $filtros = [

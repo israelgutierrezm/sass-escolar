@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavEscolar from '@/Components/NavEscolar.vue';
 import BarraListado from '@/Components/BarraListado.vue';
 import Paginacion from '@/Components/Paginacion.vue';
 import TarjetaPersona from '@/Components/TarjetaPersona.vue';
+import ZonaArchivo from '@/Components/ZonaArchivo.vue';
 
 interface Alumno {
     id: number;
@@ -63,6 +64,22 @@ const colorEstatus: Record<string, string> = {
     egresado: 'color-mix(in srgb, var(--color-acento) 14%, transparent)',
     baja: 'color-mix(in srgb, #dc2626 14%, transparent)',
 };
+
+// --- Carga masiva por Excel ---
+const page = usePage();
+const erroresCarga = computed(() => ((page.props as any).flash?.erroresCarga ?? []) as { hoja: string; fila: number; mensaje: string }[]);
+const mostrarCarga = ref(false);
+const carga = useForm<{ archivo: File | null }>({ archivo: null });
+
+function subirExcel(archivo: File | null): void {
+    if (!archivo) return;
+    carga.archivo = archivo;
+    carga.post('/escolar/alumnos/carga/importar', {
+        forceFormData: true,
+        preserveScroll: true,
+        onFinish: () => carga.reset(),
+    });
+}
 </script>
 
 <template>
@@ -74,6 +91,54 @@ const colorEstatus: Record<string, string> = {
                 { etiqueta: 'Listado', url: '/escolar/alumnos', permiso: 'ver-alumnos' },
             ]"
         />
+
+        <!-- Carga masiva por Excel -->
+        <section v-if="puedeEditar" class="tarjeta mb-4 p-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <p class="text-sm" :style="{ color: 'var(--color-suave)' }">
+                    Carga alumnos desde Excel. Con la variante «con calificaciones» también llenas su kárdex.
+                </p>
+                <button
+                    type="button"
+                    class="rounded-lg border px-4 py-2 text-sm font-medium"
+                    :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
+                    @click="mostrarCarga = !mostrarCarga"
+                >
+                    {{ mostrarCarga ? 'Ocultar' : 'Cargar desde Excel' }}
+                </button>
+            </div>
+
+            <div v-if="mostrarCarga" class="mt-4 space-y-4 border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">
+                <div class="flex flex-wrap gap-4">
+                    <a href="/escolar/alumnos/carga/plantilla" class="inline-flex items-center gap-2 text-sm font-medium" :style="{ color: 'var(--color-acento)' }">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-6L12 15m0 0 4.5-4.5M12 15V3" /></svg>
+                        Plantilla solo alumnos (.xlsx)
+                    </a>
+                    <a href="/escolar/alumnos/carga/plantilla?variante=calificaciones" class="inline-flex items-center gap-2 text-sm font-medium" :style="{ color: 'var(--color-acento)' }">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-6L12 15m0 0 4.5-4.5M12 15V3" /></svg>
+                        Plantilla con calificaciones (.xlsx)
+                    </a>
+                </div>
+                <ZonaArchivo
+                    accept=".xlsx"
+                    texto="Arrastra la plantilla llena (.xlsx) o haz clic para seleccionarla"
+                    ayuda="Se valida todo antes de crear nada. Detecta sola si trae calificaciones."
+                    :cargado="null"
+                    :ocupado="carga.processing"
+                    @archivo="subirExcel"
+                />
+                <div
+                    v-if="erroresCarga.length"
+                    class="rounded-lg border p-3 text-sm"
+                    :style="{ borderColor: '#f59e0b', backgroundColor: 'color-mix(in srgb, #f59e0b 8%, transparent)' }"
+                >
+                    <p class="font-medium">El archivo tiene {{ erroresCarga.length }} error(es); corrígelos y vuelve a subirlo:</p>
+                    <ul class="mt-2 max-h-64 space-y-1 overflow-auto text-xs">
+                        <li v-for="(e, i) in erroresCarga" :key="i"><span class="font-medium">{{ e.hoja }} · fila {{ e.fila }}:</span> {{ e.mensaje }}</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
 
         <div v-if="puedeRegistrar" class="mb-3 flex justify-end">
             <Link

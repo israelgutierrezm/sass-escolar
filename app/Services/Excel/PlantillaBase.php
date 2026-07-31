@@ -122,9 +122,9 @@ abstract class PlantillaBase
         }
     }
 
-    protected function primero(string $modelo): string
+    protected function primero(string $modelo, string $columna = 'nombre'): string
     {
-        return (string) $modelo::query()->orderBy('nombre')->value('nombre');
+        return (string) $modelo::query()->orderBy($columna)->value($columna);
     }
 
     protected function letra(int $indice): string

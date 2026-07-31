@@ -437,6 +437,10 @@ Route::middleware([
                     ->group(function () {
                         Route::get('/', 'index')->name('index');
 
+                        // Carga masiva de alumnos (y calificaciones). Antes de {alumno}.
+                        Route::get('carga/plantilla', 'plantillaCarga')->middleware('can:editar-alumnos')->name('carga.plantilla');
+                        Route::post('carga/importar', 'importarCarga')->middleware('can:editar-alumnos')->name('carga.importar');
+
                         // Alta directa de alumno (revalidaciones que se saltan
                         // admisión). Va ANTES de {alumno} y genera matrícula.
                         Route::get('registrar', 'create')
