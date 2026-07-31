@@ -222,7 +222,8 @@ class ConstructorCertificadoXml
             'primerApellido' => $firma['responsable_primer_apellido'] ?? '',
             'segundoApellido' => $firma['responsable_segundo_apellido'] ?? null,
             'idCargo' => $firma['responsable_id_cargo'] ?? '0',
-            'cargo' => $firma['responsable_cargo'] ?? null,
+            // El cargo (catálogo, guardado en caso legible) va en MAYÚSCULAS al XML.
+            'cargo' => filled($firma['responsable_cargo'] ?? null) ? mb_strtoupper((string) $firma['responsable_cargo'], 'UTF-8') : null,
         ]));
         $dec->appendChild($ipes);
 

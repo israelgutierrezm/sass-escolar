@@ -64,45 +64,46 @@ class ConstructorTituloXml
             'version' => '1.0',
             'emitido_en' => now()->toIso8601String(),
 
-            // Institucion
+            // Institucion. Los textos van en MAYÚSCULAS (con acentos) como en el
+            // ejemplo oficial; los catálogos se guardan en caso legible para la UI.
             'cveInstitucion' => $institucion?->cveInstitucion(),
-            'nombreInstitucion' => $institucion?->nombre,
+            'nombreInstitucion' => $this->mayus($institucion?->nombre),
 
             // Carrera
             'cveCarrera' => $carrera?->cveCarrera(),
-            'nombreCarrera' => $carrera?->nombre,
+            'nombreCarrera' => $this->mayus($carrera?->nombre),
             'carreraFechaInicio' => $this->fecha($matricula->fecha_ingreso),
             'carreraFechaTerminacion' => $this->fecha($mod?->fecha_terminacion_carrera),
             // El id de fila del catálogo YA es el idAutorizacionReconocimiento SEP.
             'idAutorizacionReconocimiento' => $this->str($plan?->autorizacion_reconocimiento_id),
-            'autorizacionReconocimiento' => $plan?->autorizacionReconocimiento?->nombre,
+            'autorizacionReconocimiento' => $this->mayus($plan?->autorizacionReconocimiento?->nombre),
             'numeroRvoe' => $plan?->rvoe,
 
-            // Profesionista
+            // Profesionista (el correo NO se transforma).
             'curp' => $persona?->curp,
-            'nombre' => $persona?->nombre,
-            'primerApellido' => $persona?->primer_apellido,
-            'segundoApellido' => $persona?->segundo_apellido,
+            'nombre' => $this->mayus($persona?->nombre),
+            'primerApellido' => $this->mayus($persona?->primer_apellido),
+            'segundoApellido' => $this->mayus($persona?->segundo_apellido),
             'correoElectronico' => $persona?->email,
 
             // Expedicion
             'fechaExpedicion' => $this->fecha($mod?->fecha_expedicion),
             'idModalidadTitulacion' => $this->str($mod?->modalidad?->identificador),
-            'modalidadTitulacion' => $mod?->modalidad?->descripcion,
+            'modalidadTitulacion' => $this->mayus($mod?->modalidad?->descripcion),
             'fechaExamenProfesional' => $this->fecha($mod?->fecha_examen_profesional),
             'fechaExencionExamenProfesional' => $this->fecha($mod?->fecha_exencion_examen),
             'cumplioServicioSocial' => $this->booleanEntero($ss?->cumplio_servicio_social),
             'idFundamentoLegalServicioSocial' => $this->str($ss?->fundamento?->identificador),
-            'fundamentoLegalServicioSocial' => $ss?->fundamento?->descripcion,
+            'fundamentoLegalServicioSocial' => $this->mayus($ss?->fundamento?->descripcion),
             'expedicionIdEntidadFederativa' => $entExpedicion['id'],
-            'expedicionEntidadFederativa' => $entExpedicion['nombre'],
+            'expedicionEntidadFederativa' => $this->mayus($entExpedicion['nombre']),
 
             // Antecedente
-            'antInstitucionProcedencia' => $ant?->institucion_procedencia,
+            'antInstitucionProcedencia' => $this->mayus($ant?->institucion_procedencia),
             'idTipoEstudioAntecedente' => $this->str($ant?->nivel?->identificador_titulo),
-            'tipoEstudioAntecedente' => $ant?->nivel?->nombre,
+            'tipoEstudioAntecedente' => $this->mayus($ant?->nivel?->nombre),
             'antIdEntidadFederativa' => $entAntecedente['id'],
-            'antEntidadFederativa' => $entAntecedente['nombre'],
+            'antEntidadFederativa' => $this->mayus($entAntecedente['nombre']),
             'antFechaInicio' => $this->fecha($ant?->fecha_inicio),
             'antFechaTerminacion' => $this->fecha($ant?->fecha_terminacion),
             'noCedula' => $ant?->no_cedula,
@@ -134,12 +135,13 @@ class ConstructorTituloXml
         $firmas = $dom->createElementNS(self::NS, 'FirmaResponsables');
         foreach ($this->responsables($firma) as $r) {
             $firmas->appendChild($this->nodo($dom, 'FirmaResponsable', [
-                'nombre' => $r['nombre'] ?? null,
-                'primerApellido' => $r['primer_apellido'] ?? null,
-                'segundoApellido' => $r['segundo_apellido'] ?? null,
+                'nombre' => $this->mayus($r['nombre'] ?? null),
+                'primerApellido' => $this->mayus($r['primer_apellido'] ?? null),
+                'segundoApellido' => $this->mayus($r['segundo_apellido'] ?? null),
                 'curp' => $r['curp'] ?? null,
                 'idCargo' => $r['id_cargo'] ?? null,
-                'cargo' => $r['cargo'] ?? null,
+                'cargo' => $this->mayus($r['cargo'] ?? null),
+                // abrTitulo conserva su capitalización (p. ej. "Dr.", "Mtro.").
                 'abrTitulo' => $r['abr_titulo'] ?? null,
                 'sello' => $r['sello'] ?? null,
                 'certificadoResponsable' => $r['certificado'] ?? null,
@@ -329,5 +331,14 @@ class ConstructorTituloXml
     private function str(mixed $valor): ?string
     {
         return blank($valor) ? null : (string) $valor;
+    }
+
+    /**
+     * A MAYÚSCULAS conservando acentos (los catálogos y datos se guardan en caso
+     * legible para la UI; el título electrónico va en mayúsculas como el estándar).
+     */
+    private function mayus(?string $valor): ?string
+    {
+        return $valor === null ? null : mb_strtoupper($valor, 'UTF-8');
     }
 }
