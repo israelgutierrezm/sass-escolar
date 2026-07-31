@@ -42,6 +42,8 @@ use App\Http\Controllers\InstitucionController;
 use App\Http\Controllers\InscripcionController;
 use App\Http\Controllers\OfertaController;
 use App\Http\Controllers\PerfilController;
+use App\Http\Controllers\BecaController;
+use App\Http\Controllers\DescuentoController;
 use App\Http\Controllers\PlanCobroController;
 use App\Http\Controllers\PlanEstudioController;
 use App\Http\Controllers\PlanMateriaController;
@@ -649,6 +651,38 @@ Route::middleware([
 
                         Route::post('/{plan}/asignar', 'asignar')->name('asignar');
                         Route::delete('/{plan}/asignaciones/{asignacion}', 'quitarAsignacion')->name('asignaciones.destroy');
+                    });
+
+                /*
+                 * Becas: el catálogo con sus reglas y el otorgamiento por alumno.
+                 * Otorgar una beca cuesta dinero, así que va con el mismo permiso
+                 * que configurar el cobro, no con el de registrar pagos.
+                 */
+                Route::controller(BecaController::class)
+                    ->prefix('becas')->name('becas.')
+                    ->middleware('can:gestionar-planes-cobro')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::post('/', 'store')->name('store');
+                        Route::get('/alumnos', 'buscarAlumnos')->name('alumnos');
+                        Route::get('/{beca}', 'show')->name('show');
+                        Route::put('/{beca}', 'update')->name('update');
+                        Route::delete('/{beca}', 'destroy')->name('destroy');
+
+                        Route::post('/{beca}/otorgar', 'otorgar')->name('otorgar');
+                        Route::put('/{beca}/otorgadas/{otorgada}/revocar', 'revocar')->name('revocar');
+                        Route::post('/{beca}/otorgadas/{otorgada}/renovar', 'renovar')->name('renovar');
+                    });
+
+                // Descuentos comerciales (pago anticipado, campaña).
+                Route::controller(DescuentoController::class)
+                    ->prefix('descuentos')->name('descuentos.')
+                    ->middleware('can:gestionar-planes-cobro')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::post('/', 'store')->name('store');
+                        Route::put('/{descuento}', 'update')->name('update');
+                        Route::delete('/{descuento}', 'destroy')->name('destroy');
                     });
 
                 // Catálogo de conceptos de pago con sus datos fiscales.
