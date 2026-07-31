@@ -4,6 +4,7 @@ import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BarraListado from '@/Components/BarraListado.vue';
 import Paginacion from '@/Components/Paginacion.vue';
+import PildoraEstado from '@/Components/PildoraEstado.vue';
 import TarjetaPersona from '@/Components/TarjetaPersona.vue';
 import ZonaArchivo from '@/Components/ZonaArchivo.vue';
 
@@ -151,6 +152,7 @@ function subirExcel(archivo: File | null): void {
                     :foto="docente.foto"
                     :lineas="[docente.tipo, docente.campus.join(', ') || null, docente.materias + ' materia(s)']"
                     :estado="docente.situacion"
+                    :color-estado="colorSituacion(docente.situacion_clave)"
                     :atenuada="docente.situacion_clave === 'baja'"
                     :aviso="docente.documentos_pendientes ? docente.documentos_pendientes + ' por revisar' : null"
                     :url="`/escolar/docentes/${docente.id}`"
@@ -243,13 +245,7 @@ function subirExcel(archivo: File | null): void {
 
                                 <!-- Situación (pill de color) + por revisar -->
                                 <td class="px-4 py-4">
-                                    <span
-                                        class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
-                                        :style="{ color: colorSituacion(docente.situacion_clave), backgroundColor: `color-mix(in srgb, ${colorSituacion(docente.situacion_clave)} 14%, transparent)` }"
-                                    >
-                                        <span class="inline-block h-1.5 w-1.5 rounded-full" :style="{ backgroundColor: colorSituacion(docente.situacion_clave) }" />
-                                        {{ docente.situacion ?? '—' }}
-                                    </span>
+                                    <PildoraEstado :texto="docente.situacion" :color="colorSituacion(docente.situacion_clave)" />
                                     <span
                                         v-if="docente.documentos_pendientes"
                                         class="mt-1 block text-[11px] font-medium"

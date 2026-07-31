@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import PildoraEstado from '@/Components/PildoraEstado.vue';
 
 /**
  * Tarjeta de presentación para la vista en cuadrícula.
@@ -15,7 +16,7 @@ const props = defineProps<{
     foto?: string | null;
     /** Líneas de contexto: carrera, campus, tipo… */
     lineas?: (string | null)[];
-    /** Etiqueta de estado, con su color. */
+    /** Etiqueta de estado, con su color SÓLIDO (texto + punto; fondo tinte). */
     estado?: string | null;
     colorEstado?: string;
     url: string;
@@ -84,13 +85,7 @@ const visibles = computed(() => (props.lineas ?? []).filter((l): l is string => 
             {{ linea }}
         </p>
 
-        <span
-            v-if="estado"
-            class="mt-3 rounded-full px-2 py-0.5 text-xs font-medium capitalize"
-            :style="{ backgroundColor: colorEstado ?? 'color-mix(in srgb, currentColor 10%, transparent)' }"
-        >
-            {{ estado }}
-        </span>
+        <PildoraEstado v-if="estado" :texto="estado" :color="colorEstado" class="mt-3" />
 
         <span
             v-if="aviso"

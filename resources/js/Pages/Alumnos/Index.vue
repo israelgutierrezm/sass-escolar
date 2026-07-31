@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavEscolar from '@/Components/NavEscolar.vue';
 import BarraListado from '@/Components/BarraListado.vue';
 import Paginacion from '@/Components/Paginacion.vue';
+import PildoraEstado from '@/Components/PildoraEstado.vue';
 import TarjetaPersona from '@/Components/TarjetaPersona.vue';
 import ZonaArchivo from '@/Components/ZonaArchivo.vue';
 
@@ -22,6 +23,15 @@ interface Alumno {
     situacion: string | null;
     estatus: string;
     generacion: string | null;
+}
+
+const ICONO_ALUMNO =
+    'M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.627 48.627 0 0 1 12 20.904a48.627 48.627 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.57 50.57 0 0 0-2.658-.813A59.905 59.905 0 0 1 12 3.493a59.902 59.902 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443m-7.007 11.55A5.981 5.981 0 0 0 6.75 15.75v-1.5';
+
+function iniciales(nombre: string | null): string {
+    if (!nombre) return '—';
+    const partes = nombre.trim().split(/\s+/);
+    return ((partes[0]?.[0] ?? '') + (partes[1]?.[0] ?? '')).toUpperCase() || '—';
 }
 
 // Texto de campus: uno → "Campus: X"; varios → "Múltiples campus: A, B". Se
@@ -59,10 +69,11 @@ const definicionFiltros = [
     },
 ];
 
+// Color SÓLIDO por estatus (texto + punto de la píldora; el fondo es su tinte).
 const colorEstatus: Record<string, string> = {
-    activo: 'color-mix(in srgb, #16a34a 16%, transparent)',
-    egresado: 'color-mix(in srgb, var(--color-acento) 14%, transparent)',
-    baja: 'color-mix(in srgb, #dc2626 14%, transparent)',
+    activo: '#16a34a',
+    egresado: 'var(--color-acento)',
+    baja: '#dc2626',
 };
 
 // --- Carga masiva por Excel ---
@@ -92,18 +103,40 @@ function subirExcel(archivo: File | null): void {
             ]"
         />
 
+        <BarraListado
+            v-model:vista="vista"
+            url="/escolar/alumnos"
+            vista-clave="alumnos"
+            :valores="filtros"
+            :filtros="definicionFiltros"
+            placeholder="Matrícula, nombre o CURP…"
+            :puede-crear="puedeRegistrar"
+            nuevo-texto="Registrar alumno"
+            nuevo-href="/escolar/alumnos/registrar"
+            titulo="Alumnos"
+            descripcion="Listado del alumnado"
+            :icono="ICONO_ALUMNO"
+        >
+            <template #conteo>
+                <span class="rounded-full px-3 py-1 text-xs font-medium" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }">
+                    {{ alumnos.total }} en total
+                </span>
+            </template>
+        </BarraListado>
+
         <!-- Carga masiva por Excel -->
-        <section v-if="puedeEditar" class="tarjeta mb-4 p-4">
+        <section v-if="puedeEditar" class="tarjeta p-4">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <p class="text-sm" :style="{ color: 'var(--color-suave)' }">
                     Carga alumnos desde Excel. Con la variante «con calificaciones» también llenas su kárdex.
                 </p>
                 <button
                     type="button"
-                    class="rounded-lg border px-4 py-2 text-sm font-medium"
-                    :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
+                    class="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
+                    :style="{ borderColor: '#16a34a', color: '#16a34a', backgroundColor: 'color-mix(in srgb, #16a34a 8%, transparent)' }"
                     @click="mostrarCarga = !mostrarCarga"
                 >
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg>
                     {{ mostrarCarga ? 'Ocultar' : 'Cargar desde Excel' }}
                 </button>
             </div>
@@ -140,26 +173,6 @@ function subirExcel(archivo: File | null): void {
             </div>
         </section>
 
-        <div v-if="puedeRegistrar" class="mb-3 flex justify-end">
-            <Link
-                href="/escolar/alumnos/registrar"
-                class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white"
-                :style="{ backgroundColor: 'var(--color-acento)' }"
-            >
-                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                Registrar alumno
-            </Link>
-        </div>
-
-        <BarraListado
-            v-model:vista="vista"
-            url="/escolar/alumnos"
-            vista-clave="alumnos"
-            :valores="filtros"
-            :filtros="definicionFiltros"
-            placeholder="Matrícula, nombre o CURP…"
-        />
-
         <!-- Cuadrícula -->
         <template v-if="vista === 'cuadricula'">
             <section v-if="alumnos.data.length" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -183,72 +196,112 @@ function subirExcel(archivo: File | null): void {
         </template>
 
         <!-- Lista -->
-        <section v-else class="tarjeta overflow-hidden">
-            <div class="overflow-x-auto">
-                <table v-if="alumnos.data.length" class="w-full text-sm">
-                    <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                        <tr>
-                            <th class="px-6 py-3 font-medium">Matrícula</th>
-                            <th class="px-4 py-3 font-medium">Alumno</th>
-                            <th class="px-4 py-3 font-medium">CURP</th>
-                            <th class="px-4 py-3 font-medium">Carreras</th>
-                            <th class="px-4 py-3 font-medium">Campus</th>
-                            <th class="px-4 py-3 font-medium">Estatus</th>
-                            <th class="px-6 py-3 font-medium text-right">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr
-                            v-for="alumno in alumnos.data"
-                            :key="alumno.id"
-                            class="border-t"
-                            :style="{ borderColor: 'var(--color-borde)' }"
-                        >
-                            <td class="px-6 py-3 font-mono text-xs">{{ alumno.matricula }}</td>
-                            <td class="px-4 py-3">
-                                <span class="flex items-center gap-2">
-                                    <img v-if="alumno.foto" :src="alumno.foto" alt="" class="h-8 w-8 rounded-full object-cover" loading="lazy" />
-                                    <span>
-                                        <span class="font-medium">{{ alumno.nombre_completo }}</span>
-                                        <span v-if="alumno.email" class="block text-xs" :style="{ color: 'var(--color-suave)' }">
-                                            {{ alumno.email }}
+        <template v-else>
+            <section class="tarjeta overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table v-if="alumnos.data.length" class="w-full text-sm">
+                        <thead>
+                            <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
+                                <th class="px-6 py-3 font-semibold">Alumno</th>
+                                <th class="px-4 py-3 font-semibold">Matrícula / CURP</th>
+                                <th class="px-4 py-3 font-semibold">Carreras</th>
+                                <th class="px-4 py-3 font-semibold">Campus</th>
+                                <th class="px-4 py-3 font-semibold">Estatus</th>
+                                <th class="px-6 py-3 font-semibold text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr
+                                v-for="alumno in alumnos.data"
+                                :key="alumno.id"
+                                class="fila-nueva group border-t transition-colors"
+                                :class="alumno.estatus === 'baja' ? 'opacity-60' : ''"
+                                :style="{ borderColor: 'var(--color-borde)' }"
+                            >
+                                <!-- Alumno: avatar + nombre + email -->
+                                <td class="px-6 py-4">
+                                    <a :href="`/escolar/alumnos/${alumno.id}`" class="flex items-center gap-3">
+                                        <img v-if="alumno.foto" :src="alumno.foto" alt="" class="h-10 w-10 rounded-full object-cover ring-1 ring-black/5" loading="lazy" />
+                                        <span
+                                            v-else
+                                            class="grid h-10 w-10 shrink-0 place-items-center rounded-full text-xs font-semibold"
+                                            :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 15%, transparent)', color: 'var(--color-acento)' }"
+                                        >{{ iniciales(alumno.nombre_completo) }}</span>
+                                        <span class="min-w-0">
+                                            <span class="block truncate font-semibold text-contenido">{{ alumno.nombre_completo ?? '—' }}</span>
+                                            <span v-if="alumno.email" class="block truncate text-xs" :style="{ color: 'var(--color-suave)' }">{{ alumno.email }}</span>
                                         </span>
-                                    </span>
-                                </span>
-                            </td>
-                            <td class="px-4 py-3 font-mono text-xs">{{ alumno.curp ?? '—' }}</td>
-                            <td class="px-4 py-3">
-                                <template v-if="alumno.carreras_activas >= 2">
-                                    <span class="font-medium">{{ alumno.carreras_activas }} carreras activas</span>
-                                </template>
-                                <template v-else>
-                                    {{ alumno.carrera ?? '—' }}
-                                    <span v-if="alumno.plan" class="block text-xs" :style="{ color: 'var(--color-suave)' }">
-                                        {{ alumno.plan }}
-                                    </span>
-                                </template>
-                            </td>
-                            <td class="px-4 py-3">{{ textoCampus(alumno.campus) }}</td>
-                            <td class="px-4 py-3">
-                                <span class="rounded-full px-2 py-0.5 text-xs capitalize" :style="{ backgroundColor: colorEstatus[alumno.estatus] ?? 'transparent' }">
-                                    {{ alumno.estatus }}
-                                </span>
-                            </td>
-                            <td class="px-6 py-3 text-right">
-                                <a :href="`/escolar/alumnos/${alumno.id}`" class="text-sm font-medium" :style="{ color: 'var(--color-acento)' }">
-                                    Expediente
-                                </a>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                                    </a>
+                                </td>
 
-                <p v-else class="px-6 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
-                    {{ filtros.busqueda ? `Nadie coincide con "${filtros.busqueda}".` : 'Todavía no hay alumnos matriculados.' }}
-                </p>
-            </div>
+                                <!-- Matrícula / CURP -->
+                                <td class="px-4 py-4">
+                                    <span class="inline-block rounded-md px-2 py-0.5 font-mono text-xs" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)' }">{{ alumno.matricula ?? '—' }}</span>
+                                    <span v-if="alumno.curp" class="mt-1 block font-mono text-[11px]" :style="{ color: 'var(--color-suave)' }">{{ alumno.curp }}</span>
+                                </td>
 
-            <Paginacion :enlaces="alumnos.links" :total="alumnos.total" :desde="alumnos.from" :hasta="alumnos.to" />
-        </section>
+                                <!-- Carreras -->
+                                <td class="px-4 py-4">
+                                    <template v-if="alumno.carreras_activas >= 2">
+                                        <span class="rounded-full px-2 py-0.5 text-[11px] font-medium" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }">{{ alumno.carreras_activas }} carreras</span>
+                                    </template>
+                                    <template v-else>
+                                        <span class="text-xs">{{ alumno.carrera ?? '—' }}</span>
+                                        <span v-if="alumno.plan" class="mt-0.5 block text-[11px]" :style="{ color: 'var(--color-suave)' }">{{ alumno.plan }}</span>
+                                    </template>
+                                </td>
+
+                                <!-- Campus (chips) -->
+                                <td class="px-4 py-4">
+                                    <span v-if="!alumno.campus.length" :style="{ color: 'var(--color-suave)' }">—</span>
+                                    <span v-else class="flex flex-wrap gap-1">
+                                        <span
+                                            v-for="c in alumno.campus.slice(0, 2)"
+                                            :key="c"
+                                            class="rounded-full px-2 py-0.5 text-[11px]"
+                                            :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 10%, transparent)', color: 'var(--color-acento)' }"
+                                        >{{ c }}</span>
+                                        <span v-if="alumno.campus.length > 2" class="rounded-full px-2 py-0.5 text-[11px]" :style="{ color: 'var(--color-suave)' }">+{{ alumno.campus.length - 2 }}</span>
+                                    </span>
+                                </td>
+
+                                <!-- Estatus -->
+                                <td class="px-4 py-4">
+                                    <PildoraEstado :texto="alumno.estatus" :color="colorEstatus[alumno.estatus]" />
+                                </td>
+
+                                <!-- Acción -->
+                                <td class="px-6 py-4 text-right">
+                                    <a
+                                        :href="`/escolar/alumnos/${alumno.id}`"
+                                        class="btn-ficha inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors"
+                                        :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-acento)' }"
+                                    >
+                                        Expediente
+                                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+                                    </a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <p v-else class="px-6 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
+                        {{ filtros.busqueda ? `Nadie coincide con "${filtros.busqueda}".` : 'Todavía no hay alumnos matriculados.' }}
+                    </p>
+                </div>
+
+                <Paginacion :enlaces="alumnos.links" :total="alumnos.total" :desde="alumnos.from" :hasta="alumnos.to" />
+            </section>
+        </template>
     </AppLayout>
 </template>
+
+<style scoped>
+.fila-nueva:hover {
+    background-color: color-mix(in srgb, var(--color-acento) 5%, transparent);
+}
+.fila-nueva:hover .btn-ficha {
+    border-color: transparent;
+    background-color: color-mix(in srgb, var(--color-acento) 12%, transparent);
+}
+</style>
