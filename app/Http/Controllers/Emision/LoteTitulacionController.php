@@ -229,8 +229,11 @@ class LoteTitulacionController extends Controller
             'password' => ['required', 'string'],
             'certificado' => ['nullable', 'file', 'max:64'],
             'llave' => ['nullable', 'file', 'max:64'],
+            // Segundo firmante (opcional): solo su contraseña; su material sale de
+            // su ficha.
+            'password_2' => ['nullable', 'string'],
         ], [
-            'password.required' => 'La contraseña de la llave es obligatoria para firmar.',
+            'password.required' => 'La contraseña de la llave del firmante 1 es obligatoria.',
         ]);
 
         // Los datos deben bastar para un título válido y congruente con el XSD.
@@ -239,54 +242,53 @@ class LoteTitulacionController extends Controller
             return back()->with('errores_firma', $errores);
         }
 
-        $responsable = Responsable::deTipo(TipoResponsable::TITULACION)
+        // El firmante 1 (obligatorio) es el responsable con el idCargo más bajo
+        // (p. ej. director); el firmante 2 (opcional) es el siguiente.
+        $responsables = Responsable::deTipo(TipoResponsable::TITULACION)
             ->activos()
             ->with(['cargo', 'tituloProfesional', 'certificadoVigente'])
-            ->first();
+            ->get()
+            ->sortBy(fn (Responsable $r) => $r->cargo?->identificador ?? $r->cargo_id ?? PHP_INT_MAX)
+            ->values();
 
-        if ($responsable === null) {
+        if ($responsables->isEmpty()) {
             return back()->with('error', 'No hay un responsable de titulación activo. Regístralo en Configuración → Responsables.');
-        }
-
-        $certificado = $responsable->certificadoVigente;
-        if ($certificado === null) {
-            return back()->with('error', 'El responsable no tiene un certificado vigente.');
-        }
-
-        if (! $certificado->estaVigente()) {
-            return back()->with('error', "El certificado del responsable venció el {$certificado->vigencia_fin?->format('d/m/Y')}. Actualízalo en Configuración → Responsables antes de firmar.");
         }
 
         $lector = new LectorCertificado;
 
-        $certPem = $request->hasFile('certificado')
+        // Firmante 1 (obligatorio): puede subir su .cer/.key o usar los de su ficha.
+        $certPemSubido = $request->hasFile('certificado')
             ? $lector->pem((string) file_get_contents($request->file('certificado')->getRealPath()))
-            : $certificado->cer_pem;
-
-        if (blank($certPem)) {
-            return back()->with('error', 'Sube el certificado (.cer) del responsable, o guárdalo en su ficha para no volver a subirlo.');
-        }
-
-        $keyContents = $request->hasFile('llave')
+            : null;
+        $keySubida = $request->hasFile('llave')
             ? (string) file_get_contents($request->file('llave')->getRealPath())
-            : ($certificado->key_encriptado ? Crypt::decryptString($certificado->key_encriptado) : null);
+            : null;
 
-        if (blank($keyContents)) {
-            return back()->with('error', 'Sube la llave (.key) del responsable, o cárgala en su ficha para firmar con solo la contraseña.');
+        $preparado = $this->prepararFirmante($responsables[0], $certPemSubido, $keySubida, (string) $datos['password'], $lector);
+        if (! $preparado['ok']) {
+            return back()->with('error', $preparado['error']);
         }
+        $firmantes = [$preparado['firmante']];
 
-        $diagnostico = $lector->diagnosticarLlave($certPem, $keyContents, (string) $datos['password']);
-        if ($diagnostico === 'password') {
-            return back()->with('error', 'La contraseña de la llave es incorrecta.');
-        }
-        if ($diagnostico === 'mismatch') {
-            return back()->with('error', 'La llave (.key) no corresponde al certificado (.cer). Verifica que sean del mismo responsable.');
+        // Firmante 2 (opcional): si hay un segundo responsable activo, se exige su
+        // contraseña y se usa el material de su ficha.
+        if ($responsables->count() > 1) {
+            if (blank($datos['password_2'] ?? null)) {
+                return back()->with('error', "Hay un segundo responsable ({$responsables[1]->nombreCompleto()}): captura también su contraseña para firmar.");
+            }
+
+            $segundo = $this->prepararFirmante($responsables[1], null, null, (string) $datos['password_2'], $lector);
+            if (! $segundo['ok']) {
+                return back()->with('error', $segundo['error']);
+            }
+            $firmantes[] = $segundo['firmante'];
         }
 
         try {
-            $resultado = $firmador->firmar($lote, $responsable, $certificado, $certPem, $keyContents, (string) $datos['password']);
+            $resultado = $firmador->firmar($lote, $firmantes);
         } catch (Throwable $e) {
-            return back()->with('error', 'No se pudo firmar el lote. Revisa el certificado y la llave del responsable.');
+            return back()->with('error', 'No se pudo firmar el lote. Revisa el certificado y la llave de los responsables.');
         }
 
         if ($resultado['titulados'] === 0) {
@@ -465,29 +467,86 @@ class LoteTitulacionController extends Controller
     }
 
     /**
-     * Contexto para firmar: el responsable de titulación activo y si su material
-     * (.cer/.key) ya está guardado.
+     * Prepara un firmante: valida su certificado vigente y su material (.cer/.key
+     * subido o de su ficha) contra la contraseña. Devuelve el firmante listo para
+     * el firmador, o un error legible.
+     *
+     * @return array{ok: bool, error?: string, firmante?: array<string, mixed>}
+     */
+    private function prepararFirmante(Responsable $responsable, ?string $certPemSubido, ?string $keySubida, string $password, LectorCertificado $lector): array
+    {
+        $cert = $responsable->certificadoVigente;
+        $etq = $responsable->nombreCompleto();
+
+        if ($cert === null) {
+            return ['ok' => false, 'error' => "{$etq} no tiene un certificado vigente."];
+        }
+        if (! $cert->estaVigente()) {
+            return ['ok' => false, 'error' => "El certificado de {$etq} venció el {$cert->vigencia_fin?->format('d/m/Y')}. Actualízalo en Configuración → Responsables."];
+        }
+
+        $certPem = $certPemSubido ?? $cert->cer_pem;
+        if (blank($certPem)) {
+            return ['ok' => false, 'error' => "Sube el certificado (.cer) de {$etq}, o guárdalo en su ficha."];
+        }
+
+        $keyContents = $keySubida ?? ($cert->key_encriptado ? Crypt::decryptString($cert->key_encriptado) : null);
+        if (blank($keyContents)) {
+            return ['ok' => false, 'error' => "Sube la llave (.key) de {$etq}, o cárgala en su ficha."];
+        }
+
+        $diagnostico = $lector->diagnosticarLlave($certPem, $keyContents, $password);
+        if ($diagnostico === 'password') {
+            return ['ok' => false, 'error' => "La contraseña de la llave de {$etq} es incorrecta."];
+        }
+        if ($diagnostico === 'mismatch') {
+            return ['ok' => false, 'error' => "La llave (.key) de {$etq} no corresponde a su certificado (.cer)."];
+        }
+
+        return ['ok' => true, 'firmante' => [
+            'responsable' => $responsable,
+            'certificado' => $cert,
+            'cert_pem' => $certPem,
+            'key' => $keyContents,
+            'password' => $password,
+        ]];
+    }
+
+    /**
+     * Contexto para firmar: los responsables de titulación activos (el primero es
+     * el firmante obligatorio; el segundo, opcional) y si su material ya está
+     * guardado, para pedir solo lo que falta.
      *
      * @return array<string, mixed>
      */
     private function contextoFirma(): array
     {
-        $responsable = Responsable::deTipo(TipoResponsable::TITULACION)
+        $responsables = Responsable::deTipo(TipoResponsable::TITULACION)
             ->activos()
-            ->with('certificadoVigente')
-            ->first();
-
-        $cert = $responsable?->certificadoVigente;
+            ->with(['cargo', 'certificadoVigente'])
+            ->get()
+            ->sortBy(fn (Responsable $r) => $r->cargo?->identificador ?? $r->cargo_id ?? PHP_INT_MAX)
+            ->values();
 
         return [
-            'responsable' => $responsable?->nombreCompleto(),
-            'tiene_responsable' => $responsable !== null,
-            'tiene_cer' => filled($cert?->cer_pem),
-            'tiene_key' => filled($cert?->key_encriptado),
-            'serie' => $cert?->serie,
-            'vigencia_fin' => $cert?->vigencia_fin?->format('d/m/Y'),
-            'dias_restantes' => $cert?->diasRestantes(),
-            'vencido' => $cert !== null && ! $cert->estaVigente(),
+            'tiene_responsable' => $responsables->isNotEmpty(),
+            'firmantes' => $responsables->map(function (Responsable $r, int $i) {
+                $cert = $r->certificadoVigente;
+
+                return [
+                    'orden' => $i + 1,
+                    'obligatorio' => $i === 0,
+                    'responsable' => $r->nombreCompleto(),
+                    'cargo' => $r->cargo?->nombre,
+                    'tiene_cer' => filled($cert?->cer_pem),
+                    'tiene_key' => filled($cert?->key_encriptado),
+                    'serie' => $cert?->serie,
+                    'vigencia_fin' => $cert?->vigencia_fin?->format('d/m/Y'),
+                    'dias_restantes' => $cert?->diasRestantes(),
+                    'vencido' => $cert !== null && ! $cert->estaVigente(),
+                    'sin_certificado' => $cert === null,
+                ];
+            })->all(),
         ];
     }
 }

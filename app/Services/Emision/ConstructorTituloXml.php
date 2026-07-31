@@ -204,22 +204,22 @@ class ConstructorTituloXml
     }
 
     /**
-     * Cadena original del título: valores en orden de documento, `||` al inicio y
-     * al final, `|` como separador. Es lo que se SELLA por cada responsable.
+     * Cadena original del título: valores del DOCUMENTO en orden del XSD
+     * (Institucion → Carrera → Profesionista → Expedicion → Antecedente), con `||`
+     * al inicio/fin y `|` como separador. Es lo que SELLA cada responsable: todos
+     * firman la MISMA cadena (por eso NO incluye datos del responsable), y el
+     * ejemplo oficial confirma que un mismo documento produce un sello por firmante.
      *
-     * NOTA: la secuencia oficial de la cadena original del título electrónico
-     * (equivalente a la 6.5 del DEC) aún no está a la mano; esta es una versión de
-     * trabajo con todos los campos en orden. Ajustar cuando llegue la especificación
-     * para que el sello lo acepte el WS de la SEP.
+     * NOTA: la secuencia oficial exacta (equivalente a la 6.5 del DEC) aún no está
+     * documentada; esta sigue el orden del XSD. Verificar contra una aceptación real
+     * del WS o la XSLT oficial cuando se tengan.
      *
      * @param  array<string, mixed>  $d
-     * @param  array<string, mixed>  $firma  responsable_curp, responsable_id_cargo
      */
-    public function cadenaOriginal(array $d, array $firma): string
+    public function cadenaOriginal(array $d): string
     {
         $partes = [
             $d['version'],
-            $firma['responsable_curp'] ?? '', $firma['responsable_id_cargo'] ?? '',
             $d['cveInstitucion'], $d['nombreInstitucion'],
             $d['cveCarrera'], $d['nombreCarrera'], $d['carreraFechaInicio'], $d['carreraFechaTerminacion'],
             $d['idAutorizacionReconocimiento'], $d['autorizacionReconocimiento'], $d['numeroRvoe'],

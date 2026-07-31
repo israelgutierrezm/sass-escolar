@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  EJEMPLO OFICIAL de título electrónico firmado (proporcionado por el usuario).
+  Sirve de referencia para el firmador y la cadena original. Observaciones:
+  - DOS FirmaResponsable: idCargo=1 (DIRECTOR, obligatorio) e idCargo=2
+    (SUBDIRECTOR, opcional). Cada uno con su PROPIO sello, certificadoResponsable
+    (.cer en base64 DER, sin encabezados PEM) y noCertificadoResponsable (serie).
+  - Ambos firman el MISMO documento -> misma cadena original, distintos sellos
+    (uno por llave privada). => la cadena original es del DOCUMENTO, no incluye
+    datos del responsable.
+  - abrTitulo presente ("Dr.", "Mtro.").
+  - numeroRvoe omitido (opcional); Autenticacion ausente; noCedula ausente.
+-->
+<TituloElectronico xmlns="https://www.siged.sep.gob.mx/titulos/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="1.0" folioControl="20121023SICERT0151610X0042086X00013" xsi:schemaLocation="https://www.siged.sep.gob.mx/titulos/ schema.xsd">
+<FirmaResponsables>
+<FirmaResponsable nombre="MIGUEL ANGEL" primerApellido="ALEJO" segundoApellido="MACIAS" curp="AEMM830225HDFLCG04" idCargo="1" cargo="DIRECTOR" abrTitulo="Dr." sello="(sello base64 del responsable 1)" certificadoResponsable="(cer base64 del responsable 1)" noCertificadoResponsable="00001000000409837457"/>
+<FirmaResponsable nombre="ERNESTO" primerApellido="LOPEZ" segundoApellido="CABALLERO" curp="LOCE740813HDFPBR13" idCargo="2" cargo="SUBDIRECTOR" abrTitulo="Mtro." sello="(sello base64 del responsable 2)" certificadoResponsable="(cer base64 del responsable 2)" noCertificadoResponsable="00001000000401880221"/>
+</FirmaResponsables>
+<Institucion cveInstitucion="090002" nombreInstitucion="INSTITUTO POLITÉCNICO NACIONAL"/>
+<Carrera cveCarrera="515237" nombreCarrera="TÉCNICO EN PLÁSTICOS" fechaInicio="2006-01-01" fechaTerminacion="2009-01-01" idAutorizacionReconocimiento="3" autorizacionReconocimiento="AUTORIZACIÓN FEDERAL"/>
+<Profesionista curp="AOJM910903MMCLMR07" nombre="MARIANA" primerApellido="ALONSO" segundoApellido="JIMENEZ" correoElectronico="a.mar.sanorbac_jimenez@hotmail.com"/>
+<Expedicion fechaExpedicion="2013-12-04" idModalidadTitulacion="1" modalidadTitulacion="POR TESIS" fechaExamenProfesional="2009-08-05" cumplioServicioSocial="1" idFundamentoLegalServicioSocial="1" fundamentoLegalServicioSocial="ART. 52 LRART. 5 CONST" idEntidadFederativa="09" entidadFederativa="CIUDAD DE MÉXICO"/>
+<Antecedente institucionProcedencia="ESCUELA SECUNDARIA TECNICA 47, MÉXICO, D. F. " idTipoEstudioAntecedente="6" tipoEstudioAntecedente="SECUNDARIA" idEntidadFederativa="09" entidadFederativa="CIUDAD DE MÉXICO" fechaInicio="2003-01-01" fechaTerminacion="2006-01-01"/>
+</TituloElectronico>

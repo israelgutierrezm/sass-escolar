@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Emision;
 
 use App\Enums\EstadoLoteTitulacion;
-use App\Models\Emision\CertificadoResponsable;
 use App\Models\Emision\LoteTitulacion;
-use App\Models\Emision\Responsable;
 use App\Models\Emision\Titulacion;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -15,50 +13,49 @@ use PhpCfdi\Credentials\Credential;
 use Throwable;
 
 /**
- * Sella cada egresado de un lote de titulación con la e.firma del responsable de
- * titulación.
+ * Sella cada egresado de un lote de titulación con la e.firma de los responsables
+ * de titulación.
  *
- * Por cada renglón pendiente: arma la foto del título, calcula la cadena original,
- * la FIRMA con la llave privada del responsable y guarda el XML sellado en el
- * disco privado del tenant. Si un renglón falla, se marca `error` con su motivo y
- * el lote sigue con los demás; el lote pasa a `firmado` si hay al menos un título.
+ * El título admite UNO o VARIOS firmantes (director obligatorio + subdirector
+ * opcional). Todos firman el MISMO documento: se calcula UNA cadena original (del
+ * documento, sin datos del responsable) y cada firmante la sella con su propia
+ * llave, produciendo un nodo FirmaResponsable con su sello/cer/serie. Si un
+ * renglón falla se marca `error` y el lote sigue; el lote pasa a `firmado` si hay
+ * al menos un título.
  *
- * La contraseña de la llave nunca se persiste: llega a `firmar()` sólo para abrir
- * la credencial en memoria durante el sellado.
+ * Las contraseñas nunca se persisten: llegan a `firmar()` sólo para abrir cada
+ * credencial en memoria durante el sellado.
  */
 class FirmadorLoteTitulo
 {
     public function __construct(private ConstructorTituloXml $constructor) {}
 
     /**
+     * @param  array<int, array{responsable: \App\Models\Emision\Responsable, certificado: \App\Models\Emision\CertificadoResponsable, cert_pem: string, key: string, password: string}>  $firmantes
+     *         El primero es el firmante obligatorio (con el que se registra el lote).
      * @return array{titulados: int, errores: int}
      */
-    public function firmar(
-        LoteTitulacion $lote,
-        Responsable $responsable,
-        CertificadoResponsable $certificado,
-        string $certPem,
-        string $keyContents,
-        string $password,
-    ): array {
-        // Abre la credencial una sola vez; lanza si la contraseña o la llave no
-        // corresponden al certificado (lo captura el controlador).
-        $credencial = Credential::create($certPem, $keyContents, $password);
+    public function firmar(LoteTitulacion $lote, array $firmantes): array
+    {
+        // Abre cada credencial una sola vez y arma la ficha de firma de cada
+        // responsable. Lanza si la contraseña o la llave no corresponden al
+        // certificado (lo captura el controlador).
+        $firmas = array_map(function (array $f): array {
+            $responsable = $f['responsable'];
 
-        $noCertificado = $certificado->serie;
-        $certB64 = base64_encode($certPem);
-
-        // Datos del responsable que van al nodo FirmaResponsable y a la cadena
-        // original (curp e idCargo son parte de lo sellado).
-        $datosResponsable = [
-            'responsable_curp' => $responsable->curp,
-            'responsable_nombre' => $responsable->nombre,
-            'responsable_primer_apellido' => $responsable->apellido_paterno,
-            'responsable_segundo_apellido' => $responsable->apellido_materno,
-            'responsable_id_cargo' => (string) ($responsable->cargo?->identificador ?? $responsable->cargo_id ?? '0'),
-            'responsable_cargo' => $responsable->cargo?->nombre,
-            'responsable_abr_titulo' => $responsable->tituloProfesional?->abreviatura,
-        ];
+            return [
+                'credencial' => Credential::create($f['cert_pem'], $f['key'], $f['password']),
+                'nombre' => $responsable->nombre,
+                'primer_apellido' => $responsable->apellido_paterno,
+                'segundo_apellido' => $responsable->apellido_materno,
+                'curp' => $responsable->curp,
+                'id_cargo' => (string) ($responsable->cargo?->identificador ?? $responsable->cargo_id ?? '0'),
+                'cargo' => $responsable->cargo?->nombre,
+                'abr_titulo' => $responsable->tituloProfesional?->abreviatura,
+                'certificado' => base64_encode($f['cert_pem']),
+                'no_certificado' => $f['certificado']->serie,
+            ];
+        }, array_values($firmantes));
 
         $pendientes = $lote->titulaciones()
             ->where('estado', '!=', Titulacion::TITULADO)
@@ -80,18 +77,26 @@ class FirmadorLoteTitulo
                 $datos = $this->constructor->snapshot($matricula);
                 $folio = sprintf('%s-%03d', $lote->folio, $i);
 
-                // Se sella la cadena original (incluye datos del responsable).
-                $cadena = $this->constructor->cadenaOriginal($datos, $datosResponsable);
-                $sello = base64_encode($credencial->sign($cadena));
+                // UNA cadena original (del documento); cada firmante la sella con
+                // su llave, produciendo su propio sello.
+                $cadena = $this->constructor->cadenaOriginal($datos);
 
-                $firma = [...$datosResponsable,
-                    'folio' => $folio,
-                    'no_certificado' => $noCertificado,
-                    'sello' => $sello,
-                    'certificado' => $certB64,
-                ];
+                $responsables = array_map(function (array $firma) use ($cadena): array {
+                    return [
+                        'nombre' => $firma['nombre'],
+                        'primer_apellido' => $firma['primer_apellido'],
+                        'segundo_apellido' => $firma['segundo_apellido'],
+                        'curp' => $firma['curp'],
+                        'id_cargo' => $firma['id_cargo'],
+                        'cargo' => $firma['cargo'],
+                        'abr_titulo' => $firma['abr_titulo'],
+                        'sello' => base64_encode($firma['credencial']->sign($cadena)),
+                        'certificado' => $firma['certificado'],
+                        'no_certificado' => $firma['no_certificado'],
+                    ];
+                }, $firmas);
 
-                $xml = $this->constructor->xml($datos, $firma);
+                $xml = $this->constructor->xml($datos, ['folio' => $folio, 'responsables' => $responsables]);
 
                 $ruta = "titulos/{$lote->folio}/{$matricula->matricula}.xml";
                 Storage::disk('local')->put($ruta, $xml);
@@ -99,9 +104,11 @@ class FirmadorLoteTitulo
                 $titulacion->update([
                     'estado' => Titulacion::TITULADO,
                     'folio' => $folio,
-                    'no_certificado' => $noCertificado,
+                    // En las columnas del renglón se guarda lo del firmante 1; el
+                    // XML lleva a todos.
+                    'no_certificado' => $responsables[0]['no_certificado'],
                     'cadena_original' => $cadena,
-                    'sello' => $sello,
+                    'sello' => $responsables[0]['sello'],
                     'xml_path' => $ruta,
                     'datos_json' => $datos,
                     'fecha_titulacion' => now(),
@@ -118,14 +125,15 @@ class FirmadorLoteTitulo
             }
         }
 
-        // El lote queda firmado si produjo al menos un título; se registra con qué
-        // responsable y certificado se selló.
+        // El lote queda firmado si produjo al menos un título; se registra con el
+        // firmante obligatorio (el primero).
         if ($titulados > 0) {
-            DB::transaction(function () use ($lote, $responsable, $certificado) {
+            $principal = $firmantes[array_key_first($firmantes)];
+            DB::transaction(function () use ($lote, $principal) {
                 $lote->update([
                     'estado' => EstadoLoteTitulacion::Firmado,
-                    'responsable_id' => $responsable->id,
-                    'certificado_responsable_id' => $certificado->id,
+                    'responsable_id' => $principal['responsable']->id,
+                    'certificado_responsable_id' => $principal['certificado']->id,
                     'firmado_en' => now(),
                 ]);
             });

@@ -45,15 +45,23 @@ interface Egresado {
     matricula_oferta_id?: number;
 }
 
-interface Firma {
+interface FirmanteInfo {
+    orden: number;
+    obligatorio: boolean;
     responsable: string | null;
-    tiene_responsable: boolean;
+    cargo: string | null;
     tiene_cer: boolean;
     tiene_key: boolean;
     serie: string | null;
     vigencia_fin: string | null;
     dias_restantes: number | null;
     vencido: boolean;
+    sin_certificado: boolean;
+}
+
+interface Firma {
+    tiene_responsable: boolean;
+    firmantes: FirmanteInfo[];
 }
 
 interface Candidato {
@@ -166,17 +174,20 @@ function enviar(): void {
 const mostrarFirma = ref(false);
 const nombreCer = ref<string | null>(null);
 const nombreKey = ref<string | null>(null);
-const formFirma = useForm<{ password: string; certificado: File | null; llave: File | null }>({
-    password: '', certificado: null, llave: null,
+const formFirma = useForm<{ password: string; password_2: string; certificado: File | null; llave: File | null }>({
+    password: '', password_2: '', certificado: null, llave: null,
 });
+
+const firmante1 = computed<FirmanteInfo | null>(() => props.firma.firmantes[0] ?? null);
+const firmante2 = computed<FirmanteInfo | null>(() => props.firma.firmantes[1] ?? null);
 
 function abrirFirma(): void {
     if (!props.firma.tiene_responsable) {
         toast.error('No hay un responsable de titulación activo. Regístralo en Configuración → Responsables.');
         return;
     }
-    if (props.firma.vencido) {
-        toast.error(`El certificado del responsable venció el ${props.firma.vigencia_fin}. Actualízalo antes de firmar.`);
+    if (firmante1.value?.vencido) {
+        toast.error(`El certificado de ${firmante1.value.responsable} venció el ${firmante1.value.vigencia_fin}. Actualízalo antes de firmar.`);
         return;
     }
     if (!props.lote.etapa_coincide) {
@@ -348,40 +359,73 @@ watch(
             </div>
 
             <form class="space-y-5 p-6" @submit.prevent="firmar">
-                <div class="rounded-lg border px-4 py-3" :style="{ borderColor: 'var(--color-borde)' }">
-                    <p class="text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">Firma</p>
-                    <p class="mt-0.5 font-medium">{{ firma.responsable }}</p>
-                    <p v-if="firma.serie" class="text-xs" :style="{ color: 'var(--color-suave)' }">Certificado {{ firma.serie }}</p>
-                    <p v-if="firma.vigencia_fin" class="mt-1.5 flex items-center gap-1.5 text-xs">
-                        <span class="inline-block h-2 w-2 rounded-full" :style="{ backgroundColor: firma.vencido ? '#dc2626' : (firma.dias_restantes !== null && firma.dias_restantes <= 30 ? '#d97706' : '#16a34a') }" />
-                        <span v-if="firma.vencido" class="font-medium text-red-600">Vencido el {{ firma.vigencia_fin }}</span>
-                        <span v-else :style="{ color: 'var(--color-suave)' }">Vigente hasta {{ firma.vigencia_fin }} · {{ firma.dias_restantes }} día(s)</span>
+                <p class="text-sm" :style="{ color: 'var(--color-suave)' }">
+                    Todos los firmantes sellan el mismo documento. El firmante 1 es obligatorio; si hay un
+                    segundo responsable, también debe firmar.
+                </p>
+
+                <!-- Firmante 1 (obligatorio) -->
+                <div v-if="firmante1" class="rounded-lg border p-4" :style="{ borderColor: 'var(--color-borde)' }">
+                    <div class="flex items-center justify-between gap-2">
+                        <div>
+                            <span class="rounded-full px-2 py-0.5 text-xs font-medium" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 14%, transparent)', color: 'var(--color-acento)' }">Firmante 1 · obligatorio</span>
+                            <p class="mt-1.5 font-medium">{{ firmante1.responsable }} <span v-if="firmante1.cargo" class="text-xs" :style="{ color: 'var(--color-suave)' }">· {{ firmante1.cargo }}</span></p>
+                        </div>
+                        <p v-if="firmante1.vigencia_fin" class="text-right text-xs">
+                            <span class="inline-flex items-center gap-1.5">
+                                <span class="inline-block h-2 w-2 rounded-full" :style="{ backgroundColor: firmante1.vencido ? '#dc2626' : (firmante1.dias_restantes !== null && firmante1.dias_restantes <= 30 ? '#d97706' : '#16a34a') }" />
+                                <span v-if="firmante1.vencido" class="font-medium text-red-600">Vencido</span>
+                                <span v-else :style="{ color: 'var(--color-suave)' }">Vigente a {{ firmante1.vigencia_fin }}</span>
+                            </span>
+                            <span v-if="firmante1.serie" class="block" :style="{ color: 'var(--color-suave)' }">Cert. {{ firmante1.serie }}</span>
+                        </p>
+                    </div>
+
+                    <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                        <div>
+                            <label class="mb-1 block text-sm font-medium">Certificado (.cer)</label>
+                            <ZonaArchivo v-if="!firmante1.tiene_cer" accept=".cer" texto="Arrastra el .cer o haz clic" :cargado="nombreCer" @archivo="alCer" />
+                            <p v-else class="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }">
+                                <svg class="h-4 w-4 shrink-0 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                                Ya guardado en su ficha
+                            </p>
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-sm font-medium">Llave privada (.key)</label>
+                            <ZonaArchivo v-if="!firmante1.tiene_key" accept=".key" texto="Arrastra el .key o haz clic" :cargado="nombreKey" @archivo="alKey" />
+                            <p v-else class="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }">
+                                <svg class="h-4 w-4 shrink-0 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                                Ya cargada en su ficha
+                            </p>
+                        </div>
+                    </div>
+                    <div class="mt-4 max-w-sm">
+                        <CampoTexto v-model="formFirma.password" tipo="password" etiqueta="Contraseña de la llave" :error="formFirma.errors.password" />
+                    </div>
+                </div>
+
+                <!-- Firmante 2 (opcional): usa el material de su ficha -->
+                <div v-if="firmante2" class="rounded-lg border p-4" :style="{ borderColor: 'var(--color-borde)' }">
+                    <div class="flex items-center justify-between gap-2">
+                        <div>
+                            <span class="rounded-full px-2 py-0.5 text-xs font-medium" :style="{ backgroundColor: 'var(--color-borde)', color: 'var(--color-suave)' }">Firmante 2 · segundo responsable</span>
+                            <p class="mt-1.5 font-medium">{{ firmante2.responsable }} <span v-if="firmante2.cargo" class="text-xs" :style="{ color: 'var(--color-suave)' }">· {{ firmante2.cargo }}</span></p>
+                        </div>
+                        <p v-if="firmante2.vigencia_fin" class="text-right text-xs">
+                            <span class="inline-flex items-center gap-1.5">
+                                <span class="inline-block h-2 w-2 rounded-full" :style="{ backgroundColor: firmante2.vencido ? '#dc2626' : (firmante2.dias_restantes !== null && firmante2.dias_restantes <= 30 ? '#d97706' : '#16a34a') }" />
+                                <span v-if="firmante2.vencido" class="font-medium text-red-600">Vencido</span>
+                                <span v-else :style="{ color: 'var(--color-suave)' }">Vigente a {{ firmante2.vigencia_fin }}</span>
+                            </span>
+                            <span v-if="firmante2.serie" class="block" :style="{ color: 'var(--color-suave)' }">Cert. {{ firmante2.serie }}</span>
+                        </p>
+                    </div>
+                    <p v-if="firmante2.sin_certificado || !firmante2.tiene_cer || !firmante2.tiene_key" class="mt-3 text-xs" :style="{ color: '#dc2626' }">
+                        Su .cer/.key deben estar cargados en su ficha (Configuración → Responsables) para poder firmar.
                     </p>
-                </div>
-
-                <div class="grid gap-4 sm:grid-cols-2">
-                    <div>
-                        <label class="mb-1 block text-sm font-medium">Certificado (.cer)</label>
-                        <ZonaArchivo v-if="!firma.tiene_cer" accept=".cer" texto="Arrastra el .cer o haz clic para seleccionarlo" :cargado="nombreCer" @archivo="alCer" />
-                        <p v-else class="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }">
-                            <svg class="h-4 w-4 shrink-0 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
-                            Ya guardado en su ficha
-                        </p>
-                        <p v-if="formFirma.errors.certificado" class="mt-1 text-xs text-red-600">{{ formFirma.errors.certificado }}</p>
+                    <div class="mt-4 max-w-sm">
+                        <CampoTexto v-model="formFirma.password_2" tipo="password" etiqueta="Contraseña de su llave" :error="formFirma.errors.password_2" />
                     </div>
-                    <div>
-                        <label class="mb-1 block text-sm font-medium">Llave privada (.key)</label>
-                        <ZonaArchivo v-if="!firma.tiene_key" accept=".key" texto="Arrastra el .key o haz clic para seleccionarlo" :cargado="nombreKey" @archivo="alKey" />
-                        <p v-else class="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }">
-                            <svg class="h-4 w-4 shrink-0 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
-                            Ya cargada en su ficha
-                        </p>
-                        <p v-if="formFirma.errors.llave" class="mt-1 text-xs text-red-600">{{ formFirma.errors.llave }}</p>
-                    </div>
-                </div>
-
-                <div class="max-w-sm">
-                    <CampoTexto v-model="formFirma.password" tipo="password" etiqueta="Contraseña de la llave" :error="formFirma.errors.password" />
                 </div>
 
                 <div class="flex items-center gap-3 border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">
