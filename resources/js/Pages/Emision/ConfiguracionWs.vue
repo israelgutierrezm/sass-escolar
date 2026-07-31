@@ -103,7 +103,7 @@ const modoInfo = computed(() => ({
                         type="button"
                         class="flex-1 rounded-xl border-2 px-4 py-3 text-sm font-medium transition"
                         :style="form.etapa_activa === op.v
-                            ? { borderColor: op.v === 'produccion' ? '#16a34a' : 'var(--color-acento)', backgroundColor: `color-mix(in srgb, ${op.v === 'produccion' ? '#16a34a' : 'var(--color-acento)'} 10%, transparent)`, color: 'var(--color-contenido)' }
+                            ? { borderColor: op.v === 'produccion' ? '#16a34a' : '#f59e0b', backgroundColor: `color-mix(in srgb, ${op.v === 'produccion' ? '#16a34a' : '#f59e0b'} 12%, transparent)`, color: 'var(--color-contenido)' }
                             : { borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }"
                         @click="form.etapa_activa = op.v as 'pruebas' | 'produccion'"
                     >
