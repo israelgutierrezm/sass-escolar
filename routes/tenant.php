@@ -23,6 +23,7 @@ use App\Http\Controllers\DocenteController;
 use App\Http\Controllers\DocumentoRequeridoController;
 use App\Http\Controllers\Emision\LoteCertificacionController;
 use App\Http\Controllers\Emision\ResponsableController;
+use App\Http\Controllers\Emision\LoteTitulacionController;
 use App\Http\Controllers\Emision\TipoCertificacionController;
 use App\Http\Controllers\Emision\TitulacionWsConfigController;
 use App\Http\Controllers\Emision\TituloProfesionalController;
@@ -989,5 +990,35 @@ Route::middleware([
             ->whereNumber('certificacion')
             ->middleware('can:certificar-alumnos')
             ->name('tenant.certificacion.certificaciones.xml');
+
+        /*
+         * Lotes de titulación: como los de certificación, pero cada lote lleva su
+         * ETAPA (pruebas/producción) y, tras firmarse, se envía al web service de
+         * la SEP. La congruencia de etapa se valida antes de firmar y de enviar.
+         */
+        Route::controller(LoteTitulacionController::class)
+            ->prefix('titulacion/lotes')->name('tenant.titulacion.lotes.')
+            ->middleware('can:titular-alumnos')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'store')->name('store');
+                Route::get('/candidatos', 'candidatos')->name('candidatos');
+                Route::post('/verificar-certificado', 'verificarCertificado')->name('verificar-certificado');
+                Route::get('/{lote}', 'show')->whereNumber('lote')->name('show');
+                Route::post('/{lote}/egresados', 'agregar')->whereNumber('lote')->name('egresados.store');
+                Route::delete('/{lote}/egresados/{titulacion}', 'quitar')->whereNumber('lote')->whereNumber('titulacion')->name('egresados.destroy');
+                Route::put('/{lote}/etapa', 'editarEtapa')->whereNumber('lote')->name('etapa');
+                Route::put('/{lote}/cerrar', 'cerrar')->whereNumber('lote')->name('cerrar');
+                Route::put('/{lote}/reabrir', 'reabrir')->whereNumber('lote')->name('reabrir');
+                Route::post('/{lote}/firmar', 'firmar')->whereNumber('lote')->name('firmar');
+                Route::post('/{lote}/enviar', 'enviar')->whereNumber('lote')->name('enviar');
+                Route::get('/{lote}/xml-zip', 'xmlZip')->whereNumber('lote')->name('xml-zip');
+                Route::delete('/{lote}', 'destroy')->whereNumber('lote')->name('destroy');
+            });
+
+        Route::get('titulacion/titulaciones/{titulacion}/xml', [LoteTitulacionController::class, 'xml'])
+            ->whereNumber('titulacion')
+            ->middleware('can:titular-alumnos')
+            ->name('tenant.titulacion.titulaciones.xml');
     });
 });

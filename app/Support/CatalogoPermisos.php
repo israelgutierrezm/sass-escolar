@@ -133,6 +133,7 @@ final class CatalogoPermisos
             'gestionar-certificacion' => ['Certificación electrónica', 'Administrar la configuración de la certificación: responsables que firman y sus catálogos.', [self::ADMINISTRATIVO]],
             'gestionar-titulacion' => ['Titulación electrónica', 'Administrar la configuración de la titulación: responsables que firman y sus catálogos.', [self::ADMINISTRATIVO]],
             'certificar-alumnos' => ['Certificar alumnos', 'Armar lotes de certificación, agregar alumnos que ya cerraron su plan y firmar sus certificados. Descargar el XML sellado.', [self::ADMINISTRATIVO]],
+            'titular-alumnos' => ['Titular alumnos', 'Armar lotes de titulación, agregar egresados, firmar sus títulos y enviarlos al web service de la SEP. Descargar el XML sellado.', [self::ADMINISTRATIVO]],
         ],
 
         'Plataforma' => [
