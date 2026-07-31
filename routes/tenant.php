@@ -23,6 +23,7 @@ use App\Http\Controllers\DocumentoRequeridoController;
 use App\Http\Controllers\Emision\LoteCertificacionController;
 use App\Http\Controllers\Emision\ResponsableController;
 use App\Http\Controllers\Emision\TipoCertificacionController;
+use App\Http\Controllers\Emision\TitulacionWsConfigController;
 use App\Http\Controllers\Emision\TituloProfesionalController;
 use App\Http\Controllers\EmisorFiscalController;
 use App\Http\Controllers\EsquemaEvaluacionController;
@@ -918,6 +919,20 @@ Route::middleware([
                         });
                 });
         }
+
+        /*
+         * Web service de Títulos Electrónicos (SEP). Solo Titulación: sus dos
+         * juegos de credenciales (pruebas/producción) y el interruptor de etapa
+         * activa. Bajo Titulación → Configuración.
+         */
+        Route::controller(TitulacionWsConfigController::class)
+            ->prefix('titulacion/configuracion/web-service')->name('tenant.titulacion.web-service.')
+            ->middleware('can:gestionar-titulacion')
+            ->group(function () {
+                Route::get('/', 'configuracion')->name('index');
+                Route::put('/', 'guardar')->name('guardar');
+                Route::post('/probar', 'probar')->name('probar');
+            });
 
         /*
          * Catálogo de tipos de certificación (79 Total / 80 Parcial) que

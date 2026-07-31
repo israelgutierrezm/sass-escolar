@@ -225,6 +225,7 @@ export const CATALOGO_MENU: GrupoMenu[] = [
                 hijos: [
                     { clave: 'responsables-titulacion', etiqueta: 'Responsables', url: '/titulacion/configuracion/responsables', permiso: 'gestionar-titulacion' },
                     { clave: 'catalogos-titulacion', etiqueta: 'Catálogos', url: '/titulacion/configuracion/catalogos', permiso: 'gestionar-titulacion' },
+                    { clave: 'web-service-titulacion', etiqueta: 'Web service', url: '/titulacion/configuracion/web-service', permiso: 'gestionar-titulacion' },
                 ],
             },
         ],

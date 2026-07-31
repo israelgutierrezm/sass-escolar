@@ -55,4 +55,24 @@ return [
         'modo' => env('SSO_GOOGLE_MODO', 'off'),
     ],
 
+    /*
+     | Web service de Títulos Electrónicos de la SEP (SIGED / MET).
+     |
+     | `modo`:
+     |  - real: llama el WSDL de la SEP con PHP SoapClient (requiere red y las
+     |    credenciales usuario/contraseña capturadas en Titulación → Configuración).
+     |  - fake: simula la respuesta del WS (para probar el flujo en local sin red
+     |    ni credenciales). Devuelve un folio de proceso ficticio.
+     |  - off: el envío al WS queda deshabilitado (solo se generan/firman los XML).
+     |
+     | Las credenciales NO viven aquí: son por escuela y se guardan cifradas en la
+     | tabla `titulacion_ws_config`. Aquí solo van los endpoints y el modo global.
+     */
+    'titulos_sep' => [
+        'modo' => env('TITULOS_SEP_MODO', 'fake'),
+        'wsdl_pruebas' => env('TITULOS_SEP_WSDL_PRUEBAS', 'https://metqa.siged.sep.gob.mx/met-ws/services/TitulosElectronicos.wsdl'),
+        'wsdl_produccion' => env('TITULOS_SEP_WSDL_PRODUCCION'),
+        'timeout' => (int) env('TITULOS_SEP_TIMEOUT', 30),
+    ],
+
 ];
