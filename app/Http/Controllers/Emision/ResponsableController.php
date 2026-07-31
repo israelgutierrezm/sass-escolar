@@ -8,12 +8,14 @@ use App\Http\Controllers\Controller;
 use App\Models\Emision\Cargo;
 use App\Models\Emision\CertificadoResponsable;
 use App\Models\Emision\Responsable;
+use App\Models\Emision\ResponsableMovimiento;
 use App\Models\Emision\TipoResponsable;
 use App\Models\Emision\TituloProfesional;
 use App\Services\LectorCertificado;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -39,9 +41,9 @@ class ResponsableController extends Controller
         $seccion = (string) $request->route('seccion');
 
         $responsables = Responsable::deTipo($tipo)
-            ->with(['cargo:id,nombre,identificador', 'tituloProfesional:id,abreviatura,descripcion', 'certificados'])
-            ->orderByDesc('activo')
-            ->orderBy('nombre')
+            ->with(['cargo:id,nombre,identificador', 'tituloProfesional:id,abreviatura,descripcion', 'certificados', 'movimientos'])
+            // Orden de registro (id) = orden de firmante: el primero es el 1.
+            ->orderBy('id')
             ->get();
 
         return Inertia::render('Emision/Responsables', [
@@ -92,7 +94,29 @@ class ResponsableController extends Controller
                 'tiene_cer_guardado' => filled($c->cer_pem),
                 'tiene_key' => filled($c->key_encriptado),
             ])->values(),
+            // Bitácora de movimientos de la persona (alta, reactivación, etc.).
+            'movimientos' => $r->movimientos->map(fn (ResponsableMovimiento $m) => [
+                'id' => $m->id,
+                'accion' => $m->accion,
+                'detalle' => $m->detalle,
+                'por' => $m->realizado_por_nombre,
+                'fecha' => $m->created_at?->format('d/m/Y H:i'),
+            ])->values(),
         ];
+    }
+
+    /** Registra un renglón en la bitácora del responsable con el autor actual. */
+    private function registrarMovimiento(Responsable $responsable, string $accion, ?string $detalle = null): void
+    {
+        $usuario = Auth::user();
+
+        ResponsableMovimiento::create([
+            'responsable_id' => $responsable->id,
+            'accion' => $accion,
+            'detalle' => $detalle,
+            'realizado_por' => $usuario?->getKey(),
+            'realizado_por_nombre' => $usuario?->persona?->nombreCompleto() ?: $usuario?->usuario,
+        ]);
     }
 
     /** Lee un .cer subido y devuelve sus datos (sin guardar) para previsualizar. */
@@ -154,7 +178,9 @@ class ResponsableController extends Controller
             return back()->with('error', "Ya hay {$maximo} responsable(s) activo(s). Desactiva uno para agregar otro.");
         }
 
-        DB::transaction(function () use ($tipo, $existente, $cert, $datos, $lector, $contenido) {
+        $reactivacion = $existente !== null;
+
+        DB::transaction(function () use ($tipo, $existente, $cert, $datos, $lector, $contenido, $reactivacion) {
             $responsable = $existente ?? new Responsable(['tipo_responsable_id' => $tipo]);
             $responsable->fill([
                 'nombre' => $cert['nombre'],
@@ -167,9 +193,15 @@ class ResponsableController extends Controller
             ])->save();
 
             $this->guardarCertificado($responsable, $cert, $contenido, (bool) ($datos['guardar_cer'] ?? false), $lector);
+
+            $this->registrarMovimiento(
+                $responsable,
+                $reactivacion ? 'reactivacion' : 'alta',
+                "Certificado serie {$cert['serial']}",
+            );
         });
 
-        return back()->with('exito', 'Responsable guardado.');
+        return back()->with('exito', $reactivacion ? 'Responsable reactivado.' : 'Responsable guardado.');
     }
 
     /** Edita: renueva cert (historial), carga la llave y ajusta cargo/título. */
@@ -192,6 +224,10 @@ class ResponsableController extends Controller
         $responsable->load('certificadoVigente');
         $certActual = $responsable->certificadoVigente;
 
+        // Valores previos para detectar cambios de cargo/título en la bitácora.
+        $cargoPrevio = $responsable->cargo_id;
+        $tituloPrevio = $responsable->titulo_profesional_id;
+
         // 1) Renovar certificado (opcional): nuevo cert al historial de la misma persona.
         if ($request->hasFile('certificado')) {
             $contenido = (string) file_get_contents($request->file('certificado')->getRealPath());
@@ -212,6 +248,7 @@ class ResponsableController extends Controller
             }
 
             $certActual = $this->guardarCertificado($responsable, $cert, $contenido, (bool) ($datos['guardar_cer'] ?? false), $lector);
+            $this->registrarMovimiento($responsable, 'renovacion_certificado', "Certificado serie {$cert['serial']}");
         }
 
         // 2) Cargar la llave (opcional) sobre el certificado vigente.
@@ -230,6 +267,7 @@ class ResponsableController extends Controller
 
             if ($datos['guardar_key'] ?? false) {
                 $certActual->forceFill(['key_encriptado' => Crypt::encryptString($llave)])->save();
+                $this->registrarMovimiento($responsable, 'carga_llave', "Certificado serie {$certActual->serie}");
             }
         }
 
@@ -237,6 +275,10 @@ class ResponsableController extends Controller
             'cargo_id' => $datos['cargo_id'],
             'titulo_profesional_id' => $datos['titulo_profesional_id'],
         ]);
+
+        if ($cargoPrevio !== $responsable->cargo_id || $tituloPrevio !== $responsable->titulo_profesional_id) {
+            $this->registrarMovimiento($responsable, 'actualizacion', 'Cambio de cargo o título profesional');
+        }
 
         return back()->with('exito', 'Responsable actualizado.');
     }
@@ -279,6 +321,7 @@ class ResponsableController extends Controller
         abort_unless($responsable->tipo_responsable_id === (int) $request->route('tipo'), 404);
 
         $responsable->update(['activo' => false]);
+        $this->registrarMovimiento($responsable, 'desactivacion');
 
         return back()->with('exito', 'Responsable desactivado. Queda en el historial.');
     }

@@ -242,14 +242,13 @@ class LoteTitulacionController extends Controller
             return back()->with('errores_firma', $errores);
         }
 
-        // El firmante 1 (obligatorio) es el responsable con el idCargo más bajo
-        // (p. ej. director); el firmante 2 (opcional) es el siguiente.
+        // El firmante 1 (obligatorio) es el primer responsable registrado; el
+        // firmante 2 (opcional) es el segundo. El orden lo da el registro (id).
         $responsables = Responsable::deTipo(TipoResponsable::TITULACION)
             ->activos()
             ->with(['cargo', 'tituloProfesional', 'certificadoVigente'])
-            ->get()
-            ->sortBy(fn (Responsable $r) => $r->cargo?->identificador ?? $r->cargo_id ?? PHP_INT_MAX)
-            ->values();
+            ->orderBy('id')
+            ->get();
 
         if ($responsables->isEmpty()) {
             return back()->with('error', 'No hay un responsable de titulación activo. Regístralo en Configuración → Responsables.');
@@ -598,9 +597,8 @@ class LoteTitulacionController extends Controller
         $responsables = Responsable::deTipo(TipoResponsable::TITULACION)
             ->activos()
             ->with(['cargo', 'certificadoVigente'])
-            ->get()
-            ->sortBy(fn (Responsable $r) => $r->cargo?->identificador ?? $r->cargo_id ?? PHP_INT_MAX)
-            ->values();
+            ->orderBy('id')
+            ->get();
 
         return [
             'tiene_responsable' => $responsables->isNotEmpty(),

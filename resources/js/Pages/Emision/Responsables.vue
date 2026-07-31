@@ -21,6 +21,14 @@ interface Certificado {
     tiene_key: boolean;
 }
 
+interface Movimiento {
+    id: number;
+    accion: string;
+    detalle: string | null;
+    por: string | null;
+    fecha: string | null;
+}
+
 interface Responsable {
     id: number;
     nombre_completo: string;
@@ -39,6 +47,7 @@ interface Responsable {
     tiene_cer_guardado: boolean;
     tiene_key: boolean;
     certificados: Certificado[];
+    movimientos: Movimiento[];
 }
 
 interface DatosCert {
@@ -67,13 +76,12 @@ const puedeAgregar = computed(() => props.activos.length < props.maximo);
 const tab = ref<'activos' | 'historial'>('activos');
 
 // Titulación firma con 1 responsable obligatorio + 1 opcional; el orden lo da el
-// idCargo (menor = firmante 1), igual que al sellar. Se muestra qué firmante es
-// cada uno.
+// registro (el primero que se carga es el responsable 1), igual que al sellar.
 const esTitulacion = computed(() => props.seccion === 'titulacion');
 const ordenFirmante = computed(() => {
     const m = new Map<number, number>();
     [...props.activos]
-        .sort((a, b) => (a.cargo_identificador ?? 99) - (b.cargo_identificador ?? 99))
+        .sort((a, b) => a.id - b.id)
         .forEach((r, i) => m.set(r.id, i + 1));
     return m;
 });
@@ -89,6 +97,24 @@ function textoVigencia(r: Responsable): string {
     if (r.vigente_hoy === false) return 'Vencido';
     if (r.dias_restantes !== null && r.dias_restantes <= 30) return `Por vencer · ${r.dias_restantes} día(s)`;
     return `Vigente · ${r.dias_restantes} día(s)`;
+}
+
+// Etiqueta y color por tipo de movimiento de la bitácora.
+const ETIQUETA_MOVIMIENTO: Record<string, string> = {
+    alta: 'Alta',
+    reactivacion: 'Reactivación',
+    desactivacion: 'Desactivación',
+    renovacion_certificado: 'Renovación de certificado',
+    carga_llave: 'Carga de llave',
+    actualizacion: 'Actualización',
+};
+function etiquetaMovimiento(accion: string): string {
+    return ETIQUETA_MOVIMIENTO[accion] ?? accion;
+}
+function colorMovimiento(accion: string): string {
+    if (accion === 'desactivacion') return '#dc2626';
+    if (accion === 'alta' || accion === 'reactivacion') return '#16a34a';
+    return 'var(--color-acento)';
 }
 
 const opcionesCargo = computed(() => props.cargos.map((c) => ({ valor: c.id, texto: c.nombre })));
@@ -238,13 +264,12 @@ function eliminar(r: Responsable): void {
             <!-- Titulación: el título lo firman 1 o 2 responsables. -->
             <section v-if="esTitulacion" class="tarjeta mb-6 p-5" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 5%, transparent)' }">
                 <p class="text-sm" :style="{ color: 'var(--color-suave)' }">
-                    El título lo firman <strong>uno o dos</strong> responsables. El <strong>firmante 1</strong>
-                    (menor cargo, p. ej. director) es <strong>obligatorio</strong>; el <strong>firmante 2</strong>
-                    es <strong>opcional</strong>. Son independientes de los de certificación: la misma persona
-                    puede ser responsable en ambos.
+                    El título lo firman <strong>uno o dos</strong> responsables: el <strong>primero</strong> que
+                    registres será el <strong>responsable 1</strong> (obligatorio) y el segundo, el opcional. Son
+                    independientes de los de certificación: la misma persona puede ser responsable en ambos.
                 </p>
                 <p v-if="activos.length === 0" class="mt-2 text-sm font-medium" :style="{ color: '#b45309' }">
-                    ⚠ Aún no hay ningún responsable. Registra al menos el firmante obligatorio para poder firmar títulos.
+                    ⚠ Aún no hay ningún responsable. Registra al menos el responsable 1 para poder firmar títulos.
                 </p>
             </section>
 
@@ -259,7 +284,7 @@ function eliminar(r: Responsable): void {
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
                                 <span v-if="esTitulacion" class="mb-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium" :style="ordenFirmante.get(r.id) === 1 ? { backgroundColor: 'color-mix(in srgb, var(--color-acento) 14%, transparent)', color: 'var(--color-acento)' } : { backgroundColor: 'var(--color-borde)', color: 'var(--color-suave)' }">
-                                    {{ ordenFirmante.get(r.id) === 1 ? 'Firmante 1 · obligatorio' : 'Firmante 2 · opcional' }}
+                                    {{ ordenFirmante.get(r.id) === 1 ? 'Responsable 1 · obligatorio' : 'Responsable 2 · opcional' }}
                                 </span>
                                 <p class="truncate font-semibold">{{ r.titulo ? `${r.titulo} ` : '' }}{{ r.nombre_completo }}</p>
                                 <p class="font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ r.curp }}</p>
@@ -431,6 +456,22 @@ function eliminar(r: Responsable): void {
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+
+                    <!-- Bitácora de movimientos de la persona -->
+                    <div v-if="r.movimientos.length" class="mt-3 border-t pt-3" :style="{ borderColor: 'var(--color-borde)' }">
+                        <p class="mb-2 text-xs font-medium" :style="{ color: 'var(--color-suave)' }">Movimientos</p>
+                        <ul class="space-y-1.5">
+                            <li v-for="m in r.movimientos" :key="m.id" class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+                                <span class="inline-flex items-center rounded-full px-2 py-0.5 font-medium" :style="{ color: colorMovimiento(m.accion), backgroundColor: `color-mix(in srgb, ${colorMovimiento(m.accion)} 14%, transparent)` }">
+                                    {{ etiquetaMovimiento(m.accion) }}
+                                </span>
+                                <span v-if="m.detalle" :style="{ color: 'var(--color-suave)' }">{{ m.detalle }}</span>
+                                <span class="ml-auto" :style="{ color: 'var(--color-suave)' }">
+                                    {{ m.fecha }}<template v-if="m.por"> · {{ m.por }}</template>
+                                </span>
+                            </li>
+                        </ul>
                     </div>
                 </div>
             </section>

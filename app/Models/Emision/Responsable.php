@@ -58,6 +58,12 @@ class Responsable extends Model
         return $this->hasMany(CertificadoResponsable::class)->latest('id');
     }
 
+    /** Bitácora de movimientos (alta, reactivación, desactivación, etc.). */
+    public function movimientos(): HasMany
+    {
+        return $this->hasMany(ResponsableMovimiento::class)->latest('id');
+    }
+
     /** El certificado con el que firma hoy (el vigente). */
     public function certificadoVigente(): HasOne
     {
