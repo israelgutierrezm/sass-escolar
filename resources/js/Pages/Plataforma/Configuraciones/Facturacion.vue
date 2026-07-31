@@ -4,6 +4,8 @@ import { computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
+import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
+import { ICONOS } from '@/iconos';
 
 interface Config {
     activo: boolean;
@@ -100,14 +102,11 @@ function probar(): void {
         </p>
 
         <!-- Estado del módulo + ambiente -->
-        <section class="tarjeta p-6">
-            <div class="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                    <h2 class="text-base font-semibold">Facturación</h2>
-                    <p class="text-sm" :style="{ color: 'var(--color-suave)' }">
-                        {{ form.activo ? 'El módulo de facturación está activo.' : 'El módulo de facturación está desactivado.' }}
-                    </p>
-                </div>
+        <TarjetaSeccion titulo="Facturación" :icono="ICONOS.dinero">
+            <template #descripcion>
+                {{ form.activo ? 'El módulo de facturación está activo.' : 'El módulo de facturación está desactivado.' }}
+            </template>
+            <template #insignia>
                 <button
                     type="button"
                     role="switch"
@@ -118,10 +117,10 @@ function probar(): void {
                 >
                     <span class="absolute top-1 h-5 w-5 rounded-full bg-superficie transition-all" :style="{ left: form.activo ? '1.5rem' : '0.25rem' }"></span>
                 </button>
-            </div>
+            </template>
 
             <!-- Ambiente -->
-            <div class="mt-6 border-t pt-5" :style="{ borderColor: 'var(--color-borde)' }">
+            <div>
                 <p class="text-sm font-medium">Ambiente</p>
                 <div class="mt-2 inline-flex rounded-lg border p-1" :style="{ borderColor: 'var(--color-borde)' }">
                     <button
@@ -150,16 +149,11 @@ function probar(): void {
                     ⚠️ En <strong>producción</strong>, las facturas emitidas tienen efectos fiscales REALES ante el SAT.
                 </p>
             </div>
-        </section>
+        </TarjetaSeccion>
 
         <!-- Credenciales -->
-        <section class="tarjeta p-6">
-            <h2 class="text-base font-semibold">Credenciales de Facturapi</h2>
-            <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                Por seguridad, las llaves guardadas no se muestran completas. Deja el campo en blanco para conservar la actual.
-            </p>
-
-            <div class="mt-4 grid gap-4 sm:grid-cols-2">
+        <TarjetaSeccion titulo="Credenciales de Facturapi" descripcion="Por seguridad, las llaves guardadas no se muestran completas. Deja el campo en blanco para conservar la actual." :icono="ICONOS.llave">
+            <div class="grid gap-4 sm:grid-cols-2">
                 <CampoTexto
                     v-model="form.api_key_pruebas"
                     etiqueta="API key de pruebas"
@@ -217,16 +211,11 @@ function probar(): void {
             <p v-if="config.conexion_mensaje" class="mt-2 text-sm" :style="{ color: 'var(--color-suave)' }">
                 {{ config.conexion_mensaje }}
             </p>
-        </section>
+        </TarjetaSeccion>
 
         <!-- Predeterminados de CFDI -->
-        <section class="tarjeta p-6">
-            <h2 class="text-base font-semibold">Predeterminados de CFDI</h2>
-            <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                Se aplican por defecto al emitir; cada factura puede ajustarlos.
-            </p>
-
-            <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <TarjetaSeccion titulo="Predeterminados de CFDI" descripcion="Se aplican por defecto al emitir; cada factura puede ajustarlos." :icono="ICONOS.documento">
+            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <CampoSelect v-model="form.uso_cfdi_default" etiqueta="Uso de CFDI" :opciones="opciones('usos_cfdi')" :error="form.errors.uso_cfdi_default" />
                 <CampoSelect v-model="form.forma_pago_default" etiqueta="Forma de pago" :opciones="opciones('formas_pago')" :error="form.errors.forma_pago_default" />
                 <CampoSelect v-model="form.metodo_pago_default" etiqueta="Método de pago" :opciones="opciones('metodos_pago')" :error="form.errors.metodo_pago_default" />
@@ -237,7 +226,7 @@ function probar(): void {
                 <CampoTexto v-model.number="form.folio_inicial" etiqueta="Folio inicial" tipo="number" :error="form.errors.folio_inicial" />
                 <CampoTexto v-model="form.version_factura" etiqueta="Versión de CFDI" mono :error="form.errors.version_factura" ayuda="4.0" />
             </div>
-        </section>
+        </TarjetaSeccion>
 
         <div class="flex justify-end">
             <button

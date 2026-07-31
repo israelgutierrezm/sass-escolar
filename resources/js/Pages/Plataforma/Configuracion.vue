@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
+import { ICONOS } from '@/iconos';
 
 interface Ajuste {
     clave: string;
@@ -81,10 +83,8 @@ const hayOperacion = props.huella.inscripciones > 0 || props.huella.kardex > 0;
             </div>
         </section>
 
-        <section v-for="(ajustes, grupo) in grupos" :key="grupo" class="tarjeta p-6">
-            <h3 class="text-base font-semibold">{{ grupo }}</h3>
-
-            <div class="mt-4 space-y-5">
+        <TarjetaSeccion v-for="(ajustes, grupo) in grupos" :key="grupo" :titulo="grupo" :icono="ICONOS.ajustes">
+            <div class="space-y-5">
                 <div
                     v-for="ajuste in ajustes"
                     :key="ajuste.clave"
@@ -160,7 +160,7 @@ const hayOperacion = props.huella.inscripciones > 0 || props.huella.kardex > 0;
                     </div>
                 </div>
             </div>
-        </section>
+        </TarjetaSeccion>
 
         <section v-if="puedeEditar" class="tarjeta p-6">
             <button

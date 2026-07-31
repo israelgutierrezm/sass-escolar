@@ -4,6 +4,8 @@ import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
+import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
+import { ICONOS } from '@/iconos';
 
 interface Config {
     activo: boolean;
@@ -73,14 +75,11 @@ function probar(): void {
         </section>
 
         <!-- Estado del módulo -->
-        <section class="tarjeta p-6">
-            <div class="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                    <h2 class="text-base font-semibold">Envío de correo</h2>
-                    <p class="text-sm" :style="{ color: 'var(--color-suave)' }">
-                        {{ form.activo ? 'Los correos salen por esta cuenta.' : 'Desactivado: los correos usan el mecanismo por defecto del sistema.' }}
-                    </p>
-                </div>
+        <TarjetaSeccion titulo="Envío de correo" :icono="ICONOS.sobre" sin-relleno>
+            <template #descripcion>
+                {{ form.activo ? 'Los correos salen por esta cuenta.' : 'Desactivado: los correos usan el mecanismo por defecto del sistema.' }}
+            </template>
+            <template #insignia>
                 <button
                     type="button"
                     role="switch"
@@ -91,14 +90,12 @@ function probar(): void {
                 >
                     <span class="absolute top-1 h-5 w-5 rounded-full bg-superficie transition-all" :style="{ left: form.activo ? '1.5rem' : '0.25rem' }"></span>
                 </button>
-            </div>
-        </section>
+            </template>
+        </TarjetaSeccion>
 
         <!-- Cuenta -->
-        <section class="tarjeta p-6">
-            <h2 class="text-base font-semibold">Cuenta de Gmail</h2>
-
-            <div class="mt-4 grid gap-4 sm:grid-cols-2">
+        <TarjetaSeccion titulo="Cuenta de Gmail" :icono="ICONOS.sobre">
+            <div class="grid gap-4 sm:grid-cols-2">
                 <CampoTexto v-model="form.usuario" etiqueta="Correo de Gmail" tipo="email" :error="form.errors.usuario" ayuda="tuescuela@gmail.com" />
                 <CampoTexto
                     v-model="form.password"
@@ -133,15 +130,11 @@ function probar(): void {
                     </div>
                 </div>
             </div>
-        </section>
+        </TarjetaSeccion>
 
         <!-- Prueba de envío -->
-        <section class="tarjeta p-6">
-            <h2 class="text-base font-semibold">Probar el envío</h2>
-            <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                Guarda primero, luego envía un correo de prueba para confirmar que la cuenta funciona.
-            </p>
-            <div class="mt-4 flex flex-wrap items-end gap-3">
+        <TarjetaSeccion titulo="Probar el envío" descripcion="Guarda primero, luego envía un correo de prueba para confirmar que la cuenta funciona." :icono="ICONOS.reloj">
+            <div class="flex flex-wrap items-end gap-3">
                 <div class="min-w-64 flex-1">
                     <CampoTexto v-model="destino" etiqueta="Enviar prueba a" tipo="email" />
                 </div>
@@ -163,7 +156,7 @@ function probar(): void {
                 <span v-if="config.prueba_en" :style="{ color: 'var(--color-suave)' }">· {{ config.prueba_en }}</span>
             </div>
             <p v-if="config.prueba_mensaje" class="mt-2 text-sm" :style="{ color: 'var(--color-suave)' }">{{ config.prueba_mensaje }}</p>
-        </section>
+        </TarjetaSeccion>
 
         <div class="flex justify-end">
             <button
