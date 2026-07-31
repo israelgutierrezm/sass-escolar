@@ -99,7 +99,7 @@ function subirExcel(archivo: File | null): void {
         </BarraListado>
 
         <!-- Carga masiva por Excel -->
-        <section v-if="puedeGestionar" class="tarjeta mb-4 p-4">
+        <section v-if="puedeGestionar" class="tarjeta p-4">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <p class="text-sm" :style="{ color: 'var(--color-suave)' }">
                     ¿Muchos docentes? Cárgalos desde una plantilla de Excel.
@@ -187,7 +187,7 @@ function subirExcel(archivo: File | null): void {
                                 <!-- Docente: avatar + nombre + email -->
                                 <td class="px-6 py-4">
                                     <a :href="`/escolar/docentes/${docente.id}`" class="flex items-center gap-3">
-                                        <img v-if="docente.foto" :src="docente.foto" alt="" class="h-10 w-10 rounded-full object-cover ring-2 ring-white/60" loading="lazy" />
+                                        <img v-if="docente.foto" :src="docente.foto" alt="" class="h-10 w-10 rounded-full object-cover ring-1 ring-black/5" loading="lazy" />
                                         <span
                                             v-else
                                             class="grid h-10 w-10 shrink-0 place-items-center rounded-full text-xs font-semibold"
@@ -203,12 +203,16 @@ function subirExcel(archivo: File | null): void {
                                 <!-- Clave / Cédula -->
                                 <td class="px-4 py-4">
                                     <span class="inline-block rounded-md px-2 py-0.5 font-mono text-xs" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)' }">{{ docente.clave_profesor ?? '—' }}</span>
-                                    <span class="mt-1 block font-mono text-[11px]" :style="{ color: 'var(--color-suave)' }">Céd. {{ docente.cedula_profesional ?? '—' }}</span>
+                                    <span v-if="docente.cedula_profesional" class="mt-1 block font-mono text-[11px]" :style="{ color: 'var(--color-suave)' }">Céd. {{ docente.cedula_profesional }}</span>
                                 </td>
 
                                 <!-- Tipo -->
                                 <td class="px-4 py-4">
-                                    <span v-if="docente.tipo" class="text-xs">{{ docente.tipo }}</span>
+                                    <span
+                                        v-if="docente.tipo"
+                                        class="inline-block rounded-full px-2.5 py-0.5 text-[11px]"
+                                        :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 10%, transparent)', color: 'var(--color-suave)' }"
+                                    >{{ docente.tipo }}</span>
                                     <span v-else :style="{ color: 'var(--color-suave)' }">—</span>
                                 </td>
 
@@ -226,9 +230,14 @@ function subirExcel(archivo: File | null): void {
                                     </span>
                                 </td>
 
-                                <!-- Materias (badge) -->
+                                <!-- Materias (badge; atenuado cuando no imparte ninguna) -->
                                 <td class="px-4 py-4 text-center">
-                                    <span class="inline-grid h-7 min-w-7 place-items-center rounded-full px-2 text-xs font-semibold" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)' }">{{ docente.materias }}</span>
+                                    <span
+                                        v-if="docente.materias"
+                                        class="inline-grid h-7 min-w-7 place-items-center rounded-full px-2 text-xs font-semibold"
+                                        :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }"
+                                    >{{ docente.materias }}</span>
+                                    <span v-else :style="{ color: 'var(--color-suave)' }">—</span>
                                 </td>
 
                                 <!-- Situación (pill de color) + por revisar -->
@@ -252,7 +261,7 @@ function subirExcel(archivo: File | null): void {
                                 <td class="px-6 py-4 text-right">
                                     <a
                                         :href="`/escolar/docentes/${docente.id}`"
-                                        class="inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors group-hover:border-transparent"
+                                        class="btn-ficha inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors"
                                         :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-acento)' }"
                                     >
                                         Ver ficha
@@ -277,10 +286,12 @@ function subirExcel(archivo: File | null): void {
 <style scoped>
 /* Hover de fila en la tabla nueva (experimento): usa el token de acento, que no
    es expresable como clase utilitaria. */
-.fila-nueva {
-    cursor: default;
-}
 .fila-nueva:hover {
     background-color: color-mix(in srgb, var(--color-acento) 5%, transparent);
+}
+/* Al pasar el mouse por la fila, el botón «Ver ficha» se rellena con acento. */
+.fila-nueva:hover .btn-ficha {
+    border-color: transparent;
+    background-color: color-mix(in srgb, var(--color-acento) 12%, transparent);
 }
 </style>
