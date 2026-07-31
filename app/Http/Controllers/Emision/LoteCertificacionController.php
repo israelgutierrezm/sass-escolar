@@ -330,7 +330,7 @@ class LoteCertificacionController extends Controller
             ->with('exito', 'Lote eliminado.');
     }
 
-    /** Descarga en un ZIP todos los XML firmados de un lote. */
+    /** Descarga en un ZIP el XML firmado Y la cadena original (.txt) de cada certificado. */
     public function xmlZip(LoteCertificacion $lote): \Symfony\Component\HttpFoundation\BinaryFileResponse
     {
         abort_unless($lote->estado === EstadoLoteCertificacion::Firmado, 404);
@@ -343,8 +343,12 @@ class LoteCertificacionController extends Controller
         $zip->open($tmp, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
 
         foreach ($certs as $c) {
+            $base = $c->matricula?->matricula ?? (string) $c->id;
             if (filled($c->xml_path) && Storage::disk('local')->exists($c->xml_path)) {
-                $zip->addFromString(($c->matricula?->matricula ?? $c->id).'.xml', Storage::disk('local')->get($c->xml_path));
+                $zip->addFromString("{$base}.xml", Storage::disk('local')->get($c->xml_path));
+            }
+            if (filled($c->cadena_original)) {
+                $zip->addFromString("{$base}.cadena.txt", $c->cadena_original);
             }
         }
 
@@ -362,6 +366,73 @@ class LoteCertificacionController extends Controller
         $nombre = ($certificacion->matricula?->matricula ?? 'certificado').'.xml';
 
         return Storage::disk('local')->download($certificacion->xml_path, $nombre);
+    }
+
+    /** Descarga la cadena original (.txt) de un alumno: lo que se selló. */
+    public function cadena(Certificacion $certificacion): StreamedResponse
+    {
+        abort_unless($certificacion->estaCertificado() && filled($certificacion->cadena_original), 404);
+
+        $nombre = ($certificacion->matricula?->matricula ?? 'certificado').'.cadena.txt';
+
+        return response()->streamDownload(
+            fn () => print $certificacion->cadena_original,
+            $nombre,
+            ['Content-Type' => 'text/plain; charset=UTF-8'],
+        );
+    }
+
+    /** Exporta a Excel los certificados del lote (una fila por alumno). */
+    public function excel(LoteCertificacion $lote): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    {
+        $lote->load(['certificaciones.matricula.persona', 'certificaciones.matricula.oferta.carrera', 'certificaciones.matricula.oferta.plan', 'certificaciones.matricula.oferta.campus']);
+
+        $filas = $lote->certificaciones->map(fn (Certificacion $c) => [
+            $c->matricula?->matricula,
+            trim(implode(' ', array_filter([$c->matricula?->persona?->nombre, $c->matricula?->persona?->primer_apellido, $c->matricula?->persona?->segundo_apellido]))),
+            $c->matricula?->persona?->curp,
+            $c->matricula?->oferta?->carrera?->nombre,
+            $c->matricula?->oferta?->plan?->nombre,
+            $c->matricula?->oferta?->campus?->nombre,
+            $c->folio,
+            $c->estado,
+            $c->fecha_certificacion?->format('d/m/Y H:i'),
+        ])->all();
+
+        return $this->descargarExcel(
+            "Lote {$lote->folio} ({$lote->tipo})",
+            ['Matrícula', 'Alumno', 'CURP', 'Carrera', 'Plan', 'Campus', 'Folio', 'Estado', 'Certificado'],
+            $filas,
+            "{$lote->folio}.xlsx",
+        );
+    }
+
+    /**
+     * Arma un .xlsx simple (encabezado pintado + filas) con PhpSpreadsheet y lo
+     * descarga.
+     *
+     * @param  array<int, string>  $encabezados
+     * @param  array<int, array<int, mixed>>  $filas
+     */
+    private function descargarExcel(string $titulo, array $encabezados, array $filas, string $archivo): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    {
+        $libro = new \PhpOffice\PhpSpreadsheet\Spreadsheet;
+        $hoja = $libro->getActiveSheet();
+
+        $hoja->fromArray($encabezados, null, 'A1');
+        $ultima = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($encabezados));
+        $hoja->getStyle("A1:{$ultima}1")->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
+        $hoja->getStyle("A1:{$ultima}1")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FF2F6FED');
+        $hoja->fromArray($filas, null, 'A2');
+        foreach (range(1, count($encabezados)) as $i) {
+            $hoja->getColumnDimensionByColumn($i)->setAutoSize(true);
+        }
+        $hoja->setTitle(mb_substr($titulo, 0, 31));
+
+        $tmp = tempnam(sys_get_temp_dir(), 'xls').'.xlsx';
+        (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($libro))->save($tmp);
+
+        return response()->download($tmp, $archivo)->deleteFileAfterSend(true);
     }
 
     /** @return array<string, mixed> */
@@ -404,6 +475,7 @@ class LoteCertificacionController extends Controller
             'error_mensaje' => $c->error_mensaje,
             'fecha_certificacion' => $c->fecha_certificacion?->format('d/m/Y H:i'),
             'xml_url' => $c->estaCertificado() ? route('tenant.certificacion.certificaciones.xml', $c) : null,
+            'cadena_url' => $c->estaCertificado() && filled($c->cadena_original) ? route('tenant.certificacion.certificaciones.cadena', $c) : null,
         ];
     }
 

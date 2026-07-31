@@ -387,7 +387,7 @@ class LoteTitulacionController extends Controller
             ->with('exito', 'Lote eliminado.');
     }
 
-    /** Descarga en un ZIP todos los XML firmados de un lote. */
+    /** Descarga en un ZIP el XML firmado Y la cadena original (.txt) de cada título. */
     public function xmlZip(LoteTitulacion $lote): \Symfony\Component\HttpFoundation\BinaryFileResponse
     {
         abort_unless(in_array($lote->estado, [EstadoLoteTitulacion::Firmado, EstadoLoteTitulacion::Enviado], true), 404);
@@ -400,8 +400,12 @@ class LoteTitulacionController extends Controller
         $zip->open($tmp, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
 
         foreach ($titulos as $t) {
+            $base = $t->matricula?->matricula ?? (string) $t->id;
             if (filled($t->xml_path) && Storage::disk('local')->exists($t->xml_path)) {
-                $zip->addFromString(($t->matricula?->matricula ?? $t->id).'.xml', Storage::disk('local')->get($t->xml_path));
+                $zip->addFromString("{$base}.xml", Storage::disk('local')->get($t->xml_path));
+            }
+            if (filled($t->cadena_original)) {
+                $zip->addFromString("{$base}.cadena.txt", $t->cadena_original);
             }
         }
 
@@ -419,6 +423,75 @@ class LoteTitulacionController extends Controller
         $nombre = ($titulacion->matricula?->matricula ?? 'titulo').'.xml';
 
         return Storage::disk('local')->download($titulacion->xml_path, $nombre);
+    }
+
+    /** Descarga la cadena original (.txt) de un egresado: lo que se selló. */
+    public function cadena(Titulacion $titulacion): StreamedResponse
+    {
+        abort_unless($titulacion->estaTitulado() && filled($titulacion->cadena_original), 404);
+
+        $nombre = ($titulacion->matricula?->matricula ?? 'titulo').'.cadena.txt';
+
+        return response()->streamDownload(
+            fn () => print $titulacion->cadena_original,
+            $nombre,
+            ['Content-Type' => 'text/plain; charset=UTF-8'],
+        );
+    }
+
+    /** Exporta a Excel los títulos del lote (una fila por egresado). */
+    public function excel(LoteTitulacion $lote): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    {
+        $lote->load(['titulaciones.matricula.persona', 'titulaciones.matricula.oferta.carrera', 'titulaciones.matricula.oferta.plan', 'titulaciones.matricula.oferta.campus']);
+
+        $filas = $lote->titulaciones->map(fn (Titulacion $t) => [
+            $t->matricula?->matricula,
+            trim(implode(' ', array_filter([$t->matricula?->persona?->nombre, $t->matricula?->persona?->primer_apellido, $t->matricula?->persona?->segundo_apellido]))),
+            $t->matricula?->persona?->curp,
+            $t->matricula?->oferta?->carrera?->nombre,
+            $t->matricula?->oferta?->plan?->nombre,
+            $t->matricula?->oferta?->campus?->nombre,
+            $t->folio,
+            $t->estado,
+            $t->estado_ws,
+            $t->folio_proceso_ws,
+            $t->fecha_titulacion?->format('d/m/Y H:i'),
+        ])->all();
+
+        return $this->descargarExcel(
+            "Lote {$lote->folio} ({$lote->etapa})",
+            ['Matrícula', 'Egresado', 'CURP', 'Carrera', 'Plan', 'Campus', 'Folio', 'Estado', 'Estado WS', 'Folio proceso WS', 'Titulado'],
+            $filas,
+            "{$lote->folio}.xlsx",
+        );
+    }
+
+    /**
+     * Arma un .xlsx simple (encabezado pintado + filas) con PhpSpreadsheet y lo
+     * descarga. Compartido por las exportaciones de lotes.
+     *
+     * @param  array<int, string>  $encabezados
+     * @param  array<int, array<int, mixed>>  $filas
+     */
+    private function descargarExcel(string $titulo, array $encabezados, array $filas, string $archivo): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    {
+        $libro = new \PhpOffice\PhpSpreadsheet\Spreadsheet;
+        $hoja = $libro->getActiveSheet();
+
+        $hoja->fromArray($encabezados, null, 'A1');
+        $ultima = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($encabezados));
+        $hoja->getStyle("A1:{$ultima}1")->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
+        $hoja->getStyle("A1:{$ultima}1")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FF2F6FED');
+        $hoja->fromArray($filas, null, 'A2');
+        foreach (range(1, count($encabezados)) as $i) {
+            $hoja->getColumnDimensionByColumn($i)->setAutoSize(true);
+        }
+        $hoja->setTitle(mb_substr($titulo, 0, 31));
+
+        $tmp = tempnam(sys_get_temp_dir(), 'xls').'.xlsx';
+        (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($libro))->save($tmp);
+
+        return response()->download($tmp, $archivo)->deleteFileAfterSend(true);
     }
 
     /** @return array<string, mixed> */
@@ -463,6 +536,7 @@ class LoteTitulacionController extends Controller
             'folio_proceso_ws' => $t->folio_proceso_ws,
             'fecha_titulacion' => $t->fecha_titulacion?->format('d/m/Y H:i'),
             'xml_url' => $t->estaTitulado() ? route('tenant.titulacion.titulaciones.xml', $t) : null,
+            'cadena_url' => $t->estaTitulado() && filled($t->cadena_original) ? route('tenant.titulacion.titulaciones.cadena', $t) : null,
         ];
     }
 

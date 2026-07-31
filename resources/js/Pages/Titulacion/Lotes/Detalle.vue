@@ -42,6 +42,7 @@ interface Egresado {
     folio_proceso_ws: string | null;
     fecha_titulacion: string | null;
     xml_url: string | null;
+    cadena_url: string | null;
     matricula_oferta_id?: number;
 }
 
@@ -333,7 +334,16 @@ watch(
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-6L12 15m0 0 4.5-4.5M12 15V3" />
                         </svg>
-                        Descargar XML (ZIP)
+                        ZIP (XML + cadena)
+                    </a>
+                    <a
+                        v-if="lote.total > 0"
+                        :href="`/titulacion/lotes/${lote.id}/excel`"
+                        class="inline-flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-medium"
+                        :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
+                    >
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0 1 12 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m18.375 0v1.5c0 .621-.504 1.125-1.125 1.125M3.375 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25" /></svg>
+                        Excel
                     </a>
                 </div>
             </div>
@@ -511,7 +521,8 @@ watch(
                                     </svg>
                                     XML
                                 </a>
-                                <BotonAccion v-else-if="esBorrador" variante="eliminar" solo-icono texto="Quitar del lote" @click="quitar(e)" />
+                                <a v-if="e.cadena_url" :href="e.cadena_url" class="text-sm font-medium" :style="{ color: 'var(--color-suave)' }" title="Cadena original (.txt)">Cadena</a>
+                                <BotonAccion v-else-if="esBorrador && !e.xml_url" variante="eliminar" solo-icono texto="Quitar del lote" @click="quitar(e)" />
                             </div>
                         </td>
                     </tr>

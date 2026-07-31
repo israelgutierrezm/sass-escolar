@@ -982,6 +982,7 @@ Route::middleware([
                 Route::put('/{lote}/reabrir', 'reabrir')->whereNumber('lote')->name('reabrir');
                 Route::post('/{lote}/firmar', 'firmar')->whereNumber('lote')->name('firmar');
                 Route::get('/{lote}/xml-zip', 'xmlZip')->whereNumber('lote')->name('xml-zip');
+                Route::get('/{lote}/excel', 'excel')->whereNumber('lote')->name('excel');
                 Route::delete('/{lote}', 'destroy')->whereNumber('lote')->name('destroy');
             });
 
@@ -990,6 +991,10 @@ Route::middleware([
             ->whereNumber('certificacion')
             ->middleware('can:certificar-alumnos')
             ->name('tenant.certificacion.certificaciones.xml');
+        Route::get('certificacion/certificaciones/{certificacion}/cadena', [LoteCertificacionController::class, 'cadena'])
+            ->whereNumber('certificacion')
+            ->middleware('can:certificar-alumnos')
+            ->name('tenant.certificacion.certificaciones.cadena');
 
         /*
          * Lotes de titulación: como los de certificación, pero cada lote lleva su
@@ -1013,6 +1018,7 @@ Route::middleware([
                 Route::post('/{lote}/firmar', 'firmar')->whereNumber('lote')->name('firmar');
                 Route::post('/{lote}/enviar', 'enviar')->whereNumber('lote')->name('enviar');
                 Route::get('/{lote}/xml-zip', 'xmlZip')->whereNumber('lote')->name('xml-zip');
+                Route::get('/{lote}/excel', 'excel')->whereNumber('lote')->name('excel');
                 Route::delete('/{lote}', 'destroy')->whereNumber('lote')->name('destroy');
             });
 
@@ -1020,5 +1026,9 @@ Route::middleware([
             ->whereNumber('titulacion')
             ->middleware('can:titular-alumnos')
             ->name('tenant.titulacion.titulaciones.xml');
+        Route::get('titulacion/titulaciones/{titulacion}/cadena', [LoteTitulacionController::class, 'cadena'])
+            ->whereNumber('titulacion')
+            ->middleware('can:titular-alumnos')
+            ->name('tenant.titulacion.titulaciones.cadena');
     });
 });
