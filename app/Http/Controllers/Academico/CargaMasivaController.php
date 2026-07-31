@@ -7,7 +7,9 @@ namespace App\Http\Controllers\Academico;
 use App\Http\Controllers\Controller;
 use App\Models\Academico\PlanEstudio;
 use App\Services\Excel\ImportadorAcademico;
+use App\Services\Excel\ImportadorKardex;
 use App\Services\Excel\PlantillaAcademica;
+use App\Services\Excel\PlantillaKardex;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -57,6 +59,26 @@ class CargaMasivaController extends Controller
 
         return $this->responder($resultado, function (array $r) {
             return "Se cargaron {$r['asignaturas']} asignaturas al plan.";
+        });
+    }
+
+    public function plantillaKardex(PlanEstudio $plan, PlantillaKardex $plantillas): BinaryFileResponse
+    {
+        return response()->download($plantillas->paraPlan($plan), 'plantilla-kardex.xlsx')->deleteFileAfterSend();
+    }
+
+    public function importarKardex(Request $request, PlanEstudio $plan, ImportadorKardex $importador): RedirectResponse
+    {
+        $request->validate(['archivo' => ['required', 'file', 'max:5120']]);
+
+        try {
+            $resultado = $importador->importar($request->file('archivo')->getRealPath(), $plan);
+        } catch (Throwable $e) {
+            return back()->with('error', 'No se pudo leer el archivo. Sube el .xlsx de la plantilla sin cambiar su estructura.');
+        }
+
+        return $this->responder($resultado, function (array $r) {
+            return "Se cargaron {$r['calificaciones']} calificaciones al kárdex.";
         });
     }
 

@@ -354,6 +354,10 @@ Route::middleware([
                         ->whereNumber('plan')->name('planes.plantilla-asignaturas');
                     Route::post('planes/{plan}/asignaturas/importar', [CargaMasivaController::class, 'importarPlan'])
                         ->whereNumber('plan')->name('planes.asignaturas.importar');
+                    Route::get('planes/{plan}/plantilla-kardex', [CargaMasivaController::class, 'plantillaKardex'])
+                        ->whereNumber('plan')->name('planes.plantilla-kardex');
+                    Route::post('planes/{plan}/kardex/importar', [CargaMasivaController::class, 'importarKardex'])
+                        ->whereNumber('plan')->name('planes.kardex.importar');
 
                     // Sin `destroy`: una institución no se elimina, solo se edita.
                     Route::resource('instituciones', InstitucionController::class)

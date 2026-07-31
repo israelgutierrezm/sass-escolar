@@ -63,6 +63,22 @@ function subirAsignaturas(archivo: File | null): void {
     });
 }
 
+// Carga de kárdex (calificaciones) de este plan por Excel.
+const mostrarKardex = ref(false);
+const cargaKardex = useForm<{ archivo: File | null }>({ archivo: null });
+
+function subirKardex(archivo: File | null): void {
+    if (!archivo) {
+        return;
+    }
+    cargaKardex.archivo = archivo;
+    cargaKardex.post(`/academico/planes/${props.plan.id}/kardex/importar`, {
+        forceFormData: true,
+        preserveScroll: true,
+        onFinish: () => cargaKardex.reset(),
+    });
+}
+
 // Vista de la malla: «lista» (tabla por periodo) o «cuadrícula» (tarjetas por
 // nivel, coloreadas por área). Se recuerda la preferida entre visitas.
 const vista = ref<'lista' | 'cuadricula'>(
@@ -422,6 +438,60 @@ function textoSobre(color: string | null): string {
                     </button>
                 </div>
             </form>
+        </section>
+
+        <!-- Carga de kárdex del plan por Excel -->
+        <section v-if="puedeEditar" class="tarjeta p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-base font-semibold text-contenido">Cargar kárdex de este plan</h2>
+                    <p class="mt-1 text-sm text-suave">
+                        Sube las calificaciones de los alumnos de este plan. La plantilla trae sus materias
+                        como desplegable; el estatus (aprobada/reprobada) se deriva de la calificación.
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    class="rounded-lg border px-4 py-2 text-sm font-medium"
+                    :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
+                    @click="mostrarKardex = !mostrarKardex"
+                >
+                    {{ mostrarKardex ? 'Ocultar' : 'Cargar kárdex' }}
+                </button>
+            </div>
+
+            <div v-if="mostrarKardex" class="mt-5 space-y-4 border-t border-borde pt-5">
+                <a
+                    :href="`/academico/planes/${plan.id}/plantilla-kardex`"
+                    class="inline-flex items-center gap-2 text-sm font-medium"
+                    :style="{ color: 'var(--color-acento)' }"
+                >
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 3v13.5m0 0 4.5-4.5M12 16.5 7.5 12" /></svg>
+                    Descargar plantilla de kárdex (.xlsx)
+                </a>
+
+                <ZonaArchivo
+                    accept=".xlsx"
+                    texto="Arrastra la plantilla llena (.xlsx) o haz clic para seleccionarla"
+                    ayuda="Cada fila es una materia cursada por una matrícula; se valida antes de crear nada."
+                    :cargado="null"
+                    :ocupado="cargaKardex.processing"
+                    @archivo="subirKardex"
+                />
+
+                <div
+                    v-if="erroresCarga.length"
+                    class="rounded-lg border p-3 text-sm"
+                    :style="{ borderColor: '#f59e0b', backgroundColor: 'color-mix(in srgb, #f59e0b 8%, transparent)' }"
+                >
+                    <p class="font-medium">El archivo tiene {{ erroresCarga.length }} error(es); corrígelos y vuelve a subirlo:</p>
+                    <ul class="mt-2 max-h-64 space-y-1 overflow-auto text-xs">
+                        <li v-for="(e, i) in erroresCarga" :key="i">
+                            <span class="font-medium">{{ e.hoja }} · fila {{ e.fila }}:</span> {{ e.mensaje }}
+                        </li>
+                    </ul>
+                </div>
+            </div>
         </section>
 
         <!-- Malla agrupada (periodos + un bloque de Optativas) -->
