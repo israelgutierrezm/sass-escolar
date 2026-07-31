@@ -5,7 +5,23 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import BarraListado from '@/Components/BarraListado.vue';
 import Paginacion from '@/Components/Paginacion.vue';
 import TarjetaPersona from '@/Components/TarjetaPersona.vue';
+import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 import ZonaArchivo from '@/Components/ZonaArchivo.vue';
+
+// Tabla con el mismo lenguaje visual de las tarjetas de formulario
+// (encabezado con ícono, avatares, chips y pills). Ícono academic-cap.
+const ICONO_DOCENTE =
+    'M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.627 48.627 0 0 1 12 20.904a48.627 48.627 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.57 50.57 0 0 0-2.658-.813A59.905 59.905 0 0 1 12 3.493a59.902 59.902 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443m-7.007 11.55A5.981 5.981 0 0 0 6.75 15.75v-1.5';
+
+function iniciales(nombre: string | null): string {
+    if (!nombre) return '—';
+    const partes = nombre.trim().split(/\s+/);
+    return ((partes[0]?.[0] ?? '') + (partes[1]?.[0] ?? '')).toUpperCase() || '—';
+}
+
+function colorSituacion(clave: string | null): string {
+    return clave === 'baja' ? '#dc2626' : '#16a34a';
+}
 
 interface Docente {
     id: number;
@@ -137,79 +153,135 @@ function subirExcel(archivo: File | null): void {
             </section>
         </template>
 
-        <section v-else class="tarjeta overflow-hidden">
-            <div class="overflow-x-auto">
-                <table v-if="docentes.data.length" class="w-full text-sm">
-                    <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                        <tr>
-                            <th class="px-6 py-3 font-medium">Clave</th>
-                            <th class="px-4 py-3 font-medium">Docente</th>
-                            <th class="px-4 py-3 font-medium">Cédula</th>
-                            <th class="px-4 py-3 font-medium">Tipo</th>
-                            <th class="px-4 py-3 font-medium">Campus</th>
-                            <th class="px-4 py-3 font-medium">Materias</th>
-                            <th class="px-4 py-3 font-medium">Situación</th>
-                            <th class="px-6 py-3 font-medium text-right">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr
-                            v-for="docente in docentes.data"
-                            :key="docente.id"
-                            class="border-t"
-                            :class="docente.situacion_clave === 'baja' ? 'opacity-50' : ''"
-                            :style="{ borderColor: 'var(--color-borde)' }"
-                        >
-                            <td class="px-6 py-3 font-mono text-xs">{{ docente.clave_profesor ?? '—' }}</td>
-                            <td class="px-4 py-3">
-                                <span class="flex items-center gap-2">
-                                    <img v-if="docente.foto" :src="docente.foto" alt="" class="h-8 w-8 rounded-full object-cover" loading="lazy" />
-                                    <span>
-                                        <span class="font-medium">{{ docente.nombre_completo }}</span>
-                                        <span v-if="docente.email" class="block text-xs" :style="{ color: 'var(--color-suave)' }">
-                                            {{ docente.email }}
+        <template v-else>
+            <TarjetaSeccion titulo="Docentes" :icono="ICONO_DOCENTE" sin-relleno>
+                <template #descripcion>Listado del personal docente</template>
+                <template #insignia>
+                    <span class="rounded-full px-3 py-1 text-xs font-medium" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }">
+                        {{ docentes.total }} en total
+                    </span>
+                </template>
+
+                <div class="overflow-x-auto">
+                    <table v-if="docentes.data.length" class="w-full text-sm">
+                        <thead>
+                            <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
+                                <th class="px-6 py-3 font-semibold">Docente</th>
+                                <th class="px-4 py-3 font-semibold">Clave / Cédula</th>
+                                <th class="px-4 py-3 font-semibold">Tipo</th>
+                                <th class="px-4 py-3 font-semibold">Campus</th>
+                                <th class="px-4 py-3 font-semibold text-center">Materias</th>
+                                <th class="px-4 py-3 font-semibold">Situación</th>
+                                <th class="px-6 py-3 font-semibold text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr
+                                v-for="docente in docentes.data"
+                                :key="docente.id"
+                                class="fila-nueva group border-t transition-colors"
+                                :class="docente.situacion_clave === 'baja' ? 'opacity-60' : ''"
+                                :style="{ borderColor: 'var(--color-borde)' }"
+                            >
+                                <!-- Docente: avatar + nombre + email -->
+                                <td class="px-6 py-4">
+                                    <a :href="`/escolar/docentes/${docente.id}`" class="flex items-center gap-3">
+                                        <img v-if="docente.foto" :src="docente.foto" alt="" class="h-10 w-10 rounded-full object-cover ring-2 ring-white/60" loading="lazy" />
+                                        <span
+                                            v-else
+                                            class="grid h-10 w-10 shrink-0 place-items-center rounded-full text-xs font-semibold"
+                                            :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 15%, transparent)', color: 'var(--color-acento)' }"
+                                        >{{ iniciales(docente.nombre_completo) }}</span>
+                                        <span class="min-w-0">
+                                            <span class="block truncate font-semibold text-contenido">{{ docente.nombre_completo ?? '—' }}</span>
+                                            <span v-if="docente.email" class="block truncate text-xs" :style="{ color: 'var(--color-suave)' }">{{ docente.email }}</span>
                                         </span>
+                                    </a>
+                                </td>
+
+                                <!-- Clave / Cédula -->
+                                <td class="px-4 py-4">
+                                    <span class="inline-block rounded-md px-2 py-0.5 font-mono text-xs" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)' }">{{ docente.clave_profesor ?? '—' }}</span>
+                                    <span class="mt-1 block font-mono text-[11px]" :style="{ color: 'var(--color-suave)' }">Céd. {{ docente.cedula_profesional ?? '—' }}</span>
+                                </td>
+
+                                <!-- Tipo -->
+                                <td class="px-4 py-4">
+                                    <span v-if="docente.tipo" class="text-xs">{{ docente.tipo }}</span>
+                                    <span v-else :style="{ color: 'var(--color-suave)' }">—</span>
+                                </td>
+
+                                <!-- Campus (chips) -->
+                                <td class="px-4 py-4">
+                                    <span v-if="!docente.campus.length" :style="{ color: 'var(--color-suave)' }">—</span>
+                                    <span v-else class="flex flex-wrap gap-1">
+                                        <span
+                                            v-for="c in docente.campus.slice(0, 2)"
+                                            :key="c"
+                                            class="rounded-full px-2 py-0.5 text-[11px]"
+                                            :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 10%, transparent)', color: 'var(--color-acento)' }"
+                                        >{{ c }}</span>
+                                        <span v-if="docente.campus.length > 2" class="rounded-full px-2 py-0.5 text-[11px]" :style="{ color: 'var(--color-suave)' }">+{{ docente.campus.length - 2 }}</span>
                                     </span>
-                                </span>
-                            </td>
-                            <td class="px-4 py-3 font-mono text-xs">{{ docente.cedula_profesional ?? '—' }}</td>
-                            <td class="px-4 py-3">{{ docente.tipo ?? '—' }}</td>
-                            <td class="px-4 py-3 text-xs">
-                                {{ docente.campus.length ? docente.campus.join(', ') : '—' }}
-                            </td>
-                            <td class="px-4 py-3">{{ docente.materias }}</td>
-                            <td class="px-4 py-3">
-                                {{ docente.situacion }}
-                                <!-- Lo que el docente subió y nadie ha revisado: es
-                                     la acción pendiente de control escolar. -->
-                                <span
-                                    v-if="docente.documentos_pendientes"
-                                    class="ml-1 rounded-full px-2 py-0.5 text-xs"
-                                    style="background-color: color-mix(in srgb, #f59e0b 20%, transparent)"
-                                    :title="`${docente.documentos_pendientes} documento(s) por revisar`"
-                                >
-                                    {{ docente.documentos_pendientes }} por revisar
-                                </span>
-                            </td>
-                            <td class="px-6 py-3 text-right">
-                                <a
-                                    :href="`/escolar/docentes/${docente.id}`"
-                                    class="text-sm font-medium"
-                                    :style="{ color: 'var(--color-acento)' }"
-                                >
-                                    Ficha
-                                </a>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                                </td>
 
-                <p v-else class="px-6 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
-                    {{ filtros.busqueda ? `Nadie coincide con "${filtros.busqueda}".` : 'Todavía no hay docentes dados de alta.' }}
-                </p>
-            </div>
+                                <!-- Materias (badge) -->
+                                <td class="px-4 py-4 text-center">
+                                    <span class="inline-grid h-7 min-w-7 place-items-center rounded-full px-2 text-xs font-semibold" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)' }">{{ docente.materias }}</span>
+                                </td>
 
-            <Paginacion :enlaces="docentes.links" :total="docentes.total" :desde="docentes.from" :hasta="docentes.to" />
-        </section>
+                                <!-- Situación (pill de color) + por revisar -->
+                                <td class="px-4 py-4">
+                                    <span
+                                        class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
+                                        :style="{ color: colorSituacion(docente.situacion_clave), backgroundColor: `color-mix(in srgb, ${colorSituacion(docente.situacion_clave)} 14%, transparent)` }"
+                                    >
+                                        <span class="inline-block h-1.5 w-1.5 rounded-full" :style="{ backgroundColor: colorSituacion(docente.situacion_clave) }" />
+                                        {{ docente.situacion ?? '—' }}
+                                    </span>
+                                    <span
+                                        v-if="docente.documentos_pendientes"
+                                        class="mt-1 block text-[11px] font-medium"
+                                        :style="{ color: '#b45309' }"
+                                        :title="`${docente.documentos_pendientes} documento(s) por revisar`"
+                                    >⚠ {{ docente.documentos_pendientes }} por revisar</span>
+                                </td>
+
+                                <!-- Acción -->
+                                <td class="px-6 py-4 text-right">
+                                    <a
+                                        :href="`/escolar/docentes/${docente.id}`"
+                                        class="inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors group-hover:border-transparent"
+                                        :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-acento)' }"
+                                    >
+                                        Ver ficha
+                                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+                                    </a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <p v-else class="px-6 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
+                        {{ filtros.busqueda ? `Nadie coincide con "${filtros.busqueda}".` : 'Todavía no hay docentes dados de alta.' }}
+                    </p>
+                </div>
+
+                <template #pie>
+                    <Paginacion :enlaces="docentes.links" :total="docentes.total" :desde="docentes.from" :hasta="docentes.to" />
+                </template>
+            </TarjetaSeccion>
+        </template>
     </AppLayout>
 </template>
+
+<style scoped>
+/* Hover de fila en la tabla nueva (experimento): usa el token de acento, que no
+   es expresable como clase utilitaria. */
+.fila-nueva {
+    cursor: default;
+}
+.fila-nueva:hover {
+    background-color: color-mix(in srgb, var(--color-acento) 5%, transparent);
+}
+</style>
