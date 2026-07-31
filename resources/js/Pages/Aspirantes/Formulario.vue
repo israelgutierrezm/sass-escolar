@@ -6,6 +6,8 @@ import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CamposIdentidad from '@/Components/CamposIdentidad.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
+import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
+import { ICONOS } from '@/iconos';
 
 interface Opcion {
     id: number;
@@ -105,34 +107,22 @@ function enviar(): void {
 
     <AppLayout :titulo="esEdicion ? 'Editar aspirante' : 'Nuevo aspirante'">
         <form class="space-y-6" @submit.prevent="enviar">
-            <section class="tarjeta p-6">
-                <h2 class="text-base font-semibold">Datos de la persona</h2>
-                <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                    Si la CURP ya está registrada, se reutiliza esa persona en lugar de duplicarla.
-                </p>
+            <TarjetaSeccion titulo="Datos de la persona" descripcion="Si la CURP ya está registrada, se reutiliza esa persona en lugar de duplicarla." :icono="ICONOS.persona">
+                <CamposIdentidad
+                    :form="form"
+                    :generos="generos"
+                    :entidades="entidades"
+                    :entidad-extranjero="entidadExtranjero"
+                    :paises="paises"
+                    :mexico-id="mexicoId"
+                    :persona-id="aspirante?.persona_id ?? null"
+                    correo-requerido
+                    con-rfc
+                />
+            </TarjetaSeccion>
 
-                <div class="mt-5">
-                    <CamposIdentidad
-                        :form="form"
-                        :generos="generos"
-                        :entidades="entidades"
-                        :entidad-extranjero="entidadExtranjero"
-                        :paises="paises"
-                        :mexico-id="mexicoId"
-                        :persona-id="aspirante?.persona_id ?? null"
-                        correo-requerido
-                        con-rfc
-                    />
-                </div>
-            </section>
-
-            <section class="tarjeta p-6">
-                <h2 class="text-base font-semibold">Proceso de admisión</h2>
-                <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                    La matrícula NO se genera aquí: se asigna al convertirlo en alumno.
-                </p>
-
-                <div class="mt-5 grid gap-4 sm:grid-cols-2">
+            <TarjetaSeccion titulo="Proceso de admisión" descripcion="La matrícula NO se genera aquí: se asigna al convertirlo en alumno." :icono="ICONOS.birrete">
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <!-- Primero el campus: la oferta de carrera depende de él.
                          Elegir una oferta de otro campus no tiene sentido, así
                          que la oferta se filtra y se habilita solo con campus. -->
@@ -198,7 +188,7 @@ function enviar(): void {
                     Los términos del proceso los acepta el propio aspirante desde su portal; no pueden
                     aceptarse por él desde aquí.
                 </p>
-            </section>
+            </TarjetaSeccion>
 
             <div class="flex items-center gap-3">
                 <BotonPrincipal :procesando="form.processing" :texto="esEdicion ? 'Guardar cambios' : 'Registrar aspirante'" />
