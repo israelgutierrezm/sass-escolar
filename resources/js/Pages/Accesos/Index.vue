@@ -4,6 +4,7 @@ import { computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BarraListado from '@/Components/BarraListado.vue';
 import Paginacion from '@/Components/Paginacion.vue';
+import PildoraEstado from '@/Components/PildoraEstado.vue';
 
 interface Fila {
     id: number;
@@ -56,15 +57,15 @@ function diaCorto(iso: string): string {
     return d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' });
 }
 
+// Color SÓLIDO por tipo de movimiento (texto + punto de la píldora).
 function colorTipo(tipo: string): string {
-    if (tipo === 'entrada') {
-        return 'color-mix(in srgb, #16a34a 16%, transparent)';
-    }
-    if (tipo === 'salida') {
-        return 'var(--color-borde)';
-    }
-    return 'color-mix(in srgb, #d97706 18%, transparent)';
+    if (tipo === 'entrada') return '#16a34a';
+    if (tipo === 'salida') return 'var(--color-suave)';
+    return '#d97706';
 }
+
+const ICONO_ACCESOS =
+    'M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z';
 </script>
 
 <template>
@@ -113,34 +114,41 @@ function colorTipo(tipo: string): string {
             :valores="filtros"
             :filtros="definicionFiltros"
             placeholder="Buscar por nombre de la persona…"
-        />
+            titulo="Bitácora de accesos"
+            descripcion="Entradas, salidas y recuperaciones"
+            :icono="ICONO_ACCESOS"
+        >
+            <template #conteo>
+                <span class="rounded-full px-3 py-1 text-xs font-medium" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }">
+                    {{ registro.total }} registros
+                </span>
+            </template>
+        </BarraListado>
 
         <!-- Registro a detalle -->
         <div class="tarjeta overflow-hidden">
             <div class="overflow-x-auto">
                 <table v-if="registro.data.length" class="w-full text-sm">
-                    <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                        <tr>
-                            <th class="px-4 py-3 font-medium">Persona</th>
-                            <th class="px-4 py-3 font-medium">Movimiento</th>
-                            <th class="px-4 py-3 font-medium">Fecha y hora</th>
-                            <th class="px-4 py-3 font-medium">Equipo</th>
-                            <th class="px-4 py-3 font-medium">Navegador</th>
-                            <th class="px-4 py-3 font-medium">IP</th>
+                    <thead>
+                        <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
+                            <th class="px-6 py-3 font-semibold">Persona</th>
+                            <th class="px-4 py-3 font-semibold">Movimiento</th>
+                            <th class="px-4 py-3 font-semibold">Fecha y hora</th>
+                            <th class="px-4 py-3 font-semibold">Equipo</th>
+                            <th class="px-4 py-3 font-semibold">Navegador</th>
+                            <th class="px-6 py-3 font-semibold">IP</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="f in registro.data" :key="f.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                            <td class="px-4 py-3 font-medium">{{ f.persona }}</td>
-                            <td class="px-4 py-3">
-                                <span class="rounded-full px-2 py-0.5 text-xs" :style="{ backgroundColor: colorTipo(f.tipo) }">
-                                    {{ etiquetaTipo[f.tipo] ?? f.tipo }}
-                                </span>
+                        <tr v-for="f in registro.data" :key="f.id" class="fila-nueva border-t transition-colors" :style="{ borderColor: 'var(--color-borde)' }">
+                            <td class="px-6 py-4 font-medium text-contenido">{{ f.persona }}</td>
+                            <td class="px-4 py-4">
+                                <PildoraEstado :texto="etiquetaTipo[f.tipo] ?? f.tipo" :color="colorTipo(f.tipo)" sin-capitalizar />
                             </td>
-                            <td class="px-4 py-3 tabular-nums" :style="{ color: 'var(--color-suave)' }">{{ f.momento ?? '—' }}</td>
-                            <td class="px-4 py-3">{{ f.equipo ?? '—' }}</td>
-                            <td class="px-4 py-3">{{ f.navegador ?? '—' }}</td>
-                            <td class="px-4 py-3 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ f.ip ?? '—' }}</td>
+                            <td class="px-4 py-4 tabular-nums" :style="{ color: 'var(--color-suave)' }">{{ f.momento ?? '—' }}</td>
+                            <td class="px-4 py-4">{{ f.equipo ?? '—' }}</td>
+                            <td class="px-4 py-4">{{ f.navegador ?? '—' }}</td>
+                            <td class="px-6 py-4 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ f.ip ?? '—' }}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -154,3 +162,10 @@ function colorTipo(tipo: string): string {
         </div>
     </AppLayout>
 </template>
+
+<style scoped>
+.fila-nueva:hover {
+    background-color: color-mix(in srgb, var(--color-acento) 5%, transparent);
+}
+</style>
+

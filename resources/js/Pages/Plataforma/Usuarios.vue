@@ -110,6 +110,15 @@ function crear(): void {
 
 const rolesResumen = (u: UsuarioFila): string =>
     `${u.roles.length} rol(es) · opera como ${u.rol_activo ?? '—'}`;
+
+const ICONO_USUARIOS =
+    'M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z';
+
+function iniciales(nombre: string | null): string {
+    if (!nombre) return '—';
+    const partes = nombre.trim().split(/\s+/);
+    return ((partes[0]?.[0] ?? '') + (partes[1]?.[0] ?? '')).toUpperCase() || '—';
+}
 </script>
 
 <template>
@@ -200,7 +209,16 @@ const rolesResumen = (u: UsuarioFila): string =>
             :valores="filtros"
             :filtros="definicionFiltros"
             placeholder="Buscar por nombre, CURP, usuario o correo"
-        />
+            titulo="Cuentas"
+            descripcion="Usuarios con acceso al sistema"
+            :icono="ICONO_USUARIOS"
+        >
+            <template #conteo>
+                <span class="rounded-full px-3 py-1 text-xs font-medium" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }">
+                    {{ usuarios.total }} en total
+                </span>
+            </template>
+        </BarraListado>
 
         <!-- Cuadrícula -->
         <template v-if="vista === 'cuadricula'">
@@ -234,61 +252,91 @@ const rolesResumen = (u: UsuarioFila): string =>
         </template>
 
         <section v-else class="tarjeta overflow-hidden">
-            <table v-if="usuarios.data.length" class="w-full text-sm">
-                <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                    <tr>
-                        <th class="px-6 py-3 font-medium">Persona</th>
-                        <th class="px-4 py-3 font-medium">Cuenta</th>
-                        <th class="px-4 py-3 font-medium">Roles</th>
-                        <th class="px-6 py-3 font-medium text-right">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <template v-for="u in usuarios.data" :key="u.id">
-                        <tr class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                            <td class="px-6 py-3">
-                                <span class="flex items-center gap-2">
-                                    <img v-if="u.foto" :src="u.foto" alt="" class="h-8 w-8 rounded-full object-cover" loading="lazy" />
-                                    <span>
-                                        <span class="font-medium">{{ u.persona }}</span>
-                                        <span v-if="u.soy_yo" class="ml-2 rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">
-                                            tú
+            <div class="overflow-x-auto">
+                <table v-if="usuarios.data.length" class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
+                            <th class="px-6 py-3 font-semibold">Persona</th>
+                            <th class="px-4 py-3 font-semibold">Cuenta</th>
+                            <th class="px-4 py-3 font-semibold">Roles</th>
+                            <th class="px-6 py-3 font-semibold text-right">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr
+                            v-for="u in usuarios.data"
+                            :key="u.id"
+                            class="fila-nueva group border-t transition-colors"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                        >
+                            <!-- Persona: avatar + nombre + "tú" -->
+                            <td class="px-6 py-4">
+                                <a :href="`/plataforma/usuarios/${u.id}`" class="flex items-center gap-3">
+                                    <img v-if="u.foto" :src="u.foto" alt="" class="h-10 w-10 rounded-full object-cover ring-1 ring-black/5" loading="lazy" />
+                                    <span
+                                        v-else
+                                        class="grid h-10 w-10 shrink-0 place-items-center rounded-full text-xs font-semibold"
+                                        :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 15%, transparent)', color: 'var(--color-acento)' }"
+                                    >{{ iniciales(u.persona ?? u.usuario) }}</span>
+                                    <span class="min-w-0">
+                                        <span class="flex items-center gap-2">
+                                            <span class="truncate font-semibold text-contenido">{{ u.persona ?? u.usuario }}</span>
+                                            <span v-if="u.soy_yo" class="shrink-0 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">tú</span>
                                         </span>
                                     </span>
-                                </span>
+                                </a>
                             </td>
-                            <td class="px-4 py-3">
-                                <span class="font-mono text-xs">{{ u.usuario }}</span>
-                                <span class="block text-xs" :style="{ color: 'var(--color-suave)' }">{{ u.email ?? 'sin correo' }}</span>
+
+                            <!-- Cuenta -->
+                            <td class="px-4 py-4">
+                                <span class="inline-block rounded-md px-2 py-0.5 font-mono text-xs" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)' }">{{ u.usuario }}</span>
+                                <span class="mt-1 block text-[11px]" :style="{ color: 'var(--color-suave)' }">{{ u.email ?? 'sin correo' }}</span>
                                 <span
                                     v-if="!u.acceso_configurado"
-                                    class="mt-1 inline-block rounded-full px-2 py-0.5 text-xs"
-                                    style="background-color: color-mix(in srgb, #f59e0b 20%, transparent)"
+                                    class="mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
+                                    :style="{ backgroundColor: 'color-mix(in srgb, #f59e0b 20%, transparent)', color: '#b45309' }"
                                     title="La cuenta existe pero aún no tiene contraseña de acceso"
-                                >
-                                    Sin acceso
-                                </span>
+                                >Sin acceso</span>
                             </td>
-                            <td class="px-4 py-3">
+
+                            <!-- Roles -->
+                            <td class="px-4 py-4">
                                 <span class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                                    {{ u.roles.length }} rol(es) · opera como <strong>{{ u.rol_activo ?? '—' }}</strong>
+                                    {{ u.roles.length }} rol(es) · opera como <strong :style="{ color: 'var(--color-contenido)' }">{{ u.rol_activo ?? '—' }}</strong>
                                 </span>
                             </td>
-                            <td class="px-6 py-3 text-right">
-                                <Link :href="`/plataforma/usuarios/${u.id}`" class="text-sm font-medium" :style="{ color: 'var(--color-acento)' }">
+
+                            <!-- Acciones -->
+                            <td class="px-6 py-4 text-right">
+                                <Link
+                                    :href="`/plataforma/usuarios/${u.id}`"
+                                    class="btn-ficha inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors"
+                                    :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-acento)' }"
+                                >
                                     Administrar
+                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
                                 </Link>
                             </td>
                         </tr>
-                    </template>
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
 
-            <p v-else class="px-6 py-10 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
-                No hay cuentas que coincidan.
-            </p>
+                <p v-else class="px-6 py-10 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
+                    No hay cuentas que coincidan.
+                </p>
+            </div>
 
             <Paginacion :enlaces="usuarios.links" :total="usuarios.total" :desde="usuarios.from" :hasta="usuarios.to" />
         </section>
     </AppLayout>
 </template>
+
+<style scoped>
+.fila-nueva:hover {
+    background-color: color-mix(in srgb, var(--color-acento) 5%, transparent);
+}
+.fila-nueva:hover .btn-ficha {
+    border-color: transparent;
+    background-color: color-mix(in srgb, var(--color-acento) 12%, transparent);
+}
+</style>
