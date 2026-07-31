@@ -4,6 +4,8 @@ import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
+import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
+import { ICONOS } from '@/iconos';
 
 interface Perfil {
     usuario: string;
@@ -99,11 +101,10 @@ const iniciales = (props.perfil.nombre ?? props.perfil.usuario)
         <!-- Mis materias: solo para alumnos con inscripciones vigentes. Son las
              materias abiertas en grupos donde está inscrito; después traerán
              actividades en el LMS. -->
-        <section v-if="materias.length" class="tarjeta mb-6 overflow-hidden">
-            <div class="flex items-center justify-between border-b border-borde px-6 py-3">
-                <h2 class="text-base font-semibold">Mis materias</h2>
+        <TarjetaSeccion v-if="materias.length" titulo="Mis materias" :icono="ICONOS.libro" sin-relleno class="mb-6">
+            <template #insignia>
                 <span class="text-xs" :style="{ color: 'var(--color-suave)' }">{{ materias.length }} activa(s)</span>
-            </div>
+            </template>
             <ul class="divide-y divide-borde">
                 <li v-for="m in materias" :key="m.id" class="flex flex-wrap items-start justify-between gap-3 px-6 py-4">
                     <div>
@@ -127,17 +128,12 @@ const iniciales = (props.perfil.nombre ?? props.perfil.usuario)
                     </span>
                 </li>
             </ul>
-        </section>
+        </TarjetaSeccion>
 
         <div class="grid gap-6 lg:grid-cols-3">
             <!-- Identidad + foto -->
-            <section class="tarjeta p-6 lg:col-span-1">
-                <h2 class="text-base font-semibold">Foto</h2>
-                <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                    Se ve en tu ficha y donde aparezca tu nombre.
-                </p>
-
-                <div class="mt-5 flex flex-col items-center gap-4">
+            <TarjetaSeccion titulo="Foto" descripcion="Se ve en tu ficha y donde aparezca tu nombre." :icono="ICONOS.persona" class="lg:col-span-1">
+                <div class="flex flex-col items-center gap-4">
                     <img
                         v-if="perfil.foto"
                         :src="perfil.foto"
@@ -192,13 +188,12 @@ const iniciales = (props.perfil.nombre ?? props.perfil.usuario)
                         <dd>{{ rolActivo }}</dd>
                     </div>
                 </dl>
-            </section>
+            </TarjetaSeccion>
 
             <div class="space-y-6 lg:col-span-2">
                 <!-- Datos -->
-                <section class="tarjeta p-6">
-                    <h2 class="text-base font-semibold">Tus datos</h2>
-                    <form class="mt-5 grid gap-4 sm:grid-cols-2" @submit.prevent="guardarDatos">
+                <TarjetaSeccion titulo="Tus datos" descripcion="Tu nombre y tu correo de acceso." :icono="ICONOS.persona">
+                    <form class="grid gap-4 sm:grid-cols-2" @submit.prevent="guardarDatos">
                         <CampoTexto v-model="datos.nombre" etiqueta="Nombre(s)" requerido :error="datos.errors.nombre" />
                         <CampoTexto
                             v-model="datos.primer_apellido"
@@ -223,15 +218,11 @@ const iniciales = (props.perfil.nombre ?? props.perfil.usuario)
                             <BotonPrincipal :procesando="datos.processing" texto="Guardar cambios" />
                         </div>
                     </form>
-                </section>
+                </TarjetaSeccion>
 
                 <!-- Contraseña -->
-                <section class="tarjeta p-6">
-                    <h2 class="text-base font-semibold">Cambiar contraseña</h2>
-                    <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                        Pide la actual: así una sesión abierta olvidada no basta para cambiártela.
-                    </p>
-                    <form class="mt-5 grid gap-4 sm:grid-cols-2" @submit.prevent="guardarClave">
+                <TarjetaSeccion titulo="Cambiar contraseña" descripcion="Pide la actual: así una sesión abierta olvidada no basta para cambiártela." :icono="ICONOS.llave">
+                    <form class="grid gap-4 sm:grid-cols-2" @submit.prevent="guardarClave">
                         <CampoTexto
                             v-model="clave.actual"
                             etiqueta="Contraseña actual"
@@ -257,7 +248,7 @@ const iniciales = (props.perfil.nombre ?? props.perfil.usuario)
                             <BotonPrincipal :procesando="clave.processing" texto="Cambiar contraseña" />
                         </div>
                     </form>
-                </section>
+                </TarjetaSeccion>
             </div>
         </div>
     </AppLayout>

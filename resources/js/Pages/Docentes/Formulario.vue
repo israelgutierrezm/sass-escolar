@@ -6,6 +6,8 @@ import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoCasillas from '@/Components/CampoCasillas.vue';
 import CamposIdentidad from '@/Components/CamposIdentidad.vue';
+import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
+import { ICONOS } from '@/iconos';
 
 const props = defineProps<{
     docente: Record<string, any> | null;
@@ -51,32 +53,23 @@ function enviar(): void {
     <AppLayout titulo="Nuevo docente">
 
         <form class="space-y-6" @submit.prevent="enviar">
-            <section class="tarjeta p-6">
-                <h2 class="text-base font-semibold">Datos de la persona</h2>
-                <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                    Si la CURP ya está registrada, se reutiliza esa persona en lugar de duplicarla.
-                </p>
+            <TarjetaSeccion titulo="Datos de la persona" descripcion="Si la CURP ya está registrada, se reutiliza esa persona en lugar de duplicarla." :icono="ICONOS.persona">
+                <CamposIdentidad
+                    :form="form"
+                    :generos="generos"
+                    :entidades="entidades"
+                    :entidad-extranjero="entidadExtranjero"
+                    :paises="paises"
+                    :mexico-id="mexicoId"
+                    :persona-id="null"
+                    con-rfc
+                    correo-requerido
+                    curp-requerido
+                />
+            </TarjetaSeccion>
 
-                <div class="mt-5">
-                    <CamposIdentidad
-                        :form="form"
-                        :generos="generos"
-                        :entidades="entidades"
-                        :entidad-extranjero="entidadExtranjero"
-                        :paises="paises"
-                        :mexico-id="mexicoId"
-                        :persona-id="null"
-                        con-rfc
-                        correo-requerido
-                        curp-requerido
-                    />
-                </div>
-            </section>
-
-            <section class="tarjeta p-6">
-                <h2 class="text-base font-semibold">Registro docente</h2>
-
-                <div class="mt-5 grid gap-4 sm:grid-cols-3">
+            <TarjetaSeccion titulo="Registro docente" descripcion="Clave, tipo y campus donde imparte." :icono="ICONOS.personas">
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <CampoTexto v-model="form.clave_profesor" etiqueta="Clave de profesor" mono :error="form.errors.clave_profesor" />
                     <CampoSelect
                         v-model="form.tipo_docente_id"
@@ -114,7 +107,7 @@ function enviar(): void {
                         vacio="No hay campus dados de alta."
                     />
                 </div>
-            </section>
+            </TarjetaSeccion>
 
             <div class="flex items-center gap-3">
                 <BotonPrincipal :procesando="form.processing" texto="Dar de alta" />
