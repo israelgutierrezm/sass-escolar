@@ -6,7 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Finanzas\Adeudo;
 use App\Models\Finanzas\ConceptoPago;
-use App\Models\Finanzas\ReglaGeneracion;
+use App\Models\Finanzas\ConceptoPlan;
 use App\Support\CatalogosSat;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -69,7 +69,7 @@ class ConceptoPagoController extends Controller
     public function destroy(ConceptoPago $concepto): RedirectResponse
     {
         $enUso = Adeudo::query()->where('concepto_id', $concepto->id)->exists()
-            || ReglaGeneracion::query()->where('concepto_id', $concepto->id)->exists();
+            || ConceptoPlan::query()->where('concepto_id', $concepto->id)->exists();
 
         if ($enUso) {
             return back()->with('error', 'Este concepto ya se usa en cobros o reglas: no se elimina.');

@@ -4,40 +4,48 @@ declare(strict_types=1);
 
 namespace App\Models\Finanzas;
 
+use App\Models\Academico\Campus;
 use App\Models\Academico\Carrera;
-use App\Models\Academico\Oferta;
-use App\Models\Academico\PlanEstudio;
+use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Concerns\TieneAuditoria;
+use App\Models\ControlEscolar\Ciclo;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * planes_cobro (TENANT) — a quién se le cobra qué esquema.
+ * planes_cobro (TENANT) — el esquema de cobro de un ciclo.
  *
- * `aplica_a_id` es polimórfico y va sin FK, igual que `formulario_asignacion`:
- * apunta a carrera, plan u oferta según el tipo, y no hay una sola tabla a la
- * cual apuntar. Con `aplica_a_tipo = global` el id queda en NULL.
+ * El alcance NO es polimórfico: un plan vive en un CICLO y aplica a los CAMPUS
+ * y CARRERAS que se le marcan (las que realmente se ofertan en esos campus). Se
+ * cambió el modelo anterior (carrera/plan/oferta/global) porque la pregunta real
+ * de la escuela es "¿qué cobro este ciclo, en qué campus y a qué carreras?".
+ *
+ * Los cargos NO nacen del plan por sí solos: nacen cuando el plan se le vincula
+ * a un alumno (`plan_cobro_alumno`), que es lo que dispara la generación masiva.
  */
 class PlanCobro extends Model
 {
     use TieneAuditoria;
 
-    public const APLICA_GLOBAL = 'global';
+    /** La mora empieza el mismo día marcado. */
+    public const LIMITE_EXACTA = 'exacta';
 
-    public const APLICA_CARRERA = 'carrera';
-
-    public const APLICA_PLAN = 'plan';
-
-    public const APLICA_OFERTA = 'oferta';
+    /** La mora empieza al día siguiente del marcado. */
+    public const LIMITE_DIA_SIGUIENTE = 'dia_siguiente';
 
     protected $table = 'planes_cobro';
 
     protected $fillable = [
         'nombre',
+        'ciclo_id',
         'moneda',
-        'aplica_a_tipo',
-        'aplica_a_id',
+        'tiene_fecha_limite',
+        'fecha_limite_modo',
+        'aplica_recargos',
+        'afecta_estatus_deudor',
         'vigente_desde',
         'vigente_hasta',
     ];
@@ -45,34 +53,58 @@ class PlanCobro extends Model
     protected function casts(): array
     {
         return [
+            'tiene_fecha_limite' => 'boolean',
+            'aplica_recargos' => 'boolean',
+            'afecta_estatus_deudor' => 'boolean',
             'vigente_desde' => 'date',
             'vigente_hasta' => 'date',
         ];
     }
 
-    public function reglas(): HasMany
+    public function ciclo(): BelongsTo
     {
-        return $this->hasMany(ReglaGeneracion::class, 'plan_cobro_id');
+        return $this->belongsTo(Ciclo::class);
     }
 
-    /**
-     * El destinatario del plan. Se resuelve a mano porque `aplica_a_id` no
-     * tiene FK: con `morphTo` habría que guardar el nombre de la clase, y aquí
-     * se guarda un tipo de dominio ('carrera', 'plan') que sobrevive a un
-     * cambio de namespace.
-     */
-    public function destinatario(): ?Model
+    public function campus(): BelongsToMany
     {
-        if ($this->aplica_a_id === null) {
-            return null;
-        }
+        return $this->belongsToMany(Campus::class, 'plan_cobro_campus', 'plan_cobro_id', 'campus_id');
+    }
 
-        return match ($this->aplica_a_tipo) {
-            self::APLICA_CARRERA => Carrera::find($this->aplica_a_id),
-            self::APLICA_PLAN => PlanEstudio::find($this->aplica_a_id),
-            self::APLICA_OFERTA => Oferta::find($this->aplica_a_id),
-            default => null,
-        };
+    public function carreras(): BelongsToMany
+    {
+        return $this->belongsToMany(Carrera::class, 'plan_cobro_carrera', 'plan_cobro_id', 'carrera_id')
+            ->withPivot('nivel_estudios_id');
+    }
+
+    /** Las líneas fechadas que este plan cobra. */
+    public function conceptos(): HasMany
+    {
+        return $this->hasMany(ConceptoPlan::class, 'plan_cobro_id')->orderBy('orden')->orderBy('fecha_limite');
+    }
+
+    /** Reglas de recargo: la del plan (concepto_plan_id NULL) y los overrides. */
+    public function reglasRecargo(): HasMany
+    {
+        return $this->hasMany(ReglaRecargo::class, 'plan_cobro_id');
+    }
+
+    /** Alumnos con este plan vinculado. */
+    public function asignaciones(): HasMany
+    {
+        return $this->hasMany(PlanCobroAlumno::class, 'plan_cobro_id');
+    }
+
+    public function alumnos(): BelongsToMany
+    {
+        return $this->belongsToMany(MatriculaOferta::class, 'plan_cobro_alumno', 'plan_cobro_id', 'matricula_oferta_id')
+            ->withPivot(['estatus', 'asignado_en']);
+    }
+
+    /** La regla de recargo por defecto del plan (la que no es override). */
+    public function reglaRecargoBase(): ?ReglaRecargo
+    {
+        return $this->reglasRecargo()->whereNull('concepto_plan_id')->where('activo', true)->first();
     }
 
     /** Un plan sin fecha de fin sigue vigente: la ausencia es "hasta nuevo aviso". */

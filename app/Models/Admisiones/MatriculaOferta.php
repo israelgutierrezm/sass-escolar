@@ -9,6 +9,7 @@ use App\Models\Concerns\TieneAuditoria;
 use App\Models\Identidad\Persona;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
@@ -99,5 +100,29 @@ class MatriculaOferta extends Model
     public function tituloAntecedente(): HasOne
     {
         return $this->hasOne(\App\Models\Emision\TituloAntecedente::class, 'matricula_oferta_id');
+    }
+
+    // ---------- Finanzas ----------
+
+    public function adeudos(): HasMany
+    {
+        return $this->hasMany(\App\Models\Finanzas\Adeudo::class, 'matricula_oferta_id');
+    }
+
+    /** Becas otorgadas a este alumno (en esta carrera). */
+    public function becas(): HasMany
+    {
+        return $this->hasMany(\App\Models\Finanzas\BecaAlumno::class, 'matricula_oferta_id');
+    }
+
+    /** Planes de cobro vinculados. Vincular uno le genera sus cargos. */
+    public function planesCobro(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            \App\Models\Finanzas\PlanCobro::class,
+            'plan_cobro_alumno',
+            'matricula_oferta_id',
+            'plan_cobro_id'
+        )->withPivot(['estatus', 'asignado_en']);
     }
 }

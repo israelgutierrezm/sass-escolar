@@ -6,68 +6,94 @@ namespace App\Services;
 
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Finanzas\PlanCobro;
-use Carbon\CarbonImmutable;
+use App\Models\Finanzas\PlanCobroAlumno;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
 /**
- * Qué plan de cobro le toca a una matrícula.
+ * Qué plan de cobro le toca a quién.
  *
- * Gana el MÁS ESPECÍFICO de los vigentes: oferta → plan de estudios → carrera →
- * global. Es el mismo criterio de `reglas_matricula`, y por la misma razón: la
- * escuela define un esquema general y lo excepciona donde hace falta ("todos
- * pagan así, salvo la maestría en línea"). Buscar el más específico evita
- * tener que dar de alta un plan de cobro por cada oferta solo para repetir el
- * mismo monto.
+ * Con el modelo anterior el plan se "resolvía" por especificidad (oferta → plan
+ * → carrera → global) y el alumno quedaba amarrado al que ganara. Ahora el plan
+ * se le VINCULA explícitamente (`plan_cobro_alumno`), así que aquí quedan dos
+ * preguntas distintas:
  *
- * Si empatan dos del mismo nivel —dos planes globales vigentes a la vez, que es
- * una configuración mal hecha— gana el de `vigente_desde` más reciente: es el
- * último que alguien quiso poner en marcha.
+ *  - `planesDe()`   — qué planes tiene vinculados este alumno (los que le cobran).
+ *  - `candidatos()` — a qué alumnos ALCANZA un plan por su alcance
+ *                     (campus + carreras), para la asignación masiva.
+ *
+ * Separarlas evita el error de cobrarle a alguien solo porque "cae en el
+ * alcance": alcanzar es ser candidato, no estar cobrado.
  */
 class ResolutorPlanCobro
 {
-    /** De más específico a más general. */
-    private const PRECEDENCIA = [
-        PlanCobro::APLICA_OFERTA,
-        PlanCobro::APLICA_PLAN,
-        PlanCobro::APLICA_CARRERA,
-        PlanCobro::APLICA_GLOBAL,
-    ];
-
-    public function para(MatriculaOferta $matricula, ?CarbonImmutable $fecha = null): ?PlanCobro
+    /** Planes actualmente vinculados a un alumno. */
+    public function planesDe(MatriculaOferta $matricula): Collection
     {
-        $matricula->loadMissing('oferta');
+        return PlanCobro::query()
+            ->whereHas('asignaciones', fn (Builder $q) => $q
+                ->where('matricula_oferta_id', $matricula->id)
+                ->where('estatus', PlanCobroAlumno::ACTIVO))
+            ->with(['ciclo', 'conceptos'])
+            ->get();
+    }
+
+    /**
+     * ¿El alcance del plan (campus + carreras) cubre a este alumno? El ciclo no
+     * se exige aquí: un plan del ciclo entrante se le puede asignar a alguien
+     * que todavía no está inscrito en él, que es justamente el caso de uso.
+     */
+    public function alcanzaA(PlanCobro $plan, MatriculaOferta $matricula): bool
+    {
         $oferta = $matricula->oferta;
 
         if ($oferta === null) {
-            return null;
+            return false;
         }
 
-        $fecha ??= CarbonImmutable::today();
+        $campus = $plan->campus->pluck('id')->all();
+        $carreras = $plan->carreras->pluck('id')->all();
 
-        $identificador = [
-            PlanCobro::APLICA_OFERTA => $oferta->id,
-            PlanCobro::APLICA_PLAN => $oferta->plan_id,
-            PlanCobro::APLICA_CARRERA => $oferta->carrera_id,
-            PlanCobro::APLICA_GLOBAL => null,
-        ];
+        // Sin restricción marcada, no se acota por esa dimensión.
+        $enCampus = $campus === [] || in_array($oferta->campus_id, $campus, true);
+        $enCarrera = $carreras === [] || in_array($oferta->carrera_id, $carreras, true);
 
-        foreach (self::PRECEDENCIA as $tipo) {
-            $consulta = PlanCobro::query()
-                ->vigentes($fecha->toDateString())
-                ->where('aplica_a_tipo', $tipo);
+        return $enCampus && $enCarrera;
+    }
 
-            $id = $identificador[$tipo];
+    /**
+     * Alumnos ACTIVOS que caen en el alcance del plan y todavía no lo tienen
+     * vinculado. Es la lista que ve el administrador para asignar en masa.
+     *
+     * @return Collection<int, MatriculaOferta>
+     */
+    public function candidatos(PlanCobro $plan): Collection
+    {
+        $campus = $plan->campus->pluck('id')->all();
+        $carreras = $plan->carreras->pluck('id')->all();
 
-            $consulta = $id === null
-                ? $consulta->whereNull('aplica_a_id')
-                : $consulta->where('aplica_a_id', $id);
+        $yaAsignados = PlanCobroAlumno::query()
+            ->where('plan_cobro_id', $plan->id)
+            ->where('estatus', PlanCobroAlumno::ACTIVO)
+            ->pluck('matricula_oferta_id');
 
-            $plan = $consulta->orderByDesc('vigente_desde')->orderByDesc('id')->first();
-
-            if ($plan !== null) {
-                return $plan;
-            }
-        }
-
-        return null;
+        return MatriculaOferta::query()
+            ->where('estatus', 'activo')
+            ->whereNotIn('id', $yaAsignados)
+            ->whereHas('oferta', function (Builder $q) use ($campus, $carreras) {
+                if ($campus !== []) {
+                    $q->whereIn('campus_id', $campus);
+                }
+                if ($carreras !== []) {
+                    $q->whereIn('carrera_id', $carreras);
+                }
+            })
+            ->with([
+                'persona:id,nombre,primer_apellido,segundo_apellido',
+                'oferta.carrera:id,nombre',
+                'oferta.campus:id,nombre',
+            ])
+            ->orderBy('matricula')
+            ->get();
     }
 }

@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * adeudos (TENANT) — lo que se debe.
@@ -58,7 +59,7 @@ class Adeudo extends Model
         'matricula_oferta_id',
         'aspirante_id',
         'concepto_id',
-        'regla_id',
+        'concepto_plan_id',
         'ciclo_id',
         'periodo_etiqueta',
         'monto',
@@ -97,9 +98,16 @@ class Adeudo extends Model
         return $this->belongsTo(ConceptoPago::class, 'concepto_id');
     }
 
-    public function regla(): BelongsTo
+    /** La línea del plan de la que salió este cargo (null si se capturó a mano). */
+    public function conceptoPlan(): BelongsTo
     {
-        return $this->belongsTo(ReglaGeneracion::class, 'regla_id');
+        return $this->belongsTo(ConceptoPlan::class, 'concepto_plan_id');
+    }
+
+    /** Desglose de becas, descuentos y recargos que movieron el monto. */
+    public function ajustes(): HasMany
+    {
+        return $this->hasMany(AdeudoAjuste::class, 'adeudo_id');
     }
 
     public function ciclo(): BelongsTo

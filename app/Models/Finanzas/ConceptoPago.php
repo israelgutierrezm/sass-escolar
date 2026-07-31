@@ -46,8 +46,9 @@ class ConceptoPago extends Model
         return $this->hasMany(Adeudo::class, 'concepto_id');
     }
 
-    public function reglas(): HasMany
+    /** Líneas de planes de cobro que usan este concepto. */
+    public function lineasDePlan(): HasMany
     {
-        return $this->hasMany(ReglaGeneracion::class, 'concepto_id');
+        return $this->hasMany(ConceptoPlan::class, 'concepto_id');
     }
 }

@@ -5,304 +5,207 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Admisiones\MatriculaOferta;
-use App\Models\ControlEscolar\Ciclo;
-use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Finanzas\Adeudo;
-use App\Models\Finanzas\ReglaGeneracion;
-use Carbon\CarbonImmutable;
-use Illuminate\Database\QueryException;
+use App\Models\Finanzas\AdeudoAjuste;
+use App\Models\Finanzas\ConceptoPlan;
+use App\Models\Finanzas\PlanCobro;
+use App\Models\Finanzas\PlanCobroAlumno;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 /**
- * El motor de cobro: convierte las reglas configuradas en adeudos concretos.
+ * El motor de cobro: convierte las líneas del plan en los cargos del alumno.
  *
- * Recorre las `reglas_generacion` del plan de cobro que le toca a la matrícula
- * (`ResolutorPlanCobro`) y crea un adeudo por cada periodo que ya debió
- * emitirse, aplicando las becas vigentes.
+ * Vincular un plan a un alumno es lo que dispara la generación: se crea un
+ * adeudo por cada línea del plan, ya con becas y descuentos aplicados y con su
+ * desglose en `adeudo_ajustes`. No se espera a que el alumno se inscriba al
+ * ciclo, porque en muchas escuelas pagar es el requisito PARA inscribirse.
  *
- * **Idempotente.** Correrlo dos veces no duplica nada: la terna (matrícula,
- * regla, periodo) tiene índice único en la base, y la comprobación previa
- * consulta con `withTrashed()` porque el soft delete no libera un índice
- * único. Un `QueryException` de duplicado se traga a propósito —significa que
- * otra corrida ganó la carrera, que es exactamente lo que el índice existe para
- * resolver— y cualquier otro se deja subir.
- *
- * No decide cuándo correr. Lo llama el administrador desde el estado de cuenta
- * y, cuando exista el scheduler, un job diario.
+ * **Idempotente.** Correrlo dos veces no duplica: la pareja (matrícula, línea)
+ * se comprueba antes de crear. Si más adelante se agregan líneas al plan, volver
+ * a generar crea solo las que faltan.
  */
 class GeneradorAdeudos
 {
     public function __construct(
-        private readonly ResolutorPlanCobro $resolutor,
-        private readonly PeriodosCobro $periodos,
-        private readonly AplicadorRecargosDescuentos $aplicador,
+        private readonly CalculadorCargo $calculador,
     ) {}
 
     /**
-     * @return array{generados: int, omitidos: int, motivos: array<int, string>}
+     * Vincula el plan a los alumnos y les genera sus cargos.
+     *
+     * @param  array<int, int>  $matriculaIds
+     * @return array{asignados: int, cargos: int, omitidos: int}
      */
-    public function generarPara(MatriculaOferta $matricula, ?CarbonImmutable $hasta = null): array
+    public function asignarPlan(PlanCobro $plan, array $matriculaIds): array
     {
-        $hasta ??= CarbonImmutable::today();
-        $resultado = ['generados' => 0, 'omitidos' => 0, 'motivos' => []];
+        $plan->loadMissing('conceptos');
 
-        // Una matrícula dada de baja deja de devengar. Seguir generándole
-        // colegiaturas infla la cartera con dinero que nadie va a cobrar y que
-        // después hay que cancelar a mano, adeudo por adeudo.
-        if ($matricula->estatus !== 'activo') {
-            $resultado['motivos'][] = 'La matrícula no está activa; no se generan cargos.';
+        $asignados = 0;
+        $cargos = 0;
+        $omitidos = 0;
 
-            return $resultado;
-        }
+        foreach (array_unique($matriculaIds) as $id) {
+            $matricula = MatriculaOferta::find($id);
 
-        $plan = $this->resolutor->para($matricula, $hasta);
-
-        if ($plan === null) {
-            $resultado['motivos'][] = 'No hay plan de cobro vigente que aplique a esta matrícula.';
-
-            return $resultado;
-        }
-
-        // Nunca antes de que el alumno ingresara ni antes de que el plan
-        // entrara en vigor: un plan nuevo no cobra retroactivamente los meses
-        // en los que no existía.
-        $desde = CarbonImmutable::parse($matricula->fecha_ingreso)
-            ->max(CarbonImmutable::parse($plan->vigente_desde));
-
-        if ($plan->vigente_hasta !== null) {
-            $hasta = $hasta->min(CarbonImmutable::parse($plan->vigente_hasta));
-        }
-
-        $ingreso = CarbonImmutable::parse($matricula->fecha_ingreso);
-
-        foreach ($plan->reglas()->with('concepto')->get() as $regla) {
-            if (! $this->cumplePrerequisito($regla, $matricula)) {
-                $resultado['omitidos']++;
-                $resultado['motivos'][] = sprintf(
-                    '%s: falta pagar %s.',
-                    $regla->concepto?->nombre ?? 'Regla '.$regla->id,
-                    $regla->conceptoPrerequisito?->nombre ?? 'el concepto previo',
-                );
+            if ($matricula === null) {
+                $omitidos++;
 
                 continue;
             }
 
-            foreach ($this->periodosDe($regla, $matricula, $desde, $hasta) as $periodo) {
-                if ($periodo->generacion->gt($hasta)) {
-                    continue; // todavía no toca emitirlo
+            DB::transaction(function () use ($plan, $matricula, &$asignados, &$cargos) {
+                $asignacion = PlanCobroAlumno::firstOrNew([
+                    'plan_cobro_id' => $plan->id,
+                    'matricula_oferta_id' => $matricula->id,
+                ]);
+
+                $eraNueva = ! $asignacion->exists;
+
+                $asignacion->fill([
+                    'estatus' => PlanCobroAlumno::ACTIVO,
+                    'asignado_en' => now(),
+                    'asignado_por' => Auth::id(),
+                ])->save();
+
+                if ($eraNueva) {
+                    $asignados++;
                 }
 
-                $creado = $this->crear($regla, $matricula, $periodo, $ingreso);
+                $cargos += $this->generarCargos($plan, $matricula);
+            });
+        }
 
-                $creado ? $resultado['generados']++ : $resultado['omitidos']++;
+        return ['asignados' => $asignados, 'cargos' => $cargos, 'omitidos' => $omitidos];
+    }
+
+    /**
+     * Crea los adeudos que le faltan a este alumno para este plan.
+     * Devuelve cuántos creó.
+     */
+    public function generarCargos(PlanCobro $plan, MatriculaOferta $matricula): int
+    {
+        $creados = 0;
+
+        foreach ($plan->conceptos as $linea) {
+            $yaExiste = Adeudo::withTrashed()
+                ->where('matricula_oferta_id', $matricula->id)
+                ->where('concepto_plan_id', $linea->id)
+                ->exists();
+
+            if ($yaExiste) {
+                continue;
             }
+
+            $this->crearAdeudo($plan, $linea, $matricula);
+            $creados++;
         }
 
-        return $resultado;
+        return $creados;
     }
 
-    /**
-     * Genera para todas las matrículas activas. Es lo que llamará el job
-     * diario. Se procesa con `cursor()` para no cargar la escuela entera en
-     * memoria.
-     *
-     * @return array{matriculas: int, generados: int}
-     */
-    public function generarParaTodas(?CarbonImmutable $hasta = null): array
+    /** Crea el adeudo de una línea, con su desglose de becas y descuentos. */
+    private function crearAdeudo(PlanCobro $plan, ConceptoPlan $linea, MatriculaOferta $matricula): Adeudo
     {
-        $totales = ['matriculas' => 0, 'generados' => 0];
+        $calculo = $this->calculador->para($linea, $matricula);
+        $descuentos = abs(array_sum(array_column($calculo['ajustes'], 'monto')));
 
-        $consulta = MatriculaOferta::query()->where('estatus', 'activo')->with('oferta');
+        $adeudo = Adeudo::create([
+            'matricula_oferta_id' => $matricula->id,
+            'concepto_id' => $linea->concepto_id,
+            'concepto_plan_id' => $linea->id,
+            'ciclo_id' => $plan->ciclo_id,
+            'periodo_etiqueta' => $linea->periodoEtiqueta(),
+            'monto' => $calculo['monto'],
+            'monto_recargos' => 0,
+            'monto_descuentos' => $descuentos,
+            'monto_total' => $calculo['total'],
+            'fecha_generacion' => now()->toDateString(),
+            // Sin fecha límite configurada, el cargo vence al cierre del ciclo o,
+            // en su defecto, el mismo día: nunca queda sin vencimiento porque la
+            // cartera se ordena por esa fecha.
+            'fecha_vencimiento' => $linea->fecha_limite?->toDateString()
+                ?? $plan->ciclo?->fecha_fin?->toDateString()
+                ?? now()->toDateString(),
+            'estatus' => Adeudo::ESTATUS_PENDIENTE,
+        ]);
 
-        foreach ($consulta->cursor() as $matricula) {
-            $resultado = $this->generarPara($matricula, $hasta);
-
-            $totales['matriculas']++;
-            $totales['generados'] += $resultado['generados'];
+        foreach ($calculo['ajustes'] as $ajuste) {
+            AdeudoAjuste::create($ajuste + ['adeudo_id' => $adeudo->id]);
         }
 
-        return $totales;
+        return $adeudo;
     }
 
     /**
-     * Los periodos de una regla. Las periodicidades de calendario las resuelve
-     * `PeriodosCobro`; las que dependen de la operación escolar —por ciclo, por
-     * materia— se arman aquí, que es donde se sabe de ciclos e inscripciones.
+     * Recalcula los cargos PENDIENTES de un alumno tras un cambio de beca.
      *
-     * @return array<int, PeriodoCobro>
+     * Los ya pagados no se tocan: el dinero que entró no se reescribe. Solo se
+     * recomponen los que aún se le pueden cobrar distinto.
      */
-    private function periodosDe(
-        ReglaGeneracion $regla,
-        MatriculaOferta $matricula,
-        CarbonImmutable $desde,
-        CarbonImmutable $hasta,
-    ): array {
-        if ($regla->periodicidad === ReglaGeneracion::PERIODICIDAD_POR_CICLO) {
-            return $this->periodosPorCiclo($regla, $desde, $hasta);
-        }
-
-        if ($regla->periodicidad === ReglaGeneracion::PERIODICIDAD_POR_MATERIA) {
-            return $this->periodosPorMateria($regla, $matricula, $desde, $hasta);
-        }
-
-        return $this->periodos->para($regla, $desde, $hasta);
-    }
-
-    /**
-     * Un cargo por ciclo escolar traslapado con el rango: la reinscripción
-     * típica. La etiqueta es la clave del ciclo, que es única en toda la
-     * escuela y por tanto sirve de llave de idempotencia.
-     *
-     * @return array<int, PeriodoCobro>
-     */
-    private function periodosPorCiclo(ReglaGeneracion $regla, CarbonImmutable $desde, CarbonImmutable $hasta): array
+    public function recalcularPendientes(MatriculaOferta $matricula): int
     {
-        $ciclos = Ciclo::query()
-            ->whereDate('fecha_fin', '>=', $desde->toDateString())
-            ->whereDate('fecha_inicio', '<=', $hasta->toDateString())
-            ->orderBy('fecha_inicio')
+        $adeudos = Adeudo::query()
+            ->where('matricula_oferta_id', $matricula->id)
+            ->where('estatus', Adeudo::ESTATUS_PENDIENTE)
+            ->whereNotNull('concepto_plan_id')
+            ->with('conceptoPlan')
             ->get();
 
-        return $ciclos->map(function (Ciclo $ciclo) use ($regla) {
-            $inicio = CarbonImmutable::parse($ciclo->fecha_inicio);
-            $fin = CarbonImmutable::parse($ciclo->fecha_fin);
+        $tocados = 0;
 
-            return new PeriodoCobro(
-                $ciclo->clave,
-                $inicio,
-                $regla->dia_limite !== null ? $inicio->addDays((int) $regla->dia_limite) : $inicio,
-                $inicio,
-                $fin,
-                (float) $regla->monto_base,
-            );
-        })->all();
-    }
+        foreach ($adeudos as $adeudo) {
+            $linea = $adeudo->conceptoPlan;
 
-    /**
-     * Un cargo por materia inscrita: el esquema de quien paga por crédito o por
-     * asignatura en vez de una colegiatura fija.
-     *
-     * Solo cuentan las inscripciones vivas: dar de baja una materia antes de
-     * que se genere el cargo debe evitarlo, no obligar a cancelarlo después.
-     *
-     * @return array<int, PeriodoCobro>
-     */
-    private function periodosPorMateria(
-        ReglaGeneracion $regla,
-        MatriculaOferta $matricula,
-        CarbonImmutable $desde,
-        CarbonImmutable $hasta,
-    ): array {
-        $inscripciones = Inscripcion::query()
-            ->with(['asignaturaGrupo.planMateria.asignatura', 'ciclo', 'situacion'])
-            ->where('matricula_oferta_id', $matricula->id)
-            ->whereHas('ciclo', fn ($q) => $q
-                ->whereDate('fecha_fin', '>=', $desde->toDateString())
-                ->whereDate('fecha_inicio', '<=', $hasta->toDateString()))
-            ->get()
-            ->reject(fn (Inscripcion $i) => $i->estaDeBaja());
-
-        return $inscripciones->map(function (Inscripcion $inscripcion) use ($regla) {
-            $ciclo = $inscripcion->ciclo;
-            $inicio = CarbonImmutable::parse($ciclo->fecha_inicio);
-            $asignatura = $inscripcion->asignaturaGrupo?->planMateria?->asignatura;
-
-            return new PeriodoCobro(
-                trim(($ciclo->clave ?? '').' · '.($asignatura->clave ?? 'materia '.$inscripcion->id)),
-                $inicio,
-                $regla->dia_limite !== null ? $inicio->addDays((int) $regla->dia_limite) : $inicio,
-                $inicio,
-                CarbonImmutable::parse($ciclo->fecha_fin),
-                (float) $regla->monto_base,
-            );
-        })->all();
-    }
-
-    /**
-     * Crea el adeudo si no existía. Devuelve false cuando ya estaba —que es el
-     * caso normal en la segunda corrida del día, no un error—.
-     */
-    private function crear(
-        ReglaGeneracion $regla,
-        MatriculaOferta $matricula,
-        PeriodoCobro $periodo,
-        CarbonImmutable $ingreso,
-    ): bool {
-        $yaExiste = Adeudo::withTrashed()
-            ->where('matricula_oferta_id', $matricula->id)
-            ->where('regla_id', $regla->id)
-            ->where('periodo_etiqueta', $periodo->etiqueta)
-            ->exists();
-
-        if ($yaExiste) {
-            return false;
-        }
-
-        $monto = $periodo->monto;
-
-        // Quien ingresa a media periodicidad paga la parte que le corresponde,
-        // si la regla lo permite. Solo alcanza al periodo de su ingreso.
-        if ($regla->prorratea && $periodo->contiene($ingreso)) {
-            $monto = round($monto * $periodo->proporcionDesde($ingreso), 2);
-        }
-
-        $descuento = $this->aplicador->descuentoPara($matricula->id, $monto, $periodo->generacion);
-
-        try {
-            Adeudo::create([
-                'matricula_oferta_id' => $matricula->id,
-                'concepto_id' => $regla->concepto_id,
-                'regla_id' => $regla->id,
-                'ciclo_id' => $this->cicloDe($periodo),
-                'periodo_etiqueta' => $periodo->etiqueta,
-                'monto' => $monto,
-                'monto_recargos' => 0,
-                'monto_descuentos' => $descuento,
-                'monto_total' => round($monto - $descuento, 2),
-                'fecha_generacion' => $periodo->generacion->toDateString(),
-                'fecha_vencimiento' => $periodo->vencimiento->toDateString(),
-                'estatus' => Adeudo::ESTATUS_PENDIENTE,
-            ]);
-        } catch (QueryException $e) {
-            // 23000 = violación de integridad. Aquí solo puede ser el único de
-            // generación: otra corrida lo creó entre el SELECT y el INSERT.
-            if ($e->getCode() === '23000') {
-                return false;
+            if ($linea === null) {
+                continue;
             }
 
-            throw $e;
+            DB::transaction(function () use ($adeudo, $linea, $matricula, &$tocados) {
+                // Se rehacen solo los beneficios; el recargo por mora lo mantiene
+                // su propio servicio y no debe perderse en el recálculo.
+                $adeudo->ajustes()
+                    ->whereIn('tipo', [AdeudoAjuste::TIPO_BECA, AdeudoAjuste::TIPO_DESCUENTO])
+                    ->delete();
+
+                $calculo = $this->calculador->para($linea, $matricula);
+
+                foreach ($calculo['ajustes'] as $ajuste) {
+                    AdeudoAjuste::create($ajuste + ['adeudo_id' => $adeudo->id]);
+                }
+
+                $descuentos = abs(array_sum(array_column($calculo['ajustes'], 'monto')));
+                $recargos = (float) $adeudo->monto_recargos;
+
+                $adeudo->update([
+                    'monto' => $calculo['monto'],
+                    'monto_descuentos' => $descuentos,
+                    'monto_total' => max(0, round($calculo['total'] + $recargos, 2)),
+                ]);
+
+                $tocados++;
+            });
         }
 
-        return true;
+        return $tocados;
     }
 
-    /** El ciclo al que pertenece el periodo, si la etiqueta salió de uno. */
-    private function cicloDe(PeriodoCobro $periodo): ?int
+    /** Vuelve a generar lo que falte para todos los planes activos del alumno. */
+    public function generarPara(MatriculaOferta $matricula): array
     {
-        return Ciclo::query()
-            ->whereDate('fecha_inicio', '<=', $periodo->generacion->toDateString())
-            ->whereDate('fecha_fin', '>=', $periodo->generacion->toDateString())
-            ->value('id');
-    }
+        $planes = PlanCobro::query()
+            ->whereHas('asignaciones', fn ($q) => $q
+                ->where('matricula_oferta_id', $matricula->id)
+                ->where('estatus', PlanCobroAlumno::ACTIVO))
+            ->with(['conceptos', 'ciclo'])
+            ->get();
 
-    /**
-     * Una regla con concepto prerrequisito no genera hasta que ese concepto
-     * esté pagado.
-     *
-     * Es lo que impide cobrarle las colegiaturas del semestre a quien nunca
-     * completó su inscripción: sería cartera que la escuela cree tener y no
-     * tiene, y que además le llega al alumno como un estado de cuenta que no
-     * reconoce.
-     */
-    private function cumplePrerequisito(ReglaGeneracion $regla, MatriculaOferta $matricula): bool
-    {
-        if ($regla->concepto_prerequisito_id === null) {
-            return true;
+        $generados = 0;
+
+        foreach ($planes as $plan) {
+            $generados += $this->generarCargos($plan, $matricula);
         }
 
-        return Adeudo::query()
-            ->where('matricula_oferta_id', $matricula->id)
-            ->where('concepto_id', $regla->concepto_prerequisito_id)
-            ->whereIn('estatus', [Adeudo::ESTATUS_PAGADO, Adeudo::ESTATUS_CONDONADO])
-            ->exists();
+        return ['generados' => $generados, 'planes' => $planes->count()];
     }
 }

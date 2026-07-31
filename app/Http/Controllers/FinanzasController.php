@@ -11,7 +11,7 @@ use App\Models\Finanzas\Factura;
 use App\Models\Finanzas\MetodoPago;
 use App\Models\Finanzas\Pago;
 use App\Models\Finanzas\SituacionPago;
-use App\Services\AplicadorRecargosDescuentos;
+use App\Services\CalculadorRecargos;
 use App\Services\EstadoCuenta;
 use App\Services\GeneradorAdeudos;
 use App\Services\RegistradorPago;
@@ -39,7 +39,7 @@ class FinanzasController extends Controller
         private readonly EstadoCuenta $estadoCuenta,
         private readonly GeneradorAdeudos $generador,
         private readonly RegistradorPago $registrador,
-        private readonly AplicadorRecargosDescuentos $aplicador,
+        private readonly CalculadorRecargos $recargos,
         private readonly ResolutorPlanCobro $resolutor,
     ) {}
 
@@ -151,7 +151,8 @@ class FinanzasController extends Controller
 
         $matricula->load(['persona', 'oferta.carrera:id,nombre', 'oferta.campus:id,nombre', 'situacion:id,nombre']);
 
-        $plan = $this->resolutor->para($matricula);
+        $planes = $this->resolutor->planesDe($matricula);
+        $plan = $planes->first();
 
         return Inertia::render('Finanzas/Cuenta', [
             'matricula' => [
@@ -171,8 +172,9 @@ class FinanzasController extends Controller
             'planCobro' => $plan === null ? null : [
                 'id' => $plan->id,
                 'nombre' => $plan->nombre,
-                'aplica_a' => $plan->aplica_a_tipo,
-                'reglas' => $plan->reglas()->count(),
+                'ciclo' => $plan->ciclo?->nombre,
+                'conceptos' => $plan->conceptos->count(),
+                'total_planes' => $planes->count(),
             ],
             'metodosPago' => MetodoPago::query()->activos()->orderBy('nombre')
                 ->get(['id', 'clave', 'nombre', 'requiere_confirmacion']),
@@ -200,10 +202,10 @@ class FinanzasController extends Controller
     public function generar(MatriculaOferta $matricula): RedirectResponse
     {
         $resultado = $this->generador->generarPara($matricula);
-        $this->aplicador->recalcularCartera($matricula->id);
+        $this->recargos->recalcularCartera($matricula->id);
 
-        if ($resultado['generados'] === 0 && $resultado['motivos'] !== []) {
-            return back()->with('advertencia', implode(' ', $resultado['motivos']));
+        if ($resultado['planes'] === 0) {
+            return back()->with('advertencia', 'Este alumno no tiene ningún plan de cobro vinculado. Vincúlaselo desde el plan.');
         }
 
         if ($resultado['generados'] === 0) {
@@ -214,9 +216,7 @@ class FinanzasController extends Controller
             ? 'Se generó 1 cargo.'
             : "Se generaron {$resultado['generados']} cargos.";
 
-        return $resultado['motivos'] === []
-            ? back()->with('exito', $aviso)
-            : back()->with('advertencia', $aviso.' '.implode(' ', $resultado['motivos']));
+        return back()->with('exito', $aviso);
     }
 
     public function registrarPago(Request $request, MatriculaOferta $matricula): RedirectResponse
