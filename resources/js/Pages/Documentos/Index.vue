@@ -194,67 +194,71 @@ const nombreAmbito = (clave: string) => props.ambitos.find((a) => a.clave === cl
 
         <!-- Catálogo -->
         <section class="tarjeta overflow-hidden">
-            <table v-if="documentos.length" class="w-full text-sm">
-                <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                    <tr>
-                        <th class="px-6 py-3 font-medium">Documento</th>
-                        <th class="px-4 py-3 font-medium">Se le pide a</th>
-                        <th class="px-4 py-3 font-medium">Carreras</th>
-                        <th class="px-4 py-3 font-medium">Entregados</th>
-                        <th class="px-6 py-3 font-medium text-right">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr
-                        v-for="doc in documentos"
-                        :key="doc.id"
-                        class="border-t"
-                        :class="doc.ambitos.length === 0 ? 'opacity-50' : ''"
-                        :style="{ borderColor: 'var(--color-borde)' }"
-                    >
-                        <td class="px-6 py-3">
-                            <span class="font-medium">{{ doc.nombre }}</span>
-                            <span
-                                v-if="doc.obligatorio"
-                                class="ml-2 rounded-full px-2 py-0.5 text-xs"
-                                style="background-color: color-mix(in srgb, #dc2626 14%, transparent)"
-                            >
-                                obligatorio
-                            </span>
-                            <span v-if="doc.descripcion" class="block text-xs" :style="{ color: 'var(--color-suave)' }">
-                                {{ doc.descripcion }}
-                            </span>
-                        </td>
-                        <td class="px-4 py-3">
-                            <span v-if="doc.ambitos.length" class="flex flex-wrap gap-1">
-                                <span
-                                    v-for="ambito in doc.ambitos"
-                                    :key="ambito"
-                                    class="rounded-full px-2 py-0.5 text-xs"
-                                    style="background-color: color-mix(in srgb, currentColor 10%, transparent)"
-                                >
-                                    {{ nombreAmbito(ambito) }}
+            <div class="overflow-x-auto">
+                <table v-if="documentos.length" class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
+                            <th class="px-6 py-3 font-semibold">Documento</th>
+                            <th class="px-4 py-3 font-semibold">Se le pide a</th>
+                            <th class="px-4 py-3 font-semibold">Carreras</th>
+                            <th class="px-4 py-3 font-semibold text-center">Entregados</th>
+                            <th class="px-6 py-3 font-semibold text-right">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr
+                            v-for="doc in documentos"
+                            :key="doc.id"
+                            class="fila-nueva border-t transition-colors"
+                            :class="doc.ambitos.length === 0 ? 'opacity-60' : ''"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                        >
+                            <td class="px-6 py-4">
+                                <span class="flex items-center gap-2">
+                                    <span class="font-semibold text-contenido">{{ doc.nombre }}</span>
+                                    <span
+                                        v-if="doc.obligatorio"
+                                        class="rounded-full px-2 py-0.5 text-[11px] font-medium"
+                                        :style="{ backgroundColor: 'color-mix(in srgb, #dc2626 14%, transparent)', color: '#dc2626' }"
+                                    >Obligatorio</span>
                                 </span>
-                            </span>
-                            <span v-else class="text-xs text-amber-600">a nadie — retirado</span>
-                        </td>
-                        <td class="px-4 py-3 text-xs" :style="{ color: 'var(--color-suave)' }">
-                            {{ doc.carreras.length ? doc.carreras.join(', ') : 'todas' }}
-                        </td>
-                        <td class="px-4 py-3">{{ doc.entregados || '—' }}</td>
-                        <td class="px-6 py-3 text-right">
-                            <span v-if="puedeEditar" class="flex items-center justify-end gap-1">
-                                <BotonAccion variante="editar" @click="abrirEdicion(doc)" />
-                                <BotonAccion variante="eliminar" @click="eliminar(doc)" />
-                            </span>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+                                <span v-if="doc.descripcion" class="mt-0.5 block text-[11px]" :style="{ color: 'var(--color-suave)' }">{{ doc.descripcion }}</span>
+                            </td>
+                            <td class="px-4 py-4">
+                                <span v-if="doc.ambitos.length" class="flex flex-wrap gap-1">
+                                    <span
+                                        v-for="ambito in doc.ambitos"
+                                        :key="ambito"
+                                        class="rounded-full px-2 py-0.5 text-[11px]"
+                                        :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 10%, transparent)', color: 'var(--color-acento)' }"
+                                    >{{ nombreAmbito(ambito) }}</span>
+                                </span>
+                                <span v-else class="text-[11px] font-medium" :style="{ color: '#b45309' }">A nadie — retirado</span>
+                            </td>
+                            <td class="px-4 py-4 text-xs" :style="{ color: 'var(--color-suave)' }">
+                                {{ doc.carreras.length ? doc.carreras.join(', ') : 'todas' }}
+                            </td>
+                            <td class="px-4 py-4 text-center tabular-nums" :style="{ color: 'var(--color-suave)' }">{{ doc.entregados || '—' }}</td>
+                            <td class="px-6 py-4 text-right">
+                                <span v-if="puedeEditar" class="flex items-center justify-end gap-1">
+                                    <BotonAccion variante="editar" @click="abrirEdicion(doc)" />
+                                    <BotonAccion variante="eliminar" @click="eliminar(doc)" />
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
 
-            <p v-else class="px-6 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
-                {{ filtros.ambito ? 'No se pide ningún documento a ese rol.' : 'El catálogo está vacío.' }}
-            </p>
+                <p v-else class="px-6 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
+                    {{ filtros.ambito ? 'No se pide ningún documento a ese rol.' : 'El catálogo está vacío.' }}
+                </p>
+            </div>
         </section>
     </AppLayout>
 </template>
+
+<style scoped>
+.fila-nueva:hover {
+    background-color: color-mix(in srgb, var(--color-acento) 5%, transparent);
+}
+</style>

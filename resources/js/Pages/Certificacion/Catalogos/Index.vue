@@ -82,20 +82,20 @@ function eliminar(t: Tipo): void {
         <div class="tarjeta overflow-hidden">
             <table class="w-full text-sm">
                 <thead>
-                    <tr class="border-b text-left" :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }">
-                        <th class="px-5 py-3 font-medium">Clave</th>
-                        <th class="px-5 py-3 font-medium">Identificador</th>
-                        <th class="px-5 py-3 font-medium">Nombre</th>
-                        <th class="px-5 py-3 text-right font-medium"></th>
+                    <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
+                        <th class="px-6 py-3 font-semibold">Clave</th>
+                        <th class="px-4 py-3 font-semibold">Identificador</th>
+                        <th class="px-4 py-3 font-semibold">Nombre</th>
+                        <th class="px-6 py-3 text-right font-semibold">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-for="t in tipos" :key="t.id" class="border-b" :style="{ borderColor: 'var(--color-borde)' }">
+                    <tr v-for="t in tipos" :key="t.id" class="fila-nueva border-t transition-colors" :style="{ borderColor: 'var(--color-borde)' }">
                         <template v-if="editando === t.id">
-                            <td class="px-5 py-2"><input v-model="edicion.clave" class="w-20 rounded border px-2 py-1 font-mono text-xs" :style="{ borderColor: 'var(--color-borde)' }" /></td>
-                            <td class="px-5 py-2"><input v-model="edicion.identificador" class="w-24 rounded border px-2 py-1 font-mono text-xs" :style="{ borderColor: 'var(--color-borde)' }" /></td>
-                            <td class="px-5 py-2"><input v-model="edicion.nombre" class="w-full rounded border px-2 py-1 text-sm" :style="{ borderColor: 'var(--color-borde)' }" /></td>
-                            <td class="px-5 py-2 text-right">
+                            <td class="px-6 py-2"><input v-model="edicion.clave" class="w-20 rounded border px-2 py-1 font-mono text-xs" :style="{ borderColor: 'var(--color-borde)' }" /></td>
+                            <td class="px-4 py-2"><input v-model="edicion.identificador" class="w-24 rounded border px-2 py-1 font-mono text-xs" :style="{ borderColor: 'var(--color-borde)' }" /></td>
+                            <td class="px-4 py-2"><input v-model="edicion.nombre" class="w-full rounded border px-2 py-1 text-sm" :style="{ borderColor: 'var(--color-borde)' }" /></td>
+                            <td class="px-6 py-2 text-right">
                                 <div class="flex items-center justify-end gap-1">
                                     <button type="button" class="text-sm font-medium" :style="{ color: 'var(--color-acento)' }" @click="guardar(t)">Guardar</button>
                                     <BotonAccion variante="cerrar" @click="editando = null" />
@@ -103,11 +103,13 @@ function eliminar(t: Tipo): void {
                             </td>
                         </template>
                         <template v-else>
-                            <td class="px-5 py-3 font-mono">{{ t.clave }}</td>
-                            <td class="px-5 py-3 font-mono" :style="{ color: 'var(--color-suave)' }">{{ t.identificador ?? '—' }}</td>
-                            <td class="px-5 py-3">{{ t.nombre }}</td>
-                            <td class="px-5 py-3 text-right">
-                                <span v-if="t.protegido" class="rounded px-2 py-0.5 text-xs" :style="{ color: 'var(--color-suave)', backgroundColor: 'var(--color-fondo)' }" title="Valor oficial: no se puede modificar ni eliminar">Oficial</span>
+                            <td class="px-6 py-4">
+                                <span class="inline-block rounded-md px-2 py-0.5 font-mono text-xs" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)' }">{{ t.clave }}</span>
+                            </td>
+                            <td class="px-4 py-4 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ t.identificador ?? '—' }}</td>
+                            <td class="px-4 py-4 text-contenido">{{ t.nombre }}</td>
+                            <td class="px-6 py-4 text-right">
+                                <span v-if="t.protegido" class="rounded-full px-2 py-0.5 text-[11px] font-medium" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)' }" title="Valor oficial: no se puede modificar ni eliminar">Oficial</span>
                                 <span v-else class="flex items-center justify-end gap-1">
                                     <BotonAccion variante="editar" @click="abrirEdicion(t)" />
                                     <BotonAccion variante="eliminar" @click="eliminar(t)" />
@@ -120,3 +122,9 @@ function eliminar(t: Tipo): void {
         </div>
     </AppLayout>
 </template>
+
+<style scoped>
+.fila-nueva:hover {
+    background-color: color-mix(in srgb, var(--color-acento) 5%, transparent);
+}
+</style>
