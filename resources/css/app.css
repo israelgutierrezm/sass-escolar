@@ -160,6 +160,71 @@
         animation: pulso-filtro 1.6s ease-in-out infinite;
         transform-origin: center;
     }
+
+    /* Botón de acción de fila («Expediente →»): en reposo se ve un chevron; al
+       pasar el cursor por la fila, se van «creando» más y fluyen a la derecha en
+       cadena, igual que la flecha del botón de iniciar sesión. */
+    .flechas-fila {
+        position: relative;
+        display: inline-flex;
+        width: 0.875rem;
+        height: 0.875rem;
+    }
+
+    .flechas-fila .chev {
+        position: absolute;
+        inset: 0;
+        width: 0.875rem;
+        height: 0.875rem;
+        opacity: 0;
+    }
+
+    .flechas-fila .chev:first-child {
+        opacity: 1;
+    }
+
+    .fila-nueva:hover .flechas-fila .chev,
+    .boton-expediente:hover .flechas-fila .chev {
+        animation: fluir-fila 0.9s ease-in-out infinite;
+    }
+
+    .fila-nueva:hover .flechas-fila .chev:nth-child(2),
+    .boton-expediente:hover .flechas-fila .chev:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+
+    .fila-nueva:hover .flechas-fila .chev:nth-child(3),
+    .boton-expediente:hover .flechas-fila .chev:nth-child(3) {
+        animation-delay: 0.4s;
+    }
+
+    @keyframes fluir-fila {
+        0% {
+            opacity: 0;
+            transform: translateX(-5px);
+        }
+        35% {
+            opacity: 1;
+        }
+        100% {
+            opacity: 0;
+            transform: translateX(7px);
+        }
+    }
+
+    /* Relleno de acento al pasar el cursor por la fila (o por el propio botón). */
+    .fila-nueva:hover .boton-expediente,
+    .boton-expediente:hover {
+        border-color: transparent;
+        background-color: color-mix(in srgb, var(--color-acento) 12%, transparent);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .fila-nueva:hover .flechas-fila .chev,
+        .boton-expediente:hover .flechas-fila .chev {
+            animation: none;
+        }
+    }
 }
 
 @layer utilities {

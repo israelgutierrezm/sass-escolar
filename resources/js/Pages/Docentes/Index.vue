@@ -5,6 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import BarraListado from '@/Components/BarraListado.vue';
 import Paginacion from '@/Components/Paginacion.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
+import BotonExpediente from '@/Components/BotonExpediente.vue';
 import TarjetaPersona from '@/Components/TarjetaPersona.vue';
 import ZonaArchivo from '@/Components/ZonaArchivo.vue';
 
@@ -256,14 +257,7 @@ function subirExcel(archivo: File | null): void {
 
                                 <!-- Acción -->
                                 <td class="px-6 py-4 text-right">
-                                    <a
-                                        :href="`/escolar/docentes/${docente.id}`"
-                                        class="btn-ficha inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors"
-                                        :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-acento)' }"
-                                    >
-                                        Ver ficha
-                                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
-                                    </a>
+                                    <BotonExpediente :href="`/escolar/docentes/${docente.id}`" />
                                 </td>
                             </tr>
                         </tbody>
