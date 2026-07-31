@@ -10,7 +10,11 @@ use App\Models\Academico\Oferta;
 use App\Models\Academico\PlanMateria;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\SituacionAlumno;
+use App\Models\Academico\NivelEstudio;
+use App\Models\Emision\FundamentoLegalServicioSocial;
 use App\Models\Emision\LoteCertificacion;
+use App\Models\Emision\ModalidadTitulacion;
+use App\Models\Landlord\EntidadFederativa;
 use App\Services\EstadoCertificacion;
 use App\Models\ControlEscolar\Ciclo;
 use App\Models\ControlEscolar\EstatusHistorial;
@@ -244,6 +248,9 @@ class AlumnoController extends Controller
             'oferta.plan',
             'oferta.campus',
             'situacion',
+            'tituloModalidad',
+            'tituloServicioSocial',
+            'tituloAntecedente',
         ]);
 
         $historial = Historial::query()
@@ -463,6 +470,21 @@ class AlumnoController extends Controller
             // (géneros, entidades, países, id de México) — autollenado por CURP.
             ...app(IdentidadPersona::class)->catalogosDeOrigen(),
             'puedeEditar' => $request->user()->can('editar-alumnos'),
+            // Datos del título capturados por administración para ESTA carrera
+            // (modalidad, servicio social, antecedente) + sus catálogos.
+            'datosTitulo' => $this->datosTituloDe($alumno),
+            'catalogosTitulo' => [
+                'modalidades' => ModalidadTitulacion::query()->where('activo', true)
+                    ->orderBy('identificador')->get(['id', 'identificador', 'descripcion', 'tipo_modalidad']),
+                'fundamentos' => FundamentoLegalServicioSocial::query()->where('activo', true)
+                    ->orderBy('identificador')->get(['id', 'identificador', 'descripcion']),
+                // withTrashed: un nivel puede servir de ANTECEDENTE aunque la
+                // escuela ya no lo oferte como programa (p. ej. Bachillerato,
+                // antecedente típico de una licenciatura).
+                'nivelesAntecedente' => NivelEstudio::withTrashed()->whereNotNull('identificador_titulo')
+                    ->orderBy('identificador_titulo')->get(['id', 'nombre', 'identificador_titulo']),
+                'entidades' => EntidadFederativa::query()->orderBy('nombre')->get(['id', 'nombre']),
+            ],
         ]);
     }
 
@@ -1040,6 +1062,43 @@ class AlumnoController extends Controller
             'xml_url' => $cert->estaCertificado()
                 ? route('tenant.certificacion.certificaciones.xml', $cert)
                 : null,
+        ];
+    }
+
+    /**
+     * Datos del título de ESTA carrera-alumno, en la forma que consumen los tres
+     * formularios (modalidad, servicio social, antecedente). Cada bloque trae sus
+     * campos con valores por defecto nulos aunque la fila no exista todavía.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private function datosTituloDe(MatriculaOferta $alumno): array
+    {
+        $mod = $alumno->tituloModalidad;
+        $ss = $alumno->tituloServicioSocial;
+        $ant = $alumno->tituloAntecedente;
+
+        return [
+            'modalidad' => [
+                'modalidad_titulacion_id' => $mod?->modalidad_titulacion_id,
+                'fecha_expedicion' => $mod?->fecha_expedicion?->toDateString(),
+                'fecha_examen_profesional' => $mod?->fecha_examen_profesional?->toDateString(),
+                'fecha_exencion_examen' => $mod?->fecha_exencion_examen?->toDateString(),
+                'fecha_terminacion_carrera' => $mod?->fecha_terminacion_carrera?->toDateString(),
+                'entidad_federativa_id' => $mod?->entidad_federativa_id,
+            ],
+            'servicio_social' => [
+                'cumplio_servicio_social' => $ss?->cumplio_servicio_social,
+                'fundamento_legal_ss_id' => $ss?->fundamento_legal_ss_id,
+            ],
+            'antecedente' => [
+                'institucion_procedencia' => $ant?->institucion_procedencia,
+                'nivel_antecedente_id' => $ant?->nivel_antecedente_id,
+                'entidad_federativa_id' => $ant?->entidad_federativa_id,
+                'fecha_inicio' => $ant?->fecha_inicio?->toDateString(),
+                'fecha_terminacion' => $ant?->fecha_terminacion?->toDateString(),
+                'no_cedula' => $ant?->no_cedula,
+            ],
         ];
     }
 

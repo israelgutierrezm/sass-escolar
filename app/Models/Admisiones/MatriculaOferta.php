@@ -10,6 +10,7 @@ use App\Models\Identidad\Persona;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * matricula_oferta (TENANT) — la inscripción de una persona a una oferta.
@@ -76,5 +77,27 @@ class MatriculaOferta extends Model
     public function certificaciones(): HasMany
     {
         return $this->hasMany(\App\Models\Emision\Certificacion::class, 'matricula_oferta_id');
+    }
+
+    /** Sus titulaciones (renglones de lote de titulación). */
+    public function titulaciones(): HasMany
+    {
+        return $this->hasMany(\App\Models\Emision\Titulacion::class, 'matricula_oferta_id');
+    }
+
+    /** Datos del título capturados por administración (uno por carrera-alumno). */
+    public function tituloModalidad(): HasOne
+    {
+        return $this->hasOne(\App\Models\Emision\TituloModalidad::class, 'matricula_oferta_id');
+    }
+
+    public function tituloServicioSocial(): HasOne
+    {
+        return $this->hasOne(\App\Models\Emision\TituloServicioSocial::class, 'matricula_oferta_id');
+    }
+
+    public function tituloAntecedente(): HasOne
+    {
+        return $this->hasOne(\App\Models\Emision\TituloAntecedente::class, 'matricula_oferta_id');
     }
 }

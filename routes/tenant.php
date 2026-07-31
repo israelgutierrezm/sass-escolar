@@ -10,6 +10,7 @@ use App\Http\Controllers\AutenticacionController;
 use App\Http\Controllers\SsoGoogleController;
 use App\Http\Controllers\CampoFormularioController;
 use App\Http\Controllers\Academico\CargaMasivaController;
+use App\Http\Controllers\Emision\DatosTituloController;
 use App\Http\Controllers\CampusController;
 use App\Http\Controllers\CapturaCalificacionesController;
 use App\Http\Controllers\CarreraController;
@@ -506,6 +507,18 @@ Route::middleware([
                             ->whereNumber('alumno')->whereNumber('historial')
                             ->middleware('can:editar-alumnos')
                             ->name('historial.destroy');
+
+                        // Datos del título por carrera-alumno (modalidad, servicio
+                        // social, antecedente). Los captura administración; alimentan
+                        // el XML del título electrónico.
+                        Route::middleware('can:editar-alumnos')->group(function () {
+                            Route::put('{alumno}/titulo/modalidad', [DatosTituloController::class, 'modalidad'])
+                                ->whereNumber('alumno')->name('titulo.modalidad');
+                            Route::put('{alumno}/titulo/servicio-social', [DatosTituloController::class, 'servicioSocial'])
+                                ->whereNumber('alumno')->name('titulo.servicio-social');
+                            Route::put('{alumno}/titulo/antecedente', [DatosTituloController::class, 'antecedente'])
+                                ->whereNumber('alumno')->name('titulo.antecedente');
+                        });
                     });
 
                 /*

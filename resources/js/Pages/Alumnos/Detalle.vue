@@ -100,9 +100,49 @@ const props = defineProps<{
     paises: { id: number; nombre: string }[];
     mexicoId: number | null;
     puedeEditar: boolean;
+    datosTitulo: {
+        modalidad: {
+            modalidad_titulacion_id: number | null;
+            fecha_expedicion: string | null;
+            fecha_examen_profesional: string | null;
+            fecha_exencion_examen: string | null;
+            fecha_terminacion_carrera: string | null;
+            entidad_federativa_id: number | null;
+        };
+        servicio_social: { cumplio_servicio_social: boolean | null; fundamento_legal_ss_id: number | null };
+        antecedente: {
+            institucion_procedencia: string | null;
+            nivel_antecedente_id: number | null;
+            entidad_federativa_id: number | null;
+            fecha_inicio: string | null;
+            fecha_terminacion: string | null;
+            no_cedula: string | null;
+        };
+    };
+    catalogosTitulo: {
+        modalidades: { id: number; identificador: number; descripcion: string; tipo_modalidad: string | null }[];
+        fundamentos: { id: number; identificador: number; descripcion: string }[];
+        nivelesAntecedente: { id: number; nombre: string; identificador_titulo: number }[];
+        entidades: { id: number; nombre: string }[];
+    };
 }>();
 
-const pestana = ref<'kardex' | 'carga' | 'carreras' | 'tutores' | 'facturacion' | 'datos'>('kardex');
+const pestana = ref<'kardex' | 'carga' | 'carreras' | 'tutores' | 'facturacion' | 'datos' | 'titulacion'>('kardex');
+
+// ── Datos del título por carrera (modalidad, servicio social, antecedente) ──
+const formModalidad = useForm({ ...props.datosTitulo.modalidad });
+const formServicioSocial = useForm({ ...props.datosTitulo.servicio_social });
+const formAntecedente = useForm({ ...props.datosTitulo.antecedente });
+
+function guardarModalidad(): void {
+    formModalidad.put(`/escolar/alumnos/${props.alumno.id}/titulo/modalidad`, { preserveScroll: true });
+}
+function guardarServicioSocial(): void {
+    formServicioSocial.put(`/escolar/alumnos/${props.alumno.id}/titulo/servicio-social`, { preserveScroll: true });
+}
+function guardarAntecedente(): void {
+    formAntecedente.put(`/escolar/alumnos/${props.alumno.id}/titulo/antecedente`, { preserveScroll: true });
+}
 
 // ── Certificación desde el expediente ─────────────────────────────────────
 // Según su avance, al alumno le toca certificado total (cerró el plan) o
@@ -958,6 +998,7 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                 { clave: 'carreras', etiqueta: `Carreras (${carreras.length})` },
                 { clave: 'tutores', etiqueta: `Padres/tutores (${tutores.length})` },
                 { clave: 'facturacion', etiqueta: 'Facturación' },
+                { clave: 'titulacion', etiqueta: 'Titulación' },
                 { clave: 'datos', etiqueta: 'Datos' },
             ]"
             :model-value="pestana"
@@ -1577,6 +1618,96 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                 >
                     {{ factForm.processing ? 'Guardando…' : 'Guardar datos de facturación' }}
                 </button>
+            </div>
+        </section>
+
+        <!-- Titulación: datos del título para ESTA carrera (alimentan el XML SEP) -->
+        <section v-else-if="pestana === 'titulacion'" class="space-y-4">
+            <p class="text-sm" :style="{ color: 'var(--color-suave)' }">
+                Datos que captura administración para el título electrónico de
+                <span class="font-medium">{{ alumno.carrera }}</span>. Son por carrera: si la persona
+                tiene otra, se capturan aparte en su expediente.
+            </p>
+
+            <!-- Modalidad de titulación (nodo Expedición) -->
+            <div class="tarjeta p-6">
+                <h2 class="text-base font-semibold">Modalidad de titulación</h2>
+                <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                    <CampoSelect
+                        v-model="formModalidad.modalidad_titulacion_id"
+                        etiqueta="Modalidad"
+                        :opciones="catalogosTitulo.modalidades.map((m) => ({ valor: m.id, texto: m.descripcion }))"
+                        vacio="Selecciona…"
+                        :error="formModalidad.errors.modalidad_titulacion_id"
+                    />
+                    <CampoSelect
+                        v-model="formModalidad.entidad_federativa_id"
+                        etiqueta="Entidad federativa de expedición"
+                        :opciones="catalogosTitulo.entidades.map((e) => ({ valor: e.id, texto: e.nombre }))"
+                        vacio="Selecciona…"
+                        :error="formModalidad.errors.entidad_federativa_id"
+                    />
+                    <CampoTexto v-model="formModalidad.fecha_expedicion" etiqueta="Fecha de expedición" tipo="date" :error="formModalidad.errors.fecha_expedicion" />
+                    <CampoTexto v-model="formModalidad.fecha_terminacion_carrera" etiqueta="Fecha de terminación de la carrera" tipo="date" :error="formModalidad.errors.fecha_terminacion_carrera" />
+                    <CampoTexto v-model="formModalidad.fecha_examen_profesional" etiqueta="Fecha de examen profesional" tipo="date" ayuda="Según la modalidad." :error="formModalidad.errors.fecha_examen_profesional" />
+                    <CampoTexto v-model="formModalidad.fecha_exencion_examen" etiqueta="Fecha de exención de examen" tipo="date" ayuda="Según la modalidad." :error="formModalidad.errors.fecha_exencion_examen" />
+                </div>
+                <div v-if="puedeEditar" class="mt-4">
+                    <BotonPrincipal tipo="button" :procesando="formModalidad.processing" texto="Guardar modalidad" @click="guardarModalidad" />
+                </div>
+            </div>
+
+            <!-- Servicio social (nodo Expedición) -->
+            <div class="tarjeta p-6">
+                <h2 class="text-base font-semibold">Servicio social</h2>
+                <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                    <CampoSelect
+                        v-model="formServicioSocial.cumplio_servicio_social"
+                        etiqueta="¿Cumplió el servicio social?"
+                        :opciones="[{ valor: true, texto: 'Sí' }, { valor: false, texto: 'No' }]"
+                        vacio="Selecciona…"
+                        :error="formServicioSocial.errors.cumplio_servicio_social"
+                    />
+                    <CampoSelect
+                        v-model="formServicioSocial.fundamento_legal_ss_id"
+                        etiqueta="Fundamento legal"
+                        :opciones="catalogosTitulo.fundamentos.map((f) => ({ valor: f.id, texto: f.descripcion }))"
+                        vacio="Selecciona…"
+                        :error="formServicioSocial.errors.fundamento_legal_ss_id"
+                    />
+                </div>
+                <div v-if="puedeEditar" class="mt-4">
+                    <BotonPrincipal tipo="button" :procesando="formServicioSocial.processing" texto="Guardar servicio social" @click="guardarServicioSocial" />
+                </div>
+            </div>
+
+            <!-- Antecedente (nodo Antecedente) -->
+            <div class="tarjeta p-6">
+                <h2 class="text-base font-semibold">Antecedente académico</h2>
+                <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">Estudios previos con que ingresó (p. ej. bachillerato para una licenciatura).</p>
+                <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                    <CampoTexto v-model="formAntecedente.institucion_procedencia" etiqueta="Institución de procedencia" :error="formAntecedente.errors.institucion_procedencia" />
+                    <CampoSelect
+                        v-model="formAntecedente.nivel_antecedente_id"
+                        etiqueta="Tipo de estudio antecedente"
+                        :opciones="catalogosTitulo.nivelesAntecedente.map((n) => ({ valor: n.id, texto: n.nombre }))"
+                        vacio="Selecciona…"
+                        :error="formAntecedente.errors.nivel_antecedente_id"
+                    />
+                    <CampoSelect
+                        v-model="formAntecedente.entidad_federativa_id"
+                        etiqueta="Entidad federativa"
+                        :opciones="catalogosTitulo.entidades.map((e) => ({ valor: e.id, texto: e.nombre }))"
+                        vacio="Selecciona…"
+                        :error="formAntecedente.errors.entidad_federativa_id"
+                    />
+                    <CampoTexto v-model="formAntecedente.no_cedula" etiqueta="Número de cédula" ayuda="Opcional." :error="formAntecedente.errors.no_cedula" />
+                    <CampoTexto v-model="formAntecedente.fecha_inicio" etiqueta="Fecha de inicio" tipo="date" :error="formAntecedente.errors.fecha_inicio" />
+                    <CampoTexto v-model="formAntecedente.fecha_terminacion" etiqueta="Fecha de terminación" tipo="date" :error="formAntecedente.errors.fecha_terminacion" />
+                </div>
+                <div v-if="puedeEditar" class="mt-4">
+                    <BotonPrincipal tipo="button" :procesando="formAntecedente.processing" texto="Guardar antecedente" @click="guardarAntecedente" />
+                </div>
             </div>
         </section>
 
