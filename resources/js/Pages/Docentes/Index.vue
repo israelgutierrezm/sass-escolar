@@ -106,10 +106,11 @@ function subirExcel(archivo: File | null): void {
                 </p>
                 <button
                     type="button"
-                    class="rounded-lg border px-4 py-2 text-sm font-medium"
-                    :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
+                    class="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
+                    :style="{ borderColor: '#16a34a', color: '#16a34a', backgroundColor: 'color-mix(in srgb, #16a34a 8%, transparent)' }"
                     @click="mostrarCarga = !mostrarCarga"
                 >
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg>
                     {{ mostrarCarga ? 'Ocultar' : 'Cargar desde Excel' }}
                 </button>
             </div>

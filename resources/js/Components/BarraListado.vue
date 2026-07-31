@@ -146,44 +146,45 @@ function limpiarFiltros(): void {
              pantallas grandes; en móvil el buscador ocupa su renglón y los
              controles bajan debajo, alineados a la derecha. -->
         <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+            <!-- «Filtros» al INICIO de la fila, alineado con los filtros que abren
+                 debajo (que empiezan del lado izquierdo). -->
+            <button
+                v-if="filtros.length"
+                type="button"
+                class="anim-crecer inline-flex shrink-0 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium"
+                :class="activos ? 'filtro-activo' : ''"
+                :style="{
+                    borderColor: abierto || activos ? 'var(--color-acento)' : 'var(--color-borde)',
+                    color: abierto || activos ? 'var(--color-acento)' : undefined,
+                }"
+                @click="abierto = !abierto"
+            >
+                <svg class="icono-anim h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
+                </svg>
+                Filtros
+                <span v-if="activos" class="rounded-full px-1.5 text-xs" :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }">
+                    {{ activos }}
+                </span>
+            </button>
+
             <input
                 v-if="!sinBuscador"
                 v-model="busqueda"
                 type="search"
                 :placeholder="placeholder"
-                class="w-full min-w-0 rounded-lg border px-3 py-2 text-sm sm:w-auto sm:min-w-52 sm:flex-1"
+                class="min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm sm:min-w-52"
                 :style="{ borderColor: 'var(--color-borde)' }"
             />
 
-            <div class="flex w-full items-center gap-2 sm:w-auto" :class="sinBuscador ? 'sm:flex-1' : ''">
+            <div class="ms-auto flex items-center gap-2">
                 <SelectorVista v-if="vistaClave" v-model="vista" :clave="vistaClave" />
-
-                <button
-                    v-if="filtros.length"
-                    type="button"
-                    class="anim-crecer inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium"
-                    :class="activos ? 'filtro-activo' : ''"
-                    :style="{
-                        borderColor: abierto || activos ? 'var(--color-acento)' : 'var(--color-borde)',
-                        color: abierto || activos ? 'var(--color-acento)' : undefined,
-                    }"
-                    @click="abierto = !abierto"
-                >
-                    <svg class="icono-anim h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
-                    </svg>
-                    Filtros
-                    <span v-if="activos" class="rounded-full px-1.5 text-xs" :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }">
-                        {{ activos }}
-                    </span>
-                </button>
 
                 <BotonAccion
                     v-if="puedeCrear && nuevoHref"
                     variante="nuevo"
                     :texto="nuevoTexto"
                     :href="nuevoHref"
-                    class="ms-auto sm:ms-0"
                 />
             </div>
         </div>

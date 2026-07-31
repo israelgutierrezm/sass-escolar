@@ -146,15 +146,19 @@
        un recordatorio discreto de que la lista viene acotada. */
     @keyframes pulso-filtro {
         0%, 100% {
-            transform: scale(1);
+            transform: scale(1) rotate(0);
         }
-        50% {
-            transform: scale(1.12);
+        30% {
+            transform: scale(1.15) rotate(-7deg);
+        }
+        65% {
+            transform: scale(1.15) rotate(7deg);
         }
     }
 
     .filtro-activo .icono-anim {
-        animation: pulso-filtro 1.8s ease-in-out infinite;
+        animation: pulso-filtro 1.6s ease-in-out infinite;
+        transform-origin: center;
     }
 }
 
