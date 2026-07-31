@@ -107,7 +107,6 @@ const props = defineProps<{
             fecha_examen_profesional: string | null;
             fecha_exencion_examen: string | null;
             fecha_terminacion_carrera: string | null;
-            entidad_federativa_id: number | null;
         };
         servicio_social: { cumplio_servicio_social: boolean | null; fundamento_legal_ss_id: number | null };
         antecedente: {
@@ -143,6 +142,22 @@ function guardarServicioSocial(): void {
 function guardarAntecedente(): void {
     formAntecedente.put(`/escolar/alumnos/${props.alumno.id}/titulo/antecedente`, { preserveScroll: true });
 }
+
+// La cédula es obligatoria si el antecedente es Licenciatura (idTipo 2) o
+// Maestría (idTipo 1): el identificador_titulo del nivel elegido lo decide.
+const cedulaRequerida = computed(() => {
+    const nivel = props.catalogosTitulo.nivelesAntecedente.find((n) => n.id === formAntecedente.nivel_antecedente_id);
+    return nivel !== undefined && [1, 2].includes(nivel.identificador_titulo);
+});
+
+// Completitud por bloque, para el resumen visual de la pestaña.
+const modalidadCompleta = computed(() => !!formModalidad.modalidad_titulacion_id && !!formModalidad.fecha_expedicion && !!formModalidad.fecha_terminacion_carrera);
+const servicioSocialCompleto = computed(() => formServicioSocial.cumplio_servicio_social !== null && !!formServicioSocial.fundamento_legal_ss_id);
+const antecedenteCompleto = computed(() =>
+    !!formAntecedente.institucion_procedencia && !!formAntecedente.nivel_antecedente_id && !!formAntecedente.entidad_federativa_id
+    && !!formAntecedente.fecha_terminacion && (!cedulaRequerida.value || !!formAntecedente.no_cedula),
+);
+const bloquesCompletos = computed(() => [modalidadCompleta.value, servicioSocialCompleto.value, antecedenteCompleto.value].filter(Boolean).length);
 
 // ── Certificación desde el expediente ─────────────────────────────────────
 // Según su avance, al alumno le toca certificado total (cerró el plan) o
@@ -1622,91 +1637,161 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
         </section>
 
         <!-- Titulación: datos del título para ESTA carrera (alimentan el XML SEP) -->
-        <section v-else-if="pestana === 'titulacion'" class="space-y-4">
-            <p class="text-sm" :style="{ color: 'var(--color-suave)' }">
-                Datos que captura administración para el título electrónico de
-                <span class="font-medium">{{ alumno.carrera }}</span>. Son por carrera: si la persona
-                tiene otra, se capturan aparte en su expediente.
-            </p>
+        <section v-else-if="pestana === 'titulacion'" class="space-y-5">
+            <!-- Encabezado con resumen de completitud -->
+            <div class="tarjeta p-6">
+                <div class="flex flex-wrap items-start justify-between gap-4">
+                    <div class="max-w-xl">
+                        <h2 class="text-base font-semibold">Datos para el título electrónico</h2>
+                        <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
+                            Los captura administración para <span class="font-medium" :style="{ color: 'var(--color-contenido)' }">{{ alumno.carrera }}</span>.
+                            Son por carrera: si la persona tiene otra, se capturan aparte. Alimentan el XML que se envía a la SEP.
+                        </p>
+                    </div>
+                    <div class="text-right">
+                        <span
+                            class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
+                            :style="bloquesCompletos === 3
+                                ? { backgroundColor: 'color-mix(in srgb, #16a34a 15%, transparent)', color: '#15803d' }
+                                : { backgroundColor: 'color-mix(in srgb, #d97706 15%, transparent)', color: '#b45309' }"
+                        >
+                            <svg v-if="bloquesCompletos === 3" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                            {{ bloquesCompletos }} de 3 bloques completos
+                        </span>
+                        <div class="mt-2 h-1.5 w-40 overflow-hidden rounded-full" :style="{ backgroundColor: 'var(--color-borde)' }">
+                            <div class="h-full rounded-full transition-all" :style="{ width: `${(bloquesCompletos / 3) * 100}%`, backgroundColor: bloquesCompletos === 3 ? '#16a34a' : 'var(--color-acento)' }" />
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <!-- Modalidad de titulación (nodo Expedición) -->
-            <div class="tarjeta p-6">
-                <h2 class="text-base font-semibold">Modalidad de titulación</h2>
-                <div class="mt-4 grid gap-4 sm:grid-cols-2">
-                    <CampoSelect
-                        v-model="formModalidad.modalidad_titulacion_id"
-                        etiqueta="Modalidad"
-                        :opciones="catalogosTitulo.modalidades.map((m) => ({ valor: m.id, texto: m.descripcion }))"
-                        vacio="Selecciona…"
-                        :error="formModalidad.errors.modalidad_titulacion_id"
-                    />
-                    <CampoSelect
-                        v-model="formModalidad.entidad_federativa_id"
-                        etiqueta="Entidad federativa de expedición"
-                        :opciones="catalogosTitulo.entidades.map((e) => ({ valor: e.id, texto: e.nombre }))"
-                        vacio="Selecciona…"
-                        :error="formModalidad.errors.entidad_federativa_id"
-                    />
-                    <CampoTexto v-model="formModalidad.fecha_expedicion" etiqueta="Fecha de expedición" tipo="date" :error="formModalidad.errors.fecha_expedicion" />
-                    <CampoTexto v-model="formModalidad.fecha_terminacion_carrera" etiqueta="Fecha de terminación de la carrera" tipo="date" :error="formModalidad.errors.fecha_terminacion_carrera" />
-                    <CampoTexto v-model="formModalidad.fecha_examen_profesional" etiqueta="Fecha de examen profesional" tipo="date" ayuda="Según la modalidad." :error="formModalidad.errors.fecha_examen_profesional" />
-                    <CampoTexto v-model="formModalidad.fecha_exencion_examen" etiqueta="Fecha de exención de examen" tipo="date" ayuda="Según la modalidad." :error="formModalidad.errors.fecha_exencion_examen" />
-                </div>
-                <div v-if="puedeEditar" class="mt-4">
-                    <BotonPrincipal tipo="button" :procesando="formModalidad.processing" texto="Guardar modalidad" @click="guardarModalidad" />
+            <div class="tarjeta overflow-hidden">
+                <header class="flex items-center justify-between gap-3 border-b px-6 py-4" :style="{ borderColor: 'var(--color-borde)' }">
+                    <div class="flex items-center gap-3">
+                        <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 14%, transparent)', color: 'var(--color-acento)' }">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25Z" /></svg>
+                        </span>
+                        <div>
+                            <h3 class="text-sm font-semibold">Modalidad de titulación</h3>
+                            <p class="text-xs" :style="{ color: 'var(--color-suave)' }">Cómo y cuándo se tituló.</p>
+                        </div>
+                    </div>
+                    <span class="rounded-full px-2.5 py-1 text-xs font-medium" :style="modalidadCompleta ? { backgroundColor: 'color-mix(in srgb, #16a34a 15%, transparent)', color: '#15803d' } : { backgroundColor: 'var(--color-borde)', color: 'var(--color-suave)' }">
+                        {{ modalidadCompleta ? 'Completo' : 'Falta capturar' }}
+                    </span>
+                </header>
+                <div class="p-6">
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <CampoSelect
+                            v-model="formModalidad.modalidad_titulacion_id"
+                            etiqueta="Modalidad" requerido
+                            :opciones="catalogosTitulo.modalidades.map((m) => ({ valor: m.id, texto: m.descripcion }))"
+                            vacio="Selecciona…"
+                            :error="formModalidad.errors.modalidad_titulacion_id"
+                        />
+                        <CampoTexto v-model="formModalidad.fecha_expedicion" etiqueta="Fecha de expedición" tipo="date" requerido :error="formModalidad.errors.fecha_expedicion" />
+                        <CampoTexto v-model="formModalidad.fecha_terminacion_carrera" etiqueta="Fecha de terminación de la carrera" tipo="date" requerido :error="formModalidad.errors.fecha_terminacion_carrera" />
+                        <CampoTexto v-model="formModalidad.fecha_examen_profesional" etiqueta="Fecha de examen profesional" tipo="date" ayuda="Según la modalidad." :error="formModalidad.errors.fecha_examen_profesional" />
+                        <CampoTexto v-model="formModalidad.fecha_exencion_examen" etiqueta="Fecha de exención de examen" tipo="date" ayuda="Según la modalidad." :error="formModalidad.errors.fecha_exencion_examen" />
+                    </div>
+                    <!-- Entidad de expedición: automática, del campus. -->
+                    <div class="mt-4 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }">
+                        <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" /></svg>
+                        Entidad de expedición: <span class="font-medium" :style="{ color: 'var(--color-contenido)' }">{{ alumno.campus_entidad ?? 'sin entidad en el campus' }}</span>
+                        <span>· se toma del campus, no se captura.</span>
+                    </div>
+                    <div v-if="puedeEditar" class="mt-4">
+                        <BotonPrincipal tipo="button" :procesando="formModalidad.processing" texto="Guardar modalidad" @click="guardarModalidad" />
+                    </div>
                 </div>
             </div>
 
             <!-- Servicio social (nodo Expedición) -->
-            <div class="tarjeta p-6">
-                <h2 class="text-base font-semibold">Servicio social</h2>
-                <div class="mt-4 grid gap-4 sm:grid-cols-2">
-                    <CampoSelect
-                        v-model="formServicioSocial.cumplio_servicio_social"
-                        etiqueta="¿Cumplió el servicio social?"
-                        :opciones="[{ valor: true, texto: 'Sí' }, { valor: false, texto: 'No' }]"
-                        vacio="Selecciona…"
-                        :error="formServicioSocial.errors.cumplio_servicio_social"
-                    />
-                    <CampoSelect
-                        v-model="formServicioSocial.fundamento_legal_ss_id"
-                        etiqueta="Fundamento legal"
-                        :opciones="catalogosTitulo.fundamentos.map((f) => ({ valor: f.id, texto: f.descripcion }))"
-                        vacio="Selecciona…"
-                        :error="formServicioSocial.errors.fundamento_legal_ss_id"
-                    />
-                </div>
-                <div v-if="puedeEditar" class="mt-4">
-                    <BotonPrincipal tipo="button" :procesando="formServicioSocial.processing" texto="Guardar servicio social" @click="guardarServicioSocial" />
+            <div class="tarjeta overflow-hidden">
+                <header class="flex items-center justify-between gap-3 border-b px-6 py-4" :style="{ borderColor: 'var(--color-borde)' }">
+                    <div class="flex items-center gap-3">
+                        <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 14%, transparent)', color: 'var(--color-acento)' }">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" /></svg>
+                        </span>
+                        <div>
+                            <h3 class="text-sm font-semibold">Servicio social</h3>
+                            <p class="text-xs" :style="{ color: 'var(--color-suave)' }">Cumplimiento y su fundamento legal.</p>
+                        </div>
+                    </div>
+                    <span class="rounded-full px-2.5 py-1 text-xs font-medium" :style="servicioSocialCompleto ? { backgroundColor: 'color-mix(in srgb, #16a34a 15%, transparent)', color: '#15803d' } : { backgroundColor: 'var(--color-borde)', color: 'var(--color-suave)' }">
+                        {{ servicioSocialCompleto ? 'Completo' : 'Falta capturar' }}
+                    </span>
+                </header>
+                <div class="p-6">
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <CampoSelect
+                            v-model="formServicioSocial.cumplio_servicio_social"
+                            etiqueta="¿Cumplió el servicio social?" requerido
+                            :opciones="[{ valor: true, texto: 'Sí' }, { valor: false, texto: 'No' }]"
+                            vacio="Selecciona…"
+                            :error="formServicioSocial.errors.cumplio_servicio_social"
+                        />
+                        <CampoSelect
+                            v-model="formServicioSocial.fundamento_legal_ss_id"
+                            etiqueta="Fundamento legal" requerido
+                            :opciones="catalogosTitulo.fundamentos.map((f) => ({ valor: f.id, texto: f.descripcion }))"
+                            vacio="Selecciona…"
+                            :error="formServicioSocial.errors.fundamento_legal_ss_id"
+                        />
+                    </div>
+                    <div v-if="puedeEditar" class="mt-4">
+                        <BotonPrincipal tipo="button" :procesando="formServicioSocial.processing" texto="Guardar servicio social" @click="guardarServicioSocial" />
+                    </div>
                 </div>
             </div>
 
             <!-- Antecedente (nodo Antecedente) -->
-            <div class="tarjeta p-6">
-                <h2 class="text-base font-semibold">Antecedente académico</h2>
-                <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">Estudios previos con que ingresó (p. ej. bachillerato para una licenciatura).</p>
-                <div class="mt-4 grid gap-4 sm:grid-cols-2">
-                    <CampoTexto v-model="formAntecedente.institucion_procedencia" etiqueta="Institución de procedencia" :error="formAntecedente.errors.institucion_procedencia" />
-                    <CampoSelect
-                        v-model="formAntecedente.nivel_antecedente_id"
-                        etiqueta="Tipo de estudio antecedente"
-                        :opciones="catalogosTitulo.nivelesAntecedente.map((n) => ({ valor: n.id, texto: n.nombre }))"
-                        vacio="Selecciona…"
-                        :error="formAntecedente.errors.nivel_antecedente_id"
-                    />
-                    <CampoSelect
-                        v-model="formAntecedente.entidad_federativa_id"
-                        etiqueta="Entidad federativa"
-                        :opciones="catalogosTitulo.entidades.map((e) => ({ valor: e.id, texto: e.nombre }))"
-                        vacio="Selecciona…"
-                        :error="formAntecedente.errors.entidad_federativa_id"
-                    />
-                    <CampoTexto v-model="formAntecedente.no_cedula" etiqueta="Número de cédula" ayuda="Opcional." :error="formAntecedente.errors.no_cedula" />
-                    <CampoTexto v-model="formAntecedente.fecha_inicio" etiqueta="Fecha de inicio" tipo="date" :error="formAntecedente.errors.fecha_inicio" />
-                    <CampoTexto v-model="formAntecedente.fecha_terminacion" etiqueta="Fecha de terminación" tipo="date" :error="formAntecedente.errors.fecha_terminacion" />
-                </div>
-                <div v-if="puedeEditar" class="mt-4">
-                    <BotonPrincipal tipo="button" :procesando="formAntecedente.processing" texto="Guardar antecedente" @click="guardarAntecedente" />
+            <div class="tarjeta overflow-hidden">
+                <header class="flex items-center justify-between gap-3 border-b px-6 py-4" :style="{ borderColor: 'var(--color-borde)' }">
+                    <div class="flex items-center gap-3">
+                        <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 14%, transparent)', color: 'var(--color-acento)' }">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443m-7.007 11.55A5.981 5.981 0 0 0 6.75 15.75v-1.5" /></svg>
+                        </span>
+                        <div>
+                            <h3 class="text-sm font-semibold">Antecedente académico</h3>
+                            <p class="text-xs" :style="{ color: 'var(--color-suave)' }">Estudios previos con que ingresó (p. ej. bachillerato para una licenciatura).</p>
+                        </div>
+                    </div>
+                    <span class="rounded-full px-2.5 py-1 text-xs font-medium" :style="antecedenteCompleto ? { backgroundColor: 'color-mix(in srgb, #16a34a 15%, transparent)', color: '#15803d' } : { backgroundColor: 'var(--color-borde)', color: 'var(--color-suave)' }">
+                        {{ antecedenteCompleto ? 'Completo' : 'Falta capturar' }}
+                    </span>
+                </header>
+                <div class="p-6">
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <CampoTexto v-model="formAntecedente.institucion_procedencia" etiqueta="Institución de procedencia" requerido :error="formAntecedente.errors.institucion_procedencia" />
+                        <CampoSelect
+                            v-model="formAntecedente.nivel_antecedente_id"
+                            etiqueta="Tipo de estudio antecedente" requerido
+                            :opciones="catalogosTitulo.nivelesAntecedente.map((n) => ({ valor: n.id, texto: n.nombre }))"
+                            vacio="Selecciona…"
+                            :error="formAntecedente.errors.nivel_antecedente_id"
+                        />
+                        <CampoSelect
+                            v-model="formAntecedente.entidad_federativa_id"
+                            etiqueta="Entidad federativa" requerido
+                            :opciones="catalogosTitulo.entidades.map((e) => ({ valor: e.id, texto: e.nombre }))"
+                            vacio="Selecciona…"
+                            :error="formAntecedente.errors.entidad_federativa_id"
+                        />
+                        <CampoTexto
+                            v-model="formAntecedente.no_cedula"
+                            etiqueta="Número de cédula"
+                            :requerido="cedulaRequerida"
+                            :ayuda="cedulaRequerida ? 'Obligatorio para Licenciatura o Maestría.' : 'Opcional según el nivel.'"
+                            :error="formAntecedente.errors.no_cedula"
+                        />
+                        <CampoTexto v-model="formAntecedente.fecha_inicio" etiqueta="Fecha de inicio" tipo="date" :error="formAntecedente.errors.fecha_inicio" />
+                        <CampoTexto v-model="formAntecedente.fecha_terminacion" etiqueta="Fecha de terminación" tipo="date" requerido :error="formAntecedente.errors.fecha_terminacion" />
+                    </div>
+                    <div v-if="puedeEditar" class="mt-4">
+                        <BotonPrincipal tipo="button" :procesando="formAntecedente.processing" texto="Guardar antecedente" @click="guardarAntecedente" />
+                    </div>
                 </div>
             </div>
         </section>

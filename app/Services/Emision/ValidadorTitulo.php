@@ -88,7 +88,8 @@ class ValidadorTitulo
     private function reglasDeNegocio(MatriculaOferta $m): array
     {
         $m->loadMissing([
-            'persona', 'oferta.carrera', 'oferta.plan.autorizacionReconocimiento', 'oferta.campus.institucion',
+            'persona', 'oferta.carrera', 'oferta.plan.autorizacionReconocimiento',
+            'oferta.campus.institucion', 'oferta.campus.entidad',
             'tituloModalidad.modalidad', 'tituloServicioSocial.fundamento', 'tituloAntecedente.nivel',
         ]);
 
@@ -96,9 +97,15 @@ class ValidadorTitulo
         $persona = $m->persona;
         $carrera = $m->oferta?->carrera;
         $plan = $m->oferta?->plan;
-        $institucion = $m->oferta?->campus?->institucion;
+        $campus = $m->oferta?->campus;
+        $institucion = $campus?->institucion;
 
-        // Institución y carrera.
+        // Institución, campus y carrera.
+        if ($campus === null) {
+            $errores[] = 'la oferta no tiene campus asignado.';
+        } elseif ($campus->entidad === null) {
+            $errores[] = "el campus «{$campus->nombre}» no tiene entidad federativa (es la entidad de expedición). Asígnala en Académico → Campus.";
+        }
         if ($institucion === null) {
             $errores[] = 'el campus no está ligado a una institución.';
         } else {
@@ -141,9 +148,6 @@ class ValidadorTitulo
         if ($mod === null || blank($mod->fecha_terminacion_carrera)) {
             $errores[] = 'falta la fecha de terminación de la carrera (pestaña Titulación).';
         }
-        if ($mod !== null && blank($mod->entidad_federativa_id)) {
-            $errores[] = 'falta la entidad federativa de expedición (pestaña Titulación).';
-        }
 
         // Formulario Servicio social.
         $ss = $m->tituloServicioSocial;
@@ -167,6 +171,10 @@ class ValidadorTitulo
         }
         if ($ant === null || blank($ant->fecha_terminacion)) {
             $errores[] = 'falta la fecha de terminación del antecedente (pestaña Titulación).';
+        }
+        // La cédula es obligatoria si el antecedente es Licenciatura o Maestría.
+        if ($ant !== null && in_array((int) $ant->nivel?->identificador_titulo, [1, 2], true) && blank($ant->no_cedula)) {
+            $errores[] = 'el número de cédula del antecedente es obligatorio para Licenciatura o Maestría (pestaña Titulación).';
         }
 
         return $errores;

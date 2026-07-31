@@ -26,7 +26,6 @@ class DatosTituloController extends Controller
             'fecha_examen_profesional' => ['nullable', 'date'],
             'fecha_exencion_examen' => ['nullable', 'date'],
             'fecha_terminacion_carrera' => ['nullable', 'date'],
-            'entidad_federativa_id' => ['nullable', 'integer'],
         ]);
 
         $alumno->tituloModalidad()->updateOrCreate([], $datos);
@@ -48,7 +47,7 @@ class DatosTituloController extends Controller
 
     public function antecedente(Request $request, MatriculaOferta $alumno): RedirectResponse
     {
-        $datos = $request->validate([
+        $validador = validator($request->all(), [
             'institucion_procedencia' => ['nullable', 'string', 'max:255'],
             'nivel_antecedente_id' => ['nullable', 'integer', 'exists:niveles_estudio,id'],
             'entidad_federativa_id' => ['nullable', 'integer'],
@@ -57,8 +56,28 @@ class DatosTituloController extends Controller
             'no_cedula' => ['nullable', 'string', 'max:60'],
         ]);
 
-        $alumno->tituloAntecedente()->updateOrCreate([], $datos);
+        // La cédula es obligatoria si el antecedente es Licenciatura (2) o
+        // Maestría (1): son estudios que ya debieron generar cédula profesional.
+        $validador->after(function ($v) use ($request) {
+            if ($this->cedulaObligatoria($request->input('nivel_antecedente_id')) && blank($request->input('no_cedula'))) {
+                $v->errors()->add('no_cedula', 'El número de cédula es obligatorio cuando el antecedente es Licenciatura o Maestría.');
+            }
+        });
+
+        $alumno->tituloAntecedente()->updateOrCreate([], $validador->validate());
 
         return back()->with('exito', 'Datos de antecedente guardados.');
+    }
+
+    /** ¿El nivel antecedente exige cédula? (Licenciatura o Maestría.) */
+    private function cedulaObligatoria(mixed $nivelId): bool
+    {
+        if (blank($nivelId)) {
+            return false;
+        }
+
+        $idTipo = \App\Models\Academico\NivelEstudio::withTrashed()->whereKey($nivelId)->value('identificador_titulo');
+
+        return in_array((int) $idTipo, [1, 2], true); // 1 = Maestría, 2 = Licenciatura
     }
 }

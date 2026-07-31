@@ -246,7 +246,7 @@ class AlumnoController extends Controller
             'persona.entidadNacimiento',
             'oferta.carrera',
             'oferta.plan',
-            'oferta.campus',
+            'oferta.campus.entidad',
             'situacion',
             'tituloModalidad',
             'tituloServicioSocial',
@@ -300,6 +300,8 @@ class AlumnoController extends Controller
                 'carrera' => $alumno->oferta?->carrera?->nombre,
                 'plan' => $alumno->oferta?->plan?->nombre,
                 'campus' => $alumno->oferta?->campus?->nombre,
+                // Entidad del campus: es la entidad de expedición del título.
+                'campus_entidad' => $alumno->oferta?->campus?->entidad?->nombre,
             ],
             'persona' => [
                 'id' => $alumno->persona?->id,
@@ -1085,7 +1087,6 @@ class AlumnoController extends Controller
                 'fecha_examen_profesional' => $mod?->fecha_examen_profesional?->toDateString(),
                 'fecha_exencion_examen' => $mod?->fecha_exencion_examen?->toDateString(),
                 'fecha_terminacion_carrera' => $mod?->fecha_terminacion_carrera?->toDateString(),
-                'entidad_federativa_id' => $mod?->entidad_federativa_id,
             ],
             'servicio_social' => [
                 'cumplio_servicio_social' => $ss?->cumplio_servicio_social,

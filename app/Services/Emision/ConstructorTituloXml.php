@@ -39,6 +39,7 @@ class ConstructorTituloXml
             'oferta.carrera',
             'oferta.plan.autorizacionReconocimiento',
             'oferta.campus.institucion',
+            'oferta.campus.entidad',
             'tituloModalidad.modalidad',
             'tituloServicioSocial.fundamento',
             'tituloAntecedente.nivel',
@@ -48,13 +49,15 @@ class ConstructorTituloXml
         $oferta = $matricula->oferta;
         $plan = $oferta?->plan;
         $carrera = $oferta?->carrera;
-        $institucion = $oferta?->campus?->institucion;
+        $campus = $oferta?->campus;
+        $institucion = $campus?->institucion;
 
         $mod = $matricula->tituloModalidad;
         $ss = $matricula->tituloServicioSocial;
         $ant = $matricula->tituloAntecedente;
 
-        $entExpedicion = $this->entidad($mod?->entidad_federativa_id);
+        // La entidad de expedición es la del CAMPUS donde se cursó (no se captura).
+        $entExpedicion = $this->entidad($campus?->entidad_id);
         $entAntecedente = $this->entidad($ant?->entidad_federativa_id);
 
         return [

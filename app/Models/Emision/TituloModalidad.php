@@ -27,7 +27,6 @@ class TituloModalidad extends Model
         'fecha_examen_profesional',
         'fecha_exencion_examen',
         'fecha_terminacion_carrera',
-        'entidad_federativa_id',
     ];
 
     protected function casts(): array
