@@ -629,14 +629,26 @@ Route::middleware([
                     ->middleware('can:gestionar-planes-cobro')
                     ->group(function () {
                         Route::get('/', 'index')->name('index');
+                        // Paso 1 del wizard (alcance) y sus selects encadenados.
+                        Route::get('/nuevo', 'create')->name('create');
+                        Route::get('/ciclos/{ciclo}/campus', 'campusDelCiclo')->name('ciclo.campus');
+                        Route::post('/carreras-de-campus', 'carrerasDeCampus')->name('carreras');
                         Route::post('/', 'store')->name('store');
+
+                        // Paso 2 (conceptos, recargos y asignación).
                         Route::get('/{plan}', 'show')->name('show');
                         Route::put('/{plan}', 'update')->name('update');
                         Route::delete('/{plan}', 'destroy')->name('destroy');
 
-                        Route::post('/{plan}/reglas', 'guardarRegla')->name('reglas.store');
-                        Route::put('/{plan}/reglas/{regla}', 'actualizarRegla')->name('reglas.update');
-                        Route::delete('/{plan}/reglas/{regla}', 'eliminarRegla')->name('reglas.destroy');
+                        Route::post('/{plan}/conceptos', 'guardarConcepto')->name('conceptos.store');
+                        Route::post('/{plan}/colegiaturas', 'guardarColegiaturas')->name('colegiaturas.store');
+                        Route::delete('/{plan}/conceptos/{concepto}', 'eliminarConcepto')->name('conceptos.destroy');
+                        Route::delete('/{plan}/grupos/{grupo}', 'eliminarGrupo')->name('grupos.destroy');
+
+                        Route::post('/{plan}/recargo', 'guardarReglaRecargo')->name('recargo.store');
+
+                        Route::post('/{plan}/asignar', 'asignar')->name('asignar');
+                        Route::delete('/{plan}/asignaciones/{asignacion}', 'quitarAsignacion')->name('asignaciones.destroy');
                     });
 
                 // Catálogo de conceptos de pago con sus datos fiscales.

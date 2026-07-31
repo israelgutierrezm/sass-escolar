@@ -4,13 +4,21 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\Academico\Campus;
 use App\Models\Academico\Carrera;
 use App\Models\Academico\Oferta;
-use App\Models\Academico\PlanEstudio;
+use App\Models\ControlEscolar\Ciclo;
 use App\Models\Finanzas\Adeudo;
 use App\Models\Finanzas\ConceptoPago;
+use App\Models\Finanzas\ConceptoPlan;
 use App\Models\Finanzas\PlanCobro;
-use App\Models\Finanzas\ReglaGeneracion;
+use App\Models\Finanzas\PlanCobroAlumno;
+use App\Models\Finanzas\ReglaRecargo;
+use App\Models\Landlord\NivelEstudio;
+use App\Services\ExpansorColegiaturas;
+use App\Services\GeneradorAdeudos;
+use App\Services\ResolutorPlanCobro;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -18,268 +26,380 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * El motor de cobro, configurado desde pantalla.
+ * El esquema de cobro, en dos pasos.
  *
- * Un plan de cobro es "a quién se le cobra" (global, una carrera, un plan de
- * estudios o una oferta) y sus reglas son "qué y cada cuándo". La idea de la
- * spec es que "semanal sin inscripción" o "mensual con inscripción" sean DATOS
- * y no ramas del código; esta pantalla es lo que hace que esa promesa se pueda
- * cumplir sin tocar el repositorio.
+ * **Paso 1 (alcance).** Nombre → ciclo → campus de ese ciclo → carreras que se
+ * ofertan en esos campus (con filtro de nivel) → si hay fecha límite y desde
+ * cuándo corre la mora → si admite recargos → si vuelve deudor al alumno.
+ *
+ * **Paso 2 (conceptos).** Las líneas que se van a cobrar. Una colegiatura se
+ * captura por RANGO y se expande sola; lo demás son cargos sueltos con su fecha.
+ *
+ * Se partió en dos porque el paso 2 necesita saber el ciclo y si el plan admite
+ * recargos: preguntarlo todo junto obligaba a habilitar y deshabilitar medio
+ * formulario mientras se captura.
  */
 class PlanCobroController extends Controller
 {
     public function index(): Response
     {
+        $planes = PlanCobro::query()
+            ->with(['ciclo:id,nombre', 'campus:id,nombre', 'carreras:id,nombre'])
+            ->withCount(['conceptos', 'asignaciones'])
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn (PlanCobro $p) => [
+                'id' => $p->id,
+                'nombre' => $p->nombre,
+                'ciclo' => $p->ciclo?->nombre,
+                'campus' => $p->campus->pluck('nombre')->all(),
+                'carreras' => $p->carreras->pluck('nombre')->all(),
+                'conceptos' => $p->conceptos_count,
+                'alumnos' => $p->asignaciones_count,
+                'aplica_recargos' => $p->aplica_recargos,
+                'afecta_estatus_deudor' => $p->afecta_estatus_deudor,
+                'vigente_desde' => $p->vigente_desde?->toDateString(),
+                'vigente_hasta' => $p->vigente_hasta?->toDateString(),
+                'vigente' => $p->vigente_hasta === null || $p->vigente_hasta->isFuture(),
+            ]);
+
         return Inertia::render('Finanzas/Planes/Index', [
-            'planes' => PlanCobro::query()
-                ->withCount('reglas')
-                ->orderBy('aplica_a_tipo')
-                ->orderByDesc('vigente_desde')
-                ->get()
-                ->map(fn (PlanCobro $p) => [
-                    'id' => $p->id,
-                    'nombre' => $p->nombre,
-                    'moneda' => $p->moneda,
-                    'aplica_a_tipo' => $p->aplica_a_tipo,
-                    'destinatario' => $this->nombreDelDestinatario($p),
-                    'vigente_desde' => $p->vigente_desde?->toDateString(),
-                    'vigente_hasta' => $p->vigente_hasta?->toDateString(),
-                    'vigente' => $this->estaVigente($p),
-                    'reglas_count' => $p->reglas_count,
-                ]),
-            'destinos' => $this->destinos(),
+            'planes' => $planes,
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    /** Paso 1 del wizard. */
+    public function create(): Response
     {
-        $datos = $this->validar($request);
-
-        $plan = PlanCobro::create($datos);
-
-        return redirect("/finanzas/planes/{$plan->id}")->with('exito', 'Plan de cobro creado. Agrégale sus reglas.');
+        return Inertia::render('Finanzas/Planes/Nuevo', [
+            'ciclos' => Ciclo::orderByDesc('fecha_inicio')->get(['id', 'nombre', 'fecha_inicio', 'fecha_fin']),
+            'niveles' => NivelEstudio::query()->orderBy('orden')->get(['id', 'nombre']),
+        ]);
     }
 
-    public function show(PlanCobro $plan): Response
+    /**
+     * Campus ligados a un ciclo. Si el ciclo es global (sin pivote), se ofrecen
+     * todos: "global" significa que aplica en toda la escuela.
+     */
+    public function campusDelCiclo(Ciclo $ciclo): JsonResponse
     {
-        $plan->load('reglas.concepto', 'reglas.conceptoPrerequisito');
+        $campus = $ciclo->campus()->orderBy('nombre')->get(['campus.id', 'campus.nombre']);
+
+        if ($campus->isEmpty()) {
+            $campus = Campus::orderBy('nombre')->get(['id', 'nombre']);
+        }
+
+        return response()->json($campus);
+    }
+
+    /**
+     * Carreras realmente ofertadas en esos campus, opcionalmente acotadas por
+     * nivel. Ofrecer carreras que no se imparten ahí solo produce planes que no
+     * le tocan a nadie.
+     */
+    public function carrerasDeCampus(Request $request): JsonResponse
+    {
+        $datos = $request->validate([
+            'campus' => ['required', 'array', 'min:1'],
+            'campus.*' => ['integer'],
+            'nivel_estudios_id' => ['nullable', 'integer'],
+        ]);
+
+        $carreraIds = Oferta::query()
+            ->whereIn('campus_id', $datos['campus'])
+            ->distinct()
+            ->pluck('carrera_id');
+
+        $carreras = Carrera::query()
+            ->whereIn('id', $carreraIds)
+            ->when(
+                ! empty($datos['nivel_estudios_id']),
+                fn ($q) => $q->where('nivel_estudios_id', $datos['nivel_estudios_id'])
+            )
+            ->orderBy('nombre')
+            ->get(['id', 'nombre', 'clave', 'nivel_estudios_id']);
+
+        return response()->json($carreras);
+    }
+
+    /** Guarda el paso 1 y manda al paso 2. */
+    public function store(Request $request): RedirectResponse
+    {
+        $datos = $this->validarAlcance($request);
+
+        $plan = PlanCobro::create([
+            'nombre' => $datos['nombre'],
+            'ciclo_id' => $datos['ciclo_id'],
+            'moneda' => 'MXN',
+            'tiene_fecha_limite' => $datos['tiene_fecha_limite'] ?? true,
+            'fecha_limite_modo' => $datos['fecha_limite_modo'],
+            'aplica_recargos' => $datos['aplica_recargos'] ?? false,
+            'afecta_estatus_deudor' => $datos['afecta_estatus_deudor'] ?? false,
+            'vigente_desde' => $datos['vigente_desde'],
+            'vigente_hasta' => $datos['vigente_hasta'] ?: null,
+        ]);
+
+        $this->sincronizarAlcance($plan, $datos);
+
+        return redirect()
+            ->route('tenant.finanzas.planes.show', $plan)
+            ->with('exito', 'Plan creado. Ahora agrégale los conceptos que va a cobrar.');
+    }
+
+    /** Paso 2: conceptos, recargos y asignación. */
+    public function show(PlanCobro $plan, ResolutorPlanCobro $resolutor): Response
+    {
+        $plan->load([
+            'ciclo:id,nombre,fecha_inicio,fecha_fin',
+            'campus:id,nombre',
+            'carreras:id,nombre',
+            'conceptos.concepto:id,nombre',
+        ]);
 
         return Inertia::render('Finanzas/Planes/Detalle', [
             'plan' => [
                 'id' => $plan->id,
                 'nombre' => $plan->nombre,
-                'moneda' => $plan->moneda,
-                'aplica_a_tipo' => $plan->aplica_a_tipo,
-                'aplica_a_id' => $plan->aplica_a_id,
-                'destinatario' => $this->nombreDelDestinatario($plan),
+                'ciclo' => $plan->ciclo?->nombre,
+                'ciclo_id' => $plan->ciclo_id,
+                'ciclo_inicio' => $plan->ciclo?->fecha_inicio?->toDateString(),
+                'campus' => $plan->campus->pluck('nombre')->all(),
+                'carreras' => $plan->carreras->pluck('nombre')->all(),
+                'tiene_fecha_limite' => $plan->tiene_fecha_limite,
+                'fecha_limite_modo' => $plan->fecha_limite_modo,
+                'aplica_recargos' => $plan->aplica_recargos,
+                'afecta_estatus_deudor' => $plan->afecta_estatus_deudor,
                 'vigente_desde' => $plan->vigente_desde?->toDateString(),
                 'vigente_hasta' => $plan->vigente_hasta?->toDateString(),
-                'vigente' => $this->estaVigente($plan),
             ],
-            'reglas' => $plan->reglas->map(fn (ReglaGeneracion $r) => [
-                'id' => $r->id,
-                'concepto' => $r->concepto?->nombre,
-                'concepto_id' => $r->concepto_id,
-                'periodicidad' => $r->periodicidad,
-                'monto_base' => (float) $r->monto_base,
-                'dia_generacion' => $r->dia_generacion,
-                'dia_limite' => $r->dia_limite,
-                'obligatorio' => $r->obligatorio,
-                'num_parcialidades' => $r->num_parcialidades,
-                'prorratea' => $r->prorratea,
-                'prerequisito' => $r->conceptoPrerequisito?->nombre,
-                'concepto_prerequisito_id' => $r->concepto_prerequisito_id,
-                // Cuántos cargos ha emitido ya: es lo que decide si una regla
-                // se puede borrar o solo apagar.
-                'adeudos' => Adeudo::query()->where('regla_id', $r->id)->count(),
+            'conceptos' => $plan->conceptos->map(fn (ConceptoPlan $c) => [
+                'id' => $c->id,
+                'concepto' => $c->concepto?->nombre,
+                'concepto_id' => $c->concepto_id,
+                'tipo_pago' => $c->tipo_pago,
+                'descripcion' => $c->descripcion,
+                'monto' => (float) $c->monto,
+                'periodo' => $c->periodoEtiqueta(),
+                'fecha_limite' => $c->fecha_limite?->toDateString(),
+                'aplica_recargos' => $c->aplica_recargos,
+                'grupo' => $c->grupo_colegiatura,
+                'emitidos' => Adeudo::where('concepto_plan_id', $c->id)->count(),
             ])->values(),
-            'conceptos' => ConceptoPago::query()->orderBy('nombre')->get(['id', 'clave', 'nombre']),
-            'periodicidades' => [
-                ['valor' => ReglaGeneracion::PERIODICIDAD_UNICO, 'etiqueta' => 'Único'],
-                ['valor' => ReglaGeneracion::PERIODICIDAD_SEMANAL, 'etiqueta' => 'Semanal'],
-                ['valor' => ReglaGeneracion::PERIODICIDAD_QUINCENAL, 'etiqueta' => 'Quincenal'],
-                ['valor' => ReglaGeneracion::PERIODICIDAD_MENSUAL, 'etiqueta' => 'Mensual'],
-                ['valor' => ReglaGeneracion::PERIODICIDAD_POR_CICLO, 'etiqueta' => 'Por ciclo escolar'],
-                ['valor' => ReglaGeneracion::PERIODICIDAD_POR_MATERIA, 'etiqueta' => 'Por materia inscrita'],
-            ],
-            'destinos' => $this->destinos(),
+            'catalogoConceptos' => ConceptoPago::orderBy('nombre')->get(['id', 'clave', 'nombre']),
+            'tiposPago' => collect(ConceptoPlan::TIPOS)->map(fn ($t, $v) => ['valor' => $v, 'etiqueta' => $t])->values(),
+            'cadencias' => collect(ExpansorColegiaturas::CADENCIAS)->map(fn ($t, $v) => ['valor' => $v, 'etiqueta' => $t])->values(),
+            'reglaRecargo' => $plan->reglaRecargoBase(),
+            'asignados' => $plan->asignaciones()->activos()->count(),
+            'candidatos' => $resolutor->candidatos($plan)->map(fn ($m) => [
+                'id' => $m->id,
+                'matricula' => $m->matricula,
+                'nombre' => $m->persona?->nombreCompleto(),
+                'carrera' => $m->oferta?->carrera?->nombre,
+                'campus' => $m->oferta?->campus?->nombre,
+            ])->values(),
         ]);
     }
 
     public function update(Request $request, PlanCobro $plan): RedirectResponse
     {
-        $plan->update($this->validar($request));
+        $datos = $this->validarAlcance($request);
 
-        return back()->with('exito', 'Plan de cobro actualizado.');
+        $plan->update([
+            'nombre' => $datos['nombre'],
+            'ciclo_id' => $datos['ciclo_id'],
+            'tiene_fecha_limite' => $datos['tiene_fecha_limite'] ?? true,
+            'fecha_limite_modo' => $datos['fecha_limite_modo'],
+            'aplica_recargos' => $datos['aplica_recargos'] ?? false,
+            'afecta_estatus_deudor' => $datos['afecta_estatus_deudor'] ?? false,
+            'vigente_desde' => $datos['vigente_desde'],
+            'vigente_hasta' => $datos['vigente_hasta'] ?: null,
+        ]);
+
+        $this->sincronizarAlcance($plan, $datos);
+
+        // Si el plan deja de admitir recargos, ninguna línea puede conservarlos.
+        if (! $plan->aplica_recargos) {
+            $plan->conceptos()->update(['aplica_recargos' => false]);
+        }
+
+        return back()->with('exito', 'Plan actualizado.');
     }
 
-    /**
-     * Un plan que ya emitió cargos no se borra: sus adeudos apuntan a las
-     * reglas que cuelgan de él y perderlos dejaría el estado de cuenta de los
-     * alumnos sin explicación de dónde salió cada cargo. Se le pone fecha de
-     * fin, que es como se retira un esquema de cobro en la vida real.
-     */
     public function destroy(PlanCobro $plan): RedirectResponse
     {
-        $emitidos = Adeudo::query()
-            ->whereIn('regla_id', $plan->reglas()->pluck('id'))
-            ->count();
+        $emitidos = Adeudo::whereIn('concepto_plan_id', $plan->conceptos()->pluck('id'))->count();
 
         if ($emitidos > 0) {
-            return back()->with(
-                'error',
-                "Este plan ya emitió {$emitidos} cargos. No se borra: ponle fecha de fin para retirarlo."
-            );
+            return back()->with('error', "No se puede eliminar: ya emitió {$emitidos} cargo(s). Ponle fecha de fin para que deje de aplicar.");
         }
 
         $plan->delete();
 
-        return redirect('/finanzas/planes')->with('exito', 'Plan de cobro eliminado.');
+        return redirect()->route('tenant.finanzas.planes.index')->with('exito', 'Plan eliminado.');
     }
 
-    public function guardarRegla(Request $request, PlanCobro $plan): RedirectResponse
-    {
-        $datos = $this->validarRegla($request);
+    // ---------- Conceptos (paso 2) ----------
 
-        $plan->reglas()->create($datos);
-
-        return back()->with('exito', 'Regla agregada.');
-    }
-
-    public function actualizarRegla(Request $request, PlanCobro $plan, ReglaGeneracion $regla): RedirectResponse
-    {
-        abort_unless($regla->plan_cobro_id === $plan->id, 404);
-
-        $regla->update($this->validarRegla($request));
-
-        // Cambiar el monto NO reescribe los cargos ya emitidos: un adeudo es lo
-        // que se le cobró al alumno ese mes, no una vista de la regla. Se avisa
-        // para que nadie espere que el histórico se ajuste solo.
-        $emitidos = Adeudo::query()->where('regla_id', $regla->id)->count();
-
-        return $emitidos > 0
-            ? back()->with('advertencia', "Regla actualizada. Los {$emitidos} cargos ya emitidos conservan su monto original; el cambio aplica a los siguientes.")
-            : back()->with('exito', 'Regla actualizada.');
-    }
-
-    public function eliminarRegla(PlanCobro $plan, ReglaGeneracion $regla): RedirectResponse
-    {
-        abort_unless($regla->plan_cobro_id === $plan->id, 404);
-
-        $emitidos = Adeudo::query()->where('regla_id', $regla->id)->count();
-
-        if ($emitidos > 0) {
-            return back()->with(
-                'error',
-                "Esta regla ya emitió {$emitidos} cargos y no se puede borrar. "
-                .'Retira el plan con una fecha de fin si ya no debe cobrar.'
-            );
-        }
-
-        $regla->delete();
-
-        return back()->with('exito', 'Regla eliminada.');
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function validar(Request $request): array
+    /** Un cargo suelto: inscripción, credencial, gastos administrativos… */
+    public function guardarConcepto(Request $request, PlanCobro $plan): RedirectResponse
     {
         $datos = $request->validate([
+            'concepto_id' => ['required', 'integer', Rule::exists('conceptos_pago', 'id')],
+            'tipo_pago' => ['required', Rule::in(array_keys(ConceptoPlan::TIPOS))],
+            'descripcion' => ['nullable', 'string', 'max:255'],
+            'monto' => ['required', 'numeric', 'min:0'],
+            'mes_referencia' => ['nullable', 'integer', 'min:1', 'max:12'],
+            'anio_referencia' => ['nullable', 'integer', 'min:2000', 'max:2100'],
+            'fecha_limite' => ['nullable', 'date'],
+            'aplica_recargos' => ['boolean'],
+        ]);
+
+        ConceptoPlan::create($datos + [
+            'plan_cobro_id' => $plan->id,
+        ] + [
+            // El plan manda: si no admite recargos, la línea tampoco.
+            'aplica_recargos' => $plan->aplica_recargos && ($datos['aplica_recargos'] ?? false),
+            'fecha_limite' => $plan->tiene_fecha_limite ? ($datos['fecha_limite'] ?? null) : null,
+            'orden' => (int) $plan->conceptos()->max('orden') + 1,
+        ]);
+
+        return back()->with('exito', 'Concepto agregado.');
+    }
+
+    /** Un rango de colegiaturas, que se expande en N líneas. */
+    public function guardarColegiaturas(Request $request, PlanCobro $plan, ExpansorColegiaturas $expansor): RedirectResponse
+    {
+        $datos = $request->validate([
+            'concepto_id' => ['required', 'integer', Rule::exists('conceptos_pago', 'id')],
+            'descripcion' => ['nullable', 'string', 'max:255'],
+            'monto' => ['required', 'numeric', 'min:0'],
+            'desde' => ['required', 'date'],
+            'cantidad' => ['required', 'integer', 'min:1', 'max:60'],
+            'cadencia' => ['required', Rule::in(array_keys(ExpansorColegiaturas::CADENCIAS))],
+            'dia_limite' => ['nullable', 'integer', 'min:1', 'max:31'],
+            'aplica_recargos' => ['boolean'],
+        ]);
+
+        $creadas = $expansor->crear($plan, $datos);
+
+        return back()->with('exito', "Se agregaron {$creadas} colegiaturas.");
+    }
+
+    public function eliminarConcepto(PlanCobro $plan, ConceptoPlan $concepto): RedirectResponse
+    {
+        abort_unless($concepto->plan_cobro_id === $plan->id, 404);
+
+        if (Adeudo::where('concepto_plan_id', $concepto->id)->exists()) {
+            return back()->with('error', 'No se puede eliminar: ya generó cargos a alumnos.');
+        }
+
+        $concepto->delete();
+
+        return back()->with('exito', 'Concepto eliminado.');
+    }
+
+    /** Borra un bloque completo de colegiaturas (las que se crearon juntas). */
+    public function eliminarGrupo(PlanCobro $plan, string $grupo): RedirectResponse
+    {
+        $lineas = $plan->conceptos()->where('grupo_colegiatura', $grupo)->pluck('id');
+
+        if (Adeudo::whereIn('concepto_plan_id', $lineas)->exists()) {
+            return back()->with('error', 'No se puede eliminar el bloque: ya generó cargos.');
+        }
+
+        ConceptoPlan::whereIn('id', $lineas)->delete();
+
+        return back()->with('exito', 'Bloque de colegiaturas eliminado.');
+    }
+
+    // ---------- Recargos ----------
+
+    public function guardarReglaRecargo(Request $request, PlanCobro $plan): RedirectResponse
+    {
+        $datos = $request->validate([
+            'modo' => ['required', Rule::in([ReglaRecargo::MODO_MONTO_FIJO, ReglaRecargo::MODO_PORCENTAJE])],
+            'valor' => ['required', 'numeric', 'min:0'],
+            'frecuencia' => ['required', Rule::in([ReglaRecargo::FRECUENCIA_UNICA, ReglaRecargo::FRECUENCIA_MENSUAL])],
+            'dias_gracia' => ['required', 'integer', 'min:0', 'max:90'],
+            'tope_monto' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        if (! $plan->aplica_recargos) {
+            return back()->with('error', 'Este plan no admite recargos. Actívalos primero en el alcance.');
+        }
+
+        ReglaRecargo::updateOrCreate(
+            ['plan_cobro_id' => $plan->id, 'concepto_plan_id' => null],
+            $datos + ['activo' => true],
+        );
+
+        return back()->with('exito', 'Regla de recargo guardada.');
+    }
+
+    // ---------- Asignación masiva ----------
+
+    public function asignar(Request $request, PlanCobro $plan, GeneradorAdeudos $generador): RedirectResponse
+    {
+        $datos = $request->validate([
+            'matriculas' => ['required', 'array', 'min:1'],
+            'matriculas.*' => ['integer'],
+        ]);
+
+        if ($plan->conceptos()->count() === 0) {
+            return back()->with('error', 'El plan no cobra nada todavía: agrégale conceptos antes de asignarlo.');
+        }
+
+        $r = $generador->asignarPlan($plan, $datos['matriculas']);
+
+        return back()->with(
+            'exito',
+            "Plan asignado a {$r['asignados']} alumno(s); se generaron {$r['cargos']} cargo(s)."
+        );
+    }
+
+    public function quitarAsignacion(PlanCobro $plan, PlanCobroAlumno $asignacion): RedirectResponse
+    {
+        abort_unless($asignacion->plan_cobro_id === $plan->id, 404);
+
+        $asignacion->update(['estatus' => PlanCobroAlumno::CANCELADO]);
+
+        return back()->with('exito', 'Se quitó el plan al alumno. Sus cargos ya emitidos se conservan.');
+    }
+
+    // ---------- Apoyos ----------
+
+    /** @return array<string, mixed> */
+    private function validarAlcance(Request $request): array
+    {
+        return $request->validate([
             'nombre' => ['required', 'string', 'max:150'],
-            'moneda' => ['required', 'string', 'size:3'],
-            'aplica_a_tipo' => ['required', Rule::in([
-                PlanCobro::APLICA_GLOBAL,
-                PlanCobro::APLICA_CARRERA,
-                PlanCobro::APLICA_PLAN,
-                PlanCobro::APLICA_OFERTA,
-            ])],
-            'aplica_a_id' => ['nullable', 'integer'],
+            'ciclo_id' => ['required', 'integer', Rule::exists('ciclos', 'id')],
+            'campus' => ['required', 'array', 'min:1'],
+            'campus.*' => ['integer', Rule::exists('campus', 'id')],
+            'carreras' => ['array'],
+            'carreras.*' => ['integer', Rule::exists('carreras', 'id')],
+            'tiene_fecha_limite' => ['boolean'],
+            'fecha_limite_modo' => ['required', Rule::in([PlanCobro::LIMITE_EXACTA, PlanCobro::LIMITE_DIA_SIGUIENTE])],
+            'aplica_recargos' => ['boolean'],
+            'afecta_estatus_deudor' => ['boolean'],
             'vigente_desde' => ['required', 'date'],
             'vigente_hasta' => ['nullable', 'date', 'after_or_equal:vigente_desde'],
         ]);
-
-        // Un plan global no apunta a nada; uno acotado tiene que decir a qué.
-        // Dejar el id puesto al cambiar a global convertiría el plan en algo
-        // que no aplica a nadie y que nadie entendería al leerlo.
-        if ($datos['aplica_a_tipo'] === PlanCobro::APLICA_GLOBAL) {
-            $datos['aplica_a_id'] = null;
-        } elseif (($datos['aplica_a_id'] ?? null) === null) {
-            abort(422, 'Un plan acotado necesita a qué carrera, plan u oferta aplica.');
-        }
-
-        return $datos;
     }
 
-    /**
-     * @return array<string, mixed>
-     */
-    private function validarRegla(Request $request): array
+    /** @param  array<string, mixed>  $datos */
+    private function sincronizarAlcance(PlanCobro $plan, array $datos): void
     {
-        return $request->validate([
-            'concepto_id' => ['required', Rule::exists('conceptos_pago', 'id')],
-            'periodicidad' => ['required', Rule::in([
-                ReglaGeneracion::PERIODICIDAD_UNICO,
-                ReglaGeneracion::PERIODICIDAD_SEMANAL,
-                ReglaGeneracion::PERIODICIDAD_QUINCENAL,
-                ReglaGeneracion::PERIODICIDAD_MENSUAL,
-                ReglaGeneracion::PERIODICIDAD_POR_CICLO,
-                ReglaGeneracion::PERIODICIDAD_POR_MATERIA,
-            ])],
-            'monto_base' => ['required', 'numeric', 'min:0'],
-            // El día se valida contra 31 y no contra el mes: la regla es anual
-            // y el generador ya recorta al último día real de cada mes.
-            'dia_generacion' => ['nullable', 'integer', 'min:1', 'max:31'],
-            'dia_limite' => ['nullable', 'integer', 'min:1', 'max:31'],
-            'obligatorio' => ['boolean'],
-            'num_parcialidades' => ['nullable', 'integer', 'min:2', 'max:36'],
-            'prorratea' => ['boolean'],
-            'concepto_prerequisito_id' => ['nullable', Rule::exists('conceptos_pago', 'id')],
-        ]);
-    }
+        $plan->campus()->sync($datos['campus']);
 
-    /**
-     * A quién se le puede acotar un plan. Se mandan las tres listas de una vez
-     * porque el selector cambia de contenido al cambiar el tipo, y pedirlas por
-     * separado dejaría el desplegable vacío el primer instante.
-     *
-     * @return array<string, mixed>
-     */
-    private function destinos(): array
-    {
-        return [
-            'carrera' => Carrera::query()->orderBy('nombre')->get(['id', 'nombre']),
-            'plan' => PlanEstudio::query()->with('carrera:id,nombre')->orderBy('nombre')->get()
-                ->map(fn (PlanEstudio $p) => [
-                    'id' => $p->id,
-                    'nombre' => $p->clave.' · '.$p->nombre.' ('.($p->carrera?->nombre ?? '—').')',
-                ]),
-            'oferta' => Oferta::query()->with(['carrera:id,nombre', 'campus:id,nombre'])->get()
-                ->map(fn (Oferta $o) => [
-                    'id' => $o->id,
-                    'nombre' => ($o->carrera?->nombre ?? '—').' · '.($o->campus?->nombre ?? '—'),
-                ]),
-        ];
-    }
+        // Se guarda el nivel de cada carrera para poder reportar por nivel sin
+        // volver a cruzar con el catálogo.
+        $niveles = Carrera::whereIn('id', $datos['carreras'] ?? [])->pluck('nivel_estudios_id', 'id');
 
-    private function nombreDelDestinatario(PlanCobro $plan): string
-    {
-        if ($plan->aplica_a_tipo === PlanCobro::APLICA_GLOBAL) {
-            return 'Toda la escuela';
-        }
-
-        $destinatario = $plan->destinatario();
-
-        return $destinatario?->nombre ?? 'No encontrado (#'.$plan->aplica_a_id.')';
-    }
-
-    private function estaVigente(PlanCobro $plan): bool
-    {
-        $hoy = now()->startOfDay();
-
-        return $plan->vigente_desde !== null
-            && $plan->vigente_desde->lte($hoy)
-            && ($plan->vigente_hasta === null || $plan->vigente_hasta->gte($hoy));
+        $plan->carreras()->sync(
+            collect($datos['carreras'] ?? [])
+                ->mapWithKeys(fn (int $id) => [$id => ['nivel_estudios_id' => $niveles[$id] ?? null]])
+                ->all()
+        );
     }
 }
