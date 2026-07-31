@@ -9,6 +9,9 @@ import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoCasillas from '@/Components/CampoCasillas.vue';
 import CamposIdentidad from '@/Components/CamposIdentidad.vue';
 import TitulosDocente from '@/Components/TitulosDocente.vue';
+import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
+import PildoraEstado from '@/Components/PildoraEstado.vue';
+import { ICONOS } from '@/iconos';
 
 interface DocumentoDoc {
     id: number;
@@ -91,11 +94,12 @@ function revisar(doc: DocumentoDoc): void {
     });
 }
 
+// Color SÓLIDO por estado del documento (para PildoraEstado).
 function colorEstado(clave: string | null): string {
     return {
-        aceptado: 'color-mix(in srgb, #16a34a 18%, transparent)',
-        rechazado: 'color-mix(in srgb, #dc2626 18%, transparent)',
-    }[clave ?? ''] ?? 'color-mix(in srgb, #f59e0b 18%, transparent)';
+        aceptado: '#16a34a',
+        rechazado: '#dc2626',
+    }[clave ?? ''] ?? '#d97706';
 }
 
 const esRechazo = computed(
@@ -234,44 +238,41 @@ function verComo(): void {
 
         <!-- Materias -->
         <section v-if="pestana === 'materias'" class="tarjeta overflow-hidden">
-            <table v-if="materias.length" class="w-full text-sm">
-                <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                    <tr>
-                        <th class="px-6 py-3 font-medium">Clave</th>
-                        <th class="px-4 py-3 font-medium">Materia</th>
-                        <th class="px-4 py-3 font-medium">Grupo</th>
-                        <th class="px-4 py-3 font-medium">Ciclo</th>
-                        <th class="px-4 py-3 font-medium">Papel</th>
-                        <th class="px-6 py-3 font-medium text-right">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="m in materias" :key="m.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                        <td class="px-6 py-3 font-mono text-xs">{{ m.clave_en_plan }}</td>
-                        <td class="px-4 py-3">{{ m.materia }}</td>
-                        <td class="px-4 py-3">{{ m.grupo }}<span v-if="m.campus" class="block text-xs" :style="{ color: 'var(--color-suave)' }">{{ m.campus }}</span></td>
-                        <td class="px-4 py-3">{{ m.ciclo }}</td>
-                        <td class="px-4 py-3">
-                            <span
-                                class="rounded-full px-2 py-0.5 text-xs capitalize"
-                                :style="{
-                                    backgroundColor:
-                                        m.tipo === 'titular'
-                                            ? 'color-mix(in srgb, var(--color-acento) 14%, transparent)'
-                                            : 'color-mix(in srgb, #64748b 16%, transparent)',
-                                }"
-                            >{{ m.tipo }}</span>
-                        </td>
-                        <td class="px-6 py-3 text-right">
-                            <a :href="`/escolar/grupos/${m.id}`" class="text-sm" :style="{ color: 'var(--color-acento)' }">Grupo</a>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+            <div class="overflow-x-auto">
+                <table v-if="materias.length" class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
+                            <th class="px-6 py-3 font-semibold">Materia</th>
+                            <th class="px-4 py-3 font-semibold">Grupo</th>
+                            <th class="px-4 py-3 font-semibold">Ciclo</th>
+                            <th class="px-4 py-3 font-semibold">Papel</th>
+                            <th class="px-6 py-3 font-semibold text-right">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="m in materias" :key="m.id" class="fila-nueva border-t transition-colors" :style="{ borderColor: 'var(--color-borde)' }">
+                            <td class="px-6 py-4">
+                                <span class="block font-semibold text-contenido">{{ m.materia }}</span>
+                                <span class="mt-0.5 block font-mono text-[11px]" :style="{ color: 'var(--color-suave)' }">{{ m.clave_en_plan }}</span>
+                            </td>
+                            <td class="px-4 py-4">
+                                {{ m.grupo }}<span v-if="m.campus" class="block text-[11px]" :style="{ color: 'var(--color-suave)' }">{{ m.campus }}</span>
+                            </td>
+                            <td class="px-4 py-4" :style="{ color: 'var(--color-suave)' }">{{ m.ciclo }}</td>
+                            <td class="px-4 py-4">
+                                <PildoraEstado :texto="m.tipo" :color="m.tipo === 'titular' ? 'var(--color-acento)' : 'var(--color-suave)'" />
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <a :href="`/escolar/grupos/${m.id}`" class="text-sm font-medium" :style="{ color: 'var(--color-acento)' }">Grupo</a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
 
-            <p v-else class="px-6 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
-                No tiene materias asignadas. Se asignan desde el detalle de cada grupo.
-            </p>
+                <p v-else class="px-6 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
+                    No tiene materias asignadas. Se asignan desde el detalle de cada grupo.
+                </p>
+            </div>
         </section>
 
         <!-- Documentos -->
@@ -299,9 +300,7 @@ function verComo(): void {
                         </div>
 
                         <div class="flex items-center gap-3">
-                            <span class="rounded-full px-2 py-0.5 text-xs" :style="{ backgroundColor: colorEstado(doc.estado_clave) }">
-                                {{ doc.estado }}
-                            </span>
+                            <PildoraEstado :texto="doc.estado" :color="colorEstado(doc.estado_clave)" />
                             <a
                                 :href="`/escolar/docentes/${docente.id}/documentos/${doc.id}/descargar`"
                                 class="text-sm"
@@ -373,14 +372,13 @@ function verComo(): void {
         </div>
 
         <!-- Datos -->
-        <section v-else class="tarjeta p-6">
-            <form v-if="puedeGestionar" @submit.prevent="guardar">
-                <h2 class="text-base font-semibold">Identidad</h2>
-                <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                    La CURP autollena fecha, género y entidad. CURP y correo son obligatorios.
-                </p>
-
-                <div class="mt-5">
+        <div v-else>
+            <form v-if="puedeGestionar" class="space-y-4 sm:space-y-6" @submit.prevent="guardar">
+                <TarjetaSeccion
+                    titulo="Identidad"
+                    descripcion="La CURP autollena fecha, género y entidad. CURP y correo son obligatorios."
+                    :icono="ICONOS.persona"
+                >
                     <CamposIdentidad
                         :form="form"
                         :generos="generos"
@@ -393,56 +391,65 @@ function verComo(): void {
                         correo-requerido
                         curp-requerido
                     />
-                </div>
+                </TarjetaSeccion>
 
-                <h2 class="mt-8 text-base font-semibold">Registro docente</h2>
-                <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                    Esto es lo que el docente ve de solo lectura en su portal.
-                </p>
+                <TarjetaSeccion
+                    titulo="Registro docente"
+                    descripcion="Esto es lo que el docente ve de solo lectura en su portal."
+                    :icono="ICONOS.birrete"
+                >
+                    <div class="grid gap-4 sm:grid-cols-3">
+                        <CampoTexto v-model="form.clave_profesor" etiqueta="Clave de profesor" mono :error="form.errors.clave_profesor" />
+                        <CampoSelect
+                            v-model="form.tipo_docente_id"
+                            etiqueta="Tipo de docente"
+                            :opciones="tipos.map((t) => ({ valor: t.id, texto: t.nombre }))"
+                            vacio="Sin especificar"
+                            :error="form.errors.tipo_docente_id"
+                        />
+                        <CampoSelect
+                            v-model="form.situacion_id"
+                            etiqueta="Situación"
+                            requerido
+                            :opciones="situaciones.map((s) => ({ valor: s.id, texto: s.nombre }))"
+                            :error="form.errors.situacion_id"
+                        />
+                        <CampoSelect
+                            v-model="form.edicion_contenido"
+                            etiqueta="Edición de contenido"
+                            :opciones="[
+                                { valor: 0, texto: 'Ninguna' },
+                                { valor: 1, texto: 'Solo sus grupos' },
+                                { valor: 2, texto: 'Todos los grupos' },
+                            ]"
+                            :error="form.errors.edicion_contenido"
+                        />
+                    </div>
 
-                <div class="mt-5 grid gap-4 sm:grid-cols-3">
-                    <CampoTexto v-model="form.clave_profesor" etiqueta="Clave de profesor" mono :error="form.errors.clave_profesor" />
-                    <CampoSelect
-                        v-model="form.tipo_docente_id"
-                        etiqueta="Tipo de docente"
-                        :opciones="tipos.map((t) => ({ valor: t.id, texto: t.nombre }))"
-                        vacio="Sin especificar"
-                        :error="form.errors.tipo_docente_id"
-                    />
-                    <CampoSelect
-                        v-model="form.situacion_id"
-                        etiqueta="Situación"
-                        requerido
-                        :opciones="situaciones.map((s) => ({ valor: s.id, texto: s.nombre }))"
-                        :error="form.errors.situacion_id"
-                    />
-                    <CampoSelect
-                        v-model="form.edicion_contenido"
-                        etiqueta="Edición de contenido"
-                        :opciones="[
-                            { valor: 0, texto: 'Ninguna' },
-                            { valor: 1, texto: 'Solo sus grupos' },
-                            { valor: 2, texto: 'Todos los grupos' },
-                        ]"
-                        :error="form.errors.edicion_contenido"
-                    />
-                </div>
+                    <div class="mt-5">
+                        <CampoCasillas
+                            v-model="form.campus_ids"
+                            etiqueta="Campus donde imparte"
+                            :opciones="campus.map((c) => ({ valor: c.id, texto: c.nombre }))"
+                            :error="form.errors.campus_ids"
+                        />
+                    </div>
 
-                <div class="mt-5">
-                    <CampoCasillas
-                        v-model="form.campus_ids"
-                        etiqueta="Campus donde imparte"
-                        :opciones="campus.map((c) => ({ valor: c.id, texto: c.nombre }))"
-                        :error="form.errors.campus_ids"
-                    />
-                </div>
-
-                <BotonPrincipal :procesando="form.processing" texto="Guardar cambios" class="mt-6" />
+                    <template #pie>
+                        <BotonPrincipal :procesando="form.processing" texto="Guardar cambios" />
+                    </template>
+                </TarjetaSeccion>
             </form>
 
-            <p v-else class="text-sm" :style="{ color: 'var(--color-suave)' }">
+            <p v-else class="tarjeta p-6 text-sm" :style="{ color: 'var(--color-suave)' }">
                 Solo consulta: no tienes permiso para gestionar docentes.
             </p>
-        </section>
+        </div>
     </AppLayout>
 </template>
+
+<style scoped>
+.fila-nueva:hover {
+    background-color: color-mix(in srgb, var(--color-acento) 5%, transparent);
+}
+</style>
