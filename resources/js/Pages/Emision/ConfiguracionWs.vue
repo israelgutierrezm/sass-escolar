@@ -4,6 +4,8 @@ import { computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
+import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
+import { ICONOS } from '@/iconos';
 
 interface Config {
     etapa_activa: 'pruebas' | 'produccion';
@@ -114,9 +116,8 @@ const modoInfo = computed(() => ({
             </section>
 
             <!-- Credenciales de PRUEBAS -->
-            <section class="tarjeta p-6">
-                <h3 class="text-sm font-semibold text-contenido">Credenciales de pruebas</h3>
-                <div class="mt-4 grid gap-4 sm:grid-cols-2">
+            <TarjetaSeccion titulo="Credenciales de pruebas" descripcion="Para el endpoint de pruebas de la SEP." :icono="ICONOS.llave">
+                <div class="grid gap-4 sm:grid-cols-2">
                     <CampoTexto v-model="form.usuario_pruebas" etiqueta="Usuario" marcador="usuario de pruebas" :error="form.errors.usuario_pruebas" />
                     <CampoTexto
                         v-model="form.password_pruebas"
@@ -127,12 +128,11 @@ const modoInfo = computed(() => ({
                         :error="form.errors.password_pruebas"
                     />
                 </div>
-            </section>
+            </TarjetaSeccion>
 
             <!-- Credenciales de PRODUCCIÓN -->
-            <section class="tarjeta p-6">
-                <h3 class="text-sm font-semibold text-contenido">Credenciales de producción</h3>
-                <div class="mt-4 grid gap-4 sm:grid-cols-2">
+            <TarjetaSeccion titulo="Credenciales de producción" descripcion="Para el endpoint oficial de la SEP." :icono="ICONOS.llave">
+                <div class="grid gap-4 sm:grid-cols-2">
                     <CampoTexto v-model="form.usuario_produccion" etiqueta="Usuario" marcador="usuario de producción" :error="form.errors.usuario_produccion" />
                     <CampoTexto
                         v-model="form.password_produccion"
@@ -143,7 +143,7 @@ const modoInfo = computed(() => ({
                         :error="form.errors.password_produccion"
                     />
                 </div>
-            </section>
+            </TarjetaSeccion>
 
             <!-- Estado de conexión + acciones -->
             <section class="tarjeta p-6">
