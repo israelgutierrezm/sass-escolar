@@ -19,9 +19,11 @@ use App\Models\ControlEscolar\Inscripcion;
 use App\Models\ControlEscolar\SituacionGrupo;
 use App\Models\ControlEscolar\SituacionInscripcion;
 use App\Models\ControlEscolar\TipoEvaluacion;
+use App\Models\Landlord\NivelEstudio;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -231,7 +233,7 @@ class GrupoController extends Controller
     {
         return Inertia::render('ControlEscolar/Grupos/Formulario', [
             'grupo' => $grupo->only([
-                'id', 'ciclo_id', 'campus_id', 'plan_id', 'semestre', 'clave', 'nombre', 'cupo', 'turno_id', 'situacion_id',
+                'id', 'ciclo_id', 'campus_id', 'nivel_estudios_id', 'plan_id', 'semestre', 'clave', 'nombre', 'cupo', 'turno_id',
             ]),
             ...$this->catalogos(),
         ]);
@@ -323,7 +325,12 @@ class GrupoController extends Controller
             'ciclo_id' => ['required', 'integer', Rule::exists('ciclos', 'id')->whereNull('deleted_at')],
             'campus_id' => ['required', 'integer', Rule::exists('campus', 'id')->whereNull('deleted_at')],
             'plan_id' => ['nullable', 'integer', Rule::exists('planes_estudio', 'id')->whereNull('deleted_at')],
-            'semestre' => ['nullable', 'integer', 'min:1', 'max:20'],
+            // Un grupo es "1° A de Secundaria" antes que cualquier otra cosa: el
+            // nivel es suyo, no se deduce del plan (que puede no tener).
+            'nivel_estudios_id' => ['required', 'integer'],
+            // El grado dice QUIÉNES lo cursan, no qué se imparte: abrirle una
+            // materia de otro grado no lo cambia.
+            'semestre' => ['required', 'integer', 'min:1', 'max:20'],
             'clave' => [
                 'required', 'string', 'max:70',
                 Rule::unique('grupos', 'clave')
@@ -332,22 +339,69 @@ class GrupoController extends Controller
                     ->whereNull('deleted_at'),
             ],
             'nombre' => ['nullable', 'string', 'max:200'],
-            'cupo' => ['nullable', 'integer', 'min:1'],
+            'cupo' => ['required', 'integer', 'min:1'],
             'turno_id' => ['nullable', 'integer', Rule::exists('turnos', 'id')->whereNull('deleted_at')],
-            'situacion_id' => ['required', 'integer', Rule::exists('situaciones_grupo', 'id')->whereNull('deleted_at')],
         ], [
             'clave.unique' => 'Ya hay un grupo con esa clave en ese ciclo.',
         ], [
             'ciclo_id' => 'ciclo',
             'campus_id' => 'campus',
             'plan_id' => 'plan de estudios',
+            'nivel_estudios_id' => 'nivel de estudios',
+            'semestre' => 'grado',
             'turno_id' => 'turno',
-            'situacion_id' => 'situación',
         ]);
 
         $this->exigirRestriccionesDelCiclo($datos);
+        $this->exigirNivelCoherente($datos);
+
+        // La situación NO se captura: un grupo nace abierto. Cerrarlo o
+        // cancelarlo es una decisión posterior, con su propia acción.
+        if ($id === null) {
+            $datos['situacion_id'] = SituacionGrupo::query()->where('clave', 'abierto')->value('id')
+                ?? SituacionGrupo::query()->orderBy('id')->value('id');
+        }
 
         return $datos;
+    }
+
+    /**
+     * El nivel del grupo tiene que cuadrar con lo demás.
+     *
+     * Ahora que el nivel es un dato propio y el plan es opcional, quedan dos
+     * formas de contradecirse: elegir un nivel que el ciclo no admite, o un plan
+     * cuya carrera es de otro nivel. Ninguna se puede detectar sola en el
+     * formulario, y las dos producen grupos que después nadie sabe interpretar.
+     *
+     * @param  array<string, mixed>  $datos
+     */
+    private function exigirNivelCoherente(array $datos): void
+    {
+        $nivel = (int) $datos['nivel_estudios_id'];
+
+        $ciclo = Ciclo::query()->with('niveles:id')->find($datos['ciclo_id']);
+        $nivelesDelCiclo = $ciclo?->niveles->pluck('id') ?? collect();
+
+        if ($nivelesDelCiclo->isNotEmpty() && ! $nivelesDelCiclo->contains($nivel)) {
+            throw ValidationException::withMessages([
+                'nivel_estudios_id' => 'Ese nivel no está entre los del ciclo.',
+            ]);
+        }
+
+        if (empty($datos['plan_id'])) {
+            return;
+        }
+
+        $nivelDelPlan = PlanEstudio::query()
+            ->join('carreras', 'carreras.id', '=', 'planes_estudio.carrera_id')
+            ->where('planes_estudio.id', $datos['plan_id'])
+            ->value('carreras.nivel_estudios_id');
+
+        if ($nivelDelPlan !== null && (int) $nivelDelPlan !== $nivel) {
+            throw ValidationException::withMessages([
+                'plan_id' => 'Ese plan es de otro nivel de estudios que el del grupo.',
+            ]);
+        }
     }
 
     /**
@@ -451,7 +505,9 @@ class GrupoController extends Controller
                 ->unique(fn (array $o) => "{$o['carrera_id']}-{$o['plan_id']}-{$o['campus_id']}")
                 ->values(),
             'turnos' => Turno::query()->orderBy('nombre')->get(['id', 'nombre']),
-            'situaciones' => SituacionGrupo::query()->orderBy('id')->get(['id', 'nombre']),
+            // El nivel ahora es un dato propio del grupo, no un derivado del
+            // plan: se ofrece como campo, y el ciclo lo acota.
+            'niveles' => NivelEstudio::query()->orderBy('orden')->get(['id', 'nombre']),
         ];
     }
 }

@@ -24,6 +24,7 @@ class Grupo extends Model
     protected $fillable = [
         'ciclo_id',
         'campus_id',
+        'nivel_estudios_id',
         'plan_id',
         'semestre',
         'clave',

@@ -24,7 +24,7 @@ const props = defineProps<{
     planes: { id: number; nombre: string; clave: string; carrera_id: number; total_periodos: number | null; unidad_periodo: string }[];
     ofertas: { carrera_id: number; plan_id: number; campus_id: number }[];
     turnos: { id: number; nombre: string }[];
-    situaciones: { id: number; nombre: string }[];
+    niveles: { id: number; nombre: string }[];
 }>();
 
 const esEdicion = computed(() => props.grupo !== null);
@@ -32,13 +32,13 @@ const esEdicion = computed(() => props.grupo !== null);
 const form = useForm({
     ciclo_id: props.grupo?.ciclo_id ?? null,
     campus_id: props.grupo?.campus_id ?? null,
+    nivel_estudios_id: props.grupo?.nivel_estudios_id ?? null,
     plan_id: props.grupo?.plan_id ?? null,
     semestre: props.grupo?.semestre ?? null,
     clave: props.grupo?.clave ?? '',
     nombre: props.grupo?.nombre ?? '',
-    cupo: props.grupo?.cupo ?? null,
+    cupo: props.grupo?.cupo ?? 30,
     turno_id: props.grupo?.turno_id ?? null,
-    situacion_id: props.grupo?.situacion_id ?? props.situaciones[0]?.id ?? null,
 });
 
 const opciones = (lista: { id: number; nombre: string }[]) =>
@@ -60,17 +60,24 @@ const ofertasDelCampus = computed(() =>
     form.campus_id === null ? [] : props.ofertas.filter((o) => o.campus_id === form.campus_id),
 );
 
-// Carreras ofrecidas: dentro de los niveles del ciclo Y con oferta abierta en el
-// campus elegido. La oferta manda: si una carrera no está ofertada en ese
-// campus, no puede abrirse un grupo suyo ahí.
+// Niveles ofrecidos: los del ciclo si está acotado; si no, todos. El nivel es
+// del GRUPO, no del plan: por eso se elige aquí y no se deduce después.
+const nivelesVisibles = computed(() => {
+    const ids = cicloElegido.value?.nivel_ids ?? [];
+
+    return ids.length ? props.niveles.filter((n) => ids.includes(n.id)) : props.niveles;
+});
+
+// Carreras ofrecidas: las del NIVEL elegido y con oferta abierta en el campus.
+// La oferta manda: si una carrera no está ofertada ahí, no puede abrirse un
+// grupo suyo.
 const carrerasVisibles = computed(() => {
-    const niveles = cicloElegido.value?.nivel_ids ?? [];
     const ofertadas = new Set(ofertasDelCampus.value.map((o) => o.carrera_id));
 
     return props.carreras.filter(
         (c) =>
             ofertadas.has(c.id) &&
-            (niveles.length === 0 || (c.nivel_estudios_id !== null && niveles.includes(c.nivel_estudios_id))),
+            (form.nivel_estudios_id === null || c.nivel_estudios_id === form.nivel_estudios_id),
     );
 });
 
@@ -125,11 +132,16 @@ const planElegido = computed(() => props.planes.find((plan) => plan.id === form.
 // «Módulo», etc. Sin plan fijo se cae al genérico «Periodo».
 const unidadPeriodo = computed(() => planElegido.value?.unidad_periodo ?? 'Periodo');
 
-// Periodo 1..N según el plan, numerado con su nombre real: «Semestre 1»,
-// «Cuatrimestre 1», etc. Sin plan fijo no se sabe el máximo, así que el campo
-// queda deshabilitado.
+/*
+ * Grado 1..N, numerado con el nombre real del periodo del plan («Semestre 1»,
+ * «Cuatrimestre 1»…).
+ *
+ * El grado es OBLIGATORIO y el plan no, así que no puede depender de él: sin
+ * plan fijo se ofrece un rango genérico de 1 a 12, suficiente para cualquier
+ * nivel. Con plan, el máximo lo pone el plan.
+ */
 const opcionesPeriodo = computed(() => {
-    const total = planElegido.value?.total_periodos ?? 0;
+    const total = planElegido.value?.total_periodos ?? 12;
 
     return Array.from({ length: total }, (_, i) => ({ valor: i + 1, texto: `${unidadPeriodo.value} ${i + 1}` }));
 });
@@ -158,14 +170,25 @@ watch(
     },
 );
 
-// Cambiar de plan invalida el periodo si se sale del rango del nuevo plan.
+// Cambiar de plan invalida el grado si se sale del rango del nuevo plan.
 watch(
     () => form.plan_id,
     () => {
-        const total = planElegido.value?.total_periodos ?? 0;
+        const total = planElegido.value?.total_periodos ?? 12;
 
         if (form.semestre && Number(form.semestre) > total) {
             form.semestre = null;
+        }
+    },
+);
+
+// Cambiar de nivel rehace las carreras: se limpia lo que ya no corresponde.
+watch(
+    () => form.nivel_estudios_id,
+    () => {
+        if (carreraId.value && !carrerasVisibles.value.some((c) => c.id === carreraId.value)) {
+            carreraId.value = null;
+            form.plan_id = null;
         }
     },
 );
@@ -215,6 +238,26 @@ function enviar(): void {
                     vacio="Selecciona…"
                     :error="form.errors.campus_id"
                 />
+                <CampoSelect
+                    v-model="form.nivel_estudios_id"
+                    etiqueta="Nivel de estudios"
+                    requerido
+                    :opciones="opciones(nivelesVisibles)"
+                    vacio="Selecciona…"
+                    :error="form.errors.nivel_estudios_id"
+                    ayuda="Todo grupo pertenece a un nivel. Filtra las carreras de abajo."
+                />
+                <CampoSelect
+                    v-model="form.semestre"
+                    :etiqueta="`${unidadPeriodo} (grado)`"
+                    requerido
+                    :opciones="opcionesPeriodo"
+                    vacio="Selecciona…"
+                    :error="form.errors.semestre"
+                    :ayuda="planElegido
+                        ? `Del 1 al ${planElegido.total_periodos ?? '—'}. Es el grado del grupo: no cambia al abrirle materias de otro.`
+                        : 'Es el grado del grupo: no cambia al abrirle materias de otro.'"
+                />
                 <CampoTexto v-model="form.clave" etiqueta="Clave" requerido mono :error="form.errors.clave" />
                 <CampoTexto v-model="form.nombre" etiqueta="Nombre" :error="form.errors.nombre" />
                 <CampoSelect
@@ -233,35 +276,21 @@ function enviar(): void {
                     ayuda="Solo los planes ofertados en el campus. Si lo fijas, solo se podrán abrir materias de ese plan."
                 />
                 <CampoSelect
-                    v-model="form.semestre"
-                    :etiqueta="`${unidadPeriodo} (opcional)`"
-                    :opciones="opcionesPeriodo"
-                    :vacio="planElegido ? `Sin ${unidadPeriodo.toLowerCase()} fijo` : 'Fija un plan primero'"
-                    :error="form.errors.semestre"
-                    :ayuda="planElegido
-                        ? `Del 1 al ${planElegido.total_periodos ?? '—'}. Si lo pones, al abrir materias se preseleccionan las de ese ${unidadPeriodo.toLowerCase()}.`
-                        : 'Fija un plan y se numerará según su tipo de periodo.'"
-                />
-                <CampoSelect
                     v-model="form.turno_id"
                     etiqueta="Turno"
                     :opciones="opciones(turnos)"
                     vacio="Sin turno"
                     :error="form.errors.turno_id"
+                    ayuda="Opcional."
                 />
                 <CampoTexto
                     v-model="form.cupo"
                     etiqueta="Cupo"
                     tipo="number"
+                    min="1"
+                    requerido
                     :error="form.errors.cupo"
                     ayuda="Se valida al inscribir."
-                />
-                <CampoSelect
-                    v-model="form.situacion_id"
-                    etiqueta="Situación"
-                    requerido
-                    :opciones="opciones(situaciones)"
-                    :error="form.errors.situacion_id"
                 />
 
                 <p
@@ -270,6 +299,13 @@ function enviar(): void {
                     style="background-color: color-mix(in srgb, #6366f1 8%, transparent)"
                 >
                     {{ restriccionCiclo }}
+                </p>
+
+                <!-- La situación ya no se captura: preguntarla al alta era
+                     ofrecer un estado que el grupo todavía no puede tener. -->
+                <p v-if="!esEdicion" class="text-sm sm:col-span-2 lg:col-span-3" :style="{ color: 'var(--color-suave)' }">
+                    El grupo se crea <strong>abierto</strong>. Cerrarlo o cancelarlo es una decisión posterior.
+                    Al guardar pasarás a abrirle sus materias.
                 </p>
                 </div>
                 <template #pie>
