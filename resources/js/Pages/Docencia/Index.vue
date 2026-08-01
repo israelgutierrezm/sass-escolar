@@ -37,8 +37,17 @@ const props = defineProps<{
 
 const cicloId = ref(props.cicloId);
 
+/*
+ * Sin ciclo elegido, el servidor muestra el VIGENTE: es lo que el docente da
+ * hoy. Por eso «todos los ciclos» tiene que pedirse explícitamente —mandar
+ * vacío significaría «decide tú» y volvería al vigente—.
+ */
 watch(cicloId, () => {
-    router.get('/docencia', { ciclo_id: cicloId.value }, { preserveState: true, replace: true });
+    router.get(
+        '/docencia',
+        { ciclo_id: cicloId.value ?? 'todos' },
+        { preserveState: true, replace: true },
+    );
 });
 
 const dias = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
@@ -118,20 +127,25 @@ const totalAlumnos = computed(() => props.materias.reduce((t, m) => t + m.inscri
                 </div>
 
                 <div class="mt-4 flex gap-2">
+                    <!-- Dentro está todo lo de la materia: calificar, pasar
+                         lista, la lista de alumnos y las actividades. «Ver
+                         alumnos» nombraba solo una de las cuatro. -->
                     <a
                         :href="`/docencia/materias/${materia.id}`"
-                        class="rounded-lg border px-3 py-1.5 text-sm"
-                        :style="{ borderColor: 'var(--color-borde)' }"
-                    >
-                        Ver alumnos
-                    </a>
-                    <a
-                        v-if="puedeCapturar"
-                        :href="`/captura/${materia.id}`"
                         class="rounded-lg px-3 py-1.5 text-sm font-medium"
                         :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
                     >
-                        {{ materia.acta_cerrada ? 'Ver acta' : 'Capturar' }}
+                        Entrar a la materia
+                    </a>
+                    <!-- La captura del PARCIAL es otra cosa que el libro de
+                         calificaciones: ahí se cierra el acta. -->
+                    <a
+                        v-if="puedeCapturar"
+                        :href="`/captura/${materia.id}`"
+                        class="rounded-lg border px-3 py-1.5 text-sm"
+                        :style="{ borderColor: 'var(--color-borde)' }"
+                    >
+                        {{ materia.acta_cerrada ? 'Ver acta' : 'Capturar parcial' }}
                     </a>
                 </div>
             </article>

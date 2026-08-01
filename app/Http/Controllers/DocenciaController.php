@@ -302,6 +302,9 @@ class DocenciaController extends Controller
                     'inscripcion_id' => $i->id,
                     'matricula' => $i->matriculaOferta?->matricula,
                     'nombre' => $i->matriculaOferta?->persona?->nombreCompleto(),
+                    // Viaja en la propia fila para que el libro de calificaciones
+                    // no tenga que cruzarla contra otra lista por matrícula.
+                    'situacion' => $i->situacion?->nombre,
                     'de_baja' => $i->situacion?->clave === 'baja',
                     'casillas' => $actividades->map(function (Actividad $a) use ($suyas) {
                         $e = $suyas->get($a->id);
@@ -362,11 +365,34 @@ class DocenciaController extends Controller
         return $personaId;
     }
 
+    /**
+     * El ciclo que se está viendo.
+     *
+     * Sin elección, el VIGENTE: «Mis materias» tiene que abrir en lo que el
+     * docente da hoy, no en el histórico completo. Con diez ciclos a cuestas,
+     * mostrarlos todos obliga a buscar entre materias que terminaron hace años
+     * para llegar a la de esta mañana. `?ciclo_id=` sigue sirviendo para
+     * consultar uno pasado, y `?ciclo_id=todos` para verlos todos.
+     */
     private function cicloSeleccionado(Request $request): ?Ciclo
     {
         $id = $request->query('ciclo_id');
 
-        return $id === null ? null : Ciclo::find($id);
+        if ($id === 'todos') {
+            return null;
+        }
+
+        if ($id !== null) {
+            return Ciclo::find($id);
+        }
+
+        $hoy = now()->toDateString();
+
+        return Ciclo::query()
+            ->whereDate('fecha_inicio', '<=', $hoy)
+            ->whereDate('fecha_fin', '>=', $hoy)
+            ->orderByDesc('fecha_inicio')
+            ->first();
     }
 
     /** El registro de docente del usuario, si lo tiene. */

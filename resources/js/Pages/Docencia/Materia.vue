@@ -8,6 +8,8 @@ import BotonVolver from '@/Components/BotonVolver.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import PaseDeLista from '@/Components/PaseDeLista.vue';
+import MatrizCalificaciones from '@/Components/MatrizCalificaciones.vue';
+import PestanasPagina from '@/Components/PestanasPagina.vue';
 
 interface Alumno {
     matricula: string | null;
@@ -82,7 +84,7 @@ const props = defineProps<{
 const dias = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
 
 /*
- * ── LMS: actividades y calificación ───────────────────────────────────────
+ * ���� LMS: actividades y calificación ������������������������������������������������������������������������������
  *
  * Un curso sin fila todavía se comporta como uno vacío que SÍ deja agregar: la
  * fila se crea al guardar la primera actividad. La mayoría de las materias
@@ -188,7 +190,7 @@ const tituloActividad = (id: number) => props.actividades.find((a) => a.id === i
 /*
  * La matriz se filtra por parcial. Con dos actividades no estorba; con veinte
  * y cuarenta alumnos son ochocientas casillas y un scroll horizontal que no
- * termina. El docente califica por parcial —es como cierra actas—, así que ese
+ * termina. El docente califica por parcial �es como cierra actas�, así que ese
  * es el corte natural.
  *
  * «Formativas» es su propio grupo: no cuelgan de ningún parcial y esconderlas
@@ -239,6 +241,26 @@ const visibles = computed(() => {
 
 const activos = computed(() => props.alumnos.filter((a) => !a.de_baja).length);
 
+/*
+ * ���� Pestañas ������������������������������������������������������������������������������������������������������������������������������
+ *
+ * La pantalla llevaba cuatro trabajos distintos apilados en un solo scroll:
+ * lista de alumnos, pase de lista, editor de actividades y libro de
+ * calificaciones. Con treinta alumnos había que recorrer media pantalla para
+ * llegar a lo siguiente.
+ *
+ * Arranca en CALIFICACIONES porque es a lo que el docente entra casi siempre;
+ * el pase de lista es lo segundo, y montar actividades se hace una vez al mes.
+ */
+const pestanas = computed(() => [
+    ...(props.puedeCapturar ? [{ clave: 'calificaciones', etiqueta: 'Calificaciones' }] : []),
+    ...(props.puedePasarLista ? [{ clave: 'asistencia', etiqueta: 'Pase de lista' }] : []),
+    { clave: 'alumnos', etiqueta: `Alumnos (${activos.value})` },
+    ...(props.puedeCapturar ? [{ clave: 'actividades', etiqueta: `Actividades (${props.actividades.length})` }] : []),
+]);
+
+const tab = ref<string>(pestanas.value[0]?.clave ?? 'alumnos');
+
 const cortesCerrados = computed(() =>
     Object.values(props.calendario)
         .filter((c) => !c.abierto)
@@ -288,7 +310,7 @@ const cortesCerrados = computed(() =>
                 :style="{ borderColor: 'var(--color-borde)' }"
             >
                 <span v-if="horarios.length" :style="{ color: 'var(--color-suave)' }">
-                    {{ horarios.map((h) => `${dias[h.dia] ?? ''} ${h.inicio}–${h.fin}${h.aula ? ' · ' + h.aula : ''}`).join(' | ') }}
+                    {{ horarios.map((h) => `${dias[h.dia] ?? ''} ${h.inicio}�${h.fin}${h.aula ? ' · ' + h.aula : ''}`).join(' | ') }}
                 </span>
                 <span v-else :style="{ color: 'var(--color-suave)' }">Sin horario cargado</span>
 
@@ -305,7 +327,33 @@ const cortesCerrados = computed(() =>
             </ul>
         </div>
 
-        <section class="tarjeta overflow-hidden">
+        <PestanasPagina :pestanas="pestanas" :model-value="tab" @update:model-value="tab = $event" />
+
+        <!-- ===== Calificaciones ===== -->
+        <MatrizCalificaciones
+            v-if="tab === 'calificaciones' && actividades.some((a) => a.se_entrega)"
+            :materia-id="materia.id"
+            :actividades="actividades"
+            :matriz="matriz"
+            :asistencia="asistencia.lista"
+        />
+
+        <section
+            v-else-if="tab === 'calificaciones'"
+            class="tarjeta px-6 py-12 text-center text-sm text-suave"
+        >
+            Esta materia todavía no tiene actividades que entregar.
+            <button
+                type="button"
+                class="ml-1 font-medium underline"
+                :style="{ color: 'var(--color-acento)' }"
+                @click="tab = 'actividades'"
+            >
+                Carga la primera.
+            </button>
+        </section>
+
+        <section v-show="tab === 'alumnos'" class="tarjeta overflow-hidden">
             <div class="flex flex-wrap items-center justify-between gap-3 border-b px-6 py-3" :style="{ borderColor: 'var(--color-borde)' }">
                 <div>
                     <h2 class="text-base font-semibold">Alumnos ({{ activos }})</h2>
@@ -318,7 +366,7 @@ const cortesCerrados = computed(() =>
                     <input
                         v-model="busqueda"
                         type="search"
-                        placeholder="Buscar por nombre o matrícula…"
+                        placeholder="Buscar por nombre o matrícula⬦"
                         class="rounded-lg border px-3 py-1.5 text-sm"
                         :style="{ borderColor: 'var(--color-borde)' }"
                     />
@@ -366,10 +414,10 @@ const cortesCerrados = computed(() =>
                             <span v-if="alumno.email">{{ alumno.email }}</span>
                             <span v-if="alumno.email && alumno.celular"> · </span>
                             <span v-if="alumno.celular">{{ alumno.celular }}</span>
-                            <span v-if="!alumno.email && !alumno.celular">—</span>
+                            <span v-if="!alumno.email && !alumno.celular">�</span>
                         </td>
                         <td class="px-4 py-2">{{ alumno.situacion }}</td>
-                        <td class="px-4 py-2">{{ alumno.calificacion_final ?? '—' }}</td>
+                        <td class="px-4 py-2">{{ alumno.calificacion_final ?? '�' }}</td>
                     </tr>
                 </tbody>
             </table>
@@ -380,10 +428,14 @@ const cortesCerrados = computed(() =>
         </section>
 
         <!-- ===== Pase de lista ===== -->
-        <PaseDeLista v-if="puedePasarLista" :materia-id="materia.id" :asistencia="asistencia" />
+        <PaseDeLista
+            v-if="puedePasarLista && tab === 'asistencia'"
+            :materia-id="materia.id"
+            :asistencia="asistencia"
+        />
 
         <!-- ===== Actividades del curso ===== -->
-        <section v-if="puedeCapturar" class="tarjeta overflow-hidden">
+        <section v-if="puedeCapturar && tab === 'actividades'" class="tarjeta overflow-hidden">
             <header class="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
                 <div>
                     <h2 class="text-base font-semibold text-contenido">Actividades</h2>
@@ -519,123 +571,6 @@ const cortesCerrados = computed(() =>
                     </span>
                 </li>
             </ul>
-        </section>
-
-        <!-- ===== Matriz alumnos × actividades ===== -->
-        <section v-if="puedeCapturar && actividades.some((a) => a.se_entrega)" class="tarjeta overflow-hidden">
-            <header class="flex flex-wrap items-end justify-between gap-3 px-6 py-4">
-                <div>
-                    <h2 class="text-base font-semibold text-contenido">Quién entregó qué</h2>
-                    <p class="mt-0.5 text-sm" :style="{ color: 'var(--color-suave)' }">
-                        Una fila por alumno. Toca una casilla entregada para calificarla;
-                        el componente del parcial se recalcula solo.
-                    </p>
-                </div>
-
-                <!-- Filtro por parcial: el docente califica por parcial, y con
-                     veinte actividades la tabla se vuelve impracticable a lo
-                     ancho. Solo aparece si hay más de un grupo que filtrar. -->
-                <div v-if="parcialesConActividad.length > 1" class="flex flex-wrap items-center gap-1">
-                    <button
-                        v-for="p in ['todos', ...parcialesConActividad]"
-                        :key="p"
-                        type="button"
-                        class="rounded-lg border px-2.5 py-1 text-xs font-medium capitalize"
-                        :style="parcialFiltro === p
-                            ? { borderColor: 'var(--color-acento)', backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }
-                            : { borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }"
-                        @click="parcialFiltro = p"
-                    >
-                        {{ p }}
-                    </button>
-                </div>
-            </header>
-
-            <div class="overflow-x-auto border-t border-borde">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
-                            <th class="sticky left-0 z-10 px-6 py-3 font-semibold" :style="{ backgroundColor: 'var(--color-superficie)' }">Alumno</th>
-                            <th v-for="a in columnas" :key="a.id" class="px-3 py-3 text-center font-semibold">
-                                <span class="block max-w-28 truncate" :title="a.titulo">{{ a.titulo }}</span>
-                                <span class="font-normal normal-case">de {{ a.puntos }}</span>
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="fila in matriz" :key="fila.inscripcion_id" class="border-t" :style="{ borderColor: 'var(--color-borde)', opacity: fila.de_baja ? 0.5 : 1 }">
-                            <td class="sticky left-0 z-10 px-6 py-2" :style="{ backgroundColor: 'var(--color-superficie)' }">
-                                <span class="block truncate">{{ fila.nombre }}</span>
-                                <span class="block font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ fila.matricula }}</span>
-                            </td>
-                            <td
-                                v-for="c in fila.casillas.filter((x) => idsColumna.has(x.actividad_id))"
-                                :key="c.actividad_id"
-                                class="px-3 py-2 text-center"
-                            >
-                                <button
-                                    type="button"
-                                    class="w-full rounded-lg px-2 py-1 text-xs font-medium disabled:cursor-not-allowed"
-                                    :style="colorCasilla(c)"
-                                    :disabled="c.entrega_id === null"
-                                    :title="c.entrega_id === null ? 'Sin entregar' : `Entregó el ${c.entregada_en}`"
-                                    @click="abrirCalificacion(fila, c)"
-                                >
-                                    {{ c.calificacion ?? (c.entrega_id ? '—' : '·') }}
-                                </button>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Calificar: se abre bajo la tabla con lo que el alumno entregó a
-                 la vista. Calificar sin leer la entrega no tendría sentido. -->
-            <div
-                v-if="calificando"
-                class="border-t border-borde px-6 py-4"
-                :style="{ borderLeft: '3px solid var(--color-acento)' }"
-            >
-                <template v-for="fila in matriz.filter((f) => f.inscripcion_id === calificando?.inscripcion)" :key="fila.inscripcion_id">
-                    <template v-for="c in fila.casillas.filter((x) => casillaAbierta(fila, x))" :key="c.actividad_id">
-                        <p class="text-sm font-medium text-contenido">
-                            {{ fila.nombre }} · {{ tituloActividad(c.actividad_id) }}
-                        </p>
-                        <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                            Entregó el {{ c.entregada_en }}<span v-if="c.tarde" class="text-amber-600"> · fuera de tiempo</span>
-                        </p>
-
-                        <p v-if="c.contenido" class="mt-2 whitespace-pre-line rounded-lg px-3 py-2 text-sm" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
-                            {{ c.contenido }}
-                        </p>
-
-                        <form class="mt-3 flex flex-wrap items-end gap-3" @submit.prevent="guardarCalificacion(c)">
-                            <div class="w-40">
-                                <CampoTexto
-                                    v-model="formCalificar.calificacion"
-                                    etiqueta="Calificación"
-                                    tipo="number"
-                                    step="0.01"
-                                    min="0"
-                                    :error="formCalificar.errors.calificacion"
-                                />
-                            </div>
-                            <div class="min-w-64 flex-1">
-                                <CampoTexto
-                                    v-model="formCalificar.retroalimentacion"
-                                    etiqueta="Retroalimentación"
-                                    marcador="Lo que el alumno debe saber de su trabajo."
-                                    :error="formCalificar.errors.retroalimentacion"
-                                />
-                            </div>
-                            <BotonPrincipal :procesando="formCalificar.processing" texto="Guardar" icono="crear" />
-                            <button type="button" class="rounded-lg border border-borde px-4 py-2 text-sm" @click="calificando = null">
-                                Cerrar
-                            </button>
-                        </form>
-                    </template>
-                </template>
-            </div>
         </section>
     </AppLayout>
 </template>
