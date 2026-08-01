@@ -67,13 +67,6 @@ function revocar(o: Otorgada): void {
 
 const detalle = ref<number | null>(null);
 
-const colorEstatus: Record<string, string> = {
-    activa: '#16a34a',
-    suspendida: '#d97706',
-    perdida: '#dc2626',
-    por_renovar: '#2563eb',
-};
-
 const etiquetaAccion: Record<string, string> = {
     otorgada: 'Otorgada', renovada: 'Renovada', por_renovar: 'Cumple para renovar',
     suspendida: 'Suspendida', reactivada: 'Reactivada', perdida: 'Perdida',
@@ -182,7 +175,7 @@ const etiquetaAccion: Record<string, string> = {
                                     {{ o.vigente_desde }} → {{ o.vigente_hasta ?? 'sin fin' }}
                                 </td>
                                 <td class="px-4 py-4">
-                                    <PildoraEstado :texto="o.estatus.replace('_', ' ')" :color="colorEstatus[o.estatus] ?? 'var(--color-suave)'" />
+                                    <PildoraEstado :texto="o.estatus.replace('_', ' ')" />
                                     <span v-if="o.promedio_evaluado" class="mt-0.5 block text-[11px]" :style="{ color: 'var(--color-suave)' }">
                                         Promedio {{ o.promedio_evaluado }}
                                     </span>

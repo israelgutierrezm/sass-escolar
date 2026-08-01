@@ -58,7 +58,7 @@ class ConstructorCertificadoXml
         $entidad = $campus?->entidad;
 
         $historial = Historial::query()
-            ->with(['planMateria.asignatura:id,identificador,nombre,creditos', 'estatus:id,nombre,clave', 'ciclo:id,clave'])
+            ->with(['planMateria.asignatura:id,identificador,nombre,creditos,tipo_asignatura_id', 'estatus:id,nombre,clave', 'ciclo:id,clave'])
             ->where('matricula_oferta_id', $matricula->id)
             ->get();
 
@@ -67,10 +67,14 @@ class ConstructorCertificadoXml
         $idTipoPeriodo = $this->idCatalogo(TipoPeriodo::class, $plan?->tipo_periodo_id);
         $idGenero = $this->idGeneroSep($persona);
         $idEntidad = $this->idCatalogo(EntidadFederativa::class, $campus?->entidad_id);
-        // Mapa id → identificador de tipos de asignatura usados.
+        // Mapa id → tipo de asignatura de los usados. El tipo vive en la
+        // ASIGNATURA (`asignaturas.tipo_asignatura_id`); `plan_materias` no lo
+        // tiene —su columna `tipo` es el papel dentro del plan, otro vocabulario—.
         $tiposAsig = TipoAsignatura::query()
-            ->whereIn('id', $historial->pluck('planMateria.tipo_asignatura_id')->filter()->unique())
-            ->pluck('identificador', 'id');
+            ->whereIn('id', $historial->pluck('planMateria.asignatura.tipo_asignatura_id')->filter()->unique())
+            ->get(['id', 'identificador', 'nombre']);
+        $idTipoSep = $tiposAsig->pluck('identificador', 'id');
+        $nombreTipo = $tiposAsig->pluck('nombre', 'id');
 
         // Mejor intento por materia: una materia aprobada a título tras tronar el
         // ordinario cuenta una vez, como aprobada.
@@ -90,8 +94,10 @@ class ConstructorCertificadoXml
                 'nombre' => $h->planMateria?->asignatura?->nombre,
                 'ciclo' => $h->ciclo?->clave ?? 'NA',
                 'calificacion' => (string) ($h->calificacion ?? '0'),
-                'idTipoAsignatura' => (string) ($tiposAsig[$h->planMateria?->tipo_asignatura_id] ?? $h->planMateria?->tipo_asignatura_id ?? '0'),
-                'tipoAsignatura' => 'OBLIGATORIA',
+                // Sin `identificador` capturado, el id local ES el valor SEP: los
+                // tipos se siembran con el id del catálogo oficial (263 = OBLIGATORIA).
+                'idTipoAsignatura' => (string) ($idTipoSep[$h->planMateria?->asignatura?->tipo_asignatura_id] ?? $h->planMateria?->asignatura?->tipo_asignatura_id ?? '0'),
+                'tipoAsignatura' => $nombreTipo[$h->planMateria?->asignatura?->tipo_asignatura_id] ?? 'OBLIGATORIA',
                 'creditos' => (string) ($h->planMateria?->asignatura?->creditos ?? '0'),
             ])->values()->all();
 

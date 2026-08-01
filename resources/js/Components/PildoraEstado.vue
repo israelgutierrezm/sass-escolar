@@ -41,22 +41,33 @@ const COLORES: Record<string, string> = {
     inscrito: VERDE, cursando: VERDE, vigente: VERDE, pagado: VERDE,
     aprobada: VERDE, aprobado: VERDE, firmado: VERDE, timbrada: VERDE,
     aceptado: VERDE, aceptada: VERDE, autorizado: VERDE, autorizada: VERDE,
-    // Cortado o fallido
-    baja: ROJO, cancelado: ROJO, cancelada: ROJO, perdida: ROJO,
-    rechazado: ROJO, rechazada: ROJO, reprobada: ROJO, reprobado: ROJO,
-    vencido: ROJO, vencida: ROJO, moroso: ROJO, error: ROJO,
+    pagado: VERDE, pagada: VERDE, completado: VERDE, completada: VERDE,
+    // Falló: algo salió mal y hay que hacer algo al respecto
+    baja: ROJO, perdida: ROJO, rechazado: ROJO, rechazada: ROJO,
+    reprobada: ROJO, reprobado: ROJO, vencido: ROJO, vencida: ROJO,
+    moroso: ROJO, error: ROJO, fallido: ROJO, fallida: ROJO,
     // A medias: pide atención pero no es una falla
     pendiente: AMBAR, suspendida: AMBAR, suspendido: AMBAR,
     parcial: AMBAR, 'por renovar': AMBAR, por_renovar: AMBAR,
     'en espera': AMBAR, en_espera: AMBAR, revision: AMBAR,
     timbrando: AMBAR, enviando: AMBAR, procesando: AMBAR,
+    devengada: AMBAR, devengado: AMBAR,
     // Cerrado con final normal: informa, no alerta
     egresado: 'var(--color-acento)', egresada: 'var(--color-acento)',
     titulado: 'var(--color-acento)', titulada: 'var(--color-acento)',
     concluido: 'var(--color-acento)', concluida: 'var(--color-acento)',
-    // Todavía no empieza
+    condonado: 'var(--color-acento)', condonada: 'var(--color-acento)',
+    reembolsado: 'var(--color-acento)', reembolsada: 'var(--color-acento)',
+    /*
+     * Todavía no empieza, o se cerró a propósito.
+     *
+     * «Cancelado» va aquí y no en rojo: cancelar es una decisión deliberada, no
+     * una falla. Salía en gris en el estado de cuenta y en violeta en facturas,
+     * dos pantallas que muestran la MISMA factura cancelada. El rojo se reserva
+     * para lo que de verdad se rompió (error de timbrado, pago fallido).
+     */
     borrador: NEUTRO, inactivo: NEUTRO, inactiva: NEUTRO,
-    cerrado: NEUTRO, cerrada: NEUTRO,
+    cerrado: NEUTRO, cerrada: NEUTRO, cancelado: NEUTRO, cancelada: NEUTRO,
 };
 
 const normaliza = (t: string) =>

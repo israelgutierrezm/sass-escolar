@@ -104,7 +104,12 @@ class CatalogoAcademicoController extends Controller
                 'etiqueta' => 'Tipos de asignatura',
                 'singular' => 'tipo de asignatura',
                 'grupo' => 'Asignaturas',
-                'enUso' => fn (int $id) => DB::table('plan_materias')->whereNull('deleted_at')->where('tipo_asignatura_id', $id)->exists(),
+                // Quien consume este catálogo es la ASIGNATURA
+                // (`asignaturas.tipo_asignatura_id`, FK real), no la materia dentro
+                // del plan. `plan_materias.tipo` se le parece pero es otra cosa: el
+                // papel que la materia juega en ESE plan —incluye `tronco_comun`,
+                // que no es un tipo SEP— y es texto libre sin FK a esta tabla.
+                'enUso' => fn (int $id) => DB::table('asignaturas')->whereNull('deleted_at')->where('tipo_asignatura_id', $id)->exists(),
                 'extras' => ['identificador' => ['tipo' => 'texto', 'etiqueta' => 'Identificador']],
             ],
             'turno' => [

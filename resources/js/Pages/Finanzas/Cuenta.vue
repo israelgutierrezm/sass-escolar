@@ -2,6 +2,7 @@
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import PildoraEstado from '@/Components/PildoraEstado.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
@@ -165,20 +166,6 @@ function guardarSituacion(): void {
     });
 }
 
-const colorEstatus: Record<string, string> = {
-    pendiente: 'text-amber-700 bg-amber-50',
-    parcial: 'text-blue-700 bg-blue-50',
-    pagado: 'text-emerald-700 bg-emerald-50',
-    cancelado: 'text-suave bg-fondo',
-    condonado: 'text-violet-700 bg-violet-50',
-    completado: 'text-emerald-700 bg-emerald-50',
-    fallido: 'text-red-700 bg-red-50',
-    reembolsado: 'text-suave bg-fondo',
-    borrador: 'text-suave bg-fondo',
-    timbrando: 'text-blue-700 bg-blue-50',
-    timbrada: 'text-emerald-700 bg-emerald-50',
-    error: 'text-red-700 bg-red-50',
-};
 </script>
 
 <template>
@@ -428,9 +415,7 @@ const colorEstatus: Record<string, string> = {
                             {{ adeudo.saldo > 0 ? pesos.format(adeudo.saldo) : '—' }}
                         </td>
                         <td class="px-4 py-3">
-                            <span class="rounded px-2 py-0.5 text-xs font-medium" :class="colorEstatus[adeudo.estatus] ?? ''">
-                                {{ adeudo.estatus }}
-                            </span>
+                            <PildoraEstado :texto="adeudo.estatus" />
                         </td>
                         <td class="px-6 py-3 text-right">
                             <button
@@ -517,9 +502,7 @@ const colorEstatus: Record<string, string> = {
                         </td>
                         <td class="px-4 py-3 text-right font-medium tabular-nums">{{ pesos.format(p.monto) }}</td>
                         <td class="px-4 py-3">
-                            <span class="rounded px-2 py-0.5 text-xs font-medium" :class="colorEstatus[p.estatus] ?? ''">
-                                {{ p.estatus }}
-                            </span>
+                            <PildoraEstado :texto="p.estatus" />
                         </td>
                         <td class="px-6 py-3 text-right">
                             <div v-if="permisos.registrarPagos" class="flex justify-end gap-3">
@@ -581,9 +564,7 @@ const colorEstatus: Record<string, string> = {
                         </td>
                         <td class="px-4 py-3 text-right tabular-nums">{{ pesos.format(f.total) }}</td>
                         <td class="px-4 py-3">
-                            <span class="rounded px-2 py-0.5 text-xs font-medium" :class="colorEstatus[f.estatus] ?? ''">
-                                {{ f.estatus }}
-                            </span>
+                            <PildoraEstado :texto="f.estatus" />
                         </td>
                         <td class="px-6 py-3">
                             <div class="flex justify-end">

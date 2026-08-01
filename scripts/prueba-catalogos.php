@@ -129,7 +129,9 @@ try {
         'clave' => 'XA'.random_int(1000, 9999),
         'nombre' => 'Usa el área',
         'creditos' => 5,
-        'tipo_asignatura_id' => TipoAsignatura::where('clave', 'obligatoria')->value('id'),
+        // Los tipos oficiales se siembran con `clave` = id del catálogo SEP
+        // ('263'), no con una clave hablada: se busca por nombre.
+        'tipo_asignatura_id' => TipoAsignatura::where('nombre', 'OBLIGATORIA')->value('id'),
         'area_id' => $area->id,
     ]);
 

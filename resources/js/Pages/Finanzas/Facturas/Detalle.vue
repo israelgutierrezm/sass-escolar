@@ -2,6 +2,7 @@
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import PildoraEstado from '@/Components/PildoraEstado.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
@@ -95,13 +96,7 @@ function eliminar(): void {
     router.delete(`/finanzas/facturas/${props.factura.id}`);
 }
 
-const colorEstatus: Record<string, string> = {
-    borrador: 'text-suave bg-fondo',
-    timbrando: 'text-blue-700 bg-blue-50',
-    timbrada: 'text-emerald-700 bg-emerald-50',
-    error: 'text-red-700 bg-red-50',
-    cancelada: 'text-violet-700 bg-violet-50',
-};
+
 </script>
 
 <template>
@@ -114,9 +109,7 @@ const colorEstatus: Record<string, string> = {
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <div class="flex flex-wrap items-center gap-3">
-                        <span class="rounded px-2 py-0.5 text-xs font-medium" :class="colorEstatus[factura.estatus] ?? ''">
-                            {{ factura.estatus }}
-                        </span>
+                        <PildoraEstado :texto="factura.estatus" />
                         <span v-if="factura.uuid" class="font-mono text-sm">{{ factura.uuid }}</span>
                         <span v-else class="text-sm" :style="{ color: 'var(--color-suave)' }">Sin folio fiscal todavía</span>
                     </div>

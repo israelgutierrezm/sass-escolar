@@ -110,18 +110,7 @@ function guardarRegla(): void {
 
 const hayReglaVigente = computed(() => props.reglas.some((r) => r.activo && !r.vigente_hasta));
 
-const colorEstatus: Record<string, string> = {
-    devengada: 'text-amber-700 bg-amber-50',
-    pagada: 'text-emerald-700 bg-emerald-50',
-    cancelada: 'text-suave bg-fondo',
-};
 
-// Color SÓLIDO por estatus (para PildoraEstado).
-const colorEstatusSolido: Record<string, string> = {
-    devengada: '#d97706',
-    pagada: '#16a34a',
-    cancelada: 'var(--color-suave)',
-};
 </script>
 
 <template>
@@ -282,7 +271,7 @@ const colorEstatusSolido: Record<string, string> = {
                         <td class="px-4 py-4 text-right font-semibold tabular-nums">{{ pesos.format(c.monto) }}</td>
                         <td class="px-4 py-4 tabular-nums text-xs" :style="{ color: 'var(--color-suave)' }">{{ c.devengada_en }}</td>
                         <td class="px-4 py-4">
-                            <PildoraEstado :texto="c.estatus" :color="colorEstatusSolido[c.estatus] ?? 'var(--color-suave)'" />
+                            <PildoraEstado :texto="c.estatus" />
                             <span v-if="c.motivo_cancelacion" class="mt-0.5 block text-[11px]" :style="{ color: 'var(--color-suave)' }">{{ c.motivo_cancelacion }}</span>
                         </td>
                         <td class="px-6 py-4 text-right">

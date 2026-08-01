@@ -88,7 +88,9 @@ try {
 
     echo PHP_EOL.'3. Al crear, TODOS los descriptores vienen marcados'.PHP_EOL;
 
-    $tipoObligatoria = TipoAsignatura::where('clave', 'obligatoria')->value('id');
+    // Los tipos oficiales se siembran con `clave` = id del catálogo SEP ('263'),
+    // no con una clave hablada: se busca por nombre.
+    $tipoObligatoria = TipoAsignatura::where('nombre', 'OBLIGATORIA')->value('id');
 
     // Sin mandar `descriptores`: el controlador debe marcar todos.
     $controlador->store(peticion([
