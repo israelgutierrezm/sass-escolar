@@ -92,12 +92,25 @@ const soloIconoEfectivo = computed(
     () => props.soloIcono || ['editar', 'eliminar', 'cerrar'].includes(props.variante),
 );
 
-// El botón principal va relleno; los demás, fantasma con su color y un fondo
-// tenue PERMANENTE (mismo color al 12 %); el detalle de hover vive en el CSS.
+/*
+ * El botón principal va relleno; los demás llevan el color en el BORDE y en el
+ * texto, con el fondo transparente hasta que se pasa el cursor.
+ *
+ * Antes el fondo tintado era permanente. Con uno o dos botones se veía bien,
+ * pero una lista de doce materias con tres acciones cada una son treinta y seis
+ * pastillas de color compitiendo con lo que se viene a leer —el nombre de la
+ * materia y su docente—. El borde da la misma identidad de color sin gritar; el
+ * relleno se reserva para el momento en que el cursor está encima, que es
+ * cuando esa acción sí es lo importante.
+ */
 const estilo = computed(() =>
     esPrimario.value
         ? { backgroundColor: cfg.value.color, color: 'var(--color-acento-texto)' }
-        : { color: cfg.value.color, '--tinte': `color-mix(in srgb, ${cfg.value.color} 12%, transparent)` },
+        : {
+            color: cfg.value.color,
+            borderColor: `color-mix(in srgb, ${cfg.value.color} 35%, transparent)`,
+            '--tinte': `color-mix(in srgb, ${cfg.value.color} 14%, transparent)`,
+        },
 );
 </script>
 
@@ -109,16 +122,29 @@ const estilo = computed(() =>
         :disabled="disabled || undefined"
         :title="soloIconoEfectivo ? etiqueta : undefined"
         :aria-label="soloIconoEfectivo ? etiqueta : undefined"
-        class="boton-accion inline-flex items-center gap-1.5 rounded-lg text-sm transition disabled:cursor-not-allowed disabled:opacity-40"
+        class="boton-accion inline-flex items-center gap-1 rounded-lg transition disabled:cursor-not-allowed disabled:opacity-40"
         :class="[
             fino ? 'font-normal' : 'font-medium',
-            esPrimario ? 'px-3.5 py-2 shadow-sm hover:brightness-110' : 'boton-fantasma py-1.5',
-            esPrimario ? '' : soloIconoEfectivo ? 'px-2' : 'px-2.5',
+            // Los secundarios miden lo mismo que `BotonExpediente` (30 px de
+            // alto): conviven en la misma fila de un listado y desparejos se
+            // ven como un descuido. Lo que los aligera no es el tamaño sino el
+            // fondo transparente y la letra más chica.
+            esPrimario
+                ? 'px-3.5 py-2 text-sm shadow-sm hover:brightness-110'
+                : 'boton-fantasma border py-1.5 text-xs',
+            esPrimario ? '' : soloIconoEfectivo ? 'px-2' : 'px-3',
         ]"
         :style="estilo"
         @click="!href && emit('click')"
     >
-        <svg class="icono-boton h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+        <svg
+            class="icono-boton shrink-0"
+            :class="esPrimario ? 'h-4 w-4' : 'h-3.5 w-3.5'"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.7"
+            stroke="currentColor"
+        >
             <path stroke-linecap="round" stroke-linejoin="round" :d="cfg.icono" />
         </svg>
         <!-- Los solo-icono no muestran texto (solo su tooltip): en ellos el
@@ -128,8 +154,12 @@ const estilo = computed(() =>
 </template>
 
 <style scoped>
-/* Los fantasma llevan su fondo tenue SIEMPRE (mismo color al 12 %). */
+/* El fantasma es borde y texto de su color; el relleno solo al pasar el cursor. */
 .boton-fantasma {
+    background-color: transparent;
+}
+
+.boton-fantasma:hover {
     background-color: var(--tinte);
 }
 

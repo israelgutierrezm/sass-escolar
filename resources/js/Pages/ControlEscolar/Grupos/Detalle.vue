@@ -436,9 +436,12 @@ const urlInscribir = computed(
             <!-- LISTA: una materia por renglón. Se lee de corrido y compara. -->
             <ul v-if="asignaturas.length && vista === 'lista'" class="divide-y divide-borde border-t border-borde">
                 <li v-for="asignatura in asignaturas" :key="asignatura.id">
-                    <div class="flex flex-wrap items-center gap-3 px-6 py-3">
+                    <!-- Renglones con aire: una docena de materias con tres
+                         acciones cada una se lee como un amontonamiento si van
+                         apretadas. -->
+                    <div class="flex flex-wrap items-center gap-4 px-6 py-4">
                         <span
-                            class="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-[11px] font-bold tracking-tight"
+                            class="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-[11px] font-bold tracking-tight"
                             :style="colorMateria(asignatura.clave_en_plan)"
                         >
                             {{ siglaDe(asignatura.clave_en_plan) }}
@@ -456,15 +459,27 @@ const urlInscribir = computed(
                             <span v-if="!asignatura.docentes_asignados.length" class="rounded-full px-2 py-0.5 text-[11px] font-medium" :style="{ backgroundColor: 'color-mix(in srgb, #f59e0b 16%, transparent)', color: '#b45309' }">
                                 Sin docente
                             </span>
+                            <!-- El PAPEL va escrito, no solo insinuado por el
+                                 color: quién firma el acta es el titular, y eso
+                                 tiene que leerse de un vistazo bajando la lista,
+                                 no adivinarse por el tono ni buscarse en un
+                                 tooltip. -->
                             <span
                                 v-for="d in asignatura.docentes_asignados"
                                 :key="d.id"
-                                class="group inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]"
+                                class="group inline-flex items-center gap-1.5 rounded-full py-0.5 pl-1 pr-2 text-[11px]"
                                 :style="d.tipo === 'titular'
-                                    ? { backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }
-                                    : { backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)', color: 'var(--color-suave)' }"
-                                :title="d.tipo"
+                                    ? { backgroundColor: 'color-mix(in srgb, var(--color-acento) 10%, transparent)', color: 'var(--color-acento)' }
+                                    : { backgroundColor: 'color-mix(in srgb, var(--color-suave) 10%, transparent)', color: 'var(--color-suave)' }"
                             >
+                                <span
+                                    class="rounded-full px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide"
+                                    :style="d.tipo === 'titular'
+                                        ? { backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }
+                                        : { backgroundColor: 'color-mix(in srgb, var(--color-suave) 45%, transparent)', color: 'var(--color-superficie)' }"
+                                >
+                                    {{ d.tipo === 'titular' ? 'Titular' : 'Adjunto' }}
+                                </span>
                                 {{ d.nombre }}
                                 <button v-if="puedeEditar" type="button" class="opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-600" @click="quitarDocente(asignatura.id, d.id, d.nombre)">×</button>
                             </span>
@@ -583,15 +598,23 @@ const urlInscribir = computed(
                         <span v-if="!asignatura.docentes_asignados.length" class="rounded-full px-2 py-0.5 text-[11px] font-medium" :style="{ backgroundColor: 'color-mix(in srgb, #f59e0b 16%, transparent)', color: '#b45309' }">
                             Sin docente
                         </span>
+                        <!-- Mismo criterio que en la lista: el papel escrito. -->
                         <span
                             v-for="d in asignatura.docentes_asignados"
                             :key="d.id"
-                            class="group inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]"
+                            class="group inline-flex items-center gap-1.5 rounded-full py-0.5 pl-1 pr-2 text-[11px]"
                             :style="d.tipo === 'titular'
-                                ? { backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }
-                                : { backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)', color: 'var(--color-suave)' }"
-                            :title="d.tipo"
+                                ? { backgroundColor: 'color-mix(in srgb, var(--color-acento) 10%, transparent)', color: 'var(--color-acento)' }
+                                : { backgroundColor: 'color-mix(in srgb, var(--color-suave) 10%, transparent)', color: 'var(--color-suave)' }"
                         >
+                            <span
+                                class="rounded-full px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide"
+                                :style="d.tipo === 'titular'
+                                    ? { backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }
+                                    : { backgroundColor: 'color-mix(in srgb, var(--color-suave) 45%, transparent)', color: 'var(--color-superficie)' }"
+                            >
+                                {{ d.tipo === 'titular' ? 'Titular' : 'Adjunto' }}
+                            </span>
                             {{ d.nombre }}
                             <button v-if="puedeEditar" type="button" class="opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-600" @click="quitarDocente(asignatura.id, d.id, d.nombre)">×</button>
                         </span>
