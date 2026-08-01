@@ -1,0 +1,130 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers;
+
+use App\Models\ControlEscolar\Inscripcion;
+use App\Models\Lms\Actividad;
+use App\Models\Lms\Entrega;
+use App\Models\Lms\EntregaArchivo;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+
+/**
+ * Lo que el alumno entrega de una actividad.
+ *
+ * El alcance es la PERTENENCIA: se busca la inscripción de quien entró en la
+ * materia de esa actividad. Si no la tiene, la actividad no existe para él —y
+ * la respuesta es la misma que si no existiera, para que probar ids no revele
+ * qué actividades hay—.
+ */
+class EntregaController extends Controller
+{
+    public function guardar(Request $request, Actividad $actividad): RedirectResponse
+    {
+        $inscripcion = $this->miInscripcionEn($request, $actividad);
+
+        abort_if($inscripcion === null, 403, 'Esa actividad no es de una materia que curses.');
+
+        if (! $actividad->tipo->seEntrega()) {
+            return back()->with('error', 'Esta actividad es de lectura: no hay nada que entregar.');
+        }
+
+        if (! $actividad->abierta()) {
+            return back()->with('error', 'La entrega de esta actividad está cerrada.');
+        }
+
+        $datos = $request->validate([
+            'contenido' => ['nullable', 'string', 'max:20000'],
+            'archivos' => ['nullable', 'array', 'max:5'],
+            'archivos.*' => ['file', 'max:20480'],
+        ], [], ['contenido' => 'respuesta']);
+
+        if (blank($datos['contenido'] ?? null) && ! $request->hasFile('archivos')) {
+            return back()->with('error', 'Escribe una respuesta o adjunta al menos un archivo.');
+        }
+
+        // Reentregar REEMPLAZA: hay un renglón por alumno y actividad, y crear
+        // otro chocaría contra el unique. Lo aprendimos en `inscripcion`.
+        $entrega = Entrega::updateOrCreate(
+            ['actividad_id' => $actividad->id, 'inscripcion_id' => $inscripcion->id],
+            [
+                'contenido' => $datos['contenido'] ?? null,
+                'estado' => Entrega::ENTREGADA,
+                'entregada_en' => now(),
+                // Se decide AHORA y se guarda: si la fecha de cierre se mueve
+                // después, el dato de que llegó tarde se habría perdido.
+                'tarde' => $actividad->cierra_en !== null && now()->gt($actividad->cierra_en),
+                // Reentregar invalida la calificación anterior: se califica lo
+                // que hay, no lo que hubo.
+                'calificacion' => null,
+                'retroalimentacion' => null,
+                'calificada_por' => null,
+                'calificada_en' => null,
+            ],
+        );
+
+        foreach ($request->file('archivos', []) as $archivo) {
+            $ruta = $archivo->store("entregas/{$entrega->id}", 'documentos');
+
+            EntregaArchivo::create([
+                'entrega_id' => $entrega->id,
+                'ruta' => $ruta,
+                'nombre' => $archivo->getClientOriginalName(),
+                'bytes' => $archivo->getSize(),
+                'mime' => $archivo->getMimeType(),
+            ]);
+        }
+
+        return back()->with(
+            'exito',
+            $entrega->tarde
+                ? 'Entrega registrada, marcada como fuera de tiempo.'
+                : 'Entrega registrada.',
+        );
+    }
+
+    /** Descarga de un adjunto propio (o del docente de la materia). */
+    public function archivo(Request $request, EntregaArchivo $archivo)
+    {
+        $entrega = $archivo->entrega()->with('actividad.curso')->firstOrFail();
+        $asignaturaGrupoId = $entrega->actividad?->curso?->asignatura_grupo_id;
+
+        $mio = Inscripcion::query()
+            ->whereKey($entrega->inscripcion_id)
+            ->whereIn('matricula_oferta_id', $this->misMatriculas($request))
+            ->exists();
+
+        $soyDocente = $request->user()->persona_id !== null && $asignaturaGrupoId !== null
+            && \App\Models\ControlEscolar\AsignaturaGrupo::query()
+                ->whereKey($asignaturaGrupoId)
+                ->whereHas('docentes', fn ($q) => $q->where('docentes.persona_id', $request->user()->persona_id))
+                ->exists();
+
+        abort_unless($mio || $soyDocente || $request->user()->can('capturar-calificaciones'), 403);
+
+        return Storage::disk('documentos')->download($archivo->ruta, $archivo->nombre);
+    }
+
+    /** La inscripción de quien entró en la materia de esa actividad. */
+    private function miInscripcionEn(Request $request, Actividad $actividad): ?Inscripcion
+    {
+        $asignaturaGrupoId = $actividad->curso?->asignatura_grupo_id;
+
+        if ($asignaturaGrupoId === null) {
+            return null;
+        }
+
+        return Inscripcion::query()
+            ->where('asignatura_grupo_id', $asignaturaGrupoId)
+            ->whereIn('matricula_oferta_id', $this->misMatriculas($request))
+            ->first();
+    }
+
+    private function misMatriculas(Request $request)
+    {
+        return $request->user()->persona?->matriculas()->pluck('matricula_oferta.id') ?? collect();
+    }
+}

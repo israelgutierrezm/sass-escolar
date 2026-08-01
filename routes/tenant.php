@@ -59,6 +59,8 @@ use App\Http\Controllers\RecuperacionController;
 use App\Http\Controllers\PortalAspiranteController;
 use App\Http\Controllers\PromocionController;
 use App\Http\Controllers\RolActivoController;
+use App\Http\Controllers\ActividadController;
+use App\Http\Controllers\EntregaController;
 use App\Http\Controllers\MenuRolController;
 use App\Http\Controllers\MisCursosController;
 use App\Http\Controllers\RolController;
@@ -816,6 +818,34 @@ Route::middleware([
             ->group(function () {
                 Route::get('/', 'index')->name('index');
                 Route::get('{asignaturaGrupo}', 'show')->whereNumber('asignaturaGrupo')->name('materia');
+            });
+
+        /*
+         * Entregas del alumno. El permiso deja entrar; QUÉ actividad puede
+         * entregar lo decide su inscripción, dentro del controlador.
+         */
+        Route::controller(EntregaController::class)
+            ->prefix('mis-cursos')->name('tenant.entregas.')
+            ->middleware('can:ver-mis-cursos')
+            ->group(function () {
+                Route::post('actividades/{actividad}/entrega', 'guardar')->whereNumber('actividad')->name('guardar');
+                Route::get('entregas/archivos/{archivo}', 'archivo')->whereNumber('archivo')->name('archivo');
+            });
+
+        /*
+         * Actividades de una materia, desde el docente. `capturar-calificaciones`
+         * deja entrar; la ASIGNACIÓN dice en cuál materia, y eso lo comprueba el
+         * controlador —el permiso dice que puede dar clase, no dónde—.
+         */
+        Route::controller(ActividadController::class)
+            ->prefix('docencia/materias/{asignaturaGrupo}')->name('tenant.actividades.')
+            ->middleware('can:capturar-calificaciones')
+            ->whereNumber('asignaturaGrupo')
+            ->group(function () {
+                Route::post('actividades', 'store')->name('store');
+                Route::put('actividades/{actividad}', 'update')->whereNumber('actividad')->name('update');
+                Route::delete('actividades/{actividad}', 'destroy')->whereNumber('actividad')->name('destroy');
+                Route::put('entregas/{entrega}/calificar', 'calificar')->whereNumber('entrega')->name('calificar');
             });
 
         /*

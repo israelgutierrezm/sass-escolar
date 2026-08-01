@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { Head, useForm } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 
 /*
@@ -31,10 +32,38 @@ interface Parcial {
     completo: boolean;
 }
 
+interface Entrega {
+    id: number;
+    estado: string;
+    contenido: string | null;
+    entregada_en: string | null;
+    tarde: boolean;
+    calificacion: number | null;
+    retroalimentacion: string | null;
+    archivos: { id: number; nombre: string }[];
+}
+
+interface ActividadAlumno {
+    id: number;
+    tipo: string;
+    tipo_etiqueta: string;
+    se_entrega: boolean;
+    titulo: string;
+    instrucciones: string | null;
+    puntos: number;
+    abre_en: string | null;
+    cierra_en: string | null;
+    permite_tarde: boolean;
+    abierta: boolean;
+    componente: string | null;
+    entrega: Entrega | null;
+}
+
 const props = defineProps<{
     curso: Record<string, any>;
     docentes: { id: number; nombre: string | null; foto: string | null; tipo: string; correo: string | null }[];
     evaluacion: { parciales: Parcial[]; sin_esquema: boolean };
+    actividades: ActividadAlumno[];
     asistencia: {
         registros: { fecha: string; estatus: string; observacion: string | null }[];
         total: number;
@@ -62,6 +91,56 @@ const colorAsistencia = computed(() => {
 
     return p === null ? 'var(--color-suave)' : p >= 90 ? '#16a34a' : p >= 80 ? '#d97706' : '#dc2626';
 });
+
+/*
+ * Entregar. Una actividad a la vez: el formulario se abre en la que se toca y
+ * el resto se queda quieto. Abrir todos los formularios de golpe convertiría la
+ * lista en un muro de campos vacíos.
+ */
+const entregando = ref<number | null>(null);
+
+const formEntrega = useForm<{ contenido: string; archivos: File[] }>({
+    contenido: '',
+    archivos: [],
+});
+
+function alternarEntrega(a: ActividadAlumno): void {
+    entregando.value = entregando.value === a.id ? null : a.id;
+    formEntrega.reset();
+    formEntrega.clearErrors();
+    // Reentregar arranca con lo que ya había escrito: casi siempre se corrige,
+    // no se empieza de cero.
+    formEntrega.contenido = a.entrega?.contenido ?? '';
+}
+
+function elegirArchivos(evento: Event): void {
+    formEntrega.archivos = Array.from((evento.target as HTMLInputElement).files ?? []);
+}
+
+function enviarEntrega(a: ActividadAlumno): void {
+    formEntrega.post(`/mis-cursos/actividades/${a.id}/entrega`, {
+        preserveScroll: true,
+        forceFormData: true,
+        onSuccess: () => {
+            entregando.value = null;
+            formEntrega.reset();
+        },
+    });
+}
+
+/** Cómo se ve el estado de una actividad para el alumno. */
+function estadoDe(a: ActividadAlumno): { texto: string; color: string } {
+    if (!a.se_entrega) return { texto: 'Lectura', color: 'var(--color-suave)' };
+    if (a.entrega?.calificacion != null) return { texto: 'Calificada', color: '#16a34a' };
+    if (a.entrega?.entregada_en) {
+        return a.entrega.tarde
+            ? { texto: 'Entregada tarde', color: '#d97706' }
+            : { texto: 'Entregada', color: '#2563eb' };
+    }
+    if (!a.abierta) return { texto: 'Cerrada sin entregar', color: '#dc2626' };
+
+    return { texto: 'Pendiente', color: '#d97706' };
+}
 
 const etiquetaEstatus: Record<string, string> = {
     presente: 'Asistencia',
@@ -161,6 +240,138 @@ const etiquetaEstatus: Record<string, string> = {
             <p v-else class="border-t border-borde px-6 py-8 text-center text-sm text-suave">
                 Esta materia todavía no tiene definida su forma de evaluación.
             </p>
+        </section>
+
+        <!-- Actividades -->
+        <section v-if="actividades.length" class="tarjeta overflow-hidden">
+            <header class="px-6 py-4">
+                <h2 class="text-base font-semibold text-contenido">Actividades</h2>
+                <p class="mt-0.5 text-sm text-suave">
+                    Lo que hay que hacer, para cuándo y qué te calificaron.
+                </p>
+            </header>
+
+            <ul class="divide-y divide-borde border-t border-borde">
+                <li v-for="a in actividades" :key="a.id">
+                    <div class="flex flex-wrap items-start gap-4 px-6 py-4">
+                        <span class="min-w-0 flex-1">
+                            <span class="flex flex-wrap items-center gap-2">
+                                <span class="font-medium text-contenido">{{ a.titulo }}</span>
+                                <span
+                                    class="rounded-full px-2 py-0.5 text-[11px]"
+                                    :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)', color: 'var(--color-suave)' }"
+                                >
+                                    {{ a.tipo_etiqueta }}
+                                </span>
+                                <!-- Si pondera, se dice a qué parcial va. Si no,
+                                     se dice que no cuenta: callarlo deja al
+                                     alumno suponiendo. -->
+                                <span
+                                    v-if="a.componente"
+                                    class="rounded-full px-2 py-0.5 text-[11px]"
+                                    :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }"
+                                >
+                                    {{ a.componente }}
+                                </span>
+                                <span v-else-if="a.se_entrega" class="text-[11px] text-suave">
+                                    No cuenta para la calificación
+                                </span>
+                            </span>
+
+                            <span v-if="a.instrucciones" class="mt-1 block whitespace-pre-line text-sm text-suave">
+                                {{ a.instrucciones }}
+                            </span>
+
+                            <span v-if="a.cierra_en" class="mt-1 block text-xs text-suave">
+                                Entrega hasta el {{ a.cierra_en }}
+                                <span v-if="a.permite_tarde"> · se acepta después, marcado como tarde</span>
+                            </span>
+                        </span>
+
+                        <span class="flex shrink-0 flex-col items-end gap-2">
+                            <PildoraEstado :texto="estadoDe(a).texto" :color="estadoDe(a).color" sin-capitalizar />
+                            <span v-if="a.entrega?.calificacion != null" class="text-sm font-semibold text-contenido">
+                                {{ a.entrega.calificacion }} / {{ a.puntos }}
+                            </span>
+                            <span v-else-if="a.se_entrega" class="text-xs text-suave">sobre {{ a.puntos }}</span>
+
+                            <button
+                                v-if="a.se_entrega && a.abierta"
+                                type="button"
+                                class="rounded-lg border px-3 py-1.5 text-xs font-medium"
+                                :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
+                                @click="alternarEntrega(a)"
+                            >
+                                {{ entregando === a.id ? 'Cancelar' : (a.entrega?.entregada_en ? 'Volver a entregar' : 'Entregar') }}
+                            </button>
+                        </span>
+                    </div>
+
+                    <!-- Lo que ya entregó y lo que le dijeron -->
+                    <div
+                        v-if="a.entrega?.entregada_en && entregando !== a.id"
+                        class="border-t border-borde px-6 py-3"
+                        :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 5%, transparent)' }"
+                    >
+                        <p class="text-xs text-suave">Entregaste el {{ a.entrega.entregada_en }}</p>
+                        <p v-if="a.entrega.contenido" class="mt-1 whitespace-pre-line text-sm">{{ a.entrega.contenido }}</p>
+                        <ul v-if="a.entrega.archivos.length" class="mt-2 flex flex-wrap gap-2">
+                            <li v-for="f in a.entrega.archivos" :key="f.id">
+                                <a
+                                    :href="`/mis-cursos/entregas/archivos/${f.id}`"
+                                    class="rounded-full border px-2 py-0.5 text-xs"
+                                    :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-acento)' }"
+                                >
+                                    {{ f.nombre }}
+                                </a>
+                            </li>
+                        </ul>
+                        <p
+                            v-if="a.entrega.retroalimentacion"
+                            class="mt-3 rounded-lg border-l-2 py-2 pl-3 text-sm"
+                            :style="{ borderColor: 'var(--color-acento)' }"
+                        >
+                            <span class="block text-xs font-medium text-suave">Retroalimentación del docente</span>
+                            {{ a.entrega.retroalimentacion }}
+                        </p>
+                    </div>
+
+                    <!-- Formulario de entrega -->
+                    <form
+                        v-if="entregando === a.id"
+                        class="space-y-3 border-t border-borde px-6 py-4"
+                        :style="{ borderLeft: '3px solid var(--color-acento)' }"
+                        @submit.prevent="enviarEntrega(a)"
+                    >
+                        <div>
+                            <label class="mb-1 block text-sm font-medium">Tu respuesta</label>
+                            <textarea
+                                v-model="formEntrega.contenido"
+                                rows="4"
+                                class="w-full rounded-lg border px-3 py-2 text-sm"
+                                :style="{ borderColor: 'var(--color-borde)' }"
+                                placeholder="Escribe aquí, o adjunta un archivo abajo."
+                            />
+                            <p v-if="formEntrega.errors.contenido" class="mt-1 text-xs text-red-600">
+                                {{ formEntrega.errors.contenido }}
+                            </p>
+                        </div>
+
+                        <div>
+                            <label class="mb-1 block text-sm font-medium">Archivos</label>
+                            <input type="file" multiple class="text-sm" @change="elegirArchivos" />
+                            <p class="mt-1 text-xs text-suave">Hasta 5 archivos, 20 MB cada uno.</p>
+                        </div>
+
+                        <p v-if="a.entrega?.entregada_en" class="text-xs text-amber-600">
+                            Volver a entregar reemplaza lo anterior y quita la calificación:
+                            se califica lo que quede.
+                        </p>
+
+                        <BotonPrincipal :procesando="formEntrega.processing" texto="Entregar" icono="crear" />
+                    </form>
+                </li>
+            </ul>
         </section>
 
         <div class="grid gap-4 lg:grid-cols-2">

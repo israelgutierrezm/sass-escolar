@@ -19,7 +19,8 @@ interface Materia {
     asignatura_clave: string | null;
     clave_en_plan: string;
     periodo: number | null;
-    tipo: string;
+    /** Nombre del tipo de la ASIGNATURA (OBLIGATORIA, OPTATIVA…), del catálogo. */
+    tipo: string | null;
     creditos: number | null;
     area: string | null;
     area_color: string | null;
@@ -107,8 +108,18 @@ const leyendaAreas = computed(() => {
     return [...mapa].map(([nombre, color]) => ({ nombre, color }));
 });
 
+/**
+ * ¿Este tipo del catálogo es el de optativa? Se compara por nombre y sin
+ * distinguir mayúsculas porque el catálogo se siembra en altas («OPTATIVA») pero
+ * la escuela puede reescribirlo desde Configuración.
+ */
+function esOptativa(tipo: string | null | undefined): boolean {
+    return (tipo ?? '').trim().toUpperCase() === 'OPTATIVA';
+}
+
 // La asignatura se CREA aquí (ya no se elige una del catálogo). El form lleva sus
-// datos + la ubicación en el plan (periodo y tipo: obligatoria/optativa…).
+// datos + su ubicación en el plan (el periodo). Que sea obligatoria u optativa lo
+// dice `tipo_asignatura_id`, el tipo del catálogo, no un campo aparte del plan.
 const form = useForm({
     // Asignatura nueva
     identificador: '',
@@ -124,8 +135,12 @@ const form = useForm({
     horas_independientes: null as number | null,
     // Ubicación en el plan
     periodo: null as number | null,
-    tipo: 'obligatoria',
 });
+
+/** Id del tipo «OPTATIVA» del catálogo, para el «+» del bloque de optativas. */
+const idTipoOptativa = computed(
+    () => props.tiposAsignatura.find((t) => esOptativa(t.nombre))?.id ?? null,
+);
 
 // El periodo se elige de una lista de 1 al total de periodos del plan: no tiene
 // sentido teclear un número fuera de la malla. Vacío = sin periodo fijo (optativas).
@@ -160,7 +175,7 @@ function construirGrupos(): void {
     const total = props.plan.total_periodos ?? 0;
 
     for (const materia of props.materias) {
-        if (materia.tipo === 'optativa') {
+        if (esOptativa(materia.tipo)) {
             optativas.push(materia);
             continue;
         }
@@ -203,8 +218,8 @@ function construirGrupos(): void {
 watch(() => props.materias, construirGrupos, { immediate: true, deep: true });
 
 // Al soltar una materia en otro periodo (evento `added` de vuedraggable), se
-// persiste su nuevo periodo; el tipo no cambia. Optativas quedan fuera del
-// arrastre. Al confirmar el servidor recarga la malla y se reconstruyen grupos.
+// persiste su nuevo periodo. Optativas quedan fuera del arrastre. Al confirmar el
+// servidor recarga la malla y se reconstruyen grupos.
 function alMover(grupo: GrupoMalla, evento: any): void {
     const movida = evento?.added?.element as Materia | undefined;
 
@@ -214,15 +229,8 @@ function alMover(grupo: GrupoMalla, evento: any): void {
 
     router.put(`/academico/planes/${props.plan.id}/materias/${movida.id}`, {
         periodo: grupo.periodo,
-        tipo: movida.tipo,
     }, { preserveScroll: true });
 }
-
-const opcionesTipo = [
-    { valor: 'obligatoria', texto: 'Obligatoria' },
-    { valor: 'optativa', texto: 'Optativa' },
-    { valor: 'tronco_comun', texto: 'Tronco común' },
-];
 
 /** Diferencia entre lo cargado y lo que el plan declara: ayuda a cuadrar la malla. */
 const diferenciaCreditos = computed(() =>
@@ -235,12 +243,17 @@ function abrirAlta(): void {
     form.clearErrors();
 }
 
-// «+» de un periodo: abre el alta ya apuntando a ese periodo (y como optativa si
-// se pulsó en el bloque de optativas). Sube al formulario para capturar.
+// «+» de un periodo: abre el alta ya apuntando a ese periodo. Si se pulsó en el
+// bloque de optativas, preselecciona ese tipo de asignatura (el del catálogo).
+// Sube al formulario para capturar.
 function abrirAltaEn(grupo: GrupoMalla): void {
     abrirAlta();
     form.periodo = grupo.periodo;
-    form.tipo = grupo.optativa ? 'optativa' : 'obligatoria';
+
+    if (grupo.optativa && idTipoOptativa.value !== null) {
+        form.tipo_asignatura_id = idTipoOptativa.value;
+    }
+
     nextTick(() => document.getElementById('alta-materia')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
 }
 
@@ -263,8 +276,6 @@ function quitar(materia: Materia): void {
 
     router.delete(`/academico/planes/${props.plan.id}/materias/${materia.id}`, { preserveScroll: true });
 }
-
-const etiquetaTipo = (tipo: string) => opcionesTipo.find((o) => o.valor === tipo)?.texto ?? tipo;
 
 // El color del área pinta la tarjeta; el texto se elige oscuro o claro según la
 // luminancia para que se lea sobre cualquier color (el usuario puede editarlo).
@@ -416,13 +427,6 @@ function textoSobre(color: string | null): string {
                             :opciones="opcionesPeriodo"
                             vacio="Sin periodo fijo (optativas)"
                             :error="form.errors.periodo"
-                        />
-                        <CampoSelect
-                            v-model="form.tipo"
-                            etiqueta="Tipo en el plan"
-                            requerido
-                            :opciones="opcionesTipo"
-                            :error="form.errors.tipo"
                         />
                     </div>
                 </div>
@@ -589,7 +593,7 @@ function textoSobre(color: string | null): string {
                                     <div class="mt-2 flex items-center justify-between gap-2">
                                         <span class="truncate text-[11px] opacity-80">{{ materia.area || 'Sin área' }}</span>
                                         <span
-                                            v-if="materia.tipo === 'optativa'"
+                                            v-if="esOptativa(materia.tipo)"
                                             class="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
                                             :style="{ backgroundColor: 'color-mix(in srgb, #000 12%, transparent)' }"
                                         >
@@ -672,16 +676,18 @@ function textoSobre(color: string | null): string {
                                     </span>
                                 </td>
                                 <td class="px-4 py-3">
+                                    <!-- Tipo del catálogo de la asignatura; la optativa se
+                                         resalta con el acento porque es la que sale del
+                                         orden por periodos. -->
                                     <span
+                                        v-if="materia.tipo"
                                         class="rounded-full px-2 py-1 text-xs"
-                                        :class="{
-                                            'bg-sky-100 text-sky-700': materia.tipo === 'tronco_comun',
-                                            'bg-indigo-50 text-indigo-700': materia.tipo === 'obligatoria',
-                                        }"
-                                        :style="materia.tipo === 'optativa' ? { backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' } : {}"
+                                        :class="{ 'bg-indigo-50 text-indigo-700': !esOptativa(materia.tipo) }"
+                                        :style="esOptativa(materia.tipo) ? { backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' } : {}"
                                     >
-                                        {{ etiquetaTipo(materia.tipo) }}
+                                        {{ materia.tipo }}
                                     </span>
+                                    <span v-else class="text-xs" :style="{ color: 'var(--color-suave)' }">—</span>
                                 </td>
                                 <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">
                                     {{ materia.creditos }} cr.

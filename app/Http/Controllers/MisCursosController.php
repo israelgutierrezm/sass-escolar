@@ -7,6 +7,9 @@ namespace App\Http\Controllers;
 use App\Models\Academico\EsquemaEvaluacion;
 use App\Models\Asistencia\AsistenciaClase;
 use App\Models\ControlEscolar\Inscripcion;
+use App\Models\Lms\Actividad;
+use App\Models\Lms\Curso;
+use App\Models\Lms\Entrega;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
@@ -128,6 +131,7 @@ class MisCursosController extends Controller
             ],
             'docentes' => $this->docentesDe($inscripcion),
             'evaluacion' => $this->evaluacionDe($inscripcion),
+            'actividades' => $this->actividadesDe($inscripcion),
             'asistencia' => $this->asistenciaDe($inscripcion),
             'horarios' => $inscripcion->asignaturaGrupo?->horarios
                 ->map(fn ($h) => [
@@ -230,6 +234,76 @@ class MisCursosController extends Controller
             'parciales' => $parciales,
             'sin_esquema' => false,
         ];
+    }
+
+    /**
+     * Las actividades de la materia con LO SUYO en cada una: si entregó, cuándo,
+     * qué le calificaron y qué le dijeron.
+     *
+     * Solo las publicadas y ya abiertas: una actividad que el docente está
+     * preparando no debe asomar, y una con fecha de apertura futura tampoco.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function actividadesDe(Inscripcion $inscripcion): array
+    {
+        $curso = Curso::query()
+            ->where('asignatura_grupo_id', $inscripcion->asignatura_grupo_id)
+            ->first();
+
+        if ($curso === null) {
+            return [];
+        }
+
+        $actividades = Actividad::query()
+            ->visibles()
+            ->where('curso_id', $curso->id)
+            ->with('componente:id,componente,parcial')
+            ->orderBy('orden')
+            ->orderBy('id')
+            ->get();
+
+        $mias = Entrega::query()
+            ->with('archivos')
+            ->where('inscripcion_id', $inscripcion->id)
+            ->whereIn('actividad_id', $actividades->pluck('id'))
+            ->get()
+            ->keyBy('actividad_id');
+
+        return $actividades->map(function (Actividad $a) use ($mias) {
+            $entrega = $mias->get($a->id);
+
+            return [
+                'id' => $a->id,
+                'tipo' => $a->tipo->value,
+                'tipo_etiqueta' => $a->tipo->etiqueta(),
+                'se_entrega' => $a->tipo->seEntrega(),
+                'titulo' => $a->titulo,
+                'instrucciones' => $a->instrucciones,
+                'puntos' => (float) $a->puntos,
+                'abre_en' => $a->abre_en?->format('Y-m-d H:i'),
+                'cierra_en' => $a->cierra_en?->format('Y-m-d H:i'),
+                'permite_tarde' => $a->permite_tarde,
+                'abierta' => $a->abierta(),
+                // Qué pesa: el componente al que cuelga, o nada si es formativa.
+                'componente' => $a->componente === null
+                    ? null
+                    : "Parcial {$a->componente->parcial} · {$a->componente->componente}",
+                'entrega' => $entrega === null ? null : [
+                    'id' => $entrega->id,
+                    'estado' => $entrega->estado,
+                    'contenido' => $entrega->contenido,
+                    'entregada_en' => $entrega->entregada_en?->format('Y-m-d H:i'),
+                    'tarde' => $entrega->tarde,
+                    'calificacion' => $entrega->calificacion === null ? null : (float) $entrega->calificacion,
+                    'retroalimentacion' => $entrega->retroalimentacion,
+                    'archivos' => $entrega->archivos->map(fn ($f) => [
+                        'id' => $f->id,
+                        'nombre' => $f->nombre,
+                    ])->values(),
+                ],
+            ];
+        })->values()->all();
     }
 
     /**

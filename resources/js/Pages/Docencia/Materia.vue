@@ -1,8 +1,12 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
+import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
+import CampoTexto from '@/Components/CampoTexto.vue';
+import CampoSelect from '@/Components/CampoSelect.vue';
 
 interface Alumno {
     matricula: string | null;
@@ -15,6 +19,34 @@ interface Alumno {
     calificacion_final: string | null;
 }
 
+interface ActividadDocente {
+    id: number;
+    tipo: string;
+    tipo_etiqueta: string;
+    se_entrega: boolean;
+    titulo: string;
+    instrucciones: string | null;
+    puntos: number;
+    esquema_evaluacion_id: number | null;
+    componente: string | null;
+    abre_en: string | null;
+    cierra_en: string | null;
+    permite_tarde: boolean;
+    publicada: boolean;
+    entregadas: number;
+}
+
+interface Casilla {
+    actividad_id: number;
+    entrega_id: number | null;
+    estado: string;
+    tarde: boolean;
+    calificacion: number | null;
+    retroalimentacion: string | null;
+    contenido: string | null;
+    entregada_en: string | null;
+}
+
 const props = defineProps<{
     materia: Record<string, any>;
     horarios: { dia: number; inicio: string; fin: string; aula: string | null }[];
@@ -22,9 +54,118 @@ const props = defineProps<{
     alumnos: Alumno[];
     calendario: Record<string, { abierto: boolean; motivo: string | null }>;
     puedeCapturar: boolean;
+    curso: { id: number; puede_agregar: boolean; puede_ponderar: boolean; de_plantilla: boolean } | null;
+    actividades: ActividadDocente[];
+    matriz: { inscripcion_id: number; matricula: string | null; nombre: string | null; de_baja: boolean; casillas: Casilla[] }[];
+    componentes: { id: number; etiqueta: string }[];
+    tiposActividad: { valor: string; etiqueta: string; se_entrega: boolean }[];
 }>();
 
 const dias = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+
+/*
+ * ── LMS: actividades y calificación ───────────────────────────────────────
+ *
+ * Un curso sin fila todavía se comporta como uno vacío que SÍ deja agregar: la
+ * fila se crea al guardar la primera actividad. La mayoría de las materias
+ * presenciales nunca cargarán contenido y no tiene sentido una fila por cada una.
+ */
+const puedeAgregar = computed(() => props.curso === null || props.curso.puede_agregar);
+const puedePonderar = computed(() => props.curso === null || props.curso.puede_ponderar);
+
+const formActividad = useForm({
+    id: null as number | null,
+    tipo: 'actividad',
+    titulo: '',
+    instrucciones: '',
+    esquema_evaluacion_id: null as number | null,
+    puntos: 10,
+    abre_en: '',
+    cierra_en: '',
+    permite_tarde: false,
+    publicada: true,
+});
+
+const editorAbierto = ref(false);
+
+function nuevaActividad(): void {
+    formActividad.reset();
+    formActividad.clearErrors();
+    editorAbierto.value = true;
+}
+
+function editarActividad(a: ActividadDocente): void {
+    formActividad.clearErrors();
+    formActividad.id = a.id;
+    formActividad.tipo = a.tipo;
+    formActividad.titulo = a.titulo;
+    formActividad.instrucciones = a.instrucciones ?? '';
+    formActividad.esquema_evaluacion_id = a.esquema_evaluacion_id;
+    formActividad.puntos = a.puntos;
+    formActividad.abre_en = a.abre_en ?? '';
+    formActividad.cierra_en = a.cierra_en ?? '';
+    formActividad.permite_tarde = a.permite_tarde;
+    formActividad.publicada = a.publicada;
+    editorAbierto.value = true;
+}
+
+function guardarActividad(): void {
+    const base = `/docencia/materias/${props.materia.id}/actividades`;
+    const opciones = { preserveScroll: true, onSuccess: () => { editorAbierto.value = false; formActividad.reset(); } };
+
+    formActividad.id === null
+        ? formActividad.post(base, opciones)
+        : formActividad.put(`${base}/${formActividad.id}`, opciones);
+}
+
+function eliminarActividad(a: ActividadDocente): void {
+    const aviso = a.entregadas > 0
+        ? `"${a.titulo}" tiene ${a.entregadas} entrega(s). Al eliminarla se van con ella. ¿Continuar?`
+        : `¿Eliminar "${a.titulo}"?`;
+
+    if (!confirm(aviso)) return;
+
+    router.delete(`/docencia/materias/${props.materia.id}/actividades/${a.id}`, { preserveScroll: true });
+}
+
+// --- Calificar una casilla de la matriz ---
+const calificando = ref<{ inscripcion: number; actividad: number } | null>(null);
+const formCalificar = useForm({ calificacion: '' as string | number, retroalimentacion: '' });
+
+function abrirCalificacion(fila: { inscripcion_id: number }, c: Casilla): void {
+    if (c.entrega_id === null) return;
+
+    calificando.value = { inscripcion: fila.inscripcion_id, actividad: c.actividad_id };
+    formCalificar.clearErrors();
+    formCalificar.calificacion = c.calificacion ?? '';
+    formCalificar.retroalimentacion = c.retroalimentacion ?? '';
+}
+
+function guardarCalificacion(c: Casilla): void {
+    formCalificar.put(`/docencia/materias/${props.materia.id}/entregas/${c.entrega_id}/calificar`, {
+        preserveScroll: true,
+        onSuccess: () => { calificando.value = null; formCalificar.reset(); },
+    });
+}
+
+const casillaAbierta = (fila: { inscripcion_id: number }, c: Casilla) =>
+    calificando.value?.inscripcion === fila.inscripcion_id && calificando.value?.actividad === c.actividad_id;
+
+/** El color de una casilla dice de un vistazo en qué va cada alumno. */
+function colorCasilla(c: Casilla): { backgroundColor: string; color: string } {
+    if (c.calificacion !== null) {
+        return { backgroundColor: 'color-mix(in srgb, #16a34a 14%, transparent)', color: '#15803d' };
+    }
+    if (c.entrega_id !== null) {
+        return c.tarde
+            ? { backgroundColor: 'color-mix(in srgb, #d97706 16%, transparent)', color: '#b45309' }
+            : { backgroundColor: 'color-mix(in srgb, #2563eb 14%, transparent)', color: '#1d4ed8' };
+    }
+
+    return { backgroundColor: 'color-mix(in srgb, var(--color-suave) 10%, transparent)', color: 'var(--color-suave)' };
+}
+
+const tituloActividad = (id: number) => props.actividades.find((a) => a.id === id)?.titulo ?? '';
 
 const busqueda = ref('');
 
@@ -175,6 +316,224 @@ const cortesCerrados = computed(() =>
             <p v-else class="px-6 py-10 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
                 {{ busqueda ? 'Nadie coincide con la búsqueda.' : 'Todavía no hay alumnos inscritos.' }}
             </p>
+        </section>
+
+        <!-- ===== Actividades del curso ===== -->
+        <section v-if="puedeCapturar" class="tarjeta overflow-hidden">
+            <header class="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
+                <div>
+                    <h2 class="text-base font-semibold text-contenido">Actividades</h2>
+                    <p class="mt-0.5 text-sm" :style="{ color: 'var(--color-suave)' }">
+                        <template v-if="!puedePonderar">
+                            Este curso viene armado: lo que agregues aquí no pondera.
+                        </template>
+                        <template v-else-if="!componentes.length">
+                            Esta materia no tiene componentes de evaluación, así que lo que
+                            agregues será formativo hasta que control escolar los defina.
+                        </template>
+                        <template v-else>
+                            Lo que agregues puede colgar de un componente del parcial y
+                            entonces cuenta para la calificación.
+                        </template>
+                    </p>
+                </div>
+                <BotonAccion
+                    v-if="puedeAgregar"
+                    :variante="editorAbierto ? 'cerrar' : 'agregar'"
+                    texto="Actividad"
+                    :icono-al-final="editorAbierto"
+                    @click="editorAbierto ? (editorAbierto = false) : nuevaActividad()"
+                />
+            </header>
+
+            <form v-if="editorAbierto" class="border-t border-borde px-6 py-5" @submit.prevent="guardarActividad">
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <CampoSelect
+                        v-model="formActividad.tipo"
+                        etiqueta="Tipo"
+                        :opciones="tiposActividad.map((t) => ({ valor: t.valor, texto: t.etiqueta }))"
+                        :error="formActividad.errors.tipo"
+                        ayuda="La lectura no se entrega ni pondera."
+                    />
+                    <CampoTexto
+                        v-model="formActividad.titulo"
+                        etiqueta="Título"
+                        requerido
+                        :error="formActividad.errors.titulo"
+                        class="sm:col-span-2"
+                    />
+                    <CampoSelect
+                        v-if="puedePonderar && formActividad.tipo !== 'lectura'"
+                        v-model="formActividad.esquema_evaluacion_id"
+                        etiqueta="Cuenta para"
+                        :opciones="componentes.map((c) => ({ valor: c.id, texto: c.etiqueta }))"
+                        vacio="No cuenta (formativa)"
+                        :error="formActividad.errors.esquema_evaluacion_id"
+                        ayuda="Al calificarla, el componente se recalcula solo."
+                    />
+                    <CampoTexto
+                        v-if="formActividad.tipo !== 'lectura'"
+                        v-model="formActividad.puntos"
+                        etiqueta="Sobre cuántos puntos"
+                        tipo="number"
+                        min="1"
+                        :error="formActividad.errors.puntos"
+                        ayuda="Su peso dentro del componente."
+                    />
+                    <CampoTexto v-model="formActividad.abre_en" etiqueta="Abre" tipo="datetime-local" :error="formActividad.errors.abre_en" />
+                    <CampoTexto v-model="formActividad.cierra_en" etiqueta="Cierra" tipo="datetime-local" :error="formActividad.errors.cierra_en" />
+
+                    <div class="sm:col-span-2 lg:col-span-3">
+                        <label class="mb-1 block text-sm font-medium">Instrucciones</label>
+                        <textarea
+                            v-model="formActividad.instrucciones"
+                            rows="4"
+                            class="w-full rounded-lg border px-3 py-2 text-sm"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                        />
+                    </div>
+
+                    <label class="flex items-center gap-2 text-sm">
+                        <input v-model="formActividad.permite_tarde" type="checkbox" class="rounded" />
+                        Aceptar entregas tarde (quedan marcadas)
+                    </label>
+                    <label class="flex items-center gap-2 text-sm">
+                        <input v-model="formActividad.publicada" type="checkbox" class="rounded" />
+                        Visible para los alumnos
+                    </label>
+                </div>
+
+                <div class="mt-4 flex items-center gap-3">
+                    <BotonPrincipal :procesando="formActividad.processing" :texto="formActividad.id === null ? 'Agregar' : 'Guardar cambios'" icono="crear" />
+                    <button type="button" class="rounded-lg border border-borde px-4 py-2 text-sm" @click="editorAbierto = false">
+                        Cancelar
+                    </button>
+                </div>
+            </form>
+
+            <ul v-if="actividades.length" class="divide-y divide-borde border-t border-borde">
+                <li v-for="a in actividades" :key="a.id" class="flex flex-wrap items-center gap-3 px-6 py-3">
+                    <span class="min-w-0 flex-1">
+                        <span class="block font-medium text-contenido">
+                            {{ a.titulo }}
+                            <span v-if="!a.publicada" class="ml-2 rounded-full px-2 py-0.5 text-[11px]" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 14%, transparent)', color: 'var(--color-suave)' }">
+                                borrador
+                            </span>
+                        </span>
+                        <span class="block text-xs" :style="{ color: 'var(--color-suave)' }">
+                            {{ a.tipo_etiqueta }}
+                            <template v-if="a.se_entrega"> · sobre {{ a.puntos }}</template>
+                            <template v-if="a.componente"> · {{ a.componente }}</template>
+                            <template v-else-if="a.se_entrega"> · formativa</template>
+                            <template v-if="a.cierra_en"> · cierra {{ a.cierra_en.replace('T', ' ') }}</template>
+                        </span>
+                    </span>
+                    <span v-if="a.se_entrega" class="shrink-0 text-xs" :style="{ color: 'var(--color-suave)' }">
+                        {{ a.entregadas }}/{{ matriz.length }} entregaron
+                    </span>
+                    <span class="flex shrink-0 items-center gap-1">
+                        <BotonAccion variante="editar" texto="Editar la actividad" @click="editarActividad(a)" />
+                        <BotonAccion variante="eliminar" texto="Eliminar la actividad" @click="eliminarActividad(a)" />
+                    </span>
+                </li>
+            </ul>
+        </section>
+
+        <!-- ===== Matriz alumnos × actividades ===== -->
+        <section v-if="puedeCapturar && actividades.some((a) => a.se_entrega)" class="tarjeta overflow-hidden">
+            <header class="px-6 py-4">
+                <h2 class="text-base font-semibold text-contenido">Quién entregó qué</h2>
+                <p class="mt-0.5 text-sm" :style="{ color: 'var(--color-suave)' }">
+                    Una fila por alumno. Toca una casilla entregada para calificarla;
+                    el componente del parcial se recalcula solo.
+                </p>
+            </header>
+
+            <div class="overflow-x-auto border-t border-borde">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
+                            <th class="sticky left-0 z-10 px-6 py-3 font-semibold" :style="{ backgroundColor: 'var(--color-superficie)' }">Alumno</th>
+                            <th v-for="a in actividades.filter((x) => x.se_entrega)" :key="a.id" class="px-3 py-3 text-center font-semibold">
+                                <span class="block max-w-28 truncate" :title="a.titulo">{{ a.titulo }}</span>
+                                <span class="font-normal normal-case">de {{ a.puntos }}</span>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="fila in matriz" :key="fila.inscripcion_id" class="border-t" :style="{ borderColor: 'var(--color-borde)', opacity: fila.de_baja ? 0.5 : 1 }">
+                            <td class="sticky left-0 z-10 px-6 py-2" :style="{ backgroundColor: 'var(--color-superficie)' }">
+                                <span class="block truncate">{{ fila.nombre }}</span>
+                                <span class="block font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ fila.matricula }}</span>
+                            </td>
+                            <td
+                                v-for="c in fila.casillas.filter((x) => actividades.find((a) => a.id === x.actividad_id)?.se_entrega)"
+                                :key="c.actividad_id"
+                                class="px-3 py-2 text-center"
+                            >
+                                <button
+                                    type="button"
+                                    class="w-full rounded-lg px-2 py-1 text-xs font-medium disabled:cursor-not-allowed"
+                                    :style="colorCasilla(c)"
+                                    :disabled="c.entrega_id === null"
+                                    :title="c.entrega_id === null ? 'Sin entregar' : `Entregó el ${c.entregada_en}`"
+                                    @click="abrirCalificacion(fila, c)"
+                                >
+                                    {{ c.calificacion ?? (c.entrega_id ? '—' : '·') }}
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Calificar: se abre bajo la tabla con lo que el alumno entregó a
+                 la vista. Calificar sin leer la entrega no tendría sentido. -->
+            <div
+                v-if="calificando"
+                class="border-t border-borde px-6 py-4"
+                :style="{ borderLeft: '3px solid var(--color-acento)' }"
+            >
+                <template v-for="fila in matriz.filter((f) => f.inscripcion_id === calificando?.inscripcion)" :key="fila.inscripcion_id">
+                    <template v-for="c in fila.casillas.filter((x) => casillaAbierta(fila, x))" :key="c.actividad_id">
+                        <p class="text-sm font-medium text-contenido">
+                            {{ fila.nombre }} · {{ tituloActividad(c.actividad_id) }}
+                        </p>
+                        <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                            Entregó el {{ c.entregada_en }}<span v-if="c.tarde" class="text-amber-600"> · fuera de tiempo</span>
+                        </p>
+
+                        <p v-if="c.contenido" class="mt-2 whitespace-pre-line rounded-lg px-3 py-2 text-sm" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
+                            {{ c.contenido }}
+                        </p>
+
+                        <form class="mt-3 flex flex-wrap items-end gap-3" @submit.prevent="guardarCalificacion(c)">
+                            <div class="w-40">
+                                <CampoTexto
+                                    v-model="formCalificar.calificacion"
+                                    etiqueta="Calificación"
+                                    tipo="number"
+                                    step="0.01"
+                                    min="0"
+                                    :error="formCalificar.errors.calificacion"
+                                />
+                            </div>
+                            <div class="min-w-64 flex-1">
+                                <CampoTexto
+                                    v-model="formCalificar.retroalimentacion"
+                                    etiqueta="Retroalimentación"
+                                    marcador="Lo que el alumno debe saber de su trabajo."
+                                    :error="formCalificar.errors.retroalimentacion"
+                                />
+                            </div>
+                            <BotonPrincipal :procesando="formCalificar.processing" texto="Guardar" icono="crear" />
+                            <button type="button" class="rounded-lg border border-borde px-4 py-2 text-sm" @click="calificando = null">
+                                Cerrar
+                            </button>
+                        </form>
+                    </template>
+                </template>
+            </div>
         </section>
     </AppLayout>
 </template>

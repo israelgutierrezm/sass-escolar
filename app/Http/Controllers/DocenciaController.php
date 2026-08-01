@@ -4,11 +4,16 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Enums\TipoActividad;
+use App\Models\Academico\EsquemaEvaluacion;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Ciclo;
 use App\Models\ControlEscolar\Docente;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Identidad\Usuario;
+use App\Models\Lms\Actividad;
+use App\Models\Lms\Curso;
+use App\Models\Lms\Entrega;
 use App\Services\CalendarioCaptura;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -148,7 +153,104 @@ class DocenciaController extends Controller
             ]),
             'calendario' => $this->calendario->estadoPorParcial($asignaturaGrupo, $personaId),
             'puedeCapturar' => $request->user()->can('capturar-calificaciones'),
+            ...$this->datosLms($asignaturaGrupo, $inscripciones),
         ]);
+    }
+
+    /**
+     * El LMS de esta materia: sus actividades y quién entregó qué.
+     *
+     * Se manda la MATRIZ alumnos × actividades ya armada —una fila por alumno,
+     * una casilla por actividad— porque es como el docente la mira: recorre a
+     * sus alumnos, no sus actividades. Cruzarla en el navegador obligaría a
+     * mandar las entregas sueltas y rearmarlas ahí.
+     *
+     * @param  \Illuminate\Support\Collection<int, Inscripcion>  $inscripciones
+     * @return array<string, mixed>
+     */
+    private function datosLms(AsignaturaGrupo $asignaturaGrupo, $inscripciones): array
+    {
+        $curso = Curso::query()->where('asignatura_grupo_id', $asignaturaGrupo->id)->first();
+
+        $actividades = $curso === null
+            ? collect()
+            : Actividad::query()
+                ->where('curso_id', $curso->id)
+                ->with('componente:id,componente,parcial')
+                ->orderBy('orden')->orderBy('id')
+                ->get();
+
+        $entregas = $actividades->isEmpty()
+            ? collect()
+            : Entrega::query()
+                ->whereIn('actividad_id', $actividades->pluck('id'))
+                ->get()
+                ->groupBy('inscripcion_id');
+
+        // Los componentes ponderados a los que el docente puede amarrar una
+        // actividad. Son del PLAN, así que existen aunque nadie los use.
+        $componentes = EsquemaEvaluacion::query()
+            ->where('plan_materia_id', $asignaturaGrupo->plan_materia_id)
+            ->orderBy('parcial')->orderBy('orden')
+            ->get(['id', 'componente', 'parcial', 'porcentaje']);
+
+        return [
+            'curso' => $curso === null ? null : [
+                'id' => $curso->id,
+                'puede_agregar' => $curso->docente_puede_agregar,
+                'puede_ponderar' => $curso->docente_puede_ponderar,
+                'de_plantilla' => $curso->plantilla_origen_id !== null,
+            ],
+            'actividades' => $actividades->map(fn (Actividad $a) => [
+                'id' => $a->id,
+                'tipo' => $a->tipo->value,
+                'tipo_etiqueta' => $a->tipo->etiqueta(),
+                'se_entrega' => $a->tipo->seEntrega(),
+                'titulo' => $a->titulo,
+                'instrucciones' => $a->instrucciones,
+                'puntos' => (float) $a->puntos,
+                'esquema_evaluacion_id' => $a->esquema_evaluacion_id,
+                'componente' => $a->componente === null
+                    ? null
+                    : "P{$a->componente->parcial} · {$a->componente->componente}",
+                'abre_en' => $a->abre_en?->format('Y-m-d\TH:i'),
+                'cierra_en' => $a->cierra_en?->format('Y-m-d\TH:i'),
+                'permite_tarde' => $a->permite_tarde,
+                'publicada' => $a->publicada,
+                'entregadas' => ($entregas->flatten()->where('actividad_id', $a->id)
+                    ->whereNotNull('entregada_en')->count()),
+            ])->values(),
+            // Una fila por alumno con su casilla en cada actividad.
+            'matriz' => $inscripciones->map(function (Inscripcion $i) use ($actividades, $entregas) {
+                $suyas = ($entregas->get($i->id) ?? collect())->keyBy('actividad_id');
+
+                return [
+                    'inscripcion_id' => $i->id,
+                    'matricula' => $i->matriculaOferta?->matricula,
+                    'nombre' => $i->matriculaOferta?->persona?->nombreCompleto(),
+                    'de_baja' => $i->situacion?->clave === 'baja',
+                    'casillas' => $actividades->map(function (Actividad $a) use ($suyas) {
+                        $e = $suyas->get($a->id);
+
+                        return [
+                            'actividad_id' => $a->id,
+                            'entrega_id' => $e?->id,
+                            'estado' => $e?->estado ?? 'sin_entregar',
+                            'tarde' => (bool) ($e?->tarde ?? false),
+                            'calificacion' => $e?->calificacion === null ? null : (float) $e->calificacion,
+                            'retroalimentacion' => $e?->retroalimentacion,
+                            'contenido' => $e?->contenido,
+                            'entregada_en' => $e?->entregada_en?->format('Y-m-d H:i'),
+                        ];
+                    })->values(),
+                ];
+            })->values(),
+            'componentes' => $componentes->map(fn (EsquemaEvaluacion $e) => [
+                'id' => $e->id,
+                'etiqueta' => "Parcial {$e->parcial} · {$e->componente} ({$e->porcentaje}%)",
+            ])->values(),
+            'tiposActividad' => TipoActividad::paraSelect(),
+        ];
     }
 
     /**

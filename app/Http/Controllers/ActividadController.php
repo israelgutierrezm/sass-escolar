@@ -1,0 +1,228 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers;
+
+use App\Enums\TipoActividad;
+use App\Models\Academico\EsquemaEvaluacion;
+use App\Models\ControlEscolar\AsignaturaGrupo;
+use App\Models\Identidad\Usuario;
+use App\Models\Lms\Actividad;
+use App\Models\Lms\Curso;
+use App\Models\Lms\Entrega;
+use App\Services\Lms\CalculadorComponente;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+
+/**
+ * Las actividades de una materia, desde el lado del docente.
+ *
+ * El alcance no lo da el permiso sino la ASIGNACIÓN, igual que en el resto del
+ * portal del docente: `capturar-calificaciones` dice que puede calificar, la
+ * asignación dice en qué materia. Un docente con el permiso y sin la materia
+ * recibe 403.
+ */
+class ActividadController extends Controller
+{
+    public function __construct(private readonly CalculadorComponente $calculador) {}
+
+    public function store(Request $request, AsignaturaGrupo $asignaturaGrupo): RedirectResponse
+    {
+        $this->autorizar($request, $asignaturaGrupo);
+
+        $curso = $this->cursoDe($asignaturaGrupo);
+        $datos = $this->validar($request, $asignaturaGrupo, $curso);
+
+        $datos['curso_id'] = $curso->id;
+        $datos['orden'] = (int) Actividad::where('curso_id', $curso->id)->max('orden') + 1;
+
+        Actividad::create($datos);
+
+        return back()->with('exito', 'Actividad agregada.');
+    }
+
+    public function update(Request $request, AsignaturaGrupo $asignaturaGrupo, Actividad $actividad): RedirectResponse
+    {
+        $this->autorizar($request, $asignaturaGrupo);
+        $this->exigirDeLaMateria($actividad, $asignaturaGrupo);
+
+        $actividad->update($this->validar($request, $asignaturaGrupo, $actividad->curso));
+
+        // Cambiar a qué componente cuelga —o quitarle el amarre— altera lo que
+        // promedia: hay que rehacer las cuentas de todos sus alumnos.
+        $this->recalcularTodos($actividad);
+
+        return back()->with('exito', 'Actividad actualizada.');
+    }
+
+    public function destroy(Request $request, AsignaturaGrupo $asignaturaGrupo, Actividad $actividad): RedirectResponse
+    {
+        $this->autorizar($request, $asignaturaGrupo);
+        $this->exigirDeLaMateria($actividad, $asignaturaGrupo);
+
+        $entregadas = $actividad->entregas()->whereNotNull('entregada_en')->count();
+        $esquemaId = $actividad->esquema_evaluacion_id;
+        $inscripciones = $actividad->entregas()->pluck('inscripcion_id');
+
+        $actividad->delete();
+
+        // Al desaparecer, lo que aportaba al componente deja de contar.
+        if ($esquemaId !== null) {
+            foreach ($inscripciones as $inscripcionId) {
+                $this->calculador->recalcular((int) $inscripcionId, (int) $esquemaId);
+            }
+        }
+
+        return back()->with(
+            'exito',
+            $entregadas > 0
+                ? "Actividad eliminada junto con {$entregadas} entrega(s)."
+                : 'Actividad eliminada.',
+        );
+    }
+
+    /** Calificar la entrega de un alumno; el componente se recalcula solo. */
+    public function calificar(Request $request, AsignaturaGrupo $asignaturaGrupo, Entrega $entrega): RedirectResponse
+    {
+        $this->autorizar($request, $asignaturaGrupo);
+        $this->exigirDeLaMateria($entrega->actividad, $asignaturaGrupo);
+
+        $datos = $request->validate([
+            'calificacion' => ['required', 'numeric', 'min:0', 'max:'.$entrega->actividad->puntos],
+            'retroalimentacion' => ['nullable', 'string', 'max:4000'],
+        ], [], ['calificacion' => 'calificación']);
+
+        /** @var Usuario $usuario */
+        $usuario = $request->user();
+
+        $entrega->update([
+            'calificacion' => $datos['calificacion'],
+            'retroalimentacion' => $datos['retroalimentacion'] ?? null,
+            'estado' => Entrega::CALIFICADA,
+            'calificada_por' => $usuario->id,
+            'calificada_en' => now(),
+        ]);
+
+        $this->calculador->tras($entrega);
+
+        return back()->with('exito', 'Calificación registrada.');
+    }
+
+    /**
+     * El curso de esta materia impartida, creándolo si es la primera actividad.
+     *
+     * Se crea al vuelo y no al abrir la materia: la mayoría de las materias
+     * presenciales nunca cargarán contenido, y una fila vacía por cada una solo
+     * ensucia.
+     */
+    private function cursoDe(AsignaturaGrupo $asignaturaGrupo): Curso
+    {
+        return Curso::firstOrCreate(
+            ['asignatura_grupo_id' => $asignaturaGrupo->id],
+            ['publicado' => true],
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function validar(Request $request, AsignaturaGrupo $asignaturaGrupo, Curso $curso): array
+    {
+        $datos = $request->validate([
+            'tipo' => ['required', Rule::enum(TipoActividad::class)],
+            'titulo' => ['required', 'string', 'max:180'],
+            'instrucciones' => ['nullable', 'string', 'max:20000'],
+            'esquema_evaluacion_id' => ['nullable', 'integer'],
+            'puntos' => ['required', 'numeric', 'min:1', 'max:1000'],
+            'abre_en' => ['nullable', 'date'],
+            'cierra_en' => ['nullable', 'date', 'after_or_equal:abre_en'],
+            'permite_tarde' => ['boolean'],
+            'publicada' => ['boolean'],
+        ], [], [
+            'esquema_evaluacion_id' => 'componente de evaluación',
+            'cierra_en' => 'fecha de cierre',
+            'abre_en' => 'fecha de apertura',
+        ]);
+
+        // Una lectura no se entrega, así que no pondera: dejarle un componente
+        // amarrado prometería una calificación que nunca va a llegar.
+        if ($datos['tipo'] === TipoActividad::Lectura->value) {
+            $datos['esquema_evaluacion_id'] = null;
+        }
+
+        if ($datos['esquema_evaluacion_id'] !== null) {
+            $this->exigirComponentePropio($datos['esquema_evaluacion_id'], $asignaturaGrupo, $curso);
+        }
+
+        return $datos;
+    }
+
+    /**
+     * El componente tiene que ser de ESTA materia, y la escuela tiene que
+     * dejar ponderar al docente. Las dos cosas se validan en el servidor: la
+     * interfaz esconde el selector, pero el POST llega igual.
+     */
+    private function exigirComponentePropio(int $esquemaId, AsignaturaGrupo $asignaturaGrupo, Curso $curso): void
+    {
+        if (! $curso->docente_puede_ponderar) {
+            throw ValidationException::withMessages([
+                'esquema_evaluacion_id' => 'En este curso las actividades que agregas no pueden ponderar.',
+            ]);
+        }
+
+        $esDeLaMateria = EsquemaEvaluacion::query()
+            ->where('id', $esquemaId)
+            ->where('plan_materia_id', $asignaturaGrupo->plan_materia_id)
+            ->exists();
+
+        if (! $esDeLaMateria) {
+            throw ValidationException::withMessages([
+                'esquema_evaluacion_id' => 'Ese componente no pertenece a esta materia.',
+            ]);
+        }
+    }
+
+    private function exigirDeLaMateria(?Actividad $actividad, AsignaturaGrupo $asignaturaGrupo): void
+    {
+        $suya = $actividad?->curso?->asignatura_grupo_id === $asignaturaGrupo->id;
+
+        abort_unless($suya, 404);
+    }
+
+    /** Rehace el componente de todos los alumnos que entregaron la actividad. */
+    private function recalcularTodos(Actividad $actividad): void
+    {
+        if ($actividad->esquema_evaluacion_id === null) {
+            return;
+        }
+
+        foreach ($actividad->entregas()->pluck('inscripcion_id') as $inscripcionId) {
+            $this->calculador->recalcular((int) $inscripcionId, (int) $actividad->esquema_evaluacion_id);
+        }
+    }
+
+    /** Solo se toca una materia propia: se comprueba la asignación, no el permiso. */
+    private function autorizar(Request $request, AsignaturaGrupo $asignaturaGrupo): void
+    {
+        /** @var Usuario $usuario */
+        $usuario = $request->user();
+        $personaId = $usuario->persona_id;
+
+        // Control escolar entra a cualquier materia; el docente, solo a la suya.
+        if ($usuario->can('abrir-grupos')) {
+            return;
+        }
+
+        $esSuya = $personaId !== null && $asignaturaGrupo->docentes()
+            ->where('docentes.persona_id', $personaId)
+            ->exists();
+
+        if (! $esSuya) {
+            throw new AccessDeniedHttpException('Esa materia no es tuya.');
+        }
+    }
+}

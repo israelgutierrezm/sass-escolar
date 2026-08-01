@@ -386,10 +386,17 @@ compartible en grupo).
 | asignatura_id | bigint FK → asignaturas | |
 | clave_en_plan | varchar(50) | La clave que sale en el acta de ESTE plan |
 | periodo | int NULL | Semestre/cuatrimestre sugerido |
-| tipo | varchar(30) | obligatoria / optativa / tronco_comun |
+| tipo | varchar(30) NULL | **En desuso**, ver abajo |
 | creditos_en_plan | float NULL | Override de créditos si difiere del catálogo |
 
 Índice único (plan_id, clave_en_plan).
+
+`tipo` ya no se captura. Traía su propio vocabulario en minúsculas
+(obligatoria / optativa / tronco_comun) que convivía con el catálogo
+`tipos_asignatura` y se le parecía lo bastante como para confundir: eran dos
+«tipos de asignatura» distintos en pantallas distintas. Manda el del catálogo,
+`asignaturas.tipo_asignatura_id`, que además es el que viaja al certificado SEP.
+La columna se dejó nullable —no se eliminó— con los valores históricos dentro.
 
 ### `esquema_evaluacion` (TENANT)  ← cómo se compone la calificación (relacional, no JSON)
 Reemplaza el `ponderacion_config` jsonb. Una fila por componente de calificación de una

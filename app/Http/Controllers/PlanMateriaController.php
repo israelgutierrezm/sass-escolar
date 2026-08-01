@@ -18,7 +18,6 @@ use App\Models\ControlEscolar\AsignaturaGrupo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -75,7 +74,9 @@ class PlanMateriaController extends Controller
                 'asignatura_clave' => $materia->asignatura?->clave,
                 'clave_en_plan' => $materia->clave_en_plan,
                 'periodo' => $materia->periodo,
-                'tipo' => $materia->tipo,
+                // El tipo sale del catálogo de la ASIGNATURA (OBLIGATORIA,
+                // OPTATIVA…), no de una columna propia de la materia-en-plan.
+                'tipo' => $materia->asignatura?->tipoAsignatura?->nombre,
                 'creditos' => $materia->asignatura?->creditos,
                 // Para la vista de cuadrícula: el color del área pinta la tarjeta.
                 'area' => $materia->asignatura?->area?->nombre,
@@ -119,7 +120,6 @@ class PlanMateriaController extends Controller
                 'asignatura' => $asig?->nombre,
                 'asignatura_id' => $materia->asignatura_id,
                 'periodo' => $materia->periodo,
-                'tipo' => $materia->tipo,
                 'creditos' => $asig?->creditos,
             ],
             // Datos completos de la asignatura para editarla desde aquí (todo en
@@ -208,7 +208,6 @@ class PlanMateriaController extends Controller
                 // asignatura (ya única). No hay «clave de acta» aparte.
                 'clave_en_plan' => $asignatura->clave,
                 'periodo' => $request->validated('periodo'),
-                'tipo' => $request->validated('tipo'),
             ]);
         });
 
@@ -277,6 +276,8 @@ class PlanMateriaController extends Controller
 
     /**
      * Edición: solo la ubicación de la materia en el plan (no la asignatura).
+     * Hoy la ubicación es únicamente el periodo: si es obligatoria u optativa lo
+     * dice el tipo de la ASIGNATURA, no una columna aparte de la materia-en-plan.
      *
      * @return array<string, mixed>
      */
@@ -284,7 +285,6 @@ class PlanMateriaController extends Controller
     {
         return $request->validate([
             'periodo' => ['nullable', 'integer', 'min:1', 'max:30'],
-            'tipo' => ['required', Rule::in(['obligatoria', 'optativa', 'tronco_comun'])],
         ]);
     }
 }
