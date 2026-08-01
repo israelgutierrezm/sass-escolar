@@ -176,11 +176,22 @@ const etiquetaEstatus: Record<string, string> = {
                     </p>
                 </div>
 
-                <div v-if="curso.avance !== null" class="text-right">
-                    <p class="text-2xl font-semibold leading-none" :style="{ color: 'var(--color-acento)' }">
-                        {{ curso.avance }}%
-                    </p>
-                    <p class="mt-1 text-xs text-suave">de la evaluación<br />ya calificada</p>
+                <div class="flex shrink-0 items-start gap-4">
+                    <!-- El canal con el docente, mientras la materia siga activa. -->
+                    <a
+                        :href="`/materias/${curso.id}/chat`"
+                        class="rounded-lg border px-3 py-1.5 text-xs font-medium"
+                        :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
+                    >
+                        Chat de la materia
+                    </a>
+
+                    <div v-if="curso.avance !== null" class="text-right">
+                        <p class="text-2xl font-semibold leading-none" :style="{ color: 'var(--color-acento)' }">
+                            {{ curso.avance }}%
+                        </p>
+                        <p class="mt-1 text-xs text-suave">de la evaluación<br />ya calificada</p>
+                    </div>
                 </div>
             </div>
 
@@ -304,6 +315,14 @@ const etiquetaEstatus: Record<string, string> = {
                                 :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
                             >
                                 {{ a.entrega?.entregada_en ? 'Ver mi examen' : 'Presentar examen' }}
+                            </a>
+                            <a
+                                v-else-if="a.tipo === 'foro'"
+                                :href="`/materias/${curso.id}/foros/${a.id}`"
+                                class="rounded-lg border px-3 py-1.5 text-xs font-medium"
+                                :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
+                            >
+                                Entrar al foro
                             </a>
                             <button
                                 v-else-if="a.se_entrega && a.abierta"

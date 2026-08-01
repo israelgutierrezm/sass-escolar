@@ -60,7 +60,9 @@ use App\Http\Controllers\PortalAspiranteController;
 use App\Http\Controllers\PromocionController;
 use App\Http\Controllers\RolActivoController;
 use App\Http\Controllers\ActividadController;
+use App\Http\Controllers\ChatMateriaController;
 use App\Http\Controllers\CursoPlantillaController;
+use App\Http\Controllers\ForoController;
 use App\Http\Controllers\EntregaController;
 use App\Http\Controllers\ExamenController;
 use App\Http\Controllers\MenuRolController;
@@ -917,6 +919,36 @@ Route::middleware([
                 Route::post('intentos/{intento}/responder', 'responder')->whereNumber('intento')->name('responder');
                 Route::post('intentos/{intento}/archivo', 'responderArchivo')->whereNumber('intento')->name('archivo');
                 Route::post('intentos/{intento}/entregar', 'entregar')->whereNumber('intento')->name('entregar');
+            });
+
+        /*
+         * Chat y foros de una materia. UNA sola entrada para el docente y el
+         * alumno: lo que hacen es lo mismo y quién entra lo decide la
+         * PERTENENCIA —estar inscrito o tenerla asignada—, dentro del
+         * controlador. Por eso la URL cuelga de la materia y no del portal.
+         *
+         * Sin `can:` a propósito: no hay permiso de «chatear». Un permiso aquí
+         * daría acceso al chat de materias ajenas a quien lo tuviera.
+         */
+        Route::controller(ChatMateriaController::class)
+            ->prefix('materias/{materia}/chat')->name('tenant.chat.')
+            ->whereNumber('materia')
+            ->group(function () {
+                Route::get('/', 'show')->name('show');
+                Route::post('directa', 'abrirDirecta')->name('directa');
+                Route::post('{conversacion}', 'publicar')->whereNumber('conversacion')->name('publicar');
+                Route::get('{conversacion}/nuevos', 'nuevos')->whereNumber('conversacion')->name('nuevos');
+            });
+
+        Route::controller(ForoController::class)
+            ->prefix('materias/{materia}/foros/{actividad}')->name('tenant.foros.')
+            ->whereNumber(['materia', 'actividad'])
+            ->group(function () {
+                Route::get('/', 'show')->name('show');
+                Route::post('temas', 'crearTema')->name('temas.crear');
+                Route::post('temas/{tema}/respuestas', 'responder')->whereNumber('tema')->name('responder');
+                Route::put('temas/{tema}', 'moderar')->whereNumber('tema')->name('moderar');
+                Route::delete('temas/{tema}', 'eliminarTema')->whereNumber('tema')->name('temas.eliminar');
             });
 
         /*

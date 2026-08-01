@@ -331,6 +331,14 @@ const cortesCerrados = computed(() =>
                     </p>
                 </div>
 
+                <!-- El canal con el grupo y con cada alumno. -->
+                <a
+                    :href="`/materias/${materia.id}/chat`"
+                    class="shrink-0 rounded-lg border px-3 py-1.5 text-xs font-medium"
+                    :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
+                >
+                    Chat de la materia
+                </a>
             </div>
 
             <div
@@ -670,6 +678,14 @@ const cortesCerrados = computed(() =>
                             :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
                         >
                             Armar examen
+                        </a>
+                        <a
+                            v-else-if="a.tipo === 'foro'"
+                            :href="`/materias/${materia.id}/foros/${a.id}`"
+                            class="rounded-lg border px-3 py-1.5 text-xs font-medium"
+                            :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
+                        >
+                            Abrir foro
                         </a>
                         <BotonAccion variante="editar" texto="Editar la actividad" @click="editarActividad(a)" />
                         <BotonAccion variante="eliminar" texto="Eliminar la actividad" @click="eliminarActividad(a)" />
