@@ -8,6 +8,7 @@ use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Grupo;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\ControlEscolar\SituacionAsignaturaGrupo;
+use App\Services\Lms\CopiadorDeCurso;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +24,8 @@ use Illuminate\Validation\ValidationException;
  */
 class AsignaturaGrupoController extends Controller
 {
+    public function __construct(private readonly CopiadorDeCurso $copiador) {}
+
     /**
      * Abre una o varias materias de golpe.
      *
@@ -59,20 +62,37 @@ class AsignaturaGrupoController extends Controller
         }
 
         $activa = SituacionAsignaturaGrupo::query()->where('clave', 'activa')->value('id');
+        $conPlantilla = 0;
 
-        DB::transaction(function () use ($nuevas, $grupo, $activa): void {
+        DB::transaction(function () use ($nuevas, $grupo, $activa, &$conPlantilla): void {
             foreach ($nuevas as $planMateriaId) {
-                AsignaturaGrupo::create([
+                $abierta = AsignaturaGrupo::create([
                     'grupo_id' => $grupo->id,
                     'plan_materia_id' => $planMateriaId,
                     'situacion_id' => $activa,
                 ]);
+
+                /*
+                 * Si la escuela armó el curso en el plan, el grupo nace con él.
+                 * Se copia AQUÍ y no la primera vez que alguien entra a la
+                 * materia: el docente tiene que encontrarlo listo el día que le
+                 * asignan el grupo, no descubrirlo apareciendo solo.
+                 */
+                if ($this->copiador->alAbrirMateria($abierta) !== null) {
+                    $conPlantilla++;
+                }
             }
         });
 
         $mensaje = count($nuevas) === 1
             ? 'Materia abierta en el grupo.'
             : count($nuevas).' materias abiertas en el grupo.';
+
+        if ($conPlantilla > 0) {
+            $mensaje .= $conPlantilla === 1
+                ? ' Una traía curso en línea, ya cargado.'
+                : " {$conPlantilla} traían curso en línea, ya cargado.";
+        }
 
         // Si venían repetidas se dice, en vez de fingir que se abrieron todas.
         if ($yaAbiertas !== []) {

@@ -46,7 +46,15 @@ interface TipoReactivo {
 }
 
 const props = defineProps<{
-    materia: { id: number; nombre: string };
+    /*
+     * La pantalla sirve a dos lados: el docente sobre el curso de su grupo y la
+     * escuela sobre la plantilla del plan. Las URLs las manda el servidor en vez
+     * de armarlas aquí con ids, porque si no la vista tendría que saber desde
+     * dónde la abrieron.
+     */
+    ruta_base: string;
+    volver: { href: string; texto: string };
+    ruta_calificar: string | null;
     actividad: { id: number; titulo: string; puntos: number; publicada: boolean; cierra_en: string | null };
     examen: {
         id: number;
@@ -75,7 +83,7 @@ const props = defineProps<{
     }[];
 }>();
 
-const base = `/docencia/materias/${props.materia.id}/examenes/${props.actividad.id}`;
+const base = props.ruta_base;
 
 /* ── Reglas de aplicación ──────────────────────────────────────────────── */
 
@@ -273,7 +281,7 @@ function abrirCalificacion(respuestaId: number): void {
 }
 
 function calificar(respuestaId: number): void {
-    formCalificar.put(`/docencia/materias/${props.materia.id}/respuestas/${respuestaId}/calificar`, {
+    formCalificar.put(`${props.ruta_calificar}/${respuestaId}/calificar`, {
         preserveScroll: true,
         onSuccess: () => (calificando.value = null),
     });
@@ -287,7 +295,7 @@ const porRevisar = computed(() => props.intentos.filter((i) => i.requiere_revisi
 
     <AppLayout titulo="Armar examen">
         <section class="tarjeta p-6">
-            <BotonVolver :href="`/docencia/materias/${materia.id}`" :texto="materia.nombre" class="mb-4" />
+            <BotonVolver :href="volver.href" :texto="volver.texto" class="mb-4" />
 
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div class="min-w-0">

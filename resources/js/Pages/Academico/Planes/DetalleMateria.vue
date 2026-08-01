@@ -205,6 +205,15 @@ const etiquetaTipoReq = (tipo: string) => (tipo === 'aprobada' ? 'Aprobada' : 'C
                         · {{ materia.creditos }} créditos
                     </p>
                 </div>
+
+                <!-- El contenido que cada grupo copiará al abrir esta materia. -->
+                <a
+                    :href="`/academico/planes/${plan.id}/materias/${materia.id}/curso`"
+                    class="shrink-0 rounded-lg border px-3 py-1.5 text-xs font-medium"
+                    :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
+                >
+                    Curso en línea
+                </a>
             </div>
         </section>
 

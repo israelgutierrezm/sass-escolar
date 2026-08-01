@@ -60,6 +60,7 @@ use App\Http\Controllers\PortalAspiranteController;
 use App\Http\Controllers\PromocionController;
 use App\Http\Controllers\RolActivoController;
 use App\Http\Controllers\ActividadController;
+use App\Http\Controllers\CursoPlantillaController;
 use App\Http\Controllers\EntregaController;
 use App\Http\Controllers\ExamenController;
 use App\Http\Controllers\MenuRolController;
@@ -355,6 +356,35 @@ Route::middleware([
                 // Malla curricular: qué asignaturas componen un plan.
                 Route::get('planes/{plan}/materias', [PlanMateriaController::class, 'index'])->name('planes.materias.index');
                 Route::get('planes/{plan}/materias/{materia}', [PlanMateriaController::class, 'show'])->name('planes.materias.show');
+
+                /*
+                 * Curso en línea de una materia del plan: la PLANTILLA que cada
+                 * grupo copia al abrirse. Se lee con el mismo permiso que la
+                 * malla —es parte del plan— y se escribe con el de edición.
+                 */
+                Route::get('planes/{plan}/materias/{materia}/curso', [CursoPlantillaController::class, 'show'])
+                    ->whereNumber(['plan', 'materia'])->name('planes.materias.curso');
+
+                Route::middleware($escritura['middleware'])
+                    ->controller(CursoPlantillaController::class)
+                    ->prefix('planes/{plan}/materias/{materia}/curso')
+                    ->name('planes.materias.curso.')
+                    ->whereNumber(['plan', 'materia'])
+                    ->group(function () {
+                        Route::put('/', 'guardar')->name('guardar');
+                        Route::post('copiar', 'copiarAGrupos')->name('copiar');
+
+                        Route::post('actividades', 'guardarActividad')->name('actividades.crear');
+                        Route::put('actividades/{actividad}', 'guardarActividad')->whereNumber('actividad')->name('actividades.editar');
+                        Route::delete('actividades/{actividad}', 'eliminarActividad')->whereNumber('actividad')->name('actividades.eliminar');
+
+                        Route::get('examenes/{actividad}', 'examen')->whereNumber('actividad')->name('examen');
+                        Route::put('examenes/{actividad}', 'actualizarExamen')->whereNumber('actividad')->name('examen.actualizar');
+                        Route::put('examenes/{actividad}/armado', 'armarExamenDe')->whereNumber('actividad')->name('examen.armado');
+                        Route::post('examenes/{actividad}/reactivos', 'guardarReactivo')->whereNumber('actividad')->name('examen.reactivo.crear');
+                        Route::put('examenes/{actividad}/reactivos/{reactivo}', 'guardarReactivo')->whereNumber(['actividad', 'reactivo'])->name('examen.reactivo.editar');
+                        Route::delete('examenes/{actividad}/reactivos/{reactivo}', 'eliminarReactivo')->whereNumber(['actividad', 'reactivo'])->name('examen.reactivo.eliminar');
+                    });
 
                 Route::middleware($escritura['middleware'])->group(function () {
                     // Carga masiva por Excel: plantilla completa (desde
