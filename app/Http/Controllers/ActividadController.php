@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Enums\TipoActividad;
+use App\Http\Controllers\Concerns\AutorizaMateriaPropia;
 use App\Models\Academico\EsquemaEvaluacion;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\Identidad\Usuario;
@@ -16,7 +17,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
-use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
  * Las actividades de una materia, desde el lado del docente.
@@ -28,6 +28,8 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  */
 class ActividadController extends Controller
 {
+    use AutorizaMateriaPropia;
+
     public function __construct(private readonly CalculadorComponente $calculador) {}
 
     public function store(Request $request, AsignaturaGrupo $asignaturaGrupo): RedirectResponse
@@ -208,21 +210,6 @@ class ActividadController extends Controller
     /** Solo se toca una materia propia: se comprueba la asignación, no el permiso. */
     private function autorizar(Request $request, AsignaturaGrupo $asignaturaGrupo): void
     {
-        /** @var Usuario $usuario */
-        $usuario = $request->user();
-        $personaId = $usuario->persona_id;
-
-        // Control escolar entra a cualquier materia; el docente, solo a la suya.
-        if ($usuario->can('abrir-grupos')) {
-            return;
-        }
-
-        $esSuya = $personaId !== null && $asignaturaGrupo->docentes()
-            ->where('docentes.persona_id', $personaId)
-            ->exists();
-
-        if (! $esSuya) {
-            throw new AccessDeniedHttpException('Esa materia no es tuya.');
-        }
+        $this->autorizarMateriaPropia($request, $asignaturaGrupo);
     }
 }

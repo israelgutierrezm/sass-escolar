@@ -661,6 +661,16 @@ const cortesCerrados = computed(() =>
                         {{ a.entregadas }}/{{ matriz.length }} entregaron
                     </span>
                     <span class="flex shrink-0 items-center gap-1">
+                        <!-- Un examen se arma aparte: redactar reactivos es otro
+                             trabajo que poner fecha y ponderación. -->
+                        <a
+                            v-if="a.tipo === 'examen'"
+                            :href="`/docencia/materias/${materia.id}/examenes/${a.id}`"
+                            class="rounded-lg border px-3 py-1.5 text-xs font-medium"
+                            :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
+                        >
+                            Armar examen
+                        </a>
                         <BotonAccion variante="editar" texto="Editar la actividad" @click="editarActividad(a)" />
                         <BotonAccion variante="eliminar" texto="Eliminar la actividad" @click="eliminarActividad(a)" />
                     </span>

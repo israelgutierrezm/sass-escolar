@@ -295,8 +295,18 @@ const etiquetaEstatus: Record<string, string> = {
                             </span>
                             <span v-else-if="a.se_entrega" class="text-xs text-suave">sobre {{ a.puntos }}</span>
 
+                            <!-- Un examen no se «entrega» aquí: se presenta en su
+                                 propia pantalla, con su reloj y sus intentos. -->
+                            <a
+                                v-if="a.tipo === 'examen'"
+                                :href="`/mis-cursos/examenes/${a.id}`"
+                                class="rounded-lg border px-3 py-1.5 text-xs font-medium"
+                                :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
+                            >
+                                {{ a.entrega?.entregada_en ? 'Ver mi examen' : 'Presentar examen' }}
+                            </a>
                             <button
-                                v-if="a.se_entrega && a.abierta"
+                                v-else-if="a.se_entrega && a.abierta"
                                 type="button"
                                 class="rounded-lg border px-3 py-1.5 text-xs font-medium"
                                 :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"

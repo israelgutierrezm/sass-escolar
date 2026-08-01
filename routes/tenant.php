@@ -61,9 +61,11 @@ use App\Http\Controllers\PromocionController;
 use App\Http\Controllers\RolActivoController;
 use App\Http\Controllers\ActividadController;
 use App\Http\Controllers\EntregaController;
+use App\Http\Controllers\ExamenController;
 use App\Http\Controllers\MenuRolController;
 use App\Http\Controllers\MisCursosController;
 use App\Http\Controllers\PaseListaController;
+use App\Http\Controllers\PresentacionExamenController;
 use App\Http\Controllers\RolController;
 use App\Http\Controllers\TarjetaRolController;
 use App\Http\Controllers\SeriacionController;
@@ -847,6 +849,44 @@ Route::middleware([
                 Route::put('actividades/{actividad}', 'update')->whereNumber('actividad')->name('update');
                 Route::delete('actividades/{actividad}', 'destroy')->whereNumber('actividad')->name('destroy');
                 Route::put('entregas/{entrega}/calificar', 'calificar')->whereNumber('entrega')->name('calificar');
+            });
+
+        /*
+         * Exámenes desde el docente: armado del banco y revisión de lo que la
+         * máquina no puede calificar. Mismo permiso y mismo criterio de alcance
+         * que las actividades —un examen ES una actividad—, con pantalla aparte
+         * porque redactar reactivos es otro trabajo que poner una fecha.
+         */
+        Route::controller(ExamenController::class)
+            ->prefix('docencia/materias/{asignaturaGrupo}')->name('tenant.examenes.')
+            ->middleware('can:capturar-calificaciones')
+            ->whereNumber('asignaturaGrupo')
+            ->group(function () {
+                Route::get('examenes/{actividad}', 'show')->whereNumber('actividad')->name('armar');
+                Route::put('examenes/{actividad}', 'actualizar')->whereNumber('actividad')->name('actualizar');
+                Route::put('examenes/{actividad}/armado', 'armar')->whereNumber('actividad')->name('armado');
+                Route::post('examenes/{actividad}/reactivos', 'guardarReactivo')->whereNumber('actividad')->name('reactivo.crear');
+                Route::put('examenes/{actividad}/reactivos/{reactivo}', 'guardarReactivo')->whereNumber('actividad')->whereNumber('reactivo')->name('reactivo.editar');
+                Route::delete('examenes/{actividad}/reactivos/{reactivo}', 'eliminarReactivo')->whereNumber('actividad')->whereNumber('reactivo')->name('reactivo.eliminar');
+                Route::put('respuestas/{respuesta}/calificar', 'calificarRespuesta')->whereNumber('respuesta')->name('respuesta.calificar');
+            });
+
+        /*
+         * Exámenes desde el alumno. Igual que sus entregas: el permiso lo deja
+         * entrar y su inscripción decide a cuál examen. `resolver` cuelga del
+         * INTENTO y no de la actividad porque el sorteo y el reloj son de ese
+         * intento, no del examen.
+         */
+        Route::controller(PresentacionExamenController::class)
+            ->prefix('mis-cursos')->name('tenant.misexamenes.')
+            ->middleware('can:ver-mis-cursos')
+            ->group(function () {
+                Route::get('examenes/{actividad}', 'show')->whereNumber('actividad')->name('ver');
+                Route::post('examenes/{actividad}/iniciar', 'iniciar')->whereNumber('actividad')->name('iniciar');
+                Route::get('intentos/{intento}', 'resolver')->whereNumber('intento')->name('resolver');
+                Route::post('intentos/{intento}/responder', 'responder')->whereNumber('intento')->name('responder');
+                Route::post('intentos/{intento}/archivo', 'responderArchivo')->whereNumber('intento')->name('archivo');
+                Route::post('intentos/{intento}/entregar', 'entregar')->whereNumber('intento')->name('entregar');
             });
 
         /*

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\AutorizaMateriaPropia;
 use App\Models\Asistencia\AsistenciaClase;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Inscripcion;
@@ -12,7 +13,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
-use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
  * Pase de lista de una materia.
@@ -27,6 +27,8 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  */
 class PaseListaController extends Controller
 {
+    use AutorizaMateriaPropia;
+
     /** Los estados posibles de una asistencia. */
     private const ESTATUS = ['presente', 'retardo', 'falta', 'justificada'];
 
@@ -127,19 +129,6 @@ class PaseListaController extends Controller
     /** Solo se pasa lista en una materia propia; control escolar entra a todas. */
     private function autorizar(Request $request, AsignaturaGrupo $asignaturaGrupo): void
     {
-        /** @var Usuario $usuario */
-        $usuario = $request->user();
-
-        if ($usuario->can('abrir-grupos')) {
-            return;
-        }
-
-        $esSuya = $usuario->persona_id !== null && $asignaturaGrupo->docentes()
-            ->where('docentes.persona_id', $usuario->persona_id)
-            ->exists();
-
-        if (! $esSuya) {
-            throw new AccessDeniedHttpException('Esa materia no es tuya.');
-        }
+        $this->autorizarMateriaPropia($request, $asignaturaGrupo);
     }
 }

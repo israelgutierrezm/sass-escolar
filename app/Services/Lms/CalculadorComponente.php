@@ -62,8 +62,15 @@ class CalculadorComponente
             ->where('esquema_evaluacion_id', $esquemaId)
             ->first();
 
-        // Lo que un humano fijó, un humano lo cambia.
-        if ($existente !== null && $existente->fuente === 'manual') {
+        /*
+         * Lo que un humano fijó, un humano lo cambia. Pero una fila manual SIN
+         * calificación no fijó nada: es el hueco que deja la pantalla de captura
+         * al abrirse, y las crea para los seis componentes aunque no se escriba
+         * ninguno. Tratarlas como criterio humano dejaba al LMS sin poder
+         * alimentar el parcial en cualquier materia donde alguien hubiera
+         * entrado alguna vez a capturar.
+         */
+        if ($existente !== null && $existente->fuente === 'manual' && $existente->calificacion !== null) {
             return $existente;
         }
 
