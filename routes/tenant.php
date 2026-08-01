@@ -63,6 +63,7 @@ use App\Http\Controllers\ActividadController;
 use App\Http\Controllers\EntregaController;
 use App\Http\Controllers\MenuRolController;
 use App\Http\Controllers\MisCursosController;
+use App\Http\Controllers\PaseListaController;
 use App\Http\Controllers\RolController;
 use App\Http\Controllers\TarjetaRolController;
 use App\Http\Controllers\SeriacionController;
@@ -846,6 +847,20 @@ Route::middleware([
                 Route::put('actividades/{actividad}', 'update')->whereNumber('actividad')->name('update');
                 Route::delete('actividades/{actividad}', 'destroy')->whereNumber('actividad')->name('destroy');
                 Route::put('entregas/{entrega}/calificar', 'calificar')->whereNumber('entrega')->name('calificar');
+            });
+
+        /*
+         * Pase de lista. Permiso propio (`pasar-lista`) porque es un oficio
+         * distinto de calificar: hay escuelas donde el prefecto pasa lista y no
+         * toca calificaciones. La materia, como siempre, la da la asignación.
+         */
+        Route::controller(PaseListaController::class)
+            ->prefix('docencia/materias/{asignaturaGrupo}')->name('tenant.paselista.')
+            ->middleware('can:pasar-lista')
+            ->whereNumber('asignaturaGrupo')
+            ->group(function () {
+                Route::post('asistencia', 'guardar')->name('guardar');
+                Route::put('asistencia/doble', 'alternarDoble')->name('doble');
             });
 
         /*

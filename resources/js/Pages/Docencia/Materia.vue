@@ -59,6 +59,23 @@ const props = defineProps<{
     matriz: { inscripcion_id: number; matricula: string | null; nombre: string | null; de_baja: boolean; casillas: Casilla[] }[];
     componentes: { id: number; etiqueta: string }[];
     tiposActividad: { valor: string; etiqueta: string; se_entrega: boolean }[];
+    puedePasarLista: boolean;
+    asistencia: {
+        fecha: string;
+        modalidad: string;
+        doble: boolean;
+        sesiones: { fecha: string; modalidad: string }[];
+        lista: {
+            inscripcion_id: number;
+            matricula: string | null;
+            nombre: string | null;
+            estatus: string | null;
+            observacion: string | null;
+            faltas: number;
+            retardos: number;
+            porcentaje: number | null;
+        }[];
+    };
 }>();
 
 const dias = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
@@ -166,6 +183,65 @@ function colorCasilla(c: Casilla): { backgroundColor: string; color: string } {
 }
 
 const tituloActividad = (id: number) => props.actividades.find((a) => a.id === id)?.titulo ?? '';
+
+/*
+ * ── Pase de lista ─────────────────────────────────────────────────────────
+ *
+ * Se marca a todo el grupo y se guarda de una vez. Pasar lista es un acto único
+ * sobre el grupo: guardar de a un alumno dejaría sesiones a medias si el docente
+ * se distrae, y obligaría a recordar quién ya se guardó.
+ */
+const ESTATUS = [
+    { valor: 'presente', etiqueta: 'Asistió', color: '#16a34a' },
+    { valor: 'retardo', etiqueta: 'Retardo', color: '#d97706' },
+    { valor: 'falta', etiqueta: 'Falta', color: '#dc2626' },
+    { valor: 'justificada', etiqueta: 'Justificada', color: 'var(--color-suave)' },
+];
+
+const marcas = ref<Record<number, string>>(
+    Object.fromEntries(props.asistencia.lista.map((a) => [a.inscripcion_id, a.estatus ?? ''])),
+);
+
+const formLista = useForm({ fecha: '', modalidad: '', asistencias: [] as unknown[] });
+
+const sinMarcar = computed(() => props.asistencia.lista.filter((a) => !marcas.value[a.inscripcion_id]).length);
+
+/** Marca a todos de una: casi siempre asisten casi todos y luego se corrigen dos. */
+function marcarTodos(valor: string): void {
+    marcas.value = Object.fromEntries(props.asistencia.lista.map((a) => [a.inscripcion_id, valor]));
+}
+
+function cambiarSesion(fecha: string, modalidad: string): void {
+    router.get(
+        `/docencia/materias/${props.materia.id}`,
+        { fecha, modalidad },
+        { preserveState: false, preserveScroll: true },
+    );
+}
+
+function guardarLista(): void {
+    formLista.fecha = props.asistencia.fecha;
+    formLista.modalidad = props.asistencia.modalidad;
+    formLista.asistencias = props.asistencia.lista
+        .filter((a) => marcas.value[a.inscripcion_id])
+        .map((a) => ({ inscripcion_id: a.inscripcion_id, estatus: marcas.value[a.inscripcion_id] }));
+
+    formLista.post(`/docencia/materias/${props.materia.id}/asistencia`, { preserveScroll: true });
+}
+
+function alternarDoblePase(): void {
+    router.put(
+        `/docencia/materias/${props.materia.id}/asistencia/doble`,
+        { doble_pase_lista: !props.asistencia.doble },
+        { preserveScroll: true },
+    );
+}
+
+function colorAsistencia(p: number | null): string {
+    if (p === null) return 'var(--color-suave)';
+
+    return p >= 90 ? '#16a34a' : p >= 80 ? '#d97706' : '#dc2626';
+}
 
 const busqueda = ref('');
 
@@ -315,6 +391,124 @@ const cortesCerrados = computed(() =>
 
             <p v-else class="px-6 py-10 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
                 {{ busqueda ? 'Nadie coincide con la búsqueda.' : 'Todavía no hay alumnos inscritos.' }}
+            </p>
+        </section>
+
+        <!-- ===== Pase de lista ===== -->
+        <section v-if="puedePasarLista" class="tarjeta overflow-hidden">
+            <header class="flex flex-wrap items-end justify-between gap-3 px-6 py-4">
+                <div>
+                    <h2 class="text-base font-semibold text-contenido">Pase de lista</h2>
+                    <p class="mt-0.5 text-sm" :style="{ color: 'var(--color-suave)' }">
+                        Marca a todo el grupo y guarda de una vez. Volver a pasar
+                        lista del mismo día corrige lo registrado, no lo duplica.
+                    </p>
+                </div>
+
+                <button
+                    type="button"
+                    class="rounded-lg border px-3 py-1.5 text-xs font-medium"
+                    :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-acento)' }"
+                    :title="asistencia.doble
+                        ? 'Volver a un solo pase de lista por sesión'
+                        : 'Separar teoría y práctica: dos pases de lista el mismo día'"
+                    @click="alternarDoblePase"
+                >
+                    {{ asistencia.doble ? 'Usar un solo pase de lista' : 'Separar teoría y práctica' }}
+                </button>
+            </header>
+
+            <div class="flex flex-wrap items-end gap-4 border-t border-borde px-6 py-4">
+                <div class="w-44">
+                    <label class="mb-1 block text-sm font-medium">Fecha de la clase</label>
+                    <input
+                        type="date"
+                        :value="asistencia.fecha"
+                        :max="new Date().toISOString().slice(0, 10)"
+                        class="w-full rounded-lg border px-3 py-2 text-sm"
+                        :style="{ borderColor: 'var(--color-borde)' }"
+                        @change="cambiarSesion(($event.target as HTMLInputElement).value, asistencia.modalidad)"
+                    />
+                </div>
+
+                <div v-if="asistencia.doble" class="w-44">
+                    <label class="mb-1 block text-sm font-medium">Sesión</label>
+                    <select
+                        :value="asistencia.modalidad"
+                        class="w-full rounded-lg border px-3 py-2 text-sm"
+                        :style="{ borderColor: 'var(--color-borde)' }"
+                        @change="cambiarSesion(asistencia.fecha, ($event.target as HTMLSelectElement).value)"
+                    >
+                        <option value="teorica">Teoría</option>
+                        <option value="practica">Práctica</option>
+                    </select>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-xs" :style="{ color: 'var(--color-suave)' }">Marcar a todos:</span>
+                    <button
+                        v-for="e in ESTATUS"
+                        :key="e.valor"
+                        type="button"
+                        class="rounded-lg border px-2.5 py-1 text-xs font-medium"
+                        :style="{ borderColor: `color-mix(in srgb, ${e.color} 35%, transparent)`, color: e.color }"
+                        @click="marcarTodos(e.valor)"
+                    >
+                        {{ e.etiqueta }}
+                    </button>
+                </div>
+            </div>
+
+            <ul v-if="asistencia.lista.length" class="divide-y divide-borde border-t border-borde">
+                <li v-for="a in asistencia.lista" :key="a.inscripcion_id" class="flex flex-wrap items-center gap-4 px-6 py-2.5">
+                    <span class="min-w-0 flex-1">
+                        <span class="block truncate text-sm">{{ a.nombre }}</span>
+                        <span class="block font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ a.matricula }}</span>
+                    </span>
+
+                    <!-- Su acumulado: es lo que dice si alguien está en riesgo,
+                         que es para lo que sirve pasar lista. -->
+                    <span v-if="a.porcentaje !== null" class="shrink-0 text-xs" :style="{ color: colorAsistencia(a.porcentaje) }">
+                        {{ a.porcentaje }}%
+                        <span v-if="a.faltas" :style="{ color: 'var(--color-suave)' }"> · {{ a.faltas }} falta(s)</span>
+                    </span>
+
+                    <span class="flex shrink-0 gap-1">
+                        <button
+                            v-for="e in ESTATUS"
+                            :key="e.valor"
+                            type="button"
+                            class="rounded-lg px-2.5 py-1 text-xs font-medium transition"
+                            :style="marcas[a.inscripcion_id] === e.valor
+                                ? { backgroundColor: e.color, color: '#fff' }
+                                : { backgroundColor: `color-mix(in srgb, ${e.color} 10%, transparent)`, color: e.color }"
+                            @click="marcas[a.inscripcion_id] = e.valor"
+                        >
+                            {{ e.etiqueta }}
+                        </button>
+                    </span>
+                </li>
+            </ul>
+
+            <div v-if="asistencia.lista.length" class="flex flex-wrap items-center gap-3 border-t border-borde px-6 py-4">
+                <BotonPrincipal
+                    :procesando="formLista.processing"
+                    :deshabilitado="sinMarcar === asistencia.lista.length"
+                    texto="Guardar la lista"
+                    icono="crear"
+                    tipo="button"
+                    @click="guardarLista"
+                />
+                <span class="text-sm" :style="{ color: 'var(--color-suave)' }">
+                    <template v-if="sinMarcar">
+                        {{ sinMarcar }} sin marcar; solo se guardan los marcados.
+                    </template>
+                    <template v-else>Los {{ asistencia.lista.length }} están marcados.</template>
+                </span>
+            </div>
+
+            <p v-else class="border-t border-borde px-6 py-8 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
+                No hay alumnos inscritos a quienes pasar lista.
             </p>
         </section>
 

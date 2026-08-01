@@ -26,11 +26,15 @@ class AsignaturaGrupo extends Model
         'fecha_inicio',
         'fecha_fin',
         'situacion_id',
+        // Materia teórico-práctica: se pasa lista dos veces el mismo día. Lo
+        // decide el docente por grupo, no el plan de estudios.
+        'doble_pase_lista',
     ];
 
     protected function casts(): array
     {
         return [
+            'doble_pase_lista' => 'boolean',
             'fecha_inicio' => 'datetime',
             'fecha_fin' => 'datetime',
         ];

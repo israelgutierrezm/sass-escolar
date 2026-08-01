@@ -28,6 +28,10 @@ class AsistenciaClase extends Model
     protected $fillable = [
         'inscripcion_id',
         'fecha',
+        // Qué sesión del día: `unica` en la mayoría de las materias, o
+        // `teorica`/`practica` en las teórico-prácticas, que pasan lista dos
+        // veces. Forma parte de la llave única junto con inscripción y fecha.
+        'modalidad',
         'estatus',
         'registrada_por',
         'observacion',

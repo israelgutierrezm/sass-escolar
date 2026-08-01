@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\TipoActividad;
 use App\Models\Academico\EsquemaEvaluacion;
+use App\Models\Asistencia\AsistenciaClase;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Ciclo;
 use App\Models\ControlEscolar\Docente;
@@ -153,8 +154,81 @@ class DocenciaController extends Controller
             ]),
             'calendario' => $this->calendario->estadoPorParcial($asignaturaGrupo, $personaId),
             'puedeCapturar' => $request->user()->can('capturar-calificaciones'),
+            'puedePasarLista' => $request->user()->can('pasar-lista'),
             ...$this->datosLms($asignaturaGrupo, $inscripciones),
+            ...$this->datosAsistencia($request, $asignaturaGrupo, $inscripciones),
         ]);
+    }
+
+    /**
+     * El pase de lista: lo ya registrado de la fecha que se está viendo y el
+     * resumen de cada alumno.
+     *
+     * La fecha llega por la URL para que recargar no pierda el día que se
+     * estaba pasando, y por omisión es hoy —que es cuando se pasa lista—.
+     *
+     * @param  \Illuminate\Support\Collection<int, Inscripcion>  $inscripciones
+     * @return array<string, mixed>
+     */
+    private function datosAsistencia(Request $request, AsignaturaGrupo $asignaturaGrupo, $inscripciones): array
+    {
+        $fecha = $request->query('fecha') ?: now()->format('Y-m-d');
+        $modalidad = $request->query('modalidad') ?: ($asignaturaGrupo->doble_pase_lista ? 'teorica' : 'unica');
+
+        $ids = $inscripciones->pluck('id');
+
+        $delDia = AsistenciaClase::query()
+            ->whereIn('inscripcion_id', $ids)
+            ->whereDate('fecha', $fecha)
+            ->where('modalidad', $modalidad)
+            ->get()
+            ->keyBy('inscripcion_id');
+
+        // Resumen por alumno de TODA la materia: es lo que dice si alguien está
+        // en riesgo por inasistencias, que es para lo que se pasa lista.
+        $historial = AsistenciaClase::query()
+            ->whereIn('inscripcion_id', $ids)
+            ->selectRaw('inscripcion_id, estatus, COUNT(*) c')
+            ->groupBy('inscripcion_id', 'estatus')
+            ->get()
+            ->groupBy('inscripcion_id');
+
+        return [
+            'asistencia' => [
+                'fecha' => $fecha,
+                'modalidad' => $modalidad,
+                'doble' => (bool) $asignaturaGrupo->doble_pase_lista,
+                // Cuántas sesiones se han pasado, para no repetir una por error.
+                'sesiones' => AsistenciaClase::query()
+                    ->whereIn('inscripcion_id', $ids)
+                    ->selectRaw('DATE(fecha) f, modalidad')
+                    ->distinct()
+                    ->orderByDesc('f')
+                    ->limit(30)
+                    ->get()
+                    ->map(fn ($s) => ['fecha' => $s->f, 'modalidad' => $s->modalidad])
+                    ->values(),
+                'lista' => $inscripciones
+                    ->reject(fn (Inscripcion $i) => $i->situacion?->clave === 'baja')
+                    ->map(function (Inscripcion $i) use ($delDia, $historial) {
+                        $conteo = ($historial->get($i->id) ?? collect())->pluck('c', 'estatus');
+                        $total = $conteo->sum();
+                        $presentes = (int) $conteo->get('presente', 0) + (int) $conteo->get('retardo', 0);
+
+                        return [
+                            'inscripcion_id' => $i->id,
+                            'matricula' => $i->matriculaOferta?->matricula,
+                            'nombre' => $i->matriculaOferta?->persona?->nombreCompleto(),
+                            // Lo ya marcado hoy; null = todavía sin marcar.
+                            'estatus' => $delDia->get($i->id)?->estatus,
+                            'observacion' => $delDia->get($i->id)?->observacion,
+                            'faltas' => (int) $conteo->get('falta', 0),
+                            'retardos' => (int) $conteo->get('retardo', 0),
+                            'porcentaje' => $total === 0 ? null : (int) round($presentes * 100 / $total),
+                        ];
+                    })->values(),
+            ],
+        ];
     }
 
     /**
