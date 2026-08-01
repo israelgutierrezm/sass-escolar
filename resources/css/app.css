@@ -223,6 +223,35 @@
     }
 
     /*
+     * Acción de BAJA (dar de baja a un alumno, a una carrera, de una materia).
+     *
+     * Va en rojo desde el principio y no solo al pasar el cursor: dar de baja es
+     * una acción con consecuencias y tiene que verse antes de tocarla, no
+     * descubrirse encima. Se queda como texto —no como pastilla— porque
+     * acompaña a un dato, pero al pasar el cursor toma fondo y se comporta como
+     * botón, que es lo que hacía falta para que se lea como accionable.
+     *
+     * No es `BotonAccion variante="eliminar"`: dar de baja no borra nada,
+     * cambia un estado y conserva la historia. El bote de basura mentiría.
+     */
+    .boton-baja {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        border-radius: 0.5rem;
+        padding: 0.25rem 0.5rem;
+        color: #dc2626;
+        transition:
+            background-color 0.18s ease,
+            color 0.18s ease;
+    }
+
+    .boton-baja:hover {
+        background-color: color-mix(in srgb, #dc2626 12%, transparent);
+        color: #b91c1c;
+    }
+
+    /*
      * Botón de volver: la misma familia visual que `.boton-expediente`, con los
      * chevrones fluyendo al revés. Que la animación sea espejo y no otra cosa es
      * deliberado: se lee como «lo contrario de entrar», no como un control nuevo.

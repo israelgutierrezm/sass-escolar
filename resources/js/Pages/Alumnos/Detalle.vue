@@ -778,8 +778,7 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                         <button
                             v-if="puedeEditar && alumno.estatus !== 'baja'"
                             type="button"
-                            class="text-xs transition hover:text-red-600"
-                            :style="{ color: 'var(--color-suave)' }"
+                            class="boton-baja text-xs"
                             @click="bajando = bajando === alumno.id ? null : alumno.id"
                         >
                             Dar de baja
@@ -799,8 +798,8 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                 <!-- Baja de la carrera en foco: mismo flujo que la pestaña Carreras. -->
                 <div
                     v-if="bajando === alumno.id"
-                    class="mt-4 flex flex-wrap items-end gap-3 rounded-lg p-3"
-                    style="background-color: color-mix(in srgb, currentColor 5%, transparent)"
+                    class="mt-4 flex flex-wrap items-end gap-3 rounded-lg border-l-2 py-3 pl-3"
+                    style="border-color: #dc2626"
                 >
                     <div class="min-w-56">
                         <CampoSelect
@@ -809,7 +808,19 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                             :opciones="situacionesDeBaja.map((s) => ({ valor: s.id, texto: s.nombre }))"
                         />
                     </div>
-                    <BotonAccion variante="eliminar" texto="Confirmar baja" @click="confirmarBaja(alumno.id)" />
+                    <!-- Confirmar la baja lleva ETIQUETA, no un bote de basura:
+                         es el botón principal de este mini formulario y hay que
+                         leer qué se confirma. Además no borra nada —cambia el
+                         estatus y conserva el kárdex—, así que el icono de
+                         eliminar diría algo falso. -->
+                    <button
+                        type="button"
+                        class="rounded-lg px-3 py-2 text-sm font-medium text-white"
+                        style="background-color: #dc2626"
+                        @click="confirmarBaja(alumno.id)"
+                    >
+                        Confirmar baja
+                    </button>
                     <button
                         type="button"
                         class="rounded-lg border px-4 py-2 text-sm"
@@ -1278,8 +1289,7 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                             <button
                                 v-if="puedeEditar && carrera.estatus !== 'baja'"
                                 type="button"
-                                class="transition hover:text-red-600"
-                                :style="{ color: 'var(--color-suave)' }"
+                                class="boton-baja"
                                 @click="bajando = bajando === carrera.id ? null : carrera.id"
                             >
                                 Dar de baja
@@ -1299,8 +1309,8 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                 <!-- Qué tipo de baja: el catálogo de la escuela manda -->
                 <div
                     v-if="bajando === carrera.id"
-                    class="mt-4 flex flex-wrap items-end gap-3 rounded-lg p-3"
-                    style="background-color: color-mix(in srgb, currentColor 5%, transparent)"
+                    class="mt-4 flex flex-wrap items-end gap-3 rounded-lg border-l-2 py-3 pl-3"
+                    style="border-color: #dc2626"
                 >
                     <div class="min-w-56">
                         <CampoSelect

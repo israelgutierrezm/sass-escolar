@@ -233,7 +233,8 @@ function convertir(): void {
 
                             <form
                                 v-if="subiendoPara === fila.documento_id"
-                                class="mt-3 flex flex-wrap items-center gap-3 rounded-lg bg-fondo p-3"
+                                class="mt-3 flex flex-wrap items-center gap-3 border-l-2 py-3 pl-3"
+                                :style="{ borderColor: 'var(--color-acento)' }"
                                 @submit.prevent="subir"
                             >
                                 <input

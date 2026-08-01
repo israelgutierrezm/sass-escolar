@@ -415,12 +415,15 @@ function iniciales(nombre: string | null): string {
                                 {{ expandido === i.id ? '▾' : '▸' }}
                             </button>
 
-                            <BotonAccion
+                            <button
                                 v-if="puedeInscribir"
-                                variante="eliminar"
-                                texto="Dar de baja de todo el grupo"
+                                type="button"
+                                class="boton-baja shrink-0 text-xs"
+                                title="Dar de baja de todas las materias del grupo"
                                 @click="bajaDelGrupo(i)"
-                            />
+                            >
+                                Baja del grupo
+                            </button>
                         </div>
 
                         <div
@@ -438,12 +441,15 @@ function iniciales(nombre: string | null): string {
                                     >
                                         {{ d.tipo_evaluacion }}
                                     </span>
-                                    <BotonAccion
+                                    <button
                                         v-if="puedeInscribir"
-                                        variante="eliminar"
-                                        texto="Dar de baja solo de esta materia"
+                                        type="button"
+                                        class="boton-baja shrink-0 text-xs"
+                                        title="Dar de baja solo de esta materia; sigue en el resto del grupo"
                                         @click="bajaDeMateria(d, i.nombre)"
-                                    />
+                                    >
+                                        Baja
+                                    </button>
                                 </li>
                             </ul>
 
