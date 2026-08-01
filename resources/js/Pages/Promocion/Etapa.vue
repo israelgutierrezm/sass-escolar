@@ -2,6 +2,7 @@
 import { Head, router } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonVolver from '@/Components/BotonVolver.vue';
 import Paginacion from '@/Components/Paginacion.vue';
 import PanelFiltros from '@/Components/PanelFiltros.vue';
 import SelectorVista from '@/Components/SelectorVista.vue';
@@ -71,9 +72,9 @@ const definicionFiltros = [
 
     <AppLayout :titulo="etapa.nombre">
         <section class="tarjeta p-6">
+            <BotonVolver href="/promocion" texto="Embudo" class="mb-4" />
+
             <div class="flex flex-wrap items-center gap-2">
-                <a href="/promocion" class="text-sm" :style="{ color: 'var(--color-acento)' }">← Embudo</a>
-                <span :style="{ color: 'var(--color-suave)' }">·</span>
                 <a
                     v-for="e in etapas"
                     :key="e.id"

@@ -2,6 +2,7 @@
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, reactive, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonVolver from '@/Components/BotonVolver.vue';
 
 interface Componente {
     id: number;
@@ -206,6 +207,8 @@ const cortesPorExcepcion = computed(() =>
     <AppLayout titulo="Captura de calificaciones">
         <!-- Cabecera de la materia -->
         <section class="tarjeta p-6">
+            <BotonVolver href="/captura" texto="Captura" class="mb-4" />
+
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <p class="font-mono text-sm" :style="{ color: 'var(--color-suave)' }">{{ materia.clave_en_plan }}</p>
@@ -219,9 +222,6 @@ const cortesPorExcepcion = computed(() =>
                         Captura hasta el {{ materia.captura_hasta }}
                     </p>
                 </div>
-                <a href="/captura" class="text-sm" :style="{ color: 'var(--color-acento)' }">
-                    ← Volver
-                </a>
             </div>
 
             <div

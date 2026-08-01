@@ -2,6 +2,7 @@
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonVolver from '@/Components/BotonVolver.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
@@ -107,6 +108,8 @@ const colorEstatus: Record<string, string> = {
 
     <AppLayout titulo="Factura">
         <section class="tarjeta p-6">
+            <BotonVolver href="/finanzas/facturas" texto="Facturas" class="mb-4" />
+
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <div class="flex flex-wrap items-center gap-3">
@@ -120,7 +123,6 @@ const colorEstatus: Record<string, string> = {
                         {{ factura.alumno }} · <span class="font-mono">{{ factura.matricula }}</span>
                     </p>
                 </div>
-                <a href="/finanzas/facturas" class="text-sm" :style="{ color: 'var(--color-acento)' }">← Facturas</a>
             </div>
 
             <p v-if="factura.ultimo_error" class="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800">

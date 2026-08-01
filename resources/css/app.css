@@ -219,9 +219,65 @@
         background-color: color-mix(in srgb, var(--color-acento) 12%, transparent);
     }
 
+    /*
+     * Botón de volver: la misma familia visual que `.boton-expediente`, con los
+     * chevrones fluyendo al revés. Que la animación sea espejo y no otra cosa es
+     * deliberado: se lee como «lo contrario de entrar», no como un control nuevo.
+     */
+    .flechas-volver {
+        position: relative;
+        display: inline-flex;
+        width: 0.875rem;
+        height: 0.875rem;
+    }
+
+    .flechas-volver .chev {
+        position: absolute;
+        inset: 0;
+        width: 0.875rem;
+        height: 0.875rem;
+        opacity: 0;
+    }
+
+    .flechas-volver .chev:first-child {
+        opacity: 1;
+    }
+
+    .boton-volver:hover .flechas-volver .chev {
+        animation: fluir-volver 0.9s ease-in-out infinite;
+    }
+
+    .boton-volver:hover .flechas-volver .chev:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+
+    .boton-volver:hover .flechas-volver .chev:nth-child(3) {
+        animation-delay: 0.4s;
+    }
+
+    @keyframes fluir-volver {
+        0% {
+            opacity: 0;
+            transform: translateX(5px);
+        }
+        35% {
+            opacity: 1;
+        }
+        100% {
+            opacity: 0;
+            transform: translateX(-7px);
+        }
+    }
+
+    .boton-volver:hover {
+        border-color: transparent;
+        background-color: color-mix(in srgb, var(--color-acento) 12%, transparent);
+    }
+
     @media (prefers-reduced-motion: reduce) {
         .fila-nueva:hover .flechas-fila .chev,
-        .boton-expediente:hover .flechas-fila .chev {
+        .boton-expediente:hover .flechas-fila .chev,
+        .boton-volver:hover .flechas-volver .chev {
             animation: none;
         }
     }

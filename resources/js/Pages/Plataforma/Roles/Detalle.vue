@@ -2,6 +2,7 @@
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonVolver from '@/Components/BotonVolver.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 
 interface Permiso {
@@ -117,6 +118,8 @@ function desasignar(id: number): void {
 
     <AppLayout :titulo="rol.nombre">
         <section class="tarjeta p-6">
+            <BotonVolver href="/plataforma/roles" texto="Roles" class="mb-4" />
+
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <div class="flex flex-wrap items-center gap-2">
@@ -134,7 +137,6 @@ function desasignar(id: number): void {
                         {{ totalEfectivos }} permisos efectivos · {{ rol.personas }} personas.
                     </p>
                 </div>
-                <a href="/plataforma/roles" class="text-sm" :style="{ color: 'var(--color-acento)' }">← Roles</a>
             </div>
 
             <p v-if="rol.protegido" class="mt-4 rounded-lg px-4 py-3 text-sm" :style="{ backgroundColor: 'var(--color-borde)' }">

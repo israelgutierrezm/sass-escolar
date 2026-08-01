@@ -4,6 +4,7 @@ import { computed, ref, watch } from 'vue';
 import axios from 'axios';
 import { toast } from 'vue-sonner';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonVolver from '@/Components/BotonVolver.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
@@ -223,9 +224,6 @@ watch(
     <Head :title="`Lote ${lote.folio}`" />
 
     <AppLayout :titulo="`Lote ${lote.folio}`">
-        <div class="mb-4">
-            <Link href="/certificacion/lotes" class="text-sm" :style="{ color: 'var(--color-suave)' }">← Volver a lotes</Link>
-        </div>
 
         <!-- Errores de validación al firmar: persistente hasta cerrarlo. -->
         <div
@@ -255,6 +253,8 @@ watch(
 
         <!-- Encabezado del lote -->
         <section class="tarjeta mb-6 p-6">
+            <BotonVolver href="/certificacion/lotes" texto="Lotes" class="mb-4" />
+
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <div class="flex items-center gap-3">

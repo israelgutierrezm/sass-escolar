@@ -2,6 +2,7 @@
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonVolver from '@/Components/BotonVolver.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
@@ -89,6 +90,9 @@ function repropagar(): void {
         <NavAcademico />
 
         <section class="tarjeta p-6">
+
+            <BotonVolver href="/academico/plantillas" texto="Plantillas" class="mb-4" />
+
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <p class="font-mono text-sm" :style="{ color: 'var(--color-suave)' }">{{ plantilla.clave }}</p>
@@ -97,7 +101,6 @@ function repropagar(): void {
                         {{ plantilla.descripcion }}
                     </p>
                 </div>
-                <a href="/academico/plantillas" class="text-sm" :style="{ color: 'var(--color-acento)' }">← Volver</a>
             </div>
 
             <div

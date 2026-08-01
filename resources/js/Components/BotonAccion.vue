@@ -21,7 +21,7 @@ import { computed } from 'vue';
  */
 const props = withDefaults(
     defineProps<{
-        variante: 'nuevo' | 'editar' | 'eliminar' | 'ver' | 'cerrar';
+        variante: 'nuevo' | 'agregar' | 'editar' | 'eliminar' | 'ver' | 'cerrar';
         href?: string;
         texto?: string;
         soloIcono?: boolean;
@@ -44,6 +44,15 @@ const CONFIG = {
         etiqueta: 'Nuevo',
         color: 'var(--color-acento)',
         icono: 'M12 4.5v15m7.5-7.5h-15',
+    },
+    // «agregar» es sumar algo a un registro que ya existe (un docente a una
+    // materia), no crear un registro nuevo: por eso no va relleno como «nuevo»,
+    // pero sí lleva texto —el icono de persona-con-más no basta para saber QUÉ
+    // se agrega— y el acento del tema, porque es la acción que se espera ahí.
+    agregar: {
+        etiqueta: 'Agregar',
+        color: 'var(--color-acento)',
+        icono: 'M18 7.5v3m0 3v-3m0 0h-3m3 0h3M13.5 10.5a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z',
     },
     editar: {
         etiqueta: 'Editar',

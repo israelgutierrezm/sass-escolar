@@ -2,6 +2,7 @@
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonVolver from '@/Components/BotonVolver.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 
 interface Asignacion {
@@ -79,24 +80,23 @@ function restablecer(): void {
     <Head :title="`Administrar · ${usuario.persona ?? usuario.usuario}`" />
 
     <AppLayout :titulo="`Administrar cuenta`">
-        <Link href="/plataforma/usuarios" class="mb-4 inline-flex items-center gap-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
-            Volver a usuarios
-        </Link>
-
         <!-- Cabecera de la persona -->
-        <section class="tarjeta flex items-center gap-4 p-6">
+        <section class="tarjeta p-6">
+            <BotonVolver href="/plataforma/usuarios" texto="Usuarios" class="mb-4" />
+
+            <div class="flex items-center gap-4">
             <img v-if="usuario.foto" :src="usuario.foto" alt="" class="h-16 w-16 rounded-full object-cover" />
             <span v-else class="grid h-16 w-16 shrink-0 place-items-center rounded-full text-xl font-semibold" :style="{ backgroundColor: 'var(--color-fondo)', color: 'var(--color-suave)' }">
                 {{ (usuario.persona ?? usuario.usuario)?.[0]?.toUpperCase() }}
             </span>
-            <div class="min-w-0">
+                <div class="min-w-0">
                 <h2 class="text-lg font-semibold">
                     {{ usuario.persona ?? usuario.usuario }}
                     <span v-if="usuario.soy_yo" class="ml-1 rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">tú</span>
                 </h2>
                 <p class="font-mono text-sm" :style="{ color: 'var(--color-suave)' }">{{ usuario.usuario }} · {{ usuario.email ?? 'sin correo' }}</p>
                 <p class="text-sm" :style="{ color: 'var(--color-suave)' }">Opera como <strong>{{ usuario.rol_activo ?? '—' }}</strong></p>
+                </div>
             </div>
         </section>
 

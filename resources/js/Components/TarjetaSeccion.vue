@@ -30,6 +30,18 @@ withDefaults(
 
 <template>
     <section class="tarjeta overflow-hidden">
+        <!-- Franja de regreso: va ARRIBA del encabezado y pegada a la izquierda,
+             para que el «volver» esté en el mismo sitio en toda la app. Antes
+             cada pantalla lo colgaba donde le acomodaba —a veces en la insignia
+             de la derecha, entre estados y acciones— y había que buscarlo. -->
+        <div
+            v-if="$slots.volver"
+            class="border-b px-6 py-2.5"
+            :style="{ borderColor: 'var(--color-borde)' }"
+        >
+            <slot name="volver" />
+        </div>
+
         <header
             class="flex items-center justify-between gap-3 border-b px-6 py-4"
             :style="{ borderColor: 'var(--color-borde)' }"

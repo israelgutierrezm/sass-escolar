@@ -3,6 +3,7 @@ import { Head, useForm, router } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
 import axios from 'axios';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonVolver from '@/Components/BotonVolver.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
@@ -115,8 +116,8 @@ const etiquetaAccion: Record<string, string> = {
     <AppLayout :titulo="beca.nombre">
         <!-- Resumen de la beca -->
         <TarjetaSeccion titulo="Condiciones de la beca" :descripcion="beca.descripcion ?? beca.clave" :icono="ICONOS.escudo">
-            <template #insignia>
-                <a href="/finanzas/becas" class="text-sm" :style="{ color: 'var(--color-acento)' }">← Becas</a>
+            <template #volver>
+                <BotonVolver href="/finanzas/becas" texto="Becas" />
             </template>
 
             <dl class="grid gap-4 sm:grid-cols-4">

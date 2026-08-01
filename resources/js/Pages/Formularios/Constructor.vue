@@ -2,6 +2,7 @@
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonVolver from '@/Components/BotonVolver.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoCheckbox from '@/Components/CampoCheckbox.vue';
@@ -183,6 +184,8 @@ const etiquetaTipo = (tipo: string) =>
 
     <AppLayout :titulo="formulario.titulo">
         <section class="tarjeta p-6">
+            <BotonVolver href="/formularios" texto="Formularios" class="mb-4" />
+
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <p class="font-mono text-sm" :style="{ color: 'var(--color-suave)' }">
@@ -193,7 +196,6 @@ const etiquetaTipo = (tipo: string) =>
                         {{ formulario.instruccion }}
                     </p>
                 </div>
-                <a href="/formularios" class="text-sm" :style="{ color: 'var(--color-acento)' }">← Formularios</a>
             </div>
         </section>
 

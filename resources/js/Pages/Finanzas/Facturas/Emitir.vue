@@ -2,6 +2,7 @@
 import { Head, useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonVolver from '@/Components/BotonVolver.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 import { ICONOS } from '@/iconos';
@@ -71,18 +72,13 @@ const regimenes = [
 
     <AppLayout titulo="Emitir factura">
         <section class="tarjeta p-6">
+            <BotonVolver :href="`/finanzas/cuentas/${matricula.id}`" texto="Estado de cuenta" class="mb-4" />
+
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <p class="font-medium">{{ matricula.nombre }}</p>
                     <p class="font-mono text-sm" :style="{ color: 'var(--color-suave)' }">{{ matricula.matricula }}</p>
                 </div>
-                <a
-                    :href="`/finanzas/cuentas/${matricula.id}`"
-                    class="text-sm"
-                    :style="{ color: 'var(--color-acento)' }"
-                >
-                    ← Estado de cuenta
-                </a>
             </div>
         </section>
 

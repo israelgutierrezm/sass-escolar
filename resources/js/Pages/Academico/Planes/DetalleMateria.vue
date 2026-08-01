@@ -2,6 +2,7 @@
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonVolver from '@/Components/BotonVolver.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 import PestanasPagina from '@/Components/PestanasPagina.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
@@ -197,6 +198,8 @@ const etiquetaTipoReq = (tipo: string) => (tipo === 'aprobada' ? 'Aprobada' : 'C
 
         <!-- Cabecera -->
         <section class="tarjeta p-6">
+            <BotonVolver :href="`/academico/planes/${plan.id}/materias`" texto="Malla" class="mb-4" />
+
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <p class="font-mono text-sm" :style="{ color: 'var(--color-suave)' }">{{ materia.clave_en_plan }}</p>
@@ -207,9 +210,6 @@ const etiquetaTipoReq = (tipo: string) => (tipo === 'aprobada' ? 'Aprobada' : 'C
                         · {{ materia.creditos }} créditos
                     </p>
                 </div>
-                <a :href="`/academico/planes/${plan.id}/materias`" class="text-sm" :style="{ color: 'var(--color-acento)' }">
-                    ← Volver a la malla
-                </a>
             </div>
         </section>
 

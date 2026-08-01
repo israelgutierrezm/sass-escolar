@@ -2,6 +2,7 @@
 import { Head } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonVolver from '@/Components/BotonVolver.vue';
 
 interface Alumno {
     matricula: string | null;
@@ -57,6 +58,8 @@ const cortesCerrados = computed(() =>
 
     <AppLayout :titulo="materia.nombre ?? 'Materia'">
         <section class="tarjeta p-6">
+            <BotonVolver href="/docencia" texto="Mis materias" class="mb-4" />
+
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <p class="font-mono text-sm" :style="{ color: 'var(--color-suave)' }">
@@ -76,9 +79,6 @@ const cortesCerrados = computed(() =>
                     </p>
                 </div>
 
-                <div class="flex gap-2">
-                    <a href="/docencia" class="text-sm" :style="{ color: 'var(--color-acento)' }">← Mis materias</a>
-                </div>
             </div>
 
             <div

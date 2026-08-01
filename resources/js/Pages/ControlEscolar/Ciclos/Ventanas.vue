@@ -2,6 +2,7 @@
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonVolver from '@/Components/BotonVolver.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import NavEscolar from '@/Components/NavEscolar.vue';
@@ -106,6 +107,9 @@ function revocar(ventanaId: number, excepcionId: number): void {
         <NavEscolar />
 
         <section class="tarjeta p-6">
+
+            <BotonVolver href="/escolar/ciclos" texto="Ciclos" class="mb-4" />
+
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <p class="font-mono text-sm" :style="{ color: 'var(--color-suave)' }">{{ ciclo.clave }}</p>
@@ -114,7 +118,6 @@ function revocar(ventanaId: number, excepcionId: number): void {
                         {{ ciclo.campus.length ? ciclo.campus.join(', ') : 'Ciclo global de la escuela' }}
                     </p>
                 </div>
-                <a href="/escolar/ciclos" class="text-sm" :style="{ color: 'var(--color-acento)' }">← Ciclos</a>
             </div>
 
             <p class="mt-4 border-t pt-4 text-sm" :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }">

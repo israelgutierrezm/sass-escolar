@@ -2,6 +2,7 @@
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonVolver from '@/Components/BotonVolver.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
@@ -185,6 +186,8 @@ const colorEstatus: Record<string, string> = {
 
     <AppLayout :titulo="matricula.nombre ?? 'Estado de cuenta'">
         <section class="tarjeta p-6">
+            <BotonVolver href="/finanzas" texto="Cartera" class="mb-4" />
+
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <p class="font-mono text-sm">{{ matricula.matricula }}</p>
@@ -194,7 +197,6 @@ const colorEstatus: Record<string, string> = {
                         <span v-if="matricula.ingreso"> · ingresó el {{ matricula.ingreso }}</span>
                     </p>
                 </div>
-                <a href="/finanzas" class="text-sm" :style="{ color: 'var(--color-acento)' }">← Cartera</a>
             </div>
 
             <!--

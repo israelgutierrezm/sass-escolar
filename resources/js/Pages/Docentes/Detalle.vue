@@ -2,7 +2,9 @@
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
+import BotonVolver from '@/Components/BotonVolver.vue';
 import PestanasPagina from '@/Components/PestanasPagina.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
@@ -157,6 +159,8 @@ function verComo(): void {
     <AppLayout titulo="Ficha del docente">
 
         <section class="tarjeta p-6">
+            <BotonVolver href="/escolar/docentes" texto="Docentes" class="mb-4" />
+
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div class="flex flex-col items-center gap-2">
                     <img
@@ -211,17 +215,12 @@ function verComo(): void {
                         <span v-if="docente.campus.length"> · {{ docente.campus.join(', ') }}</span>
                     </p>
                 </div>
-                    <button
+                    <BotonAccion
                         v-if="suplantable"
-                        type="button"
-                        class="rounded-lg border px-3 py-1.5 text-sm"
-                        :style="{ borderColor: 'var(--color-borde)' }"
-                        title="Entrar como esta persona para ver lo que ella ve. Queda en bitacora."
+                        variante="ver"
+                        :texto="`Ver como ${suplantable.usuario}`"
                         @click="verComo"
-                    >
-                        Ver como {{ suplantable.usuario }}
-                    </button>
-                <a href="/escolar/docentes" class="text-sm" :style="{ color: 'var(--color-acento)' }">← Docentes</a>
+                    />
             </div>
         </section>
 

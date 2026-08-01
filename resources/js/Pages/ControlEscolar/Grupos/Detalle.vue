@@ -9,6 +9,8 @@ import CampoCasillas from '@/Components/CampoCasillas.vue';
 import CampoBuscador from '@/Components/CampoBuscador.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import SelectorVista from '@/Components/SelectorVista.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
+import BotonVolver from '@/Components/BotonVolver.vue';
 
 /*
  * Esta pantalla es la de las MATERIAS del grupo. Los alumnos viven en
@@ -242,7 +244,11 @@ const urlInscribir = computed(
 
         <!-- Cabecera: identidad del grupo de un vistazo -->
         <section class="tarjeta p-6">
-            <div class="flex flex-wrap items-start justify-between gap-4">
+            <!-- El volver va arriba a la izquierda, antes del título, igual que
+                 en todas las pantallas de detalle. -->
+            <BotonVolver href="/escolar/grupos" texto="Grupos" />
+
+            <div class="mt-4 flex flex-wrap items-start justify-between gap-4">
                 <div class="min-w-0">
                     <div class="flex flex-wrap items-center gap-2">
                         <h2 class="text-lg font-semibold text-contenido">{{ grupo.nombre ?? grupo.clave }}</h2>
@@ -279,18 +285,15 @@ const urlInscribir = computed(
                     </p>
                     <p class="text-xs" :style="{ color: 'var(--color-suave)' }">alumnos inscritos</p>
 
-                    <Link
-                        v-if="puedeInscribir && asignaturas.length"
-                        :href="urlInscribir"
-                        class="mt-1 rounded-lg px-4 py-2 text-sm font-medium text-white"
-                        :style="{ backgroundColor: 'var(--color-acento)' }"
-                    >
-                        Inscribir alumnos
-                    </Link>
-                    <a :href="`/escolar/grupos/${grupo.id}/edit`" class="text-sm" :style="{ color: 'var(--color-acento)' }">
-                        Editar grupo
-                    </a>
-                    <a href="/escolar/grupos" class="text-sm text-suave">← Volver a grupos</a>
+                    <div class="mt-1 flex items-center gap-2">
+                        <BotonAccion
+                            v-if="puedeInscribir && asignaturas.length"
+                            variante="agregar"
+                            texto="Inscribir alumnos"
+                            :href="urlInscribir"
+                        />
+                        <BotonAccion v-if="puedeEditar" variante="editar" texto="Editar grupo" :href="`/escolar/grupos/${grupo.id}/edit`" />
+                    </div>
                 </div>
             </div>
 
@@ -423,13 +426,14 @@ const urlInscribir = computed(
 
                         <span class="shrink-0 tabular-nums text-xs text-suave">{{ asignatura.inscritos_count }} alumno(s)</span>
 
-                        <span v-if="puedeEditar" class="flex shrink-0 items-center gap-2">
-                            <button type="button" class="text-xs" :style="{ color: 'var(--color-acento)' }" @click="alternarAsignar(asignatura.id)">
-                                Docente
-                            </button>
-                            <button type="button" class="text-xs text-suave hover:text-red-600" @click="quitarMateria(asignatura)">
-                                Quitar
-                            </button>
+                        <span v-if="puedeEditar" class="flex shrink-0 items-center gap-1">
+                            <BotonAccion
+                                :variante="asignandoEn === asignatura.id ? 'cerrar' : 'agregar'"
+                                texto="Docente"
+                                :solo-icono="asignandoEn === asignatura.id"
+                                @click="alternarAsignar(asignatura.id)"
+                            />
+                            <BotonAccion variante="eliminar" texto="Quitar materia" @click="quitarMateria(asignatura)" />
                         </span>
                     </div>
 
@@ -509,13 +513,14 @@ const urlInscribir = computed(
 
                     <div class="mt-auto flex items-center justify-between gap-2 border-t px-3 py-2" :style="{ borderColor: 'var(--color-borde)' }">
                         <span class="tabular-nums text-xs text-suave">{{ asignatura.inscritos_count }} alumno(s)</span>
-                        <span v-if="puedeEditar" class="flex items-center gap-2">
-                            <button type="button" class="text-xs" :style="{ color: 'var(--color-acento)' }" @click="alternarAsignar(asignatura.id)">
-                                Docente
-                            </button>
-                            <button type="button" class="text-xs text-suave hover:text-red-600" @click="quitarMateria(asignatura)">
-                                Quitar
-                            </button>
+                        <span v-if="puedeEditar" class="flex items-center gap-1">
+                            <BotonAccion
+                                :variante="asignandoEn === asignatura.id ? 'cerrar' : 'agregar'"
+                                texto="Docente"
+                                :solo-icono="asignandoEn === asignatura.id"
+                                @click="alternarAsignar(asignatura.id)"
+                            />
+                            <BotonAccion variante="eliminar" texto="Quitar materia" @click="quitarMateria(asignatura)" />
                         </span>
                     </div>
 

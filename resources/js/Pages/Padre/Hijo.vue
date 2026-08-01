@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Head } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonVolver from '@/Components/BotonVolver.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 
 interface Materia {
@@ -70,22 +71,24 @@ function colorCalif(estatusClave: string | null): string {
     <Head :title="hijo.nombre" />
 
     <AppLayout titulo="Expediente de mi hijo">
-        <Link href="/mis-hijos" class="text-sm font-medium" :style="{ color: 'var(--color-acento)' }">← Mis hijos</Link>
-
         <!-- Encabezado -->
-        <section class="tarjeta flex flex-wrap items-center gap-4 p-6">
+        <section class="tarjeta p-6">
+            <BotonVolver href="/mis-hijos" texto="Mis hijos" class="mb-4" />
+
+            <div class="flex flex-wrap items-center gap-4">
             <img v-if="hijo.foto" :src="hijo.foto" alt="" class="h-16 w-16 rounded-full object-cover ring-1 ring-black/5" />
             <span
                 v-else
                 class="grid h-16 w-16 shrink-0 place-items-center rounded-full text-lg font-semibold ring-1 ring-black/5"
                 :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 15%, transparent)', color: 'var(--color-acento)' }"
             >{{ iniciales(hijo.nombre) }}</span>
-            <div>
-                <h2 class="text-lg font-semibold">{{ hijo.nombre }}</h2>
-                <p class="text-sm capitalize" :style="{ color: 'var(--color-suave)' }">
-                    {{ hijo.parentesco }}
-                    <span v-if="hijo.curp" class="font-mono"> · {{ hijo.curp }}</span>
-                </p>
+                <div>
+                    <h2 class="text-lg font-semibold">{{ hijo.nombre }}</h2>
+                    <p class="text-sm capitalize" :style="{ color: 'var(--color-suave)' }">
+                        {{ hijo.parentesco }}
+                        <span v-if="hijo.curp" class="font-mono"> · {{ hijo.curp }}</span>
+                    </p>
+                </div>
             </div>
         </section>
 

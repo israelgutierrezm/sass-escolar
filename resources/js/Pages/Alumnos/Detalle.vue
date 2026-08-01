@@ -8,6 +8,7 @@ import CampoSelect from '@/Components/CampoSelect.vue';
 import CamposIdentidad from '@/Components/CamposIdentidad.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
+import BotonVolver from '@/Components/BotonVolver.vue';
 import PestanasPagina from '@/Components/PestanasPagina.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 import { ICONOS } from '@/iconos';
@@ -636,6 +637,8 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
 
         <!-- Cabecera -->
         <section class="tarjeta p-6">
+            <BotonVolver href="/escolar/alumnos" texto="Alumnos" class="mb-4" />
+
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div class="flex flex-col items-center gap-2">
                     <img
@@ -737,7 +740,6 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                         </div>
                     </dl>
                 </div>
-                <a href="/escolar/alumnos" class="text-sm" :style="{ color: 'var(--color-acento)' }">← Alumnos</a>
             </div>
 
             <!-- Carrera en foco: el select alterna entre las carreras de la
@@ -856,15 +858,7 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
             <!-- «Ver como alumno»: entrar con su cuenta para ver lo que ve.
                  Abajo a la derecha del recuadro; queda en bitácora. -->
             <div v-if="suplantable" class="mt-4 flex justify-end border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">
-                <button
-                    type="button"
-                    class="rounded-lg border px-3 py-1.5 text-sm"
-                    :style="{ borderColor: 'var(--color-borde)' }"
-                    title="Entrar como este alumno para ver lo que ve. Queda en bitácora."
-                    @click="verComo"
-                >
-                    Ver como alumno
-                </button>
+                <BotonAccion variante="ver" texto="Ver como alumno" @click="verComo" />
             </div>
         </section>
 

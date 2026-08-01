@@ -3,6 +3,7 @@ import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import draggable from 'vuedraggable';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonVolver from '@/Components/BotonVolver.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import FormularioAsignatura from '@/Components/FormularioAsignatura.vue';
@@ -288,6 +289,8 @@ function textoSobre(color: string | null): string {
 
         <!-- Encabezado del plan -->
         <section class="tarjeta p-6">
+            <BotonVolver href="/academico/planes" texto="Planes" class="mb-4" />
+
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <h2 class="text-base font-semibold text-contenido">{{ plan.nombre }}</h2>
@@ -295,9 +298,6 @@ function textoSobre(color: string | null): string {
                         {{ plan.carrera }} · <span class="font-mono text-xs">{{ plan.clave }}</span>
                     </p>
                 </div>
-                <a href="/academico/planes" class="text-sm text-indigo-600 hover:text-indigo-700">
-                    ← Volver a planes
-                </a>
             </div>
 
             <dl class="mt-5 grid gap-4 border-t border-borde pt-4 sm:grid-cols-4">

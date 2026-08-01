@@ -111,17 +111,15 @@ function eliminar(id: number, clave: string): void {
                     ]"
                 >
                     <template #acciones>
-                        <a
+                        <BotonAccion
                             v-if="puedeInscribir && grupo.materias_count"
+                            variante="agregar"
+                            texto="Inscribir"
                             :href="`/escolar/inscripciones/masiva?ciclo_id=${grupo.ciclo_id}&grupo_id=${grupo.id}`"
-                            class="boton-fantasma inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs"
-                            :style="{ color: 'var(--color-acento)' }"
-                            title="Inscribir alumnos al grupo"
-                        >
-                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.1 9.1 0 0 0 3.74-.48 3 3 0 0 0-4.68-3.44M18 18.72V14.5a5.97 5.97 0 0 0-.94-3.21M18 18.72a9.09 9.09 0 0 1-6 2.03 9.09 9.09 0 0 1-6-2.03V14.5a6 6 0 0 1 12 0v4.22ZM8.94 11.29A5.97 5.97 0 0 0 6 14.5v4.22m2.94-7.43a3 3 0 1 0-4.68 3.44A9.1 9.1 0 0 1 6 18.72M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
-                            Inscribir
-                        </a>
-                        <BotonAccion variante="ver" texto="Abrir" :href="`/escolar/grupos/${grupo.id}`" />
+                        />
+                        <!-- «Abrir» no decía a qué se entraba; la pantalla es la
+                             de las materias del grupo, así que lo dice. -->
+                        <BotonAccion variante="ver" texto="Materias" :href="`/escolar/grupos/${grupo.id}`" />
                         <template v-if="puedeEditar">
                             <BotonAccion variante="editar" :href="`/escolar/grupos/${grupo.id}/edit`" />
                             <BotonAccion variante="eliminar" @click="eliminar(grupo.id, grupo.clave)" />
@@ -186,17 +184,15 @@ function eliminar(id: number, clave: string): void {
                                     <!-- La inscripción masiva es el destino más
                                          frecuente desde aquí: llega con el ciclo
                                          y el grupo ya elegidos. -->
-                                    <a
+                                    <BotonAccion
                                         v-if="puedeInscribir && grupo.materias_count"
+                                        variante="agregar"
+                                        texto="Inscribir"
                                         :href="`/escolar/inscripciones/masiva?ciclo_id=${grupo.ciclo_id}&grupo_id=${grupo.id}`"
-                                        class="boton-fantasma inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs"
-                                        :style="{ color: 'var(--color-acento)' }"
-                                        title="Inscribir alumnos al grupo"
-                                    >
-                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.1 9.1 0 0 0 3.74-.48 3 3 0 0 0-4.68-3.44M18 18.72V14.5a5.97 5.97 0 0 0-.94-3.21M18 18.72a9.09 9.09 0 0 1-6 2.03 9.09 9.09 0 0 1-6-2.03V14.5a6 6 0 0 1 12 0v4.22ZM8.94 11.29A5.97 5.97 0 0 0 6 14.5v4.22m2.94-7.43a3 3 0 1 0-4.68 3.44A9.1 9.1 0 0 1 6 18.72M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
-                                        Inscribir
-                                    </a>
-                                    <BotonAccion variante="ver" texto="Abrir" :href="`/escolar/grupos/${grupo.id}`" />
+                                    />
+                                    <!-- «Abrir» no decía a qué se entraba; la
+                                         pantalla es la de las materias. -->
+                                    <BotonAccion variante="ver" texto="Materias" :href="`/escolar/grupos/${grupo.id}`" />
                                     <template v-if="puedeEditar">
                                         <BotonAccion variante="editar" :href="`/escolar/grupos/${grupo.id}/edit`" />
                                         <BotonAccion variante="eliminar" @click="eliminar(grupo.id, grupo.clave)" />

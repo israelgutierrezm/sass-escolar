@@ -2,6 +2,7 @@
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonVolver from '@/Components/BotonVolver.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
@@ -190,8 +191,8 @@ function todos(): void {
     <AppLayout :titulo="plan.nombre">
         <!-- Resumen del alcance -->
         <TarjetaSeccion titulo="Alcance" :descripcion="`Ciclo ${plan.ciclo ?? '—'}`" :icono="ICONOS.edificio">
-            <template #insignia>
-                <a href="/finanzas/planes" class="text-sm" :style="{ color: 'var(--color-acento)' }">← Planes</a>
+            <template #volver>
+                <BotonVolver href="/finanzas/planes" texto="Planes" />
             </template>
 
             <dl class="grid gap-4 sm:grid-cols-4">
