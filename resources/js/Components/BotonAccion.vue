@@ -29,8 +29,15 @@ const props = withDefaults(
         /** Texto en peso normal (no medium): para botones discretos, p. ej. el
          *  «Agregar» de los formularios pequeños de catálogo. */
         fino?: boolean;
+        /**
+         * Icono al final en vez de al principio. Para el botón que abre algo y
+         * se convierte en su propio cierre: la etiqueta se queda quieta —dice
+         * QUÉ se abrió— y el icono pasa a la derecha, donde se lee como
+         * «cerrar esto» y no como parte del nombre.
+         */
+        iconoAlFinal?: boolean;
     }>(),
-    { soloIcono: false, disabled: false, fino: false },
+    { soloIcono: false, disabled: false, fino: false, iconoAlFinal: false },
 );
 
 const emit = defineEmits<{ click: [] }>();
@@ -83,13 +90,20 @@ const cfg = computed(() => CONFIG[props.variante]);
 const etiqueta = computed(() => props.texto ?? cfg.value.etiqueta);
 const esPrimario = computed(() => props.variante === 'nuevo');
 
-// Regla homologada en TODO el sistema: «editar», «eliminar» y «cerrar» son
-// SIEMPRE solo-icono (sin texto, solo su tooltip), sin importar cómo se invoque
-// el botón. Así ninguna pantalla puede volver a mostrarlos como texto suelto.
+// Regla homologada en TODO el sistema: «editar» y «eliminar» son SIEMPRE
+// solo-icono (sin texto, solo su tooltip), sin importar cómo se invoque el
+// botón. Así ninguna pantalla puede volver a mostrarlos como texto suelto.
 // «nuevo» y «ver» respetan lo que pida quien los use (llevan texto porque su
 // destino no es obvio: «Nueva carrera», «Malla», «Captura»).
+//
+// «cerrar» es solo-icono por omisión —la X sola se entiende—, pero acepta texto
+// cuando hace falta decir QUÉ se cierra: el botón que abre el alta de un alumno
+// se convierte en su propio cierre y ahí perder la palabra «Alumno» dejaría una
+// X huérfana entre otras acciones.
 const soloIconoEfectivo = computed(
-    () => props.soloIcono || ['editar', 'eliminar', 'cerrar'].includes(props.variante),
+    () => props.soloIcono
+        || ['editar', 'eliminar'].includes(props.variante)
+        || (props.variante === 'cerrar' && props.texto === undefined),
 );
 
 /*
@@ -138,6 +152,7 @@ const estilo = computed(() =>
         @click="!href && emit('click')"
     >
         <svg
+            v-if="!iconoAlFinal"
             class="icono-boton shrink-0"
             :class="esPrimario ? 'h-4 w-4' : 'h-3.5 w-3.5'"
             fill="none"
@@ -150,6 +165,17 @@ const estilo = computed(() =>
         <!-- Los solo-icono no muestran texto (solo su tooltip): en ellos el
              gesto al pasar el cursor es únicamente la animación del icono. -->
         <span v-if="!soloIconoEfectivo">{{ etiqueta }}</span>
+        <svg
+            v-if="iconoAlFinal"
+            class="icono-boton shrink-0"
+            :class="esPrimario ? 'h-4 w-4' : 'h-3.5 w-3.5'"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.7"
+            stroke="currentColor"
+        >
+            <path stroke-linecap="round" stroke-linejoin="round" :d="cfg.icono" />
+        </svg>
     </component>
 </template>
 

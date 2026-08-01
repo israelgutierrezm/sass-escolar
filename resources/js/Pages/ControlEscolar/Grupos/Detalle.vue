@@ -492,13 +492,13 @@ const urlInscribir = computed(
                                 v-if="puedeInscribir"
                                 :variante="inscribiendoEn === asignatura.id ? 'cerrar' : 'agregar'"
                                 texto="Alumno"
-                                :solo-icono="inscribiendoEn === asignatura.id"
+                                :icono-al-final="inscribiendoEn === asignatura.id"
                                 @click="alternarInscribir(asignatura.id)"
                             />
                             <BotonAccion
                                 :variante="asignandoEn === asignatura.id ? 'cerrar' : 'agregar'"
                                 texto="Docente"
-                                :solo-icono="asignandoEn === asignatura.id"
+                                :icono-al-final="asignandoEn === asignatura.id"
                                 @click="alternarAsignar(asignatura.id)"
                             />
                             <BotonAccion variante="eliminar" texto="Quitar materia" @click="quitarMateria(asignatura)" />
@@ -508,7 +508,7 @@ const urlInscribir = computed(
                     <!-- Inscribir a UN alumno en ESTA materia. -->
                     <form
                         v-if="inscribiendoEn === asignatura.id"
-                        class="flex flex-wrap items-end gap-3 border-t border-borde bg-fondo px-6 py-3"
+                        class="panel-accion flex flex-wrap items-end gap-3 border-t border-borde px-6 py-4"
                         @submit.prevent="inscribirAlumno"
                     >
                         <div class="min-w-64 flex-1">
@@ -540,7 +540,7 @@ const urlInscribir = computed(
 
                     <form
                         v-if="asignandoEn === asignatura.id"
-                        class="flex flex-wrap items-end gap-3 border-t border-borde bg-fondo px-6 py-3"
+                        class="panel-accion flex flex-wrap items-end gap-3 border-t border-borde px-6 py-4"
                         @submit.prevent="asignarDocente(asignatura.id)"
                     >
                         <div class="min-w-64 flex-1">
@@ -627,13 +627,13 @@ const urlInscribir = computed(
                                 v-if="puedeInscribir"
                                 :variante="inscribiendoEn === asignatura.id ? 'cerrar' : 'agregar'"
                                 texto="Alumno"
-                                :solo-icono="inscribiendoEn === asignatura.id"
+                                :icono-al-final="inscribiendoEn === asignatura.id"
                                 @click="alternarInscribir(asignatura.id)"
                             />
                             <BotonAccion
                                 :variante="asignandoEn === asignatura.id ? 'cerrar' : 'agregar'"
                                 texto="Docente"
-                                :solo-icono="asignandoEn === asignatura.id"
+                                :icono-al-final="asignandoEn === asignatura.id"
                                 @click="alternarAsignar(asignatura.id)"
                             />
                             <BotonAccion variante="eliminar" texto="Quitar materia" @click="quitarMateria(asignatura)" />
@@ -642,7 +642,7 @@ const urlInscribir = computed(
 
                     <form
                         v-if="inscribiendoEn === asignatura.id"
-                        class="space-y-3 border-t bg-fondo p-3"
+                        class="panel-accion space-y-3 border-t p-3"
                         :style="{ borderColor: 'var(--color-borde)' }"
                         @submit.prevent="inscribirAlumno"
                     >
@@ -669,7 +669,7 @@ const urlInscribir = computed(
 
                     <form
                         v-if="asignandoEn === asignatura.id"
-                        class="space-y-3 border-t bg-fondo p-3"
+                        class="panel-accion space-y-3 border-t p-3"
                         :style="{ borderColor: 'var(--color-borde)' }"
                         @submit.prevent="asignarDocente(asignatura.id)"
                     >
@@ -701,3 +701,19 @@ const urlInscribir = computed(
         </section>
     </AppLayout>
 </template>
+
+<style scoped>
+/*
+ * Panel que se despliega al pulsar «Alumno» o «Docente» en una materia.
+ *
+ * Llevaba el gris de fondo de la app (`bg-fondo`), que sobre la tarjeta blanca
+ * se ve turbio y pesa más que el propio formulario. Ahora no tiene relleno: se
+ * queda sobre la superficie de la tarjeta y su pertenencia a esa materia la
+ * marca una barra de acento a la izquierda, que es lo que hacía falta entender
+ * —de qué renglón cuelga— y no un cambio de color de todo el bloque.
+ */
+.panel-accion {
+    border-left: 3px solid var(--color-acento);
+    background-color: transparent;
+}
+</style>
