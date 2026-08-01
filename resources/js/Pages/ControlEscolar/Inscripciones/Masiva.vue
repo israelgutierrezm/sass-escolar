@@ -5,6 +5,8 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import NavEscolar from '@/Components/NavEscolar.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
+import SelectorVista from '@/Components/SelectorVista.vue';
+import { toast } from 'vue-sonner';
 
 interface Candidato {
     id: number;
@@ -18,6 +20,13 @@ interface Candidato {
     sugerido: boolean;
 }
 
+interface DetalleMateria {
+    inscripcion_id: number;
+    asignatura_grupo_id: number;
+    materia: string | null;
+    tipo_evaluacion: string | null;
+}
+
 interface Inscrito {
     id: number;
     matricula: string;
@@ -27,6 +36,7 @@ interface Inscrito {
     materias: number;
     total_materias: number;
     completo: boolean;
+    detalle: DetalleMateria[];
 }
 
 const props = defineProps<{
@@ -44,10 +54,11 @@ const props = defineProps<{
         cupo: number | null;
         periodo_objetivo: number | null;
         planes_admitidos: string[];
-        materias: { clave_en_plan: string | null; nombre: string | null; periodo: number | null }[];
+        materias: { id: number; clave_en_plan: string | null; nombre: string | null; periodo: number | null }[];
     } | null;
     candidatos: Candidato[];
     inscritos: Inscrito[];
+    tiposEvaluacion: { id: number; nombre: string }[];
     puedeInscribir: boolean;
 }>();
 
@@ -175,6 +186,70 @@ function bajaDelGrupo(inscrito: Inscrito): void {
     router.put(`/escolar/grupos/${props.grupo?.id}/alumnos/${inscrito.id}/baja`, {}, { preserveScroll: true });
 }
 
+/*
+ * Gestión materia por materia.
+ *
+ * La carga masiva resuelve el 95 % —todos a todas las materias—, pero el caso
+ * suelto existe: quien recursa una sola, quien la lleva en extraordinario, quien
+ * se da de baja de una y sigue en el resto. Vive aquí, junto a los alumnos, y no
+ * en el detalle del grupo, que es donde se arman las materias.
+ */
+const expandido = ref<number | null>(null);
+
+function alternarDetalle(id: number): void {
+    expandido.value = expandido.value === id ? null : id;
+}
+
+function bajaDeMateria(detalle: DetalleMateria, alumno: string | null): void {
+    if (!confirm(`¿Dar de baja a ${alumno ?? 'este alumno'} de "${detalle.materia}"? Sigue en el resto del grupo.`)) {
+        return;
+    }
+
+    router.put(`/escolar/inscripciones/${detalle.inscripcion_id}/baja`, {}, { preserveScroll: true });
+}
+
+// Alta puntual: un alumno del grupo a una materia en la que todavía no está.
+const tipoOrdinaria = computed(
+    () => props.tiposEvaluacion.find((t) => /ordinaria/i.test(t.nombre))?.id ?? props.tiposEvaluacion[0]?.id ?? null,
+);
+
+const formSuelta = useForm({
+    matricula_oferta_id: null as number | null,
+    asignatura_grupo_id: null as number | null,
+    tipo_evaluacion_id: null as number | null,
+});
+
+/** Materias del grupo en las que este alumno NO está: las que se le pueden dar. */
+function materiasFaltantes(inscrito: Inscrito) {
+    const suyas = new Set(inscrito.detalle.map((d) => d.asignatura_grupo_id));
+
+    return (props.grupo?.materias ?? []).filter((m) => !suyas.has(m.id));
+}
+
+function inscribirEnMateria(inscrito: Inscrito, asignaturaGrupoId: number | null): void {
+    if (asignaturaGrupoId === null) {
+        return;
+    }
+
+    formSuelta.matricula_oferta_id = inscrito.id;
+    formSuelta.asignatura_grupo_id = asignaturaGrupoId;
+    formSuelta.tipo_evaluacion_id = tipoOrdinaria.value;
+    formSuelta.post('/escolar/inscripciones', {
+        preserveScroll: true,
+        /*
+         * El rechazo llega como error de validación, no como flash, así que hay
+         * que mostrarlo a mano: sin esto el botón no hacía nada visible cuando
+         * el alumno no podía entrar a esa materia (seriación, cupo, otro plan),
+         * y no hay peor respuesta que ninguna.
+         */
+        onError: (errores) => {
+            toast.error(Object.values(errores).flat().join(' ') || 'No se pudo inscribir en esa materia.');
+        },
+    });
+}
+
+const vistaAlumnos = ref<'lista' | 'cuadricula'>('cuadricula');
+
 function iniciales(nombre: string | null): string {
     return (nombre ?? '?')
         .split(' ')
@@ -295,44 +370,92 @@ function iniciales(nombre: string | null): string {
                 </header>
 
                 <ul class="divide-y border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                    <li
-                        v-for="i in inscritos"
-                        :key="i.id"
-                        class="flex items-center gap-3 px-6 py-3"
-                        :style="{ borderColor: 'var(--color-borde)' }"
-                    >
-                        <img v-if="i.foto" :src="i.foto" :alt="i.nombre ?? ''" class="h-9 w-9 shrink-0 rounded-full object-cover" />
-                        <span
-                            v-else
-                            class="grid h-9 w-9 shrink-0 place-items-center rounded-full text-xs font-semibold"
-                            :style="{ backgroundColor: 'var(--color-fondo)', color: 'var(--color-suave)' }"
-                        >
-                            {{ iniciales(i.nombre) }}
-                        </span>
+                    <li v-for="i in inscritos" :key="i.id" :style="{ borderColor: 'var(--color-borde)' }">
+                        <div class="flex items-center gap-3 px-6 py-3">
+                            <img v-if="i.foto" :src="i.foto" :alt="i.nombre ?? ''" class="h-9 w-9 shrink-0 rounded-full object-cover" />
+                            <span
+                                v-else
+                                class="grid h-9 w-9 shrink-0 place-items-center rounded-full text-xs font-semibold"
+                                :style="{ backgroundColor: 'var(--color-fondo)', color: 'var(--color-suave)' }"
+                            >
+                                {{ iniciales(i.nombre) }}
+                            </span>
 
-                        <span class="min-w-0 flex-1">
-                            <span class="block truncate text-sm font-medium">{{ i.nombre }}</span>
-                            <span class="block truncate font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ i.matricula }}</span>
-                        </span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block truncate text-sm font-medium">{{ i.nombre }}</span>
+                                <span class="block truncate font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ i.matricula }}</span>
+                            </span>
 
-                        <span
-                            class="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium"
-                            :style="i.completo
-                                ? { backgroundColor: 'color-mix(in srgb, #16a34a 14%, transparent)', color: '#15803d' }
-                                : { backgroundColor: 'color-mix(in srgb, #f59e0b 16%, transparent)', color: '#b45309' }"
-                        >
-                            {{ i.completo ? 'Todas las materias' : `${i.materias} de ${i.total_materias}` }}
-                        </span>
+                            <!-- El badge abre el desglose: ahí se atiende el caso
+                                 suelto (recursa una, extraordinario, baja de una
+                                 sola materia) sin que estorbe al resto. -->
+                            <button
+                                type="button"
+                                class="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium"
+                                :style="i.completo
+                                    ? { backgroundColor: 'color-mix(in srgb, #16a34a 14%, transparent)', color: '#15803d' }
+                                    : { backgroundColor: 'color-mix(in srgb, #f59e0b 16%, transparent)', color: '#b45309' }"
+                                @click="alternarDetalle(i.id)"
+                            >
+                                {{ i.completo ? `${i.materias} materias` : `${i.materias} de ${i.total_materias}` }}
+                                {{ expandido === i.id ? '▾' : '▸' }}
+                            </button>
 
-                        <button
-                            v-if="puedeInscribir"
-                            type="button"
-                            class="shrink-0 text-xs hover:text-red-600"
-                            :style="{ color: 'var(--color-suave)' }"
-                            @click="bajaDelGrupo(i)"
+                            <button
+                                v-if="puedeInscribir"
+                                type="button"
+                                class="shrink-0 text-xs hover:text-red-600"
+                                :style="{ color: 'var(--color-suave)' }"
+                                @click="bajaDelGrupo(i)"
+                            >
+                                Baja
+                            </button>
+                        </div>
+
+                        <div
+                            v-if="expandido === i.id"
+                            class="border-t px-6 py-3"
+                            :style="{ borderColor: 'var(--color-borde)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 5%, transparent)' }"
                         >
-                            Baja
-                        </button>
+                            <ul class="space-y-1">
+                                <li v-for="d in i.detalle" :key="d.inscripcion_id" class="flex items-center gap-2 text-sm">
+                                    <span class="min-w-0 flex-1 truncate">{{ d.materia }}</span>
+                                    <span
+                                        v-if="d.tipo_evaluacion"
+                                        class="shrink-0 rounded-full px-2 py-0.5 text-[11px]"
+                                        :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)', color: 'var(--color-suave)' }"
+                                    >
+                                        {{ d.tipo_evaluacion }}
+                                    </span>
+                                    <button
+                                        v-if="puedeInscribir"
+                                        type="button"
+                                        class="shrink-0 text-xs hover:text-red-600"
+                                        :style="{ color: 'var(--color-suave)' }"
+                                        @click="bajaDeMateria(d, i.nombre)"
+                                    >
+                                        baja
+                                    </button>
+                                </li>
+                            </ul>
+
+                            <div v-if="puedeInscribir && materiasFaltantes(i).length" class="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                                <span :style="{ color: 'var(--color-suave)' }">Le falta:</span>
+                                <button
+                                    v-for="m in materiasFaltantes(i)"
+                                    :key="m.id"
+                                    type="button"
+                                    class="rounded-full border px-2 py-0.5 disabled:opacity-50"
+                                    :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
+                                    :disabled="formSuelta.processing"
+                                    :title="m.nombre ?? ''"
+                                    @click="inscribirEnMateria(i, m.id)"
+                                >
+                                    + {{ m.clave_en_plan }}
+                                </button>
+                                <span :style="{ color: 'var(--color-suave)' }">— clic para inscribirlo en ordinario.</span>
+                            </div>
+                        </div>
                     </li>
                 </ul>
             </section>
@@ -368,11 +491,53 @@ function iniciales(nombre: string | null): string {
                         >
                             {{ todosVisiblesMarcados ? 'Quitar todos' : `Marcar los ${filtrados.length}` }}
                         </button>
+                        <!-- Cuadrícula para reconocer caras, lista para cargar
+                             muchos de corrido: las dos maneras se usan. -->
+                        <SelectorVista v-model="vistaAlumnos" clave="inscripcion-candidatos" />
                     </div>
                 </div>
 
-                <!-- Tarjetas de alumnos -->
-                <div v-if="filtrados.length" class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <!-- LISTA: renglones compactos, para marcar muchos rápido. -->
+                <ul v-if="filtrados.length && vistaAlumnos === 'lista'" class="mt-5 divide-y rounded-lg border" :style="{ borderColor: 'var(--color-borde)' }">
+                    <li v-for="c in filtrados" :key="c.id" :style="{ borderColor: 'var(--color-borde)' }">
+                        <label
+                            class="flex cursor-pointer items-center gap-3 px-3 py-2"
+                            :style="{ backgroundColor: seleccionados.has(c.id) ? 'color-mix(in srgb, var(--color-acento) 8%, transparent)' : 'transparent' }"
+                        >
+                            <input type="checkbox" class="rounded" :checked="seleccionados.has(c.id)" @change="alternar(c.id)" />
+                            <img v-if="c.foto" :src="c.foto" :alt="c.nombre ?? ''" class="h-8 w-8 shrink-0 rounded-full object-cover" />
+                            <span
+                                v-else
+                                class="grid h-8 w-8 shrink-0 place-items-center rounded-full text-[11px] font-semibold"
+                                :style="{ backgroundColor: 'var(--color-fondo)', color: 'var(--color-suave)' }"
+                            >
+                                {{ iniciales(c.nombre) }}
+                            </span>
+                            <span class="min-w-0 flex-1 truncate text-sm">{{ c.nombre }}</span>
+                            <span class="shrink-0 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ c.matricula }}</span>
+                            <span v-if="c.periodo_actual" class="shrink-0 text-[11px]" :style="{ color: 'var(--color-suave)' }">
+                                Per. {{ c.periodo_actual }}
+                            </span>
+                            <span
+                                v-if="c.sugerido"
+                                class="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                                :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 14%, transparent)', color: 'var(--color-acento)' }"
+                            >
+                                Sugerido
+                            </span>
+                            <span
+                                v-if="!c.mismo_campus"
+                                class="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                                :style="{ backgroundColor: 'color-mix(in srgb, #f59e0b 16%, transparent)', color: '#b45309' }"
+                            >
+                                {{ c.campus }}
+                            </span>
+                        </label>
+                    </li>
+                </ul>
+
+                <!-- CUADRÍCULA: tarjetas con foto, para reconocer al alumno. -->
+                <div v-else-if="filtrados.length" class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     <label
                         v-for="c in filtrados"
                         :key="c.id"

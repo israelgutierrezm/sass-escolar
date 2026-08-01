@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
@@ -8,25 +8,22 @@ import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoCasillas from '@/Components/CampoCasillas.vue';
 import CampoBuscador from '@/Components/CampoBuscador.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
+import SelectorVista from '@/Components/SelectorVista.vue';
 
-interface Inscrito {
-    inscripcion_id: number;
-    matricula_oferta_id: number;
-    matricula: string | null;
-    alumno: string | null;
-    tipo_evaluacion: string | null;
-    situacion: string | null;
-}
-
+/*
+ * Esta pantalla es la de las MATERIAS del grupo. Los alumnos viven en
+ * «Inscribir»: listarlos aquí, materia por materia, hacía que un grupo normal
+ * —seis materias, treinta alumnos— fuera un scroll de casi doscientos renglones
+ * para ver seis cosas. Dos pantallas cortas se leen mejor que una larga, y las
+ * dos tareas son distintas: aquí se arma el grupo, allá se puebla.
+ */
 interface MateriaAbierta {
     id: number;
     clave_en_plan: string | null;
     materia: string | null;
     plan: string | null;
     situacion: string | null;
-    titular: string | null;
-    adjuntos: string[];
-    inscritos: Inscrito[];
+    inscritos_count: number;
     docentes_asignados: { id: number; nombre: string | null; tipo: string }[];
 }
 
@@ -45,8 +42,6 @@ const props = defineProps<{
     asignaturas: MateriaAbierta[];
     materiasDisponibles: MateriaDisponible[];
     docentes: { id: number; nombre: string }[];
-    alumnos: { id: number; nombre: string }[];
-    tiposEvaluacion: { id: number; nombre: string }[];
     puedeEditar: boolean;
     puedeInscribir: boolean;
 }>();
@@ -89,6 +84,8 @@ function alternarAgregar(): void {
     agregando.value = !agregando.value;
 }
 
+const vista = ref<'lista' | 'cuadricula'>('lista');
+
 // El filtro arranca en el periodo del grupo (si lo tiene): abrir materias de un
 // grupo de tercero casi siempre significa abrir las de tercero. Si ese periodo
 // no tiene materias pendientes, se deja en «todos» para no mostrar vacío.
@@ -107,93 +104,55 @@ const materiasDelPeriodo = computed(() =>
         ? props.materiasDisponibles
         : props.materiasDisponibles.filter((m) => m.periodo === periodoFiltro.value),
 );
+
 const formDocente = useForm({ persona_id: null as number | null, tipo: 'titular' });
 const asignandoEn = ref<number | null>(null);
 
-// --- Inscripción individual a una materia ---
-// El tipo de evaluación arranca en «ordinaria» (lo normal); el select deja
-// elegir extraordinaria, a título, etc.
-const tipoOrdinaria = computed(
-    () => props.tiposEvaluacion.find((t) => /ordinaria/i.test(t.nombre))?.id ?? props.tiposEvaluacion[0]?.id ?? null,
-);
+/*
+ * Miniatura de la materia.
+ *
+ * Las asignaturas no tienen imagen y no la van a tener: lo que identifica a una
+ * materia es su clave. El mosaico de color la vuelve reconocible de un vistazo
+ * —el color sale de la propia clave, así que «DER0301» se ve siempre igual— sin
+ * inventar un catálogo de imágenes que nadie va a mantener.
+ */
+function tonoDe(texto: string | null): number {
+    let acumulado = 0;
 
-const formInscribir = useForm({
-    matricula_oferta_id: null as number | null,
-    asignatura_grupo_id: null as number | null,
-    tipo_evaluacion_id: null as number | null,
-});
-
-// Qué materia tiene abierto su formulario de "inscribir un alumno".
-const inscribiendoEn = ref<number | null>(null);
-
-function abrirInscripcion(materiaId: number): void {
-    inscribiendoEn.value = inscribiendoEn.value === materiaId ? null : materiaId;
-    formInscribir.reset();
-    formInscribir.clearErrors();
-    formInscribir.asignatura_grupo_id = materiaId;
-    formInscribir.tipo_evaluacion_id = tipoOrdinaria.value;
-}
-
-// Alumnos que aún no están (vigentes) en esta materia: el buscador no ofrece a
-// quien ya está inscrito.
-function alumnosPara(materia: MateriaAbierta) {
-    const yaInscritos = new Set(materia.inscritos.map((i) => i.matricula_oferta_id));
-
-    return props.alumnos
-        .filter((a) => !yaInscritos.has(a.id))
-        .map((a) => ({ valor: a.id, texto: a.nombre }));
-}
-
-function inscribirAlumno(): void {
-    formInscribir.post('/escolar/inscripciones', {
-        preserveScroll: true,
-        onSuccess: () => {
-            formInscribir.reset();
-            inscribiendoEn.value = null;
-        },
-    });
-}
-
-// Baja de UNA materia (una inscripción). Conserva historia.
-function bajaMateria(inscripcionId: number, alumno: string | null): void {
-    if (!confirm(`¿Dar de baja a ${alumno ?? 'este alumno'} de la materia?`)) {
-        return;
+    for (const caracter of texto ?? '?') {
+        acumulado = (Math.imul(acumulado, 31) + caracter.charCodeAt(0)) | 0;
     }
 
-    router.put(`/escolar/inscripciones/${inscripcionId}/baja`, {}, { preserveScroll: true });
+    /*
+     * El tono se separa por el ángulo áureo (137.5°) en vez de tomar el hash
+     * módulo 360 directamente.
+     *
+     * Las materias de un mismo plan tienen claves consecutivas —ISC0101,
+     * ISC0102, ISC0103— cuyos hashes difieren en uno, y con el módulo a secas
+     * caían en tonos contiguos: seis mosaicos del mismo azul, que es
+     * exactamente lo que la miniatura debía evitar. Multiplicar por el ángulo
+     * áureo manda cada clave consecutiva al lado opuesto de la rueda.
+     */
+    return (Math.abs(acumulado) * 137.508) % 360;
 }
 
-// Alumnos distintos inscritos en el grupo (en cualquier materia), para poder
-// darlos de baja de TODO el grupo de un tirón.
-const alumnosDelGrupo = computed(() => {
-    const mapa = new Map<number, { matricula_oferta_id: number; matricula: string | null; alumno: string | null; materias: number }>();
+function colorMateria(clave: string | null): { backgroundColor: string; color: string } {
+    const tono = tonoDe(clave);
 
-    for (const materia of props.asignaturas) {
-        for (const inscrito of materia.inscritos) {
-            const previo = mapa.get(inscrito.matricula_oferta_id);
-            if (previo) {
-                previo.materias += 1;
-            } else {
-                mapa.set(inscrito.matricula_oferta_id, {
-                    matricula_oferta_id: inscrito.matricula_oferta_id,
-                    matricula: inscrito.matricula,
-                    alumno: inscrito.alumno,
-                    materias: 1,
-                });
-            }
-        }
-    }
-
-    return [...mapa.values()].sort((a, b) => (a.matricula ?? '').localeCompare(b.matricula ?? ''));
-});
-
-function bajaGrupo(matriculaOfertaId: number, alumno: string | null): void {
-    if (!confirm(`¿Dar de baja a ${alumno ?? 'este alumno'} de TODO el grupo? Se dan de baja todas sus materias aquí.`)) {
-        return;
-    }
-
-    router.put(`/escolar/grupos/${props.grupo.id}/alumnos/${matriculaOfertaId}/baja`, {}, { preserveScroll: true });
+    return {
+        backgroundColor: `oklch(0.90 0.07 ${tono})`,
+        color: `oklch(0.40 0.14 ${tono})`,
+    };
 }
+
+/** Las letras de la clave (sin los dígitos): «DER0301» → «DER». */
+function siglaDe(clave: string | null): string {
+    const letras = (clave ?? '').replace(/[^A-Za-zÁÉÍÓÚÑ]/gi, '');
+
+    return (letras.slice(0, 3) || (clave ?? '?').slice(0, 3)).toUpperCase();
+}
+
+const sinDocente = computed(() => props.asignaturas.filter((a) => !a.docentes_asignados.length).length);
 
 function abrirMaterias(): void {
     formMateria.post(`/escolar/grupos/${props.grupo.id}/materias`, {
@@ -227,8 +186,18 @@ function docentesPara(asignatura: MateriaAbierta) {
     });
 }
 
+function alternarAsignar(materiaId: number): void {
+    asignandoEn.value = asignandoEn.value === materiaId ? null : materiaId;
+    formDocente.reset();
+    formDocente.clearErrors();
+}
+
 function quitarMateria(asignatura: MateriaAbierta): void {
-    if (!confirm(`¿Quitar "${asignatura.materia}" del grupo?`)) {
+    const aviso = asignatura.inscritos_count
+        ? `"${asignatura.materia}" tiene ${asignatura.inscritos_count} alumno(s) inscritos. ¿Quitarla del grupo?`
+        : `¿Quitar "${asignatura.materia}" del grupo?`;
+
+    if (!confirm(aviso)) {
         return;
     }
 
@@ -259,6 +228,10 @@ function quitarDocente(asignaturaId: number, personaId: number, nombre: string |
         preserveScroll: true,
     });
 }
+
+const urlInscribir = computed(
+    () => `/escolar/inscripciones/masiva?ciclo_id=${props.grupo.ciclo_id}&grupo_id=${props.grupo.id}`,
+);
 </script>
 
 <template>
@@ -289,9 +262,6 @@ function quitarDocente(asignaturaId: number, personaId: number, nombre: string |
                         <span v-if="grupo.turno" class="rounded-full px-2.5 py-1 text-xs" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)', color: 'var(--color-suave)' }">
                             {{ grupo.turno }}
                         </span>
-                        <span class="rounded-full px-2.5 py-1 text-xs" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)', color: 'var(--color-suave)' }">
-                            Cupo {{ grupo.cupo }}
-                        </span>
                     </div>
 
                     <p class="mt-3 text-sm text-suave">
@@ -302,14 +272,21 @@ function quitarDocente(asignaturaId: number, personaId: number, nombre: string |
                 </div>
 
                 <div class="flex flex-col items-end gap-2">
-                    <a
+                    <!-- La ocupación es lo primero que se pregunta de un grupo y
+                         se contesta sin listar a nadie. -->
+                    <p class="text-2xl font-semibold leading-none" :style="{ color: 'var(--color-acento)' }">
+                        {{ grupo.alumnos_count }}<span class="text-base" :style="{ color: 'var(--color-suave)' }">/{{ grupo.cupo }}</span>
+                    </p>
+                    <p class="text-xs" :style="{ color: 'var(--color-suave)' }">alumnos inscritos</p>
+
+                    <Link
                         v-if="puedeInscribir && asignaturas.length"
-                        :href="`/escolar/inscripciones/masiva?ciclo_id=${grupo.ciclo_id}&grupo_id=${grupo.id}`"
-                        class="rounded-lg px-4 py-2 text-sm font-medium text-white"
+                        :href="urlInscribir"
+                        class="mt-1 rounded-lg px-4 py-2 text-sm font-medium text-white"
                         :style="{ backgroundColor: 'var(--color-acento)' }"
                     >
                         Inscribir alumnos
-                    </a>
+                    </Link>
                     <a :href="`/escolar/grupos/${grupo.id}/edit`" class="text-sm" :style="{ color: 'var(--color-acento)' }">
                         Editar grupo
                     </a>
@@ -322,40 +299,48 @@ function quitarDocente(asignaturaId: number, personaId: number, nombre: string |
             <p v-if="puedeEditar" class="mt-4 border-t border-borde pt-3 text-xs text-suave">
                 El {{ unidadPeriodo.toLowerCase() }} del grupo es <strong>{{ grupo.semestre }}</strong> y no cambia
                 al abrirle materias de otro: para modificarlo, edita el grupo.
+                Los alumnos se administran en <Link :href="urlInscribir" class="underline" :style="{ color: 'var(--color-acento)' }">Inscribir</Link>.
             </p>
         </section>
 
-        <!-- Abrir materias: colapsado, porque la pantalla se consulta más de lo
-             que se edita. -->
-        <section v-if="puedeEditar" class="tarjeta overflow-hidden">
+        <!-- Materias del grupo -->
+        <section class="tarjeta overflow-hidden">
             <header class="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
-                <div>
+                <div class="min-w-0">
                     <h2 class="text-base font-semibold text-contenido">
-                        {{ agregando ? 'Agregar materias al grupo' : 'Materias del grupo' }}
+                        Materias del grupo ({{ asignaturas.length }})
                     </h2>
                     <p class="mt-0.5 text-sm text-suave">
-                        Abrir una materia es lo que la vuelve inscribible en este ciclo.
+                        <template v-if="sinDocente">
+                            <span class="text-amber-600">{{ sinDocente }} sin docente</span> — nadie podría firmar esas actas.
+                        </template>
+                        <template v-else-if="asignaturas.length">Todas con docente asignado.</template>
+                        <template v-else>Abrir una materia es lo que la vuelve inscribible en este ciclo.</template>
                     </p>
                 </div>
 
-                <button
-                    v-if="materiasDisponibles.length"
-                    type="button"
-                    class="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors"
-                    :style="agregando
-                        ? { borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }
-                        : { borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
-                    @click="alternarAgregar"
-                >
-                    <svg v-if="!agregando" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                    {{ agregando ? 'Cerrar' : 'Agregar materias' }}
-                </button>
-                <span v-else class="text-xs text-amber-600">
-                    No hay materias por abrir: ya están todas, o el plan no tiene malla cargada.
-                </span>
+                <div class="flex items-center gap-2">
+                    <SelectorVista v-if="asignaturas.length" v-model="vista" clave="grupo-materias" />
+                    <button
+                        v-if="puedeEditar && materiasDisponibles.length"
+                        type="button"
+                        class="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors"
+                        :style="agregando
+                            ? { borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }
+                            : { borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
+                        @click="alternarAgregar"
+                    >
+                        <svg v-if="!agregando" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                        {{ agregando ? 'Cerrar' : 'Agregar materias' }}
+                    </button>
+                    <span v-else-if="puedeEditar" class="text-xs text-amber-600">
+                        No hay materias por abrir.
+                    </span>
+                </div>
             </header>
 
-            <form v-if="agregando" class="space-y-4 border-t border-borde px-6 py-5" @submit.prevent="abrirMaterias">
+            <!-- Panel de abrir materias, colapsado -->
+            <form v-if="agregando && puedeEditar" class="space-y-4 border-t border-borde px-6 py-5" @submit.prevent="abrirMaterias">
                 <div v-if="periodosDisponibles.length" class="sm:max-w-xs">
                     <CampoSelect
                         v-model="periodoFiltro"
@@ -398,87 +383,59 @@ function quitarDocente(asignaturaId: number, personaId: number, nombre: string |
                     </button>
                 </div>
             </form>
-        </section>
 
-        <!-- Materias abiertas -->
-        <section v-if="asignaturas.length" class="tarjeta">
-            <div class="border-b border-borde px-6 py-3">
-                <h2 class="text-base font-semibold text-contenido">
-                    Materias abiertas ({{ asignaturas.length }})
-                </h2>
-            </div>
+            <!-- LISTA: una materia por renglón. Se lee de corrido y compara. -->
+            <ul v-if="asignaturas.length && vista === 'lista'" class="divide-y divide-borde border-t border-borde">
+                <li v-for="asignatura in asignaturas" :key="asignatura.id">
+                    <div class="flex flex-wrap items-center gap-3 px-6 py-3">
+                        <span
+                            class="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-[11px] font-bold tracking-tight"
+                            :style="colorMateria(asignatura.clave_en_plan)"
+                        >
+                            {{ siglaDe(asignatura.clave_en_plan) }}
+                        </span>
 
-            <ul class="divide-y divide-borde">
-                <li v-for="asignatura in asignaturas" :key="asignatura.id" class="px-6 py-4">
-                    <div class="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                            <p class="text-sm font-medium text-contenido">
-                                <span class="font-mono text-xs text-suave">{{ asignatura.clave_en_plan }}</span>
-                                · {{ asignatura.materia }}
-                            </p>
-                            <p class="mt-0.5 text-xs text-suave">
-                                {{ asignatura.plan }} · {{ asignatura.inscritos.length }} inscrito(s)
-                            </p>
+                        <span class="min-w-0 flex-1">
+                            <span class="block truncate text-sm font-medium text-contenido">{{ asignatura.materia }}</span>
+                            <span class="block truncate text-xs text-suave">
+                                <span class="font-mono">{{ asignatura.clave_en_plan }}</span> · {{ asignatura.plan }}
+                            </span>
+                        </span>
 
-                            <p v-if="!asignatura.docentes_asignados.length" class="mt-2 text-sm text-amber-600">
-                                Sin docente — nadie podría firmar el acta.
-                            </p>
-                            <ul v-else class="mt-2 space-y-1">
-                                <li
-                                    v-for="d in asignatura.docentes_asignados"
-                                    :key="d.id"
-                                    class="flex items-center gap-2 text-sm"
-                                >
-                                    <span class="text-contenido">{{ d.nombre }}</span>
-                                    <span
-                                        class="rounded-full px-2 py-0.5 text-[11px]"
-                                        :class="d.tipo === 'titular' ? 'bg-indigo-50 text-indigo-700' : 'bg-fondo text-suave'"
-                                    >
-                                        {{ d.tipo }}
-                                    </span>
-                                    <button
-                                        v-if="puedeEditar"
-                                        type="button"
-                                        class="text-xs text-suave hover:text-red-600"
-                                        @click="quitarDocente(asignatura.id, d.id, d.nombre)"
-                                    >
-                                        quitar
-                                    </button>
-                                </li>
-                            </ul>
-                        </div>
-
-                        <div v-if="puedeEditar || puedeInscribir" class="flex items-center gap-3">
-                            <button
-                                v-if="puedeInscribir"
-                                type="button"
-                                class="text-sm text-indigo-600 hover:text-indigo-700"
-                                @click="abrirInscripcion(asignatura.id)"
+                        <!-- Docentes: lo que de verdad hay que revisar aquí. -->
+                        <span class="flex min-w-0 flex-wrap items-center gap-1.5">
+                            <span v-if="!asignatura.docentes_asignados.length" class="rounded-full px-2 py-0.5 text-[11px] font-medium" :style="{ backgroundColor: 'color-mix(in srgb, #f59e0b 16%, transparent)', color: '#b45309' }">
+                                Sin docente
+                            </span>
+                            <span
+                                v-for="d in asignatura.docentes_asignados"
+                                :key="d.id"
+                                class="group inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]"
+                                :style="d.tipo === 'titular'
+                                    ? { backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }
+                                    : { backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)', color: 'var(--color-suave)' }"
+                                :title="d.tipo"
                             >
-                                Inscribir alumno
+                                {{ d.nombre }}
+                                <button v-if="puedeEditar" type="button" class="opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-600" @click="quitarDocente(asignatura.id, d.id, d.nombre)">×</button>
+                            </span>
+                        </span>
+
+                        <span class="shrink-0 tabular-nums text-xs text-suave">{{ asignatura.inscritos_count }} alumno(s)</span>
+
+                        <span v-if="puedeEditar" class="flex shrink-0 items-center gap-2">
+                            <button type="button" class="text-xs" :style="{ color: 'var(--color-acento)' }" @click="alternarAsignar(asignatura.id)">
+                                Docente
                             </button>
-                            <button
-                                v-if="puedeEditar"
-                                type="button"
-                                class="text-sm text-indigo-600 hover:text-indigo-700"
-                                @click="asignandoEn = asignandoEn === asignatura.id ? null : asignatura.id"
-                            >
-                                Asignar docente
-                            </button>
-                            <button
-                                v-if="puedeEditar"
-                                type="button"
-                                class="text-sm text-suave hover:text-red-600"
-                                @click="quitarMateria(asignatura)"
-                            >
+                            <button type="button" class="text-xs text-suave hover:text-red-600" @click="quitarMateria(asignatura)">
                                 Quitar
                             </button>
-                        </div>
+                        </span>
                     </div>
 
                     <form
                         v-if="asignandoEn === asignatura.id"
-                        class="mt-3 flex flex-wrap items-end gap-3 rounded-lg bg-fondo p-3"
+                        class="flex flex-wrap items-end gap-3 border-t border-borde bg-fondo px-6 py-3"
                         @submit.prevent="asignarDocente(asignatura.id)"
                     >
                         <div class="min-w-64 flex-1">
@@ -507,105 +464,92 @@ function quitarDocente(asignaturaId: number, personaId: number, nombre: string |
                             No hay docentes registrados todavía.
                         </p>
                     </form>
-
-                    <!-- Inscribir un alumno puntual a esta materia -->
-                    <form
-                        v-if="inscribiendoEn === asignatura.id"
-                        class="mt-3 flex flex-wrap items-end gap-3 rounded-lg bg-fondo p-3"
-                        @submit.prevent="inscribirAlumno"
-                    >
-                        <div class="min-w-64 flex-1">
-                            <CampoBuscador
-                                v-model="formInscribir.matricula_oferta_id"
-                                etiqueta="Alumno"
-                                :opciones="alumnosPara(asignatura)"
-                                marcador="Busca por matrícula o nombre…"
-                                vacio="No hay alumnos activos por inscribir."
-                                :error="formInscribir.errors.matricula_oferta_id ?? formInscribir.errors.asignatura_grupo_id"
-                            />
-                        </div>
-                        <div class="w-48">
-                            <CampoSelect
-                                v-model="formInscribir.tipo_evaluacion_id"
-                                etiqueta="Tipo"
-                                :opciones="tiposEvaluacion.map((t) => ({ valor: t.id, texto: t.nombre }))"
-                                :error="formInscribir.errors.tipo_evaluacion_id"
-                            />
-                        </div>
-                        <BotonPrincipal :procesando="formInscribir.processing" texto="Inscribir" />
-                    </form>
-
-                    <!-- Inscritos vigentes en esta materia -->
-                    <ul v-if="asignatura.inscritos.length" class="mt-3 space-y-1">
-                        <li
-                            v-for="i in asignatura.inscritos"
-                            :key="i.inscripcion_id"
-                            class="flex items-center gap-2 text-sm"
-                        >
-                            <span class="font-mono text-xs text-suave">{{ i.matricula }}</span>
-                            <span class="text-contenido">{{ i.alumno }}</span>
-                            <span
-                                v-if="i.tipo_evaluacion"
-                                class="rounded-full bg-fondo px-2 py-0.5 text-[11px] text-suave"
-                            >
-                                {{ i.tipo_evaluacion }}
-                            </span>
-                            <button
-                                v-if="puedeInscribir"
-                                type="button"
-                                class="text-xs text-suave hover:text-red-600"
-                                @click="bajaMateria(i.inscripcion_id, i.alumno)"
-                            >
-                                baja
-                            </button>
-                        </li>
-                    </ul>
                 </li>
             </ul>
-        </section>
 
-        <p v-else class="tarjeta px-4 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
-            Este grupo no tiene materias abiertas. Agrégale materias con el botón de arriba.
-        </p>
-
-        <!-- Alumnos del grupo, al final: es consulta y baja excepcional, no el
-             trabajo principal de esta pantalla. Dar de baja aquí lo saca de
-             TODAS las materias del grupo. -->
-        <section v-if="puedeInscribir && alumnosDelGrupo.length" class="tarjeta overflow-hidden">
-            <header class="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
-                <div>
-                    <h2 class="text-base font-semibold text-contenido">Alumnos del grupo ({{ alumnosDelGrupo.length }})</h2>
-                    <p class="mt-0.5 text-sm text-suave">
-                        Inscritos en al menos una materia. Dar de baja aquí los saca de todas.
-                    </p>
-                </div>
-                <a
-                    :href="`/escolar/inscripciones/masiva?ciclo_id=${grupo.ciclo_id}&grupo_id=${grupo.id}`"
-                    class="text-sm font-medium"
-                    :style="{ color: 'var(--color-acento)' }"
+            <!-- CUADRÍCULA: la materia se reconoce por su mosaico de color. -->
+            <div v-else-if="asignaturas.length" class="grid gap-3 border-t border-borde p-6 sm:grid-cols-2 lg:grid-cols-3">
+                <article
+                    v-for="asignatura in asignaturas"
+                    :key="asignatura.id"
+                    class="flex flex-col overflow-hidden rounded-xl border"
+                    :style="{ borderColor: 'var(--color-borde)' }"
                 >
-                    Inscribir más alumnos →
-                </a>
-            </header>
-
-            <ul class="divide-y divide-borde border-t border-borde">
-                <li v-for="a in alumnosDelGrupo" :key="a.matricula_oferta_id" class="flex items-center justify-between gap-3 px-6 py-3">
-                    <span class="min-w-0 text-sm text-contenido">
-                        <span class="font-medium">{{ a.alumno }}</span>
-                        <span class="ml-2 font-mono text-xs text-suave">{{ a.matricula }}</span>
-                        <span class="ml-2 rounded-full px-2 py-0.5 text-[11px]" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)', color: 'var(--color-suave)' }">
-                            {{ a.materias }} materia(s)
+                    <div class="flex items-center gap-3 p-3">
+                        <span
+                            class="grid h-14 w-14 shrink-0 place-items-center rounded-lg text-sm font-bold tracking-tight"
+                            :style="colorMateria(asignatura.clave_en_plan)"
+                        >
+                            {{ siglaDe(asignatura.clave_en_plan) }}
                         </span>
-                    </span>
-                    <button
-                        type="button"
-                        class="shrink-0 text-xs text-suave hover:text-red-600"
-                        @click="bajaGrupo(a.matricula_oferta_id, a.alumno)"
+                        <span class="min-w-0 flex-1">
+                            <span class="block truncate text-sm font-medium text-contenido" :title="asignatura.materia ?? ''">{{ asignatura.materia }}</span>
+                            <span class="block truncate font-mono text-xs text-suave">{{ asignatura.clave_en_plan }}</span>
+                            <span class="block truncate text-[11px] text-suave" :title="asignatura.plan ?? ''">{{ asignatura.plan }}</span>
+                        </span>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-1.5 px-3 pb-3">
+                        <span v-if="!asignatura.docentes_asignados.length" class="rounded-full px-2 py-0.5 text-[11px] font-medium" :style="{ backgroundColor: 'color-mix(in srgb, #f59e0b 16%, transparent)', color: '#b45309' }">
+                            Sin docente
+                        </span>
+                        <span
+                            v-for="d in asignatura.docentes_asignados"
+                            :key="d.id"
+                            class="group inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]"
+                            :style="d.tipo === 'titular'
+                                ? { backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }
+                                : { backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)', color: 'var(--color-suave)' }"
+                            :title="d.tipo"
+                        >
+                            {{ d.nombre }}
+                            <button v-if="puedeEditar" type="button" class="opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-600" @click="quitarDocente(asignatura.id, d.id, d.nombre)">×</button>
+                        </span>
+                    </div>
+
+                    <div class="mt-auto flex items-center justify-between gap-2 border-t px-3 py-2" :style="{ borderColor: 'var(--color-borde)' }">
+                        <span class="tabular-nums text-xs text-suave">{{ asignatura.inscritos_count }} alumno(s)</span>
+                        <span v-if="puedeEditar" class="flex items-center gap-2">
+                            <button type="button" class="text-xs" :style="{ color: 'var(--color-acento)' }" @click="alternarAsignar(asignatura.id)">
+                                Docente
+                            </button>
+                            <button type="button" class="text-xs text-suave hover:text-red-600" @click="quitarMateria(asignatura)">
+                                Quitar
+                            </button>
+                        </span>
+                    </div>
+
+                    <form
+                        v-if="asignandoEn === asignatura.id"
+                        class="space-y-3 border-t bg-fondo p-3"
+                        :style="{ borderColor: 'var(--color-borde)' }"
+                        @submit.prevent="asignarDocente(asignatura.id)"
                     >
-                        Baja del grupo
-                    </button>
-                </li>
-            </ul>
+                        <CampoBuscador
+                            v-model="formDocente.persona_id"
+                            etiqueta="Docente"
+                            :opciones="docentesPara(asignatura)"
+                            marcador="Busca por nombre…"
+                            vacio="No hay docentes dados de alta."
+                            :error="formDocente.errors.persona_id"
+                        />
+                        <CampoSelect
+                            v-model="formDocente.tipo"
+                            etiqueta="Tipo"
+                            :opciones="[
+                                { valor: 'titular', texto: 'Titular' },
+                                { valor: 'adjunto', texto: 'Adjunto' },
+                            ]"
+                            :error="formDocente.errors.tipo"
+                        />
+                        <BotonPrincipal :procesando="formDocente.processing" texto="Asignar" />
+                    </form>
+                </article>
+            </div>
+
+            <p v-else class="border-t border-borde px-6 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
+                Este grupo no tiene materias abiertas. Agrégale materias con el botón de arriba.
+            </p>
         </section>
     </AppLayout>
 </template>

@@ -157,9 +157,18 @@ class ValidadorInscripcion
 
     private function yaInscrito(MatriculaOferta $matricula, AsignaturaGrupo $materiaGrupo): ?string
     {
+        /*
+         * Las bajas no bloquean.
+         *
+         * La baja no borra la inscripción, le pone situación «baja» para
+         * conservar historia. Contándola como inscripción vigente, sacar a un
+         * alumno de una materia se volvía irreversible: el mismo alumno no podía
+         * volver a esa materia nunca, ni corrigiendo una baja hecha por error.
+         */
         $existe = Inscripcion::query()
             ->where('matricula_oferta_id', $matricula->id)
             ->where('asignatura_grupo_id', $materiaGrupo->id)
+            ->whereNot(fn ($q) => $q->whereHas('situacion', fn ($s) => $s->where('clave', 'baja')))
             ->exists();
 
         return $existe ? 'El alumno ya está inscrito en esta materia.' : null;

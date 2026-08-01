@@ -111,15 +111,7 @@ class InscripcionController extends Controller
             ? Inscripcion::TIPO_RECURSAMIENTO
             : Inscripcion::TIPO_ORDINARIA;
 
-        Inscripcion::create([
-            'matricula_oferta_id' => $matricula->id,
-            'asignatura_grupo_id' => $materiaGrupo->id,
-            'ciclo_id' => $materiaGrupo->grupo->ciclo_id,
-            'tipo' => $tipo,
-            'tipo_evaluacion_id' => $datos['tipo_evaluacion_id'],
-            'forma_inscripcion' => Inscripcion::FORMA_ADMINISTRATIVA,
-            'situacion_id' => SituacionInscripcion::query()->where('clave', 'inscrito')->value('id'),
-        ]);
+        $this->inscribir($matricula->id, $materiaGrupo, $materiaGrupo->grupo->ciclo_id, $tipo, $datos['tipo_evaluacion_id']);
 
         return back()->with('exito', 'Alumno inscrito.');
     }
@@ -168,6 +160,10 @@ class InscripcionController extends Controller
             'grupo' => $grupo === null ? null : $this->datosGrupoMasiva($grupo),
             'candidatos' => $grupo === null ? [] : $this->candidatosMasiva($grupo),
             'inscritos' => $grupo === null ? [] : $this->inscritosDelGrupo($grupo),
+            // Para inscribir a UNO en UNA materia (recursamiento, extraordinario):
+            // el caso puntual que antes vivía en el detalle del grupo y que ahora
+            // está donde están los alumnos.
+            'tiposEvaluacion' => TipoEvaluacion::query()->orderBy('id')->get(['id', 'nombre']),
             'puedeInscribir' => $request->user()->can('inscribir-alumnos'),
         ]);
     }
@@ -225,15 +221,7 @@ class InscripcionController extends Controller
                         continue;
                     }
 
-                    Inscripcion::create([
-                        'matricula_oferta_id' => $matricula->id,
-                        'asignatura_grupo_id' => $materiaGrupo->id,
-                        'ciclo_id' => $grupo->ciclo_id,
-                        'tipo' => Inscripcion::TIPO_ORDINARIA,
-                        'tipo_evaluacion_id' => $ordinaria,
-                        'forma_inscripcion' => Inscripcion::FORMA_ADMINISTRATIVA,
-                        'situacion_id' => $inscritoId,
-                    ]);
+                    $this->inscribir($matricula->id, $materiaGrupo, $grupo->ciclo_id, Inscripcion::TIPO_ORDINARIA, $ordinaria);
                     $renglones++;
                 }
 
@@ -259,6 +247,34 @@ class InscripcionController extends Controller
         return back()->with($renglones > 0 ? 'exito' : 'error', $renglones > 0
             ? $mensaje
             : 'No se inscribió ninguna materia: todas rebotaron por validación (otro plan de estudios, seriación, cupo o ya inscrito).');
+    }
+
+    /**
+     * Inscribe a un alumno en una materia-grupo, REACTIVANDO su renglón si ya
+     * existía dado de baja.
+     *
+     * `inscripcion` tiene un UNIQUE sobre (matricula_oferta, asignatura_grupo):
+     * un alumno ocupa un lugar en una materia, y la baja no borra el renglón,
+     * le cambia la situación. Insertar uno nuevo reventaba con una violación de
+     * llave —un 500 crudo en la cara del usuario— así que quien vuelve a la
+     * materia recupera SU renglón. La historia de la baja no se pierde: vive en
+     * la auditoría, no en una fila muerta que además bloquea el regreso.
+     */
+    private function inscribir(int $matriculaId, AsignaturaGrupo $materiaGrupo, int $cicloId, string $tipo, ?int $tipoEvaluacionId): void
+    {
+        Inscripcion::updateOrCreate(
+            [
+                'matricula_oferta_id' => $matriculaId,
+                'asignatura_grupo_id' => $materiaGrupo->id,
+            ],
+            [
+                'ciclo_id' => $cicloId,
+                'tipo' => $tipo,
+                'tipo_evaluacion_id' => $tipoEvaluacionId,
+                'forma_inscripcion' => Inscripcion::FORMA_ADMINISTRATIVA,
+                'situacion_id' => SituacionInscripcion::query()->where('clave', 'inscrito')->value('id'),
+            ],
+        );
     }
 
     /**
@@ -289,7 +305,10 @@ class InscripcionController extends Controller
                     ? null
                     : trim(($ag->planMateria->plan->carrera?->nombre ?? '').' · '.$ag->planMateria->plan->nombre, ' ·'))
                 ->filter()->unique()->values()->all(),
+            // El id es el de `asignatura_grupo`, no el de la materia del plan:
+            // es a lo que se inscribe alguien puntualmente.
             'materias' => $grupo->asignaturas->map(fn (AsignaturaGrupo $ag) => [
+                'id' => $ag->id,
                 'clave_en_plan' => $ag->planMateria?->clave_en_plan,
                 'nombre' => $ag->planMateria?->asignatura?->nombre,
                 'periodo' => $ag->planMateria?->periodo,
@@ -324,34 +343,52 @@ class InscripcionController extends Controller
         // Las bajas no cuentan: `bajarAlumno` no borra la inscripción, le pone
         // situación «baja». Sin esta exclusión el alumno seguiría apareciendo
         // en el grupo después de darlo de baja.
-        $porAlumno = Inscripcion::query()
+        $vigentes = Inscripcion::query()
+            ->with('tipoEvaluacion:id,nombre')
             ->whereIn('asignatura_grupo_id', $materiaIds)
             ->whereNot(fn ($q) => $q->whereHas('situacion', fn ($s) => $s->where('clave', 'baja')))
-            ->selectRaw('matricula_oferta_id, COUNT(*) as materias')
-            ->groupBy('matricula_oferta_id')
-            ->pluck('materias', 'matricula_oferta_id');
+            ->get(['id', 'matricula_oferta_id', 'asignatura_grupo_id', 'tipo_evaluacion_id'])
+            ->groupBy('matricula_oferta_id');
 
-        if ($porAlumno->isEmpty()) {
+        if ($vigentes->isEmpty()) {
             return [];
         }
 
         $total = $materiaIds->count();
 
+        // Nombre corto de cada materia del grupo, para el desglose por alumno.
+        $nombreMateria = $grupo->asignaturas->mapWithKeys(fn (AsignaturaGrupo $ag) => [
+            $ag->id => trim(($ag->planMateria?->clave_en_plan ?? '').' · '.($ag->planMateria?->asignatura?->nombre ?? '')),
+        ]);
+
         return MatriculaOferta::query()
             ->with(['persona', 'oferta.carrera:id,nombre'])
-            ->whereIn('id', $porAlumno->keys())
+            ->whereIn('id', $vigentes->keys())
             ->orderBy('matricula')
             ->get()
-            ->map(fn (MatriculaOferta $m) => [
-                'id' => $m->id,
-                'matricula' => $m->matricula,
-                'nombre' => $m->persona?->nombreCompleto(),
-                'carrera' => $m->oferta?->carrera?->nombre,
-                'foto' => $m->persona?->urlFoto(),
-                'materias' => (int) $porAlumno[$m->id],
-                'total_materias' => $total,
-                'completo' => (int) $porAlumno[$m->id] === $total,
-            ])
+            ->map(function (MatriculaOferta $m) use ($vigentes, $total, $nombreMateria) {
+                $suyas = $vigentes[$m->id];
+
+                return [
+                    'id' => $m->id,
+                    'matricula' => $m->matricula,
+                    'nombre' => $m->persona?->nombreCompleto(),
+                    'carrera' => $m->oferta?->carrera?->nombre,
+                    'foto' => $m->persona?->urlFoto(),
+                    'materias' => $suyas->count(),
+                    'total_materias' => $total,
+                    'completo' => $suyas->count() === $total,
+                    // Desglose: en qué materias está y con qué tipo de
+                    // evaluación. Es lo que permite darlo de baja de UNA sin
+                    // sacarlo del grupo entero.
+                    'detalle' => $suyas->map(fn (Inscripcion $i) => [
+                        'inscripcion_id' => $i->id,
+                        'asignatura_grupo_id' => $i->asignatura_grupo_id,
+                        'materia' => $nombreMateria[$i->asignatura_grupo_id] ?? null,
+                        'tipo_evaluacion' => $i->tipoEvaluacion?->nombre,
+                    ])->values()->all(),
+                ];
+            })
             ->all();
     }
 

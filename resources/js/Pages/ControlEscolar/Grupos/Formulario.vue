@@ -47,11 +47,29 @@ const opciones = (lista: { id: number; nombre: string }[]) =>
 // El ciclo elegido acota el grupo: a sus campus y a su nivel de estudios.
 const cicloElegido = computed(() => props.ciclos.find((c) => c.id === form.ciclo_id) ?? null);
 
-// Campus ofrecidos: si el ciclo tiene campus, solo esos; si no, todos.
+/*
+ * Ciclo y campus se acotan MUTUAMENTE, no en un solo sentido.
+ *
+ * Quien abre grupos no siempre razona igual: unos parten del ciclo que están
+ * armando, otros del campus que administran. Si solo el ciclo filtrara al
+ * campus, empezar por el campus dejaría el desplegable de ciclos ofreciendo
+ * ciclos donde ese campus no existe, y el error saldría hasta guardar.
+ */
 const campusVisibles = computed(() => {
     const ids = cicloElegido.value?.campus_ids ?? [];
 
     return ids.length ? props.campus.filter((c) => ids.includes(c.id)) : props.campus;
+});
+
+const ciclosVisibles = computed(() => {
+    if (form.campus_id === null) {
+        return props.ciclos;
+    }
+
+    // Un ciclo sin campus declarados no está acotado: sirve para cualquiera.
+    return props.ciclos.filter(
+        (c) => c.campus_ids.length === 0 || c.campus_ids.includes(form.campus_id as number),
+    );
 });
 
 // Ofertas del campus elegido: lo que se cargó en «Oferta» para ese campus. Sin
@@ -160,6 +178,12 @@ watch(carreraId, () => {
 watch(
     () => form.campus_id,
     () => {
+        // El acotamiento es mutuo: si el ciclo elegido no incluye este campus,
+        // el que sobra es el ciclo, porque el campus es lo que se acaba de tocar.
+        if (form.ciclo_id && !ciclosVisibles.value.some((c) => c.id === form.ciclo_id)) {
+            form.ciclo_id = null;
+        }
+
         if (carreraId.value && !carrerasVisibles.value.some((c) => c.id === carreraId.value)) {
             carreraId.value = null;
         }
@@ -220,95 +244,136 @@ function enviar(): void {
         <NavEscolar />
 
         <form class="space-y-6" @submit.prevent="enviar">
-            <TarjetaSeccion titulo="Datos del grupo" descripcion="Ciclo, campus y plan que abre el grupo; el ciclo acota lo disponible." :icono="ICONOS.personas">
-                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <CampoSelect
-                    v-model="form.ciclo_id"
-                    etiqueta="Ciclo"
-                    requerido
-                    :opciones="opciones(ciclos)"
-                    vacio="Selecciona…"
-                    :error="form.errors.ciclo_id"
-                />
-                <CampoSelect
-                    v-model="form.campus_id"
-                    etiqueta="Campus"
-                    requerido
-                    :opciones="opciones(campusVisibles)"
-                    vacio="Selecciona…"
-                    :error="form.errors.campus_id"
-                />
-                <CampoSelect
-                    v-model="form.nivel_estudios_id"
-                    etiqueta="Nivel de estudios"
-                    requerido
-                    :opciones="opciones(nivelesVisibles)"
-                    vacio="Selecciona…"
-                    :error="form.errors.nivel_estudios_id"
-                    ayuda="Todo grupo pertenece a un nivel. Filtra las carreras de abajo."
-                />
-                <CampoSelect
-                    v-model="form.semestre"
-                    :etiqueta="`${unidadPeriodo} (grado)`"
-                    requerido
-                    :opciones="opcionesPeriodo"
-                    vacio="Selecciona…"
-                    :error="form.errors.semestre"
-                    :ayuda="planElegido
-                        ? `Del 1 al ${planElegido.total_periodos ?? '—'}. Es el grado del grupo: no cambia al abrirle materias de otro.`
-                        : 'Es el grado del grupo: no cambia al abrirle materias de otro.'"
-                />
-                <CampoTexto v-model="form.clave" etiqueta="Clave" requerido mono :error="form.errors.clave" />
-                <CampoTexto v-model="form.nombre" etiqueta="Nombre" :error="form.errors.nombre" />
-                <CampoSelect
-                    v-model="carreraId"
-                    etiqueta="Carrera"
-                    :opciones="opciones(carrerasVisibles)"
-                    :vacio="!form.campus_id ? 'Elige campus primero' : 'Todas las ofertadas'"
-                    ayuda="Solo las carreras ofertadas en el campus. Filtra los planes de abajo; no se guarda en el grupo."
-                />
-                <CampoSelect
-                    v-model="form.plan_id"
-                    etiqueta="Plan de estudios"
-                    :opciones="planesVisibles.map((p) => ({ valor: p.id, texto: `${p.clave} · ${p.nombre}` }))"
-                    :vacio="!form.campus_id ? 'Elige campus primero' : (carreraId === null ? 'Sin plan fijo' : 'Sin plan fijo (de esta carrera)')"
-                    :error="form.errors.plan_id"
-                    ayuda="Solo los planes ofertados en el campus. Si lo fijas, solo se podrán abrir materias de ese plan."
-                />
-                <CampoSelect
-                    v-model="form.turno_id"
-                    etiqueta="Turno"
-                    :opciones="opciones(turnos)"
-                    vacio="Sin turno"
-                    :error="form.errors.turno_id"
-                    ayuda="Opcional."
-                />
-                <CampoTexto
-                    v-model="form.cupo"
-                    etiqueta="Cupo"
-                    tipo="number"
-                    min="1"
-                    requerido
-                    :error="form.errors.cupo"
-                    ayuda="Se valida al inscribir."
-                />
-
-                <p
-                    v-if="restriccionCiclo"
-                    class="rounded-lg p-3 text-sm sm:col-span-2 lg:col-span-3"
-                    style="background-color: color-mix(in srgb, #6366f1 8%, transparent)"
-                >
-                    {{ restriccionCiclo }}
-                </p>
-
-                <!-- La situación ya no se captura: preguntarla al alta era
-                     ofrecer un estado que el grupo todavía no puede tener. -->
-                <p v-if="!esEdicion" class="text-sm sm:col-span-2 lg:col-span-3" :style="{ color: 'var(--color-suave)' }">
-                    Al guardar pasarás a abrir las materias.
-                </p>
+            <!-- Cómo se llama el grupo: se escribe de corrido, sin depender de
+                 nada, así que va primero y no estorba la cascada de abajo. -->
+            <TarjetaSeccion
+                titulo="Identificación"
+                descripcion="Cómo se le va a llamar a este grupo en listas y actas."
+                :icono="ICONOS.personas"
+            >
+                <div class="grid gap-4 sm:grid-cols-3">
+                    <CampoTexto v-model="form.clave" etiqueta="Clave" requerido mono :error="form.errors.clave" />
+                    <CampoTexto
+                        v-model="form.nombre"
+                        etiqueta="Nombre"
+                        :error="form.errors.nombre"
+                        ayuda="Opcional. Si lo dejas vacío se identifica por la clave."
+                        class="sm:col-span-2"
+                    />
                 </div>
+            </TarjetaSeccion>
+
+            <!--
+                Cascada. Cada campo acota al siguiente y se muestra bloqueado
+                mientras le falte su antecedente: así el orden de captura se ve,
+                en vez de tener que descubrirlo abriendo desplegables vacíos.
+
+                Ciclo y campus son intercambiables a propósito (ver el computed
+                `ciclosVisibles`): se puede empezar por cualquiera de los dos.
+            -->
+            <TarjetaSeccion
+                titulo="Ciclo, campus y plan"
+                descripcion="Empieza por ciclo o por campus, el que tengas más a mano; de ahí en adelante cada paso depende del anterior."
+                :icono="ICONOS.calendario"
+            >
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <CampoSelect
+                        v-model="form.ciclo_id"
+                        etiqueta="1 · Ciclo"
+                        requerido
+                        :opciones="opciones(ciclosVisibles)"
+                        vacio="Selecciona…"
+                        :error="form.errors.ciclo_id"
+                        :ayuda="form.campus_id ? 'Solo los ciclos que incluyen ese campus.' : 'Puedes empezar por aquí o por el campus.'"
+                    />
+                    <CampoSelect
+                        v-model="form.campus_id"
+                        etiqueta="1 · Campus"
+                        requerido
+                        :opciones="opciones(campusVisibles)"
+                        vacio="Selecciona…"
+                        :error="form.errors.campus_id"
+                        :ayuda="form.ciclo_id ? 'Solo los campus del ciclo.' : 'Puedes empezar por aquí o por el ciclo.'"
+                    />
+                    <CampoSelect
+                        v-model="form.nivel_estudios_id"
+                        etiqueta="2 · Nivel de estudios"
+                        requerido
+                        :opciones="opciones(nivelesVisibles)"
+                        vacio="Selecciona…"
+                        :error="form.errors.nivel_estudios_id"
+                        ayuda="Todo grupo pertenece a un nivel. Filtra las carreras."
+                    />
+                    <CampoSelect
+                        v-model="carreraId"
+                        etiqueta="3 · Carrera"
+                        :opciones="opciones(carrerasVisibles)"
+                        :deshabilitado="!form.campus_id || !form.nivel_estudios_id"
+                        :vacio="!form.campus_id
+                            ? 'Elige campus primero'
+                            : (!form.nivel_estudios_id ? 'Elige nivel primero' : 'Todas las ofertadas')"
+                        ayuda="Solo las ofertadas en ese campus. Filtra los planes; no se guarda en el grupo."
+                    />
+                    <CampoSelect
+                        v-model="form.plan_id"
+                        etiqueta="4 · Plan de estudios"
+                        :opciones="planesVisibles.map((p) => ({ valor: p.id, texto: `${p.clave} · ${p.nombre}` }))"
+                        :deshabilitado="!form.campus_id"
+                        :vacio="!form.campus_id
+                            ? 'Elige campus primero'
+                            : (carreraId === null ? 'Sin plan fijo' : 'Sin plan fijo (de esta carrera)')"
+                        :error="form.errors.plan_id"
+                        ayuda="Opcional. Si lo fijas, solo se podrán abrir materias de ese plan."
+                    />
+                    <CampoSelect
+                        v-model="form.semestre"
+                        :etiqueta="`5 · ${unidadPeriodo} (grado)`"
+                        requerido
+                        :opciones="opcionesPeriodo"
+                        vacio="Selecciona…"
+                        :error="form.errors.semestre"
+                        :ayuda="planElegido
+                            ? `Del 1 al ${planElegido.total_periodos ?? '—'}. No cambia al abrirle materias de otro grado.`
+                            : 'No cambia al abrirle materias de otro grado.'"
+                    />
+
+                    <p
+                        v-if="restriccionCiclo"
+                        class="rounded-lg p-3 text-sm sm:col-span-2 lg:col-span-3"
+                        style="background-color: color-mix(in srgb, #6366f1 8%, transparent)"
+                    >
+                        {{ restriccionCiclo }}
+                    </p>
+                </div>
+            </TarjetaSeccion>
+
+            <TarjetaSeccion
+                titulo="Capacidad"
+                descripcion="Cuántos caben y en qué turno."
+                :icono="ICONOS.ajustes"
+            >
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <CampoTexto
+                        v-model="form.cupo"
+                        etiqueta="Cupo"
+                        tipo="number"
+                        min="1"
+                        requerido
+                        :error="form.errors.cupo"
+                        ayuda="Se valida al inscribir."
+                    />
+                    <CampoSelect
+                        v-model="form.turno_id"
+                        etiqueta="Turno"
+                        :opciones="opciones(turnos)"
+                        vacio="Sin turno"
+                        :error="form.errors.turno_id"
+                        ayuda="Opcional."
+                    />
+                </div>
+
                 <template #pie>
-                    <div class="flex items-center gap-3">
+                    <div class="flex flex-wrap items-center gap-3">
                         <BotonPrincipal :procesando="form.processing" :texto="esEdicion ? 'Guardar cambios' : 'Crear grupo'" />
                         <a
                             href="/escolar/grupos"
@@ -316,6 +381,11 @@ function enviar(): void {
                         >
                             Cancelar
                         </a>
+                        <!-- La situación ya no se captura: preguntarla al alta era
+                             ofrecer un estado que el grupo todavía no puede tener. -->
+                        <span v-if="!esEdicion" class="text-sm" :style="{ color: 'var(--color-suave)' }">
+                            Al guardar pasarás a abrir las materias.
+                        </span>
                     </div>
                 </template>
             </TarjetaSeccion>
