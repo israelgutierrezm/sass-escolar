@@ -7,6 +7,7 @@ import NavEscolar from '@/Components/NavEscolar.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoCasillas from '@/Components/CampoCasillas.vue';
 import CampoBuscador from '@/Components/CampoBuscador.vue';
+import PildoraEstado from '@/Components/PildoraEstado.vue';
 
 interface Inscrito {
     inscripcion_id: number;
@@ -62,14 +63,31 @@ const props = defineProps<{
 // cae al genérico «Periodo».
 const unidadPeriodo = computed(() => props.grupo.unidad_periodo ?? 'Periodo');
 
-// Si el grupo trae periodo fijo, sus materias pendientes de ese periodo arrancan
-// YA marcadas: abrir un grupo de tercero casi siempre es abrir las de tercero,
-// y así solo hay que confirmar. Quedan desmarcables una a una.
-const materiasDelPeriodoInicial = props.grupo.semestre
+// Si el grupo trae PLAN FIJO, sus materias pendientes del grado arrancan ya
+// marcadas: abrir un grupo de tercero casi siempre es abrir las de tercero, y
+// así solo hay que confirmar.
+//
+// Sin plan fijo NO se premarca nada, aunque el grado exista: ahí las materias
+// disponibles son las de tercero de TODAS las carreras del campus —más de cien—
+// y premarcarlas convertiría el botón en una trampa de un clic. Cuando no hay
+// plan que acote, la elección tiene que ser deliberada.
+const materiasDelPeriodoInicial = props.grupo.plan && props.grupo.semestre
     ? props.materiasDisponibles.filter((m) => m.periodo === props.grupo.semestre).map((m) => m.id)
     : [];
 
 const formMateria = useForm({ plan_materia_ids: materiasDelPeriodoInicial });
+
+/*
+ * El panel de abrir materias arranca CERRADO cuando el grupo ya tiene materias:
+ * a partir de ahí la pantalla se consulta más de lo que se edita, y un
+ * formulario largo permanentemente abierto empuja hacia abajo lo que se viene a
+ * ver. En un grupo recién creado arranca abierto, que es justo lo que toca.
+ */
+const agregando = ref(props.asignaturas.length === 0);
+
+function alternarAgregar(): void {
+    agregando.value = !agregando.value;
+}
 
 // El filtro arranca en el periodo del grupo (si lo tiene): abrir materias de un
 // grupo de tercero casi siempre significa abrir las de tercero. Si ese periodo
@@ -180,7 +198,13 @@ function bajaGrupo(matriculaOfertaId: number, alumno: string | null): void {
 function abrirMaterias(): void {
     formMateria.post(`/escolar/grupos/${props.grupo.id}/materias`, {
         preserveScroll: true,
-        onSuccess: () => formMateria.reset(),
+        onSuccess: () => {
+            formMateria.reset();
+            // Cerrar el panel al terminar deja a la vista lo que acaba de pasar:
+            // la lista de materias abiertas, que es la confirmación real. Dejarlo
+            // abierto tapa el resultado con el formulario que ya se usó.
+            agregando.value = false;
+        },
     });
 }
 
@@ -243,100 +267,137 @@ function quitarDocente(asignaturaId: number, personaId: number, nombre: string |
     <AppLayout titulo="Control escolar">
         <NavEscolar />
 
-        <!-- Cabecera -->
+        <!-- Cabecera: identidad del grupo de un vistazo -->
         <section class="tarjeta p-6">
             <div class="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                    <p class="font-mono text-sm text-suave">{{ grupo.clave }}</p>
-                    <h2 class="text-lg font-semibold text-contenido">{{ grupo.nombre ?? 'Grupo' }}</h2>
-                    <p class="mt-1 text-sm text-suave">
+                <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h2 class="text-lg font-semibold text-contenido">{{ grupo.nombre ?? grupo.clave }}</h2>
+                        <PildoraEstado :texto="grupo.situacion" :color="grupo.situacion === 'Abierto' ? '#16a34a' : 'var(--color-suave)'" />
+                    </div>
+                    <p class="mt-0.5 font-mono text-xs text-suave">{{ grupo.clave }}</p>
+
+                    <!-- El NIVEL y el GRADO son la identidad del grupo, así que
+                         van al frente y no perdidos en una línea de texto. -->
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        <span v-if="grupo.nivel" class="rounded-full px-2.5 py-1 text-xs font-medium" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }">
+                            {{ grupo.nivel }}
+                        </span>
+                        <span v-if="grupo.semestre" class="rounded-full px-2.5 py-1 text-xs font-medium" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }">
+                            {{ unidadPeriodo }} {{ grupo.semestre }}
+                        </span>
+                        <span v-if="grupo.turno" class="rounded-full px-2.5 py-1 text-xs" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)', color: 'var(--color-suave)' }">
+                            {{ grupo.turno }}
+                        </span>
+                        <span class="rounded-full px-2.5 py-1 text-xs" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)', color: 'var(--color-suave)' }">
+                            Cupo {{ grupo.cupo }}
+                        </span>
+                    </div>
+
+                    <p class="mt-3 text-sm text-suave">
                         Ciclo {{ grupo.ciclo }} · {{ grupo.campus }}
                         <span v-if="grupo.plan"> · {{ grupo.plan }}</span>
-                        <span v-if="grupo.cupo"> · cupo {{ grupo.cupo }}</span>
+                        <span v-else> · sin plan fijo</span>
                     </p>
                 </div>
+
                 <div class="flex flex-col items-end gap-2">
                     <a
                         v-if="puedeInscribir && asignaturas.length"
                         :href="`/escolar/inscripciones/masiva?ciclo_id=${grupo.ciclo_id}&grupo_id=${grupo.id}`"
-                        class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                        class="rounded-lg px-4 py-2 text-sm font-medium text-white"
+                        :style="{ backgroundColor: 'var(--color-acento)' }"
                     >
-                        Inscribir alumnos (masivo)
+                        Inscribir alumnos
                     </a>
-                    <a href="/escolar/grupos" class="text-sm text-indigo-600 hover:text-indigo-700">
-                        ← Volver a grupos
+                    <a :href="`/escolar/grupos/${grupo.id}/edit`" class="text-sm" :style="{ color: 'var(--color-acento)' }">
+                        Editar grupo
                     </a>
+                    <a href="/escolar/grupos" class="text-sm text-suave">← Volver a grupos</a>
                 </div>
             </div>
+
+            <!-- El grado no se mueve solo: es una decisión que se toma editando
+                 el grupo, no un efecto colateral de abrirle materias. -->
+            <p v-if="puedeEditar" class="mt-4 border-t border-borde pt-3 text-xs text-suave">
+                El {{ unidadPeriodo.toLowerCase() }} del grupo es <strong>{{ grupo.semestre }}</strong> y no cambia
+                al abrirle materias de otro: para modificarlo, edita el grupo.
+            </p>
         </section>
 
-        <!-- Alumnos del grupo: para dar de baja de TODAS sus materias si se
-             cargó al alumno equivocado. -->
-        <section v-if="puedeInscribir && alumnosDelGrupo.length" class="tarjeta p-6">
-            <h2 class="text-base font-semibold text-contenido">Alumnos del grupo ({{ alumnosDelGrupo.length }})</h2>
-            <p class="mt-1 text-sm text-suave">
-                Inscritos en al menos una materia del grupo. Dar de baja aquí los saca de todas.
-            </p>
-            <ul class="mt-3 divide-y divide-borde">
-                <li v-for="a in alumnosDelGrupo" :key="a.matricula_oferta_id" class="flex items-center justify-between gap-3 py-2">
-                    <span class="text-sm text-contenido">
-                        <span class="font-mono text-xs text-suave">{{ a.matricula }}</span>
-                        · {{ a.alumno }}
-                        <span class="text-xs text-suave">· {{ a.materias }} materia(s)</span>
-                    </span>
-                    <button
-                        type="button"
-                        class="text-xs text-suave hover:text-red-600"
-                        @click="bajaGrupo(a.matricula_oferta_id, a.alumno)"
-                    >
-                        Baja del grupo
-                    </button>
-                </li>
-            </ul>
-        </section>
+        <!-- Abrir materias: colapsado, porque la pantalla se consulta más de lo
+             que se edita. -->
+        <section v-if="puedeEditar" class="tarjeta overflow-hidden">
+            <header class="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
+                <div>
+                    <h2 class="text-base font-semibold text-contenido">
+                        {{ agregando ? 'Agregar materias al grupo' : 'Materias del grupo' }}
+                    </h2>
+                    <p class="mt-0.5 text-sm text-suave">
+                        Abrir una materia es lo que la vuelve inscribible en este ciclo.
+                    </p>
+                </div>
 
-        <!-- Abrir materia -->
-        <section v-if="puedeEditar" class="tarjeta p-6">
-            <h2 class="text-base font-semibold text-contenido">Abrir materias</h2>
-            <p class="mt-1 text-sm text-suave">
-                Abrir una materia es lo que la vuelve inscribible en este ciclo. Filtra por
-                {{ unidadPeriodo.toLowerCase() }} y marca todas las que vayas a abrir.
-            </p>
+                <button
+                    v-if="materiasDisponibles.length"
+                    type="button"
+                    class="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors"
+                    :style="agregando
+                        ? { borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }
+                        : { borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
+                    @click="alternarAgregar"
+                >
+                    <svg v-if="!agregando" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                    {{ agregando ? 'Cerrar' : 'Agregar materias' }}
+                </button>
+                <span v-else class="text-xs text-amber-600">
+                    No hay materias por abrir: ya están todas, o el plan no tiene malla cargada.
+                </span>
+            </header>
 
-            <form class="mt-4 space-y-4" @submit.prevent="abrirMaterias">
+            <form v-if="agregando" class="space-y-4 border-t border-borde px-6 py-5" @submit.prevent="abrirMaterias">
                 <div v-if="periodosDisponibles.length" class="sm:max-w-xs">
                     <CampoSelect
                         v-model="periodoFiltro"
-                        :etiqueta="unidadPeriodo"
+                        :etiqueta="`Filtrar por ${unidadPeriodo.toLowerCase()}`"
                         :opciones="periodosDisponibles.map((p) => ({ valor: p, texto: `${unidadPeriodo} ${p}` }))"
                         :vacio="`Todos los ${unidadPeriodo.toLowerCase()}s`"
-                        ayuda="Solo filtra la lista de abajo."
+                        :ayuda="`El grupo es de ${unidadPeriodo.toLowerCase()} ${grupo.semestre}; puedes abrirle materias de otro sin que su ${unidadPeriodo.toLowerCase()} cambie.`"
                     />
                 </div>
 
                 <CampoCasillas
                     v-model="formMateria.plan_materia_ids"
-                    etiqueta="Materias del plan"
+                    :etiqueta="`Materias disponibles (${materiasDelPeriodo.length})`"
                     :opciones="materiasDelPeriodo.map((m) => ({
                         valor: m.id,
                         texto: `${m.clave_en_plan} · ${m.materia ?? ''}`,
-                        ayuda: [m.periodo ? `${unidadPeriodo.toLowerCase()} ${m.periodo}` : null, m.tipo].filter(Boolean).join(' · '),
+                        // El PLAN va en la ayuda y no es adorno: en un grupo sin
+                        // plan fijo la misma materia aparece una vez por cada
+                        // plan que la incluye, con clave y nombre idénticos. Sin
+                        // el plan a la vista son opciones indistinguibles.
+                        ayuda: [
+                            m.plan,
+                            m.periodo ? `${unidadPeriodo.toLowerCase()} ${m.periodo}` : null,
+                            m.tipo,
+                        ].filter(Boolean).join(' · '),
                     }))"
                     :error="formMateria.errors.plan_materia_ids"
                     vacio="No hay materias disponibles en este periodo."
                 />
 
-                <BotonPrincipal
-                    :procesando="formMateria.processing"
-                    :deshabilitado="formMateria.plan_materia_ids.length === 0"
-                    :texto="formMateria.plan_materia_ids.length > 1 ? `Abrir ${formMateria.plan_materia_ids.length} materias` : 'Abrir materia'"
-                    icono="crear"
-                />
+                <div class="flex items-center gap-3">
+                    <BotonPrincipal
+                        :procesando="formMateria.processing"
+                        :deshabilitado="formMateria.plan_materia_ids.length === 0"
+                        :texto="formMateria.plan_materia_ids.length > 1 ? `Abrir ${formMateria.plan_materia_ids.length} materias` : 'Abrir materia'"
+                        icono="crear"
+                    />
+                    <button type="button" class="rounded-lg border border-borde px-4 py-2 text-sm" @click="alternarAgregar">
+                        Cancelar
+                    </button>
+                </div>
             </form>
-
-            <p v-if="!materiasDisponibles.length" class="mt-2 text-xs text-amber-600">
-                No hay materias disponibles: o ya están todas abiertas, o el plan no tiene malla cargada.
-            </p>
         </section>
 
         <!-- Materias abiertas -->
@@ -504,7 +565,47 @@ function quitarDocente(asignaturaId: number, personaId: number, nombre: string |
         </section>
 
         <p v-else class="tarjeta px-4 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
-            Este grupo no tiene materias abiertas.
+            Este grupo no tiene materias abiertas. Agrégale materias con el botón de arriba.
         </p>
+
+        <!-- Alumnos del grupo, al final: es consulta y baja excepcional, no el
+             trabajo principal de esta pantalla. Dar de baja aquí lo saca de
+             TODAS las materias del grupo. -->
+        <section v-if="puedeInscribir && alumnosDelGrupo.length" class="tarjeta overflow-hidden">
+            <header class="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
+                <div>
+                    <h2 class="text-base font-semibold text-contenido">Alumnos del grupo ({{ alumnosDelGrupo.length }})</h2>
+                    <p class="mt-0.5 text-sm text-suave">
+                        Inscritos en al menos una materia. Dar de baja aquí los saca de todas.
+                    </p>
+                </div>
+                <a
+                    :href="`/escolar/inscripciones/masiva?ciclo_id=${grupo.ciclo_id}&grupo_id=${grupo.id}`"
+                    class="text-sm font-medium"
+                    :style="{ color: 'var(--color-acento)' }"
+                >
+                    Inscribir más alumnos →
+                </a>
+            </header>
+
+            <ul class="divide-y divide-borde border-t border-borde">
+                <li v-for="a in alumnosDelGrupo" :key="a.matricula_oferta_id" class="flex items-center justify-between gap-3 px-6 py-3">
+                    <span class="min-w-0 text-sm text-contenido">
+                        <span class="font-medium">{{ a.alumno }}</span>
+                        <span class="ml-2 font-mono text-xs text-suave">{{ a.matricula }}</span>
+                        <span class="ml-2 rounded-full px-2 py-0.5 text-[11px]" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)', color: 'var(--color-suave)' }">
+                            {{ a.materias }} materia(s)
+                        </span>
+                    </span>
+                    <button
+                        type="button"
+                        class="shrink-0 text-xs text-suave hover:text-red-600"
+                        @click="bajaGrupo(a.matricula_oferta_id, a.alumno)"
+                    >
+                        Baja del grupo
+                    </button>
+                </li>
+            </ul>
+        </section>
     </AppLayout>
 </template>

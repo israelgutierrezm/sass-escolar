@@ -126,7 +126,7 @@ class GrupoController extends Controller
      */
     public function show(Request $request, Grupo $grupo): Response
     {
-        $grupo->load(['ciclo:id,clave,nombre', 'campus:id,nombre', 'plan:id,nombre,tipo_periodo_id', 'plan.tipoPeriodo:id,nombre', 'situacion:id,nombre']);
+        $grupo->load(['ciclo:id,clave,nombre', 'campus:id,nombre', 'plan:id,nombre,tipo_periodo_id', 'plan.tipoPeriodo:id,nombre', 'situacion:id,nombre', 'turno:id,nombre']);
 
         $asignaturas = AsignaturaGrupo::query()
             ->with([
@@ -151,9 +151,14 @@ class GrupoController extends Controller
                 'plan' => $grupo->plan?->nombre,
                 'situacion' => $grupo->situacion?->nombre,
                 'cupo' => $grupo->cupo,
-                // El semestre del grupo preselecciona las materias de ese periodo
-                // al «Abrir materias».
+                'turno' => $grupo->turno?->nombre,
+                // El GRADO del grupo. Preselecciona las materias de ese periodo
+                // al abrirlas, pero NO cambia por abrirle materias de otro: el
+                // grado dice quiénes cursan el grupo, no qué se imparte.
                 'semestre' => $grupo->semestre,
+                'nivel' => $grupo->nivel_estudios_id !== null
+                    ? NivelEstudio::find($grupo->nivel_estudios_id)?->nombre
+                    : null,
                 // Nombre real del periodo del plan del grupo (Semestre,
                 // Cuatrimestre…). Null si el grupo no tiene plan fijo: ahí las
                 // materias pueden venir de planes con periodicidades distintas y

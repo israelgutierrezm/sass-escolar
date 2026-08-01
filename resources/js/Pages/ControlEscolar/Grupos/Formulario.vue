@@ -304,8 +304,7 @@ function enviar(): void {
                 <!-- La situación ya no se captura: preguntarla al alta era
                      ofrecer un estado que el grupo todavía no puede tener. -->
                 <p v-if="!esEdicion" class="text-sm sm:col-span-2 lg:col-span-3" :style="{ color: 'var(--color-suave)' }">
-                    El grupo se crea <strong>abierto</strong>. Cerrarlo o cancelarlo es una decisión posterior.
-                    Al guardar pasarás a abrirle sus materias.
+                    Al guardar pasarás a abrir las materias.
                 </p>
                 </div>
                 <template #pie>

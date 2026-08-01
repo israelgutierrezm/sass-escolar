@@ -43,7 +43,11 @@ const visibles = computed(() => {
         return props.opciones;
     }
 
-    return props.opciones.filter((opcion) => opcion.texto.toLowerCase().includes(termino));
+    // Se busca también en la ayuda: ahí es donde suele estar lo que distingue
+    // dos opciones de texto idéntico (el plan de una materia, por ejemplo).
+    return props.opciones.filter(
+        (opcion) => `${opcion.texto} ${opcion.ayuda ?? ''}`.toLowerCase().includes(termino),
+    );
 });
 
 const todasVisiblesMarcadas = computed(
