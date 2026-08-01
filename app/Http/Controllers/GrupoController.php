@@ -9,6 +9,11 @@ use App\Models\Academico\Carrera;
 use App\Models\Academico\Oferta;
 use App\Models\Academico\PlanEstudio;
 use App\Models\Academico\PlanMateria;
+// El nivel del grupo tiene que hablar el MISMO catálogo que `carreras.
+// nivel_estudios_id`, que es el del tenant (los niveles que esta escuela
+// oferta). El homónimo de Landlord son los niveles estandarizados de la SEP y
+// usarlo aquí produce ids que no cruzan con ninguna carrera.
+use App\Models\Academico\NivelEstudio;
 use App\Models\Academico\Turno;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\AsignaturaGrupo;
@@ -19,7 +24,6 @@ use App\Models\ControlEscolar\Inscripcion;
 use App\Models\ControlEscolar\SituacionGrupo;
 use App\Models\ControlEscolar\SituacionInscripcion;
 use App\Models\ControlEscolar\TipoEvaluacion;
-use App\Models\Landlord\NivelEstudio;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -58,6 +62,16 @@ class GrupoController extends Controller
         $grupos = Grupo::query()
             ->with(['ciclo:id,clave,nombre', 'campus:id,nombre', 'plan:id,nombre', 'turno:id,nombre', 'situacion:id,nombre'])
             ->withCount('asignaturas')
+            // Alumnos DISTINTOS en el grupo, no renglones de inscripción: un
+            // alumno en seis materias es un alumno, y es lo que se compara
+            // contra el cupo. Las bajas no ocupan lugar.
+            ->addSelect(['alumnos_count' => Inscripcion::query()
+                ->selectRaw('COUNT(DISTINCT inscripcion.matricula_oferta_id)')
+                ->join('asignatura_grupo', 'asignatura_grupo.id', '=', 'inscripcion.asignatura_grupo_id')
+                ->leftJoin('situaciones_inscripcion', 'situaciones_inscripcion.id', '=', 'inscripcion.situacion_id')
+                ->whereColumn('asignatura_grupo.grupo_id', 'grupos.id')
+                ->where(fn ($q) => $q->whereNull('situaciones_inscripcion.clave')->orWhere('situaciones_inscripcion.clave', '!=', 'baja')),
+            ])
             ->when($campusVisibles !== [], fn ($q) => $q->whereIn('campus_id', $campusVisibles))
             ->when($filtros['busqueda'] !== '', function ($query) use ($filtros) {
                 $termino = "%{$filtros['busqueda']}%";
@@ -82,8 +96,10 @@ class GrupoController extends Controller
                 'plan' => $grupo->plan?->nombre,
                 'turno' => $grupo->turno?->nombre,
                 'situacion' => $grupo->situacion?->nombre,
+                'ciclo_id' => $grupo->ciclo_id,
                 'cupo' => $grupo->cupo,
                 'materias_count' => $grupo->asignaturas_count,
+                'alumnos_count' => (int) $grupo->alumnos_count,
             ]);
 
         return Inertia::render('ControlEscolar/Grupos/Index', [
@@ -100,6 +116,7 @@ class GrupoController extends Controller
             'turnos' => Turno::query()->orderBy('id')->get(['id', 'nombre']),
             'situaciones' => SituacionGrupo::query()->orderBy('id')->get(['id', 'nombre']),
             'puedeEditar' => $request->user()->can('abrir-grupos'),
+            'puedeInscribir' => $request->user()->can('inscribir-alumnos'),
         ]);
     }
 
@@ -130,7 +147,8 @@ class GrupoController extends Controller
 
         $asignaturas = AsignaturaGrupo::query()
             ->with([
-                'planMateria.asignatura:id,nombre', 'planMateria.plan:id,nombre', 'situacion:id,nombre', 'docentes.persona',
+                'planMateria.asignatura:id,nombre', 'planMateria.plan:id,nombre,carrera_id', 'planMateria.plan.carrera:id,nombre',
+                'situacion:id,nombre', 'docentes.persona',
                 // Para gestionar inscritos desde el propio grupo: quién está en
                 // cada materia, con qué tipo de evaluación y en qué situación.
                 'inscripciones.matriculaOferta.persona',
@@ -172,7 +190,10 @@ class GrupoController extends Controller
                     'id' => $asignatura->id,
                     'clave_en_plan' => $asignatura->planMateria?->clave_en_plan,
                     'materia' => $asignatura->planMateria?->asignatura?->nombre,
-                    'plan' => $asignatura->planMateria?->plan?->nombre,
+                    // Mismo criterio que en materias disponibles: carrera + plan.
+                    'plan' => $asignatura->planMateria?->plan === null
+                        ? null
+                        : trim(($asignatura->planMateria->plan->carrera?->nombre ?? '').' · '.$asignatura->planMateria->plan->nombre, ' ·'),
                     'situacion' => $asignatura->situacion?->nombre,
                     'titular' => $titular?->persona?->nombreCompleto(),
                     'adjuntos' => $asignatura->docentes
@@ -296,7 +317,7 @@ class GrupoController extends Controller
     private function materiasDisponibles(Grupo $grupo, array $yaAbiertas): array
     {
         return PlanMateria::query()
-            ->with(['asignatura:id,nombre', 'plan:id,nombre'])
+            ->with(['asignatura:id,nombre', 'plan:id,nombre,carrera_id', 'plan.carrera:id,nombre'])
             ->when($grupo->plan_id !== null, fn ($q) => $q->where('plan_id', $grupo->plan_id))
             ->whereNotIn('id', $yaAbiertas)
             ->orderBy('periodo')
@@ -306,7 +327,14 @@ class GrupoController extends Controller
                 'id' => $materia->id,
                 'clave_en_plan' => $materia->clave_en_plan,
                 'materia' => $materia->asignatura?->nombre,
-                'plan' => $materia->plan?->nombre,
+                // Carrera + plan, no solo el plan: los planes se llaman por su
+                // año («Plan 2022») y hay uno por carrera, así que el nombre a
+                // secas no distingue dos materias de clave y nombre iguales
+                // —que es justo lo que hay que distinguir en un grupo sin plan
+                // fijo, donde se ven todas las de todas las carreras.
+                'plan' => $materia->plan === null
+                    ? null
+                    : trim(($materia->plan->carrera?->nombre ?? '').' · '.$materia->plan->nombre, ' ·'),
                 // El periodo va suelto, no embebido en la etiqueta: la pantalla
                 // filtra por él para proponer "las de tercer semestre" en vez de
                 // obligar a leer una lista de cincuenta.

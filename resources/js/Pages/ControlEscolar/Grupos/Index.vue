@@ -21,8 +21,10 @@ interface FilaGrupo {
     plan: string | null;
     turno: string | null;
     situacion: string | null;
+    ciclo_id: number;
     cupo: number | null;
     materias_count: number;
+    alumnos_count: number;
 }
 
 const props = defineProps<{
@@ -40,6 +42,7 @@ const props = defineProps<{
     turnos: { id: number; nombre: string }[];
     situaciones: { id: number; nombre: string }[];
     puedeEditar: boolean;
+    puedeInscribir: boolean;
 }>();
 
 const vista = ref<'lista' | 'cuadricula'>('lista');
@@ -103,11 +106,21 @@ function eliminar(id: number, clave: string): void {
                         { etiqueta: 'Campus', valor: grupo.campus },
                         { etiqueta: 'Plan', valor: grupo.plan ?? 'Sin plan fijo' },
                         { etiqueta: 'Turno', valor: grupo.turno },
-                        { etiqueta: 'Cupo', valor: grupo.cupo },
+                        { etiqueta: 'Ocupación', valor: `${grupo.alumnos_count}/${grupo.cupo ?? '—'}` },
                         { etiqueta: 'Materias', valor: grupo.materias_count },
                     ]"
                 >
                     <template #acciones>
+                        <a
+                            v-if="puedeInscribir && grupo.materias_count"
+                            :href="`/escolar/inscripciones/masiva?ciclo_id=${grupo.ciclo_id}&grupo_id=${grupo.id}`"
+                            class="boton-fantasma inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs"
+                            :style="{ color: 'var(--color-acento)' }"
+                            title="Inscribir alumnos al grupo"
+                        >
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.1 9.1 0 0 0 3.74-.48 3 3 0 0 0-4.68-3.44M18 18.72V14.5a5.97 5.97 0 0 0-.94-3.21M18 18.72a9.09 9.09 0 0 1-6 2.03 9.09 9.09 0 0 1-6-2.03V14.5a6 6 0 0 1 12 0v4.22ZM8.94 11.29A5.97 5.97 0 0 0 6 14.5v4.22m2.94-7.43a3 3 0 1 0-4.68 3.44A9.1 9.1 0 0 1 6 18.72M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
+                            Inscribir
+                        </a>
                         <BotonAccion variante="ver" texto="Abrir" :href="`/escolar/grupos/${grupo.id}`" />
                         <template v-if="puedeEditar">
                             <BotonAccion variante="editar" :href="`/escolar/grupos/${grupo.id}/edit`" />
@@ -133,7 +146,7 @@ function eliminar(id: number, clave: string): void {
                             <th class="px-4 py-3 font-semibold">Campus</th>
                             <th class="px-4 py-3 font-semibold">Plan</th>
                             <th class="px-4 py-3 font-semibold">Turno</th>
-                            <th class="px-4 py-3 font-semibold text-center">Cupo</th>
+                            <th class="px-4 py-3 font-semibold text-center">Ocupación</th>
                             <th class="px-4 py-3 font-semibold text-center">Materias</th>
                             <th class="px-4 py-3 font-semibold">Situación</th>
                             <th class="px-6 py-3 font-semibold text-right">Acciones</th>
@@ -158,13 +171,31 @@ function eliminar(id: number, clave: string): void {
                                 <span v-if="grupo.turno" class="inline-block rounded-full px-2.5 py-0.5 text-[11px]" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 10%, transparent)', color: 'var(--color-suave)' }">{{ grupo.turno }}</span>
                                 <span v-else :style="{ color: 'var(--color-suave)' }">—</span>
                             </td>
-                            <td class="px-4 py-4 text-center tabular-nums" :style="{ color: 'var(--color-suave)' }">{{ grupo.cupo ?? '—' }}</td>
+                            <!-- Inscritos sobre cupo: el cupo solo dice algo en
+                                 relación con lo que ya se ocupó. -->
+                            <td class="px-4 py-4 text-center tabular-nums">
+                                <span :style="{ color: grupo.cupo && grupo.alumnos_count >= grupo.cupo ? '#b45309' : 'var(--color-contenido)' }">{{ grupo.alumnos_count }}</span>
+                                <span :style="{ color: 'var(--color-suave)' }">/{{ grupo.cupo ?? '—' }}</span>
+                            </td>
                             <td class="px-4 py-4 text-center tabular-nums" :style="{ color: 'var(--color-suave)' }">{{ grupo.materias_count }}</td>
                             <td class="px-4 py-4">
                                 <PildoraEstado :texto="grupo.situacion" />
                             </td>
                             <td class="px-6 py-4">
                                 <div class="flex items-center justify-end gap-1">
+                                    <!-- La inscripción masiva es el destino más
+                                         frecuente desde aquí: llega con el ciclo
+                                         y el grupo ya elegidos. -->
+                                    <a
+                                        v-if="puedeInscribir && grupo.materias_count"
+                                        :href="`/escolar/inscripciones/masiva?ciclo_id=${grupo.ciclo_id}&grupo_id=${grupo.id}`"
+                                        class="boton-fantasma inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs"
+                                        :style="{ color: 'var(--color-acento)' }"
+                                        title="Inscribir alumnos al grupo"
+                                    >
+                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.1 9.1 0 0 0 3.74-.48 3 3 0 0 0-4.68-3.44M18 18.72V14.5a5.97 5.97 0 0 0-.94-3.21M18 18.72a9.09 9.09 0 0 1-6 2.03 9.09 9.09 0 0 1-6-2.03V14.5a6 6 0 0 1 12 0v4.22ZM8.94 11.29A5.97 5.97 0 0 0 6 14.5v4.22m2.94-7.43a3 3 0 1 0-4.68 3.44A9.1 9.1 0 0 1 6 18.72M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
+                                        Inscribir
+                                    </a>
                                     <BotonAccion variante="ver" texto="Abrir" :href="`/escolar/grupos/${grupo.id}`" />
                                     <template v-if="puedeEditar">
                                         <BotonAccion variante="editar" :href="`/escolar/grupos/${grupo.id}/edit`" />

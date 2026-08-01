@@ -11,9 +11,22 @@ interface Candidato {
     matricula: string;
     nombre: string | null;
     carrera: string | null;
+    campus: string | null;
+    mismo_campus: boolean;
     periodo_actual: number | null;
     foto: string | null;
     sugerido: boolean;
+}
+
+interface Inscrito {
+    id: number;
+    matricula: string;
+    nombre: string | null;
+    carrera: string | null;
+    foto: string | null;
+    materias: number;
+    total_materias: number;
+    completo: boolean;
 }
 
 const props = defineProps<{
@@ -25,10 +38,16 @@ const props = defineProps<{
         clave: string;
         plan: string | null;
         ciclo: string | null;
+        ciclo_id: number;
+        campus: string | null;
+        turno: string | null;
+        cupo: number | null;
         periodo_objetivo: number | null;
+        planes_admitidos: string[];
         materias: { clave_en_plan: string | null; nombre: string | null; periodo: number | null }[];
     } | null;
     candidatos: Candidato[];
+    inscritos: Inscrito[];
     puedeInscribir: boolean;
 }>();
 
@@ -57,40 +76,103 @@ function alternar(id: number): void {
     seleccionados.value = new Set(seleccionados.value);
 }
 
-function seleccionarSugeridos(): void {
-    props.candidatos.filter((c) => c.sugerido).forEach((c) => seleccionados.value.add(c.id));
-    seleccionados.value = new Set(seleccionados.value);
-}
-
 function limpiar(): void {
     seleccionados.value = new Set();
 }
 
 // Buscador: filtra los candidatos por nombre o matrícula; los sugeridos primero.
 const busqueda = ref('');
+
+/*
+ * «Sugerido» es el alumno cuyo grado coincide con el del grupo, y en la carga
+ * normal de un ciclo son casi todos. El filtro arranca en ellos porque inscribir
+ * a un grupo de tercero es, casi siempre, meter a los de tercero; ver de entrada
+ * la lista completa de la carrera obliga a distinguir a ojo quién toca.
+ */
+const soloSugeridos = ref(true);
+
+/*
+ * El grupo está físicamente en un campus, así que por omisión solo se ofrecen
+ * los alumnos de ese campus. No es un candado: el alumno que cursa en otro
+ * campus existe (movilidad, materias compartidas) y el enlace de abajo lo trae
+ * a la vista. Esconderlo sin decirlo dejaría ese caso sin salida.
+ */
+const soloDelCampus = ref(true);
+
+const deOtroCampus = computed(() => props.candidatos.filter((c) => !c.mismo_campus).length);
+
+const delCampus = computed(() =>
+    soloDelCampus.value ? props.candidatos.filter((c) => c.mismo_campus) : props.candidatos,
+);
+
+const totalSugeridos = computed(() => delCampus.value.filter((c) => c.sugerido).length);
+
 const filtrados = computed(() => {
     const q = busqueda.value.trim().toLowerCase();
+
+    // El filtro de sugeridos se ignora cuando no hay ninguno (grupo sin grado
+    // objetivo, o nadie en ese grado): mostrar cero candidatos parecería un
+    // error del sistema y en realidad solo sobra el filtro.
+    const base =
+        soloSugeridos.value && totalSugeridos.value > 0
+            ? delCampus.value.filter((c) => c.sugerido)
+            : delCampus.value;
+
     const lista = q
-        ? props.candidatos.filter((c) => (c.nombre ?? '').toLowerCase().includes(q) || c.matricula.toLowerCase().includes(q))
-        : props.candidatos;
+        ? base.filter(
+              (c) => (c.nombre ?? '').toLowerCase().includes(q) || c.matricula.toLowerCase().includes(q),
+          )
+        : base;
 
     return [...lista].sort((a, b) => Number(b.sugerido) - Number(a.sugerido));
 });
 
-const totalSugeridos = computed(() => props.candidatos.filter((c) => c.sugerido).length);
+function marcarVisibles(): void {
+    filtrados.value.forEach((c) => seleccionados.value.add(c.id));
+    seleccionados.value = new Set(seleccionados.value);
+}
+
+const todosVisiblesMarcados = computed(
+    () => filtrados.value.length > 0 && filtrados.value.every((c) => seleccionados.value.has(c.id)),
+);
+
+// Cuántos lugares quedan. El cupo se valida materia por materia en el servidor;
+// aquí solo se avisa antes de que la carga rebote a medias.
+const lugaresLibres = computed(() =>
+    props.grupo?.cupo == null ? null : props.grupo.cupo - props.inscritos.length,
+);
+
+const excedeCupo = computed(
+    () => lugaresLibres.value !== null && seleccionados.value.size > lugaresLibres.value,
+);
+
+const incompletos = computed(() => props.inscritos.filter((i) => !i.completo));
 
 const form = useForm<{ grupo_id: number | null; matricula_oferta_ids: number[] }>({
     grupo_id: null,
     matricula_oferta_ids: [],
 });
 
-function inscribir(): void {
+function inscribir(ids?: number[]): void {
     form.grupo_id = grupoId.value;
-    form.matricula_oferta_ids = [...seleccionados.value];
+    form.matricula_oferta_ids = ids ?? [...seleccionados.value];
     form.post('/escolar/inscripciones/masiva', {
         preserveScroll: true,
         onSuccess: () => limpiar(),
     });
+}
+
+/** Completar a los que quedaron con materias sueltas: las que ya tienen se omiten solas. */
+function completarIncompletos(): void {
+    inscribir(incompletos.value.map((i) => i.id));
+}
+
+function bajaDelGrupo(inscrito: Inscrito): void {
+    if (!confirm(`¿Dar de baja a ${inscrito.nombre ?? 'este alumno'} de TODAS las materias del grupo?`)) {
+        return;
+    }
+
+    router.put(`/escolar/grupos/${props.grupo?.id}/alumnos/${inscrito.id}/baja`, {}, { preserveScroll: true });
 }
 
 function iniciales(nombre: string | null): string {
@@ -134,31 +216,132 @@ function iniciales(nombre: string | null): string {
         </section>
 
         <template v-if="grupo">
-            <!-- Info del grupo -->
+            <!-- Identidad del grupo y estado del cupo -->
             <section class="tarjeta p-6">
                 <div class="flex flex-wrap items-start justify-between gap-4">
-                    <div>
+                    <div class="min-w-0">
                         <h2 class="text-base font-semibold">Grupo {{ grupo.clave }}</h2>
-                        <p class="mt-0.5 text-sm" :style="{ color: 'var(--color-suave)' }">
-                            {{ grupo.plan ?? 'sin plan' }} · Ciclo {{ grupo.ciclo }}
-                            <span v-if="grupo.periodo_objetivo"> · grado objetivo: periodo {{ grupo.periodo_objetivo }}</span>
+                        <div class="mt-2 flex flex-wrap gap-2">
+                            <span
+                                v-if="grupo.periodo_objetivo"
+                                class="rounded-full px-2.5 py-1 text-xs font-medium"
+                                :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }"
+                            >
+                                Periodo {{ grupo.periodo_objetivo }}
+                            </span>
+                            <span
+                                v-for="chip in [grupo.campus, grupo.turno, `${grupo.materias.length} materia(s)`]"
+                                :key="String(chip)"
+                                class="rounded-full px-2.5 py-1 text-xs"
+                                :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)', color: 'var(--color-suave)' }"
+                            >
+                                {{ chip }}
+                            </span>
+                        </div>
+
+                        <!-- De qué planes admite alumnos. Con un chip por plan,
+                             porque con dos carreras el texto corrido no se lee. -->
+                        <p v-if="grupo.planes_admitidos.length" class="mt-2 flex flex-wrap items-center gap-1.5 text-xs" :style="{ color: 'var(--color-suave)' }">
+                            Admite alumnos de:
+                            <span
+                                v-for="p in grupo.planes_admitidos"
+                                :key="p"
+                                class="rounded-full px-2 py-0.5"
+                                :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 10%, transparent)', color: 'var(--color-acento)' }"
+                            >
+                                {{ p }}
+                            </span>
                         </p>
                     </div>
-                    <span class="rounded-full px-3 py-1 text-xs" :style="{ backgroundColor: 'var(--color-fondo)', color: 'var(--color-suave)' }">
-                        {{ grupo.materias.length }} materia(s)
-                    </span>
+
+                    <div class="text-right">
+                        <p class="text-2xl font-semibold" :style="{ color: 'var(--color-acento)' }">
+                            {{ inscritos.length }}<span v-if="grupo.cupo" class="text-base" :style="{ color: 'var(--color-suave)' }">/{{ grupo.cupo }}</span>
+                        </p>
+                        <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                            {{ lugaresLibres !== null ? `${lugaresLibres} lugar(es) libres` : 'alumnos en el grupo' }}
+                        </p>
+                        <Link :href="`/escolar/grupos/${grupo.id}`" class="text-xs" :style="{ color: 'var(--color-acento)' }">
+                            Ver grupo →
+                        </Link>
+                    </div>
                 </div>
-                <p class="mt-3 text-xs" :style="{ color: 'var(--color-suave)' }">
-                    Cada alumno seleccionado se inscribe en TODAS las materias del grupo. La materia que no pase la
-                    validación (seriación, cupo, ya inscrito) se omite.
+
+                <p v-if="!grupo.materias.length" class="mt-4 rounded-lg px-3 py-2 text-sm" :style="{ backgroundColor: 'color-mix(in srgb, #f59e0b 12%, transparent)', color: '#b45309' }">
+                    El grupo no tiene materias abiertas: no hay dónde inscribir.
+                    <Link :href="`/escolar/grupos/${grupo.id}`" class="font-medium underline">Ábrele materias primero</Link>.
                 </p>
             </section>
 
-            <!-- Buscador + acciones -->
-            <section class="tarjeta p-6">
+            <!-- Quién YA está en el grupo. Va ANTES de los candidatos: al volver
+                 tras una carga, lo primero que se busca es la confirmación. -->
+            <section v-if="inscritos.length" class="tarjeta overflow-hidden">
+                <header class="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
+                    <div>
+                        <h2 class="text-base font-semibold">Ya en el grupo ({{ inscritos.length }})</h2>
+                        <p class="mt-0.5 text-sm" :style="{ color: 'var(--color-suave)' }">
+                            Inscritos en las {{ grupo.materias.length }} materias del grupo, salvo lo que se indique.
+                        </p>
+                    </div>
+                    <button
+                        v-if="puedeInscribir && incompletos.length"
+                        type="button"
+                        class="rounded-lg border px-4 py-2 text-sm font-medium"
+                        :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
+                        @click="completarIncompletos"
+                    >
+                        Completar {{ incompletos.length }} incompleto(s)
+                    </button>
+                </header>
+
+                <ul class="divide-y border-t" :style="{ borderColor: 'var(--color-borde)' }">
+                    <li
+                        v-for="i in inscritos"
+                        :key="i.id"
+                        class="flex items-center gap-3 px-6 py-3"
+                        :style="{ borderColor: 'var(--color-borde)' }"
+                    >
+                        <img v-if="i.foto" :src="i.foto" :alt="i.nombre ?? ''" class="h-9 w-9 shrink-0 rounded-full object-cover" />
+                        <span
+                            v-else
+                            class="grid h-9 w-9 shrink-0 place-items-center rounded-full text-xs font-semibold"
+                            :style="{ backgroundColor: 'var(--color-fondo)', color: 'var(--color-suave)' }"
+                        >
+                            {{ iniciales(i.nombre) }}
+                        </span>
+
+                        <span class="min-w-0 flex-1">
+                            <span class="block truncate text-sm font-medium">{{ i.nombre }}</span>
+                            <span class="block truncate font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ i.matricula }}</span>
+                        </span>
+
+                        <span
+                            class="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium"
+                            :style="i.completo
+                                ? { backgroundColor: 'color-mix(in srgb, #16a34a 14%, transparent)', color: '#15803d' }
+                                : { backgroundColor: 'color-mix(in srgb, #f59e0b 16%, transparent)', color: '#b45309' }"
+                        >
+                            {{ i.completo ? 'Todas las materias' : `${i.materias} de ${i.total_materias}` }}
+                        </span>
+
+                        <button
+                            v-if="puedeInscribir"
+                            type="button"
+                            class="shrink-0 text-xs hover:text-red-600"
+                            :style="{ color: 'var(--color-suave)' }"
+                            @click="bajaDelGrupo(i)"
+                        >
+                            Baja
+                        </button>
+                    </li>
+                </ul>
+            </section>
+
+            <!-- Candidatos -->
+            <section v-if="grupo.materias.length" class="tarjeta p-6">
                 <div class="flex flex-wrap items-end justify-between gap-4">
                     <div class="min-w-0 flex-1">
-                        <label class="mb-1 block text-sm font-medium">Buscar alumno</label>
+                        <label class="mb-1 block text-sm font-medium">Agregar alumnos</label>
                         <input
                             v-model="busqueda"
                             type="search"
@@ -168,23 +351,22 @@ function iniciales(nombre: string | null): string {
                         />
                     </div>
                     <div v-if="puedeInscribir" class="flex items-center gap-2">
+                        <label
+                            v-if="totalSugeridos"
+                            class="flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm"
+                            :style="{ borderColor: soloSugeridos ? 'var(--color-acento)' : 'var(--color-borde)', color: soloSugeridos ? 'var(--color-acento)' : 'inherit' }"
+                        >
+                            <input v-model="soloSugeridos" type="checkbox" class="rounded" />
+                            Solo periodo {{ grupo.periodo_objetivo }} ({{ totalSugeridos }})
+                        </label>
                         <button
                             type="button"
-                            :disabled="!totalSugeridos"
+                            :disabled="!filtrados.length"
                             class="rounded-lg border px-3 py-2 text-sm disabled:opacity-40"
                             :style="{ borderColor: 'var(--color-borde)' }"
-                            @click="seleccionarSugeridos"
+                            @click="todosVisiblesMarcados ? limpiar() : marcarVisibles()"
                         >
-                            Seleccionar sugeridos ({{ totalSugeridos }})
-                        </button>
-                        <button
-                            type="button"
-                            :disabled="!seleccionados.size"
-                            class="rounded-lg border px-3 py-2 text-sm disabled:opacity-40"
-                            :style="{ borderColor: 'var(--color-borde)' }"
-                            @click="limpiar"
-                        >
-                            Limpiar
+                            {{ todosVisiblesMarcados ? 'Quitar todos' : `Marcar los ${filtrados.length}` }}
                         </button>
                     </div>
                 </div>
@@ -223,27 +405,87 @@ function iniciales(nombre: string | null): string {
                                 >
                                     Sugerido
                                 </span>
+                                <!-- Inscribir a alguien de otro campus se puede,
+                                     pero no debe pasar por descuido. -->
+                                <span
+                                    v-if="!c.mismo_campus"
+                                    class="rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                                    :style="{ backgroundColor: 'color-mix(in srgb, #f59e0b 16%, transparent)', color: '#b45309' }"
+                                >
+                                    {{ c.campus }}
+                                </span>
                             </span>
                         </span>
                     </label>
                 </div>
 
                 <p v-else class="mt-5 rounded-lg border border-dashed px-4 py-8 text-center text-sm" :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }">
-                    {{ candidatos.length ? 'Ningún alumno coincide con la búsqueda.' : 'No hay alumnos activos del plan sin grupo en este ciclo.' }}
+                    <template v-if="busqueda">Ningún alumno coincide con la búsqueda.</template>
+                    <template v-else-if="soloSugeridos && totalSugeridos">Nadie del periodo {{ grupo.periodo_objetivo }} está libre.</template>
+                    <template v-else-if="grupo.planes_admitidos.length">
+                        Ningún alumno de <strong>{{ grupo.planes_admitidos.join(' ni ') }}</strong><span v-if="soloDelCampus"> en {{ grupo.campus }}</span>
+                        está activo y sin grupo en este ciclo.
+                        <span class="mt-2 block text-xs">
+                            Las materias abiertas son de
+                            {{ grupo.planes_admitidos.length > 1 ? 'esos planes' : 'ese plan' }}: un alumno de
+                            otro plan rebotaría en todas.
+                        </span>
+                    </template>
+                    <template v-else>
+                        Ningún alumno activo del nivel del grupo<span v-if="soloDelCampus"> en {{ grupo.campus }}</span>
+                        está sin grupo en este ciclo.
+                    </template>
                 </p>
 
-                <div v-if="puedeInscribir" class="mt-6 flex items-center gap-3 border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">
-                    <BotonPrincipal
-                        :procesando="form.processing"
-                        :deshabilitado="!seleccionados.size"
-                        :texto="`Inscribir ${seleccionados.size || ''} al grupo`"
-                        icono="crear"
-                        tipo="button"
-                        @click="inscribir"
-                    />
-                    <span class="text-sm" :style="{ color: 'var(--color-suave)' }">
-                        {{ seleccionados.size }} alumno(s) seleccionados × {{ grupo.materias.length }} materias
-                    </span>
+                <!-- El grupo es de un campus, pero el alumno de otro campus
+                     existe. En vez de esconderlo, se ofrece traerlo. -->
+                <p v-if="soloDelCampus && deOtroCampus" class="mt-3 text-center text-sm">
+                    <button type="button" class="font-medium underline" :style="{ color: 'var(--color-acento)' }" @click="soloDelCampus = false">
+                        Ver también {{ deOtroCampus }} alumno(s) de otros campus
+                    </button>
+                </p>
+                <p v-else-if="deOtroCampus" class="mt-3 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
+                    Mostrando alumnos de todos los campus.
+                    <button type="button" class="font-medium underline" :style="{ color: 'var(--color-acento)' }" @click="soloDelCampus = true">
+                        Solo {{ grupo.campus }}
+                    </button>
+                </p>
+
+                <div v-if="puedeInscribir" class="mt-6 border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">
+                    <p
+                        v-if="excedeCupo"
+                        class="mb-3 rounded-lg px-3 py-2 text-sm"
+                        :style="{ backgroundColor: 'color-mix(in srgb, #f59e0b 12%, transparent)', color: '#b45309' }"
+                    >
+                        Seleccionaste {{ seleccionados.size }} y solo quedan {{ lugaresLibres }} lugar(es):
+                        los que excedan el cupo rebotarán materia por materia.
+                    </p>
+
+                    <div class="flex flex-wrap items-center gap-3">
+                        <BotonPrincipal
+                            :procesando="form.processing"
+                            :deshabilitado="!seleccionados.size"
+                            :texto="seleccionados.size
+                                ? `Inscribir ${seleccionados.size} alumno(s) al grupo`
+                                : 'Inscribir al grupo'"
+                            icono="crear"
+                            tipo="button"
+                            @click="inscribir()"
+                        />
+                        <button
+                            v-if="seleccionados.size"
+                            type="button"
+                            class="text-sm"
+                            :style="{ color: 'var(--color-suave)' }"
+                            @click="limpiar"
+                        >
+                            Quitar selección
+                        </button>
+                        <span v-if="seleccionados.size" class="text-sm" :style="{ color: 'var(--color-suave)' }">
+                            = {{ seleccionados.size * grupo.materias.length }} inscripciones. La materia que rebote
+                            (seriación, cupo) se omite sin cancelar el resto.
+                        </span>
+                    </div>
                 </div>
             </section>
         </template>

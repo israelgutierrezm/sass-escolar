@@ -152,7 +152,7 @@ class InscripcionController extends Controller
         $grupo = $request->query('grupo_id') === null
             ? null
             : Grupo::query()
-                ->with(['plan:id,nombre', 'ciclo:id,clave', 'asignaturas.planMateria.asignatura:id,nombre'])
+                ->with(['plan:id,nombre', 'ciclo:id,clave', 'campus:id,nombre', 'turno:id,nombre', 'asignaturas.planMateria.asignatura:id,nombre', 'asignaturas.planMateria.plan:id,nombre,carrera_id', 'asignaturas.planMateria.plan.carrera:id,nombre'])
                 ->when($campusVisibles !== [], fn ($q) => $q->whereIn('campus_id', $campusVisibles))
                 ->find($request->query('grupo_id'));
 
@@ -167,6 +167,7 @@ class InscripcionController extends Controller
             'seleccion' => ['ciclo_id' => $ciclo?->id, 'grupo_id' => $grupo?->id],
             'grupo' => $grupo === null ? null : $this->datosGrupoMasiva($grupo),
             'candidatos' => $grupo === null ? [] : $this->candidatosMasiva($grupo),
+            'inscritos' => $grupo === null ? [] : $this->inscritosDelGrupo($grupo),
             'puedeInscribir' => $request->user()->can('inscribir-alumnos'),
         ]);
     }
@@ -186,27 +187,40 @@ class InscripcionController extends Controller
 
         $grupo = Grupo::with('asignaturas')->findOrFail($datos['grupo_id']);
 
+        // El alcance por campus se valida en el servidor, no solo escondiendo
+        // grupos del desplegable: el POST llega igual con cualquier grupo_id.
+        $campusVisibles = $request->user()->campusDelRolActivo();
+
+        if ($campusVisibles !== [] && ! in_array($grupo->campus_id, $campusVisibles, true)) {
+            abort(403, 'Ese grupo no pertenece a un campus que administres.');
+        }
+
         if ($grupo->asignaturas->isEmpty()) {
             return back()->with('error', 'El grupo no tiene materias abiertas.');
         }
+
 
         $ordinaria = TipoEvaluacion::query()->where('clave', Inscripcion::TIPO_ORDINARIA)->value('id');
         $inscritoId = SituacionInscripcion::query()->where('clave', 'inscrito')->value('id');
 
         $renglones = 0;
-        $omitidos = 0;
+        // Alumnos que quedaron con al menos una materia sin abrir: son los que
+        // hay que reportar por nombre, porque cada uno es un pendiente concreto.
+        $incompletos = [];
 
-        DB::transaction(function () use ($datos, $grupo, $validador, $ordinaria, $inscritoId, &$renglones, &$omitidos) {
+        DB::transaction(function () use ($datos, $grupo, $validador, $ordinaria, $inscritoId, &$renglones, &$incompletos) {
             foreach ($datos['matricula_oferta_ids'] as $matriculaId) {
-                $matricula = MatriculaOferta::find($matriculaId);
+                $matricula = MatriculaOferta::with('persona')->find($matriculaId);
 
                 if ($matricula === null) {
                     continue;
                 }
 
+                $rebotadas = 0;
+
                 foreach ($grupo->asignaturas as $materiaGrupo) {
                     if ($validador->impedimentos($matricula, $materiaGrupo) !== []) {
-                        $omitidos++;
+                        $rebotadas++;
 
                         continue;
                     }
@@ -222,13 +236,29 @@ class InscripcionController extends Controller
                     ]);
                     $renglones++;
                 }
+
+                if ($rebotadas > 0) {
+                    $incompletos[] = $matricula->persona?->nombreCompleto() ?? $matricula->matricula;
+                }
             }
         });
 
-        $mensaje = "{$renglones} renglón(es) inscritos".
-            ($omitidos > 0 ? ", {$omitidos} omitidos por validación." : '.');
+        // El aviso se da en alumnos y materias, no en «renglones»: quien opera
+        // esta pantalla piensa en personas, y «12 renglones» no dice si alguien
+        // se quedó fuera.
+        $alumnos = count($datos['matricula_oferta_ids']);
+        $mensaje = "{$alumnos} alumno(s) inscritos en {$renglones} materia(s).";
 
-        return back()->with($renglones > 0 ? 'exito' : 'error', $mensaje);
+        if ($incompletos !== []) {
+            $lista = implode(', ', array_slice($incompletos, 0, 3));
+            $resto = count($incompletos) - 3;
+            $mensaje .= " Quedaron incompletos {$lista}".($resto > 0 ? " y {$resto} más" : '').
+                ': las materias que faltan son de otro plan, tienen seriación pendiente o el grupo llegó a su cupo.';
+        }
+
+        return back()->with($renglones > 0 ? 'exito' : 'error', $renglones > 0
+            ? $mensaje
+            : 'No se inscribió ninguna materia: todas rebotaron por validación (otro plan de estudios, seriación, cupo o ya inscrito).');
     }
 
     /**
@@ -241,7 +271,24 @@ class InscripcionController extends Controller
             'clave' => $grupo->clave,
             'plan' => $grupo->plan?->nombre,
             'ciclo' => $grupo->ciclo?->clave,
-            'periodo_objetivo' => $this->periodoObjetivo($grupo),
+            'ciclo_id' => $grupo->ciclo_id,
+            'campus' => $grupo->campus?->nombre,
+            'turno' => $grupo->turno?->nombre,
+            'cupo' => $grupo->cupo,
+            // El grado lo declara el grupo, no se deduce de sus materias.
+            'periodo_objetivo' => $grupo->semestre,
+            // De qué planes tienen que ser los alumnos para que sus materias no
+            // reboten. Con plan fijo es uno; sin plan fijo, los de las materias
+            // abiertas. Se muestra para que la lista vacía se explique sola.
+            //
+            // Lleva la CARRERA por delante porque el nombre del plan solo dice
+            // el año («Plan 2022») y hay uno por carrera: sin la carrera, decir
+            // «ningún alumno de Plan 2022» nombra a diez planes distintos.
+            'planes_admitidos' => $grupo->asignaturas
+                ->map(fn (AsignaturaGrupo $ag) => $ag->planMateria?->plan === null
+                    ? null
+                    : trim(($ag->planMateria->plan->carrera?->nombre ?? '').' · '.$ag->planMateria->plan->nombre, ' ·'))
+                ->filter()->unique()->values()->all(),
             'materias' => $grupo->asignaturas->map(fn (AsignaturaGrupo $ag) => [
                 'clave_en_plan' => $ag->planMateria?->clave_en_plan,
                 'nombre' => $ag->planMateria?->asignatura?->nombre,
@@ -251,21 +298,112 @@ class InscripcionController extends Controller
     }
 
     /**
-     * Alumnos activos del plan del grupo sin inscripción en el ciclo.
-     * `sugerido` = va en el grado del grupo (periodo_actual = periodo objetivo).
+     * Quién YA está en el grupo, con en cuántas de sus materias.
+     *
+     * Es la mitad que faltaba de esta pantalla: al inscribir masivamente, el
+     * alumno desaparecía de la lista de candidatos y no aparecía en ningún
+     * lado, así que no había forma de confirmar desde aquí que la carga hubiera
+     * surtido efecto.
+     *
+     * La distinción entre completo y parcial importa: la inscripción masiva mete
+     * al alumno en TODAS las materias, pero una materia puede rebotar por
+     * seriación o cupo. Un alumno en 4 de 6 materias no es un caso raro, es un
+     * pendiente, y se resuelve volviéndolo a seleccionar (las que ya tiene se
+     * omiten solas).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function inscritosDelGrupo(Grupo $grupo): array
+    {
+        $materiaIds = $grupo->asignaturas->pluck('id');
+
+        if ($materiaIds->isEmpty()) {
+            return [];
+        }
+
+        // Las bajas no cuentan: `bajarAlumno` no borra la inscripción, le pone
+        // situación «baja». Sin esta exclusión el alumno seguiría apareciendo
+        // en el grupo después de darlo de baja.
+        $porAlumno = Inscripcion::query()
+            ->whereIn('asignatura_grupo_id', $materiaIds)
+            ->whereNot(fn ($q) => $q->whereHas('situacion', fn ($s) => $s->where('clave', 'baja')))
+            ->selectRaw('matricula_oferta_id, COUNT(*) as materias')
+            ->groupBy('matricula_oferta_id')
+            ->pluck('materias', 'matricula_oferta_id');
+
+        if ($porAlumno->isEmpty()) {
+            return [];
+        }
+
+        $total = $materiaIds->count();
+
+        return MatriculaOferta::query()
+            ->with(['persona', 'oferta.carrera:id,nombre'])
+            ->whereIn('id', $porAlumno->keys())
+            ->orderBy('matricula')
+            ->get()
+            ->map(fn (MatriculaOferta $m) => [
+                'id' => $m->id,
+                'matricula' => $m->matricula,
+                'nombre' => $m->persona?->nombreCompleto(),
+                'carrera' => $m->oferta?->carrera?->nombre,
+                'foto' => $m->persona?->urlFoto(),
+                'materias' => (int) $porAlumno[$m->id],
+                'total_materias' => $total,
+                'completo' => (int) $porAlumno[$m->id] === $total,
+            ])
+            ->all();
+    }
+
+    /**
+     * Alumnos activos que podrían entrar al grupo.
+     *
+     * Con plan fijo son los de ese plan. Sin plan fijo son los de los planes a
+     * los que pertenecen las materias YA ABIERTAS del grupo, que es lo único
+     * que se les puede dar: el validador rechaza «la materia pertenece a otro
+     * plan de estudios», así que ofrecer a alguien fuera de esos planes es
+     * ofrecer una carga que va a rebotar entera. Antes se filtraba por
+     * `plan_id` del grupo a secas y un grupo sin plan no ofrecía a nadie.
+     *
+     * Si el grupo todavía no tiene materias no hay plan del cual deducir, y se
+     * cae al NIVEL: es una lista orientativa, pero tampoco hay dónde inscribir.
+     *
+     * El campus NO filtra aquí, marca: cada candidato viaja con `mismo_campus`
+     * y la pantalla muestra por omisión solo los del campus del grupo. Un grupo
+     * está físicamente en un campus, así que ese es el caso normal; pero el
+     * alumno que cursa en otro campus existe (movilidad, materias compartidas) y
+     * esconderlo sin decirlo dejaría un caso legítimo sin salida en la UI.
      *
      * @return array<int, array<string, mixed>>
      */
     private function candidatosMasiva(Grupo $grupo): array
     {
-        $objetivo = $this->periodoObjetivo($grupo);
+        $objetivo = $grupo->semestre;
 
-        $yaEnCiclo = Inscripcion::query()->where('ciclo_id', $grupo->ciclo_id)->distinct()->pluck('matricula_oferta_id');
+        $planesQueSirven = $grupo->plan_id !== null
+            ? [$grupo->plan_id]
+            : $grupo->asignaturas->map(fn (AsignaturaGrupo $ag) => $ag->planMateria?->plan_id)
+                ->filter()->unique()->values()->all();
+
+        // Quien ya tiene grupo en este ciclo no es candidato: se inscribe una vez.
+        // Los de ESTE grupo salen aparte, en `inscritosDelGrupo()`.
+        //
+        // Las bajas se ignoran a propósito: dar de baja a alguien de un grupo es
+        // justo lo que se hace antes de cambiarlo a otro, así que si contaran
+        // quedaría fuera de la lista para siempre y el cambio de grupo sería
+        // imposible desde esta pantalla.
+        $yaEnCiclo = Inscripcion::query()
+            ->where('ciclo_id', $grupo->ciclo_id)
+            ->whereNot(fn ($q) => $q->whereHas('situacion', fn ($s) => $s->where('clave', 'baja')))
+            ->distinct()
+            ->pluck('matricula_oferta_id');
 
         return MatriculaOferta::query()
-            ->with(['persona', 'oferta.carrera:id,nombre'])
+            ->with(['persona', 'oferta.carrera:id,nombre', 'oferta.campus:id,nombre'])
             ->where('estatus', 'activo')
-            ->whereHas('oferta', fn ($q) => $q->where('plan_id', $grupo->plan_id))
+            ->whereHas('oferta', fn ($q) => $planesQueSirven !== []
+                ? $q->whereIn('plan_id', $planesQueSirven)
+                : $q->whereHas('carrera', fn ($c) => $c->where('nivel_estudios_id', $grupo->nivel_estudios_id)))
             ->whereNotIn('id', $yaEnCiclo)
             ->orderBy('matricula')
             ->get()
@@ -274,19 +412,13 @@ class InscripcionController extends Controller
                 'matricula' => $m->matricula,
                 'nombre' => $m->persona?->nombreCompleto(),
                 'carrera' => $m->oferta?->carrera?->nombre,
+                'campus' => $m->oferta?->campus?->nombre,
+                'mismo_campus' => $m->oferta?->campus_id === $grupo->campus_id,
                 'periodo_actual' => $m->periodo_actual,
                 'foto' => $m->persona?->urlFoto(),
                 'sugerido' => $objetivo !== null && $m->periodo_actual === $objetivo,
             ])
             ->all();
-    }
-
-    /** Periodo (grado) del grupo: el más común entre sus materias. */
-    private function periodoObjetivo(Grupo $grupo): ?int
-    {
-        $periodos = $grupo->asignaturas->map(fn (AsignaturaGrupo $ag) => $ag->planMateria?->periodo)->filter()->values();
-
-        return $periodos->isEmpty() ? null : (int) $periodos->mode()[0];
     }
 
     private function matriculaSeleccionada(Request $request): ?MatriculaOferta
