@@ -26,6 +26,11 @@ class CalificacionComponente extends Model
         'inscripcion_id',
         'esquema_evaluacion_id',
         'calificacion',
+        // De dónde salió: `manual` la capturó una persona, `calculado` la
+        // dedujo el LMS de las actividades del componente. El calculador NO
+        // pisa lo manual, para que un ajuste del docente sobreviva al
+        // siguiente recálculo.
+        'fuente',
         'capturado_por',
         'capturado_en',
     ];
