@@ -2,6 +2,7 @@
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 
@@ -162,9 +163,7 @@ function desasignar(id: number): void {
                 </label>
                 <div class="flex items-end gap-2">
                     <BotonPrincipal :procesando="datos.processing" texto="Guardar" />
-                    <button v-if="!rol.protegido" type="button" class="rounded-lg border px-4 py-2 text-sm text-red-600" :style="{ borderColor: 'var(--color-borde)' }" @click="eliminar">
-                        Eliminar
-                    </button>
+                    <BotonAccion v-if="!rol.protegido" variante="eliminar" texto="Eliminar el rol" @click="eliminar" />
                 </div>
             </form>
         </section>

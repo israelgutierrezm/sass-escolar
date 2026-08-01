@@ -415,21 +415,24 @@ const iniciales = computed(() => {
             </nav>
 
             <!-- Colapsar (solo escritorio: en móvil el cajón siempre va ancho). -->
+            <!--
+                Contraer/expandir. Los chevrones fluyen al pasar el cursor hacia
+                el lado al que se va a mover la barra: a la izquierda para
+                contraer, a la derecha para volver a abrirla. Es la misma familia
+                de `BotonExpediente` y `BotonVolver` —el gesto ya significa «por
+                aquí»— aplicada al único control que la barra tiene.
+            -->
             <button
                 type="button"
-                class="m-3 hidden items-center justify-center gap-2 rounded-xl py-2 text-xs opacity-70 transition hover:bg-superficie/5 hover:opacity-100 lg:flex"
+                class="boton-contraer m-3 hidden items-center justify-center gap-2 rounded-xl py-2 text-xs opacity-70 transition hover:bg-superficie/5 hover:opacity-100 lg:flex"
+                :title="compacta ? 'Expandir la barra' : 'Contraer la barra'"
                 @click="compacta = !compacta"
             >
-                <svg
-                    class="h-4 w-4 transition-transform duration-300"
-                    :class="compacta ? 'rotate-180' : ''"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke-width="1.8"
-                    stroke="currentColor"
-                >
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M18.75 19.5 11.25 12l7.5-7.5m-7.5 15L3.75 12l7.5-7.5" />
-                </svg>
+                <span :class="compacta ? 'flechas-fila' : 'flechas-volver'" aria-hidden="true">
+                    <svg v-for="n in 3" :key="n" class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6">
+                        <path stroke-linecap="round" stroke-linejoin="round" :d="compacta ? 'm9 6 6 6-6 6' : 'm15 6-6 6 6 6'" />
+                    </svg>
+                </span>
                 <span v-if="!compacta">Contraer</span>
             </button>
         </aside>

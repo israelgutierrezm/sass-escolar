@@ -2,6 +2,7 @@
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
 import BuscadorRemoto from '@/Components/BuscadorRemoto.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
@@ -188,12 +189,18 @@ const etiquetaAccion: Record<string, string> = {
                                 </td>
                                 <td class="px-6 py-4 text-right">
                                     <div class="flex items-center justify-end gap-3">
-                                        <button type="button" class="text-xs font-medium" :style="{ color: 'var(--color-acento)' }" @click="detalle = detalle === o.id ? null : o.id">
-                                            {{ detalle === o.id ? 'Ocultar' : 'Bitácora' }}
-                                        </button>
-                                        <button v-if="o.estatus !== 'perdida'" type="button" class="text-xs font-medium text-red-600" @click="revocar(o)">
-                                            Revocar
-                                        </button>
+                                        <BotonAccion
+                                            :variante="detalle === o.id ? 'cerrar' : 'ver'"
+                                            texto="Bitácora"
+                                            :icono-al-final="detalle === o.id"
+                                            @click="detalle = detalle === o.id ? null : o.id"
+                                        />
+                                        <BotonAccion
+                                            v-if="o.estatus !== 'perdida'"
+                                            variante="eliminar"
+                                            texto="Revocar la beca"
+                                            @click="revocar(o)"
+                                        />
                                     </div>
                                 </td>
                             </tr>

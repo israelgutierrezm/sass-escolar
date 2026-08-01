@@ -447,12 +447,18 @@ function todos(): void {
                                 <span v-else class="ml-2 text-[11px]" :style="{ color: 'var(--color-suave)' }">usa la regla del plan</span>
                             </div>
                             <div class="flex shrink-0 items-center gap-3">
-                                <button type="button" class="text-xs font-medium" :style="{ color: 'var(--color-acento)' }" @click="abrirExcepcion(c)">
-                                    {{ excepcionDe === c.id ? 'Cerrar' : (overridesRecargo?.[c.id] ? 'Editar' : 'Agregar excepción') }}
-                                </button>
-                                <button v-if="overridesRecargo?.[c.id]" type="button" class="text-xs font-medium text-red-600" @click="quitarExcepcion(c)">
-                                    Quitar
-                                </button>
+                                <BotonAccion
+                                    :variante="excepcionDe === c.id ? 'cerrar' : 'agregar'"
+                                    :texto="overridesRecargo?.[c.id] ? 'Excepción' : 'Agregar excepción'"
+                                    :icono-al-final="excepcionDe === c.id"
+                                    @click="abrirExcepcion(c)"
+                                />
+                                <BotonAccion
+                                    v-if="overridesRecargo?.[c.id]"
+                                    variante="eliminar"
+                                    texto="Quitar la excepción"
+                                    @click="quitarExcepcion(c)"
+                                />
                             </div>
                         </div>
 

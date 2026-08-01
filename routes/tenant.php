@@ -578,10 +578,21 @@ Route::middleware([
                             Route::delete('{ventana}/excepciones/{excepcion}', 'revocar')->name('excepciones.destroy');
                         });
                     });
-                Route::get('inscripciones', [InscripcionController::class, 'index'])
-                    ->middleware('can:inscribir-alumnos')
-                    ->name('inscripciones.index');
-                // Antes de cualquier `inscripciones/{...}`: inscripción masiva por grupo.
+                /*
+                 * Inscribir es UNA pantalla: la de un grupo.
+                 *
+                 * Existía además una «inscripción individual» centrada en el
+                 * alumno —elegirlo de una lista con todos los activos, ver sus
+                 * materias del ciclo, marcarlas una a una—. Dejó de tener
+                 * sentido cuando inscribir a uno se hace desde la propia materia
+                 * del grupo, que es donde se piensa el caso, y la carga de todo
+                 * un grupo tiene su pantalla. Ofrecía un tercer camino para lo
+                 * mismo, con el desplegable de mil alumnos que ya se retiró de
+                 * todos lados. `/escolar/inscripciones` redirige a la masiva
+                 * para no romper accesos guardados.
+                 */
+                Route::redirect('inscripciones', '/escolar/inscripciones/masiva')->name('inscripciones.index');
+                // Antes de cualquier `inscripciones/{...}`: inscripción por grupo.
                 Route::get('inscripciones/masiva', [InscripcionController::class, 'masiva'])
                     ->middleware('can:inscribir-alumnos')
                     ->name('inscripciones.masiva');

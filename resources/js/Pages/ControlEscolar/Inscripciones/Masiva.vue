@@ -297,11 +297,13 @@ function iniciales(nombre: string | null): string {
                     />
                 </div>
 
-                <BotonAccion
-                    variante="ver"
-                    texto="Inscripción individual"
-                    href="/escolar/inscripciones"
-                />
+                <!-- Ya no hay «inscripción individual» aparte: inscribir a uno
+                     solo se hace desde su materia, en el grupo. -->
+                <p class="max-w-xs text-xs" :style="{ color: 'var(--color-suave)' }">
+                    Para inscribir a un alumno en <strong>una sola materia</strong>
+                    (recursamiento, extraordinario), entra a las materias del grupo
+                    y usa el botón «Alumno» de esa materia.
+                </p>
             </div>
         </section>
 

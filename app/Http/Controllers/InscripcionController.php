@@ -11,7 +11,6 @@ use App\Models\ControlEscolar\Grupo;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\ControlEscolar\SituacionInscripcion;
 use App\Models\ControlEscolar\TipoEvaluacion;
-use App\Services\CiclosCongruentes;
 use App\Services\ValidadorInscripcion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -34,51 +33,6 @@ use Inertia\Response;
  */
 class InscripcionController extends Controller
 {
-    public function index(Request $request, ValidadorInscripcion $validador): Response
-    {
-        $matricula = $this->matriculaSeleccionada($request);
-        $ciclo = $this->cicloSeleccionado($request);
-
-        return Inertia::render('ControlEscolar/Inscripciones/Index', [
-            'alumnos' => MatriculaOferta::query()
-                ->with(['persona:id,nombre,primer_apellido,segundo_apellido', 'oferta.carrera:id,nombre'])
-                ->where('estatus', 'activo')
-                ->orderBy('matricula')
-                ->get()
-                ->map(fn (MatriculaOferta $m) => [
-                    'id' => $m->id,
-                    'etiqueta' => sprintf(
-                        '%s · %s (%s)',
-                        $m->matricula,
-                        $m->persona?->nombreCompleto() ?? '',
-                        $m->oferta?->carrera?->nombre ?? 'sin carrera',
-                    ),
-                ]),
-            // Los ciclos se acotan al alumno elegido (su campus y nivel), igual
-            // que en el kárdex. Sin alumno todavía, se muestran todos.
-            'ciclos' => ($matricula === null
-                ? Ciclo::query()->orderByDesc('fecha_inicio')->get(['id', 'clave', 'nombre'])
-                : app(CiclosCongruentes::class)->paraAlumno($matricula))
-                ->map(fn (Ciclo $c) => ['id' => $c->id, 'etiqueta' => "{$c->clave} — {$c->nombre}"]),
-            'seleccion' => [
-                'matricula_oferta_id' => $matricula?->id,
-                'ciclo_id' => $ciclo?->id,
-            ],
-            'alumno' => $matricula === null ? null : [
-                'matricula' => $matricula->matricula,
-                'nombre' => $matricula->persona?->nombreCompleto(),
-                'carrera' => $matricula->oferta?->carrera?->nombre,
-                'plan' => $matricula->oferta?->plan?->nombre,
-            ],
-            'inscritas' => $this->inscritas($matricula, $ciclo),
-            'disponibles' => $this->disponibles($matricula, $ciclo, $validador),
-            // Con qué tipo de evaluación se inscribe (ordinaria, extraordinaria,
-            // a título, recursamiento, revalidación, regularización).
-            'tiposEvaluacion' => TipoEvaluacion::query()->orderBy('id')->get(['id', 'nombre']),
-            'puedeInscribir' => $request->user()->can('inscribir-alumnos'),
-        ]);
-    }
-
     public function store(Request $request, ValidadorInscripcion $validador): RedirectResponse
     {
         $datos = $request->validate([
@@ -458,90 +412,10 @@ class InscripcionController extends Controller
             ->all();
     }
 
-    private function matriculaSeleccionada(Request $request): ?MatriculaOferta
-    {
-        $id = $request->query('matricula_oferta_id');
-
-        return $id === null
-            ? null
-            : MatriculaOferta::with(['persona', 'oferta.carrera', 'oferta.plan'])->find($id);
-    }
-
     private function cicloSeleccionado(Request $request): ?Ciclo
     {
         $id = $request->query('ciclo_id');
 
         return $id === null ? null : Ciclo::find($id);
-    }
-
-    /**
-     * @return array<int, array<string, mixed>>
-     */
-    private function inscritas(?MatriculaOferta $matricula, ?Ciclo $ciclo): array
-    {
-        if ($matricula === null || $ciclo === null) {
-            return [];
-        }
-
-        return Inscripcion::query()
-            ->with(['asignaturaGrupo.planMateria.asignatura:id,nombre', 'asignaturaGrupo.grupo:id,clave', 'situacion:id,nombre', 'tipoEvaluacion:id,nombre'])
-            ->where('matricula_oferta_id', $matricula->id)
-            ->where('ciclo_id', $ciclo->id)
-            ->get()
-            ->map(fn (Inscripcion $inscripcion) => [
-                'id' => $inscripcion->id,
-                'materia' => $inscripcion->asignaturaGrupo?->planMateria?->asignatura?->nombre,
-                'clave_en_plan' => $inscripcion->asignaturaGrupo?->planMateria?->clave_en_plan,
-                'grupo' => $inscripcion->asignaturaGrupo?->grupo?->clave,
-                'tipo' => $inscripcion->tipo,
-                'tipo_evaluacion' => $inscripcion->tipoEvaluacion?->nombre,
-                'situacion' => $inscripcion->situacion?->nombre,
-                'calificacion_final' => $inscripcion->calificacion_final,
-            ])
-            ->all();
-    }
-
-    /**
-     * Materias abiertas del ciclo con el veredicto de cada una: o se puede
-     * inscribir, o se explica exactamente por qué no.
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    private function disponibles(?MatriculaOferta $matricula, ?Ciclo $ciclo, ValidadorInscripcion $validador): array
-    {
-        if ($matricula === null || $ciclo === null) {
-            return [];
-        }
-
-        return AsignaturaGrupo::query()
-            ->with([
-                'planMateria.asignatura:id,nombre',
-                'grupo:id,clave,ciclo_id,cupo',
-                'grupo.ciclo',
-                'horarios',
-                'docentes.persona',
-            ])
-            ->whereHas('grupo', fn ($q) => $q->where('ciclo_id', $ciclo->id))
-            ->get()
-            ->map(function (AsignaturaGrupo $materiaGrupo) use ($matricula, $validador) {
-                $impedimentos = $validador->impedimentos($matricula, $materiaGrupo);
-                $titular = $materiaGrupo->docentes->firstWhere('pivot.tipo', 'titular');
-
-                return [
-                    'id' => $materiaGrupo->id,
-                    'materia' => $materiaGrupo->planMateria?->asignatura?->nombre,
-                    'clave_en_plan' => $materiaGrupo->planMateria?->clave_en_plan,
-                    'periodo' => $materiaGrupo->planMateria?->periodo,
-                    'grupo' => $materiaGrupo->grupo?->clave,
-                    'titular' => $titular?->persona?->nombreCompleto(),
-                    'inscritos' => Inscripcion::query()->where('asignatura_grupo_id', $materiaGrupo->id)->count(),
-                    'cupo' => $materiaGrupo->grupo?->cupo,
-                    'impedimentos' => $impedimentos,
-                    'inscribible' => $impedimentos === [],
-                ];
-            })
-            ->sortBy('periodo')
-            ->values()
-            ->all();
     }
 }

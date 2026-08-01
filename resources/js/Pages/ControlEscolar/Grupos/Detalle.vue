@@ -298,7 +298,7 @@ const urlInscribir = computed(
                 <div class="min-w-0">
                     <div class="flex flex-wrap items-center gap-2">
                         <h2 class="text-lg font-semibold text-contenido">{{ grupo.nombre ?? grupo.clave }}</h2>
-                        <PildoraEstado :texto="grupo.situacion" :color="grupo.situacion === 'Abierto' ? '#16a34a' : 'var(--color-suave)'" />
+                        <PildoraEstado :texto="grupo.situacion" />
                     </div>
                     <p class="mt-0.5 font-mono text-xs text-suave">{{ grupo.clave }}</p>
 
