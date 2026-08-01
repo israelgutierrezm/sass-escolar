@@ -312,15 +312,7 @@ function revocar(ventanaId: number, excepcionId: number): void {
                             </p>
                             <p class="mt-0.5 text-xs italic" :style="{ color: 'var(--color-suave)' }">{{ e.motivo }}</p>
                         </div>
-                        <button
-                            v-if="puedeEditar"
-                            type="button"
-                            class="text-sm transition hover:text-red-600"
-                            :style="{ color: 'var(--color-suave)' }"
-                            @click="revocar(e.ventana_id, e.id)"
-                        >
-                            Revocar
-                        </button>
+                        <BotonAccion v-if="puedeEditar" variante="eliminar" texto="Revocar la excepción" @click="revocar(e.ventana_id, e.id)" />
                     </div>
                 </li>
             </ul>

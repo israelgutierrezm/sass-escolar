@@ -2,6 +2,7 @@
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
@@ -161,15 +162,7 @@ const iniciales = (props.perfil.nombre ?? props.perfil.usuario)
                         >
                             {{ subiendoFoto ? 'Subiendo…' : 'Cambiar foto' }}
                         </button>
-                        <button
-                            v-if="perfil.foto"
-                            type="button"
-                            class="rounded-lg border px-3 py-1.5 text-sm"
-                            :style="{ borderColor: 'var(--color-borde)' }"
-                            @click="quitarFoto"
-                        >
-                            Quitar
-                        </button>
+                        <BotonAccion v-if="perfil.foto" variante="eliminar" texto="Quitar la foto" @click="quitarFoto" />
                     </div>
                     <input ref="inputFoto" type="file" accept="image/*" class="hidden" @change="elegirFoto" />
                 </div>

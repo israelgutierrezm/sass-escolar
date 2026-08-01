@@ -2,6 +2,7 @@
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import NavAcademico from '@/Components/NavAcademico.vue';
@@ -160,15 +161,7 @@ function repropagar(): void {
                             <span>{{ rubro.componente.replace(/_/g, ' ') }}</span>
                             <span class="flex items-center gap-3">
                                 <span class="font-medium">{{ rubro.porcentaje }}%</span>
-                                <button
-                                    v-if="puedeEditar"
-                                    type="button"
-                                    class="text-xs transition hover:text-red-600"
-                                    :style="{ color: 'var(--color-suave)' }"
-                                    @click="eliminarRubro(rubro.id)"
-                                >
-                                    Quitar
-                                </button>
+                                <BotonAccion v-if="puedeEditar" variante="eliminar" texto="Quitar el rubro" @click="eliminarRubro(rubro.id)" />
                             </span>
                         </li>
                     </ul>

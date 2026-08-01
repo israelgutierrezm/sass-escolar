@@ -248,15 +248,7 @@ function guardar(): void {
                     </label>
 
                     <div v-if="puedeEditar" class="flex items-center gap-3 sm:col-span-6">
-                        <button
-                            v-if="!editando"
-                            type="button"
-                            class="rounded-lg border px-4 py-2 text-sm font-medium"
-                            :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
-                            @click="editando = true"
-                        >
-                            Editar datos
-                        </button>
+                        <BotonAccion v-if="!editando" variante="editar" texto="Editar los datos" @click="editando = true" />
                         <template v-else>
                             <BotonPrincipal :procesando="form.processing" texto="Guardar cambios" />
                             <button type="button" class="rounded-lg border px-4 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" @click="cancelar">

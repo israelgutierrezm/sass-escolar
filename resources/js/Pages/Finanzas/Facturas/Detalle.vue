@@ -2,6 +2,7 @@
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
@@ -197,15 +198,7 @@ const colorEstatus: Record<string, string> = {
                 >
                     Cancelar ante el SAT
                 </button>
-                <button
-                    v-if="factura.editable"
-                    type="button"
-                    class="rounded-lg border px-4 py-2 text-sm text-red-600"
-                    :style="{ borderColor: 'var(--color-borde)' }"
-                    @click="eliminar"
-                >
-                    Eliminar borrador
-                </button>
+                <BotonAccion v-if="factura.editable" variante="eliminar" texto="Eliminar el borrador" @click="eliminar" />
             </div>
 
             <!--

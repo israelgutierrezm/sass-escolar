@@ -110,8 +110,8 @@ function verComo(suplantable: { usuario_id: number; usuario: string }): void {
                                 <button
                                     v-if="t.suplantable"
                                     type="button"
-                                    class="rounded-lg border px-3 py-1.5 text-xs font-medium"
-                                    :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-acento)' }"
+                                    class="boton-accion boton-fantasma inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-medium"
+                                    :style="{ borderColor: 'color-mix(in srgb, #0077B6 35%, transparent)', color: '#0077B6' }"
                                     title="Entrar como este padre/tutor para ver lo que ve. Queda en bitácora."
                                     @click="verComo(t.suplantable)"
                                 >

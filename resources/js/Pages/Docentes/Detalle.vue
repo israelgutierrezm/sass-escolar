@@ -191,14 +191,7 @@ function verComo(): void {
                                 @change="subirFoto"
                             />
                         </label>
-                        <button
-                            v-if="persona.foto"
-                            type="button"
-                            :style="{ color: 'var(--color-suave)' }"
-                            @click="quitarFoto"
-                        >
-                            Quitar
-                        </button>
+                        <BotonAccion v-if="persona.foto" variante="eliminar" texto="Quitar la foto" @click="quitarFoto" />
                     </div>
                     <p v-if="formFoto.errors.foto" class="text-xs text-red-600">{{ formFoto.errors.foto }}</p>
                 </div>

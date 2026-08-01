@@ -40,6 +40,7 @@ const COLORES: Record<string, string> = {
     activo: VERDE, activa: VERDE, abierto: VERDE, abierta: VERDE,
     inscrito: VERDE, cursando: VERDE, vigente: VERDE, pagado: VERDE,
     aprobada: VERDE, aprobado: VERDE, firmado: VERDE, timbrada: VERDE,
+    aceptado: VERDE, aceptada: VERDE, autorizado: VERDE, autorizada: VERDE,
     // Cortado o fallido
     baja: ROJO, cancelado: ROJO, cancelada: ROJO, perdida: ROJO,
     rechazado: ROJO, rechazada: ROJO, reprobada: ROJO, reprobado: ROJO,
@@ -48,6 +49,7 @@ const COLORES: Record<string, string> = {
     pendiente: AMBAR, suspendida: AMBAR, suspendido: AMBAR,
     parcial: AMBAR, 'por renovar': AMBAR, por_renovar: AMBAR,
     'en espera': AMBAR, en_espera: AMBAR, revision: AMBAR,
+    timbrando: AMBAR, enviando: AMBAR, procesando: AMBAR,
     // Cerrado con final normal: informa, no alerta
     egresado: 'var(--color-acento)', egresada: 'var(--color-acento)',
     titulado: 'var(--color-acento)', titulada: 'var(--color-acento)',

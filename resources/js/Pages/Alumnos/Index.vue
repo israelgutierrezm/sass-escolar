@@ -71,6 +71,8 @@ const definicionFiltros = [
 ];
 
 // Color SÓLIDO por estatus (texto + punto de la píldora; el fondo es su tinte).
+// El color del estatus lo decide `PildoraEstado` con el vocabulario del
+// sistema; aquí solo se pasa a la tarjeta, que pinta su borde con él.
 const colorEstatus: Record<string, string> = {
     activo: '#16a34a',
     egresado: 'var(--color-acento)',
@@ -268,7 +270,7 @@ function subirExcel(archivo: File | null): void {
 
                                 <!-- Estatus -->
                                 <td class="px-4 py-4">
-                                    <PildoraEstado :texto="alumno.estatus" :color="colorEstatus[alumno.estatus]" />
+                                    <PildoraEstado :texto="alumno.estatus" />
                                 </td>
 
                                 <!-- Acción -->
