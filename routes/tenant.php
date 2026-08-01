@@ -60,6 +60,7 @@ use App\Http\Controllers\PortalAspiranteController;
 use App\Http\Controllers\PromocionController;
 use App\Http\Controllers\RolActivoController;
 use App\Http\Controllers\ActividadController;
+use App\Http\Controllers\ArchivoRespuestaController;
 use App\Http\Controllers\ChatMateriaController;
 use App\Http\Controllers\CursoPlantillaController;
 use App\Http\Controllers\ForoController;
@@ -939,6 +940,14 @@ Route::middleware([
                 Route::post('{conversacion}', 'publicar')->whereNumber('conversacion')->name('publicar');
                 Route::get('{conversacion}/nuevos', 'nuevos')->whereNumber('conversacion')->name('nuevos');
             });
+
+        /*
+         * El archivo que un alumno subió dentro de un examen. Mismo criterio que
+         * el chat: sin `can:`, porque quien entra lo decide la pertenencia —es
+         * tuyo o eres su docente— y no un permiso.
+         */
+        Route::get('respuestas/{respuesta}/archivo', ArchivoRespuestaController::class)
+            ->whereNumber('respuesta')->name('tenant.respuestas.archivo');
 
         Route::controller(ForoController::class)
             ->prefix('materias/{materia}/foros/{actividad}')->name('tenant.foros.')

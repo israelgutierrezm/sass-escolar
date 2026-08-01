@@ -67,7 +67,8 @@ class EntregaController extends Controller
         );
 
         foreach ($request->file('archivos', []) as $archivo) {
-            $ruta = $archivo->store("entregas/{$entrega->id}", 'documentos');
+            // Disco `local` (privado), como el resto de los adjuntos del sistema.
+            $ruta = $archivo->store("entregas/{$entrega->id}", 'local');
 
             EntregaArchivo::create([
                 'entrega_id' => $entrega->id,
@@ -105,7 +106,7 @@ class EntregaController extends Controller
 
         abort_unless($mio || $soyDocente || $request->user()->can('capturar-calificaciones'), 403);
 
-        return Storage::disk('documentos')->download($archivo->ruta, $archivo->nombre);
+        return Storage::disk('local')->download($archivo->ruta, $archivo->nombre);
     }
 
     /** La inscripción de quien entró en la materia de esa actividad. */

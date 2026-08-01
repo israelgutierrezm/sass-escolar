@@ -27,6 +27,8 @@ interface Reactivo {
     huecos: number;
     puntos: number;
     respuesta: any;
+    /** Solo en los de archivo: para poder volver a descargar lo que subió. */
+    respuesta_id?: number | null;
 }
 
 const props = defineProps<{ reactivo: Reactivo; numero: number; guardando: boolean }>();
@@ -326,7 +328,14 @@ defineExpose({ contestado });
             <div v-else-if="reactivo.forma === 'archivo'">
                 <input type="file" class="text-sm" @change="subirArchivo" />
                 <p v-if="valor?.nombre" class="mt-2 text-xs text-suave">
-                    Subiste <strong>{{ valor.nombre }}</strong>. Subir otro lo reemplaza.
+                    Subiste
+                    <a
+                        v-if="reactivo.respuesta_id"
+                        :href="`/respuestas/${reactivo.respuesta_id}/archivo`"
+                        class="font-medium underline"
+                        :style="{ color: 'var(--color-acento)' }"
+                    >{{ valor.nombre }}</a>
+                    <strong v-else>{{ valor.nombre }}</strong>. Subir otro lo reemplaza.
                 </p>
             </div>
         </div>

@@ -785,9 +785,16 @@ const porRevisar = computed(() => props.intentos.filter((i) => i.requiere_revisi
                     >
                         <p class="text-xs font-medium text-suave">{{ p.enunciado }}</p>
                         <p class="mt-1 whitespace-pre-line text-sm">
-                            <template v-if="p.respondio && typeof p.respondio === 'object' && p.respondio.nombre">
-                                Archivo: <strong>{{ p.respondio.nombre }}</strong>
-                            </template>
+                            <!-- El archivo se descarga: verlo es la única forma
+                                 de poder calificarlo. -->
+                            <a
+                                v-if="p.respondio && typeof p.respondio === 'object' && p.respondio.nombre"
+                                :href="`/respuestas/${p.id}/archivo`"
+                                class="font-medium underline"
+                                :style="{ color: 'var(--color-acento)' }"
+                            >
+                                {{ p.respondio.nombre }}
+                            </a>
                             <template v-else>{{ p.respondio ?? '(sin responder)' }}</template>
                         </p>
 

@@ -135,6 +135,8 @@ class PresentacionExamenController extends Controller
                 ->map(fn (Reactivo $r) => $r->paraResolver($examen->barajar_opciones) + [
                     'puntos' => $examen->puntosDe($r),
                     'respuesta' => $contestadas->get($r->id)?->valor['v'] ?? null,
+                    // Para que pueda volver a bajar el archivo que subió.
+                    'respuesta_id' => $contestadas->get($r->id)?->id,
                 ])
                 ->values(),
         ]);
@@ -185,7 +187,7 @@ class PresentacionExamenController extends Controller
         ], [], ['archivo' => 'archivo']);
 
         $subido = $request->file('archivo');
-        $ruta = $subido->store("examenes/{$intento->id}", 'documentos');
+        $ruta = $subido->store("examenes/{$intento->id}", 'local');
 
         try {
             $this->aplicador->guardarRespuesta($intento, (int) $datos['reactivo_id'], [
