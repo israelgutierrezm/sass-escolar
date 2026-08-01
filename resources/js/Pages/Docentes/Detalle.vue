@@ -2,6 +2,7 @@
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import NavEscolar from '@/Components/NavEscolar.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
@@ -156,7 +157,14 @@ function verComo(): void {
 <template>
     <Head :title="persona.nombre ? `${persona.nombre} ${persona.primer_apellido}` : 'Docente'" />
 
-    <AppLayout titulo="Ficha del docente">
+    <!-- «Expediente», no «Ficha»: es la misma palabra con la que se entra desde
+         el listado, y la misma pantalla que la del alumno. -->
+    <AppLayout titulo="Expediente del docente">
+        <NavEscolar
+            :secciones="[
+                { etiqueta: 'Listado', url: '/escolar/docentes', permiso: 'ver-docentes' },
+            ]"
+        />
 
         <section class="tarjeta p-6">
             <BotonVolver href="/escolar/docentes" texto="Docentes" class="mb-4" />
@@ -196,24 +204,57 @@ function verComo(): void {
                     <p v-if="formFoto.errors.foto" class="text-xs text-red-600">{{ formFoto.errors.foto }}</p>
                 </div>
 
-                <div>
+                <div class="min-w-0 flex-1">
                     <p class="font-mono text-sm" :style="{ color: 'var(--color-suave)' }">
                         {{ docente.clave_profesor ?? 'sin clave' }}
                     </p>
-                    <h2 class="text-lg font-semibold">
-                        {{ [persona.nombre, persona.primer_apellido, persona.segundo_apellido].filter(Boolean).join(' ') }}
-                    </h2>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <h2 class="text-lg font-semibold">
+                            {{ [persona.nombre, persona.primer_apellido, persona.segundo_apellido].filter(Boolean).join(' ') }}
+                        </h2>
+                        <PildoraEstado :texto="docente.situacion" />
+                    </div>
                     <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                        {{ docente.tipo ?? 'sin tipo' }} · {{ docente.situacion }}
+                        {{ docente.tipo ?? 'sin tipo' }}
                         <span v-if="docente.campus.length"> · {{ docente.campus.join(', ') }}</span>
                     </p>
+
+                    <!-- Misma rejilla de datos que el expediente del alumno: los
+                         dos son la ficha de una persona y se leen igual. -->
+                    <dl class="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+                        <div v-if="persona.curp" class="min-w-0">
+                            <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">CURP</dt>
+                            <dd class="truncate font-mono text-xs">{{ persona.curp }}</dd>
+                        </div>
+                        <div v-if="persona.rfc" class="min-w-0">
+                            <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">RFC</dt>
+                            <dd class="truncate font-mono text-xs">{{ persona.rfc }}</dd>
+                        </div>
+                        <div v-if="persona.email" class="min-w-0">
+                            <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">Correo</dt>
+                            <dd class="truncate">{{ persona.email }}</dd>
+                        </div>
+                        <div v-if="persona.correo_institucional" class="min-w-0">
+                            <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">Correo institucional</dt>
+                            <dd class="truncate">{{ persona.correo_institucional }}</dd>
+                        </div>
+                        <div v-if="persona.celular" class="min-w-0">
+                            <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">Celular</dt>
+                            <dd>{{ persona.celular }}</dd>
+                        </div>
+                        <div v-if="persona.fecha_nacimiento" class="min-w-0">
+                            <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">Nacimiento</dt>
+                            <dd>
+                                {{ persona.fecha_nacimiento }}
+                                <span v-if="persona.entidad_nacimiento" :style="{ color: 'var(--color-suave)' }"> · {{ persona.entidad_nacimiento }}</span>
+                            </dd>
+                        </div>
+                    </dl>
                 </div>
-                    <BotonAccion
-                        v-if="suplantable"
-                        variante="ver"
-                        :texto="`Ver como ${suplantable.usuario}`"
-                        @click="verComo"
-                    />
+            </div>
+
+            <div v-if="suplantable" class="mt-4 flex justify-end border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">
+                <BotonAccion variante="ver" :texto="`Ver como ${suplantable.usuario}`" @click="verComo" />
             </div>
         </section>
 
