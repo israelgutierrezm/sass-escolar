@@ -60,7 +60,11 @@ class PermisoSeeder extends Seeder
 
         // Facetas no administrativas: su alcance se resuelve además por
         // pertenencia (un alumno solo ve SU kárdex), no solo por permiso.
-        'alumno' => ['ver-kardex', 'ver-adeudos'],
+        // El alumno traía solo dos permisos de consulta y NINGUNA pantalla
+        // propia: podía entrar al sistema y no tenía a dónde ir. `ver-mis-cursos`
+        // le abre su portal; el alcance —sus propias matrículas— lo resuelve el
+        // controlador, igual que en el portal del padre.
+        'alumno' => ['ver-mis-cursos', 'ver-kardex', 'ver-adeudos'],
         // El interesado llena lo suyo desde `/mi-solicitud`. No ve nada más:
         // su alcance es su propia persona, no un permiso amplio.
         'aspirante' => ['llenar-mi-solicitud'],

@@ -60,6 +60,7 @@ use App\Http\Controllers\PortalAspiranteController;
 use App\Http\Controllers\PromocionController;
 use App\Http\Controllers\RolActivoController;
 use App\Http\Controllers\MenuRolController;
+use App\Http\Controllers\MisCursosController;
 use App\Http\Controllers\RolController;
 use App\Http\Controllers\TarjetaRolController;
 use App\Http\Controllers\SeriacionController;
@@ -802,6 +803,19 @@ Route::middleware([
             ->group(function () {
                 Route::get('/', 'misHijos')->name('index');
                 Route::get('{hijo}', 'hijo')->whereNumber('hijo')->name('hijo');
+            });
+
+        /*
+         * Portal del ALUMNO. Mismo criterio que el del padre: el permiso deja
+         * entrar y la PERTENENCIA —sus propias matrículas— decide qué ve. El
+         * controlador resuelve el alcance; la ruta no puede.
+         */
+        Route::controller(MisCursosController::class)
+            ->prefix('mis-cursos')->name('tenant.miscursos.')
+            ->middleware('can:ver-mis-cursos')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('{asignaturaGrupo}', 'show')->whereNumber('asignaturaGrupo')->name('materia');
             });
 
         /*

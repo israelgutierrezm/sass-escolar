@@ -108,6 +108,16 @@ final class CatalogoPermisos
             'ver-tutores' => ['Ver padres y tutores', 'Consultar el directorio de padres y tutores y a qué alumnos están vinculados.', [self::ADMINISTRATIVO]],
         ],
 
+        /*
+         * Portal del alumno. Se llama «mis cursos» y no «mis materias» a
+         * propósito: el docente ya tiene `ver-mis-materias` para las que
+         * IMPARTE, y dos permisos con el mismo nombre y distinto significado
+         * son una trampa a la hora de asignarlos.
+         */
+        'Portal del alumno' => [
+            'ver-mis-cursos' => ['Ver mis cursos', 'Portal del alumno: las materias que cursa, su evaluación, sus calificaciones y su asistencia.', [self::ALUMNO]],
+        ],
+
         'Docencia' => [
             'ver-mis-materias' => ['Ver mis materias', 'Portal del docente: solo las materias que imparte.', [self::DOCENTE]],
             'editar-mi-expediente' => ['Editar mi expediente', 'Que el docente corrija sus datos y suba sus comprobantes.', [self::DOCENTE]],

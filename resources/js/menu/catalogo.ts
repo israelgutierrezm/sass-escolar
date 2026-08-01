@@ -64,6 +64,17 @@ export const CATALOGO_MENU: GrupoMenu[] = [
         hijos: [{ clave: 'mis-hijos-listado', etiqueta: 'Mis hijos', url: '/mis-hijos', permiso: 'ver-mis-hijos' }],
     },
     {
+        // Portal del alumno. Va junto a los otros portales de familia y no
+        // dentro de Control escolar: el alumno no administra la escuela, entra
+        // a lo suyo.
+        clave: 'mis-cursos',
+        etiqueta: 'Mis cursos',
+        prefijo: '/mis-cursos',
+        facetas: ['alumno'],
+        icono: 'M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25',
+        hijos: [{ clave: 'mis-cursos-listado', etiqueta: 'Mis cursos', url: '/mis-cursos', permiso: 'ver-mis-cursos' }],
+    },
+    {
         clave: 'admisiones',
         etiqueta: 'Admisiones',
         prefijo: '/aspirantes',
