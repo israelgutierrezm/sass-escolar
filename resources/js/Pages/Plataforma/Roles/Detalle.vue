@@ -294,7 +294,7 @@ function desasignar(id: number): void {
                 </ul>
             </div>
 
-            <ul v-if="asignados.length" class="mt-4 divide-y" :style="{ borderColor: 'var(--color-borde)' }">
+            <ul v-if="asignados.length" class="mt-4 divide-y divide-borde" :style="{ borderColor: 'var(--color-borde)' }">
                 <li v-for="a in asignados" :key="a.id" class="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
                     <span>
                         {{ a.persona }}

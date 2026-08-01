@@ -198,7 +198,7 @@ const colorEstado: Record<string, string> = {
                 como pendientes. Si vuelves a subir uno, reemplaza al anterior y se revisa de nuevo.
             </p>
 
-            <ul class="mt-4 divide-y" :style="{ borderColor: 'var(--color-borde)' }">
+            <ul class="mt-4 divide-y divide-borde" :style="{ borderColor: 'var(--color-borde)' }">
                 <li v-for="doc in documentos" :key="doc.id" class="flex flex-wrap items-center justify-between gap-3 py-3">
                     <div>
                         <p class="text-sm font-medium">

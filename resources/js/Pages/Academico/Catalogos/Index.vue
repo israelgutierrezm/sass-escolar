@@ -216,7 +216,7 @@ function esEditando(catalogo: string, id: number): boolean {
                         <span v-if="puedeEditar" class="w-28 shrink-0 text-right">Acciones</span>
                     </div>
 
-                    <ul class="divide-y" :style="{ borderColor: 'var(--color-borde)' }">
+                    <ul class="divide-y divide-borde" :style="{ borderColor: 'var(--color-borde)' }">
                         <li
                             v-for="item in catalogo.items"
                             :key="item.id"

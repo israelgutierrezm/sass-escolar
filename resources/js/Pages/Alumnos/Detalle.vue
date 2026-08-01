@@ -1132,7 +1132,7 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                         </div>
                     </header>
 
-                    <ul class="divide-y" :style="{ borderColor: 'var(--color-borde)' }">
+                    <ul class="divide-y divide-borde" :style="{ borderColor: 'var(--color-borde)' }">
                         <li
                             v-for="renglon in g.renglones"
                             :key="renglon.id"
@@ -1183,15 +1183,12 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                                 >
                                     Manual
                                 </span>
-                                <button
+                                <BotonAccion
                                     v-if="renglon.manual && puedeCargarHistorial"
-                                    type="button"
-                                    class="shrink-0 text-red-600 hover:text-red-700"
-                                    title="Retirar del historial"
+                                    variante="eliminar"
+                                    texto="Retirar del historial"
                                     @click="quitarHistorial(renglon.id)"
-                                >
-                                    ✕
-                                </button>
+                                />
                             </div>
                         </li>
                     </ul>

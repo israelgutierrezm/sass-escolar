@@ -369,7 +369,7 @@ function iniciales(nombre: string | null): string {
                     </button>
                 </header>
 
-                <ul class="divide-y border-t" :style="{ borderColor: 'var(--color-borde)' }">
+                <ul class="divide-y divide-borde border-t" :style="{ borderColor: 'var(--color-borde)' }">
                     <li v-for="i in inscritos" :key="i.id" :style="{ borderColor: 'var(--color-borde)' }">
                         <div class="flex items-center gap-3 px-6 py-3">
                             <img v-if="i.foto" :src="i.foto" :alt="i.nombre ?? ''" class="h-9 w-9 shrink-0 rounded-full object-cover" />
@@ -498,7 +498,7 @@ function iniciales(nombre: string | null): string {
                 </div>
 
                 <!-- LISTA: renglones compactos, para marcar muchos rápido. -->
-                <ul v-if="filtrados.length && vistaAlumnos === 'lista'" class="mt-5 divide-y rounded-lg border" :style="{ borderColor: 'var(--color-borde)' }">
+                <ul v-if="filtrados.length && vistaAlumnos === 'lista'" class="mt-5 divide-y divide-borde rounded-lg border" :style="{ borderColor: 'var(--color-borde)' }">
                     <li v-for="c in filtrados" :key="c.id" :style="{ borderColor: 'var(--color-borde)' }">
                         <label
                             class="flex cursor-pointer items-center gap-3 px-3 py-2"

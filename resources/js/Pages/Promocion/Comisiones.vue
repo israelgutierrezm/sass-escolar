@@ -217,7 +217,7 @@ const colorEstatusSolido: Record<string, string> = {
                 </div>
             </form>
 
-            <ul v-if="reglas.length" class="mt-4 divide-y text-sm" :style="{ borderColor: 'var(--color-borde)' }">
+            <ul v-if="reglas.length" class="mt-4 divide-y divide-borde text-sm" :style="{ borderColor: 'var(--color-borde)' }">
                 <li v-for="r in reglas" :key="r.id" class="flex flex-wrap items-center justify-between gap-2 py-2">
                     <span>
                         <span class="font-medium">{{ r.nombre }}</span>

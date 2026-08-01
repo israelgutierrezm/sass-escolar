@@ -142,7 +142,7 @@ function repropagar(): void {
                 </button>
             </div>
 
-            <div v-if="componentes.length" class="divide-y" :style="{ borderColor: 'var(--color-borde)' }">
+            <div v-if="componentes.length" class="divide-y divide-borde" :style="{ borderColor: 'var(--color-borde)' }">
                 <div v-for="grupo in porParcial" :key="grupo.parcial ?? 'curso'" class="px-6 py-4">
                     <div class="flex items-baseline justify-between">
                         <h3 class="text-sm font-medium">
