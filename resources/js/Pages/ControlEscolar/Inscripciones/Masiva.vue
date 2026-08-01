@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import NavEscolar from '@/Components/NavEscolar.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
+import CampoTexto from '@/Components/CampoTexto.vue';
+import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
+import BotonVolver from '@/Components/BotonVolver.vue';
 import SelectorVista from '@/Components/SelectorVista.vue';
 import { toast } from 'vue-sonner';
 
@@ -269,24 +272,36 @@ function iniciales(nombre: string | null): string {
 
         <!-- Selección de ciclo y grupo -->
         <section class="tarjeta p-6">
-            <div class="flex items-end justify-between gap-4">
+            <BotonVolver href="/escolar/grupos" texto="Grupos" class="mb-4" />
+
+            <div class="flex flex-wrap items-end justify-between gap-4">
+                <!-- Misma cascada numerada que el alta de grupo: el grupo no se
+                     puede elegir antes que el ciclo, y el desplegable lo dice
+                     estando bloqueado en vez de abrirse vacío. -->
                 <div class="grid flex-1 gap-4 sm:grid-cols-2">
                     <CampoSelect
                         v-model="cicloId"
-                        etiqueta="Ciclo"
+                        etiqueta="1 · Ciclo"
                         :opciones="ciclos.map((c) => ({ valor: c.id, texto: c.etiqueta }))"
                         vacio="Selecciona un ciclo…"
                     />
                     <CampoSelect
                         v-model="grupoId"
-                        etiqueta="Grupo"
+                        etiqueta="2 · Grupo"
                         :opciones="grupos.map((g) => ({ valor: g.id, texto: g.etiqueta }))"
-                        :vacio="cicloId ? 'Selecciona un grupo…' : 'Elige un ciclo primero'"
+                        :deshabilitado="!cicloId"
+                        :vacio="cicloId
+                            ? (grupos.length ? 'Selecciona un grupo…' : 'Ese ciclo no tiene grupos')
+                            : 'Elige un ciclo primero'"
+                        :ayuda="cicloId && grupos.length ? `${grupos.length} grupo(s) en el ciclo.` : undefined"
                     />
                 </div>
-                <Link href="/escolar/inscripciones" class="shrink-0 text-sm" :style="{ color: 'var(--color-acento)' }">
-                    Inscripción individual →
-                </Link>
+
+                <BotonAccion
+                    variante="ver"
+                    texto="Inscripción individual"
+                    href="/escolar/inscripciones"
+                />
             </div>
         </section>
 
@@ -329,23 +344,23 @@ function iniciales(nombre: string | null): string {
                         </p>
                     </div>
 
-                    <div class="text-right">
-                        <p class="text-2xl font-semibold" :style="{ color: 'var(--color-acento)' }">
-                            {{ inscritos.length }}<span v-if="grupo.cupo" class="text-base" :style="{ color: 'var(--color-suave)' }">/{{ grupo.cupo }}</span>
-                        </p>
-                        <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                            {{ lugaresLibres !== null ? `${lugaresLibres} lugar(es) libres` : 'alumnos en el grupo' }}
-                        </p>
-                        <Link :href="`/escolar/grupos/${grupo.id}`" class="text-xs" :style="{ color: 'var(--color-acento)' }">
-                            Ver grupo →
-                        </Link>
+                    <div class="flex flex-col items-end gap-2">
+                        <div class="text-right">
+                            <p class="text-2xl font-semibold leading-none" :style="{ color: 'var(--color-acento)' }">
+                                {{ inscritos.length }}<span v-if="grupo.cupo" class="text-base" :style="{ color: 'var(--color-suave)' }">/{{ grupo.cupo }}</span>
+                            </p>
+                            <p class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">
+                                {{ lugaresLibres !== null ? `${lugaresLibres} lugar(es) libres` : 'alumnos en el grupo' }}
+                            </p>
+                        </div>
+                        <BotonAccion variante="ver" texto="Materias del grupo" :href="`/escolar/grupos/${grupo.id}`" />
                     </div>
                 </div>
 
-                <p v-if="!grupo.materias.length" class="mt-4 rounded-lg px-3 py-2 text-sm" :style="{ backgroundColor: 'color-mix(in srgb, #f59e0b 12%, transparent)', color: '#b45309' }">
-                    El grupo no tiene materias abiertas: no hay dónde inscribir.
-                    <Link :href="`/escolar/grupos/${grupo.id}`" class="font-medium underline">Ábrele materias primero</Link>.
-                </p>
+                <div v-if="!grupo.materias.length" class="mt-4 flex flex-wrap items-center gap-3 rounded-lg px-3 py-2 text-sm" :style="{ backgroundColor: 'color-mix(in srgb, #f59e0b 12%, transparent)', color: '#b45309' }">
+                    <span>El grupo no tiene materias abiertas: no hay dónde inscribir.</span>
+                    <BotonAccion variante="agregar" texto="Abrirle materias" :href="`/escolar/grupos/${grupo.id}`" />
+                </div>
             </section>
 
             <!-- Quién YA está en el grupo. Va ANTES de los candidatos: al volver
@@ -358,15 +373,12 @@ function iniciales(nombre: string | null): string {
                             Inscritos en las {{ grupo.materias.length }} materias del grupo, salvo lo que se indique.
                         </p>
                     </div>
-                    <button
+                    <BotonAccion
                         v-if="puedeInscribir && incompletos.length"
-                        type="button"
-                        class="rounded-lg border px-4 py-2 text-sm font-medium"
-                        :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
+                        variante="agregar"
+                        :texto="`Completar ${incompletos.length} incompleto(s)`"
                         @click="completarIncompletos"
-                    >
-                        Completar {{ incompletos.length }} incompleto(s)
-                    </button>
+                    />
                 </header>
 
                 <ul class="divide-y divide-borde border-t" :style="{ borderColor: 'var(--color-borde)' }">
@@ -401,15 +413,12 @@ function iniciales(nombre: string | null): string {
                                 {{ expandido === i.id ? '▾' : '▸' }}
                             </button>
 
-                            <button
+                            <BotonAccion
                                 v-if="puedeInscribir"
-                                type="button"
-                                class="shrink-0 text-xs hover:text-red-600"
-                                :style="{ color: 'var(--color-suave)' }"
+                                variante="eliminar"
+                                texto="Dar de baja de todo el grupo"
                                 @click="bajaDelGrupo(i)"
-                            >
-                                Baja
-                            </button>
+                            />
                         </div>
 
                         <div
@@ -427,15 +436,12 @@ function iniciales(nombre: string | null): string {
                                     >
                                         {{ d.tipo_evaluacion }}
                                     </span>
-                                    <button
+                                    <BotonAccion
                                         v-if="puedeInscribir"
-                                        type="button"
-                                        class="shrink-0 text-xs hover:text-red-600"
-                                        :style="{ color: 'var(--color-suave)' }"
+                                        variante="eliminar"
+                                        texto="Dar de baja solo de esta materia"
                                         @click="bajaDeMateria(d, i.nombre)"
-                                    >
-                                        baja
-                                    </button>
+                                    />
                                 </li>
                             </ul>
 
@@ -464,16 +470,17 @@ function iniciales(nombre: string | null): string {
             <section v-if="grupo.materias.length" class="tarjeta p-6">
                 <div class="flex flex-wrap items-end justify-between gap-4">
                     <div class="min-w-0 flex-1">
-                        <label class="mb-1 block text-sm font-medium">Agregar alumnos</label>
-                        <input
+                        <CampoTexto
                             v-model="busqueda"
-                            type="search"
-                            placeholder="Nombre o matrícula…"
-                            class="w-full rounded-lg border px-3 py-2 text-sm"
-                            :style="{ borderColor: 'var(--color-borde)', backgroundColor: 'var(--color-superficie)', color: 'var(--color-contenido)' }"
+                            etiqueta="Agregar alumnos"
+                            tipo="search"
+                            marcador="Nombre o matrícula…"
                         />
                     </div>
                     <div v-if="puedeInscribir" class="flex items-center gap-2">
+                        <!-- Los dos filtros de esta lista viven juntos y se ven
+                             igual. El de campus estaba abajo, como enlace
+                             subrayado, y parecía navegación en vez de filtro. -->
                         <label
                             v-if="totalSugeridos"
                             class="flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm"
@@ -481,6 +488,15 @@ function iniciales(nombre: string | null): string {
                         >
                             <input v-model="soloSugeridos" type="checkbox" class="rounded" />
                             Solo periodo {{ grupo.periodo_objetivo }} ({{ totalSugeridos }})
+                        </label>
+                        <label
+                            v-if="deOtroCampus"
+                            class="flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm"
+                            :style="{ borderColor: soloDelCampus ? 'var(--color-acento)' : 'var(--color-borde)', color: soloDelCampus ? 'var(--color-acento)' : 'inherit' }"
+                            :title="`Hay ${deOtroCampus} alumno(s) de otros campus que podrían cursar aquí (movilidad, materias compartidas).`"
+                        >
+                            <input v-model="soloDelCampus" type="checkbox" class="rounded" />
+                            Solo {{ grupo.campus }}
                         </label>
                         <button
                             type="button"
@@ -603,17 +619,12 @@ function iniciales(nombre: string | null): string {
                 </p>
 
                 <!-- El grupo es de un campus, pero el alumno de otro campus
-                     existe. En vez de esconderlo, se ofrece traerlo. -->
-                <p v-if="soloDelCampus && deOtroCampus" class="mt-3 text-center text-sm">
-                    <button type="button" class="font-medium underline" :style="{ color: 'var(--color-acento)' }" @click="soloDelCampus = false">
-                        Ver también {{ deOtroCampus }} alumno(s) de otros campus
-                    </button>
-                </p>
-                <p v-else-if="deOtroCampus" class="mt-3 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
-                    Mostrando alumnos de todos los campus.
-                    <button type="button" class="font-medium underline" :style="{ color: 'var(--color-acento)' }" @click="soloDelCampus = true">
-                        Solo {{ grupo.campus }}
-                    </button>
+                     existe (movilidad, materias compartidas). Cuando la lista
+                     sale vacía por ese filtro, hay que decirlo: si no, parece
+                     que no hay nadie. -->
+                <p v-if="!filtrados.length && soloDelCampus && deOtroCampus" class="mt-3 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
+                    Hay {{ deOtroCampus }} alumno(s) de otros campus: quita el filtro
+                    «Solo {{ grupo.campus }}» de arriba para verlos.
                 </p>
 
                 <div v-if="puedeInscribir" class="mt-6 border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">
