@@ -600,6 +600,10 @@ Route::middleware([
                     // Baja de un alumno de TODO el grupo (todas sus materias), desde
                     // el detalle del grupo.
                     Route::put('grupos/{grupo}/alumnos/{matricula}/baja', [GrupoController::class, 'bajarAlumno'])->name('grupos.alumnos.baja');
+                    // Buscador de alumnos para inscribir en UNA materia. Devuelve
+                    // JSON: se consulta al teclear, no viaja con la pantalla.
+                    Route::get('grupos/{grupo}/materias/{asignatura}/candidatos', [GrupoController::class, 'buscarCandidatos'])
+                        ->name('grupos.materias.candidatos');
                 });
 
                 Route::middleware('can:abrir-grupos')->group(function () {

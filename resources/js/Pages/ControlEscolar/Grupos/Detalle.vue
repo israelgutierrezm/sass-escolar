@@ -7,10 +7,12 @@ import NavEscolar from '@/Components/NavEscolar.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoCasillas from '@/Components/CampoCasillas.vue';
 import CampoBuscador from '@/Components/CampoBuscador.vue';
+import BuscadorRemoto from '@/Components/BuscadorRemoto.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import SelectorVista from '@/Components/SelectorVista.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
+import { toast } from 'vue-sonner';
 
 /*
  * Esta pantalla es la de las MATERIAS del grupo. Los alumnos viven en
@@ -44,6 +46,7 @@ const props = defineProps<{
     asignaturas: MateriaAbierta[];
     materiasDisponibles: MateriaDisponible[];
     docentes: { id: number; nombre: string }[];
+    tiposEvaluacion: { id: number; nombre: string }[];
     puedeEditar: boolean;
     puedeInscribir: boolean;
 }>();
@@ -109,6 +112,49 @@ const materiasDelPeriodo = computed(() =>
 
 const formDocente = useForm({ persona_id: null as number | null, tipo: 'titular' });
 const asignandoEn = ref<number | null>(null);
+
+/*
+ * Inscribir a UN alumno en UNA materia.
+ *
+ * Vive aquí, en la materia, porque es donde se piensa el caso: el que recursa
+ * una sola, el que la lleva en extraordinario, el que entra tarde. La carga
+ * masiva —todos a todas las materias— es la otra pantalla; mezclarlas obligaba
+ * a entrar por «inscripción masiva» para inscribir a uno solo, que es
+ * exactamente lo que confundía.
+ */
+const inscribiendoEn = ref<number | null>(null);
+
+const tipoOrdinaria = computed(
+    () => props.tiposEvaluacion.find((t) => /ordinaria/i.test(t.nombre))?.id ?? props.tiposEvaluacion[0]?.id ?? null,
+);
+
+const formAlumno = useForm({
+    matricula_oferta_id: null as number | null,
+    asignatura_grupo_id: null as number | null,
+    tipo_evaluacion_id: null as number | null,
+});
+
+function alternarInscribir(materiaId: number): void {
+    inscribiendoEn.value = inscribiendoEn.value === materiaId ? null : materiaId;
+    formAlumno.reset();
+    formAlumno.clearErrors();
+    formAlumno.asignatura_grupo_id = materiaId;
+    formAlumno.tipo_evaluacion_id = tipoOrdinaria.value;
+}
+
+function inscribirAlumno(): void {
+    formAlumno.post('/escolar/inscripciones', {
+        preserveScroll: true,
+        onSuccess: () => {
+            formAlumno.reset();
+            formAlumno.asignatura_grupo_id = inscribiendoEn.value;
+            formAlumno.tipo_evaluacion_id = tipoOrdinaria.value;
+        },
+        // El rechazo viaja como error de validación, no como flash: sin esto el
+        // botón no daría señal de nada cuando el alumno no puede entrar.
+        onError: (errores) => toast.error(Object.values(errores).flat().join(' ')),
+    });
+}
 
 /*
  * Miniatura de la materia.
@@ -428,6 +474,13 @@ const urlInscribir = computed(
 
                         <span v-if="puedeEditar" class="flex shrink-0 items-center gap-1">
                             <BotonAccion
+                                v-if="puedeInscribir"
+                                :variante="inscribiendoEn === asignatura.id ? 'cerrar' : 'agregar'"
+                                texto="Alumno"
+                                :solo-icono="inscribiendoEn === asignatura.id"
+                                @click="alternarInscribir(asignatura.id)"
+                            />
+                            <BotonAccion
                                 :variante="asignandoEn === asignatura.id ? 'cerrar' : 'agregar'"
                                 texto="Docente"
                                 :solo-icono="asignandoEn === asignatura.id"
@@ -436,6 +489,39 @@ const urlInscribir = computed(
                             <BotonAccion variante="eliminar" texto="Quitar materia" @click="quitarMateria(asignatura)" />
                         </span>
                     </div>
+
+                    <!-- Inscribir a UN alumno en ESTA materia. -->
+                    <form
+                        v-if="inscribiendoEn === asignatura.id"
+                        class="flex flex-wrap items-end gap-3 border-t border-borde bg-fondo px-6 py-3"
+                        @submit.prevent="inscribirAlumno"
+                    >
+                        <div class="min-w-64 flex-1">
+                            <BuscadorRemoto
+                                v-model="formAlumno.matricula_oferta_id"
+                                :url="`/escolar/grupos/${grupo.id}/materias/${asignatura.id}/candidatos`"
+                                etiqueta="Alumno"
+                                marcador="Escribe matrícula o nombre…"
+                                :error="formAlumno.errors.matricula_oferta_id ?? formAlumno.errors.asignatura_grupo_id"
+                                ayuda="Solo aparecen los que pueden entrar a esta materia."
+                            />
+                        </div>
+                        <div class="w-48">
+                            <CampoSelect
+                                v-model="formAlumno.tipo_evaluacion_id"
+                                etiqueta="Tipo"
+                                :opciones="tiposEvaluacion.map((t) => ({ valor: t.id, texto: t.nombre }))"
+                                :error="formAlumno.errors.tipo_evaluacion_id"
+                                ayuda="Ordinario, extraordinario…"
+                            />
+                        </div>
+                        <BotonPrincipal
+                            :procesando="formAlumno.processing"
+                            :deshabilitado="!formAlumno.matricula_oferta_id"
+                            texto="Inscribir"
+                            icono="crear"
+                        />
+                    </form>
 
                     <form
                         v-if="asignandoEn === asignatura.id"
@@ -515,6 +601,13 @@ const urlInscribir = computed(
                         <span class="tabular-nums text-xs text-suave">{{ asignatura.inscritos_count }} alumno(s)</span>
                         <span v-if="puedeEditar" class="flex items-center gap-1">
                             <BotonAccion
+                                v-if="puedeInscribir"
+                                :variante="inscribiendoEn === asignatura.id ? 'cerrar' : 'agregar'"
+                                texto="Alumno"
+                                :solo-icono="inscribiendoEn === asignatura.id"
+                                @click="alternarInscribir(asignatura.id)"
+                            />
+                            <BotonAccion
                                 :variante="asignandoEn === asignatura.id ? 'cerrar' : 'agregar'"
                                 texto="Docente"
                                 :solo-icono="asignandoEn === asignatura.id"
@@ -523,6 +616,33 @@ const urlInscribir = computed(
                             <BotonAccion variante="eliminar" texto="Quitar materia" @click="quitarMateria(asignatura)" />
                         </span>
                     </div>
+
+                    <form
+                        v-if="inscribiendoEn === asignatura.id"
+                        class="space-y-3 border-t bg-fondo p-3"
+                        :style="{ borderColor: 'var(--color-borde)' }"
+                        @submit.prevent="inscribirAlumno"
+                    >
+                        <BuscadorRemoto
+                            v-model="formAlumno.matricula_oferta_id"
+                            :url="`/escolar/grupos/${grupo.id}/materias/${asignatura.id}/candidatos`"
+                            etiqueta="Alumno"
+                            marcador="Matrícula o nombre…"
+                            :error="formAlumno.errors.matricula_oferta_id ?? formAlumno.errors.asignatura_grupo_id"
+                        />
+                        <CampoSelect
+                            v-model="formAlumno.tipo_evaluacion_id"
+                            etiqueta="Tipo"
+                            :opciones="tiposEvaluacion.map((t) => ({ valor: t.id, texto: t.nombre }))"
+                            :error="formAlumno.errors.tipo_evaluacion_id"
+                        />
+                        <BotonPrincipal
+                            :procesando="formAlumno.processing"
+                            :deshabilitado="!formAlumno.matricula_oferta_id"
+                            texto="Inscribir"
+                            icono="crear"
+                        />
+                    </form>
 
                     <form
                         v-if="asignandoEn === asignatura.id"

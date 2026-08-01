@@ -23,6 +23,8 @@ use App\Models\ControlEscolar\Grupo;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\ControlEscolar\SituacionGrupo;
 use App\Models\ControlEscolar\SituacionInscripcion;
+use App\Models\ControlEscolar\TipoEvaluacion;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -229,6 +231,10 @@ class GrupoController extends Controller
                     'id' => $docente->persona_id,
                     'nombre' => $docente->persona?->nombreCompleto(),
                 ]),
+            // Catálogo corto (ordinaria, extraordinaria, a título…) para
+            // inscribir a un alumno suelto en una materia. Los ALUMNOS no
+            // viajan aquí: se buscan por coincidencia contra el servidor.
+            'tiposEvaluacion' => TipoEvaluacion::query()->orderBy('id')->get(['id', 'nombre']),
             'puedeEditar' => $request->user()->can('abrir-grupos'),
             'puedeInscribir' => $request->user()->can('inscribir-alumnos'),
         ]);
@@ -284,6 +290,70 @@ class GrupoController extends Controller
                 ? "Alumno dado de baja del grupo ({$afectadas} materia(s))."
                 : 'Ese alumno no tenía inscripciones vigentes en el grupo.',
         );
+    }
+
+    /**
+     * Busca alumnos para inscribir en UNA materia del grupo, por coincidencia.
+     *
+     * No se mandan los alumnos junto con la pantalla ni se ofrecen en un
+     * desplegable: una escuela con mil matriculados haría inútil una lista y
+     * caro cada render. Aquí solo viajan las coincidencias de lo que se teclea.
+     *
+     * El filtro replica lo que el validador va a exigir después —activo, del
+     * plan de la materia, no inscrito ya— para no ofrecer a nadie que vaya a
+     * rebotar. El validador vuelve a comprobarlo todo al inscribir: esto es
+     * comodidad, no la regla.
+     */
+    public function buscarCandidatos(Request $request, Grupo $grupo, AsignaturaGrupo $asignatura): JsonResponse
+    {
+        abort_unless($asignatura->grupo_id === $grupo->id, 404);
+
+        $q = trim((string) $request->query('q', ''));
+
+        if (mb_strlen($q) < 2) {
+            return response()->json([]);
+        }
+
+        $planDeLaMateria = $asignatura->planMateria?->plan_id;
+        $bajaId = SituacionInscripcion::query()->where('clave', 'baja')->value('id');
+
+        // Quien ya está en ESTA materia (y no de baja) no es candidato.
+        $yaEnLaMateria = Inscripcion::query()
+            ->where('asignatura_grupo_id', $asignatura->id)
+            ->when($bajaId !== null, fn ($c) => $c->where(
+                fn ($s) => $s->whereNull('situacion_id')->orWhere('situacion_id', '!=', $bajaId),
+            ))
+            ->pluck('matricula_oferta_id');
+
+        $alumnos = MatriculaOferta::query()
+            ->where('estatus', 'activo')
+            ->whereNotIn('id', $yaEnLaMateria)
+            ->when($planDeLaMateria !== null, fn ($c) => $c->whereHas(
+                'oferta',
+                fn ($o) => $o->where('plan_id', $planDeLaMateria),
+            ))
+            ->where(function ($consulta) use ($q) {
+                $consulta->where('matricula', 'like', "%{$q}%")
+                    ->orWhereHas('persona', fn ($p) => $p
+                        ->where('nombre', 'like', "%{$q}%")
+                        ->orWhere('primer_apellido', 'like', "%{$q}%")
+                        ->orWhere('segundo_apellido', 'like', "%{$q}%"));
+            })
+            ->with(['persona:id,nombre,primer_apellido,segundo_apellido', 'oferta.carrera:id,nombre', 'oferta.campus:id,nombre'])
+            ->orderBy('matricula')
+            ->limit(20)
+            ->get()
+            ->map(fn (MatriculaOferta $m) => [
+                'id' => $m->id,
+                'matricula' => $m->matricula,
+                'nombre' => $m->persona?->nombreCompleto(),
+                // El campus se muestra cuando NO es el del grupo: inscribir a
+                // alguien de otro campus se puede, pero no por descuido.
+                'carrera' => trim(($m->oferta?->carrera?->nombre ?? '').
+                    ($m->oferta?->campus_id !== $grupo->campus_id ? ' · '.($m->oferta?->campus?->nombre ?? 'otro campus') : '')),
+            ]);
+
+        return response()->json($alumnos);
     }
 
     /**

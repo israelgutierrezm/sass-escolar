@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { Head, useForm, router } from '@inertiajs/vue3';
-import { ref, watch } from 'vue';
-import axios from 'axios';
+import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
+import BuscadorRemoto from '@/Components/BuscadorRemoto.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
@@ -34,32 +34,10 @@ const props = defineProps<{
 
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
 
-// --- Buscador de alumnos ---
-const busqueda = ref('');
-const resultados = ref<{ id: number; matricula: string; nombre: string; carrera: string }[]>([]);
-const elegido = ref<{ id: number; matricula: string; nombre: string } | null>(null);
-const buscando = ref(false);
-let temporizador: ReturnType<typeof setTimeout> | undefined;
-
-watch(busqueda, (q) => {
-    clearTimeout(temporizador);
-    elegido.value = null;
-
-    if (q.trim().length < 2) {
-        resultados.value = [];
-        return;
-    }
-
-    temporizador = setTimeout(async () => {
-        buscando.value = true;
-        try {
-            const { data } = await axios.get('/finanzas/becas/alumnos', { params: { q } });
-            resultados.value = data;
-        } finally {
-            buscando.value = false;
-        }
-    }, 300);
-});
+// El buscador de alumnos es `BuscadorRemoto`: la misma búsqueda por
+// coincidencia que en las materias de un grupo. Antes esta pantalla llevaba su
+// propia copia del widget —debounce, resultados, elegido— y era la única.
+const buscador = ref<{ limpiar: () => void } | null>(null);
 
 const otorgar = useForm({
     matricula_oferta_id: null as number | null,
@@ -70,20 +48,12 @@ const otorgar = useForm({
     motivo: '',
 });
 
-function elegir(a: { id: number; matricula: string; nombre: string }): void {
-    elegido.value = a;
-    otorgar.matricula_oferta_id = a.id;
-    resultados.value = [];
-    busqueda.value = `${a.matricula} · ${a.nombre}`;
-}
-
 function guardarOtorgamiento(): void {
     otorgar.post(`/finanzas/becas/${props.beca.id}/otorgar`, {
         preserveScroll: true,
         onSuccess: () => {
             otorgar.reset('motivo', 'promedio_evaluado');
-            elegido.value = null;
-            busqueda.value = '';
+            buscador.value?.limpiar();
         },
     });
 }
@@ -141,22 +111,15 @@ const etiquetaAccion: Record<string, string> = {
         <!-- Otorgar -->
         <TarjetaSeccion titulo="Otorgar a un alumno" descripcion="Se recalculan sus cargos pendientes; lo ya pagado no se toca." :icono="ICONOS.personas">
             <form class="grid gap-4 sm:grid-cols-3" @submit.prevent="guardarOtorgamiento">
-                <div class="relative sm:col-span-3">
-                    <CampoTexto v-model="busqueda" etiqueta="Alumno" marcador="Matrícula o nombre (mínimo 2 letras)…" :error="otorgar.errors.matricula_oferta_id" />
-                    <ul
-                        v-if="resultados.length"
-                        class="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg border shadow-lg"
-                        :style="{ borderColor: 'var(--color-borde)', backgroundColor: 'var(--color-tarjeta, white)' }"
-                    >
-                        <li v-for="a in resultados" :key="a.id">
-                            <button type="button" class="w-full px-3 py-2 text-left text-sm hover:bg-black/5" @click="elegir(a)">
-                                <span class="font-medium">{{ a.nombre }}</span>
-                                <span class="ml-2 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ a.matricula }}</span>
-                                <span class="block text-xs" :style="{ color: 'var(--color-suave)' }">{{ a.carrera }}</span>
-                            </button>
-                        </li>
-                    </ul>
-                    <p v-if="buscando" class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">Buscando…</p>
+                <div class="sm:col-span-3">
+                    <BuscadorRemoto
+                        ref="buscador"
+                        v-model="otorgar.matricula_oferta_id"
+                        url="/finanzas/becas/alumnos"
+                        etiqueta="Alumno"
+                        marcador="Matrícula o nombre…"
+                        :error="otorgar.errors.matricula_oferta_id"
+                    />
                 </div>
 
                 <CampoSelect
@@ -186,7 +149,7 @@ const etiquetaAccion: Record<string, string> = {
                 </div>
 
                 <div class="sm:col-span-3">
-                    <BotonPrincipal :procesando="otorgar.processing" texto="Otorgar beca" icono="crear" :deshabilitado="!elegido" />
+                    <BotonPrincipal :procesando="otorgar.processing" texto="Otorgar beca" icono="crear" :deshabilitado="!otorgar.matricula_oferta_id" />
                 </div>
             </form>
         </TarjetaSeccion>
