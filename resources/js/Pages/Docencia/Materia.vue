@@ -185,6 +185,41 @@ function colorCasilla(c: Casilla): { backgroundColor: string; color: string } {
 const tituloActividad = (id: number) => props.actividades.find((a) => a.id === id)?.titulo ?? '';
 
 /*
+ * La matriz se filtra por parcial. Con dos actividades no estorba; con veinte
+ * y cuarenta alumnos son ochocientas casillas y un scroll horizontal que no
+ * termina. El docente califica por parcial —es como cierra actas—, así que ese
+ * es el corte natural.
+ *
+ * «Formativas» es su propio grupo: no cuelgan de ningún parcial y esconderlas
+ * en «todas» las volvería invisibles justo cuando se buscan.
+ */
+const parcialFiltro = ref<string>('todos');
+
+const parcialesConActividad = computed(() => {
+    const vistos = new Set<string>();
+
+    for (const a of props.actividades) {
+        if (!a.se_entrega) continue;
+        vistos.add(a.componente ? a.componente.split(' · ')[0] : 'formativas');
+    }
+
+    return [...vistos].sort();
+});
+
+const columnas = computed(() =>
+    props.actividades.filter((a) => {
+        if (!a.se_entrega) return false;
+        if (parcialFiltro.value === 'todos') return true;
+
+        const suyo = a.componente ? a.componente.split(' · ')[0] : 'formativas';
+
+        return suyo === parcialFiltro.value;
+    }),
+);
+
+const idsColumna = computed(() => new Set(columnas.value.map((a) => a.id)));
+
+/*
  * ── Pase de lista ─────────────────────────────────────────────────────────
  *
  * Se marca a todo el grupo y se guarda de una vez. Pasar lista es un acto único
@@ -635,12 +670,32 @@ const cortesCerrados = computed(() =>
 
         <!-- ===== Matriz alumnos × actividades ===== -->
         <section v-if="puedeCapturar && actividades.some((a) => a.se_entrega)" class="tarjeta overflow-hidden">
-            <header class="px-6 py-4">
-                <h2 class="text-base font-semibold text-contenido">Quién entregó qué</h2>
-                <p class="mt-0.5 text-sm" :style="{ color: 'var(--color-suave)' }">
-                    Una fila por alumno. Toca una casilla entregada para calificarla;
-                    el componente del parcial se recalcula solo.
-                </p>
+            <header class="flex flex-wrap items-end justify-between gap-3 px-6 py-4">
+                <div>
+                    <h2 class="text-base font-semibold text-contenido">Quién entregó qué</h2>
+                    <p class="mt-0.5 text-sm" :style="{ color: 'var(--color-suave)' }">
+                        Una fila por alumno. Toca una casilla entregada para calificarla;
+                        el componente del parcial se recalcula solo.
+                    </p>
+                </div>
+
+                <!-- Filtro por parcial: el docente califica por parcial, y con
+                     veinte actividades la tabla se vuelve impracticable a lo
+                     ancho. Solo aparece si hay más de un grupo que filtrar. -->
+                <div v-if="parcialesConActividad.length > 1" class="flex flex-wrap items-center gap-1">
+                    <button
+                        v-for="p in ['todos', ...parcialesConActividad]"
+                        :key="p"
+                        type="button"
+                        class="rounded-lg border px-2.5 py-1 text-xs font-medium capitalize"
+                        :style="parcialFiltro === p
+                            ? { borderColor: 'var(--color-acento)', backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }
+                            : { borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }"
+                        @click="parcialFiltro = p"
+                    >
+                        {{ p }}
+                    </button>
+                </div>
             </header>
 
             <div class="overflow-x-auto border-t border-borde">
@@ -648,7 +703,7 @@ const cortesCerrados = computed(() =>
                     <thead>
                         <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
                             <th class="sticky left-0 z-10 px-6 py-3 font-semibold" :style="{ backgroundColor: 'var(--color-superficie)' }">Alumno</th>
-                            <th v-for="a in actividades.filter((x) => x.se_entrega)" :key="a.id" class="px-3 py-3 text-center font-semibold">
+                            <th v-for="a in columnas" :key="a.id" class="px-3 py-3 text-center font-semibold">
                                 <span class="block max-w-28 truncate" :title="a.titulo">{{ a.titulo }}</span>
                                 <span class="font-normal normal-case">de {{ a.puntos }}</span>
                             </th>
@@ -661,7 +716,7 @@ const cortesCerrados = computed(() =>
                                 <span class="block font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ fila.matricula }}</span>
                             </td>
                             <td
-                                v-for="c in fila.casillas.filter((x) => actividades.find((a) => a.id === x.actividad_id)?.se_entrega)"
+                                v-for="c in fila.casillas.filter((x) => idsColumna.has(x.actividad_id))"
                                 :key="c.actividad_id"
                                 class="px-3 py-2 text-center"
                             >

@@ -67,6 +67,12 @@ class Curso extends Model
         return $this->hasMany(Actividad::class, 'curso_id')->orderBy('orden')->orderBy('id');
     }
 
+    /** El banco de preguntas del curso, del que se arman sus exámenes. */
+    public function reactivos(): HasMany
+    {
+        return $this->hasMany(Reactivo::class, 'curso_id');
+    }
+
     /** Es el armado reutilizable de una materia del plan, no lo de un grupo. */
     public function esPlantilla(): bool
     {

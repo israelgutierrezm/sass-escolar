@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -68,6 +69,12 @@ class Actividad extends Model
     public function entregas(): HasMany
     {
         return $this->hasMany(Entrega::class, 'actividad_id');
+    }
+
+    /** Las reglas de aplicación, solo si la actividad es un examen. */
+    public function examen(): HasOne
+    {
+        return $this->hasOne(Examen::class, 'actividad_id');
     }
 
     /** Cuenta para la calificación del parcial. */
