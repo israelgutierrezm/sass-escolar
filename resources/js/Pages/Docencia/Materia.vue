@@ -63,6 +63,8 @@ const props = defineProps<{
     componentes: { id: number; etiqueta: string }[];
     tiposActividad: { valor: string; etiqueta: string; se_entrega: boolean }[];
     puedePasarLista: boolean;
+    /** Conversación directa con cada alumno, si ya existe: persona_id => …. */
+    mensajes: Record<number, { conversacion_id: number; sin_leer: number }>;
     asistencia: {
         fecha: string;
         modalidad: string;
@@ -336,6 +338,7 @@ const cortesCerrados = computed(() =>
             :actividades="actividades"
             :matriz="matriz"
             :asistencia="asistencia.lista"
+            :mensajes="mensajes"
         />
 
         <section

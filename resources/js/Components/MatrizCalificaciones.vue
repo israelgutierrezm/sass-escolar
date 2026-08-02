@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { useForm } from '@inertiajs/vue3';
+import { router, useForm } from '@inertiajs/vue3';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 
@@ -35,6 +35,7 @@ interface Casilla {
 
 interface Fila {
     inscripcion_id: number;
+    persona_id: number | null;
     matricula: string | null;
     nombre: string | null;
     situacion: string | null;
@@ -59,6 +60,8 @@ const props = defineProps<{
     matriz: Fila[];
     /** Del pase de lista: el acumulado de cada alumno, cruzado por inscripción. */
     asistencia: { inscripcion_id: number; porcentaje: number | null; faltas: number }[];
+    /** Conversación directa con cada alumno, si ya existe: persona_id => …. */
+    mensajes: Record<number, { conversacion_id: number; sin_leer: number }>;
 }>();
 
 /*
@@ -191,6 +194,39 @@ const casillaAbierta = (fila: Fila, c: Casilla) =>
 
 const tituloActividad = (id: number) => props.actividades.find((a) => a.id === id)?.titulo ?? '';
 
+/* ── Escribirle a un alumno ────────────────────────────────────────────── */
+
+/**
+ * Abre el chat directo con ese alumno desde su propio renglón.
+ *
+ * Va por POST y no por enlace porque la conversación puede no existir todavía:
+ * el servidor la crea si hace falta y redirige. Es lo que evita tener que ir al
+ * chat, buscar el nombre en una lista de cuarenta y volver.
+ *
+ * El punto rojo dice quién escribió y espera respuesta —es lo que convierte la
+ * columna en algo que se mira, y no en un enlace más—.
+ */
+function escribirle(fila: Fila): void {
+    if (fila.persona_id === null) return;
+
+    const abierta = props.mensajes[fila.persona_id];
+
+    if (abierta) {
+        router.get(`/materias/${props.materiaId}/chat`, { conversacion: abierta.conversacion_id });
+
+        return;
+    }
+
+    router.post(`/materias/${props.materiaId}/chat/directa`, { persona_id: fila.persona_id });
+}
+
+const sinLeerDe = (fila: Fila): number =>
+    fila.persona_id === null ? 0 : (props.mensajes[fila.persona_id]?.sin_leer ?? 0);
+
+const totalSinLeer = computed(() =>
+    props.matriz.reduce((t, f) => t + sinLeerDe(f), 0),
+);
+
 const abreviaturaTipo: Record<string, string> = {
     actividad: 'Act',
     examen: 'Exa',
@@ -262,6 +298,11 @@ const abreviaturaTipo: Record<string, string> = {
                         >
                             Alumno
                         </th>
+                        <th class="px-2 py-3 text-center font-semibold">
+                            <span :title="totalSinLeer ? `${totalSinLeer} mensaje(s) sin leer` : 'Escribirle a un alumno'">
+                                Mensaje
+                            </span>
+                        </th>
                         <th class="px-3 py-3 text-center font-semibold">Asist.</th>
 
                         <th
@@ -298,6 +339,34 @@ const abreviaturaTipo: Record<string, string> = {
                                 {{ fila.matricula }}
                                 <span v-if="fila.situacion" class="font-sans">· {{ fila.situacion }}</span>
                             </span>
+                        </td>
+
+                        <!-- Escribirle sin salir del libro: al ver una nota baja
+                             o una entrega que falta, preguntarle es lo siguiente
+                             que uno quiere hacer. -->
+                        <td class="px-2 py-2 text-center">
+                            <button
+                                type="button"
+                                class="relative mx-auto flex h-8 w-8 items-center justify-center rounded-lg transition hover:bg-[color-mix(in_srgb,var(--color-acento)_10%,transparent)]"
+                                :style="{ color: sinLeerDe(fila) ? 'var(--color-acento)' : 'var(--color-suave)' }"
+                                :title="sinLeerDe(fila)
+                                    ? `${sinLeerDe(fila)} mensaje(s) sin leer de ${fila.nombre}`
+                                    : `Escribirle a ${fila.nombre}`"
+                                :disabled="fila.persona_id === null"
+                                @click="escribirle(fila)"
+                            >
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4.5 w-4.5" style="width: 18px; height: 18px">
+                                    <rect x="2.5" y="4.5" width="19" height="15" rx="2" />
+                                    <path d="m3 6 9 6 9-6" />
+                                </svg>
+                                <span
+                                    v-if="sinLeerDe(fila)"
+                                    class="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold text-white"
+                                    :style="{ backgroundColor: '#dc2626' }"
+                                >
+                                    {{ sinLeerDe(fila) }}
+                                </span>
+                            </button>
                         </td>
 
                         <!-- La asistencia junto a las notas: es la otra mitad de
@@ -363,6 +432,7 @@ const abreviaturaTipo: Record<string, string> = {
                         >
                             Promedio del grupo
                         </td>
+                        <td />
                         <td />
                         <td v-for="a in columnas" :key="a.id" class="px-3 py-2 text-center font-semibold">
                             <span :style="{ color: colorNota(promedioGrupo(a.id), a.puntos) }">

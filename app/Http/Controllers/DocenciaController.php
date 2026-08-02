@@ -13,9 +13,11 @@ use App\Models\ControlEscolar\Docente;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Identidad\Usuario;
 use App\Models\Lms\Actividad;
+use App\Models\Lms\Conversacion;
 use App\Models\Lms\Curso;
 use App\Models\Lms\Entrega;
 use App\Services\CalendarioCaptura;
+use App\Services\Lms\SalaDeMateria;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -156,8 +158,42 @@ class DocenciaController extends Controller
             'puedeCapturar' => $request->user()->can('capturar-calificaciones'),
             'puedePasarLista' => $request->user()->can('pasar-lista'),
             ...$this->datosLms($asignaturaGrupo, $inscripciones),
+            ...$this->datosMensajes($asignaturaGrupo, $personaId),
             ...$this->datosAsistencia($request, $asignaturaGrupo, $inscripciones),
         ]);
+    }
+
+    /**
+     * El chat directo con cada alumno, para abrirlo desde la rejilla.
+     *
+     * Con qué conversación y cuántos mensajes sin leer, por persona. Se resuelve
+     * en UNA consulta y no una por alumno: con cuarenta inscritos, contar de a
+     * uno son cuarenta viajes a la base cada vez que se pinta el libro.
+     *
+     * Lo que no existe todavía no se crea aquí: abrir la pantalla de un grupo no
+     * debería dejar cuarenta conversaciones vacías. La fila se crea la primera
+     * vez que alguien escribe.
+     *
+     * @return array<string, mixed>
+     */
+    private function datosMensajes(AsignaturaGrupo $asignaturaGrupo, int $personaId): array
+    {
+        $directas = Conversacion::query()
+            ->where('asignatura_grupo_id', $asignaturaGrupo->id)
+            ->where('tipo', Conversacion::DIRECTA)
+            ->where(fn ($q) => $q->where('persona_a_id', $personaId)->orWhere('persona_b_id', $personaId))
+            ->get();
+
+        $sinLeer = app(SalaDeMateria::class)->sinLeer($directas, $personaId);
+
+        return [
+            'mensajes' => $directas->mapWithKeys(fn (Conversacion $c) => [
+                (int) $c->contraparte($personaId) => [
+                    'conversacion_id' => $c->id,
+                    'sin_leer' => $sinLeer[$c->id] ?? 0,
+                ],
+            ])->all(),
+        ];
     }
 
     /**
@@ -300,6 +336,8 @@ class DocenciaController extends Controller
 
                 return [
                     'inscripcion_id' => $i->id,
+                    // Con quién se abre el chat directo desde la propia rejilla.
+                    'persona_id' => $i->matriculaOferta?->persona_id,
                     'matricula' => $i->matriculaOferta?->matricula,
                     'nombre' => $i->matriculaOferta?->persona?->nombreCompleto(),
                     // Viaja en la propia fila para que el libro de calificaciones
