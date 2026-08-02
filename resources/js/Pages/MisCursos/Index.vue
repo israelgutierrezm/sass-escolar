@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { computed, ref } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
+import CuandoVence from '@/Components/CuandoVence.vue';
 
 /*
  * Las materias que el alumno cursa. Es la puerta que le faltaba: hasta ahora
@@ -23,9 +25,60 @@ interface Curso {
     docentes: { id: number; nombre: string | null; tipo: string }[];
 }
 
-defineProps<{
+interface Pendiente {
+    id: number;
+    materia_id: number;
+    materia: string | null;
+    tipo: string;
+    tipo_etiqueta: string;
+    titulo: string;
+    puntos: number;
+    cierra_en: string | null;
+    dias: number | null;
+    permite_tarde: boolean;
+}
+
+const props = defineProps<{
     ciclos: { ciclo: string; nombre: string | null; cursos: Curso[] }[];
+    pendientes: Pendiente[];
 }>();
+
+/*
+ * ── Lo próximo ─────────────────────────────────────────────────────────────
+ *
+ * Lo primero que un alumno quiere saber al entrar es qué debe. Hasta ahora había
+ * que abrir materia por materia para averiguarlo: seis clics para descubrir que
+ * no debía nada, o —peor— no entrar a la que sí tenía algo venciendo esta noche.
+ *
+ * Se muestran seis y el resto se despliega: una lista de veinte pendientes no se
+ * lee, se ignora.
+ */
+const TOPE = 6;
+const verTodos = ref(false);
+
+const visibles = computed(() =>
+    verTodos.value ? props.pendientes : props.pendientes.slice(0, TOPE),
+);
+
+/** Lo que ya venció y todavía se acepta: es lo que hay que hacer HOY. */
+const vencidos = computed(() => props.pendientes.filter((p) => p.dias !== null && p.dias < 0).length);
+
+const paraHoy = computed(() => props.pendientes.filter((p) => p.dias === 0).length);
+
+const iconoTipo: Record<string, string> = {
+    actividad: '📝',
+    examen: '📄',
+    foro: '💬',
+    lectura: '📖',
+};
+
+/** Un examen se presenta en su pantalla; un foro se abre; lo demás se entrega. */
+function enlaceDe(p: Pendiente): string {
+    if (p.tipo === 'examen') return `/mis-cursos/examenes/${p.id}`;
+    if (p.tipo === 'foro') return `/materias/${p.materia_id}/foros/${p.id}`;
+
+    return `/mis-cursos/${p.materia_id}`;
+}
 
 /** Las letras de la clave, para el mosaico: «ISC0101» → «ISC». */
 function siglaDe(clave: string | null): string {
@@ -61,6 +114,62 @@ const titular = (c: Curso) => c.docentes.find((d) => d.tipo === 'titular') ?? c.
     <Head title="Mis cursos" />
 
     <AppLayout titulo="Mis cursos">
+        <!-- ===== Lo próximo ===== -->
+        <section v-if="pendientes.length" class="tarjeta overflow-hidden">
+            <header class="flex flex-wrap items-baseline justify-between gap-2 px-6 py-4">
+                <h2 class="text-base font-semibold text-contenido">Lo que te falta entregar</h2>
+                <p class="text-sm">
+                    <span v-if="vencidos" :style="{ color: '#dc2626' }" class="font-medium">
+                        {{ vencidos }} vencida(s)
+                    </span>
+                    <span v-if="vencidos && paraHoy" class="text-suave"> · </span>
+                    <span v-if="paraHoy" :style="{ color: '#d97706' }" class="font-medium">
+                        {{ paraHoy }} para hoy
+                    </span>
+                    <span v-if="!vencidos && !paraHoy" class="text-suave">
+                        {{ pendientes.length }} pendiente(s), nada urgente
+                    </span>
+                </p>
+            </header>
+
+            <ul class="divide-y divide-borde border-t border-borde">
+                <li v-for="p in visibles" :key="p.id">
+                    <Link
+                        :href="enlaceDe(p)"
+                        class="flex flex-wrap items-center gap-3 px-6 py-3 transition hover:bg-[color-mix(in_srgb,var(--color-acento)_5%,transparent)]"
+                    >
+                        <span class="text-lg leading-none" aria-hidden="true">{{ iconoTipo[p.tipo] ?? '📝' }}</span>
+
+                        <span class="min-w-0 flex-1">
+                            <span class="block truncate text-sm font-medium text-contenido">{{ p.titulo }}</span>
+                            <span class="block truncate text-xs text-suave">
+                                {{ p.materia }} · {{ p.tipo_etiqueta }} · {{ p.puntos }} puntos
+                            </span>
+                        </span>
+
+                        <CuandoVence :dias="p.dias" :fecha="p.cierra_en" :permite-tarde="p.permite_tarde" />
+                    </Link>
+                </li>
+            </ul>
+
+            <button
+                v-if="pendientes.length > TOPE"
+                type="button"
+                class="w-full border-t border-borde px-6 py-2.5 text-center text-xs font-medium"
+                :style="{ color: 'var(--color-acento)' }"
+                @click="verTodos = !verTodos"
+            >
+                {{ verTodos ? 'Ver solo lo más próximo' : `Ver los ${pendientes.length} pendientes` }}
+            </button>
+        </section>
+
+        <p
+            v-else
+            class="tarjeta px-6 py-5 text-center text-sm text-suave"
+        >
+            No tienes nada pendiente por entregar. Al día.
+        </p>
+
         <section v-for="bloque in ciclos" :key="bloque.ciclo" class="tarjeta overflow-hidden">
             <header class="flex flex-wrap items-baseline justify-between gap-2 px-6 py-4">
                 <h2 class="text-base font-semibold text-contenido">Ciclo {{ bloque.ciclo }}</h2>

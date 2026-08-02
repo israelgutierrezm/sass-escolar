@@ -81,7 +81,98 @@ class MisCursosController extends Controller
             ->sortByDesc('ciclo')
             ->values();
 
-        return Inertia::render('MisCursos/Index', ['ciclos' => $porCiclo]);
+        return Inertia::render('MisCursos/Index', [
+            'ciclos' => $porCiclo,
+            'pendientes' => $this->pendientes($inscripciones),
+        ]);
+    }
+
+    /**
+     * Lo que le falta entregar, de TODAS sus materias, con lo más urgente arriba.
+     *
+     * Es lo primero que un alumno quiere saber al entrar, y hasta ahora había que
+     * ir materia por materia a buscarlo: seis clics para descubrir que no debía
+     * nada, o —peor— no entrar a la que sí tenía algo venciendo.
+     *
+     * Solo cuenta lo que se entrega y él no ha entregado. Una tarea ya entregada
+     * y sin calificar no es asunto suyo: es del docente.
+     *
+     * @param  Collection<int, Inscripcion>  $inscripciones
+     * @return array<int, array<string, mixed>>
+     */
+    private function pendientes(Collection $inscripciones): array
+    {
+        $porMateria = $inscripciones->keyBy('asignatura_grupo_id');
+
+        $cursos = Curso::query()
+            ->whereIn('asignatura_grupo_id', $porMateria->keys())
+            ->pluck('asignatura_grupo_id', 'id');
+
+        if ($cursos->isEmpty()) {
+            return [];
+        }
+
+        $actividades = Actividad::query()
+            ->visibles()
+            ->whereIn('curso_id', $cursos->keys())
+            ->get()
+            ->filter(fn (Actividad $a) => $a->tipo->seEntrega());
+
+        $entregadas = Entrega::query()
+            ->whereIn('inscripcion_id', $inscripciones->pluck('id'))
+            ->whereIn('actividad_id', $actividades->pluck('id'))
+            ->whereNotNull('entregada_en')
+            ->get()
+            ->map(fn (Entrega $e) => "{$e->actividad_id}-{$e->inscripcion_id}")
+            ->all();
+
+        $ahora = now();
+
+        return $actividades
+            ->map(function (Actividad $a) use ($cursos, $porMateria, $entregadas, $ahora) {
+                $inscripcion = $porMateria->get($cursos->get($a->curso_id));
+
+                if ($inscripcion === null || in_array("{$a->id}-{$inscripcion->id}", $entregadas, true)) {
+                    return null;
+                }
+
+                // Lo cerrado y ya vencido sin remedio no se lista: recordarle a
+                // diario lo que ya no puede entregar no le sirve de nada.
+                $vencidaSinRemedio = $a->cierra_en !== null
+                    && $ahora->gt($a->cierra_en)
+                    && ! $a->permite_tarde;
+
+                if ($vencidaSinRemedio) {
+                    return null;
+                }
+
+                return [
+                    'id' => $a->id,
+                    'materia_id' => $inscripcion->asignatura_grupo_id,
+                    'materia' => $inscripcion->asignaturaGrupo?->planMateria?->asignatura?->nombre,
+                    'tipo' => $a->tipo->value,
+                    'tipo_etiqueta' => $a->tipo->etiqueta(),
+                    'titulo' => $a->titulo,
+                    'puntos' => (float) $a->puntos,
+                    'cierra_en' => $a->cierra_en?->format('Y-m-d H:i'),
+                    /*
+                     * Los días los cuenta el SERVIDOR. Calcularlos en el
+                     * navegador ataría «vence hoy» al reloj de la computadora
+                     * del alumno, que puede estar en otra zona o mal puesto.
+                     * Null = sin fecha; negativo = ya venció pero admite tarde.
+                     */
+                    'dias' => $a->cierra_en === null
+                        ? null
+                        : (int) $ahora->copy()->startOfDay()->diffInDays($a->cierra_en->copy()->startOfDay(), false),
+                    'permite_tarde' => (bool) $a->permite_tarde,
+                ];
+            })
+            ->filter()
+            // Lo que vence antes, arriba. Lo que no tiene fecha, al final: no
+            // corre prisa y ocuparía el lugar de lo que sí.
+            ->sortBy(fn (array $p) => $p['dias'] ?? PHP_INT_MAX)
+            ->values()
+            ->all();
     }
 
     /** Una materia: su evaluación, lo que lleva calificado, su asistencia. */
@@ -283,6 +374,11 @@ class MisCursosController extends Controller
                 'puntos' => (float) $a->puntos,
                 'abre_en' => $a->abre_en?->format('Y-m-d H:i'),
                 'cierra_en' => $a->cierra_en?->format('Y-m-d H:i'),
+                // Los cuenta el servidor: en el navegador, «vence hoy» quedaría
+                // atado al reloj de la computadora del alumno.
+                'dias' => $a->cierra_en === null
+                    ? null
+                    : (int) now()->startOfDay()->diffInDays($a->cierra_en->copy()->startOfDay(), false),
                 'permite_tarde' => $a->permite_tarde,
                 'abierta' => $a->abierta(),
                 // Qué pesa: el componente al que cuelga, o nada si es formativa.

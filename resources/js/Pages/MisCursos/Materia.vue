@@ -5,6 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
+import CuandoVence from '@/Components/CuandoVence.vue';
 
 /*
  * Una materia, vista por el alumno que la cursa.
@@ -53,6 +54,7 @@ interface ActividadAlumno {
     puntos: number;
     abre_en: string | null;
     cierra_en: string | null;
+    dias: number | null;
     permite_tarde: boolean;
     abierta: boolean;
     componente: string | null;
@@ -141,6 +143,31 @@ function estadoDe(a: ActividadAlumno): { texto: string; color: string } {
 
     return { texto: 'Pendiente', color: '#d97706' };
 }
+
+/** Le falta hacerla y todavía puede. */
+const pendiente = (a: ActividadAlumno): boolean =>
+    a.se_entrega && !a.entrega?.entregada_en && a.abierta;
+
+/*
+ * Lo que le falta, primero; y dentro de eso, lo que vence antes.
+ *
+ * El orden del docente sirve para armar el curso; al alumno le sirve el orden de
+ * lo que tiene que hacer. Con quince actividades cargadas, dejar la que vence
+ * esta noche en el lugar doce es esconderla.
+ */
+const actividadesOrdenadas = computed(() =>
+    [...props.actividades].sort((a, b) => {
+        const pa = pendiente(a) ? 0 : 1;
+        const pb = pendiente(b) ? 0 : 1;
+
+        if (pa !== pb) return pa - pb;
+        if (pa === 1) return 0; // lo ya hecho conserva el orden del docente
+
+        return (a.dias ?? Number.MAX_SAFE_INTEGER) - (b.dias ?? Number.MAX_SAFE_INTEGER);
+    }),
+);
+
+const porHacer = computed(() => props.actividades.filter(pendiente).length);
 
 const etiquetaEstatus: Record<string, string> = {
     presente: 'Asistencia',
@@ -258,12 +285,24 @@ const etiquetaEstatus: Record<string, string> = {
             <header class="px-6 py-4">
                 <h2 class="text-base font-semibold text-contenido">Actividades</h2>
                 <p class="mt-0.5 text-sm text-suave">
-                    Lo que hay que hacer, para cuándo y qué te calificaron.
+                    <template v-if="porHacer">
+                        Te faltan <strong :style="{ color: '#d97706' }">{{ porHacer }}</strong>.
+                        Las pendientes van primero, y las que vencen antes, arriba.
+                    </template>
+                    <template v-else>
+                        No te falta ninguna. Aquí queda lo que entregaste y lo que te calificaron.
+                    </template>
                 </p>
             </header>
 
             <ul class="divide-y divide-borde border-t border-borde">
-                <li v-for="a in actividades" :key="a.id">
+                <li
+                    v-for="a in actividadesOrdenadas"
+                    :key="a.id"
+                    :style="pendiente(a) && a.dias !== null && a.dias <= 1
+                        ? { borderLeft: `3px solid ${a.dias < 0 ? '#dc2626' : '#d97706'}` }
+                        : { borderLeft: '3px solid transparent' }"
+                >
                     <div class="flex flex-wrap items-start gap-4 px-6 py-4">
                         <span class="min-w-0 flex-1">
                             <span class="flex flex-wrap items-center gap-2">
@@ -293,9 +332,14 @@ const etiquetaEstatus: Record<string, string> = {
                                 {{ a.instrucciones }}
                             </span>
 
-                            <span v-if="a.cierra_en" class="mt-1 block text-xs text-suave">
-                                Entrega hasta el {{ a.cierra_en }}
-                                <span v-if="a.permite_tarde"> · se acepta después, marcado como tarde</span>
+                            <!-- «Vence mañana» se entiende sin pensar; una fecha
+                                 hay que restarla contra hoy, y ese cálculo es el
+                                 que se hace mal cuando uno va con prisa. -->
+                            <span v-if="a.se_entrega && !a.entrega?.entregada_en" class="mt-1 block">
+                                <CuandoVence :dias="a.dias" :fecha="a.cierra_en" :permite-tarde="a.permite_tarde" />
+                            </span>
+                            <span v-else-if="a.cierra_en" class="mt-1 block text-xs text-suave">
+                                Cerraba el {{ a.cierra_en }}
                             </span>
                         </span>
 
