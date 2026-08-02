@@ -376,29 +376,66 @@ function conmutar(rolId: number): void {
                 </template>
 
                 <!--
-                    Accesos: mosaico con icono. Antes eran rectángulos con solo
-                    texto y había que leer los once para encontrar uno — y estos
-                    botones existen justamente para no tener que leer.
+                    Accesos: agrupados por oficio y con la cifra de lo que
+                    espera detrás.
+
+                    Antes eran doce recuadros idénticos, que es lo mismo que
+                    ofrece el menú lateral. Lo que los vuelve útiles es el
+                    número: «Aspirantes» es navegación, «Aspirantes · 12 sin
+                    contactar» es una razón para entrar. Lo que tiene pendientes
+                    se ve distinto —fondo teñido y cifra a la derecha— para que
+                    la vista caiga ahí sola.
                 -->
                 <template v-else-if="tarjeta.tipo === 'accesos'">
-                    <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
-                        <a
-                            v-for="acceso in tarjeta.datos.accesos"
-                            :key="acceso.enlace"
-                            :href="acceso.enlace"
-                            class="group flex flex-col items-center gap-2 rounded-xl border px-2 py-3 text-center transition hover:-translate-y-0.5"
-                            :style="{ borderColor: 'var(--color-borde)' }"
-                        >
-                            <span
-                                class="flex h-10 w-10 items-center justify-center rounded-xl transition"
-                                :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)' }"
-                            >
-                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.6" :stroke="'var(--color-acento)'">
-                                    <path stroke-linecap="round" stroke-linejoin="round" :d="acceso.icono" />
-                                </svg>
-                            </span>
-                            <span class="text-xs font-medium leading-tight">{{ acceso.etiqueta }}</span>
-                        </a>
+                    <div class="mt-4 space-y-4">
+                        <div v-for="grupo in tarjeta.datos.grupos" :key="grupo.nombre">
+                            <p class="mb-2 text-[11px] font-semibold uppercase tracking-wider" :style="{ color: 'var(--color-suave)' }">
+                                {{ grupo.nombre }}
+                            </p>
+
+                            <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                <a
+                                    v-for="acceso in grupo.accesos"
+                                    :key="acceso.enlace"
+                                    :href="acceso.enlace"
+                                    class="acceso-directo flex items-center gap-3 rounded-xl border px-3 py-2.5 transition"
+                                    :style="acceso.pendiente
+                                        ? { borderColor: acceso.pendiente.urgente ? '#dc2626' : 'var(--color-acento)', backgroundColor: `color-mix(in srgb, ${acceso.pendiente.urgente ? '#dc2626' : 'var(--color-acento)'} 6%, transparent)` }
+                                        : { borderColor: 'var(--color-borde)' }"
+                                >
+                                    <span
+                                        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                                        :style="{ backgroundColor: `color-mix(in srgb, ${acceso.pendiente?.urgente ? '#dc2626' : 'var(--color-acento)'} 12%, transparent)` }"
+                                    >
+                                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.6" :stroke="acceso.pendiente?.urgente ? '#dc2626' : 'var(--color-acento)'">
+                                            <path stroke-linecap="round" stroke-linejoin="round" :d="acceso.icono" />
+                                        </svg>
+                                    </span>
+
+                                    <span class="min-w-0 flex-1">
+                                        <span class="block truncate text-sm font-medium leading-tight">{{ acceso.etiqueta }}</span>
+                                        <!-- Sólo si hay algo que decir: un «0
+                                             por calificar» ocupa el mismo sitio
+                                             que un dato útil. -->
+                                        <span
+                                            v-if="acceso.pendiente"
+                                            class="block truncate text-xs"
+                                            :style="{ color: acceso.pendiente.urgente ? '#dc2626' : 'var(--color-acento)' }"
+                                        >
+                                            {{ acceso.pendiente.cantidad }} {{ acceso.pendiente.texto }}
+                                        </span>
+                                    </span>
+
+                                    <span
+                                        v-if="acceso.pendiente"
+                                        class="grid h-6 min-w-6 shrink-0 place-items-center rounded-full px-1.5 text-[11px] font-semibold text-white"
+                                        :style="{ backgroundColor: acceso.pendiente.urgente ? '#dc2626' : 'var(--color-acento)' }"
+                                    >
+                                        {{ acceso.pendiente.cantidad }}
+                                    </span>
+                                </a>
+                            </div>
+                        </div>
                     </div>
                 </template>
             </div>
@@ -426,6 +463,12 @@ function conmutar(rolId: number): void {
 <style scoped>
 /* Cada tarjeta lleva un acento superior de su color y una elevación al pasar el
    cursor teñida del mismo color: vistoso pero sobrio (el fondo sigue neutro). */
+/* El atajo se levanta al pasar el cursor, como el resto de lo clicable. */
+.acceso-directo:hover {
+    border-color: var(--color-acento);
+    transform: translateY(-1px);
+}
+
 .tarjeta-panel {
     border-top: 3px solid var(--color-tarjeta);
     transition:

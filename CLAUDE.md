@@ -519,6 +519,14 @@ npm run dev                # o npm run build
   - «Mis materias» del docente pasó de listar ocho materias a ser una métrica
     con enlace a `/docencia`: el panel contesta «cuánto tengo encima», no
     «cuáles son mis materias» —eso ya lo sabe—.
+  - **Accesos directos con cifra** (`PendientesDeAcceso`): eran doce recuadros
+    idénticos, o sea el menú lateral otra vez. Lo que los justifica es decir
+    **cuánto hay esperando ahí**: «Aspirantes» es navegación, «Aspirantes · 12
+    sin contactar» es una razón para entrar. Se agrupan por oficio y el grupo
+    con pendientes va primero. **El cero se calla** —ocupa el sitio de un dato
+    útil y entrena a ignorar la cifra—. Cada contador se calcula sólo si la
+    persona tiene el permiso del acceso: nadie paga la consulta de una sección
+    a la que no entra.
 - **Tarjeta de clima en el panel** (`/panel/clima` + `TarjetaClima.vue`): del
   campus donde la persona estudia, da clase o al que la acota su rol —**no de
   la IP**: desde la red de la escuela todo sale por el mismo enlace y la IP es
