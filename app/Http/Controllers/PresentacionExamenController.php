@@ -131,6 +131,7 @@ class PresentacionExamenController extends Controller
             ],
             'actividad' => ['id' => $actividad->id, 'titulo' => $actividad->titulo],
             'materia' => ['id' => $actividad->curso->asignatura_grupo_id],
+            'una_por_pagina' => (bool) $examen->una_por_pagina,
             'reactivos' => $this->aplicador->reactivosDelIntento($intento)
                 ->map(fn (Reactivo $r) => $r->paraResolver($examen->barajar_opciones) + [
                     'puntos' => $examen->puntosDe($r),
@@ -286,13 +287,24 @@ class PresentacionExamenController extends Controller
             ->map(function (Reactivo $reactivo) use ($respuestas, $examen) {
                 $mia = $respuestas->firstWhere('reactivo_id', $reactivo->id);
 
+                /*
+                 * Sin fila de respuesta no contestó, y no contestar es no
+                 * acertar: le toca la retroalimentación del error. Lo que de
+                 * verdad queda indefinido es una respuesta que existe y espera
+                 * al docente —una abierta sin revisar—, y ahí no se dice nada
+                 * para no adelantarle un resultado que aún no tiene.
+                 */
+                $acerto = $mia === null ? false : $mia->correcta;
+
                 return [
                     'id' => $reactivo->id,
                     'enunciado' => $reactivo->enunciado,
                     'puntos' => $examen->puntosDe($reactivo),
                     'obtenidos' => $mia?->puntos !== null ? (float) $mia->puntos : null,
-                    'correcta' => $mia?->correcta,
-                    'retroalimentacion' => $reactivo->retroalimentacion,
+                    'correcta' => $acerto,
+                    // La que corresponde a cómo le fue: al que acertó se le
+                    // confirma por qué, al que falló se le dice dónde se perdió.
+                    'retroalimentacion' => $reactivo->retroalimentacionSegun($acerto),
                     'comentario' => $mia?->comentario,
                     // Ahora sí se dice cuál era la buena: el examen ya cerró.
                     'esperada' => $reactivo->opciones

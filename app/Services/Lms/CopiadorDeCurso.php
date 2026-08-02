@@ -103,10 +103,9 @@ class CopiadorDeCurso
                 'enunciado' => $original->enunciado,
                 'imagen' => $original->imagen,
                 'puntos' => $original->puntos,
-                'retroalimentacion' => $original->retroalimentacion,
+                'retro_correcta' => $original->retro_correcta,
+                'retro_incorrecta' => $original->retro_incorrecta,
                 'respuesta' => $original->respuesta,
-                'tema' => $original->tema,
-                'dificultad' => $original->dificultad,
             ]);
 
             foreach ($original->opciones as $opcion) {
@@ -156,6 +155,7 @@ class CopiadorDeCurso
             'reactivos_a_presentar' => $examen->reactivos_a_presentar,
             'barajar_reactivos' => $examen->barajar_reactivos,
             'barajar_opciones' => $examen->barajar_opciones,
+            'una_por_pagina' => $examen->una_por_pagina,
             'intento_que_cuenta' => $examen->intento_que_cuenta,
             'mostrar_resultado' => $examen->mostrar_resultado,
         ]);

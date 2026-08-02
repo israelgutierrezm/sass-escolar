@@ -32,6 +32,8 @@ const props = defineProps<{
     intento: { id: number; numero: number; expira_en: string | null; segundos_restantes: number | null };
     actividad: { id: number; titulo: string };
     materia: { id: number };
+    /** Lo decide quien armó el examen: de corrido o de una en una. */
+    una_por_pagina: boolean;
     reactivos: ReactivoAlumno[];
 }>();
 
@@ -189,9 +191,35 @@ async function entregar(automatico = false): Promise<void> {
     router.post(`/mis-cursos/intentos/${props.intento.id}/entregar`, {}, { preserveScroll: false });
 }
 
-function irA(id: number): void {
-    document.getElementById(`reactivo-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+/*
+ * ── Cómo se recorre ────────────────────────────────────────────────────────
+ *
+ * De corrido o de una en una, según lo armó el docente. En los dos casos el
+ * panel de la derecha muestra TODAS las preguntas con su estado: es lo que
+ * responde «¿cuánto me falta?» sin tener que recorrer la página, y en el modo de
+ * una en una es además la única forma de saltar a la que uno dejó pendiente.
+ */
+const actual = ref(0);
+
+const enPantalla = computed(() =>
+    props.una_por_pagina ? props.reactivos.slice(actual.value, actual.value + 1) : props.reactivos,
+);
+
+function irA(indice: number): void {
+    if (props.una_por_pagina) {
+        actual.value = indice;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        return;
+    }
+
+    document
+        .getElementById(`reactivo-${props.reactivos[indice].id}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
+
+const primera = computed(() => actual.value === 0);
+const ultima = computed(() => actual.value >= props.reactivos.length - 1);
 </script>
 
 <template>
@@ -208,7 +236,10 @@ function irA(id: number): void {
                     </p>
                 </div>
 
-                <div v-if="reloj" class="text-right">
+                <!-- En pantalla ancha el reloj vive en el panel de la derecha,
+                     que acompaña al desplazarse; aquí queda para lo angosto,
+                     donde ese panel baja al final. -->
+                <div v-if="reloj" class="text-right lg:hidden">
                     <p
                         class="text-2xl font-semibold leading-none tabular-nums"
                         :style="{ color: apremia ? '#dc2626' : 'var(--color-contenido)' }"
@@ -219,34 +250,105 @@ function irA(id: number): void {
                 </div>
             </div>
 
-            <!-- Mapa de avance: de un vistazo, qué falta -->
-            <div class="mt-4 flex flex-wrap gap-1.5">
-                <button
-                    v-for="(r, i) in reactivos"
-                    :key="r.id"
-                    type="button"
-                    class="h-7 w-7 rounded-md border text-xs font-medium transition"
-                    :style="{
-                        borderColor: contestadas[r.id] ? 'var(--color-acento)' : 'var(--color-borde)',
-                        backgroundColor: contestadas[r.id]
-                            ? 'color-mix(in srgb, var(--color-acento) 14%, transparent)'
-                            : 'transparent',
-                        color: contestadas[r.id] ? 'var(--color-acento)' : 'var(--color-suave)',
-                    }"
-                    @click="irA(r.id)"
-                >
-                    {{ i + 1 }}
-                </button>
-            </div>
         </section>
 
-        <div v-for="(r, i) in reactivos" :id="`reactivo-${r.id}`" :key="r.id">
-            <ReactivoResolver
-                :reactivo="r"
-                :numero="i + 1"
-                :guardando="guardando === r.id"
-                @responder="(v) => responder(r, v)"
-            />
+        <!-- Las preguntas a la izquierda; a la derecha, dónde va uno. -->
+        <div class="grid gap-4 lg:grid-cols-[1fr_13rem] lg:items-start">
+            <div class="space-y-4">
+                <div v-for="r in enPantalla" :id="`reactivo-${r.id}`" :key="r.id">
+                    <ReactivoResolver
+                        :reactivo="r"
+                        :numero="reactivos.indexOf(r) + 1"
+                        :guardando="guardando === r.id"
+                        @responder="(v) => responder(r, v)"
+                    />
+                </div>
+
+                <!-- Solo en el modo de una a la vez: el resto se recorre con la
+                     rueda del ratón. -->
+                <div v-if="una_por_pagina" class="tarjeta flex items-center justify-between gap-3 px-5 py-3">
+                    <button
+                        type="button"
+                        class="rounded-lg border px-3 py-1.5 text-sm font-medium disabled:opacity-40"
+                        :style="{ borderColor: 'var(--color-borde)' }"
+                        :disabled="primera"
+                        @click="irA(actual - 1)"
+                    >
+                        ← Anterior
+                    </button>
+
+                    <span class="text-xs text-suave">{{ actual + 1 }} de {{ reactivos.length }}</span>
+
+                    <button
+                        type="button"
+                        class="rounded-lg border px-3 py-1.5 text-sm font-medium disabled:opacity-40"
+                        :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
+                        :disabled="ultima"
+                        @click="irA(actual + 1)"
+                    >
+                        Siguiente →
+                    </button>
+                </div>
+            </div>
+
+            <!--
+                El panel de avance. Fijo al desplazarse: en un examen largo, saber
+                cuánto falta no debería costar volver arriba.
+            -->
+            <aside class="tarjeta p-4 lg:sticky lg:top-4">
+                <h3 class="text-sm font-semibold text-contenido">Tus preguntas</h3>
+                <p class="mt-0.5 text-xs text-suave">
+                    {{ reactivos.length - sinContestar }} de {{ reactivos.length }} contestadas
+                </p>
+
+                <div class="mt-3 grid grid-cols-5 gap-1.5">
+                    <button
+                        v-for="(r, i) in reactivos"
+                        :key="r.id"
+                        type="button"
+                        class="grid h-8 place-items-center rounded-md border text-xs font-medium transition"
+                        :style="{
+                            borderColor: i === actual && una_por_pagina
+                                ? 'var(--color-contenido)'
+                                : contestadas[r.id] ? 'var(--color-acento)' : 'var(--color-borde)',
+                            backgroundColor: contestadas[r.id]
+                                ? 'color-mix(in srgb, var(--color-acento) 16%, transparent)'
+                                : 'transparent',
+                            color: contestadas[r.id] ? 'var(--color-acento)' : 'var(--color-suave)',
+                        }"
+                        :title="contestadas[r.id] ? `Pregunta ${i + 1}: contestada` : `Pregunta ${i + 1}: sin contestar`"
+                        @click="irA(i)"
+                    >
+                        {{ i + 1 }}
+                    </button>
+                </div>
+
+                <!-- El color dice el estado de un vistazo; la leyenda lo dice
+                     para quien no lo distingue. -->
+                <div class="mt-3 space-y-1 border-t border-borde pt-3 text-[11px] text-suave">
+                    <p class="flex items-center gap-1.5">
+                        <span
+                            class="inline-block h-3 w-3 rounded border"
+                            :style="{ borderColor: 'var(--color-acento)', backgroundColor: 'color-mix(in srgb, var(--color-acento) 16%, transparent)' }"
+                        />
+                        Contestada
+                    </p>
+                    <p class="flex items-center gap-1.5">
+                        <span class="inline-block h-3 w-3 rounded border" :style="{ borderColor: 'var(--color-borde)' }" />
+                        Sin contestar
+                    </p>
+                </div>
+
+                <p v-if="reloj" class="mt-3 hidden border-t border-borde pt-3 text-center lg:block">
+                    <span
+                        class="block text-lg font-semibold tabular-nums"
+                        :style="{ color: apremia ? '#dc2626' : 'var(--color-contenido)' }"
+                    >
+                        {{ reloj }}
+                    </span>
+                    <span class="text-[11px] text-suave">tiempo restante</span>
+                </p>
+            </aside>
         </div>
 
         <section class="tarjeta p-6">

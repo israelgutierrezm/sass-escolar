@@ -30,9 +30,8 @@ interface ReactivoDocente {
     enunciado: string;
     puntos: number;
     puntos_banco: number;
-    retroalimentacion: string | null;
-    tema: string | null;
-    dificultad: string | null;
+    retro_correcta: string | null;
+    retro_incorrecta: string | null;
     respuesta: any;
     opciones: { id: number; texto: string; correcta: boolean; pareja: string | null }[];
 }
@@ -63,6 +62,7 @@ const props = defineProps<{
         reactivos_a_presentar: number | null;
         barajar_reactivos: boolean;
         barajar_opciones: boolean;
+        una_por_pagina: boolean;
         intento_que_cuenta: string;
         mostrar_resultado: string;
         se_califica_solo: boolean;
@@ -93,6 +93,7 @@ const formReglas = useForm({
     reactivos_a_presentar: props.examen.reactivos_a_presentar,
     barajar_reactivos: props.examen.barajar_reactivos,
     barajar_opciones: props.examen.barajar_opciones,
+    una_por_pagina: props.examen.una_por_pagina,
     intento_que_cuenta: props.examen.intento_que_cuenta,
     mostrar_resultado: props.examen.mostrar_resultado,
 });
@@ -113,18 +114,16 @@ const formReactivo = useForm<{
     tipo: string;
     enunciado: string;
     puntos: number;
-    retroalimentacion: string;
-    tema: string;
-    dificultad: string;
+    retro_correcta: string;
+    retro_incorrecta: string;
     respuesta: Record<string, any>;
     opciones: OpcionForm[];
 }>({
     tipo: 'opcion_unica',
     enunciado: '',
     puntos: 1,
-    retroalimentacion: '',
-    tema: '',
-    dificultad: '',
+    retro_correcta: '',
+    retro_incorrecta: '',
     respuesta: {},
     opciones: [
         { texto: '', correcta: false, pareja: '' },
@@ -160,9 +159,8 @@ function editar(r: ReactivoDocente): void {
     formReactivo.tipo = r.tipo;
     formReactivo.enunciado = r.enunciado;
     formReactivo.puntos = r.puntos_banco;
-    formReactivo.retroalimentacion = r.retroalimentacion ?? '';
-    formReactivo.tema = r.tema ?? '';
-    formReactivo.dificultad = r.dificultad ?? '';
+    formReactivo.retro_correcta = r.retro_correcta ?? '';
+    formReactivo.retro_incorrecta = r.retro_incorrecta ?? '';
     formReactivo.respuesta = r.respuesta ?? {};
     formReactivo.opciones = r.opciones.map((o) => ({
         texto: o.texto,
@@ -392,6 +390,22 @@ const porRevisar = computed(() => props.intentos.filter((i) => i.requiere_revisi
                         <option value="al_entregar">Al entregar</option>
                         <option value="nunca">Nunca</option>
                     </select>
+                </label>
+
+                <label class="block">
+                    <span class="mb-1 block text-sm font-medium">Cómo lo ve el alumno</span>
+                    <select
+                        v-model="formReglas.una_por_pagina"
+                        class="w-full rounded-lg border px-3 py-2 text-sm"
+                        :style="{ borderColor: 'var(--color-borde)' }"
+                    >
+                        <option :value="false">Todas las preguntas en una página</option>
+                        <option :value="true">Una pregunta a la vez</option>
+                    </select>
+                    <span class="mt-1 block text-xs text-suave">
+                        Veinte de opción múltiple se contestan de corrido; cinco casos
+                        largos se leen mejor de uno en uno.
+                    </span>
                 </label>
 
                 <div class="space-y-2 pt-6">
@@ -688,39 +702,34 @@ const porRevisar = computed(() => props.intentos.filter((i) => i.requiere_revisi
                 </span>
             </label>
 
-            <label class="mt-4 block">
-                <span class="mb-1 block text-sm font-medium">Retroalimentación (opcional)</span>
-                <textarea
-                    v-model="formReactivo.retroalimentacion"
-                    rows="2"
-                    class="w-full rounded-lg border px-3 py-2 text-sm"
-                    :style="{ borderColor: 'var(--color-borde)' }"
-                    placeholder="Lo que quieres que lea al ver su resultado."
-                />
-            </label>
-
+            <!-- Dos mensajes, no uno: al que acertó se le confirma por qué y al
+                 que falló se le dice dónde se perdió. Un texto que sirva para
+                 ambos casos casi nunca dice nada. -->
             <div class="mt-4 grid gap-4 sm:grid-cols-2">
                 <label class="block">
-                    <span class="mb-1 block text-sm font-medium">Tema (opcional)</span>
-                    <input
-                        v-model="formReactivo.tema"
-                        type="text"
+                    <span class="mb-1 block text-sm font-medium">
+                        Si contesta <span :style="{ color: '#16a34a' }">bien</span> (opcional)
+                    </span>
+                    <textarea
+                        v-model="formReactivo.retro_correcta"
+                        rows="3"
                         class="w-full rounded-lg border px-3 py-2 text-sm"
                         :style="{ borderColor: 'var(--color-borde)' }"
+                        placeholder="Confírmale por qué su respuesta es la correcta."
                     />
                 </label>
+
                 <label class="block">
-                    <span class="mb-1 block text-sm font-medium">Dificultad (opcional)</span>
-                    <select
-                        v-model="formReactivo.dificultad"
+                    <span class="mb-1 block text-sm font-medium">
+                        Si contesta <span :style="{ color: '#dc2626' }">mal</span> (opcional)
+                    </span>
+                    <textarea
+                        v-model="formReactivo.retro_incorrecta"
+                        rows="3"
                         class="w-full rounded-lg border px-3 py-2 text-sm"
                         :style="{ borderColor: 'var(--color-borde)' }"
-                    >
-                        <option value="">—</option>
-                        <option value="facil">Fácil</option>
-                        <option value="media">Media</option>
-                        <option value="dificil">Difícil</option>
-                    </select>
+                        placeholder="Dile dónde se perdió y a qué puede regresar."
+                    />
                 </label>
             </div>
 

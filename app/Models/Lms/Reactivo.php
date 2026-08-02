@@ -31,10 +31,11 @@ class Reactivo extends Model
         'enunciado',
         'imagen',
         'puntos',
-        'retroalimentacion',
+        // Una para el que acertó y otra para el que falló: lo que sirve para
+        // ambos casos casi nunca dice nada.
+        'retro_correcta',
+        'retro_incorrecta',
         'respuesta',
-        'tema',
-        'dificultad',
     ];
 
     protected function casts(): array
@@ -54,6 +55,22 @@ class Reactivo extends Model
     public function opciones(): HasMany
     {
         return $this->hasMany(ReactivoOpcion::class, 'reactivo_id')->orderBy('orden');
+    }
+
+    /**
+     * Lo que se le dice al alumno según cómo le fue.
+     *
+     * `null` en `correcta` es «todavía no se sabe» —una abierta sin revisar—, y
+     * entonces no se dice nada: adelantarle un mensaje de acierto o de error
+     * antes de que el docente lea su respuesta sería inventarle un resultado.
+     */
+    public function retroalimentacionSegun(?bool $correcta): ?string
+    {
+        if ($correcta === null) {
+            return null;
+        }
+
+        return $correcta ? $this->retro_correcta : $this->retro_incorrecta;
     }
 
     /**
