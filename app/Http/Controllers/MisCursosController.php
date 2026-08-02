@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\AlcanceDelAlumno;
 use App\Models\Academico\EsquemaEvaluacion;
 use App\Models\Asistencia\AsistenciaClase;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Lms\Actividad;
+use App\Models\Lms\ActividadVista;
 use App\Models\Lms\Curso;
 use App\Models\Lms\Entrega;
 use Illuminate\Http\Request;
@@ -30,6 +32,10 @@ use Inertia\Response;
  */
 class MisCursosController extends Controller
 {
+    // La pertenencia vive en un solo lugar, compartida con el aula: si alguna
+    // vez hay que endurecerla, se endurece una vez.
+    use AlcanceDelAlumno;
+
     /** Las materias que cursa, agrupadas por ciclo (el vigente primero). */
     public function index(Request $request): Response
     {
@@ -46,7 +52,9 @@ class MisCursosController extends Controller
             ->get()
             ->reject(fn (Inscripcion $i) => $i->situacion?->clave === 'baja');
 
-        $cursos = $inscripciones->map(function (Inscripcion $i) {
+        $aulas = $this->avanceDelAula($inscripciones);
+
+        $cursos = $inscripciones->map(function (Inscripcion $i) use ($aulas) {
             $planMateria = $i->asignaturaGrupo?->planMateria;
 
             return [
@@ -66,6 +74,10 @@ class MisCursosController extends Controller
                 // El avance se calcula aquí y no en la vista: es el dato que
                 // ordena la lista y el que el alumno viene a ver primero.
                 'avance' => $this->avanceDe($i),
+                // Lo recorrido del contenido, que es otra cosa que lo calificado:
+                // se puede llevar el 80 % del curso leído y 0 % de calificación
+                // porque el docente no ha revisado nada.
+                'aula' => $aulas[$i->asignatura_grupo_id] ?? null,
             ];
         })->values();
 
@@ -175,30 +187,103 @@ class MisCursosController extends Controller
             ->all();
     }
 
+    /**
+     * Cuánto lleva recorrido del CONTENIDO de cada materia, para la tarjeta del
+     * listado.
+     *
+     * No es el avance de la evaluación: una materia puede tener el 90 % del
+     * contenido hecho y 0 % calificado porque el docente todavía no revisa. Son
+     * dos preguntas distintas y el listado muestra las dos.
+     *
+     * Todo se resuelve con cuatro consultas para TODAS las materias juntas: una
+     * por materia dejaría el listado de un alumno con ocho inscripciones
+     * haciendo treinta y dos viajes a la base.
+     *
+     * @param  Collection<int, Inscripcion>  $inscripciones
+     * @return array<int, array<string, mixed>>
+     */
+    private function avanceDelAula(Collection $inscripciones): array
+    {
+        $cursos = Curso::query()
+            ->whereIn('asignatura_grupo_id', $inscripciones->pluck('asignatura_grupo_id'))
+            ->pluck('asignatura_grupo_id', 'id');
+
+        if ($cursos->isEmpty()) {
+            return [];
+        }
+
+        $actividades = Actividad::query()
+            ->visibles()
+            ->whereIn('curso_id', $cursos->keys())
+            ->get(['id', 'curso_id', 'tipo']);
+
+        if ($actividades->isEmpty()) {
+            return [];
+        }
+
+        $entregadas = Entrega::query()
+            ->whereIn('inscripcion_id', $inscripciones->pluck('id'))
+            ->whereIn('actividad_id', $actividades->pluck('id'))
+            ->whereNotNull('entregada_en')
+            ->get(['actividad_id', 'inscripcion_id'])
+            ->map(fn (Entrega $e) => "{$e->actividad_id}-{$e->inscripcion_id}")
+            ->flip();
+
+        $completadas = ActividadVista::query()
+            ->whereIn('inscripcion_id', $inscripciones->pluck('id'))
+            ->whereIn('actividad_id', $actividades->pluck('id'))
+            ->whereNotNull('completada_en')
+            ->get(['actividad_id', 'inscripcion_id'])
+            ->map(fn (ActividadVista $v) => "{$v->actividad_id}-{$v->inscripcion_id}")
+            ->flip();
+
+        $porCurso = $actividades->groupBy('curso_id');
+        $resultado = [];
+
+        foreach ($inscripciones as $inscripcion) {
+            $cursoId = $cursos->search($inscripcion->asignatura_grupo_id);
+
+            if ($cursoId === false) {
+                continue;
+            }
+
+            $delCurso = $porCurso->get($cursoId) ?? collect();
+
+            $hechas = $delCurso->filter(function (Actividad $a) use ($inscripcion, $entregadas, $completadas) {
+                $llave = "{$a->id}-{$inscripcion->id}";
+
+                return $a->tipo->seEntrega()
+                    ? $entregadas->has($llave)
+                    : $completadas->has($llave);
+            })->count();
+
+            $resultado[$inscripcion->asignatura_grupo_id] = [
+                'total' => $delCurso->count(),
+                'completadas' => $hechas,
+                'porcentaje' => $delCurso->isEmpty() ? 0 : (int) round($hechas * 100 / $delCurso->count()),
+            ];
+        }
+
+        return $resultado;
+    }
+
     /** Una materia: su evaluación, lo que lleva calificado, su asistencia. */
     public function show(Request $request, int $asignaturaGrupo): Response
     {
-        $inscripcion = $this->misInscripciones($request)
-            ->where('asignatura_grupo_id', $asignaturaGrupo)
-            ->with([
-                'ciclo:id,clave,nombre',
-                'asignaturaGrupo.planMateria.asignatura:id,nombre,clave',
-                'asignaturaGrupo.planMateria.plan:id,nombre,carrera_id',
-                'asignaturaGrupo.planMateria.plan.carrera:id,nombre',
-                'asignaturaGrupo.grupo:id,clave,campus_id,turno_id',
-                'asignaturaGrupo.grupo.campus:id,nombre',
-                'asignaturaGrupo.grupo.turno:id,nombre',
-                'asignaturaGrupo.docentes.persona',
-                'asignaturaGrupo.horarios',
-                'situacion:id,clave,nombre',
-                'tipoEvaluacion:id,nombre',
-                'calificaciones',
-            ])
-            ->first();
-
-        // No existe, o existe pero no es suya: la misma respuesta. Distinguirlas
-        // le diría a quien prueba ids ajenos cuáles sí existen.
-        abort_if($inscripcion === null, 403, 'Esa materia no está entre las que cursas.');
+        $inscripcion = $this->miInscripcionEn($request, $asignaturaGrupo, [
+            'ciclo:id,clave,nombre',
+            'asignaturaGrupo.planMateria.asignatura:id,nombre,clave',
+            'asignaturaGrupo.planMateria.plan:id,nombre,carrera_id',
+            'asignaturaGrupo.planMateria.plan.carrera:id,nombre',
+            'asignaturaGrupo.grupo:id,clave,campus_id,turno_id',
+            'asignaturaGrupo.grupo.campus:id,nombre',
+            'asignaturaGrupo.grupo.turno:id,nombre',
+            'asignaturaGrupo.docentes.persona',
+            'asignaturaGrupo.horarios',
+            'situacion:id,clave,nombre',
+            'tipoEvaluacion:id,nombre',
+            'calificaciones',
+        ]);
 
         $planMateria = $inscripcion->asignaturaGrupo?->planMateria;
 
@@ -232,18 +317,6 @@ class MisCursosController extends Controller
                     'aula' => $h->aula ?? null,
                 ])->values() ?? [],
         ]);
-    }
-
-    /**
-     * Base de TODAS las consultas: las inscripciones de las matrículas de quien
-     * entró. Un solo punto para la pertenencia, para que ninguna pantalla del
-     * portal pueda olvidarse de aplicarla.
-     */
-    private function misInscripciones(Request $request)
-    {
-        $matriculas = $request->user()->persona?->matriculas()->pluck('matricula_oferta.id') ?? collect();
-
-        return Inscripcion::query()->whereIn('matricula_oferta_id', $matriculas);
     }
 
     /**
@@ -301,7 +374,7 @@ class MisCursosController extends Controller
                         // escolar: `examen_p1`, `asistencia_p2`. Eso es un
                         // identificador, no un nombre, y al alumno hay que
                         // decirle «Examen» y no leerle una variable.
-                        'componente' => $this->nombreLegible($e->componente),
+                        'componente' => $e->nombreLegible(),
                         'porcentaje' => (float) $e->porcentaje,
                         'calificacion' => $calificacion === null ? null : (float) $calificacion,
                     ];
@@ -365,10 +438,21 @@ class MisCursosController extends Controller
             ->get()
             ->keyBy('actividad_id');
 
-        return $actividades->map(function (Actividad $a) use ($mias) {
+        // Lo que no se entrega lo declara terminado el alumno desde el aula.
+        $completadas = ActividadVista::query()
+            ->where('inscripcion_id', $inscripcion->id)
+            ->whereIn('actividad_id', $actividades->pluck('id'))
+            ->whereNotNull('completada_en')
+            ->pluck('actividad_id')
+            ->flip();
+
+        return $actividades->map(function (Actividad $a) use ($mias, $completadas) {
             $entrega = $mias->get($a->id);
 
             return [
+                'completada' => $a->tipo->seEntrega()
+                    ? $entrega?->entregada_en !== null
+                    : $completadas->has($a->id),
                 'id' => $a->id,
                 'tipo' => $a->tipo->value,
                 'tipo_etiqueta' => $a->tipo->etiqueta(),
@@ -386,9 +470,7 @@ class MisCursosController extends Controller
                 'permite_tarde' => $a->permite_tarde,
                 'abierta' => $a->abierta(),
                 // Qué pesa: el componente al que cuelga, o nada si es formativa.
-                'componente' => $a->componente === null
-                    ? null
-                    : "Parcial {$a->componente->parcial} · ".$this->nombreLegible($a->componente->componente),
+                'componente' => $a->componente?->etiquetaCompleta(),
                 'entrega' => $entrega === null ? null : [
                     'id' => $entrega->id,
                     'estado' => $entrega->estado,
@@ -442,47 +524,6 @@ class MisCursosController extends Controller
      * No es la calificación —es cuánto del camino se ha recorrido—, que es lo
      * que un alumno pregunta a media materia.
      */
-    /**
-     * `examen_p1` → «Examen», `participacion` → «Participación».
-     *
-     * Se quita el sufijo del parcial porque el parcial ya lo dice el bloque en
-     * el que está: repetirlo en cada renglón es ruido. Solo cambia lo que se
-     * MUESTRA; el dato guardado sigue siendo la clave que usa control escolar.
-     */
-    private function nombreLegible(?string $clave): string
-    {
-        if (blank($clave)) {
-            return 'Componente';
-        }
-
-        $sinParcial = preg_replace('/[_\s-]*p\d+$/i', '', trim($clave)) ?? $clave;
-        $conEspacios = mb_strtolower(trim(str_replace(['_', '-'], ' ', $sinParcial)));
-
-        /*
-         * Las claves se escriben sin acentos, y un `ucfirst` no puede
-         * inventarlos: dejaría «Participacion» en una pantalla de un sistema
-         * que escribe en español correcto. Se acentúan las que toda escuela
-         * usa; lo demás sale limpio aunque sin tilde, que es lo más que se
-         * puede hacer sin adivinar.
-         */
-        $conocidas = [
-            'participacion' => 'Participación',
-            'examen' => 'Examen',
-            'examen final' => 'Examen final',
-            'asistencia' => 'Asistencia',
-            'tareas' => 'Tareas',
-            'tarea' => 'Tarea',
-            'practicas' => 'Prácticas',
-            'practica' => 'Práctica',
-            'proyecto' => 'Proyecto',
-            'exposicion' => 'Exposición',
-            'trabajo final' => 'Trabajo final',
-            'evaluacion continua' => 'Evaluación continua',
-        ];
-
-        return $conocidas[$conEspacios] ?? ucfirst($conEspacios);
-    }
-
     private function avanceDe(Inscripcion $inscripcion): ?int
     {
         $planMateriaId = $inscripcion->asignaturaGrupo?->plan_materia_id;

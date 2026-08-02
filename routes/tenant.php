@@ -6,6 +6,7 @@ use App\Http\Controllers\AlumnoController;
 use App\Http\Controllers\AsignaturaController;
 use App\Http\Controllers\AsignaturaGrupoController;
 use App\Http\Controllers\AspiranteController;
+use App\Http\Controllers\AulaController;
 use App\Http\Controllers\AutenticacionController;
 use App\Http\Controllers\SsoGoogleController;
 use App\Http\Controllers\CampoFormularioController;
@@ -854,6 +855,25 @@ Route::middleware([
             ->group(function () {
                 Route::get('/', 'index')->name('index');
                 Route::get('{asignaturaGrupo}', 'show')->whereNumber('asignaturaGrupo')->name('materia');
+            });
+
+        /*
+         * El AULA: el curso recorrido como un libro. Mismo permiso y misma
+         * pertenencia que el resto del portal del alumno.
+         *
+         * La lección viaja en la URL —y no en el estado del navegador— para que
+         * se pueda compartir, guardar en favoritos y volver con el botón de
+         * atrás, que es lo que uno espera de algo que se lee.
+         */
+        Route::controller(AulaController::class)
+            ->prefix('mis-cursos/{asignaturaGrupo}/aula')->name('tenant.aula.')
+            ->middleware('can:ver-mis-cursos')
+            ->whereNumber('asignaturaGrupo')
+            ->group(function () {
+                Route::get('/', 'show')->name('index');
+                Route::get('{actividad}', 'show')->whereNumber('actividad')->name('leccion');
+                Route::post('{actividad}/completar', 'completar')->whereNumber('actividad')->name('completar');
+                Route::delete('{actividad}/completar', 'descompletar')->whereNumber('actividad')->name('descompletar');
             });
 
         /*

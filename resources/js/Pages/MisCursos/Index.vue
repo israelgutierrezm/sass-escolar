@@ -22,6 +22,8 @@ interface Curso {
     situacion: string | null;
     tipo_evaluacion: string | null;
     avance: number | null;
+    /** Lo recorrido del contenido. Null si la materia no tiene curso cargado. */
+    aula: { total: number; completadas: number; porcentaje: number } | null;
     docentes: { id: number; nombre: string | null; tipo: string }[];
 }
 
@@ -72,12 +74,19 @@ const iconoTipo: Record<string, string> = {
     lectura: '📖',
 };
 
-/** Un examen se presenta en su pantalla; un foro se abre; lo demás se entrega. */
+/**
+ * Un examen se presenta en su pantalla y un foro se abre en la suya; lo demás
+ * abre la lección en el aula, que es donde está su material y su entrega.
+ *
+ * Antes todo caía en el detalle de la materia y había que volver a buscar la
+ * actividad en una lista: un clic para llegar y otro para encontrar lo mismo
+ * que ya se había elegido.
+ */
 function enlaceDe(p: Pendiente): string {
     if (p.tipo === 'examen') return `/mis-cursos/examenes/${p.id}`;
     if (p.tipo === 'foro') return `/materias/${p.materia_id}/foros/${p.id}`;
 
-    return `/mis-cursos/${p.materia_id}`;
+    return `/mis-cursos/${p.materia_id}/aula/${p.id}`;
 }
 
 /** Las letras de la clave, para el mosaico: «ISC0101» → «ISC». */
@@ -179,59 +188,98 @@ const titular = (c: Curso) => c.docentes.find((d) => d.tipo === 'titular') ?? c.
             </header>
 
             <div class="grid gap-3 border-t border-borde p-6 sm:grid-cols-2 lg:grid-cols-3">
-                <Link
+                <div
                     v-for="curso in bloque.cursos"
                     :key="curso.id"
-                    :href="`/mis-cursos/${curso.id}`"
                     class="tarjeta-curso flex flex-col gap-3 rounded-xl border p-4 transition"
                     :style="{ borderColor: 'var(--color-borde)' }"
                 >
-                    <div class="flex items-start gap-3">
-                        <span
-                            class="grid h-12 w-12 shrink-0 place-items-center rounded-lg text-[11px] font-bold tracking-tight"
-                            :style="colorMateria(curso.clave)"
-                        >
-                            {{ siglaDe(curso.clave) }}
-                        </span>
-                        <span class="min-w-0 flex-1">
-                            <span class="block truncate font-medium text-contenido">{{ curso.materia }}</span>
-                            <span class="block truncate font-mono text-xs text-suave">{{ curso.clave }}</span>
-                            <span class="block truncate text-xs text-suave">
-                                Grupo {{ curso.grupo }}<span v-if="curso.campus"> · {{ curso.campus }}</span>
+                    <!-- La ficha entera lleva a donde se entra a trabajar: al
+                         aula si hay contenido, y si no, al detalle de siempre. -->
+                    <Link
+                        :href="curso.aula ? `/mis-cursos/${curso.id}/aula` : `/mis-cursos/${curso.id}`"
+                        class="flex flex-1 flex-col gap-3"
+                    >
+                        <div class="flex items-start gap-3">
+                            <span
+                                class="grid h-12 w-12 shrink-0 place-items-center rounded-lg text-[11px] font-bold tracking-tight"
+                                :style="colorMateria(curso.clave)"
+                            >
+                                {{ siglaDe(curso.clave) }}
                             </span>
-                        </span>
-                    </div>
-
-                    <p v-if="titular(curso)" class="truncate text-xs text-suave">
-                        {{ titular(curso)?.nombre }}
-                    </p>
-                    <p v-else class="text-xs text-amber-600">Sin docente asignado todavía.</p>
-
-                    <!-- Avance: qué proporción de la evaluación ya está
-                         calificada. No es la calificación; es cuánto del camino
-                         se lleva recorrido, que es lo que se pregunta a media
-                         materia. -->
-                    <div v-if="curso.avance !== null" class="mt-auto">
-                        <div class="flex items-baseline justify-between text-xs">
-                            <span class="text-suave">Evaluado</span>
-                            <span class="font-medium text-contenido">{{ curso.avance }}%</span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block truncate font-medium text-contenido">{{ curso.materia }}</span>
+                                <span class="block truncate font-mono text-xs text-suave">{{ curso.clave }}</span>
+                                <span class="block truncate text-xs text-suave">
+                                    Grupo {{ curso.grupo }}<span v-if="curso.campus"> · {{ curso.campus }}</span>
+                                </span>
+                            </span>
                         </div>
-                        <div class="mt-1 h-1.5 overflow-hidden rounded-full" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 18%, transparent)' }">
-                            <div class="h-full rounded-full" :style="{ width: `${curso.avance}%`, backgroundColor: 'var(--color-acento)' }" />
-                        </div>
-                    </div>
 
-                    <div class="flex flex-wrap items-center gap-2">
-                        <PildoraEstado :texto="curso.situacion" />
-                        <span
-                            v-if="curso.tipo_evaluacion && !/ordinaria/i.test(curso.tipo_evaluacion)"
-                            class="rounded-full px-2 py-0.5 text-[11px]"
-                            :style="{ backgroundColor: 'color-mix(in srgb, #d97706 14%, transparent)', color: '#b45309' }"
+                        <p v-if="titular(curso)" class="truncate text-xs text-suave">
+                            {{ titular(curso)?.nombre }}
+                        </p>
+                        <p v-else class="text-xs text-amber-600">Sin docente asignado todavía.</p>
+
+                        <div class="mt-auto space-y-2">
+                            <!-- Dos avances distintos que se confundían en uno:
+                                 lo que YO llevo hecho del contenido, y lo que el
+                                 docente ya calificó. Se puede tener el curso
+                                 entero recorrido y 0 % evaluado. -->
+                            <div v-if="curso.aula && curso.aula.total > 0">
+                                <div class="flex items-baseline justify-between text-xs">
+                                    <span class="text-suave">Curso</span>
+                                    <span class="font-medium text-contenido">
+                                        {{ curso.aula.completadas }}/{{ curso.aula.total }} lecciones
+                                    </span>
+                                </div>
+                                <div class="mt-1 h-1.5 overflow-hidden rounded-full" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 18%, transparent)' }">
+                                    <div class="h-full rounded-full transition-all" :style="{ width: `${curso.aula.porcentaje}%`, backgroundColor: '#16a34a' }" />
+                                </div>
+                            </div>
+
+                            <div v-if="curso.avance !== null">
+                                <div class="flex items-baseline justify-between text-xs">
+                                    <span class="text-suave">Evaluado</span>
+                                    <span class="font-medium text-contenido">{{ curso.avance }}%</span>
+                                </div>
+                                <div class="mt-1 h-1.5 overflow-hidden rounded-full" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 18%, transparent)' }">
+                                    <div class="h-full rounded-full" :style="{ width: `${curso.avance}%`, backgroundColor: 'var(--color-acento)' }" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-2">
+                            <PildoraEstado :texto="curso.situacion" />
+                            <span
+                                v-if="curso.tipo_evaluacion && !/ordinaria/i.test(curso.tipo_evaluacion)"
+                                class="rounded-full px-2 py-0.5 text-[11px]"
+                                :style="{ backgroundColor: 'color-mix(in srgb, #d97706 14%, transparent)', color: '#b45309' }"
+                            >
+                                {{ curso.tipo_evaluacion }}
+                            </span>
+                        </div>
+                    </Link>
+
+                    <!-- Las dos preguntas, cada una con su puerta: «¿qué sigue?»
+                         y «¿cómo voy?». -->
+                    <div v-if="curso.aula && curso.aula.total > 0" class="flex gap-2 border-t border-borde pt-3">
+                        <Link
+                            :href="`/mis-cursos/${curso.id}/aula`"
+                            class="flex-1 rounded-lg px-3 py-1.5 text-center text-xs font-medium"
+                            :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
                         >
-                            {{ curso.tipo_evaluacion }}
-                        </span>
+                            {{ curso.aula.completadas === 0 ? 'Empezar curso' : 'Continuar' }}
+                        </Link>
+                        <Link
+                            :href="`/mis-cursos/${curso.id}`"
+                            class="flex-1 rounded-lg border px-3 py-1.5 text-center text-xs font-medium"
+                            :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-contenido)' }"
+                        >
+                            Calificaciones
+                        </Link>
                     </div>
-                </Link>
+                </div>
             </div>
         </section>
 

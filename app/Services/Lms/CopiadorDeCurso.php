@@ -133,6 +133,9 @@ class CopiadorDeCurso
             'tipo' => $original->tipo,
             'titulo' => $original->titulo,
             'instrucciones' => $original->instrucciones,
+            // El material se va con la copia: es lo que hace que un grupo nazca
+            // con el curso listo y no con una lista de títulos vacíos.
+            'contenido' => $original->contenido,
             'esquema_evaluacion_id' => $original->esquema_evaluacion_id,
             'puntos' => $original->puntos,
             'permite_tarde' => $original->permite_tarde,

@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { Head, Link } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
-import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import CuandoVence from '@/Components/CuandoVence.vue';
 import AvancePorParcial from '@/Components/AvancePorParcial.vue';
@@ -59,6 +58,8 @@ interface ActividadAlumno {
     permite_tarde: boolean;
     abierta: boolean;
     componente: string | null;
+    /** Hecha: entregada si se entrega, marcada en el aula si es lectura. */
+    completada: boolean;
     entrega: Entrega | null;
 }
 
@@ -96,44 +97,39 @@ const colorAsistencia = computed(() => {
 });
 
 /*
- * Entregar. Una actividad a la vez: el formulario se abre en la que se toca y
- * el resto se queda quieto. Abrir todos los formularios de golpe convertiría la
- * lista en un muro de campos vacíos.
+ * Entregar se hace en el AULA, no aquí.
+ *
+ * El formulario vivía en esta lista y en la lección: dos maneras de entregar lo
+ * mismo, que es como se llega a que una acepte archivos y la otra no. Esta
+ * pantalla contesta «cómo voy» y manda a la lección, donde además está el
+ * material que hay que leer para hacerla.
  */
-const entregando = ref<number | null>(null);
+function enlaceDe(a: ActividadAlumno): string {
+    if (a.tipo === 'examen') return `/mis-cursos/examenes/${a.id}`;
+    if (a.tipo === 'foro') return `/materias/${props.curso.id}/foros/${a.id}`;
 
-const formEntrega = useForm<{ contenido: string; archivos: File[] }>({
-    contenido: '',
-    archivos: [],
-});
-
-function alternarEntrega(a: ActividadAlumno): void {
-    entregando.value = entregando.value === a.id ? null : a.id;
-    formEntrega.reset();
-    formEntrega.clearErrors();
-    // Reentregar arranca con lo que ya había escrito: casi siempre se corrige,
-    // no se empieza de cero.
-    formEntrega.contenido = a.entrega?.contenido ?? '';
+    return `/mis-cursos/${props.curso.id}/aula/${a.id}`;
 }
 
-function elegirArchivos(evento: Event): void {
-    formEntrega.archivos = Array.from((evento.target as HTMLInputElement).files ?? []);
-}
+/** Qué dice el botón de cada actividad, según lo que le toca hacer. */
+function accionDe(a: ActividadAlumno): string {
+    if (a.tipo === 'examen') return a.entrega?.entregada_en ? 'Ver mi examen' : 'Presentar examen';
+    if (a.tipo === 'foro') return 'Entrar al foro';
+    if (!a.se_entrega) return a.entrega ? 'Ver lección' : 'Abrir lección';
 
-function enviarEntrega(a: ActividadAlumno): void {
-    formEntrega.post(`/mis-cursos/actividades/${a.id}/entrega`, {
-        preserveScroll: true,
-        forceFormData: true,
-        onSuccess: () => {
-            entregando.value = null;
-            formEntrega.reset();
-        },
-    });
+    return a.entrega?.entregada_en ? 'Ver mi entrega' : 'Abrir y entregar';
 }
 
 /** Cómo se ve el estado de una actividad para el alumno. */
 function estadoDe(a: ActividadAlumno): { texto: string; color: string } {
-    if (!a.se_entrega) return { texto: 'Lectura', color: 'var(--color-suave)' };
+    // Una lectura no se entrega, pero sí se termina: el alumno la marca en el
+    // aula. Decir «Lectura» aquí repetía la etiqueta de tipo de al lado y no
+    // contestaba lo único que se pregunta al mirar la lista: si ya la hizo.
+    if (!a.se_entrega) {
+        return a.completada
+            ? { texto: 'Completada', color: '#16a34a' }
+            : { texto: 'Sin terminar', color: 'var(--color-suave)' };
+    }
     if (a.entrega?.calificacion != null) return { texto: 'Calificada', color: '#16a34a' };
     if (a.entrega?.entregada_en) {
         return a.entrega.tarde
@@ -205,6 +201,17 @@ const etiquetaEstatus: Record<string, string> = {
                 </div>
 
                 <div class="flex shrink-0 items-start gap-4">
+                    <!-- Donde está el contenido: esta pantalla dice cómo voy, el
+                         aula dice qué sigue. -->
+                    <Link
+                        v-if="actividades.length"
+                        :href="`/mis-cursos/${curso.id}/aula`"
+                        class="rounded-lg px-3 py-1.5 text-xs font-medium"
+                        :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+                    >
+                        Ir al aula
+                    </Link>
+
                     <!-- El canal con el docente, mientras la materia siga activa. -->
                     <a
                         :href="`/materias/${curso.id}/chat`"
@@ -354,39 +361,19 @@ const etiquetaEstatus: Record<string, string> = {
                             </span>
                             <span v-else-if="a.se_entrega" class="text-xs text-suave">sobre {{ a.puntos }}</span>
 
-                            <!-- Un examen no se «entrega» aquí: se presenta en su
-                                 propia pantalla, con su reloj y sus intentos. -->
-                            <a
-                                v-if="a.tipo === 'examen'"
-                                :href="`/mis-cursos/examenes/${a.id}`"
-                                class="rounded-lg border px-3 py-1.5 text-xs font-medium"
+                            <Link
+                                :href="enlaceDe(a)"
+                                class="whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-medium"
                                 :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
                             >
-                                {{ a.entrega?.entregada_en ? 'Ver mi examen' : 'Presentar examen' }}
-                            </a>
-                            <a
-                                v-else-if="a.tipo === 'foro'"
-                                :href="`/materias/${curso.id}/foros/${a.id}`"
-                                class="rounded-lg border px-3 py-1.5 text-xs font-medium"
-                                :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
-                            >
-                                Entrar al foro
-                            </a>
-                            <button
-                                v-else-if="a.se_entrega && a.abierta"
-                                type="button"
-                                class="rounded-lg border px-3 py-1.5 text-xs font-medium"
-                                :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
-                                @click="alternarEntrega(a)"
-                            >
-                                {{ entregando === a.id ? 'Cancelar' : (a.entrega?.entregada_en ? 'Volver a entregar' : 'Entregar') }}
-                            </button>
+                                {{ accionDe(a) }}
+                            </Link>
                         </span>
                     </div>
 
                     <!-- Lo que ya entregó y lo que le dijeron -->
                     <div
-                        v-if="a.entrega?.entregada_en && entregando !== a.id"
+                        v-if="a.entrega?.entregada_en"
                         class="border-t border-borde px-6 py-3"
                         :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 5%, transparent)' }"
                     >
@@ -412,41 +399,6 @@ const etiquetaEstatus: Record<string, string> = {
                             {{ a.entrega.retroalimentacion }}
                         </p>
                     </div>
-
-                    <!-- Formulario de entrega -->
-                    <form
-                        v-if="entregando === a.id"
-                        class="space-y-3 border-t border-borde px-6 py-4"
-                        :style="{ borderLeft: '3px solid var(--color-acento)' }"
-                        @submit.prevent="enviarEntrega(a)"
-                    >
-                        <div>
-                            <label class="mb-1 block text-sm font-medium">Tu respuesta</label>
-                            <textarea
-                                v-model="formEntrega.contenido"
-                                rows="4"
-                                class="w-full rounded-lg border px-3 py-2 text-sm"
-                                :style="{ borderColor: 'var(--color-borde)' }"
-                                placeholder="Escribe aquí, o adjunta un archivo abajo."
-                            />
-                            <p v-if="formEntrega.errors.contenido" class="mt-1 text-xs text-red-600">
-                                {{ formEntrega.errors.contenido }}
-                            </p>
-                        </div>
-
-                        <div>
-                            <label class="mb-1 block text-sm font-medium">Archivos</label>
-                            <input type="file" multiple class="text-sm" @change="elegirArchivos" />
-                            <p class="mt-1 text-xs text-suave">Hasta 5 archivos, 20 MB cada uno.</p>
-                        </div>
-
-                        <p v-if="a.entrega?.entregada_en" class="text-xs text-amber-600">
-                            Volver a entregar reemplaza lo anterior y quita la calificación:
-                            se califica lo que quede.
-                        </p>
-
-                        <BotonPrincipal :procesando="formEntrega.processing" texto="Entregar" icono="crear" />
-                    </form>
                 </li>
             </ul>
         </section>

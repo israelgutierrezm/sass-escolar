@@ -6,6 +6,7 @@ import { TextStyle, Color, FontFamily, FontSize } from '@tiptap/extension-text-s
 import TextAlign from '@tiptap/extension-text-align';
 import Highlight from '@tiptap/extension-highlight';
 import { Sangria } from '@/Components/editor/sangria';
+import { Incrustado } from '@/Components/editor/incrustado';
 
 // Editor de texto enriquecido (TipTap). Emite HTML por v-model. El HTML se
 // guarda tal cual y se vuelve a mostrar en el apartado del programa; por eso
@@ -32,6 +33,7 @@ const editor = useEditor({
         Highlight.configure({ multicolor: true }),
         TextAlign.configure({ types: ['heading', 'paragraph'] }),
         Sangria,
+        Incrustado,
     ],
     editorProps: {
         attributes: { class: 'editor-prosa min-h-[10rem] max-h-[28rem] overflow-y-auto px-4 py-3 focus:outline-none' },
@@ -52,6 +54,33 @@ watch(
         }
     },
 );
+
+/*
+ * Insertar contenido externo: un SCORM publicado, un video, una infografía.
+ *
+ * Se pide la dirección y se exige que sea `https`. Un `http` dentro de una
+ * página segura lo bloquea el navegador sin decir nada útil, y el docente vería
+ * un recuadro en blanco sin saber por qué: es mejor rechazarlo aquí, donde se
+ * puede explicar.
+ */
+function insertarIncrustado(): void {
+    const direccion = window.prompt(
+        'Dirección del contenido a incrustar (SCORM, video, infografía).\n'
+        + 'Debe empezar con https://',
+    );
+
+    if (direccion === null) return;
+
+    const limpia = direccion.trim();
+
+    if (!/^https:\/\/\S+$/i.test(limpia)) {
+        window.alert('La dirección debe empezar con https:// para que el navegador la muestre.');
+
+        return;
+    }
+
+    editor.value?.chain().focus().insertarIncrustado({ src: limpia }).run();
+}
 
 // --- Catálogos de la barra ---
 const fuentes = [
@@ -225,6 +254,18 @@ const alineaciones = [
             <button type="button" title="Línea divisoria" class="h-7 w-7 rounded text-xs" :style="{ color: 'var(--color-contenido)' }" @click="editor?.chain().focus().setHorizontalRule().run()">―</button>
             <button type="button" title="Quitar formato" class="h-7 w-7 rounded text-xs" :style="{ color: 'var(--color-contenido)' }" @click="editor?.chain().focus().unsetAllMarks().clearNodes().run()">⌫</button>
 
+            <!-- Lo que la escuela ya tiene producido: un SCORM, un video, una
+                 infografía. Sin esto, «cargar contenido» sería reescribirlo. -->
+            <button
+                type="button"
+                title="Insertar contenido externo (SCORM, video, infografía)"
+                class="h-7 rounded px-1.5 text-xs"
+                :style="{ color: 'var(--color-contenido)' }"
+                @click="insertarIncrustado"
+            >
+                ⧉ Incrustar
+            </button>
+
             <span class="mx-1 h-5 w-px" :style="{ backgroundColor: 'var(--color-borde)' }" />
 
             <button type="button" title="Deshacer" class="h-7 w-7 rounded text-xs" :style="{ color: 'var(--color-contenido)' }" @click="editor?.chain().focus().undo().run()">↶</button>
@@ -236,6 +277,23 @@ const alineaciones = [
 </template>
 
 <style scoped>
+/*
+ * El contenido incrustado, dentro del editor: con borde para que se vea dónde
+ * empieza y termina el bloque, ya que por dentro no se puede escribir.
+ */
+.editor-prosa :deep(iframe.incrustado) {
+    display: block;
+    width: 100%;
+    margin: 0.75rem 0;
+    border: 1px solid var(--color-borde);
+    border-radius: 0.5rem;
+    background-color: color-mix(in srgb, var(--color-suave) 6%, transparent);
+}
+.editor-prosa :deep(iframe.incrustado.ProseMirror-selectednode) {
+    outline: 2px solid var(--color-acento);
+    outline-offset: 2px;
+}
+
 .editor-prosa :deep(h1) {
     font-size: 1.5rem;
     font-weight: 700;

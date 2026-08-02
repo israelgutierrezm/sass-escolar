@@ -14,6 +14,7 @@ use App\Models\Lms\Actividad;
 use App\Models\Lms\Curso;
 use App\Models\Lms\Reactivo;
 use App\Services\Lms\CopiadorDeCurso;
+use App\Support\HtmlSeguro;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -67,6 +68,7 @@ class CursoPlantillaController extends Controller
                 'se_entrega' => $a->tipo->seEntrega(),
                 'titulo' => $a->titulo,
                 'instrucciones' => $a->instrucciones,
+                'contenido' => $a->contenido,
                 'puntos' => (float) $a->puntos,
                 'permite_tarde' => (bool) $a->permite_tarde,
                 'publicada' => (bool) $a->publicada,
@@ -133,11 +135,17 @@ class CursoPlantillaController extends Controller
             'tipo' => ['required', Rule::enum(TipoActividad::class)],
             'titulo' => ['required', 'string', 'max:180'],
             'instrucciones' => ['nullable', 'string', 'max:20000'],
+            'contenido' => ['nullable', 'string', 'max:200000'],
             'esquema_evaluacion_id' => ['nullable', 'integer'],
             'puntos' => ['required', 'numeric', 'min:1', 'max:1000'],
             'permite_tarde' => ['boolean'],
             'publicada' => ['boolean'],
         ], [], ['esquema_evaluacion_id' => 'componente de evaluación']);
+
+        // El material se pinta como HTML en la pantalla del alumno: entra por la
+        // lista blanca antes de guardarse. La validación de arriba comprueba que
+        // sea texto y quepa; no que sea inofensivo.
+        $datos['contenido'] = HtmlSeguro::limpiar($datos['contenido'] ?? null);
 
         // Una lectura no se entrega, así que no pondera: dejarle un componente
         // amarrado prometería una calificación que nunca va a llegar.

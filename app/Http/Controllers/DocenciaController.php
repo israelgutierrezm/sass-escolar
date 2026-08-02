@@ -392,6 +392,8 @@ class DocenciaController extends Controller
                 'se_entrega' => $a->tipo->seEntrega(),
                 'titulo' => $a->titulo,
                 'instrucciones' => $a->instrucciones,
+                'contenido' => $a->contenido,
+                'tiene_contenido' => $a->tieneContenido(),
                 'puntos' => (float) $a->puntos,
                 'esquema_evaluacion_id' => $a->esquema_evaluacion_id,
                 'componente' => $a->componente === null

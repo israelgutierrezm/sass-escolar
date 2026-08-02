@@ -7,6 +7,7 @@ import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
+import EditorTexto from '@/Components/EditorTexto.vue';
 import { toast } from 'vue-sonner';
 
 /*
@@ -24,6 +25,7 @@ interface ActividadPlantilla {
     se_entrega: boolean;
     titulo: string;
     instrucciones: string | null;
+    contenido: string | null;
     puntos: number;
     permite_tarde: boolean;
     publicada: boolean;
@@ -78,6 +80,7 @@ const formActividad = useForm({
     tipo: 'actividad',
     titulo: '',
     instrucciones: '',
+    contenido: '',
     esquema_evaluacion_id: null as number | null,
     puntos: 10,
     permite_tarde: false,
@@ -98,6 +101,7 @@ function editarActividad(a: ActividadPlantilla): void {
     formActividad.tipo = a.tipo;
     formActividad.titulo = a.titulo;
     formActividad.instrucciones = a.instrucciones ?? '';
+    formActividad.contenido = a.contenido ?? '';
     formActividad.esquema_evaluacion_id = a.esquema_evaluacion_id;
     formActividad.puntos = a.puntos;
     formActividad.permite_tarde = a.permite_tarde;
@@ -349,8 +353,23 @@ const totalPonderado = computed(() =>
                         rows="3"
                         class="w-full rounded-lg border px-3 py-2 text-sm"
                         :style="{ borderColor: 'var(--color-borde)' }"
+                        placeholder="Qué tiene que hacer el alumno."
                     />
                 </label>
+
+                <!-- El material de la lección: se copia con la plantilla, así
+                     que se carga una vez y lo reciben todos los grupos. -->
+                <div>
+                    <label class="mb-1 block text-sm font-medium">Contenido</label>
+                    <EditorTexto
+                        v-model="formActividad.contenido"
+                        placeholder="El material de la lección. Con ⧉ Incrustar agregas un SCORM, un video o una infografía."
+                    />
+                    <p class="mt-1 text-xs text-suave">
+                        Opcional. Viaja con la plantilla: lo que cargues aquí lo reciben
+                        todos los grupos que abran esta materia.
+                    </p>
+                </div>
 
                 <div class="space-y-2">
                     <label v-if="tipoActual?.se_entrega" class="flex items-center gap-2 text-sm">

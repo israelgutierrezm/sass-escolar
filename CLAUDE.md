@@ -80,8 +80,8 @@ Cinco entregas, en este orden. A y B ✅ hechas; C, D y E pendientes:
   permiso configure todo antes de que existan registros»).
 - ✅ Resuelto para el ASPIRANTE: `/mi-solicitud` ya existe, así que el modo
   «inscripción autogestiva» del formulario público tiene a dónde entrar.
-- ⏳ Falta el **portal del ALUMNO** (kárdex, carga, estado de cuenta propios).
-  Por eso el alumno todavía no recibe accesos directos en su panel.
+- ⏳ Parcial para el ALUMNO: ya tiene `/mis-cursos` (sus materias, cómo va y el
+  aula con el contenido). Faltan su **kárdex** y su **estado de cuenta** propios.
 - ⏳ El portal **no cobra**: muestra los cargos, pero no hay pasarela conectada.
   `pagos` ya tiene `pasarela` y `pasarela_txn_id` esperándola desde 7.1.
 
@@ -363,13 +363,43 @@ npm run dev                # o npm run build
   del tenant demo con `DB::rollBack()` al final. `prueba-listados` es la primera
   que invoca a los CONTROLADORES y lee sus props de Inertia, en vez de
   reimplementar la consulta: un `or` sin paréntesis no se detecta de otra forma.
+- **Módulo 8 — LMS completo** (seis fases): cursos por materia impartida,
+  actividades con entrega y archivos, exámenes con banco de reactivos y
+  autocalificación, chat (1‑a‑1 y canal del grupo) y foros. La plantilla del
+  plan (`/academico/planes/.../curso`) se COPIA al grupo cuando se abre la
+  materia — no se apunta a ella: corregir una falta de ortografía en el plan no
+  debe cambiar el examen que un grupo está contestando (`CopiadorDeCurso`).
+- **El AULA del alumno** (`/mis-cursos/{materia}/aula[/{lección}]`): la materia
+  recorrida como un libro. Índice a la izquierda agrupado por parcial, lección
+  al centro, progreso arriba y en el índice, Anterior/Siguiente al pie.
+  Reparte las dos preguntas que antes se estorbaban en una sola pantalla:
+  «¿cómo voy?» se queda en `/mis-cursos/{materia}` (calificaciones, asistencia,
+  docentes) y «¿qué sigue?» vive en el aula.
+  - `actividades.contenido` guarda el MATERIAL (HTML del editor: texto, video
+    incrustado, SCORM); `instrucciones` sigue diciendo qué hacer con él. Se
+    carga desde el mismo formulario del docente y desde la plantilla del plan.
+  - **Completada** se decide por tipo y con un solo criterio: lo que se entrega
+    lo declara la entrega; la lectura la declara el alumno con un botón, y eso
+    va a `actividad_vistas.completada_en`. Marcar la lectura sólo con abrirla
+    habría llenado la barra de progreso de mentiras.
+  - Las lecciones sin parcial (las lecturas) **heredan el parcial de la
+    siguiente que sí pondera**, para que el material que antecede a un ejercicio
+    caiga en su mismo bloque. Agrupar tal cual mandaba todas las lecturas a un
+    cajón al final, después del ejercicio que exigían leer.
+  - El formulario de entrega vive SÓLO en el aula. Estaba también en «Mi
+    materia»: dos maneras de entregar lo mismo es como se llega a que una acepte
+    archivos y la otra no.
+- **`App\Support\HtmlSeguro`**: lista blanca de etiquetas y atributos para todo
+  HTML de editor que se pinte con `v-html`. El material lo escribe un docente y
+  lo lee cada alumno del grupo: sin sanear, un `<img onerror>` se ejecuta en la
+  sesión de todos. El `iframe` sobrevive —es lo que permite incrustar un video o
+  un SCORM ya producido— pero con `sandbox` y `referrerpolicy` impuestos por el
+  servidor y sólo sobre `https://`. Cubierto por `tests/Unit/HtmlSeguroTest`.
 
 **Pendiente inmediato — aquí se retoma:**
 
-1. **Módulo 8 — LMS** de la Fase 3 (cursos, unidades, actividades, reactivos,
-   entregas, foros). Checklist en `docs/plan-migraciones.md`.
-2. Módulo 9 (Titulación SEP); luego Fase 4.
-3. Trabajo de cola pendiente, para cuando haya scheduler: enganchar
+1. Módulo 9 (Titulación SEP); luego Fase 4.
+2. Trabajo de cola pendiente, para cuando haya scheduler: enganchar
    `GeneradorAdeudos::generarParaTodas` y
    `AplicadorRecargosDescuentos::recalcularCartera` a un job diario. Los
    servicios ya están listos y son idempotentes; falta el disparador.
@@ -400,7 +430,11 @@ npm run dev                # o npm run build
 - No hay panel para la app central (landlord): `super_admins` existe pero sin
   interfaz ni guard propio.
 
-- **No existe portal del alumno ni del tutor.** La regla "alumnos y padres sólo
-  suben documentos, no los validan" está implementada y probada en el backend,
-  pero no hay pantalla desde la cual ejercerla. La suplantación permite ver el
-  lado del docente; el del alumno todavía no tiene qué mostrar.
+- **El portal del alumno ya existe** (`/mis-cursos`, su detalle y el aula), pero
+  todavía no tiene kárdex propio ni estado de cuenta: para ver su historial
+  académico o lo que debe sigue dependiendo de que alguien se lo consulte desde
+  control escolar o finanzas.
+- **El portal del TUTOR muestra, no opera.** La regla «alumnos y padres sólo
+  suben documentos, no los validan» está implementada y probada en el backend;
+  la pantalla del padre (`/mis-hijos`) consulta, pero la subida de documentos
+  desde ahí sigue sin construirse.

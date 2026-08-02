@@ -33,6 +33,9 @@ class Actividad extends Model
         'tipo',
         'titulo',
         'instrucciones',
+        // El material con el que se aprende (HTML del editor). Distinto de las
+        // instrucciones, que dicen qué hacer con él.
+        'contenido',
         'esquema_evaluacion_id',
         'puntos',
         'abre_en',
@@ -75,6 +78,17 @@ class Actividad extends Model
     public function examen(): HasOne
     {
         return $this->hasOne(Examen::class, 'actividad_id');
+    }
+
+    public function vistas(): HasMany
+    {
+        return $this->hasMany(ActividadVista::class, 'actividad_id');
+    }
+
+    /** Trae material que leer, aparte de lo que haya que entregar. */
+    public function tieneContenido(): bool
+    {
+        return filled($this->contenido);
     }
 
     /** Cuenta para la calificación del parcial. */

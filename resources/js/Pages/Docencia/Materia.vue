@@ -10,6 +10,7 @@ import CampoSelect from '@/Components/CampoSelect.vue';
 import PaseDeLista from '@/Components/PaseDeLista.vue';
 import MatrizCalificaciones from '@/Components/MatrizCalificaciones.vue';
 import PestanasPagina from '@/Components/PestanasPagina.vue';
+import EditorTexto from '@/Components/EditorTexto.vue';
 
 interface Alumno {
     matricula: string | null;
@@ -29,6 +30,7 @@ interface ActividadDocente {
     se_entrega: boolean;
     titulo: string;
     instrucciones: string | null;
+    contenido: string | null;
     puntos: number;
     esquema_evaluacion_id: number | null;
     componente: string | null;
@@ -100,6 +102,7 @@ const formActividad = useForm({
     tipo: 'actividad',
     titulo: '',
     instrucciones: '',
+    contenido: '',
     esquema_evaluacion_id: null as number | null,
     puntos: 10,
     abre_en: '',
@@ -122,6 +125,7 @@ function editarActividad(a: ActividadDocente): void {
     formActividad.tipo = a.tipo;
     formActividad.titulo = a.titulo;
     formActividad.instrucciones = a.instrucciones ?? '';
+    formActividad.contenido = a.contenido ?? '';
     formActividad.esquema_evaluacion_id = a.esquema_evaluacion_id;
     formActividad.puntos = a.puntos;
     formActividad.abre_en = a.abre_en ?? '';
@@ -506,10 +510,28 @@ const cortesCerrados = computed(() =>
                         <label class="mb-1 block text-sm font-medium">Instrucciones</label>
                         <textarea
                             v-model="formActividad.instrucciones"
-                            rows="4"
+                            rows="3"
                             class="w-full rounded-lg border px-3 py-2 text-sm"
                             :style="{ borderColor: 'var(--color-borde)' }"
+                            placeholder="Qué tiene que hacer el alumno."
                         />
+                    </div>
+
+                    <!--
+                        El MATERIAL, distinto de las instrucciones: el texto de
+                        la lección, un video, un SCORM. Es lo que el alumno lee
+                        antes de hacer lo que se le pide.
+                    -->
+                    <div class="sm:col-span-2 lg:col-span-3">
+                        <label class="mb-1 block text-sm font-medium">Contenido</label>
+                        <EditorTexto
+                            v-model="formActividad.contenido"
+                            placeholder="El material de la lección. Con ⧉ Incrustar agregas un SCORM, un video o una infografía."
+                        />
+                        <p class="mt-1 text-xs text-suave">
+                            Opcional. Si lo cargas, el alumno lo ve al abrir la actividad,
+                            antes de entregar.
+                        </p>
                     </div>
 
                     <label class="flex items-center gap-2 text-sm">

@@ -13,6 +13,7 @@ use App\Models\Lms\Actividad;
 use App\Models\Lms\Curso;
 use App\Models\Lms\Entrega;
 use App\Services\Lms\CalculadorComponente;
+use App\Support\HtmlSeguro;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -141,6 +142,10 @@ class ActividadController extends Controller
             'tipo' => ['required', Rule::enum(TipoActividad::class)],
             'titulo' => ['required', 'string', 'max:180'],
             'instrucciones' => ['nullable', 'string', 'max:20000'],
+            // Es HTML del editor y puede traer un SCORM o una lección larga:
+            // el límite es generoso a propósito, pero existe para que un pegado
+            // accidental no llene la tabla.
+            'contenido' => ['nullable', 'string', 'max:200000'],
             'esquema_evaluacion_id' => ['nullable', 'integer'],
             'puntos' => ['required', 'numeric', 'min:1', 'max:1000'],
             'abre_en' => ['nullable', 'date'],
@@ -152,6 +157,11 @@ class ActividadController extends Controller
             'cierra_en' => 'fecha de cierre',
             'abre_en' => 'fecha de apertura',
         ]);
+
+        // El material se pinta como HTML en la pantalla del alumno: entra por la
+        // lista blanca antes de guardarse. La validación de arriba comprueba que
+        // sea texto y quepa; no que sea inofensivo.
+        $datos['contenido'] = HtmlSeguro::limpiar($datos['contenido'] ?? null);
 
         // Una lectura no se entrega, así que no pondera: dejarle un componente
         // amarrado prometería una calificación que nunca va a llegar.
