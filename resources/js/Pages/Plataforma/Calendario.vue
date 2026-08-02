@@ -63,6 +63,32 @@ const nombreMes = computed(() => {
     return `${MESES[Number(mes) - 1]} ${anio}`;
 });
 
+const anioVisible = computed(() => props.mes.slice(0, 4));
+
+/* ── Feriados oficiales ────────────────────────────────────────────────── */
+
+const importando = ref(false);
+
+/**
+ * Trae los festivos oficiales del año que se está mirando.
+ *
+ * Llegan como BORRADOR: un feriado oficial no siempre es día sin clases en una
+ * escuela particular —hay quien reprograma y quien trabaja el puente— y esa
+ * decisión es de la dirección, no de una API.
+ */
+function importarFeriados(): void {
+    importando.value = true;
+
+    router.post(
+        '/plataforma/calendario/feriados',
+        { anio: Number(anioVisible.value) },
+        {
+            preserveScroll: true,
+            onFinish: () => (importando.value = false),
+        },
+    );
+}
+
 function irAlMes(desplazamiento: number): void {
     const [anio, mes] = props.mes.split('-').map(Number);
     const fecha = new Date(anio, mes - 1 + desplazamiento, 1);
@@ -243,10 +269,25 @@ function fechaLegible(e: Evento): string {
                 </button>
             </div>
 
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2">
                 <span class="text-sm text-suave">
                     {{ eventos.length }} evento(s) este mes
                 </span>
+
+                <!-- Los feriados oficiales cambian de fecha cada año y son los
+                     mismos para todo el país: copiarlos a mano es trabajo
+                     repetido y con margen de error. -->
+                <button
+                    type="button"
+                    class="rounded-lg border px-3 py-2 text-sm font-medium disabled:opacity-60"
+                    :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-contenido)' }"
+                    :disabled="importando"
+                    :title="`Trae los días festivos oficiales de México de ${anioVisible} como borrador`"
+                    @click="importarFeriados"
+                >
+                    {{ importando ? 'Consultando…' : `Traer feriados ${anioVisible}` }}
+                </button>
+
                 <button
                     type="button"
                     class="rounded-lg px-4 py-2 text-sm font-medium"

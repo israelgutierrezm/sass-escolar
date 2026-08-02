@@ -198,6 +198,24 @@ Cinco entregas, en este orden. A y B ✅ hechas; C, D y E pendientes:
 
 ## Entorno local
 
+**Dos trampas de esta máquina, ya resueltas:**
+
+- **PHP de WAMP sin certificados raíz.** Venía con `curl.cainfo` vacío, así que
+  NINGUNA llamada HTTPS saliente funcionaba: `cURL error 60: SSL certificate
+  problem`. Afecta a todo lo que hable con el exterior (clima, feriados,
+  Facturapi, el WS de la SEP). Resuelto: `cacert.pem` de curl.se en
+  `C:\wamp64\bin\php\php8.3.6\extras\ssl\`, con `curl.cainfo` y
+  `openssl.cafile` apuntando ahí en `php.ini` (respaldo del original en
+  `php.ini.respaldo-antes-de-cacert`). En Linux no aplica. **Ojo**: al
+  actualizar PHP hay que rehacerlo.
+- **La caché del tenant NO admite etiquetas.** `stancl/tenancy` envuelve
+  `Cache::` con `tags()` para aislar por escuela y el driver del proyecto
+  (`database`) no las soporta: cualquier `Cache::remember` revienta con «this
+  cache store does not support tagging». Para datos que no son de nadie —el
+  clima de unas coordenadas, los feriados oficiales— se construye un almacén
+  propio con `Cache::build(['driver' => 'file', ...])`, como hacen
+  `ClimaDelCampus` y `FeriadosOficiales`.
+
 MySQL de WAMP corriendo. Luego:
 
 ```bash
@@ -477,6 +495,19 @@ npm run dev                # o npm run build
     de rol para revisar otra cosa.
   - Pruebas: `scripts/prueba-calendario.php`, 26 verificaciones contra la BD
     real con rollback.
+  - **Feriados oficiales**: botón «Traer feriados {año}» que consulta
+    `date.nager.at` (sin llave) y los precarga. Llegan como **borrador**: un
+    feriado oficial no siempre es día sin clases en una escuela particular, y
+    esa decisión es de la dirección, no de una API. Idempotente: reimportar no
+    duplica.
+- **Tarjeta de clima en el panel** (`/panel/clima` + `TarjetaClima.vue`): del
+  campus donde la persona estudia, da clase o al que la acota su rol —**no de
+  la IP**: desde la red de la escuela todo sale por el mismo enlace y la IP es
+  un dato personal—. La IP queda de respaldo sólo si ningún campus tiene
+  coordenadas. `campus.latitud/longitud` son opcionales y se capturan en el CRUD
+  de campus. Trae el clima actual, 3 días de pronóstico y calidad del aire con
+  su recomendación (Open-Meteo, sin llave). Se pide DESPUÉS de cargar la página
+  y si falla no se dibuja: el panel no puede depender de un servicio externo.
 - **Asistencia con dos columnas de faltas**: la rejilla está recortada al mes,
   así que su total contesta «¿cómo le fue en noviembre?». Lo que decide el
   derecho a examen es el acumulado del curso, y había que ir mes por mes

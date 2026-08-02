@@ -20,6 +20,7 @@ use App\Http\Controllers\CatalogoAcademicoController;
 use App\Http\Controllers\CicloController;
 use App\Http\Controllers\ConfiguracionController;
 use App\Http\Controllers\Plataforma\CalendarioController;
+use App\Http\Controllers\Plataforma\ClimaController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocenciaController;
 use App\Http\Controllers\DocenteController;
@@ -1140,6 +1141,15 @@ Route::middleware([
             });
 
         /*
+         * El clima del campus, para la tarjeta del panel.
+         *
+         * Va aparte de la página para que el panel no espere a un servicio
+         * externo antes de pintar. Sin `can:`: todos los roles tienen panel y
+         * esto es información pública del lugar donde se estudia.
+         */
+        Route::get('panel/clima', ClimaController::class)->name('tenant.panel.clima');
+
+        /*
          * El calendario de la escuela.
          *
          * Sólo se escribe con `gestionar-calendario`; VER la agenda no pide
@@ -1153,6 +1163,7 @@ Route::middleware([
                 Route::get('/', 'index')->name('index');
                 Route::get('alumnos', 'buscarAlumnos')->name('alumnos');
                 Route::post('/', 'guardar')->name('crear');
+                Route::post('feriados', 'importarFeriados')->name('feriados');
                 Route::put('{evento}', 'guardar')->whereNumber('evento')->name('editar');
                 Route::delete('{evento}', 'eliminar')->whereNumber('evento')->name('eliminar');
             });

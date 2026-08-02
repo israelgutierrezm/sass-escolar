@@ -8,6 +8,7 @@ use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Identidad\Persona;
+use App\Models\Identidad\PersonaRol;
 
 /**
  * Dónde está parada una persona dentro de la escuela.
@@ -62,13 +63,41 @@ class ContextoAcademico
         // Se unen los dos oficios: hay quien da clase y además estudia un
         // posgrado en la misma escuela, y le tocan los avisos de ambos lados.
         return [
-            'campus' => $this->unir($comoAlumno['campus'], $comoDocente['campus']),
+            'campus' => $this->unir(
+                $this->unir($comoAlumno['campus'], $comoDocente['campus']),
+                $this->porAlcanceDeRol($personaId),
+            ),
             'nivel' => $this->unir($comoAlumno['nivel'], $comoDocente['nivel']),
             'carrera' => $this->unir($comoAlumno['carrera'], $comoDocente['carrera']),
             'plan' => $this->unir($comoAlumno['plan'], $comoDocente['plan']),
             'grupo' => $this->unir($comoAlumno['grupo'], $comoDocente['grupo']),
             'materia' => $this->unir($comoAlumno['materia'], $comoDocente['materia']),
         ];
+    }
+
+    /**
+     * El campus al que lo acota su rol.
+     *
+     * El personal administrativo no tiene matrícula ni materias asignadas, así
+     * que por los otros dos caminos no pertenece a ningún lado —y un aviso «al
+     * campus norte» no le llegaría a quien atiende la caja del campus norte—.
+     * Su pertenencia está en el alcance de su rol.
+     *
+     * Un rol sin campus es de alcance global: no aporta campus concreto, y por
+     * eso se filtra el null.
+     *
+     * @return int[]
+     */
+    private function porAlcanceDeRol(int $personaId): array
+    {
+        return PersonaRol::query()
+            ->where('persona_id', $personaId)
+            ->where('activo', true)
+            ->whereNotNull('campus_id')
+            ->pluck('campus_id')
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /**

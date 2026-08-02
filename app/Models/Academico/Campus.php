@@ -27,13 +27,23 @@ class Campus extends Model
         'tipo_campus_id',
         'online',
         'entidad_id',
+        'latitud',
+        'longitud',
     ];
 
     protected function casts(): array
     {
         return [
             'online' => 'boolean',
+            'latitud' => 'float',
+            'longitud' => 'float',
         ];
+    }
+
+    /** Si se puede consultar el clima —y ubicarlo en un mapa— de este campus. */
+    public function tieneCoordenadas(): bool
+    {
+        return $this->latitud !== null && $this->longitud !== null;
     }
 
     public function institucion(): BelongsTo

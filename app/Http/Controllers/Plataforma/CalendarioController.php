@@ -14,6 +14,7 @@ use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Grupo;
 use App\Models\Landlord\NivelEstudio;
 use App\Models\Plataforma\EventoCalendario;
+use App\Services\Plataforma\FeriadosOficiales;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -149,6 +150,39 @@ class CalendarioController extends Controller
             ]);
 
         return response()->json($alumnos->unique('id')->values());
+    }
+
+    /**
+     * Trae los días festivos oficiales del año y los deja en borrador.
+     *
+     * En borrador a propósito: un feriado oficial no siempre es día sin clases
+     * en una escuela particular, y esa decisión es de la dirección. Se importan,
+     * se revisan y se publica lo que aplique.
+     */
+    public function importarFeriados(Request $request, FeriadosOficiales $feriados): RedirectResponse
+    {
+        $datos = $request->validate([
+            'anio' => ['required', 'integer', 'min:2020', 'max:2100'],
+        ], [], ['anio' => 'año']);
+
+        $anio = (int) $datos['anio'];
+
+        if ($feriados->delAnio($anio) === null) {
+            return back(303)->with('error', 'No se pudo consultar el calendario oficial. Inténtalo más tarde.');
+        }
+
+        $resultado = $feriados->importar($anio);
+
+        if ($resultado['creados'] === 0) {
+            return back(303)->with('info', "Los feriados de {$anio} ya estaban en el calendario.");
+        }
+
+        return back(303)->with(
+            'exito',
+            "Se agregaron {$resultado['creados']} feriado(s) de {$anio} como borrador. "
+            .'Revísalos y publica los que apliquen en tu escuela.'
+            .($resultado['existentes'] > 0 ? " ({$resultado['existentes']} ya estaban.)" : ''),
+        );
     }
 
     public function eliminar(EventoCalendario $evento): RedirectResponse

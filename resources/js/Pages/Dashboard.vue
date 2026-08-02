@@ -2,6 +2,7 @@
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import TarjetaClima from '@/Components/TarjetaClima.vue';
 import type { PropsCompartidas } from '@/tipos';
 
 interface Tarjeta {
@@ -158,7 +159,15 @@ function conmutar(rolId: number): void {
             246px con el 60% en blanco. Un panel se lee mejor denso y algo
             irregular que alineado y vacío.
         -->
-        <section v-if="props.tarjetas.length" class="grid items-start gap-4 sm:grid-cols-4">
+        <section v-if="props.tarjetas.length || true" class="grid items-start gap-4 sm:grid-cols-4">
+            <!--
+                El clima va PRIMERO y ocupa una columna: es lo único del panel
+                que no exige nada de quien entra, y sirve de descanso visual
+                antes de la lista de pendientes. Se pinta sola cuando llega —o
+                no se pinta— sin hueco ni mensaje de error.
+            -->
+            <TarjetaClima class="sm:col-span-1" />
+
             <div
                 v-for="(tarjeta, i) in props.tarjetas"
                 :key="tarjeta.clave"

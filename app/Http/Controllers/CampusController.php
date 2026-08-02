@@ -75,7 +75,7 @@ class CampusController extends Controller
     public function edit(Campus $campus): Response
     {
         return Inertia::render('Academico/Campus/Formulario', [
-            'campus' => $campus->only(['id', 'clave', 'identificador', 'nombre', 'institucion_id', 'tipo_campus_id', 'online', 'entidad_id']),
+            'campus' => $campus->only(['id', 'clave', 'identificador', 'nombre', 'institucion_id', 'tipo_campus_id', 'online', 'entidad_id', 'latitud', 'longitud']),
             ...$this->catalogos(),
         ]);
     }
@@ -121,10 +121,17 @@ class CampusController extends Controller
             // Sin `exists`: el catálogo vive en la landlord (otra conexión) y se
             // referencia sin FK, igual que el resto de refs a datos centrales.
             'entidad_id' => ['required', 'integer'],
+
+            // Opcionales: son para el clima del panel y para ubicarlo en un
+            // mapa el día que haga falta. Un campus sin ellas funciona igual.
+            'latitud' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitud' => ['nullable', 'numeric', 'between:-180,180'],
         ], [], [
             'institucion_id' => 'institución',
             'tipo_campus_id' => 'tipo de campus',
             'entidad_id' => 'entidad federativa',
+            'latitud' => 'latitud',
+            'longitud' => 'longitud',
         ]);
 
         // «En línea» ya no es un checkbox aparte —era doble confirmación—: se

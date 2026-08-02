@@ -27,6 +27,8 @@ const form = useForm({
     institucion_id: props.campus?.institucion_id ?? (props.instituciones.length === 1 ? props.instituciones[0].id : null),
     tipo_campus_id: props.campus?.tipo_campus_id ?? null,
     entidad_id: props.campus?.entidad_id ?? null,
+    latitud: props.campus?.latitud ?? null,
+    longitud: props.campus?.longitud ?? null,
 });
 
 const opcionesTipo = computed(() => props.tiposCampus.map((t) => ({ valor: t.id, texto: t.nombre })));
@@ -74,6 +76,25 @@ function enviar(): void {
                         vacio="Sin especificar"
                         :error="form.errors.institucion_id"
                         ayuda="Informativo: la persona moral a la que pertenece este plantel."
+                    />
+                    <!-- Para el clima del panel. Opcionales: sin ellas el
+                         plantel funciona igual, sólo que su gente no ve la
+                         tarjeta del tiempo. -->
+                    <CampoTexto
+                        v-model="form.latitud"
+                        etiqueta="Latitud"
+                        tipo="number"
+                        step="0.0000001"
+                        :error="form.errors.latitud"
+                        ayuda="Opcional. Para el clima del panel. En Google Maps: clic derecho sobre el plantel."
+                    />
+                    <CampoTexto
+                        v-model="form.longitud"
+                        etiqueta="Longitud"
+                        tipo="number"
+                        step="0.0000001"
+                        :error="form.errors.longitud"
+                        ayuda="Opcional. El segundo número de las coordenadas."
                     />
                 </div>
                 <template #pie>
