@@ -3,6 +3,7 @@ import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import TarjetaClima from '@/Components/TarjetaClima.vue';
+import AgendaLateral from '@/Components/AgendaLateral.vue';
 import type { PropsCompartidas } from '@/tipos';
 
 interface Tarjeta {
@@ -14,9 +15,31 @@ interface Tarjeta {
     datos: Record<string, any>;
 }
 
+interface PuntoAgenda {
+    tipo: string;
+    clase: string;
+    etiqueta: string;
+    color: string;
+    titulo: string;
+    detalle: string | null;
+    fecha: string;
+    dia: string;
+    hora: string | null;
+    termina: string | null;
+    no_laborable: boolean;
+    enlace: string | null;
+}
+
 const props = defineProps<{
     tarjetas: Tarjeta[];
     campusDelRol: number[];
+    /** Lo que viene: calendario de la escuela + lo que vence de sus materias. */
+    agenda: {
+        mes: string;
+        proximos: PuntoAgenda[];
+        marcados: Record<string, string>;
+        hoy: string;
+    };
 }>();
 
 // Un color propio por tarjeta (según su clave) para que el panel sea más vistoso
@@ -159,15 +182,20 @@ function conmutar(rolId: number): void {
             246px con el 60% en blanco. Un panel se lee mejor denso y algo
             irregular que alineado y vacío.
         -->
-        <section v-if="props.tarjetas.length || true" class="grid items-start gap-4 sm:grid-cols-4">
-            <!--
-                El clima va PRIMERO y ocupa una columna: es lo único del panel
-                que no exige nada de quien entra, y sirve de descanso visual
-                antes de la lista de pendientes. Se pinta sola cuando llega —o
-                no se pinta— sin hueco ni mensaje de error.
-            -->
-            <TarjetaClima class="sm:col-span-1" />
+        <!--
+            Dos columnas: el trabajo a la izquierda, el CONTEXTO a la derecha.
 
+            A la derecha va lo que uno consulta —qué día es, qué viene, cómo
+            está el clima—; a la izquierda, lo que reclama acción. Mezclarlos en
+            una sola rejilla obligaba a barrer toda la pantalla para encontrar
+            lo que había que hacer hoy, que es a lo que se entra al panel.
+
+            La agenda se queda pegada al desplazarse (`sticky`): con seis
+            tarjetas, al bajar a mirar una métrica uno perdía de vista lo que
+            vence mañana.
+        -->
+        <div class="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+            <section v-if="props.tarjetas.length" class="grid items-start gap-4 sm:grid-cols-4">
             <div
                 v-for="(tarjeta, i) in props.tarjetas"
                 :key="tarjeta.clave"
@@ -374,12 +402,24 @@ function conmutar(rolId: number): void {
                     </div>
                 </template>
             </div>
-        </section>
+            </section>
 
-        <section v-else class="tarjeta px-6 py-8 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
-            Tu rol activo todavía no tiene nada que mostrar aquí. Las tarjetas del panel aparecen según
-            los permisos que tenga.
-        </section>
+            <section v-else class="tarjeta px-6 py-8 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
+                Tu rol activo todavía no tiene nada que mostrar aquí. Las tarjetas del panel aparecen según
+                los permisos que tenga.
+            </section>
+
+            <!-- El contexto: qué día es, qué viene, cómo está afuera. -->
+            <aside class="space-y-4 xl:sticky xl:top-4">
+                <AgendaLateral
+                    :mes="agenda.mes"
+                    :proximos="agenda.proximos"
+                    :marcados="agenda.marcados"
+                    :hoy="agenda.hoy"
+                />
+                <TarjetaClima />
+            </aside>
+        </div>
     </AppLayout>
 </template>
 

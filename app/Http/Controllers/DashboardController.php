@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Identidad\Usuario;
 use App\Panel\RegistroTarjetas;
+use App\Services\Plataforma\AgendaDelPanel;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -25,16 +26,34 @@ use Inertia\Response;
  */
 class DashboardController extends Controller
 {
-    public function __construct(private readonly RegistroTarjetas $registro) {}
+    public function __construct(
+        private readonly RegistroTarjetas $registro,
+        private readonly AgendaDelPanel $agenda,
+    ) {}
 
     public function __invoke(): Response
     {
         /** @var Usuario $usuario */
         $usuario = Auth::user();
 
+        $mes = date('Y-m');
+
         return Inertia::render('Dashboard', [
             'tarjetas' => $this->registro->para($usuario),
             'campusDelRol' => $usuario->campusDelRolActivo(),
+
+            /*
+             * La agenda va a la DERECHA de todos los paneles, y es la misma
+             * para cualquier rol: lo que viene, mezclando el calendario de la
+             * escuela con lo que vence de sus materias. Cada quien ve lo suyo
+             * porque el servicio ya filtró por pertenencia.
+             */
+            'agenda' => [
+                'mes' => $mes,
+                'proximos' => $this->agenda->proximos($usuario),
+                'marcados' => $this->agenda->diasMarcados($usuario, $mes),
+                'hoy' => date('Y-m-d'),
+            ],
         ]);
     }
 }

@@ -500,6 +500,25 @@ npm run dev                # o npm run build
     feriado oficial no siempre es día sin clases en una escuela particular, y
     esa decisión es de la dirección, no de una API. Idempotente: reimportar no
     duplica.
+- **Panel en dos columnas**: el TRABAJO a la izquierda (las tarjetas por
+  permiso, sin cambios en su registro) y el CONTEXTO a la derecha —agenda y
+  clima—, pegado al desplazarse. Mezclarlos en una sola rejilla obligaba a
+  barrer la pantalla para encontrar lo que hay que hacer hoy, que es a lo que
+  se entra al panel.
+  - **`AgendaDelPanel`** junta en UNA línea de tiempo lo del calendario de la
+    escuela y lo que vence de sus materias. Nadie piensa «mis entregas» y «los
+    avisos» por separado: se piensa «qué me toca esta semana», y con el examen
+    del martes en una tarjeta y el puente del miércoles en otra hay que
+    cruzarlos de memoria.
+  - La misma actividad se cuenta desde los dos lados del escritorio: al alumno
+    le sale como **Entrega** (lo que debe) y al docente como **Cierra** (lo que
+    le va a caer para calificar).
+  - El mini calendario marca con un punto los días que traen algo —el color dice
+    de qué clase— y la lista de abajo explica qué es. El detalle dentro de las
+    casillas haría ilegibles las dos cosas.
+  - «Mis materias» del docente pasó de listar ocho materias a ser una métrica
+    con enlace a `/docencia`: el panel contesta «cuánto tengo encima», no
+    «cuáles son mis materias» —eso ya lo sabe—.
 - **Tarjeta de clima en el panel** (`/panel/clima` + `TarjetaClima.vue`): del
   campus donde la persona estudia, da clase o al que la acota su rol —**no de
   la IP**: desde la red de la escuela todo sale por el mismo enlace y la IP es
