@@ -396,9 +396,12 @@ class DocenciaController extends Controller
                 'tiene_contenido' => $a->tieneContenido(),
                 'puntos' => (float) $a->puntos,
                 'esquema_evaluacion_id' => $a->esquema_evaluacion_id,
+                // Legible, igual que en el aula del alumno: `examen_p1` es la
+                // clave con la que control escolar armó el esquema, no un
+                // nombre que leerle a nadie.
                 'componente' => $a->componente === null
                     ? null
-                    : "P{$a->componente->parcial} · {$a->componente->componente}",
+                    : "P{$a->componente->parcial} · ".$a->componente->nombreLegible(),
                 'abre_en' => $a->abre_en?->format('Y-m-d\TH:i'),
                 'cierra_en' => $a->cierra_en?->format('Y-m-d\TH:i'),
                 'permite_tarde' => $a->permite_tarde,

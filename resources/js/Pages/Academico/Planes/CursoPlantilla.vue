@@ -26,6 +26,8 @@ interface ActividadPlantilla {
     titulo: string;
     instrucciones: string | null;
     contenido: string | null;
+    /** Si trae material cargado, para decirlo en la lista sin traerlo entero. */
+    tiene_contenido: boolean;
     puntos: number;
     permite_tarde: boolean;
     publicada: boolean;
@@ -416,6 +418,10 @@ const totalPonderado = computed(() =>
                             <template v-if="a.se_entrega"> · sobre {{ a.puntos }}</template>
                             <template v-if="a.componente"> · {{ a.componente }}</template>
                             <template v-else-if="a.se_entrega"> · formativa</template>
+                            <!-- El material viaja con la copia a cada grupo, así
+                                 que aquí se ve de un vistazo qué nacerá vacío. -->
+                            <template v-if="a.tiene_contenido"> · con material</template>
+                            <span v-else-if="a.tipo === 'lectura'" :style="{ color: '#d97706' }"> · sin material</span>
                         </span>
                     </span>
 

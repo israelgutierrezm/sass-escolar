@@ -31,6 +31,8 @@ interface ActividadDocente {
     titulo: string;
     instrucciones: string | null;
     contenido: string | null;
+    /** Si trae material cargado, para decirlo en la lista sin traerlo entero. */
+    tiene_contenido: boolean;
     puntos: number;
     esquema_evaluacion_id: number | null;
     componente: string | null;
@@ -567,6 +569,12 @@ const cortesCerrados = computed(() =>
                             <template v-if="a.componente"> · {{ a.componente }}</template>
                             <template v-else-if="a.se_entrega"> · formativa</template>
                             <template v-if="a.cierra_en"> · cierra {{ a.cierra_en.replace('T', ' ') }}</template>
+                            <!-- Si trae material, se dice: una lección sin
+                                 contenido cargado le llega al alumno como una
+                                 pantalla en blanco, y eso hay que poder verlo
+                                 desde aquí sin abrir una por una. -->
+                            <template v-if="a.tiene_contenido"> · con material</template>
+                            <span v-else-if="a.tipo === 'lectura'" :style="{ color: '#d97706' }"> · sin material</span>
                         </span>
                     </span>
                     <span v-if="a.se_entrega" class="shrink-0 text-xs" :style="{ color: 'var(--color-suave)' }">

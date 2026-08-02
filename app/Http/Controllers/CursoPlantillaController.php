@@ -69,13 +69,12 @@ class CursoPlantillaController extends Controller
                 'titulo' => $a->titulo,
                 'instrucciones' => $a->instrucciones,
                 'contenido' => $a->contenido,
+                'tiene_contenido' => $a->tieneContenido(),
                 'puntos' => (float) $a->puntos,
                 'permite_tarde' => (bool) $a->permite_tarde,
                 'publicada' => (bool) $a->publicada,
                 'esquema_evaluacion_id' => $a->esquema_evaluacion_id,
-                'componente' => $a->componente
-                    ? "Parcial {$a->componente->parcial} · {$a->componente->componente}"
-                    : null,
+                'componente' => $a->componente?->etiquetaCompleta(),
                 'tiene_examen' => $a->tipo === TipoActividad::Examen,
             ])->values(),
             'componentes' => EsquemaEvaluacion::query()
