@@ -263,7 +263,7 @@ class CapturaCalificacionesController extends Controller
                     continue;
                 }
 
-                CalificacionComponente::updateOrCreate(
+                CalificacionComponente::actualizarOReviver(
                     [
                         'inscripcion_id' => $fila['inscripcion_id'],
                         'esquema_evaluacion_id' => $fila['esquema_evaluacion_id'],

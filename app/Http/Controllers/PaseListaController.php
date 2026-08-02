@@ -75,29 +75,21 @@ class PaseListaController extends Controller
                  * lista entera moría con un 1062. Le pasa a cualquiera que
                  * borre una asistencia y vuelva a pasar lista ese día.
                  */
-                $registro = AsistenciaClase::withTrashed()->firstOrNew([
-                    'inscripcion_id' => $fila['inscripcion_id'],
-                    'fecha' => $datos['fecha'],
-                    'modalidad' => $datos['modalidad'],
-                ]);
-
-                $registro->fill([
-                    'estatus' => $fila['estatus'],
-                    'observacion' => $fila['observacion'] ?? null,
-                    // La llave foránea apunta a `personas`, no a `usuarios`:
-                    // quien pasa lista es el docente como PERSONA, que es lo
-                    // que sigue teniendo sentido si su cuenta desaparece.
-                    'registrada_por' => $usuario->persona_id,
-                ]);
-
-                /*
-                 * Se revive fuera del `fill` porque `deleted_at` NO está en el
-                 * `$fillable` —y no debe estarlo: borrar no es algo que se
-                 * asigne en masa desde una petición—. Puesto ahí, se habría
-                 * descartado en silencio y el registro seguiría borrado.
-                 */
-                $registro->deleted_at = null;
-                $registro->save();
+                AsistenciaClase::actualizarOReviver(
+                    [
+                        'inscripcion_id' => $fila['inscripcion_id'],
+                        'fecha' => $datos['fecha'],
+                        'modalidad' => $datos['modalidad'],
+                    ],
+                    [
+                        'estatus' => $fila['estatus'],
+                        'observacion' => $fila['observacion'] ?? null,
+                        // La llave foránea apunta a `personas`, no a `usuarios`:
+                        // quien pasa lista es el docente como PERSONA, que es lo
+                        // que sigue teniendo sentido si su cuenta desaparece.
+                        'registrada_por' => $usuario->persona_id,
+                    ],
+                );
 
                 $guardadas++;
             }

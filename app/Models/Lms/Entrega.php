@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models\Lms;
 
+use App\Models\Concerns\ReviveAlGuardar;
 use App\Models\Concerns\TieneAuditoria;
 use App\Models\ControlEscolar\Inscripcion;
 use Illuminate\Database\Eloquent\Model;
@@ -21,6 +22,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 class Entrega extends Model
 {
+    use ReviveAlGuardar;
     use SoftDeletes;
     use TieneAuditoria;
 

@@ -297,7 +297,11 @@ class MisCursosController extends Controller
                     $calificacion = $capturadas->get($e->id)?->calificacion;
 
                     return [
-                        'componente' => $e->componente,
+                        // La clave del esquema viene como la escribió control
+                        // escolar: `examen_p1`, `asistencia_p2`. Eso es un
+                        // identificador, no un nombre, y al alumno hay que
+                        // decirle «Examen» y no leerle una variable.
+                        'componente' => $this->nombreLegible($e->componente),
                         'porcentaje' => (float) $e->porcentaje,
                         'calificacion' => $calificacion === null ? null : (float) $calificacion,
                     ];
@@ -384,7 +388,7 @@ class MisCursosController extends Controller
                 // Qué pesa: el componente al que cuelga, o nada si es formativa.
                 'componente' => $a->componente === null
                     ? null
-                    : "Parcial {$a->componente->parcial} · {$a->componente->componente}",
+                    : "Parcial {$a->componente->parcial} · ".$this->nombreLegible($a->componente->componente),
                 'entrega' => $entrega === null ? null : [
                     'id' => $entrega->id,
                     'estado' => $entrega->estado,
@@ -438,6 +442,47 @@ class MisCursosController extends Controller
      * No es la calificación —es cuánto del camino se ha recorrido—, que es lo
      * que un alumno pregunta a media materia.
      */
+    /**
+     * `examen_p1` → «Examen», `participacion` → «Participación».
+     *
+     * Se quita el sufijo del parcial porque el parcial ya lo dice el bloque en
+     * el que está: repetirlo en cada renglón es ruido. Solo cambia lo que se
+     * MUESTRA; el dato guardado sigue siendo la clave que usa control escolar.
+     */
+    private function nombreLegible(?string $clave): string
+    {
+        if (blank($clave)) {
+            return 'Componente';
+        }
+
+        $sinParcial = preg_replace('/[_\s-]*p\d+$/i', '', trim($clave)) ?? $clave;
+        $conEspacios = mb_strtolower(trim(str_replace(['_', '-'], ' ', $sinParcial)));
+
+        /*
+         * Las claves se escriben sin acentos, y un `ucfirst` no puede
+         * inventarlos: dejaría «Participacion» en una pantalla de un sistema
+         * que escribe en español correcto. Se acentúan las que toda escuela
+         * usa; lo demás sale limpio aunque sin tilde, que es lo más que se
+         * puede hacer sin adivinar.
+         */
+        $conocidas = [
+            'participacion' => 'Participación',
+            'examen' => 'Examen',
+            'examen final' => 'Examen final',
+            'asistencia' => 'Asistencia',
+            'tareas' => 'Tareas',
+            'tarea' => 'Tarea',
+            'practicas' => 'Prácticas',
+            'practica' => 'Práctica',
+            'proyecto' => 'Proyecto',
+            'exposicion' => 'Exposición',
+            'trabajo final' => 'Trabajo final',
+            'evaluacion continua' => 'Evaluación continua',
+        ];
+
+        return $conocidas[$conEspacios] ?? ucfirst($conEspacios);
+    }
+
     private function avanceDe(Inscripcion $inscripcion): ?int
     {
         $planMateriaId = $inscripcion->asignaturaGrupo?->plan_materia_id;
@@ -456,8 +501,23 @@ class MisCursosController extends Controller
 
         $ids = EsquemaEvaluacion::query()->where('plan_materia_id', $planMateriaId)->pluck('id');
 
+        /*
+         * Solo cuentan las que tienen un NÚMERO.
+         *
+         * La pantalla de captura crea una fila por componente en cuanto se abre,
+         * aunque el docente no escriba nada; contar filas hacía decir «100% de
+         * la evaluación ya calificada» de una materia sin una sola nota, tres
+         * líneas arriba de «llevas 0 de los 0 puntos ya calificados». Dos
+         * consultas sobre la misma tabla que contaban cosas distintas: una las
+         * filas, la otra los valores.
+         */
+        $conNota = $inscripcion->calificaciones()
+            ->whereIn('esquema_evaluacion_id', $ids)
+            ->whereNotNull('calificacion')
+            ->pluck('esquema_evaluacion_id');
+
         $pesoCapturado = (float) EsquemaEvaluacion::query()
-            ->whereIn('id', $inscripcion->calificaciones()->whereIn('esquema_evaluacion_id', $ids)->pluck('esquema_evaluacion_id'))
+            ->whereIn('id', $conNota)
             ->sum('porcentaje');
 
         return (int) round($pesoCapturado * 100 / $pesoTotal);

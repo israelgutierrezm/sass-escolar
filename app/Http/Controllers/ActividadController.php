@@ -123,7 +123,10 @@ class ActividadController extends Controller
      */
     private function cursoDe(AsignaturaGrupo $asignaturaGrupo): Curso
     {
-        return Curso::firstOrCreate(
+        // `primeraOReviver` y no `actualizarOReviver`: el `publicado => true` es
+        // el valor con el que NACE el curso, no algo que deba reimponerse cada
+        // vez que se agrega una actividad.
+        return Curso::primeraOReviver(
             ['asignatura_grupo_id' => $asignaturaGrupo->id],
             ['publicado' => true],
         );

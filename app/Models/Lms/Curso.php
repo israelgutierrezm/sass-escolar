@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models\Lms;
 
 use App\Models\Academico\PlanMateria;
+use App\Models\Concerns\ReviveAlGuardar;
 use App\Models\Concerns\TieneAuditoria;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use Illuminate\Database\Eloquent\Model;
@@ -22,6 +23,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 class Curso extends Model
 {
+    use ReviveAlGuardar;
     use SoftDeletes;
     use TieneAuditoria;
 

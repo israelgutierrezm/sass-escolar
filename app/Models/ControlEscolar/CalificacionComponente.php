@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models\ControlEscolar;
 
 use App\Models\Academico\EsquemaEvaluacion;
+use App\Models\Concerns\ReviveAlGuardar;
 use App\Models\Concerns\TieneAuditoria;
 use App\Models\Identidad\Persona;
 use Illuminate\Database\Eloquent\Model;
@@ -18,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class CalificacionComponente extends Model
 {
+    use ReviveAlGuardar;
     use TieneAuditoria;
 
     protected $table = 'calificaciones_componente';

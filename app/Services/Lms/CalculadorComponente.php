@@ -93,7 +93,14 @@ class CalculadorComponente
         $obtenidos = $calificadas->sum(fn (Entrega $e) => (float) $e->calificacion);
         $enDiez = round($obtenidos * 10 / $puntosPosibles, 2);
 
-        return CalificacionComponente::updateOrCreate(
+        /*
+         * Revive si estaba borrada. Este mismo método la borra unas líneas
+         * arriba cuando no queda nada calificado, así que el ciclo
+         * «calificar → descalificar → volver a calificar» es normal aquí: con
+         * `updateOrCreate` la segunda vuelta reventaba contra el unique, porque
+         * el scope de borrado esconde la fila que la base sí ve.
+         */
+        return CalificacionComponente::actualizarOReviver(
             ['inscripcion_id' => $inscripcionId, 'esquema_evaluacion_id' => $esquemaId],
             [
                 'calificacion' => $enDiez,

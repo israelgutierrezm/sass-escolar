@@ -108,7 +108,7 @@ class CursoPlantillaController extends Controller
             'publicado' => ['boolean'],
         ], [], ['presentacion' => 'presentación']);
 
-        Curso::updateOrCreate(['plan_materia_id' => $materia->id], $datos);
+        Curso::actualizarOReviver(['plan_materia_id' => $materia->id], $datos);
 
         return back()->with(
             'exito',

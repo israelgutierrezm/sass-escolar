@@ -237,7 +237,7 @@ class ForoController extends Controller
             return;
         }
 
-        Entrega::updateOrCreate(
+        Entrega::actualizarOReviver(
             ['actividad_id' => $actividad->id, 'inscripcion_id' => $inscripcion->id],
             [
                 'estado' => Entrega::ENTREGADA,

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models\Asistencia;
 
+use App\Models\Concerns\ReviveAlGuardar;
 use App\Models\Concerns\TieneAuditoria;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Identidad\Persona;
@@ -16,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class AsistenciaClase extends Model
 {
+    use ReviveAlGuardar;
     use TieneAuditoria;
 
     public const PRESENTE = 'presente';

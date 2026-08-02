@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models\Lms;
 
+use App\Models\Concerns\ReviveAlGuardar;
 use App\Models\Concerns\TieneAuditoria;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\Identidad\Persona;
@@ -22,6 +23,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 class Conversacion extends Model
 {
+    use ReviveAlGuardar;
     use SoftDeletes;
     use TieneAuditoria;
 

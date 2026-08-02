@@ -48,7 +48,7 @@ class EntregaController extends Controller
 
         // Reentregar REEMPLAZA: hay un renglón por alumno y actividad, y crear
         // otro chocaría contra el unique. Lo aprendimos en `inscripcion`.
-        $entrega = Entrega::updateOrCreate(
+        $entrega = Entrega::actualizarOReviver(
             ['actividad_id' => $actividad->id, 'inscripcion_id' => $inscripcion->id],
             [
                 'contenido' => $datos['contenido'] ?? null,

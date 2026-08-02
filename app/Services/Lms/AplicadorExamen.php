@@ -240,7 +240,7 @@ class AplicadorExamen
             );
         }
 
-        $entrega = Entrega::updateOrCreate(
+        $entrega = Entrega::actualizarOReviver(
             ['actividad_id' => $actividad->id, 'inscripcion_id' => $intento->inscripcion_id],
             [
                 'estado' => $pendiente ? Entrega::ENTREGADA : Entrega::CALIFICADA,

@@ -86,7 +86,7 @@ class SalaDeMateria
     /** El canal del grupo, creándolo la primera vez que alguien lo abre. */
     public function canalDelGrupo(AsignaturaGrupo $materia): Conversacion
     {
-        return Conversacion::firstOrCreate([
+        return Conversacion::primeraOReviver([
             'asignatura_grupo_id' => $materia->id,
             'tipo' => Conversacion::GRUPO,
             'persona_a_id' => null,
@@ -116,7 +116,7 @@ class SalaDeMateria
 
         [$a, $b] = Conversacion::pareja($unaPersona, $otraPersona);
 
-        return Conversacion::firstOrCreate([
+        return Conversacion::primeraOReviver([
             'asignatura_grupo_id' => $materia->id,
             'tipo' => Conversacion::DIRECTA,
             'persona_a_id' => $a,
