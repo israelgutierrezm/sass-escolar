@@ -423,7 +423,12 @@ npm run dev                # o npm run build
   pública lleva un **uuid** y no el id, porque un id se cuenta y quien pidiera
   1, 2, 3… se llevaría el material entero de la escuela. Subir exige el permiso
   derivado `subir-material` (docente **o** quien edita el catálogo académico:
-  son dos oficios usando el mismo editor); ver sólo exige sesión.
+  son dos oficios usando el mismo editor); ver sólo exige sesión. Las medidas
+  (`ancho`/`alto`) se toman en el servidor con `getimagesize` al subir y viajan
+  como `width`/`height` del `<img>`: el navegador reserva el hueco y la lección
+  no da el salto al cargar la figura. En el aula el texto va en 68ch pero la
+  imagen y el iframe usan el ancho de la tarjeta —una figura no se lee mejor
+  encogida a la medida de una línea de texto—.
 - **Panel de calificación** (`PanelCalificacion.vue`): el formulario vivía
   DEBAJO de la rejilla, así que calificar a la fila 4 de treinta abría un cuadro
   dos pantallas más abajo — y no mostraba los adjuntos, de modo que una tarea

@@ -31,6 +31,8 @@ class ImagenContenido extends Model
         'nombre_original',
         'mime',
         'tamano',
+        'ancho',
+        'alto',
         'subida_por',
     ];
 

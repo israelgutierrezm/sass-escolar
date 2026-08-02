@@ -144,6 +144,20 @@ async function subirImagen(evento: Event): Promise<void> {
         });
 
         if (!respuesta.ok) {
+            /*
+             * 419 es la sesión caducada, y es el error MÁS probable aquí: se
+             * escribe una lección con la pestaña abierta media hora y el token
+             * ya no sirve. El mensaje que manda el servidor en ese caso habla de
+             * tokens; al docente hay que decirle qué hacer, y sobre todo que no
+             * pierda lo escrito —recargar sí lo perdería—.
+             */
+            if (respuesta.status === 419) {
+                errorImagen.value = 'Tu sesión caducó. Copia lo que llevas escrito, '
+                    + 'vuelve a entrar y pégalo: si recargas ahora, se pierde.';
+
+                return;
+            }
+
             const datos = await respuesta.json().catch(() => null);
 
             // El mensaje del servidor dice lo que de verdad pasó —el formato no
@@ -155,9 +169,16 @@ async function subirImagen(evento: Event): Promise<void> {
             return;
         }
 
-        const { url } = await respuesta.json();
+        const { url, ancho, alto } = await respuesta.json();
 
-        editor.value?.chain().focus().setImage({ src: url, alt: archivo.name }).run();
+        // Con las medidas puestas, la página reserva el hueco antes de que la
+        // imagen llegue y no da el salto al cargar. Van como atributos del
+        // `<img>`; el CSS de la lección las deja fluir (`max-width:100%`).
+        editor.value
+            ?.chain()
+            .focus()
+            .setImage({ src: url, alt: archivo.name, width: ancho ?? null, height: alto ?? null })
+            .run();
     } catch {
         errorImagen.value = 'No se pudo subir la imagen. Revisa tu conexión.';
     } finally {

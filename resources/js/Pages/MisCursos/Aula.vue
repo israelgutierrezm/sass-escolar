@@ -644,11 +644,30 @@ const estado = computed(() => {
  * clara de títulos y ancho contenido —una línea de 120 caracteres se lee mal
  * por más grande que sea la pantalla—.
  */
+/*
+ * El texto se lee en medida corta (68ch) pero la tarjeta es más ancha, y una
+ * FIGURA no tiene por qué encogerse a la medida del texto: un diagrama a 493 px
+ * dentro de una columna de lectura se ve apretado cuando al lado sobra espacio.
+ *
+ * Por eso el ancho de lectura NO va en `.prosa` sino en cada bloque de texto:
+ * así las imágenes, los iframes y las tablas quedan libres para usar el ancho
+ * completo, y el párrafo sigue leyéndose en su línea corta.
+ */
 .prosa {
-    max-width: 68ch;
     color: var(--color-contenido);
     font-size: 0.95rem;
     line-height: 1.75;
+}
+
+.prosa :deep(p),
+.prosa :deep(ul),
+.prosa :deep(ol),
+.prosa :deep(blockquote),
+.prosa :deep(h1),
+.prosa :deep(h2),
+.prosa :deep(h3),
+.prosa :deep(h4) {
+    max-width: 68ch;
 }
 
 .prosa :deep(p) {
@@ -722,16 +741,28 @@ const estado = computed(() => {
     margin-bottom: 1em;
 }
 
+/*
+ * La imagen se pinta a su tamaño natural, sin pasar del ancho de la tarjeta ni
+ * estirarse más allá de lo que mide —una figura de 400 px ampliada a 800 se ve
+ * borrosa—. El `width`/`height` del `<img>` reserva el hueco con su proporción
+ * y evita el salto de la página al cargar.
+ */
 .prosa :deep(img) {
     max-width: 100%;
     height: auto;
     border-radius: 8px;
+    margin: 0.5em 0 1em;
 }
 
-/* Lo incrustado ocupa el ancho de la lectura y guarda proporción de video. */
+/*
+ * Lo incrustado (video, SCORM) ocupa el ancho hasta un tope: sin él, en una
+ * tarjeta ancha un video se estira a lo bestia. El alto lo pone el propio
+ * bloque (el atributo `height` del iframe), no se fuerza una proporción: un
+ * SCORM puede necesitar un marco más alto que un video.
+ */
 .prosa :deep(iframe) {
     width: 100%;
-    max-width: 100%;
+    max-width: 820px;
     border: 0;
     border-radius: 10px;
     margin: 0.5em 0 1em;

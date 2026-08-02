@@ -55,17 +55,28 @@ class ImagenContenidoController extends Controller
         /** @var Usuario $usuario */
         $usuario = $request->user();
 
+        // Las medidas se toman aquí, del archivo real, una sola vez. Que las
+        // reporte el navegador sería más fácil y menos de fiar: un cliente puede
+        // mandar cualquier número, y de esos números depende cuánto espacio
+        // reserva la página. `getimagesize` no falla en los formatos que
+        // aceptamos, pero si algo saliera raro, null y la imagen igual se pinta.
+        $dimensiones = @getimagesize($archivo->getRealPath()) ?: null;
+
         $imagen = ImagenContenido::create([
             'ruta' => $archivo->store('lms/contenido', 'local'),
             'nombre_original' => $archivo->getClientOriginalName(),
             'mime' => $archivo->getMimeType(),
             'tamano' => $archivo->getSize(),
+            'ancho' => $dimensiones[0] ?? null,
+            'alto' => $dimensiones[1] ?? null,
             'subida_por' => $usuario->id,
         ]);
 
         return response()->json([
             'url' => $imagen->url(),
             'nombre' => $imagen->nombre_original,
+            'ancho' => $imagen->ancho,
+            'alto' => $imagen->alto,
         ]);
     }
 
