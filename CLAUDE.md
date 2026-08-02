@@ -150,6 +150,24 @@ Cinco entregas, en este orden. A y B ✅ hechas; C, D y E pendientes:
   matrículas; corregir su identidad alcanza a todas, la situación es de cada
   una.
 
+## Trampas al migrar (ya mordieron; no volver a pisarlas)
+
+- **Un índice compuesto que empieza por una columna con llave foránea la está
+  sosteniendo, aunque nada lo diga.** MySQL acepta cualquier índice que EMPIECE
+  por la columna de la foránea, así que `(inscripcion_id, fecha)` o
+  `(curso_id, tema)` son los que la cubren. Al intentar tirarlos:
+  `Cannot drop index '…': needed in a foreign key constraint`. Hay que crear el
+  sustituto ANTES de retirar el viejo — usar
+  `App\Support\IndiceQueSostieneUnaFk::reemplazar(...)`, que ya lo hace en un
+  renglón y es idempotente. Mordió al separar el pase de lista en teoría y
+  práctica, y al retirar `tema` de los reactivos.
+- **No se indexan las foráneas «por si acaso».** Un índice de más se paga en
+  cada escritura, para siempre, a cambio de un problema que aparece solo al
+  cambiar el esquema. Se paga cuando hace falta.
+- **Migración que puede fallar a la mitad = migración que comprueba antes de
+  actuar** (`Schema::hasColumn`, `IndiceQueSostieneUnaFk::existe`). Un reintento
+  tras un fallo parcial no debe chocar contra su propio trabajo.
+
 ## Entorno local
 
 MySQL de WAMP corriendo. Luego:

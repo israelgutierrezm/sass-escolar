@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Support\IndiceQueSostieneUnaFk;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -31,17 +32,11 @@ return new class extends Migration
     {
         /*
          * El índice `(curso_id, tema)` apoyaba la búsqueda por tema, pero además
-         * —por empezar con `curso_id`— es el que sostiene la llave foránea al
-         * curso, y MySQL se niega a dejarla sin ninguno. Se crea el sustituto
-         * ANTES de tirar el viejo. Ya nos mordió al separar el pase de lista.
+         * —por empezar con `curso_id`— sostenía la llave foránea al curso, y
+         * MySQL se niega a dejarla sin ninguno. El helper crea el sustituto
+         * ANTES de tirar el viejo, que es lo único que importa aquí.
          */
-        Schema::table('reactivos', function (Blueprint $table) {
-            $table->index('curso_id', 'reactivos_curso_id_index');
-        });
-
-        Schema::table('reactivos', function (Blueprint $table) {
-            $table->dropIndex(['curso_id', 'tema']);
-        });
+        IndiceQueSostieneUnaFk::reemplazar('reactivos', ['curso_id', 'tema'], 'curso_id');
 
         Schema::table('reactivos', function (Blueprint $table) {
             $table->renameColumn('retroalimentacion', 'retro_correcta');
@@ -81,12 +76,6 @@ return new class extends Migration
             $table->renameColumn('retro_correcta', 'retroalimentacion');
         });
 
-        Schema::table('reactivos', function (Blueprint $table) {
-            $table->index(['curso_id', 'tema']);
-        });
-
-        Schema::table('reactivos', function (Blueprint $table) {
-            $table->dropIndex('reactivos_curso_id_index');
-        });
+        IndiceQueSostieneUnaFk::reponer('reactivos', ['curso_id', 'tema'], 'curso_id');
     }
 };

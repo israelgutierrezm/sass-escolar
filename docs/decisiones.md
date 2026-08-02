@@ -2922,3 +2922,40 @@ PENDIENTE: la documentación requerida por PLAN de estudios y su administración
 se harán desde Admisiones, sobre el flujo real (`documento_ambitos`), con la
 granularidad que se defina (por plan/ámbito). No se creó `documento_plan` ahora
 para no dejar otro pivote sin consumir.
+
+## 2026-08-02 — El índice que sostiene una llave foránea (trampa resuelta)
+
+Dos migraciones distintas murieron con el mismo error, con seis días de
+diferencia:
+
+```
+Cannot drop index '…': needed in a foreign key constraint
+```
+
+La primera al separar el pase de lista en teoría y práctica —había que cambiar
+el unique `(inscripcion_id, fecha)` por `(inscripcion_id, fecha, modalidad)`—.
+La segunda al retirar `tema` de los reactivos, que obligaba a tirar el índice
+`(curso_id, tema)`.
+
+**La causa es la misma y no se ve leyendo la migración.** MySQL exige que toda
+llave foránea esté cubierta por algún índice, y acepta cualquiera que EMPIECE
+por su columna. Un índice compuesto creado para acelerar consultas termina
+sosteniendo la foránea sin que nada lo declare. El día que se quiere tocar, la
+base se niega.
+
+Las dos veces se resolvió igual —crear el sustituto ANTES de retirar el viejo—
+y las dos veces se descubrió fallando, a mitad de una migración ya aplicada
+parcialmente.
+
+**Qué se hizo ahora:** `App\Support\IndiceQueSostieneUnaFk`, con `reemplazar()`
+y `reponer()` para el rollback. Hace el orden correcto, comprueba antes de
+actuar —de modo que un reintento tras un fallo parcial no choque contra su
+propio trabajo— y deja el motivo escrito donde se va a leer. La migración de los
+reactivos quedó usándolo, como ejemplo vivo. Queda además anotado en el
+`CLAUDE.md`, en una sección de trampas al migrar.
+
+**Lo que NO se hizo, a propósito:** indexar todas las llaves foráneas «por si
+acaso». Un índice de más se paga en cada escritura, para siempre, a cambio de
+evitar un problema que aparece solo cuando se cambia el esquema y se arregla en
+dos líneas. En una tabla como `mensajes` sería cobrarle a cada mensaje del chat
+el precio de una migración futura. Se paga cuando hace falta, no antes.
