@@ -75,4 +75,20 @@ return [
         'timeout' => (int) env('TITULOS_SEP_TIMEOUT', 30),
     ],
 
+    /*
+    |---------------------------------------------------------------------------
+    | Banxico (SIE)
+    |---------------------------------------------------------------------------
+    |
+    | El tipo de cambio FIX, que es el que vale para efectos fiscales en México.
+    | El token es GRATUITO y se saca en:
+    | https://www.banxico.org.mx/SieAPIRest/service/v1/token
+    |
+    | Sin token, el panel muestra la referencia del Banco Central Europeo y lo
+    | dice —sirve para orientarse, no para timbrar—.
+    */
+    'banxico' => [
+        'token' => env('BANXICO_TOKEN'),
+    ],
+
 ];

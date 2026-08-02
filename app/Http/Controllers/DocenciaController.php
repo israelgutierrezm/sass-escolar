@@ -57,8 +57,21 @@ class DocenciaController extends Controller
             ])
             ->whereHas('docentes', fn ($q) => $q->where('docentes.persona_id', $personaId))
             ->when($ciclo !== null, fn ($q) => $q->whereHas('grupo', fn ($g) => $g->where('ciclo_id', $ciclo->id)))
-            ->get()
+            ->get();
+
+        /*
+         * Lo que reclama trabajo en cada materia, resuelto en bloque.
+         *
+         * Sin esto, el listado dice qué materias tiene —cosa que el docente ya
+         * sabe— pero no a cuál conviene entrar hoy. Estas tres cifras son las
+         * que contestan eso: qué falta calificar, quién escribió y si ya se
+         * pasó lista.
+         */
+        $pendientes = $this->pendientesPorMateria($materias->pluck('id'), $personaId);
+
+        $materias = $materias
             ->map(fn (AsignaturaGrupo $ag) => [
+                ...($pendientes[$ag->id] ?? ['por_calificar' => 0, 'sin_leer' => 0, 'lista_hoy' => false]),
                 'id' => $ag->id,
                 'clave_en_plan' => $ag->planMateria?->clave_en_plan,
                 'materia' => $ag->planMateria?->asignatura?->nombre,
@@ -83,7 +96,10 @@ class DocenciaController extends Controller
                     ->count(),
                 'cortes_totales' => count($this->calendario->estadoPorParcial($ag, $personaId)),
             ])
-            ->sortBy(['ciclo', 'grupo', 'clave_en_plan'])
+            // Lo que tiene trabajo esperando, primero: con ocho materias, la que
+            // reclama atención no puede quedar en el sexto lugar por orden
+            // alfabético.
+            ->sortByDesc(fn (array $m) => $m['por_calificar'] + $m['sin_leer'])
             ->values()
             ->all();
 
@@ -464,6 +480,95 @@ class DocenciaController extends Controller
             ])->values(),
             'tiposActividad' => TipoActividad::paraSelect(),
         ];
+    }
+
+    /**
+     * Lo que espera trabajo en cada materia: por calificar, sin leer, y si ya
+     * se pasó lista hoy.
+     *
+     * Tres consultas agrupadas para TODAS las materias, no tres por materia:
+     * un docente con ocho grupos haría veinticuatro viajes a la base cada vez
+     * que abre su listado.
+     *
+     * @param  \Illuminate\Support\Collection<int, int>  $materiaIds
+     * @return array<int, array<string, mixed>>
+     */
+    private function pendientesPorMateria($materiaIds, int $personaId): array
+    {
+        if ($materiaIds->isEmpty()) {
+            return [];
+        }
+
+        $cursos = Curso::query()
+            ->whereIn('asignatura_grupo_id', $materiaIds)
+            ->pluck('asignatura_grupo_id', 'id');
+
+        // Entregas que llegaron y nadie ha revisado.
+        $porCalificar = $cursos->isEmpty() ? collect() : Entrega::query()
+            ->selectRaw('actividades.curso_id, count(*) as total')
+            ->join('actividades', 'actividades.id', '=', 'entregas.actividad_id')
+            ->whereIn('actividades.curso_id', $cursos->keys())
+            ->whereNull('entregas.deleted_at')
+            ->whereNull('actividades.deleted_at')
+            ->whereNotNull('entregas.entregada_en')
+            ->whereNull('entregas.calificacion')
+            ->groupBy('actividades.curso_id')
+            ->pluck('total', 'curso_id')
+            ->mapWithKeys(fn ($total, $cursoId) => [(int) $cursos->get($cursoId) => (int) $total]);
+
+        // Si ya se pasó lista HOY: es la pregunta de todas las mañanas.
+        $listaHoy = AsistenciaClase::query()
+            ->join('inscripcion', 'inscripcion.id', '=', 'asistencia_clase.inscripcion_id')
+            ->whereIn('inscripcion.asignatura_grupo_id', $materiaIds)
+            ->whereDate('asistencia_clase.fecha', now()->toDateString())
+            ->distinct()
+            ->pluck('inscripcion.asignatura_grupo_id')
+            ->flip();
+
+        $sinLeer = $this->sinLeerPorMateria($materiaIds, $personaId);
+
+        $resultado = [];
+
+        foreach ($materiaIds as $id) {
+            $resultado[$id] = [
+                'por_calificar' => (int) ($porCalificar[$id] ?? 0),
+                'sin_leer' => (int) ($sinLeer[$id] ?? 0),
+                'lista_hoy' => $listaHoy->has($id),
+            ];
+        }
+
+        return $resultado;
+    }
+
+    /**
+     * Mensajes que le escribieron y no ha leído, por materia.
+     *
+     * @param  \Illuminate\Support\Collection<int, int>  $materiaIds
+     * @return array<int, int>
+     */
+    private function sinLeerPorMateria($materiaIds, int $personaId): array
+    {
+        $conversaciones = Conversacion::query()
+            ->whereIn('asignatura_grupo_id', $materiaIds)
+            ->where(fn ($q) => $q->where('tipo', Conversacion::GRUPO)
+                ->orWhere('persona_a_id', $personaId)
+                ->orWhere('persona_b_id', $personaId))
+            ->get();
+
+        if ($conversaciones->isEmpty()) {
+            return [];
+        }
+
+        $sinLeer = app(SalaDeMateria::class)->sinLeer($conversaciones, $personaId);
+
+        $porMateria = [];
+
+        foreach ($conversaciones as $conversacion) {
+            $materia = (int) $conversacion->asignatura_grupo_id;
+            $porMateria[$materia] = ($porMateria[$materia] ?? 0) + ($sinLeer[$conversacion->id] ?? 0);
+        }
+
+        return $porMateria;
     }
 
     /**

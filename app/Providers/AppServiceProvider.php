@@ -9,6 +9,7 @@ use App\Panel\Tarjetas\AccesosDirectos;
 use App\Panel\Tarjetas\ActividadPorHora;
 use App\Panel\Tarjetas\CarteraDeLaEscuela;
 use App\Panel\Tarjetas\ComisionesPorPagar;
+use App\Panel\Tarjetas\IndicadoresDelDia;
 use App\Panel\Tarjetas\EmbudoDeAdmision;
 use App\Panel\Tarjetas\LoQueEsperaAlDocente;
 use App\Panel\Tarjetas\MiAvanceAcademico;
@@ -182,6 +183,7 @@ class AppServiceProvider extends ServiceProvider
                 MisMateriasDocente::class,
                 ProspectosPorContactar::class,
                 CarteraDeLaEscuela::class,
+                IndicadoresDelDia::class,
                 ComisionesPorPagar::class,
                 EmbudoDeAdmision::class,
                 ActividadPorHora::class,

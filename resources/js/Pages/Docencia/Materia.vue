@@ -274,7 +274,22 @@ const pestanas = computed(() => [
     ...(props.puedeCapturar ? [{ clave: 'actividades', etiqueta: `Actividades (${props.actividades.length})` }] : []),
 ]);
 
-const tab = ref<string>(pestanas.value[0]?.clave ?? 'alumnos');
+/**
+ * La pestaña de arranque, con `?panel=` como atajo.
+ *
+ * Desde «Mis materias» se entra directo a pasar lista —es lo que más se repite
+ * en el día— y sin esto el enlace prometía una pantalla y abría otra: el
+ * docente caía en Calificaciones y tenía que buscar la pestaña. El parámetro se
+ * valida contra las pestañas que existen para esta persona; uno inventado en la
+ * URL no deja la pantalla en blanco.
+ */
+const panelPedido = new URLSearchParams(window.location.search).get('panel');
+
+const tab = ref<string>(
+    pestanas.value.some((p) => p.clave === panelPedido)
+        ? (panelPedido as string)
+        : (pestanas.value[0]?.clave ?? 'alumnos'),
+);
 
 const cortesCerrados = computed(() =>
     Object.values(props.calendario)

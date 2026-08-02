@@ -519,6 +519,21 @@ npm run dev                # o npm run build
   - «Mis materias» del docente pasó de listar ocho materias a ser una métrica
     con enlace a `/docencia`: el panel contesta «cuánto tengo encima», no
     «cuáles son mis materias» —eso ya lo sabe—.
+  - **UMA y tipo de cambio** (`IndicadoresFinancieros`, tarjeta bajo
+    `ver-adeudos`): los dos números con los que se hacen cuentas. La UMA **no se
+    adivina** —si falta la del año en curso lo dice, en vez de mostrar la del
+    año pasado como vigente: con un número viejo alguien calcula una beca—, y
+    respeta que entra en vigor el 1 de febrero. El dólar sale del **FIX de
+    Banxico** si hay `BANXICO_TOKEN` (gratuito) y se marca oficial; sin token
+    muestra la referencia del BCE y **dice que es referencia**, porque con ésa
+    no se timbra.
+  - **`/docencia` («Mis materias»)**: el selector de ciclo ocupaba una tarjeta
+    entera de alto para un desplegable y las tarjetas decían «3 de 3 cortes
+    abiertos» —jerga que no se puede accionar—. Ahora la cabecera es una línea
+    y cada materia muestra lo que reclama trabajo: **por calificar, sin leer y
+    si ya se pasó lista hoy**, con las materias que tienen pendientes arriba.
+    Botón directo a **Pasar lista** (`?panel=asistencia`, que la pantalla de la
+    materia sí respeta) porque es lo que más se repite en el día.
   - **Accesos directos con cifra** (`PendientesDeAcceso`): eran doce recuadros
     idénticos, o sea el menú lateral otra vez. Lo que los justifica es decir
     **cuánto hay esperando ahí**: «Aspirantes» es navegación, «Aspirantes · 12

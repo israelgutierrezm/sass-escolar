@@ -2,7 +2,6 @@
 import { Head, router } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import CampoSelect from '@/Components/CampoSelect.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 
 interface Horario {
@@ -26,6 +25,12 @@ interface Materia {
     acta_cerrada: boolean;
     cortes_abiertos: number;
     cortes_totales: number;
+    /** Entregas que llegaron y nadie ha revisado. */
+    por_calificar: number;
+    /** Mensajes que le escribieron y no ha leído. */
+    sin_leer: number;
+    /** Si ya se pasó lista hoy en esta materia. */
+    lista_hoy: boolean;
 }
 
 const props = defineProps<{
@@ -61,28 +66,47 @@ function resumenHorario(horarios: Horario[]): string {
 }
 
 const totalAlumnos = computed(() => props.materias.reduce((t, m) => t + m.inscritos, 0));
+
+/** Lo que espera revisión en todas sus materias juntas. */
+const totalPorCalificar = computed(() => props.materias.reduce((t, m) => t + m.por_calificar, 0));
 </script>
 
 <template>
     <Head title="Mis materias" />
 
     <AppLayout titulo="Mis materias">
-        <section class="tarjeta p-6">
-            <div class="grid gap-4 sm:grid-cols-2">
-                <CampoSelect
+        <!--
+            Cabecera compacta: el selector de ciclo cabe en una línea junto al
+            resumen. Ocupaba una tarjeta entera de alto para un desplegable, y
+            lo que uno viene a ver son las materias, no el filtro.
+
+            El aviso de trabajo pendiente va aquí porque es la única cifra que
+            se mira antes de elegir a dónde entrar.
+        -->
+        <section class="tarjeta flex flex-wrap items-center justify-between gap-4 px-5 py-4">
+            <div class="flex items-center gap-3">
+                <label class="text-sm font-medium">Ciclo</label>
+                <select
                     v-model="cicloId"
-                    etiqueta="Ciclo"
-                    :opciones="ciclos.map((c) => ({ valor: c.id, texto: c.etiqueta }))"
-                    vacio="Todos los ciclos"
-                />
+                    class="rounded-lg border px-3 py-2 text-sm"
+                    :style="{ borderColor: 'var(--color-borde)' }"
+                >
+                    <option :value="null">Todos los ciclos</option>
+                    <option v-for="c in ciclos" :key="c.id" :value="c.id">{{ c.etiqueta }}</option>
+                </select>
             </div>
 
-            <p v-if="materias.length" class="mt-4 text-sm" :style="{ color: 'var(--color-suave)' }">
-                {{ materias.length }} materia(s) · {{ totalAlumnos }} alumnos en total.
+            <p v-if="materias.length" class="text-sm" :style="{ color: 'var(--color-suave)' }">
+                <strong :style="{ color: 'var(--color-contenido)' }">{{ materias.length }}</strong>
+                materia(s) · {{ totalAlumnos }} alumnos
+                <template v-if="totalPorCalificar">
+                    ·
+                    <strong :style="{ color: '#d97706' }">{{ totalPorCalificar }} por calificar</strong>
+                </template>
             </p>
         </section>
 
-        <section v-if="materias.length" class="grid gap-4 sm:grid-cols-2">
+        <section v-if="materias.length" class="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
             <article
                 v-for="materia in materias"
                 :key="materia.id"
@@ -111,22 +135,56 @@ const totalAlumnos = computed(() => props.materias.reduce((t, m) => t + m.inscri
                         {{ resumenHorario(materia.horarios) }}
                     </p>
 
-                    <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                        <span>{{ materia.inscritos }} alumnos</span>
+                    <!--
+                        Lo que reclama trabajo, con su cifra.
 
-                        <span v-if="materia.acta_cerrada" class="text-green-600">acta asentada</span>
+                        Antes decía «3 de 3 cortes abiertos», que es jerga y no
+                        se puede accionar: el docente no entra a una materia
+                        porque tenga cortes abiertos, entra porque hay trabajos
+                        esperando o alguien le escribió.
+                    -->
+                    <div class="mt-3 flex flex-wrap items-center gap-2">
                         <span
-                            v-else-if="materia.cortes_totales > 0"
-                            :class="materia.cortes_abiertos > 0 ? '' : 'text-amber-600'"
-                            :style="materia.cortes_abiertos > 0 ? { color: 'var(--color-suave)' } : {}"
+                            v-if="materia.por_calificar"
+                            class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
+                            :style="{ backgroundColor: 'color-mix(in srgb, #d97706 14%, transparent)', color: '#b45309' }"
                         >
-                            {{ materia.cortes_abiertos }} de {{ materia.cortes_totales }} cortes abiertos
+                            ✎ {{ materia.por_calificar }} por calificar
                         </span>
-                        <span v-else class="text-amber-600">sin esquema de evaluación</span>
+
+                        <span
+                            v-if="materia.sin_leer"
+                            class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
+                            :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 14%, transparent)', color: 'var(--color-acento)' }"
+                        >
+                            ✉ {{ materia.sin_leer }} sin leer
+                        </span>
+
+                        <!-- La pregunta de todas las mañanas. -->
+                        <span
+                            v-if="!materia.acta_cerrada"
+                            class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs"
+                            :style="materia.lista_hoy
+                                ? { backgroundColor: 'color-mix(in srgb, #16a34a 12%, transparent)', color: '#15803d' }
+                                : { backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)', color: 'var(--color-suave)' }"
+                        >
+                            {{ materia.lista_hoy ? '✓ lista de hoy' : 'sin lista hoy' }}
+                        </span>
+
+                        <span
+                            v-if="materia.acta_cerrada"
+                            class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
+                            :style="{ backgroundColor: 'color-mix(in srgb, #16a34a 12%, transparent)', color: '#15803d' }"
+                        >
+                            ✓ acta asentada
+                        </span>
+                        <span v-else-if="materia.cortes_totales === 0" class="text-xs text-amber-600">
+                            sin esquema de evaluación
+                        </span>
                     </div>
                 </div>
 
-                <div class="mt-4 flex gap-2">
+                <div class="mt-4 flex flex-wrap gap-2">
                     <!-- Dentro está todo lo de la materia: calificar, pasar
                          lista, la lista de alumnos y las actividades. «Ver
                          alumnos» nombraba solo una de las cuatro. -->
@@ -137,6 +195,18 @@ const totalAlumnos = computed(() => props.materias.reduce((t, m) => t + m.inscri
                     >
                         Entrar a la materia
                     </a>
+
+                    <!-- Atajo directo a lo del día: pasar lista es lo que más
+                         se repite y estaba a dos clics dentro de la materia. -->
+                    <a
+                        v-if="!materia.acta_cerrada"
+                        :href="`/docencia/materias/${materia.id}?panel=asistencia`"
+                        class="rounded-lg border px-3 py-1.5 text-sm"
+                        :style="{ borderColor: 'var(--color-borde)' }"
+                    >
+                        Pasar lista
+                    </a>
+
                     <!-- La captura del PARCIAL es otra cosa que el libro de
                          calificaciones: ahí se cierra el acta. -->
                     <a
