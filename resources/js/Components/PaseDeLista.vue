@@ -215,6 +215,18 @@ function faltasDelMes(inscripcionId: number): number {
     return Object.values(suyas).filter((c) => c.estatus === 'falta').length;
 }
 
+/**
+ * Las faltas de TODA la materia, que es otra cifra y por otra razón.
+ *
+ * La rejilla está recortada al mes, así que su total contesta «¿cómo le fue en
+ * noviembre?». Lo que decide si alguien pierde derecho a examen es el acumulado
+ * del curso, y con la rejilla sola había que ir mes por mes sumando de memoria.
+ * Las dos juntas: una dice cómo va el mes, la otra cómo va el semestre.
+ */
+function faltasTotales(inscripcionId: number): number {
+    return props.asistencia.lista.find((a) => a.inscripcion_id === inscripcionId)?.faltas ?? 0;
+}
+
 const MESES = [
     'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
     'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
@@ -496,7 +508,17 @@ const hoy = new Date().toISOString().slice(0, 10);
                                 {{ s.modalidad === 'teorica' ? 'teo' : 'prá' }}
                             </span>
                         </th>
-                        <th class="px-3 py-3 text-center font-semibold">Faltas</th>
+                        <!-- Dos cifras porque son dos preguntas: cómo va el mes
+                             y cómo va el curso. Lo segundo es lo que decide el
+                             derecho a examen. -->
+                        <th class="border-l px-3 py-3 text-center font-semibold" :style="{ borderColor: 'var(--color-borde)' }">
+                            <span class="block">Faltas</span>
+                            <span class="block text-[10px] font-normal normal-case opacity-70">del mes</span>
+                        </th>
+                        <th class="px-3 py-3 text-center font-semibold">
+                            <span class="block">Faltas</span>
+                            <span class="block text-[10px] font-normal normal-case opacity-70">del curso</span>
+                        </th>
                     </tr>
                 </thead>
 
@@ -537,12 +559,23 @@ const hoy = new Date().toISOString().slice(0, 10);
                             <span v-else class="text-suave" title="Sin registro de esa sesión">·</span>
                         </td>
 
-                        <td class="px-3 py-2 text-center">
+                        <td class="border-l px-3 py-2 text-center" :style="{ borderColor: 'var(--color-borde)' }">
                             <span
                                 class="text-sm font-semibold"
                                 :style="{ color: faltasDelMes(a.inscripcion_id) ? colorDe(FALTA) : 'var(--color-suave)' }"
+                                :title="`Faltas de ${asistencia.mes ? nombreMes(asistencia.mes) : 'este mes'}`"
                             >
                                 {{ faltasDelMes(a.inscripcion_id) }}
+                            </span>
+                        </td>
+
+                        <td class="px-3 py-2 text-center">
+                            <span
+                                class="text-sm font-semibold"
+                                :style="{ color: faltasTotales(a.inscripcion_id) ? colorDe(FALTA) : 'var(--color-suave)' }"
+                                :title="`${faltasTotales(a.inscripcion_id)} falta(s) en toda la materia · ${a.retardos} retardo(s) · ${a.porcentaje ?? '—'}% de asistencia`"
+                            >
+                                {{ faltasTotales(a.inscripcion_id) }}
                             </span>
                         </td>
                     </tr>

@@ -62,6 +62,40 @@ class ActividadController extends Controller
         return back()->with('exito', 'Actividad actualizada.');
     }
 
+    /**
+     * Publicar o esconder, sin abrir el formulario.
+     *
+     * Es el gesto más repetido del docente —arma el curso en borrador y lo va
+     * soltando conforme avanza el semestre— y era el más caro: abrir el editor,
+     * buscar la casilla, guardar, y que el formulario reenviara los diez campos
+     * con el riesgo de pisar algo sin querer. Aquí sólo viaja el interruptor.
+     */
+    public function visibilidad(Request $request, AsignaturaGrupo $asignaturaGrupo, Actividad $actividad): RedirectResponse
+    {
+        $this->autorizar($request, $asignaturaGrupo);
+        $this->exigirDeLaMateria($actividad, $asignaturaGrupo);
+
+        $publicada = $request->boolean('publicada');
+
+        $actividad->update(['publicada' => $publicada]);
+
+        /*
+         * 303 y no el 302 de `back()`.
+         *
+         * Ante un 302, el navegador repite el redirect CON EL MISMO MÉTODO: el
+         * PATCH volvía a salir contra la pantalla de la materia, que sólo
+         * responde GET, y el interruptor terminaba en un 405 aunque el cambio ya
+         * estuviera guardado. El 303 es justo lo que dice «ya está hecho, ahora
+         * ve a mirar allá con un GET».
+         */
+        return back(303)->with(
+            'exito',
+            $publicada
+                ? "«{$actividad->titulo}» ya la ven tus alumnos."
+                : "«{$actividad->titulo}» quedó oculta para tus alumnos.",
+        );
+    }
+
     public function destroy(Request $request, AsignaturaGrupo $asignaturaGrupo, Actividad $actividad): RedirectResponse
     {
         $this->autorizar($request, $asignaturaGrupo);

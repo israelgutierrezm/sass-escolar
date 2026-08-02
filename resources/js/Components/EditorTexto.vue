@@ -5,6 +5,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { TextStyle, Color, FontFamily, FontSize } from '@tiptap/extension-text-style';
 import TextAlign from '@tiptap/extension-text-align';
 import Highlight from '@tiptap/extension-highlight';
+import Image from '@tiptap/extension-image';
 import { Sangria } from '@/Components/editor/sangria';
 import { Incrustado } from '@/Components/editor/incrustado';
 
@@ -15,6 +16,14 @@ import { Incrustado } from '@/Components/editor/incrustado';
 const props = defineProps<{
     modelValue: string | null;
     placeholder?: string;
+    /**
+     * A dónde subir las imágenes que se peguen dentro del texto.
+     *
+     * Sin esto el botón no aparece: hay editores en el sistema —una nota, una
+     * descripción corta— donde subir archivos no viene al caso, y un botón que
+     * al pulsarlo diera error sería peor que no tenerlo.
+     */
+    urlSubidaImagen?: string;
 }>();
 
 const emit = defineEmits<{ (e: 'update:modelValue', valor: string): void }>();
@@ -34,6 +43,9 @@ const editor = useEditor({
         TextAlign.configure({ types: ['heading', 'paragraph'] }),
         Sangria,
         Incrustado,
+        // `inline: false`: la imagen es un bloque propio. Dentro de un párrafo
+        // se pelea con el texto que la rodea y el resultado es imprevisible.
+        Image.configure({ inline: false, allowBase64: false }),
     ],
     editorProps: {
         attributes: { class: 'editor-prosa min-h-[10rem] max-h-[28rem] overflow-y-auto px-4 py-3 focus:outline-none' },
@@ -80,6 +92,77 @@ function insertarIncrustado(): void {
     }
 
     editor.value?.chain().focus().insertarIncrustado({ src: limpia }).run();
+}
+
+/* ── Imágenes ──────────────────────────────────────────────────────────────
+ *
+ * Se SUBEN, no se enlazan de otro sitio. Pegar la dirección de una imagen
+ * ajena deja el material a merced de un servidor que no es de la escuela: el
+ * enlace se cae a mitad del semestre, o lo que hay detrás cambia sin aviso, y
+ * cada alumno que abre la lección le anuncia a ese servidor dónde estudia.
+ *
+ * La subida va por `fetch` y no por el formulario de la página: esto ocurre a
+ * media escritura, y una visita de Inertia recargaría la pantalla y se llevaría
+ * lo que el docente lleva escrito.
+ */
+const entradaImagen = ref<HTMLInputElement | null>(null);
+const subiendoImagen = ref(false);
+const errorImagen = ref<string | null>(null);
+
+function elegirImagen(): void {
+    errorImagen.value = null;
+    entradaImagen.value?.click();
+}
+
+async function subirImagen(evento: Event): Promise<void> {
+    const entrada = evento.target as HTMLInputElement;
+    const archivo = entrada.files?.[0];
+
+    // Se limpia siempre: sin esto, elegir DOS VECES el mismo archivo no dispara
+    // el evento la segunda, y parece que el botón dejó de funcionar.
+    entrada.value = '';
+
+    if (!archivo || !props.urlSubidaImagen) return;
+
+    subiendoImagen.value = true;
+    errorImagen.value = null;
+
+    try {
+        const cuerpo = new FormData();
+        cuerpo.append('imagen', archivo);
+
+        const respuesta = await fetch(props.urlSubidaImagen, {
+            method: 'POST',
+            body: cuerpo,
+            credentials: 'same-origin',
+            headers: {
+                Accept: 'application/json',
+                'X-XSRF-TOKEN': decodeURIComponent(
+                    document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] ?? '',
+                ),
+            },
+        });
+
+        if (!respuesta.ok) {
+            const datos = await respuesta.json().catch(() => null);
+
+            // El mensaje del servidor dice lo que de verdad pasó —el formato no
+            // se admite, pesa de más—; el genérico solo dice que algo falló.
+            errorImagen.value = datos?.message
+                ?? datos?.errors?.imagen?.[0]
+                ?? 'No se pudo subir la imagen.';
+
+            return;
+        }
+
+        const { url } = await respuesta.json();
+
+        editor.value?.chain().focus().setImage({ src: url, alt: archivo.name }).run();
+    } catch {
+        errorImagen.value = 'No se pudo subir la imagen. Revisa tu conexión.';
+    } finally {
+        subiendoImagen.value = false;
+    }
 }
 
 // --- Catálogos de la barra ---
@@ -266,11 +349,42 @@ const alineaciones = [
                 ⧉ Incrustar
             </button>
 
+            <!-- Imagen: sólo donde el editor sabe a dónde subirla. -->
+            <template v-if="urlSubidaImagen">
+                <button
+                    type="button"
+                    title="Subir una imagen e insertarla aquí"
+                    class="h-7 rounded px-1.5 text-xs disabled:opacity-60"
+                    :style="{ color: 'var(--color-contenido)' }"
+                    :disabled="subiendoImagen"
+                    @click="elegirImagen"
+                >
+                    {{ subiendoImagen ? 'Subiendo…' : '🖼 Imagen' }}
+                </button>
+                <input
+                    ref="entradaImagen"
+                    type="file"
+                    class="hidden"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    @change="subirImagen"
+                />
+            </template>
+
             <span class="mx-1 h-5 w-px" :style="{ backgroundColor: 'var(--color-borde)' }" />
 
             <button type="button" title="Deshacer" class="h-7 w-7 rounded text-xs" :style="{ color: 'var(--color-contenido)' }" @click="editor?.chain().focus().undo().run()">↶</button>
             <button type="button" title="Rehacer" class="h-7 w-7 rounded text-xs" :style="{ color: 'var(--color-contenido)' }" @click="editor?.chain().focus().redo().run()">↷</button>
         </div>
+
+        <!-- El error de la subida, junto al botón que la disparó: en un toast se
+             pierde cuando el docente ya está mirando otra cosa. -->
+        <p
+            v-if="errorImagen"
+            class="border-b px-3 py-2 text-xs"
+            :style="{ borderColor: 'var(--color-borde)', backgroundColor: 'color-mix(in srgb, #dc2626 8%, transparent)', color: '#b91c1c' }"
+        >
+            {{ errorImagen }}
+        </p>
 
         <EditorContent :editor="editor" :style="{ backgroundColor: 'var(--color-superficie)' }" />
     </div>
@@ -290,6 +404,20 @@ const alineaciones = [
     background-color: color-mix(in srgb, var(--color-suave) 6%, transparent);
 }
 .editor-prosa :deep(iframe.incrustado.ProseMirror-selectednode) {
+    outline: 2px solid var(--color-acento);
+    outline-offset: 2px;
+}
+
+/* La imagen, acotada al ancho del editor: una foto de cámara mide 4000 px y
+   sin esto empuja la barra de herramientas fuera de la pantalla. */
+.editor-prosa :deep(img) {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 0.75rem 0;
+    border-radius: 0.5rem;
+}
+.editor-prosa :deep(img.ProseMirror-selectednode) {
     outline: 2px solid var(--color-acento);
     outline-offset: 2px;
 }

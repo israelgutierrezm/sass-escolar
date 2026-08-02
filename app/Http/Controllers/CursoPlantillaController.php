@@ -187,6 +187,32 @@ class CursoPlantillaController extends Controller
         return back()->with('exito', 'Actividad eliminada de la plantilla.');
     }
 
+    /**
+     * Publicar o esconder desde el listado, sin abrir el formulario.
+     *
+     * En la plantilla el borrador es lo normal: la escuela arma el curso entero
+     * y decide después qué sale. Reenviar los diez campos del formulario para
+     * mover un interruptor era caro y arriesgaba pisar lo que no se tocó.
+     */
+    public function visibilidadActividad(Request $request, PlanEstudio $plan, PlanMateria $materia, Actividad $actividad): RedirectResponse
+    {
+        $this->exigirDelPlan($plan, $materia);
+        $this->exigirDeLaPlantilla($actividad, $materia);
+
+        $publicada = $request->boolean('publicada');
+
+        $actividad->update(['publicada' => $publicada]);
+
+        // 303 y no el 302 de `back()`: ante un 302 el navegador repite el
+        // redirect con el mismo PATCH contra una pantalla que sólo responde GET.
+        return back(303)->with(
+            'exito',
+            $publicada
+                ? "«{$actividad->titulo}» sale publicada a los grupos que abran."
+                : "«{$actividad->titulo}» queda como borrador.",
+        );
+    }
+
     /* ── Exámenes de la plantilla ──────────────────────────────────────── */
 
     public function examen(PlanEstudio $plan, PlanMateria $materia, Actividad $actividad): Response

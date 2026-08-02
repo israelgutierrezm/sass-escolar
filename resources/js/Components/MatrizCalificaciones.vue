@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { router, useForm } from '@inertiajs/vue3';
-import BotonPrincipal from '@/Components/BotonPrincipal.vue';
-import CampoTexto from '@/Components/CampoTexto.vue';
+import { router } from '@inertiajs/vue3';
+import PanelCalificacion from '@/Components/PanelCalificacion.vue';
 
 /*
  * El libro de calificaciones: alumnos en filas, actividades en columnas.
@@ -31,6 +30,9 @@ interface Casilla {
     retroalimentacion: string | null;
     contenido: string | null;
     entregada_en: string | null;
+    /** La puso la máquina (un examen que se califica solo), no el docente. */
+    automatica: boolean;
+    archivos: { id: number; nombre: string; bytes: number }[];
 }
 
 interface Fila {
@@ -165,7 +167,6 @@ function colorAsistencia(p: number | null | undefined): string {
 /* ── Calificar ─────────────────────────────────────────────────────────── */
 
 const calificando = ref<{ inscripcion: number; actividad: number } | null>(null);
-const formCalificar = useForm({ calificacion: '' as string | number, retroalimentacion: '' });
 
 function abrirCalificacion(fila: Fila, c: Casilla): void {
     // Sin entrega no hay nada que calificar: poner nota a quien no entregó se
@@ -173,26 +174,47 @@ function abrirCalificacion(fila: Fila, c: Casilla): void {
     if (c.entrega_id === null) return;
 
     calificando.value = { inscripcion: fila.inscripcion_id, actividad: c.actividad_id };
-    formCalificar.clearErrors();
-    formCalificar.calificacion = c.calificacion ?? '';
-    formCalificar.retroalimentacion = c.retroalimentacion ?? '';
 }
 
-function guardarCalificacion(c: Casilla): void {
-    formCalificar.put(`/docencia/materias/${props.materiaId}/entregas/${c.entrega_id}/calificar`, {
-        preserveScroll: true,
-        onSuccess: () => {
-            calificando.value = null;
-            formCalificar.reset();
-        },
-    });
+/** La fila y la casilla que el panel está mostrando. */
+const enPanel = computed(() => {
+    if (calificando.value === null) return null;
+
+    const fila = props.matriz.find((f) => f.inscripcion_id === calificando.value!.inscripcion);
+    const casilla = fila?.casillas.find((c) => c.actividad_id === calificando.value!.actividad);
+    const actividad = props.actividades.find((a) => a.id === calificando.value!.actividad);
+
+    if (!fila || !casilla || !actividad) return null;
+
+    return { fila, casilla, actividad };
+});
+
+/**
+ * Lo que falta por calificar, en el orden en que se lee la rejilla: alumno por
+ * alumno, y dentro de cada uno sus actividades.
+ *
+ * Es el recorrido de «guardar y seguir». Ordenarlo por actividad habría hecho
+ * saltar de un alumno a otro y de vuelta, que es como se pierde el hilo de lo
+ * que se venía revisando.
+ */
+const porCalificar = computed(() =>
+    props.matriz.flatMap((f) =>
+        casillasDe(f)
+            .filter((c) => c.entrega_id !== null && c.calificacion === null)
+            .map((c) => ({ inscripcion: f.inscripcion_id, actividad: c.actividad_id })),
+    ),
+);
+
+/** Salta a la siguiente sin calificar; si no queda ninguna, cierra. */
+function siguientePendiente(): void {
+    const actual = calificando.value;
+
+    const siguiente = porCalificar.value.find(
+        (p) => p.inscripcion !== actual?.inscripcion || p.actividad !== actual?.actividad,
+    );
+
+    calificando.value = siguiente ?? null;
 }
-
-const casillaAbierta = (fila: Fila, c: Casilla) =>
-    calificando.value?.inscripcion === fila.inscripcion_id
-    && calificando.value?.actividad === c.actividad_id;
-
-const tituloActividad = (id: number) => props.actividades.find((a) => a.id === id)?.titulo ?? '';
 
 /* ── Escribirle a un alumno ────────────────────────────────────────────── */
 
@@ -282,6 +304,9 @@ const abreviaturaTipo: Record<string, string> = {
             </span>
             <span class="flex items-center gap-1.5">
                 <span class="text-base leading-none text-suave">○</span> sin entregar
+            </span>
+            <span class="flex items-center gap-1.5">
+                <span class="text-xs">⚡</span> la calificó el sistema
             </span>
         </div>
 
@@ -397,11 +422,17 @@ const abreviaturaTipo: Record<string, string> = {
                                 :title="c.entrega_id === null
                                     ? 'Sin entregar'
                                     : c.calificacion !== null
-                                        ? `${c.calificacion} de ${puntosDe(c.actividad_id)} · entregó el ${c.entregada_en}`
+                                        ? `${c.calificacion} de ${puntosDe(c.actividad_id)} · entregó el ${c.entregada_en}${c.automatica ? ' · la calificó el sistema' : ''}`
                                         : `Entregó el ${c.entregada_en}${c.tarde ? ' (tarde)' : ''} · falta calificar`"
                                 @click="abrirCalificacion(fila, c)"
                             >
-                                <template v-if="c.calificacion !== null">{{ c.calificacion }}</template>
+                                <template v-if="c.calificacion !== null">
+                                    {{ c.calificacion }}
+                                    <!-- El rayo dice que la puso la máquina: al
+                                         reclamar una nota, quién la puso es lo
+                                         primero que hay que saber. -->
+                                    <span v-if="c.automatica" class="ml-0.5 text-[10px] leading-none opacity-70" aria-hidden="true">⚡</span>
+                                </template>
                                 <template v-else-if="c.entrega_id !== null">✎</template>
                                 <template v-else>○</template>
                             </button>
@@ -445,63 +476,20 @@ const abreviaturaTipo: Record<string, string> = {
             </table>
         </div>
 
-        <!-- Calificar: con lo que el alumno entregó a la vista. Calificar sin
-             leer la entrega no tendría sentido. -->
-        <div
-            v-if="calificando"
-            class="border-t border-borde px-6 py-4"
-            :style="{ borderLeft: '3px solid var(--color-acento)' }"
-        >
-            <template
-                v-for="fila in matriz.filter((f) => f.inscripcion_id === calificando?.inscripcion)"
-                :key="fila.inscripcion_id"
-            >
-                <template v-for="c in fila.casillas.filter((x) => casillaAbierta(fila, x))" :key="c.actividad_id">
-                    <p class="text-sm font-medium text-contenido">
-                        {{ fila.nombre }} · {{ tituloActividad(c.actividad_id) }}
-                    </p>
-                    <p class="text-xs text-suave">
-                        Entregó el {{ c.entregada_en }}<span v-if="c.tarde" class="text-amber-600"> · fuera de tiempo</span>
-                    </p>
-
-                    <p
-                        v-if="c.contenido"
-                        class="mt-2 whitespace-pre-line rounded-lg px-3 py-2 text-sm"
-                        :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }"
-                    >
-                        {{ c.contenido }}
-                    </p>
-
-                    <form class="mt-3 flex flex-wrap items-end gap-3" @submit.prevent="guardarCalificacion(c)">
-                        <div class="w-40">
-                            <CampoTexto
-                                v-model="formCalificar.calificacion"
-                                :etiqueta="`Calificación (de ${puntosDe(c.actividad_id)})`"
-                                tipo="number"
-                                step="0.01"
-                                min="0"
-                                :error="formCalificar.errors.calificacion"
-                            />
-                        </div>
-                        <div class="min-w-64 flex-1">
-                            <CampoTexto
-                                v-model="formCalificar.retroalimentacion"
-                                etiqueta="Retroalimentación"
-                                marcador="Lo que el alumno debe saber de su trabajo."
-                                :error="formCalificar.errors.retroalimentacion"
-                            />
-                        </div>
-                        <BotonPrincipal :procesando="formCalificar.processing" texto="Guardar" icono="crear" />
-                        <button
-                            type="button"
-                            class="rounded-lg border border-borde px-4 py-2 text-sm"
-                            @click="calificando = null"
-                        >
-                            Cerrar
-                        </button>
-                    </form>
-                </template>
-            </template>
-        </div>
     </section>
+
+    <!-- Calificar: en un panel al costado, con el trabajo del alumno a la vista.
+         Fuera de la <section> para que no lo recorte el `overflow-hidden` de la
+         tarjeta. -->
+    <PanelCalificacion
+        v-if="enPanel"
+        :materia-id="materiaId"
+        :alumno="enPanel.fila.nombre"
+        :matricula="enPanel.fila.matricula"
+        :casilla="enPanel.casilla"
+        :actividad="enPanel.actividad"
+        :pendientes="porCalificar.length"
+        @cerrar="calificando = null"
+        @siguiente="siguientePendiente"
+    />
 </template>

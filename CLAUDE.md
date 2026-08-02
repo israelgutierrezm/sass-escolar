@@ -167,6 +167,26 @@ Cinco entregas, en este orden. A y B ✅ hechas; C, D y E pendientes:
 - **Migración que puede fallar a la mitad = migración que comprueba antes de
   actuar** (`Schema::hasColumn`, `IndiceQueSostieneUnaFk::existe`). Un reintento
   tras un fallo parcial no debe chocar contra su propio trabajo.
+- **Tabla de un modelo con `TieneAuditoria` → `$table->auditoria()`, nunca
+  `timestamps()` a secas.** El trait escribe también `created_by` y
+  `updated_by`; sin esas columnas la tabla se crea, migra sin quejarse y
+  revienta con `Unknown column 'created_by'` en el primer `create()`. Mordió al
+  crear `imagenes_contenido`.
+
+## Trampas al programar (ya mordieron)
+
+- **Un `back()` después de PUT/PATCH/DELETE debe ser `back(303)`.** Ante un 302
+  el navegador repite el redirect CON EL MISMO MÉTODO: el PATCH sale otra vez
+  contra la pantalla destino —que sólo responde GET— y termina en 405 aunque el
+  cambio ya se haya guardado. Lo peor es cómo se ve: el dato cambió en la base y
+  la pantalla no se entera, así que parece que el botón no funciona. Mordió con
+  el interruptor de visibilidad.
+- **Una ruta que sirven DOS oficios no puede colgar del permiso de uno.** La
+  descarga de un adjunto de entrega estaba bajo `can:ver-mis-cursos` con el
+  resto del portal del alumno; el controlador sí contemplaba al docente, pero el
+  middleware lo rebotaba antes de llegar. Si dos roles distintos entran por el
+  mismo endpoint: o un permiso derivado con `Gate::define` (como
+  `subir-material`), o sin `can:` y que el controlador resuelva.
 
 ## Entorno local
 
@@ -395,6 +415,33 @@ npm run dev                # o npm run build
   sesión de todos. El `iframe` sobrevive —es lo que permite incrustar un video o
   un SCORM ya producido— pero con `sandbox` y `referrerpolicy` impuestos por el
   servidor y sólo sobre `https://`. Cubierto por `tests/Unit/HtmlSeguroTest`.
+- **Imágenes dentro del material** (`imagenes_contenido` + `/lms/imagenes`): el
+  botón «🖼 Imagen» del editor SUBE el archivo y pega la dirección propia.
+  Enlazar una imagen ajena dejaba el material a merced de otro servidor —el
+  enlace se cae a media asignatura— y le anunciaba a ese servidor dónde estudia
+  cada alumno que abre la lección. El archivo va al disco privado; la URL
+  pública lleva un **uuid** y no el id, porque un id se cuenta y quien pidiera
+  1, 2, 3… se llevaría el material entero de la escuela. Subir exige el permiso
+  derivado `subir-material` (docente **o** quien edita el catálogo académico:
+  son dos oficios usando el mismo editor); ver sólo exige sesión.
+- **Panel de calificación** (`PanelCalificacion.vue`): el formulario vivía
+  DEBAJO de la rejilla, así que calificar a la fila 4 de treinta abría un cuadro
+  dos pantallas más abajo — y no mostraba los adjuntos, de modo que una tarea
+  entregada en PDF se calificaba a ciegas. Ahora es un panel al costado con el
+  trabajo, los archivos, «Máximo» para el puntaje completo y **«Guardar y
+  seguir»**, que salta a la siguiente sin calificar (calificar es trabajo en
+  serie). Un examen NO se califica ahí: se marca `⚡ Calificada automáticamente`
+  y se manda a la pantalla del examen, porque escribir un número encima dejaría
+  la nota y las respuestas contando cosas distintas.
+- **Interruptor de visibilidad** (`InterruptorVisible.vue`): el ojo publica o
+  esconde una actividad desde su renglón, en el portal del docente y en la
+  plantilla del plan. Era el gesto más repetido —se arma en borrador y se suelta
+  conforme avanza el semestre— y el más caro: abrir el formulario y reenviar
+  diez campos para mover un interruptor.
+- **Asistencia con dos columnas de faltas**: la rejilla está recortada al mes,
+  así que su total contesta «¿cómo le fue en noviembre?». Lo que decide el
+  derecho a examen es el acumulado del curso, y había que ir mes por mes
+  sumándolo de memoria. Ahora salen las dos: **del mes** y **del curso**.
 
 **Pendiente inmediato — aquí se retoma:**
 

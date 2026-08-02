@@ -8,6 +8,7 @@ import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 import EditorTexto from '@/Components/EditorTexto.vue';
+import InterruptorVisible from '@/Components/InterruptorVisible.vue';
 import { toast } from 'vue-sonner';
 
 /*
@@ -365,7 +366,8 @@ const totalPonderado = computed(() =>
                     <label class="mb-1 block text-sm font-medium">Contenido</label>
                     <EditorTexto
                         v-model="formActividad.contenido"
-                        placeholder="El material de la lección. Con ⧉ Incrustar agregas un SCORM, un video o una infografía."
+                        url-subida-imagen="/lms/imagenes"
+                        placeholder="El material de la lección. Con 🖼 Imagen subes una figura y con ⧉ Incrustar agregas un SCORM o un video."
                     />
                     <p class="mt-1 text-xs text-suave">
                         Opcional. Viaja con la plantilla: lo que cargues aquí lo reciben
@@ -434,6 +436,12 @@ const totalPonderado = computed(() =>
                         >
                             Armar examen
                         </a>
+                        <InterruptorVisible
+                            :url="`${base}/actividades/${a.id}/visibilidad`"
+                            :publicada="a.publicada"
+                            :titulo="a.titulo"
+                            audiencia="los grupos"
+                        />
                         <BotonAccion variante="editar" texto="Editar la actividad" @click="editarActividad(a)" />
                         <BotonAccion variante="eliminar" texto="Eliminar la actividad" @click="eliminarActividad(a)" />
                     </span>

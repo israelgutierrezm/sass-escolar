@@ -11,6 +11,7 @@ import PaseDeLista from '@/Components/PaseDeLista.vue';
 import MatrizCalificaciones from '@/Components/MatrizCalificaciones.vue';
 import PestanasPagina from '@/Components/PestanasPagina.vue';
 import EditorTexto from '@/Components/EditorTexto.vue';
+import InterruptorVisible from '@/Components/InterruptorVisible.vue';
 
 interface Alumno {
     matricula: string | null;
@@ -528,7 +529,8 @@ const cortesCerrados = computed(() =>
                         <label class="mb-1 block text-sm font-medium">Contenido</label>
                         <EditorTexto
                             v-model="formActividad.contenido"
-                            placeholder="El material de la lección. Con ⧉ Incrustar agregas un SCORM, un video o una infografía."
+                            url-subida-imagen="/lms/imagenes"
+                            placeholder="El material de la lección. Con 🖼 Imagen subes una figura y con ⧉ Incrustar agregas un SCORM o un video."
                         />
                         <p class="mt-1 text-xs text-suave">
                             Opcional. Si lo cargas, el alumno lo ve al abrir la actividad,
@@ -599,6 +601,12 @@ const cortesCerrados = computed(() =>
                         >
                             Abrir foro
                         </a>
+                        <InterruptorVisible
+                            :url="`/docencia/materias/${materia.id}/actividades/${a.id}/visibilidad`"
+                            :publicada="a.publicada"
+                            :titulo="a.titulo"
+                            audiencia="tus alumnos"
+                        />
                         <BotonAccion variante="editar" texto="Editar la actividad" @click="editarActividad(a)" />
                         <BotonAccion variante="eliminar" texto="Eliminar la actividad" @click="eliminarActividad(a)" />
                     </span>

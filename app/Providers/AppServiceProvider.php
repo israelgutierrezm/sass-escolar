@@ -137,6 +137,23 @@ class AppServiceProvider extends ServiceProvider
             'entrar-promocion',
             fn ($usuario) => $usuario->can('ver-mis-prospectos') || $usuario->can('gestionar-promocion')
         );
+
+        /*
+         * Subir una imagen al material de una lección.
+         *
+         * Lo hacen dos oficios distintos por dos caminos distintos: el docente
+         * cargando su propia materia, y quien arma la plantilla del plan desde
+         * el catálogo académico. Es el MISMO endpoint —el editor es el mismo—,
+         * así que no puede colgar de un solo permiso sin dejar fuera a la mitad.
+         *
+         * Derivado y no asignable, por lo mismo que el de arriba: una casilla
+         * «puede subir imágenes» que hubiera que palomear aparte produciría el
+         * clásico 403 sin explicación al primero que arme un rol nuevo.
+         */
+        Gate::define(
+            'subir-material',
+            fn ($usuario) => $usuario->can('capturar-calificaciones') || $usuario->can('editar-catalogo-academico')
+        );
     }
 
     /**

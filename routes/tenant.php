@@ -8,6 +8,7 @@ use App\Http\Controllers\AsignaturaGrupoController;
 use App\Http\Controllers\AspiranteController;
 use App\Http\Controllers\AulaController;
 use App\Http\Controllers\AutenticacionController;
+use App\Http\Controllers\ImagenContenidoController;
 use App\Http\Controllers\SsoGoogleController;
 use App\Http\Controllers\CampoFormularioController;
 use App\Http\Controllers\Academico\CargaMasivaController;
@@ -380,6 +381,7 @@ Route::middleware([
 
                         Route::post('actividades', 'guardarActividad')->name('actividades.crear');
                         Route::put('actividades/{actividad}', 'guardarActividad')->whereNumber('actividad')->name('actividades.editar');
+                        Route::patch('actividades/{actividad}/visibilidad', 'visibilidadActividad')->whereNumber('actividad')->name('actividades.visibilidad');
                         Route::delete('actividades/{actividad}', 'eliminarActividad')->whereNumber('actividad')->name('actividades.eliminar');
 
                         Route::get('examenes/{actividad}', 'examen')->whereNumber('actividad')->name('examen');
@@ -858,6 +860,26 @@ Route::middleware([
             });
 
         /*
+         * Imágenes dentro del material de una lección.
+         *
+         * Subir lo hacen dos oficios por dos caminos —el docente en su materia,
+         * quien arma la plantilla en el catálogo—, así que va por el permiso
+         * derivado `subir-material` y no por uno de los dos, que dejaría fuera
+         * a la mitad.
+         *
+         * Ver sólo pide sesión: la imagen aparece dentro del HTML de la lección
+         * y la abre el alumno de ese grupo, el de otro que reusa el bloque y el
+         * docente. Lo que la protege es que la dirección lleva un uuid, no un
+         * número que se pueda contar.
+         */
+        Route::post('lms/imagenes', [ImagenContenidoController::class, 'subir'])
+            ->middleware('can:subir-material')
+            ->name('tenant.lms.imagenes.subir');
+
+        Route::get('lms/imagenes/{uuid}', [ImagenContenidoController::class, 'ver'])
+            ->name('tenant.lms.imagenes.ver');
+
+        /*
          * El AULA: el curso recorrido como un libro. Mismo permiso y misma
          * pertenencia que el resto del portal del alumno.
          *
@@ -882,10 +904,25 @@ Route::middleware([
          */
         Route::controller(EntregaController::class)
             ->prefix('mis-cursos')->name('tenant.entregas.')
-            ->middleware('can:ver-mis-cursos')
             ->group(function () {
-                Route::post('actividades/{actividad}/entrega', 'guardar')->whereNumber('actividad')->name('guardar');
-                Route::get('entregas/archivos/{archivo}', 'archivo')->whereNumber('archivo')->name('archivo');
+                Route::post('actividades/{actividad}/entrega', 'guardar')
+                    ->middleware('can:ver-mis-cursos')
+                    ->whereNumber('actividad')->name('guardar');
+
+                /*
+                 * El adjunto lo abren DOS: el alumno que lo subió y el docente
+                 * que lo va a calificar. Estaba bajo `can:ver-mis-cursos` con el
+                 * resto del portal, así que el docente —que no tiene ese
+                 * permiso— chocaba con un 403 antes de llegar al controlador y
+                 * no podía abrir un solo trabajo de sus alumnos.
+                 *
+                 * Sin `can:` a propósito: quién puede lo decide el controlador,
+                 * que sí distingue al dueño del docente de esa materia. Un
+                 * permiso aquí tendría que ser uno de los dos y dejaría fuera al
+                 * otro.
+                 */
+                Route::get('entregas/archivos/{archivo}', 'archivo')
+                    ->whereNumber('archivo')->name('archivo');
             });
 
         /*
@@ -900,6 +937,7 @@ Route::middleware([
             ->group(function () {
                 Route::post('actividades', 'store')->name('store');
                 Route::put('actividades/{actividad}', 'update')->whereNumber('actividad')->name('update');
+                Route::patch('actividades/{actividad}/visibilidad', 'visibilidad')->whereNumber('actividad')->name('visibilidad');
                 Route::delete('actividades/{actividad}', 'destroy')->whereNumber('actividad')->name('destroy');
                 Route::put('entregas/{entrega}/calificar', 'calificar')->whereNumber('entrega')->name('calificar');
             });

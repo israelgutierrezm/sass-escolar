@@ -367,6 +367,10 @@ class DocenciaController extends Controller
         $entregas = $actividades->isEmpty()
             ? collect()
             : Entrega::query()
+                // Los adjuntos viajan con la entrega: el docente califica lo que
+                // el alumno subió, y sin ellos el panel mostraba un cuadro vacío
+                // en toda entrega que fuera sólo un archivo.
+                ->with('archivos')
                 ->whereIn('actividad_id', $actividades->pluck('id'))
                 ->get()
                 ->groupBy('inscripcion_id');
@@ -435,6 +439,20 @@ class DocenciaController extends Controller
                             'retroalimentacion' => $e?->retroalimentacion,
                             'contenido' => $e?->contenido,
                             'entregada_en' => $e?->entregada_en?->format('Y-m-d H:i'),
+                            /*
+                             * La puso la máquina, no una persona.
+                             *
+                             * Un examen de opción múltiple se califica solo, y
+                             * el docente tiene que poder distinguirlo de lo que
+                             * él revisó: son dos cosas distintas cuando un
+                             * alumno viene a reclamar una nota.
+                             */
+                            'automatica' => $e?->calificacion !== null && $e?->calificada_por === null,
+                            'archivos' => ($e?->archivos ?? collect())->map(fn ($f) => [
+                                'id' => $f->id,
+                                'nombre' => $f->nombre,
+                                'bytes' => (int) $f->bytes,
+                            ])->values(),
                         ];
                     })->values(),
                 ];
