@@ -164,6 +164,79 @@ class DocenciaController extends Controller
     }
 
     /**
+     * Lo ya registrado, en rejilla: una columna por sesión del mes.
+     *
+     * El pase de lista responde «¿quién vino hoy?»; esto responde «¿cómo ha ido
+     * el mes?», que es otra pregunta y hasta ahora obligaba a abrir el día por
+     * día para reconstruirla.
+     *
+     * ── Por qué se recorta por mes ─────────────────────────────────────────
+     * Un semestre son sesenta o setenta sesiones: en una sola rejilla no cabe a
+     * lo ancho ni se lee. El mes es la unidad natural —es como se reportan las
+     * faltas— y además deja navegar un curso que cruza el año, de noviembre a
+     * febrero, sin tratar cada año como un mundo aparte.
+     *
+     * @param  \Illuminate\Support\Collection<int, int>  $ids
+     * @return array<string, mixed>
+     */
+    private function rejillaDeAsistencia(Request $request, $ids): array
+    {
+        // Los meses que de verdad tienen algo registrado. Se ofrecen esos y no
+        // los doce del año: un selector con meses vacíos invita a buscar donde
+        // no hay nada.
+        $meses = AsistenciaClase::query()
+            ->whereIn('inscripcion_id', $ids)
+            ->selectRaw("DATE_FORMAT(fecha, '%Y-%m') AS mes")
+            ->distinct()
+            ->orderByDesc('mes')
+            ->pluck('mes')
+            ->values();
+
+        if ($meses->isEmpty()) {
+            return ['meses' => [], 'mes' => null, 'sesionesDelMes' => [], 'rejilla' => []];
+        }
+
+        // Sin elección, el mes más reciente con registros: es el que se está
+        // llevando.
+        $mes = $request->query('mes');
+        $mes = $meses->contains($mes) ? $mes : $meses->first();
+
+        $registros = AsistenciaClase::query()
+            ->whereIn('inscripcion_id', $ids)
+            ->whereRaw("DATE_FORMAT(fecha, '%Y-%m') = ?", [$mes])
+            ->orderBy('fecha')
+            ->get(['inscripcion_id', 'fecha', 'modalidad', 'estatus', 'observacion']);
+
+        // Una columna por sesión: día y modalidad, porque una teórico-práctica
+        // pasa lista dos veces el mismo día y son dos columnas distintas.
+        $sesiones = $registros
+            ->map(fn ($r) => ['fecha' => $r->fecha->format('Y-m-d'), 'modalidad' => $r->modalidad])
+            ->unique(fn (array $s) => $s['fecha'].$s['modalidad'])
+            ->sortBy(fn (array $s) => $s['fecha'].$s['modalidad'])
+            ->values();
+
+        $porAlumno = $registros->groupBy('inscripcion_id');
+
+        return [
+            'meses' => $meses->all(),
+            'mes' => $mes,
+            'sesionesDelMes' => $sesiones->map(fn (array $s) => [
+                'clave' => $s['fecha'].'|'.$s['modalidad'],
+                'fecha' => $s['fecha'],
+                'dia' => (int) substr($s['fecha'], 8, 2),
+                'modalidad' => $s['modalidad'],
+            ])->all(),
+            // inscripcion_id => { clave de sesión => estatus }
+            'rejilla' => $porAlumno->map(fn ($suyos) => $suyos->mapWithKeys(fn ($r) => [
+                $r->fecha->format('Y-m-d').'|'.$r->modalidad => [
+                    'estatus' => $r->estatus,
+                    'observacion' => $r->observacion,
+                ],
+            ])->all())->all(),
+        ];
+    }
+
+    /**
      * El chat directo con cada alumno, para abrirlo desde la rejilla.
      *
      * Con qué conversación y cuántos mensajes sin leer, por persona. Se resuelve
@@ -244,6 +317,7 @@ class DocenciaController extends Controller
                     ->get()
                     ->map(fn ($s) => ['fecha' => $s->f, 'modalidad' => $s->modalidad])
                     ->values(),
+                ...$this->rejillaDeAsistencia($request, $ids),
                 'lista' => $inscripciones
                     ->reject(fn (Inscripcion $i) => $i->situacion?->clave === 'baja')
                     ->map(function (Inscripcion $i) use ($delDia, $historial) {

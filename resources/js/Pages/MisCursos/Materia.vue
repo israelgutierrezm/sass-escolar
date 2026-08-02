@@ -6,6 +6,7 @@ import BotonVolver from '@/Components/BotonVolver.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import CuandoVence from '@/Components/CuandoVence.vue';
+import AvancePorParcial from '@/Components/AvancePorParcial.vue';
 
 /*
  * Una materia, vista por el alumno que la cursa.
@@ -230,6 +231,9 @@ const etiquetaEstatus: Record<string, string> = {
                 La cursas en <strong>{{ curso.tipo_evaluacion }}</strong>.
             </p>
         </section>
+
+        <!-- Dónde va: el recorrido por parciales, antes del detalle. -->
+        <AvancePorParcial :actividades="actividades" :parciales="evaluacion.parciales" />
 
         <!-- Cómo me califican y cómo voy, juntos -->
         <section class="tarjeta overflow-hidden">

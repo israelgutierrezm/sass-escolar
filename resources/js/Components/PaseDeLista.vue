@@ -34,6 +34,13 @@ interface FilaLista {
     porcentaje: number | null;
 }
 
+interface SesionDelMes {
+    clave: string;
+    fecha: string;
+    dia: number;
+    modalidad: string;
+}
+
 const props = defineProps<{
     materiaId: number;
     asistencia: {
@@ -42,6 +49,11 @@ const props = defineProps<{
         doble: boolean;
         lista: FilaLista[];
         sesiones: { fecha: string; modalidad: string }[];
+        /** Meses con algo registrado, 'AAAA-MM', del más reciente al más viejo. */
+        meses: string[];
+        mes: string | null;
+        sesionesDelMes: SesionDelMes[];
+        rejilla: Record<number, Record<string, { estatus: string; observacion: string | null }>>;
     };
 }>();
 
@@ -142,12 +154,82 @@ function guardar(): void {
     form.post(`/docencia/materias/${props.materiaId}/asistencia`, { preserveScroll: true });
 }
 
+/*
+ * Igual que el mes: cambiar el día no debe expulsar de la pestaña. Las marcas se
+ * releen solas —el watcher sobre fecha y modalidad llama a `reiniciar`—, así que
+ * conservar el estado no deja datos viejos en pantalla.
+ */
 function cambiarSesion(fecha: string, modalidad: string): void {
     router.get(
         `/docencia/materias/${props.materiaId}`,
-        { fecha, modalidad },
-        { preserveState: false, preserveScroll: true },
+        { fecha, modalidad, mes: props.asistencia.mes },
+        { preserveState: true, preserveScroll: true },
     );
+}
+
+/* ── Lo ya registrado ──────────────────────────────────────────────────── */
+
+/*
+ * El pase de lista responde «¿quién vino hoy?»; la rejilla responde «¿cómo ha
+ * ido el mes?». Son dos preguntas y hasta ahora la segunda obligaba a abrir el
+ * día por día para reconstruirla.
+ */
+const verRejilla = ref(false);
+
+/*
+ * Se conserva el estado al cambiar de mes: recargar la pantalla entera devolvía
+ * al usuario a la primera pestaña y cerraba la rejilla que acababa de abrir.
+ * Los props llegan nuevos igual; lo que se preserva es dónde estaba parado.
+ */
+function cambiarMes(mes: string): void {
+    router.get(
+        `/docencia/materias/${props.materiaId}`,
+        { fecha: props.asistencia.fecha, modalidad: props.asistencia.modalidad, mes },
+        { preserveState: true, preserveScroll: true },
+    );
+}
+
+/** Una letra por estado: con veinte columnas, la palabra no cabe. */
+const inicialDe: Record<string, string> = {
+    presente: 'A',
+    retardo: 'R',
+    falta: 'F',
+    justificada: 'J',
+};
+
+const nombreDe: Record<string, string> = {
+    presente: 'Asistencia',
+    retardo: 'Retardo',
+    falta: 'Falta',
+    justificada: 'Falta justificada',
+};
+
+function celda(inscripcionId: number, clave: string) {
+    return props.asistencia.rejilla[inscripcionId]?.[clave];
+}
+
+/** El total del mes por alumno: es el número que se reporta. */
+function faltasDelMes(inscripcionId: number): number {
+    const suyas = props.asistencia.rejilla[inscripcionId] ?? {};
+
+    return Object.values(suyas).filter((c) => c.estatus === 'falta').length;
+}
+
+const MESES = [
+    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+
+/**
+ * «noviembre 2025», no «2025-11».
+ *
+ * Con el año siempre visible: un curso de noviembre a febrero cruza el año, y
+ * ver solo el mes dejaría dos «febrero» indistinguibles en el selector.
+ */
+function nombreMes(mes: string): string {
+    const [anio, num] = mes.split('-');
+
+    return `${MESES[Number(num) - 1]} ${anio}`;
 }
 
 function alternarDoblePase(): void {
@@ -349,5 +431,136 @@ const hoy = new Date().toISOString().slice(0, 10);
         <p v-else class="border-t border-borde px-6 py-8 text-center text-sm text-suave">
             No hay alumnos inscritos a quienes pasar lista.
         </p>
+    </section>
+
+    <!-- ===== Lo ya registrado, en rejilla ===== -->
+    <section v-if="asistencia.meses.length" class="tarjeta overflow-hidden">
+        <header class="flex flex-wrap items-end justify-between gap-3 px-6 py-4">
+            <div>
+                <button
+                    type="button"
+                    class="flex items-center gap-2 text-base font-semibold text-contenido"
+                    @click="verRejilla = !verRejilla"
+                >
+                    <span
+                        class="inline-block transition-transform"
+                        :style="{ transform: verRejilla ? 'rotate(90deg)' : 'none' }"
+                    >›</span>
+                    Lo ya registrado
+                </button>
+                <p class="mt-0.5 text-sm text-suave">
+                    {{ asistencia.sesionesDelMes.length }} sesión(es) en
+                    {{ asistencia.mes ? nombreMes(asistencia.mes) : '' }}.
+                </p>
+            </div>
+
+            <!-- El mes es la unidad natural: es como se reportan las faltas, y
+                 deja recorrer un curso que cruza el año sin partirlo. -->
+            <label v-if="verRejilla" class="block">
+                <span class="mb-1 block text-xs text-suave">Mes</span>
+                <select
+                    :value="asistencia.mes ?? ''"
+                    class="rounded-lg border px-3 py-1.5 text-sm capitalize"
+                    :style="{ borderColor: 'var(--color-borde)' }"
+                    @change="cambiarMes(($event.target as HTMLSelectElement).value)"
+                >
+                    <option v-for="m in asistencia.meses" :key="m" :value="m">{{ nombreMes(m) }}</option>
+                </select>
+            </label>
+        </header>
+
+        <div v-if="verRejilla" class="overflow-x-auto border-t border-borde">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr
+                        class="text-[11px] uppercase tracking-wider"
+                        :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }"
+                    >
+                        <th
+                            class="sticky left-0 z-10 px-6 py-3 text-left font-semibold"
+                            :style="{ backgroundColor: 'var(--color-superficie)' }"
+                        >
+                            Alumno
+                        </th>
+                        <th
+                            v-for="s in asistencia.sesionesDelMes"
+                            :key="s.clave"
+                            class="px-2 py-3 text-center font-semibold"
+                            :title="`${s.fecha}${s.modalidad !== 'unica' ? ' · ' + s.modalidad : ''}`"
+                        >
+                            <span class="block">{{ s.dia }}</span>
+                            <span
+                                v-if="s.modalidad !== 'unica'"
+                                class="block text-[9px] font-normal normal-case opacity-70"
+                            >
+                                {{ s.modalidad === 'teorica' ? 'teo' : 'prá' }}
+                            </span>
+                        </th>
+                        <th class="px-3 py-3 text-center font-semibold">Faltas</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    <tr
+                        v-for="a in asistencia.lista"
+                        :key="a.inscripcion_id"
+                        class="border-t"
+                        :style="{ borderColor: 'var(--color-borde)' }"
+                    >
+                        <td
+                            class="sticky left-0 z-10 px-6 py-2"
+                            :style="{ backgroundColor: 'var(--color-superficie)' }"
+                        >
+                            <span class="block truncate text-sm">{{ a.nombre }}</span>
+                            <span class="block font-mono text-xs text-suave">{{ a.matricula }}</span>
+                        </td>
+
+                        <td
+                            v-for="s in asistencia.sesionesDelMes"
+                            :key="s.clave"
+                            class="px-2 py-2 text-center"
+                        >
+                            <!-- Una letra y un color: con veinte columnas la
+                                 palabra no cabe, y la letra sigue diciendo el
+                                 estado a quien no distingue los tonos. -->
+                            <span
+                                v-if="celda(a.inscripcion_id, s.clave)"
+                                class="mx-auto grid h-6 w-6 place-items-center rounded text-xs font-semibold"
+                                :style="{
+                                    backgroundColor: `color-mix(in srgb, ${colorDe(celda(a.inscripcion_id, s.clave)!.estatus)} 14%, transparent)`,
+                                    color: colorDe(celda(a.inscripcion_id, s.clave)!.estatus),
+                                }"
+                                :title="`${nombreDe[celda(a.inscripcion_id, s.clave)!.estatus]}${celda(a.inscripcion_id, s.clave)!.observacion ? ' · ' + celda(a.inscripcion_id, s.clave)!.observacion : ''}`"
+                            >
+                                {{ inicialDe[celda(a.inscripcion_id, s.clave)!.estatus] ?? '·' }}
+                            </span>
+                            <span v-else class="text-suave" title="Sin registro de esa sesión">·</span>
+                        </td>
+
+                        <td class="px-3 py-2 text-center">
+                            <span
+                                class="text-sm font-semibold"
+                                :style="{ color: faltasDelMes(a.inscripcion_id) ? colorDe(FALTA) : 'var(--color-suave)' }"
+                            >
+                                {{ faltasDelMes(a.inscripcion_id) }}
+                            </span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="flex flex-wrap items-center gap-4 border-t border-borde px-6 py-2.5 text-xs text-suave">
+                <span v-for="(nombre, clave) in nombreDe" :key="clave" class="flex items-center gap-1.5">
+                    <span
+                        class="grid h-5 w-5 place-items-center rounded text-[10px] font-semibold"
+                        :style="{
+                            backgroundColor: `color-mix(in srgb, ${colorDe(clave)} 14%, transparent)`,
+                            color: colorDe(clave),
+                        }"
+                    >{{ inicialDe[clave] }}</span>
+                    {{ nombre }}
+                </span>
+            </div>
+        </div>
     </section>
 </template>
