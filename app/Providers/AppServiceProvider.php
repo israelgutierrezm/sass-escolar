@@ -10,6 +10,7 @@ use App\Panel\Tarjetas\ActividadPorHora;
 use App\Panel\Tarjetas\CarteraDeLaEscuela;
 use App\Panel\Tarjetas\ComisionesPorPagar;
 use App\Panel\Tarjetas\EmbudoDeAdmision;
+use App\Panel\Tarjetas\LoQueEsperaAlDocente;
 use App\Panel\Tarjetas\MiAvanceAcademico;
 use App\Panel\Tarjetas\MiEstadoDeCuenta;
 use App\Panel\Tarjetas\MisMateriasDocente;
@@ -156,6 +157,9 @@ class AppServiceProvider extends ServiceProvider
             $registro = new RegistroTarjetas;
 
             foreach ([
+                // Antes que «Mis materias»: lo que reclama trabajo va arriba de
+                // lo que solo informa.
+                LoQueEsperaAlDocente::class,
                 MiAvanceAcademico::class,
                 MiEstadoDeCuenta::class,
                 MisMateriasDocente::class,
