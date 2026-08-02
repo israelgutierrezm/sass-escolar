@@ -181,6 +181,14 @@ Cinco entregas, en este orden. A y B ✅ hechas; C, D y E pendientes:
   cambio ya se haya guardado. Lo peor es cómo se ve: el dato cambió en la base y
   la pantalla no se entera, así que parece que el botón no funciona. Mordió con
   el interruptor de visibilidad.
+- **Los catálogos universales viven en la base CENTRAL.** `niveles_estudio`,
+  sexos, países… tienen modelo en `App\Models\Landlord\` con `CentralConnection`.
+  Un `DB::table('nivel_estudios')` desde el tenant revienta con «table doesn't
+  exist» — y además el nombre real es `niveles_estudio`. Siempre por el modelo.
+- **El nombre de una tabla se pregunta, no se adivina.** `oferta` es singular,
+  `planes_estudio` no se llama como su modelo, `inscripcion` tampoco. Consultar
+  con Eloquent en vez de escribir el nombre a mano evita el problema entero;
+  mordió al construir `ContextoAcademico`.
 - **Una ruta que sirven DOS oficios no puede colgar del permiso de uno.** La
   descarga de un adjunto de entrega estaba bajo `can:ver-mis-cursos` con el
   resto del portal del alumno; el controlador sí contemplaba al docente, pero el
@@ -443,6 +451,32 @@ npm run dev                # o npm run build
   plantilla del plan. Era el gesto más repetido —se arma en borrador y se suelta
   conforme avanza el semestre— y el más caro: abrir el formulario y reenviar
   diez campos para mover un interruptor.
+- **Calendario escolar** (`/plataforma/calendario`, permiso
+  `gestionar-calendario`): avisos, feriados, recesos, inicio y fin de ciclo,
+  evaluaciones y eventos, con rejilla del mes y lista editable debajo.
+  - **Dos tablas**: `eventos_calendario` dice qué y cuándo; `evento_destinos`
+    dice a quién. Un aviso puede ir a varios públicos a la vez y con columnas
+    fijas (campus_id, carrera_id…) quedaría atado a una sola combinación.
+  - **Los destinos se SUMAN, no se cruzan.** «Campus norte» + «grupo A» son los
+    del campus norte Y ADEMÁS el grupo A. Exigir cumplir todos dejaría casi
+    cualquier aviso sin público: nadie es a la vez «todos los docentes» y «el
+    grupo A».
+  - Segmentación completa: toda la escuela, rol, campus, nivel, carrera, plan,
+    grupo, materia y alumnos señalados uno por uno (estos se buscan con
+    `BuscadorRemoto`; los demás caben en un `select`).
+  - `destino_id` NO lleva FK: apunta a tablas distintas según el tipo. Es lo que
+    permite agregar «por turno» mañana sin migrar. A cambio, lo que apunta a
+    algo borrado se muestra como «Ya no existe» en vez de reventar.
+  - **`ContextoAcademico`** resuelve dónde está parada una persona (campus,
+    nivel, carrera, plan, grupos, materias). Un alumno pertenece por su
+    matrícula; un docente, por su asignación — y quien hace las dos cosas recibe
+    lo de ambos lados. **`AgendaDeUsuario`** es quien contesta «¿esto es para
+    mí?», filtrando en SQL contra el índice `(tipo, destino_id)`.
+  - Los roles salen de `persona_rol` (`rolesDisponibles()`), **no** del rol
+    activo: un aviso para docentes no puede desaparecer porque alguien conmutó
+    de rol para revisar otra cosa.
+  - Pruebas: `scripts/prueba-calendario.php`, 26 verificaciones contra la BD
+    real con rollback.
 - **Asistencia con dos columnas de faltas**: la rejilla está recortada al mes,
   así que su total contesta «¿cómo le fue en noviembre?». Lo que decide el
   derecho a examen es el acumulado del curso, y había que ir mes por mes

@@ -19,6 +19,7 @@ use App\Http\Controllers\CarreraController;
 use App\Http\Controllers\CatalogoAcademicoController;
 use App\Http\Controllers\CicloController;
 use App\Http\Controllers\ConfiguracionController;
+use App\Http\Controllers\Plataforma\CalendarioController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocenciaController;
 use App\Http\Controllers\DocenteController;
@@ -1136,6 +1137,24 @@ Route::middleware([
             ->group(function () {
                 Route::get('/', 'index')->name('index');
                 Route::put('/{clave}', 'guardar')->name('guardar');
+            });
+
+        /*
+         * El calendario de la escuela.
+         *
+         * Sólo se escribe con `gestionar-calendario`; VER la agenda no pide
+         * permiso —cada quien ve la suya, resuelta por `AgendaDeUsuario`— y por
+         * eso esas rutas viven en el panel, no aquí.
+         */
+        Route::controller(CalendarioController::class)
+            ->prefix('plataforma/calendario')->name('tenant.plataforma.calendario.')
+            ->middleware('can:gestionar-calendario')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('alumnos', 'buscarAlumnos')->name('alumnos');
+                Route::post('/', 'guardar')->name('crear');
+                Route::put('{evento}', 'guardar')->whereNumber('evento')->name('editar');
+                Route::delete('{evento}', 'eliminar')->whereNumber('evento')->name('eliminar');
             });
 
         Route::controller(UsuarioController::class)

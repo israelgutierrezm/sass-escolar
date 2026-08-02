@@ -156,6 +156,7 @@ final class CatalogoPermisos
             'gestionar-roles' => ['Administrar roles', 'Crear roles y decidir qué puede hacer cada uno. Incluye este permiso.', [self::ADMINISTRATIVO]],
             'suplantar-usuarios' => ['Ver como otra persona', 'Entrar con la identidad de alguien más para dar soporte. Queda en bitácora.', [self::ADMINISTRATIVO]],
             'gestionar-formularios' => ['Constructor de formularios', 'Definir qué datos se piden y en qué versión.', [self::ADMINISTRATIVO]],
+            'gestionar-calendario' => ['Administrar el calendario', 'Publicar avisos, feriados, recesos y eventos, y decidir a quién le llegan. Todos ven su agenda; sólo con esto se escribe en ella.', [self::ADMINISTRATIVO]],
         ],
     ];
 

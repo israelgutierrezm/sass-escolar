@@ -42,6 +42,8 @@ const props = withDefaults(
 
 const modelo = defineModel<number | null>();
 
+const emit = defineEmits<{ elegido: [Resultado] }>();
+
 const texto = ref('');
 const resultados = ref<Resultado[]>([]);
 const buscando = ref(false);
@@ -86,6 +88,11 @@ function elegir(r: Resultado): void {
     modelo.value = r.id;
     resultados.value = [];
     texto.value = etiquetaDe(r);
+
+    // Además del id por v-model, se emite el resultado COMPLETO: quien arma una
+    // lista de elegidos necesita el nombre para pintarlo, y con sólo el id
+    // tendría que volver a preguntarlo al servidor.
+    emit('elegido', r);
 }
 
 function limpiar(): void {
