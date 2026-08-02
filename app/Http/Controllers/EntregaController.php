@@ -36,6 +36,24 @@ class EntregaController extends Controller
             return back()->with('error', 'La entrega de esta actividad está cerrada.');
         }
 
+        /*
+         * Hay trabajos de una sola oportunidad y así lo configuró el docente.
+         *
+         * Se comprueba AQUÍ y no sólo escondiendo el botón: la pantalla se puede
+         * saltar, y lo que está en juego es que alguien reemplace su trabajo
+         * después de leer la retroalimentación del docente —o después de ver la
+         * calificación de un compañero—.
+         */
+        $yaEntregada = Entrega::query()
+            ->where('actividad_id', $actividad->id)
+            ->where('inscripcion_id', $inscripcion->id)
+            ->whereNotNull('entregada_en')
+            ->exists();
+
+        if ($yaEntregada && ! $actividad->permite_reentrega) {
+            return back()->with('error', 'Esta actividad admite una sola entrega, y la tuya ya está registrada.');
+        }
+
         $datos = $request->validate([
             'contenido' => ['nullable', 'string', 'max:20000'],
             'archivos' => ['nullable', 'array', 'max:5'],

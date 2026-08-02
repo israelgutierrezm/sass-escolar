@@ -409,6 +409,7 @@ class DocenciaController extends Controller
                 'abre_en' => $a->abre_en?->format('Y-m-d\TH:i'),
                 'cierra_en' => $a->cierra_en?->format('Y-m-d\TH:i'),
                 'permite_tarde' => $a->permite_tarde,
+                'permite_reentrega' => $a->permite_reentrega,
                 'publicada' => $a->publicada,
                 'entregadas' => ($entregas->flatten()->where('actividad_id', $a->id)
                     ->whereNotNull('entregada_en')->count()),

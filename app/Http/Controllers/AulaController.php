@@ -196,6 +196,8 @@ class AulaController extends Controller
                     ? null
                     : (int) now()->startOfDay()->diffInDays($a->cierra_en->copy()->startOfDay(), false),
                 'permite_tarde' => (bool) $a->permite_tarde,
+                // Se le dice ANTES de entregar, no cuando ya no puede corregir.
+                'permite_reentrega' => (bool) $a->permite_reentrega,
                 'abierta' => $a->abierta(),
                 'parcial' => $a->componente?->parcial,
                 'componente' => $a->componente?->etiquetaCompleta(),

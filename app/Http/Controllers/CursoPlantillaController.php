@@ -72,6 +72,7 @@ class CursoPlantillaController extends Controller
                 'tiene_contenido' => $a->tieneContenido(),
                 'puntos' => (float) $a->puntos,
                 'permite_tarde' => (bool) $a->permite_tarde,
+                'permite_reentrega' => (bool) $a->permite_reentrega,
                 'publicada' => (bool) $a->publicada,
                 'esquema_evaluacion_id' => $a->esquema_evaluacion_id,
                 'componente' => $a->componente?->etiquetaCompleta(),
@@ -138,6 +139,7 @@ class CursoPlantillaController extends Controller
             'esquema_evaluacion_id' => ['nullable', 'integer'],
             'puntos' => ['required', 'numeric', 'min:1', 'max:1000'],
             'permite_tarde' => ['boolean'],
+            'permite_reentrega' => ['boolean'],
             'publicada' => ['boolean'],
         ], [], ['esquema_evaluacion_id' => 'componente de evaluación']);
 

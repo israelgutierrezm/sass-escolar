@@ -31,6 +31,8 @@ interface ActividadPlantilla {
     tiene_contenido: boolean;
     puntos: number;
     permite_tarde: boolean;
+    /** Si el alumno puede reemplazar lo entregado. */
+    permite_reentrega: boolean;
     publicada: boolean;
     esquema_evaluacion_id: number | null;
     componente: string | null;
@@ -87,6 +89,7 @@ const formActividad = useForm({
     esquema_evaluacion_id: null as number | null,
     puntos: 10,
     permite_tarde: false,
+    permite_reentrega: true,
     publicada: true,
 });
 
@@ -108,6 +111,7 @@ function editarActividad(a: ActividadPlantilla): void {
     formActividad.esquema_evaluacion_id = a.esquema_evaluacion_id;
     formActividad.puntos = a.puntos;
     formActividad.permite_tarde = a.permite_tarde;
+    formActividad.permite_reentrega = a.permite_reentrega;
     formActividad.publicada = a.publicada;
     editorAbierto.value = true;
 }
@@ -379,6 +383,18 @@ const totalPonderado = computed(() =>
                     <label v-if="tipoActual?.se_entrega" class="flex items-center gap-2 text-sm">
                         <input v-model="formActividad.permite_tarde" type="checkbox" />
                         Aceptar entregas tarde (quedan marcadas)
+                    </label>
+                    <!-- Viaja con la copia: lo que se decida aquí es como nacen
+                         todos los grupos que abran esta materia. -->
+                    <label v-if="tipoActual?.se_entrega" class="flex items-start gap-2 text-sm">
+                        <input v-model="formActividad.permite_reentrega" type="checkbox" class="mt-0.5" />
+                        <span>
+                            Permitir corregir la entrega
+                            <span class="block text-xs text-suave">
+                                Si lo desmarcas, el alumno entrega una sola vez y ya no puede
+                                reemplazarla.
+                            </span>
+                        </span>
                     </label>
                     <label class="flex items-center gap-2 text-sm">
                         <input v-model="formActividad.publicada" type="checkbox" />

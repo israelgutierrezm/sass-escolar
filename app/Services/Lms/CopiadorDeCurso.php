@@ -139,6 +139,7 @@ class CopiadorDeCurso
             'esquema_evaluacion_id' => $original->esquema_evaluacion_id,
             'puntos' => $original->puntos,
             'permite_tarde' => $original->permite_tarde,
+            'permite_reentrega' => $original->permite_reentrega,
             'orden' => $original->orden,
             'publicada' => $original->publicada,
             'config' => $original->config,

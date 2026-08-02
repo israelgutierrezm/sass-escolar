@@ -96,7 +96,23 @@ function alTeclear(evento: KeyboardEvent): void {
  */
 let reloj: number | undefined;
 
+/*
+ * Un sondeo a la vez.
+ *
+ * Al mandar un mensaje se sondea de inmediato para verlo aparecer, y además el
+ * reloj sondea cada cinco segundos. Cuando las dos llamadas se cruzaban —cosa
+ * que pasa sola al escribir seguido— ambas leían el MISMO «último id» antes de
+ * que ninguna hubiera insertado nada, así que las dos traían el mensaje recién
+ * enviado y las dos lo metían en la lista: el mensaje salía duplicado en
+ * pantalla, aunque en la base hubiera uno solo.
+ */
+let sondeando = false;
+
 async function sondear(): Promise<void> {
+    if (sondeando) return;
+
+    sondeando = true;
+
     const ultimo = mensajes.value.length ? mensajes.value[mensajes.value.length - 1].id : 0;
 
     try {
@@ -109,13 +125,24 @@ async function sondear(): Promise<void> {
 
         const datos = await r.json();
 
-        if (datos.mensajes?.length) {
-            mensajes.value.push(...datos.mensajes);
+        /*
+         * Y aun con el cerrojo, se filtra por id antes de insertar: el mensaje
+         * puede llegar por el sondeo y por una recarga de props a la vez, y una
+         * lista de chat no puede permitirse mostrar dos veces lo mismo. El
+         * cerrojo evita la carrera; esto evita cualquier otra.
+         */
+        const conocidos = new Set(mensajes.value.map((m) => m.id));
+        const nuevos = (datos.mensajes ?? []).filter((m: MensajeChat) => !conocidos.has(m.id));
+
+        if (nuevos.length) {
+            mensajes.value.push(...nuevos);
             alFinal();
         }
     } catch {
         // Un sondeo fallido no merece aviso: el siguiente lo resuelve. Molestar
         // con un error cada vez que parpadea la red haría inusable la pantalla.
+    } finally {
+        sondeando = false;
     }
 }
 

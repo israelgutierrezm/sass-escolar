@@ -40,6 +40,8 @@ interface ActividadDocente {
     abre_en: string | null;
     cierra_en: string | null;
     permite_tarde: boolean;
+    /** Si el alumno puede reemplazar lo entregado. */
+    permite_reentrega: boolean;
     publicada: boolean;
     entregadas: number;
 }
@@ -111,6 +113,9 @@ const formActividad = useForm({
     abre_en: '',
     cierra_en: '',
     permite_tarde: false,
+    // Se puede corregir salvo que el docente diga lo contrario: es lo que menos
+    // sorprende, y lo que el sistema hacía antes de que esto fuera opción.
+    permite_reentrega: true,
     publicada: true,
 });
 
@@ -134,6 +139,7 @@ function editarActividad(a: ActividadDocente): void {
     formActividad.abre_en = a.abre_en ?? '';
     formActividad.cierra_en = a.cierra_en ?? '';
     formActividad.permite_tarde = a.permite_tarde;
+    formActividad.permite_reentrega = a.permite_reentrega;
     formActividad.publicada = a.publicada;
     editorAbierto.value = true;
 }
@@ -541,6 +547,18 @@ const cortesCerrados = computed(() =>
                     <label class="flex items-center gap-2 text-sm">
                         <input v-model="formActividad.permite_tarde" type="checkbox" class="rounded" />
                         Aceptar entregas tarde (quedan marcadas)
+                    </label>
+                    <!-- Sólo tiene sentido donde hay algo que reemplazar: una
+                         lectura no se entrega. -->
+                    <label v-if="formActividad.tipo !== 'lectura'" class="flex items-start gap-2 text-sm">
+                        <input v-model="formActividad.permite_reentrega" type="checkbox" class="mt-0.5 rounded" />
+                        <span>
+                            Permitir corregir la entrega
+                            <span class="block text-xs text-suave">
+                                Si lo desmarcas, el alumno entrega una sola vez y ya no puede
+                                reemplazarla. Se le avisa antes de mandar.
+                            </span>
+                        </span>
                     </label>
                     <label class="flex items-center gap-2 text-sm">
                         <input v-model="formActividad.publicada" type="checkbox" class="rounded" />

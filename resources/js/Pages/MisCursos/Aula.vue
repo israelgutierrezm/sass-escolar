@@ -5,6 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CuandoVence from '@/Components/CuandoVence.vue';
 import IndiceDelCurso from '@/Components/IndiceDelCurso.vue';
+import ZonaArchivos from '@/Components/ZonaArchivos.vue';
 import { ICONOS } from '@/iconos';
 
 /**
@@ -54,6 +55,8 @@ interface Leccion {
     cierra_en: string | null;
     dias: number | null;
     permite_tarde: boolean;
+    /** Si puede reemplazar lo entregado. Falso = una sola oportunidad. */
+    permite_reentrega: boolean;
     abierta: boolean;
     parcial: number | null;
     componente: string | null;
@@ -149,6 +152,21 @@ function descompletar(): void {
 /* ── Entregar ───────────────────────────────────────────────────────────── */
 const entregando = ref(false);
 
+/**
+ * Si todavía puede mandar algo.
+ *
+ * Sin entrega previa, siempre. Con entrega hecha, sólo si la actividad admite
+ * reemplazarla: hay trabajos de una sola oportunidad y volver a subir después
+ * de leer la retroalimentación sería otra cosa distinta a entregar.
+ *
+ * Es sólo la cara visible de la regla —el servidor la vuelve a comprobar—, pero
+ * ocultar el botón evita que el alumno prepare una reentrega que iba a ser
+ * rechazada.
+ */
+const puedeEntregar = computed(
+    () => !props.leccion?.entrega?.entregada_en || props.leccion.permite_reentrega,
+);
+
 const formEntrega = useForm<{ contenido: string; archivos: File[] }>({
     contenido: '',
     archivos: [],
@@ -160,10 +178,6 @@ function abrirEntrega(): void {
     // Reentregar arranca con lo que ya había escrito: casi siempre se corrige,
     // no se empieza de cero.
     formEntrega.contenido = props.leccion?.entrega?.contenido ?? '';
-}
-
-function elegirArchivos(evento: Event): void {
-    formEntrega.archivos = Array.from((evento.target as HTMLInputElement).files ?? []);
 }
 
 function enviarEntrega(): void {
@@ -480,7 +494,7 @@ const estado = computed(() => {
                         <header class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-8">
                             <h2 class="text-sm font-semibold text-contenido">Tu entrega</h2>
                             <button
-                                v-if="!entregando && leccion.abierta"
+                                v-if="!entregando && leccion.abierta && puedeEntregar"
                                 type="button"
                                 class="rounded-lg px-4 py-2 text-sm font-medium"
                                 :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
@@ -488,6 +502,17 @@ const estado = computed(() => {
                             >
                                 {{ leccion.entrega?.entregada_en ? 'Volver a entregar' : 'Entregar' }}
                             </button>
+
+                            <!-- Ya entregó y no admite cambios: se explica por
+                                 qué no hay botón. Un botón que desaparece sin
+                                 decir nada se lee como una falla. -->
+                            <span
+                                v-else-if="!entregando && leccion.abierta && !puedeEntregar"
+                                class="rounded-full px-3 py-1 text-xs font-medium"
+                                :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)', color: 'var(--color-suave)' }"
+                            >
+                                Entrega única · ya no se puede cambiar
+                            </span>
                             <button
                                 v-else-if="entregando"
                                 type="button"
@@ -577,11 +602,25 @@ const estado = computed(() => {
 
                             <div>
                                 <label class="mb-1 block text-sm font-medium">Archivos</label>
-                                <input type="file" multiple class="text-sm" @change="elegirArchivos" />
-                                <p class="mt-1 text-xs text-suave">Hasta 5 archivos, 20 MB cada uno.</p>
+                                <ZonaArchivos v-model="formEntrega.archivos" :max="5" :max-mb="20" />
+                                <p v-if="formEntrega.errors.archivos" class="mt-1 text-xs text-red-600">
+                                    {{ formEntrega.errors.archivos }}
+                                </p>
                             </div>
 
-                            <p v-if="leccion.entrega?.entregada_en" class="text-xs" :style="{ color: '#d97706' }">
+                            <!-- Una sola oportunidad: se dice ANTES de mandar,
+                                 que es cuando todavía se puede revisar el
+                                 archivo. Decirlo después no sirve de nada. -->
+                            <p
+                                v-if="!leccion.permite_reentrega"
+                                class="rounded-lg px-3 py-2 text-xs"
+                                :style="{ backgroundColor: 'color-mix(in srgb, #d97706 10%, transparent)', color: '#b45309' }"
+                            >
+                                <strong>Esta actividad admite una sola entrega.</strong>
+                                Revisa bien lo que vas a mandar: después no podrás cambiarlo.
+                            </p>
+
+                            <p v-else-if="leccion.entrega?.entregada_en" class="text-xs" :style="{ color: '#d97706' }">
                                 Volver a entregar reemplaza lo anterior y quita la calificación:
                                 se califica lo que quede.
                             </p>

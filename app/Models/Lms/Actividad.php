@@ -41,6 +41,7 @@ class Actividad extends Model
         'abre_en',
         'cierra_en',
         'permite_tarde',
+        'permite_reentrega',
         'orden',
         'publicada',
         'config',
@@ -54,6 +55,7 @@ class Actividad extends Model
             'abre_en' => 'datetime',
             'cierra_en' => 'datetime',
             'permite_tarde' => 'boolean',
+            'permite_reentrega' => 'boolean',
             'publicada' => 'boolean',
             'config' => 'array',
         ];

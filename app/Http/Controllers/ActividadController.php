@@ -185,6 +185,7 @@ class ActividadController extends Controller
             'abre_en' => ['nullable', 'date'],
             'cierra_en' => ['nullable', 'date', 'after_or_equal:abre_en'],
             'permite_tarde' => ['boolean'],
+            'permite_reentrega' => ['boolean'],
             'publicada' => ['boolean'],
         ], [], [
             'esquema_evaluacion_id' => 'componente de evaluación',
