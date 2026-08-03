@@ -34,6 +34,7 @@ defineProps<{
     alumno: { id: number; nombre: string; matricula: string | null };
     sesiones: Sesion[];
     tutores: { nombre: string; ciclo: string | null; vigente: boolean }[];
+    consultas: { quien: string; cuando: string | null; reservadas: number }[];
 }>();
 </script>
 
@@ -133,6 +134,40 @@ defineProps<{
             <p v-else class="px-6 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
                 Este alumno no tiene ninguna sesión anotada. Si ya tiene tutor asignado, es que todavía
                 no se han visto — o que no se está registrando.
+            </p>
+        </section>
+
+        <!--
+            Quién más ha abierto esto.
+
+            Esconder la auditoría en una tabla que sólo consulta un administrador
+            la vuelve un trámite forense. Enseñarla aquí es lo que de verdad
+            disuade: quien entra sabe que su consulta queda firmada y que los
+            demás la van a ver. Y el aviso de arriba se lo dice antes, no
+            después.
+        -->
+        <section class="tarjeta mt-4 p-6">
+            <h3 class="text-sm font-semibold">Quién ha consultado esta bitácora</h3>
+            <p class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">
+                Tu visita de ahora también quedó registrada.
+            </p>
+
+            <ul v-if="consultas.length" class="mt-3 space-y-1.5">
+                <li
+                    v-for="(c, i) in consultas"
+                    :key="i"
+                    class="flex flex-wrap items-baseline gap-x-2 text-xs"
+                >
+                    <span class="font-medium">{{ c.quien }}</span>
+                    <span :style="{ color: 'var(--color-suave)' }">{{ c.cuando }}</span>
+                    <span v-if="c.reservadas" :style="{ color: 'var(--color-suave)' }">
+                        · {{ c.reservadas }} reservada{{ c.reservadas === 1 ? '' : 's' }} para esa persona
+                    </span>
+                </li>
+            </ul>
+
+            <p v-else class="mt-3 text-xs" :style="{ color: 'var(--color-suave)' }">
+                Nadie más la había abierto hasta ahora.
             </p>
         </section>
     </AppLayout>

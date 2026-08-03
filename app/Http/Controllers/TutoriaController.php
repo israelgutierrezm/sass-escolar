@@ -184,6 +184,49 @@ class TutoriaController extends Controller
     }
 
     /**
+     * Corrige la marca de confidencial de una sesión ya anotada.
+     *
+     * ── Por qué se puede cambiar ───────────────────────────────────────────
+     * La casilla se palomea o se olvida en el momento, con el alumno todavía
+     * enfrente. Sin forma de corregirlo, un descuido deja una sesión ordinaria
+     * escondida de coordinación —o, peor, una delicada a la vista de todos— y
+     * la única salida sería borrarla y volverla a escribir, perdiendo su fecha
+     * real.
+     *
+     * ── Sólo su autor ─────────────────────────────────────────────────────
+     * Es él quien sabe si lo que anotó era delicado. Que coordinación pudiera
+     * desmarcar lo confidencial vaciaría la figura: bastaría con quitarle el
+     * candado a lo que se quisiera leer.
+     *
+     * ── Y sólo la marca ───────────────────────────────────────────────────
+     * El texto no se toca. Lo anotado es su testimonio de lo que ocurrió; poder
+     * reescribirlo después convertiría la bitácora en un documento negociable.
+     * Quién hizo el cambio y cuándo queda en `updated_by` por el trait de
+     * auditoría.
+     */
+    public function marcarConfidencial(Request $request, Persona $alumno, SesionTutoria $sesion): RedirectResponse
+    {
+        $tutoria = $this->miTutoriaCon($request, $alumno);
+
+        // La sesión tiene que ser de ESA tutoría: sin esto, un id de otra
+        // conversación en la URL bastaría para destapar la de un colega.
+        if ((int) $sesion->tutoria_id !== (int) $tutoria->id) {
+            throw new AccessDeniedHttpException('Esa sesión no es de esta tutoría.');
+        }
+
+        $confidencial = $request->boolean('confidencial');
+
+        $sesion->update(['confidencial' => $confidencial]);
+
+        return back(303)->with(
+            'exito',
+            $confidencial
+                ? 'La sesión quedó marcada como confidencial: control escolar verá que ocurrió, pero no lo que anotaste.'
+                : 'La sesión dejó de ser confidencial: quien tenga permiso podrá leerla.',
+        );
+    }
+
+    /**
      * La tutoría vigente entre quien entra y ESE alumno, o 403.
      *
      * Es el candado de toda la pantalla: sin él, cambiar el id en la URL

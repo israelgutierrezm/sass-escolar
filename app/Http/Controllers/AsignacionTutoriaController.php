@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Admisiones\Alumno;
+use App\Models\ControlEscolar\AccesoBitacoraTutoria;
 use App\Models\ControlEscolar\Ciclo;
 use App\Models\ControlEscolar\SesionTutoria;
 use App\Models\ControlEscolar\Tutoria;
@@ -245,6 +246,27 @@ class AsignacionTutoriaController extends Controller
                 ];
             });
 
+        /*
+         * Queda constancia de la consulta.
+         *
+         * Lo que hay aquí dentro son conversaciones sobre la vida de un menor.
+         * El permiso decide quién PUEDE entrar; esto deja rastro de quién
+         * entró, que es lo que sirve el día que el contenido de una sesión
+         * circula por la escuela y hay que averiguar por dónde salió.
+         *
+         * Se registra la CONSULTA, no el contenido: cuántas sesiones se
+         * mostraron y cuántas quedaron reservadas. Una auditoría que copie lo
+         * vigilado multiplica el problema que intenta resolver.
+         */
+        AccesoBitacoraTutoria::create([
+            'persona_id' => $request->user()?->persona_id,
+            'alumno_persona_id' => $alumno->id,
+            'sesiones_vistas' => $sesiones->count(),
+            'confidenciales_ocultas' => $sesiones->filter(fn (array $s) => $s['confidencial'])->count(),
+            'ip' => $request->ip(),
+            'creado_en' => now(),
+        ]);
+
         return Inertia::render('Escolar/BitacoraTutoria', [
             'alumno' => [
                 'id' => $alumno->id,
@@ -252,6 +274,28 @@ class AsignacionTutoriaController extends Controller
                 'matricula' => $alumno->matriculas()->first()?->matricula,
             ],
             'sesiones' => $sesiones,
+            /*
+             * Quién más ha mirado esto, a la vista de quien mira ahora.
+             *
+             * Esconder la auditoría en una tabla que sólo consulta un
+             * administrador la vuelve un trámite forense. Enseñarla aquí la
+             * convierte en lo que de verdad disuade: saber que la consulta
+             * queda firmada y que los demás la van a ver. Se excluye el acceso
+             * que se acaba de registrar —el propio— para no leerse a sí mismo.
+             */
+            'consultas' => AccesoBitacoraTutoria::query()
+                ->where('alumno_persona_id', $alumno->id)
+                ->with('persona')
+                ->orderByDesc('creado_en')
+                ->limit(20)
+                ->get()
+                ->skip(1)
+                ->map(fn (AccesoBitacoraTutoria $a) => [
+                    'quien' => $a->persona?->nombreCompleto() ?? 'Alguien',
+                    'cuando' => $a->creado_en?->toDateTimeString(),
+                    'reservadas' => $a->confidenciales_ocultas,
+                ])
+                ->values(),
             'tutores' => $tutorias
                 ->map(fn (Tutoria $t) => [
                     'nombre' => $t->tutor?->nombreCompleto(),

@@ -272,6 +272,9 @@ Route::middleware([
                 Route::get('/', 'misTutorados')->name('mis');
                 Route::get('{alumno}', 'tutorado')->whereNumber('alumno')->name('tutorado');
                 Route::post('{alumno}/sesiones', 'registrarSesion')->whereNumber('alumno')->name('sesiones');
+                // Corregir la marca de confidencial: sólo la marca, y sólo su autor.
+                Route::patch('{alumno}/sesiones/{sesion}/confidencial', 'marcarConfidencial')
+                    ->whereNumber(['alumno', 'sesion'])->name('sesiones.confidencial');
             });
 
         /*

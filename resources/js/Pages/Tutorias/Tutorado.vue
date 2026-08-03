@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
@@ -57,6 +57,28 @@ function guardar(): void {
         preserveScroll: true,
         onSuccess: () => form.reset('tema', 'acuerdos'),
     });
+}
+
+/**
+ * Corrige la marca de confidencial de una sesión ya anotada.
+ *
+ * La casilla se palomea o se olvida en el momento, con el alumno enfrente. Sin
+ * esto, un descuido dejaría una sesión ordinaria escondida de coordinación —o
+ * una delicada a la vista— y la única salida sería borrarla y reescribirla,
+ * perdiendo su fecha real. Sólo cambia la MARCA: el texto no se toca.
+ */
+function alternarConfidencial(s: Sesion): void {
+    const aviso = s.confidencial
+        ? '¿Quitar la marca de confidencial? Quien tenga permiso podrá leer lo que anotaste.'
+        : '¿Marcar como confidencial? Control escolar verá que la sesión ocurrió, pero no su contenido.';
+
+    if (!confirm(aviso)) return;
+
+    router.patch(
+        `/mis-tutorados/${props.alumno.id}/sesiones/${s.id}/confidencial`,
+        { confidencial: !s.confidencial },
+        { preserveScroll: true },
+    );
 }
 
 function iniciales(nombre: string): string {
@@ -211,6 +233,21 @@ function colorPromedio(p: number | null): string | undefined {
                         >
                             Confidencial
                         </span>
+
+                        <!--
+                            Corregir la marca, no el texto. Es el error típico
+                            —palomear de más o de menos con el alumno todavía
+                            enfrente— y sin esto habría que borrar la sesión y
+                            reescribirla, perdiendo su fecha real.
+                        -->
+                        <button
+                            type="button"
+                            class="ml-auto text-xs underline decoration-dotted"
+                            :style="{ color: 'var(--color-suave)' }"
+                            @click="alternarConfidencial(s)"
+                        >
+                            {{ s.confidencial ? 'Quitar confidencial' : 'Marcar confidencial' }}
+                        </button>
                     </div>
 
                     <p class="mt-2 whitespace-pre-line text-sm">{{ s.tema }}</p>
