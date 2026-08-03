@@ -2,8 +2,10 @@
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import TarjetaClima from '@/Components/TarjetaClima.vue';
+import CieloDecorado from '@/Components/CieloDecorado.vue';
+import ClimaEnCabecera from '@/Components/ClimaEnCabecera.vue';
 import AgendaLateral from '@/Components/AgendaLateral.vue';
+import { usaClima } from '@/utils/clima';
 import type { PropsCompartidas } from '@/tipos';
 
 interface Tarjeta {
@@ -68,6 +70,22 @@ const saludo = computed(() => {
     return h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches';
 });
 
+const { clima, esDeNoche } = usaClima();
+
+/**
+ * La banda de bienvenida, teñida por la hora del CAMPUS.
+ *
+ * Sigue siendo el acento de la escuela —es su identidad, no se cambia por un
+ * adorno—, pero de noche se hunde hacia el azul profundo. Así la banda dice la
+ * hora antes de que uno lea la temperatura, que es lo que la vuelve de doble
+ * uso y no un saludo con un número pegado.
+ */
+const fondoCabecera = computed(() =>
+    esDeNoche.value
+        ? 'linear-gradient(120deg, color-mix(in srgb, var(--color-acento) 42%, #0b1220), color-mix(in srgb, var(--color-acento) 18%, #060911))'
+        : 'linear-gradient(120deg, var(--color-acento), color-mix(in srgb, var(--color-acento) 55%, #000))',
+);
+
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
 
 function formatear(valor: number, formato?: string): string {
@@ -127,48 +145,70 @@ function conmutar(rolId: number): void {
     <Head title="Panel" />
 
     <AppLayout titulo="Panel">
-        <!-- Cabecera de bienvenida: saludo, quién eres y con qué rol operas. -->
-        <section
-            class="animar-entrada mb-4 overflow-hidden rounded-2xl p-6 text-white shadow-lg"
-            :style="{ background: 'linear-gradient(120deg, var(--color-acento), color-mix(in srgb, var(--color-acento) 55%, #000))' }"
-        >
-            <div class="flex flex-wrap items-center justify-between gap-4">
-                <div class="min-w-0">
-                    <p class="text-sm opacity-80">{{ saludo }},</p>
-                    <h1 class="truncate text-2xl font-bold">{{ usuario?.nombre_completo ?? usuario?.usuario }}</h1>
-                    <p v-if="usuario?.rol_activo" class="mt-1 text-sm opacity-90">
-                        Operas como <strong>{{ usuario.rol_activo.nombre }}</strong>
-                    </p>
-                </div>
-                <button
-                    v-if="rolesDisponibles.length > 1"
-                    type="button"
-                    class="inline-flex items-center gap-2 rounded-xl bg-superficie/15 px-4 py-2.5 text-sm font-medium backdrop-blur transition hover:bg-superficie/25"
-                    @click="mostrarRoles = !mostrarRoles"
-                >
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" /></svg>
-                    Cambiar de rol
-                </button>
-            </div>
+        <!--
+            La banda de bienvenida, de doble uso: quién eres y cómo está afuera.
 
-            <!-- Conmutador de rol (se despliega desde el botón). -->
-            <div v-if="mostrarRoles && rolesDisponibles.length" class="mt-5 grid gap-2 border-t border-white/20 pt-4 sm:grid-cols-2 lg:grid-cols-3">
-                <button
-                    v-for="rol in rolesDisponibles"
-                    :key="`${rol.id}-${rol.campus_id ?? 'global'}`"
-                    type="button"
-                    class="rounded-xl px-4 py-3 text-left text-sm transition"
-                    :class="esActivo(rol.id) ? 'bg-superficie text-contenido shadow' : 'bg-superficie/10 hover:bg-superficie/20'"
-                    @click="conmutar(rol.id)"
-                >
-                    <span class="flex items-center justify-between gap-2">
-                        <span class="font-medium">{{ rol.nombre }}</span>
-                        <span v-if="esActivo(rol.id)" class="rounded-full px-2 py-0.5 text-[10px] font-semibold" :style="{ backgroundColor: 'var(--color-acento)', color: '#fff' }">Activo</span>
-                    </span>
-                    <span class="mt-0.5 block text-xs opacity-80">
-                        {{ rol.campus_nombre ? `Acotado a ${rol.campus_nombre}` : 'Alcance global' }}
-                    </span>
-                </button>
+            Ocupaba el ancho completo de la pantalla para decir un saludo y un
+            nombre, y con un solo rol ni siquiera llevaba el botón de cambiarlo:
+            media banda de color liso. Ahora el clima vive aquí —donde ya había
+            sitio— y de paso el fondo cambia con la hora del campus.
+        -->
+        <section
+            class="animar-entrada relative mb-4 overflow-hidden rounded-2xl text-white shadow-lg"
+            :style="{ background: fondoCabecera }"
+        >
+            <CieloDecorado :noche="esDeNoche" />
+
+            <!-- `relative`: por encima del cielo, que va en posición absoluta. -->
+            <div class="relative p-6">
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div class="min-w-0">
+                        <p class="text-sm opacity-80">{{ saludo }},</p>
+                        <h1 class="truncate text-2xl font-bold">{{ usuario?.nombre_completo ?? usuario?.usuario }}</h1>
+                        <!--
+                            Sólo cuando hay de dónde elegir. A quien tiene un
+                            único rol, «Operas como Alumno» no le informa de
+                            nada: no es una elección, es lo único que puede ser.
+                        -->
+                        <p v-if="usuario?.rol_activo && rolesDisponibles.length > 1" class="mt-1 text-sm opacity-90">
+                            Operas como <strong>{{ usuario.rol_activo.nombre }}</strong>
+                        </p>
+                    </div>
+
+                    <div class="ml-auto flex flex-wrap items-center justify-end gap-3">
+                        <ClimaEnCabecera v-if="clima" :clima="clima" />
+
+                        <button
+                            v-if="rolesDisponibles.length > 1"
+                            type="button"
+                            class="inline-flex items-center gap-2 rounded-xl bg-superficie/15 px-4 py-2.5 text-sm font-medium backdrop-blur transition hover:bg-superficie/25"
+                            @click="mostrarRoles = !mostrarRoles"
+                        >
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" /></svg>
+                            Cambiar de rol
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Conmutador de rol (se despliega desde el botón). -->
+                <div v-if="mostrarRoles && rolesDisponibles.length" class="mt-5 grid gap-2 border-t border-white/20 pt-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <button
+                        v-for="rol in rolesDisponibles"
+                        :key="`${rol.id}-${rol.campus_id ?? 'global'}`"
+                        type="button"
+                        class="rounded-xl px-4 py-3 text-left text-sm transition"
+                        :class="esActivo(rol.id) ? 'bg-superficie text-contenido shadow' : 'bg-superficie/10 hover:bg-superficie/20'"
+                        @click="conmutar(rol.id)"
+                    >
+                        <span class="flex items-center justify-between gap-2">
+                            <span class="font-medium">{{ rol.nombre }}</span>
+                            <span v-if="esActivo(rol.id)" class="rounded-full px-2 py-0.5 text-[10px] font-semibold" :style="{ backgroundColor: 'var(--color-acento)', color: '#fff' }">Activo</span>
+                        </span>
+                        <span class="mt-0.5 block text-xs opacity-80">
+                            {{ rol.campus_nombre ? `Acotado a ${rol.campus_nombre}` : 'Alcance global' }}
+                        </span>
+                    </button>
+                </div>
             </div>
         </section>
 
@@ -453,7 +493,7 @@ function conmutar(rolId: number): void {
                 los permisos que tenga.
             </section>
 
-            <!-- El contexto: qué día es, qué viene, cómo está afuera. -->
+            <!-- El contexto: qué día es y qué viene. El clima subió a la banda. -->
             <aside class="space-y-4 xl:sticky xl:top-4">
                 <AgendaLateral
                     :mes="agenda.mes"
@@ -462,7 +502,6 @@ function conmutar(rolId: number): void {
                     :hoy="agenda.hoy"
                     :efemerides="agenda.efemerides"
                 />
-                <TarjetaClima />
             </aside>
         </div>
     </AppLayout>
