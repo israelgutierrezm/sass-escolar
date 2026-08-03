@@ -241,13 +241,22 @@ Route::middleware([
          * Reparto de tutorías, desde control escolar. Es quien decide quién
          * acompaña a quién; el tutor sólo consulta lo que le tocó.
          */
+        /*
+         * Leer la bitácora va APARTE: repartir tutorías y leer lo que se habló
+         * en ellas son dos cosas distintas, y la segunda toca notas personales
+         * del alumno. Fuera del grupo para que no herede `gestionar-tutorias`.
+         */
+        Route::get('escolar/tutorias/{alumno}/bitacora', [\App\Http\Controllers\AsignacionTutoriaController::class, 'bitacora'])
+            ->whereNumber('alumno')
+            ->middleware('can:ver-bitacoras-tutoria')
+            ->name('tenant.escolar.tutorias.bitacora');
+
         Route::controller(\App\Http\Controllers\AsignacionTutoriaController::class)
             ->prefix('escolar/tutorias')->name('tenant.escolar.tutorias.')
             ->middleware('can:gestionar-tutorias')
             ->group(function () {
                 Route::get('/', 'index')->name('index');
                 Route::post('/', 'asignar')->name('asignar');
-                Route::get('{alumno}/bitacora', 'bitacora')->whereNumber('alumno')->name('bitacora');
                 Route::delete('{tutoria}', 'quitar')->whereNumber('tutoria')->name('quitar');
             });
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
@@ -7,6 +7,7 @@ import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import { toast } from 'vue-sonner';
+import type { PropsCompartidas } from '@/tipos';
 
 /**
  * Repartir los alumnos entre los tutores educativos.
@@ -38,6 +39,18 @@ const props = defineProps<{
     alumnos: AlumnoFila[];
     resumen: { total: number; sin_tutor: number };
 }>();
+
+/**
+ * Leer bitácoras es un permiso APARTE de repartir tutorías.
+ *
+ * Quien coordina el reparto necesita saber CUÁNTAS sesiones hubo —para
+ * detectar al tutor que no está viendo a nadie—, pero no lo que se habló en
+ * ellas: ahí hay notas de situación personal del alumno. La ruta lo comprueba
+ * en el servidor; esto sólo evita ofrecer un enlace que iba a dar 403.
+ */
+const puedeLeerBitacoras = computed(
+    () => (usePage<PropsCompartidas>().props.auth.usuario?.permisos ?? []).includes('ver-bitacoras-tutoria'),
+);
 
 /* ── Filtros ───────────────────────────────────────────────────────────── */
 
@@ -274,17 +287,29 @@ function quitar(a: AlumnoFila): void {
                                 sesión: sin tutor asignado, cero sesiones es lo
                                 esperado y pintarlo de alarma sería ruido.
                             -->
-                            <Link
-                                :href="`/escolar/tutorias/${a.id}/bitacora`"
+                            <!--
+                                El CONTEO se ve siempre; abrir lo que se dijo,
+                                sólo con permiso. Supervisar que la tutoría
+                                ocurre no exige leer las notas personales del
+                                alumno, y son dos oficios distintos: coordinar el
+                                reparto y acompañar el caso.
+                            -->
+                            <component
+                                :is="puedeLeerBitacoras ? Link : 'span'"
+                                :href="puedeLeerBitacoras ? `/escolar/tutorias/${a.id}/bitacora` : undefined"
                                 class="text-sm"
-                                :style="{ color: a.tutor && a.sesiones === 0 ? '#d97706' : 'var(--color-acento)' }"
+                                :style="{
+                                    color: a.tutor && a.sesiones === 0
+                                        ? '#d97706'
+                                        : (puedeLeerBitacoras ? 'var(--color-acento)' : 'var(--color-contenido)'),
+                                }"
                                 :title="a.ultima_sesion ? `Última: ${a.ultima_sesion}` : 'Sin sesiones anotadas'"
                             >
                                 {{ a.sesiones }}
                                 <span v-if="a.ultima_sesion" class="text-xs" :style="{ color: 'var(--color-suave)' }">
                                     · {{ a.ultima_sesion }}
                                 </span>
-                            </Link>
+                            </component>
                         </td>
                         <td class="py-2.5 pr-5">
                             <BotonAccion v-if="a.tutoria_id" variante="eliminar" texto="Quitar el tutor" @click="quitar(a)" />

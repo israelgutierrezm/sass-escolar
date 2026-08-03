@@ -96,6 +96,17 @@ final class CatalogoPermisos
             'inscribir-alumnos' => ['Inscribir alumnos', 'Dar de alta y de baja materias, con las validaciones de seriación y cupo.', [self::ADMINISTRATIVO]],
             'ver-kardex' => ['Ver kárdex', 'Consultar el historial académico.', [self::ADMINISTRATIVO, self::DOCENTE, self::ALUMNO, self::TUTOR, self::PADRE]],
             'gestionar-tutorias' => ['Asignar tutorías', 'Repartir los alumnos entre los tutores educativos, por ciclo.', [self::ADMINISTRATIVO]],
+            /*
+             * APARTE de `gestionar-tutorias` a propósito.
+             *
+             * Aquél permite repartir tutorías y ver CUÁNTAS sesiones lleva cada
+             * alumno, que es lo que hace falta para supervisar que la tutoría
+             * ocurre. Éste abre lo que se DIJO en ellas, y ahí hay notas de
+             * situación personal: quien coordina el reparto no necesita
+             * leerlas, y en muchas escuelas es orientación o dirección quien
+             * debe hacerlo.
+             */
+            'ver-bitacoras-tutoria' => ['Leer bitácoras de tutoría', 'Abrir lo que el tutor anotó en cada sesión. Puede incluir situaciones personales del alumno.', [self::ADMINISTRATIVO]],
             'ver-grupos' => ['Ver grupos y ciclos', 'Entrar a la sección de control escolar.', [self::ADMINISTRATIVO]],
             'abrir-grupos' => ['Abrir grupos y materias', 'Crear grupos y poner materias en oferta para un ciclo.', [self::ADMINISTRATIVO]],
             'gestionar-ventanas-captura' => ['Calendario de captura', 'Abrir y cerrar la captura por parcial y conceder excepciones. Queda auditado.', [self::ADMINISTRATIVO]],
