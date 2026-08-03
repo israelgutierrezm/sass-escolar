@@ -95,6 +95,7 @@ final class CatalogoPermisos
             'editar-alumnos' => ['Editar alumnos', 'Corregir su situación y su estatus de inscripción.', [self::ADMINISTRATIVO]],
             'inscribir-alumnos' => ['Inscribir alumnos', 'Dar de alta y de baja materias, con las validaciones de seriación y cupo.', [self::ADMINISTRATIVO]],
             'ver-kardex' => ['Ver kárdex', 'Consultar el historial académico.', [self::ADMINISTRATIVO, self::DOCENTE, self::ALUMNO, self::TUTOR, self::PADRE]],
+            'gestionar-tutorias' => ['Asignar tutorías', 'Repartir los alumnos entre los tutores educativos, por ciclo.', [self::ADMINISTRATIVO]],
             'ver-grupos' => ['Ver grupos y ciclos', 'Entrar a la sección de control escolar.', [self::ADMINISTRATIVO]],
             'abrir-grupos' => ['Abrir grupos y materias', 'Crear grupos y poner materias en oferta para un ciclo.', [self::ADMINISTRATIVO]],
             'gestionar-ventanas-captura' => ['Calendario de captura', 'Abrir y cerrar la captura por parcial y conceder excepciones. Queda auditado.', [self::ADMINISTRATIVO]],

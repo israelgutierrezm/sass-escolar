@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models\ControlEscolar;
 
+use App\Models\Concerns\ReviveAlGuardar;
 use App\Models\Concerns\TieneAuditoria;
 use App\Models\Identidad\Persona;
 use Illuminate\Database\Eloquent\Builder;
@@ -18,6 +19,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class Tutoria extends Model
 {
+    /*
+     * `ReviveAlGuardar` porque la llave única (alumno + ciclo) NO conoce el
+     * borrado suave: al retirar una tutoría la fila sigue ahí con `deleted_at`,
+     * y un `updateOrCreate` normal —que no ve los borrados— intentaría insertar
+     * otra igual y chocaría contra la unique. Reasignar a un alumno al que se le
+     * quitó el tutor es justo el caso frecuente.
+     */
+    use ReviveAlGuardar;
     use TieneAuditoria;
 
     protected $table = 'tutorias';

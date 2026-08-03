@@ -152,6 +152,7 @@ export const CATALOGO_MENU: GrupoMenu[] = [
         hijos: [
             { clave: 'ciclos', etiqueta: 'Ciclos', url: '/escolar/ciclos', permiso: 'ver-grupos' },
             { clave: 'grupos', etiqueta: 'Grupos', url: '/escolar/grupos', permiso: 'ver-grupos' },
+            { clave: 'tutorias', etiqueta: 'Tutorías', url: '/escolar/tutorias', permiso: 'gestionar-tutorias' },
             { clave: 'captura-admin', etiqueta: 'Captura', url: '/captura', permiso: 'capturar-calificaciones' },
         ],
     },

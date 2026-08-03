@@ -238,6 +238,19 @@ Route::middleware([
             });
 
         /*
+         * Reparto de tutorías, desde control escolar. Es quien decide quién
+         * acompaña a quién; el tutor sólo consulta lo que le tocó.
+         */
+        Route::controller(\App\Http\Controllers\AsignacionTutoriaController::class)
+            ->prefix('escolar/tutorias')->name('tenant.escolar.tutorias.')
+            ->middleware('can:gestionar-tutorias')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'asignar')->name('asignar');
+                Route::delete('{tutoria}', 'quitar')->whereNumber('tutoria')->name('quitar');
+            });
+
+        /*
          * Portal del tutor educativo. Sin id en la URL: el controlador resuelve
          * a la persona autenticada y sus tutorados salen del vínculo, no de un
          * parámetro que se pueda cambiar.
