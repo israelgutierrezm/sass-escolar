@@ -1,0 +1,18 @@
+[Unit]
+Description=Acadion — dispara el despachador cada minuto
+# Sin esto, si el servicio falla el timer se queda huérfano y nadie se entera.
+Requires=acadion-scheduler.service
+
+[Timer]
+# Cada minuto, que es lo que Laravel espera: él decide qué toca ejecutar según
+# lo declarado en routes/console.php. El minuto NO es negociable — con cinco,
+# una tarea `everyMinute` o `hourly` se ejecutaría a destiempo o se saltaría.
+OnCalendar=*:0/1
+AccuracySec=1s
+
+# Si el servidor estuvo apagado a la hora de una corrida, se ejecuta al
+# arrancar en vez de perderla en silencio.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

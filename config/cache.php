@@ -39,6 +39,21 @@ return [
             'serialize' => false,
         ],
 
+        /*
+         * El latido del despachador y cualquier otra marca del SERVIDOR, no de
+         * una escuela.
+         *
+         * Almacén propio de archivos porque `stancl/tenancy` envuelve el
+         * predeterminado con etiquetas por tenant, y el driver del proyecto no
+         * las admite: cualquier `Cache::put` desde una tarea programada
+         * —que corre fuera de todo tenant— revienta. Además no habría qué
+         * aislar: que el cron esté vivo es del servidor entero.
+         */
+        'scheduler' => [
+            'driver' => 'file',
+            'path' => storage_path('framework/cache/scheduler'),
+        ],
+
         'database' => [
             'driver' => 'database',
             'connection' => env('DB_CACHE_CONNECTION'),

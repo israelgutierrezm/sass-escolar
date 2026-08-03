@@ -2,6 +2,7 @@
 
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
@@ -35,3 +36,18 @@ Schedule::command('tutorias:purgar-accesos')
     ->withoutOverlapping()
     ->onOneServer()
     ->runInBackground();
+
+/*
+ * Latido del despachador.
+ *
+ * Un scheduler que deja de correr NO FALLA: simplemente no pasa nada, y nadie
+ * se entera hasta que alguien pregunta por qué no se generaron los recargos del
+ * mes. Esto deja una marca cada minuto; `scheduler:estado` la lee y dice desde
+ * cuándo no hay señales.
+ *
+ * Va en el almacén de servicios externos —fuera de la caché del tenant— porque
+ * el despachador es del SERVIDOR, no de ninguna escuela.
+ */
+Schedule::call(function () {
+    Cache::store('scheduler')->forever('ultimo-latido', now()->toIso8601String());
+})->everyMinute()->name('latido-del-despachador');

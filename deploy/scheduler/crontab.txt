@@ -1,0 +1,12 @@
+# Acadion — despachador de tareas programadas (alternativa a systemd).
+#
+# Se instala con `crontab -u www-data -e` y se pega esta línea. El usuario
+# importa: con root, los archivos que generen las tareas quedan con dueño
+# equivocado y PHP-FPM deja de poder leerlos.
+#
+# Cada minuto es lo que Laravel espera: él decide qué toca según lo declarado
+# en routes/console.php. La salida va a /dev/null porque el propio scheduler ya
+# registra en el log de la aplicación; dejarla suelta llena el correo del
+# sistema con un mensaje por minuto.
+
+* * * * * cd /var/www/acadion && /usr/bin/php artisan schedule:run >> /dev/null 2>&1

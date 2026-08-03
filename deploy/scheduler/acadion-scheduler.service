@@ -1,0 +1,20 @@
+[Unit]
+Description=Acadion — despachador de tareas programadas
+After=network.target mysql.service
+
+[Service]
+Type=oneshot
+
+# El usuario del servidor web, NO root: las tareas escriben en storage/ y
+# generan archivos que luego tiene que poder leer PHP-FPM. Corriéndolo como
+# root, esos archivos quedan con dueño equivocado y la aplicación empieza a
+# fallar con «permission denied» en sitios que no tienen que ver con el cron.
+User=www-data
+Group=www-data
+
+WorkingDirectory=/var/www/acadion
+ExecStart=/usr/bin/php /var/www/acadion/artisan schedule:run
+
+# Que un fallo no arrastre al timer: si una tarea revienta, la siguiente
+# corrida vuelve a intentarlo por su cuenta.
+SuccessExitStatus=0 1
