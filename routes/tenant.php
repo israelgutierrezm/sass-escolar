@@ -247,6 +247,7 @@ Route::middleware([
             ->group(function () {
                 Route::get('/', 'index')->name('index');
                 Route::post('/', 'asignar')->name('asignar');
+                Route::get('{alumno}/bitacora', 'bitacora')->whereNumber('alumno')->name('bitacora');
                 Route::delete('{tutoria}', 'quitar')->whereNumber('tutoria')->name('quitar');
             });
 

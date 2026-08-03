@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Admisiones\Alumno;
 use App\Models\ControlEscolar\Ciclo;
+use App\Models\ControlEscolar\SesionTutoria;
 use App\Models\ControlEscolar\Tutoria;
 use App\Models\Identidad\Persona;
 use Illuminate\Http\RedirectResponse;
@@ -70,11 +71,30 @@ class AsignacionTutoriaController extends Controller
             ->get()
             ->keyBy('alumno_persona_id');
 
+        /*
+         * Las sesiones se cuentan de TODAS sus tutorías, no sólo de la vigente:
+         * lo que interesa es si a ese alumno se le da seguimiento, y si lo
+         * atendió el tutor del ciclo pasado también cuenta como que se le
+         * atendió. Una sola consulta agregada para no hacer una por alumno.
+         */
+        $sesiones = DB::table('sesiones_tutoria')
+            ->join('tutorias', 'tutorias.id', '=', 'sesiones_tutoria.tutoria_id')
+            ->whereNull('sesiones_tutoria.deleted_at')
+            ->groupBy('tutorias.alumno_persona_id')
+            ->select(
+                'tutorias.alumno_persona_id',
+                DB::raw('COUNT(*) as cuantas'),
+                DB::raw('MAX(sesiones_tutoria.fecha) as ultima'),
+            )
+            ->get()
+            ->keyBy('alumno_persona_id');
+
         $alumnos = Alumno::query()
             ->with(['persona', 'matriculas.oferta.carrera:id,nombre'])
             ->get()
-            ->map(function (Alumno $a) use ($asignadas) {
+            ->map(function (Alumno $a) use ($asignadas, $sesiones) {
                 $tutoria = $asignadas->get($a->persona_id);
+                $conteo = $sesiones->get($a->persona_id);
 
                 return [
                     'id' => $a->persona_id,
@@ -83,6 +103,17 @@ class AsignacionTutoriaController extends Controller
                     'carrera' => $a->matriculas->first()?->oferta?->carrera?->nombre,
                     'tutor' => $tutoria?->tutor?->nombreCompleto(),
                     'tutoria_id' => $tutoria?->id,
+                    /*
+                     * Cuántas sesiones lleva y de cuándo es la última.
+                     *
+                     * Es lo que una coordinación de tutorías viene a saber:
+                     * asignar tutores no sirve de nada si nadie comprueba que
+                     * las sesiones ocurren. Un alumno con tutor desde marzo y
+                     * cero sesiones es exactamente el caso que hay que ver, y
+                     * sin esta columna no se distingue del que va al corriente.
+                     */
+                    'sesiones' => $conteo?->cuantas ?? 0,
+                    'ultima_sesion' => $conteo?->ultima,
                 ];
             })
             /*
@@ -147,6 +178,71 @@ class AsignacionTutoriaController extends Controller
             'exito',
             $cuantos === 1 ? 'Tutoría asignada.' : "{$cuantos} tutorías asignadas.",
         );
+    }
+
+    /**
+     * La bitácora completa de un alumno, de todos sus tutores.
+     *
+     * ── Por qué la ve control escolar ──────────────────────────────────────
+     * Porque es quien coordina: reparte las tutorías y responde cuando alguien
+     * pregunta por qué un alumno se rezagó sin que nadie lo notara. Un tutor ve
+     * lo suyo; aquí se ve el seguimiento del alumno completo, incluidas las
+     * sesiones de tutores anteriores, que es lo que da continuidad cuando la
+     * tutoría cambia de manos.
+     *
+     * ── Y por eso se lee, no se edita ──────────────────────────────────────
+     * Lo que anotó un tutor es su testimonio de lo que ocurrió en esa sesión.
+     * Dejar que coordinación lo corrija convertiría la bitácora en un documento
+     * negociable, y su valor —el de servir de constancia— depende justo de que
+     * no lo sea.
+     */
+    public function bitacora(Request $request, Persona $alumno): Response
+    {
+        $tutorias = Tutoria::query()
+            ->withTrashed()
+            ->where('alumno_persona_id', $alumno->id)
+            ->with(['tutor', 'ciclo:id,clave'])
+            ->get();
+
+        $sesiones = SesionTutoria::query()
+            ->whereIn('tutoria_id', $tutorias->pluck('id'))
+            ->orderByDesc('fecha')
+            ->orderByDesc('id')
+            ->get()
+            ->map(function (SesionTutoria $s) use ($tutorias) {
+                $tutoria = $tutorias->firstWhere('id', $s->tutoria_id);
+
+                return [
+                    'id' => $s->id,
+                    'fecha' => $s->fecha?->toDateString(),
+                    'modalidad' => SesionTutoria::MODALIDADES[$s->modalidad] ?? $s->modalidad,
+                    'motivo' => SesionTutoria::MOTIVOS[$s->motivo] ?? $s->motivo,
+                    'tema' => $s->tema,
+                    'acuerdos' => $s->acuerdos,
+                    'asistio' => $s->asistio,
+                    // Quién la dio: con tutores que cambian entre ciclos, sin
+                    // esto la bitácora es una lista de notas sin autor.
+                    'tutor' => $tutoria?->tutor?->nombreCompleto(),
+                    'ciclo' => $tutoria?->ciclo?->clave,
+                ];
+            });
+
+        return Inertia::render('Escolar/BitacoraTutoria', [
+            'alumno' => [
+                'id' => $alumno->id,
+                'nombre' => $alumno->nombreCompleto(),
+                'matricula' => $alumno->matriculas()->first()?->matricula,
+            ],
+            'sesiones' => $sesiones,
+            'tutores' => $tutorias
+                ->map(fn (Tutoria $t) => [
+                    'nombre' => $t->tutor?->nombreCompleto(),
+                    'ciclo' => $t->ciclo?->clave,
+                    'vigente' => $t->deleted_at === null && $t->activa,
+                ])
+                ->filter(fn (array $t) => $t['nombre'] !== null)
+                ->values(),
+        ]);
     }
 
     public function quitar(Request $request, Tutoria $tutoria): RedirectResponse

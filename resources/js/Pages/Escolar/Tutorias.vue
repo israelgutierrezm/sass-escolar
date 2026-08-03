@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
@@ -27,6 +27,8 @@ interface AlumnoFila {
     carrera: string | null;
     tutor: string | null;
     tutoria_id: number | null;
+    sesiones: number;
+    ultima_sesion: string | null;
 }
 
 const props = defineProps<{
@@ -235,6 +237,13 @@ function quitar(a: AlumnoFila): void {
                         <th class="py-2 font-medium">Alumno</th>
                         <th class="py-2 font-medium">Carrera</th>
                         <th class="py-2 font-medium">Tutor</th>
+                        <!--
+                            Asignar tutores no sirve de nada si nadie comprueba
+                            que las sesiones ocurren: un alumno con tutor desde
+                            marzo y cero sesiones es el caso que hay que ver, y
+                            sin esta columna no se distingue del que va al día.
+                        -->
+                        <th class="py-2 font-medium">Sesiones</th>
                         <th class="w-10 py-2"></th>
                     </tr>
                 </thead>
@@ -258,6 +267,24 @@ function quitar(a: AlumnoFila): void {
                         <td class="py-2.5">
                             <span v-if="a.tutor">{{ a.tutor }}</span>
                             <span v-else class="text-xs font-medium text-amber-700">Sin tutor</span>
+                        </td>
+                        <td class="py-2.5">
+                            <!--
+                                Se marca en ámbar el que TIENE tutor y ninguna
+                                sesión: sin tutor asignado, cero sesiones es lo
+                                esperado y pintarlo de alarma sería ruido.
+                            -->
+                            <Link
+                                :href="`/escolar/tutorias/${a.id}/bitacora`"
+                                class="text-sm"
+                                :style="{ color: a.tutor && a.sesiones === 0 ? '#d97706' : 'var(--color-acento)' }"
+                                :title="a.ultima_sesion ? `Última: ${a.ultima_sesion}` : 'Sin sesiones anotadas'"
+                            >
+                                {{ a.sesiones }}
+                                <span v-if="a.ultima_sesion" class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                                    · {{ a.ultima_sesion }}
+                                </span>
+                            </Link>
                         </td>
                         <td class="py-2.5 pr-5">
                             <BotonAccion v-if="a.tutoria_id" variante="eliminar" texto="Quitar el tutor" @click="quitar(a)" />
