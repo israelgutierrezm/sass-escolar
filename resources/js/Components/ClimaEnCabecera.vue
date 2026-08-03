@@ -2,7 +2,7 @@
 import type { Clima } from '@/utils/clima';
 
 /**
- * El clima, montado dentro de la banda de bienvenida.
+ * El clima, montado en la banda de bienvenida.
  *
  * ── Por qué dejó de ser tarjeta propia ─────────────────────────────────────
  * Estaba en la columna derecha, debajo de la agenda, compitiendo por el sitio
@@ -11,21 +11,21 @@ import type { Clima } from '@/utils/clima';
  * con un solo rol ni siquiera tenía el botón de cambiarlo, y quedaba media
  * pantalla de color liso. El clima cabe ahí sin quitarle nada a nadie.
  *
+ * ── Sin fondo propio ───────────────────────────────────────────────────────
+ * El cielo lo pone quien lo monta, no este componente: así el bloque se apoya
+ * sobre el mismo degradado que trae las estrellas o el sol, en vez de dibujar
+ * un recuadro encima que se notaría como un parche.
+ *
  * ── El orden de lectura ────────────────────────────────────────────────────
  * Ahora mismo primero —icono y temperatura, que es a lo que se mira—, luego
  * dónde y cómo se siente, y al final los próximos días. Es el orden en que se
  * consulta el clima en cualquier parte.
- *
- * ── Sin fondo propio ───────────────────────────────────────────────────────
- * Un velo blanco translúcido sobre el acento de la escuela, no un color fijo:
- * así se ve igual de bien sobre un tema teal que sobre uno guinda, y el cielo
- * de la banda —estrellas o sol— se sigue viendo a través.
  */
 defineProps<{ clima: Clima }>();
 </script>
 
 <template>
-    <div class="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-2xl bg-white/10 px-4 py-3 backdrop-blur-sm">
+    <div class="flex flex-wrap items-center gap-x-5 gap-y-3 text-white">
         <!-- Ahora: el icono y el número, que es a lo que se mira. -->
         <div class="flex items-center gap-3">
             <span class="text-4xl leading-none" aria-hidden="true">{{ clima.icono }}</span>
@@ -38,7 +38,7 @@ defineProps<{ clima: Clima }>();
         </div>
 
         <!-- Dónde y cómo se siente. -->
-        <div class="border-white/20 text-xs sm:border-l sm:pl-4">
+        <div class="min-w-0 border-white/20 text-xs sm:border-l sm:pl-5">
             <p class="truncate font-medium opacity-90">
                 <template v-if="clima.aproximado">Cerca de </template>{{ clima.lugar }}
             </p>
@@ -46,7 +46,7 @@ defineProps<{ clima: Clima }>();
                 Se sienten {{ clima.sensacion }}° · {{ clima.humedad }}% · {{ clima.viento }} km/h
             </p>
             <!--
-                La calidad del aire conserva SU color, no el de la banda: es el
+                La calidad del aire conserva SU color, no el del cielo: es el
                 dato con el que se decide si los alumnos salen al patio, y ahí
                 el rojo tiene que verse rojo.
             -->
@@ -70,7 +70,7 @@ defineProps<{ clima: Clima }>();
         -->
         <div
             v-if="clima.proximos.length"
-            class="hidden border-white/20 lg:flex lg:gap-4 lg:border-l lg:pl-4"
+            class="hidden border-white/20 lg:flex lg:gap-4 lg:border-l lg:pl-5"
         >
             <div v-for="d in clima.proximos" :key="d.fecha" class="text-center">
                 <span class="block text-[11px] capitalize opacity-70">{{ d.dia }}</span>
@@ -89,7 +89,5 @@ defineProps<{ clima: Clima }>();
                 </span>
             </div>
         </div>
-
-        <span class="ml-auto self-end text-[10px] opacity-50">{{ clima.actualizado }}</span>
     </div>
 </template>

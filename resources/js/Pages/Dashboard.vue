@@ -73,17 +73,21 @@ const saludo = computed(() => {
 const { clima, esDeNoche } = usaClima();
 
 /**
- * La banda de bienvenida, teñida por la hora del CAMPUS.
+ * El cielo, teñido por la hora del CAMPUS.
  *
  * Sigue siendo el acento de la escuela —es su identidad, no se cambia por un
  * adorno—, pero de noche se hunde hacia el azul profundo. Así la banda dice la
  * hora antes de que uno lea la temperatura, que es lo que la vuelve de doble
  * uso y no un saludo con un número pegado.
+ *
+ * Ya no tiñe la banda entera: sólo el trozo donde vive el clima. El color a lo
+ * ancho de toda la pantalla se veía estirado y pesado, y además obligaba a que
+ * el saludo fuera blanco sobre color, distinto del resto del panel.
  */
-const fondoCabecera = computed(() =>
+const cielo = computed(() =>
     esDeNoche.value
-        ? 'linear-gradient(120deg, color-mix(in srgb, var(--color-acento) 42%, #0b1220), color-mix(in srgb, var(--color-acento) 18%, #060911))'
-        : 'linear-gradient(120deg, var(--color-acento), color-mix(in srgb, var(--color-acento) 55%, #000))',
+        ? 'linear-gradient(115deg, color-mix(in srgb, var(--color-acento) 40%, #0b1220), color-mix(in srgb, var(--color-acento) 16%, #060911))'
+        : 'linear-gradient(115deg, var(--color-acento), color-mix(in srgb, var(--color-acento) 58%, #000))',
 );
 
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
@@ -153,62 +157,83 @@ function conmutar(rolId: number): void {
             media banda de color liso. Ahora el clima vive aquí —donde ya había
             sitio— y de paso el fondo cambia con la hora del campus.
         -->
-        <section
-            class="animar-entrada relative mb-4 overflow-hidden rounded-2xl text-white shadow-lg"
-            :style="{ background: fondoCabecera }"
-        >
-            <CieloDecorado :noche="esDeNoche" />
+        <section class="tarjeta animar-entrada relative mb-4 overflow-hidden">
+            <!--
+                Dos mitades: la identidad sobre el fondo claro de la tarjeta —el
+                mismo del resto del panel— y el clima sobre su cielo. El cielo
+                no llega hasta el otro extremo: se desvanece a media banda, así
+                que no hay un corte recto entre los dos, y el color deja de
+                verse estirado a lo ancho de toda la pantalla.
+            -->
+            <div class="flex flex-col sm:flex-row sm:items-stretch">
+                <div class="min-w-0 flex-1 p-6">
+                    <p class="text-sm text-suave">{{ saludo }},</p>
+                    <h1 class="truncate text-2xl font-bold text-contenido">
+                        {{ usuario?.nombre_completo ?? usuario?.usuario }}
+                    </h1>
+                    <!--
+                        Sólo cuando hay de dónde elegir. A quien tiene un único
+                        rol, «Operas como Alumno» no le informa de nada: no es
+                        una elección, es lo único que puede ser.
+                    -->
+                    <p v-if="usuario?.rol_activo && rolesDisponibles.length > 1" class="mt-1 text-sm text-suave">
+                        Operas como <strong class="text-contenido">{{ usuario.rol_activo.nombre }}</strong>
+                    </p>
 
-            <!-- `relative`: por encima del cielo, que va en posición absoluta. -->
-            <div class="relative p-6">
-                <div class="flex flex-wrap items-center justify-between gap-4">
-                    <div class="min-w-0">
-                        <p class="text-sm opacity-80">{{ saludo }},</p>
-                        <h1 class="truncate text-2xl font-bold">{{ usuario?.nombre_completo ?? usuario?.usuario }}</h1>
-                        <!--
-                            Sólo cuando hay de dónde elegir. A quien tiene un
-                            único rol, «Operas como Alumno» no le informa de
-                            nada: no es una elección, es lo único que puede ser.
-                        -->
-                        <p v-if="usuario?.rol_activo && rolesDisponibles.length > 1" class="mt-1 text-sm opacity-90">
-                            Operas como <strong>{{ usuario.rol_activo.nombre }}</strong>
-                        </p>
-                    </div>
-
-                    <div class="ml-auto flex flex-wrap items-center justify-end gap-3">
-                        <ClimaEnCabecera v-if="clima" :clima="clima" />
-
-                        <button
-                            v-if="rolesDisponibles.length > 1"
-                            type="button"
-                            class="inline-flex items-center gap-2 rounded-xl bg-superficie/15 px-4 py-2.5 text-sm font-medium backdrop-blur transition hover:bg-superficie/25"
-                            @click="mostrarRoles = !mostrarRoles"
-                        >
-                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" /></svg>
-                            Cambiar de rol
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Conmutador de rol (se despliega desde el botón). -->
-                <div v-if="mostrarRoles && rolesDisponibles.length" class="mt-5 grid gap-2 border-t border-white/20 pt-4 sm:grid-cols-2 lg:grid-cols-3">
                     <button
-                        v-for="rol in rolesDisponibles"
-                        :key="`${rol.id}-${rol.campus_id ?? 'global'}`"
+                        v-if="rolesDisponibles.length > 1"
                         type="button"
-                        class="rounded-xl px-4 py-3 text-left text-sm transition"
-                        :class="esActivo(rol.id) ? 'bg-superficie text-contenido shadow' : 'bg-superficie/10 hover:bg-superficie/20'"
-                        @click="conmutar(rol.id)"
+                        class="mt-3 inline-flex items-center gap-2 rounded-xl border border-borde px-3.5 py-2 text-sm font-medium transition hover:bg-[color-mix(in_srgb,var(--color-acento)_7%,transparent)]"
+                        @click="mostrarRoles = !mostrarRoles"
                     >
-                        <span class="flex items-center justify-between gap-2">
-                            <span class="font-medium">{{ rol.nombre }}</span>
-                            <span v-if="esActivo(rol.id)" class="rounded-full px-2 py-0.5 text-[10px] font-semibold" :style="{ backgroundColor: 'var(--color-acento)', color: '#fff' }">Activo</span>
-                        </span>
-                        <span class="mt-0.5 block text-xs opacity-80">
-                            {{ rol.campus_nombre ? `Acotado a ${rol.campus_nombre}` : 'Alcance global' }}
-                        </span>
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" /></svg>
+                        Cambiar de rol
                     </button>
                 </div>
+
+                <!--
+                    El cielo se ajusta a lo que ocupe el clima, no al revés: si
+                    la pantalla no da para los próximos días, el trozo de color
+                    encoge con ellos en vez de quedarse medio vacío.
+                -->
+                <div
+                    v-if="clima"
+                    class="franja-cielo relative shrink-0 sm:max-w-[72%]"
+                    :style="{ background: cielo }"
+                >
+                    <CieloDecorado :noche="esDeNoche" />
+
+                    <!-- `relative`: por encima del cielo, que va en absoluto. -->
+                    <div class="relative px-6 py-5">
+                        <ClimaEnCabecera :clima="clima" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Conmutador de rol (se despliega desde el botón). -->
+            <div
+                v-if="mostrarRoles && rolesDisponibles.length"
+                class="relative grid gap-2 border-t border-borde p-6 sm:grid-cols-2 lg:grid-cols-3"
+            >
+                <button
+                    v-for="rol in rolesDisponibles"
+                    :key="`${rol.id}-${rol.campus_id ?? 'global'}`"
+                    type="button"
+                    class="rounded-xl border px-4 py-3 text-left text-sm transition"
+                    :class="esActivo(rol.id)
+                        ? 'border-transparent text-white shadow'
+                        : 'border-borde hover:bg-[color-mix(in_srgb,var(--color-acento)_7%,transparent)]'"
+                    :style="esActivo(rol.id) ? { backgroundColor: 'var(--color-acento)' } : {}"
+                    @click="conmutar(rol.id)"
+                >
+                    <span class="flex items-center justify-between gap-2">
+                        <span class="font-medium">{{ rol.nombre }}</span>
+                        <span v-if="esActivo(rol.id)" class="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold">Activo</span>
+                    </span>
+                    <span class="mt-0.5 block text-xs" :class="esActivo(rol.id) ? 'opacity-80' : 'text-suave'">
+                        {{ rol.campus_nombre ? `Acotado a ${rol.campus_nombre}` : 'Alcance global' }}
+                    </span>
+                </button>
             </div>
         </section>
 
@@ -242,7 +267,17 @@ function conmutar(rolId: number): void {
                 tarjeta de 3 columnas dejaba la cuarta vacía toda la fila
                 aunque la siguiente cupiera ahí — el panel quedaba con agujeros.
             -->
-            <section v-if="props.tarjetas.length" class="grid grid-flow-dense items-start gap-4 sm:grid-cols-4">
+            <!--
+                `min-w-0` en las dos columnas.
+
+                Un hijo de grid trae `min-width: auto`, o sea que no encoge por
+                debajo del ancho natural de su contenido. Bastaba con un evento
+                de título largo en la agenda para que su columna reclamara 412px
+                en una pantalla de 390 y TODO el panel se pudiera arrastrar de
+                lado, tarjetas incluidas. Con esto vuelven a mandar los
+                `truncate` que ya tenía cada texto.
+            -->
+            <section v-if="props.tarjetas.length" class="grid min-w-0 grid-flow-dense items-start gap-4 sm:grid-cols-4">
             <div
                 v-for="(tarjeta, i) in props.tarjetas"
                 :key="tarjeta.clave"
@@ -488,13 +523,13 @@ function conmutar(rolId: number): void {
             </div>
             </section>
 
-            <section v-else class="tarjeta px-6 py-8 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
+            <section v-else class="tarjeta min-w-0 px-6 py-8 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
                 Tu rol activo todavía no tiene nada que mostrar aquí. Las tarjetas del panel aparecen según
                 los permisos que tenga.
             </section>
 
             <!-- El contexto: qué día es y qué viene. El clima subió a la banda. -->
-            <aside class="space-y-4 xl:sticky xl:top-4">
+            <aside class="min-w-0 space-y-4 xl:sticky xl:top-4">
                 <AgendaLateral
                     :mes="agenda.mes"
                     :proximos="agenda.proximos"
@@ -508,6 +543,43 @@ function conmutar(rolId: number): void {
 </template>
 
 <style scoped>
+/*
+ * El cielo se desvanece en vez de cortarse.
+ *
+ * Sin esto había una línea vertical dura a media banda, y el ojo la leía como
+ * dos tarjetas pegadas. La máscara vuelve transparente el borde por donde el
+ * cielo se encuentra con el fondo claro, así que el color aparece sin que se
+ * vea dónde empieza.
+ *
+ * En vertical cuando la banda se apila —en un teléfono el clima cae debajo del
+ * nombre, no al lado, y el desvanecido tiene que seguirlo—.
+ */
+.franja-cielo {
+    /*
+     * Una sola medida manda las dos cosas: hasta dónde llega el desvanecido y
+     * cuánto respiro deja el texto. Con porcentajes no cuadraban —el 42% de una
+     * franja que se ajusta a su contenido cae en un sitio distinto según haya
+     * tres días de pronóstico o ninguno—, y la temperatura terminaba escrita en
+     * blanco sobre la parte donde el cielo ya casi no existe.
+     */
+    --fundido: 2.75rem;
+
+    padding-top: var(--fundido);
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--fundido));
+    mask-image: linear-gradient(to bottom, transparent, #000 var(--fundido));
+}
+
+@media (min-width: 640px) {
+    .franja-cielo {
+        --fundido: 7rem;
+
+        padding-top: 0;
+        padding-left: var(--fundido);
+        -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--fundido));
+        mask-image: linear-gradient(to right, transparent, #000 var(--fundido));
+    }
+}
+
 /* Cada tarjeta lleva un acento superior de su color y una elevación al pasar el
    cursor teñida del mismo color: vistoso pero sobrio (el fondo sigue neutro). */
 /* El atajo se levanta al pasar el cursor, como el resto de lo clicable. */

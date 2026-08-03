@@ -367,3 +367,23 @@
         animation: destello 6s linear infinite;
     }
 }
+
+/*
+ * El contenedor de los toasts no debe ensanchar la página.
+ *
+ * `vue-sonner` le fija a su <ol> un ancho de 356px MÁS los márgenes laterales,
+ * y en un teléfono de 390px eso suma más que la pantalla: el <ol> está en
+ * posición fija, así que no empuja a nadie, pero sí alarga el área de scroll y
+ * toda la página se podía arrastrar de lado aunque no hubiera ningún toast a
+ * la vista.
+ *
+ * `width: auto` con los dos lados anclados lo deja ocupar exactamente el hueco
+ * disponible. Fuera de esta media query no se toca: en escritorio los 356px
+ * son los correctos.
+ */
+@media (max-width: 640px) {
+    [data-sonner-toaster] {
+        width: auto !important;
+        max-width: calc(100vw - 2rem);
+    }
+}

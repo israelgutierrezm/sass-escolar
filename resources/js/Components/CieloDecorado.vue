@@ -2,15 +2,19 @@
 /**
  * El cielo que decora la banda de bienvenida.
  *
- * ── Por qué encima del color del tema y no en vez de él ────────────────────
- * La banda lleva el acento de la escuela, que es su identidad y no se negocia
- * por adorno. Esto va ENCIMA, en blancos translúcidos: funciona sobre un
- * acento teal, guinda o azul marino sin que haya que pensar en cada tema.
+ * ── Por qué no es un SVG estirado ──────────────────────────────────────────
+ * Lo era, con `preserveAspectRatio="none"` sobre un viewBox cuadrado. La banda
+ * mide casi 1000×140, así que el dibujo se escalaba siete veces más a lo ancho
+ * que a lo alto: las estrellas salían ovaladas y el sol era una mancha
+ * horizontal. Se veía estirado porque lo estaba.
  *
- * ── Y por qué se ve distinto de noche ──────────────────────────────────────
- * Es lo que vuelve la banda de doble uso. Sin esto, la temperatura sería un
- * número más pegado al saludo; con el cielo detrás, la banda dice qué hora es
- * de un vistazo, antes de leer nada.
+ * Ahora cada figura se dibuja en CSS con su tamaño en píxeles y sólo su
+ * POSICIÓN va en porcentaje. Da igual el alto que tenga la banda: un círculo
+ * sigue siendo un círculo.
+ *
+ * ── Sobre el color del tema, no en su lugar ────────────────────────────────
+ * Todo va en blancos translúcidos, así que funciona sobre un acento teal,
+ * guinda o azul marino sin que haya que pensar en cada tema.
  */
 defineProps<{ noche: boolean }>();
 
@@ -28,7 +32,7 @@ const estrellas = Array.from({ length: 46 }, (_, i) => {
     return {
         x: Math.abs(s % 100),
         y: Math.abs(t % 100),
-        r: (Math.abs(s % 10) / 10) * 1.1 + 0.35,
+        d: (Math.abs(s % 10) / 10) * 1.8 + 1.2,
         o: (Math.abs(t % 10) / 10) * 0.55 + 0.3,
     };
 });
@@ -41,40 +45,82 @@ const lineas = [
 </script>
 
 <template>
-    <!--
-        `preserveAspectRatio="none"`: la banda es muy ancha y baja. Con la
-        proporción respetada, las estrellas se apelotonaban en el centro y
-        dejaban los extremos pelones.
-    -->
-    <svg
-        class="pointer-events-none absolute inset-0 h-full w-full"
-        preserveAspectRatio="none"
-        viewBox="0 0 100 100"
-        aria-hidden="true"
-    >
+    <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
         <template v-if="noche">
-            <line
-                v-for="([a, b], i) in lineas"
-                :key="`l-${i}`"
-                :x1="estrellas[a].x" :y1="estrellas[a].y"
-                :x2="estrellas[b].x" :y2="estrellas[b].y"
-                stroke="#ffffff" stroke-width="0.15" stroke-opacity="0.22"
-            />
-            <circle
+            <!--
+                Las líneas sí van en SVG —una recta estirada sigue siendo una
+                recta—, pero con `non-scaling-stroke` para que el grosor no
+                cambie con el ángulo. Las coordenadas son porcentajes, las
+                mismas que usan las estrellas, así que unen lo que deben.
+            -->
+            <svg class="absolute inset-0 h-full w-full" preserveAspectRatio="none" viewBox="0 0 100 100">
+                <line
+                    v-for="([a, b], i) in lineas"
+                    :key="`l-${i}`"
+                    :x1="estrellas[a].x" :y1="estrellas[a].y"
+                    :x2="estrellas[b].x" :y2="estrellas[b].y"
+                    stroke="#ffffff" stroke-width="1" stroke-opacity="0.2"
+                    vector-effect="non-scaling-stroke"
+                />
+            </svg>
+
+            <span
                 v-for="(e, i) in estrellas"
                 :key="`e-${i}`"
-                :cx="e.x" :cy="e.y" :r="e.r * 0.35"
-                fill="#ffffff" :fill-opacity="e.o"
+                class="absolute rounded-full bg-white"
+                :style="{
+                    left: `${e.x}%`,
+                    top: `${e.y}%`,
+                    width: `${e.d}px`,
+                    height: `${e.d}px`,
+                    opacity: e.o,
+                }"
             />
         </template>
 
         <template v-else>
-            <!-- Sol arriba a la derecha y nubes suaves: el mismo lugar donde de
-                 noche está la constelación. -->
-            <circle cx="88" cy="26" r="16" fill="#fde68a" fill-opacity="0.20" />
-            <circle cx="88" cy="26" r="8" fill="#fef3c7" fill-opacity="0.42" />
-            <ellipse cx="22" cy="72" rx="24" ry="9" fill="#ffffff" fill-opacity="0.10" />
-            <ellipse cx="50" cy="86" rx="32" ry="10" fill="#ffffff" fill-opacity="0.07" />
+            <!-- El sol, arriba a la derecha: el mismo sitio donde de noche está
+                 la constelación. Un halo suave, no un disco recortado. -->
+            <span class="sol absolute" />
+            <span class="nube nube-a absolute" />
+            <span class="nube nube-b absolute" />
         </template>
-    </svg>
+    </div>
 </template>
+
+<style scoped>
+.sol {
+    top: -28px;
+    right: 8%;
+    width: 132px;
+    height: 132px;
+    border-radius: 9999px;
+    background: radial-gradient(
+        circle,
+        rgb(254 243 199 / 0.55) 0%,
+        rgb(253 230 138 / 0.28) 42%,
+        transparent 70%
+    );
+}
+
+/* Nubes: elipses muy tenues y desenfocadas, para que sugieran sin dibujar. */
+.nube {
+    border-radius: 9999px;
+    background: rgb(255 255 255 / 0.13);
+    filter: blur(10px);
+}
+
+.nube-a {
+    bottom: -14px;
+    left: 12%;
+    width: 190px;
+    height: 44px;
+}
+
+.nube-b {
+    bottom: -22px;
+    left: 46%;
+    width: 240px;
+    height: 50px;
+}
+</style>
