@@ -22,3 +22,16 @@ Schedule::command('finanzas:evaluar')
     ->withoutOverlapping()
     ->onOneServer()
     ->runInBackground();
+
+/*
+ * Purga de los accesos a bitácoras de tutoría.
+ *
+ * Semanal y no diaria: no hay prisa por borrar algo de hace dos años, y una
+ * corrida por semana basta para que la tabla no crezca sin control. Los
+ * domingos de madrugada, cuando la escuela está vacía.
+ */
+Schedule::command('tutorias:purgar-accesos')
+    ->weeklyOn(0, '03:30')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->runInBackground();

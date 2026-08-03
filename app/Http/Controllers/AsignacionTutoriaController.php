@@ -307,6 +307,71 @@ class AsignacionTutoriaController extends Controller
         ]);
     }
 
+    /**
+     * Todos los accesos a bitácoras, no los de un alumno.
+     *
+     * ── Para qué ───────────────────────────────────────────────────────────
+     * La lista por alumno sirve mientras se opera —«¿alguien más vio esto?»—,
+     * pero no responde la pregunta que se hace el día de una filtración: quién
+     * ha estado abriendo bitácoras esta semana. Sin esta pantalla habría que ir
+     * alumno por alumno, que con quinientos es lo mismo que no poder.
+     *
+     * Se filtra por PERSONA y por FECHA porque son los dos ejes de una
+     * investigación real: «qué abrió Fulano» y «qué se abrió el día que salió
+     * aquello».
+     */
+    public function accesos(Request $request): Response
+    {
+        $desde = $request->date('desde') ?? now()->subDays(30)->startOfDay();
+        $hasta = $request->date('hasta') ?? now()->endOfDay();
+        $personaId = $request->integer('persona_id') ?: null;
+
+        $accesos = AccesoBitacoraTutoria::query()
+            ->with(['persona'])
+            ->whereBetween('creado_en', [$desde, $hasta])
+            ->when($personaId !== null, fn ($q) => $q->where('persona_id', $personaId))
+            ->orderByDesc('creado_en')
+            // Tope duro: sin él, un rango de dos años trae medio millón de
+            // filas al navegador y la pantalla se muere antes de pintar.
+            ->limit(500)
+            ->get();
+
+        $alumnos = Persona::query()
+            ->whereIn('id', $accesos->pluck('alumno_persona_id')->unique())
+            ->get()
+            ->keyBy('id');
+
+        return Inertia::render('Escolar/AccesosBitacoras', [
+            'accesos' => $accesos->map(fn (AccesoBitacoraTutoria $a) => [
+                'id' => $a->id,
+                'quien' => $a->persona?->nombreCompleto() ?? 'Alguien',
+                'alumno' => $alumnos->get($a->alumno_persona_id)?->nombreCompleto() ?? 'Alumno',
+                'alumno_id' => $a->alumno_persona_id,
+                'cuando' => $a->creado_en?->toDateTimeString(),
+                'sesiones' => $a->sesiones_vistas,
+                'reservadas' => $a->confidenciales_ocultas,
+                'ip' => $a->ip,
+            ]),
+            'filtros' => [
+                'desde' => $desde->toDateString(),
+                'hasta' => $hasta->toDateString(),
+                'persona_id' => $personaId,
+            ],
+            // Quién ha consultado alguna vez, para poder filtrar por esa persona
+            // sin tener que saberse su id.
+            'personas' => AccesoBitacoraTutoria::query()
+                ->with('persona')
+                ->get()
+                ->pluck('persona')
+                ->filter()
+                ->unique('id')
+                ->map(fn (Persona $p) => ['id' => $p->id, 'nombre' => $p->nombreCompleto()])
+                ->sortBy('nombre')
+                ->values(),
+            'tope' => $accesos->count() === 500,
+        ]);
+    }
+
     public function quitar(Request $request, Tutoria $tutoria): RedirectResponse
     {
         /*

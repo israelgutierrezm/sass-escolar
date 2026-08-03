@@ -246,6 +246,12 @@ Route::middleware([
          * en ellas son dos cosas distintas, y la segunda toca notas personales
          * del alumno. Fuera del grupo para que no herede `gestionar-tutorias`.
          */
+        // La consulta global de accesos: misma llave que leer una bitácora,
+        // porque revela lo mismo —quién miró qué— sin el contenido.
+        Route::get('escolar/tutorias/accesos', [\App\Http\Controllers\AsignacionTutoriaController::class, 'accesos'])
+            ->middleware('can:ver-bitacoras-tutoria')
+            ->name('tenant.escolar.tutorias.accesos');
+
         Route::get('escolar/tutorias/{alumno}/bitacora', [\App\Http\Controllers\AsignacionTutoriaController::class, 'bitacora'])
             ->whereNumber('alumno')
             ->middleware('can:ver-bitacoras-tutoria')

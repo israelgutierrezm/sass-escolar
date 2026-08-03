@@ -236,7 +236,14 @@ function quitar(a: AlumnoFila): void {
                     <input v-model="soloSinTutor" type="checkbox" />
                     Sólo los que no tienen tutor
                 </label>
-                <span class="ml-auto text-xs" :style="{ color: 'var(--color-suave)' }">
+                <span class="ml-auto flex items-center gap-4 text-xs" :style="{ color: 'var(--color-suave)' }">
+                    <Link
+                        v-if="puedeLeerBitacoras"
+                        href="/escolar/tutorias/accesos"
+                        :style="{ color: 'var(--color-acento)' }"
+                    >
+                        Quién ha abierto bitácoras
+                    </Link>
                     {{ visibles.length }} en pantalla
                 </span>
             </div>
