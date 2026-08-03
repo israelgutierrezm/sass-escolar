@@ -38,9 +38,16 @@ class IndicadoresDelDia implements TarjetaPanel
 
     public function permiso(): ?string
     {
-        // El mismo que la cartera: quien mira lo que se debe es quien necesita
-        // la UMA y el dólar para calcularlo.
-        return 'ver-adeudos';
+        /*
+         * Permiso PROPIO, no el de la cartera.
+         *
+         * Colgaba de `ver-adeudos` —quien mira lo que se debe necesita la UMA
+         * para calcularlo—, pero el alumno también tiene ese permiso: es como
+         * consulta SU estado de cuenta. Resultado: al alumno le aparecía en el
+         * panel el tipo de cambio y un aviso sobre configurar Banxico, que no
+         * le dice absolutamente nada.
+         */
+        return 'ver-indicadores';
     }
 
     public function tipo(): string
