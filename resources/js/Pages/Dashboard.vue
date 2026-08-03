@@ -80,9 +80,10 @@ const { clima, esDeNoche } = usaClima();
  * hora antes de que uno lea la temperatura, que es lo que la vuelve de doble
  * uso y no un saludo con un número pegado.
  *
- * Ya no tiñe la banda entera: sólo el trozo donde vive el clima. El color a lo
- * ancho de toda la pantalla se veía estirado y pesado, y además obligaba a que
- * el saludo fuera blanco sobre color, distinto del resto del panel.
+ * Arranca justo en el acento y se va oscureciendo, así que por la izquierda se
+ * funde con el relleno plano de la banda sin que se note dónde acaba uno y
+ * empieza el otro; lo que se ve es la mitad derecha ensombreciéndose, no un
+ * recuadro pegado encima.
  */
 const cielo = computed(() =>
     esDeNoche.value
@@ -157,18 +158,24 @@ function conmutar(rolId: number): void {
             media banda de color liso. Ahora el clima vive aquí —donde ya había
             sitio— y de paso el fondo cambia con la hora del campus.
         -->
-        <section class="tarjeta animar-entrada relative mb-4 overflow-hidden">
+        <section
+            class="animar-entrada relative mb-4 overflow-hidden rounded-2xl text-white shadow-lg"
+            :style="{ backgroundColor: 'var(--color-acento)' }"
+        >
             <!--
-                Dos mitades: la identidad sobre el fondo claro de la tarjeta —el
-                mismo del resto del panel— y el clima sobre su cielo. El cielo
-                no llega hasta el otro extremo: se desvanece a media banda, así
-                que no hay un corte recto entre los dos, y el color deja de
-                verse estirado a lo ancho de toda la pantalla.
+                El relleno es el acento de la escuela, plano. Lo que se veía
+                estirado no era el color sino el dibujo del cielo, que se
+                escalaba a lo ancho; eso ya está resuelto en {@see CieloDecorado}
+                y el color puede quedarse como estaba.
+
+                Encima, sólo en la mitad derecha, el cielo del clima: se
+                desvanece hacia la izquierda en vez de cortarse, así que el
+                acento y el cielo se encuentran sin que se vea la juntura.
             -->
             <div class="flex flex-col sm:flex-row sm:items-stretch">
                 <div class="min-w-0 flex-1 p-6">
-                    <p class="text-sm text-suave">{{ saludo }},</p>
-                    <h1 class="truncate text-2xl font-bold text-contenido">
+                    <p class="text-sm opacity-80">{{ saludo }},</p>
+                    <h1 class="truncate text-2xl font-bold">
                         {{ usuario?.nombre_completo ?? usuario?.usuario }}
                     </h1>
                     <!--
@@ -176,14 +183,14 @@ function conmutar(rolId: number): void {
                         rol, «Operas como Alumno» no le informa de nada: no es
                         una elección, es lo único que puede ser.
                     -->
-                    <p v-if="usuario?.rol_activo && rolesDisponibles.length > 1" class="mt-1 text-sm text-suave">
-                        Operas como <strong class="text-contenido">{{ usuario.rol_activo.nombre }}</strong>
+                    <p v-if="usuario?.rol_activo && rolesDisponibles.length > 1" class="mt-1 text-sm opacity-90">
+                        Operas como <strong>{{ usuario.rol_activo.nombre }}</strong>
                     </p>
 
                     <button
                         v-if="rolesDisponibles.length > 1"
                         type="button"
-                        class="mt-3 inline-flex items-center gap-2 rounded-xl border border-borde px-3.5 py-2 text-sm font-medium transition hover:bg-[color-mix(in_srgb,var(--color-acento)_7%,transparent)]"
+                        class="mt-3 inline-flex items-center gap-2 rounded-xl bg-white/15 px-3.5 py-2 text-sm font-medium backdrop-blur transition hover:bg-white/25"
                         @click="mostrarRoles = !mostrarRoles"
                     >
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" /></svg>
@@ -213,24 +220,27 @@ function conmutar(rolId: number): void {
             <!-- Conmutador de rol (se despliega desde el botón). -->
             <div
                 v-if="mostrarRoles && rolesDisponibles.length"
-                class="relative grid gap-2 border-t border-borde p-6 sm:grid-cols-2 lg:grid-cols-3"
+                class="relative grid gap-2 border-t border-white/20 p-6 sm:grid-cols-2 lg:grid-cols-3"
             >
                 <button
                     v-for="rol in rolesDisponibles"
                     :key="`${rol.id}-${rol.campus_id ?? 'global'}`"
                     type="button"
-                    class="rounded-xl border px-4 py-3 text-left text-sm transition"
-                    :class="esActivo(rol.id)
-                        ? 'border-transparent text-white shadow'
-                        : 'border-borde hover:bg-[color-mix(in_srgb,var(--color-acento)_7%,transparent)]'"
-                    :style="esActivo(rol.id) ? { backgroundColor: 'var(--color-acento)' } : {}"
+                    class="rounded-xl px-4 py-3 text-left text-sm transition"
+                    :class="esActivo(rol.id) ? 'bg-superficie text-contenido shadow' : 'bg-white/10 hover:bg-white/20'"
                     @click="conmutar(rol.id)"
                 >
                     <span class="flex items-center justify-between gap-2">
                         <span class="font-medium">{{ rol.nombre }}</span>
-                        <span v-if="esActivo(rol.id)" class="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold">Activo</span>
+                        <span
+                            v-if="esActivo(rol.id)"
+                            class="rounded-full px-2 py-0.5 text-[10px] font-semibold text-white"
+                            :style="{ backgroundColor: 'var(--color-acento)' }"
+                        >
+                            Activo
+                        </span>
                     </span>
-                    <span class="mt-0.5 block text-xs" :class="esActivo(rol.id) ? 'opacity-80' : 'text-suave'">
+                    <span class="mt-0.5 block text-xs opacity-80">
                         {{ rol.campus_nombre ? `Acotado a ${rol.campus_nombre}` : 'Alcance global' }}
                     </span>
                 </button>
