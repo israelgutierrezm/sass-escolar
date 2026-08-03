@@ -7,7 +7,7 @@ namespace App\Services\Plataforma;
 use App\Enums\DestinoEvento;
 use App\Enums\TipoEventoCalendario;
 use App\Models\Plataforma\EventoCalendario;
-use Illuminate\Support\Facades\Cache;
+use App\Support\CacheExterno;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -34,29 +34,19 @@ class FeriadosOficiales
     private const SEGUNDOS_ESPERA = 6;
 
     /**
-     * Un almacén propio, fuera de la caché del tenant.
-     *
-     * Por lo mismo que en {@see ClimaDelCampus}: la caché de tenancy etiqueta
-     * todo para aislar por escuela y el driver del proyecto no admite
-     * etiquetas. Y los feriados oficiales de México son los mismos para todas
-     * las escuelas: no hay nada que aislar.
-     */
-    private function almacen(): \Illuminate\Contracts\Cache\Repository
-    {
-        return Cache::build([
-            'driver' => 'file',
-            'path' => storage_path('framework/cache/externos'),
-        ]);
-    }
-
-    /**
      * Los feriados oficiales de un año, tal como los publica el servicio.
+     *
+     * Treinta días de caché —los días de asueto de un año no se mueven—, salvo
+     * que la consulta haya fallado: de eso se encarga {@see CacheExterno}, y
+     * aquí importa más que en ningún lado, porque un mes entero devolviendo el
+     * null de un tropiezo de red significa que quien abra el calendario en
+     * enero se queda sin los feriados del año completo.
      *
      * @return array<int, array{fecha: string, nombre: string}>|null
      */
     public function delAnio(int $anio, string $pais = 'MX'): ?array
     {
-        return $this->almacen()->remember("feriados:{$pais}:{$anio}", now()->addDays(30), function () use ($anio, $pais) {
+        return CacheExterno::recordar("feriados:{$pais}:{$anio}", 30 * 24 * 60, function () use ($anio, $pais) {
             try {
                 $r = Http::timeout(self::SEGUNDOS_ESPERA)
                     ->get("https://date.nager.at/api/v3/PublicHolidays/{$anio}/{$pais}");

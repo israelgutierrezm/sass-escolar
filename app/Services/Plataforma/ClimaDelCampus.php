@@ -6,7 +6,7 @@ namespace App\Services\Plataforma;
 
 use App\Models\Academico\Campus;
 use App\Models\Identidad\Usuario;
-use Illuminate\Support\Facades\Cache;
+use App\Support\CacheExterno;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -43,25 +43,9 @@ class ClimaDelCampus
 
     public function __construct(private readonly ContextoAcademico $contexto) {}
 
-    /**
-     * Dónde se guarda lo que responden las APIs.
-     *
-     * Un almacén PROPIO, fuera de la caché del tenant, por dos razones:
-     *
-     * 1. La caché de tenancy etiqueta todo para aislar por escuela, y el driver
-     *    de este proyecto (`database`) no admite etiquetas: cualquier
-     *    `Cache::remember` aquí revienta con «does not support tagging».
-     * 2. Y aunque las admitiera, no habría por qué aislarlo: el clima de unas
-     *    coordenadas no es dato de nadie. Dos escuelas de la misma ciudad
-     *    comparten el mismo cielo y bien pueden compartir la consulta.
-     */
-    private function almacen(): \Illuminate\Contracts\Cache\Repository
-    {
-        return Cache::build([
-            'driver' => 'file',
-            'path' => storage_path('framework/cache/externos'),
-        ]);
-    }
+    // El almacén y la regla de «el fallo no se guarda» viven en
+    // {@see CacheExterno}: lo mismo hace falta aquí, en los feriados y en el
+    // tipo de cambio, y tres copias es donde una se queda sin el `forget`.
 
     /**
      * El clima que le toca ver a este usuario, o null si no se pudo saber.
@@ -76,19 +60,15 @@ class ClimaDelCampus
             return null;
         }
 
-        $llave = sprintf('clima:%.3f:%.3f', $lugar['latitud'], $lugar['longitud']);
-
-        $datos = $this->almacen()->remember(
-            $llave,
-            now()->addMinutes(self::MINUTOS_CACHE),
+        // Por ubicación redondeada a tres decimales —unos cien metros—, no por
+        // usuario: todo un campus comparte una sola consulta.
+        $datos = CacheExterno::recordar(
+            sprintf('clima:%.3f:%.3f', $lugar['latitud'], $lugar['longitud']),
+            self::MINUTOS_CACHE,
             fn () => $this->consultar($lugar['latitud'], $lugar['longitud']),
         );
 
         if ($datos === null) {
-            // No se cachea el fallo más allá de un intento: si la API vuelve en
-            // dos minutos, no tiene sentido quedarse media hora sin clima.
-            $this->almacen()->forget($llave);
-
             return null;
         }
 
@@ -147,7 +127,11 @@ class ClimaDelCampus
             return null;
         }
 
-        return $this->almacen()->remember("clima:ip:{$ip}", now()->addHours(6), function () use ($ip) {
+        // Seis horas: la ubicación de una IP no se mueve como el clima. Pero si
+        // la consulta falla tampoco se guarda ese fallo —de eso se encarga
+        // `recordar`—, porque media jornada sin tarjeta por un parpadeo de red
+        // es exactamente lo que pasaba antes.
+        return CacheExterno::recordar("clima:ip:{$ip}", 6 * 60, function () use ($ip) {
             try {
                 $r = Http::timeout(self::SEGUNDOS_ESPERA)
                     ->get("http://ip-api.com/json/{$ip}", ['fields' => 'status,city,lat,lon']);

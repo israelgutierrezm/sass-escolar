@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Plataforma;
 
-use Illuminate\Support\Facades\Cache;
+use App\Support\CacheExterno;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -177,33 +177,17 @@ class IndicadoresFinancieros
     }
 
     /**
-     * Almacén propio, fuera de la caché del tenant.
+     * Atajo al almacén de servicios externos.
      *
-     * Por lo mismo que en {@see ClimaDelCampus}: aquélla exige etiquetas que el
-     * driver no soporta, y el dólar no es dato de ninguna escuela en particular.
+     * El almacén y la regla de que el fallo no se guarda están en
+     * {@see CacheExterno}; aquí sólo se le pone nombre corto porque se usa en
+     * cada consulta de este archivo.
+     *
+     * @return array<string, mixed>|null
      */
     private function recordar(string $llave, int $minutos, callable $traer): ?array
     {
-        $almacen = Cache::build([
-            'driver' => 'file',
-            'path' => storage_path('framework/cache/externos'),
-        ]);
-
-        $valor = $almacen->remember($llave, now()->addMinutes($minutos), $traer);
-
-        /*
-         * El FALLO no se cachea.
-         *
-         * `remember` guarda lo que devuelva el callback, y eso incluye el null
-         * de un intento que salió mal: un parpadeo de red dejaba la tarjeta sin
-         * dólar durante tres horas, aunque el servicio volviera al minuto
-         * siguiente. Se olvida la llave y el próximo que entre vuelve a probar.
-         */
-        if ($valor === null) {
-            $almacen->forget($llave);
-        }
-
-        return $valor;
+        return CacheExterno::recordar($llave, $minutos, $traer);
     }
 
     /** Banxico devuelve `dd/mm/aaaa`. */
