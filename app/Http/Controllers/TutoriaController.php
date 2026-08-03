@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Admisiones\MatriculaOferta;
+use App\Models\ControlEscolar\SesionTutoria;
 use App\Models\ControlEscolar\Tutoria;
 use App\Models\Identidad\Persona;
 use App\Services\EstadoDelAlumno;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -104,6 +107,98 @@ class TutoriaController extends Controller
                 })->count(),
             ],
         ]);
+    }
+
+    /**
+     * La ficha de UN tutorado: cómo va y qué se ha hablado con él.
+     *
+     * Ficha propia y no la de control escolar: el tutor ya no tiene
+     * `ver-alumnos` —abría el listado de toda la escuela—, así que mandarlo a
+     * `/alumnos/{id}` sería mandarlo a un 403. Aquí ve lo suyo.
+     */
+    public function tutorado(Request $request, Persona $alumno): Response
+    {
+        $tutoria = $this->miTutoriaCon($request, $alumno);
+
+        return Inertia::render('Tutorias/Tutorado', [
+            'alumno' => [
+                'id' => $alumno->id,
+                'nombre' => $alumno->nombreCompleto(),
+                'foto' => $alumno->urlFoto(),
+                'matricula' => $alumno->matriculas()->first()?->matricula,
+                'carreras' => $alumno->matriculas()
+                    ->with('oferta.carrera:id,nombre')
+                    ->get()
+                    ->map(fn (MatriculaOferta $m) => $m->oferta?->carrera?->nombre)
+                    ->filter()
+                    ->values(),
+            ],
+            'estado' => $this->estado->de($alumno, academico: true, finanzas: false),
+            'sesiones' => SesionTutoria::query()
+                ->where('tutoria_id', $tutoria->id)
+                ->orderByDesc('fecha')
+                ->orderByDesc('id')
+                ->get()
+                ->map(fn (SesionTutoria $s) => [
+                    'id' => $s->id,
+                    'fecha' => $s->fecha?->toDateString(),
+                    'modalidad' => SesionTutoria::MODALIDADES[$s->modalidad] ?? $s->modalidad,
+                    'motivo' => SesionTutoria::MOTIVOS[$s->motivo] ?? $s->motivo,
+                    'motivo_clave' => $s->motivo,
+                    'tema' => $s->tema,
+                    'acuerdos' => $s->acuerdos,
+                    'asistio' => $s->asistio,
+                ]),
+            'catalogos' => [
+                'motivos' => collect(SesionTutoria::MOTIVOS)->map(fn ($t, $v) => ['valor' => $v, 'texto' => $t])->values(),
+                'modalidades' => collect(SesionTutoria::MODALIDADES)->map(fn ($t, $v) => ['valor' => $v, 'texto' => $t])->values(),
+            ],
+        ]);
+    }
+
+    /** Anota una sesión en la bitácora. */
+    public function registrarSesion(Request $request, Persona $alumno): RedirectResponse
+    {
+        $tutoria = $this->miTutoriaCon($request, $alumno);
+
+        $datos = $request->validate([
+            // No se anotan sesiones a futuro: la bitácora dice lo que PASÓ.
+            'fecha' => ['required', 'date', 'before_or_equal:today'],
+            'modalidad' => ['required', Rule::in(array_keys(SesionTutoria::MODALIDADES))],
+            'motivo' => ['required', Rule::in(array_keys(SesionTutoria::MOTIVOS))],
+            'tema' => ['required', 'string', 'max:2000'],
+            'acuerdos' => ['nullable', 'string', 'max:2000'],
+            'asistio' => ['boolean'],
+        ], [
+            'fecha.before_or_equal' => 'No puedes anotar una sesión que todavía no ocurre.',
+        ], [
+            'tema' => 'lo que se habló',
+            'acuerdos' => 'los acuerdos',
+        ]);
+
+        SesionTutoria::create([...$datos, 'tutoria_id' => $tutoria->id]);
+
+        return back(303)->with('exito', 'Sesión registrada en la bitácora.');
+    }
+
+    /**
+     * La tutoría vigente entre quien entra y ESE alumno, o 403.
+     *
+     * Es el candado de toda la pantalla: sin él, cambiar el id en la URL
+     * dejaría a un tutor leer —y anotar— sobre alumnos que no acompaña.
+     */
+    private function miTutoriaCon(Request $request, Persona $alumno): Tutoria
+    {
+        $tutoria = Tutoria::query()
+            ->de($this->miPersonaId($request))
+            ->where('alumno_persona_id', $alumno->id)
+            ->first();
+
+        if ($tutoria === null) {
+            throw new AccessDeniedHttpException('Ese alumno no es tu tutorado.');
+        }
+
+        return $tutoria;
     }
 
     /** La persona del tutor, o 403 si quien entra no tiene una. */

@@ -89,13 +89,14 @@ function colorPromedio(p: number | null): string | undefined {
 
         <section v-if="tutorados.length" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <!--
-                El enlace va al kárdex: es lo que un tutor abre para preparar una
-                sesión. Su permiso `ver-kardex` sigue siendo el que manda ahí.
+                A su ficha, no a la de control escolar: el tutor ya no tiene
+                `ver-alumnos` —abría el listado de toda la escuela—, así que
+                mandarlo a /alumnos/{id} sería mandarlo a un 403.
             -->
             <Link
                 v-for="t in tutorados"
                 :key="t.id"
-                :href="`/alumnos/${t.id}`"
+                :href="`/mis-tutorados/${t.id}`"
                 class="tarjeta tarjeta-interactiva flex flex-col gap-3 p-5"
                 :style="t.estado.reprobadas ? { borderLeft: '3px solid #dc2626' } : {}"
             >

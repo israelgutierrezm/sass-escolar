@@ -255,9 +255,14 @@ Route::middleware([
          * a la persona autenticada y sus tutorados salen del vínculo, no de un
          * parámetro que se pueda cambiar.
          */
-        Route::get('mis-tutorados', [\App\Http\Controllers\TutoriaController::class, 'misTutorados'])
+        Route::controller(\App\Http\Controllers\TutoriaController::class)
+            ->prefix('mis-tutorados')->name('tenant.tutorias.')
             ->middleware('can:ver-mis-tutorados')
-            ->name('tenant.tutorias.mis');
+            ->group(function () {
+                Route::get('/', 'misTutorados')->name('mis');
+                Route::get('{alumno}', 'tutorado')->whereNumber('alumno')->name('tutorado');
+                Route::post('{alumno}/sesiones', 'registrarSesion')->whereNumber('alumno')->name('sesiones');
+            });
 
         /*
          * "Mi expediente" del alumno. Sin id en la URL, igual que el del
