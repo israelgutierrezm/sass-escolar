@@ -9,11 +9,14 @@ use App\Panel\Tarjetas\AccesosDirectos;
 use App\Panel\Tarjetas\ActividadPorHora;
 use App\Panel\Tarjetas\CarteraDeLaEscuela;
 use App\Panel\Tarjetas\ComisionesPorPagar;
-use App\Panel\Tarjetas\IndicadoresDelDia;
+use App\Panel\Tarjetas\ContinuarCurso;
 use App\Panel\Tarjetas\EmbudoDeAdmision;
+use App\Panel\Tarjetas\IndicadoresDelDia;
 use App\Panel\Tarjetas\LoQueEsperaAlDocente;
 use App\Panel\Tarjetas\MiAvanceAcademico;
 use App\Panel\Tarjetas\MiEstadoDeCuenta;
+use App\Panel\Tarjetas\MiHorarioDeHoy;
+use App\Panel\Tarjetas\MisCalificacionesRecientes;
 use App\Panel\Tarjetas\MisMateriasDocente;
 use App\Panel\Tarjetas\ProspectosPorContactar;
 use App\Services\Cfdi\Pac;
@@ -178,6 +181,12 @@ class AppServiceProvider extends ServiceProvider
                 // Antes que «Mis materias»: lo que reclama trabajo va arriba de
                 // lo que solo informa.
                 LoQueEsperaAlDocente::class,
+                // Lo del alumno, en el orden de su día: qué le toca ahora, por
+                // dónde iba, qué le acaban de calificar. Después lo que sólo
+                // informa —su avance global y lo que debe—.
+                MiHorarioDeHoy::class,
+                ContinuarCurso::class,
+                MisCalificacionesRecientes::class,
                 MiAvanceAcademico::class,
                 MiEstadoDeCuenta::class,
                 MisMateriasDocente::class,

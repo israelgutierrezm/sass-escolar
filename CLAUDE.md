@@ -524,6 +524,18 @@ npm run dev                # o npm run build
   - «Mis materias» del docente pasó de listar ocho materias a ser una métrica
     con enlace a `/docencia`: el panel contesta «cuánto tengo encima», no
     «cuáles son mis materias» —eso ya lo sabe—.
+  - **Panel del alumno con contenido propio**: tenía cuatro tarjetas y una era
+    de finanzas. Se agregaron tres en el orden de su día —**Mis clases de hoy**
+    (con «ahora» / «ya pasó» según la hora), **Continuar donde me quedé** (el
+    avance del contenido, con lo empezado y sin terminar arriba, enlazando
+    directo al aula) y **Calificaciones recientes** (las últimas cinco, por
+    fecha de CALIFICACIÓN, anunciando si traen comentarios)—. Ninguna se pinta
+    vacía: sin clases hoy o sin nada calificado, la tarjeta no aparece.
+  - **El ancho de una tarjeta puede depender de su contenido**: devolver
+    `ancho_sugerido` en `datos()` y el registro lo respeta. «Accesos directos»
+    declara 4 columnas porque puede traer doce, pero a un alumno le salen dos y
+    ocupaba el panel entero para un botón. El grid va con `grid-flow-dense`
+    para que las chicas rellenen los huecos de las anchas.
   - **Efemérides del día** (`efemerides` + `EfemerideSeeder`): qué se conmemora
     hoy, arriba del calendario de la agenda y sólo cuando hay algo. Se cataloga
     y NO se consume de una API: no hay servicio en español lo bastante fiable, y
