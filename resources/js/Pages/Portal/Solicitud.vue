@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, useForm, router } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
@@ -76,19 +76,56 @@ function guardarDatos(): void {
 
 const subida = useForm({ documento_id: null as number | null, archivo: null as File | null });
 
+/**
+ * Cuál se está subiendo.
+ *
+ * `subida.processing` es uno solo para toda la pantalla, así que con ocho
+ * renglones no decía en cuál. Subir una foto de un acta desde el celular tarda,
+ * y sin señal en el renglón correcto no se sabe si pasó algo: el resultado
+ * previsible es volver a pulsar y subirla dos veces.
+ */
+const subiendo = ref<number | null>(null);
+
 function subir(documentoId: number, evento: Event): void {
-    const archivo = (evento.target as HTMLInputElement).files?.[0];
+    const entrada = evento.target as HTMLInputElement;
+    const archivo = entrada.files?.[0];
 
     if (!archivo) return;
 
+    subiendo.value = documentoId;
     subida.documento_id = documentoId;
     subida.archivo = archivo;
     subida.post('/mi-solicitud/documentos', {
         preserveScroll: true,
         forceFormData: true,
         onSuccess: () => subida.reset(),
+        onFinish: () => {
+            subiendo.value = null;
+            // Se limpia la entrada: sin esto, elegir el MISMO archivo otra vez
+            // —tras un rechazo, por ejemplo— no dispara `change` y parece que el
+            // botón dejó de funcionar.
+            entrada.value = '';
+        },
     });
 }
+
+/**
+ * Primero lo que reclama algo: lo rechazado, luego lo que falta, y al final lo
+ * ya entregado.
+ *
+ * Salían en el orden del catálogo, así que un documento rechazado podía quedar
+ * séptimo entre ocho renglones idénticos —justo el único que hay que atender—.
+ */
+const documentosOrdenados = computed(() => {
+    const urgencia = (d: (typeof props.documentos)[number]): number => {
+        if (d.estado_clave === 'rechazado') return 0;
+        if (d.entrega_id === null) return d.obligatorio ? 1 : 2;
+
+        return 3;
+    };
+
+    return [...props.documentos].sort((a, b) => urgencia(a) - urgencia(b));
+});
 
 const colorEstado: Record<string, string> = {
     aceptado: 'bg-emerald-50 text-emerald-700',
@@ -148,6 +185,33 @@ const colorEstado: Record<string, string> = {
                             <span class="text-sm font-medium">{{ paso.titulo }}</span>
                         </div>
                         <p class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">{{ paso.detalle }}</p>
+
+                        <!--
+                            QUÉ falta, con su nombre.
+
+                            El servidor ya venía calculando esta lista —«CURP»,
+                            «Acta de nacimiento»— y la pantalla sólo pintaba el
+                            conteo: «2 por capturar». Saber que faltan dos y no
+                            cuáles obliga a abrir el paso y revisar campo por
+                            campo hasta dar con ellos.
+
+                            Se cortan a tres para que la tarjeta no crezca hasta
+                            desalinear la fila; el resto se cuenta.
+                        -->
+                        <ul v-if="paso.faltantes.length" class="mt-2 space-y-0.5">
+                            <li
+                                v-for="f in paso.faltantes.slice(0, 3)"
+                                :key="f"
+                                class="flex items-start gap-1.5 text-xs"
+                                :style="{ color: 'var(--color-suave)' }"
+                            >
+                                <span class="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-red-500" />
+                                {{ f }}
+                            </li>
+                            <li v-if="paso.faltantes.length > 3" class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                                y {{ paso.faltantes.length - 3 }} más
+                            </li>
+                        </ul>
                     </button>
                 </li>
             </ol>
@@ -199,11 +263,11 @@ const colorEstado: Record<string, string> = {
             </p>
 
             <ul class="mt-4 divide-y divide-borde" :style="{ borderColor: 'var(--color-borde)' }">
-                <li v-for="doc in documentos" :key="doc.id" class="flex flex-wrap items-center justify-between gap-3 py-3">
-                    <div>
+                <li v-for="doc in documentosOrdenados" :key="doc.id" class="flex flex-wrap items-center justify-between gap-3 py-3">
+                    <div class="min-w-0">
                         <p class="text-sm font-medium">
                             {{ doc.nombre }}
-                            <span v-if="doc.obligatorio" class="text-red-500">*</span>
+                            <span v-if="doc.obligatorio" class="text-red-500" title="Obligatorio">*</span>
                         </p>
                         <p v-if="doc.descripcion" class="text-xs" :style="{ color: 'var(--color-suave)' }">
                             {{ doc.descripcion }}
@@ -230,9 +294,29 @@ const colorEstado: Record<string, string> = {
                             :href="`/mi-solicitud/documentos/${doc.entrega_id}`"
                         />
 
-                        <label class="cursor-pointer rounded-lg border px-3 py-1.5 text-xs" :style="{ borderColor: 'var(--color-borde)' }">
-                            {{ doc.entrega_id ? 'Reemplazar' : 'Subir' }}
-                            <input type="file" class="hidden" accept=".pdf,.jpg,.jpeg,.png" @change="subir(doc.id, $event)" />
+                        <!--
+                            Un rechazado se resube, no se «reemplaza»: la
+                            palabra tiene que decir qué se espera de él, que es
+                            corregir lo que le señalaron.
+                        -->
+                        <label
+                            class="cursor-pointer rounded-lg border px-3 py-1.5 text-xs transition"
+                            :class="subiendo === doc.id ? 'opacity-60' : 'hover:bg-[color-mix(in_srgb,var(--color-acento)_7%,transparent)]'"
+                            :style="{
+                                borderColor: doc.estado_clave === 'rechazado' ? '#dc2626' : 'var(--color-borde)',
+                                color: doc.estado_clave === 'rechazado' ? '#dc2626' : undefined,
+                            }"
+                        >
+                            <template v-if="subiendo === doc.id">Subiendo…</template>
+                            <template v-else-if="doc.estado_clave === 'rechazado'">Corregir</template>
+                            <template v-else>{{ doc.entrega_id ? 'Reemplazar' : 'Subir' }}</template>
+                            <input
+                                type="file"
+                                class="hidden"
+                                accept=".pdf,.jpg,.jpeg,.png"
+                                :disabled="subiendo !== null"
+                                @change="subir(doc.id, $event)"
+                            />
                         </label>
                     </div>
                 </li>
