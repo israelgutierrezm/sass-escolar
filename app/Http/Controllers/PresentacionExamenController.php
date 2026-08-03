@@ -13,6 +13,7 @@ use App\Services\Lms\AplicadorExamen;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use RuntimeException;
@@ -132,6 +133,13 @@ class PresentacionExamenController extends Controller
             'actividad' => ['id' => $actividad->id, 'titulo' => $actividad->titulo],
             'materia' => ['id' => $actividad->curso->asignatura_grupo_id],
             'una_por_pagina' => (bool) $examen->una_por_pagina,
+            /*
+             * Con capturas prohibidas la pantalla estorba —tapa el examen al
+             * perder el foco, quita el menú contextual— y avisa al alumno de
+             * que se está registrando. El aviso no es un detalle: vigilar sin
+             * decirlo es lo que convierte una medida razonable en una trampa.
+             */
+            'permite_captura' => (bool) $examen->permite_captura,
             'reactivos' => $this->aplicador->reactivosDelIntento($intento)
                 ->map(fn (Reactivo $r) => $r->paraResolver($examen->barajar_opciones) + [
                     'puntos' => $examen->puntosDe($r),
@@ -168,6 +176,58 @@ class PresentacionExamenController extends Controller
         }
 
         return response()->json(['guardado' => true]);
+    }
+
+    /**
+     * Queda constancia de que el navegador detectó una captura de pantalla.
+     *
+     * ── Lo que este endpoint NO es ─────────────────────────────────────────
+     * No es un candado. Ninguna página web puede impedir una captura: la toma
+     * el sistema operativo sin consultar al navegador, y contra la cámara de un
+     * celular no hay absolutamente nada que hacer. Lo que llega aquí son las
+     * dos señales que el navegador sí ve —la tecla Impr Pant y los atajos de
+     * captura de macOS—, así que esto cuenta lo que se puede contar, no todo lo
+     * que ocurre.
+     *
+     * Se registra aunque el examen PERMITA capturas: que estén permitidas no
+     * vuelve el dato inútil —el docente sigue queriendo saber quién fotografió
+     * su examen—, y que estén prohibidas es cuando más importa.
+     *
+     * ── Por qué el tope ────────────────────────────────────────────────────
+     * Quien sepa lo que hace puede llamar este endpoint mil veces desde la
+     * consola. Un tope alto no estorba a nadie honesto y evita que un alumno
+     * pueda inflar su propio expediente —o el de la tabla del docente— a
+     * voluntad.
+     */
+    public function registrarCaptura(Request $request, Intento $intento): JsonResponse
+    {
+        $this->exigirMio($request, $intento);
+
+        // Un intento ya cerrado no puede acumular señales nuevas: lo que se vea
+        // después ya no es el examen.
+        if ($intento->entregado()) {
+            return response()->json(['registrado' => false]);
+        }
+
+        $datos = $request->validate([
+            'senal' => ['required', 'string', Rule::in(['impr_pant', 'atajo_mac'])],
+        ]);
+
+        $bitacora = $intento->capturas ?? [];
+
+        if (count($bitacora) < 200) {
+            $bitacora[] = ['en' => now()->toIso8601String(), 'senal' => $datos['senal']];
+        }
+
+        $intento->update([
+            'capturas' => $bitacora,
+            'capturas_detectadas' => count($bitacora),
+        ]);
+
+        return response()->json([
+            'registrado' => true,
+            'total' => count($bitacora),
+        ]);
     }
 
     /**

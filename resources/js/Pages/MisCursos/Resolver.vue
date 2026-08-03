@@ -3,6 +3,7 @@ import { Head, router } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import ReactivoResolver from '@/Components/ReactivoResolver.vue';
+import { vigilarCapturas } from '@/utils/capturaDePantalla';
 import { toast } from 'vue-sonner';
 
 /*
@@ -34,8 +35,14 @@ const props = defineProps<{
     materia: { id: number };
     /** Lo decide quien armó el examen: de corrido o de una en una. */
     una_por_pagina: boolean;
+    /** Cuando es `false` la pantalla estorba y avisa de que se registra. */
+    permite_captura: boolean;
     reactivos: ReactivoAlumno[];
 }>();
+
+const { capturas, tapado } = vigilarCapturas(props.intento.id, {
+    estorbar: !props.permite_captura,
+});
 
 /** Lo contestado, para el mapa de avance. Se lleva aquí y no en cada hijo. */
 const contestadas = ref<Record<number, boolean>>(
@@ -226,7 +233,50 @@ const ultima = computed(() => actual.value >= props.reactivos.length - 1);
     <Head :title="actividad.titulo" />
 
     <AppLayout titulo="Examen">
+        <!--
+            El velo.
+
+            Se levanta cuando la ventana pierde el foco, que es lo que ocurre al
+            abrir la herramienta de recortes de Windows: con el examen tapado, lo
+            que se recorta es este aviso. No detiene a quien usa la tecla Impr
+            Pant —esa no roba el foco— ni a quien fotografía la pantalla con el
+            celular; para eso está el registro, no el velo.
+        -->
+        <div
+            v-if="tapado"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/95 p-8 text-center backdrop-blur-md"
+        >
+            <div class="max-w-md text-white">
+                <svg class="mx-auto h-10 w-10 opacity-70" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243" /></svg>
+                <p class="mt-4 text-lg font-semibold">Examen oculto</p>
+                <p class="mt-2 text-sm opacity-80">
+                    Saliste de la ventana del examen. Vuelve a ella para seguir contestando; tu tiempo
+                    sigue corriendo y lo que llevas contestado está guardado.
+                </p>
+            </div>
+        </div>
+
         <section class="tarjeta p-6">
+            <!--
+                Se avisa. Vigilar sin decirlo es lo que convierte una medida
+                razonable en una trampa, y encima funciona peor: lo que disuade
+                es saberse observado, no el registro en sí.
+            -->
+            <p
+                v-if="!permite_captura"
+                class="mb-4 flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+            >
+                <svg class="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" /></svg>
+                <span>
+                    En este examen no se permiten capturas de pantalla.
+                    <template v-if="capturas">
+                        Se {{ capturas === 1 ? 'registró' : 'registraron' }}
+                        <strong>{{ capturas }}</strong> y tu docente {{ capturas === 1 ? 'la verá' : 'las verá' }}.
+                    </template>
+                    <template v-else>Si tomas alguna, quedará registrada para tu docente.</template>
+                </span>
+            </p>
+
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div class="min-w-0">
                     <h2 class="text-lg font-semibold text-contenido">{{ actividad.titulo }}</h2>

@@ -68,6 +68,7 @@ trait ArmaExamenes
                 'barajar_reactivos' => $examen->barajar_reactivos,
                 'barajar_opciones' => $examen->barajar_opciones,
                 'una_por_pagina' => $examen->una_por_pagina,
+                'permite_captura' => $examen->permite_captura,
                 'intento_que_cuenta' => $examen->intento_que_cuenta,
                 'mostrar_resultado' => $examen->mostrar_resultado,
                 'se_califica_solo' => $examen->seCalificaSolo(),
@@ -98,6 +99,7 @@ trait ArmaExamenes
             'barajar_reactivos' => ['boolean'],
             'barajar_opciones' => ['boolean'],
             'una_por_pagina' => ['boolean'],
+            'permite_captura' => ['boolean'],
             'intento_que_cuenta' => ['required', Rule::in([Examen::CUENTA_MEJOR, Examen::CUENTA_ULTIMO, Examen::CUENTA_PRIMERO])],
             'mostrar_resultado' => ['required', Rule::in([Examen::RESULTADO_NUNCA, Examen::RESULTADO_AL_ENTREGAR, Examen::RESULTADO_AL_CERRAR])],
         ], [], [

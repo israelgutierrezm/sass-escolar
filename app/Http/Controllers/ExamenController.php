@@ -142,6 +142,14 @@ class ExamenController extends Controller
                     'puntos_obtenidos' => (float) $intento->puntos_obtenidos,
                     'puntos_posibles' => (float) $intento->puntos_posibles,
                     'requiere_revision' => (bool) $intento->requiere_revision,
+                    /*
+                     * Las capturas se cuentan aunque el examen las permita: que
+                     * estuvieran permitidas no vuelve el dato inútil —el docente
+                     * sigue queriendo saber quién fotografió su examen—, y que
+                     * estuvieran prohibidas es cuando más importa.
+                     */
+                    'capturas' => (int) $intento->capturas_detectadas,
+                    'primera_captura' => $intento->capturas[0]['en'] ?? null,
                     // Solo lo que espera al docente: lo autocalificado no se revisa.
                     'pendientes' => $intento->respuestas
                         ->filter(fn (Respuesta $r) => $r->puntos === null)

@@ -43,7 +43,19 @@ class ActividadController extends Controller
         $datos['curso_id'] = $curso->id;
         $datos['orden'] = (int) Actividad::where('curso_id', $curso->id)->max('orden') + 1;
 
-        Actividad::create($datos);
+        $actividad = Actividad::create($datos);
+
+        /*
+         * Un examen recién creado no sirve para nada: no tiene ni una pregunta.
+         * Quedarse en el listado obligaba a buscarlo entre las demás
+         * actividades y entrar a mano, y lo que el docente quiere hacer a
+         * continuación —lo único que puede hacer— es armarlo.
+         */
+        if ($actividad->tipo === TipoActividad::Examen) {
+            return redirect()
+                ->route('tenant.examenes.armar', [$asignaturaGrupo->id, $actividad->id])
+                ->with('exito', "«{$actividad->titulo}» ya existe. Ahora arma sus preguntas.");
+        }
 
         return back()->with('exito', 'Actividad agregada.');
     }
@@ -204,7 +216,14 @@ class ActividadController extends Controller
             $datos['esquema_evaluacion_id'] = null;
         }
 
-        if ($datos['esquema_evaluacion_id'] !== null) {
+        /*
+         * `??` y no acceso directo: el campo es opcional, así que cuando no
+         * viaja en la petición tampoco aparece en los datos validados, y leerlo
+         * a secas tumbaba la creación con un 500. El formulario de la pantalla
+         * siempre lo manda —por eso no se notaba—, pero basta con crear una
+         * actividad desde cualquier otro sitio para toparse con ello.
+         */
+        if (($datos['esquema_evaluacion_id'] ?? null) !== null) {
             $this->exigirComponentePropio($datos['esquema_evaluacion_id'], $asignaturaGrupo, $curso);
         }
 

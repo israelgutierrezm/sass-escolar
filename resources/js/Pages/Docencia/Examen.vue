@@ -63,6 +63,7 @@ const props = defineProps<{
         barajar_reactivos: boolean;
         barajar_opciones: boolean;
         una_por_pagina: boolean;
+        permite_captura: boolean;
         intento_que_cuenta: string;
         mostrar_resultado: string;
         se_califica_solo: boolean;
@@ -79,6 +80,8 @@ const props = defineProps<{
         puntos_obtenidos: number;
         puntos_posibles: number;
         requiere_revision: boolean;
+        capturas: number;
+        primera_captura: string | null;
         pendientes: { id: number; enunciado: string; respondio: any; tope: number }[];
     }[];
 }>();
@@ -94,6 +97,7 @@ const formReglas = useForm({
     barajar_reactivos: props.examen.barajar_reactivos,
     barajar_opciones: props.examen.barajar_opciones,
     una_por_pagina: props.examen.una_por_pagina,
+    permite_captura: props.examen.permite_captura,
     intento_que_cuenta: props.examen.intento_que_cuenta,
     mostrar_resultado: props.examen.mostrar_resultado,
 });
@@ -419,6 +423,32 @@ const porRevisar = computed(() => props.intentos.filter((i) => i.requiere_revisi
                     </label>
                 </div>
             </div>
+
+            <!--
+                Se dice lo que hace de verdad.
+
+                Ninguna página web puede impedir una captura de pantalla: la
+                toma el sistema operativo sin consultar al navegador, y contra
+                la cámara de un celular no hay nada que hacer. Prometerle al
+                docente un candado que no existe sería peor que no ofrecer
+                nada, porque dejaría de vigilar creyéndose protegido.
+            -->
+            <label
+                class="mt-4 flex items-start gap-3 rounded-xl border px-4 py-3"
+                :style="{ borderColor: 'var(--color-borde)' }"
+            >
+                <input v-model="formReglas.permite_captura" type="checkbox" class="mt-0.5" />
+                <span class="text-sm">
+                    Permitir capturas de pantalla
+                    <span class="mt-1 block text-xs text-suave">
+                        Desactivado, el examen se tapa cuando el alumno sale de la ventana y se le
+                        avisa de que sus capturas quedan registradas. Un navegador no puede
+                        impedirlas —ni evitar una foto con el celular—, así que esto disuade y deja
+                        constancia; no es un candado. Las que se detecten aparecen abajo, en la lista
+                        de intentos, se permitan o no.
+                    </span>
+                </span>
+            </label>
 
             <div class="mt-5">
                 <button
@@ -783,6 +813,24 @@ const porRevisar = computed(() => props.intentos.filter((i) => i.requiere_revisi
                             texto="Por revisar"
                             color="#d97706"
                             sin-capitalizar
+                        />
+
+                        <!--
+                            El dato se muestra igual si el examen permitía
+                            capturas: el docente sigue queriendo saber quién
+                            fotografió su examen. Lo que cambia es el color —rojo
+                            cuando estaban prohibidas— y el texto de ayuda, que
+                            aclara que son las DETECTADAS y no necesariamente
+                            todas.
+                        -->
+                        <PildoraEstado
+                            v-if="i.capturas > 0"
+                            :texto="`${i.capturas} ${i.capturas === 1 ? 'captura' : 'capturas'}`"
+                            :color="examen.permite_captura ? '#64748b' : '#dc2626'"
+                            sin-capitalizar
+                            :title="examen.permite_captura
+                                ? `Capturas detectadas. Este examen las permitía. Primera: ${i.primera_captura}`
+                                : `Capturas detectadas pese a estar prohibidas. Primera: ${i.primera_captura}`"
                         />
                     </div>
 

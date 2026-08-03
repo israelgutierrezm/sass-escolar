@@ -48,6 +48,7 @@ class Examen extends Model
         'reactivos_a_presentar',
         'barajar_reactivos',
         'barajar_opciones',
+        'permite_captura',
         'una_por_pagina',
         'intento_que_cuenta',
         'mostrar_resultado',
@@ -61,6 +62,7 @@ class Examen extends Model
             'reactivos_a_presentar' => 'integer',
             'barajar_reactivos' => 'boolean',
             'barajar_opciones' => 'boolean',
+            'permite_captura' => 'boolean',
             'una_por_pagina' => 'boolean',
         ];
     }

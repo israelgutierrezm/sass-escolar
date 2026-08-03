@@ -980,6 +980,16 @@ Route::middleware([
                 Route::post('intentos/{intento}/responder', 'responder')->whereNumber('intento')->name('responder');
                 Route::post('intentos/{intento}/archivo', 'responderArchivo')->whereNumber('intento')->name('archivo');
                 Route::post('intentos/{intento}/entregar', 'entregar')->whereNumber('intento')->name('entregar');
+
+                /*
+                 * El navegador avisa que detectó una captura de pantalla.
+                 *
+                 * Va por POST y no viaja con las respuestas porque puede pasar
+                 * en cualquier momento —incluso en un examen que el alumno
+                 * abandona sin entregar— y ahí es cuando más importa dejar
+                 * constancia.
+                 */
+                Route::post('intentos/{intento}/captura', 'registrarCaptura')->whereNumber('intento')->name('captura');
             });
 
         /*

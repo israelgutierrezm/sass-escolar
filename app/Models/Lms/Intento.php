@@ -38,6 +38,8 @@ class Intento extends Model
         'puntos_posibles',
         'requiere_revision',
         'orden_reactivos',
+        'capturas_detectadas',
+        'capturas',
     ];
 
     protected function casts(): array
@@ -51,6 +53,8 @@ class Intento extends Model
             'puntos_posibles' => 'decimal:2',
             'requiere_revision' => 'boolean',
             'orden_reactivos' => 'array',
+            'capturas_detectadas' => 'integer',
+            'capturas' => 'array',
         ];
     }
 
