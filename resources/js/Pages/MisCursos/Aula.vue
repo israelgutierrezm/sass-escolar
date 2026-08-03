@@ -411,27 +411,26 @@ const estado = computed(() => {
                             <p class="text-sm text-suave">
                                 Cuando termines de leer, márcala para que se sume a tu avance.
                             </p>
-                            <div class="flex gap-2">
-                                <button
-                                    type="button"
-                                    class="rounded-lg px-4 py-2 text-sm font-medium transition-opacity disabled:opacity-60"
-                                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                                    :disabled="marcando"
-                                    @click="completar(!!vecinas.siguiente)"
-                                >
-                                    {{ vecinas.siguiente ? 'Completar y continuar' : 'Marcar como completada' }}
-                                </button>
-                                <button
-                                    v-if="vecinas.siguiente"
-                                    type="button"
-                                    class="rounded-lg border px-3 py-2 text-sm"
-                                    :style="{ borderColor: 'var(--color-borde)' }"
-                                    :disabled="marcando"
-                                    @click="completar(false)"
-                                >
-                                    Sólo marcar
-                                </button>
-                            </div>
+                            <!--
+                                UN solo botón.
+
+                                Había dos —«Completar y continuar» y «Sólo
+                                marcar»— que hacían exactamente lo mismo salvo
+                                por si te llevaban a la lección siguiente. Si
+                                hay que explicar en qué se diferencian dos
+                                botones que están uno al lado del otro, sobra
+                                uno: quien quiera quedarse a releer no pulsa
+                                nada y navega por el índice.
+                            -->
+                            <button
+                                type="button"
+                                class="shrink-0 rounded-lg px-4 py-2 text-sm font-medium transition-opacity disabled:opacity-60"
+                                :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+                                :disabled="marcando"
+                                @click="completar(!!vecinas.siguiente)"
+                            >
+                                {{ vecinas.siguiente ? 'Completar y continuar' : 'Marcar como completada' }}
+                            </button>
                         </div>
                     </section>
 

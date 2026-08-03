@@ -196,7 +196,13 @@ function conmutar(rolId: number): void {
             vence mañana.
         -->
         <div class="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-            <section v-if="props.tarjetas.length" class="grid items-start gap-4 sm:grid-cols-4">
+            <!--
+                `grid-flow-dense`: las tarjetas chicas se meten en los huecos
+                que dejan las anchas en vez de esperar su turno. Sin él, una
+                tarjeta de 3 columnas dejaba la cuarta vacía toda la fila
+                aunque la siguiente cupiera ahí — el panel quedaba con agujeros.
+            -->
+            <section v-if="props.tarjetas.length" class="grid grid-flow-dense items-start gap-4 sm:grid-cols-4">
             <div
                 v-for="(tarjeta, i) in props.tarjetas"
                 :key="tarjeta.clave"

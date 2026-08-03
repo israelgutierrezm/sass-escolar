@@ -73,7 +73,17 @@ class RegistroTarjetas
                 'titulo' => $tarjeta->titulo(),
                 'tipo' => $tarjeta->tipo(),
                 'icono' => $tarjeta->icono(),
-                'ancho' => max(1, min(4, $tarjeta->ancho())),
+                /*
+                 * El ancho puede depender de CUÁNTO trajo la tarjeta.
+                 *
+                 * «Accesos directos» declara 4 columnas porque puede traer
+                 * doce, pero a un alumno le salen dos: ocupaba el ancho
+                 * completo del panel para mostrar un botón, con el resto en
+                 * blanco. Una tarjeta que sabe cuánto contenido tiene puede
+                 * pedir un ancho menor devolviendo `ancho_sugerido` en sus
+                 * datos; sin eso, manda el declarado.
+                 */
+                'ancho' => max(1, min(4, (int) ($datos['ancho_sugerido'] ?? $tarjeta->ancho()))),
                 'datos' => $datos,
             ];
         }

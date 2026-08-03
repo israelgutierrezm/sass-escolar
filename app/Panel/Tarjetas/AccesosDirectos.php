@@ -124,7 +124,23 @@ class AccesosDirectos implements TarjetaPanel
             return null;
         }
 
+        $total = collect($grupos)->flatten(1)->count();
+
         return [
+            /*
+             * El ancho según lo que de verdad hay que mostrar.
+             *
+             * Un alumno tiene dos accesos y un director doce: con ancho fijo,
+             * al alumno le quedaba una tarjeta de lado a lado del panel con un
+             * botón dentro y el resto en blanco. Se pide el ancho que hace
+             * falta y el registro lo respeta.
+             */
+            'ancho_sugerido' => match (true) {
+                $total <= 2 => 1,
+                $total <= 4 => 2,
+                $total <= 8 => 3,
+                default => 4,
+            },
             'grupos' => collect($grupos)
                 ->map(fn (array $accesos, string $nombre) => [
                     'nombre' => $nombre,
