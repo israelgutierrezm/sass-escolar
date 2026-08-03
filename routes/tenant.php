@@ -34,6 +34,7 @@ use App\Http\Controllers\Emision\TituloProfesionalController;
 use App\Http\Controllers\EmisorFiscalController;
 use App\Http\Controllers\EsquemaEvaluacionController;
 use App\Http\Controllers\ExpedienteAspiranteController;
+use App\Http\Controllers\ExpedienteAlumnoController;
 use App\Http\Controllers\ExpedienteDocenteController;
 use App\Http\Controllers\FacturaController;
 use App\Http\Controllers\FinanzasController;
@@ -234,6 +235,22 @@ Route::middleware([
                 Route::get('/', 'index')->name('index');
                 Route::get('materias/{asignaturaGrupo}', 'materia')
                     ->whereNumber('asignaturaGrupo')->name('materia');
+            });
+
+        /*
+         * "Mi expediente" del alumno. Sin id en la URL, igual que el del
+         * docente: el controlador resuelve SIEMPRE a la persona autenticada, así
+         * que no hay número que cambiar para leer el expediente de otro.
+         */
+        Route::controller(ExpedienteAlumnoController::class)
+            ->prefix('mi-expediente')->name('tenant.miexpediente.')
+            ->middleware('can:editar-mi-expediente-alumno')
+            ->group(function () {
+                Route::get('/', 'show')->name('show');
+                Route::put('/', 'actualizar')->name('actualizar');
+                Route::post('documentos', 'subir')->name('documentos.store');
+                Route::get('documentos/{documento}/descargar', 'descargar')->whereNumber('documento')->name('documentos.descargar');
+                Route::delete('documentos/{documento}', 'eliminar')->whereNumber('documento')->name('documentos.destroy');
             });
 
         Route::controller(ExpedienteDocenteController::class)

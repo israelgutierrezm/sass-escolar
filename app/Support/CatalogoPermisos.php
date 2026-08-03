@@ -116,6 +116,10 @@ final class CatalogoPermisos
          */
         'Portal del alumno' => [
             'ver-mis-cursos' => ['Ver mis cursos', 'Portal del alumno: las materias que cursa, su evaluación, sus calificaciones y su asistencia.', [self::ALUMNO]],
+            // Propio y no el del docente: son dos expedientes distintos, con
+            // documentos distintos, y un docente que además estudia no debería
+            // heredar el suyo del otro rol.
+            'editar-mi-expediente-alumno' => ['Editar mi expediente (alumno)', 'Que el alumno corrija sus datos y suba los documentos que la escuela le pide.', [self::ALUMNO]],
         ],
 
         'Docencia' => [
