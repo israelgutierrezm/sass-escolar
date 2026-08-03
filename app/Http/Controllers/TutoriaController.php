@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Admisiones\MatriculaOferta;
+use App\Models\ControlEscolar\AccesoBitacoraTutoria;
 use App\Models\ControlEscolar\SesionTutoria;
 use App\Models\ControlEscolar\Tutoria;
 use App\Models\Identidad\Persona;
@@ -120,6 +121,18 @@ class TutoriaController extends Controller
     {
         $tutoria = $this->miTutoriaCon($request, $alumno);
 
+        /*
+         * También se registra cuando la abre su propio tutor.
+         *
+         * Podría parecer vigilancia inútil —son sus notas, sobre su tutorado—,
+         * pero sin esto la auditoría sólo responde «quién de la administración
+         * lo abrió», no «quién lo vio». Y el caso que hay que poder reconstruir
+         * es el segundo: una sesión que circula por la escuela pudo salir tanto
+         * de coordinación como del propio portal del tutor, en su sesión
+         * abierta y sin bloquear.
+         */
+        $this->registrarConsulta($request, $alumno);
+
         return Inertia::render('Tutorias/Tutorado', [
             'alumno' => [
                 'id' => $alumno->id,
@@ -154,6 +167,27 @@ class TutoriaController extends Controller
                 'motivos' => collect(SesionTutoria::MOTIVOS)->map(fn ($t, $v) => ['valor' => $v, 'texto' => $t])->values(),
                 'modalidades' => collect(SesionTutoria::MODALIDADES)->map(fn ($t, $v) => ['valor' => $v, 'texto' => $t])->values(),
             ],
+            /*
+             * Quién ha abierto esta bitácora, incluido el propio tutor.
+             *
+             * La transparencia va en las dos direcciones: coordinación ve al
+             * tutor y el tutor ve a coordinación. Enseñárselo sólo a uno haría
+             * de la auditoría una herramienta de vigilancia hacia abajo, que es
+             * justo lo contrario de lo que debe ser.
+             */
+            'consultas' => AccesoBitacoraTutoria::query()
+                ->where('alumno_persona_id', $alumno->id)
+                ->with('persona')
+                ->orderByDesc('creado_en')
+                ->limit(20)
+                ->get()
+                // Se salta el acceso que se acaba de registrar: el propio.
+                ->skip(1)
+                ->map(fn (AccesoBitacoraTutoria $a) => [
+                    'quien' => $a->persona?->nombreCompleto() ?? 'Alguien',
+                    'cuando' => $a->creado_en?->toDateTimeString(),
+                ])
+                ->values(),
         ]);
     }
 
@@ -224,6 +258,29 @@ class TutoriaController extends Controller
                 ? 'La sesión quedó marcada como confidencial: control escolar verá que ocurrió, pero no lo que anotaste.'
                 : 'La sesión dejó de ser confidencial: quien tenga permiso podrá leerla.',
         );
+    }
+
+    /**
+     * Deja constancia de que alguien abrió esta bitácora.
+     *
+     * Se cuenta la CONSULTA, no el contenido. Y sin `confidenciales_ocultas`
+     * porque para su autor no hay nada reservado: la columna dice cuánto NO se
+     * le mostró a quien miró, y a él se le muestra todo.
+     */
+    private function registrarConsulta(Request $request, Persona $alumno): void
+    {
+        AccesoBitacoraTutoria::create([
+            'persona_id' => $request->user()?->persona_id,
+            'alumno_persona_id' => $alumno->id,
+            'sesiones_vistas' => SesionTutoria::query()
+                ->whereIn('tutoria_id', Tutoria::query()
+                    ->where('alumno_persona_id', $alumno->id)
+                    ->pluck('id'))
+                ->count(),
+            'confidenciales_ocultas' => 0,
+            'ip' => $request->ip(),
+            'creado_en' => now(),
+        ]);
     }
 
     /**

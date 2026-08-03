@@ -39,6 +39,7 @@ const props = defineProps<{
         motivos: { valor: string; texto: string }[];
         modalidades: { valor: string; texto: string }[];
     };
+    consultas: { quien: string; cuando: string | null }[];
 }>();
 
 const form = useForm({
@@ -274,5 +275,31 @@ function colorPromedio(p: number | null): string | undefined {
                 Todavía no hay sesiones anotadas con este alumno.
             </p>
         </TarjetaSeccion>
+
+        <!--
+            Quién ha abierto esta bitácora, tú incluido.
+
+            La transparencia va en las dos direcciones: coordinación ve al tutor
+            y el tutor ve a coordinación. Enseñárselo sólo a uno haría de la
+            auditoría una herramienta de vigilancia hacia abajo, que es justo lo
+            contrario de lo que debe ser.
+        -->
+        <section class="tarjeta mt-4 p-6">
+            <h3 class="text-sm font-semibold">Quién ha consultado esta bitácora</h3>
+            <p class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">
+                Incluye a control escolar y a ti. Tu visita de ahora también quedó registrada.
+            </p>
+
+            <ul v-if="consultas.length" class="mt-3 space-y-1.5">
+                <li v-for="(c, i) in consultas" :key="i" class="flex flex-wrap items-baseline gap-x-2 text-xs">
+                    <span class="font-medium">{{ c.quien }}</span>
+                    <span :style="{ color: 'var(--color-suave)' }">{{ c.cuando }}</span>
+                </li>
+            </ul>
+
+            <p v-else class="mt-3 text-xs" :style="{ color: 'var(--color-suave)' }">
+                Nadie más la había abierto hasta ahora.
+            </p>
+        </section>
     </AppLayout>
 </template>
