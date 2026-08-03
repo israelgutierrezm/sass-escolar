@@ -22,7 +22,8 @@ interface Sesion {
     fecha: string | null;
     modalidad: string;
     motivo: string;
-    tema: string;
+    confidencial: boolean;
+    tema: string | null;
     acuerdos: string | null;
     asistio: boolean;
     tutor: string | null;
@@ -96,7 +97,25 @@ defineProps<{
                         </span>
                     </div>
 
-                    <p class="mt-2 whitespace-pre-line text-sm">{{ s.tema }}</p>
+                    <!--
+                        El contenido reservado no llega al navegador: el servidor
+                        lo omite. Esto sólo explica el hueco, porque una sesión
+                        sin texto y sin explicación parece un error de captura.
+                    -->
+                    <p
+                        v-if="s.confidencial"
+                        class="mt-2 flex items-start gap-2 rounded-lg px-3 py-2 text-sm"
+                        :style="{ backgroundColor: 'color-mix(in srgb, #7c3aed 7%, transparent)', color: '#6d28d9' }"
+                    >
+                        <svg class="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>
+                        <span>
+                            El tutor marcó esta sesión como confidencial. La sesión ocurrió y cuenta
+                            para el seguimiento, pero lo que se habló sólo puede leerlo quien la
+                            anotó.
+                        </span>
+                    </p>
+
+                    <p v-else class="mt-2 whitespace-pre-line text-sm">{{ s.tema }}</p>
 
                     <p
                         v-if="s.acuerdos"

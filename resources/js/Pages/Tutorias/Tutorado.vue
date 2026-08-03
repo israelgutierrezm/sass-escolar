@@ -28,6 +28,7 @@ interface Sesion {
     tema: string;
     acuerdos: string | null;
     asistio: boolean;
+    confidencial: boolean;
 }
 
 const props = defineProps<{
@@ -48,6 +49,7 @@ const form = useForm({
     tema: '',
     acuerdos: '',
     asistio: true,
+    confidencial: false,
 });
 
 function guardar(): void {
@@ -149,10 +151,29 @@ function colorPromedio(p: number | null): string | undefined {
                     seguidas es información, y no registrarla dejaría la ausencia
                     sin rastro.
                 -->
-                <label class="mt-4 flex items-center gap-2 text-sm">
-                    <input v-model="form.asistio" type="checkbox" />
-                    El alumno asistió
-                </label>
+                <div class="mt-4 space-y-2">
+                    <label class="flex items-center gap-2 text-sm">
+                        <input v-model="form.asistio" type="checkbox" />
+                        El alumno asistió
+                    </label>
+
+                    <!--
+                        Confidencial no es invisible: la sesión sigue contando
+                        para el seguimiento —y de constancia de que la diste—,
+                        pero lo que se habló no sale de aquí. Para lo que no
+                        debería leer nadie más aunque tenga el permiso.
+                    -->
+                    <label class="flex items-start gap-2 text-sm">
+                        <input v-model="form.confidencial" type="checkbox" class="mt-0.5" />
+                        <span>
+                            Confidencial
+                            <span class="mt-0.5 block text-xs" :style="{ color: 'var(--color-suave)' }">
+                                Control escolar verá que la sesión ocurrió, con su fecha y su motivo,
+                                pero no lo que anotaste. Úsalo para situaciones personales delicadas.
+                            </span>
+                        </span>
+                    </label>
+                </div>
 
                 <BotonPrincipal :procesando="form.processing" texto="Anotar en la bitácora" class="mt-4" />
             </form>
@@ -182,6 +203,14 @@ function colorPromedio(p: number | null): string | undefined {
                         </span>
                         <span :style="{ color: 'var(--color-suave)' }">{{ s.modalidad }}</span>
                         <span v-if="!s.asistio" class="font-medium text-red-600">No asistió</span>
+                        <span
+                            v-if="s.confidencial"
+                            class="rounded-full px-2 py-0.5 font-medium"
+                            :style="{ backgroundColor: 'color-mix(in srgb, #7c3aed 12%, transparent)', color: '#7c3aed' }"
+                            title="Sólo tú puedes leer lo que anotaste en esta sesión"
+                        >
+                            Confidencial
+                        </span>
                     </div>
 
                     <p class="mt-2 whitespace-pre-line text-sm">{{ s.tema }}</p>

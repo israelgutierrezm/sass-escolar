@@ -50,6 +50,7 @@ class SesionTutoria extends Model
         'tema',
         'acuerdos',
         'asistio',
+        'confidencial',
     ];
 
     protected function casts(): array
@@ -57,6 +58,7 @@ class SesionTutoria extends Model
         return [
             'fecha' => 'date',
             'asistio' => 'boolean',
+            'confidencial' => 'boolean',
         ];
     }
 

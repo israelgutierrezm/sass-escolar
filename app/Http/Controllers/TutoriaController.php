@@ -148,6 +148,7 @@ class TutoriaController extends Controller
                     'tema' => $s->tema,
                     'acuerdos' => $s->acuerdos,
                     'asistio' => $s->asistio,
+                    'confidencial' => $s->confidencial,
                 ]),
             'catalogos' => [
                 'motivos' => collect(SesionTutoria::MOTIVOS)->map(fn ($t, $v) => ['valor' => $v, 'texto' => $t])->values(),
@@ -169,6 +170,7 @@ class TutoriaController extends Controller
             'tema' => ['required', 'string', 'max:2000'],
             'acuerdos' => ['nullable', 'string', 'max:2000'],
             'asistio' => ['boolean'],
+            'confidencial' => ['boolean'],
         ], [
             'fecha.before_or_equal' => 'No puedes anotar una sesión que todavía no ocurre.',
         ], [

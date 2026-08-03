@@ -209,16 +209,34 @@ class AsignacionTutoriaController extends Controller
             ->orderByDesc('fecha')
             ->orderByDesc('id')
             ->get()
-            ->map(function (SesionTutoria $s) use ($tutorias) {
+            ->map(function (SesionTutoria $s) use ($tutorias, $request) {
                 $tutoria = $tutorias->firstWhere('id', $s->tutoria_id);
+
+                /*
+                 * Lo confidencial NO VIAJA.
+                 *
+                 * Se omite en el servidor en vez de ocultarse con un `v-if`:
+                 * una nota sobre violencia en casa escondida en la vista sigue
+                 * estando en el JSON de la página, a un clic derecho de
+                 * distancia. Sólo su autor —el tutor que la escribió— la ve, y
+                 * él la lee desde su propia pantalla.
+                 */
+                $suya = $tutoria !== null
+                    && (int) $tutoria->tutor_persona_id === (int) $request->user()?->persona_id;
+
+                $reservada = $s->confidencial && ! $suya;
 
                 return [
                     'id' => $s->id,
                     'fecha' => $s->fecha?->toDateString(),
                     'modalidad' => SesionTutoria::MODALIDADES[$s->modalidad] ?? $s->modalidad,
                     'motivo' => SesionTutoria::MOTIVOS[$s->motivo] ?? $s->motivo,
-                    'tema' => $s->tema,
-                    'acuerdos' => $s->acuerdos,
+                    // Que la sesión OCURRIÓ sí se dice: es parte del seguimiento
+                    // y de la constancia de que el tutor hizo su trabajo. Lo que
+                    // se reserva es lo que se habló.
+                    'confidencial' => $reservada,
+                    'tema' => $reservada ? null : $s->tema,
+                    'acuerdos' => $reservada ? null : $s->acuerdos,
                     'asistio' => $s->asistio,
                     // Quién la dio: con tutores que cambian entre ciclos, sin
                     // esto la bitácora es una lista de notas sin autor.
