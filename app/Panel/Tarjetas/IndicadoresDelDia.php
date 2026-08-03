@@ -45,7 +45,11 @@ class IndicadoresDelDia implements TarjetaPanel
 
     public function tipo(): string
     {
-        return 'columnas';
+        // `lista` y no `columnas`: aquélla dibuja barras y necesita valores
+        // numéricos comparables entre sí. Aquí son dos cifras de naturaleza
+        // distinta —pesos por día y pesos por dólar— que no se comparan: lo que
+        // hace falta es el renglón con su etiqueta y su detalle.
+        return 'lista';
     }
 
     public function ancho(): int
@@ -63,36 +67,36 @@ class IndicadoresDelDia implements TarjetaPanel
         $uma = $this->indicadores->uma();
         $cambio = $this->indicadores->tipoDeCambio();
 
-        $columnas = [];
+        $renglones = [];
 
         if ($uma['disponible']) {
-            $columnas[] = [
+            $renglones[] = [
                 'etiqueta' => "UMA {$uma['anio']}",
+                'detalle' => 'al mes $'.number_format($uma['mensual'], 2),
                 'valor' => '$'.number_format($uma['diaria'], 2),
-                'detalle' => 'diaria · $'.number_format($uma['mensual'], 2).' al mes',
             ];
         } else {
             // Se dice que falta, en vez de mostrar la del año pasado como si
             // fuera la vigente: con un número viejo alguien calcula una beca.
-            $columnas[] = [
+            $renglones[] = [
                 'etiqueta' => 'UMA',
-                'valor' => '—',
                 'detalle' => $uma['aviso'],
+                'valor' => '—',
             ];
         }
 
         if ($cambio !== null) {
-            $columnas[] = [
+            $renglones[] = [
                 'etiqueta' => 'Dólar',
-                'valor' => '$'.number_format($cambio['valor'], 4),
                 // La fuente NO es adorno: con la referencia del BCE no se
                 // timbra, y quien mire el número tiene que saberlo.
                 'detalle' => $cambio['fuente'].' · '.$cambio['fecha'],
+                'valor' => '$'.number_format($cambio['valor'], 4),
             ];
         }
 
-        return $columnas === [] ? null : [
-            'columnas' => $columnas,
+        return $renglones === [] ? null : [
+            'renglones' => $renglones,
             'pie' => $cambio !== null && ! $cambio['oficial']
                 ? 'Para CFDI usa el FIX de Banxico: configura BANXICO_TOKEN (es gratuito).'
                 : null,

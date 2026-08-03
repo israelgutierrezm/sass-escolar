@@ -39,6 +39,7 @@ const props = defineProps<{
         proximos: PuntoAgenda[];
         marcados: Record<string, string>;
         hoy: string;
+        efemerides: { titulo: string; descripcion: string | null; color: string; aniversario: number | null }[];
     };
 }>();
 
@@ -453,6 +454,7 @@ function conmutar(rolId: number): void {
                     :proximos="agenda.proximos"
                     :marcados="agenda.marcados"
                     :hoy="agenda.hoy"
+                    :efemerides="agenda.efemerides"
                 />
                 <TarjetaClima />
             </aside>

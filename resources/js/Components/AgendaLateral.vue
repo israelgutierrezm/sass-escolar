@@ -32,13 +32,25 @@ interface Punto {
     enlace: string | null;
 }
 
-const props = defineProps<{
-    mes: string;
-    proximos: Punto[];
-    /** `AAAA-MM-DD => color` de los días que traen algo. */
-    marcados: Record<string, string>;
-    hoy: string;
-}>();
+interface Efemeride {
+    titulo: string;
+    descripcion: string | null;
+    color: string;
+    aniversario: number | null;
+}
+
+const props = withDefaults(
+    defineProps<{
+        mes: string;
+        proximos: Punto[];
+        /** `AAAA-MM-DD => color` de los días que traen algo. */
+        marcados: Record<string, string>;
+        hoy: string;
+        /** Qué se conmemora hoy. Vacío la mayoría de los días. */
+        efemerides?: Efemeride[];
+    }>(),
+    { efemerides: () => [] },
+);
 
 const MESES = [
     'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
@@ -119,6 +131,34 @@ function esUrgente(punto: Punto): boolean {
 
 <template>
     <div class="space-y-4">
+        <!--
+            ── Qué se conmemora hoy ──────────────────────────────────────
+            Arriba del calendario porque es lo de HOY, y sólo cuando hay algo:
+            la mayoría de los días no se pinta nada. Da tema para una clase o
+            para el aviso del día sin que nadie tenga que buscarlo.
+        -->
+        <section v-if="efemerides.length" class="tarjeta overflow-hidden">
+            <div
+                v-for="(e, i) in efemerides"
+                :key="i"
+                class="border-l-[3px] px-4 py-3"
+                :class="i > 0 ? 'border-t border-borde' : ''"
+                :style="{ borderLeftColor: e.color }"
+            >
+                <p class="text-[11px] font-semibold uppercase tracking-wider" :style="{ color: e.color }">
+                    Hoy se conmemora
+                </p>
+                <p class="mt-0.5 text-sm font-medium text-contenido">
+                    {{ e.titulo }}
+                    <!-- «hace 216 años» se entiende sin restar de cabeza. -->
+                    <span v-if="e.aniversario" class="font-normal text-suave">
+                        · hace {{ e.aniversario }} años
+                    </span>
+                </p>
+                <p v-if="e.descripcion" class="mt-1 text-xs text-suave">{{ e.descripcion }}</p>
+            </div>
+        </section>
+
         <!-- ── El mes ──────────────────────────────────────────────────── -->
         <section class="tarjeta p-4">
             <header class="mb-3 flex items-center justify-between">

@@ -208,6 +208,11 @@ Cinco entregas, en este orden. A y B ✅ hechas; C, D y E pendientes:
   `openssl.cafile` apuntando ahí en `php.ini` (respaldo del original en
   `php.ini.respaldo-antes-de-cacert`). En Linux no aplica. **Ojo**: al
   actualizar PHP hay que rehacerlo.
+- **`public/hot` obsoleto secuestra el frontend.** Si quedó de una sesión de
+  `npm run dev` que ya murió, Laravel sigue apuntando al dev server y **ningún
+  `npm run build` se ve**: se editan componentes, compila sin errores y la
+  pantalla no cambia. Costó media hora de diagnóstico creyendo que el bug era
+  del código. Si un cambio de Vue no aparece: `ls public/hot` y bórralo.
 - **La caché del tenant NO admite etiquetas.** `stancl/tenancy` envuelve
   `Cache::` con `tags()` para aislar por escuela y el driver del proyecto
   (`database`) no las soporta: cualquier `Cache::remember` revienta con «this
@@ -519,6 +524,15 @@ npm run dev                # o npm run build
   - «Mis materias» del docente pasó de listar ocho materias a ser una métrica
     con enlace a `/docencia`: el panel contesta «cuánto tengo encima», no
     «cuáles son mis materias» —eso ya lo sabe—.
+  - **Efemérides del día** (`efemerides` + `EfemerideSeeder`): qué se conmemora
+    hoy, arriba del calendario de la agenda y sólo cuando hay algo. Se cataloga
+    y NO se consume de una API: no hay servicio en español lo bastante fiable, y
+    esto lo lee cada alumno —una fecha mal puesta es peor que ninguna—. Se
+    guarda `mes`+`dia` (se repite cada año) y el `anio_origen` aparte, para
+    decir «hace 216 años» sin restar de cabeza. El seeder trae 28 fechas
+    **pocas y ciertas** (cívicas mexicanas y días ONU/UNESCO); vive en el tenant
+    para que cada escuela agregue las suyas —aniversario del plantel, semana
+    cultural—.
   - **UMA y tipo de cambio** (`IndicadoresFinancieros`, tarjeta bajo
     `ver-adeudos`): los dos números con los que se hacen cuentas. La UMA **no se
     adivina** —si falta la del año en curso lo dice, en vez de mostrar la del

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Identidad\Usuario;
+use App\Models\Plataforma\Efemeride;
 use App\Panel\RegistroTarjetas;
 use App\Services\Plataforma\AgendaDelPanel;
 use Illuminate\Support\Facades\Auth;
@@ -53,6 +54,23 @@ class DashboardController extends Controller
                 'proximos' => $this->agenda->proximos($usuario),
                 'marcados' => $this->agenda->diasMarcados($usuario, $mes),
                 'hoy' => date('Y-m-d'),
+
+                /*
+                 * Qué se conmemora hoy. Va con la agenda y no en tarjeta
+                 * aparte: es contexto del día, del mismo tipo que la fecha y el
+                 * clima. Vacío casi todos los días —y entonces no se pinta—.
+                 */
+                'efemerides' => Efemeride::query()
+                    ->delDia((int) date('n'), (int) date('j'))
+                    ->orderBy('tipo')
+                    ->get()
+                    ->map(fn (Efemeride $e) => [
+                        'titulo' => $e->titulo,
+                        'descripcion' => $e->descripcion,
+                        'color' => $e->color(),
+                        'aniversario' => $e->aniversario(),
+                    ])
+                    ->values(),
             ],
         ]);
     }
