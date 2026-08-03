@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
+import ModalEvento from '@/Components/ModalEvento.vue';
 import { computed, ref } from 'vue';
 
 /**
@@ -66,6 +67,16 @@ const MESES = [
  * viajes por una respuesta que casi nadie mira dos veces.
  */
 const desplazamiento = ref(0);
+
+/**
+ * El evento que se está mirando, o null.
+ *
+ * Los avisos de la escuela llegaban aquí como una línea truncada a cuarenta
+ * caracteres, sin forma de leerlos enteros: «Reunión general de inicio de
+ * cic…». El detalle no cabe en la agenda —es angosta a propósito— así que se
+ * abre encima, sin sacar a nadie de la pantalla en la que estaba.
+ */
+const viendo = ref<PuntoAgenda | null>(null);
 
 const mesVisible = computed(() => {
     const [anio, mes] = props.mes.split('-').map(Number);
@@ -232,11 +243,20 @@ function esUrgente(punto: Punto): boolean {
 
             <ul v-if="proximos.length" class="divide-y divide-borde border-t border-borde">
                 <li v-for="(p, i) in proximos" :key="i">
+                    <!--
+                        Lo que tiene enlace lleva a su pantalla —una entrega se
+                        abre para entregarla, no para leer su ficha—; el resto,
+                        que son los eventos del calendario, abre el detalle. Un
+                        aviso de la escuela era hasta ahora una línea inerte que
+                        se cortaba a los cuarenta caracteres y no había forma de
+                        leer entera.
+                    -->
                     <component
-                        :is="p.enlace ? Link : 'div'"
+                        :is="p.enlace ? Link : 'button'"
                         :href="p.enlace ?? undefined"
-                        class="flex items-start gap-3 px-4 py-2.5"
-                        :class="p.enlace ? 'transition hover:bg-[color-mix(in_srgb,var(--color-acento)_5%,transparent)]' : ''"
+                        :type="p.enlace ? undefined : 'button'"
+                        class="flex w-full items-start gap-3 px-4 py-2.5 text-left transition hover:bg-[color-mix(in_srgb,var(--color-acento)_5%,transparent)]"
+                        @click="p.enlace ? undefined : (viendo = p)"
                     >
                         <span
                             class="mt-1 h-2 w-2 shrink-0 rounded-full"
@@ -266,5 +286,21 @@ function esUrgente(punto: Punto): boolean {
                 No tienes nada en puerta. Disfrútalo.
             </p>
         </section>
+    <!-- El detalle, sin acciones: aquí nadie edita el calendario de la escuela. -->
+    <ModalEvento
+        v-if="viendo"
+        :evento="{
+            titulo: viendo.titulo,
+            etiqueta: viendo.etiqueta,
+            color: viendo.color,
+            fecha: viendo.dia,
+            hora: viendo.hora,
+            termina: viendo.termina,
+            detalle: viendo.detalle,
+            no_laborable: viendo.no_laborable,
+        }"
+        @cerrar="viendo = null"
+    />
+
     </div>
 </template>

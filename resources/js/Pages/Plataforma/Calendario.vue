@@ -4,6 +4,7 @@ import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import ModalEvento from '@/Components/ModalEvento.vue';
 import SelectorDestinos from '@/Components/SelectorDestinos.vue';
 import { toast } from 'vue-sonner';
 
@@ -171,6 +172,15 @@ const form = useForm<{
 });
 
 const editorAbierto = ref(false);
+
+/**
+ * El evento que se está mirando, o null.
+ *
+ * Ver y editar se separan a propósito: pulsar un evento del mes abre su ficha,
+ * no el formulario. Quien sólo quería recordar a qué hora era la junta no
+ * debería acabar dentro de un editor con riesgo de guardar algo sin querer.
+ */
+const viendo = ref<Evento | null>(null);
 
 function nuevo(fecha?: string): void {
     form.reset();
@@ -420,11 +430,17 @@ function fechaLegible(e: Evento): string {
             </div>
 
             <div class="grid grid-cols-7">
-                <button
+                <!--
+                    `div` y no `button`: dentro va un botón por evento, y un
+                    botón dentro de otro es HTML inválido —el navegador lo
+                    desanida y el clic del evento acaba disparando el de la
+                    celda—. El hueco libre sigue creando: es el gesto natural
+                    sobre un día vacío.
+                -->
+                <div
                     v-for="celda in dias"
                     :key="celda.fecha"
-                    type="button"
-                    class="min-h-24 border-b border-r border-borde p-1.5 text-left align-top transition hover:bg-[color-mix(in_srgb,var(--color-acento)_5%,transparent)]"
+                    class="min-h-24 cursor-pointer border-b border-r border-borde p-1.5 text-left align-top transition hover:bg-[color-mix(in_srgb,var(--color-acento)_5%,transparent)]"
                     :style="{ opacity: celda.delMes ? 1 : 0.4 }"
                     :title="`Agregar un evento el ${celda.fecha}`"
                     @click="nuevo(celda.fecha)"
@@ -441,15 +457,17 @@ function fechaLegible(e: Evento): string {
                     <!-- Una barra por evento, con su color: el mes se lee de un
                          vistazo sin abrir nada. -->
                     <span class="mt-1 block space-y-0.5">
-                        <span
+                        <button
                             v-for="e in eventosDe(celda.fecha).slice(0, 3)"
                             :key="e.id"
-                            class="block truncate rounded px-1.5 py-0.5 text-[10px] font-medium"
+                            type="button"
+                            class="block w-full truncate rounded px-1.5 py-0.5 text-left text-[10px] font-medium transition hover:brightness-95"
                             :style="{ backgroundColor: `color-mix(in srgb, ${e.color} 16%, transparent)`, color: e.color }"
                             :title="`${e.tipo_etiqueta}: ${e.titulo}`"
+                            @click.stop="viendo = e"
                         >
                             {{ e.titulo }}
-                        </span>
+                        </button>
                         <span
                             v-if="eventosDe(celda.fecha).length > 3"
                             class="block px-1.5 text-[10px] text-suave"
@@ -457,7 +475,7 @@ function fechaLegible(e: Evento): string {
                             +{{ eventosDe(celda.fecha).length - 3 }} más
                         </span>
                     </span>
-                </button>
+                </div>
             </div>
         </section>
 
@@ -532,5 +550,31 @@ function fechaLegible(e: Evento): string {
                 No hay nada en {{ nombreMes }}. Toca un día de la rejilla para agregar algo.
             </p>
         </section>
+    
+        <!--
+            La ficha del evento. Desde aquí se salta a editar o a eliminar, así
+            que el mes no se pierde de vista para hacer una corrección.
+        -->
+        <ModalEvento
+            v-if="viendo"
+            :evento="{
+                titulo: viendo.titulo,
+                etiqueta: viendo.tipo_etiqueta,
+                color: viendo.color,
+                fecha: viendo.inicia_dia,
+                hora: viendo.todo_el_dia ? null : viendo.inicia_en.slice(11, 16),
+                termina: viendo.todo_el_dia || !viendo.termina_en ? null : viendo.termina_en.slice(11, 16),
+                detalle: viendo.descripcion,
+                borrador: !viendo.publicado,
+                no_laborable: viendo.no_laborable,
+            }"
+            @cerrar="viendo = null"
+        >
+            <template #acciones>
+                <BotonAccion variante="editar" texto="Editar el evento" @click="editar(viendo!); viendo = null" />
+                <BotonAccion variante="eliminar" texto="Quitar del calendario" @click="eliminar(viendo!); viendo = null" />
+            </template>
+        </ModalEvento>
+
     </AppLayout>
 </template>
