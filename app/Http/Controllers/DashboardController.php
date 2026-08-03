@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Models\Identidad\Usuario;
 use App\Models\Plataforma\Efemeride;
 use App\Panel\RegistroTarjetas;
+use App\Services\Plataforma\LatidoDelDespachador;
 use App\Services\Plataforma\AgendaDelPanel;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -30,7 +31,31 @@ class DashboardController extends Controller
     public function __construct(
         private readonly RegistroTarjetas $registro,
         private readonly AgendaDelPanel $agenda,
+        private readonly LatidoDelDespachador $latidos,
     ) {}
+
+    /**
+     * El aviso, o null si no hay nada que avisar a ESTA persona.
+     *
+     * Se comprueba en cada carga del panel y no con una tarea programada, por
+     * una razón elemental: si el despachador está caído, una tarea programada
+     * que avise de que el despachador está caído tampoco correría.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function avisoDelDespachador(Usuario $usuario): ?array
+    {
+        // `ver-configuracion` y no un permiso nuevo: quien administra los
+        // parámetros de la escuela es quien llama a soporte cuando algo del
+        // servidor deja de funcionar.
+        if (! $usuario->can('ver-configuracion')) {
+            return null;
+        }
+
+        $estado = $this->latidos->estado();
+
+        return $estado['vivo'] ? null : $estado;
+    }
 
     public function __invoke(): Response
     {
@@ -42,6 +67,17 @@ class DashboardController extends Controller
         return Inertia::render('Dashboard', [
             'tarjetas' => $this->registro->para($usuario),
             'campusDelRol' => $usuario->campusDelRolActivo(),
+
+            /*
+             * Aviso de que el despachador dejó de correr.
+             *
+             * Sólo para quien puede hacer algo al respecto: es un problema del
+             * SERVIDOR, y a un docente o a un alumno decirle que «el cron está
+             * caído» le da una alarma que no puede atender. `null` cuando todo
+             * va bien o cuando quien mira no es de plataforma, así que la
+             * pantalla no tiene que decidir nada.
+             */
+            'despachador' => $this->avisoDelDespachador($usuario),
 
             /*
              * La agenda va a la DERECHA de todos los paneles, y es la misma

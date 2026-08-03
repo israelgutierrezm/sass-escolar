@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Plataforma\LatidoDelDespachador;
 use Illuminate\Console\Command;
-use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Cache;
 
 /**
  * ¿Está vivo el despachador de tareas programadas?
@@ -27,30 +26,28 @@ class EstadoDelDespachador extends Command
 
     protected $description = 'Dice si el despachador de tareas programadas sigue corriendo.';
 
-    public function handle(): int
+    public function handle(LatidoDelDespachador $latidos): int
     {
-        $tolerancia = max(2, (int) $this->option('minutos'));
+        $estado = $latidos->estado(max(2, (int) $this->option('minutos')));
 
-        $latido = Cache::store('scheduler')->get('ultimo-latido');
-
-        if ($latido === null) {
+        if ($estado['nunca']) {
             $this->error('El despachador NUNCA ha corrido en este servidor.');
             $this->line('Instálalo con deploy/scheduler/ — ver docs/scheduler.md.');
 
             return self::FAILURE;
         }
 
-        $cuando = Carbon::parse($latido);
-        $hace = (int) $cuando->diffInMinutes(now());
+        $hace = $estado['hace_minutos'];
+        $cuando = $estado['ultimo'];
 
-        if ($hace > $tolerancia) {
-            $this->error("El despachador lleva {$hace} minutos sin dar señales (último: {$cuando->toDateTimeString()}).");
+        if (! $estado['vivo']) {
+            $this->error("El despachador lleva {$hace} minutos sin dar señales (último: {$cuando}).");
             $this->line('Las tareas programadas NO se están ejecutando.');
 
             return self::FAILURE;
         }
 
-        $this->info("El despachador está vivo. Último latido: {$cuando->toDateTimeString()} (hace {$hace} min).");
+        $this->info("El despachador está vivo. Último latido: {$cuando} (hace {$hace} min).");
 
         return self::SUCCESS;
     }

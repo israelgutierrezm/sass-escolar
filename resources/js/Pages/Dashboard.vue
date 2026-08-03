@@ -35,6 +35,11 @@ interface PuntoAgenda {
 const props = defineProps<{
     tarjetas: Tarjeta[];
     campusDelRol: number[];
+    /*
+     * Sólo viene cuando el despachador está caído Y quien mira puede hacer algo
+     * al respecto. El servidor ya decidió las dos cosas; aquí sólo se pinta.
+     */
+    despachador: { nunca: boolean; ultimo: string | null; hace_minutos: number | null } | null;
     /** Lo que viene: calendario de la escuela + lo que vence de sus materias. */
     agenda: {
         mes: string;
@@ -150,6 +155,56 @@ function conmutar(rolId: number): void {
     <Head title="Panel" />
 
     <AppLayout titulo="Panel">
+        <!--
+            Lo que está roto va ARRIBA del saludo.
+
+            Un aviso de que las tareas programadas no corren compite mal con una
+            tarjeta de clima: si aparece entre el panel, se lee como una más. Y
+            se comprueba al cargar la pantalla, no con una tarea programada, por
+            una razón elemental: si el despachador está caído, una tarea que
+            avise de eso tampoco correría.
+        -->
+        <section
+            v-if="despachador"
+            class="tarjeta animar-entrada mb-4 border-l-4 p-5"
+            :style="{ borderLeftColor: '#dc2626' }"
+        >
+            <div class="flex flex-wrap items-start gap-3">
+                <svg class="mt-0.5 h-5 w-5 shrink-0 text-red-600" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" /></svg>
+
+                <div class="min-w-0 flex-1">
+                    <h2 class="text-base font-semibold text-red-700">
+                        Las tareas automáticas no se están ejecutando
+                    </h2>
+
+                    <p class="mt-1 text-sm text-contenido">
+                        <template v-if="despachador.nunca">
+                            El despachador no ha corrido nunca en este servidor.
+                        </template>
+                        <template v-else>
+                            Lleva <strong>{{ despachador.hace_minutos }} minutos</strong> sin dar señales
+                            (última: {{ despachador.ultimo }}).
+                        </template>
+                    </p>
+
+                    <!--
+                        Se dice QUÉ deja de pasar, no sólo que algo falla: «el
+                        cron está caído» no le dice a nadie qué va a doler.
+                    -->
+                    <p class="mt-2 text-sm text-suave">
+                        Mientras siga así no se aplican las becas por atraso, no se recalculan los
+                        recargos, no se actualiza quién está moroso y no se purgan los registros
+                        antiguos. Nada se pierde: al restablecerse, la siguiente corrida se pone al día.
+                    </p>
+
+                    <p class="mt-2 text-xs text-suave">
+                        Es un problema del servidor, no de la escuela. Pásaselo a quien lo administra:
+                        la instalación está documentada en <code>docs/scheduler.md</code>.
+                    </p>
+                </div>
+            </div>
+        </section>
+
         <!--
             La banda de bienvenida, de doble uso: quién eres y cómo está afuera.
 
