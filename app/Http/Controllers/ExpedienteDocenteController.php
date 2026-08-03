@@ -87,6 +87,9 @@ class ExpedienteDocenteController extends Controller
                 ->get()
                 ->map(fn (DocumentoDocente $d) => [
                     'id' => $d->id,
+                    // Con qué tipo cumple: es lo que permite saber cuáles de los
+                    // obligatorios siguen sin entregar.
+                    'documento_id' => $d->documento_id,
                     'documento' => $d->documento?->nombre,
                     'descripcion' => $d->descripcion,
                     'estado' => $d->estado?->nombre,
@@ -100,8 +103,14 @@ class ExpedienteDocenteController extends Controller
             'tiposDocumento' => DocumentoRequerido::query()
                 ->delAmbito(DocumentoRequerido::AMBITO_DOCENTE)
                 ->orderBy('nombre')
-                ->get(['id', 'nombre'])
-                ->map(fn (DocumentoRequerido $d) => ['id' => $d->id, 'nombre' => $d->nombre]),
+                ->get(['id', 'nombre', 'obligatorio'])
+                ->map(fn (DocumentoRequerido $d) => [
+                    'id' => $d->id,
+                    'nombre' => $d->nombre,
+                    // Distinguirlos importa: faltar un obligatorio bloquea, y
+                    // faltar uno opcional no es un pendiente que reclamar.
+                    'obligatorio' => (bool) $d->obligatorio,
+                ]),
             'sexos' => Sexo::query()->orderBy('id')->get(['id', 'nombre']),
             'generos' => Genero::query()->orderBy('id')->get(['id', 'nombre']),
         ]);

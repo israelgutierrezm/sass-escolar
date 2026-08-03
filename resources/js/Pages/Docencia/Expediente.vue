@@ -1,15 +1,38 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
+import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 import TitulosDocente from '@/Components/TitulosDocente.vue';
+import ZonaArchivo from '@/Components/ZonaArchivo.vue';
+import { ICONOS } from '@/iconos';
 
+/**
+ * Mi expediente, desde el lado del docente.
+ *
+ * ── Lo primero es qué falta ────────────────────────────────────────────────
+ * La pantalla era una lista de lo que YA está: cuatro documentos con su
+ * pastilla de estado. Pero nadie entra aquí a admirar lo que ya entregó; se
+ * entra porque la escuela pidió algo, o porque llegó un correo diciendo que la
+ * constancia venció. Lo que hacía falta —qué obligatorio sigue sin subir, qué
+ * caducó, qué rechazaron y por qué— había que reconstruirlo comparando la lista
+ * contra el desplegable de tipos, uno por uno.
+ *
+ * Ahora eso se calcula y encabeza la pantalla. Si no hay nada que hacer, la
+ * tarjeta ni aparece: un tablero que siempre dice algo deja de leerse.
+ *
+ * ── El orden de la lista ───────────────────────────────────────────────────
+ * Los documentos ya no salen en el orden en que se subieron sino por lo que
+ * reclaman: rechazado, vencido, pendiente y al final lo aceptado, que es lo
+ * único que no pide nada de nadie.
+ */
 interface Documento {
     id: number;
+    documento_id: number | null;
     documento: string | null;
     descripcion: string | null;
     estado: string | null;
@@ -19,15 +42,72 @@ interface Documento {
     observaciones: string | null;
 }
 
+interface TipoDocumento {
+    id: number;
+    nombre: string;
+    obligatorio: boolean;
+}
+
 const props = defineProps<{
     persona: Record<string, any>;
     docente: { clave_profesor: string | null; tipo: string | null; situacion: string | null; campus: string[] };
     documentos: Documento[];
     titulos: { id: number; grado: string; titulo_obtenido: string; cedula: string | null; institucion: string | null; anio: number | null; archivo: string | null }[];
-    tiposDocumento: { id: number; nombre: string }[];
+    tiposDocumento: TipoDocumento[];
     sexos: { id: number; nombre: string }[];
     generos: { id: number; nombre: string }[];
 }>();
+
+/* ── Qué falta ─────────────────────────────────────────────────────────── */
+
+/** Los obligatorios que no tienen ni un archivo subido. */
+const faltantes = computed(() => {
+    const entregados = new Set(props.documentos.map((d) => d.documento_id));
+
+    return props.tiposDocumento.filter((t) => t.obligatorio && !entregados.has(t.id));
+});
+
+const rechazados = computed(() => props.documentos.filter((d) => d.estado_clave === 'rechazado'));
+const vencidos = computed(() => props.documentos.filter((d) => d.vencido && d.estado_clave !== 'rechazado'));
+const enRevision = computed(() =>
+    props.documentos.filter((d) => d.estado_clave !== 'aceptado' && d.estado_clave !== 'rechazado' && !d.vencido),
+);
+const aceptados = computed(() => props.documentos.filter((d) => d.estado_clave === 'aceptado' && !d.vencido));
+
+/** Lo que reclama que el docente haga algo. Si es cero, no hay tarjeta. */
+const pendientes = computed(() => faltantes.value.length + rechazados.value.length + vencidos.value.length);
+
+const obligatorios = computed(() => props.tiposDocumento.filter((t) => t.obligatorio).length);
+const cubiertos = computed(() => Math.max(0, obligatorios.value - faltantes.value.length));
+
+/*
+ * El avance se mide contra los OBLIGATORIOS, no contra todo lo subido: un
+ * docente con seis constancias opcionales y sin cédula no está al 120%, está
+ * incompleto.
+ */
+const avance = computed(() =>
+    obligatorios.value === 0 ? 100 : Math.round((cubiertos.value / obligatorios.value) * 100),
+);
+
+/** Primero lo que reclama algo; al final lo que ya está resuelto. */
+const documentosOrdenados = computed(() => [
+    ...rechazados.value,
+    ...vencidos.value,
+    ...enRevision.value,
+    ...aceptados.value,
+]);
+
+const nombreCompleto = computed(() =>
+    [props.persona.nombre, props.persona.primer_apellido, props.persona.segundo_apellido]
+        .filter(Boolean)
+        .join(' '),
+);
+
+const iniciales = computed(
+    () => (props.persona.nombre?.[0] ?? '') + (props.persona.primer_apellido?.[0] ?? ''),
+);
+
+/* ── Mis datos ─────────────────────────────────────────────────────────── */
 
 const form = useForm({
     nombre: props.persona.nombre ?? '',
@@ -46,7 +126,8 @@ function guardar(): void {
     form.put('/docencia/expediente', { preserveScroll: true });
 }
 
-// --- Documentos ---
+/* ── Documentos ────────────────────────────────────────────────────────── */
+
 const formDoc = useForm({
     documento_id: null as number | null,
     archivo: null as File | null,
@@ -54,51 +135,50 @@ const formDoc = useForm({
     vigencia: '',
 });
 
-const entradaArchivo = ref<HTMLInputElement | null>(null);
-
-function elegirArchivo(evento: Event): void {
-    const archivos = (evento.target as HTMLInputElement).files;
-    formDoc.archivo = archivos && archivos.length > 0 ? archivos[0] : null;
-}
-
 function subir(): void {
     formDoc.post('/docencia/expediente/documentos', {
         preserveScroll: true,
         forceFormData: true,
-        onSuccess: () => {
-            formDoc.reset();
-            if (entradaArchivo.value) {
-                entradaArchivo.value.value = '';
-            }
-        },
+        onSuccess: () => formDoc.reset(),
     });
 }
 
+/** Desde la tarjeta de pendientes: deja el tipo elegido y baja al formulario. */
+function subirEste(tipoId: number): void {
+    formDoc.documento_id = tipoId;
+    document.getElementById('subir-documento')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
 function eliminar(doc: Documento): void {
-    if (!confirm(`¿Eliminar "${doc.documento}"?`)) {
-        return;
-    }
+    if (!confirm(`¿Eliminar "${doc.documento}"?`)) return;
 
     router.delete(`/docencia/expediente/documentos/${doc.id}`, { preserveScroll: true });
 }
 
-function colorEstado(clave: string | null): string {
-    return {
-        aceptado: 'color-mix(in srgb, #16a34a 18%, transparent)',
-        rechazado: 'color-mix(in srgb, #dc2626 18%, transparent)',
-    }[clave ?? ''] ?? 'color-mix(in srgb, #f59e0b 18%, transparent)';
+/** El color habla del estado REAL: un aceptado que venció ya no vale. */
+function colorDe(doc: Documento): string {
+    if (doc.estado_clave === 'rechazado') return '#dc2626';
+    if (doc.vencido) return '#dc2626';
+    if (doc.estado_clave === 'aceptado') return '#16a34a';
+
+    return '#f59e0b';
 }
 
-/* Foto de perfil */
+function etiquetaDe(doc: Documento): string {
+    if (doc.vencido && doc.estado_clave !== 'rechazado') return 'Vencido';
+
+    return doc.estado ?? 'Pendiente';
+}
+
+/* ── Foto ──────────────────────────────────────────────────────────────── */
+
 const formFoto = useForm({ foto: null as File | null });
 const entradaFoto = ref<HTMLInputElement | null>(null);
 
 function subirFoto(evento: Event): void {
     const archivos = (evento.target as HTMLInputElement).files;
 
-    if (!archivos || archivos.length === 0) {
-        return;
-    }
+    if (!archivos || archivos.length === 0) return;
 
     formFoto.foto = archivos[0];
     formFoto.post(`/personas/${props.persona.persona_id}/foto`, {
@@ -112,7 +192,8 @@ function subirFoto(evento: Event): void {
 }
 
 function quitarFoto(): void {
-    if (!confirm('Quitar la foto?')) return;
+    if (!confirm('¿Quitar la foto?')) return;
+
     router.delete(`/personas/${props.persona.persona_id}/foto`, { preserveScroll: true });
 }
 </script>
@@ -121,144 +202,258 @@ function quitarFoto(): void {
     <Head title="Mi expediente" />
 
     <AppLayout titulo="Mi expediente">
-        <!-- Lo que administra la escuela, no el docente -->
-        <section class="tarjeta p-6">
-            <h2 class="text-base font-semibold">Mi registro docente</h2>
-            <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                Estos datos los administra control escolar. Si algo está mal, pídeles la corrección.
-            </p>
+        <!--
+            Quién soy y cómo me tiene registrado la escuela, de un vistazo.
 
-            <dl class="mt-4 grid gap-4 text-sm sm:grid-cols-4">
-                <div>
-                    <dt :style="{ color: 'var(--color-suave)' }">Clave de profesor</dt>
-                    <dd class="mt-0.5 font-mono">{{ docente.clave_profesor ?? '—' }}</dd>
-                </div>
-                <div>
-                    <dt :style="{ color: 'var(--color-suave)' }">Tipo</dt>
-                    <dd class="mt-0.5">{{ docente.tipo ?? '—' }}</dd>
-                </div>
-                <div>
-                    <dt :style="{ color: 'var(--color-suave)' }">Situación</dt>
-                    <dd class="mt-0.5">{{ docente.situacion ?? '—' }}</dd>
-                </div>
-                <div v-if="docente.campus.length" class="sm:col-span-4">
-                    <dt :style="{ color: 'var(--color-suave)' }">Campus</dt>
-                    <dd class="mt-0.5">{{ docente.campus.join(', ') }}</dd>
-                </div>
-            </dl>
-        </section>
-
-        <!-- Mis títulos / grados (los administra el propio docente) -->
-        <TitulosDocente :titulos="titulos" base="/docencia/expediente/titulos" :puede-editar="true" />
-
-        <!-- Lo que sí mantiene el docente -->
-        <form class="tarjeta p-6" @submit.prevent="guardar">
-            <h2 class="text-base font-semibold">Mis datos</h2>
-            <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                Manténlos al día: de aquí salen tus datos en actas y documentos oficiales.
-            </p>
-
-                <div class="flex flex-col items-center gap-2">
+            La foto vivía dentro del formulario de datos, entre el título y los
+            campos, donde ni se veía ni pertenecía. Aquí acompaña al nombre, que
+            es lo que identifica, y deja el formulario para lo que se teclea.
+        -->
+        <section class="tarjeta mb-4 p-6">
+            <div class="flex flex-wrap items-center gap-5">
+                <div class="flex flex-col items-center gap-1.5">
                     <img
                         v-if="persona.foto"
                         :src="persona.foto"
                         alt=""
-                        class="h-24 w-24 rounded-full object-cover"
+                        class="h-20 w-20 rounded-full object-cover"
                     />
                     <span
                         v-else
-                        class="flex h-24 w-24 items-center justify-center rounded-full text-2xl font-semibold"
+                        class="flex h-20 w-20 items-center justify-center rounded-full text-2xl font-semibold"
                         :style="{
                             backgroundColor: 'color-mix(in srgb, var(--color-acento) 14%, transparent)',
                             color: 'var(--color-acento)',
                         }"
                     >
-                        {{ (persona.nombre?.[0] ?? '') + (persona.primer_apellido?.[0] ?? '') }}
+                        {{ iniciales }}
                     </span>
 
-                    <div v-if="true" class="flex gap-2 text-xs">
+                    <div class="flex items-center gap-2 text-xs">
                         <label class="cursor-pointer" :style="{ color: 'var(--color-acento)' }">
                             {{ persona.foto ? 'Cambiar' : 'Subir foto' }}
-                            <input
-                                ref="entradaFoto"
-                                type="file"
-                                accept="image/*"
-                                class="hidden"
-                                @change="subirFoto"
-                            />
+                            <input ref="entradaFoto" type="file" accept="image/*" class="hidden" @change="subirFoto" />
                         </label>
                         <BotonAccion v-if="persona.foto" variante="eliminar" texto="Quitar la foto" @click="quitarFoto" />
                     </div>
                     <p v-if="formFoto.errors.foto" class="text-xs text-red-600">{{ formFoto.errors.foto }}</p>
                 </div>
 
-            <div class="mt-5 grid gap-4 sm:grid-cols-3">
-                <CampoTexto v-model="form.nombre" etiqueta="Nombre(s)" requerido :error="form.errors.nombre" />
-                <CampoTexto v-model="form.primer_apellido" etiqueta="Primer apellido" requerido :error="form.errors.primer_apellido" />
-                <CampoTexto v-model="form.segundo_apellido" etiqueta="Segundo apellido" :error="form.errors.segundo_apellido" />
+                <div class="min-w-0 flex-1">
+                    <h2 class="truncate text-xl font-semibold text-contenido">{{ nombreCompleto || '—' }}</h2>
 
-                <CampoTexto v-model="form.curp" etiqueta="CURP" mono :error="form.errors.curp" />
-                <CampoTexto v-model="form.rfc" etiqueta="RFC" mono :error="form.errors.rfc" />
-                <CampoTexto
-                    v-model="form.fecha_nacimiento"
-                    etiqueta="Fecha de nacimiento"
-                    tipo="date"
-                    :error="form.errors.fecha_nacimiento"
-                />
+                    <!--
+                        Datos de solo lectura: los administra control escolar. En
+                        pastillas y no en una rejilla de definiciones porque son
+                        etiquetas de identidad, no un formulario, y ocupaban
+                        cuatro columnas para decir tres palabras.
+                    -->
+                    <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                        <span
+                            v-if="docente.clave_profesor"
+                            class="rounded-full px-2.5 py-1 font-mono"
+                            :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 10%, transparent)', color: 'var(--color-acento)' }"
+                        >
+                            {{ docente.clave_profesor }}
+                        </span>
+                        <span
+                            v-for="dato in [docente.tipo, docente.situacion, ...docente.campus].filter(Boolean)"
+                            :key="dato as string"
+                            class="rounded-full border px-2.5 py-1 text-suave"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                        >
+                            {{ dato }}
+                        </span>
+                    </div>
 
-                <CampoSelect
-                    v-model="form.sexo_id"
-                    etiqueta="Sexo"
-                    requerido
-                    :opciones="sexos.map((s) => ({ valor: s.id, texto: s.nombre }))"
-                    vacio="Selecciona…"
-                    :error="form.errors.sexo_id"
-                />
-                <CampoSelect
-                    v-model="form.genero_id"
-                    etiqueta="Género"
-                    :opciones="generos.map((g) => ({ valor: g.id, texto: g.nombre }))"
-                    vacio="Prefiero no decirlo"
-                    :error="form.errors.genero_id"
-                />
-                <div></div>
+                    <p class="mt-2 text-xs text-suave">
+                        La clave, el tipo, la situación y el campus los administra control escolar.
+                        Si algo está mal, pídeles la corrección.
+                    </p>
+                </div>
 
-                <CampoTexto v-model="form.email" etiqueta="Correo personal" tipo="email" :error="form.errors.email" />
-                <CampoTexto
-                    :model-value="persona.correo_institucional ?? '—'"
-                    etiqueta="Correo institucional"
-                    deshabilitado
-                    ayuda="Lo asigna la escuela."
-                />
-                <CampoTexto v-model="form.celular" etiqueta="Celular" :error="form.errors.celular" />
+                <!-- El avance del expediente, medido contra lo obligatorio. -->
+                <div v-if="obligatorios > 0" class="w-full sm:w-48">
+                    <div class="flex items-baseline justify-between">
+                        <span class="text-xs text-suave">Documentos obligatorios</span>
+                        <span class="text-sm font-semibold tabular-nums">{{ cubiertos }}/{{ obligatorios }}</span>
+                    </div>
+                    <div class="mt-1.5 h-2 w-full rounded-full" :style="{ backgroundColor: 'var(--color-borde)' }">
+                        <div
+                            class="h-2 rounded-full transition-all"
+                            :style="{
+                                width: `${avance}%`,
+                                backgroundColor: avance === 100 ? '#16a34a' : 'var(--color-acento)',
+                            }"
+                        />
+                    </div>
+                </div>
             </div>
+        </section>
 
-            <BotonPrincipal :procesando="form.processing" texto="Guardar mis datos" class="mt-5" />
-        </form>
+        <!--
+            Lo que reclama acción, y sólo si existe.
 
-        <!-- Documentos -->
-        <section class="tarjeta overflow-hidden">
-            <div class="border-b px-6 py-3" :style="{ borderColor: 'var(--color-borde)' }">
-                <h2 class="text-base font-semibold">Mis documentos</h2>
-                <p class="mt-0.5 text-sm" :style="{ color: 'var(--color-suave)' }">
-                    Título, cédula, comprobantes. Cada carga queda pendiente de revisión; volver a subir
-                    el mismo tipo reemplaza el archivo anterior.
-                </p>
-            </div>
+            Una tarjeta que siempre dice algo —«todo en orden»— deja de leerse a
+            la tercera visita, y entonces tampoco se lee el día que sí hay algo.
+        -->
+        <section
+            v-if="pendientes > 0"
+            class="tarjeta mb-4 border-l-4 p-6"
+            :style="{ borderLeftColor: '#dc2626' }"
+        >
+            <h2 class="flex items-center gap-2 text-base font-semibold">
+                <svg class="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" /></svg>
+                Tu expediente necesita atención
+            </h2>
 
-            <ul v-if="documentos.length">
+            <ul class="mt-4 space-y-2.5">
                 <li
-                    v-for="doc in documentos"
+                    v-for="t in faltantes"
+                    :key="`falta-${t.id}`"
+                    class="flex flex-wrap items-center justify-between gap-2 rounded-xl border px-4 py-2.5 text-sm"
+                    :style="{ borderColor: 'var(--color-borde)' }"
+                >
+                    <span>
+                        <strong>{{ t.nombre }}</strong>
+                        <span class="ml-2 text-xs text-suave">obligatorio, sin entregar</span>
+                    </span>
+                    <button
+                        type="button"
+                        class="text-xs font-medium"
+                        :style="{ color: 'var(--color-acento)' }"
+                        @click="subirEste(t.id)"
+                    >
+                        Subirlo ahora
+                    </button>
+                </li>
+
+                <li
+                    v-for="d in rechazados"
+                    :key="`rech-${d.id}`"
+                    class="flex flex-wrap items-center justify-between gap-2 rounded-xl border px-4 py-2.5 text-sm"
+                    :style="{ borderColor: 'var(--color-borde)' }"
+                >
+                    <span class="min-w-0">
+                        <strong>{{ d.documento }}</strong>
+                        <span class="ml-2 text-xs text-red-600">rechazado</span>
+                        <!-- El motivo va aquí y no sólo abajo: sin él, «rechazado»
+                             obliga a adivinar qué corregir antes de resubir. -->
+                        <span v-if="d.observaciones" class="mt-0.5 block text-xs italic text-suave">
+                            «{{ d.observaciones }}»
+                        </span>
+                    </span>
+                    <button
+                        v-if="d.documento_id"
+                        type="button"
+                        class="shrink-0 text-xs font-medium"
+                        :style="{ color: 'var(--color-acento)' }"
+                        @click="subirEste(d.documento_id)"
+                    >
+                        Volver a subirlo
+                    </button>
+                </li>
+
+                <li
+                    v-for="d in vencidos"
+                    :key="`venc-${d.id}`"
+                    class="flex flex-wrap items-center justify-between gap-2 rounded-xl border px-4 py-2.5 text-sm"
+                    :style="{ borderColor: 'var(--color-borde)' }"
+                >
+                    <span>
+                        <strong>{{ d.documento }}</strong>
+                        <span class="ml-2 text-xs text-red-600">venció el {{ d.vigencia }}</span>
+                    </span>
+                    <button
+                        v-if="d.documento_id"
+                        type="button"
+                        class="text-xs font-medium"
+                        :style="{ color: 'var(--color-acento)' }"
+                        @click="subirEste(d.documento_id)"
+                    >
+                        Subir el vigente
+                    </button>
+                </li>
+            </ul>
+        </section>
+
+        <!-- Mis títulos / grados (los administra el propio docente) -->
+        <TitulosDocente :titulos="titulos" base="/docencia/expediente/titulos" :puede-editar="true" />
+
+        <TarjetaSeccion
+            titulo="Mis datos"
+            descripcion="Manténlos al día: de aquí salen tus datos en actas y documentos oficiales."
+            :icono="ICONOS.persona"
+            class="mt-4"
+        >
+            <form @submit.prevent="guardar">
+                <div class="grid gap-4 sm:grid-cols-3">
+                    <CampoTexto v-model="form.nombre" etiqueta="Nombre(s)" requerido :error="form.errors.nombre" />
+                    <CampoTexto v-model="form.primer_apellido" etiqueta="Primer apellido" requerido :error="form.errors.primer_apellido" />
+                    <CampoTexto v-model="form.segundo_apellido" etiqueta="Segundo apellido" :error="form.errors.segundo_apellido" />
+
+                    <CampoTexto v-model="form.curp" etiqueta="CURP" mono :error="form.errors.curp" />
+                    <CampoTexto v-model="form.rfc" etiqueta="RFC" mono :error="form.errors.rfc" />
+                    <CampoTexto
+                        v-model="form.fecha_nacimiento"
+                        etiqueta="Fecha de nacimiento"
+                        tipo="date"
+                        :error="form.errors.fecha_nacimiento"
+                    />
+
+                    <CampoSelect
+                        v-model="form.sexo_id"
+                        etiqueta="Sexo"
+                        requerido
+                        :opciones="sexos.map((s) => ({ valor: s.id, texto: s.nombre }))"
+                        vacio="Selecciona…"
+                        :error="form.errors.sexo_id"
+                    />
+                    <CampoSelect
+                        v-model="form.genero_id"
+                        etiqueta="Género"
+                        :opciones="generos.map((g) => ({ valor: g.id, texto: g.nombre }))"
+                        vacio="Prefiero no decirlo"
+                        :error="form.errors.genero_id"
+                    />
+
+                    <CampoTexto v-model="form.celular" etiqueta="Celular" :error="form.errors.celular" />
+
+                    <CampoTexto v-model="form.email" etiqueta="Correo personal" tipo="email" :error="form.errors.email" />
+                    <CampoTexto
+                        :model-value="persona.correo_institucional ?? '—'"
+                        etiqueta="Correo institucional"
+                        deshabilitado
+                        ayuda="Lo asigna la escuela."
+                    />
+                </div>
+
+                <BotonPrincipal :procesando="form.processing" texto="Guardar mis datos" class="mt-5" />
+            </form>
+        </TarjetaSeccion>
+
+        <TarjetaSeccion
+            titulo="Mis documentos"
+            descripcion="Cada carga queda pendiente de revisión; volver a subir el mismo tipo reemplaza el archivo anterior."
+            :icono="ICONOS.documento"
+            sin-relleno
+            class="mt-4"
+        >
+            <ul v-if="documentosOrdenados.length">
+                <li
+                    v-for="doc in documentosOrdenados"
                     :key="doc.id"
                     class="flex flex-wrap items-center justify-between gap-3 border-t px-6 py-3 text-sm"
                     :style="{ borderColor: 'var(--color-borde)' }"
                 >
-                    <div>
+                    <div class="min-w-0">
                         <p class="font-medium">{{ doc.documento }}</p>
-                        <p v-if="doc.descripcion" class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                            {{ doc.descripcion }}
-                        </p>
-                        <p v-if="doc.vigencia" class="text-xs" :class="doc.vencido ? 'text-red-600' : ''" :style="doc.vencido ? {} : { color: 'var(--color-suave)' }">
+                        <p v-if="doc.descripcion" class="text-xs text-suave">{{ doc.descripcion }}</p>
+                        <p
+                            v-if="doc.vigencia"
+                            class="text-xs"
+                            :class="doc.vencido ? 'font-medium text-red-600' : 'text-suave'"
+                        >
                             Vigencia {{ doc.vigencia }}<span v-if="doc.vencido"> — vencido</span>
                         </p>
                         <p v-if="doc.observaciones" class="mt-0.5 text-xs italic text-amber-700">
@@ -266,9 +461,15 @@ function quitarFoto(): void {
                         </p>
                     </div>
 
-                    <div class="flex items-center gap-3">
-                        <span class="rounded-full px-2 py-0.5 text-xs" :style="{ backgroundColor: colorEstado(doc.estado_clave) }">
-                            {{ doc.estado }}
+                    <div class="flex shrink-0 items-center gap-3">
+                        <span
+                            class="rounded-full px-2.5 py-0.5 text-xs font-medium"
+                            :style="{
+                                backgroundColor: `color-mix(in srgb, ${colorDe(doc)} 14%, transparent)`,
+                                color: colorDe(doc),
+                            }"
+                        >
+                            {{ etiquetaDe(doc) }}
                         </span>
                         <a
                             :href="`/docencia/expediente/documentos/${doc.id}/descargar`"
@@ -277,59 +478,71 @@ function quitarFoto(): void {
                         >
                             Descargar
                         </a>
-                        <BotonAccion
-                            v-if="doc.estado_clave !== 'aceptado'"
-                            variante="eliminar"
-                            @click="eliminar(doc)"
-                        />
+                        <BotonAccion v-if="doc.estado_clave !== 'aceptado'" variante="eliminar" @click="eliminar(doc)" />
                     </div>
                 </li>
             </ul>
 
-            <p v-else class="px-6 py-8 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
+            <p v-else class="px-6 py-8 text-center text-sm text-suave">
                 Todavía no has cargado documentos.
             </p>
 
-            <form class="border-t px-6 py-4" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="subir">
-                <div class="grid gap-3 sm:grid-cols-4">
-                    <CampoSelect
-                        v-model="formDoc.documento_id"
-                        etiqueta="Tipo de documento"
-                        :opciones="tiposDocumento.map((t) => ({ valor: t.id, texto: t.nombre }))"
-                        vacio="Selecciona…"
-                        :error="formDoc.errors.documento_id"
-                    />
-                    <div>
-                        <label class="block text-sm font-medium">Archivo</label>
-                        <input
-                            ref="entradaArchivo"
-                            type="file"
-                            accept=".pdf,.jpg,.jpeg,.png"
-                            class="mt-1 w-full text-sm"
-                            @change="elegirArchivo"
+            <form
+                id="subir-documento"
+                class="border-t px-6 py-5"
+                :style="{ borderColor: 'var(--color-borde)' }"
+                @submit.prevent="subir"
+            >
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <div class="space-y-4">
+                        <CampoSelect
+                            v-model="formDoc.documento_id"
+                            etiqueta="Tipo de documento"
+                            :opciones="tiposDocumento.map((t) => ({
+                                valor: t.id,
+                                texto: t.obligatorio ? `${t.nombre} (obligatorio)` : t.nombre,
+                            }))"
+                            vacio="Selecciona…"
+                            :error="formDoc.errors.documento_id"
                         />
-                        <p v-if="formDoc.errors.archivo" class="mt-1 text-xs text-red-600">{{ formDoc.errors.archivo }}</p>
-                        <p v-else class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">PDF o imagen, máx. 5 MB.</p>
+                        <CampoTexto
+                            v-model="formDoc.vigencia"
+                            etiqueta="Vigencia"
+                            tipo="date"
+                            :error="formDoc.errors.vigencia"
+                            ayuda="Solo si vence."
+                        />
                     </div>
-                    <CampoTexto
-                        v-model="formDoc.vigencia"
-                        etiqueta="Vigencia"
-                        tipo="date"
-                        :error="formDoc.errors.vigencia"
-                        ayuda="Solo si vence."
-                    />
-                    <div class="flex items-end">
-                        <BotonPrincipal
-                            :procesando="formDoc.processing"
-                            :deshabilitado="!formDoc.documento_id || !formDoc.archivo"
-                            texto="Subir"
-                            cargando="Subiendo…"
-                            icono="ninguno"
-                            class="w-full"
+
+                    <!--
+                        Arrastrar y soltar, igual que los .cer de titulación: es
+                        el mismo gesto en toda la plataforma y no había razón
+                        para que aquí siguiera siendo un <input type=file> pelón.
+                    -->
+                    <div>
+                        <ZonaArchivo
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            texto="Arrastra el documento o haz clic para elegirlo"
+                            ayuda="PDF o imagen, máximo 5 MB."
+                            :cargado="formDoc.archivo?.name ?? null"
+                            :ocupado="formDoc.processing"
+                            @archivo="(f) => (formDoc.archivo = f)"
                         />
+                        <p v-if="formDoc.errors.archivo" class="mt-1 text-xs text-red-600">
+                            {{ formDoc.errors.archivo }}
+                        </p>
                     </div>
                 </div>
+
+                <BotonPrincipal
+                    :procesando="formDoc.processing"
+                    :deshabilitado="!formDoc.documento_id || !formDoc.archivo"
+                    texto="Subir documento"
+                    cargando="Subiendo…"
+                    icono="ninguno"
+                    class="mt-4"
+                />
             </form>
-        </section>
+        </TarjetaSeccion>
     </AppLayout>
 </template>
