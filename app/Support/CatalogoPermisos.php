@@ -88,7 +88,10 @@ final class CatalogoPermisos
         ],
 
         'Control escolar' => [
-            'ver-alumnos' => ['Ver alumnos', 'Buscar matrículas y consultar su expediente.', [self::ADMINISTRATIVO, self::TUTOR]],
+            // SIN el tutor educativo: este permiso abre el listado de TODA la
+            // escuela, y su alcance real son sus tutorados. Lo suyo es
+            // `ver-mis-tutorados`, que resuelve por el vínculo en `tutorias`.
+            'ver-alumnos' => ['Ver alumnos', 'Buscar matrículas y consultar su expediente. Alcanza a toda la escuela.', [self::ADMINISTRATIVO]],
             'editar-alumnos' => ['Editar alumnos', 'Corregir su situación y su estatus de inscripción.', [self::ADMINISTRATIVO]],
             'inscribir-alumnos' => ['Inscribir alumnos', 'Dar de alta y de baja materias, con las validaciones de seriación y cupo.', [self::ADMINISTRATIVO]],
             'ver-kardex' => ['Ver kárdex', 'Consultar el historial académico.', [self::ADMINISTRATIVO, self::DOCENTE, self::ALUMNO, self::TUTOR, self::PADRE]],
@@ -105,6 +108,9 @@ final class CatalogoPermisos
 
         'Familia' => [
             'ver-mis-hijos' => ['Ver a mis hijos', 'Portal del padre o tutor familiar: la información de los alumnos que tiene vinculados.', [self::PADRE]],
+            // El alcance NO lo da este permiso sino el vínculo en `tutorias`:
+            // deja entrar al portal, y a quiénes ve lo decide a quién acompaña.
+            'ver-mis-tutorados' => ['Ver a mis tutorados', 'Portal del tutor educativo: los alumnos que acompaña académicamente.', [self::TUTOR]],
             'ver-tutores' => ['Ver padres y tutores', 'Consultar el directorio de padres y tutores y a qué alumnos están vinculados.', [self::ADMINISTRATIVO]],
         ],
 

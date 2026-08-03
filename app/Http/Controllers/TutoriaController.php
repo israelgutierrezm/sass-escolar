@@ -1,0 +1,120 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers;
+
+use App\Models\Admisiones\MatriculaOferta;
+use App\Models\ControlEscolar\Tutoria;
+use App\Models\Identidad\Persona;
+use App\Services\EstadoDelAlumno;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+
+/**
+ * "Mis tutorados": el tutor educativo y los alumnos que acompaña.
+ *
+ * ── Qué arregla ────────────────────────────────────────────────────────────
+ * El rol existía sin pantalla y sin nadie a quien tutorar. Sus permisos
+ * —`ver-alumnos`, `ver-kardex`— le abrían el listado de TODA la escuela, no por
+ * descuido de quien los asignó sino porque no había vínculo por el cual
+ * acotarlo: «sus» alumnos no eran un conjunto que el sistema pudiera nombrar.
+ * Ahora lo son, en `tutorias`.
+ *
+ * ── El alcance lo da la tutoría, no el permiso ─────────────────────────────
+ * `ver-mis-tutorados` deja entrar; a QUIÉNES ve lo decide el vínculo, dentro
+ * del controlador. Es el mismo criterio del portal del padre y del docente:
+ * cambiar un id en la URL choca contra la pertenencia y devuelve 403.
+ *
+ * ── Y ve lo académico, no lo financiero ────────────────────────────────────
+ * Un tutor educativo acompaña el avance: promedio, materias reprobadas, riesgo
+ * de rezago. Lo que un alumno deba es asunto de su familia y de la escuela, no
+ * de quien le da seguimiento académico, así que el estado de cuenta no se
+ * consulta ni viaja.
+ */
+class TutoriaController extends Controller
+{
+    public function __construct(private readonly EstadoDelAlumno $estado) {}
+
+    public function misTutorados(Request $request): Response
+    {
+        $tutorId = $this->miPersonaId($request);
+
+        $tutorias = Tutoria::query()
+            ->de($tutorId)
+            ->with(['alumno', 'ciclo:id,clave'])
+            ->get();
+
+        $tutorados = $tutorias
+            ->filter(fn (Tutoria $t) => $t->alumno !== null)
+            ->map(function (Tutoria $t) {
+                /** @var Persona $alumno */
+                $alumno = $t->alumno;
+
+                $carreras = $alumno->matriculas()
+                    ->with('oferta.carrera:id,nombre')
+                    ->get()
+                    ->map(fn (MatriculaOferta $m) => $m->oferta?->carrera?->nombre)
+                    ->filter()
+                    ->values();
+
+                return [
+                    'id' => $alumno->id,
+                    'nombre' => $alumno->nombreCompleto(),
+                    'foto' => $alumno->urlFoto(),
+                    'carreras' => $carreras,
+                    'ciclo' => $t->ciclo?->clave,
+                    // Sin finanzas: no es asunto suyo.
+                    'estado' => $this->estado->de($alumno, academico: true, finanzas: false),
+                ];
+            })
+            ->values();
+
+        /*
+         * Ordenados por quién necesita atención, no por nombre.
+         *
+         * Un tutor con veinte tutorados y una lista alfabética tiene que
+         * leerlos todos para encontrar a los tres que van mal, cada vez que
+         * entra. El alfabeto sirve para buscar a alguien concreto; esta
+         * pantalla es para lo contrario: enterarse de a quién buscar.
+         */
+        $ordenados = $tutorados->sortBy([
+            fn (array $a, array $b) => ($b['estado']['reprobadas'] ?? 0) <=> ($a['estado']['reprobadas'] ?? 0),
+            fn (array $a, array $b) => ($a['estado']['promedio'] ?? 99) <=> ($b['estado']['promedio'] ?? 99),
+        ])->values();
+
+        return Inertia::render('Tutorias/MisTutorados', [
+            'tutorados' => $ordenados,
+            /*
+             * El resumen se calcula aquí y no en la pantalla: es lo que el tutor
+             * viene a saber —«tengo tres en riesgo»— y no debería depender de
+             * que la vista sepa qué cuenta como riesgo.
+             */
+            'resumen' => [
+                'total' => $ordenados->count(),
+                'reprobando' => $ordenados->filter(fn (array $t) => ($t['estado']['reprobadas'] ?? 0) > 0)->count(),
+                // Debajo de 8 sin llegar a reprobar: todavía se puede hacer algo,
+                // que es justo cuando una tutoría sirve para algo.
+                'en_riesgo' => $ordenados->filter(function (array $t) {
+                    $p = $t['estado']['promedio'];
+
+                    return $p !== null && $p >= 6 && $p < 8 && ($t['estado']['reprobadas'] ?? 0) === 0;
+                })->count(),
+            ],
+        ]);
+    }
+
+    /** La persona del tutor, o 403 si quien entra no tiene una. */
+    private function miPersonaId(Request $request): int
+    {
+        $id = $request->user()?->persona_id;
+
+        if ($id === null) {
+            throw new AccessDeniedHttpException('Tu cuenta no está ligada a una persona.');
+        }
+
+        return (int) $id;
+    }
+}

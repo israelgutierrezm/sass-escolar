@@ -71,7 +71,11 @@ class PermisoSeeder extends Seeder
         // El interesado llena lo suyo desde `/mi-solicitud`. No ve nada más:
         // su alcance es su propia persona, no un permiso amplio.
         'aspirante' => ['llenar-mi-solicitud'],
-        'tutor_educativo' => ['ver-alumnos', 'ver-kardex'],
+        // SIN `ver-alumnos`: le abría el listado de TODA la escuela —y el
+        // kárdex de cualquiera— porque no había vínculo por el cual acotarlo.
+        // Ahora lo hay, en `tutorias`, y su portal resuelve el alcance por
+        // pertenencia igual que el del padre y el del docente.
+        'tutor_educativo' => ['ver-mis-tutorados', 'ver-kardex'],
         'padre_familia' => ['ver-mis-hijos', 'ver-kardex', 'ver-adeudos'],
     ];
 

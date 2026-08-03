@@ -238,6 +238,15 @@ Route::middleware([
             });
 
         /*
+         * Portal del tutor educativo. Sin id en la URL: el controlador resuelve
+         * a la persona autenticada y sus tutorados salen del vínculo, no de un
+         * parámetro que se pueda cambiar.
+         */
+        Route::get('mis-tutorados', [\App\Http\Controllers\TutoriaController::class, 'misTutorados'])
+            ->middleware('can:ver-mis-tutorados')
+            ->name('tenant.tutorias.mis');
+
+        /*
          * "Mi expediente" del alumno. Sin id en la URL, igual que el del
          * docente: el controlador resuelve SIEMPRE a la persona autenticada, así
          * que no hay número que cambiar para leer el expediente de otro.

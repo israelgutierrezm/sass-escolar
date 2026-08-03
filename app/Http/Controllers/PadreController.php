@@ -11,6 +11,7 @@ use App\Models\Identidad\BitacoraAcceso;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\TutorAlumno;
 use App\Services\EstadoCuenta;
+use App\Services\EstadoDelAlumno;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -26,7 +27,10 @@ use Inertia\Response;
  */
 class PadreController extends Controller
 {
-    public function __construct(private readonly EstadoCuenta $estadoCuenta) {}
+    public function __construct(
+        private readonly EstadoCuenta $estadoCuenta,
+        private readonly EstadoDelAlumno $estadoDelAlumno,
+    ) {}
 
     public function misHijos(Request $request): Response
     {
@@ -62,7 +66,7 @@ class PadreController extends Controller
                  * finanzas no se toca el estado de cuenta. Que la señal no
                  * exista es más seguro que ocultarla en la vista.
                  */
-                'estado' => $this->estadoDe($hijo, (bool) $hijo->pivot->puede_ver_academico, (bool) $hijo->pivot->puede_ver_finanzas),
+                'estado' => $this->estadoDelAlumno->de($hijo, (bool) $hijo->pivot->puede_ver_academico, (bool) $hijo->pivot->puede_ver_finanzas),
             ];
         })->values();
 
@@ -122,78 +126,6 @@ class PadreController extends Controller
                     'momento' => $b->creado_en?->toDateTimeString(),
                 ]),
         ]);
-    }
-
-    /**
-     * Lo que un padre quiere saber de un vistazo, sin abrir la ficha.
-     *
-     * Se calcula sobre TODAS sus matrículas juntas: si un hijo cursa dos
-     * carreras y debe en una, debe. Partirlo por carrera en una tarjeta de
-     * listado obligaría a leer dos cifras para responder una sola pregunta.
-     *
-     * @return array<string, mixed>
-     */
-    private function estadoDe(Persona $hijo, bool $academico, bool $finanzas): array
-    {
-        $matriculas = $hijo->matriculas()->get();
-
-        $estado = [
-            'promedio' => null,
-            'reprobadas' => null,
-            'saldo' => null,
-            'vencido' => false,
-        ];
-
-        if ($matriculas->isEmpty()) {
-            return $estado;
-        }
-
-        $ids = $matriculas->pluck('id');
-
-        if ($academico) {
-            $historial = Historial::query()
-                ->with('estatus:id,clave')
-                ->whereIn('matricula_oferta_id', $ids)
-                ->get();
-
-            $conCalif = $historial->filter(fn (Historial $h) => $h->calificacion !== null);
-
-            $estado['promedio'] = $conCalif->isEmpty()
-                ? null
-                : round($conCalif->avg(fn (Historial $h) => (float) $h->calificacion), 1);
-
-            /*
-             * Reprobadas, no «no aprobadas»: una materia en curso todavía no
-             * tiene veredicto, y contarla como mala pintaría de rojo a un
-             * alumno que va al corriente.
-             */
-            $estado['reprobadas'] = $historial
-                ->filter(fn (Historial $h) => $h->estatus?->clave === 'reprobada')
-                ->count();
-        }
-
-        if ($finanzas) {
-            $saldo = 0.0;
-            $vencido = false;
-
-            foreach ($matriculas as $m) {
-                $cuenta = $this->estadoCuenta->para($m);
-                $saldo += (float) ($cuenta['resumen']['saldo'] ?? 0);
-
-                // Deber no es lo mismo que deber TARDE: lo segundo es lo que
-                // hace falta atender hoy, y es lo que se pinta en rojo.
-                foreach ($cuenta['adeudos'] ?? [] as $a) {
-                    if (($a['vencido'] ?? false) === true && (float) ($a['saldo'] ?? 0) > 0) {
-                        $vencido = true;
-                    }
-                }
-            }
-
-            $estado['saldo'] = round($saldo, 2);
-            $estado['vencido'] = $vencido;
-        }
-
-        return $estado;
     }
 
     /**
