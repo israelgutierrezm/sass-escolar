@@ -10,9 +10,32 @@ interface Hijo {
     carreras: string[];
     puede_ver_academico: boolean;
     puede_ver_finanzas: boolean;
+    estado: {
+        promedio: number | null;
+        reprobadas: number | null;
+        saldo: number | null;
+        vencido: boolean;
+    };
 }
 
 defineProps<{ hijos: Hijo[] }>();
+
+const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
+
+/**
+ * Un promedio se lee mejor con color que con un número a secas.
+ *
+ * El corte en 6 es el de aprobación en México; el de 8 no premia, sólo deja de
+ * llamar la atención. Un padre que abre esto en el celular tiene que poder
+ * decidir en un segundo si hay algo que atender.
+ */
+function colorPromedio(p: number | null): string | undefined {
+    if (p === null) return undefined;
+    if (p < 6) return '#dc2626';
+    if (p < 8) return '#d97706';
+
+    return '#16a34a';
+}
 
 function iniciales(nombre: string): string {
     return nombre.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('');
@@ -60,21 +83,54 @@ function iniciales(nombre: string): string {
                 </p>
                 <p v-else class="text-sm" :style="{ color: 'var(--color-suave)' }">Sin carreras registradas.</p>
 
-                <div class="mt-auto flex flex-wrap gap-1.5 text-xs">
-                    <span
-                        v-if="hijo.puede_ver_academico"
-                        class="rounded-full px-2 py-0.5"
-                        :style="{ backgroundColor: 'var(--color-borde)' }"
+                <!--
+                    Antes aquí decía «Académico» y «Finanzas»: dos etiquetas que
+                    describían PERMISOS, no información. Al padre le da igual
+                    cómo se llama lo que puede ver; lo que quiere saber es si su
+                    hijo debe algo o va mal. Y si no tiene el permiso, la señal
+                    simplemente no viene del servidor.
+                -->
+                <div class="mt-auto space-y-2 border-t pt-3" :style="{ borderColor: 'var(--color-borde)' }">
+                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm">
+                        <span v-if="hijo.estado.promedio !== null" class="flex items-baseline gap-1.5">
+                            <span class="text-xs" :style="{ color: 'var(--color-suave)' }">Promedio</span>
+                            <strong class="tabular-nums" :style="{ color: colorPromedio(hijo.estado.promedio) }">
+                                {{ hijo.estado.promedio }}
+                            </strong>
+                        </span>
+
+                        <span v-if="hijo.estado.saldo !== null" class="flex items-baseline gap-1.5">
+                            <span class="text-xs" :style="{ color: 'var(--color-suave)' }">Saldo</span>
+                            <strong
+                                class="tabular-nums"
+                                :style="{ color: hijo.estado.saldo > 0 ? (hijo.estado.vencido ? '#dc2626' : 'var(--color-contenido)') : '#16a34a' }"
+                            >
+                                {{ hijo.estado.saldo > 0 ? pesos.format(hijo.estado.saldo) : 'Al corriente' }}
+                            </strong>
+                        </span>
+                    </div>
+
+                    <!--
+                        Lo que reclama atención se dice con palabras, no con un
+                        color que hay que interpretar.
+                    -->
+                    <p v-if="hijo.estado.vencido" class="flex items-center gap-1.5 text-xs font-medium text-red-600">
+                        <svg class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" /></svg>
+                        Tiene un pago vencido
+                    </p>
+
+                    <p v-if="hijo.estado.reprobadas" class="text-xs font-medium text-red-600">
+                        {{ hijo.estado.reprobadas }}
+                        {{ hijo.estado.reprobadas === 1 ? 'materia reprobada' : 'materias reprobadas' }}
+                    </p>
+
+                    <p
+                        v-if="!hijo.puede_ver_academico && !hijo.puede_ver_finanzas"
+                        class="text-xs"
+                        :style="{ color: 'var(--color-suave)' }"
                     >
-                        Académico
-                    </span>
-                    <span
-                        v-if="hijo.puede_ver_finanzas"
-                        class="rounded-full px-2 py-0.5"
-                        :style="{ backgroundColor: 'var(--color-borde)' }"
-                    >
-                        Finanzas
-                    </span>
+                        La escuela no te ha dado acceso a sus calificaciones ni a su estado de cuenta.
+                    </p>
                 </div>
             </Link>
         </section>
