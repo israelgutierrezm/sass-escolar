@@ -472,16 +472,33 @@ function fechaLegible(e: Evento): string {
                     <!-- Una barra por evento, con su color: el mes se lee de un
                          vistazo sin abrir nada. -->
                     <span class="mt-1 block space-y-0.5">
+                        <!--
+                            Un evento de varios días se pinta en todos ellos
+                            —eso ya funcionaba—, pero se leía como cinco avisos
+                            distintos que se repiten. Ahora sólo lleva título el
+                            día en que empieza; los siguientes conservan el color
+                            y pierden el redondeo por el lado que continúa, así
+                            que la semana se lee como una barra: un receso del 20
+                            al 24 se ve como un receso, no como cinco.
+                        -->
                         <button
                             v-for="e in eventosDe(celda.fecha).slice(0, 3)"
                             :key="e.id"
                             type="button"
-                            class="block w-full truncate rounded px-1.5 py-0.5 text-left text-[10px] font-medium transition hover:brightness-95"
+                            class="block w-full truncate px-1.5 py-0.5 text-left text-[10px] font-medium transition hover:brightness-95"
+                            :class="[
+                                celda.fecha === e.inicia_dia ? 'rounded-l' : '',
+                                celda.fecha === e.termina_dia ? 'rounded-r' : '',
+                            ]"
                             :style="{ backgroundColor: `color-mix(in srgb, ${e.color} 16%, transparent)`, color: e.color }"
-                            :title="`${e.tipo_etiqueta}: ${e.titulo}`"
+                            :title="`${e.tipo_etiqueta}: ${e.titulo}` + (e.inicia_dia !== e.termina_dia ? ` (${e.inicia_dia} al ${e.termina_dia})` : '')"
                             @click.stop="viendo = e"
                         >
-                            {{ e.titulo }}
+                            <template v-if="celda.fecha === e.inicia_dia">{{ e.titulo }}</template>
+                            <!-- Los días de en medio van vacíos a propósito: repetir
+                                 el título cinco veces es ruido, y sin alto mínimo la
+                                 barra se rompería. -->
+                            <span v-else class="invisible">·</span>
                         </button>
                         <!--
                             El «+N más» era texto inerte: un día con seis
