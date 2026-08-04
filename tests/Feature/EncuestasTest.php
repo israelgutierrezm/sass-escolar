@@ -260,6 +260,54 @@ class EncuestasTest extends TenantTestCase
     }
 
 
+
+    /**
+     * Cada tipo se guarda en su columna, y eso lo decide el TIPO de la
+     * pregunta, no la pinta del dato.
+     *
+     * Una opción única llega como número —el id de la opción— igual que una
+     * escala. Adivinando por el valor se guardaba en `numero` con `opcion_id`
+     * vacío: la respuesta se perdía y la pregunta salía con todas sus opciones
+     * en 0%, aunque la gente hubiera contestado. Salió probando el flujo en el
+     * navegador, no en las pruebas: por eso está esta.
+     */
+    public function test_cada_tipo_de_respuesta_se_guarda_donde_toca(): void
+    {
+        $caso = $this->escenarioGeneral();
+        $encuesta = $caso['aplicacion']->encuesta;
+
+        $unica = $encuesta->preguntas()->create([
+            'texto' => '¿Cómo prefieres que te atiendan?',
+            'tipo' => TipoPregunta::OpcionUnica,
+            'orden' => 4,
+        ]);
+        $enVentanilla = $unica->opciones()->create(['texto' => 'En ventanilla', 'orden' => 1]);
+        $unica->opciones()->create(['texto' => 'Por WhatsApp', 'orden' => 2]);
+
+        $abierta = $encuesta->preguntas()->where('tipo', TipoPregunta::Abierta)->firstOrFail();
+
+        $this->encuestas->guardar($caso['usuario'], $caso['aplicacion']->fresh(), null, [
+            $caso['escala']->id => 5,
+            $unica->id => $enVentanilla->id,
+            $caso['multiple']->id => [$caso['multiple']->opciones->first()->id],
+            $abierta->id => 'Más horarios por la tarde.',
+        ]);
+
+        $items = Respuesta::query()->firstOrFail()->items->keyBy('pregunta_id');
+
+        $this->assertSame($enVentanilla->id, $items[$unica->id]->opcion_id, 'La opción única va en `opcion_id`…');
+        $this->assertNull($items[$unica->id]->numero, '…y no en `numero`.');
+        $this->assertSame('5.00', $items[$caso['escala']->id]->numero);
+        $this->assertNotNull($items[$caso['multiple']->id]->opcion_id);
+        $this->assertSame('Más horarios por la tarde.', $items[$abierta->id]->texto);
+
+        // Y por tanto se cuenta: era el síntoma con el que se detectó.
+        $resultados = app(ResultadosDeEncuesta::class)->de($caso['aplicacion']);
+        $fila = collect($resultados['preguntas'])->firstWhere('id', $unica->id);
+
+        $this->assertSame(1, collect($fila['opciones'])->firstWhere('texto', 'En ventanilla')['total']);
+    }
+
     // ── Comparar ciclos y exportar ─────────────────────────────────────────
 
     /**

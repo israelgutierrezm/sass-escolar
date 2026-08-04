@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services\Encuestas;
 
+use App\Enums\TipoPregunta;
 use App\Models\Encuestas\AplicacionEncuesta;
 use App\Models\Encuestas\Participacion;
+use App\Models\Encuestas\Pregunta;
 use App\Models\Encuestas\Respuesta;
 use App\Models\Encuestas\Sujeto;
 use App\Models\Identidad\Usuario;
@@ -128,8 +130,25 @@ class EncuestasDeUsuario
                 'enviada_en' => now(),
             ]);
 
+            /*
+             * Las preguntas, indexadas por id.
+             *
+             * Hacen falta porque dónde se guarda cada valor lo decide el TIPO
+             * de la pregunta, no la pinta del dato: una opción única llega como
+             * número —el id de la opción— y adivinar por eso la guardaba en
+             * `numero`, dejando `opcion_id` vacío. La respuesta se perdía para
+             * el conteo y la pregunta salía con todas sus opciones en 0%.
+             */
+            $preguntas = $aplicacion->encuesta->preguntas->keyBy('id');
+
             foreach ($respuestas as $preguntaId => $valor) {
-                foreach ($this->itemsDe((int) $preguntaId, $valor) as $item) {
+                $pregunta = $preguntas->get((int) $preguntaId);
+
+                if ($pregunta === null) {
+                    continue; // no es de este cuestionario: se ignora
+                }
+
+                foreach ($this->itemsDe($pregunta, $valor) as $item) {
                     $respuesta->items()->create($item);
                 }
             }
@@ -141,38 +160,44 @@ class EncuestasDeUsuario
     /**
      * Un valor capturado se convierte en uno o varios renglones.
      *
-     * La opción múltiple da uno por opción marcada: es lo que permite contarlas
-     * después sin desarmar un JSON.
+     * ── El destino lo decide el tipo, no el dato ───────────────────────────
+     * Una opción única llega como un número —el id de la opción— igual que una
+     * escala, así que mirar el valor no basta para saber en qué columna va. La
+     * opción múltiple da un renglón por cada marcada: es lo que permite
+     * contarlas después sin desarmar un JSON.
      *
      * @return array<int, array<string, mixed>>
      */
-    private function itemsDe(int $preguntaId, mixed $valor): array
+    private function itemsDe(Pregunta $pregunta, mixed $valor): array
     {
         if ($valor === null || $valor === '' || $valor === []) {
             return [];
         }
 
-        if (is_array($valor)) {
-            return array_map(
-                fn ($opcion) => ['pregunta_id' => $preguntaId, 'opcion_id' => (int) $opcion],
-                $valor,
-            );
-        }
+        return match ($pregunta->tipo) {
+            TipoPregunta::OpcionMultiple => array_map(
+                fn ($opcion) => ['pregunta_id' => $pregunta->id, 'opcion_id' => (int) $opcion],
+                is_array($valor) ? $valor : [$valor],
+            ),
 
-        // Un número es una escala o una cantidad; lo demás, texto. La opción
-        // única llega como id numérico, así que se guarda en las dos: el id en
-        // `opcion_id` y el valor en `numero` sólo cuando no hay opción.
-        return [['pregunta_id' => $preguntaId, ...$this->columnaDe($valor)]];
-    }
+            TipoPregunta::OpcionUnica => [[
+                'pregunta_id' => $pregunta->id,
+                'opcion_id' => (int) (is_array($valor) ? reset($valor) : $valor),
+            ]],
 
-    /** @return array<string, mixed> */
-    private function columnaDe(mixed $valor): array
-    {
-        if (is_numeric($valor)) {
-            return ['numero' => (float) $valor];
-        }
+            // Sí/no viaja como 1 o 0: se promedia como proporción de síes.
+            TipoPregunta::Escala,
+            TipoPregunta::Numerica,
+            TipoPregunta::SiNo => [[
+                'pregunta_id' => $pregunta->id,
+                'numero' => (float) $valor,
+            ]],
 
-        return ['texto' => (string) $valor];
+            TipoPregunta::Abierta => [[
+                'pregunta_id' => $pregunta->id,
+                'texto' => (string) $valor,
+            ]],
+        };
     }
 
     /** Las aplicaciones abiertas que alcanzan a este usuario. */
