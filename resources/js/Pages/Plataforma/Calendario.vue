@@ -189,6 +189,24 @@ const form = useForm<{
 const editorAbierto = ref(false);
 
 /**
+ * Cerrar el editor sin tirar lo escrito por accidente.
+ *
+ * Como panel, cerrarlo era pulsar «Cancelar» a conciencia. Como diálogo se
+ * cierra también con Escape y con un clic fuera —dos gestos que se hacen sin
+ * pensar—, y perder un evento a medio capturar por rozar el velo sería un
+ * cambio a peor disfrazado de mejora. Si no se ha tocado nada, no se pregunta:
+ * confirmar lo que no cuesta nada es la forma más rápida de que dejen de leerse
+ * las confirmaciones.
+ */
+function cerrarEditor(): void {
+    if (form.isDirty && ! confirm('Perderás lo que llevas capturado. ¿Cerrar de todos modos?')) {
+        return;
+    }
+
+    editorAbierto.value = false;
+}
+
+/**
  * El evento que se está mirando, o null.
  *
  * Ver y editar se separan a propósito: pulsar un evento del mes abre su ficha,
@@ -218,6 +236,16 @@ function nuevo(fecha?: string): void {
     // Al tocar un día se abre el alta con esa fecha puesta: es el gesto natural
     // sobre un calendario y ahorra el paso de volver a escribirla.
     form.inicia_en = `${fecha ?? hoy}T08:00`;
+
+    /*
+     * Lo que se acaba de rellenar pasa a ser el punto de partida.
+     *
+     * Sin esto, `isDirty` nace en `true` —la fecha del día pulsado ya difiere
+     * de los valores por omisión— y cerrar sin haber escrito nada preguntaba si
+     * queremos perder lo capturado. Una confirmación que salta cuando no hay
+     * nada que perder es la forma más rápida de que dejen de leerse.
+     */
+    form.defaults();
     editorAbierto.value = true;
 }
 
@@ -233,6 +261,8 @@ function editar(e: Evento): void {
     form.no_laborable = e.no_laborable;
     form.publicado = e.publicado;
     form.destinos = e.destinos.map((d) => ({ ...d }));
+    // Cargar un evento no es haberlo tocado: mismo motivo que en `nuevo()`.
+    form.defaults();
     editorAbierto.value = true;
 }
 
@@ -339,15 +369,39 @@ function fechaLegible(e: Evento): string {
             </div>
         </section>
 
-        <!-- Formulario -->
-        <section v-if="editorAbierto" class="tarjeta overflow-hidden">
-            <header class="border-b border-borde px-6 py-4">
+        <!--
+            El editor, ahora en diálogo.
+
+            Como panel en el flujo empujaba la rejilla fuera de la pantalla: se
+            pulsaba un día, el formulario aparecía arriba y el mes —que es lo
+            que se estaba consultando para decidir la fecha— se iba abajo.
+            Encima, el mes se queda visible detrás.
+
+            `max-h`/`overflow-y-auto` en el cuerpo: es un formulario largo, y en
+            una pantalla baja sin esto los botones de guardar quedarían fuera
+            del área visible sin forma de alcanzarlos.
+        -->
+        <Modal
+            v-if="editorAbierto"
+            :etiqueta="form.id === null ? 'Nuevo evento' : 'Editar evento'"
+            ancho="max-w-3xl"
+            @cerrar="cerrarEditor"
+        >
+            <header class="flex items-start justify-between gap-3 border-b border-borde px-6 py-4">
                 <h2 class="text-base font-semibold text-contenido">
                     {{ form.id === null ? 'Nuevo evento' : 'Editar evento' }}
                 </h2>
+                <button
+                    type="button"
+                    class="shrink-0 rounded-lg p-1 text-suave transition hover:bg-[color-mix(in_srgb,var(--color-acento)_8%,transparent)]"
+                    title="Cerrar"
+                    @click="cerrarEditor"
+                >
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                </button>
             </header>
 
-            <form class="space-y-4 px-6 py-5" @submit.prevent="guardar">
+            <form class="max-h-[70vh] space-y-4 overflow-y-auto px-6 py-5" @submit.prevent="guardar">
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <div>
                         <label class="mb-1 block text-sm font-medium">Tipo</label>
@@ -445,13 +499,13 @@ function fechaLegible(e: Evento): string {
                         type="button"
                         class="rounded-lg border px-4 py-2 text-sm"
                         :style="{ borderColor: 'var(--color-borde)' }"
-                        @click="editorAbierto = false"
+                        @click="cerrarEditor"
                     >
                         Cancelar
                     </button>
                 </div>
             </form>
-        </section>
+        </Modal>
 
         <!-- Rejilla del mes -->
         <section class="tarjeta overflow-hidden">
