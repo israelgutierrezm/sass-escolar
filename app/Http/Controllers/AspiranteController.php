@@ -190,21 +190,21 @@ class AspiranteController extends Controller
     }
 
     /**
-     * Documentos que la carrera exige, cruzados con lo que el aspirante ya
-     * entregó. Si no hay carrera definida se listan todos los del catálogo.
+     * Los documentos que se le piden a un aspirante, cruzados con lo que ya
+     * entregó.
+     *
+     * Salen por ÁMBITO, no por carrera: el puente `documento_carrera` se
+     * eliminó (ver la migración `eliminar_documento_carrera`) porque los
+     * requisitos de admisión se definen por a quién se le piden, no por la
+     * carrera de interés. Filtrar aquí por carrera invocaba una relación que
+     * ya no existe y reventaba la ficha del aspirante.
      *
      * @return array<int, array<string, mixed>>
      */
     private function expediente(Aspirante $aspirante): array
     {
-        $carreraId = $aspirante->ofertaInteres?->carrera_id;
-
         $requeridos = DocumentoRequerido::query()
             ->delAmbito(DocumentoRequerido::AMBITO_ASPIRANTE)
-            ->when($carreraId !== null, fn ($q) => $q->whereHas(
-                'carreras',
-                fn ($sub) => $sub->where('carreras.id', $carreraId),
-            ))
             ->orderByDesc('obligatorio')
             ->orderBy('nombre')
             ->get();
