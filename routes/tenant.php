@@ -167,6 +167,18 @@ Route::middleware([
         Route::get('/mis-avisos/adjuntos/{uuid}', [MisAvisosController::class, 'adjunto'])
             ->name('tenant.misavisos.adjunto');
 
+        /*
+         * Mis encuestas. Sin `can:` como los avisos: que te pregunten no es
+         * una facultad que se otorgue.
+         */
+        Route::controller(\App\Http\Controllers\Encuestas\MisEncuestasController::class)
+            ->prefix('mis-encuestas')->name('tenant.misencuestas.')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('{aplicacion}/{sujeto?}', 'contestar')->whereNumber(['aplicacion', 'sujeto'])->name('contestar');
+                Route::post('{aplicacion}/{sujeto?}', 'guardar')->whereNumber(['aplicacion', 'sujeto'])->name('guardar');
+            });
+
         Route::get('/mi-perfil', [PerfilController::class, 'show'])->name('tenant.perfil.show');
         Route::put('/mi-perfil', [PerfilController::class, 'actualizar'])->name('tenant.perfil.actualizar');
         Route::put('/mi-perfil/password', [PerfilController::class, 'password'])->name('tenant.perfil.password');

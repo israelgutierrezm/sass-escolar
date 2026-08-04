@@ -194,6 +194,16 @@ export const CATALOGO_MENU: GrupoMenu[] = [
             { clave: 'usuarios', etiqueta: 'Usuarios', url: '/plataforma/usuarios', permiso: 'gestionar-usuarios' },
             { clave: 'calendario', etiqueta: 'Calendario', url: '/plataforma/calendario', permiso: 'gestionar-calendario' },
             { clave: 'avisos', etiqueta: 'Avisos', url: '/plataforma/avisos', permiso: 'gestionar-avisos' },
+            {
+                clave: 'encuestas',
+                etiqueta: 'Encuestas de evaluación',
+                prefijo: '/encuestas',
+                permiso: 'gestionar-encuestas',
+                hijos: [
+                    { clave: 'encuestas-aplicaciones', etiqueta: 'Encuestas', url: '/encuestas/aplicaciones', permiso: 'gestionar-encuestas' },
+                    { clave: 'encuestas-cuestionarios', etiqueta: 'Cuestionarios', url: '/encuestas/cuestionarios', permiso: 'gestionar-encuestas' },
+                ],
+            },
             { clave: 'accesos', etiqueta: 'Accesos', url: '/plataforma/accesos', permiso: 'ver-accesos' },
             {
                 clave: 'plataforma-roles',

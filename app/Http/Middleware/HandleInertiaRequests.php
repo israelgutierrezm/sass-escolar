@@ -9,6 +9,7 @@ use App\Models\Identidad\MenuRol;
 use App\Models\Identidad\PersonaRol;
 use App\Models\Identidad\Rol;
 use App\Models\Identidad\Usuario;
+use App\Services\Encuestas\EncuestasDeUsuario;
 use App\Services\Plataforma\AvisosDeUsuario;
 use App\Services\ResolutorTema;
 use App\Services\Suplantador;
@@ -96,6 +97,27 @@ class HandleInertiaRequests extends Middleware
                 return [
                     'pendientes' => $servicio->pendientes($usuario),
                     'sin_leer' => $servicio->sinLeer($usuario),
+                ];
+            },
+            /*
+             * Las encuestas obligatorias sin contestar, que se interponen igual
+             * que un aviso crítico.
+             *
+             * Sólo las bloqueantes viajan aquí: el resto se ve en /mis-encuestas
+             * y no tiene por qué costar una consulta en cada clic. Lazy, como lo
+             * demás del share.
+             */
+            'encuestas' => function () use ($usuario) {
+                if ($usuario === null) {
+                    return ['bloqueantes' => [], 'pendientes' => 0];
+                }
+
+                $servicio = app(EncuestasDeUsuario::class);
+                $pendientes = $servicio->pendientes($usuario);
+
+                return [
+                    'bloqueantes' => array_values(array_filter($pendientes, fn (array $p) => $p['obligatoria'])),
+                    'pendientes' => count($pendientes),
                 ];
             },
             'flash' => [
