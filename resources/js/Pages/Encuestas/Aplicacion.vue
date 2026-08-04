@@ -40,6 +40,8 @@ const props = defineProps<{
     };
     resultados: Record<string, any>;
     porSujeto: FilaSujeto[];
+    cuestionarioId: number | null;
+    preguntas: number;
     ciclos: { id: number; clave: string; nombre: string }[];
 }>();
 
@@ -120,6 +122,17 @@ function colorPromedio(promedio: number | null): string {
                 >
                     Exportar
                 </a>
+
+                <Link
+                    v-if="cuestionarioId"
+                    :href="`/encuestas/cuestionarios/${cuestionarioId}`"
+                    class="rounded-lg border px-3.5 py-2 text-sm"
+                    :style="preguntas === 0
+                        ? { borderColor: '#dc2626', color: '#dc2626' }
+                        : { borderColor: 'var(--color-borde)' }"
+                >
+                    {{ preguntas === 0 ? 'Escribir preguntas' : 'Editar preguntas' }}
+                </Link>
 
                 <Link
                     :href="`/encuestas/aplicaciones/${aplicacion.id}/comparativa`"

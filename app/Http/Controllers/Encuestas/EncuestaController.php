@@ -27,6 +27,7 @@ class EncuestaController extends Controller
     {
         return Inertia::render('Encuestas/Cuestionarios', [
             'encuestas' => Encuesta::query()
+                ->with('aplicaciones:id,encuesta_id,titulo')
                 ->withCount(['preguntas', 'aplicaciones'])
                 ->orderByDesc('es_plantilla')
                 ->orderByDesc('id')
@@ -39,6 +40,14 @@ class EncuestaController extends Controller
                     'activa' => $e->activa,
                     'preguntas' => $e->preguntas_count,
                     'aplicaciones' => $e->aplicaciones_count,
+                    /*
+                     * De qué encuesta es, cuando no es plantilla.
+                     *
+                     * Sin esto, un cuestionario de un solo uso parece una
+                     * plantilla a medio hacer y alguien acaba borrándolo —con
+                     * los resultados de su encuesta detrás—.
+                     */
+                    'aplicacion' => $e->es_plantilla ? null : $e->aplicaciones->first(),
                 ]),
             'tiposPregunta' => TipoPregunta::paraSelector(),
         ]);
@@ -57,6 +66,14 @@ class EncuestaController extends Controller
                 // significado de lo ya contestado: se avisa para que quien edita
                 // sepa qué está tocando.
                 'aplicada' => $encuesta->aplicaciones()->exists(),
+                /*
+                 * Si es de un solo uso, la vuelta natural es su aplicación y no
+                 * el catálogo de plantillas: quien llegó aquí venía de crearla
+                 * ahí y es ahí donde le falta publicarla.
+                 */
+                'aplicacion' => $encuesta->es_plantilla
+                    ? null
+                    : $encuesta->aplicaciones()->select('id', 'titulo')->first(),
             ],
             'preguntas' => $encuesta->preguntas()->with('opciones')->get()->map(fn ($p) => [
                 'id' => $p->id,

@@ -45,8 +45,19 @@ const props = defineProps<{
 
 const editorAbierto = ref(false);
 
+/**
+ * Dos caminos, y ninguno estorba al otro.
+ *
+ * Partir de una plantilla tiene sentido para lo que se repite cada semestre;
+ * para lo que se pregunta una sola vez —«¿cómo estuvo la feria?»— obligar a
+ * crear antes un molde reutilizable ensucia el catálogo con cuestionarios que
+ * nadie va a volver a usar.
+ */
+const desdePlantilla = ref(true);
+
 const form = useForm({
     encuesta_id: '' as number | string,
+    cuestionario_nuevo: false,
     titulo: '',
     instrucciones: '',
     tipo: 'general',
@@ -60,11 +71,18 @@ const form = useForm({
 function nuevo(): void {
     form.reset();
     form.clearErrors();
+    desdePlantilla.value = true;
     form.defaults();
     editorAbierto.value = true;
 }
 
 function guardar(): void {
+    form.cuestionario_nuevo = ! desdePlantilla.value;
+
+    if (form.cuestionario_nuevo) {
+        form.encuesta_id = '';
+    }
+
     form.post('/encuestas/aplicaciones', {
         preserveScroll: true,
         onSuccess: () => (editorAbierto.value = false),
@@ -166,17 +184,50 @@ const esDocente = computed(() => form.tipo === 'docente');
                     <h2 class="text-base font-semibold text-contenido">Nueva aplicación</h2>
 
                     <div>
-                        <label class="mb-1 block text-sm font-medium">Cuestionario *</label>
+                        <span class="mb-1 block text-sm font-medium">Las preguntas *</span>
+
+                        <div class="grid gap-2 sm:grid-cols-2">
+                            <label
+                                class="cursor-pointer rounded-xl border p-3 text-sm transition"
+                                :style="{ borderColor: desdePlantilla ? 'var(--color-acento)' : 'var(--color-borde)' }"
+                            >
+                                <span class="flex items-center gap-2 font-medium">
+                                    <input v-model="desdePlantilla" type="radio" :value="true"> De un cuestionario
+                                </span>
+                                <span class="mt-1 block text-xs text-suave">
+                                    Se copian sus preguntas. Para lo que se repite cada ciclo.
+                                </span>
+                            </label>
+
+                            <label
+                                class="cursor-pointer rounded-xl border p-3 text-sm transition"
+                                :style="{ borderColor: ! desdePlantilla ? 'var(--color-acento)' : 'var(--color-borde)' }"
+                            >
+                                <span class="flex items-center gap-2 font-medium">
+                                    <input v-model="desdePlantilla" type="radio" :value="false"> Escribirlas ahora
+                                </span>
+                                <span class="mt-1 block text-xs text-suave">
+                                    De un solo uso: no queda como plantilla ni ensucia el catálogo.
+                                </span>
+                            </label>
+                        </div>
+
                         <select
+                            v-if="desdePlantilla"
                             v-model="form.encuesta_id"
                             required
-                            class="w-full rounded-lg border border-borde bg-transparent px-3 py-2 text-sm"
+                            class="mt-2 w-full rounded-lg border border-borde bg-transparent px-3 py-2 text-sm"
                         >
                             <option value="" disabled>Elige uno…</option>
                             <option v-for="c in cuestionarios" :key="c.id" :value="c.id">
                                 {{ c.titulo }}{{ c.es_plantilla ? ' (plantilla)' : '' }}
                             </option>
                         </select>
+
+                        <p v-else class="mt-2 text-xs text-suave">
+                            Al guardar se abrirá el editor para que escribas las preguntas.
+                        </p>
+
                         <p v-if="form.errors.encuesta_id" class="mt-1 text-xs text-red-600">{{ form.errors.encuesta_id }}</p>
                     </div>
 

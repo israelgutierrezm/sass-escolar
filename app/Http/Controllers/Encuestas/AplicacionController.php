@@ -73,7 +73,18 @@ class AplicacionController extends Controller
     public function guardar(Request $request, ?AplicacionEncuesta $aplicacion = null): RedirectResponse
     {
         $datos = $request->validate([
-            'encuesta_id' => ['required', 'exists:encuestas,id'],
+            /*
+             * O se parte de un cuestionario que ya existe, o se crea uno de un
+             * solo uso aquí mismo.
+             *
+             * Obligar a pasar por el catálogo tiene sentido para lo que se
+             * repite cada semestre —la evaluación docente— y estorba para lo
+             * que se pregunta una vez: «¿cómo estuvo la feria de este año?» no
+             * merece una plantilla que nadie va a volver a usar y que además
+             * ensucia la lista.
+             */
+            'encuesta_id' => ['nullable', 'required_without:cuestionario_nuevo', 'exists:encuestas,id'],
+            'cuestionario_nuevo' => ['nullable', 'boolean'],
             'titulo' => ['required', 'string', 'max:180'],
             'instrucciones' => ['nullable', 'string', 'max:2000'],
             'tipo' => ['required', Rule::in([AplicacionEncuesta::GENERAL, AplicacionEncuesta::DOCENTE])],
@@ -87,6 +98,7 @@ class AplicacionController extends Controller
             'destinos.*.destino_id' => ['nullable', 'integer'],
         ], [
             'destinos.required' => 'Elige a quién se le aplica.',
+            'encuesta_id.required_without' => 'Elige un cuestionario o marca que vas a escribir uno nuevo.',
             'cierra_en.after_or_equal' => 'No puede cerrarse antes de abrirse.',
         ], [
             'encuesta_id' => 'el cuestionario',
@@ -97,19 +109,32 @@ class AplicacionController extends Controller
         $guardada = DB::transaction(function () use ($datos, $aplicacion) {
             $registro = $aplicacion ?? new AplicacionEncuesta;
 
-            /*
-             * Al crear se COPIA el cuestionario.
-             *
-             * Si apuntara a la plantilla, editarla en marzo cambiaría la
-             * encuesta que trescientos alumnos contestaron en febrero, y los
-             * resultados quedarían atribuidos a preguntas que nadie vio.
-             */
             if ($aplicacion === null) {
-                $original = Encuesta::with('preguntas.opciones')->findOrFail($datos['encuesta_id']);
-                $datos['encuesta_id'] = $original->duplicar($datos['titulo'])->id;
+                $datos['encuesta_id'] = ($datos['cuestionario_nuevo'] ?? false)
+                    /*
+                     * De un solo uso: nace vacío y NO como plantilla, así que no
+                     * aparece entre los moldes reutilizables. Tampoco se
+                     * duplica —duplicar un cuestionario que sólo va a servir
+                     * aquí dejaría una copia huérfana en el catálogo—.
+                     */
+                    ? Encuesta::create([
+                        'titulo' => $datos['titulo'],
+                        'es_plantilla' => false,
+                    ])->id
+                    /*
+                     * Desde plantilla se COPIA. Si apuntara a ella, editarla en
+                     * marzo cambiaría la encuesta que trescientos alumnos
+                     * contestaron en febrero, y los resultados quedarían
+                     * atribuidos a preguntas que nadie vio.
+                     */
+                    : Encuesta::with('preguntas.opciones')
+                        ->findOrFail($datos['encuesta_id'])
+                        ->duplicar($datos['titulo'])->id;
             } else {
                 unset($datos['encuesta_id']);
             }
+
+            unset($datos['cuestionario_nuevo']);
 
             $registro->fill($datos)->save();
 
@@ -125,10 +150,19 @@ class AplicacionController extends Controller
             return $registro;
         });
 
-        return $aplicacion === null
-            ? to_route('tenant.encuestas.aplicaciones.ver', $guardada)
-                ->with('exito', 'Aplicación creada. Falta elegir a quién se evalúa y publicarla.')
-            : back(303)->with('exito', 'Aplicación actualizada.');
+        if ($aplicacion !== null) {
+            return back(303)->with('exito', 'Aplicación actualizada.');
+        }
+
+        // Con cuestionario nuevo no hay preguntas todavía: se lleva derecho al
+        // editor en vez de dejar al usuario buscando dónde escribirlas.
+        if ($request->boolean('cuestionario_nuevo')) {
+            return to_route('tenant.encuestas.ver', $guardada->encuesta_id)
+                ->with('exito', 'Encuesta creada. Ahora escribe sus preguntas.');
+        }
+
+        return to_route('tenant.encuestas.aplicaciones.ver', $guardada)
+            ->with('exito', 'Aplicación creada. Falta elegir a quién se evalúa y publicarla.');
     }
 
     public function ver(AplicacionEncuesta $aplicacion, ResultadosDeEncuesta $resultados): Response
@@ -152,6 +186,10 @@ class AplicacionController extends Controller
             'resultados' => $resultados->de($aplicacion),
             // El tablero por docente sólo tiene sentido en la evaluación docente.
             'porSujeto' => $aplicacion->esDocente() ? $resultados->porSujeto($aplicacion) : [],
+            'cuestionarioId' => $aplicacion->encuesta_id,
+            // Sin preguntas la encuesta no pregunta nada: el botón se pone en
+            // rojo en vez de dejar que alguien la publique vacía.
+            'preguntas' => $aplicacion->encuesta?->preguntas()->count() ?? 0,
             'ciclos' => Ciclo::query()->orderByDesc('fecha_inicio')->get(['id', 'clave', 'nombre']),
         ]);
     }

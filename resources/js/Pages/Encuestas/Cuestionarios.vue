@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
@@ -23,9 +23,21 @@ interface Fila {
     activa: boolean;
     preguntas: number;
     aplicaciones: number;
+    /** La encuesta a la que pertenece, cuando es de un solo uso. */
+    aplicacion: { id: number; titulo: string } | null;
 }
 
-defineProps<{ encuestas: Fila[] }>();
+const props = defineProps<{ encuestas: Fila[] }>();
+
+/*
+ * Las plantillas arriba y aparte.
+ *
+ * Un cuestionario de un solo uso no es un molde: mezclarlo con los que sí se
+ * reutilizan obliga a leer la lista entera para encontrar el que se busca, y
+ * hace que parezca una plantilla a medio hacer.
+ */
+const plantillas = computed(() => props.encuestas.filter((e) => e.es_plantilla));
+const deUnUso = computed(() => props.encuestas.filter((e) => ! e.es_plantilla));
 
 const editorAbierto = ref(false);
 
@@ -69,8 +81,12 @@ function eliminar(fila: Fila): void {
             <BotonAccion variante="nuevo" texto="Nuevo cuestionario" @click="nuevo" />
         </section>
 
-        <section v-if="encuestas.length" class="grid gap-3 md:grid-cols-2">
-            <article v-for="e in encuestas" :key="e.id" class="tarjeta p-5" :class="{ 'opacity-60': !e.activa }">
+        <h2 v-if="plantillas.length && deUnUso.length" class="mb-2 text-sm font-semibold text-contenido">
+            Plantillas
+        </h2>
+
+        <section v-if="plantillas.length" class="grid gap-3 md:grid-cols-2">
+            <article v-for="e in plantillas" :key="e.id" class="tarjeta p-5" :class="{ 'opacity-60': !e.activa }">
                 <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0 flex-1">
                         <div class="flex flex-wrap items-center gap-2 text-xs">
@@ -108,7 +124,33 @@ function eliminar(fila: Fila): void {
             </article>
         </section>
 
-        <p v-else class="tarjeta px-6 py-12 text-center text-sm text-suave">
+        <template v-if="deUnUso.length">
+            <h2 class="mb-2 mt-6 text-sm font-semibold text-suave">De un solo uso</h2>
+
+            <section class="grid gap-3 md:grid-cols-2">
+                <article v-for="e in deUnUso" :key="e.id" class="tarjeta p-5" :class="{ 'opacity-60': !e.activa }">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0 flex-1">
+                            <p class="text-xs text-suave">
+                                {{ e.preguntas }} {{ e.preguntas === 1 ? 'pregunta' : 'preguntas' }}
+                                <template v-if="e.aplicacion"> · de «{{ e.aplicacion.titulo }}»</template>
+                            </p>
+
+                            <Link :href="`/encuestas/cuestionarios/${e.id}`" class="mt-1 block font-semibold text-contenido hover:underline">
+                                {{ e.titulo }}
+                            </Link>
+                        </div>
+
+                        <!-- Duplicar lo convierte en plantilla reutilizable, que
+                             es lo que se quiere cuando algo pensado para una vez
+                             resulta que servía para siempre. -->
+                        <BotonAccion variante="agregar" texto="Duplicar" solo-icono @click="duplicar(e)" />
+                    </div>
+                </article>
+            </section>
+        </template>
+
+        <p v-if="! encuestas.length" class="tarjeta px-6 py-12 text-center text-sm text-suave">
             Todavía no hay cuestionarios. Empieza por uno: la evaluación docente estándar suele ser
             el primero.
         </p>

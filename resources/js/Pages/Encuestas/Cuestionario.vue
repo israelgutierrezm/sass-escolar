@@ -37,7 +37,16 @@ interface TipoPregunta {
 }
 
 const props = defineProps<{
-    encuesta: { id: number; titulo: string; descripcion: string | null; es_plantilla: boolean; activa: boolean; aplicada: boolean };
+    encuesta: {
+        id: number;
+        titulo: string;
+        descripcion: string | null;
+        es_plantilla: boolean;
+        activa: boolean;
+        aplicada: boolean;
+        /** Su aplicación, cuando el cuestionario es de un solo uso. */
+        aplicacion: { id: number; titulo: string } | null;
+    };
     preguntas: Array<PreguntaForm & { id: number }>;
     tiposPregunta: TipoPregunta[];
 }>();
@@ -108,7 +117,15 @@ const promediables = computed(
     <Head :title="encuesta.titulo" />
 
     <AppLayout :titulo="encuesta.titulo">
-        <BotonVolver href="/encuestas/cuestionarios" texto="Cuestionarios" class="mb-4" />
+        <!-- La vuelta lleva a donde se venía: a la encuesta si es de un solo
+             uso —ahí falta publicarla— y al catálogo si es una plantilla. -->
+        <BotonVolver
+            v-if="encuesta.aplicacion"
+            :href="`/encuestas/aplicaciones/${encuesta.aplicacion.id}`"
+            :texto="encuesta.aplicacion.titulo"
+            class="mb-4"
+        />
+        <BotonVolver v-else href="/encuestas/cuestionarios" texto="Cuestionarios" class="mb-4" />
 
         <!--
             Con respuestas detrás, cambiar las preguntas dejaría los resultados
