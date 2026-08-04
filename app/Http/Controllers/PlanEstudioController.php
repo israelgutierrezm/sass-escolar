@@ -90,7 +90,6 @@ class PlanEstudioController extends Controller
                     'autorizacion_reconocimiento_id', 'tipo_periodo_id', 'total_periodos',
                     'calificacion_minima', 'calificacion_maxima', 'calificacion_minima_aprobatoria',
                     'minimo_creditos', 'minimo_asignaturas',
-                    'curp_responsable',
                 ]),
                 'fecha_rvoe' => $plane->fecha_rvoe?->toDateString(),
             ],
@@ -140,7 +139,10 @@ class PlanEstudioController extends Controller
             'calificacion_minima_aprobatoria' => ['required', 'integer', 'gte:calificacion_minima', 'lte:calificacion_maxima'],
             'minimo_creditos' => ['required', 'numeric', 'min:0'],
             'minimo_asignaturas' => ['nullable', 'integer', 'min:0'],
-            'curp_responsable' => ['nullable', 'string', 'size:18'],
+            // El CURP del responsable se retiró del formulario: se capturaba
+            // como dato de la SEP y no alimenta ningún XML. La columna se
+            // conserva por si vuelve, igual que se hizo con «objetivo» en
+            // carreras.
         ], [
             'calificacion_maxima.gt' => 'La calificación máxima debe ser mayor que la mínima.',
             'calificacion_minima_aprobatoria.gte' => 'La mínima aprobatoria no puede ser menor que la calificación mínima.',
@@ -149,7 +151,6 @@ class PlanEstudioController extends Controller
             'carrera_id' => 'carrera',
             'autorizacion_reconocimiento_id' => 'tipo de autorización',
             'tipo_periodo_id' => 'tipo de periodo',
-            'curp_responsable' => 'CURP del responsable',
         ]);
     }
 

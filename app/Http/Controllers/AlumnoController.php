@@ -438,6 +438,16 @@ class AlumnoController extends Controller
                     ->map(fn (LoteCertificacion $l) => ['id' => $l->id, 'folio' => $l->folio, 'nombre' => $l->nombre, 'tipo' => $l->tipo])
                 : [],
             'puedeCertificar' => $request->user()->can('certificar-alumnos'),
+            /*
+             * Qué documentos oficiales llega a emitir su carrera.
+             *
+             * Un diplomado o un curso de educación continua vive en el mismo
+             * catálogo y no tiene RVOE detrás. Sin esto, su expediente ofrecía
+             * pestaña de titulación y botón de agregar a un lote: un trámite que
+             * no existe, que alguien acaba prometiéndole al alumno.
+             */
+            'emiteCertificado' => (bool) ($alumno->oferta?->carrera?->emite_certificado ?? true),
+            'emiteTitulo' => (bool) ($alumno->oferta?->carrera?->emite_titulo ?? true),
             // Nombre real del periodo del plan (Semestre, Cuatrimestre…), para
             // titular los bloques del kárdex agrupado.
             'unidadPeriodo' => $alumno->oferta?->plan?->unidadPeriodo() ?? 'Periodo',

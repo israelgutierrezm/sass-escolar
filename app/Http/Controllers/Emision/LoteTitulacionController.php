@@ -100,7 +100,9 @@ class LoteTitulacionController extends Controller
         $campusVisibles = $request->user()->campusDelRolActivo();
 
         $matriculas = MatriculaOferta::query()
-            ->with(['persona:id,nombre,primer_apellido,segundo_apellido,curp', 'oferta.carrera:id,nombre', 'oferta.plan:id,nombre,minimo_asignaturas', 'oferta.campus:id,nombre'])
+            // `emite_titulo` viaja en el select: sin la columna el modelo llega a
+            // medias y el filtro de abajo dejaría pasar a todos.
+            ->with(['persona:id,nombre,primer_apellido,segundo_apellido,curp', 'oferta.carrera:id,nombre,emite_titulo', 'oferta.plan:id,nombre,minimo_asignaturas', 'oferta.campus:id,nombre'])
             ->when($campusVisibles !== [], fn ($qq) => $qq->whereHas('oferta', fn ($o) => $o->whereIn('campus_id', $campusVisibles)))
             ->when($q !== '', fn ($qq) => $qq->where(function ($w) use ($q) {
                 $w->where('matricula', 'like', "%{$q}%")
@@ -116,7 +118,9 @@ class LoteTitulacionController extends Controller
             ->get();
 
         $elegibles = $matriculas
-            ->filter(fn (MatriculaOferta $m) => $estado->disponible($m))
+            // La carrera tiene que emitir título: hay programas que dan
+            // certificado y no llegan a titulación.
+            ->filter(fn (MatriculaOferta $m) => $estado->emiteTitulo($m) && $estado->disponible($m))
             ->take(40)
             ->map(fn (MatriculaOferta $m) => [
                 'matricula_oferta_id' => $m->id,
@@ -145,10 +149,14 @@ class LoteTitulacionController extends Controller
         $omitidos = 0;
 
         foreach (array_unique($datos['matricula_oferta_ids']) as $id) {
-            $matricula = MatriculaOferta::with('oferta.plan')->find($id);
+            // La carrera se carga porque de ella depende que haya título que
+            // emitir; sin esto el filtro del buscador se podría saltar mandando
+            // los ids a mano.
+            $matricula = MatriculaOferta::with(['oferta.plan', 'oferta.carrera'])->find($id);
 
             if ($matricula === null
                 || ($campusVisibles !== [] && ! in_array($matricula->oferta?->campus_id, $campusVisibles, true))
+                || ! $estado->emiteTitulo($matricula)
                 || ! $estado->disponible($matricula)) {
                 $omitidos++;
 

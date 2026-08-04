@@ -70,7 +70,7 @@ class CarreraController extends Controller
         return Inertia::render('Academico/Carreras/Formulario', [
             'carrera' => $carrera->only([
                 'id', 'identificador', 'clave', 'nombre', 'nivel_estudios_id',
-                'imagen_url',
+                'imagen_url', 'emite_certificado', 'emite_titulo',
             ]),
             ...$this->catalogos(),
         ]);
@@ -113,6 +113,14 @@ class CarreraController extends Controller
             // «Objetivo» se retiró del formulario a pedido del cliente. La
             // columna se conserva por si vuelve, pero ya no se captura aquí.
             'imagen_url' => ['nullable', 'string', 'max:255'],
+            /*
+             * Qué documentos oficiales emite.
+             *
+             * `boolean` y no `required`: una casilla desmarcada no viaja en el
+             * formulario, y exigirla haría imposible apagarla.
+             */
+            'emite_certificado' => ['boolean'],
+            'emite_titulo' => ['boolean'],
         ], [], [
             'nivel_estudios_id' => 'nivel de estudios',
         ]);

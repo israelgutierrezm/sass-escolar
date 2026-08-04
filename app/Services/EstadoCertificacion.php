@@ -47,7 +47,40 @@ class EstadoCertificacion
             ->count('plan_materia_id');
     }
 
-    /** Cerró su plan: aprobó al menos las materias que exige. */
+    /*
+     * ── Qué emite la carrera ───────────────────────────────────────────────
+     *
+     * Un diplomado o un curso de educación continua vive en el mismo catálogo de
+     * carreras y no tiene RVOE que respalde papel oficial. Cerrar su plan no lo
+     * vuelve certificable, y ofrecerlo entre los candidatos de un lote es
+     * prometer un trámite que la escuela no puede cumplir.
+     *
+     * Son dos permisos separados a propósito: hay programas que dan constancia
+     * con certificado pero no llegan a título.
+     *
+     * Ante la duda —carrera no cargada, dato ausente— se responde que sí: es lo
+     * que se asumía de todas antes de que el campo existiera, y equivocarse por
+     * exceso deja al alumno visible para que una persona decida, mientras que
+     * equivocarse por defecto lo desaparece sin que nadie se entere.
+     */
+
+    public function emiteCertificado(MatriculaOferta $matricula): bool
+    {
+        return (bool) ($matricula->oferta?->carrera?->emite_certificado ?? true);
+    }
+
+    public function emiteTitulo(MatriculaOferta $matricula): bool
+    {
+        return (bool) ($matricula->oferta?->carrera?->emite_titulo ?? true);
+    }
+
+    /**
+     * Cerró su plan: aprobó al menos las materias que exige.
+     *
+     * Es el requisito ACADÉMICO y nada más. Lo que la carrera llegue a emitir se
+     * pregunta aparte, porque certificado y título se conceden por separado y
+     * este mismo método responde a los dos.
+     */
     public function disponible(MatriculaOferta $matricula): bool
     {
         $meta = $this->metaMaterias($matricula->oferta?->plan);
@@ -86,6 +119,10 @@ class EstadoCertificacion
      */
     public function elegibleParaLote(MatriculaOferta $matricula, string $tipo = 'total'): bool
     {
+        if (! $this->emiteCertificado($matricula)) {
+            return false;
+        }
+
         if ($this->certificacionVigente($matricula->id) !== null) {
             return false;
         }

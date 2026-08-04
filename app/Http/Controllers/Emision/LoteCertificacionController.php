@@ -97,7 +97,9 @@ class LoteCertificacionController extends Controller
         $campusVisibles = $request->user()->campusDelRolActivo();
 
         $matriculas = MatriculaOferta::query()
-            ->with(['persona:id,nombre,primer_apellido,segundo_apellido,curp', 'oferta.carrera:id,nombre', 'oferta.plan:id,nombre,minimo_asignaturas', 'oferta.campus:id,nombre'])
+            // `emite_certificado` viaja en el select: sin la columna el modelo
+            // llega a medias y el filtro de abajo dejaría pasar a todos.
+            ->with(['persona:id,nombre,primer_apellido,segundo_apellido,curp', 'oferta.carrera:id,nombre,emite_certificado', 'oferta.plan:id,nombre,minimo_asignaturas', 'oferta.campus:id,nombre'])
             ->when($campusVisibles !== [], fn ($qq) => $qq->whereHas('oferta', fn ($o) => $o->whereIn('campus_id', $campusVisibles)))
             ->when($q !== '', fn ($qq) => $qq->where(function ($w) use ($q) {
                 $w->where('matricula', 'like', "%{$q}%")
@@ -113,6 +115,9 @@ class LoteCertificacionController extends Controller
             ->get();
 
         $elegibles = $matriculas
+            // La carrera tiene que emitir certificado: un diplomado sin RVOE
+            // puede cerrar su plan y no por eso hay documento que expedir.
+            ->filter(fn (MatriculaOferta $m) => $estado->emiteCertificado($m))
             ->filter(fn (MatriculaOferta $m) => $tipo === 'parcial' ? $estado->disponibleParcial($m) : $estado->disponible($m))
             ->take(40)
             ->map(fn (MatriculaOferta $m) => [
@@ -143,7 +148,9 @@ class LoteCertificacionController extends Controller
         $omitidos = 0;
 
         foreach (array_unique($datos['matricula_oferta_ids']) as $id) {
-            $matricula = MatriculaOferta::with('oferta.plan')->find($id);
+            // La carrera se carga porque `elegibleParaLote` pregunta si emite
+            // certificado; sin ella, ese chequeo consulta un modelo a medias.
+            $matricula = MatriculaOferta::with(['oferta.plan', 'oferta.carrera'])->find($id);
 
             // Fuera de mi alcance de campus, o no elegible para el TIPO del lote,
             // o ya en un lote.

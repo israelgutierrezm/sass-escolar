@@ -33,7 +33,6 @@ const form = useForm({
     calificacion_minima_aprobatoria: props.plan?.calificacion_minima_aprobatoria ?? 6,
     minimo_creditos: props.plan?.minimo_creditos ?? null,
     minimo_asignaturas: props.plan?.minimo_asignaturas ?? null,
-    curp_responsable: props.plan?.curp_responsable ?? '',
 });
 
 const opciones = (lista: { id: number; nombre: string }[]) =>
@@ -88,13 +87,6 @@ function enviar(): void {
                         :opciones="opciones(autorizaciones)"
                         vacio="Selecciona…"
                         :error="form.errors.autorizacion_reconocimiento_id"
-                    />
-                    <CampoTexto
-                        v-model="form.curp_responsable"
-                        etiqueta="CURP del responsable"
-                        :error="form.errors.curp_responsable"
-                        mono
-                        :maximo="18"
                     />
                 </div>
             </TarjetaSeccion>

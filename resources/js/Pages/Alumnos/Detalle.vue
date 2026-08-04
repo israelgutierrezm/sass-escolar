@@ -96,6 +96,13 @@ const props = defineProps<{
     } | null;
     lotesAbiertos: { id: number; folio: string; nombre: string | null; tipo: string }[];
     puedeCertificar: boolean;
+    /**
+     * Qué documentos oficiales llega a emitir su carrera. Un diplomado o un
+     * curso de educación continua vive en el mismo catálogo y no tiene RVOE
+     * detrás: ofrecerle titulación es prometer un trámite que no existe.
+     */
+    emiteCertificado: boolean;
+    emiteTitulo: boolean;
     situaciones: { id: number; nombre: string }[];
     generos: { id: number; nombre: string }[];
     entidades: { id: number; nombre: string }[];
@@ -172,9 +179,15 @@ function estiloInsignia(completo: boolean): { backgroundColor: string; color: st
 // ── Certificación desde el expediente ─────────────────────────────────────
 // Según su avance, al alumno le toca certificado total (cerró el plan) o
 // parcial (tiene avance sin cerrarlo); se le ofrecen solo lotes de ese tipo.
-const tipoCertificado = computed<'total' | 'parcial' | null>(() =>
-    props.resumen.disponible_certificar ? 'total' : (props.resumen.disponible_parcial ? 'parcial' : null),
-);
+const tipoCertificado = computed<'total' | 'parcial' | null>(() => {
+    // Si su carrera no emite certificado, no le toca ninguno: el avance da
+    // igual. El backend descarta igual, esto evita ofrecerlo aquí.
+    if (! props.emiteCertificado) {
+        return null;
+    }
+
+    return props.resumen.disponible_certificar ? 'total' : (props.resumen.disponible_parcial ? 'parcial' : null);
+});
 const lotesElegibles = computed(() => props.lotesAbiertos.filter((l) => l.tipo === tipoCertificado.value));
 const loteElegido = ref<number | null>(null);
 watch(lotesElegibles, (lista) => {
@@ -1020,7 +1033,10 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                 { clave: 'carreras', etiqueta: `Carreras (${carreras.length})` },
                 { clave: 'tutores', etiqueta: `Padres/tutores (${tutores.length})` },
                 { clave: 'facturacion', etiqueta: 'Facturación' },
-                { clave: 'titulacion', etiqueta: 'Titulación' },
+                // La titulación sólo aparece si su carrera llega a emitir
+                // título: en un diplomado, la pestaña ofrecía un trámite
+                // inexistente y quien la llenaba esperaba un documento.
+                ...(emiteTitulo ? [{ clave: 'titulacion', etiqueta: 'Titulación' }] : []),
                 { clave: 'datos', etiqueta: 'Datos' },
             ]"
             :model-value="pestana"
@@ -1640,7 +1656,9 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
         </section>
 
         <!-- Titulación: datos del título para ESTA carrera (alimentan el XML SEP) -->
-        <section v-else-if="pestana === 'titulacion'" class="space-y-5">
+        <!-- `emiteTitulo` otra vez: la pestaña ya no se ofrece sin él, pero
+             `pestana` es un valor suelto y basta recordarlo de otra visita. -->
+        <section v-else-if="pestana === 'titulacion' && emiteTitulo" class="space-y-5">
             <!-- Encabezado con resumen de completitud -->
             <div class="tarjeta p-6">
                 <div class="flex flex-wrap items-start justify-between gap-4">
