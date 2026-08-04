@@ -235,6 +235,27 @@ npm run dev                # o npm run build
 - Si `demo.localhost` no resuelve, agregar `127.0.0.1 demo.localhost` a
   `C:\Windows\System32\drivers\etc\hosts`.
 
+### Pruebas
+
+```bash
+php artisan test
+```
+
+**Corren en MySQL, no en SQLite.** Las migraciones de tenant están escritas
+contra MySQL (índice de texto completo en `personas`, `INSERT IGNORE`,
+`UPDATE ... JOIN`) y en SQLite abortan; reescribirlas habría significado probar
+un esquema distinto del que corre en producción. Usan dos bases que se crean
+solas —`acadion_testing` (escuela) y `acadion_testing_central` (catálogos SEP)—
+y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
+
+- `tests/bootstrap.php` crea las bases antes de que Laravel conecte.
+- `Tests\TenantTestCase` levanta el esquema **una vez** por corrida (>200
+  migraciones, ~80 s la primera vez; después `migrate` no tiene nada que
+  aplicar y arranca en segundos) y envuelve cada prueba en una transacción.
+- Para rehacer el esquema desde cero: borra las dos bases y vuelve a correr.
+- Lo que toca el esquema de una escuela hereda de `TenantTestCase`; lo que es
+  lógica pura, de `PHPUnit\Framework\TestCase` y no toca la base.
+
 ## Estado (actualizar al avanzar)
 
 **Hecho:**

@@ -66,6 +66,31 @@ return [
             ]) : [],
         ],
 
+        /*
+         * La base CENTRAL: catálogos universales (SEP), tenants y dominios.
+         *
+         * En producción es la misma conexión `mysql` —`tenancy.database.
+         * central_connection` apunta ahí— porque tenancy sólo reescribe la de
+         * la escuela en cada petición. Existe con nombre propio para las
+         * pruebas, donde la escuela y la central son dos bases distintas y no
+         * pueden compartir una sola conexión: tienen tablas que se llaman
+         * igual (`cache`, `jobs`).
+         */
+        'central' => [
+            'driver' => 'mysql',
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'port' => env('DB_PORT', '3306'),
+            'database' => env('CENTRAL_DB_DATABASE', env('DB_DATABASE', 'laravel')),
+            'username' => env('DB_USERNAME', 'root'),
+            'password' => env('DB_PASSWORD', ''),
+            'charset' => env('DB_CHARSET', 'utf8mb4'),
+            'collation' => env('DB_COLLATION', 'utf8mb4_unicode_ci'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => 'InnoDB',
+        ],
+
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),

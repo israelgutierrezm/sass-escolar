@@ -39,7 +39,9 @@ return [
      * Database tenancy config. Used by DatabaseTenancyBootstrapper.
      */
     'database' => [
-        'central_connection' => env('DB_CONNECTION', 'central'),
+        // En pruebas la central es una base aparte (ver Tests\TenantTestCase);
+        // en producción es la misma conexión que la de la escuela.
+        'central_connection' => env('TENANCY_CENTRAL_CONNECTION', env('DB_CONNECTION', 'central')),
 
         /**
          * Connection used as a "template" for the dynamically created tenant database connection.
