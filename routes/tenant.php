@@ -1270,6 +1270,39 @@ Route::middleware([
                 Route::delete('{aviso}', 'eliminar')->whereNumber('aviso')->name('eliminar');
             });
 
+        /*
+         * Encuestas de evaluación.
+         *
+         * El cuestionario y su aplicación van por separado: el mismo
+         * instrumento se lanza cada semestre con fechas y docentes distintos.
+         */
+        Route::middleware('can:gestionar-encuestas')->group(function () {
+            Route::controller(\App\Http\Controllers\Encuestas\EncuestaController::class)
+                ->prefix('encuestas/cuestionarios')->name('tenant.encuestas.')
+                ->group(function () {
+                    Route::get('/', 'index')->name('index');
+                    Route::post('/', 'guardar')->name('crear');
+                    Route::get('{encuesta}', 'ver')->whereNumber('encuesta')->name('ver');
+                    Route::put('{encuesta}', 'guardar')->whereNumber('encuesta')->name('actualizar');
+                    Route::put('{encuesta}/preguntas', 'preguntas')->whereNumber('encuesta')->name('preguntas');
+                    Route::post('{encuesta}/duplicar', 'duplicar')->whereNumber('encuesta')->name('duplicar');
+                    Route::delete('{encuesta}', 'eliminar')->whereNumber('encuesta')->name('eliminar');
+                });
+
+            Route::controller(\App\Http\Controllers\Encuestas\AplicacionController::class)
+                ->prefix('encuestas/aplicaciones')->name('tenant.encuestas.aplicaciones.')
+                ->group(function () {
+                    Route::get('/', 'index')->name('index');
+                    Route::post('/', 'guardar')->name('crear');
+                    Route::get('{aplicacion}', 'ver')->whereNumber('aplicacion')->name('ver');
+                    Route::put('{aplicacion}', 'guardar')->whereNumber('aplicacion')->name('actualizar');
+                    Route::post('{aplicacion}/sujetos', 'generarSujetos')->whereNumber('aplicacion')->name('sujetos');
+                    Route::patch('{aplicacion}/estado', 'estado')->whereNumber('aplicacion')->name('estado');
+                    Route::get('{aplicacion}/docente/{sujeto}', 'sujeto')->whereNumber(['aplicacion', 'sujeto'])->name('sujeto');
+                    Route::delete('{aplicacion}', 'eliminar')->whereNumber('aplicacion')->name('eliminar');
+                });
+        });
+
         Route::controller(CalendarioController::class)
             ->prefix('plataforma/calendario')->name('tenant.plataforma.calendario.')
             ->middleware('can:gestionar-calendario')

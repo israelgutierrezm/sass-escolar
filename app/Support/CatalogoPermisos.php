@@ -173,6 +173,7 @@ final class CatalogoPermisos
             'editar-configuracion' => ['Editar la configuración', 'Cambiar los parámetros de la escuela.', [self::ADMINISTRATIVO]],
             'gestionar-usuarios' => ['Administrar usuarios', 'Crear cuentas y asignarles roles.', [self::ADMINISTRATIVO]],
             'gestionar-avisos' => ['Publicar avisos', 'Redactar avisos, dirigirlos a quien corresponda y ver quién confirmó haberlos leído.', [self::ADMINISTRATIVO]],
+            'gestionar-encuestas' => ['Administrar encuestas de evaluación', 'Armar cuestionarios, aplicarlos y consultar los resultados. Quien lo tiene ve los promedios de cada docente.', [self::ADMINISTRATIVO]],
             'ver-accesos' => ['Ver la bitácora de accesos', 'Consultar el registro y la gráfica de entradas y salidas de las cuentas.', [self::ADMINISTRATIVO]],
             'configurar-facturacion' => ['Configurar facturación', 'Conectar la escuela con Facturapi: credenciales, ambiente y predeterminados de CFDI.', [self::ADMINISTRATIVO]],
             'configurar-correo' => ['Configurar correo', 'Ajustar el envío de correo de la escuela.', [self::ADMINISTRATIVO]],
