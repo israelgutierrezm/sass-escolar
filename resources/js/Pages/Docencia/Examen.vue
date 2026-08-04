@@ -186,21 +186,6 @@ function editar(r: ReactivoDocente): void {
     formReactivo.defaults();
 }
 
-/**
- * Cerrar el editor sin tirar el reactivo a medio escribir.
- *
- * Como panel se cerraba pulsando «Cancelar»; como diálogo se cierra también con
- * Escape y con un clic fuera, que se hacen sin pensar. Un reactivo con su
- * enunciado y sus cuatro opciones capturadas es demasiado trabajo para perderlo
- * por rozar el velo.
- */
-function cerrarReactivo(): void {
-    if (formReactivo.isDirty && ! confirm('Perderás lo que llevas capturado. ¿Cerrar de todos modos?')) {
-        return;
-    }
-
-    abierto.value = false;
-}
 
 /** Verdadero/falso se arma solo: teclear las dos opciones cada vez es tiempo tirado. */
 function alCambiarTipo(): void {
@@ -622,8 +607,10 @@ const porRevisar = computed(() => props.intentos.filter((i) => i.requiere_revisi
             v-if="abierto"
             :etiqueta="editando ? 'Editar reactivo' : 'Nuevo reactivo'"
             ancho="max-w-3xl"
-            @cerrar="cerrarReactivo"
+            :formulario="formReactivo"
+            @cerrar="abierto = false"
         >
+        <template #default="{ cerrar }">
         <div class="max-h-[80vh] overflow-y-auto p-6">
             <div class="flex items-start justify-between gap-3">
                 <h2 class="text-base font-semibold text-contenido">
@@ -633,7 +620,7 @@ const porRevisar = computed(() => props.intentos.filter((i) => i.requiere_revisi
                     type="button"
                     class="shrink-0 rounded-lg p-1 text-suave transition hover:bg-[color-mix(in_srgb,var(--color-acento)_8%,transparent)]"
                     title="Cerrar"
-                    @click="cerrarReactivo"
+                    @click="cerrar"
                 >
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                 </button>
@@ -833,12 +820,13 @@ const porRevisar = computed(() => props.intentos.filter((i) => i.requiere_revisi
                     type="button"
                     class="rounded-lg border px-4 py-2 text-sm font-medium"
                     :style="{ borderColor: 'var(--color-borde)' }"
-                    @click="cerrarReactivo"
+                    @click="cerrar"
                 >
                     Cancelar
                 </button>
             </div>
         </div>
+        </template>
         </Modal>
 
         <!-- Lo que espera revisión -->

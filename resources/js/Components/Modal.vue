@@ -15,11 +15,43 @@ import { onBeforeUnmount, onMounted, ref } from 'vue';
  * Aquí viven las cinco, una sola vez. Quien necesite un diálogo pone dentro su
  * contenido y no vuelve a pensar en esto.
  */
-withDefaults(defineProps<{ etiqueta: string; ancho?: string }>(), {
+const props = withDefaults(defineProps<{
+    etiqueta: string;
+    ancho?: string;
+    /**
+     * El formulario que hay dentro, si lo hay.
+     *
+     * Con él, cerrar por Escape o por un clic fuera confirma antes de tirar lo
+     * capturado. Sin él —una ficha de lectura— cierra directo, porque no hay
+     * nada que perder.
+     *
+     * Se acepta cualquier cosa con `isDirty`: es lo que expone `useForm` de
+     * Inertia y lo único que hace falta saber.
+     */
+    formulario?: { isDirty: boolean } | null;
+}>(), {
     ancho: 'max-w-lg',
+    formulario: null,
 });
 
 const emit = defineEmits<{ cerrar: [] }>();
+
+/**
+ * Cerrar, preguntando si hay algo que perder.
+ *
+ * Vive aquí y no en cada pantalla porque ya se había escrito tres veces igual
+ * —calendario, reactivos y el editor de eventos— y tres copias es donde una
+ * empieza a divergir. El contenido la recibe por slot y la usa en sus propios
+ * botones; si llamara a su `abierto = false` a mano se saltaría la pregunta,
+ * que es justo el error que esto evita.
+ */
+function intentarCerrar(): void {
+    if (props.formulario?.isDirty && ! confirm('Perderás lo que llevas capturado. ¿Cerrar de todos modos?')) {
+        return;
+    }
+
+    emit('cerrar');
+}
 
 const caja = ref<HTMLElement | null>(null);
 
@@ -48,7 +80,7 @@ function enfocables(): HTMLElement[] {
  */
 function alTeclear(e: KeyboardEvent): void {
     if (e.key === 'Escape') {
-        emit('cerrar');
+        intentarCerrar();
 
         return;
     }
@@ -114,7 +146,7 @@ onBeforeUnmount(() => {
         <!-- El fondo cierra al pulsarlo; el contenido no, por eso el `.self`. -->
         <div
             class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm"
-            @click.self="emit('cerrar')"
+            @click.self="intentarCerrar"
         >
             <div
                 ref="caja"
@@ -124,7 +156,9 @@ onBeforeUnmount(() => {
                 aria-modal="true"
                 :aria-label="etiqueta"
             >
-                <slot />
+                <!-- `cerrar` al contenido: sus botones tienen que pasar por la
+                     misma comprobación que Escape y el clic fuera. -->
+                <slot :cerrar="intentarCerrar" />
             </div>
         </div>
     </Teleport>

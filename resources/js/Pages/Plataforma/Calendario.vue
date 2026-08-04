@@ -188,23 +188,6 @@ const form = useForm<{
 
 const editorAbierto = ref(false);
 
-/**
- * Cerrar el editor sin tirar lo escrito por accidente.
- *
- * Como panel, cerrarlo era pulsar «Cancelar» a conciencia. Como diálogo se
- * cierra también con Escape y con un clic fuera —dos gestos que se hacen sin
- * pensar—, y perder un evento a medio capturar por rozar el velo sería un
- * cambio a peor disfrazado de mejora. Si no se ha tocado nada, no se pregunta:
- * confirmar lo que no cuesta nada es la forma más rápida de que dejen de leerse
- * las confirmaciones.
- */
-function cerrarEditor(): void {
-    if (form.isDirty && ! confirm('Perderás lo que llevas capturado. ¿Cerrar de todos modos?')) {
-        return;
-    }
-
-    editorAbierto.value = false;
-}
 
 /**
  * El evento que se está mirando, o null.
@@ -385,8 +368,10 @@ function fechaLegible(e: Evento): string {
             v-if="editorAbierto"
             :etiqueta="form.id === null ? 'Nuevo evento' : 'Editar evento'"
             ancho="max-w-3xl"
-            @cerrar="cerrarEditor"
+            :formulario="form"
+            @cerrar="editorAbierto = false"
         >
+            <template #default="{ cerrar }">
             <header class="flex items-start justify-between gap-3 border-b border-borde px-6 py-4">
                 <h2 class="text-base font-semibold text-contenido">
                     {{ form.id === null ? 'Nuevo evento' : 'Editar evento' }}
@@ -395,7 +380,7 @@ function fechaLegible(e: Evento): string {
                     type="button"
                     class="shrink-0 rounded-lg p-1 text-suave transition hover:bg-[color-mix(in_srgb,var(--color-acento)_8%,transparent)]"
                     title="Cerrar"
-                    @click="cerrarEditor"
+                    @click="cerrar"
                 >
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                 </button>
@@ -499,12 +484,13 @@ function fechaLegible(e: Evento): string {
                         type="button"
                         class="rounded-lg border px-4 py-2 text-sm"
                         :style="{ borderColor: 'var(--color-borde)' }"
-                        @click="cerrarEditor"
+                        @click="cerrar"
                     >
                         Cancelar
                     </button>
                 </div>
             </form>
+            </template>
         </Modal>
 
         <!-- Rejilla del mes -->
