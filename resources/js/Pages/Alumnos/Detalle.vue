@@ -14,7 +14,8 @@ import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 import { ICONOS } from '@/iconos';
 
 interface Renglon {
-    id: number;
+    /** Los renglones en curso traen `curso-<id>`: no son filas de `historial`. */
+    id: number | string;
     plan_materia_id: number | null;
     clave_en_plan: string | null;
     materia: string | null;
@@ -29,6 +30,11 @@ interface Renglon {
     observacion: string | null;
     observacion_asignatura: string | null;
     manual: boolean;
+    /**
+     * Se está cursando ahora: no está asentada. No promedia, no da créditos y no
+     * se puede retirar desde aquí —eso es una baja, y vive en Inscripciones—.
+     */
+    en_curso: boolean;
 }
 
 const props = defineProps<{
@@ -322,7 +328,9 @@ function agregarHistorial(): void {
     });
 }
 
-function quitarHistorial(id: number): void {
+// Sólo se llama desde renglones `manual`, que siempre son filas reales de
+// `historial`; los de en curso traen id con prefijo y no ofrecen el botón.
+function quitarHistorial(id: number | string): void {
     if (!confirm('¿Retirar este renglón cargado a mano del historial?')) {
         return;
     }
@@ -545,6 +553,11 @@ const historialPorPeriodo = computed(() => {
             // promedia.
             const mejorPorMateria = new Map<number | string, Renglon>();
             for (const r of renglones) {
+                // Lo que se está cursando no entra en ningún total: no tiene
+                // calificación todavía. Contarlo hundiría el promedio del
+                // periodo con materias que aún no terminan.
+                if (r.en_curso) continue;
+
                 const clave = r.plan_materia_id ?? r.clave_en_plan ?? r.id;
                 const previo = mejorPorMateria.get(clave);
                 const nota = r.calificacion === null ? -1 : Number(r.calificacion);
@@ -567,8 +580,11 @@ const historialPorPeriodo = computed(() => {
             return {
                 periodo,
                 titulo: periodo === 0 ? 'Sin periodo' : `${props.unidadPeriodo} ${periodo}`,
-                renglones,
+                // Lo asentado primero y lo que se cursa al final: así se lee el
+                // bloque de arriba abajo en el orden en que ocurrió.
+                renglones: [...renglones.filter((r) => !r.en_curso), ...renglones.filter((r) => r.en_curso)],
                 materias: mejores.length,
+                enCurso: renglones.filter((r) => r.en_curso).length,
                 idsQueCuentan,
                 promedio,
                 creditos: Math.round(creditos * 100) / 100,
@@ -1143,6 +1159,11 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                                 <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
                                     {{ g.materias }} materia(s) · {{ g.creditos }} créditos
                                     <span v-if="g.reprobadas" class="text-red-600"> · {{ g.reprobadas }} reprobada(s)</span>
+                                    <!-- Aparte de la cuenta: todavía no son
+                                         materias cursadas ni créditos ganados. -->
+                                    <span v-if="g.enCurso" :style="{ color: 'var(--color-acento)' }">
+                                        · {{ g.enCurso }} en curso
+                                    </span>
                                 </p>
                             </div>
                         </div>
@@ -1157,6 +1178,7 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                             v-for="renglon in g.renglones"
                             :key="renglon.id"
                             class="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3"
+                            :class="renglon.en_curso ? 'bg-[color-mix(in_srgb,var(--color-acento)_4%,transparent)]' : ''"
                         >
                             <span
                                 class="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-sm font-semibold"
@@ -1171,7 +1193,11 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                                     · {{ renglon.materia }}
                                 </p>
                                 <p class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs" :style="{ color: 'var(--color-suave)' }">
-                                    <span>{{ renglon.estatus }}</span>
+                                    <span
+                                        :class="renglon.en_curso ? 'font-medium' : ''"
+                                        :style="renglon.en_curso ? { color: 'var(--color-acento)' } : {}"
+                                        :title="renglon.en_curso ? 'Se está cursando: su calificación se asienta al cerrar el acta' : undefined"
+                                    >{{ renglon.estatus }}</span>
                                     <span v-if="renglon.ciclo">· Ciclo {{ renglon.ciclo }}</span>
                                     <span v-if="renglon.tipo_evaluacion">· {{ renglon.tipo_evaluacion }}</span>
                                     <span
@@ -1181,8 +1207,13 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                                     >
                                         {{ renglon.observacion_asignatura }}
                                     </span>
+                                    <!-- «no promedia» es para un intento peor que
+                                         otro del mismo alumno. Lo que se cursa
+                                         tampoco promedia, pero por otra razón, y
+                                         decírselo en rojo lo haría ver como un
+                                         problema. -->
                                     <span
-                                        v-if="!g.idsQueCuentan.has(renglon.id)"
+                                        v-if="!renglon.en_curso && !g.idsQueCuentan.has(renglon.id)"
                                         class="rounded px-1.5 py-0.5 text-[10px] font-medium"
                                         style="background-color: color-mix(in srgb, #dc2626 12%, transparent); color: #dc2626"
                                         title="Hay un intento con mejor calificación; este no cuenta para el promedio"
@@ -1193,7 +1224,12 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                             </div>
 
                             <div class="flex shrink-0 items-center gap-2">
-                                <span v-if="renglon.acta_folio" class="font-mono text-xs" :style="{ color: 'var(--color-suave)' }">
+                                <!-- Lo que se cursa no lleva nada aquí: no tiene
+                                     acta todavía y etiquetarlo «Manual» diría
+                                     que alguien lo capturó a mano, que es lo
+                                     contrario. Su estado ya se lee arriba. -->
+                                <span v-if="renglon.en_curso"></span>
+                                <span v-else-if="renglon.acta_folio" class="font-mono text-xs" :style="{ color: 'var(--color-suave)' }">
                                     {{ renglon.acta_folio }}
                                 </span>
                                 <span

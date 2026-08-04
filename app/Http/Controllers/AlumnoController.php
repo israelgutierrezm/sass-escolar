@@ -410,7 +410,8 @@ class AlumnoController extends Controller
                 'observacion_asignatura' => $h->observacionAsignatura?->nombre,
                 // Renglón cargado a mano (sin acta): se puede retirar desde aquí.
                 'manual' => $h->acta_id === null,
-            ]),
+                'en_curso' => false,
+            ])->concat($this->materiasEnCurso($alumno, $historial))->values(),
             'resumen' => [
                 // Conteos y créditos sobre el MEJOR intento por materia (no por
                 // renglón): una materia aprobada por título tras tronar el
@@ -1007,6 +1008,77 @@ class AlumnoController extends Controller
      *
      * @return array<int, array<string, mixed>>
      */
+    /**
+     * Las materias que el alumno está cursando AHORA, como renglones del kárdex.
+     *
+     * ── Por qué no se escriben en `historial` ──────────────────────────────
+     * El historial es el documento: de ahí salen el promedio, los créditos, la
+     * elegibilidad para certificar y el XML que se manda a la SEP. Sembrarlo con
+     * renglones sin calificación obligaría a que cada consulta se acordara de
+     * excluirlos, y bastaría una que no lo hiciera para reportar un promedio
+     * falso. Se calculan al vuelo, no se guardan: el kárdex es una pantalla y el
+     * historial sigue siendo lo asentado.
+     *
+     * ── Qué se muestra ─────────────────────────────────────────────────────
+     * Las inscripciones vigentes —una baja dejó de cursarse— cuya materia
+     * todavía no tiene renglón asentado EN ESE MISMO CICLO. El par materia+ciclo
+     * y no sólo la materia: quien recursa algo que reprobó en 2025 tiene un
+     * renglón viejo con su calificación y está cursándola de nuevo ahora, y las
+     * dos cosas son ciertas a la vez.
+     *
+     * Público sólo para poder ejercitarlo desde las pruebas: `show()` arma media
+     * pantalla y montarla entera para verificar cuatro renglones haría la prueba
+     * ilegible.
+     *
+     * @param  \Illuminate\Support\Collection<int, Historial>  $historial
+     * @return array<int, array<string, mixed>>
+     */
+    public function materiasEnCurso(MatriculaOferta $alumno, $historial): array
+    {
+        // Lo ya asentado, por materia y ciclo: es lo que NO se vuelve a mostrar.
+        $asentadas = $historial
+            ->map(fn (Historial $h) => $h->plan_materia_id.'-'.$h->ciclo_id)
+            ->flip();
+
+        return Inscripcion::query()
+            ->with([
+                'asignaturaGrupo.planMateria.asignatura:id,nombre,creditos',
+                'ciclo:id,clave',
+                'situacion:id,clave,nombre',
+            ])
+            ->where('matricula_oferta_id', $alumno->id)
+            ->get()
+            ->reject(fn (Inscripcion $i) => $i->situacion?->clave === 'baja')
+            ->reject(fn (Inscripcion $i) => $asentadas->has(
+                $i->asignaturaGrupo?->plan_materia_id.'-'.$i->ciclo_id,
+            ))
+            ->map(fn (Inscripcion $i) => [
+                // Prefijo para no chocar con los ids de `historial`: en el
+                // frontend los dos viven en la misma lista.
+                'id' => 'curso-'.$i->id,
+                'plan_materia_id' => $i->asignaturaGrupo?->plan_materia_id,
+                'clave_en_plan' => $i->asignaturaGrupo?->planMateria?->clave_en_plan,
+                'materia' => $i->asignaturaGrupo?->planMateria?->asignatura?->nombre,
+                'creditos' => $i->asignaturaGrupo?->planMateria?->asignatura?->creditos,
+                'periodo' => $i->asignaturaGrupo?->planMateria?->periodo,
+                'ciclo' => $i->ciclo?->clave,
+                // Sin calificación: la que lleve acumulada es provisional y vive
+                // en «Carga por ciclo». El kárdex sólo dice lo definitivo.
+                'calificacion' => null,
+                'estatus' => 'En curso',
+                'estatus_clave' => 'en_curso',
+                'tipo_evaluacion' => null,
+                'acta_folio' => null,
+                'observacion' => null,
+                'observacion_asignatura' => null,
+                // No se retira desde aquí: se da de baja en Inscripciones.
+                'manual' => false,
+                'en_curso' => true,
+            ])
+            ->values()
+            ->all();
+    }
+
     private function cargaPorCiclo(MatriculaOferta $alumno): array
     {
         return Inscripcion::query()
