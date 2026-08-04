@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted } from 'vue';
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 
 /**
  * El detalle de un evento del calendario.
@@ -32,12 +32,60 @@ defineProps<{
 
 const emit = defineEmits<{ cerrar: [] }>();
 
+const caja = ref<HTMLElement | null>(null);
+
+/** Adónde devolver el foco al cerrar: normalmente el evento que se pulsó. */
+let veniaDe: HTMLElement | null = null;
+
+/** Lo que se puede enfocar dentro del modal, en orden de tabulación. */
+function enfocables(): HTMLElement[] {
+    if (caja.value === null) return [];
+
+    return [...caja.value.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])',
+    )].filter((el) => el.offsetParent !== null);
+}
+
 /*
- * Escape cierra. Es lo que la gente intenta antes de buscar la equis, y no
- * atenderlo hace que el modal se sienta atorado.
+ * Escape cierra, y el tabulador no se escapa.
+ *
+ * ── Por qué el foco tiene que quedarse dentro ──────────────────────────────
+ * Sin esto, tabular desde el modal lleva al contenido de ATRÁS: quien navega
+ * con teclado —o con lector de pantalla— sigue leyendo el panel que el velo
+ * está tapando, sin forma de saber que hay un diálogo abierto ni de volver a
+ * él. La página se vuelve inutilizable justo para quien no puede rodearla con
+ * el ratón.
+ *
+ * Se cicla a mano y no con `inert` en el resto del documento porque el modal
+ * viaja por Teleport al body: marcar «todo lo demás» sería marcar hermanos que
+ * este componente no debería conocer.
  */
 function alTeclear(e: KeyboardEvent): void {
-    if (e.key === 'Escape') emit('cerrar');
+    if (e.key === 'Escape') {
+        emit('cerrar');
+
+        return;
+    }
+
+    if (e.key !== 'Tab') return;
+
+    const lista = enfocables();
+
+    if (lista.length === 0) return;
+
+    const primero = lista[0];
+    const ultimo = lista[lista.length - 1];
+    const actual = document.activeElement;
+
+    // Salir por un extremo entra por el otro. Y si el foco se había ido fuera
+    // —al abrir, o tras un clic en el velo—, se recupera al primero.
+    if (e.shiftKey && (actual === primero || ! caja.value?.contains(actual))) {
+        e.preventDefault();
+        ultimo.focus();
+    } else if (! e.shiftKey && (actual === ultimo || ! caja.value?.contains(actual))) {
+        e.preventDefault();
+        primero.focus();
+    }
 }
 
 /*
@@ -54,6 +102,13 @@ function alTeclear(e: KeyboardEvent): void {
 onMounted(() => {
     document.addEventListener('keydown', alTeclear);
 
+    /*
+     * El foco entra al diálogo. Sin esto sigue en el evento que se pulsó, que
+     * está detrás del velo: el primer tabulador movería por la página oculta.
+     */
+    veniaDe = document.activeElement as HTMLElement | null;
+    enfocables()[0]?.focus();
+
     const barra = window.innerWidth - document.documentElement.clientWidth;
 
     document.body.style.overflow = 'hidden';
@@ -62,6 +117,10 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
     document.removeEventListener('keydown', alTeclear);
+
+    // De vuelta a donde estaba: cerrar y perder el sitio obliga a tabular desde
+    // el principio de la página.
+    veniaDe?.focus();
     document.body.style.overflow = '';
     document.body.style.paddingRight = '';
 });
@@ -84,7 +143,13 @@ onBeforeUnmount(() => {
             class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm"
             @click.self="emit('cerrar')"
         >
-        <div class="tarjeta w-full max-w-lg overflow-hidden" role="dialog" aria-modal="true">
+        <div
+            ref="caja"
+            class="tarjeta w-full max-w-lg overflow-hidden"
+            role="dialog"
+            aria-modal="true"
+            :aria-label="evento.titulo"
+        >
             <!-- Franja del color del evento: identifica el tipo antes de leer. -->
             <div class="h-1.5" :style="{ backgroundColor: evento.color ?? 'var(--color-acento)' }" />
 
