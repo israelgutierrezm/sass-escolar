@@ -748,6 +748,15 @@ Route::middleware([
                     // JSON: se consulta al teclear, no viaja con la pantalla.
                     Route::get('grupos/{grupo}/materias/{asignatura}/candidatos', [GrupoController::class, 'buscarCandidatos'])
                         ->name('grupos.materias.candidatos');
+
+                    /*
+                     * La lista de UNA materia. Con `ver-grupos` y no con
+                     * `abrir-grupos`: consultar quién cursa y cómo va no es
+                     * modificar la oferta, y quien atiende ventanilla necesita
+                     * lo primero sin poder lo segundo.
+                     */
+                    Route::get('grupos/{grupo}/materias/{asignatura}', [AsignaturaGrupoController::class, 'show'])
+                        ->name('grupos.materias.show');
                 });
 
                 Route::middleware('can:abrir-grupos')->group(function () {

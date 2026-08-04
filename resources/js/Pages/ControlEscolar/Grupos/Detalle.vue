@@ -448,7 +448,15 @@ const urlInscribir = computed(
                         </span>
 
                         <span class="min-w-0 flex-1">
-                            <span class="block truncate text-sm font-medium text-contenido">{{ asignatura.materia }}</span>
+                            <!-- El nombre entra a la materia: quién la cursa,
+                                 quién la da y cómo van. Antes había que ir al
+                                 listado de alumnos y filtrar a mano. -->
+                            <Link
+                                :href="`/escolar/grupos/${grupo.id}/materias/${asignatura.id}`"
+                                class="block truncate text-sm font-medium text-contenido hover:underline"
+                            >
+                                {{ asignatura.materia }}
+                            </Link>
                             <span class="block truncate text-xs text-suave">
                                 <span class="font-mono">{{ asignatura.clave_en_plan }}</span> · {{ asignatura.plan }}
                             </span>
@@ -588,7 +596,13 @@ const urlInscribir = computed(
                             {{ siglaDe(asignatura.clave_en_plan) }}
                         </span>
                         <span class="min-w-0 flex-1">
-                            <span class="block truncate text-sm font-medium text-contenido" :title="asignatura.materia ?? ''">{{ asignatura.materia }}</span>
+                            <Link
+                                :href="`/escolar/grupos/${grupo.id}/materias/${asignatura.id}`"
+                                class="block truncate text-sm font-medium text-contenido hover:underline"
+                                :title="asignatura.materia ?? ''"
+                            >
+                                {{ asignatura.materia }}
+                            </Link>
                             <span class="block truncate font-mono text-xs text-suave">{{ asignatura.clave_en_plan }}</span>
                             <span class="block truncate text-[11px] text-suave" :title="asignatura.plan ?? ''">{{ asignatura.plan }}</span>
                         </span>

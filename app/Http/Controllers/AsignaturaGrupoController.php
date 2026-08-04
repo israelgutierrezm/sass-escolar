@@ -8,12 +8,16 @@ use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Grupo;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\ControlEscolar\SituacionAsignaturaGrupo;
+use App\Services\AsentadorActa;
+use App\Services\CalculadoraCalificacion;
 use App\Services\Lms\CopiadorDeCurso;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
+use Inertia\Response;
 
 /**
  * Apertura de materias dentro de un grupo y asignación de sus docentes.
@@ -160,5 +164,105 @@ class AsignaturaGrupoController extends Controller
         $asignatura->delete();
 
         return back()->with('exito', 'Materia retirada del grupo.');
+    }
+
+    /**
+     * La lista de una materia: quién la cursa, quién la da y cómo van.
+     *
+     * ── Por qué hacía falta ────────────────────────────────────────────────
+     * El grupo enseña cuántos inscritos tiene cada materia, y ahí se acababa:
+     * para saber QUIÉNES eran había que ir al listado de alumnos y filtrar, y
+     * para saber cómo iban, entrar a la captura del docente. Dos preguntas que
+     * en control escolar se hacen juntas —«¿quién está en esta materia y cómo
+     * va?»— y que no tenían una sola pantalla.
+     *
+     * ── El avance se calcula, no se lee ────────────────────────────────────
+     * La calificación final sólo existe cuando se asienta el acta; hasta
+     * entonces lo único que hay son componentes capturados. Se pondera aquí con
+     * la MISMA calculadora que usa el cierre del acta, así que lo que se ve es
+     * exactamente lo que saldría si se cerrara hoy —y no una segunda cuenta que
+     * podría diverger—.
+     */
+    public function show(
+        Grupo $grupo,
+        AsignaturaGrupo $asignatura,
+        CalculadoraCalificacion $calculadora,
+        AsentadorActa $asentador,
+    ): Response {
+        // 404 y no 403: una materia de otro grupo no está en esta dirección.
+        abort_unless($asignatura->grupo_id === $grupo->id, 404);
+
+        $asignatura->load([
+            'planMateria.asignatura',
+            'planMateria.plan',
+            'docentes.persona',
+            'grupo.ciclo',
+            'grupo.campus',
+        ]);
+
+        $esquema = $asentador->esquema($asignatura);
+        $plan = $asignatura->planMateria?->plan;
+
+        $inscripciones = Inscripcion::query()
+            ->where('asignatura_grupo_id', $asignatura->id)
+            ->with(['matriculaOferta.persona', 'situacion', 'calificaciones'])
+            ->get()
+            ->sortBy(fn (Inscripcion $i) => $i->matriculaOferta?->persona?->nombreCompleto() ?? '')
+            ->values();
+
+        $alumnos = $inscripciones->map(function (Inscripcion $inscripcion) use ($esquema, $plan, $calculadora) {
+            $resultado = $calculadora->calcular($inscripcion, $esquema, $plan);
+            $capturadas = $inscripcion->calificaciones->keyBy('esquema_evaluacion_id');
+
+            return [
+                'inscripcion_id' => $inscripcion->id,
+                'matricula_id' => $inscripcion->matricula_oferta_id,
+                'matricula' => $inscripcion->matriculaOferta?->matricula,
+                'nombre' => $inscripcion->matriculaOferta?->persona?->nombreCompleto() ?? 'Sin nombre',
+                'situacion' => $inscripcion->situacion?->nombre,
+                'de_baja' => $inscripcion->situacion?->clave === 'baja',
+                // Una celda por componente del esquema, en su mismo orden.
+                'componentes' => $esquema
+                    ->map(fn ($c) => $capturadas->get($c->id)?->calificacion)
+                    ->values(),
+                'final' => $resultado->final,
+                'completa' => $resultado->completa,
+                'aprobada' => $resultado->aprobada,
+                'faltantes' => $resultado->faltantes,
+                // Ya asentada: el número dejó de ser provisional.
+                'asentada' => $inscripcion->calificacion_final !== null,
+            ];
+        })->all();
+
+        return Inertia::render('ControlEscolar/Grupos/Materia', [
+            'grupo' => [
+                'id' => $grupo->id,
+                'clave' => $grupo->clave,
+                'ciclo' => $grupo->ciclo?->clave,
+                'campus' => $grupo->campus?->nombre,
+            ],
+            'materia' => [
+                'id' => $asignatura->id,
+                'nombre' => $asignatura->planMateria?->asignatura?->nombre ?? 'Sin nombre',
+                'clave' => $asignatura->planMateria?->clave_en_plan,
+                'plan' => $plan?->nombre,
+                'minima_aprobatoria' => $plan?->calificacion_minima_aprobatoria,
+            ],
+            'docentes' => $asignatura->docentes->map(fn ($d) => [
+                'nombre' => $d->persona?->nombreCompleto() ?? 'Sin nombre',
+                'tipo' => $d->pivot->tipo ?? 'titular',
+            ])->values(),
+            /*
+             * Las columnas de la tabla salen del esquema del plan, no de un
+             * listado fijo: cada materia puede evaluarse distinto y una tabla
+             * con columnas inventadas mostraría celdas que no existen.
+             */
+            'esquema' => $esquema->map(fn ($c) => [
+                'id' => $c->id,
+                'componente' => $c->componente,
+                'porcentaje' => (float) $c->porcentaje,
+            ])->values(),
+            'alumnos' => $alumnos,
+        ]);
     }
 }
