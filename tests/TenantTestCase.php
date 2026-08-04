@@ -7,6 +7,7 @@ namespace Tests;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
+use RuntimeException;
 
 /**
  * Base para las pruebas que tocan el esquema de una escuela.
@@ -42,9 +43,23 @@ abstract class TenantTestCase extends TestCase
     /** El esquema se levanta una vez por ejecución de la suite. */
     private static bool $esquemaListo = false;
 
-    protected function setUp(): void
+    /**
+     * Se migra aquí y no en `setUp`, y el motivo es sutil.
+     *
+     * `setUp` corre `refreshApplication()` y justo después `setUpTraits()`, que
+     * es donde `DatabaseTransactions` abre la transacción de aislamiento.
+     * Migrando después de eso, el DDL de cualquier migración pendiente provoca
+     * un COMMIT IMPLÍCITO en MySQL: la transacción se cierra sin que nadie se
+     * entere y la primera prueba de esa corrida deja sus datos en la base para
+     * siempre. Pasó de verdad —cuatro encuestas huérfanas— y se manifiesta como
+     * pruebas que fallan por el estado que dejó una corrida anterior.
+     *
+     * Enganchado a `refreshApplication` el esquema queda listo ANTES de que la
+     * transacción exista, así que el commit implícito no tiene nada que romper.
+     */
+    protected function refreshApplication(): void
     {
-        parent::setUp();
+        parent::refreshApplication();
 
         if (self::$esquemaListo) {
             return;
@@ -54,7 +69,7 @@ abstract class TenantTestCase extends TestCase
         Artisan::call('migrate', ['--database' => 'mysql', '--path' => 'database/migrations/tenant', '--force' => true]);
 
         if (! Schema::connection('mysql')->hasTable('avisos')) {
-            $this->fail('El esquema de pruebas no se levantó: falta la tabla `avisos`.');
+            throw new RuntimeException('El esquema de pruebas no se levantó: falta la tabla `avisos`.');
         }
 
         self::$esquemaListo = true;
