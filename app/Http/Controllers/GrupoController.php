@@ -406,7 +406,17 @@ class GrupoController extends Controller
         $datos = $request->validate([
             'ciclo_id' => ['required', 'integer', Rule::exists('ciclos', 'id')->whereNull('deleted_at')],
             'campus_id' => ['required', 'integer', Rule::exists('campus', 'id')->whereNull('deleted_at')],
-            'plan_id' => ['nullable', 'integer', Rule::exists('planes_estudio', 'id')->whereNull('deleted_at')],
+            /*
+             * El plan pasa a ser obligatorio.
+             *
+             * Existía el grupo "sin plan fijo", que tomaba materias de varios, y
+             * se pagaba en todo lo que viene después: el grado quedaba numerado
+             * con un rango genérico en vez del periodo real del plan, la
+             * inscripción no podía sugerir las materias que tocan, y el nivel
+             * había que capturarlo aparte porque no había de dónde deducirlo. Un
+             * grupo que de verdad cruce planes se abre como dos.
+             */
+            'plan_id' => ['required', 'integer', Rule::exists('planes_estudio', 'id')->whereNull('deleted_at')],
             // Un grupo es "1° A de Secundaria" antes que cualquier otra cosa: el
             // nivel es suyo, no se deduce del plan (que puede no tener).
             'nivel_estudios_id' => ['required', 'integer'],

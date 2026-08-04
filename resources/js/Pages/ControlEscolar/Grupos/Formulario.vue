@@ -164,6 +164,29 @@ const opcionesPeriodo = computed(() => {
     return Array.from({ length: total }, (_, i) => ({ valor: i + 1, texto: `${unidadPeriodo.value} ${i + 1}` }));
 });
 
+/*
+ * Cada paso se muestra cuando el anterior ya está resuelto.
+ *
+ * Los seis campos se ofrecían de golpe, la mitad deshabilitados con un «Elige
+ * campus primero» dentro del desplegable: hay que abrirlos para enterarse de
+ * que no había nada que elegir. Apareciendo conforme se avanza, el orden de
+ * captura se ve sin tener que descubrirlo.
+ */
+const hayOrigen = computed(() => form.ciclo_id !== null && form.campus_id !== null);
+const muestraCarrera = computed(() => hayOrigen.value && form.nivel_estudios_id !== null);
+const muestraPlan = computed(() => muestraCarrera.value && carreraId.value !== null);
+const muestraGrado = computed(() => muestraPlan.value && form.plan_id !== null);
+
+/*
+ * Callejones sin salida de la oferta.
+ *
+ * Todo lo que se ofrece aquí sale de lo cargado en «Oferta»: si ahí no está la
+ * combinación, el desplegable siguiente aparece vacío y no hay forma de saber
+ * por qué desde esta pantalla. Se dice cuál es el hueco y dónde se llena.
+ */
+const nivelSinCarreras = computed(() => muestraCarrera.value && carrerasVisibles.value.length === 0);
+const carreraSinPlanes = computed(() => muestraPlan.value && planesVisibles.value.length === 0);
+
 // Cambiar de carrera invalida el plan elegido si ya no pertenece a ella.
 watch(carreraId, () => {
     const sigueSiendoValido = planesVisibles.value.some((plan) => plan.id === form.plan_id);
@@ -194,10 +217,17 @@ watch(
     },
 );
 
-// Cambiar de plan invalida el grado si se sale del rango del nuevo plan.
+// Cambiar de plan invalida el grado: sin plan no hay grado que capturar, y con
+// otro plan el número puede salirse de su rango.
 watch(
     () => form.plan_id,
     () => {
+        if (form.plan_id === null) {
+            form.semestre = null;
+
+            return;
+        }
+
         const total = planElegido.value?.total_periodos ?? 12;
 
         if (form.semestre && Number(form.semestre) > total) {
@@ -273,7 +303,7 @@ function enviar(): void {
             -->
             <TarjetaSeccion
                 titulo="Ciclo, campus y plan"
-                descripcion="Empieza por ciclo o por campus, el que tengas más a mano; de ahí en adelante cada paso depende del anterior."
+                descripcion="Empieza por ciclo o por campus, el que tengas más a mano; de ahí en adelante cada paso aparece cuando el anterior está resuelto."
                 :icono="ICONOS.calendario"
             >
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -295,7 +325,10 @@ function enviar(): void {
                         :error="form.errors.campus_id"
                         :ayuda="form.ciclo_id ? 'Solo los campus del ciclo.' : 'Puedes empezar por aquí o por el ciclo.'"
                     />
+                    <!-- Del nivel en adelante, cada paso aparece cuando el
+                         anterior está resuelto. -->
                     <CampoSelect
+                        v-if="hayOrigen"
                         v-model="form.nivel_estudios_id"
                         etiqueta="2 · Nivel de estudios"
                         requerido
@@ -305,37 +338,58 @@ function enviar(): void {
                         ayuda="Todo grupo pertenece a un nivel. Filtra las carreras."
                     />
                     <CampoSelect
+                        v-if="muestraCarrera"
                         v-model="carreraId"
                         etiqueta="3 · Carrera"
+                        requerido
                         :opciones="opciones(carrerasVisibles)"
-                        :deshabilitado="!form.campus_id || !form.nivel_estudios_id"
-                        :vacio="!form.campus_id
-                            ? 'Elige campus primero'
-                            : (!form.nivel_estudios_id ? 'Elige nivel primero' : 'Todas las ofertadas')"
+                        vacio="Selecciona…"
                         ayuda="Solo las ofertadas en ese campus. Filtra los planes; no se guarda en el grupo."
                     />
                     <CampoSelect
+                        v-if="muestraPlan"
                         v-model="form.plan_id"
                         etiqueta="4 · Plan de estudios"
+                        requerido
                         :opciones="planesVisibles.map((p) => ({ valor: p.id, texto: `${p.clave} · ${p.nombre}` }))"
-                        :deshabilitado="!form.campus_id"
-                        :vacio="!form.campus_id
-                            ? 'Elige campus primero'
-                            : (carreraId === null ? 'Sin plan fijo' : 'Sin plan fijo (de esta carrera)')"
+                        vacio="Selecciona…"
                         :error="form.errors.plan_id"
-                        ayuda="Opcional. Si lo fijas, solo se podrán abrir materias de ese plan."
+                        ayuda="Solo se podrán abrir materias de este plan."
                     />
                     <CampoSelect
+                        v-if="muestraGrado"
                         v-model="form.semestre"
                         :etiqueta="`5 · ${unidadPeriodo} (grado)`"
                         requerido
                         :opciones="opcionesPeriodo"
                         vacio="Selecciona…"
                         :error="form.errors.semestre"
-                        :ayuda="planElegido
-                            ? `Del 1 al ${planElegido.total_periodos ?? '—'}. No cambia al abrirle materias de otro grado.`
-                            : 'No cambia al abrirle materias de otro grado.'"
+                        :ayuda="`Del 1 al ${planElegido?.total_periodos ?? '—'}. No cambia al abrirle materias de otro grado.`"
                     />
+
+                    <!--
+                        Los huecos de la oferta, dichos donde aparecen.
+                        Sin esto el desplegable siguiente sale vacío y no hay
+                        manera de saber desde aquí que lo que falta se carga en
+                        otra pantalla.
+                    -->
+                    <p
+                        v-if="nivelSinCarreras"
+                        class="rounded-lg border-l-4 border-l-amber-500 p-3 text-sm sm:col-span-2 lg:col-span-3"
+                        style="background-color: color-mix(in srgb, #f59e0b 8%, transparent)"
+                    >
+                        Ese nivel no tiene ninguna carrera ofertada en este campus. Cárgala en
+                        <a href="/academico/oferta" class="underline">Oferta</a> y vuelve.
+                    </p>
+
+                    <p
+                        v-else-if="carreraSinPlanes"
+                        class="rounded-lg border-l-4 border-l-amber-500 p-3 text-sm sm:col-span-2 lg:col-span-3"
+                        style="background-color: color-mix(in srgb, #f59e0b 8%, transparent)"
+                    >
+                        Esa carrera no tiene ningún plan de estudios ofertado en este campus. Cárgalo
+                        en <a href="/academico/oferta" class="underline">Oferta</a> y vuelve.
+                    </p>
 
                     <p
                         v-if="restriccionCiclo"
