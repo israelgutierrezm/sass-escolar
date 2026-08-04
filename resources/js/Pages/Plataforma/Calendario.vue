@@ -4,6 +4,7 @@ import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import Modal from '@/Components/Modal.vue';
 import ModalEvento from '@/Components/ModalEvento.vue';
 import SelectorDestinos from '@/Components/SelectorDestinos.vue';
 import { toast } from 'vue-sonner';
@@ -620,15 +621,18 @@ function fechaLegible(e: Evento): string {
             índice, no un segundo lugar donde editar. Al elegir uno se cierra,
             para no dejar dos capas encimadas.
         -->
-        <!-- Al body, por lo mismo que la ficha: dentro del <main> el velo
-             respetaría la barra lateral y el encabezado. -->
-        <Teleport to="body">
-        <div
+        <!--
+            Mismo caparazón que la ficha: velo, foco atrapado, Escape y fondo
+            bloqueado. Esto era un `div` a mano que sólo tenía el velo —ni
+            cerraba con Escape ni retenía el foco—, que es exactamente lo que
+            pasa cuando el comportamiento se copia en vez de compartirse.
+        -->
+        <Modal
             v-if="diaAbierto"
-            class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm"
-            @click.self="diaAbierto = null"
+            :etiqueta="`Eventos del ${diaAbierto}`"
+            ancho="max-w-md"
+            @cerrar="diaAbierto = null"
         >
-            <div class="tarjeta w-full max-w-md overflow-hidden" role="dialog" aria-modal="true">
                 <header class="flex items-start justify-between gap-3 px-6 py-4">
                     <div>
                         <h2 class="text-base font-semibold text-contenido">Eventos del {{ diaAbierto }}</h2>
@@ -665,9 +669,7 @@ function fechaLegible(e: Evento): string {
                         </button>
                     </li>
                 </ul>
-            </div>
-        </div>
-        </Teleport>
+        </Modal>
 
         <!--
             La ficha del evento. Desde aquí se salta a editar o a eliminar, así
