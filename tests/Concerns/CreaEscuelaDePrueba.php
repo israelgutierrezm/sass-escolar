@@ -82,6 +82,62 @@ trait CreaEscuelaDePrueba
         return compact('persona', 'matricula', 'oferta', 'plan', 'carrera', 'campus');
     }
 
+    /**
+     * Una materia abierta en un grupo, lista para inscribir a alguien.
+     *
+     * @param  int  $plan  El plan del alumno; la materia tiene que ser de ahí.
+     * @return array{materia: int, planMateria: int, grupo: int, asignatura: int}
+     */
+    protected function materiaAbierta(int $plan, int $campus, int $ciclo, int $cupo = 30): array
+    {
+        $unico = uniqid();
+
+        $asignatura = $this->fila('asignaturas', [
+            'identificador' => "ASI-{$unico}",
+            'clave' => "A-{$unico}",
+            'nombre' => 'Materia de prueba',
+            'creditos' => 8,
+            'tipo_asignatura_id' => $this->deCatalogo('tipos_asignatura'),
+        ]);
+
+        $planMateria = $this->fila('plan_materias', [
+            'plan_id' => $plan,
+            'asignatura_id' => $asignatura,
+            'clave_en_plan' => "PM-{$unico}",
+        ]);
+
+        $grupo = $this->fila('grupos', [
+            'ciclo_id' => $ciclo,
+            'campus_id' => $campus,
+            'nivel_estudios_id' => DB::connection('central')->table('niveles_estudio')->value('id'),
+            'semestre' => 1,
+            'clave' => "G-{$unico}",
+            'cupo' => $cupo,
+            'situacion_id' => $this->deCatalogo('situaciones_grupo'),
+        ]);
+
+        $materia = $this->fila('asignatura_grupo', [
+            'grupo_id' => $grupo,
+            'plan_materia_id' => $planMateria,
+            'situacion_id' => $this->deCatalogo('situaciones_asignatura_grupo'),
+        ]);
+
+        return compact('materia', 'planMateria', 'grupo', 'asignatura');
+    }
+
+    /**
+     * Una situación con una clave concreta —«baja», «aprobada»—, que es lo que
+     * miran las reglas del sistema.
+     */
+    protected function situacionCon(string $tabla, string $clave): int
+    {
+        $id = DB::table($tabla)->where('clave', $clave)->value('id');
+
+        return $id !== null
+            ? (int) $id
+            : $this->fila($tabla, ['clave' => $clave, 'nombre' => ucfirst($clave)]);
+    }
+
     /** Un ciclo escolar cualquiera. */
     protected function cicloDePrueba(string $clave = 'CICLO'): int
     {
