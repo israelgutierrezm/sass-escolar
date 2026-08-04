@@ -21,9 +21,11 @@ use App\Models\ControlEscolar\Ciclo;
 use App\Models\ControlEscolar\Docente;
 use App\Models\ControlEscolar\Grupo;
 use App\Models\ControlEscolar\Inscripcion;
+use App\Models\ControlEscolar\SituacionCiclo;
 use App\Models\ControlEscolar\SituacionGrupo;
 use App\Models\ControlEscolar\SituacionInscripcion;
 use App\Models\ControlEscolar\TipoEvaluacion;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -127,6 +129,34 @@ class GrupoController extends Controller
             'grupo' => null,
             ...$this->catalogos(),
         ]);
+    }
+
+    /**
+     * Los ciclos que se pueden elegir para un grupo.
+     *
+     * Un ciclo cerrado ya rindió sus actas: abrirle un grupo es capturar en un
+     * periodo que la escuela dio por terminado. Se ofrecen los planeados y los
+     * en curso —planear los grupos del semestre que viene es justo lo normal—.
+     *
+     * El ciclo que el grupo YA tiene se conserva aunque esté cerrado: si
+     * desapareciera del desplegable, editar la clave de un grupo viejo lo dejaría
+     * sin ciclo, y guardar lo movería a otro.
+     */
+    private function ciclosElegibles(?Grupo $grupo = null): Collection
+    {
+        $cerrado = SituacionCiclo::query()->where('clave', 'cerrado')->value('id');
+
+        return Ciclo::query()
+            ->with(['campus:id', 'niveles:id'])
+            ->when(
+                $cerrado !== null,
+                fn ($q) => $q->where(fn ($sub) => $sub
+                    ->where('situacion_id', '!=', $cerrado)
+                    ->orWhereNull('situacion_id')
+                    ->orWhere('id', $grupo?->ciclo_id)),
+            )
+            ->orderByDesc('fecha_inicio')
+            ->get(['id', 'clave', 'nombre']);
     }
 
     public function store(Request $request): RedirectResponse
@@ -246,13 +276,13 @@ class GrupoController extends Controller
             'grupo' => $grupo->only([
                 'id', 'ciclo_id', 'campus_id', 'nivel_estudios_id', 'plan_id', 'semestre', 'clave', 'nombre', 'cupo', 'turno_id',
             ]),
-            ...$this->catalogos(),
+            ...$this->catalogos($grupo),
         ]);
     }
 
     public function update(Request $request, Grupo $grupo): RedirectResponse
     {
-        $grupo->update($this->validar($request, $grupo->id));
+        $grupo->update($this->validar($request, $grupo));
 
         return redirect()->route('tenant.escolar.grupos.index')->with('exito', 'Grupo actualizado.');
     }
@@ -401,8 +431,10 @@ class GrupoController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function validar(Request $request, ?int $id = null): array
+    private function validar(Request $request, ?Grupo $grupo = null): array
     {
+        $id = $grupo?->id;
+
         $datos = $request->validate([
             'ciclo_id' => ['required', 'integer', Rule::exists('ciclos', 'id')->whereNull('deleted_at')],
             'campus_id' => ['required', 'integer', Rule::exists('campus', 'id')->whereNull('deleted_at')],
@@ -444,6 +476,7 @@ class GrupoController extends Controller
             'turno_id' => 'turno',
         ]);
 
+        $this->exigirCicloVigente($datos, $grupo);
         $this->exigirRestriccionesDelCiclo($datos);
         $this->exigirNivelCoherente($datos);
 
@@ -504,6 +537,41 @@ class GrupoController extends Controller
      *
      * @param  array<string, mixed>  $datos
      */
+    /**
+     * No se abren grupos en un ciclo cerrado.
+     *
+     * Ese ciclo ya rindió sus actas; capturar dentro de él es capturar en un
+     * periodo que la escuela dio por terminado. El desplegable ya no los ofrece,
+     * pero la regla vive aquí: el formulario es una comodidad y esto es la
+     * frontera.
+     *
+     * Se exceptúa el ciclo que el grupo YA tenía. Un grupo viejo se sigue
+     * pudiendo editar —corregir su clave, su cupo— sin que eso obligue a
+     * mudarlo a un ciclo vigente, que sería falsear su historia.
+     *
+     * @param  array<string, mixed>  $datos
+     */
+    private function exigirCicloVigente(array $datos, ?Grupo $grupo): void
+    {
+        $elegido = (int) $datos['ciclo_id'];
+
+        if ($grupo !== null && $grupo->ciclo_id === $elegido) {
+            return;
+        }
+
+        $cerrado = SituacionCiclo::query()->where('clave', 'cerrado')->value('id');
+
+        if ($cerrado === null) {
+            return;
+        }
+
+        if (Ciclo::query()->whereKey($elegido)->where('situacion_id', $cerrado)->exists()) {
+            throw ValidationException::withMessages([
+                'ciclo_id' => 'Ese ciclo está cerrado: no se le pueden abrir grupos.',
+            ]);
+        }
+    }
+
     private function exigirRestriccionesDelCiclo(array $datos): void
     {
         $ciclo = Ciclo::query()->with(['campus:id', 'niveles:id'])->find($datos['ciclo_id']);
@@ -544,14 +612,13 @@ class GrupoController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function catalogos(): array
+    private function catalogos(?Grupo $grupo = null): array
     {
         return [
             // Cada ciclo viaja con lo que ACOTA: sus campus y su nivel. El
             // formulario lo usa para ofrecer solo campus y planes válidos según
-            // el ciclo elegido.
-            'ciclos' => Ciclo::query()->with(['campus:id', 'niveles:id'])->orderByDesc('fecha_inicio')
-                ->get(['id', 'clave', 'nombre'])
+            // el ciclo elegido. Los cerrados no se ofrecen: ver `ciclosElegibles`.
+            'ciclos' => $this->ciclosElegibles($grupo)
                 ->map(fn (Ciclo $ciclo) => [
                     'id' => $ciclo->id,
                     'nombre' => "{$ciclo->clave} — {$ciclo->nombre}",

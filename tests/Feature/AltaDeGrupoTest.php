@@ -90,6 +90,29 @@ class AltaDeGrupoTest extends TenantTestCase
         ]));
     }
 
+    /**
+     * Un ciclo cerrado ya rindió sus actas: abrirle un grupo es capturar en un
+     * periodo que la escuela dio por terminado.
+     */
+    public function test_no_se_abren_grupos_en_un_ciclo_cerrado(): void
+    {
+        $escuela = $this->alumnoInscrito();
+        $this->deCatalogo('situaciones_grupo');
+
+        $ciclo = $this->cicloDePrueba();
+        DB::table('ciclos')->where('id', $ciclo)->update([
+            'situacion_id' => $this->situacionCon('situaciones_ciclo', 'cerrado'),
+        ]);
+
+        $this->expectException(ValidationException::class);
+
+        $this->controlador->store($this->peticion([
+            'ciclo_id' => $ciclo,
+            'campus_id' => $escuela['campus'],
+            'plan_id' => $escuela['plan'],
+        ]));
+    }
+
     // ── Andamiaje ──────────────────────────────────────────────────────────
 
     /** @param  array<string, mixed>  $datos */
