@@ -27,6 +27,19 @@ const props = withDefaults(defineProps<{
      *
      * Se acepta cualquier cosa con `isDirty`: es lo que expone `useForm` de
      * Inertia y lo único que hace falta saber.
+     *
+     * ── LLAMA A `form.defaults()` AL ABRIR ────────────────────────────────
+     * Si el diálogo se abre con campos ya rellenos —la fecha del día que se
+     * pulsó, el reactivo que se va a editar—, `isDirty` nace en `true` y
+     * cerrar sin haber tecleado nada preguntará si queremos perder lo
+     * capturado. Una confirmación que salta cuando no hay nada que perder deja
+     * de leerse, y entonces tampoco se lee la que sí importa.
+     *
+     * Fijar ese punto de partida se deja a quien abre y NO se hace aquí a
+     * propósito: automatizarlo daría por guardados los cambios de quien abra
+     * el diálogo con modificaciones hechas a conciencia, y eso es peor que
+     * una pregunta de más. Ver `nuevo()`/`editar()` en Calendario.vue y
+     * Docencia/Examen.vue.
      */
     formulario?: { isDirty: boolean } | null;
 }>(), {
