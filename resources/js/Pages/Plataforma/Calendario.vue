@@ -175,7 +175,7 @@ const form = useForm<{
     destinos: Destino[];
 }>({
     id: null,
-    tipo: 'aviso',
+    tipo: 'evento',
     titulo: '',
     descripcion: '',
     inicia_en: '',

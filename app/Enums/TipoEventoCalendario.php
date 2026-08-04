@@ -18,21 +18,9 @@ namespace App\Enums;
  */
 enum TipoEventoCalendario: string
 {
-    /** Un comunicado: inscripciones abiertas, cambio de aula, lo que sea. */
-    case Aviso = 'aviso';
 
     /** Día no laborable por ley o por la escuela. */
     case Feriado = 'feriado';
-
-    /** Periodo sin clases: vacaciones, semana santa, receso administrativo. */
-    case Receso = 'receso';
-
-    case InicioCiclo = 'inicio_ciclo';
-
-    case FinCiclo = 'fin_ciclo';
-
-    /** Exámenes, entrega de actas, periodos de captura. */
-    case Evaluacion = 'evaluacion';
 
     /** Ceremonia, jornada, congreso: algo a lo que se asiste. */
     case Evento = 'evento';
@@ -40,12 +28,7 @@ enum TipoEventoCalendario: string
     public function etiqueta(): string
     {
         return match ($this) {
-            self::Aviso => 'Aviso',
             self::Feriado => 'Día feriado',
-            self::Receso => 'Receso',
-            self::InicioCiclo => 'Inicio de ciclo',
-            self::FinCiclo => 'Fin de ciclo',
-            self::Evaluacion => 'Evaluación',
             self::Evento => 'Evento',
         };
     }
@@ -60,12 +43,7 @@ enum TipoEventoCalendario: string
     public function color(): string
     {
         return match ($this) {
-            self::Aviso => '#2563eb',
             self::Feriado => '#dc2626',
-            self::Receso => '#d97706',
-            self::InicioCiclo => '#16a34a',
-            self::FinCiclo => '#7c3aed',
-            self::Evaluacion => '#db2777',
             self::Evento => '#0891b2',
         };
     }
@@ -73,7 +51,7 @@ enum TipoEventoCalendario: string
     /** Si ese día no se trabaja. Lo usan feriado y receso; lo demás sí es día hábil. */
     public function esNoLaborable(): bool
     {
-        return in_array($this, [self::Feriado, self::Receso], true);
+        return $this === self::Feriado;
     }
 
     /** @return array<int, array{valor: string, etiqueta: string, color: string, no_laborable: bool}> */
