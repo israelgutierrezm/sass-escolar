@@ -3,6 +3,7 @@ import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
+import Modal from '@/Components/Modal.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import { toast } from 'vue-sonner';
 
@@ -114,6 +115,7 @@ function guardarReglas(): void {
 const editando = ref<number | null>(null);
 const abierto = ref(false);
 
+
 const formReactivo = useForm<{
     tipo: string;
     enunciado: string;
@@ -154,6 +156,7 @@ function nuevo(): void {
     abierto.value = true;
     formReactivo.reset();
     formReactivo.clearErrors();
+    formReactivo.defaults();
 }
 
 function editar(r: ReactivoDocente): void {
@@ -171,6 +174,32 @@ function editar(r: ReactivoDocente): void {
         correcta: o.correcta,
         pareja: o.pareja ?? '',
     }));
+
+    /*
+     * Lo cargado pasa a ser el punto de partida.
+     *
+     * Sin esto `isDirty` nace en `true` —acabamos de rellenar ocho campos con
+     * el reactivo existente— y cerrar sin haber tocado nada preguntaría si
+     * queremos perder lo capturado. Una confirmación que salta de más deja de
+     * leerse, y entonces tampoco se lee la que sí importa.
+     */
+    formReactivo.defaults();
+}
+
+/**
+ * Cerrar el editor sin tirar el reactivo a medio escribir.
+ *
+ * Como panel se cerraba pulsando «Cancelar»; como diálogo se cierra también con
+ * Escape y con un clic fuera, que se hacen sin pensar. Un reactivo con su
+ * enunciado y sus cuatro opciones capturadas es demasiado trabajo para perderlo
+ * por rozar el velo.
+ */
+function cerrarReactivo(): void {
+    if (formReactivo.isDirty && ! confirm('Perderás lo que llevas capturado. ¿Cerrar de todos modos?')) {
+        return;
+    }
+
+    abierto.value = false;
 }
 
 /** Verdadero/falso se arma solo: teclear las dos opciones cada vez es tiempo tirado. */
@@ -577,11 +606,38 @@ const porRevisar = computed(() => props.intentos.filter((i) => i.requiere_revisi
             </ul>
         </section>
 
-        <!-- Alta / edición de reactivo -->
-        <section v-if="abierto" class="tarjeta p-6" :style="{ borderLeft: '3px solid var(--color-acento)' }">
-            <h2 class="text-base font-semibold text-contenido">
-                {{ editando ? 'Editar reactivo' : 'Nuevo reactivo' }}
-            </h2>
+        <!--
+            Alta / edición de reactivo, en diálogo.
+
+            Era un panel al final de la pantalla: se pulsaba «Nuevo reactivo» y
+            el formulario aparecía debajo del banco, así que había que
+            desplazarse para encontrarlo y volver a subir para ver qué preguntas
+            ya existían. Encima, el banco se queda a la vista.
+
+            Cuerpo desplazable porque es el formulario más largo del sistema
+            —tipo, enunciado, puntos, retroalimentación y una lista de opciones
+            que crece— y sin eso el botón de guardar quedaría fuera de pantalla.
+        -->
+        <Modal
+            v-if="abierto"
+            :etiqueta="editando ? 'Editar reactivo' : 'Nuevo reactivo'"
+            ancho="max-w-3xl"
+            @cerrar="cerrarReactivo"
+        >
+        <div class="max-h-[80vh] overflow-y-auto p-6">
+            <div class="flex items-start justify-between gap-3">
+                <h2 class="text-base font-semibold text-contenido">
+                    {{ editando ? 'Editar reactivo' : 'Nuevo reactivo' }}
+                </h2>
+                <button
+                    type="button"
+                    class="shrink-0 rounded-lg p-1 text-suave transition hover:bg-[color-mix(in_srgb,var(--color-acento)_8%,transparent)]"
+                    title="Cerrar"
+                    @click="cerrarReactivo"
+                >
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
 
             <div class="mt-4 grid gap-4 sm:grid-cols-2">
                 <label class="block">
@@ -777,12 +833,13 @@ const porRevisar = computed(() => props.intentos.filter((i) => i.requiere_revisi
                     type="button"
                     class="rounded-lg border px-4 py-2 text-sm font-medium"
                     :style="{ borderColor: 'var(--color-borde)' }"
-                    @click="abierto = false"
+                    @click="cerrarReactivo"
                 >
                     Cancelar
                 </button>
             </div>
-        </section>
+        </div>
+        </Modal>
 
         <!-- Lo que espera revisión -->
         <section v-if="intentos.length" class="tarjeta overflow-hidden">
