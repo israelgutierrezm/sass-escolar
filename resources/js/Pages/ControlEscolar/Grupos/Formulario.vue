@@ -379,7 +379,10 @@ function enviar(): void {
                         style="background-color: color-mix(in srgb, #f59e0b 8%, transparent)"
                     >
                         Ese nivel no tiene ninguna carrera ofertada en este campus. Cárgala en
-                        <a href="/academico/oferta" class="underline">Oferta</a> y vuelve.
+                        <!-- En otra pestaña a propósito: lo capturado hasta aquí
+                             se conserva para poder seguir al volver. -->
+                        <a href="/academico/ofertas" target="_blank" rel="noopener" class="underline">Oferta</a>
+                        y vuelve.
                     </p>
 
                     <p
@@ -388,7 +391,8 @@ function enviar(): void {
                         style="background-color: color-mix(in srgb, #f59e0b 8%, transparent)"
                     >
                         Esa carrera no tiene ningún plan de estudios ofertado en este campus. Cárgalo
-                        en <a href="/academico/oferta" class="underline">Oferta</a> y vuelve.
+                        en <a href="/academico/ofertas" target="_blank" rel="noopener" class="underline">Oferta</a>
+                        y vuelve.
                     </p>
 
                     <p
