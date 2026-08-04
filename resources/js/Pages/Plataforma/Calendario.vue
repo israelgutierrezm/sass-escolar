@@ -580,9 +580,12 @@ function fechaLegible(e: Evento): string {
             índice, no un segundo lugar donde editar. Al elegir uno se cierra,
             para no dejar dos capas encimadas.
         -->
+        <!-- Al body, por lo mismo que la ficha: dentro del <main> el velo
+             respetaría la barra lateral y el encabezado. -->
+        <Teleport to="body">
         <div
             v-if="diaAbierto"
-            class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
+            class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm"
             @click.self="diaAbierto = null"
         >
             <div class="tarjeta w-full max-w-md overflow-hidden" role="dialog" aria-modal="true">
@@ -624,6 +627,7 @@ function fechaLegible(e: Evento): string {
                 </ul>
             </div>
         </div>
+        </Teleport>
 
         <!--
             La ficha del evento. Desde aquí se salta a editar o a eliminar, así

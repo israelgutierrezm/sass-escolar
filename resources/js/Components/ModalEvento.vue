@@ -40,16 +40,50 @@ function alTeclear(e: KeyboardEvent): void {
     if (e.key === 'Escape') emit('cerrar');
 }
 
-onMounted(() => document.addEventListener('keydown', alTeclear));
-onBeforeUnmount(() => document.removeEventListener('keydown', alTeclear));
+/*
+ * Con el modal abierto, el fondo no se desplaza.
+ *
+ * Sin esto la rueda del ratón mueve la página de atrás mientras se lee la
+ * ficha, que se siente como si el modal se despegara. Y de paso desaparece la
+ * barra de desplazamiento, así que el velo cubre el ancho completo y la ficha
+ * queda centrada de verdad y no diez píxeles a la izquierda.
+ *
+ * Se compensa el hueco de la barra con padding para que el contenido de atrás
+ * no dé un salto lateral al abrir y otro al cerrar.
+ */
+onMounted(() => {
+    document.addEventListener('keydown', alTeclear);
+
+    const barra = window.innerWidth - document.documentElement.clientWidth;
+
+    document.body.style.overflow = 'hidden';
+    document.body.style.paddingRight = barra > 0 ? `${barra}px` : '';
+});
+
+onBeforeUnmount(() => {
+    document.removeEventListener('keydown', alTeclear);
+    document.body.style.overflow = '';
+    document.body.style.paddingRight = '';
+});
 </script>
 
 <template>
-    <!-- El fondo cierra al pulsarlo; el contenido no, por eso el `.self`. -->
-    <div
-        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
-        @click.self="emit('cerrar')"
-    >
+    <!--
+        `Teleport` al body: sin esto el modal se queda DENTRO del <main>.
+
+        `position: fixed` deja de referirse a la ventana en cuanto un ancestro
+        tiene `transform`, `filter` o `backdrop-filter` —el layout usa varios—,
+        y entonces `inset-0` cubre sólo el área de contenido: el velo respetaba
+        la barra lateral y el encabezado, y la ficha quedaba centrada respecto
+        de una caja, no de la pantalla. Sacándolo del árbol, el único ancestro
+        es el body.
+    -->
+    <Teleport to="body">
+        <!-- El fondo cierra al pulsarlo; el contenido no, por eso el `.self`. -->
+        <div
+            class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm"
+            @click.self="emit('cerrar')"
+        >
         <div class="tarjeta w-full max-w-lg overflow-hidden" role="dialog" aria-modal="true">
             <!-- Franja del color del evento: identifica el tipo antes de leer. -->
             <div class="h-1.5" :style="{ backgroundColor: evento.color ?? 'var(--color-acento)' }" />
@@ -107,7 +141,8 @@ onBeforeUnmount(() => document.removeEventListener('keydown', alTeclear));
                 <div v-if="$slots.acciones" class="mt-5 flex flex-wrap justify-end gap-2 border-t border-borde pt-4">
                     <slot name="acciones" />
                 </div>
+                </div>
             </div>
         </div>
-    </div>
+    </Teleport>
 </template>
