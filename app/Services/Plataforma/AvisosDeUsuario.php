@@ -89,11 +89,18 @@ class AvisosDeUsuario
     }
 
     /**
-     * Cuántos no ha visto todavía, para el contador de la campana.
+     * Cuántos le quedan por atender, para el contador de la campana.
      *
-     * Cuenta lo que nunca se le ha puesto delante, no lo que no ha confirmado:
-     * un informativo no se confirma nunca —no lo pide— y contarlo dejaría la
-     * campana encendida para siempre, que es como se aprende a ignorarla.
+     * Son dos cosas distintas según lo que el aviso pida:
+     *
+     * - El INFORMATIVO cuenta hasta que se le pone delante. No pide confirmar
+     *   nada, así que exigirle una confirmación que nunca va a llegar dejaría
+     *   la campana encendida para siempre, y una campana que siempre marca es
+     *   una campana que se deja de mirar.
+     * - El IMPORTANTE y el CRÍTICO cuentan hasta que los confirma. Que se los
+     *   hayamos mostrado no es que los haya atendido: quien pospone un
+     *   importante con «ahora no» tiene que seguir viendo que le falta algo, o
+     *   posponer sería la forma de hacerlo desaparecer.
      */
     public function sinLeer(Usuario $usuario): int
     {
@@ -101,8 +108,16 @@ class AvisosDeUsuario
             return 0;
         }
 
+        $personaId = $usuario->persona_id;
+
         return $this->suyos($usuario)
-            ->whereDoesntHave('lecturas', fn (Builder $l) => $l->where('persona_id', $usuario->persona_id))
+            // Nada confirmado cuenta, sea de la prioridad que sea.
+            ->whereDoesntHave('lecturas', fn (Builder $l) => $l
+                ->where('persona_id', $personaId)
+                ->whereNotNull('confirmado_en'))
+            ->where(fn (Builder $q) => $q
+                ->where('prioridad', '!=', PrioridadAviso::Informativo->value)
+                ->orWhereDoesntHave('lecturas', fn (Builder $l) => $l->where('persona_id', $personaId)))
             ->count();
     }
 

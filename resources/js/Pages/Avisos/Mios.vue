@@ -16,7 +16,12 @@ interface AvisoConLectura extends AvisoRecibido {
     confirmado: string | null;
 }
 
-defineProps<{ avisos: AvisoConLectura[] }>();
+/*
+ * `lista` y no `avisos`: ese nombre es de la prop compartida que alimentan la
+ * campana y el aviso bloqueante. Llamarla igual la pisaría justo en esta
+ * pantalla. Ver el comentario de MisAvisosController::index.
+ */
+defineProps<{ lista: AvisoConLectura[] }>();
 
 const confirmando = ref<number | null>(null);
 
@@ -34,9 +39,9 @@ function confirmar(aviso: AvisoConLectura): void {
     <Head title="Mis avisos" />
 
     <AppLayout titulo="Mis avisos">
-        <section v-if="avisos.length" class="space-y-3">
+        <section v-if="lista.length" class="space-y-3">
             <article
-                v-for="a in avisos"
+                v-for="a in lista"
                 :key="a.id"
                 class="tarjeta border-l-4 p-5"
                 :style="{ borderLeftColor: a.color }"

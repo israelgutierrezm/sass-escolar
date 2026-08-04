@@ -28,8 +28,16 @@ class MisAvisosController extends Controller
         /** @var Usuario $usuario */
         $usuario = $request->user();
 
+        /*
+         * `lista` y no `avisos`: ese nombre ya es del share.
+         *
+         * Una prop de página con el mismo nombre PISA la compartida, y aquí eso
+         * dejaba sin datos —sólo en esta pantalla— a la campana y al modal del
+         * aviso crítico, que leen `avisos.sin_leer` y `avisos.pendientes`. Un
+         * aviso que bloquea en todas partes menos en una es peor que no tenerlo.
+         */
         return Inertia::render('Avisos/Mios', [
-            'avisos' => $this->avisos->todos($usuario),
+            'lista' => $this->avisos->todos($usuario),
         ]);
     }
 

@@ -19,8 +19,16 @@ const escuela = computed(() => page.props.escuela);
 const flash = computed(() => page.props.flash);
 const suplantacion = computed(() => page.props.suplantacion);
 
-/** Avisos vigentes que la persona todavia no ha visto. */
+/** Avisos que le faltan por atender: sin ver, o sin confirmar. */
 const avisosSinLeer = computed(() => page.props.avisos?.sin_leer ?? 0);
+
+const tituloCampana = computed(() => {
+    if (avisosSinLeer.value === 0) return 'Mis avisos';
+
+    return avisosSinLeer.value === 1
+        ? 'Mis avisos (1 sin leer)'
+        : `Mis avisos (${avisosSinLeer.value} sin leer)`;
+});
 
 /**
  * Los mensajes del backend salen como TOAST, no como una barra fija arriba de
@@ -487,12 +495,14 @@ const iniciales = computed(() => {
                         </svg>
                     </button>
 
-                    <!-- Avisos. La campana lleva el numero de los que no ha
-                         visto; el critico no espera aqui, se planta solo. -->
+                    <!-- Avisos. La campana lleva cuantos le faltan por atender:
+                         informativos que no ha visto, e importantes o criticos
+                         que no ha confirmado (posponer uno no lo salda). El
+                         critico no espera aqui, se planta solo. -->
                     <Link
                         href="/mis-avisos"
                         class="anim-crecer relative rounded-xl p-2 transition duration-200 hover:bg-black/5"
-                        :title="avisosSinLeer === 0 ? 'Mis avisos' : `Mis avisos (${avisosSinLeer} sin leer)`"
+                        :title="tituloCampana"
                     >
                         <svg class="icono-anim h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
@@ -502,7 +512,7 @@ const iniciales = computed(() => {
                             class="absolute right-0.5 top-0.5 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[10px] font-semibold leading-none text-white"
                             style="background-color: #dc2626"
                         >
-                            {{ avisosSinLeer > 9 ? '9+' : avisosSinLeer }}
+                            {{ avisosSinLeer > 99 ? '99+' : avisosSinLeer }}
                         </span>
                     </Link>
 
