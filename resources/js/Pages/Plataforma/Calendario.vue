@@ -182,6 +182,21 @@ const editorAbierto = ref(false);
  */
 const viendo = ref<Evento | null>(null);
 
+/**
+ * El día cuya lista completa se está mirando, o null.
+ *
+ * Se abre desde el «+N más» y no reemplaza a la celda: la rejilla sigue
+ * enseñando tres por día a propósito —con seis, el mes deja de leerse de un
+ * vistazo, que es para lo que sirve—. Lo que faltaba era la salida hacia el
+ * resto.
+ */
+const diaAbierto = ref<string | null>(null);
+
+/** Los del día abierto, para el modal de la lista. */
+const eventosDelDiaAbierto = computed(() =>
+    diaAbierto.value === null ? [] : eventosDe(diaAbierto.value),
+);
+
 function nuevo(fecha?: string): void {
     form.reset();
     form.clearErrors();
@@ -468,12 +483,19 @@ function fechaLegible(e: Evento): string {
                         >
                             {{ e.titulo }}
                         </button>
-                        <span
+                        <!--
+                            El «+N más» era texto inerte: un día con seis
+                            eventos enseñaba tres y escondía la mitad sin forma
+                            de llegar a ellos. Ahora abre el día completo.
+                        -->
+                        <button
                             v-if="eventosDe(celda.fecha).length > 3"
-                            class="block px-1.5 text-[10px] text-suave"
+                            type="button"
+                            class="block w-full px-1.5 text-left text-[10px] text-suave underline decoration-dotted transition hover:text-contenido"
+                            @click.stop="diaAbierto = celda.fecha"
                         >
                             +{{ eventosDe(celda.fecha).length - 3 }} más
-                        </span>
+                        </button>
                     </span>
                 </div>
             </div>
@@ -551,6 +573,58 @@ function fechaLegible(e: Evento): string {
             </p>
         </section>
     
+        <!--
+            La lista de un día.
+
+            Se abre desde el «+N más» y lleva a la ficha de cada uno: es un
+            índice, no un segundo lugar donde editar. Al elegir uno se cierra,
+            para no dejar dos capas encimadas.
+        -->
+        <div
+            v-if="diaAbierto"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
+            @click.self="diaAbierto = null"
+        >
+            <div class="tarjeta w-full max-w-md overflow-hidden" role="dialog" aria-modal="true">
+                <header class="flex items-start justify-between gap-3 px-6 py-4">
+                    <div>
+                        <h2 class="text-base font-semibold text-contenido">Eventos del {{ diaAbierto }}</h2>
+                        <p class="mt-0.5 text-xs text-suave">
+                            {{ eventosDelDiaAbierto.length }} en total. Pulsa uno para ver su ficha.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        class="shrink-0 rounded-lg p-1 text-suave transition hover:bg-[color-mix(in_srgb,var(--color-acento)_8%,transparent)]"
+                        title="Cerrar"
+                        @click="diaAbierto = null"
+                    >
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                    </button>
+                </header>
+
+                <ul class="border-t border-borde">
+                    <li v-for="e in eventosDelDiaAbierto" :key="e.id">
+                        <button
+                            type="button"
+                            class="flex w-full items-start gap-3 border-b border-borde px-6 py-3 text-left transition last:border-0 hover:bg-[color-mix(in_srgb,var(--color-acento)_5%,transparent)]"
+                            @click="viendo = e; diaAbierto = null"
+                        >
+                            <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full" :style="{ backgroundColor: e.color }" />
+                            <span class="min-w-0 flex-1">
+                                <span class="block truncate text-sm text-contenido">{{ e.titulo }}</span>
+                                <span class="block text-xs text-suave">
+                                    {{ e.tipo_etiqueta }}
+                                    <template v-if="!e.todo_el_dia"> · {{ e.inicia_en.slice(11, 16) }}</template>
+                                    <template v-if="!e.publicado"> · borrador</template>
+                                </span>
+                            </span>
+                        </button>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
         <!--
             La ficha del evento. Desde aquí se salta a editar o a eliminar, así
             que el mes no se pierde de vista para hacer una corrección.
