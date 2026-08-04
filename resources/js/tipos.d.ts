@@ -44,6 +44,24 @@ export interface Flash {
     advertencia: string | null;
 }
 
+/**
+ * Un aviso tal como le llega a quien lo recibe.
+ *
+ * `bloquea` es lo que separa al crítico del resto: no se puede quitar de en
+ * medio sin confirmar que se leyó.
+ */
+export interface AvisoRecibido {
+    id: number;
+    titulo: string;
+    cuerpo: string;
+    prioridad: 'informativo' | 'importante' | 'critico';
+    prioridad_etiqueta: string;
+    color: string;
+    bloquea: boolean;
+    publicado_desde: string | null;
+    vigente_hasta: string | null;
+}
+
 export interface PropsCompartidas {
     auth: {
         usuario: UsuarioAutenticado | null;
@@ -52,5 +70,11 @@ export interface PropsCompartidas {
     flash: Flash;
     /** Usuario REAL cuando la sesion es una suplantacion; null si no. */
     suplantacion: { usuario: string; nombre: string | null } | null;
+    avisos: {
+        /** Lo que tiene que salirle al paso: crítico o importante sin confirmar. */
+        pendientes: AvisoRecibido[];
+        /** Vigentes que nunca se le han puesto delante, para la campana. */
+        sin_leer: number;
+    };
     [key: string]: unknown;
 }

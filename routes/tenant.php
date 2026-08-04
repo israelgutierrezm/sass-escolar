@@ -45,6 +45,7 @@ use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\IdentidadController;
 use App\Http\Controllers\InstitucionController;
 use App\Http\Controllers\InscripcionController;
+use App\Http\Controllers\MisAvisosController;
 use App\Http\Controllers\OfertaController;
 use App\Http\Controllers\PerfilController;
 use App\Http\Controllers\BecaController;
@@ -153,6 +154,15 @@ Route::middleware([
          * Mi perfil: datos de la propia cuenta. Sin permiso especial ni id en la
          * URL —siempre es el usuario autenticado—, como suplantar o el tema.
          */
+        /*
+         * Mis avisos. Sin `can:` a propósito: recibir un aviso no es una
+         * facultad que se otorgue, es la contraparte de que alguien lo haya
+         * dirigido. Quién ve qué lo deciden los destinos del aviso.
+         */
+        Route::get('/mis-avisos', [MisAvisosController::class, 'index'])->name('tenant.misavisos.index');
+        Route::post('/mis-avisos/{aviso}/confirmar', [MisAvisosController::class, 'confirmar'])
+            ->whereNumber('aviso')->name('tenant.misavisos.confirmar');
+
         Route::get('/mi-perfil', [PerfilController::class, 'show'])->name('tenant.perfil.show');
         Route::put('/mi-perfil', [PerfilController::class, 'actualizar'])->name('tenant.perfil.actualizar');
         Route::put('/mi-perfil/password', [PerfilController::class, 'password'])->name('tenant.perfil.password');

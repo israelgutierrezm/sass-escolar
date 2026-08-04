@@ -42,9 +42,19 @@ const props = withDefaults(defineProps<{
      * Docencia/Examen.vue.
      */
     formulario?: { isDirty: boolean } | null;
+    /**
+     * No se cierra por Escape ni pulsando el velo: sólo por sus propios botones.
+     *
+     * Para lo que no admite «luego lo veo» —un aviso crítico que la persona
+     * tiene que confirmar—. Todo lo demás del caparazón sigue igual: si el velo
+     * y el foco atrapado no vivieran aquí, quien necesita bloquear acabaría
+     * escribiendo su propio modal a medias, que es como se pierde el foco.
+     */
+    bloqueante?: boolean;
 }>(), {
     ancho: 'max-w-lg',
     formulario: null,
+    bloqueante: false,
 });
 
 const emit = defineEmits<{ cerrar: [] }>();
@@ -59,6 +69,10 @@ const emit = defineEmits<{ cerrar: [] }>();
  * que es justo el error que esto evita.
  */
 function intentarCerrar(): void {
+    if (props.bloqueante) {
+        return;
+    }
+
     if (props.formulario?.isDirty && ! confirm('Perderás lo que llevas capturado. ¿Cerrar de todos modos?')) {
         return;
     }
@@ -156,7 +170,8 @@ onBeforeUnmount(() => {
         contenido, respetando la barra lateral y el encabezado.
     -->
     <Teleport to="body">
-        <!-- El fondo cierra al pulsarlo; el contenido no, por eso el `.self`. -->
+        <!-- El fondo cierra al pulsarlo; el contenido no, por eso el `.self`.
+             Si es bloqueante, `intentarCerrar` no hace nada y el velo aguanta. -->
         <div
             class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm"
             @click.self="intentarCerrar"

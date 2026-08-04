@@ -9,6 +9,7 @@ use App\Models\Identidad\MenuRol;
 use App\Models\Identidad\PersonaRol;
 use App\Models\Identidad\Rol;
 use App\Models\Identidad\Usuario;
+use App\Services\Plataforma\AvisosDeUsuario;
 use App\Services\ResolutorTema;
 use App\Services\Suplantador;
 use Illuminate\Http\Request;
@@ -66,6 +67,37 @@ class HandleInertiaRequests extends Middleware
             // Quien esta realmente detras de esta sesion. Null salvo que se
             // este suplantando; con esto se pinta la banda del layout.
             'suplantacion' => fn () => $this->suplantacion($request),
+
+            /*
+             * Los avisos que tienen que salirle al paso: crítico (bloquea hasta
+             * que confirme) o importante sin confirmar (destacado, se puede
+             * cerrar). Van en el share y no en cada controlador porque un aviso
+             * urgente no puede depender de en qué pantalla estaba la persona.
+             *
+             * Lazy: sólo se consulta si el layout lo pide, así una descarga o
+             * un endpoint que no pinta layout no paga la consulta. Los
+             * informativos NO viajan aquí —se ven en /mis-avisos—: no tienen
+             * por qué costar algo en cada clic del sistema, pero sí se cuentan
+             * para la campana.
+             *
+             * Los dos datos salen del mismo callback y en este orden a
+             * propósito: entregar los pendientes marca que se le pusieron
+             * delante, y el contador tiene que reflejar ya ese hecho. Con dos
+             * props lazy separadas, el número dependería de cuál resolviera
+             * Inertia primero.
+             */
+            'avisos' => function () use ($usuario) {
+                if ($usuario === null) {
+                    return ['pendientes' => [], 'sin_leer' => 0];
+                }
+
+                $servicio = app(AvisosDeUsuario::class);
+
+                return [
+                    'pendientes' => $servicio->pendientes($usuario),
+                    'sin_leer' => $servicio->sinLeer($usuario),
+                ];
+            },
             'flash' => [
                 'exito' => fn () => $request->session()->get('exito'),
                 'error' => fn () => $request->session()->get('error'),
