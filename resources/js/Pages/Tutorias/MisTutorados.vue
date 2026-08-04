@@ -29,11 +29,14 @@ interface Tutorado {
         saldo: number | null;
         vencido: boolean;
     };
+    sesiones: number;
+    ultima_sesion: string | null;
+    dias_sin_sesion: number | null;
 }
 
 defineProps<{
     tutorados: Tutorado[];
-    resumen: { total: number; reprobando: number; en_riesgo: number };
+    resumen: { total: number; reprobando: number; en_riesgo: number; sin_ver: number };
 }>();
 
 function iniciales(nombre: string): string {
@@ -59,7 +62,7 @@ function colorPromedio(p: number | null): string | undefined {
             Las cifras que valen cero se pintan neutras; sólo lo que hay que
             atender se colorea, para que el color signifique algo.
         -->
-        <section class="tarjeta mb-4 grid gap-4 p-6 sm:grid-cols-3">
+        <section class="tarjeta mb-4 grid gap-4 p-6 sm:grid-cols-2 lg:grid-cols-4">
             <div>
                 <p class="text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">A mi cargo</p>
                 <p class="mt-1 text-2xl font-semibold tabular-nums">{{ resumen.total }}</p>
@@ -71,6 +74,23 @@ function colorPromedio(p: number | null): string | undefined {
                     :style="{ color: resumen.reprobando > 0 ? '#dc2626' : undefined }"
                 >
                     {{ resumen.reprobando }}
+                </p>
+            </div>
+            <div>
+                <!--
+                    El que se escapa sin hacer ruido: va bien, así que no sale
+                    en «reprobadas» ni en «riesgo», y hace tres meses que nadie
+                    se sienta con él.
+                -->
+                <p class="text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">Sin ver</p>
+                <p
+                    class="mt-1 text-2xl font-semibold tabular-nums"
+                    :style="{ color: resumen.sin_ver > 0 ? '#d97706' : undefined }"
+                >
+                    {{ resumen.sin_ver }}
+                </p>
+                <p class="mt-0.5 text-xs" :style="{ color: 'var(--color-suave)' }">
+                    Nunca, o hace más de dos meses.
                 </p>
             </div>
             <div>
@@ -128,6 +148,19 @@ function colorPromedio(p: number | null): string | undefined {
                     </p>
                     <p v-else class="text-xs" :style="{ color: 'var(--color-suave)' }">
                         Todavía sin calificaciones.
+                    </p>
+
+                    <!--
+                        Cuándo se vieron por última vez. «Sin sesiones» en ámbar
+                        y no en rojo: no es una falta del alumno, es trabajo
+                        pendiente del tutor —de quien está leyendo—.
+                    -->
+                    <p class="text-xs" :style="{ color: t.sesiones === 0 || (t.dias_sin_sesion ?? 0) > 60 ? '#d97706' : 'var(--color-suave)' }">
+                        <template v-if="t.sesiones === 0">Sin sesiones todavía</template>
+                        <template v-else>
+                            {{ t.sesiones }} {{ t.sesiones === 1 ? 'sesión' : 'sesiones' }} ·
+                            última {{ t.ultima_sesion }}
+                        </template>
                     </p>
 
                     <p v-if="t.estado.reprobadas" class="text-xs font-medium text-red-600">

@@ -11,6 +11,7 @@ use App\Models\ControlEscolar\Tutoria;
 use App\Models\Identidad\Persona;
 use App\Services\EstadoDelAlumno;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -51,9 +52,27 @@ class TutoriaController extends Controller
             ->with(['alumno', 'ciclo:id,clave'])
             ->get();
 
+        /*
+         * Cuántas sesiones lleva cada tutoría y de cuándo es la última.
+         *
+         * Es lo que convierte la lista en una herramienta de trabajo: sin esto,
+         * el tutor ve a quién va MAL pero no a quién lleva sin ver. Y son cosas
+         * distintas —el que va bien y hace tres meses que no se sienta con él
+         * es precisamente el que se le puede estar escapando—.
+         *
+         * Una consulta agregada por todas sus tutorías, no una por tutorado.
+         */
+        $sesiones = DB::table('sesiones_tutoria')
+            ->whereIn('tutoria_id', $tutorias->pluck('id'))
+            ->whereNull('deleted_at')
+            ->groupBy('tutoria_id')
+            ->select('tutoria_id', DB::raw('COUNT(*) as cuantas'), DB::raw('MAX(fecha) as ultima'))
+            ->get()
+            ->keyBy('tutoria_id');
+
         $tutorados = $tutorias
             ->filter(fn (Tutoria $t) => $t->alumno !== null)
-            ->map(function (Tutoria $t) {
+            ->map(function (Tutoria $t) use ($sesiones) {
                 /** @var Persona $alumno */
                 $alumno = $t->alumno;
 
@@ -72,6 +91,17 @@ class TutoriaController extends Controller
                     'ciclo' => $t->ciclo?->clave,
                     // Sin finanzas: no es asunto suyo.
                     'estado' => $this->estado->de($alumno, academico: true, finanzas: false),
+                    'sesiones' => (int) ($sesiones->get($t->id)->cuantas ?? 0),
+                    'ultima_sesion' => $sesiones->get($t->id)->ultima ?? null,
+                    /*
+                     * Cuántos días desde la última. Se calcula aquí y no en la
+                     * pantalla porque «hace mucho» es una regla, no un formato:
+                     * si mañana la escuela decide que son 45 días, se cambia en
+                     * un sitio.
+                     */
+                    'dias_sin_sesion' => isset($sesiones->get($t->id)->ultima)
+                        ? (int) now()->startOfDay()->diffInDays($sesiones->get($t->id)->ultima, false) * -1
+                        : null,
                 ];
             })
             ->values();
@@ -101,6 +131,11 @@ class TutoriaController extends Controller
                 'reprobando' => $ordenados->filter(fn (array $t) => ($t['estado']['reprobadas'] ?? 0) > 0)->count(),
                 // Debajo de 8 sin llegar a reprobar: todavía se puede hacer algo,
                 // que es justo cuando una tutoría sirve para algo.
+                // Nunca vistos o vistos hace más de dos meses: el que se
+                // escapa sin hacer ruido.
+                'sin_ver' => $ordenados->filter(
+                    fn (array $t) => $t['sesiones'] === 0 || ($t['dias_sin_sesion'] ?? 0) > 60
+                )->count(),
                 'en_riesgo' => $ordenados->filter(function (array $t) {
                     $p = $t['estado']['promedio'];
 
