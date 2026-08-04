@@ -22,7 +22,7 @@ class Encuesta extends Model
 
     protected $table = 'encuestas';
 
-    protected $fillable = ['titulo', 'descripcion', 'es_plantilla', 'activa'];
+    protected $fillable = ['origen_id', 'titulo', 'descripcion', 'es_plantilla', 'activa'];
 
     protected function casts(): array
     {
@@ -37,6 +37,14 @@ class Encuesta extends Model
     public function aplicaciones(): HasMany
     {
         return $this->hasMany(AplicacionEncuesta::class, 'encuesta_id');
+    }
+
+    /** Todas las copias que salieron de la misma plantilla, incluida ella. */
+    public function familia(): Builder
+    {
+        $raiz = $this->origen_id ?? $this->id;
+
+        return self::query()->where('id', $raiz)->orWhere('origen_id', $raiz);
     }
 
     public function scopePlantillas(Builder $q): Builder
@@ -55,6 +63,14 @@ class Encuesta extends Model
     public function duplicar(?string $titulo = null, bool $comoPlantilla = false): self
     {
         $copia = self::create([
+            /*
+             * Siempre la raíz, no esta copia.
+             *
+             * Si cada copia apuntara a la anterior, reunir la familia para
+             * comparar ciclos exigiría recorrer la cadena hacia arriba, y una
+             * plantilla borrada la partiría en dos.
+             */
+            'origen_id' => $this->origen_id ?? $this->id,
             'titulo' => $titulo ?? $this->titulo,
             'descripcion' => $this->descripcion,
             'es_plantilla' => $comoPlantilla,

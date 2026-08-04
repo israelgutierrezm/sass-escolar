@@ -11,6 +11,8 @@ use App\Models\ControlEscolar\Ciclo;
 use App\Models\Encuestas\AplicacionEncuesta;
 use App\Models\Encuestas\Encuesta;
 use App\Models\Encuestas\Sujeto;
+use App\Services\Encuestas\ComparaAplicaciones;
+use App\Services\Encuestas\ExportaResultados;
 use App\Services\Encuestas\GeneradorDeSujetos;
 use App\Services\Encuestas\ResultadosDeEncuesta;
 use Illuminate\Http\RedirectResponse;
@@ -19,6 +21,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * Poner una encuesta en marcha y ver qué contestó la escuela.
@@ -241,5 +245,51 @@ class AplicacionController extends Controller
         $aplicacion->delete();
 
         return back(303)->with('exito', 'Aplicación eliminada.');
+    }
+
+    /**
+     * Los resultados en un archivo.
+     *
+     * Un consejo académico se reúne con papeles, y quien tiene que hablar con
+     * un docente sobre su evaluación necesita llevarle algo. Lo que la pantalla
+     * oculta por el umbral de anonimato, el archivo también: sería absurdo
+     * protegerlo en el navegador y regalarlo en un Excel que acaba por correo.
+     */
+    public function exportar(AplicacionEncuesta $aplicacion, ExportaResultados $exporta): BinaryFileResponse
+    {
+        $nombre = Str::slug($aplicacion->titulo).'-resultados.xlsx';
+
+        return response()->download($exporta->generar($aplicacion), $nombre)->deleteFileAfterSend();
+    }
+
+    /**
+     * Cómo cambió respecto de las aplicaciones anteriores del mismo instrumento.
+     *
+     * «4.1 sobre 5» no dice si la escuela va bien: dice que va en 4.1. Lo que
+     * permite decidir es si subió o bajó, y para eso hay que comparar contra el
+     * mismo cuestionario aplicado antes.
+     */
+    public function comparar(AplicacionEncuesta $aplicacion, ComparaAplicaciones $compara): Response
+    {
+        /*
+         * Se emparejan por la PLANTILLA de la que salieron.
+         *
+         * Cada aplicación copia sus preguntas y tiene su propio cuestionario;
+         * lo que las hermana es `origen_id`. Emparejar por título dejaría de
+         * funcionar en cuanto alguien renombre una aplicación, que es
+         * exactamente lo que se hace cada semestre.
+         */
+        $familia = $aplicacion->encuesta?->familia()->pluck('id') ?? collect();
+
+        $hermanas = AplicacionEncuesta::query()
+            ->whereIn('encuesta_id', $familia)
+            ->with('encuesta.preguntas')
+            ->orderBy('id')
+            ->get();
+
+        return Inertia::render('Encuestas/Comparativa', [
+            'aplicacion' => ['id' => $aplicacion->id, 'titulo' => $aplicacion->titulo],
+            'comparativa' => $compara->de($hermanas),
+        ]);
     }
 }

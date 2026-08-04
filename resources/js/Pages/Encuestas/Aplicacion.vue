@@ -111,6 +111,22 @@ function colorPromedio(promedio: number | null): string {
                 >
                     Cerrar
                 </button>
+
+                <!-- Un consejo académico se reúne con papeles, y quien va a
+                     hablar con un docente necesita llevarle algo. -->
+                <a
+                    :href="`/encuestas/aplicaciones/${aplicacion.id}/exportar`"
+                    class="rounded-lg border border-borde px-3.5 py-2 text-sm"
+                >
+                    Exportar
+                </a>
+
+                <Link
+                    :href="`/encuestas/aplicaciones/${aplicacion.id}/comparativa`"
+                    class="rounded-lg border border-borde px-3.5 py-2 text-sm"
+                >
+                    Comparar ciclos
+                </Link>
             </div>
         </section>
 

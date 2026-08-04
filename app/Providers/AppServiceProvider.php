@@ -11,6 +11,7 @@ use App\Panel\Tarjetas\CarteraDeLaEscuela;
 use App\Panel\Tarjetas\ComisionesPorPagar;
 use App\Panel\Tarjetas\ContinuarCurso;
 use App\Panel\Tarjetas\EmbudoDeAdmision;
+use App\Panel\Tarjetas\EncuestasDeLaEscuela;
 use App\Panel\Tarjetas\IndicadoresDelDia;
 use App\Panel\Tarjetas\LoQueEsperaAlDocente;
 use App\Panel\Tarjetas\MiAvanceAcademico;
@@ -195,6 +196,10 @@ class AppServiceProvider extends ServiceProvider
                 IndicadoresDelDia::class,
                 ComisionesPorPagar::class,
                 EmbudoDeAdmision::class,
+                // Antes que la actividad por hora: una encuesta abierta con
+                // baja participación es algo sobre lo que todavía se puede
+                // hacer algo, y eso vale más que una gráfica de uso.
+                EncuestasDeLaEscuela::class,
                 ActividadPorHora::class,
                 AccesosDirectos::class,
             ] as $tarjeta) {

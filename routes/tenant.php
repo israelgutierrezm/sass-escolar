@@ -1311,6 +1311,8 @@ Route::middleware([
                     Route::post('{aplicacion}/sujetos', 'generarSujetos')->whereNumber('aplicacion')->name('sujetos');
                     Route::patch('{aplicacion}/estado', 'estado')->whereNumber('aplicacion')->name('estado');
                     Route::get('{aplicacion}/docente/{sujeto}', 'sujeto')->whereNumber(['aplicacion', 'sujeto'])->name('sujeto');
+                    Route::get('{aplicacion}/exportar', 'exportar')->whereNumber('aplicacion')->name('exportar');
+                    Route::get('{aplicacion}/comparativa', 'comparar')->whereNumber('aplicacion')->name('comparativa');
                     Route::delete('{aplicacion}', 'eliminar')->whereNumber('aplicacion')->name('eliminar');
                 });
         });

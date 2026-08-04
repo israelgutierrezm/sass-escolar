@@ -14,6 +14,8 @@ use App\Models\Identidad\Persona;
 use App\Models\Identidad\Rol;
 use App\Models\Identidad\Usuario;
 use App\Services\Encuestas\EncuestasDeUsuario;
+use App\Services\Encuestas\ComparaAplicaciones;
+use App\Services\Encuestas\ExportaResultados;
 use App\Services\Encuestas\GeneradorDeSujetos;
 use App\Services\Encuestas\ResultadosDeEncuesta;
 use Illuminate\Support\Facades\DB;
@@ -255,6 +257,132 @@ class EncuestasTest extends TenantTestCase
 
         $this->assertFalse($resultados->de($caso['aplicacion'], $sujeto->id)['oculto']);
         $this->assertSame(5.0, collect($resultados->porSujeto($caso['aplicacion']))->firstWhere('sujeto_id', $sujeto->id)['promedio']);
+    }
+
+
+    // ── Comparar ciclos y exportar ─────────────────────────────────────────
+
+    /**
+     * La copia recuerda de qué plantilla salió.
+     *
+     * Sin esa referencia, reunir las aplicaciones del mismo instrumento
+     * dependía del título, y basta que alguien renombre una —que es lo que se
+     * hace cada semestre— para que dejen de encontrarse.
+     */
+    public function test_las_copias_conservan_su_origen(): void
+    {
+        $plantilla = $this->cuestionario();
+
+        $primera = $plantilla->duplicar('Ciclo 1');
+        $segunda = $plantilla->duplicar('Ciclo 2');
+        $nieta = $primera->duplicar('Ciclo 3');
+
+        $this->assertSame($plantilla->id, $primera->origen_id);
+        $this->assertSame($plantilla->id, $segunda->origen_id);
+        // La nieta apunta a la RAÍZ, no a su madre: si cada copia apuntara a la
+        // anterior, reunir la familia exigiría recorrer la cadena.
+        $this->assertSame($plantilla->id, $nieta->origen_id);
+
+        $this->assertEqualsCanonicalizing(
+            [$plantilla->id, $primera->id, $segunda->id, $nieta->id],
+            $segunda->familia()->pluck('id')->all(),
+        );
+    }
+
+    /**
+     * «4.1 sobre 5» no dice si la escuela va bien: dice que va en 4.1. Lo que
+     * permite decidir es la diferencia.
+     */
+    public function test_la_comparativa_mide_la_variacion_entre_aplicaciones(): void
+    {
+        $plantilla = $this->cuestionario();
+        $aplicaciones = collect();
+
+        foreach ([3, 5] as $nota) {
+            $copia = $plantilla->duplicar("Ciclo {$nota}");
+
+            $aplicacion = AplicacionEncuesta::create([
+                'encuesta_id' => $copia->id,
+                'titulo' => "Ciclo {$nota}",
+                'tipo' => AplicacionEncuesta::GENERAL,
+                'estado' => AplicacionEncuesta::PUBLICADA,
+            ]);
+
+            $aplicacion->destinos()->create(['tipo' => 'todos', 'destino_id' => null]);
+
+            $escala = $copia->preguntas()->where('tipo', TipoPregunta::Escala)->firstOrFail();
+
+            $this->encuestas->guardar($this->alumnoConUsuario(), $aplicacion, null, [$escala->id => $nota]);
+
+            $aplicaciones->push($aplicacion);
+        }
+
+        $comparativa = app(ComparaAplicaciones::class)->de($aplicaciones);
+
+        $this->assertSame([3.0, 5.0], $comparativa['general']['valores']);
+        $this->assertSame(2.0, $comparativa['general']['variacion']);
+        $this->assertSame([3.0, 5.0], $comparativa['preguntas'][0]['valores']);
+        $this->assertTrue($comparativa['preguntas'][0]['completa']);
+    }
+
+    /** Una pregunta que sólo existe en una de las dos no inventa una caída. */
+    public function test_una_pregunta_que_no_estaba_no_cuenta_como_cero(): void
+    {
+        $plantilla = $this->cuestionario();
+
+        $vieja = $plantilla->duplicar('Antes');
+        $nueva = $plantilla->duplicar('Después');
+
+        // La segunda estrena una pregunta que la primera no tenía.
+        $extra = $nueva->preguntas()->create([
+            'texto' => 'Pregunta nueva de este ciclo',
+            'tipo' => TipoPregunta::Escala,
+            'config' => ['maximo' => 5],
+            'orden' => 9,
+        ]);
+
+        $aplicaciones = collect([$vieja, $nueva])->map(function (Encuesta $encuesta) {
+            $aplicacion = AplicacionEncuesta::create([
+                'encuesta_id' => $encuesta->id,
+                'titulo' => $encuesta->titulo,
+                'tipo' => AplicacionEncuesta::GENERAL,
+                'estado' => AplicacionEncuesta::PUBLICADA,
+            ]);
+
+            $aplicacion->destinos()->create(['tipo' => 'todos', 'destino_id' => null]);
+
+            return $aplicacion;
+        });
+
+        $this->encuestas->guardar($this->alumnoConUsuario(), $aplicaciones[1], null, [$extra->id => 4]);
+
+        $comparativa = app(ComparaAplicaciones::class)->de($aplicaciones);
+        $fila = collect($comparativa['preguntas'])->firstWhere('pregunta', 'Pregunta nueva de este ciclo');
+
+        $this->assertNull($fila['valores'][0], 'No estaba, y eso no es un cero.');
+        $this->assertFalse($fila['completa']);
+        $this->assertNull($fila['variacion'], 'Sin dos datos no hay variación que calcular.');
+    }
+
+    public function test_la_exportacion_arma_sus_hojas(): void
+    {
+        $caso = $this->escenarioGeneral();
+
+        $this->encuestas->guardar($caso['usuario'], $caso['aplicacion'], null, [
+            $caso['escala']->id => 4,
+            $caso['multiple']->id => [$caso['multiple']->opciones->first()->id],
+        ]);
+
+        $ruta = app(ExportaResultados::class)->generar($caso['aplicacion']);
+
+        $this->assertFileExists($ruta);
+
+        $libro = \PhpOffice\PhpSpreadsheet\IOFactory::load($ruta);
+
+        $this->assertContains('Resumen', $libro->getSheetNames());
+        $this->assertSame($caso['aplicacion']->titulo, $libro->getSheetByName('Resumen')->getCell('A1')->getValue());
+
+        @unlink($ruta);
     }
 
     // ── Andamiaje ──────────────────────────────────────────────────────────

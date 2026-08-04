@@ -11,7 +11,7 @@ import type { PropsCompartidas } from '@/tipos';
 interface Tarjeta {
     clave: string;
     titulo: string;
-    tipo: 'metrica' | 'lista' | 'barras' | 'columnas' | 'accesos';
+    tipo: 'metrica' | 'lista' | 'barras' | 'columnas' | 'accesos' | 'encuestas';
     ancho: number;
     icono: string;
     datos: Record<string, any>;
@@ -533,6 +533,57 @@ function conmutar(rolId: number): void {
                     se ve distinto —fondo teñido y cifra a la derecha— para que
                     la vista caiga ahí sola.
                 -->
+                <!--
+                    Encuestas abiertas: sólo la participación.
+
+                    Es la pregunta que se hace quien lanzó una encuesta —¿está
+                    contestando la gente?— y hay que poder contestarla mientras
+                    sigue abierta, que es cuando todavía se puede insistir. Los
+                    promedios NO salen aquí: un número leído de pasada, sin
+                    cuánta gente contestó ni el umbral de anonimato, se
+                    malinterpreta.
+                -->
+                <template v-else-if="tarjeta.tipo === 'encuestas'">
+                    <ul class="mt-4 space-y-3">
+                        <li v-for="e in tarjeta.datos.encuestas" :key="e.id">
+                            <a :href="`/encuestas/aplicaciones/${e.id}`" class="block rounded-xl border p-3 transition hover:shadow-sm" :style="{ borderColor: 'var(--color-borde)' }">
+                                <div class="flex flex-wrap items-baseline justify-between gap-2">
+                                    <span class="min-w-0 flex-1 truncate text-sm font-medium">{{ e.titulo }}</span>
+
+                                    <!-- Los días que quedan deciden si insistir
+                                         todavía sirve; en rojo cuando queda poco. -->
+                                    <span
+                                        v-if="e.dias !== null"
+                                        class="shrink-0 text-xs"
+                                        :style="{ color: e.dias <= 3 ? '#dc2626' : 'var(--color-suave)' }"
+                                    >
+                                        {{ e.dias === 0 ? 'cierra hoy' : `${e.dias} d` }}
+                                    </span>
+                                </div>
+
+                                <div v-if="e.porcentaje !== null" class="mt-2">
+                                    <div class="h-1.5 overflow-hidden rounded-full" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 15%, transparent)' }">
+                                        <div
+                                            class="h-full rounded-full"
+                                            :style="{
+                                                width: `${Math.min(100, e.porcentaje)}%`,
+                                                backgroundColor: e.porcentaje < 30 ? '#dc2626' : e.porcentaje < 60 ? '#d97706' : '#16a34a',
+                                            }"
+                                        />
+                                    </div>
+                                    <p class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">
+                                        {{ e.respuestas }} de {{ e.esperadas }} · {{ e.porcentaje }}% de participación
+                                    </p>
+                                </div>
+
+                                <p v-else class="mt-1.5 text-xs" :style="{ color: 'var(--color-suave)' }">
+                                    {{ e.respuestas }} {{ e.respuestas === 1 ? 'respuesta' : 'respuestas' }}
+                                </p>
+                            </a>
+                        </li>
+                    </ul>
+                </template>
+
                 <template v-else-if="tarjeta.tipo === 'accesos'">
                     <div class="mt-4 space-y-4">
                         <div v-for="grupo in tarjeta.datos.grupos" :key="grupo.nombre">
