@@ -139,6 +139,20 @@ function aTexto(f: Date): string {
 }
 
 /** Los eventos que tocan ese día, contando los que abarcan varios. */
+/**
+ * ¿Esta fecha abre una fila de la rejilla?
+ *
+ * La semana empieza en lunes en este calendario. Importa porque un evento que
+ * cruza de domingo a lunes se parte en dos barras —una por fila, como en
+ * cualquier calendario de rejilla— y la de abajo necesita volver a decir qué
+ * es: sin título sería una franja de color sin explicación.
+ */
+function abreFila(fecha: string): boolean {
+    // `T00:00` y no `new Date(fecha)` a secas: sin la hora, el navegador
+    // interpreta la cadena como UTC y en México devuelve el día anterior.
+    return new Date(`${fecha}T00:00`).getDay() === 1;
+}
+
 function eventosDe(fecha: string): Evento[] {
     return props.eventos.filter((e) => fecha >= e.inicia_dia && fecha <= e.termina_dia);
 }
@@ -494,7 +508,16 @@ function fechaLegible(e: Evento): string {
                             :title="`${e.tipo_etiqueta}: ${e.titulo}` + (e.inicia_dia !== e.termina_dia ? ` (${e.inicia_dia} al ${e.termina_dia})` : '')"
                             @click.stop="viendo = e"
                         >
-                            <template v-if="celda.fecha === e.inicia_dia">{{ e.titulo }}</template>
+                            <!--
+                                Lleva título el día que empieza y el lunes que
+                                reanuda: una barra que cruza el domingo se corta
+                                —la rejilla no tiene forma de saltar de fila— y
+                                la parte de abajo, sin título, sería una franja
+                                de color que no dice nada.
+                            -->
+                            <template v-if="celda.fecha === e.inicia_dia || abreFila(celda.fecha)">
+                                {{ e.titulo }}
+                            </template>
                             <!-- Los días de en medio van vacíos a propósito: repetir
                                  el título cinco veces es ruido, y sin alto mínimo la
                                  barra se rompería. -->
