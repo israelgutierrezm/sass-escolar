@@ -26,6 +26,7 @@ interface AlumnoFila {
     nombre: string;
     matricula: string | null;
     carrera: string | null;
+    grupos: string[];
     tutor: string | null;
     tutoria_id: number | null;
     sesiones: number;
@@ -38,6 +39,8 @@ const props = defineProps<{
     tutores: { id: number; nombre: string; tutorados: number }[];
     alumnos: AlumnoFila[];
     resumen: { total: number; sin_tutor: number };
+    carreras: string[];
+    grupos: string[];
 }>();
 
 /**
@@ -57,11 +60,24 @@ const puedeLeerBitacoras = computed(
 const busqueda = ref('');
 const soloSinTutor = ref(false);
 
+/*
+ * Filtrar por carrera o por grupo ES el reparto por carrera o por grupo.
+ *
+ * No hace falta un botón de «asignar a toda la carrera»: se acota la lista y
+ * se palomea el encabezado, que ya alcanza sólo a los VISIBLES. Un botón
+ * aparte tendría que decidir por su cuenta a quién incluye —¿también a los que
+ * ya tienen tutor?— sin que se vea antes de pulsarlo, y aquí se ve.
+ */
+const carrera = ref('');
+const grupo = ref('');
+
 const visibles = computed(() => {
     const q = busqueda.value.trim().toLowerCase();
 
     return props.alumnos.filter((a) => {
         if (soloSinTutor.value && a.tutor !== null) return false;
+        if (carrera.value !== '' && a.carrera !== carrera.value) return false;
+        if (grupo.value !== '' && ! a.grupos.includes(grupo.value)) return false;
         if (q === '') return true;
 
         return (
@@ -232,6 +248,24 @@ function quitar(a: AlumnoFila): void {
                 <div class="w-64">
                     <CampoTexto v-model="busqueda" etiqueta="" marcador="Buscar por nombre, matrícula o carrera" />
                 </div>
+                <div v-if="carreras.length > 1" class="w-56">
+                    <CampoSelect
+                        v-model="carrera"
+                        etiqueta=""
+                        vacio="Todas las carreras"
+                        :opciones="carreras.map((c) => ({ valor: c, texto: c }))"
+                    />
+                </div>
+
+                <div v-if="grupos.length" class="w-40">
+                    <CampoSelect
+                        v-model="grupo"
+                        etiqueta=""
+                        vacio="Todos los grupos"
+                        :opciones="grupos.map((g) => ({ valor: g, texto: g }))"
+                    />
+                </div>
+
                 <label class="flex items-center gap-2 text-sm">
                     <input v-model="soloSinTutor" type="checkbox" />
                     Sólo los que no tienen tutor
@@ -283,7 +317,14 @@ function quitar(a: AlumnoFila): void {
                                 {{ a.matricula }}
                             </span>
                         </td>
-                        <td class="py-2.5" :style="{ color: 'var(--color-suave)' }">{{ a.carrera ?? '—' }}</td>
+                        <td class="py-2.5" :style="{ color: 'var(--color-suave)' }">
+                            {{ a.carrera ?? '—' }}
+                            <!-- El grupo, a la vista: filtrar por algo que no se
+                                 ve en la fila hace dudar de si el filtro acertó. -->
+                            <span v-if="a.grupos.length" class="ml-1 text-xs">
+                                · {{ a.grupos.join(', ') }}
+                            </span>
+                        </td>
                         <td class="py-2.5">
                             <span v-if="a.tutor">{{ a.tutor }}</span>
                             <span v-else class="text-xs font-medium text-amber-700">Sin tutor</span>

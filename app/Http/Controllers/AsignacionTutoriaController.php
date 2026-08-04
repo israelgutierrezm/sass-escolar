@@ -90,10 +90,33 @@ class AsignacionTutoriaController extends Controller
             ->get()
             ->keyBy('alumno_persona_id');
 
+        /*
+         * A qué grupo pertenece cada alumno.
+         *
+         * No hay un «grupo del alumno»: pertenece a uno POR MATERIA, vía sus
+         * inscripciones. En la práctica es el mismo para todas —el 3.º A cursa
+         * junto—, así que se juntan las claves distintas y casi siempre sale
+         * una. Cuando salen dos es un alumno con materias recursadas, y verlo
+         * también sirve.
+         *
+         * Una consulta agregada, no una por alumno: la lista trae la escuela
+         * entera.
+         */
+        $gruposPorAlumno = DB::table('inscripcion')
+            ->join('matricula_oferta', 'matricula_oferta.id', '=', 'inscripcion.matricula_oferta_id')
+            ->join('asignatura_grupo', 'asignatura_grupo.id', '=', 'inscripcion.asignatura_grupo_id')
+            ->join('grupos', 'grupos.id', '=', 'asignatura_grupo.grupo_id')
+            ->whereNull('inscripcion.deleted_at')
+            ->select('matricula_oferta.persona_id', 'grupos.clave')
+            ->distinct()
+            ->get()
+            ->groupBy('persona_id')
+            ->map(fn ($filas) => $filas->pluck('clave')->filter()->unique()->values()->all());
+
         $alumnos = Alumno::query()
             ->with(['persona', 'matriculas.oferta.carrera:id,nombre'])
             ->get()
-            ->map(function (Alumno $a) use ($asignadas, $sesiones) {
+            ->map(function (Alumno $a) use ($asignadas, $sesiones, $gruposPorAlumno) {
                 $tutoria = $asignadas->get($a->persona_id);
                 $conteo = $sesiones->get($a->persona_id);
 
@@ -102,6 +125,7 @@ class AsignacionTutoriaController extends Controller
                     'nombre' => $a->persona?->nombreCompleto() ?? 'Alumno',
                     'matricula' => $a->matriculas->first()?->matricula,
                     'carrera' => $a->matriculas->first()?->oferta?->carrera?->nombre,
+                    'grupos' => $gruposPorAlumno->get($a->persona_id, []),
                     'tutor' => $tutoria?->tutor?->nombreCompleto(),
                     'tutoria_id' => $tutoria?->id,
                     /*
@@ -135,6 +159,14 @@ class AsignacionTutoriaController extends Controller
                 'total' => $alumnos->count(),
                 'sin_tutor' => $alumnos->filter(fn (array $a) => $a['tutor'] === null)->count(),
             ],
+            /*
+             * Los desplegables se arman con lo que HAY en la lista, no con el
+             * catálogo completo: ofrecer una carrera sin alumnos sólo produce
+             * un filtro que deja la pantalla vacía y hace dudar de si falló
+             * algo.
+             */
+            'carreras' => $alumnos->pluck('carrera')->filter()->unique()->sort()->values(),
+            'grupos' => $alumnos->pluck('grupos')->flatten()->filter()->unique()->sort()->values(),
         ]);
     }
 
