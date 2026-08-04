@@ -191,18 +191,23 @@ function aQuien(a: AvisoFila): string {
 
                     <div class="flex shrink-0 items-center gap-3">
                         <!--
-                            El recuento sólo tiene sentido cuando se exige
-                            confirmar: en un informativo, «0 de 300» no es un
-                            problema, es lo esperado.
+                            El recuento que se muestra depende de lo que el
+                            aviso pide: en un informativo «0 confirmadas» no es
+                            un problema, es lo esperado, y lo que dice algo es
+                            cuántos lo han visto.
                         -->
                         <Link
-                            v-if="a.exige_confirmacion"
                             :href="`/plataforma/avisos/${a.id}/lecturas`"
                             class="text-sm"
                             :style="{ color: 'var(--color-acento)' }"
-                            title="Ver quién lo ha confirmado"
+                            title="Ver cómo va: alcance, lecturas y confirmaciones"
                         >
-                            {{ a.confirmadas }} confirmad{{ a.confirmadas === 1 ? 'a' : 'as' }}
+                            <template v-if="a.exige_confirmacion">
+                                {{ a.confirmadas }} confirmad{{ a.confirmadas === 1 ? 'a' : 'as' }}
+                            </template>
+                            <template v-else>
+                                {{ a.vistas }} {{ a.vistas === 1 ? 'lectura' : 'lecturas' }}
+                            </template>
                         </Link>
 
                         <InterruptorVisible

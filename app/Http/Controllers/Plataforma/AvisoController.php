@@ -10,6 +10,7 @@ use App\Http\Controllers\Concerns\ArmaDestinos;
 use App\Http\Controllers\Controller;
 use App\Models\Plataforma\Aviso;
 use App\Models\Plataforma\AvisoLectura;
+use App\Services\Plataforma\SeguimientoDeAviso;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -178,16 +179,26 @@ class AvisoController extends Controller
         );
     }
 
-    /** Quiénes lo han confirmado, para el aviso que exige confirmación. */
-    public function lecturas(Aviso $aviso): Response
+    /**
+     * Cómo va el aviso: a cuántos alcanzó, quién lo vio y quién lo confirmó.
+     *
+     * Las cifras van arriba y los nombres abajo a propósito: lo primero que se
+     * pregunta quien publicó algo es «¿llegó?», y para eso el total y el
+     * desglose por rol contestan de un vistazo. La lista nominal es para el
+     * segundo paso —ir a buscar a quien falta—, no para contar a mano.
+     */
+    public function lecturas(Aviso $aviso, SeguimientoDeAviso $seguimiento): Response
     {
         return Inertia::render('Plataforma/AvisoLecturas', [
             'aviso' => [
                 'id' => $aviso->id,
                 'titulo' => $aviso->titulo,
+                'cuerpo' => $aviso->cuerpo,
                 'prioridad_etiqueta' => $aviso->prioridad->etiqueta(),
                 'color' => $aviso->prioridad->color(),
+                'publicado' => $aviso->publicado,
             ],
+            'seguimiento' => $seguimiento->de($aviso),
             'lecturas' => AvisoLectura::query()
                 ->where('aviso_id', $aviso->id)
                 ->with('persona')
