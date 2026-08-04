@@ -1229,6 +1229,22 @@ Route::middleware([
          * permiso —cada quien ve la suya, resuelta por `AgendaDeUsuario`— y por
          * eso esas rutas viven en el panel, no aquí.
          */
+        /*
+         * Avisos. Aparte del calendario porque son otra cosa: un evento ocupa un
+         * dia en la rejilla, un aviso es un mensaje que tiene que llegar.
+         */
+        Route::controller(\App\Http\Controllers\Plataforma\AvisoController::class)
+            ->prefix('plataforma/avisos')->name('tenant.plataforma.avisos.')
+            ->middleware('can:gestionar-avisos')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'guardar')->name('crear');
+                Route::put('{aviso}', 'guardar')->whereNumber('aviso')->name('actualizar');
+                Route::patch('{aviso}/publicacion', 'publicacion')->whereNumber('aviso')->name('publicacion');
+                Route::get('{aviso}/lecturas', 'lecturas')->whereNumber('aviso')->name('lecturas');
+                Route::delete('{aviso}', 'eliminar')->whereNumber('aviso')->name('eliminar');
+            });
+
         Route::controller(CalendarioController::class)
             ->prefix('plataforma/calendario')->name('tenant.plataforma.calendario.')
             ->middleware('can:gestionar-calendario')

@@ -37,6 +37,8 @@ use Spatie\Permission\Models\Role;
  */
 class CalendarioController extends Controller
 {
+    use \App\Http\Controllers\Concerns\ArmaDestinos;
+
     public function index(Request $request): Response
     {
         // Por omisión, el mes que se está viendo. Un calendario sin recorte
@@ -314,50 +316,4 @@ class CalendarioController extends Controller
             .' · '.($materia->grupo?->clave ?? ''));
     }
 
-    /**
-     * Los catálogos con los que se arma la segmentación.
-     *
-     * @return array<string, mixed>
-     */
-    private function opcionesDeDestino(): array
-    {
-        return [
-            'rol' => Role::query()->orderBy('name')->get(['id', 'name'])
-                ->map(fn ($r) => ['id' => $r->id, 'nombre' => $r->name])->values(),
-
-            'campus' => Campus::query()->orderBy('nombre')->get(['id', 'nombre'])
-                ->map(fn ($c) => ['id' => $c->id, 'nombre' => $c->nombre])->values(),
-
-            // Los niveles viven en la base CENTRAL: el modelo lleva
-            // `CentralConnection` y una consulta cruda contra el tenant no los
-            // encuentra. Es la trampa que documenta CLAUDE.md sobre catálogos
-            // universales.
-            'nivel' => NivelEstudio::query()->orderBy('nombre')->get(['id', 'nombre'])
-                ->map(fn ($n) => ['id' => $n->id, 'nombre' => $n->nombre])->values(),
-
-            'carrera' => Carrera::query()->orderBy('nombre')->get(['id', 'nombre', 'clave'])
-                ->map(fn ($c) => ['id' => $c->id, 'nombre' => "{$c->nombre} ({$c->clave})"])->values(),
-
-            'plan' => PlanEstudio::query()->orderBy('nombre')->get(['id', 'nombre'])
-                ->map(fn ($p) => ['id' => $p->id, 'nombre' => $p->nombre])->values(),
-
-            'grupo' => Grupo::query()->with('ciclo:id,clave')->orderByDesc('id')->limit(300)->get(['id', 'clave', 'ciclo_id'])
-                ->map(fn ($g) => ['id' => $g->id, 'nombre' => "{$g->clave} · {$g->ciclo?->clave}"])->values(),
-
-            'materia' => AsignaturaGrupo::query()
-                ->with(['planMateria.asignatura:id,nombre', 'grupo:id,clave'])
-                ->orderByDesc('id')->limit(300)->get(['id', 'plan_materia_id', 'grupo_id'])
-                ->map(fn ($m) => [
-                    'id' => $m->id,
-                    'nombre' => ($m->planMateria?->asignatura?->nombre ?? 'Materia').' · '.($m->grupo?->clave ?? ''),
-                ])->values(),
-
-            /*
-             * Los alumnos NO se mandan: son miles y no caben en un `select`.
-             * El componente los busca contra el servidor conforme se escribe,
-             * que es como ya funciona el buscador de personas del sistema.
-             */
-            'alumno' => [],
-        ];
-    }
 }

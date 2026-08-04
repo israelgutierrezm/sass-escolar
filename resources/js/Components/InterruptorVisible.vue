@@ -55,6 +55,7 @@ function alternar(): void {
             ? `Visible${audiencia ? ' para ' + audiencia : ''}. Pulsa para esconder${titulo ? ' «' + titulo + '»' : ''}.`
             : `Oculta${audiencia ? ' para ' + audiencia : ''}. Pulsa para publicar${titulo ? ' «' + titulo + '»' : ''}.`"
         :aria-pressed="publicada"
+        @click="alternar"
     >
         <!-- Ojo abierto: lo ven. -->
         <svg v-if="publicada" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="h-5 w-5">

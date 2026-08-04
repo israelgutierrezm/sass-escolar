@@ -193,6 +193,7 @@ export const CATALOGO_MENU: GrupoMenu[] = [
         hijos: [
             { clave: 'usuarios', etiqueta: 'Usuarios', url: '/plataforma/usuarios', permiso: 'gestionar-usuarios' },
             { clave: 'calendario', etiqueta: 'Calendario', url: '/plataforma/calendario', permiso: 'gestionar-calendario' },
+            { clave: 'avisos', etiqueta: 'Avisos', url: '/plataforma/avisos', permiso: 'gestionar-avisos' },
             { clave: 'accesos', etiqueta: 'Accesos', url: '/plataforma/accesos', permiso: 'ver-accesos' },
             {
                 clave: 'plataforma-roles',
