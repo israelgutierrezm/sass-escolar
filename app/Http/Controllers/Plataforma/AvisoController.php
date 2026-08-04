@@ -9,11 +9,14 @@ use App\Enums\PrioridadAviso;
 use App\Http\Controllers\Concerns\ArmaDestinos;
 use App\Http\Controllers\Controller;
 use App\Models\Plataforma\Aviso;
+use App\Models\Plataforma\AvisoAdjunto;
 use App\Models\Plataforma\AvisoLectura;
 use App\Services\Plataforma\SeguimientoDeAviso;
+use App\Support\HtmlSeguro;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -38,7 +41,7 @@ class AvisoController extends Controller
     public function index(Request $request): Response
     {
         $avisos = Aviso::query()
-            ->with('destinos')
+            ->with(['destinos', 'adjuntos'])
             ->withCount([
                 // Cuántos lo han confirmado: es lo que convierte un aviso
                 // crítico en algo comprobable y no en un acto de fe.
@@ -68,6 +71,12 @@ class AvisoController extends Controller
                     'tipo' => $d->tipo->value,
                     'destino_id' => $d->destino_id,
                 ])->values(),
+                'adjuntos' => $a->adjuntos->map(fn ($x) => [
+                    'id' => $x->id,
+                    'titulo' => $x->titulo,
+                    'tipo' => $x->tipo,
+                    'peso' => $x->pesoLegible(),
+                ])->values(),
             ]);
 
         return Inertia::render('Plataforma/Avisos', [
@@ -92,8 +101,31 @@ class AvisoController extends Controller
             'destinos' => ['required', 'array', 'min:1'],
             'destinos.*.tipo' => ['required', Rule::enum(DestinoEvento::class)],
             'destinos.*.destino_id' => ['nullable', 'integer'],
+
+            // Los adjuntos que ya tenía y se conservan; los que no vengan aquí
+            // se van con su archivo.
+            'conservar' => ['array'],
+            'conservar.*' => ['integer'],
+
+            'archivos' => ['array', 'max:10'],
+            /*
+             * Formatos que el navegador abre sin interpretar. SVG queda fuera
+             * por lo mismo que en las imagenes del material: es XML, admite
+             * `<script>` dentro y servido desde el propio dominio se
+             * ejecutaria con la sesion de quien lo abre.
+             */
+            'archivos.*' => ['file', 'mimes:pdf,jpg,jpeg,png,webp,doc,docx,xls,xlsx,ppt,pptx,zip', 'max:10240'],
+
+            'enlaces' => ['array', 'max:10'],
+            'enlaces.*.titulo' => ['required', 'string', 'max:200'],
+            // Solo http(s): un `javascript:` en un enlace que la escuela
+            // publica se ejecuta en la sesion de quien lo pulse.
+            'enlaces.*.url' => ['required', 'url', 'starts_with:http://,https://', 'max:2048'],
         ], [
             'destinos.required' => 'Elige a quién va dirigido.',
+            'archivos.*.mimes' => 'Ese tipo de archivo no se puede adjuntar.',
+            'archivos.*.max' => 'Cada archivo puede pesar hasta 10 MB.',
+            'enlaces.*.url.starts_with' => 'El enlace tiene que empezar con http:// o https://.',
             'vigente_hasta.after_or_equal' => 'La vigencia no puede terminar antes de empezar.',
         ], [
             'cuerpo' => 'el texto del aviso',
@@ -101,12 +133,20 @@ class AvisoController extends Controller
             'vigente_hasta' => 'el fin de vigencia',
         ]);
 
-        $guardado = DB::transaction(function () use ($datos, $aviso) {
+        $guardado = DB::transaction(function () use ($datos, $aviso, $request) {
             $registro = $aviso ?? new Aviso;
 
             $registro->fill([
                 'titulo' => $datos['titulo'],
-                'cuerpo' => $datos['cuerpo'],
+                /*
+                 * El cuerpo se sanea aqui y no en el editor.
+                 *
+                 * TipTap solo emite etiquetas de su esquema, pero lo que llega
+                 * al servidor es un POST y un POST se arma con cualquier cosa.
+                 * Un aviso lo lee TODA la escuela: un `<img onerror>` guardado
+                 * aqui se ejecutaria en la sesion de cada alumno.
+                 */
+                'cuerpo' => HtmlSeguro::limpiar($datos['cuerpo']) ?? '',
                 'prioridad' => $datos['prioridad'],
                 'publicado_desde' => $datos['publicado_desde'] ?? null,
                 'vigente_hasta' => $datos['vigente_hasta'] ?? null,
@@ -128,6 +168,8 @@ class AvisoController extends Controller
                     'destino_id' => $destino['destino_id'] ?? null,
                 ]);
             }
+
+            $this->guardarAdjuntos($registro, $request, $datos);
 
             return $registro;
         });
@@ -211,5 +253,57 @@ class AvisoController extends Controller
                     'confirmado' => $l->confirmado_en?->toDateTimeString(),
                 ]),
         ]);
+    }
+
+    /**
+     * Rehace los adjuntos del aviso: conserva los que siguen, borra los que se
+     * quitaron y guarda los nuevos.
+     *
+     * Los archivos viajan CON el formulario y no por un endpoint aparte. Subir
+     * antes de guardar dejaría archivos huérfanos cada vez que alguien empieza
+     * un aviso y lo abandona, y habría que inventar una purga para limpiarlos.
+     *
+     * @param  array<string, mixed>  $datos
+     */
+    private function guardarAdjuntos(Aviso $aviso, Request $request, array $datos): void
+    {
+        $conservar = array_map('intval', $datos['conservar'] ?? []);
+
+        // Los que se quitaron se van con su archivo: dejarlo en el disco sería
+        // guardar para siempre algo que ya nadie puede alcanzar.
+        foreach ($aviso->adjuntos()->whereNotIn('id', $conservar)->get() as $sobra) {
+            if ($sobra->ruta !== null) {
+                Storage::disk('local')->delete($sobra->ruta);
+            }
+
+            $sobra->delete();
+        }
+
+        $orden = (int) $aviso->adjuntos()->max('orden');
+
+        foreach ($request->file('archivos', []) as $archivo) {
+            $ruta = $archivo->store("avisos/{$aviso->id}", 'local');
+
+            $aviso->adjuntos()->create([
+                'tipo' => AvisoAdjunto::ARCHIVO,
+                // El nombre original, sin la extensión: es como lo reconoce
+                // quien lo subió y quien lo va a abrir.
+                'titulo' => pathinfo($archivo->getClientOriginalName(), PATHINFO_FILENAME),
+                'ruta' => $ruta,
+                'nombre_original' => $archivo->getClientOriginalName(),
+                'mime' => $archivo->getClientMimeType(),
+                'tamano' => $archivo->getSize(),
+                'orden' => ++$orden,
+            ]);
+        }
+
+        foreach ($datos['enlaces'] ?? [] as $enlace) {
+            $aviso->adjuntos()->create([
+                'tipo' => AvisoAdjunto::ENLACE,
+                'titulo' => $enlace['titulo'],
+                'url' => $enlace['url'],
+                'orden' => ++$orden,
+            ]);
+        }
     }
 }

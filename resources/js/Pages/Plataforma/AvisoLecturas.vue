@@ -3,6 +3,7 @@ import { Head } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
+import ContenidoRico from '@/Components/ContenidoRico.vue';
 
 /**
  * Cómo va un aviso.
@@ -99,7 +100,7 @@ const indicadores = computed(() => [
             </div>
 
             <h2 class="mt-2 text-lg font-semibold text-contenido">{{ aviso.titulo }}</h2>
-            <p class="mt-1 whitespace-pre-line text-sm text-suave">{{ aviso.cuerpo }}</p>
+            <ContenidoRico :html="aviso.cuerpo" compacto class="mt-1" />
         </section>
 
         <!-- Las cifras. -->

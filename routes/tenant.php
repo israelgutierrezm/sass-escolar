@@ -162,6 +162,10 @@ Route::middleware([
         Route::get('/mis-avisos', [MisAvisosController::class, 'index'])->name('tenant.misavisos.index');
         Route::post('/mis-avisos/{aviso}/confirmar', [MisAvisosController::class, 'confirmar'])
             ->whereNumber('aviso')->name('tenant.misavisos.confirmar');
+        // El adjunto se sirve por uuid, pero lo que lo protege es que el
+        // controlador comprueba que el aviso le llega a quien lo pide.
+        Route::get('/mis-avisos/adjuntos/{uuid}', [MisAvisosController::class, 'adjunto'])
+            ->name('tenant.misavisos.adjunto');
 
         Route::get('/mi-perfil', [PerfilController::class, 'show'])->name('tenant.perfil.show');
         Route::put('/mi-perfil', [PerfilController::class, 'actualizar'])->name('tenant.perfil.actualizar');
@@ -950,6 +954,17 @@ Route::middleware([
         Route::post('lms/imagenes', [ImagenContenidoController::class, 'subir'])
             ->middleware('can:subir-material')
             ->name('tenant.lms.imagenes.subir');
+
+        /*
+         * La misma subida, para las imágenes que se pegan dentro de un aviso.
+         *
+         * Mismo controlador y mismo almacén —una imagen incrustada en HTML es
+         * lo mismo venga de donde venga—, con el permiso que corresponde: quien
+         * publica avisos no tiene por qué poder subir material de un curso.
+         */
+        Route::post('plataforma/avisos/imagenes', [ImagenContenidoController::class, 'subir'])
+            ->middleware('can:gestionar-avisos')
+            ->name('tenant.plataforma.avisos.imagenes');
 
         Route::get('lms/imagenes/{uuid}', [ImagenContenidoController::class, 'ver'])
             ->name('tenant.lms.imagenes.ver');

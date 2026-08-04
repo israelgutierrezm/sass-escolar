@@ -2,6 +2,8 @@
 import { Head, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import AdjuntosDeAviso from '@/Components/AdjuntosDeAviso.vue';
+import ContenidoRico from '@/Components/ContenidoRico.vue';
 import type { AvisoRecibido } from '@/tipos';
 
 /**
@@ -116,7 +118,8 @@ function icono(prioridad: string): string {
                                 </div>
 
                                 <h3 class="mt-1 font-semibold text-contenido">{{ a.titulo }}</h3>
-                                <p class="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-contenido">{{ a.cuerpo }}</p>
+                                <ContenidoRico :html="a.cuerpo" class="mt-1.5" />
+                                <AdjuntosDeAviso :adjuntos="a.adjuntos" />
 
                                 <button
                                     type="button"
@@ -166,7 +169,8 @@ function icono(prioridad: string): string {
                         </div>
 
                         <h3 class="mt-1 font-semibold text-contenido">{{ a.titulo }}</h3>
-                        <p class="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-suave">{{ a.cuerpo }}</p>
+                        <ContenidoRico :html="a.cuerpo" class="mt-1.5" />
+                        <AdjuntosDeAviso :adjuntos="a.adjuntos" />
                     </div>
                 </article>
             </section>

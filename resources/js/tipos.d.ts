@@ -50,6 +50,13 @@ export interface Flash {
  * `bloquea` es lo que separa al crítico del resto: no se puede quitar de en
  * medio sin confirmar que se leyó.
  */
+export interface AdjuntoRecibido {
+    titulo: string;
+    tipo: string;
+    direccion: string;
+    peso: string | null;
+}
+
 export interface AvisoRecibido {
     id: number;
     titulo: string;
@@ -60,6 +67,7 @@ export interface AvisoRecibido {
     bloquea: boolean;
     publicado_desde: string | null;
     vigente_hasta: string | null;
+    adjuntos: AdjuntoRecibido[];
 }
 
 export interface PropsCompartidas {

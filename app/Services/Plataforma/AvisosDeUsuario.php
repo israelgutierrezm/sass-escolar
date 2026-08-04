@@ -48,7 +48,10 @@ class AvisosDeUsuario
                 ->whereNotNull('confirmado_en'))
             // Sus propias lecturas, para saber a cuáles hay que dejarles
             // constancia de entrega sin volver a preguntarle a la base.
-            ->with(['lecturas' => fn ($l) => $l->where('persona_id', $usuario->persona_id)])
+            ->with([
+                'adjuntos',
+                'lecturas' => fn ($l) => $l->where('persona_id', $usuario->persona_id),
+            ])
             // El crítico primero: es el que bloquea, y verlo antes que un
             // destacado que se puede cerrar evita quitar de en medio el
             // importante para toparse con el que no se podía posponer.
@@ -74,7 +77,7 @@ class AvisosDeUsuario
         }
 
         $avisos = $this->suyos($usuario)
-            ->with(['lecturas' => fn ($l) => $l->where('persona_id', $usuario->persona_id)])
+            ->with(['adjuntos', 'lecturas' => fn ($l) => $l->where('persona_id', $usuario->persona_id)])
             ->orderByRaw($this->porPrioridad())
             ->orderByDesc('publicado_desde')
             ->orderByDesc('id')
@@ -129,7 +132,7 @@ class AvisosDeUsuario
      */
     public function confirmar(Usuario $usuario, Aviso $aviso): bool
     {
-        if ($usuario->persona_id === null || ! $this->leToca($usuario, $aviso)) {
+        if (! $this->leLlega($usuario, $aviso)) {
             return false;
         }
 
@@ -165,8 +168,19 @@ class AvisosDeUsuario
             ->where(fn (Builder $q) => $this->alcance->aplicar($q, $usuario));
     }
 
-    private function leToca(Usuario $usuario, Aviso $aviso): bool
+    /**
+     * ¿A esta persona le llega este aviso?
+     *
+     * Público porque lo necesita algo más que confirmar: la descarga de un
+     * adjunto se apoya en la misma pregunta, y contestarla dos veces sería
+     * arriesgarse a que una de las dos se quede corta.
+     */
+    public function leLlega(Usuario $usuario, ?Aviso $aviso): bool
     {
+        if ($aviso === null || $usuario->persona_id === null) {
+            return false;
+        }
+
         return $this->suyos($usuario)->whereKey($aviso->id)->exists();
     }
 
@@ -216,6 +230,12 @@ class AvisosDeUsuario
             'bloquea' => $aviso->exigeConfirmacion(),
             'publicado_desde' => $aviso->publicado_desde?->toDateTimeString(),
             'vigente_hasta' => $aviso->vigente_hasta?->toDateTimeString(),
+            'adjuntos' => $aviso->adjuntos->map(fn ($a) => [
+                'titulo' => $a->titulo,
+                'tipo' => $a->tipo,
+                'direccion' => $a->direccion(),
+                'peso' => $a->pesoLegible(),
+            ])->values()->all(),
         ];
     }
 }

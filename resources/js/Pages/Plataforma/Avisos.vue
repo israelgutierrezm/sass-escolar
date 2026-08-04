@@ -5,7 +5,8 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
-import CampoTextarea from '@/Components/CampoTextarea.vue';
+import ContenidoRico from '@/Components/ContenidoRico.vue';
+import EditorTexto from '@/Components/EditorTexto.vue';
 import InterruptorVisible from '@/Components/InterruptorVisible.vue';
 import Modal from '@/Components/Modal.vue';
 import SelectorDestinos from '@/Components/SelectorDestinos.vue';
@@ -24,10 +25,18 @@ interface Destino {
     destino_id: number | null;
 }
 
+interface AdjuntoFila {
+    id: number;
+    titulo: string;
+    tipo: string;
+    peso: string | null;
+}
+
 interface AvisoFila {
     id: number;
     titulo: string;
     cuerpo: string;
+    adjuntos: AdjuntoFila[];
     prioridad: string;
     prioridad_etiqueta: string;
     color: string;
@@ -51,6 +60,10 @@ const props = defineProps<{
 const editorAbierto = ref(false);
 const editando = ref<number | null>(null);
 
+const selectorArchivos = ref<HTMLInputElement | null>(null);
+const adjuntosActuales = ref<AdjuntoFila[]>([]);
+const errorAdjuntos = ref('');
+
 const form = useForm({
     titulo: '',
     cuerpo: '',
@@ -59,12 +72,19 @@ const form = useForm({
     vigente_hasta: '',
     publicado: false,
     destinos: [] as Destino[],
+    // Los adjuntos que ya tenía y siguen; lo que no venga aquí se borra con su
+    // archivo.
+    conservar: [] as number[],
+    archivos: [] as File[],
+    enlaces: [] as { titulo: string; url: string }[],
 });
 
 function nuevo(): void {
     editando.value = null;
     form.reset();
     form.clearErrors();
+    adjuntosActuales.value = [];
+    errorAdjuntos.value = '';
     form.defaults();
     editorAbierto.value = true;
 }
@@ -79,6 +99,14 @@ function editar(a: AvisoFila): void {
     form.vigente_hasta = a.vigente_hasta ?? '';
     form.publicado = a.publicado;
     form.destinos = a.destinos.map((d) => ({ ...d }));
+
+    adjuntosActuales.value = a.adjuntos;
+    // Todos se conservan mientras no se quiten a mano.
+    form.conservar = a.adjuntos.map((x) => x.id);
+    form.archivos = [];
+    form.enlaces = [];
+    errorAdjuntos.value = '';
+
     // Cargar no es haber tocado: ver el comentario de la prop `formulario` en Modal.
     form.defaults();
     editorAbierto.value = true;
@@ -89,9 +117,58 @@ function guardar(): void {
 
     if (editando.value === null) {
         form.post('/plataforma/avisos', opciones);
-    } else {
-        form.put(`/plataforma/avisos/${editando.value}`, opciones);
+
+        return;
     }
+
+    /*
+     * POST con `_method: put` y no `form.put`.
+     *
+     * Un PUT no puede llevar archivos: el navegador sólo arma multipart en un
+     * POST, y con `form.put` los adjuntos llegarían vacíos al servidor. Laravel
+     * entiende el campo `_method` y enruta igual.
+     */
+    form.transform((datos) => ({ ...datos, _method: 'put' }))
+        .post(`/plataforma/avisos/${editando.value}`, opciones);
+}
+
+function agregarArchivos(evento: Event): void {
+    const entrada = evento.target as HTMLInputElement;
+
+    form.archivos = [...form.archivos, ...Array.from(entrada.files ?? [])];
+    // Se limpia para que volver a elegir el MISMO archivo dispare el evento:
+    // sin esto, quitarlo y reintentarlo no hace nada y parece que está roto.
+    entrada.value = '';
+}
+
+/**
+ * Un enlace se captura aquí y no en el texto porque es otra cosa: va en la
+ * lista de adjuntos, con su nombre, junto a los archivos.
+ */
+function agregarEnlace(): void {
+    const url = window.prompt('Dirección del enlace (empieza con http:// o https://)');
+
+    if (url === null || url.trim() === '') return;
+
+    if (! /^https?:\/\//i.test(url.trim())) {
+        errorAdjuntos.value = 'El enlace tiene que empezar con http:// o https://.';
+
+        return;
+    }
+
+    const titulo = window.prompt('¿Cómo se llama?', 'Ver documento');
+
+    if (titulo === null || titulo.trim() === '') return;
+
+    form.enlaces = [...form.enlaces, { titulo: titulo.trim(), url: url.trim() }];
+    errorAdjuntos.value = '';
+}
+
+/** Quitar no borra hasta guardar: mientras tanto se puede recuperar. */
+function alternarConservar(id: number): void {
+    form.conservar = form.conservar.includes(id)
+        ? form.conservar.filter((x) => x !== id)
+        : [...form.conservar, id];
 }
 
 function eliminar(a: AvisoFila): void {
@@ -181,7 +258,12 @@ function aQuien(a: AvisoFila): string {
                         </div>
 
                         <h2 class="mt-2 font-semibold text-contenido">{{ a.titulo }}</h2>
-                        <p class="mt-1 line-clamp-2 whitespace-pre-line text-sm text-suave">{{ a.cuerpo }}</p>
+                        <ContenidoRico :html="a.cuerpo" compacto class="mt-1" />
+
+                        <p v-if="a.adjuntos.length" class="mt-1.5 text-xs text-suave">
+                            {{ a.adjuntos.length }}
+                            {{ a.adjuntos.length === 1 ? 'adjunto' : 'adjuntos' }}
+                        </p>
 
                         <p v-if="a.publicado_desde || a.vigente_hasta" class="mt-1.5 text-xs text-suave">
                             <template v-if="a.publicado_desde">Desde {{ a.publicado_desde.replace('T', ' ') }}</template>
@@ -251,13 +333,109 @@ function aQuien(a: AvisoFila): string {
 
                 <form class="max-h-[70vh] space-y-4 overflow-y-auto px-6 py-5" @submit.prevent="guardar">
                     <CampoTexto v-model="form.titulo" etiqueta="Título" requerido :error="form.errors.titulo" />
-                    <CampoTextarea
-                        v-model="form.cuerpo"
-                        etiqueta="El aviso"
-                        requerido
-                        :filas="4"
-                        :error="form.errors.cuerpo"
-                    />
+                    <div>
+                        <span class="mb-1 block text-sm font-medium">El aviso *</span>
+                        <!--
+                            Con formato porque un aviso largo sin él no se lee:
+                            una lista de tres puntos, una fecha en negrita y el
+                            plano del edificio dicen en un vistazo lo que en un
+                            párrafo corrido hay que buscar.
+                        -->
+                        <EditorTexto
+                            v-model="form.cuerpo"
+                            url-subida-imagen="/plataforma/avisos/imagenes"
+                            placeholder="Escribe el aviso. Puedes dar formato, pegar una imagen o incrustar un video."
+                        />
+                        <p v-if="form.errors.cuerpo" class="mt-1 text-xs text-red-600">{{ form.errors.cuerpo }}</p>
+                    </div>
+
+                    <div>
+                        <span class="mb-1 block text-sm font-medium">Adjuntos</span>
+                        <p class="mb-2 text-xs text-suave">
+                            El reglamento, el formato que hay que llenar, el plano de la sede. «Cambió
+                            el reglamento» sin el reglamento obliga a ir a buscarlo, y la mitad no lo hace.
+                        </p>
+
+                        <!-- Lo que ya tenía. -->
+                        <ul v-if="adjuntosActuales.length" class="mb-2 space-y-1.5">
+                            <li
+                                v-for="a in adjuntosActuales"
+                                :key="a.id"
+                                class="flex items-center justify-between gap-3 rounded-lg border border-borde px-3 py-2 text-sm"
+                                :class="{ 'opacity-50': ! form.conservar.includes(a.id) }"
+                            >
+                                <span class="min-w-0 flex-1 truncate">
+                                    {{ a.titulo }}
+                                    <span class="text-xs text-suave">{{ a.peso ?? a.tipo }}</span>
+                                </span>
+                                <button
+                                    type="button"
+                                    class="shrink-0 text-xs"
+                                    :style="{ color: form.conservar.includes(a.id) ? '#dc2626' : 'var(--color-acento)' }"
+                                    @click="alternarConservar(a.id)"
+                                >
+                                    {{ form.conservar.includes(a.id) ? 'Quitar' : 'Recuperar' }}
+                                </button>
+                            </li>
+                        </ul>
+
+                        <!-- Archivos nuevos. -->
+                        <input
+                            ref="selectorArchivos"
+                            type="file"
+                            multiple
+                            class="hidden"
+                            accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip"
+                            @change="agregarArchivos"
+                        >
+
+                        <ul v-if="form.archivos.length" class="mb-2 space-y-1.5">
+                            <li
+                                v-for="(f, i) in form.archivos"
+                                :key="i"
+                                class="flex items-center justify-between gap-3 rounded-lg border border-dashed border-borde px-3 py-2 text-sm"
+                            >
+                                <span class="min-w-0 flex-1 truncate">{{ f.name }}</span>
+                                <button type="button" class="shrink-0 text-xs text-red-600" @click="form.archivos.splice(i, 1)">
+                                    Quitar
+                                </button>
+                            </li>
+                        </ul>
+
+                        <ul v-if="form.enlaces.length" class="mb-2 space-y-1.5">
+                            <li
+                                v-for="(e, i) in form.enlaces"
+                                :key="`e${i}`"
+                                class="flex items-center justify-between gap-3 rounded-lg border border-dashed border-borde px-3 py-2 text-sm"
+                            >
+                                <span class="min-w-0 flex-1 truncate">
+                                    {{ e.titulo }} <span class="text-xs text-suave">{{ e.url }}</span>
+                                </span>
+                                <button type="button" class="shrink-0 text-xs text-red-600" @click="form.enlaces.splice(i, 1)">
+                                    Quitar
+                                </button>
+                            </li>
+                        </ul>
+
+                        <div class="flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                class="rounded-lg border border-borde px-3 py-1.5 text-xs transition hover:bg-[color-mix(in_srgb,var(--color-acento)_8%,transparent)]"
+                                @click="selectorArchivos?.click()"
+                            >
+                                Adjuntar archivo
+                            </button>
+                            <button
+                                type="button"
+                                class="rounded-lg border border-borde px-3 py-1.5 text-xs transition hover:bg-[color-mix(in_srgb,var(--color-acento)_8%,transparent)]"
+                                @click="agregarEnlace"
+                            >
+                                Agregar enlace
+                            </button>
+                        </div>
+
+                        <p v-if="errorAdjuntos" class="mt-1 text-xs text-red-600">{{ errorAdjuntos }}</p>
+                    </div>
 
                     <div>
                         <span class="mb-1 block text-sm font-medium">Prioridad *</span>

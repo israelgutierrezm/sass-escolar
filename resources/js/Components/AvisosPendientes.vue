@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { router, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
+import AdjuntosDeAviso from '@/Components/AdjuntosDeAviso.vue';
+import ContenidoRico from '@/Components/ContenidoRico.vue';
 import Modal from '@/Components/Modal.vue';
 import type { AvisoRecibido, PropsCompartidas } from '@/tipos';
 
@@ -113,7 +115,13 @@ function posponer(aviso: AvisoRecibido): void {
                 </span>
 
                 <h2 class="mt-3 text-lg font-semibold text-contenido">{{ bloqueante.titulo }}</h2>
-                <p class="mt-2 whitespace-pre-line text-sm leading-relaxed text-contenido">{{ bloqueante.cuerpo }}</p>
+                <!-- Con scroll propio: un aviso largo con imágenes no puede
+                     empujar el botón de confirmar fuera de la pantalla, que es
+                     lo único que se puede hacer aquí. -->
+                <div class="mt-2 max-h-[50vh] overflow-y-auto">
+                    <ContenidoRico :html="bloqueante.cuerpo" />
+                    <AdjuntosDeAviso :adjuntos="bloqueante.adjuntos" />
+                </div>
 
                 <!--
                     Se dice que quedará constancia ANTES de que pulse, no
@@ -162,7 +170,8 @@ function posponer(aviso: AvisoRecibido): void {
             </span>
 
             <h3 class="mt-2 text-sm font-semibold text-contenido">{{ a.titulo }}</h3>
-            <p class="mt-1 whitespace-pre-line text-sm text-suave">{{ a.cuerpo }}</p>
+            <ContenidoRico :html="a.cuerpo" compacto class="mt-1" />
+            <AdjuntosDeAviso :adjuntos="a.adjuntos" compacto />
 
             <div class="mt-3 flex flex-wrap items-center gap-2">
                 <button

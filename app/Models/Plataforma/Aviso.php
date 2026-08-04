@@ -47,6 +47,12 @@ class Aviso extends Model
         return $this->hasMany(AvisoDestino::class, 'aviso_id');
     }
 
+    /** Lo que lo acompaña: archivos y enlaces, en el orden en que se pusieron. */
+    public function adjuntos(): HasMany
+    {
+        return $this->hasMany(AvisoAdjunto::class, 'aviso_id')->orderBy('orden');
+    }
+
     public function lecturas(): HasMany
     {
         return $this->hasMany(AvisoLectura::class, 'aviso_id');

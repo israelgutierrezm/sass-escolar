@@ -6,11 +6,14 @@ namespace App\Http\Controllers;
 
 use App\Models\Identidad\Usuario;
 use App\Models\Plataforma\Aviso;
+use App\Models\Plataforma\AvisoAdjunto;
 use App\Services\Plataforma\AvisosDeUsuario;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Los avisos vistos desde el lado de quien los recibe.
@@ -56,5 +59,34 @@ class MisAvisosController extends Controller
         abort_unless($this->avisos->confirmar($usuario, $aviso), 404);
 
         return back(303);
+    }
+
+    /**
+     * Sirve un archivo adjunto.
+     *
+     * Sólo a quien el aviso le llega. Que la dirección lleve un uuid impide
+     * adivinarla contando, pero un enlace se reenvía y se pega en un chat: lo
+     * que de verdad protege el archivo es comprobar, en cada descarga, que
+     * quien la pide es destinatario del aviso al que pertenece.
+     */
+    public function adjunto(Request $request, string $uuid): StreamedResponse
+    {
+        $adjunto = AvisoAdjunto::query()->where('uuid', $uuid)->firstOrFail();
+
+        /** @var Usuario $usuario */
+        $usuario = $request->user();
+
+        // 404 y no 403: para quien no es destinatario, ese archivo no está ahí.
+        abort_unless($this->avisos->leLlega($usuario, $adjunto->aviso), 404);
+        abort_unless($adjunto->ruta !== null && Storage::disk('local')->exists($adjunto->ruta), 404);
+
+        return Storage::disk('local')->response(
+            $adjunto->ruta,
+            $adjunto->nombre_original,
+            // `inline` para que un PDF se abra en el navegador en vez de
+            // descargarse: la mitad de los adjuntos se consultan una vez y no
+            // hay por qué dejarlos en la carpeta de descargas de nadie.
+            ['Content-Type' => $adjunto->mime ?? 'application/octet-stream', 'Content-Disposition' => 'inline'],
+        );
     }
 }
