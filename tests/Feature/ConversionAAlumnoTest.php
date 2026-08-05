@@ -95,7 +95,8 @@ class ConversionAAlumnoTest extends TenantTestCase
             $this->fila('reglas_matricula', [
                 'ambito' => 'global',
                 'plantilla' => '{AAAA}-{####}',
-                'ambito_consecutivo' => 'anio',
+                'consecutivo_por' => null,
+                'consecutivo_anual' => true,
                 'activo' => true,
             ]);
         }

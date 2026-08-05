@@ -64,6 +64,7 @@ use App\Http\Controllers\TutorController;
 use App\Http\Controllers\RecuperacionController;
 use App\Http\Controllers\PortalAspiranteController;
 use App\Http\Controllers\PromocionController;
+use App\Http\Controllers\ReglaMatriculaController;
 use App\Http\Controllers\RolActivoController;
 use App\Http\Controllers\ActividadController;
 use App\Http\Controllers\ArchivoRespuestaController;
@@ -224,6 +225,26 @@ Route::middleware([
             // quien limpia los que sobran.
             Route::delete('/{aspirante}', 'destroy')->middleware('can:editar-aspirantes')->name('destroy');
         });
+
+        /*
+         * Con qué se arma la matrícula de esta escuela.
+         *
+         * Permiso propio, `configurar-matriculas`, y no `generar-matricula`:
+         * numerar a UN alumno y cambiar cómo se numera TODA la escuela son
+         * cosas de distinto tamaño. Lo segundo lo toca dirección, no ventanilla.
+         */
+        Route::controller(ReglaMatriculaController::class)
+            ->prefix('admisiones/reglas-matricula')
+            ->name('tenant.admisiones.reglas-matricula.')
+            ->middleware('can:configurar-matriculas')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'store')->name('store');
+                Route::post('/previsualizar', 'previsualizar')->name('previsualizar');
+                Route::post('/contadores', 'ajustarContador')->name('contadores.ajustar');
+                Route::put('/{regla}', 'update')->name('update');
+                Route::delete('/{regla}', 'destroy')->name('destroy');
+            });
 
         /*
          * Portal del docente y captura de calificaciones.

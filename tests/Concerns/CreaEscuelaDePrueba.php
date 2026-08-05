@@ -36,12 +36,7 @@ trait CreaEscuelaDePrueba
         $institucion = $this->fila('instituciones', ['clave' => "INS-{$unico}", 'nombre' => 'Institución de prueba']);
         $campus = $this->fila('campus', ['clave' => "CAM-{$unico}", 'nombre' => 'Campus de prueba', 'institucion_id' => $institucion]);
 
-        // Los niveles de estudio viven en la base CENTRAL: son catálogo de la
-        // SEP, iguales para todas las escuelas.
-        $nivel = DB::connection('central')->table('niveles_estudio')->value('id')
-            ?? DB::connection('central')->table('niveles_estudio')->insertGetId([
-                'clave' => 'LIC', 'nombre' => 'Licenciatura', 'orden' => 1,
-            ]);
+        $nivel = $this->nivelDePrueba();
 
         $carrera = $this->fila('carreras', [
             'identificador' => "ID-{$unico}",
@@ -111,7 +106,7 @@ trait CreaEscuelaDePrueba
         $grupo = $this->fila('grupos', [
             'ciclo_id' => $ciclo,
             'campus_id' => $campus,
-            'nivel_estudios_id' => DB::connection('central')->table('niveles_estudio')->value('id'),
+            'nivel_estudios_id' => $this->nivelDePrueba(),
             'semestre' => 1,
             'clave' => "G-{$unico}",
             'cupo' => $cupo,
@@ -168,6 +163,23 @@ trait CreaEscuelaDePrueba
         }
 
         return $this->fila($tabla, ['clave' => 'prueba', 'nombre' => 'De prueba']);
+    }
+
+    /**
+     * El nivel de estudios de la escuela de prueba.
+     *
+     * Se creaba en la base CENTRAL «porque es catálogo de la SEP», pero el
+     * modelo `Academico\NivelEstudio` es TENANT desde que cada escuela
+     * administra los suyos. El id que quedaba en `carreras.nivel_estudios_id`
+     * existía en la central y no en la escuela, así que `nivelEstudios`
+     * resolvía a NULL en toda prueba: lo que se ejercía era el caso «carrera
+     * sin nivel», no el normal. Se notó al probar el token {NIVEL} de la
+     * matrícula, que salía vacío sin motivo aparente.
+     */
+    protected function nivelDePrueba(): int
+    {
+        return (int) (DB::table('niveles_estudio')->value('id')
+            ?? $this->fila('niveles_estudio', ['clave' => 'LIC', 'nombre' => 'Licenciatura', 'orden' => 1]));
     }
 
     /**

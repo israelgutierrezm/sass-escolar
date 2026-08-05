@@ -18,11 +18,13 @@ use App\Models\Admisiones\SituacionAspirante;
 use App\Models\Identidad\Persona;
 use App\Services\ConvertidorAspirante;
 use App\Services\IdentidadPersona;
+use App\Services\GeneradorMatricula;
 use App\Services\ProgresoSolicitud;
 use App\Services\Suplantador;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use RuntimeException;
@@ -185,6 +187,10 @@ class AspiranteController extends Controller
                 'fecha_ingreso' => $matricula->fecha_ingreso?->toDateString(),
             ],
             'impedimentosConversion' => $convertidor->impedimentos($aspirante),
+            // Con qué número saldría, para que se vea ANTES de pulsar el botón
+            // que no se deshace. Es sugerencia y no reserva: ver
+            // `GeneradorMatricula::previsualizar`.
+            'matriculaSugerida' => $this->sugerirMatricula($aspirante),
             'permisos' => [
                 'editar' => $request->user()->can('editar-aspirantes'),
                 'validarExpediente' => $request->user()->can('validar-expediente'),
@@ -202,10 +208,23 @@ class AspiranteController extends Controller
     {
         $datos = $request->validate([
             'generacion' => ['nullable', 'string', 'max:100'],
+            /*
+             * La matrícula, si se impone a mano.
+             *
+             * Única de verdad, no sólo por el índice de la base: el error de
+             * MySQL no dice a quién pertenece la que ya existe, y con eso nadie
+             * puede decidir qué hacer.
+             */
+            'matricula' => [
+                'nullable', 'string', 'max:50',
+                Rule::unique('matricula_oferta', 'matricula')->whereNull('deleted_at'),
+            ],
+        ], [
+            'matricula.unique' => 'Esa matrícula ya está asignada a otro alumno.',
         ]);
 
         try {
-            $matricula = $convertidor->convertir($aspirante, $datos['generacion'] ?? null);
+            $matricula = $convertidor->convertir($aspirante, $datos['generacion'] ?? null, $datos['matricula'] ?? null);
         } catch (RuntimeException $error) {
             return back()->with('error', $error->getMessage());
         }
@@ -225,6 +244,29 @@ class AspiranteController extends Controller
      *
      * @return array<int, array<string, mixed>>
      */
+    /**
+     * Con qué matrícula saldría este aspirante si se convirtiera ahora.
+     *
+     * Devuelve null y el motivo cuando no se puede saber —sin oferta de interés
+     * no hay carrera de la que sacar la clave, y sin regla configurada no hay
+     * plantilla—. No se lanza: la ficha tiene que abrir igual, y quien la mira
+     * necesita LEER el problema, no toparse con un 500.
+     *
+     * @return array{matricula: ?string, motivo: ?string}
+     */
+    private function sugerirMatricula(Aspirante $aspirante): array
+    {
+        if ($aspirante->ofertaInteres === null) {
+            return ['matricula' => null, 'motivo' => 'Sin programa de interés no se puede armar la matrícula.'];
+        }
+
+        try {
+            return ['matricula' => app(GeneradorMatricula::class)->previsualizar($aspirante->ofertaInteres), 'motivo' => null];
+        } catch (RuntimeException $e) {
+            return ['matricula' => null, 'motivo' => $e->getMessage()];
+        }
+    }
+
     private function expediente(Aspirante $aspirante): array
     {
         $requeridos = DocumentoRequerido::query()

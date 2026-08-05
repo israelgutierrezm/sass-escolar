@@ -140,7 +140,7 @@ class GeneradorMatriculaTest extends TenantTestCase
     {
         $oferta = $this->ofertaDePrueba();
 
-        $this->regla('global', null, '{AAAA}-{###}', ambitoConsecutivo: 'anio');
+        $this->regla('global', null, '{AAAA}-{###}', consecutivoAnual: true);
 
         $this->assertSame('2026-001', $this->generador->generar($oferta, anio: 2026));
         $this->assertSame('2026-002', $this->generador->generar($oferta, anio: 2026));
@@ -151,7 +151,7 @@ class GeneradorMatriculaTest extends TenantTestCase
     {
         $oferta = $this->ofertaDePrueba();
 
-        $this->regla('global', null, '{AAAA}-{###}', ambitoConsecutivo: 'global');
+        $this->regla('global', null, '{AAAA}-{###}', consecutivoAnual: false);
 
         $this->generador->generar($oferta, anio: 2026);
 
@@ -163,7 +163,7 @@ class GeneradorMatriculaTest extends TenantTestCase
         $primera = $this->ofertaDePrueba();
         $segunda = $this->ofertaDePrueba();
 
-        $this->regla('global', null, 'M{###}', ambitoConsecutivo: 'carrera');
+        $this->regla('global', null, 'M{###}', consecutivoPor: 'carrera', consecutivoAnual: false);
 
         $this->assertSame('M001', $this->generador->generar($primera, anio: 2026));
         $this->assertSame('M002', $this->generador->generar($primera, anio: 2026));
@@ -174,10 +174,127 @@ class GeneradorMatriculaTest extends TenantTestCase
     {
         $oferta = $this->ofertaDePrueba();
 
-        $this->regla('global', null, 'M{###}', ambitoConsecutivo: 'lo_que_sea');
+        // Un valor que la pantalla no ofrece pero que podría llegar de una
+        // migración a medias o de una edición a mano en la base.
+        $this->regla('global', null, 'M{###}')->update(['consecutivo_por' => 'lo_que_sea']);
 
         $this->expectException(RuntimeException::class);
         $this->generador->generar($oferta, anio: 2026);
+    }
+
+    // ── Los tres formatos que se pidieron ──────────────────────────────────
+
+    /**
+     * ClaveNivel + ClaveCarrera + ClavePlan + Año + consecutivo del año.
+     *
+     * El que motivó el token {NIVEL}: no existía y no había forma de armar este
+     * formato sin él.
+     */
+    public function test_nivel_carrera_plan_anio_y_consecutivo_del_anio(): void
+    {
+        $oferta = $this->ofertaDePrueba();
+
+        $this->regla('global', null, '{NIVEL}{CARRERA}{PLAN}{AAAA}{###}');
+
+        $esperado = $oferta->carrera->nivelEstudios->clave
+            .$oferta->carrera->clave
+            .$oferta->plan->clave
+            .'2026001';
+
+        $this->assertSame($esperado, $this->generador->generar($oferta, anio: 2026));
+    }
+
+    /** Año + ClaveCarrera + consecutivo histórico de la carrera. */
+    public function test_anio_carrera_y_consecutivo_historico_de_la_carrera(): void
+    {
+        $oferta = $this->ofertaDePrueba();
+
+        $this->regla('global', null, '{AAAA}{CARRERA}{####}', consecutivoPor: 'carrera', consecutivoAnual: false);
+
+        $this->generador->generar($oferta, anio: 2026);
+
+        $this->assertSame(
+            '2027'.$oferta->carrera->clave.'0002',
+            $this->generador->generar($oferta, anio: 2027),
+            'El año cambia en la matrícula, pero la cuenta de la carrera sigue.',
+        );
+    }
+
+    /** ClaveCarrera + Año + consecutivo del campus por año. */
+    public function test_carrera_anio_y_consecutivo_del_campus_por_anio(): void
+    {
+        $oferta = $this->ofertaDePrueba();
+
+        $this->regla('global', null, '{CARRERA}{AAAA}{####}', consecutivoPor: 'campus');
+
+        $this->assertSame($oferta->carrera->clave.'20260001', $this->generador->generar($oferta, anio: 2026));
+        $this->assertSame($oferta->carrera->clave.'20260002', $this->generador->generar($oferta, anio: 2026));
+        $this->assertSame(
+            $oferta->carrera->clave.'20270001',
+            $this->generador->generar($oferta, anio: 2027),
+            'Año nuevo, cuenta nueva del campus.',
+        );
+    }
+
+    /**
+     * Dos ofertas de campus distintos no comparten cuenta.
+     *
+     * `ofertaDePrueba()` arma una escuela entera cada vez, así que cada oferta
+     * trae su propio campus: es exactamente el caso.
+     */
+    public function test_el_consecutivo_por_campus_lleva_cuentas_separadas(): void
+    {
+        $primera = $this->ofertaDePrueba();
+        $segunda = $this->ofertaDePrueba();
+
+        $this->regla('global', null, 'C{###}', consecutivoPor: 'campus');
+
+        $this->assertSame('C001', $this->generador->generar($primera, anio: 2026));
+        $this->assertSame('C002', $this->generador->generar($primera, anio: 2026));
+        $this->assertSame('C001', $this->generador->generar($segunda, anio: 2026), 'Otro campus, otra cuenta.');
+    }
+
+    public function test_el_consecutivo_por_nivel_lleva_cuentas_separadas(): void
+    {
+        $oferta = $this->ofertaDePrueba();
+
+        $this->regla('global', null, 'N{###}', consecutivoPor: 'nivel', consecutivoAnual: false);
+
+        $this->assertSame('N001', $this->generador->generar($oferta, anio: 2026));
+        $this->assertSame('N002', $this->generador->generar($oferta, anio: 2027), 'Histórico: el año no lo reinicia.');
+    }
+
+    // ── La sugerencia ──────────────────────────────────────────────────────
+
+    /**
+     * Previsualizar NO gasta folio.
+     *
+     * Es lo que sostiene toda la funcionalidad: la ficha del aspirante enseña
+     * la matrícula que le tocaría cada vez que alguien la abre. Si consumiera,
+     * un expediente visitado tres veces se llevaría tres números y la
+     * numeración saldría con huecos que nadie sabría explicar.
+     */
+    public function test_la_vista_previa_no_consume_el_consecutivo(): void
+    {
+        $oferta = $this->ofertaDePrueba();
+
+        $this->regla('global', null, '{AAAA}-{####}');
+
+        $this->assertSame('2026-0001', $this->generador->previsualizar($oferta, anio: 2026));
+        $this->assertSame('2026-0001', $this->generador->previsualizar($oferta, anio: 2026));
+        $this->assertSame('2026-0001', $this->generador->generar($oferta, anio: 2026), 'Y era la que iba a tocar.');
+    }
+
+    /** Después de emitir una, la siguiente vista previa ya dice la que sigue. */
+    public function test_la_vista_previa_avanza_cuando_alguien_mas_consume(): void
+    {
+        $oferta = $this->ofertaDePrueba();
+
+        $this->regla('global', null, '{AAAA}-{####}');
+
+        $this->generador->generar($oferta, anio: 2026);
+
+        $this->assertSame('2026-0002', $this->generador->previsualizar($oferta, anio: 2026));
     }
 
     // ── Andamiaje ──────────────────────────────────────────────────────────
@@ -191,7 +308,8 @@ class GeneradorMatriculaTest extends TenantTestCase
         string $ambito,
         ?int $ambitoId,
         string $plantilla,
-        string $ambitoConsecutivo = 'anio',
+        ?string $consecutivoPor = null,
+        bool $consecutivoAnual = true,
         bool $activo = true,
     ): ReglaMatricula {
         return ReglaMatricula::create([
@@ -199,7 +317,8 @@ class GeneradorMatriculaTest extends TenantTestCase
             'ambito' => $ambito,
             'ambito_id' => $ambitoId,
             'plantilla' => $plantilla,
-            'ambito_consecutivo' => $ambitoConsecutivo,
+            'consecutivo_por' => $consecutivoPor,
+            'consecutivo_anual' => $consecutivoAnual,
             'activo' => $activo,
         ]);
     }

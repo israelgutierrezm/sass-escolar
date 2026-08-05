@@ -74,6 +74,7 @@ final class CatalogoPermisos
             'convertir-aspirante' => ['Convertir en alumno', 'Cerrar la admisión: genera la matrícula. Es el paso irreversible del embudo.', [self::ADMINISTRATIVO]],
             'generar-matricula' => ['Generar matrícula', 'Numerar a un alumno. Cubre reingresos y segundas carreras de quien ya está dentro.', [self::ADMINISTRATIVO]],
             'gestionar-documentos' => ['Administrar el catálogo de documentos', 'Definir qué papeles se le piden a cada tipo de persona.', [self::ADMINISTRATIVO]],
+            'configurar-matriculas' => ['Configurar el formato de matrícula', 'Definir con qué se arma la matrícula y ajustar los consecutivos. Toca la numeración de TODA la escuela: no es lo mismo que poder numerar a un alumno.', [self::ADMINISTRATIVO]],
         ],
 
         'Portal del interesado' => [

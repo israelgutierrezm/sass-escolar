@@ -98,6 +98,7 @@ export const CATALOGO_MENU: GrupoMenu[] = [
             { clave: 'formularios-web', etiqueta: 'Formularios web', url: '/promocion/publicaciones', permiso: 'gestionar-promocion' },
             { clave: 'documentos', etiqueta: 'Documentos', url: '/documentos', permiso: 'gestionar-documentos' },
             { clave: 'formularios', etiqueta: 'Formularios', url: '/formularios', permiso: 'gestionar-formularios' },
+            { clave: 'reglas-matricula', etiqueta: 'Formato de matrícula', url: '/admisiones/reglas-matricula', permiso: 'configurar-matriculas' },
         ],
     },
     {

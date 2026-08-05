@@ -29,6 +29,7 @@ const props = defineProps<{
     estadosDocumento: { id: number; nombre: string }[];
     matricula: { matricula: string; oferta: string | null; fecha_ingreso: string | null } | null;
     impedimentosConversion: string[];
+    matriculaSugerida: { matricula: string | null; motivo: string | null };
     permisos: { editar: boolean; validarExpediente: boolean; convertir: boolean };
     suplantable: { usuario_id: number; usuario: string } | null;
 }>();
@@ -49,7 +50,22 @@ const formArchivo = useForm<{ documento_id: number | null; archivo: File | null;
     copia_certificada: false,
 });
 
-const formConversion = useForm({ generacion: '' });
+const formConversion = useForm({ generacion: '', matricula: '' });
+
+/*
+ * La matrícula se muestra sugerida y editable.
+ *
+ * Antes se generaba en silencio al pulsar «Convertir» y el administrador se
+ * enteraba del número después, cuando ya no se deshace. Si la regla no cubre
+ * un caso —un alumno que regresa y conserva el suyo, uno heredado del sistema
+ * anterior— aquí se corrige, y entonces el contador no avanza.
+ */
+const editandoMatricula = ref(false);
+
+function usarSugerida(): void {
+    formConversion.matricula = '';
+    editandoMatricula.value = false;
+}
 
 /** Solo se puede convertir si no hay impedimentos y aún no tiene matrícula. */
 const puedeConvertir = computed(
@@ -471,6 +487,59 @@ Se le generará su matrícula de todos modos y eso no se puede deshacer. ¿Conti
                         </ul>
 
                         <form v-if="puedeConvertir" class="mt-4 space-y-3" @submit.prevent="convertir">
+                            <!--
+                                La matrícula, ANTES de pulsar.
+                                Se generaba en silencio y el administrador se
+                                enteraba del número cuando ya no se deshace.
+                            -->
+                            <div class="rounded-lg p-3" :style="{ backgroundColor: 'var(--color-fondo)' }">
+                                <p class="text-xs font-medium text-suave">Matrícula que se le asignará</p>
+
+                                <template v-if="!editandoMatricula">
+                                    <p
+                                        v-if="matriculaSugerida.matricula"
+                                        class="mt-1 font-mono text-lg font-semibold text-contenido"
+                                    >{{ matriculaSugerida.matricula }}</p>
+                                    <p v-else class="mt-1 text-sm text-amber-700">{{ matriculaSugerida.motivo }}</p>
+
+                                    <div class="mt-2 flex flex-wrap items-center gap-3 text-xs">
+                                        <button
+                                            type="button"
+                                            class="hover:underline"
+                                            :style="{ color: 'var(--color-acento)' }"
+                                            @click="editandoMatricula = true"
+                                        >
+                                            Usar otra
+                                        </button>
+                                        <span class="text-suave">Sale del formato configurado en Admisiones.</span>
+                                    </div>
+                                </template>
+
+                                <template v-else>
+                                    <input
+                                        v-model="formConversion.matricula"
+                                        type="text"
+                                        :placeholder="matriculaSugerida.matricula ?? 'Escribe la matrícula'"
+                                        class="mt-1 w-full rounded-lg border border-borde px-3 py-2 font-mono text-sm uppercase"
+                                    />
+                                    <p class="mt-1.5 text-xs text-suave">
+                                        Si la escribes a mano, el consecutivo NO avanza: ese folio no salió de él.
+                                    </p>
+                                    <button
+                                        type="button"
+                                        class="mt-1.5 text-xs hover:underline"
+                                        :style="{ color: 'var(--color-acento)' }"
+                                        @click="usarSugerida"
+                                    >
+                                        Volver a la sugerida
+                                    </button>
+                                </template>
+
+                                <p v-if="formConversion.errors.matricula" class="mt-1.5 text-xs text-red-600">
+                                    {{ formConversion.errors.matricula }}
+                                </p>
+                            </div>
+
                             <div>
                                 <label class="mb-1 block text-xs font-medium text-suave">
                                     Generación (opcional)

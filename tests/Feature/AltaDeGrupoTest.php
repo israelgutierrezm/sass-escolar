@@ -120,7 +120,7 @@ class AltaDeGrupoTest extends TenantTestCase
     {
         return Request::create('/escolar/grupos', 'POST', [
             'ciclo_id' => $this->cicloDePrueba(),
-            'nivel_estudios_id' => DB::connection('central')->table('niveles_estudio')->value('id'),
+            'nivel_estudios_id' => $this->nivelDePrueba(),
             'semestre' => 1,
             'clave' => 'G-'.uniqid(),
             'cupo' => 30,

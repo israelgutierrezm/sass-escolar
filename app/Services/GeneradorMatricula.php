@@ -22,6 +22,9 @@ use RuntimeException;
  *  2. El consecutivo se obtiene con un incremento ATÓMICO sobre
  *     `contadores_matricula`. Nunca se calcula con MAX(matricula)+1: bajo
  *     concurrencia dos administradores obtendrían el mismo número.
+ *
+ * `generar()` CONSUME el folio; `previsualizar()` no. Son operaciones
+ * distintas a propósito — ver la nota en `previsualizar()`.
  */
 class GeneradorMatricula
 {
@@ -32,15 +35,51 @@ class GeneradorMatricula
     public function generar(Oferta $oferta, ?int $anio = null): string
     {
         $anio ??= (int) now()->format('Y');
+        $regla = $this->resolverRegla($this->conRelaciones($oferta));
 
-        $oferta->loadMissing(['carrera', 'plan', 'campus']);
-
-        $regla = $this->resolverRegla($oferta);
-        $consecutivo = $this->siguienteConsecutivo(
-            $this->claveContador($regla, $oferta, $anio)
-        );
+        $consecutivo = $this->siguienteConsecutivo($this->claveContador($regla, $oferta, $anio));
 
         return $this->renderizar($regla->plantilla, $oferta, $anio, $consecutivo);
+    }
+
+    /**
+     * Cómo QUEDARÍA la matrícula, sin gastar el folio.
+     *
+     * Existe para dos cosas: la vista previa de la pantalla de reglas —donde
+     * uno prueba plantillas hasta que le gusta— y la sugerencia que se le
+     * muestra al administrador antes de convertir a un aspirante.
+     *
+     * **Es una sugerencia, no una reserva.** Lee el contador y le suma uno sin
+     * tocarlo, así que si entre la vista y la conversión alguien más convierte,
+     * el número final será el siguiente. Reservarlo sería peor: cada vista
+     * previa quemaría un folio y la numeración saldría con huecos.
+     */
+    public function previsualizar(Oferta $oferta, ?int $anio = null): string
+    {
+        $anio ??= (int) now()->format('Y');
+        $regla = $this->resolverRegla($this->conRelaciones($oferta));
+
+        $actual = (int) DB::table('contadores_matricula')
+            ->where('clave', $this->claveContador($regla, $oferta, $anio))
+            ->value('valor');
+
+        return $this->renderizar($regla->plantilla, $oferta, $anio, $actual + 1);
+    }
+
+    /**
+     * Igual que `previsualizar()`, pero con una regla que todavía no se guarda.
+     *
+     * La pantalla de reglas la usa para enseñar el resultado mientras se
+     * teclea la plantilla, con una oferta de ejemplo.
+     */
+    public function ensayar(ReglaMatricula $regla, Oferta $oferta, int $consecutivo = 1, ?int $anio = null): string
+    {
+        return $this->renderizar(
+            $regla->plantilla,
+            $this->conRelaciones($oferta),
+            $anio ?? (int) now()->format('Y'),
+            $consecutivo,
+        );
     }
 
     /**
@@ -75,21 +114,28 @@ class GeneradorMatricula
     }
 
     /**
-     * Llave del contador: define cada cuánto se reinicia la numeración.
+     * Llave del contador: define cada cuánto se reinicia la numeración y sobre
+     * qué se cuenta.
+     *
+     * Son dos decisiones independientes —sobre qué, y si se reinicia cada año—,
+     * así que la llave se arma juntando las dos partes. Su formato importa:
+     * cambiarlo reiniciaría de facto todos los contadores de la escuela, porque
+     * las filas viejas dejarían de encontrarse.
      */
-    private function claveContador(ReglaMatricula $regla, Oferta $oferta, int $anio): string
+    public function claveContador(ReglaMatricula $regla, Oferta $oferta, int $anio): string
     {
-        return match ($regla->ambito_consecutivo) {
-            'global' => 'global',
-            'anio' => "anio:{$anio}",
+        $sobre = match ($regla->consecutivo_por) {
+            null => 'global',
+            'campus' => "campus:{$oferta->campus_id}",
+            'nivel' => 'nivel:'.($oferta->carrera?->nivel_estudios_id ?? 0),
             'carrera' => "carrera:{$oferta->carrera_id}",
             'plan' => "plan:{$oferta->plan_id}",
-            'carrera_anio' => "carrera:{$oferta->carrera_id}|anio:{$anio}",
-            'plan_anio' => "plan:{$oferta->plan_id}|anio:{$anio}",
             default => throw new RuntimeException(
-                "Ámbito de consecutivo no reconocido: {$regla->ambito_consecutivo}"
+                "Ámbito de consecutivo no reconocido: {$regla->consecutivo_por}"
             ),
         };
+
+        return $regla->consecutivo_anual ? "{$sobre}|anio:{$anio}" : $sobre;
     }
 
     /**
@@ -116,6 +162,14 @@ class GeneradorMatricula
         return (int) DB::selectOne('SELECT LAST_INSERT_ID() AS valor')->valor;
     }
 
+    /** El nivel se lee a través de la carrera, así que hay que traerla. */
+    private function conRelaciones(Oferta $oferta): Oferta
+    {
+        $oferta->loadMissing(['carrera.nivelEstudios', 'plan', 'campus']);
+
+        return $oferta;
+    }
+
     /**
      * Sustituye los tokens de la plantilla. El consecutivo se rellena con
      * ceros según la cantidad de "#" del token: {####} → 0007.
@@ -125,6 +179,7 @@ class GeneradorMatricula
         $salida = strtr($plantilla, [
             '{AAAA}' => (string) $anio,
             '{AA}' => substr((string) $anio, -2),
+            '{NIVEL}' => (string) $oferta->carrera?->nivelEstudios?->clave,
             '{CARRERA}' => (string) $oferta->carrera?->clave,
             '{PLAN}' => (string) $oferta->plan?->clave,
             '{CAMPUS}' => (string) $oferta->campus?->clave,

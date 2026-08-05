@@ -39,15 +39,21 @@ class ConvertidorAspirante
     ) {}
 
     /**
+     * `$matricula` permite imponer una a mano en lugar de la que sugiere la
+     * regla. Es para los casos que ninguna plantilla cubre —un alumno que
+     * regresa y conserva su número de siempre, una matrícula heredada del
+     * sistema anterior—, y entonces el contador NO avanza: ese folio no salió
+     * de él y hacerlo saltar dejaría un hueco sin explicación.
+     *
      * @throws RuntimeException si al aspirante le falta algo para convertirse
      */
-    public function convertir(Aspirante $aspirante, ?string $generacion = null): MatriculaOferta
+    public function convertir(Aspirante $aspirante, ?string $generacion = null, ?string $matriculaManual = null): MatriculaOferta
     {
         $aspirante->loadMissing(['persona', 'ofertaInteres']);
 
         $this->validar($aspirante);
 
-        return DB::transaction(function () use ($aspirante, $generacion) {
+        return DB::transaction(function () use ($aspirante, $generacion, $matriculaManual) {
             $situacionActivo = SituacionAlumno::query()->where('clave', 'activo')->value('id');
 
             // El rol materializado de alumno: atributos propios, sin duplicar persona.
@@ -59,7 +65,9 @@ class ConvertidorAspirante
             $matricula = MatriculaOferta::create([
                 'persona_id' => $aspirante->persona_id,
                 'oferta_id' => $aspirante->oferta_interes_id,
-                'matricula' => $this->generador->generar($aspirante->ofertaInteres),
+                'matricula' => filled($matriculaManual)
+                    ? mb_strtoupper(trim($matriculaManual))
+                    : $this->generador->generar($aspirante->ofertaInteres),
                 'generacion' => $generacion,
                 'fecha_ingreso' => now()->toDateString(),
                 'situacion_id' => $situacionActivo,
