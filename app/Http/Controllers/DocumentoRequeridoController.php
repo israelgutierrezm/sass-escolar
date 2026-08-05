@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Models\Academico\Carrera;
 use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\Admisiones\EtiquetaDocumento;
 use App\Models\Admisiones\ExpedienteDocumento;
@@ -34,7 +33,7 @@ class DocumentoRequeridoController extends Controller
         $filtros = ['ambito' => $request->query('ambito')];
 
         $documentos = DocumentoRequerido::query()
-            ->with(['etiquetas:id,nombre', 'carreras:id,nombre'])
+            ->with(['etiquetas:id,nombre'])
             ->when($filtros['ambito'], fn ($q, $ambito) => $q->delAmbito($ambito))
             ->orderBy('nombre')
             ->get()
@@ -45,8 +44,6 @@ class DocumentoRequeridoController extends Controller
                 'obligatorio' => $d->obligatorio,
                 'ambitos' => $d->ambitos(),
                 'etiquetas' => $d->etiquetas->pluck('nombre')->all(),
-                'carreras' => $d->carreras->pluck('nombre')->all(),
-                'carrera_ids' => $d->carreras->pluck('id')->all(),
                 // Cuántos se han entregado ya: manda al borrar.
                 'entregados' => $this->entregasDe($d->id),
             ]);
@@ -58,7 +55,6 @@ class DocumentoRequeridoController extends Controller
                 ->map(fn (string $nombre, string $clave) => ['clave' => $clave, 'nombre' => $nombre])
                 ->values(),
             'etiquetas' => EtiquetaDocumento::query()->orderBy('nombre')->get(['id', 'nombre']),
-            'carreras' => Carrera::query()->orderBy('nombre')->get(['id', 'nombre']),
             'puedeEditar' => $request->user()->can('gestionar-documentos'),
         ]);
     }
@@ -75,7 +71,6 @@ class DocumentoRequeridoController extends Controller
             ]);
 
             $documento->sincronizarAmbitos($datos['ambitos']);
-            $documento->carreras()->sync($datos['carrera_ids'] ?? []);
             $documento->etiquetas()->sync($datos['etiqueta_ids'] ?? []);
         });
 
@@ -94,7 +89,6 @@ class DocumentoRequeridoController extends Controller
             ]);
 
             $documento->sincronizarAmbitos($datos['ambitos']);
-            $documento->carreras()->sync($datos['carrera_ids'] ?? []);
             $documento->etiquetas()->sync($datos['etiqueta_ids'] ?? []);
         });
 
@@ -147,8 +141,6 @@ class DocumentoRequeridoController extends Controller
             // tiene por qué nacer. Retirarlo después sí es válido.
             'ambitos' => ['required', 'array', 'min:1'],
             'ambitos.*' => [Rule::in(array_keys(DocumentoRequerido::AMBITOS))],
-            'carrera_ids' => ['present', 'array'],
-            'carrera_ids.*' => ['integer', Rule::exists('carreras', 'id')->whereNull('deleted_at')],
             'etiqueta_ids' => ['present', 'array'],
             'etiqueta_ids.*' => ['integer', Rule::exists('etiquetas_documento', 'id')->whereNull('deleted_at')],
         ], [
@@ -156,7 +148,6 @@ class DocumentoRequeridoController extends Controller
             'ambitos.required' => 'Elige al menos a quién se le pide.',
             'ambitos.min' => 'Elige al menos a quién se le pide.',
         ], [
-            'carrera_ids' => 'carreras',
             'etiqueta_ids' => 'etiquetas',
         ]);
     }

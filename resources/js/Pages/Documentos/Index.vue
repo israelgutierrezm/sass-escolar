@@ -15,8 +15,6 @@ interface Documento {
     obligatorio: boolean;
     ambitos: string[];
     etiquetas: string[];
-    carreras: string[];
-    carrera_ids: number[];
     entregados: number;
 }
 
@@ -25,7 +23,6 @@ const props = defineProps<{
     filtros: { ambito: string | null };
     ambitos: { clave: string; nombre: string }[];
     etiquetas: { id: number; nombre: string }[];
-    carreras: { id: number; nombre: string }[];
     puedeEditar: boolean;
 }>();
 
@@ -37,7 +34,6 @@ const form = useForm({
     descripcion: '',
     obligatorio: true,
     ambitos: [] as string[],
-    carrera_ids: [] as number[],
     etiqueta_ids: [] as number[],
 });
 
@@ -53,7 +49,6 @@ function abrirEdicion(doc: Documento): void {
     form.descripcion = doc.descripcion ?? '';
     form.obligatorio = doc.obligatorio;
     form.ambitos = [...doc.ambitos];
-    form.carrera_ids = [...doc.carrera_ids];
     form.etiqueta_ids = [];
     editando.value = doc.id;
     creando.value = false;
@@ -162,13 +157,6 @@ const nombreAmbito = (clave: string) => props.ambitos.find((a) => a.clave === cl
                     :error="form.errors.ambitos"
                     ayuda="Al menos uno. Quitarlos todos lo retira sin borrar lo entregado."
                 />
-                <CampoCasillas
-                    v-model="form.carrera_ids"
-                    etiqueta="Solo para estas carreras"
-                    :opciones="carreras.map((c) => ({ valor: c.id, texto: c.nombre }))"
-                    :error="form.errors.carrera_ids"
-                    ayuda="Sin marcar ninguna, se pide en todas."
-                />
             </div>
 
             <div class="mt-4">
@@ -200,7 +188,6 @@ const nombreAmbito = (clave: string) => props.ambitos.find((a) => a.clave === cl
                         <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
                             <th class="px-6 py-3 font-semibold">Documento</th>
                             <th class="px-4 py-3 font-semibold">Se le pide a</th>
-                            <th class="px-4 py-3 font-semibold">Carreras</th>
                             <th class="px-4 py-3 font-semibold text-center">Entregados</th>
                             <th class="px-6 py-3 font-semibold text-right">Acciones</th>
                         </tr>
@@ -234,9 +221,6 @@ const nombreAmbito = (clave: string) => props.ambitos.find((a) => a.clave === cl
                                     >{{ nombreAmbito(ambito) }}</span>
                                 </span>
                                 <span v-else class="text-[11px] font-medium" :style="{ color: '#b45309' }">A nadie — retirado</span>
-                            </td>
-                            <td class="px-4 py-4 text-xs" :style="{ color: 'var(--color-suave)' }">
-                                {{ doc.carreras.length ? doc.carreras.join(', ') : 'todas' }}
                             </td>
                             <td class="px-4 py-4 text-center tabular-nums" :style="{ color: 'var(--color-suave)' }">{{ doc.entregados || '—' }}</td>
                             <td class="px-6 py-4 text-right">

@@ -30,7 +30,10 @@ class ConceptoPagoController extends Controller
         return Inertia::render('Finanzas/Conceptos/Index', [
             'conceptos' => ConceptoPago::query()
                 ->orderBy('nombre')
-                ->withCount(['adeudos', 'reglas'])
+                // `lineasDePlan` se llamaba `reglas` antes del rediseño del
+                // motor de cobro; el nombre viejo quedó aquí y esta pantalla
+                // reventaba con un 500 al abrirse.
+                ->withCount(['adeudos', 'lineasDePlan'])
                 ->get()
                 ->map(fn (ConceptoPago $c) => [
                     'id' => $c->id,
@@ -42,7 +45,7 @@ class ConceptoPagoController extends Controller
                     'gravado' => $c->gravado,
                     'tasa_iva' => $c->tasa_iva,
                     'cuenta_contable' => $c->cuenta_contable,
-                    'en_uso' => ($c->adeudos_count + $c->reglas_count) > 0,
+                    'en_uso' => ($c->adeudos_count + $c->lineas_de_plan_count) > 0,
                 ]),
             'catalogos' => ['objeto_impuesto' => CatalogosSat::objetoImpuesto()],
         ]);
