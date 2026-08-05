@@ -134,27 +134,16 @@ class GrupoController extends Controller
     /**
      * Los ciclos que se pueden elegir para un grupo.
      *
-     * Un ciclo cerrado ya rindió sus actas: abrirle un grupo es capturar en un
-     * periodo que la escuela dio por terminado. Se ofrecen los planeados y los
-     * en curso —planear los grupos del semestre que viene es justo lo normal—.
-     *
-     * El ciclo que el grupo YA tiene se conserva aunque esté cerrado: si
+     * Los vigentes, más el que el grupo ya tiene aunque esté cerrado: si
      * desapareciera del desplegable, editar la clave de un grupo viejo lo dejaría
-     * sin ciclo, y guardar lo movería a otro.
+     * sin ciclo y guardar lo movería a otro. La regla vive en
+     * `Ciclo::scopeVigentes`.
      */
     private function ciclosElegibles(?Grupo $grupo = null): Collection
     {
-        $cerrado = SituacionCiclo::query()->where('clave', 'cerrado')->value('id');
-
         return Ciclo::query()
             ->with(['campus:id', 'niveles:id'])
-            ->when(
-                $cerrado !== null,
-                fn ($q) => $q->where(fn ($sub) => $sub
-                    ->where('situacion_id', '!=', $cerrado)
-                    ->orWhereNull('situacion_id')
-                    ->orWhere('id', $grupo?->ciclo_id)),
-            )
+            ->vigentes($grupo?->ciclo_id)
             ->orderByDesc('fecha_inicio')
             ->get(['id', 'clave', 'nombre']);
     }

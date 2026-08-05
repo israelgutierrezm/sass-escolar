@@ -66,7 +66,8 @@ class AplicacionController extends Controller
                 ->get(['id', 'titulo', 'es_plantilla']),
             'tiposDestino' => DestinoEvento::paraSelect(),
             'opciones' => $this->opcionesDeDestino(),
-            'ciclos' => Ciclo::query()->orderByDesc('fecha_inicio')->get(['id', 'clave', 'nombre']),
+            // Sólo vigentes: una encuesta se aplica sobre el ciclo que corre.
+            'ciclos' => Ciclo::query()->vigentes()->orderByDesc('fecha_inicio')->get(['id', 'clave', 'nombre']),
         ]);
     }
 
@@ -190,7 +191,8 @@ class AplicacionController extends Controller
             // Sin preguntas la encuesta no pregunta nada: el botón se pone en
             // rojo en vez de dejar que alguien la publique vacía.
             'preguntas' => $aplicacion->encuesta?->preguntas()->count() ?? 0,
-            'ciclos' => Ciclo::query()->orderByDesc('fecha_inicio')->get(['id', 'clave', 'nombre']),
+            // Sólo vigentes: una encuesta se aplica sobre el ciclo que corre.
+            'ciclos' => Ciclo::query()->vigentes()->orderByDesc('fecha_inicio')->get(['id', 'clave', 'nombre']),
         ]);
     }
 

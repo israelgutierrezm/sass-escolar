@@ -105,7 +105,10 @@ class DocenciaController extends Controller
 
         return Inertia::render('Docencia/Index', [
             'materias' => $materias,
+            // Sólo los vigentes: un docente no captura ni consulta lo de 2016
+            // desde aquí, y el histórico completo entierra lo de este semestre.
             'ciclos' => Ciclo::query()
+                ->vigentes($ciclo?->id)
                 ->orderByDesc('fecha_inicio')
                 ->get(['id', 'clave', 'nombre'])
                 ->map(fn (Ciclo $c) => ['id' => $c->id, 'etiqueta' => "{$c->clave} — {$c->nombre}"]),
@@ -627,13 +630,7 @@ class DocenciaController extends Controller
             return Ciclo::find($id);
         }
 
-        $hoy = now()->toDateString();
-
-        return Ciclo::query()
-            ->whereDate('fecha_inicio', '<=', $hoy)
-            ->whereDate('fecha_fin', '>=', $hoy)
-            ->orderByDesc('fecha_inicio')
-            ->first();
+        return Ciclo::enCurso();
     }
 
     /** El registro de docente del usuario, si lo tiene. */

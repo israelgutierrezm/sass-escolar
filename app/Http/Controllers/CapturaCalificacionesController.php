@@ -88,6 +88,7 @@ class CapturaCalificacionesController extends Controller
 
         return Inertia::render('Captura/Index', [
             'ciclos' => Ciclo::query()
+                ->vigentes($ciclo?->id)
                 ->orderByDesc('fecha_inicio')
                 ->get(['id', 'clave', 'nombre'])
                 ->map(fn (Ciclo $c) => ['id' => $c->id, 'etiqueta' => "{$c->clave} — {$c->nombre}"]),
@@ -504,10 +505,23 @@ class CapturaCalificacionesController extends Controller
         }
     }
 
+    /**
+     * El ciclo que se está capturando.
+     *
+     * Sin elección, el EN CURSO. Abría en «todos los ciclos» y listaba las
+     * materias abiertas de toda la historia de la escuela: quien entra a
+     * capturar las calificaciones de este semestre tenía que encontrarlas entre
+     * las de hace ocho años. `?ciclo_id=todos` sigue sirviendo para verlas
+     * todas, que es lo que hace falta al corregir un acta vieja.
+     */
     private function cicloSeleccionado(Request $request): ?Ciclo
     {
         $id = $request->query('ciclo_id');
 
-        return $id === null ? null : Ciclo::find($id);
+        if ($id === 'todos') {
+            return null;
+        }
+
+        return $id === null ? Ciclo::enCurso() : Ciclo::find($id);
     }
 }

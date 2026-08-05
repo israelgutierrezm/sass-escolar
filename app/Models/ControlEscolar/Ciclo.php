@@ -106,6 +106,66 @@ class Ciclo extends Model
             ->orWhereDoesntHave('campus'));
     }
 
+    /**
+     * Los ciclos con los que todavía se trabaja: todos menos los cerrados.
+     *
+     * Una escuela con años de historia acumula veinte ciclos y sólo uno o dos
+     * están vivos. Ofrecerlos todos convierte cada tarea diaria —capturar
+     * calificaciones, inscribir, asignar tutorías— en elegir entre veintiuna
+     * opciones donde sólo una tiene sentido, y pone «2016-1» a un clic de
+     * distancia de la que se buscaba.
+     *
+     * Los planeados y los en curso SÍ se ofrecen: preparar el semestre que viene
+     * es trabajo normal. Lo que se retira es lo que ya rindió sus actas.
+     *
+     * @param  int|null  $conservar  Un ciclo que se muestra aunque esté cerrado.
+     *                               Es para las pantallas de edición: si el
+     *                               registro que se edita apunta a un ciclo
+     *                               viejo y éste desaparece del desplegable,
+     *                               guardar lo movería a otro.
+     */
+    public function scopeVigentes(Builder $query, ?int $conservar = null): Builder
+    {
+        $cerrado = SituacionCiclo::query()->where('clave', 'cerrado')->value('id');
+
+        // Sin catálogo sembrado no hay nada que excluir: se prefiere mostrar de
+        // más a dejar el desplegable vacío y la pantalla inutilizable.
+        if ($cerrado === null) {
+            return $query;
+        }
+
+        return $query->where(fn ($q) => $q
+            ->where('situacion_id', '!=', $cerrado)
+            ->orWhereNull('situacion_id')
+            ->when($conservar !== null, fn ($sub) => $sub->orWhere('id', $conservar)));
+    }
+
+    /**
+     * El ciclo con el que se está trabajando hoy, para preseleccionarlo.
+     *
+     * Se busca por FECHA y no por situación: la situación la mueve una persona a
+     * mano y se queda como quedó —en `demo` hay veinte «cerrados» y uno
+     * «abierto» que ya terminó—, mientras que las fechas del ciclo son el dato
+     * que la escuela sí mantiene. Si hoy no cae dentro de ninguno (vacaciones,
+     * entre semestres), se toma el más próximo por empezar, y si tampoco hay, el
+     * último que corrió.
+     */
+    public static function enCurso(): ?self
+    {
+        $hoy = now()->toDateString();
+
+        return static::query()->vigentes()
+            ->where('fecha_inicio', '<=', $hoy)
+            ->where('fecha_fin', '>=', $hoy)
+            ->orderBy('fecha_inicio')
+            ->first()
+            ?? static::query()->vigentes()
+                ->where('fecha_inicio', '>', $hoy)
+                ->orderBy('fecha_inicio')
+                ->first()
+            ?? static::query()->vigentes()->orderByDesc('fecha_inicio')->first();
+    }
+
     /** ¿La ventana de inscripción está abierta en la fecha dada? */
     public function inscripcionAbierta(?string $fecha = null): bool
     {

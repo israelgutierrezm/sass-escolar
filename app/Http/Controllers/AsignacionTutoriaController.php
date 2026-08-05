@@ -150,7 +150,8 @@ class AsignacionTutoriaController extends Controller
             ->values();
 
         return Inertia::render('Escolar/Tutorias', [
-            'ciclos' => Ciclo::query()->orderByDesc('id')->get(['id', 'clave'])
+            // Sólo vigentes: no se asignan tutorías de un ciclo terminado.
+            'ciclos' => Ciclo::query()->vigentes($cicloId)->orderByDesc('id')->get(['id', 'clave'])
                 ->map(fn (Ciclo $c) => ['id' => $c->id, 'nombre' => $c->clave]),
             'cicloSeleccionado' => $cicloId,
             'tutores' => $tutores,

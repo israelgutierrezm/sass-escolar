@@ -103,7 +103,8 @@ class InscripcionController extends Controller
                 ->find($request->query('grupo_id'));
 
         return Inertia::render('ControlEscolar/Inscripciones/Masiva', [
-            'ciclos' => Ciclo::query()->orderByDesc('fecha_inicio')->get(['id', 'clave', 'nombre'])
+            // Sólo vigentes: en un ciclo cerrado ya no se inscribe a nadie.
+            'ciclos' => Ciclo::query()->vigentes($ciclo?->id)->orderByDesc('fecha_inicio')->get(['id', 'clave', 'nombre'])
                 ->map(fn (Ciclo $c) => ['id' => $c->id, 'etiqueta' => "{$c->clave} — {$c->nombre}"]),
             'grupos' => $ciclo === null ? [] : Grupo::query()->with('plan:id,nombre')
                 ->where('ciclo_id', $ciclo->id)
@@ -412,10 +413,15 @@ class InscripcionController extends Controller
             ->all();
     }
 
+    /**
+     * Sin elección, el ciclo EN CURSO: se inscribe en el semestre que empieza,
+     * no en uno de hace ocho años. Antes había que elegirlo entre los veintiuno
+     * de la escuela antes de poder hacer nada.
+     */
     private function cicloSeleccionado(Request $request): ?Ciclo
     {
         $id = $request->query('ciclo_id');
 
-        return $id === null ? null : Ciclo::find($id);
+        return $id === null ? Ciclo::enCurso() : Ciclo::find($id);
     }
 }

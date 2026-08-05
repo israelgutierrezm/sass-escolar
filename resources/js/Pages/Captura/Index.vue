@@ -22,10 +22,16 @@ const props = defineProps<{
     alcance: 'propias' | 'todas';
 }>();
 
+/*
+ * `null` en el selector significa «todos los ciclos», y hay que decírselo al
+ * servidor con la palabra `todos`: mandar el parámetro vacío es lo mismo que no
+ * mandarlo, y entonces vuelve a preseleccionar el ciclo en curso —el selector se
+ * quedaría clavado sin que se entienda por qué—.
+ */
 const cicloId = ref(props.cicloId);
 
 watch(cicloId, () => {
-    router.get('/captura', { ciclo_id: cicloId.value }, { preserveState: true, replace: true });
+    router.get('/captura', { ciclo_id: cicloId.value ?? 'todos' }, { preserveState: true, replace: true });
 });
 
 const etiquetasDeActa: Record<Materia['acta']['estado'], string> = {
@@ -54,6 +60,7 @@ function colorDeActa(estado: Materia['acta']['estado']): string {
                     etiqueta="Ciclo"
                     :opciones="ciclos.map((c) => ({ valor: c.id, texto: c.etiqueta }))"
                     vacio="Todos los ciclos"
+                    ayuda="Abre en el ciclo en curso. Los cerrados no se listan; para uno viejo, elige «Todos los ciclos»."
                 />
             </div>
 
