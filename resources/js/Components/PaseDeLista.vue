@@ -353,7 +353,7 @@ const hoy = new Date().toISOString().slice(0, 10);
                     <label class="flex shrink-0 cursor-pointer items-center">
                         <input
                             type="checkbox"
-                            class="h-5 w-5 cursor-pointer rounded"
+                            class="h-5 w-5 cursor-pointer"
                             :checked="vino(a.inscripcion_id)"
                             :style="{ accentColor: colorDe(marcas[a.inscripcion_id]) }"
                             @change="alternarAsistencia(a.inscripcion_id)"

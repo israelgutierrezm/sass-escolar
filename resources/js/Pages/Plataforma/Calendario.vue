@@ -439,15 +439,15 @@ function fechaLegible(e: Evento): string {
 
                     <div class="space-y-2 sm:col-span-2">
                         <label class="flex items-center gap-2 text-sm">
-                            <input v-model="form.todo_el_dia" type="checkbox" class="rounded" />
+                            <input v-model="form.todo_el_dia" type="checkbox" />
                             Todo el día (sin hora)
                         </label>
                         <label class="flex items-center gap-2 text-sm">
-                            <input v-model="form.no_laborable" type="checkbox" class="rounded" />
+                            <input v-model="form.no_laborable" type="checkbox" />
                             Día no laborable (no hay clases)
                         </label>
                         <label class="flex items-center gap-2 text-sm">
-                            <input v-model="form.publicado" type="checkbox" class="rounded" />
+                            <input v-model="form.publicado" type="checkbox" />
                             Publicado (si lo quitas, no lo ve nadie)
                         </label>
                     </div>

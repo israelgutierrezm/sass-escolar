@@ -188,7 +188,7 @@ function iniciales(nombre: string | null): string {
                 </div>
 
                 <label class="flex items-center gap-2 text-sm">
-                    <input v-model="alta.enviar_credenciales" type="checkbox" class="rounded" />
+                    <input v-model="alta.enviar_credenciales" type="checkbox" />
                     Enviar las credenciales por correo a la persona
                 </label>
 

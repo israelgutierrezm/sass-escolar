@@ -560,13 +560,13 @@ const cortesCerrados = computed(() =>
                     </div>
 
                     <label class="flex items-center gap-2 text-sm">
-                        <input v-model="formActividad.permite_tarde" type="checkbox" class="rounded" />
+                        <input v-model="formActividad.permite_tarde" type="checkbox" />
                         Aceptar entregas tarde (quedan marcadas)
                     </label>
                     <!-- Sólo tiene sentido donde hay algo que reemplazar: una
                          lectura no se entrega. -->
                     <label v-if="formActividad.tipo !== 'lectura'" class="flex items-start gap-2 text-sm">
-                        <input v-model="formActividad.permite_reentrega" type="checkbox" class="mt-0.5 rounded" />
+                        <input v-model="formActividad.permite_reentrega" type="checkbox" class="mt-0.5" />
                         <span>
                             Permitir corregir la entrega
                             <span class="block text-xs text-suave">
@@ -576,7 +576,7 @@ const cortesCerrados = computed(() =>
                         </span>
                     </label>
                     <label class="flex items-center gap-2 text-sm">
-                        <input v-model="formActividad.publicada" type="checkbox" class="rounded" />
+                        <input v-model="formActividad.publicada" type="checkbox" />
                         Visible para los alumnos
                     </label>
                 </div>

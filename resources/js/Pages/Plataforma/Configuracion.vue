@@ -112,7 +112,6 @@ const hayOperacion = props.huella.inscripciones > 0 || props.huella.kardex > 0;
                             <input
                                 v-model="form.ajustes[ajuste.clave]"
                                 type="checkbox"
-                                class="rounded"
                                 :disabled="!puedeEditar"
                             />
                             {{ form.ajustes[ajuste.clave] ? 'Sí' : 'No' }}

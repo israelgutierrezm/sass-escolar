@@ -199,7 +199,7 @@ function todasLasCarreras(): void {
                 :icono="ICONOS.calendario"
             >
                 <label class="flex items-start gap-2 text-sm">
-                    <input v-model="form.tiene_fecha_limite" type="checkbox" class="mt-0.5 rounded" />
+                    <input v-model="form.tiene_fecha_limite" type="checkbox" class="mt-0.5" />
                     <span>
                         <span class="font-medium">Los cargos llevan fecha límite de pago</span>
                         <span class="block text-xs" :style="{ color: 'var(--color-suave)' }">
@@ -228,7 +228,7 @@ function todasLasCarreras(): void {
 
                 <div class="mt-5 space-y-3 border-t pt-5" :style="{ borderColor: 'var(--color-borde)' }">
                     <label class="flex items-start gap-2 text-sm">
-                        <input v-model="form.aplica_recargos" type="checkbox" class="mt-0.5 rounded" :disabled="!form.tiene_fecha_limite" />
+                        <input v-model="form.aplica_recargos" type="checkbox" class="mt-0.5" :disabled="!form.tiene_fecha_limite" />
                         <span>
                             <span class="font-medium">Este plan puede generar recargos por mora</span>
                             <span class="block text-xs" :style="{ color: 'var(--color-suave)' }">
@@ -239,7 +239,7 @@ function todasLasCarreras(): void {
                     </label>
 
                     <label class="flex items-start gap-2 text-sm">
-                        <input v-model="form.afecta_estatus_deudor" type="checkbox" class="mt-0.5 rounded" />
+                        <input v-model="form.afecta_estatus_deudor" type="checkbox" class="mt-0.5" />
                         <span>
                             <span class="font-medium">Un cargo vencido vuelve deudor al alumno</span>
                             <span class="block text-xs" :style="{ color: 'var(--color-suave)' }">

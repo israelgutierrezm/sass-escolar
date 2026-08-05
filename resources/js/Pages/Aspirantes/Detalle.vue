@@ -382,7 +382,7 @@ Se le generará su matrícula de todos modos y eso no se puede deshacer. ¿Conti
                                     @change="seleccionarArchivo"
                                 />
                                 <label class="flex items-center gap-1.5 text-xs text-suave">
-                                    <input v-model="formArchivo.copia_certificada" type="checkbox" class="rounded" />
+                                    <input v-model="formArchivo.copia_certificada" type="checkbox" />
                                     Copia certificada
                                 </label>
                                 <button

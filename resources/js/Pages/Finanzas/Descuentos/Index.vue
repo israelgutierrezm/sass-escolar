@@ -218,7 +218,7 @@ const colorTipo: Record<string, string> = {
                 </div>
 
                 <label class="mt-5 flex items-start gap-2 border-t pt-5 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
-                    <input v-model="form.activo" type="checkbox" class="mt-0.5 rounded" />
+                    <input v-model="form.activo" type="checkbox" class="mt-0.5" />
                     <span class="font-medium">Activo</span>
                 </label>
 

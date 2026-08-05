@@ -558,7 +558,7 @@ function iniciales(nombre: string | null): string {
                             class="flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm"
                             :style="{ borderColor: soloSugeridos ? 'var(--color-acento)' : 'var(--color-borde)', color: soloSugeridos ? 'var(--color-acento)' : 'inherit' }"
                         >
-                            <input v-model="soloSugeridos" type="checkbox" class="rounded" />
+                            <input v-model="soloSugeridos" type="checkbox" />
                             Solo periodo {{ grupo.periodo_objetivo }} ({{ totalSugeridos }})
                         </label>
                         <label
@@ -567,7 +567,7 @@ function iniciales(nombre: string | null): string {
                             :style="{ borderColor: soloDelCampus ? 'var(--color-acento)' : 'var(--color-borde)', color: soloDelCampus ? 'var(--color-acento)' : 'inherit' }"
                             :title="`Hay ${deOtroCampus} alumno(s) de otros campus que podrían cursar aquí (movilidad, materias compartidas).`"
                         >
-                            <input v-model="soloDelCampus" type="checkbox" class="rounded" />
+                            <input v-model="soloDelCampus" type="checkbox" />
                             Solo {{ grupo.campus }}
                         </label>
                         <button
@@ -592,7 +592,7 @@ function iniciales(nombre: string | null): string {
                             class="flex cursor-pointer items-center gap-3 px-3 py-2"
                             :style="{ backgroundColor: seleccionados.has(c.id) ? 'color-mix(in srgb, var(--color-acento) 8%, transparent)' : 'transparent' }"
                         >
-                            <input type="checkbox" class="rounded" :checked="seleccionados.has(c.id)" @change="alternar(c.id)" />
+                            <input type="checkbox" :checked="seleccionados.has(c.id)" @change="alternar(c.id)" />
                             <img v-if="c.foto" :src="c.foto" :alt="c.nombre ?? ''" class="h-8 w-8 shrink-0 rounded-full object-cover" />
                             <span
                                 v-else

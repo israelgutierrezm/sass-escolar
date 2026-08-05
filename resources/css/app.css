@@ -318,6 +318,119 @@
             animation: none;
         }
     }
+
+    /*
+     * ── Casillas ───────────────────────────────────────────────────────────
+     *
+     * Va al elemento, no a una clase, y es deliberado: había cuarenta pantallas
+     * con `<input type="checkbox">` a pelo, cada una con las utilidades que le
+     * tocaron —una con `text-indigo-600` fijo, otras sin nada—, y la casilla
+     * del navegador ignora el tema de la escuela. Estilando el elemento cambian
+     * las cuarenta a la vez y las que se escriban mañana nacen bien.
+     *
+     * `accent-color` sola no basta: no deja tocar el tamaño, ni el radio, ni el
+     * borde, ni el foco. De ahí `appearance: none` y pintarla entera.
+     */
+    input[type='checkbox'],
+    input[type='radio'] {
+        appearance: none;
+        -webkit-appearance: none;
+        flex-shrink: 0;
+        width: 1.15rem;
+        height: 1.15rem;
+        margin: 0;
+        border: 1.5px solid var(--color-borde);
+        border-radius: 0.375rem;
+        background-color: var(--color-superficie);
+        background-position: center;
+        background-repeat: no-repeat;
+        cursor: pointer;
+        transition:
+            background-color 0.15s ease,
+            border-color 0.15s ease,
+            box-shadow 0.15s ease;
+    }
+
+    input[type='radio'] {
+        border-radius: 9999px;
+    }
+
+    input[type='checkbox']:hover:not(:disabled),
+    input[type='radio']:hover:not(:disabled) {
+        border-color: var(--color-acento);
+    }
+
+    input[type='checkbox']:checked,
+    input[type='checkbox']:indeterminate,
+    input[type='radio']:checked {
+        background-color: var(--color-acento);
+        border-color: var(--color-acento);
+    }
+
+    /*
+     * La palomita va como imagen de fondo y no como pseudo-elemento: `::after`
+     * no se pinta sobre un <input>, que es un elemento reemplazado. Por eso el
+     * trazo va en blanco fijo en vez de seguir a `--color-acento-texto`; los
+     * temas del sistema lo tienen en blanco, y un acento tan claro como para
+     * necesitar palomita oscura no pasaría el contraste de todos modos.
+     */
+    input[type='checkbox']:checked {
+        background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M3.5 8.5l3 3 6-6' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3e%3c/svg%3e");
+        background-size: 0.85rem;
+    }
+
+    /* Marcado a medias: la lista tiene unos sí y otros no. */
+    input[type='checkbox']:indeterminate {
+        background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M4 8h8' stroke='white' stroke-width='2.2' stroke-linecap='round'/%3e%3c/svg%3e");
+        background-size: 0.85rem;
+    }
+
+    input[type='radio']:checked {
+        background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3e%3ccircle cx='8' cy='8' r='3.2' fill='white'/%3e%3c/svg%3e");
+    }
+
+    input[type='checkbox']:focus-visible,
+    input[type='radio']:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-acento) 25%, transparent);
+    }
+
+    input[type='checkbox']:disabled,
+    input[type='radio']:disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+    }
+
+    /*
+     * La fila entera como zona de clic, y teñida cuando está marcada.
+     *
+     * Es lo que hace legible una lista larga: en un listado de veinte casillas,
+     * un cuadrito de 18px marcado no se distingue a un metro de distancia, y
+     * lo que se quiere saber de un vistazo es CUÁLES están dentro.
+     */
+    .fila-casilla {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.625rem;
+        padding: 0.5rem 0.625rem;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        transition: background-color 0.15s ease;
+    }
+
+    .fila-casilla:hover {
+        background-color: color-mix(in srgb, var(--color-acento) 6%, transparent);
+    }
+
+    .fila-casilla:has(input:checked) {
+        background-color: color-mix(in srgb, var(--color-acento) 10%, transparent);
+    }
+
+    /* Sin `:has()` la fila sigue funcionando; sólo pierde el tinte. */
+    .fila-casilla:has(input:disabled) {
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
 }
 
 @layer utilities {

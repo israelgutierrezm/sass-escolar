@@ -1556,11 +1556,11 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
 
                     <div class="mt-4 flex flex-wrap gap-5 text-sm">
                         <label class="flex items-center gap-2">
-                            <input v-model="formTutor.puede_ver_academico" type="checkbox" class="rounded" />
+                            <input v-model="formTutor.puede_ver_academico" type="checkbox" />
                             Puede ver lo académico (historial y avance)
                         </label>
                         <label class="flex items-center gap-2">
-                            <input v-model="formTutor.puede_ver_finanzas" type="checkbox" class="rounded" />
+                            <input v-model="formTutor.puede_ver_finanzas" type="checkbox" />
                             Puede ver lo financiero (pagos y facturas)
                         </label>
                     </div>
@@ -1644,13 +1644,13 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
             </p>
 
             <label class="mt-4 flex items-center gap-2 text-sm">
-                <input v-model="factForm.quiere_factura" type="checkbox" class="rounded" />
+                <input v-model="factForm.quiere_factura" type="checkbox" />
                 <span class="font-medium">El alumno quiere factura</span>
             </label>
 
             <div v-if="factForm.quiere_factura" class="mt-4 space-y-4">
                 <label class="flex items-center gap-2 text-sm">
-                    <input v-model="factForm.es_tercero" type="checkbox" class="rounded" />
+                    <input v-model="factForm.es_tercero" type="checkbox" />
                     La factura va a nombre de un tercero (no del alumno)
                 </label>
 

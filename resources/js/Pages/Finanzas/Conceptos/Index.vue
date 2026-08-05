@@ -129,7 +129,7 @@ const objImp = (clave: string | null) =>
                         />
                     </div>
                     <label class="flex items-center gap-2 text-sm">
-                        <input v-model="alta.gravado" type="checkbox" class="rounded" />
+                        <input v-model="alta.gravado" type="checkbox" />
                         Causa IVA
                     </label>
                     <label class="text-sm">
@@ -204,7 +204,7 @@ const objImp = (clave: string | null) =>
                                             />
                                         </div>
                                         <label class="flex items-center gap-2 text-sm">
-                                            <input v-model="datos.gravado" type="checkbox" class="rounded" />
+                                            <input v-model="datos.gravado" type="checkbox" />
                                             Causa IVA
                                         </label>
                                         <label class="text-sm">

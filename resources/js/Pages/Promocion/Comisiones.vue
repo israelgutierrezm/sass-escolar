@@ -263,7 +263,7 @@ const hayReglaVigente = computed(() => props.reglas.some((r) => r.activo && !r.v
                 <tbody>
                     <tr v-for="c in comisiones.data" :key="c.id" class="fila-nueva border-t transition-colors" :style="{ borderColor: 'var(--color-borde)' }">
                         <td v-if="puedeGestionar" class="px-6 py-4">
-                            <input v-if="c.estatus === 'devengada'" v-model="seleccionadas" type="checkbox" :value="c.id" class="rounded" />
+                            <input v-if="c.estatus === 'devengada'" v-model="seleccionadas" type="checkbox" :value="c.id" />
                         </td>
                         <td class="px-6 py-4 font-semibold text-contenido" :class="puedeGestionar ? 'pl-0' : ''">{{ c.promotor ?? '—' }}</td>
                         <td class="px-4 py-4 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ c.matricula ?? '—' }}</td>

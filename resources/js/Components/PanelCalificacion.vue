@@ -312,7 +312,7 @@ const colorNota = computed(() => {
                 v-if="pendientes > 1"
                 class="mt-3 flex items-center gap-2 text-xs text-suave"
             >
-                <input v-model="seguirDespues" type="checkbox" class="rounded" />
+                <input v-model="seguirDespues" type="checkbox" />
                 Al guardar, pasar a la siguiente sin calificar
                 ({{ pendientes - 1 }} más)
             </label>

@@ -257,7 +257,7 @@ const etiquetaPromedio: Record<string, string> = {
             <TarjetaSeccion titulo="Vigencia y renovación" descripcion="Si la beca dura un ciclo o es indefinida." :icono="ICONOS.calendario">
                 <div class="space-y-3">
                     <label class="flex items-start gap-2 text-sm">
-                        <input v-model="form.por_ciclo" type="checkbox" class="mt-0.5 rounded" />
+                        <input v-model="form.por_ciclo" type="checkbox" class="mt-0.5" />
                         <span>
                             <span class="font-medium">La beca es por ciclo</span>
                             <span class="block text-xs" :style="{ color: 'var(--color-suave)' }">
@@ -266,7 +266,7 @@ const etiquetaPromedio: Record<string, string> = {
                         </span>
                     </label>
                     <label class="flex items-start gap-2 text-sm">
-                        <input v-model="form.requiere_renovacion" type="checkbox" class="mt-0.5 rounded" :disabled="!form.por_ciclo" />
+                        <input v-model="form.requiere_renovacion" type="checkbox" class="mt-0.5" :disabled="!form.por_ciclo" />
                         <span>
                             <span class="font-medium">Hay que renovarla cada ciclo</span>
                             <span class="block text-xs" :style="{ color: 'var(--color-suave)' }">
@@ -279,7 +279,7 @@ const etiquetaPromedio: Record<string, string> = {
 
             <TarjetaSeccion titulo="Cómo se conserva" descripcion="Qué tiene que hacer el alumno para no perderla." :icono="ICONOS.escudo">
                 <label class="flex items-start gap-2 text-sm">
-                    <input v-model="form.requiere_pago_puntual" type="checkbox" class="mt-0.5 rounded" />
+                    <input v-model="form.requiere_pago_puntual" type="checkbox" class="mt-0.5" />
                     <span>
                         <span class="font-medium">Exige pagar a tiempo</span>
                         <span class="block text-xs" :style="{ color: 'var(--color-suave)' }">
@@ -318,7 +318,7 @@ const etiquetaPromedio: Record<string, string> = {
                 </div>
 
                 <label class="mt-5 flex items-start gap-2 border-t pt-5 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
-                    <input v-model="form.activo" type="checkbox" class="mt-0.5 rounded" />
+                    <input v-model="form.activo" type="checkbox" class="mt-0.5" />
                     <span class="font-medium">Activa (se puede otorgar)</span>
                 </label>
 

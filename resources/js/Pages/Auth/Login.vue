@@ -103,7 +103,6 @@ function enviar(): void {
                     <input
                         v-model="form.recordarme"
                         type="checkbox"
-                        class="rounded border-borde text-indigo-600 focus:ring-indigo-500"
                     />
                     Recordarme
                 </label>

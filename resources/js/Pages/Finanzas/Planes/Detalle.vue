@@ -261,7 +261,7 @@ function todos(): void {
                     <CampoTexto v-if="plan.tiene_fecha_limite" v-model="suelto.fecha_limite" tipo="date" etiqueta="Fecha límite" :error="suelto.errors.fecha_limite" />
 
                     <label class="sm:col-span-3 flex items-start gap-2 text-sm">
-                        <input v-model="suelto.aplica_recargos" type="checkbox" class="mt-0.5 rounded" :disabled="!plan.aplica_recargos" />
+                        <input v-model="suelto.aplica_recargos" type="checkbox" class="mt-0.5" :disabled="!plan.aplica_recargos" />
                         <span>
                             <span class="font-medium">Genera recargos si se vence</span>
                             <span v-if="!plan.aplica_recargos" class="block text-xs" :style="{ color: '#b45309' }">
@@ -290,7 +290,7 @@ function todos(): void {
                     </div>
 
                     <label class="sm:col-span-3 flex items-start gap-2 text-sm">
-                        <input v-model="rango.aplica_recargos" type="checkbox" class="mt-0.5 rounded" :disabled="!plan.aplica_recargos" />
+                        <input v-model="rango.aplica_recargos" type="checkbox" class="mt-0.5" :disabled="!plan.aplica_recargos" />
                         <span>
                             <span class="font-medium">Generan recargos si se vencen</span>
                             <span v-if="!plan.aplica_recargos" class="block text-xs" :style="{ color: '#b45309' }">Este plan no admite recargos.</span>
@@ -534,7 +534,7 @@ function todos(): void {
                     <tbody>
                         <tr v-for="a in candidatos" :key="a.id" class="fila-nueva border-t transition-colors" :style="{ borderColor: 'var(--color-borde)' }">
                             <td class="px-6 py-3">
-                                <input v-model="seleccionados" type="checkbox" :value="a.id" class="rounded" />
+                                <input v-model="seleccionados" type="checkbox" :value="a.id" />
                             </td>
                             <td class="px-4 py-3">
                                 <span class="block font-medium text-contenido">{{ a.nombre }}</span>

@@ -372,7 +372,6 @@ function guardarSituacion(): void {
                                 type="checkbox"
                                 :disabled="adeudo.saldo <= 0"
                                 :checked="seleccionados.includes(adeudo.id)"
-                                class="rounded"
                                 @change="alternar(adeudo)"
                             />
                         </td>

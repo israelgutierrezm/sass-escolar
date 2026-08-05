@@ -195,7 +195,7 @@ function restablecer(): void {
                     </label>
 
                     <label class="flex items-center gap-2 text-sm" :style="{ color: 'var(--color-suave)' }">
-                        <input v-model="clave.enviar_credenciales" type="checkbox" class="rounded" />
+                        <input v-model="clave.enviar_credenciales" type="checkbox" />
                         Enviársela por correo
                     </label>
 

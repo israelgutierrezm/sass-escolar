@@ -135,7 +135,6 @@ function limpiarTodos(): void {
                     <label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
                         <input
                             type="checkbox"
-                            class="rounded"
                             :checked="activos[filtro.clave]"
                             @change="alternar(filtro)"
                         />

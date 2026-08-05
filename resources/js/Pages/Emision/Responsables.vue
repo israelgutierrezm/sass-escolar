@@ -330,7 +330,7 @@ function eliminar(r: Responsable): void {
                                     <label class="mb-1 block text-sm font-medium">Actualizar certificado (.cer)</label>
                                     <ZonaArchivo accept=".cer" texto="Arrastra el .cer o haz clic para seleccionarlo" ayuda="Renueva el cert de esta persona (p. ej. si venció); déjalo vacío para conservar el actual." :cargado="certEdit?.titular ?? null" :ocupado="leyendoEdit" @archivo="certEditar" />
                                     <label v-if="certEdit" class="mt-2 flex items-start gap-2 text-sm">
-                                        <input v-model="formEdit.guardar_cer" type="checkbox" class="mt-0.5 rounded" />
+                                        <input v-model="formEdit.guardar_cer" type="checkbox" class="mt-0.5" />
                                         <span>
                                             <span class="font-medium">Deseo guardar mi certificado para no tener que volver a cargarlo</span>
                                             <span class="block text-xs" :style="{ color: 'var(--color-suave)' }">Requerido para poder cargar la llave. El certificado es público; la contraseña jamás se almacena.</span>
@@ -346,7 +346,7 @@ function eliminar(r: Responsable): void {
                                     <div v-if="formEdit.llave" class="mt-2 space-y-2">
                                         <CampoTexto v-model="formEdit.llave_password" etiqueta="Contraseña de la llave" tipo="password" requerido :error="formEdit.errors.llave_password" />
                                         <label class="flex items-start gap-2 text-sm">
-                                            <input v-model="formEdit.guardar_key" type="checkbox" class="mt-0.5 rounded" />
+                                            <input v-model="formEdit.guardar_key" type="checkbox" class="mt-0.5" />
                                             <span>
                                                 <span class="font-medium">Deseo guardar mi llave para firmar solo con la contraseña</span>
                                                 <span class="block text-xs" :style="{ color: 'var(--color-suave)' }">Se guarda cifrada. La contraseña <b>jamás se almacena</b>: se pide solo al momento de firmar.</span>
@@ -389,7 +389,7 @@ function eliminar(r: Responsable): void {
                         <CampoSelect v-model="formAlta.cargo_id" etiqueta="Cargo" requerido vacio="Seleccione una opción" :opciones="opcionesCargo" :error="formAlta.errors.cargo_id" />
 
                         <label class="sm:col-span-2 flex items-start gap-2 rounded-lg border p-3 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
-                            <input v-model="formAlta.guardar_cer" type="checkbox" class="mt-0.5 rounded" />
+                            <input v-model="formAlta.guardar_cer" type="checkbox" class="mt-0.5" />
                             <span>
                                 <span class="font-medium">Deseo guardar mi certificado para no tener que volver a cargarlo</span>
                                 <span class="block text-xs" :style="{ color: 'var(--color-suave)' }">El certificado es público. Guardarlo te permitirá después cargar la llave y firmar solo con la contraseña (la contraseña jamás se almacena).</span>

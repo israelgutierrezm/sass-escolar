@@ -213,7 +213,6 @@ function desasignar(id: number): void {
                         <label class="flex items-center gap-2 text-xs" :style="{ color: 'var(--color-suave)' }">
                             <input
                                 type="checkbox"
-                                class="rounded"
                                 :checked="dominioCompleto(dominio)"
                                 @change="alternarDominio(dominio, ($event.target as HTMLInputElement).checked)"
                             />
@@ -231,7 +230,7 @@ function desasignar(id: number): void {
                         >
                             <input
                                 type="checkbox"
-                                class="mt-0.5 rounded"
+                                class="mt-0.5"
                                 :value="permiso.clave"
                                 :checked="esHeredado(permiso.clave) || permisos.permisos.includes(permiso.clave)"
                                 :disabled="esHeredado(permiso.clave)"

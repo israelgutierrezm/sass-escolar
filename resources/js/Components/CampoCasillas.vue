@@ -100,11 +100,11 @@ function alternarTodas(): void {
             <label
                 v-for="opcion in visibles"
                 :key="opcion.valor"
-                class="flex cursor-pointer items-start gap-2 rounded px-2 py-1 text-sm"
+                class="fila-casilla text-sm"
             >
                 <input
                     type="checkbox"
-                    class="mt-0.5 rounded"
+                    class="mt-0.5"
                     :checked="modelo.includes(opcion.valor)"
                     @change="alternar(opcion.valor)"
                 />

@@ -100,7 +100,7 @@ const regimenes = [
                     <tbody>
                         <tr v-for="p in pagos" :key="p.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
                             <td class="px-6 py-3">
-                                <input v-model="form.pago_ids" type="checkbox" :value="p.id" class="rounded" />
+                                <input v-model="form.pago_ids" type="checkbox" :value="p.id" />
                             </td>
                             <td class="px-4 py-3">{{ p.momento ?? '—' }}</td>
                             <td class="px-4 py-3">{{ p.metodo ?? '—' }}</td>
