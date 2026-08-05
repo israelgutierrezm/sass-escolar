@@ -38,7 +38,7 @@ const NEUTRO = 'var(--color-suave)';
 const COLORES: Record<string, string> = {
     // En marcha
     activo: VERDE, activa: VERDE, abierto: VERDE, abierta: VERDE,
-    inscrito: VERDE, cursando: VERDE, vigente: VERDE, pagado: VERDE,
+    inscrito: VERDE, cursando: VERDE, vigente: VERDE,
     aprobada: VERDE, aprobado: VERDE, firmado: VERDE, timbrada: VERDE,
     aceptado: VERDE, aceptada: VERDE, autorizado: VERDE, autorizada: VERDE,
     pagado: VERDE, pagada: VERDE, completado: VERDE, completada: VERDE,

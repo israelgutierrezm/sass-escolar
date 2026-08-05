@@ -125,9 +125,13 @@ class AspiranteController extends Controller
         $this->autorizarCampus($request, $aspirante->campus_id);
 
         $aspirante->load([
-            'persona.sexo',
+            // El GÉNERO es el que se captura y el que pinta la ficha; `sexo`
+            // se cargaba y nadie lo leía, así que `genero` salía por consulta
+            // suelta en cada visita.
+            'persona.genero',
             'persona.entidadNacimiento',
             'situacion',
+            'etapa:id,nombre',
             'campus',
             'ofertaInteres.carrera',
             'ofertaInteres.plan',
@@ -157,6 +161,10 @@ class AspiranteController extends Controller
                 'genero' => $aspirante->persona->genero?->nombre,
                 'entidad_nacimiento' => $aspirante->persona->entidadNacimiento?->nombre,
                 'situacion' => $aspirante->situacion?->nombre,
+                // La etapa del CRM y la foto: la cabecera de la ficha las pinta
+                // igual que la de alumnos y docentes.
+                'etapa' => $aspirante->etapa?->nombre,
+                'foto' => $aspirante->persona->urlFoto(),
                 'campus' => $aspirante->campus?->nombre,
                 'oferta' => $aspirante->ofertaInteres === null ? null : sprintf(
                     '%s — %s',
@@ -346,6 +354,43 @@ class AspiranteController extends Controller
         return redirect()
             ->route('tenant.aspirantes.index')
             ->with('exito', 'Aspirante actualizado.');
+    }
+
+    /**
+     * Elimina a un aspirante del embudo.
+     *
+     * Es la papelera del CRM: prospectos duplicados, un teléfono mal apuntado,
+     * el que se registró dos veces desde el formulario público. Sin esto, el
+     * embudo se llena de ruido que falsea el tablero.
+     *
+     * NO se borra al que ya se convirtió en alumno: su matrícula, sus cargos y
+     * su historial cuelgan de esa persona, y el registro de admisión es de dónde
+     * salió. Ese renglón es historia, no basura.
+     *
+     * Borrado LÓGICO, como todo lo demás: la persona y sus documentos siguen
+     * ahí, y si el aspirante vuelve el año que entra su CURP lo reencuentra.
+     */
+    public function destroy(Request $request, Aspirante $aspirante): RedirectResponse
+    {
+        $this->autorizarCampus($request, $aspirante->campus_id);
+
+        $yaEsAlumno = MatriculaOferta::query()
+            ->where('persona_id', $aspirante->persona_id)
+            ->exists();
+
+        if ($yaEsAlumno) {
+            return back()->with(
+                'error',
+                'No se puede eliminar: ya se convirtió en alumno y su matrícula cuelga de este registro.',
+            );
+        }
+
+        $nombre = $aspirante->persona?->nombreCompleto() ?? 'El aspirante';
+        $aspirante->delete();
+
+        return redirect()
+            ->route('tenant.aspirantes.index')
+            ->with('exito', "{$nombre} se eliminó del embudo.");
     }
 
     /**

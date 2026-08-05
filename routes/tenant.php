@@ -219,6 +219,10 @@ Route::middleware([
             Route::put('/{aspirante}', 'update')->middleware('can:editar-aspirantes')->name('update');
             // La matrícula nace aquí, no antes.
             Route::post('/{aspirante}/convertir', 'convertir')->middleware('can:convertir-aspirante')->name('convertir');
+            // La papelera del embudo: duplicados y registros de prueba. Pide el
+            // permiso de editar, no uno propio: quien corrige un prospecto es
+            // quien limpia los que sobran.
+            Route::delete('/{aspirante}', 'destroy')->middleware('can:editar-aspirantes')->name('destroy');
         });
 
         /*

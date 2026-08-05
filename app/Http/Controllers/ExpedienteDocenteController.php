@@ -131,14 +131,12 @@ class ExpedienteDocenteController extends Controller
             'fecha_nacimiento' => ['nullable', 'date', 'before:today'],
             // Ver ExpedienteAlumnoController: el dato oficial es el género.
             'genero_id' => ['required', 'integer'],
-            'genero_id' => ['nullable', 'integer'],
             'email' => ['nullable', 'email', 'max:150'],
             'celular' => ['nullable', 'string', 'max:20'],
         ], [
             'curp.size' => 'La CURP tiene 18 caracteres.',
             'curp.unique' => 'Esa CURP ya está registrada en otra persona.',
         ], [
-            'genero_id' => 'género',
             'genero_id' => 'género',
         ]);
 

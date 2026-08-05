@@ -3,6 +3,7 @@ import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import BotonVolver from '@/Components/BotonVolver.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 import { ICONOS } from '@/iconos';
 
@@ -58,6 +59,20 @@ const puedeConvertir = computed(
 const obligatoriosPendientes = computed(
     () => props.expediente.filter((fila) => fila.obligatorio && fila.entrega === null).length,
 );
+
+const entregados = computed(() => props.expediente.filter((fila) => fila.entrega !== null).length);
+
+/** Para la barra de avance del expediente. Sin documentos configurados, 100%. */
+const avanceExpediente = computed(
+    () => (props.expediente.length === 0 ? 100 : Math.round((entregados.value / props.expediente.length) * 100)),
+);
+
+/** Respaldo de la foto en la cabecera, igual que en el resto de expedientes. */
+const iniciales = computed(() => {
+    const partes = (props.aspirante.nombre_completo ?? '').trim().split(/\s+/);
+
+    return ((partes[0]?.[0] ?? '') + (partes[1]?.[0] ?? '')).toUpperCase() || '—';
+});
 
 function abrirSubida(documentoId: number): void {
     subiendoPara.value = documentoId;
@@ -121,30 +136,84 @@ Se le generará su matrícula de todos modos y eso no se puede deshacer. ¿Conti
     <Head :title="aspirante.nombre_completo" />
 
     <AppLayout :titulo="aspirante.nombre_completo">
+        <BotonVolver href="/aspirantes" texto="Aspirantes" class="mb-4" />
+
+        <!--
+            Cabecera de persona, como en alumnos y docentes.
+            Antes se entraba directo a «Datos personales» y había que leer la
+            ficha entera para saber en qué punto del embudo está y si le falta
+            algo. Aquí arriba está lo que se pregunta primero: quién es, en qué
+            etapa va, a qué aspira y qué le falta del expediente.
+        -->
+        <section class="tarjeta mb-6 p-5">
+            <div class="flex flex-wrap items-start justify-between gap-4">
+                <div class="flex min-w-0 items-center gap-4">
+                    <img
+                        v-if="aspirante.foto"
+                        :src="aspirante.foto"
+                        alt=""
+                        class="h-16 w-16 rounded-full object-cover ring-1 ring-black/5"
+                    >
+                    <span
+                        v-else
+                        class="grid h-16 w-16 shrink-0 place-items-center rounded-full text-lg font-semibold"
+                        :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }"
+                    >{{ iniciales }}</span>
+
+                    <div class="min-w-0">
+                        <h2 class="truncate text-lg font-semibold text-contenido">{{ aspirante.nombre_completo }}</h2>
+                        <p class="mt-0.5 text-sm text-suave">
+                            <span v-if="aspirante.oferta">{{ aspirante.oferta }}</span>
+                            <span v-else class="text-amber-700">Sin programa de interés</span>
+                            <template v-if="aspirante.campus"> · {{ aspirante.campus }}</template>
+                        </p>
+                        <p class="mt-1 flex flex-wrap items-center gap-1.5">
+                            <span
+                                v-if="aspirante.situacion"
+                                class="rounded-full px-2.5 py-0.5 text-xs font-medium"
+                                :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }"
+                            >{{ aspirante.situacion }}</span>
+                            <span
+                                v-if="aspirante.etapa"
+                                class="rounded-full px-2.5 py-0.5 text-xs"
+                                :style="{ backgroundColor: 'var(--color-fondo)', color: 'var(--color-suave)' }"
+                            >{{ aspirante.etapa }}</span>
+                            <!-- Lo que le falta, en la cabecera: es el motivo por
+                                 el que la mayoría abre esta pantalla. -->
+                            <span
+                                v-if="obligatoriosPendientes"
+                                class="rounded-full px-2.5 py-0.5 text-xs font-medium"
+                                style="background-color: color-mix(in srgb, #f59e0b 14%, transparent); color: #b45309"
+                            >Faltan {{ obligatoriosPendientes }} documento(s)</span>
+                            <span
+                                v-else
+                                class="rounded-full px-2.5 py-0.5 text-xs font-medium"
+                                style="background-color: color-mix(in srgb, #16a34a 12%, transparent); color: #16a34a"
+                            >Expediente completo</span>
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex shrink-0 items-center gap-2">
+                    <button
+                        v-if="suplantable"
+                        type="button"
+                        class="rounded-lg border px-3 py-1.5 text-sm"
+                        :style="{ borderColor: 'var(--color-borde)' }"
+                        title="Entrar como este aspirante para ver lo que ve. Queda en bitácora."
+                        @click="verComo"
+                    >
+                        Ver como {{ suplantable.usuario }}
+                    </button>
+                    <BotonAccion v-if="permisos.editar" variante="editar" :href="`/aspirantes/${aspirante.id}/editar`" />
+                </div>
+            </div>
+        </section>
+
         <div class="grid gap-6 lg:grid-cols-3">
             <!-- Identidad y proceso -->
             <div class="space-y-6 lg:col-span-2">
                 <TarjetaSeccion titulo="Datos personales" descripcion="Identidad del aspirante" :icono="ICONOS.persona">
-                    <template #insignia>
-                        <div class="flex items-center gap-2">
-                            <button
-                                v-if="suplantable"
-                                type="button"
-                                class="rounded-lg border px-3 py-1.5 text-sm"
-                                :style="{ borderColor: 'var(--color-borde)' }"
-                                title="Entrar como este aspirante para ver lo que ve. Queda en bitácora."
-                                @click="verComo"
-                            >
-                                Ver como {{ suplantable.usuario }}
-                            </button>
-                            <BotonAccion
-                                v-if="permisos.editar"
-                                variante="editar"
-                                :href="`/aspirantes/${aspirante.id}/editar`"
-                            />
-                        </div>
-                    </template>
-
                     <dl class="grid gap-4 sm:grid-cols-3">
                         <div>
                             <dt class="text-xs uppercase tracking-wide text-suave">CURP</dt>
@@ -178,40 +247,70 @@ Se le generará su matrícula de todos modos y eso no se puede deshacer. ¿Conti
                 </TarjetaSeccion>
 
                 <!-- Expediente -->
-                <section class="tarjeta">
-                    <div class="border-b border-borde p-6 pb-4">
-                        <h2 class="text-base font-semibold text-contenido">Expediente documental</h2>
-                        <p class="mt-1 text-sm text-suave">
-                            <span v-if="obligatoriosPendientes">
-                                Faltan {{ obligatoriosPendientes }} documento(s) obligatorio(s).
-                            </span>
-                            <span v-else>Todos los documentos obligatorios están entregados.</span>
-                        </p>
+                <TarjetaSeccion
+                    titulo="Expediente documental"
+                    :descripcion="obligatoriosPendientes
+                        ? `Faltan ${obligatoriosPendientes} documento(s) obligatorio(s) por entregar.`
+                        : 'Todos los documentos obligatorios están entregados.'"
+                    :icono="ICONOS.documento"
+                >
+                    <template #insignia>
+                        <span class="text-xs text-suave">{{ entregados }} de {{ expediente.length }}</span>
+                    </template>
+
+                    <!--
+                        La barra dice de un vistazo si vale la pena leer la lista.
+                        Ámbar mientras falte algo obligatorio, verde cuando ya no.
+                    -->
+                    <div
+                        v-if="expediente.length"
+                        class="mb-4 h-1.5 w-full overflow-hidden rounded-full"
+                        style="background-color: var(--color-fondo)"
+                    >
+                        <div
+                            class="h-full rounded-full transition-all"
+                            :style="{
+                                width: `${avanceExpediente}%`,
+                                backgroundColor: obligatoriosPendientes ? '#f59e0b' : '#16a34a',
+                            }"
+                        />
                     </div>
 
                     <ul v-if="expediente.length" class="divide-y divide-borde">
-                        <li v-for="fila in expediente" :key="fila.documento_id" class="p-6 py-4">
+                        <li v-for="fila in expediente" :key="fila.documento_id" class="py-3 first:pt-0 last:pb-0">
                             <div class="flex flex-wrap items-start justify-between gap-3">
-                                <div>
-                                    <p class="text-sm font-medium text-contenido">
-                                        {{ fila.nombre }}
-                                        <span
-                                            v-if="fila.obligatorio"
-                                            class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700"
-                                        >
-                                            Obligatorio
-                                        </span>
-                                    </p>
-                                    <p v-if="fila.descripcion" class="mt-0.5 text-xs text-suave">
-                                        {{ fila.descripcion }}
-                                    </p>
+                                <div class="flex min-w-0 items-start gap-3">
+                                    <!-- Entregado o no, antes que el nombre: es lo
+                                         que se busca al recorrer la lista. -->
+                                    <span
+                                        class="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-semibold"
+                                        :style="fila.entrega
+                                            ? { backgroundColor: 'color-mix(in srgb, #16a34a 12%, transparent)', color: '#16a34a' }
+                                            : { backgroundColor: 'var(--color-fondo)', color: 'var(--color-suave)' }"
+                                    >{{ fila.entrega ? '✓' : '·' }}</span>
+
+                                    <div class="min-w-0">
+                                        <p class="text-sm font-medium text-contenido">
+                                            {{ fila.nombre }}
+                                            <span
+                                                v-if="fila.obligatorio"
+                                                class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700"
+                                            >
+                                                Obligatorio
+                                            </span>
+                                        </p>
+                                        <p v-if="fila.descripcion" class="mt-0.5 text-xs text-suave">
+                                            {{ fila.descripcion }}
+                                        </p>
+                                    </div>
                                 </div>
 
                                 <div class="flex items-center gap-2">
                                     <template v-if="fila.entrega">
                                         <a
                                             :href="`/aspirantes/${aspirante.id}/expediente/${fila.entrega.id}/descargar`"
-                                            class="text-sm text-indigo-600 hover:text-indigo-700"
+                                            class="text-sm hover:underline"
+                                            :style="{ color: 'var(--color-acento)' }"
                                         >
                                             Descargar
                                         </a>
@@ -273,7 +372,8 @@ Se le generará su matrícula de todos modos y eso no se puede deshacer. ¿Conti
                                 <button
                                     type="submit"
                                     :disabled="formArchivo.processing"
-                                    class="rounded-lg bg-indigo-600 px-3 py-1 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+                                    class="rounded-lg px-3 py-1 text-xs font-medium text-white disabled:opacity-60"
+                                    :style="{ backgroundColor: 'var(--color-acento)' }"
                                 >
                                     {{ formArchivo.processing ? 'Subiendo…' : 'Subir' }}
                                 </button>
@@ -291,59 +391,62 @@ Se le generará su matrícula de todos modos y eso no se puede deshacer. ¿Conti
                         </li>
                     </ul>
 
-                    <p v-else class="p-6 text-sm text-suave">
+                    <p v-else class="text-sm text-suave">
                         No hay documentos configurados para esta carrera.
                     </p>
-                </section>
+                </TarjetaSeccion>
             </div>
 
             <!-- Columna lateral: proceso y conversión -->
             <div class="space-y-6">
-                <section class="tarjeta p-6">
-                    <h2 class="text-base font-semibold text-contenido">Proceso</h2>
-
-                    <dl class="mt-4 space-y-3 text-sm">
-                        <div class="flex justify-between">
-                            <dt class="text-suave">Situación</dt>
-                            <dd class="font-medium text-contenido">{{ aspirante.situacion }}</dd>
-                        </div>
-                        <div class="flex justify-between">
-                            <dt class="text-suave">Interés</dt>
-                            <dd class="text-right text-contenido">{{ aspirante.oferta ?? '—' }}</dd>
-                        </div>
-                        <div class="flex justify-between">
-                            <dt class="text-suave">Campus</dt>
-                            <dd class="text-contenido">{{ aspirante.campus ?? '—' }}</dd>
-                        </div>
-                        <div class="flex justify-between">
-                            <dt class="text-suave">Origen</dt>
-                            <dd class="text-contenido">{{ aspirante.origen ?? '—' }}</dd>
-                        </div>
-                    </dl>
-
-                    <ul class="mt-4 space-y-2 border-t border-borde pt-4 text-sm">
+                <TarjetaSeccion
+                    titulo="Avance del proceso"
+                    descripcion="Lo que ya cumplió y lo que le falta antes de inscribirlo."
+                    :icono="ICONOS.checkCirculo"
+                >
+                    <!--
+                        Situación, interés y campus se movieron a la cabecera: aquí
+                        se repetían palabra por palabra. Lo que queda es lo que la
+                        cabecera no dice: de dónde vino y qué pasos lleva cumplidos.
+                    -->
+                    <ul class="space-y-2.5 text-sm">
                         <li
-                            v-for="bandera in [
+                            v-for="paso in [
                                 { texto: 'Aceptó términos', valor: aspirante.acepto_terminos },
                                 { texto: 'Información personal completa', valor: aspirante.info_personal_completa },
                                 { texto: 'Validado por admin', valor: aspirante.validado_admin },
+                                {
+                                    texto: obligatoriosPendientes
+                                        ? `Expediente completo (faltan ${obligatoriosPendientes})`
+                                        : 'Expediente completo',
+                                    valor: obligatoriosPendientes === 0,
+                                },
                             ]"
-                            :key="bandera.texto"
-                            class="flex items-center gap-2"
+                            :key="paso.texto"
+                            class="flex items-start gap-2.5"
                         >
-                            <span :class="bandera.valor ? 'text-emerald-600' : 'text-suave'">●</span>
-                            <span :class="bandera.valor ? 'text-contenido' : 'text-suave'">
-                                {{ bandera.texto }}
-                            </span>
+                            <span
+                                class="mt-px grid h-5 w-5 shrink-0 place-items-center rounded-full text-xs font-semibold"
+                                :style="paso.valor
+                                    ? { backgroundColor: 'color-mix(in srgb, #16a34a 12%, transparent)', color: '#16a34a' }
+                                    : { backgroundColor: 'var(--color-fondo)', color: 'var(--color-suave)' }"
+                            >{{ paso.valor ? '✓' : '·' }}</span>
+                            <span :class="paso.valor ? 'text-contenido' : 'text-suave'">{{ paso.texto }}</span>
                         </li>
                     </ul>
-                </section>
+
+                    <p class="mt-4 border-t border-borde pt-3 text-sm text-suave">
+                        Llegó por <span class="text-contenido">{{ aspirante.origen ?? 'origen sin registrar' }}</span>.
+                    </p>
+                </TarjetaSeccion>
 
                 <!-- Conversión a alumno -->
-                <section class="tarjeta p-6">
-                    <h2 class="text-base font-semibold text-contenido">Conversión a alumno</h2>
-
-                    <div v-if="matricula" class="mt-4 rounded-lg bg-emerald-50 p-4 ring-1 ring-emerald-200">
+                <TarjetaSeccion
+                    titulo="Conversión a alumno"
+                    descripcion="El paso que genera su matrícula. No se deshace."
+                    :icono="ICONOS.birrete"
+                >
+                    <div v-if="matricula" class="rounded-lg bg-emerald-50 p-4 ring-1 ring-emerald-200">
                         <p class="text-xs uppercase tracking-wide text-emerald-700">Matrícula asignada</p>
                         <p class="mt-1 font-mono text-lg font-semibold text-emerald-900">
                             {{ matricula.matricula }}
@@ -354,7 +457,7 @@ Se le generará su matrícula de todos modos y eso no se puede deshacer. ¿Conti
                     </div>
 
                     <template v-else>
-                        <p class="mt-1 text-sm text-suave">
+                        <p class="text-sm text-suave">
                             La matrícula se genera en este paso, no antes.
                         </p>
 
@@ -392,7 +495,7 @@ Se le generará su matrícula de todos modos y eso no se puede deshacer. ¿Conti
                             Tu rol no tiene permiso para convertir aspirantes.
                         </p>
                     </template>
-                </section>
+                </TarjetaSeccion>
             </div>
         </div>
     </AppLayout>

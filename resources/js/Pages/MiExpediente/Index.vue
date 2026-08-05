@@ -103,7 +103,6 @@ const form = useForm({
     rfc: props.persona.rfc ?? '',
     fecha_nacimiento: props.persona.fecha_nacimiento ?? '',
     genero_id: props.persona.genero_id ?? null,
-    genero_id: props.persona.genero_id ?? null,
     email: props.persona.email ?? '',
     celular: props.persona.celular ?? '',
 });
@@ -355,13 +354,6 @@ function quitarFoto(): void {
                         requerido
                         :opciones="generos.map((g) => ({ valor: g.id, texto: g.nombre }))"
                         vacio="Selecciona…"
-                        :error="form.errors.genero_id"
-                    />
-                    <CampoSelect
-                        v-model="form.genero_id"
-                        etiqueta="Género"
-                        :opciones="generos.map((g) => ({ valor: g.id, texto: g.nombre }))"
-                        vacio="Prefiero no decirlo"
                         :error="form.errors.genero_id"
                     />
 

@@ -134,9 +134,10 @@ class ExpedienteAlumnoController extends Controller
             // certificado lee. Aquí se capturaba `sexo_id`, un duplicado que no
             // llegaba a ningún documento.
             'genero_id' => ['required', 'integer'],
-            'genero_id' => ['nullable', 'integer'],
             'email' => ['nullable', 'email', 'max:150'],
             'celular' => ['nullable', 'string', 'max:20'],
+        ], [], [
+            'genero_id' => 'género',
         ]);
 
         $persona->update($datos);

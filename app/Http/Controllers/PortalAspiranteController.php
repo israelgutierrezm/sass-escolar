@@ -11,7 +11,7 @@ use App\Models\Admisiones\EstadoDocumento;
 use App\Models\Admisiones\ExpedienteDocumento;
 use App\Models\Finanzas\Adeudo;
 use App\Models\Landlord\Genero;
-use App\Models\Landlord\Sexo;
+use App\Services\IdentidadPersona;
 use App\Services\ProgresoSolicitud;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -98,19 +98,42 @@ class PortalAspiranteController extends Controller
             'oferta_id' => ['nullable', Rule::exists('oferta', 'id')],
         ], [
             'curp.unique' => 'Esa CURP ya está registrada con otra persona. Si crees que es un error, contáctanos.',
+        ], [
+            // Sin esto el aspirante leía «genero id es obligatorio».
+            'genero_id' => 'género',
         ]);
 
         DB::transaction(function () use ($aspirante, $datos) {
-            $aspirante->persona?->update([
-                'nombre' => $datos['nombre'],
-                'primer_apellido' => $datos['primer_apellido'],
-                'segundo_apellido' => $datos['segundo_apellido'] ?? null,
-                'curp' => filled($datos['curp'] ?? null) ? strtoupper($datos['curp']) : null,
-                'email' => $datos['email'],
-                'celular' => $datos['celular'] ?? null,
-                'fecha_nacimiento' => $datos['fecha_nacimiento'] ?? null,
-                'sexo_id' => $datos['sexo_id'],
-            ]);
+            /*
+             * Por el mismo resolvedor que el resto de los roles.
+             *
+             * Aquí se armaba el arreglo a mano y se escribía `$datos['sexo_id']`
+             * —una clave que la validación ya no produce—: lo que el aspirante
+             * elegía no llegaba a su persona. `resolver()` deriva sexo, fecha y
+             * entidad de nacimiento de la CURP, que es el único dato con dígito
+             * verificador de toda la pantalla.
+             */
+            $resuelto = app(IdentidadPersona::class)->resolver($datos);
+
+            // El portal no captura correo institucional ni teléfono local:
+            // `resolver()` los devuelve en null, y escribirlos borraría lo que
+            // la escuela ya le haya asignado.
+            unset($resuelto['correo_institucional'], $resuelto['telefono_local']);
+
+            /*
+             * Una CURP que no pasa el dígito verificador vuelve como null, y
+             * escribir ese null BORRA la que el interesado tecleó. Se guarda tal
+             * cual para que quede a la vista y alguien la corrija: aquí no se
+             * puede rechazar de plano —hay actas viejas con la CURP mal impresa
+             * y el aspirante no tiene cómo arreglarla desde su casa—. Lo que sí
+             * se pierde es la derivación: sin CURP válida no hay fecha ni
+             * entidad de nacimiento deducidas, solo lo que él capturó.
+             */
+            if ($resuelto['curp'] === null && filled($datos['curp'] ?? null)) {
+                $resuelto['curp'] = mb_strtoupper(trim((string) $datos['curp']));
+            }
+
+            $aspirante->persona?->update($resuelto);
 
             if (filled($datos['oferta_id'] ?? null)) {
                 $aspirante->update(['oferta_interes_id' => $datos['oferta_id']]);

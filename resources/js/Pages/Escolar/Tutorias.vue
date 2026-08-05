@@ -71,6 +71,19 @@ const soloSinTutor = ref(false);
 const carrera = ref('');
 const grupo = ref('');
 
+/**
+ * Iniciales como respaldo de la foto. Una lista de quince alumnos sin ninguna
+ * cara es una columna de texto donde cuesta encontrar a alguien; el mismo
+ * recurso que ya usan los listados de alumnos y docentes.
+ */
+function iniciales(nombre: string | null): string {
+    if (!nombre) return '—';
+
+    const partes = nombre.trim().split(/\s+/);
+
+    return ((partes[0]?.[0] ?? '') + (partes[1]?.[0] ?? '')).toUpperCase() || '—';
+}
+
 const visibles = computed(() => {
     const q = busqueda.value.trim().toLowerCase();
 
@@ -312,10 +325,18 @@ function quitar(a: AlumnoFila): void {
                             <input v-model="elegidos" type="checkbox" :value="a.id" />
                         </td>
                         <td class="py-2.5">
-                            <span class="font-medium">{{ a.nombre }}</span>
-                            <span v-if="a.matricula" class="ml-2 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">
-                                {{ a.matricula }}
-                            </span>
+                            <div class="flex items-center gap-3">
+                                <span
+                                    class="grid h-9 w-9 shrink-0 place-items-center rounded-full text-xs font-semibold"
+                                    :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }"
+                                >{{ iniciales(a.nombre) }}</span>
+                                <div class="min-w-0">
+                                    <p class="truncate font-medium">{{ a.nombre }}</p>
+                                    <p v-if="a.matricula" class="font-mono text-xs" :style="{ color: 'var(--color-suave)' }">
+                                        {{ a.matricula }}
+                                    </p>
+                                </div>
+                            </div>
                         </td>
                         <td class="py-2.5" :style="{ color: 'var(--color-suave)' }">
                             {{ a.carrera ?? '—' }}
@@ -326,8 +347,22 @@ function quitar(a: AlumnoFila): void {
                             </span>
                         </td>
                         <td class="py-2.5">
-                            <span v-if="a.tutor">{{ a.tutor }}</span>
-                            <span v-else class="text-xs font-medium text-amber-700">Sin tutor</span>
+                            <!-- Con tutor: sus iniciales y su nombre, para
+                                 reconocer de un vistazo el reparto. Sin tutor:
+                                 una píldora ámbar, que es a quien hay que
+                                 asignarle uno. -->
+                            <span v-if="a.tutor" class="flex items-center gap-2">
+                                <span
+                                    class="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[10px] font-semibold"
+                                    :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 18%, transparent)', color: 'var(--color-suave)' }"
+                                >{{ iniciales(a.tutor) }}</span>
+                                <span class="truncate text-sm">{{ a.tutor }}</span>
+                            </span>
+                            <span
+                                v-else
+                                class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium"
+                                style="background-color: color-mix(in srgb, #f59e0b 14%, transparent); color: #b45309"
+                            >Sin tutor</span>
                         </td>
                         <td class="py-2.5">
                             <!--
@@ -345,17 +380,24 @@ function quitar(a: AlumnoFila): void {
                             <component
                                 :is="puedeLeerBitacoras ? Link : 'span'"
                                 :href="puedeLeerBitacoras ? `/escolar/tutorias/${a.id}/bitacora` : undefined"
-                                class="text-sm"
-                                :style="{
-                                    color: a.tutor && a.sesiones === 0
-                                        ? '#d97706'
-                                        : (puedeLeerBitacoras ? 'var(--color-acento)' : 'var(--color-contenido)'),
-                                }"
+                                class="inline-flex items-center gap-1.5"
                                 :title="a.ultima_sesion ? `Última: ${a.ultima_sesion}` : 'Sin sesiones anotadas'"
                             >
-                                {{ a.sesiones }}
+                                <!-- El número, en píldora: ámbar si tiene tutor y
+                                     ninguna sesión —el caso que hay que
+                                     perseguir—, gris si son cero sin tutor
+                                     (esperado) y en color de acento cuando la
+                                     tutoría sí está ocurriendo. -->
+                                <span
+                                    class="grid h-6 min-w-6 place-items-center rounded-full px-1.5 text-xs font-semibold tabular-nums"
+                                    :style="a.tutor && a.sesiones === 0
+                                        ? { backgroundColor: 'color-mix(in srgb, #f59e0b 16%, transparent)', color: '#b45309' }
+                                        : (a.sesiones > 0
+                                            ? { backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }
+                                            : { backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)', color: 'var(--color-suave)' })"
+                                >{{ a.sesiones }}</span>
                                 <span v-if="a.ultima_sesion" class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                                    · {{ a.ultima_sesion }}
+                                    {{ a.ultima_sesion }}
                                 </span>
                             </component>
                         </td>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
+import { Head, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BarraListado from '@/Components/BarraListado.vue';
@@ -61,6 +61,22 @@ const definicionFiltros = [
     { clave: 'campus_id', etiqueta: 'Campus', opciones: props.campusDisponibles.map((c) => ({ valor: c.id, texto: c.nombre })) },
     { clave: 'oferta_id', etiqueta: 'Programa de interés', opciones: props.ofertas.map((o) => ({ valor: o.id, texto: o.nombre })) },
 ];
+
+/**
+ * Saca al prospecto del embudo.
+ *
+ * Es la papelera del CRM: duplicados, un registro de prueba, el que se apuntó
+ * dos veces desde el formulario público. El servidor se niega si ya se convirtió
+ * en alumno —ahí cuelga su matrícula— y el borrado es lógico, así que si vuelve
+ * el año que entra su CURP lo reencuentra.
+ */
+function eliminar(aspirante: { id: number; nombre_completo: string | null }): void {
+    if (!confirm(`¿Sacar a ${aspirante.nombre_completo ?? 'este aspirante'} del embudo de admisión?`)) {
+        return;
+    }
+
+    router.delete(`/aspirantes/${aspirante.id}`, { preserveScroll: true });
+}
 </script>
 
 <template>
@@ -182,6 +198,7 @@ const definicionFiltros = [
                                 <td class="px-6 py-4">
                                     <div class="flex items-center justify-end gap-1">
                                         <BotonAccion v-if="puedeEditar" variante="editar" :href="`/aspirantes/${aspirante.id}/editar`" />
+                                        <BotonAccion v-if="puedeEditar" variante="eliminar" texto="Eliminar del embudo" @click="eliminar(aspirante)" />
                                         <!-- Igual que en alumnos y docentes: el
                                              expediente es a donde se entra de
                                              verdad —identidad, documentos,

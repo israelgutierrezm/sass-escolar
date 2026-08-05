@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { Head, useForm, router } from '@inertiajs/vue3';
+import { Head, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
+import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
+import { ICONOS } from '@/iconos';
 
 interface Paso {
     clave: string;
@@ -57,6 +59,22 @@ const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN
 // Se abre en el primer paso sin terminar: es donde el interesado tiene algo
 // que hacer, y obligarlo a buscarlo entre tres secciones es fricción gratis.
 const abierto = ref<string>(props.progreso.siguiente ?? props.progreso.pasos[0].clave);
+
+/**
+ * El paso que sigue, con nombre y en una frase.
+ *
+ * La barra decía «2 de 3 pasos completos» y ya. El interesado —que entra desde
+ * el celular, una vez— no tiene por qué deducir cuál es el que falta ni qué se
+ * espera de él: se le dice, y el botón lo lleva.
+ */
+const siguiente = computed(() => props.progreso.pasos.find((p) => p.clave === props.progreso.siguiente) ?? null);
+
+/** Un icono por paso, para que la tarjeta abierta se reconozca de reojo. */
+const ICONO_PASO: Record<string, string> = {
+    datos: ICONOS.persona,
+    documentos: ICONOS.documento,
+    pago: ICONOS.dinero,
+};
 
 const datos = useForm({
     nombre: props.persona.nombre ?? '',
@@ -127,6 +145,12 @@ const documentosOrdenados = computed(() => {
     return [...props.documentos].sort((a, b) => urgencia(a) - urgencia(b));
 });
 
+const pendientesDocumentos = computed(
+    () => props.documentos.filter((d) => d.obligatorio && d.entrega_id === null).length,
+);
+
+const rechazados = computed(() => props.documentos.filter((d) => d.estado_clave === 'rechazado').length);
+
 const colorEstado: Record<string, string> = {
     aceptado: 'bg-emerald-50 text-emerald-700',
     pendiente: 'bg-amber-50 text-amber-800',
@@ -138,240 +162,357 @@ const colorEstado: Record<string, string> = {
     <Head title="Mi solicitud" />
 
     <AppLayout titulo="Mi solicitud de admisión">
-        <!-- Progreso: el mismo patrón de pasos con barra. -->
-        <section class="tarjeta p-6">
-            <div class="flex flex-wrap items-end justify-between gap-3">
-                <div>
-                    <h2 class="text-base font-semibold">Tu avance</h2>
-                    <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                        {{ progreso.completos }} de {{ progreso.total }} pasos completos.
-                        <template v-if="progreso.siguiente === null">
-                            Ya no te falta nada; la escuela dará seguimiento.
-                        </template>
-                    </p>
-                </div>
-                <span class="text-2xl font-semibold tabular-nums">{{ progreso.porcentaje }}%</span>
-            </div>
-
-            <div class="mt-3 h-2 w-full rounded-full" :style="{ backgroundColor: 'var(--color-borde)' }">
-                <div
-                    class="h-2 rounded-full transition-all"
-                    :style="{ width: progreso.porcentaje + '%', backgroundColor: 'var(--color-acento)' }"
-                ></div>
-            </div>
-
-            <ol class="mt-5 grid gap-3 sm:grid-cols-3">
-                <li
-                    v-for="(paso, i) in progreso.pasos"
-                    :key="paso.clave"
-                    class="rounded-lg border p-3"
-                    :style="{
-                        borderColor: abierto === paso.clave ? 'var(--color-acento)' : 'var(--color-borde)',
-                        opacity: paso.aplica ? 1 : 0.55,
-                    }"
-                >
-                    <button type="button" class="w-full text-left" :disabled="!paso.aplica" @click="abierto = paso.clave">
-                        <div class="flex items-center gap-2">
-                            <span
-                                class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
-                                :style="
-                                    paso.completo
-                                        ? { backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }
-                                        : { border: '1px solid var(--color-borde)', color: 'var(--color-suave)' }
-                                "
-                            >
-                                {{ paso.completo ? '✓' : i + 1 }}
-                            </span>
-                            <span class="text-sm font-medium">{{ paso.titulo }}</span>
-                        </div>
-                        <p class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">{{ paso.detalle }}</p>
-
-                        <!--
-                            QUÉ falta, con su nombre.
-
-                            El servidor ya venía calculando esta lista —«CURP»,
-                            «Acta de nacimiento»— y la pantalla sólo pintaba el
-                            conteo: «2 por capturar». Saber que faltan dos y no
-                            cuáles obliga a abrir el paso y revisar campo por
-                            campo hasta dar con ellos.
-
-                            Se cortan a tres para que la tarjeta no crezca hasta
-                            desalinear la fila; el resto se cuenta.
-                        -->
-                        <ul v-if="paso.faltantes.length" class="mt-2 space-y-0.5">
-                            <li
-                                v-for="f in paso.faltantes.slice(0, 3)"
-                                :key="f"
-                                class="flex items-start gap-1.5 text-xs"
-                                :style="{ color: 'var(--color-suave)' }"
-                            >
-                                <span class="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-red-500" />
-                                {{ f }}
-                            </li>
-                            <li v-if="paso.faltantes.length > 3" class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                                y {{ paso.faltantes.length - 3 }} más
-                            </li>
-                        </ul>
-                    </button>
-                </li>
-            </ol>
-        </section>
-
-        <!-- Paso 1: datos -->
-        <section v-show="abierto === 'datos'" class="tarjeta p-6">
-            <h2 class="text-base font-semibold">Tus datos</h2>
-            <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                Son los que la escuela necesita para poder registrarte formalmente.
-            </p>
-
-            <form class="mt-4 grid gap-4 sm:grid-cols-3" @submit.prevent="guardarDatos">
-                <CampoTexto v-model="datos.nombre" etiqueta="Nombre(s)" requerido :error="datos.errors.nombre" />
-                <CampoTexto v-model="datos.primer_apellido" etiqueta="Primer apellido" requerido :error="datos.errors.primer_apellido" />
-                <CampoTexto v-model="datos.segundo_apellido" etiqueta="Segundo apellido" :error="datos.errors.segundo_apellido" />
-                <CampoTexto v-model="datos.curp" etiqueta="CURP" mono :maximo="18" :error="datos.errors.curp" />
-                <CampoTexto v-model="datos.fecha_nacimiento" tipo="date" etiqueta="Fecha de nacimiento" :error="datos.errors.fecha_nacimiento" />
-                <CampoSelect
-                    v-model="datos.genero_id"
-                    etiqueta="Género"
-                    requerido
-                    vacio="Elige…"
-                    :opciones="generos.map((g) => ({ valor: g.id, texto: g.nombre }))"
-                    :error="datos.errors.genero_id"
-                />
-                <CampoTexto v-model="datos.email" tipo="email" etiqueta="Correo" requerido :error="datos.errors.email" />
-                <CampoTexto v-model="datos.celular" tipo="tel" etiqueta="Celular" :error="datos.errors.celular" />
-                <CampoSelect
-                    v-model="datos.oferta_id"
-                    etiqueta="Programa de interés"
-                    vacio="Sin elegir"
-                    :opciones="ofertas.map((o) => ({ valor: o.id, texto: o.nombre }))"
-                    :error="datos.errors.oferta_id"
-                />
-
-                <div class="sm:col-span-3">
-                    <BotonPrincipal :procesando="datos.processing" texto="Guardar mis datos" />
-                </div>
-            </form>
-        </section>
-
-        <!-- Paso 2: documentos -->
-        <section v-show="abierto === 'documentos'" class="tarjeta p-6">
-            <h2 class="text-base font-semibold">Tu documentación</h2>
-            <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                Sube cada papel en PDF o foto. Alguien de la escuela los revisa: hasta entonces quedan
-                como pendientes. Si vuelves a subir uno, reemplaza al anterior y se revisa de nuevo.
-            </p>
-
-            <ul class="mt-4 divide-y divide-borde" :style="{ borderColor: 'var(--color-borde)' }">
-                <li v-for="doc in documentosOrdenados" :key="doc.id" class="flex flex-wrap items-center justify-between gap-3 py-3">
+        <div class="space-y-6">
+            <!-- Progreso: el mismo patrón de pasos con barra. -->
+            <section class="tarjeta p-6">
+                <div class="flex flex-wrap items-end justify-between gap-3">
                     <div class="min-w-0">
-                        <p class="text-sm font-medium">
-                            {{ doc.nombre }}
-                            <span v-if="doc.obligatorio" class="text-red-500" title="Obligatorio">*</span>
-                        </p>
-                        <p v-if="doc.descripcion" class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                            {{ doc.descripcion }}
-                        </p>
-                        <p v-if="doc.observacion" class="mt-1 text-xs text-red-700">
-                            {{ doc.observacion }}
+                        <h2 class="text-base font-semibold">Tu avance</h2>
+                        <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
+                            {{ progreso.completos }} de {{ progreso.total }} pasos completos.
                         </p>
                     </div>
+                    <span class="text-2xl font-semibold tabular-nums">{{ progreso.porcentaje }}%</span>
+                </div>
 
-                    <div class="flex items-center gap-3">
-                        <span
-                            v-if="doc.estado"
-                            class="rounded px-2 py-0.5 text-xs font-medium"
-                            :class="colorEstado[doc.estado_clave ?? ''] ?? ''"
-                        >
-                            {{ doc.estado }}
-                        </span>
-                        <span v-else class="text-xs" :style="{ color: 'var(--color-suave)' }">Sin entregar</span>
+                <div class="mt-3 h-2 w-full rounded-full" :style="{ backgroundColor: 'var(--color-borde)' }">
+                    <div
+                        class="h-2 rounded-full transition-all"
+                        :style="{ width: progreso.porcentaje + '%', backgroundColor: 'var(--color-acento)' }"
+                    ></div>
+                </div>
 
-                        <BotonAccion
-                            v-if="doc.entrega_id"
-                            variante="ver"
-                            solo-icono
-                            :href="`/mi-solicitud/documentos/${doc.entrega_id}`"
-                        />
+                <!--
+                    Lo que hay que hacer ahora, dicho con todas sus letras y con el
+                    botón que lleva. Es la única línea de la pantalla que el
+                    interesado tiene que leer si viene con prisa.
+                -->
+                <div
+                    v-if="siguiente"
+                    class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg p-3"
+                    :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 8%, transparent)' }"
+                >
+                    <!-- `descripcion` es la frase («Sube los papeles que pide la
+                         escuela…»); `detalle` es el contador («0 de 5»), que ya
+                         sale en la tarjeta del paso y aquí no diría nada. -->
+                    <p class="min-w-0 text-sm">
+                        <span class="font-medium">Lo que sigue:</span>
+                        {{ siguiente.descripcion }}
+                    </p>
+                    <button
+                        v-if="abierto !== siguiente.clave"
+                        type="button"
+                        class="shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium text-white"
+                        :style="{ backgroundColor: 'var(--color-acento)' }"
+                        @click="abierto = siguiente!.clave"
+                    >
+                        Ir a {{ siguiente.titulo.toLowerCase() }}
+                    </button>
+                </div>
 
+                <p
+                    v-else
+                    class="mt-4 rounded-lg p-3 text-sm"
+                    style="background-color: color-mix(in srgb, #16a34a 8%, transparent); color: #15803d"
+                >
+                    Ya no te falta nada. La escuela revisa tu solicitud y te contacta; no tienes que
+                    volver a entrar salvo que te pidan corregir algo.
+                </p>
+
+                <ol class="mt-5 grid gap-3 sm:grid-cols-3">
+                    <li v-for="(paso, i) in progreso.pasos" :key="paso.clave">
                         <!--
-                            Un rechazado se resube, no se «reemplaza»: la
-                            palabra tiene que decir qué se espera de él, que es
-                            corregir lo que le señalaron.
+                            La tarjeta entera es el botón. Antes el borde cambiaba de
+                            color al abrirse y nada más: no se veía que fueran
+                            pulsables, y desde el celular se acababa haciendo scroll
+                            hasta la sección en lugar de tocar el paso.
                         -->
-                        <label
-                            class="cursor-pointer rounded-lg border px-3 py-1.5 text-xs transition"
-                            :class="subiendo === doc.id ? 'opacity-60' : 'hover:bg-[color-mix(in_srgb,var(--color-acento)_7%,transparent)]'"
+                        <button
+                            type="button"
+                            class="h-full w-full rounded-lg border p-3 text-left transition disabled:cursor-not-allowed"
+                            :class="paso.aplica && abierto !== paso.clave ? 'hover:bg-[color-mix(in_srgb,var(--color-acento)_6%,transparent)]' : ''"
                             :style="{
-                                borderColor: doc.estado_clave === 'rechazado' ? '#dc2626' : 'var(--color-borde)',
-                                color: doc.estado_clave === 'rechazado' ? '#dc2626' : undefined,
+                                borderColor: abierto === paso.clave ? 'var(--color-acento)' : 'var(--color-borde)',
+                                backgroundColor: abierto === paso.clave
+                                    ? 'color-mix(in srgb, var(--color-acento) 6%, transparent)'
+                                    : undefined,
+                                opacity: paso.aplica ? 1 : 0.55,
                             }"
+                            :disabled="!paso.aplica"
+                            :aria-current="abierto === paso.clave ? 'step' : undefined"
+                            @click="abierto = paso.clave"
                         >
-                            <template v-if="subiendo === doc.id">Subiendo…</template>
-                            <template v-else-if="doc.estado_clave === 'rechazado'">Corregir</template>
-                            <template v-else>{{ doc.entrega_id ? 'Reemplazar' : 'Subir' }}</template>
-                            <input
-                                type="file"
-                                class="hidden"
-                                accept=".pdf,.jpg,.jpeg,.png"
-                                :disabled="subiendo !== null"
-                                @change="subir(doc.id, $event)"
+                            <div class="flex items-center gap-2">
+                                <span
+                                    class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+                                    :style="
+                                        paso.completo
+                                            ? { backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }
+                                            : { border: '1px solid var(--color-borde)', color: 'var(--color-suave)' }
+                                    "
+                                >
+                                    {{ paso.completo ? '✓' : i + 1 }}
+                                </span>
+                                <span class="text-sm font-medium">{{ paso.titulo }}</span>
+                            </div>
+                            <p class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">{{ paso.detalle }}</p>
+
+                            <!--
+                                QUÉ falta, con su nombre.
+
+                                El servidor ya venía calculando esta lista —«CURP»,
+                                «Acta de nacimiento»— y la pantalla sólo pintaba el
+                                conteo: «2 por capturar». Saber que faltan dos y no
+                                cuáles obliga a abrir el paso y revisar campo por
+                                campo hasta dar con ellos.
+
+                                Se cortan a tres para que la tarjeta no crezca hasta
+                                desalinear la fila; el resto se cuenta.
+                            -->
+                            <ul v-if="paso.faltantes.length" class="mt-2 space-y-0.5">
+                                <li
+                                    v-for="f in paso.faltantes.slice(0, 3)"
+                                    :key="f"
+                                    class="flex items-start gap-1.5 text-xs"
+                                    :style="{ color: 'var(--color-suave)' }"
+                                >
+                                    <span class="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-red-500" />
+                                    {{ f }}
+                                </li>
+                                <li v-if="paso.faltantes.length > 3" class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                                    y {{ paso.faltantes.length - 3 }} más
+                                </li>
+                            </ul>
+                        </button>
+                    </li>
+                </ol>
+            </section>
+
+            <!-- Paso 1: datos -->
+            <TarjetaSeccion
+                v-show="abierto === 'datos'"
+                titulo="Tus datos"
+                descripcion="Son los que la escuela necesita para poder registrarte formalmente."
+                :icono="ICONO_PASO.datos"
+            >
+                <form class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" @submit.prevent="guardarDatos">
+                    <CampoTexto v-model="datos.nombre" etiqueta="Nombre(s)" requerido :error="datos.errors.nombre" />
+                    <CampoTexto v-model="datos.primer_apellido" etiqueta="Primer apellido" requerido :error="datos.errors.primer_apellido" />
+                    <CampoTexto v-model="datos.segundo_apellido" etiqueta="Segundo apellido" :error="datos.errors.segundo_apellido" />
+                    <CampoTexto
+                        v-model="datos.curp"
+                        etiqueta="CURP"
+                        mono
+                        :maximo="18"
+                        ayuda="Viene en tu acta de nacimiento. Si no la tienes a la mano, puedes dejarla y volver."
+                        :error="datos.errors.curp"
+                    />
+                    <CampoTexto v-model="datos.fecha_nacimiento" tipo="date" etiqueta="Fecha de nacimiento" :error="datos.errors.fecha_nacimiento" />
+                    <CampoSelect
+                        v-model="datos.genero_id"
+                        etiqueta="Género"
+                        requerido
+                        vacio="Elige…"
+                        :opciones="generos.map((g) => ({ valor: g.id, texto: g.nombre }))"
+                        :error="datos.errors.genero_id"
+                    />
+                    <CampoTexto
+                        v-model="datos.email"
+                        tipo="email"
+                        etiqueta="Correo"
+                        requerido
+                        ayuda="Por aquí te avisan si te aceptan."
+                        :error="datos.errors.email"
+                    />
+                    <CampoTexto v-model="datos.celular" tipo="tel" etiqueta="Celular" :error="datos.errors.celular" />
+                    <CampoSelect
+                        v-model="datos.oferta_id"
+                        etiqueta="Programa de interés"
+                        vacio="Sin elegir"
+                        :opciones="ofertas.map((o) => ({ valor: o.id, texto: o.nombre }))"
+                        :error="datos.errors.oferta_id"
+                    />
+                </form>
+
+                <template #pie>
+                    <!-- Vive en el pie de la tarjeta, fuera del <form>, así que no
+                         puede ser un submit: envía por click. -->
+                    <BotonPrincipal
+                        tipo="button"
+                        :procesando="datos.processing"
+                        texto="Guardar mis datos"
+                        @click="guardarDatos"
+                    />
+                </template>
+            </TarjetaSeccion>
+
+            <!-- Paso 2: documentos -->
+            <TarjetaSeccion
+                v-show="abierto === 'documentos'"
+                titulo="Tu documentación"
+                descripcion="Sube cada papel en PDF o foto. Alguien de la escuela los revisa: hasta entonces quedan como pendientes. Si vuelves a subir uno, reemplaza al anterior y se revisa de nuevo."
+                :icono="ICONO_PASO.documentos"
+            >
+                <template #insignia>
+                    <span
+                        v-if="rechazados"
+                        class="rounded-full px-2.5 py-0.5 text-xs font-medium"
+                        style="background-color: color-mix(in srgb, #dc2626 10%, transparent); color: #dc2626"
+                    >{{ rechazados }} por corregir</span>
+                    <span
+                        v-else-if="pendientesDocumentos"
+                        class="rounded-full px-2.5 py-0.5 text-xs font-medium"
+                        style="background-color: color-mix(in srgb, #f59e0b 14%, transparent); color: #b45309"
+                    >Faltan {{ pendientesDocumentos }}</span>
+                    <span
+                        v-else-if="documentos.length"
+                        class="rounded-full px-2.5 py-0.5 text-xs font-medium"
+                        style="background-color: color-mix(in srgb, #16a34a 12%, transparent); color: #16a34a"
+                    >Completo</span>
+                </template>
+
+                <ul class="divide-y divide-borde">
+                    <li
+                        v-for="doc in documentosOrdenados"
+                        :key="doc.id"
+                        class="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
+                    >
+                        <div class="flex min-w-0 items-start gap-3">
+                            <!-- Entregado o no, antes del nombre: la lista se recorre
+                                 buscando exactamente eso. -->
+                            <span
+                                class="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-semibold"
+                                :style="doc.estado_clave === 'rechazado'
+                                    ? { backgroundColor: 'color-mix(in srgb, #dc2626 10%, transparent)', color: '#dc2626' }
+                                    : doc.entrega_id
+                                        ? { backgroundColor: 'color-mix(in srgb, #16a34a 12%, transparent)', color: '#16a34a' }
+                                        : { backgroundColor: 'var(--color-fondo)', color: 'var(--color-suave)' }"
+                            >{{ doc.estado_clave === 'rechazado' ? '!' : doc.entrega_id ? '✓' : '·' }}</span>
+
+                            <div class="min-w-0">
+                                <p class="text-sm font-medium">
+                                    {{ doc.nombre }}
+                                    <span v-if="doc.obligatorio" class="text-red-500" title="Obligatorio">*</span>
+                                </p>
+                                <p v-if="doc.descripcion" class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                                    {{ doc.descripcion }}
+                                </p>
+                                <p v-if="doc.observacion" class="mt-1 text-xs text-red-700">
+                                    {{ doc.observacion }}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flex shrink-0 items-center gap-3">
+                            <span
+                                v-if="doc.estado"
+                                class="rounded px-2 py-0.5 text-xs font-medium"
+                                :class="colorEstado[doc.estado_clave ?? ''] ?? ''"
+                            >
+                                {{ doc.estado }}
+                            </span>
+                            <span v-else class="text-xs" :style="{ color: 'var(--color-suave)' }">Sin entregar</span>
+
+                            <BotonAccion
+                                v-if="doc.entrega_id"
+                                variante="ver"
+                                solo-icono
+                                :href="`/mi-solicitud/documentos/${doc.entrega_id}`"
                             />
-                        </label>
+
+                            <!--
+                                Un rechazado se resube, no se «reemplaza»: la
+                                palabra tiene que decir qué se espera de él, que es
+                                corregir lo que le señalaron.
+                            -->
+                            <label
+                                class="cursor-pointer rounded-lg border px-3 py-1.5 text-xs transition"
+                                :class="subiendo === doc.id ? 'opacity-60' : 'hover:bg-[color-mix(in_srgb,var(--color-acento)_7%,transparent)]'"
+                                :style="{
+                                    borderColor: doc.estado_clave === 'rechazado' ? '#dc2626' : 'var(--color-borde)',
+                                    color: doc.estado_clave === 'rechazado' ? '#dc2626' : undefined,
+                                }"
+                            >
+                                <template v-if="subiendo === doc.id">Subiendo…</template>
+                                <template v-else-if="doc.estado_clave === 'rechazado'">Corregir</template>
+                                <template v-else>{{ doc.entrega_id ? 'Reemplazar' : 'Subir' }}</template>
+                                <input
+                                    type="file"
+                                    class="hidden"
+                                    accept=".pdf,.jpg,.jpeg,.png"
+                                    :disabled="subiendo !== null"
+                                    @change="subir(doc.id, $event)"
+                                />
+                            </label>
+                        </div>
+                    </li>
+                </ul>
+
+                <p v-if="!documentos.length" class="text-sm" :style="{ color: 'var(--color-suave)' }">
+                    La escuela no pide documentos en esta etapa.
+                </p>
+            </TarjetaSeccion>
+
+            <!-- Paso 3: pago -->
+            <TarjetaSeccion
+                v-show="abierto === 'pago'"
+                titulo="Tu pago"
+                descripcion="Aquí solo consultas lo que debes. Para pagar, acude a la escuela o sigue las instrucciones que te den."
+                :icono="ICONO_PASO.pago"
+            >
+                <template #insignia>
+                    <span
+                        v-if="cargos.renglones.length"
+                        class="rounded-full px-2.5 py-0.5 text-xs font-medium tabular-nums"
+                        :style="cargos.saldo > 0
+                            ? { backgroundColor: 'color-mix(in srgb, #dc2626 10%, transparent)', color: '#dc2626' }
+                            : { backgroundColor: 'color-mix(in srgb, #16a34a 12%, transparent)', color: '#16a34a' }"
+                    >
+                        {{ cargos.saldo > 0 ? `Debes ${pesos.format(cargos.saldo)}` : 'Sin adeudo' }}
+                    </span>
+                </template>
+
+                <template v-if="cargos.renglones.length">
+                    <!-- La tabla se desborda antes que la página: en el celular es
+                         la diferencia entre poder leerla y no. -->
+                    <div class="-mx-1 overflow-x-auto px-1">
+                        <table class="w-full min-w-[28rem] text-sm">
+                            <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
+                                <tr>
+                                    <th class="py-2 font-medium">Concepto</th>
+                                    <th class="py-2 font-medium">Vence</th>
+                                    <th class="py-2 text-right font-medium">Total</th>
+                                    <th class="py-2 text-right font-medium">Saldo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="(c, i) in cargos.renglones" :key="i" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
+                                    <td class="py-2">{{ c.concepto }}</td>
+                                    <td class="py-2" :class="c.vencido ? 'font-medium text-red-600' : ''">
+                                        {{ c.vencimiento }}
+                                        <span v-if="c.vencido" class="text-xs">(vencido)</span>
+                                    </td>
+                                    <td class="py-2 text-right tabular-nums">{{ pesos.format(c.total) }}</td>
+                                    <td class="py-2 text-right font-medium tabular-nums">
+                                        {{ c.saldo > 0 ? pesos.format(c.saldo) : 'Pagado' }}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
-                </li>
-            </ul>
 
-            <p v-if="!documentos.length" class="mt-4 text-sm" :style="{ color: 'var(--color-suave)' }">
-                La escuela no pide documentos en esta etapa.
-            </p>
-        </section>
+                    <p class="mt-4 text-sm">
+                        Saldo pendiente:
+                        <strong class="tabular-nums" :class="cargos.saldo > 0 ? 'text-red-600' : ''">
+                            {{ pesos.format(cargos.saldo) }}
+                        </strong>
+                    </p>
+                </template>
 
-        <!-- Paso 3: pago -->
-        <section v-show="abierto === 'pago'" class="tarjeta p-6">
-            <h2 class="text-base font-semibold">Tu pago</h2>
-
-            <template v-if="cargos.renglones.length">
-                <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                    Estos son los cargos que la escuela te generó. Para pagarlos, acude a la escuela o
-                    sigue las instrucciones que te den: aquí solo los consultas.
+                <p v-else class="text-sm" :style="{ color: 'var(--color-suave)' }">
+                    Todavía no hay nada que pagar. Si la escuela te genera un cargo, aparecerá aquí.
                 </p>
-
-                <table class="mt-4 w-full text-sm">
-                    <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                        <tr>
-                            <th class="py-2 font-medium">Concepto</th>
-                            <th class="py-2 font-medium">Vence</th>
-                            <th class="py-2 text-right font-medium">Total</th>
-                            <th class="py-2 text-right font-medium">Saldo</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="(c, i) in cargos.renglones" :key="i" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                            <td class="py-2">{{ c.concepto }}</td>
-                            <td class="py-2" :class="c.vencido ? 'font-medium text-red-600' : ''">
-                                {{ c.vencimiento }}
-                                <span v-if="c.vencido" class="text-xs">(vencido)</span>
-                            </td>
-                            <td class="py-2 text-right tabular-nums">{{ pesos.format(c.total) }}</td>
-                            <td class="py-2 text-right font-medium tabular-nums">
-                                {{ c.saldo > 0 ? pesos.format(c.saldo) : 'Pagado' }}
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-
-                <p class="mt-4 text-sm">
-                    Saldo pendiente:
-                    <strong class="tabular-nums" :class="cargos.saldo > 0 ? 'text-red-600' : ''">
-                        {{ pesos.format(cargos.saldo) }}
-                    </strong>
-                </p>
-            </template>
-
-            <p v-else class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                Todavía no hay nada que pagar. Si la escuela te genera un cargo, aparecerá aquí.
-            </p>
-        </section>
+            </TarjetaSeccion>
+        </div>
     </AppLayout>
 </template>
