@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\Admisiones\Alumno;
 use App\Models\Admisiones\Aspirante;
+use App\Models\Admisiones\EtapaCrm;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\RespuestaCampo;
 use App\Models\Admisiones\SituacionAlumno;
@@ -75,8 +76,23 @@ class ConvertidorAspirante
             // eso.
             $this->comisiones->devengar($aspirante, $matricula);
 
+            /*
+             * La ETAPA del embudo también avanza, no sólo la situación.
+             *
+             * Se quedaba donde estuviera —«Contacto inicial», si el alta fue
+             * directa— y el embudo del panel seguía contando como prospecto a
+             * alguien que ya tiene matrícula. Quien mira ese tablero para saber
+             * cuántos faltan por cerrar veía un número que no era.
+             *
+             * Se toma la ÚLTIMA etapa por orden, no una clave fija: el catálogo
+             * lo edita cada escuela y la última es, por definición, el final del
+             * embudo.
+             */
+            $ultimaEtapa = EtapaCrm::query()->orderByDesc('orden')->value('id');
+
             $aspirante->update([
                 'situacion_id' => SituacionAspirante::query()->where('clave', 'inscrito')->value('id'),
+                'etapa_crm_id' => $ultimaEtapa ?? $aspirante->etapa_crm_id,
                 'validado_admin' => true,
             ]);
 

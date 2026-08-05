@@ -91,6 +91,28 @@ function cambiarEstado(entregaId: number, estadoId: number): void {
 }
 
 function convertir(): void {
+    /*
+     * Convertir genera matrícula y no se deshace, así que un expediente
+     * incompleto se confirma a mano.
+     *
+     * No se BLOQUEA a propósito: hay escuelas que inscriben con el acta
+     * pendiente y la piden después, y prohibirlo las dejaría sin poder trabajar.
+     * Lo que no puede pasar es que ocurra en silencio: antes se convertía a un
+     * prospecto sin un solo documento con el mismo clic y sin decir nada.
+     */
+    if (obligatoriosPendientes.value > 0) {
+        const faltan = obligatoriosPendientes.value;
+        const aviso = faltan === 1
+            ? 'Falta 1 documento obligatorio del expediente.'
+            : `Faltan ${faltan} documentos obligatorios del expediente.`;
+
+        if (!confirm(`${aviso}
+
+Se le generará su matrícula de todos modos y eso no se puede deshacer. ¿Continuar?`)) {
+            return;
+        }
+    }
+
     formConversion.post(`/aspirantes/${props.aspirante.id}/convertir`, { preserveScroll: true });
 }
 </script>
