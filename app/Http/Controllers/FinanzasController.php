@@ -244,12 +244,30 @@ class FinanzasController extends Controller
 
         $metodo = MetodoPago::findOrFail($datos['metodo_pago_id']);
 
+        /*
+         * Una lista VACÍA de cargos no es «cubre exactamente estos cero»: es
+         * «no elegí ninguno», que el registrador entiende como null y resuelve
+         * cubriendo los más vencidos primero.
+         *
+         * El formulario manda siempre `adeudo_ids`, vacío cuando no se marcó
+         * nada, así que sin esta línea el pago entraba por la rama de «respeta
+         * lo que eligió quien cobra» con una lista sin nada dentro: se
+         * registraba el dinero, no liquidaba ningún cargo y quedaba entero a
+         * favor. La pantalla decía «Pago registrado y aplicado» mientras el
+         * saldo no se movía.
+         */
+        $adeudoIds = $datos['adeudo_ids'] ?? null;
+
+        if ($adeudoIds === []) {
+            $adeudoIds = null;
+        }
+
         try {
             $pago = $this->registrador->registrar(
                 $matricula->id,
                 $metodo,
                 (float) $datos['monto'],
-                $datos['adeudo_ids'] ?? null,
+                $adeudoIds,
                 $datos['referencia'] ?? null,
             );
         } catch (RuntimeException $e) {

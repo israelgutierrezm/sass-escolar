@@ -74,7 +74,12 @@ const props = defineProps<{
         situacion: { clave: string; nombre: string; bloquea: boolean; motivo: string | null; momento: string } | null;
         bitacora: { id: number; situacion: string | null; bloquea: boolean; motivo: string | null; momento: string }[];
     };
-    planCobro: { id: number; nombre: string; aplica_a: string; reglas: number } | null;
+    /**
+     * El plan del que salen sus cargos. `aplica_a` y `reglas` se pedían aquí y
+     * el servidor nunca los mandó —quedaron de un refactor—, así que el renglón
+     * se leía «(, reglas)».
+     */
+    planCobro: { id: number; nombre: string; ciclo: string | null; conceptos: number; total_planes: number } | null;
     metodosPago: { id: number; clave: string; nombre: string; requiere_confirmacion: boolean }[];
     situacionesPago: { id: number; clave: string; nombre: string; bloquea: boolean }[];
     permisos: { registrarPagos: boolean; condonar: boolean; facturar: boolean };
@@ -236,8 +241,13 @@ function guardarSituacion(): void {
                 No hay plan de cobro vigente que aplique a esta matrícula: generar cargos no producirá nada.
             </p>
             <p v-else class="mt-3 text-xs" :style="{ color: 'var(--color-suave)' }">
-                Sus cargos salen del plan <strong>{{ planCobro.nombre }}</strong>
-                ({{ planCobro.aplica_a }}, {{ planCobro.reglas }} reglas).
+                Sus cargos salen del plan <strong>{{ planCobro.nombre }}</strong><template v-if="planCobro.ciclo"> del ciclo {{ planCobro.ciclo }}</template>,
+                con {{ planCobro.conceptos }} {{ planCobro.conceptos === 1 ? 'concepto' : 'conceptos' }}.
+                <!-- Si le aplican varios, decirlo: si no, el renglón nombra uno
+                     y el alumno tiene cargos que no salen de ahí. -->
+                <template v-if="planCobro.total_planes > 1">
+                    Le aplican {{ planCobro.total_planes }} planes en total.
+                </template>
             </p>
 
             <form v-if="cambiandoSituacion" class="mt-4 grid gap-3 sm:grid-cols-[auto_1fr_auto]" @submit.prevent="guardarSituacion">

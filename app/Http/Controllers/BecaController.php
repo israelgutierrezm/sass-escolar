@@ -81,7 +81,8 @@ class BecaController extends Controller
             'filtros' => $filtros,
             'becas' => $becas,
             'catalogoConceptos' => ConceptoPago::orderBy('nombre')->get(['id', 'nombre']),
-            'ciclos' => Ciclo::orderByDesc('fecha_inicio')->get(['id', 'nombre']),
+            // Vigentes: una beca se otorga o se renueva sobre el ciclo que corre.
+            'ciclos' => Ciclo::query()->vigentes()->orderByDesc('fecha_inicio')->get(['id', 'nombre']),
             // Cuántas becas renovables hay vivas: si no hay ninguna, la
             // herramienta de renovación no tiene sobre qué operar.
             'renovables' => BecaAlumno::query()
@@ -192,7 +193,8 @@ class BecaController extends Controller
                 'activo' => $beca->activo,
             ],
             'otorgadas' => $otorgadas,
-            'ciclos' => Ciclo::orderByDesc('fecha_inicio')->get(['id', 'nombre']),
+            // Vigentes: una beca se otorga o se renueva sobre el ciclo que corre.
+            'ciclos' => Ciclo::query()->vigentes()->orderByDesc('fecha_inicio')->get(['id', 'nombre']),
         ]);
     }
 
