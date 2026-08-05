@@ -13,12 +13,19 @@ import { computed } from 'vue';
  */
 const page = usePage();
 
+/*
+ * El orden sigue el de la captura: institución → campus → carreras → planes →
+ * asignaturas. El plan va antes que las asignaturas porque es lo que se arma
+ * primero: la materia se da de alta para colgarla de una malla que ya existe, y
+ * ofrecerla antes invita a capturar un catálogo suelto que después no se sabe
+ * dónde encaja.
+ */
 const secciones = [
     { etiqueta: 'Institución', url: '/academico/instituciones' },
     { etiqueta: 'Campus', url: '/academico/campus' },
     { etiqueta: 'Carreras', url: '/academico/carreras' },
-    { etiqueta: 'Asignaturas', url: '/academico/asignaturas' },
     { etiqueta: 'Planes de estudio', url: '/academico/planes' },
+    { etiqueta: 'Asignaturas', url: '/academico/asignaturas' },
     { etiqueta: 'Oferta', url: '/academico/ofertas' },
     { etiqueta: 'Evaluación', url: '/academico/plantillas' },
     { etiqueta: 'Catálogos', url: '/academico/catalogos' },
