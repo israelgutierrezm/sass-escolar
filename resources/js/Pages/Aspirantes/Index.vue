@@ -4,6 +4,7 @@ import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BarraListado from '@/Components/BarraListado.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import BotonExpediente from '@/Components/BotonExpediente.vue';
 import Paginacion from '@/Components/Paginacion.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import TarjetaPersona from '@/Components/TarjetaPersona.vue';
@@ -180,8 +181,14 @@ const definicionFiltros = [
                                 <!-- Acciones -->
                                 <td class="px-6 py-4">
                                     <div class="flex items-center justify-end gap-1">
-                                        <BotonAccion variante="ver" solo-icono :href="`/aspirantes/${aspirante.id}`" />
                                         <BotonAccion v-if="puedeEditar" variante="editar" :href="`/aspirantes/${aspirante.id}/editar`" />
+                                        <!-- Igual que en alumnos y docentes: el
+                                             expediente es a donde se entra de
+                                             verdad —identidad, documentos,
+                                             conversión y «ver como»—, y estaba
+                                             detrás de un icono de lupa que no lo
+                                             anunciaba. -->
+                                        <BotonExpediente :href="`/aspirantes/${aspirante.id}`" />
                                     </div>
                                 </td>
                             </tr>

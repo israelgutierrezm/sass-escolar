@@ -23,6 +23,9 @@ const props = withDefaults(
         secciones: () => [
             { etiqueta: 'Ciclos', url: '/escolar/ciclos', permiso: 'ver-grupos' },
             { etiqueta: 'Grupos', url: '/escolar/grupos', permiso: 'abrir-grupos' },
+            // Inscribir es de las cosas que más se hacen al abrir un ciclo y
+            // sólo se llegaba a ella entrando primero a un grupo.
+            { etiqueta: 'Inscripción masiva', url: '/escolar/inscripciones/masiva', permiso: 'inscribir-alumnos' },
         ],
     },
 );

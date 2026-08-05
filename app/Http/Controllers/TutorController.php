@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\Identidad\Persona;
 use App\Models\Identidad\TutorAlumno;
+use App\Models\Identidad\Usuario;
 use App\Services\Suplantador;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -53,6 +55,67 @@ class TutorController extends Controller
 
         return Inertia::render('Padres/Index', [
             'tutores' => $tutores,
+        ]);
+    }
+
+    /**
+     * Expediente del padre o tutor: quién es, de quién es tutor y qué puede ver
+     * de cada uno.
+     *
+     * Existía el directorio y el «ver como», pero no había dónde entrar: para
+     * saber qué ve un padre que llama por teléfono había que suplantarlo. Aquí
+     * está lo mismo sin tener que hacerlo —los permisos por hijo son el dato que
+     * contesta la mayoría de esas llamadas—.
+     *
+     * Los vínculos NO se editan aquí, igual que en el directorio: se agregan y
+     * se quitan desde el expediente del alumno, que es donde está el contexto de
+     * a quién se le está dando acceso.
+     */
+    public function show(Request $request, Persona $tutor): Response
+    {
+        $vinculos = TutorAlumno::query()
+            ->with(['alumno:id,nombre,primer_apellido,segundo_apellido,curp'])
+            ->where('tutor_persona_id', $tutor->id)
+            ->get();
+
+        // Sin un solo vínculo no es tutor de nadie: la ficha no tendría de qué
+        // hablar y el id vendría de una URL escrita a mano.
+        abort_if($vinculos->isEmpty(), 404);
+
+        $usuario = Usuario::query()->where('persona_id', $tutor->id)->first();
+
+        return Inertia::render('Padres/Detalle', [
+            'tutor' => [
+                'persona_id' => $tutor->id,
+                'nombre' => $this->nombre($tutor),
+                'curp' => $tutor->curp,
+                'email' => $tutor->email,
+                'celular' => $tutor->celular,
+                'foto' => $tutor->urlFoto(),
+                // Con qué entra, si es que tiene cuenta. Es lo primero que se
+                // pregunta cuando alguien dice «no puedo entrar».
+                'usuario' => $usuario?->usuario ?? $usuario?->email,
+                'tiene_cuenta' => $usuario !== null,
+            ],
+            'hijos' => $vinculos->map(fn (TutorAlumno $v) => [
+                'persona_id' => $v->alumno_persona_id,
+                'nombre' => $this->nombre($v->alumno),
+                'curp' => $v->alumno?->curp,
+                'parentesco' => $v->parentesco,
+                'puede_ver_academico' => (bool) $v->puede_ver_academico,
+                'puede_ver_finanzas' => (bool) $v->puede_ver_finanzas,
+                // Al expediente del alumno se llega por su matrícula, no por su
+                // persona: una misma persona puede tener dos carreras.
+                'matriculas' => $v->alumno?->matriculas()
+                    ->with(['oferta.carrera:id,nombre'])
+                    ->get()
+                    ->map(fn ($m) => [
+                        'id' => $m->id,
+                        'matricula' => $m->matricula,
+                        'carrera' => $m->oferta?->carrera?->nombre,
+                    ])->values() ?? [],
+            ])->values(),
+            'suplantable' => app(Suplantador::class)->datosPara($request, $tutor),
         ]);
     }
 

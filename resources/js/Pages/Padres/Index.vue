@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
+import BotonExpediente from '@/Components/BotonExpediente.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 
@@ -118,6 +119,11 @@ function verComo(suplantable: { usuario_id: number; usuario: string }): void {
                                     Ver como
                                 </button>
                                 <span v-else class="text-xs" :style="{ color: 'var(--color-suave)' }">sin cuenta</span>
+
+                                <!-- El expediente contesta lo que antes obligaba
+                                     a suplantar: de quién es tutor y qué ve de
+                                     cada uno. -->
+                                <BotonExpediente :href="`/padres-tutores/${t.persona_id}`" class="ml-1" />
                             </td>
                         </tr>
                         <tr v-if="tutores.length === 0">

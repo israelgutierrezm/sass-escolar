@@ -566,6 +566,12 @@ Route::middleware([
             ->middleware('can:ver-tutores')
             ->name('tenant.padres.index');
 
+        // Su expediente: de quién es tutor y qué ve de cada uno. Mismo permiso
+        // que el directorio —es la misma información, con más detalle—.
+        Route::get('/padres-tutores/{tutor}', [TutorController::class, 'show'])
+            ->middleware('can:ver-tutores')
+            ->name('tenant.padres.show');
+
         Route::prefix('escolar')->name('tenant.escolar.')
             ->middleware('can:ver-grupos')
             ->group(function () {

@@ -222,6 +222,33 @@ const formSuelta = useForm({
     tipo_evaluacion_id: null as number | null,
 });
 
+/**
+ * Las materias del grupo con cuántos de los inscritos lleva cada una.
+ *
+ * Estaban a un clic de distancia, en la pantalla de gestión, y por eso había que
+ * salir de aquí para contestar «¿qué se abrió en este grupo?» —la pregunta justo
+ * anterior a inscribir a alguien—. El conteo sale de lo que ya viaja para pintar
+ * la tabla, sin pedir nada más al servidor, y es lo que delata a la materia que
+ * se quedó atrás cuando la carga masiva se hizo a medias.
+ */
+const materiasDelGrupo = computed(() => {
+    const enCadaUna = new Map<number, number>();
+
+    for (const inscrito of props.inscritos) {
+        for (const d of inscrito.detalle) {
+            enCadaUna.set(d.asignatura_grupo_id, (enCadaUna.get(d.asignatura_grupo_id) ?? 0) + 1);
+        }
+    }
+
+    return (props.grupo?.materias ?? []).map((m) => ({
+        ...m,
+        inscritos: enCadaUna.get(m.id) ?? 0,
+        // «Todos los del grupo la llevan» es el estado normal; menos, es lo que
+        // hay que mirar.
+        completa: props.inscritos.length > 0 && (enCadaUna.get(m.id) ?? 0) === props.inscritos.length,
+    }));
+});
+
 /** Materias del grupo en las que este alumno NO está: las que se le pueden dar. */
 function materiasFaltantes(inscrito: Inscrito) {
     const suyas = new Set(inscrito.detalle.map((d) => d.asignatura_grupo_id));
@@ -355,7 +382,44 @@ function iniciales(nombre: string | null): string {
                                 {{ lugaresLibres !== null ? `${lugaresLibres} lugar(es) libres` : 'alumnos en el grupo' }}
                             </p>
                         </div>
-                        <BotonAccion variante="ver" texto="Materias del grupo" :href="`/escolar/grupos/${grupo.id}`" />
+                        <!-- «ver» y no «editar» porque en esta app editar es
+                             siempre solo-icono, y este botón necesita decir a
+                             dónde lleva. -->
+                        <BotonAccion variante="ver" texto="Gestionar materias" :href="`/escolar/grupos/${grupo.id}`" />
+                    </div>
+                </div>
+
+                <!--
+                    Las materias abiertas, aquí mismo.
+                    Con su clave, su periodo y cuántos de los inscritos la
+                    llevan: la que va con menos es la que quedó a medias en una
+                    carga anterior, y verla obligaba a irse a la otra pantalla.
+                -->
+                <div v-if="materiasDelGrupo.length" class="mt-4 border-t border-borde pt-3">
+                    <p class="mb-2 text-xs" :style="{ color: 'var(--color-suave)' }">
+                        {{ materiasDelGrupo.length }} materia(s) abiertas
+                        <template v-if="inscritos.length"> · el número es cuántos de los {{ inscritos.length }} inscritos la llevan</template>
+                    </p>
+
+                    <div class="flex flex-wrap gap-1.5">
+                        <a
+                            v-for="m in materiasDelGrupo"
+                            :key="m.id"
+                            :href="`/escolar/grupos/${grupo.id}/materias/${m.id}`"
+                            class="inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-xs transition-colors hover:bg-[color-mix(in_srgb,var(--color-acento)_8%,transparent)]"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                            :title="`${m.nombre ?? ''} — ${m.inscritos} de ${inscritos.length} inscritos`"
+                        >
+                            <span class="font-mono">{{ m.clave_en_plan ?? '—' }}</span>
+                            <span class="max-w-32 truncate" :style="{ color: 'var(--color-suave)' }">{{ m.nombre }}</span>
+                            <span
+                                v-if="inscritos.length"
+                                class="rounded px-1 font-medium tabular-nums"
+                                :style="m.completa
+                                    ? { backgroundColor: 'color-mix(in srgb, #16a34a 14%, transparent)', color: '#16a34a' }
+                                    : { backgroundColor: 'color-mix(in srgb, #f59e0b 18%, transparent)', color: '#b45309' }"
+                            >{{ m.inscritos }}</span>
+                        </a>
                     </div>
                 </div>
 
