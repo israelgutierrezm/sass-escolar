@@ -113,7 +113,20 @@ class Usuario extends Authenticatable
         return $this->rolActivo?->concede($permiso) ?? false;
     }
 
-    /** Campus a los que se acota el rol activo; vacío = alcance global. */
+    /**
+     * Campus a los que se acota el rol activo; **vacío = alcance global**.
+     *
+     * Prefiere `campusVisibles()` o el trait `AcotaPorCampus`. Este método
+     * devuelve un arreglo donde «vacío» significa *todos*, que es lo contrario
+     * de lo que cualquiera espera al leerlo: un `whereIn($campus)` escrito sin
+     * mirar esta línea filtra a cero cuando debería no filtrar nada. La
+     * convención que no se malinterpreta —`null` para «todos»— vive en
+     * `campusVisibles()`, y es la que deben usar las pantallas nuevas.
+     *
+     * Se conserva porque seis controladores ya lo consultan correctamente, con
+     * su `when($campus !== [], ...)` alrededor; cambiarlos no añadiría
+     * comportamiento y sí arriesgaría lo que hoy funciona.
+     */
     public function campusDelRolActivo(): array
     {
         if ($this->rol_activo_id === null) {

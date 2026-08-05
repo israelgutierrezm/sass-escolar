@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Concerns;
 
+use App\Models\Identidad\Usuario;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -166,6 +168,74 @@ trait CreaEscuelaDePrueba
         }
 
         return $this->fila($tabla, ['clave' => 'prueba', 'nombre' => 'De prueba']);
+    }
+
+    /**
+     * Un usuario con su rol activo acotado a ciertos campus.
+     *
+     * El alcance no lo da un permiso sino `persona_rol.campus_id`: «coordinador
+     * del Campus Norte» es el mismo rol que el del Campus Centro, con distinto
+     * alcance. Sin campus, el rol es global y ve la escuela entera.
+     *
+     * @param  array<int, int>  $campusIds  Vacío = alcance global.
+     */
+    protected function usuarioConAlcance(array $campusIds = [], string $rol = 'administrativo'): Usuario
+    {
+        $unico = uniqid();
+
+        $persona = $this->fila('personas', ['nombre' => 'Staff', 'primer_apellido' => 'De prueba']);
+
+        // `name` es la CLAVE del rol (la que usan los middleware de Spatie) y
+        // `nombre` su etiqueta: la tabla es a la vez la de permisos y el
+        // catálogo de dominio.
+        $rolId = DB::table('roles')->where('name', $rol)->value('id')
+            ?? $this->fila('roles', ['name' => $rol, 'nombre' => ucfirst($rol), 'guard_name' => 'web']);
+
+        // Un rol sin campus es global; con varios, se ve la unión de todos.
+        foreach ($campusIds === [] ? [null] : $campusIds as $campusId) {
+            $this->fila('persona_rol', [
+                'persona_id' => $persona,
+                'rol_id' => $rolId,
+                'campus_id' => $campusId,
+                'activo' => true,
+            ]);
+        }
+
+        $usuarioId = $this->fila('usuarios', [
+            'persona_id' => $persona,
+            'usuario' => "staff-{$unico}",
+            'email' => "staff-{$unico}@prueba.mx",
+            'password' => bcrypt('secreto'),
+            'rol_activo_id' => $rolId,
+        ]);
+
+        return Usuario::findOrFail($usuarioId);
+    }
+
+    /**
+     * Una petición que viaja con ese usuario, como la que arma el middleware.
+     *
+     * Va marcada como petición de Inertia para que la respuesta sea el JSON con
+     * las props y no el HTML de arranque: lo que las pruebas miran son los datos
+     * que la pantalla recibe, no su maquetación.
+     */
+    protected function peticionDe(Usuario $usuario, string $uri = '/', array $parametros = []): Request
+    {
+        $peticion = Request::create($uri, 'GET', $parametros);
+        $peticion->setUserResolver(fn () => $usuario);
+        $peticion->headers->set('X-Inertia', 'true');
+
+        return $peticion;
+    }
+
+    /**
+     * Las props que una pantalla de Inertia recibe.
+     *
+     * @return array<string, mixed>
+     */
+    protected function propsDe(\Inertia\Response $respuesta, Request $peticion): array
+    {
+        return $respuesta->toResponse($peticion)->getData(true)['props'] ?? [];
     }
 
     /** @param  array<string, mixed>  $datos */

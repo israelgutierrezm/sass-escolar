@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\AcotaPorCampus;
 use App\Models\Academico\Campus;
 use App\Models\Admisiones\EstadoDocumento;
 use App\Models\ControlEscolar\AsignaturaGrupo;
@@ -41,6 +42,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class DocenteController extends Controller
 {
+    use AcotaPorCampus;
+
     /** Descarga la plantilla de carga masiva de docentes. */
     public function plantillaCarga(\App\Services\Excel\PlantillaDocentes $plantilla): \Symfony\Component\HttpFoundation\BinaryFileResponse
     {
@@ -82,6 +85,10 @@ class DocenteController extends Controller
                 'campus:id,nombre',
             ])
             ->withCount('asignaturasGrupo')
+            // Quien administra un campus gestiona a los docentes de su campus.
+            // Los que aún no tienen campus asignado se siguen viendo: uno recién
+            // dado de alta no debe desaparecer de quien tiene que asignárselo.
+            ->tap(fn ($q) => $this->acotarPorCampusRelacionado($q, $request))
             ->when($filtros['busqueda'] !== '', fn ($q) => $this->buscar($q, $filtros['busqueda']))
             ->when($filtros['situacion_id'], fn ($q, $id) => $q->where('situacion_id', $id))
             ->when($filtros['tipo_docente_id'], fn ($q, $id) => $q->where('tipo_docente_id', $id))
@@ -108,7 +115,9 @@ class DocenteController extends Controller
             'filtros' => $filtros,
             'situaciones' => SituacionDocente::query()->orderBy('id')->get(['id', 'nombre']),
             'tipos' => TipoDocente::query()->orderBy('id')->get(['id', 'nombre']),
-            'campus' => Campus::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'campus' => Campus::query()
+                ->when($this->alcanceCampus($request) !== null, fn ($q) => $q->whereIn('id', $this->alcanceCampus($request)))
+                ->orderBy('nombre')->get(['id', 'nombre']),
             'puedeGestionar' => $request->user()->can('gestionar-docentes'),
         ]);
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\AcotaPorCampus;
 use App\Http\Requests\GuardarAspiranteRequest;
 use App\Models\Academico\Campus;
 use App\Models\Academico\Oferta;
@@ -37,6 +38,8 @@ use RuntimeException;
  */
 class AspiranteController extends Controller
 {
+    use AcotaPorCampus;
+
     public function index(Request $request): Response
     {
         // Los filtros que la escuela de verdad usa para acotar un embudo:
@@ -54,6 +57,10 @@ class AspiranteController extends Controller
 
         $aspirantes = Aspirante::query()
             ->with(['persona', 'situacion', 'campus', 'ofertaInteres.carrera', 'etapa:id,nombre', 'origenAspirante:id,nombre'])
+            // Quien administra un campus atiende a los prospectos de su campus:
+            // el embudo de otro no es asunto suyo, y los contactos duplicados
+            // entre sedes salen de ahí.
+            ->tap(fn ($q) => $this->acotarPorCampusPropio($q, $request))
             ->when($filtros['busqueda'] !== '', function ($query) use ($filtros) {
                 $termino = "%{$filtros['busqueda']}%";
 
@@ -93,7 +100,11 @@ class AspiranteController extends Controller
             'situaciones' => SituacionAspirante::query()->orderBy('id')->get(['id', 'nombre']),
             'etapas' => EtapaCrm::query()->orderBy('orden')->get(['id', 'nombre']),
             'origenes' => OrigenAspirante::query()->activos()->orderBy('nombre')->get(['id', 'nombre']),
-            'campusDisponibles' => Campus::query()->orderBy('nombre')->get(['id', 'nombre']),
+            // Sólo sus campus: ofrecer los demás en el filtro es ofrecer un
+            // resultado siempre vacío.
+            'campusDisponibles' => Campus::query()
+                ->when($this->alcanceCampus($request) !== null, fn ($q) => $q->whereIn('id', $this->alcanceCampus($request)))
+                ->orderBy('nombre')->get(['id', 'nombre']),
             'ofertas' => Oferta::query()->with('carrera:id,nombre', 'campus:id,nombre')->get()
                 ->map(fn (Oferta $o) => [
                     'id' => $o->id,
@@ -110,6 +121,9 @@ class AspiranteController extends Controller
      */
     public function show(Request $request, Aspirante $aspirante, ConvertidorAspirante $convertidor): Response
     {
+        // Filtrar la lista no basta: aquí el id llega por la URL.
+        $this->autorizarCampus($request, $aspirante->campus_id);
+
         $aspirante->load([
             'persona.sexo',
             'persona.entidadNacimiento',
@@ -230,17 +244,21 @@ class AspiranteController extends Controller
         })->all();
     }
 
-    public function create(): Response
+    public function create(Request $request): Response
     {
         return Inertia::render('Aspirantes/Formulario', [
             'aspirante' => null,
-            ...$this->catalogos(),
+            ...$this->catalogos($request),
         ]);
     }
 
     public function store(GuardarAspiranteRequest $request, IdentidadPersona $identidad): RedirectResponse
     {
         $datos = $request->validated();
+
+        // El campus llega del formulario: sin esto, un POST a mano da de alta un
+        // prospecto en una sede ajena.
+        $this->exigirCampusPropios($request, array_filter([$datos['campus_id'] ?? null]), 'campus_id');
 
         $aspirante = DB::transaction(function () use ($datos, $identidad) {
             $persona = $identidad->existentePorCurp($datos['curp'] ?? null);
@@ -273,8 +291,10 @@ class AspiranteController extends Controller
             ->with('exito', "Aspirante {$aspirante->persona->nombreCompleto()} registrado.");
     }
 
-    public function edit(Aspirante $aspirante): Response
+    public function edit(Request $request, Aspirante $aspirante): Response
     {
+        $this->autorizarCampus($request, $aspirante->campus_id);
+
         $aspirante->load('persona');
 
         return Inertia::render('Aspirantes/Formulario', [
@@ -303,13 +323,18 @@ class AspiranteController extends Controller
                 'origen' => $aspirante->origen,
                 'acepto_terminos' => $aspirante->acepto_terminos,
             ],
-            ...$this->catalogos(),
+            ...$this->catalogos($request),
         ]);
     }
 
     public function update(GuardarAspiranteRequest $request, Aspirante $aspirante, IdentidadPersona $identidad): RedirectResponse
     {
         $datos = $request->validated();
+
+        // Dos candados: no traerse un aspirante ajeno, y no mandarse el propio a
+        // un campus que no se administra.
+        $this->autorizarCampus($request, $aspirante->campus_id);
+        $this->exigirCampusPropios($request, array_filter([$datos['campus_id'] ?? null]), 'campus_id');
 
         DB::transaction(function () use ($datos, $aspirante, $identidad) {
             $aspirante->persona->update($identidad->resolver($datos));
@@ -342,8 +367,10 @@ class AspiranteController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function catalogos(): array
+    private function catalogos(Request $request): array
     {
+        $campus = $this->alcanceCampus($request);
+
         return [
             // Sexo ya no se pregunta y entidades/países/géneros vienen de
             // `IdentidadPersona`, que es quien decide el orden en que se
@@ -354,7 +381,11 @@ class AspiranteController extends Controller
             // alta manual, para que el prospecto capturado por promoción se
             // pueda contar junto a los que entran por el formulario público.
             'origenes' => OrigenAspirante::query()->activos()->orderBy('nombre')->get(['id', 'nombre']),
-            'campus' => Campus::query()->orderBy('nombre')->get(['id', 'nombre']),
+            // Sólo sus campus: dar de alta un aspirante en una sede ajena es
+            // meter un prospecto en un embudo que no se administra.
+            'campus' => Campus::query()
+                ->when($campus !== null, fn ($q) => $q->whereIn('id', $campus))
+                ->orderBy('nombre')->get(['id', 'nombre']),
             'ofertas' => (function () {
                 return Oferta::query()
                     ->with(['carrera:id,nombre', 'campus:id,nombre'])

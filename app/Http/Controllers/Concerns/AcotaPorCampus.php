@@ -62,6 +62,61 @@ trait AcotaPorCampus
     }
 
     /**
+     * Acota una consulta cuya tabla tiene `campus_id` propio —aspirantes,
+     * aulas—, en vez de llegar al campus a través de la oferta.
+     *
+     * Las filas SIN campus se dejan pasar: un aspirante que todavía no eligió a
+     * dónde quiere entrar no es de nadie, y esconderlo de todo el mundo lo
+     * convierte en un prospecto que nadie atiende.
+     */
+    protected function acotarPorCampusPropio(Builder $consulta, Request $request, string $columna = 'campus_id'): Builder
+    {
+        $campus = $this->alcanceCampus($request);
+
+        if ($campus === null) {
+            return $consulta;
+        }
+
+        return $consulta->where(fn (Builder $q) => $q->whereIn($columna, $campus)->orWhereNull($columna));
+    }
+
+    /**
+     * Acota una consulta que llega al campus por una relación de muchos a
+     * muchos —los docentes, que pueden dar clase en varios—.
+     */
+    protected function acotarPorCampusRelacionado(Builder $consulta, Request $request, string $relacion = 'campus'): Builder
+    {
+        $campus = $this->alcanceCampus($request);
+
+        if ($campus === null) {
+            return $consulta;
+        }
+
+        // Igual que arriba: quien no tiene campus asignado se sigue viendo. Un
+        // docente recién dado de alta no debe desaparecer del listado de quien
+        // tiene que asignarle su campus.
+        return $consulta->where(fn (Builder $q) => $q
+            ->whereHas($relacion, fn (Builder $c) => $c->whereIn('campus.id', $campus))
+            ->orWhereDoesntHave($relacion));
+    }
+
+    /**
+     * Corta el acceso a un registro con `campus_id` propio fuera de alcance.
+     * Las pantallas de detalle reciben el id por la URL: filtrar la lista no
+     * basta.
+     */
+    protected function autorizarCampus(Request $request, ?int $campusId): void
+    {
+        $campus = $this->alcanceCampus($request);
+
+        if ($campus === null || $campusId === null) {
+            return;
+        }
+
+        abort_unless(in_array($campusId, $campus, true), 403, 'Ese registro no pertenece a tus campus.');
+    }
+
+    /**
      * Corta el acceso a una matrícula fuera de alcance. Se usa en las pantallas
      * de detalle, donde el id viaja en la URL.
      */
