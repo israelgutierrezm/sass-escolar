@@ -25,18 +25,17 @@ class Carrera extends Model
         'nivel_estudios_id',
         'objetivo',
         'imagen_url',
-        // Qué documentos oficiales llega a emitir: un diplomado o un curso de
-        // educación continua vive en este mismo catálogo y no tiene RVOE que
-        // respalde un certificado ni un título.
-        'emite_certificado',
-        'emite_titulo',
+        // Si expide documentos oficiales. Un diplomado o un curso de educación
+        // continua vive en este mismo catálogo y no tiene RVOE que respalde ni
+        // certificado ni título; y donde hay uno hay el otro, así que es un solo
+        // permiso y no dos.
+        'emite_documentos_oficiales',
     ];
 
     protected function casts(): array
     {
         return [
-            'emite_certificado' => 'boolean',
-            'emite_titulo' => 'boolean',
+            'emite_documentos_oficiales' => 'boolean',
         ];
     }
 

@@ -103,12 +103,11 @@ const props = defineProps<{
     lotesAbiertos: { id: number; folio: string; nombre: string | null; tipo: string }[];
     puedeCertificar: boolean;
     /**
-     * Qué documentos oficiales llega a emitir su carrera. Un diplomado o un
-     * curso de educación continua vive en el mismo catálogo y no tiene RVOE
-     * detrás: ofrecerle titulación es prometer un trámite que no existe.
+     * Si su carrera expide documentos oficiales. Un diplomado o un curso de
+     * educación continua vive en el mismo catálogo y no tiene RVOE detrás:
+     * ofrecerle titulación es prometer un trámite que no existe.
      */
-    emiteCertificado: boolean;
-    emiteTitulo: boolean;
+    emiteDocumentos: boolean;
     situaciones: { id: number; nombre: string }[];
     generos: { id: number; nombre: string }[];
     entidades: { id: number; nombre: string }[];
@@ -188,7 +187,7 @@ function estiloInsignia(completo: boolean): { backgroundColor: string; color: st
 const tipoCertificado = computed<'total' | 'parcial' | null>(() => {
     // Si su carrera no emite certificado, no le toca ninguno: el avance da
     // igual. El backend descarta igual, esto evita ofrecerlo aquí.
-    if (! props.emiteCertificado) {
+    if (! props.emiteDocumentos) {
         return null;
     }
 
@@ -1052,7 +1051,7 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                 // La titulación sólo aparece si su carrera llega a emitir
                 // título: en un diplomado, la pestaña ofrecía un trámite
                 // inexistente y quien la llenaba esperaba un documento.
-                ...(emiteTitulo ? [{ clave: 'titulacion', etiqueta: 'Titulación' }] : []),
+                ...(emiteDocumentos ? [{ clave: 'titulacion', etiqueta: 'Titulación' }] : []),
                 { clave: 'datos', etiqueta: 'Datos' },
             ]"
             :model-value="pestana"
@@ -1692,9 +1691,9 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
         </section>
 
         <!-- Titulación: datos del título para ESTA carrera (alimentan el XML SEP) -->
-        <!-- `emiteTitulo` otra vez: la pestaña ya no se ofrece sin él, pero
+        <!-- La bandera otra vez: la pestaña ya no se ofrece sin ella, pero
              `pestana` es un valor suelto y basta recordarlo de otra visita. -->
-        <section v-else-if="pestana === 'titulacion' && emiteTitulo" class="space-y-5">
+        <section v-else-if="pestana === 'titulacion' && emiteDocumentos" class="space-y-5">
             <!-- Encabezado con resumen de completitud -->
             <div class="tarjeta p-6">
                 <div class="flex flex-wrap items-start justify-between gap-4">

@@ -100,9 +100,9 @@ class LoteTitulacionController extends Controller
         $campusVisibles = $request->user()->campusDelRolActivo();
 
         $matriculas = MatriculaOferta::query()
-            // `emite_titulo` viaja en el select: sin la columna el modelo llega a
+            // La bandera viaja en el select: sin la columna el modelo llega a
             // medias y el filtro de abajo dejaría pasar a todos.
-            ->with(['persona:id,nombre,primer_apellido,segundo_apellido,curp', 'oferta.carrera:id,nombre,emite_titulo', 'oferta.plan:id,nombre,minimo_asignaturas', 'oferta.campus:id,nombre'])
+            ->with(['persona:id,nombre,primer_apellido,segundo_apellido,curp', 'oferta.carrera:id,nombre,emite_documentos_oficiales', 'oferta.plan:id,nombre,minimo_asignaturas', 'oferta.campus:id,nombre'])
             ->when($campusVisibles !== [], fn ($qq) => $qq->whereHas('oferta', fn ($o) => $o->whereIn('campus_id', $campusVisibles)))
             ->when($q !== '', fn ($qq) => $qq->where(function ($w) use ($q) {
                 $w->where('matricula', 'like', "%{$q}%")
@@ -118,9 +118,8 @@ class LoteTitulacionController extends Controller
             ->get();
 
         $elegibles = $matriculas
-            // La carrera tiene que emitir título: hay programas que dan
-            // certificado y no llegan a titulación.
-            ->filter(fn (MatriculaOferta $m) => $estado->emiteTitulo($m) && $estado->disponible($m))
+            // La carrera tiene que expedir documentos oficiales.
+            ->filter(fn (MatriculaOferta $m) => $estado->emiteDocumentos($m) && $estado->disponible($m))
             ->take(40)
             ->map(fn (MatriculaOferta $m) => [
                 'matricula_oferta_id' => $m->id,
@@ -156,7 +155,7 @@ class LoteTitulacionController extends Controller
 
             if ($matricula === null
                 || ($campusVisibles !== [] && ! in_array($matricula->oferta?->campus_id, $campusVisibles, true))
-                || ! $estado->emiteTitulo($matricula)
+                || ! $estado->emiteDocumentos($matricula)
                 || ! $estado->disponible($matricula)) {
                 $omitidos++;
 

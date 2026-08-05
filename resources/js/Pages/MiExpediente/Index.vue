@@ -43,7 +43,7 @@ const props = defineProps<{
     situacion: string | null;
     documentos: Documento[];
     tiposDocumento: TipoDocumento[];
-    sexos: { id: number; nombre: string }[];
+    generos: { id: number; nombre: string }[];
     generos: { id: number; nombre: string }[];
 }>();
 
@@ -102,7 +102,7 @@ const form = useForm({
     curp: props.persona.curp ?? '',
     rfc: props.persona.rfc ?? '',
     fecha_nacimiento: props.persona.fecha_nacimiento ?? '',
-    sexo_id: props.persona.sexo_id ?? null,
+    genero_id: props.persona.genero_id ?? null,
     genero_id: props.persona.genero_id ?? null,
     email: props.persona.email ?? '',
     celular: props.persona.celular ?? '',
@@ -350,12 +350,12 @@ function quitarFoto(): void {
                     />
 
                     <CampoSelect
-                        v-model="form.sexo_id"
-                        etiqueta="Sexo"
+                        v-model="form.genero_id"
+                        etiqueta="Género"
                         requerido
-                        :opciones="sexos.map((s) => ({ valor: s.id, texto: s.nombre }))"
+                        :opciones="generos.map((g) => ({ valor: g.id, texto: g.nombre }))"
                         vacio="Selecciona…"
-                        :error="form.errors.sexo_id"
+                        :error="form.errors.genero_id"
                     />
                     <CampoSelect
                         v-model="form.genero_id"

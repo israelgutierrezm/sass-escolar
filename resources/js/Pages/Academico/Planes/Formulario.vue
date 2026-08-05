@@ -72,7 +72,10 @@ function enviar(): void {
             </TarjetaSeccion>
 
             <TarjetaSeccion titulo="Reconocimiento oficial" descripcion="Datos que exige la SEP para el título electrónico." :icono="ICONOS.escudo">
-                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <!-- Tres columnas para tres campos: eran cuatro cuando aquí
+                     vivía también el CURP del responsable, y al retirarlo quedó
+                     un hueco al final del renglón. -->
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <CampoTexto v-model="form.rvoe" etiqueta="RVOE" requerido :error="form.errors.rvoe" mono />
                     <CampoTexto
                         v-model="form.fecha_rvoe"
@@ -107,7 +110,6 @@ function enviar(): void {
                         tipo="number"
                         :error="form.errors.total_periodos"
                     />
-                    <div></div>
 
                     <CampoTexto
                         v-model="form.calificacion_minima"

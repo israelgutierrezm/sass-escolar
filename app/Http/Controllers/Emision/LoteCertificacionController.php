@@ -97,9 +97,9 @@ class LoteCertificacionController extends Controller
         $campusVisibles = $request->user()->campusDelRolActivo();
 
         $matriculas = MatriculaOferta::query()
-            // `emite_certificado` viaja en el select: sin la columna el modelo
-            // llega a medias y el filtro de abajo dejaría pasar a todos.
-            ->with(['persona:id,nombre,primer_apellido,segundo_apellido,curp', 'oferta.carrera:id,nombre,emite_certificado', 'oferta.plan:id,nombre,minimo_asignaturas', 'oferta.campus:id,nombre'])
+            // La bandera viaja en el select: sin la columna el modelo llega a
+            // medias y el filtro de abajo dejaría pasar a todos.
+            ->with(['persona:id,nombre,primer_apellido,segundo_apellido,curp', 'oferta.carrera:id,nombre,emite_documentos_oficiales', 'oferta.plan:id,nombre,minimo_asignaturas', 'oferta.campus:id,nombre'])
             ->when($campusVisibles !== [], fn ($qq) => $qq->whereHas('oferta', fn ($o) => $o->whereIn('campus_id', $campusVisibles)))
             ->when($q !== '', fn ($qq) => $qq->where(function ($w) use ($q) {
                 $w->where('matricula', 'like', "%{$q}%")
@@ -115,9 +115,9 @@ class LoteCertificacionController extends Controller
             ->get();
 
         $elegibles = $matriculas
-            // La carrera tiene que emitir certificado: un diplomado sin RVOE
-            // puede cerrar su plan y no por eso hay documento que expedir.
-            ->filter(fn (MatriculaOferta $m) => $estado->emiteCertificado($m))
+            // La carrera tiene que expedir documentos: un diplomado sin RVOE
+            // puede cerrar su plan y no por eso hay nada que emitir.
+            ->filter(fn (MatriculaOferta $m) => $estado->emiteDocumentos($m))
             ->filter(fn (MatriculaOferta $m) => $tipo === 'parcial' ? $estado->disponibleParcial($m) : $estado->disponible($m))
             ->take(40)
             ->map(fn (MatriculaOferta $m) => [

@@ -152,7 +152,9 @@ class AspiranteController extends Controller
                 'email' => $aspirante->persona->email,
                 'celular' => $aspirante->persona->celular,
                 'fecha_nacimiento' => $aspirante->persona->fecha_nacimiento?->toDateString(),
-                'sexo' => $aspirante->persona->sexo?->nombre,
+                // El GÉNERO, que es lo que se captura y lo que la SEP pide en el
+                // XML; el sexo era un duplicado que aquí no se llenaba nunca.
+                'genero' => $aspirante->persona->genero?->nombre,
                 'entidad_nacimiento' => $aspirante->persona->entidadNacimiento?->nombre,
                 'situacion' => $aspirante->situacion?->nombre,
                 'campus' => $aspirante->campus?->nombre,

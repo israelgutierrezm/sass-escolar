@@ -66,7 +66,7 @@ class ExpedienteAlumnoController extends Controller
                 'curp' => $persona?->curp,
                 'rfc' => $persona?->rfc,
                 'fecha_nacimiento' => $persona?->fecha_nacimiento?->toDateString(),
-                'sexo_id' => $persona?->sexo_id,
+                'genero_id' => $persona?->genero_id,
                 'genero_id' => $persona?->genero_id,
                 'email' => $persona?->email,
                 'correo_institucional' => $persona?->correo_institucional,
@@ -130,7 +130,10 @@ class ExpedienteAlumnoController extends Controller
             'curp' => ['nullable', 'string', 'size:18', Rule::unique('personas', 'curp')->ignore($persona->id)->whereNull('deleted_at')],
             'rfc' => ['nullable', 'string', 'max:13'],
             'fecha_nacimiento' => ['nullable', 'date', 'before:today'],
-            'sexo_id' => ['required', 'integer'],
+            // La SEP lo llama GÉNERO (`idGenero` del XML) y es el campo que el
+            // certificado lee. Aquí se capturaba `sexo_id`, un duplicado que no
+            // llegaba a ningún documento.
+            'genero_id' => ['required', 'integer'],
             'genero_id' => ['nullable', 'integer'],
             'email' => ['nullable', 'email', 'max:150'],
             'celular' => ['nullable', 'string', 'max:20'],

@@ -33,12 +33,9 @@ class EmisionPorCarreraTest extends TenantTestCase
         $this->estado = app(EstadoCertificacion::class);
     }
 
-    public function test_una_carrera_nace_emitiendo_las_dos_cosas(): void
+    public function test_una_carrera_nace_emitiendo_documentos(): void
     {
-        $matricula = $this->egresado();
-
-        $this->assertTrue($this->estado->emiteCertificado($matricula));
-        $this->assertTrue($this->estado->emiteTitulo($matricula));
+        $this->assertTrue($this->estado->emiteDocumentos($this->egresado()));
     }
 
     public function test_sin_certificado_no_entra_a_un_lote_aunque_haya_cerrado_su_plan(): void
@@ -47,24 +44,23 @@ class EmisionPorCarreraTest extends TenantTestCase
 
         $this->assertTrue($this->estado->elegibleParaLote($matricula), 'Cerró su plan: de origen sí entra.');
 
-        $this->apagar($matricula, 'emite_certificado');
+        $this->apagar($matricula);
 
         $this->assertFalse($this->estado->elegibleParaLote($matricula->fresh(['oferta.carrera'])));
     }
 
     /**
-     * Hay programas que dan certificado y no llegan a título: apagar uno no
-     * puede llevarse el otro por delante.
+     * Certificado y título son UN permiso: el certificado acredita las materias
+     * y el título haberla terminado, y no hay uno sin el otro. Se separaron
+     * pensando en programas que dieran sólo certificado; no existen.
      */
-    public function test_certificado_y_titulo_se_conceden_por_separado(): void
+    public function test_certificado_y_titulo_van_juntos(): void
     {
         $matricula = $this->egresado();
 
-        $this->apagar($matricula, 'emite_titulo');
-        $matricula = $matricula->fresh(['oferta.carrera']);
+        $this->apagar($matricula);
 
-        $this->assertTrue($this->estado->emiteCertificado($matricula));
-        $this->assertFalse($this->estado->emiteTitulo($matricula));
+        $this->assertFalse($this->estado->emiteDocumentos($matricula->fresh(['oferta.carrera'])));
     }
 
     /**
@@ -76,8 +72,7 @@ class EmisionPorCarreraTest extends TenantTestCase
     {
         $matricula = $this->egresado();
 
-        $this->apagar($matricula, 'emite_certificado');
-        $this->apagar($matricula, 'emite_titulo');
+        $this->apagar($matricula);
 
         $this->assertTrue(
             $this->estado->disponible($matricula->fresh(['oferta.carrera', 'oferta.plan'])),
@@ -93,8 +88,7 @@ class EmisionPorCarreraTest extends TenantTestCase
         // Una matrícula sin oferta cargada es lo más parecido a «no se sabe».
         $suelta = new MatriculaOferta(['matricula' => 'SIN-OFERTA']);
 
-        $this->assertTrue($this->estado->emiteCertificado($suelta));
-        $this->assertTrue($this->estado->emiteTitulo($suelta));
+        $this->assertTrue($this->estado->emiteDocumentos($suelta));
         $this->assertNotNull($matricula->id);
     }
 
@@ -122,8 +116,9 @@ class EmisionPorCarreraTest extends TenantTestCase
         return MatriculaOferta::with(['oferta.carrera', 'oferta.plan'])->findOrFail($escuela['matricula']);
     }
 
-    private function apagar(MatriculaOferta $matricula, string $columna): void
+    private function apagar(MatriculaOferta $matricula): void
     {
-        Carrera::query()->where('id', $matricula->oferta->carrera_id)->update([$columna => false]);
+        Carrera::query()->where('id', $matricula->oferta->carrera_id)
+            ->update(['emite_documentos_oficiales' => false]);
     }
 }

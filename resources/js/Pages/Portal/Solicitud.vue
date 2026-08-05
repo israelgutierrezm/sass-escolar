@@ -48,7 +48,7 @@ const props = defineProps<{
         }[];
         saldo: number;
     };
-    sexos: { id: number; nombre: string }[];
+    generos: { id: number; nombre: string }[];
     ofertas: { id: number; nombre: string }[];
 }>();
 
@@ -66,7 +66,7 @@ const datos = useForm({
     email: props.persona.email ?? '',
     celular: props.persona.celular ?? '',
     fecha_nacimiento: props.persona.fecha_nacimiento ?? '',
-    sexo_id: props.persona.sexo_id ?? null,
+    genero_id: props.persona.genero_id ?? null,
     oferta_id: props.solicitud.oferta_id,
 });
 
@@ -231,12 +231,12 @@ const colorEstado: Record<string, string> = {
                 <CampoTexto v-model="datos.curp" etiqueta="CURP" mono :maximo="18" :error="datos.errors.curp" />
                 <CampoTexto v-model="datos.fecha_nacimiento" tipo="date" etiqueta="Fecha de nacimiento" :error="datos.errors.fecha_nacimiento" />
                 <CampoSelect
-                    v-model="datos.sexo_id"
-                    etiqueta="Sexo"
+                    v-model="datos.genero_id"
+                    etiqueta="Género"
                     requerido
                     vacio="Elige…"
-                    :opciones="sexos.map((s) => ({ valor: s.id, texto: s.nombre }))"
-                    :error="datos.errors.sexo_id"
+                    :opciones="generos.map((g) => ({ valor: g.id, texto: g.nombre }))"
+                    :error="datos.errors.genero_id"
                 />
                 <CampoTexto v-model="datos.email" tipo="email" etiqueta="Correo" requerido :error="datos.errors.email" />
                 <CampoTexto v-model="datos.celular" tipo="tel" etiqueta="Celular" :error="datos.errors.celular" />

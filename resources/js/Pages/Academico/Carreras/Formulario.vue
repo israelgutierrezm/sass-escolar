@@ -22,10 +22,9 @@ const form = useForm({
     nombre: props.carrera?.nombre ?? '',
     nivel_estudios_id: props.carrera?.nivel_estudios_id ?? null,
     imagen_url: props.carrera?.imagen_url ?? '',
-    // Al crear se asumen las dos: es lo normal en una carrera con RVOE. Se
-    // apagan a propósito para lo que no lo tiene.
-    emite_certificado: props.carrera?.emite_certificado ?? true,
-    emite_titulo: props.carrera?.emite_titulo ?? true,
+    // Al crear se asume que sí: es lo normal en una carrera con RVOE. Se apaga
+    // a propósito para lo que no lo tiene.
+    emite_documentos_oficiales: props.carrera?.emite_documentos_oficiales ?? true,
 });
 
 const opcionesNivel = computed(() => props.niveles.map((n) => ({ valor: n.id, texto: n.nombre })));
@@ -84,35 +83,35 @@ function enviar(): void {
                 :icono="ICONOS.escudo"
             >
                 <div class="space-y-3">
+                    <!--
+                        Una sola casilla, no dos.
+                        Certificado y título van juntos: el certificado acredita
+                        las materias y el título haberla terminado, y no hay
+                        titulación sin certificado ni certificado que no acabe en
+                        título. Separarlos sólo permitía media configuración —uno
+                        apagado y el otro no— y que el alumno saliera en un lote
+                        y no en el otro sin que nadie supiera por qué.
+                    -->
                     <label class="flex items-start gap-2.5 text-sm">
-                        <input v-model="form.emite_certificado" type="checkbox" class="mt-1">
+                        <input v-model="form.emite_documentos_oficiales" type="checkbox" class="mt-1">
                         <span>
-                            Emite certificado electrónico
+                            Emite certificado y título electrónicos
                             <span class="block text-xs text-suave">
-                                Sus alumnos pueden entrar a un lote de certificación, total o parcial.
-                            </span>
-                        </span>
-                    </label>
-
-                    <label class="flex items-start gap-2.5 text-sm">
-                        <input v-model="form.emite_titulo" type="checkbox" class="mt-1">
-                        <span>
-                            Emite título electrónico
-                            <span class="block text-xs text-suave">
-                                Sus alumnos pueden titularse: aparece la pestaña de titulación en su
-                                expediente y entran a los lotes de títulos.
+                                Sus alumnos entran a los lotes de certificación y de titulación, y ven
+                                la pestaña de titulación en su expediente.
                             </span>
                         </span>
                     </label>
 
                     <p
-                        v-if="!form.emite_certificado && !form.emite_titulo"
+                        v-if="!form.emite_documentos_oficiales"
                         class="rounded-lg border-l-4 border-l-amber-500 p-3 text-sm"
                         style="background-color: color-mix(in srgb, #f59e0b 8%, transparent)"
                     >
-                        Sin ninguna de las dos, esta carrera no emite documentos oficiales. Se sigue
-                        cursando y calificando igual, pero sus alumnos no aparecerán en lotes de
-                        certificación ni de titulación.
+                        Esta carrera no emitirá documentos oficiales. Se sigue cursando y calificando
+                        igual, pero sus alumnos no aparecerán en lotes de certificación ni de
+                        titulación. Es lo que corresponde a diplomados y educación continua, que no
+                        tienen RVOE detrás.
                     </p>
                 </div>
 

@@ -47,39 +47,34 @@ class EstadoCertificacion
             ->count('plan_materia_id');
     }
 
-    /*
-     * ── Qué emite la carrera ───────────────────────────────────────────────
+    /**
+     * ¿La carrera de esta matrícula expide documentos oficiales?
      *
      * Un diplomado o un curso de educación continua vive en el mismo catálogo de
      * carreras y no tiene RVOE que respalde papel oficial. Cerrar su plan no lo
      * vuelve certificable, y ofrecerlo entre los candidatos de un lote es
      * prometer un trámite que la escuela no puede cumplir.
      *
-     * Son dos permisos separados a propósito: hay programas que dan constancia
-     * con certificado pero no llegan a título.
+     * Certificado y título son UN permiso, no dos: donde hay uno hay el otro
+     * —el certificado acredita las materias y el título haberla terminado— y
+     * separarlos sólo permitía media configuración.
      *
      * Ante la duda —carrera no cargada, dato ausente— se responde que sí: es lo
      * que se asumía de todas antes de que el campo existiera, y equivocarse por
      * exceso deja al alumno visible para que una persona decida, mientras que
      * equivocarse por defecto lo desaparece sin que nadie se entere.
      */
-
-    public function emiteCertificado(MatriculaOferta $matricula): bool
+    public function emiteDocumentos(MatriculaOferta $matricula): bool
     {
-        return (bool) ($matricula->oferta?->carrera?->emite_certificado ?? true);
-    }
-
-    public function emiteTitulo(MatriculaOferta $matricula): bool
-    {
-        return (bool) ($matricula->oferta?->carrera?->emite_titulo ?? true);
+        return (bool) ($matricula->oferta?->carrera?->emite_documentos_oficiales ?? true);
     }
 
     /**
      * Cerró su plan: aprobó al menos las materias que exige.
      *
-     * Es el requisito ACADÉMICO y nada más. Lo que la carrera llegue a emitir se
-     * pregunta aparte, porque certificado y título se conceden por separado y
-     * este mismo método responde a los dos.
+     * Es el requisito ACADÉMICO y nada más: si la carrera expide documentos se
+     * pregunta aparte. Lo consultan tanto certificación como titulación, así que
+     * mezclarle esa condición aquí escondería el motivo real de un descarte.
      */
     public function disponible(MatriculaOferta $matricula): bool
     {
@@ -119,7 +114,7 @@ class EstadoCertificacion
      */
     public function elegibleParaLote(MatriculaOferta $matricula, string $tipo = 'total'): bool
     {
-        if (! $this->emiteCertificado($matricula)) {
+        if (! $this->emiteDocumentos($matricula)) {
             return false;
         }
 

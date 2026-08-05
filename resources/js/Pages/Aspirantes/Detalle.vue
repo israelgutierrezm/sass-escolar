@@ -151,8 +151,8 @@ Se le generará su matrícula de todos modos y eso no se puede deshacer. ¿Conti
                             <dd class="mt-0.5 font-mono text-sm text-contenido">{{ aspirante.curp ?? '—' }}</dd>
                         </div>
                         <div>
-                            <dt class="text-xs uppercase tracking-wide text-suave">Sexo</dt>
-                            <dd class="mt-0.5 text-sm text-contenido">{{ aspirante.sexo ?? '—' }}</dd>
+                            <dt class="text-xs uppercase tracking-wide text-suave">Género</dt>
+                            <dd class="mt-0.5 text-sm text-contenido">{{ aspirante.genero ?? '—' }}</dd>
                         </div>
                         <div>
                             <dt class="text-xs uppercase tracking-wide text-suave">Nacimiento</dt>

@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Academico\Oferta;
 use App\Models\Formularios\CampoFormulario;
+use App\Models\Landlord\Genero;
 use App\Models\Landlord\Sexo;
 use App\Models\Promocion\FormularioPublico;
 use App\Services\RegistradorProspecto;
@@ -54,7 +55,7 @@ class FormularioPublicoController extends Controller
             'publicacion' => $publicacion,
             'campos' => $this->campos($publicacion),
             'ofertas' => $publicacion->oferta_id !== null ? [] : $this->ofertas(),
-            'sexos' => Sexo::orderBy('id')->get(['id', 'nombre']),
+            'generos' => Genero::orderBy('id')->get(['id', 'nombre']),
         ]);
     }
 
@@ -82,7 +83,7 @@ class FormularioPublicoController extends Controller
             // Requerido porque `personas.sexo_id` es NOT NULL por decisión de
             // la spec. Se pregunta en vez de inventar un valor por omisión: un
             // dato de identidad no se rellena a espaldas de quien lo da.
-            'sexo_id' => ['required', 'integer'],
+            'genero_id' => ['required', 'integer'],
             'acepto_terminos' => ['accepted'],
         ];
 

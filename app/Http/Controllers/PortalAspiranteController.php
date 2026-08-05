@@ -10,6 +10,7 @@ use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\Admisiones\EstadoDocumento;
 use App\Models\Admisiones\ExpedienteDocumento;
 use App\Models\Finanzas\Adeudo;
+use App\Models\Landlord\Genero;
 use App\Models\Landlord\Sexo;
 use App\Services\ProgresoSolicitud;
 use Illuminate\Http\RedirectResponse;
@@ -58,7 +59,7 @@ class PortalAspiranteController extends Controller
                 'email' => $aspirante->persona?->email,
                 'celular' => $aspirante->persona?->celular,
                 'fecha_nacimiento' => $aspirante->persona?->fecha_nacimiento?->toDateString(),
-                'sexo_id' => $aspirante->persona?->sexo_id,
+                'genero_id' => $aspirante->persona?->genero_id,
             ],
             'solicitud' => [
                 'oferta_id' => $aspirante->oferta_interes_id,
@@ -67,7 +68,7 @@ class PortalAspiranteController extends Controller
             ],
             'documentos' => $this->documentos($aspirante),
             'cargos' => $this->cargos($aspirante),
-            'sexos' => Sexo::orderBy('id')->get(['id', 'nombre']),
+            'generos' => Genero::orderBy('id')->get(['id', 'nombre']),
             'ofertas' => Oferta::query()->with('carrera:id,nombre', 'campus:id,nombre')->get()
                 ->map(fn (Oferta $o) => [
                     'id' => $o->id,
@@ -93,7 +94,7 @@ class PortalAspiranteController extends Controller
             'email' => ['required', 'email', 'max:150'],
             'celular' => ['nullable', 'string', 'max:20'],
             'fecha_nacimiento' => ['nullable', 'date', 'before:today'],
-            'sexo_id' => ['required', 'integer'],
+            'genero_id' => ['required', 'integer'],
             'oferta_id' => ['nullable', Rule::exists('oferta', 'id')],
         ], [
             'curp.unique' => 'Esa CURP ya está registrada con otra persona. Si crees que es un error, contáctanos.',

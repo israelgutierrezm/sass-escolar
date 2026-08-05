@@ -55,7 +55,7 @@ class ExpedienteDocenteController extends Controller
                 'curp' => $persona?->curp,
                 'rfc' => $persona?->rfc,
                 'fecha_nacimiento' => $persona?->fecha_nacimiento?->toDateString(),
-                'sexo_id' => $persona?->sexo_id,
+                'genero_id' => $persona?->genero_id,
                 'genero_id' => $persona?->genero_id,
                 'email' => $persona?->email,
                 'correo_institucional' => $persona?->correo_institucional,
@@ -129,7 +129,8 @@ class ExpedienteDocenteController extends Controller
             'curp' => ['nullable', 'string', 'size:18', Rule::unique('personas', 'curp')->ignore($persona->id)->whereNull('deleted_at')],
             'rfc' => ['nullable', 'string', 'max:13'],
             'fecha_nacimiento' => ['nullable', 'date', 'before:today'],
-            'sexo_id' => ['required', 'integer'],
+            // Ver ExpedienteAlumnoController: el dato oficial es el género.
+            'genero_id' => ['required', 'integer'],
             'genero_id' => ['nullable', 'integer'],
             'email' => ['nullable', 'email', 'max:150'],
             'celular' => ['nullable', 'string', 'max:20'],
@@ -137,7 +138,7 @@ class ExpedienteDocenteController extends Controller
             'curp.size' => 'La CURP tiene 18 caracteres.',
             'curp.unique' => 'Esa CURP ya está registrada en otra persona.',
         ], [
-            'sexo_id' => 'sexo',
+            'genero_id' => 'género',
             'genero_id' => 'género',
         ]);
 
