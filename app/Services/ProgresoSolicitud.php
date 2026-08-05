@@ -87,7 +87,6 @@ class ProgresoSolicitud
         foreach ([
             'nombre' => 'Nombre',
             'primer_apellido' => 'Primer apellido',
-            'curp' => 'CURP',
             'email' => 'Correo electrónico',
             'celular' => 'Celular',
             'fecha_nacimiento' => 'Fecha de nacimiento',
@@ -95,6 +94,18 @@ class ProgresoSolicitud
             if (blank($persona?->{$campo})) {
                 $faltantes[] = $etiqueta;
             }
+        }
+
+        /*
+         * La CURP, salvo que se haya declarado extranjero.
+         *
+         * Quien escribe EXTRANJERO en el formulario queda con `curp` null y con
+         * la entidad de nacimiento «NE»: eso NO es un dato faltante, es la
+         * respuesta. Contarlo como hueco le dejaba la solicitud incompleta para
+         * siempre, sin nada que pudiera hacer al respecto.
+         */
+        if (blank($persona?->curp) && ! $persona?->sinCurpPorExtranjero()) {
+            $faltantes[] = 'CURP';
         }
 
         if ($aspirante->oferta_interes_id === null) {

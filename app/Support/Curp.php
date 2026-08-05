@@ -33,6 +33,16 @@ final class Curp
      */
     public const MARCA_EXTRANJERO = 'EXTRANJERO';
 
+    /**
+     * Clave «NE» del catálogo de entidades: nacido fuera de México.
+     *
+     * Es a la vez la entidad que la propia CURP codifica para un mexicano
+     * nacido en el extranjero, y la que se le deja a quien capturó la marca
+     * de arriba. Como la CURP se guarda en null, esta clave es el ÚNICO
+     * rastro de que alguien declaró no tener una.
+     */
+    public const ENTIDAD_SIN_CURP = 'NE';
+
     /** Alfabeto del dígito verificador. Incluye la Ñ, y el orden importa. */
     private const ALFABETO = '0123456789ABCDEFGHIJKLMNÑOPQRSTUVWXYZ';
 

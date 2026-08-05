@@ -299,12 +299,18 @@ const colorEstado: Record<string, string> = {
                     <CampoTexto v-model="datos.nombre" etiqueta="Nombre(s)" requerido :error="datos.errors.nombre" />
                     <CampoTexto v-model="datos.primer_apellido" etiqueta="Primer apellido" requerido :error="datos.errors.primer_apellido" />
                     <CampoTexto v-model="datos.segundo_apellido" etiqueta="Segundo apellido" :error="datos.errors.segundo_apellido" />
+                    <!--
+                        20 y no 18: tiene que caber la palabra EXTRANJERO, que es
+                        como se registra quien no tiene CURP. El servidor la
+                        reconoce y la guarda como «sin CURP», no como texto.
+                    -->
                     <CampoTexto
                         v-model="datos.curp"
                         etiqueta="CURP"
+                        requerido
                         mono
-                        :maximo="18"
-                        ayuda="Viene en tu acta de nacimiento. Si no la tienes a la mano, puedes dejarla y volver."
+                        :maximo="20"
+                        ayuda="Viene en tu acta de nacimiento. Si no tienes CURP, escribe EXTRANJERO."
                         :error="datos.errors.curp"
                     />
                     <CampoTexto v-model="datos.fecha_nacimiento" tipo="date" etiqueta="Fecha de nacimiento" :error="datos.errors.fecha_nacimiento" />
@@ -328,8 +334,10 @@ const colorEstado: Record<string, string> = {
                     <CampoSelect
                         v-model="datos.oferta_id"
                         etiqueta="Programa de interés"
-                        vacio="Sin elegir"
+                        requerido
+                        vacio="Elige…"
                         :opciones="ofertas.map((o) => ({ valor: o.id, texto: o.nombre }))"
+                        ayuda="De él dependen los documentos que te van a pedir."
                         :error="datos.errors.oferta_id"
                     />
                 </form>

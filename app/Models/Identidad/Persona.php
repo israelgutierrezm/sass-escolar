@@ -11,6 +11,7 @@ use App\Models\Landlord\Pais;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\Docente;
 use App\Models\Landlord\Sexo;
+use App\Support\Curp;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -74,6 +75,24 @@ class Persona extends Model
     public function entidadNacimiento(): BelongsTo
     {
         return $this->belongsTo(IdentidadFederativa::class, 'entidad_nacimiento_id');
+    }
+
+    /**
+     * ¿Declaró no tener CURP?
+     *
+     * No hay bandera: quien captura la marca EXTRANJERO queda con `curp` null y
+     * con la entidad de nacimiento «NE», y esa entidad es todo el rastro. Se
+     * pregunta desde dos sitios —el avance de la solicitud y el formulario del
+     * portal, que devuelve la marca para no dejar el campo en blanco—, así que
+     * vive aquí y no copiada en cada uno.
+     *
+     * Sin CURP y sin entidad es otra cosa: es que todavía no la ha capturado.
+     */
+    public function sinCurpPorExtranjero(): bool
+    {
+        return $this->curp === null
+            && $this->entidad_nacimiento_id !== null
+            && $this->entidadNacimiento?->clave === Curp::ENTIDAD_SIN_CURP;
     }
 
     /** Asignaciones de rol (multi-rol simultáneo, con alcance por campus). */

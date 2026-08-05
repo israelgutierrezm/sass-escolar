@@ -11,8 +11,10 @@ use App\Models\Admisiones\EstadoDocumento;
 use App\Models\Admisiones\ExpedienteDocumento;
 use App\Models\Finanzas\Adeudo;
 use App\Models\Landlord\Genero;
+use App\Rules\CurpValida;
 use App\Services\IdentidadPersona;
 use App\Services\ProgresoSolicitud;
+use App\Support\Curp;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -47,7 +49,13 @@ class PortalAspiranteController extends Controller
     {
         $aspirante = $this->miSolicitud($request);
 
-        $aspirante->load('persona', 'ofertaInteres.carrera:id,nombre', 'ofertaInteres.campus:id,nombre');
+        // `persona.entidadNacimiento` la mira `sinCurpPorExtranjero()`, y sin
+        // precargarla saldría por consulta suelta en cada visita.
+        $aspirante->load(
+            'persona.entidadNacimiento',
+            'ofertaInteres.carrera:id,nombre',
+            'ofertaInteres.campus:id,nombre',
+        );
 
         return Inertia::render('Portal/Solicitud', [
             'progreso' => $this->progreso->para($aspirante),
@@ -55,7 +63,12 @@ class PortalAspiranteController extends Controller
                 'nombre' => $aspirante->persona?->nombre,
                 'primer_apellido' => $aspirante->persona?->primer_apellido,
                 'segundo_apellido' => $aspirante->persona?->segundo_apellido,
-                'curp' => $aspirante->persona?->curp,
+                // Al que declaró no tener CURP se le devuelve la marca, no un
+                // campo vacío: escribió EXTRANJERO, se guardó, y volver a
+                // encontrarlo en blanco parece que no se guardó nada.
+                'curp' => $aspirante->persona?->sinCurpPorExtranjero()
+                    ? Curp::MARCA_EXTRANJERO
+                    : $aspirante->persona?->curp,
                 'email' => $aspirante->persona?->email,
                 'celular' => $aspirante->persona?->celular,
                 'fecha_nacimiento' => $aspirante->persona?->fecha_nacimiento?->toDateString(),
@@ -85,22 +98,65 @@ class PortalAspiranteController extends Controller
             'nombre' => ['required', 'string', 'max:100'],
             'primer_apellido' => ['required', 'string', 'max:100'],
             'segundo_apellido' => ['nullable', 'string', 'max:100'],
-            // Única y nullable en `personas`: se ignora la propia fila para que
-            // reguardar sin cambiarla no choque consigo misma.
-            'curp' => [
-                'nullable', 'string', 'size:18',
-                Rule::unique('personas', 'curp')->ignore($aspirante->persona_id)->whereNull('deleted_at'),
-            ],
-            'email' => ['required', 'email', 'max:150'],
+            /*
+             * OBLIGATORIA, y validada de verdad.
+             *
+             * Era `nullable` + `size:18`, que acepta cualquier ristra de
+             * dieciocho caracteres: se podía terminar la solicitud sin CURP, o
+             * con una mal copiada. Es el único dato de esta pantalla que se
+             * autoverifica, y de él salen fecha, sexo y entidad de nacimiento.
+             *
+             * `size:18` no está y no puede estar: hay que dejar pasar la palabra
+             * EXTRANJERO, que es como se registra quien no tiene CURP.
+             * `CurpValida` acepta esa marca y comprueba el dígito del resto.
+             *
+             * Única: dos filas con la misma CURP son la misma persona capturada
+             * dos veces. Se ignora la propia para que reguardar sin cambiarla no
+             * choque consigo misma; y cuando es EXTRANJERO no aplica, porque se
+             * guarda como null y ahí no hay nada que colisionar.
+             */
+            'curp' => array_filter([
+                'required', 'string', 'max:20',
+                new CurpValida,
+                Curp::esMarcaDeExtranjero($request->input('curp'))
+                    ? null
+                    : Rule::unique('personas', 'curp')->ignore($aspirante->persona_id)->whereNull('deleted_at'),
+            ]),
+            /*
+             * Y ÚNICO en la plataforma. No lo era aquí: el aspirante podía
+             * teclear el correo de otra persona ya registrada y quedarse con
+             * él, que es exactamente lo que parte a alguien en dos cuentas y
+             * cruza sesiones en el login. Se usa el mismo comprobador que el
+             * alta administrativa, para que el mensaje sea el mismo.
+             */
+            'email' => ['required', 'email', 'max:150', function (string $atributo, mixed $valor, \Closure $fallar) use ($aspirante) {
+                $conflicto = app(IdentidadPersona::class)->correoEnUso($valor, $aspirante->persona_id);
+
+                if ($conflicto !== null) {
+                    $fallar('Ese correo ya está registrado a nombre de otra persona. Si crees que es un error, contáctanos.');
+                }
+            }],
             'celular' => ['nullable', 'string', 'max:20'],
             'fecha_nacimiento' => ['nullable', 'date', 'before:today'],
             'genero_id' => ['required', 'integer'],
-            'oferta_id' => ['nullable', Rule::exists('oferta', 'id')],
+            // Obligatorio: sin saber a qué aspira, la escuela no sabe qué
+            // documentos pedirle ni a qué oferta inscribirlo si lo aceptan.
+            'oferta_id' => ['required', Rule::exists('oferta', 'id')],
         ], [
-            'curp.unique' => 'Esa CURP ya está registrada con otra persona. Si crees que es un error, contáctanos.',
-        ], [
-            // Sin esto el aspirante leía «genero id es obligatorio».
-            'genero_id' => 'género',
+            /*
+             * Mensajes propios, no el genérico con el nombre del campo.
+             *
+             * `:attribute es obligatorio` no concuerda en género —salía «la CURP
+             * es obligatorio»— y, sobre todo, no dice qué hacer. Quien llena
+             * esto es el interesado desde su celular, no alguien que conozca el
+             * sistema: la frase tiene que bastarle.
+             */
+            'curp.required' => 'Falta tu CURP. Si no tienes, escribe EXTRANJERO.',
+            'curp.unique' => 'Esa CURP ya está registrada a nombre de otra persona. Si crees que es un error, contáctanos.',
+            'genero_id.required' => 'Falta elegir tu género.',
+            'oferta_id.required' => 'Falta elegir el programa que te interesa.',
+            'oferta_id.exists' => 'Ese programa ya no está disponible. Elige otro de la lista.',
+            'email.required' => 'Falta tu correo: por ahí te avisan si te aceptan.',
         ]);
 
         DB::transaction(function () use ($aspirante, $datos) {
@@ -121,17 +177,15 @@ class PortalAspiranteController extends Controller
             unset($resuelto['correo_institucional'], $resuelto['telefono_local']);
 
             /*
-             * Una CURP que no pasa el dígito verificador vuelve como null, y
-             * escribir ese null BORRA la que el interesado tecleó. Se guarda tal
-             * cual para que quede a la vista y alguien la corrija: aquí no se
-             * puede rechazar de plano —hay actas viejas con la CURP mal impresa
-             * y el aspirante no tiene cómo arreglarla desde su casa—. Lo que sí
-             * se pierde es la derivación: sin CURP válida no hay fecha ni
-             * entidad de nacimiento deducidas, solo lo que él capturó.
+             * Aquí se conservaba la CURP tecleada cuando `resolver()` la
+             * devolvía en null, para no borrar la que ya estaba. Sobra —y
+             * ahora estorba—: `CurpValida` ya no deja pasar una CURP que no
+             * cuadre, así que el único null posible es el del EXTRANJERO, y ése
+             * es la respuesta correcta, no una pérdida. Conservarlo escribiría
+             * la palabra «EXTRANJERO» en la columna única y sólo cabría UN
+             * extranjero en toda la escuela; el segundo chocaría con un error
+             * incomprensible.
              */
-            if ($resuelto['curp'] === null && filled($datos['curp'] ?? null)) {
-                $resuelto['curp'] = mb_strtoupper(trim((string) $datos['curp']));
-            }
 
             $aspirante->persona?->update($resuelto);
 

@@ -34,7 +34,7 @@ use Illuminate\Support\Collection;
 class IdentidadPersona
 {
     /** Clave de la entidad que la CURP usa para quien nació fuera de México. */
-    private const ENTIDAD_EXTRANJERO = 'NE';
+    private const ENTIDAD_EXTRANJERO = Curp::ENTIDAD_SIN_CURP;
 
     /**
      * Géneros que determinan el sexo legal. El catálogo central son solo estos
