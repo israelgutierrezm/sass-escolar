@@ -109,21 +109,43 @@ final class Curp
         return new DateTimeImmutable(sprintf('%04d-%02d-%02d', $anio, $mes, $dia));
     }
 
-    private static function digitoCorrecto(string $curp): bool
+    /**
+     * El dígito que le toca a unos primeros 17 caracteres.
+     *
+     * Se expone para que quien FABRIQUE una CURP —hoy sólo el seeder de datos
+     * demo— no tenga que reimplementar la cuenta. En producción la CURP viene
+     * de RENAPO: aquí sólo se lee y se verifica, nunca se inventa.
+     *
+     * Devuelve null si alguno de los 17 no está en el alfabeto.
+     */
+    public static function digitoVerificador(string $primeros17): ?string
     {
+        $primeros17 = self::normalizar($primeros17);
+
+        if (mb_strlen($primeros17) !== 17) {
+            return null;
+        }
+
         $suma = 0;
 
         // Los primeros 17 caracteres pesan de 18 a 2; el 18º es el resultado.
         for ($i = 0; $i < 17; $i++) {
-            $posicion = mb_strpos(self::ALFABETO, mb_substr($curp, $i, 1));
+            $posicion = mb_strpos(self::ALFABETO, mb_substr($primeros17, $i, 1));
 
             if ($posicion === false) {
-                return false;
+                return null;
             }
 
             $suma += $posicion * (18 - $i);
         }
 
-        return (string) ((10 - $suma % 10) % 10) === mb_substr($curp, 17, 1);
+        return (string) ((10 - $suma % 10) % 10);
+    }
+
+    private static function digitoCorrecto(string $curp): bool
+    {
+        $esperado = self::digitoVerificador(mb_substr($curp, 0, 17));
+
+        return $esperado !== null && $esperado === mb_substr($curp, 17, 1);
     }
 }

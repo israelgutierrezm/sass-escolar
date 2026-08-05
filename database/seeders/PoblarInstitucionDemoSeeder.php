@@ -20,7 +20,9 @@ use App\Models\Identidad\Persona;
 use App\Models\Identidad\PersonaRol;
 use App\Models\Identidad\TutorAlumno;
 use App\Models\Identidad\Usuario;
+use App\Support\Curp;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -315,6 +317,84 @@ class PoblarInstitucionDemoSeeder extends Seeder
         ]);
     }
 
+    /**
+     * Una CURP de mentira, pero bien formada: pasa `Curp::leer()`.
+     *
+     * Las cuatro copias que había armaban `…DF` + tres letras + `'09'` fijo, y
+     * ese `09` es homoclave y dígito verificador inventados: NINGUNA de las
+     * CURP demo validaba. Como todo el sistema trata la CURP como dato
+     * autovalidable —de ella se deducen fecha, sexo y entidad de nacimiento—,
+     * la base demo ejercía siempre la rama degradada: la que se toma cuando la
+     * CURP no se puede leer. Se probaba el camino que casi nadie recorre.
+     *
+     * Composición, con las reglas de verdad:
+     *   1     primera letra del apellido paterno
+     *   2     primera vocal INTERNA del apellido paterno
+     *   3     primera letra del apellido materno
+     *   4     primera letra del nombre
+     *   5-10  fecha de nacimiento AAMMDD
+     *   11    H o M
+     *   12-13 entidad (DF para todos los de demo)
+     *   14-16 primera consonante interna de cada uno de los tres
+     *   17    homoclave: DÍGITO si nació antes del 2000, LETRA si después
+     *   18    dígito verificador, calculado por `Curp`
+     *
+     * La posición 17 es la que decide el siglo al leerla: con el `0` fijo que
+     * había, un alumno nacido en 2008 se registraba como nacido en 1908.
+     */
+    private function curpDe(string $nombre, string $ap1, string $ap2, string $sexo, Carbon $nacimiento, int $orden): string
+    {
+        $a1 = mb_strtoupper($this->sinAcentos($ap1));
+        $a2 = mb_strtoupper($this->sinAcentos($ap2));
+        $no = mb_strtoupper($this->sinAcentos($nombre));
+
+        $iniciales = mb_substr($a1, 0, 1)
+            .$this->vocalInterna($a1)
+            .(mb_substr($a2, 0, 1) ?: 'X')
+            .mb_substr($no, 0, 1);
+
+        $consonantes = $this->consonanteInterna($a1).$this->consonanteInterna($a2).$this->consonanteInterna($no);
+
+        // RENAPO la asigna; aquí basta que respete la regla del siglo y que
+        // varíe entre personas para no repetir CURP.
+        $homoclave = $nacimiento->year < 2000
+            ? (string) ($orden % 10)
+            : mb_substr('ABCDEFGHIJKLMNPQRSTUVWXYZ', $orden % 25, 1);
+
+        $primeros17 = $iniciales.$nacimiento->format('ymd').$sexo.'DF'.$consonantes.$homoclave;
+
+        return $primeros17.Curp::digitoVerificador($primeros17);
+    }
+
+    /** La primera vocal después de la inicial; X si la palabra no tiene. */
+    private function vocalInterna(string $palabra): string
+    {
+        preg_match('/[AEIOU]/', mb_substr($palabra, 1), $coincidencia);
+
+        return $coincidencia[0] ?? 'X';
+    }
+
+    /** La primera consonante después de la inicial; X si no hay. */
+    private function consonanteInterna(string $palabra): string
+    {
+        preg_match('/[BCDFGHJKLMNPQRSTVWXYZ]/', mb_substr($palabra, 1), $coincidencia);
+
+        return $coincidencia[0] ?? 'X';
+    }
+
+    /** RFC de persona física: las mismas 4 letras y la fecha de la CURP. */
+    private function rfcDe(string $curp): string
+    {
+        return mb_substr($curp, 0, 10);
+    }
+
+    /** nombre.apellido@<dominio>.escuela.mx, sin acentos. */
+    private function correoDe(string $nombre, string $apellido, string $dominio): string
+    {
+        return mb_strtolower($this->sinAcentos($nombre).'.'.$this->sinAcentos($apellido))
+            .'@'.$dominio.'.escuela.mx';
+    }
+
     private function romano(int $n): string
     {
         return ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'][$n - 1] ?? (string) $n;
@@ -377,24 +457,19 @@ class PoblarInstitucionDemoSeeder extends Seeder
                 continue;
             }
 
-            // Adultos de 35-54 años; CURP/RFC sin acentos y coherentes con el sexo.
+            // Adultos de 35-54 años.
             $dob = now()->subYears(35 + ($i % 20))->subDays($i * 11);
-            $yy = $dob->format('ymd');
-            $a1 = $this->sinAcentos($ap1);
-            $a2 = $this->sinAcentos($ap2);
-            $no = $this->sinAcentos($nom);
-            $l4 = mb_strtoupper(mb_substr($a1, 0, 2).mb_substr($a2, 0, 1).mb_substr($no, 0, 1));
-            $cons = mb_strtoupper(mb_substr($a1, 2, 1).mb_substr($a2, 2, 1).mb_substr($no, 2, 1));
+            $curp = $this->curpDe($nom, $ap1, $ap2, $sexo, $dob, $i);
 
             $persona = Persona::create([
                 'nombre' => $nom,
                 'primer_apellido' => $ap1,
                 'segundo_apellido' => $ap2,
-                'curp' => $l4.$yy.$sexo.'DF'.$cons.'09',
-                'rfc' => $l4.$yy,
+                'curp' => $curp,
+                'rfc' => $this->rfcDe($curp),
                 'fecha_nacimiento' => $dob->toDateString(),
                 'email' => $email,
-                'correo_institucional' => mb_strtolower($no.'.'.$a1).'@docentes.escuela.mx',
+                'correo_institucional' => $this->correoDe($nom, $ap1, 'docentes'),
                 'celular' => '55'.str_pad((string) random_int(0, 99999999), 8, '0', STR_PAD_LEFT),
             ]);
 
@@ -477,20 +552,15 @@ class PoblarInstitucionDemoSeeder extends Seeder
             }
 
             $dob = now()->subYears(42 + $i)->subDays($i * 7);
-            $yy = $dob->format('ymd');
             $sexo = $parentesco === 'madre' ? 'M' : 'H';
-            $a1 = $this->sinAcentos($ap1);
-            $a2 = $this->sinAcentos($ap2);
-            $no = $this->sinAcentos($nom);
-            $l4 = mb_strtoupper(mb_substr($a1, 0, 2).mb_substr($a2, 0, 1).mb_substr($no, 0, 1));
-            $cons = mb_strtoupper(mb_substr($a1, 2, 1).mb_substr($a2, 2, 1).mb_substr($no, 2, 1));
+            $curp = $this->curpDe($nom, $ap1, $ap2, $sexo, $dob, $i);
 
             $persona = Persona::create([
                 'nombre' => $nom,
                 'primer_apellido' => $ap1,
                 'segundo_apellido' => $ap2,
-                'curp' => $l4.$yy.$sexo.'DF'.$cons.'09',
-                'rfc' => $l4.$yy,
+                'curp' => $curp,
+                'rfc' => $this->rfcDe($curp),
                 'fecha_nacimiento' => $dob->toDateString(),
                 'email' => $email,
                 'celular' => '55'.str_pad((string) random_int(0, 99999999), 8, '0', STR_PAD_LEFT),
@@ -543,19 +613,14 @@ class PoblarInstitucionDemoSeeder extends Seeder
 
             // Jóvenes de ~18 años (prospectos a licenciatura).
             $dob = now()->subYears(18)->subDays($i * 40);
-            $yy = $dob->format('ymd');
-            $a1 = $this->sinAcentos($ap1);
-            $a2 = $this->sinAcentos($ap2);
-            $no = $this->sinAcentos($nom);
-            $l4 = mb_strtoupper(mb_substr($a1, 0, 2).mb_substr($a2, 0, 1).mb_substr($no, 0, 1));
-            $cons = mb_strtoupper(mb_substr($a1, 2, 1).mb_substr($a2, 2, 1).mb_substr($no, 2, 1));
+            $curp = $this->curpDe($nom, $ap1, $ap2, $sexo, $dob, $i);
 
             $persona = Persona::create([
                 'nombre' => $nom,
                 'primer_apellido' => $ap1,
                 'segundo_apellido' => $ap2,
-                'curp' => $l4.$yy.$sexo.'DF'.$cons.'09',
-                'rfc' => $l4.$yy,
+                'curp' => $curp,
+                'rfc' => $this->rfcDe($curp),
                 'fecha_nacimiento' => $dob->toDateString(),
                 'email' => $email,
                 'celular' => '55'.str_pad((string) random_int(0, 99999999), 8, '0', STR_PAD_LEFT),
@@ -651,25 +716,18 @@ class PoblarInstitucionDemoSeeder extends Seeder
             // Cumpleaños escalonados: el alumno 0 cumple HOY, el resto en 5, 10…
             // días, para lucir la cuenta regresiva del encabezado. Edad ~20-25.
             $dob = now()->addDays($i * 5)->subYears(20 + ($i % 6));
-            $yy = $dob->format('ymd');
 
-            // CURP/RFC con formato plausible, sin acentos y coherentes con el
-            // sexo (es dato de prueba: no llevan dígito verificador real).
-            $a1 = $this->sinAcentos($ap1);
-            $a2 = $this->sinAcentos($ap2);
-            $no = $this->sinAcentos($nom);
-            $l4 = mb_strtoupper(mb_substr($a1, 0, 2).mb_substr($a2, 0, 1).mb_substr($no, 0, 1));
-            $cons = mb_strtoupper(mb_substr($a1, 2, 1).mb_substr($a2, 2, 1).mb_substr($no, 2, 1));
+            $curp = $this->curpDe($nom, $ap1, $ap2, $sexo, $dob, $i);
 
             $persona = Persona::create([
                 'nombre' => $nom,
                 'primer_apellido' => $ap1,
                 'segundo_apellido' => $ap2,
-                'curp' => $l4.$yy.$sexo.'DF'.$cons.'09',
-                'rfc' => $l4.$yy,
+                'curp' => $curp,
+                'rfc' => $this->rfcDe($curp),
                 'fecha_nacimiento' => $dob->toDateString(),
                 'email' => 'alumno.demo.'.($i + 1).'@escuela.mx',
-                'correo_institucional' => mb_strtolower($no.'.'.$a1).'@alumnos.escuela.mx',
+                'correo_institucional' => $this->correoDe($nom, $ap1, 'alumnos'),
                 'celular' => '55'.str_pad((string) random_int(0, 99999999), 8, '0', STR_PAD_LEFT),
             ]);
 

@@ -44,7 +44,8 @@ class CrearUsuarioDemo extends Command
 
         tenancy()->initialize($tenant);
 
-        $sexo = Sexo::query()->where('clave', 'H')->value('id');
+        // 'M', que es lo que dice su CURP y lo que dice su nombre.
+        $sexo = Sexo::query()->where('clave', 'M')->value('id');
 
         if ($sexo === null) {
             $this->error('Faltan los catálogos landlord. Corre el LandlordDatabaseSeeder.');
@@ -60,8 +61,18 @@ class CrearUsuarioDemo extends Command
             ],
         );
 
+        /*
+         * CURP de Ana Demo Pruebas, armada con las reglas de verdad y con su
+         * dígito verificador correcto.
+         *
+         * La anterior, `DEMO900101HDFXXX01`, no pasaba `Curp::leer()` —y además
+         * decía «H» para alguien que se llama Ana—. Todo el sistema trata la
+         * CURP como dato autovalidable del que se deducen fecha, sexo y entidad
+         * de nacimiento; con una que no valida, la cuenta demo ejercía siempre
+         * la rama degradada.
+         */
         $persona = Persona::query()->firstOrCreate(
-            ['curp' => 'DEMO900101HDFXXX01'],
+            ['curp' => 'DEPA900101MDFMRN08'],
             [
                 'nombre' => 'Ana',
                 'primer_apellido' => 'Demo',
