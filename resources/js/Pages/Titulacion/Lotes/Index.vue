@@ -22,7 +22,12 @@ interface Lote {
     creado_en: string | null;
 }
 
-defineProps<{ lotes: Lote[]; etapaActiva: string }>();
+const props = defineProps<{
+    lotes: Lote[];
+    etapaActiva: string;
+    /** `real`, `fake` o `off`: si lo que se envía sale de verdad hacia la SEP. */
+    modoWs: string;
+}>();
 
 const creando = ref(false);
 const form = useForm({ nombre: '' });
@@ -71,6 +76,25 @@ const colorEstadoSolido: Record<string, string> = {
                 Agrupa egresados para titularlos juntos. Arma el lote, agrégale egresados, ciérralo y fírmalo
                 con la e.firma del responsable; luego envía los títulos al web service de la SEP. Cada lote
                 se crea en la etapa activa (<span class="font-medium">{{ etapaActiva }}</span>).
+            </p>
+            <!--
+                La etapa dice a QUÉ endpoint apunta el lote; el modo, si de verdad
+                sale algo. Anunciar «producción» sin decir que el envío está
+                simulado hace creer que los títulos ya llegaron a la SEP.
+            -->
+            <p
+                v-if="modoWs !== 'real'"
+                class="max-w-2xl rounded-lg border-l-4 border-l-amber-500 p-3 text-sm"
+                style="background-color: color-mix(in srgb, #f59e0b 8%, transparent)"
+            >
+                <template v-if="modoWs === 'fake'">
+                    El web service está en <strong>modo simulado</strong>: se puede armar y firmar el
+                    lote, pero el envío no llega a la SEP aunque la etapa diga «{{ etapaActiva }}».
+                </template>
+                <template v-else>
+                    El envío al web service está <strong>deshabilitado</strong>. Los lotes se pueden
+                    armar y firmar, pero no se mandan.
+                </template>
             </p>
             <BotonAccion v-if="!creando" variante="nuevo" texto="Nuevo lote" class="shrink-0" @click="creando = true" />
         </div>

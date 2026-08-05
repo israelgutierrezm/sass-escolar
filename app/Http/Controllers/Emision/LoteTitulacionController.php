@@ -52,6 +52,10 @@ class LoteTitulacionController extends Controller
         return \Inertia\Inertia::render('Titulacion/Lotes/Index', [
             'lotes' => $lotes,
             'etapaActiva' => TitulacionWsConfig::actual()->etapa_activa,
+            // La etapa dice a qué endpoint apunta; el modo, si de verdad sale
+            // algo. La pantalla anunciaba «producción» sin decir que el envío
+            // podía estar simulado.
+            'modoWs' => (string) config('services.titulos_sep.modo', 'fake'),
         ]);
     }
 

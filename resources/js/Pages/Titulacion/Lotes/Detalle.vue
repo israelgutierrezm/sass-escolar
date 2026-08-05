@@ -347,7 +347,9 @@ watch(
                     </a>
                 </div>
             </div>
-            <p v-if="firmado && modoWs === 'fake'" class="mt-3 text-xs" :style="{ color: '#d97706' }">
+            <!-- Antes esperaba a que el lote estuviera firmado, y para entonces
+                 ya se armó y se selló creyendo que iba a salir. -->
+            <p v-if="modoWs === 'fake'" class="mt-3 text-xs" :style="{ color: '#d97706' }">
                 El web service está en modo simulado (fake): el envío no llega a la SEP real.
             </p>
         </section>

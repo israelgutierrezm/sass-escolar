@@ -89,7 +89,18 @@ class ResponsableController extends Controller
                 'serie' => $c->serie,
                 'vigencia_inicio' => $c->vigencia_inicio?->format('d/m/Y'),
                 'vigencia_fin' => $c->vigencia_fin?->format('d/m/Y'),
-                'vigente' => $c->vigente,
+                /*
+                 * Dos cosas distintas que se llamaban igual.
+                 *
+                 * `actual` es cuál de sus certificados se usa hoy para firmar;
+                 * `vigente_hoy` es si su fecha de fin todavía no pasó. El
+                 * historial mostraba el primero con la etiqueta del segundo, así
+                 * que un certificado vencido en 2025 seguía diciendo «Vigente»
+                 * mientras fuera el activo —justo el aviso que hace falta antes
+                 * de intentar firmar con él—.
+                 */
+                'actual' => $c->vigente,
+                'vigente_hoy' => $c->estaVigente(),
                 'registrado' => $c->created_at?->format('d/m/Y'),
                 'tiene_cer_guardado' => filled($c->cer_pem),
                 'tiene_key' => filled($c->key_encriptado),

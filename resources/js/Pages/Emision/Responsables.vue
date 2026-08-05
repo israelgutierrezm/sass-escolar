@@ -15,7 +15,10 @@ interface Certificado {
     serie: string;
     vigencia_inicio: string | null;
     vigencia_fin: string | null;
-    vigente: boolean;
+    /** El que se usa hoy para firmar (uno por persona). */
+    actual: boolean;
+    /** Si su fecha de fin no ha pasado. Un «actual» puede estar vencido. */
+    vigente_hoy: boolean;
     registrado: string | null;
     tiene_cer_guardado: boolean;
     tiene_key: boolean;
@@ -448,7 +451,17 @@ function eliminar(r: Responsable): void {
                                     <td class="py-1.5 pr-3 font-mono">{{ c.serie }}</td>
                                     <td class="py-1.5 pr-3">{{ c.vigencia_inicio }} – {{ c.vigencia_fin }}</td>
                                     <td class="py-1.5 pr-3">{{ c.registrado }}</td>
-                                    <td class="py-1.5 pr-3">{{ c.vigente ? 'Vigente' : 'Anterior' }}</td>
+                                    <!-- «En uso» y «vencido» son cosas distintas:
+                                         el certificado con el que se firma puede
+                                         haber caducado, y es justo lo que hay que
+                                         ver antes de intentar firmar con él. -->
+                                    <td class="py-1.5 pr-3">
+                                        <span v-if="c.actual" class="font-medium">En uso</span>
+                                        <span v-else :style="{ color: 'var(--color-suave)' }">Anterior</span>
+                                        <span v-if="!c.vigente_hoy" class="ml-1.5 text-xs font-medium" style="color: #dc2626">
+                                            vencido
+                                        </span>
+                                    </td>
                                     <td class="py-1.5 pr-3">{{ c.tiene_cer_guardado ? '.cer' : '—' }} / {{ c.tiene_key ? '.key' : '—' }}</td>
                                 </tr>
                                 <tr v-if="!r.certificados.length">
