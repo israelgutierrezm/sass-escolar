@@ -4,6 +4,9 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import BotonExpediente from '@/Components/BotonExpediente.vue';
+import BarraListado from '@/Components/BarraListado.vue';
+import { ICONOS } from '@/iconos';
+import { computed } from 'vue';
 
 interface Plan {
     id: number;
@@ -22,7 +25,24 @@ interface Plan {
     motivo_no_eliminar: string | null;
 }
 
-defineProps<{ planes: Plan[] }>();
+const props = defineProps<{
+    planes: Plan[];
+    filtros: { busqueda: string; ciclo_id: string | null; vigentes: string | null };
+    ciclos: { id: number; nombre: string }[];
+}>();
+
+/*
+ * Los planes de ciclos pasados se quedan —son la historia de lo que se cobró— y
+ * al cabo de unos años entierran a los tres que están en uso.
+ */
+const definicionFiltros = computed(() => [
+    {
+        clave: 'ciclo_id',
+        etiqueta: 'Ciclo',
+        opciones: props.ciclos.map((c) => ({ valor: c.id, texto: c.nombre })),
+    },
+    { clave: 'vigentes', etiqueta: 'Solo vigentes', tipo: 'booleano' as const },
+]);
 
 function eliminar(plan: Plan): void {
     if (!confirm(`¿Eliminar el plan "${plan.nombre}"? Esta acción no se puede deshacer.`)) return;
@@ -34,20 +54,24 @@ function eliminar(plan: Plan): void {
     <Head title="Planes de cobro" />
 
     <AppLayout titulo="Planes de cobro">
-        <section class="tarjeta p-6">
-            <div class="flex flex-wrap items-start justify-between gap-4">
-                <div class="max-w-2xl">
-                    <h2 class="text-base font-semibold">El motor de cobro, configurado</h2>
-                    <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                        Un plan vive en un <strong>ciclo</strong> y aplica a los campus y carreras que le
-                        marques. Sus conceptos son cargos con fecha: una colegiatura se captura por rango y se
-                        expande sola. Vincular el plan a un alumno es lo que le genera los cargos.
-                    </p>
-                </div>
-
-                <BotonAccion variante="nuevo" texto="Nuevo plan" href="/finanzas/planes/nuevo" />
-            </div>
-        </section>
+        <BarraListado
+            url="/finanzas/planes"
+            :valores="filtros"
+            :filtros="definicionFiltros"
+            placeholder="Buscar por nombre del plan…"
+            titulo="El motor de cobro, configurado"
+            descripcion="Un plan vive en un ciclo y aplica a los campus y carreras que le marques. Sus conceptos son cargos con fecha: una colegiatura se captura por rango y se expande sola. Vincular el plan a un alumno es lo que le genera los cargos."
+            :icono="ICONOS.dinero"
+            puede-crear
+            nuevo-texto="Nuevo plan"
+            nuevo-href="/finanzas/planes/nuevo"
+        >
+            <template #conteo>
+                <span class="rounded-full px-3 py-1 text-xs font-medium" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }">
+                    {{ planes.length }} {{ planes.length === 1 ? 'plan' : 'planes' }}
+                </span>
+            </template>
+        </BarraListado>
 
         <section class="tarjeta overflow-hidden">
             <div class="overflow-x-auto">

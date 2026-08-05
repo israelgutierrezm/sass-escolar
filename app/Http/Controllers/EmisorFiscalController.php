@@ -31,12 +31,26 @@ use Inertia\Response;
  */
 class EmisorFiscalController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        // Una razón social se busca por su nombre o su RFC —que es como llega
+        // escrita en los papeles del contador— y se acota a las que siguen
+        // facturando.
+        $filtros = [
+            'busqueda' => trim((string) $request->query('busqueda', '')),
+            'activo' => $request->query('activo'),
+        ];
+
         return Inertia::render('Finanzas/Emisores/Index', [
+            'filtros' => $filtros,
             'emisores' => EmisorFiscal::query()
                 ->with('asignaciones')
                 ->withCount('facturas')
+                ->when($filtros['busqueda'] !== '', fn ($q) => $q->where(fn ($sub) => $sub
+                    ->where('rfc', 'like', "%{$filtros['busqueda']}%")
+                    ->orWhere('razon_social', 'like', "%{$filtros['busqueda']}%")
+                    ->orWhere('nombre_comercial', 'like', "%{$filtros['busqueda']}%")))
+                ->when($filtros['activo'], fn ($q) => $q->where('activo', true))
                 ->orderBy('razon_social')
                 ->get()
                 ->map(fn (EmisorFiscal $e) => [

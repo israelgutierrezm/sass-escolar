@@ -21,10 +21,24 @@ use Inertia\Response;
  */
 class DescuentoController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        // Un descuento se busca por su nombre y se acota por su tipo o por si
+        // sigue vigente: es lo que se pregunta cuando alguien quiere saber «qué
+        // le puedo aplicar a este alumno hoy».
+        $filtros = [
+            'busqueda' => trim((string) $request->query('busqueda', '')),
+            'tipo' => $request->query('tipo'),
+            'activo' => $request->query('activo'),
+        ];
+
         $descuentos = Descuento::query()
             ->with('conceptos:id,nombre')
+            ->when($filtros['busqueda'] !== '', fn ($q) => $q->where(fn ($sub) => $sub
+                ->where('clave', 'like', "%{$filtros['busqueda']}%")
+                ->orWhere('nombre', 'like', "%{$filtros['busqueda']}%")))
+            ->when($filtros['tipo'], fn ($q, $tipo) => $q->where('tipo', $tipo))
+            ->when($filtros['activo'], fn ($q) => $q->where('activo', true))
             ->orderBy('nombre')
             ->get()
             ->map(fn (Descuento $d) => [
@@ -44,6 +58,7 @@ class DescuentoController extends Controller
             ]);
 
         return Inertia::render('Finanzas/Descuentos/Index', [
+            'filtros' => $filtros,
             'descuentos' => $descuentos,
             'catalogoConceptos' => ConceptoPago::orderBy('nombre')->get(['id', 'nombre']),
             'tipos' => [

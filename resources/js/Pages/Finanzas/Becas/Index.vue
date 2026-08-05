@@ -2,6 +2,7 @@
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BarraListado from '@/Components/BarraListado.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
@@ -33,6 +34,7 @@ interface Beca {
 }
 
 const props = defineProps<{
+    filtros: { busqueda: string; activo: string | null };
     becas: Beca[];
     catalogoConceptos: { id: number; nombre: string }[];
     ciclos: { id: number; nombre: string }[];
@@ -40,6 +42,15 @@ const props = defineProps<{
     efectosAtraso: { valor: string; etiqueta: string }[];
     efectosPromedio: { valor: string; etiqueta: string }[];
 }>();
+
+/*
+ * El catálogo acumula las becas de convocatorias pasadas —no se borran, son
+ * historia de lo que se otorgó— y al cabo de unos años entierran a las dos o
+ * tres que siguen vivas.
+ */
+const definicionFiltros = [
+    { clave: 'activo', etiqueta: 'Solo activas', tipo: 'booleano' as const },
+];
 
 // Cierre de ciclo: evalúa el promedio de cada becario para decidir renovaciones.
 const renovacion = useForm({ ciclo_id: null as number | null });
@@ -140,19 +151,24 @@ const etiquetaPromedio: Record<string, string> = {
     <Head title="Becas" />
 
     <AppLayout titulo="Becas">
-        <section class="tarjeta p-6">
-            <div class="flex flex-wrap items-start justify-between gap-4">
-                <div class="max-w-2xl">
-                    <h2 class="text-base font-semibold">Becas y sus reglas</h2>
-                    <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                        Una beca se define una vez con sus condiciones y luego se le otorga a alumnos.
-                        A diferencia de un descuento, se <strong>conserva o se pierde</strong> según cómo pague
-                        el alumno y qué promedio saque, y normalmente hay que <strong>renovarla cada ciclo</strong>.
-                    </p>
-                </div>
-                <BotonAccion v-if="!creando && editando === null" variante="nuevo" texto="Nueva beca" @click="abrirNueva" />
-            </div>
-        </section>
+        <BarraListado
+            url="/finanzas/becas"
+            :valores="filtros"
+            :filtros="definicionFiltros"
+            placeholder="Buscar por nombre o clave…"
+            titulo="Becas y sus reglas"
+            descripcion="Una beca se define una vez con sus condiciones y luego se le otorga a alumnos. A diferencia de un descuento, se conserva o se pierde según cómo pague el alumno y qué promedio saque, y normalmente hay que renovarla cada ciclo."
+            :icono="ICONOS.escudo"
+            :puede-crear="!creando && editando === null"
+            nuevo-texto="Nueva beca"
+            @nuevo="abrirNueva"
+        >
+            <template #conteo>
+                <span class="rounded-full px-3 py-1 text-xs font-medium" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }">
+                    {{ becas.length }} {{ becas.length === 1 ? 'beca' : 'becas' }}
+                </span>
+            </template>
+        </BarraListado>
 
         <!-- Cierre de ciclo -->
         <TarjetaSeccion

@@ -38,10 +38,22 @@ class BecaController extends Controller
         private readonly EvaluadorBecas $evaluador,
     ) {}
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        // Se busca una beca por su nombre, y se acota a las que siguen vivas:
+        // el catálogo acumula las de convocatorias pasadas y ofrecerlas todas al
+        // otorgar es invitar a asignar una que ya no existe.
+        $filtros = [
+            'busqueda' => trim((string) $request->query('busqueda', '')),
+            'activo' => $request->query('activo'),
+        ];
+
         $becas = Beca::query()
             ->with('conceptos:id,nombre')
+            ->when($filtros['busqueda'] !== '', fn ($q) => $q->where(fn ($sub) => $sub
+                ->where('clave', 'like', "%{$filtros['busqueda']}%")
+                ->orWhere('nombre', 'like', "%{$filtros['busqueda']}%")))
+            ->when($filtros['activo'], fn ($q) => $q->where('activo', true))
             ->withCount(['otorgadas as activas_count' => fn ($q) => $q->where('estatus', BecaAlumno::ACTIVA)])
             ->orderBy('nombre')
             ->get()
@@ -66,6 +78,7 @@ class BecaController extends Controller
             ]);
 
         return Inertia::render('Finanzas/Becas/Index', [
+            'filtros' => $filtros,
             'becas' => $becas,
             'catalogoConceptos' => ConceptoPago::orderBy('nombre')->get(['id', 'nombre']),
             'ciclos' => Ciclo::orderByDesc('fecha_inicio')->get(['id', 'nombre']),

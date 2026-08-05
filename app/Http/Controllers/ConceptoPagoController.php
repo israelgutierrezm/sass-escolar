@@ -25,10 +25,26 @@ use Inertia\Response;
  */
 class ConceptoPagoController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        // El catálogo crece con los años —colegiatura, inscripción, exámenes,
+        // constancias, credenciales— y se consultaba entero sin manera de
+        // encontrar nada. Los filtros son los que de verdad se preguntan: si
+        // algo lleva IVA y si ya se está usando (lo que decide si se puede
+        // borrar).
+        $filtros = [
+            'busqueda' => trim((string) $request->query('busqueda', '')),
+            'gravado' => $request->query('gravado'),
+        ];
+
         return Inertia::render('Finanzas/Conceptos/Index', [
+            'filtros' => $filtros,
             'conceptos' => ConceptoPago::query()
+                ->when($filtros['busqueda'] !== '', fn ($q) => $q->where(fn ($sub) => $sub
+                    ->where('clave', 'like', "%{$filtros['busqueda']}%")
+                    ->orWhere('nombre', 'like', "%{$filtros['busqueda']}%")
+                    ->orWhere('clave_sat', 'like', "%{$filtros['busqueda']}%")))
+                ->when($filtros['gravado'], fn ($q) => $q->where('gravado', true))
                 ->orderBy('nombre')
                 // `lineasDePlan` se llamaba `reglas` antes del rediseño del
                 // motor de cobro; el nombre viejo quedó aquí y esta pantalla

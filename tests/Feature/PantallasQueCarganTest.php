@@ -31,7 +31,7 @@ class PantallasQueCarganTest extends TenantTestCase
         $this->fila('conceptos_pago', ['clave' => 'COLEG', 'nombre' => 'Colegiatura']);
 
         $peticion = $this->peticionDe($this->usuarioConAlcance(), '/finanzas/conceptos');
-        $props = $this->propsDe(app(ConceptoPagoController::class)->index(), $peticion);
+        $props = $this->propsDe(app(ConceptoPagoController::class)->index($peticion), $peticion);
 
         $this->assertNotEmpty($props['conceptos']);
         $this->assertFalse($props['conceptos'][0]['en_uso'], 'Recién creado no lo usa nadie.');

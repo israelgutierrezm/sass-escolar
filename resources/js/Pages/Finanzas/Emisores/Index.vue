@@ -2,6 +2,8 @@
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BarraListado from '@/Components/BarraListado.vue';
+import { ICONOS } from '@/iconos';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
@@ -48,11 +50,21 @@ interface Emisor {
 }
 
 const props = defineProps<{
+    filtros: { busqueda: string; activo: string | null };
     emisores: Emisor[];
     destinos: { nivel: { id: number; nombre: string }[]; carrera: { id: number; nombre: string }[] };
     carrerasSinAsignar: string[];
     catalogos: Record<string, { clave: string; texto: string }[]>;
 }>();
+
+/*
+ * Las razones sociales dadas de baja se conservan: sus facturas ya emitidas
+ * siguen colgando de ellas. Filtrar por activas es lo que se pregunta al
+ * asignarle una a una carrera.
+ */
+const definicionFiltros = [
+    { clave: 'activo', etiqueta: 'Solo activas', tipo: 'booleano' as const },
+];
 
 const creando = ref(false);
 const expandido = ref<number | null>(null);
@@ -161,20 +173,26 @@ const etiquetaTipo: Record<string, string> = {
     <Head title="Razones sociales" />
 
     <AppLayout titulo="Razones sociales">
-        <section class="tarjeta p-6">
-            <div class="flex flex-wrap items-start justify-between gap-4">
-                <div class="max-w-2xl">
-                    <h2 class="text-base font-semibold">Con qué persona moral factura cada carrera</h2>
-                    <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                        Una escuela puede tener varias razones sociales: bachillerato con una, licenciatura
-                        con otra, posgrado con otra. Cada una timbra con su propio certificado de sello
-                        digital. Cuando varias asignaciones aplican gana la más específica:
-                        carrera → nivel de estudios → toda la escuela.
-                    </p>
-                </div>
+        <BarraListado
+            url="/finanzas/emisores"
+            :valores="filtros"
+            :filtros="definicionFiltros"
+            placeholder="Buscar por RFC, razón social o nombre comercial…"
+            titulo="Con qué persona moral factura cada carrera"
+            descripcion="Una escuela puede tener varias razones sociales: bachillerato con una, licenciatura con otra, posgrado con otra. Cada una timbra con su propio certificado de sello digital. Cuando varias asignaciones aplican gana la más específica: carrera → nivel de estudios → toda la escuela."
+            :icono="ICONOS.edificio"
+            :puede-crear="!creando"
+            nuevo-texto="Nueva razón social"
+            @nuevo="creando = true"
+        >
+            <template #conteo>
+                <span class="rounded-full px-3 py-1 text-xs font-medium" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }">
+                    {{ emisores.length }} {{ emisores.length === 1 ? 'razón social' : 'razones sociales' }}
+                </span>
+            </template>
+        </BarraListado>
 
-                <BotonAccion v-if="!creando" variante="nuevo" texto="Nueva razón social" @click="creando = true" />
-            </div>
+        <section class="tarjeta p-6">
 
             <!--
                 Una carrera sin razón social hace fallar la primera facturación

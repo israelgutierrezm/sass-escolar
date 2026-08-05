@@ -64,6 +64,9 @@ const props = withDefaults(
     { placeholder: 'Buscar…', puedeCrear: false, nuevoTexto: 'Nuevo', sinBuscador: false, claveBusqueda: 'busqueda' },
 );
 
+/** Se emite cuando «Nuevo» no es un enlace sino una acción de la pantalla. */
+const emit = defineEmits<{ nuevo: [] }>();
+
 // Vista activa (lista/cuadrícula). El padre la usa con v-model:vista para
 // decidir qué pinta; el <SelectorVista> persiste la preferencia por su cuenta.
 const vista = defineModel<'lista' | 'cuadricula'>('vista', { default: 'lista' });
@@ -180,11 +183,24 @@ function limpiarFiltros(): void {
             <div class="ms-auto flex items-center gap-2">
                 <SelectorVista v-if="vistaClave" v-model="vista" :clave="vistaClave" />
 
+                <!--
+                    «Nuevo» lleva a otra pantalla o abre un panel aquí mismo.
+                    Los catálogos chicos —conceptos, descuentos, becas— capturan
+                    en la misma página para no perder de vista lo que ya hay, y
+                    antes tenían que sacar su botón fuera de la barra: quedaba en
+                    otro sitio que en el resto de la app.
+                -->
                 <BotonAccion
                     v-if="puedeCrear && nuevoHref"
                     variante="nuevo"
                     :texto="nuevoTexto"
                     :href="nuevoHref"
+                />
+                <BotonAccion
+                    v-else-if="puedeCrear"
+                    variante="nuevo"
+                    :texto="nuevoTexto"
+                    @click="emit('nuevo')"
                 />
             </div>
         </div>

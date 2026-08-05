@@ -46,10 +46,26 @@ class PlanCobroController extends Controller
 {
     use AcotaPorCampus;
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        // Un plan se busca por nombre y se acota por ciclo o por vigencia. Los de
+        // ciclos pasados se quedan —son la historia de lo que se cobró— y al
+        // cabo de unos años entierran a los tres que están en uso.
+        $filtros = [
+            'busqueda' => trim((string) $request->query('busqueda', '')),
+            'ciclo_id' => $request->query('ciclo_id'),
+            'vigentes' => $request->query('vigentes'),
+        ];
+
         $planes = PlanCobro::query()
             ->with(['ciclo:id,nombre', 'campus:id,nombre', 'carreras:id,nombre'])
+            ->when($filtros['busqueda'] !== '', fn ($q) => $q->where('nombre', 'like', "%{$filtros['busqueda']}%"))
+            ->when($filtros['ciclo_id'], fn ($q, $id) => $q->where('ciclo_id', $id))
+            // Vigente es «sin fecha de fin o con una que no ha llegado»: un plan
+            // no se borra cuando ya cobró, se le pone fin.
+            ->when($filtros['vigentes'], fn ($q) => $q->where(fn ($sub) => $sub
+                ->whereNull('vigente_hasta')
+                ->orWhereDate('vigente_hasta', '>=', now()->toDateString())))
             ->withCount([
                 'conceptos',
                 'asignaciones as asignaciones_count' => fn ($q) => $q->where('estatus', PlanCobroAlumno::ACTIVO),
@@ -80,6 +96,13 @@ class PlanCobroController extends Controller
 
         return Inertia::render('Finanzas/Planes/Index', [
             'planes' => $planes,
+            'filtros' => $filtros,
+            // Sólo los ciclos que tienen planes: ofrecer los demás es ofrecer un
+            // filtro cuyo resultado siempre sale vacío.
+            'ciclos' => Ciclo::query()
+                ->whereIn('id', PlanCobro::query()->whereNotNull('ciclo_id')->distinct()->pluck('ciclo_id'))
+                ->orderByDesc('fecha_inicio')
+                ->get(['id', 'nombre']),
         ]);
     }
 

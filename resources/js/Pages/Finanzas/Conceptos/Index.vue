@@ -6,6 +6,8 @@ import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
+import BarraListado from '@/Components/BarraListado.vue';
+import { ICONOS } from '@/iconos';
 
 interface Concepto {
     id: number;
@@ -23,7 +25,17 @@ interface Concepto {
 const props = defineProps<{
     conceptos: Concepto[];
     catalogos: { objeto_impuesto: { clave: string; texto: string }[] };
+    filtros: { busqueda: string; gravado: string | null };
 }>();
+
+/*
+ * Los filtros que de verdad se preguntan de un concepto: si causa IVA —lo que
+ * decide cómo sale en el CFDI— y su nombre o clave. El catálogo crece con los
+ * años y se consultaba entero, sin manera de encontrar nada.
+ */
+const definicionFiltros = [
+    { clave: 'gravado', etiqueta: 'Solo los que causan IVA', tipo: 'booleano' as const },
+];
 
 function vacio() {
     return {
@@ -78,21 +90,28 @@ const objImp = (clave: string | null) =>
     <Head title="Conceptos de pago" />
 
     <AppLayout titulo="Conceptos de pago">
-        <section class="tarjeta p-6">
-            <div class="flex flex-wrap items-start justify-between gap-4">
-                <div class="max-w-2xl">
-                    <h2 class="text-base font-semibold">Qué se cobra y cómo se factura</h2>
-                    <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                        Colegiatura, inscripción, credencial… Cada concepto lleva sus datos fiscales
-                        —clave del SAT, unidad, <strong>objeto de impuesto</strong> y si causa IVA— para que
-                        el CFDI salga bien sin capturarlos en cada factura.
-                    </p>
-                </div>
-                <BotonAccion v-if="!creando" variante="nuevo" texto="Nuevo concepto" @click="creando = true" />
-            </div>
+        <BarraListado
+            url="/finanzas/conceptos"
+            :valores="filtros"
+            :filtros="definicionFiltros"
+            placeholder="Buscar por nombre, clave o clave del SAT…"
+            titulo="Qué se cobra y cómo se factura"
+            descripcion="Cada concepto lleva sus datos fiscales —clave del SAT, unidad, objeto de impuesto y si causa IVA— para que el CFDI salga bien sin capturarlos en cada factura."
+            :icono="ICONOS.dinero"
+            :puede-crear="!creando"
+            nuevo-texto="Nuevo concepto"
+            @nuevo="creando = true"
+        >
+            <template #conteo>
+                <span class="rounded-full px-3 py-1 text-xs font-medium" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }">
+                    {{ conceptos.length }} {{ conceptos.length === 1 ? 'concepto' : 'conceptos' }}
+                </span>
+            </template>
+        </BarraListado>
 
-            <!-- Alta -->
-            <form v-if="creando" class="mt-5 border-t pt-5" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="crear">
+        <!-- Alta: en la misma pantalla, para no perder de vista el catálogo. -->
+        <section v-if="creando" class="tarjeta p-6">
+            <form @submit.prevent="crear">
                 <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
                     <CampoTexto v-model="alta.clave" etiqueta="Clave" mono requerido :error="alta.errors.clave" />
                     <div class="lg:col-span-2">

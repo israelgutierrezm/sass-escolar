@@ -9,6 +9,7 @@ import CampoCasillas from '@/Components/CampoCasillas.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
+import BarraListado from '@/Components/BarraListado.vue';
 import { ICONOS } from '@/iconos';
 
 interface Descuento {
@@ -31,7 +32,22 @@ const props = defineProps<{
     descuentos: Descuento[];
     catalogoConceptos: { id: number; nombre: string }[];
     tipos: { valor: string; etiqueta: string }[];
+    filtros: { busqueda: string; tipo: string | null; activo: string | null };
 }>();
+
+/*
+ * Lo que se pregunta al buscar un descuento: de qué tipo es y si sigue vivo.
+ * Es la forma de contestar «qué le puedo aplicar a este alumno hoy» sin leer
+ * la lista entera.
+ */
+const definicionFiltros = computed(() => [
+    {
+        clave: 'tipo',
+        etiqueta: 'Tipo',
+        opciones: props.tipos.map((t) => ({ valor: t.valor, texto: t.etiqueta })),
+    },
+    { clave: 'activo', etiqueta: 'Solo activos', tipo: 'booleano' as const },
+]);
 
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
 
@@ -115,19 +131,24 @@ const colorTipo: Record<string, string> = {
     <Head title="Descuentos" />
 
     <AppLayout titulo="Descuentos">
-        <section class="tarjeta p-6">
-            <div class="flex flex-wrap items-start justify-between gap-4">
-                <div class="max-w-2xl">
-                    <h2 class="text-base font-semibold">Descuentos comerciales</h2>
-                    <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                        Lo contrario al recargo. A diferencia de una beca, no se le otorga a nadie: depende de
-                        <strong>cuándo o cómo paga</strong>. El de pago anticipado premia pagar antes del límite;
-                        el de campaña vive en una ventana de fechas.
-                    </p>
-                </div>
-                <BotonAccion v-if="!creando && editando === null" variante="nuevo" texto="Nuevo descuento" @click="abrirNuevo" />
-            </div>
-        </section>
+        <BarraListado
+            url="/finanzas/descuentos"
+            :valores="filtros"
+            :filtros="definicionFiltros"
+            placeholder="Buscar por nombre o clave…"
+            titulo="Descuentos comerciales"
+            descripcion="Lo contrario al recargo. A diferencia de una beca, no se le otorga a nadie: depende de cuándo o cómo paga. El de pago anticipado premia pagar antes del límite; el de campaña vive en una ventana de fechas."
+            :icono="ICONOS.dinero"
+            :puede-crear="!creando && editando === null"
+            nuevo-texto="Nuevo descuento"
+            @nuevo="abrirNuevo"
+        >
+            <template #conteo>
+                <span class="rounded-full px-3 py-1 text-xs font-medium" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }">
+                    {{ descuentos.length }} {{ descuentos.length === 1 ? 'descuento' : 'descuentos' }}
+                </span>
+            </template>
+        </BarraListado>
 
         <!-- Alta / edición -->
         <form v-if="creando || editando !== null" @submit.prevent="guardar">
