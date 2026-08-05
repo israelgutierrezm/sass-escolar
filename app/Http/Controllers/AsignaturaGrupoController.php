@@ -140,6 +140,70 @@ class AsignaturaGrupoController extends Controller
         return back()->with('exito', 'Docente asignado.');
     }
 
+    /**
+     * Asigna el MISMO docente a varias materias del grupo de una vez.
+     *
+     * Abrir un grupo son diez o doce materias y el aviso «11 sin docente — nadie
+     * podría firmar esas actas» se resolvía con once diálogos idénticos: elegir
+     * al mismo profesor once veces. Al empezar un ciclo, eso se multiplica por
+     * todos los grupos de la escuela.
+     *
+     * Las materias que YA tienen titular no se tocan ni hacen fallar la
+     * operación: se informa cuántas se saltaron. Lo contrario obligaría a
+     * deseleccionarlas a mano —volviendo al problema— o dejaría a medias una
+     * asignación de doce por culpa de una.
+     */
+    public function asignarDocenteEnLote(Request $request, Grupo $grupo): RedirectResponse
+    {
+        $datos = $request->validate([
+            'persona_id' => ['required', 'integer', Rule::exists('docentes', 'persona_id')],
+            'tipo' => ['required', Rule::in(['titular', 'adjunto'])],
+            'asignatura_ids' => ['required', 'array', 'min:1'],
+            'asignatura_ids.*' => ['integer'],
+        ], [], ['persona_id' => 'docente', 'asignatura_ids' => 'materias']);
+
+        // Sólo materias de ESTE grupo: los ids llegan del cliente.
+        $materias = AsignaturaGrupo::query()
+            ->where('grupo_id', $grupo->id)
+            ->whereIn('id', $datos['asignatura_ids'])
+            ->with('docentes')
+            ->get();
+
+        $asignadas = 0;
+        $ocupadas = 0;
+
+        foreach ($materias as $materia) {
+            // Un titular por materia: es quien firma el acta.
+            $tieneOtroTitular = $datos['tipo'] === 'titular'
+                && $materia->docentes->contains(
+                    fn ($d) => $d->pivot->tipo === 'titular' && $d->persona_id !== (int) $datos['persona_id'],
+                );
+
+            if ($tieneOtroTitular) {
+                $ocupadas++;
+
+                continue;
+            }
+
+            $materia->docentes()->syncWithoutDetaching([
+                $datos['persona_id'] => ['tipo' => $datos['tipo']],
+            ]);
+            $asignadas++;
+        }
+
+        $mensaje = $asignadas === 1
+            ? 'Se asignó el docente a 1 materia.'
+            : "Se asignó el docente a {$asignadas} materias.";
+
+        if ($ocupadas > 0) {
+            $mensaje .= $ocupadas === 1
+                ? ' 1 se omitió porque ya tenía titular.'
+                : " {$ocupadas} se omitieron porque ya tenían titular.";
+        }
+
+        return back()->with($asignadas > 0 ? 'exito' : 'advertencia', $mensaje);
+    }
+
     public function quitarDocente(Grupo $grupo, AsignaturaGrupo $asignatura, int $personaId): RedirectResponse
     {
         abort_unless($asignatura->grupo_id === $grupo->id, 404);

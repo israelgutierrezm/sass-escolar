@@ -252,6 +252,44 @@ function quitarMateria(asignatura: MateriaAbierta): void {
     router.delete(`/escolar/grupos/${props.grupo.id}/materias/${asignatura.id}`, { preserveScroll: true });
 }
 
+/*
+ * Asignar el MISMO docente a varias materias de un tirón.
+ *
+ * Abrir un grupo son diez o doce materias y el aviso «11 sin docente» se
+ * resolvía con once diálogos idénticos: elegir al mismo profesor once veces. Al
+ * empezar un ciclo eso se multiplica por todos los grupos de la escuela.
+ */
+const enLote = ref(false);
+const formLote = useForm({ persona_id: null as number | null, tipo: 'titular', asignatura_ids: [] as number[] });
+
+function alternarLote(): void {
+    enLote.value = !enLote.value;
+    formLote.reset();
+    formLote.clearErrors();
+
+    // Al abrir vienen marcadas las que no tienen docente, que es a lo que se
+    // entra a esta pantalla: el resto se marca a mano si hace falta.
+    if (enLote.value) {
+        formLote.asignatura_ids = props.asignaturas.filter((a) => !a.docentes_asignados.length).map((a) => a.id);
+    }
+}
+
+function alternarMateriaDelLote(id: number): void {
+    formLote.asignatura_ids = formLote.asignatura_ids.includes(id)
+        ? formLote.asignatura_ids.filter((x) => x !== id)
+        : [...formLote.asignatura_ids, id];
+}
+
+function asignarEnLote(): void {
+    formLote.post(`/escolar/grupos/${props.grupo.id}/docentes-en-lote`, {
+        preserveScroll: true,
+        onSuccess: () => {
+            formLote.reset();
+            enLote.value = false;
+        },
+    });
+}
+
 function asignarDocente(asignaturaId: number): void {
     formDocente.post(`/escolar/grupos/${props.grupo.id}/materias/${asignaturaId}/docentes`, {
         preserveScroll: true,
@@ -371,6 +409,17 @@ const urlInscribir = computed(
                 <div class="flex items-center gap-2">
                     <SelectorVista v-if="asignaturas.length" v-model="vista" clave="grupo-materias" />
                     <button
+                        v-if="puedeEditar && asignaturas.length && docentes.length"
+                        type="button"
+                        class="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors"
+                        :style="enLote
+                            ? { borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }
+                            : { borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
+                        @click="alternarLote"
+                    >
+                        {{ enLote ? 'Cerrar' : 'Asignar docente a varias' }}
+                    </button>
+                    <button
                         v-if="puedeEditar && materiasDisponibles.length"
                         type="button"
                         class="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors"
@@ -387,6 +436,93 @@ const urlInscribir = computed(
                     </span>
                 </div>
             </header>
+
+            <!--
+                Panel de asignación en lote.
+                Arranca con las materias sin docente ya marcadas: es a lo que se
+                entra aquí. Las que ya tienen titular se pueden marcar igual —el
+                servidor las omite e informa cuántas—, porque obligar a
+                deseleccionarlas a mano devuelve el trabajo que este panel quita.
+            -->
+            <form
+                v-if="enLote && puedeEditar"
+                class="space-y-4 border-t border-borde px-6 py-5"
+                @submit.prevent="asignarEnLote"
+            >
+                <div class="flex flex-wrap items-end gap-3">
+                    <div class="min-w-64 flex-1">
+                        <CampoBuscador
+                            v-model="formLote.persona_id"
+                            etiqueta="Docente"
+                            :opciones="docentes.map((d) => ({ valor: d.id, texto: d.nombre ?? '' }))"
+                            marcador="Busca por nombre o apellido…"
+                            vacio="No hay docentes dados de alta."
+                            :error="formLote.errors.persona_id"
+                        />
+                    </div>
+                    <div class="w-40">
+                        <CampoSelect
+                            v-model="formLote.tipo"
+                            etiqueta="Tipo"
+                            :opciones="[
+                                { valor: 'titular', texto: 'Titular' },
+                                { valor: 'adjunto', texto: 'Adjunto' },
+                            ]"
+                            :error="formLote.errors.tipo"
+                        />
+                    </div>
+                </div>
+
+                <div>
+                    <p class="mb-2 text-sm font-medium text-contenido">
+                        ¿A cuáles?
+                        <span class="font-normal text-suave">
+                            {{ formLote.asignatura_ids.length }} de {{ asignaturas.length }} seleccionadas
+                        </span>
+                    </p>
+
+                    <div class="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+                        <label
+                            v-for="a in asignaturas"
+                            :key="a.id"
+                            class="flex items-start gap-2 rounded-lg border border-borde px-3 py-2 text-sm"
+                        >
+                            <input
+                                type="checkbox"
+                                class="mt-0.5"
+                                :checked="formLote.asignatura_ids.includes(a.id)"
+                                @change="alternarMateriaDelLote(a.id)"
+                            >
+                            <span class="min-w-0">
+                                <span class="block truncate">{{ a.materia }}</span>
+                                <!-- Quién la da ya, para no asignar a ciegas. -->
+                                <span class="block truncate text-xs text-suave">
+                                    <template v-if="a.docentes_asignados.length">
+                                        {{ a.docentes_asignados.map((d) => `${d.nombre} (${d.tipo})`).join(', ') }}
+                                    </template>
+                                    <template v-else>Sin docente</template>
+                                </span>
+                            </span>
+                        </label>
+                    </div>
+
+                    <p v-if="formLote.errors.asignatura_ids" class="mt-1 text-xs text-red-600">
+                        {{ formLote.errors.asignatura_ids }}
+                    </p>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <BotonPrincipal
+                        :procesando="formLote.processing"
+                        :deshabilitado="!formLote.asignatura_ids.length"
+                        texto="Asignar a las seleccionadas"
+                        icono="crear"
+                    />
+                    <button type="button" class="rounded-lg border border-borde px-4 py-2 text-sm" @click="alternarLote">
+                        Cancelar
+                    </button>
+                </div>
+            </form>
 
             <!-- Panel de abrir materias, colapsado -->
             <form v-if="agregando && puedeEditar" class="space-y-4 border-t border-borde px-6 py-5" @submit.prevent="abrirMaterias">

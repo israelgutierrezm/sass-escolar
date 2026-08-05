@@ -766,6 +766,10 @@ Route::middleware([
                     Route::post('grupos/{grupo}/materias', [AsignaturaGrupoController::class, 'store'])->name('grupos.materias.store');
                     Route::delete('grupos/{grupo}/materias/{asignatura}', [AsignaturaGrupoController::class, 'destroy'])->name('grupos.materias.destroy');
                     Route::post('grupos/{grupo}/materias/{asignatura}/docentes', [AsignaturaGrupoController::class, 'asignarDocente'])->name('grupos.docentes.store');
+                    // El mismo docente a varias materias de un tirón: abrir un
+                    // grupo son diez o doce, y una por una son diez o doce
+                    // diálogos idénticos.
+                    Route::post('grupos/{grupo}/docentes-en-lote', [AsignaturaGrupoController::class, 'asignarDocenteEnLote'])->name('grupos.docentes.lote');
                     Route::delete('grupos/{grupo}/materias/{asignatura}/docentes/{persona}', [AsignaturaGrupoController::class, 'quitarDocente'])->name('grupos.docentes.destroy');
                 });
             });
