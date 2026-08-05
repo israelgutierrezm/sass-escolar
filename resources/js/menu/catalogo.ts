@@ -152,6 +152,9 @@ export const CATALOGO_MENU: GrupoMenu[] = [
         hijos: [
             { clave: 'ciclos', etiqueta: 'Ciclos', url: '/escolar/ciclos', permiso: 'ver-grupos' },
             { clave: 'grupos', etiqueta: 'Grupos', url: '/escolar/grupos', permiso: 'ver-grupos' },
+            // Va después de Grupos porque se inscribe EN un grupo, y antes se
+            // llegaba sólo entrando primero a uno.
+            { clave: 'inscripcion-masiva', etiqueta: 'Inscripción masiva', url: '/escolar/inscripciones/masiva', permiso: 'inscribir-alumnos' },
             { clave: 'tutorias', etiqueta: 'Tutorías', url: '/escolar/tutorias', permiso: 'gestionar-tutorias' },
             { clave: 'captura-admin', etiqueta: 'Captura', url: '/captura', permiso: 'capturar-calificaciones' },
         ],
