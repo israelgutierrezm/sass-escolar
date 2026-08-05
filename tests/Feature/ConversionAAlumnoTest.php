@@ -95,8 +95,9 @@ class ConversionAAlumnoTest extends TenantTestCase
             $this->fila('reglas_matricula', [
                 'ambito' => 'global',
                 'plantilla' => '{AAAA}-{####}',
-                'consecutivo_por' => null,
-                'consecutivo_anual' => true,
+                // Va por el query builder, que no castea: JSON a mano.
+                'consecutivo_dimensiones' => json_encode([]),
+                'consecutivo_reinicia' => 'anio',
                 'activo' => true,
             ]);
         }

@@ -23,8 +23,8 @@ class ReglaMatriculaSeeder extends Seeder
             ['ambito' => 'global', 'ambito_id' => null],
             [
                 'plantilla' => '{AAAA}-{####}',
-                'consecutivo_por' => null,
-                'consecutivo_anual' => true,
+                'consecutivo_dimensiones' => [],
+                'consecutivo_reinicia' => 'anio',
                 'activo' => true,
             ],
         );

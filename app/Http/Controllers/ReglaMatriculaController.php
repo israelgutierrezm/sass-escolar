@@ -9,6 +9,7 @@ use App\Models\Academico\Oferta;
 use App\Models\Academico\PlanEstudio;
 use App\Models\Admisiones\ContadorMatricula;
 use App\Models\Admisiones\ReglaMatricula;
+use App\Models\ControlEscolar\Ciclo;
 use App\Services\GeneradorMatricula;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -47,8 +48,8 @@ class ReglaMatriculaController extends Controller
                     'ambito_id' => $r->ambito_id,
                     'alcance' => $r->alcance(),
                     'plantilla' => $r->plantilla,
-                    'consecutivo_por' => $r->consecutivo_por,
-                    'consecutivo_anual' => $r->consecutivo_anual,
+                    'consecutivo_dimensiones' => $r->dimensiones(),
+                    'consecutivo_reinicia' => $r->consecutivo_reinicia,
                     'activo' => $r->activo,
                     // Cómo se vería hoy, con una oferta que esa regla cubra.
                     'ejemplo' => $this->ejemploDe($r),
@@ -64,14 +65,46 @@ class ReglaMatriculaController extends Controller
             'carreras' => Carrera::query()->orderBy('nombre')->get(['id', 'clave', 'nombre']),
             'planes' => PlanEstudio::query()->orderBy('nombre')->get(['id', 'clave', 'nombre']),
             'tokens' => ReglaMatricula::TOKENS,
-            'consecutivoPor' => ReglaMatricula::CONSECUTIVO_POR,
+            'dimensiones' => ReglaMatricula::CONSECUTIVO_DIMENSIONES,
+            'reinicios' => ReglaMatricula::REINICIOS,
+            'recortables' => ReglaMatricula::TOKENS_RECORTABLES,
+            'cicloEnCurso' => Ciclo::enCurso()?->clave,
             'puedeEditar' => $request->user()->can('configurar-matriculas'),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
-        ReglaMatricula::create($this->validar($request));
+        $datos = $this->validar($request);
+
+        /*
+         * Si ya hubo una regla para ese alcance y se borró, se REVIVE.
+         *
+         * El borrado es lógico —lo pone el trait de auditoría— pero el índice
+         * único de (ambito, ambito_id) no distingue: la fila en la papelera
+         * sigue ocupando el sitio. Crear otra para la misma carrera reventaba
+         * con un 1062 que la pantalla mostraba como un 500, y desde la interfaz
+         * no había forma de entenderlo porque la regla vieja no se ve.
+         *
+         * Revivir es además lo que se quiere decir: «esta carrera vuelve a
+         * numerarse aparte», con el formato que se acaba de capturar.
+         */
+        $enPapelera = ReglaMatricula::onlyTrashed()
+            ->where('ambito', $datos['ambito'])
+            ->when($datos['ambito_id'] === null,
+                fn ($q) => $q->whereNull('ambito_id'),
+                fn ($q) => $q->where('ambito_id', $datos['ambito_id']),
+            )
+            ->first();
+
+        if ($enPapelera !== null) {
+            $enPapelera->restore();
+            $enPapelera->update($datos);
+
+            return back()->with('exito', 'Regla de matrícula creada. Su contador seguía guardado y continúa donde iba.');
+        }
+
+        ReglaMatricula::create($datos);
 
         return back()->with('exito', 'Regla de matrícula creada.');
     }
@@ -180,8 +213,9 @@ class ReglaMatriculaController extends Controller
              * el resto de la plantilla es cosa de cada escuela.
              */
             'plantilla' => ['required', 'string', 'max:100', 'regex:/\{#+\}/'],
-            'consecutivo_por' => ['nullable', Rule::in(ReglaMatricula::CONSECUTIVO_POR)],
-            'consecutivo_anual' => ['boolean'],
+            'consecutivo_dimensiones' => ['array'],
+            'consecutivo_dimensiones.*' => [Rule::in(ReglaMatricula::CONSECUTIVO_DIMENSIONES)],
+            'consecutivo_reinicia' => ['required', Rule::in(ReglaMatricula::REINICIOS)],
             'activo' => ['boolean'],
         ], [
             'plantilla.regex' => 'La plantilla necesita un consecutivo: agrega {####} donde vaya el número.',
@@ -251,6 +285,7 @@ class ReglaMatriculaController extends Controller
             $partes[] = match ($tipo) {
                 'global' => 'Toda la escuela',
                 'anio' => "año {$valor}",
+                'ciclo' => 'ciclo '.(\App\Models\ControlEscolar\Ciclo::find($valor)?->nombre ?? $valor),
                 'campus' => 'campus '.(\App\Models\Academico\Campus::find($valor)?->nombre ?? $valor),
                 'nivel' => 'nivel '.(\App\Models\Academico\NivelEstudio::find($valor)?->nombre ?? $valor),
                 'carrera' => 'carrera '.(Carrera::find($valor)?->nombre ?? $valor),

@@ -30,8 +30,8 @@ interface Regla {
     ambito_id: number | null;
     alcance: string;
     plantilla: string;
-    consecutivo_por: string | null;
-    consecutivo_anual: boolean;
+    consecutivo_dimensiones: string[];
+    consecutivo_reinicia: string;
     activo: boolean;
     ejemplo: string | null;
 }
@@ -42,7 +42,11 @@ const props = defineProps<{
     carreras: { id: number; clave: string; nombre: string }[];
     planes: { id: number; clave: string; nombre: string }[];
     tokens: Record<string, string>;
-    consecutivoPor: string[];
+    dimensiones: string[];
+    reinicios: string[];
+    recortables: string[];
+    /** Clave del ciclo abierto, para que la vista previa muestre el de verdad. */
+    cicloEnCurso: string | null;
     puedeEditar: boolean;
 }>();
 
@@ -58,8 +62,8 @@ const form = useForm({
     ambito: 'global',
     ambito_id: null as number | null,
     plantilla: '{AAAA}{CARRERA}{####}',
-    consecutivo_por: null as string | null,
-    consecutivo_anual: true,
+    consecutivo_dimensiones: [] as string[],
+    consecutivo_reinicia: 'anio',
     activo: true,
 });
 
@@ -77,8 +81,8 @@ function editar(regla: Regla): void {
     form.ambito = regla.ambito;
     form.ambito_id = regla.ambito_id;
     form.plantilla = regla.plantilla;
-    form.consecutivo_por = regla.consecutivo_por;
-    form.consecutivo_anual = regla.consecutivo_anual;
+    form.consecutivo_dimensiones = [...regla.consecutivo_dimensiones];
+    form.consecutivo_reinicia = regla.consecutivo_reinicia;
     form.activo = regla.activo;
     abierto.value = true;
 }
@@ -117,27 +121,41 @@ function eliminar(regla: Regla): void {
  * se vea DÓNDE cae cada pieza, no que la clave sea la real. Se rellena con la
  * primera carrera y el primer plan que existan para que se parezca a lo suyo.
  */
-const muestra = computed(() => ({
-    '{AAAA}': String(new Date().getFullYear()),
-    '{AA}': String(new Date().getFullYear()).slice(-2),
-    '{NIVEL}': 'LIC',
-    '{CARRERA}': props.carreras[0]?.clave ?? 'ADM',
-    '{PLAN}': props.planes[0]?.clave ?? '2022',
-    '{CAMPUS}': 'CEN',
+const muestra = computed<Record<string, string>>(() => ({
+    AAAA: String(new Date().getFullYear()),
+    AA: String(new Date().getFullYear()).slice(-2),
+    MM: String(new Date().getMonth() + 1).padStart(2, '0'),
+    CICLO: props.cicloEnCurso ?? '2026-1',
+    NIVEL: 'LIC',
+    CARRERA: props.carreras[0]?.clave ?? 'ADM',
+    PLAN: props.planes[0]?.clave ?? '2022',
+    CAMPUS: 'CEN',
 }));
 
-/** La plantilla resuelta, con el consecutivo que se quiera probar. */
+/**
+ * La plantilla resuelta, con el consecutivo que se quiera probar.
+ *
+ * Repite a mano lo que hace `GeneradorMatricula::renderizar` en PHP, y es a
+ * propósito: la vista previa tiene que responder mientras se teclea, y un
+ * viaje al servidor por pulsación la volvería inútil. Las dos deben cambiar
+ * juntas — un token nuevo que sólo entienda una de ellas engaña a quien
+ * configura.
+ */
 function renderizar(plantilla: string, consecutivo: number): string {
-    let salida = plantilla;
+    const salida = plantilla.replace(/\{([A-Z]+)(?::(\d+))?\}/g, (crudo, token: string, corte?: string) => {
+        const valor = muestra.value[token];
 
-    for (const [token, valor] of Object.entries(muestra.value)) {
-        salida = salida.split(token).join(valor);
-    }
+        // Un token inventado se deja tal cual, para que se VEA que está mal
+        // escrito en vez de desaparecer sin decir nada. Igual que en el motor.
+        if (valor === undefined) {
+            return crudo;
+        }
+
+        return corte ? valor.slice(0, Number(corte)) : valor;
+    });
 
     return salida.replace(/\{(#+)\}/g, (_, gatos: string) => String(consecutivo).padStart(gatos.length, '0'));
 }
-
-const vistaPrevia = computed(() => renderizar(form.plantilla, 1));
 
 /** Tres seguidas: se entiende de un vistazo qué parte es la que avanza. */
 const secuencia = computed(() => [1, 2, 3].map((n) => renderizar(form.plantilla, n)));
@@ -171,19 +189,39 @@ function guardarAjuste(): void {
 
 // ── Textos ─────────────────────────────────────────────────────────────────
 
-const ETIQUETA_POR: Record<string, string> = {
-    campus: 'por campus',
-    nivel: 'por nivel de estudios',
-    carrera: 'por carrera',
-    plan: 'por plan de estudios',
+const ETIQUETA_DIMENSION: Record<string, string> = {
+    campus: 'campus',
+    nivel: 'nivel de estudios',
+    carrera: 'carrera',
+    plan: 'plan de estudios',
 };
 
-function describirConsecutivo(regla: Pick<Regla, 'consecutivo_por' | 'consecutivo_anual'>): string {
-    const sobre = regla.consecutivo_por === null
-        ? 'Uno solo para toda la escuela'
-        : `Uno ${ETIQUETA_POR[regla.consecutivo_por]}`;
+const ETIQUETA_REINICIO: Record<string, string> = {
+    nunca: 'histórico (no se reinicia nunca)',
+    anio: 'reiniciando cada año',
+    ciclo: 'reiniciando cada ciclo escolar',
+};
 
-    return `${sobre}, ${regla.consecutivo_anual ? 'reiniciando cada año' : 'histórico (no se reinicia)'}`;
+/**
+ * La regla dicha en una frase.
+ *
+ * Con dos desplegables y una lista de casillas es fácil configurar algo que no
+ * es lo que se quería; leerlo en español es lo que lo delata antes de guardar.
+ */
+function describirConsecutivo(regla: Pick<Regla, 'consecutivo_dimensiones' | 'consecutivo_reinicia'>): string {
+    const dims = regla.consecutivo_dimensiones ?? [];
+
+    const sobre = dims.length === 0
+        ? 'Uno solo para toda la escuela'
+        : `Uno por cada ${dims.map((d) => ETIQUETA_DIMENSION[d]).join(' + ')}`;
+
+    return `${sobre}, ${ETIQUETA_REINICIO[regla.consecutivo_reinicia]}`;
+}
+
+function alternarDimension(dimension: string): void {
+    form.consecutivo_dimensiones = form.consecutivo_dimensiones.includes(dimension)
+        ? form.consecutivo_dimensiones.filter((d) => d !== dimension)
+        : [...form.consecutivo_dimensiones, dimension];
 }
 
 const opcionesAmbito = [
@@ -192,10 +230,9 @@ const opcionesAmbito = [
     { valor: 'plan', texto: 'Un plan de estudios' },
 ];
 
-const opcionesPor = computed(() => [
-    { valor: null, texto: 'Uno solo para toda la escuela' },
-    ...props.consecutivoPor.map((p) => ({ valor: p, texto: `Uno ${ETIQUETA_POR[p]}` })),
-]);
+const opcionesReinicio = computed(() =>
+    props.reinicios.map((r) => ({ valor: r, texto: ETIQUETA_REINICIO[r] })),
+);
 
 const opcionesAlcance = computed(() =>
     (form.ambito === 'plan' ? props.planes : props.carreras).map((o) => ({
@@ -393,22 +430,42 @@ function copiar(texto: string): void {
                             El consecutivo
                         </p>
 
-                        <div class="grid gap-4 sm:grid-cols-2">
+                        <div class="grid gap-5 sm:grid-cols-2">
+                            <!--
+                                Casillas y no un desplegable: se pueden combinar.
+                                Una escuela con dos campus que además numera
+                                aparte cada carrera marca las dos, y el contador
+                                pasa a ser uno por cada par campus+carrera.
+                            -->
+                            <div>
+                                <p class="mb-1 block text-sm font-medium">Se cuenta por</p>
+                                <p class="mb-2 text-xs text-suave">
+                                    Sin marcar nada, un solo contador para toda la escuela.
+                                </p>
+                                <label
+                                    v-for="d in dimensiones"
+                                    :key="d"
+                                    class="fila-casilla text-sm"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        class="mt-0.5"
+                                        :checked="form.consecutivo_dimensiones.includes(d)"
+                                        @change="alternarDimension(d)"
+                                    />
+                                    <span class="capitalize">{{ ETIQUETA_DIMENSION[d] }}</span>
+                                </label>
+                                <p v-if="form.errors.consecutivo_dimensiones" class="mt-1 text-xs text-red-600">
+                                    {{ form.errors.consecutivo_dimensiones }}
+                                </p>
+                            </div>
+
                             <CampoSelect
-                                v-model="form.consecutivo_por"
-                                etiqueta="Se cuenta"
-                                :opciones="opcionesPor"
-                                ayuda="Con «uno por carrera», el alumno 1 de Derecho y el 1 de Medicina son distintos."
-                                :error="form.errors.consecutivo_por"
-                            />
-                            <CampoSelect
-                                v-model="form.consecutivo_anual"
-                                etiqueta="Y se reinicia"
-                                :opciones="[
-                                    { valor: true, texto: 'Cada año (vuelve al 1 en enero)' },
-                                    { valor: false, texto: 'Nunca: histórico' },
-                                ]"
-                                :error="form.errors.consecutivo_anual"
+                                v-model="form.consecutivo_reinicia"
+                                etiqueta="Y vuelve al 1"
+                                :opciones="opcionesReinicio"
+                                ayuda="Por ciclo es para las escuelas cuatrimestrales: no reinician en enero, sino cuando empieza el cuatrimestre."
+                                :error="form.errors.consecutivo_reinicia"
                             />
                         </div>
 

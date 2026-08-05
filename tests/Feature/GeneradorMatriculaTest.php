@@ -140,7 +140,7 @@ class GeneradorMatriculaTest extends TenantTestCase
     {
         $oferta = $this->ofertaDePrueba();
 
-        $this->regla('global', null, '{AAAA}-{###}', consecutivoAnual: true);
+        $this->regla('global', null, '{AAAA}-{###}', reinicia: 'anio');
 
         $this->assertSame('2026-001', $this->generador->generar($oferta, anio: 2026));
         $this->assertSame('2026-002', $this->generador->generar($oferta, anio: 2026));
@@ -151,7 +151,7 @@ class GeneradorMatriculaTest extends TenantTestCase
     {
         $oferta = $this->ofertaDePrueba();
 
-        $this->regla('global', null, '{AAAA}-{###}', consecutivoAnual: false);
+        $this->regla('global', null, '{AAAA}-{###}', reinicia: 'nunca');
 
         $this->generador->generar($oferta, anio: 2026);
 
@@ -163,7 +163,7 @@ class GeneradorMatriculaTest extends TenantTestCase
         $primera = $this->ofertaDePrueba();
         $segunda = $this->ofertaDePrueba();
 
-        $this->regla('global', null, 'M{###}', consecutivoPor: 'carrera', consecutivoAnual: false);
+        $this->regla('global', null, 'M{###}', dimensiones: ['carrera'], reinicia: 'nunca');
 
         $this->assertSame('M001', $this->generador->generar($primera, anio: 2026));
         $this->assertSame('M002', $this->generador->generar($primera, anio: 2026));
@@ -176,7 +176,7 @@ class GeneradorMatriculaTest extends TenantTestCase
 
         // Un valor que la pantalla no ofrece pero que podría llegar de una
         // migración a medias o de una edición a mano en la base.
-        $this->regla('global', null, 'M{###}')->update(['consecutivo_por' => 'lo_que_sea']);
+        $this->regla('global', null, 'M{###}')->update(['consecutivo_dimensiones' => ['lo_que_sea']]);
 
         $this->expectException(RuntimeException::class);
         $this->generador->generar($oferta, anio: 2026);
@@ -209,7 +209,7 @@ class GeneradorMatriculaTest extends TenantTestCase
     {
         $oferta = $this->ofertaDePrueba();
 
-        $this->regla('global', null, '{AAAA}{CARRERA}{####}', consecutivoPor: 'carrera', consecutivoAnual: false);
+        $this->regla('global', null, '{AAAA}{CARRERA}{####}', dimensiones: ['carrera'], reinicia: 'nunca');
 
         $this->generador->generar($oferta, anio: 2026);
 
@@ -225,7 +225,7 @@ class GeneradorMatriculaTest extends TenantTestCase
     {
         $oferta = $this->ofertaDePrueba();
 
-        $this->regla('global', null, '{CARRERA}{AAAA}{####}', consecutivoPor: 'campus');
+        $this->regla('global', null, '{CARRERA}{AAAA}{####}', dimensiones: ['campus']);
 
         $this->assertSame($oferta->carrera->clave.'20260001', $this->generador->generar($oferta, anio: 2026));
         $this->assertSame($oferta->carrera->clave.'20260002', $this->generador->generar($oferta, anio: 2026));
@@ -247,7 +247,7 @@ class GeneradorMatriculaTest extends TenantTestCase
         $primera = $this->ofertaDePrueba();
         $segunda = $this->ofertaDePrueba();
 
-        $this->regla('global', null, 'C{###}', consecutivoPor: 'campus');
+        $this->regla('global', null, 'C{###}', dimensiones: ['campus']);
 
         $this->assertSame('C001', $this->generador->generar($primera, anio: 2026));
         $this->assertSame('C002', $this->generador->generar($primera, anio: 2026));
@@ -258,7 +258,7 @@ class GeneradorMatriculaTest extends TenantTestCase
     {
         $oferta = $this->ofertaDePrueba();
 
-        $this->regla('global', null, 'N{###}', consecutivoPor: 'nivel', consecutivoAnual: false);
+        $this->regla('global', null, 'N{###}', dimensiones: ['nivel'], reinicia: 'nunca');
 
         $this->assertSame('N001', $this->generador->generar($oferta, anio: 2026));
         $this->assertSame('N002', $this->generador->generar($oferta, anio: 2027), 'Histórico: el año no lo reinicia.');
@@ -297,19 +297,152 @@ class GeneradorMatriculaTest extends TenantTestCase
         $this->assertSame('2026-0002', $this->generador->previsualizar($oferta, anio: 2026));
     }
 
+    // ── Contar sobre varias dimensiones ────────────────────────────────────
+
+    /**
+     * Dos campus que ADEMÁS numeran aparte cada carrera.
+     *
+     * Con una sola dimensión no se podía escribir: o contabas por campus o por
+     * carrera. Es el caso que motivó pasar a lista.
+     */
+    public function test_se_puede_contar_por_campus_y_carrera_a_la_vez(): void
+    {
+        $primera = $this->ofertaDePrueba();
+        $segunda = $this->ofertaDePrueba();
+
+        $this->regla('global', null, 'X{###}', dimensiones: ['campus', 'carrera'], reinicia: 'nunca');
+
+        $this->assertSame('X001', $this->generador->generar($primera, anio: 2026));
+        $this->assertSame('X002', $this->generador->generar($primera, anio: 2026));
+        $this->assertSame('X001', $this->generador->generar($segunda, anio: 2026), 'Otro par campus+carrera.');
+    }
+
+    /**
+     * El orden en que se marcaron las casillas NO cambia la llave.
+     *
+     * Si dependiera de él, editar la regla y volver a marcar lo mismo en otro
+     * orden abriría un contador nuevo y la numeración empezaría otra vez en 1.
+     */
+    public function test_el_orden_en_que_se_eligieron_las_dimensiones_no_importa(): void
+    {
+        $oferta = $this->ofertaDePrueba();
+        $regla = $this->regla('global', null, 'X{###}', dimensiones: ['campus', 'carrera'], reinicia: 'nunca');
+
+        $primera = $this->generador->claveContador($regla, $oferta, 2026);
+
+        $regla->update(['consecutivo_dimensiones' => ['carrera', 'campus']]);
+
+        $this->assertSame($primera, $this->generador->claveContador($regla->fresh(), $oferta, 2026));
+    }
+
+    /** Una dimensión que el sistema no conoce revienta, no se ignora. */
+    public function test_una_dimension_invalida_no_se_traga_en_silencio(): void
+    {
+        $oferta = $this->ofertaDePrueba();
+
+        $this->regla('global', null, 'X{###}')->update(['consecutivo_dimensiones' => ['campus', 'lo_que_sea']]);
+
+        $this->expectException(RuntimeException::class);
+        $this->generador->generar($oferta, anio: 2026);
+    }
+
+    // ── Reinicio por ciclo escolar ─────────────────────────────────────────
+
+    /**
+     * Una escuela cuatrimestral no reinicia en enero, sino cuando empieza el
+     * cuatrimestre. Dos ciclos distintos, dos cuentas, dentro del MISMO año.
+     */
+    public function test_el_reinicio_por_ciclo_no_depende_del_anio(): void
+    {
+        $oferta = $this->ofertaDePrueba();
+        $regla = $this->regla('global', null, 'C{###}', reinicia: 'ciclo');
+
+        $enero = $this->cicloVigente('2026-01-01', '2026-04-30');
+        $this->assertSame('C001', $this->generador->generar($oferta, anio: 2026));
+        $this->assertSame('C002', $this->generador->generar($oferta, anio: 2026));
+
+        // Se cierra el primero y se abre el siguiente, dentro del mismo año.
+        DB::table('ciclos')->where('id', $enero)->update(['fecha_fin' => '2026-01-02']);
+        $this->cicloVigente('2026-05-01', '2026-08-31');
+
+        $this->assertSame(
+            'C001',
+            $this->generador->generar($oferta, anio: 2026),
+            'Ciclo nuevo, cuenta nueva: el año no tiene nada que ver.',
+        );
+        $this->assertNotNull($regla->id);
+    }
+
+    /** Sin ciclo abierto se cae al año: no numerar no es una opción. */
+    public function test_sin_ciclo_abierto_el_reinicio_por_ciclo_usa_el_anio(): void
+    {
+        $oferta = $this->ofertaDePrueba();
+        $regla = $this->regla('global', null, 'C{###}', reinicia: 'ciclo');
+
+        $this->assertSame("global|anio:2026", $this->generador->claveContador($regla, $oferta, 2026));
+    }
+
+    // ── Recorte de tokens ──────────────────────────────────────────────────
+
+    /**
+     * `{CARRERA:2}` deja las dos primeras letras.
+     *
+     * Hay escuelas cuya clave de carrera mide cinco caracteres y en la
+     * matrícula sólo caben dos; sin recorte, el único camino era inventarse una
+     * clave falsa en el catálogo para que cupiera.
+     */
+    public function test_un_token_se_puede_recortar(): void
+    {
+        $oferta = $this->ofertaDePrueba();
+
+        $this->regla('global', null, '{CARRERA:3}-{###}');
+
+        $this->assertSame(
+            mb_substr($oferta->carrera->clave, 0, 3).'-001',
+            $this->generador->generar($oferta, anio: 2026),
+        );
+    }
+
+    /** Un token mal escrito se queda a la vista en vez de desaparecer. */
+    public function test_un_token_inventado_no_se_borra(): void
+    {
+        $oferta = $this->ofertaDePrueba();
+
+        $this->regla('global', null, '{INVENTADO}-{###}');
+
+        $this->assertSame('{INVENTADO}-001', $this->generador->generar($oferta, anio: 2026));
+    }
+
     // ── Andamiaje ──────────────────────────────────────────────────────────
+
+    /** Un ciclo abierto que cubre hoy, para el reinicio por ciclo. */
+    private function cicloVigente(string $inicio, string $fin): int
+    {
+        return $this->fila('ciclos', [
+            'clave' => 'CIC-'.uniqid(),
+            'nombre' => 'Ciclo de prueba',
+            // Tiene que estar vigente HOY: `Ciclo::enCurso()` mira la fecha real.
+            'fecha_inicio' => now()->subDay()->toDateString(),
+            'fecha_fin' => now()->addMonths(3)->toDateString(),
+            'situacion_id' => $this->deCatalogo('situaciones_ciclo'),
+        ]);
+    }
+
 
     private function ofertaDePrueba(): Oferta
     {
         return Oferta::with(['carrera', 'plan', 'campus'])->findOrFail($this->alumnoInscrito()['oferta']);
     }
 
+    /**
+     * @param  array<int, string>  $dimensiones
+     */
     private function regla(
         string $ambito,
         ?int $ambitoId,
         string $plantilla,
-        ?string $consecutivoPor = null,
-        bool $consecutivoAnual = true,
+        array $dimensiones = [],
+        string $reinicia = 'anio',
         bool $activo = true,
     ): ReglaMatricula {
         return ReglaMatricula::create([
@@ -317,8 +450,8 @@ class GeneradorMatriculaTest extends TenantTestCase
             'ambito' => $ambito,
             'ambito_id' => $ambitoId,
             'plantilla' => $plantilla,
-            'consecutivo_por' => $consecutivoPor,
-            'consecutivo_anual' => $consecutivoAnual,
+            'consecutivo_dimensiones' => $dimensiones,
+            'consecutivo_reinicia' => $reinicia,
             'activo' => $activo,
         ]);
     }

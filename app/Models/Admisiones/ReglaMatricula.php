@@ -27,10 +27,18 @@ class ReglaMatricula extends Model
     public const AMBITOS = ['plan', 'carrera', 'global'];
 
     /**
-     * Sobre qué se cuenta. NULL —«general»— es un solo contador para toda la
-     * escuela; el resto abre un contador por cada campus, nivel, carrera o plan.
+     * Sobre qué se cuenta. Lista VACÍA es un solo contador para toda la
+     * escuela; con dimensiones, un contador por cada combinación.
+     *
+     * El orden importa y es éste, no el que el usuario haya elegido en
+     * pantalla: la llave del contador se arma con él, y si dependiera del orden
+     * de captura, «campus+carrera» y «carrera+campus» abrirían dos contadores
+     * distintos para la misma regla.
      */
-    public const CONSECUTIVO_POR = ['campus', 'nivel', 'carrera', 'plan'];
+    public const CONSECUTIVO_DIMENSIONES = ['campus', 'nivel', 'carrera', 'plan'];
+
+    /** Cada cuándo vuelve al 1. */
+    public const REINICIOS = ['nunca', 'anio', 'ciclo'];
 
     /**
      * Los tokens que la plantilla puede usar, con lo que significan.
@@ -43,12 +51,21 @@ class ReglaMatricula extends Model
     public const TOKENS = [
         '{AAAA}' => 'Año en cuatro dígitos (2026)',
         '{AA}' => 'Año en dos dígitos (26)',
+        '{MM}' => 'Mes en dos dígitos (08)',
+        '{CICLO}' => 'Clave del ciclo escolar en curso',
         '{NIVEL}' => 'Clave del nivel de estudios (LIC, MAE…)',
         '{CARRERA}' => 'Clave de la carrera',
         '{PLAN}' => 'Clave del plan de estudios',
         '{CAMPUS}' => 'Clave del campus',
         '{####}' => 'Consecutivo. Tantos dígitos como «#» pongas: {####} → 0007',
     ];
+
+    /**
+     * Los tokens de texto admiten recorte: `{CARRERA:2}` deja las 2 primeras
+     * letras de la clave. Es para las escuelas cuya clave de carrera mide
+     * cinco caracteres y en la matrícula sólo caben dos.
+     */
+    public const TOKENS_RECORTABLES = ['{NIVEL}', '{CARRERA}', '{PLAN}', '{CAMPUS}', '{CICLO}'];
 
     protected $table = 'reglas_matricula';
 
@@ -57,8 +74,8 @@ class ReglaMatricula extends Model
         'ambito',
         'ambito_id',
         'plantilla',
-        'consecutivo_por',
-        'consecutivo_anual',
+        'consecutivo_dimensiones',
+        'consecutivo_reinicia',
         'activo',
     ];
 
@@ -66,8 +83,27 @@ class ReglaMatricula extends Model
     {
         return [
             'activo' => 'boolean',
-            'consecutivo_anual' => 'boolean',
+            'consecutivo_dimensiones' => 'array',
         ];
+    }
+
+    /**
+     * Las dimensiones en el orden canónico, sin repetidas ni desconocidas.
+     *
+     * Lo que llega de la pantalla viene en el orden en que se marcaron las
+     * casillas; la llave del contador necesita uno estable. Ver la nota en
+     * `CONSECUTIVO_DIMENSIONES`.
+     *
+     * @return array<int, string>
+     */
+    public function dimensiones(): array
+    {
+        $elegidas = $this->consecutivo_dimensiones ?? [];
+
+        return array_values(array_filter(
+            self::CONSECUTIVO_DIMENSIONES,
+            fn (string $d) => in_array($d, $elegidas, true),
+        ));
     }
 
     /**

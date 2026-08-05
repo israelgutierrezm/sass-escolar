@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\Academico\Oferta;
 use App\Models\Admisiones\ReglaMatricula;
+use App\Models\ControlEscolar\Ciclo;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -114,28 +115,79 @@ class GeneradorMatricula
     }
 
     /**
-     * Llave del contador: define cada cuánto se reinicia la numeración y sobre
-     * qué se cuenta.
+     * Llave del contador: sobre qué se cuenta y cada cuándo vuelve al 1.
      *
-     * Son dos decisiones independientes —sobre qué, y si se reinicia cada año—,
-     * así que la llave se arma juntando las dos partes. Su formato importa:
-     * cambiarlo reiniciaría de facto todos los contadores de la escuela, porque
-     * las filas viejas dejarían de encontrarse.
+     * Se arma con las dimensiones en su orden canónico y, al final, el reinicio.
+     * Ese formato IMPORTA y no se puede tocar a la ligera: cambiarlo reiniciaría
+     * de facto todos los contadores de la escuela, porque las filas viejas
+     * dejarían de encontrarse y la numeración volvería a empezar en 1 contra
+     * matrículas ya impresas.
+     *
+     * Sin dimensiones la llave es «global», que es la misma cadena que producía
+     * la versión de una sola dimensión: por eso pasar de una a varias no
+     * requirió renombrar nada.
      */
     public function claveContador(ReglaMatricula $regla, Oferta $oferta, int $anio): string
     {
-        $sobre = match ($regla->consecutivo_por) {
-            null => 'global',
+        /*
+         * Se recorren las dimensiones GUARDADAS, no las que `dimensiones()`
+         * deja pasar.
+         *
+         * `dimensiones()` filtra a las conocidas para fijar el orden, y con eso
+         * una dimensión inválida —de una migración a medias o de una edición a
+         * mano en la base— se caería en silencio: la llave tendría una parte
+         * menos y los alumnos se numerarían sobre un contador más ancho del que
+         * la escuela cree. Un folio mal puesto sin avisar es peor que no poder
+         * numerar, así que aquí se revienta.
+         */
+        $desconocidas = array_diff(
+            $regla->consecutivo_dimensiones ?? [],
+            ReglaMatricula::CONSECUTIVO_DIMENSIONES,
+        );
+
+        if ($desconocidas !== []) {
+            throw new RuntimeException(
+                'Dimensión de consecutivo no reconocida: '.implode(', ', $desconocidas)
+            );
+        }
+
+        $partes = array_map(
+            fn (string $dimension) => $this->parteDe($dimension, $oferta),
+            $regla->dimensiones(),
+        );
+
+        if ($partes === []) {
+            $partes = ['global'];
+        }
+
+        $reinicio = match ($regla->consecutivo_reinicia) {
+            'nunca' => null,
+            'anio' => "anio:{$anio}",
+            // El ciclo escolar, para las escuelas que no piensan en años
+            // naturales: una cuatrimestral reinicia en el cuatrimestre que
+            // empieza, no en enero. Sin ciclo abierto se cae al año, que es lo
+            // único que siempre se sabe —y no numerar no es una opción—.
+            'ciclo' => ($ciclo = Ciclo::enCurso()) !== null ? "ciclo:{$ciclo->id}" : "anio:{$anio}",
+            default => throw new RuntimeException(
+                "Reinicio de consecutivo no reconocido: {$regla->consecutivo_reinicia}"
+            ),
+        };
+
+        return implode('|', $reinicio === null ? $partes : [...$partes, $reinicio]);
+    }
+
+    /** El trozo de llave de una dimensión. */
+    private function parteDe(string $dimension, Oferta $oferta): string
+    {
+        return match ($dimension) {
             'campus' => "campus:{$oferta->campus_id}",
             'nivel' => 'nivel:'.($oferta->carrera?->nivel_estudios_id ?? 0),
             'carrera' => "carrera:{$oferta->carrera_id}",
             'plan' => "plan:{$oferta->plan_id}",
             default => throw new RuntimeException(
-                "Ámbito de consecutivo no reconocido: {$regla->consecutivo_por}"
+                "Dimensión de consecutivo no reconocida: {$dimension}"
             ),
         };
-
-        return $regla->consecutivo_anual ? "{$sobre}|anio:{$anio}" : $sobre;
     }
 
     /**
@@ -171,19 +223,43 @@ class GeneradorMatricula
     }
 
     /**
-     * Sustituye los tokens de la plantilla. El consecutivo se rellena con
-     * ceros según la cantidad de "#" del token: {####} → 0007.
+     * Sustituye los tokens de la plantilla.
+     *
+     * Dos formas: `{CARRERA}` pone la clave entera y `{CARRERA:2}` sus dos
+     * primeras letras. El recorte existe porque hay escuelas cuya clave de
+     * carrera mide cinco caracteres y en la matrícula sólo caben dos; sin él,
+     * el único camino era inventarse una clave falsa en el catálogo.
+     *
+     * El consecutivo va aparte, con su propio token: se rellena con ceros según
+     * la cantidad de «#», {####} → 0007.
      */
     private function renderizar(string $plantilla, Oferta $oferta, int $anio, int $consecutivo): string
     {
-        $salida = strtr($plantilla, [
-            '{AAAA}' => (string) $anio,
-            '{AA}' => substr((string) $anio, -2),
-            '{NIVEL}' => (string) $oferta->carrera?->nivelEstudios?->clave,
-            '{CARRERA}' => (string) $oferta->carrera?->clave,
-            '{PLAN}' => (string) $oferta->plan?->clave,
-            '{CAMPUS}' => (string) $oferta->campus?->clave,
-        ]);
+        $valores = [
+            'AAAA' => (string) $anio,
+            'AA' => substr((string) $anio, -2),
+            'MM' => now()->format('m'),
+            'CICLO' => (string) Ciclo::enCurso()?->clave,
+            'NIVEL' => (string) $oferta->carrera?->nivelEstudios?->clave,
+            'CARRERA' => (string) $oferta->carrera?->clave,
+            'PLAN' => (string) $oferta->plan?->clave,
+            'CAMPUS' => (string) $oferta->campus?->clave,
+        ];
+
+        $salida = preg_replace_callback(
+            '/\{([A-Z]+)(?::(\d+))?\}/',
+            function (array $m) use ($valores) {
+                // Un token que no existe se deja tal cual en vez de borrarse:
+                // así se ve en la vista previa que está mal escrito, en lugar
+                // de desaparecer sin decir nada.
+                if (! array_key_exists($m[1], $valores)) {
+                    return $m[0];
+                }
+
+                return isset($m[2]) ? mb_substr($valores[$m[1]], 0, (int) $m[2]) : $valores[$m[1]];
+            },
+            $plantilla,
+        ) ?? $plantilla;
 
         return preg_replace_callback(
             '/\{(#+)\}/',
