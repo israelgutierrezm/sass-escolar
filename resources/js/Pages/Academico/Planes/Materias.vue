@@ -11,6 +11,8 @@ import CargaHoraria from '@/Components/CargaHoraria.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import ZonaArchivo from '@/Components/ZonaArchivo.vue';
+import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
+import { ICONOS } from '@/iconos';
 
 interface Materia {
     id: number;
@@ -53,10 +55,29 @@ const erroresCarga = computed(() => ((page.props as any).flash?.erroresCarga ?? 
 const mostrarCarga = ref(false);
 const carga = useForm<{ archivo: File | null }>({ archivo: null });
 
+/**
+ * De cuál de las dos cargas son los errores que llegaron.
+ *
+ * `flash.erroresCarga` es uno solo para la pantalla y lo pintaban las DOS
+ * secciones —asignaturas y kárdex—: subir un kárdex con errores los mostraba
+ * también bajo «Agregar materia», señalando un archivo que ahí nadie tocó.
+ */
+const ultimaCarga = ref<'asignaturas' | 'kardex' | null>(null);
+
+/** Excel y captura manual dan de alta lo mismo: abrir una cierra la otra. */
+function alternarCarga(): void {
+    mostrarCarga.value = ! mostrarCarga.value;
+
+    if (mostrarCarga.value) {
+        mostrarAlta.value = false;
+    }
+}
+
 function subirAsignaturas(archivo: File | null): void {
     if (!archivo) {
         return;
     }
+    ultimaCarga.value = 'asignaturas';
     carga.archivo = archivo;
     carga.post(`/academico/planes/${props.plan.id}/asignaturas/importar`, {
         forceFormData: true,
@@ -73,6 +94,7 @@ function subirKardex(archivo: File | null): void {
     if (!archivo) {
         return;
     }
+    ultimaCarga.value = 'kardex';
     cargaKardex.archivo = archivo;
     cargaKardex.post(`/academico/planes/${props.plan.id}/kardex/importar`, {
         forceFormData: true,
@@ -239,9 +261,33 @@ const diferenciaCreditos = computed(() =>
 
 function abrirAlta(): void {
     mostrarAlta.value = true;
+    mostrarCarga.value = false;
     form.reset();
     form.clearErrors();
 }
+
+/**
+ * Qué tiene ya el periodo elegido.
+ *
+ * Se pone al lado del selector porque es lo que uno comprueba justo antes de
+ * agregar otra materia —si ese semestre va lleno, si es el que falta— y hasta
+ * ahora había que subir a la malla a contarlo a ojo.
+ */
+const resumenDelPeriodo = computed(() => {
+    if (form.periodo === null || form.periodo === '') {
+        return 'Las optativas no se fijan a un periodo.';
+    }
+
+    const materias = props.materias.filter((m) => m.periodo === form.periodo);
+
+    if (materias.length === 0) {
+        return 'Este periodo todavía no tiene materias.';
+    }
+
+    const creditos = materias.reduce((suma, m) => suma + (m.creditos ?? 0), 0);
+
+    return `Ya tiene ${materias.length} materia(s) y ${creditos} crédito(s).`;
+});
 
 // «+» de un periodo: abre el alta ya apuntando a ese periodo. Si se pulsó en el
 // bloque de optativas, preselecciona ese tipo de asignatura (el del catálogo).
@@ -342,30 +388,45 @@ function textoSobre(color: string | null): string {
         </section>
 
         <!-- Alta -->
-        <section id="alta-materia" v-if="puedeEditar" class="tarjeta p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h2 class="text-base font-semibold text-contenido">Agregar materia</h2>
-                    <p class="mt-1 text-sm text-suave">
-                        La asignatura se crea aquí mismo y queda ligada a este plan. Para editar una ya
-                        existente usa el botón «Editar» de la malla.
-                    </p>
-                </div>
+        <TarjetaSeccion
+            id="alta-materia"
+            v-if="puedeEditar"
+            titulo="Agregar materia"
+            descripcion="La asignatura se crea aquí mismo y queda ligada a este plan. Para editar una ya existente usa el botón «Editar» de la malla."
+            :icono="ICONOS.libro"
+        >
+            <template #insignia>
                 <div class="flex items-center gap-2">
+                    <!--
+                        Excluyentes: las dos son formas de dar de alta lo mismo, y
+                        con las dos abiertas la tarjeta pedía dos veces los mismos
+                        datos con dos formatos distintos.
+                    -->
                     <button
                         type="button"
                         class="rounded-lg border px-4 py-2 text-sm font-medium"
                         :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
-                        @click="mostrarCarga = !mostrarCarga"
+                        @click="alternarCarga"
                     >
                         {{ mostrarCarga ? 'Ocultar' : 'Cargar desde Excel' }}
                     </button>
                     <BotonAccion v-if="!mostrarAlta" variante="nuevo" texto="Agregar materia" @click="abrirAlta" />
                 </div>
-            </div>
+            </template>
+
+            <!--
+                Con los dos paneles cerrados el cuerpo quedaba en blanco. Se dice
+                por dónde entrar, y de paso lo único que hay que decidir antes:
+                una materia se captura o se cargan muchas de golpe.
+            -->
+            <p v-if="!mostrarCarga && !mostrarAlta" class="text-sm text-suave">
+                Captura una materia con «Agregar materia», o sube varias de golpe con la
+                plantilla de Excel. También puedes usar el «+» de cada periodo en la malla
+                de abajo para dar de alta ya apuntando a ese semestre.
+            </p>
 
             <!-- Carga de asignaturas por Excel -->
-            <div v-if="mostrarCarga" class="mt-5 space-y-4 border-t border-borde pt-5">
+            <div v-if="mostrarCarga" class="space-y-4">
                 <a
                     :href="`/academico/planes/${plan.id}/plantilla-asignaturas`"
                     class="inline-flex items-center gap-2 text-sm font-medium"
@@ -385,7 +446,7 @@ function textoSobre(color: string | null): string {
                 />
 
                 <div
-                    v-if="erroresCarga.length"
+                    v-if="erroresCarga.length && ultimaCarga === 'asignaturas'"
                     class="rounded-lg border p-3 text-sm"
                     :style="{ borderColor: '#f59e0b', backgroundColor: 'color-mix(in srgb, #f59e0b 8%, transparent)' }"
                 >
@@ -398,7 +459,7 @@ function textoSobre(color: string | null): string {
                 </div>
             </div>
 
-            <form v-if="mostrarAlta" class="mt-5 space-y-4" @submit.prevent="guardar">
+            <form v-if="mostrarAlta" class="space-y-4" @submit.prevent="guardar">
                 <!-- Datos de la asignatura: mismo componente que la ficha del plan. -->
                 <div>
                     <p class="mb-3 text-xs font-semibold uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
@@ -420,14 +481,23 @@ function textoSobre(color: string | null): string {
                 <!-- Ubicación en el plan. -->
                 <div class="border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">
                     <p class="mb-3 text-xs font-semibold uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">Ubicación en el plan</p>
-                    <div class="grid gap-4 sm:grid-cols-4">
-                        <CampoSelect
-                            v-model="form.periodo"
-                            etiqueta="Periodo"
-                            :opciones="opcionesPeriodo"
-                            vacio="Sin periodo fijo (optativas)"
-                            :error="form.errors.periodo"
-                        />
+                    <!--
+                        Un solo campo, y estaba en una rejilla de cuatro columnas:
+                        tres cuartos de la fila en blanco. Va a su ancho, y al lado
+                        lo que ese periodo ya tiene, que es lo que uno quiere saber
+                        justo antes de meterle otra materia.
+                    -->
+                    <div class="flex flex-wrap items-end gap-4">
+                        <div class="w-full sm:w-72">
+                            <CampoSelect
+                                v-model="form.periodo"
+                                etiqueta="Periodo"
+                                :opciones="opcionesPeriodo"
+                                vacio="Sin periodo fijo (optativas)"
+                                :error="form.errors.periodo"
+                            />
+                        </div>
+                        <p class="pb-2 text-sm text-suave">{{ resumenDelPeriodo }}</p>
                     </div>
                 </div>
 
@@ -442,7 +512,7 @@ function textoSobre(color: string | null): string {
                     </button>
                 </div>
             </form>
-        </section>
+        </TarjetaSeccion>
 
         <!-- Carga de kárdex del plan por Excel -->
         <section v-if="puedeEditar" class="tarjeta p-6">
@@ -484,7 +554,7 @@ function textoSobre(color: string | null): string {
                 />
 
                 <div
-                    v-if="erroresCarga.length"
+                    v-if="erroresCarga.length && ultimaCarga === 'kardex'"
                     class="rounded-lg border p-3 text-sm"
                     :style="{ borderColor: '#f59e0b', backgroundColor: 'color-mix(in srgb, #f59e0b 8%, transparent)' }"
                 >
