@@ -14,6 +14,7 @@ use App\Models\Academico\TipoAsignatura;
 use App\Models\Academico\TipoPeriodo;
 use App\Models\Academico\Turno;
 use App\Models\Landlord\EntidadFederativa;
+use App\Models\Landlord\Genero;
 use App\Models\Landlord\IdentidadFederativa;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
@@ -188,6 +189,15 @@ class CatalogoAcademicoController extends Controller
                     'etiqueta' => 'Identidad Federativa',
                     'descripcion' => 'Para personas (lugar de nacimiento). El 33 es «Nacido en el extranjero».',
                     'items' => IdentidadFederativa::query()->orderBy('id')->get(['clave', 'nombre']),
+                ],
+                [
+                    'etiqueta' => 'Género',
+                    // Los números son los que viajan en el XML como `idGenero`:
+                    // cambiar uno aquí rompería el certificado de TODAS las
+                    // escuelas, no sólo el de ésta. Por eso se consulta y no se
+                    // edita.
+                    'descripcion' => 'Lo que la SEP pide en el certificado y el título electrónicos (idGenero). Fijo para todas las escuelas.',
+                    'items' => Genero::query()->orderBy('id')->get(['clave', 'nombre']),
                 ],
             ],
             'puedeEditar' => $puedeEditar,

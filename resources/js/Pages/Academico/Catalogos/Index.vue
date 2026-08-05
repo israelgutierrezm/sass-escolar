@@ -387,8 +387,10 @@ function esEditando(catalogo: string, id: number): boolean {
 
             <section class="tarjeta p-5">
                 <p class="text-sm" :style="{ color: 'var(--color-suave)' }">
-                    <strong>Entidad</strong> e <strong>Identidad Federativa</strong> son catálogos globales,
-                    compartidos entre todas las escuelas.
+                    Catálogos globales, compartidos entre todas las escuelas y con los valores que
+                    exige la SEP. Se consultan desde aquí, pero no se editan: sus claves viajan en el
+                    certificado y el título electrónicos, y cambiar una desde una escuela rompería los
+                    documentos de todas.
                 </p>
 
                 <div class="mt-4 space-y-2">
