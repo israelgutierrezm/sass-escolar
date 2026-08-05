@@ -20,10 +20,19 @@ defineProps<{
 </script>
 
 <template>
+    <!--
+        `min-w-0` en la RAÍZ, no sólo dentro.
+
+        En una cuadrícula los items nacen con `min-width: auto`, así que un valor
+        largo —«Licenciatura en Administración de Empresas»— ensancha la tarjeta
+        entera en vez de recortarse, y el `truncate` de abajo no llega a actuar
+        nunca: la caja siempre le da el ancho que pide. Con esto la columna
+        manda, la tarjeta se queda en su sitio y el texto sí se recorta.
+    -->
     <component
         :is="href ? 'a' : 'div'"
         :href="href"
-        class="tarjeta flex flex-col gap-3 p-4 transition duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+        class="tarjeta flex min-w-0 flex-col gap-3 p-4 transition duration-200 hover:-translate-y-0.5 hover:shadow-lg"
         :class="href ? 'tarjeta-interactiva' : ''"
     >
         <div class="flex items-start justify-between gap-2">
@@ -37,9 +46,20 @@ defineProps<{
         </div>
 
         <dl v-if="metas?.length" class="grid gap-1.5 text-sm">
-            <div v-for="m in metas" :key="m.etiqueta" class="flex items-baseline justify-between gap-3">
+            <!--
+                `min-w-0` también AQUÍ. La cadena tiene que llegar entera hasta
+                el valor: el `<dl>` es una cuadrícula, así que este renglón nace
+                otra vez con `min-width: auto` y basta con que uno solo de los
+                eslabones falte para que el `truncate` de abajo no actúe y el
+                texto se salga de la tarjeta.
+            -->
+            <div v-for="m in metas" :key="m.etiqueta" class="flex min-w-0 items-baseline justify-between gap-3">
                 <dt class="shrink-0 text-xs" :style="{ color: 'var(--color-suave)' }">{{ m.etiqueta }}</dt>
-                <dd class="min-w-0 truncate text-right">{{ m.valor ?? '—' }}</dd>
+                <!-- Recortado se pierde el dato: «Licenciatura en Administr…» no
+                     dice cuál es. El texto completo queda a un cursor encima. -->
+                <dd class="min-w-0 truncate text-right" :title="m.valor === null ? undefined : String(m.valor)">
+                    {{ m.valor ?? '—' }}
+                </dd>
             </div>
         </dl>
 
