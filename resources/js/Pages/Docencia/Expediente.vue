@@ -8,6 +8,7 @@ import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 import TitulosDocente from '@/Components/TitulosDocente.vue';
+import FormulariosAsignados from '@/Components/FormulariosAsignados.vue';
 import ZonaArchivo from '@/Components/ZonaArchivo.vue';
 import { ICONOS } from '@/iconos';
 
@@ -55,7 +56,8 @@ const props = defineProps<{
     titulos: { id: number; grado: string; titulo_obtenido: string; cedula: string | null; institucion: string | null; anio: number | null; archivo: string | null }[];
     tiposDocumento: TipoDocumento[];
     generos: { id: number; nombre: string }[];
-    generos: { id: number; nombre: string }[];
+    /** Los bloques de datos que le tocan, de `ResolutorFormularios`. */
+    formularios: Record<string, any>[];
 }>();
 
 /* ── Qué falta ─────────────────────────────────────────────────────────── */
@@ -378,6 +380,21 @@ function quitarFoto(): void {
 
         <!-- Mis títulos / grados (los administra el propio docente) -->
         <TitulosDocente :titulos="titulos" base="/docencia/expediente/titulos" :puede-editar="true" />
+
+        <!--
+            Los formularios que la escuela le pide. Los llena él mismo, igual
+            que sube sus documentos: si sólo pudiera hacerlo control escolar,
+            capturar los datos de cada docente recaería en quien menos los sabe.
+            Se ocultan cuando no le toca ninguno.
+        -->
+        <FormulariosAsignados
+            v-if="formularios.length"
+            :formularios="formularios"
+            titular="docente"
+            base-captura="/docencia/expediente/formularios"
+            :puede-capturar="true"
+            class="mt-4"
+        />
 
         <TarjetaSeccion
             titulo="Mis datos"

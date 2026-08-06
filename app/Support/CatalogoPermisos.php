@@ -125,6 +125,11 @@ final class CatalogoPermisos
             // deja entrar al portal, y a quiénes ve lo decide a quién acompaña.
             'ver-mis-tutorados' => ['Ver a mis tutorados', 'Portal del tutor educativo: los alumnos que acompaña académicamente.', [self::TUTOR]],
             'ver-tutores' => ['Ver padres y tutores', 'Consultar el directorio de padres y tutores y a qué alumnos están vinculados.', [self::ADMINISTRATIVO]],
+            // Separado de `ver-tutores` a propósito: quien consulta el
+            // directorio no por eso debe poder capturar los datos personales
+            // de un padre de familia. Los VÍNCULOS siguen editándose desde el
+            // expediente del alumno; esto es sólo para sus formularios.
+            'editar-tutores' => ['Editar padres y tutores', 'Llenar los formularios que la escuela le pide a un padre o tutor.', [self::ADMINISTRATIVO]],
         ],
 
         /*

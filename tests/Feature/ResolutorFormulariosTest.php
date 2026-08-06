@@ -173,6 +173,91 @@ class ResolutorFormulariosTest extends TenantTestCase
         $this->assertSame(1, $this->resolutor->para($matricula)->first()['contestados']);
     }
 
+    // ── Quien no es ni aspirante ni alumno ─────────────────────────────────
+
+    /**
+     * A un docente o a un tutor también se le piden bloques de datos.
+     *
+     * El titular es la PERSONA: no hay matrícula ni carrera de la que colgarlos.
+     * Sin esto, los formularios sólo sabían de quien estudia.
+     */
+    public function test_a_una_persona_le_tocan_los_formularios_de_su_rol(): void
+    {
+        $persona = $this->persona();
+        $this->darRol($persona->id, $this->rol('docente'));
+
+        $this->asignar($this->formulario('constancia_fiscal'), $this->rol('docente'));
+
+        $this->assertSame(['constancia_fiscal'], $this->clavesPara($persona));
+    }
+
+    /**
+     * Sin roles, ninguno.
+     *
+     * Un aspirante sin cuenta cae a la faceta «aspirante» porque su TIPO ya
+     * dice a qué vino; «persona» no dice nada, y suponerle un rol sería
+     * inventarle un expediente que nadie le asignó.
+     */
+    public function test_una_persona_sin_roles_no_recibe_ninguno(): void
+    {
+        $persona = $this->persona();
+
+        $this->asignar($this->formulario('constancia_fiscal'), $this->rol('docente'));
+        // También el de la faceta a la que cae un aspirante sin cuenta: si
+        // alguien extendiera ese respaldo a las personas, aparecería aquí.
+        $this->asignar($this->formulario('salud'), $this->rol('aspirante'));
+
+        $this->assertSame([], $this->clavesPara($persona));
+    }
+
+    /**
+     * Lo contestado en otra calidad NO cuenta aquí.
+     *
+     * La misma persona puede ser docente y haber sido aspirante. Sus respuestas
+     * de aspirante son suyas, pero se dieron en otra capacidad y a otras
+     * preguntas: si contaran, su expediente de docente aparecería avanzado sin
+     * que él hubiera contestado nada como tal. Es lo que exige que la consulta
+     * por persona pida además las dos columnas de capacidad en null.
+     */
+    public function test_una_persona_no_ve_como_suyo_lo_que_contesto_siendo_aspirante(): void
+    {
+        $aspirante = $this->aspirante();
+        $persona = Persona::findOrFail($aspirante->persona_id);
+        $this->darRol($persona->id, $this->rol('docente'));
+
+        $formulario = $this->formulario('salud');
+        $campo = $this->campo($formulario, 'Alergias');
+        $this->asignar($formulario, $this->rol('docente'));
+
+        $this->responder($aspirante, $campo, 'Ninguna');
+
+        $this->assertSame(0, $this->resolutor->para($persona)->first()['contestados']);
+
+        // Y al contestarlo COMO PERSONA sí cuenta: lo que separa las dos no es
+        // que una no vea nada, es que cada una ve lo suyo.
+        $this->responderComoPersona($persona, $campo, 'Ninguna');
+
+        $this->assertSame(1, $this->resolutor->para($persona)->first()['contestados']);
+    }
+
+    /**
+     * Los recortes académicos no le llegan.
+     *
+     * Un formulario acotado a Derecho no le toca a quien no cursa nada. Sin
+     * esto, un docente recibiría los bloques de todas las carreras a la vez.
+     */
+    public function test_a_una_persona_no_le_llegan_los_recortados_por_carrera(): void
+    {
+        $escuela = $this->alumnoInscrito();
+        $persona = $this->persona();
+        $this->darRol($persona->id, $this->rol('docente'));
+
+        $this->asignar($this->formulario('titulacion'), $this->rol('docente'), 'carrera', $escuela['carrera']);
+        $this->asignar($this->formulario('constancia_fiscal'), $this->rol('docente'));
+
+        $this->assertSame(['constancia_fiscal'], $this->clavesPara($persona), 'El sin recorte sí; el recortado no.');
+    }
+
     // ── Versiones ──────────────────────────────────────────────────────────
 
     /**
@@ -300,9 +385,8 @@ class ResolutorFormulariosTest extends TenantTestCase
         ]);
     }
 
-
     /** @return array<int, string> */
-    private function clavesPara(Aspirante|MatriculaOferta $titular): array
+    private function clavesPara(Aspirante|MatriculaOferta|Persona $titular): array
     {
         return $this->resolutor->para($titular)->pluck('clave')->sort()->values()->all();
     }
@@ -338,6 +422,22 @@ class ResolutorFormulariosTest extends TenantTestCase
             'aspirante_id' => $aspirante->id,
             'valor' => $valor,
         ]);
+    }
+
+    /** Una respuesta dada COMO PERSONA: sin aspirante ni matrícula detrás. */
+    private function responderComoPersona(Persona $persona, int $campoId, ?string $valor): void
+    {
+        $this->fila('respuestas_campo', [
+            'campo_formulario_id' => $campoId,
+            'formulario_version' => 1,
+            'persona_id' => $persona->id,
+            'valor' => $valor,
+        ]);
+    }
+
+    private function persona(): Persona
+    {
+        return Persona::create(['nombre' => 'Alguien', 'primer_apellido' => 'De prueba']);
     }
 
     private function asignar(

@@ -28,8 +28,12 @@ interface FormularioAsignado {
 
 const props = defineProps<{
     formularios: FormularioAsignado[];
-    /** Para que el texto vacío diga lo que corresponde a cada caso. */
-    titular: 'aspirante' | 'alumno';
+    /**
+     * Para que el texto diga lo que corresponde a cada caso. Un docente no
+     * tiene programa, y prometerle un recorte por carrera que no existe manda
+     * a buscar una configuración que nunca va a encontrar.
+     */
+    titular: 'aspirante' | 'alumno' | 'docente' | 'tutor';
     /** Dónde se contesta cada uno. Sin ella el panel sólo informa. */
     baseCaptura?: string;
     puedeCapturar?: boolean;
@@ -39,6 +43,17 @@ const pendientesObligatorios = computed(
     () => props.formularios.filter((f) => f.obligatorio && !f.completo).length,
 );
 
+/** Sólo aspirante y alumno se recortan por carrera; los demás, por rol y ya. */
+const porCarrera = computed(() => props.titular === 'aspirante' || props.titular === 'alumno');
+
+const descripcion = computed(() => porCarrera.value
+    ? 'Los bloques de datos que la escuela le pide, según su rol y su programa.'
+    : 'Los bloques de datos que la escuela le pide, según su rol.');
+
+const vacio = computed(() => porCarrera.value
+    ? 'No le toca ninguno. Los formularios se asignan por rol —y opcionalmente por carrera— desde el constructor de cada uno; mientras no haya asignaciones, a nadie le aparecen.'
+    : 'No le toca ninguno. Los formularios se asignan por rol desde el constructor de cada uno; mientras no haya asignaciones, a nadie le aparecen.');
+
 function avance(f: FormularioAsignado): number {
     return f.campos === 0 ? 0 : Math.round((f.contestados / f.campos) * 100);
 }
@@ -47,7 +62,7 @@ function avance(f: FormularioAsignado): number {
 <template>
     <TarjetaSeccion
         titulo="Formularios"
-        descripcion="Los bloques de datos que la escuela le pide, según su rol y su programa."
+        :descripcion="descripcion"
         :icono="ICONOS.tareaCheck"
     >
         <template #insignia>
@@ -117,9 +132,6 @@ function avance(f: FormularioAsignado): number {
             </li>
         </ul>
 
-        <p v-else class="text-sm text-suave">
-            No le toca ninguno. Los formularios se asignan por rol —y opcionalmente por carrera— desde
-            el constructor de cada uno; mientras no haya asignaciones, a nadie le aparecen.
-        </p>
+        <p v-else class="text-sm text-suave">{{ vacio }}</p>
     </TarjetaSeccion>
 </template>

@@ -13,6 +13,7 @@ use App\Models\Identidad\Usuario;
 use App\Models\Landlord\Genero;
 use App\Models\Landlord\Sexo;
 use App\Services\GestorTitulosDocente;
+use App\Services\ResolutorFormularios;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -55,7 +56,6 @@ class ExpedienteDocenteController extends Controller
                 'curp' => $persona?->curp,
                 'rfc' => $persona?->rfc,
                 'fecha_nacimiento' => $persona?->fecha_nacimiento?->toDateString(),
-                'genero_id' => $persona?->genero_id,
                 'genero_id' => $persona?->genero_id,
                 'email' => $persona?->email,
                 'correo_institucional' => $persona?->correo_institucional,
@@ -113,6 +113,11 @@ class ExpedienteDocenteController extends Controller
                 ]),
             'sexos' => Sexo::query()->orderBy('id')->get(['id', 'nombre']),
             'generos' => Genero::query()->orderBy('id')->get(['id', 'nombre']),
+            // Los bloques de datos que le tocan y llena él mismo. El titular es
+            // su persona: aquí no hay matrícula de la cual colgarlos.
+            'formularios' => $persona === null
+                ? []
+                : app(ResolutorFormularios::class)->para($persona),
         ]);
     }
 

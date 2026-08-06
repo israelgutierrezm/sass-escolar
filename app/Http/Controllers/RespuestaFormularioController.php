@@ -9,12 +9,15 @@ use App\Http\Controllers\Concerns\ResuelveMiSolicitud;
 use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\RespuestaCampo;
+use App\Models\ControlEscolar\Docente;
 use App\Models\Formularios\CampoFormulario;
 use App\Models\Formularios\Formulario;
 use App\Models\Identidad\Persona;
+use App\Models\Identidad\Usuario;
 use App\Services\ResolutorFormularios;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -42,6 +45,15 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * Una fila por (titular, campo), como manda `respuestas_campo`. Se conserva la
  * versión del formulario con la que se respondió: si mañana se publica una
  * versión nueva, lo ya contestado sigue diciendo con qué preguntas fue.
+ *
+ * ── Y el titular puede ser una persona ─────────────────────────────────────
+ * Un docente o un tutor no son ni aspirante ni matrícula: sus respuestas
+ * cuelgan de la persona, con las otras dos columnas en null. La regla vive en
+ * `RespuestaCampo::scopeParaTitular` y no repartida aquí, porque tiene una
+ * sutileza fácil de perder: para una persona no basta `persona_id`, hay que
+ * exigir además que las dos columnas de capacidad estén vacías. Sin eso, el
+ * expediente del docente arrastraría lo que esa misma persona contestó siendo
+ * aspirante.
  */
 class RespuestaFormularioController extends Controller
 {
@@ -132,10 +144,81 @@ class RespuestaFormularioController extends Controller
             ->with('exito', "«{$formulario->titulo}» quedó guardado.");
     }
 
+    // ── Quien no es ni aspirante ni alumno ─────────────────────────────────
+
+    /*
+     * Docentes y tutores.
+     *
+     * A un docente también se le piden bloques de datos —la constancia de
+     * situación fiscal, a quién avisar en una emergencia—, y hasta ahora los
+     * formularios sólo sabían de quien estudia. El titular aquí es la PERSONA:
+     * no hay carrera ni matrícula de la que colgarlos, y tampoco hacen falta.
+     *
+     * Un docente lo es una sola vez, así que no hay ambigüedad que resolver
+     * como la que hay con alguien que tiene dos matrículas.
+     */
+    public function mostrarDeDocente(Request $request, Docente $docente, Formulario $formulario): Response
+    {
+        $persona = $this->personaDeDocente($docente);
+
+        return $this->pantalla($persona, $formulario, [
+            'titulo' => $persona->nombreCompleto(),
+            'volver' => "/escolar/docentes/{$docente->persona_id}",
+        ], "/escolar/docentes/{$docente->persona_id}/formularios/{$formulario->id}", "/escolar/docentes/{$docente->persona_id}/respuestas");
+    }
+
+    public function guardarDeDocente(Request $request, Docente $docente, Formulario $formulario): RedirectResponse
+    {
+        $this->persistir($request, $this->personaDeDocente($docente), $formulario);
+
+        return redirect("/escolar/docentes/{$docente->persona_id}")
+            ->with('exito', "«{$formulario->titulo}» quedó guardado.");
+    }
+
+    /*
+     * El mismo formulario, llenado por el propio docente desde su expediente.
+     *
+     * Sin id en la URL: la persona sale de la sesión, como todo lo demás de
+     * «Mi expediente». Es la misma pareja de arriba con otro quién, igual que
+     * el portal del aspirante lo es de la ficha.
+     */
+    public function mostrarMiFormulario(Request $request, Formulario $formulario): Response
+    {
+        $persona = $this->miPersona($request);
+
+        return $this->pantalla($persona, $formulario, [
+            'titulo' => 'Mi expediente',
+            'volver' => '/docencia/expediente',
+        ], "/docencia/expediente/formularios/{$formulario->id}", '/docencia/expediente/respuestas');
+    }
+
+    public function guardarMiFormulario(Request $request, Formulario $formulario): RedirectResponse
+    {
+        $this->persistir($request, $this->miPersona($request), $formulario);
+
+        return redirect('/docencia/expediente')->with('exito', "«{$formulario->titulo}» quedó guardado.");
+    }
+
+    public function mostrarDeTutor(Request $request, Persona $tutor, Formulario $formulario): Response
+    {
+        return $this->pantalla($tutor, $formulario, [
+            'titulo' => $tutor->nombreCompleto(),
+            'volver' => "/padres-tutores/{$tutor->id}",
+        ], "/padres-tutores/{$tutor->id}/formularios/{$formulario->id}", "/padres-tutores/{$tutor->id}/respuestas");
+    }
+
+    public function guardarDeTutor(Request $request, Persona $tutor, Formulario $formulario): RedirectResponse
+    {
+        $this->persistir($request, $tutor, $formulario);
+
+        return redirect("/padres-tutores/{$tutor->id}")
+            ->with('exito', "«{$formulario->titulo}» quedó guardado.");
+    }
+
     // ── Descargar lo que se subió ──────────────────────────────────────────
 
     /*
-     * Tres puertas y una comprobación.
+     * Varias puertas y una comprobación.
      *
      * El archivo se guarda en el disco privado, así que no hay URL pública: la
      * única forma de bajarlo es por aquí. Cada método resuelve el titular como
@@ -147,21 +230,40 @@ class RespuestaFormularioController extends Controller
     {
         $this->autorizarCampus($request, $aspirante->campus_id);
 
-        return $this->entregar($respuesta, 'aspirante_id', $aspirante->id, $aspirante->persona);
+        return $this->entregar($respuesta, $aspirante, $aspirante->persona);
     }
 
     public function descargarMio(Request $request, RespuestaCampo $respuesta): StreamedResponse
     {
         $aspirante = $this->miSolicitud($request);
 
-        return $this->entregar($respuesta, 'aspirante_id', $aspirante->id, $aspirante->persona);
+        return $this->entregar($respuesta, $aspirante, $aspirante->persona);
     }
 
     public function descargarDeAlumno(Request $request, MatriculaOferta $alumno, RespuestaCampo $respuesta): StreamedResponse
     {
         $this->autorizarCampus($request, $alumno->oferta?->campus_id);
 
-        return $this->entregar($respuesta, 'matricula_oferta_id', $alumno->id, $alumno->persona);
+        return $this->entregar($respuesta, $alumno, $alumno->persona);
+    }
+
+    public function descargarDeDocente(Request $request, Docente $docente, RespuestaCampo $respuesta): StreamedResponse
+    {
+        $persona = $this->personaDeDocente($docente);
+
+        return $this->entregar($respuesta, $persona, $persona);
+    }
+
+    public function descargarMiArchivo(Request $request, RespuestaCampo $respuesta): StreamedResponse
+    {
+        $persona = $this->miPersona($request);
+
+        return $this->entregar($respuesta, $persona, $persona);
+    }
+
+    public function descargarDeTutor(Request $request, Persona $tutor, RespuestaCampo $respuesta): StreamedResponse
+    {
+        return $this->entregar($respuesta, $tutor, $tutor);
     }
 
     /**
@@ -174,11 +276,15 @@ class RespuestaFormularioController extends Controller
      */
     private function entregar(
         RespuestaCampo $respuesta,
-        string $columna,
-        int $titularId,
+        Aspirante|MatriculaOferta|Persona $titular,
         ?Persona $persona,
     ): StreamedResponse {
-        abort_unless((int) $respuesta->{$columna} === $titularId, 404);
+        // Con el mismo criterio que las lee la pantalla: si esa respuesta no
+        // sale al consultar las del titular, no es suya.
+        abort_unless(
+            RespuestaCampo::query()->paraTitular($titular)->whereKey($respuesta->id)->exists(),
+            404,
+        );
         abort_if($respuesta->documento_ruta === null, 404, 'Esa respuesta no tiene ningún archivo.');
         abort_unless(Storage::disk('local')->exists($respuesta->documento_ruta), 404);
 
@@ -200,7 +306,7 @@ class RespuestaFormularioController extends Controller
     /**
      * @param  array{titulo: ?string, volver: string}  $contexto
      */
-    private function pantalla(Aspirante|MatriculaOferta $titular, Formulario $formulario, array $contexto, string $accion, string $baseDescarga): Response
+    private function pantalla(Aspirante|MatriculaOferta|Persona $titular, Formulario $formulario, array $contexto, string $accion, string $baseDescarga): Response
     {
         $this->abortarSiNoLeToca($titular, $formulario);
 
@@ -219,7 +325,7 @@ class RespuestaFormularioController extends Controller
         ]);
     }
 
-    private function persistir(Request $request, Aspirante|MatriculaOferta $titular, Formulario $formulario): void
+    private function persistir(Request $request, Aspirante|MatriculaOferta|Persona $titular, Formulario $formulario): void
     {
         $this->abortarSiNoLeToca($titular, $formulario);
 
@@ -246,7 +352,7 @@ class RespuestaFormularioController extends Controller
      * formulario que la escuela nunca le asignó, y ese dato aparecería después
      * en su expediente sin que nadie supiera de dónde salió.
      */
-    private function abortarSiNoLeToca(Aspirante|MatriculaOferta $titular, Formulario $formulario): void
+    private function abortarSiNoLeToca(Aspirante|MatriculaOferta|Persona $titular, Formulario $formulario): void
     {
         abort_unless(
             $this->resolutor->para($titular)->contains('id', $formulario->id),
@@ -283,10 +389,10 @@ class RespuestaFormularioController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function respuestasActuales(Aspirante|MatriculaOferta $titular, Formulario $formulario): array
+    private function respuestasActuales(Aspirante|MatriculaOferta|Persona $titular, Formulario $formulario): array
     {
         return RespuestaCampo::query()
-            ->where($this->columnaTitular($titular), $titular->id)
+            ->paraTitular($titular)
             ->whereIn('campo_formulario_id', $formulario->campos()->pluck('id'))
             ->get()
             ->mapWithKeys(fn (RespuestaCampo $r) => [
@@ -304,7 +410,7 @@ class RespuestaFormularioController extends Controller
     /**
      * Las reglas, armadas desde la definición de cada campo.
      *
-     * @param  \Illuminate\Support\Collection<int, CampoFormulario>  $campos
+     * @param  Collection<int, CampoFormulario>  $campos
      * @return array<string, mixed>
      */
     private function reglas($campos, Request $request): array
@@ -365,7 +471,7 @@ class RespuestaFormularioController extends Controller
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, CampoFormulario>  $campos
+     * @param  Collection<int, CampoFormulario>  $campos
      * @return array<string, string>
      */
     private function mensajes($campos): array
@@ -385,7 +491,7 @@ class RespuestaFormularioController extends Controller
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, CampoFormulario>  $campos
+     * @param  Collection<int, CampoFormulario>  $campos
      * @return array<string, string>
      */
     private function atributos($campos): array
@@ -405,15 +511,12 @@ class RespuestaFormularioController extends Controller
     private function guardarRespuesta(
         CampoFormulario $campo,
         array $datos,
-        Aspirante|MatriculaOferta $titular,
+        Aspirante|MatriculaOferta|Persona $titular,
         Formulario $formulario,
         Request $request,
     ): void {
         $valor = $datos['campos'][$campo->id] ?? null;
-        $llave = [
-            $this->columnaTitular($titular) => $titular->id,
-            'campo_formulario_id' => $campo->id,
-        ];
+        $llave = [...$this->llaveTitular($titular), 'campo_formulario_id' => $campo->id];
 
         if ($campo->tipoCampo?->clave === 'documento') {
             $archivo = $request->file("campos.{$campo->id}");
@@ -425,33 +528,75 @@ class RespuestaFormularioController extends Controller
                 return;
             }
 
+            $personaId = $this->personaDe($titular);
+
             RespuestaCampo::updateOrCreate($llave, [
-                'persona_id' => $titular->persona_id,
+                'persona_id' => $personaId,
                 'formulario_version' => $formulario->version,
-                'documento_ruta' => $archivo->store(self::CARPETA.'/'.$titular->persona_id, 'local'),
+                'documento_ruta' => $archivo->store(self::CARPETA.'/'.$personaId, 'local'),
             ]);
 
             return;
         }
 
         RespuestaCampo::updateOrCreate($llave, [
-            'persona_id' => $titular->persona_id,
+            'persona_id' => $this->personaDe($titular),
             'formulario_version' => $formulario->version,
             'valor' => $this->codificar($valor),
         ]);
     }
 
     /**
-     * En qué columna cuelga la respuesta.
+     * En qué columnas cuelga la respuesta.
      *
-     * `respuestas_campo` admite como titular un aspirante o una matrícula, y
-     * exactamente uno de los dos. Es la misma decisión que en adeudos y pagos:
-     * el expediente se llena antes de existir la matrícula y se re-liga a ella
-     * al convertir, así que lo contestado siendo aspirante sigue ahí después.
+     * `respuestas_campo` admite como titular un aspirante, una matrícula o la
+     * persona a secas. Las dos primeras son la CAPACIDAD en que se contestó, y
+     * existen porque quien tiene dos matrículas puede responder distinto en
+     * cada una; el expediente se llena antes de existir la matrícula y se
+     * re-liga a ella al convertir, así que lo contestado siendo aspirante sigue
+     * ahí después.
+     *
+     * Las dos van en la llave aunque sólo una lleve valor: sin el null
+     * explícito, guardar como docente encontraría —y pisaría— la fila que esa
+     * misma persona contestó siendo aspirante.
+     *
+     * @return array<string, int|null>
      */
-    private function columnaTitular(Aspirante|MatriculaOferta $titular): string
+    private function llaveTitular(Aspirante|MatriculaOferta|Persona $titular): array
     {
-        return $titular instanceof Aspirante ? 'aspirante_id' : 'matricula_oferta_id';
+        return match (true) {
+            $titular instanceof Aspirante => ['aspirante_id' => $titular->id, 'matricula_oferta_id' => null],
+            $titular instanceof MatriculaOferta => ['matricula_oferta_id' => $titular->id, 'aspirante_id' => null],
+            default => ['persona_id' => $titular->id, 'aspirante_id' => null, 'matricula_oferta_id' => null],
+        };
+    }
+
+    /** De quién es la respuesta. `persona_id` va en toda fila, sea quien sea el titular. */
+    private function personaDe(Aspirante|MatriculaOferta|Persona $titular): int
+    {
+        return $titular instanceof Persona ? $titular->id : $titular->persona_id;
+    }
+
+    /**
+     * La persona detrás del docente. Un docente sin persona no puede existir
+     * —`docentes.persona_id` es su llave—, pero el modelo la deja nulable.
+     */
+    private function personaDeDocente(Docente $docente): Persona
+    {
+        return $docente->persona ?? abort(404, 'Ese docente no tiene persona.');
+    }
+
+    /**
+     * La persona de la sesión, para el autoservicio. Sin id en la URL: no hay
+     * número que cambiar para contestarle el formulario a otro.
+     */
+    private function miPersona(Request $request): Persona
+    {
+        /** @var Usuario $usuario */
+        $usuario = $request->user();
+
+        return Persona::find($usuario->persona_id)
+            ?? abort(403, 'Tu cuenta no está ligada a ninguna persona.');
     }
 
     /**

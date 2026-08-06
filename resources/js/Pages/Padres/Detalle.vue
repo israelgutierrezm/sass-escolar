@@ -3,6 +3,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
+import FormulariosAsignados from '@/Components/FormulariosAsignados.vue';
 import { ICONOS } from '@/iconos';
 
 /**
@@ -38,6 +39,10 @@ const props = defineProps<{
         tiene_cuenta: boolean;
     };
     hijos: Hijo[];
+    /** Los bloques de datos que la escuela le pide a ÉL, de `ResolutorFormularios`. */
+    formularios: Record<string, any>[];
+    /** Los vínculos se editan desde el alumno; esto sólo abre sus formularios. */
+    puedeEditar: boolean;
     /** Con qué cuenta entrar como esta persona; null si no tiene. */
     suplantable: { usuario_id: number; usuario: string } | null;
 }>();
@@ -138,6 +143,19 @@ function verComo(suplantable: { usuario_id: number; usuario: string }): void {
                         </li>
                     </ul>
                 </TarjetaSeccion>
+
+                <!--
+                    Lo que la escuela le pide a ÉL, no a sus hijos: cartas
+                    responsivas, datos de facturación, a quién avisar. Se oculta
+                    cuando no le toca ninguno.
+                -->
+                <FormulariosAsignados
+                    v-if="formularios.length"
+                    :formularios="formularios"
+                    titular="tutor"
+                    :base-captura="`/padres-tutores/${tutor.persona_id}/formularios`"
+                    :puede-capturar="puedeEditar"
+                />
             </div>
 
             <aside class="space-y-6">

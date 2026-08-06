@@ -15,17 +15,21 @@ use App\Models\ControlEscolar\TipoDocente;
 use App\Models\ControlEscolar\TituloDocente;
 use App\Models\Identidad\Persona;
 use App\Rules\CurpValida;
+use App\Services\Excel\ImportadorDocentes;
+use App\Services\Excel\PlantillaDocentes;
 use App\Services\GestorTitulosDocente;
 use App\Services\IdentidadPersona;
+use App\Services\ResolutorFormularios;
+use App\Services\Suplantador;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
-use App\Services\Suplantador;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -45,13 +49,13 @@ class DocenteController extends Controller
     use AcotaPorCampus;
 
     /** Descarga la plantilla de carga masiva de docentes. */
-    public function plantillaCarga(\App\Services\Excel\PlantillaDocentes $plantilla): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    public function plantillaCarga(PlantillaDocentes $plantilla): BinaryFileResponse
     {
         return response()->download($plantilla->generar(), 'plantilla-docentes.xlsx')->deleteFileAfterSend();
     }
 
     /** Importa el .xlsx de docentes; si hay errores los devuelve sin crear nada. */
-    public function importarCarga(Request $request, \App\Services\Excel\ImportadorDocentes $importador): RedirectResponse
+    public function importarCarga(Request $request, ImportadorDocentes $importador): RedirectResponse
     {
         $request->validate(['archivo' => ['required', 'file', 'max:5120']]);
 
@@ -249,6 +253,12 @@ class DocenteController extends Controller
                 'archivo' => $t->archivo_url === null ? null : "/escolar/docentes/{$docente->persona_id}/titulos/{$t->id}/archivo",
             ]),
             ...$this->catalogos(),
+            // Los bloques de datos que la escuela le pide, con lo que lleve
+            // contestado. El titular es la PERSONA: un docente no tiene
+            // matrícula de la que colgarlos.
+            'formularios' => $docente->persona === null
+                ? []
+                : app(ResolutorFormularios::class)->para($docente->persona),
             'puedeGestionar' => $request->user()->can('gestionar-docentes'),
             'suplantable' => app(Suplantador::class)->datosPara($request, $docente->persona),
         ]);

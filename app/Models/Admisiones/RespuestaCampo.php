@@ -7,6 +7,7 @@ namespace App\Models\Admisiones;
 use App\Models\Concerns\TieneAuditoria;
 use App\Models\Formularios\CampoFormulario;
 use App\Models\Identidad\Persona;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -29,6 +30,26 @@ class RespuestaCampo extends Model
         'valor',
         'documento_ruta',
     ];
+
+    /**
+     * Las respuestas de un titular, sea cual sea.
+     *
+     * Vive aquí y no repetida en cada consulta porque la regla es sutil: para
+     * una PERSONA no basta con `persona_id`, hay que exigir además que las dos
+     * columnas de capacidad estén vacías. Sin eso, el expediente de un docente
+     * arrastraría las respuestas que esa misma persona dio siendo aspirante o
+     * alumno —son suyas, pero contestadas en otra calidad y a otras preguntas—.
+     */
+    public function scopeParaTitular(Builder $query, Aspirante|MatriculaOferta|Persona $titular): Builder
+    {
+        return match (true) {
+            $titular instanceof Aspirante => $query->where('aspirante_id', $titular->id),
+            $titular instanceof MatriculaOferta => $query->where('matricula_oferta_id', $titular->id),
+            default => $query->where('persona_id', $titular->id)
+                ->whereNull('aspirante_id')
+                ->whereNull('matricula_oferta_id'),
+        };
+    }
 
     public function campo(): BelongsTo
     {

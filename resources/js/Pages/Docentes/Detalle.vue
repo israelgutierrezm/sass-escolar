@@ -13,6 +13,7 @@ import CampoCasillas from '@/Components/CampoCasillas.vue';
 import CamposIdentidad from '@/Components/CamposIdentidad.vue';
 import TitulosDocente from '@/Components/TitulosDocente.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
+import FormulariosAsignados from '@/Components/FormulariosAsignados.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import { ICONOS } from '@/iconos';
 
@@ -44,13 +45,24 @@ const props = defineProps<{
     paises: { id: number; nombre: string }[];
     mexicoId: number | null;
     titulos: { id: number; grado: string; titulo_obtenido: string; cedula: string | null; institucion: string | null; anio: number | null; archivo: string | null }[];
+    /** Los formularios que le tocan, de `ResolutorFormularios`. */
+    formularios: Record<string, any>[];
     puedeGestionar: boolean;
     suplantable: { usuario_id: number; usuario: string } | null;
 }>();
 
-const pestana = ref<'materias' | 'documentos' | 'titulos' | 'datos'>('materias');
+const pestana = ref<'materias' | 'documentos' | 'titulos' | 'formularios' | 'datos'>('materias');
 
 const pendientes = computed(() => props.documentos.filter((d) => d.estado_clave === 'pendiente').length);
+
+/*
+ * Lo obligatorio que le falta de sus formularios, para el número de la pestaña.
+ * La pestaña no aparece si no le toca ninguno: una vacía sólo hace preguntarse
+ * qué debería haber ahí.
+ */
+const formulariosPendientes = computed(
+    () => props.formularios.filter((f: any) => f.obligatorio && !f.completo).length,
+);
 
 const form = useForm({
     nombre: props.persona.nombre ?? '',
@@ -263,6 +275,9 @@ function verComo(): void {
                 { clave: 'materias', etiqueta: `Materias (${materias.length})` },
                 { clave: 'documentos', etiqueta: `Documentos${pendientes ? ` · ${pendientes} por revisar` : ''}` },
                 { clave: 'titulos', etiqueta: `Títulos (${titulos.length})` },
+                ...(formularios.length
+                    ? [{ clave: 'formularios', etiqueta: `Formularios${formulariosPendientes ? ` (${formulariosPendientes})` : ''}` }]
+                    : []),
                 { clave: 'datos', etiqueta: 'Datos' },
             ]"
             :model-value="pestana"
@@ -403,6 +418,16 @@ function verComo(): void {
                 :puede-editar="puedeGestionar"
             />
         </div>
+
+        <!-- Formularios -->
+        <section v-else-if="pestana === 'formularios'">
+            <FormulariosAsignados
+                :formularios="formularios"
+                titular="docente"
+                :base-captura="`/escolar/docentes/${docente.id}/formularios`"
+                :puede-capturar="puedeGestionar"
+            />
+        </section>
 
         <!-- Datos -->
         <div v-else>

@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Http\Controllers\RespuestaFormularioController;
 use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\RespuestaCampo;
+use App\Models\ControlEscolar\Docente;
 use App\Models\Formularios\Formulario;
 use App\Models\Formularios\FormularioAsignacion;
 use App\Models\Identidad\Persona;
@@ -254,6 +255,75 @@ class CapturaFormularioTest extends TenantTestCase
         $this->assertSame($ruta, $this->respuesta($aspirante, $campo)?->documento_ruta);
     }
 
+    // ── El titular puede ser una persona ───────────────────────────────────
+
+    /**
+     * Un docente contesta lo suyo, y se guarda colgado de la PERSONA.
+     *
+     * No es ni aspirante ni matrícula: las dos columnas de capacidad quedan en
+     * null, que es lo que significa «contestado como persona».
+     */
+    public function test_un_docente_contesta_y_su_respuesta_cuelga_de_la_persona(): void
+    {
+        [$docente, $formulario] = $this->escenarioDocente();
+        $campo = $this->campo($formulario, 'Régimen fiscal');
+
+        $this->guardarDeDocente($docente, $formulario, [$campo => 'Sueldos y salarios']);
+
+        $fila = RespuestaCampo::where('persona_id', $docente->persona_id)
+            ->where('campo_formulario_id', $campo)
+            ->firstOrFail();
+
+        $this->assertSame('Sueldos y salarios', $fila->valor);
+        $this->assertNull($fila->aspirante_id);
+        $this->assertNull($fila->matricula_oferta_id);
+    }
+
+    /**
+     * Y no pisa lo que esa misma persona contestó siendo aspirante.
+     *
+     * Es el riesgo concreto de colgar de la persona: sin los dos null en la
+     * llave, guardar como docente encuentra la fila del aspirante y la
+     * sobreescribe. Serían dos expedientes distintos machacándose.
+     */
+    public function test_contestar_como_docente_no_pisa_lo_que_contesto_de_aspirante(): void
+    {
+        [$aspirante, $formulario] = $this->escenario();
+        $campo = $this->campo($formulario, 'Alergias');
+        $this->guardar($aspirante, $formulario, [$campo => 'Penicilina']);
+
+        // La MISMA persona, ahora dada de alta como docente y con el mismo
+        // bloque asignado a su rol.
+        $docente = $this->docenteDe($aspirante->persona_id);
+        FormularioAsignacion::create([
+            'formulario_id' => $formulario->id,
+            'rol_id' => $this->rolDocente(),
+        ]);
+
+        $this->guardarDeDocente($docente, $formulario, [$campo => 'Ninguna']);
+
+        $this->assertSame('Penicilina', $this->respuesta($aspirante, $campo)?->valor, 'Lo del aspirante sigue intacto.');
+        $this->assertSame(2, RespuestaCampo::where('campo_formulario_id', $campo)->count());
+    }
+
+    /** El archivo de otra persona NO se baja. */
+    public function test_no_se_baja_el_documento_de_otra_persona(): void
+    {
+        [$docente, $formulario] = $this->escenarioDocente();
+        $campo = $this->campo($formulario, 'Constancia', tipo: 'documento');
+        $this->subirDeDocente($docente, $formulario, $campo);
+
+        $ajeno = $this->docenteDe(Persona::create(['nombre' => 'Otra', 'primer_apellido' => 'Distinta'])->id);
+
+        $this->expectException(HttpException::class);
+
+        app(RespuestaFormularioController::class)->descargarDeDocente(
+            $this->peticionDe($this->usuarioConAlcance(), '/escolar/docentes'),
+            $ajeno,
+            RespuestaCampo::where('persona_id', $docente->persona_id)->firstOrFail(),
+        );
+    }
+
     // ── Andamiaje ──────────────────────────────────────────────────────────
 
     /** Sube un archivo de mentira al campo indicado. */
@@ -271,6 +341,68 @@ class CapturaFormularioTest extends TenantTestCase
         $peticion->setUserResolver(fn () => $this->usuarioConAlcance());
 
         app(RespuestaFormularioController::class)->guardar($peticion, $aspirante, $formulario);
+    }
+
+    /** @return array{0: Docente, 1: Formulario} */
+    private function escenarioDocente(): array
+    {
+        $persona = Persona::create(['nombre' => 'Profe', 'primer_apellido' => 'De prueba']);
+        $docente = $this->docenteDe($persona->id);
+
+        $formulario = Formulario::create(['clave' => 'fiscal', 'titulo' => 'Datos fiscales', 'version' => 1, 'orden' => 1]);
+
+        FormularioAsignacion::create([
+            'formulario_id' => $formulario->id,
+            'rol_id' => $this->rolDocente(),
+        ]);
+
+        return [$docente, $formulario];
+    }
+
+    private function docenteDe(int $personaId): Docente
+    {
+        $this->fila('persona_rol', ['persona_id' => $personaId, 'rol_id' => $this->rolDocente(), 'activo' => true]);
+
+        return Docente::create([
+            'persona_id' => $personaId,
+            'tipo_docente_id' => $this->deCatalogo('tipos_docente'),
+            'situacion_id' => $this->deCatalogo('situaciones_docente'),
+        ]);
+    }
+
+    private function rolDocente(): int
+    {
+        return (int) (DB::table('roles')->where('name', 'docente')->value('id')
+            ?? $this->fila('roles', ['name' => 'docente', 'nombre' => 'Docente', 'guard_name' => 'web']));
+    }
+
+    /** @param  array<int, mixed>  $respuestas */
+    private function guardarDeDocente(Docente $docente, Formulario $formulario, array $respuestas): void
+    {
+        $peticion = Request::create(
+            "/escolar/docentes/{$docente->persona_id}/formularios/{$formulario->id}",
+            'POST',
+            ['campos' => $respuestas],
+        );
+        $peticion->setUserResolver(fn () => $this->usuarioConAlcance());
+
+        app(RespuestaFormularioController::class)->guardarDeDocente($peticion, $docente, $formulario);
+    }
+
+    private function subirDeDocente(Docente $docente, Formulario $formulario, int $campoId): void
+    {
+        Storage::fake('local');
+
+        $peticion = Request::create(
+            "/escolar/docentes/{$docente->persona_id}/formularios/{$formulario->id}",
+            'POST',
+            [],
+            [],
+            ['campos' => [$campoId => UploadedFile::fake()->create('constancia.pdf', 10, 'application/pdf')]],
+        );
+        $peticion->setUserResolver(fn () => $this->usuarioConAlcance());
+
+        app(RespuestaFormularioController::class)->guardarDeDocente($peticion, $docente, $formulario);
     }
 
     /** @return array{0: Aspirante, 1: Formulario} */

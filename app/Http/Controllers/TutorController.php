@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\TutorAlumno;
 use App\Models\Identidad\Usuario;
+use App\Services\ResolutorFormularios;
 use App\Services\Suplantador;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -115,11 +116,16 @@ class TutorController extends Controller
                         'carrera' => $m->oferta?->carrera?->nombre,
                     ])->values() ?? [],
             ])->values(),
+            // Lo que la escuela le pide a él —no a sus hijos—: un padre también
+            // llena bloques de datos, y hasta ahora los formularios sólo sabían
+            // de quien estudia.
+            'formularios' => app(ResolutorFormularios::class)->para($tutor),
+            'puedeEditar' => $request->user()->can('editar-tutores'),
             'suplantable' => app(Suplantador::class)->datosPara($request, $tutor),
         ]);
     }
 
-    private function nombre(?\App\Models\Identidad\Persona $p): string
+    private function nombre(?Persona $p): string
     {
         return trim(implode(' ', array_filter([$p?->nombre, $p?->primer_apellido, $p?->segundo_apellido])));
     }

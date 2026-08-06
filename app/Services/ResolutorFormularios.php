@@ -37,6 +37,15 @@ use Illuminate\Support\Collection;
  * expediente cambiaría de forma al cruzar esa frontera y quedaría medio vacío
  * sin que nadie hubiera borrado nada.
  *
+ * ── Y una PERSONA a secas ──────────────────────────────────────────────────
+ * Un docente o un tutor no son ninguna de las dos cosas, y sus respuestas
+ * cuelgan de la persona. No hizo falta columna nueva: `respuestas_campo` ya
+ * guarda `persona_id` en toda fila. Lo que aportan `aspirante_id` y
+ * `matricula_oferta_id` es la CAPACIDAD en la que se contestó, y existe porque
+ * la misma persona puede tener dos matrículas y responder distinto en cada una.
+ * Docente se es una vez: no hay multiplicidad que desambiguar, así que las dos
+ * en null quiere decir «como persona».
+ *
  * ── Versiones ──────────────────────────────────────────────────────────────
  * Un formulario se versiona por `clave`, y al publicar una versión nueva se
  * copian sus asignaciones. Sin filtrar, la persona vería la v1 y la v2 del
@@ -50,7 +59,7 @@ class ResolutorFormularios
      *
      * @return Collection<int, array<string, mixed>>
      */
-    public function para(Aspirante|MatriculaOferta $titular): Collection
+    public function para(Aspirante|MatriculaOferta|Persona $titular): Collection
     {
         $aplicables = $this->asignacionesAplicables($titular);
 
@@ -105,7 +114,7 @@ class ResolutorFormularios
      *
      * @return Collection<int, FormularioAsignacion>
      */
-    private function asignacionesAplicables(Aspirante|MatriculaOferta $titular): Collection
+    private function asignacionesAplicables(Aspirante|MatriculaOferta|Persona $titular): Collection
     {
         $roles = $this->rolesDelTitular($titular);
 
@@ -127,17 +136,22 @@ class ResolutorFormularios
      * Sin ámbito, siempre. Con ámbito, contra la oferta del titular: la del
      * interés si es aspirante, la de su matrícula si ya es alumno.
      */
-    private function ambitoAlcanza(FormularioAsignacion $asignacion, Aspirante|MatriculaOferta $titular): bool
+    private function ambitoAlcanza(FormularioAsignacion $asignacion, Aspirante|MatriculaOferta|Persona $titular): bool
     {
         if ($asignacion->ambito_tipo === null) {
             return true;
         }
 
-        $oferta = $titular instanceof Aspirante ? $titular->ofertaInteres : $titular->oferta;
+        $oferta = match (true) {
+            $titular instanceof Aspirante => $titular->ofertaInteres,
+            $titular instanceof MatriculaOferta => $titular->oferta,
+            // Una persona a secas —un docente, un tutor— no cursa nada.
+            default => null,
+        };
 
         // Sin oferta no hay carrera contra la que comparar. Se deja FUERA a
         // propósito: un formulario acotado a Derecho no le toca a quien todavía
-        // no ha dicho qué quiere estudiar.
+        // no ha dicho qué quiere estudiar, ni a quien no estudia.
         if ($oferta === null) {
             return false;
         }
@@ -159,11 +173,17 @@ class ResolutorFormularios
      * hace saber qué se le va a pedir, y esperar a que alguien le cree usuario
      * dejaría su expediente vacío sin explicación.
      *
+     * Con una persona a secas no hay tal faceta que suponer, y sin roles se
+     * queda sin formularios: es lo correcto, porque «persona» no dice a qué
+     * vino.
+     *
      * @return array<int, int>
      */
-    private function rolesDelTitular(Aspirante|MatriculaOferta $titular): array
+    private function rolesDelTitular(Aspirante|MatriculaOferta|Persona $titular): array
     {
-        $persona = Persona::with('rolesActivos')->find($titular->persona_id);
+        $persona = $titular instanceof Persona
+            ? $titular->loadMissing('rolesActivos')
+            : Persona::with('rolesActivos')->find($titular->persona_id);
 
         $roles = collect($persona?->rolesActivos ?? [])
             ->flatMap(fn (Rol $r) => [$r->id, ...array_map(fn (Rol $a) => $a->id, $r->ancestros())])
@@ -175,11 +195,23 @@ class ResolutorFormularios
             return $roles;
         }
 
-        $faceta = $titular instanceof Aspirante
-            ? CatalogoPermisos::ASPIRANTE
-            : CatalogoPermisos::ALUMNO;
+        /*
+         * Sin roles registrados se cae a la faceta que delata el TIPO.
+         *
+         * Un aspirante recién capturado no tiene cuenta todavía y es justo
+         * cuando más falta hace saber qué se le va a pedir. Con una persona a
+         * secas no hay a qué caer: si no tiene ningún rol, no hay nada que
+         * decir sobre ella —adivinarle uno sería inventarle un expediente—.
+         */
+        $faceta = match (true) {
+            $titular instanceof Aspirante => CatalogoPermisos::ASPIRANTE,
+            $titular instanceof MatriculaOferta => CatalogoPermisos::ALUMNO,
+            default => null,
+        };
 
-        return Rol::query()->where('name', $faceta)->pluck('id')->all();
+        return $faceta === null
+            ? []
+            : Rol::query()->where('name', $faceta)->pluck('id')->all();
     }
 
     /**
@@ -214,13 +246,10 @@ class ResolutorFormularios
      *
      * @return Collection<int, string>
      */
-    private function respuestas(Aspirante|MatriculaOferta $titular): Collection
+    private function respuestas(Aspirante|MatriculaOferta|Persona $titular): Collection
     {
         return RespuestaCampo::query()
-            ->when($titular instanceof Aspirante,
-                fn ($q) => $q->where('aspirante_id', $titular->id),
-                fn ($q) => $q->where('matricula_oferta_id', $titular->id),
-            )
+            ->paraTitular($titular)
             // Una respuesta en blanco no es una respuesta: el campo sigue sin
             // contestar y el avance no debe contarla.
             ->where(fn ($q) => $q->whereNotNull('valor')->orWhereNotNull('documento_ruta'))

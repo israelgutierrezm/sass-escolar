@@ -2,90 +2,97 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Academico\CargaMasivaController;
+use App\Http\Controllers\AccesosController;
+use App\Http\Controllers\ActividadController;
 use App\Http\Controllers\AlumnoController;
+use App\Http\Controllers\ArchivoRespuestaController;
+use App\Http\Controllers\AsignacionTutoriaController;
 use App\Http\Controllers\AsignaturaController;
 use App\Http\Controllers\AsignaturaGrupoController;
 use App\Http\Controllers\AspiranteController;
 use App\Http\Controllers\AulaController;
 use App\Http\Controllers\AutenticacionController;
-use App\Http\Controllers\ImagenContenidoController;
-use App\Http\Controllers\SsoGoogleController;
+use App\Http\Controllers\BecaController;
 use App\Http\Controllers\CampoFormularioController;
-use App\Http\Controllers\Academico\CargaMasivaController;
-use App\Http\Controllers\Emision\DatosTituloController;
 use App\Http\Controllers\CampusController;
 use App\Http\Controllers\CapturaCalificacionesController;
 use App\Http\Controllers\CarreraController;
 use App\Http\Controllers\CatalogoAcademicoController;
+use App\Http\Controllers\ChatMateriaController;
 use App\Http\Controllers\CicloController;
+use App\Http\Controllers\CobroAspiranteController;
+use App\Http\Controllers\ConceptoPagoController;
 use App\Http\Controllers\ConfiguracionController;
-use App\Http\Controllers\Plataforma\CalendarioController;
-use App\Http\Controllers\Plataforma\ClimaController;
+use App\Http\Controllers\CorreoConfigController;
+use App\Http\Controllers\CursoPlantillaController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DescuentoController;
 use App\Http\Controllers\DocenciaController;
 use App\Http\Controllers\DocenteController;
 use App\Http\Controllers\DocumentoRequeridoController;
+use App\Http\Controllers\Emision\DatosTituloController;
 use App\Http\Controllers\Emision\LoteCertificacionController;
-use App\Http\Controllers\Emision\ResponsableController;
 use App\Http\Controllers\Emision\LoteTitulacionController;
+use App\Http\Controllers\Emision\ResponsableController;
 use App\Http\Controllers\Emision\TipoCertificacionController;
 use App\Http\Controllers\Emision\TitulacionWsConfigController;
 use App\Http\Controllers\Emision\TituloProfesionalController;
 use App\Http\Controllers\EmisorFiscalController;
+use App\Http\Controllers\Encuestas\AplicacionController;
+use App\Http\Controllers\Encuestas\EncuestaController;
+use App\Http\Controllers\Encuestas\MisEncuestasController;
+use App\Http\Controllers\EntregaController;
 use App\Http\Controllers\EsquemaEvaluacionController;
-use App\Http\Controllers\ExpedienteAspiranteController;
+use App\Http\Controllers\ExamenController;
 use App\Http\Controllers\ExpedienteAlumnoController;
+use App\Http\Controllers\ExpedienteAspiranteController;
 use App\Http\Controllers\ExpedienteDocenteController;
+use App\Http\Controllers\FacturacionConfigController;
 use App\Http\Controllers\FacturaController;
 use App\Http\Controllers\FinanzasController;
 use App\Http\Controllers\FormularioController;
 use App\Http\Controllers\FormularioPublicoController;
+use App\Http\Controllers\ForoController;
 use App\Http\Controllers\FotoPersonaController;
 use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\IdentidadController;
-use App\Http\Controllers\InstitucionController;
+use App\Http\Controllers\ImagenContenidoController;
 use App\Http\Controllers\InscripcionController;
+use App\Http\Controllers\InstitucionController;
+use App\Http\Controllers\MenuRolController;
 use App\Http\Controllers\MisAvisosController;
+use App\Http\Controllers\MisCursosController;
 use App\Http\Controllers\OfertaController;
+use App\Http\Controllers\PadreController;
+use App\Http\Controllers\PasarelaPagoController;
+use App\Http\Controllers\PaseListaController;
 use App\Http\Controllers\PerfilController;
-use App\Http\Controllers\BecaController;
-use App\Http\Controllers\DescuentoController;
 use App\Http\Controllers\PlanCobroController;
 use App\Http\Controllers\PlanEstudioController;
 use App\Http\Controllers\PlanMateriaController;
 use App\Http\Controllers\PlantillaEvaluacionController;
-use App\Http\Controllers\AccesosController;
-use App\Http\Controllers\ConceptoPagoController;
-use App\Http\Controllers\CorreoConfigController;
-use App\Http\Controllers\FacturacionConfigController;
-use App\Http\Controllers\PasarelaPagoController;
-use App\Http\Controllers\PadreController;
-use App\Http\Controllers\TutorController;
-use App\Http\Controllers\RecuperacionController;
+use App\Http\Controllers\Plataforma\AvisoController;
+use App\Http\Controllers\Plataforma\CalendarioController;
+use App\Http\Controllers\Plataforma\ClimaController;
 use App\Http\Controllers\PortalAspiranteController;
-use App\Http\Controllers\CobroAspiranteController;
-use App\Http\Controllers\PromocionController;
-use App\Http\Controllers\RespuestaFormularioController;
-use App\Http\Controllers\ReglaMatriculaController;
-use App\Http\Controllers\RolActivoController;
-use App\Http\Controllers\ActividadController;
-use App\Http\Controllers\ArchivoRespuestaController;
-use App\Http\Controllers\ChatMateriaController;
-use App\Http\Controllers\CursoPlantillaController;
-use App\Http\Controllers\ForoController;
-use App\Http\Controllers\EntregaController;
-use App\Http\Controllers\ExamenController;
-use App\Http\Controllers\MenuRolController;
-use App\Http\Controllers\MisCursosController;
-use App\Http\Controllers\PaseListaController;
 use App\Http\Controllers\PresentacionExamenController;
+use App\Http\Controllers\PromocionController;
+use App\Http\Controllers\RecuperacionController;
+use App\Http\Controllers\ReglaMatriculaController;
+use App\Http\Controllers\RespuestaFormularioController;
+use App\Http\Controllers\RolActivoController;
 use App\Http\Controllers\RolController;
-use App\Http\Controllers\TarjetaRolController;
 use App\Http\Controllers\SeriacionController;
+use App\Http\Controllers\SsoGoogleController;
 use App\Http\Controllers\SuplantacionController;
+use App\Http\Controllers\TarjetaRolController;
 use App\Http\Controllers\TemaController;
+use App\Http\Controllers\TutorController;
+use App\Http\Controllers\TutoriaController;
 use App\Http\Controllers\UsuarioController;
 use App\Http\Controllers\VentanaCapturaController;
+use App\Http\Middleware\EscuelaActiva;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
@@ -106,7 +113,7 @@ Route::middleware([
     'web',
     InitializeTenancyByDomain::class,
     PreventAccessFromCentralDomains::class,
-    App\Http\Middleware\EscuelaActiva::class,
+    EscuelaActiva::class,
 ])->group(function () {
     /*
      * Formulario público embebible en la web de la escuela.
@@ -174,7 +181,7 @@ Route::middleware([
          * Mis encuestas. Sin `can:` como los avisos: que te pregunten no es
          * una facultad que se otorgue.
          */
-        Route::controller(\App\Http\Controllers\Encuestas\MisEncuestasController::class)
+        Route::controller(MisEncuestasController::class)
             ->prefix('mis-encuestas')->name('tenant.misencuestas.')
             ->group(function () {
                 Route::get('/', 'index')->name('index');
@@ -345,16 +352,16 @@ Route::middleware([
          */
         // La consulta global de accesos: misma llave que leer una bitácora,
         // porque revela lo mismo —quién miró qué— sin el contenido.
-        Route::get('escolar/tutorias/accesos', [\App\Http\Controllers\AsignacionTutoriaController::class, 'accesos'])
+        Route::get('escolar/tutorias/accesos', [AsignacionTutoriaController::class, 'accesos'])
             ->middleware('can:ver-bitacoras-tutoria')
             ->name('tenant.escolar.tutorias.accesos');
 
-        Route::get('escolar/tutorias/{alumno}/bitacora', [\App\Http\Controllers\AsignacionTutoriaController::class, 'bitacora'])
+        Route::get('escolar/tutorias/{alumno}/bitacora', [AsignacionTutoriaController::class, 'bitacora'])
             ->whereNumber('alumno')
             ->middleware('can:ver-bitacoras-tutoria')
             ->name('tenant.escolar.tutorias.bitacora');
 
-        Route::controller(\App\Http\Controllers\AsignacionTutoriaController::class)
+        Route::controller(AsignacionTutoriaController::class)
             ->prefix('escolar/tutorias')->name('tenant.escolar.tutorias.')
             ->middleware('can:gestionar-tutorias')
             ->group(function () {
@@ -368,7 +375,7 @@ Route::middleware([
          * a la persona autenticada y sus tutorados salen del vínculo, no de un
          * parámetro que se pueda cambiar.
          */
-        Route::controller(\App\Http\Controllers\TutoriaController::class)
+        Route::controller(TutoriaController::class)
             ->prefix('mis-tutorados')->name('tenant.tutorias.')
             ->middleware('can:ver-mis-tutorados')
             ->group(function () {
@@ -409,6 +416,23 @@ Route::middleware([
                 Route::post('titulos', 'agregarTitulo')->name('titulos.store');
                 Route::get('titulos/{titulo}/archivo', 'descargarTitulo')->whereNumber('titulo')->name('titulos.archivo');
                 Route::delete('titulos/{titulo}', 'quitarTitulo')->whereNumber('titulo')->name('titulos.destroy');
+            });
+
+        /*
+         * Los formularios que le tocan al docente, llenados por él mismo.
+         *
+         * Van al mismo controlador que los del aspirante y el alumno, con la
+         * persona como titular. Sin id en la URL, como todo «Mi expediente».
+         */
+        Route::prefix('docencia/expediente')->name('tenant.docencia.expediente.formularios.')
+            ->middleware('can:editar-mi-expediente')
+            ->group(function () {
+                Route::get('formularios/{formulario}', [RespuestaFormularioController::class, 'mostrarMiFormulario'])
+                    ->whereNumber('formulario')->name('mostrar');
+                Route::post('formularios/{formulario}', [RespuestaFormularioController::class, 'guardarMiFormulario'])
+                    ->whereNumber('formulario')->name('guardar');
+                Route::get('respuestas/{respuesta}/documento', [RespuestaFormularioController::class, 'descargarMiArchivo'])
+                    ->whereNumber('respuesta')->name('documento');
             });
 
         Route::controller(CapturaCalificacionesController::class)
@@ -643,6 +667,26 @@ Route::middleware([
             ->middleware('can:ver-tutores')
             ->name('tenant.padres.show');
 
+        /*
+         * Sus formularios. Consultarlos va con `ver-tutores` —es parte de su
+         * expediente—, pero llenarlos NO: escribir bajo un permiso que se llama
+         * «ver» convierte a todo el que consulta el directorio en quien puede
+         * capturar datos personales de un padre de familia.
+         */
+        Route::prefix('padres-tutores/{tutor}')->name('tenant.padres.formularios.')
+            ->whereNumber('tutor')
+            ->middleware('can:ver-tutores')
+            ->group(function () {
+                Route::get('formularios/{formulario}', [RespuestaFormularioController::class, 'mostrarDeTutor'])
+                    ->whereNumber('formulario')->name('mostrar');
+                Route::post('formularios/{formulario}', [RespuestaFormularioController::class, 'guardarDeTutor'])
+                    ->whereNumber('formulario')
+                    ->middleware('can:editar-tutores')
+                    ->name('guardar');
+                Route::get('respuestas/{respuesta}/documento', [RespuestaFormularioController::class, 'descargarDeTutor'])
+                    ->whereNumber('respuesta')->name('documento');
+            });
+
         Route::prefix('escolar')->name('tenant.escolar.')
             ->middleware('can:ver-grupos')
             ->group(function () {
@@ -767,6 +811,21 @@ Route::middleware([
                             ->whereNumber('docente')->name('documentos.descargar');
                         Route::get('{docente}/titulos/{titulo}/archivo', 'descargarTitulo')
                             ->whereNumber('docente')->whereNumber('titulo')->name('titulos.archivo');
+
+                        /*
+                         * Sus formularios, desde la ficha administrativa. La
+                         * misma captura del aspirante y del alumno con la
+                         * persona como titular: contestarlos no es un tipo de
+                         * dato nuevo, es el mismo con otro quién.
+                         */
+                        Route::get('{docente}/formularios/{formulario}', [RespuestaFormularioController::class, 'mostrarDeDocente'])
+                            ->whereNumber(['docente', 'formulario'])->name('formularios.mostrar');
+                        Route::post('{docente}/formularios/{formulario}', [RespuestaFormularioController::class, 'guardarDeDocente'])
+                            ->whereNumber(['docente', 'formulario'])
+                            ->middleware('can:gestionar-docentes')
+                            ->name('formularios.guardar');
+                        Route::get('{docente}/respuestas/{respuesta}/documento', [RespuestaFormularioController::class, 'descargarDeDocente'])
+                            ->whereNumber(['docente', 'respuesta'])->name('formularios.documento');
 
                         Route::middleware('can:gestionar-docentes')->group(function () {
                             Route::post('/', 'store')->name('store');
@@ -1395,7 +1454,7 @@ Route::middleware([
          * Avisos. Aparte del calendario porque son otra cosa: un evento ocupa un
          * dia en la rejilla, un aviso es un mensaje que tiene que llegar.
          */
-        Route::controller(\App\Http\Controllers\Plataforma\AvisoController::class)
+        Route::controller(AvisoController::class)
             ->prefix('plataforma/avisos')->name('tenant.plataforma.avisos.')
             ->middleware('can:gestionar-avisos')
             ->group(function () {
@@ -1414,7 +1473,7 @@ Route::middleware([
          * instrumento se lanza cada semestre con fechas y docentes distintos.
          */
         Route::middleware('can:gestionar-encuestas')->group(function () {
-            Route::controller(\App\Http\Controllers\Encuestas\EncuestaController::class)
+            Route::controller(EncuestaController::class)
                 ->prefix('encuestas/cuestionarios')->name('tenant.encuestas.')
                 ->group(function () {
                     Route::get('/', 'index')->name('index');
@@ -1426,7 +1485,7 @@ Route::middleware([
                     Route::delete('{encuesta}', 'eliminar')->whereNumber('encuesta')->name('eliminar');
                 });
 
-            Route::controller(\App\Http\Controllers\Encuestas\AplicacionController::class)
+            Route::controller(AplicacionController::class)
                 ->prefix('encuestas/aplicaciones')->name('tenant.encuestas.aplicaciones.')
                 ->group(function () {
                     Route::get('/', 'index')->name('index');
