@@ -89,7 +89,11 @@ const porClave = computed(() => {
                     <CampoCheckbox v-model="form.obligatorio" etiqueta="Obligatorio" ayuda="Sin él, el expediente queda incompleto." />
                 </div>
                 <div class="mt-4 flex gap-2">
-                    <BotonPrincipal :procesando="form.processing" texto="Crear" icono="crear-circulo" solo-icono />
+                    <!-- `solo-icono` es para las acciones de una fila, donde el
+                         espacio manda; el botón que ENVÍA un formulario dice lo
+                         que hace. Aquí salía un cuadrito con un ⊕ y nada más,
+                         junto a un «Cancelar» que sí tenía texto. -->
+                    <BotonPrincipal :procesando="form.processing" texto="Crear formulario" icono="crear" />
                     <button
                         type="button"
                         class="rounded-lg border px-4 py-2 text-sm"

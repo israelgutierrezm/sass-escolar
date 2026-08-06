@@ -193,7 +193,7 @@ function iniciales(nombre: string | null): string {
                 </label>
 
                 <div class="flex items-center gap-2">
-                    <BotonPrincipal :procesando="alta.processing" texto="Crear cuenta" icono="crear-circulo" solo-icono />
+                    <BotonPrincipal :procesando="alta.processing" texto="Crear cuenta" icono="crear" />
                     <button type="button" class="rounded-lg border px-4 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" @click="creando = false">
                         Cancelar
                     </button>

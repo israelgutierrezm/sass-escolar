@@ -38,8 +38,18 @@ const props = defineProps<{
     formulario: Record<string, any>;
     campos: Campo[];
     tiposCampo: { id: number; clave: string; nombre: string }[];
-    asignaciones: { id: number; tipo: string; destino_id: number; destino: string; obligatorio: boolean }[];
+    asignaciones: {
+        id: number;
+        rol_id: number;
+        rol: string;
+        ambito_tipo: string | null;
+        ambito: string | null;
+        obligatorio: boolean;
+    }[];
+    /** Los recortes disponibles, por tipo. */
     destinos: Record<string, { id: number; nombre: string }[]>;
+    /** `admite_ambito` dice si a ese rol se le puede acotar por carrera. */
+    roles: { id: number; nombre: string; admite_ambito: boolean }[];
     respuestas: number;
     congelado: boolean;
     puedeEditar: boolean;
@@ -144,9 +154,48 @@ function eliminarOpcion(campoId: number, opcionId: number): void {
 }
 
 /* --- Asignaciones --- */
-const formAsignacion = useForm({ aplica_a_tipo: 'rol', aplica_a_id: null as number | null, obligatorio: false });
 
-const destinosDelTipo = computed(() => props.destinos[formAsignacion.aplica_a_tipo] ?? []);
+/*
+ * Primero el ROL y sólo despues el recorte.
+ *
+ * Antes los cuatro destinos —rol, nivel, carrera, oferta— se elegían como
+ * hermanos, y eso decía algo que no es cierto: que un formulario asignado «a la
+ * carrera de Derecho» le llega a alguien. Nivel, carrera y oferta no son
+ * destinatarios, son recortes del destinatario.
+ */
+const formAsignacion = useForm({
+    rol_id: null as number | null,
+    ambito_tipo: null as string | null,
+    ambito_id: null as number | null,
+    obligatorio: false,
+});
+
+const rolElegido = computed(() => props.roles.find((r) => r.id === formAsignacion.rol_id) ?? null);
+
+/**
+ * El recorte sólo se ofrece a quien TIENE carrera: aspirantes y alumnos.
+ *
+ * A un docente no se le puede acotar un formulario «a Derecho» porque no
+ * pertenece a ninguna carrera; ofrecérselo era invitar a guardar una asignación
+ * que después nadie sabría cómo resolver.
+ */
+const admiteAmbito = computed(() => rolElegido.value?.admite_ambito ?? false);
+
+const opcionesAmbito = computed(() =>
+    (props.destinos[formAsignacion.ambito_tipo ?? ''] ?? []).map((d) => ({ valor: d.id, texto: d.nombre })),
+);
+
+/** Cambiar de rol a uno sin carrera limpia el recorte que hubiera puesto. */
+function alCambiarRol(): void {
+    if (! admiteAmbito.value) {
+        formAsignacion.ambito_tipo = null;
+        formAsignacion.ambito_id = null;
+    }
+}
+
+function alCambiarTipoDeAmbito(): void {
+    formAsignacion.ambito_id = null;
+}
 
 function asignar(): void {
     formAsignacion.post(`/formularios/${props.formulario.id}/asignaciones`, {
@@ -175,8 +224,9 @@ const opcionesDelPadre = computed(() => {
     return padre?.opciones ?? [];
 });
 
-const etiquetaTipo = (tipo: string) =>
-    ({ nivel: 'Nivel de estudios', carrera: 'Carrera', oferta: 'Oferta', rol: 'Rol' })[tipo] ?? tipo;
+/** El recorte, en minúscula: va dentro de una frase, no como encabezado. */
+const etiquetaAmbito = (tipo: string | null) =>
+    ({ nivel: 'nivel', carrera: 'carrera', oferta: 'oferta' })[tipo ?? ''] ?? tipo ?? '';
 </script>
 
 <template>
@@ -223,20 +273,17 @@ const etiquetaTipo = (tipo: string) =>
         <section class="tarjeta overflow-hidden">
             <div class="flex flex-wrap items-center justify-between gap-3 border-b px-6 py-3" :style="{ borderColor: 'var(--color-borde)' }">
                 <div>
-                    <h2 class="text-base font-semibold">Campos ({{ campos.length }})</h2>
+                    <h2 class="text-base font-semibold">Preguntas ({{ campos.length }})</h2>
                     <p class="mt-0.5 text-sm" :style="{ color: 'var(--color-suave)' }">
-                        El orden es el que verá quien llene el formulario.
+                        En este orden las verá quien llene el formulario. Muévelas con las flechas.
                     </p>
                 </div>
-                <button
+                <BotonAccion
                     v-if="editable && !agregando"
-                    type="button"
-                    class="rounded-lg px-3 py-1.5 text-sm font-medium"
-                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+                    variante="nuevo"
+                    texto="Agregar pregunta"
                     @click="abrirNuevoCampo"
-                >
-                    Agregar campo
-                </button>
+                />
             </div>
 
             <ul v-if="campos.length">
@@ -247,13 +294,26 @@ const etiquetaTipo = (tipo: string) =>
                     :style="{ borderColor: 'var(--color-borde)' }"
                 >
                     <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div class="flex min-w-0 gap-3">
+                            <!--
+                                El número de orden, a la vista.
+                                Sin él, «la tercera pregunta» había que contarla
+                                con el dedo, y es justo como se habla de ellas al
+                                revisar un formulario con alguien más.
+                            -->
+                            <span
+                                class="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-semibold tabular-nums"
+                                :style="{ backgroundColor: 'var(--color-fondo)', color: 'var(--color-suave)' }"
+                            >{{ i + 1 }}</span>
+
                         <div class="min-w-0">
                             <p class="text-sm">
                                 <span class="font-medium">{{ campo.pregunta }}</span>
-                                <span v-if="campo.obligatorio" class="text-red-500"> *</span>
-                                <span class="ml-2 rounded-full px-2 py-0.5 text-xs" style="background-color: color-mix(in srgb, currentColor 10%, transparent)">
-                                    {{ campo.tipo }}
-                                </span>
+                                <span v-if="campo.obligatorio" class="text-red-500" title="Obligatoria"> *</span>
+                                <span
+                                    class="ml-2 rounded-full px-2 py-0.5 text-xs"
+                                    :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 10%, transparent)', color: 'var(--color-acento)' }"
+                                >{{ campo.tipo }}</span>
                             </p>
                             <p v-if="campo.descripcion" class="mt-0.5 text-xs" :style="{ color: 'var(--color-suave)' }">
                                 {{ campo.descripcion }}
@@ -289,6 +349,8 @@ const etiquetaTipo = (tipo: string) =>
                                         <button
                                             v-if="editable"
                                             type="button"
+                                            class="grid h-4 w-4 place-items-center rounded-full leading-none transition hover:bg-red-100 hover:text-red-700"
+                                            title="Quitar opción"
                                             @click="eliminarOpcion(campo.id, opcion.id)"
                                         >×</button>
                                     </li>
@@ -302,12 +364,13 @@ const etiquetaTipo = (tipo: string) =>
                                         <div class="w-40">
                                             <CampoTexto v-model="formOpcion.valor" etiqueta="Valor" mono ayuda="Opcional." />
                                         </div>
-                                        <button
-                                            type="button"
-                                            class="rounded-lg px-3 py-2 text-sm font-medium"
-                                            :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+                                        <BotonPrincipal
+                                            tipo="button"
+                                            texto="Agregar"
+                                            icono="crear"
+                                            :deshabilitado="!formOpcion.etiqueta"
                                             @click="agregarOpcion(campo.id)"
-                                        >Agregar</button>
+                                        />
                                         <button
                                             type="button"
                                             class="rounded-lg border px-3 py-2 text-sm"
@@ -327,11 +390,28 @@ const etiquetaTipo = (tipo: string) =>
                                 </div>
                             </div>
                         </div>
+                        </div>
 
                         <div v-if="editable" class="flex shrink-0 items-center gap-3 text-sm">
-                            <span class="flex flex-col">
-                                <button type="button" :disabled="i === 0" class="disabled:opacity-30" :style="{ color: 'var(--color-suave)' }" @click="mover(campo, 'arriba')">▲</button>
-                                <button type="button" :disabled="i === campos.length - 1" class="disabled:opacity-30" :style="{ color: 'var(--color-suave)' }" @click="mover(campo, 'abajo')">▼</button>
+                            <!-- Con área de clic de verdad: eran dos triángulos
+                                 de texto de ocho pixeles, imposibles de atinar. -->
+                            <span class="flex flex-col gap-0.5">
+                                <button
+                                    type="button"
+                                    :disabled="i === 0"
+                                    class="grid h-5 w-6 place-items-center rounded text-xs transition hover:bg-fondo disabled:opacity-25 disabled:hover:bg-transparent"
+                                    :style="{ color: 'var(--color-suave)' }"
+                                    title="Subir"
+                                    @click="mover(campo, 'arriba')"
+                                >▲</button>
+                                <button
+                                    type="button"
+                                    :disabled="i === campos.length - 1"
+                                    class="grid h-5 w-6 place-items-center rounded text-xs transition hover:bg-fondo disabled:opacity-25 disabled:hover:bg-transparent"
+                                    :style="{ color: 'var(--color-suave)' }"
+                                    title="Bajar"
+                                    @click="mover(campo, 'abajo')"
+                                >▼</button>
                             </span>
                             <BotonAccion :variante="editandoCampo === campo.id ? 'cerrar' : 'editar'" @click="abrirEdicionCampo(campo)" />
                             <BotonAccion variante="eliminar" texto="Quitar" @click="eliminarCampo(campo)" />
@@ -340,9 +420,18 @@ const etiquetaTipo = (tipo: string) =>
                 </li>
             </ul>
 
-            <p v-else class="px-6 py-8 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
-                Sin campos todavía.
-            </p>
+            <div v-else class="px-6 py-10 text-center">
+                <p class="text-sm" :style="{ color: 'var(--color-suave)' }">
+                    Todavía no tiene preguntas, así que quien lo abra no verá nada que contestar.
+                </p>
+                <BotonAccion
+                    v-if="editable && !agregando"
+                    variante="nuevo"
+                    texto="Agregar la primera"
+                    class="mt-3"
+                    @click="abrirNuevoCampo"
+                />
+            </div>
 
             <!-- Alta / edición de campo -->
             <form
@@ -427,10 +516,17 @@ const etiquetaTipo = (tipo: string) =>
                     :style="{ borderColor: 'var(--color-borde)' }"
                 >
                     <span>
-                        <span :style="{ color: 'var(--color-suave)' }">{{ etiquetaTipo(a.tipo) }}:</span>
-                        {{ a.destino }}
-                        <span v-if="a.obligatorio" class="ml-1 rounded-full px-2 py-0.5 text-xs" style="background-color: color-mix(in srgb, #dc2626 14%, transparent)">
-                            obligatorio aquí
+                        {{ a.rol }}
+                        <!-- El recorte va como píldora y no como texto seguido:
+                             lo que se busca al revisar esta lista es si una
+                             asignación está acotada o le llega a todo el rol. -->
+                        <span
+                            v-if="a.ambito"
+                            class="ml-1.5 rounded-full px-2 py-0.5 text-xs"
+                            :style="{ backgroundColor: 'var(--color-fondo)', color: 'var(--color-suave)' }"
+                        >sólo {{ etiquetaAmbito(a.ambito_tipo) }}: {{ a.ambito }}</span>
+                        <span v-else class="ml-1.5 text-xs" :style="{ color: 'var(--color-suave)' }">
+                            (todos)
                         </span>
                     </span>
                     <button
@@ -452,33 +548,60 @@ const etiquetaTipo = (tipo: string) =>
             <form v-if="puedeEditar" class="border-t px-6 py-4" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="asignar">
                 <div class="grid gap-3 sm:grid-cols-4">
                     <CampoSelect
-                        v-model="formAsignacion.aplica_a_tipo"
-                        etiqueta="Tipo de destino"
-                        :opciones="[
-                            { valor: 'rol', texto: 'Rol' },
-                            { valor: 'nivel', texto: 'Nivel de estudios' },
-                            { valor: 'carrera', texto: 'Carrera' },
-                            { valor: 'oferta', texto: 'Oferta' },
-                        ]"
+                        v-model="formAsignacion.rol_id"
+                        etiqueta="Rol"
+                        requerido
+                        vacio="Elige…"
+                        :opciones="roles.map((r) => ({ valor: r.id, texto: r.nombre }))"
+                        :error="formAsignacion.errors.rol_id"
+                        @update:model-value="alCambiarRol"
                     />
-                    <div class="sm:col-span-2">
+
+                    <!--
+                        Los subfiltros aparecen SOLO para aspirantes y alumnos.
+                        Son los únicos con carrera, y se acotan igual a propósito:
+                        el aspirante se convierte en alumno y su expediente de
+                        formularios viaja con él, así que si cada rol se recortara
+                        distinto el expediente se partiría al cruzar.
+                    -->
+                    <template v-if="admiteAmbito">
                         <CampoSelect
-                            v-model="formAsignacion.aplica_a_id"
-                            etiqueta="Destino"
-                            :opciones="destinosDelTipo.map((d) => ({ valor: d.id, texto: d.nombre }))"
-                            vacio="Elige…"
-                            :error="formAsignacion.errors.aplica_a_id"
+                            v-model="formAsignacion.ambito_tipo"
+                            etiqueta="Acotar a"
+                            :opciones="[
+                                { valor: null, texto: 'Todo el rol' },
+                                { valor: 'nivel', texto: 'Un nivel de estudios' },
+                                { valor: 'carrera', texto: 'Una carrera' },
+                                { valor: 'oferta', texto: 'Una oferta' },
+                            ]"
+                            :error="formAsignacion.errors.ambito_tipo"
+                            @update:model-value="alCambiarTipoDeAmbito"
                         />
-                    </div>
+                        <CampoSelect
+                            v-if="formAsignacion.ambito_tipo"
+                            v-model="formAsignacion.ambito_id"
+                            etiqueta="Cuál"
+                            requerido
+                            vacio="Elige…"
+                            :opciones="opcionesAmbito"
+                            :error="formAsignacion.errors.ambito_id"
+                        />
+                    </template>
+
                     <div class="flex items-end">
                         <BotonPrincipal
                             :procesando="formAsignacion.processing"
-                            :deshabilitado="!formAsignacion.aplica_a_id"
+                            :deshabilitado="!formAsignacion.rol_id"
                             texto="Asignar"
                             class="w-full"
                         />
                     </div>
                 </div>
+
+                <p v-if="rolElegido && !admiteAmbito" class="mt-2 text-xs" :style="{ color: 'var(--color-suave)' }">
+                    A {{ rolElegido.nombre.toLowerCase() }} se le muestra siempre: no pertenece a una
+                    carrera, así que no hay por dónde acotarlo.
+                </p>
             </form>
         </section>
 

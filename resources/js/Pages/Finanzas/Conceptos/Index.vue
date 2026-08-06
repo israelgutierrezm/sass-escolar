@@ -138,7 +138,7 @@ const objImp = (clave: string | null) =>
                     </label>
                 </div>
                 <div class="mt-4 flex gap-2">
-                    <BotonPrincipal :procesando="alta.processing" texto="Crear" icono="crear-circulo" solo-icono />
+                    <BotonPrincipal :procesando="alta.processing" texto="Crear" icono="crear" />
                     <button type="button" class="rounded-lg border px-4 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" @click="creando = false">
                         Cancelar
                     </button>

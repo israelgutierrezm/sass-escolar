@@ -67,7 +67,7 @@ class FormularioController extends Controller
         $formulario->load([
             'campos.tipoCampo:id,clave,nombre',
             'campos.opciones',
-            'asignaciones',
+            'asignaciones.rol',
         ]);
 
         $respuestas = $this->respuestasDe($formulario);
@@ -109,12 +109,15 @@ class FormularioController extends Controller
             'tiposCampo' => TipoCampo::query()->orderBy('id')->get(['id', 'clave', 'nombre']),
             'asignaciones' => $formulario->asignaciones->map(fn (FormularioAsignacion $a) => [
                 'id' => $a->id,
-                'tipo' => $a->aplica_a_tipo,
-                'destino_id' => $a->aplica_a_id,
-                'destino' => $this->nombreDestino($a),
+                'rol_id' => $a->rol_id,
+                'rol' => $a->rol?->nombre ?? 'rol desconocido',
+                'ambito_tipo' => $a->ambito_tipo,
+                'ambito_id' => $a->ambito_id,
+                'ambito' => $this->nombreAmbito($a),
                 'obligatorio' => $a->obligatorio,
             ]),
             'destinos' => $this->destinos(),
+            'roles' => $this->rolesAsignables(),
             // Con respuestas capturadas el formulario se congela: editarlo
             // reescribiría preguntas que alguien ya contestó.
             'respuestas' => $respuestas,
@@ -275,20 +278,42 @@ class FormularioController extends Controller
     public function asignar(Request $request, Formulario $formulario): RedirectResponse
     {
         $datos = $request->validate([
-            'aplica_a_tipo' => ['required', Rule::in(['nivel', 'carrera', 'oferta', 'rol'])],
-            'aplica_a_id' => ['required', 'integer'],
+            'rol_id' => ['required', Rule::exists('roles', 'id')],
+            'ambito_tipo' => ['nullable', Rule::in(FormularioAsignacion::AMBITOS)],
+            'ambito_id' => ['nullable', 'integer', 'required_with:ambito_tipo'],
             'obligatorio' => ['boolean'],
-        ], [], ['aplica_a_tipo' => 'tipo de destino', 'aplica_a_id' => 'destino']);
+        ], [
+            'ambito_id.required_with' => 'Elige a qué nivel, carrera u oferta se acota.',
+        ], ['rol_id' => 'rol']);
+
+        $rol = Rol::findOrFail($datos['rol_id']);
+
+        /*
+         * El recorte por carrera sólo aplica a quien TIENE carrera.
+         *
+         * La pantalla ya lo esconde para los demás roles, pero la regla vive
+         * aquí: una petición armada a mano no debe poder dejar guardada una
+         * asignación que no significa nada —«docentes de la carrera de
+         * Derecho»— y que después nadie sabría cómo resolver.
+         */
+        if ($datos['ambito_tipo'] !== null && ! FormularioAsignacion::admiteAmbito($rol)) {
+            throw ValidationException::withMessages([
+                'ambito_tipo' => "El rol {$rol->nombre} no tiene carrera, así que no se le puede acotar por nivel, carrera u oferta.",
+            ]);
+        }
 
         $duplicada = FormularioAsignacion::query()
             ->where('formulario_id', $formulario->id)
-            ->where('aplica_a_tipo', $datos['aplica_a_tipo'])
-            ->where('aplica_a_id', $datos['aplica_a_id'])
+            ->where('rol_id', $datos['rol_id'])
+            ->when($datos['ambito_tipo'] === null,
+                fn ($q) => $q->whereNull('ambito_tipo'),
+                fn ($q) => $q->where('ambito_tipo', $datos['ambito_tipo'])->where('ambito_id', $datos['ambito_id']),
+            )
             ->exists();
 
         if ($duplicada) {
             throw ValidationException::withMessages([
-                'aplica_a_id' => 'Este formulario ya está asignado a ese destino.',
+                'rol_id' => 'Este formulario ya está asignado a ese destino.',
             ]);
         }
 
@@ -356,14 +381,14 @@ class FormularioController extends Controller
     }
 
     /** Nombre legible del destino de una asignación (es polimórfico, sin FK). */
-    private function nombreDestino(FormularioAsignacion $asignacion): string
+    /** El recorte, en palabras. Null cuando la asignación no lo tiene. */
+    private function nombreAmbito(FormularioAsignacion $asignacion): ?string
     {
-        return match ($asignacion->aplica_a_tipo) {
-            'nivel' => NivelEstudio::find($asignacion->aplica_a_id)?->nombre ?? 'nivel desconocido',
-            'carrera' => Carrera::find($asignacion->aplica_a_id)?->nombre ?? 'carrera desconocida',
-            'oferta' => $this->nombreOferta($asignacion->aplica_a_id),
-            'rol' => Rol::find($asignacion->aplica_a_id)?->nombre ?? 'rol desconocido',
-            default => 'destino desconocido',
+        return match ($asignacion->ambito_tipo) {
+            'nivel' => NivelEstudio::find($asignacion->ambito_id)?->nombre ?? 'nivel desconocido',
+            'carrera' => Carrera::find($asignacion->ambito_id)?->nombre ?? 'carrera desconocida',
+            'oferta' => $this->nombreOferta((int) $asignacion->ambito_id),
+            default => null,
         };
     }
 
@@ -377,7 +402,7 @@ class FormularioController extends Controller
     }
 
     /**
-     * Destinos posibles de una asignación, por tipo.
+     * Los recortes que la pantalla puede ofrecer.
      *
      * @return array<string, mixed>
      */
@@ -392,7 +417,26 @@ class FormularioController extends Controller
                     'id' => $o->id,
                     'nombre' => trim(($o->carrera?->nombre ?? '').' · '.($o->plan?->nombre ?? '')),
                 ]),
-            'rol' => Rol::query()->orderBy('nombre')->get(['id', 'nombre']),
         ];
+    }
+
+    /**
+     * Los roles a los que se puede asignar, diciendo cuáles admiten recorte.
+     *
+     * La pantalla necesita saberlo para mostrar u ocultar los subfiltros, y no
+     * puede deducirlo sola: qué faceta tiene un rol depende de su jerarquía,
+     * que la escuela edita.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function rolesAsignables(): array
+    {
+        return Rol::query()->orderBy('nombre')->get()
+            ->map(fn (Rol $r) => [
+                'id' => $r->id,
+                'nombre' => $r->nombre,
+                'admite_ambito' => FormularioAsignacion::admiteAmbito($r),
+            ])
+            ->all();
     }
 }

@@ -336,7 +336,10 @@ function esEditando(catalogo: string, id: number): boolean {
                             @click="abrirAlta(catalogo.clave)"
                         />
 
-                        <form v-else class="mt-3 flex items-center gap-3" @submit.prevent="agregar(catalogo)">
+                        <!-- Envuelve: la fila lleva varios campos angostos, un
+                             selector de color y el botón, y en cuanto éste
+                             recuperó su etiqueta dejó de caber en una línea. -->
+                        <form v-else class="mt-3 flex flex-wrap items-center gap-3" @submit.prevent="agregar(catalogo)">
                             <input
                                 :id="`alta-${catalogo.clave}`"
                                 v-model="nuevos[catalogo.clave].clave"
@@ -367,7 +370,7 @@ function esEditando(catalogo: string, id: number): boolean {
                                 :style="{ borderColor: 'var(--color-borde)' }"
                                 title="Color del área (se genera uno pastel si no lo cambias)"
                             />
-                            <BotonPrincipal solo-icono icono="crear-circulo" texto="Agregar" class="shrink-0" />
+                            <BotonPrincipal icono="crear" texto="Agregar" class="shrink-0" />
                             <BotonAccion variante="cerrar" @click="cerrarAlta(catalogo.clave)" />
                         </form>
                     </template>

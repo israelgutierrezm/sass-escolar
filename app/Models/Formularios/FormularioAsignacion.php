@@ -5,25 +5,50 @@ declare(strict_types=1);
 namespace App\Models\Formularios;
 
 use App\Models\Concerns\TieneAuditoria;
+use App\Models\Identidad\Rol;
+use App\Support\CatalogoPermisos;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * formulario_asignacion (TENANT) — a qué nivel/carrera/oferta/rol aplica un
- * formulario. Referencia polimórfica sin FK (el destino vive en tablas
- * distintas, incluso en la landlord).
+ * formulario_asignacion (TENANT) — a quién se le muestra un formulario.
+ *
+ * Un ROL, y opcionalmente acotado a un nivel de estudios, una carrera o una
+ * oferta. El ámbito no es un destinatario alternativo: es un recorte del
+ * destinatario, y sólo tiene sentido para quien tiene carrera —aspirantes y
+ * alumnos—. Un formulario «para la carrera de Derecho» no le llega a nadie
+ * mientras no se diga a quién de esa carrera.
+ *
+ * Que aspirante y alumno se recorten con el MISMO criterio es deliberado: el
+ * aspirante se convierte en alumno y su expediente de formularios viaja con él;
+ * si cada rol se acotara distinto, el expediente se partiría al cruzar.
+ *
+ * La referencia al ámbito es polimórfica y sin FK: nivel, carrera y oferta
+ * viven en tablas distintas.
  */
 class FormularioAsignacion extends Model
 {
     use TieneAuditoria;
 
+    /** Los recortes posibles, del más amplio al más específico. */
+    public const AMBITOS = ['nivel', 'carrera', 'oferta'];
+
+    /**
+     * Las facetas cuyo rol admite recorte académico.
+     *
+     * Un docente o un administrativo no tienen carrera, así que acotarles un
+     * formulario «a Derecho» no querría decir nada.
+     */
+    public const FACETAS_CON_AMBITO = [CatalogoPermisos::ASPIRANTE, CatalogoPermisos::ALUMNO];
+
     protected $table = 'formulario_asignacion';
 
     protected $fillable = [
         'formulario_id',
-        'aplica_a_tipo',
-        'aplica_a_id',
+        'rol_id',
+        'ambito_tipo',
+        'ambito_id',
         'obligatorio',
     ];
 
@@ -39,9 +64,20 @@ class FormularioAsignacion extends Model
         return $this->belongsTo(Formulario::class);
     }
 
-    /** Filtra las asignaciones que apuntan a un destino concreto. */
-    public function scopeParaDestino(Builder $query, string $tipo, int $id): Builder
+    public function rol(): BelongsTo
     {
-        return $query->where('aplica_a_tipo', $tipo)->where('aplica_a_id', $id);
+        return $this->belongsTo(Rol::class);
+    }
+
+    /** ¿A este rol se le puede recortar el formulario por carrera? */
+    public static function admiteAmbito(?Rol $rol): bool
+    {
+        return $rol !== null && in_array($rol->ambitoDePermisos(), self::FACETAS_CON_AMBITO, true);
+    }
+
+    /** Filtra las asignaciones acotadas a un ámbito concreto. */
+    public function scopeParaAmbito(Builder $query, string $tipo, int $id): Builder
+    {
+        return $query->where('ambito_tipo', $tipo)->where('ambito_id', $id);
     }
 }
