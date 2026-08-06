@@ -215,7 +215,7 @@ class RespuestaFormularioController extends Controller
             ->with('exito', "«{$formulario->titulo}» quedó guardado.");
     }
 
-    // ── «Mis formularios»: el autoservicio de cualquier persona ────────────
+    // ── «Mis datos»: el autoservicio de cualquier persona ──────────────────
 
     /*
      * Una puerta sin oficio.
@@ -250,16 +250,16 @@ class RespuestaFormularioController extends Controller
         $persona = $this->miPersona($request);
 
         return $this->pantalla($persona, $formulario, [
-            'titulo' => 'Mis formularios',
-            'volver' => '/mis-formularios',
-        ], "/mis-formularios/{$formulario->id}", '/mis-formularios/respuestas');
+            'titulo' => 'Mis datos',
+            'volver' => '/mis-datos',
+        ], "/mis-datos/{$formulario->id}", '/mis-datos/respuestas');
     }
 
     public function guardarPersonal(Request $request, Formulario $formulario): RedirectResponse
     {
         $this->persistir($request, $this->miPersona($request), $formulario);
 
-        return redirect('/mis-formularios')->with('exito', "«{$formulario->titulo}» quedó guardado.");
+        return redirect('/mis-datos')->with('exito', "«{$formulario->titulo}» quedó guardado.");
     }
 
     // ── Descargar lo que se subió ──────────────────────────────────────────

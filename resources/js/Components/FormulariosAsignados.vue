@@ -27,7 +27,7 @@ interface FormularioAsignado {
     completo: boolean;
 }
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
     formularios: FormularioAsignado[];
     /**
      * Para que el texto diga lo que corresponde a cada caso. Un docente no
@@ -47,7 +47,22 @@ const props = defineProps<{
      * pantalla suena a que se refiere a otra persona.
      */
     tuteo?: boolean;
-}>();
+    /**
+     * Cómo se llama el bloque en ESTA pantalla.
+     *
+     * «Formularios» es la palabra de quien los configura. A un padre de familia
+     * no le dice nada —y peor, delata que alguien se los cargó desde una
+     * administración—; lo que él tiene enfrente son datos que la escuela le
+     * pide. Cada pantalla lo nombra según su contexto, y el default queda para
+     * las fichas administrativas, donde el término sí es el correcto.
+     */
+    titulo?: string;
+}>(), {
+    puedeCapturar: false,
+    tuteo: false,
+    titulo: 'Formularios',
+    baseCaptura: undefined,
+});
 
 const pendientesObligatorios = computed(
     () => props.formularios.filter((f) => f.obligatorio && !f.completo).length,
@@ -58,9 +73,9 @@ const porCarrera = computed(() => props.titular === 'aspirante' || props.titular
 
 const descripcion = computed(() => {
     if (props.tuteo) {
-        return porCarrera.value
-            ? 'Los bloques de datos que la escuela te pide, según tu rol y tu programa.'
-            : 'Los bloques de datos que la escuela te pide, según tu rol.';
+        // Sin hablar de roles ni de bloques: al interesado le importa qué le
+        // piden, no cómo está organizado por dentro el sistema que se lo pide.
+        return 'Lo que la escuela necesita que llenes.';
     }
 
     return porCarrera.value
@@ -70,7 +85,7 @@ const descripcion = computed(() => {
 
 const vacio = computed(() => {
     if (props.tuteo) {
-        return 'No te toca ninguno por ahora.';
+        return 'La escuela no te pide nada por ahora.';
     }
 
     return porCarrera.value
@@ -92,7 +107,7 @@ function avance(f: FormularioAsignado): number {
 
 <template>
     <TarjetaSeccion
-        titulo="Formularios"
+        :titulo="titulo"
         :descripcion="descripcion"
         :icono="ICONOS.tareaCheck"
     >

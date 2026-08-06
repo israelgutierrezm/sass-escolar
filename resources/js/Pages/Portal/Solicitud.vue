@@ -479,6 +479,7 @@ const colorEstado: Record<string, string> = {
                 v-show="abierto === 'formularios'"
                 :formularios="formularios"
                 titular="aspirante"
+                titulo="Información adicional"
                 base-captura="/mi-solicitud/formularios"
                 :puede-capturar="true"
                 tuteo

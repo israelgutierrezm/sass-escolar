@@ -5,7 +5,11 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import FormulariosAsignados from '@/Components/FormulariosAsignados.vue';
 
 /**
- * «Mis formularios»: lo que la escuela me pide a MÍ.
+ * «Mis datos»: lo que la escuela me pide a MÍ.
+ *
+ * Se llamaba «Mis formularios», que es la palabra de quien los configura. A un
+ * padre de familia no le dice nada, y de paso delata que alguien se los cargó
+ * desde una administración: lo que él tiene enfrente son datos que le piden.
  *
  * El aspirante los llena en su solicitud, el alumno en su portal y el docente
  * dentro de «Mi expediente»: cada uno donde ya vive. Un padre de familia no
@@ -26,20 +30,18 @@ const pendientes = computed(
 </script>
 
 <template>
-    <Head title="Mis formularios" />
+    <Head title="Mis datos" />
 
-    <AppLayout titulo="Mis formularios">
+    <AppLayout titulo="Mis datos">
         <!--
-            Qué falta, antes que la lista. Es lo único que hay que saber para
-            decidir si hay algo que hacer hoy.
+            Qué falta, antes que la lista. Cuando no hay nada, la tarjeta ya lo
+            dice con todas sus letras: repetirlo aquí arriba era leer dos veces
+            la misma frase.
         -->
-        <p class="mb-4 text-sm text-suave">
-            <template v-if="!formularios.length">
-                La escuela no te pide ningún formulario por ahora.
-            </template>
-            <template v-else-if="pendientes">
-                Te falta contestar {{ pendientes }}
-                {{ pendientes === 1 ? 'formulario obligatorio' : 'formularios obligatorios' }}.
+        <p v-if="formularios.length" class="mb-4 text-sm text-suave">
+            <template v-if="pendientes">
+                Te falta llenar {{ pendientes }}
+                {{ pendientes === 1 ? 'apartado' : 'apartados' }}.
             </template>
             <template v-else>
                 Ya contestaste todo lo obligatorio. Gracias.
@@ -49,7 +51,8 @@ const pendientes = computed(
         <FormulariosAsignados
             :formularios="formularios"
             titular="persona"
-            base-captura="/mis-formularios"
+            titulo="Mis datos"
+            base-captura="/mis-datos"
             :puede-capturar="true"
             tuteo
         />

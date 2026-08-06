@@ -104,6 +104,20 @@ class PadreController extends Controller
                 'academico' => $vinculo->puede_ver_academico,
                 'finanzas' => $vinculo->puede_ver_finanzas,
             ],
+            /*
+             * Qué estudia, aparte del detalle de cada cosa.
+             *
+             * La pantalla elige una carrera a la vez, y necesita la lista para
+             * ofrecerla. Va por separado de `academico` y `finanzas` porque
+             * cada uno de ésos depende de su propio permiso: sin esto, a un
+             * padre que sólo ve lo financiero no se le podría decir cuál de las
+             * dos carreras está mirando.
+             */
+            'carreras' => $matriculas->map(fn (MatriculaOferta $m) => [
+                'matricula' => $m->matricula,
+                'carrera' => $m->oferta?->carrera?->nombre,
+                'campus' => $m->oferta?->campus?->nombre,
+            ])->values(),
             'academico' => $vinculo->puede_ver_academico
                 ? $matriculas->map(fn (MatriculaOferta $m) => $this->academicoDe($m))->values()
                 : null,

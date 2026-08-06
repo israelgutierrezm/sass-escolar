@@ -391,6 +391,7 @@ function quitarFoto(): void {
             v-if="formularios.length"
             :formularios="formularios"
             titular="docente"
+            titulo="Mis datos"
             base-captura="/docencia/expediente/formularios"
             :puede-capturar="true"
             tuteo

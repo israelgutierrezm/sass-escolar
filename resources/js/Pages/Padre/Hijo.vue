@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
@@ -41,13 +42,38 @@ interface Finanza {
     facturas: { uuid: string | null; total: number; estatus: string; fecha: string | null }[];
 }
 
-defineProps<{
+const props = defineProps<{
     hijo: { id: number; nombre: string; foto: string | null; curp: string | null; parentesco: string };
     permisos: { academico: boolean; finanzas: boolean };
+    /** Lo que estudia, aunque no se le deje ver el detalle de ninguna. */
+    carreras: { matricula: string; carrera: string | null; campus: string | null }[];
     academico: Academico[] | null;
     finanzas: Finanza[] | null;
     accesos: { tipo: string; ip: string | null; navegador: string | null; equipo: string | null; momento: string | null }[];
 }>();
+
+/*
+ * Una carrera a la vez.
+ *
+ * Cuando el hijo estudia dos cosas, esta pantalla apilaba una tarjeta completa
+ * por carrera —con toda su tabla de materias— y la segunda quedaba tan abajo
+ * que había que buscarla con scroll para descubrir que existía. Se elige entre
+ * ellas, como en el expediente del alumno, y así las dos están a la vista desde
+ * el primer momento.
+ *
+ * Se identifica por MATRÍCULA y no por posición: académico y finanzas son dos
+ * listas distintas y sólo la matrícula garantiza que se está mirando la misma
+ * carrera en ambas.
+ */
+const enFoco = ref(props.carreras[0]?.matricula ?? null);
+
+const academicoEnFoco = computed(
+    () => (props.academico ?? []).filter((a) => a.matricula === enFoco.value),
+);
+
+const finanzasEnFoco = computed(
+    () => (props.finanzas ?? []).filter((f) => f.matricula === enFoco.value),
+);
 
 const etiquetaAcceso: Record<string, string> = { entrada: 'Entró', salida: 'Salió' };
 
@@ -90,11 +116,42 @@ function colorCalif(estatusClave: string | null): string {
                     </p>
                 </div>
             </div>
+
+            <!--
+                Con una sola carrera no hay nada que elegir y el selector sería
+                un control que no hace nada.
+            -->
+            <div
+                v-if="carreras.length > 1"
+                class="mt-4 border-t pt-4"
+                :style="{ borderColor: 'var(--color-borde)' }"
+            >
+                <p class="mb-2 text-sm">
+                    Estudia <strong>{{ carreras.length }} carreras</strong>. Elige cuál quieres ver:
+                </p>
+                <div class="flex flex-wrap gap-2">
+                    <button
+                        v-for="c in carreras"
+                        :key="c.matricula"
+                        type="button"
+                        class="rounded-lg border px-3 py-2 text-left text-sm transition"
+                        :style="c.matricula === enFoco
+                            ? { borderColor: 'var(--color-acento)', backgroundColor: 'color-mix(in srgb, var(--color-acento) 10%, transparent)', color: 'var(--color-acento)' }
+                            : { borderColor: 'var(--color-borde)' }"
+                        @click="enFoco = c.matricula"
+                    >
+                        <span class="block font-medium">{{ c.carrera ?? 'Carrera' }}</span>
+                        <span class="block text-xs" :style="{ color: 'var(--color-suave)' }">
+                            {{ c.matricula }}<template v-if="c.campus"> · {{ c.campus }}</template>
+                        </span>
+                    </button>
+                </div>
+            </div>
         </section>
 
         <!-- Académico -->
         <template v-if="permisos.academico && academico">
-            <section v-for="(a, i) in academico" :key="'a' + i" class="tarjeta overflow-hidden">
+            <section v-for="(a, i) in academicoEnFoco" :key="'a' + i" class="tarjeta overflow-hidden">
                 <div class="flex flex-wrap items-center justify-between gap-3 border-b p-5" :style="{ borderColor: 'var(--color-borde)' }">
                     <div>
                         <h3 class="font-semibold">{{ a.carrera ?? 'Carrera' }}</h3>
@@ -151,7 +208,7 @@ function colorCalif(estatusClave: string | null): string {
 
         <!-- Finanzas -->
         <template v-if="permisos.finanzas && finanzas">
-            <section v-for="(f, i) in finanzas" :key="'f' + i" class="tarjeta p-5">
+            <section v-for="(f, i) in finanzasEnFoco" :key="'f' + i" class="tarjeta p-5">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h3 class="font-semibold">Estado de cuenta</h3>

@@ -1109,7 +1109,7 @@ Route::middleware([
             ->name('tenant.portal.formularios.documento');
 
         /*
-         * «Mis formularios»: el autoservicio de cualquier persona.
+         * «Mis datos»: el autoservicio de cualquier persona.
          *
          * El aspirante llena los suyos en `/mi-solicitud`, el alumno en su
          * portal y el docente dentro de «Mi expediente». Un padre de familia no
@@ -1123,7 +1123,7 @@ Route::middleware([
          * contestar lo que la escuela ya les asignó.
          */
         Route::controller(RespuestaFormularioController::class)
-            ->prefix('mis-formularios')->name('tenant.misformularios.')
+            ->prefix('mis-datos')->name('tenant.misdatos.')
             ->group(function () {
                 Route::get('/', 'mios')->name('index');
                 Route::get('respuestas/{respuesta}/documento', 'descargarPersonal')

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import { usaJergaAdministrativa } from '@/ambito';
 
 const props = defineProps<{ estado: number }>();
 
@@ -8,16 +9,25 @@ function regresar(): void {
     window.history.back();
 }
 
+const jergaOk = usaJergaAdministrativa();
+
 /**
  * Mensajes en el idioma del usuario y en términos de lo que puede hacer, no
  * del código HTTP.
+ *
+ * El 403 se dice de dos maneras. A quien administra la escuela le sirve saber
+ * que es cosa del rol activo y de sus permisos: es su herramienta y sabe dónde
+ * arreglarlo. A un padre de familia eso no le dice nada —no sabe que tiene un
+ * «rol activo», ni puede cambiárselo— y le deja la sensación de que hizo algo
+ * mal. A él hay que decirle qué pasó y con quién hablar.
  */
 const contenido = computed(() => {
     const mapa: Record<number, { titulo: string; detalle: string }> = {
         403: {
             titulo: 'No tienes acceso a esta sección',
-            detalle:
-                'Tu rol activo no incluye ese permiso. Si necesitas entrar, cambia de rol desde el menú superior o pide a un administrador que te lo asigne.',
+            detalle: jergaOk.value
+                ? 'Tu rol activo no incluye ese permiso. Si necesitas entrar, cambia de rol desde el menú superior o pide a un administrador que te lo asigne.'
+                : 'Esta parte del sistema no está disponible para ti. Si crees que deberías poder verla, comunícate con la escuela.',
         },
         404: {
             titulo: 'No encontramos lo que buscas',

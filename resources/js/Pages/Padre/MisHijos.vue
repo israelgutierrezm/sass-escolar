@@ -78,9 +78,25 @@ function iniciales(nombre: string): string {
                     </div>
                 </div>
 
-                <p v-if="hijo.carreras.length" class="text-sm" :style="{ color: 'var(--color-suave)' }">
-                    {{ hijo.carreras.join(' · ') }}
-                </p>
+                <!--
+                    Las carreras, una por renglón cuando son varias.
+                    Unidas con «·» en una sola línea, dos carreras largas se
+                    leían como una sola cosa rara y no se notaba que eran dos.
+                    Que estudie dos es justo lo que hay que ver antes de entrar,
+                    porque adentro se elige entre ellas.
+                -->
+                <div v-if="hijo.carreras.length">
+                    <p
+                        v-if="hijo.carreras.length > 1"
+                        class="mb-1 inline-block rounded-full px-2 py-0.5 text-xs"
+                        :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }"
+                    >
+                        Estudia {{ hijo.carreras.length }} carreras
+                    </p>
+                    <ul class="space-y-0.5 text-sm" :style="{ color: 'var(--color-suave)' }">
+                        <li v-for="c in hijo.carreras" :key="c" class="truncate">{{ c }}</li>
+                    </ul>
+                </div>
                 <p v-else class="text-sm" :style="{ color: 'var(--color-suave)' }">Sin carreras registradas.</p>
 
                 <!--

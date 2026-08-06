@@ -233,7 +233,7 @@ class ProgresoSolicitud
         if ($formularios->isEmpty()) {
             return [
                 'clave' => self::PASO_FORMULARIOS,
-                'titulo' => 'Tus formularios',
+                'titulo' => 'Información adicional',
                 'descripcion' => 'La escuela no te pide ninguno.',
                 'aplica' => false,
                 'completo' => true,
@@ -247,7 +247,7 @@ class ProgresoSolicitud
 
         return [
             'clave' => self::PASO_FORMULARIOS,
-            'titulo' => 'Tus formularios',
+            'titulo' => 'Información adicional',
             'descripcion' => 'Contesta los bloques de preguntas que pide la escuela.',
             'aplica' => true,
             'completo' => $pendientes->isEmpty(),

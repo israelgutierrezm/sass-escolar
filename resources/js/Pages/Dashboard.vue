@@ -6,6 +6,7 @@ import CieloDecorado from '@/Components/CieloDecorado.vue';
 import ClimaEnCabecera from '@/Components/ClimaEnCabecera.vue';
 import AgendaLateral from '@/Components/AgendaLateral.vue';
 import { usaClima } from '@/utils/clima';
+import { usaJergaAdministrativa } from '@/ambito';
 import type { PropsCompartidas } from '@/tipos';
 
 interface Tarjeta {
@@ -133,6 +134,9 @@ function rotula(i: number, total: number): boolean {
 }
 
 const page = usePage<PropsCompartidas>();
+
+// Si le podemos hablar de roles y permisos, o hay que decirlo en llano.
+const jergaOk = usaJergaAdministrativa();
 
 const usuario = computed(() => page.props.auth.usuario);
 const rolesDisponibles = computed(() => usuario.value?.roles_disponibles ?? []);
@@ -639,9 +643,21 @@ function conmutar(rolId: number): void {
             </div>
             </section>
 
+            <!--
+                El panel vacío, dicho de dos maneras.
+                A quien administra le sirve saber que las tarjetas dependen de
+                los permisos del rol activo: sabe dónde tocarlos. A un padre de
+                familia esa frase le habla de una maquinaria que no conoce y no
+                le dice qué hacer.
+            -->
             <section v-else class="tarjeta min-w-0 px-6 py-8 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
-                Tu rol activo todavía no tiene nada que mostrar aquí. Las tarjetas del panel aparecen según
-                los permisos que tenga.
+                <template v-if="jergaOk">
+                    Tu rol activo todavía no tiene nada que mostrar aquí. Las tarjetas del panel aparecen según
+                    los permisos que tenga.
+                </template>
+                <template v-else>
+                    Todavía no hay nada que mostrarte aquí. Usa el menú de la izquierda para ver tu información.
+                </template>
             </section>
 
             <!-- El contexto: qué día es y qué viene. El clima subió a la banda. -->
