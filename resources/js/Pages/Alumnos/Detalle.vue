@@ -10,6 +10,7 @@ import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
 import PestanasPagina from '@/Components/PestanasPagina.vue';
+import FormulariosAsignados from '@/Components/FormulariosAsignados.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 import { ICONOS } from '@/iconos';
 
@@ -115,6 +116,8 @@ const props = defineProps<{
     paises: { id: number; nombre: string }[];
     mexicoId: number | null;
     puedeEditar: boolean;
+    /** Los formularios que le tocan, de `ResolutorFormularios`. */
+    formularios: Record<string, any>[];
     datosTitulo: {
         modalidad: {
             modalidad_titulacion_id: number | null;
@@ -180,6 +183,16 @@ function estiloInsignia(completo: boolean): { backgroundColor: string; color: st
         ? { backgroundColor: 'color-mix(in srgb, #16a34a 15%, transparent)', color: '#15803d' }
         : { backgroundColor: 'var(--color-borde)', color: 'var(--color-suave)' };
 }
+
+/**
+ * Lo obligatorio que le falta de sus formularios, para el número de la pestaña.
+ *
+ * Va en la etiqueta y no dentro: con siete pestañas, lo que hace que alguien
+ * entre a una es ver ahí que reclama algo.
+ */
+const formulariosPendientes = computed(
+    () => props.formularios.filter((f: any) => f.obligatorio && !f.completo).length,
+);
 
 // ── Certificación desde el expediente ─────────────────────────────────────
 // Según su avance, al alumno le toca certificado total (cerró el plan) o
@@ -1052,11 +1065,24 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                 // título: en un diplomado, la pestaña ofrecía un trámite
                 // inexistente y quien la llenaba esperaba un documento.
                 ...(emiteDocumentos ? [{ clave: 'titulacion', etiqueta: 'Titulación' }] : []),
+                ...(formularios.length
+                    ? [{ clave: 'formularios', etiqueta: `Formularios${formulariosPendientes ? ` (${formulariosPendientes})` : ''}` }]
+                    : []),
                 { clave: 'datos', etiqueta: 'Datos' },
             ]"
             :model-value="pestana"
             @update:model-value="pestana = $event as any"
         />
+
+        <!-- Formularios -->
+        <section v-if="pestana === 'formularios'">
+            <FormulariosAsignados
+                :formularios="formularios"
+                titular="alumno"
+                :base-captura="`/escolar/alumnos/${alumno.id}/formularios`"
+                :puede-capturar="puedeEditar"
+            />
+        </section>
 
         <!-- Kárdex -->
         <section v-if="pestana === 'kardex'" class="space-y-4">

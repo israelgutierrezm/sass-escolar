@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\AcotaPorCampus;
 use App\Http\Controllers\Concerns\ResuelveMiSolicitud;
 use App\Models\Admisiones\Aspirante;
+use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\RespuestaCampo;
 use App\Models\Formularios\CampoFormulario;
 use App\Models\Formularios\Formulario;
@@ -99,14 +100,43 @@ class RespuestaFormularioController extends Controller
         return redirect('/mi-solicitud')->with('exito', "«{$formulario->titulo}» quedó guardado.");
     }
 
+    // ── Desde la ficha del alumno ──────────────────────────────────────────
+
+    /*
+     * El mismo expediente después de la conversión.
+     *
+     * Un alumno sigue teniendo formularios que llenar —los que su carrera le
+     * pide, los que se agregaron después de que entró—, y son los mismos
+     * bloques resueltos con el mismo criterio. Que aspirante y alumno usen esta
+     * misma captura es lo que hace que su expediente no se parta al cruzar.
+     */
+    public function mostrarDeAlumno(Request $request, MatriculaOferta $alumno, Formulario $formulario): Response
+    {
+        $this->autorizarCampus($request, $alumno->oferta?->campus_id);
+
+        return $this->pantalla($alumno, $formulario, [
+            'titulo' => $alumno->persona?->nombreCompleto(),
+            'volver' => "/escolar/alumnos/{$alumno->id}",
+        ], "/escolar/alumnos/{$alumno->id}/formularios/{$formulario->id}");
+    }
+
+    public function guardarDeAlumno(Request $request, MatriculaOferta $alumno, Formulario $formulario): RedirectResponse
+    {
+        $this->autorizarCampus($request, $alumno->oferta?->campus_id);
+        $this->persistir($request, $alumno, $formulario);
+
+        return redirect("/escolar/alumnos/{$alumno->id}")
+            ->with('exito', "«{$formulario->titulo}» quedó guardado.");
+    }
+
     // ── Lo compartido ──────────────────────────────────────────────────────
 
     /**
      * @param  array{titulo: ?string, volver: string}  $contexto
      */
-    private function pantalla(Aspirante $aspirante, Formulario $formulario, array $contexto, string $accion): Response
+    private function pantalla(Aspirante|MatriculaOferta $titular, Formulario $formulario, array $contexto, string $accion): Response
     {
-        $this->abortarSiNoLeToca($aspirante, $formulario);
+        $this->abortarSiNoLeToca($titular, $formulario);
 
         return Inertia::render('Formularios/Captura', [
             'contexto' => $contexto,
@@ -116,14 +146,14 @@ class RespuestaFormularioController extends Controller
                 'instruccion' => $formulario->instruccion,
             ],
             'campos' => $this->campos($formulario),
-            'respuestas' => $this->respuestasActuales($aspirante, $formulario),
+            'respuestas' => $this->respuestasActuales($titular, $formulario),
             'accion' => $accion,
         ]);
     }
 
-    private function persistir(Request $request, Aspirante $aspirante, Formulario $formulario): void
+    private function persistir(Request $request, Aspirante|MatriculaOferta $titular, Formulario $formulario): void
     {
-        $this->abortarSiNoLeToca($aspirante, $formulario);
+        $this->abortarSiNoLeToca($titular, $formulario);
 
         $campos = $formulario->campos()->with('tipoCampo', 'opciones')->get();
 
@@ -133,9 +163,9 @@ class RespuestaFormularioController extends Controller
             $this->atributos($campos),
         );
 
-        DB::transaction(function () use ($campos, $datos, $aspirante, $formulario, $request) {
+        DB::transaction(function () use ($campos, $datos, $titular, $formulario, $request) {
             foreach ($campos as $campo) {
-                $this->guardarRespuesta($campo, $datos, $aspirante, $formulario, $request);
+                $this->guardarRespuesta($campo, $datos, $titular, $formulario, $request);
             }
         });
     }
@@ -148,12 +178,12 @@ class RespuestaFormularioController extends Controller
      * formulario que la escuela nunca le asignó, y ese dato aparecería después
      * en su expediente sin que nadie supiera de dónde salió.
      */
-    private function abortarSiNoLeToca(Aspirante $aspirante, Formulario $formulario): void
+    private function abortarSiNoLeToca(Aspirante|MatriculaOferta $titular, Formulario $formulario): void
     {
         abort_unless(
-            $this->resolutor->para($aspirante)->contains('id', $formulario->id),
+            $this->resolutor->para($titular)->contains('id', $formulario->id),
             404,
-            'Ese formulario no le corresponde a este aspirante.',
+            'Ese formulario no le corresponde.',
         );
     }
 
@@ -185,10 +215,10 @@ class RespuestaFormularioController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function respuestasActuales(Aspirante $aspirante, Formulario $formulario): array
+    private function respuestasActuales(Aspirante|MatriculaOferta $titular, Formulario $formulario): array
     {
         return RespuestaCampo::query()
-            ->where('aspirante_id', $aspirante->id)
+            ->where($this->columnaTitular($titular), $titular->id)
             ->whereIn('campo_formulario_id', $formulario->campos()->pluck('id'))
             ->get()
             ->mapWithKeys(fn (RespuestaCampo $r) => [
@@ -304,13 +334,13 @@ class RespuestaFormularioController extends Controller
     private function guardarRespuesta(
         CampoFormulario $campo,
         array $datos,
-        Aspirante $aspirante,
+        Aspirante|MatriculaOferta $titular,
         Formulario $formulario,
         Request $request,
     ): void {
         $valor = $datos['campos'][$campo->id] ?? null;
         $llave = [
-            'aspirante_id' => $aspirante->id,
+            $this->columnaTitular($titular) => $titular->id,
             'campo_formulario_id' => $campo->id,
         ];
 
@@ -325,19 +355,32 @@ class RespuestaFormularioController extends Controller
             }
 
             RespuestaCampo::updateOrCreate($llave, [
-                'persona_id' => $aspirante->persona_id,
+                'persona_id' => $titular->persona_id,
                 'formulario_version' => $formulario->version,
-                'documento_ruta' => $archivo->store(self::CARPETA.'/'.$aspirante->id, 'local'),
+                'documento_ruta' => $archivo->store(self::CARPETA.'/'.$titular->persona_id, 'local'),
             ]);
 
             return;
         }
 
         RespuestaCampo::updateOrCreate($llave, [
-            'persona_id' => $aspirante->persona_id,
+            'persona_id' => $titular->persona_id,
             'formulario_version' => $formulario->version,
             'valor' => $this->codificar($valor),
         ]);
+    }
+
+    /**
+     * En qué columna cuelga la respuesta.
+     *
+     * `respuestas_campo` admite como titular un aspirante o una matrícula, y
+     * exactamente uno de los dos. Es la misma decisión que en adeudos y pagos:
+     * el expediente se llena antes de existir la matrícula y se re-liga a ella
+     * al convertir, así que lo contestado siendo aspirante sigue ahí después.
+     */
+    private function columnaTitular(Aspirante|MatriculaOferta $titular): string
+    {
+        return $titular instanceof Aspirante ? 'aspirante_id' : 'matricula_oferta_id';
     }
 
     /**

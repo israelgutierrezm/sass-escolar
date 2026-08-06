@@ -9,8 +9,10 @@ use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Formularios\Formulario;
 use App\Models\Formularios\FormularioAsignacion;
 use App\Models\Identidad\Persona;
+use App\Services\ConvertidorAspirante;
 use App\Services\ResolutorFormularios;
 use Illuminate\Support\Facades\DB;
+use ReflectionMethod;
 use Tests\Concerns\CreaEscuelaDePrueba;
 use Tests\TenantTestCase;
 
@@ -135,6 +137,40 @@ class ResolutorFormulariosTest extends TenantTestCase
         $this->asignar($this->formulario('salud'), $this->rol('alumno'), 'carrera', $escuela['carrera']);
 
         $this->assertSame(['salud'], $this->clavesPara($matricula));
+    }
+
+    /**
+     * Lo contestado siendo aspirante sigue contando ya de alumno.
+     *
+     * Es la promesa entera del expediente: `ConvertidorAspirante` re-liga las
+     * respuestas a la matrícula nueva, y como los dos titulares se resuelven
+     * con el mismo criterio, el avance que traía no se pierde al cruzar. Si
+     * esto fallara, el alumno vería su expediente en cero el día que se
+     * inscribe y volvería a capturar lo mismo.
+     */
+    public function test_lo_contestado_de_aspirante_sigue_contando_de_alumno(): void
+    {
+        $escuela = $this->alumnoInscrito();
+        $matricula = MatriculaOferta::findOrFail($escuela['matricula']);
+
+        $aspirante = $this->aspirante(ofertaId: $escuela['oferta']);
+        $formulario = $this->formulario('salud');
+        $campo = $this->campo($formulario, 'Alergias');
+
+        // EL MISMO bloque, asignado a los dos roles: es lo que hace que el
+        // expediente siga siendo uno al cruzar.
+        $this->asignar($formulario, $this->rol('aspirante'));
+        $this->asignar($formulario, $this->rol('alumno'));
+
+        $this->responder($aspirante, $campo, 'Ninguna');
+
+        // El religado REAL de la conversión, no una copia suya: si mañana
+        // cambia, esta prueba tiene que enterarse.
+        $religar = new ReflectionMethod(ConvertidorAspirante::class, 'religarRespuestas');
+        $religar->setAccessible(true);
+        $religar->invoke(app(ConvertidorAspirante::class), $aspirante, $matricula);
+
+        $this->assertSame(1, $this->resolutor->para($matricula)->first()['contestados']);
     }
 
     // ── Versiones ──────────────────────────────────────────────────────────

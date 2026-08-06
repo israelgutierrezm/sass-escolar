@@ -34,6 +34,7 @@ use App\Services\AprovisionadorAcceso;
 use App\Services\CiclosCongruentes;
 use App\Services\EstatusAcademico;
 use App\Services\IdentidadPersona;
+use App\Services\ResolutorFormularios;
 use App\Services\MatriculadorOferta;
 use App\Models\Academico\Modalidad;
 use Illuminate\Database\Eloquent\Builder;
@@ -482,6 +483,10 @@ class AlumnoController extends Controller
             // (géneros, entidades, países, id de México) — autollenado por CURP.
             ...app(IdentidadPersona::class)->catalogosDeOrigen(),
             'puedeEditar' => $request->user()->can('editar-alumnos'),
+            // Los formularios que le tocan. Los mismos bloques y el mismo
+            // criterio que siendo aspirante: su expediente no cambia de forma
+            // al convertirlo.
+            'formularios' => app(ResolutorFormularios::class)->para($alumno),
             // Datos del título capturados por administración para ESTA carrera
             // (modalidad, servicio social, antecedente) + sus catálogos.
             'datosTitulo' => $this->datosTituloDe($alumno),

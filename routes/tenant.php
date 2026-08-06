@@ -662,6 +662,19 @@ Route::middleware([
                             ->middleware('can:generar-matricula')->name('store');
 
                         Route::get('{alumno}', 'show')->whereNumber('alumno')->name('show');
+
+                        /*
+                         * Sus formularios. La MISMA captura del aspirante con
+                         * otro titular: un alumno sigue teniendo bloques que
+                         * llenar, y que las dos usen el mismo controlador es lo
+                         * que hace que su expediente no se parta al convertirlo.
+                         */
+                        Route::get('{alumno}/formularios/{formulario}', [RespuestaFormularioController::class, 'mostrarDeAlumno'])
+                            ->whereNumber('alumno')->name('formularios.mostrar');
+                        Route::post('{alumno}/formularios/{formulario}', [RespuestaFormularioController::class, 'guardarDeAlumno'])
+                            ->whereNumber('alumno')
+                            ->middleware('can:editar-alumnos')
+                            ->name('formularios.guardar');
                         Route::put('{alumno}', 'update')
                             ->whereNumber('alumno')
                             ->middleware('can:editar-alumnos')
