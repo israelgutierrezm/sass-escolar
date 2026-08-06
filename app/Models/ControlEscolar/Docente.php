@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models\ControlEscolar;
 
+use App\Models\Academico\Asignatura;
 use App\Models\Academico\Campus;
 use App\Models\Concerns\TieneAuditoria;
 use App\Models\Identidad\Persona;
@@ -21,7 +22,9 @@ class Docente extends Model
 
     /** Alcance de edición de contenido en el LMS (del legacy IMEP). */
     public const EDICION_NINGUNA = 0;
+
     public const EDICION_SU_GRUPO = 1;
+
     public const EDICION_TODOS = 2;
 
     protected $table = 'docentes';
@@ -69,6 +72,29 @@ class Docente extends Model
             'persona_id',
             'asignatura_grupo_id'
         )->withPivot('tipo')->withTimestamps();
+    }
+
+    /**
+     * Las materias que PUEDE impartir: su perfil, no su carga de este ciclo.
+     *
+     * `asignaturasGrupo` dice qué está dando ahora; ésta, de qué sabe. Sin la
+     * segunda no se le puede proponer nada al armar un horario ni contestar «¿a
+     * quién le doy Cálculo si falta el titular?».
+     */
+    public function asignaturasQuePuedeImpartir(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Asignatura::class,
+            'asignatura_docente',
+            'persona_id',
+            'asignatura_id'
+        )->withPivot('preferencia')->withTimestamps();
+    }
+
+    /** Cuándo puede dar clase. Sin ciclo = su disponibilidad habitual. */
+    public function disponibilidad(): HasMany
+    {
+        return $this->hasMany(DisponibilidadDocente::class, 'persona_id', 'persona_id');
     }
 
     /** Grados/títulos del docente (CV académico). Cuelgan de la persona. */

@@ -175,6 +175,11 @@ final class CatalogoPermisos
             'ver-mis-materias' => ['Ver mis materias', 'Portal del docente: solo las materias que imparte.', [self::DOCENTE]],
             'editar-mi-expediente' => ['Editar mi expediente', 'Que el docente corrija sus datos y suba sus comprobantes.', [self::DOCENTE]],
             'ver-docentes' => ['Ver docentes', 'Consultar el catálogo de docentes y su expediente.', [self::ADMINISTRATIVO]],
+            // Cuándo puede dar clase cada docente y qué materias sabe dar. Es
+            // el insumo de la generación de horarios, y sirve solo: contesta
+            // «¿a quién le doy esta materia?» aunque nunca se genere nada.
+            'gestionar-disponibilidad' => ['Disponibilidad y perfil docente', 'Capturar los horarios en que cada docente puede dar clase y las materias que sabe impartir.', [self::ADMINISTRATIVO]],
+            'editar-mi-disponibilidad' => ['Declarar mi disponibilidad', 'Que el docente diga en qué horarios puede dar clase.', [self::DOCENTE]],
             'gestionar-docentes' => ['Administrar docentes', 'Dar de alta, acreditar cédula y dictaminar sus documentos.', [self::ADMINISTRATIVO]],
         ],
 

@@ -54,7 +54,7 @@ class PermisoSeeder extends Seeder
         // toda la escuela— además de la futura pantalla de alumnos. El docente
         // llega a sus alumnos por sus materias, no por un listado global.
         'docente' => [
-            'ver-mis-materias', 'editar-mi-expediente',
+            'ver-mis-materias', 'editar-mi-expediente', 'editar-mi-disponibilidad',
             'ver-kardex', 'pasar-lista', 'capturar-calificaciones', 'asentar-acta',
         ],
 
