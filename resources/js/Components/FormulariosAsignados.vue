@@ -20,7 +20,8 @@ interface FormularioAsignado {
     clave: string;
     titulo: string;
     obligatorio: boolean;
-    motivo: string;
+    /** Por qué le toca: null = por su rol; si no, el recorte que lo alcanzó. */
+    ambito: string | null;
     campos: number;
     contestados: number;
     completo: boolean;
@@ -33,10 +34,19 @@ const props = defineProps<{
      * tiene programa, y prometerle un recorte por carrera que no existe manda
      * a buscar una configuración que nunca va a encontrar.
      */
-    titular: 'aspirante' | 'alumno' | 'docente' | 'tutor';
+    titular: 'aspirante' | 'alumno' | 'docente' | 'tutor' | 'persona';
     /** Dónde se contesta cada uno. Sin ella el panel sólo informa. */
     baseCaptura?: string;
     puedeCapturar?: boolean;
+    /**
+     * Le habla a la persona misma, no a quien la atiende.
+     *
+     * El componente vive en dos sitios muy distintos: la ficha administrativa
+     * —donde se habla DE alguien— y el autoservicio —donde se habla CON él—.
+     * «Los bloques que la escuela le pide, según su rol» leído en tu propia
+     * pantalla suena a que se refiere a otra persona.
+     */
+    tuteo?: boolean;
 }>();
 
 const pendientesObligatorios = computed(
@@ -46,13 +56,34 @@ const pendientesObligatorios = computed(
 /** Sólo aspirante y alumno se recortan por carrera; los demás, por rol y ya. */
 const porCarrera = computed(() => props.titular === 'aspirante' || props.titular === 'alumno');
 
-const descripcion = computed(() => porCarrera.value
-    ? 'Los bloques de datos que la escuela le pide, según su rol y su programa.'
-    : 'Los bloques de datos que la escuela le pide, según su rol.');
+const descripcion = computed(() => {
+    if (props.tuteo) {
+        return porCarrera.value
+            ? 'Los bloques de datos que la escuela te pide, según tu rol y tu programa.'
+            : 'Los bloques de datos que la escuela te pide, según tu rol.';
+    }
 
-const vacio = computed(() => porCarrera.value
-    ? 'No le toca ninguno. Los formularios se asignan por rol —y opcionalmente por carrera— desde el constructor de cada uno; mientras no haya asignaciones, a nadie le aparecen.'
-    : 'No le toca ninguno. Los formularios se asignan por rol desde el constructor de cada uno; mientras no haya asignaciones, a nadie le aparecen.');
+    return porCarrera.value
+        ? 'Los bloques de datos que la escuela le pide, según su rol y su programa.'
+        : 'Los bloques de datos que la escuela le pide, según su rol.';
+});
+
+const vacio = computed(() => {
+    if (props.tuteo) {
+        return 'No te toca ninguno por ahora.';
+    }
+
+    return porCarrera.value
+        ? 'No le toca ninguno. Los formularios se asignan por rol —y opcionalmente por carrera— desde el constructor de cada uno; mientras no haya asignaciones, a nadie le aparecen.'
+        : 'No le toca ninguno. Los formularios se asignan por rol desde el constructor de cada uno; mientras no haya asignaciones, a nadie le aparecen.';
+});
+
+/** Por qué le toca, dicho en la persona que corresponde. */
+function motivo(f: FormularioAsignado): string {
+    const posesivo = props.tuteo ? 'tu' : 'su';
+
+    return `Por ${posesivo} ${f.ambito ?? 'rol'}`;
+}
 
 function avance(f: FormularioAsignado): number {
     return f.campos === 0 ? 0 : Math.round((f.contestados / f.campos) * 100);
@@ -92,7 +123,7 @@ function avance(f: FormularioAsignado): number {
                         </p>
                         <!-- Por qué le toca: es lo que permite comprobar que la
                              asignación configurada alcanza a quien se creía. -->
-                        <p class="mt-0.5 text-xs text-suave">{{ f.motivo }}</p>
+                        <p class="mt-0.5 text-xs text-suave">{{ motivo(f) }}</p>
                     </div>
 
                     <div class="flex shrink-0 items-center gap-3">

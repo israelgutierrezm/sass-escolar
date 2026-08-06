@@ -1109,6 +1109,32 @@ Route::middleware([
             ->name('tenant.portal.formularios.documento');
 
         /*
+         * «Mis formularios»: el autoservicio de cualquier persona.
+         *
+         * El aspirante llena los suyos en `/mi-solicitud`, el alumno en su
+         * portal y el docente dentro de «Mi expediente». Un padre de familia no
+         * tenía dónde —su portal es sobre sus HIJOS— ni un tutor educativo.
+         * Esta puerta no habla de ningún oficio: resuelve a la persona de la
+         * sesión, sea quien sea, y por eso sirve también al rol que se invente
+         * mañana.
+         *
+         * SIN `can:` a propósito: no hay id en la URL, así que lo único que
+         * expone es lo de uno mismo. Un permiso aquí decidiría qué roles pueden
+         * contestar lo que la escuela ya les asignó.
+         */
+        Route::controller(RespuestaFormularioController::class)
+            ->prefix('mis-formularios')->name('tenant.misformularios.')
+            ->group(function () {
+                Route::get('/', 'mios')->name('index');
+                Route::get('respuestas/{respuesta}/documento', 'descargarPersonal')
+                    ->whereNumber('respuesta')->name('documento');
+                Route::get('{formulario}', 'mostrarPersonal')
+                    ->whereNumber('formulario')->name('mostrar');
+                Route::post('{formulario}', 'guardarPersonal')
+                    ->whereNumber('formulario')->name('guardar');
+            });
+
+        /*
          * Portal del padre / tutor familiar. El permiso `ver-mis-hijos` deja
          * entrar; el alcance real —a QUÉ hijos y a QUÉ de cada uno— lo resuelve
          * el vínculo `tutores_alumno` dentro del controlador, no la ruta.

@@ -96,7 +96,15 @@ class ResolutorFormularios
                      * concreta. Gana el que exige.
                      */
                     'obligatorio' => $f->obligatorio || $asignacion->obligatorio,
-                    'motivo' => $this->motivo($asignacion),
+                    /*
+                     * POR QUE le toca: el ámbito, no una frase.
+                     *
+                     * Aquí se redactaba «Por su rol» y la pantalla lo pintaba
+                     * tal cual, lo que dejaba en tercera persona el
+                     * autoservicio —donde se le habla a la persona misma—. El
+                     * servicio da el dato; quien pinta decide cómo decirlo.
+                     */
+                    'ambito' => $asignacion->ambito_tipo,
                     'campos' => $campos->count(),
                     'contestados' => $contestados,
                     'completo' => $campos->count() > 0 && $contestados === $campos->count(),
@@ -271,13 +279,5 @@ class ResolutorFormularios
             ->groupBy('clave')
             ->map(fn (Collection $versiones) => $versiones->sortByDesc('version')->first())
             ->values();
-    }
-
-    /** Por qué le toca, para poder decirlo en pantalla. */
-    private function motivo(FormularioAsignacion $asignacion): string
-    {
-        return $asignacion->ambito_tipo === null
-            ? 'Por su rol'
-            : 'Por su '.$asignacion->ambito_tipo;
     }
 }

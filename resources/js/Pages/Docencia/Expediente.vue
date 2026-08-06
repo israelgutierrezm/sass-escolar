@@ -393,6 +393,7 @@ function quitarFoto(): void {
             titular="docente"
             base-captura="/docencia/expediente/formularios"
             :puede-capturar="true"
+            tuteo
             class="mt-4"
         />
 

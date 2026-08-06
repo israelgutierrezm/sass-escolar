@@ -481,6 +481,7 @@ const colorEstado: Record<string, string> = {
                 titular="aspirante"
                 base-captura="/mi-solicitud/formularios"
                 :puede-capturar="true"
+                tuteo
             />
 
             <!-- Paso 4: pago -->

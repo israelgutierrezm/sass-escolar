@@ -215,6 +215,53 @@ class RespuestaFormularioController extends Controller
             ->with('exito', "«{$formulario->titulo}» quedó guardado.");
     }
 
+    // ── «Mis formularios»: el autoservicio de cualquier persona ────────────
+
+    /*
+     * Una puerta sin oficio.
+     *
+     * El aspirante llena los suyos en `/mi-solicitud`, el alumno en su portal y
+     * el docente dentro de «Mi expediente»: cada uno donde ya vive. Un padre de
+     * familia no tenía dónde —su portal es sobre sus HIJOS—, y un tutor
+     * educativo tampoco.
+     *
+     * En vez de colgar un panel de un portal y luego del otro, y otro más cada
+     * vez que aparezca un rol nuevo, esta página no habla de ningún oficio: son
+     * los bloques que le tocan a la persona de la sesión, sea quien sea.
+     *
+     * Sin `can:` a propósito. No hay id en la URL: siempre resuelve a quien está
+     * dentro, así que lo único que expone es lo suyo. Exigir un permiso aquí
+     * sería decidir qué roles pueden contestar lo que la escuela ya les asignó
+     * —y el primero en quedarse fuera sería el tutor educativo, que es
+     * justamente uno de los que vinimos a resolver—.
+     */
+    public function mios(Request $request): Response
+    {
+        $persona = $this->miPersona($request);
+
+        return Inertia::render('Formularios/Mios', [
+            'persona' => ['nombre' => $persona->nombreCompleto()],
+            'formularios' => $this->resolutor->para($persona),
+        ]);
+    }
+
+    public function mostrarPersonal(Request $request, Formulario $formulario): Response
+    {
+        $persona = $this->miPersona($request);
+
+        return $this->pantalla($persona, $formulario, [
+            'titulo' => 'Mis formularios',
+            'volver' => '/mis-formularios',
+        ], "/mis-formularios/{$formulario->id}", '/mis-formularios/respuestas');
+    }
+
+    public function guardarPersonal(Request $request, Formulario $formulario): RedirectResponse
+    {
+        $this->persistir($request, $this->miPersona($request), $formulario);
+
+        return redirect('/mis-formularios')->with('exito', "«{$formulario->titulo}» quedó guardado.");
+    }
+
     // ── Descargar lo que se subió ──────────────────────────────────────────
 
     /*
@@ -264,6 +311,13 @@ class RespuestaFormularioController extends Controller
     public function descargarDeTutor(Request $request, Persona $tutor, RespuestaCampo $respuesta): StreamedResponse
     {
         return $this->entregar($respuesta, $tutor, $tutor);
+    }
+
+    public function descargarPersonal(Request $request, RespuestaCampo $respuesta): StreamedResponse
+    {
+        $persona = $this->miPersona($request);
+
+        return $this->entregar($respuesta, $persona, $persona);
     }
 
     /**
