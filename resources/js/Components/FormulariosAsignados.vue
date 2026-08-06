@@ -30,6 +30,9 @@ const props = defineProps<{
     formularios: FormularioAsignado[];
     /** Para que el texto vacío diga lo que corresponde a cada caso. */
     titular: 'aspirante' | 'alumno';
+    /** Dónde se contesta cada uno. Sin ella el panel sólo informa. */
+    baseCaptura?: string;
+    puedeCapturar?: boolean;
 }>();
 
 const pendientesObligatorios = computed(
@@ -77,9 +80,19 @@ function avance(f: FormularioAsignado): number {
                         <p class="mt-0.5 text-xs text-suave">{{ f.motivo }}</p>
                     </div>
 
-                    <span class="shrink-0 text-sm tabular-nums" :class="f.completo ? 'text-emerald-600' : 'text-suave'">
-                        {{ f.contestados }} de {{ f.campos }}
-                    </span>
+                    <div class="flex shrink-0 items-center gap-3">
+                        <span class="text-sm tabular-nums" :class="f.completo ? 'text-emerald-600' : 'text-suave'">
+                            {{ f.contestados }} de {{ f.campos }}
+                        </span>
+                        <!-- El panel decía qué falta y no dejaba hacer nada al
+                             respecto: había que buscar dónde contestarlo. -->
+                        <a
+                            v-if="puedeCapturar && baseCaptura && f.campos"
+                            :href="`${baseCaptura}/${f.id}`"
+                            class="rounded-lg border px-3 py-1 text-xs transition hover:bg-fondo"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                        >{{ f.contestados ? 'Continuar' : 'Contestar' }}</a>
+                    </div>
                 </div>
 
                 <div

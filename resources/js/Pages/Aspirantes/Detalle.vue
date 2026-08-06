@@ -416,7 +416,12 @@ Se le generará su matrícula de todos modos y eso no se puede deshacer. ¿Conti
                     </p>
                 </TarjetaSeccion>
 
-                <FormulariosAsignados :formularios="formularios" titular="aspirante" />
+                <FormulariosAsignados
+                    :formularios="formularios"
+                    titular="aspirante"
+                    :base-captura="`/aspirantes/${aspirante.id}/formularios`"
+                    :puede-capturar="permisos.editar"
+                />
 
                 <CobroAspirante
                     :aspirante-id="aspirante.id"

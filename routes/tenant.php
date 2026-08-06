@@ -65,6 +65,7 @@ use App\Http\Controllers\RecuperacionController;
 use App\Http\Controllers\PortalAspiranteController;
 use App\Http\Controllers\CobroAspiranteController;
 use App\Http\Controllers\PromocionController;
+use App\Http\Controllers\RespuestaFormularioController;
 use App\Http\Controllers\ReglaMatriculaController;
 use App\Http\Controllers\RolActivoController;
 use App\Http\Controllers\ActividadController;
@@ -226,6 +227,22 @@ Route::middleware([
             // quien limpia los que sobran.
             Route::delete('/{aspirante}', 'destroy')->middleware('can:editar-aspirantes')->name('destroy');
         });
+
+        /*
+         * Contestar un formulario del expediente.
+         *
+         * Pide `editar-aspirantes` y no un permiso propio: quien captura los
+         * datos de un prospecto es quien llena sus formularios; separarlo
+         * habría creado un permiso que nadie sabría a quién dar.
+         */
+        Route::controller(RespuestaFormularioController::class)
+            ->prefix('aspirantes/{aspirante}/formularios/{formulario}')
+            ->name('tenant.aspirantes.formularios.')
+            ->middleware('can:editar-aspirantes')
+            ->group(function () {
+                Route::get('/', 'mostrar')->name('mostrar');
+                Route::post('/', 'guardar')->name('guardar');
+            });
 
         /*
          * El dinero del aspirante: su ficha, su examen, su inscripción.
