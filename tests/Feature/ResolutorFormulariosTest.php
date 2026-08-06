@@ -208,7 +208,62 @@ class ResolutorFormulariosTest extends TenantTestCase
         $this->assertTrue($this->resolutor->para($aspirante)->first()['obligatorio']);
     }
 
+    /**
+     * Un condicional que NO aplica no cuenta para el avance.
+     *
+     * Se pregunta «¿fumas?» y sólo si contesta que sí aparece «¿cuántos al
+     * día?». Contarlo de todos modos dejaba a cualquier no fumador en 1 de 2
+     * para siempre, con un «falta 1 obligatorio» que no tenía forma de
+     * resolver. Salió al usarlo desde el portal, no de una prueba.
+     */
+    public function test_un_condicional_que_no_aplica_no_cuenta_para_el_avance(): void
+    {
+        $aspirante = $this->aspirante();
+        $formulario = $this->formulario('salud');
+        $padre = $this->campo($formulario, '¿Fumas?');
+        $this->campoCondicional($formulario, '¿Cuántos al día?', $padre, 'si');
+
+        $this->asignar($formulario, $this->rol('aspirante'));
+        $this->responder($aspirante, $padre, 'no');
+
+        $resuelto = $this->resolutor->para($aspirante)->first();
+
+        $this->assertSame(1, $resuelto['campos'], 'La condicional no se cuenta.');
+        $this->assertTrue($resuelto['completo']);
+    }
+
+    /** Y cuando SÍ aplica, vuelve a contar y falta contestarla. */
+    public function test_al_cumplirse_la_condicion_el_campo_vuelve_a_contar(): void
+    {
+        $aspirante = $this->aspirante();
+        $formulario = $this->formulario('salud');
+        $padre = $this->campo($formulario, '¿Fumas?');
+        $this->campoCondicional($formulario, '¿Cuántos al día?', $padre, 'si');
+
+        $this->asignar($formulario, $this->rol('aspirante'));
+        $this->responder($aspirante, $padre, 'si');
+
+        $resuelto = $this->resolutor->para($aspirante)->first();
+
+        $this->assertSame(2, $resuelto['campos']);
+        $this->assertFalse($resuelto['completo']);
+    }
+
     // ── Andamiaje ──────────────────────────────────────────────────────────
+
+    private function campoCondicional(Formulario $formulario, string $pregunta, int $padre, string $condicional): int
+    {
+        return $this->fila('campos_formulario', [
+            'formulario_id' => $formulario->id,
+            'pregunta' => $pregunta,
+            'tipo_campo_id' => $this->deCatalogo('tipos_campo'),
+            'campo_padre_id' => $padre,
+            'condicional' => $condicional,
+            'orden' => 2,
+            'obligatorio' => true,
+        ]);
+    }
+
 
     /** @return array<int, string> */
     private function clavesPara(Aspirante|MatriculaOferta $titular): array

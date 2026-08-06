@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\AcotaPorCampus;
+use App\Http\Controllers\Concerns\ResuelveMiSolicitud;
 use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\RespuestaCampo;
 use App\Models\Formularios\CampoFormulario;
@@ -30,6 +31,9 @@ use Inertia\Response;
  * llevado a que una acepte un tipo de campo que la otra no, y a que las reglas
  * de validación se separaran sin que nadie lo decidiera.
  *
+ * Lo único que cambia entre las dos es de dónde sale el titular —de la URL en
+ * la administrativa, de la sesión en la del portal— y a dónde se vuelve.
+ *
  * ── Las respuestas se guardan por campo ────────────────────────────────────
  * Una fila por (titular, campo), como manda `respuestas_campo`. Se conserva la
  * versión del formulario con la que se respondió: si mañana se publica una
@@ -38,6 +42,7 @@ use Inertia\Response;
 class RespuestaFormularioController extends Controller
 {
     use AcotaPorCampus;
+    use ResuelveMiSolicitud;
 
     /** Lo que se acepta subir en un campo de tipo documento. */
     private const FORMATOS = 'pdf,jpg,jpeg,png';
@@ -46,16 +51,65 @@ class RespuestaFormularioController extends Controller
 
     public function __construct(private readonly ResolutorFormularios $resolutor) {}
 
+    // ── Desde la ficha: lo llena quien atiende ─────────────────────────────
+
     public function mostrar(Request $request, Aspirante $aspirante, Formulario $formulario): Response
     {
         $this->autorizarCampus($request, $aspirante->campus_id);
+
+        return $this->pantalla($aspirante, $formulario, [
+            'titulo' => $aspirante->persona?->nombreCompleto(),
+            'volver' => "/aspirantes/{$aspirante->id}",
+        ], "/aspirantes/{$aspirante->id}/formularios/{$formulario->id}");
+    }
+
+    public function guardar(Request $request, Aspirante $aspirante, Formulario $formulario): RedirectResponse
+    {
+        $this->autorizarCampus($request, $aspirante->campus_id);
+        $this->persistir($request, $aspirante, $formulario);
+
+        return redirect("/aspirantes/{$aspirante->id}")->with('exito', "«{$formulario->titulo}» quedó guardado.");
+    }
+
+    // ── Desde el portal: lo llena el interesado ────────────────────────────
+
+    /*
+     * No reciben id de aspirante: sale de la persona en sesión. Es la única
+     * diferencia real con las de arriba —quién es el titular y a dónde se
+     * vuelve—, y por eso el resto se comparte: separar las dos capturas habría
+     * llevado a que una acepte un tipo de campo que la otra no, y a que las
+     * reglas se separaran sin que nadie lo decidiera.
+     */
+    public function mostrarMio(Request $request, Formulario $formulario): Response
+    {
+        $aspirante = $this->miSolicitud($request);
+
+        return $this->pantalla($aspirante, $formulario, [
+            'titulo' => 'Mi solicitud',
+            'volver' => '/mi-solicitud',
+        ], "/mi-solicitud/formularios/{$formulario->id}");
+    }
+
+    public function guardarMio(Request $request, Formulario $formulario): RedirectResponse
+    {
+        $aspirante = $this->miSolicitud($request);
+
+        $this->persistir($request, $aspirante, $formulario);
+
+        return redirect('/mi-solicitud')->with('exito', "«{$formulario->titulo}» quedó guardado.");
+    }
+
+    // ── Lo compartido ──────────────────────────────────────────────────────
+
+    /**
+     * @param  array{titulo: ?string, volver: string}  $contexto
+     */
+    private function pantalla(Aspirante $aspirante, Formulario $formulario, array $contexto, string $accion): Response
+    {
         $this->abortarSiNoLeToca($aspirante, $formulario);
 
         return Inertia::render('Formularios/Captura', [
-            'contexto' => [
-                'titulo' => $aspirante->persona?->nombreCompleto(),
-                'volver' => "/aspirantes/{$aspirante->id}",
-            ],
+            'contexto' => $contexto,
             'formulario' => [
                 'id' => $formulario->id,
                 'titulo' => $formulario->titulo,
@@ -63,13 +117,12 @@ class RespuestaFormularioController extends Controller
             ],
             'campos' => $this->campos($formulario),
             'respuestas' => $this->respuestasActuales($aspirante, $formulario),
-            'accion' => "/aspirantes/{$aspirante->id}/formularios/{$formulario->id}",
+            'accion' => $accion,
         ]);
     }
 
-    public function guardar(Request $request, Aspirante $aspirante, Formulario $formulario): RedirectResponse
+    private function persistir(Request $request, Aspirante $aspirante, Formulario $formulario): void
     {
-        $this->autorizarCampus($request, $aspirante->campus_id);
         $this->abortarSiNoLeToca($aspirante, $formulario);
 
         $campos = $formulario->campos()->with('tipoCampo', 'opciones')->get();
@@ -85,8 +138,6 @@ class RespuestaFormularioController extends Controller
                 $this->guardarRespuesta($campo, $datos, $aspirante, $formulario, $request);
             }
         });
-
-        return redirect("/aspirantes/{$aspirante->id}")->with('exito', "«{$formulario->titulo}» quedó guardado.");
     }
 
     /**

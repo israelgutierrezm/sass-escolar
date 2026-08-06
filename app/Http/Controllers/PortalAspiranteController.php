@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ResuelveMiSolicitud;
 use App\Models\Academico\Oferta;
 use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\DocumentoRequerido;
@@ -14,6 +15,7 @@ use App\Models\Landlord\Genero;
 use App\Rules\CurpValida;
 use App\Services\IdentidadPersona;
 use App\Services\ProgresoSolicitud;
+use App\Services\ResolutorFormularios;
 use App\Support\Curp;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -41,6 +43,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class PortalAspiranteController extends Controller
 {
+    use ResuelveMiSolicitud;
+
     private const CARPETA = 'expedientes';
 
     public function __construct(private readonly ProgresoSolicitud $progreso) {}
@@ -81,6 +85,9 @@ class PortalAspiranteController extends Controller
             ],
             'documentos' => $this->documentos($aspirante),
             'cargos' => $this->cargos($aspirante),
+            // Los formularios que le tocan. Los mismos que ve quien lo atiende
+            // desde la ficha: es un solo expediente mirado desde dos lados.
+            'formularios' => app(ResolutorFormularios::class)->para($aspirante),
             'generos' => Genero::orderBy('id')->get(['id', 'nombre']),
             'ofertas' => Oferta::query()->with('carrera:id,nombre', 'campus:id,nombre')->get()
                 ->map(fn (Oferta $o) => [
@@ -302,20 +309,4 @@ class PortalAspiranteController extends Controller
         ];
     }
 
-    /**
-     * La solicitud de quien entró. Si su persona no tiene aspirante, no hay
-     * portal que mostrar — le pasa a quien conserva el rol pero ya se convirtió
-     * en alumno, o a quien se lo asignaron por error.
-     */
-    private function miSolicitud(Request $request): Aspirante
-    {
-        $aspirante = Aspirante::query()
-            ->where('persona_id', $request->user()->persona_id)
-            ->orderByDesc('id')
-            ->first();
-
-        abort_if($aspirante === null, 404, 'No tienes una solicitud de admisión abierta.');
-
-        return $aspirante;
-    }
 }

@@ -7,6 +7,7 @@ import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
+import FormulariosAsignados from '@/Components/FormulariosAsignados.vue';
 import { ICONOS } from '@/iconos';
 
 interface Paso {
@@ -50,6 +51,8 @@ const props = defineProps<{
         }[];
         saldo: number;
     };
+    /** Los formularios que le tocan, de `ResolutorFormularios`. */
+    formularios: Record<string, any>[];
     generos: { id: number; nombre: string }[];
     ofertas: { id: number; nombre: string }[];
 }>();
@@ -460,6 +463,20 @@ const colorEstado: Record<string, string> = {
                     La escuela no pide documentos en esta etapa.
                 </p>
             </TarjetaSeccion>
+
+            <!--
+                Sus formularios.
+                No son un «paso» del avance: los pasos son fijos para toda la
+                escuela y estos dependen de lo que se le haya asignado a su rol
+                y a su carrera. Van aparte, siempre visibles.
+            -->
+            <FormulariosAsignados
+                v-if="formularios.length"
+                :formularios="formularios"
+                titular="aspirante"
+                base-captura="/mi-solicitud/formularios"
+                :puede-capturar="true"
+            />
 
             <!-- Paso 3: pago -->
             <TarjetaSeccion

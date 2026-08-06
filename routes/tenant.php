@@ -1009,6 +1009,21 @@ Route::middleware([
             });
 
         /*
+         * Y sus formularios. Mismo prefijo y mismo permiso, otro controlador:
+         * la captura es la misma que la administrativa —ver
+         * `RespuestaFormularioController`— y lo único que cambia es que aquí el
+         * titular sale de la sesión, no de la URL.
+         */
+        Route::controller(RespuestaFormularioController::class)
+            ->prefix('mi-solicitud/formularios/{formulario}')
+            ->name('tenant.portal.formularios.')
+            ->middleware('can:llenar-mi-solicitud')
+            ->group(function () {
+                Route::get('/', 'mostrarMio')->name('mostrar');
+                Route::post('/', 'guardarMio')->name('guardar');
+            });
+
+        /*
          * Portal del padre / tutor familiar. El permiso `ver-mis-hijos` deja
          * entrar; el alcance real —a QUÉ hijos y a QUÉ de cada uno— lo resuelve
          * el vínculo `tutores_alumno` dentro del controlador, no la ruta.

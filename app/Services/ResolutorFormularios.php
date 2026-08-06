@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\RespuestaCampo;
+use App\Models\Formularios\CampoFormulario;
 use App\Models\Formularios\Formulario;
 use App\Models\Formularios\FormularioAsignacion;
 use App\Models\Identidad\Persona;
@@ -58,17 +59,18 @@ class ResolutorFormularios
         }
 
         $formularios = Formulario::query()
-            ->with('campos:id,formulario_id')
+            ->with('campos:id,formulario_id,campo_padre_id,condicional')
             ->whereIn('id', $aplicables->keys())
             ->orderBy('orden')
             ->get();
 
-        $respondidos = $this->camposRespondidos($titular);
+        $respuestas = $this->respuestas($titular);
+        $respondidos = $respuestas->keys();
 
         return $this->soloLaVersionMasAlta($formularios)
-            ->map(function (Formulario $f) use ($aplicables, $respondidos) {
+            ->map(function (Formulario $f) use ($aplicables, $respondidos, $respuestas) {
                 $asignacion = $aplicables[$f->id];
-                $campos = $f->campos->pluck('id');
+                $campos = $this->camposQueAplican($f, $respuestas);
                 $contestados = $campos->intersect($respondidos)->count();
 
                 return [
@@ -181,11 +183,38 @@ class ResolutorFormularios
     }
 
     /**
-     * Qué campos ya tienen respuesta, del titular que sea.
+     * Los campos que de verdad hay que contestar.
      *
+     * Un campo condicional cuya condición NO se cumple no cuenta: se pregunta
+     * «¿fumas?» y sólo si contesta que sí aparece «¿cuántos al día?». Contarlo
+     * de todos modos dejaba a cualquier no fumador en 2 de 3 para siempre, con
+     * un «falta 1 obligatorio» que no tenía forma de resolver.
+     *
+     * @param  Collection<int, string>  $respuestas  campo => valor
      * @return Collection<int, int>
      */
-    private function camposRespondidos(Aspirante|MatriculaOferta $titular): Collection
+    private function camposQueAplican(Formulario $formulario, Collection $respuestas): Collection
+    {
+        return $formulario->campos
+            ->filter(function (CampoFormulario $c) use ($respuestas) {
+                if ($c->campo_padre_id === null) {
+                    return true;
+                }
+
+                return (string) $respuestas->get($c->campo_padre_id) === (string) $c->condicional;
+            })
+            ->pluck('id');
+    }
+
+    /**
+     * Lo contestado, por campo.
+     *
+     * Se necesita el VALOR y no sólo qué campos tienen respuesta, porque de él
+     * depende si un campo condicional aplica.
+     *
+     * @return Collection<int, string>
+     */
+    private function respuestas(Aspirante|MatriculaOferta $titular): Collection
     {
         return RespuestaCampo::query()
             ->when($titular instanceof Aspirante,
@@ -195,7 +224,10 @@ class ResolutorFormularios
             // Una respuesta en blanco no es una respuesta: el campo sigue sin
             // contestar y el avance no debe contarla.
             ->where(fn ($q) => $q->whereNotNull('valor')->orWhereNotNull('documento_ruta'))
-            ->pluck('campo_formulario_id');
+            ->get()
+            ->mapWithKeys(fn (RespuestaCampo $r) => [
+                $r->campo_formulario_id => $r->valor ?? $r->documento_ruta,
+            ]);
     }
 
     /**
