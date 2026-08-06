@@ -113,16 +113,10 @@ class Rol extends SpatieRole
     {
         $faceta = $this->faceta();
 
-        $conocidas = [
-            CatalogoPermisos::ADMINISTRATIVO,
-            CatalogoPermisos::DOCENTE,
-            CatalogoPermisos::ALUMNO,
-            CatalogoPermisos::ASPIRANTE,
-            CatalogoPermisos::TUTOR,
-            CatalogoPermisos::PADRE,
-        ];
-
-        return in_array($faceta->name, $conocidas, true)
+        // La lista vive en CatalogoPermisos y no aquí: estaba copiada, y una
+        // copia de estas etiquetas fue justo lo que dejó salir la cartera de la
+        // escuela al padre de familia.
+        return in_array($faceta->name, CatalogoPermisos::FACETAS, true)
             ? $faceta->name
             : CatalogoPermisos::ADMINISTRATIVO;
     }

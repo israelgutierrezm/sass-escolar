@@ -51,6 +51,31 @@ final class CatalogoPermisos
     public const PADRE = 'padre_familia';
 
     /**
+     * Las facetas que existen. Una sola lista, a propósito.
+     *
+     * Había otra igual escrita a mano dentro de `Rol::ambitoDePermisos()`, y el
+     * menú del frontend tiene una tercera en `resources/js/menu/catalogo.ts`.
+     * Que estas etiquetas se escriban a mano en varios lados ya costó caro: en
+     * la cartera se comparaba contra `'padre'` y `'tutor'`, que no son ninguna
+     * de éstas, y como el código fallaba abierto un padre de familia terminó
+     * viendo la cartera completa de la escuela. Un error de dedo aquí no da
+     * error de PHP: da una comparación que nunca se cumple.
+     *
+     * `FacetasConsistentesTest` comprueba que las otras dos listas no se
+     * separen de ésta.
+     *
+     * @var array<int, string>
+     */
+    public const FACETAS = [
+        self::ADMINISTRATIVO,
+        self::DOCENTE,
+        self::ALUMNO,
+        self::ASPIRANTE,
+        self::TUTOR,
+        self::PADRE,
+    ];
+
+    /**
      * Dominio => [permiso => [etiqueta, descripción]].
      *
      * La descripción es lo que lee quien arma un rol y no escribió el sistema.
