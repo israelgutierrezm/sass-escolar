@@ -20,6 +20,7 @@ use App\Services\ConvertidorAspirante;
 use App\Services\IdentidadPersona;
 use App\Services\GeneradorMatricula;
 use App\Services\ProgresoSolicitud;
+use App\Services\ResolutorFormularios;
 use App\Services\Suplantador;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -194,6 +195,10 @@ class AspiranteController extends Controller
             // Su ficha, su examen: lo que debe y lo que ya pagó. Lo arma el
             // controlador de cobro para que el dinero viva en un solo sitio.
             'cobro' => CobroAspiranteController::estadoDeCuenta($aspirante),
+            // Los formularios que le tocan, según lo configurado en el
+            // constructor. Se resuelven igual que los de un alumno: al
+            // convertirlo, su expediente sigue siendo el mismo.
+            'formularios' => app(ResolutorFormularios::class)->para($aspirante),
             'permisos' => [
                 'editar' => $request->user()->can('editar-aspirantes'),
                 'validarExpediente' => $request->user()->can('validar-expediente'),

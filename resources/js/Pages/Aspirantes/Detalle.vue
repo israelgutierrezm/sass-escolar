@@ -6,6 +6,7 @@ import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 import CobroAspirante from '@/Components/CobroAspirante.vue';
+import FormulariosAsignados from '@/Components/FormulariosAsignados.vue';
 import { ICONOS } from '@/iconos';
 
 interface Entrega {
@@ -33,6 +34,7 @@ const props = defineProps<{
     matriculaSugerida: { matricula: string | null; motivo: string | null };
     permisos: { editar: boolean; validarExpediente: boolean; convertir: boolean; cobrar: boolean };
     cobro: Record<string, any>;
+    formularios: Record<string, any>[];
     suplantable: { usuario_id: number; usuario: string } | null;
 }>();
 
@@ -413,6 +415,8 @@ Se le generará su matrícula de todos modos y eso no se puede deshacer. ¿Conti
                         No hay documentos configurados para esta carrera.
                     </p>
                 </TarjetaSeccion>
+
+                <FormulariosAsignados :formularios="formularios" titular="aspirante" />
 
                 <CobroAspirante
                     :aspirante-id="aspirante.id"
