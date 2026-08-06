@@ -264,7 +264,7 @@ class FinanzasController extends Controller
 
         try {
             $pago = $this->registrador->registrar(
-                $matricula->id,
+                $matricula,
                 $metodo,
                 (float) $datos['monto'],
                 $adeudoIds,

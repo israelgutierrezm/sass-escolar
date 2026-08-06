@@ -191,10 +191,14 @@ class AspiranteController extends Controller
             // que no se deshace. Es sugerencia y no reserva: ver
             // `GeneradorMatricula::previsualizar`.
             'matriculaSugerida' => $this->sugerirMatricula($aspirante),
+            // Su ficha, su examen: lo que debe y lo que ya pagó. Lo arma el
+            // controlador de cobro para que el dinero viva en un solo sitio.
+            'cobro' => CobroAspiranteController::estadoDeCuenta($aspirante),
             'permisos' => [
                 'editar' => $request->user()->can('editar-aspirantes'),
                 'validarExpediente' => $request->user()->can('validar-expediente'),
                 'convertir' => $request->user()->can('convertir-aspirante'),
+                'cobrar' => $request->user()->can('registrar-pagos'),
             ],
             // «Ver como» el aspirante: solo si tiene cuenta con la que entrar.
             'suplantable' => app(Suplantador::class)->datosPara($request, $aspirante->persona),

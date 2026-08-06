@@ -118,8 +118,8 @@ try {
         'fecha_generacion' => '2026-03-01', 'fecha_vencimiento' => '2026-03-10',
     ]);
 
-    $pagoColegiatura = $registrador->registrar($matricula->id, $efectivo, 2000.00, [$adeudoColegiatura->id]);
-    $pagoConstancia = $registrador->registrar($matricula->id, $efectivo, 232.00, [$adeudoConstancia->id]);
+    $pagoColegiatura = $registrador->registrar($matricula, $efectivo, 2000.00, [$adeudoColegiatura->id]);
+    $pagoConstancia = $registrador->registrar($matricula, $efectivo, 232.00, [$adeudoConstancia->id]);
 
     echo '1. Emitir contra pagos cobrados'.PHP_EOL;
 
@@ -194,7 +194,7 @@ try {
         'fecha_generacion' => '2026-04-01', 'fecha_vencimiento' => '2026-04-10',
     ]);
 
-    $spei = $registrador->registrar($matricula->id, $transferencia, 2000.00, [$adeudoAbril->id]);
+    $spei = $registrador->registrar($matricula, $transferencia, 2000.00, [$adeudoAbril->id]);
 
     verificar('Una transferencia sin confirmar NO aparece como facturable',
         $emisor->facturables($matricula->id)->count() === 0);

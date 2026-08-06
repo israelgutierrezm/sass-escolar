@@ -224,7 +224,7 @@ try {
         'fecha_generacion' => '2026-03-01', 'fecha_vencimiento' => '2026-03-10',
     ]);
 
-    $pago = $registrador->registrar($matricula->id, $efectivo, 2000.00, [$adeudo->id]);
+    $pago = $registrador->registrar($matricula, $efectivo, 2000.00, [$adeudo->id]);
 
     $factura = $emisorFactura->emitir($matricula->id, [$pago->id], $receptor);
     $factura->refresh();

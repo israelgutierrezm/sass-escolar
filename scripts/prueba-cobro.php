@@ -214,7 +214,7 @@ try {
 
     // Se paga la inscripción y ahora sí deben salir las colegiaturas.
     $adeudoInscripcion = Adeudo::deMatricula($matricula->id)->firstOrFail();
-    $registrador->registrar($matricula->id, $efectivo, (float) $adeudoInscripcion->monto_total);
+    $registrador->registrar($matricula, $efectivo, (float) $adeudoInscripcion->monto_total);
 
     verificar('El pago liquida el cargo y el estatus se DERIVA, no se captura',
         $adeudoInscripcion->fresh()->estatus === Adeudo::ESTATUS_PAGADO);
@@ -341,7 +341,7 @@ try {
     verificar('Y el total suma recargo y resta descuento',
         (float) $conBeca->monto_total === 1860.0, (string) $conBeca->monto_total);
 
-    $registrador->registrar($matricula3->id, $efectivo, (float) $conBeca->monto_total);
+    $registrador->registrar($matricula3, $efectivo, (float) $conBeca->monto_total);
     $conBeca->refresh();
 
     verificar('Un adeudo pagado ya no admite más recargos',
@@ -357,7 +357,7 @@ try {
     verificar('Hay cuatro colegiaturas abiertas', $abiertos->count() === 4, (string) $abiertos->count());
 
     // Un pago que no alcanza para la primera: debe quedar parcial.
-    $registrador->registrar($matricula->id, $efectivo, 500.00);
+    $registrador->registrar($matricula, $efectivo, 500.00);
     $primera = $abiertos->first()->fresh();
 
     verificar('Un pago insuficiente deja el cargo en PARCIAL',
@@ -365,7 +365,7 @@ try {
     verificar('…con el saldo correcto', $primera->saldo() === 1500.0, (string) $primera->saldo());
 
     // Un pago que cubre de sobra: liquida el primero, abona al segundo.
-    $registrador->registrar($matricula->id, $efectivo, 2500.00);
+    $registrador->registrar($matricula, $efectivo, 2500.00);
 
     verificar('El más vencido se liquida primero',
         $abiertos->first()->fresh()->estatus === Adeudo::ESTATUS_PAGADO);
@@ -375,14 +375,14 @@ try {
 
     // Aplicación dirigida: se paga el ÚLTIMO aunque haya más vencidos.
     $ultimo = $abiertos->last();
-    $registrador->registrar($matricula->id, $efectivo, (float) $ultimo->monto_total, [$ultimo->id]);
+    $registrador->registrar($matricula, $efectivo, (float) $ultimo->monto_total, [$ultimo->id]);
 
     verificar('Marcando cargos se respeta el orden que eligió quien cobra',
         $ultimo->fresh()->estatus === Adeudo::ESTATUS_PAGADO);
 
     // Transferencia: no liquida hasta confirmarse.
     $tercero = $abiertos[2];
-    $spei = $registrador->registrar($matricula->id, $transferencia, (float) $tercero->monto_total, [$tercero->id]);
+    $spei = $registrador->registrar($matricula, $transferencia, (float) $tercero->monto_total, [$tercero->id]);
 
     verificar('Una transferencia nace PENDIENTE', $spei->estatus === Pago::ESTATUS_PENDIENTE);
     verificar('Y el cargo NO se liquida con dinero sin confirmar',
@@ -402,7 +402,7 @@ try {
 
     echo PHP_EOL.'8. Estado de cuenta'.PHP_EOL;
 
-    $anticipo = $registrador->registrar($matricula2->id, $efectivo, 99999.00);
+    $anticipo = $registrador->registrar($matricula2, $efectivo, 99999.00);
     $cuenta = $estadoCuenta->para($matricula2, CarbonImmutable::parse('2026-06-01'));
 
     verificar('Lo que sobra de un pago se reporta a favor',

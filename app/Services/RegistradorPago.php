@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\Admisiones\Aspirante;
+use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Finanzas\Adeudo;
 use App\Models\Finanzas\MetodoPago;
 use App\Models\Finanzas\Pago;
@@ -23,6 +25,11 @@ use RuntimeException;
  * transferencia nace pendiente y solo `confirmar()` la vuelve dinero. Dejarlo a
  * criterio del capturista es cómo se da por pagado un adeudo con dinero que
  * nunca llegó.
+ *
+ * El titular puede ser una matrícula O un aspirante. No son dos flujos: es el
+ * mismo cobro con distinto dueño, porque el aspirante paga su ficha y su
+ * inscripción antes de tener matrícula. Duplicar el registrador para admisiones
+ * habría significado dos sitios donde arreglar la próxima regla de caja.
  */
 class RegistradorPago
 {
@@ -34,7 +41,7 @@ class RegistradorPago
      *                                           vencidos primero.
      */
     public function registrar(
-        int $matriculaOfertaId,
+        MatriculaOferta|Aspirante $titular,
         MetodoPago $metodo,
         float $monto,
         ?array $adeudoIds = null,
@@ -47,10 +54,10 @@ class RegistradorPago
         }
 
         return DB::transaction(function () use (
-            $matriculaOfertaId, $metodo, $monto, $adeudoIds, $referencia, $pasarela, $pasarelaTxnId
+            $titular, $metodo, $monto, $adeudoIds, $referencia, $pasarela, $pasarelaTxnId
         ) {
             $pago = Pago::create([
-                'matricula_oferta_id' => $matriculaOfertaId,
+                ...$this->columnaTitular($titular),
                 'metodo_pago_id' => $metodo->id,
                 'monto' => $monto,
                 'referencia' => $referencia,
@@ -60,10 +67,28 @@ class RegistradorPago
                 'momento' => now(),
             ]);
 
-            $this->aplicar($pago, $this->adeudosACubrir($matriculaOfertaId, $adeudoIds));
+            $this->aplicar($pago, $this->adeudosACubrir($titular, $adeudoIds));
 
             return $pago;
         });
+    }
+
+    /**
+     * De quién es el dinero: de una matrícula o de un aspirante.
+     *
+     * La base impone que haya EXACTAMENTE uno de los dos —un CHECK sobre
+     * `(matricula_oferta_id IS NOT NULL) + (aspirante_id IS NOT NULL) = 1`—,
+     * así que se devuelve la pareja completa con el otro en null en vez de una
+     * sola clave: escribir sólo una dejaría la anterior puesta al reutilizar el
+     * arreglo y reventaría el CHECK con un error ilegible.
+     *
+     * @return array{matricula_oferta_id: ?int, aspirante_id: ?int}
+     */
+    private function columnaTitular(MatriculaOferta|Aspirante $titular): array
+    {
+        return $titular instanceof Aspirante
+            ? ['matricula_oferta_id' => null, 'aspirante_id' => $titular->id]
+            : ['matricula_oferta_id' => $titular->id, 'aspirante_id' => null];
     }
 
     /**
@@ -140,10 +165,13 @@ class RegistradorPago
     /**
      * @return Collection<int, Adeudo>
      */
-    private function adeudosACubrir(int $matriculaOfertaId, ?array $adeudoIds)
+    private function adeudosACubrir(MatriculaOferta|Aspirante $titular, ?array $adeudoIds)
     {
         $consulta = Adeudo::query()
-            ->deMatricula($matriculaOfertaId)
+            ->when($titular instanceof Aspirante,
+                fn ($q) => $q->deAspirante($titular->id),
+                fn ($q) => $q->deMatricula($titular->id),
+            )
             ->porCobrar();
 
         if ($adeudoIds !== null) {

@@ -63,6 +63,7 @@ use App\Http\Controllers\PadreController;
 use App\Http\Controllers\TutorController;
 use App\Http\Controllers\RecuperacionController;
 use App\Http\Controllers\PortalAspiranteController;
+use App\Http\Controllers\CobroAspiranteController;
 use App\Http\Controllers\PromocionController;
 use App\Http\Controllers\ReglaMatriculaController;
 use App\Http\Controllers\RolActivoController;
@@ -225,6 +226,28 @@ Route::middleware([
             // quien limpia los que sobran.
             Route::delete('/{aspirante}', 'destroy')->middleware('can:editar-aspirantes')->name('destroy');
         });
+
+        /*
+         * El dinero del aspirante: su ficha, su examen, su inscripción.
+         *
+         * Cuelga de admisiones y no de /finanzas porque quien cobra la ficha es
+         * la misma ventanilla que atiende al prospecto, y el aspirante no
+         * aparece en la cartera —no tiene matrícula—. Los permisos SÍ son los
+         * de finanzas: cobrar es cobrar, lo haga quien lo haga.
+         */
+        Route::controller(CobroAspiranteController::class)
+            ->prefix('aspirantes/{aspirante}/cobro')
+            ->name('tenant.aspirantes.cobro.')
+            ->middleware('can:registrar-pagos')
+            ->group(function () {
+                Route::post('/cargos', 'generarCargo')->name('cargos.generar');
+                Route::post('/pagos', 'registrarPago')->name('pagos.registrar');
+            });
+
+        // Fuera del grupo de arriba: recibe el ADEUDO, no el aspirante.
+        Route::delete('/aspirantes/cargos/{adeudo}', [CobroAspiranteController::class, 'cancelarCargo'])
+            ->middleware('can:registrar-pagos')
+            ->name('tenant.aspirantes.cobro.cargos.cancelar');
 
         /*
          * Con qué se arma la matrícula de esta escuela.

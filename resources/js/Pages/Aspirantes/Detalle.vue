@@ -5,6 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
+import CobroAspirante from '@/Components/CobroAspirante.vue';
 import { ICONOS } from '@/iconos';
 
 interface Entrega {
@@ -30,7 +31,8 @@ const props = defineProps<{
     matricula: { matricula: string; oferta: string | null; fecha_ingreso: string | null } | null;
     impedimentosConversion: string[];
     matriculaSugerida: { matricula: string | null; motivo: string | null };
-    permisos: { editar: boolean; validarExpediente: boolean; convertir: boolean };
+    permisos: { editar: boolean; validarExpediente: boolean; convertir: boolean; cobrar: boolean };
+    cobro: Record<string, any>;
     suplantable: { usuario_id: number; usuario: string } | null;
 }>();
 
@@ -411,6 +413,12 @@ Se le generará su matrícula de todos modos y eso no se puede deshacer. ¿Conti
                         No hay documentos configurados para esta carrera.
                     </p>
                 </TarjetaSeccion>
+
+                <CobroAspirante
+                    :aspirante-id="aspirante.id"
+                    :cobro="cobro"
+                    :puede-cobrar="permisos.cobrar"
+                />
             </div>
 
             <!-- Columna lateral: proceso y conversión -->
