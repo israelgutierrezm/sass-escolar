@@ -54,6 +54,17 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->respond(function (Response $respuesta, \Throwable $excepcion, Request $peticion) {
             $estado = $respuesta->getStatusCode();
 
+            /*
+             * El motivo, cuando quien lo escribió dijo que es para el usuario.
+             *
+             * La regla vive en la clase, no aquí: mostrar el mensaje de
+             * CUALQUIER excepción sería una línea más corta y estaría mal —un
+             * 403 lo lanzan también los Gates de Laravel y las librerías, en
+             * inglés, describiendo su mecánica y a veces confirmando que existe
+             * algo que quien pregunta no debería saber que existe—.
+             */
+            $motivo = App\Exceptions\AvisoParaElUsuario::motivoDe($excepcion);
+
             // El panel de la casa (dominios centrales) es Blade puro: sus errores
             // no se renderizan con la página Inertia de las escuelas.
             if (in_array($peticion->getHost(), config('tenancy.central_domains'), true)) {
@@ -71,14 +82,14 @@ return Application::configure(basePath: dirname(__DIR__))
             // En una escritura (POST/PUT/DELETE) el usuario está en una pantalla
             // útil: se le regresa ahí con el motivo, no a una página de error.
             if (! $peticion->isMethod('GET') && $peticion->header('X-Inertia')) {
-                return back()->with('error', match ($estado) {
+                return back()->with('error', $motivo ?? match ($estado) {
                     403 => 'No tienes permiso para realizar esa acción con tu rol activo.',
                     419 => 'Tu sesión expiró. Vuelve a intentarlo.',
                     default => 'No se pudo completar la operación.',
                 });
             }
 
-            return Inertia::render('Error', ['estado' => $estado])
+            return Inertia::render('Error', ['estado' => $estado, 'motivo' => $motivo])
                 ->toResponse($peticion)
                 ->setStatusCode($estado);
         });

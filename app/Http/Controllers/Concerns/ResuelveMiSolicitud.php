@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Concerns;
 
+use App\Exceptions\AvisoParaElUsuario;
+
 use App\Models\Admisiones\Aspirante;
 use Illuminate\Http\Request;
 
@@ -30,7 +32,7 @@ trait ResuelveMiSolicitud
             ->orderByDesc('id')
             ->first();
 
-        abort_if($aspirante === null, 404, 'No tienes una solicitud de admisión abierta.');
+        AvisoParaElUsuario::si($aspirante === null, 404, 'No tienes una solicitud de admisión abierta.');
 
         return $aspirante;
     }

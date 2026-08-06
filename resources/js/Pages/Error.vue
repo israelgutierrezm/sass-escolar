@@ -3,7 +3,18 @@ import { Head } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { usaJergaAdministrativa } from '@/ambito';
 
-const props = defineProps<{ estado: number }>();
+const props = defineProps<{
+    estado: number;
+    /**
+     * El porqué concreto, cuando el servidor decidió que se puede decir.
+     *
+     * Sólo llega desde `AvisoParaElUsuario`: los mensajes de las demás
+     * excepciones se quedan del otro lado, porque van en inglés, describen la
+     * mecánica interna o confirman que existe algo que quien pregunta no
+     * debería saber que existe.
+     */
+    motivo?: string | null;
+}>();
 
 function regresar(): void {
     window.history.back();
@@ -47,10 +58,19 @@ const contenido = computed(() => {
         },
     };
 
-    return mapa[props.estado] ?? {
+    const base = mapa[props.estado] ?? {
         titulo: 'Ocurrió un error',
         detalle: 'No pudimos completar la operación.',
     };
+
+    /*
+     * El motivo concreto gana al texto por código.
+     *
+     * «Este alumno no está vinculado a tu cuenta» le dice a un padre qué pasó y
+     * qué pedirle a la escuela; el genérico lo deja creyendo que se equivocó de
+     * botón. El TÍTULO no cambia: sigue diciendo qué clase de problema es.
+     */
+    return props.motivo ? { ...base, detalle: props.motivo } : base;
 });
 </script>
 

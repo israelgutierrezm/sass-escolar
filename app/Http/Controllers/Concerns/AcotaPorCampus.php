@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Concerns;
 
+use App\Exceptions\AvisoParaElUsuario;
+
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Identidad\Usuario;
 use Illuminate\Database\Eloquent\Builder;
@@ -113,7 +115,7 @@ trait AcotaPorCampus
             return;
         }
 
-        abort_unless(in_array($campusId, $campus, true), 403, 'Ese registro no pertenece a tus campus.');
+        AvisoParaElUsuario::aMenosQue(in_array($campusId, $campus, true), 403, 'Ese registro no pertenece a tus campus.');
     }
 
     /**
@@ -128,7 +130,7 @@ trait AcotaPorCampus
             return;
         }
 
-        abort_unless(
+        AvisoParaElUsuario::aMenosQue(
             in_array($matricula->oferta?->campus_id, $campus, true),
             403,
             'Ese alumno no pertenece a tus campus.',

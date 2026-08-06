@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Concerns;
 
+use App\Exceptions\AvisoParaElUsuario;
+
 use App\Models\ControlEscolar\Inscripcion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -42,7 +44,7 @@ trait AlcanceDelAlumno
             ->with($con)
             ->first();
 
-        abort_if($inscripcion === null, 403, 'Esa materia no está entre las que cursas.');
+        AvisoParaElUsuario::si($inscripcion === null, 403, 'Esa materia no está entre las que cursas.');
 
         return $inscripcion;
     }

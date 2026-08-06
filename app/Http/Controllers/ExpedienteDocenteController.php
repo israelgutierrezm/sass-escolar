@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\AvisoParaElUsuario;
+
 use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\Admisiones\EstadoDocumento;
 use App\Models\ControlEscolar\Docente;
@@ -21,7 +23,6 @@ use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
-use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
  * "Mi expediente": el docente mantiene sus propios datos y comprobantes.
@@ -269,8 +270,9 @@ class ExpedienteDocenteController extends Controller
             ? null
             : Docente::query()->with('persona')->find($usuario->persona_id);
 
-        return $docente ?? throw new AccessDeniedHttpException(
-            'Tu cuenta no está dada de alta como docente.'
+        return $docente ?? AvisoParaElUsuario::lanzar(
+            403,
+            'Tu cuenta todavía no está dada de alta como docente. Pídele a control escolar que la registre.',
         );
     }
 }

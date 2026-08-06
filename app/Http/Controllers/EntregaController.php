@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\AvisoParaElUsuario;
+
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Lms\Actividad;
 use App\Models\Lms\Entrega;
@@ -26,7 +28,7 @@ class EntregaController extends Controller
     {
         $inscripcion = $this->miInscripcionEn($request, $actividad);
 
-        abort_if($inscripcion === null, 403, 'Esa actividad no es de una materia que curses.');
+        AvisoParaElUsuario::si($inscripcion === null, 403, 'Esa actividad no es de una materia que curses.');
 
         if (! $actividad->tipo->seEntrega()) {
             return back()->with('error', 'Esta actividad es de lectura: no hay nada que entregar.');

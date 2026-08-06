@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\AvisoParaElUsuario;
+
 use App\Models\Academico\Campus;
 use App\Models\Academico\Carrera;
 use App\Models\Academico\Oferta;
@@ -482,7 +484,7 @@ class PromocionController extends Controller
             ->where('asesores.persona_id', $request->user()->persona_id)
             ->exists();
 
-        abort_unless($suyo, 403, 'Este prospecto no está asignado a ti.');
+        AvisoParaElUsuario::aMenosQue($suyo, 403, 'Este prospecto no está asignado a ti.');
     }
 
     /** El historial de contacto de un prospecto, para su ficha. */

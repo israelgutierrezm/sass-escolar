@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\AvisoParaElUsuario;
+
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Lms\Actividad;
 use App\Models\Lms\Examen;
@@ -387,12 +389,12 @@ class PresentacionExamenController extends Controller
     {
         $inscripcion = $this->miInscripcionEn($request, $actividad);
 
-        abort_if($inscripcion === null, 403, 'Ese examen no es de una materia que curses.');
+        AvisoParaElUsuario::si($inscripcion === null, 403, 'Ese examen no es de una materia que curses.');
 
         $examen = $actividad->examen;
 
         abort_if($examen === null, 404);
-        abort_unless((bool) $actividad->publicada, 403, 'Ese examen todavía no está publicado.');
+        AvisoParaElUsuario::aMenosQue((bool) $actividad->publicada, 403, 'Ese examen todavía no está publicado.');
 
         return [$examen, $inscripcion];
     }
@@ -405,7 +407,7 @@ class PresentacionExamenController extends Controller
             ->whereIn('matricula_oferta_id', $this->misMatriculas($request))
             ->exists();
 
-        abort_unless($mio, 403, 'Ese intento no es tuyo.');
+        AvisoParaElUsuario::aMenosQue($mio, 403, 'Ese intento no es tuyo.');
     }
 
     private function miInscripcionEn(Request $request, Actividad $actividad): ?Inscripcion

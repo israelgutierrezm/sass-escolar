@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\AvisoParaElUsuario;
+
 use App\Http\Controllers\Concerns\AcotaPorCampus;
 use App\Http\Controllers\Concerns\ResuelveMiSolicitud;
 use App\Models\Admisiones\Aspirante;
@@ -650,7 +652,7 @@ class RespuestaFormularioController extends Controller
         $usuario = $request->user();
 
         return Persona::find($usuario->persona_id)
-            ?? abort(403, 'Tu cuenta no está ligada a ninguna persona.');
+            ?? AvisoParaElUsuario::lanzar(403, 'Tu cuenta todavía no está ligada a tus datos. Pídele a la escuela que la complete.');
     }
 
     /**

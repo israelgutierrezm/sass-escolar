@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\AvisoParaElUsuario;
+
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\Historial;
 use App\Models\Finanzas\Factura;
@@ -80,7 +82,7 @@ class PadreController extends Controller
             ->where('alumno_persona_id', $hijo->id)
             ->first();
 
-        abort_if($vinculo === null, 403, 'Este alumno no está vinculado a tu cuenta.');
+        AvisoParaElUsuario::si($vinculo === null, 403, 'Este alumno no está vinculado a tu cuenta.');
 
         $matriculas = $hijo->matriculas()
             ->with([

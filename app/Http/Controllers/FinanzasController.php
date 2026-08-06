@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\AvisoParaElUsuario;
+
 use App\Http\Controllers\Concerns\AcotaPorCampus;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Finanzas\Adeudo;
@@ -239,7 +241,11 @@ class FinanzasController extends Controller
          */
         $visibles = $this->matriculasVisibles($request);
 
-        abort_if($visibles !== null && ! in_array($matricula->id, $visibles, true), 403);
+        AvisoParaElUsuario::si(
+            $visibles !== null && ! in_array($matricula->id, $visibles, true),
+            403,
+            'Ese estado de cuenta no está entre los que puedes consultar.',
+        );
 
         // Y el administrativo acotado a campus tampoco entra a un alumno ajeno
         // cambiando el id: filtrar la lista sin cerrar el detalle no cierra nada.

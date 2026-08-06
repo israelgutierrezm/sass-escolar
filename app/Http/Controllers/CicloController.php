@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\AvisoParaElUsuario;
+
 use App\Models\Academico\Campus;
 use App\Models\ControlEscolar\Ciclo;
 use App\Models\ControlEscolar\SituacionCiclo;
@@ -238,7 +240,7 @@ class CicloController extends Controller
         $suyos = $ciclo->campus()->pluck('campus.id')
             ->contains(fn (int $id) => $usuario->alcanzaCampus($id));
 
-        abort_unless($suyos || $ciclo->esGlobal(), 403, 'Ese ciclo no pertenece a tus campus.');
+        AvisoParaElUsuario::aMenosQue($suyos || $ciclo->esGlobal(), 403, 'Ese ciclo no pertenece a tus campus.');
     }
 
     /**
