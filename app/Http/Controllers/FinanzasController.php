@@ -12,11 +12,13 @@ use App\Models\Finanzas\Factura;
 use App\Models\Finanzas\MetodoPago;
 use App\Models\Finanzas\Pago;
 use App\Models\Finanzas\SituacionPago;
+use App\Models\Identidad\TutorAlumno;
 use App\Services\CalculadorRecargos;
 use App\Services\EstadoCuenta;
 use App\Services\GeneradorAdeudos;
 use App\Services\RegistradorPago;
 use App\Services\ResolutorPlanCobro;
+use App\Support\CatalogoPermisos;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -38,6 +40,15 @@ class FinanzasController extends Controller
 {
     use AcotaPorCampus;
 
+    /** De quién es la cartera que se mira. Recorta la consulta y titula la pantalla. */
+    private const ALCANCE_ESCUELA = 'escuela';
+
+    private const ALCANCE_PROPIO = 'propio';
+
+    private const ALCANCE_FAMILIA = 'familia';
+
+    private const ALCANCE_NINGUNO = 'ninguno';
+
     public function __construct(
         private readonly EstadoCuenta $estadoCuenta,
         private readonly GeneradorAdeudos $generador,
@@ -46,6 +57,78 @@ class FinanzasController extends Controller
         private readonly ResolutorPlanCobro $resolutor,
     ) {}
 
+    /**
+     * Qué matrículas puede ver quien está preguntando.
+     *
+     * `null` significa TODAS —el personal de la escuela—, y de ahí en adelante
+     * la acotación por campus hace lo suyo. Un arreglo es la lista exacta, y
+     * uno vacío es «ninguna», que es una respuesta legítima.
+     *
+     * ── Por qué un solo lugar ──────────────────────────────────────────────
+     * Esta decisión estaba escrita dos veces, y las dos copias se pudrieron en
+     * direcciones opuestas. El listado comparaba la faceta contra `'padre'` y
+     * `'tutor'`, que no son los valores que existen —son `padre_familia` y
+     * `tutor_educativo`—, así que el recorte nunca se aplicaba y un padre de
+     * familia veía la cartera COMPLETA de la escuela, con nombres, carreras y
+     * saldos de alumnos ajenos, buscador incluido. El detalle sí escribía bien
+     * las etiquetas pero exigía que la matrícula fuera de SU persona, y un
+     * padre nunca es el titular de la matrícula de su hijo: le cerraba la
+     * cuenta que venía a consultar.
+     *
+     * ── El padre ve por VÍNCULO, no por titularidad ────────────────────────
+     * Y sólo aquellos hijos cuyo vínculo trae `puede_ver_finanzas`. Ese flag ya
+     * existía y ya se respeta en su portal; es la respuesta a esta pregunta, no
+     * una regla nueva. Un padre al que se le dio acceso académico pero no
+     * financiero no debe ver saldos por entrar desde otra pantalla.
+     *
+     * ── Y lo que no está enumerado, no ve ──────────────────────────────────
+     * El `default` deja fuera al docente, al aspirante y al tutor educativo
+     * —ninguno tiene `ver-adeudos` sembrado, así que hoy ni siquiera llegan—,
+     * pero sobre todo deja fuera a la faceta que alguien agregue mañana. La
+     * versión anterior fallaba abierta: lo que no reconocía, lo mostraba todo.
+     *
+     * @return array<int, int>|null
+     */
+    private function matriculasVisibles(Request $request): ?array
+    {
+        $usuario = $request->user();
+
+        return match ($this->alcance($request)) {
+            self::ALCANCE_ESCUELA => null,
+
+            self::ALCANCE_PROPIO => MatriculaOferta::query()
+                ->where('persona_id', $usuario->persona_id)
+                ->pluck('id')->all(),
+
+            self::ALCANCE_FAMILIA => MatriculaOferta::query()
+                ->whereIn('persona_id', TutorAlumno::query()
+                    ->where('tutor_persona_id', $usuario->persona_id)
+                    ->where('puede_ver_finanzas', true)
+                    ->select('alumno_persona_id'))
+                ->pluck('id')->all(),
+
+            default => [],
+        };
+    }
+
+    /**
+     * De quién es la cartera que se está mirando.
+     *
+     * Viaja a la pantalla además de recortar la consulta, porque el encabezado
+     * tiene que decir la verdad: «Mi saldo» sobre el saldo de los hijos de uno
+     * es un número correcto con la etiqueta equivocada, y ésa es la clase de
+     * cosa que se lee mal justo cuando importa.
+     */
+    private function alcance(Request $request): string
+    {
+        return match ($request->user()->rolActivo?->ambitoDePermisos()) {
+            CatalogoPermisos::ADMINISTRATIVO => self::ALCANCE_ESCUELA,
+            CatalogoPermisos::ALUMNO => self::ALCANCE_PROPIO,
+            CatalogoPermisos::PADRE => self::ALCANCE_FAMILIA,
+            default => self::ALCANCE_NINGUNO,
+        };
+    }
+
     public function index(Request $request): Response
     {
         $busqueda = trim((string) $request->query('q', ''));
@@ -53,20 +136,18 @@ class FinanzasController extends Controller
         $soloVencidos = $request->boolean('vencidos');
         $hoy = now()->toDateString();
 
-        // ¿Ve la cartera de la escuela, o solo la suya? La misma permission
-        // `ver-adeudos` la tienen el administrativo de finanzas Y el alumno; lo
-        // que cambia es SOBRE QUIÉN, y eso lo dice la faceta del rol activo, no
-        // el permiso. Un alumno (o un padre, o un tutor) ve únicamente sus
-        // matrículas — sin esto veía la cartera completa de todos, con
-        // buscador incluido, que es una fuga, no solo un buscador de más.
-        $ambito = $request->user()->rolActivo?->ambitoDePermisos();
-        $soloPropias = in_array($ambito, ['alumno', 'padre', 'tutor'], true);
+        // ¿Ve la cartera de la escuela, o sólo lo que le toca? La misma
+        // permission `ver-adeudos` la tienen el administrativo de finanzas, el
+        // alumno y el padre de familia; lo que cambia es SOBRE QUIÉN.
+        $alcance = $this->alcance($request);
+        $visibles = $this->matriculasVisibles($request);
+        $acotado = $visibles !== null;
 
         $consulta = MatriculaOferta::query()
             ->leftJoinSub($this->saldosPorMatricula($hoy), 'f', 'f.matricula_oferta_id', '=', 'matricula_oferta.id')
             ->join('personas', 'personas.id', '=', 'matricula_oferta.persona_id')
             ->with(['persona:id,nombre,primer_apellido,segundo_apellido', 'oferta.carrera:id,nombre', 'oferta.campus:id,nombre'])
-            ->when($soloPropias, fn ($q) => $q->where('matricula_oferta.persona_id', $request->user()->persona_id))
+            ->when($acotado, fn ($q) => $q->whereIn('matricula_oferta.id', $visibles))
             ->select([
                 'matricula_oferta.*',
                 DB::raw('coalesce(f.saldo, 0) as saldo'),
@@ -80,9 +161,9 @@ class FinanzasController extends Controller
         $this->acotarMatriculas($consulta, $request);
 
         // El buscador y los filtros de cartera solo tienen sentido sobre un
-        // universo de muchos. Sobre las propias matrículas —una o dos— no se
-        // busca a nadie.
-        if (! $soloPropias && $busqueda !== '') {
+        // universo de muchos. Sobre las propias matrículas —o las de los hijos,
+        // que son dos o tres— no se busca a nadie.
+        if (! $acotado && $busqueda !== '') {
             $consulta->where(function ($q) use ($busqueda) {
                 $q->where('matricula_oferta.matricula', 'like', "%{$busqueda}%")
                     ->orWhere('personas.curp', 'like', "%{$busqueda}%")
@@ -125,7 +206,7 @@ class FinanzasController extends Controller
         // es un alumno, se acotan a lo suyo por la misma razón que la lista:
         // no debe ver el total de la escuela.
         $totales = DB::query()
-            ->fromSub($this->saldosPorMatricula($hoy, $soloPropias ? $request->user()->persona_id : null), 'f')
+            ->fromSub($this->saldosPorMatricula($hoy, $visibles), 'f')
             ->selectRaw('coalesce(sum(f.saldo), 0) as saldo, coalesce(sum(f.vencido), 0) as vencido, count(*) as deudores')
             ->first();
 
@@ -133,8 +214,8 @@ class FinanzasController extends Controller
             'matriculas' => $matriculas,
             'filtros' => ['q' => $busqueda, 'deudores' => $soloDeudores, 'vencidos' => $soloVencidos],
             // La vista oculta el buscador, los filtros y el encabezado de
-            // "cartera de la escuela" cuando cada quien ve solo lo suyo.
-            'soloPropias' => $soloPropias,
+            // "cartera de la escuela" cuando no se está viendo toda.
+            'alcance' => $alcance,
             'totales' => [
                 'saldo' => round((float) ($totales->saldo ?? 0), 2),
                 'vencido' => round((float) ($totales->vencido ?? 0), 2),
@@ -146,16 +227,19 @@ class FinanzasController extends Controller
 
     public function cuenta(Request $request, MatriculaOferta $matricula): Response
     {
-        // Que la lista se acote no basta: sin esto, un alumno cambia el id en la
-        // URL y ve el estado de cuenta de cualquier otro. La faceta que solo ve
-        // lo suyo solo entra a lo suyo.
-        $ambito = $request->user()->rolActivo?->ambitoDePermisos();
+        /*
+         * Que la lista se acote no basta: sin esto, un alumno cambia el id en la
+         * URL y ve el estado de cuenta de cualquier otro. Se resuelve con el
+         * MISMO criterio que el listado —si no está entre las suyas, no entra—,
+         * porque tenerlo escrito dos veces fue justo lo que se descompuso: la
+         * lista comparaba contra unas etiquetas de ámbito mal escritas y el
+         * detalle contra la persona del titular, así que al padre de familia le
+         * mostraba la cartera entera y luego le cerraba la cuenta de su propio
+         * hijo.
+         */
+        $visibles = $this->matriculasVisibles($request);
 
-        abort_if(
-            in_array($ambito, ['alumno', 'padre_familia', 'tutor_educativo'], true)
-                && $matricula->persona_id !== $request->user()->persona_id,
-            403,
-        );
+        abort_if($visibles !== null && ! in_array($matricula->id, $visibles, true), 403);
 
         // Y el administrativo acotado a campus tampoco entra a un alumno ajeno
         // cambiando el id: filtrar la lista sin cerrar el detalle no cierra nada.
@@ -370,7 +454,7 @@ class FinanzasController extends Controller
      * puede tener varios pagos: sumarlo en el mismo GROUP BY multiplicaría el
      * `monto_total` por cuantos pagos tenga encima.
      */
-    private function saldosPorMatricula(string $hoy, ?int $personaId = null): Builder
+    private function saldosPorMatricula(string $hoy, ?array $matriculaIds = null): Builder
     {
         $aplicados = DB::table('pago_adeudo as pa')
             ->join('pagos as p', 'p.id', '=', 'pa.pago_id')
@@ -385,12 +469,19 @@ class FinanzasController extends Controller
             ->whereNull('a.deleted_at')
             ->whereNotNull('a.matricula_oferta_id')
             ->whereIn('a.estatus', [Adeudo::ESTATUS_PENDIENTE, Adeudo::ESTATUS_PARCIAL])
-            // Para el total del alumno: se acota a sus matrículas por join, así
-            // el «vencido» y el «saldo» del encabezado son solo suyos.
-            ->when($personaId, fn ($q) => $q->whereIn(
-                'a.matricula_oferta_id',
-                DB::table('matricula_oferta')->where('persona_id', $personaId)->select('id'),
-            ))
+            /*
+             * Para el encabezado de quien no ve toda la cartera: se acota a las
+             * matrículas que puede ver, así el «saldo» y el «vencido» de arriba
+             * son sólo de ellas.
+             *
+             * Recibe la LISTA de matrículas y no la persona titular, que era lo
+             * que hacía antes: un padre de familia no es titular de la
+             * matrícula de su hijo, así que por titular le habría seguido
+             * sumando la cartera completa de la escuela debajo de una tabla ya
+             * acotada —el número más visible de la pantalla, y el más fácil de
+             * dar por bueno—.
+             */
+            ->when($matriculaIds !== null, fn ($q) => $q->whereIn('a.matricula_oferta_id', $matriculaIds))
             ->groupBy('a.matricula_oferta_id')
             ->select('a.matricula_oferta_id')
             ->selectRaw('sum(a.monto_total - coalesce(ap.aplicado, 0)) as saldo')

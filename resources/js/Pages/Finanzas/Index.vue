@@ -30,7 +30,13 @@ const props = defineProps<{
     totales: { saldo: number; vencido: number; deudores: number };
     puedeRegistrarPagos: boolean;
     /** El usuario ve solo SUS matrículas (alumno/padre/tutor): sin buscador. */
-    soloPropias: boolean;
+    /**
+     * De quién es la cartera que se está mirando.
+     *
+     * No basta un «es la mía o no»: un padre ve la de sus hijos, y titular eso
+     * como «Mi saldo» es un número correcto con la etiqueta equivocada.
+     */
+    alcance: 'escuela' | 'propio' | 'familia' | 'ninguno';
 }>();
 
 const vista = ref<'lista' | 'cuadricula'>('lista');
@@ -40,17 +46,36 @@ const definicionFiltros = [
     { clave: 'vencidos', etiqueta: 'Solo con vencido', tipo: 'booleano' as const },
 ];
 
+/** Ve a muchos: el buscador y los filtros de cartera sólo tienen sentido ahí. */
+const todaLaCartera = computed(() => props.alcance === 'escuela');
+
+const titulo = computed(() => ({
+    escuela: 'Finanzas',
+    propio: 'Mis finanzas',
+    familia: 'Finanzas de mis hijos',
+    ninguno: 'Finanzas',
+}[props.alcance]));
+
+const etiquetaSaldo = computed(() => ({
+    escuela: 'Saldo total',
+    propio: 'Mi saldo',
+    familia: 'Saldo de mis hijos',
+    ninguno: 'Saldo',
+}[props.alcance]));
+
+const etiquetaConteo = computed(() => (todaLaCartera.value ? 'Con saldo' : 'Matrículas'));
+
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
 </script>
 
 <template>
-    <Head title="Cartera" />
+    <Head :title="titulo" />
 
-    <AppLayout :titulo="soloPropias ? 'Mis finanzas' : 'Finanzas'">
+    <AppLayout :titulo="titulo">
         <section class="grid gap-4 sm:grid-cols-3">
             <div class="tarjeta p-5">
                 <p class="text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                    {{ soloPropias ? 'Mi saldo' : 'Saldo total' }}
+                    {{ etiquetaSaldo }}
                 </p>
                 <p class="mt-1 text-2xl font-semibold">{{ pesos.format(totales.saldo) }}</p>
             </div>
@@ -62,7 +87,7 @@ const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN
             </div>
             <div class="tarjeta p-5">
                 <p class="text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                    {{ soloPropias ? 'Mis matrículas' : 'Con saldo' }}
+                    {{ etiquetaConteo }}
                 </p>
                 <p class="mt-1 text-2xl font-semibold">{{ totales.deudores }}</p>
                 <p class="text-xs" :style="{ color: 'var(--color-suave)' }">matrículas</p>
@@ -72,7 +97,7 @@ const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN
         <!-- El buscador y los filtros de cartera solo aparecen para quien ve a
              MUCHOS. Un alumno se ve a sí mismo: no hay a quién buscar. -->
         <BarraListado
-            v-if="!soloPropias"
+            v-if="todaLaCartera"
             v-model:vista="vista"
             url="/finanzas"
             vista-clave="finanzas.cartera"
