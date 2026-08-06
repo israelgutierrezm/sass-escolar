@@ -8,6 +8,7 @@ use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\Admisiones\ExpedienteDocumento;
 use App\Models\Finanzas\Adeudo;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -19,6 +20,11 @@ use Illuminate\Support\Facades\DB;
  * tabla de pasos que siempre tiene las mismas tres filas sería configuración
  * falsa. Lo que SÍ es configurable —si el expediente y el pago son requisito
  * para convertir— vive en `CatalogoAjustes`.
+ *
+ * Que un paso APLIQUE o no sí varía por persona, y siempre fue así: quien no
+ * tiene cargos no ve el de pago. Los formularios se suman con la misma regla
+ * —le tocan según su rol y su carrera—, y sin ellos el porcentaje mentía:
+ * alguien con todo lo obligatorio sin contestar veía «100%».
  *
  * **Este avance NO es la etapa del CRM, y es deliberado.** El embudo lo mueve
  * promoción con su criterio; esto solo dice qué tanto llenó el interesado. Que
@@ -36,6 +42,8 @@ class ProgresoSolicitud
 
     public const PASO_DOCUMENTOS = 'documentos';
 
+    public const PASO_FORMULARIOS = 'formularios';
+
     public const PASO_PAGO = 'pago';
 
     /**
@@ -43,13 +51,25 @@ class ProgresoSolicitud
      *
      * @return array<string, mixed>
      */
-    public function para(Aspirante $aspirante): array
+    public function para(Aspirante $aspirante, ?Collection $formularios = null): array
     {
         $aspirante->loadMissing('persona', 'ofertaInteres.carrera');
+
+        /*
+         * Los formularios se pueden pasar ya resueltos.
+         *
+         * Las dos pantallas que muestran este avance —la ficha y el portal—
+         * necesitan además la lista completa para pintar sus bloques, y
+         * resolverla dos veces por petición es trabajo repetido sobre las
+         * mismas consultas. Si no viene, se resuelve aquí: nadie que sólo
+         * quiera el porcentaje tiene que saber de esto.
+         */
+        $formularios ??= app(ResolutorFormularios::class)->para($aspirante);
 
         $pasos = [
             $this->pasoDatos($aspirante),
             $this->pasoDocumentos($aspirante),
+            $this->pasoFormularios($formularios),
             $this->pasoPago($aspirante),
         ];
 
@@ -193,6 +213,51 @@ class ProgresoSolicitud
      *
      * @return array<string, mixed>
      */
+    /**
+     * Los bloques de preguntas que le tocan.
+     *
+     * Sólo cuentan los OBLIGATORIOS, como en documentos: pedirle que llene lo
+     * opcional para poder avanzar convertiría un «puedes contestarlo» en un
+     * requisito.
+     *
+     * Aplica cuando tiene alguno asignado. Que eso dependa de su carrera no
+     * rompe la regla de «pasos fijos para toda la escuela»: el paso es el
+     * mismo para todos, lo que varía es si le toca —igual que el pago, que no
+     * aplica a quien no tiene cargos—.
+     *
+     * @param  Collection<int, array<string, mixed>>  $formularios
+     * @return array<string, mixed>
+     */
+    private function pasoFormularios(Collection $formularios): array
+    {
+        if ($formularios->isEmpty()) {
+            return [
+                'clave' => self::PASO_FORMULARIOS,
+                'titulo' => 'Tus formularios',
+                'descripcion' => 'La escuela no te pide ninguno.',
+                'aplica' => false,
+                'completo' => true,
+                'faltantes' => [],
+                'detalle' => 'No aplica',
+            ];
+        }
+
+        $obligatorios = $formularios->where('obligatorio', true);
+        $pendientes = $obligatorios->where('completo', false);
+
+        return [
+            'clave' => self::PASO_FORMULARIOS,
+            'titulo' => 'Tus formularios',
+            'descripcion' => 'Contesta los bloques de preguntas que pide la escuela.',
+            'aplica' => true,
+            'completo' => $pendientes->isEmpty(),
+            'faltantes' => $pendientes->pluck('titulo')->values()->all(),
+            'detalle' => $obligatorios->isEmpty()
+                ? 'Ninguno obligatorio'
+                : ($obligatorios->count() - $pendientes->count()).' de '.$obligatorios->count(),
+        ];
+    }
+
     private function pasoPago(Aspirante $aspirante): array
     {
         $cargos = Adeudo::query()

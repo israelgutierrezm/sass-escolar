@@ -61,8 +61,12 @@ class PortalAspiranteController extends Controller
             'ofertaInteres.campus:id,nombre',
         );
 
+        $formularios = app(ResolutorFormularios::class)->para($aspirante);
+
         return Inertia::render('Portal/Solicitud', [
-            'progreso' => $this->progreso->para($aspirante),
+            // Igual que en la ficha: una sola resolución para el panel y para
+            // el paso del avance.
+            'progreso' => $this->progreso->para($aspirante, $formularios),
             'persona' => [
                 'nombre' => $aspirante->persona?->nombre,
                 'primer_apellido' => $aspirante->persona?->primer_apellido,
@@ -87,7 +91,7 @@ class PortalAspiranteController extends Controller
             'cargos' => $this->cargos($aspirante),
             // Los formularios que le tocan. Los mismos que ve quien lo atiende
             // desde la ficha: es un solo expediente mirado desde dos lados.
-            'formularios' => app(ResolutorFormularios::class)->para($aspirante),
+            'formularios' => $formularios,
             'generos' => Genero::orderBy('id')->get(['id', 'nombre']),
             'ofertas' => Oferta::query()->with('carrera:id,nombre', 'campus:id,nombre')->get()
                 ->map(fn (Oferta $o) => [

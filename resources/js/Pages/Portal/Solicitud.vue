@@ -76,6 +76,7 @@ const siguiente = computed(() => props.progreso.pasos.find((p) => p.clave === pr
 const ICONO_PASO: Record<string, string> = {
     datos: ICONOS.persona,
     documentos: ICONOS.documento,
+    formularios: ICONOS.tareaCheck,
     pago: ICONOS.dinero,
 };
 
@@ -222,7 +223,9 @@ const colorEstado: Record<string, string> = {
                     volver a entrar salvo que te pidan corregir algo.
                 </p>
 
-                <ol class="mt-5 grid gap-3 sm:grid-cols-3">
+                <!-- Cuatro pasos: en tres columnas el último quedaba huérfano
+                     abajo. Dos y dos en tableta, los cuatro en pantalla ancha. -->
+                <ol class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <li v-for="(paso, i) in progreso.pasos" :key="paso.clave">
                         <!--
                             La tarjeta entera es el botón. Antes el borde cambiaba de
@@ -465,20 +468,22 @@ const colorEstado: Record<string, string> = {
             </TarjetaSeccion>
 
             <!--
-                Sus formularios.
-                No son un «paso» del avance: los pasos son fijos para toda la
-                escuela y estos dependen de lo que se le haya asignado a su rol
-                y a su carrera. Van aparte, siempre visibles.
+                Paso 3: sus formularios.
+                Aquí decía que NO eran un paso porque los pasos son fijos para
+                toda la escuela. Lo fijo es el paso; que APLIQUE o no siempre
+                dependió de la persona —quien no tiene cargos no ve el de
+                pago—, y sin contarlos el porcentaje mentía: alguien con todo
+                lo obligatorio sin contestar veía «100%».
             -->
             <FormulariosAsignados
-                v-if="formularios.length"
+                v-show="abierto === 'formularios'"
                 :formularios="formularios"
                 titular="aspirante"
                 base-captura="/mi-solicitud/formularios"
                 :puede-capturar="true"
             />
 
-            <!-- Paso 3: pago -->
+            <!-- Paso 4: pago -->
             <TarjetaSeccion
                 v-show="abierto === 'pago'"
                 titulo="Tu pago"

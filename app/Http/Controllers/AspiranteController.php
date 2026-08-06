@@ -148,10 +148,14 @@ class AspiranteController extends Controller
             ->latest('id')
             ->first();
 
+        $formularios = app(ResolutorFormularios::class)->para($aspirante);
+
         return Inertia::render('Aspirantes/Detalle', [
             // Avance del EXPEDIENTE, informativo. No es la etapa del CRM: esa
             // la mueve promoción con su criterio y no debe avanzar sola.
-            'progresoSolicitud' => app(ProgresoSolicitud::class)->para($aspirante),
+            // Se resuelven UNA vez y se comparten con el avance: el paso de
+            // formularios sale de esta misma lista.
+            'progresoSolicitud' => app(ProgresoSolicitud::class)->para($aspirante, $formularios),
             'aspirante' => [
                 'id' => $aspirante->id,
                 'nombre_completo' => $aspirante->persona->nombreCompleto(),
@@ -198,7 +202,7 @@ class AspiranteController extends Controller
             // Los formularios que le tocan, según lo configurado en el
             // constructor. Se resuelven igual que los de un alumno: al
             // convertirlo, su expediente sigue siendo el mismo.
-            'formularios' => app(ResolutorFormularios::class)->para($aspirante),
+            'formularios' => $formularios,
             'permisos' => [
                 'editar' => $request->user()->can('editar-aspirantes'),
                 'validarExpediente' => $request->user()->can('validar-expediente'),
