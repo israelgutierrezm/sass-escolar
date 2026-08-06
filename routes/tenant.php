@@ -29,6 +29,7 @@ use App\Http\Controllers\CursoPlantillaController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DescuentoController;
 use App\Http\Controllers\DocenciaController;
+use App\Http\Controllers\DisponibilidadDocenteController;
 use App\Http\Controllers\DocenteController;
 use App\Http\Controllers\DocumentoRequeridoController;
 use App\Http\Controllers\Emision\DatosTituloController;
@@ -417,6 +418,18 @@ Route::middleware([
                 Route::get('titulos/{titulo}/archivo', 'descargarTitulo')->whereNumber('titulo')->name('titulos.archivo');
                 Route::delete('titulos/{titulo}', 'quitarTitulo')->whereNumber('titulo')->name('titulos.destroy');
             });
+
+        /*
+         * Su disponibilidad, declarada por él mismo.
+         *
+         * Va con `editar-mi-disponibilidad` y no con el permiso administrativo:
+         * el docente es quien sabe cuándo puede dar clase, y perseguirlo para
+         * que se lo dicte a alguien es justo lo que hace que este dato nunca
+         * esté al día.
+         */
+        Route::put('docencia/expediente/disponibilidad', [DisponibilidadDocenteController::class, 'guardarMia'])
+            ->middleware('can:editar-mi-disponibilidad')
+            ->name('tenant.docencia.expediente.disponibilidad');
 
         /*
          * Los formularios que le tocan al docente, llenados por él mismo.
@@ -818,6 +831,23 @@ Route::middleware([
                          * persona como titular: contestarlos no es un tipo de
                          * dato nuevo, es el mismo con otro quién.
                          */
+                        /*
+                         * Su disponibilidad y las materias que puede impartir.
+                         *
+                         * Detrás de `gestionar-disponibilidad` y no de
+                         * `gestionar-docentes`: quien coordina horarios no
+                         * necesariamente da de alta docentes ni dictamina sus
+                         * documentos, y al revés.
+                         */
+                        Route::put('{docente}/disponibilidad', [DisponibilidadDocenteController::class, 'guardarDeDocente'])
+                            ->whereNumber('docente')
+                            ->middleware('can:gestionar-disponibilidad')
+                            ->name('disponibilidad');
+                        Route::put('{docente}/asignaturas', [DisponibilidadDocenteController::class, 'guardarAsignaturas'])
+                            ->whereNumber('docente')
+                            ->middleware('can:gestionar-disponibilidad')
+                            ->name('asignaturas');
+
                         Route::get('{docente}/formularios/{formulario}', [RespuestaFormularioController::class, 'mostrarDeDocente'])
                             ->whereNumber(['docente', 'formulario'])->name('formularios.mostrar');
                         Route::post('{docente}/formularios/{formulario}', [RespuestaFormularioController::class, 'guardarDeDocente'])

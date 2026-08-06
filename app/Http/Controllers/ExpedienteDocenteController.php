@@ -119,6 +119,9 @@ class ExpedienteDocenteController extends Controller
             'formularios' => $persona === null
                 ? []
                 : app(ResolutorFormularios::class)->para($persona),
+            // Su disponibilidad, que declara él mismo: es quien la sabe.
+            ...DisponibilidadDocenteController::datosPara($docente->persona_id),
+            'puedeDeclararDisponibilidad' => $request->user()->can('editar-mi-disponibilidad'),
         ]);
     }
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\AcotaPorCampus;
+use App\Models\Academico\Asignatura;
 use App\Models\Academico\Campus;
 use App\Models\Admisiones\EstadoDocumento;
 use App\Models\ControlEscolar\AsignaturaGrupo;
@@ -259,6 +260,25 @@ class DocenteController extends Controller
             'formularios' => $docente->persona === null
                 ? []
                 : app(ResolutorFormularios::class)->para($docente->persona),
+            /*
+             * Cuándo puede dar clase y qué materias sabe dar: el insumo de la
+             * generación de horarios. Viaja siempre —verlo es parte de conocer
+             * al docente—; editarlo depende de `gestionar-disponibilidad`.
+             */
+            ...DisponibilidadDocenteController::datosPara($docente->persona_id),
+            'asignaturasQuePuedeImpartir' => $docente->asignaturasQuePuedeImpartir()
+                ->get(['asignaturas.id', 'asignaturas.nombre', 'asignaturas.clave'])
+                ->map(fn ($a) => [
+                    'asignatura_id' => $a->id,
+                    'nombre' => $a->nombre,
+                    'clave' => $a->clave,
+                    'preferencia' => (int) $a->pivot->preferencia,
+                ])->values(),
+            'catalogoAsignaturas' => Asignatura::query()
+                ->orderBy('nombre')
+                ->get(['id', 'nombre', 'clave'])
+                ->map(fn ($a) => ['id' => $a->id, 'nombre' => $a->nombre, 'clave' => $a->clave]),
+            'puedeGestionarHorarios' => $request->user()->can('gestionar-disponibilidad'),
             'puedeGestionar' => $request->user()->can('gestionar-docentes'),
             'suplantable' => app(Suplantador::class)->datosPara($request, $docente->persona),
         ]);

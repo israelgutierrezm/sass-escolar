@@ -9,6 +9,7 @@ import CampoSelect from '@/Components/CampoSelect.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 import TitulosDocente from '@/Components/TitulosDocente.vue';
 import FormulariosAsignados from '@/Components/FormulariosAsignados.vue';
+import DisponibilidadSemanal from '@/Components/DisponibilidadSemanal.vue';
 import ZonaArchivo from '@/Components/ZonaArchivo.vue';
 import { ICONOS } from '@/iconos';
 
@@ -58,6 +59,10 @@ const props = defineProps<{
     generos: { id: number; nombre: string }[];
     /** Los bloques de datos que le tocan, de `ResolutorFormularios`. */
     formularios: Record<string, any>[];
+    /** En qué horarios puede dar clase: de aquí sale su horario al generarlo. */
+    franjas: Record<string, any>[];
+    ciclos: { id: number; nombre: string }[];
+    puedeDeclararDisponibilidad: boolean;
 }>();
 
 /* ── Qué falta ─────────────────────────────────────────────────────────── */
@@ -377,6 +382,20 @@ function quitarFoto(): void {
                 </li>
             </ul>
         </section>
+
+        <!--
+            Su disponibilidad. Va antes que los títulos porque es lo único de
+            esta pantalla con fecha de caducidad: si no está al día cuando se
+            arman los horarios, le agendan clases que no puede dar.
+        -->
+        <DisponibilidadSemanal
+            v-if="puedeDeclararDisponibilidad"
+            :franjas="franjas"
+            :ciclos="ciclos"
+            accion="/docencia/expediente/disponibilidad"
+            tuteo
+            class="mb-4"
+        />
 
         <!-- Mis títulos / grados (los administra el propio docente) -->
         <TitulosDocente :titulos="titulos" base="/docencia/expediente/titulos" :puede-editar="true" />

@@ -15,6 +15,8 @@ import TitulosDocente from '@/Components/TitulosDocente.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 import FormulariosAsignados from '@/Components/FormulariosAsignados.vue';
 import EncabezadoPersona from '@/Components/EncabezadoPersona.vue';
+import DisponibilidadSemanal from '@/Components/DisponibilidadSemanal.vue';
+import AptitudesDocente from '@/Components/AptitudesDocente.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import { ICONOS } from '@/iconos';
 
@@ -48,11 +50,17 @@ const props = defineProps<{
     titulos: { id: number; grado: string; titulo_obtenido: string; cedula: string | null; institucion: string | null; anio: number | null; archivo: string | null }[];
     /** Los formularios que le tocan, de `ResolutorFormularios`. */
     formularios: Record<string, any>[];
+    /** El insumo de la generación de horarios: cuándo puede y qué sabe dar. */
+    franjas: Record<string, any>[];
+    ciclos: { id: number; nombre: string }[];
+    asignaturasQuePuedeImpartir: { asignatura_id: number; nombre: string; clave: string; preferencia: number }[];
+    catalogoAsignaturas: { id: number; nombre: string; clave: string }[];
+    puedeGestionarHorarios: boolean;
     puedeGestionar: boolean;
     suplantable: { usuario_id: number; usuario: string } | null;
 }>();
 
-const pestana = ref<'materias' | 'documentos' | 'titulos' | 'formularios' | 'datos'>('materias');
+const pestana = ref<'materias' | 'documentos' | 'titulos' | 'formularios' | 'horarios' | 'datos'>('materias');
 
 const pendientes = computed(() => props.documentos.filter((d) => d.estado_clave === 'pendiente').length);
 
@@ -211,6 +219,7 @@ function verComo(): void {
                 ...(formularios.length
                     ? [{ clave: 'formularios', etiqueta: `Formularios${formulariosPendientes ? ` (${formulariosPendientes})` : ''}` }]
                     : []),
+                { clave: 'horarios', etiqueta: 'Disponibilidad' },
                 { clave: 'datos', etiqueta: 'Datos' },
             ]"
             :model-value="pestana"
@@ -351,6 +360,22 @@ function verComo(): void {
                 :puede-editar="puedeGestionar"
             />
         </div>
+
+        <!-- Disponibilidad y perfil: el insumo para armarle horario -->
+        <section v-else-if="pestana === 'horarios'" class="space-y-4">
+            <DisponibilidadSemanal
+                :franjas="franjas"
+                :ciclos="ciclos"
+                :accion="`/escolar/docentes/${docente.id}/disponibilidad`"
+                :puede-editar="puedeGestionarHorarios"
+            />
+            <AptitudesDocente
+                :asignaturas="asignaturasQuePuedeImpartir"
+                :catalogo="catalogoAsignaturas"
+                :accion="`/escolar/docentes/${docente.id}/asignaturas`"
+                :puede-editar="puedeGestionarHorarios"
+            />
+        </section>
 
         <!-- Formularios -->
         <section v-else-if="pestana === 'formularios'">
