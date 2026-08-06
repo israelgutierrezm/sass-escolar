@@ -244,6 +244,12 @@ Route::middleware([
                 Route::post('/', 'guardar')->name('guardar');
             });
 
+        // El archivo de un campo de tipo documento. Fuera del grupo de arriba:
+        // no cuelga de un formulario sino de la respuesta concreta.
+        Route::get('/aspirantes/{aspirante}/respuestas/{respuesta}/documento', [RespuestaFormularioController::class, 'descargar'])
+            ->middleware('can:ver-aspirantes')
+            ->name('tenant.aspirantes.formularios.documento');
+
         /*
          * El dinero del aspirante: su ficha, su examen, su inscripción.
          *
@@ -675,6 +681,8 @@ Route::middleware([
                             ->whereNumber('alumno')
                             ->middleware('can:editar-alumnos')
                             ->name('formularios.guardar');
+                        Route::get('{alumno}/respuestas/{respuesta}/documento', [RespuestaFormularioController::class, 'descargarDeAlumno'])
+                            ->whereNumber('alumno')->name('formularios.documento');
                         Route::put('{alumno}', 'update')
                             ->whereNumber('alumno')
                             ->middleware('can:editar-alumnos')
@@ -1035,6 +1043,11 @@ Route::middleware([
                 Route::get('/', 'mostrarMio')->name('mostrar');
                 Route::post('/', 'guardarMio')->name('guardar');
             });
+
+        // Lo que él mismo subió. Sin id de aspirante: sale de la sesión.
+        Route::get('/mi-solicitud/respuestas/{respuesta}/documento', [RespuestaFormularioController::class, 'descargarMio'])
+            ->middleware('can:llenar-mi-solicitud')
+            ->name('tenant.portal.formularios.documento');
 
         /*
          * Portal del padre / tutor familiar. El permiso `ver-mis-hijos` deja

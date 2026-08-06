@@ -11,7 +11,9 @@ use App\Models\Formularios\Formulario;
 use App\Models\Formularios\FormularioAsignacion;
 use App\Models\Identidad\Persona;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\Concerns\CreaEscuelaDePrueba;
@@ -175,7 +177,101 @@ class CapturaFormularioTest extends TenantTestCase
         $this->assertNull($this->respuesta($aspirante, $dos)?->valor);
     }
 
+    // ── El documento sube y BAJA ───────────────────────────────────────────
+
+    public function test_se_puede_bajar_el_documento_que_se_subio(): void
+    {
+        [$aspirante, $formulario] = $this->escenario();
+        $campo = $this->campo($formulario, 'Acta', tipo: 'documento');
+
+        $this->subir($aspirante, $formulario, $campo);
+
+        $descarga = app(RespuestaFormularioController::class)->descargar(
+            $this->peticionDe($this->usuarioConAlcance(), '/aspirantes'),
+            $aspirante,
+            $this->respuesta($aspirante, $campo),
+        );
+
+        $this->assertSame(200, $descarga->getStatusCode());
+    }
+
+    /**
+     * El archivo de otro NO se baja.
+     *
+     * La ruta lleva el id del aspirante y el de la respuesta: sin comprobar que
+     * la segunda sea del primero, cambiar un número bajaría el acta de
+     * cualquiera. El disco es privado, así que ÉSTE es el único control.
+     */
+    public function test_no_se_baja_el_documento_de_otro_aspirante(): void
+    {
+        [$aspirante, $formulario] = $this->escenario();
+        $campo = $this->campo($formulario, 'Acta', tipo: 'documento');
+        $this->subir($aspirante, $formulario, $campo);
+
+        $ajeno = Aspirante::create([
+            'persona_id' => Persona::create(['nombre' => 'Otro', 'primer_apellido' => 'Distinto'])->id,
+            'situacion_id' => $this->deCatalogo('situaciones_aspirante'),
+        ]);
+
+        $this->expectException(HttpException::class);
+
+        app(RespuestaFormularioController::class)->descargar(
+            $this->peticionDe($this->usuarioConAlcance(), '/aspirantes'),
+            $ajeno,
+            $this->respuesta($aspirante, $campo),
+        );
+    }
+
+    /** Una respuesta de texto no tiene archivo que bajar. */
+    public function test_una_respuesta_sin_archivo_no_se_descarga(): void
+    {
+        [$aspirante, $formulario] = $this->escenario();
+        $campo = $this->campo($formulario, 'Alergias');
+
+        $this->guardar($aspirante, $formulario, [$campo => 'Ninguna']);
+
+        $this->expectException(HttpException::class);
+
+        app(RespuestaFormularioController::class)->descargar(
+            $this->peticionDe($this->usuarioConAlcance(), '/aspirantes'),
+            $aspirante,
+            $this->respuesta($aspirante, $campo),
+        );
+    }
+
+    /** Reguardar sin archivo nuevo no borra el que ya estaba. */
+    public function test_reguardar_no_borra_el_documento_ya_subido(): void
+    {
+        [$aspirante, $formulario] = $this->escenario();
+        $campo = $this->campo($formulario, 'Acta', tipo: 'documento');
+        $otro = $this->campo($formulario, 'Alergias');
+
+        $this->subir($aspirante, $formulario, $campo);
+        $ruta = $this->respuesta($aspirante, $campo)?->documento_ruta;
+
+        $this->guardar($aspirante, $formulario, [$otro => 'Ninguna']);
+
+        $this->assertSame($ruta, $this->respuesta($aspirante, $campo)?->documento_ruta);
+    }
+
     // ── Andamiaje ──────────────────────────────────────────────────────────
+
+    /** Sube un archivo de mentira al campo indicado. */
+    private function subir(Aspirante $aspirante, Formulario $formulario, int $campoId): void
+    {
+        Storage::fake('local');
+
+        $peticion = Request::create(
+            "/aspirantes/{$aspirante->id}/formularios/{$formulario->id}",
+            'POST',
+            [],
+            [],
+            ['campos' => [$campoId => UploadedFile::fake()->create('acta.pdf', 10, 'application/pdf')]],
+        );
+        $peticion->setUserResolver(fn () => $this->usuarioConAlcance());
+
+        app(RespuestaFormularioController::class)->guardar($peticion, $aspirante, $formulario);
+    }
 
     /** @return array{0: Aspirante, 1: Formulario} */
     private function escenario(): array

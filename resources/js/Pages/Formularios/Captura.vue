@@ -33,8 +33,10 @@ const props = defineProps<{
     contexto: { titulo: string | null; volver: string };
     formulario: { id: number; titulo: string; instruccion: string | null };
     campos: Campo[];
-    respuestas: Record<string, { valor: unknown; documento: string | null }>;
+    /** `documento` es el id de la respuesta, con el que se pide la descarga. */
+    respuestas: Record<string, { valor: unknown; documento: number | null }>;
     accion: string;
+    baseDescarga: string;
 }>();
 
 /** Lo ya contestado prellena; lo demás nace vacío según su tipo. */
@@ -209,7 +211,15 @@ function opcionesDe(campo: Campo) {
                                     @change="tomarArchivo(campo, $event)"
                                 />
                                 <p v-if="respuestas[String(campo.id)]?.documento" class="mt-1 text-xs text-suave">
-                                    Ya hay uno cargado. Sube otro sólo si quieres reemplazarlo.
+                                    <!-- El archivo entraba y no salía: quedaba
+                                         en el disco privado sin forma de verlo,
+                                         y quien revisa necesita abrirlo. -->
+                                    <a
+                                        :href="`${baseDescarga}/${respuestas[String(campo.id)]!.documento}/documento`"
+                                        class="hover:underline"
+                                        :style="{ color: 'var(--color-acento)' }"
+                                    >Ver el que está cargado</a>
+                                    · sube otro sólo si quieres reemplazarlo.
                                 </p>
                             </div>
 

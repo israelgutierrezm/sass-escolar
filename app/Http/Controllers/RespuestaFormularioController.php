@@ -11,13 +11,16 @@ use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\RespuestaCampo;
 use App\Models\Formularios\CampoFormulario;
 use App\Models\Formularios\Formulario;
+use App\Models\Identidad\Persona;
 use App\Services\ResolutorFormularios;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Contestar un formulario.
@@ -61,7 +64,7 @@ class RespuestaFormularioController extends Controller
         return $this->pantalla($aspirante, $formulario, [
             'titulo' => $aspirante->persona?->nombreCompleto(),
             'volver' => "/aspirantes/{$aspirante->id}",
-        ], "/aspirantes/{$aspirante->id}/formularios/{$formulario->id}");
+        ], "/aspirantes/{$aspirante->id}/formularios/{$formulario->id}", "/aspirantes/{$aspirante->id}/respuestas");
     }
 
     public function guardar(Request $request, Aspirante $aspirante, Formulario $formulario): RedirectResponse
@@ -88,7 +91,7 @@ class RespuestaFormularioController extends Controller
         return $this->pantalla($aspirante, $formulario, [
             'titulo' => 'Mi solicitud',
             'volver' => '/mi-solicitud',
-        ], "/mi-solicitud/formularios/{$formulario->id}");
+        ], "/mi-solicitud/formularios/{$formulario->id}", '/mi-solicitud/respuestas');
     }
 
     public function guardarMio(Request $request, Formulario $formulario): RedirectResponse
@@ -117,7 +120,7 @@ class RespuestaFormularioController extends Controller
         return $this->pantalla($alumno, $formulario, [
             'titulo' => $alumno->persona?->nombreCompleto(),
             'volver' => "/escolar/alumnos/{$alumno->id}",
-        ], "/escolar/alumnos/{$alumno->id}/formularios/{$formulario->id}");
+        ], "/escolar/alumnos/{$alumno->id}/formularios/{$formulario->id}", "/escolar/alumnos/{$alumno->id}/respuestas");
     }
 
     public function guardarDeAlumno(Request $request, MatriculaOferta $alumno, Formulario $formulario): RedirectResponse
@@ -129,12 +132,75 @@ class RespuestaFormularioController extends Controller
             ->with('exito', "«{$formulario->titulo}» quedó guardado.");
     }
 
+    // ── Descargar lo que se subió ──────────────────────────────────────────
+
+    /*
+     * Tres puertas y una comprobación.
+     *
+     * El archivo se guarda en el disco privado, así que no hay URL pública: la
+     * única forma de bajarlo es por aquí. Cada método resuelve el titular como
+     * su pantalla —de la URL o de la sesión— y `entregar()` comprueba que la
+     * respuesta sea de ESE titular antes de servir nada. Sin esa comprobación,
+     * cambiar un número en la URL bajaría el acta de cualquiera.
+     */
+    public function descargar(Request $request, Aspirante $aspirante, RespuestaCampo $respuesta): StreamedResponse
+    {
+        $this->autorizarCampus($request, $aspirante->campus_id);
+
+        return $this->entregar($respuesta, 'aspirante_id', $aspirante->id, $aspirante->persona);
+    }
+
+    public function descargarMio(Request $request, RespuestaCampo $respuesta): StreamedResponse
+    {
+        $aspirante = $this->miSolicitud($request);
+
+        return $this->entregar($respuesta, 'aspirante_id', $aspirante->id, $aspirante->persona);
+    }
+
+    public function descargarDeAlumno(Request $request, MatriculaOferta $alumno, RespuestaCampo $respuesta): StreamedResponse
+    {
+        $this->autorizarCampus($request, $alumno->oferta?->campus_id);
+
+        return $this->entregar($respuesta, 'matricula_oferta_id', $alumno->id, $alumno->persona);
+    }
+
+    /**
+     * Sirve el archivo, con nombre legible.
+     *
+     * Se guarda con el nombre que le tocó al subirlo —un hash—, y bajarlo así
+     * deja al revisor con veinte archivos indistinguibles en su carpeta de
+     * descargas. Se renombra con la pregunta y de quién es, que es como se
+     * habla de ellos.
+     */
+    private function entregar(
+        RespuestaCampo $respuesta,
+        string $columna,
+        int $titularId,
+        ?Persona $persona,
+    ): StreamedResponse {
+        abort_unless((int) $respuesta->{$columna} === $titularId, 404);
+        abort_if($respuesta->documento_ruta === null, 404, 'Esa respuesta no tiene ningún archivo.');
+        abort_unless(Storage::disk('local')->exists($respuesta->documento_ruta), 404);
+
+        $extension = pathinfo($respuesta->documento_ruta, PATHINFO_EXTENSION);
+
+        return Storage::disk('local')->download(
+            $respuesta->documento_ruta,
+            sprintf(
+                '%s - %s.%s',
+                $respuesta->campo?->pregunta ?? 'Documento',
+                $persona?->nombreCompleto() ?? 'sin nombre',
+                $extension,
+            ),
+        );
+    }
+
     // ── Lo compartido ──────────────────────────────────────────────────────
 
     /**
      * @param  array{titulo: ?string, volver: string}  $contexto
      */
-    private function pantalla(Aspirante|MatriculaOferta $titular, Formulario $formulario, array $contexto, string $accion): Response
+    private function pantalla(Aspirante|MatriculaOferta $titular, Formulario $formulario, array $contexto, string $accion, string $baseDescarga): Response
     {
         $this->abortarSiNoLeToca($titular, $formulario);
 
@@ -148,6 +214,8 @@ class RespuestaFormularioController extends Controller
             'campos' => $this->campos($formulario),
             'respuestas' => $this->respuestasActuales($titular, $formulario),
             'accion' => $accion,
+            // De dónde bajar un archivo ya subido: `{base}/{id de la respuesta}`.
+            'baseDescarga' => $baseDescarga,
         ]);
     }
 
@@ -224,7 +292,10 @@ class RespuestaFormularioController extends Controller
             ->mapWithKeys(fn (RespuestaCampo $r) => [
                 (string) $r->campo_formulario_id => [
                     'valor' => $this->decodificar($r->valor),
-                    'documento' => $r->documento_ruta,
+                    // El id, no la ruta: la ruta es del disco privado y no le
+                    // sirve al navegador para nada, salvo para saber que hay
+                    // algo. Con el id puede pedir la descarga.
+                    'documento' => $r->documento_ruta === null ? null : $r->id,
                 ],
             ])
             ->all();
