@@ -3,6 +3,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
+import EncabezadoPersona from '@/Components/EncabezadoPersona.vue';
 import FormulariosAsignados from '@/Components/FormulariosAsignados.vue';
 import { ICONOS } from '@/iconos';
 
@@ -30,10 +31,19 @@ interface Hijo {
 const props = defineProps<{
     tutor: {
         persona_id: number;
+        /** Armado, para el título de la página. */
         nombre: string;
+        /** Y en piezas, que es lo que el encabezado estándar necesita. */
+        nombre_pila: string | null;
+        primer_apellido: string | null;
+        segundo_apellido: string | null;
         curp: string | null;
+        rfc: string | null;
         email: string | null;
+        correo_institucional: string | null;
         celular: string | null;
+        telefono_local: string | null;
+        fecha_nacimiento: string | null;
         foto: string | null;
         usuario: string | null;
         tiene_cuenta: boolean;
@@ -64,25 +74,47 @@ function verComo(suplantable: { usuario_id: number; usuario: string }): void {
 
         <div class="grid gap-6 lg:grid-cols-3">
             <div class="space-y-6 lg:col-span-2">
-                <TarjetaSeccion titulo="Identidad" descripcion="Con qué datos está registrado" :icono="ICONOS.persona">
-                    <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        <div>
-                            <dt class="text-xs uppercase tracking-wide text-suave">CURP</dt>
-                            <dd class="mt-0.5 font-mono text-sm">{{ tutor.curp ?? '—' }}</dd>
-                        </div>
-                        <div>
-                            <dt class="text-xs uppercase tracking-wide text-suave">Correo</dt>
-                            <dd class="mt-0.5 text-sm">{{ tutor.email ?? '—' }}</dd>
-                        </div>
-                        <div>
-                            <dt class="text-xs uppercase tracking-wide text-suave">Celular</dt>
-                            <dd class="mt-0.5 text-sm">{{ tutor.celular ?? '—' }}</dd>
-                        </div>
-                    </dl>
+                <!--
+                    El MISMO encabezado que la ficha del alumno y la del
+                    docente. Antes esto era una tarjeta de «Identidad» con tres
+                    datos sueltos, y la ficha del padre se leía como otra
+                    pantalla del sistema: quien atiende una llamada no debe
+                    aprender a leer una ficha distinta según a quién busque.
+                -->
+                <section class="tarjeta p-6">
+                    <EncabezadoPersona
+                        :persona="{
+                            nombre: tutor.nombre_pila,
+                            primer_apellido: tutor.primer_apellido,
+                            segundo_apellido: tutor.segundo_apellido,
+                            nombre_completo: tutor.nombre,
+                            curp: tutor.curp,
+                            rfc: tutor.rfc,
+                            email: tutor.email,
+                            correo_institucional: tutor.correo_institucional,
+                            celular: tutor.celular,
+                            telefono_local: tutor.telefono_local,
+                            fecha_nacimiento: tutor.fecha_nacimiento,
+                            foto: tutor.foto,
+                        }"
+                    >
+                        <template #insignias>
+                            <!-- Un span y no PildoraEstado: ésa capitaliza cada
+                                 palabra —sirve para estados de una sola— y aquí
+                                 dejaba «Tutor De 2 Alumnos». Es la misma
+                                 insignia que usa el alumno para sus carreras. -->
+                            <span
+                                class="rounded-full px-2 py-0.5 text-xs"
+                                :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }"
+                            >
+                                Tutor de {{ hijos.length }} {{ hijos.length === 1 ? 'alumno' : 'alumnos' }}
+                            </span>
+                        </template>
+                    </EncabezadoPersona>
 
                     <!-- Lo primero que se pregunta cuando alguien dice «no puedo
                          entrar»: si siquiera tiene cuenta y con qué. -->
-                    <p class="mt-4 border-t border-borde pt-3 text-sm">
+                    <p class="mt-4 border-t border-borde pt-4 text-sm">
                         <template v-if="tutor.tiene_cuenta">
                             Entra a la plataforma con <strong class="font-mono">{{ tutor.usuario }}</strong>.
                         </template>
@@ -90,7 +122,7 @@ function verComo(suplantable: { usuario_id: number; usuario: string }): void {
                             No tiene cuenta: hoy no puede entrar a ver nada de sus hijos.
                         </span>
                     </p>
-                </TarjetaSeccion>
+                </section>
 
                 <TarjetaSeccion
                     :titulo="`De quién es tutor (${hijos.length})`"

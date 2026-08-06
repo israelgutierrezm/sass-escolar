@@ -89,9 +89,26 @@ class TutorController extends Controller
             'tutor' => [
                 'persona_id' => $tutor->id,
                 'nombre' => $this->nombre($tutor),
+                /*
+                 * Los datos de identidad, con la misma forma que en la ficha
+                 * del alumno y la del docente.
+                 *
+                 * Antes viajaban tres sueltos —CURP, correo y celular— y la
+                 * ficha se veía como otra pantalla del sistema. Toda persona
+                 * tiene estos datos: el encabezado es el mismo se entre por
+                 * donde se entre, y quien atiende una llamada no debe aprender
+                 * a leer una ficha distinta según a quién esté buscando.
+                 */
+                'nombre_pila' => $tutor->nombre,
+                'primer_apellido' => $tutor->primer_apellido,
+                'segundo_apellido' => $tutor->segundo_apellido,
                 'curp' => $tutor->curp,
+                'rfc' => $tutor->rfc,
                 'email' => $tutor->email,
+                'correo_institucional' => $tutor->correo_institucional,
                 'celular' => $tutor->celular,
+                'telefono_local' => $tutor->telefono_local,
+                'fecha_nacimiento' => $tutor->fecha_nacimiento?->toDateString(),
                 'foto' => $tutor->urlFoto(),
                 // Con qué entra, si es que tiene cuenta. Es lo primero que se
                 // pregunta cuando alguien dice «no puedo entrar».

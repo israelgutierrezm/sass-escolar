@@ -11,6 +11,7 @@ import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
 import PestanasPagina from '@/Components/PestanasPagina.vue';
 import FormulariosAsignados from '@/Components/FormulariosAsignados.vue';
+import EncabezadoPersona from '@/Components/EncabezadoPersona.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 import { ICONOS } from '@/iconos';
 
@@ -614,23 +615,14 @@ function colorPromedio(promedio: string | null): string {
 
 /* Foto de perfil */
 const formFoto = useForm({ foto: null as File | null });
-const entradaFoto = ref<HTMLInputElement | null>(null);
 
-function subirFoto(evento: Event): void {
-    const archivos = (evento.target as HTMLInputElement).files;
-
-    if (!archivos || archivos.length === 0) {
-        return;
-    }
-
-    formFoto.foto = archivos[0];
+// El archivo llega ya elegido: quien lo lee del input es el encabezado.
+function subirFoto(archivo: File): void {
+    formFoto.foto = archivo;
     formFoto.post(`/personas/${props.persona.id}/foto`, {
         preserveScroll: true,
         forceFormData: true,
-        onFinish: () => {
-            formFoto.reset();
-            if (entradaFoto.value) entradaFoto.value.value = '';
-        },
+        onFinish: () => formFoto.reset(),
     });
 }
 
@@ -680,55 +672,24 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
         <section class="tarjeta p-6">
             <BotonVolver href="/escolar/alumnos" texto="Alumnos" class="mb-4" />
 
-            <div class="flex flex-wrap items-start justify-between gap-4">
-                <div class="flex flex-col items-center gap-2">
-                    <img
-                        v-if="persona.foto"
-                        :src="persona.foto"
-                        alt=""
-                        class="h-24 w-24 rounded-full object-cover"
-                    />
+            <EncabezadoPersona
+                :persona="persona"
+                :puede-editar-foto="puedeEditar"
+                :error-foto="formFoto.errors.foto"
+                @subir-foto="subirFoto"
+                @quitar-foto="quitarFoto"
+            >
+                <template #insignias>
                     <span
-                        v-else
-                        class="flex h-24 w-24 items-center justify-center rounded-full text-2xl font-semibold"
-                        :style="{
-                            backgroundColor: 'color-mix(in srgb, var(--color-acento) 14%, transparent)',
-                            color: 'var(--color-acento)',
-                        }"
+                        v-if="carreras.length > 1"
+                        class="rounded-full px-2 py-0.5 text-xs"
+                        :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }"
                     >
-                        {{ (persona.nombre?.[0] ?? '') + (persona.primer_apellido?.[0] ?? '') }}
+                        {{ carreras.length }} carreras
                     </span>
+                </template>
 
-                    <div v-if="puedeEditar" class="flex gap-2 text-xs">
-                        <label class="cursor-pointer" :style="{ color: 'var(--color-acento)' }">
-                            {{ persona.foto ? 'Cambiar' : 'Subir foto' }}
-                            <input
-                                ref="entradaFoto"
-                                type="file"
-                                accept="image/*"
-                                class="hidden"
-                                @change="subirFoto"
-                            />
-                        </label>
-                        <BotonAccion v-if="persona.foto" variante="eliminar" texto="Quitar la foto" @click="quitarFoto" />
-                    </div>
-                    <p v-if="formFoto.errors.foto" class="text-xs text-red-600">{{ formFoto.errors.foto }}</p>
-                </div>
-
-                <div class="min-w-0 flex-1">
-                    <div class="flex flex-wrap items-center gap-3">
-                        <h2 class="text-lg font-semibold">
-                            {{ [persona.nombre, persona.primer_apellido, persona.segundo_apellido].filter(Boolean).join(' ') }}
-                        </h2>
-                        <span
-                            v-if="carreras.length > 1"
-                            class="rounded-full px-2 py-0.5 text-xs"
-                            :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }"
-                        >
-                            {{ carreras.length }} carreras
-                        </span>
-                    </div>
-
+                <template #bajo-titulo>
                     <!-- Cumpleaños: un guiño humano. -->
                     <div
                         v-if="cumple"
@@ -742,39 +703,8 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                         <span v-if="cumple.esHoy" class="font-medium">¡Hoy cumple {{ cumple.edad }} años!</span>
                         <span v-else>{{ cumple.edad }} años · faltan {{ cumple.dias }} día(s) para su cumpleaños</span>
                     </div>
-
-                    <!-- Datos generales de la persona. -->
-                    <dl class="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-                        <div v-if="persona.curp" class="min-w-0">
-                            <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">CURP</dt>
-                            <dd class="truncate font-mono text-xs">{{ persona.curp }}</dd>
-                        </div>
-                        <div v-if="persona.rfc" class="min-w-0">
-                            <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">RFC</dt>
-                            <dd class="truncate font-mono text-xs">{{ persona.rfc }}</dd>
-                        </div>
-                        <div v-if="persona.email" class="min-w-0">
-                            <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">Correo</dt>
-                            <dd class="truncate">{{ persona.email }}</dd>
-                        </div>
-                        <div v-if="persona.correo_institucional" class="min-w-0">
-                            <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">Correo institucional</dt>
-                            <dd class="truncate">{{ persona.correo_institucional }}</dd>
-                        </div>
-                        <div v-if="persona.celular" class="min-w-0">
-                            <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">Celular</dt>
-                            <dd>{{ persona.celular }}</dd>
-                        </div>
-                        <div v-if="persona.fecha_nacimiento" class="min-w-0">
-                            <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">Nacimiento</dt>
-                            <dd>
-                                {{ persona.fecha_nacimiento }}
-                                <span v-if="persona.entidad_nacimiento" :style="{ color: 'var(--color-suave)' }"> · {{ persona.entidad_nacimiento }}</span>
-                            </dd>
-                        </div>
-                    </dl>
-                </div>
-            </div>
+                </template>
+            </EncabezadoPersona>
 
             <!-- Carrera en foco: el select alterna entre las carreras de la
                  persona y todo lo académico de abajo refleja la elegida. -->

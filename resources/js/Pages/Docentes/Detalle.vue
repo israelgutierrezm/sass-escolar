@@ -14,6 +14,7 @@ import CamposIdentidad from '@/Components/CamposIdentidad.vue';
 import TitulosDocente from '@/Components/TitulosDocente.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 import FormulariosAsignados from '@/Components/FormulariosAsignados.vue';
+import EncabezadoPersona from '@/Components/EncabezadoPersona.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import { ICONOS } from '@/iconos';
 
@@ -123,23 +124,14 @@ const esRechazo = computed(
 
 /* Foto de perfil */
 const formFoto = useForm({ foto: null as File | null });
-const entradaFoto = ref<HTMLInputElement | null>(null);
 
-function subirFoto(evento: Event): void {
-    const archivos = (evento.target as HTMLInputElement).files;
-
-    if (!archivos || archivos.length === 0) {
-        return;
-    }
-
-    formFoto.foto = archivos[0];
+// El archivo llega ya elegido: quien lo lee del input es el encabezado.
+function subirFoto(archivo: File): void {
+    formFoto.foto = archivo;
     formFoto.post(`/personas/${props.docente.id}/foto`, {
         preserveScroll: true,
         forceFormData: true,
-        onFinish: () => {
-            formFoto.reset();
-            if (entradaFoto.value) entradaFoto.value.value = '';
-        },
+        onFinish: () => formFoto.reset(),
     });
 }
 
@@ -181,89 +173,30 @@ function verComo(): void {
         <section class="tarjeta p-6">
             <BotonVolver href="/escolar/docentes" texto="Docentes" class="mb-4" />
 
-            <div class="flex flex-wrap items-start justify-between gap-4">
-                <div class="flex flex-col items-center gap-2">
-                    <img
-                        v-if="persona.foto"
-                        :src="persona.foto"
-                        alt=""
-                        class="h-24 w-24 rounded-full object-cover"
-                    />
-                    <span
-                        v-else
-                        class="flex h-24 w-24 items-center justify-center rounded-full text-2xl font-semibold"
-                        :style="{
-                            backgroundColor: 'color-mix(in srgb, var(--color-acento) 14%, transparent)',
-                            color: 'var(--color-acento)',
-                        }"
-                    >
-                        {{ (persona.nombre?.[0] ?? '') + (persona.primer_apellido?.[0] ?? '') }}
-                    </span>
-
-                    <div v-if="puedeGestionar" class="flex gap-2 text-xs">
-                        <label class="cursor-pointer" :style="{ color: 'var(--color-acento)' }">
-                            {{ persona.foto ? 'Cambiar' : 'Subir foto' }}
-                            <input
-                                ref="entradaFoto"
-                                type="file"
-                                accept="image/*"
-                                class="hidden"
-                                @change="subirFoto"
-                            />
-                        </label>
-                        <BotonAccion v-if="persona.foto" variante="eliminar" texto="Quitar la foto" @click="quitarFoto" />
-                    </div>
-                    <p v-if="formFoto.errors.foto" class="text-xs text-red-600">{{ formFoto.errors.foto }}</p>
-                </div>
-
-                <div class="min-w-0 flex-1">
+            <EncabezadoPersona
+                :persona="{ ...persona, entidad_nacimiento: null }"
+                :puede-editar-foto="puedeGestionar"
+                :error-foto="formFoto.errors.foto"
+                @subir-foto="subirFoto"
+                @quitar-foto="quitarFoto"
+            >
+                <template #identificador>
                     <p class="font-mono text-sm" :style="{ color: 'var(--color-suave)' }">
                         {{ docente.clave_profesor ?? 'sin clave' }}
                     </p>
-                    <div class="flex flex-wrap items-center gap-3">
-                        <h2 class="text-lg font-semibold">
-                            {{ [persona.nombre, persona.primer_apellido, persona.segundo_apellido].filter(Boolean).join(' ') }}
-                        </h2>
-                        <PildoraEstado :texto="docente.situacion" />
-                    </div>
+                </template>
+
+                <template #insignias>
+                    <PildoraEstado :texto="docente.situacion" />
+                </template>
+
+                <template #bajo-titulo>
                     <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
                         {{ docente.tipo ?? 'sin tipo' }}
                         <span v-if="docente.campus.length"> · {{ docente.campus.join(', ') }}</span>
                     </p>
-
-                    <!-- Misma rejilla de datos que el expediente del alumno: los
-                         dos son la ficha de una persona y se leen igual. -->
-                    <dl class="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-                        <div v-if="persona.curp" class="min-w-0">
-                            <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">CURP</dt>
-                            <dd class="truncate font-mono text-xs">{{ persona.curp }}</dd>
-                        </div>
-                        <div v-if="persona.rfc" class="min-w-0">
-                            <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">RFC</dt>
-                            <dd class="truncate font-mono text-xs">{{ persona.rfc }}</dd>
-                        </div>
-                        <div v-if="persona.email" class="min-w-0">
-                            <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">Correo</dt>
-                            <dd class="truncate">{{ persona.email }}</dd>
-                        </div>
-                        <div v-if="persona.correo_institucional" class="min-w-0">
-                            <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">Correo institucional</dt>
-                            <dd class="truncate">{{ persona.correo_institucional }}</dd>
-                        </div>
-                        <div v-if="persona.celular" class="min-w-0">
-                            <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">Celular</dt>
-                            <dd>{{ persona.celular }}</dd>
-                        </div>
-                        <div v-if="persona.fecha_nacimiento" class="min-w-0">
-                            <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">Nacimiento</dt>
-                            <dd>
-                                {{ persona.fecha_nacimiento }}
-                                <span v-if="persona.entidad_nacimiento" :style="{ color: 'var(--color-suave)' }"> · {{ persona.entidad_nacimiento }}</span>
-                            </dd>
-                        </div>
-                    </dl>
-                </div>
-            </div>
+                </template>
+            </EncabezadoPersona>
 
             <div v-if="suplantable" class="mt-4 flex justify-end border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">
                 <BotonAccion variante="ver" :texto="`Ver como ${suplantable.usuario}`" @click="verComo" />
