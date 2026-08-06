@@ -170,10 +170,12 @@ function avance(f: FormularioAsignado): number {
                     />
                 </div>
 
-                <!-- Un formulario sin preguntas no se puede contestar, y desde
-                     aquí es invisible por qué el avance no se mueve. -->
+                <!-- Uno sin preguntas no se puede contestar, y desde aquí es
+                     invisible por qué el avance no se mueve. A quien lo
+                     configura se le dice «formulario», que es donde tiene que
+                     ir a arreglarlo; a los demás, «apartado». -->
                 <p v-else class="mt-1 text-xs text-amber-700">
-                    Este formulario todavía no tiene preguntas.
+                    {{ tuteo ? 'Este apartado todavía no tiene preguntas.' : 'Este formulario todavía no tiene preguntas.' }}
                 </p>
             </li>
         </ul>

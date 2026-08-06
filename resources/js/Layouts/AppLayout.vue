@@ -579,7 +579,10 @@ const iniciales = computed(() => {
                                         </span>
                                         {{ usuario.rol_activo.nombre }}
                                     </template>
-                                    <template v-else>Sin rol activo</template>
+                                    <!-- Caso raro: cuenta sin rol. «Sin rol activo» no le dice nada a
+                                         quien no sabe que tiene roles; lo que necesita saber es que
+                                         su cuenta todavía no puede hacer nada. -->
+                                    <template v-else>Sin acceso asignado</template>
                                 </span>
                             </span>
                         </button>

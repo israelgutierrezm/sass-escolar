@@ -279,8 +279,10 @@ function opcionesDe(campo: Campo) {
                     </div>
                 </div>
 
+                <!-- «Formulario» es la palabra de quien lo configura; quien
+                     tiene esta pantalla enfrente sólo ve un apartado vacío. -->
                 <p v-else class="text-sm text-amber-700">
-                    Este formulario todavía no tiene preguntas, así que no hay nada que contestar.
+                    Este apartado todavía no tiene preguntas, así que no hay nada que llenar.
                     Agrégalas desde su constructor.
                 </p>
 

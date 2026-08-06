@@ -243,7 +243,7 @@ function conmutar(rolId: number): void {
                         una elección, es lo único que puede ser.
                     -->
                     <p v-if="usuario?.rol_activo && rolesDisponibles.length > 1" class="mt-1 text-sm opacity-90">
-                        Operas como <strong>{{ usuario.rol_activo.nombre }}</strong>
+                        Estás entrando como <strong>{{ usuario.rol_activo.nombre }}</strong>
                     </p>
 
                     <button
@@ -299,7 +299,18 @@ function conmutar(rolId: number): void {
                             Activo
                         </span>
                     </span>
-                    <span class="mt-0.5 block text-xs opacity-80">
+                    <!--
+                        El campus al que está acotado, si lo hay. «Alcance
+                        global» sólo se le dice a quien administra: es la
+                        contraparte de «acotado a un campus» y sabe lo que
+                        significa. Los roles de un alumno o de un padre nunca
+                        llevan campus, así que a ellos les salía siempre esa
+                        frase sin querer decirles nada.
+                    -->
+                    <span
+                        v-if="rol.campus_nombre || jergaOk"
+                        class="mt-0.5 block text-xs opacity-80"
+                    >
                         {{ rol.campus_nombre ? `Acotado a ${rol.campus_nombre}` : 'Alcance global' }}
                     </span>
                 </button>
