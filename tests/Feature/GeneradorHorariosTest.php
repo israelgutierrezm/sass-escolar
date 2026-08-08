@@ -356,6 +356,110 @@ class GeneradorHorariosTest extends TenantTestCase
         }
     }
 
+    // ── Cómo se reparte la carga ───────────────────────────────────────────
+
+    /**
+     * `repartir` ofrece primero a quien menos carga lleva.
+     *
+     * Sin mirar la carga, el primero de la lista se lleva todo lo que le quepa
+     * y los demás se quedan sin nada: el motor siempre le pregunta a él antes.
+     */
+    public function test_repartir_distribuye_entre_los_aptos(): void
+    {
+        $escuela = $this->escuelaConMateria(horas: 3);
+        $this->otraMateriaEnElGrupo($escuela, horas: 3);
+        $this->regla($escuela, reparto: ReglaHorario::REPARTIR);
+
+        $uno = $this->docenteApto($escuela, disponibleDe: '07:00', a: '15:00', todasLasMaterias: true);
+        $otro = $this->docenteApto($escuela, disponibleDe: '07:00', a: '15:00', todasLasMaterias: true);
+
+        $salida = $this->generador->paraGrupos([$escuela['grupo']]);
+
+        $quienes = collect($salida['bloques'])->pluck('persona_id')->unique();
+
+        $this->assertCount(2, $quienes, 'Las dos materias quedaron en la misma persona.');
+        $this->assertEqualsCanonicalizing([$uno, $otro], $quienes->all());
+    }
+
+    /**
+     * Y `concentrar` hace lo contrario a propósito.
+     *
+     * Junta las materias en menos gente y menos días: es lo que quiere una
+     * escuela con docentes que vienen de lejos.
+     */
+    public function test_concentrar_junta_las_materias_en_una_persona(): void
+    {
+        $escuela = $this->escuelaConMateria(horas: 3);
+        $this->otraMateriaEnElGrupo($escuela, horas: 3);
+        $this->regla($escuela, reparto: ReglaHorario::CONCENTRAR);
+
+        $this->docenteApto($escuela, disponibleDe: '07:00', a: '15:00', todasLasMaterias: true);
+        $this->docenteApto($escuela, disponibleDe: '07:00', a: '15:00', todasLasMaterias: true);
+
+        $salida = $this->generador->paraGrupos([$escuela['grupo']]);
+
+        $this->assertCount(
+            1,
+            collect($salida['bloques'])->pluck('persona_id')->unique(),
+            'Se repartió entre dos cuando la regla pedía concentrar.',
+        );
+    }
+
+    // ── Huecos en el día del grupo ─────────────────────────────────────────
+
+    /**
+     * Sin permitir huecos, no se deja al grupo con la mañana partida.
+     *
+     * Treinta alumnos con clase a las 7 y luego a las 11 tienen dos horas sin
+     * nada que hacer. Lo que no cabe pegado se reporta, que es mejor que
+     * entregar en silencio lo que la escuela pidió no tener.
+     */
+    public function test_sin_permitir_huecos_no_deja_el_dia_partido(): void
+    {
+        $escuela = $this->escuelaConMateria(horas: 2);
+        $otra = $this->otraMateriaEnElGrupo($escuela, horas: 2);
+        $this->regla($escuela, permiteHuecos: false);
+
+        // El grupo ya tiene clase de 7 a 9 ese día.
+        $this->fila('horarios_asignatura_grupo', [
+            'asignatura_grupo_id' => $otra,
+            'dia_semana' => 1,
+            'hora_inicio' => '07:00:00',
+            'hora_fin' => '09:00:00',
+            'modalidad' => 'presencial',
+        ]);
+
+        // Y el único docente sólo puede el lunes de 11 a 13: dejaría un hueco.
+        $this->docenteApto($escuela, disponibleDe: '11:00', a: '13:00', dias: [1]);
+
+        $salida = $this->generador->paraGrupos([$escuela['grupo']]);
+
+        $this->assertSame([], $salida['bloques'], 'Colocó una clase que deja al grupo con un hueco.');
+    }
+
+    /** Y permitiéndolos, la misma situación sí se coloca. */
+    public function test_permitiendo_huecos_si_coloca(): void
+    {
+        $escuela = $this->escuelaConMateria(horas: 2);
+        $otra = $this->otraMateriaEnElGrupo($escuela, horas: 2);
+        $this->regla($escuela, permiteHuecos: true);
+
+        $this->fila('horarios_asignatura_grupo', [
+            'asignatura_grupo_id' => $otra,
+            'dia_semana' => 1,
+            'hora_inicio' => '07:00:00',
+            'hora_fin' => '09:00:00',
+            'modalidad' => 'presencial',
+        ]);
+
+        $this->docenteApto($escuela, disponibleDe: '11:00', a: '13:00', dias: [1]);
+
+        $salida = $this->generador->paraGrupos([$escuela['grupo']]);
+
+        $this->assertNotEmpty($salida['bloques']);
+        $this->assertSame('11:00', $salida['bloques'][0]['hora_inicio']);
+    }
+
     // ── Topes de carga ─────────────────────────────────────────────────────
 
     /** El tope diario del docente se respeta aunque tenga hueco. */
@@ -596,6 +700,8 @@ class GeneradorHorariosTest extends TenantTestCase
         int $maxBloquesSesion = 3,
         ?int $maxHorasDia = null,
         ?int $maxHorasSemana = null,
+        string $reparto = ReglaHorario::REPARTIR,
+        bool $permiteHuecos = true,
     ): ReglaHorario {
         return ReglaHorario::create([
             'nombre' => 'De prueba',
@@ -610,6 +716,8 @@ class GeneradorHorariosTest extends TenantTestCase
             'max_sesiones_por_dia' => 1,
             'horas_max_dia_docente' => $maxHorasDia,
             'horas_max_semana_docente' => $maxHorasSemana,
+            'reparto' => $reparto,
+            'permite_huecos_grupo' => $permiteHuecos,
         ]);
     }
 }

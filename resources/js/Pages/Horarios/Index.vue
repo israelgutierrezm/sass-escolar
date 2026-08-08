@@ -96,6 +96,25 @@ function nombreMateria(id: number): string {
 
 /* ── Generar y aplicar ──────────────────────────────────────────────────── */
 
+/*
+ * A qué grupos se les genera. Por omisión, el que se está viendo.
+ *
+ * Generar de uno en uno produce horarios que no se conocen entre sí: cada
+ * corrida reparte la carga de los docentes creyendo que están libres, y la
+ * segunda descubre ocupado lo que la primera acaba de tomar. Generar el ciclo
+ * de una vez es lo que deja repartir de verdad.
+ */
+const grupoIdsAGenerar = ref<number[]>([]);
+const eligiendoGrupos = ref(false);
+
+watch(grupo, (g) => { grupoIdsAGenerar.value = g ? [g] : []; }, { immediate: true });
+
+function alternarGrupo(id: number): void {
+    grupoIdsAGenerar.value = grupoIdsAGenerar.value.includes(id)
+        ? grupoIdsAGenerar.value.filter((g) => g !== id)
+        : [...grupoIdsAGenerar.value, id];
+}
+
 const generando = ref(false);
 const aplicando = ref(false);
 const asignarDocentes = ref(true);
@@ -103,7 +122,7 @@ const asignarDocentes = ref(true);
 function generar(): void {
     generando.value = true;
 
-    router.post('/escolar/horarios/generar', { grupo_ids: [grupo.value] }, {
+    router.post('/escolar/horarios/generar', { grupo_ids: grupoIdsAGenerar.value }, {
         preserveScroll: true,
         onFinish: () => { generando.value = false; },
     });
@@ -181,14 +200,48 @@ const incompletas = computed(() => props.materias.filter((m) => m.horas_colocada
                     Para generar automáticamente hace falta configurar las reglas de horario
                     (jornada, duración de las clases y topes de carga).
                 </p>
-                <BotonPrincipal
-                    v-else-if="puedeGenerar"
-                    tipo="button"
-                    :procesando="generando"
-                    @click="generar"
-                >
-                    Generar propuesta
-                </BotonPrincipal>
+                <template v-else-if="puedeGenerar">
+                    <button
+                        type="button"
+                        class="text-sm"
+                        :style="{ color: 'var(--color-acento)' }"
+                        @click="eligiendoGrupos = !eligiendoGrupos"
+                    >
+                        {{ grupoIdsAGenerar.length > 1
+                            ? `${grupoIdsAGenerar.length} grupos elegidos`
+                            : 'Generar para varios grupos' }}
+                    </button>
+                    <BotonPrincipal
+                        tipo="button"
+                        :procesando="generando"
+                        :deshabilitado="!grupoIdsAGenerar.length"
+                        @click="generar"
+                    >
+                        Generar propuesta
+                    </BotonPrincipal>
+                </template>
+            </div>
+        </section>
+
+        <!--
+            Para qué grupos. Se despliega sólo si se pide: lo normal es generar
+            el que se está viendo, y un listado de casillas siempre abierto
+            estorbaría en el caso común.
+        -->
+        <section v-if="eligiendoGrupos" class="tarjeta mb-4 p-5">
+            <p class="mb-2 text-sm" :style="{ color: 'var(--color-suave)' }">
+                Elige los grupos. Generarlos juntos permite repartir la carga de los docentes entre todos;
+                de uno en uno, cada horario se arma sin saber lo que va a tomar el siguiente.
+            </p>
+            <div class="flex flex-wrap gap-2">
+                <label v-for="g in grupos" :key="g.id" class="fila-casilla text-sm">
+                    <input
+                        type="checkbox"
+                        :checked="grupoIdsAGenerar.includes(g.id)"
+                        @change="alternarGrupo(g.id)"
+                    />
+                    <span>{{ g.clave }}</span>
+                </label>
             </div>
         </section>
 
@@ -203,6 +256,19 @@ const incompletas = computed(() => props.materias.filter((m) => m.horas_colocada
                         <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
                             {{ propuesta.resumen.horas_colocadas }} de {{ propuesta.resumen.horas_pedidas }} horas ·
                             {{ propuesta.resumen.materias_completas }} de {{ propuesta.resumen.materias }} materias completas
+                        </p>
+                        <!--
+                            Con varios grupos, la rejilla sólo enseña el que se
+                            está viendo. Decirlo evita que alguien crea que el
+                            resto no se generó.
+                        -->
+                        <p
+                            v-if="propuesta.bloques.length > propuestosAqui.length"
+                            class="mt-1 text-xs"
+                            :style="{ color: 'var(--color-suave)' }"
+                        >
+                            Abajo se ven los {{ propuestosAqui.length }} bloques de este grupo; la propuesta
+                            trae {{ propuesta.bloques.length }} en total y se aplican todos juntos.
                         </p>
                     </div>
 

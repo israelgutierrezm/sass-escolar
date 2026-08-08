@@ -133,7 +133,7 @@ class GeneradorHorarios
         array $disponibilidad,
         array $aulas,
     ): array {
-        $candidatos = $this->candidatosPara($materia, $aptitudes);
+        $candidatos = $this->candidatosPara($materia, $aptitudes, $regla, $agenda);
 
         if ($candidatos === []) {
             return [
@@ -294,6 +294,10 @@ class GeneradorHorarios
                 continue;
             }
 
+            if (! $this->dejaElDiaCompacto($tentativo, $materia, $regla, $agenda)) {
+                continue;
+            }
+
             if (! $agenda->docenteLibre($personaId, $tentativo, $regla->minutos_descanso_docente)) {
                 continue;
             }
@@ -311,6 +315,46 @@ class GeneradorHorarios
         }
 
         return null;
+    }
+
+    /**
+     * ¿Este bloque deja el día del grupo sin huecos?
+     *
+     * Un grupo con clase a las 7 y luego a las 11 tiene treinta alumnos sin
+     * nada que hacer en medio. Cuando la escuela dice que no quiere huecos, un
+     * bloque sólo entra si queda PEGADO a lo que ya hay ese día —o si es el
+     * primero—.
+     *
+     * Se comprueba al colocar y no al final a propósito: un horario que ya
+     * quedó con huecos no se puede compactar sin mover todo lo demás, y mover
+     * lo demás es rehacerlo.
+     *
+     * Lo que no encuentre hueco contiguo se reporta como no colocado, igual que
+     * cualquier otra restricción. Vale más decir «no cupo sin dejar huecos» que
+     * entregar en silencio lo que la escuela pidió no tener.
+     *
+     * @param  array<string, mixed>  $materia
+     */
+    private function dejaElDiaCompacto(Bloque $bloque, array $materia, ReglaHorario $regla, Agenda $agenda): bool
+    {
+        if ($regla->permite_huecos_grupo) {
+            return true;
+        }
+
+        $delDia = $agenda->bloquesDelGrupo((int) $materia['grupo_id'], $bloque->dia);
+
+        // El primero del día no puede dejar hueco: no hay contra qué.
+        if ($delDia === []) {
+            return true;
+        }
+
+        foreach ($delDia as $ocupado) {
+            if ($bloque->inicio === $ocupado->fin || $bloque->fin === $ocupado->inicio) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @param  DisponibilidadDocente[]  $franjas */
@@ -351,7 +395,7 @@ class GeneradorHorarios
      * @param  array<string, mixed>  $materia
      * @return int[]
      */
-    private function candidatosPara(array $materia, array $aptitudes): array
+    private function candidatosPara(array $materia, array $aptitudes, ReglaHorario $regla, Agenda $agenda): array
     {
         if ($materia['persona_id'] !== null) {
             return [$materia['persona_id']];
@@ -359,11 +403,36 @@ class GeneradorHorarios
 
         $aptos = $aptitudes[$materia['asignatura_id']] ?? [];
 
-        // Mayor preferencia primero: quien la prefiere antes que quien sólo
-        // puede, y de último quien la daría sólo si no hay de otra.
-        uasort($aptos, fn (int $a, int $b) => $b <=> $a);
+        /*
+         * El orden en que se les ofrece, según la política de reparto.
+         *
+         * Manda la PREFERENCIA: quien la prefiere antes que quien sólo puede, y
+         * de último quien la daría sólo si no hay de otra. Eso no se negocia,
+         * porque un horario técnicamente correcto que ignora lo que la gente
+         * quiere dar no es el horario que la escuela va a usar.
+         *
+         * A igual preferencia decide el reparto:
+         *
+         *  · `repartir` ofrece primero a quien MENOS carga lleva. Sin esto, el
+         *    primero de la lista se lleva todo lo que le quepa y los demás se
+         *    quedan sin nada: el motor siempre le pregunta a él antes.
+         *  · `concentrar` hace lo contrario a propósito —al que ya trae carga—,
+         *    para juntar las materias en menos gente y menos días. Es lo que
+         *    quiere una escuela con docentes que vienen de lejos.
+         */
+        $concentrar = $regla->reparto === ReglaHorario::CONCENTRAR;
 
-        return array_keys($aptos);
+        $orden = [];
+
+        foreach ($aptos as $personaId => $preferencia) {
+            $carga = $agenda->minutosDeLaSemana($personaId);
+
+            $orden[$personaId] = [-$preferencia, $concentrar ? -$carga : $carga];
+        }
+
+        uasort($orden, fn (array $a, array $b) => $a <=> $b);
+
+        return array_keys($orden);
     }
 
     // ── Orden de ataque ────────────────────────────────────────────────────
