@@ -62,7 +62,11 @@ const aspecto = computed(() => {
                     class="mt-6 inline-block rounded-lg px-4 py-2 text-sm font-medium"
                     :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
                 >
-                    Ver mi estado de cuenta
+                    <!--
+                        «Ver el», no «ver mi»: a esta pantalla llega también un
+                        padre que acaba de pagar la cuenta de su hijo.
+                    -->
+                    Ver el estado de cuenta
                 </Link>
             </div>
         </div>

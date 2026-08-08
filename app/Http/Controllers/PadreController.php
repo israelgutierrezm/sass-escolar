@@ -14,6 +14,7 @@ use App\Models\Identidad\BitacoraAcceso;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\TutorAlumno;
 use App\Services\EstadoCuenta;
+use App\Services\Pagos\Pasarelas;
 use App\Services\EstadoDelAlumno;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -127,6 +128,17 @@ class PadreController extends Controller
             'finanzas' => $vinculo->puede_ver_finanzas
                 ? $matriculas->map(fn (MatriculaOferta $m) => $this->finanzasDe($m))->values()
                 : null,
+            /*
+             * Con qué puede pagar aquí mismo.
+             *
+             * Va atado al permiso financiero del vínculo, igual que los saldos:
+             * un padre que no puede ver lo que se debe tampoco tiene por qué ver
+             * botones para pagarlo. Y vacío cuando la escuela no tiene ninguna
+             * pasarela encendida, para que el panel no aparezca.
+             */
+            'pasarelas' => $vinculo->puede_ver_finanzas
+                ? app(Pasarelas::class)->disponibles()
+                : [],
             // Los accesos del hijo: un padre puede vigilar cuándo y desde dónde
             // entra su hijo, aunque no vea sus calificaciones ni sus finanzas.
             'accesos' => BitacoraAcceso::query()
@@ -207,6 +219,9 @@ class PadreController extends Controller
             ]);
 
         return [
+            // El id, no sólo la matrícula impresa: es lo que necesita el panel
+            // de pago para decirle al servidor qué cuenta se está pagando.
+            'matricula_id' => $m->id,
             'matricula' => $m->matricula,
             'carrera' => $m->oferta?->carrera?->nombre,
             'saldo' => $cuenta['resumen']['saldo'],

@@ -4,6 +4,7 @@ import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
+import PanelPagoEnLinea from '@/Components/PanelPagoEnLinea.vue';
 
 interface Materia {
     materia: string | null;
@@ -25,6 +26,8 @@ interface Academico {
 }
 
 interface Adeudo {
+    /** Hace falta para pagar: es lo que identifica el cargo ante el servidor. */
+    id: number;
     concepto?: string;
     descripcion?: string;
     total: number;
@@ -34,6 +37,7 @@ interface Adeudo {
 }
 
 interface Finanza {
+    matricula_id: number;
     matricula: string;
     carrera: string | null;
     saldo: number;
@@ -49,6 +53,8 @@ const props = defineProps<{
     carreras: { matricula: string; carrera: string | null; campus: string | null }[];
     academico: Academico[] | null;
     finanzas: Finanza[] | null;
+    /** Con qué se puede pagar aquí mismo. Vacío = la escuela no tiene ninguna. */
+    pasarelas: { clave: string; nombre: string; color: string | null; pruebas: boolean; meses: number[]; efectivo: boolean }[];
     accesos: { tipo: string; ip: string | null; navegador: string | null; equipo: string | null; momento: string | null }[];
 }>();
 
@@ -78,6 +84,15 @@ const finanzasEnFoco = computed(
 const etiquetaAcceso: Record<string, string> = { entrada: 'Entró', salida: 'Salió' };
 
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
+
+/*
+ * Qué cuenta se está pagando, POR MATRÍCULA.
+ *
+ * Un hijo puede tener dos carreras y cada una su propio saldo: con una sola
+ * bandera, abrir el pago de una abriría también el de la otra y se acabaría
+ * pagando la equivocada.
+ */
+const pagando = ref<Record<number, boolean>>({});
 
 function iniciales(nombre: string | null): string {
     if (!nombre) return '—';
@@ -241,6 +256,49 @@ function colorCalif(estatusClave: string | null): string {
                     </table>
                 </div>
                 <p v-else class="mt-3 text-sm" :style="{ color: 'var(--color-suave)' }">Sin adeudos.</p>
+
+                <!--
+                    Pagar aquí mismo.
+
+                    Es el sitio donde el padre mira lo que se debe, así que es
+                    donde tiene sentido pagarlo: mandarlo a buscar la cuenta de
+                    su hijo por el menú de Finanzas —que además está escrito para
+                    quien cobra, no para quien paga— es perder a la mitad por el
+                    camino.
+
+                    El panel es el MISMO componente del estado de cuenta: pedir
+                    la liga y explicar los fallos se escribe una vez.
+                -->
+                <div v-if="pasarelas.length && f.saldo > 0" class="mt-4 border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">
+                    <button
+                        v-if="!pagando[f.matricula_id]"
+                        type="button"
+                        class="rounded-lg px-4 py-2 text-sm font-medium"
+                        :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+                        @click="pagando[f.matricula_id] = true"
+                    >
+                        Pagar en línea
+                    </button>
+
+                    <template v-else>
+                        <PanelPagoEnLinea
+                            :matricula-id="f.matricula_id"
+                            :adeudos="f.adeudos"
+                            :pasarelas="pasarelas"
+                        >
+                            <template #nota>Se pagan todos los cargos con saldo.</template>
+                        </PanelPagoEnLinea>
+
+                        <button
+                            type="button"
+                            class="mt-3 text-sm"
+                            :style="{ color: 'var(--color-suave)' }"
+                            @click="pagando[f.matricula_id] = false"
+                        >
+                            Cancelar
+                        </button>
+                    </template>
+                </div>
 
                 <div v-if="f.facturas.length" class="mt-4 border-t pt-3" :style="{ borderColor: 'var(--color-borde)' }">
                     <p class="mb-2 text-xs font-medium uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">Facturas</p>
