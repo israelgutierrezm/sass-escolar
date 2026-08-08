@@ -141,12 +141,21 @@ class PasarelasCatalogo
                 'campos' => [
                     'client_id' => ['etiqueta' => 'Client ID', 'requerido' => true],
                     'client_secret' => ['etiqueta' => 'Client Secret', 'requerido' => true],
+                    'webhook_id' => [
+                        'etiqueta' => 'ID del webhook',
+                        'requerido' => false,
+                        'ayuda' => 'Opcional. Del panel de PayPal → Apps & Credentials → Webhooks. Sirve para comprobar que el aviso viene de PayPal.',
+                    ],
                 ],
                 /*
                  * Sin opciones a propósito: en México PayPal no cobra en
                  * efectivo ni ofrece meses sin intereses por su cuenta —los pone
                  * el banco emisor de la tarjeta, no la pasarela—. Un interruptor
                  * aquí prometería algo que el alumno no va a encontrar.
+                 *
+                 * Que no tenga nada que encender no la deja fuera: cobra con
+                 * tarjeta y con saldo de PayPal, que es lo que hace falta para
+                 * cobrarle a alguien de fuera del país.
                  */
                 'opciones' => [],
             ],

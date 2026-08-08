@@ -11,34 +11,26 @@ use App\Support\PasarelasCatalogo;
 /**
  * Qué implementación atiende a cada pasarela.
  *
- * ── Lo que está y lo que no ────────────────────────────────────────────────
- * La pantalla de configuración ofrece cinco pasarelas y hoy cobran de verdad
- * **Mercado Pago**, **Conekta** y **Stripe**. **OpenPay** y **PayPal** se
- * pueden configurar y activar, pero al intentar cobrar dicen que todavía no
- * están, con su nombre y en castellano.
+ * ── Las cinco cobran, y ninguna igual que otra ─────────────────────────────
+ * Mercado Pago, Conekta y Stripe dan una liga a un checkout suyo donde quien
+ * paga elige. **OpenPay** cobra por cargo y hay que decirle el método de
+ * antemano, así que la elección ocurre en nuestra pantalla —por eso existe
+ * `Pasarela::metodosAElegir`—. **PayPal** entrega una autorización que hay que
+ * CAPTURAR después: aprobar no es cobrar.
  *
- * Las tres implementadas comparten la misma forma —una liga a un checkout
- * alojado donde quien paga elige entre lo que la escuela encendió—, y por eso
- * encajan en este flujo sin torcerlo.
+ * Lo que cada una ofrece también cambia, y no se finge lo contrario: PayPal no
+ * da efectivo ni meses sin intereses en México, y su catálogo no tiene opciones
+ * que encender. Sirve sobre todo para cobrarle a alguien de fuera del país.
  *
- * **OpenPay no la tiene**: cobra por cargo y hay que decirle de antemano si es
- * tarjeta, tienda o SPEI, así que exige un paso más de interfaz —elegir el
- * método ANTES de salir— que hoy no existe. Meterla a la fuerza significaría
- * ofrecer sólo tarjeta y llamarlo «OpenPay», que es prometer de menos.
- *
- * **PayPal** sí tiene checkout alojado, pero en México no cobra en efectivo ni
- * da meses sin intereses por su cuenta: cabría, aunque sin nada de lo que hace
- * atractivo el pago en línea aquí.
- *
- * Que falten es a propósito: escribirlas a ciegas —sin credenciales con las que
- * comprobarlas— daría integraciones plausibles y ninguna verificada. La forma
- * de fallar importa: un mensaje claro al configurarla es molesto; un cobro que
- * parece funcionar y no concilia es dinero perdido.
+ * Para agregar una nueva: implementar `Pasarela` y añadirla a `IMPLEMENTADAS`.
+ * Lo que NO hay que hacer es darla por buena sin ejercitarla: la forma de
+ * fallar importa, porque un cobro que parece funcionar y no concilia es dinero
+ * perdido que nadie reclama hasta que hay que cuadrar la caja.
  */
 class Pasarelas
 {
-    /** Las que ya cobran de verdad. */
-    public const IMPLEMENTADAS = ['mercadopago', 'conekta', 'stripe', 'openpay'];
+    /** Las que ya cobran de verdad: todas. */
+    public const IMPLEMENTADAS = ['mercadopago', 'conekta', 'stripe', 'openpay', 'paypal'];
 
     /**
      * La pasarela lista para operar, o un aviso de por qué no se puede.
@@ -84,6 +76,7 @@ class Pasarelas
             'conekta' => new PasarelaConekta($config),
             'stripe' => new PasarelaStripe($config),
             'openpay' => new PasarelaOpenPay($config),
+            'paypal' => new PasarelaPayPal($config),
             // Inalcanzable: lo impide la comprobación de IMPLEMENTADAS. Está
             // para que agregar una pasarela nueva sin registrarla arriba falle
             // aquí y no devuelva algo a medias.
