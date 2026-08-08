@@ -52,6 +52,15 @@ class EscalaDeCalificacionTest extends TenantTestCase
         $this->assertFalse($this->pasa($plan, 8.756));
     }
 
+    /** Y tres, que es el máximo que se puede configurar. */
+    public function test_tres_decimales_es_el_maximo(): void
+    {
+        $plan = $this->plan(decimales: 3);
+
+        $this->assertTrue($this->pasa($plan, 8.756));
+        $this->assertFalse($this->pasa($plan, 8.7561));
+    }
+
     /**
      * La escala se sigue respetando, no sólo la precisión.
      *
@@ -86,6 +95,7 @@ class EscalaDeCalificacionTest extends TenantTestCase
         $this->assertStringContainsString('enteros', $this->plan(decimales: 0)->comoSeCalifica());
         $this->assertStringContainsString('un decimal', $this->plan(decimales: 1)->comoSeCalifica());
         $this->assertStringContainsString('2 decimales', $this->plan(decimales: 2)->comoSeCalifica());
+        $this->assertStringContainsString('3 decimales', $this->plan(decimales: 3)->comoSeCalifica());
     }
 
     // ── Andamiaje ──────────────────────────────────────────────────────────

@@ -24,8 +24,16 @@ interface Plan {
     decimales: number;
 }
 
+interface Carrera {
+    id: number;
+    nombre: string;
+    nivel_id: number | null;
+    nivel: string;
+    planes: Plan[];
+}
+
 const props = defineProps<{
-    carreras: { id: number; nombre: string; planes: Plan[] }[];
+    carreras: Carrera[];
     puedeEditar: boolean;
 }>();
 
@@ -33,18 +41,33 @@ const DECIMALES = [
     { valor: 0, texto: 'Números enteros (8)' },
     { valor: 1, texto: 'Un decimal (8.5)' },
     { valor: 2, texto: 'Dos decimales (8.75)' },
+    { valor: 3, texto: 'Tres decimales (8.756)' },
+];
+
+/*
+ * A qué alcanza el cambio.
+ *
+ * La escala se guarda en el plan, pero la decisión rara vez es de un plan
+ * suelto: se toma para una carrera o para un nivel entero. Elegirlo aquí evita
+ * el olvido de repetirlo plan por plan, que es donde queda uno calificando
+ * distinto sin que nadie lo note hasta un acta.
+ */
+const ALCANCES = [
+    { valor: 'plan', texto: 'Sólo este plan' },
+    { valor: 'carrera', texto: 'Todos los planes de esta carrera' },
+    { valor: 'nivel', texto: 'Todos los planes de este nivel de estudios' },
 ];
 
 /** El plan que se está editando, con sus valores en curso. */
 const editando = ref<number | null>(null);
 const borrador = ref<Plan | null>(null);
-const aplicarACarrera = ref(false);
+const alcance = ref('plan');
 const guardando = ref(false);
 
 function editar(plan: Plan): void {
     editando.value = plan.id;
     borrador.value = { ...plan };
-    aplicarACarrera.value = false;
+    alcance.value = 'plan';
 }
 
 function guardar(): void {
@@ -57,7 +80,7 @@ function guardar(): void {
         calificacion_maxima: borrador.value.maxima,
         calificacion_minima_aprobatoria: borrador.value.aprobatoria,
         decimales_calificacion: borrador.value.decimales,
-        aplicar_a_la_carrera: aplicarACarrera.value,
+        aplicar_a: alcance.value,
     }, {
         preserveScroll: true,
         onSuccess: () => { editando.value = null; borrador.value = null; },
@@ -83,6 +106,26 @@ function comoCalifica(plan: Plan): string {
 }
 
 const desalineadas = computed(() => props.carreras.filter((c) => !coinciden(c.planes)).length);
+
+/**
+ * Las carreras agrupadas por nivel.
+ *
+ * Es como se decide: «los posgrados califican con dos decimales» es una frase
+ * sobre un nivel, no sobre once carreras. Verlas juntas también deja ver de un
+ * vistazo si el nivel entero es coherente.
+ */
+const porNivel = computed(() => {
+    const grupos = new Map<string, Carrera[]>();
+
+    for (const carrera of props.carreras) {
+        const lista = grupos.get(carrera.nivel) ?? [];
+
+        lista.push(carrera);
+        grupos.set(carrera.nivel, lista);
+    }
+
+    return [...grupos.entries()].map(([nivel, carreras]) => ({ nivel, carreras }));
+});
 </script>
 
 <template>
@@ -100,9 +143,14 @@ const desalineadas = computed(() => props.carreras.filter((c) => !coinciden(c.pl
             Puede ser a propósito —un plan viejo con otra escala— o algo que se quedó a medias.
         </p>
 
-        <div class="space-y-4">
+        <div class="space-y-8">
+            <section v-for="grupo in porNivel" :key="grupo.nivel" class="space-y-4">
+                <h2 class="text-sm font-semibold uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
+                    {{ grupo.nivel }}
+                </h2>
+
             <TarjetaSeccion
-                v-for="carrera in carreras"
+                v-for="carrera in grupo.carreras"
                 :key="carrera.id"
                 :titulo="carrera.nombre"
                 :descripcion="carrera.planes.length === 1
@@ -171,9 +219,11 @@ const desalineadas = computed(() => props.carreras.filter((c) => !coinciden(c.pl
                                 carrera, y hacerlo plan por plan es donde se
                                 olvida uno.
                             -->
-                            <label v-if="carrera.planes.length > 1" class="fila-casilla text-sm">
-                                <input v-model="aplicarACarrera" type="checkbox" />
-                                <span>Aplicar a los {{ carrera.planes.length }} planes de esta carrera</span>
+                            <label class="block text-sm">
+                                <span class="mb-1 block text-xs" :style="{ color: 'var(--color-suave)' }">Aplicar a</span>
+                                <select v-model="alcance" class="w-full rounded-lg border bg-transparent px-3 py-1.5" :style="{ borderColor: 'var(--color-borde)' }">
+                                    <option v-for="a in ALCANCES" :key="a.valor" :value="a.valor">{{ a.texto }}</option>
+                                </select>
                             </label>
 
                             <div class="flex flex-wrap items-center gap-3">
@@ -188,6 +238,7 @@ const desalineadas = computed(() => props.carreras.filter((c) => !coinciden(c.pl
                     </li>
                 </ul>
             </TarjetaSeccion>
+            </section>
 
             <p v-if="!carreras.length" class="tarjeta px-6 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
                 Todavía no hay carreras con planes de estudio.

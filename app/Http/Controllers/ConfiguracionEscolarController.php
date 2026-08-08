@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Exceptions\AvisoParaElUsuario;
 use App\Models\Academico\Carrera;
 use App\Models\Academico\PlanEstudio;
+use App\Models\Landlord\NivelEstudio;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -31,6 +32,13 @@ class ConfiguracionEscolarController extends Controller
 {
     public function index(Request $request): Response
     {
+        /*
+         * Los niveles viven en el landlord y las carreras sólo guardan su id,
+         * sin llave foránea: se resuelven de una vez y se indexan, en vez de
+         * consultar uno por carrera.
+         */
+        $niveles = NivelEstudio::query()->pluck('nombre', 'id');
+
         $carreras = Carrera::query()
             ->with(['planes' => fn ($q) => $q->orderBy('nombre')])
             ->orderBy('nombre')
@@ -38,6 +46,20 @@ class ConfiguracionEscolarController extends Controller
             ->map(fn (Carrera $c) => [
                 'id' => $c->id,
                 'nombre' => $c->nombre,
+                'nivel_id' => $c->nivel_estudios_id,
+                /*
+                 * Un nivel que no está en el catálogo se dice CON su id.
+                 *
+                 * `carreras.nivel_estudios_id` apunta al landlord sin llave
+                 * foránea —así está desde el principio—, así que puede quedar
+                 * señalando a un nivel que ya no existe. Llamarlo «Sin nivel»
+                 * lo confundiría con una carrera a la que no se le asignó
+                 * ninguno, que es un problema distinto y se arregla distinto.
+                 */
+                'nivel' => $niveles[$c->nivel_estudios_id]
+                    ?? ($c->nivel_estudios_id === null
+                        ? 'Sin nivel asignado'
+                        : "Nivel desconocido (#{$c->nivel_estudios_id})"),
                 'planes' => $c->planes->map(fn (PlanEstudio $p) => [
                     'id' => $p->id,
                     'nombre' => $p->nombre,
@@ -71,11 +93,12 @@ class ConfiguracionEscolarController extends Controller
             'calificacion_minima' => ['required', 'numeric', 'min:0'],
             'calificacion_maxima' => ['required', 'numeric', 'gt:calificacion_minima'],
             'calificacion_minima_aprobatoria' => ['required', 'numeric'],
-            'decimales_calificacion' => ['required', 'integer', 'between:0,2'],
-            'aplicar_a_la_carrera' => ['boolean'],
+            'decimales_calificacion' => ['required', 'integer', 'between:0,3'],
+            // A qué alcanza el cambio: sólo este plan, su carrera o su nivel.
+            'aplicar_a' => ['required', 'in:plan,carrera,nivel'],
         ], [
             'calificacion_maxima.gt' => 'La calificación máxima tiene que ser mayor que la mínima.',
-            'decimales_calificacion.between' => 'Se puede calificar con 0, 1 o 2 decimales.',
+            'decimales_calificacion.between' => 'Se puede calificar con 0, 1, 2 o 3 decimales.',
         ]);
 
         /*
@@ -93,16 +116,48 @@ class ConfiguracionEscolarController extends Controller
                 .$datos['calificacion_minima'].' y '.$datos['calificacion_maxima'].'.',
         );
 
-        $escala = collect($datos)->except('aplicar_a_la_carrera')->all();
+        $escala = collect($datos)->except('aplicar_a')->all();
 
-        if ($datos['aplicar_a_la_carrera'] ?? false) {
-            PlanEstudio::query()->where('carrera_id', $plan->carrera_id)->update($escala);
+        $planes = $this->alcanzados($plan, $datos['aplicar_a']);
+        $cuantos = PlanEstudio::query()->whereIn('id', $planes)->update($escala);
 
-            return back()->with('exito', 'Se aplicó a todos los planes de la carrera.');
+        return back()->with('exito', match ($datos['aplicar_a']) {
+            'nivel' => "Se aplicó a los {$cuantos} planes de ese nivel de estudios.",
+            'carrera' => "Se aplicó a los {$cuantos} planes de la carrera.",
+            default => 'Escala de calificación actualizada.',
+        });
+    }
+
+    /**
+     * Qué planes toca el cambio.
+     *
+     * La escala se guarda SIEMPRE en el plan —es donde han vivido siempre los
+     * límites, y separarla de ellos crearía dos fuentes que pueden
+     * contradecirse—, pero la decisión rara vez es de un plan suelto: se toma
+     * para una carrera («aquí calificamos con enteros») o para un nivel entero
+     * («los posgrados van con dos decimales»). Aplicarla plan por plan es donde
+     * se olvida uno y queda calificando distinto sin que nadie lo note hasta un
+     * acta.
+     *
+     * El nivel llega por la carrera —`carreras.nivel_estudios_id`—: los planes
+     * no lo llevan, así que se pasa por ellas.
+     *
+     * @return array<int, int>
+     */
+    private function alcanzados(PlanEstudio $plan, string $alcance): array
+    {
+        $carreras = match ($alcance) {
+            'nivel' => Carrera::query()
+                ->where('nivel_estudios_id', $plan->carrera?->nivel_estudios_id)
+                ->pluck('id'),
+            'carrera' => collect([$plan->carrera_id]),
+            default => collect(),
+        };
+
+        if ($carreras->isEmpty()) {
+            return [$plan->id];
         }
 
-        $plan->update($escala);
-
-        return back()->with('exito', 'Escala de calificación actualizada.');
+        return PlanEstudio::query()->whereIn('carrera_id', $carreras)->pluck('id')->all();
     }
 }
