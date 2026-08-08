@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\AvisoParaElUsuario;
 use App\Models\Finanzas\PasarelaPago;
+use App\Services\Pagos\Pasarelas;
 use App\Support\PasarelasCatalogo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -41,10 +43,24 @@ class PasarelaPagoController extends Controller
             'activa' => ['boolean'],
             'credenciales' => ['array'],
             'credenciales.*' => ['nullable', 'string', 'max:500'],
+            // Qué ofrece: formas de pago encendidas y plazos de MSI.
+            'opciones' => ['array'],
         ]);
 
         $pasarela = PasarelaPago::para($clave);
         $pasarela->ambiente = $datos['ambiente'];
+        $pasarela->opciones = $this->opcionesValidas($clave, $datos['opciones'] ?? []);
+
+        /*
+         * Apagar TODAS las formas de pago deja una pasarela que abre el cobro y
+         * no ofrece con qué pagarlo. No falla al guardar —falla después, con el
+         * alumno delante de una pantalla vacía—, así que se ataja aquí.
+         */
+        AvisoParaElUsuario::si(
+            PasarelasCatalogo::metodosDe($clave) !== [] && $pasarela->metodosAceptados() === [],
+            422,
+            'Deja encendida al menos una forma de pago: sin ninguna, quien vaya a pagar no tendría con qué.',
+        );
 
         // Solo se pisan los campos que llegaron con valor: un campo en blanco
         // significa "conserva el guardado", no "bórralo" (el frontend nunca
@@ -72,6 +88,41 @@ class PasarelaPagoController extends Controller
         }
 
         return back()->with('exito', 'Pasarela '.PasarelasCatalogo::todas()[$clave]['nombre'].' actualizada.');
+    }
+
+    /**
+     * Las opciones, saneadas contra lo que la pasarela de verdad ofrece.
+     *
+     * Llegan del navegador, así que aquí se decide qué es válido: un
+     * interruptor es un sí o un no, y los meses sólo pueden ser plazos que la
+     * pasarela acepte. Guardar «24 meses» porque alguien lo escribió en la
+     * petición produciría un cobro que la pasarela rechaza, y el error saldría
+     * al pagar, no al configurar.
+     *
+     * @param  array<string, mixed>  $entrada
+     * @return array<string, mixed>
+     */
+    private function opcionesValidas(string $clave, array $entrada): array
+    {
+        return collect(PasarelasCatalogo::opciones($clave))
+            ->map(function (array $def, string $k) use ($entrada) {
+                $valor = $entrada[$k] ?? $def['default'];
+
+                if ($def['tipo'] === 'meses') {
+                    $permitidos = $def['valores'] ?? [];
+
+                    return collect(is_array($valor) ? $valor : [])
+                        ->map(fn ($m) => (int) $m)
+                        ->filter(fn (int $m) => in_array($m, $permitidos, true))
+                        ->unique()
+                        ->sort()
+                        ->values()
+                        ->all();
+                }
+
+                return filter_var($valor, FILTER_VALIDATE_BOOLEAN);
+            })
+            ->all();
     }
 
     /**
@@ -121,6 +172,17 @@ class PasarelaPagoController extends Controller
             'puestos_produccion' => $puestos(PasarelaPago::AMBIENTE_PRODUCCION),
             'completa_pruebas' => $pasarela->completaEn(PasarelaPago::AMBIENTE_PRUEBAS),
             'completa_produccion' => $pasarela->completaEn(PasarelaPago::AMBIENTE_PRODUCCION),
+            // Qué ofrece esta pasarela y qué tiene encendido hoy.
+            'opciones_disponibles' => collect($def['opciones'])->map(fn (array $o, string $k) => [
+                'clave' => $k,
+                'etiqueta' => $o['etiqueta'],
+                'tipo' => $o['tipo'],
+                'valores' => $o['valores'] ?? [],
+                'ayuda' => $o['ayuda'] ?? null,
+            ])->values(),
+            'opciones' => $pasarela->opciones(),
+            // Que se sepa si la escuela puede esperar cobros en línea de aquí.
+            'cobra' => in_array($clave, Pasarelas::IMPLEMENTADAS, true),
         ];
     }
 }

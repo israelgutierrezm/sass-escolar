@@ -10,6 +10,15 @@ interface Campo {
     ayuda: string | null;
 }
 
+/** Lo que una pasarela ofrece: un interruptor, o los plazos de MSI. */
+interface Opcion {
+    clave: string;
+    etiqueta: string;
+    tipo: 'interruptor' | 'meses';
+    valores: number[];
+    ayuda: string | null;
+}
+
 interface Pasarela {
     clave: string;
     nombre: string;
@@ -22,6 +31,10 @@ interface Pasarela {
     puestos_produccion: Record<string, boolean>;
     completa_pruebas: boolean;
     completa_produccion: boolean;
+    opciones_disponibles: Opcion[];
+    opciones: Record<string, boolean | number[]>;
+    /** ¿Ya sabemos cobrar con ella? Si no, se configura pero no cobra. */
+    cobra: boolean;
 }
 
 const props = defineProps<{ pasarelas: Pasarela[] }>();
@@ -35,7 +48,48 @@ for (const p of props.pasarelas) {
         ambiente: p.ambiente,
         activa: p.activa,
         credenciales: Object.fromEntries(p.campos.map((c) => [c.clave, ''])) as Record<string, string>,
+        // Las opciones SÍ se precargan: no son secretas y hay que poder ver qué
+        // está encendido sin tener que volver a elegirlo todo.
+        opciones: JSON.parse(JSON.stringify(p.opciones)) as Record<string, boolean | number[]>,
     });
+}
+
+/** ¿Está marcado este plazo de meses sin intereses? */
+function tieneMes(clave: string, opcion: string, mes: number): boolean {
+    const meses = (forms[clave].opciones as Record<string, boolean | number[]>)[opcion];
+
+    return Array.isArray(meses) && meses.includes(mes);
+}
+
+function alternarMes(clave: string, opcion: string, mes: number): void {
+    const opciones = forms[clave].opciones as Record<string, boolean | number[]>;
+    const meses = Array.isArray(opciones[opcion]) ? [...(opciones[opcion] as number[])] : [];
+    const i = meses.indexOf(mes);
+
+    i === -1 ? meses.push(mes) : meses.splice(i, 1);
+    opciones[opcion] = meses.sort((a, b) => a - b);
+}
+
+/**
+ * Los meses sin intereses no existen sin tarjeta: los pone la tarjeta de
+ * crédito, no la pasarela. Se atenúan en vez de esconderse para que se entienda
+ * que están ahí y por qué no se pueden usar.
+ */
+function hayTarjeta(p: Pasarela): boolean {
+    const opciones = forms[p.clave].opciones as Record<string, boolean | number[]>;
+
+    return !p.opciones_disponibles.some((o) => o.clave === 'tarjeta') || opciones.tarjeta === true;
+}
+
+/** Sin ninguna forma de pago encendida no hay con qué pagar. El servidor lo rechaza. */
+function sinFormasDePago(p: Pasarela): boolean {
+    const interruptores = p.opciones_disponibles.filter((o) => o.tipo === 'interruptor');
+
+    if (!interruptores.length) return false;
+
+    const opciones = forms[p.clave].opciones as Record<string, boolean | number[]>;
+
+    return interruptores.every((o) => opciones[o.clave] !== true);
 }
 
 // ¿El ambiente elegido en el form (aún sin guardar) está completo? Combina lo ya
@@ -87,7 +141,21 @@ const activas = computed(() => props.pasarelas.filter((p) => p.activa).length);
                             {{ p.nombre.slice(0, 2) }}
                         </span>
                         <div>
-                            <h3 class="font-semibold">{{ p.nombre }}</h3>
+                            <h3 class="flex flex-wrap items-center gap-2 font-semibold">
+                                {{ p.nombre }}
+                                <!--
+                                    Que se sepa ANTES de configurarla. Encenderla
+                                    sin saber esto acaba con un alumno delante de
+                                    un botón que no puede completar su pago.
+                                -->
+                                <span
+                                    v-if="!p.cobra"
+                                    class="rounded-full px-2 py-0.5 text-[11px] font-normal"
+                                    :style="{ backgroundColor: 'color-mix(in srgb, #d97706 14%, transparent)', color: '#b45309' }"
+                                >
+                                    Aún no cobra en línea
+                                </span>
+                            </h3>
                             <p class="text-xs" :style="{ color: 'var(--color-suave)' }">{{ p.descripcion }}</p>
                         </div>
                     </div>
@@ -146,10 +214,74 @@ const activas = computed(() => props.pasarelas.filter((p) => p.activa).length);
                     </label>
                 </div>
 
+                <!--
+                    Qué ofrece la pasarela. Sólo lo que ella soporta de verdad:
+                    PayPal no aparece aquí porque en México no cobra en efectivo
+                    ni da meses sin intereses por su cuenta.
+                -->
+                <div v-if="p.opciones_disponibles.length" class="mt-5 border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">
+                    <p class="mb-3 text-xs font-medium uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
+                        Formas de pago que se le ofrecen al alumno
+                    </p>
+
+                    <div class="grid gap-3">
+                        <template v-for="op in p.opciones_disponibles" :key="op.clave">
+                            <!-- Interruptor: se acepta o no. -->
+                            <!--
+                                Sin aserción de tipo dentro del `v-model`: con
+                                ella el compilador de plantillas genera un
+                                acceso que LEE pero no escribe, así que la
+                                casilla se marcaba en pantalla y el valor nunca
+                                llegaba al formulario. Se veía guardar bien y no
+                                guardaba nada.
+                            -->
+                            <label v-if="op.tipo === 'interruptor'" class="flex items-start gap-2 text-sm">
+                                <input
+                                    v-model="forms[p.clave].opciones[op.clave]"
+                                    type="checkbox"
+                                    class="mt-0.5 h-4 w-4 rounded"
+                                />
+                                <span>
+                                    {{ op.etiqueta }}
+                                    <span v-if="op.ayuda" class="mt-0.5 block text-xs" :style="{ color: 'var(--color-suave)' }">{{ op.ayuda }}</span>
+                                </span>
+                            </label>
+
+                            <!-- Meses sin intereses: qué plazos se ofrecen. -->
+                            <div v-else :class="hayTarjeta(p) ? '' : 'opacity-50'">
+                                <p class="text-sm font-medium">{{ op.etiqueta }}</p>
+                                <div class="mt-1.5 flex flex-wrap gap-1.5">
+                                    <button
+                                        v-for="mes in op.valores"
+                                        :key="mes"
+                                        type="button"
+                                        class="rounded-full border px-3 py-1 text-xs font-medium transition"
+                                        :disabled="!hayTarjeta(p)"
+                                        :style="tieneMes(p.clave, op.clave, mes)
+                                            ? { backgroundColor: p.color, borderColor: p.color, color: '#fff' }
+                                            : { borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }"
+                                        @click="alternarMes(p.clave, op.clave, mes)"
+                                    >
+                                        {{ mes }} meses
+                                    </button>
+                                </div>
+                                <p v-if="!hayTarjeta(p)" class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">
+                                    Los meses sin intereses los pone la tarjeta de crédito: enciende la tarjeta para poder ofrecerlos.
+                                </p>
+                                <p v-else-if="op.ayuda" class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">{{ op.ayuda }}</p>
+                            </div>
+                        </template>
+                    </div>
+
+                    <p v-if="sinFormasDePago(p)" class="mt-3 text-xs text-red-600">
+                        Deja encendida al menos una forma de pago: sin ninguna, quien vaya a pagar no tendría con qué.
+                    </p>
+                </div>
+
                 <div class="mt-5 flex items-center gap-3 border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">
                     <button
                         type="button"
-                        :disabled="forms[p.clave].processing"
+                        :disabled="forms[p.clave].processing || sinFormasDePago(p)"
                         class="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
                         :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
                         @click="guardar(p)"

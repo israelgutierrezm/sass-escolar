@@ -64,6 +64,7 @@ class PasarelaMercadoPago implements Pasarela
              */
             'auto_return' => 'approved',
             'notification_url' => $urlAviso,
+            'payment_methods' => $this->formasDePago(),
         ]);
 
         if ($respuesta->failed()) {
@@ -193,6 +194,48 @@ class PasarelaMercadoPago implements Pasarela
     }
 
     // ── Interno ────────────────────────────────────────────────────────────
+
+    /**
+     * Qué se le ofrece al alumno, en el vocabulario de Mercado Pago.
+     *
+     * ── Se EXCLUYE lo apagado, no se incluye lo encendido ──────────────────
+     * Su API no recibe una lista de lo permitido: recibe una de lo excluido, y
+     * lo que no se excluya aparece. Invertirlo —mandar lo encendido como si
+     * fuera una lista blanca— dejaría todas las formas de pago activas sin que
+     * nadie lo notara, porque el cobro funcionaría igual.
+     *
+     * ── `installments` es el plazo MÁXIMO ──────────────────────────────────
+     * No una lista: se manda el mayor de los configurados y Mercado Pago ofrece
+     * los plazos hasta ése. Sin meses sin intereses va 1, que es un solo pago.
+     *
+     * @return array<string, mixed>
+     */
+    private function formasDePago(): array
+    {
+        $excluidos = [];
+
+        // «ticket» es el efectivo en tiendas: OXXO, farmacias, tiendas de
+        // conveniencia. «bank_transfer» y «account_money» son SPEI y el saldo
+        // de la propia cuenta de Mercado Pago.
+        if (! $this->config->aceptaMetodo('efectivo')) {
+            $excluidos[] = ['id' => 'ticket'];
+        }
+
+        if (! $this->config->aceptaMetodo('transferencia')) {
+            $excluidos[] = ['id' => 'bank_transfer'];
+            $excluidos[] = ['id' => 'account_money'];
+        }
+
+        if (! $this->config->aceptaMetodo('tarjeta')) {
+            $excluidos[] = ['id' => 'credit_card'];
+            $excluidos[] = ['id' => 'debit_card'];
+        }
+
+        return [
+            'excluded_payment_types' => $excluidos,
+            'installments' => $this->config->mesesMaximos(),
+        ];
+    }
 
     private function consultarPago(string $pagoId): ResultadoCobro
     {

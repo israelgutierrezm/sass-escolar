@@ -88,7 +88,16 @@ const props = defineProps<{
      * ninguna encendida, y entonces el botón ni aparece: ofrecer un pago que no
      * se puede completar es peor que no ofrecerlo.
      */
-    pasarelas: { clave: string; nombre: string; color: string | null; pruebas: boolean }[];
+    pasarelas: {
+        clave: string;
+        nombre: string;
+        color: string | null;
+        pruebas: boolean;
+        /** Plazos de meses sin intereses, de mayor a menor. Vacío = un solo pago. */
+        meses: number[];
+        /** ¿Acepta efectivo en tienda (OXXO y similares)? */
+        efectivo: boolean;
+    }[];
     facturas: { id: number; uuid: string | null; estatus: string; total: number; fecha_timbrado: string | null }[];
 }>();
 
@@ -419,20 +428,33 @@ function guardarSituacion(): void {
                     </span>
                 </p>
 
-                <div class="mt-3 flex flex-wrap gap-2">
-                    <button
-                        v-for="p in pasarelas"
-                        :key="p.clave"
-                        type="button"
-                        class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition hover:brightness-110 disabled:opacity-60"
-                        :style="{ backgroundColor: p.color ?? 'var(--color-acento)' }"
-                        :disabled="yendoAPagar !== null || totalEnLinea <= 0"
-                        @click="pagarEnLinea(p.clave)"
-                    >
-                        {{ yendoAPagar === p.clave ? 'Abriendo…' : `Pagar con ${p.nombre}` }}
-                        <!-- Que se sepa que no es dinero real. -->
-                        <span v-if="p.pruebas" class="rounded-full bg-white/25 px-1.5 py-0.5 text-xs">pruebas</span>
-                    </button>
+                <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                    <div v-for="p in pasarelas" :key="p.clave">
+                        <button
+                            type="button"
+                            class="inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition hover:brightness-110 disabled:opacity-60"
+                            :style="{ backgroundColor: p.color ?? 'var(--color-acento)' }"
+                            :disabled="yendoAPagar !== null || totalEnLinea <= 0"
+                            @click="pagarEnLinea(p.clave)"
+                        >
+                            {{ yendoAPagar === p.clave ? 'Abriendo…' : `Pagar con ${p.nombre}` }}
+                            <!-- Que se sepa que no es dinero real. -->
+                            <span v-if="p.pruebas" class="rounded-full bg-white/25 px-1.5 py-0.5 text-xs">pruebas</span>
+                        </button>
+
+                        <!--
+                            Los meses sin intereses y el pago en tienda cambian
+                            la decisión de quien va a pagar. Descubrirlos hasta
+                            dentro de la pasarela es descubrirlos tarde.
+                        -->
+                        <p v-if="p.meses.length || p.efectivo" class="mt-1 text-center text-xs" :style="{ color: 'var(--color-suave)' }">
+                            <template v-if="p.meses.length">
+                                Hasta {{ p.meses[0] }} meses sin intereses
+                            </template>
+                            <template v-if="p.meses.length && p.efectivo"> · </template>
+                            <template v-if="p.efectivo">También en efectivo</template>
+                        </p>
+                    </div>
                 </div>
 
                 <p v-if="errorDePago" class="mt-3 text-sm text-red-600">{{ errorDePago }}</p>
