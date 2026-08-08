@@ -22,6 +22,7 @@ use App\Http\Controllers\CatalogoAcademicoController;
 use App\Http\Controllers\ChatMateriaController;
 use App\Http\Controllers\CicloController;
 use App\Http\Controllers\CobroAspiranteController;
+use App\Http\Controllers\CobroEnLineaController;
 use App\Http\Controllers\ConceptoPagoController;
 use App\Http\Controllers\ConfiguracionController;
 use App\Http\Controllers\CorreoConfigController;
@@ -139,6 +140,28 @@ Route::middleware([
     // llega quien no ha iniciado sesión) y la barra lateral. Un logo no es un
     // secreto; de hecho su razón de ser es que se vea antes de entrar.
     Route::get('/institucion/logo', [InstitucionController::class, 'logoPublico'])->name('tenant.institucion.logo');
+
+    /*
+     * El aviso de la pasarela de pago (webhook). Esto es lo que de verdad cobra.
+     *
+     * Va PÚBLICO y sin CSRF a la fuerza: lo manda un servidor de Mercado Pago,
+     * que no tiene sesión, ni cookie, ni token de formulario. Exigirle
+     * cualquiera de las tres significa rechazar todos los avisos y que ningún
+     * pago en línea se aplique nunca.
+     *
+     * Que sea público NO lo hace confiable, y el diseño no depende de que lo
+     * sea: el aviso sólo dice QUÉ preguntar, y la respuesta sale de consultarle
+     * a la pasarela con nuestras credenciales. Quien mande un aviso falso
+     * consigue que preguntemos por un pago que no existe.
+     *
+     * Con `throttle` porque es un endpoint anónimo que dispara consultas
+     * salientes: sin él, cualquiera puede usarnos para hacerle peticiones a
+     * Mercado Pago.
+     */
+    Route::post('/pagos/aviso/{pasarela}', [CobroEnLineaController::class, 'aviso'])
+        ->middleware('throttle:120,1')
+        ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
+        ->name('tenant.pagos.aviso');
 
     Route::middleware('guest')->group(function () {
         Route::get('/', [AutenticacionController::class, 'mostrarLogin'])->name('tenant.login');
@@ -1540,6 +1563,23 @@ Route::middleware([
                 Route::put('/', 'guardar')->name('guardar');
                 Route::post('/probar', 'probar')->name('probar');
             });
+
+        /*
+         * Pagar en línea. Sin `can:` propio: quien puede ver un estado de
+         * cuenta puede pagarlo, y de eso se encarga el mismo trait que cierra
+         * la consulta. Un permiso aparte sería una segunda respuesta a la
+         * pregunta «¿de quién es esta cuenta?», que es justo lo que ya se
+         * descompuso una vez.
+         */
+        Route::controller(CobroEnLineaController::class)->prefix('pagos')->name('tenant.pagos.')->group(function () {
+            Route::post('/iniciar/{matricula}', 'iniciar')->whereNumber('matricula')->name('iniciar');
+            // El navegador vuelve aquí. No decide nada; ver el controlador.
+            Route::get('/retorno', 'retorno')->name('retorno');
+
+            // La pasarela de mentira. Responde 404 fuera del modo de pruebas.
+            Route::get('/simulador/{intencion}', 'simulador')->whereNumber('intencion')->name('simulador');
+            Route::post('/simulador/{intencion}', 'simular')->whereNumber('intencion')->name('simular');
+        });
 
         // Pasarelas de pago: mismo público que factura (configura cobros).
         Route::controller(PasarelaPagoController::class)

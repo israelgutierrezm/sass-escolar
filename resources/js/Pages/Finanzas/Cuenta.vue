@@ -83,6 +83,12 @@ const props = defineProps<{
     metodosPago: { id: number; clave: string; nombre: string; requiere_confirmacion: boolean }[];
     situacionesPago: { id: number; clave: string; nombre: string; bloquea: boolean }[];
     permisos: { registrarPagos: boolean; condonar: boolean; facturar: boolean };
+    /*
+     * Con qué se puede pagar en línea. Llega vacío cuando la escuela no tiene
+     * ninguna encendida, y entonces el botón ni aparece: ofrecer un pago que no
+     * se puede completar es peor que no ofrecerlo.
+     */
+    pasarelas: { clave: string; nombre: string; color: string | null; pruebas: boolean }[];
     facturas: { id: number; uuid: string | null; estatus: string; total: number; fecha_timbrado: string | null }[];
 }>();
 
@@ -90,6 +96,73 @@ const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN
 
 const cobrando = ref(false);
 const seleccionados = ref<number[]>([]);
+
+/*
+ * Pago en línea. Comparte la MISMA selección de cargos que el cobro en
+ * ventanilla: son la misma pregunta —«¿qué se está pagando?»— y tener dos
+ * listas obligaría a marcar dos veces para acabar en el mismo sitio.
+ */
+const pagandoEnLinea = ref(false);
+const yendoAPagar = ref<string | null>(null);
+const errorDePago = ref<string | null>(null);
+
+/** Sin marcar nada se pagan TODOS los cargos abiertos, que es lo que se espera. */
+const aPagarEnLinea = computed(() => {
+    const abiertos = props.cuenta.adeudos.filter((a) => a.saldo > 0);
+
+    return seleccionados.value.length
+        ? abiertos.filter((a) => seleccionados.value.includes(a.id))
+        : abiertos;
+});
+
+const totalEnLinea = computed(() =>
+    aPagarEnLinea.value.reduce((suma, a) => suma + a.saldo, 0),
+);
+
+/**
+ * Manda a la pasarela.
+ *
+ * La respuesta trae una URL de OTRO dominio, así que el servidor no puede
+ * redirigir: Inertia intentaría renderizar la página de Mercado Pago como si
+ * fuera nuestra. Se pide la liga y se navega a mano.
+ */
+async function pagarEnLinea(clave: string): Promise<void> {
+    yendoAPagar.value = clave;
+    errorDePago.value = null;
+
+    try {
+        const respuesta = await fetch(`/pagos/iniciar/${props.matricula.id}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+                'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
+            },
+            body: JSON.stringify({
+                pasarela: clave,
+                adeudo_ids: aPagarEnLinea.value.map((a) => a.id),
+            }),
+        });
+
+        const datos = await respuesta.json();
+
+        if (!respuesta.ok || !datos.url) {
+            // El motivo viene del servidor cuando se puede explicar (faltan
+            // credenciales, la pasarela no está lista); si no, algo genérico
+            // antes que un botón que no hace nada.
+            errorDePago.value = datos.motivo ?? datos.message
+                ?? 'No se pudo iniciar el pago. Inténtalo de nuevo en un momento.';
+
+            return;
+        }
+
+        window.location.href = datos.url;
+    } catch {
+        errorDePago.value = 'No se pudo contactar con la pasarela de pago.';
+    } finally {
+        yendoAPagar.value = null;
+    }
+}
 
 const pago = useForm({
     metodo_pago_id: props.metodosPago[0]?.id ?? null,
@@ -305,16 +378,70 @@ function guardarSituacion(): void {
         <section class="tarjeta overflow-hidden">
             <header class="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
                 <h2 class="text-base font-semibold">Cargos</h2>
-                <button
-                    v-if="permisos.registrarPagos && cuenta.resumen.adeudos_por_cobrar > 0"
-                    type="button"
-                    class="rounded-lg px-4 py-2 text-sm font-medium"
-                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                    @click="cobrando = !cobrando"
-                >
-                    {{ cobrando ? 'Cancelar cobro' : 'Registrar pago' }}
-                </button>
+                <div class="flex flex-wrap gap-2">
+                    <!--
+                        Pagar en línea no pide `registrarPagos`: quien puede ver
+                        esta cuenta puede pagarla —el alumno la suya, el padre la
+                        de su hijo—, y ese permiso es el de quien cobra EN
+                        VENTANILLA, que es otra cosa.
+                    -->
+                    <button
+                        v-if="pasarelas.length && cuenta.resumen.saldo > 0"
+                        type="button"
+                        class="rounded-lg border px-4 py-2 text-sm font-medium"
+                        :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
+                        @click="pagandoEnLinea = !pagandoEnLinea"
+                    >
+                        {{ pagandoEnLinea ? 'Cancelar' : 'Pagar en línea' }}
+                    </button>
+                    <button
+                        v-if="permisos.registrarPagos && cuenta.resumen.adeudos_por_cobrar > 0"
+                        type="button"
+                        class="rounded-lg px-4 py-2 text-sm font-medium"
+                        :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+                        @click="cobrando = !cobrando"
+                    >
+                        {{ cobrando ? 'Cancelar cobro' : 'Registrar pago' }}
+                    </button>
+                </div>
             </header>
+
+            <!-- Con qué pagar. -->
+            <div v-if="pagandoEnLinea" class="border-t px-6 py-4" :style="{ borderColor: 'var(--color-borde)' }">
+                <p class="text-sm">
+                    Vas a pagar
+                    <strong>{{ pesos.format(totalEnLinea) }}</strong>
+                    <span :style="{ color: 'var(--color-suave)' }">
+                        ({{ aPagarEnLinea.length === 1 ? '1 cargo' : `${aPagarEnLinea.length} cargos` }}).
+                        <template v-if="!seleccionados.length">
+                            Marca cargos en la tabla si quieres pagar sólo algunos.
+                        </template>
+                    </span>
+                </p>
+
+                <div class="mt-3 flex flex-wrap gap-2">
+                    <button
+                        v-for="p in pasarelas"
+                        :key="p.clave"
+                        type="button"
+                        class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition hover:brightness-110 disabled:opacity-60"
+                        :style="{ backgroundColor: p.color ?? 'var(--color-acento)' }"
+                        :disabled="yendoAPagar !== null || totalEnLinea <= 0"
+                        @click="pagarEnLinea(p.clave)"
+                    >
+                        {{ yendoAPagar === p.clave ? 'Abriendo…' : `Pagar con ${p.nombre}` }}
+                        <!-- Que se sepa que no es dinero real. -->
+                        <span v-if="p.pruebas" class="rounded-full bg-white/25 px-1.5 py-0.5 text-xs">pruebas</span>
+                    </button>
+                </div>
+
+                <p v-if="errorDePago" class="mt-3 text-sm text-red-600">{{ errorDePago }}</p>
+
+                <p class="mt-3 text-xs" :style="{ color: 'var(--color-suave)' }">
+                    El cargo se aplica cuando la pasarela confirma el pago. Si pagas por SPEI o en tienda,
+                    puede tardar unas horas en reflejarse.
+                </p>
+            </div>
 
             <form v-if="cobrando" class="border-t px-6 py-4" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="cobrar">
                 <div class="grid gap-3 sm:grid-cols-4">
