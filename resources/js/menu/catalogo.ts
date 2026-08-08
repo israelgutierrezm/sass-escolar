@@ -197,6 +197,9 @@ export const CATALOGO_MENU: GrupoMenu[] = [
             { clave: 'becas', etiqueta: 'Becas', url: '/finanzas/becas', permiso: 'gestionar-planes-cobro' },
             { clave: 'descuentos', etiqueta: 'Descuentos', url: '/finanzas/descuentos', permiso: 'gestionar-planes-cobro' },
             { clave: 'conceptos', etiqueta: 'Conceptos de pago', url: '/finanzas/conceptos', permiso: 'gestionar-planes-cobro' },
+            // Transferencias directas: dónde se reciben y qué falta por validar.
+            { clave: 'cuentas-bancarias', etiqueta: 'Cuentas bancarias', url: '/finanzas/cuentas-bancarias', permiso: 'ver-adeudos' },
+            { clave: 'comprobantes', etiqueta: 'Comprobantes', url: '/finanzas/comprobantes', permiso: 'ver-adeudos' },
             { clave: 'emisores', etiqueta: 'Razones sociales', url: '/finanzas/emisores', permiso: 'gestionar-emisores' },
         ],
     },

@@ -23,6 +23,8 @@ use App\Http\Controllers\ChatMateriaController;
 use App\Http\Controllers\CicloController;
 use App\Http\Controllers\CobroAspiranteController;
 use App\Http\Controllers\CobroEnLineaController;
+use App\Http\Controllers\ComprobantePagoController;
+use App\Http\Controllers\CuentaBancariaController;
 use App\Http\Controllers\ConceptoPagoController;
 use App\Http\Controllers\ConfiguracionController;
 use App\Http\Controllers\CorreoConfigController;
@@ -1107,6 +1109,34 @@ Route::middleware([
                     });
 
                 /*
+                 * Cuentas de la escuela para transferencias directas, y la cola
+                 * de comprobantes por validar.
+                 *
+                 * Configurar las cuentas va con el permiso de configurar el
+                 * cobro; APROBAR un comprobante va con el de registrar pagos,
+                 * porque aprobar es cobrar y no tiene por qué poder hacerlo
+                 * quien sólo arma planes.
+                 */
+                Route::controller(CuentaBancariaController::class)
+                    ->prefix('cuentas-bancarias')->name('cuentas.')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::post('/', 'guardar')->middleware('can:gestionar-planes-cobro')->name('store');
+                        Route::put('/{cuenta}', 'guardar')->whereNumber('cuenta')->middleware('can:gestionar-planes-cobro')->name('update');
+                        Route::delete('/{cuenta}', 'eliminar')->whereNumber('cuenta')->middleware('can:gestionar-planes-cobro')->name('destroy');
+                    });
+
+                Route::controller(ComprobantePagoController::class)
+                    ->prefix('comprobantes')->name('comprobantes.')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::post('/{comprobante}/aprobar', 'aprobar')
+                            ->whereNumber('comprobante')->middleware('can:registrar-pagos')->name('aprobar');
+                        Route::post('/{comprobante}/rechazar', 'rechazar')
+                            ->whereNumber('comprobante')->middleware('can:registrar-pagos')->name('rechazar');
+                    });
+
+                /*
                  * Becas: el catálogo con sus reglas y el otorgamiento por alumno.
                  * Otorgar una beca cuesta dinero, así que va con el mismo permiso
                  * que configurar el cobro, no con el de registrar pagos.
@@ -1588,6 +1618,18 @@ Route::middleware([
                 Route::put('/', 'guardar')->name('guardar');
                 Route::post('/probar', 'probar')->name('probar');
             });
+
+        /*
+         * Pagar por transferencia directa: subir el comprobante y consultarlo.
+         *
+         * Sin `can:` propio, igual que el cobro en línea: quien puede ver una
+         * cuenta puede pagarla. Aprobar SÍ pide permiso, y va en el bloque de
+         * finanzas porque aprobar es cobrar.
+         */
+        Route::controller(ComprobantePagoController::class)->prefix('comprobantes')->name('tenant.comprobantes.')->group(function () {
+            Route::post('/{matricula}', 'guardar')->whereNumber('matricula')->name('guardar');
+            Route::get('/{comprobante}/archivo', 'archivo')->whereNumber('comprobante')->name('archivo');
+        });
 
         /*
          * Pagar en línea. Sin `can:` propio: quien puede ver un estado de

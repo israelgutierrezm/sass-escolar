@@ -99,6 +99,14 @@ const props = defineProps<{
         /** ¿Acepta efectivo en tienda (OXXO y similares)? */
         efectivo: boolean;
     }[];
+    /**
+     * La otra vía: transferir a la cuenta de la escuela y subir el comprobante.
+     * Vacío = la escuela no tiene ninguna cuenta para esta carrera.
+     */
+    cuentasBancarias: {
+        id: number; nombre: string; banco: string; titular: string;
+        clabe: string | null; numero_cuenta: string | null; instrucciones: string | null;
+    }[];
     facturas: { id: number; uuid: string | null; estatus: string; total: number; fecha_timbrado: string | null }[];
 }>();
 
@@ -338,14 +346,19 @@ function guardarSituacion(): void {
                         de su hijo—, y ese permiso es el de quien cobra EN
                         VENTANILLA, que es otra cosa.
                     -->
+                    <!--
+                        Aparece con pasarelas O con cuenta para transferir: una
+                        escuela puede ofrecer sólo la transferencia, y atarlo a
+                        las pasarelas dejaba esa vía sin puerta de entrada.
+                    -->
                     <button
-                        v-if="pasarelas.length && cuenta.resumen.saldo > 0"
+                        v-if="(pasarelas.length || cuentasBancarias.length) && cuenta.resumen.saldo > 0"
                         type="button"
                         class="rounded-lg border px-4 py-2 text-sm font-medium"
                         :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
                         @click="pagandoEnLinea = !pagandoEnLinea"
                     >
-                        {{ pagandoEnLinea ? 'Cancelar' : 'Pagar en línea' }}
+                        {{ pagandoEnLinea ? 'Cancelar' : (pasarelas.length ? 'Pagar en línea' : 'Pagar') }}
                     </button>
                     <button
                         v-if="permisos.registrarPagos && cuenta.resumen.adeudos_por_cobrar > 0"
@@ -366,6 +379,7 @@ function guardarSituacion(): void {
                     :adeudos="cuenta.adeudos"
                     :pasarelas="pasarelas"
                     :seleccionados="seleccionados"
+                    :cuentas="cuentasBancarias"
                 >
                     <template #nota>
                         <template v-if="!seleccionados.length">

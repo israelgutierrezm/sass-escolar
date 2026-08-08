@@ -9,6 +9,7 @@ use App\Exceptions\AvisoParaElUsuario;
 use App\Models\Academico\PlanEstudio;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\Historial;
+use App\Models\Finanzas\CuentaBancaria;
 use App\Models\Finanzas\Factura;
 use App\Models\Identidad\BitacoraAcceso;
 use App\Models\Identidad\Persona;
@@ -139,6 +140,27 @@ class PadreController extends Controller
              */
             'pasarelas' => $vinculo->puede_ver_finanzas
                 ? app(Pasarelas::class)->disponibles()
+                : [],
+            /*
+             * Y la transferencia directa, con las cuentas que sirven para las
+             * carreras de sus hijos. Se juntan las de todas sus matrículas: la
+             * pantalla enseña una carrera a la vez, pero pedirlas por separado
+             * obligaría a recargar al cambiar de foco.
+             */
+            'cuentasBancarias' => $vinculo->puede_ver_finanzas
+                ? $matriculas
+                    ->flatMap(fn (MatriculaOferta $m) => CuentaBancaria::paraCarrera($m->oferta?->carrera_id))
+                    ->filter(fn (CuentaBancaria $c) => $c->puedeRecibir())
+                    ->unique('id')
+                    ->map(fn (CuentaBancaria $c) => [
+                        'id' => $c->id,
+                        'nombre' => $c->nombre,
+                        'banco' => $c->banco,
+                        'titular' => $c->titular,
+                        'clabe' => $c->clabe,
+                        'numero_cuenta' => $c->numero_cuenta,
+                        'instrucciones' => $c->instrucciones,
+                    ])->values()
                 : [],
             // Los accesos del hijo: un padre puede vigilar cuándo y desde dónde
             // entra su hijo, aunque no vea sus calificaciones ni sus finanzas.

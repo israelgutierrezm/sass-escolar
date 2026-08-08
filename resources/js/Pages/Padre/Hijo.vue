@@ -55,6 +55,11 @@ const props = defineProps<{
     finanzas: Finanza[] | null;
     /** Con qué se puede pagar aquí mismo. Vacío = la escuela no tiene ninguna. */
     pasarelas: { clave: string; nombre: string; color: string | null; pruebas: boolean; meses: number[]; efectivo: boolean }[];
+    /** Cuentas de la escuela para transferir sin pasarela. */
+    cuentasBancarias: {
+        id: number; nombre: string; banco: string; titular: string;
+        clabe: string | null; numero_cuenta: string | null; instrucciones: string | null;
+    }[];
     accesos: { tipo: string; ip: string | null; navegador: string | null; equipo: string | null; momento: string | null }[];
 }>();
 
@@ -269,7 +274,8 @@ function colorCalif(estatusClave: string | null): string {
                     El panel es el MISMO componente del estado de cuenta: pedir
                     la liga y explicar los fallos se escribe una vez.
                 -->
-                <div v-if="pasarelas.length && f.saldo > 0" class="mt-4 border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">
+                <!-- Con pasarelas O con cuenta para transferir: la escuela puede ofrecer sólo una de las dos. -->
+                <div v-if="(pasarelas.length || cuentasBancarias.length) && f.saldo > 0" class="mt-4 border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">
                     <button
                         v-if="!pagando[f.matricula_id]"
                         type="button"
@@ -285,6 +291,7 @@ function colorCalif(estatusClave: string | null): string {
                             :matricula-id="f.matricula_id"
                             :adeudos="f.adeudos"
                             :pasarelas="pasarelas"
+                            :cuentas="cuentasBancarias"
                         >
                             <template #nota>Se pagan todos los cargos con saldo.</template>
                         </PanelPagoEnLinea>

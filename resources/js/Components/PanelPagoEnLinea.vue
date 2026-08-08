@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 /**
@@ -31,6 +32,17 @@ interface PasarelaDisponible {
     metodos: { clave: string; etiqueta: string }[];
 }
 
+/** Una cuenta de la escuela para transferir sin pasarela. */
+interface CuentaBancaria {
+    id: number;
+    nombre: string;
+    banco: string;
+    titular: string;
+    clabe: string | null;
+    numero_cuenta: string | null;
+    instrucciones: string | null;
+}
+
 const props = withDefaults(
     defineProps<{
         matriculaId: number;
@@ -38,8 +50,13 @@ const props = withDefaults(
         pasarelas: PasarelaDisponible[];
         /** Cargos marcados. Vacío = se pagan todos los que tengan saldo. */
         seleccionados?: number[];
+        /**
+         * Cuentas para transferir directo. Vacío = la escuela no ofrece esta
+         * vía y el bloque ni aparece.
+         */
+        cuentas?: CuentaBancaria[];
     }>(),
-    { seleccionados: () => [] },
+    { seleccionados: () => [], cuentas: () => [] },
 );
 
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
@@ -65,6 +82,66 @@ const total = computed(() => aPagar.value.reduce((suma, a) => suma + a.saldo, 0)
  * redirigir: Inertia intentaría renderizar la página de la pasarela como si
  * fuera nuestra. Se pide la liga y se navega a mano.
  */
+/*
+ * ── La otra forma de pagar ─────────────────────────────────────────────────
+ * Transferir a la cuenta de la escuela y subir el comprobante. No liquida nada
+ * al mandarlo: alguien de la escuela tiene que validarlo, y eso se dice claro
+ * para que nadie se vaya creyendo que ya está pagado.
+ */
+const transfiriendo = ref(false);
+const cuentaElegida = ref<CuentaBancaria | null>(props.cuentas[0] ?? null);
+const copiado = ref<string | null>(null);
+const enviandoComprobante = ref(false);
+const errorComprobante = ref<string | null>(null);
+
+const comprobante = useForm({
+    cuenta_bancaria_id: null as number | null,
+    monto: '' as string | number,
+    fecha_transferencia: '',
+    referencia: '',
+    adeudo_ids: [] as number[],
+    archivo: null as File | null,
+});
+
+async function copiar(campo: string, valor: string): Promise<void> {
+    try {
+        await navigator.clipboard.writeText(valor);
+        copiado.value = campo;
+        setTimeout(() => { copiado.value = null; }, 2000);
+    } catch {
+        // Sin permiso de portapapeles el dato sigue a la vista.
+    }
+}
+
+function elegirArchivo(evento: Event): void {
+    comprobante.archivo = (evento.target as HTMLInputElement).files?.[0] ?? null;
+}
+
+function mandarComprobante(): void {
+    errorComprobante.value = null;
+
+    if (!comprobante.archivo) {
+        errorComprobante.value = 'Adjunta el comprobante de la transferencia.';
+
+        return;
+    }
+
+    comprobante.cuenta_bancaria_id = cuentaElegida.value?.id ?? null;
+    // Los mismos cargos que se están pagando: la elección es una sola.
+    comprobante.adeudo_ids = aPagar.value.map((a) => a.id);
+    enviandoComprobante.value = true;
+
+    comprobante.post(`/comprobantes/${props.matriculaId}`, {
+        preserveScroll: true,
+        forceFormData: true,
+        onSuccess: () => {
+            comprobante.reset('monto', 'fecha_transferencia', 'referencia', 'archivo');
+            transfiriendo.value = false;
+        },
+        onFinish: () => { enviandoComprobante.value = false; },
+    });
+}
+
 /**
  * La pasarela cuyo método se está eligiendo.
  *
@@ -184,6 +261,118 @@ async function pagar(clave: string, metodo?: string): Promise<void> {
                     <template v-if="p.efectivo">También en efectivo</template>
                 </p>
             </div>
+        </div>
+
+        <!--
+            Transferencia directa, sin pasarela.
+
+            Se presenta como lo que es: más barato para la escuela y más lento
+            para quien paga, porque alguien tiene que mirar el comprobante. Decir
+            eso por adelantado evita la llamada de «ya pagué y sigue apareciendo
+            el cargo».
+        -->
+        <div v-if="cuentas.length" class="mt-4 border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">
+            <button
+                v-if="!transfiriendo"
+                type="button"
+                class="rounded-lg border px-4 py-2 text-sm font-medium"
+                :style="{ borderColor: 'var(--color-borde)' }"
+                @click="transfiriendo = true"
+            >
+                O transferir a la cuenta de la escuela
+            </button>
+
+            <template v-else>
+                <p class="text-sm font-medium">Transferencia a la cuenta de la escuela</p>
+
+                <!-- Con varias cuentas hay que decir a cuál. -->
+                <label v-if="cuentas.length > 1" class="mt-2 block text-sm">
+                    <span class="mb-1 block text-xs" :style="{ color: 'var(--color-suave)' }">¿A qué cuenta?</span>
+                    <select
+                        v-model="cuentaElegida"
+                        class="w-full rounded-lg border bg-transparent px-3 py-1.5"
+                        :style="{ borderColor: 'var(--color-borde)' }"
+                    >
+                        <option v-for="c in cuentas" :key="c.id" :value="c">{{ c.nombre }} · {{ c.banco }}</option>
+                    </select>
+                </label>
+
+                <!-- Los datos se copian a mano: un dígito de más arruina el pago. -->
+                <dl v-if="cuentaElegida" class="mt-3 divide-y rounded-lg border px-3" :style="{ borderColor: 'var(--color-borde)' }">
+                    <div
+                        v-for="d in [
+                            { etiqueta: 'Banco', valor: cuentaElegida.banco },
+                            { etiqueta: 'Titular', valor: cuentaElegida.titular },
+                            { etiqueta: 'CLABE', valor: cuentaElegida.clabe },
+                            { etiqueta: 'Cuenta', valor: cuentaElegida.numero_cuenta },
+                        ].filter((d) => d.valor)"
+                        :key="d.etiqueta"
+                        class="flex items-center justify-between gap-3 py-2"
+                    >
+                        <div class="min-w-0">
+                            <dt class="text-[11px] uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">{{ d.etiqueta }}</dt>
+                            <dd class="break-all font-mono text-sm">{{ d.valor }}</dd>
+                        </div>
+                        <button
+                            type="button"
+                            class="shrink-0 rounded-lg border px-2.5 py-1 text-xs"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                            @click="copiar(d.etiqueta, String(d.valor))"
+                        >
+                            {{ copiado === d.etiqueta ? 'Copiado' : 'Copiar' }}
+                        </button>
+                    </div>
+                </dl>
+
+                <p v-if="cuentaElegida?.instrucciones" class="mt-2 text-xs" :style="{ color: 'var(--color-suave)' }">
+                    {{ cuentaElegida.instrucciones }}
+                </p>
+
+                <div class="mt-3 grid gap-2 sm:grid-cols-3">
+                    <label class="text-sm">
+                        <span class="mb-1 block text-xs" :style="{ color: 'var(--color-suave)' }">Cuánto transferiste</span>
+                        <input v-model="comprobante.monto" type="number" step="0.01" class="w-full rounded-lg border bg-transparent px-3 py-1.5" :style="{ borderColor: 'var(--color-borde)' }" />
+                    </label>
+                    <label class="text-sm">
+                        <span class="mb-1 block text-xs" :style="{ color: 'var(--color-suave)' }">Cuándo</span>
+                        <input v-model="comprobante.fecha_transferencia" type="date" class="w-full rounded-lg border bg-transparent px-3 py-1.5" :style="{ borderColor: 'var(--color-borde)' }" />
+                    </label>
+                    <label class="text-sm">
+                        <span class="mb-1 block text-xs" :style="{ color: 'var(--color-suave)' }">Referencia (opcional)</span>
+                        <input v-model="comprobante.referencia" type="text" class="w-full rounded-lg border bg-transparent px-3 py-1.5" :style="{ borderColor: 'var(--color-borde)' }" />
+                    </label>
+                </div>
+
+                <label class="mt-3 block text-sm">
+                    <span class="mb-1 block text-xs" :style="{ color: 'var(--color-suave)' }">Comprobante (imagen o PDF)</span>
+                    <input type="file" accept="image/*,application/pdf" class="w-full text-sm" @change="elegirArchivo" />
+                </label>
+
+                <p v-if="errorComprobante || comprobante.errors.archivo || comprobante.errors.monto || comprobante.errors.fecha_transferencia"
+                   class="mt-2 text-sm text-red-600">
+                    {{ errorComprobante || comprobante.errors.archivo || comprobante.errors.monto || comprobante.errors.fecha_transferencia }}
+                </p>
+
+                <div class="mt-3 flex flex-wrap items-center gap-3">
+                    <button
+                        type="button"
+                        class="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60"
+                        :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+                        :disabled="enviandoComprobante"
+                        @click="mandarComprobante"
+                    >
+                        {{ enviandoComprobante ? 'Enviando…' : 'Enviar comprobante' }}
+                    </button>
+                    <button type="button" class="text-sm" :style="{ color: 'var(--color-suave)' }" @click="transfiriendo = false">
+                        Cancelar
+                    </button>
+                </div>
+
+                <p class="mt-2 text-xs" :style="{ color: 'var(--color-suave)' }">
+                    El cargo NO se liquida al enviarlo: la escuela revisa el comprobante y lo aplica.
+                    Suele tardar un día hábil.
+                </p>
+            </template>
         </div>
 
         <p v-if="error" class="mt-3 text-sm text-red-600">{{ error }}</p>

@@ -11,6 +11,8 @@ use App\Http\Controllers\Concerns\VeLaCarteraDelAlumno;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Finanzas\Adeudo;
 use App\Models\Finanzas\BitacoraSituacionFinanciera;
+use App\Models\Finanzas\ComprobantePago;
+use App\Models\Finanzas\CuentaBancaria;
 use App\Models\Finanzas\Factura;
 use App\Models\Finanzas\MetodoPago;
 use App\Models\Finanzas\Pago;
@@ -199,6 +201,37 @@ class FinanzasController extends Controller
              * completar es peor que no ofrecerlo.
              */
             'pasarelas' => app(Pasarelas::class)->disponibles(),
+            /*
+             * La otra forma de pagar: transferir a la cuenta de la escuela y
+             * subir el comprobante. Sólo las cuentas que sirven para SU carrera
+             * —una escuela suele tener una por carrera o por nivel— y que
+             * tengan a dónde transferir.
+             */
+            'cuentasBancarias' => CuentaBancaria::paraCarrera($matricula->oferta?->carrera_id)
+                ->filter(fn (CuentaBancaria $c) => $c->puedeRecibir())
+                ->map(fn (CuentaBancaria $c) => [
+                    'id' => $c->id,
+                    'nombre' => $c->nombre,
+                    'banco' => $c->banco,
+                    'titular' => $c->titular,
+                    'clabe' => $c->clabe,
+                    'numero_cuenta' => $c->numero_cuenta,
+                    'instrucciones' => $c->instrucciones,
+                ])->values(),
+            // Lo que ya subió y está esperando: sin esto vuelve a subirlo.
+            'comprobantes' => ComprobantePago::query()
+                ->where('matricula_oferta_id', $matricula->id)
+                ->orderByDesc('id')
+                ->limit(10)
+                ->get()
+                ->map(fn (ComprobantePago $c) => [
+                    'id' => $c->id,
+                    'monto' => (float) $c->monto,
+                    'fecha' => $c->fecha_transferencia?->toDateString(),
+                    'estado' => $c->estado,
+                    'motivo_rechazo' => $c->motivo_rechazo,
+                    'subido_en' => $c->created_at?->toDateTimeString(),
+                ])->values(),
             'permisos' => [
                 'registrarPagos' => $request->user()->can('registrar-pagos'),
                 'condonar' => $request->user()->can('condonar-adeudos'),
