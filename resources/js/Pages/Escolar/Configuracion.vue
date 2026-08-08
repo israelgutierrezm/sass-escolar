@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
@@ -250,6 +250,12 @@ const porNivel = computed(() => {
                                 -->
                                 <p v-if="plan.desajustadas" class="mt-1 text-xs text-amber-700">
                                     {{ textoDesajuste(plan.desajustadas) }}
+                                    <Link
+                                        :href="`/escolar/configuracion/planes/${plan.id}/calificaciones`"
+                                        class="underline"
+                                    >
+                                        Verlas
+                                    </Link>
                                 </p>
                             </div>
                             <button

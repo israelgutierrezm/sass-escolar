@@ -107,6 +107,28 @@ class CalificacionesFueraDeEscalaTest extends TenantTestCase
     }
 
     /**
+     * El detalle lista SÓLO las que no cuadran.
+     *
+     * Se escapó al escribirlo: el conteo filtraba y la lista no, así que la
+     * pantalla enseñaba todas las calificaciones del plan —la que sobra y la
+     * que está perfecta— y obligaba a buscar a ojo cuál había que corregir. Se
+     * vio en el navegador, con 96 renglones donde debía haber 85.
+     */
+    public function test_el_detalle_no_trae_las_que_ya_cuadran(): void
+    {
+        $escuela = $this->conCalificaciones([8.5, 9.0, 7.25, 10.0], decimales: 0);
+        $plan = PlanEstudio::findOrFail($escuela['plan']);
+
+        $filas = $this->detector->deUnPlan($plan);
+
+        $this->assertCount(2, $filas, 'Sólo el 8.5 y el 7.25.');
+        $this->assertEqualsCanonicalizing(
+            [8.5, 7.25],
+            $filas->map(fn ($f) => (float) $f->calificacion)->all(),
+        );
+    }
+
+    /**
      * Una calificación borrada no cuenta.
      *
      * El historial se corrige con borrado suave; una fila retirada no debe

@@ -8,9 +8,11 @@ use App\Enums\ModoRedondeo;
 use App\Exceptions\AvisoParaElUsuario;
 use App\Models\Academico\Carrera;
 use App\Models\Academico\PlanEstudio;
+use App\Models\Plataforma\Auditoria;
 use App\Services\CalificacionesFueraDeEscala;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -149,6 +151,116 @@ class ConfiguracionEscolarController extends Controller
             'carrera' => "Se aplicó a los {$cuantos} planes de la carrera.",
             default => 'Escala de calificación actualizada.',
         });
+    }
+
+    /**
+     * Las calificaciones de un plan que no cumplen su escala, una por una.
+     *
+     * ── Por qué una lista y no un botón que lo arregle todo ────────────────
+     * Son actas asentadas. Un botón que redondea ochenta y cinco calificaciones
+     * de golpe cambia promedios, becas y quizá contradice un documento impreso,
+     * y lo hace sin que nadie haya visto qué se movía. Aquí se ve cada renglón
+     * —de quién es, de qué materia, qué dice y qué quedaría— y se corrige la
+     * que se quiera corregir.
+     */
+    public function calificaciones(Request $request, PlanEstudio $plan): Response
+    {
+        $plan->load('carrera:id,nombre');
+
+        return Inertia::render('Escolar/CalificacionesFueraDeEscala', [
+            'plan' => [
+                'id' => $plan->id,
+                'nombre' => $plan->nombre,
+                'carrera' => $plan->carrera?->nombre,
+                'minima' => (float) $plan->calificacion_minima,
+                'maxima' => (float) $plan->calificacion_maxima,
+                'decimales' => (int) ($plan->decimales_calificacion ?? 2),
+                'como_califica' => $plan->comoSeCalifica(),
+                'como_redondea' => $plan->comoSeRedondea(),
+            ],
+            'filas' => $this->fueraDeEscala->deUnPlan($plan)->map(fn ($f) => [
+                'id' => $f->id,
+                'matricula' => $f->matricula,
+                'alumno' => $f->alumno,
+                'materia' => $f->materia,
+                'ciclo' => $f->ciclo,
+                'calificacion' => (float) $f->calificacion,
+                // Lo que quedaría con la escala de hoy: sin esto habría que
+                // hacer la cuenta a mano para saber si el cambio es inocuo.
+                'sugerida' => (float) $plan->redondear((float) $f->calificacion),
+                // Un acta ya asentada no impide corregir, pero tiene que verse.
+                'acta' => $f->acta_folio,
+            ])->values(),
+            'puedeCorregir' => $request->user()->can('capturar-calificaciones'),
+        ]);
+    }
+
+    /**
+     * Corrige UNA calificación del historial.
+     *
+     * ── Queda registrado, siempre ──────────────────────────────────────────
+     * Cambiar una calificación asentada es de las cosas que después alguien
+     * pregunta —el alumno, un auditor, la propia escuela— y la respuesta no
+     * puede depender de que alguien se acuerde. Va a la bitácora con el valor
+     * anterior, el nuevo, quién y desde dónde.
+     */
+    public function corregirCalificacion(Request $request, int $historial): RedirectResponse
+    {
+        $fila = DB::table('historial')->where('id', $historial)->whereNull('deleted_at')->first();
+
+        AvisoParaElUsuario::aMenosQue($fila !== null, 404, 'Ese renglón del historial ya no existe.');
+
+        $plan = $this->planDelHistorial($fila);
+
+        AvisoParaElUsuario::aMenosQue(
+            $plan !== null,
+            422,
+            'Ese renglón no cuelga de ningún plan de estudios, así que no hay escala contra la cual corregirlo.',
+        );
+
+        $datos = $request->validate([
+            'calificacion' => PlanEstudio::reglasPara($plan),
+        ]);
+
+        $nueva = (float) $datos['calificacion'];
+        $anterior = (float) $fila->calificacion;
+
+        if (abs($nueva - $anterior) < 0.0001) {
+            return back()->with('info', 'Esa calificación ya tiene ese valor.');
+        }
+
+        DB::transaction(function () use ($fila, $anterior, $nueva, $request) {
+            DB::table('historial')->where('id', $fila->id)->update([
+                'calificacion' => $nueva,
+                'updated_at' => now(),
+                'updated_by' => $request->user()->id,
+            ]);
+
+            Auditoria::create([
+                'auditable_type' => 'historial',
+                'auditable_id' => $fila->id,
+                'evento' => 'calificacion_corregida',
+                // Se guarda el folio del acta: si lo había, es el dato que
+                // convierte una corrección en algo que hay que poder explicar.
+                'valores_anteriores' => ['calificacion' => $anterior, 'acta_folio' => $fila->acta_folio],
+                'valores_nuevos' => ['calificacion' => $nueva],
+                'usuario_id' => $request->user()->id,
+                'ip' => $request->ip(),
+            ]);
+        });
+
+        return back()->with('exito', "Calificación corregida de {$anterior} a {$nueva}. Queda registrado quién y cuándo.");
+    }
+
+    /** A qué plan pertenece un renglón del historial (llega por la oferta). */
+    private function planDelHistorial(object $fila): ?PlanEstudio
+    {
+        $planId = DB::table('matricula_oferta as mo')
+            ->join('oferta as o', 'o.id', '=', 'mo.oferta_id')
+            ->where('mo.id', $fila->matricula_oferta_id)
+            ->value('o.plan_id');
+
+        return $planId ? PlanEstudio::find($planId) : null;
     }
 
     /**

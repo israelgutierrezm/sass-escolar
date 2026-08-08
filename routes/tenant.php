@@ -958,6 +958,24 @@ Route::middleware([
                             ->whereNumber('plan')
                             ->middleware('can:editar-catalogo-academico')
                             ->name('planes.guardar');
+
+                        /*
+                         * Lo ya capturado que no cumple la escala de hoy.
+                         *
+                         * Corregir pide `capturar-calificaciones` y no el
+                         * permiso del catálogo: cambiar la escala es
+                         * configuración, pero tocar la calificación de un
+                         * alumno es capturar, y no tiene por qué poder hacerlo
+                         * quien sólo administra planes de estudio.
+                         */
+                        Route::get('planes/{plan}/calificaciones', 'calificaciones')
+                            ->whereNumber('plan')
+                            ->name('planes.calificaciones');
+
+                        Route::put('historial/{historial}', 'corregirCalificacion')
+                            ->whereNumber('historial')
+                            ->middleware('can:capturar-calificaciones')
+                            ->name('historial.corregir');
                     });
 
                 Route::get('ciclos', [CicloController::class, 'index'])->name('ciclos.index');

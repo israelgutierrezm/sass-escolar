@@ -69,6 +69,19 @@ class CalificacionesFueraDeEscala
         $decimales = (int) ($plan->decimales_calificacion ?? 2);
 
         return $this->consultaDe($plan)
+            /*
+             * SÓLO las que no cuadran, con el mismo criterio que las cuenta.
+             *
+             * Sin este filtro la pantalla listaba TODAS las calificaciones del
+             * plan —la que sobra y la que está perfecta—, así que la lista no
+             * decía nada y obligaba a buscar a ojo lo que había que corregir.
+             * El conteo sí filtraba: eran dos criterios donde debía haber uno.
+             */
+            ->where(function ($q) use ($plan, $decimales) {
+                $q->whereRaw("ROUND(h.calificacion, {$decimales}) <> h.calificacion")
+                    ->orWhere('h.calificacion', '<', (float) $plan->calificacion_minima)
+                    ->orWhere('h.calificacion', '>', (float) $plan->calificacion_maxima);
+            })
             ->join('matricula_oferta as m', 'm.id', '=', 'h.matricula_oferta_id')
             ->leftJoin('personas as p', 'p.id', '=', 'm.persona_id')
             ->leftJoin('plan_materias as pm', 'pm.id', '=', 'h.plan_materia_id')
