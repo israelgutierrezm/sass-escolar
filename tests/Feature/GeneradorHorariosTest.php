@@ -233,6 +233,69 @@ class GeneradorHorariosTest extends TenantTestCase
         }
     }
 
+    // ── Lo que otras corridas ya le cargaron al docente ────────────────────
+
+    /**
+     * El tope semanal cuenta lo que ese docente YA tiene agendado.
+     *
+     * Los horarios se generan grupo por grupo. Si cada corrida arranca creyendo
+     * que el docente está libre, se le carga su tope completo una vez por
+     * grupo: cada horario es válido por separado y juntos no caben en una
+     * semana. El error no aparece hasta que alguien suma a mano.
+     */
+    public function test_el_tope_semanal_cuenta_lo_ya_agendado_en_otro_grupo(): void
+    {
+        $escuela = $this->escuelaConMateria(horas: 4);
+        $this->regla($escuela, maxHorasSemana: 4);
+        $docente = $this->docenteApto($escuela, disponibleDe: '07:00', a: '19:00');
+
+        // Ya da 4 horas en OTRO grupo, y es el titular de esa materia.
+        $ajena = $this->materiaEnOtroGrupo($escuela, $docente);
+
+        $this->fila('horarios_asignatura_grupo', [
+            'asignatura_grupo_id' => $ajena,
+            'dia_semana' => 1,
+            'hora_inicio' => '15:00:00',
+            'hora_fin' => '19:00:00',
+            'modalidad' => 'presencial',
+        ]);
+
+        $salida = $this->generador->paraGrupos([$escuela['grupo']]);
+
+        $this->assertSame([], $salida['bloques'], 'Ya llegó a su tope semanal: no debería tomar nada más.');
+        $this->assertCount(1, $salida['sin_colocar']);
+    }
+
+    /**
+     * Y no se le pone en dos grupos a la misma hora.
+     *
+     * Es la otra mitad del mismo olvido, y la más grave: el choque de aula sí se
+     * detectaba porque el aula viajaba con el bloque guardado; el de la persona
+     * no, así que el docente quedaba citado en dos salones a la vez y sólo se
+     * notaba mirando los dos horarios juntos.
+     */
+    public function test_no_encima_al_docente_con_su_horario_de_otro_grupo(): void
+    {
+        $escuela = $this->escuelaConMateria(horas: 2);
+        $this->regla($escuela);
+        $docente = $this->docenteApto($escuela, disponibleDe: '07:00', a: '09:00', dias: [1]);
+
+        // A esa MISMA hora ya da clase en otro grupo.
+        $ajena = $this->materiaEnOtroGrupo($escuela, $docente);
+
+        $this->fila('horarios_asignatura_grupo', [
+            'asignatura_grupo_id' => $ajena,
+            'dia_semana' => 1,
+            'hora_inicio' => '07:00:00',
+            'hora_fin' => '09:00:00',
+            'modalidad' => 'presencial',
+        ]);
+
+        $salida = $this->generador->paraGrupos([$escuela['grupo']]);
+
+        $this->assertSame([], $salida['bloques'], 'Su única hora libre ya está ocupada en otro grupo.');
+    }
+
     // ── El docente ya asignado manda ───────────────────────────────────────
 
     /**
@@ -415,6 +478,31 @@ class GeneradorHorariosTest extends TenantTestCase
     /** La asignatura de la última materia agregada con `otraMateriaEnElGrupo`. */
     private int $ultimaAsignatura = 0;
 
+    /** Una materia de otro grupo, impartida por ese docente. Para simular otra corrida. */
+    private function materiaEnOtroGrupo(array $escuela, int $persona): int
+    {
+        $otroGrupo = $this->fila('grupos', [
+            'ciclo_id' => $escuela['ciclo'],
+            'campus_id' => $escuela['campus'],
+            'plan_id' => $escuela['plan'],
+            'clave' => 'G-'.uniqid(),
+            'situacion_id' => $this->deCatalogo('situaciones_grupo'),
+            'nivel_estudios_id' => $this->nivelDePrueba(),
+            'semestre' => 1,
+            'cupo' => 40,
+        ]);
+
+        [$asignaturaGrupo] = $this->materiaEnGrupo($otroGrupo, $escuela['plan'], 4);
+
+        $this->fila('docente_asignatura_grupo', [
+            'asignatura_grupo_id' => $asignaturaGrupo,
+            'persona_id' => $persona,
+            'tipo' => 'titular',
+        ]);
+
+        return $asignaturaGrupo;
+    }
+
     private function aulaExtra(int $campus): void
     {
         $this->fila('aulas', [
@@ -507,6 +595,7 @@ class GeneradorHorariosTest extends TenantTestCase
         array $escuela,
         int $maxBloquesSesion = 3,
         ?int $maxHorasDia = null,
+        ?int $maxHorasSemana = null,
     ): ReglaHorario {
         return ReglaHorario::create([
             'nombre' => 'De prueba',
@@ -520,6 +609,7 @@ class GeneradorHorariosTest extends TenantTestCase
             'bloques_max_por_sesion' => $maxBloquesSesion,
             'max_sesiones_por_dia' => 1,
             'horas_max_dia_docente' => $maxHorasDia,
+            'horas_max_semana_docente' => $maxHorasSemana,
         ]);
     }
 }

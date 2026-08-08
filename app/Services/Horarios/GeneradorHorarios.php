@@ -8,7 +8,6 @@ use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Aula;
 use App\Models\ControlEscolar\DisponibilidadDocente;
 use App\Models\ControlEscolar\Grupo;
-use App\Models\ControlEscolar\HorarioAsignaturaGrupo;
 use App\Models\ControlEscolar\ReglaHorario;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -443,35 +442,15 @@ class GeneradorHorarios
 
     private function agendaConLoQueYaExiste(Collection $materias, Collection $grupos): Agenda
     {
-        $grupoDe = $materias->pluck('grupo_id', 'id')->all();
-
-        $agenda = new Agenda($grupoDe);
-
         /*
-         * Lo que ya estaba en la base entra a la agenda.
+         * Lo que ya estaba en la base entra a la agenda, CON su docente.
          *
-         * Generar el horario de un grupo sin mirar los demás produciría choques
-         * de aula y de docente con lo ya resuelto, y aparecerían en producción
-         * en vez de aquí.
+         * Se carga desde `AgendaDeLaEscuela` y no aquí porque el aplicador
+         * necesita exactamente lo mismo: tenerlo dos veces fue lo que dejó que
+         * las dos copias olvidaran al docente y con él los topes de carga entre
+         * corridas.
          */
-        HorarioAsignaturaGrupo::query()
-            ->with('asignaturaGrupo:id,grupo_id')
-            ->get()
-            ->each(function (HorarioAsignaturaGrupo $h) use ($agenda, &$grupoDe) {
-                $grupoDe[$h->asignatura_grupo_id] ??= $h->asignaturaGrupo?->grupo_id;
-
-                $agenda->ocupar(new Bloque(
-                    $h->asignatura_grupo_id,
-                    (int) $h->dia_semana,
-                    DisponibilidadDocente::aMinutos((string) $h->hora_inicio),
-                    DisponibilidadDocente::aMinutos((string) $h->hora_fin),
-                    null,
-                    $h->aula_id,
-                    (string) ($h->modalidad ?? 'presencial'),
-                ));
-            });
-
-        return $agenda;
+        return AgendaDeLaEscuela::actual();
     }
 
     /** @return array<int, array<int, int>> asignatura => [persona => preferencia] */

@@ -124,6 +124,91 @@ class AplicadorHorarioTest extends TenantTestCase
         $this->aplicador->aplicar([$this->bloque($nueva, dia: 1, de: '08:00', a: '10:00')]);
     }
 
+    /**
+     * Ni al docente en dos grupos a la vez.
+     *
+     * El bloque guardado del otro grupo lleva a su titular, así que aplicar una
+     * propuesta que le pone clase a esa misma hora se detiene aquí. Antes no:
+     * los bloques guardados entraban sin docente, el choque de aula se notaba
+     * —el aula sí viajaba— y el de la persona no.
+     */
+    public function test_rechaza_al_docente_ocupado_en_otro_grupo(): void
+    {
+        $escuela = $this->alumnoInscrito();
+        $persona = $this->docente();
+
+        $ajena = $this->materia($escuela, $this->grupoDe($escuela));
+        $nueva = $this->materia($escuela, $this->grupoDe($escuela));
+
+        $this->fila('docente_asignatura_grupo', [
+            'asignatura_grupo_id' => $ajena,
+            'persona_id' => $persona,
+            'tipo' => 'titular',
+        ]);
+
+        $this->fila('horarios_asignatura_grupo', [
+            'asignatura_grupo_id' => $ajena,
+            'dia_semana' => 1,
+            'hora_inicio' => '07:00:00',
+            'hora_fin' => '09:00:00',
+            'modalidad' => 'presencial',
+        ]);
+
+        $this->expectException(AvisoParaElUsuario::class);
+
+        $this->aplicador->aplicar([
+            $this->bloque($nueva, dia: 1, de: '08:00', a: '10:00', persona: $persona),
+        ]);
+    }
+
+    /**
+     * Con titular y adjunto, el ocupado es el TITULAR.
+     *
+     * De él cuelga la carga y es quien no puede estar en dos lugares. El
+     * adjunto acompaña: contarlo como ocupado bloquearía huecos que en la
+     * práctica sí existen, y una escuela con adjuntos en media plantilla se
+     * quedaría sin poder agendar nada.
+     */
+    public function test_entre_titular_y_adjunto_el_ocupado_es_el_titular(): void
+    {
+        $escuela = $this->alumnoInscrito();
+        $titular = $this->docente();
+        $adjunto = $this->docente();
+
+        $ajena = $this->materia($escuela, $this->grupoDe($escuela));
+        $nueva = $this->materia($escuela, $this->grupoDe($escuela));
+
+        // El adjunto se registra ANTES, para que no gane por orden de llegada.
+        $this->fila('docente_asignatura_grupo', [
+            'asignatura_grupo_id' => $ajena, 'persona_id' => $adjunto, 'tipo' => 'adjunto',
+        ]);
+        $this->fila('docente_asignatura_grupo', [
+            'asignatura_grupo_id' => $ajena, 'persona_id' => $titular, 'tipo' => 'titular',
+        ]);
+
+        $this->fila('horarios_asignatura_grupo', [
+            'asignatura_grupo_id' => $ajena,
+            'dia_semana' => 1,
+            'hora_inicio' => '07:00:00',
+            'hora_fin' => '09:00:00',
+            'modalidad' => 'presencial',
+        ]);
+
+        // Al adjunto sí se le puede agendar a esa hora.
+        $this->aplicador->aplicar([
+            $this->bloque($nueva, dia: 1, de: '08:00', a: '10:00', persona: $adjunto),
+        ]);
+
+        $this->assertSame(1, HorarioAsignaturaGrupo::where('asignatura_grupo_id', $nueva)->count());
+
+        // Al titular no.
+        $this->expectException(AvisoParaElUsuario::class);
+
+        $this->aplicador->aplicar([
+            $this->bloque($nueva, dia: 1, de: '08:00', a: '10:00', persona: $titular),
+        ]);
+    }
+
     /** Una materia que ya no existe detiene todo: la propuesta está vieja. */
     public function test_rechaza_una_materia_inexistente(): void
     {

@@ -143,23 +143,14 @@ class AplicadorHorario
     private function rechazarChoques(array $bloques, array $materias, array $reemplazan): void
     {
         /*
-         * El mapa materia => grupo tiene que cubrir TODO lo que entre a la
-         * agenda, no sólo lo de la propuesta: sin el grupo de los bloques ya
-         * guardados, un choque con el horario de otra materia del mismo grupo
-         * pasaría desapercibido.
+         * Lo que ya existe y NO se va a reemplazar, con su docente y su grupo.
+         *
+         * Viene de `AgendaDeLaEscuela` para que sea EXACTAMENTE lo mismo que ve
+         * el generador: cuando cada uno lo cargaba por su cuenta, los dos
+         * perdían al docente de los bloques guardados y con él la posibilidad
+         * de notar que esa persona ya daba clase a esa hora en otro grupo.
          */
-        $grupoDe = AsignaturaGrupo::query()
-            ->pluck('grupo_id', 'id')
-            ->all();
-
-        $agenda = new Agenda($grupoDe);
-
-        // Lo que ya existe y NO se va a reemplazar.
-        HorarioAsignaturaGrupo::query()
-            ->with('asignaturaGrupo:id,grupo_id')
-            ->when($reemplazan !== [], fn ($q) => $q->whereNotIn('asignatura_grupo_id', $reemplazan))
-            ->get()
-            ->each(fn (HorarioAsignaturaGrupo $h) => $agenda->ocupar($this->comoBloque($h)));
+        $agenda = AgendaDeLaEscuela::actual($reemplazan);
 
         foreach ($bloques as $crudo) {
             $bloque = new Bloque(
@@ -245,19 +236,6 @@ class AplicadorHorario
                 'updated_at' => now(),
             ]);
         }
-    }
-
-    private function comoBloque(HorarioAsignaturaGrupo $h): Bloque
-    {
-        return new Bloque(
-            $h->asignatura_grupo_id,
-            (int) $h->dia_semana,
-            DisponibilidadDocente::aMinutos((string) $h->hora_inicio),
-            DisponibilidadDocente::aMinutos((string) $h->hora_fin),
-            null,
-            $h->aula_id,
-            (string) ($h->modalidad ?? 'presencial'),
-        );
     }
 
     private function cuando(Bloque $bloque): string
