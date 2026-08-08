@@ -22,6 +22,7 @@ interface Plan {
     maxima: number;
     aprobatoria: number;
     decimales: number;
+    redondeo: string;
 }
 
 interface Carrera {
@@ -43,6 +44,18 @@ const DECIMALES = [
     { valor: 1, texto: 'Un decimal (8.5)' },
     { valor: 2, texto: 'Dos decimales (8.75)' },
     { valor: 3, texto: 'Tres decimales (8.756)' },
+];
+
+/*
+ * Qué se hace con lo que no cabe en esa precisión.
+ *
+ * No es presentación: decide quién se titula con mención y quién conserva una
+ * beca, porque el promedio redondeado es el que se compara contra el mínimo.
+ */
+const REDONDEOS = [
+    { valor: 'medio_arriba', texto: 'De 0.5 en adelante sube (8.5 → 9)' },
+    { valor: 'seis_arriba', texto: 'De 0.6 en adelante sube (8.5 → 8, 8.6 → 9)' },
+    { valor: 'abajo', texto: 'Nunca sube (8.9 → 8)' },
 ];
 
 /*
@@ -81,6 +94,7 @@ function guardar(): void {
         calificacion_maxima: borrador.value.maxima,
         calificacion_minima_aprobatoria: borrador.value.aprobatoria,
         decimales_calificacion: borrador.value.decimales,
+        redondeo_calificacion: borrador.value.redondeo,
         aplicar_a: alcance.value,
     }, {
         preserveScroll: true,
@@ -97,13 +111,19 @@ function coinciden(planes: Plan[]): boolean {
         p.minima === primero.minima
         && p.maxima === primero.maxima
         && p.aprobatoria === primero.aprobatoria
-        && p.decimales === primero.decimales);
+        && p.decimales === primero.decimales
+        && p.redondeo === primero.redondeo);
 }
 
 function comoCalifica(plan: Plan): string {
     const precision = DECIMALES.find((d) => d.valor === plan.decimales)?.texto ?? '';
 
     return `${plan.minima} a ${plan.maxima} · aprueba con ${plan.aprobatoria} · ${precision.toLowerCase()}`;
+}
+
+/** El redondeo se dice aparte: sólo importa cuando hay algo que recortar. */
+function comoRedondea(plan: Plan): string {
+    return REDONDEOS.find((r) => r.valor === plan.redondeo)?.texto ?? '';
 }
 
 const desalineadas = computed(() => props.carreras.filter((c) => !coinciden(c.planes)).length);
@@ -182,6 +202,9 @@ const porNivel = computed(() => {
                             <div class="min-w-0">
                                 <p class="text-sm font-medium">{{ plan.nombre }}</p>
                                 <p class="text-xs" :style="{ color: 'var(--color-suave)' }">{{ comoCalifica(plan) }}</p>
+                                <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                                    Redondeo: {{ comoRedondea(plan) }}
+                                </p>
                             </div>
                             <button
                                 v-if="puedeEditar"
@@ -217,6 +240,20 @@ const porNivel = computed(() => {
                                 <span class="mb-1 block text-xs" :style="{ color: 'var(--color-suave)' }">Se califica con</span>
                                 <select v-model.number="borrador.decimales" class="w-full rounded-lg border bg-transparent px-3 py-1.5" :style="{ borderColor: 'var(--color-borde)' }">
                                     <option v-for="d in DECIMALES" :key="d.valor" :value="d.valor">{{ d.texto }}</option>
+                                </select>
+                            </label>
+
+                            <!--
+                                Qué pasa con lo que no cabe. No es cosmético: el
+                                promedio redondeado es el que se compara contra
+                                el mínimo de una beca.
+                            -->
+                            <label class="block text-sm">
+                                <span class="mb-1 block text-xs" :style="{ color: 'var(--color-suave)' }">
+                                    Al redondear un promedio
+                                </span>
+                                <select v-model="borrador.redondeo" class="w-full rounded-lg border bg-transparent px-3 py-1.5" :style="{ borderColor: 'var(--color-borde)' }">
+                                    <option v-for="r in REDONDEOS" :key="r.valor" :value="r.valor">{{ r.texto }}</option>
                                 </select>
                             </label>
 

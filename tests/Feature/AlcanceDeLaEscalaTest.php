@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Enums\ModoRedondeo;
 use App\Exceptions\AvisoParaElUsuario;
 use App\Http\Controllers\ConfiguracionEscolarController;
 use App\Models\Academico\Carrera;
@@ -75,6 +76,35 @@ class AlcanceDeLaEscalaTest extends TenantTestCase
 
         $this->assertSame(3, $deOtraCarreraMismoNivel->fresh()->decimales_calificacion);
         $this->assertSame(2, $deOtroNivel->fresh()->decimales_calificacion, 'No debe alcanzar a otro nivel.');
+    }
+
+    /**
+     * El modo de redondeo también viaja con el alcance.
+     *
+     * Es la mitad que faltaba: de nada sirve decidir «esta carrera califica con
+     * enteros» si cada plan resuelve por su cuenta qué es un 8.5.
+     */
+    public function test_el_redondeo_se_aplica_a_toda_la_carrera(): void
+    {
+        [$plan, $hermano] = $this->dosPlanesDeLaMismaCarrera();
+
+        $this->guardar($plan, decimales: 0, alcance: 'carrera', redondeo: ModoRedondeo::SEIS_ARRIBA);
+
+        $this->assertSame(ModoRedondeo::SEIS_ARRIBA, $hermano->fresh()->modoRedondeo());
+        $this->assertSame(8.0, $hermano->fresh()->redondear(8.5), 'Con seis-arriba, 8.5 no sube.');
+    }
+
+    /** Y un modo que no existe se rechaza. */
+    public function test_rechaza_un_modo_de_redondeo_inventado(): void
+    {
+        [$plan] = $this->dosPlanesDeLaMismaCarrera();
+
+        $peticion = $this->peticionDeGuardado($plan, decimales: 0, alcance: 'plan');
+        $peticion->merge(['redondeo_calificacion' => 'hacia_los_lados']);
+
+        $this->expectException(ValidationException::class);
+
+        $this->controlador->guardar($peticion, $plan);
     }
 
     /** Tres decimales se aceptan; cuatro no. */
@@ -223,17 +253,32 @@ class AlcanceDeLaEscalaTest extends TenantTestCase
         int $decimales,
         string $alcance,
         float $aprobatoria = 6,
+        ?ModoRedondeo $redondeo = null,
     ): void {
+        $this->controlador->guardar(
+            $this->peticionDeGuardado($plan, $decimales, $alcance, $aprobatoria, $redondeo),
+            $plan,
+        );
+    }
+
+    private function peticionDeGuardado(
+        PlanEstudio $plan,
+        int $decimales,
+        string $alcance,
+        float $aprobatoria = 6,
+        ?ModoRedondeo $redondeo = null,
+    ): Request {
         $peticion = Request::create("/escolar/configuracion/planes/{$plan->id}", 'PUT', [
             'calificacion_minima' => 0,
             'calificacion_maxima' => 10,
             'calificacion_minima_aprobatoria' => $aprobatoria,
             'decimales_calificacion' => $decimales,
+            'redondeo_calificacion' => ($redondeo ?? ModoRedondeo::MEDIO_ARRIBA)->value,
             'aplicar_a' => $alcance,
         ]);
 
         $peticion->setUserResolver(fn () => $this->usuarioConAlcance());
 
-        $this->controlador->guardar($peticion, $plan);
+        return $peticion;
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\Academico\PlanEstudio;
 use App\Models\ControlEscolar\Historial;
 use App\Models\Identidad\Persona;
 
@@ -38,7 +39,7 @@ class EstadoDelAlumno
             'vencido' => false,
         ];
 
-        $matriculas = $alumno->matriculas()->get();
+        $matriculas = $alumno->matriculas()->with('oferta.plan')->get();
 
         if ($matriculas->isEmpty()) {
             return $estado;
@@ -54,7 +55,10 @@ class EstadoDelAlumno
 
             $estado['promedio'] = $conCalif->isEmpty()
                 ? null
-                : round($conCalif->avg(fn (Historial $h) => (float) $h->calificacion), 1);
+                : PlanEstudio::redondearCon(
+                    $this->planQueManda($matriculas),
+                    (float) $conCalif->avg(fn (Historial $h) => (float) $h->calificacion),
+                );
 
             /*
              * Reprobadas, no «no aprobadas»: una materia en curso todavía no
@@ -93,5 +97,28 @@ class EstadoDelAlumno
         }
 
         return $estado;
+    }
+
+    /**
+     * Con qué plan se redondea un promedio que mezcla carreras.
+     *
+     * Aquí el promedio junta TODAS las matrículas —si cursa dos carreras, es
+     * uno solo—, y cada plan puede calificar distinto: uno con enteros y otro
+     * con dos decimales. No hay una respuesta correcta, así que no se elige una
+     * a escondidas: sólo se usa el plan cuando todas las matrículas comparten
+     * el mismo. Con planes distintos se cae al comportamiento de siempre —dos
+     * decimales, medio arriba— en vez de aplicarle a una carrera la regla de la
+     * otra.
+     *
+     * @param  \Illuminate\Support\Collection<int, \App\Models\Admisiones\MatriculaOferta>  $matriculas
+     */
+    private function planQueManda($matriculas): ?PlanEstudio
+    {
+        $planes = $matriculas
+            ->map(fn ($m) => $m->oferta?->plan)
+            ->filter()
+            ->unique('id');
+
+        return $planes->count() === 1 ? $planes->first() : null;
     }
 }

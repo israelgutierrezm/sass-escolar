@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Exceptions\AvisoParaElUsuario;
 
+use App\Models\Academico\PlanEstudio;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\Historial;
 use App\Models\Finanzas\Factura;
@@ -164,9 +165,15 @@ class PadreController extends Controller
             'carrera' => $m->oferta?->carrera?->nombre,
             'plan' => $m->oferta?->plan?->nombre,
             'estatus' => $m->estatus,
+            // El promedio, en la precisión del plan del hijo: se redondeaba a
+            // dos decimales fijos aquí y a uno en el expediente, así que el
+            // mismo alumno tenía dos promedios según quién lo mirara.
             'promedio' => $conCalif->isEmpty()
                 ? null
-                : round((float) $conCalif->avg(fn (Historial $h) => (float) $h->calificacion), 2),
+                : PlanEstudio::redondearCon(
+                    $m->oferta?->plan,
+                    (float) $conCalif->avg(fn (Historial $h) => (float) $h->calificacion),
+                ),
             'creditos' => round($aprobadas->sum(
                 fn (Historial $h) => (float) ($h->planMateria?->asignatura?->creditos ?? 0)
             ), 1),

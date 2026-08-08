@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\Academico\PlanEstudio;
+use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Finanzas\Adeudo;
 use App\Models\Finanzas\AdeudoAjuste;
 use App\Models\Finanzas\Beca;
@@ -217,17 +219,38 @@ class EvaluadorBecas
      * finales. Solo cuenta lo ya calificado: una materia sin calificar no debe
      * arrastrar el promedio hacia abajo y costarle la beca a alguien.
      *
+     * ── Redondeado como manda cada plan ────────────────────────────────────
+     * Este promedio se compara contra el mínimo de la beca, así que el
+     * redondeo decide quién la conserva: con un plan de enteros, un 8.5 que
+     * sube a 9 cumple un mínimo de 9 y sin subir no. Se redondeaba a dos
+     * decimales fijos para todos, ignorando lo que la escuela hubiera
+     * configurado.
+     *
      * @return array<int, float>  matricula_oferta_id => promedio
      */
     public function promediosDe(Ciclo $ciclo): array
     {
-        return Inscripcion::query()
+        $crudos = Inscripcion::query()
             ->where('ciclo_id', $ciclo->id)
             ->whereNotNull('calificacion_final')
             ->groupBy('matricula_oferta_id')
             ->selectRaw('matricula_oferta_id, AVG(calificacion_final) as promedio')
-            ->pluck('promedio', 'matricula_oferta_id')
-            ->map(fn ($p) => round((float) $p, 2))
+            ->pluck('promedio', 'matricula_oferta_id');
+
+        // Los planes de una vez: son tantos como matrículas evaluadas y
+        // pedirlos uno por uno convertiría el cierre de ciclo en una consulta
+        // por alumno.
+        $planes = MatriculaOferta::query()
+            ->with('oferta.plan')
+            ->whereIn('id', $crudos->keys())
+            ->get()
+            ->mapWithKeys(fn (MatriculaOferta $m) => [$m->id => $m->oferta?->plan]);
+
+        return $crudos
+            ->map(fn ($p, $matriculaId) => PlanEstudio::redondearCon(
+                $planes[$matriculaId] ?? null,
+                (float) $p,
+            ))
             ->all();
     }
 

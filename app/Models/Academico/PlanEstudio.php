@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models\Academico;
 
+use App\Enums\ModoRedondeo;
 use App\Models\Concerns\TieneAuditoria;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -32,6 +33,7 @@ class PlanEstudio extends Model
         'calificacion_maxima',
         'calificacion_minima_aprobatoria',
         'decimales_calificacion',
+        'redondeo_calificacion',
         'minimo_creditos',
         'minimo_asignaturas',
         'total_creditos',
@@ -49,6 +51,7 @@ class PlanEstudio extends Model
             'vigente' => 'boolean',
             'minimo_creditos' => 'float',
             'total_creditos' => 'float',
+            'redondeo_calificacion' => ModoRedondeo::class,
         ];
     }
 
@@ -146,5 +149,56 @@ class PlanEstudio extends Model
             1 => 'con un decimal',
             default => "con hasta {$decimales} decimales",
         };
+    }
+
+    public function modoRedondeo(): ModoRedondeo
+    {
+        return $this->redondeo_calificacion ?? ModoRedondeo::MEDIO_ARRIBA;
+    }
+
+    /**
+     * Deja un promedio en la precisión de este plan.
+     *
+     * ── Por qué existe ─────────────────────────────────────────────────────
+     * Que la CAPTURA exija enteros no sirve de nada si el promedio se sigue
+     * enseñando como 8.33: el plan dice que aquí no hay decimales y la pantalla
+     * muestra dos. Peor, cada sitio traía su propio `round()` con una precisión
+     * distinta —el expediente redondeaba a un decimal y el portal del padre a
+     * dos—, así que el mismo alumno tenía dos promedios según quién mirara.
+     *
+     * El `null` se conserva: «todavía no tiene promedio» no es lo mismo que
+     * cero, y convertirlo en 0.0 le inventaría un reprobado a quien no ha
+     * cursado nada.
+     */
+    public function redondear(?float $valor): ?float
+    {
+        if ($valor === null) {
+            return null;
+        }
+
+        return $this->modoRedondeo()->aplicar($valor, (int) ($this->decimales_calificacion ?? 2));
+    }
+
+    /**
+     * Redondea cuando puede no haber plan.
+     *
+     * Sin plan se usa lo que el sistema hacía antes de que esto se pudiera
+     * configurar —dos decimales, medio arriba—, para que la falta de una
+     * relación no cambie un promedio.
+     */
+    public static function redondearCon(?self $plan, ?float $valor): ?float
+    {
+        if ($valor === null) {
+            return null;
+        }
+
+        return $plan?->redondear($valor)
+            ?? ModoRedondeo::MEDIO_ARRIBA->aplicar($valor, 2);
+    }
+
+    /** Cómo se le explica el redondeo a quien configura la escala. */
+    public function comoSeRedondea(): string
+    {
+        return $this->modoRedondeo()->etiqueta();
     }
 }

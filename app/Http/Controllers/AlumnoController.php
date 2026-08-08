@@ -424,7 +424,7 @@ class AlumnoController extends Controller
                 'creditos' => round($aprobadas->sum(
                     fn (Historial $h) => (float) ($h->planMateria?->asignatura?->creditos ?? 0)
                 ), 2),
-                'promedio' => $this->promedio($mejores),
+                'promedio' => $this->promedio($mejores, $alumno->oferta?->plan),
                 'creditos_del_plan' => $alumno->oferta?->plan?->total_creditos,
                 'materias_para_completar' => $metaMaterias,
                 // Cerró el plan: aprobó al menos las materias que exige.
@@ -1193,7 +1193,15 @@ class AlumnoController extends Controller
         ];
     }
 
-    private function promedio($historial): ?float
+    /**
+     * El promedio, en la precisión que manda el plan.
+     *
+     * Se redondeaba a dos decimales fijos, así que un plan que califica con
+     * enteros —y que rechaza capturar un 8.5— enseñaba un promedio de 8.33.
+     * El plan dice con cuántos decimales se califica y qué se hace con lo que
+     * sobra; aquí sólo se le pregunta.
+     */
+    private function promedio($historial, ?PlanEstudio $plan): ?float
     {
         $conCalificacion = $historial->filter(fn (Historial $h) => $h->calificacion !== null);
 
@@ -1201,6 +1209,9 @@ class AlumnoController extends Controller
             return null;
         }
 
-        return round((float) $conCalificacion->avg(fn (Historial $h) => (float) $h->calificacion), 2);
+        return PlanEstudio::redondearCon(
+            $plan,
+            (float) $conCalificacion->avg(fn (Historial $h) => (float) $h->calificacion),
+        );
     }
 }

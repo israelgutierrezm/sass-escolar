@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Enums\ModoRedondeo;
 use App\Exceptions\AvisoParaElUsuario;
 use App\Models\Academico\Carrera;
 use App\Models\Academico\PlanEstudio;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -70,6 +72,7 @@ class ConfiguracionEscolarController extends Controller
                     'maxima' => (float) $p->calificacion_maxima,
                     'aprobatoria' => (float) $p->calificacion_minima_aprobatoria,
                     'decimales' => (int) ($p->decimales_calificacion ?? 2),
+                    'redondeo' => $p->modoRedondeo()->value,
                 ])->values(),
             ])
             // Una carrera sin planes no tiene nada que configurar todavía.
@@ -97,6 +100,8 @@ class ConfiguracionEscolarController extends Controller
             'calificacion_maxima' => ['required', 'numeric', 'gt:calificacion_minima'],
             'calificacion_minima_aprobatoria' => ['required', 'numeric'],
             'decimales_calificacion' => ['required', 'integer', 'between:0,3'],
+            // Qué se hace con lo que no cabe en esa precisión.
+            'redondeo_calificacion' => ['required', Rule::enum(ModoRedondeo::class)],
             // A qué alcanza el cambio: sólo este plan, su carrera o su nivel.
             'aplicar_a' => ['required', 'in:plan,carrera,nivel'],
         ], [
