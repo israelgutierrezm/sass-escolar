@@ -29,6 +29,7 @@ interface Carrera {
     nombre: string;
     nivel_id: number | null;
     nivel: string;
+    nivel_orden: number;
     planes: Plan[];
 }
 
@@ -108,23 +109,29 @@ function comoCalifica(plan: Plan): string {
 const desalineadas = computed(() => props.carreras.filter((c) => !coinciden(c.planes)).length);
 
 /**
- * Las carreras agrupadas por nivel.
+ * Las carreras agrupadas por nivel, en la progresión de la escuela.
  *
  * Es como se decide: «los posgrados califican con dos decimales» es una frase
  * sobre un nivel, no sobre once carreras. Verlas juntas también deja ver de un
  * vistazo si el nivel entero es coherente.
+ *
+ * Y se ordenan por el `orden` del catálogo —bachillerato, licenciatura,
+ * maestría— porque alfabéticamente quedaría doctorado antes que licenciatura,
+ * que no es como nadie piensa en los niveles.
  */
 const porNivel = computed(() => {
-    const grupos = new Map<string, Carrera[]>();
+    const grupos = new Map<string, { orden: number; carreras: Carrera[] }>();
 
     for (const carrera of props.carreras) {
-        const lista = grupos.get(carrera.nivel) ?? [];
+        const grupo = grupos.get(carrera.nivel) ?? { orden: carrera.nivel_orden, carreras: [] };
 
-        lista.push(carrera);
-        grupos.set(carrera.nivel, lista);
+        grupo.carreras.push(carrera);
+        grupos.set(carrera.nivel, grupo);
     }
 
-    return [...grupos.entries()].map(([nivel, carreras]) => ({ nivel, carreras }));
+    return [...grupos.entries()]
+        .map(([nivel, grupo]) => ({ nivel, ...grupo }))
+        .sort((a, b) => a.orden - b.orden);
 });
 </script>
 

@@ -7,7 +7,6 @@ namespace App\Http\Controllers;
 use App\Exceptions\AvisoParaElUsuario;
 use App\Models\Academico\Carrera;
 use App\Models\Academico\PlanEstudio;
-use App\Models\Landlord\NivelEstudio;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -32,34 +31,38 @@ class ConfiguracionEscolarController extends Controller
 {
     public function index(Request $request): Response
     {
-        /*
-         * Los niveles viven en el landlord y las carreras sólo guardan su id,
-         * sin llave foránea: se resuelven de una vez y se indexan, en vez de
-         * consultar uno por carrera.
-         */
-        $niveles = NivelEstudio::query()->pluck('nombre', 'id');
-
         $carreras = Carrera::query()
-            ->with(['planes' => fn ($q) => $q->orderBy('nombre')])
+            /*
+             * El nivel se pide por la RELACIÓN, no consultando un catálogo a
+             * mano.
+             *
+             * Se consultaba `Landlord\NivelEstudio`, y los niveles dejaron de
+             * vivir ahí cuando cada escuela pasó a administrar los suyos: el
+             * landlord sólo conserva la semilla. La consulta no fallaba —los
+             * ids existían, en la tabla equivocada—, así que las carreras de la
+             * escuela salían como «Nivel desconocido (#81)» estando bien.
+             */
+            ->with(['nivelEstudios', 'planes' => fn ($q) => $q->orderBy('nombre')])
             ->orderBy('nombre')
             ->get()
             ->map(fn (Carrera $c) => [
                 'id' => $c->id,
                 'nombre' => $c->nombre,
                 'nivel_id' => $c->nivel_estudios_id,
+                // Los niveles se enseñan en su progresión —bachillerato antes
+                // que doctorado—, que es el `orden` del catálogo. Las que no
+                // tienen nivel van al final.
+                'nivel_orden' => $c->nivelEstudios?->orden ?? PHP_INT_MAX,
                 /*
                  * Un nivel que no está en el catálogo se dice CON su id.
                  *
-                 * `carreras.nivel_estudios_id` apunta al landlord sin llave
-                 * foránea —así está desde el principio—, así que puede quedar
-                 * señalando a un nivel que ya no existe. Llamarlo «Sin nivel»
-                 * lo confundiría con una carrera a la que no se le asignó
-                 * ninguno, que es un problema distinto y se arregla distinto.
+                 * La carrera SIEMPRE tiene nivel —la columna no admite nulos—,
+                 * pero la referencia no lleva llave foránea, así que puede
+                 * quedar señalando a uno que se borró. Enseñar el id es lo
+                 * único que permite ir a buscarlo.
                  */
-                'nivel' => $niveles[$c->nivel_estudios_id]
-                    ?? ($c->nivel_estudios_id === null
-                        ? 'Sin nivel asignado'
-                        : "Nivel desconocido (#{$c->nivel_estudios_id})"),
+                'nivel' => $c->nivelEstudios?->nombre
+                    ?? "Nivel desconocido (#{$c->nivel_estudios_id})",
                 'planes' => $c->planes->map(fn (PlanEstudio $p) => [
                     'id' => $p->id,
                     'nombre' => $p->nombre,

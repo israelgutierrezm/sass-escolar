@@ -104,7 +104,71 @@ class AlcanceDeLaEscalaTest extends TenantTestCase
         $this->guardar($plan, decimales: 1, alcance: 'plan', aprobatoria: 15);
     }
 
+    /**
+     * El nivel que se enseña sale del catálogo DE LA ESCUELA.
+     *
+     * La pantalla agrupa por nivel, y el nombre se pedía a
+     * `Landlord\NivelEstudio` —donde vivían los niveles antes de que cada
+     * escuela administrara los suyos—. No fallaba: los ids existían, en la
+     * tabla equivocada, así que las carreras salían como «Nivel desconocido
+     * (#81)» estando perfectamente bien y la pantalla invitaba a «arreglar»
+     * datos que no estaban rotos.
+     */
+    public function test_el_nivel_sale_del_catalogo_de_la_escuela(): void
+    {
+        [$plan] = $this->dosPlanesDeLaMismaCarrera();
+
+        $nivel = $this->fila('niveles_estudio', [
+            'clave' => 'POS-'.uniqid(),
+            'nombre' => 'Posgrado de prueba',
+            'orden' => 9,
+        ]);
+
+        $plan->carrera->update(['nivel_estudios_id' => $nivel]);
+
+        $carrera = $this->carreraEnPantalla($plan->carrera_id);
+
+        $this->assertSame('Posgrado de prueba', $carrera['nivel']);
+        $this->assertSame(9, $carrera['nivel_orden']);
+    }
+
+    /**
+     * Y un nivel que ya no está se dice CON su id.
+     *
+     * La carrera siempre tiene nivel —la columna no admite nulos—, pero la
+     * referencia al catálogo no lleva llave foránea y puede quedar señalando a
+     * uno borrado. El id es lo único que permite ir a buscar cuál era.
+     */
+    public function test_un_nivel_borrado_se_dice_con_su_id(): void
+    {
+        [$plan] = $this->dosPlanesDeLaMismaCarrera();
+
+        $plan->carrera->update(['nivel_estudios_id' => 999999]);
+
+        $this->assertSame(
+            'Nivel desconocido (#999999)',
+            $this->carreraEnPantalla($plan->carrera_id)['nivel'],
+        );
+    }
+
     // ── Andamiaje ──────────────────────────────────────────────────────────
+
+    /**
+     * Cómo llega una carrera a la pantalla.
+     *
+     * @return array<string, mixed>
+     */
+    private function carreraEnPantalla(int $carreraId): array
+    {
+        $peticion = $this->peticionDe($this->usuarioConAlcance(), '/escolar/configuracion');
+        $props = $this->propsDe($this->controlador->index($peticion), $peticion);
+
+        $carrera = collect($props['carreras'])->firstWhere('id', $carreraId);
+
+        $this->assertNotNull($carrera, 'La carrera no llegó a la pantalla.');
+
+        return $carrera;
+    }
 
     /** @return array{0: PlanEstudio, 1: PlanEstudio} */
     private function dosPlanesDeLaMismaCarrera(): array
