@@ -101,8 +101,18 @@ class ReglaHorario extends Model
     /** Cuántos minutos dura la jornada, para saber cuántos bloques caben. */
     public function minutosDeJornada(): int
     {
-        return DisponibilidadDocente::aMinutos((string) $this->hora_cierre)
-            - DisponibilidadDocente::aMinutos((string) $this->hora_apertura);
+        return self::minutosEntre((string) $this->hora_apertura, (string) $this->hora_cierre);
+    }
+
+    /**
+     * Lo mismo para una jornada que TODAVÍA no se guarda.
+     *
+     * La pantalla necesita avisar de una jornada imposible antes de crear la
+     * regla, y para eso no hay modelo sobre el que preguntar.
+     */
+    public static function minutosEntre(string $apertura, string $cierre): int
+    {
+        return DisponibilidadDocente::aMinutos($cierre) - DisponibilidadDocente::aMinutos($apertura);
     }
 
     /** Los bloques en que se corta el día, como minutos desde medianoche. */

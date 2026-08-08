@@ -81,6 +81,7 @@ use App\Http\Controllers\PortalAspiranteController;
 use App\Http\Controllers\PresentacionExamenController;
 use App\Http\Controllers\PromocionController;
 use App\Http\Controllers\RecuperacionController;
+use App\Http\Controllers\ReglaHorarioController;
 use App\Http\Controllers\ReglaMatriculaController;
 use App\Http\Controllers\RespuestaFormularioController;
 use App\Http\Controllers\RolActivoController;
@@ -890,6 +891,23 @@ Route::middleware([
                             Route::post('generar', 'generar')->name('generar');
                             Route::post('aplicar', 'aplicar')->name('aplicar');
                         });
+                    });
+
+                /*
+                 * Los criterios con que se arma un horario.
+                 *
+                 * Van con `generar-horarios` y no con `editar-horarios`: quien
+                 * captura a mano no necesita —ni debe— cambiarle la jornada a
+                 * toda la escuela.
+                 */
+                Route::controller(ReglaHorarioController::class)
+                    ->prefix('reglas-horario')->name('reglas-horario.')
+                    ->middleware('can:generar-horarios')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::post('/', 'store')->name('store');
+                        Route::put('{regla}', 'update')->whereNumber('regla')->name('update');
+                        Route::delete('{regla}', 'destroy')->whereNumber('regla')->name('destroy');
                     });
 
                 Route::get('ciclos', [CicloController::class, 'index'])->name('ciclos.index');
