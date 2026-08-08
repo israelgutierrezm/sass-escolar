@@ -48,15 +48,21 @@ enum EstadoCobro: string
         };
     }
 
-    /** Lo que se le dice a quien acaba de pagar. */
+    /**
+     * Lo que se le dice a quien acaba de pagar.
+     *
+     * Sin «tu pago» ni «tus cargos»: a esta pantalla llega también un padre que
+     * acaba de pagar la cuenta de su hijo, y decirle que se aplicó «a tus
+     * cargos» es hablarle de una deuda que no es suya.
+     */
     public function mensaje(): string
     {
         return match ($this) {
-            self::APROBADO => 'Tu pago se recibió y ya está aplicado a tus cargos.',
-            self::PENDIENTE => 'Tu pago está en proceso. En cuanto el banco lo confirme se aplicará a tus cargos.',
+            self::APROBADO => 'El pago se recibió y ya está aplicado a los cargos.',
+            self::PENDIENTE => 'El pago está en proceso. En cuanto el banco lo confirme se aplicará a los cargos.',
             self::RECHAZADO => 'El pago fue rechazado. No se hizo ningún cargo; puedes intentar con otro medio.',
-            self::CANCELADO => 'Cancelaste el pago. No se hizo ningún cargo.',
-            self::DESCONOCIDO => 'Todavía estamos confirmando tu pago. Si ya se hizo el cargo, aparecerá en tu estado de cuenta en unos minutos.',
+            self::CANCELADO => 'Se canceló el pago. No se hizo ningún cargo.',
+            self::DESCONOCIDO => 'Todavía estamos confirmando el pago. Si el cargo ya se hizo, aparecerá en el estado de cuenta en unos minutos.',
         };
     }
 }

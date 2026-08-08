@@ -13,20 +13,32 @@ use App\Support\PasarelasCatalogo;
  *
  * ── Lo que está y lo que no ────────────────────────────────────────────────
  * La pantalla de configuración ofrece cinco pasarelas y hoy cobran de verdad
- * **Mercado Pago** y **Conekta**. Las otras tres se pueden configurar y activar,
- * pero al intentar cobrar dicen que todavía no están, con su nombre y en
- * castellano.
+ * **Mercado Pago**, **Conekta** y **Stripe**. **OpenPay** y **PayPal** se
+ * pueden configurar y activar, pero al intentar cobrar dicen que todavía no
+ * están, con su nombre y en castellano.
  *
- * Es a propósito: cada pasarela es una API distinta, con su formato de aviso y
- * su firma, y escribir cuatro a ciegas —sin credenciales con las que
- * comprobarlas— habría dado cuatro integraciones plausibles y ninguna
- * verificada. La forma de fallar importa: un mensaje claro al configurarla es
- * molesto; un cobro que parece funcionar y no concilia es dinero perdido.
+ * Las tres implementadas comparten la misma forma —una liga a un checkout
+ * alojado donde quien paga elige entre lo que la escuela encendió—, y por eso
+ * encajan en este flujo sin torcerlo.
+ *
+ * **OpenPay no la tiene**: cobra por cargo y hay que decirle de antemano si es
+ * tarjeta, tienda o SPEI, así que exige un paso más de interfaz —elegir el
+ * método ANTES de salir— que hoy no existe. Meterla a la fuerza significaría
+ * ofrecer sólo tarjeta y llamarlo «OpenPay», que es prometer de menos.
+ *
+ * **PayPal** sí tiene checkout alojado, pero en México no cobra en efectivo ni
+ * da meses sin intereses por su cuenta: cabría, aunque sin nada de lo que hace
+ * atractivo el pago en línea aquí.
+ *
+ * Que falten es a propósito: escribirlas a ciegas —sin credenciales con las que
+ * comprobarlas— daría integraciones plausibles y ninguna verificada. La forma
+ * de fallar importa: un mensaje claro al configurarla es molesto; un cobro que
+ * parece funcionar y no concilia es dinero perdido.
  */
 class Pasarelas
 {
     /** Las que ya cobran de verdad. */
-    public const IMPLEMENTADAS = ['mercadopago', 'conekta'];
+    public const IMPLEMENTADAS = ['mercadopago', 'conekta', 'stripe'];
 
     /**
      * La pasarela lista para operar, o un aviso de por qué no se puede.
@@ -70,6 +82,7 @@ class Pasarelas
         return match ($config->clave) {
             'mercadopago' => new PasarelaMercadoPago($config),
             'conekta' => new PasarelaConekta($config),
+            'stripe' => new PasarelaStripe($config),
             // Inalcanzable: lo impide la comprobación de IMPLEMENTADAS. Está
             // para que agregar una pasarela nueva sin registrarla arriba falle
             // aquí y no devuelva algo a medias.
