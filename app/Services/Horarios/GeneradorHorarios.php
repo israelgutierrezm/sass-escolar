@@ -229,7 +229,9 @@ class GeneradorHorarios
         }
 
         if ($minutosPendientes > 0 && $motivo === null) {
-            $motivo = 'No hay huecos suficientes: se colocó lo que cupo.';
+            $motivo = $this->algunAulaLeQueda($aulas[$materia['campus_id']] ?? [], $materia['cupo'])
+                ? 'No hay huecos suficientes: se colocó lo que cupo.'
+                : 'Ningún salón del campus tiene capacidad para '.$materia['cupo'].' alumnos.';
         }
 
         return [
@@ -307,7 +309,7 @@ class GeneradorHorarios
                 return $tentativo;
             }
 
-            $aula = $this->aulaLibre($aulas[$materia['campus_id']] ?? [], $tentativo, $agenda);
+            $aula = $this->aulaLibre($aulas[$materia['campus_id']] ?? [], $tentativo, $agenda, $materia['cupo']);
 
             if ($aula !== null) {
                 return $tentativo->conAula($aula);
@@ -372,15 +374,61 @@ class GeneradorHorarios
     }
 
     /** @param  int[]  $delCampus */
-    private function aulaLibre(array $delCampus, Bloque $bloque, Agenda $agenda): ?int
+    /**
+     * El salón libre más chico donde QUEPA el grupo.
+     *
+     * Vienen ordenadas por capacidad ascendente, así que el primero que sirve es
+     * el más ajustado: dejar los salones grandes para los grupos grandes es lo
+     * que permite que quepan todos.
+     *
+     * Antes se tomaba el primero libre sin mirar la capacidad, y un grupo de
+     * cuarenta podía terminar en un aula de veinte sin que nada avisara. El
+     * horario se veía correcto y el problema aparecía el primer día de clases.
+     *
+     * El `null` no viene de un grupo sin cupo —la columna no lo admite— sino de
+     * un grupo que ya no está: ahí se deja pasar en vez de bloquear, porque el
+     * problema es otro y el diagnóstico correcto no es «no cabe».
+     *
+     * @param  array<int, array{id: int, capacidad: ?int}>  $delCampus
+     */
+    private function aulaLibre(array $delCampus, Bloque $bloque, Agenda $agenda, ?int $cupo): ?int
     {
-        foreach ($delCampus as $aulaId) {
-            if ($agenda->aulaLibre($aulaId, $bloque)) {
-                return $aulaId;
+        foreach ($delCampus as $aula) {
+            if ($cupo !== null && $aula['capacidad'] !== null && $aula['capacidad'] < $cupo) {
+                continue;
+            }
+
+            if ($agenda->aulaLibre($aula['id'], $bloque)) {
+                return $aula['id'];
             }
         }
 
         return null;
+    }
+
+    /**
+     * ¿Hay siquiera un salón de ese tamaño en el campus?
+     *
+     * Distinguirlo del «no hay salón libre a esa hora» importa: uno se arregla
+     * moviendo la clase y el otro no se arregla con un horario. Si ninguna aula
+     * da la capacidad, el motivo tiene que decir eso y no mandar a nadie a
+     * buscar huecos que no van a servir.
+     *
+     * @param  array<int, array{id: int, capacidad: ?int}>  $delCampus
+     */
+    private function algunAulaLeQueda(array $delCampus, ?int $cupo): bool
+    {
+        if ($cupo === null) {
+            return true;
+        }
+
+        foreach ($delCampus as $aula) {
+            if ($aula['capacidad'] === null || $aula['capacidad'] >= $cupo) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // ── A quién se le puede dar ────────────────────────────────────────────
@@ -475,7 +523,7 @@ class GeneradorHorarios
         return AsignaturaGrupo::query()
             ->with([
                 'planMateria.asignatura:id,nombre,horas_teoria,horas_practica',
-                'grupo:id,clave,campus_id',
+                'grupo:id,clave,campus_id,cupo',
                 'docentes:persona_id',
             ])
             ->whereIn('grupo_id', $grupoIds)
@@ -497,6 +545,8 @@ class GeneradorHorarios
                     'grupo_id' => $ag->grupo_id,
                     'grupo_clave' => $ag->grupo?->clave,
                     'campus_id' => $ag->grupo?->campus_id,
+                    // Cuántos alumnos tiene que caber en el salón.
+                    'cupo' => $ag->grupo?->cupo,
                     'asignatura_id' => $asignatura?->id,
                     'nombre' => $asignatura?->nombre ?? 'Materia',
                     'horas' => $horas,
@@ -556,9 +606,11 @@ class GeneradorHorarios
         return Aula::query()
             ->whereIn('campus_id', $campusIds)
             ->orderBy('capacidad')
-            ->get(['id', 'campus_id'])
+            ->get(['id', 'campus_id', 'capacidad'])
             ->groupBy('campus_id')
-            ->map(fn ($aulas) => $aulas->pluck('id')->all())
+            ->map(fn ($aulas) => $aulas
+                ->map(fn (Aula $a) => ['id' => $a->id, 'capacidad' => $a->capacidad])
+                ->all())
             ->all();
     }
 

@@ -460,6 +460,65 @@ class GeneradorHorariosTest extends TenantTestCase
         $this->assertSame('11:00', $salida['bloques'][0]['hora_inicio']);
     }
 
+    // ── El salón tiene que caber ───────────────────────────────────────────
+
+    /**
+     * No se mete a un grupo de 40 en un aula de 20.
+     *
+     * Antes se tomaba el primer salón libre sin mirar la capacidad: el horario
+     * se veía correcto y el problema aparecía el primer día de clases.
+     */
+    public function test_no_usa_un_salon_mas_chico_que_el_grupo(): void
+    {
+        $escuela = $this->escuelaConMateria(horas: 2, cupo: 40);
+        $this->regla($escuela);
+        $this->docenteApto($escuela, disponibleDe: '07:00', a: '13:00');
+
+        // El único salón del campus es de 20. El de 40 lo crea el escenario…
+        DB::table('aulas')->where('campus_id', $escuela['campus'])->delete();
+        $this->fila('aulas', [
+            'campus_id' => $escuela['campus'],
+            'clave' => 'A-'.uniqid(),
+            'nombre' => 'Aula chica',
+            'capacidad' => 20,
+        ]);
+
+        $salida = $this->generador->paraGrupos([$escuela['grupo']]);
+
+        $this->assertSame([], $salida['bloques']);
+        $this->assertStringContainsString('capacidad', $salida['sin_colocar'][0]['motivo']);
+    }
+
+    /**
+     * Y elige el más chico donde SÍ quepa.
+     *
+     * Dejar los salones grandes para los grupos grandes es lo que permite que
+     * quepan todos: tomar el primero libre desperdicia el aula de 100 en un
+     * grupo de 15 y deja fuera al de 80.
+     */
+    public function test_elige_el_salon_mas_ajustado(): void
+    {
+        $escuela = $this->escuelaConMateria(horas: 2, cupo: 25);
+        $this->regla($escuela);
+        $this->docenteApto($escuela, disponibleDe: '07:00', a: '13:00');
+
+        DB::table('aulas')->where('campus_id', $escuela['campus'])->delete();
+        $grande = $this->fila('aulas', [
+            'campus_id' => $escuela['campus'], 'clave' => 'A-'.uniqid(),
+            'nombre' => 'Auditorio', 'capacidad' => 100,
+        ]);
+        $justo = $this->fila('aulas', [
+            'campus_id' => $escuela['campus'], 'clave' => 'A-'.uniqid(),
+            'nombre' => 'Aula mediana', 'capacidad' => 30,
+        ]);
+
+        $salida = $this->generador->paraGrupos([$escuela['grupo']]);
+
+        $this->assertNotEmpty($salida['bloques']);
+        $this->assertSame($justo, $salida['bloques'][0]['aula_id']);
+        $this->assertNotSame($grande, $salida['bloques'][0]['aula_id']);
+    }
+
     // ── Topes de carga ─────────────────────────────────────────────────────
 
     /** El tope diario del docente se respeta aunque tenga hueco. */
@@ -499,7 +558,7 @@ class GeneradorHorariosTest extends TenantTestCase
     }
 
     /** @return array<string, int> */
-    private function escuelaConMateria(int $horas): array
+    private function escuelaConMateria(int $horas, int $cupo = 40): array
     {
         $escuela = $this->alumnoInscrito();
         $ciclo = $this->cicloDePrueba();
@@ -512,7 +571,7 @@ class GeneradorHorariosTest extends TenantTestCase
             'situacion_id' => $this->deCatalogo('situaciones_grupo'),
             'nivel_estudios_id' => $this->nivelDePrueba(),
             'semestre' => 1,
-            'cupo' => 40,
+            'cupo' => $cupo,
         ]);
 
         [$asignaturaGrupo, $asignatura] = $this->materiaEnGrupo($grupo, $escuela['plan'], $horas);
