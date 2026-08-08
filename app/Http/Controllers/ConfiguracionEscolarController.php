@@ -8,6 +8,7 @@ use App\Enums\ModoRedondeo;
 use App\Exceptions\AvisoParaElUsuario;
 use App\Models\Academico\Carrera;
 use App\Models\Academico\PlanEstudio;
+use App\Services\CalificacionesFueraDeEscala;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -31,8 +32,20 @@ use Inertia\Response;
  */
 class ConfiguracionEscolarController extends Controller
 {
+    public function __construct(private readonly CalificacionesFueraDeEscala $fueraDeEscala) {}
+
     public function index(Request $request): Response
     {
+        /*
+         * Qué calificaciones ya capturadas no cumplen la escala de hoy.
+         *
+         * Cambiar la escala no toca el historial —son actas emitidas—, así que
+         * la incoherencia se queda ahí callada: la escuela configura enteros y
+         * sigue viendo 8.5 en los kárdex. Esto no arregla nada; lo dice, que es
+         * lo que permite decidir.
+         */
+        $desajustadas = $this->fueraDeEscala->porPlan();
+
         $carreras = Carrera::query()
             /*
              * El nivel se pide por la RELACIÓN, no consultando un catálogo a
@@ -73,6 +86,8 @@ class ConfiguracionEscolarController extends Controller
                     'aprobatoria' => (float) $p->calificacion_minima_aprobatoria,
                     'decimales' => (int) ($p->decimales_calificacion ?? 2),
                     'redondeo' => $p->modoRedondeo()->value,
+                    // Lo ya capturado que no cuadra con la escala actual.
+                    'desajustadas' => $desajustadas[$p->id] ?? null,
                 ])->values(),
             ])
             // Una carrera sin planes no tiene nada que configurar todavía.

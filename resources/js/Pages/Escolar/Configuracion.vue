@@ -23,6 +23,15 @@ interface Plan {
     aprobatoria: number;
     decimales: number;
     redondeo: string;
+    /**
+     * Calificaciones YA capturadas que no cumplen esta escala. `null` = ninguna.
+     *
+     * `precision` son las que traen más decimales de los permitidos; `rango`
+     * las que se salen de la mínima o la máxima. No es lo mismo: lo segundo
+     * suele significar que el plan cambió de escala entera y el historial se
+     * quedó en la anterior.
+     */
+    desajustadas: { precision: number; rango: number } | null;
 }
 
 interface Carrera {
@@ -126,6 +135,33 @@ function comoRedondea(plan: Plan): string {
     return REDONDEOS.find((r) => r.valor === plan.redondeo)?.texto ?? '';
 }
 
+/**
+ * Qué se dice de lo ya capturado que no cuadra.
+ *
+ * Las dos causas se cuentan por separado porque no se arreglan igual: unos
+ * decimales de más se resuelven redondeando, pero una calificación fuera de
+ * rango casi siempre significa que el plan cambió de escala entera —de 0-100 a
+ * 0-10— y el historial se quedó en la anterior. Meterlas en un solo número
+ * escondería el caso grave detrás del leve.
+ */
+function textoDesajuste(d: { precision: number; rango: number }): string {
+    const partes: string[] = [];
+
+    if (d.precision) {
+        partes.push(d.precision === 1
+            ? '1 calificación capturada tiene más decimales de los que ahora se permiten'
+            : `${d.precision} calificaciones capturadas tienen más decimales de los que ahora se permiten`);
+    }
+
+    if (d.rango) {
+        partes.push(d.rango === 1
+            ? '1 se sale de esta escala'
+            : `${d.rango} se salen de esta escala`);
+    }
+
+    return `${partes.join(' y ')}. No se han tocado: el historial es lo que se asentó en actas.`;
+}
+
 const desalineadas = computed(() => props.carreras.filter((c) => !coinciden(c.planes)).length);
 
 /**
@@ -204,6 +240,16 @@ const porNivel = computed(() => {
                                 <p class="text-xs" :style="{ color: 'var(--color-suave)' }">{{ comoCalifica(plan) }}</p>
                                 <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
                                     Redondeo: {{ comoRedondea(plan) }}
+                                </p>
+
+                                <!--
+                                    Lo ya capturado que no cuadra con esta
+                                    escala. Cambiarla no toca el historial —son
+                                    actas emitidas—, así que la incoherencia se
+                                    quedaría callada si no se dijera aquí.
+                                -->
+                                <p v-if="plan.desajustadas" class="mt-1 text-xs text-amber-700">
+                                    {{ textoDesajuste(plan.desajustadas) }}
                                 </p>
                             </div>
                             <button
