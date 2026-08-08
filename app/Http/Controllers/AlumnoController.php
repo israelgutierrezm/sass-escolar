@@ -41,6 +41,7 @@ use App\Models\Academico\Modalidad;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use App\Services\Suplantador;
+use App\Support\Creditos;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -421,9 +422,9 @@ class AlumnoController extends Controller
                 'materias_cursadas' => $mejores->count(),
                 'aprobadas' => $aprobadas->count(),
                 'reprobadas' => $mejores->filter(fn (Historial $h) => $h->estatus?->clave === 'reprobada')->count(),
-                'creditos' => round($aprobadas->sum(
-                    fn (Historial $h) => (float) ($h->planMateria?->asignatura?->creditos ?? 0)
-                ), 2),
+                // La misma suma que el portal del padre y el certificado: tres
+                // copias con dos precisiones distintas daban tres cifras.
+                'creditos' => Creditos::sumar($aprobadas),
                 'promedio' => $this->promedio($mejores, $alumno->oferta?->plan),
                 'creditos_del_plan' => $alumno->oferta?->plan?->total_creditos,
                 'materias_para_completar' => $metaMaterias,

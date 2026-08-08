@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Academico\NivelEstudio;
+use App\Models\Academico\PlanEstudio;
 use App\Models\Academico\TipoAsignatura;
 use App\Models\Academico\TipoPeriodo;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\Historial;
 use App\Models\Landlord\EntidadFederativa;
 use App\Models\Landlord\Genero;
+use App\Support\Creditos;
 use Carbon\CarbonInterface;
 use DOMDocument;
 use DOMElement;
@@ -146,9 +148,11 @@ class ConstructorCertificadoXml
             // Asignaturas (totales)
             'total' => count($asignaturas),
             'asignadas' => $aprobadas->count(),
-            'promedio' => (string) ($this->promedio($mejores) ?? '0'),
+            'promedio' => (string) ($this->promedio($mejores, $plan) ?? '0'),
             'totalCreditos' => (string) ($plan?->total_creditos ?? '0'),
-            'creditosObtenidos' => (string) round($aprobadas->sum(fn (Historial $h) => (float) ($h->planMateria?->asignatura?->creditos ?? 0)), 2),
+            // La misma suma que el expediente y el portal del padre: tres
+            // copias con dos precisiones distintas daban tres cifras.
+            'creditosObtenidos' => (string) Creditos::sumar($aprobadas),
             'numeroCiclos' => $numeroCiclos,
             'asignaturas' => $asignaturas,
         ];
@@ -365,7 +369,19 @@ class ConstructorCertificadoXml
     }
 
     /** @param  \Illuminate\Support\Collection<int, Historial>  $mejores */
-    private function promedio($mejores): ?float
+    /**
+     * El promedio, en la precisión que manda el plan.
+     *
+     * ── Por qué importa más aquí que en ningún otro sitio ──────────────────
+     * Esto va dentro del certificado electrónico: un documento que se sella y
+     * se manda a la SEP. Con dos decimales fijos —como estaba—, una escuela con
+     * plan de enteros veía un 8 en el expediente y en el kárdex, y su
+     * certificado oficial decía 8.33. Dos documentos de la misma escuela que no
+     * concuerdan, y el que vale es el que estaba mal.
+     *
+     * Se pregunta al plan, igual que el expediente y el portal del padre.
+     */
+    private function promedio($mejores, ?PlanEstudio $plan = null): ?float
     {
         $conCalificacion = $mejores->filter(fn (Historial $h) => $h->calificacion !== null);
 
@@ -373,6 +389,9 @@ class ConstructorCertificadoXml
             return null;
         }
 
-        return round((float) $conCalificacion->avg(fn (Historial $h) => (float) $h->calificacion), 2);
+        return PlanEstudio::redondearCon(
+            $plan,
+            (float) $conCalificacion->avg(fn (Historial $h) => (float) $h->calificacion),
+        );
     }
 }

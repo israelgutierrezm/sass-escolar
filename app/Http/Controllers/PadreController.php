@@ -16,6 +16,7 @@ use App\Models\Identidad\TutorAlumno;
 use App\Services\EstadoCuenta;
 use App\Services\Pagos\Pasarelas;
 use App\Services\EstadoDelAlumno;
+use App\Support\Creditos;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -186,9 +187,9 @@ class PadreController extends Controller
                     $m->oferta?->plan,
                     (float) $conCalif->avg(fn (Historial $h) => (float) $h->calificacion),
                 ),
-            'creditos' => round($aprobadas->sum(
-                fn (Historial $h) => (float) ($h->planMateria?->asignatura?->creditos ?? 0)
-            ), 1),
+            // Redondeaba a UN decimal donde el expediente usa dos: el mismo
+            // alumno tenía 295 créditos en una pantalla y 295.3 en otra.
+            'creditos' => Creditos::sumar($aprobadas),
             'creditos_del_plan' => $m->oferta?->plan?->total_creditos,
             'materias' => $historial->map(fn (Historial $h) => [
                 'materia' => $h->planMateria?->asignatura?->nombre,
