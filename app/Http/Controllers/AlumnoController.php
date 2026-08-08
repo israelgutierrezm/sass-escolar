@@ -8,6 +8,7 @@ use App\Models\Academico\Campus;
 use App\Models\Academico\Carrera;
 use App\Models\Academico\Oferta;
 use App\Models\Academico\PlanMateria;
+use App\Models\Academico\PlanEstudio;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\SituacionAlumno;
 use App\Models\Academico\NivelEstudio;
@@ -533,12 +534,15 @@ class AlumnoController extends Controller
             // «Tipo de evaluación» en la UI = observación oficial SEP. El
             // tipo_evaluacion interno se deriva de aquí; ya no se captura aparte.
             'observacion_asignatura_id' => ['required', 'integer', Rule::exists('observaciones_asignatura', 'id')],
-            'calificacion' => ['required', 'numeric', "min:{$minCalif}", "max:{$maxima}"],
+            // La escala Y la precisión salen del plan, para que esta captura y
+            // la del docente no puedan discrepar. Ver `reglasDeCalificacion`.
+            'calificacion' => array_merge(['required'], PlanEstudio::reglasPara($plan)),
         ], [
             'plan_materia_id.exists' => 'La materia no pertenece al plan del alumno.',
             'ciclo_id.in' => 'Ese ciclo no corresponde al campus y nivel donde cursa el alumno.',
             'calificacion.max' => "La calificación no puede pasar de {$maxima} (escala del plan).",
             'calificacion.min' => "La calificación no puede ser menor a {$minCalif}.",
+            'calificacion.decimal' => 'Este plan califica '.$plan?->comoSeCalifica().'.',
         ], [
             'plan_materia_id' => 'materia',
             'ciclo_id' => 'ciclo',

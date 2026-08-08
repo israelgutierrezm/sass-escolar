@@ -29,6 +29,7 @@ use App\Http\Controllers\CursoPlantillaController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DescuentoController;
 use App\Http\Controllers\DocenciaController;
+use App\Http\Controllers\ConfiguracionEscolarController;
 use App\Http\Controllers\DisponibilidadDocenteController;
 use App\Http\Controllers\DocenteController;
 use App\Http\Controllers\DocumentoRequeridoController;
@@ -908,6 +909,25 @@ Route::middleware([
                         Route::post('/', 'store')->name('store');
                         Route::put('{regla}', 'update')->whereNumber('regla')->name('update');
                         Route::delete('{regla}', 'destroy')->whereNumber('regla')->name('destroy');
+                    });
+
+                /*
+                 * Configuración de control escolar. Hoy sólo la escala de
+                 * calificación; es el sitio donde caerá lo que venga.
+                 *
+                 * Con `ver-catalogo-academico` para mirar y
+                 * `editar-catalogo-academico` para cambiar: la escala es parte
+                 * del plan de estudios, no una preferencia de pantalla.
+                 */
+                Route::controller(ConfiguracionEscolarController::class)
+                    ->prefix('configuracion')->name('configuracion.')
+                    ->middleware('can:ver-catalogo-academico')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::put('planes/{plan}', 'guardar')
+                            ->whereNumber('plan')
+                            ->middleware('can:editar-catalogo-academico')
+                            ->name('planes.guardar');
                     });
 
                 Route::get('ciclos', [CicloController::class, 'index'])->name('ciclos.index');

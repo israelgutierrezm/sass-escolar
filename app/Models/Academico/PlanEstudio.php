@@ -31,6 +31,7 @@ class PlanEstudio extends Model
         'calificacion_minima',
         'calificacion_maxima',
         'calificacion_minima_aprobatoria',
+        'decimales_calificacion',
         'minimo_creditos',
         'minimo_asignaturas',
         'total_creditos',
@@ -94,5 +95,56 @@ class PlanEstudio extends Model
     public function planMaterias(): HasMany
     {
         return $this->hasMany(PlanMateria::class, 'plan_id');
+    }
+
+    /**
+     * Las reglas con las que se valida una calificación de este plan.
+     *
+     * Viven aquí y no repetidas en cada controlador porque son DOS los sitios
+     * que capturan calificaciones —la del docente y el kárdex a mano— y a los
+     * dos se les había escapado la precisión: aceptaban un 8.756 en un acta
+     * porque `numeric` no dice cuántos decimales.
+     *
+     * @return array<int, string>
+     */
+    public function reglasDeCalificacion(): array
+    {
+        $decimales = (int) ($this->decimales_calificacion ?? 2);
+
+        return [
+            'numeric',
+            'min:'.(float) $this->calificacion_minima,
+            'max:'.(float) $this->calificacion_maxima,
+            // `decimal:0,N` acepta de cero a N decimales: con N = 0 exige un
+            // entero, que es como califica buena parte de las escuelas.
+            "decimal:0,{$decimales}",
+        ];
+    }
+
+    /**
+     * Las reglas cuando puede no haber plan.
+     *
+     * Una materia sin plan no debería existir, pero el código que la lee ya
+     * contemplaba el caso y no es este cambio el que va a decidir romperlo. Sin
+     * plan se cae a la escala más permisiva: rechazar una captura porque falta
+     * una relación sería castigar a quien califica por un problema de catálogo.
+     *
+     * @return array<int, string>
+     */
+    public static function reglasPara(?self $plan): array
+    {
+        return $plan?->reglasDeCalificacion() ?? ['numeric'];
+    }
+
+    /** Cómo decirle a quien captura qué precisión se espera. */
+    public function comoSeCalifica(): string
+    {
+        $decimales = (int) ($this->decimales_calificacion ?? 2);
+
+        return match ($decimales) {
+            0 => 'con números enteros, sin decimales',
+            1 => 'con un decimal',
+            default => "con hasta {$decimales} decimales",
+        };
     }
 }

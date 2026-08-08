@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\Academico\PlanEstudio;
 use App\Models\Academico\EsquemaEvaluacion;
 use App\Models\ControlEscolar\Acta;
 use App\Models\ControlEscolar\AsignaturaGrupo;
@@ -218,10 +219,13 @@ class CapturaCalificacionesController extends Controller
             'calificaciones' => ['present', 'array'],
             'calificaciones.*.inscripcion_id' => ['required', 'integer'],
             'calificaciones.*.esquema_evaluacion_id' => ['required', 'integer'],
-            'calificaciones.*.calificacion' => ['nullable', 'numeric', "min:{$minima}", "max:{$maxima}"],
+            // Misma escala y misma precisión que el kárdex: las dos salen del
+            // plan, así que no pueden discrepar.
+            'calificaciones.*.calificacion' => array_merge(['nullable'], PlanEstudio::reglasPara($plan)),
         ], [
             'calificaciones.*.calificacion.min' => "La calificación no puede ser menor que {$minima}.",
             'calificaciones.*.calificacion.max' => "La calificación no puede ser mayor que {$maxima}.",
+            'calificaciones.*.calificacion.decimal' => 'Este plan califica '.$plan?->comoSeCalifica().'.',
         ]);
 
         // Solo se aceptan pares que pertenezcan a ESTA materia-grupo: el id de
