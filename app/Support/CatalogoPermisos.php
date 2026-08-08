@@ -179,6 +179,11 @@ final class CatalogoPermisos
             // el insumo de la generación de horarios, y sirve solo: contesta
             // «¿a quién le doy esta materia?» aunque nunca se genere nada.
             'gestionar-disponibilidad' => ['Disponibilidad y perfil docente', 'Capturar los horarios en que cada docente puede dar clase y las materias que sabe impartir.', [self::ADMINISTRATIVO]],
+            // Ver y capturar el horario de un grupo. Aparte de generarlo: la
+            // captura manual siempre hace falta —el motor deja materias sin
+            // colocar y alguien tiene que resolverlas—.
+            'editar-horarios' => ['Capturar horarios', 'Armar el horario de un grupo: agregar, mover y quitar clases.', [self::ADMINISTRATIVO]],
+            'generar-horarios' => ['Generar horarios', 'Proponer un horario automáticamente a partir de la disponibilidad docente y las reglas.', [self::ADMINISTRATIVO]],
             'editar-mi-disponibilidad' => ['Declarar mi disponibilidad', 'Que el docente diga en qué horarios puede dar clase.', [self::DOCENTE]],
             'gestionar-docentes' => ['Administrar docentes', 'Dar de alta, acreditar cédula y dictaminar sus documentos.', [self::ADMINISTRATIVO]],
         ],

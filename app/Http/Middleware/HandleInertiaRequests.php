@@ -133,6 +133,16 @@ class HandleInertiaRequests extends Middleware
                 // tienen calificaciones"—. Sin esta clave ese aviso se perdía
                 // en silencio, que es justo lo contrario de lo que se quiere.
                 'advertencia' => fn () => $request->session()->get('advertencia'),
+                /*
+                 * La propuesta de horario, que no es un mensaje sino datos.
+                 *
+                 * Viaja por flash y no como respuesta propia para que un F5 no
+                 * vuelva a generarla: es una operación cara y su resultado
+                 * depende de la disponibilidad del momento. Además así la
+                 * pantalla se recarga con el horario ACTUAL y la propuesta
+                 * encima, que es la comparación que hay que hacer.
+                 */
+                'propuesta' => fn () => $request->session()->get('propuesta'),
             ],
         ];
     }

@@ -57,6 +57,7 @@ use App\Http\Controllers\FormularioPublicoController;
 use App\Http\Controllers\ForoController;
 use App\Http\Controllers\FotoPersonaController;
 use App\Http\Controllers\GrupoController;
+use App\Http\Controllers\HorarioController;
 use App\Http\Controllers\IdentidadController;
 use App\Http\Controllers\ImagenContenidoController;
 use App\Http\Controllers\InscripcionController;
@@ -867,6 +868,27 @@ Route::middleware([
                             Route::post('{docente}/titulos', 'agregarTitulo')->whereNumber('docente')->name('titulos.store');
                             Route::delete('{docente}/titulos/{titulo}', 'quitarTitulo')
                                 ->whereNumber('docente')->whereNumber('titulo')->name('titulos.destroy');
+                        });
+                    });
+
+                /*
+                 * Horarios: verlos, capturarlos y proponerlos.
+                 *
+                 * Las tres cosas en una pantalla porque son el mismo trabajo en
+                 * tres momentos. Generar va con su propio permiso: una escuela
+                 * puede querer capturar a mano y no usar el motor.
+                 */
+                Route::controller(HorarioController::class)
+                    ->prefix('horarios')->name('horarios.')
+                    ->middleware('can:editar-horarios')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::post('bloques', 'guardarBloque')->name('bloques.store');
+                        Route::delete('bloques/{bloque}', 'eliminarBloque')->whereNumber('bloque')->name('bloques.destroy');
+
+                        Route::middleware('can:generar-horarios')->group(function () {
+                            Route::post('generar', 'generar')->name('generar');
+                            Route::post('aplicar', 'aplicar')->name('aplicar');
                         });
                     });
 
