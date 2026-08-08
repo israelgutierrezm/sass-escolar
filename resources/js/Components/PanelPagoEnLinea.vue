@@ -23,6 +23,12 @@ interface PasarelaDisponible {
     pruebas: boolean;
     meses: number[];
     efectivo: boolean;
+    /**
+     * Con qué hay que elegir ANTES de salir. Vacío en las pasarelas que
+     * presentan su propio checkout —casi todas—; con opciones en las que cobran
+     * por cargo y necesitan saberlo de antemano, como OpenPay.
+     */
+    metodos: { clave: string; etiqueta: string }[];
 }
 
 const props = withDefaults(
@@ -59,7 +65,28 @@ const total = computed(() => aPagar.value.reduce((suma, a) => suma + a.saldo, 0)
  * redirigir: Inertia intentaría renderizar la página de la pasarela como si
  * fuera nuestra. Se pide la liga y se navega a mano.
  */
-async function pagar(clave: string): Promise<void> {
+/**
+ * La pasarela cuyo método se está eligiendo.
+ *
+ * Sólo aparece con las que cobran por cargo —OpenPay— y necesitan saber de
+ * antemano si es tarjeta, tienda o transferencia. Con las demás se sale directo
+ * a su checkout, que es donde se elige.
+ */
+const eligiendo = ref<PasarelaDisponible | null>(null);
+
+function pulsar(p: PasarelaDisponible): void {
+    error.value = null;
+
+    if (p.metodos.length) {
+        eligiendo.value = eligiendo.value?.clave === p.clave ? null : p;
+
+        return;
+    }
+
+    pagar(p.clave);
+}
+
+async function pagar(clave: string, metodo?: string): Promise<void> {
     yendoAPagar.value = clave;
     error.value = null;
 
@@ -74,6 +101,7 @@ async function pagar(clave: string): Promise<void> {
             body: JSON.stringify({
                 pasarela: clave,
                 adeudo_ids: aPagar.value.map((a) => a.id),
+                metodo: metodo ?? null,
             }),
         });
 
@@ -116,12 +144,34 @@ async function pagar(clave: string): Promise<void> {
                     class="inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition hover:brightness-110 disabled:opacity-60"
                     :style="{ backgroundColor: p.color ?? 'var(--color-acento)' }"
                     :disabled="yendoAPagar !== null || total <= 0"
-                    @click="pagar(p.clave)"
+                    @click="pulsar(p)"
                 >
                     {{ yendoAPagar === p.clave ? 'Abriendo…' : `Pagar con ${p.nombre}` }}
                     <!-- Que se sepa que no es dinero real. -->
                     <span v-if="p.pruebas" class="rounded-full bg-white/25 px-1.5 py-0.5 text-xs">pruebas</span>
                 </button>
+
+                <!--
+                    Elegir la forma de pago antes de salir.
+
+                    Sólo con las pasarelas que cobran por cargo: no tienen una
+                    pantalla propia donde elegir, así que la elección ocurre
+                    aquí o no ocurre.
+                -->
+                <div v-if="eligiendo?.clave === p.clave" class="mt-2 space-y-1.5 rounded-lg border p-2" :style="{ borderColor: 'var(--color-borde)' }">
+                    <p class="px-1 text-xs" :style="{ color: 'var(--color-suave)' }">¿Con qué vas a pagar?</p>
+                    <button
+                        v-for="m in p.metodos"
+                        :key="m.clave"
+                        type="button"
+                        class="w-full rounded-lg border px-3 py-2 text-left text-sm transition hover:brightness-105 disabled:opacity-60"
+                        :style="{ borderColor: 'var(--color-borde)' }"
+                        :disabled="yendoAPagar !== null"
+                        @click="pagar(p.clave, m.clave)"
+                    >
+                        {{ m.etiqueta }}
+                    </button>
+                </div>
 
                 <!--
                     Los meses sin intereses y el pago en tienda cambian la

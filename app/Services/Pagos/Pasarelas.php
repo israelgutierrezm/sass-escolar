@@ -38,7 +38,7 @@ use App\Support\PasarelasCatalogo;
 class Pasarelas
 {
     /** Las que ya cobran de verdad. */
-    public const IMPLEMENTADAS = ['mercadopago', 'conekta', 'stripe'];
+    public const IMPLEMENTADAS = ['mercadopago', 'conekta', 'stripe', 'openpay'];
 
     /**
      * La pasarela lista para operar, o un aviso de por qué no se puede.
@@ -83,6 +83,7 @@ class Pasarelas
             'mercadopago' => new PasarelaMercadoPago($config),
             'conekta' => new PasarelaConekta($config),
             'stripe' => new PasarelaStripe($config),
+            'openpay' => new PasarelaOpenPay($config),
             // Inalcanzable: lo impide la comprobación de IMPLEMENTADAS. Está
             // para que agregar una pasarela nueva sin registrarla arriba falle
             // aquí y no devuelva algo a medias.
@@ -111,6 +112,12 @@ class Pasarelas
                  */
                 'meses' => $p->mesesSinIntereses(),
                 'efectivo' => $p->aceptaMetodo('efectivo') || $p->aceptaMetodo('oxxo') || $p->aceptaMetodo('tienda'),
+                /*
+                 * Con qué hay que elegir ANTES de salir. Vacío en las que
+                 * presentan su propio checkout —casi todas—; con opciones en
+                 * OpenPay, que cobra por cargo y necesita saberlo de antemano.
+                 */
+                'metodos' => $this->para($p)->metodosAElegir(),
             ])
             ->values()
             ->all();

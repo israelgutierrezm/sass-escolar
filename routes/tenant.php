@@ -169,7 +169,14 @@ Route::middleware([
 
         // SSO con Google: empareja por correo con una cuenta existente.
         Route::get('/auth/google/redirect', [SsoGoogleController::class, 'redirigir'])->name('tenant.sso.google.redirect');
+        /*
+         * Retorno directo. En modo real Google ya NO vuelve aquí —vuelve al
+         * dominio central, que es la única URI registrada en su consola—; esta
+         * ruta la sigue usando el modo simulado, que no pasa por Google.
+         */
         Route::get('/auth/google/callback', [SsoGoogleController::class, 'callback'])->name('tenant.sso.google.callback');
+        // Aquí llega el reparto del dominio central, ya con el código.
+        Route::get('/auth/google/entrada', [SsoGoogleController::class, 'entrada'])->name('tenant.sso.google.entrada');
 
         // Recuperación de contraseña. Los nombres van SIN prefijo `tenant.`
         // porque la notificación de Laravel arma la URL con `route('password.reset')`.
@@ -1575,6 +1582,10 @@ Route::middleware([
             Route::post('/iniciar/{matricula}', 'iniciar')->whereNumber('matricula')->name('iniciar');
             // El navegador vuelve aquí. No decide nada; ver el controlador.
             Route::get('/retorno', 'retorno')->name('retorno');
+
+            // Cuando la pasarela da datos (CLABE, referencia) en vez de página.
+            Route::get('/instrucciones/{intencion}', 'instrucciones')
+                ->whereNumber('intencion')->name('instrucciones');
 
             // La pasarela de mentira. Responde 404 fuera del modo de pruebas.
             Route::get('/simulador/{intencion}', 'simulador')->whereNumber('intencion')->name('simulador');

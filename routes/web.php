@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Central\AutenticacionCentralController;
 use App\Http\Controllers\Central\EscuelaController;
+use App\Http\Controllers\Central\SsoGoogleCentralController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -25,7 +26,18 @@ use Illuminate\Support\Facades\Route;
 */
 
 foreach (config('tenancy.central_domains') as $dominioCentral) {
-    Route::domain($dominioCentral)->group(function () {
+    Route::domain($dominioCentral)->group(function () use ($dominioCentral) {
+        /*
+         * El ÚNICO retorno de Google que hay que registrar en su consola.
+         *
+         * Va sin `auth`: aquí llega alguien que todavía no ha entrado a ninguna
+         * parte, y con nombre distinto por dominio central porque este bucle
+         * registra el grupo una vez por cada uno —dos rutas con el mismo nombre
+         * harían que `route()` resolviera siempre a la última—.
+         */
+        Route::get('/auth/google/callback', [SsoGoogleCentralController::class, 'callback'])
+            ->name('central.sso.google.callback.'.$dominioCentral);
+
         // Acceso de la casa (super admins).
         Route::get('/', [AutenticacionCentralController::class, 'mostrarLogin'])->name('central.login');
         Route::post('/acceso', [AutenticacionCentralController::class, 'acceso'])->name('central.acceso');

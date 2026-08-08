@@ -38,7 +38,7 @@ class PasarelaMercadoPago implements Pasarela
 
     public function __construct(private readonly PasarelaPago $config) {}
 
-    public function iniciar(IntencionCobro $intencion, string $urlRetorno, string $urlAviso): CobroIniciado
+    public function iniciar(IntencionCobro $intencion, string $urlRetorno, string $urlAviso, ?string $metodo = null): CobroIniciado
     {
         $respuesta = $this->cliente()->post(self::API.'/checkout/preferences', [
             'items' => [[
@@ -191,6 +191,12 @@ class PasarelaMercadoPago implements Pasarela
         $plantilla = "id:{$id};request-id:{$peticionId};ts:{$ts};";
 
         return hash_equals(hash_hmac('sha256', $plantilla, $secreto), $v1);
+    }
+
+    /** Checkout propio: quien paga elige allí, no aquí. */
+    public function metodosAElegir(): array
+    {
+        return [];
     }
 
     // ── Interno ────────────────────────────────────────────────────────────

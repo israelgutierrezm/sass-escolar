@@ -40,7 +40,7 @@ class PasarelaConekta implements Pasarela
 
     public function __construct(private readonly PasarelaPago $config) {}
 
-    public function iniciar(IntencionCobro $intencion, string $urlRetorno, string $urlAviso): CobroIniciado
+    public function iniciar(IntencionCobro $intencion, string $urlRetorno, string $urlAviso, ?string $metodo = null): CobroIniciado
     {
         $respuesta = $this->cliente()->post(self::API.'/orders', [
             'currency' => 'MXN',
@@ -126,6 +126,12 @@ class PasarelaConekta implements Pasarela
          * que no existe. Eso no mueve dinero, que es lo que importa.
          */
         return true;
+    }
+
+    /** Checkout propio: quien paga elige allí, no aquí. */
+    public function metodosAElegir(): array
+    {
+        return [];
     }
 
     // ── Interno ────────────────────────────────────────────────────────────

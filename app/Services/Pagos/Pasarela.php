@@ -32,8 +32,34 @@ interface Pasarela
      *
      * @param  string  $urlRetorno  a dónde vuelve el navegador (informativo).
      * @param  string  $urlAviso  a dónde manda la pasarela su webhook (vinculante).
+     * @param  string|null  $metodo  con qué se va a pagar, cuando la pasarela
+     *                               exige saberlo de antemano (ver
+     *                               `metodosAElegir`). `null` en las que
+     *                               presentan un checkout con todas.
      */
-    public function iniciar(IntencionCobro $intencion, string $urlRetorno, string $urlAviso): CobroIniciado;
+    public function iniciar(
+        IntencionCobro $intencion,
+        string $urlRetorno,
+        string $urlAviso,
+        ?string $metodo = null,
+    ): CobroIniciado;
+
+    /**
+     * Las formas de pago entre las que hay que elegir ANTES de salir.
+     *
+     * ── Por qué existe ─────────────────────────────────────────────────────
+     * Casi todas las pasarelas dan una liga a un checkout propio donde quien
+     * paga elige allí mismo entre tarjeta, efectivo o transferencia. OpenPay no:
+     * cobra por cargo y hay que decirle desde el principio cuál es, así que la
+     * elección tiene que ocurrir en nuestra pantalla.
+     *
+     * Devolver una lista vacía —lo normal— significa «no preguntes nada, manda
+     * a la liga y ya». Fingir que todas funcionan igual habría dejado a OpenPay
+     * cobrando sólo con tarjeta y llamándolo por su nombre completo.
+     *
+     * @return array<int, array{clave: string, etiqueta: string}>
+     */
+    public function metodosAElegir(): array;
 
     /**
      * Qué dice la pasarela de este aviso.

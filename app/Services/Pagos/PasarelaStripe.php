@@ -39,7 +39,7 @@ class PasarelaStripe implements Pasarela
 
     public function __construct(private readonly PasarelaPago $config) {}
 
-    public function iniciar(IntencionCobro $intencion, string $urlRetorno, string $urlAviso): CobroIniciado
+    public function iniciar(IntencionCobro $intencion, string $urlRetorno, string $urlAviso, ?string $metodo = null): CobroIniciado
     {
         $datos = [
             'mode' => 'payment',
@@ -62,8 +62,10 @@ class PasarelaStripe implements Pasarela
             ]],
         ];
 
-        foreach ($this->metodosPermitidos() as $i => $metodo) {
-            $datos["payment_method_types"][$i] = $metodo;
+        // `$permitido`, no `$metodo`: el parámetro del mismo nombre es «con qué
+        // se va a pagar» y aquí se listan todas las formas ofrecidas.
+        foreach ($this->metodosPermitidos() as $i => $permitido) {
+            $datos['payment_method_types'][$i] = $permitido;
         }
 
         if ($this->config->ofreceMsi()) {
@@ -170,6 +172,12 @@ class PasarelaStripe implements Pasarela
         $esperada = hash_hmac('sha256', $ts.'.'.$peticion->getContent(), $secreto);
 
         return hash_equals($esperada, $v1);
+    }
+
+    /** Checkout propio: quien paga elige allí, no aquí. */
+    public function metodosAElegir(): array
+    {
+        return [];
     }
 
     // ── Interno ────────────────────────────────────────────────────────────

@@ -51,7 +51,20 @@ return [
     'google' => [
         'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+
+        /*
+         | La ÚNICA URI de retorno que hay que registrar en la consola de
+         | Google, apuntando al dominio central:
+         |
+         |   https://acadion.mx/auth/google/callback
+         |
+         | Google exige registrar cada URI una por una. Con un subdominio por
+         | escuela habría que dar de alta una cada vez que se abre una, y hasta
+         | que alguien se acordara, ahí nadie entraría con Google. Volviendo
+         | siempre al centro, se registra una vez y ya.
+         */
         'redirect' => env('GOOGLE_REDIRECT_URI'),
+
         'modo' => env('SSO_GOOGLE_MODO', 'off'),
     ],
 

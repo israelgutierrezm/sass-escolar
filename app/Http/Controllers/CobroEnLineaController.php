@@ -14,12 +14,14 @@ use App\Services\Pagos\CobroEnLinea;
 use App\Services\Pagos\EstadoCobro;
 use App\Services\Pagos\Pasarelas;
 use App\Services\Pagos\ResultadoCobro;
+use App\Support\PasarelasCatalogo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
+use RuntimeException;
 
 /**
  * Pagar en línea: los cuatro saltos del cobro.
@@ -60,17 +62,43 @@ class CobroEnLineaController extends Controller
             'pasarela' => ['required', 'string', 'max:30'],
             'adeudo_ids' => ['required', 'array', 'min:1'],
             'adeudo_ids.*' => ['integer'],
+            // Sólo lo mandan las pasarelas que exigen saberlo de antemano.
+            'metodo' => ['nullable', 'string', 'max:20'],
         ], [
             'adeudo_ids.required' => 'Elige al menos un cargo para pagar.',
         ]);
 
-        $intencion = $this->cobro->iniciar(
-            $matricula,
-            $datos['pasarela'],
-            $datos['adeudo_ids'],
-            route('tenant.pagos.retorno'),
-            route('tenant.pagos.aviso', ['pasarela' => $datos['pasarela']]),
-        );
+        try {
+            $intencion = $this->cobro->iniciar(
+                $matricula,
+                $datos['pasarela'],
+                $datos['adeudo_ids'],
+                route('tenant.pagos.retorno'),
+                route('tenant.pagos.aviso', ['pasarela' => $datos['pasarela']]),
+                $datos['metodo'] ?? null,
+            );
+        } catch (RuntimeException $e) {
+            /*
+             * Lo que falló es de la escuela, no de quien paga: credenciales
+             * caducadas, una pasarela mal configurada, su servicio caído. El
+             * motivo exacto —«api key inválida»— va al registro, donde sirve
+             * para arreglarlo; a quien iba a pagar se le dice lo único que le
+             * incumbe, que es que no es culpa suya y a quién avisar.
+             *
+             * Sin esto llegaba un 500 y el panel enseñaba un error genérico:
+             * el alumno se quedaba pensando que hizo algo mal.
+             */
+            Log::error('No se pudo abrir un cobro en línea.', [
+                'pasarela' => $datos['pasarela'],
+                'matricula' => $matricula->id,
+                'motivo' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'motivo' => 'No se pudo abrir el pago con '.PasarelasCatalogo::nombreDe($datos['pasarela'])
+                    .'. No es problema tuyo: avísale a la escuela para que lo revise.',
+            ], 422);
+        }
 
         return response()->json(['url' => $intencion->url_pago]);
     }
@@ -145,6 +173,61 @@ class CobroEnLineaController extends Controller
         $this->cobro->conciliar($resultado);
 
         return response()->json(['recibido' => true]);
+    }
+
+    /**
+     * Cómo pagar, cuando la pasarela no da una página sino datos.
+     *
+     * Es el caso del SPEI: devuelve CLABE, banco y referencia, y ninguna
+     * pantalla donde enseñarlos. Sin esto, quien eligiera transferencia se
+     * quedaría con un error genérico en lugar de los datos que venía a buscar.
+     */
+    public function instrucciones(Request $request, IntencionCobro $intencion): Response
+    {
+        $matricula = $intencion->matriculaOferta;
+
+        // Los datos para pagar son de quien debe: mismo criterio que la cuenta.
+        AvisoParaElUsuario::aMenosQue($matricula !== null, 404, 'Ese cobro ya no existe.');
+        $this->exigirQuePuedaVerLaCuenta($request, $matricula);
+
+        return Inertia::render('Finanzas/InstruccionesDePago', [
+            'monto' => (float) $intencion->monto,
+            'pasarela' => $intencion->pasarela,
+            'datos' => $this->datosParaPagar($intencion),
+            'volver' => route('tenant.finanzas.cuenta', ['matricula' => $matricula->id]),
+        ]);
+    }
+
+    /**
+     * Los datos de pago que devolvió la pasarela, en pares legibles.
+     *
+     * Se leen de lo que ella contestó y se traducen aquí porque cada una los
+     * llama distinto; lo que ve quien paga tiene que decir «CLABE», no
+     * `payment_method.clabe`.
+     *
+     * @return array<int, array{etiqueta: string, valor: string}>
+     */
+    private function datosParaPagar(IntencionCobro $intencion): array
+    {
+        $metodo = $intencion->respuesta['payment_method'] ?? [];
+
+        $etiquetas = [
+            'bank' => 'Banco',
+            'clabe' => 'CLABE',
+            'name' => 'Beneficiario',
+            'reference' => 'Referencia',
+            'agreement' => 'Convenio',
+            'barcode_url' => 'Código de barras',
+        ];
+
+        return collect($etiquetas)
+            ->map(fn (string $etiqueta, string $campo) => [
+                'etiqueta' => $etiqueta,
+                'valor' => (string) ($metodo[$campo] ?? ''),
+            ])
+            ->filter(fn (array $d) => $d['valor'] !== '')
+            ->values()
+            ->all();
     }
 
     /**

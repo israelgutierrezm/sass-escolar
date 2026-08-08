@@ -31,7 +31,7 @@ class PasarelaFalsa implements Pasarela
 {
     public function __construct(private readonly string $clave) {}
 
-    public function iniciar(IntencionCobro $intencion, string $urlRetorno, string $urlAviso): CobroIniciado
+    public function iniciar(IntencionCobro $intencion, string $urlRetorno, string $urlAviso, ?string $metodo = null): CobroIniciado
     {
         return new CobroIniciado(
             url: route('tenant.pagos.simulador', ['intencion' => $intencion->id]),
@@ -78,5 +78,11 @@ class PasarelaFalsa implements Pasarela
     public function avisoAutentico(Request $peticion, PasarelaPago $config): bool
     {
         return true;
+    }
+
+    /** Como las de checkout alojado: el simulador presenta las opciones. */
+    public function metodosAElegir(): array
+    {
+        return [];
     }
 }

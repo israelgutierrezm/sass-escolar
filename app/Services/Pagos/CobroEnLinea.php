@@ -60,9 +60,22 @@ class CobroEnLinea
         array $adeudoIds,
         string $urlRetorno,
         string $urlAviso,
+        ?string $metodo = null,
     ): IntencionCobro {
         $config = PasarelaPago::para($clavePasarela);
         $pasarela = $this->pasarelas->para($config);
+
+        /*
+         * Las pasarelas sin checkout propio —OpenPay— necesitan saber la forma
+         * de pago de antemano. Si no llegó, no se elige una por su cuenta: se
+         * pide, porque cobrar con tarjeta a quien iba a pagar en efectivo es
+         * cobrarle de una manera que no aceptó.
+         */
+        AvisoParaElUsuario::si(
+            $pasarela->metodosAElegir() !== [] && blank($metodo),
+            422,
+            'Elige con qué vas a pagar antes de continuar.',
+        );
 
         $adeudos = $this->adeudosDe($titular, $adeudoIds);
 
@@ -94,6 +107,7 @@ class CobroEnLinea
             $intencion,
             $this->conIntencion($urlRetorno, $intencion->id),
             $this->conIntencion($urlAviso, $intencion->id),
+            $metodo,
         );
 
         $intencion->update([
