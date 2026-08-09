@@ -8,6 +8,7 @@ import NavAcademico from '@/Components/NavAcademico.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 import { ICONOS } from '@/iconos';
+import ZonaArchivo from '@/Components/ZonaArchivo.vue';
 
 const props = defineProps<{
     institucion: { id: number; clave: string; nombre: string; logo: string | null } | null;
@@ -24,8 +25,7 @@ const form = useForm({
 // Vista previa: la que ya está guardada, o la recién elegida sin subir aún.
 const previa = ref<string | null>(props.institucion?.logo ?? null);
 
-async function elegirLogo(evento: Event): Promise<void> {
-    const original = (evento.target as HTMLInputElement).files?.[0] ?? null;
+async function elegirLogo(original: File | null): Promise<void> {
     // Se reduce si es un raster grande (evita el límite de subida de PHP).
     const archivo = original ? await prepararImagen(original) : null;
     form.logo = archivo;
@@ -84,11 +84,12 @@ function enviar(): void {
                         >
                             Sin logo
                         </span>
-                        <input
-                            type="file"
+                        <ZonaArchivo
+                            class="flex-1"
                             accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                            class="text-sm"
-                            @change="elegirLogo"
+                            texto="Arrastra el logo o haz clic para elegirlo"
+                            :cargado="form.logo?.name ?? null"
+                            @archivo="elegirLogo"
                         />
                     </div>
                     <p v-if="form.errors.logo" class="mt-1 text-xs" style="color: #dc2626">{{ form.errors.logo }}</p>

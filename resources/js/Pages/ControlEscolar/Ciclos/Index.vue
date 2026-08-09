@@ -34,14 +34,39 @@ const props = defineProps<{
         to: number | null;
     };
     filtros: Record<string, any>;
+    opciones: {
+        situaciones: { valor: number; texto: string }[];
+        campus: { valor: number; texto: string }[];
+        niveles: { valor: number; texto: string }[];
+    };
     puedeEditar: boolean;
 }>();
+
+/**
+ * Los filtros del listado.
+ *
+ * Las opciones vienen del servidor porque son catálogos de la escuela —sus
+ * situaciones, sus campus, sus niveles— y no una lista fija: clavarlas aquí
+ * ofrecería filtrar por cosas que esta escuela no usa.
+ */
+const FILTROS = computed(() => [
+    { clave: 'situacion', etiqueta: 'Situación', opciones: props.opciones.situaciones },
+    { clave: 'campus', etiqueta: 'Campus', opciones: props.opciones.campus },
+    { clave: 'nivel', etiqueta: 'Nivel', opciones: props.opciones.niveles },
+    { clave: 'abiertos', etiqueta: 'Con inscripción abierta', tipo: 'booleano' as const },
+]);
 
 const vista = ref<'lista' | 'cuadricula'>('lista');
 
 const vacio = computed(() => !props.ciclos.data.length);
+const hayFiltro = computed(() =>
+    Boolean(props.filtros.busqueda || props.filtros.situacion || props.filtros.campus
+        || props.filtros.nivel || props.filtros.abiertos));
+
+// Con filtros puestos, «aún no hay ciclos» sería mentira: los hay, pero
+// ninguno cumple. Decirlo mal manda a crear uno que ya existe.
 const mensajeVacio = computed(() =>
-    props.filtros.busqueda ? 'Ningún ciclo coincide con la búsqueda.' : 'Aún no hay ciclos registrados.',
+    hayFiltro.value ? 'Ningún ciclo coincide con los filtros.' : 'Aún no hay ciclos registrados.',
 );
 
 function eliminar(id: number, clave: string): void {
@@ -64,7 +89,7 @@ function eliminar(id: number, clave: string): void {
             url="/escolar/ciclos"
             vista-clave="ciclos"
             :valores="filtros"
-            :filtros="[]"
+            :filtros="FILTROS"
             placeholder="Buscar por clave o nombre…"
             :puede-crear="puedeEditar"
             nuevo-texto="Nuevo ciclo"

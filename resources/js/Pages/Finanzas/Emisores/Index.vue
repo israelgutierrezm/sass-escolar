@@ -9,6 +9,7 @@ import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import DatosFiscalesEmisor from '@/Components/DatosFiscalesEmisor.vue';
+import ZonaArchivo from '@/Components/ZonaArchivo.vue';
 
 interface Asignacion {
     id: number;
@@ -298,20 +299,30 @@ const etiquetaTipo: Record<string, string> = {
                     </p>
 
                     <div class="mt-3 grid gap-3 sm:grid-cols-3">
-                        <label class="text-sm">
+                        <div class="text-sm">
                             <span class="mb-1 block font-medium">
                                 Certificado (.cer)
                                 <span v-if="emisor.tiene_certificado" class="text-xs text-emerald-700">— ya cargado</span>
                             </span>
-                            <input type="file" class="w-full text-sm" @input="credenciales.certificado = ($event.target as HTMLInputElement).files?.[0] ?? null" />
-                        </label>
-                        <label class="text-sm">
+                            <ZonaArchivo
+                                accept=".cer"
+                                texto="Arrastra el .cer o haz clic para elegirlo"
+                                :cargado="credenciales.certificado?.name ?? null"
+                                @archivo="(a) => (credenciales.certificado = a)"
+                            />
+                        </div>
+                        <div class="text-sm">
                             <span class="mb-1 block font-medium">
                                 Llave (.key)
                                 <span v-if="emisor.tiene_llave" class="text-xs text-emerald-700">— ya cargada</span>
                             </span>
-                            <input type="file" class="w-full text-sm" @input="credenciales.llave = ($event.target as HTMLInputElement).files?.[0] ?? null" />
-                        </label>
+                            <ZonaArchivo
+                                accept=".key"
+                                texto="Arrastra la .key o haz clic para elegirla"
+                                :cargado="credenciales.llave?.name ?? null"
+                                @archivo="(a) => (credenciales.llave = a)"
+                            />
+                        </div>
                         <CampoTexto v-model="credenciales.llave_password" tipo="password" etiqueta="Contraseña de la llave" autocomplete="new-password" :error="credenciales.errors.llave_password" />
                         <CampoTexto v-model="credenciales.pac_usuario" etiqueta="Usuario del PAC" autocomplete="off" :error="credenciales.errors.pac_usuario" />
                         <CampoTexto v-model="credenciales.pac_password" tipo="password" etiqueta="Contraseña del PAC" autocomplete="new-password" :error="credenciales.errors.pac_password" />

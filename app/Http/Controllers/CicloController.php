@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Exceptions\AvisoParaElUsuario;
 
 use App\Models\Academico\Campus;
+use App\Models\Academico\NivelEstudio;
 use App\Models\ControlEscolar\Ciclo;
 use App\Models\ControlEscolar\SituacionCiclo;
 use App\Models\Identidad\Usuario;
@@ -38,15 +39,44 @@ class CicloController extends Controller
     public function index(Request $request): Response
     {
         $busqueda = trim((string) $request->query('busqueda', ''));
+        $situacion = $request->query('situacion');
+        $campus = $request->query('campus');
+        $nivel = $request->query('nivel');
+        $abiertos = $request->query('abiertos') === '1';
+
+        $hoy = now()->toDateString();
+        $alcance = $this->alcance($request);
 
         return Inertia::render('ControlEscolar/Ciclos/Index', [
             'ciclos' => Ciclo::query()
                 ->with(['campus:id,nombre', 'situacion:id,nombre', 'niveles:id,nombre'])
                 ->withCount('grupos')
-                ->delAlcance($this->alcance($request))
+                ->delAlcance($alcance)
                 ->when($busqueda !== '', fn ($q) => $q->where(fn ($sub) => $sub
                     ->where('clave', 'like', "%{$busqueda}%")
                     ->orWhere('nombre', 'like', "%{$busqueda}%")))
+                ->when(filled($situacion), fn ($q) => $q->where('situacion_id', $situacion))
+                /*
+                 * Un ciclo SIN campus es global —vale para todos—, así que al
+                 * filtrar por campus tiene que salir también. Dejarlo fuera
+                 * escondería justo los ciclos que aplican a esa sede.
+                 */
+                ->when(filled($campus), fn ($q) => $q->where(fn ($sub) => $sub
+                    ->whereHas('campus', fn ($c) => $c->where('campus.id', $campus))
+                    ->orWhereDoesntHave('campus')))
+                // Mismo criterio con los niveles: sin niveles = cualquier nivel.
+                ->when(filled($nivel), fn ($q) => $q->where(fn ($sub) => $sub
+                    ->whereHas('niveles', fn ($n) => $n->where('niveles_estudio.id', $nivel))
+                    ->orWhereDoesntHave('niveles')))
+                /*
+                 * «Con inscripción abierta» en SQL, no en PHP: filtrar después
+                 * de paginar daría páginas de tamaño irregular y un total que
+                 * no corresponde a lo que se ve. Sin fechas capturadas la
+                 * ventana no restringe, así que cuenta como abierta.
+                 */
+                ->when($abiertos, fn ($q) => $q->where(fn ($sub) => $sub
+                    ->where(fn ($s) => $s->whereNull('inscripcion_desde')->orWhereNull('inscripcion_hasta'))
+                    ->orWhere(fn ($s) => $s->where('inscripcion_desde', '<=', $hoy)->where('inscripcion_hasta', '>=', $hoy))))
                 ->orderByDesc('fecha_inicio')
                 ->paginate(10)
                 ->withQueryString()
@@ -62,7 +92,28 @@ class CicloController extends Controller
                     'inscripcion_abierta' => $ciclo->inscripcionAbierta(),
                     'grupos_count' => $ciclo->grupos_count,
                 ]),
-            'filtros' => ['busqueda' => $busqueda],
+            'filtros' => [
+                'busqueda' => $busqueda,
+                'situacion' => $situacion ?? '',
+                'campus' => $campus ?? '',
+                'nivel' => $nivel ?? '',
+                'abiertos' => $abiertos ? '1' : '',
+            ],
+            /*
+             * Las opciones de los desplegables. Los campus van acotados al
+             * alcance del usuario: ofrecerle filtrar por una sede que no puede
+             * ver le daria un listado vacio sin explicacion.
+             */
+            'opciones' => [
+                'situaciones' => SituacionCiclo::query()->orderBy('nombre')->get(['id', 'nombre'])
+                    ->map(fn ($s) => ['valor' => $s->id, 'texto' => $s->nombre]),
+                'campus' => Campus::query()
+                    ->when(is_array($alcance), fn ($q) => $q->whereIn('id', $alcance))
+                    ->orderBy('nombre')->get(['id', 'nombre'])
+                    ->map(fn ($c) => ['valor' => $c->id, 'texto' => $c->nombre]),
+                'niveles' => NivelEstudio::query()->orderBy('nombre')->get(['id', 'nombre'])
+                    ->map(fn ($n) => ['valor' => $n->id, 'texto' => $n->nombre]),
+            ],
             'puedeEditar' => $request->user()->can('abrir-grupos'),
         ]);
     }

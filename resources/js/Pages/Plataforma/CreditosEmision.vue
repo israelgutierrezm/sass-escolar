@@ -2,6 +2,7 @@
 import { Head, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import ZonaArchivo from '@/Components/ZonaArchivo.vue';
 
 /**
  * Los créditos de emisión de la escuela: cuánto queda, qué se ha usado y cómo
@@ -48,8 +49,8 @@ const form = useForm({
     comprobante: null as File | null,
 });
 
-function elegirArchivo(e: Event): void {
-    form.comprobante = (e.target as HTMLInputElement).files?.[0] ?? null;
+function elegirArchivo(archivo: File | null): void {
+    form.comprobante = archivo;
 }
 
 function enviar(): void {
@@ -137,11 +138,17 @@ function enviar(): void {
                     </label>
                 </div>
 
-                <label class="mt-3 block text-sm">
+                <div class="mt-3">
                     <span class="mb-1 block text-xs" :style="{ color: 'var(--color-suave)' }">Comprobante del pago</span>
-                    <input type="file" accept="image/*,application/pdf" class="w-full text-sm" @change="elegirArchivo" />
+                    <ZonaArchivo
+                        accept="image/*,application/pdf"
+                        texto="Arrastra el comprobante o haz clic para elegirlo"
+                        ayuda="Imagen o PDF del pago"
+                        :cargado="form.comprobante?.name ?? null"
+                        @archivo="elegirArchivo"
+                    />
                     <span v-if="form.errors.comprobante" class="text-xs text-red-600">{{ form.errors.comprobante }}</span>
-                </label>
+                </div>
 
                 <div class="mt-4 flex flex-wrap items-center gap-3">
                     <button

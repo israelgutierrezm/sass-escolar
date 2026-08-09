@@ -8,6 +8,7 @@ import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 import CobroAspirante from '@/Components/CobroAspirante.vue';
 import FormulariosAsignados from '@/Components/FormulariosAsignados.vue';
 import { ICONOS } from '@/iconos';
+import ZonaArchivo from '@/Components/ZonaArchivo.vue';
 
 interface Entrega {
     id: number;
@@ -101,9 +102,8 @@ function abrirSubida(documentoId: number): void {
     formArchivo.copia_certificada = false;
 }
 
-function seleccionarArchivo(evento: Event): void {
-    const input = evento.target as HTMLInputElement;
-    formArchivo.archivo = input.files?.[0] ?? null;
+function seleccionarArchivo(archivo: File | null): void {
+    formArchivo.archivo = archivo;
 }
 
 function subir(): void {
@@ -374,18 +374,20 @@ Se le generará su matrícula de todos modos y eso no se puede deshacer. ¿Conti
 
                             <form
                                 v-if="subiendoPara === fila.documento_id"
-                                class="mt-3 flex flex-wrap items-center gap-3 border-l-2 py-3 pl-3"
+                                class="mt-3 border-l-2 py-3 pl-3"
                                 :style="{ borderColor: 'var(--color-acento)' }"
                                 @submit.prevent="subir"
                             >
-                                <input
-                                    type="file"
+                                <ZonaArchivo
                                     accept=".pdf,.jpg,.jpeg,.png"
-                                    required
-                                    class="text-xs"
-                                    @change="seleccionarArchivo"
+                                    texto="Arrastra el documento o haz clic para elegirlo"
+                                    ayuda="PDF o imagen"
+                                    :cargado="formArchivo.archivo?.name ?? null"
+                                    @archivo="seleccionarArchivo"
                                 />
-                                <label class="flex items-center gap-1.5 text-xs text-suave">
+
+                                <div class="mt-3 flex flex-wrap items-center gap-3">
+                                    <label class="flex items-center gap-1.5 text-xs text-suave">
                                     <input v-model="formArchivo.copia_certificada" type="checkbox" />
                                     Copia certificada
                                 </label>
@@ -407,6 +409,7 @@ Se le generará su matrícula de todos modos y eso no se puede deshacer. ¿Conti
                                 <p v-if="formArchivo.errors.archivo" class="w-full text-xs text-red-600">
                                     {{ formArchivo.errors.archivo }}
                                 </p>
+                                </div>
                             </form>
                         </li>
                     </ul>

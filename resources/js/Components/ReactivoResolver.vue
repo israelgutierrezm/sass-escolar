@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
+import ZonaArchivo from '@/Components/ZonaArchivo.vue';
 
 /*
  * Un reactivo, con la forma de responderlo que le toque.
@@ -125,9 +126,7 @@ function señalar(evento: MouseEvent): void {
     avisar();
 }
 
-function subirArchivo(evento: Event): void {
-    const archivo = (evento.target as HTMLInputElement).files?.[0];
-
+function subirArchivo(archivo: File | null): void {
     if (archivo) emit('responder', archivo);
 }
 
@@ -326,16 +325,22 @@ defineExpose({ contestado });
 
             <!-- Subir un archivo -->
             <div v-else-if="reactivo.forma === 'archivo'">
-                <input type="file" class="text-sm" @change="subirArchivo" />
+                <ZonaArchivo
+                    accept="*"
+                    texto="Arrastra tu archivo o haz clic para elegirlo"
+                    :cargado="valor?.nombre ?? null"
+                    @archivo="subirArchivo"
+                />
+                <!-- El nombre lo enseña la zona; aquí sólo el enlace para abrirlo. -->
                 <p v-if="valor?.nombre" class="mt-2 text-xs text-suave">
-                    Subiste
                     <a
                         v-if="reactivo.respuesta_id"
                         :href="`/respuestas/${reactivo.respuesta_id}/archivo`"
                         class="font-medium underline"
                         :style="{ color: 'var(--color-acento)' }"
-                    >{{ valor.nombre }}</a>
-                    <strong v-else>{{ valor.nombre }}</strong>. Subir otro lo reemplaza.
+                    >Ver lo que subiste</a>
+                    <span v-else>Se guardará al enviar.</span>
+                    Subir otro lo reemplaza.
                 </p>
             </div>
         </div>

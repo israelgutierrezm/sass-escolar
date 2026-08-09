@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
+import ZonaArchivo from '@/Components/ZonaArchivo.vue';
 
 /**
  * Pagar en línea: elegir con qué e ir a la pasarela.
@@ -113,8 +114,8 @@ async function copiar(campo: string, valor: string): Promise<void> {
     }
 }
 
-function elegirArchivo(evento: Event): void {
-    comprobante.archivo = (evento.target as HTMLInputElement).files?.[0] ?? null;
+function elegirArchivo(archivo: File | null): void {
+    comprobante.archivo = archivo;
 }
 
 function mandarComprobante(): void {
@@ -343,10 +344,16 @@ async function pagar(clave: string, metodo?: string): Promise<void> {
                     </label>
                 </div>
 
-                <label class="mt-3 block text-sm">
-                    <span class="mb-1 block text-xs" :style="{ color: 'var(--color-suave)' }">Comprobante (imagen o PDF)</span>
-                    <input type="file" accept="image/*,application/pdf" class="w-full text-sm" @change="elegirArchivo" />
-                </label>
+                <div class="mt-3">
+                    <span class="mb-1 block text-xs" :style="{ color: 'var(--color-suave)' }">Comprobante</span>
+                    <ZonaArchivo
+                        accept="image/*,application/pdf"
+                        texto="Arrastra el comprobante o haz clic para elegirlo"
+                        ayuda="Imagen o PDF de la transferencia"
+                        :cargado="comprobante.archivo?.name ?? null"
+                        @archivo="elegirArchivo"
+                    />
+                </div>
 
                 <p v-if="errorComprobante || comprobante.errors.archivo || comprobante.errors.monto || comprobante.errors.fecha_transferencia"
                    class="mt-2 text-sm text-red-600">

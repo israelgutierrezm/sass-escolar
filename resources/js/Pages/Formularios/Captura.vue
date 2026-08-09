@@ -8,6 +8,7 @@ import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import { ICONOS } from '@/iconos';
+import ZonaArchivo from '@/Components/ZonaArchivo.vue';
 
 /**
  * Contestar un formulario del expediente.
@@ -96,8 +97,15 @@ function alternarOpcion(campo: Campo, valor: string): void {
         : [...actuales, valor];
 }
 
-function tomarArchivo(campo: Campo, evento: Event): void {
-    form.campos[String(campo.id)] = (evento.target as HTMLInputElement).files?.[0] ?? '';
+function tomarArchivo(campo: Campo, archivo: File | null): void {
+    form.campos[String(campo.id)] = archivo ?? '';
+}
+
+/** El nombre de lo que se acaba de elegir, para que la zona lo enseñe. */
+function nombreElegido(campo: Campo): string | null {
+    const valor = form.campos[String(campo.id)];
+
+    return valor instanceof File ? valor.name : null;
 }
 
 function guardar(): void {
@@ -204,11 +212,12 @@ function opcionesDe(campo: Campo) {
                                 </p>
                                 <p v-if="campo.descripcion" class="mb-2 text-xs text-suave">{{ campo.descripcion }}</p>
 
-                                <input
-                                    type="file"
+                                <ZonaArchivo
                                     accept=".pdf,.jpg,.jpeg,.png"
-                                    class="text-sm"
-                                    @change="tomarArchivo(campo, $event)"
+                                    texto="Arrastra el documento o haz clic para elegirlo"
+                                    ayuda="PDF o imagen"
+                                    :cargado="nombreElegido(campo)"
+                                    @archivo="(a) => tomarArchivo(campo, a)"
                                 />
                                 <p v-if="respuestas[String(campo.id)]?.documento" class="mt-1 text-xs text-suave">
                                     <!-- El archivo entraba y no salía: quedaba

@@ -5,6 +5,7 @@ import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import ZonaArchivo from '@/Components/ZonaArchivo.vue';
 
 /**
  * Títulos/grados de un docente (CV académico). Se comparte entre el expediente
@@ -51,8 +52,7 @@ const form = useForm<{
     archivo: File | null;
 }>({ grado: '', titulo_obtenido: '', cedula: '', institucion: '', anio: null, archivo: null });
 
-function elegirArchivo(evento: Event): void {
-    const archivo = (evento.target as HTMLInputElement).files?.[0] ?? null;
+function elegirArchivo(archivo: File | null): void {
     form.archivo = archivo;
     nombreArchivo.value = archivo?.name ?? null;
 }
@@ -104,8 +104,13 @@ function quitar(id: number): void {
             <CampoTexto v-model="form.anio" etiqueta="Año" tipo="number" :error="form.errors.anio" />
             <div>
                 <label class="mb-1 block text-sm font-medium">Documento (opcional)</label>
-                <input type="file" accept=".pdf,image/*" class="text-sm" @change="elegirArchivo" />
-                <p v-if="nombreArchivo" class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">{{ nombreArchivo }}</p>
+                <ZonaArchivo
+                    accept=".pdf,image/*"
+                    texto="Arrastra el documento o haz clic para elegirlo"
+                    ayuda="PDF o imagen del título"
+                    :cargado="nombreArchivo"
+                    @archivo="elegirArchivo"
+                />
                 <p v-if="form.errors.archivo" class="mt-1 text-xs text-red-600">{{ form.errors.archivo }}</p>
             </div>
             <div class="flex items-end gap-2 sm:col-span-2">
