@@ -39,12 +39,47 @@ export interface Clima {
     aire: { indice: number; etiqueta: string; color: string; recomendacion: string } | null;
 }
 
-export function usaClima(): { clima: Ref<Clima | null>; esDeNoche: ComputedRef<boolean> } {
-    const clima = ref<Clima | null>(null);
+/**
+ * Dónde se recuerda la ubicación que la persona autorizó.
+ *
+ * En `localStorage` y no en el servidor a propósito: es un dato del dispositivo
+ * de alguien, sirve sólo para adornar su panel, y guardarlo en la base de la
+ * escuela convertiría un permiso del navegador en un registro de por dónde anda
+ * su gente. Quien quiera revocarlo borra los datos del sitio y ya.
+ */
+const LLAVE_UBICACION = 'acadion.clima.ubicacion';
 
-    onMounted(async () => {
+interface Coordenadas {
+    lat: number;
+    lon: number;
+}
+
+function ubicacionGuardada(): Coordenadas | null {
+    try {
+        const crudo = localStorage.getItem(LLAVE_UBICACION);
+        const d = crudo ? JSON.parse(crudo) : null;
+
+        return typeof d?.lat === 'number' && typeof d?.lon === 'number' ? d : null;
+    } catch {
+        return null;
+    }
+}
+
+export function usaClima(): {
+    clima: Ref<Clima | null>;
+    esDeNoche: ComputedRef<boolean>;
+    puedeUbicar: boolean;
+    ubicando: Ref<boolean>;
+    conMiUbicacion: () => Promise<void>;
+} {
+    const clima = ref<Clima | null>(null);
+    const ubicando = ref(false);
+
+    async function traer(coordenadas: Coordenadas | null): Promise<void> {
         try {
-            const { data } = await axios.get('/panel/clima');
+            const { data } = await axios.get('/panel/clima', {
+                params: coordenadas ? { lat: coordenadas.lat, lon: coordenadas.lon } : {},
+            });
 
             // El endpoint responde `{}` cuando no se pudo saber —es un JSON de
             // null—, así que no basta con mirar si hubo error de red.
@@ -53,7 +88,67 @@ export function usaClima(): { clima: Ref<Clima | null>; esDeNoche: ComputedRef<b
             // Silencio a propósito: es la ventana, no información crítica.
             clima.value = null;
         }
-    });
+    }
+
+    // Con lo ya autorizado, si lo hay: quien dio permiso una vez no tiene que
+    // volver a pulsar nada en cada visita.
+    onMounted(() => traer(ubicacionGuardada()));
+
+    /**
+     * Sólo si el navegador la ofrece Y la página va por HTTPS (o es localhost):
+     * fuera de eso `navigator.geolocation` existe pero falla siempre, y ofrecer
+     * un botón que no puede funcionar es peor que no ofrecerlo.
+     */
+    const puedeUbicar = typeof navigator !== 'undefined'
+        && 'geolocation' in navigator
+        && (window.isSecureContext ?? false);
+
+    /**
+     * Pide permiso y vuelve a traer el clima desde donde está la persona.
+     *
+     * Si lo niega —o el dispositivo no sabe dónde está— no se toca nada: se
+     * queda el clima que ya había, que es mejor que un hueco y un mensaje de
+     * error por una tarjeta del tiempo.
+     */
+    async function conMiUbicacion(): Promise<void> {
+        if (!puedeUbicar || ubicando.value) {
+            return;
+        }
+
+        ubicando.value = true;
+
+        try {
+            const posicion = await new Promise<GeolocationPosition>((resolver, rechazar) => {
+                navigator.geolocation.getCurrentPosition(resolver, rechazar, {
+                    // Basta la aproximada: para el clima sobra, y pedir la
+                    // precisa enciende el GPS y tarda mucho más.
+                    enableHighAccuracy: false,
+                    timeout: 8000,
+                    maximumAge: 10 * 60 * 1000,
+                });
+            });
+
+            const coordenadas: Coordenadas = {
+                // A tres decimales —unos cien metros—: es lo que el servidor usa
+                // como llave de cache, y de paso no se manda la puerta de nadie.
+                lat: Number(posicion.coords.latitude.toFixed(3)),
+                lon: Number(posicion.coords.longitude.toFixed(3)),
+            };
+
+            try {
+                localStorage.setItem(LLAVE_UBICACION, JSON.stringify(coordenadas));
+            } catch {
+                // Modo privado o almacenamiento lleno: funciona igual, sólo que
+                // habrá que volver a pulsar la próxima vez.
+            }
+
+            await traer(coordenadas);
+        } catch {
+            // Permiso denegado o sin señal: se queda como estaba.
+        } finally {
+            ubicando.value = false;
+        }
+    }
 
     /*
      * De día mientras no se sepa lo contrario.
@@ -64,5 +159,5 @@ export function usaClima(): { clima: Ref<Clima | null>; esDeNoche: ComputedRef<b
      */
     const esDeNoche = computed(() => clima.value !== null && !clima.value.es_de_dia);
 
-    return { clima, esDeNoche };
+    return { clima, esDeNoche, puedeUbicar, ubicando, conMiUbicacion };
 }

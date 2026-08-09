@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Models\Academico\Campus;
+use App\Http\Controllers\Plataforma\ClimaController;
 use App\Services\Plataforma\ClimaDelCampus;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Validation\ValidationException;
 use Tests\Concerns\CreaEscuelaDePrueba;
 use Tests\TenantTestCase;
 
@@ -118,6 +120,51 @@ class UbicacionDelClimaTest extends TenantTestCase
         $this->assertNull($this->climaCrudo('127.0.0.1'));
     }
 
+    /**
+     * Lo que da el navegador gana a todo: es lo único que ubica a la PERSONA.
+     *
+     * La IP y el campus ubican a su red, que en una escuela es la misma para
+     * todos. Por eso, cuando alguien da permiso, su ubicación manda aunque haya
+     * IP resoluble y campus con coordenadas.
+     */
+    public function test_lo_que_da_el_navegador_gana_a_la_ip_y_al_campus(): void
+    {
+        $this->campusEn(19.4326, -99.1332, 'Campus Centro');
+        $this->respuestas(ip: ['status' => 'success', 'city' => 'Guadalajara', 'lat' => 20.6597, 'lon' => -103.3496]);
+
+        $clima = $this->clima('189.203.1.1', ['latitud' => 25.6866, 'longitud' => -100.3161]);
+
+        $this->assertSame('tu ubicación', $clima['lugar']);
+        $this->assertFalse($clima['aproximado'], 'Lo del navegador es exacto, no aproximado.');
+        // Y se le preguntó a Open-Meteo por ESAS coordenadas, no por otras.
+        Http::assertSent(fn ($p) => str_contains($p->url(), 'api.open-meteo.com')
+            && (string) $p['latitude'] === '25.6866');
+    }
+
+    /**
+     * Unas coordenadas imposibles no llegan al servicio: se rechazan.
+     *
+     * Vienen de nuestro propio front, pero es una petición HTTP como cualquier
+     * otra: sin validar, un par de números cualquiera acabaría en la llave del
+     * cache y en la URL de un servicio de fuera.
+     */
+    public function test_el_endpoint_rechaza_coordenadas_imposibles(): void
+    {
+        $this->campusEn(19.4326, -99.1332, 'Campus Centro');
+        $this->respuestas();
+
+        $peticion = $this->peticionDe($this->usuarioConAlcance(), '/panel/clima', ['lat' => 95, 'lon' => 0]);
+
+        try {
+            app(ClimaController::class)($peticion, app(ClimaDelCampus::class));
+            $this->fail('Una latitud de 95 grados no debería pasar.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('lat', $e->errors());
+        }
+
+        Http::assertNotSent(fn ($p) => str_contains($p->url(), 'api.open-meteo.com'));
+    }
+
     // ── Andamiaje ──────────────────────────────────────────────────────────
 
     private function campusEn(float $lat, float $lon, string $nombre): void
@@ -155,19 +202,25 @@ class UbicacionDelClimaTest extends TenantTestCase
         ]);
     }
 
-    /** @return array<string, mixed> */
-    private function clima(string $ip): array
+    /**
+     * @param  array{latitud: float, longitud: float}|null  $coordenadas
+     * @return array<string, mixed>
+     */
+    private function clima(string $ip, ?array $coordenadas = null): array
     {
-        $clima = $this->climaCrudo($ip);
+        $clima = $this->climaCrudo($ip, $coordenadas);
 
         $this->assertNotNull($clima, 'Se esperaba clima y no llegó ninguno.');
 
         return $clima;
     }
 
-    /** @return array<string, mixed>|null */
-    private function climaCrudo(string $ip): ?array
+    /**
+     * @param  array{latitud: float, longitud: float}|null  $coordenadas
+     * @return array<string, mixed>|null
+     */
+    private function climaCrudo(string $ip, ?array $coordenadas = null): ?array
     {
-        return app(ClimaDelCampus::class)->para($this->usuarioConAlcance(), $ip);
+        return app(ClimaDelCampus::class)->para($this->usuarioConAlcance(), $ip, $coordenadas);
     }
 }

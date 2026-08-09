@@ -21,7 +21,14 @@ import type { Clima } from '@/utils/clima';
  * dónde y cómo se siente, y al final los próximos días. Es el orden en que se
  * consulta el clima en cualquier parte.
  */
-defineProps<{ clima: Clima }>();
+defineProps<{
+    clima: Clima;
+    /** Si el navegador puede dar la ubicación. Sin esto no se ofrece nada. */
+    puedeUbicar?: boolean;
+    ubicando?: boolean;
+}>();
+
+defineEmits<{ ubicar: [] }>();
 </script>
 
 <template>
@@ -42,6 +49,21 @@ defineProps<{ clima: Clima }>();
             <p class="truncate font-medium opacity-90">
                 <template v-if="clima.aproximado">Cerca de </template>{{ clima.lugar }}
             </p>
+
+            <!--
+                Sólo mientras la ubicación sea aproximada: quien ya dio permiso
+                —o a quien le sale su propio campus— no tiene nada que arreglar,
+                y dejar el botón ahí lo invita a pulsar algo que no hace nada.
+            -->
+            <button
+                v-if="puedeUbicar && clima.aproximado"
+                type="button"
+                class="mt-0.5 underline decoration-white/40 underline-offset-2 opacity-70 transition hover:opacity-100 disabled:opacity-50"
+                :disabled="ubicando"
+                @click="$emit('ubicar')"
+            >
+                {{ ubicando ? 'Ubicando…' : 'Usar mi ubicación' }}
+            </button>
             <p class="mt-0.5 opacity-70">
                 Se sienten {{ clima.sensacion }}° · {{ clima.humedad }}% · {{ clima.viento }} km/h
             </p>

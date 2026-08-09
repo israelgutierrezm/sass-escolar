@@ -63,11 +63,16 @@ class ClimaDelCampus
     /**
      * El clima que le toca ver a este usuario, o null si no se pudo saber.
      *
+     * `$coordenadas` son las que el navegador entregó con permiso de la
+     * persona: si vienen, mandan sobre todo lo demás, porque son las únicas que
+     * dicen dónde está ELLA y no dónde está su red.
+     *
+     * @param  array{latitud: float, longitud: float}|null  $coordenadas
      * @return array<string, mixed>|null
      */
-    public function para(Usuario $usuario, ?string $ip = null): ?array
+    public function para(Usuario $usuario, ?string $ip = null, ?array $coordenadas = null): ?array
     {
-        $lugar = $this->ubicacionDe($usuario, $ip);
+        $lugar = $this->ubicacionDe($usuario, $ip, $coordenadas);
 
         if ($lugar === null) {
             return null;
@@ -89,12 +94,29 @@ class ClimaDelCampus
     }
 
     /**
-     * Dónde está la persona: su IP si dice algo; si no, su campus.
+     * Dónde está la persona, en orden de qué tan bien lo sabemos.
      *
+     * 1. Lo que dio el navegador con su permiso: es lo único que ubica a la
+     *    PERSONA. Todo lo demás ubica a su red.
+     * 2. Su IP pública, que en la escuela es la de todos.
+     * 3. El campus, exacto pero igual para todo el plantel.
+     *
+     * @param  array{latitud: float, longitud: float}|null  $coordenadas
      * @return array{latitud: float, longitud: float, nombre: string, aproximado: bool}|null
      */
-    private function ubicacionDe(Usuario $usuario, ?string $ip): ?array
+    private function ubicacionDe(Usuario $usuario, ?string $ip, ?array $coordenadas = null): ?array
     {
+        if ($coordenadas !== null) {
+            return [
+                'latitud' => $coordenadas['latitud'],
+                'longitud' => $coordenadas['longitud'],
+                // Sin nombre: no se hace geocodificación inversa sólo para
+                // rotular una tarjeta, y «tu ubicación» dice la verdad.
+                'nombre' => 'tu ubicación',
+                'aproximado' => false,
+            ];
+        }
+
         // La IP manda. Si no resuelve —dirección privada, servicio caído— se
         // cae al campus, que además da una ubicación exacta.
         $porIp = $this->porIp($ip);

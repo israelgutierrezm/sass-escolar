@@ -76,7 +76,7 @@ const saludo = computed(() => {
     return h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches';
 });
 
-const { clima, esDeNoche } = usaClima();
+const { clima, esDeNoche, puedeUbicar, ubicando, conMiUbicacion } = usaClima();
 
 /**
  * El cielo, teñido por la hora del CAMPUS.
@@ -271,7 +271,12 @@ function conmutar(rolId: number): void {
 
                     <!-- `relative`: por encima del cielo, que va en absoluto. -->
                     <div class="relative px-6 py-5">
-                        <ClimaEnCabecera :clima="clima" />
+                        <ClimaEnCabecera
+                            :clima="clima"
+                            :puede-ubicar="puedeUbicar"
+                            :ubicando="ubicando"
+                            @ubicar="conMiUbicacion"
+                        />
                     </div>
                 </div>
             </div>
