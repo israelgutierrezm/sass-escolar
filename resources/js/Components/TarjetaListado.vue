@@ -37,7 +37,7 @@ defineProps<{
     >
         <div class="flex items-start justify-between gap-2">
             <div class="min-w-0">
-                <h3 class="truncate font-medium">{{ titulo }}</h3>
+                <h3 class="truncate font-medium" :title="titulo">{{ titulo }}</h3>
                 <p v-if="clave" class="truncate font-mono text-xs" :style="{ color: 'var(--color-suave)' }">
                     {{ clave }}
                 </p>
@@ -54,10 +54,35 @@ defineProps<{
                 texto se salga de la tarjeta.
             -->
             <div v-for="m in metas" :key="m.etiqueta" class="flex min-w-0 items-baseline justify-between gap-3">
-                <dt class="shrink-0 text-xs" :style="{ color: 'var(--color-suave)' }">{{ m.etiqueta }}</dt>
-                <!-- Recortado se pierde el dato: «Licenciatura en Administr…» no
-                     dice cuál es. El texto completo queda a un cursor encima. -->
-                <dd class="min-w-0 truncate text-right" :title="m.valor === null ? undefined : String(m.valor)">
+                <!--
+                    La etiqueta va un punto más oscura que el gris suave del
+                    resto: es la mitad del renglón que nombra el dato y con el
+                    suave a secas quedaba demasiado apagada frente a su valor.
+                -->
+                <dt
+                    class="shrink-0 text-xs"
+                    :style="{ color: 'color-mix(in srgb, var(--color-suave) 80%, var(--color-contenido))' }"
+                >{{ m.etiqueta }}</dt>
+
+                <!--
+                    Y el valor un punto más discreto: 13 px en vez de 14, y el
+                    color de contenido al 78%.
+                    ── Por qué ────────────────────────────────────────────────
+                    Antes el valor le sacaba DOS ventajas a su etiqueta —dos
+                    píxeles y el tono a tope—, y esa distancia doble era lo que
+                    hacía que la tarjeta se leyera como una tabla de dos
+                    columnas peleadas. Acercándolos, el renglón se lee como una
+                    sola cosa. Sin negritas a propósito: el peso extra era lo
+                    que más ruido metía.
+                    Recortado se pierde el dato —«Licenciatura en Administr…»
+                    no dice cuál es—, así que el texto completo queda a un
+                    cursor encima.
+                -->
+                <dd
+                    class="min-w-0 truncate text-right text-[13px]"
+                    :style="{ color: 'color-mix(in srgb, var(--color-contenido) 78%, transparent)' }"
+                    :title="m.valor === null ? undefined : String(m.valor)"
+                >
                     {{ m.valor ?? '—' }}
                 </dd>
             </div>
