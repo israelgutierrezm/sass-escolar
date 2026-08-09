@@ -10,6 +10,7 @@ use App\Http\Controllers\Concerns\VeLaCarteraDelAlumno;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Finanzas\IntencionCobro;
 use App\Models\Finanzas\PasarelaPago;
+use App\Support\UrlPublica;
 use App\Services\Pagos\CobroEnLinea;
 use App\Services\Pagos\EstadoCobro;
 use App\Services\Pagos\Pasarelas;
@@ -73,8 +74,14 @@ class CobroEnLineaController extends Controller
                 $matricula,
                 $datos['pasarela'],
                 $datos['adeudo_ids'],
+                /*
+                 * El retorno lo abre el navegador de quien paga, asi que va
+                 * con el host por el que entro. El AVISO lo abre un servidor
+                 * de la pasarela desde internet: ese si tiene que ir con la
+                 * direccion publica, que no siempre es la misma.
+                 */
                 route('tenant.pagos.retorno'),
-                route('tenant.pagos.aviso', ['pasarela' => $datos['pasarela']]),
+                UrlPublica::paraAfuera(route('tenant.pagos.aviso', ['pasarela' => $datos['pasarela']])),
                 $datos['metodo'] ?? null,
             );
         } catch (RuntimeException $e) {

@@ -81,6 +81,24 @@ return [
      | Las credenciales NO viven aquí: son por escuela y se guardan cifradas en la
      | tabla `titulacion_ws_config`. Aquí solo van los endpoints y el modo global.
      */
+    /*
+    |---------------------------------------------------------------------------
+    | Pagos en linea
+    |---------------------------------------------------------------------------
+    |
+    | `url_publica` es la direccion por la que una pasarela nos alcanza desde
+    | internet, cuando NO coincide con aquella por la que entra la escuela: un
+    | tunel de desarrollo (ngrok, cloudflared) o un proxy con otro nombre
+    | publico. Vacia -lo normal en produccion con dominio propio- y las URLs
+    | de aviso se arman con el host de la peticion, como siempre.
+    |
+    | Ver App\Support\UrlPublica y el comando `pagos:tunel`.
+    |
+    */
+    'pagos' => [
+        'url_publica' => env('PAGOS_URL_PUBLICA'),
+    ],
+
     'titulos_sep' => [
         'modo' => env('TITULOS_SEP_MODO', 'fake'),
         'wsdl_pruebas' => env('TITULOS_SEP_WSDL_PRUEBAS', 'https://metqa.siged.sep.gob.mx/met-ws/services/TitulosElectronicos.wsdl'),

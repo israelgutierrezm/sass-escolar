@@ -10,6 +10,7 @@ use App\Services\Pagos\Pasarelas;
 use App\Support\PasarelasCatalogo;
 use Illuminate\Console\Command;
 use Throwable;
+use App\Support\UrlPublica;
 
 /**
  * Comprueba que una pasarela puede cobrar de verdad, ANTES de que lo descubra
@@ -98,16 +99,29 @@ class ProbarPasarelaPago extends Command
             $iniciado = $pasarela->iniciar(
                 $intencion,
                 route('tenant.pagos.retorno'),
-                route('tenant.pagos.aviso', ['pasarela' => $clave]),
+                UrlPublica::paraAfuera(route('tenant.pagos.aviso', ['pasarela' => $clave])),
             );
 
             $this->info("✓ {$nombre} aceptó el cobro.");
             $this->line('  Referencia: '.$iniciado->referenciaExterna);
             $this->line('  Liga de pago: '.$iniciado->url);
             $this->newLine();
-            $this->line('Las credenciales sirven. Falta comprobar el aviso: para eso la URL');
-            $this->line('del webhook tiene que ser alcanzable desde internet.');
-            $this->line('  '.route('tenant.pagos.aviso', ['pasarela' => $clave]));
+            $this->line('Las credenciales sirven. El aviso se pidio a:');
+            $this->line('  '.UrlPublica::paraAfuera(route('tenant.pagos.aviso', ['pasarela' => $clave])));
+            $this->newLine();
+
+            /*
+             * El aviso a una direccion que no existe fuera es el fallo mudo
+             * de este modulo: el cobro se abre, la liga funciona, alguien
+             * paga, y el pago no se aplica nunca. Se avisa aqui, que es el
+             * unico momento en que alguien esta mirando.
+             */
+            if (UrlPublica::base() === null) {
+                $this->warn('Esa direccion tiene que ser alcanzable desde internet.');
+                $this->line('Si estas en local, levanta un tunel y configura:');
+                $this->line('  PAGOS_URL_PUBLICA=https://loquetedeeltunel');
+                $this->line('  php artisan pagos:tunel '.tenant()->getTenantKey());
+            }
 
             return self::SUCCESS;
         } catch (Throwable $e) {
