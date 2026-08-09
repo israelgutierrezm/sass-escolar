@@ -99,12 +99,67 @@ class ClienteTitulosSep
         }
 
         try {
-            $this->soapClient($etapa);
-
-            return ['ok' => true, 'mensaje' => "El WSDL de «{$etapa}» respondió correctamente."];
+            $cliente = $this->soapClient($etapa);
         } catch (Throwable $e) {
             return ['ok' => false, 'mensaje' => 'No se pudo contactar el web service: '.$e->getMessage()];
         }
+
+        /*
+         * Que el WSDL cargue no significa que ofrezca lo que llamamos. Los
+         * nombres de las dos operaciones se escribieron contra la documentación,
+         * no contra el contrato en vivo, y si alguno no coincide hoy se descubre
+         * al enviar un título de verdad: el lote queda firmado, marcado como
+         * enviado y rechazado con un mensaje de SOAP que no dice cuál es el
+         * problema. Aquí se dice antes de mandar nada.
+         */
+        $faltantes = $this->operacionesQueFaltan($cliente);
+
+        if ($faltantes !== []) {
+            return [
+                'ok' => false,
+                'mensaje' => sprintf(
+                    'El WSDL de «%s» cargó, pero no ofrece %s. Lo que ofrece: %s.',
+                    $etapa,
+                    implode(' ni ', $faltantes),
+                    implode(', ', $this->operacionesDe($cliente)) ?: '(ninguna operación)',
+                ),
+            ];
+        }
+
+        return ['ok' => true, 'mensaje' => "El WSDL de «{$etapa}» respondió y ofrece las dos operaciones que se usan."];
+    }
+
+    /**
+     * Las operaciones que este cliente llama y el WSDL no declara.
+     *
+     * @return array<int, string>
+     */
+    private function operacionesQueFaltan(SoapClient $cliente): array
+    {
+        $declaradas = $this->operacionesDe($cliente);
+
+        return array_values(array_filter(
+            ['cargaTituloElectronico', 'consultaProcesoTituloElectronico'],
+            fn (string $op) => ! in_array($op, $declaradas, true),
+        ));
+    }
+
+    /**
+     * Los nombres de operación que declara el WSDL.
+     *
+     * `__getFunctions()` devuelve firmas completas —«ResponseType nombre(Params
+     * $p)»—, así que hay que quedarse con el nombre.
+     *
+     * @return array<int, string>
+     */
+    private function operacionesDe(SoapClient $cliente): array
+    {
+        $firmas = $cliente->__getFunctions() ?? [];
+
+        return array_values(array_filter(array_map(
+            fn (string $firma) => preg_match('/(\w+)\s*\(/', $firma, $m) ? $m[1] : null,
+            $firmas,
+        )));
     }
 
     /**

@@ -1,0 +1,12 @@
+#
+# Lo mínimo que OpenSSL necesita para generar una llave y un certificado.
+#
+# Va aquí porque el PHP de WAMP no trae `openssl.cnf` configurado y sin él
+# `openssl_pkey_new()` devuelve false con un «no such file» que no explica nada.
+# Depender del que traiga la máquina haría que la prueba pasara en una y no en
+# otra; esto no tiene secretos, sólo la estructura que el binario exige.
+#
+[ req ]
+distinguished_name = req_distinguished_name
+
+[ req_distinguished_name ]

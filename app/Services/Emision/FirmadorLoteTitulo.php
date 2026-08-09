@@ -47,9 +47,10 @@ class FirmadorLoteTitulo
         // certificado (lo captura el controlador).
         $firmas = array_map(function (array $f): array {
             $responsable = $f['responsable'];
+            $credencial = Credential::create($f['cert_pem'], $f['key'], $f['password']);
 
             return [
-                'credencial' => Credential::create($f['cert_pem'], $f['key'], $f['password']),
+                'credencial' => $credencial,
                 'nombre' => $responsable->nombre,
                 'primer_apellido' => $responsable->apellido_paterno,
                 'segundo_apellido' => $responsable->apellido_materno,
@@ -57,7 +58,17 @@ class FirmadorLoteTitulo
                 'id_cargo' => (string) ($responsable->cargo?->identificador ?? $responsable->cargo_id ?? '0'),
                 'cargo' => $responsable->cargo?->nombre,
                 'abr_titulo' => $responsable->tituloProfesional?->abreviatura,
-                'certificado' => base64_encode($f['cert_pem']),
+                /*
+                 * Base64 del DER —el contenido del .cer tal cual—, que es lo
+                 * que pide el XSD: «el archivo .cer como texto, en formato
+                 * Base64», y lo que muestra el ejemplo oficial.
+                 *
+                 * `pemAsOneLine()` es el cuerpo del PEM sin encabezados, que ya
+                 * es eso. Codificar el PEM completo manda una capa de más: al
+                 * decodificarlo aparece «-----BEGIN CERTIFICATE-----» en vez de
+                 * los bytes del certificado. Aquí nunca falla; falla en la SEP.
+                 */
+                'certificado' => $credencial->certificate()->pemAsOneLine(),
                 'no_certificado' => $f['certificado']->serie,
             ];
         }, array_values($firmantes));

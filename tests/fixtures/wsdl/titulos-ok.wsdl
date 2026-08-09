@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  WSDL mínimo con las DOS operaciones que este sistema llama.
+
+  No imita al de la SEP más allá de eso: sirve para comprobar que el
+  diagnóstico reconoce un contrato correcto sin salir a la red.
+-->
+<definitions name="TitulosElectronicos"
+             targetNamespace="urn:titulos"
+             xmlns:tns="urn:titulos"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns="http://schemas.xmlsoap.org/wsdl/">
+
+  <message name="cargaIn">
+    <part name="usuario" type="xsd:string"/>
+    <part name="password" type="xsd:string"/>
+    <part name="xmlTitulo" type="xsd:string"/>
+  </message>
+  <message name="cargaOut">
+    <part name="folioProceso" type="xsd:string"/>
+  </message>
+  <message name="consultaIn">
+    <part name="usuario" type="xsd:string"/>
+    <part name="password" type="xsd:string"/>
+    <part name="folioProceso" type="xsd:string"/>
+  </message>
+  <message name="consultaOut">
+    <part name="estado" type="xsd:string"/>
+  </message>
+
+  <portType name="TitulosPortType">
+    <operation name="cargaTituloElectronico">
+      <input message="tns:cargaIn"/>
+      <output message="tns:cargaOut"/>
+    </operation>
+    <operation name="consultaProcesoTituloElectronico">
+      <input message="tns:consultaIn"/>
+      <output message="tns:consultaOut"/>
+    </operation>
+  </portType>
+
+  <binding name="TitulosBinding" type="tns:TitulosPortType">
+    <soap:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <operation name="cargaTituloElectronico">
+      <soap:operation soapAction="cargaTituloElectronico"/>
+      <input><soap:body use="encoded" namespace="urn:titulos" encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"/></input>
+      <output><soap:body use="encoded" namespace="urn:titulos" encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"/></output>
+    </operation>
+    <operation name="consultaProcesoTituloElectronico">
+      <soap:operation soapAction="consultaProcesoTituloElectronico"/>
+      <input><soap:body use="encoded" namespace="urn:titulos" encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"/></input>
+      <output><soap:body use="encoded" namespace="urn:titulos" encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"/></output>
+    </operation>
+  </binding>
+
+  <service name="TitulosElectronicos">
+    <port name="TitulosPort" binding="tns:TitulosBinding">
+      <soap:address location="http://localhost/no-se-llama"/>
+    </port>
+  </service>
+</definitions>

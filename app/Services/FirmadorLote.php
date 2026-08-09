@@ -51,7 +51,19 @@ class FirmadorLote
         $credencial = Credential::create($certPem, $keyContents, $password);
 
         $noCertificado = $certificado->serie;
-        $certB64 = base64_encode($certPem);
+
+        /*
+         * El certificado va como base64 del DER —el contenido del .cer tal
+         * cual—, que es lo que pide el XSD: «el archivo .cer como texto, en
+         * formato Base64».
+         *
+         * `pemAsOneLine()` es exactamente eso: el cuerpo del PEM sin los
+         * encabezados, que ya es el DER en base64. Codificar el PEM completo
+         * —lo que se hacía— manda una capa de más: quien lo decodifica se
+         * encuentra «-----BEGIN CERTIFICATE-----» en vez de los bytes del
+         * certificado. Aquí nunca falla; falla del otro lado.
+         */
+        $certB64 = $credencial->certificate()->pemAsOneLine();
 
         // Datos del responsable que van al nodo Ipes/Responsable y a la cadena
         // original (curp e idCargo son parte de lo sellado, ver spec 6.5).
