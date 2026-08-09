@@ -13,28 +13,20 @@ use Illuminate\Support\Facades\Log;
 /**
  * El clima de donde está quien mira el panel.
  *
- * ── De dónde sale la ubicación ─────────────────────────────────────────────
- * De la IP primero; el campus queda de respaldo. Antes era al revés, y el
- * motivo del cambio es práctico: capturar la latitud y la longitud de cada
- * plantel es un paso que nadie da, así que en la práctica el clima no aparecía
- * en ninguna parte. Una ubicación aproximada que se ve gana a una exacta que
- * nunca se configura.
+ * ── De dónde sale la ubicación, en ese orden ───────────────────────────────
+ * 1. Lo que dio el navegador con permiso de la persona. Es lo único que la
+ *    ubica a ELLA; todo lo demás ubica a su red.
+ * 2. El campus: exacto y sin pedirle nada a nadie. Si está capturado, manda.
+ * 3. Su IP pública, para que la banda enseñe algo cuando no hay campus. Se
+ *    marca `aproximado` y la tarjeta lo dice —«cerca de Guadalajara»— porque
+ *    desde la red de la escuela todos salen por el mismo enlace y eso suele
+ *    ser la ciudad del proveedor de internet; con VPN, cualquier cosa. Ahí es
+ *    donde aparece el «usar mi ubicación», que sirve justo para afinarlo.
  *
- * Lo que se pierde al hacerlo así, y conviene tener presente:
- *
- * - Desde la red de la escuela todas las peticiones salen por el mismo enlace,
- *   así que media escuela verá la ubicación del proveedor de internet. Con VPN,
- *   cualquier cosa. Por eso lo que viene por IP se marca `aproximado` y la
- *   tarjeta lo dice —«cerca de Guadalajara»— en vez de afirmar un lugar.
- * - La IP de una persona es un dato personal y viaja a un tercero
- *   (`ip-api.com`) para adornar una tarjeta. El servicio gratuito sólo atiende
- *   por HTTP, así que además va sin cifrar. Si algún día eso pesa más que la
- *   comodidad, basta con volver a poner el campus primero: es el orden de dos
- *   líneas en `ubicacionDe`.
- *
- * El campus sigue sirviendo: es lo que se usa cuando la IP no dice nada
- * —una dirección privada en desarrollo, detrás de un proxy, o el servicio
- * caído—, y entonces la ubicación es exacta.
+ * Un aviso sobre el paso 3: la IP es un dato personal y viaja a un tercero
+ * (`ip-api.com`), que sólo atiende por HTTP —o sea, sin cifrar—. Se usa sólo
+ * cuando no hay campus capturado; capturar las coordenadas del plantel evita
+ * esa consulta por completo.
  *
  * ── Nunca rompe el panel ───────────────────────────────────────────────────
  * Es un adorno útil, no información crítica. Si la API tarda o falla, se
@@ -117,14 +109,6 @@ class ClimaDelCampus
             ];
         }
 
-        // La IP manda. Si no resuelve —dirección privada, servicio caído— se
-        // cae al campus, que además da una ubicación exacta.
-        $porIp = $this->porIp($ip);
-
-        if ($porIp !== null) {
-            return $porIp;
-        }
-
         $ids = $this->contexto->de($usuario->persona_id)['campus'];
 
         $conCoordenadas = Campus::query()
@@ -151,7 +135,10 @@ class ClimaDelCampus
             ];
         }
 
-        return null;
+        // Sin campus capturado, la IP: da una ciudad y con eso la banda ya
+        // enseña algo. Se marca aproximada, y es entonces cuando aparece el
+        // «usar mi ubicación» para quien quiera afinarlo.
+        return $this->porIp($ip);
     }
 
     /**

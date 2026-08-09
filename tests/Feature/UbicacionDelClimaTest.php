@@ -47,53 +47,60 @@ class UbicacionDelClimaTest extends TenantTestCase
         ])->flush();
     }
 
-    /** La IP manda: aunque el campus tenga coordenadas, se usa la de la IP. */
-    public function test_la_ip_gana_al_campus(): void
+    /**
+     * El campus manda sobre la IP.
+     *
+     * Es exacto y no le cuesta nada a nadie: ni una consulta a un tercero ni un
+     * dato personal viajando. La IP sólo entra cuando no hay coordenadas.
+     */
+    public function test_el_campus_gana_a_la_ip(): void
     {
         $this->campusEn(19.4326, -99.1332, 'Campus Centro');
         $this->respuestas(ip: ['status' => 'success', 'city' => 'Guadalajara', 'lat' => 20.6597, 'lon' => -103.3496]);
 
         $clima = $this->clima('189.203.1.1');
 
-        $this->assertSame('Guadalajara', $clima['lugar']);
-        $this->assertTrue($clima['aproximado'], 'Lo que viene de una IP se marca como aproximado.');
-    }
-
-    /**
-     * Si la IP no dice nada, manda el campus.
-     *
-     * Es el caso de todos los días en desarrollo —la IP es privada— y el de
-     * cualquier instalación detrás de un proxy mal configurado.
-     */
-    public function test_sin_ip_util_se_cae_al_campus(): void
-    {
-        $this->campusEn(19.4326, -99.1332, 'Campus Centro');
-        $this->respuestas();
-
-        $clima = $this->clima('127.0.0.1');
-
         $this->assertSame('Campus Centro', $clima['lugar']);
         $this->assertFalse($clima['aproximado'], 'El campus da una ubicación exacta.');
     }
 
-    /** Una IP privada ni se le pregunta al servicio: no diría nada. */
-    public function test_a_una_ip_privada_no_se_le_pregunta(): void
+    /** Y con campus capturado ni se le pregunta al servicio de IP. */
+    public function test_con_campus_no_se_consulta_la_ip(): void
     {
         $this->campusEn(19.4326, -99.1332, 'Campus Centro');
-        $this->respuestas();
+        $this->respuestas(ip: ['status' => 'success', 'city' => 'Guadalajara', 'lat' => 20.6597, 'lon' => -103.3496]);
 
-        $this->clima('192.168.1.50');
+        $this->clima('189.203.1.1');
 
         Http::assertNotSent(fn ($p) => str_contains($p->url(), 'ip-api.com'));
     }
 
-    /** Si el servicio de IP falla, el campus lo salva. */
-    public function test_si_el_servicio_de_ip_falla_queda_el_campus(): void
+    /**
+     * Sin campus capturado se cae a la IP, y se marca aproximada.
+     *
+     * Es lo que hace que la banda enseñe algo, y lo que enciende el botón de
+     * «usar mi ubicación» para quien quiera afinarlo.
+     */
+    public function test_sin_campus_se_usa_la_ip_y_se_marca_aproximada(): void
     {
-        $this->campusEn(19.4326, -99.1332, 'Campus Centro');
-        $this->respuestas(ip: ['status' => 'fail']);
+        $this->alumnoInscrito(); // campus sin coordenadas
+        $this->respuestas(ip: ['status' => 'success', 'city' => 'Guadalajara', 'lat' => 20.6597, 'lon' => -103.3496]);
 
-        $this->assertSame('Campus Centro', $this->clima('189.203.1.1')['lugar']);
+        $clima = $this->clima('189.203.1.1');
+
+        $this->assertSame('Guadalajara', $clima['lugar']);
+        $this->assertTrue($clima['aproximado']);
+    }
+
+    /** A una IP privada ni se le pregunta al servicio: no diría nada. */
+    public function test_a_una_ip_privada_no_se_le_pregunta(): void
+    {
+        $this->alumnoInscrito(); // sin coordenadas, para que llegue a la IP
+        $this->respuestas();
+
+        $this->climaCrudo('192.168.1.50');
+
+        Http::assertNotSent(fn ($p) => str_contains($p->url(), 'ip-api.com'));
     }
 
     /**
@@ -105,7 +112,7 @@ class UbicacionDelClimaTest extends TenantTestCase
     public function test_sin_ubicacion_no_hay_clima_y_no_revienta(): void
     {
         $this->alumnoInscrito(); // campus sin coordenadas
-        $this->respuestas();
+        $this->respuestas(); // y la IP no resuelve
 
         $this->assertNull($this->climaCrudo('127.0.0.1'));
     }
@@ -127,7 +134,7 @@ class UbicacionDelClimaTest extends TenantTestCase
      * todos. Por eso, cuando alguien da permiso, su ubicación manda aunque haya
      * IP resoluble y campus con coordenadas.
      */
-    public function test_lo_que_da_el_navegador_gana_a_la_ip_y_al_campus(): void
+    public function test_lo_que_da_el_navegador_gana_a_todo(): void
     {
         $this->campusEn(19.4326, -99.1332, 'Campus Centro');
         $this->respuestas(ip: ['status' => 'success', 'city' => 'Guadalajara', 'lat' => 20.6597, 'lon' => -103.3496]);

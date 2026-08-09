@@ -7,7 +7,7 @@ import BarraListado from '@/Components/BarraListado.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import Paginacion from '@/Components/Paginacion.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
-import TarjetaRegistro from '@/Components/TarjetaRegistro.vue';
+import TarjetaListado from '@/Components/TarjetaListado.vue';
 
 const ICONO_GRUPO =
     'M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z';
@@ -94,14 +94,12 @@ function eliminar(id: number, clave: string): void {
         <!-- Cuadrícula -->
         <template v-if="vista === 'cuadricula'">
             <section v-if="grupos.data.length" class="cuadricula-listado">
-                <TarjetaRegistro
+                <TarjetaListado
                     v-for="grupo in grupos.data"
                     :key="grupo.id"
-                    :titulo="grupo.clave"
-                    :subtitulo="grupo.nombre"
-                    :estado="grupo.situacion"
-                    :url="`/escolar/grupos/${grupo.id}`"
-                    :datos="[
+                    :titulo="grupo.nombre ?? grupo.clave"
+                    :clave="grupo.clave"
+                    :metas="[
                         { etiqueta: 'Ciclo', valor: grupo.ciclo },
                         { etiqueta: 'Campus', valor: grupo.campus },
                         { etiqueta: 'Plan', valor: grupo.plan ?? 'Sin plan fijo' },
@@ -110,8 +108,12 @@ function eliminar(id: number, clave: string): void {
                         { etiqueta: 'Materias', valor: grupo.materias_count },
                     ]"
                 >
+                    <template v-if="grupo.situacion" #insignia>
+                        <PildoraEstado :texto="grupo.situacion" :color="'var(--color-suave)'" />
+                    </template>
+
                     <template #acciones>
-                        <BotonAccion
+                        <BotonAccion redondo
                             v-if="puedeInscribir && grupo.materias_count"
                             variante="agregar"
                             texto="Inscribir"
@@ -119,13 +121,13 @@ function eliminar(id: number, clave: string): void {
                         />
                         <!-- «Abrir» no decía a qué se entraba; la pantalla es la
                              de las materias del grupo, así que lo dice. -->
-                        <BotonAccion variante="ver" texto="Materias" :href="`/escolar/grupos/${grupo.id}`" />
+                        <BotonAccion redondo variante="ver" texto="Materias" :href="`/escolar/grupos/${grupo.id}`" />
                         <template v-if="puedeEditar">
-                            <BotonAccion variante="editar" :href="`/escolar/grupos/${grupo.id}/edit`" />
-                            <BotonAccion variante="eliminar" @click="eliminar(grupo.id, grupo.clave)" />
+                            <BotonAccion redondo variante="editar" :href="`/escolar/grupos/${grupo.id}/edit`" />
+                            <BotonAccion redondo variante="eliminar" @click="eliminar(grupo.id, grupo.clave)" />
                         </template>
                     </template>
-                </TarjetaRegistro>
+                </TarjetaListado>
             </section>
 
             <section v-if="grupos.links.length > 3" class="tarjeta">

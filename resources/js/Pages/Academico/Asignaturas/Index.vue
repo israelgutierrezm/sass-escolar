@@ -122,8 +122,8 @@ function eliminar(id: number, nombre: string): void {
                         </span>
                     </template>
                     <template v-if="puedeEditar" #acciones>
-                        <BotonAccion variante="editar" solo-icono :href="`/academico/asignaturas/${asignatura.id}/edit`" />
-                        <BotonAccion variante="eliminar" solo-icono @click="eliminar(asignatura.id, asignatura.nombre)" />
+                        <BotonAccion redondo variante="editar" solo-icono :href="`/academico/asignaturas/${asignatura.id}/edit`" />
+                        <BotonAccion redondo variante="eliminar" solo-icono @click="eliminar(asignatura.id, asignatura.nombre)" />
                     </template>
                 </TarjetaListado>
             </section>

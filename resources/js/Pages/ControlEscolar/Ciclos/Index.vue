@@ -131,9 +131,9 @@ function eliminar(id: number, clave: string): void {
                         </span>
                     </template>
                     <template #acciones>
-                        <BotonAccion variante="ver" texto="Captura" :href="`/escolar/ciclos/${ciclo.id}/ventanas`" />
-                        <BotonAccion v-if="puedeEditar" variante="editar" solo-icono :href="`/escolar/ciclos/${ciclo.id}/edit`" />
-                        <BotonAccion v-if="puedeEditar" variante="eliminar" solo-icono @click="eliminar(ciclo.id, ciclo.clave)" />
+                        <BotonAccion redondo variante="ver" texto="Captura" :href="`/escolar/ciclos/${ciclo.id}/ventanas`" />
+                        <BotonAccion redondo v-if="puedeEditar" variante="editar" solo-icono :href="`/escolar/ciclos/${ciclo.id}/edit`" />
+                        <BotonAccion redondo v-if="puedeEditar" variante="eliminar" solo-icono @click="eliminar(ciclo.id, ciclo.clave)" />
                     </template>
                 </TarjetaListado>
             </section>

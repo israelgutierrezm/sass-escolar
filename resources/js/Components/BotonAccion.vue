@@ -36,8 +36,20 @@ const props = withDefaults(
          * «cerrar esto» y no como parte del nombre.
          */
         iconoAlFinal?: boolean;
+        /**
+         * Redondo: un círculo con sólo el icono y la leyenda en el `title`.
+         *
+         * Es la forma de las acciones dentro de una TARJETA de cuadrícula. Ahí
+         * conviven tres o cuatro botones en un ancho de 270 px, y con etiquetas
+         * cada tarjeta acababa con un pie distinto —«Inscribir  Materias  ✎  🗑»
+         * en una, dos iconos en la siguiente—, que es justo lo que hacía que
+         * unas cuadrículas se vieran de otra familia que otras. Redondos y sin
+         * texto todos ocupan lo mismo y el pie de todas las tarjetas del sistema
+         * se lee igual; lo que hacen sigue estando, a un cursor de distancia.
+         */
+        redondo?: boolean;
     }>(),
-    { soloIcono: false, disabled: false, fino: false, iconoAlFinal: false },
+    { soloIcono: false, disabled: false, fino: false, iconoAlFinal: false, redondo: false },
 );
 
 const emit = defineEmits<{ click: [] }>();
@@ -102,6 +114,7 @@ const esPrimario = computed(() => props.variante === 'nuevo');
 // X huérfana entre otras acciones.
 const soloIconoEfectivo = computed(
     () => props.soloIcono
+        || props.redondo
         || ['editar', 'eliminar'].includes(props.variante)
         || (props.variante === 'cerrar' && props.texto === undefined),
 );
@@ -136,8 +149,9 @@ const estilo = computed(() =>
         :disabled="disabled || undefined"
         :title="soloIconoEfectivo ? etiqueta : undefined"
         :aria-label="soloIconoEfectivo ? etiqueta : undefined"
-        class="boton-accion inline-flex items-center gap-1 rounded-lg transition disabled:cursor-not-allowed disabled:opacity-40"
+        class="boton-accion inline-flex items-center gap-1 transition disabled:cursor-not-allowed disabled:opacity-40"
         :class="[
+            redondo ? 'rounded-full' : 'rounded-lg',
             fino ? 'font-normal' : 'font-medium',
             // Los secundarios miden lo mismo que `BotonExpediente` (30 px de
             // alto): conviven en la misma fila de un listado y desparejos se
@@ -145,8 +159,11 @@ const estilo = computed(() =>
             // fondo transparente y la letra más chica.
             esPrimario
                 ? 'px-3.5 py-2 text-sm shadow-sm hover:brightness-110'
-                : 'boton-fantasma border py-1.5 text-xs',
-            esPrimario ? '' : soloIconoEfectivo ? 'px-2' : 'px-3',
+                : 'boton-fantasma border text-xs',
+            // El redondo es un cuadrado perfecto —si no, el círculo sale óvalo—.
+            redondo ? 'h-8 w-8 justify-center p-0' : '',
+            esPrimario || redondo ? '' : 'py-1.5',
+            esPrimario || redondo ? '' : soloIconoEfectivo ? 'px-2' : 'px-3',
         ]"
         :style="estilo"
         @click="!href && emit('click')"
