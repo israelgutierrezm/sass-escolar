@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import AvatarPersona from '@/Components/AvatarPersona.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 
 /**
@@ -25,20 +26,6 @@ const props = defineProps<{
     atenuada?: boolean;
 }>();
 
-/**
- * Iniciales como respaldo cuando no hay foto: es más reconocible que un
- * icono genérico repetido en toda la cuadrícula.
- */
-const iniciales = computed(() => {
-    const partes = (props.nombre ?? '').trim().split(/\s+/).filter(Boolean);
-
-    if (partes.length === 0) {
-        return '·';
-    }
-
-    return (partes[0][0] + (partes[1]?.[0] ?? '')).toUpperCase();
-});
-
 const visibles = computed(() => (props.lineas ?? []).filter((l): l is string => !!l));
 </script>
 
@@ -48,24 +35,7 @@ const visibles = computed(() => (props.lineas ?? []).filter((l): l is string => 
         class="tarjeta-persona tarjeta flex flex-col items-center p-5 text-center"
         :class="atenuada ? 'opacity-60' : ''"
     >
-        <img
-            v-if="foto"
-            :src="foto"
-            :alt="nombre ?? ''"
-            class="h-20 w-20 rounded-full object-cover ring-1 ring-black/5"
-            loading="lazy"
-        />
-        <span
-            v-else
-            class="flex h-20 w-20 items-center justify-center rounded-full text-xl font-semibold ring-1 ring-black/5"
-            :style="{
-                backgroundColor: 'color-mix(in srgb, var(--color-acento) 14%, transparent)',
-                color: 'var(--color-acento)',
-            }"
-            aria-hidden="true"
-        >
-            {{ iniciales }}
-        </span>
+        <AvatarPersona :nombre="nombre" :foto="foto" tamano="lg" />
 
         <p class="mt-3 font-medium leading-tight">{{ nombre }}</p>
         <span

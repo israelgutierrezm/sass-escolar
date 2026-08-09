@@ -8,6 +8,7 @@ import BotonExpediente from '@/Components/BotonExpediente.vue';
 import Paginacion from '@/Components/Paginacion.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import TarjetaPersona from '@/Components/TarjetaPersona.vue';
+import AvatarPersona from '@/Components/AvatarPersona.vue';
 
 interface FilaAspirante {
     id: number;
@@ -28,11 +29,6 @@ interface FilaAspirante {
 const ICONO_ASPIRANTE =
     'M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z';
 
-function iniciales(nombre: string | null): string {
-    if (!nombre) return '—';
-    const partes = nombre.trim().split(/\s+/);
-    return ((partes[0]?.[0] ?? '') + (partes[1]?.[0] ?? '')).toUpperCase() || '—';
-}
 
 const props = defineProps<{
     aspirantes: {
@@ -151,12 +147,7 @@ function eliminar(aspirante: { id: number; nombre_completo: string | null }): vo
                                 <!-- Aspirante: avatar + nombre + contacto -->
                                 <td class="px-6 py-4">
                                     <a :href="`/aspirantes/${aspirante.id}`" class="flex items-center gap-3">
-                                        <img v-if="aspirante.foto" :src="aspirante.foto" alt="" class="h-10 w-10 rounded-full object-cover ring-1 ring-black/5" loading="lazy" />
-                                        <span
-                                            v-else
-                                            class="grid h-10 w-10 shrink-0 place-items-center rounded-full text-xs font-semibold"
-                                            :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 15%, transparent)', color: 'var(--color-acento)' }"
-                                        >{{ iniciales(aspirante.nombre_completo) }}</span>
+                                        <AvatarPersona :nombre="aspirante.nombre_completo" :foto="aspirante.foto" tamano="sm" />
                                         <span class="min-w-0">
                                             <span class="block truncate font-semibold text-contenido">{{ aspirante.nombre_completo ?? '—' }}</span>
                                             <span v-if="aspirante.celular || aspirante.email" class="block truncate text-xs" :style="{ color: 'var(--color-suave)' }">{{ aspirante.celular ?? aspirante.email }}</span>

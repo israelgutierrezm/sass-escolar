@@ -9,6 +9,7 @@ import PildoraEstado from '@/Components/PildoraEstado.vue';
 import BotonExpediente from '@/Components/BotonExpediente.vue';
 import TarjetaPersona from '@/Components/TarjetaPersona.vue';
 import ZonaArchivo from '@/Components/ZonaArchivo.vue';
+import AvatarPersona from '@/Components/AvatarPersona.vue';
 
 interface Alumno {
     id: number;
@@ -29,11 +30,6 @@ interface Alumno {
 const ICONO_ALUMNO =
     'M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.627 48.627 0 0 1 12 20.904a48.627 48.627 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.57 50.57 0 0 0-2.658-.813A59.905 59.905 0 0 1 12 3.493a59.902 59.902 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443m-7.007 11.55A5.981 5.981 0 0 0 6.75 15.75v-1.5';
 
-function iniciales(nombre: string | null): string {
-    if (!nombre) return '—';
-    const partes = nombre.trim().split(/\s+/);
-    return ((partes[0]?.[0] ?? '') + (partes[1]?.[0] ?? '')).toUpperCase() || '—';
-}
 
 // Texto de campus: uno → "Campus: X"; varios → "Múltiples campus: A, B". Se
 // acota a los campus que el rol del usuario puede ver (lo resuelve el backend).
@@ -224,12 +220,7 @@ function subirExcel(archivo: File | null): void {
                                 <!-- Alumno: avatar + nombre + email -->
                                 <td class="px-6 py-4">
                                     <a :href="`/escolar/alumnos/${alumno.id}`" class="flex items-center gap-3">
-                                        <img v-if="alumno.foto" :src="alumno.foto" alt="" class="h-10 w-10 rounded-full object-cover ring-1 ring-black/5" loading="lazy" />
-                                        <span
-                                            v-else
-                                            class="grid h-10 w-10 shrink-0 place-items-center rounded-full text-xs font-semibold"
-                                            :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 15%, transparent)', color: 'var(--color-acento)' }"
-                                        >{{ iniciales(alumno.nombre_completo) }}</span>
+                                        <AvatarPersona :nombre="alumno.nombre_completo" :foto="alumno.foto" tamano="sm" />
                                         <span class="min-w-0">
                                             <span class="block truncate font-semibold text-contenido">{{ alumno.nombre_completo ?? '—' }}</span>
                                             <span v-if="alumno.email" class="block truncate text-xs" :style="{ color: 'var(--color-suave)' }">{{ alumno.email }}</span>

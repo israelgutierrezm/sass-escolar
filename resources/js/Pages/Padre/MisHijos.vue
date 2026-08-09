@@ -37,9 +37,6 @@ function colorPromedio(p: number | null): string | undefined {
     return '#16a34a';
 }
 
-function iniciales(nombre: string): string {
-    return nombre.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('');
-}
 </script>
 
 <template>
@@ -58,20 +55,7 @@ function iniciales(nombre: string): string {
                 class="tarjeta tarjeta-interactiva flex flex-col gap-3 p-5"
             >
                 <div class="flex items-center gap-3">
-                    <img
-                        v-if="hijo.foto"
-                        :src="hijo.foto"
-                        alt=""
-                        class="h-12 w-12 rounded-full object-cover"
-                        loading="lazy"
-                    />
-                    <span
-                        v-else
-                        class="flex h-12 w-12 items-center justify-center rounded-full text-sm font-semibold"
-                        :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 15%, transparent)', color: 'var(--color-acento)' }"
-                    >
-                        {{ iniciales(hijo.nombre) }}
-                    </span>
+                    <AvatarPersona :nombre="hijo.nombre" :foto="hijo.foto" />
                     <div class="min-w-0">
                         <h3 class="truncate font-medium">{{ hijo.nombre }}</h3>
                         <p class="text-xs capitalize" :style="{ color: 'var(--color-suave)' }">{{ hijo.parentesco }}</p>

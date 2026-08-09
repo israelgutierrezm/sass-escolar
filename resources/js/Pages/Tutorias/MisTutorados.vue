@@ -39,9 +39,6 @@ defineProps<{
     resumen: { total: number; reprobando: number; en_riesgo: number; sin_ver: number };
 }>();
 
-function iniciales(nombre: string): string {
-    return nombre.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('');
-}
 
 /** El corte en 6 es el de aprobación; el de 8 no premia, solo deja de alertar. */
 function colorPromedio(p: number | null): string | undefined {
@@ -121,14 +118,7 @@ function colorPromedio(p: number | null): string | undefined {
                 :style="t.estado.reprobadas ? { borderLeft: '3px solid #dc2626' } : {}"
             >
                 <div class="flex items-center gap-3">
-                    <img v-if="t.foto" :src="t.foto" alt="" class="h-12 w-12 rounded-full object-cover" loading="lazy" />
-                    <span
-                        v-else
-                        class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
-                        :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 15%, transparent)', color: 'var(--color-acento)' }"
-                    >
-                        {{ iniciales(t.nombre) }}
-                    </span>
+                    <AvatarPersona :nombre="t.nombre" :foto="t.foto" />
                     <div class="min-w-0">
                         <h3 class="truncate font-medium">{{ t.nombre }}</h3>
                         <p v-if="t.ciclo" class="text-xs" :style="{ color: 'var(--color-suave)' }">{{ t.ciclo }}</p>

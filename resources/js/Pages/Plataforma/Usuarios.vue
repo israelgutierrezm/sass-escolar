@@ -9,6 +9,7 @@ import CampoSelect from '@/Components/CampoSelect.vue';
 import Paginacion from '@/Components/Paginacion.vue';
 import BarraListado from '@/Components/BarraListado.vue';
 import CamposIdentidad from '@/Components/CamposIdentidad.vue';
+import AvatarPersona from '@/Components/AvatarPersona.vue';
 
 interface Opcion {
     id: number;
@@ -114,11 +115,6 @@ const rolesResumen = (u: UsuarioFila): string =>
 const ICONO_USUARIOS =
     'M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z';
 
-function iniciales(nombre: string | null): string {
-    if (!nombre) return '—';
-    const partes = nombre.trim().split(/\s+/);
-    return ((partes[0]?.[0] ?? '') + (partes[1]?.[0] ?? '')).toUpperCase() || '—';
-}
 </script>
 
 <template>
@@ -223,12 +219,9 @@ function iniciales(nombre: string | null): string {
         <!-- Cuadrícula -->
         <template v-if="vista === 'cuadricula'">
             <section v-if="usuarios.data.length" class="cuadricula-listado">
-                <div v-for="u in usuarios.data" :key="u.id" class="tarjeta flex min-w-0 flex-col gap-3 p-4 transition duration-200 hover:-translate-y-0.5 hover:shadow-lg">
+                <div v-for="u in usuarios.data" :key="u.id" class="tarjeta tarjeta-interactiva flex min-w-0 flex-col gap-3 p-5">
                     <div class="flex items-center gap-3">
-                        <img v-if="u.foto" :src="u.foto" alt="" class="h-11 w-11 rounded-full object-cover" loading="lazy" />
-                        <span v-else class="grid h-11 w-11 shrink-0 place-items-center rounded-full text-sm font-semibold" :style="{ backgroundColor: 'var(--color-fondo)', color: 'var(--color-suave)' }">
-                            {{ (u.persona ?? u.usuario)?.[0]?.toUpperCase() }}
-                        </span>
+                        <AvatarPersona :nombre="u.persona ?? u.usuario" :foto="u.foto" />
                         <div class="min-w-0">
                             <p class="truncate font-medium">
                                 {{ u.persona ?? u.usuario }}
@@ -272,12 +265,7 @@ function iniciales(nombre: string | null): string {
                             <!-- Persona: avatar + nombre + "tú" -->
                             <td class="px-6 py-4">
                                 <a :href="`/plataforma/usuarios/${u.id}`" class="flex items-center gap-3">
-                                    <img v-if="u.foto" :src="u.foto" alt="" class="h-10 w-10 rounded-full object-cover ring-1 ring-black/5" loading="lazy" />
-                                    <span
-                                        v-else
-                                        class="grid h-10 w-10 shrink-0 place-items-center rounded-full text-xs font-semibold"
-                                        :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 15%, transparent)', color: 'var(--color-acento)' }"
-                                    >{{ iniciales(u.persona ?? u.usuario) }}</span>
+                                    <AvatarPersona :nombre="u.persona ?? u.usuario" :foto="u.foto" tamano="sm" />
                                     <span class="min-w-0">
                                         <span class="flex items-center gap-2">
                                             <span class="truncate font-semibold text-contenido">{{ u.persona ?? u.usuario }}</span>
