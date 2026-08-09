@@ -7,6 +7,8 @@ namespace App\Services\Emision;
 use App\Enums\EstadoLoteTitulacion;
 use App\Models\Emision\LoteTitulacion;
 use App\Models\Emision\Titulacion;
+use App\Models\Landlord\ConsumoEmision;
+use App\Services\Emision\CreditosDeEmision;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use PhpCfdi\Credentials\Credential;
@@ -28,7 +30,10 @@ use Throwable;
  */
 class FirmadorLoteTitulo
 {
-    public function __construct(private ConstructorTituloXml $constructor) {}
+    public function __construct(
+        private ConstructorTituloXml $constructor,
+        private CreditosDeEmision $creditos,
+    ) {}
 
     /**
      * @param  array<int, array{responsable: \App\Models\Emision\Responsable, certificado: \App\Models\Emision\CertificadoResponsable, cert_pem: string, key: string, password: string}>  $firmantes
@@ -59,8 +64,19 @@ class FirmadorLoteTitulo
 
         $pendientes = $lote->titulaciones()
             ->where('estado', '!=', Titulacion::TITULADO)
-            ->with('matricula')
+            ->with(['matricula.persona', 'matricula.oferta.plan'])
             ->get();
+
+        /*
+         * Que alcancen los creditos para TODO el lote antes de empezar. Firmar
+         * hasta donde alcance dejaria un lote partido; ver la nota en
+         * `CreditosDeEmision`.
+         */
+        $this->creditos->exigirQuePueda(
+            tenant()->getTenantKey(),
+            ConsumoEmision::TITULO,
+            $pendientes->map(fn (Titulacion $t) => $this->tramiteDe($t))->filter()->values()->all(),
+        );
 
         $titulados = 0;
         $errores = 0;
@@ -115,6 +131,24 @@ class FirmadorLoteTitulo
                     'error_mensaje' => null,
                 ]);
 
+                /*
+                 * Se cuenta cuando el XML EXISTE. `registrar` decide si cobra:
+                 * la regeneracion de un titulo ya pagado se anota sin
+                 * descontar, que es lo normal cuando el web service rechazo el
+                 * envio y hay que rehacerlo.
+                 */
+                $tramite = $this->tramiteDe($titulacion);
+
+                if ($tramite !== null) {
+                    $this->creditos->registrar(
+                        tenant()->getTenantKey(),
+                        ConsumoEmision::TITULO,
+                        $tramite['curp'],
+                        $tramite['plan'],
+                        $folio,
+                    );
+                }
+
                 $titulados++;
             } catch (Throwable $e) {
                 $titulacion->update([
@@ -140,5 +174,27 @@ class FirmadorLoteTitulo
         }
 
         return ['titulados' => $titulados, 'errores' => $errores];
+    }
+
+    /**
+     * Qué trámite representa este renglón: de quién y de qué plan.
+     *
+     * La pareja con la que se decide si cobra o es la regeneración de uno ya
+     * pagado. `null` si falta alguno de los dos: sin ellos no se puede saber si
+     * ya se cobró, y ante la duda no se cobra.
+     *
+     * @return array{curp: string, plan: string}|null
+     */
+    private function tramiteDe(Titulacion $titulacion): ?array
+    {
+        $matricula = $titulacion->matricula;
+        $curp = $matricula?->persona?->curp;
+        $plan = $matricula?->oferta?->plan?->clave;
+
+        if (blank($curp) || blank($plan)) {
+            return null;
+        }
+
+        return ['curp' => (string) $curp, 'plan' => (string) $plan];
     }
 }

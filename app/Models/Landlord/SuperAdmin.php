@@ -38,4 +38,23 @@ class SuperAdmin extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    /**
+     * Quién puede dar por buena la compra de créditos de una escuela.
+     *
+     * ── Por qué no lo hace la escuela ──────────────────────────────────────
+     * La escuela es la que paga. Dejarle validar su propio comprobante sería
+     * dejarle regalarse créditos, así que esto vive en la organización y por eso
+     * cuelga de `super_admins` y no de los usuarios del tenant —que ni siquiera
+     * están en esta base—.
+     *
+     * ── Y por qué no lo puede todo el mundo aquí ───────────────────────────
+     * `comercial` habla con las escuelas y `soporte` las ayuda; ninguno de los
+     * dos tiene por qué mover el saldo. Acreditar créditos es cobrar, y se
+     * reserva a quien lleva las cuentas.
+     */
+    public function puedeValidarCreditos(): bool
+    {
+        return in_array($this->rol, ['superadmin', 'finanzas'], true);
+    }
 }

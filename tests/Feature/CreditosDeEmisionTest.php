@@ -215,6 +215,39 @@ class CreditosDeEmisionTest extends TenantTestCase
         $this->assertTrue(true, 'Ninguna de las dos lanzó.');
     }
 
+    /**
+     * El ciclo real: se firma, sale mal, se regenera y se vuelve a firmar.
+     *
+     * Es la secuencia que motivó todo esto, y la prueba que importa: al final
+     * la escuela ha emitido dos XML del mismo documento y ha pagado uno.
+     */
+    public function test_el_ciclo_de_regenerar_cobra_una_sola_vez(): void
+    {
+        $this->conSaldo(SaldoEmision::PREPAGO, 3);
+
+        // Primera firma del lote: dos alumnos, dos créditos.
+        $this->creditos->exigirQuePueda('escuela-x', ConsumoEmision::CERTIFICADO, [
+            ['curp' => 'CURP010101HDFAAA01', 'plan' => 'LIC-DER-2020'],
+            ['curp' => 'CURP020202HDFBBB02', 'plan' => 'LIC-DER-2020'],
+        ]);
+        $this->emitir('CURP010101HDFAAA01', 'LIC-DER-2020');
+        $this->emitir('CURP020202HDFBBB02', 'LIC-DER-2020');
+
+        $this->assertSame(1, $this->saldo()->creditos, 'De 3 quedan 1.');
+
+        // Uno salió con la fecha mal: se regenera y se vuelve a firmar el lote.
+        $this->creditos->exigirQuePueda('escuela-x', ConsumoEmision::CERTIFICADO, [
+            ['curp' => 'CURP010101HDFAAA01', 'plan' => 'LIC-DER-2020'],
+        ]);
+        $this->emitir('CURP010101HDFAAA01', 'LIC-DER-2020');
+
+        $this->assertSame(1, $this->saldo()->creditos, 'Rehacer no costó nada.');
+
+        $resumen = $this->creditos->resumen('escuela-x');
+        $this->assertSame(3, $resumen['emitidos'], 'Se emitieron tres XML…');
+        $this->assertSame(2, $resumen['cobrados'], '…y se pagaron dos.');
+    }
+
     // ── Andamiaje ──────────────────────────────────────────────────────────
 
     private function emitir(string $curp, string $plan, string $tipo = ConsumoEmision::CERTIFICADO): bool

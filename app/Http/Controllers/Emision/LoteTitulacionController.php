@@ -358,6 +358,87 @@ class LoteTitulacionController extends Controller
         return back()->with($enviados > 0 ? 'exito' : 'error', $msg);
     }
 
+    /**
+     * Deja un título listo para volver a generarse.
+     *
+     * Igual que en certificación —el error de captura hay que poder
+     * corregirlo—, y tampoco cuesta un crédito: al volver a firmar, el contador
+     * reconoce el trámite por CURP + plan.
+     */
+    public function regenerar(LoteTitulacion $lote, Titulacion $titulacion): RedirectResponse
+    {
+        abort_unless($titulacion->lote_id === $lote->id, 404);
+
+        $titulacion->update([
+            'estado' => Titulacion::PENDIENTE,
+            'xml_path' => null,
+            'sello' => null,
+            'cadena_original' => null,
+            'no_certificado' => null,
+            'fecha_titulacion' => null,
+            'error_mensaje' => null,
+            // También lo del web service: el XML que se mandó ya no existe, y
+            // conservar su folio de proceso haría creer que ese envío sigue en
+            // pie.
+            'folio_proceso_ws' => null,
+            'estado_ws' => null,
+            'respuesta_ws' => null,
+            'enviado_ws_en' => null,
+        ]);
+
+        return back()->with(
+            'exito',
+            'El título quedó listo para volver a generarse. Vuelve a firmar el lote; '
+                .'no se cobra otro crédito porque es el mismo alumno y el mismo plan.',
+        );
+    }
+
+    /**
+     * Reenvía UN título al web service, sin tocar el resto del lote.
+     *
+     * ── Por qué separado del envío del lote ────────────────────────────────
+     * En titulación el error puede venir del otro lado: el XML está bien y la
+     * SEP lo rechaza por una caída, una validación suya o un dato de catálogo.
+     * Reenviar el lote entero para reintentar uno significa volver a mandar los
+     * que ya se aceptaron —y eso sí puede duplicar trámites allá—.
+     *
+     * Reenviar no genera XML, así que no cuenta ni cobra nada: el documento es
+     * exactamente el mismo que ya se selló.
+     */
+    public function reenviar(LoteTitulacion $lote, Titulacion $titulacion, ClienteTitulosSep $cliente): RedirectResponse
+    {
+        abort_unless($titulacion->lote_id === $lote->id, 404);
+
+        if (! $cliente->habilitado()) {
+            return back()->with('error', 'El envío al web service está deshabilitado (modo off).');
+        }
+
+        // La misma salvaguarda que el envío del lote: no mandar un título de
+        // producción al endpoint de pruebas ni al revés.
+        if (! $lote->etapaCoincideConActiva()) {
+            $activa = TitulacionWsConfig::actual()->etapa_activa;
+
+            return back()->with('error', "El lote es de «{$lote->etapa}» pero la etapa activa es «{$activa}». No se envía.");
+        }
+
+        if (blank($titulacion->xml_path) || ! Storage::disk('local')->exists($titulacion->xml_path)) {
+            return back()->with('error', 'Ese título todavía no tiene XML firmado: primero hay que firmarlo.');
+        }
+
+        $respuesta = $cliente->cargarTitulo(Storage::disk('local')->get($titulacion->xml_path), $lote->etapa);
+
+        $titulacion->update([
+            'folio_proceso_ws' => $respuesta['folio_proceso'],
+            'estado_ws' => $respuesta['ok'] ? 'aceptado' : 'rechazado',
+            'respuesta_ws' => mb_substr($respuesta['mensaje'], 0, 1000),
+            'enviado_ws_en' => now(),
+        ]);
+
+        return $respuesta['ok']
+            ? back()->with('exito', 'Título reenviado y aceptado por el web service.')
+            : back()->with('error', 'El web service volvió a rechazarlo: '.mb_substr($respuesta['mensaje'], 0, 200));
+    }
+
     public function verificarCertificado(Request $request): JsonResponse
     {
         $request->validate(['certificado' => ['required', 'file', 'max:64']]);

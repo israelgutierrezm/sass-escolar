@@ -298,6 +298,45 @@ class LoteCertificacionController extends Controller
      * responsable de certificación activo (por número de serie). Alimenta el
      * aviso «coincide / no coincide» al cargar el archivo en el panel de firma.
      */
+    /**
+     * Deja un certificado listo para volver a generarse.
+     *
+     * ── Por qué hace falta ─────────────────────────────────────────────────
+     * Un XML sale mal por un dato mal capturado —una fecha, un nombre— y hay que
+     * rehacerlo. Sin esto, el firmador salta los que ya están certificados y no
+     * habría forma de corregirlo salvo borrando el renglón y rearmando el lote.
+     *
+     * ── No cuesta un crédito ───────────────────────────────────────────────
+     * Al volver a firmar, el contador reconoce el trámite por CURP + plan y lo
+     * registra sin cobrar: es el mismo documento del mismo alumno. La escuela no
+     * paga dos veces por corregir un error.
+     */
+    public function regenerar(LoteCertificacion $lote, Certificacion $certificacion): RedirectResponse
+    {
+        abort_unless($certificacion->lote_id === $lote->id, 404);
+
+        /*
+         * Se limpia lo sellado, no sólo el estado: dejar el XML y el sello
+         * viejos junto a un renglón «pendiente» es dejar dos verdades, y la
+         * descarga seguiría entregando el documento con el error.
+         */
+        $certificacion->update([
+            'estado' => Certificacion::PENDIENTE,
+            'xml_path' => null,
+            'sello' => null,
+            'cadena_original' => null,
+            'no_certificado' => null,
+            'fecha_certificacion' => null,
+            'error_mensaje' => null,
+        ]);
+
+        return back()->with(
+            'exito',
+            'El certificado quedó listo para volver a generarse. Vuelve a firmar el lote; '
+                .'no se cobra otro crédito porque es el mismo alumno y el mismo plan.',
+        );
+    }
+
     public function verificarCertificado(Request $request): JsonResponse
     {
         $request->validate(['certificado' => ['required', 'file', 'max:64']]);

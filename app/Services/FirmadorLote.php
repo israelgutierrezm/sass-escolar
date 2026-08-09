@@ -9,6 +9,8 @@ use App\Models\Emision\Certificacion;
 use App\Models\Emision\CertificadoResponsable;
 use App\Models\Emision\LoteCertificacion;
 use App\Models\Emision\Responsable;
+use App\Models\Landlord\ConsumoEmision;
+use App\Services\Emision\CreditosDeEmision;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use PhpCfdi\Credentials\Credential;
@@ -28,7 +30,10 @@ use Throwable;
  */
 class FirmadorLote
 {
-    public function __construct(private ConstructorCertificadoXml $constructor) {}
+    public function __construct(
+        private ConstructorCertificadoXml $constructor,
+        private CreditosDeEmision $creditos,
+    ) {}
 
     /**
      * @return array{certificados: int, errores: int}
@@ -61,8 +66,22 @@ class FirmadorLote
 
         $pendientes = $lote->certificaciones()
             ->where('estado', '!=', Certificacion::CERTIFICADO)
-            ->with('matricula')
+            ->with(['matricula.persona', 'matricula.oferta.plan'])
             ->get();
+
+        /*
+         * ¿Alcanzan los créditos para TODO el lote?
+         *
+         * Se comprueba antes de empezar y no sobre la marcha: firmar hasta donde
+         * alcance dejaría unos alumnos certificados y otros no, y habría que
+         * volver a entrar averiguando por dónde se quedó. Cuenta sólo lo que
+         * cobraría de verdad, así que un lote de rehechos no pide nada.
+         */
+        $this->creditos->exigirQuePueda(
+            tenant()->getTenantKey(),
+            ConsumoEmision::CERTIFICADO,
+            $pendientes->map(fn (Certificacion $c) => $this->tramiteDe($c))->filter()->values()->all(),
+        );
 
         $certificados = 0;
         $errores = 0;
@@ -107,6 +126,26 @@ class FirmadorLote
                     'error_mensaje' => null,
                 ]);
 
+                /*
+                 * Se cuenta cuando el XML EXISTE, no antes: un fallo a mitad
+                 * —una matrícula sin datos, una firma que revienta— no debe
+                 * gastar el crédito de un documento que nunca se produjo.
+                 *
+                 * `registrar` decide si cobra: si es la regeneración de un
+                 * trámite ya pagado, se anota y no descuenta nada.
+                 */
+                $tramite = $this->tramiteDe($cert);
+
+                if ($tramite !== null) {
+                    $this->creditos->registrar(
+                        tenant()->getTenantKey(),
+                        ConsumoEmision::CERTIFICADO,
+                        $tramite['curp'],
+                        $tramite['plan'],
+                        $folio,
+                    );
+                }
+
                 $certificados++;
             } catch (Throwable $e) {
                 $cert->update([
@@ -131,5 +170,28 @@ class FirmadorLote
         }
 
         return ['certificados' => $certificados, 'errores' => $errores];
+    }
+
+    /**
+     * Qué trámite representa este renglón: de quién y de qué plan.
+     *
+     * Es la pareja con la que se decide si un XML cobra o es la regeneración de
+     * uno ya pagado. `null` cuando falta alguno de los dos —una matrícula
+     * borrada, una persona sin CURP—: sin ellos no se puede saber si ya se
+     * cobró, y ante la duda no se cobra.
+     *
+     * @return array{curp: string, plan: string}|null
+     */
+    private function tramiteDe(Certificacion $cert): ?array
+    {
+        $matricula = $cert->matricula;
+        $curp = $matricula?->persona?->curp;
+        $plan = $matricula?->oferta?->plan?->clave;
+
+        if (blank($curp) || blank($plan)) {
+            return null;
+        }
+
+        return ['curp' => (string) $curp, 'plan' => (string) $plan];
     }
 }

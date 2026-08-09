@@ -1877,6 +1877,12 @@ Route::middleware([
                 Route::put('/{lote}/cerrar', 'cerrar')->whereNumber('lote')->name('cerrar');
                 Route::put('/{lote}/reabrir', 'reabrir')->whereNumber('lote')->name('reabrir');
                 Route::post('/{lote}/firmar', 'firmar')->whereNumber('lote')->name('firmar');
+                /*
+                 * Rehacer uno que salio mal. No cuesta otro credito: el
+                 * contador reconoce el tramite por CURP + plan.
+                 */
+                Route::post('/{lote}/alumnos/{certificacion}/regenerar', 'regenerar')
+                    ->whereNumber('lote')->whereNumber('certificacion')->name('alumnos.regenerar');
                 Route::get('/{lote}/xml-zip', 'xmlZip')->whereNumber('lote')->name('xml-zip');
                 Route::get('/{lote}/excel', 'excel')->whereNumber('lote')->name('excel');
                 Route::delete('/{lote}', 'destroy')->whereNumber('lote')->name('destroy');
@@ -1913,6 +1919,16 @@ Route::middleware([
                 Route::put('/{lote}/reabrir', 'reabrir')->whereNumber('lote')->name('reabrir');
                 Route::post('/{lote}/firmar', 'firmar')->whereNumber('lote')->name('firmar');
                 Route::post('/{lote}/enviar', 'enviar')->whereNumber('lote')->name('enviar');
+                /*
+                 * Rehacer uno (error de captura) o reenviar uno al web service
+                 * (el error vino de la SEP). Van por separado porque son dos
+                 * fallos distintos: reenviar el lote entero volveria a mandar
+                 * los que ya se aceptaron.
+                 */
+                Route::post('/{lote}/egresados/{titulacion}/regenerar', 'regenerar')
+                    ->whereNumber('lote')->whereNumber('titulacion')->name('egresados.regenerar');
+                Route::post('/{lote}/egresados/{titulacion}/reenviar', 'reenviar')
+                    ->whereNumber('lote')->whereNumber('titulacion')->name('egresados.reenviar');
                 Route::get('/{lote}/xml-zip', 'xmlZip')->whereNumber('lote')->name('xml-zip');
                 Route::get('/{lote}/excel', 'excel')->whereNumber('lote')->name('excel');
                 Route::delete('/{lote}', 'destroy')->whereNumber('lote')->name('destroy');
