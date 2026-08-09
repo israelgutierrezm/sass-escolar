@@ -50,7 +50,7 @@ function iniciales(nombre: string): string {
             Aquí ves la información de los alumnos que la escuela tiene vinculados contigo.
         </p>
 
-        <section v-if="hijos.length" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <section v-if="hijos.length" class="cuadricula-listado">
             <Link
                 v-for="hijo in hijos"
                 :key="hijo.id"

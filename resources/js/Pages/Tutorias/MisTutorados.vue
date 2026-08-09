@@ -107,7 +107,7 @@ function colorPromedio(p: number | null): string | undefined {
             </div>
         </section>
 
-        <section v-if="tutorados.length" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <section v-if="tutorados.length" class="cuadricula-listado">
             <!--
                 A su ficha, no a la de control escolar: el tutor ya no tiene
                 `ver-alumnos` —abría el listado de toda la escuela—, así que

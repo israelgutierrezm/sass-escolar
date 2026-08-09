@@ -104,6 +104,42 @@
     }
 
     /*
+     * La cuadrícula de CUALQUIER listado.
+     *
+     * Existe porque cada pantalla traía su propia cadena de utilidades y se
+     * fueron separando: grupos se quedaba en tres columnas donde ciclos ponía
+     * cuatro, y las separaciones bailaban entre 3 y 4. Son el mismo objeto
+     * —una tarjeta de listado— y tienen que medir lo mismo en todas partes;
+     * si no, cambiar de sección se siente como cambiar de aplicación.
+     *
+     * Los cortes son los de ciclos, que es la referencia: una columna en
+     * móvil, dos desde `sm`, tres desde `lg` y cuatro desde `xl`.
+     */
+    .cuadricula-listado {
+        display: grid;
+        gap: 0.75rem;
+        grid-template-columns: repeat(1, minmax(0, 1fr));
+    }
+
+    @media (min-width: 40rem) {
+        .cuadricula-listado {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (min-width: 64rem) {
+        .cuadricula-listado {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+    }
+
+    @media (min-width: 80rem) {
+        .cuadricula-listado {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+    }
+
+    /*
      * Iconos que se animan al pasar el cursor sobre su botón.
      *
      * Se hacen con `transform` plano y un `:hover` propio, NO con las utilidades

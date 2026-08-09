@@ -93,7 +93,7 @@ function eliminar(id: number, clave: string): void {
 
         <!-- Cuadrícula -->
         <template v-if="vista === 'cuadricula'">
-            <section v-if="grupos.data.length" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <section v-if="grupos.data.length" class="cuadricula-listado">
                 <TarjetaRegistro
                     v-for="grupo in grupos.data"
                     :key="grupo.id"

@@ -106,7 +106,7 @@ function eliminar(aspirante: { id: number; nombre_completo: string | null }): vo
 
         <!-- Cuadrícula -->
         <template v-if="vista === 'cuadricula'">
-            <section v-if="aspirantes.data.length" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <section v-if="aspirantes.data.length" class="cuadricula-listado">
                 <TarjetaPersona
                     v-for="aspirante in aspirantes.data"
                     :key="aspirante.id"

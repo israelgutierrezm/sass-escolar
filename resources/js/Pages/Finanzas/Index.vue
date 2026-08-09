@@ -109,7 +109,7 @@ const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN
 
         <!-- Cuadrícula -->
         <template v-if="vista === 'cuadricula'">
-            <section v-if="matriculas.data.length" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <section v-if="matriculas.data.length" class="cuadricula-listado">
                 <TarjetaListado
                     v-for="fila in matriculas.data"
                     :key="fila.id"

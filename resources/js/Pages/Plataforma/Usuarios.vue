@@ -222,7 +222,7 @@ function iniciales(nombre: string | null): string {
 
         <!-- Cuadrícula -->
         <template v-if="vista === 'cuadricula'">
-            <section v-if="usuarios.data.length" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <section v-if="usuarios.data.length" class="cuadricula-listado">
                 <div v-for="u in usuarios.data" :key="u.id" class="tarjeta flex min-w-0 flex-col gap-3 p-4 transition duration-200 hover:-translate-y-0.5 hover:shadow-lg">
                     <div class="flex items-center gap-3">
                         <img v-if="u.foto" :src="u.foto" alt="" class="h-11 w-11 rounded-full object-cover" loading="lazy" />

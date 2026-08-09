@@ -110,7 +110,7 @@ const definicionFiltros = [
 
         <!-- Cuadrícula: útil cuando se reparte trabajo entre promotores. -->
         <template v-if="vista === 'cuadricula'">
-            <section v-if="aspirantes.data.length" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <section v-if="aspirantes.data.length" class="cuadricula-listado">
                 <TarjetaPersona
                     v-for="a in aspirantes.data"
                     :key="a.id"

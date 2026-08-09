@@ -97,7 +97,7 @@ function eliminar(id: number): void {
 
         <!-- Cuadrícula -->
         <template v-if="vista === 'cuadricula'">
-            <section v-if="!vacio" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <section v-if="!vacio" class="cuadricula-listado">
                 <TarjetaListado
                     v-for="oferta in ofertas.data"
                     :key="oferta.id"

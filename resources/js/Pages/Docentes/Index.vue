@@ -144,7 +144,7 @@ function subirExcel(archivo: File | null): void {
         </section>
 
         <template v-if="vista === 'cuadricula'">
-            <section v-if="docentes.data.length" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <section v-if="docentes.data.length" class="cuadricula-listado">
                 <TarjetaPersona
                     v-for="docente in docentes.data"
                     :key="docente.id"

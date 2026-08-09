@@ -91,7 +91,7 @@ const ICONO_FACTURA =
 
         <!-- Cuadrícula -->
         <template v-if="vista === 'cuadricula'">
-            <section v-if="facturas.data.length" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <section v-if="facturas.data.length" class="cuadricula-listado">
                 <TarjetaListado
                     v-for="f in facturas.data"
                     :key="f.id"
