@@ -248,6 +248,53 @@ class CreditosDeEmisionTest extends TenantTestCase
         $this->assertSame(2, $resumen['cobrados'], '…y se pagaron dos.');
     }
 
+    /**
+     * El resumen dice de qué son los XML, no sólo cuántos.
+     *
+     * El total responde «cuánto llevamos gastado»; el desglose responde la que
+     * viene justo después, que es de cuál. Son dos trámites distintos y detrás
+     * suele haber dos áreas distintas.
+     */
+    public function test_el_resumen_separa_certificados_de_titulos(): void
+    {
+        $this->conSaldo(SaldoEmision::PREPAGO, 10);
+
+        $this->emitir('CURP010101HDFAAA01', 'LIC-DER-2020', ConsumoEmision::CERTIFICADO);
+        $this->emitir('CURP020202MDFBBB02', 'LIC-DER-2020', ConsumoEmision::CERTIFICADO);
+        $this->emitir('CURP010101HDFAAA01', 'LIC-DER-2020', ConsumoEmision::TITULO);
+
+        $resumen = $this->creditos->resumen('escuela-x');
+
+        $this->assertSame(3, $resumen['emitidos']);
+        $this->assertSame(2, $resumen['certificados']);
+        $this->assertSame(1, $resumen['titulos']);
+    }
+
+    /**
+     * Y el desglose cuenta lo rehecho, igual que el total.
+     *
+     * Si contara sólo lo cobrado, las dos cifras no cuadrarían entre sí y la
+     * suma del desglose sería menor que el total, sin explicación a la vista.
+     */
+    public function test_el_desglose_suma_lo_mismo_que_el_total(): void
+    {
+        $this->conSaldo(SaldoEmision::PREPAGO, 10);
+
+        $this->emitir('CURP010101HDFAAA01', 'LIC-DER-2020', ConsumoEmision::CERTIFICADO);
+        // El mismo trámite otra vez: se rehizo, no cobra, pero se emitió.
+        $this->emitir('CURP010101HDFAAA01', 'LIC-DER-2020', ConsumoEmision::CERTIFICADO);
+        $this->emitir('CURP010101HDFAAA01', 'LIC-DER-2020', ConsumoEmision::TITULO);
+
+        $resumen = $this->creditos->resumen('escuela-x');
+
+        $this->assertSame(
+            $resumen['emitidos'],
+            $resumen['certificados'] + $resumen['titulos'],
+            'El desglose tiene que sumar el total.',
+        );
+        $this->assertSame(2, $resumen['certificados'], 'El rehecho también cuenta como emitido.');
+    }
+
     // ── Andamiaje ──────────────────────────────────────────────────────────
 
     private function emitir(string $curp, string $plan, string $tipo = ConsumoEmision::CERTIFICADO): bool

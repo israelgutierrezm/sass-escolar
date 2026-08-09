@@ -15,11 +15,18 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 defineProps<{
     saldo: {
         modalidad: string;
+        etiqueta: string;
         creditos: number;
         cuenta_creditos: boolean;
         explicacion: string;
     };
-    resumen: { emitidos: number; cobrados: number; regenerados: number };
+    resumen: {
+        emitidos: number;
+        cobrados: number;
+        regenerados: number;
+        certificados: number;
+        titulos: number;
+    };
     ultimos: {
         tipo: string; curp: string; plan: string; referencia: string | null;
         cobrado: boolean; cuando: string | null;
@@ -71,11 +78,19 @@ function enviar(): void {
             </div>
             <div class="tarjeta p-5">
                 <p class="text-xs" :style="{ color: 'var(--color-suave)' }">Modalidad</p>
-                <p class="text-lg font-semibold capitalize">{{ saldo.modalidad }}</p>
+                <p class="text-lg font-semibold">{{ saldo.etiqueta }}</p>
             </div>
             <div class="tarjeta p-5">
                 <p class="text-xs" :style="{ color: 'var(--color-suave)' }">XML emitidos</p>
                 <p class="text-3xl font-semibold">{{ resumen.emitidos }}</p>
+                <!--
+                    El total dice cuánto se gastó, no en qué. Son dos trámites
+                    distintos, con dos áreas distintas detrás, y la primera
+                    pregunta al ver la cifra es siempre de cuál son.
+                -->
+                <p v-if="resumen.emitidos > 0" class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">
+                    {{ resumen.certificados }} de certificación · {{ resumen.titulos }} de titulación
+                </p>
             </div>
             <div class="tarjeta p-5">
                 <p class="text-xs" :style="{ color: 'var(--color-suave)' }">Cobrados</p>

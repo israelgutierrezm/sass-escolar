@@ -144,10 +144,12 @@ class CreditosDeEmision
      */
     public function resumen(string $tenantId, ?string $desde = null): array
     {
+        // El tipo viaja también: el total dice cuánto se gastó, pero no en qué,
+        // y son dos trámites distintos con dos áreas distintas detrás.
         $consumos = ConsumoEmision::query()
             ->where('tenant_id', $tenantId)
             ->when($desde !== null, fn ($q) => $q->where('created_at', '>=', $desde))
-            ->get(['cobrado']);
+            ->get(['cobrado', 'tipo']);
 
         return [
             'emitidos' => $consumos->count(),
@@ -155,6 +157,8 @@ class CreditosDeEmision
             // Lo que se rehízo: no cobra, pero decir cuánto es sirve para
             // detectar una escuela que reemite mucho por errores de captura.
             'regenerados' => $consumos->where('cobrado', false)->count(),
+            'certificados' => $consumos->where('tipo', ConsumoEmision::CERTIFICADO)->count(),
+            'titulos' => $consumos->where('tipo', ConsumoEmision::TITULO)->count(),
         ];
     }
 
