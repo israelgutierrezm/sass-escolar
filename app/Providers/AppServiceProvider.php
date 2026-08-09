@@ -46,6 +46,15 @@ class AppServiceProvider extends ServiceProvider
             fn () => \App\Services\Facturacion\FacturapiService::paraLaEscuela(),
         );
 
+        // El cliente del web service de títulos de la SEP. Su constructor pide
+        // el modo y los WSDL, así que el contenedor no puede armarlo solo: sin
+        // este enlace, cualquier controlador que lo pida por firma revienta con
+        // «Unresolvable dependency resolving $modo».
+        $this->app->bind(
+            \App\Services\Emision\ClienteTitulosSep::class,
+            fn () => \App\Services\Emision\ClienteTitulosSep::desdeConfig(),
+        );
+
         $this->app->bind(Pac::class, function () {
             // Si la escuela ACTIVÓ Facturapi, se timbra por ahí. Sin tenant o sin
             // la tabla (contexto landlord, migraciones), cae al driver de config.

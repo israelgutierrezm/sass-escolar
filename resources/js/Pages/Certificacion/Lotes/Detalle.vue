@@ -137,6 +137,21 @@ function quitar(alumno: Alumno): void {
     router.delete(`/certificacion/lotes/${props.lote.id}/alumnos/${alumno.id}`, { preserveScroll: true });
 }
 
+/**
+ * Rehacer el certificado de un alumno que salió mal.
+ *
+ * Se avisa que no cuesta otro crédito porque es justo lo que frena a quien
+ * detecta el error: el miedo a pagar dos veces por el mismo trámite.
+ */
+function rehacer(alumno: Alumno): void {
+    if (!confirm(
+        `Se borrará el XML sellado de ${alumno.alumno} para volver a generarlo al firmar el lote.\n\n`
+        + 'No se cobra otro crédito: es el mismo alumno y el mismo plan.\n\n¿Continuar?',
+    )) return;
+
+    router.post(`/certificacion/lotes/${props.lote.id}/alumnos/${alumno.id}/regenerar`, {}, { preserveScroll: true });
+}
+
 // ── Ciclo de vida ─────────────────────────────────────────────────────────
 function cerrar(): void {
     if (!confirm('Al cerrar el lote ya no podrás agregar ni quitar alumnos. ¿Continuar?')) return;
@@ -499,7 +514,21 @@ watch(
                                     XML
                                 </a>
                                 <a v-if="a.cadena_url" :href="a.cadena_url" class="text-sm font-medium" :style="{ color: 'var(--color-suave)' }" title="Cadena original (.txt)">Cadena</a>
-                                <BotonAccion v-else-if="esBorrador && !a.xml_url" variante="eliminar" solo-icono texto="Quitar del lote" @click="quitar(a)" />
+                                <!--
+                                    Rehacer se ofrece cuando ya hay XML o cuando el sellado falló:
+                                    son los dos momentos en que se descubre el error de captura.
+                                -->
+                                <button
+                                    v-if="a.xml_url || a.estado === 'error'"
+                                    type="button"
+                                    class="text-sm font-medium"
+                                    :style="{ color: 'var(--color-suave)' }"
+                                    title="Borrar el XML y volver a generarlo (sin costo)"
+                                    @click="rehacer(a)"
+                                >
+                                    Rehacer
+                                </button>
+                                <BotonAccion v-if="esBorrador && !a.xml_url" variante="eliminar" solo-icono texto="Quitar del lote" @click="quitar(a)" />
                             </div>
                         </td>
                     </tr>

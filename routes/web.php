@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Central\AutenticacionCentralController;
+use App\Http\Controllers\Central\CreditosController;
 use App\Http\Controllers\Central\EscuelaController;
 use App\Http\Controllers\Central\SsoGoogleCentralController;
 use Illuminate\Support\Facades\Route;
@@ -45,6 +46,17 @@ foreach (config('tenancy.central_domains') as $dominioCentral) {
 
         // Panel de administración de escuelas (tenants).
         Route::middleware('auth:central')->group(function () {
+            /*
+             * Creditos de emision de todas las escuelas: la cola de compras por
+             * validar y con que modalidad se le cobra a cada una. Es de la casa:
+             * la escuela no puede acreditarse a si misma.
+             */
+            Route::get('/creditos', [CreditosController::class, 'index'])->name('central.creditos.index');
+            Route::post('/creditos/{compra}/aprobar', [CreditosController::class, 'aprobar'])->whereNumber('compra')->name('central.creditos.aprobar');
+            Route::post('/creditos/{compra}/rechazar', [CreditosController::class, 'rechazar'])->whereNumber('compra')->name('central.creditos.rechazar');
+            Route::get('/creditos/{compra}/comprobante', [CreditosController::class, 'comprobante'])->whereNumber('compra')->name('central.creditos.comprobante');
+            Route::put('/creditos/escuelas/{tenantId}', [CreditosController::class, 'modalidad'])->name('central.creditos.modalidad');
+
             Route::get('/escuelas', [EscuelaController::class, 'index'])->name('central.escuelas.index');
             Route::post('/escuelas', [EscuelaController::class, 'store'])->name('central.escuelas.store');
             Route::get('/escuelas/{id}', [EscuelaController::class, 'show'])->name('central.escuelas.show');

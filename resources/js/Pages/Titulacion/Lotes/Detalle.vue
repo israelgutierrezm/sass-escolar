@@ -159,6 +159,28 @@ function quitar(e: Egresado): void {
     router.delete(`/titulacion/lotes/${props.lote.id}/egresados/${e.id}`, { preserveScroll: true });
 }
 
+/**
+ * Los dos arreglos de un título que salió mal.
+ *
+ * Van por separado porque son fallos distintos: si el error fue de captura hay
+ * que rehacer el XML, pero si el XML está bien y quien lo rechazó fue la SEP,
+ * rehacerlo obliga a volver a firmar el lote entero sin necesidad.
+ */
+function rehacer(e: Egresado): void {
+    if (!confirm(
+        `Se borrará el XML sellado de ${e.alumno} para volver a generarlo al firmar el lote.\n\n`
+        + 'No se cobra otro crédito: es el mismo alumno y el mismo plan.\n\n¿Continuar?',
+    )) return;
+
+    router.post(`/titulacion/lotes/${props.lote.id}/egresados/${e.id}/regenerar`, {}, { preserveScroll: true });
+}
+
+function reenviar(e: Egresado): void {
+    if (!confirm(`Se enviará de nuevo al web service el título de ${e.alumno}, sin tocar a los demás del lote. ¿Continuar?`)) return;
+
+    router.post(`/titulacion/lotes/${props.lote.id}/egresados/${e.id}/reenviar`, {}, { preserveScroll: true });
+}
+
 // ── Ciclo de vida ─────────────────────────────────────────────────────────
 function cerrar(): void {
     if (!confirm('Al cerrar el lote ya no podrás agregar ni quitar egresados ni cambiar su etapa. ¿Continuar?')) return;
@@ -524,7 +546,31 @@ watch(
                                     XML
                                 </a>
                                 <a v-if="e.cadena_url" :href="e.cadena_url" class="text-sm font-medium" :style="{ color: 'var(--color-suave)' }" title="Cadena original (.txt)">Cadena</a>
-                                <BotonAccion v-else-if="esBorrador && !e.xml_url" variante="eliminar" solo-icono texto="Quitar del lote" @click="quitar(e)" />
+                                <!--
+                                    Reenviar sólo aparece si la SEP lo rechazó: es el caso en que
+                                    el XML sirve y volver a firmarlo no arreglaría nada.
+                                -->
+                                <button
+                                    v-if="e.xml_url && e.estado_ws === 'rechazado'"
+                                    type="button"
+                                    class="text-sm font-medium"
+                                    :style="{ color: 'var(--color-acento)' }"
+                                    title="Volver a enviarlo al web service, sin tocar el resto del lote"
+                                    @click="reenviar(e)"
+                                >
+                                    Reenviar
+                                </button>
+                                <button
+                                    v-if="e.xml_url || e.estado === 'error'"
+                                    type="button"
+                                    class="text-sm font-medium"
+                                    :style="{ color: 'var(--color-suave)' }"
+                                    title="Borrar el XML y volver a generarlo (sin costo)"
+                                    @click="rehacer(e)"
+                                >
+                                    Rehacer
+                                </button>
+                                <BotonAccion v-if="esBorrador && !e.xml_url" variante="eliminar" solo-icono texto="Quitar del lote" @click="quitar(e)" />
                             </div>
                         </td>
                     </tr>

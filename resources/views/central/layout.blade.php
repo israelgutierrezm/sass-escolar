@@ -63,7 +63,7 @@
         code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
         label { display: block; font-weight: 500; margin-bottom: .3rem; }
         label small { display: block; font-weight: 400; color: var(--suave); }
-        input[type=text], input[type=email], input[type=password], select {
+        input[type=text], input[type=email], input[type=password], input[type=number], select {
             width: 100%; padding: .6rem .7rem; border-radius: 9px;
             border: 1px solid var(--borde); background: #0c1826; color: var(--texto); font-size: .9rem;
         }
@@ -93,9 +93,13 @@
         }
         .insignia-ok { background: rgba(52,211,153,.14); color: var(--verde); }
         .insignia-off { background: rgba(144,164,184,.16); color: var(--suave); }
+        .nav-central { color: var(--suave); font-size: .88rem; font-weight: 500; }
+        .nav-central:hover { color: var(--texto); text-decoration: none; }
+        .nav-central-activo { color: var(--texto); }
         .flash { padding: .8rem 1rem; border-radius: 10px; margin-bottom: 1.1rem; font-size: .9rem; }
         .flash-ok { background: rgba(52,211,153,.12); border: 1px solid rgba(52,211,153,.35); color: #bff3df; }
         .flash-err { background: rgba(242,109,109,.12); border: 1px solid rgba(242,109,109,.4); color: #ffd5d5; }
+        .flash-aviso { background: rgba(217,119,6,.14); border: 1px solid rgba(217,119,6,.42); color: #fde3bd; }
         .error { color: var(--rojo); font-size: .8rem; margin-top: .3rem; }
         .fila { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
         .acciones-fila { display: flex; gap: .4rem; justify-content: flex-end; }
@@ -115,6 +119,9 @@
             <span>{{ config('app.name', 'Acadion') }}<small>Administración central</small></span>
         </a>
         <div class="cabecera-der">
+            {{-- Dos secciones: las escuelas y lo que nos deben por emitir. --}}
+            <a href="/escuelas" @class(['nav-central', 'nav-central-activo' => request()->is('escuelas*')])>Escuelas</a>
+            <a href="/creditos" @class(['nav-central', 'nav-central-activo' => request()->is('creditos*')])>Créditos</a>
             <span>{{ auth('central')->user()?->nombre }}</span>
             <form method="POST" action="/salir" class="enlinea">
                 @csrf
@@ -127,8 +134,20 @@
         @if (session('exito'))
             <div class="flash flash-ok">{{ session('exito') }}</div>
         @endif
+        @if (session('advertencia'))
+            <div class="flash flash-aviso">{{ session('advertencia') }}</div>
+        @endif
         @if (session('error'))
             <div class="flash flash-err">{{ session('error') }}</div>
+        @endif
+        {{-- Los errores de validación también se ven: si no, un rechazo sin motivo
+             recarga la página sin decir por qué no pasó nada. --}}
+        @if ($errors->any())
+            <div class="flash flash-err">
+                @foreach ($errors->all() as $mensaje)
+                    <div>{{ $mensaje }}</div>
+                @endforeach
+            </div>
         @endif
 
         @yield('contenido')

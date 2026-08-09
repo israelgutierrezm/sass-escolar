@@ -236,6 +236,9 @@ export const CATALOGO_MENU: GrupoMenu[] = [
                 ],
             },
             { clave: 'accesos', etiqueta: 'Accesos', url: '/plataforma/accesos', permiso: 'ver-accesos' },
+            // Vive aquí y no bajo Certificación porque el saldo es uno solo:
+            // certificados y títulos gastan del mismo bolsillo.
+            { clave: 'creditos-emision', etiqueta: 'Créditos de emisión', url: '/plataforma/creditos', permiso: 'certificar-alumnos' },
             {
                 clave: 'plataforma-roles',
                 etiqueta: 'Roles',

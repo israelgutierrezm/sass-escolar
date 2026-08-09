@@ -24,6 +24,7 @@ use App\Http\Controllers\CicloController;
 use App\Http\Controllers\CobroAspiranteController;
 use App\Http\Controllers\CobroEnLineaController;
 use App\Http\Controllers\ComprobantePagoController;
+use App\Http\Controllers\CreditosEmisionController;
 use App\Http\Controllers\CuentaBancariaController;
 use App\Http\Controllers\ConceptoPagoController;
 use App\Http\Controllers\ConfiguracionController;
@@ -1651,6 +1652,20 @@ Route::middleware([
             Route::get('/simulador/{intencion}', 'simulador')->whereNumber('intencion')->name('simulador');
             Route::post('/simulador/{intencion}', 'simular')->whereNumber('intencion')->name('simular');
         });
+
+        /*
+         * Creditos de emision: lo que la escuela ve de su saldo y como compra
+         * mas. Con el permiso de certificar porque es quien nota que no puede
+         * firmar un lote.
+         */
+        Route::controller(CreditosEmisionController::class)
+            ->prefix('plataforma/creditos')->name('tenant.plataforma.creditos.')
+            ->middleware('can:certificar-alumnos')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/comprar', 'comprar')->name('comprar');
+                Route::get('/{compra}/comprobante', 'comprobante')->whereNumber('compra')->name('comprobante');
+            });
 
         // Pasarelas de pago: mismo público que factura (configura cobros).
         Route::controller(PasarelaPagoController::class)
