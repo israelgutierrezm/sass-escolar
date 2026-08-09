@@ -11,17 +11,30 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * El clima donde la persona estudia o da clase.
+ * El clima de donde está quien mira el panel.
  *
  * ── De dónde sale la ubicación ─────────────────────────────────────────────
- * Del CAMPUS, no de la IP. Desde la red de la escuela todas las peticiones
- * salen por el mismo enlace, así que geolocalizar por IP le mostraría a media
- * escuela el clima del proveedor de internet; con VPN da cualquier cosa. Y la
- * IP de una persona es un dato personal: mandarla a un tercero para adornar una
- * tarjeta no se sostiene cuando el sistema ya sabe dónde estudia.
+ * De la IP primero; el campus queda de respaldo. Antes era al revés, y el
+ * motivo del cambio es práctico: capturar la latitud y la longitud de cada
+ * plantel es un paso que nadie da, así que en la práctica el clima no aparecía
+ * en ninguna parte. Una ubicación aproximada que se ve gana a una exacta que
+ * nunca se configura.
  *
- * La IP queda como respaldo para cuando el campus no tiene coordenadas
- * capturadas, y sólo entonces.
+ * Lo que se pierde al hacerlo así, y conviene tener presente:
+ *
+ * - Desde la red de la escuela todas las peticiones salen por el mismo enlace,
+ *   así que media escuela verá la ubicación del proveedor de internet. Con VPN,
+ *   cualquier cosa. Por eso lo que viene por IP se marca `aproximado` y la
+ *   tarjeta lo dice —«cerca de Guadalajara»— en vez de afirmar un lugar.
+ * - La IP de una persona es un dato personal y viaja a un tercero
+ *   (`ip-api.com`) para adornar una tarjeta. El servicio gratuito sólo atiende
+ *   por HTTP, así que además va sin cifrar. Si algún día eso pesa más que la
+ *   comodidad, basta con volver a poner el campus primero: es el orden de dos
+ *   líneas en `ubicacionDe`.
+ *
+ * El campus sigue sirviendo: es lo que se usa cuando la IP no dice nada
+ * —una dirección privada en desarrollo, detrás de un proxy, o el servicio
+ * caído—, y entonces la ubicación es exacta.
  *
  * ── Nunca rompe el panel ───────────────────────────────────────────────────
  * Es un adorno útil, no información crítica. Si la API tarda o falla, se
@@ -76,12 +89,20 @@ class ClimaDelCampus
     }
 
     /**
-     * Dónde está la persona: su campus si tiene coordenadas; si no, su IP.
+     * Dónde está la persona: su IP si dice algo; si no, su campus.
      *
      * @return array{latitud: float, longitud: float, nombre: string, aproximado: bool}|null
      */
     private function ubicacionDe(Usuario $usuario, ?string $ip): ?array
     {
+        // La IP manda. Si no resuelve —dirección privada, servicio caído— se
+        // cae al campus, que además da una ubicación exacta.
+        $porIp = $this->porIp($ip);
+
+        if ($porIp !== null) {
+            return $porIp;
+        }
+
         $ids = $this->contexto->de($usuario->persona_id)['campus'];
 
         $conCoordenadas = Campus::query()
@@ -108,16 +129,17 @@ class ClimaDelCampus
             ];
         }
 
-        return $this->porIp($ip);
+        return null;
     }
 
     /**
-     * El respaldo: aproximar por la IP de quien entra.
+     * La ubicación por la IP de quien entra.
      *
      * Se marca como `aproximado` para que la tarjeta lo diga —«cerca de
      * Guadalajara»— en vez de afirmar una ubicación que puede ser la del
-     * proveedor de internet. Las direcciones privadas ni se intentan: en
-     * desarrollo y detrás de un proxy no dicen nada.
+     * proveedor de internet, que es lo que suele ser desde la red de una
+     * escuela. Las direcciones privadas ni se intentan: en desarrollo y detrás
+     * de un proxy no dicen nada, y ahí manda el campus.
      *
      * @return array{latitud: float, longitud: float, nombre: string, aproximado: bool}|null
      */
