@@ -323,10 +323,18 @@ function conmutar(rolId: number): void {
             Una tarjeta nueva que use una de ellas no toca este archivo.
         -->
         <!--
-            `items-start`: sin él, la fila del grid estira TODAS las tarjetas al
-            alto de la más grande, y una métrica de un solo número quedaba de
-            246px con el 60% en blanco. Un panel se lee mejor denso y algo
-            irregular que alineado y vacío.
+            Las tarjetas de una misma fila miden lo mismo.
+
+            Antes iban con `items-start` para que cada una midiera lo suyo: se
+            prefería denso e irregular a alineado y vacío. En la práctica el
+            resultado fue lo contrario de lo buscado —una fila con una tarjeta
+            de 150px junto a otra de 200 deja un escalón, y el ojo lee el hueco
+            como algo roto—, así que ahora estiran.
+
+            Lo que aquel comentario temía —una métrica de un número con el 60%
+            en blanco— se resuelve repartiendo el contenido, no encogiendo la
+            tarjeta: el cuerpo es una columna flex y el número se centra en el
+            espacio que le toque (ver `.tarjeta-panel`).
         -->
         <!--
             Dos columnas: el trabajo a la izquierda, el CONTEXTO a la derecha.
@@ -357,7 +365,7 @@ function conmutar(rolId: number): void {
                 lado, tarjetas incluidas. Con esto vuelven a mandar los
                 `truncate` que ya tenía cada texto.
             -->
-            <section v-if="props.tarjetas.length" class="grid min-w-0 grid-flow-dense items-start gap-4 sm:grid-cols-4">
+            <section v-if="props.tarjetas.length" class="grid min-w-0 grid-flow-dense gap-4 sm:grid-cols-4">
             <div
                 v-for="(tarjeta, i) in props.tarjetas"
                 :key="tarjeta.clave"
@@ -736,6 +744,36 @@ function conmutar(rolId: number): void {
     transition:
         transform 0.2s ease,
         box-shadow 0.2s ease;
+
+    /*
+     * Columna flex para que el contenido se REPARTA en el alto que le tocó.
+     *
+     * Al estirarse todas las tarjetas de una fila al alto de la más alta, una
+     * métrica de un solo número se quedaría con su número arriba y el resto en
+     * blanco. Con esto, lo que va después del encabezado ocupa el hueco en vez
+     * de dejarlo: el número queda centrado en su espacio y la tarjeta se ve
+     * llena, que es de lo que se trataba.
+     */
+    display: flex;
+    flex-direction: column;
+}
+
+/*
+ * Todo lo que va después del encabezado crece.
+ *
+ * `> :not(:first-child)` en vez de una clase en cada bloque: las cuatro formas
+ * de tarjeta —métrica, lista, barras, atajos— ponen su contenido como hermanos
+ * del encabezado, y así ninguna tiene que acordarse de nada.
+ */
+.tarjeta-panel > :not(:first-child) {
+    flex: 1 1 auto;
+}
+
+/* La métrica centra su número en el espacio que le quede. */
+.tarjeta-panel > p:not(:first-child) {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .tarjeta-panel:hover {

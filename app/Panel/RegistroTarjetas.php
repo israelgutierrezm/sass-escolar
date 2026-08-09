@@ -83,12 +83,37 @@ class RegistroTarjetas
                  * pedir un ancho menor devolviendo `ancho_sugerido` en sus
                  * datos; sin eso, manda el declarado.
                  */
-                'ancho' => max(1, min(4, (int) ($datos['ancho_sugerido'] ?? $tarjeta->ancho()))),
+                'ancho' => $this->anchoQueCierraLaFila((int) ($datos['ancho_sugerido'] ?? $tarjeta->ancho())),
                 'datos' => $datos,
             ];
         }
 
         return $visibles;
+    }
+
+    /**
+     * El ancho de una tarjeta, redondeado para que la fila SIEMPRE cierre.
+     *
+     * ── Por qué no se respeta el ancho tal cual ────────────────────────────
+     * El panel tiene cuatro columnas. Con anchos impares una fila puede sumar
+     * tres —una tarjeta de 1 junto a una de 2— y la cuarta columna se queda en
+     * blanco: un hueco a la derecha que se lee como algo roto, no como diseño.
+     * Y `grid-flow-dense` sólo lo tapa si más adelante viene otra tarjeta que
+     * quepa justo ahí, cosa que depende del rol.
+     *
+     * Redondeando hacia arriba a un número PAR, toda combinación cierra: 2+2 o
+     * 4. Como mucho queda media fila al final si el rol tiene un número impar
+     * de tarjetas, y ése es un hueco al final, no en medio.
+     *
+     * Se hace aquí y no en cada tarjeta porque las tarjetas siguen declarando
+     * lo que necesitan —«Accesos directos» pide menos cuando trae dos botones—
+     * y es el panel quien sabe cuántas columnas tiene.
+     */
+    private function anchoQueCierraLaFila(int $pedido): int
+    {
+        $acotado = max(1, min(4, $pedido));
+
+        return $acotado <= 2 ? 2 : 4;
     }
 
     /** @return array<int, class-string<TarjetaPanel>> */
