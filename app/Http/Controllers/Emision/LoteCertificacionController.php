@@ -11,6 +11,7 @@ use App\Models\Emision\Certificacion;
 use App\Models\Emision\LoteCertificacion;
 use App\Models\Emision\Responsable;
 use App\Models\Emision\TipoResponsable;
+use App\Models\Landlord\SaldoEmision;
 use App\Services\EstadoCertificacion;
 use App\Services\FirmadorLote;
 use Illuminate\Http\JsonResponse;
@@ -33,19 +34,42 @@ use Throwable;
  */
 class LoteCertificacionController extends Controller
 {
-    public function index(): \Inertia\Response
+    public function index(Request $request): \Inertia\Response
     {
+        $filtros = $request->validate([
+            'busqueda' => ['nullable', 'string', 'max:120'],
+            'estado' => ['nullable', 'in:borrador,en_espera_firma,firmado'],
+            'tipo' => ['nullable', 'in:total,parcial'],
+        ]);
+
         $lotes = LoteCertificacion::query()
             ->withCount([
                 'certificaciones',
                 'certificaciones as certificados_count' => fn ($q) => $q->where('estado', Certificacion::CERTIFICADO),
             ])
+            // Por folio o por nombre: son las dos formas en que alguien recuerda
+            // un lote —«el LOTE-CERT-0012» o «el de egresados de enero»—.
+            ->when(filled($filtros['busqueda'] ?? null), function ($q) use ($filtros) {
+                $texto = '%'.$filtros['busqueda'].'%';
+                $q->where(fn ($s) => $s->where('folio', 'like', $texto)->orWhere('nombre', 'like', $texto));
+            })
+            ->when(filled($filtros['estado'] ?? null), fn ($q) => $q->where('estado', $filtros['estado']))
+            ->when(filled($filtros['tipo'] ?? null), fn ($q) => $q->where('tipo', $filtros['tipo']))
             ->orderByDesc('id')
             ->get()
             ->map(fn (LoteCertificacion $l) => $this->filaLote($l));
 
         return \Inertia\Inertia::render('Certificacion/Lotes/Index', [
             'lotes' => $lotes,
+            'filtros' => [
+                'busqueda' => $filtros['busqueda'] ?? '',
+                'estado' => $filtros['estado'] ?? '',
+                'tipo' => $filtros['tipo'] ?? '',
+            ],
+            // Con qué se pagan los XML de este lote. Va aquí y no sólo en la
+            // pantalla de créditos porque es donde importa: firmar es lo que
+            // gasta, y quedarse sin saldo a media firma se descubre tarde.
+            'saldo' => SaldoEmision::de(tenant()->getTenantKey())->paraPantalla(),
         ]);
     }
 
@@ -84,6 +108,9 @@ class LoteCertificacionController extends Controller
             'lote' => $this->filaLote($lote),
             'alumnos' => $lote->certificaciones->map(fn (Certificacion $c) => $this->filaCertificacion($c)),
             'firma' => $this->contextoFirma(),
+            // Aquí es donde se pulsa «Firmar», así que aquí es donde importa
+            // saber si el saldo alcanza para todo el lote.
+            'saldo' => SaldoEmision::de(tenant()->getTenantKey())->paraPantalla(),
         ]);
     }
 

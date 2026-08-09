@@ -78,4 +78,48 @@ class SaldoEmision extends Model
     {
         return $this->alcanzaPara($cuantos) ? 0 : $cuantos - $this->creditos;
     }
+
+    /** Cómo se le llama a esta modalidad en pantalla. */
+    public function etiqueta(): string
+    {
+        return match ($this->modalidad) {
+            self::PREPAGO => 'Prepago',
+            self::ILIMITADO => 'Incluido',
+            default => 'Postpago',
+        };
+    }
+
+    /** Qué significa, en una línea, para quien está a punto de firmar un lote. */
+    public function comoSeCobra(): string
+    {
+        return match ($this->modalidad) {
+            self::PREPAGO => 'Cada XML gasta un crédito. Sin créditos no se pueden firmar lotes.',
+            self::ILIMITADO => 'La emisión está incluida en tu servicio: no se cobra por documento.',
+            default => 'Se cuenta lo emitido y se cobra al final del periodo.',
+        };
+    }
+
+    /**
+     * Lo que una pantalla necesita saber del saldo, en una sola forma.
+     *
+     * Existe porque son ya TRES las pantallas que lo enseñan —los créditos, los
+     * lotes de certificación y los de titulación— y la primera versión de esto
+     * vivía dentro de un controlador. Copiarlo a los otros dos habría dejado
+     * tres textos que se van separando: el día que cambie qué significa
+     * «postpago», tiene que cambiar en un solo sitio.
+     *
+     * @return array<string, mixed>
+     */
+    public function paraPantalla(): array
+    {
+        return [
+            'modalidad' => $this->modalidad,
+            'etiqueta' => $this->etiqueta(),
+            'creditos' => $this->creditos,
+            // Sólo el prepago puede quedarse sin: sin esto la pantalla enseña un
+            // contador en cero a quien no paga por documento.
+            'cuenta_creditos' => $this->esPrepago(),
+            'explicacion' => $this->comoSeCobra(),
+        ];
+    }
 }

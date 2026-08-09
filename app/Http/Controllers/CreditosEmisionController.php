@@ -34,14 +34,7 @@ class CreditosEmisionController extends Controller
         $saldo = SaldoEmision::de($tenantId);
 
         return Inertia::render('Plataforma/CreditosEmision', [
-            'saldo' => [
-                'modalidad' => $saldo->modalidad,
-                'creditos' => $saldo->creditos,
-                // Sólo el prepago puede quedarse sin: se dice para que la
-                // pantalla no enseñe un contador que no significa nada.
-                'cuenta_creditos' => $saldo->esPrepago(),
-                'explicacion' => $this->comoSeCobra($saldo),
-            ],
+            'saldo' => $saldo->paraPantalla(),
             'resumen' => $this->creditos->resumen($tenantId),
             'ultimos' => ConsumoEmision::query()
                 ->where('tenant_id', $tenantId)
@@ -125,15 +118,5 @@ class CreditosEmisionController extends Controller
         );
 
         return Storage::disk('local')->response($compra->comprobante);
-    }
-
-    /** Cómo se le cobra a esta escuela, en una frase. */
-    private function comoSeCobra(SaldoEmision $saldo): string
-    {
-        return match ($saldo->modalidad) {
-            SaldoEmision::PREPAGO => 'Cada XML gasta un crédito. Sin créditos no se pueden firmar lotes.',
-            SaldoEmision::ILIMITADO => 'La emisión está incluida en tu servicio: no se cobra por documento.',
-            default => 'Se cuenta lo emitido y se cobra al final del periodo.',
-        };
     }
 }

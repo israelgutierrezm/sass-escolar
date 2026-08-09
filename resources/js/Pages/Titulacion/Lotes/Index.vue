@@ -6,6 +6,8 @@ import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
+import BarraListado from '@/Components/BarraListado.vue';
+import SaldoDeEmision from '@/Components/SaldoDeEmision.vue';
 
 interface Lote {
     id: number;
@@ -17,6 +19,8 @@ interface Lote {
     estado_color: string;
     total: number;
     titulados: number;
+    /** Cuántos rechazó la SEP: es el trabajo que queda por rehacer. */
+    rechazados_ws: number;
     responsable: string | null;
     etapa_coincide: boolean;
     creado_en: string | null;
@@ -27,7 +31,38 @@ const props = defineProps<{
     etapaActiva: string;
     /** `real`, `fake` o `off`: si lo que se envía sale de verdad hacia la SEP. */
     modoWs: string;
+    filtros: { busqueda: string; estado: string; etapa: string; rechazados: string };
+    saldo: {
+        modalidad: string;
+        etiqueta: string;
+        creditos: number;
+        cuenta_creditos: boolean;
+        explicacion: string;
+    };
 }>();
+
+const FILTROS = [
+    {
+        clave: 'estado',
+        etiqueta: 'Estado',
+        opciones: [
+            { valor: 'borrador', texto: 'Borrador' },
+            { valor: 'en_espera_firma', texto: 'En espera de firma' },
+            { valor: 'firmado', texto: 'Firmado y sellado' },
+            { valor: 'enviado', texto: 'Enviado a la SEP' },
+        ],
+    },
+    {
+        clave: 'etapa',
+        etiqueta: 'Etapa',
+        opciones: [
+            { valor: 'pruebas', texto: 'Pruebas' },
+            { valor: 'produccion', texto: 'Producción' },
+        ],
+    },
+    // El que de verdad se usa tras enviar un lote grande: dónde quedó trabajo.
+    { clave: 'rechazados', etiqueta: 'Con rechazos de la SEP', tipo: 'booleano' as const },
+];
 
 const creando = ref(false);
 const form = useForm({ nombre: '' });
@@ -99,6 +134,8 @@ const colorEstadoSolido: Record<string, string> = {
             <BotonAccion v-if="!creando" variante="nuevo" texto="Nuevo lote" class="shrink-0" @click="creando = true" />
         </div>
 
+        <SaldoDeEmision :saldo="saldo" class="mb-4" />
+
         <form v-if="creando" class="tarjeta mb-6 p-5" @submit.prevent="crear">
             <div class="flex flex-wrap items-end gap-3">
                 <div class="min-w-64 flex-1">
@@ -123,6 +160,14 @@ const colorEstadoSolido: Record<string, string> = {
                 </button>
             </div>
         </form>
+
+        <BarraListado
+            url="/titulacion/lotes"
+            :valores="filtros"
+            :filtros="FILTROS"
+            placeholder="Buscar por folio o nombre…"
+            class="mb-4"
+        />
 
         <div class="tarjeta overflow-hidden">
             <table class="w-full text-sm">
@@ -160,6 +205,14 @@ const colorEstadoSolido: Record<string, string> = {
                         <td class="px-4 py-4 text-center tabular-nums" :style="{ color: 'var(--color-suave)' }">
                             <span v-if="lote.titulados > 0">{{ lote.titulados }}/{{ lote.total }}</span>
                             <span v-else>{{ lote.total }}</span>
+                            <!-- Lo rechazado se dice aquí para no abrir lote por lote. -->
+                            <span
+                                v-if="lote.rechazados_ws > 0"
+                                class="mt-0.5 block text-[11px] font-medium text-red-600"
+                                :title="`${lote.rechazados_ws} rechazado(s) por el web service`"
+                            >
+                                {{ lote.rechazados_ws }} rechazado{{ lote.rechazados_ws === 1 ? '' : 's' }}
+                            </span>
                         </td>
                         <td class="px-4 py-4" :style="{ color: 'var(--color-suave)' }">{{ lote.responsable ?? '—' }}</td>
                         <td class="px-4 py-4 text-xs" :style="{ color: 'var(--color-suave)' }">{{ lote.creado_en }}</td>

@@ -12,6 +12,7 @@ use App\Models\Emision\Responsable;
 use App\Models\Emision\TipoResponsable;
 use App\Models\Emision\Titulacion;
 use App\Models\Emision\TitulacionWsConfig;
+use App\Models\Landlord\SaldoEmision;
 use App\Services\EstadoCertificacion;
 use App\Services\Emision\ClienteTitulosSep;
 use App\Services\Emision\FirmadorLoteTitulo;
@@ -38,19 +39,52 @@ use Throwable;
  */
 class LoteTitulacionController extends Controller
 {
-    public function index(): \Inertia\Response
+    public function index(Request $request): \Inertia\Response
     {
+        $filtros = $request->validate([
+            'busqueda' => ['nullable', 'string', 'max:120'],
+            'estado' => ['nullable', 'in:borrador,en_espera_firma,firmado,enviado'],
+            'etapa' => ['nullable', 'in:pruebas,produccion'],
+            'rechazados' => ['nullable', 'in:0,1'],
+        ]);
+
         $lotes = LoteTitulacion::query()
             ->withCount([
                 'titulaciones',
                 'titulaciones as titulados_count' => fn ($q) => $q->where('estado', Titulacion::TITULADO),
+                // Lo que la SEP rechazó: es el trabajo que queda por rehacer,
+                // y sin contarlo aquí hay que abrir lote por lote para verlo.
+                'titulaciones as rechazados_ws_count' => fn ($q) => $q->where('estado_ws', 'rechazado'),
             ])
+            ->when(filled($filtros['busqueda'] ?? null), function ($q) use ($filtros) {
+                $texto = '%'.$filtros['busqueda'].'%';
+                $q->where(fn ($s) => $s->where('folio', 'like', $texto)->orWhere('nombre', 'like', $texto));
+            })
+            ->when(filled($filtros['estado'] ?? null), fn ($q) => $q->where('estado', $filtros['estado']))
+            ->when(filled($filtros['etapa'] ?? null), fn ($q) => $q->where('etapa', $filtros['etapa']))
+            /*
+             * «Con rechazos del web service» es el filtro que se usa de verdad:
+             * después de enviar un lote grande, lo que se busca no es un folio
+             * sino dónde quedó trabajo pendiente.
+             */
+            ->when(($filtros['rechazados'] ?? '') === '1', fn ($q) => $q->whereHas(
+                'titulaciones',
+                fn ($t) => $t->where('estado_ws', 'rechazado'),
+            ))
             ->orderByDesc('id')
             ->get()
             ->map(fn (LoteTitulacion $l) => $this->filaLote($l));
 
         return \Inertia\Inertia::render('Titulacion/Lotes/Index', [
             'lotes' => $lotes,
+            'filtros' => [
+                'busqueda' => $filtros['busqueda'] ?? '',
+                'estado' => $filtros['estado'] ?? '',
+                'etapa' => $filtros['etapa'] ?? '',
+                'rechazados' => $filtros['rechazados'] ?? '',
+            ],
+            // Firmar es lo que gasta: el saldo se ve donde se firma.
+            'saldo' => SaldoEmision::de(tenant()->getTenantKey())->paraPantalla(),
             'etapaActiva' => TitulacionWsConfig::actual()->etapa_activa,
             // La etapa dice a qué endpoint apunta; el modo, si de verdad sale
             // algo. La pantalla anunciaba «producción» sin decir que el envío
@@ -92,6 +126,8 @@ class LoteTitulacionController extends Controller
             'lote' => $this->filaLote($lote),
             'egresados' => $lote->titulaciones->map(fn (Titulacion $t) => $this->filaTitulacion($t)),
             'firma' => $this->contextoFirma(),
+            // Aquí es donde se pulsa «Firmar»: aquí importa si el saldo alcanza.
+            'saldo' => SaldoEmision::de(tenant()->getTenantKey())->paraPantalla(),
             'etapaActiva' => TitulacionWsConfig::actual()->etapa_activa,
             'modoWs' => (string) config('services.titulos_sep.modo', 'fake'),
         ]);
@@ -598,6 +634,7 @@ class LoteTitulacionController extends Controller
             'estado_color' => $lote->estado->color(),
             'total' => $lote->titulaciones_count ?? $lote->titulaciones->count(),
             'titulados' => $lote->titulados_count ?? $lote->titulaciones->where('estado', Titulacion::TITULADO)->count(),
+            'rechazados_ws' => $lote->rechazados_ws_count ?? $lote->titulaciones->where('estado_ws', 'rechazado')->count(),
             'responsable' => $lote->responsable?->nombreCompleto(),
             'etapa_coincide' => $lote->etapaCoincideConActiva(),
             'cerrado_en' => $lote->cerrado_en?->format('d/m/Y H:i'),

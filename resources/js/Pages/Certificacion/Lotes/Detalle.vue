@@ -5,6 +5,7 @@ import axios from 'axios';
 import { toast } from 'vue-sonner';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
+import SaldoDeEmision from '@/Components/SaldoDeEmision.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
@@ -65,7 +66,21 @@ interface Candidato {
     campus: string | null;
 }
 
-const props = defineProps<{ lote: Lote; alumnos: Alumno[]; firma: Firma }>();
+const props = defineProps<{
+    lote: Lote;
+    alumnos: Alumno[];
+    firma: Firma;
+    saldo: {
+        modalidad: string;
+        etiqueta: string;
+        creditos: number;
+        cuenta_creditos: boolean;
+        explicacion: string;
+    };
+}>();
+
+/** Lo que este lote gastaría al firmarse: lo que aún no tiene XML. */
+const porEmitir = computed(() => props.alumnos.filter((a) => !a.xml_url).length);
 
 const esBorrador = computed(() => props.lote.estado === 'borrador');
 const enEsperaFirma = computed(() => props.lote.estado === 'en_espera_firma');
@@ -269,6 +284,9 @@ watch(
         <!-- Encabezado del lote -->
         <section class="tarjeta mb-6 p-6">
             <BotonVolver href="/certificacion/lotes" texto="Lotes" class="mb-4" />
+
+            <!-- Antes de la ficha del lote: si el saldo no alcanza, se ve sin buscarlo. -->
+            <SaldoDeEmision :saldo="saldo" :por-emitir="porEmitir" class="mb-5" />
 
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div>

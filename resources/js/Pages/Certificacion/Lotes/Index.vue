@@ -6,6 +6,8 @@ import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
+import BarraListado from '@/Components/BarraListado.vue';
+import SaldoDeEmision from '@/Components/SaldoDeEmision.vue';
 
 interface Lote {
     id: number;
@@ -24,7 +26,38 @@ interface Lote {
     creado_en: string | null;
 }
 
-defineProps<{ lotes: Lote[] }>();
+defineProps<{
+    lotes: Lote[];
+    filtros: { busqueda: string; estado: string; tipo: string };
+    /** Con qué paga la escuela sus XML: lo que decide si se puede firmar. */
+    saldo: {
+        modalidad: string;
+        etiqueta: string;
+        creditos: number;
+        cuenta_creditos: boolean;
+        explicacion: string;
+    };
+}>();
+
+const FILTROS = [
+    {
+        clave: 'estado',
+        etiqueta: 'Estado',
+        opciones: [
+            { valor: 'borrador', texto: 'Borrador' },
+            { valor: 'en_espera_firma', texto: 'En espera de firma' },
+            { valor: 'firmado', texto: 'Firmado y sellado' },
+        ],
+    },
+    {
+        clave: 'tipo',
+        etiqueta: 'Tipo',
+        opciones: [
+            { valor: 'total', texto: 'Total' },
+            { valor: 'parcial', texto: 'Parcial' },
+        ],
+    },
+];
 
 const creando = ref(false);
 const form = useForm({ nombre: '', tipo: 'total' });
@@ -73,6 +106,8 @@ const colorEstadoSolido: Record<string, string> = {
             <BotonAccion v-if="!creando" variante="nuevo" texto="Nuevo lote" class="shrink-0" @click="creando = true" />
         </div>
 
+        <SaldoDeEmision :saldo="saldo" class="mb-4" />
+
         <form v-if="creando" class="tarjeta mb-6 p-5" @submit.prevent="crear">
             <div class="flex flex-wrap items-end gap-3">
                 <div class="min-w-64 flex-1">
@@ -111,6 +146,14 @@ const colorEstadoSolido: Record<string, string> = {
                 </button>
             </div>
         </form>
+
+        <BarraListado
+            url="/certificacion/lotes"
+            :valores="filtros"
+            :filtros="FILTROS"
+            placeholder="Buscar por folio o nombre…"
+            class="mb-4"
+        />
 
         <div class="tarjeta overflow-hidden">
             <table class="w-full text-sm">
