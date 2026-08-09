@@ -72,6 +72,8 @@ const props = defineProps<{
     puedePasarLista: boolean;
     /** Conversación directa con cada alumno, si ya existe: persona_id => …. */
     mensajes: Record<number, { conversacion_id: number; sin_leer: number }>;
+    /** Con qué califica el plan de esta materia: la usan los colores. */
+    escala: { minima: number; maxima: number; aprobatoria: number };
     asistencia: {
         fecha: string;
         modalidad: string;
@@ -367,6 +369,7 @@ const cortesCerrados = computed(() =>
             :matriz="matriz"
             :asistencia="asistencia.lista"
             :mensajes="mensajes"
+            :escala="escala"
         />
 
         <section

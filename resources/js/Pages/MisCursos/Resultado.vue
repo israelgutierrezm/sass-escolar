@@ -2,6 +2,7 @@
 import { Head } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
+import { colorCalificacion } from '@/utils/escalaCalificacion';
 
 /*
  * El resultado de un intento ya entregado.
@@ -10,11 +11,17 @@ import BotonVolver from '@/Components/BotonVolver.vue';
  * resultados, no llega ni el puntaje ni el detalle. Esconderlo en la pantalla y
  * mandarlo igual sería dejar el examen resuelto en el código de la página.
  */
-defineProps<{
+const props = defineProps<{
     actividad: { id: number; titulo: string };
     materia: { id: number };
     intento: { id: number; numero: number; entregado_en: string | null; requiere_revision: boolean };
-    resultado: { puntos_obtenidos: number; puntos_posibles: number; en_diez: number | null } | null;
+    resultado: {
+        puntos_obtenidos: number;
+        puntos_posibles: number;
+        en_escala: number | null;
+        aprobatoria: number;
+        maxima: number;
+    } | null;
     detalle: {
         id: number;
         enunciado: string;
@@ -27,10 +34,11 @@ defineProps<{
     }[];
 }>();
 
-function colorNota(en: number | null): string {
-    if (en === null) return 'var(--color-suave)';
+/** El color sale de la escala del plan, no de un 8 y un 6 fijos. */
+function colorNota(): string {
+    if (!props.resultado) return 'var(--color-suave)';
 
-    return en >= 8 ? '#16a34a' : en >= 6 ? '#d97706' : '#dc2626';
+    return colorCalificacion(props.resultado.en_escala, props.resultado);
 }
 </script>
 
@@ -53,9 +61,9 @@ function colorNota(en: number | null): string {
                 <div v-if="resultado" class="text-right">
                     <p
                         class="text-3xl font-semibold leading-none tabular-nums"
-                        :style="{ color: colorNota(resultado.en_diez) }"
+                        :style="{ color: colorNota() }"
                     >
-                        {{ resultado.en_diez ?? '—' }}
+                        {{ resultado.en_escala ?? '—' }}
                     </p>
                     <p class="mt-1 text-xs text-suave">
                         {{ resultado.puntos_obtenidos }} de {{ resultado.puntos_posibles }} puntos

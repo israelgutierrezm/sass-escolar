@@ -124,7 +124,10 @@ class DocenciaController extends Controller
 
         $asignaturaGrupo->load([
             'planMateria.asignatura',
-            'planMateria.plan:id,nombre',
+            // Las columnas de la escala van explícitas: sin ellas el plan llega
+            // a medias y `datosLms` cae a los valores por defecto sin avisar,
+            // que es justo el 0–10 que este cambio vino a quitar.
+            'planMateria.plan:id,nombre,calificacion_minima,calificacion_maxima,calificacion_minima_aprobatoria,decimales_calificacion,redondeo_calificacion',
             'grupo.ciclo',
             'grupo.campus:id,nombre',
             'horarios.aula:id,nombre',
@@ -401,7 +404,17 @@ class DocenciaController extends Controller
             ->orderBy('parcial')->orderBy('orden')
             ->get(['id', 'componente', 'parcial', 'porcentaje']);
 
+        // Con qué escala califica esta materia. Viaja al frontend porque los
+        // colores de la rejilla la necesitan: con umbrales fijos en 8 y 6, una
+        // escuela que califica sobre 100 veía todo en rojo.
+        $plan = $asignaturaGrupo->planMateria?->plan;
+
         return [
+            'escala' => [
+                'minima' => (float) ($plan?->calificacion_minima ?? 0),
+                'maxima' => (float) ($plan?->calificacion_maxima ?? 10),
+                'aprobatoria' => (float) ($plan?->calificacion_minima_aprobatoria ?? 6),
+            ],
             'curso' => $curso === null ? null : [
                 'id' => $curso->id,
                 'puede_agregar' => $curso->docente_puede_agregar,

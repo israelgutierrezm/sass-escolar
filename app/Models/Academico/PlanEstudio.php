@@ -201,4 +201,55 @@ class PlanEstudio extends Model
     {
         return $this->modoRedondeo()->etiqueta();
     }
+
+    /**
+     * Lleva unos puntos a la escala de este plan.
+     *
+     * ── Por qué no basta con multiplicar por diez ──────────────────────────
+     * El LMS califica por PUNTOS —una tarea vale 40, un examen 100— y eso hay
+     * que convertirlo a la escala con la que la escuela pone actas. Todo el
+     * módulo daba por hecho que esa escala era 0–10, así que una escuela que
+     * califique sobre 100 veía un examen perfecto convertido en un 10. No
+     * reventaba: entregaba un número plausible y equivocado, y ese número
+     * entraba solo al parcial.
+     *
+     * El mapeo es lineal entre la mínima y la máxima del plan, no una simple
+     * regla de tres sobre la máxima: en una escala de 5 a 10 —que existe—, no
+     * entregar nada es un 5, no un 0.
+     *
+     * Devuelve `null` cuando no hay nada que convertir, igual que
+     * [redondear()]: sin puntos posibles no hay calificación, y un 0 diría que
+     * el alumno la reprobó.
+     */
+    public function enEscala(?float $obtenidos, ?float $posibles): ?float
+    {
+        if ($obtenidos === null || $posibles === null || $posibles <= 0) {
+            return null;
+        }
+
+        $minima = (float) $this->calificacion_minima;
+        $maxima = (float) $this->calificacion_maxima;
+
+        return $this->redondear($minima + ($obtenidos / $posibles) * ($maxima - $minima));
+    }
+
+    /**
+     * Convierte cuando puede no haber plan.
+     *
+     * Sin plan se cae al 0–10 que el LMS usaba antes: es lo que ya había en la
+     * base y cambiarlo por la falta de una relación movería calificaciones ya
+     * asentadas.
+     */
+    public static function enEscalaCon(?self $plan, ?float $obtenidos, ?float $posibles): ?float
+    {
+        if ($plan !== null) {
+            return $plan->enEscala($obtenidos, $posibles);
+        }
+
+        if ($obtenidos === null || $posibles === null || $posibles <= 0) {
+            return null;
+        }
+
+        return ModoRedondeo::MEDIO_ARRIBA->aplicar($obtenidos * 10 / $posibles, 2);
+    }
 }

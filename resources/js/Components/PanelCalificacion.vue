@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import { ICONOS } from '@/iconos';
+import { colorPorPuntos, ESCALA_POR_DEFECTO, type Escala } from '@/utils/escalaCalificacion';
 
 /**
  * Calificar una entrega, con lo que el alumno mandó a la vista.
@@ -61,6 +62,8 @@ const props = defineProps<{
     actividad: Actividad;
     /** Cuántas entregas quedan sin calificar, para el botón de continuar. */
     pendientes: number;
+    /** Con qué califica el plan de esta materia. Decide el color de la nota. */
+    escala?: Escala;
 }>();
 
 const emit = defineEmits<{ cerrar: []; siguiente: [] }>();
@@ -123,9 +126,9 @@ const colorNota = computed(() => {
 
     if (form.calificacion === '' || Number.isNaN(n)) return 'var(--color-suave)';
 
-    const enDiez = props.actividad.puntos > 0 ? (n * 10) / props.actividad.puntos : n;
-
-    return enDiez >= 8 ? '#16a34a' : enDiez >= 6 ? '#d97706' : '#dc2626';
+    // Los puntos de la actividad, llevados a la escala del plan: el color
+    // tiene que significar lo mismo aquí que en el acta.
+    return colorPorPuntos(n, props.actividad.puntos, props.escala ?? ESCALA_POR_DEFECTO);
 });
 </script>
 

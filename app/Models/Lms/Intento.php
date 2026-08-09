@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models\Lms;
 
+use App\Models\Academico\PlanEstudio;
 use App\Models\Concerns\TieneAuditoria;
 use App\Models\ControlEscolar\Inscripcion;
 use Illuminate\Database\Eloquent\Model;
@@ -90,15 +91,20 @@ class Intento extends Model
     }
 
     /**
-     * Lo obtenido llevado a escala de 10, que es como se califica todo lo demás
-     * del sistema. Null mientras no haya nada que escalar.
+     * Lo obtenido llevado a la escala con la que califica la escuela.
+     *
+     * Se toma del plan de la materia en la que está inscrito el alumno, no de
+     * un 0–10 fijo: es el mismo número que verá luego en su acta, y enseñarle
+     * dos escalas distintas para el mismo examen es enseñarle un error.
+     *
+     * Null mientras no haya nada que escalar.
      */
-    public function enDiez(): ?float
+    public function enEscala(): ?float
     {
-        if ($this->puntos_obtenidos === null || (float) $this->puntos_posibles <= 0) {
-            return null;
-        }
-
-        return round((float) $this->puntos_obtenidos * 10 / (float) $this->puntos_posibles, 2);
+        return PlanEstudio::enEscalaCon(
+            $this->inscripcion?->asignaturaGrupo?->planMateria?->plan,
+            $this->puntos_obtenidos === null ? null : (float) $this->puntos_obtenidos,
+            (float) $this->puntos_posibles,
+        );
     }
 }

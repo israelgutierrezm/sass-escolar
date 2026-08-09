@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Lms;
 
+use App\Models\Academico\PlanEstudio;
 use App\Models\ControlEscolar\CalificacionComponente;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Lms\Actividad;
@@ -30,6 +31,9 @@ use Illuminate\Support\Collection;
  */
 class CalculadorComponente
 {
+    /** @var array<int, PlanEstudio|null> */
+    private array $planes = [];
+
     /**
      * Recalcula el componente al que pertenece esta actividad, para el alumno
      * que acaba de ser calificado.
@@ -52,8 +56,8 @@ class CalculadorComponente
      * Recalcula UN componente de UN alumno a partir de sus actividades.
      *
      * La calificación del componente es el promedio ponderado por los puntos de
-     * cada actividad, llevado a escala 0–10: una tarea de 40 puntos pesa cuatro
-     * veces más que una de 10 dentro del mismo componente.
+     * cada actividad, llevado a la escala del plan: una tarea de 40 puntos pesa
+     * cuatro veces más que una de 10 dentro del mismo componente.
      */
     public function recalcular(int $inscripcionId, int $esquemaId): ?CalificacionComponente
     {
@@ -91,7 +95,20 @@ class CalculadorComponente
         }
 
         $obtenidos = $calificadas->sum(fn (Entrega $e) => (float) $e->calificacion);
-        $enDiez = round($obtenidos * 10 / $puntosPosibles, 2);
+
+        /*
+         * En la escala del PLAN, no en 0–10. Este número entra solo al parcial
+         * y de ahí al acta, así que convertirlo mal no se nota: se asienta.
+         */
+        $calificacion = PlanEstudio::enEscalaCon(
+            $this->planDe($inscripcionId),
+            $obtenidos,
+            $puntosPosibles,
+        );
+
+        if ($calificacion === null) {
+            return $existente;
+        }
 
         /*
          * Revive si estaba borrada. Este mismo método la borra unas líneas
@@ -103,7 +120,7 @@ class CalculadorComponente
         return CalificacionComponente::actualizarOReviver(
             ['inscripcion_id' => $inscripcionId, 'esquema_evaluacion_id' => $esquemaId],
             [
-                'calificacion' => $enDiez,
+                'calificacion' => $calificacion,
                 'fuente' => 'calculado',
                 'capturado_en' => now(),
             ],
@@ -122,6 +139,27 @@ class CalculadorComponente
         foreach ($esquemas as $esquemaId) {
             $this->recalcular((int) $inscripcion->id, (int) $esquemaId);
         }
+    }
+
+    /**
+     * El plan de la materia en la que está inscrito el alumno.
+     *
+     * Es de dónde sale la escala. Se busca por la inscripción y no se recibe
+     * por parámetro porque este calculador lo llama el LMS desde un observer,
+     * donde lo único que hay a la mano es la entrega.
+     */
+    private function planDe(int $inscripcionId): ?PlanEstudio
+    {
+        // Memoria por inscripción: `recalcularInscripcion` pasa por aquí una vez
+        // por componente —hasta seis— y el plan es el mismo en todos.
+        if (array_key_exists($inscripcionId, $this->planes)) {
+            return $this->planes[$inscripcionId];
+        }
+
+        return $this->planes[$inscripcionId] = Inscripcion::query()
+            ->with('asignaturaGrupo.planMateria.plan')
+            ->find($inscripcionId)
+            ?->asignaturaGrupo?->planMateria?->plan;
     }
 
     /**

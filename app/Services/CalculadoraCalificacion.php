@@ -79,7 +79,14 @@ class CalculadoraCalificacion
         }
 
         $completa = $faltantes === [];
-        $final = round($acumulado, 2);
+
+        /*
+         * En la precisión del plan, no en dos decimales fijos. El plan ya venía
+         * como parámetro y sólo se usaba para la mínima aprobatoria: una escuela
+         * configurada para calificar con enteros asentaba 8.33 en el acta,
+         * porque este es el número que el asentador vuelca al kárdex.
+         */
+        $final = (float) PlanEstudio::redondearCon($plan, $acumulado);
         $minima = (float) ($plan?->calificacion_minima_aprobatoria ?? 0);
 
         return new ResultadoCalificacion(

@@ -329,10 +329,17 @@ class PresentacionExamenController extends Controller
             return null;
         }
 
+        $plan = $intento->inscripcion?->asignaturaGrupo?->planMateria?->plan;
+
         return [
             'puntos_obtenidos' => (float) $intento->puntos_obtenidos,
             'puntos_posibles' => (float) $intento->puntos_posibles,
-            'en_diez' => $intento->enDiez(),
+            'en_escala' => $intento->enEscala(),
+            // La escala viaja con la nota para que la pantalla sepa qué es un
+            // buen resultado: con umbrales fijos, un 70 sobre 100 se pintaba
+            // de rojo en una escuela donde aprueba con 60.
+            'aprobatoria' => (float) ($plan?->calificacion_minima_aprobatoria ?? 6),
+            'maxima' => (float) ($plan?->calificacion_maxima ?? 10),
         ];
     }
 

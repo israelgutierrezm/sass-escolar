@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue';
 import { router } from '@inertiajs/vue3';
 import PanelCalificacion from '@/Components/PanelCalificacion.vue';
+import { colorPorPuntos, ESCALA_POR_DEFECTO, type Escala } from '@/utils/escalaCalificacion';
 
 /*
  * El libro de calificaciones: alumnos en filas, actividades en columnas.
@@ -64,6 +65,8 @@ const props = defineProps<{
     asistencia: { inscripcion_id: number; porcentaje: number | null; faltas: number }[];
     /** Conversación directa con cada alumno, si ya existe: persona_id => …. */
     mensajes: Record<number, { conversacion_id: number; sin_leer: number }>;
+    /** Con qué califica el plan de esta materia. Decide los colores. */
+    escala?: Escala;
 }>();
 
 /*
@@ -147,12 +150,11 @@ function promedioGrupo(actividadId: number): number | null {
     return Math.round((notas.reduce((t, n) => t + n, 0) / notas.length) * 100) / 100;
 }
 
+const escalaViva = computed<Escala>(() => props.escala ?? ESCALA_POR_DEFECTO);
+
+/** Los puntos de la casilla, coloreados con la escala del plan. */
 function colorNota(nota: number | null, sobre: number): string {
-    if (nota === null) return 'var(--color-suave)';
-
-    const enDiez = sobre > 0 ? (nota * 10) / sobre : nota;
-
-    return enDiez >= 8 ? '#16a34a' : enDiez >= 6 ? '#d97706' : '#dc2626';
+    return colorPorPuntos(nota, sobre, escalaViva.value);
 }
 
 const asistenciaDe = (inscripcionId: number) =>
@@ -489,6 +491,7 @@ const abreviaturaTipo: Record<string, string> = {
         :casilla="enPanel.casilla"
         :actividad="enPanel.actividad"
         :pendientes="porCalificar.length"
+        :escala="escalaViva"
         @cerrar="calificando = null"
         @siguiente="siguientePendiente"
     />

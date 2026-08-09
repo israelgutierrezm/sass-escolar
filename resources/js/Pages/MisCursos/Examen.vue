@@ -16,7 +16,13 @@ interface IntentoAlumno {
     numero: number;
     entregado_en: string | null;
     en_curso: boolean;
-    resultado: { puntos_obtenidos: number; puntos_posibles: number; en_diez: number | null } | null;
+    resultado: {
+        puntos_obtenidos: number;
+        puntos_posibles: number;
+        en_escala: number | null;
+        aprobatoria: number;
+        maxima: number;
+    } | null;
 }
 
 const props = defineProps<{
@@ -146,8 +152,8 @@ function iniciar(): void {
 
                     <span v-if="i.resultado" class="text-sm font-semibold tabular-nums text-contenido">
                         {{ i.resultado.puntos_obtenidos }} / {{ i.resultado.puntos_posibles }}
-                        <span v-if="i.resultado.en_diez !== null" class="ml-1 text-xs text-suave">
-                            ({{ i.resultado.en_diez }})
+                        <span v-if="i.resultado.en_escala !== null" class="ml-1 text-xs text-suave">
+                            ({{ i.resultado.en_escala }})
                         </span>
                     </span>
                     <span v-else-if="i.entregado_en" class="text-xs text-suave">
