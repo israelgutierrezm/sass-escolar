@@ -55,13 +55,17 @@ defineProps<{
             -->
             <div v-for="m in metas" :key="m.etiqueta" class="flex min-w-0 items-baseline justify-between gap-3">
                 <!--
-                    La etiqueta va un punto más oscura que el gris suave del
-                    resto: es la mitad del renglón que nombra el dato y con el
-                    suave a secas quedaba demasiado apagada frente a su valor.
+                    La etiqueta, más oscura que el gris suave del resto y con
+                    medio grado de peso.
+                    Es la mitad del renglón que NOMBRA el dato, y con el suave a
+                    secas quedaba tan apagada que el renglón se leía cojo: un
+                    valor flotando a la derecha sin que se viera de qué era. El
+                    peso 600 a 12 px no grita —eso lo haría en el valor, que va
+                    en 13 y normal—, sólo le devuelve presencia.
                 -->
                 <dt
-                    class="shrink-0 text-xs"
-                    :style="{ color: 'color-mix(in srgb, var(--color-suave) 80%, var(--color-contenido))' }"
+                    class="shrink-0 text-xs font-semibold"
+                    :style="{ color: 'color-mix(in srgb, var(--color-suave) 55%, var(--color-contenido))' }"
                 >{{ m.etiqueta }}</dt>
 
                 <!--
