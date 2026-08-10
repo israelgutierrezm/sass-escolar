@@ -94,16 +94,23 @@ class CatalogoCampos
     }
 
     /**
-     * El valor de cada campo para esta persona, ya resuelto.
+     * El valor de cada campo, ya resuelto, para una credencial concreta.
      *
      * Lo que no aplica NO viene en el arreglo —no viene vacío—, para que el
      * compositor pueda distinguir «no le toca» de «le toca y está en blanco» y
      * no dibuje una etiqueta huérfana.
      *
+     * La matrícula se RECIBE, no se adivina: quien estudia dos carreras tiene
+     * dos credenciales, una por cada una, y es quien llama el que dice cuál se
+     * está dibujando. Ver `CredencialesDeLaPersona`.
+     *
      * @return array<string, string>
      */
-    public static function valores(Usuario $usuario, ?string $vigencia = null): array
-    {
+    public static function valores(
+        Usuario $usuario,
+        ?MatriculaOferta $matricula = null,
+        ?string $vigencia = null,
+    ): array {
         $persona = $usuario->persona;
 
         if ($persona === null) {
@@ -117,30 +124,19 @@ class CatalogoCampos
             'vigencia' => $vigencia,
         ], fn ($v) => filled($v));
 
-        return $valores + self::deLaMatricula($persona) + self::delCampus($usuario);
+        return $valores
+            + ($matricula === null ? [] : self::deLaMatricula($matricula))
+            + self::delCampus($usuario);
     }
 
     /**
-     * Matrícula y carrera, si es alumno.
-     *
-     * Se toma la matrícula más reciente cuando hay varias: quien estudia dos
-     * carreras tiene una sola credencial, y la vigente es la de su inscripción
-     * más nueva. Imprimir las dos no cabe, y elegir «la primera» sería mostrar
-     * la carrera que ya terminó.
+     * Matrícula, carrera y campus de ESTA inscripción.
      *
      * @return array<string, string>
      */
-    private static function deLaMatricula(Persona $persona): array
+    private static function deLaMatricula(MatriculaOferta $matricula): array
     {
-        $matricula = MatriculaOferta::query()
-            ->with('oferta.carrera:id,nombre', 'oferta.campus:id,nombre')
-            ->where('persona_id', $persona->id)
-            ->orderByDesc('id')
-            ->first();
-
-        if ($matricula === null) {
-            return [];
-        }
+        $matricula->loadMissing('oferta.carrera:id,nombre', 'oferta.campus:id,nombre');
 
         return array_filter([
             'matricula' => $matricula->matricula,
