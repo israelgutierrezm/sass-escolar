@@ -164,6 +164,23 @@ Cinco entregas, en este orden. A y B ✅ hechas; C, D y E pendientes:
   `App\Support\IndiceQueSostieneUnaFk::reemplazar(...)`, que ya lo hace en un
   renglón y es idempotente. Mordió al separar el pase de lista en teoría y
   práctica, y al retirar `tema` de los reactivos.
+- **Al soltar una columna, MySQL la saca de los índices compuestos sin avisar,
+  y el índice sigue ahí con OTRO significado.** `adeudos_generacion_unique` se
+  creó sobre `(matricula_oferta_id, regla_id, periodo_etiqueta)`;
+  `reorganiza_planes_cobro` eliminó `regla_id` y el único quedó en
+  `(matricula_oferta_id, periodo_etiqueta)` —dos columnas, mucho más estricto:
+  una matrícula admite UN solo cargo por periodo—. Comprobado insertando contra
+  la base real: el segundo cargo del mismo periodo responde
+  `Duplicate entry '431-PRUEBA-2026-1'`.
+  **Hoy no revienta** porque ningún plan del demo tiene dos líneas del mismo
+  mes/año (5 planes, 10 líneas, medido), y `generarCargos` comprueba por
+  `concepto_plan_id` —que ya no está en el índice—, así que la idempotencia
+  descansa sólo en el `SELECT` previo. Reventará el día que alguien configure
+  «Inscripción agosto» y «Colegiatura agosto» en el mismo plan, que es una
+  configuración normal. El índice correcto es
+  `(matricula_oferta_id, concepto_plan_id, periodo_etiqueta)`, y rehacerlo
+  EMPIEZA por una foránea: hay que usar `IndiceQueSostieneUnaFk::reemplazar()`
+  o el drop falla con «needed in a foreign key constraint».
 - **No se indexan las foráneas «por si acaso».** Un índice de más se paga en
   cada escritura, para siempre, a cambio de un problema que aparece solo al
   cambiar el esquema. Se paga cuando hace falta.
@@ -660,7 +677,11 @@ cuenta del alumno.)*
    todos los tenants— pero sólo hace becas por atraso, recargos y estatus de
    deudor. Generar los cargos no lo hace nadie: `GeneradorAdeudos` sólo tiene
    `generarPara(MatriculaOferta)`, una matrícula a la vez. El
-   `generarParaTodas` que decía este archivo NO EXISTE.
+   `generarParaTodas` que decía este archivo NO EXISTE —verificado en `app/`,
+   `tests/`, `scripts/` y `routes/`—.
+   **Antes de construirlo hay que rehacer el índice único de `adeudos`**: ver la
+   trampa de la columna soltada, más abajo. Un barrido en bloque es justo lo que
+   lo destapa, porque toca todos los planes de todas las escuelas.
 2. Fase 4.
 
 **Deuda conocida:**
