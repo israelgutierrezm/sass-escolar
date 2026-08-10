@@ -8,7 +8,6 @@ use App\Credencial\CodigoQr;
 use App\Credencial\Compositor;
 use App\Models\Identidad\CredencialRol;
 use App\Models\Identidad\Rol;
-use Illuminate\Support\Facades\Storage;
 use Tests\TenantTestCase;
 
 /**

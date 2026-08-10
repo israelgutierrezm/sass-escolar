@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Credencial\CredencialesDeLaPersona;
 use App\Models\Academico\Institucion;
 use App\Models\Identidad\MenuRol;
 use App\Models\Identidad\PersonaRol;
@@ -120,6 +121,17 @@ class HandleInertiaRequests extends Middleware
                     'pendientes' => count($pendientes),
                 ];
             },
+            /*
+             * Si esta persona tiene credencial que enseñar.
+             *
+             * Es un booleano y no la credencial entera: la barra superior sólo
+             * necesita decidir si pinta el icono. Quien decide es la escuela al
+             * encender la del rol, así que no hay permiso que consultar — y por
+             * eso hace falta preguntarlo aquí y no en el catálogo del menú.
+             */
+            'credencial' => fn () => $usuario === null
+                ? false
+                : app(CredencialesDeLaPersona::class)->para($usuario)->isNotEmpty(),
             'flash' => [
                 'exito' => fn () => $request->session()->get('exito'),
                 'error' => fn () => $request->session()->get('error'),

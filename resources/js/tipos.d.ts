@@ -84,5 +84,7 @@ export interface PropsCompartidas {
         /** Vigentes que nunca se le han puesto delante, para la campana. */
         sin_leer: number;
     };
+    /** Si la escuela emite credencial para su rol activo. */
+    credencial: boolean;
     [key: string]: unknown;
 }

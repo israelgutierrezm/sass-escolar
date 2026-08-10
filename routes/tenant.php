@@ -72,6 +72,7 @@ use App\Http\Controllers\InscripcionController;
 use App\Http\Controllers\InstitucionController;
 use App\Http\Controllers\MenuRolController;
 use App\Http\Controllers\MisAvisosController;
+use App\Http\Controllers\MiCredencialController;
 use App\Http\Controllers\MiKardexController;
 use App\Http\Controllers\MisCursosController;
 use App\Http\Controllers\OfertaController;
@@ -1381,6 +1382,21 @@ Route::middleware([
         Route::get('mi-kardex', MiKardexController::class)
             ->middleware('can:ver-kardex')
             ->name('tenant.mikardex');
+
+        /*
+         * Su credencial. Fuera del portal del alumno: la tienen todos.
+         *
+         * SIN `can:`, y no por descuido. Quien decide si alguien tiene
+         * credencial es la escuela al encender la de ese rol; un permiso además
+         * significaría que apagarla en un sitio y olvidarla en el otro deja
+         * gente sin gafete sin que nadie entienda por qué. El controlador
+         * responde 404 cuando el rol no emite, y la persona sale de la SESIÓN,
+         * así que la ruta no lleva id de nadie.
+         */
+        Route::controller(MiCredencialController::class)->group(function () {
+            Route::get('mi-credencial', 'index')->name('tenant.micredencial');
+            Route::get('mi-credencial/{cara}.png', 'imagen')->name('tenant.micredencial.imagen');
+        });
 
         Route::controller(MisCursosController::class)
             ->prefix('mis-cursos')->name('tenant.miscursos.')
