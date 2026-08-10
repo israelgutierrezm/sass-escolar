@@ -98,17 +98,22 @@ function tonoTarjeta(tarjeta: { clave: string; tipo: string; datos: Record<strin
         : colorTarjeta(tarjeta.clave);
 }
 
-/** Cuántas formas distintas de adorno hay definidas abajo, en el `<style>`. */
-const ADORNOS = 6;
+/** Cuántas variantes de adorno hay definidas abajo, en el `<style>`. */
+const ADORNOS = 4;
 
 /**
  * Qué adorno le toca a la tarjeta que va en la posición `i`.
  *
  * Va por POSICIÓN y no por clave: lo que se busca es que dos tarjetas vecinas
- * no lleven la misma forma, y eso depende de dónde caen en la cuadrícula, no de
- * cómo se llaman. Repartiendo por posición, las primeras seis salen siempre
- * distintas; con una tabla de clave → adorno, dos tarjetas cualesquiera podrían
- * coincidir y quedar pegadas una junto a la otra.
+ * no lleven el mismo adorno, y eso depende de dónde caen en la cuadrícula, no
+ * de cómo se llaman. Repartiendo por posición, las primeras cuatro salen
+ * siempre distintas; con una tabla de clave → adorno, dos tarjetas cualesquiera
+ * podrían coincidir y quedar pegadas una junto a la otra.
+ *
+ * Son dos formas por cuatro esquinas, y la lista está ordenada de modo que al
+ * avanzar cambien las dos cosas: de la 1 a la 2 cambia forma y lado, de la 2 a
+ * la 3 también. A partir de la quinta tarjeta se repite el ciclo, pero para
+ * entonces ya cayó en otro renglón de la cuadrícula.
  *
  * A cambio, el adorno de una tarjeta cambia si el panel se reordena. Es lo de
  * menos: son círculos de fondo, no información.
@@ -854,26 +859,28 @@ function conmutar(rolId: number): void {
  * sin volverse un bloque de color (que sobre veinte renglones o una gráfica
  * cansaría de leer).
  *
- * ── Por qué seis y no uno ──────────────────────────────────────────────────
+ * ── Dos formas, cuatro esquinas ────────────────────────────────────────────
  * El mismo par en la misma esquina en las cinco tarjetas se leía como una
- * plantilla repetida. Cada tarjeta toma un adorno distinto según su posición
- * —ver `adorno()`—, así que mientras quepan seis en pantalla no se repite
- * ninguno: discos, aros de sólo contorno y anillos gruesos, entrando por las
- * cuatro esquinas.
+ * plantilla repetida, pero seis formas distintas era el otro extremo: parecían
+ * seis diseños en la misma pantalla. Quedan las DOS que funcionaron —el par de
+ * discos y el anillo grueso con su disco suelto— y lo que alterna es por dónde
+ * entran y con cuánta fuerza.
+ *
+ * Cada tarjeta toma la que le toca por posición —ver `adorno()`—, y la lista
+ * está ordenada para que al recorrerla cambien las dos cosas a la vez: la forma
+ * y el lado. Dos tarjetas vecinas nunca comparten ninguna.
  *
  * Los tonos van en variables y no repetidos en cada regla: los adornos definen
  * FORMA Y SITIO, nunca color. Así, cambiar cuánto se nota el adorno en todo el
- * panel es cambiar estas cuatro líneas.
+ * panel es cambiar estas dos líneas.
  *
  * El relleno se queda bajo a propósito: al 9% sobre la superficie apenas se
  * adivina, que es lo que se busca —textura de fondo, no una mancha que compita
- * con el dato—. El trazo va más alto porque una línea de 2 px al 9% no se ve.
+ * con el dato.
  */
 .tarjeta-panel {
     --relleno: color-mix(in srgb, var(--tono) 9%, transparent);
     --relleno-tenue: color-mix(in srgb, var(--tono) 6%, transparent);
-    --trazo: color-mix(in srgb, var(--tono) 22%, transparent);
-    --trazo-tenue: color-mix(in srgb, var(--tono) 14%, transparent);
 }
 
 .tarjeta-panel::before,
@@ -884,7 +891,23 @@ function conmutar(rolId: number): void {
     pointer-events: none;
 }
 
-/* 1 · El par de discos entrando por arriba a la derecha. */
+/*
+ * ── Las cuatro entran por arriba, y por qué ────────────────────────────────
+ * Se probaron por las cuatro esquinas y midiendo qué texto quedaba debajo salió
+ * clarísimo: por abajo el adorno cae encima del contenido. La lista termina en
+ * renglones, la gráfica en las etiquetas de sus barras y los atajos en su
+ * última fila —todo texto, y todo pegado al borde inferior.
+ *
+ * Arriba no: ahí sólo está el encabezado, que es un renglón corto con el título
+ * a la izquierda, el enlace «Ver» a la derecha y hueco en medio. Es la única
+ * franja de la tarjeta que se ve igual en las cuatro formas.
+ *
+ * Así que lo que alterna es el LADO por el que entran —izquierda o derecha— y
+ * no la esquina. Ninguna baja de los 130 px, que es donde termina el encabezado
+ * con su margen; de ahí para abajo la tarjeta se queda limpia.
+ */
+
+/* 1 · El par de discos, entrando por arriba a la derecha. */
 .adorno-1::after {
     right: -3.5rem;
     top: -3.5rem;
@@ -900,31 +923,15 @@ function conmutar(rolId: number): void {
     background: var(--relleno-tenue);
 }
 
-/* 2 · Dos aros de sólo contorno, abajo a la izquierda. */
+/* 2 · El anillo grueso, arriba a la izquierda, con su disco suelto. */
 .adorno-2::after {
-    left: -3rem;
-    bottom: -3.5rem;
-    width: 10rem;
-    height: 10rem;
-    border: 2px solid var(--trazo);
-}
-.adorno-2::before {
-    left: 2.5rem;
-    bottom: -1.5rem;
-    width: 5rem;
-    height: 5rem;
-    border: 2px solid var(--trazo-tenue);
-}
-
-/* 3 · Un anillo grueso arriba a la izquierda, con su disco suelto. */
-.adorno-3::after {
     left: -4rem;
     top: -4rem;
     width: 12rem;
     height: 12rem;
     border: 2rem solid var(--relleno);
 }
-.adorno-3::before {
+.adorno-2::before {
     left: 6rem;
     top: 1.5rem;
     width: 2.5rem;
@@ -932,51 +939,42 @@ function conmutar(rolId: number): void {
     background: var(--relleno-tenue);
 }
 
-/* 4 · Disco grande abajo a la derecha, cruzado por un aro. */
-.adorno-4::after {
-    right: -4rem;
-    bottom: -4.5rem;
-    width: 12rem;
-    height: 12rem;
+/*
+ * Las dos que siguen son las mismas formas por el lado contrario, y van todas
+ * en el tinte flojo. Es lo que hace que la repetición se lea como variación:
+ * al volver a aparecer la forma, aparece más apagada.
+ */
+
+/* 3 · El par de discos, entrando por arriba a la izquierda. */
+.adorno-3::after {
+    left: -3.5rem;
+    top: -3.5rem;
+    width: 11rem;
+    height: 11rem;
     background: var(--relleno-tenue);
 }
+.adorno-3::before {
+    left: 1.75rem;
+    top: -5.25rem;
+    width: 8rem;
+    height: 8rem;
+    background: var(--relleno-tenue);
+}
+
+/* 4 · El anillo grueso, arriba a la derecha. Su disco suelto se queda en el
+   hueco del encabezado, entre el título y el enlace «Ver». */
+.adorno-4::after {
+    right: -4rem;
+    top: -4rem;
+    width: 12rem;
+    height: 12rem;
+    border: 2rem solid var(--relleno-tenue);
+}
 .adorno-4::before {
-    right: 2.5rem;
-    bottom: -2rem;
-    width: 7rem;
-    height: 7rem;
-    border: 2px solid var(--trazo);
-}
-
-/* 5 · Aro arriba a la derecha y disco abajo a la izquierda: las dos esquinas. */
-.adorno-5::after {
-    right: -3rem;
-    top: -3rem;
-    width: 10rem;
-    height: 10rem;
-    border: 2px solid var(--trazo);
-}
-.adorno-5::before {
-    left: -1.75rem;
-    bottom: -1.75rem;
-    width: 6rem;
-    height: 6rem;
-    background: var(--relleno);
-}
-
-/* 6 · El par de discos, ahora entrando por arriba a la izquierda. */
-.adorno-6::after {
-    left: -4.5rem;
-    top: -2.5rem;
-    width: 10rem;
-    height: 10rem;
-    background: var(--relleno);
-}
-.adorno-6::before {
-    left: 4rem;
-    top: -3.75rem;
-    width: 5.5rem;
-    height: 5.5rem;
+    right: 6rem;
+    top: 1.5rem;
+    width: 2.5rem;
+    height: 2.5rem;
     background: var(--relleno-tenue);
 }
 
