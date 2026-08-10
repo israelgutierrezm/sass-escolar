@@ -83,6 +83,7 @@ use App\Http\Controllers\PlantillaEvaluacionController;
 use App\Http\Controllers\Plataforma\AvisoController;
 use App\Http\Controllers\Plataforma\CalendarioController;
 use App\Http\Controllers\Plataforma\ClimaController;
+use App\Http\Controllers\Plataforma\ModuloController;
 use App\Http\Controllers\PortalAspiranteController;
 use App\Http\Controllers\PresentacionExamenController;
 use App\Http\Controllers\PromocionController;
@@ -1588,6 +1589,20 @@ Route::middleware([
          */
         Route::controller(ConfiguracionController::class)
             ->prefix('plataforma/configuracion')->name('tenant.plataforma.configuracion.')
+            ->group(function () {
+                Route::get('/', 'index')->middleware('can:ver-configuracion')->name('index');
+                Route::put('/', 'actualizar')->middleware('can:editar-configuracion')->name('actualizar');
+            });
+
+        /*
+         * Qué secciones tiene encendidas la escuela.
+         *
+         * Va con los mismos permisos que la configuración porque es lo mismo:
+         * una regla de operación de toda la escuela, no una preferencia. Apagar
+         * una sección aquí cierra sus rutas para todo el mundo.
+         */
+        Route::controller(ModuloController::class)
+            ->prefix('plataforma/modulos')->name('tenant.plataforma.modulos.')
             ->group(function () {
                 Route::get('/', 'index')->middleware('can:ver-configuracion')->name('index');
                 Route::put('/', 'actualizar')->middleware('can:editar-configuracion')->name('actualizar');

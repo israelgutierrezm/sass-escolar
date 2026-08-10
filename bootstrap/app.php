@@ -17,6 +17,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Resuelve y valida el rol activo del usuario en cada request del tenant.
         $middleware->alias([
             'rol.activo' => App\Http\Middleware\EstablecerRolActivo::class,
+            // Cierra las rutas de un módulo que la escuela tiene apagado. Es lo
+            // que hace que apagar una sección no deje viva su dirección.
+            'modulo' => App\Http\Middleware\ModuloEncendido::class,
         ]);
 
         // Inertia comparte el contexto de sesión (usuario, rol activo, permisos)

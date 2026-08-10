@@ -21,6 +21,7 @@ use App\Panel\Tarjetas\MisCalificacionesRecientes;
 use App\Panel\Tarjetas\MisMateriasDocente;
 use App\Panel\Tarjetas\ProspectosPorContactar;
 use App\Services\Cfdi\Pac;
+use App\Services\Plataforma\ModulosDeLaEscuela;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -35,6 +36,11 @@ class AppServiceProvider extends ServiceProvider
         // Singleton para que la memoria de ajustes valga en toda la petición:
         // el validador de inscripción los consulta materia por materia.
         $this->app->singleton(Ajustes::class);
+
+        // Igual que los ajustes: el mapa de módulos encendidos se resuelve una
+        // vez y lo consultan el middleware de cada ruta y el menú lateral, que
+        // pregunta por varias claves en la misma pantalla.
+        $this->app->singleton(ModulosDeLaEscuela::class);
 
         // El PAC que timbra los CFDI. Se resuelve por configuración para que
         // ni el job ni `EmisorFactura` sepan cuál está en uso: cambiar de
