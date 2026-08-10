@@ -1626,38 +1626,47 @@ function conmutar(rolId: number): void {
 }
 
 /*
- * La tarjeta de un solo número, teñida de su color: el fondo apenas coloreado
- * de un aviso, no un bloque saturado.
+ * La tarjeta de un solo número: el color va en lo que se mira, no en el fondo.
  *
- * ── Por qué todo se mezcla con los tokens del tema y no con blanco ─────────
- * Hay temas de superficie oscura («Medianoche» trae #1E293B). Mezclando contra
- * `--color-superficie` el mismo 14% da un tinte claro sobre los temas claros y
- * uno oscuro sobre los oscuros, sin escribir dos versiones; y mezclando el
- * texto contra `--color-contenido` el resultado se oscurece o se aclara en la
- * dirección que le toque. Con blanco fijo, «Medianoche» se rompería.
+ * ── Por qué se fue el fondo teñido ─────────────────────────────────────────
+ * Un fondo de color, por flojo que sea, convierte a esa tarjeta en otra clase
+ * de objeto: en una cuadrícula de cinco, la teñida se lee como si fuera de otro
+ * sistema. El aviso se dice igual de bien poniendo el tono en el adorno, el
+ * icono, la cifra y el borde —que es donde el ojo ya lo busca— y la tarjeta
+ * conserva la misma superficie que sus vecinas.
+ *
+ * Sigue cambiando de color con el estado: `tonoTarjeta` pasa el rojo cuando la
+ * cartera trae vencido, y ese rojo llega ahora a la cifra y al borde en vez de
+ * a un rectángulo entero.
+ *
+ * ── Por qué se mezcla contra los tokens del tema y no contra blanco ────────
+ * Hay temas de superficie oscura («Medianoche» trae #1E293B). Mezclando el
+ * texto contra `--color-contenido`, el resultado se oscurece sobre los temas
+ * claros y se aclara sobre los oscuros, sin escribir dos versiones. Con blanco
+ * fijo, «Medianoche» se rompería.
  *
  * ── Los números ────────────────────────────────────────────────────────────
- * Medido contra el fondo teñido, en los dos temas y con los cuatro tonos que
- * hoy puede llevar una métrica, el peor caso del icono y del enlace (55%) es
- * 5.15:1 y el del pie (60%) es 4.75:1 —ambos rojo alerta sobre «Medianoche»—,
- * y el texto normal, que no se toca, no baja de 11:1. Todo por encima del
- * 4.5:1 que pide el texto chico.
- *
- * Con más tono el texto se aclara y se cae: al 70% el pie ya andaba en 3.60.
+ * Sin el tinte, el fondo vuelve a ser la superficie del tema, así que todo
+ * contrasta MÁS que antes: el peor caso del icono, el enlace y la cifra pasa de
+ * 5.15:1 a 5.53:1 —rojo alerta sobre «Medianoche»— y sobre los temas claros no
+ * baja de 6.83. El pie recupera el `--color-suave` del tema, que ya está medido
+ * contra esa superficie —4.99 en «Océano», 5.71 en «Medianoche»—; era el tinte
+ * lo que lo dejaba en 4.01 y obligaba a reconstruirlo.
  */
 .tarjeta-destacada {
-    /* Sobre el tinte, «el color de la tarjeta» es el tono ensombrecido: lo
-       heredan el icono, el trazo del SVG y el enlace «Ver» sin tocar el
-       marcado, y es también el color de la cifra. */
+    /* «El color de la tarjeta» es el tono ensombrecido: lo heredan el icono, el
+       trazo del SVG y el enlace «Ver» sin tocar el marcado, y es también el
+       color de la cifra. */
     --color-tarjeta: color-mix(in srgb, var(--tono) 55%, var(--color-contenido));
-    /* El «suave» del tema no sobrevive al tinte —el rojo lo dejaba en 4.01—,
-       así que el pie se reconstruye desde el tono, un punto más claro que la
-       cifra para que la jerarquía siga leyéndose. */
-    --color-suave: color-mix(in srgb, var(--tono) 60%, var(--color-contenido));
 
-    background: color-mix(in srgb, var(--tono) 14%, var(--color-superficie));
-    /* El borde acompaña, más marcado que el tinte para que la tarjeta cierre. */
+    /* Los tres lados que no son el acento superior, teñidos. Es lo que hace que
+       la tarjeta se lea como avisada sin cambiar de superficie. */
     border-color: color-mix(in srgb, var(--tono) 32%, var(--color-superficie));
+
+    /* Y el acento de arriba se queda a tono pleno, como en todas las demás:
+       `border-color` es atajo de los cuatro lados y se comía el de
+       `.tarjeta-panel`, que va antes en el archivo. */
+    border-top-color: var(--tono);
 }
 
 .tarjeta-destacada:hover {
