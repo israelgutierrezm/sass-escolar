@@ -18,6 +18,17 @@
         </include>
     </source>
     <php>
+        <!-- La suite arranca la aplicacion muchas veces y registra el archivo de
+             rutas entero en cada arranque, asi que su pico crece con el tamano
+             del sistema, no con el numero de pruebas. Con los 128M del php.ini
+             la suite completa reventaba con "Allowed memory size exhausted"
+             cargando routes/tenant.php, y el fallo no senalaba a la prueba
+             culpable: moria la que tocara pasar en ese momento.
+
+             Va aqui y no en el php.ini de la maquina para que el limite viaje
+             con el proyecto: si no, el error reaparece en cuanto alguien clona
+             el repositorio. -->
+        <ini name="memory_limit" value="512M"/>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>

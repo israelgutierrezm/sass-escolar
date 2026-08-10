@@ -96,6 +96,7 @@ use App\Http\Controllers\RolActivoController;
 use App\Http\Controllers\RolController;
 use App\Http\Controllers\SeriacionController;
 use App\Http\Controllers\ServicioController;
+use App\Http\Controllers\SolicitudServicioController;
 use App\Http\Controllers\SsoGoogleController;
 use App\Http\Controllers\SuplantacionController;
 use App\Http\Controllers\TarjetaRolController;
@@ -1650,6 +1651,34 @@ Route::middleware([
                         Route::put('orden', 'reordenar')->name('orden');
                         Route::put('{enlace}', 'update')->whereNumber('enlace')->name('update');
                         Route::delete('{enlace}', 'destroy')->whereNumber('enlace')->name('destroy');
+                    });
+            });
+
+        /*
+         * La solicitud de servicios.
+         *
+         * Igual que la biblioteca: todo el grupo detrás de `modulo:servicios`,
+         * el mostrador incluido. Y la vista del alumno no cuelga del menú —se
+         * entra por su tarjeta del panel—, pero quien cierra la puerta cuando la
+         * escuela apaga la sección es el middleware, no la ausencia del botón.
+         */
+        Route::controller(SolicitudServicioController::class)
+            ->middleware('modulo:servicios')
+            ->group(function () {
+                Route::prefix('servicios')->name('tenant.servicios.')
+                    ->middleware('can:solicitar-servicios')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::post('/', 'store')->name('store');
+                        Route::delete('{solicitud}', 'cancelar')->whereNumber('solicitud')->name('cancelar');
+                    });
+
+                Route::prefix('escolar/servicios')->name('tenant.escolar.servicios.')
+                    ->middleware('can:atender-servicios')
+                    ->group(function () {
+                        Route::get('/', 'bandeja')->name('index');
+                        Route::put('catalogo/{servicio}', 'ofrecer')->whereNumber('servicio')->name('ofrecer');
+                        Route::put('{solicitud}', 'resolver')->whereNumber('solicitud')->name('resolver');
                     });
             });
 

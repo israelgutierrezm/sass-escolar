@@ -124,6 +124,13 @@ final class CatalogoPermisos
             'gestionar-tutorias' => ['Asignar tutorías', 'Repartir los alumnos entre los tutores educativos, por ciclo.', [self::ADMINISTRATIVO]],
             'gestionar-biblioteca' => ['Gestionar la biblioteca digital', 'Publicar, ordenar y retirar los enlaces que el alumno ve en la biblioteca.', [self::ADMINISTRATIVO]],
             /*
+             * Atender el mostrador y decidir el catálogo son la misma tarea de
+             * ventanilla —quien entrega las constancias es quien sabe cuáles se
+             * ofrecen—, así que van con un solo permiso. Ponerle PRECIO, en
+             * cambio, es de Finanzas y pide `gestionar-planes-cobro`.
+             */
+            'atender-servicios' => ['Atender solicitudes de servicio', 'Elegir qué servicios puede pedir el alumno y resolver sus solicitudes.', [self::ADMINISTRATIVO]],
+            /*
              * APARTE de `gestionar-tutorias` a propósito.
              *
              * Aquél permite repartir tutorías y ver CUÁNTAS sesiones lleva cada
@@ -178,6 +185,7 @@ final class CatalogoPermisos
              * todos los demás.
              */
             'ver-biblioteca' => ['Ver la biblioteca digital', 'Portal del alumno: los enlaces y recursos que la escuela publica.', [self::ALUMNO]],
+            'solicitar-servicios' => ['Solicitar servicios', 'Portal del alumno: pedir constancias, credenciales y demás trámites del catálogo, y pagarlos si tienen costo.', [self::ALUMNO]],
         ],
 
         'Docencia' => [

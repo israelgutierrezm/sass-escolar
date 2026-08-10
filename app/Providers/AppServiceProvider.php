@@ -20,6 +20,7 @@ use App\Panel\Tarjetas\MiEstadoDeCuenta;
 use App\Panel\Tarjetas\MiHorarioDeHoy;
 use App\Panel\Tarjetas\MisCalificacionesRecientes;
 use App\Panel\Tarjetas\MisMateriasDocente;
+use App\Panel\Tarjetas\MisSolicitudes;
 use App\Panel\Tarjetas\ProspectosPorContactar;
 use App\Services\Cfdi\Pac;
 use App\Services\Plataforma\ModulosDeLaEscuela;
@@ -210,6 +211,7 @@ class AppServiceProvider extends ServiceProvider
                 // tarjeta, el alumno no tiene por dónde entrar. Van después de
                 // lo suyo de cada día y antes de lo de los demás roles.
                 BibliotecaDigital::class,
+                MisSolicitudes::class,
                 MisMateriasDocente::class,
                 ProspectosPorContactar::class,
                 CarteraDeLaEscuela::class,
