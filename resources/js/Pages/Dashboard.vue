@@ -55,7 +55,13 @@ const props = defineProps<{
 // sin perder la sobriedad: solo se usa en el icono y un acento, no en el fondo.
 const COLORES_TARJETA: Record<string, string> = {
     cartera: '#059669',
-    embudo: '#7C3AED',
+    // Turquesa oscuro y no el cian de «Actividad de hoy por hora», que le cae
+    // justo al lado en la cuadrícula: dos cianes contiguos se leen como un
+    // error de copiado. Éste comparte el tono verde-azul pero desde el verde,
+    // así que a simple vista son colores distintos. Y va oscuro porque el mismo
+    // valor pinta el enlace «Ver» sobre blanco: a 5.47:1 se lee, y los
+    // turquesas claros de la familia se quedaban en 3.7.
+    embudo: '#0F766E',
     'por-contactar': '#DB2777',
     'comisiones-por-pagar': '#D97706',
     'actividad-por-hora': '#0891B2',
@@ -98,29 +104,41 @@ function tonoTarjeta(tarjeta: { clave: string; tipo: string; datos: Record<strin
         : colorTarjeta(tarjeta.clave);
 }
 
-/** Cuántas variantes de adorno hay definidas abajo, en el `<style>`. */
-const ADORNOS = 4;
+/**
+ * El aro de arriba a la izquierda queda RESERVADO para la tarjeta que además
+ * lleva marca de agua; el resto se reparte los otros tres.
+ *
+ * Reservarlo es lo que evita que el aro salga dos veces en la misma pantalla:
+ * la tarjeta con marca de agua no entra en el reparto —tiene el suyo fijo—, y
+ * si el reparto pudiera dar ese mismo aro, la de al lado saldría igual.
+ */
+const ADORNO_CON_MARCA = 'adorno-2';
+const ADORNOS_LIBRES = ['adorno-1', 'adorno-3', 'adorno-4'];
 
 /**
- * Qué adorno le toca a la tarjeta que va en la posición `i`.
+ * Qué adorno lleva cada tarjeta, en el orden en que salen.
  *
- * Va por POSICIÓN y no por clave: lo que se busca es que dos tarjetas vecinas
- * no lleven el mismo adorno, y eso depende de dónde caen en la cuadrícula, no
- * de cómo se llaman. Repartiendo por posición, las primeras cuatro salen
- * siempre distintas; con una tabla de clave → adorno, dos tarjetas cualesquiera
- * podrían coincidir y quedar pegadas una junto a la otra.
+ * Se reparte por POSICIÓN y no por clave: lo que se busca es que dos tarjetas
+ * vecinas no lleven el mismo adorno, y eso depende de dónde caen en la
+ * cuadrícula, no de cómo se llaman. Con una tabla de clave → adorno, dos
+ * cualesquiera podrían coincidir y quedar pegadas una junto a la otra.
  *
- * Son dos formas por cuatro esquinas, y la lista está ordenada de modo que al
- * avanzar cambien las dos cosas: de la 1 a la 2 cambia forma y lado, de la 2 a
- * la 3 también. A partir de la quinta tarjeta se repite el ciclo, pero para
- * entonces ya cayó en otro renglón de la cuadrícula.
+ * El contador avanza sólo con las que entran al reparto. Si las que llevan
+ * adorno fijo consumieran turno, dejarían huecos en la vuelta y dos vecinas
+ * podrían acabar con el mismo.
  *
  * A cambio, el adorno de una tarjeta cambia si el panel se reordena. Es lo de
  * menos: son círculos de fondo, no información.
  */
-function adorno(i: number): string {
-    return `adorno-${(i % ADORNOS) + 1}`;
-}
+const adornos = computed<string[]>(() => {
+    let turno = 0;
+
+    return props.tarjetas.map((tarjeta) =>
+        tarjeta.tipo === 'embudo'
+            ? ADORNO_CON_MARCA
+            : ADORNOS_LIBRES[turno++ % ADORNOS_LIBRES.length],
+    );
+});
 
 /**
  * Cuánto tono lleva la barra de la etapa número `i`, en porcentaje.
@@ -451,14 +469,13 @@ function conmutar(rolId: number): void {
                 :key="tarjeta.clave"
                 class="tarjeta tarjeta-panel animar-entrada p-5"
                 :class="[
-                    adorno(i),
+                    adornos[i],
                     {
                         'sm:col-span-1': tarjeta.ancho === 1,
                         'sm:col-span-2': tarjeta.ancho === 2,
                         'sm:col-span-3': tarjeta.ancho === 3,
                         'sm:col-span-4': tarjeta.ancho === 4,
                         'tarjeta-destacada': esDestacada(tarjeta),
-                        'sin-adorno': tarjeta.tipo === 'embudo',
                     },
                 ]"
                 :style="{ '--tono': tonoTarjeta(tarjeta), animationDelay: `${i * 45}ms` }"
@@ -473,9 +490,9 @@ function conmutar(rolId: number): void {
                     como fondo y no como un segundo icono compitiendo con el
                     primero.
 
-                    Sustituye al adorno de círculos en lugar de sumarse a él:
-                    dos decoraciones en la misma tarjeta se estorban, y ésta
-                    dice algo —de qué va la tarjeta— que los círculos no dicen.
+                    Convive con el aro porque cada uno tiene su esquina, y en
+                    diagonal: el aro entra por arriba a la izquierda y la marca
+                    sale por abajo a la derecha. Encimados se estorbarían.
                 -->
                 <svg
                     v-if="tarjeta.tipo === 'embudo'"
@@ -1058,12 +1075,6 @@ function conmutar(rolId: number): void {
     background: var(--relleno-tenue);
 }
 
-/* La tarjeta que trae marca de agua no lleva además los círculos. */
-.sin-adorno::before,
-.sin-adorno::after {
-    content: none;
-}
-
 /* Por encima de las burbujas, que van en absoluto. */
 .tarjeta-panel > * {
     position: relative;
@@ -1085,8 +1096,12 @@ function conmutar(rolId: number): void {
 .marca-agua {
     position: absolute;
     z-index: 0;
+    /* Abajo a la DERECHA, en la esquina diagonalmente opuesta al aro, que entra
+       por arriba a la izquierda —ver `ADORNO_CON_MARCA`—. Las dos decoraciones
+       de esta tarjeta se reparten la diagonal en vez de encimarse: no comparten
+       ni el lado ni la mitad. */
     right: -2.5rem;
-    bottom: -3rem;
+    bottom: -3.5rem;
     width: 13rem;
     height: 13rem;
     stroke: color-mix(in srgb, var(--tono) 14%, transparent);
