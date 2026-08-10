@@ -88,7 +88,10 @@ class RegistroTarjetas
             ];
         }
 
-        return $visibles;
+        // Al final del todo, y en un servicio aparte: lo que esta persona
+        // acomodó a mano. Va después de filtrar a propósito —acomodar no puede
+        // hacer aparecer una tarjeta que el permiso no deja ver.
+        return app(DisposicionDelPanel::class)->aplicar($visibles, $usuario);
     }
 
     /**

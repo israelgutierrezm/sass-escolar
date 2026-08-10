@@ -148,12 +148,98 @@ const ADORNOS_LIBRES = ['adorno-1', 'adorno-3', 'adorno-4'];
 const adornos = computed<string[]>(() => {
     let turno = 0;
 
-    return props.tarjetas.map((tarjeta) =>
+    return tarjetasEnPantalla.value.map((tarjeta) =>
         CON_MARCA_DE_AGUA.has(tarjeta.clave)
             ? ADORNO_CON_MARCA
             : ADORNOS_LIBRES[turno++ % ADORNOS_LIBRES.length],
     );
 });
+
+// ── Acomodar el panel ───────────────────────────────────────────────────────
+
+/** Los dos únicos tamaños, en columnas de las cuatro que tiene el panel. */
+const ANCHO_NORMAL = 2;
+const ANCHO_DOBLE = 4;
+
+/**
+ * El acomodo en curso, o `null` cuando no se está acomodando.
+ *
+ * Es una COPIA. Mientras se arrastra no se toca `props.tarjetas`: si se editara
+ * directamente, cancelar no tendría a qué volver y cualquier recarga parcial de
+ * Inertia pisaría el trabajo a medias. Al guardar, el servidor devuelve el panel
+ * ya ordenado y el borrador se descarta.
+ */
+const borrador = ref<Tarjeta[] | null>(null);
+const arrastrando = ref<number | null>(null);
+
+const acomodando = computed(() => borrador.value !== null);
+const tarjetasEnPantalla = computed(() => borrador.value ?? props.tarjetas);
+
+function acomodar(): void {
+    // Copia de un nivel: se reordena la lista y se cambia `ancho`, nunca los
+    // datos de dentro, así que no hace falta clonar en profundidad.
+    borrador.value = props.tarjetas.map((t) => ({ ...t }));
+}
+
+function cancelarAcomodo(): void {
+    borrador.value = null;
+    arrastrando.value = null;
+}
+
+/** Alterna entre el tamaño normal y el doble. El alto no se toca nunca. */
+function alternarAncho(i: number): void {
+    const tarjeta = borrador.value?.[i];
+
+    if (tarjeta) {
+        tarjeta.ancho = tarjeta.ancho === ANCHO_DOBLE ? ANCHO_NORMAL : ANCHO_DOBLE;
+    }
+}
+
+function soltarSobre(destino: number): void {
+    const origen = arrastrando.value;
+
+    if (borrador.value === null || origen === null || origen === destino) {
+        return;
+    }
+
+    const [movida] = borrador.value.splice(origen, 1);
+    borrador.value.splice(destino, 0, movida);
+    arrastrando.value = destino;
+}
+
+/**
+ * Mover con el teclado, que es la única manera de acomodar sin ratón.
+ *
+ * El arrastre nativo del navegador no tiene equivalente con teclado, así que
+ * sin esto la pantalla quedaba fuera del alcance de quien no puede arrastrar
+ * —y de cualquiera en una tableta con teclado—.
+ */
+function moverConTeclado(i: number, hacia: number): void {
+    const destino = i + hacia;
+
+    if (borrador.value === null || destino < 0 || destino >= borrador.value.length) {
+        return;
+    }
+
+    arrastrando.value = i;
+    soltarSobre(destino);
+}
+
+function guardarAcomodo(): void {
+    if (borrador.value === null) {
+        return;
+    }
+
+    router.put(
+        '/panel/disposicion',
+        { tarjetas: borrador.value.map((t) => ({ clave: t.clave, ancho: t.ancho })) },
+        { preserveScroll: true, onSuccess: cancelarAcomodo },
+    );
+}
+
+function restablecerAcomodo(): void {
+    router.delete('/panel/disposicion', { preserveScroll: true, onSuccess: cancelarAcomodo });
+}
 
 /**
  * Cuánto tono lleva la barra de la etapa número `i`, en porcentaje.
@@ -468,7 +554,60 @@ function conmutar(rolId: number): void {
                 lado, tarjetas incluidas. Con esto vuelven a mandar los
                 `truncate` que ya tenía cada texto.
             -->
-            <section v-if="props.tarjetas.length" class="grid min-w-0 grid-flow-dense gap-4 sm:grid-cols-4">
+            <div v-if="props.tarjetas.length" class="min-w-0">
+            <!--
+                La barra de acomodo.
+
+                Fuera del modo, un solo botón discreto; dentro, las tres
+                acciones. «Restablecer» sólo aparece acomodando porque es
+                destructivo y no tiene por qué estar a un clic de distancia
+                cuando nadie pidió tocar nada.
+            -->
+            <div class="mb-3 flex flex-wrap items-center justify-end gap-2">
+                <p v-if="acomodando" class="mr-auto text-xs" :style="{ color: 'var(--color-suave)' }">
+                    Arrastra las tarjetas para ordenarlas, o muévelas con
+                    <kbd class="rounded border px-1">←</kbd>
+                    <kbd class="rounded border px-1">→</kbd>. El botón de cada
+                    una cambia entre el ancho normal y el doble.
+                </p>
+                <button
+                    v-if="!acomodando"
+                    type="button"
+                    class="rounded-full border px-3 py-1 text-xs font-medium transition"
+                    :style="{ color: 'var(--color-suave)', borderColor: 'var(--color-borde)' }"
+                    @click="acomodar"
+                >
+                    Acomodar
+                </button>
+                <template v-else>
+                    <button
+                        type="button"
+                        class="rounded-full border px-3 py-1 text-xs font-medium transition"
+                        :style="{ color: 'var(--color-suave)', borderColor: 'var(--color-borde)' }"
+                        @click="restablecerAcomodo"
+                    >
+                        Restablecer
+                    </button>
+                    <button
+                        type="button"
+                        class="rounded-full border px-3 py-1 text-xs font-medium transition"
+                        :style="{ color: 'var(--color-suave)', borderColor: 'var(--color-borde)' }"
+                        @click="cancelarAcomodo"
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        type="button"
+                        class="rounded-full px-3 py-1 text-xs font-semibold text-white transition"
+                        :style="{ backgroundColor: 'var(--color-acento)' }"
+                        @click="guardarAcomodo"
+                    >
+                        Guardar
+                    </button>
+                </template>
+            </div>
+
+            <section class="grid min-w-0 grid-flow-dense gap-4 sm:grid-cols-4">
             <!--
                 Sólo `--tono` viaja en línea; `--color-tarjeta` lo pone el CSS.
 
@@ -480,7 +619,7 @@ function conmutar(rolId: number): void {
                 no habría manera.
             -->
             <div
-                v-for="(tarjeta, i) in props.tarjetas"
+                v-for="(tarjeta, i) in tarjetasEnPantalla"
                 :key="tarjeta.clave"
                 class="tarjeta tarjeta-panel animar-entrada p-5"
                 :class="[
@@ -491,10 +630,55 @@ function conmutar(rolId: number): void {
                         'sm:col-span-3': tarjeta.ancho === 3,
                         'sm:col-span-4': tarjeta.ancho === 4,
                         'tarjeta-destacada': esDestacada(tarjeta),
+                        'tarjeta-acomodando': acomodando,
+                        'tarjeta-en-vuelo': arrastrando === i,
                     },
                 ]"
                 :style="{ '--tono': tonoTarjeta(tarjeta), animationDelay: `${i * 45}ms` }"
+                :draggable="acomodando"
+                @dragstart="arrastrando = i"
+                @dragover.prevent="soltarSobre(i)"
+                @dragend="arrastrando = null"
             >
+                <!--
+                    Los mandos de acomodo, sólo mientras se acomoda.
+
+                    Van encima del contenido de la tarjeta y no en una barra
+                    aparte: el tamaño y la posición son de ESTA tarjeta, y
+                    tenerlos donde se mira es lo que hace que el cambio se
+                    entienda sin explicación.
+                -->
+                <div v-if="acomodando" class="mandos-acomodo">
+                    <button
+                        type="button"
+                        class="mando"
+                        :title="`Mover «${tarjeta.titulo}» hacia atrás`"
+                        @click="moverConTeclado(i, -1)"
+                    >
+                        ←
+                    </button>
+                    <button
+                        type="button"
+                        class="mando px-2"
+                        :title="
+                            tarjeta.ancho === 4
+                                ? `Devolver «${tarjeta.titulo}» al ancho normal`
+                                : `Poner «${tarjeta.titulo}» al ancho doble`
+                        "
+                        @click="alternarAncho(i)"
+                    >
+                        {{ tarjeta.ancho === 4 ? 'Ancho doble' : 'Ancho normal' }}
+                    </button>
+                    <button
+                        type="button"
+                        class="mando"
+                        :title="`Mover «${tarjeta.titulo}» hacia adelante`"
+                        @click="moverConTeclado(i, 1)"
+                    >
+                        →
+                    </button>
+                </div>
+
                 <!--
                     El icono, otra vez y en grande, de marca de agua.
 
@@ -855,6 +1039,7 @@ function conmutar(rolId: number): void {
                 </template>
             </div>
             </section>
+            </div>
 
             <!--
                 El panel vacío, dicho de dos maneras.
@@ -1094,6 +1279,56 @@ function conmutar(rolId: number): void {
 .tarjeta-panel > * {
     position: relative;
     z-index: 1;
+}
+
+/* ── Modo acomodar ──────────────────────────────────────────────────────── */
+
+.tarjeta-acomodando {
+    cursor: grab;
+    /* Se marca el borde con el tono para que se vea de un golpe QUÉ se puede
+       mover. Sin señal, el modo se activaba y la pantalla parecía la misma. */
+    border-color: color-mix(in srgb, var(--tono) 45%, var(--color-borde));
+}
+
+/* La que va en la mano: se apaga para que se siga el hueco, no la tarjeta. */
+.tarjeta-en-vuelo {
+    opacity: 0.45;
+    cursor: grabbing;
+}
+
+/*
+ * Los mandos, flotando sobre la esquina superior derecha de la tarjeta.
+ *
+ * En absoluto y no en el flujo a propósito: si ocuparan sitio, entrar al modo
+ * de acomodo cambiaría el alto de las tarjetas y toda la cuadrícula daría un
+ * salto justo cuando se está intentando acomodarla.
+ */
+.mandos-acomodo {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 2;
+    display: flex;
+    gap: 0.25rem;
+    border-radius: 999px;
+    padding: 0.15rem;
+    background: color-mix(in srgb, var(--color-superficie) 88%, var(--tono));
+    box-shadow: 0 2px 8px -2px rgb(0 0 0 / 0.18);
+}
+
+.mando {
+    min-width: 1.5rem;
+    border-radius: 999px;
+    padding: 0.1rem 0.35rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    line-height: 1.4;
+    color: color-mix(in srgb, var(--tono) 55%, var(--color-contenido));
+    transition: background-color 0.15s ease;
+}
+
+.mando:hover {
+    background: color-mix(in srgb, var(--tono) 16%, transparent);
 }
 
 /*

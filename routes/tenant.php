@@ -31,6 +31,7 @@ use App\Http\Controllers\ConfiguracionController;
 use App\Http\Controllers\CorreoConfigController;
 use App\Http\Controllers\CursoPlantillaController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DisposicionPanelController;
 use App\Http\Controllers\DescuentoController;
 use App\Http\Controllers\DocenciaController;
 use App\Http\Controllers\ConfiguracionEscolarController;
@@ -1684,6 +1685,19 @@ Route::middleware([
          * esto es información pública del lugar donde se estudia.
          */
         Route::get('panel/clima', ClimaController::class)->name('tenant.panel.clima');
+
+        /*
+         * Cómo acomodó cada quien SU panel: orden de las tarjetas y cuáles van
+         * al ancho doble.
+         *
+         * Sin `can:` por la misma razón que el clima, y por una más: el usuario
+         * sale de la sesión, así que nadie puede tocar el panel de otro aunque
+         * quiera.
+         */
+        Route::put('panel/disposicion', [DisposicionPanelController::class, 'update'])
+            ->name('tenant.panel.disposicion.guardar');
+        Route::delete('panel/disposicion', [DisposicionPanelController::class, 'destroy'])
+            ->name('tenant.panel.disposicion.olvidar');
 
         /*
          * El calendario de la escuela.
