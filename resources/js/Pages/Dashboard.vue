@@ -404,10 +404,11 @@ function conmutar(rolId: number): void {
                 Sólo `--tono` viaja en línea; `--color-tarjeta` lo pone el CSS.
 
                 Es a propósito: dentro de una destacada, `--color-tarjeta` pasa a
-                ser BLANCO, y así el icono, el trazo del SVG y el enlace «Ver»
-                —que ya lo usaban— salen legibles sobre el bloque de color sin
-                duplicar una sola línea de marcado. Si `--color-tarjeta` se
-                pusiera en línea le ganaría a esa regla y no habría manera.
+                ser el tono ENSOMBRECIDO, y así el icono, el trazo del SVG y el
+                enlace «Ver» —que ya lo usaban— salen legibles sobre el fondo
+                teñido sin duplicar una sola línea de marcado. Si
+                `--color-tarjeta` se pusiera en línea le ganaría a esa regla y
+                no habría manera.
             -->
             <div
                 v-for="(tarjeta, i) in props.tarjetas"
@@ -458,15 +459,18 @@ function conmutar(rolId: number): void {
                 <!--
                     Métrica: un número grande y su contexto.
 
-                    El rojo de la alerta sólo se usa sobre fondo claro. En la
-                    destacada la tarjeta ENTERA ya es roja —ver `tonoTarjeta`—,
-                    así que el número va en blanco como los demás: un rojo sobre
-                    rojo no se leería, y el aviso está dado por el bloque.
+                    El rojo de Tailwind sólo se usa sobre fondo neutro. En la
+                    destacada la tarjeta ENTERA ya está teñida de rojo —ver
+                    `tonoTarjeta`—, así que la cifra toma `--color-tarjeta`: es
+                    el mismo rojo pero ensombrecido contra el texto del tema, y
+                    ése sí está medido contra el tinte. El `text-red-600` de
+                    Tailwind, que no sabe nada del fondo, quedaría flojo encima.
                 -->
                 <template v-if="tarjeta.tipo === 'metrica'">
                     <p
                         class="mt-3 text-3xl font-semibold tracking-tight tabular-nums"
                         :class="tarjeta.datos.alerta && !esDestacada(tarjeta) ? 'text-red-600' : ''"
+                        :style="esDestacada(tarjeta) ? { color: 'var(--color-tarjeta)' } : {}"
                     >
                         {{ formatear(tarjeta.datos.valor, tarjeta.datos.formato) }}
                     </p>
@@ -889,48 +893,41 @@ function conmutar(rolId: number): void {
 }
 
 /*
- * La tarjeta de un solo número, vestida de su color.
+ * La tarjeta de un solo número, teñida de su color: el fondo apenas coloreado
+ * de un aviso, no un bloque saturado.
  *
- * ── Por qué el degradado arranca oscurecido ────────────────────────────────
- * Sobre el color a tope el blanco no contrasta lo suficiente: medido, el ámbar
- * de las comisiones daba 3.19:1 y el verde de la cartera 3.77, por debajo del
- * 4.5:1 que necesita el texto chico para ser legible.
+ * ── Por qué todo se mezcla con los tokens del tema y no con blanco ─────────
+ * Hay temas de superficie oscura («Medianoche» trae #1E293B). Mezclando contra
+ * `--color-superficie` el mismo 14% da un tinte claro sobre los temas claros y
+ * uno oscuro sobre los oscuros, sin escribir dos versiones; y mezclando el
+ * texto contra `--color-contenido` el resultado se oscurece o se aclara en la
+ * dirección que le toque. Con blanco fijo, «Medianoche» se rompería.
  *
- * El 80% mezclado con negro deja el PEOR tono de la paleta en 4.73:1 —el ámbar
- * otra vez, que manda— y de ahí para arriba todos los demás. El 85% se quedaba
- * en 4.28 y el 82% justo en 4.52; se toma el 80 para tener margen si algún día
- * se agrega un color claro a la paleta. La diferencia no se nota a la vista;
- * el texto ilegible sí.
+ * ── Los números ────────────────────────────────────────────────────────────
+ * Medido contra el fondo teñido, en los dos temas y con los cuatro tonos que
+ * hoy puede llevar una métrica, el peor caso del icono y del enlace (55%) es
+ * 5.15:1 y el del pie (60%) es 4.75:1 —ambos rojo alerta sobre «Medianoche»—,
+ * y el texto normal, que no se toca, no baja de 11:1. Todo por encima del
+ * 4.5:1 que pide el texto chico.
+ *
+ * Con más tono el texto se aclara y se cae: al 70% el pie ya andaba en 3.60.
  */
 .tarjeta-destacada {
-    /* Dentro del bloque, «el color de la tarjeta» es el blanco: lo heredan el
-       icono, el trazo del SVG y el enlace «Ver» sin tocar el marcado. */
-    --color-tarjeta: #ffffff;
-    /* Y lo «suave» pasa a ser un blanco apagado, para el pie de la cifra. */
-    --color-suave: rgb(255 255 255 / 0.78);
+    /* Sobre el tinte, «el color de la tarjeta» es el tono ensombrecido: lo
+       heredan el icono, el trazo del SVG y el enlace «Ver» sin tocar el
+       marcado, y es también el color de la cifra. */
+    --color-tarjeta: color-mix(in srgb, var(--tono) 55%, var(--color-contenido));
+    /* El «suave» del tema no sobrevive al tinte —el rojo lo dejaba en 4.01—,
+       así que el pie se reconstruye desde el tono, un punto más claro que la
+       cifra para que la jerarquía siga leyéndose. */
+    --color-suave: color-mix(in srgb, var(--tono) 60%, var(--color-contenido));
 
-    background: linear-gradient(
-        145deg,
-        color-mix(in srgb, var(--tono) 80%, #000),
-        color-mix(in srgb, var(--tono) 52%, #000)
-    );
-    border-color: transparent;
-    color: #ffffff;
-}
-
-/*
- * Sobre el color, las mismas burbujas pero de luz: teñirlas del tono no se
- * vería, porque el fondo YA es ese tono.
- */
-.tarjeta-destacada::after {
-    background: rgb(255 255 255 / 0.09);
-}
-
-.tarjeta-destacada::before {
-    background: rgb(255 255 255 / 0.06);
+    background: color-mix(in srgb, var(--tono) 14%, var(--color-superficie));
+    /* El borde acompaña, más marcado que el tinte para que la tarjeta cierre. */
+    border-color: color-mix(in srgb, var(--tono) 32%, var(--color-superficie));
 }
 
 .tarjeta-destacada:hover {
-    box-shadow: 0 14px 28px -10px color-mix(in srgb, var(--tono) 75%, transparent);
+    box-shadow: 0 12px 24px -8px color-mix(in srgb, var(--tono) 55%, transparent);
 }
 </style>
