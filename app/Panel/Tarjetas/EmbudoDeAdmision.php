@@ -32,9 +32,20 @@ class EmbudoDeAdmision implements Contrato
         return 'ver-mis-prospectos';
     }
 
+    /**
+     * Tipo propio y no `barras`.
+     *
+     * Las dos dibujan una barra por renglón, pero dicen cosas distintas. En
+     * `barras` cada renglón es independiente —el avance de una materia no tiene
+     * nada que ver con el de otra— y el valor ya viene en porcentaje. Aquí los
+     * renglones son las etapas de UN mismo recorrido y sus totales suman el
+     * embudo entero, así que la barra tiene que medirse contra ese total y las
+     * etapas conservar su orden. Dibujarlas con la misma plantilla obligaba a
+     * elegir una de las dos lecturas y mentir en la otra.
+     */
     public function tipo(): string
     {
-        return 'barras';
+        return 'embudo';
     }
 
     public function ancho(): int
@@ -60,6 +71,15 @@ class EmbudoDeAdmision implements Contrato
             'series' => array_map(fn (array $e) => [
                 'etiqueta' => $e['nombre'],
                 'valor' => $e['total'],
+                // Qué parte del embudo está parada en esta etapa.
+                //
+                // Se manda calculada desde aquí, y contra el TOTAL, porque es
+                // el dato y no el dibujo. Medir la barra contra la etapa más
+                // poblada —que es lo que hacía antes— sólo dice quién es el
+                // más grande: con 90 en el primer paso y 3 en el último, la
+                // barra del 90 llenaba el ancho igual que si fueran 9, y el
+                // 3 se veía idéntico llevara detrás cien prospectos o diez.
+                'parte' => (int) round($e['total'] * 100 / $total),
                 'enlace' => '/promocion/etapas/'.$e['id'],
             ], $etapas),
             'pie' => $total.' prospectos',

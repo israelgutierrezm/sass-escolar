@@ -122,6 +122,18 @@ function adorno(i: number): string {
     return `adorno-${(i % ADORNOS) + 1}`;
 }
 
+/**
+ * Cuánto tono lleva la barra de la etapa número `i`, en porcentaje.
+ *
+ * Baja doce puntos por etapa y se planta en 40: por debajo de ahí la barra se
+ * confunde con el riel y la última etapa —la que interesa, la de los que ya se
+ * inscribieron— desaparecería justo por ser la última. El embudo se degrada,
+ * no se apaga.
+ */
+function fuerzaEtapa(i: number): number {
+    return Math.max(40, 100 - i * 12);
+}
+
 const mostrarRoles = ref(false);
 
 const saludo = computed(() => {
@@ -446,10 +458,36 @@ function conmutar(rolId: number): void {
                         'sm:col-span-3': tarjeta.ancho === 3,
                         'sm:col-span-4': tarjeta.ancho === 4,
                         'tarjeta-destacada': esDestacada(tarjeta),
+                        'sin-adorno': tarjeta.tipo === 'embudo',
                     },
                 ]"
                 :style="{ '--tono': tonoTarjeta(tarjeta), animationDelay: `${i * 45}ms` }"
             >
+                <!--
+                    El icono, otra vez y en grande, de marca de agua.
+
+                    Es el MISMO `tarjeta.icono` que va en el círculo del
+                    encabezado: un solo dato de la tarjeta sirviendo para las dos
+                    cosas. Sale cortado por el borde a propósito —se ve un
+                    pedazo, no la figura completa—, que es lo que lo mantiene
+                    como fondo y no como un segundo icono compitiendo con el
+                    primero.
+
+                    Sustituye al adorno de círculos en lugar de sumarse a él:
+                    dos decoraciones en la misma tarjeta se estorban, y ésta
+                    dice algo —de qué va la tarjeta— que los círculos no dicen.
+                -->
+                <svg
+                    v-if="tarjeta.tipo === 'embudo'"
+                    class="marca-agua"
+                    aria-hidden="true"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke-width="0.8"
+                >
+                    <path stroke-linecap="round" stroke-linejoin="round" :d="tarjeta.icono" />
+                </svg>
+
                 <div class="flex items-start justify-between gap-2">
                     <div class="flex items-center gap-2.5">
                         <!--
@@ -547,6 +585,48 @@ function conmutar(rolId: number): void {
                             <p v-if="renglon.pie" class="text-xs" :style="{ color: 'var(--color-suave)' }">
                                 {{ renglon.pie }}
                             </p>
+                        </li>
+                    </ul>
+                    <p v-if="tarjeta.datos.pie" class="mt-3 text-xs" :style="{ color: 'var(--color-suave)' }">
+                        {{ tarjeta.datos.pie }}
+                    </p>
+                </template>
+
+                <!--
+                    Embudo: las etapas de un mismo recorrido, en orden.
+
+                    La barra se mide contra el TOTAL del embudo y no contra la
+                    etapa más poblada, así que su largo dice cuánta gente hay
+                    parada ahí de verdad. El porcentaje viene calculado del
+                    servidor —ver `EmbudoDeAdmision`—: aquí sólo se dibuja.
+
+                    Y el tono se va apagando etapa tras etapa. Es lo que hace
+                    que el embudo se lea como un recorrido y no como cinco
+                    barras sueltas: se ve de un vistazo dónde se junta la gente
+                    y cómo se adelgaza hacia el final.
+                -->
+                <template v-else-if="tarjeta.tipo === 'embudo'">
+                    <ul class="mt-3 space-y-0.5">
+                        <li v-for="(punto, i) in tarjeta.datos.series" :key="i">
+                            <component
+                                :is="punto.enlace ? 'a' : 'div'"
+                                :href="punto.enlace"
+                                class="paso-embudo -mx-2 block rounded-lg px-2 py-1.5"
+                                :style="{ '--paso': i, '--parte': `${punto.parte}%`, '--fuerza': `${fuerzaEtapa(i)}%` }"
+                            >
+                                <div class="flex items-baseline justify-between gap-2 text-xs">
+                                    <span class="truncate font-medium">{{ punto.etiqueta }}</span>
+                                    <span class="shrink-0 tabular-nums">
+                                        <span class="font-semibold">{{ punto.valor }}</span>
+                                        <span class="ml-1 text-[11px]" :style="{ color: 'var(--color-suave)' }">
+                                            {{ punto.parte }}%
+                                        </span>
+                                    </span>
+                                </div>
+                                <div class="riel-embudo mt-1">
+                                    <span class="relleno-embudo"></span>
+                                </div>
+                            </component>
                         </li>
                     </ul>
                     <p v-if="tarjeta.datos.pie" class="mt-3 text-xs" :style="{ color: 'var(--color-suave)' }">
@@ -978,10 +1058,99 @@ function conmutar(rolId: number): void {
     background: var(--relleno-tenue);
 }
 
+/* La tarjeta que trae marca de agua no lleva además los círculos. */
+.sin-adorno::before,
+.sin-adorno::after {
+    content: none;
+}
+
 /* Por encima de las burbujas, que van en absoluto. */
 .tarjeta-panel > * {
     position: relative;
     z-index: 1;
+}
+
+/*
+ * La marca de agua: el icono de la tarjeta, en grande y cortado por el borde.
+ *
+ * Va DESPUÉS de la regla de arriba y con la misma especificidad para poder
+ * ganarle el `position: relative` —es hija directa de la tarjeta como cualquier
+ * otra—. Y se queda en `z-index: 0` para pasar por debajo de sus hermanas, que
+ * están todas en 1.
+ *
+ * `stroke` y no `fill` porque el icono es de trazo: relleno se convertiría en
+ * una mancha ilegible. Al 14% el contorno se adivina sin discutirle nada al
+ * texto que le pasa por encima.
+ */
+.marca-agua {
+    position: absolute;
+    z-index: 0;
+    right: -2.5rem;
+    bottom: -3rem;
+    width: 13rem;
+    height: 13rem;
+    stroke: color-mix(in srgb, var(--tono) 14%, transparent);
+    pointer-events: none;
+}
+
+/* ── El embudo ──────────────────────────────────────────────────────────── */
+
+.paso-embudo {
+    /* El tono de ESTA etapa. Sube a tope al pasar el cursor, y como es un
+       `background-color` calculado, la transición lo interpola solo. */
+    --color-paso: color-mix(in srgb, var(--tono) var(--fuerza), var(--color-superficie));
+
+    transition: background-color 0.2s ease;
+}
+
+.paso-embudo:hover {
+    background-color: color-mix(in srgb, var(--tono) 7%, transparent);
+}
+
+.paso-embudo:hover .relleno-embudo {
+    background-color: var(--tono);
+}
+
+.riel-embudo {
+    height: 0.5rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-borde) 55%, transparent);
+    overflow: hidden;
+}
+
+/*
+ * El relleno crece con `scaleX` y no con `width`.
+ *
+ * Animar el ancho recalcula el diseño de la tarjeta en cada cuadro y con cinco
+ * barras a la vez se nota; `transform` lo resuelve la GPU sin tocar el diseño.
+ * De ahí que el ancho final sea fijo —`var(--parte)`— y lo que se anime sea la
+ * escala, anclada a la izquierda para que salga del origen del riel.
+ */
+.relleno-embudo {
+    display: block;
+    width: var(--parte);
+    height: 100%;
+    border-radius: 999px;
+    background-color: var(--color-paso);
+    transform-origin: left center;
+    animation: llenar-embudo 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: calc(var(--paso) * 70ms);
+    transition: background-color 0.2s ease;
+}
+
+@keyframes llenar-embudo {
+    from {
+        transform: scaleX(0);
+    }
+    to {
+        transform: scaleX(1);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .relleno-embudo {
+        animation: none;
+    }
 }
 
 /*
