@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Services\KardexDelAlumno;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\Historial;
+use App\Services\KardexDelAlumno;
 use Tests\Concerns\CreaEscuelaDePrueba;
 use Tests\TenantTestCase;
 

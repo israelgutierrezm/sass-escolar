@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Exceptions\AvisoParaElUsuario;
+use App\Models\Admisiones\MatriculaOferta;
+use App\Models\Finanzas\Adeudo;
 use App\Models\Finanzas\IntencionCobro;
 use App\Models\Finanzas\PasarelaPago;
 use App\Services\Pagos\CobroEnLinea;
@@ -62,7 +64,7 @@ class PasarelaOpenPayTest extends TenantTestCase
         $this->expectException(AvisoParaElUsuario::class);
 
         app(CobroEnLinea::class)->iniciar(
-            \App\Models\Admisiones\MatriculaOferta::findOrFail($escuela['matricula']),
+            MatriculaOferta::findOrFail($escuela['matricula']),
             'openpay',
             [$adeudo],
             'http://x/retorno',
@@ -303,7 +305,7 @@ class PasarelaOpenPayTest extends TenantTestCase
             'monto_total' => $monto,
             'fecha_generacion' => '2026-01-01',
             'fecha_vencimiento' => '2026-03-01',
-            'estatus' => \App\Models\Finanzas\Adeudo::ESTATUS_PENDIENTE,
+            'estatus' => Adeudo::ESTATUS_PENDIENTE,
         ]);
     }
 }

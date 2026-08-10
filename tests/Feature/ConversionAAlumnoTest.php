@@ -6,7 +6,6 @@ namespace Tests\Feature;
 
 use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\EtapaCrm;
-use App\Models\Admisiones\MatriculaOferta;
 use App\Services\ConvertidorAspirante;
 use Illuminate\Support\Facades\DB;
 use Tests\Concerns\CreaEscuelaDePrueba;

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Exceptions\AvisoParaElUsuario;
+use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Finanzas\Adeudo;
 use App\Models\Finanzas\IntencionCobro;
 use App\Models\Finanzas\Pago;
@@ -238,7 +239,7 @@ class CobroEnLineaTest extends TenantTestCase
     private function iniciar(int $matricula, array $adeudos): IntencionCobro
     {
         return $this->cobro->iniciar(
-            \App\Models\Admisiones\MatriculaOferta::findOrFail($matricula),
+            MatriculaOferta::findOrFail($matricula),
             'mercadopago',
             $adeudos,
             'http://demo.test/pagos/retorno',

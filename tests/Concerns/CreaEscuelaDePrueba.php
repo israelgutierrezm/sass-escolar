@@ -7,6 +7,7 @@ namespace Tests\Concerns;
 use App\Models\Identidad\Usuario;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Inertia\Response;
 
 /**
  * Lo mínimo para que exista un alumno inscrito.
@@ -245,7 +246,7 @@ trait CreaEscuelaDePrueba
      *
      * @return array<string, mixed>
      */
-    protected function propsDe(\Inertia\Response $respuesta, Request $peticion): array
+    protected function propsDe(Response $respuesta, Request $peticion): array
     {
         return $respuesta->toResponse($peticion)->getData(true)['props'] ?? [];
     }

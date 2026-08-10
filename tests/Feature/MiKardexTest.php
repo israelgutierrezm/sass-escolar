@@ -8,7 +8,6 @@ use App\Http\Controllers\MiKardexController;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Identidad\Usuario;
 use App\Services\KardexDelAlumno;
-use Illuminate\Http\Request;
 use Tests\Concerns\CreaEscuelaDePrueba;
 use Tests\TenantTestCase;
 

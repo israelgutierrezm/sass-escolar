@@ -10,6 +10,7 @@ use App\Models\Emision\LoteCertificacion;
 use App\Models\Emision\LoteTitulacion;
 use App\Models\Emision\Titulacion;
 use App\Models\Landlord\SaldoEmision;
+use App\Models\Tenant;
 use Stancl\Tenancy\Contracts\Tenant as ContratoTenant;
 use Tests\Concerns\CreaEscuelaDePrueba;
 use Tests\TenantTestCase;
@@ -31,7 +32,7 @@ class FiltrosDeLotesTest extends TenantTestCase
         parent::setUp();
 
         // Los lotes preguntan de qué escuela es el saldo.
-        $this->app->instance(ContratoTenant::class, new class extends \App\Models\Tenant
+        $this->app->instance(ContratoTenant::class, new class extends Tenant
         {
             public function getTenantKey(): string
             {

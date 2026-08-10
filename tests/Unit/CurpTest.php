@@ -54,7 +54,7 @@ class CurpTest extends TestCase
     public function test_rechaza_lo_que_ni_siquiera_tiene_forma_de_curp(): void
     {
         foreach ([null, '', 'HOLA', '1234567890', 'HEGG560427MVZRRL0'] as $basura) {
-            $this->assertNull(Curp::leer($basura), "Debería rechazar: ".var_export($basura, true));
+            $this->assertNull(Curp::leer($basura), 'Debería rechazar: '.var_export($basura, true));
         }
     }
 

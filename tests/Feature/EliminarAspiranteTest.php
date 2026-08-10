@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Http\Controllers\AspiranteController;
 use App\Models\Admisiones\Aspirante;
 use App\Models\Identidad\Persona;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Tests\Concerns\CreaEscuelaDePrueba;
 use Tests\TenantTestCase;
@@ -58,7 +59,7 @@ class EliminarAspiranteTest extends TenantTestCase
 
     // ── Andamiaje ──────────────────────────────────────────────────────────
 
-    private function eliminar(Aspirante $aspirante): \Illuminate\Http\RedirectResponse
+    private function eliminar(Aspirante $aspirante): RedirectResponse
     {
         $peticion = $this->peticionDe($this->usuarioConAlcance(), '/aspirantes');
 

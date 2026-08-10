@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Controllers\FinanzasController;
+use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Finanzas\Adeudo;
 use App\Models\Finanzas\MetodoPago;
 use App\Models\Finanzas\Pago;
@@ -104,7 +105,7 @@ class RegistroDePagoTest extends TenantTestCase
             'adeudo_ids' => $adeudoIds,
         ]);
 
-        $this->controlador->registrarPago($peticion, \App\Models\Admisiones\MatriculaOferta::findOrFail($matricula));
+        $this->controlador->registrarPago($peticion, MatriculaOferta::findOrFail($matricula));
     }
 
     /** Un método que cobra en el acto; los que requieren confirmación no liquidan. */

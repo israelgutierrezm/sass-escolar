@@ -10,6 +10,7 @@ use App\Models\Plataforma\Aviso;
 use App\Models\Plataforma\AvisoLectura;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Validation\ValidationException;
 use Tests\TenantTestCase;
 
 /**
@@ -87,7 +88,7 @@ class AvisoAdminTest extends TenantTestCase
         try {
             $this->controlador->guardar($peticion);
             $this->fail('Debería haber rechazado el aviso sin destinatarios.');
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             $this->assertSame('Elige a quién va dirigido.', $e->validator->errors()->first('destinos'));
         }
 
@@ -108,7 +109,7 @@ class AvisoAdminTest extends TenantTestCase
         try {
             $this->controlador->guardar($peticion);
             $this->fail('Debería haber rechazado la vigencia invertida.');
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             $this->assertSame(
                 'La vigencia no puede terminar antes de empezar.',
                 $e->validator->errors()->first('vigente_hasta'),

@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Http\Controllers\AspiranteController;
 use App\Http\Controllers\DocenteController;
 use App\Models\Admisiones\Aspirante;
+use App\Services\ConvertidorAspirante;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\Concerns\CreaEscuelaDePrueba;
@@ -90,7 +91,7 @@ class AlcancePorCampusTest extends TenantTestCase
         app(AspiranteController::class)->show(
             $this->peticionDe($this->usuarioConAlcance([$mio])),
             $delAjeno,
-            app(\App\Services\ConvertidorAspirante::class),
+            app(ConvertidorAspirante::class),
         );
     }
 

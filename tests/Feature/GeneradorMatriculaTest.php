@@ -379,7 +379,7 @@ class GeneradorMatriculaTest extends TenantTestCase
         $oferta = $this->ofertaDePrueba();
         $regla = $this->regla('global', null, 'C{###}', reinicia: 'ciclo');
 
-        $this->assertSame("global|anio:2026", $this->generador->claveContador($regla, $oferta, 2026));
+        $this->assertSame('global|anio:2026', $this->generador->claveContador($regla, $oferta, 2026));
     }
 
     // ── Recorte de tokens ──────────────────────────────────────────────────
@@ -427,7 +427,6 @@ class GeneradorMatriculaTest extends TenantTestCase
             'situacion_id' => $this->deCatalogo('situaciones_ciclo'),
         ]);
     }
-
 
     private function ofertaDePrueba(): Oferta
     {

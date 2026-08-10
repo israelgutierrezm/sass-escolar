@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Enums\ModoRedondeo;
 use App\Models\Academico\PlanEstudio;
 use App\Services\CalificacionesFueraDeEscala;
+use Illuminate\Support\Facades\DB;
 use Tests\Concerns\CreaEscuelaDePrueba;
 use Tests\TenantTestCase;
 
@@ -138,7 +139,7 @@ class CalificacionesFueraDeEscalaTest extends TenantTestCase
     {
         $escuela = $this->conCalificaciones([8.5], decimales: 0);
 
-        \Illuminate\Support\Facades\DB::table('historial')
+        DB::table('historial')
             ->where('matricula_oferta_id', $escuela['matricula'])
             ->update(['deleted_at' => now()]);
 

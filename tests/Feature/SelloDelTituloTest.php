@@ -4,19 +4,20 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use PhpCfdi\Credentials\Certificate;
-use PhpCfdi\Credentials\Credential;
 use App\Models\Emision\Cargo;
 use App\Models\Emision\Certificacion;
-use App\Models\Emision\LoteCertificacion;
-use Stancl\Tenancy\Contracts\Tenant as ContratoTenant;
 use App\Models\Emision\CertificadoResponsable;
+use App\Models\Emision\LoteCertificacion;
 use App\Models\Emision\LoteTitulacion;
 use App\Models\Emision\Responsable;
 use App\Models\Emision\Titulacion;
+use App\Models\Tenant;
 use App\Services\Emision\FirmadorLoteTitulo;
 use App\Services\FirmadorLote;
 use Illuminate\Support\Facades\Storage;
+use PhpCfdi\Credentials\Certificate;
+use PhpCfdi\Credentials\Credential;
+use Stancl\Tenancy\Contracts\Tenant as ContratoTenant;
 use Tests\Concerns\CreaEscuelaDePrueba;
 use Tests\TenantTestCase;
 
@@ -272,7 +273,7 @@ class SelloDelTituloTest extends TenantTestCase
      */
     private function conContextoDeEscuela(): void
     {
-        $this->app->instance(ContratoTenant::class, new class extends \App\Models\Tenant
+        $this->app->instance(ContratoTenant::class, new class extends Tenant
         {
             public function getTenantKey(): string
             {
@@ -328,7 +329,6 @@ class SelloDelTituloTest extends TenantTestCase
             'password' => 'secreto',
         ];
     }
-
 
     /**
      * Un par .cer/.key generado al vuelo.

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Models\Academico\Campus;
 use App\Http\Controllers\Plataforma\ClimaController;
+use App\Models\Academico\Campus;
 use App\Services\Plataforma\ClimaDelCampus;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;

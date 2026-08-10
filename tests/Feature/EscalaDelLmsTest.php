@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\DocenciaController;
 use App\Models\Academico\EsquemaEvaluacion;
 use App\Models\Academico\PlanEstudio;
+use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\CalificacionComponente;
 use App\Models\Lms\Actividad;
 use App\Models\Lms\Curso;
 use App\Models\Lms\Entrega;
-use App\Http\Controllers\DocenciaController;
-use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Services\Lms\CalculadorComponente;
 use Illuminate\Support\Facades\DB;
 use Tests\Concerns\CreaEscuelaDePrueba;

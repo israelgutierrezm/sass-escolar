@@ -13,12 +13,13 @@ use App\Models\Encuestas\Sujeto;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\Rol;
 use App\Models\Identidad\Usuario;
-use App\Services\Encuestas\EncuestasDeUsuario;
 use App\Services\Encuestas\ComparaAplicaciones;
+use App\Services\Encuestas\EncuestasDeUsuario;
 use App\Services\Encuestas\ExportaResultados;
 use App\Services\Encuestas\GeneradorDeSujetos;
 use App\Services\Encuestas\ResultadosDeEncuesta;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use Tests\Concerns\CreaEscuelaDePrueba;
 use Tests\TenantTestCase;
 
@@ -259,8 +260,6 @@ class EncuestasTest extends TenantTestCase
         $this->assertSame(5.0, collect($resultados->porSujeto($caso['aplicacion']))->firstWhere('sujeto_id', $sujeto->id)['promedio']);
     }
 
-
-
     /**
      * Cada tipo se guarda en su columna, y eso lo decide el TIPO de la
      * pregunta, no la pinta del dato.
@@ -425,7 +424,7 @@ class EncuestasTest extends TenantTestCase
 
         $this->assertFileExists($ruta);
 
-        $libro = \PhpOffice\PhpSpreadsheet\IOFactory::load($ruta);
+        $libro = IOFactory::load($ruta);
 
         $this->assertContains('Resumen', $libro->getSheetNames());
         $this->assertSame($caso['aplicacion']->titulo, $libro->getSheetByName('Resumen')->getCell('A1')->getValue());

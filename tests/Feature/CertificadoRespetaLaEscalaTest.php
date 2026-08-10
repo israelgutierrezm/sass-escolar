@@ -6,8 +6,9 @@ namespace Tests\Feature;
 
 use App\Enums\ModoRedondeo;
 use App\Models\Academico\PlanEstudio;
+use App\Models\ControlEscolar\Historial;
+use App\Services\ConstructorCertificadoXml;
 use App\Support\Creditos;
-use Illuminate\Support\Collection;
 use Tests\Concerns\CreaEscuelaDePrueba;
 use Tests\TenantTestCase;
 
@@ -111,7 +112,7 @@ class CertificadoRespetaLaEscalaTest extends TenantTestCase
      */
     private function promedioDelCertificado(array $calificaciones, PlanEstudio $plan): ?float
     {
-        $constructor = app(\App\Services\ConstructorCertificadoXml::class);
+        $constructor = app(ConstructorCertificadoXml::class);
 
         $metodo = new \ReflectionMethod($constructor, 'promedio');
         $metodo->setAccessible(true);
@@ -123,7 +124,7 @@ class CertificadoRespetaLaEscalaTest extends TenantTestCase
          * dicen ser.
          */
         $mejores = collect($calificaciones)->map(
-            fn (float $c) => new \App\Models\ControlEscolar\Historial(['calificacion' => $c]),
+            fn (float $c) => new Historial(['calificacion' => $c]),
         );
 
         return $metodo->invoke($constructor, $mejores, $plan);
