@@ -600,6 +600,23 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   de campus. Trae el clima actual, 3 días de pronóstico y calidad del aire con
   su recomendación (Open-Meteo, sin llave). Se pide DESPUÉS de cargar la página
   y si falla no se dibuja: el panel no puede depender de un servicio externo.
+- **Módulo 9 — Titulación y certificación SEP, completo.** 38 rutas, 17 modelos
+  en `App\Models\Emision\`, seis servicios y sus pantallas (lotes en
+  `/escolar/titulacion`, catálogos, responsables y configuración del WS). Cubre
+  el ciclo entero: armar el lote, validar al egresado, construir el XML,
+  sellarlo con el CSD, mandarlo al web service de la SEP y reintentar título por
+  título. Lo mismo para certificados, con sus tipos y su regeneración.
+  - **Créditos de emisión** con modalidad prepago, postpago e incluido; las
+    regeneraciones no vuelven a cobrar y un repetido en el lote no cuenta dos
+    veces.
+  - **Reenviar es por TÍTULO, no por lote**: el error suele venir del otro lado
+    —una caída de la SEP, una validación suya— y remandar el lote entero
+    duplicaría los trámites que allá ya se aceptaron.
+  - Lo cubren 34 pruebas: el sello (SHA-256, certificado en DER base64 y no PEM,
+    verificación contra lo que viaja en el XML, cadena alterada que invalida),
+    los créditos, la emisión por carrera y el contrato del WS.
+  - Lo único que falta es de tu lado, no de código: la **e.firma** de la escuela
+    y el **WSDL de producción** de la SEP.
 - **Kárdex del alumno** (`/mi-kardex`): `ver-kardex` lo tenía el rol alumno
   desde siempre, pero el único kárdex del sistema vivía dentro del expediente de
   control escolar, detrás de `ver-alumnos` —permiso de personal que abre el
@@ -633,11 +650,18 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
 
 **Pendiente inmediato — aquí se retoma:**
 
-1. Módulo 9 (Titulación SEP); luego Fase 4.
-2. Trabajo de cola pendiente, para cuando haya scheduler: enganchar
-   `GeneradorAdeudos::generarParaTodas` y
-   `AplicadorRecargosDescuentos::recalcularCartera` a un job diario. Los
-   servicios ya están listos y son idempotentes; falta el disparador.
+*(Antes de tomar algo de esta lista, COMPROBARLO en el código. Dos veces ya
+mandó a construir cosas que estaban hechas: la titulación SEP y el estado de
+cuenta del alumno.)*
+
+1. **Generar los cargos del periodo en bloque.** Es lo único que falta del
+   trabajo de cola, y está a medias: el barrido diario ya existe
+   —`finanzas:evaluar`, a las 3:00 desde `routes/console.php`, recorriendo
+   todos los tenants— pero sólo hace becas por atraso, recargos y estatus de
+   deudor. Generar los cargos no lo hace nadie: `GeneradorAdeudos` sólo tiene
+   `generarPara(MatriculaOferta)`, una matrícula a la vez. El
+   `generarParaTodas` que decía este archivo NO EXISTE.
+2. Fase 4.
 
 **Deuda conocida:**
 
