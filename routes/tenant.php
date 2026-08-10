@@ -95,6 +95,7 @@ use App\Http\Controllers\RespuestaFormularioController;
 use App\Http\Controllers\RolActivoController;
 use App\Http\Controllers\RolController;
 use App\Http\Controllers\SeriacionController;
+use App\Http\Controllers\ServicioController;
 use App\Http\Controllers\SsoGoogleController;
 use App\Http\Controllers\SuplantacionController;
 use App\Http\Controllers\TarjetaRolController;
@@ -1145,6 +1146,25 @@ Route::middleware([
                  * Otorgar una beca cuesta dinero, así que va con el mismo permiso
                  * que configurar el cobro, no con el de registrar pagos.
                  */
+                /*
+                 * El catálogo de productos y servicios: lo que la escuela vende
+                 * suelto y cuánto cuesta.
+                 *
+                 * Mismo permiso que el resto de la configuración del cobro:
+                 * poner el precio de una constancia es del mismo orden que
+                 * ponerle monto a una colegiatura, y no tiene que ver con
+                 * registrar un pago.
+                 */
+                Route::controller(ServicioController::class)
+                    ->prefix('servicios')->name('servicios.')
+                    ->middleware('can:gestionar-planes-cobro')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::post('/', 'store')->name('store');
+                        Route::put('/{servicio}', 'update')->whereNumber('servicio')->name('update');
+                        Route::delete('/{servicio}', 'destroy')->whereNumber('servicio')->name('destroy');
+                    });
+
                 Route::controller(BecaController::class)
                     ->prefix('becas')->name('becas.')
                     ->middleware('can:gestionar-planes-cobro')
