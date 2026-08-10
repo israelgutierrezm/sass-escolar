@@ -106,6 +106,7 @@ use App\Http\Controllers\TutorController;
 use App\Http\Controllers\TutoriaController;
 use App\Http\Controllers\UsuarioController;
 use App\Http\Controllers\VentanaCapturaController;
+use App\Http\Controllers\VerificacionCredencialController;
 use App\Http\Middleware\EscuelaActiva;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
@@ -144,6 +145,27 @@ Route::middleware([
         Route::get('/{token}', 'mostrar')->name('formulario');
         Route::post('/{token}', 'enviar')->middleware('throttle:6,1')->name('enviar');
     });
+
+    /*
+     * La ficha a la que lleva el QR de una credencial.
+     *
+     * FUERA de `auth` aunque muchas escuelas vayan a exigir sesión: quién puede
+     * verla lo decide `credenciales_rol.qr_publico`, escuela por escuela, y el
+     * controlador desvía al login cuando toca. Colgarla de `auth` aquí
+     * cerraría de golpe la opción abierta, que es la mitad de lo que se pidió.
+     *
+     * Con `throttle` porque es anónima y va por uuid: no se puede adivinar una
+     * dirección, pero tampoco hace falta dejar que alguien lo intente a mil por
+     * minuto.
+     */
+    Route::controller(VerificacionCredencialController::class)
+        ->prefix('credencial')
+        ->middleware('throttle:60,1')
+        ->name('tenant.credencial.')
+        ->group(function () {
+            Route::get('/{uuid}', 'mostrar')->name('verificar');
+            Route::get('/{uuid}/foto', 'foto')->name('foto');
+        });
 
     // Logo de la institución, PÚBLICO: lo pinta la pantalla de login (a la que
     // llega quien no ha iniciado sesión) y la barra lateral. Un logo no es un
