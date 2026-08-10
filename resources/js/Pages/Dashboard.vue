@@ -55,18 +55,18 @@ const props = defineProps<{
 // sin perder la sobriedad: solo se usa en el icono y un acento, no en el fondo.
 const COLORES_TARJETA: Record<string, string> = {
     cartera: '#059669',
-    // Turquesa oscuro y no el cian de «Actividad de hoy por hora», que le cae
-    // justo al lado en la cuadrícula: dos cianes contiguos se leen como un
-    // error de copiado. Éste comparte el tono verde-azul pero desde el verde,
-    // así que a simple vista son colores distintos. Y va oscuro porque el mismo
-    // valor pinta el enlace «Ver» sobre blanco: a 5.47:1 se lee, y los
-    // turquesas claros de la familia se quedaban en 3.7.
-    embudo: '#0F766E',
-    // Dorado, el más claro de la familia que todavía se lee sobre blanco: a
-    // 4.92:1 pasa, y el oro de verdad —el amarillo puro— se queda en 2.94, que
-    // sobre una superficie clara es un color que no se ve. Los que sí contrastan
-    // de sobra ya no son dorados: se vuelven café.
-    indicadores: '#A16207',
+    // Dorado. Es el más claro de su familia que todavía se lee sobre blanco: a
+    // 4.92:1 pasa, mientras que el oro de verdad —el amarillo puro— se queda en
+    // 2.94, que sobre una superficie clara es un color que no se ve; y los que
+    // contrastan de sobra ya no son dorados, se vuelven café. Importa porque el
+    // mismo valor pinta el enlace «Ver» y el trazo del icono, no sólo el fondo.
+    embudo: '#A16207',
+    // Turquesa oscuro, y no el cian de «Actividad por día y hora»: cuando las
+    // dos caen juntas en la cuadrícula, dos cianes contiguos se leen como un
+    // error de copiado. Éste comparte el verde-azul pero desde el verde —175°
+    // contra 192°— y con casi la mitad de luminancia, así que a simple vista
+    // son colores distintos. También pasa el 4.5:1, con 5.47.
+    indicadores: '#0F766E',
     'por-contactar': '#DB2777',
     'comisiones-por-pagar': '#D97706',
     'actividad-por-hora': '#0891B2',
@@ -239,6 +239,43 @@ function guardarAcomodo(): void {
 
 function restablecerAcomodo(): void {
     router.delete('/panel/disposicion', { preserveScroll: true, onSuccess: cancelarAcomodo });
+}
+
+// ── La matriz de día contra hora ────────────────────────────────────────────
+
+/** El punto del riel: lo que se ve donde no hubo nada. */
+const PUNTO_MINIMO = 6;
+const PUNTO_MAXIMO = 20;
+
+/**
+ * El diámetro del punto de una celda, en píxeles.
+ *
+ * Escala con la RAÍZ del valor y no con el valor. Un punto se compara por su
+ * área, no por su diámetro, así que creciendo en línea recta una celda con el
+ * doble de entradas se ve con el cuádruple de mancha y la hora punta aplasta
+ * visualmente a todo lo demás. Con la raíz, el área sí queda proporcional.
+ */
+function tamanoPunto(valor: number, maximo: number): number {
+    if (valor <= 0 || maximo <= 0) {
+        return PUNTO_MINIMO;
+    }
+
+    return PUNTO_MINIMO + (PUNTO_MAXIMO - PUNTO_MINIMO) * Math.sqrt(valor / maximo);
+}
+
+/**
+ * Cuánto tono lleva el punto, en porcentaje.
+ *
+ * El tamaño solo no basta: en pantallas chicas la diferencia entre 8 y 11 px es
+ * casi nada, y el color la sostiene. Arranca en 35% para que la celda con una
+ * sola entrada no se confunda con el riel vacío.
+ */
+function fuerzaPunto(valor: number, maximo: number): number {
+    if (valor <= 0 || maximo <= 0) {
+        return 0;
+    }
+
+    return 35 + 65 * (valor / maximo);
 }
 
 /**
@@ -764,6 +801,63 @@ function conmutar(rolId: number): void {
                     </p>
                 </template>
 
+                <!--
+                    Matriz: día de la semana contra hora, un punto por celda.
+
+                    Se dibuja con puntos y no con barras porque lo que se lee
+                    aquí son DOS ejes a la vez. Con 168 valores en una gráfica de
+                    barras habría que elegir cuál de los dos manda —24 barras por
+                    día, o 7 por hora— y el otro se perdería. El punto no ordena
+                    nada: crece donde hay actividad, y la forma de la semana
+                    aparece sola.
+
+                    Las 24 horas se salen en pantalla estrecha, así que la
+                    cuadrícula lleva su propio desplazamiento horizontal. Que la
+                    tarjeta se pueda arrastrar de lado no debe arrastrar el panel
+                    entero con ella.
+                -->
+                <template v-else-if="tarjeta.tipo === 'matriz'">
+                    <div class="matriz-envoltura mt-3">
+                        <div class="matriz">
+                            <template v-for="fila in tarjeta.datos.filas" :key="fila.etiqueta">
+                                <span class="matriz-dia">{{ fila.etiqueta }}</span>
+                                <!--
+                                    El riel gris de fondo va POR CELDA y no como
+                                    una línea detrás de todas: así el punto de
+                                    valor cero es el propio riel y no hace falta
+                                    dibujar dos cosas distintas según haya o no
+                                    actividad.
+                                -->
+                                <span
+                                    v-for="(valor, hora) in fila.horas"
+                                    :key="hora"
+                                    class="matriz-celda"
+                                    :title="`${fila.etiqueta} a las ${String(hora).padStart(2, '0')}:00 — ${valor}`"
+                                >
+                                    <span
+                                        class="matriz-punto"
+                                        :style="{
+                                            '--tamano': `${tamanoPunto(valor, tarjeta.datos.maximo)}px`,
+                                            '--fuerza': `${fuerzaPunto(valor, tarjeta.datos.maximo)}%`,
+                                        }"
+                                    ></span>
+                                </span>
+                                <span class="matriz-total tabular-nums">{{ fila.total }}</span>
+                            </template>
+
+                            <!-- El eje de horas, alineado con las columnas de arriba. -->
+                            <span></span>
+                            <span v-for="hora in 24" :key="`h${hora}`" class="matriz-hora">
+                                {{ String(hora - 1).padStart(2, '0') }}
+                            </span>
+                            <span></span>
+                        </div>
+                    </div>
+                    <p v-if="tarjeta.datos.pie" class="mt-2 text-xs" :style="{ color: 'var(--color-suave)' }">
+                        {{ tarjeta.datos.pie }}
+                    </p>
+                </template>
+
                 <!-- Lista: renglones con su valor a la derecha. -->
                 <template v-else-if="tarjeta.tipo === 'lista'">
                     <ul class="mt-3 space-y-3">
@@ -1279,6 +1373,86 @@ function conmutar(rolId: number): void {
 .tarjeta-panel > * {
     position: relative;
     z-index: 1;
+}
+
+/* ── La matriz de día contra hora ───────────────────────────────────────── */
+
+/*
+ * El desplazamiento se queda DENTRO de la tarjeta.
+ *
+ * Con 24 columnas la cuadrícula pide unos 640 px de ancho mínimo, y en un
+ * teléfono no los hay. Sin este envoltorio la tarjeta empujaba la cuadrícula del
+ * panel y se podía arrastrar la pantalla entera de lado —el mismo problema que
+ * ya obligó a poner `min-w-0` en las columnas del panel.
+ */
+.matriz-envoltura {
+    overflow-x: auto;
+    margin-inline: -0.25rem;
+    padding-inline: 0.25rem;
+}
+
+.matriz {
+    display: grid;
+    /* Día, las 24 horas, y el total de la fila. Las horas se reparten lo que
+       sobra en partes iguales, con un mínimo para que los puntos grandes no
+       lleguen a tocarse. */
+    grid-template-columns: auto repeat(24, minmax(1.15rem, 1fr)) auto;
+    align-items: center;
+    gap: 0.15rem 0;
+    min-width: 34rem;
+}
+
+.matriz-dia {
+    padding-right: 0.6rem;
+    text-align: right;
+    font-size: 0.7rem;
+    white-space: nowrap;
+    color: var(--color-suave);
+}
+
+.matriz-total {
+    padding-left: 0.6rem;
+    text-align: right;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: color-mix(in srgb, var(--tono) 55%, var(--color-contenido));
+}
+
+.matriz-hora {
+    padding-top: 0.35rem;
+    text-align: center;
+    font-size: 0.6rem;
+    color: color-mix(in srgb, var(--color-suave) 75%, transparent);
+}
+
+/*
+ * La celda dibuja el riel de su tramo con un borde de un píxel, y el punto va
+ * centrado encima. Así la línea que une las horas del día sale sola, sin un
+ * elemento aparte que haya que mantener alineado con las columnas.
+ */
+.matriz-celda {
+    display: grid;
+    place-items: center;
+    height: 1.5rem;
+    border-top: 1px solid color-mix(in srgb, var(--color-borde) 70%, transparent);
+}
+
+.matriz-punto {
+    width: var(--tamano);
+    height: var(--tamano);
+    border-radius: 999px;
+    /* Al 0% de fuerza queda el gris del riel: la celda vacía no necesita otra
+       regla, es el mismo punto sin tono. */
+    background: color-mix(
+        in srgb,
+        var(--tono) var(--fuerza),
+        color-mix(in srgb, var(--color-borde) 75%, transparent)
+    );
+    transition: transform 0.15s ease;
+}
+
+.matriz-celda:hover .matriz-punto {
+    transform: scale(1.25);
 }
 
 /* ── Modo acomodar ──────────────────────────────────────────────────────── */
