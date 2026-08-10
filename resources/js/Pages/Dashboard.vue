@@ -813,6 +813,56 @@ function conmutar(rolId: number): void {
      */
     display: flex;
     flex-direction: column;
+
+    /* Marco de referencia de las burbujas, que van en absoluto y se recortan. */
+    position: relative;
+    overflow: hidden;
+}
+
+/*
+ * Las burbujas de la esquina.
+ *
+ * Dos círculos superpuestos, decorativos —de ahí que sean pseudoelementos y no
+ * marcado— recortados por el `overflow` de la tarjeta. Van en TODAS: en la de
+ * color son blancos y en las claras se tiñen del tono propio de la tarjeta, así
+ * que la de lista y la de barras tienen la misma gracia sin volverse un bloque
+ * de color (que sobre veinte renglones o una gráfica cansaría de leer).
+ *
+ * El tinte es bajo a propósito: al 9% sobre la superficie apenas se adivina,
+ * que es justo lo que se busca —textura de fondo, no una mancha que compita
+ * con el dato—. Y como sale de `--tono`, cada tarjeta trae el color que ya
+ * tenía en el acento superior.
+ */
+.tarjeta-panel::before,
+.tarjeta-panel::after {
+    content: "";
+    position: absolute;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--tono) 9%, transparent);
+    pointer-events: none;
+}
+
+.tarjeta-panel::after {
+    right: -3.5rem;
+    top: -3.5rem;
+    width: 11rem;
+    height: 11rem;
+}
+
+/* La segunda, más chica y desfasada, para que se lea como un par y no como un
+   círculo suelto: es lo que le da profundidad a la esquina. */
+.tarjeta-panel::before {
+    right: 1.75rem;
+    top: -5.25rem;
+    width: 8rem;
+    height: 8rem;
+    background: color-mix(in srgb, var(--tono) 6%, transparent);
+}
+
+/* Por encima de las burbujas, que van en absoluto. */
+.tarjeta-panel > * {
+    position: relative;
+    z-index: 1;
 }
 
 /*
@@ -866,30 +916,18 @@ function conmutar(rolId: number): void {
     );
     border-color: transparent;
     color: #ffffff;
-    position: relative;
-    overflow: hidden;
 }
 
 /*
- * El círculo de luz de la esquina. Puramente decorativo —de ahí que no sea un
- * elemento— y recortado por el `overflow` de la tarjeta.
+ * Sobre el color, las mismas burbujas pero de luz: teñirlas del tono no se
+ * vería, porque el fondo YA es ese tono.
  */
 .tarjeta-destacada::after {
-    content: "";
-    position: absolute;
-    right: -3.5rem;
-    top: -3.5rem;
-    width: 11rem;
-    height: 11rem;
-    border-radius: 999px;
     background: rgb(255 255 255 / 0.09);
-    pointer-events: none;
 }
 
-/* Por encima del círculo, que va en absoluto. */
-.tarjeta-destacada > * {
-    position: relative;
-    z-index: 1;
+.tarjeta-destacada::before {
+    background: rgb(255 255 255 / 0.06);
 }
 
 .tarjeta-destacada:hover {
