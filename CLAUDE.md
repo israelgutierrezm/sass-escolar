@@ -80,8 +80,11 @@ Cinco entregas, en este orden. A y B ✅ hechas; C, D y E pendientes:
   permiso configure todo antes de que existan registros»).
 - ✅ Resuelto para el ASPIRANTE: `/mi-solicitud` ya existe, así que el modo
   «inscripción autogestiva» del formulario público tiene a dónde entrar.
-- ⏳ Parcial para el ALUMNO: ya tiene `/mis-cursos` (sus materias, cómo va y el
-  aula con el contenido). Faltan su **kárdex** y su **estado de cuenta** propios.
+- ✅ Resuelto para el ALUMNO: además de `/mis-cursos`, ya tiene su **kárdex**
+  en `/mi-kardex`. Su **estado de cuenta** resultó que YA existía —`ver-adeudos`
+  es de la faceta alumno y `VeLaCarteraDelAlumno` lo acota a sus matrículas—:
+  entra por `/finanzas` y `/finanzas/cuentas/{matricula}`, y la de otra persona
+  le responde 403. Se comprobó antes de construir nada.
 - ⏳ El portal **no cobra**: muestra los cargos, pero no hay pasarela conectada.
   `pagos` ya tiene `pasarela` y `pasarela_txn_id` esperándola desde 7.1.
 
@@ -597,6 +600,32 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   de campus. Trae el clima actual, 3 días de pronóstico y calidad del aire con
   su recomendación (Open-Meteo, sin llave). Se pide DESPUÉS de cargar la página
   y si falla no se dibuja: el panel no puede depender de un servicio externo.
+- **Kárdex del alumno** (`/mi-kardex`): `ver-kardex` lo tenía el rol alumno
+  desde siempre, pero el único kárdex del sistema vivía dentro del expediente de
+  control escolar, detrás de `ver-alumnos` —permiso de personal que abre el
+  listado de TODA la escuela—. Un permiso concedido sin puerta por donde entrar.
+  - El cálculo se extrajo a **`App\Services\KardexDelAlumno`** y AHORA LO USAN
+    LOS DOS: control escolar y el portal. No es una consulta, son tres
+    decisiones de dominio —qué renglones cuentan para los totales (el MEJOR
+    intento por materia, no todos), qué se considera «en curso» y cómo se
+    promedia—. Copiadas en dos pantallas divergen, y el día que el promedio del
+    portal no sea el de la ventanilla nadie sabrá cuál está mal.
+  - La matrícula sale de la SESIÓN: la ruta no lleva id, así que no hay dónde
+    escribir el de otro. Quien estudia dos carreras elige entre las suyas y la
+    elección se busca en esa misma lista —un id ajeno no encuentra pareja y cae
+    a la propia—.
+  - Se agrupa por PERIODO DEL PLAN y no por ciclo escolar: el plan es el mapa
+    del que se avanza. Por ciclo, una materia recursada aparece lejos de sus
+    compañeras de semestre y se pierde la forma del avance.
+  - La observación oficial SEP se calla cuando dice «NORMAL / ORDINARIO»: salía
+    en los 28 renglones de una alumna al corriente, y lo que interesa señalar es
+    la excepción —una equivalencia, una revalidación—.
+  - **Trampa que mordió otra vez**: la pantalla cargaba `oferta.plan:id,nombre`.
+    Las columnas que no se piden llegan en NULL, así que `total_creditos`
+    desaparecía —créditos «148» sin el «de 336»— y el promedio se redondeaba con
+    la regla por omisión en vez de la del plan. No falla ni avisa: sólo dice
+    otro número. Se vio comparando el resumen de la pantalla contra el del
+    servicio; lo fija `MiKardexTest`.
 - **Asistencia con dos columnas de faltas**: la rejilla está recortada al mes,
   así que su total contesta «¿cómo le fue en noviembre?». Lo que decide el
   derecho a examen es el acumulado del curso, y había que ir mes por mes
@@ -636,10 +665,7 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
 - No hay panel para la app central (landlord): `super_admins` existe pero sin
   interfaz ni guard propio.
 
-- **El portal del alumno ya existe** (`/mis-cursos`, su detalle y el aula), pero
-  todavía no tiene kárdex propio ni estado de cuenta: para ver su historial
-  académico o lo que debe sigue dependiendo de que alguien se lo consulte desde
-  control escolar o finanzas.
+
 - **El portal del TUTOR muestra, no opera.** La regla «alumnos y padres sólo
   suben documentos, no los validan» está implementada y probada en el backend;
   la pantalla del padre (`/mis-hijos`) consulta, pero la subida de documentos

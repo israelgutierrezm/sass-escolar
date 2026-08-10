@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Http\Controllers\AlumnoController;
+use App\Services\KardexDelAlumno;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\Historial;
 use Tests\Concerns\CreaEscuelaDePrueba;
@@ -26,13 +26,13 @@ class KardexEnCursoTest extends TenantTestCase
 {
     use CreaEscuelaDePrueba;
 
-    private AlumnoController $controlador;
+    private KardexDelAlumno $kardex;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->controlador = app(AlumnoController::class);
+        $this->kardex = app(KardexDelAlumno::class);
     }
 
     public function test_una_materia_inscrita_sin_acta_aparece_en_curso(): void
@@ -117,7 +117,10 @@ class KardexEnCursoTest extends TenantTestCase
             ->where('matricula_oferta_id', $matriculaId)
             ->get();
 
-        return $this->controlador->materiasEnCurso($alumno, $historial);
+        // El cálculo vive en `KardexDelAlumno` desde que el kárdex se
+        // compartió con el portal del alumno; antes era un método público del
+        // controlador de administración.
+        return $this->kardex->materiasEnCurso($alumno, $historial)->all();
     }
 
     private function inscribir(int $matricula, int $asignaturaGrupo, int $ciclo, ?int $situacion = null): int

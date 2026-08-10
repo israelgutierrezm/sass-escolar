@@ -40,6 +40,7 @@ use App\Services\MatriculadorOferta;
 use App\Models\Academico\Modalidad;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
+use App\Services\KardexDelAlumno;
 use App\Services\Suplantador;
 use App\Support\Creditos;
 use Illuminate\Http\Request;
@@ -65,6 +66,8 @@ use RuntimeException;
  */
 class AlumnoController extends Controller
 {
+    public function __construct(private readonly KardexDelAlumno $kardex) {}
+
     /** Plantilla de carga masiva de alumnos (variante «calificaciones» opcional). */
     public function plantillaCarga(Request $request, \App\Services\Excel\PlantillaAlumnos $plantilla): \Symfony\Component\HttpFoundation\BinaryFileResponse
     {
@@ -256,39 +259,11 @@ class AlumnoController extends Controller
             'tituloAntecedente',
         ]);
 
-        $historial = Historial::query()
-            ->with([
-                'planMateria.asignatura:id,nombre,creditos',
-                'ciclo:id,clave',
-                'estatus:id,clave,nombre',
-                'tipoEvaluacion:id,nombre',
-                'observacion:id,nombre',
-                'observacionAsignatura:id,nombre',
-            ])
-            ->where('matricula_oferta_id', $alumno->id)
-            ->get()
-            ->sortBy([['ciclo.clave', 'asc'], ['planMateria.clave_en_plan', 'asc']])
-            ->values();
-
-        // Una materia puede aparecer varias veces (ordinario, a título…). Para
-        // las estadísticas —promedio, créditos, conteos— cada materia se colapsa
-        // a su MEJOR intento (la calificación más alta). El kárdex sí muestra
-        // todos los renglones; esto solo alimenta los totales.
-        $mejores = $historial
-            ->filter(fn (Historial $h) => $h->plan_materia_id !== null)
-            ->groupBy('plan_materia_id')
-            ->map(fn ($intentos) => $intentos->sortByDesc(fn (Historial $h) => (float) ($h->calificacion ?? -1))->first())
-            ->values();
-
-        $aprobadas = $mejores->filter(fn (Historial $h) => $h->estatus?->clave === 'aprobada');
-
-        // Disponible para certificar: aprobó todas las materias que el plan
-        // exige para completarse (`minimo_asignaturas`). Se mide por conteo de
-        // materias distintas aprobadas; los créditos/promedio no bastan (podría
-        // faltar una materia). Si el plan no fija el mínimo, se cae al número de
-        // materias cargadas en su malla.
-        $metaMaterias = (int) ($alumno->oferta?->plan?->minimo_asignaturas
-            ?: PlanMateria::query()->where('plan_id', $alumno->oferta?->plan_id)->count());
+        // El kárdex lo arma `KardexDelAlumno`: lo miran también el alumno
+        // desde su portal y el padre desde el suyo, y tiene que dar el mismo
+        // promedio en los tres sitios.
+        $renglones = $this->kardex->renglones($alumno);
+        $resumen = $this->kardex->resumen($alumno);
 
         return Inertia::render('Alumnos/Detalle', [
             'alumno' => [
@@ -394,45 +369,8 @@ class AlumnoController extends Controller
             'suplantable' => app(Suplantador::class)->datosPara($request, $alumno->persona),
             'situacionesDeBaja' => app(MatriculadorOferta::class)->situacionesDeBaja()
                 ->map(fn ($s) => ['id' => $s->id, 'nombre' => $s->nombre]),
-            'historial' => $historial->map(fn (Historial $h) => [
-                'id' => $h->id,
-                'plan_materia_id' => $h->plan_materia_id,
-                'clave_en_plan' => $h->planMateria?->clave_en_plan,
-                'materia' => $h->planMateria?->asignatura?->nombre,
-                'creditos' => $h->planMateria?->asignatura?->creditos,
-                // El periodo (grado) de la materia en el plan: agrupa el kárdex.
-                'periodo' => $h->planMateria?->periodo,
-                'ciclo' => $h->ciclo?->clave,
-                'calificacion' => $h->calificacion,
-                'estatus' => $h->estatus?->nombre,
-                'estatus_clave' => $h->estatus?->clave,
-                'tipo_evaluacion' => $h->tipoEvaluacion?->nombre,
-                'acta_folio' => $h->acta_folio,
-                'observacion' => $h->observacion?->nombre,
-                // Estatus académico oficial SEP (equivalencia, revalidación…).
-                'observacion_asignatura' => $h->observacionAsignatura?->nombre,
-                // Renglón cargado a mano (sin acta): se puede retirar desde aquí.
-                'manual' => $h->acta_id === null,
-                'en_curso' => false,
-            ])->concat($this->materiasEnCurso($alumno, $historial))->values(),
-            'resumen' => [
-                // Conteos y créditos sobre el MEJOR intento por materia (no por
-                // renglón): una materia aprobada por título tras tronar el
-                // ordinario cuenta una vez, y como aprobada.
-                'materias_cursadas' => $mejores->count(),
-                'aprobadas' => $aprobadas->count(),
-                'reprobadas' => $mejores->filter(fn (Historial $h) => $h->estatus?->clave === 'reprobada')->count(),
-                // La misma suma que el portal del padre y el certificado: tres
-                // copias con dos precisiones distintas daban tres cifras.
-                'creditos' => Creditos::sumar($aprobadas),
-                'promedio' => $this->promedio($mejores, $alumno->oferta?->plan),
-                'creditos_del_plan' => $alumno->oferta?->plan?->total_creditos,
-                'materias_para_completar' => $metaMaterias,
-                // Cerró el plan: aprobó al menos las materias que exige.
-                'disponible_certificar' => $metaMaterias > 0 && $aprobadas->count() >= $metaMaterias,
-                // Tiene avance pero NO cerró el plan: le toca certificado parcial.
-                'disponible_parcial' => $metaMaterias > 0 && $aprobadas->count() > 0 && $aprobadas->count() < $metaMaterias,
-            ],
+            'historial' => $renglones,
+            'resumen' => $resumen,
             // Estado de certificación de ESTA matrícula: si ya tiene certificado
             // emitido (con su XML), o está pendiente dentro de un lote. Más los
             // lotes abiertos a los que se le puede agregar desde el expediente.
@@ -1012,82 +950,6 @@ class AlumnoController extends Controller
                 ->orWhereRaw("CONCAT_WS(' ', nombre, primer_apellido, segundo_apellido) LIKE ?", [$like])));
     }
 
-    /**
-     * Materias que lleva por ciclo, de la más reciente hacia atrás.
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    /**
-     * Las materias que el alumno está cursando AHORA, como renglones del kárdex.
-     *
-     * ── Por qué no se escriben en `historial` ──────────────────────────────
-     * El historial es el documento: de ahí salen el promedio, los créditos, la
-     * elegibilidad para certificar y el XML que se manda a la SEP. Sembrarlo con
-     * renglones sin calificación obligaría a que cada consulta se acordara de
-     * excluirlos, y bastaría una que no lo hiciera para reportar un promedio
-     * falso. Se calculan al vuelo, no se guardan: el kárdex es una pantalla y el
-     * historial sigue siendo lo asentado.
-     *
-     * ── Qué se muestra ─────────────────────────────────────────────────────
-     * Las inscripciones vigentes —una baja dejó de cursarse— cuya materia
-     * todavía no tiene renglón asentado EN ESE MISMO CICLO. El par materia+ciclo
-     * y no sólo la materia: quien recursa algo que reprobó en 2025 tiene un
-     * renglón viejo con su calificación y está cursándola de nuevo ahora, y las
-     * dos cosas son ciertas a la vez.
-     *
-     * Público sólo para poder ejercitarlo desde las pruebas: `show()` arma media
-     * pantalla y montarla entera para verificar cuatro renglones haría la prueba
-     * ilegible.
-     *
-     * @param  \Illuminate\Support\Collection<int, Historial>  $historial
-     * @return array<int, array<string, mixed>>
-     */
-    public function materiasEnCurso(MatriculaOferta $alumno, $historial): array
-    {
-        // Lo ya asentado, por materia y ciclo: es lo que NO se vuelve a mostrar.
-        $asentadas = $historial
-            ->map(fn (Historial $h) => $h->plan_materia_id.'-'.$h->ciclo_id)
-            ->flip();
-
-        return Inscripcion::query()
-            ->with([
-                'asignaturaGrupo.planMateria.asignatura:id,nombre,creditos',
-                'ciclo:id,clave',
-                'situacion:id,clave,nombre',
-            ])
-            ->where('matricula_oferta_id', $alumno->id)
-            ->get()
-            ->reject(fn (Inscripcion $i) => $i->situacion?->clave === 'baja')
-            ->reject(fn (Inscripcion $i) => $asentadas->has(
-                $i->asignaturaGrupo?->plan_materia_id.'-'.$i->ciclo_id,
-            ))
-            ->map(fn (Inscripcion $i) => [
-                // Prefijo para no chocar con los ids de `historial`: en el
-                // frontend los dos viven en la misma lista.
-                'id' => 'curso-'.$i->id,
-                'plan_materia_id' => $i->asignaturaGrupo?->plan_materia_id,
-                'clave_en_plan' => $i->asignaturaGrupo?->planMateria?->clave_en_plan,
-                'materia' => $i->asignaturaGrupo?->planMateria?->asignatura?->nombre,
-                'creditos' => $i->asignaturaGrupo?->planMateria?->asignatura?->creditos,
-                'periodo' => $i->asignaturaGrupo?->planMateria?->periodo,
-                'ciclo' => $i->ciclo?->clave,
-                // Sin calificación: la que lleve acumulada es provisional y vive
-                // en «Carga por ciclo». El kárdex sólo dice lo definitivo.
-                'calificacion' => null,
-                'estatus' => 'En curso',
-                'estatus_clave' => 'en_curso',
-                'tipo_evaluacion' => null,
-                'acta_folio' => null,
-                'observacion' => null,
-                'observacion_asignatura' => null,
-                // No se retira desde aquí: se da de baja en Inscripciones.
-                'manual' => false,
-                'en_curso' => true,
-            ])
-            ->values()
-            ->all();
-    }
-
     private function cargaPorCiclo(MatriculaOferta $alumno): array
     {
         return Inscripcion::query()
@@ -1192,27 +1054,5 @@ class AlumnoController extends Controller
                 'no_cedula' => $ant?->no_cedula,
             ],
         ];
-    }
-
-    /**
-     * El promedio, en la precisión que manda el plan.
-     *
-     * Se redondeaba a dos decimales fijos, así que un plan que califica con
-     * enteros —y que rechaza capturar un 8.5— enseñaba un promedio de 8.33.
-     * El plan dice con cuántos decimales se califica y qué se hace con lo que
-     * sobra; aquí sólo se le pregunta.
-     */
-    private function promedio($historial, ?PlanEstudio $plan): ?float
-    {
-        $conCalificacion = $historial->filter(fn (Historial $h) => $h->calificacion !== null);
-
-        if ($conCalificacion->isEmpty()) {
-            return null;
-        }
-
-        return PlanEstudio::redondearCon(
-            $plan,
-            (float) $conCalificacion->avg(fn (Historial $h) => (float) $h->calificacion),
-        );
     }
 }

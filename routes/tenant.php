@@ -71,6 +71,7 @@ use App\Http\Controllers\InscripcionController;
 use App\Http\Controllers\InstitucionController;
 use App\Http\Controllers\MenuRolController;
 use App\Http\Controllers\MisAvisosController;
+use App\Http\Controllers\MiKardexController;
 use App\Http\Controllers\MisCursosController;
 use App\Http\Controllers\OfertaController;
 use App\Http\Controllers\PadreController;
@@ -1345,6 +1346,19 @@ Route::middleware([
          * entrar y la PERTENENCIA —sus propias matrículas— decide qué ve. El
          * controlador resuelve el alcance; la ruta no puede.
          */
+        /*
+         * Su propio kárdex.
+         *
+         * Cuelga de `ver-kardex`, que el rol alumno YA tenía sin tener dónde
+         * ejercerlo: el único kárdex del sistema vivía en el expediente de
+         * control escolar, detrás de `ver-alumnos` —un permiso de personal que
+         * abre el listado de toda la escuela—. La matrícula sale de la sesión,
+         * así que la ruta no lleva id y no hay dónde escribir el de otro.
+         */
+        Route::get('mi-kardex', MiKardexController::class)
+            ->middleware('can:ver-kardex')
+            ->name('tenant.mikardex');
+
         Route::controller(MisCursosController::class)
             ->prefix('mis-cursos')->name('tenant.miscursos.')
             ->middleware('can:ver-mis-cursos')
