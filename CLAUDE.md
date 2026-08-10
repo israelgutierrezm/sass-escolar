@@ -169,18 +169,15 @@ Cinco entregas, en este orden. A y B ✅ hechas; C, D y E pendientes:
   creó sobre `(matricula_oferta_id, regla_id, periodo_etiqueta)`;
   `reorganiza_planes_cobro` eliminó `regla_id` y el único quedó en
   `(matricula_oferta_id, periodo_etiqueta)` —dos columnas, mucho más estricto:
-  una matrícula admite UN solo cargo por periodo—. Comprobado insertando contra
-  la base real: el segundo cargo del mismo periodo responde
-  `Duplicate entry '431-PRUEBA-2026-1'`.
-  **Hoy no revienta** porque ningún plan del demo tiene dos líneas del mismo
-  mes/año (5 planes, 10 líneas, medido), y `generarCargos` comprueba por
-  `concepto_plan_id` —que ya no está en el índice—, así que la idempotencia
-  descansa sólo en el `SELECT` previo. Reventará el día que alguien configure
-  «Inscripción agosto» y «Colegiatura agosto» en el mismo plan, que es una
-  configuración normal. El índice correcto es
-  `(matricula_oferta_id, concepto_plan_id, periodo_etiqueta)`, y rehacerlo
-  EMPIEZA por una foránea: hay que usar `IndiceQueSostieneUnaFk::reemplazar()`
-  o el drop falla con «needed in a foreign key constraint».
+  una matrícula admitía UN solo cargo por periodo, así que un plan con
+  «Inscripción agosto» y «Colegiatura agosto» reventaba con `Duplicate entry`—.
+  **Ya reparado** (`repara_unico_de_generacion_de_adeudos`): ahora es
+  `adeudos_generacion_unica` sobre
+  `(matricula_oferta_id, concepto_plan_id, periodo_etiqueta)`, que es la terna
+  por la que pregunta `generarCargos`, así que la idempotencia por fin tiene red
+  debajo y no depende sólo del `SELECT` previo. El nuevo se creó ANTES de tirar
+  el viejo: los dos empiezan por `matricula_oferta_id`, que es foránea, y al
+  revés el `DROP` habría fallado con «needed in a foreign key constraint».
 - **No se indexan las foráneas «por si acaso».** Un índice de más se paga en
   cada escritura, para siempre, a cambio de un problema que aparece solo al
   cambiar el esquema. Se paga cuando hace falta.
@@ -634,6 +631,25 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     los créditos, la emisión por carrera y el contrato del WS.
   - Lo único que falta es de tu lado, no de código: la **e.firma** de la escuela
     y el **WSDL de producción** de la SEP.
+- **Generación de cargos en bloque** (`finanzas:generar-cargos`, diario a las
+  2:45): `GeneradorAdeudos::generarParaTodas` recorre plan por plan —no alumno
+  por alumno, para no releer las mismas líneas una vez por asignado— y en
+  bloques de 200 con `chunkById`, porque esto corre de madrugada y quedarse sin
+  memoria a la mitad dejaría media cartera emitida.
+  - **Comando aparte de `finanzas:evaluar`, y antes que él.** Antes porque no se
+    puede recargar por mora un cargo que no existe ni decidir quién es deudor
+    sin haberlo emitido. Aparte porque esto CREA DEUDA y aquél sólo recalcula la
+    que ya hay: esconder un cobro dentro de un comando llamado «evaluar» es como
+    se llega a que nadie sepa de dónde salió un adeudo.
+  - **Un plan roto no cancela a los demás.** Se aísla cada plan y se reportan los
+    que fallan. Hizo falta de verdad: los dos planes del demo apuntan a un
+    `ciclo_id` que ya no está en `ciclos` —restos de una resiembra con las
+    comprobaciones de foránea apagadas, porque la foránea sí existe— y el primer
+    cargo revienta. Sin aislar, esa sola fila dejaba a la escuela ENTERA sin
+    emitir y el reporte decía «ok».
+  - Requirió antes reparar el único de `adeudos`; ver la trampa de la columna
+    soltada. Lo cubren 6 pruebas, incluidas las dos líneas del mismo mes y el
+    plan roto.
 - **Kárdex del alumno** (`/mi-kardex`): `ver-kardex` lo tenía el rol alumno
   desde siempre, pero el único kárdex del sistema vivía dentro del expediente de
   control escolar, detrás de `ver-alumnos` —permiso de personal que abre el
@@ -671,18 +687,7 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
 mandó a construir cosas que estaban hechas: la titulación SEP y el estado de
 cuenta del alumno.)*
 
-1. **Generar los cargos del periodo en bloque.** Es lo único que falta del
-   trabajo de cola, y está a medias: el barrido diario ya existe
-   —`finanzas:evaluar`, a las 3:00 desde `routes/console.php`, recorriendo
-   todos los tenants— pero sólo hace becas por atraso, recargos y estatus de
-   deudor. Generar los cargos no lo hace nadie: `GeneradorAdeudos` sólo tiene
-   `generarPara(MatriculaOferta)`, una matrícula a la vez. El
-   `generarParaTodas` que decía este archivo NO EXISTE —verificado en `app/`,
-   `tests/`, `scripts/` y `routes/`—.
-   **Antes de construirlo hay que rehacer el índice único de `adeudos`**: ver la
-   trampa de la columna soltada, más abajo. Un barrido en bloque es justo lo que
-   lo destapa, porque toca todos los planes de todas las escuelas.
-2. Fase 4.
+1. Fase 4.
 
 **Deuda conocida:**
 

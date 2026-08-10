@@ -12,6 +12,7 @@ use App\Models\Finanzas\PlanCobro;
 use App\Models\Finanzas\PlanCobroAlumno;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 /**
  * El motor de cobro: convierte las líneas del plan en los cargos del alumno.
@@ -188,6 +189,83 @@ class GeneradorAdeudos
         }
 
         return $tocados;
+    }
+
+    /**
+     * Genera lo que falte para TODA la escuela, plan por plan.
+     *
+     * ── Por qué se recorre por plan y no por alumno ────────────────────────
+     * Un plan trae sus líneas una vez y sirve para sus cientos de asignados. Al
+     * revés —recorriendo matrículas y preguntándole a cada una por sus planes—
+     * se vuelve a leer el mismo plan y sus mismas líneas una vez por alumno, que
+     * es lo que hace `generarPara` porque para una sola matrícula da igual.
+     *
+     * ── Por qué no carga las matrículas de golpe ───────────────────────────
+     * Se recorre en bloques con `chunkById`. Una escuela con miles de alumnos no
+     * cabe en memoria de una sentada, y esto corre de madrugada sin nadie
+     * mirando: quedarse sin memoria a la mitad dejaría media cartera generada y
+     * media no, sin que nadie se entere hasta el corte.
+     *
+     * Es idempotente como el resto del motor —`generarCargos` comprueba la
+     * pareja (matrícula, línea) antes de crear— y desde la migración del único
+     * de generación, la base lo sostiene además del `SELECT`.
+     *
+     * ── Un plan roto no cancela a los demás ────────────────────────────────
+     * Cada plan se aísla, igual que el barrido aísla cada tenant. No es una
+     * precaución teórica: la escuela de ejemplo tiene sus dos planes apuntando a
+     * un `ciclo_id` que ya no está en `ciclos` —restos de una resiembra con las
+     * comprobaciones de foránea apagadas, porque la foránea sí existe—, y el
+     * primer cargo revienta. Sin aislar, esa sola fila dejaría a la escuela
+     * ENTERA sin emitir, de madrugada y sin nadie mirando. Lo que falla se
+     * devuelve para que el comando lo enseñe en vez de reportar un «ok» con los
+     * cargos de menos.
+     *
+     * Un plan que falla a la mitad deja emitido lo que alcanzó. No es un
+     * problema: la siguiente corrida completa el resto, porque generar es
+     * idempotente.
+     *
+     * @return array{planes: int, matriculas: int, cargos: int, fallidos: array<int, array{plan: int, motivo: string}>}
+     */
+    public function generarParaTodas(): array
+    {
+        $planes = PlanCobro::query()->with(['conceptos', 'ciclo'])->get();
+
+        $matriculas = 0;
+        $cargos = 0;
+        $conAsignados = 0;
+        $fallidos = [];
+
+        foreach ($planes as $plan) {
+            $asignados = MatriculaOferta::query()
+                ->whereIn('id', PlanCobroAlumno::query()
+                    ->where('plan_cobro_id', $plan->id)
+                    ->where('estatus', PlanCobroAlumno::ACTIVO)
+                    ->select('matricula_oferta_id'));
+
+            if (! $asignados->exists()) {
+                continue;
+            }
+
+            $conAsignados++;
+
+            try {
+                $asignados->chunkById(200, function ($lote) use ($plan, &$matriculas, &$cargos) {
+                    foreach ($lote as $matricula) {
+                        $matriculas++;
+                        $cargos += $this->generarCargos($plan, $matricula);
+                    }
+                });
+            } catch (Throwable $e) {
+                $fallidos[] = ['plan' => $plan->id, 'motivo' => $e->getMessage()];
+            }
+        }
+
+        return [
+            'planes' => $conAsignados,
+            'matriculas' => $matriculas,
+            'cargos' => $cargos,
+            'fallidos' => $fallidos,
+        ];
     }
 
     /** Vuelve a generar lo que falte para todos los planes activos del alumno. */

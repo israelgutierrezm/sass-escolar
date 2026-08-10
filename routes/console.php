@@ -18,6 +18,26 @@ Artisan::command('inspire', function () {
  * corridas se pisen si una se alarga; `onOneServer` lo deja listo para cuando
  * haya más de un servidor.
  */
+/*
+ * Antes del barrido: emitir los cargos que falten de cada plan.
+ *
+ * A las 2:45 y no dentro de `finanzas:evaluar` a propósito. Va antes porque no
+ * se puede recargar por mora un cargo que todavía no existe ni decidir quién es
+ * deudor sin haberlo emitido; y va SEPARADO porque esto crea deuda y aquél sólo
+ * recalcula la que ya hay —esconder un cobro dentro de un comando llamado
+ * «evaluar» es como se llega a que nadie sepa de dónde salió un adeudo—.
+ *
+ * Los quince minutos de margen no son una carrera contra el reloj: si el
+ * generador se alarga, `withoutOverlapping` impide que dos corridas suyas se
+ * pisen, y lo peor que pasa es que unos cargos se emitan después del barrido y
+ * su recargo entre al día siguiente.
+ */
+Schedule::command('finanzas:generar-cargos')
+    ->dailyAt('02:45')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->runInBackground();
+
 Schedule::command('finanzas:evaluar')
     ->dailyAt('03:00')
     ->withoutOverlapping()
