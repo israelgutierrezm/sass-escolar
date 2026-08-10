@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Models\Admisiones\MatriculaOferta;
+use App\Models\Finanzas\IntencionCobro;
 use App\Models\Finanzas\PasarelaPago;
 use App\Models\Tenant;
 use App\Services\Pagos\Pasarelas;
 use App\Support\PasarelasCatalogo;
+use App\Support\UrlPublica;
 use Illuminate\Console\Command;
 use Throwable;
-use App\Support\UrlPublica;
 
 /**
  * Comprueba que una pasarela puede cobrar de verdad, ANTES de que lo descubra
@@ -134,21 +136,21 @@ class ProbarPasarelaPago extends Command
         } finally {
             // Un intento de diagnóstico no es un cobro pendiente de nadie.
             $intencion->update([
-                'estado' => \App\Models\Finanzas\IntencionCobro::CANCELADA,
+                'estado' => IntencionCobro::CANCELADA,
                 'resuelta_en' => now(),
             ]);
         }
     }
 
-    private function intencionDePrueba(string $clave, string $ambiente): ?\App\Models\Finanzas\IntencionCobro
+    private function intencionDePrueba(string $clave, string $ambiente): ?IntencionCobro
     {
-        $matricula = \App\Models\Admisiones\MatriculaOferta::query()->value('id');
+        $matricula = MatriculaOferta::query()->value('id');
 
         if ($matricula === null) {
             return null;
         }
 
-        return \App\Models\Finanzas\IntencionCobro::create([
+        return IntencionCobro::create([
             'matricula_oferta_id' => $matricula,
             'pasarela' => $clave,
             'ambiente' => $ambiente,

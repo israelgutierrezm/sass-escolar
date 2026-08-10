@@ -23,7 +23,7 @@ class CorreoService
     /**
      * Deja el mailer de Laravel apuntando a la cuenta de la escuela.
      *
-     * @return bool  si se aplicó una configuración utilizable
+     * @return bool si se aplicó una configuración utilizable
      */
     public function aplicar(): bool
     {

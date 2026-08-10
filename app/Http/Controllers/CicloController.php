@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Exceptions\AvisoParaElUsuario;
-
 use App\Models\Academico\Campus;
 use App\Models\Academico\NivelEstudio;
 use App\Models\ControlEscolar\Ciclo;
@@ -346,7 +345,7 @@ class CicloController extends Controller
             ->exists();
 
         if ($repetida) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'numero_periodo' => "Ya existe el ciclo {$validados['clave']} en la escuela.",
             ]);
         }
@@ -372,7 +371,7 @@ class CicloController extends Controller
                 ->get(['id', 'nombre']),
             'situaciones' => SituacionCiclo::query()->orderBy('id')->get(['id', 'nombre']),
             // Para acotar (opcionalmente) el ciclo a un nivel de estudios.
-            'niveles' => \App\Models\Academico\NivelEstudio::query()->orderBy('orden')->get(['id', 'nombre']),
+            'niveles' => NivelEstudio::query()->orderBy('orden')->get(['id', 'nombre']),
             'alcanceAcotado' => $alcance !== null,
         ];
     }

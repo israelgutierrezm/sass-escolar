@@ -19,6 +19,7 @@ use App\Models\Lms\Entrega;
 use App\Services\CalendarioCaptura;
 use App\Services\Lms\SalaDeMateria;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -198,7 +199,7 @@ class DocenciaController extends Controller
      * faltas— y además deja navegar un curso que cruza el año, de noviembre a
      * febrero, sin tratar cada año como un mundo aparte.
      *
-     * @param  \Illuminate\Support\Collection<int, int>  $ids
+     * @param  Collection<int, int>  $ids
      * @return array<string, mixed>
      */
     private function rejillaDeAsistencia(Request $request, $ids): array
@@ -298,7 +299,7 @@ class DocenciaController extends Controller
      * La fecha llega por la URL para que recargar no pierda el día que se
      * estaba pasando, y por omisión es hoy —que es cuando se pasa lista—.
      *
-     * @param  \Illuminate\Support\Collection<int, Inscripcion>  $inscripciones
+     * @param  Collection<int, Inscripcion>  $inscripciones
      * @return array<string, mixed>
      */
     private function datosAsistencia(Request $request, AsignaturaGrupo $asignaturaGrupo, $inscripciones): array
@@ -371,7 +372,7 @@ class DocenciaController extends Controller
      * sus alumnos, no sus actividades. Cruzarla en el navegador obligaría a
      * mandar las entregas sueltas y rearmarlas ahí.
      *
-     * @param  \Illuminate\Support\Collection<int, Inscripcion>  $inscripciones
+     * @param  Collection<int, Inscripcion>  $inscripciones
      * @return array<string, mixed>
      */
     private function datosLms(AsignaturaGrupo $asignaturaGrupo, $inscripciones): array
@@ -506,7 +507,7 @@ class DocenciaController extends Controller
      * un docente con ocho grupos haría veinticuatro viajes a la base cada vez
      * que abre su listado.
      *
-     * @param  \Illuminate\Support\Collection<int, int>  $materiaIds
+     * @param  Collection<int, int>  $materiaIds
      * @return array<int, array<string, mixed>>
      */
     private function pendientesPorMateria($materiaIds, int $personaId): array
@@ -559,7 +560,7 @@ class DocenciaController extends Controller
     /**
      * Mensajes que le escribieron y no ha leído, por materia.
      *
-     * @param  \Illuminate\Support\Collection<int, int>  $materiaIds
+     * @param  Collection<int, int>  $materiaIds
      * @return array<int, int>
      */
     private function sinLeerPorMateria($materiaIds, int $personaId): array

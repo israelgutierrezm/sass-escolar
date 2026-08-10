@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models\Emision;
 
 use App\Models\Concerns\TieneAuditoria;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -70,13 +71,13 @@ class Responsable extends Model
         return $this->hasOne(CertificadoResponsable::class)->where('vigente', true)->latestOfMany();
     }
 
-    /** @param  \Illuminate\Database\Eloquent\Builder<Responsable>  $query */
+    /** @param  Builder<Responsable>  $query */
     public function scopeDeTipo($query, int $tipoId)
     {
         return $query->where('tipo_responsable_id', $tipoId);
     }
 
-    /** @param  \Illuminate\Database\Eloquent\Builder<Responsable>  $query */
+    /** @param  Builder<Responsable>  $query */
     public function scopeActivos($query)
     {
         return $query->where('activo', true);

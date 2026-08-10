@@ -6,6 +6,7 @@ namespace App\Models\Emision;
 
 use App\Enums\EstadoLoteCertificacion;
 use App\Models\Concerns\TieneAuditoria;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -22,6 +23,7 @@ class LoteCertificacion extends Model
     protected $table = 'lotes_certificacion';
 
     public const TOTAL = 'total';
+
     public const PARCIAL = 'parcial';
 
     protected $fillable = [
@@ -59,7 +61,7 @@ class LoteCertificacion extends Model
         return $this->belongsTo(CertificadoResponsable::class, 'certificado_responsable_id');
     }
 
-    /** @param  \Illuminate\Database\Eloquent\Builder<LoteCertificacion>  $query */
+    /** @param  Builder<LoteCertificacion>  $query */
     public function scopeAbiertos($query)
     {
         return $query->where('estado', EstadoLoteCertificacion::Borrador->value);

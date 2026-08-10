@@ -22,6 +22,7 @@ class TitulacionWsConfig extends Model
     protected $table = 'titulacion_ws_config';
 
     public const ETAPA_PRUEBAS = 'pruebas';
+
     public const ETAPA_PRODUCCION = 'produccion';
 
     /** @var array<string, string> */

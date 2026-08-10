@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Identidad\Persona;
-use App\Models\Landlord\IdentidadFederativa;
+use App\Models\Identidad\Usuario;
 use App\Models\Landlord\Genero;
+use App\Models\Landlord\IdentidadFederativa;
 use App\Models\Landlord\Pais;
 use App\Models\Landlord\Sexo;
 use App\Support\Curp;
@@ -223,7 +224,7 @@ class IdentidadPersona
         // `usuarios` (login). Se unen, se descarta la que se está escribiendo, y
         // la primera que quede es el conflicto.
         $ids = Persona::query()->whereRaw('lower(email) = ?', [$email])->pluck('id')
-            ->merge(\App\Models\Identidad\Usuario::query()->whereRaw('lower(email) = ?', [$email])->pluck('persona_id'))
+            ->merge(Usuario::query()->whereRaw('lower(email) = ?', [$email])->pluck('persona_id'))
             ->unique()
             ->reject(fn ($id) => $excluirPersonaId !== null && (int) $id === $excluirPersonaId);
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Emision;
 
 use App\Http\Controllers\Controller;
+use App\Models\Academico\NivelEstudio;
 use App\Models\Admisiones\MatriculaOferta;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -76,7 +77,7 @@ class DatosTituloController extends Controller
             return false;
         }
 
-        $idTipo = \App\Models\Academico\NivelEstudio::withTrashed()->whereKey($nivelId)->value('identificador_titulo');
+        $idTipo = NivelEstudio::withTrashed()->whereKey($nivelId)->value('identificador_titulo');
 
         return in_array((int) $idTipo, [1, 2], true); // 1 = Maestría, 2 = Licenciatura
     }

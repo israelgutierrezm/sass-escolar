@@ -6,6 +6,7 @@ namespace App\Models\Emision;
 
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Concerns\TieneAuditoria;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -22,7 +23,9 @@ class Titulacion extends Model
     protected $table = 'titulaciones';
 
     public const PENDIENTE = 'pendiente';
+
     public const TITULADO = 'titulado';
+
     public const ERROR = 'error';
 
     protected $fillable = [
@@ -67,7 +70,7 @@ class Titulacion extends Model
         return $this->estado === self::TITULADO;
     }
 
-    /** @param  \Illuminate\Database\Eloquent\Builder<Titulacion>  $query */
+    /** @param  Builder<Titulacion>  $query */
     public function scopeEmitidas($query)
     {
         return $query->where('estado', self::TITULADO);

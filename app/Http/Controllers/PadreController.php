@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Exceptions\AvisoParaElUsuario;
-
 use App\Models\Academico\PlanEstudio;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\Historial;
@@ -15,8 +14,8 @@ use App\Models\Identidad\BitacoraAcceso;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\TutorAlumno;
 use App\Services\EstadoCuenta;
-use App\Services\Pagos\Pasarelas;
 use App\Services\EstadoDelAlumno;
+use App\Services\Pagos\Pasarelas;
 use App\Support\Creditos;
 use Illuminate\Http\Request;
 use Inertia\Inertia;

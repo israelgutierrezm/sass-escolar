@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Exceptions\AvisoParaElUsuario;
-
 use App\Http\Controllers\Concerns\AcotaPorCampus;
 use App\Http\Controllers\Concerns\VeLaCarteraDelAlumno;
 use App\Models\Admisiones\MatriculaOferta;
@@ -17,14 +15,12 @@ use App\Models\Finanzas\Factura;
 use App\Models\Finanzas\MetodoPago;
 use App\Models\Finanzas\Pago;
 use App\Models\Finanzas\SituacionPago;
-use App\Models\Identidad\TutorAlumno;
 use App\Services\CalculadorRecargos;
 use App\Services\EstadoCuenta;
 use App\Services\GeneradorAdeudos;
 use App\Services\Pagos\Pasarelas;
 use App\Services\RegistradorPago;
 use App\Services\ResolutorPlanCobro;
-use App\Support\CatalogoPermisos;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;

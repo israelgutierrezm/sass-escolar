@@ -11,6 +11,8 @@ use App\Models\Academico\NivelEstudio;
 use App\Models\Academico\TipoAsignatura;
 use App\Models\Academico\TipoCampus;
 use App\Models\Academico\TipoPeriodo;
+use App\Models\Landlord\EntidadFederativa;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
@@ -39,7 +41,7 @@ class PlantillaAcademica
      */
     public function completa(): string
     {
-        $libro = new Spreadsheet();
+        $libro = new Spreadsheet;
         $libro->removeSheetByIndex(0);
 
         $rangos = $this->hojaListas($libro);
@@ -63,7 +65,7 @@ class PlantillaAcademica
         $this->hoja($libro, 'Campus', [
             ['Clave *', null], ['Nombre *', null], ['Institución (clave)', null],
             ['Entidad federativa', $rangos['entidades']], ['Tipo de campus', $rangos['tiposCampus']],
-        ], ['CEN', 'Campus Central', 'IPES-DEMO', $this->primero(\App\Models\Landlord\EntidadFederativa::class), $this->primero(TipoCampus::class)]);
+        ], ['CEN', 'Campus Central', 'IPES-DEMO', $this->primero(EntidadFederativa::class), $this->primero(TipoCampus::class)]);
 
         $this->hoja($libro, 'Carreras', [
             ['Identificador *', null], ['Clave *', null], ['Nombre *', null], ['Nivel *', $rangos['niveles']],
@@ -97,7 +99,7 @@ class PlantillaAcademica
      */
     public function asignaturasDePlan(string $nombrePlan): string
     {
-        $libro = new Spreadsheet();
+        $libro = new Spreadsheet;
         $libro->removeSheetByIndex(0);
 
         $rangos = $this->hojaListas($libro);
@@ -143,7 +145,7 @@ class PlantillaAcademica
             'G' => ['siNo', ['Sí', 'No']],
             'H' => ['ubicacion', ['Obligatoria', 'Optativa', 'Tronco común']],
             'I' => ['autorizaciones', AutorizacionReconocimiento::query()->orderBy('nombre')->pluck('nombre')->all()],
-            'J' => ['entidades', \App\Models\Landlord\EntidadFederativa::query()->orderBy('nombre')->pluck('nombre')->all()],
+            'J' => ['entidades', EntidadFederativa::query()->orderBy('nombre')->pluck('nombre')->all()],
         ];
 
         $rangos = [];
@@ -241,7 +243,7 @@ class PlantillaAcademica
 
     private function letra(int $indice): string
     {
-        return \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($indice + 1);
+        return Coordinate::stringFromColumnIndex($indice + 1);
     }
 
     private function guardar(Spreadsheet $libro): string

@@ -24,7 +24,9 @@ class Acta extends Model
     use TieneAuditoria;
 
     public const ABIERTA = 'abierta';
+
     public const CERRADA = 'cerrada';
+
     public const CANCELADA = 'cancelada';
 
     protected $table = 'actas';

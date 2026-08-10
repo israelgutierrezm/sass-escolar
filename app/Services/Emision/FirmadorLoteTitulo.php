@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace App\Services\Emision;
 
 use App\Enums\EstadoLoteTitulacion;
+use App\Models\Emision\CertificadoResponsable;
 use App\Models\Emision\LoteTitulacion;
+use App\Models\Emision\Responsable;
 use App\Models\Emision\Titulacion;
 use App\Models\Landlord\ConsumoEmision;
-use App\Services\Emision\CreditosDeEmision;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use PhpCfdi\Credentials\Credential;
@@ -36,8 +37,8 @@ class FirmadorLoteTitulo
     ) {}
 
     /**
-     * @param  array<int, array{responsable: \App\Models\Emision\Responsable, certificado: \App\Models\Emision\CertificadoResponsable, cert_pem: string, key: string, password: string}>  $firmantes
-     *         El primero es el firmante obligatorio (con el que se registra el lote).
+     * @param  array<int, array{responsable: Responsable, certificado: CertificadoResponsable, cert_pem: string, key: string, password: string}>  $firmantes
+     *                                                                                                                                                        El primero es el firmante obligatorio (con el que se registra el lote).
      * @return array{titulados: int, errores: int}
      */
     public function firmar(LoteTitulacion $lote, array $firmantes): array

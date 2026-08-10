@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Exceptions\AvisoParaElUsuario;
-
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Lms\Actividad;
 use App\Models\Lms\Examen;

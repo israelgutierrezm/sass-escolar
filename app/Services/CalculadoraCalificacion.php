@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\Academico\EsquemaEvaluacion;
 use App\Models\Academico\PlanEstudio;
 use App\Models\ControlEscolar\CalificacionComponente;
 use App\Models\ControlEscolar\Inscripcion;
@@ -38,7 +39,7 @@ class CalculadoraCalificacion
     private const EPSILON = 0.01;
 
     /**
-     * @param  Collection<int, \App\Models\Academico\EsquemaEvaluacion>  $esquema
+     * @param  Collection<int, EsquemaEvaluacion>  $esquema
      */
     public function calcular(Inscripcion $inscripcion, Collection $esquema, ?PlanEstudio $plan): ResultadoCalificacion
     {

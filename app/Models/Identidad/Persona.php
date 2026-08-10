@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace App\Models\Identidad;
 
-use App\Models\Concerns\TieneAuditoria;
-use App\Models\Landlord\IdentidadFederativa;
-use App\Models\Landlord\Genero;
-use App\Models\Landlord\Pais;
 use App\Models\Admisiones\MatriculaOferta;
+use App\Models\Concerns\TieneAuditoria;
 use App\Models\ControlEscolar\Docente;
+use App\Models\Finanzas\DatosFacturacion;
+use App\Models\Landlord\Genero;
+use App\Models\Landlord\IdentidadFederativa;
+use App\Models\Landlord\Pais;
 use App\Models\Landlord\Sexo;
 use App\Support\Curp;
 use Illuminate\Database\Eloquent\Model;
@@ -134,7 +135,7 @@ class Persona extends Model
     /** Sus datos de facturación (si quiere factura y a nombre de quién). */
     public function datosFacturacion(): HasOne
     {
-        return $this->hasOne(\App\Models\Finanzas\DatosFacturacion::class, 'persona_id');
+        return $this->hasOne(DatosFacturacion::class, 'persona_id');
     }
 
     /** Vínculos en los que esta persona es el TUTOR (padre/madre/tutor). */

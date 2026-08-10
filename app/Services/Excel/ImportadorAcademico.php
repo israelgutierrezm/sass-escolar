@@ -6,6 +6,7 @@ namespace App\Services\Excel;
 
 use App\Models\Academico\Area;
 use App\Models\Academico\Asignatura;
+use App\Models\Academico\AutorizacionReconocimiento;
 use App\Models\Academico\Campus;
 use App\Models\Academico\Carrera;
 use App\Models\Academico\ClasificacionAsignatura;
@@ -16,8 +17,11 @@ use App\Models\Academico\PlanMateria;
 use App\Models\Academico\TipoAsignatura;
 use App\Models\Academico\TipoCampus;
 use App\Models\Academico\TipoPeriodo;
+use App\Models\Landlord\EntidadFederativa;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Shared\Date;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
 /**
@@ -290,8 +294,8 @@ class ImportadorAcademico
             'tiposAsignatura' => $mapa(TipoAsignatura::class),
             'areas' => $mapa(Area::class),
             'clasificaciones' => $mapa(ClasificacionAsignatura::class),
-            'autorizaciones' => $mapa(\App\Models\Academico\AutorizacionReconocimiento::class),
-            'entidades' => $mapa(\App\Models\Landlord\EntidadFederativa::class),
+            'autorizaciones' => $mapa(AutorizacionReconocimiento::class),
+            'entidades' => $mapa(EntidadFederativa::class),
         ];
     }
 
@@ -382,10 +386,10 @@ class ImportadorAcademico
         }
         try {
             if (is_numeric($valor)) {
-                return \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float) $valor)->format('Y-m-d');
+                return Date::excelToDateTimeObject((float) $valor)->format('Y-m-d');
             }
 
-            return \Illuminate\Support\Carbon::parse((string) $valor)->format('Y-m-d');
+            return Carbon::parse((string) $valor)->format('Y-m-d');
         } catch (\Throwable) {
             return null;
         }

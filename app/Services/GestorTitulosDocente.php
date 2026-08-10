@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Models\ControlEscolar\TituloDocente;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Alta/baja de los títulos (grados) de un docente, con su documento en el disco
@@ -57,7 +58,7 @@ class GestorTitulosDocente
         $titulo->delete();
     }
 
-    public function descargar(TituloDocente $titulo): \Symfony\Component\HttpFoundation\StreamedResponse
+    public function descargar(TituloDocente $titulo): StreamedResponse
     {
         abort_if($titulo->archivo_url === null, 404);
         abort_unless(Storage::disk('local')->exists($titulo->archivo_url), 404);

@@ -6,14 +6,14 @@ namespace App\Http\Controllers;
 
 use App\Models\Academico\Campus;
 use App\Models\Academico\Carrera;
+use App\Models\Academico\NivelEstudio;
 use App\Models\Academico\Oferta;
 use App\Models\Academico\PlanEstudio;
-use App\Models\Academico\PlanMateria;
 // El nivel del grupo tiene que hablar el MISMO catálogo que `carreras.
 // nivel_estudios_id`, que es el del tenant (los niveles que esta escuela
 // oferta). El homónimo de Landlord son los niveles estandarizados de la SEP y
 // usarlo aquí produce ids que no cruzan con ninguna carrera.
-use App\Models\Academico\NivelEstudio;
+use App\Models\Academico\PlanMateria;
 use App\Models\Academico\Turno;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\AsignaturaGrupo;
@@ -574,7 +574,7 @@ class GrupoController extends Controller
         // Si el ciclo tiene campus asignados, el grupo debe ser de uno de ellos.
         // Sin campus, el ciclo es global y no restringe.
         if ($campusDelCiclo->isNotEmpty() && ! $campusDelCiclo->contains((int) $datos['campus_id'])) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'campus_id' => 'Ese campus no está entre los del ciclo.',
             ]);
         }
@@ -591,7 +591,7 @@ class GrupoController extends Controller
                 ->value('carreras.nivel_estudios_id');
 
             if (! $nivelesDelCiclo->contains((int) $nivelDelPlan)) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
+                throw ValidationException::withMessages([
                     'plan_id' => 'Ese plan no es de los niveles de estudio a los que está acotado el ciclo.',
                 ]);
             }

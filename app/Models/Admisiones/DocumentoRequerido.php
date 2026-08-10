@@ -23,8 +23,11 @@ class DocumentoRequerido extends Model
 
     /** A quién se le puede pedir un documento. */
     public const AMBITO_ASPIRANTE = 'aspirante';
+
     public const AMBITO_ALUMNO = 'alumno';
+
     public const AMBITO_DOCENTE = 'docente';
+
     public const AMBITO_TUTOR = 'tutor';
 
     /** @var array<string, string> */

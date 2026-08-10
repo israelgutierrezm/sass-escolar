@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Exceptions\AvisoParaElUsuario;
-
 use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\Admisiones\EstadoDocumento;
 use App\Models\ControlEscolar\Docente;

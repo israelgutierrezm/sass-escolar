@@ -16,6 +16,9 @@ use App\Support\Creditos;
 use Carbon\CarbonInterface;
 use DOMDocument;
 use DOMElement;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * Construye el Documento Electrónico de Certificación (DEC) de la SEP/SIGED:
@@ -316,7 +319,7 @@ class ConstructorCertificadoXml
      * Identificador oficial de un registro de catálogo por su id local. Devuelve
      * null si no hay id o no existe; el llamador cae al id local como respaldo.
      *
-     * @param  class-string<\Illuminate\Database\Eloquent\Model>  $modelo
+     * @param  class-string<Model>  $modelo
      */
     private function idCatalogo(string $modelo, mixed $id): ?string
     {
@@ -359,7 +362,7 @@ class ConstructorCertificadoXml
 
         if (is_string($valor) && $valor !== '') {
             try {
-                return \Illuminate\Support\Carbon::parse($valor)->format('Y-m-d\TH:i:s');
+                return Carbon::parse($valor)->format('Y-m-d\TH:i:s');
             } catch (\Throwable) {
                 // cae al placeholder
             }
@@ -368,7 +371,7 @@ class ConstructorCertificadoXml
         return '1900-01-01T00:00:00';
     }
 
-    /** @param  \Illuminate\Support\Collection<int, Historial>  $mejores */
+    /** @param  Collection<int, Historial>  $mejores */
     /**
      * El promedio, en la precisión que manda el plan.
      *

@@ -8,6 +8,7 @@ use App\Models\Admisiones\Alumno;
 use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\Admisiones\EstadoDocumento;
 use App\Models\Concerns\TieneAuditoria;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -63,6 +64,6 @@ class DocumentoAlumno extends Model
             return false;
         }
 
-        return $this->vigencia->lt($fecha === null ? now()->startOfDay() : \Carbon\Carbon::parse($fecha));
+        return $this->vigencia->lt($fecha === null ? now()->startOfDay() : Carbon::parse($fecha));
     }
 }

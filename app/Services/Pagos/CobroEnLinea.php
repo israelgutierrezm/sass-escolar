@@ -13,6 +13,7 @@ use App\Models\Finanzas\MetodoPago;
 use App\Models\Finanzas\PasarelaPago;
 use App\Services\RegistradorPago;
 use App\Support\PasarelasCatalogo;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -276,7 +277,7 @@ class CobroEnLinea
      * pago los liquidara—.
      *
      * @param  array<int, int>  $adeudoIds
-     * @return \Illuminate\Support\Collection<int, Adeudo>
+     * @return Collection<int, Adeudo>
      */
     private function adeudosDe(MatriculaOferta|Aspirante $titular, array $adeudoIds)
     {

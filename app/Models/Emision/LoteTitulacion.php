@@ -6,6 +6,7 @@ namespace App\Models\Emision;
 
 use App\Enums\EstadoLoteTitulacion;
 use App\Models\Concerns\TieneAuditoria;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -71,7 +72,7 @@ class LoteTitulacion extends Model
         return $this->etapa === TitulacionWsConfig::actual()->etapa_activa;
     }
 
-    /** @param  \Illuminate\Database\Eloquent\Builder<LoteTitulacion>  $query */
+    /** @param  Builder<LoteTitulacion>  $query */
     public function scopeAbiertos($query)
     {
         return $query->where('estado', EstadoLoteTitulacion::Borrador->value);

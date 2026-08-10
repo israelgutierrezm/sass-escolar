@@ -6,6 +6,7 @@ namespace App\Models\Emision;
 
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Concerns\TieneAuditoria;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -21,7 +22,9 @@ class Certificacion extends Model
     protected $table = 'certificaciones';
 
     public const PENDIENTE = 'pendiente';
+
     public const CERTIFICADO = 'certificado';
+
     public const ERROR = 'error';
 
     protected $fillable = [
@@ -61,7 +64,7 @@ class Certificacion extends Model
         return $this->estado === self::CERTIFICADO;
     }
 
-    /** @param  \Illuminate\Database\Eloquent\Builder<Certificacion>  $query */
+    /** @param  Builder<Certificacion>  $query */
     public function scopeEmitidas($query)
     {
         return $query->where('estado', self::CERTIFICADO);

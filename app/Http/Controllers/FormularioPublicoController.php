@@ -7,7 +7,6 @@ namespace App\Http\Controllers;
 use App\Models\Academico\Oferta;
 use App\Models\Formularios\CampoFormulario;
 use App\Models\Landlord\Genero;
-use App\Models\Landlord\Sexo;
 use App\Models\Promocion\FormularioPublico;
 use App\Services\RegistradorProspecto;
 use Illuminate\Http\Request;

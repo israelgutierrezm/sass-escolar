@@ -4,16 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Models\Academico\PlanEstudio;
 use App\Models\Academico\EsquemaEvaluacion;
+use App\Models\Academico\PlanEstudio;
 use App\Models\ControlEscolar\Acta;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\CalificacionComponente;
 use App\Models\ControlEscolar\Ciclo;
 use App\Models\ControlEscolar\Docente;
 use App\Models\ControlEscolar\Inscripcion;
-use App\Models\ControlEscolar\ExcepcionCaptura;
-use App\Models\ControlEscolar\VentanaCaptura;
 use App\Services\AsentadorActa;
 use App\Services\CalculadoraCalificacion;
 use App\Services\CalendarioCaptura;

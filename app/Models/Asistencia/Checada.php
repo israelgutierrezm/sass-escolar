@@ -18,6 +18,7 @@ class Checada extends Model
     use TieneAuditoria;
 
     public const ENTRADA = 'entrada';
+
     public const SALIDA = 'salida';
 
     protected $table = 'checadas';

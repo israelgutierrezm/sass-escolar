@@ -11,6 +11,7 @@ use App\Models\Identidad\Usuario;
 use App\Services\SolicitudDeServicios;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -204,7 +205,7 @@ class SolicitudServicioController extends Controller
     /**
      * Las matrículas de quien pide, sacadas de la sesión.
      *
-     * @return \Illuminate\Support\Collection<int, MatriculaOferta>
+     * @return Collection<int, MatriculaOferta>
      */
     private function matriculasDe(Request $peticion)
     {

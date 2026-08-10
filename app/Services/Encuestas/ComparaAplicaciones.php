@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Encuestas;
 
-use App\Enums\TipoPregunta;
 use App\Models\Encuestas\AplicacionEncuesta;
 use App\Models\Encuestas\Pregunta;
 use Illuminate\Support\Collection;
@@ -84,7 +83,7 @@ class ComparaAplicaciones
      * texto.
      *
      * @param  Collection<int, AplicacionEncuesta>  $aplicaciones
-     * @return array<string, array<int, int>>  texto => [aplicacion_id => pregunta_id]
+     * @return array<string, array<int, int>> texto => [aplicacion_id => pregunta_id]
      */
     private function preguntasComparables(Collection $aplicaciones): array
     {

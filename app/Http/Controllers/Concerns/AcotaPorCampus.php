@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Concerns;
 
 use App\Exceptions\AvisoParaElUsuario;
-
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Identidad\Usuario;
 use Illuminate\Database\Eloquent\Builder;

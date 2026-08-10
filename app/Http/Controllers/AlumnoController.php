@@ -6,50 +6,53 @@ namespace App\Http\Controllers;
 
 use App\Models\Academico\Campus;
 use App\Models\Academico\Carrera;
+use App\Models\Academico\Modalidad;
+use App\Models\Academico\NivelEstudio;
 use App\Models\Academico\Oferta;
-use App\Models\Academico\PlanMateria;
 use App\Models\Academico\PlanEstudio;
+use App\Models\Academico\PlanMateria;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\SituacionAlumno;
-use App\Models\Academico\NivelEstudio;
-use App\Models\Emision\FundamentoLegalServicioSocial;
-use App\Models\Emision\LoteCertificacion;
-use App\Models\Emision\ModalidadTitulacion;
-use App\Models\Landlord\EntidadFederativa;
-use App\Services\EstadoCertificacion;
 use App\Models\ControlEscolar\Ciclo;
 use App\Models\ControlEscolar\EstatusHistorial;
 use App\Models\ControlEscolar\Historial;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\ControlEscolar\ObservacionAsignatura;
 use App\Models\ControlEscolar\TipoEvaluacion;
+use App\Models\Emision\FundamentoLegalServicioSocial;
+use App\Models\Emision\LoteCertificacion;
+use App\Models\Emision\ModalidadTitulacion;
 use App\Models\Finanzas\DatosFacturacion;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\TutorAlumno;
 use App\Models\Identidad\Usuario;
-use App\Support\CatalogosSat;
-use App\Models\Landlord\Genero;
+use App\Models\Landlord\EntidadFederativa;
 use App\Models\Landlord\Sexo;
 use App\Rules\CurpValida;
 use App\Services\AprovisionadorAcceso;
 use App\Services\CiclosCongruentes;
+use App\Services\EstadoCertificacion;
 use App\Services\EstatusAcademico;
+use App\Services\Excel\ImportadorAlumnos;
+use App\Services\Excel\PlantillaAlumnos;
 use App\Services\IdentidadPersona;
-use App\Services\ResolutorFormularios;
-use App\Services\MatriculadorOferta;
-use App\Models\Academico\Modalidad;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Http\RedirectResponse;
 use App\Services\KardexDelAlumno;
+use App\Services\MatriculadorOferta;
+use App\Services\ResolutorFormularios;
 use App\Services\Suplantador;
-use App\Support\Creditos;
+use App\Support\CatalogosSat;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * Alumnos: buscar, consultar el expediente completo y corregir sus datos.
@@ -69,7 +72,7 @@ class AlumnoController extends Controller
     public function __construct(private readonly KardexDelAlumno $kardex) {}
 
     /** Plantilla de carga masiva de alumnos (variante «calificaciones» opcional). */
-    public function plantillaCarga(Request $request, \App\Services\Excel\PlantillaAlumnos $plantilla): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    public function plantillaCarga(Request $request, PlantillaAlumnos $plantilla): BinaryFileResponse
     {
         $conCalif = $request->query('variante') === 'calificaciones';
         $nombre = $conCalif ? 'plantilla-alumnos-calificaciones.xlsx' : 'plantilla-alumnos.xlsx';
@@ -78,7 +81,7 @@ class AlumnoController extends Controller
     }
 
     /** Importa el .xlsx de alumnos (y calificaciones si trae la hoja). */
-    public function importarCarga(Request $request, \App\Services\Excel\ImportadorAlumnos $importador): RedirectResponse
+    public function importarCarga(Request $request, ImportadorAlumnos $importador): RedirectResponse
     {
         $request->validate(['archivo' => ['required', 'file', 'max:5120']]);
 
@@ -546,9 +549,9 @@ class AlumnoController extends Controller
      * de otro campus/nivel no corresponde a donde cursa. Es la MISMA regla de
      * acotamiento que usan los grupos.
      *
-     * @return \Illuminate\Support\Collection<int, Ciclo>
+     * @return Collection<int, Ciclo>
      */
-    private function ciclosCongruentes(MatriculaOferta $alumno): \Illuminate\Support\Collection
+    private function ciclosCongruentes(MatriculaOferta $alumno): Collection
     {
         return app(CiclosCongruentes::class)->paraAlumno($alumno);
     }
@@ -788,7 +791,7 @@ class AlumnoController extends Controller
      * padre dado de alta por un hermano, por ejemplo—. Excluye al propio alumno
      * y a quienes ya están vinculados. Por nombre, CURP o correo.
      */
-    public function buscarTutores(Request $request, MatriculaOferta $alumno): \Illuminate\Http\JsonResponse
+    public function buscarTutores(Request $request, MatriculaOferta $alumno): JsonResponse
     {
         $q = trim((string) $request->query('q', ''));
 

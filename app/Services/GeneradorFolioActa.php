@@ -25,9 +25,11 @@ use Illuminate\Support\Facades\DB;
 class GeneradorFolioActa
 {
     public const CLAVE_FORMATO = 'acta.formato_folio';
+
     public const CLAVE_AMBITO = 'acta.ambito_consecutivo';
 
     private const FORMATO_POR_DEFECTO = 'ACT-{AAAA}-{#####}';
+
     private const AMBITO_POR_DEFECTO = 'anio';
 
     /**

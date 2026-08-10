@@ -150,7 +150,6 @@ class InscripcionController extends Controller
             return back()->with('error', 'El grupo no tiene materias abiertas.');
         }
 
-
         $ordinaria = TipoEvaluacion::query()->where('clave', Inscripcion::TIPO_ORDINARIA)->value('id');
         $inscritoId = SituacionInscripcion::query()->where('clave', 'inscrito')->value('id');
 
@@ -159,7 +158,7 @@ class InscripcionController extends Controller
         // hay que reportar por nombre, porque cada uno es un pendiente concreto.
         $incompletos = [];
 
-        DB::transaction(function () use ($datos, $grupo, $validador, $ordinaria, $inscritoId, &$renglones, &$incompletos) {
+        DB::transaction(function () use ($datos, $grupo, $validador, $ordinaria, &$renglones, &$incompletos) {
             foreach ($datos['matricula_oferta_ids'] as $matriculaId) {
                 $matricula = MatriculaOferta::with('persona')->find($matriculaId);
 

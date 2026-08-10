@@ -14,12 +14,21 @@ use App\Models\Emision\TipoResponsable;
 use App\Models\Landlord\SaldoEmision;
 use App\Services\EstadoCertificacion;
 use App\Services\FirmadorLote;
+use App\Services\LectorCertificado;
+use App\Services\ValidadorDec;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Inertia;
+use Inertia\Response;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
@@ -34,7 +43,7 @@ use Throwable;
  */
 class LoteCertificacionController extends Controller
 {
-    public function index(Request $request): \Inertia\Response
+    public function index(Request $request): Response
     {
         $filtros = $request->validate([
             'busqueda' => ['nullable', 'string', 'max:120'],
@@ -59,7 +68,7 @@ class LoteCertificacionController extends Controller
             ->get()
             ->map(fn (LoteCertificacion $l) => $this->filaLote($l));
 
-        return \Inertia\Inertia::render('Certificacion/Lotes/Index', [
+        return Inertia::render('Certificacion/Lotes/Index', [
             'lotes' => $lotes,
             'filtros' => [
                 'busqueda' => $filtros['busqueda'] ?? '',
@@ -96,7 +105,7 @@ class LoteCertificacionController extends Controller
             ->with('exito', "Lote {$lote->folio} creado. Agrégale alumnos.");
     }
 
-    public function show(Request $request, LoteCertificacion $lote): \Inertia\Response
+    public function show(Request $request, LoteCertificacion $lote): Response
     {
         $lote->load([
             'certificaciones' => fn ($q) => $q->with(['matricula.persona', 'matricula.oferta.carrera:id,nombre', 'matricula.oferta.plan:id,nombre', 'matricula.oferta.campus:id,nombre'])->orderBy('id'),
@@ -104,7 +113,7 @@ class LoteCertificacionController extends Controller
             'certificado',
         ]);
 
-        return \Inertia\Inertia::render('Certificacion/Lotes/Detalle', [
+        return Inertia::render('Certificacion/Lotes/Detalle', [
             'lote' => $this->filaLote($lote),
             'alumnos' => $lote->certificaciones->map(fn (Certificacion $c) => $this->filaCertificacion($c)),
             'firma' => $this->contextoFirma(),
@@ -251,7 +260,7 @@ class LoteCertificacionController extends Controller
 
         // Antes de sellar: los datos deben bastar para un DEC válido y congruente
         // con el XSD. Si no, se listan TODOS los errores y no se firma nada.
-        $erroresDec = app(\App\Services\ValidadorDec::class)->validarLote($lote);
+        $erroresDec = app(ValidadorDec::class)->validarLote($lote);
         if ($erroresDec !== []) {
             return back()->with('errores_firma', $erroresDec);
         }
@@ -275,7 +284,7 @@ class LoteCertificacionController extends Controller
             return back()->with('error', "El certificado del responsable venció el {$certificado->vigencia_fin?->format('d/m/Y')}. Actualízalo en Configuración → Responsables antes de firmar.");
         }
 
-        $lector = new \App\Services\LectorCertificado;
+        $lector = new LectorCertificado;
 
         // Certificado (.cer): el subido en el formulario o el guardado en su ficha.
         $certPem = $request->hasFile('certificado')
@@ -368,7 +377,7 @@ class LoteCertificacionController extends Controller
     {
         $request->validate(['certificado' => ['required', 'file', 'max:64']]);
 
-        $lector = new \App\Services\LectorCertificado;
+        $lector = new LectorCertificado;
         $contenido = (string) file_get_contents($request->file('certificado')->getRealPath());
 
         if (! $lector->esValido($contenido)) {
@@ -404,7 +413,7 @@ class LoteCertificacionController extends Controller
     }
 
     /** Descarga en un ZIP el XML firmado Y la cadena original (.txt) de cada certificado. */
-    public function xmlZip(LoteCertificacion $lote): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    public function xmlZip(LoteCertificacion $lote): BinaryFileResponse
     {
         abort_unless($lote->estado === EstadoLoteCertificacion::Firmado, 404);
 
@@ -456,7 +465,7 @@ class LoteCertificacionController extends Controller
     }
 
     /** Exporta a Excel los certificados del lote (una fila por alumno). */
-    public function excel(LoteCertificacion $lote): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    public function excel(LoteCertificacion $lote): BinaryFileResponse
     {
         $lote->load(['certificaciones.matricula.persona', 'certificaciones.matricula.oferta.carrera', 'certificaciones.matricula.oferta.plan', 'certificaciones.matricula.oferta.campus']);
 
@@ -487,15 +496,15 @@ class LoteCertificacionController extends Controller
      * @param  array<int, string>  $encabezados
      * @param  array<int, array<int, mixed>>  $filas
      */
-    private function descargarExcel(string $titulo, array $encabezados, array $filas, string $archivo): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    private function descargarExcel(string $titulo, array $encabezados, array $filas, string $archivo): BinaryFileResponse
     {
-        $libro = new \PhpOffice\PhpSpreadsheet\Spreadsheet;
+        $libro = new Spreadsheet;
         $hoja = $libro->getActiveSheet();
 
         $hoja->fromArray($encabezados, null, 'A1');
-        $ultima = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($encabezados));
+        $ultima = Coordinate::stringFromColumnIndex(count($encabezados));
         $hoja->getStyle("A1:{$ultima}1")->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
-        $hoja->getStyle("A1:{$ultima}1")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FF2F6FED');
+        $hoja->getStyle("A1:{$ultima}1")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FF2F6FED');
         $hoja->fromArray($filas, null, 'A2');
         foreach (range(1, count($encabezados)) as $i) {
             $hoja->getColumnDimensionByColumn($i)->setAutoSize(true);
@@ -503,7 +512,7 @@ class LoteCertificacionController extends Controller
         $hoja->setTitle(mb_substr($titulo, 0, 31));
 
         $tmp = tempnam(sys_get_temp_dir(), 'xls').'.xlsx';
-        (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($libro))->save($tmp);
+        (new Xlsx($libro))->save($tmp);
 
         return response()->download($tmp, $archivo)->deleteFileAfterSend(true);
     }

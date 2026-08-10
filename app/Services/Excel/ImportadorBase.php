@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Excel;
 
+use Illuminate\Support\Carbon;
+use PhpOffice\PhpSpreadsheet\Shared\Date;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
 /**
@@ -117,10 +119,10 @@ abstract class ImportadorBase
         }
         try {
             if (is_numeric($valor)) {
-                return \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float) $valor)->format('Y-m-d');
+                return Date::excelToDateTimeObject((float) $valor)->format('Y-m-d');
             }
 
-            return \Illuminate\Support\Carbon::parse((string) $valor)->format('Y-m-d');
+            return Carbon::parse((string) $valor)->format('Y-m-d');
         } catch (\Throwable) {
             return null;
         }

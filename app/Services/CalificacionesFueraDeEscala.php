@@ -42,7 +42,7 @@ class CalificacionesFueraDeEscala
      * consulta al abrir la pantalla de configuración. Traerlos para contarlos
      * en memoria haría lenta justo la pantalla desde la que se decide.
      *
-     * @return array<int, array{precision: int, rango: int}>  plan_id => conteos
+     * @return array<int, array{precision: int, rango: int}> plan_id => conteos
      */
     public function porPlan(): array
     {

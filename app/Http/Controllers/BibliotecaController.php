@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Models\ControlEscolar\BibliotecaEnlace;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -127,7 +128,7 @@ class BibliotecaController extends Controller
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, BibliotecaEnlace>  $enlaces
+     * @param  Collection<int, BibliotecaEnlace>  $enlaces
      * @return array<int, array<string, mixed>>
      */
     private function paraPantalla($enlaces): array

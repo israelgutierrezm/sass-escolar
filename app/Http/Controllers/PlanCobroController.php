@@ -518,7 +518,6 @@ class PlanCobroController extends Controller
         ];
     }
 
-
     /** @return array<string, mixed> */
     private function validarAlcance(Request $request): array
     {

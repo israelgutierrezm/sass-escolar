@@ -31,7 +31,7 @@ class ModuloEncendido
     public function handle(Request $peticion, Closure $siguiente, string $clave): Response
     {
         if (! $this->modulos->activo($clave)) {
-            throw new NotFoundHttpException();
+            throw new NotFoundHttpException;
         }
 
         return $siguiente($peticion);

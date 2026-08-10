@@ -3,7 +3,14 @@
 namespace App\Providers;
 
 use App\Configuracion\Ajustes;
+use App\Models\Admisiones\Alumno;
+use App\Models\Admisiones\Aspirante;
+use App\Models\ControlEscolar\Docente;
+use App\Models\Facturacion\FacturacionConfig;
 use App\Models\Identidad\Usuario;
+use App\Observers\AlumnoObserver;
+use App\Observers\AspiranteObserver;
+use App\Observers\DocenteObserver;
 use App\Panel\RegistroTarjetas;
 use App\Panel\Tarjetas\AccesosDirectos;
 use App\Panel\Tarjetas\ActividadPorHora;
@@ -22,7 +29,10 @@ use App\Panel\Tarjetas\MisCalificacionesRecientes;
 use App\Panel\Tarjetas\MisMateriasDocente;
 use App\Panel\Tarjetas\MisSolicitudes;
 use App\Panel\Tarjetas\ProspectosPorContactar;
+use App\Services\Cfdi\FacturapiPac;
 use App\Services\Cfdi\Pac;
+use App\Services\Emision\ClienteTitulosSep;
+use App\Services\Facturacion\FacturapiService;
 use App\Services\Plataforma\ModulosDeLaEscuela;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Gate;
@@ -50,8 +60,8 @@ class AppServiceProvider extends ServiceProvider
         // FacturapiService siempre lee la configuración GUARDADA de la escuela
         // (no una instancia vacía): por eso se resuelve con `paraLaEscuela`.
         $this->app->bind(
-            \App\Services\Facturacion\FacturapiService::class,
-            fn () => \App\Services\Facturacion\FacturapiService::paraLaEscuela(),
+            FacturapiService::class,
+            fn () => FacturapiService::paraLaEscuela(),
         );
 
         // El cliente del web service de títulos de la SEP. Su constructor pide
@@ -59,16 +69,16 @@ class AppServiceProvider extends ServiceProvider
         // este enlace, cualquier controlador que lo pida por firma revienta con
         // «Unresolvable dependency resolving $modo».
         $this->app->bind(
-            \App\Services\Emision\ClienteTitulosSep::class,
-            fn () => \App\Services\Emision\ClienteTitulosSep::desdeConfig(),
+            ClienteTitulosSep::class,
+            fn () => ClienteTitulosSep::desdeConfig(),
         );
 
         $this->app->bind(Pac::class, function () {
             // Si la escuela ACTIVÓ Facturapi, se timbra por ahí. Sin tenant o sin
             // la tabla (contexto landlord, migraciones), cae al driver de config.
             try {
-                if (\App\Models\Facturacion\FacturacionConfig::actual()->activo) {
-                    return $this->app->make(\App\Services\Cfdi\FacturapiPac::class);
+                if (FacturacionConfig::actual()->activo) {
+                    return $this->app->make(FacturapiPac::class);
                 }
             } catch (\Throwable) {
                 // sigue con el driver de configuración
@@ -107,9 +117,9 @@ class AppServiceProvider extends ServiceProvider
      */
     protected function registrarObservadoresDeAcceso(): void
     {
-        \App\Models\ControlEscolar\Docente::observe(\App\Observers\DocenteObserver::class);
-        \App\Models\Admisiones\Alumno::observe(\App\Observers\AlumnoObserver::class);
-        \App\Models\Admisiones\Aspirante::observe(\App\Observers\AspiranteObserver::class);
+        Docente::observe(DocenteObserver::class);
+        Alumno::observe(AlumnoObserver::class);
+        Aspirante::observe(AspiranteObserver::class);
     }
 
     /**

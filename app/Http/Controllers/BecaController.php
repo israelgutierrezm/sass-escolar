@@ -276,7 +276,7 @@ class BecaController extends Controller
 
         return back()->with(
             'exito',
-            "Beca otorgada.".($tocados > 0 ? " Se recalcularon {$tocados} cargo(s) pendientes." : '')
+            'Beca otorgada.'.($tocados > 0 ? " Se recalcularon {$tocados} cargo(s) pendientes." : '')
         );
     }
 

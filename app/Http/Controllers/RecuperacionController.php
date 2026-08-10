@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Models\Identidad\BitacoraAcceso;
 use App\Models\Identidad\Usuario;
 use App\Services\BitacoraAccesos;
+use App\Services\Correo\CorreoService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -31,7 +32,7 @@ class RecuperacionController extends Controller
         return Inertia::render('Auth/Recuperar');
     }
 
-    public function enviarEnlace(Request $request, BitacoraAccesos $bitacora, \App\Services\Correo\CorreoService $correo): RedirectResponse
+    public function enviarEnlace(Request $request, BitacoraAccesos $bitacora, CorreoService $correo): RedirectResponse
     {
         $datos = $request->validate(['email' => ['required', 'email']]);
 

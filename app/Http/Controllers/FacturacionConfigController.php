@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Models\Facturacion\FacturacionConfig;
 use App\Models\Facturacion\FacturacionEvento;
 use App\Services\Facturacion\FacturapiService;
+use App\Support\CatalogosSat;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -170,6 +171,6 @@ class FacturacionConfigController extends Controller
      */
     private function catalogos(): array
     {
-        return \App\Support\CatalogosSat::todos();
+        return CatalogosSat::todos();
     }
 }

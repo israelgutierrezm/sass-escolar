@@ -28,7 +28,7 @@ abstract class PlantillaBase
      * rango de cada una para las validaciones.
      *
      * @param  array<string, array<int, string>>  $catalogos  clave => [valores]
-     * @return array<string, string>  clave => rango Excel
+     * @return array<string, string> clave => rango Excel
      */
     protected function listas(Spreadsheet $libro, array $catalogos): array
     {

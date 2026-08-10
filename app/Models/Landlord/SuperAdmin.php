@@ -17,8 +17,8 @@ use Stancl\Tenancy\Database\Concerns\CentralConnection;
  */
 class SuperAdmin extends Authenticatable
 {
-    use Notifiable;
     use CentralConnection;
+    use Notifiable;
 
     protected $fillable = [
         'nombre',

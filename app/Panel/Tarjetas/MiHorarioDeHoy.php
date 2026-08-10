@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Panel\Tarjetas;
 
+use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\HorarioAsignaturaGrupo;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Identidad\Usuario;
@@ -64,7 +65,7 @@ class MiHorarioDeHoy implements TarjetaPanel
         $materias = Inscripcion::query()
             ->whereIn(
                 'matricula_oferta_id',
-                \App\Models\Admisiones\MatriculaOferta::query()
+                MatriculaOferta::query()
                     ->where('persona_id', $usuario->persona_id)
                     ->select('id'),
             )

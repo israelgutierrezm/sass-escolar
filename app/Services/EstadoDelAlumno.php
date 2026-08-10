@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Academico\PlanEstudio;
+use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\Historial;
 use App\Models\Identidad\Persona;
+use Illuminate\Support\Collection;
 
 /**
  * Cómo va un alumno, en cuatro cifras.
@@ -110,7 +112,7 @@ class EstadoDelAlumno
      * decimales, medio arriba— en vez de aplicarle a una carrera la regla de la
      * otra.
      *
-     * @param  \Illuminate\Support\Collection<int, \App\Models\Admisiones\MatriculaOferta>  $matriculas
+     * @param  Collection<int, MatriculaOferta>  $matriculas
      */
     private function planQueManda($matriculas): ?PlanEstudio
     {

@@ -19,9 +19,11 @@ class Inscripcion extends Model
     use TieneAuditoria;
 
     public const TIPO_ORDINARIA = 'ordinaria';
+
     public const TIPO_RECURSAMIENTO = 'recursamiento';
 
     public const FORMA_AUTOGESTIVA = 'autogestiva';
+
     public const FORMA_ADMINISTRATIVA = 'administrativa';
 
     protected $table = 'inscripcion';

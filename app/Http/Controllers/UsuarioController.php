@@ -14,6 +14,7 @@ use App\Models\Identidad\Usuario;
 use App\Rules\CurpValida;
 use App\Services\AprovisionadorAcceso;
 use App\Services\BitacoraAccesos;
+use App\Services\Correo\CorreoService;
 use App\Services\IdentidadPersona;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -341,7 +342,7 @@ class UsuarioController extends Controller
 
         try {
             // Si la escuela configuró su correo (Gmail), sale por ahí.
-            app(\App\Services\Correo\CorreoService::class)->aplicar();
+            app(CorreoService::class)->aplicar();
 
             Mail::to($correo)->send(new CredencialesAcceso(
                 nombre: $usuario->persona?->nombreCompleto() ?? 'Hola',

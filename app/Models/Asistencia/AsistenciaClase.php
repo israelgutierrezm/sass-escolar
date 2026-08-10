@@ -21,8 +21,11 @@ class AsistenciaClase extends Model
     use TieneAuditoria;
 
     public const PRESENTE = 'presente';
+
     public const AUSENTE = 'ausente';
+
     public const JUSTIFICADA = 'justificada';
+
     public const RETARDO = 'retardo';
 
     protected $table = 'asistencia_clase';

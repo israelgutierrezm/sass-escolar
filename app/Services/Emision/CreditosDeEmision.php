@@ -37,7 +37,7 @@ class CreditosDeEmision
      * Comprueba que la escuela pueda emitir estos trámites, y si no, lo explica.
      *
      * @param  array<int, array{curp: string, plan: string}>  $tramites  Uno por
-     *                                                                  documento a emitir.
+     *                                                                   documento a emitir.
      */
     public function exigirQuePueda(string $tenantId, string $tipo, array $tramites): void
     {

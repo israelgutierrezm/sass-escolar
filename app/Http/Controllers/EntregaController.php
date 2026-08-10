@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Exceptions\AvisoParaElUsuario;
-
+use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Lms\Actividad;
 use App\Models\Lms\Entrega;
@@ -119,7 +119,7 @@ class EntregaController extends Controller
             ->exists();
 
         $soyDocente = $request->user()->persona_id !== null && $asignaturaGrupoId !== null
-            && \App\Models\ControlEscolar\AsignaturaGrupo::query()
+            && AsignaturaGrupo::query()
                 ->whereKey($asignaturaGrupoId)
                 ->whereHas('docentes', fn ($q) => $q->where('docentes.persona_id', $request->user()->persona_id))
                 ->exists();

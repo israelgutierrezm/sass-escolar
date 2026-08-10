@@ -13,10 +13,10 @@ use App\Models\Emision\TipoResponsable;
 use App\Models\Emision\Titulacion;
 use App\Models\Emision\TitulacionWsConfig;
 use App\Models\Landlord\SaldoEmision;
-use App\Services\EstadoCertificacion;
 use App\Services\Emision\ClienteTitulosSep;
 use App\Services\Emision\FirmadorLoteTitulo;
 use App\Services\Emision\ValidadorTitulo;
+use App\Services\EstadoCertificacion;
 use App\Services\LectorCertificado;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -25,6 +25,13 @@ use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Inertia\Inertia;
+use Inertia\Response;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
@@ -39,7 +46,7 @@ use Throwable;
  */
 class LoteTitulacionController extends Controller
 {
-    public function index(Request $request): \Inertia\Response
+    public function index(Request $request): Response
     {
         $filtros = $request->validate([
             'busqueda' => ['nullable', 'string', 'max:120'],
@@ -75,7 +82,7 @@ class LoteTitulacionController extends Controller
             ->get()
             ->map(fn (LoteTitulacion $l) => $this->filaLote($l));
 
-        return \Inertia\Inertia::render('Titulacion/Lotes/Index', [
+        return Inertia::render('Titulacion/Lotes/Index', [
             'lotes' => $lotes,
             'filtros' => [
                 'busqueda' => $filtros['busqueda'] ?? '',
@@ -114,7 +121,7 @@ class LoteTitulacionController extends Controller
             ->with('exito', "Lote {$lote->folio} creado ({$lote->etapa}). Agrégale egresados.");
     }
 
-    public function show(Request $request, LoteTitulacion $lote): \Inertia\Response
+    public function show(Request $request, LoteTitulacion $lote): Response
     {
         $lote->load([
             'titulaciones' => fn ($q) => $q->with(['matricula.persona', 'matricula.oferta.carrera:id,nombre', 'matricula.oferta.plan:id,nombre', 'matricula.oferta.campus:id,nombre'])->orderBy('id'),
@@ -122,7 +129,7 @@ class LoteTitulacionController extends Controller
             'certificado',
         ]);
 
-        return \Inertia\Inertia::render('Titulacion/Lotes/Detalle', [
+        return Inertia::render('Titulacion/Lotes/Detalle', [
             'lote' => $this->filaLote($lote),
             'egresados' => $lote->titulaciones->map(fn (Titulacion $t) => $this->filaTitulacion($t)),
             'firma' => $this->contextoFirma(),
@@ -515,7 +522,7 @@ class LoteTitulacionController extends Controller
     }
 
     /** Descarga en un ZIP el XML firmado Y la cadena original (.txt) de cada título. */
-    public function xmlZip(LoteTitulacion $lote): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    public function xmlZip(LoteTitulacion $lote): BinaryFileResponse
     {
         abort_unless(in_array($lote->estado, [EstadoLoteTitulacion::Firmado, EstadoLoteTitulacion::Enviado], true), 404);
 
@@ -567,7 +574,7 @@ class LoteTitulacionController extends Controller
     }
 
     /** Exporta a Excel los títulos del lote (una fila por egresado). */
-    public function excel(LoteTitulacion $lote): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    public function excel(LoteTitulacion $lote): BinaryFileResponse
     {
         $lote->load(['titulaciones.matricula.persona', 'titulaciones.matricula.oferta.carrera', 'titulaciones.matricula.oferta.plan', 'titulaciones.matricula.oferta.campus']);
 
@@ -600,15 +607,15 @@ class LoteTitulacionController extends Controller
      * @param  array<int, string>  $encabezados
      * @param  array<int, array<int, mixed>>  $filas
      */
-    private function descargarExcel(string $titulo, array $encabezados, array $filas, string $archivo): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    private function descargarExcel(string $titulo, array $encabezados, array $filas, string $archivo): BinaryFileResponse
     {
-        $libro = new \PhpOffice\PhpSpreadsheet\Spreadsheet;
+        $libro = new Spreadsheet;
         $hoja = $libro->getActiveSheet();
 
         $hoja->fromArray($encabezados, null, 'A1');
-        $ultima = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($encabezados));
+        $ultima = Coordinate::stringFromColumnIndex(count($encabezados));
         $hoja->getStyle("A1:{$ultima}1")->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
-        $hoja->getStyle("A1:{$ultima}1")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FF2F6FED');
+        $hoja->getStyle("A1:{$ultima}1")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FF2F6FED');
         $hoja->fromArray($filas, null, 'A2');
         foreach (range(1, count($encabezados)) as $i) {
             $hoja->getColumnDimensionByColumn($i)->setAutoSize(true);
@@ -616,7 +623,7 @@ class LoteTitulacionController extends Controller
         $hoja->setTitle(mb_substr($titulo, 0, 31));
 
         $tmp = tempnam(sys_get_temp_dir(), 'xls').'.xlsx';
-        (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($libro))->save($tmp);
+        (new Xlsx($libro))->save($tmp);
 
         return response()->download($tmp, $archivo)->deleteFileAfterSend(true);
     }

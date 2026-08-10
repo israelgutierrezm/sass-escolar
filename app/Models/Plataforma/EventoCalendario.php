@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
 /**
  * eventos_calendario (TENANT) — algo que pasa en una fecha y le importa a alguien.
@@ -53,7 +54,7 @@ class EventoCalendario extends Model
     }
 
     /** Cuándo termina de verdad: los de un solo día acaban cuando empiezan. */
-    public function finReal(): \Illuminate\Support\Carbon
+    public function finReal(): Carbon
     {
         return $this->termina_en ?? $this->inicia_en;
     }

@@ -6,13 +6,13 @@ namespace App\Services;
 
 use App\Models\Academico\PlanEstudio;
 use App\Models\Admisiones\MatriculaOferta;
+use App\Models\ControlEscolar\Ciclo;
+use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Finanzas\Adeudo;
 use App\Models\Finanzas\AdeudoAjuste;
 use App\Models\Finanzas\Beca;
 use App\Models\Finanzas\BecaAlumno;
 use App\Models\Finanzas\BecaAlumnoMovimiento;
-use App\Models\ControlEscolar\Ciclo;
-use App\Models\ControlEscolar\Inscripcion;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -226,7 +226,7 @@ class EvaluadorBecas
      * decimales fijos para todos, ignorando lo que la escuela hubiera
      * configurado.
      *
-     * @return array<int, float>  matricula_oferta_id => promedio
+     * @return array<int, float> matricula_oferta_id => promedio
      */
     public function promediosDe(Ciclo $ciclo): array
     {

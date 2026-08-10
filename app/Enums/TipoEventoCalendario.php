@@ -18,7 +18,6 @@ namespace App\Enums;
  */
 enum TipoEventoCalendario: string
 {
-
     /** Día no laborable por ley o por la escuela. */
     case Feriado = 'feriado';
 

@@ -7,6 +7,7 @@ namespace App\Models\Finanzas;
 use App\Models\Academico\Carrera;
 use App\Models\Concerns\TieneAuditoria;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
@@ -54,7 +55,7 @@ class CuentaBancaria extends Model
     /**
      * Las cuentas que puede usar quien estudia esta carrera.
      *
-     * @return \Illuminate\Database\Eloquent\Collection<int, self>
+     * @return Collection<int, self>
      */
     public static function paraCarrera(?int $carreraId)
     {

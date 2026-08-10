@@ -12,6 +12,7 @@ use App\Models\Finanzas\Factura;
 use App\Models\Landlord\NivelEstudio;
 use App\Services\Facturacion\FacturapiRechazo;
 use App\Services\Facturacion\SincronizadorEmisorFacturapi;
+use App\Support\CatalogosSat;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -90,7 +91,7 @@ class EmisorFiscalController extends Controller
                     ])->values(),
                 ]),
             'destinos' => $this->destinos(),
-            'catalogos' => \App\Support\CatalogosSat::todos(),
+            'catalogos' => CatalogosSat::todos(),
             // Se avisa cuando una carrera quedó sin razón social: es
             // exactamente el hueco que hace fallar la primera facturación del
             // mes, y descubrirlo aquí es mucho más barato.

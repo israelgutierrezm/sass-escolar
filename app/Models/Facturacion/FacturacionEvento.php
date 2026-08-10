@@ -22,9 +22,13 @@ class FacturacionEvento extends Model
     public $timestamps = false;
 
     public const CONFIG_GUARDADA = 'config_guardada';
+
     public const CONEXION_PROBADA = 'conexion_probada';
+
     public const AMBIENTE_CAMBIADO = 'ambiente_cambiado';
+
     public const MODULO_ACTIVADO = 'modulo_activado';
+
     public const MODULO_DESACTIVADO = 'modulo_desactivado';
 
     protected $fillable = [

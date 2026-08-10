@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Exceptions\AvisoParaElUsuario;
-
 use App\Http\Controllers\Concerns\AcotaPorCampus;
 use App\Http\Controllers\Concerns\ResuelveMiSolicitud;
 use App\Models\Admisiones\Aspirante;

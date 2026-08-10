@@ -22,6 +22,7 @@ class FacturacionConfig extends Model
     protected $table = 'facturacion_config';
 
     public const AMBIENTE_PRUEBAS = 'pruebas';
+
     public const AMBIENTE_PRODUCCION = 'produccion';
 
     /** Valores por defecto en memoria, para que una fila recién creada por

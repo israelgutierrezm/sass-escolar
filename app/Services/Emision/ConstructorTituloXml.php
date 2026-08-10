@@ -9,6 +9,7 @@ use App\Models\Landlord\EntidadFederativa;
 use Carbon\CarbonInterface;
 use DOMDocument;
 use DOMElement;
+use Illuminate\Support\Carbon;
 
 /**
  * Construye el Título Electrónico de la SEP/SIGED: el nodo raíz `TituloElectronico`
@@ -319,7 +320,7 @@ class ConstructorTituloXml
 
         if (is_string($valor) && $valor !== '') {
             try {
-                return \Illuminate\Support\Carbon::parse($valor)->format('Y-m-d');
+                return Carbon::parse($valor)->format('Y-m-d');
             } catch (\Throwable) {
                 return null;
             }

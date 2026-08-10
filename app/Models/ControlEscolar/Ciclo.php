@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models\ControlEscolar;
 
 use App\Models\Academico\Campus;
+use App\Models\Academico\NivelEstudio;
 use App\Models\Concerns\TieneAuditoria;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -71,7 +72,7 @@ class Ciclo extends Model
      */
     public function niveles(): BelongsToMany
     {
-        return $this->belongsToMany(\App\Models\Academico\NivelEstudio::class, 'ciclo_nivel', 'ciclo_id', 'nivel_estudios_id')
+        return $this->belongsToMany(NivelEstudio::class, 'ciclo_nivel', 'ciclo_id', 'nivel_estudios_id')
             ->withTimestamps();
     }
 

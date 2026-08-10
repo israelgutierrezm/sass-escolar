@@ -10,7 +10,6 @@ use App\Http\Controllers\Concerns\VeLaCarteraDelAlumno;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Finanzas\Adeudo;
 use App\Models\Finanzas\ComprobantePago;
-use App\Models\Finanzas\CuentaBancaria;
 use App\Services\RevisorDeComprobantes;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;

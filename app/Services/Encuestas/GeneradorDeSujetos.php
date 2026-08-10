@@ -35,7 +35,7 @@ class GeneradorDeSujetos
      * Genera los sujetos de una aplicación docente.
      *
      * @param  array{ciclo?: int|null, grupos?: array<int, int>, materias?: array<int, int>, campus?: int|null, papeles?: array<int, string>}  $filtros
-     * @return int  Cuántos se agregaron.
+     * @return int Cuántos se agregaron.
      */
     public function generar(AplicacionEncuesta $aplicacion, array $filtros): int
     {

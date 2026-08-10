@@ -9,6 +9,7 @@ use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Identidad\Usuario;
 use App\Models\Lms\Entrega;
 use App\Panel\TarjetaPanel;
+use Illuminate\Support\Collection;
 
 /**
  * Lo que le acaban de calificar.
@@ -113,7 +114,7 @@ class MisCalificacionesRecientes implements TarjetaPanel
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, Inscripcion>  $inscripciones
+     * @param  Collection<int, Inscripcion>  $inscripciones
      */
     private function enlaceA(Entrega $e, $inscripciones): ?string
     {

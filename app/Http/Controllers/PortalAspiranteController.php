@@ -312,5 +312,4 @@ class PortalAspiranteController extends Controller
             'saldo' => round($cargos->sum(fn (Adeudo $a) => max(0, $a->saldo())), 2),
         ];
     }
-
 }

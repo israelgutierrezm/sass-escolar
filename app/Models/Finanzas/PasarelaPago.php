@@ -24,6 +24,7 @@ class PasarelaPago extends Model
     protected $table = 'pasarelas_pago';
 
     public const AMBIENTE_PRUEBAS = 'pruebas';
+
     public const AMBIENTE_PRODUCCION = 'produccion';
 
     protected $attributes = [

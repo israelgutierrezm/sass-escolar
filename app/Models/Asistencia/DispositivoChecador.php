@@ -18,8 +18,11 @@ class DispositivoChecador extends Model
     use TieneAuditoria;
 
     public const TIPO_QR = 'qr';
+
     public const TIPO_BIOMETRICO = 'biometrico';
+
     public const TIPO_GEOCERCA = 'geocerca';
+
     public const TIPO_MANUAL = 'manual';
 
     protected $table = 'dispositivos_checador';

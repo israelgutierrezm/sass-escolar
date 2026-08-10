@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Plataforma;
 
+use App\Models\Admisiones\MatriculaOferta;
+use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Identidad\Usuario;
 use App\Models\Lms\Actividad;
@@ -226,7 +228,7 @@ class AgendaDelPanel
      */
     private function deSusMaterias(int $personaId, $hasta): Collection
     {
-        $materias = \App\Models\ControlEscolar\AsignaturaGrupo::query()
+        $materias = AsignaturaGrupo::query()
             ->whereHas('docentes', fn ($q) => $q->where('docentes.persona_id', $personaId))
             ->with('planMateria.asignatura:id,nombre')
             ->get(['id', 'plan_materia_id']);
@@ -277,7 +279,7 @@ class AgendaDelPanel
      */
     private function misInscripciones(int $personaId): Collection
     {
-        $matriculas = \App\Models\Admisiones\MatriculaOferta::query()
+        $matriculas = MatriculaOferta::query()
             ->where('persona_id', $personaId)
             ->pluck('id');
 

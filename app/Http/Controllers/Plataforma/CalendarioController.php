@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Plataforma;
 
 use App\Enums\DestinoEvento;
 use App\Enums\TipoEventoCalendario;
+use App\Http\Controllers\Concerns\ArmaDestinos;
 use App\Http\Controllers\Controller;
 use App\Models\Academico\Campus;
 use App\Models\Academico\Carrera;
@@ -14,7 +15,9 @@ use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Grupo;
 use App\Models\Landlord\NivelEstudio;
 use App\Models\Plataforma\EventoCalendario;
+use App\Services\Plataforma\AgendaDeUsuario;
 use App\Services\Plataforma\FeriadosOficiales;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -32,12 +35,12 @@ use Spatie\Permission\Models\Role;
  *
  * ── Quién entra ────────────────────────────────────────────────────────────
  * `gestionar-calendario`. VER la agenda no pide permiso —cada quien ve la suya
- * y eso lo resuelve {@see \App\Services\Plataforma\AgendaDeUsuario}—; lo que se
+ * y eso lo resuelve {@see AgendaDeUsuario}—; lo que se
  * controla aquí es escribir en la de los demás.
  */
 class CalendarioController extends Controller
 {
-    use \App\Http\Controllers\Concerns\ArmaDestinos;
+    use ArmaDestinos;
 
     public function index(Request $request): Response
     {
@@ -121,7 +124,7 @@ class CalendarioController extends Controller
      * conforme se teclea, igual que en el resto del sistema. Devuelve JSON
      * porque lo llama {@see BuscadorRemoto}, no una visita de Inertia.
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function buscarAlumnos(Request $request)
     {
@@ -315,5 +318,4 @@ class CalendarioController extends Controller
         return trim(($materia->planMateria?->asignatura?->nombre ?? 'Materia')
             .' · '.($materia->grupo?->clave ?? ''));
     }
-
 }

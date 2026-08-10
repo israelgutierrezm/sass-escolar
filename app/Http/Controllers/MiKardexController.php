@@ -8,6 +8,7 @@ use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Identidad\Usuario;
 use App\Services\KardexDelAlumno;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -91,7 +92,7 @@ class MiKardexController extends Controller
     /**
      * Sus matrículas, sacadas de la sesión.
      *
-     * @return \Illuminate\Support\Collection<int, MatriculaOferta>
+     * @return Collection<int, MatriculaOferta>
      */
     private function matriculasDe(Request $peticion)
     {

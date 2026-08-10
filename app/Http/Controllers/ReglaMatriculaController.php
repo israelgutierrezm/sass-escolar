@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\Academico\Campus;
 use App\Models\Academico\Carrera;
+use App\Models\Academico\NivelEstudio;
 use App\Models\Academico\Oferta;
 use App\Models\Academico\PlanEstudio;
 use App\Models\Admisiones\ContadorMatricula;
@@ -285,9 +287,9 @@ class ReglaMatriculaController extends Controller
             $partes[] = match ($tipo) {
                 'global' => 'Toda la escuela',
                 'anio' => "año {$valor}",
-                'ciclo' => 'ciclo '.(\App\Models\ControlEscolar\Ciclo::find($valor)?->nombre ?? $valor),
-                'campus' => 'campus '.(\App\Models\Academico\Campus::find($valor)?->nombre ?? $valor),
-                'nivel' => 'nivel '.(\App\Models\Academico\NivelEstudio::find($valor)?->nombre ?? $valor),
+                'ciclo' => 'ciclo '.(Ciclo::find($valor)?->nombre ?? $valor),
+                'campus' => 'campus '.(Campus::find($valor)?->nombre ?? $valor),
+                'nivel' => 'nivel '.(NivelEstudio::find($valor)?->nombre ?? $valor),
                 'carrera' => 'carrera '.(Carrera::find($valor)?->nombre ?? $valor),
                 'plan' => 'plan '.(PlanEstudio::find($valor)?->nombre ?? $valor),
                 default => $trozo,

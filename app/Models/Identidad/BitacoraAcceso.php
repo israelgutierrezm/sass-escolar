@@ -19,9 +19,13 @@ class BitacoraAcceso extends Model
     public $timestamps = false;
 
     public const ENTRADA = 'entrada';
+
     public const SALIDA = 'salida';
+
     public const RECUPERACION_SOLICITADA = 'recuperacion_solicitada';
+
     public const RECUPERACION_COMPLETADA = 'recuperacion_completada';
+
     public const CREDENCIALES_ENVIADAS = 'credenciales_enviadas';
 
     protected $fillable = [

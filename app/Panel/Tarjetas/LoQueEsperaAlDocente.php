@@ -11,6 +11,7 @@ use App\Models\Lms\Curso;
 use App\Models\Lms\Entrega;
 use App\Models\Lms\Mensaje;
 use App\Panel\TarjetaPanel;
+use Illuminate\Support\Collection;
 
 /**
  * Lo que espera al docente, sumando TODAS sus materias.
@@ -126,7 +127,7 @@ class LoQueEsperaAlDocente implements TarjetaPanel
      * En UNA consulta para todas: con seis materias y treinta alumnos, contar de
      * a una son seis recorridos completos cada vez que alguien abre el panel.
      *
-     * @param  \Illuminate\Support\Collection<int, int>  $materiaIds
+     * @param  Collection<int, int>  $materiaIds
      * @return array<int, int>
      */
     private function entregasPorRevisar($materiaIds): array
@@ -161,7 +162,7 @@ class LoQueEsperaAlDocente implements TarjetaPanel
      * y sus directas— con lo que llegó después de su última lectura. Lo propio no
      * cuenta: uno no se debe respuesta a sí mismo.
      *
-     * @param  \Illuminate\Support\Collection<int, int>  $materiaIds
+     * @param  Collection<int, int>  $materiaIds
      * @return array<int, int>
      */
     private function mensajesSinLeer($materiaIds, int $personaId): array
