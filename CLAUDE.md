@@ -206,6 +206,32 @@ Cinco entregas, en este orden. A y B ✅ hechas; C, D y E pendientes:
   `planes_estudio` no se llama como su modelo, `inscripcion` tampoco. Consultar
   con Eloquent en vez de escribir el nombre a mano evita el problema entero;
   mordió al construir `ContextoAcademico`.
+- **Una prueba que no falla al romper lo que dice probar, no prueba nada.** La
+  de «pedir la credencial de otro devuelve la propia» pasaba IGUAL con la
+  salvaguarda quitada: la credencial de prueba sólo dibujaba el nombre, que sale
+  de la persona de la sesión y no cambia aunque cueles la matrícula ajena. Se
+  vio mutando el código a propósito. Con la matrícula y la carrera puestas en el
+  diseño, la mutación por fin la tumba. Es el tercer caso en este proyecto
+  —antes fueron `url:http,https`, `solicitable` y `creditos_del_plan`—: **mutar
+  y volver a correr** antes de dar una prueba por buena.
+- **Lo que se dibuja hay que MIRARLO.** Dos defectos del compositor pasaron dos
+  revisiones de código y aparecieron al abrir el PNG: el nombre de la
+  institución salía del lienzo —el tamaño se calculaba del alto, y en vertical
+  eso da 45 px para 638 de ancho— y el QR se pegaba con la regla de la foto,
+  llenando la caja al recortar: medido, una caja de 382×121 producía un QR de
+  365×121, sin patrones de esquina, o sea ilegible. Ninguno lanza excepción.
+- **`vue-tsc` está roto en este proyecto** (incompatible con la versión de
+  `typescript` instalada: `ERR_PACKAGE_PATH_NOT_EXPORTED`). Sale sin imprimir
+  nada y con código 0, o sea que **parece que pasó**. Para comprobar el
+  frontend, `npm run build`.
+- **`personas.foto` no existe: la columna es `foto_url`** (y guarda una RUTA del
+  disco privado, no una URL, pese al nombre). Lo mismo `instituciones.logo_url`.
+- **Las pruebas de phpunit NO llegan por HTTP a una ruta de tenant.**
+  `routes/tenant.php` se resuelve por dominio y `PreventAccessFromCentralDomains`
+  rechaza `localhost`, así que un `$this->get('/mi-credencial')` devuelve 404 sin
+  haber entrado nunca al controlador — y ese 404 se confunde con el que la
+  pantalla devuelve a propósito. Se invoca al controlador con `peticionDe()`,
+  como hacen `MiKardexTest` y las demás.
 - **Una ruta que sirven DOS oficios no puede colgar del permiso de uno.** La
   descarga de un adjunto de entrega estaba bajo `can:ver-mis-cursos` con el
   resto del portal del alumno; el controlador sí contemplaba al docente, pero el
@@ -691,6 +717,41 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   así que su total contesta «¿cómo le fue en noviembre?». Lo que decide el
   derecho a examen es el acumulado del curso, y había que ir mes por mes
   sumándolo de memoria. Ahora salen las dos: **del mes** y **del curso**.
+
+- **Credencial virtual** (`/plataforma/configuraciones/credencial` para armarla,
+  `/mi-credencial` para verla): la escuela diseña el gafete de cada rol y cada
+  persona se lo descarga.
+  - **Por ROL, no una sola para la escuela**: el gafete del alumno trae
+    matrícula y carrera; el del docente no tiene ninguna de las dos. Y la
+    variante por **nivel de estudios sólo aplica a la faceta alumno** —un
+    docente no cursa nada—; el servidor lo vuelve a comprobar, porque una
+    credencial de docente atada a «Licenciatura» no la elegiría nunca nadie y
+    quedaría configurada para siempre sin emitirse.
+  - **Una credencial por MATRÍCULA**: quien estudia dos carreras tiene dos, con
+    su propio QR cada una. Misma decisión que el kárdex.
+  - **Las cajas se arrastran** sobre el lienzo y se guardan en PORCENTAJE, así
+    que el mapa sobrevive a cambiar el tamaño. El fondo del editor lo **dibuja
+    el servidor** —el mismo diseño o machote real, pedido sin campos—: imitarlo
+    con CSS habría acomodado las cajas respecto a algo que no existe.
+  - **La vista previa va con datos inventados y largos** («María Fernanda
+    Gutiérrez Villaseñor»), no con los de una persona real: acomodar cajas no
+    es motivo para abrir el expediente de nadie, y la primera persona de la
+    lista suele ser el caso fácil, que no avisa de que la caja quedó chica.
+  - **El QR lleva una DIRECCIÓN, no los datos.** Un código que cargue el nombre
+    dentro no verifica nada —cualquiera genera uno que diga lo que quiera—.
+    Apuntando a la escuela, lo que se lee sale de su base y un gafete alterado
+    se cae solo. La emisión se registra en `credenciales` con **uuid**, porque
+    la dirección tiene que ser estable (se imprime) y no adivinable; firmar la
+    URL con `APP_KEY` habría evitado la tabla y dejaría inservible toda
+    credencial impresa el día que se rote la llave. La fila lleva **rol**
+    además de persona y matrícula: quien da clases y estudia tiene dos.
+  - `qr_activo` decide si la ficha existe; `qr_publico`, si hace falta sesión.
+    **La CURP no sale ahí ni con sesión**: la de cualquier alumno bastaría para
+    leerla escaneando gafetes ajenos.
+  - `/mi-credencial` **no lleva id** —la persona sale de la sesión— y la clave
+    de credencial se busca DENTRO de las suyas: una ajena cae en la propia.
+    **Sin permiso propio**: quien decide es la escuela al encender la del rol.
+  - Lo cubren 11 pruebas contando píxeles sobre el PNG y comprobando los 404.
 
 **Pendiente inmediato — aquí se retoma:**
 
