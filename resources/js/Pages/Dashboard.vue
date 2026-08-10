@@ -62,6 +62,11 @@ const COLORES_TARJETA: Record<string, string> = {
     // valor pinta el enlace «Ver» sobre blanco: a 5.47:1 se lee, y los
     // turquesas claros de la familia se quedaban en 3.7.
     embudo: '#0F766E',
+    // Dorado, el más claro de la familia que todavía se lee sobre blanco: a
+    // 4.92:1 pasa, y el oro de verdad —el amarillo puro— se queda en 2.94, que
+    // sobre una superficie clara es un color que no se ve. Los que sí contrastan
+    // de sobra ya no son dorados: se vuelven café.
+    indicadores: '#A16207',
     'por-contactar': '#DB2777',
     'comisiones-por-pagar': '#D97706',
     'actividad-por-hora': '#0891B2',
@@ -105,12 +110,22 @@ function tonoTarjeta(tarjeta: { clave: string; tipo: string; datos: Record<strin
 }
 
 /**
- * El aro de arriba a la izquierda queda RESERVADO para la tarjeta que además
- * lleva marca de agua; el resto se reparte los otros tres.
+ * Cuáles llevan su icono repetido de marca de agua en el fondo.
  *
- * Reservarlo es lo que evita que el aro salga dos veces en la misma pantalla:
- * la tarjeta con marca de agua no entra en el reparto —tiene el suyo fijo—, y
- * si el reparto pudiera dar ese mismo aro, la de al lado saldría igual.
+ * Va por clave y no por tipo: no es una manera de dibujar los datos —lo que
+ * decide el tipo— sino un realce, y se pone donde el icono dice algo del asunto
+ * de la tarjeta. Se declara aquí para que agregar una sea una línea.
+ */
+const CON_MARCA_DE_AGUA = new Set(['embudo', 'indicadores']);
+
+/**
+ * El aro de arriba a la izquierda queda RESERVADO para las tarjetas con marca
+ * de agua; las demás se reparten los otros tres.
+ *
+ * Es lo que convierte «aro arriba a la izquierda + icono abajo a la derecha» en
+ * un estilo reconocible en vez de una coincidencia: al ver el aro se sabe que
+ * esa tarjeta trae fondo. Y de paso, ninguna tarjeta SIN marca puede sacarlo
+ * por sorteo y quedar pegada a una que sí la tiene con el mismo adorno.
  */
 const ADORNO_CON_MARCA = 'adorno-2';
 const ADORNOS_LIBRES = ['adorno-1', 'adorno-3', 'adorno-4'];
@@ -134,7 +149,7 @@ const adornos = computed<string[]>(() => {
     let turno = 0;
 
     return props.tarjetas.map((tarjeta) =>
-        tarjeta.tipo === 'embudo'
+        CON_MARCA_DE_AGUA.has(tarjeta.clave)
             ? ADORNO_CON_MARCA
             : ADORNOS_LIBRES[turno++ % ADORNOS_LIBRES.length],
     );
@@ -495,7 +510,7 @@ function conmutar(rolId: number): void {
                     sale por abajo a la derecha. Encimados se estorbarían.
                 -->
                 <svg
-                    v-if="tarjeta.tipo === 'embudo'"
+                    v-if="CON_MARCA_DE_AGUA.has(tarjeta.clave)"
                     class="marca-agua"
                     aria-hidden="true"
                     fill="none"
@@ -1094,16 +1109,26 @@ function conmutar(rolId: number): void {
  * texto que le pasa por encima.
  */
 .marca-agua {
+    /* Absoluta, y por eso NO puede cambiar el tamaño de la tarjeta: está fuera
+       del flujo, no ocupa sitio y lo que se sale lo recorta el `overflow` de la
+       tarjeta. Da igual de qué tamaño se ponga: la fila mide lo que mida su
+       contenido, no su fondo. */
     position: absolute;
     z-index: 0;
+
     /* Abajo a la DERECHA, en la esquina diagonalmente opuesta al aro, que entra
        por arriba a la izquierda —ver `ADORNO_CON_MARCA`—. Las dos decoraciones
-       de esta tarjeta se reparten la diagonal en vez de encimarse: no comparten
-       ni el lado ni la mitad. */
-    right: -2.5rem;
-    bottom: -3.5rem;
-    width: 13rem;
-    height: 13rem;
+       se reparten la diagonal en vez de encimarse: no comparten ni el lado ni
+       la mitad.
+
+       Grande y muy salida: de los 15 rem sólo asoma la esquina superior
+       izquierda del icono. Que se vea un pedazo y no la figura entera es lo que
+       lo mantiene como textura de fondo —si se reconociera el dibujo completo
+       sería un segundo icono discutiéndole el sitio al del encabezado. */
+    right: -6rem;
+    bottom: -6.5rem;
+    width: 15rem;
+    height: 15rem;
     stroke: color-mix(in srgb, var(--tono) 14%, transparent);
     pointer-events: none;
 }
