@@ -245,9 +245,20 @@ php artisan serve          # http://localhost:8000 (central)
 npm run dev                # o npm run build
 ```
 
-- Escuela de prueba: **http://demo.localhost:8000** — usuario `demo`,
-  contraseña `demo1234`.
-- Comandos de apoyo: `acadion:usuario-demo`, `acadion:oferta-demo`.
+- Escuela de prueba: **http://demo.localhost:8000**. El acceso está en la RAÍZ
+  (`/`), no en `/login` —esa ruta sólo acepta POST y un GET responde 405—, y el
+  campo pide **correo o CURP**, no el nombre de usuario. Credenciales
+  comprobadas contra la base: **`demo@escuela.mx` / `password`**. La cuenta se
+  llama `demo` pero eso no sirve para entrar.
+- Comandos de apoyo: `acadion:usuario-demo`, `acadion:oferta-demo`. Ojo:
+  `acadion:usuario-demo` sólo CREA; sobre la escuela de ejemplo, que ya tiene
+  ese usuario, revienta con `Duplicate entry 'demo'`. Para restablecer la
+  contraseña hay que hacerlo a mano.
+- La cuenta del alumno de prueba es `alumno.demo.1` (usuario 275), y su
+  contraseña es aleatoria de 40 caracteres —la pone `AprovisionadorAcceso`—,
+  así que **no se puede entrar como él**. Para ver su portal se usa la
+  suplantación: `POST /suplantar/275` desde una sesión con
+  `suplantar-usuarios`, y se sale con «Volver a mi cuenta».
 - `php artisan tenants:migrate`, `tenants:seed`, `tenants:list`.
 - Si `demo.localhost` no resuelve, agregar `127.0.0.1 demo.localhost` a
   `C:\Windows\System32\drivers\etc\hosts`.
