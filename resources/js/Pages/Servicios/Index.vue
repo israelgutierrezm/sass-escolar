@@ -31,6 +31,8 @@ const props = defineProps<{
     catalogo: Servicio[];
     matriculas: { id: number; matricula: string }[];
     solicitudes: Solicitud[];
+    /** Falso cuando quien mira es la escuela revisando su propio catálogo. */
+    puedePedir: boolean;
 }>();
 
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
@@ -136,7 +138,20 @@ function comoVa(solicitud: Solicitud): string {
             </ul>
         </TarjetaSeccion>
 
-        <TarjetaSeccion titulo="Qué puedes pedir" :icono="ICONOS.ajustes">
+        <TarjetaSeccion
+            :titulo="puedePedir ? 'Qué puedes pedir' : 'Qué ve el alumno'"
+            :icono="ICONOS.ajustes"
+        >
+            <!--
+                Quien atiende el mostrador entra aquí a revisar cómo le quedó su
+                catálogo, así que se le dice desde dónde está mirando en vez de
+                dejarle un botón que le rebotaría.
+            -->
+            <p v-if="!puedePedir" class="mb-3 text-sm" :style="{ color: 'var(--color-suave)' }">
+                Estás viendo el catálogo tal como le aparece al alumno. Para cambiar qué se ofrece o
+                sus instrucciones, ve a <strong>Solicitudes de servicio</strong> en Control Escolar.
+            </p>
+
             <p v-if="!catalogo.length" class="text-sm" :style="{ color: 'var(--color-suave)' }">
                 Tu escuela todavía no ofrece trámites por aquí.
             </p>
@@ -151,6 +166,7 @@ function comoVa(solicitud: Solicitud): string {
                         {{ servicio.tiene_costo ? pesos.format(servicio.precio) : 'Sin costo' }}
                     </p>
                     <button
+                        v-if="puedePedir"
                         type="button"
                         class="rounded-full px-3 py-1.5 text-xs font-semibold text-white"
                         :style="{ backgroundColor: 'var(--color-acento)' }"
@@ -158,6 +174,9 @@ function comoVa(solicitud: Solicitud): string {
                     >
                         Solicitar
                     </button>
+                    <p v-if="servicio.instrucciones" class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                        {{ servicio.instrucciones }}
+                    </p>
                 </div>
             </div>
         </TarjetaSeccion>

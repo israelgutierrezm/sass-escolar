@@ -1666,11 +1666,24 @@ Route::middleware([
             ->middleware('modulo:servicios')
             ->group(function () {
                 Route::prefix('servicios')->name('tenant.servicios.')
-                    ->middleware('can:solicitar-servicios')
                     ->group(function () {
-                        Route::get('/', 'index')->name('index');
-                        Route::post('/', 'store')->name('store');
-                        Route::delete('{solicitud}', 'cancelar')->whereNumber('solicitud')->name('cancelar');
+                        /*
+                         * Mirar y pedir se separan aquí.
+                         *
+                         * Quien atiende el mostrador entra a ver el catálogo
+                         * como lo ve el alumno —ver `ver-servicios-del-alumno`,
+                         * derivado—, pero crear y cancelar solicitudes siguen
+                         * siendo del alumno. Con un solo permiso para las tres
+                         * rutas había que elegir entre dejar a la escuela sin
+                         * poder revisar su propio catálogo, o darle de paso la
+                         * capacidad de pedir.
+                         */
+                        Route::get('/', 'index')->middleware('can:ver-servicios-del-alumno')->name('index');
+
+                        Route::middleware('can:solicitar-servicios')->group(function () {
+                            Route::post('/', 'store')->name('store');
+                            Route::delete('{solicitud}', 'cancelar')->whereNumber('solicitud')->name('cancelar');
+                        });
                     });
 
                 Route::prefix('escolar/servicios')->name('tenant.escolar.servicios.')

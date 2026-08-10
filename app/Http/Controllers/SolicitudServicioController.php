@@ -52,6 +52,17 @@ class SolicitudServicioController extends Controller
                 ->map(fn (MatriculaOferta $m) => ['id' => $m->id, 'matricula' => $m->matricula])
                 ->values(),
 
+            /*
+             * Si quien mira puede pedir, o sólo está revisando.
+             *
+             * A esta pantalla entran dos oficios: el alumno, y quien atiende el
+             * mostrador viendo cómo le queda el catálogo. Sin esta bandera, el
+             * segundo vería el botón «Solicitar» y se llevaría un 403 al
+             * pulsarlo —un botón que rebota es peor que un botón que no está,
+             * porque el primero parece una avería.
+             */
+            'puedePedir' => $peticion->user()?->can('solicitar-servicios') ?? false,
+
             'solicitudes' => SolicitudServicio::query()
                 ->whereIn('matricula_oferta_id', $matriculas->pluck('id'))
                 ->with(['servicio:id,nombre', 'adeudo'])

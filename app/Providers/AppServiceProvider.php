@@ -176,6 +176,36 @@ class AppServiceProvider extends ServiceProvider
             'subir-material',
             fn ($usuario) => $usuario->can('capturar-calificaciones') || $usuario->can('editar-catalogo-academico')
         );
+
+        /*
+         * Ver la biblioteca tal como le queda al alumno.
+         *
+         * Quien la publica necesita mirarla: el orden, qué salió como tarjeta y
+         * qué como enlace suelto, si la portada se ve bien recortada. Sin esto
+         * cura a ciegas y sólo la ve quien no puede corregirla.
+         *
+         * Aquí el nombre del gate coincide con el de un permiso REAL, a
+         * diferencia de los dos de arriba. Funciona —y es lo que se busca— por
+         * cómo está montada la resolución: `Gate::before` concede si el rol
+         * tiene el permiso y devuelve null si no, sin cortar, así que esta
+         * definición actúa de segunda vía. El alumno entra por su permiso;
+         * quien administra, por aquí.
+         */
+        Gate::define('ver-biblioteca', fn ($usuario) => $usuario->can('gestionar-biblioteca'));
+
+        /*
+         * Y lo mismo con el catálogo de servicios, pero SÓLO para verlo.
+         *
+         * Se define un nombre aparte en vez de derivar `solicitar-servicios`
+         * porque no son lo mismo: quien atiende el mostrador tiene que ver lo
+         * que ve el alumno —cómo quedaron el precio y las instrucciones— pero
+         * pedir es otra cosa. Las rutas que CREAN o cancelan una solicitud
+         * siguen colgando de `solicitar-servicios`; sólo la de mirar usa éste.
+         */
+        Gate::define(
+            'ver-servicios-del-alumno',
+            fn ($usuario) => $usuario->can('solicitar-servicios') || $usuario->can('atender-servicios')
+        );
     }
 
     /**
