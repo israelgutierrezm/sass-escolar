@@ -29,8 +29,19 @@ use App\Models\Identidad\Rol;
  */
 class CatalogoCampos
 {
-    /** La foto no es texto: la dibuja el compositor recortada a su caja. */
+    /**
+     * Los tres que NO son texto. El compositor los dibuja como imagen.
+     *
+     * Están en el catálogo aunque no salgan de ningún dato de la persona,
+     * porque el catálogo es lo que declara qué se puede poner en una credencial
+     * — y el saneador del servidor descarta toda clave que no esté aquí. Fuera
+     * de él, la pantalla ofrecería un QR que se borraría solo al guardar.
+     */
     public const FOTO = 'foto';
+
+    public const QR = 'qr';
+
+    public const FIRMA = 'firma';
 
     /**
      * Todos los campos, con su etiqueta y de dónde sale su valor.
@@ -88,6 +99,18 @@ class CatalogoCampos
                 'tipo' => 'texto',
                 'publico' => true,
             ],
+            self::QR => [
+                'etiqueta' => 'Código QR',
+                'ayuda' => 'Lleva a la ficha de verificación. Se dibuja sólo si el QR está encendido.',
+                'tipo' => 'imagen',
+                'publico' => false,
+            ],
+            self::FIRMA => [
+                'etiqueta' => 'Firma del responsable',
+                'ayuda' => 'La imagen que cargues más abajo, igual para todas las credenciales de este rol.',
+                'tipo' => 'imagen',
+                'publico' => false,
+            ],
         ];
     }
 
@@ -113,6 +136,33 @@ class CatalogoCampos
             fn (string $clave) => ($todos[$clave]['publico'] ?? false) === true,
             ARRAY_FILTER_USE_KEY,
         );
+    }
+
+    /**
+     * Datos inventados para la vista previa de la pantalla de configuración.
+     *
+     * ── Por qué no se usa a una persona de verdad ─────────────────────────
+     * Porque acomodar cajas no es motivo para abrir el expediente de nadie, y
+     * porque la primera persona de la lista suele ser el caso FÁCIL: un nombre
+     * corto cabe en cualquier parte y no avisa de que la caja está chica.
+     *
+     * Estos valores son deliberadamente largos —nombre de cuatro palabras con
+     * acentos, una carrera que no cabe en un renglón— para que quien configura
+     * vea el problema mientras lo está armando y no cuando salga impreso.
+     *
+     * @return array<string, string>
+     */
+    public static function ejemplo(): array
+    {
+        return [
+            'nombre' => 'María Fernanda Gutiérrez Villaseñor',
+            'matricula' => 'L20260123',
+            'carrera' => 'Ingeniería en Sistemas Computacionales',
+            'campus' => 'Campus Norte',
+            'rol' => 'Alumno',
+            'curp' => 'GUVM060312MDFTLR09',
+            'vigencia' => 'Vigente hasta julio 2027',
+        ];
     }
 
     /** @return array<int, string> */

@@ -56,15 +56,13 @@ class CompositorCredencialTest extends TenantTestCase
      */
     public function test_la_foto_llena_su_caja(): void
     {
-        $ruta = 'fotos/prueba-compositor.png';
-        Storage::disk('local')->put($ruta, $this->rectanguloNegro(800, 200));
-
         $config = $this->configuracion([
             'campos_anverso' => [['clave' => 'foto', 'x' => 10, 'y' => 40, 'ancho' => 30, 'alto' => 30]],
         ]);
 
         [$ancho, $alto] = $this->tintaEn(
-            app(Compositor::class)->componer($config, 'anverso', [], $ruta),
+            // Apaisada a propósito: si se estirara, saldría con otra proporción.
+            app(Compositor::class)->componer($config, 'anverso', [], $this->rectanguloNegro(800, 200)),
         );
 
         $this->assertSame((int) round($config->ancho * 0.30), $ancho, 'La foto no llenó el ancho de su caja.');

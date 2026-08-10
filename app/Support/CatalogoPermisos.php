@@ -240,6 +240,14 @@ final class CatalogoPermisos
             'gestionar-formularios' => ['Constructor de formularios', 'Definir qué datos se piden y en qué versión.', [self::ADMINISTRATIVO]],
             'gestionar-calendario' => ['Administrar el calendario', 'Publicar eventos y días feriados, y decidir a quién le llegan. Todos ven su agenda; sólo con esto se escribe en ella. Los avisos van aparte.', [self::ADMINISTRATIVO]],
             'ver-indicadores' => ['Ver indicadores financieros', 'La UMA y el tipo de cambio en el panel. Para quien cobra, factura o arma becas; a un alumno no le dice nada.', [self::ADMINISTRATIVO]],
+            /*
+             * Separado de `gestionar-roles` aunque se configure POR rol: quien
+             * diseña el gafete de la escuela es quien ve la imagen institucional
+             * —a veces la propia dirección—, y no tiene por qué poder repartir
+             * permisos. Al revés también: dar de alta un rol nuevo no debería
+             * exigir saber de tipografías.
+             */
+            'gestionar-credenciales' => ['Configurar la credencial virtual', 'Definir el diseño, el tamaño y qué datos lleva la credencial de cada rol, y decidir si se emite.', [self::ADMINISTRATIVO]],
         ],
     ];
 

@@ -24,6 +24,7 @@ use App\Http\Controllers\ChatMateriaController;
 use App\Http\Controllers\CicloController;
 use App\Http\Controllers\CobroAspiranteController;
 use App\Http\Controllers\CobroEnLineaController;
+use App\Http\Controllers\CredencialConfiguracionController;
 use App\Http\Controllers\ComprobantePagoController;
 use App\Http\Controllers\CreditosEmisionController;
 use App\Http\Controllers\CuentaBancariaController;
@@ -1650,6 +1651,30 @@ Route::middleware([
             ->group(function () {
                 Route::get('/', 'index')->middleware('can:ver-configuracion')->name('index');
                 Route::put('/', 'actualizar')->middleware('can:editar-configuracion')->name('actualizar');
+            });
+
+        /*
+         * La credencial virtual, rol por rol.
+         *
+         * Todo bajo `gestionar-credenciales`, la vista previa incluida: dibuja
+         * la credencial de la escuela con su logo y su machote y, aunque los
+         * datos sean inventados, el diseño del gafete oficial no es algo que
+         * deba poder mirar cualquiera con sesión — es la mitad de lo que hace
+         * falta para falsificar uno.
+         */
+        Route::controller(CredencialConfiguracionController::class)
+            ->prefix('plataforma/configuraciones/credencial')
+            ->middleware('can:gestionar-credenciales')
+            ->name('tenant.plataforma.credencial.')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::put('/', 'guardar')->name('guardar');
+                Route::delete('/{credencial}', 'eliminar')->name('eliminar');
+                Route::post('/{credencial}/imagen', 'subir')->name('subir');
+                Route::get('/{credencial}/imagen/{campo}', 'imagen')->name('imagen');
+                // Sin `{credencial}`: un rol que aún no se ha configurado es
+                // justo el que más necesita ver cómo va quedando.
+                Route::post('/vista-previa/{cara}', 'vistaPrevia')->name('vista-previa');
             });
 
         /*

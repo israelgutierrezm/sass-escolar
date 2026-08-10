@@ -263,6 +263,7 @@ export const CATALOGO_MENU: GrupoMenu[] = [
                     { clave: 'config-correo', etiqueta: 'Envío de correos', url: '/plataforma/configuraciones/correo', permiso: 'configurar-correo' },
                     { clave: 'config-facturacion', etiqueta: 'API Facturación', url: '/plataforma/configuraciones/facturacion', permiso: 'configurar-facturacion' },
                     { clave: 'config-pasarelas', etiqueta: 'API Pasarelas', url: '/plataforma/configuraciones/pasarelas', permiso: 'configurar-facturacion' },
+                    { clave: 'config-credencial', etiqueta: 'Credencial virtual', url: '/plataforma/configuraciones/credencial', permiso: 'gestionar-credenciales' },
                 ],
             },
         ],

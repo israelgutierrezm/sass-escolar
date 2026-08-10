@@ -35,20 +35,25 @@ class Compositor
     /**
      * Compone una cara.
      *
+     * La foto y el QR llegan como BINARIO, no como ruta: la vista previa de la
+     * pantalla de configuración dibuja una silueta inventada que no está en
+     * ningún disco, y hacerla escribir un archivo temporal para poder enseñarla
+     * sería basura en el servidor por cada arrastre de una caja. La firma sí se
+     * lee del disco porque es parte de la configuración, no del titular.
+     *
      * @param  array<string, string>  $valores  lo que resolvió `CatalogoCampos`
-     * @param  array<int, array<string, mixed>>|null  $mapa  posiciones de esa cara
      */
     public function componer(
         CredencialRol $config,
         string $cara,
         array $valores,
-        ?string $rutaFoto = null,
+        ?string $pngFoto = null,
         ?string $pngQr = null,
     ): string {
         $lienzo = $this->lienzo($config, $cara);
 
         foreach ($config->{"campos_{$cara}"} ?? [] as $campo) {
-            $this->dibujarCampo($lienzo, $config, $campo, $valores, $rutaFoto, $pngQr);
+            $this->dibujarCampo($lienzo, $config, $campo, $valores, $pngFoto, $pngQr);
         }
 
         return $this->aPng($lienzo);
@@ -111,7 +116,7 @@ class Compositor
         CredencialRol $config,
         array $campo,
         array $valores,
-        ?string $rutaFoto,
+        ?string $pngFoto,
         ?string $pngQr,
     ): void {
         $clave = $campo['clave'] ?? null;
@@ -123,9 +128,9 @@ class Compositor
         $caja = $this->caja($campo, imagesx($lienzo), imagesy($lienzo));
 
         match (true) {
-            $clave === CatalogoCampos::FOTO => $this->dibujarImagen($lienzo, $caja, $rutaFoto),
-            $clave === 'qr' => $this->pegar($lienzo, $pngQr, $caja, recortar: false),
-            $clave === 'firma' => $this->dibujarImagen($lienzo, $caja, $config->firma_imagen, recortar: false),
+            $clave === CatalogoCampos::FOTO => $this->pegar($lienzo, $pngFoto, $caja),
+            $clave === CatalogoCampos::QR => $this->pegar($lienzo, $pngQr, $caja, recortar: false),
+            $clave === CatalogoCampos::FIRMA => $this->dibujarImagen($lienzo, $caja, $config->firma_imagen, recortar: false),
             default => $this->dibujarTexto($lienzo, $campo, $caja, $valores),
         };
     }
