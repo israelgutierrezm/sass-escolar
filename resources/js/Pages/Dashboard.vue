@@ -74,6 +74,22 @@ const COLORES_TARJETA: Record<string, string> = {
     'mi-saldo': '#059669',
     'mis-materias': '#4F46E5',
     accesos: '#475569',
+    /*
+     * Las dos del portal del alumno.
+     *
+     * Sin entrada aquí caían las dos al acento del tema —`colorTarjeta` lo usa
+     * de respaldo— y salían del MISMO color, una al lado de la otra en la misma
+     * fila: exactamente lo que se corrigió con el embudo y su vecina cian. Se
+     * vio entrando como alumno; con la sesión de dirección esas tarjetas ni
+     * aparecen, así que la paleta no se prueba sola.
+     *
+     * Morado y ámbar quemado: separados entre sí y de sus vecinas de fila —azul
+     * en «Mi avance», verde en «Mi estado de cuenta», pizarra en los atajos—.
+     * Los dos pasan el 4.5:1 sobre blanco (5.70 y 5.02), que hace falta porque
+     * el mismo valor pinta la cifra y el enlace «Ver».
+     */
+    biblioteca: '#7C3AED',
+    'mis-solicitudes': '#B45309',
 };
 
 function colorTarjeta(clave: string): string {
