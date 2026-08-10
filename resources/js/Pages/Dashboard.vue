@@ -98,6 +98,25 @@ function tonoTarjeta(tarjeta: { clave: string; tipo: string; datos: Record<strin
         : colorTarjeta(tarjeta.clave);
 }
 
+/** Cuántas formas distintas de adorno hay definidas abajo, en el `<style>`. */
+const ADORNOS = 6;
+
+/**
+ * Qué adorno le toca a la tarjeta que va en la posición `i`.
+ *
+ * Va por POSICIÓN y no por clave: lo que se busca es que dos tarjetas vecinas
+ * no lleven la misma forma, y eso depende de dónde caen en la cuadrícula, no de
+ * cómo se llaman. Repartiendo por posición, las primeras seis salen siempre
+ * distintas; con una tabla de clave → adorno, dos tarjetas cualesquiera podrían
+ * coincidir y quedar pegadas una junto a la otra.
+ *
+ * A cambio, el adorno de una tarjeta cambia si el panel se reordena. Es lo de
+ * menos: son círculos de fondo, no información.
+ */
+function adorno(i: number): string {
+    return `adorno-${(i % ADORNOS) + 1}`;
+}
+
 const mostrarRoles = ref(false);
 
 const saludo = computed(() => {
@@ -414,13 +433,16 @@ function conmutar(rolId: number): void {
                 v-for="(tarjeta, i) in props.tarjetas"
                 :key="tarjeta.clave"
                 class="tarjeta tarjeta-panel animar-entrada p-5"
-                :class="{
-                    'sm:col-span-1': tarjeta.ancho === 1,
-                    'sm:col-span-2': tarjeta.ancho === 2,
-                    'sm:col-span-3': tarjeta.ancho === 3,
-                    'sm:col-span-4': tarjeta.ancho === 4,
-                    'tarjeta-destacada': esDestacada(tarjeta),
-                }"
+                :class="[
+                    adorno(i),
+                    {
+                        'sm:col-span-1': tarjeta.ancho === 1,
+                        'sm:col-span-2': tarjeta.ancho === 2,
+                        'sm:col-span-3': tarjeta.ancho === 3,
+                        'sm:col-span-4': tarjeta.ancho === 4,
+                        'tarjeta-destacada': esDestacada(tarjeta),
+                    },
+                ]"
                 :style="{ '--tono': tonoTarjeta(tarjeta), animationDelay: `${i * 45}ms` }"
             >
                 <div class="flex items-start justify-between gap-2">
@@ -824,43 +846,138 @@ function conmutar(rolId: number): void {
 }
 
 /*
- * Las burbujas de la esquina.
+ * El adorno de la esquina.
  *
- * Dos círculos superpuestos, decorativos —de ahí que sean pseudoelementos y no
- * marcado— recortados por el `overflow` de la tarjeta. Van en TODAS: en la de
- * color son blancos y en las claras se tiñen del tono propio de la tarjeta, así
- * que la de lista y la de barras tienen la misma gracia sin volverse un bloque
- * de color (que sobre veinte renglones o una gráfica cansaría de leer).
+ * Dos círculos por tarjeta, decorativos —de ahí que sean pseudoelementos y no
+ * marcado— y recortados por el `overflow`. Van en TODAS, teñidos del tono
+ * propio de cada una, así que la de lista y la de barras tienen la misma gracia
+ * sin volverse un bloque de color (que sobre veinte renglones o una gráfica
+ * cansaría de leer).
  *
- * El tinte es bajo a propósito: al 9% sobre la superficie apenas se adivina,
- * que es justo lo que se busca —textura de fondo, no una mancha que compita
- * con el dato—. Y como sale de `--tono`, cada tarjeta trae el color que ya
- * tenía en el acento superior.
+ * ── Por qué seis y no uno ──────────────────────────────────────────────────
+ * El mismo par en la misma esquina en las cinco tarjetas se leía como una
+ * plantilla repetida. Cada tarjeta toma un adorno distinto según su posición
+ * —ver `adorno()`—, así que mientras quepan seis en pantalla no se repite
+ * ninguno: discos, aros de sólo contorno y anillos gruesos, entrando por las
+ * cuatro esquinas.
+ *
+ * Los tonos van en variables y no repetidos en cada regla: los adornos definen
+ * FORMA Y SITIO, nunca color. Así, cambiar cuánto se nota el adorno en todo el
+ * panel es cambiar estas cuatro líneas.
+ *
+ * El relleno se queda bajo a propósito: al 9% sobre la superficie apenas se
+ * adivina, que es lo que se busca —textura de fondo, no una mancha que compita
+ * con el dato—. El trazo va más alto porque una línea de 2 px al 9% no se ve.
  */
+.tarjeta-panel {
+    --relleno: color-mix(in srgb, var(--tono) 9%, transparent);
+    --relleno-tenue: color-mix(in srgb, var(--tono) 6%, transparent);
+    --trazo: color-mix(in srgb, var(--tono) 22%, transparent);
+    --trazo-tenue: color-mix(in srgb, var(--tono) 14%, transparent);
+}
+
 .tarjeta-panel::before,
 .tarjeta-panel::after {
     content: "";
     position: absolute;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--tono) 9%, transparent);
     pointer-events: none;
 }
 
-.tarjeta-panel::after {
+/* 1 · El par de discos entrando por arriba a la derecha. */
+.adorno-1::after {
     right: -3.5rem;
     top: -3.5rem;
     width: 11rem;
     height: 11rem;
+    background: var(--relleno);
 }
-
-/* La segunda, más chica y desfasada, para que se lea como un par y no como un
-   círculo suelto: es lo que le da profundidad a la esquina. */
-.tarjeta-panel::before {
+.adorno-1::before {
     right: 1.75rem;
     top: -5.25rem;
     width: 8rem;
     height: 8rem;
-    background: color-mix(in srgb, var(--tono) 6%, transparent);
+    background: var(--relleno-tenue);
+}
+
+/* 2 · Dos aros de sólo contorno, abajo a la izquierda. */
+.adorno-2::after {
+    left: -3rem;
+    bottom: -3.5rem;
+    width: 10rem;
+    height: 10rem;
+    border: 2px solid var(--trazo);
+}
+.adorno-2::before {
+    left: 2.5rem;
+    bottom: -1.5rem;
+    width: 5rem;
+    height: 5rem;
+    border: 2px solid var(--trazo-tenue);
+}
+
+/* 3 · Un anillo grueso arriba a la izquierda, con su disco suelto. */
+.adorno-3::after {
+    left: -4rem;
+    top: -4rem;
+    width: 12rem;
+    height: 12rem;
+    border: 2rem solid var(--relleno);
+}
+.adorno-3::before {
+    left: 6rem;
+    top: 1.5rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    background: var(--relleno-tenue);
+}
+
+/* 4 · Disco grande abajo a la derecha, cruzado por un aro. */
+.adorno-4::after {
+    right: -4rem;
+    bottom: -4.5rem;
+    width: 12rem;
+    height: 12rem;
+    background: var(--relleno-tenue);
+}
+.adorno-4::before {
+    right: 2.5rem;
+    bottom: -2rem;
+    width: 7rem;
+    height: 7rem;
+    border: 2px solid var(--trazo);
+}
+
+/* 5 · Aro arriba a la derecha y disco abajo a la izquierda: las dos esquinas. */
+.adorno-5::after {
+    right: -3rem;
+    top: -3rem;
+    width: 10rem;
+    height: 10rem;
+    border: 2px solid var(--trazo);
+}
+.adorno-5::before {
+    left: -1.75rem;
+    bottom: -1.75rem;
+    width: 6rem;
+    height: 6rem;
+    background: var(--relleno);
+}
+
+/* 6 · El par de discos, ahora entrando por arriba a la izquierda. */
+.adorno-6::after {
+    left: -4.5rem;
+    top: -2.5rem;
+    width: 10rem;
+    height: 10rem;
+    background: var(--relleno);
+}
+.adorno-6::before {
+    left: 4rem;
+    top: -3.75rem;
+    width: 5.5rem;
+    height: 5.5rem;
+    background: var(--relleno-tenue);
 }
 
 /* Por encima de las burbujas, que van en absoluto. */
