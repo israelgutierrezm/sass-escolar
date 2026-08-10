@@ -69,6 +69,35 @@ function colorTarjeta(clave: string): string {
     return COLORES_TARJETA[clave] ?? 'var(--color-acento)';
 }
 
+/** El rojo del sistema, para la tarjeta que trae una alerta. */
+const ROJO_ALERTA = '#dc2626';
+
+/**
+ * Qué tarjetas se visten de bloque de color.
+ *
+ * Sólo las de UN número. Es donde el color no le quita nada a nadie: no hay
+ * texto que leer, así que el fondo puede ser sólido y la cifra se lee mejor en
+ * blanco y grande que en negro sobre blanco. Una lista de veinte renglones o
+ * una gráfica sobre color saturado sería lo contrario: cansa y esconde.
+ */
+function esDestacada(tarjeta: { tipo: string }): boolean {
+    return tarjeta.tipo === 'metrica';
+}
+
+/**
+ * El color de la tarjeta, y el rojo cuando algo va mal.
+ *
+ * En una tarjeta blanca la alerta se decía con el número en rojo. Sobre un
+ * bloque de color ese rojo no se vería —o peor, se vería sucio—, así que la
+ * alerta se lleva la tarjeta ENTERA: una cartera vencida se pone roja y se ve
+ * desde el otro lado de la pantalla, que es de lo que se trataba.
+ */
+function tonoTarjeta(tarjeta: { clave: string; tipo: string; datos: Record<string, any> }): string {
+    return esDestacada(tarjeta) && tarjeta.datos.alerta
+        ? ROJO_ALERTA
+        : colorTarjeta(tarjeta.clave);
+}
+
 const mostrarRoles = ref(false);
 
 const saludo = computed(() => {
@@ -371,6 +400,15 @@ function conmutar(rolId: number): void {
                 `truncate` que ya tenía cada texto.
             -->
             <section v-if="props.tarjetas.length" class="grid min-w-0 grid-flow-dense gap-4 sm:grid-cols-4">
+            <!--
+                Sólo `--tono` viaja en línea; `--color-tarjeta` lo pone el CSS.
+
+                Es a propósito: dentro de una destacada, `--color-tarjeta` pasa a
+                ser BLANCO, y así el icono, el trazo del SVG y el enlace «Ver»
+                —que ya lo usaban— salen legibles sobre el bloque de color sin
+                duplicar una sola línea de marcado. Si `--color-tarjeta` se
+                pusiera en línea le ganaría a esa regla y no habría manera.
+            -->
             <div
                 v-for="(tarjeta, i) in props.tarjetas"
                 :key="tarjeta.clave"
@@ -380,8 +418,9 @@ function conmutar(rolId: number): void {
                     'sm:col-span-2': tarjeta.ancho === 2,
                     'sm:col-span-3': tarjeta.ancho === 3,
                     'sm:col-span-4': tarjeta.ancho === 4,
+                    'tarjeta-destacada': esDestacada(tarjeta),
                 }"
-                :style="{ '--color-tarjeta': colorTarjeta(tarjeta.clave), animationDelay: `${i * 45}ms` }"
+                :style="{ '--tono': tonoTarjeta(tarjeta), animationDelay: `${i * 45}ms` }"
             >
                 <div class="flex items-start justify-between gap-2">
                     <div class="flex items-center gap-2.5">
@@ -416,18 +455,25 @@ function conmutar(rolId: number): void {
                     </a>
                 </div>
 
-                <!-- Métrica: un número grande y su contexto. -->
+                <!--
+                    Métrica: un número grande y su contexto.
+
+                    El rojo de la alerta sólo se usa sobre fondo claro. En la
+                    destacada la tarjeta ENTERA ya es roja —ver `tonoTarjeta`—,
+                    así que el número va en blanco como los demás: un rojo sobre
+                    rojo no se leería, y el aviso está dado por el bloque.
+                -->
                 <template v-if="tarjeta.tipo === 'metrica'">
                     <p
                         class="mt-3 text-3xl font-semibold tracking-tight tabular-nums"
-                        :class="tarjeta.datos.alerta ? 'text-red-600' : ''"
+                        :class="tarjeta.datos.alerta && !esDestacada(tarjeta) ? 'text-red-600' : ''"
                     >
                         {{ formatear(tarjeta.datos.valor, tarjeta.datos.formato) }}
                     </p>
                     <p
                         class="mt-0.5 text-xs"
-                        :class="tarjeta.datos.alerta ? 'font-medium text-red-600' : ''"
-                        :style="tarjeta.datos.alerta ? {} : { color: 'var(--color-suave)' }"
+                        :class="tarjeta.datos.alerta && !esDestacada(tarjeta) ? 'font-medium text-red-600' : ''"
+                        :style="tarjeta.datos.alerta && !esDestacada(tarjeta) ? {} : { color: 'var(--color-suave)' }"
                     >
                         {{ tarjeta.datos.pie }}
                     </p>
@@ -745,6 +791,12 @@ function conmutar(rolId: number): void {
 }
 
 .tarjeta-panel {
+    /*
+     * El color propio de la tarjeta, para todo lo que ya lo usaba. Se declara
+     * aquí y no en línea para que `.tarjeta-destacada` pueda cambiarlo.
+     */
+    --color-tarjeta: var(--tono);
+
     border-top: 3px solid var(--color-tarjeta);
     transition:
         transform 0.2s ease,
@@ -783,6 +835,64 @@ function conmutar(rolId: number): void {
 
 .tarjeta-panel:hover {
     transform: translateY(-2px);
-    box-shadow: 0 12px 24px -8px color-mix(in srgb, var(--color-tarjeta) 45%, transparent);
+    box-shadow: 0 12px 24px -8px color-mix(in srgb, var(--tono) 45%, transparent);
+}
+
+/*
+ * La tarjeta de un solo número, vestida de su color.
+ *
+ * ── Por qué el degradado arranca oscurecido ────────────────────────────────
+ * Sobre el color a tope el blanco no contrasta lo suficiente: medido, el ámbar
+ * de las comisiones daba 3.19:1 y el verde de la cartera 3.77, por debajo del
+ * 4.5:1 que necesita el texto chico para ser legible.
+ *
+ * El 80% mezclado con negro deja el PEOR tono de la paleta en 4.73:1 —el ámbar
+ * otra vez, que manda— y de ahí para arriba todos los demás. El 85% se quedaba
+ * en 4.28 y el 82% justo en 4.52; se toma el 80 para tener margen si algún día
+ * se agrega un color claro a la paleta. La diferencia no se nota a la vista;
+ * el texto ilegible sí.
+ */
+.tarjeta-destacada {
+    /* Dentro del bloque, «el color de la tarjeta» es el blanco: lo heredan el
+       icono, el trazo del SVG y el enlace «Ver» sin tocar el marcado. */
+    --color-tarjeta: #ffffff;
+    /* Y lo «suave» pasa a ser un blanco apagado, para el pie de la cifra. */
+    --color-suave: rgb(255 255 255 / 0.78);
+
+    background: linear-gradient(
+        145deg,
+        color-mix(in srgb, var(--tono) 80%, #000),
+        color-mix(in srgb, var(--tono) 52%, #000)
+    );
+    border-color: transparent;
+    color: #ffffff;
+    position: relative;
+    overflow: hidden;
+}
+
+/*
+ * El círculo de luz de la esquina. Puramente decorativo —de ahí que no sea un
+ * elemento— y recortado por el `overflow` de la tarjeta.
+ */
+.tarjeta-destacada::after {
+    content: "";
+    position: absolute;
+    right: -3.5rem;
+    top: -3.5rem;
+    width: 11rem;
+    height: 11rem;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.09);
+    pointer-events: none;
+}
+
+/* Por encima del círculo, que va en absoluto. */
+.tarjeta-destacada > * {
+    position: relative;
+    z-index: 1;
+}
+
+.tarjeta-destacada:hover {
+    box-shadow: 0 14px 28px -10px color-mix(in srgb, var(--tono) 75%, transparent);
 }
 </style>
