@@ -1,0 +1,141 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Feature;
+
+use App\Http\Controllers\BibliotecaController;
+use App\Models\ControlEscolar\BibliotecaEnlace;
+use App\Panel\Tarjetas\BibliotecaDigital;
+use App\Services\Plataforma\ModulosDeLaEscuela;
+use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
+use Tests\Concerns\CreaEscuelaDePrueba;
+use Tests\TenantTestCase;
+
+/**
+ * La biblioteca digital.
+ *
+ * ── El caso que justifica la prueba de la dirección ────────────────────────
+ * Lo que se captura aquí lo publica la escuela a TODOS sus alumnos y sale como
+ * un enlace en el que se hace clic, así que el esquema importa.
+ *
+ * Medido en esta versión de Laravel: la regla `url` a secas ya rechaza
+ * `javascript:`, `data:`, `file:`, `mailto:` y `vbscript:` —exige la forma
+ * `esquema://servidor`—. Lo que NO rechaza es `ftp://` ni `ws://`, y ésos son
+ * los que fija la lista de esquemas. Por eso la prueba los incluye: sin ellos
+ * pasaría igual con la regla sin acotar y no estaría comprobando nada.
+ */
+class BibliotecaDigitalTest extends TenantTestCase
+{
+    use CreaEscuelaDePrueba;
+
+    public function test_una_direccion_que_no_es_http_se_rechaza(): void
+    {
+        $fuera = [
+            // Los que ejecutarían algo en el navegador de quien haga clic.
+            'javascript:alert(1)',
+            'data:text/html,<script>alert(1)</script>',
+            'file:///etc/passwd',
+            // Y los que la regla `url` sin acotar SÍ dejaría pasar. Son los que
+            // hacen que esta prueba distinga una cosa de la otra.
+            'ftp://archivos.example.mx/a',
+            'ws://example.mx/socket',
+        ];
+
+        foreach ($fuera as $peligrosa) {
+            try {
+                $this->publicar(['url' => $peligrosa]);
+                $this->fail("Se aceptó una dirección que no debía: {$peligrosa}");
+            } catch (ValidationException $e) {
+                $this->assertArrayHasKey('url', $e->errors());
+            }
+        }
+    }
+
+    public function test_una_direccion_normal_se_acepta(): void
+    {
+        $this->publicar(['url' => 'https://biblioteca.example.mx/revistas']);
+
+        $this->assertSame(1, BibliotecaEnlace::query()->count());
+    }
+
+    /**
+     * Con portada se pinta como tarjeta; sin portada, como enlace suelto.
+     *
+     * El reparto lo hace el servidor porque son dos bloques distintos en
+     * pantalla. Si se mezclaran, un recurso sin imagen saldría como tarjeta con
+     * un hueco gris, que se lee como una portada que no cargó.
+     */
+    public function test_los_que_traen_portada_van_aparte_de_los_directos(): void
+    {
+        $this->publicar(['titulo' => 'Con portada', 'imagen_url' => 'https://cdn.example.mx/a.png']);
+        $this->publicar(['titulo' => 'Sin portada', 'imagen_url' => null]);
+
+        $props = app(BibliotecaController::class)->index()->toResponse($this->peticionDe($this->usuarioConAlcance()))->getData(true)['props'];
+
+        $this->assertSame(['Con portada'], array_column($props['tarjetas'], 'titulo'));
+        $this->assertSame(['Sin portada'], array_column($props['directos'], 'titulo'));
+    }
+
+    /** Lo despublicado no se le enseña al alumno, pero sigue guardado. */
+    public function test_un_recurso_sin_publicar_no_sale(): void
+    {
+        $this->publicar(['titulo' => 'Retirado', 'activo' => false]);
+
+        $this->assertSame(0, BibliotecaEnlace::query()->publicados()->count());
+        $this->assertSame(1, BibliotecaEnlace::query()->count());
+    }
+
+    /**
+     * La tarjeta del panel es la ÚNICA puerta: la sección no está en el menú.
+     *
+     * Así que tiene que desaparecer cuando la escuela cierra la sección —si no,
+     * el alumno vería una invitación a un 404— y cuando no hay nada publicado,
+     * que sería una invitación a una pantalla vacía.
+     */
+    public function test_la_tarjeta_desaparece_con_la_seccion_apagada(): void
+    {
+        $this->publicar([]);
+
+        $this->assertNotNull($this->tarjeta()->datos($this->usuarioConAlcance()));
+
+        $this->modulos()->cambiar('biblioteca', false);
+
+        $this->assertNull($this->tarjeta()->datos($this->usuarioConAlcance()));
+    }
+
+    public function test_la_tarjeta_no_invita_a_una_biblioteca_vacia(): void
+    {
+        $this->assertNull($this->tarjeta()->datos($this->usuarioConAlcance()));
+    }
+
+    // ── Andamiaje ──────────────────────────────────────────────────────────
+
+    /** @param array<string, mixed> $cambios */
+    private function publicar(array $cambios): void
+    {
+        $peticion = Request::create('/escolar/biblioteca', 'POST', array_merge([
+            'titulo' => 'Recurso de prueba',
+            'descripcion' => null,
+            'url' => 'https://example.mx',
+            'imagen_url' => null,
+            'activo' => true,
+        ], $cambios));
+
+        app(BibliotecaController::class)->store($peticion);
+    }
+
+    private function tarjeta(): BibliotecaDigital
+    {
+        return new BibliotecaDigital($this->modulos());
+    }
+
+    /** Instancia nueva: el servicio recuerda el mapa durante la petición. */
+    private function modulos(): ModulosDeLaEscuela
+    {
+        app()->forgetInstance(ModulosDeLaEscuela::class);
+
+        return app(ModulosDeLaEscuela::class);
+    }
+}

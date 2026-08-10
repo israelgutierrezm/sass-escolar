@@ -7,6 +7,7 @@ use App\Models\Identidad\Usuario;
 use App\Panel\RegistroTarjetas;
 use App\Panel\Tarjetas\AccesosDirectos;
 use App\Panel\Tarjetas\ActividadPorHora;
+use App\Panel\Tarjetas\BibliotecaDigital;
 use App\Panel\Tarjetas\CarteraDeLaEscuela;
 use App\Panel\Tarjetas\ComisionesPorPagar;
 use App\Panel\Tarjetas\ContinuarCurso;
@@ -205,6 +206,10 @@ class AppServiceProvider extends ServiceProvider
                 MisCalificacionesRecientes::class,
                 MiAvanceAcademico::class,
                 MiEstadoDeCuenta::class,
+                // Las dos secciones que sólo se alcanzan desde el panel: sin su
+                // tarjeta, el alumno no tiene por dónde entrar. Van después de
+                // lo suyo de cada día y antes de lo de los demás roles.
+                BibliotecaDigital::class,
                 MisMateriasDocente::class,
                 ProspectosPorContactar::class,
                 CarteraDeLaEscuela::class,

@@ -122,6 +122,7 @@ final class CatalogoPermisos
             'inscribir-alumnos' => ['Inscribir alumnos', 'Dar de alta y de baja materias, con las validaciones de seriación y cupo.', [self::ADMINISTRATIVO]],
             'ver-kardex' => ['Ver kárdex', 'Consultar el historial académico.', [self::ADMINISTRATIVO, self::DOCENTE, self::ALUMNO, self::TUTOR, self::PADRE]],
             'gestionar-tutorias' => ['Asignar tutorías', 'Repartir los alumnos entre los tutores educativos, por ciclo.', [self::ADMINISTRATIVO]],
+            'gestionar-biblioteca' => ['Gestionar la biblioteca digital', 'Publicar, ordenar y retirar los enlaces que el alumno ve en la biblioteca.', [self::ADMINISTRATIVO]],
             /*
              * APARTE de `gestionar-tutorias` a propósito.
              *
@@ -169,6 +170,14 @@ final class CatalogoPermisos
             // documentos distintos, y un docente que además estudia no debería
             // heredar el suyo del otro rol.
             'editar-mi-expediente-alumno' => ['Editar mi expediente (alumno)', 'Que el alumno corrija sus datos y suba los documentos que la escuela le pide.', [self::ALUMNO]],
+            /*
+             * El permiso es de quién ENTRA; el interruptor de la sección, de si
+             * la escuela la tiene abierta. Son dos cosas distintas y hacen falta
+             * las dos: apagar la biblioteca no debe obligar a repartir permisos
+             * de nuevo, y quitarle el permiso a un rol no debe cerrarla para
+             * todos los demás.
+             */
+            'ver-biblioteca' => ['Ver la biblioteca digital', 'Portal del alumno: los enlaces y recursos que la escuela publica.', [self::ALUMNO]],
         ],
 
         'Docencia' => [

@@ -10,6 +10,7 @@ use App\Http\Controllers\ArchivoRespuestaController;
 use App\Http\Controllers\AsignacionTutoriaController;
 use App\Http\Controllers\AsignaturaController;
 use App\Http\Controllers\AsignaturaGrupoController;
+use App\Http\Controllers\BibliotecaController;
 use App\Http\Controllers\AspiranteController;
 use App\Http\Controllers\AulaController;
 use App\Http\Controllers\AutenticacionController;
@@ -1592,6 +1593,44 @@ Route::middleware([
             ->group(function () {
                 Route::get('/', 'index')->middleware('can:ver-configuracion')->name('index');
                 Route::put('/', 'actualizar')->middleware('can:editar-configuracion')->name('actualizar');
+            });
+
+        /*
+         * La biblioteca digital.
+         *
+         * Todo el grupo va detrás de `modulo:biblioteca`, la gestión incluida:
+         * si la escuela cerró la sección, no tiene sentido que alguien siga
+         * publicando recursos que nadie puede abrir.
+         *
+         * La vista del alumno NO cuelga del menú lateral a propósito —se entra
+         * por su tarjeta del panel—, pero eso es dónde está el botón; quien
+         * cierra la puerta es el middleware.
+         */
+        Route::controller(BibliotecaController::class)
+            ->middleware('modulo:biblioteca')
+            ->group(function () {
+                Route::get('biblioteca', 'index')
+                    ->middleware('can:ver-biblioteca')
+                    ->name('tenant.biblioteca.index');
+
+                Route::prefix('escolar/biblioteca')->name('tenant.escolar.biblioteca.')
+                    ->middleware('can:gestionar-biblioteca')
+                    ->group(function () {
+                        Route::get('/', 'gestion')->name('index');
+                        /*
+                         * Las portadas suben por el mismo sitio que las imágenes
+                         * del contenido: disco privado, uuid en la dirección y
+                         * servidas detrás de sesión. Cambia el permiso que abre
+                         * la puerta, no la maquinaria —un segundo almacén de
+                         * imágenes sería el mismo problema resuelto dos veces.
+                         */
+                        Route::post('imagenes', [ImagenContenidoController::class, 'subir'])->name('imagenes');
+                        Route::post('/', 'store')->name('store');
+                        // Antes de `{enlace}`: si no, «orden» se toma por un id.
+                        Route::put('orden', 'reordenar')->name('orden');
+                        Route::put('{enlace}', 'update')->whereNumber('enlace')->name('update');
+                        Route::delete('{enlace}', 'destroy')->whereNumber('enlace')->name('destroy');
+                    });
             });
 
         /*
