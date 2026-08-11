@@ -7,13 +7,32 @@ import type { NodoNav } from '@/menu/construir';
  * un SUBGRUPO es un encabezado plegable que contiene más hoja(s) o subgrupo(s).
  * El estado de abierto/cerrado se comparte por clave con la barra (`abiertos`).
  */
-defineProps<{
+const props = defineProps<{
     nodos: NodoNav[];
     abiertos: Record<string, boolean>;
     esActiva: (prefijo: string) => boolean;
 }>();
 
 const emit = defineEmits<{ alternar: [clave: string] }>();
+
+/**
+ * Un subgrupo está activo si la ruta cae en ÉL o en cualquiera de sus hijos.
+ *
+ * Comparar sólo contra su prefijo alcanzaba mientras cada subgrupo tuviera una
+ * única raíz de URL. Dejó de alcanzar con «Académico → Configuración», que junta
+ * `/academico/ofertas`, `/academico/plantillas` y `/academico/catalogos`:
+ * estando en cualquiera de las dos últimas el subgrupo se abría —eso lo resuelve
+ * `prefijosActivos`— pero no se pintaba como activo.
+ *
+ * Es la misma corrección que ya lleva la barra para las secciones de nivel 1.
+ */
+function nodoActivo(nodo: NodoNav): boolean {
+    if (!nodo.esGrupo) {
+        return props.esActiva(nodo.url!);
+    }
+
+    return props.esActiva(nodo.prefijo) || nodo.hijos.some((h) => nodoActivo(h));
+}
 </script>
 
 <template>
@@ -41,7 +60,7 @@ const emit = defineEmits<{ alternar: [clave: string] }>();
                 <button
                     type="button"
                     class="flex w-full items-center gap-2 rounded-lg py-2 pl-3 pr-3 text-[13px] transition-all duration-200"
-                    :class="esActiva(nodo.prefijo) ? 'text-white' : 'opacity-80 hover:bg-superficie/5 hover:opacity-100'"
+                    :class="nodoActivo(nodo) ? 'text-white' : 'opacity-80 hover:bg-superficie/5 hover:opacity-100'"
                     @click="emit('alternar', nodo.clave)"
                 >
                     <svg

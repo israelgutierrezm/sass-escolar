@@ -139,9 +139,28 @@ export const CATALOGO_MENU: GrupoMenu[] = [
             { clave: 'carreras', etiqueta: 'Carreras', url: '/academico/carreras', permiso: 'ver-catalogo-academico' },
             { clave: 'planes', etiqueta: 'Planes de estudio', url: '/academico/planes', permiso: 'ver-catalogo-academico' },
             { clave: 'asignaturas', etiqueta: 'Asignaturas', url: '/academico/asignaturas', permiso: 'ver-catalogo-academico' },
-            { clave: 'oferta', etiqueta: 'Oferta', url: '/academico/ofertas', permiso: 'ver-catalogo-academico' },
-            { clave: 'evaluacion', etiqueta: 'Evaluación', url: '/academico/plantillas', permiso: 'ver-catalogo-academico' },
-            { clave: 'catalogos', etiqueta: 'Catálogos', url: '/academico/catalogos', permiso: 'ver-catalogo-academico' },
+            /*
+             * Lo que se ARMA UNA VEZ, aparte de lo que se consulta a diario.
+             *
+             * Institución, campus, carreras, planes y asignaturas son el mapa de
+             * la escuela y se entra a ellos todo el tiempo. La oferta, las
+             * plantillas de evaluación y los catálogos se configuran al principio
+             * del ciclo y casi no se vuelven a tocar; mezclados en la misma lista
+             * hacían más larga la que sí se usa a diario.
+             *
+             * Las CLAVES no cambian: son lo que guarda la disposición del menú de
+             * cada rol. Sólo cambia de quién cuelgan.
+             */
+            {
+                clave: 'academico-configuracion',
+                etiqueta: 'Configuración',
+                prefijo: '/academico/ofertas',
+                hijos: [
+                    { clave: 'oferta', etiqueta: 'Oferta', url: '/academico/ofertas', permiso: 'ver-catalogo-academico' },
+                    { clave: 'evaluacion', etiqueta: 'Evaluación', url: '/academico/plantillas', permiso: 'ver-catalogo-academico' },
+                    { clave: 'catalogos', etiqueta: 'Catálogos', url: '/academico/catalogos', permiso: 'ver-catalogo-academico' },
+                ],
+            },
         ],
     },
     {
