@@ -11,11 +11,11 @@ use App\Models\Landlord\NivelEstudio;
 use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response as Pantalla;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Cómo se imprime el historial académico de la escuela.
@@ -103,7 +103,7 @@ class DisenoHistorialController extends Controller
      * impreso —el alumno con el suyo, un docente con el de su tutorado— tiene
      * que ver la firma, y no por eso puede rediseñar el documento.
      */
-    public function imagen(DisenoHistorial $diseno, string $campo): Response
+    public function imagen(DisenoHistorial $diseno, string $campo): StreamedResponse
     {
         abort_unless(in_array($campo, ['firma_imagen', 'sello_imagen'], true), 404);
 

@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response as Pantalla;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * La credencial virtual, configurada rol por rol.
@@ -120,7 +121,7 @@ class CredencialConfiguracionController extends Controller
     }
 
     /** La imagen cargada, para que la pantalla la pueda enseñar. */
-    public function imagen(CredencialRol $credencial, string $campo): Response
+    public function imagen(CredencialRol $credencial, string $campo): StreamedResponse
     {
         abort_unless(in_array($campo, ['machote_anverso', 'machote_reverso', 'firma_imagen'], true), 404);
 

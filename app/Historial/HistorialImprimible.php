@@ -36,20 +36,35 @@ class HistorialImprimible
      */
     public function armar(MatriculaOferta $matricula, DisenoHistorial $diseno, bool $conMarcaDeAgua = false): array
     {
-        $matricula->loadMissing('oferta.carrera', 'oferta.plan', 'oferta.campus', 'persona', 'situacion');
+        // `oferta.plan.tipoPeriodo` va explícito: de ahí sale la palabra con la
+        // que se rotulan los bloques, y sin cargarla `unidadPeriodo()` cae
+        // silenciosamente a «Periodo» sin que nada falle.
+        $matricula->loadMissing('oferta.carrera', 'oferta.plan.tipoPeriodo', 'oferta.campus', 'persona', 'situacion');
 
         $renglones = $this->historial->renglones($matricula);
         $columnas = $diseno->columnasEfectivas();
+        $unidad = $matricula->oferta?->plan?->unidadPeriodo() ?? 'Periodo';
 
         return [
             'diseno' => $diseno,
             'institucion' => Institucion::query()->first(),
-            'columnas' => array_map(
-                fn (string $c) => ['clave' => $c] + CatalogoColumnas::columnas()[$c],
-                $columnas,
-            ),
+            // La cabecera de la columna «Periodo» también usa la palabra del
+            // plan: decir «Periodo» arriba de una columna cuyos bloques se
+            // llaman «Cuatrimestre» son dos nombres para lo mismo en la misma
+            // hoja.
+            'columnas' => $this->columnasConEtiquetas($columnas, $unidad),
             'datos' => $this->datosDelAlumno($matricula, $diseno),
-            'grupos' => $this->agrupar($renglones, $diseno->agrupacion, $columnas),
+            /*
+             * La etiqueta del bloque sale del PLAN, no de la palabra «Periodo».
+             *
+             * `planes_estudio.tipo_periodo_id` ya dice si esa carrera va por
+             * semestres, cuatrimestres, trimestres o módulos, y el plan sabe
+             * traducirlo (`unidadPeriodo()`, que además convierte MODULAR en
+             * «Módulo» y ANUAL en «Año»). Imprimir «Periodo 1» en un historial
+             * de bachillerato es escribir en el documento oficial una palabra
+             * que la escuela no usa.
+             */
+            'grupos' => $this->agrupar($renglones, $diseno->agrupacion, $columnas, $unidad),
             'resumen' => $this->historial->resumen($matricula),
             'marca_agua' => $conMarcaDeAgua ? $diseno->marca_agua_texto : null,
         ];
@@ -77,12 +92,11 @@ class HistorialImprimible
         return [
             'diseno' => $diseno,
             'institucion' => Institucion::query()->first(),
-            'columnas' => array_map(
-                fn (string $c) => ['clave' => $c] + CatalogoColumnas::columnas()[$c],
-                $columnas,
-            ),
+            'columnas' => $this->columnasConEtiquetas($columnas, 'Semestre'),
             'datos' => $this->datosDeEjemplo($diseno),
-            'grupos' => $this->agrupar($this->renglonesDeEjemplo(), $diseno->agrupacion, $columnas),
+            // El ejemplo va por semestres: es lo más común, y de todos modos
+            // aquí no hay plan del que sacar la unidad de verdad.
+            'grupos' => $this->agrupar($this->renglonesDeEjemplo(), $diseno->agrupacion, $columnas, 'Semestre'),
             'resumen' => [
                 'materias_cursadas' => 36,
                 'aprobadas' => 35,
@@ -93,6 +107,27 @@ class HistorialImprimible
             ],
             'marca_agua' => $diseno->marca_agua_alumno ? $diseno->marca_agua_texto : null,
         ];
+    }
+
+    /**
+     * Las columnas con su metadata, cambiando «Periodo» por la palabra del plan.
+     *
+     * @param  array<int, string>  $columnas
+     * @return array<int, array<string, mixed>>
+     */
+    private function columnasConEtiquetas(array $columnas, string $unidad): array
+    {
+        $catalogo = CatalogoColumnas::columnas();
+
+        return array_map(function (string $c) use ($catalogo, $unidad) {
+            $meta = ['clave' => $c] + $catalogo[$c];
+
+            if ($c === 'periodo') {
+                $meta['etiqueta'] = $unidad;
+            }
+
+            return $meta;
+        }, $columnas);
     }
 
     /** @return array<int, array{etiqueta: string, valor: string}> */
@@ -214,7 +249,7 @@ class HistorialImprimible
      * @param  array<int, string>  $columnas
      * @return array<int, array{titulo: ?string, filas: array<int, array<string, string>>}>
      */
-    private function agrupar(array $renglones, string $agrupacion, array $columnas): array
+    private function agrupar(array $renglones, string $agrupacion, array $columnas, string $unidad = 'Periodo'): array
     {
         /*
          * El consecutivo corre a lo largo de TODO el documento, no dentro de
@@ -242,7 +277,7 @@ class HistorialImprimible
         $bloques = [];
 
         foreach ($renglones as $renglon) {
-            $bloques[$this->tituloDeGrupo($renglon[$llave] ?? null, $llave)][] = $renglon;
+            $bloques[$this->tituloDeGrupo($renglon[$llave] ?? null, $llave, $unidad)][] = $renglon;
         }
 
         /*
@@ -274,9 +309,12 @@ class HistorialImprimible
     }
 
     /**
-     * El número que hay dentro de «Periodo 7», para poder ordenar.
+     * El número que hay dentro de «Semestre 7», para poder ordenar.
      *
-     * «Sin periodo asignado» no trae número: se manda al final con PHP_INT_MAX,
+     * Se busca el número y no se parte por la palabra, porque la palabra la
+     * pone el plan y puede ser «Cuatrimestre», «Módulo» o «Año».
+     *
+     * «Sin semestre asignado» no trae número: se manda al final con PHP_INT_MAX,
      * porque son casos sueltos —una equivalencia cargada a mano— y arriba del
      * todo estorbarían la lectura del avance.
      */
@@ -285,16 +323,16 @@ class HistorialImprimible
         return preg_match('/\d+/', $titulo, $m) === 1 ? (int) $m[0] : PHP_INT_MAX;
     }
 
-    private function tituloDeGrupo(mixed $valor, string $llave): string
+    private function tituloDeGrupo(mixed $valor, string $llave, string $unidad): string
     {
         if (blank($valor)) {
             // Una materia sin periodo ni ciclo existe —una equivalencia cargada
             // a mano—, y mandarla a un bloque llamado «» la dejaría huérfana
             // arriba del todo sin que se entienda por qué.
-            return 'Sin periodo asignado';
+            return 'Sin '.mb_strtolower($unidad).' asignado';
         }
 
-        return $llave === 'periodo' ? "Periodo {$valor}" : (string) $valor;
+        return $llave === 'periodo' ? "{$unidad} {$valor}" : (string) $valor;
     }
 
     /**

@@ -43,13 +43,20 @@ class HistorialImprimibleTest extends TenantTestCase
          * El 10 va al final, no entre el 1 y el 2.
          *
          * Ordenar los títulos como texto —que es lo primero que uno escribe—
-         * pone «Periodo 10» justo después de «Periodo 1». Por eso la
-         * comparación es numérica y por eso esta prueba incluye un periodo de
-         * dos cifras: sin él, un orden alfabético pasaría igual.
+         * pone «10» justo después del «1». Por eso la comparación es numérica y
+         * por eso esta prueba incluye un periodo de dos cifras: sin él, un orden
+         * alfabético pasaría igual.
+         *
+         * Se comparan los NÚMEROS y no los títulos completos: la palabra la pone
+         * el plan —«Semestre», «Trimestre», «Módulo»— y esta prueba es sobre el
+         * orden, no sobre la palabra. Eso lo comprueba
+         * `test_el_bloque_usa_la_palabra_del_plan`.
          */
+        $numeros = array_map(fn (string $t) => (int) filter_var($t, FILTER_SANITIZE_NUMBER_INT), $titulos);
+
         $this->assertSame(
-            ['Periodo 1', 'Periodo 2', 'Periodo 10'],
-            $titulos,
+            [1, 2, 10],
+            $numeros,
             'Los bloques salieron así: '.implode(', ', $titulos),
         );
     }
@@ -158,8 +165,9 @@ class HistorialImprimibleTest extends TenantTestCase
 
         $rejillas = $this->bloquesPorRejilla($html);
 
+        // El ejemplo va por semestres: no hay plan del que sacar la palabra.
         $this->assertSame(
-            [['Periodo 1', 'Periodo 2'], ['Periodo 3', 'Periodo 4'], ['Periodo 5', 'Periodo 6']],
+            [['Semestre 1', 'Semestre 2'], ['Semestre 3', 'Semestre 4'], ['Semestre 5', 'Semestre 6']],
             $rejillas,
         );
     }
@@ -185,6 +193,56 @@ class HistorialImprimibleTest extends TenantTestCase
         $html = $this->render(['agrupacion' => 'ninguna', 'bloques_por_fila' => 2]);
 
         $this->assertStringNotContainsString('class="bloques dos"', $html);
+    }
+
+    /**
+     * El bloque se rotula con la palabra del PLAN, no con «Periodo».
+     *
+     * `planes_estudio.tipo_periodo_id` ya dice si esa carrera va por semestres,
+     * cuatrimestres o módulos. Imprimir «Periodo 1» en el historial de un
+     * bachillerato es poner en el documento oficial una palabra que la escuela
+     * no usa — y el dato para decirlo bien ya estaba en la base.
+     */
+    public function test_el_bloque_usa_la_palabra_del_plan(): void
+    {
+        $matricula = $this->conHistorialEnVariosPeriodos();
+
+        $cuatri = DB::table('tipos_periodo')->where('nombre', 'CUATRIMESTRE')->value('id')
+            ?? DB::table('tipos_periodo')->insertGetId(['clave' => 'CUA', 'identificador' => 'CUA', 'nombre' => 'CUATRIMESTRE']);
+
+        DB::table('planes_estudio')
+            ->where('id', $matricula->oferta->plan_id)
+            ->update(['tipo_periodo_id' => $cuatri]);
+
+        $titulos = collect($this->armar($matricula->fresh())['grupos'])->pluck('titulo')->all();
+
+        $this->assertSame(['Cuatrimestre 1', 'Cuatrimestre 2', 'Cuatrimestre 10'], $titulos);
+    }
+
+    /**
+     * La cabecera de la columna «Periodo» usa la misma palabra.
+     *
+     * Decir «Periodo» arriba de una columna cuyos bloques se llaman
+     * «Cuatrimestre» son dos nombres para lo mismo en la misma hoja.
+     */
+    public function test_la_cabecera_del_periodo_usa_la_palabra_del_plan(): void
+    {
+        $matricula = $this->conHistorialEnVariosPeriodos();
+
+        $anual = DB::table('tipos_periodo')->where('nombre', 'ANUAL')->value('id')
+            ?? DB::table('tipos_periodo')->insertGetId(['clave' => 'ANU', 'identificador' => 'ANU', 'nombre' => 'ANUAL']);
+
+        DB::table('planes_estudio')
+            ->where('id', $matricula->oferta->plan_id)
+            ->update(['tipo_periodo_id' => $anual]);
+
+        $columnas = $this->armar(
+            $matricula->fresh(),
+            new DisenoHistorial(['columnas' => ['materia', 'periodo'], 'agrupacion' => 'ninguna']),
+        )['columnas'];
+
+        // ANUAL es adjetivo: el plan lo traduce a «Año», que es el sustantivo.
+        $this->assertSame('Año', collect($columnas)->firstWhere('clave', 'periodo')['etiqueta']);
     }
 
     // ── Andamiaje ──────────────────────────────────────────────────────────

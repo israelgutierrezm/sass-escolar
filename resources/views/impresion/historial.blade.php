@@ -159,7 +159,18 @@
         }
 
         footer.firmas .bloque { text-align: center; min-width: 220px; }
-        footer.firmas img { max-height: 70px; display: block; margin: 0 auto 4px; }
+        footer.firmas img { display: block; margin: 0 auto 4px; }
+
+        /*
+         * El sello se dibuja MÁS GRANDE que la firma, y no es capricho.
+         *
+         * Con la misma altura para los dos, un sello circular de 420×420 salía
+         * de 70 px —del tamaño de una moneda— mientras la firma ocupaba media
+         * línea. En un documento oficial el sello es lo que se busca de un
+         * vistazo; ilegible, es como no ponerlo.
+         */
+        footer.firmas .rubrica img { max-height: 72px; }
+        footer.firmas .sello img { max-height: 130px; }
         footer.firmas .linea { border-top: 1px solid #111; padding-top: 4px; font-weight: 700; }
         footer.firmas .cargo { font-size: 8.5pt; color: #444; }
 
@@ -311,7 +322,7 @@
         @if ($diseno->responsable_nombre || $diseno->firma_imagen || $diseno->sello_imagen)
             <footer class="firmas">
                 @if ($diseno->responsable_nombre || $diseno->firma_imagen)
-                    <div class="bloque">
+                    <div class="bloque rubrica">
                         @if ($diseno->firma_imagen)
                             <img src="{{ route('tenant.escolar.configuracion.historial.imagen', ['diseno' => $diseno->id, 'campo' => 'firma_imagen']) }}" alt="">
                         @endif
@@ -323,7 +334,7 @@
                 @endif
 
                 @if ($diseno->sello_imagen)
-                    <div class="bloque">
+                    <div class="bloque sello">
                         <img src="{{ route('tenant.escolar.configuracion.historial.imagen', ['diseno' => $diseno->id, 'campo' => 'sello_imagen']) }}" alt="">
                     </div>
                 @endif
