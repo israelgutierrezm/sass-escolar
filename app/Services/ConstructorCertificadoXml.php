@@ -10,6 +10,7 @@ use App\Models\Academico\TipoAsignatura;
 use App\Models\Academico\TipoPeriodo;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\Historial;
+use App\Models\Emision\TipoCertificacion;
 use App\Models\Landlord\EntidadFederativa;
 use App\Models\Landlord\Genero;
 use App\Support\Creditos;
@@ -68,17 +69,33 @@ class ConstructorCertificadoXml
             ->get();
 
         // Identificadores oficiales de catálogo (no el id auto-incremental).
-        $idNivel = $this->idCatalogo(NivelEstudio::class, $carrera?->nivel_estudios_id);
-        $idTipoPeriodo = $this->idCatalogo(TipoPeriodo::class, $plan?->tipo_periodo_id);
+        /*
+         * Los catálogos SEP se leen por su CLAVE, no por el id de la tabla.
+         *
+         * El id es un autoincremento nuestro y coincidir con el valor oficial es
+         * casualidad de cómo se sembró: en `tipos_certificacion` NO coincide —id
+         * 1 y 2 contra clave 79 y 80—, así que mandar el id ahí habría sido
+         * mandar un valor que la SEP no reconoce.
+         *
+         * La ENTIDAD FEDERATIVA es la excepción y va por `identificador`: su
+         * clave es la abreviatura de dos letras («AS» para Aguascalientes) y el
+         * DEC espera el número («01»). Mandar la clave ahí rompería el timbrado
+         * de todas las escuelas. Por eso la columna se elige catálogo por
+         * catálogo y no con una regla general.
+         */
+        $idNivel = $this->idCatalogo(NivelEstudio::class, $carrera?->nivel_estudios_id, 'clave');
+        $idTipoPeriodo = $this->idCatalogo(TipoPeriodo::class, $plan?->tipo_periodo_id, 'clave');
         $idGenero = $this->idGeneroSep($persona);
-        $idEntidad = $this->idCatalogo(EntidadFederativa::class, $campus?->entidad_id);
+        $idEntidad = $this->idCatalogo(EntidadFederativa::class, $campus?->entidad_id, 'identificador');
         // Mapa id → tipo de asignatura de los usados. El tipo vive en la
         // ASIGNATURA (`asignaturas.tipo_asignatura_id`); `plan_materias` no lo
         // tiene —su columna `tipo` es el papel dentro del plan, otro vocabulario—.
         $tiposAsig = TipoAsignatura::query()
             ->whereIn('id', $historial->pluck('planMateria.asignatura.tipo_asignatura_id')->filter()->unique())
-            ->get(['id', 'identificador', 'nombre']);
-        $idTipoSep = $tiposAsig->pluck('identificador', 'id');
+            ->get(['id', 'clave', 'nombre']);
+        // Por clave: en este catálogo el `identificador` está vacío y hasta hoy
+        // el XML caía al id, que da el mismo número sólo porque se sembró así.
+        $idTipoSep = $tiposAsig->pluck('clave', 'id');
         /*
          * El nombre viaja al WS de la SEP en MAYÚSCULAS.
          *
@@ -151,7 +168,8 @@ class ConstructorCertificadoXml
             'idGenero' => $idGenero,
             'fechaNacimiento' => $this->fechaHora($persona?->fecha_nacimiento),
             // Expedicion
-            'idTipoCertificacion' => $parcial ? '80' : '79', // 79 = Total, 80 = Parcial
+            // Del catálogo, por su clave. Aquí el id NO sirve: es 1 y 2.
+            'idTipoCertificacion' => TipoCertificacion::claveOficial($parcial),
             'tipoCertificacion' => $parcial ? 'Parcial' : 'Total',
             'fechaExpedicion' => $this->fechaHora(now()),
             'idLugarExpedicion' => (string) ($idEntidad ?? $campus?->entidad_id ?? '0'),
@@ -329,15 +347,19 @@ class ConstructorCertificadoXml
      *
      * @param  class-string<Model>  $modelo
      */
-    private function idCatalogo(string $modelo, mixed $id): ?string
+    private function idCatalogo(string $modelo, mixed $id, string $columna): ?string
     {
         if (blank($id)) {
             return null;
         }
 
-        $identificador = $modelo::query()->whereKey($id)->value('identificador');
+        $valor = $modelo::query()->whereKey($id)->value($columna);
 
-        return filled($identificador) ? (string) $identificador : (string) $id;
+        // Sin esa columna capturada se cae al id, que es lo único que queda. Es
+        // un respaldo, no la regla: si pasa, ese catálogo tiene una fila mal
+        // dada de alta y el certificado va a llevar un número que la SEP no
+        // reconoce.
+        return filled($valor) ? (string) $valor : (string) $id;
     }
 
     /**
