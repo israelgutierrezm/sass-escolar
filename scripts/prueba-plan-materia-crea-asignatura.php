@@ -16,6 +16,9 @@ require $raiz.'/vendor/autoload.php';
 $app = require $raiz.'/bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
+require __DIR__.'/apoyo-peticiones.php';
+
+use App\Http\Requests\AgregarMateriaRequest;
 use App\Http\Controllers\PlanMateriaController;
 use App\Models\Academico\Asignatura;
 use App\Models\Academico\PlanEstudio;
@@ -43,6 +46,23 @@ function verificar(string $titulo, bool $condicion, string $detalle = ''): void
     }
 }
 
+/**
+ * El alta pide su FormRequest; la edición de ubicación sigue con una `Request`.
+ *
+ * `store` dejó de recibir `Request` cuando la validación del alta se unificó en
+ * `AgregarMateriaRequest`: con la petición cruda esta suite reventaba con «must
+ * be of type ...Request, Request given» antes de comprobar nada. `update`, en
+ * cambio, no cambió — y pasarle el FormRequest del alta le exigiría los campos
+ * de la asignatura, que ahí no se capturan.
+ *
+ * @param  array<string, mixed>  $datos
+ */
+function alta(array $datos): AgregarMateriaRequest
+{
+    return peticionDeFormulario(AgregarMateriaRequest::class, $datos);
+}
+
+/** @param array<string, mixed> $datos */
 function req(array $datos, string $metodo = 'POST'): Request
 {
     $r = Request::create('/', $metodo, $datos);
@@ -60,7 +80,7 @@ try {
     $u = uniqid();
 
     echo '1. Alta: crea la asignatura y la agrega al plan (optativa, sin periodo)'.PHP_EOL;
-    $ctrl->store(req([
+    $ctrl->store(alta([
         'nombre' => 'Ética Profesional',
         'clave' => "OPT-$u",
         'identificador' => 'ETICA',
@@ -74,19 +94,32 @@ try {
     verificar('Se creó la asignatura', $asig !== null);
     $pm = PlanMateria::query()->where('plan_id', $plan->id)->where('asignatura_id', $asig?->id)->first();
     verificar('Se ligó al plan', $pm !== null);
-    verificar('Quedó como optativa', $pm?->tipo === 'optativa');
+    /*
+     * Obligatoria u optativa NO se captura al agregar la materia: lo dice el
+     * TIPO DE LA ASIGNATURA. Esta comprobación esperaba que el campo `tipo` del
+     * plan siguiera al dato del formulario, y dejó de ser cierto cuando el alta
+     * se unificó —mandarlo ahora no hace nada, que es justo lo que hay que
+     * fijar—.
+     */
+    verificar('El tipo lo dicta la asignatura, no un campo del alta',
+        $pm !== null && $pm->asignatura->tipo_asignatura_id === $tipo->id);
     verificar('Sin periodo (optativa)', $pm?->periodo === null);
     verificar('La clave de acta cayó a la clave de la asignatura', $pm?->clave_en_plan === "OPT-$u");
 
     echo PHP_EOL.'2. Editar solo cambia la ubicación (no crea otra asignatura)'.PHP_EOL;
     $antesAsig = Asignatura::query()->count();
-    // Ya no se captura «clave de acta»: la ubicación sólo toca periodo/tipo/créditos.
+    // La ubicación se estrechó al PERIODO: ni clave de acta ni tipo se editan
+    // por aquí, así que mandarlos no debe cambiarlos.
+    $tipoAntes = $pm->tipo;
+
     $ctrl->update(req([
         'periodo' => 3,
         'tipo' => 'obligatoria',
     ], 'PUT'), $plan, $pm);
     $pm->refresh();
-    verificar('Cambió periodo y tipo', $pm->periodo === 3 && $pm->tipo === 'obligatoria');
+
+    verificar('Cambió el periodo', $pm->periodo === 3, (string) $pm->periodo);
+    verificar('Y el tipo no se cuela por ese endpoint', $pm->tipo === $tipoAntes, (string) $pm->tipo);
     verificar('La clave en el plan sigue siendo la de la asignatura', $pm->clave_en_plan === "OPT-$u");
     verificar('NO creó otra asignatura', Asignatura::query()->count() === $antesAsig);
     verificar('La asignatura sigue siendo la misma', $pm->asignatura_id === $asig->id);
@@ -96,7 +129,7 @@ try {
     $rechazado = false;
     try {
         // Falta tipo_asignatura_id (requerido) → ValidationException antes de crear.
-        $ctrl->store(req([
+        $ctrl->store(alta([
             'nombre' => 'Rota', 'clave' => "BAD-$u", 'identificador' => 'X', 'creditos' => 3, 'tipo' => 'obligatoria',
         ]), $plan);
     } catch (ValidationException $e) {
@@ -108,7 +141,7 @@ try {
     echo PHP_EOL.'4. Clave de asignatura duplicada se rechaza'.PHP_EOL;
     $dup = false;
     try {
-        $ctrl->store(req([
+        $ctrl->store(alta([
             'nombre' => 'Otra', 'clave' => "OPT-$u", 'identificador' => 'Y', 'creditos' => 3,
             'tipo_asignatura_id' => $tipo->id, 'tipo' => 'obligatoria',
         ]), $plan);

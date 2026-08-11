@@ -15,6 +15,9 @@ require $raiz.'/vendor/autoload.php';
 $app = require $raiz.'/bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
+require __DIR__.'/apoyo-peticiones.php';
+
+use App\Http\Requests\GuardarAsignaturaRequest;
 use App\Http\Controllers\PlanMateriaController;
 use App\Models\Academico\Asignatura;
 use App\Models\Academico\Descriptor;
@@ -41,6 +44,21 @@ function verificar(string $titulo, bool $condicion, string $detalle = ''): void
         $fallos[] = $titulo;
         echo "  FALLA {$titulo}".($detalle !== '' ? "  [{$detalle}]" : '').PHP_EOL;
     }
+}
+
+/**
+ * El FormRequest que el controlador exige, ya validado.
+ *
+ * `actualizarAsignatura` y `store` dejaron de recibir `Request` cuando la
+ * validación de la asignatura se unificó en su propio FormRequest; pasarles una
+ * petición cruda reventaba con «must be of type ...Request, Request given», así
+ * que esta suite llevaba desde ese refactor sin ejecutar una línea.
+ *
+ * @param  array<string, mixed>  $datos
+ */
+function formulario(string $clase, array $datos, string $metodo = 'PUT')
+{
+    return peticionDeFormulario($clase, $datos, Auth::user(), '/', $metodo);
 }
 
 function req(array $datos, string $metodo = 'PUT'): Request
@@ -72,7 +90,10 @@ try {
     $materia = PlanMateria::create(['plan_id' => $plan->id, 'asignatura_id' => $asig->id, 'clave_en_plan' => "HUB-$u", 'periodo' => 1, 'tipo' => 'obligatoria']);
 
     echo '1. actualizarAsignatura edita datos + descriptores (sin salir → back)'.PHP_EOL;
-    $resp = $ctrl->actualizarAsignatura(req([
+    // `actualizarAsignatura` pide `GuardarAsignaturaRequest`, no una `Request`
+    // pelada: la validación de la asignatura vive ahí desde que se unificó el
+    // formulario. Con la petición cruda esto reventaba antes de entrar.
+    $resp = $ctrl->actualizarAsignatura(formulario(GuardarAsignaturaRequest::class, [
         'identificador' => 'HUB2', 'clave' => "HUB2-$u", 'nombre' => 'Hub Editada', 'creditos' => 8,
         'tipo_asignatura_id' => $tipo->id, 'horas_teoria' => 3,
         'descriptores' => [['descriptor_id' => $desc->id, 'contenido' => '<p>Contenido hub</p>']],
@@ -91,12 +112,32 @@ try {
     $props = $ctrl->show($reqI, $plan, $materia)->toResponse($reqI)->getData(true)['props'];
     verificar('Manda la asignatura con id y descriptores', ($props['asignatura']['id'] ?? null) === $asig->id && is_array($props['asignatura']['descriptores']));
     verificar('Manda catálogos (tipos y descriptores)', is_array($props['tiposAsignatura']) && is_array($props['catalogoDescriptores']));
-    verificar('Manda la ubicación editable (creditos_en_plan en materia)', array_key_exists('creditos_en_plan', $props['materia']));
+    /*
+     * `creditos_en_plan` ya no existe: los créditos son de la ASIGNATURA y la
+     * columna se retiró de `plan_materias`. Lo editable de la ubicación es el
+     * periodo, así que es lo que la ficha tiene que mandar.
+     */
+    verificar('Manda la ubicación editable (periodo en materia)',
+        array_key_exists('periodo', $props['materia']));
 
-    echo PHP_EOL.'3. La ubicación (periodo/tipo) sigue editándose por su endpoint'.PHP_EOL;
-    $ctrl->update(req(['clave_en_plan' => "HUB2-$u", 'periodo' => 5, 'tipo' => 'optativa'], 'PUT'), $plan, $materia);
+    echo PHP_EOL.'3. La ubicación se edita por su endpoint, y SOLO el periodo'.PHP_EOL;
+
+    /*
+     * El endpoint se estrechó a propósito: `validarUbicacion` valida el periodo
+     * y nada más. La clave en el plan y el tipo dejaron de editarse aquí, así
+     * que mandarlos no debe cambiarlos —esta prueba comprobaba lo contrario y
+     * pasaba cuando el endpoint aceptaba de todo—.
+     */
+    $tipoAntes = $materia->tipo;
+    $claveAntes = $materia->clave_en_plan;
+
+    $ctrl->update(req(['clave_en_plan' => "OTRA-$u", 'periodo' => 5, 'tipo' => 'optativa'], 'PUT'), $plan, $materia);
     $materia->refresh();
-    verificar('Cambió periodo y tipo', $materia->periodo === 5 && $materia->tipo === 'optativa');
+
+    verificar('Cambió el periodo', $materia->periodo === 5, (string) $materia->periodo);
+    verificar('Y NO se coló el tipo ni la clave por ahí',
+        $materia->tipo === $tipoAntes && $materia->clave_en_plan === $claveAntes,
+        $materia->tipo.' / '.$materia->clave_en_plan);
 } finally {
     DB::rollBack();
     tenancy()->end();

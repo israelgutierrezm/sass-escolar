@@ -215,9 +215,13 @@ class PlanMateriaController extends Controller
     }
 
     /**
-     * Al editar SOLO se cambia su lugar en el plan (periodo, tipo, clave de acta,
-     * créditos). La asignatura en sí —nombre, imágenes, descriptores— se edita en
-     * «Asignaturas».
+     * Al editar SOLO se cambia el PERIODO en el que va la materia.
+     *
+     * Este comentario decía «periodo, tipo, clave de acta, créditos» y ya no era
+     * verdad: `validarUbicacion` valida el periodo y nada más. La clave del plan
+     * es la de la asignatura, obligatoria u optativa lo dice su tipo, y los
+     * créditos son suyos. La asignatura en sí —nombre, imágenes, descriptores—
+     * se edita desde su ficha.
      */
     public function update(Request $request, PlanEstudio $plan, PlanMateria $materia): RedirectResponse
     {
