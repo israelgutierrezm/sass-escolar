@@ -75,7 +75,18 @@ const hayFirma = computed(() => Boolean(props.firma.nombre || props.firma.cargo)
             </div>
 
             <div class="tarjeta p-4">
-                <img :src="url" alt="Mi credencial" class="mx-auto w-full rounded-lg" />
+                <!--
+                    Acotada al ALTO de la ventana, no sólo al ancho del contenedor.
+                    Medido en una pantalla de 800: la credencial vertical salía de
+                    542×860 y había que desplazarse para verle el pie, justo en la
+                    pantalla que se abre para ENSEÑÁRSELA a alguien en la puerta.
+                    `object-contain` la encoge entera en vez de recortarla.
+                -->
+                <img
+                    :src="url"
+                    alt="Mi credencial"
+                    class="mx-auto max-h-[70vh] w-auto max-w-full rounded-lg object-contain"
+                />
 
                 <p v-if="hayFirma" class="mt-3 text-center text-xs" :style="{ color: 'var(--color-suave)' }">
                     Emitida por {{ firma.nombre }}<span v-if="firma.cargo">, {{ firma.cargo }}</span>

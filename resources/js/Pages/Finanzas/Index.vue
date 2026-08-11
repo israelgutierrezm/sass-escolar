@@ -63,7 +63,19 @@ const etiquetaSaldo = computed(() => ({
     ninguno: 'Saldo',
 }[props.alcance]));
 
-const etiquetaConteo = computed(() => (todaLaCartera.value ? 'Con saldo' : 'Matrículas'));
+/*
+ * «Con saldo» SIEMPRE, también para el alumno.
+ *
+ * Decía «Matrículas» cuando alguien miraba lo suyo, y el número no es ése: la
+ * cifra cuenta las matrículas CON ADEUDO ABIERTO, que es lo que devuelve la
+ * subconsulta de saldos. A una alumna con dos carreras y deuda en una le salía
+ * «Matrículas 1» arriba de una tabla con sus dos renglones — un número que
+ * contradice a la lista que tiene debajo.
+ *
+ * Se corrige la etiqueta y no el número: «cuántas de mis matrículas deben» es un
+ * dato útil, y las que tiene ya las está viendo enumeradas.
+ */
+const etiquetaConteo = computed(() => 'Con saldo');
 
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
 </script>
