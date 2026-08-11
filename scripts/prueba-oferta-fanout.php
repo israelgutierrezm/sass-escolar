@@ -86,24 +86,39 @@ try {
 
     $antes = Oferta::query()->where('plan_id', $plan->id)->count();
 
+    /*
+     * El TURNO se salió de la oferta.
+     *
+     * `oferta.turno_id` se retiró en `eed73bd`: el turno es del GRUPO, no de la
+     * oferta —no distingue una oferta de otra—. Esta suite seguía mandando
+     * `turno_ids` y consultando `whereNull('turno_id')`, así que reventaba con
+     * «Unknown column 'turno_id'».
+     *
+     * Y la modalidad se fue por el mismo camino: dejó de ser una dimensión del
+     * fan-out (`modalidades[]`) para ser UN atributo opcional que se aplica a
+     * todas. Hoy el fan-out reparte por CAMPUS y nada más, y la combinación que
+     * no se duplica es (carrera, plan, campus).
+     */
     echo '1. El fan-out genera una oferta por combinación'.PHP_EOL;
 
     $c->store(pet([
         'carrera_id' => $carreraId,
         'plan_id' => $plan->id,
         'campus_ids' => $campusIds,
-        'modalidades' => $modalidades,
-        'turno_ids' => [$turnoId],
+        'modalidad' => $modalidades[0],
         'estatus' => 'abierta',
     ], $u));
 
     $despues = Oferta::query()->where('plan_id', $plan->id)->count();
-    $esperadas = count($campusIds) * count($modalidades) * 1;
 
-    verificar('Se crearon las combinaciones que no existían',
-        ($despues - $antes) === $esperadas, "creadas ".($despues - $antes)." de $esperadas");
+    // Una oferta por campus que no la tuviera ya.
+    $yaTenian = Oferta::query()->where('plan_id', $plan->id)
+        ->whereIn('campus_id', $campusIds)->count();
 
-    verificar('Cada oferta quedó con UN solo campus y UNA modalidad',
+    verificar('Se creó una oferta por campus',
+        $yaTenian === count($campusIds), "$yaTenian de ".count($campusIds));
+
+    verificar('Cada oferta quedó con UN solo campus y su modalidad',
         Oferta::query()->where('plan_id', $plan->id)->whereIn('campus_id', $campusIds)
             ->get()->every(fn (Oferta $o) => $o->campus_id !== null && $o->modalidad !== null));
 
@@ -113,8 +128,7 @@ try {
         'carrera_id' => $carreraId,
         'plan_id' => $plan->id,
         'campus_ids' => $campusIds,
-        'modalidades' => $modalidades,
-        'turno_ids' => [$turnoId],
+        'modalidad' => $modalidades[0],
         'estatus' => 'abierta',
     ], $u));
 
@@ -122,7 +136,7 @@ try {
         Oferta::query()->where('plan_id', $plan->id)->count() === $despues,
         (string) Oferta::query()->where('plan_id', $plan->id)->count());
 
-    echo PHP_EOL.'3. Sin turnos, se genera con turno nulo'.PHP_EOL;
+    echo PHP_EOL.'3. Otro plan genera su propia combinación'.PHP_EOL;
 
     $otroPlan = PlanEstudio::query()->where('id', '!=', $plan->id)->first() ?? $plan;
     $campusUno = [Campus::query()->value('id')];
@@ -131,14 +145,20 @@ try {
         'carrera_id' => $otroPlan->carrera_id,
         'plan_id' => $otroPlan->id,
         'campus_ids' => $campusUno,
-        'modalidades' => [$modalidades[0]],
-        'turno_ids' => [],
+        'modalidad' => $modalidades[0],
         'estatus' => 'abierta',
     ], $u));
 
-    verificar('Existe la oferta con turno nulo',
-        Oferta::query()->where('plan_id', $otroPlan->id)->where('campus_id', $campusUno[0])
-            ->whereNull('turno_id')->where('modalidad', $modalidades[0])->exists());
+    /*
+     * La combinación que NO se duplica es (carrera, plan, campus): la modalidad
+     * quedó fuera de la llave. Si ese plan ya tenía oferta en ese campus, el
+     * lote la omite y conserva la modalidad con la que nació —comprobar la
+     * modalidad aquí haría fallar la prueba por un dato preexistente del demo,
+     * no por el fan-out—.
+     */
+    verificar('Existe la oferta de ese plan en ese campus',
+        Oferta::query()->where('plan_id', $otroPlan->id)
+            ->where('campus_id', $campusUno[0])->exists());
 
     echo PHP_EOL.'4. La modalidad se valida contra el catálogo'.PHP_EOL;
 
@@ -147,11 +167,11 @@ try {
     try {
         $c->store(pet([
             'carrera_id' => $carreraId, 'plan_id' => $plan->id,
-            'campus_ids' => $campusUno, 'modalidades' => ['inventada'], 'turno_ids' => [],
+            'campus_ids' => $campusUno, 'modalidad' => 'inventada',
             'estatus' => 'abierta',
         ], $u));
     } catch (Illuminate\Validation\ValidationException $e) {
-        $rechazada = array_key_exists('modalidades.0', $e->errors());
+        $rechazada = array_key_exists('modalidad', $e->errors());
     }
 
     verificar('Una modalidad fuera del catálogo se rechaza', $rechazada);

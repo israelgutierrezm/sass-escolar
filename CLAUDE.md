@@ -141,8 +141,14 @@ Cinco entregas, en este orden. A y B ✅ hechas; C, D y E pendientes:
   `Usuario::campusVisibles()` devuelve `null` con alcance global y un arreglo
   cuando está acotado; null ≠ arreglo vacío. Al guardar, lo que el usuario NO
   alcanza se preserva: nunca se destruye lo que no se ve.
-- **Un ciclo aplica a N campus** (pivote `ciclo_campus`). Sin campus asignado =
-  ciclo global. La clave del ciclo es única en toda la escuela.
+- **Un ciclo aplica a N campus** (pivote `ciclo_campus`) y **al menos a uno**:
+  `campus_ids` es `required|min:1` desde `eed73bd`. Esto decía «sin campus
+  asignado = ciclo global» y dejó de ser verdad ahí. La clave del ciclo es única
+  en toda la escuela.
+- **El turno NO es de la oferta, es del GRUPO.** `oferta.turno_id` se retiró en
+  el mismo `eed73bd`: no distingue una oferta de otra. El alta de oferta reparte
+  por CAMPUS y la modalidad es un atributo opcional que se aplica a todas; la
+  combinación que no se duplica es (carrera, plan, campus).
 - **Las plantillas de evaluación se MATERIALIZAN** en `esquema_evaluacion`, no
   se leen en vivo: las calificaciones apuntan a esa tabla. Una materia con
   calificaciones capturadas nunca se re-aplica, y editar su esquema a mano la

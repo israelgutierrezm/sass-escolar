@@ -99,9 +99,15 @@ try {
         'fecha_inicio' => '2098-01-15', 'fecha_fin' => '2098-06-15', 'situacion_id' => $sitCiclo,
     ]);
 
+    /*
+     * El grupo declara su NIVEL y su CUPO. El nivel dejó de deducirse del plan
+     * —«un grupo es 1° A de Secundaria antes que cualquier otra cosa»— y ambos
+     * son obligatorios; la prueba los omitía y moría en la validación.
+     */
     $c->store(pet([
         'ciclo_id' => $cicloLibre->id, 'campus_id' => $campusA, 'plan_id' => $plan->id,
         'semestre' => 3, 'clave' => 'GS-'.random_int(1000, 9999), 'situacion_id' => $sitGrupo,
+        'nivel_estudios_id' => $nivelDelPlan, 'cupo' => 30,
     ], $u));
 
     $grupo = Grupo::where('ciclo_id', $cicloLibre->id)->first();
@@ -120,8 +126,9 @@ try {
 
     try {
         $c->store(pet([
-            'ciclo_id' => $cicloCampus->id, 'campus_id' => $campusB, 'plan_id' => null,
+            'ciclo_id' => $cicloCampus->id, 'campus_id' => $campusB, 'plan_id' => $plan->id,
             'clave' => 'GC-'.random_int(1000, 9999), 'situacion_id' => $sitGrupo,
+            'nivel_estudios_id' => $nivelDelPlan, 'semestre' => 1, 'cupo' => 30,
         ], $u));
     } catch (ValidationException $e) {
         $campusMal = array_key_exists('campus_id', $e->errors());
@@ -131,8 +138,9 @@ try {
 
     // El campus correcto sí pasa.
     $c->store(pet([
-        'ciclo_id' => $cicloCampus->id, 'campus_id' => $campusA, 'plan_id' => null,
+        'ciclo_id' => $cicloCampus->id, 'campus_id' => $campusA, 'plan_id' => $plan->id,
         'clave' => 'GC-'.random_int(1000, 9999), 'situacion_id' => $sitGrupo,
+        'nivel_estudios_id' => $nivelDelPlan, 'semestre' => 1, 'cupo' => 30,
     ], $u));
 
     verificar('El campus del ciclo sí se acepta',
@@ -154,6 +162,7 @@ try {
             $c->store(pet([
                 'ciclo_id' => $cicloNivel->id, 'campus_id' => $campusA, 'plan_id' => $plan->id,
                 'clave' => 'GN-'.random_int(1000, 9999), 'situacion_id' => $sitGrupo,
+                'nivel_estudios_id' => $nivelDelPlan, 'semestre' => 1, 'cupo' => 30,
             ], $u));
         } catch (ValidationException $e) {
             $nivelMal = array_key_exists('plan_id', $e->errors());
@@ -172,6 +181,7 @@ try {
     $c->store(pet([
         'ciclo_id' => $cicloOk->id, 'campus_id' => $campusA, 'plan_id' => $plan->id,
         'clave' => 'GN-'.random_int(1000, 9999), 'situacion_id' => $sitGrupo,
+        'nivel_estudios_id' => $nivelDelPlan, 'semestre' => 1, 'cupo' => 30,
     ], $u));
 
     verificar('El plan del nivel del ciclo sí se acepta',

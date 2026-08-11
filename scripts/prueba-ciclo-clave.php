@@ -74,13 +74,28 @@ try {
     $u = admin();
     $c = new CicloController;
     $situacion = SituacionCiclo::query()->value('id');
-    $nivel = NivelEstudio::where('clave', 'licenciatura')->value('id');
+    /*
+     * Por NOMBRE y no por clave: en el catálogo del TENANT la clave es el
+     * número que usa la SEP («81»), no la palabra. Buscar 'licenciatura' ahí
+     * devuelve null y el ciclo se manda sin nivel —que la validación ya no
+     * acepta—. Es la misma trampa que mordió a `acadion:oferta-demo`.
+     */
+    $nivel = NivelEstudio::query()->where('nombre', 'Licenciatura')->value('id')
+        ?? NivelEstudio::query()->value('id');
 
     echo '1. La clave se genera de año + periodo'.PHP_EOL;
 
     $anio = random_int(2030, 2099); // un año sin ciclos, para no chocar
+    /*
+     * El campus es OBLIGATORIO desde `eed73bd` («ciclos: campus obligatorio»).
+     * Antes «sin campus» significaba ciclo global y la prueba mandaba `[]`; hoy
+     * eso lo rechaza la validación antes de llegar a la clave, que es lo que
+     * esta suite comprueba.
+     */
+    $campusPrueba = [App\Models\Academico\Campus::query()->value('id')];
+
     $c->store(pet([
-        'campus_ids' => [],
+        'campus_ids' => $campusPrueba,
         'anio' => $anio,
         'numero_periodo' => 3,
         'nivel_ids' => [$nivel],
@@ -102,7 +117,7 @@ try {
 
     try {
         $c->store(pet([
-            'campus_ids' => [], 'anio' => $anio, 'numero_periodo' => 3,
+            'campus_ids' => $campusPrueba, 'anio' => $anio, 'numero_periodo' => 3,
             'nombre' => 'Otro', 'fecha_inicio' => "$anio-01-15", 'fecha_fin' => "$anio-06-15",
             'situacion_id' => $situacion,
         ], $u));
@@ -118,7 +133,7 @@ try {
 
     try {
         $c->store(pet([
-            'campus_ids' => [], 'anio' => 26, 'numero_periodo' => 1,
+            'campus_ids' => $campusPrueba, 'anio' => 26, 'numero_periodo' => 1,
             'nombre' => 'X', 'fecha_inicio' => '2026-01-15', 'fecha_fin' => '2026-06-15',
             'situacion_id' => $situacion,
         ], $u));
@@ -132,7 +147,7 @@ try {
 
     try {
         $c->store(pet([
-            'campus_ids' => [], 'anio' => $anio, 'numero_periodo' => 7,
+            'campus_ids' => $campusPrueba, 'anio' => $anio, 'numero_periodo' => 7,
             'nombre' => 'X', 'fecha_inicio' => "$anio-01-15", 'fecha_fin' => "$anio-06-15",
             'situacion_id' => $situacion,
         ], $u));
@@ -146,7 +161,7 @@ try {
 
     $anio2 = $anio + 1;
     $c->store(pet([
-        'campus_ids' => [], 'anio' => $anio2, 'numero_periodo' => 1,
+        'campus_ids' => $campusPrueba, 'anio' => $anio2, 'numero_periodo' => 1,
         'nombre' => 'Sin nivel', 'fecha_inicio' => "$anio2-01-15", 'fecha_fin' => "$anio2-06-15",
         'situacion_id' => $situacion,
     ], $u));
@@ -160,7 +175,7 @@ try {
     $anio3 = $anio + 2;
 
     $c->store(pet([
-        'campus_ids' => [], 'anio' => $anio3, 'numero_periodo' => 1,
+        'campus_ids' => $campusPrueba, 'anio' => $anio3, 'numero_periodo' => 1,
         'nivel_ids' => $dosNiveles,
         'nombre' => 'Dos niveles', 'fecha_inicio' => "$anio3-01-15", 'fecha_fin' => "$anio3-06-15",
         'situacion_id' => $situacion,
