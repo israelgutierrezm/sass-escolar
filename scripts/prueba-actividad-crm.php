@@ -183,30 +183,72 @@ try {
     verificar('Lo cerrado NO sale en pendientes',
         ! SeguimientoAspirante::query()->pendientes()->whereKey($cerrada->id)->exists());
 
-    echo PHP_EOL.'6. El reparto: manual no asigna'.PHP_EOL;
+    echo PHP_EOL.'6. Todo apagado: nadie se asigna solo'.PHP_EOL;
 
     $ana = $asesor('Ana', $situacionAsesor);
     $beto = $asesor('Beto', $situacionAsesor);
     $dormido = $asesor('Dormido', $inactivo);
 
-    $ajustes->guardar([CatalogoAjustes::ASIGNACION_ASESOR => AsignadorAsesor::MANUAL]);
+    $ajustes->guardar([
+        CatalogoAjustes::ASESOR_QUIEN_REGISTRA => false,
+        CatalogoAjustes::ASIGNACION_ASESOR => AsignadorAsesor::MANUAL,
+    ]);
 
-    verificar('En manual nadie se asigna solo', $asignador->asignar($prospecto(), $ana) === null);
+    verificar('En manual y sin interruptor, nadie se asigna solo',
+        $asignador->asignar($prospecto(), $ana) === null);
 
-    echo PHP_EOL.'7. «Quien registra» respeta al capturador'.PHP_EOL;
+    echo PHP_EOL.'7. Las DOS reglas son independientes'.PHP_EOL;
 
-    $ajustes->guardar([CatalogoAjustes::ASIGNACION_ASESOR => AsignadorAsesor::QUIEN_REGISTRA]);
+    /*
+     * El interruptor SOLO: el asesor se queda lo suyo y lo demás no se reparte.
+     *
+     * Estaban fundidas en un desplegable de tres opciones y no se podía tener
+     * una sin la otra; son decisiones distintas y esta sección lo fija.
+     */
+    $ajustes->guardar([
+        CatalogoAjustes::ASESOR_QUIEN_REGISTRA => true,
+        CatalogoAjustes::ASIGNACION_ASESOR => AsignadorAsesor::MANUAL,
+    ]);
 
-    verificar('Se lo queda quien lo capturó', $asignador->asignar($prospecto(), $beto) === $beto);
-    // El formulario público no tiene a nadie capturando: sin respaldo, los
-    // prospectos que nadie trajo de la mano se quedarían huérfanos.
-    verificar('Sin capturador cae al reparto', $asignador->asignar($prospecto(), null) !== null);
-    verificar('Un capturador que NO es asesor también cae al reparto',
-        $asignador->asignar($prospecto(), $quien) !== null);
+    verificar('Con el interruptor, se lo queda quien lo capturó',
+        $asignador->asignar($prospecto(), $beto) === $beto);
+    // Lo que NO trajo un asesor sigue el modo, que aquí es manual: son dos
+    // decisiones y encender una no debe encender la otra.
+    verificar('Y con el modo en manual, lo demás NO se reparte',
+        $asignador->asignar($prospecto(), null) === null);
+    /*
+     * Alguien que NO es asesor se crea a propósito.
+     *
+     * Esto usaba «la primera persona del sistema», y en el demo esa persona SÍ
+     * es asesora: la comprobación fallaba por un dato de la escuela y no por el
+     * código. Una prueba no puede suponer que alguien no tiene un rol que se
+     * asigna desde una pantalla.
+     */
+    $noEsAsesor = Persona::create(['nombre' => 'Recepción', 'primer_apellido' => uniqid(), 'sexo_id' => 2]);
+
+    verificar('Tampoco lo que captura alguien que no es asesor',
+        $asignador->asignar($prospecto(), $noEsAsesor->id) === null);
+
+    // El modo SOLO: se reparte todo, incluso lo que trajo un asesor.
+    $ajustes->guardar([
+        CatalogoAjustes::ASESOR_QUIEN_REGISTRA => false,
+        CatalogoAjustes::ASIGNACION_ASESOR => AsignadorAsesor::SECUENCIAL,
+    ]);
+
+    verificar('Sin el interruptor, lo que trae un asesor también entra al turno',
+        $asignador->asignar($prospecto(), $beto) !== null);
 
     echo PHP_EOL.'8. El secuencial reparte por CARGA y no toca a los inactivos'.PHP_EOL;
 
-    $ajustes->guardar([CatalogoAjustes::ASIGNACION_ASESOR => AsignadorAsesor::SECUENCIAL]);
+    // Las dos encendidas a la vez, que es lo que pidió el cliente: el asesor
+    // conserva lo suyo Y el resto se reparte solo.
+    $ajustes->guardar([
+        CatalogoAjustes::ASESOR_QUIEN_REGISTRA => true,
+        CatalogoAjustes::ASIGNACION_ASESOR => AsignadorAsesor::SECUENCIAL,
+    ]);
+
+    verificar('Las dos a la vez: quien registra conserva lo suyo',
+        $asignador->asignar($prospecto(), $ana) === $ana);
 
     $tocaron = [];
 

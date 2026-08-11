@@ -51,6 +51,8 @@ final class CatalogoAjustes
 
     public const EXIGE_PAGO = 'aspirante.exige_pago_para_convertir';
 
+    public const ASESOR_QUIEN_REGISTRA = 'aspirante.asesor_se_lo_queda_quien_registra';
+
     public const ASIGNACION_ASESOR = 'aspirante.asignacion_de_asesor';
 
     // Acta (ya existían sueltos; se traen al catálogo).
@@ -60,10 +62,16 @@ final class CatalogoAjustes
 
     private const ACCIONES = ['advertir' => 'Solo advertir', 'bloquear' => 'Bloquear'];
 
-    /** Cómo se le pone dueño a un prospecto recién llegado. */
+    /**
+     * Qué hacer con los prospectos que NO se quedó quien los registró.
+     *
+     * Son dos decisiones distintas y por eso son dos ajustes: que el asesor se
+     * quede lo que él mismo trae es una cosa, y qué pasa con todo lo demás —lo
+     * que cae por la web, lo que captura recepción— es otra. Metidas en un solo
+     * desplegable obligaban a elegir, y lo normal es querer las dos.
+     */
     private const REPARTOS = [
         'manual' => 'A mano: alguien lo asigna',
-        'quien_registra' => 'Se lo queda quien lo registra',
         'secuencial' => 'Por turno entre los asesores del campus',
     ];
 
@@ -188,12 +196,22 @@ final class CatalogoAjustes
                 porDefecto: false,
             ),
             new Ajuste(
+                clave: self::ASESOR_QUIEN_REGISTRA,
+                grupo: 'Admisiones',
+                etiqueta: 'El asesor se queda los prospectos que él registra',
+                descripcion: 'Si quien captura al prospecto es un asesor activo, queda como su titular. '
+                    .'Es lo natural cuando sale a ferias y trae sus propios contactos: ya habló con él.',
+                tipo: Ajuste::BOOLEANO,
+                porDefecto: false,
+                consecuencia: 'No afecta a los que ya existen ni a los que capture alguien que no sea asesor.',
+            ),
+            new Ajuste(
                 clave: self::ASIGNACION_ASESOR,
                 grupo: 'Admisiones',
-                etiqueta: 'Asignación de asesor a los prospectos nuevos',
-                descripcion: 'Quién queda como titular de un aspirante en cuanto se registra. '
-                    .'«Por turno» reparte entre los asesores ACTIVOS del campus del prospecto, '
-                    .'dándoselo al que menos prospectos abiertos tenga.',
+                etiqueta: 'Y a los demás prospectos nuevos…',
+                descripcion: 'Qué pasa con los que NO se quedó quien los registró (el formulario público, '
+                    .'recepción). «Por turno» los reparte entre los asesores ACTIVOS del campus del '
+                    .'prospecto, cada vez al que menos tenga: parejo y sin detenerse.',
                 tipo: Ajuste::SELECCION,
                 porDefecto: 'manual',
                 opciones: self::REPARTOS,

@@ -19,15 +19,19 @@ use Illuminate\Support\Facades\DB;
  * lunes que llegan cuarenta: lo que se queda sin repartir se enfría, y un
  * prospecto frío es indistinguible de uno que nunca existió.
  *
- * ── Tres modos, porque son tres escuelas distintas ────────────────────────
- * - MANUAL: nadie se asigna solo. La escuela chica donde el coordinador conoce
- *   a cada prospecto y decide caso por caso.
- * - QUIEN_REGISTRA: se lo queda quien lo capturó, si es asesor activo. Es lo
- *   natural cuando el asesor sale a ferias y trae sus propios contactos: ya
- *   habló con esa persona, no tiene sentido pasársela a otro.
- * - SECUENCIAL: se reparte por turno entre los asesores activos DEL CAMPUS.
- *   Es lo que hace falta cuando los prospectos «caen» de la página web y no
- *   traen dueño natural.
+ * ── DOS decisiones, no una con tres opciones ──────────────────────────────
+ * Estaban en un solo desplegable y obligaban a elegir; lo normal es querer las
+ * dos a la vez:
+ *
+ * 1. ¿El asesor se queda lo que él mismo registra? Es lo natural cuando sale a
+ *    ferias y trae sus propios contactos: ya habló con esa persona.
+ * 2. ¿Y con TODO LO DEMÁS —lo que cae por la web, lo que captura recepción—?
+ *    MANUAL (alguien lo asigna) o SECUENCIAL (por turno entre los asesores
+ *    activos del campus del prospecto).
+ *
+ * La primera es un interruptor y la segunda un modo. Se resuelven en ese orden:
+ * si el interruptor está encendido y quien capturó es asesor activo, se lo
+ * queda; si no, decide el modo.
  *
  * ── El turno se decide por CARGA, no por un contador ──────────────────────
  * Un contador guardado («el último fue el 3, sigue el 4») se desincroniza en
@@ -39,13 +43,10 @@ use Illuminate\Support\Facades\DB;
  */
 class AsignadorAsesor
 {
-    /** Nadie se asigna solo. */
+    /** Nadie se asigna solo: lo reparte una persona. */
     public const MANUAL = 'manual';
 
-    /** Se lo queda quien lo capturó, si es asesor activo. */
-    public const QUIEN_REGISTRA = 'quien_registra';
-
-    /** Por turno entre los activos del campus. */
+    /** Por turno entre los activos del campus, al que menos tenga. */
     public const SECUENCIAL = 'secuencial';
 
     public function __construct(private readonly Ajustes $ajustes) {}
@@ -65,22 +66,26 @@ class AsignadorAsesor
             return null;
         }
 
-        $elegido = match ($this->modo()) {
-            self::QUIEN_REGISTRA => $this->siEsAsesorActivo($quienRegistra),
-            self::SECUENCIAL => $this->elMasLibre($aspirante->campus_id),
-            default => null,
-        };
+        /*
+         * Primero, quien lo trajo.
+         *
+         * Si el interruptor está encendido y quien capturó es asesor activo, se
+         * lo queda y aquí termina. Los dos ajustes conviven: éste NO decide qué
+         * pasa con los demás.
+         */
+        $elegido = $this->seLoQuedaQuienRegistra()
+            ? $this->siEsAsesorActivo($quienRegistra)
+            : null;
 
         /*
-         * El modo «quien registra» cae al reparto secuencial cuando quien
-         * captura no es asesor.
+         * Y con todo lo demás, lo que diga el modo.
          *
          * Es el caso de todos los días: el prospecto llega por el formulario
          * público —donde no hay nadie capturando— o lo mete una recepcionista.
-         * Sin este respaldo, justamente los prospectos que nadie trajo de la
-         * mano se quedarían sin dueño, que son los que más falta les hace.
+         * Con el modo en «por turno» no se queda sin dueño, que es justo lo que
+         * les hace falta a los que nadie trajo de la mano.
          */
-        if ($elegido === null && $this->modo() === self::QUIEN_REGISTRA) {
+        if ($elegido === null && $this->modo() === self::SECUENCIAL) {
             $elegido = $this->elMasLibre($aspirante->campus_id);
         }
 
@@ -107,14 +112,18 @@ class AsignadorAsesor
         });
     }
 
-    /** El modo configurado por la escuela. */
+    /** Qué se hace con los prospectos que nadie se quedó al registrarlos. */
     public function modo(): string
     {
         $modo = $this->ajustes->texto(CatalogoAjustes::ASIGNACION_ASESOR);
 
-        return in_array($modo, [self::MANUAL, self::QUIEN_REGISTRA, self::SECUENCIAL], true)
-            ? $modo
-            : self::MANUAL;
+        return in_array($modo, [self::MANUAL, self::SECUENCIAL], true) ? $modo : self::MANUAL;
+    }
+
+    /** ¿El asesor se queda lo que él mismo registra? */
+    public function seLoQuedaQuienRegistra(): bool
+    {
+        return $this->ajustes->bool(CatalogoAjustes::ASESOR_QUIEN_REGISTRA);
     }
 
     /**

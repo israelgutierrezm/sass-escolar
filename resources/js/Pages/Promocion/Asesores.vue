@@ -31,7 +31,8 @@ defineProps<{
         prospectos: number;
     }[];
     campus: { id: number; nombre: string }[];
-    modoAsignacion: string;
+    /** Las dos reglas del reparto: son decisiones distintas. */
+    reparto: { quienRegistra: boolean; modo: string };
 }>();
 
 const alta = useForm({
@@ -82,9 +83,8 @@ function retirar(personaId: number, nombre: string | null): void {
 }
 
 const comoReparte: Record<string, string> = {
-    manual: 'A mano: alguien asigna cada prospecto',
-    quien_registra: 'Se lo queda quien lo registra',
-    secuencial: 'Por turno entre los asesores del campus',
+    manual: 'a mano',
+    secuencial: 'por turno entre los asesores del campus',
 };
 </script>
 
@@ -109,9 +109,14 @@ const comoReparte: Record<string, string> = {
 
         <!-- Cómo se reparte hoy: se configura en otra pantalla, pero se dice
              aquí porque es donde se está pensando en el equipo. -->
-        <div class="tarjeta mb-4 flex flex-wrap items-center gap-2 px-4 py-3 text-sm">
-            <span class="text-suave">Reparto de prospectos nuevos:</span>
-            <strong class="text-contenido">{{ comoReparte[modoAsignacion] ?? modoAsignacion }}</strong>
+        <div class="tarjeta mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 px-4 py-3 text-sm">
+            <span class="text-suave">Reparto:</span>
+            <strong v-if="reparto.quienRegistra" class="text-contenido">
+                el asesor se queda lo que registra
+            </strong>
+            <span v-if="reparto.quienRegistra" class="text-suave">·</span>
+            <span class="text-suave">{{ reparto.quienRegistra ? 'lo demás,' : 'todo,' }}</span>
+            <strong class="text-contenido">{{ comoReparte[reparto.modo] ?? reparto.modo }}</strong>
             <a href="/plataforma/configuracion" class="ml-auto text-xs" :style="{ color: 'var(--color-acento)' }">
                 Cambiar en Configuración →
             </a>

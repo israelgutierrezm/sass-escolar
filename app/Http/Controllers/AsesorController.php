@@ -59,7 +59,16 @@ class AsesorController extends Controller
                 ->sortByDesc('activo')
                 ->values(),
             'campus' => Campus::query()->orderBy('nombre')->get(['id', 'nombre']),
-            'modoAsignacion' => app(AsignadorAsesor::class)->modo(),
+            /*
+             * Las DOS reglas del reparto, no una.
+             * Se dicen aquí —aunque se configuren en otra pantalla— porque es
+             * donde se está pensando en el equipo, y sin saber cómo reparte, la
+             * columna de carga no se puede interpretar.
+             */
+            'reparto' => [
+                'quienRegistra' => app(AsignadorAsesor::class)->seLoQuedaQuienRegistra(),
+                'modo' => app(AsignadorAsesor::class)->modo(),
+            ],
         ]);
     }
 
