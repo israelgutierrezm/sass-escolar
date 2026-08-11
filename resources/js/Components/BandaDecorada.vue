@@ -29,9 +29,18 @@
  * recta —y `non-scaling-stroke` mantiene el grosor—.
  */
 withDefaults(defineProps<{
-    /** Alto de la banda, en clases de Tailwind. */
+    /** Alto de la banda, en clases de Tailwind. Se ignora si va `comoFondo`. */
     alto?: string;
-}>(), { alto: 'h-24' });
+    /**
+     * En vez de ocupar su propio renglón, se tiende DEBAJO del contenido de un
+     * contenedor que ya tiene su alto.
+     *
+     * La ficha de institución le reserva una franja; la banda de bienvenida no
+     * puede —su alto lo deciden el saludo y el clima que trae dentro—, así que
+     * ahí el adorno tiene que ir de fondo.
+     */
+    comoFondo?: boolean;
+}>(), { alto: 'h-24', comoFondo: false });
 
 /*
  * Dos juegos de aros concéntricos, en esquinas opuestas. La opacidad baja
@@ -59,8 +68,8 @@ const burbujas = [
 
 <template>
     <div
-        class="relative w-full overflow-hidden"
-        :class="alto"
+        class="overflow-hidden"
+        :class="comoFondo ? 'pointer-events-none absolute inset-0' : ['relative w-full', alto]"
         :style="{
             backgroundColor: 'color-mix(in srgb, var(--color-acento) 8%, var(--color-superficie))',
             color: 'var(--color-acento)',

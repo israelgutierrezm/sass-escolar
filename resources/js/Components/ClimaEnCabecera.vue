@@ -16,6 +16,16 @@ import type { Clima } from '@/utils/clima';
  * sobre el mismo degradado que trae las estrellas o el sol, en vez de dibujar
  * un recuadro encima que se notaría como un parche.
  *
+ * ── Y sin color propio ─────────────────────────────────────────────────────
+ * Estaba escrito en blanco, y con él las separaciones y el subrayado. Eso vale
+ * mientras el cielo sea oscuro; al aclarar el de día quedaba texto blanco sobre
+ * fondo claro, o sea ilegible. Ahora todo hereda `currentColor` de la franja y
+ * las líneas se sacan de él con `color-mix`, así que el mismo bloque se lee
+ * sobre cielo claro y sobre cielo de noche.
+ *
+ * La calidad del aire y la probabilidad de lluvia son las excepciones: llevan
+ * SU color porque el dato es el color —un aire malo tiene que verse rojo—.
+ *
  * ── El orden de lectura ────────────────────────────────────────────────────
  * Ahora mismo primero —icono y temperatura, que es a lo que se mira—, luego
  * dónde y cómo se siente, y al final los próximos días. Es el orden en que se
@@ -26,13 +36,19 @@ defineProps<{
     /** Si el navegador puede dar la ubicación. Sin esto no se ofrece nada. */
     puedeUbicar?: boolean;
     ubicando?: boolean;
+    /**
+     * Sólo para el azul de la lluvia: sobre cielo de noche hace falta uno claro
+     * y sobre cielo de día uno oscuro. Todo lo demás sale de `currentColor` y no
+     * necesita saber la hora.
+     */
+    noche?: boolean;
 }>();
 
 defineEmits<{ ubicar: [] }>();
 </script>
 
 <template>
-    <div class="flex flex-wrap items-center gap-x-5 gap-y-3 text-white">
+    <div class="flex flex-wrap items-center gap-x-5 gap-y-3">
         <!-- Ahora: el icono y el número, que es a lo que se mira. -->
         <div class="flex items-center gap-3">
             <span class="text-4xl leading-none" aria-hidden="true">{{ clima.icono }}</span>
@@ -45,7 +61,10 @@ defineEmits<{ ubicar: [] }>();
         </div>
 
         <!-- Dónde y cómo se siente. -->
-        <div class="min-w-0 border-white/20 text-xs sm:border-l sm:pl-5">
+        <div
+            class="min-w-0 text-xs sm:border-l sm:pl-5"
+            :style="{ borderColor: 'color-mix(in srgb, currentColor 22%, transparent)' }"
+        >
             <p class="truncate font-medium opacity-90">
                 <template v-if="clima.aproximado">Cerca de </template>{{ clima.lugar }}
             </p>
@@ -58,7 +77,8 @@ defineEmits<{ ubicar: [] }>();
             <button
                 v-if="puedeUbicar && clima.aproximado"
                 type="button"
-                class="mt-0.5 underline decoration-white/40 underline-offset-2 opacity-70 transition hover:opacity-100 disabled:opacity-50"
+                class="mt-0.5 underline underline-offset-2 opacity-70 transition hover:opacity-100 disabled:opacity-50"
+                :style="{ textDecorationColor: 'color-mix(in srgb, currentColor 45%, transparent)' }"
                 :disabled="ubicando"
                 @click="$emit('ubicar')"
             >
@@ -92,7 +112,8 @@ defineEmits<{ ubicar: [] }>();
         -->
         <div
             v-if="clima.proximos.length"
-            class="hidden border-white/20 lg:flex lg:gap-4 lg:border-l lg:pl-5"
+            class="hidden lg:flex lg:gap-4 lg:border-l lg:pl-5"
+            :style="{ borderColor: 'color-mix(in srgb, currentColor 22%, transparent)' }"
         >
             <div v-for="d in clima.proximos" :key="d.fecha" class="text-center">
                 <span class="block text-[11px] capitalize opacity-70">{{ d.dia }}</span>
@@ -104,7 +125,8 @@ defineEmits<{ ubicar: [] }>();
                 </span>
                 <span
                     v-if="d.lluvia >= 20"
-                    class="mt-0.5 block text-[10px] text-sky-200"
+                    class="mt-0.5 block text-[10px]"
+                    :style="{ color: noche ? '#bae6fd' : '#0369a1' }"
                     :title="`${d.lluvia}% de probabilidad de lluvia`"
                 >
                     💧{{ d.lluvia }}%

@@ -13,8 +13,14 @@
  * sigue siendo un círculo.
  *
  * ── Sobre el color del tema, no en su lugar ────────────────────────────────
- * Todo va en blancos translúcidos, así que funciona sobre un acento teal,
- * guinda o azul marino sin que haya que pensar en cada tema.
+ * Todo va en `currentColor` translúcido: hereda el color del texto de la franja
+ * que lo contiene. Estaba escrito en blanco fijo, y eso sólo servía mientras el
+ * cielo fuera oscuro; al aclarar el de día las estrellas y las nubes habrían
+ * desaparecido sobre su propio fondo. Heredando, el mismo dibujo funciona en
+ * cielo claro y en cielo de noche, y con cualquier acento.
+ *
+ * El sol es la excepción y va en ámbar: un sol del color del texto no es un
+ * sol.
  */
 defineProps<{ noche: boolean }>();
 
@@ -59,7 +65,7 @@ const lineas = [
                     :key="`l-${i}`"
                     :x1="estrellas[a].x" :y1="estrellas[a].y"
                     :x2="estrellas[b].x" :y2="estrellas[b].y"
-                    stroke="#ffffff" stroke-width="1" stroke-opacity="0.2"
+                    stroke="currentColor" stroke-width="1" stroke-opacity="0.2"
                     vector-effect="non-scaling-stroke"
                 />
             </svg>
@@ -67,8 +73,9 @@ const lineas = [
             <span
                 v-for="(e, i) in estrellas"
                 :key="`e-${i}`"
-                class="absolute rounded-full bg-white"
+                class="absolute rounded-full"
                 :style="{
+                    backgroundColor: 'currentColor',
                     left: `${e.x}%`,
                     top: `${e.y}%`,
                     width: `${e.d}px`,
@@ -97,16 +104,22 @@ const lineas = [
     border-radius: 9999px;
     background: radial-gradient(
         circle,
-        rgb(254 243 199 / 0.55) 0%,
-        rgb(253 230 138 / 0.28) 42%,
+        rgb(253 224 71 / 0.6) 0%,
+        rgb(250 204 21 / 0.3) 42%,
         transparent 70%
     );
 }
 
-/* Nubes: elipses muy tenues y desenfocadas, para que sugieran sin dibujar. */
+/*
+ * Nubes: elipses muy tenues y desenfocadas, para que sugieran sin dibujar.
+ *
+ * Blancas, y NO en `currentColor` como las estrellas: una nube es un claro
+ * sobre el cielo, no una mancha del color del texto. Con el cielo de día
+ * aclarado, en `currentColor` habrían salido grises —sombras, no nubes—.
+ */
 .nube {
     border-radius: 9999px;
-    background: rgb(255 255 255 / 0.13);
+    background: rgb(255 255 255 / 0.5);
     filter: blur(10px);
 }
 

@@ -3,6 +3,7 @@ import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import CieloDecorado from '@/Components/CieloDecorado.vue';
+import BandaDecorada from '@/Components/BandaDecorada.vue';
 import ClimaEnCabecera from '@/Components/ClimaEnCabecera.vue';
 import AgendaLateral from '@/Components/AgendaLateral.vue';
 import { usaClima } from '@/utils/clima';
@@ -318,21 +319,36 @@ const { clima, esDeNoche, puedeUbicar, ubicando, conMiUbicacion } = usaClima();
 /**
  * El cielo, teñido por la hora del CAMPUS.
  *
- * Sigue siendo el acento de la escuela —es su identidad, no se cambia por un
- * adorno—, pero de noche se hunde hacia el azul profundo. Así la banda dice la
- * hora antes de que uno lea la temperatura, que es lo que la vuelve de doble
- * uso y no un saludo con un número pegado.
+ * Sigue teñido por el acento de la escuela —es su identidad—, pero de noche se
+ * hunde hacia el azul profundo. Así la banda dice la hora antes de que uno lea
+ * la temperatura, que es lo que la vuelve de doble uso y no un saludo con un
+ * número pegado.
  *
- * Arranca justo en el acento y se va oscureciendo, así que por la izquierda se
- * funde con el relleno plano de la banda sin que se note dónde acaba uno y
- * empieza el otro; lo que se ve es la mitad derecha ensombreciéndose, no un
- * recuadro pegado encima.
+ * ── Ni macizo ni terminando en negro ──────────────────────────────────────
+ * El de día iba del acento a plomo puro (`58%, #000`): media banda de color
+ * fuerte que remataba en una mancha oscura, y esa mancha no era del tema —era
+ * negro— así que se veía igual de negra en toda escuela. Ahora los dos extremos
+ * se mezclan contra `--color-superficie` de día y contra un azul de noche, o
+ * sea que el cielo es del color de la escuela y del claro u oscuro que tenga
+ * puesto.
+ *
+ * De día queda CLARO, y por eso el clima y el dibujo del cielo dejaron de estar
+ * escritos en blanco: heredan el color del texto de la franja.
  */
 const cielo = computed(() =>
     esDeNoche.value
-        ? 'linear-gradient(115deg, color-mix(in srgb, var(--color-acento) 40%, #0b1220), color-mix(in srgb, var(--color-acento) 16%, #060911))'
-        : 'linear-gradient(115deg, var(--color-acento), color-mix(in srgb, var(--color-acento) 58%, #000))',
+        ? 'linear-gradient(115deg, color-mix(in srgb, var(--color-acento) 45%, #16213a), color-mix(in srgb, var(--color-acento) 22%, #1b2540))'
+        : 'linear-gradient(115deg, color-mix(in srgb, var(--color-acento) 30%, var(--color-superficie)), color-mix(in srgb, var(--color-acento) 10%, var(--color-superficie)))',
 );
+
+/**
+ * El texto del clima: blanco de noche, el del tema de día.
+ *
+ * Todo lo que dibuja la franja —las separaciones, el subrayado, las estrellas,
+ * las nubes— se saca de aquí con `currentColor`, así que este único valor
+ * decide si el bloque se lee o no.
+ */
+const tintaCielo = computed(() => (esDeNoche.value ? '#ffffff' : 'var(--color-contenido)'));
 
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
 
@@ -455,22 +471,26 @@ function conmutar(rolId: number): void {
             sitio— y de paso el fondo cambia con la hora del campus.
         -->
         <section
-            class="animar-entrada relative mb-4 overflow-hidden rounded-2xl text-white shadow-lg"
-            :style="{ backgroundColor: 'var(--color-acento)' }"
+            class="animar-entrada relative mb-4 overflow-hidden rounded-2xl shadow-lg"
+            :style="{ color: 'var(--color-contenido)' }"
         >
             <!--
-                El relleno es el acento de la escuela, plano. Lo que se veía
-                estirado no era el color sino el dibujo del cielo, que se
-                escalaba a lo ancho; eso ya está resuelto en {@see CieloDecorado}
-                y el color puede quedarse como estaba.
+                El relleno era el acento a toda saturación: la mancha más fuerte
+                de la pantalla puesta detrás de un saludo. Ahora es el mismo
+                adorno de la ficha de institución —aros y burbujas del color de
+                la escuela sobre un fondo apenas teñido—, de fondo y no en su
+                propio renglón, porque aquí el alto lo deciden el saludo y el
+                clima que la banda trae dentro.
 
                 Encima, sólo en la mitad derecha, el cielo del clima: se
                 desvanece hacia la izquierda en vez de cortarse, así que el
-                acento y el cielo se encuentran sin que se vea la juntura.
+                fondo y el cielo se encuentran sin que se vea la juntura.
             -->
-            <div class="flex flex-col sm:flex-row sm:items-stretch">
+            <BandaDecorada como-fondo />
+
+            <div class="relative flex flex-col sm:flex-row sm:items-stretch">
                 <div class="min-w-0 flex-1 p-6">
-                    <p class="text-sm opacity-80">{{ saludo }},</p>
+                    <p class="text-sm text-suave">{{ saludo }},</p>
                     <h1 class="truncate text-2xl font-bold">
                         {{ usuario?.nombre_completo ?? usuario?.usuario }}
                     </h1>
@@ -479,14 +499,15 @@ function conmutar(rolId: number): void {
                         rol, «Operas como Alumno» no le informa de nada: no es
                         una elección, es lo único que puede ser.
                     -->
-                    <p v-if="usuario?.rol_activo && rolesDisponibles.length > 1" class="mt-1 text-sm opacity-90">
+                    <p v-if="usuario?.rol_activo && rolesDisponibles.length > 1" class="mt-1 text-sm text-suave">
                         Estás entrando como <strong>{{ usuario.rol_activo.nombre }}</strong>
                     </p>
 
                     <button
                         v-if="rolesDisponibles.length > 1"
                         type="button"
-                        class="mt-3 inline-flex items-center gap-2 rounded-xl bg-white/15 px-3.5 py-2 text-sm font-medium backdrop-blur transition hover:bg-white/25"
+                        class="boton-acento mt-3 inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition"
+                        :style="{ color: 'var(--color-acento)' }"
                         @click="mostrarRoles = !mostrarRoles"
                     >
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" /></svg>
@@ -502,7 +523,7 @@ function conmutar(rolId: number): void {
                 <div
                     v-if="clima"
                     class="franja-cielo relative shrink-0 sm:max-w-[72%]"
-                    :style="{ background: cielo }"
+                    :style="{ background: cielo, color: tintaCielo }"
                 >
                     <CieloDecorado :noche="esDeNoche" />
 
@@ -512,6 +533,7 @@ function conmutar(rolId: number): void {
                             :clima="clima"
                             :puede-ubicar="puedeUbicar"
                             :ubicando="ubicando"
+                            :noche="esDeNoche"
                             @ubicar="conMiUbicacion"
                         />
                     </div>
@@ -521,22 +543,24 @@ function conmutar(rolId: number): void {
             <!-- Conmutador de rol (se despliega desde el botón). -->
             <div
                 v-if="mostrarRoles && rolesDisponibles.length"
-                class="relative grid gap-2 border-t border-white/20 p-6 sm:grid-cols-2 lg:grid-cols-3"
+                class="relative grid gap-2 border-t p-6 sm:grid-cols-2 lg:grid-cols-3"
+                :style="{ borderColor: 'var(--color-borde)' }"
             >
                 <button
                     v-for="rol in rolesDisponibles"
                     :key="`${rol.id}-${rol.campus_id ?? 'global'}`"
                     type="button"
-                    class="rounded-xl px-4 py-3 text-left text-sm transition"
-                    :class="esActivo(rol.id) ? 'bg-superficie text-contenido shadow' : 'bg-white/10 hover:bg-white/20'"
+                    class="rounded-xl border px-4 py-3 text-left text-sm transition"
+                    :class="esActivo(rol.id) ? 'bg-superficie shadow' : 'boton-acento'"
+                    :style="{ borderColor: 'var(--color-borde)' }"
                     @click="conmutar(rol.id)"
                 >
                     <span class="flex items-center justify-between gap-2">
                         <span class="font-medium">{{ rol.nombre }}</span>
                         <span
                             v-if="esActivo(rol.id)"
-                            class="rounded-full px-2 py-0.5 text-[10px] font-semibold text-white"
-                            :style="{ backgroundColor: 'var(--color-acento)' }"
+                            class="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                            :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
                         >
                             Activo
                         </span>
@@ -551,7 +575,7 @@ function conmutar(rolId: number): void {
                     -->
                     <span
                         v-if="rol.campus_nombre || jergaOk"
-                        class="mt-0.5 block text-xs opacity-80"
+                        class="mt-0.5 block text-xs text-suave"
                     >
                         {{ rol.campus_nombre ? `Acotado a ${rol.campus_nombre}` : 'Alcance global' }}
                     </span>
@@ -1183,6 +1207,22 @@ function conmutar(rolId: number): void {
 </template>
 
 <style scoped>
+/*
+ * Los botones de la banda, teñidos del acento.
+ *
+ * Eran blancos translúcidos (`bg-white/15`), que es lo que se usa sobre un
+ * fondo de color fuerte: al aclarar la banda quedaron invisibles —blanco al 15%
+ * sobre un fondo casi blanco no es nada—. Con el acento diluido se ven en
+ * cualquier tema y no hay que elegir el color a mano.
+ */
+.boton-acento {
+    background-color: color-mix(in srgb, var(--color-acento) 10%, transparent);
+}
+
+.boton-acento:hover {
+    background-color: color-mix(in srgb, var(--color-acento) 20%, transparent);
+}
+
 /*
  * El cielo se desvanece en vez de cortarse.
  *
