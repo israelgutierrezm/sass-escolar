@@ -109,7 +109,18 @@ try {
 
     $vistaAdmin = props($controlador, 'index', $admin);
 
-    verificar('No está en modo "solo lo mío"', $vistaAdmin['soloPropias'] === false);
+    /*
+     * `soloPropias` (booleano) se cambió por `alcance` (cadena). Hizo falta
+     * cuando entró el padre de familia: «lo mío» y «lo de mis hijos» no son lo
+     * mismo, y con un sí/no el encabezado decía «Mi saldo» sobre el saldo de
+     * los hijos. La prueba seguía leyendo la llave vieja —que ya no viaja— y
+     * comparaba null contra false.
+     *
+     * Los valores van como literales porque las constantes del trait son
+     * privadas: 'escuela', 'propio', 'familia' y 'ninguno'.
+     */
+    verificar('El administrativo ve el alcance de la ESCUELA',
+        $vistaAdmin['alcance'] === 'escuela', (string) $vistaAdmin['alcance']);
     verificar('Ve más de una matrícula (la cartera completa)',
         $vistaAdmin['matriculas']['total'] >= 1, (string) $vistaAdmin['matriculas']['total']);
 
@@ -119,7 +130,8 @@ try {
 
     $vistaAlumno = props($controlador, 'index', $alumno);
 
-    verificar('Está en modo "solo lo mío"', $vistaAlumno['soloPropias'] === true);
+    verificar('El alumno ve el alcance PROPIO',
+        $vistaAlumno['alcance'] === 'propio', (string) $vistaAlumno['alcance']);
 
     $personasEnLista = collect($vistaAlumno['matriculas']['data'])
         ->pluck('id')

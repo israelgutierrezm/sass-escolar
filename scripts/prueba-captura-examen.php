@@ -32,16 +32,33 @@ Tenant::find('demo')->run(function () {
     try {
         echo PHP_EOL.'== Lo seguro es lo que pasa si nadie toca nada =='.PHP_EOL;
 
-        $existente = Examen::query()->first();
+        /*
+         * La suite MONTA su propio curso sobre una materia viva.
+         *
+         * Antes tomaba `Examen::first()` del demo y sacaba la materia de ahí.
+         * Los dos cursos del demo apuntan a `asignatura_grupo_id = 4`, que ya
+         * no está en la tabla —restos de una resiembra con las comprobaciones
+         * de foránea apagadas—, así que `AsignaturaGrupo::find()` devolvía null
+         * y el controlador reventaba con «Argument #2 must be of type
+         * AsignaturaGrupo, null given». Ahora lo que se prueba es la decisión
+         * del método, no la salud de los datos de ejemplo.
+         */
+        $materiaViva = App\Models\ControlEscolar\AsignaturaGrupo::query()->firstOrFail();
 
-        if ($existente === null) {
-            vale('hay un examen de prueba', false, 'el tenant demo no tiene exámenes');
+        $curso = App\Models\Lms\Curso::query()->firstOrCreate(
+            ['asignatura_grupo_id' => $materiaViva->id],
+            ['titulo' => 'Curso de prueba', 'publicado' => true],
+        );
 
-            return;
-        }
+        $actividadBase = App\Models\Lms\Actividad::create([
+            'curso_id' => $curso->id,
+            'tipo' => App\Enums\TipoActividad::Examen,
+            'titulo' => 'Examen previo (se revierte)',
+            'orden' => 998,
+        ]);
 
-        // Un examen recién creado, sin tocarle nada. Cuelga de una actividad
-        // real: la llave foránea es de verdad y no admite ids inventados.
+        $existente = Examen::create(['actividad_id' => $actividadBase->id]);
+
         $modelo = $existente->actividad;
 
         $actividad = App\Models\Lms\Actividad::create([

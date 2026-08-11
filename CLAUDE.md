@@ -639,8 +639,11 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   conforme avanza el semestre— y el más caro: abrir el formulario y reenviar
   diez campos para mover un interruptor.
 - **Calendario escolar** (`/plataforma/calendario`, permiso
-  `gestionar-calendario`): avisos, feriados, recesos, inicio y fin de ciclo,
-  evaluaciones y eventos, con rejilla del mes y lista editable debajo.
+  `gestionar-calendario`): **feriados y eventos**, con rejilla del mes y lista
+  editable debajo. Decía «avisos, feriados, recesos, inicio y fin de ciclo,
+  evaluaciones y eventos» y el enum se redujo a dos: lo que un evento ES lo dice
+  su título, y lo único que el tipo aporta es comportamiento —si se trabaja ese
+  día—.
   - **Dos tablas**: `eventos_calendario` dice qué y cuándo; `evento_destinos`
     dice a quién. Un aviso puede ir a varios públicos a la vez y con columnas
     fijas (campus_id, carrera_id…) quedaría atado a una sola combinación.

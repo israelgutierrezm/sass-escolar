@@ -57,7 +57,17 @@ function cuenta(string $email): Usuario
 
 function restablecer(Usuario $u, bool $enviar): Illuminate\Http\RedirectResponse
 {
-    $r = Request::create('/', 'PUT', ['password' => 'clave123456', 'enviar_credenciales' => $enviar ? 1 : 0]);
+    /*
+     * La confirmación es OBLIGATORIA: la regla ganó `confirmed` para que un
+     * dedazo al restablecer no deje a alguien fuera de su cuenta sin que nadie
+     * se entere. Sin `password_confirmation` la validación rechazaba con «Las
+     * contraseñas no coinciden» y la suite moría antes de comprobar el correo.
+     */
+    $r = Request::create('/', 'PUT', [
+        'password' => 'clave123456',
+        'password_confirmation' => 'clave123456',
+        'enviar_credenciales' => $enviar ? 1 : 0,
+    ]);
     app()->instance('request', $r);
 
     return (new UsuarioController)->restablecerPassword($r, $u);

@@ -49,7 +49,7 @@ function verificar(string $titulo, bool $condicion, string $detalle = ''): void
 function quienesVen(array $destinos, array $gente, array $atributos = []): array
 {
     $evento = EventoCalendario::create([
-        'tipo' => $atributos['tipo'] ?? TipoEventoCalendario::Aviso->value,
+        'tipo' => $atributos['tipo'] ?? TipoEventoCalendario::Evento->value,
         'titulo' => 'PRUEBA '.uniqid(),
         'inicia_en' => $atributos['inicia_en'] ?? '2026-08-15 08:00',
         'termina_en' => $atributos['termina_en'] ?? null,
@@ -84,6 +84,26 @@ try {
     $adriana = Usuario::where('email', 'docente.demo.2@escuela.mx')->firstOrFail();
 
     $gente = ['Mateo' => $mateo, 'Diego' => $diego, 'Adriana' => $adriana];
+
+    /*
+     * La docente NECESITA una materia asignada, y la prueba se la da.
+     *
+     * Antes daba por hecho que la del demo tenía alguna, y cuando dejó de
+     * tenerla la suite reventó con «Undefined array key 0» al pedir su primera
+     * materia. Una prueba no puede depender de una asignación que control
+     * escolar puede quitar desde la pantalla; se planta aquí y se la lleva el
+     * rollback.
+     *
+     * Se elige una materia del GRUPO de Mateo a propósito: así el destino «por
+     * grupo» alcanza a los dos, que es lo que comprueba la sección siguiente.
+     */
+    $delGrupoDeMateo = App\Models\ControlEscolar\AsignaturaGrupo::query()
+        ->whereIn('grupo_id', app(ContextoAcademico::class)->de($mateo->persona_id)['grupo'])
+        ->firstOrFail();
+
+    $delGrupoDeMateo->docentes()->syncWithoutDetaching([
+        $adriana->persona_id => ['tipo' => 'titular'],
+    ]);
 
     $contexto = app(ContextoAcademico::class);
     $deMateo = $contexto->de($mateo->persona_id);
@@ -165,9 +185,15 @@ try {
     verificar('Un evento de agosto no sale al mirar enero', $fuera === []);
 
     echo PHP_EOL.'7. Los tipos y su comportamiento'.PHP_EOL;
+    /*
+     * El enum se redujo a DOS casos: feriado y evento. `Aviso`, `Receso`,
+     * `InicioCiclo`, `FinCiclo` y `Evaluacion` se retiraron —lo que un evento
+     * es lo dice su título; lo que el tipo aporta es comportamiento, y el único
+     * comportamiento distinto es si se trabaja ese día—. La suite seguía
+     * nombrando los casos viejos y moría con «Undefined constant».
+     */
     verificar('El feriado es día no laborable', TipoEventoCalendario::Feriado->esNoLaborable());
-    verificar('El receso también', TipoEventoCalendario::Receso->esNoLaborable());
-    verificar('Un aviso NO suspende clases', ! TipoEventoCalendario::Aviso->esNoLaborable());
+    verificar('Un evento NO suspende clases', ! TipoEventoCalendario::Evento->esNoLaborable());
     verificar('Cada tipo tiene su color', count(array_unique(array_map(
         fn (TipoEventoCalendario $t) => $t->color(),
         TipoEventoCalendario::cases(),
