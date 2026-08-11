@@ -16,6 +16,9 @@ use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\SituacionAspirante;
 use App\Models\Identidad\Persona;
 use App\Models\Promocion\OrigenAspirante;
+use App\Models\Promocion\ResultadoSeguimiento;
+use App\Models\Promocion\SeguimientoAspirante;
+use App\Models\Promocion\TipoSeguimiento;
 use App\Services\ConvertidorAspirante;
 use App\Services\GeneradorMatricula;
 use App\Services\IdentidadPersona;
@@ -203,15 +206,119 @@ class AspiranteController extends Controller
             // constructor. Se resuelven igual que los de un alumno: al
             // convertirlo, su expediente sigue siendo el mismo.
             'formularios' => $formularios,
+            /*
+             * La ACTIVIDAD: su historia de contactos y lo que falta por hacer.
+             *
+             * Va completa y no paginada a propósito: un prospecto tiene
+             * decenas de contactos, no miles, y partir la línea de tiempo
+             * obligaría a paginar hacia atrás justo cuando se está buscando
+             * «qué le dijimos la última vez».
+             */
+            'actividad' => $this->actividadDe($aspirante),
+            'catalogosCrm' => [
+                'tipos' => TipoSeguimiento::query()->where('activo', true)
+                    ->orderBy('nombre')->get(['id', 'nombre', 'exige_proximo_contacto']),
+                'resultados' => ResultadoSeguimiento::query()->activos()
+                    ->orderBy('orden')->get(['id', 'nombre', 'cierra_el_embudo']),
+                'etapas' => EtapaCrm::query()->orderBy('orden')->get(['id', 'nombre']),
+                // A quién se le puede agendar: los asesores activos.
+                'asesores' => $this->asesoresActivos(),
+            ],
+            'asesores' => $aspirante->asesores()->get()->map(fn ($p) => [
+                'persona_id' => $p->id,
+                'nombre' => $p->nombreCompleto(),
+                'titular' => (bool) $p->pivot->titular,
+            ])->values(),
             'permisos' => [
                 'editar' => $request->user()->can('editar-aspirantes'),
                 'validarExpediente' => $request->user()->can('validar-expediente'),
                 'convertir' => $request->user()->can('convertir-aspirante'),
                 'cobrar' => $request->user()->can('registrar-pagos'),
+                // Asignar y retirar asesores es de quien coordina, no de quien
+                // sólo da seguimiento: si el asesor pudiera reasignar, podría
+                // quitarse de encima un prospecto difícil.
+                'coordinarPromocion' => $request->user()->can('gestionar-promocion'),
             ],
             // «Ver como» el aspirante: solo si tiene cuenta con la que entrar.
             'suplantable' => app(Suplantador::class)->datosPara($request, $aspirante->persona),
         ]);
+    }
+
+    /**
+     * La línea de tiempo del prospecto: lo agendado primero, lo hecho después.
+     *
+     * Lo pendiente va arriba porque es lo accionable —lo que hay que hacer
+     * hoy—, y lo cerrado abajo en orden inverso, que es como se lee una
+     * conversación: lo último primero.
+     *
+     * @return array<string, mixed>
+     */
+    private function actividadDe(Aspirante $aspirante): array
+    {
+        $todo = SeguimientoAspirante::query()
+            ->where('aspirante_id', $aspirante->id)
+            ->with(['tipo:id,nombre', 'persona:id,nombre,primer_apellido,segundo_apellido',
+                'resultado:id,nombre', 'etapa:id,nombre',
+                'cerradaPor:id,nombre,primer_apellido,segundo_apellido'])
+            ->get();
+
+        $comoRenglon = fn (SeguimientoAspirante $a) => [
+            'id' => $a->id,
+            'tipo' => $a->tipo?->nombre,
+            'estatus' => $a->estatus,
+            'nota' => $a->nota,
+            'respuesta' => $a->respuesta,
+            'resultado' => $a->resultado?->nombre,
+            'etapa' => $a->etapa?->nombre,
+            'responsable' => $a->persona?->nombreCompleto(),
+            'cerrada_por' => $a->cerradaPor?->nombreCompleto(),
+            'programado_para' => $a->programado_para?->toDateTimeString(),
+            'momento' => $a->momento?->toDateTimeString(),
+            'cerrado_en' => $a->cerrado_en?->toDateTimeString(),
+            'vencida' => $a->estaVencida(),
+        ];
+
+        $agendadas = $todo->where('estatus', SeguimientoAspirante::AGENDADO)
+            ->sortBy('programado_para')->values();
+
+        // Lo cerrado y lo cancelado comparten historia: los dos ya pasaron.
+        $historial = $todo->where('estatus', '!=', SeguimientoAspirante::AGENDADO)
+            ->sortByDesc(fn (SeguimientoAspirante $a) => $a->cerrado_en ?? $a->momento ?? $a->created_at)
+            ->values();
+
+        return [
+            'agendadas' => $agendadas->map($comoRenglon)->all(),
+            'historial' => $historial->map($comoRenglon)->all(),
+            // Cuántas veces se le ha CONTACTADO de verdad, que no es lo mismo
+            // que cuántas veces se le marcó: lo dice el desenlace.
+            'contactos' => $historial->filter(
+                fn (SeguimientoAspirante $a) => $a->estatus === SeguimientoAspirante::REALIZADO
+            )->count(),
+        ];
+    }
+
+    /**
+     * Los asesores activos, para agendarle a alguien.
+     *
+     * Sale de `asesores` + `situaciones_asesor`, no de un rol: ser asesor es
+     * una asignación de la escuela, no un permiso.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function asesoresActivos(): array
+    {
+        return Persona::query()
+            ->whereIn('id', function ($q) {
+                $q->select('asesores.persona_id')
+                    ->from('asesores')
+                    ->join('situaciones_asesor', 'situaciones_asesor.id', '=', 'asesores.situacion_id')
+                    ->where('situaciones_asesor.clave', 'activo')
+                    ->whereNull('asesores.deleted_at');
+            })
+            ->orderBy('primer_apellido')
+            ->get(['id', 'nombre', 'primer_apellido', 'segundo_apellido'])
+            ->map(fn (Persona $p) => ['id' => $p->id, 'nombre' => $p->nombreCompleto()])
+            ->all();
     }
 
     /**

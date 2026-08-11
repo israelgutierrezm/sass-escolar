@@ -11,6 +11,7 @@ use App\Http\Controllers\AsignacionTutoriaController;
 use App\Http\Controllers\AsignaturaController;
 use App\Http\Controllers\AsignaturaGrupoController;
 use App\Http\Controllers\BibliotecaController;
+use App\Http\Controllers\ActividadAspiranteController;
 use App\Http\Controllers\AspiranteController;
 use App\Http\Controllers\AulaController;
 use App\Http\Controllers\AutenticacionController;
@@ -301,6 +302,29 @@ Route::middleware([
             // quien limpia los que sobran.
             Route::delete('/{aspirante}', 'destroy')->middleware('can:editar-aspirantes')->name('destroy');
         });
+
+        /*
+         * La ACTIVIDAD del prospecto, desde su propia ficha.
+         *
+         * SIN `can:` a propósito, y no por descuido: por aquí entran dos
+         * oficios —quien coordina promoción, que alcanza a todos, y el asesor,
+         * que sólo alcanza a los suyos—. Un middleware con el permiso de uno
+         * rebotaría al otro antes de llegar al controlador, que es la trampa
+         * que ya mordió con la descarga de adjuntos de entrega. El propio
+         * controlador resuelve las dos capas: el permiso dice QUÉ y la
+         * asignación dice SOBRE QUIÉN.
+         */
+        Route::controller(ActividadAspiranteController::class)
+            ->prefix('aspirantes/{aspirante}/actividad')
+            ->name('tenant.aspirantes.actividad.')
+            ->group(function () {
+                Route::post('/', 'registrar')->name('registrar');
+                Route::post('/agendar', 'agendar')->name('agendar');
+                Route::post('/etapa', 'moverEtapa')->name('etapa');
+                Route::put('/{actividad}/cerrar', 'cerrar')->name('cerrar');
+                Route::put('/{actividad}/cancelar', 'cancelar')->name('cancelar');
+                Route::put('/{actividad}/reprogramar', 'reprogramar')->name('reprogramar');
+            });
 
         /*
          * Contestar un formulario del expediente.

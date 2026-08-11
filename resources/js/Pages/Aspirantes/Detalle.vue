@@ -5,6 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
+import ActividadAspirante from '@/Components/ActividadAspirante.vue';
 import CobroAspirante from '@/Components/CobroAspirante.vue';
 import FormulariosAsignados from '@/Components/FormulariosAsignados.vue';
 import { ICONOS } from '@/iconos';
@@ -33,7 +34,27 @@ const props = defineProps<{
     matricula: { matricula: string; oferta: string | null; fecha_ingreso: string | null } | null;
     impedimentosConversion: string[];
     matriculaSugerida: { matricula: string | null; motivo: string | null };
-    permisos: { editar: boolean; validarExpediente: boolean; convertir: boolean; cobrar: boolean };
+    permisos: {
+        editar: boolean;
+        validarExpediente: boolean;
+        convertir: boolean;
+        cobrar: boolean;
+        coordinarPromocion: boolean;
+    };
+    // El CRM del prospecto: su línea de tiempo y los catálogos con los que se
+    // captura. Los arma el controlador para que la pantalla no consulte nada.
+    actividad: {
+        agendadas: Record<string, any>[];
+        historial: Record<string, any>[];
+        contactos: number;
+    };
+    catalogosCrm: {
+        tipos: { id: number; nombre: string; exige_proximo_contacto: boolean }[];
+        resultados: { id: number; nombre: string; cierra_el_embudo: boolean }[];
+        etapas: { id: number; nombre: string }[];
+        asesores: { id: number; nombre: string }[];
+    };
+    asesores: { persona_id: number; nombre: string; titular: boolean }[];
     cobro: Record<string, any>;
     formularios: Record<string, any>[];
     suplantable: { usuario_id: number; usuario: string } | null;
@@ -233,6 +254,24 @@ Se le generará su matrícula de todos modos y eso no se puede deshacer. ¿Conti
         <div class="grid gap-6 lg:grid-cols-3">
             <!-- Identidad y proceso -->
             <div class="space-y-6 lg:col-span-2">
+                <!--
+                    La ACTIVIDAD va primero: es a lo que se entra a diario.
+                    Los datos personales se consultan una vez y se corrigen de
+                    tarde en tarde; el seguimiento se toca en cada llamada.
+                -->
+                <TarjetaSeccion
+                    titulo="Actividad"
+                    descripcion="Lo que falta por hacer y todo lo que se ha hablado"
+                    :icono="ICONOS.persona"
+                >
+                    <ActividadAspirante
+                        :aspirante-id="aspirante.id"
+                        :actividad="actividad"
+                        :catalogos="catalogosCrm"
+                        :etapa-actual="aspirante.etapa"
+                    />
+                </TarjetaSeccion>
+
                 <TarjetaSeccion titulo="Datos personales" descripcion="Identidad del aspirante" :icono="ICONOS.persona">
                     <dl class="grid gap-4 sm:grid-cols-3">
                         <div>
