@@ -50,7 +50,7 @@ function enviar(): void {
             <TarjetaSeccion titulo="Datos del campus" descripcion="Identificación y ubicación del plantel." :icono="ICONOS.edificio">
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <CampoTexto v-model="form.clave" etiqueta="Clave" requerido :error="form.errors.clave" mono />
-                    <CampoTexto v-model="form.identificador" etiqueta="Identificador" :error="form.errors.identificador" mono ayuda="Identificador oficial del campus para el certificado electrónico." />
+                    <CampoTexto v-model="form.identificador" etiqueta="Identificador" :error="form.errors.identificador" mono requerido ayuda="El que te asignó la SEP. Viaja como idCampus en el certificado electrónico; sin él, el documento sale con un número que la SEP no reconoce." />
                     <CampoTexto v-model="form.nombre" etiqueta="Nombre" requerido :error="form.errors.nombre" />
                     <CampoSelect
                         v-model="form.tipo_campus_id"

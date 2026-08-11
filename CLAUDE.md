@@ -215,11 +215,16 @@ los corren, y comprobado contra el demo los dos pasan.
   catálogo en `ConstructorCertificadoXml::idCatalogo()`, y lo fija
   `ClavesSepDelCertificadoTest`.
 
-Lo que NO está cubierto y conviene saber: cuando carrera, asignatura o campus no
-tienen `identificador` capturado, el certificado cae en silencio a la clave y
-luego al id. Nadie avisa. En el demo `idCampus` sale «CENTRO» y `idCarrera` un
-uuid que puso el seeder — el XSD los acepta como `xs:string`, así que pasa la
-validación, pero no son identificadores que la SEP haya asignado.
+**El identificador de campus, carrera y asignatura es OBLIGATORIO para firmar.**
+Antes, si faltaba, el certificado caía en silencio a la clave y luego al id
+local, y el XSD lo aceptaba —esos atributos son `xs:string` sin patrón—: el
+documento pasaba la validación llevando un número que la SEP nunca asignó.
+`ValidadorDec` lo detiene antes de firmar el lote y nombra la asignatura
+concreta a la que le falta (hasta doce, para que un historial mal capturado no
+llene la pantalla). En el campus además se volvió `required` al capturarlo;
+carrera y asignatura ya lo eran, y su columna ya era NOT NULL — el único hueco
+real era el campus. Aun así los tres se comprueban: una columna NOT NULL admite
+la cadena vacía, y de una carga masiva puede salir así.
 
 ## Trampas al programar (ya mordieron)
 

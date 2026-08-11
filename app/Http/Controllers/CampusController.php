@@ -109,7 +109,17 @@ class CampusController extends Controller
     {
         $datos = $request->validate([
             'clave' => ['required', 'string', 'max:50', Rule::unique('campus', 'clave')->ignore($id)->whereNull('deleted_at')],
-            'identificador' => ['nullable', 'string', 'max:40'],
+            /*
+             * OBLIGATORIO, como en carrera y asignatura.
+             *
+             * Es el `idCampus` del certificado. Cuando faltaba, el XML caía en
+             * silencio a la clave del campus —«CENTRO»— y el esquema lo aceptaba
+             * igual, así que el documento salía con un valor que la SEP nunca
+             * asignó y nadie se enteraba hasta el rechazo. Se pide al capturar; a
+             * los campus que ya existan sin él los detiene `ValidadorDec` antes
+             * de firmar el lote.
+             */
+            'identificador' => ['required', 'string', 'max:40'],
             'nombre' => ['required', 'string', 'max:255'],
             // Informativo, no condiciona nada; por eso nullable. La UI lo
             // preselecciona cuando solo hay una institución.

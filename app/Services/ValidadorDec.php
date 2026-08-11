@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Admisiones\MatriculaOferta;
+use App\Models\ControlEscolar\Historial;
 use App\Models\Emision\Certificacion;
 use App\Models\Emision\LoteCertificacion;
 use DOMDocument;
@@ -75,8 +76,34 @@ class ValidadorDec
 
         if ($campus === null) {
             $errores[] = "{$etq}: la oferta no tiene campus asignado.";
-        } elseif ($campus->entidad === null) {
-            $errores[] = "{$etq}: el campus «{$campus->nombre}» no tiene entidad federativa. Asígnala en Académico → Campus (es obligatoria para el certificado).";
+        } else {
+            if ($campus->entidad === null) {
+                $errores[] = "{$etq}: el campus «{$campus->nombre}» no tiene entidad federativa. Asígnala en Académico → Campus (es obligatoria para el certificado).";
+            }
+
+            /*
+             * El identificador OFICIAL del campus, la carrera y cada asignatura.
+             *
+             * Sin él, el certificado no fallaba: caía en silencio a la clave y
+             * luego al id local, y el XSD lo aceptaba —esos atributos son
+             * `xs:string` sin patrón—. O sea que el documento pasaba la
+             * validación llevando un número que la SEP nunca asignó, y eso sólo
+             * se descubría cuando el web service lo rechazaba, o peor, cuando
+             * no lo rechazaba. Aquí se corta antes de firmar.
+             */
+            if (blank($campus->identificador)) {
+                $errores[] = "{$etq}: el campus «{$campus->nombre}» no tiene identificador oficial. Captúralo en Académico → Campus; sin él el certificado viaja con un número que la SEP no asignó.";
+            }
+        }
+
+        $carrera = $m->oferta?->carrera;
+
+        if ($carrera !== null && blank($carrera->identificador)) {
+            $errores[] = "{$etq}: la carrera «{$carrera->nombre}» no tiene identificador oficial. Captúralo en Académico → Carreras.";
+        }
+
+        foreach ($this->asignaturasSinIdentificador($m) as $nombre) {
+            $errores[] = "{$etq}: la asignatura «{$nombre}» no tiene identificador oficial. Captúralo en Académico → Asignaturas.";
         }
 
         if ($institucion === null) {
@@ -101,6 +128,31 @@ class ValidadorDec
         }
 
         return $errores;
+    }
+
+    /**
+     * Las asignaturas del historial de esa matrícula sin identificador oficial.
+     *
+     * Se listan por NOMBRE y no por cantidad: quien tiene que ir a capturarlas
+     * necesita saber cuáles son, y «faltan 7 identificadores» obliga a buscarlas
+     * una por una. Se acotan a doce para que un historial de trescientos
+     * renglones mal capturado no llene la pantalla de mensajes idénticos.
+     *
+     * @return array<int, string>
+     */
+    private function asignaturasSinIdentificador(MatriculaOferta $m): array
+    {
+        return Historial::query()
+            ->where('matricula_oferta_id', $m->id)
+            ->with('planMateria.asignatura:id,nombre,identificador')
+            ->get()
+            ->map(fn (Historial $h) => $h->planMateria?->asignatura)
+            ->filter(fn ($a) => $a !== null && blank($a->identificador))
+            ->pluck('nombre')
+            ->unique()
+            ->take(12)
+            ->values()
+            ->all();
     }
 
     /**
