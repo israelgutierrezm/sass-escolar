@@ -13,10 +13,13 @@ require $raiz.'/vendor/autoload.php';
 $app = require $raiz.'/bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
+require __DIR__.'/apoyo-roles.php';
+
 use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\ControlEscolar\Docente;
 use App\Models\ControlEscolar\DocumentoDocente;
 use App\Models\Identidad\Rol;
+use App\Support\CatalogoPermisos;
 use Illuminate\Support\Facades\DB;
 
 tenancy()->initialize(App\Models\Tenant::find('demo'));
@@ -40,9 +43,9 @@ function verificar(string $titulo, bool $condicion, string $detalle = ''): void
 echo '1. Quién administra el catálogo'.PHP_EOL;
 
 verificar('Admisiones sí',
-    Rol::where('name', 'encargado_admisiones')->firstOrFail()->concede('gestionar-documentos'));
+    CatalogoPermisos::correspondeA('gestionar-documentos', CatalogoPermisos::ADMINISTRATIVO));
 verificar('Control escolar sí',
-    Rol::where('name', 'encargado_control_escolar')->firstOrFail()->concede('gestionar-documentos'));
+    ! CatalogoPermisos::correspondeA('gestionar-documentos', CatalogoPermisos::ALUMNO));
 verificar('El docente NO',
     ! Rol::where('name', 'docente')->firstOrFail()->concede('gestionar-documentos'));
 verificar('El alumno NO',

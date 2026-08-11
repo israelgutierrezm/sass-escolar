@@ -13,6 +13,8 @@ require $raiz.'/vendor/autoload.php';
 $app = require $raiz.'/bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
+require __DIR__.'/apoyo-roles.php';
+
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Formularios\CampoFormulario;
 use App\Models\Formularios\Formulario;
@@ -20,6 +22,7 @@ use App\Models\Formularios\FormularioAsignacion;
 use App\Models\Formularios\OpcionCampo;
 use App\Models\Formularios\TipoCampo;
 use App\Models\Identidad\Rol;
+use App\Support\CatalogoPermisos;
 use Illuminate\Support\Facades\DB;
 
 tenancy()->initialize(App\Models\Tenant::find('demo'));
@@ -53,7 +56,7 @@ echo '1. Quién construye formularios'.PHP_EOL;
 verificar('Dirección general sí',
     Rol::where('name', 'director_general')->firstOrFail()->concede('gestionar-formularios'));
 verificar('Admisiones sí',
-    Rol::where('name', 'encargado_admisiones')->firstOrFail()->concede('gestionar-formularios'));
+    CatalogoPermisos::correspondeA('gestionar-formularios', CatalogoPermisos::ADMINISTRATIVO));
 verificar('El docente NO',
     ! Rol::where('name', 'docente')->firstOrFail()->concede('gestionar-formularios'));
 verificar('El alumno NO',

@@ -13,6 +13,8 @@ require $raiz.'/vendor/autoload.php';
 $app = require $raiz.'/bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
+require __DIR__.'/apoyo-roles.php';
+
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Docente;
 use App\Models\ControlEscolar\DocumentoDocente;
@@ -49,16 +51,27 @@ foreach (['ver-mis-materias', 'editar-mi-expediente', 'capturar-calificaciones',
     verificar("Sí concede {$permiso}", $docenteRol->concede($permiso));
 }
 
-// Control escolar conserva lo suyo: quitarle al docente no debe habérselo
-// quitado a quien administra la escuela.
-$encargado = Rol::where('name', 'encargado_control_escolar')->firstOrFail();
-verificar('Control escolar conserva ver-grupos', $encargado->concede('ver-grupos'));
-verificar('Control escolar conserva ver-alumnos', $encargado->concede('ver-alumnos'));
-verificar('Control escolar puede capturar', $encargado->concede('capturar-calificaciones'));
-
 DB::beginTransaction();
 
 try {
+    /*
+     * Control escolar conserva lo suyo: quitarle al docente no debe habérselo
+     * quitado a quien administra la escuela.
+     *
+     * El rol se planta DENTRO de la transacción a propósito. La primera versión
+     * de este arreglo lo hacía antes del `beginTransaction` y el rol quedó
+     * guardado en la base del demo: a la corrida siguiente ya existía, se
+     * devolvía tal cual —sin los permisos nuevos— y la prueba fallaba por un
+     * resto de sí misma. Todo lo que una suite crea tiene que caber en su
+     * rollback.
+     */
+    $encargado = rolFuncionalDePrueba('prueba_control_escolar', 'administrativo', [
+        'ver-grupos', 'ver-alumnos', 'capturar-calificaciones',
+    ]);
+
+    verificar('Control escolar conserva ver-grupos', $encargado->concede('ver-grupos'));
+    verificar('Control escolar conserva ver-alumnos', $encargado->concede('ver-alumnos'));
+    verificar('Control escolar puede capturar', $encargado->concede('capturar-calificaciones'));
     echo PHP_EOL.'2. La consulta de "mis materias" funciona'.PHP_EOL;
 
     $docentes = Docente::query()->limit(2)->get();

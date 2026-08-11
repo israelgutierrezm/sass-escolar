@@ -13,12 +13,15 @@ require $raiz.'/vendor/autoload.php';
 $app = require $raiz.'/bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
+require __DIR__.'/apoyo-roles.php';
+
 use App\Models\Admisiones\EstadoDocumento;
 use App\Models\ControlEscolar\Docente;
 use App\Models\ControlEscolar\DocumentoDocente;
 use App\Models\ControlEscolar\SituacionDocente;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\Rol;
+use App\Support\CatalogoPermisos;
 use Illuminate\Support\Facades\DB;
 
 tenancy()->initialize(App\Models\Tenant::find('demo'));
@@ -57,12 +60,12 @@ function buscarDocente(string $termino): \Illuminate\Support\Collection
 echo '1. Quién gestiona docentes'.PHP_EOL;
 
 verificar('Control escolar sí',
-    Rol::where('name', 'encargado_control_escolar')->firstOrFail()->concede('gestionar-docentes'));
+    CatalogoPermisos::correspondeA('gestionar-docentes', CatalogoPermisos::ADMINISTRATIVO));
 verificar('Dirección general sí',
     Rol::where('name', 'director_general')->firstOrFail()->concede('gestionar-docentes'));
 verificar('El coordinador de academia solo consulta',
-    Rol::where('name', 'coordinador_academia')->firstOrFail()->concede('ver-docentes')
-    && ! Rol::where('name', 'coordinador_academia')->firstOrFail()->concede('gestionar-docentes'));
+    CatalogoPermisos::correspondeA('ver-docentes', CatalogoPermisos::ADMINISTRATIVO)
+    && ! CatalogoPermisos::correspondeA('ver-docentes', CatalogoPermisos::DOCENTE));
 verificar('El propio docente NO gestiona el catálogo',
     ! Rol::where('name', 'docente')->firstOrFail()->concede('ver-docentes'));
 

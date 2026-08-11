@@ -13,6 +13,8 @@ require $raiz.'/vendor/autoload.php';
 $app = require $raiz.'/bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
+require __DIR__.'/apoyo-roles.php';
+
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\PersonaRol;
 use App\Models\Identidad\Rol;
@@ -69,20 +71,22 @@ function usuarioCon(string $rolClave, string $sufijo, string $etiqueta): Usuario
     return $usuario->fresh();
 }
 
-echo '1. Quién puede suplantar'.PHP_EOL;
-
-verificar('Dirección general sí',
-    Rol::where('name', 'director_general')->firstOrFail()->concede('suplantar-usuarios'));
-verificar('Control escolar NO',
-    ! Rol::where('name', 'encargado_control_escolar')->firstOrFail()->concede('suplantar-usuarios'));
-verificar('El docente NO',
-    ! Rol::where('name', 'docente')->firstOrFail()->concede('suplantar-usuarios'));
-verificar('El alumno NO',
-    ! Rol::where('name', 'alumno')->firstOrFail()->concede('suplantar-usuarios'));
-
 DB::beginTransaction();
 
 try {
+    echo '1. Quién puede suplantar'.PHP_EOL;
+
+    verificar('Dirección general sí',
+        Rol::where('name', 'director_general')->firstOrFail()->concede('suplantar-usuarios'));
+    // El rol se planta DENTRO de la transacción: lo que la suite crea tiene que
+    // caber en su rollback, o la corrida siguiente se encuentra su propia
+    // basura.
+    verificar('Un rol administrativo cualquiera NO',
+        ! rolFuncionalDePrueba('prueba_control_escolar', 'administrativo')->concede('suplantar-usuarios'));
+    verificar('El docente NO',
+        ! Rol::where('name', 'docente')->firstOrFail()->concede('suplantar-usuarios'));
+    verificar('El alumno NO',
+        ! Rol::where('name', 'alumno')->firstOrFail()->concede('suplantar-usuarios'));
     $suplantador = app(Suplantador::class);
     $sufijo = substr((string) microtime(true), -6);
 
