@@ -85,7 +85,13 @@ try {
     echo "\n3. La agrupación de Optativas usa el tipo del catálogo\n";
     $props2 = $ctrl->index($req, $plan)->toResponse($req)->getData(true)['props'];
     $nueva = collect($props2['materias'])->firstWhere('clave_en_plan', $datos['clave']);
-    verificar('La materia nueva sale como OPTATIVA', $nueva['tipo'] === 'OPTATIVA', 'tipo='.var_export($nueva['tipo'],true));
+    /*
+     * «Optativa», no «OPTATIVA»: los nombres de `tipos_asignatura` se pasaron a
+     * mayúscula inicial por pedido del cliente. El XML del certificado sigue
+     * mandándolo en altas —lo pone `ConstructorCertificadoXml` al construirlo—,
+     * así que el cambio es sólo de pantalla.
+     */
+    verificar('La materia nueva sale como Optativa', $nueva['tipo'] === 'Optativa', 'tipo='.var_export($nueva['tipo'],true));
 
     // 4) Mover de periodo (arrastre) sin mandar `tipo`.
     echo "\n4. Arrastrar a otro periodo sin mandar tipo\n";

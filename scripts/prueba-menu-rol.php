@@ -112,7 +112,21 @@ try {
     verificar('El rol viene con su estructura y ocultos', ($rolEnLista['estructura'][0]['clave'] ?? null) === 'escolar' && $rolEnLista['ocultos'] === ['docentes', 'finanzas']);
     verificar('Cada rol trae su ámbito', is_string($rolEnLista['ambito'] ?? null) && $rolEnLista['ambito'] !== '');
     verificar('Cada rol trae la lista de sus permisos', is_array($rolEnLista['permisos'] ?? null));
-    verificar('Otros roles vienen con estructura null', collect($props['roles'])->where('id', '!=', $rol->id)->every(fn ($r) => $r['estructura'] === null));
+    /*
+     * Un rol SIN menú guardado viene con `estructura` null, que es lo que hace
+     * que el editor parta del árbol por omisión.
+     *
+     * Esto pedía que TODOS los demás vinieran en null, y dejó de ser cierto en
+     * cuanto alguien configuró el menú de dos roles desde la pantalla: la
+     * prueba fallaba por haber usado la función que prueba. Ahora se pregunta
+     * por los que de verdad no tienen fila.
+     */
+    $conMenuGuardado = MenuRol::query()->pluck('rol_id')->all();
+
+    verificar('Un rol sin menú guardado viene con estructura null',
+        collect($props['roles'])
+            ->reject(fn ($r) => in_array($r['id'], $conMenuGuardado, true))
+            ->every(fn ($r) => $r['estructura'] === null));
 
     echo PHP_EOL.'5. Restablecer borra la fila (vuelve al default)'.PHP_EOL;
     $ctrl->restablecer($rol);

@@ -184,14 +184,38 @@ try {
         'total_creditos' => 300,
     ]);
 
+    /*
+     * El homónimo lo CREA la prueba, no lo espera del demo.
+     *
+     * Buscaba dos planes llamados «Plan 2026» habiendo creado uno solo: el otro
+     * lo ponía el demo, y cuando dejó de estar la comprobación se cayó sin que
+     * nada del sistema hubiera cambiado. El punto es que dos planes de carreras
+     * distintas puedan llamarse igual —por eso el desplegable filtra por
+     * carrera—, así que la prueba planta los dos.
+     */
+    $planHomonimo = PlanEstudio::create([
+        'carrera_id' => $plan->carrera_id,
+        'clave' => "PH{$sufijo}",
+        'nombre' => 'Plan 2026',
+        'rvoe' => 'RVOE-TEST',
+        'autorizacion_reconocimiento_id' => $plan->autorizacion_reconocimiento_id,
+        'tipo_periodo_id' => $plan->tipo_periodo_id,
+        'calificacion_minima' => 0,
+        'calificacion_maxima' => 10,
+        'calificacion_minima_aprobatoria' => 6,
+        'minimo_creditos' => 100,
+        'total_creditos' => 300,
+    ]);
+
     $todos = PlanEstudio::query()->get(['id', 'nombre', 'carrera_id']);
     $deLaCarreraB = $todos->where('carrera_id', $carreraB->id);
 
     verificar('Filtrando por carrera solo queda su plan',
         $deLaCarreraB->count() === 1 && $deLaCarreraB->first()->id === $planB->id);
     verificar('Sin filtro se ven todos', $todos->count() >= 2, $todos->count().' planes');
-    verificar('Dos planes distintos pueden llamarse igual (por eso importa el filtro)',
-        $todos->where('nombre', 'Plan 2026')->count() >= 2,
+    verificar('Dos planes de carreras distintas pueden llamarse igual (por eso importa el filtro)',
+        $todos->where('nombre', 'Plan 2026')->count() >= 2
+        && $planHomonimo->carrera_id !== $planB->carrera_id,
         'planes llamados "Plan 2026": '.$todos->where('nombre', 'Plan 2026')->count());
 } catch (Throwable $e) {
     echo PHP_EOL.'EXCEPCIÓN: '.$e->getMessage().PHP_EOL;

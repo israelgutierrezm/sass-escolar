@@ -78,8 +78,16 @@ try {
 
     echo '1. La migración dejó una institución por defecto'.PHP_EOL;
 
-    verificar('Existe la institución sembrada (PRINCIPAL)',
-        Institucion::where('clave', 'PRINCIPAL')->exists());
+    /*
+     * Se comprueba que HAYA institución, no su clave.
+     *
+     * Esto exigía la clave «PRINCIPAL» con la que la sembró la migración, y la
+     * clave es un dato que la escuela edita desde la pantalla —la del demo hoy
+     * es «222222»—. Una prueba que se cae porque alguien capturó su clave real
+     * no está probando la migración: está prohibiendo usar el sistema.
+     */
+    verificar('La migración dejó una institución registrada',
+        Institucion::query()->exists(), (string) Institucion::query()->count().' registrada(s)');
 
     echo PHP_EOL.'2. Solo puede haber UNA institución'.PHP_EOL;
 
