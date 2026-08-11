@@ -7,7 +7,9 @@ namespace App\Http\Controllers;
 use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\EtapaCrm;
 use App\Models\Promocion\SeguimientoAspirante;
+use App\Models\Identidad\Persona;
 use App\Services\AgendaDelAspirante;
+use App\Services\AsignadorAsesor;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -162,6 +164,44 @@ class ActividadAspiranteController extends Controller
         ], $request->user()?->persona_id), "Movido a «{$hasta}».");
     }
 
+    /**
+     * Pone (o cambia) al asesor titular desde la ficha.
+     *
+     * Es de quien COORDINA, no de quien da seguimiento: si el asesor pudiera
+     * reasignar, podría quitarse de encima un prospecto difícil y la cartera
+     * dejaría de significar nada.
+     */
+    public function asignarAsesor(Request $request, Aspirante $aspirante): RedirectResponse
+    {
+        abort_unless($request->user()->can('gestionar-promocion'), 403);
+
+        $datos = $request->validate([
+            'persona_id' => ['required', Rule::exists('asesores', 'persona_id')],
+        ], [], ['persona_id' => 'el asesor']);
+
+        $antes = $aspirante->asesores()->with('persona')->wherePivot('titular', true)->first();
+
+        app(AsignadorAsesor::class)->atarComoTitular($aspirante, (int) $datos['persona_id']);
+
+        $ahora = Persona::find((int) $datos['persona_id'])?->nombreCompleto() ?? 'otro asesor';
+
+        /*
+         * El cambio queda en la BITÁCORA del prospecto.
+         *
+         * Quién lo atendía y desde cuándo explica su historia: sin el rastro,
+         * un prospecto que pasó por tres manos parece que nadie lo trabajó, y
+         * la comisión del que sí lo trabajó no se puede defender.
+         */
+        $this->agenda->registrarHecho($aspirante, [
+            'tipo_id' => null,
+            'nota' => $antes === null
+                ? "Asignado a {$ahora}."
+                : 'Reasignado de '.($antes->persona?->nombreCompleto() ?? 'otro asesor')." a {$ahora}.",
+        ], $request->user()?->persona_id);
+
+        return back(303)->with('exito', "Ahora lo atiende {$ahora}.");
+    }
+
     // ── Andamiaje ──────────────────────────────────────────────────────────
 
     /**
@@ -212,7 +252,9 @@ class ActividadAspiranteController extends Controller
         abort_unless($usuario->can('ver-mis-prospectos'), 403);
 
         abort_unless(
-            $aspirante->asesores()->where('personas.id', $usuario->persona_id)->exists(),
+            // La relación va a `asesores` (PK `persona_id`), no a `personas`:
+            // filtrar por `personas.id` habría dado «Unknown column».
+            $aspirante->asesores()->where('asesores.persona_id', $usuario->persona_id)->exists(),
             403,
             'Este prospecto no está asignado a ti.',
         );

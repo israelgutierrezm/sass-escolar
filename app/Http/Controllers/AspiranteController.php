@@ -8,6 +8,7 @@ use App\Http\Controllers\Concerns\AcotaPorCampus;
 use App\Http\Requests\GuardarAspiranteRequest;
 use App\Models\Academico\Campus;
 use App\Models\Academico\Oferta;
+use App\Models\Admisiones\Asesor;
 use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\Admisiones\EstadoDocumento;
@@ -225,10 +226,16 @@ class AspiranteController extends Controller
                 // A quién se le puede agendar: los asesores activos.
                 'asesores' => $this->asesoresActivos(),
             ],
-            'asesores' => $aspirante->asesores()->get()->map(fn ($p) => [
-                'persona_id' => $p->id,
-                'nombre' => $p->nombreCompleto(),
-                'titular' => (bool) $p->pivot->titular,
+            /*
+             * `asesores()` devuelve modelos ASESOR, cuya llave es `persona_id`
+             * y que NO tienen `nombreCompleto()`: el nombre vive en su persona.
+             * Pedirle `->id` daba null y `->nombreCompleto()` habría reventado,
+             * y no se veía porque ningún prospecto tenía asesor todavía.
+             */
+            'asesores' => $aspirante->asesores()->with('persona')->get()->map(fn (Asesor $a) => [
+                'persona_id' => $a->persona_id,
+                'nombre' => $a->persona?->nombreCompleto(),
+                'titular' => (bool) $a->pivot->titular,
             ])->values(),
             'permisos' => [
                 'editar' => $request->user()->can('editar-aspirantes'),

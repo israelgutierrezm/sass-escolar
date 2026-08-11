@@ -322,6 +322,7 @@ Route::middleware([
                 Route::post('/', 'registrar')->name('registrar');
                 Route::post('/agendar', 'agendar')->name('agendar');
                 Route::post('/etapa', 'moverEtapa')->name('etapa');
+                Route::post('/asesor', 'asignarAsesor')->name('asesor');
                 Route::put('/{actividad}/cerrar', 'cerrar')->name('cerrar');
                 Route::put('/{actividad}/cancelar', 'cancelar')->name('cancelar');
                 Route::put('/{actividad}/reprogramar', 'reprogramar')->name('reprogramar');

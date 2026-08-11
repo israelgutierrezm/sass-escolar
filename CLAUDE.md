@@ -97,9 +97,8 @@ Cinco entregas, en este orden. A y B ✅ hechas; C, D y E pendientes:
 
 **Lo que quedó pendiente de este pedido y hay que retomar:**
 
-- La **ficha del aspirante** (`Aspirantes/Show.vue`) no muestra todavía el
-  seguimiento ni la asignación de promotor: los endpoints existen y están
-  probados, pero hoy el CRM se opera desde `/promocion`.
+- ✅ Resuelto: la **ficha del aspirante** ya es el centro del CRM. Ver «CRM
+  completo en la ficha» más abajo.
 - ✅ Resuelto: las reglas de Alumnos y Docentes viven en
   `/plataforma/configuracion`, como pidió el cliente («que alguien con ese
   permiso configure todo antes de que existan registros»).
@@ -574,8 +573,55 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   Antes solo lo hacía el formulario público, así que el prospecto capturado por
   personal quedaba con `etapa_crm_id` en null e **invisible para el CRM**.
   Corregido en el controlador + migración de backfill.
-- Pruebas: 61 suites en `scripts/`, contra la BD real del tenant demo con
-  `DB::rollBack()` al final. **61 en verde** (ver la regla 5 para qué tumbó a
+- **CRM completo en la ficha del aspirante** (pedido del cliente 2026-08-11).
+  Buena parte existía por debajo y sólo se operaba desde `/promocion`; lo que
+  faltaba de verdad era la agenda y el equipo.
+  - **La bitácora AGENDA, no sólo registra.** `seguimientos_aspirante` gana
+    ciclo de vida: `agendado` → `realizado` (con desenlace y respuesta) o →
+    `cancelado` (con motivo). Antes lo único que miraba al futuro era
+    `proximo_contacto`, una FECHA SUELTA que no se podía cerrar ni cancelar.
+    **Una sola tabla y no dos**: una llamada agendada y una hecha son la misma
+    cosa en dos momentos, y separarlas obligaría a re-mezclarlas en la pantalla.
+  - Esto MATIZA el «append-only» que declaraba la tabla: lo cerrado no se
+    reescribe, pero lo agendado sí cambia porque es un plan. Tres desenlaces y
+    ninguna edición más.
+  - `resultados_seguimiento` es catálogo. `cuenta_como_contacto` separa hablar
+    con alguien de marcarle sin éxito —sin eso «se le llamó seis veces» no dice
+    si lo atendieron— y `cierra_el_embudo` marca los que lo dan por perdido.
+  - **`AgendaDelAspirante`** tiene las reglas: no se cierra dos veces (el
+    conteo de intentos mentiría), cerrar exige desenlace, cancelar exige motivo
+    y NO borra, y reprogramar mueve la fecha en vez de inventar un intento.
+  - **La ETAPA se mueve desde la ficha.** Antes sólo como efecto secundario de
+    registrar un seguimiento en el tablero: para corregir una etapa mal puesta
+    había que inventarse un contacto. Ahora es su gesto y deja rastro.
+  - **Las rutas de actividad van SIN `can:`**: por ahí entran dos oficios y un
+    middleware con el permiso de uno rebotaría al otro. Lo resuelve el
+    controlador, con el par de siempre —permiso + asignación—.
+  - **Pantalla de asesores** (`/promocion/asesores`): `asesores`,
+    `situaciones_asesor` y `campus_asesor` existían desde la Fase 1 y NUNCA
+    tuvieron pantalla —el demo tenía cero asesores—, así que todo el CRM colgaba
+    de una tabla que nadie podía llenar. Un asesor se APAGA, no se borra.
+  - **`AsignadorAsesor`** reparte al crear el prospecto, en tres modos
+    configurables: manual, quien-lo-registra y secuencial. **El turno va por
+    CARGA, no por un contador guardado**: un contador se desincroniza al darse
+    de baja alguien o con dos altas a la vez, y reparte torcido para siempre sin
+    que nadie lo note. Se cuentan los prospectos ABIERTOS —contar los históricos
+    castigaría al que más ha inscrito—.
+  - «Quien registra» cae al reparto cuando quien captura no es asesor: si no,
+    los prospectos del formulario público se quedarían huérfanos.
+  - **El campus del aspirante es obligatorio al capturarlo** (la columna sigue
+    nullable y la regla vive en el FormRequest, para decir «elige el campus» en
+    vez de reventar en la base). Sin campus no hay entre quiénes repartir.
+  - Las tareas agendadas entran en la **agenda del panel**, con lo vencido en
+    rojo: nadie piensa «mis prospectos» y «mi calendario» por separado.
+  - **Trampa que mordió**: `Aspirante::asesores()` devuelve modelos **Asesor**
+    —PK `persona_id`, sin `nombreCompleto()`—, no `Persona`. Pedirle `->id` da
+    null y `->nombreCompleto()` revienta; no se veía porque ningún prospecto
+    tenía asesor. Lo cazó `prueba-actividad-crm`.
+  - Pruebas: `scripts/prueba-actividad-crm.php`, 29 verificaciones, comprobada
+    mutando la regla de re-cierre (caen exactamente las tres que la vigilan).
+- Pruebas: 62 suites en `scripts/`, contra la BD real del tenant demo con
+  `DB::rollBack()` al final. **62 en verde** (ver la regla 5 para qué tumbó a
   las 33 que estuvieron en rojo). `prueba-listados` es la primera
   que invoca a los CONTROLADORES y lee sus props de Inertia, en vez de
   reimplementar la consulta: un `or` sin paréntesis no se detecta de otra forma.

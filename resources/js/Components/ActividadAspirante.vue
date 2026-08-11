@@ -25,6 +25,10 @@ import { computed, ref } from 'vue';
  */
 const props = defineProps<{
     aspiranteId: number;
+    /** Quién lo atiende hoy. El titular es quien responde por él. */
+    asesores: { persona_id: number; nombre: string; titular: boolean }[];
+    /** Reasignar es de quien coordina, no de quien da seguimiento. */
+    puedeReasignar: boolean;
     actividad: {
         agendadas: Actividad[];
         historial: Actividad[];
@@ -131,6 +135,18 @@ function cancelar(id: number): void {
     cancelacion.put(`${base.value}/${id}/cancelar`, { preserveScroll: true });
 }
 
+// ── El asesor titular ──────────────────────────────────────────────────────
+const titular = computed(() => props.asesores.find((a) => a.titular) ?? null);
+
+const asignacion = useForm({ persona_id: null as number | null });
+
+function asignarAsesor(): void {
+    asignacion.post(`${base.value}/asesor`, {
+        preserveScroll: true,
+        onSuccess: () => asignacion.reset(),
+    });
+}
+
 // ── Mover de etapa ─────────────────────────────────────────────────────────
 const etapa = useForm({ etapa_crm_id: null as number | null, nota: '' });
 
@@ -191,6 +207,45 @@ const colorEstatus: Record<string, string> = {
             <!-- El movimiento queda en la bitácora: mover a alguien de etapa ES
                  parte de su historia, no un ajuste silencioso. -->
             <p class="mt-2 text-xs text-suave">El cambio queda registrado abajo, con quién lo hizo.</p>
+        </div>
+
+        <!-- Quién lo atiende. Va junto a la etapa: las dos contestan «en qué
+             punto está y de quién es». -->
+        <div class="rounded-xl border p-4" :style="{ borderColor: 'var(--color-borde)' }">
+            <div class="flex flex-wrap items-end gap-3">
+                <div class="min-w-0 flex-1">
+                    <label class="block text-xs uppercase tracking-wide text-suave">Asesor</label>
+                    <p class="mt-0.5 text-sm font-medium text-contenido">
+                        {{ titular?.nombre ?? 'Sin asignar' }}
+                    </p>
+                </div>
+                <template v-if="puedeReasignar && catalogos.asesores.length">
+                    <div class="min-w-[12rem]">
+                        <select
+                            v-model="asignacion.persona_id"
+                            class="w-full rounded-lg border px-3 py-2 text-sm"
+                            :style="{ borderColor: 'var(--color-borde)', backgroundColor: 'var(--color-superficie)', color: 'var(--color-contenido)' }"
+                        >
+                            <option :value="null">{{ titular ? 'Reasignar a…' : 'Asignar a…' }}</option>
+                            <option v-for="a in catalogos.asesores" :key="a.id" :value="a.id">{{ a.nombre }}</option>
+                        </select>
+                    </div>
+                    <button
+                        type="button"
+                        class="rounded-lg px-3.5 py-2 text-sm font-medium disabled:opacity-50"
+                        :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+                        :disabled="!asignacion.persona_id || asignacion.processing"
+                        @click="asignarAsesor"
+                    >
+                        {{ titular ? 'Reasignar' : 'Asignar' }}
+                    </button>
+                </template>
+            </div>
+            <p v-if="puedeReasignar && !catalogos.asesores.length" class="mt-2 text-xs text-suave">
+                No hay asesores activos. Da de alta a alguien en
+                <a href="/promocion/asesores" :style="{ color: 'var(--color-acento)' }">Asesores</a>.
+            </p>
+            <p v-else class="mt-2 text-xs text-suave">El cambio queda registrado abajo, con quién lo hizo.</p>
         </div>
 
         <!-- Lo que falta por hacer -->

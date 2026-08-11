@@ -7,6 +7,7 @@ namespace App\Services\Plataforma;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Inscripcion;
+use App\Models\Promocion\SeguimientoAspirante;
 use App\Models\Identidad\Usuario;
 use App\Models\Lms\Actividad;
 use App\Models\Lms\Curso;
@@ -52,7 +53,8 @@ class AgendaDelPanel
 
         $puntos = collect()
             ->concat($this->delCalendario($usuario, $desde->toDateString(), $hasta->toDateString()))
-            ->concat($this->queVence($usuario, $hasta));
+            ->concat($this->queVence($usuario, $hasta))
+            ->concat($this->miSeguimiento($usuario, $hasta));
 
         return $puntos
             ->sortBy('fecha')
@@ -146,6 +148,56 @@ class AgendaDelPanel
         return $inscripciones->isEmpty()
             ? $this->deSusMaterias($personaId, $hasta)
             : $this->loQueDebe($inscripciones, $hasta);
+    }
+
+    /**
+     * Lo que tiene agendado con sus PROSPECTOS.
+     *
+     * Va en la misma línea de tiempo que el examen del martes y el puente del
+     * miércoles a propósito: nadie piensa «mis prospectos» y «mi calendario»
+     * por separado, se piensa «qué me toca esta semana». Con la llamada de las
+     * once en una pantalla y la junta de las doce en otra, hay que cruzarlas de
+     * memoria.
+     *
+     * Se incluye lo VENCIDO aunque quede fuera de la ventana: una llamada que
+     * se pasó de fecha no deja de deberse porque pasó el día, y esconderla del
+     * panel es exactamente cómo se pierde un prospecto.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function miSeguimiento(Usuario $usuario, $hasta): Collection
+    {
+        $personaId = $usuario->persona_id;
+
+        if ($personaId === null || ! $usuario->can('ver-mis-prospectos')) {
+            return collect();
+        }
+
+        return SeguimientoAspirante::query()
+            ->agendadas()
+            ->where('persona_id', $personaId)
+            ->whereNotNull('programado_para')
+            ->where('programado_para', '<=', $hasta)
+            ->with(['tipo:id,nombre', 'aspirante.persona:id,nombre,primer_apellido,segundo_apellido'])
+            ->orderBy('programado_para')
+            ->limit(20)
+            ->get()
+            ->map(fn (SeguimientoAspirante $a) => [
+                'tipo' => 'prospecto',
+                'clase' => 'seguimiento',
+                'etiqueta' => $a->estaVencida() ? 'Vencida' : ($a->tipo?->nombre ?? 'Seguimiento'),
+                // Rojo si se pasó: en una lista de ocho renglones, el color es
+                // lo único que se lee sin leer.
+                'color' => $a->estaVencida() ? '#dc2626' : '#7c3aed',
+                'titulo' => $a->aspirante?->persona?->nombreCompleto() ?? 'Prospecto',
+                'detalle' => $a->nota,
+                'fecha' => $a->programado_para->toDateTimeString(),
+                'dia' => $a->programado_para->toDateString(),
+                'hora' => $a->programado_para->format('H:i'),
+                'termina' => null,
+                'no_laborable' => false,
+                'enlace' => '/aspirantes/'.$a->aspirante_id,
+            ]);
     }
 
     /**
