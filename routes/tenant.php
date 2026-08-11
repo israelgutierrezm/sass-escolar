@@ -1042,6 +1042,14 @@ Route::middleware([
                             Route::put('/', 'guardar')->name('guardar');
                             Route::delete('/{diseno}', 'eliminar')->whereNumber('diseno')->name('eliminar');
                             Route::post('/{diseno}/imagen', 'subir')->whereNumber('diseno')->name('subir');
+
+                            /*
+                             * POST y no GET: lleva el formulario completo, que
+                             * no cabe cómodo en una URL, y así la pantalla puede
+                             * enseñar lo que hay SIN GUARDAR. Se abre en otra
+                             * pestaña porque es una hoja entera.
+                             */
+                            Route::post('/vista-previa', 'vistaPrevia')->name('vista-previa');
                         });
                     });
 

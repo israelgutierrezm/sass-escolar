@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Historial\CatalogoColumnas;
+use App\Historial\HistorialImprimible;
 use App\Models\ControlEscolar\DisenoHistorial;
 use App\Models\Landlord\NivelEstudio;
+use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -34,6 +36,7 @@ class DisenoHistorialController extends Controller
             'columnas' => CatalogoColumnas::columnas(),
             'datos' => CatalogoColumnas::datosDelAlumno(),
             'agrupaciones' => CatalogoColumnas::AGRUPACIONES,
+            'bloquesPorFila' => CatalogoColumnas::BLOQUES_POR_FILA,
             'papeles' => CatalogoColumnas::PAPELES,
             'orientaciones' => CatalogoColumnas::ORIENTACIONES,
             'niveles' => NivelEstudio::query()->orderBy('nombre')->get(['id', 'nombre']),
@@ -111,6 +114,28 @@ class DisenoHistorialController extends Controller
         return Storage::disk('local')->response($ruta);
     }
 
+    /**
+     * La vista previa: el documento con datos inventados.
+     *
+     * ── Se dibuja sobre lo que hay EN EL FORMULARIO ───────────────────────
+     * No sobre lo guardado, y sin exigir que la fila exista. Quien está
+     * decidiendo si el historial va a una o a dos columnas necesita verlo ANTES
+     * de guardarlo; obligar a guardar para mirar convierte cada prueba en un
+     * cambio real sobre el documento oficial de la escuela.
+     *
+     * Va por POST y abre en otra pestaña: es una hoja completa, y meterla en un
+     * recuadro dentro de la pantalla de configuración no deja juzgar si el
+     * nombre de una asignatura cabe en su celda — que es justo la pregunta.
+     */
+    public function vistaPrevia(Request $peticion): Renderable
+    {
+        $guardado = DisenoHistorial::query()->find($peticion->integer('diseno_id'));
+
+        $diseno = ($guardado ?? new DisenoHistorial)->fill($this->validado($peticion));
+
+        return view('impresion.historial', app(HistorialImprimible::class)->armarEjemplo($diseno));
+    }
+
     /** @return array<string, mixed> */
     private function validado(Request $peticion): array
     {
@@ -123,6 +148,7 @@ class DisenoHistorialController extends Controller
             'campos_alumno' => ['nullable', 'array'],
             'columnas' => ['nullable', 'array'],
             'agrupacion' => ['required', Rule::in(array_keys(CatalogoColumnas::AGRUPACIONES))],
+            'bloques_por_fila' => ['required', 'integer', 'in:1,2'],
             'muestra_resumen' => ['required', 'boolean'],
             'muestra_promedio' => ['required', 'boolean'],
             'muestra_creditos' => ['required', 'boolean'],
@@ -164,7 +190,7 @@ class DisenoHistorialController extends Controller
     {
         return array_merge($diseno->only([
             'id', 'nivel_estudios_id', 'titulo', 'subtitulo', 'muestra_logo', 'muestra_nombre_escuela',
-            'campos_alumno', 'columnas', 'agrupacion', 'muestra_resumen', 'muestra_promedio',
+            'campos_alumno', 'columnas', 'agrupacion', 'bloques_por_fila', 'muestra_resumen', 'muestra_promedio',
             'muestra_creditos', 'leyenda', 'responsable_nombre', 'responsable_cargo',
             'tamano_papel', 'orientacion', 'descarga_alumno', 'marca_agua_alumno', 'marca_agua_texto',
         ]), [

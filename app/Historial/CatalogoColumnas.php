@@ -141,6 +141,23 @@ class CatalogoColumnas
         ],
     ];
 
+    /**
+     * Cuántos bloques de periodo caben en una fila.
+     *
+     * Uno o dos, y nada más: con tres, el nombre de una asignatura no cabe en
+     * su celda a un tamaño legible sobre papel carta con márgenes de impresión.
+     */
+    public const BLOQUES_POR_FILA = [
+        1 => [
+            'etiqueta' => 'Una columna',
+            'ayuda' => 'Un periodo debajo del otro, a todo lo ancho. Cabe más texto en cada celda.',
+        ],
+        2 => [
+            'etiqueta' => 'Dos columnas',
+            'ayuda' => 'Primero y segundo lado a lado, tercero y cuarto en la fila siguiente. Un bachillerato de seis semestres pasa de tres hojas a una.',
+        ],
+    ];
+
     public const PAPELES = ['carta', 'oficio', 'a4'];
 
     public const ORIENTACIONES = ['vertical', 'horizontal'];

@@ -93,6 +93,23 @@
         .datos dt { font-weight: 700; white-space: nowrap; }
         .datos dd { margin: 0; }
 
+        /*
+         * Los bloques a una o dos columnas.
+         *
+         * `page-break-inside: avoid` en cada uno para que un periodo no se
+         * parta entre dos hojas: un bloque cortado a la mitad obliga a buscar
+         * en la página siguiente si esas dos materias son del mismo semestre,
+         * que es justo lo que la agrupación venía a evitar.
+         */
+        .bloques { display: grid; gap: 0 16px; }
+        .bloques.dos { grid-template-columns: 1fr 1fr; }
+        .bloque { break-inside: avoid; page-break-inside: avoid; }
+
+        /* A dos columnas el espacio manda: cabecera y celdas más apretadas. */
+        .bloques.dos th { font-size: 7.5pt; padding: 3px 3px; }
+        .bloques.dos td { padding: 2px 3px; font-size: 8.5pt; }
+        .bloques.dos h2.grupo { font-size: 9pt; }
+
         h2.grupo {
             font-size: 10pt;
             margin: 12px 0 4px;
@@ -217,34 +234,54 @@
             @endforeach
         </dl>
 
-        @forelse ($grupos as $grupo)
-            @if ($grupo['titulo'])
-                <h2 class="grupo">{{ $grupo['titulo'] }}</h2>
+        @php
+            // A dos columnas sólo cuando hay bloques que repartir: sin agrupar
+            // es una sola lista corrida y partirla en dos no significa nada.
+            $aDos = $diseno->bloques_por_fila === 2 && count($grupos) > 1 && $grupos[0]['titulo'] !== null;
+        @endphp
+
+        @forelse ($grupos as $i => $grupo)
+            @if ($aDos && $i % 2 === 0)
+                <div class="bloques dos">
+            @elseif (! $aDos && $i === 0)
+                <div class="bloques">
             @endif
 
-            <table>
-                <thead>
-                    <tr>
-                        @foreach ($columnas as $columna)
-                            <th
-                                style="width: {{ $columna['ancho'] }}%"
-                                class="{{ $columna['alineacion'] === 'derecha' ? 'der' : ($columna['alineacion'] === 'centro' ? 'cen' : '') }}"
-                            >{{ $columna['etiqueta'] }}</th>
-                        @endforeach
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($grupo['filas'] as $fila)
+            <div class="bloque">
+                @if ($grupo['titulo'])
+                    <h2 class="grupo">{{ $grupo['titulo'] }}</h2>
+                @endif
+
+                <table>
+                    <thead>
                         <tr>
                             @foreach ($columnas as $columna)
-                                <td class="{{ $columna['alineacion'] === 'derecha' ? 'der' : ($columna['alineacion'] === 'centro' ? 'cen' : '') }}">
-                                    {{ $fila[$columna['clave']] ?? '' }}
-                                </td>
+                                <th
+                                    style="width: {{ $columna['ancho'] }}%"
+                                    class="{{ $columna['alineacion'] === 'derecha' ? 'der' : ($columna['alineacion'] === 'centro' ? 'cen' : '') }}"
+                                >{{ $columna['etiqueta'] }}</th>
                             @endforeach
                         </tr>
-                    @endforeach
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        @foreach ($grupo['filas'] as $fila)
+                            <tr>
+                                @foreach ($columnas as $columna)
+                                    <td class="{{ $columna['alineacion'] === 'derecha' ? 'der' : ($columna['alineacion'] === 'centro' ? 'cen' : '') }}">
+                                        {{ $fila[$columna['clave']] ?? '' }}
+                                    </td>
+                                @endforeach
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+
+            @if ($aDos && ($i % 2 === 1 || $loop->last))
+                </div>
+            @elseif (! $aDos && $loop->last)
+                </div>
+            @endif
         @empty
             <p>Esta matrícula todavía no tiene materias asentadas.</p>
         @endforelse

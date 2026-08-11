@@ -145,7 +145,90 @@ class HistorialImprimibleTest extends TenantTestCase
         $this->assertSame('', CalificacionConLetra::de(null));
     }
 
+    /**
+     * A dos columnas, primero y segundo van en la MISMA fila.
+     *
+     * Y tercero y cuarto en la siguiente. Es la maqueta del historial del
+     * Colegio de Bachilleres que sirvió de referencia: seis bloques de siete
+     * materias a una columna son tres hojas medio vacías; a dos, cabe en una.
+     */
+    public function test_a_dos_columnas_los_bloques_van_de_dos_en_dos(): void
+    {
+        $html = $this->render(['agrupacion' => 'periodo', 'bloques_por_fila' => 2]);
+
+        $rejillas = $this->bloquesPorRejilla($html);
+
+        $this->assertSame(
+            [['Periodo 1', 'Periodo 2'], ['Periodo 3', 'Periodo 4'], ['Periodo 5', 'Periodo 6']],
+            $rejillas,
+        );
+    }
+
+    /** A una columna cada bloque va en su fila. */
+    public function test_a_una_columna_cada_bloque_va_solo(): void
+    {
+        $html = $this->render(['agrupacion' => 'periodo', 'bloques_por_fila' => 1]);
+
+        $this->assertStringNotContainsString('class="bloques dos"', $html);
+        $this->assertStringContainsString('class="bloques"', $html);
+    }
+
+    /**
+     * Sin agrupar NO se parte en dos, aunque esté pedido.
+     *
+     * Es una lista corrida: partirla por la mitad no significa nada y dejaría
+     * las materias en un orden de lectura que nadie espera —bajar por la
+     * izquierda y volver a subir—.
+     */
+    public function test_sin_agrupar_no_se_parte_en_dos(): void
+    {
+        $html = $this->render(['agrupacion' => 'ninguna', 'bloques_por_fila' => 2]);
+
+        $this->assertStringNotContainsString('class="bloques dos"', $html);
+    }
+
     // ── Andamiaje ──────────────────────────────────────────────────────────
+
+    /**
+     * El documento renderizado con los datos de ejemplo.
+     *
+     * Se renderiza la vista de verdad y no se inspecciona un arreglo: el
+     * emparejado de bloques vive en la plantilla, así que comprobarlo sobre las
+     * estructuras de PHP no tocaría el código que de verdad decide.
+     *
+     * @param  array<string, mixed>  $cambios
+     */
+    private function render(array $cambios): string
+    {
+        $diseno = new DisenoHistorial(array_merge(['titulo' => 'Historial'], $cambios));
+
+        return view('impresion.historial', app(HistorialImprimible::class)->armarEjemplo($diseno))->render();
+    }
+
+    /**
+     * Los títulos de bloque agrupados por rejilla, leídos del HTML.
+     *
+     * @return array<int, array<int, string>>
+     */
+    private function bloquesPorRejilla(string $html): array
+    {
+        $doc = new \DOMDocument;
+        @$doc->loadHTML('<?xml encoding="utf-8"?>'.$html);
+        $xpath = new \DOMXPath($doc);
+        $rejillas = [];
+
+        foreach ($xpath->query('//div[contains(@class, "bloques")]') as $rejilla) {
+            $titulos = [];
+
+            foreach ($xpath->query('.//h2[@class="grupo"]', $rejilla) as $h2) {
+                $titulos[] = trim($h2->textContent);
+            }
+
+            $rejillas[] = $titulos;
+        }
+
+        return $rejillas;
+    }
 
     /** @return array<string, mixed> */
     private function armar(MatriculaOferta $matricula, ?DisenoHistorial $diseno = null): array

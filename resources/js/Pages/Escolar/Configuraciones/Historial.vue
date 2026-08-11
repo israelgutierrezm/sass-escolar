@@ -32,6 +32,7 @@ interface Diseno {
     campos_alumno: string[] | null;
     columnas: string[] | null;
     agrupacion: string;
+    bloques_por_fila: number;
     muestra_resumen: boolean;
     muestra_promedio: boolean;
     muestra_creditos: boolean;
@@ -52,6 +53,7 @@ const props = defineProps<{
     columnas: Record<string, { etiqueta: string; ayuda: string; ancho: number; alineacion: string }>;
     datos: Record<string, { etiqueta: string; ayuda: string }>;
     agrupaciones: Record<string, { etiqueta: string; ayuda: string }>;
+    bloquesPorFila: Record<string, { etiqueta: string; ayuda: string }>;
     papeles: string[];
     orientaciones: string[];
     niveles: { id: number; nombre: string }[];
@@ -76,6 +78,7 @@ function vacio() {
         campos_alumno: [...props.omision.campos_alumno],
         columnas: [...props.omision.columnas],
         agrupacion: 'periodo',
+        bloques_por_fila: 1,
         muestra_resumen: true,
         muestra_promedio: true,
         muestra_creditos: true,
@@ -108,6 +111,7 @@ watch(
                       campos_alumno: d.campos_alumno ?? [...props.omision.campos_alumno],
                       columnas: d.columnas ?? [...props.omision.columnas],
                       agrupacion: d.agrupacion,
+                      bloques_por_fila: d.bloques_por_fila,
                       muestra_resumen: d.muestra_resumen,
                       muestra_promedio: d.muestra_promedio,
                       muestra_creditos: d.muestra_creditos,
@@ -148,6 +152,47 @@ function mover(lista: 'columnas' | 'campos_alumno', i: number, delta: number): v
 
     [actual[i], actual[j]] = [actual[j], actual[i]];
     form[lista] = actual;
+}
+
+/**
+ * Abre el documento con datos inventados, en otra pestaña.
+ *
+ * Se manda un formulario de verdad y no un `fetch`: la vista previa es una hoja
+ * completa —seis periodos de seis materias— y encajarla en un recuadro dentro
+ * de esta pantalla no dejaría juzgar si el nombre de una asignatura cabe en su
+ * celda, que es exactamente la pregunta que se viene a responder aquí.
+ *
+ * Va sobre lo que hay EN EL FORMULARIO, sin guardar: probar «dos columnas» no
+ * debería cambiar el documento oficial de la escuela hasta estar decidido.
+ */
+function verComoQueda(): void {
+    const f = document.createElement('form');
+    f.method = 'POST';
+    f.action = '/escolar/configuracion/historial/vista-previa';
+    f.target = '_blank';
+
+    const campos: Record<string, unknown> = {
+        ...form.data(),
+        diseno_id: guardado.value?.id ?? '',
+        _token: document.querySelector<HTMLMetaElement>('meta[name=csrf-token]')?.content ?? '',
+    };
+
+    for (const [clave, valor] of Object.entries(campos)) {
+        // Los arreglos viajan como `columnas[]`, que es como PHP los recibe;
+        // mandarlos con `JSON.stringify` los dejaría como una cadena y el
+        // saneador del servidor los descartaría enteros.
+        for (const v of Array.isArray(valor) ? valor : [valor]) {
+            const i = document.createElement('input');
+            i.type = 'hidden';
+            i.name = Array.isArray(valor) ? `${clave}[]` : clave;
+            i.value = typeof v === 'boolean' ? (v ? '1' : '0') : String(v ?? '');
+            f.appendChild(i);
+        }
+    }
+
+    document.body.appendChild(f);
+    f.submit();
+    f.remove();
 }
 
 function guardar(): void {
@@ -354,6 +399,30 @@ const datosPuestos = computed(() => form.campos_alumno as string[]);
                     </button>
                 </div>
 
+                <!--
+                    A dos columnas sólo tiene sentido con bloques: sin agrupar
+                    es una lista corrida y partirla en dos no significa nada, así
+                    que la opción se atenúa en vez de esconderse — que se
+                    entienda que existe y por qué no aplica ahora.
+                -->
+                <div class="border-t border-borde pt-3" :class="form.agrupacion === 'ninguna' ? 'opacity-50' : ''">
+                    <p class="mb-2 text-sm font-semibold">Cómo se acomodan los bloques</p>
+                    <div class="grid gap-2 sm:grid-cols-2">
+                        <button
+                            v-for="(meta, cuantos) in bloquesPorFila"
+                            :key="cuantos"
+                            type="button"
+                            :disabled="form.agrupacion === 'ninguna'"
+                            class="rounded-lg border p-3 text-left disabled:cursor-not-allowed"
+                            :class="form.bloques_por_fila === Number(cuantos) ? 'border-indigo-500 bg-indigo-50' : 'border-borde hover:bg-slate-50'"
+                            @click="form.bloques_por_fila = Number(cuantos)"
+                        >
+                            <span class="block text-sm font-medium">{{ meta.etiqueta }}</span>
+                            <span class="mt-0.5 block text-xs" :style="{ color: 'var(--color-suave)' }">{{ meta.ayuda }}</span>
+                        </button>
+                    </div>
+                </div>
+
                 <div class="flex flex-wrap gap-4 border-t border-borde pt-3">
                     <label class="flex items-center gap-2 text-sm">
                         <input v-model="form.muestra_resumen" type="checkbox" class="h-4 w-4 rounded border-borde" />
@@ -465,7 +534,14 @@ const datosPuestos = computed(() => form.campos_alumno as string[]);
                 </div>
             </section>
 
-            <div class="flex justify-end">
+            <div class="flex justify-end gap-2">
+                <button
+                    type="button"
+                    class="rounded-lg border border-borde px-4 py-2 text-sm hover:bg-slate-50"
+                    @click="verComoQueda"
+                >
+                    Ver cómo queda
+                </button>
                 <button
                     type="button"
                     class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"

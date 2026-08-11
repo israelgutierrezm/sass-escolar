@@ -56,6 +56,109 @@ class HistorialImprimible
     }
 
     /**
+     * El mismo documento, con datos INVENTADOS, para la vista previa.
+     *
+     * ── Por qué no se usa a un alumno real ────────────────────────────────
+     * Porque configurar no es consultar el expediente de nadie: quien diseña el
+     * historial tiene `gestionar-historial`, que no es el permiso de mirar
+     * calificaciones ajenas. Y porque el primer alumno de la lista suele ser el
+     * caso fácil —pocas materias, nombres cortos—, justo el que no avisa de que
+     * la maqueta se rompe.
+     *
+     * Por eso el ejemplo trae SEIS periodos y nombres largos: es lo que hace
+     * visible si las dos columnas caben, que es para lo que se mira.
+     *
+     * @return array<string, mixed>
+     */
+    public function armarEjemplo(DisenoHistorial $diseno): array
+    {
+        $columnas = $diseno->columnasEfectivas();
+
+        return [
+            'diseno' => $diseno,
+            'institucion' => Institucion::query()->first(),
+            'columnas' => array_map(
+                fn (string $c) => ['clave' => $c] + CatalogoColumnas::columnas()[$c],
+                $columnas,
+            ),
+            'datos' => $this->datosDeEjemplo($diseno),
+            'grupos' => $this->agrupar($this->renglonesDeEjemplo(), $diseno->agrupacion, $columnas),
+            'resumen' => [
+                'materias_cursadas' => 36,
+                'aprobadas' => 35,
+                'reprobadas' => 1,
+                'creditos' => 214,
+                'creditos_del_plan' => 336,
+                'promedio' => 8.7,
+            ],
+            'marca_agua' => $diseno->marca_agua_alumno ? $diseno->marca_agua_texto : null,
+        ];
+    }
+
+    /** @return array<int, array{etiqueta: string, valor: string}> */
+    private function datosDeEjemplo(DisenoHistorial $diseno): array
+    {
+        $catalogo = CatalogoColumnas::datosDelAlumno();
+
+        $valores = [
+            'nombre' => 'María Fernanda Gutiérrez Villaseñor',
+            'matricula' => 'L20260123',
+            'curp' => 'GUVM060312MDFTLR09',
+            'carrera' => 'Ingeniería en Sistemas Computacionales',
+            'plan' => 'Plan 2024',
+            'campus' => 'Campus Norte',
+            'nivel' => 'Licenciatura',
+            'situacion' => 'Activa',
+            'fecha_emision' => Carbon::now()->translatedFormat('d \d\e F \d\e Y'),
+        ];
+
+        return collect($diseno->datosEfectivos())
+            ->map(fn (string $c) => ['etiqueta' => $catalogo[$c]['etiqueta'], 'valor' => $valores[$c]])
+            ->all();
+    }
+
+    /**
+     * Seis periodos de seis materias, con nombres de verdad.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function renglonesDeEjemplo(): array
+    {
+        $materias = [
+            ['Fundamentos de Programación', 'Cálculo Diferencial', 'Álgebra Lineal', 'Comunicación y Redacción', 'Química General', 'Introducción a la Ingeniería'],
+            ['Programación Orientada a Objetos', 'Cálculo Integral', 'Física General', 'Probabilidad y Estadística', 'Ética Profesional', 'Inglés Técnico I'],
+            ['Estructuras de Datos', 'Ecuaciones Diferenciales', 'Arquitectura de Computadoras', 'Bases de Datos', 'Métodos Numéricos', 'Inglés Técnico II'],
+            ['Sistemas Operativos', 'Ingeniería de Software', 'Redes de Computadoras', 'Teoría de la Computación', 'Investigación de Operaciones', 'Desarrollo Web'],
+            ['Inteligencia Artificial', 'Sistemas Distribuidos', 'Seguridad Informática', 'Administración de Proyectos', 'Minería de Datos', 'Cómputo en la Nube'],
+            ['Seminario de Titulación', 'Cómputo Móvil', 'Interacción Humano-Computadora', 'Emprendimiento Tecnológico', 'Estancia Profesional', 'Optativa de Especialidad'],
+        ];
+
+        $renglones = [];
+
+        foreach ($materias as $i => $delPeriodo) {
+            $periodo = $i + 1;
+
+            foreach ($delPeriodo as $j => $nombre) {
+                $renglones[] = [
+                    'clave_en_plan' => sprintf('ISC%02d%02d', $periodo, $j + 1),
+                    'materia' => $nombre,
+                    'creditos' => 6 + ($j % 3),
+                    'periodo' => $periodo,
+                    'ciclo' => sprintf('202%d-%s', 2 + intdiv($i, 2), $i % 2 === 0 ? 'A' : 'B'),
+                    'calificacion' => 7 + (($i + $j) % 4),
+                    'estatus' => 'Aprobada',
+                    'tipo_evaluacion' => 'Ordinario',
+                    'acta_folio' => sprintf('ACT-2024-%04d', 100 + $i * 6 + $j),
+                    'observacion' => null,
+                    'observacion_asignatura' => $i === 2 && $j === 0 ? 'EQUIVALENCIA DE ESTUDIOS' : 'NORMAL / ORDINARIO',
+                ];
+            }
+        }
+
+        return $renglones;
+    }
+
+    /**
      * Los datos del encabezado, en el ORDEN en que la escuela los puso.
      *
      * Se recorre la lista configurada y no el catálogo: mover «CURP» arriba de

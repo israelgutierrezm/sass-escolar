@@ -26,6 +26,7 @@ class DisenoHistorial extends Model
         'campos_alumno',
         'columnas',
         'agrupacion',
+        'bloques_por_fila',
         'muestra_resumen',
         'muestra_promedio',
         'muestra_creditos',
@@ -51,6 +52,7 @@ class DisenoHistorial extends Model
             'muestra_creditos' => 'boolean',
             'descarga_alumno' => 'boolean',
             'marca_agua_alumno' => 'boolean',
+            'bloques_por_fila' => 'integer',
             'campos_alumno' => 'array',
             'columnas' => 'array',
         ];
