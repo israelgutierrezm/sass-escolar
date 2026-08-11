@@ -232,8 +232,15 @@ class HistorialImprimible
             'carrera' => $carrera?->nombre,
             'plan' => $matricula->oferta?->plan?->nombre,
             'campus' => $matricula->oferta?->campus?->nombre,
-            // El nivel vive en la base CENTRAL: se pide por el modelo landlord,
-            // que es lo único que resuelve esa conexión.
+            /*
+             * SIN `->activos()`, y es deliberado.
+             *
+             * Esto resuelve POR ID un nivel que ya está guardado en la carrera.
+             * Filtrar por encendido aquí haría que apagar un nivel borrara ese
+             * renglón del historial de quien ya lo cursó, sin error y sin aviso.
+             * El interruptor decide qué se puede ELEGIR de aquí en adelante, no
+             * qué existió.
+             */
             'nivel' => $carrera?->nivel_estudios_id === null
                 ? null
                 : NivelEstudio::query()->whereKey($carrera->nivel_estudios_id)->value('nombre'),

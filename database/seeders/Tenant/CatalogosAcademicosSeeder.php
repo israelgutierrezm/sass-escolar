@@ -32,16 +32,28 @@ class CatalogosAcademicosSeeder extends Seeder
             ['clave' => 'online', 'nombre' => 'En línea'],
         ]);
 
-        // Tipos de periodo OFICIALES: id fijo = clave, protegidos (no se editan
-        // ni se eliminan). Solo se siembran en tenants nuevos con estos ids.
+        /*
+         * Tipos de periodo OFICIALES: id fijo = clave, protegidos (no se editan
+         * ni se eliminan). Solo se siembran en tenants nuevos con estos ids.
+         *
+         * El id ES el valor del catálogo de la SEP —91 = semestre—, y por eso la
+         * clave lo repite: no es un descuido, es que aquí no hay otra clave que
+         * poner. `ConstructorCertificadoXml` manda ese número como
+         * `idTipoPeriodo`.
+         *
+         * El NOMBRE va como se lee, no en versalitas: sale en pantalla y en el
+         * historial impreso, donde «SEMESTRE 1» grita. De estos dos catálogos el
+         * nombre no viaja a la SEP; el del tipo de asignatura sí, y allá se
+         * manda en mayúsculas desde el constructor del XML.
+         */
         $this->sembrarFijos(TipoPeriodo::class, [
-            [91, 'SEMESTRE'],
-            [92, 'BIMESTRE'],
-            [93, 'CUATRIMESTRE'],
-            [94, 'TETRAMESTRE'],
-            [260, 'TRIMESTRE'],
-            [261, 'MODULAR'],
-            [262, 'ANUAL'],
+            [91, 'Semestre'],
+            [92, 'Bimestre'],
+            [93, 'Cuatrimestre'],
+            [94, 'Tetramestre'],
+            [260, 'Trimestre'],
+            [261, 'Modular'],
+            [262, 'Anual'],
         ]);
 
         $this->sembrar(TipoPlanEstudio::class, [
@@ -53,10 +65,10 @@ class CatalogosAcademicosSeeder extends Seeder
         // El Tipo queda en cuatro fijas, sin agregar más (decisión del cliente).
         // Tipos de asignatura OFICIALES: id fijo = clave, protegidos.
         $this->sembrarFijos(TipoAsignatura::class, [
-            [263, 'OBLIGATORIA'],
-            [264, 'OPTATIVA'],
-            [265, 'ADICIONAL'],
-            [266, 'COMPLEMENTARIA'],
+            [263, 'Obligatoria'],
+            [264, 'Optativa'],
+            [265, 'Adicional'],
+            [266, 'Complementaria'],
         ]);
 
         // Descriptores del programa de una asignatura. Nace con cuatro; admite más.

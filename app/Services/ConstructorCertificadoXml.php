@@ -79,7 +79,15 @@ class ConstructorCertificadoXml
             ->whereIn('id', $historial->pluck('planMateria.asignatura.tipo_asignatura_id')->filter()->unique())
             ->get(['id', 'identificador', 'nombre']);
         $idTipoSep = $tiposAsig->pluck('identificador', 'id');
-        $nombreTipo = $tiposAsig->pluck('nombre', 'id');
+        /*
+         * El nombre viaja al WS de la SEP en MAYÚSCULAS.
+         *
+         * El catálogo se guarda como se lee en pantalla —«Obligatoria»—, pero el
+         * web service espera el valor oficial tal cual lo publica la SEP. Es el
+         * único de los tres catálogos cuyo NOMBRE viaja: el nivel y el tipo de
+         * periodo van sólo por id, así que su ortografía es asunto nuestro.
+         */
+        $nombreTipo = $tiposAsig->pluck('nombre', 'id')->map(fn (string $n) => mb_strtoupper($n));
 
         // Mejor intento por materia: una materia aprobada a título tras tronar el
         // ordinario cuenta una vez, como aprobada.

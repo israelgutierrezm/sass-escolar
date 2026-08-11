@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models\Academico;
 
+use App\Models\Concerns\SePuedeApagar;
 use App\Models\Concerns\TieneAuditoria;
 use Illuminate\Database\Eloquent\Model;
 
@@ -17,7 +18,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 class NivelEstudio extends Model
 {
-    use TieneAuditoria;
+    use SePuedeApagar, TieneAuditoria;
 
     protected $table = 'niveles_estudio';
 
@@ -25,9 +26,15 @@ class NivelEstudio extends Model
         'clave',
         'identificador',
         'nombre',
+        'activo',
         'orden',
         // ClaveProdServ del SAT para el CFDI de colegiaturas: la asigna el SAT
         // por nivel, no por carrera.
         'clave_sat',
     ];
+
+    protected function casts(): array
+    {
+        return ['activo' => 'boolean'];
+    }
 }

@@ -137,8 +137,8 @@ class PlantillaAcademica
 
         $catalogos = [
             'A' => ['tiposCampus', TipoCampus::query()->orderBy('nombre')->pluck('nombre')->all()],
-            'B' => ['niveles', NivelEstudio::query()->orderBy('nombre')->pluck('nombre')->all()],
-            'C' => ['tiposPeriodo', TipoPeriodo::query()->orderBy('nombre')->pluck('nombre')->all()],
+            'B' => ['niveles', NivelEstudio::query()->activos()->orderBy('nombre')->pluck('nombre')->all()],
+            'C' => ['tiposPeriodo', TipoPeriodo::query()->activos()->orderBy('nombre')->pluck('nombre')->all()],
             'D' => ['tiposAsignatura', TipoAsignatura::query()->orderBy('nombre')->pluck('nombre')->all()],
             'E' => ['areas', Area::query()->orderBy('nombre')->pluck('nombre')->all()],
             'F' => ['clasificaciones', ClasificacionAsignatura::query()->orderBy('nombre')->pluck('nombre')->all()],

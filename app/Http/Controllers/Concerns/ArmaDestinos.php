@@ -43,7 +43,7 @@ trait ArmaDestinos
             // `CentralConnection` y una consulta cruda contra el tenant no los
             // encuentra. Es la trampa que documenta CLAUDE.md sobre catálogos
             // universales.
-            'nivel' => NivelEstudio::query()->orderBy('nombre')->get(['id', 'nombre'])
+            'nivel' => NivelEstudio::query()->activos()->orderBy('nombre')->get(['id', 'nombre'])
                 ->map(fn ($n) => ['id' => $n->id, 'nombre' => $n->nombre])->values(),
 
             'carrera' => Carrera::query()->orderBy('nombre')->get(['id', 'nombre', 'clave'])

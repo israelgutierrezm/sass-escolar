@@ -119,7 +119,7 @@ class PlanCobroController extends Controller
             // Vigentes: un plan de cobro se arma para el ciclo que viene o el que
             // corre, no para uno que ya cerró sus actas.
             'ciclos' => Ciclo::query()->vigentes()->orderByDesc('fecha_inicio')->get(['id', 'nombre', 'fecha_inicio', 'fecha_fin']),
-            'niveles' => NivelEstudio::query()->orderBy('orden')->get(['id', 'nombre']),
+            'niveles' => NivelEstudio::query()->activos()->orderBy('orden')->get(['id', 'nombre']),
         ]);
     }
 

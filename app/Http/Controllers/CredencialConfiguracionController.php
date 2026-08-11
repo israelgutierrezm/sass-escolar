@@ -54,7 +54,7 @@ class CredencialConfiguracionController extends Controller
             'configuraciones' => CredencialRol::query()->get()->map(fn (CredencialRol $c) => $this->aPantalla($c))->values(),
             'campos' => CatalogoCampos::todos(),
             'disenos' => Disenos::CATALOGO,
-            'niveles' => NivelEstudio::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'niveles' => NivelEstudio::query()->activos()->orderBy('nombre')->get(['id', 'nombre']),
         ]);
     }
 

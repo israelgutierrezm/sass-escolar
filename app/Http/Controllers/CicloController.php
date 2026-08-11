@@ -110,7 +110,7 @@ class CicloController extends Controller
                     ->when(is_array($alcance), fn ($q) => $q->whereIn('id', $alcance))
                     ->orderBy('nombre')->get(['id', 'nombre'])
                     ->map(fn ($c) => ['valor' => $c->id, 'texto' => $c->nombre]),
-                'niveles' => NivelEstudio::query()->orderBy('nombre')->get(['id', 'nombre'])
+                'niveles' => NivelEstudio::query()->activos()->orderBy('nombre')->get(['id', 'nombre'])
                     ->map(fn ($n) => ['valor' => $n->id, 'texto' => $n->nombre]),
             ],
             'puedeEditar' => $request->user()->can('abrir-grupos'),
@@ -371,7 +371,7 @@ class CicloController extends Controller
                 ->get(['id', 'nombre']),
             'situaciones' => SituacionCiclo::query()->orderBy('id')->get(['id', 'nombre']),
             // Para acotar (opcionalmente) el ciclo a un nivel de estudios.
-            'niveles' => NivelEstudio::query()->orderBy('orden')->get(['id', 'nombre']),
+            'niveles' => NivelEstudio::query()->activos()->orderBy('orden')->get(['id', 'nombre']),
             'alcanceAcotado' => $alcance !== null,
         ];
     }

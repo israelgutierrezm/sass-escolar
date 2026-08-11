@@ -12,6 +12,8 @@ interface Item {
     nombre: string;
     en_uso: boolean;
     protegido?: boolean;
+    /** Si la escuela lo tiene encendido. Los catálogos no apagables llegan en true. */
+    activo: boolean;
     color?: string | null;
     clave_sat?: string | null;
     identificador?: string | null;
@@ -28,6 +30,8 @@ interface Catalogo {
     singular: string;
     grupo: string;
     extras: Record<string, Extra>;
+    /** Si este catálogo se puede encender y apagar. */
+    apagable: boolean;
     items: Item[];
 }
 
@@ -166,6 +170,21 @@ function guardarEdicion(catalogo: Catalogo): void {
     });
 }
 
+/**
+ * Enciende o apaga un ítem.
+ *
+ * `preserveScroll` porque la lista es larga y el interruptor está a media
+ * pantalla: sin él, cada clic devuelve al principio y hay que volver a buscar
+ * dónde se estaba.
+ */
+function alternar(catalogo: string, item: Item): void {
+    router.patch(
+        `/academico/catalogos/${catalogo}/${item.id}/activo`,
+        { activo: !item.activo },
+        { preserveScroll: true },
+    );
+}
+
 function eliminar(catalogo: string, item: Item): void {
     if (!confirm(`¿Eliminar "${item.nombre}"?`)) {
         return;
@@ -281,6 +300,14 @@ function esEditando(catalogo: string, id: number): boolean {
                                         ID {{ item.identificador ?? '—' }}
                                     </span>
                                     <span
+                                        v-if="!item.activo"
+                                        class="shrink-0 rounded-full px-2 py-0.5 text-[11px]"
+                                        :style="{ backgroundColor: 'var(--color-fondo)', color: 'var(--color-suave)' }"
+                                        title="Apagado: no se ofrece en ningún desplegable"
+                                    >
+                                        apagado
+                                    </span>
+                                    <span
                                         v-if="item.en_uso"
                                         class="shrink-0 rounded-full px-2 py-0.5 text-[11px]"
                                         :style="{ backgroundColor: 'var(--color-borde)', color: 'var(--color-suave)' }"
@@ -296,6 +323,36 @@ function esEditando(catalogo: string, id: number): boolean {
                                         :title="item.color || 'Sin color'"
                                     />
                                 </span>
+                                <!--
+                                    El interruptor de encendido.
+                                    Apagar sólo se ofrece cuando nada lo usa: si
+                                    algo apunta a este ítem, apagarlo dejaría ese
+                                    dato señalando a una opción que ya no existe
+                                    en ningún desplegable. El servidor lo vuelve
+                                    a comprobar.
+                                -->
+                                <span v-if="catalogo.apagable && puedeEditar" class="flex w-24 shrink-0 justify-center">
+                                    <button
+                                        type="button"
+                                        class="relative h-5 w-9 rounded-full transition disabled:cursor-not-allowed disabled:opacity-40"
+                                        :style="{ backgroundColor: item.activo ? 'var(--color-acento)' : 'var(--color-borde)' }"
+                                        :disabled="item.activo && item.en_uso"
+                                        :title="
+                                            item.activo
+                                                ? item.en_uso
+                                                    ? 'No se puede apagar: hay información que lo usa'
+                                                    : 'Encendido. Apágalo para que deje de ofrecerse'
+                                                : 'Apagado. No aparece en ningún desplegable'
+                                        "
+                                        @click="alternar(catalogo.clave, item)"
+                                    >
+                                        <span
+                                            class="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all"
+                                            :class="item.activo ? 'left-[1.15rem]' : 'left-0.5'"
+                                        />
+                                    </button>
+                                </span>
+
                                 <span v-if="puedeEditar" class="flex w-28 shrink-0 items-center justify-end gap-1">
                                     <!-- Los valores oficiales (niveles, tipos de
                                          periodo) no se editan ni se eliminan. -->

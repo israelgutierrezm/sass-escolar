@@ -45,7 +45,7 @@ class CarreraController extends Controller
                     'planes_count' => $carrera->planes_count,
                 ]),
             'filtros' => $filtros,
-            'niveles' => NivelEstudio::query()->orderBy('orden')->get(['id', 'nombre']),
+            'niveles' => NivelEstudio::query()->activos()->orderBy('orden')->get(['id', 'nombre']),
             'puedeEditar' => $request->user()->can('editar-catalogo-academico'),
         ]);
     }
@@ -133,7 +133,7 @@ class CarreraController extends Controller
         return [
             // La clave SAT ya no se captura por carrera: vive en el nivel de
             // estudios (el SAT la asigna por nivel).
-            'niveles' => NivelEstudio::query()->orderBy('orden')->get(['id', 'nombre']),
+            'niveles' => NivelEstudio::query()->activos()->orderBy('orden')->get(['id', 'nombre']),
         ];
     }
 }

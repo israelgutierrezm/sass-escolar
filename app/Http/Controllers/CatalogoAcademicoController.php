@@ -21,6 +21,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -88,17 +89,36 @@ class CatalogoAcademicoController extends Controller
                 'etiqueta' => 'Nivel de estudios',
                 'singular' => 'nivel',
                 'grupo' => 'Carreras',
-                'enUso' => fn (int $id) => DB::table('carreras')->whereNull('deleted_at')->where('nivel_estudios_id', $id)->exists(),
+                /*
+                 * El nivel lo usan OCHO tablas, no sólo las carreras.
+                 *
+                 * Y dos de ellas sin llave foránea: `evento_destinos` apunta a
+                 * catálogos distintos según su `tipo` —es lo que permite dirigir
+                 * un aviso «por nivel» sin migrar—, y `emisor_asignaciones`
+                 * igual. Preguntar sólo por `carreras` dejaría apagar un nivel
+                 * que sostiene un aviso del calendario o la razón social con la
+                 * que se factura ese nivel, y esas dos se romperían en silencio.
+                 */
+                'enUso' => fn (int $id) => $this->usadoEn($id, [
+                    ['carreras', 'nivel_estudios_id'],
+                    ['ciclo_nivel', 'nivel_estudios_id'],
+                    ['grupos', 'nivel_estudios_id'],
+                    ['credenciales_rol', 'nivel_estudios_id'],
+                    ['disenos_historial', 'nivel_estudios_id'],
+                    ['plan_cobro_carrera', 'nivel_estudios_id'],
+                ]) || $this->usadoComoDestino('nivel', $id) || $this->usadoComoEmisor('nivel', $id),
                 // Identificador oficial (SEP) que viaja en el certificado electrónico.
                 'extras' => ['identificador' => ['tipo' => 'texto', 'etiqueta' => 'Identificador']],
+                'apagable' => true,
             ],
             'tipoperiodo' => [
                 'modelo' => TipoPeriodo::class,
                 'etiqueta' => 'Tipos de periodo',
                 'singular' => 'tipo de periodo',
                 'grupo' => 'Plan de estudios',
-                'enUso' => fn (int $id) => DB::table('planes_estudio')->whereNull('deleted_at')->where('tipo_periodo_id', $id)->exists(),
+                'enUso' => fn (int $id) => $this->usadoEn($id, [['planes_estudio', 'tipo_periodo_id']]),
                 'extras' => ['identificador' => ['tipo' => 'texto', 'etiqueta' => 'Identificador']],
+                'apagable' => true,
             ],
             'tipoasignatura' => [
                 'modelo' => TipoAsignatura::class,
@@ -133,6 +153,98 @@ class CatalogoAcademicoController extends Controller
         ];
     }
 
+    /**
+     * ¿Algún renglón vivo de estas tablas apunta a ese id?
+     *
+     * @param  array<int, array{0: string, 1: string}>  $columnas  tabla y columna
+     */
+    private function usadoEn(int $id, array $columnas): bool
+    {
+        foreach ($columnas as [$tabla, $columna]) {
+            // Se comprueba la tabla porque el registro es único para todas las
+            // escuelas y una puede ir una migración por detrás.
+            if (! Schema::hasTable($tabla) || ! Schema::hasColumn($tabla, $columna)) {
+                continue;
+            }
+
+            $consulta = DB::table($tabla)->where($columna, $id);
+
+            if (Schema::hasColumn($tabla, 'deleted_at')) {
+                $consulta->whereNull('deleted_at');
+            }
+
+            if ($consulta->exists()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Un aviso del calendario dirigido a este ítem.
+     *
+     * `evento_destinos` no tiene foránea a propósito —apunta a tablas distintas
+     * según su `tipo`, y es lo que permite agregar «por turno» mañana sin
+     * migrar—, así que hay que preguntarle por las dos columnas.
+     */
+    private function usadoComoDestino(string $tipo, int $id): bool
+    {
+        return Schema::hasTable('evento_destinos')
+            && DB::table('evento_destinos')->where('tipo', $tipo)->where('destino_id', $id)->exists();
+    }
+
+    /** Una razón social asignada a este ítem (precedencia carrera → nivel → global). */
+    private function usadoComoEmisor(string $tipo, int $id): bool
+    {
+        return Schema::hasTable('emisor_asignaciones')
+            && DB::table('emisor_asignaciones')
+                ->whereNull('deleted_at')
+                ->where('aplica_a_tipo', $tipo)
+                ->where('aplica_a_id', $id)
+                ->exists();
+    }
+
+    /**
+     * Enciende o apaga un ítem del catálogo.
+     *
+     * ── Sólo se apaga lo que nadie usa ────────────────────────────────────
+     * Es la regla que hace segura toda la función: si nada apunta a ese nivel,
+     * apagarlo no puede dejar huérfano ningún dato ya guardado, y por eso el
+     * resto del sistema puede filtrar los desplegables sin miedo. Encender, en
+     * cambio, nunca se bloquea: devolver algo a la lista no rompe nada.
+     *
+     * Lo PROTEGIDO tampoco impide apagar. Protegido significa que su clave no
+     * se toca —hay código y XML de la SEP que la conocen—, no que la escuela
+     * esté obligada a ofrecer «Doctorado» en sus desplegables.
+     */
+    public function alternar(Request $request, string $catalogo, int $id): RedirectResponse
+    {
+        $def = $this->registro()[$catalogo] ?? null;
+
+        abort_if($def === null || ($def['apagable'] ?? false) !== true, 404);
+
+        /** @var Model $item */
+        $item = $def['modelo']::query()->findOrFail($id);
+        $encender = $request->boolean('activo');
+
+        if (! $encender && ($def['enUso'])($id)) {
+            throw ValidationException::withMessages([
+                'activo' => "No se puede apagar: hay información que usa este {$def['singular']}. "
+                    .'Retírala primero o déjalo encendido.',
+            ]);
+        }
+
+        $item->update(['activo' => $encender]);
+
+        return back(303)->with(
+            'exito',
+            $encender
+                ? Str::ucfirst($def['singular']).' encendido: ya aparece en los desplegables.'
+                : Str::ucfirst($def['singular']).' apagado: deja de ofrecerse en los desplegables.',
+        );
+    }
+
     public function index(Request $request): Response
     {
         $puedeEditar = $request->user()->can('editar-catalogo-academico');
@@ -151,6 +263,8 @@ class CatalogoAcademicoController extends Controller
             // La clave SAT (hoy sólo en niveles) se muestra como informativa: es
             // dato oficial derivado del nivel, no editable desde aquí.
             $conClaveSat = Schema::hasColumn((new $modelo)->getTable(), 'clave_sat');
+            // Sólo los catálogos que declaran `apagable` traen la columna.
+            $apagable = ($def['apagable'] ?? false) === true;
             $extras = $def['extras'] ?? [];
 
             return [
@@ -161,14 +275,19 @@ class CatalogoAcademicoController extends Controller
                 // Metadatos de los campos extra (p. ej. color) para que la UI
                 // sepa qué input pintar; vacío para los catálogos simples.
                 'extras' => $extras,
+                'apagable' => $apagable,
                 'items' => $modelo::query()->orderBy($ordenable ? 'orden' : 'nombre')
-                    ->get(array_merge(['id', 'clave', 'nombre'], $protegible ? ['protegido'] : [], $conClaveSat ? ['clave_sat'] : [], array_keys($extras)))
+                    ->get(array_merge(['id', 'clave', 'nombre'], $protegible ? ['protegido'] : [], $apagable ? ['activo'] : [], $conClaveSat ? ['clave_sat'] : [], array_keys($extras)))
                     ->map(fn (Model $m) => array_merge([
                         'id' => $m->id,
                         'clave' => $m->clave,
                         'nombre' => $m->nombre,
                         'en_uso' => ($def['enUso'])($m->id),
                         'protegido' => $protegible ? (bool) $m->protegido : false,
+                        // Los que no se pueden apagar viajan como encendidos:
+                        // así la pantalla no tiene que distinguir dos casos para
+                        // pintar el mismo renglón.
+                        'activo' => $apagable ? (bool) $m->activo : true,
                     ], $conClaveSat ? ['clave_sat' => $m->clave_sat] : [],
                         collect($extras)->keys()->mapWithKeys(fn (string $k) => [$k => $m->{$k}])->all())),
             ];

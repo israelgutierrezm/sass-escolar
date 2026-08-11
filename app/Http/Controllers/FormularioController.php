@@ -409,7 +409,7 @@ class FormularioController extends Controller
     private function destinos(): array
     {
         return [
-            'nivel' => NivelEstudio::query()->orderBy('orden')->get(['id', 'nombre'])
+            'nivel' => NivelEstudio::query()->activos()->orderBy('orden')->get(['id', 'nombre'])
                 ->map(fn ($n) => ['id' => $n->id, 'nombre' => $n->nombre]),
             'carrera' => Carrera::query()->orderBy('nombre')->get(['id', 'nombre']),
             'oferta' => Oferta::query()->with(['carrera:id,nombre', 'plan:id,nombre'])->get()

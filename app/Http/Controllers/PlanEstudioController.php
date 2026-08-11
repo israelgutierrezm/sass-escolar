@@ -162,7 +162,7 @@ class PlanEstudioController extends Controller
         return [
             'carreras' => Carrera::query()->orderBy('nombre')->get(['id', 'nombre']),
             'autorizaciones' => AutorizacionReconocimiento::query()->orderBy('nombre')->get(['id', 'nombre']),
-            'tiposPeriodo' => TipoPeriodo::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'tiposPeriodo' => TipoPeriodo::query()->activos()->orderBy('nombre')->get(['id', 'nombre']),
         ];
     }
 }

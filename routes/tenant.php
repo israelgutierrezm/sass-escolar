@@ -689,6 +689,16 @@ Route::middleware([
                     Route::delete('catalogos/{catalogo}/{item}', [CatalogoAcademicoController::class, 'destroy'])
                         ->whereNumber('item')->name('catalogos.destroy');
 
+                    /*
+                     * Encender y apagar un ítem del catálogo.
+                     *
+                     * Con el mismo permiso que editarlo: decidir qué niveles
+                     * ofrece la escuela es administrar el catálogo académico, no
+                     * una operación aparte.
+                     */
+                    Route::patch('catalogos/{catalogo}/{item}/activo', [CatalogoAcademicoController::class, 'alternar'])
+                        ->whereNumber('item')->name('catalogos.activo');
+
                     // La asignatura ya no tiene alta/edición propias: se crea en la
                     // malla del plan y se edita en la ficha. Aquí sólo quedan el
                     // paso «elegir plan» (create), el redirect de edición y borrar.

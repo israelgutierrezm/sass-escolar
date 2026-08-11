@@ -655,7 +655,7 @@ class GrupoController extends Controller
             'turnos' => Turno::query()->orderBy('nombre')->get(['id', 'nombre']),
             // El nivel ahora es un dato propio del grupo, no un derivado del
             // plan: se ofrece como campo, y el ciclo lo acota.
-            'niveles' => NivelEstudio::query()->orderBy('orden')->get(['id', 'nombre']),
+            'niveles' => NivelEstudio::query()->activos()->orderBy('orden')->get(['id', 'nombre']),
         ];
     }
 }

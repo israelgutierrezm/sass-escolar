@@ -39,7 +39,7 @@ class DisenoHistorialController extends Controller
             'bloquesPorFila' => CatalogoColumnas::BLOQUES_POR_FILA,
             'papeles' => CatalogoColumnas::PAPELES,
             'orientaciones' => CatalogoColumnas::ORIENTACIONES,
-            'niveles' => NivelEstudio::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'niveles' => NivelEstudio::query()->activos()->orderBy('nombre')->get(['id', 'nombre']),
             'omision' => CatalogoColumnas::porOmision(),
         ]);
     }
