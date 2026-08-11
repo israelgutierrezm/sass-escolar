@@ -6,7 +6,7 @@ namespace App\Models\Finanzas;
 
 use App\Models\Academico\Carrera;
 use App\Models\Concerns\TieneAuditoria;
-use App\Models\Landlord\NivelEstudio;
+use App\Models\Academico\NivelEstudio;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 

@@ -234,10 +234,19 @@ la cadena vacía, y de una carga masiva puede salir así.
   cambio ya se haya guardado. Lo peor es cómo se ve: el dato cambió en la base y
   la pantalla no se entera, así que parece que el botón no funciona. Mordió con
   el interruptor de visibilidad.
-- **Los catálogos universales viven en la base CENTRAL.** `niveles_estudio`,
-  sexos, países… tienen modelo en `App\Models\Landlord\` con `CentralConnection`.
-  Un `DB::table('nivel_estudios')` desde el tenant revienta con «table doesn't
-  exist» — y además el nombre real es `niveles_estudio`. Siempre por el modelo.
+- **Los catálogos universales viven en la base CENTRAL.** Sexos, países,
+  entidades federativas… tienen modelo en `App\Models\Landlord\` con
+  `CentralConnection`. Un `DB::table(...)` desde el tenant revienta con «table
+  doesn't exist». Siempre por el modelo.
+- **`niveles_estudio` YA NO es universal: se mudó al tenant.** Cada escuela
+  administra los suyos, y el modelo bueno es `App\Models\Academico\NivelEstudio`.
+  El de landlord se conservó **sólo como semilla** y sigue contestando, que es lo
+  que hace peligrosa la confusión: no falla, devuelve la lista sembrada (ids 1–7)
+  mientras las carreras de la escuela apuntan a los suyos (81, 82, 85…). Seis
+  pantallas quedaron leyendo la tabla equivocada durante semanas sin síntoma;
+  salieron a la luz al agregarle el interruptor al catálogo, porque `->activos()`
+  sólo existe en el modelo del tenant y todas dieron 500 de golpe. Lo fija
+  `tests/Unit/NivelesDeEstudioSonDelTenantTest`, que prohíbe el import viejo.
 - **El nombre de una tabla se pregunta, no se adivina.** `oferta` es singular,
   `planes_estudio` no se llama como su modelo, `inscripcion` tampoco. Consultar
   con Eloquent en vez de escribir el nombre a mano evita el problema entero;

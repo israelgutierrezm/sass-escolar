@@ -9,7 +9,7 @@ use App\Models\Facturacion\FacturacionConfig;
 use App\Models\Finanzas\EmisorAsignacion;
 use App\Models\Finanzas\EmisorFiscal;
 use App\Models\Finanzas\Factura;
-use App\Models\Landlord\NivelEstudio;
+use App\Models\Academico\NivelEstudio;
 use App\Services\Facturacion\FacturapiRechazo;
 use App\Services\Facturacion\SincronizadorEmisorFacturapi;
 use App\Support\CatalogosSat;

@@ -13,7 +13,7 @@ use App\Models\Academico\Carrera;
 use App\Models\Academico\PlanEstudio;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Grupo;
-use App\Models\Landlord\NivelEstudio;
+use App\Models\Academico\NivelEstudio;
 use App\Models\Plataforma\EventoCalendario;
 use App\Services\Plataforma\AgendaDeUsuario;
 use App\Services\Plataforma\FeriadosOficiales;

@@ -7,7 +7,7 @@ namespace App\Historial;
 use App\Models\Academico\Institucion;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\DisenoHistorial;
-use App\Models\Landlord\NivelEstudio;
+use App\Models\Academico\NivelEstudio;
 use App\Services\HistorialDelAlumno;
 use Illuminate\Support\Carbon;
 

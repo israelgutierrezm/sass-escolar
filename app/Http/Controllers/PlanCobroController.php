@@ -16,7 +16,7 @@ use App\Models\Finanzas\PagoAdeudo;
 use App\Models\Finanzas\PlanCobro;
 use App\Models\Finanzas\PlanCobroAlumno;
 use App\Models\Finanzas\ReglaRecargo;
-use App\Models\Landlord\NivelEstudio;
+use App\Models\Academico\NivelEstudio;
 use App\Services\ExpansorColegiaturas;
 use App\Services\GeneradorAdeudos;
 use App\Services\ResolutorPlanCobro;

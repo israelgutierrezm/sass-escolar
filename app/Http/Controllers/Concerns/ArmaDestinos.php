@@ -10,7 +10,7 @@ use App\Models\Academico\PlanEstudio;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Grupo;
 use App\Models\Identidad\Rol;
-use App\Models\Landlord\NivelEstudio;
+use App\Models\Academico\NivelEstudio;
 
 /**
  * Los catálogos que alimentan el selector de destinos.

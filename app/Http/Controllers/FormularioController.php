@@ -12,7 +12,7 @@ use App\Models\Formularios\FormularioAsignacion;
 use App\Models\Formularios\OpcionCampo;
 use App\Models\Formularios\TipoCampo;
 use App\Models\Identidad\Rol;
-use App\Models\Landlord\NivelEstudio;
+use App\Models\Academico\NivelEstudio;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;

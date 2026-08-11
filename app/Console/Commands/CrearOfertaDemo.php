@@ -11,7 +11,7 @@ use App\Models\Academico\Oferta;
 use App\Models\Academico\PlanEstudio;
 use App\Models\Academico\TipoCampus;
 use App\Models\Academico\TipoPeriodo;
-use App\Models\Landlord\NivelEstudio;
+use App\Models\Academico\NivelEstudio;
 use App\Models\Tenant;
 use Illuminate\Console\Command;
 
@@ -40,10 +40,15 @@ class CrearOfertaDemo extends Command
 
         tenancy()->initialize($tenant);
 
-        $nivel = NivelEstudio::query()->where('clave', 'licenciatura')->value('id');
+        /*
+         * Por NOMBRE y no por clave: en el catálogo del tenant la clave es el
+         * número que usa la SEP («81»), no la palabra. Buscar 'licenciatura'
+         * ahí no encuentra nada.
+         */
+        $nivel = NivelEstudio::query()->where('nombre', 'Licenciatura')->value('id');
 
         if ($nivel === null) {
-            $this->error('Faltan los catálogos landlord. Corre el LandlordDatabaseSeeder.');
+            $this->error('Falta el catálogo de niveles de la escuela. Corre `tenants:seed`.');
 
             return self::FAILURE;
         }

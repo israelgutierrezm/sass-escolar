@@ -7,7 +7,7 @@ namespace App\Http\Controllers;
 use App\Historial\CatalogoColumnas;
 use App\Historial\HistorialImprimible;
 use App\Models\ControlEscolar\DisenoHistorial;
-use App\Models\Landlord\NivelEstudio;
+use App\Models\Academico\NivelEstudio;
 use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
