@@ -559,7 +559,8 @@ const nivelesConVariante = computed(() =>
                         </label>
                         <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
                             Al escanearlo se abre una ficha con la foto y los datos que el sistema tiene guardados,
-                            para comprobar que la credencial no fue alterada. Agrégalo al reverso desde el editor.
+                            para comprobar que la credencial no fue alterada. Colócalo desde el editor, en el
+                            anverso o en el reverso: donde tu escuela prefiera.
                         </p>
 
                         <label v-if="form.qr_activo" class="flex cursor-pointer items-start gap-2 text-sm">

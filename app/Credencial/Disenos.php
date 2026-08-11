@@ -64,8 +64,8 @@ class Disenos
          * El reverso NO lleva la identidad repetida.
          *
          * En las credenciales reales el logo va una vez: repetirlo detrás roba
-         * el sitio donde van el QR, la firma y las leyendas, que es para lo que
-         * existe el reverso.
+         * el espacio libre del reverso, que es lo que la escuela va a querer
+         * usar para las leyendas, la firma o el QR si decide ponerlos ahí.
          */
         if ($cara === 'anverso') {
             $this->identidad($lienzo, $ancho, $alto, $config->diseno);
