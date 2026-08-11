@@ -92,7 +92,15 @@ class SeguimientoAspirante extends Model
 
     public function etapa(): BelongsTo
     {
-        return $this->belongsTo(EtapaCrm::class, 'etapa_crm_id');
+        /*
+         * Incluso si la escuela RETIRÓ esa etapa de su embudo.
+         *
+         * La etapa se congela aquí porque es historia: «se le llamó estando en
+         * evaluación» sigue siendo cierto aunque «En evaluación» ya no exista
+         * en el catálogo. Sin `withTrashed()` la relación devolvería null y el
+         * historial diría «en —», que es perder el dato por editar un catálogo.
+         */
+        return $this->belongsTo(EtapaCrm::class, 'etapa_crm_id')->withTrashed();
     }
 
     public function resultado(): BelongsTo

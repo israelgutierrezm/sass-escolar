@@ -56,13 +56,24 @@ class CatalogosAdmisionesSeeder extends Seeder
             ['clave' => 'condicionado', 'nombre' => 'Condicionado'],
         ]);
 
+        /*
+         * Cinco etapas. La última es «Listo para inscribir» y no «Inscrito»
+         * porque el embudo termina cuando el prospecto está listo: inscribirlo
+         * es otro acto —el que genera su matrícula— y ocurre después.
+         *
+         * Por eso su clave es `listo_para_inscribir`: dejarla en `inscrito`
+         * para una etapa que significa «todavía no» invitaría a que alguien
+         * cuente alumnos con `where('clave', 'inscrito')`.
+         *
+         * «En evaluación» se retiró del embudo por omisión; la escuela que la
+         * quiera la agrega desde su catálogo.
+         */
         $etapas = [
             ['clave' => 'contacto_inicial', 'nombre' => 'Contacto inicial', 'orden' => 1],
             ['clave' => 'informacion_enviada', 'nombre' => 'Información enviada', 'orden' => 2],
             ['clave' => 'documentacion', 'nombre' => 'En documentación', 'orden' => 3],
-            ['clave' => 'evaluacion', 'nombre' => 'En evaluación', 'orden' => 4],
-            ['clave' => 'aceptado', 'nombre' => 'Aceptado', 'orden' => 5],
-            ['clave' => 'inscrito', 'nombre' => 'Inscrito', 'orden' => 6],
+            ['clave' => 'aceptado', 'nombre' => 'Aceptado', 'orden' => 4],
+            ['clave' => 'listo_para_inscribir', 'nombre' => 'Listo para inscribir', 'orden' => 5],
         ];
 
         foreach ($etapas as $etapa) {
