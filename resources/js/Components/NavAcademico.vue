@@ -1,41 +1,46 @@
 <script setup lang="ts">
 import { router, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, inject, type ComputedRef } from 'vue';
+import type { Ubicacion } from '@/menu/construir';
 
 /**
- * Sub-navegación del catálogo académico. Las entidades se editan por separado
- * pero forman una sola sección conceptual: campus y carreras son la base, los
- * planes cuelgan de la carrera y la oferta las combina.
+ * Las pestañas de la sección donde está parada la pantalla.
  *
- * En móvil las ocho secciones ocupaban media pantalla, así que ahí se colapsan
- * en un selector desplegable; en escritorio siguen como pestañas, con el activo
- * subrayado en el color de acento del tema (no un morado fijo).
+ * ── Salen del CATÁLOGO del menú, no de una lista propia ───────────────────
+ * Tenían la suya escrita a mano con las ocho opciones de Académico, y al mover
+ * Oferta, Evaluación y Catálogos a «Configuración» la barra lateral lo respetó
+ * y estas pestañas siguieron mostrando las ocho: el mismo módulo con dos
+ * organigramas distintos en la misma pantalla. Derivándolas, eso no puede
+ * volver a pasar.
+ *
+ * Dentro de un subgrupo se muestran SUS opciones, no las de toda la sección:
+ * quien entró a Configuración está trabajando en eso, y ofrecerle ahí las cinco
+ * de arriba mezcla dos niveles en una sola fila.
+ *
+ * ── Y respetan el permiso ─────────────────────────────────────────────────
+ * Se resuelven sobre el árbol ya filtrado por faceta y permiso, así que una
+ * pestaña nunca lleva a una pantalla que esa persona no puede abrir.
+ *
+ * En móvil ocupaban media pantalla, así que ahí se colapsan en un desplegable.
  */
 const page = usePage();
 
+const rutaActual = computed(() => page.url.split('?')[0]);
+
 /*
- * El orden sigue el de la captura: institución → campus → carreras → planes →
- * asignaturas. El plan va antes que las asignaturas porque es lo que se arma
- * primero: la materia se da de alta para colgarla de una malla que ya existe, y
- * ofrecerla antes invita a capturar un catálogo suelto que después no se sabe
- * dónde encaja.
+ * La ubicación la calcula el layout UNA vez y la reparte. Recalcularla aquí
+ * significaría rearmar el árbol del menú en cada pantalla y, peor, arriesgarse a
+ * que las pestañas y el encabezado dijeran cosas distintas de la misma página.
  */
-const secciones = [
-    { etiqueta: 'Institución', url: '/academico/instituciones' },
-    { etiqueta: 'Campus', url: '/academico/campus' },
-    { etiqueta: 'Carreras', url: '/academico/carreras' },
-    { etiqueta: 'Planes de estudio', url: '/academico/planes' },
-    { etiqueta: 'Asignaturas', url: '/academico/asignaturas' },
-    { etiqueta: 'Oferta', url: '/academico/ofertas' },
-    { etiqueta: 'Evaluación', url: '/academico/plantillas' },
-    { etiqueta: 'Catálogos', url: '/academico/catalogos' },
-];
+const ubicacion = inject<ComputedRef<Ubicacion>>('ubicacion');
 
-const actual = computed(() => page.url.split('?')[0]);
+const secciones = computed(() => ubicacion?.value.hermanas ?? []);
 
-const esActiva = (url: string): boolean => actual.value.startsWith(url);
+const esActiva = (url: string): boolean => rutaActual.value.startsWith(url);
 
-const seccionActual = computed(() => secciones.find((s) => esActiva(s.url))?.url ?? secciones[0].url);
+const seccionActual = computed(
+    () => secciones.value.find((s) => esActiva(s.url))?.url ?? secciones.value[0]?.url ?? '',
+);
 
 function ir(url: string): void {
     if (url !== seccionActual.value) {
@@ -45,7 +50,8 @@ function ir(url: string): void {
 </script>
 
 <template>
-    <div class="mb-6">
+    <!-- Con una sola opción no hay entre qué elegir: la fila sobra. -->
+    <div v-if="secciones.length > 1" class="mb-6">
         <!-- Móvil: selector desplegable -->
         <div class="sm:hidden">
             <label class="sr-only" for="nav-academico">Sección</label>

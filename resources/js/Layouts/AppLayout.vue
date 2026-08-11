@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link, router, usePage } from '@inertiajs/vue3';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, provide, ref, watch } from 'vue';
 import { Toaster, toast } from 'vue-sonner';
 import 'vue-sonner/style.css';
 import PanelTema from '@/Components/PanelTema.vue';
@@ -8,10 +8,10 @@ import PanelRoles from '@/Components/PanelRoles.vue';
 import MenuArbolLateral from '@/Components/MenuArbolLateral.vue';
 import AvisosPendientes from '@/Components/AvisosPendientes.vue';
 import EncuestasPendientes from '@/Components/EncuestasPendientes.vue';
-import { construirNavegacion, prefijosActivos, type NodoNav } from '@/menu/construir';
+import { construirNavegacion, prefijosActivos, ubicacionActual, type NodoNav } from '@/menu/construir';
 import type { PropsCompartidas } from '@/tipos';
 
-defineProps<{ titulo?: string }>();
+const props = defineProps<{ titulo?: string }>();
 
 const page = usePage<PropsCompartidas & { tema: any }>();
 
@@ -188,6 +188,35 @@ const navegacion = computed<NodoNav[]>(() => {
 });
 
 const rutaActual = computed(() => page.url.split('?')[0]);
+
+/**
+ * Dónde está parada la pantalla: su sección y, si lo hay, su subgrupo.
+ *
+ * Se calcula UNA vez aquí y se reparte con `provide`: la usan el encabezado y
+ * las pestañas de sección, y calcularla dos veces es como se llega a que digan
+ * cosas distintas sobre la misma pantalla.
+ */
+const ubicacion = computed(() => ubicacionActual(navegacion.value, rutaActual.value));
+
+provide('ubicacion', ubicacion);
+
+/**
+ * Lo que dice el encabezado: la SECCIÓN, no la pantalla.
+ *
+ * Antes cada pantalla ponía su propio texto y el resultado era que en Académico
+ * decía «Catálogo académico» estando en Institución y otra cosa estando en
+ * Campus: el encabezado cambiaba solo, sin decir dónde estabas, y la pestaña
+ * activa ya decía la pantalla. Ahora dice la sección y, en letra pequeña, el
+ * subgrupo cuando se está dentro de uno.
+ *
+ * Cuando la ruta NO está en el menú —el expediente de una alumna, la ficha de
+ * un aspirante— se conserva el título que pone la pantalla: ahí el nombre de la
+ * persona es el dato, y sustituirlo por «Alumnos» sería perder información.
+ */
+const encabezado = computed(() => ({
+    principal: ubicacion.value.seccion?.etiqueta ?? props.titulo ?? '',
+    secundario: ubicacion.value.seccion === null ? null : ubicacion.value.subgrupo?.etiqueta ?? null,
+}));
 
 function esActiva(prefijo: string): boolean {
     return rutaActual.value === prefijo || rutaActual.value.startsWith(`${prefijo}/`);
@@ -500,7 +529,16 @@ const iniciales = computed(() => {
                         </svg>
                     </button>
 
-                    <h1 v-if="titulo" class="truncate text-base font-semibold">{{ titulo }}</h1>
+                    <div v-if="encabezado.principal" class="min-w-0">
+                        <h1 class="truncate text-base font-semibold leading-tight">{{ encabezado.principal }}</h1>
+                        <p
+                            v-if="encabezado.secundario"
+                            class="truncate text-[11px] leading-tight"
+                            :style="{ color: 'var(--color-suave)' }"
+                        >
+                            {{ encabezado.secundario }}
+                        </p>
+                    </div>
                 </div>
 
                 <div class="flex items-center gap-2">

@@ -267,3 +267,85 @@ export function prefijosActivos(nodos: NodoNav[], esActiva: (p: string) => boole
     visitar(nodos);
     return abrir;
 }
+
+/**
+ * Dónde está parada la pantalla actual: su sección, su subgrupo y las opciones
+ * hermanas.
+ *
+ * ── Por qué se DERIVA del catálogo y no se escribe aparte ─────────────────
+ * Porque la barra lateral y las pestañas de una sección son dos vistas de lo
+ * mismo, y escritas por separado divergen: al mover Oferta, Evaluación y
+ * Catálogos a «Configuración», la barra lateral lo respetó y las pestañas de
+ * Académico siguieron mostrando las ocho opciones como si nada hubiera pasado.
+ * Se veía el mismo módulo con dos organigramas distintos en la misma pantalla.
+ *
+ * Aquí se responde una sola vez y con el catálogo como fuente.
+ */
+export interface Ubicacion {
+    /** El grupo de nivel 1: «Académico», «Control escolar»… */
+    seccion: { clave: string; etiqueta: string } | null;
+    /** El subgrupo, si la ruta cae dentro de uno: «Configuración». */
+    subgrupo: { clave: string; etiqueta: string } | null;
+    /**
+     * Las opciones del nivel donde está parada: las hermanas de la actual.
+     *
+     * Dentro de un subgrupo son las suyas, no las de toda la sección: quien
+     * entró a Configuración está trabajando en eso, y ofrecerle ahí las cinco
+     * de arriba mezcla dos niveles en una sola fila de pestañas.
+     */
+    hermanas: { etiqueta: string; url: string }[];
+}
+
+/** Si esa ruta cae dentro de ese prefijo. */
+function bajo(ruta: string, prefijo: string): boolean {
+    return prefijo !== '' && (ruta === prefijo || ruta.startsWith(`${prefijo}/`));
+}
+
+/** Las hojas directas de un nodo, con su URL. */
+function hojasDe(nodos: NodoNav[]): { etiqueta: string; url: string }[] {
+    return nodos
+        .filter((n) => !n.esGrupo && n.url)
+        .map((n) => ({ etiqueta: n.etiqueta, url: n.url as string }));
+}
+
+/**
+ * Resuelve la ubicación sobre el árbol YA FILTRADO por permisos y faceta.
+ *
+ * Sobre el filtrado y no sobre el catálogo crudo: así las pestañas nunca
+ * ofrecen una pantalla a la que esa persona no entra, sin tener que volver a
+ * comprobar el permiso aquí.
+ */
+export function ubicacionActual(nodos: NodoNav[], ruta: string): Ubicacion {
+    for (const seccion of nodos) {
+        const dentroDeLaSeccion = bajo(ruta, seccion.prefijo)
+            || seccion.hijos.some((h) => bajo(ruta, h.prefijo) || (h.url ? bajo(ruta, h.url) : false));
+
+        if (!dentroDeLaSeccion) {
+            continue;
+        }
+
+        const identidad = { clave: seccion.clave, etiqueta: seccion.etiqueta };
+
+        // ¿Cae dentro de alguno de sus subgrupos?
+        for (const hijo of seccion.hijos) {
+            if (!hijo.esGrupo) {
+                continue;
+            }
+
+            const dentro = bajo(ruta, hijo.prefijo)
+                || hijo.hijos.some((n) => (n.url ? bajo(ruta, n.url) : false));
+
+            if (dentro) {
+                return {
+                    seccion: identidad,
+                    subgrupo: { clave: hijo.clave, etiqueta: hijo.etiqueta },
+                    hermanas: hojasDe(hijo.hijos),
+                };
+            }
+        }
+
+        return { seccion: identidad, subgrupo: null, hermanas: hojasDe(seccion.hijos) };
+    }
+
+    return { seccion: null, subgrupo: null, hermanas: [] };
+}
