@@ -274,38 +274,6 @@ Se le generará su matrícula de todos modos y eso no se puede deshacer. ¿Conti
                     />
                 </TarjetaSeccion>
 
-                <TarjetaSeccion titulo="Datos personales" descripcion="Identidad del aspirante" :icono="ICONOS.persona">
-                    <dl class="grid gap-4 sm:grid-cols-3">
-                        <div>
-                            <dt class="text-xs uppercase tracking-wide text-suave">CURP</dt>
-                            <dd class="mt-0.5 font-mono text-sm text-contenido">{{ aspirante.curp ?? '—' }}</dd>
-                        </div>
-                        <div>
-                            <dt class="text-xs uppercase tracking-wide text-suave">Género</dt>
-                            <dd class="mt-0.5 text-sm text-contenido">{{ aspirante.genero ?? '—' }}</dd>
-                        </div>
-                        <div>
-                            <dt class="text-xs uppercase tracking-wide text-suave">Nacimiento</dt>
-                            <dd class="mt-0.5 text-sm text-contenido">
-                                {{ aspirante.fecha_nacimiento ?? '—' }}
-                            </dd>
-                        </div>
-                        <div>
-                            <dt class="text-xs uppercase tracking-wide text-suave">Correo</dt>
-                            <dd class="mt-0.5 text-sm text-contenido">{{ aspirante.email ?? '—' }}</dd>
-                        </div>
-                        <div>
-                            <dt class="text-xs uppercase tracking-wide text-suave">Celular</dt>
-                            <dd class="mt-0.5 text-sm text-contenido">{{ aspirante.celular ?? '—' }}</dd>
-                        </div>
-                        <div>
-                            <dt class="text-xs uppercase tracking-wide text-suave">Entidad</dt>
-                            <dd class="mt-0.5 text-sm text-contenido">
-                                {{ aspirante.entidad_nacimiento ?? '—' }}
-                            </dd>
-                        </div>
-                    </dl>
-                </TarjetaSeccion>
 
                 <!-- Expediente -->
                 <TarjetaSeccion
@@ -474,8 +442,29 @@ Se le generará su matrícula de todos modos y eso no se puede deshacer. ¿Conti
                 />
             </div>
 
-            <!-- Columna lateral: proceso y conversión -->
-            <div class="space-y-6">
+            <!--
+                Columna de CONTEXTO, y se queda PEGADA al desplazarse.
+                ─────────────────────────────────────────────────────────────
+                Antes se iba con el resto: «Avance del proceso» —que es lo que
+                dice qué le falta a este aspirante— desaparecía de la pantalla
+                justo al bajar a trabajar su expediente, que es cuando hace
+                falta. Y como es más corta que la de trabajo, dejaba 1 444 px
+                de hueco a la derecha mientras la izquierda seguía bajando.
+                Pegarla resuelve las dos cosas: el resumen acompaña y el hueco
+                deja de existir.
+
+                Es lo mismo que ya hace el panel —trabajo a la izquierda,
+                contexto a la derecha—, y por eso se siente igual.
+
+                Con su PROPIO desplazamiento, y hizo falta: pegarla a secas no
+                bastaba porque la columna mide más que la pantalla, así que
+                subía hasta agotarse y «Avance del proceso» terminaba 234 px
+                por encima del borde —medido—. Acotada al alto de la ventana,
+                nada de lo que acompaña se va.
+            -->
+            <div
+                class="space-y-6 lg:sticky lg:top-20 lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:pr-1"
+            >
                 <TarjetaSeccion
                     titulo="Avance del proceso"
                     descripcion="Lo que ya cumplió y lo que le falta antes de inscribirlo."
@@ -518,6 +507,39 @@ Se le generará su matrícula de todos modos y eso no se puede deshacer. ¿Conti
                 </TarjetaSeccion>
 
                 <!-- Conversión a alumno -->
+                <TarjetaSeccion titulo="Datos personales" descripcion="Identidad del aspirante" :icono="ICONOS.persona">
+                    <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+                        <div>
+                            <dt class="text-xs uppercase tracking-wide text-suave">CURP</dt>
+                            <dd class="mt-0.5 font-mono text-sm text-contenido">{{ aspirante.curp ?? '—' }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-xs uppercase tracking-wide text-suave">Género</dt>
+                            <dd class="mt-0.5 text-sm text-contenido">{{ aspirante.genero ?? '—' }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-xs uppercase tracking-wide text-suave">Nacimiento</dt>
+                            <dd class="mt-0.5 text-sm text-contenido">
+                                {{ aspirante.fecha_nacimiento ?? '—' }}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-xs uppercase tracking-wide text-suave">Correo</dt>
+                            <dd class="mt-0.5 text-sm text-contenido">{{ aspirante.email ?? '—' }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-xs uppercase tracking-wide text-suave">Celular</dt>
+                            <dd class="mt-0.5 text-sm text-contenido">{{ aspirante.celular ?? '—' }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-xs uppercase tracking-wide text-suave">Entidad</dt>
+                            <dd class="mt-0.5 text-sm text-contenido">
+                                {{ aspirante.entidad_nacimiento ?? '—' }}
+                            </dd>
+                        </div>
+                    </dl>
+                </TarjetaSeccion>
+
                 <TarjetaSeccion
                     titulo="Conversión a alumno"
                     descripcion="El paso que genera su matrícula. No se deshace."
