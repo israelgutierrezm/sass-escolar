@@ -4,6 +4,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import EditorCajasCredencial from '@/Components/EditorCajasCredencial.vue';
+import Modal from '@/Components/Modal.vue';
 
 /**
  * La credencial virtual de cada rol.
@@ -200,36 +201,64 @@ onBeforeUnmount(() => {
     if (fondo.value) URL.revokeObjectURL(fondo.value);
 });
 
-/** La composición de verdad, con los campos puestos. Se abre en otra pestaña. */
+/**
+ * La composición de verdad, con los campos puestos.
+ *
+ * ── Va en un MODAL, y esto no es preferencia ──────────────────────────────
+ * Estaba debajo del editor y parecía que el botón no servía: medido, la imagen
+ * aparecía 391 px por debajo del botón —fuera de la pantalla— y con la
+ * credencial vertical caía mucho más abajo todavía. Se pulsaba, no pasaba nada
+ * visible y a nadie se le ocurre desplazarse para buscar lo que acaba de pedir.
+ * Encima, el diálogo distingue el resultado del lienzo del editor, que se le
+ * parece bastante cuando la cara aún no tiene campos.
+ */
 const renderizada = ref<string | null>(null);
 const renderizando = ref(false);
+const verPrevia = ref(false);
+
+/** Por qué no se pudo dibujar, si no se pudo. Callarlo es peor que decirlo. */
+const fallo = ref<string | null>(null);
 
 async function verComoQueda(): Promise<void> {
     renderizando.value = true;
+    verPrevia.value = true;
 
-    const respuesta = await fetch(`/plataforma/configuraciones/credencial/vista-previa/${cara.value}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name=csrf-token]')?.content ?? '',
-        },
-        body: JSON.stringify({
-            credencial_id: guardada.value?.id ?? null,
-            diseno: form.diseno,
-            ancho: form.ancho,
-            alto: form.alto,
-            vigencia: form.vigencia,
-            campos_anverso: form.campos_anverso,
-            campos_reverso: form.campos_reverso,
-        }),
-    });
+    try {
+        const respuesta = await fetch(`/plataforma/configuraciones/credencial/vista-previa/${cara.value}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name=csrf-token]')?.content ?? '',
+            },
+            body: JSON.stringify({
+                credencial_id: guardada.value?.id ?? null,
+                diseno: form.diseno,
+                ancho: form.ancho,
+                alto: form.alto,
+                vigencia: form.vigencia,
+                campos_anverso: form.campos_anverso,
+                campos_reverso: form.campos_reverso,
+            }),
+        });
 
-    renderizando.value = false;
+        if (!respuesta.ok) {
+            fallo.value = `El servidor respondió ${respuesta.status}.`;
 
-    if (!respuesta.ok) return;
+            return;
+        }
 
-    if (renderizada.value) URL.revokeObjectURL(renderizada.value);
-    renderizada.value = URL.createObjectURL(await respuesta.blob());
+        fallo.value = null;
+
+        if (renderizada.value) URL.revokeObjectURL(renderizada.value);
+        renderizada.value = URL.createObjectURL(await respuesta.blob());
+    } catch (e) {
+        fallo.value = 'No se pudo contactar al servidor.';
+    } finally {
+        // En `finally` a la fuerza: sin esto, un fallo de red dejaba el botón
+        // en «Dibujando…» y deshabilitado para siempre, y la única salida era
+        // recargar.
+        renderizando.value = false;
+    }
 }
 
 const cajasDeLaCara = computed({
@@ -239,6 +268,9 @@ const cajasDeLaCara = computed({
         else form.campos_reverso = v;
     },
 });
+
+/** Cuántos datos lleva la cara que se está mirando. */
+const cuantosCampos = computed(() => cajasDeLaCara.value.length);
 
 function guardar(): void {
     form.put('/plataforma/configuraciones/credencial', { preserveScroll: true });
@@ -491,7 +523,7 @@ const nivelesConVariante = computed(() =>
 
                             <button
                                 type="button"
-                                class="rounded-lg border border-borde px-3 py-1.5 text-xs hover:bg-slate-50"
+                                class="rounded-lg border border-borde px-3 py-1.5 text-xs hover:bg-slate-50 disabled:opacity-50"
                                 :disabled="renderizando"
                                 @click="verComoQueda"
                             >
@@ -508,14 +540,6 @@ const nivelesConVariante = computed(() =>
                         :fondo="fondo"
                     />
 
-                    <div v-if="renderizada" class="border-t border-borde pt-4">
-                        <p class="mb-2 text-sm font-semibold">Así se va a imprimir</p>
-                        <p class="mb-2 text-xs" :style="{ color: 'var(--color-suave)' }">
-                            Con datos de ejemplo a propósito: el nombre y la carrera son largos para que se vea si
-                            alguna caja queda chica.
-                        </p>
-                        <img :src="renderizada" alt="Vista previa" class="max-w-lg rounded-lg border border-borde" />
-                    </div>
                 </section>
 
                 <section class="tarjeta space-y-4 p-5">
@@ -593,5 +617,58 @@ const nivelesConVariante = computed(() =>
                 </div>
             </div>
         </div>
+
+        <Modal
+            v-if="verPrevia"
+            etiqueta="Así se va a imprimir"
+            ancho="max-w-2xl"
+            @cerrar="verPrevia = false"
+        >
+            <template #default="{ cerrar }">
+                <div class="p-5">
+                    <h2 class="text-base font-semibold">Así se va a imprimir · {{ cara }}</h2>
+                    <p class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">
+                        Con datos de ejemplo a propósito: el nombre y la carrera son largos, para que se vea si
+                        alguna caja quedó chica.
+                    </p>
+
+                    <p v-if="fallo" class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+                        No se pudo dibujar. {{ fallo }}
+                    </p>
+
+                    <!-- Sin campos, la imagen sale idéntica al lienzo del editor
+                         y parece que el botón no hizo nada. Se dice. -->
+                    <p v-else-if="cuantosCampos === 0" class="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                        Esta cara no tiene ningún dato puesto todavía, así que sale sólo el fondo. Agrégale
+                        campos desde el editor.
+                    </p>
+
+                    <!-- Acotada al ALTO de la ventana, no al ancho del diálogo.
+                         Una credencial vertical a 672 px de ancho mide 1064 de
+                         alto: medido, se salía de la pantalla por arriba y no se
+                         veía ni la cabeza de la foto. `object-contain` la encoge
+                         entera en vez de recortarla. -->
+                    <img
+                        v-if="renderizada && !fallo"
+                        :src="renderizada"
+                        alt="Vista previa"
+                        class="mx-auto mt-4 max-h-[65vh] w-auto max-w-full rounded-lg border border-borde object-contain"
+                    />
+                    <p v-else-if="renderizando" class="mt-6 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
+                        Dibujando…
+                    </p>
+
+                    <div class="mt-5 flex justify-end">
+                        <button
+                            type="button"
+                            class="rounded-lg border border-borde px-4 py-2 text-sm hover:bg-slate-50"
+                            @click="cerrar"
+                        >
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+            </template>
+        </Modal>
     </AppLayout>
 </template>
