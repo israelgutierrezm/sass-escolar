@@ -108,8 +108,6 @@ class CatalogoAcademicoController extends Controller
                     ['disenos_historial', 'nivel_estudios_id'],
                     ['plan_cobro_carrera', 'nivel_estudios_id'],
                 ]) || $this->usadoComoDestino('nivel', $id) || $this->usadoComoEmisor('nivel', $id),
-                // Identificador oficial (SEP) que viaja en el certificado electrónico.
-                'extras' => ['identificador' => ['tipo' => 'texto', 'etiqueta' => 'Identificador']],
                 'apagable' => true,
             ],
             'tipoperiodo' => [
@@ -118,7 +116,6 @@ class CatalogoAcademicoController extends Controller
                 'singular' => 'tipo de periodo',
                 'grupo' => 'Plan de estudios',
                 'enUso' => fn (int $id) => $this->usadoEn($id, [['planes_estudio', 'tipo_periodo_id']]),
-                'extras' => ['identificador' => ['tipo' => 'texto', 'etiqueta' => 'Identificador']],
                 'apagable' => true,
             ],
             'tipoasignatura' => [
@@ -132,14 +129,13 @@ class CatalogoAcademicoController extends Controller
                 // papel que la materia juega en ESE plan —incluye `tronco_comun`,
                 // que no es un tipo SEP— y es texto libre sin FK a esta tabla.
                 'enUso' => fn (int $id) => DB::table('asignaturas')->whereNull('deleted_at')->where('tipo_asignatura_id', $id)->exists(),
-                'extras' => ['identificador' => ['tipo' => 'texto', 'etiqueta' => 'Identificador']],
             ],
             /*
              * Tipos de certificación (79 = Total, 80 = Parcial).
              *
              * Vivía en Certificación → Configuración, con su propio controlador
              * y su propia pantalla para hacer exactamente lo que hace este
-             * registro: clave, nombre e identificador oficial. Dos CRUD para el
+             * registro: clave y nombre. Dos CRUD para el
              * mismo formulario es donde uno gana una validación que el otro no
              * tiene.
              *
@@ -159,7 +155,6 @@ class CatalogoAcademicoController extends Controller
                 'singular' => 'tipo de certificación',
                 'grupo' => 'Certificación',
                 'enUso' => fn (int $id) => false,
-                'extras' => ['identificador' => ['tipo' => 'texto', 'etiqueta' => 'Identificador']],
             ],
             'turno' => [
                 'modelo' => Turno::class,

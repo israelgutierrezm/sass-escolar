@@ -45,8 +45,8 @@ class ClavesSepDelCertificadoTest extends TenantTestCase
     {
         $datos = $this->snapshotConCatalogosDistinguibles();
 
-        $this->assertSame('81', $datos['idNivelEstudios']);
-        $this->assertSame('93', $datos['idTipoPeriodo']);
+        $this->assertSame('777', $datos['idNivelEstudios']);
+        $this->assertSame('778', $datos['idTipoPeriodo']);
     }
 
     /**
@@ -108,10 +108,13 @@ class ClavesSepDelCertificadoTest extends TenantTestCase
      * DISTINTOS.
      *
      * Es lo único que hace la prueba capaz de distinguir de qué columna salió
-     * cada número: sembrados, los dos valores coinciden, y entonces leer una u
-     * otra da lo mismo. Por eso se REESCRIBE el identificador de las filas
-     * oficiales en vez de crear filas nuevas — la clave es única y 81 y 93 ya
-     * existen.
+     * cada número.
+     *
+     * Para el nivel y el periodo se CREAN filas con una clave que no existe:
+     * así su id es un autoincremento cualquiera y la clave es otra cosa, que es
+     * exactamente el caso real —una escuela que da de alta su propio nivel y
+     * recibe un id sin relación con ningún número de la SEP—. Usar las filas
+     * sembradas no serviría: ahí el id ya vale lo mismo que la clave.
      *
      * @return array<string, mixed>
      */
@@ -119,8 +122,18 @@ class ClavesSepDelCertificadoTest extends TenantTestCase
     {
         $escuela = $this->alumnoInscrito();
 
-        $nivel = $this->conIdentificadorDistinto(NivelEstudio::class, '81');
-        $periodo = $this->conIdentificadorDistinto(TipoPeriodo::class, '93');
+        $nivel = NivelEstudio::query()->create([
+            'clave' => '777',
+            'nombre' => 'Nivel con clave propia',
+            'orden' => 90,
+        ]);
+
+        $periodo = TipoPeriodo::query()->create([
+            'clave' => '778',
+            'nombre' => 'Periodo con clave propia',
+        ]);
+
+        $this->assertNotSame('777', (string) $nivel->id, 'Si el id valiera lo mismo que la clave, esto no distinguiría nada.');
 
         $entidad = EntidadFederativa::query()->create([
             'pais_id' => DB::connection('central')->table('paises')->value('id')
@@ -134,26 +147,11 @@ class ClavesSepDelCertificadoTest extends TenantTestCase
             'nombre' => 'Entidad de prueba',
         ]);
 
-        DB::table('carreras')->where('id', $escuela['carrera'])->update(['nivel_estudios_id' => $nivel]);
-        DB::table('planes_estudio')->where('id', $escuela['plan'])->update(['tipo_periodo_id' => $periodo]);
+        DB::table('carreras')->where('id', $escuela['carrera'])->update(['nivel_estudios_id' => $nivel->id]);
+        DB::table('planes_estudio')->where('id', $escuela['plan'])->update(['tipo_periodo_id' => $periodo->id]);
         DB::table('campus')->where('id', $escuela['campus'])->update(['entidad_id' => $entidad->id]);
 
         return app(ConstructorCertificadoXml::class)
             ->snapshot(MatriculaOferta::findOrFail($escuela['matricula']));
-    }
-
-    /**
-     * La fila oficial de esa clave, con un identificador que NO se le parece.
-     *
-     * @param  class-string  $modelo
-     */
-    private function conIdentificadorDistinto(string $modelo, string $clave): int
-    {
-        $fila = $modelo::query()->where('clave', $clave)->first()
-            ?? $modelo::query()->create(['clave' => $clave, 'nombre' => "Catálogo {$clave}"]);
-
-        $fila->forceFill(['identificador' => 'ident-distinto'])->save();
-
-        return (int) $fila->id;
     }
 }

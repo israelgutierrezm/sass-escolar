@@ -15,7 +15,7 @@ class TipoPeriodo extends Model
 
     protected $table = 'tipos_periodo';
 
-    protected $fillable = ['clave', 'identificador', 'nombre', 'activo'];
+    protected $fillable = ['clave', 'nombre', 'activo'];
 
     protected function casts(): array
     {

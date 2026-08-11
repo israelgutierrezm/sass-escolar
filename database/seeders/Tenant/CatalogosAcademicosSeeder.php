@@ -38,8 +38,9 @@ class CatalogosAcademicosSeeder extends Seeder
          *
          * El id ES el valor del catálogo de la SEP —91 = semestre—, y por eso la
          * clave lo repite: no es un descuido, es que aquí no hay otra clave que
-         * poner. `ConstructorCertificadoXml` manda ese número como
-         * `idTipoPeriodo`.
+         * poner. `ConstructorCertificadoXml` manda LA CLAVE como
+         * `idTipoPeriodo`; estos catálogos ya no tienen `identificador`, porque
+         * era una tercera copia del mismo número que nadie leía.
          *
          * El NOMBRE va como se lee, no en versalitas: sale en pantalla y en el
          * historial impreso, donde «SEMESTRE 1» grita. De estos dos catálogos el

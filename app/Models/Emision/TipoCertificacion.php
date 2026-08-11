@@ -31,7 +31,7 @@ class TipoCertificacion extends Model
 
     protected $table = 'tipos_certificacion';
 
-    protected $fillable = ['clave', 'identificador', 'nombre', 'protegido'];
+    protected $fillable = ['clave', 'nombre', 'protegido'];
 
     protected function casts(): array
     {

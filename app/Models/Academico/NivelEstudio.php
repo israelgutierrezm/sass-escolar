@@ -24,7 +24,6 @@ class NivelEstudio extends Model
 
     protected $fillable = [
         'clave',
-        'identificador',
         'nombre',
         'activo',
         'orden',

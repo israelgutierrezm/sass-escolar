@@ -108,7 +108,6 @@ class CatalogoApagableTest extends TenantTestCase
 
         $tipo = TipoPeriodo::query()->create([
             'clave' => 'tp-'.uniqid(),
-            'identificador' => '999',
             'nombre' => 'Periodo de prueba',
         ]);
 
@@ -151,7 +150,6 @@ class CatalogoApagableTest extends TenantTestCase
     {
         return NivelEstudio::query()->create([
             'clave' => 'nivel-'.uniqid(),
-            'identificador' => '998',
             'nombre' => 'Nivel de prueba',
             'orden' => 99,
         ]);
