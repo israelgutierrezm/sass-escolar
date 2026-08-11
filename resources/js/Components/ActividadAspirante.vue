@@ -40,7 +40,8 @@ const props = defineProps<{
         etapas: { id: number; nombre: string }[];
         asesores: { id: number; nombre: string }[];
     };
-    etapaActual: string | null;
+    /** En qué etapa está. El id y no el nombre: la barra pinta hasta dónde llegó. */
+    etapaActualId: number | null;
 }>();
 
 interface Actividad {
@@ -147,10 +148,25 @@ function asignarAsesor(): void {
     });
 }
 
-// ── Mover de etapa ─────────────────────────────────────────────────────────
+// ── La secuencia del embudo ────────────────────────────────────────────────
+/**
+ * En qué escalón va. -1 = todavía en ninguno.
+ *
+ * Se busca por ID y no por nombre: dos etapas pueden llamarse parecido y el
+ * nombre lo edita la escuela desde su catálogo.
+ */
+const pasoActual = computed(() =>
+    props.catalogos.etapas.findIndex((e) => e.id === props.etapaActualId),
+);
+
 const etapa = useForm({ etapa_crm_id: null as number | null, nota: '' });
 
-function moverEtapa(): void {
+function irAEtapa(id: number): void {
+    if (id === props.etapaActualId) {
+        return;
+    }
+
+    etapa.etapa_crm_id = id;
     etapa.post(`${base.value}/etapa`, {
         preserveScroll: true,
         onSuccess: () => etapa.reset(),
@@ -177,36 +193,79 @@ const colorEstatus: Record<string, string> = {
 
 <template>
     <div class="space-y-5">
-        <!-- Etapa del embudo: se mueve desde aquí, que es donde se sabe. -->
+        <!--
+            El embudo como SECUENCIA, no como desplegable.
+            ─────────────────────────────────────────────────────────────────
+            Era un «Mover a…» con un botón al lado: decía en qué etapa está y
+            escondía por completo el camino —cuántas van, cuántas faltan, si
+            está a la mitad o a punto de inscribirse—, que es justo lo que se
+            quiere ver de un prospecto de un vistazo. Ahora se ve el recorrido
+            entero y en cuál va, y se avanza tocando el escalón.
+
+            Los ESCALONES salen del catálogo, no de una lista fija: la escuela
+            edita sus etapas y esto las sigue. Por eso el círculo lleva paloma o
+            número y no un icono por etapa —un icono cableado se rompería en
+            cuanto alguien agregue «Visita al campus»—.
+        -->
         <div class="rounded-xl border p-4" :style="{ borderColor: 'var(--color-borde)' }">
-            <div class="flex flex-wrap items-end gap-3">
-                <div class="min-w-0 flex-1">
-                    <label class="block text-xs uppercase tracking-wide text-suave">Etapa del embudo</label>
-                    <p class="mt-0.5 text-sm font-medium text-contenido">{{ etapaActual ?? 'Sin etapa' }}</p>
-                </div>
-                <div class="min-w-[12rem]">
-                    <select
-                        v-model="etapa.etapa_crm_id"
-                        class="w-full rounded-lg border px-3 py-2 text-sm"
-                        :style="{ borderColor: 'var(--color-borde)', backgroundColor: 'var(--color-superficie)', color: 'var(--color-contenido)' }"
-                    >
-                        <option :value="null">Mover a…</option>
-                        <option v-for="e in catalogos.etapas" :key="e.id" :value="e.id">{{ e.nombre }}</option>
-                    </select>
-                </div>
-                <button
-                    type="button"
-                    class="rounded-lg px-3.5 py-2 text-sm font-medium disabled:opacity-50"
-                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                    :disabled="!etapa.etapa_crm_id || etapa.processing"
-                    @click="moverEtapa"
+            <p class="mb-3 text-xs uppercase tracking-wide text-suave">Etapa del embudo</p>
+
+            <ol class="flex items-start">
+                <li
+                    v-for="(e, i) in catalogos.etapas"
+                    :key="e.id"
+                    class="relative min-w-0 flex-1 text-center"
                 >
-                    Mover
-                </button>
-            </div>
+                    <!-- La línea que llega desde el escalón anterior. Va
+                         encendida sólo hasta donde el prospecto llegó. -->
+                    <span
+                        v-if="i > 0"
+                        class="absolute right-1/2 top-[18px] h-0.5 w-full"
+                        :style="{ backgroundColor: i <= pasoActual ? 'var(--color-acento)' : 'var(--color-borde)' }"
+                    />
+
+                    <button
+                        type="button"
+                        class="relative z-10 mx-auto grid h-9 w-9 place-items-center rounded-full border-2 text-xs font-semibold transition disabled:opacity-60"
+                        :style="i <= pasoActual
+                            ? {
+                                backgroundColor: 'var(--color-acento)',
+                                borderColor: 'var(--color-acento)',
+                                color: 'var(--color-acento-texto)',
+                            }
+                            : {
+                                backgroundColor: 'var(--color-superficie)',
+                                borderColor: 'var(--color-borde)',
+                                color: 'var(--color-suave)',
+                            }"
+                        :class="i === pasoActual ? 'ring-4' : ''"
+                        :title="i === pasoActual ? `Está en «${e.nombre}»` : `Mover a «${e.nombre}»`"
+                        :disabled="etapa.processing"
+                        @click="irAEtapa(e.id)"
+                    >
+                        <!-- Paloma en lo ya recorrido, número en lo demás: el
+                             número solo no distingue «ya pasó» de «va aquí». -->
+                        <svg v-if="i < pasoActual" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                        </svg>
+                        <span v-else>{{ i + 1 }}</span>
+                    </button>
+
+                    <span
+                        class="mt-2 block px-1 text-[11px] leading-tight"
+                        :style="{ color: i <= pasoActual ? 'var(--color-contenido)' : 'var(--color-suave)' }"
+                        :class="i === pasoActual ? 'font-semibold' : ''"
+                    >
+                        {{ e.nombre }}
+                    </span>
+                </li>
+            </ol>
+
             <!-- El movimiento queda en la bitácora: mover a alguien de etapa ES
                  parte de su historia, no un ajuste silencioso. -->
-            <p class="mt-2 text-xs text-suave">El cambio queda registrado abajo, con quién lo hizo.</p>
+            <p class="mt-3 text-xs text-suave">
+                Toca un escalón para mover al prospecto. Queda registrado abajo, con quién lo hizo.
+            </p>
         </div>
 
         <!-- Quién lo atiende. Va junto a la etapa: las dos contestan «en qué

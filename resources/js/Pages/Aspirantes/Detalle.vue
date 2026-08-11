@@ -268,7 +268,7 @@ Se le generará su matrícula de todos modos y eso no se puede deshacer. ¿Conti
                         :aspirante-id="aspirante.id"
                         :actividad="actividad"
                         :catalogos="catalogosCrm"
-                        :etapa-actual="aspirante.etapa"
+                        :etapa-actual-id="aspirante.etapa_crm_id"
                         :asesores="asesores"
                         :puede-reasignar="permisos.coordinarPromocion"
                     />

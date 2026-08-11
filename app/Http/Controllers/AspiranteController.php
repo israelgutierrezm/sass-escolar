@@ -96,6 +96,9 @@ class AspiranteController extends Controller
                 'oferta' => $aspirante->ofertaInteres?->carrera?->nombre,
                 'origen' => $aspirante->origenAspirante?->nombre ?? $aspirante->origen,
                 'etapa' => $aspirante->etapa?->nombre,
+                // El id, no sólo el nombre: la barra de pasos necesita saber
+                // en cuál está para pintar hasta dónde llegó.
+                'etapa_crm_id' => $aspirante->etapa_crm_id,
                 'celular' => $aspirante->persona?->celular,
                 'foto' => $aspirante->persona?->urlFoto(),
                 'paso' => $aspirante->paso,
@@ -176,6 +179,9 @@ class AspiranteController extends Controller
                 // La etapa del CRM y la foto: la cabecera de la ficha las pinta
                 // igual que la de alumnos y docentes.
                 'etapa' => $aspirante->etapa?->nombre,
+                // El id, no sólo el nombre: la barra de pasos necesita saber
+                // en cuál está para pintar hasta dónde llegó.
+                'etapa_crm_id' => $aspirante->etapa_crm_id,
                 'foto' => $aspirante->persona->urlFoto(),
                 'campus' => $aspirante->campus?->nombre,
                 'oferta' => $aspirante->ofertaInteres === null ? null : sprintf(
