@@ -195,15 +195,46 @@ export const CATALOGO_MENU: GrupoMenu[] = [
         prefijo: '/escolar/ciclos',
         facetas: ['administrativo'],
         icono: 'M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5',
+        /*
+         * Primero la OPERACIÓN del día, y al final lo que se arma una vez.
+         *
+         * Ciclos, grupos, inscripción, tutorías y captura son el trabajo
+         * cotidiano de la ventanilla. Los horarios se cuadran al abrir el ciclo
+         * y no se vuelven a tocar, y la configuración menos todavía; los dos
+         * bajan al final para que lo de todos los días quede arriba.
+         */
         hijos: [
             { clave: 'ciclos', etiqueta: 'Ciclos', url: '/escolar/ciclos', permiso: 'ver-grupos' },
             { clave: 'grupos', etiqueta: 'Grupos', url: '/escolar/grupos', permiso: 'ver-grupos' },
-            { clave: 'horarios', etiqueta: 'Horarios', url: '/escolar/horarios', permiso: 'editar-horarios' },
-            { clave: 'reglas-horario', etiqueta: 'Reglas de horario', url: '/escolar/reglas-horario', permiso: 'generar-horarios' },
+            // Va después de Grupos porque se inscribe EN un grupo, y antes se
+            // llegaba sólo entrando primero a uno.
+            { clave: 'inscripcion-masiva', etiqueta: 'Inscripción masiva', url: '/escolar/inscripciones/masiva', permiso: 'inscribir-alumnos' },
+            { clave: 'tutorias', etiqueta: 'Tutorías', url: '/escolar/tutorias', permiso: 'gestionar-tutorias' },
+            { clave: 'captura-admin', etiqueta: 'Captura', url: '/captura', permiso: 'capturar-calificaciones' },
+            /*
+             * Las dos pantallas del horario, juntas.
+             *
+             * Sueltas parecían cosas distintas: «Horarios» es donde se acomodan
+             * las clases y «Reglas de horario» es con qué criterio se generan —el
+             * antes y el después de la misma tarea—, y quien va a cuadrar el
+             * horario del ciclo necesita las dos a la mano. Sus permisos también
+             * son distintos (`editar-horarios` y `generar-horarios`), así que
+             * quien sólo tiene uno ve una sola opción y el grupo no le estorba.
+             */
+            {
+                clave: 'generacion-horarios',
+                etiqueta: 'Generación de horarios',
+                prefijo: '/escolar/horarios',
+                hijos: [
+                    { clave: 'horarios', etiqueta: 'Horarios', url: '/escolar/horarios', permiso: 'editar-horarios' },
+                    { clave: 'reglas-horario', etiqueta: 'Reglas de horario', url: '/escolar/reglas-horario', permiso: 'generar-horarios' },
+                ],
+            },
             // Un GRUPO, no una opción suelta. Antes «Configuración» llevaba
             // directo a la escala de calificación y nada más, así que lo
             // siguiente que hiciera falta configurar no tenía dónde ponerse sin
-            // disputarle el nombre. Ahora cada cosa tiene el suyo.
+            // disputarle el nombre. Ahora cada cosa tiene el suyo, y va al final
+            // porque es lo que menos se abre.
             {
                 clave: 'configuraciones-escolares',
                 etiqueta: 'Configuración',
@@ -213,11 +244,6 @@ export const CATALOGO_MENU: GrupoMenu[] = [
                     { clave: 'config-historial', etiqueta: 'Historial académico', url: '/escolar/configuracion/historial', permiso: 'gestionar-historial' },
                 ],
             },
-            // Va después de Grupos porque se inscribe EN un grupo, y antes se
-            // llegaba sólo entrando primero a uno.
-            { clave: 'inscripcion-masiva', etiqueta: 'Inscripción masiva', url: '/escolar/inscripciones/masiva', permiso: 'inscribir-alumnos' },
-            { clave: 'tutorias', etiqueta: 'Tutorías', url: '/escolar/tutorias', permiso: 'gestionar-tutorias' },
-            { clave: 'captura-admin', etiqueta: 'Captura', url: '/captura', permiso: 'capturar-calificaciones' },
         ],
     },
     {

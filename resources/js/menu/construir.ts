@@ -301,6 +301,23 @@ function bajo(ruta: string, prefijo: string): boolean {
     return prefijo !== '' && (ruta === prefijo || ruta.startsWith(`${prefijo}/`));
 }
 
+/**
+ * Si la ruta cae dentro de ese nodo o de CUALQUIER descendiente.
+ *
+ * Recursivo, y hizo falta: la primera versión miraba sólo un nivel, así que
+ * `/escolar/reglas-horario` —que cuelga del subgrupo «Generación de horarios»—
+ * no se reconocía como parte de Control escolar. El encabezado se caía al
+ * título de la pantalla y las pestañas salían vacías, sin ningún error. Se vio
+ * abriendo la pantalla, no leyendo la función.
+ */
+function contiene(nodo: NodoNav, ruta: string): boolean {
+    if (!nodo.esGrupo) {
+        return nodo.url ? bajo(ruta, nodo.url) : false;
+    }
+
+    return bajo(ruta, nodo.prefijo) || nodo.hijos.some((h) => contiene(h, ruta));
+}
+
 /** Las hojas directas de un nodo, con su URL. */
 function hojasDe(nodos: NodoNav[]): { etiqueta: string; url: string }[] {
     return nodos
@@ -317,10 +334,7 @@ function hojasDe(nodos: NodoNav[]): { etiqueta: string; url: string }[] {
  */
 export function ubicacionActual(nodos: NodoNav[], ruta: string): Ubicacion {
     for (const seccion of nodos) {
-        const dentroDeLaSeccion = bajo(ruta, seccion.prefijo)
-            || seccion.hijos.some((h) => bajo(ruta, h.prefijo) || (h.url ? bajo(ruta, h.url) : false));
-
-        if (!dentroDeLaSeccion) {
+        if (!contiene(seccion, ruta)) {
             continue;
         }
 
@@ -332,10 +346,7 @@ export function ubicacionActual(nodos: NodoNav[], ruta: string): Ubicacion {
                 continue;
             }
 
-            const dentro = bajo(ruta, hijo.prefijo)
-                || hijo.hijos.some((n) => (n.url ? bajo(ruta, n.url) : false));
-
-            if (dentro) {
+            if (contiene(hijo, ruta)) {
                 return {
                     seccion: identidad,
                     subgrupo: { clave: hijo.clave, etiqueta: hijo.etiqueta },
