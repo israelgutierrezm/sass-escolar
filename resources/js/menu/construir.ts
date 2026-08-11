@@ -287,6 +287,15 @@ export interface Ubicacion {
     /** El subgrupo, si la ruta cae dentro de uno: «Configuración». */
     subgrupo: { clave: string; etiqueta: string } | null;
     /**
+     * La OPCIÓN concreta abierta: «Catálogos», «Accesos».
+     *
+     * Es el último escalón de la miga de pan. Se resuelve por la URL más
+     * específica que case, no por la primera: en una sección donde conviven
+     * `/escolar/ciclos` y `/escolar/ciclos/{id}/ventanas`, quedarse con la
+     * primera diría siempre «Ciclos».
+     */
+    hoja: { clave: string; etiqueta: string; url: string } | null;
+    /**
      * Las opciones del nivel donde está parada: las hermanas de la actual.
      *
      * Dentro de un subgrupo son las suyas, no las de toda la sección: quien
@@ -318,6 +327,35 @@ function contiene(nodo: NodoNav, ruta: string): boolean {
     return bajo(ruta, nodo.prefijo) || nodo.hijos.some((h) => contiene(h, ruta));
 }
 
+/**
+ * La hoja más específica que case con la ruta, en todo el árbol de un nodo.
+ *
+ * «Más específica» = la de URL más larga: `/escolar/ciclos` y
+ * `/escolar/ciclos/9/ventanas` casan las dos con la segunda ruta, y la que hay
+ * que nombrar es la de abajo.
+ */
+function hojaMasEspecifica(nodos: NodoNav[], ruta: string): NodoNav | null {
+    let mejor: NodoNav | null = null;
+
+    for (const nodo of nodos) {
+        if (nodo.esGrupo) {
+            const dentro = hojaMasEspecifica(nodo.hijos, ruta);
+
+            if (dentro && (!mejor || (dentro.url ?? '').length > (mejor.url ?? '').length)) {
+                mejor = dentro;
+            }
+
+            continue;
+        }
+
+        if (nodo.url && bajo(ruta, nodo.url) && (!mejor || nodo.url.length > (mejor.url ?? '').length)) {
+            mejor = nodo;
+        }
+    }
+
+    return mejor;
+}
+
 /** Las hojas directas de un nodo, con su URL. */
 function hojasDe(nodos: NodoNav[]): { etiqueta: string; url: string }[] {
     return nodos
@@ -347,16 +385,26 @@ export function ubicacionActual(nodos: NodoNav[], ruta: string): Ubicacion {
             }
 
             if (contiene(hijo, ruta)) {
+                const hoja = hojaMasEspecifica(hijo.hijos, ruta);
+
                 return {
                     seccion: identidad,
                     subgrupo: { clave: hijo.clave, etiqueta: hijo.etiqueta },
+                    hoja: hoja ? { clave: hoja.clave, etiqueta: hoja.etiqueta, url: hoja.url as string } : null,
                     hermanas: hojasDe(hijo.hijos),
                 };
             }
         }
 
-        return { seccion: identidad, subgrupo: null, hermanas: hojasDe(seccion.hijos) };
+        const hoja = hojaMasEspecifica(seccion.hijos, ruta);
+
+        return {
+            seccion: identidad,
+            subgrupo: null,
+            hoja: hoja ? { clave: hoja.clave, etiqueta: hoja.etiqueta, url: hoja.url as string } : null,
+            hermanas: hojasDe(seccion.hijos),
+        };
     }
 
-    return { seccion: null, subgrupo: null, hermanas: [] };
+    return { seccion: null, subgrupo: null, hoja: null, hermanas: [] };
 }

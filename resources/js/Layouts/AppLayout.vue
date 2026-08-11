@@ -201,22 +201,59 @@ const ubicacion = computed(() => ubicacionActual(navegacion.value, rutaActual.va
 provide('ubicacion', ubicacion);
 
 /**
- * Lo que dice el encabezado: la SECCIÓN, no la pantalla.
+ * El encabezado es una MIGA DE PAN, no el nombre de la pantalla.
  *
- * Antes cada pantalla ponía su propio texto y el resultado era que en Académico
- * decía «Catálogo académico» estando en Institución y otra cosa estando en
- * Campus: el encabezado cambiaba solo, sin decir dónde estabas, y la pestaña
- * activa ya decía la pantalla. Ahora dice la sección y, en letra pequeña, el
- * subgrupo cuando se está dentro de uno.
+ * Arriba la sección del menú; abajo, en letra chica, el camino dentro de ella:
+ * el submenú y —cuando hay un tercer nivel— la opción concreta detrás de él.
  *
- * Cuando la ruta NO está en el menú —el expediente de una alumna, la ficha de
- * un aspirante— se conserva el título que pone la pantalla: ahí el nombre de la
- * persona es el dato, y sustituirlo por «Alumnos» sería perder información.
+ *   Plataforma            Académico                 Control escolar
+ *   Accesos               Configuración › Catálogos Generación de horarios › Horarios
+ *
+ * ── Por qué así y no el título de cada pantalla ───────────────────────────
+ * Porque el título lo ponía cada pantalla por su cuenta y el resultado era que
+ * en Académico decía «Catálogo académico» estando en Institución y otra cosa
+ * estando en Campus: cambiaba solo y no decía dónde estabas. La miga se saca
+ * del catálogo del menú, así que siempre dice el camino de verdad —haya
+ * pestañas o no—.
+ *
+ * ── Lo que NO se repite ───────────────────────────────────────────────────
+ * Una hoja que se llama igual que su sección —«Alumnos» dentro de «Alumnos»—
+ * no se escribe dos veces: no aporta nada y ocupa el renglón que sí podría
+ * decir algo. Ahí la segunda línea la toma el título que puso la pantalla, que
+ * en el expediente de alguien es su nombre.
+ *
+ * ── Y cuando la ruta no está en el menú ───────────────────────────────────
+ * Se conserva el título de la pantalla como línea principal: sin sección a la
+ * que pertenecer, es lo único que ubica a quien mira.
  */
-const encabezado = computed(() => ({
-    principal: ubicacion.value.seccion?.etiqueta ?? props.titulo ?? '',
-    secundario: ubicacion.value.seccion === null ? null : ubicacion.value.subgrupo?.etiqueta ?? null,
-}));
+const encabezado = computed(() => {
+    const { seccion, subgrupo, hoja } = ubicacion.value;
+
+    if (seccion === null) {
+        return { principal: props.titulo ?? '', camino: [] as string[] };
+    }
+
+    const camino = [subgrupo?.etiqueta, hoja?.etiqueta]
+        .filter((parte): parte is string => Boolean(parte) && parte !== seccion.etiqueta);
+
+    /*
+     * Una pantalla MÁS ADENTRO que la opción del menú añade su propio título.
+     *
+     * El expediente de una alumna cuelga de «Listado», pero no es el listado: la
+     * miga tenía que decir «Alumnos › Listado › Sofía García» y decía sólo
+     * «Listado», que además es falso. Se detecta comparando la ruta con la URL
+     * de la hoja: si va más hondo, falta un escalón y lo pone la pantalla.
+     */
+    const masAdentro = hoja !== null && rutaActual.value !== hoja.url;
+
+    if ((masAdentro || camino.length === 0) && props.titulo) {
+        if (props.titulo !== seccion.etiqueta && !camino.includes(props.titulo)) {
+            camino.push(props.titulo);
+        }
+    }
+
+    return { principal: seccion.etiqueta, camino };
+});
 
 function esActiva(prefijo: string): boolean {
     return rutaActual.value === prefijo || rutaActual.value.startsWith(`${prefijo}/`);
@@ -531,12 +568,16 @@ const iniciales = computed(() => {
 
                     <div v-if="encabezado.principal" class="min-w-0">
                         <h1 class="truncate text-base font-semibold leading-tight">{{ encabezado.principal }}</h1>
+                        <!-- El tercer nivel va DETRÁS del segundo y del mismo
+                             tamaño: es el mismo camino, un escalón más abajo. -->
                         <p
-                            v-if="encabezado.secundario"
-                            class="truncate text-[11px] leading-tight"
-                            :style="{ color: 'var(--color-suave)' }"
+                            v-if="encabezado.camino.length"
+                            class="truncate text-xs leading-tight"
+                            :style="{ color: 'var(--color-acento)' }"
                         >
-                            {{ encabezado.secundario }}
+                            <template v-for="(parte, i) in encabezado.camino" :key="parte">
+                                <span v-if="i > 0" class="px-1 opacity-50">›</span>{{ parte }}
+                            </template>
                         </p>
                     </div>
                 </div>
