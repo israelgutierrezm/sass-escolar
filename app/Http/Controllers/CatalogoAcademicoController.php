@@ -14,6 +14,7 @@ use App\Models\Academico\TipoAsignatura;
 use App\Models\Academico\TipoPeriodo;
 use App\Models\Academico\Turno;
 use App\Models\Emision\TipoCertificacion;
+use App\Models\Emision\TituloProfesional;
 use App\Models\Landlord\EntidadFederativa;
 use App\Models\Landlord\Genero;
 use App\Models\Landlord\IdentidadFederativa;
@@ -156,6 +157,27 @@ class CatalogoAcademicoController extends Controller
                 'grupo' => 'Certificación',
                 'enUso' => fn (int $id) => false,
             ],
+            /*
+             * Títulos profesionales (Ing., Lic., Dr.…).
+             *
+             * Estaba DOS VECES en el menú —bajo Certificación → Catálogos y bajo
+             * Titulación → Catálogos— y era la misma tabla servida por el mismo
+             * controlador: dos puertas al mismo cuarto. Ahora entra una sola vez
+             * aquí, con el resto de catálogos de la escuela.
+             *
+             * Sus columnas no se llaman `clave` y `nombre` sino `abreviatura` y
+             * `descripcion`, y NO se renombran: `Responsable` las lee así y
+             * viajan al XML del título. El registro aprende a mapearlas, que es
+             * más barato que migrar una tabla que alimenta documentos oficiales.
+             */
+            'tituloprofesional' => [
+                'modelo' => TituloProfesional::class,
+                'etiqueta' => 'Títulos profesionales',
+                'singular' => 'título profesional',
+                'grupo' => 'Certificación',
+                'columnas' => ['clave' => 'abreviatura', 'nombre' => 'descripcion'],
+                'enUso' => fn (int $id) => $this->usadoEn($id, [['responsables', 'titulo_profesional_id']]),
+            ],
             'turno' => [
                 'modelo' => Turno::class,
                 'etiqueta' => 'Turnos',
@@ -289,6 +311,9 @@ class CatalogoAcademicoController extends Controller
             // Sólo los catálogos que declaran `apagable` traen la columna.
             $apagable = ($def['apagable'] ?? false) === true;
             $extras = $def['extras'] ?? [];
+            // Un catálogo puede llamar a sus columnas de otro modo: la pantalla
+            // sigue hablando de «clave» y «nombre», y aquí se traduce.
+            [$colClave, $colNombre] = $this->columnasDe($def);
 
             return [
                 'clave' => $clave,
@@ -299,12 +324,12 @@ class CatalogoAcademicoController extends Controller
                 // sepa qué input pintar; vacío para los catálogos simples.
                 'extras' => $extras,
                 'apagable' => $apagable,
-                'items' => $modelo::query()->orderBy($ordenable ? 'orden' : 'nombre')
-                    ->get(array_merge(['id', 'clave', 'nombre'], $protegible ? ['protegido'] : [], $apagable ? ['activo'] : [], $conClaveSat ? ['clave_sat'] : [], array_keys($extras)))
+                'items' => $modelo::query()->orderBy($ordenable ? 'orden' : $colNombre)
+                    ->get(array_merge(['id', $colClave, $colNombre], $protegible ? ['protegido'] : [], $apagable ? ['activo'] : [], $conClaveSat ? ['clave_sat'] : [], array_keys($extras)))
                     ->map(fn (Model $m) => array_merge([
                         'id' => $m->id,
-                        'clave' => $m->clave,
-                        'nombre' => $m->nombre,
+                        'clave' => $m->{$colClave},
+                        'nombre' => $m->{$colNombre},
                         'en_uso' => ($def['enUso'])($m->id),
                         'protegido' => $protegible ? (bool) $m->protegido : false,
                         // Los que no se pueden apagar viajan como encendidos:
@@ -413,9 +438,10 @@ class CatalogoAcademicoController extends Controller
     private function validar(Request $request, array $def, ?int $id = null): array
     {
         $tabla = (new $def['modelo'])->getTable();
+        [$colClave, $colNombre] = $this->columnasDe($def);
 
         $reglas = [
-            'clave' => ['required', 'string', 'max:50', Rule::unique($tabla, 'clave')->ignore($id)->whereNull('deleted_at')],
+            'clave' => ['required', 'string', 'max:50', Rule::unique($tabla, $colClave)->ignore($id)->whereNull('deleted_at')],
             'nombre' => ['required', 'string', 'max:255'],
         ];
 
@@ -427,10 +453,39 @@ class CatalogoAcademicoController extends Controller
             };
         }
 
-        return $request->validate($reglas, [
+        $datos = $request->validate($reglas, [
             'clave.unique' => 'Ya existe un registro con esa clave en este catálogo.',
             'color.regex' => 'El color debe ser hexadecimal, por ejemplo #A3D9C7.',
         ]);
+
+        // De vuelta a los nombres reales de la tabla. La pantalla y los mensajes
+        // siguen hablando de «clave» y «nombre»; sólo cambia dónde se guardan.
+        if ($colClave !== 'clave' || $colNombre !== 'nombre') {
+            $datos[$colClave] = $datos['clave'];
+            $datos[$colNombre] = $datos['nombre'];
+            unset($datos['clave'], $datos['nombre']);
+        }
+
+        return $datos;
+    }
+
+    /**
+     * Cómo se llaman de verdad las columnas de clave y nombre en ese catálogo.
+     *
+     * Casi todos usan `clave` y `nombre`; `titulos_profesionales` usa
+     * `abreviatura` y `descripcion` porque así las lee el XML del título, y
+     * renombrarlas para que encajaran aquí sería mover una tabla que alimenta
+     * documentos oficiales para comodidad de una pantalla.
+     *
+     * @param  array<string, mixed>  $def
+     * @return array{0: string, 1: string}
+     */
+    private function columnasDe(array $def): array
+    {
+        return [
+            $def['columnas']['clave'] ?? 'clave',
+            $def['columnas']['nombre'] ?? 'nombre',
+        ];
     }
 
     /**

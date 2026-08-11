@@ -46,7 +46,6 @@ use App\Http\Controllers\Emision\LoteCertificacionController;
 use App\Http\Controllers\Emision\LoteTitulacionController;
 use App\Http\Controllers\Emision\ResponsableController;
 use App\Http\Controllers\Emision\TitulacionWsConfigController;
-use App\Http\Controllers\Emision\TituloProfesionalController;
 use App\Http\Controllers\EmisorFiscalController;
 use App\Http\Controllers\Encuestas\AplicacionController;
 use App\Http\Controllers\Encuestas\EncuestaController;
@@ -2119,13 +2118,14 @@ Route::middleware([
                                 ->defaults('seccion', $seccion)->defaults('tipo', $cfg['tipo'])->name('destroy');
                         });
 
-                    Route::controller(TituloProfesionalController::class)->prefix('catalogos')->name('catalogos.')
-                        ->group(function () use ($seccion) {
-                            Route::get('/', 'index')->defaults('seccion', $seccion)->name('index');
-                            Route::post('/', 'store')->defaults('seccion', $seccion)->name('store');
-                            Route::put('/{titulo}', 'update')->whereNumber('titulo')->defaults('seccion', $seccion)->name('update');
-                            Route::delete('/{titulo}', 'destroy')->whereNumber('titulo')->defaults('seccion', $seccion)->name('destroy');
-                        });
+                    /*
+                     * El catálogo de títulos profesionales se mudó a Académico →
+                     * Catálogos. Estaba aquí DOS VECES —una por sección— y era
+                     * la misma tabla servida por el mismo controlador: dos
+                     * puertas al mismo cuarto, cada una con su propio riesgo de
+                     * quedarse vieja. Certificación y titulación no cambian: sólo
+                     * dejaron de tener su propia entrada al catálogo.
+                     */
                 });
         }
 

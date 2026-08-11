@@ -323,18 +323,25 @@ function esEditando(catalogo: string, id: number): boolean {
                                         :title="item.color || 'Sin color'"
                                     />
                                 </span>
-                                <!--
-                                    El interruptor de encendido.
-                                    Apagar sólo se ofrece cuando nada lo usa: si
-                                    algo apunta a este ítem, apagarlo dejaría ese
-                                    dato señalando a una opción que ya no existe
-                                    en ningún desplegable. El servidor lo vuelve
-                                    a comprobar.
-                                -->
-                                <span v-if="catalogo.apagable && puedeEditar" class="flex w-24 shrink-0 justify-center">
+                                <span v-if="puedeEditar" class="flex w-36 shrink-0 items-center justify-end gap-1">
+                                    <!--
+                                        El interruptor va con el resto de
+                                        ACCIONES, no en una columna propia:
+                                        encender y apagar es algo que se le hace
+                                        al renglón, igual que editarlo o
+                                        borrarlo, y en su columna aparte quedaba
+                                        lejos de los botones con los que se usa.
+
+                                        Apagar sólo se ofrece cuando nada lo usa:
+                                        si algo apunta a este ítem, apagarlo
+                                        dejaría ese dato señalando a una opción
+                                        que ya no existe en ningún desplegable.
+                                        El servidor lo vuelve a comprobar.
+                                    -->
                                     <button
+                                        v-if="catalogo.apagable"
                                         type="button"
-                                        class="relative h-5 w-9 rounded-full transition disabled:cursor-not-allowed disabled:opacity-40"
+                                        class="relative mr-1 h-5 w-9 shrink-0 rounded-full transition disabled:cursor-not-allowed disabled:opacity-40"
                                         :style="{ backgroundColor: item.activo ? 'var(--color-acento)' : 'var(--color-borde)' }"
                                         :disabled="item.activo && item.en_uso"
                                         :title="
@@ -351,9 +358,7 @@ function esEditando(catalogo: string, id: number): boolean {
                                             :class="item.activo ? 'left-[1.15rem]' : 'left-0.5'"
                                         />
                                     </button>
-                                </span>
 
-                                <span v-if="puedeEditar" class="flex w-28 shrink-0 items-center justify-end gap-1">
                                     <!-- Los valores oficiales (niveles, tipos de
                                          periodo) no se editan ni se eliminan. -->
                                     <span

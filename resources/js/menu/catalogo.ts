@@ -307,7 +307,6 @@ export const CATALOGO_MENU: GrupoMenu[] = [
                 hijos: [
                     { clave: 'lotes-certificacion', etiqueta: 'Lotes', url: '/certificacion/lotes', permiso: 'certificar-alumnos' },
                     { clave: 'responsables-certificacion', etiqueta: 'Responsables', url: '/certificacion/configuracion/responsables', permiso: 'gestionar-certificacion' },
-                    { clave: 'catalogos-certificacion', etiqueta: 'Catálogos', url: '/certificacion/configuracion/catalogos', permiso: 'gestionar-certificacion' },
                 ],
             },
             {
@@ -317,7 +316,6 @@ export const CATALOGO_MENU: GrupoMenu[] = [
                 hijos: [
                     { clave: 'lotes-titulacion', etiqueta: 'Lotes', url: '/titulacion/lotes', permiso: 'titular-alumnos' },
                     { clave: 'responsables-titulacion', etiqueta: 'Responsables', url: '/titulacion/configuracion/responsables', permiso: 'gestionar-titulacion' },
-                    { clave: 'catalogos-titulacion', etiqueta: 'Catálogos', url: '/titulacion/configuracion/catalogos', permiso: 'gestionar-titulacion' },
                     { clave: 'web-service-titulacion', etiqueta: 'Web service', url: '/titulacion/configuracion/web-service', permiso: 'gestionar-titulacion' },
                 ],
             },
