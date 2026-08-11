@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
+import AnilloProgreso from '@/Components/AnilloProgreso.vue';
 
 /**
  * La ACTIVIDAD de un prospecto: lo que falta por hacer y lo que ya se hizo.
@@ -42,6 +43,8 @@ const props = defineProps<{
     };
     /** En qué etapa está. El id y no el nombre: la barra pinta hasta dónde llegó. */
     etapaActualId: number | null;
+    /** Cuánto lleva recorrido. Lo calcula el servidor, no la pantalla. */
+    avance: { porcentaje: number; paso: number; total: number };
 }>();
 
 interface Actividad {
@@ -159,6 +162,24 @@ const pasoActual = computed(() =>
     props.catalogos.etapas.findIndex((e) => e.id === props.etapaActualId),
 );
 
+/**
+ * ¿Llegó al final del embudo?
+ *
+ * El último escalón no es «uno más»: es la meta —está listo para inscribirse—
+ * y por eso se pinta en VERDE y no en el acento. Con el mismo color que los
+ * demás, terminar el recorrido se ve igual que ir por la mitad.
+ */
+const enLaMeta = computed(() =>
+    props.catalogos.etapas.length > 0 && pasoActual.value === props.catalogos.etapas.length - 1,
+);
+
+const VERDE = '#16a34a';
+
+/** El color de un escalón alcanzado: verde sólo el último. */
+function colorDe(i: number): string {
+    return i === props.catalogos.etapas.length - 1 ? VERDE : 'var(--color-acento)';
+}
+
 const etapa = useForm({ etapa_crm_id: null as number | null, nota: '' });
 
 function irAEtapa(id: number): void {
@@ -208,7 +229,28 @@ const colorEstatus: Record<string, string> = {
             cuanto alguien agregue «Visita al campus»—.
         -->
         <div class="rounded-xl border p-4" :style="{ borderColor: 'var(--color-borde)' }">
-            <p class="mb-3 text-xs uppercase tracking-wide text-suave">Etapa del embudo</p>
+            <div class="mb-3 flex items-center gap-3">
+                <!-- El anillo dice CUÁNTO lleva; la barra, DÓNDE está. Son la
+                     misma información leída de dos maneras, y hacen falta las
+                     dos: el porcentaje se compara entre prospectos de un
+                     vistazo, el nombre de la etapa dice qué toca hacer. -->
+                <AnilloProgreso
+                    :porcentaje="avance.porcentaje"
+                    :tamano="46"
+                    :grosor="4"
+                    :color="enLaMeta ? VERDE : 'var(--color-acento)'"
+                    :titulo="`Paso ${avance.paso} de ${avance.total}`"
+                />
+                <div class="min-w-0">
+                    <p class="text-xs uppercase tracking-wide text-suave">Etapa del embudo</p>
+                    <p class="text-sm font-semibold text-contenido">
+                        {{ catalogos.etapas[pasoActual]?.nombre ?? 'Fuera del embudo' }}
+                    </p>
+                    <p v-if="avance.paso" class="text-xs text-suave">
+                        Paso {{ avance.paso }} de {{ avance.total }}
+                    </p>
+                </div>
+            </div>
 
             <ol class="flex items-start">
                 <li
@@ -221,7 +263,7 @@ const colorEstatus: Record<string, string> = {
                     <span
                         v-if="i > 0"
                         class="absolute right-1/2 top-[18px] h-0.5 w-full"
-                        :style="{ backgroundColor: i <= pasoActual ? 'var(--color-acento)' : 'var(--color-borde)' }"
+                        :style="{ backgroundColor: i <= pasoActual ? colorDe(i) : 'var(--color-borde)' }"
                     />
 
                     <button
@@ -229,9 +271,9 @@ const colorEstatus: Record<string, string> = {
                         class="relative z-10 mx-auto grid h-9 w-9 place-items-center rounded-full border-2 text-xs font-semibold transition disabled:opacity-60"
                         :style="i <= pasoActual
                             ? {
-                                backgroundColor: 'var(--color-acento)',
-                                borderColor: 'var(--color-acento)',
-                                color: 'var(--color-acento-texto)',
+                                backgroundColor: colorDe(i),
+                                borderColor: colorDe(i),
+                                color: '#fff',
                             }
                             : {
                                 backgroundColor: 'var(--color-superficie)',
@@ -253,7 +295,7 @@ const colorEstatus: Record<string, string> = {
 
                     <span
                         class="mt-2 block px-1 text-[11px] leading-tight"
-                        :style="{ color: i <= pasoActual ? 'var(--color-contenido)' : 'var(--color-suave)' }"
+                        :style="{ color: i === pasoActual && enLaMeta ? VERDE : (i <= pasoActual ? 'var(--color-contenido)' : 'var(--color-suave)') }"
                         :class="i === pasoActual ? 'font-semibold' : ''"
                     >
                         {{ e.nombre }}

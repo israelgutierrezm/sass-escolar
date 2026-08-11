@@ -96,8 +96,6 @@ class AspiranteController extends Controller
                 'oferta' => $aspirante->ofertaInteres?->carrera?->nombre,
                 'origen' => $aspirante->origenAspirante?->nombre ?? $aspirante->origen,
                 'etapa' => $aspirante->etapa?->nombre,
-                // El id, no sólo el nombre: la barra de pasos necesita saber
-                // en cuál está para pintar hasta dónde llegó.
                 'etapa_crm_id' => $aspirante->etapa_crm_id,
                 'celular' => $aspirante->persona?->celular,
                 'foto' => $aspirante->persona?->urlFoto(),
@@ -124,6 +122,50 @@ class AspiranteController extends Controller
             'puedeCrear' => $request->user()->can('crear-aspirantes'),
             'puedeEditar' => $request->user()->can('editar-aspirantes'),
         ]);
+    }
+
+    /**
+     * En qué punto del embudo va, en porcentaje.
+     *
+     * ── Se calcula AQUÍ y no en la pantalla ───────────────────────────────
+     * «Cuánto ha avanzado» es una regla de negocio —qué cuenta como avance y
+     * sobre qué total—, y repetida en cada pantalla que la dibuje termina
+     * divergiendo: el día que el listado diga 60 % y la ficha 50 %, nadie
+     * sabrá cuál miente.
+     *
+     * Las etapas RETIRADAS no cuentan en el total: si contaran, retirar una
+     * bajaría el porcentaje de todos sin que nadie se hubiera movido.
+     *
+     * @return array{porcentaje: int, paso: int, total: int}
+     */
+    private function avanceEnElEmbudo(?int $etapaId): array
+    {
+        $etapas = EtapaCrm::query()->orderBy('orden')->pluck('id')->all();
+        $total = count($etapas);
+
+        if ($total === 0 || $etapaId === null) {
+            return ['porcentaje' => 0, 'paso' => 0, 'total' => $total];
+        }
+
+        $posicion = array_search($etapaId, $etapas, true);
+
+        /*
+         * Una etapa retirada no está en la lista: se muestra 0 y no se inventa
+         * una posición. El prospecto sigue ahí hasta que alguien lo mueva, y
+         * decir «va en el 60 %» de un recorrido que ya no existe sería peor que
+         * decir que no ha avanzado.
+         */
+        if ($posicion === false) {
+            return ['porcentaje' => 0, 'paso' => 0, 'total' => $total];
+        }
+
+        $paso = $posicion + 1;
+
+        return [
+            'porcentaje' => (int) round($paso / $total * 100),
+            'paso' => $paso,
+            'total' => $total,
+        ];
     }
 
     /**
@@ -182,6 +224,7 @@ class AspiranteController extends Controller
                 // El id, no sólo el nombre: la barra de pasos necesita saber
                 // en cuál está para pintar hasta dónde llegó.
                 'etapa_crm_id' => $aspirante->etapa_crm_id,
+                'avance_embudo' => $this->avanceEnElEmbudo($aspirante->etapa_crm_id),
                 'foto' => $aspirante->persona->urlFoto(),
                 'campus' => $aspirante->campus?->nombre,
                 'oferta' => $aspirante->ofertaInteres === null ? null : sprintf(
