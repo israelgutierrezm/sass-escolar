@@ -1,0 +1,248 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Historial;
+
+use App\Models\Academico\Institucion;
+use App\Models\Admisiones\MatriculaOferta;
+use App\Models\ControlEscolar\DisenoHistorial;
+use App\Models\Landlord\NivelEstudio;
+use App\Services\HistorialDelAlumno;
+use Illuminate\Support\Carbon;
+
+/**
+ * Arma el historial académico ya listo para imprimir, según el diseño de la
+ * escuela.
+ *
+ * ── Qué NO hace ───────────────────────────────────────────────────────────
+ * No calcula nada del historial. Los renglones, el promedio y los créditos
+ * salen de `HistorialDelAlumno`, que es el mismo servicio que alimenta la
+ * pantalla de control escolar y la del alumno. Si esto sacara sus propias
+ * cuentas, el papel diría un promedio y la pantalla otro — que es exactamente
+ * el problema por el que ese servicio se extrajo.
+ *
+ * Aquí sólo se decide QUÉ de todo eso se imprime, en qué orden y con qué
+ * agrupación.
+ */
+class HistorialImprimible
+{
+    public function __construct(private readonly HistorialDelAlumno $historial) {}
+
+    /**
+     * Todo lo que la vista de impresión necesita.
+     *
+     * @return array<string, mixed>
+     */
+    public function armar(MatriculaOferta $matricula, DisenoHistorial $diseno, bool $conMarcaDeAgua = false): array
+    {
+        $matricula->loadMissing('oferta.carrera', 'oferta.plan', 'oferta.campus', 'persona', 'situacion');
+
+        $renglones = $this->historial->renglones($matricula);
+        $columnas = $diseno->columnasEfectivas();
+
+        return [
+            'diseno' => $diseno,
+            'institucion' => Institucion::query()->first(),
+            'columnas' => array_map(
+                fn (string $c) => ['clave' => $c] + CatalogoColumnas::columnas()[$c],
+                $columnas,
+            ),
+            'datos' => $this->datosDelAlumno($matricula, $diseno),
+            'grupos' => $this->agrupar($renglones, $diseno->agrupacion, $columnas),
+            'resumen' => $this->historial->resumen($matricula),
+            'marca_agua' => $conMarcaDeAgua ? $diseno->marca_agua_texto : null,
+        ];
+    }
+
+    /**
+     * Los datos del encabezado, en el ORDEN en que la escuela los puso.
+     *
+     * Se recorre la lista configurada y no el catálogo: mover «CURP» arriba de
+     * «Carrera» es parte del diseño, y recorrer el catálogo lo ignoraría.
+     *
+     * @return array<int, array{etiqueta: string, valor: string}>
+     */
+    private function datosDelAlumno(MatriculaOferta $matricula, DisenoHistorial $diseno): array
+    {
+        $catalogo = CatalogoColumnas::datosDelAlumno();
+        $valores = $this->valores($matricula);
+        $salida = [];
+
+        foreach ($diseno->datosEfectivos() as $clave) {
+            // Lo que no aplica se omite entero, etiqueta incluida: un «CURP»
+            // seguido de nada en un documento oficial parece un dato perdido.
+            if (blank($valores[$clave] ?? null)) {
+                continue;
+            }
+
+            $salida[] = ['etiqueta' => $catalogo[$clave]['etiqueta'], 'valor' => (string) $valores[$clave]];
+        }
+
+        return $salida;
+    }
+
+    /** @return array<string, string|null> */
+    private function valores(MatriculaOferta $matricula): array
+    {
+        $carrera = $matricula->oferta?->carrera;
+
+        return [
+            'nombre' => $matricula->persona?->nombreCompleto(),
+            'matricula' => $matricula->matricula,
+            'curp' => $matricula->persona?->curp,
+            'carrera' => $carrera?->nombre,
+            'plan' => $matricula->oferta?->plan?->nombre,
+            'campus' => $matricula->oferta?->campus?->nombre,
+            // El nivel vive en la base CENTRAL: se pide por el modelo landlord,
+            // que es lo único que resuelve esa conexión.
+            'nivel' => $carrera?->nivel_estudios_id === null
+                ? null
+                : NivelEstudio::query()->whereKey($carrera->nivel_estudios_id)->value('nombre'),
+            'situacion' => $matricula->situacion?->nombre,
+            'fecha_emision' => Carbon::now()->translatedFormat('d \d\e F \d\e Y'),
+        ];
+    }
+
+    /**
+     * Parte los renglones en bloques con título.
+     *
+     * @param  array<int, array<string, mixed>>  $renglones
+     * @param  array<int, string>  $columnas
+     * @return array<int, array{titulo: ?string, filas: array<int, array<string, string>>}>
+     */
+    private function agrupar(array $renglones, string $agrupacion, array $columnas): array
+    {
+        /*
+         * El consecutivo corre a lo largo de TODO el documento, no dentro de
+         * cada bloque: es lo que permite citar «el renglón 42» de un historial.
+         *
+         * Va POR REFERENCIA en un `function` y no en una arrow function. Ahí
+         * estuvo el defecto: `fn () => $this->fila(..., ++$consecutivo)` captura
+         * la variable POR VALOR, así que cada llamada incrementaba su propia
+         * copia y las veintiocho filas del documento salieron numeradas «1».
+         * No falla ni avisa; se vio en la captura del historial impreso.
+         */
+        $consecutivo = 0;
+        $numerar = function (array $renglon) use ($columnas, &$consecutivo): array {
+            return $this->fila($renglon, $columnas, ++$consecutivo);
+        };
+
+        if ($agrupacion === 'ninguna') {
+            return [[
+                'titulo' => null,
+                'filas' => array_map($numerar, $renglones),
+            ]];
+        }
+
+        $llave = $agrupacion === 'ciclo' ? 'ciclo' : 'periodo';
+        $bloques = [];
+
+        foreach ($renglones as $renglon) {
+            $bloques[$this->tituloDeGrupo($renglon[$llave] ?? null, $llave)][] = $renglon;
+        }
+
+        /*
+         * Los bloques se ORDENAN, no se dejan como vinieron.
+         *
+         * Los renglones llegan en el orden en que se cursaron, que dentro de un
+         * grupo es lo correcto y entre grupos no: en la escuela de ejemplo salía
+         * «Periodo 2, Periodo 1, Periodo 4, Periodo 3». Un historial que
+         * empieza por el segundo semestre no se lee, y el defecto no falla:
+         * simplemente sale mal impreso. Se vio abriendo el documento.
+         *
+         * Por periodo el orden es numérico —«Periodo 10» va después del 9, no
+         * entre el 1 y el 2— y por ciclo es alfabético, que en «2024-A»,
+         * «2024-B» coincide con el cronológico.
+         */
+        $bloques = collect($bloques);
+
+        $bloques = $llave === 'periodo'
+            ? $bloques->sortKeysUsing(fn (string $a, string $b) => $this->numeroDePeriodo($a) <=> $this->numeroDePeriodo($b))
+            : $bloques->sortKeys();
+
+        return $bloques
+            ->map(fn (array $filas, string $titulo) => [
+                'titulo' => $titulo,
+                'filas' => array_map($numerar, $filas),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * El número que hay dentro de «Periodo 7», para poder ordenar.
+     *
+     * «Sin periodo asignado» no trae número: se manda al final con PHP_INT_MAX,
+     * porque son casos sueltos —una equivalencia cargada a mano— y arriba del
+     * todo estorbarían la lectura del avance.
+     */
+    private function numeroDePeriodo(string $titulo): int
+    {
+        return preg_match('/\d+/', $titulo, $m) === 1 ? (int) $m[0] : PHP_INT_MAX;
+    }
+
+    private function tituloDeGrupo(mixed $valor, string $llave): string
+    {
+        if (blank($valor)) {
+            // Una materia sin periodo ni ciclo existe —una equivalencia cargada
+            // a mano—, y mandarla a un bloque llamado «» la dejaría huérfana
+            // arriba del todo sin que se entienda por qué.
+            return 'Sin periodo asignado';
+        }
+
+        return $llave === 'periodo' ? "Periodo {$valor}" : (string) $valor;
+    }
+
+    /**
+     * @param  array<string, mixed>  $renglon
+     * @param  array<int, string>  $columnas
+     * @return array<string, string>
+     */
+    private function fila(array $renglon, array $columnas, int $consecutivo): array
+    {
+        $fila = [];
+
+        foreach ($columnas as $columna) {
+            $fila[$columna] = match ($columna) {
+                'consecutivo' => (string) $consecutivo,
+                'clave' => (string) ($renglon['clave_en_plan'] ?? ''),
+                'materia' => (string) ($renglon['materia'] ?? ''),
+                'calificacion' => $renglon['calificacion'] === null ? '' : (string) $renglon['calificacion'],
+                'calificacion_letra' => CalificacionConLetra::de($renglon['calificacion'] ?? null),
+                'creditos' => (string) ($renglon['creditos'] ?? ''),
+                'periodo' => (string) ($renglon['periodo'] ?? ''),
+                'ciclo' => (string) ($renglon['ciclo'] ?? ''),
+                'estatus' => (string) ($renglon['estatus'] ?? ''),
+                'tipo_evaluacion' => (string) ($renglon['tipo_evaluacion'] ?? ''),
+                'acta_folio' => (string) ($renglon['acta_folio'] ?? ''),
+                'observacion' => $this->observacion($renglon),
+                default => '',
+            };
+        }
+
+        return $fila;
+    }
+
+    /**
+     * La observación oficial, callando la que no dice nada.
+     *
+     * En el catálogo del tenant esa observación se llama, literalmente,
+     * «NORMAL / ORDINARIO», y salía en los veintiocho renglones de una alumna al
+     * corriente. Lo que interesa señalar es la excepción —una equivalencia, una
+     * revalidación—, y una columna repitiendo lo mismo enseña a no leerla. Es la
+     * misma regla que ya aplica la pantalla del historial.
+     *
+     * Se compara contra el catálogo REAL y no contra lo que uno supone que dirá:
+     * la primera versión buscaba «NORMAL» y «ORDINARIO» por separado y no
+     * casaba con ninguna fila. Se vio imprimiendo el documento.
+     *
+     * @param  array<string, mixed>  $renglon
+     */
+    private function observacion(array $renglon): string
+    {
+        $texto = trim((string) ($renglon['observacion_asignatura'] ?? $renglon['observacion'] ?? ''));
+
+        return preg_replace('/\s+/', ' ', mb_strtoupper($texto)) === 'NORMAL / ORDINARIO' ? '' : $texto;
+    }
+}

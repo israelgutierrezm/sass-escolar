@@ -181,17 +181,17 @@ export const CATALOGO_MENU: GrupoMenu[] = [
             { clave: 'grupos', etiqueta: 'Grupos', url: '/escolar/grupos', permiso: 'ver-grupos' },
             { clave: 'horarios', etiqueta: 'Horarios', url: '/escolar/horarios', permiso: 'editar-horarios' },
             { clave: 'reglas-horario', etiqueta: 'Reglas de horario', url: '/escolar/reglas-horario', permiso: 'generar-horarios' },
-            // En PLURAL y como grupo: aquí no se configura «la configuración»,
-            // se configuran varias cosas de control escolar. Era una opción
-            // suelta llamada «Configuración» que en realidad sólo llevaba a la
-            // escala de calificación, así que el siguiente ajuste no tenía
-            // dónde ponerse sin disputarle el nombre.
+            // Un GRUPO, no una opción suelta. Antes «Configuración» llevaba
+            // directo a la escala de calificación y nada más, así que lo
+            // siguiente que hiciera falta configurar no tenía dónde ponerse sin
+            // disputarle el nombre. Ahora cada cosa tiene el suyo.
             {
                 clave: 'configuraciones-escolares',
-                etiqueta: 'Configuraciones',
-                prefijo: '/escolar/configuraciones',
+                etiqueta: 'Configuración',
+                prefijo: '/escolar/configuracion',
                 hijos: [
-                    { clave: 'config-calificaciones', etiqueta: 'Calificaciones', url: '/escolar/configuraciones/calificaciones', permiso: 'ver-catalogo-academico' },
+                    { clave: 'config-calificaciones', etiqueta: 'Calificaciones', url: '/escolar/configuracion/calificaciones', permiso: 'ver-catalogo-academico' },
+                    { clave: 'config-historial', etiqueta: 'Historial académico', url: '/escolar/configuracion/historial', permiso: 'gestionar-historial' },
                 ],
             },
             // Va después de Grupos porque se inscribe EN un grupo, y antes se

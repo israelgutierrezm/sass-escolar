@@ -1016,6 +1016,24 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
 
         <!-- Historial académico -->
         <section v-if="pestana === 'historial'" class="space-y-4">
+            <!--
+                El historial impreso, el bueno: sin marca de agua. Cuelga del
+                mismo permiso con el que se está mirando la tabla —quien lo
+                consulta lo imprime—, así que no hace falta comprobar nada más
+                aquí; el middleware de la ruta es quien decide.
+            -->
+            <div class="flex justify-end">
+                <a
+                    :href="`/escolar/alumnos/${alumno.id}/historial/imprimir`"
+                    target="_blank"
+                    rel="noopener"
+                    class="rounded-lg border px-4 py-2 text-sm font-medium"
+                    :style="{ borderColor: 'var(--color-borde)' }"
+                >
+                    Imprimir historial
+                </a>
+            </div>
+
             <!-- Carga manual al historial (equivalencias, revalidaciones, histórico). -->
             <div v-if="puedeCargarHistorial" class="tarjeta p-6">
                 <div class="flex items-start justify-between gap-4">

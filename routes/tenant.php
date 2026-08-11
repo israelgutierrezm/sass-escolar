@@ -37,6 +37,7 @@ use App\Http\Controllers\DisposicionPanelController;
 use App\Http\Controllers\DescuentoController;
 use App\Http\Controllers\DocenciaController;
 use App\Http\Controllers\ConfiguracionEscolarController;
+use App\Http\Controllers\DisenoHistorialController;
 use App\Http\Controllers\DisponibilidadDocenteController;
 use App\Http\Controllers\DocenteController;
 use App\Http\Controllers\DocumentoRequeridoController;
@@ -68,6 +69,7 @@ use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\HorarioController;
 use App\Http\Controllers\IdentidadController;
 use App\Http\Controllers\ImagenContenidoController;
+use App\Http\Controllers\ImpresionHistorialController;
 use App\Http\Controllers\InscripcionController;
 use App\Http\Controllers\InstitucionController;
 use App\Http\Controllers\MenuRolController;
@@ -977,18 +979,18 @@ Route::middleware([
                 /*
                  * Cómo califica la escuela: la escala de cada plan.
                  *
-                 * Cuelga de `escolar/configuraciones` —en plural— porque es UNA
-                 * de las cosas que se configuran de control escolar, no «la
-                 * configuración» a secas. Estaba en singular y en la raíz, y con
-                 * eso el siguiente ajuste que llegara no tenía dónde ponerse sin
-                 * competir con la escala por el mismo sitio.
+                 * Cuelga de `escolar/configuracion/calificaciones` y no de la
+                 * raíz de configuración: es UNA de las cosas que se configuran
+                 * de control escolar. Estaba en la raíz, y con eso el siguiente
+                 * ajuste que llegara no tenía dónde ponerse sin competir con la
+                 * escala por el mismo sitio.
                  *
                  * Con `ver-catalogo-academico` para mirar y
                  * `editar-catalogo-academico` para cambiar: la escala es parte
                  * del plan de estudios, no una preferencia de pantalla.
                  */
                 Route::controller(ConfiguracionEscolarController::class)
-                    ->prefix('configuraciones/calificaciones')->name('configuraciones.calificaciones.')
+                    ->prefix('configuracion/calificaciones')->name('configuracion.calificaciones.')
                     ->middleware('can:ver-catalogo-academico')
                     ->group(function () {
                         Route::get('/', 'index')->name('index');
@@ -1015,6 +1017,45 @@ Route::middleware([
                             ->middleware('can:capturar-calificaciones')
                             ->name('historial.corregir');
                     });
+
+                /*
+                 * Cómo se imprime el historial académico.
+                 *
+                 * `gestionar-historial` y no `ver-catalogo-academico`: decidir
+                 * qué columnas lleva el documento de toda la escuela, quién lo
+                 * firma y si el alumno puede descargarlo no es administrar el
+                 * catálogo de planes.
+                 *
+                 * La imagen de la firma y del sello quedan FUERA de ese
+                 * permiso: las tiene que ver cualquiera que abra un historial
+                 * impreso —el alumno el suyo, un tutor el de su tutorado— y eso
+                 * no lo habilita para rediseñar nada.
+                 */
+                Route::controller(DisenoHistorialController::class)
+                    ->prefix('configuracion/historial')->name('configuracion.historial.')
+                    ->group(function () {
+                        Route::get('/{diseno}/imagen/{campo}', 'imagen')
+                            ->whereNumber('diseno')->name('imagen');
+
+                        Route::middleware('can:gestionar-historial')->group(function () {
+                            Route::get('/', 'index')->name('index');
+                            Route::put('/', 'guardar')->name('guardar');
+                            Route::delete('/{diseno}', 'eliminar')->whereNumber('diseno')->name('eliminar');
+                            Route::post('/{diseno}/imagen', 'subir')->whereNumber('diseno')->name('subir');
+                        });
+                    });
+
+                /*
+                 * El historial impreso de una matrícula, para la ventanilla.
+                 *
+                 * Cuelga de `ver-historial-academico`, que es el permiso de
+                 * consultarlo: quien lo puede mirar en pantalla lo puede
+                 * imprimir. Sale sin marca de agua — éste es el bueno.
+                 */
+                Route::get('alumnos/{matricula}/historial/imprimir', [ImpresionHistorialController::class, 'deControlEscolar'])
+                    ->whereNumber('matricula')
+                    ->middleware('can:ver-historial-academico')
+                    ->name('alumnos.historial.imprimir');
 
                 Route::get('ciclos', [CicloController::class, 'index'])->name('ciclos.index');
 
@@ -1387,6 +1428,20 @@ Route::middleware([
         Route::get('mi-historial', MiHistorialController::class)
             ->middleware('can:ver-historial-academico')
             ->name('tenant.mihistorial');
+
+        /*
+         * Su historial impreso.
+         *
+         * Que exista siquiera lo decide la escuela (`descarga_alumno`), y sale
+         * con marca de agua si así lo pidió: es una copia sin sello ni firma
+         * autógrafa, y conviene que el propio papel lo diga. El controlador
+         * responde 404 cuando la descarga está cerrada — no 403, porque decirle
+         * que existe y no le toca es una conversación que nadie va a poder
+         * resolver en ventanilla.
+         */
+        Route::get('mi-historial/imprimir', [ImpresionHistorialController::class, 'delAlumno'])
+            ->middleware('can:ver-historial-academico')
+            ->name('tenant.mihistorial.imprimir');
 
         /*
          * Su credencial. Fuera del portal del alumno: la tienen todos.

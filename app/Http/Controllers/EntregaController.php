@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Exceptions\AvisoParaElUsuario;
+use App\Http\Controllers\Concerns\AlcanceDelAlumno;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Lms\Actividad;
@@ -24,6 +25,8 @@ use Illuminate\Support\Facades\Storage;
  */
 class EntregaController extends Controller
 {
+    use AlcanceDelAlumno;
+
     public function guardar(Request $request, Actividad $actividad): RedirectResponse
     {
         $inscripcion = $this->miInscripcionEn($request, $actividad);
@@ -115,7 +118,7 @@ class EntregaController extends Controller
 
         $mio = Inscripcion::query()
             ->whereKey($entrega->inscripcion_id)
-            ->whereIn('matricula_oferta_id', $this->misMatriculas($request))
+            ->whereIn('matricula_oferta_id', $this->misMatriculas($request)->pluck('id'))
             ->exists();
 
         $soyDocente = $request->user()->persona_id !== null && $asignaturaGrupoId !== null
@@ -140,12 +143,7 @@ class EntregaController extends Controller
 
         return Inscripcion::query()
             ->where('asignatura_grupo_id', $asignaturaGrupoId)
-            ->whereIn('matricula_oferta_id', $this->misMatriculas($request))
+            ->whereIn('matricula_oferta_id', $this->misMatriculas($request)->pluck('id'))
             ->first();
-    }
-
-    private function misMatriculas(Request $request)
-    {
-        return $request->user()->persona?->matriculas()->pluck('matricula_oferta.id') ?? collect();
     }
 }

@@ -1,0 +1,213 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Feature;
+
+use App\Historial\CalificacionConLetra;
+use App\Historial\CatalogoColumnas;
+use App\Historial\HistorialImprimible;
+use App\Models\Admisiones\MatriculaOferta;
+use App\Models\ControlEscolar\DisenoHistorial;
+use Illuminate\Support\Facades\DB;
+use Tests\Concerns\CreaEscuelaDePrueba;
+use Tests\TenantTestCase;
+
+/**
+ * El historial armado para imprimir.
+ *
+ * ── Qué se está protegiendo ────────────────────────────────────────────────
+ * Que el documento salga BIEN, que es distinto de que no reviente. Los dos
+ * defectos que aparecieron al mirarlo impreso —los periodos desordenados y las
+ * veintiocho filas numeradas «1»— no lanzan ninguna excepción: producen un papel
+ * que la escuela entrega mal. Aquí se fijan.
+ */
+class HistorialImprimibleTest extends TenantTestCase
+{
+    use CreaEscuelaDePrueba;
+
+    /**
+     * Los periodos salen en orden, no en el orden en que se cursaron.
+     *
+     * Medido antes de arreglarlo, la escuela de ejemplo imprimía «Periodo 2,
+     * Periodo 1, Periodo 4, Periodo 3». Un historial que empieza por el segundo
+     * semestre no se lee.
+     */
+    public function test_los_periodos_salen_en_orden(): void
+    {
+        $matricula = $this->conHistorialEnVariosPeriodos();
+
+        $titulos = collect($this->armar($matricula)['grupos'])->pluck('titulo')->all();
+
+        /*
+         * El 10 va al final, no entre el 1 y el 2.
+         *
+         * Ordenar los títulos como texto —que es lo primero que uno escribe—
+         * pone «Periodo 10» justo después de «Periodo 1». Por eso la
+         * comparación es numérica y por eso esta prueba incluye un periodo de
+         * dos cifras: sin él, un orden alfabético pasaría igual.
+         */
+        $this->assertSame(
+            ['Periodo 1', 'Periodo 2', 'Periodo 10'],
+            $titulos,
+            'Los bloques salieron así: '.implode(', ', $titulos),
+        );
+    }
+
+    /**
+     * El consecutivo corre a lo largo del documento entero.
+     *
+     * Es lo que permite citar «el renglón 42». Estaba escrito con una arrow
+     * function, que captura la variable POR VALOR: cada llamada incrementaba su
+     * propia copia y todas las filas salían con un 1.
+     */
+    public function test_el_consecutivo_no_se_reinicia(): void
+    {
+        $matricula = $this->conHistorialEnVariosPeriodos();
+
+        $numeros = collect($this->armar($matricula)['grupos'])
+            ->flatMap(fn (array $g) => array_column($g['filas'], 'consecutivo'))
+            ->map(fn (string $n) => (int) $n)
+            ->all();
+
+        $this->assertGreaterThan(1, count($numeros), 'Hacen falta varias filas para que la prueba signifique algo.');
+        $this->assertSame(range(1, count($numeros)), $numeros, 'El consecutivo se reinició.');
+    }
+
+    /**
+     * La observación ordinaria no se imprime.
+     *
+     * En el catálogo del tenant se llama, literalmente, «NORMAL / ORDINARIO», y
+     * salía en todos los renglones de una alumna al corriente. La primera
+     * versión buscaba «NORMAL» y «ORDINARIO» por separado y no casaba con nada:
+     * por eso esta prueba compara contra el nombre REAL del catálogo.
+     */
+    public function test_la_observacion_ordinaria_se_calla(): void
+    {
+        $matricula = $this->conHistorialEnVariosPeriodos();
+
+        $diseno = new DisenoHistorial(['columnas' => ['materia', 'observacion'], 'agrupacion' => 'ninguna']);
+
+        $observaciones = collect($this->armar($matricula, $diseno)['grupos'][0]['filas'])
+            ->pluck('observacion')
+            ->filter()
+            ->map(fn (string $o) => mb_strtoupper($o))
+            ->all();
+
+        $this->assertNotContains('NORMAL / ORDINARIO', $observaciones);
+    }
+
+    /** Una columna retirada del catálogo no deja una cabecera sin contenido. */
+    public function test_una_columna_inventada_se_descarta(): void
+    {
+        $diseno = new DisenoHistorial(['columnas' => ['materia', 'columna-que-no-existe']]);
+
+        $this->assertSame(['materia'], $diseno->columnasEfectivas());
+    }
+
+    /**
+     * Sin columnas configuradas se usan las de omisión, no una tabla desnuda.
+     *
+     * Es distinto de tenerlas todas inválidas: eso sí deja sólo la materia. Un
+     * diseño recién creado no tiene columnas guardadas todavía, y ahí lo útil es
+     * el juego que casi todas las escuelas usan.
+     */
+    public function test_sin_columnas_se_usan_las_de_omision(): void
+    {
+        $this->assertSame(
+            CatalogoColumnas::porOmision()['columnas'],
+            (new DisenoHistorial(['columnas' => []]))->columnasEfectivas(),
+        );
+    }
+
+    /** Con todas las columnas inválidas queda la materia: sin ella no dice nada. */
+    public function test_con_todo_invalido_queda_la_materia(): void
+    {
+        $this->assertSame(
+            ['materia'],
+            (new DisenoHistorial(['columnas' => ['inventada', 'otra']]))->columnasEfectivas(),
+        );
+    }
+
+    /** La calificación con letra es lo que impide alterar el número a mano. */
+    public function test_la_calificacion_con_letra(): void
+    {
+        $this->assertSame('OCHO', CalificacionConLetra::de(8));
+        $this->assertSame('DIEZ', CalificacionConLetra::de(10));
+        $this->assertSame('SETENTA Y CINCO', CalificacionConLetra::de(75));
+        $this->assertSame('CIEN', CalificacionConLetra::de(100));
+
+        // Fuera de lo que sabe decir, vacío en vez de una palabra inventada:
+        // una celda en blanco se nota; un número mal escrito con letra en un
+        // documento oficial, no.
+        $this->assertSame('', CalificacionConLetra::de(8.5));
+        $this->assertSame('', CalificacionConLetra::de(-1));
+        $this->assertSame('', CalificacionConLetra::de(null));
+    }
+
+    // ── Andamiaje ──────────────────────────────────────────────────────────
+
+    /** @return array<string, mixed> */
+    private function armar(MatriculaOferta $matricula, ?DisenoHistorial $diseno = null): array
+    {
+        return app(HistorialImprimible::class)->armar(
+            $matricula,
+            $diseno ?? new DisenoHistorial(['agrupacion' => 'periodo']),
+        );
+    }
+
+    /**
+     * Una matrícula con materias asentadas en TRES periodos, sembradas al revés.
+     *
+     * ── El desorden está forzado, y hizo falta ────────────────────────────
+     * `HistorialDelAlumno` devuelve los renglones ordenados por ciclo y por
+     * clave en el plan. La primera versión de esta prueba nombraba las claves
+     * «P1…», «P2…», «P3…», así que llegaban ya ordenadas por periodo y la
+     * prueba pasaba IGUAL con el ordenado quitado — comprobado mutando el
+     * código. Ahora las claves van al revés que los periodos, y uno de ellos es
+     * de dos cifras para que ordenar como texto tampoco cuele.
+     */
+    private function conHistorialEnVariosPeriodos(): MatriculaOferta
+    {
+        $escuela = $this->alumnoInscrito();
+        $ciclo = $this->cicloDePrueba('CIC-'.uniqid());
+        $ordinario = $this->deCatalogo('tipos_evaluacion');
+        $aprobada = $this->situacionCon('estatus_historial', 'aprobada');
+        $normal = DB::table('observaciones_asignatura')->where('nombre', 'NORMAL / ORDINARIO')->value('id');
+
+        // Clave alfabética INVERSA al periodo: así el orden en que llegan no
+        // es el orden en que deben imprimirse.
+        foreach ([10 => 'A', 2 => 'B', 1 => 'C'] as $periodo => $letra) {
+            foreach ([1, 2] as $n) {
+                $unico = uniqid();
+
+                $asignatura = $this->fila('asignaturas', [
+                    'identificador' => "ASI-{$unico}",
+                    'clave' => "A-{$unico}",
+                    'nombre' => "Materia {$periodo}.{$n}",
+                    'creditos' => 5,
+                    'tipo_asignatura_id' => $this->deCatalogo('tipos_asignatura'),
+                ]);
+
+                $planMateria = $this->fila('plan_materias', [
+                    'plan_id' => $escuela['plan'],
+                    'asignatura_id' => $asignatura,
+                    'periodo' => $periodo,
+                    'clave_en_plan' => "{$letra}{$n}-{$unico}",
+                ]);
+
+                $this->fila('historial', [
+                    'matricula_oferta_id' => $escuela['matricula'],
+                    'plan_materia_id' => $planMateria,
+                    'ciclo_id' => $ciclo,
+                    'calificacion' => 8,
+                    'estatus_id' => $aprobada,
+                    'tipo_evaluacion_id' => $ordinario,
+                    'observacion_asignatura_id' => $normal,
+                ]);
+            }
+        }
+
+        return MatriculaOferta::findOrFail($escuela['matricula']);
+    }
+}

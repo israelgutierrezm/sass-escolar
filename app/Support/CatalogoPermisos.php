@@ -122,6 +122,14 @@ final class CatalogoPermisos
             'inscribir-alumnos' => ['Inscribir alumnos', 'Dar de alta y de baja materias, con las validaciones de seriación y cupo.', [self::ADMINISTRATIVO]],
             'ver-historial-academico' => ['Ver historial académico', 'Consultar las materias cursadas de una matrícula, con su calificación y sus créditos.', [self::ADMINISTRATIVO, self::DOCENTE, self::ALUMNO, self::TUTOR, self::PADRE]],
             'gestionar-tutorias' => ['Asignar tutorías', 'Repartir los alumnos entre los tutores educativos, por ciclo.', [self::ADMINISTRATIVO]],
+            /*
+             * Separado de `ver-historial-academico`, que lo tienen cinco
+             * facetas: una cosa es CONSULTAR el historial de alguien y otra
+             * decidir cómo se imprime el documento de toda la escuela —qué
+             * columnas lleva, quién lo firma y si el alumno se lo puede
+             * descargar—. Lo segundo es de dirección o de servicios escolares.
+             */
+            'gestionar-historial' => ['Diseñar el historial académico', 'Definir cómo se imprime el historial: columnas, agrupación, firma y si el alumno puede descargarlo.', [self::ADMINISTRATIVO]],
             'gestionar-biblioteca' => ['Gestionar la biblioteca digital', 'Publicar, ordenar y retirar los enlaces que el alumno ve en la biblioteca.', [self::ADMINISTRATIVO]],
             /*
              * Atender el mostrador y decidir el catálogo son la misma tarea de

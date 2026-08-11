@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Concerns;
 
 use App\Exceptions\AvisoParaElUsuario;
+use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\Inscripcion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 /**
  * El alcance del alumno sale de su INSCRIPCIÓN, no de un permiso.
@@ -22,6 +24,30 @@ use Illuminate\Http\Request;
  */
 trait AlcanceDelAlumno
 {
+    /**
+     * Sus matrículas, sacadas de la SESIÓN.
+     *
+     * Vive aquí porque la usan tres pantallas —el historial, su impresión y la
+     * credencial— y era privada en una de ellas. Es la misma regla que el resto
+     * del trait: quién es el alumno no se pregunta por la URL, y una regla de
+     * acceso copiada acaba corregida en dos sitios y olvidada en el tercero.
+     *
+     * @return Collection<int, MatriculaOferta>
+     */
+    protected function misMatriculas(Request $request)
+    {
+        $persona = $request->user()?->persona_id;
+
+        if ($persona === null) {
+            return collect();
+        }
+
+        return MatriculaOferta::query()
+            ->where('persona_id', $persona)
+            ->orderBy('matricula')
+            ->get();
+    }
+
     /** @return Builder<Inscripcion> */
     protected function misInscripciones(Request $request): Builder
     {

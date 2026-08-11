@@ -98,7 +98,7 @@ function guardar(): void {
 
     guardando.value = true;
 
-    router.put(`/escolar/configuraciones/calificaciones/planes/${borrador.value.id}`, {
+    router.put(`/escolar/configuracion/calificaciones/planes/${borrador.value.id}`, {
         calificacion_minima: borrador.value.minima,
         calificacion_maxima: borrador.value.maxima,
         calificacion_minima_aprobatoria: borrador.value.aprobatoria,
@@ -251,7 +251,7 @@ const porNivel = computed(() => {
                                 <p v-if="plan.desajustadas" class="mt-1 text-xs text-amber-700">
                                     {{ textoDesajuste(plan.desajustadas) }}
                                     <Link
-                                        :href="`/escolar/configuraciones/calificaciones/planes/${plan.id}/calificaciones`"
+                                        :href="`/escolar/configuracion/calificaciones/planes/${plan.id}/calificaciones`"
                                         class="underline"
                                     >
                                         Verlas

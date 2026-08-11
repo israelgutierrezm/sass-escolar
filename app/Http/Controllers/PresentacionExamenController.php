@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Exceptions\AvisoParaElUsuario;
+use App\Http\Controllers\Concerns\AlcanceDelAlumno;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Lms\Actividad;
 use App\Models\Lms\Examen;
@@ -33,6 +34,8 @@ use RuntimeException;
  */
 class PresentacionExamenController extends Controller
 {
+    use AlcanceDelAlumno;
+
     public function __construct(private readonly AplicadorExamen $aplicador) {}
 
     /** La portada: qué es, cuánto vale, qué intentos lleva. */
@@ -410,7 +413,7 @@ class PresentacionExamenController extends Controller
     {
         $mio = Inscripcion::query()
             ->whereKey($intento->inscripcion_id)
-            ->whereIn('matricula_oferta_id', $this->misMatriculas($request))
+            ->whereIn('matricula_oferta_id', $this->misMatriculas($request)->pluck('id'))
             ->exists();
 
         AvisoParaElUsuario::aMenosQue($mio, 403, 'Ese intento no es tuyo.');
@@ -426,12 +429,7 @@ class PresentacionExamenController extends Controller
 
         return Inscripcion::query()
             ->where('asignatura_grupo_id', $asignaturaGrupoId)
-            ->whereIn('matricula_oferta_id', $this->misMatriculas($request))
+            ->whereIn('matricula_oferta_id', $this->misMatriculas($request)->pluck('id'))
             ->first();
-    }
-
-    private function misMatriculas(Request $request)
-    {
-        return $request->user()->persona?->matriculas()->pluck('matricula_oferta.id') ?? collect();
     }
 }

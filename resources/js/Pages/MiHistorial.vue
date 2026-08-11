@@ -41,6 +41,8 @@ const props = defineProps<{
     } | null;
     renglones: Renglon[];
     resumen: Resumen | null;
+    /** Si la escuela le deja bajarse su historial. Lo decide el diseño, no un permiso. */
+    descargable: boolean;
 }>();
 
 /**
@@ -118,6 +120,24 @@ function tono(r: Renglon): string {
         </section>
 
         <template v-else>
+            <!--
+                El botón sólo aparece si la escuela abrió la descarga: hay
+                planteles donde el historial se entrega únicamente en ventanilla,
+                sellado. Y la copia que baja lleva marca de agua si así se
+                configuró, porque no trae sello ni firma autógrafa.
+            -->
+            <div v-if="descargable" class="flex justify-end">
+                <a
+                    :href="`/mi-historial/imprimir?matricula=${matricula.id}`"
+                    target="_blank"
+                    rel="noopener"
+                    class="rounded-lg px-4 py-2 text-sm font-medium text-white"
+                    :style="{ backgroundColor: 'var(--color-acento)' }"
+                >
+                    Descargar mi historial
+                </a>
+            </div>
+
             <!-- Quien estudia dos carreras elige cuál está viendo. -->
             <section v-if="matriculas.length > 1" class="tarjeta flex flex-wrap gap-2 p-4">
                 <button

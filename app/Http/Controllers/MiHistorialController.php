@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\AlcanceDelAlumno;
 use App\Models\Admisiones\MatriculaOferta;
-use App\Models\Identidad\Usuario;
+use App\Models\ControlEscolar\DisenoHistorial;
 use App\Services\HistorialDelAlumno;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -29,11 +29,13 @@ use Inertia\Response;
  */
 class MiHistorialController extends Controller
 {
+    use AlcanceDelAlumno;
+
     public function __construct(private readonly HistorialDelAlumno $historial) {}
 
     public function __invoke(Request $peticion): Response
     {
-        $matriculas = $this->matriculasDe($peticion);
+        $matriculas = $this->misMatriculas($peticion);
 
         // Sin matrícula no hay historial académico: es alguien con el permiso pero sin ser
         // alumno todavía. Se dice, en vez de pintar una tabla vacía que parece
@@ -44,6 +46,7 @@ class MiHistorialController extends Controller
                 'matricula' => null,
                 'renglones' => [],
                 'resumen' => null,
+                'descargable' => false,
             ]);
         }
 
@@ -61,7 +64,7 @@ class MiHistorialController extends Controller
          * omisión en vez de la del plan. Pasó al escribir esta pantalla y sólo se
          * vio comparando su resumen contra el del servicio.
          */
-        $elegida->load(['oferta.carrera:id,nombre', 'oferta.plan', 'oferta.campus:id,nombre']);
+        $elegida->load(['oferta.carrera:id,nombre,nivel_estudios_id', 'oferta.plan', 'oferta.campus:id,nombre']);
 
         return Inertia::render('MiHistorial', [
             'matriculas' => $matriculas
@@ -86,27 +89,17 @@ class MiHistorialController extends Controller
             // y nadie sabría cuál de los dos está mal.
             'renglones' => $this->historial->renglones($elegida),
             'resumen' => $this->historial->resumen($elegida),
+
+            /*
+             * Si la escuela le deja descargarlo.
+             *
+             * Se resuelve aquí y no en el menú: depende del DISEÑO del nivel de
+             * esta matrícula, no de un permiso. El botón sin esto llevaría a un
+             * 404 en las escuelas que sólo lo entregan en ventanilla.
+             */
+            'descargable' => DisenoHistorial::paraNivel(
+                $elegida->oferta?->carrera?->nivel_estudios_id,
+            )->descarga_alumno,
         ]);
-    }
-
-    /**
-     * Sus matrículas, sacadas de la sesión.
-     *
-     * @return Collection<int, MatriculaOferta>
-     */
-    private function matriculasDe(Request $peticion)
-    {
-        /** @var Usuario $usuario */
-        $usuario = $peticion->user();
-
-        if ($usuario->persona_id === null) {
-            return collect();
-        }
-
-        return MatriculaOferta::query()
-            ->with('oferta.carrera:id,nombre')
-            ->where('persona_id', $usuario->persona_id)
-            ->orderBy('matricula')
-            ->get();
     }
 }
