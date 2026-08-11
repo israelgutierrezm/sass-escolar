@@ -102,8 +102,23 @@ DB::beginTransaction();
 try {
     $hombre = Sexo::where('clave', 'H')->firstOrFail();
     $mujer = Sexo::where('clave', 'M')->firstOrFail();
-    $masculino = Genero::where('nombre', 'Masculino')->firstOrFail();
-    $noBinario = Genero::where('nombre', 'No binario')->firstOrFail();
+    /*
+     * El catálogo de géneros se sembró de nuevo con la lista de la SEP —MUJER
+     * (250) y HOMBRE (251)—, así que «Masculino» y «No binario» ya no existen y
+     * el `firstOrFail()` mataba la suite.
+     *
+     * Lo que se comprueba sigue siendo lo mismo: un género que la tabla de
+     * equivalencias sabe traducir determina el sexo, y uno que NO sabe traducir
+     * deja el hueco en vez de inventarlo. Para el segundo caso hace falta un
+     * género fuera de esa tabla, y como el catálogo ya no trae ninguno se
+     * planta uno propio.
+     */
+    $masculino = Genero::where('nombre', 'HOMBRE')->firstOrFail();
+    $noBinario = Genero::create([
+        'clave' => 'NB_PRUEBA',
+        'identificador' => '999',
+        'nombre' => 'NO BINARIO (prueba)',
+    ]);
     $mexico = Pais::where('clave_iso', 'MEX')->firstOrFail();
     // El nacimiento de una PERSONA usa el catálogo de IDENTIDAD (su 33 dice
     // «Nacido en el extranjero»), no el de lugares.
@@ -140,7 +155,12 @@ try {
 
     // Es el punto de la migración: es más honesto un hueco que inventar el
     // dato legal de alguien para satisfacer un NOT NULL.
-    verificar('«No binario» NO inventa un sexo: queda en null', $ambiguo['sexo_id'] === null);
+    verificar('Un género que no traduce a sexo NO lo inventa: queda en null',
+        $ambiguo['sexo_id'] === null);
+
+    // El género plantado vive en la base CENTRAL, que NO entra en el rollback
+    // del tenant: se retira a mano.
+    $noBinario->delete();
 
     $sinNada = $identidad->resolver(['nombre' => 'Sam', 'primer_apellido' => 'Paz']);
 

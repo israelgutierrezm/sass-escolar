@@ -110,15 +110,36 @@ try {
     verificar('Está marcada como sin acceso', $cuentaCenso->acceso_configurado === false);
     verificar('Ninguna contraseña obvia entra', ! entra("censo{$suf}@ejemplo.mx", '') && ! entra("censo{$suf}@ejemplo.mx", 'password'));
 
-    echo PHP_EOL.'5. Si dos cuentas comparten correo, gana la que SÍ tiene acceso'.PHP_EOL;
-    // Otra persona reusa el mismo correo pero sin acceso: no debe ganarle a la real.
-    $otra = Persona::create(['nombre' => 'Otra', 'primer_apellido' => 'Homónima', 'segundo_apellido' => (string) $suf, 'email' => $correo]);
-    Usuario::create([
-        'persona_id' => $otra->id, 'usuario' => 'otra'.$suf, 'email' => $correo,
-        'password' => Hash::make(Str::random(40)), 'acceso_configurado' => false,
+    echo PHP_EOL.'5. Dos cuentas NO pueden compartir correo'.PHP_EOL;
+
+    /*
+     * Esta sección comprobaba a cuál de dos cuentas con el mismo correo gana el
+     * resolvedor. Ese empate ya no puede existir: `usuarios.email` es ÚNICO, y
+     * la prueba moría con «Duplicate entry ... for key usuarios_email_unique»
+     * al montar el escenario.
+     *
+     * La garantía de hoy es más fuerte que la regla de desempate, así que es lo
+     * que se comprueba: la base lo impide, y por eso `resolver()` nunca tiene
+     * que elegir.
+     */
+    $otra = Persona::create([
+        'nombre' => 'Otra', 'primer_apellido' => 'Homónima',
+        'segundo_apellido' => (string) $suf, 'email' => $correo,
     ]);
 
-    verificar('Se resuelve la cuenta con acceso configurado', resolver($correo)?->id === $cuenta->id);
+    $repetido = false;
+
+    try {
+        Usuario::create([
+            'persona_id' => $otra->id, 'usuario' => 'otra'.$suf, 'email' => $correo,
+            'password' => Hash::make(Str::random(40)), 'acceso_configurado' => false,
+        ]);
+    } catch (Illuminate\Database\UniqueConstraintViolationException $e) {
+        $repetido = true;
+    }
+
+    verificar('La base rechaza el correo repetido', $repetido);
+    verificar('Y la cuenta original sigue resolviéndose', resolver($correo)?->id === $cuenta->id);
     verificar('Y sigue entrando con su contraseña', entra($correo, 'secreto12345'));
 } finally {
     DB::rollBack();

@@ -50,7 +50,10 @@ function req(array $datos): Request
 DB::beginTransaction();
 
 try {
-    $ctrl = new AlumnoController;
+    // Por el contenedor: `AlumnoController` recibe `HistorialDelAlumno` desde
+    // que el cálculo del historial se extrajo a su servicio, así que `new` ya
+    // no basta.
+    $ctrl = app(AlumnoController::class);
     $alumno = MatriculaOferta::query()->first();
 
     if ($alumno === null) {
