@@ -86,9 +86,16 @@ try {
 
     $avance = $progreso->para($aspirante);
 
-    verificar('Siempre tres pasos', count($avance['pasos']) === 3, count($avance['pasos']).' pasos');
-    verificar('Y en el mismo orden: datos, documentos, pago',
-        array_column($avance['pasos'], 'clave') === ['datos', 'documentos', 'pago']);
+    /*
+     * CUATRO pasos, no tres: los formularios entraron al avance en `20d3e03`.
+     * Siguen siendo fijos —no varían por campaña ni por carrera, que es la
+     * decisión del cliente que esta comprobación protege—, pero ahora son
+     * datos, documentos, formularios y pago.
+     */
+    verificar('Siempre cuatro pasos', count($avance['pasos']) === 4, count($avance['pasos']).' pasos');
+    verificar('Y en el mismo orden: datos, documentos, formularios, pago',
+        array_column($avance['pasos'], 'clave') === ['datos', 'documentos', 'formularios', 'pago'],
+        implode(', ', array_column($avance['pasos'], 'clave')));
     verificar('Arranca en el paso de datos, que es lo primero que falta',
         $avance['siguiente'] === ProgresoSolicitud::PASO_DATOS);
 

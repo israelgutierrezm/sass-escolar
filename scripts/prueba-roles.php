@@ -32,6 +32,8 @@ require $raiz.'/vendor/autoload.php';
 $app = require $raiz.'/bootstrap/app.php';
 $app->make(Kernel::class)->bootstrap();
 
+require __DIR__.'/apoyo-roles.php';
+
 tenancy()->initialize(Tenant::find('demo'));
 
 $ok = 0;
@@ -79,9 +81,16 @@ try {
 
     verificar('La faceta administrativo está protegida', $administrativo->protegido);
     verificar('La faceta docente también', $docente->protegido);
-    // Es la que compara CapturaCalificacionesController por nombre.
+    /*
+     * Un rol funcional NO está protegido: la escuela debe poder borrarlo.
+     *
+     * Esto preguntaba por `auxiliar_admisiones`, un rol de ejemplo que el demo
+     * borró —ejerciendo justo el derecho que la comprobación defiende, lo que
+     * la volvía imposible de pasar—. Se planta uno y se comprueba que nazca sin
+     * protección, que es la regla: sólo las facetas la llevan.
+     */
     verificar('Un rol funcional NO está protegido: la escuela debe poder borrarlo',
-        Rol::where('name', 'auxiliar_admisiones')->first()?->protegido === false);
+        rolFuncionalDePrueba('prueba_auxiliar', 'administrativo')->protegido === false);
 
     echo PHP_EOL.'3. Crear un rol nuevo y darle permisos'.PHP_EOL;
 
@@ -289,9 +298,20 @@ try {
     verificar('Ni uno solo', $inconsistentes->isEmpty(),
         $inconsistentes->pluck('name')->implode(', ') ?: 'todos limpios');
 
-    verificar('Coordinador de academia cuelga de administrativo, no de docencia',
-        Rol::where('name', 'coordinador_academia')->first()?->ambitoDePermisos()
+    /*
+     * Un rol de coordinación académica cuelga de ADMINISTRATIVO, no de docencia.
+     *
+     * Preguntaba por `coordinador_academia`, otro rol de ejemplo que ya no
+     * está. Lo que importa es que el ámbito lo dé la FACETA de la que cuelga:
+     * coordinar una academia es trabajo administrativo aunque suene a docencia,
+     * y de ahí depende qué permisos se le pueden conceder.
+     */
+    verificar('Un rol colgado de administrativo tiene ámbito administrativo',
+        rolFuncionalDePrueba('prueba_coordinador', 'administrativo')->ambitoDePermisos()
         === CatalogoPermisos::ADMINISTRATIVO);
+    verificar('Y uno colgado de docencia, ámbito docente',
+        rolFuncionalDePrueba('prueba_academia', 'docente')->ambitoDePermisos()
+        === CatalogoPermisos::DOCENTE);
 
     echo PHP_EOL.'10. Salvaguarda contra el auto-encierro'.PHP_EOL;
 

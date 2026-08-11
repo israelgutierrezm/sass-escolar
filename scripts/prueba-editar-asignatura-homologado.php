@@ -73,11 +73,24 @@ try {
         echo '  (omitido: no hay un segundo plan en la demo)'.PHP_EOL;
     }
 
-    echo PHP_EOL.'3. Asignatura SIN plan → editor de asignatura (Inertia), no redirige'.PHP_EOL;
+    echo PHP_EOL.'3. Asignatura SIN plan → vuelve al listado explicando por qué'.PHP_EOL;
+
+    /*
+     * Antes esto abría un editor de asignatura suelto. Ese formulario se retiró
+     * al unificar el editor en la ficha del plan (c67b682): una asignatura que
+     * no pertenece a ningún plan ya no tiene dónde editarse, así que se regresa
+     * al listado CON el motivo. Mandar a una pantalla que no existe, o dejar la
+     * acción sin respuesta, es peor que decirlo.
+     */
     $suelta = Asignatura::create(['identificador' => 'SUE', 'clave' => "SUE-$u", 'nombre' => 'Suelta', 'creditos' => 5, 'tipo_asignatura_id' => $tipo->id]);
     $resp3 = $ctrl->edit($suelta);
-    verificar('NO redirige', ! ($resp3 instanceof RedirectResponse));
-    verificar('Renderiza el formulario de asignatura', $resp3 instanceof Inertia\Response);
+
+    verificar('Redirige al listado', $resp3 instanceof RedirectResponse
+        && str_contains($resp3->getTargetUrl(), '/academico/asignaturas'),
+        $resp3 instanceof RedirectResponse ? $resp3->getTargetUrl() : get_class($resp3));
+    verificar('Y dice por qué no se puede editar',
+        str_contains((string) ($resp3->getSession()?->get('error') ?? ''), 'no pertenece a ningún plan'),
+        (string) ($resp3->getSession()?->get('error') ?? '(sin mensaje)'));
 } finally {
     DB::rollBack();
     tenancy()->end();

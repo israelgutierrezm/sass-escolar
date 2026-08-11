@@ -53,10 +53,10 @@ Los otros dos documentos vivos:
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y cada una imprime
    `Resultado: N correctas, M fallidas`.
 
-   **Estaban 33 en rojo** —no trece: ese primer conteo sólo miró las que
-   imprimían «N fallidas» e ignoró las 21 que morían antes, con una excepción
-   sin resumen—. Ninguna caía por un cambio reciente; se comprobó corriéndolas
-   contra el árbol limpio. **Quedan 12**, listadas abajo.
+   **Las 61 están en verde.** Llegaron a estar 33 en rojo —no trece: ese primer
+   conteo sólo miró las que imprimían «N fallidas» e ignoró las 21 que morían
+   antes, con una excepción sin resumen—. Ninguna caía por un cambio reciente;
+   se comprobó corriéndolas contra el árbol limpio.
 
    Lo que las tumbaba, por si vuelve a pasar:
 
@@ -530,8 +530,9 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   apagarlo — una tabla vacia que nadie va a llenar es una promesa falsa.
 - **Portal del interesado** (`/mi-solicitud`): el aspirante captura sus datos,
   sube su documentacion y consulta sus cargos. `ProgresoSolicitud` calcula el
-  avance sobre TRES PASOS FIJOS (datos, documentos, pago) — no varian por
-  campana ni carrera, por decision del cliente. **Ese avance NO es la etapa del
+  avance sobre CUATRO PASOS FIJOS (datos, documentos, formularios y pago) — no
+  varian por campana ni carrera, por decision del cliente. Decia tres: los
+  formularios entraron al avance en `20d3e03`. **Ese avance NO es la etapa del
   CRM**: el embudo lo mueve promocion con su criterio y el progreso solo se
   muestra informativamente en la ficha. Da igual quien llene: el mismo calculo
   sirve para el interesado y para el administrador. El controlador no recibe id
@@ -574,8 +575,8 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   personal quedaba con `etapa_crm_id` en null e **invisible para el CRM**.
   Corregido en el controlador + migración de backfill.
 - Pruebas: 61 suites en `scripts/`, contra la BD real del tenant demo con
-  `DB::rollBack()` al final. **49 en verde, 12 en rojo** (ver la regla 5 para
-  qué las tumbó y cómo se repararon las otras 21). `prueba-listados` es la primera
+  `DB::rollBack()` al final. **61 en verde** (ver la regla 5 para qué tumbó a
+  las 33 que estuvieron en rojo). `prueba-listados` es la primera
   que invoca a los CONTROLADORES y lee sus props de Inertia, en vez de
   reimplementar la consulta: un `or` sin paréntesis no se detecta de otra forma.
 - **Módulo 8 — LMS completo** (seis fases): cursos por materia impartida,

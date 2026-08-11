@@ -120,9 +120,34 @@ try {
 
         $situacion = SituacionInscripcion::query()->value('id');
 
-        // Se le cuentan dos cursadas previas de la MISMA materia del plan.
+        /*
+         * Hacen falta DOS cursadas: el límite cuenta los intentos ADICIONALES
+         * («cursadas > límite»), así que con una sola y el tope en 1 no hay
+         * nada que bloquear.
+         *
+         * Esta parte esperaba encontrar la misma materia abierta en otro grupo
+         * del demo. Cuando dejó de estarlo, la suite se quedó con una sola
+         * inscripción y las tres comprobaciones de este bloque empezaron a
+         * fallar —no porque el límite no funcione, sino porque nunca se
+         * alcanzaba—. Ahora, si no existe, se abre.
+         */
         $otroGrupo = AsignaturaGrupo::where('plan_materia_id', $materiaGrupo->plan_materia_id)
             ->where('id', '!=', $materiaGrupo->id)->first();
+
+        if ($otroGrupo === null) {
+            $otroDelCiclo = App\Models\ControlEscolar\Grupo::query()
+                ->where('ciclo_id', $materiaGrupo->grupo?->ciclo_id)
+                ->where('id', '!=', $materiaGrupo->grupo_id)
+                ->first();
+
+            if ($otroDelCiclo !== null) {
+                $otroGrupo = AsignaturaGrupo::create([
+                    'grupo_id' => $otroDelCiclo->id,
+                    'plan_materia_id' => $materiaGrupo->plan_materia_id,
+                    'situacion_id' => $materiaGrupo->situacion_id,
+                ]);
+            }
+        }
 
         foreach ([$materiaGrupo, $otroGrupo] as $ag) {
             if ($ag === null) {
