@@ -224,13 +224,19 @@ provide('ubicacion', ubicacion);
  *
  * ── Y cuando la ruta no está en el menú ───────────────────────────────────
  * Se conserva el título de la pantalla como línea principal: sin sección a la
- * que pertenecer, es lo único que ubica a quien mira.
+ * que pertenecer, es lo único que ubica a quien mira. Ahí tampoco hay icono:
+ * inventarle uno sería señalar una sección a la que la pantalla no pertenece.
+ *
+ * ── El icono es EL MISMO de la barra lateral ──────────────────────────────
+ * Viene en la ubicación, del mismo nodo del catálogo que dibuja la barra. Es lo
+ * que ata las dos cosas: quien ve el birrete arriba lo reconoce señalado abajo
+ * a la izquierda, y no puede pasar que uno cambie sin el otro.
  */
 const encabezado = computed(() => {
     const { seccion, subgrupo, hoja } = ubicacion.value;
 
     if (seccion === null) {
-        return { principal: props.titulo ?? '', camino: [] as string[] };
+        return { principal: props.titulo ?? '', camino: [] as string[], icono: null };
     }
 
     const camino = [subgrupo?.etiqueta, hoja?.etiqueta]
@@ -252,7 +258,7 @@ const encabezado = computed(() => {
         }
     }
 
-    return { principal: seccion.etiqueta, camino };
+    return { principal: seccion.etiqueta, camino, icono: seccion.icono ?? null };
 });
 
 function esActiva(prefijo: string): boolean {
@@ -565,6 +571,22 @@ const iniciales = computed(() => {
                             <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
                         </svg>
                     </button>
+
+                    <!-- El mismo icono que la barra lateral le pone a esta
+                         sección: ata las dos vistas de un vistazo. -->
+                    <span
+                        v-if="encabezado.icono"
+                        class="grid h-9 w-9 shrink-0 place-items-center rounded-xl"
+                        :style="{
+                            backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)',
+                            color: 'var(--color-acento)',
+                        }"
+                        aria-hidden="true"
+                    >
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" :d="encabezado.icono" />
+                        </svg>
+                    </span>
 
                     <div v-if="encabezado.principal" class="min-w-0">
                         <h1 class="truncate text-base font-semibold leading-tight">{{ encabezado.principal }}</h1>

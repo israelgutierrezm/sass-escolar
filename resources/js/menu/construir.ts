@@ -282,8 +282,14 @@ export function prefijosActivos(nodos: NodoNav[], esActiva: (p: string) => boole
  * Aquí se responde una sola vez y con el catálogo como fuente.
  */
 export interface Ubicacion {
-    /** El grupo de nivel 1: «Académico», «Control escolar»… */
-    seccion: { clave: string; etiqueta: string } | null;
+    /**
+     * El grupo de nivel 1: «Académico», «Control escolar»…
+     *
+     * Viaja con su ICONO —el trazo del heroicon— para que el encabezado use el
+     * mismo que la barra lateral. Copiarlo aparte los dejaría desincronizados a
+     * la primera vez que alguien cambie uno de los dos.
+     */
+    seccion: { clave: string; etiqueta: string; icono?: string } | null;
     /** El subgrupo, si la ruta cae dentro de uno: «Configuración». */
     subgrupo: { clave: string; etiqueta: string } | null;
     /**
@@ -376,7 +382,7 @@ export function ubicacionActual(nodos: NodoNav[], ruta: string): Ubicacion {
             continue;
         }
 
-        const identidad = { clave: seccion.clave, etiqueta: seccion.etiqueta };
+        const identidad = { clave: seccion.clave, etiqueta: seccion.etiqueta, icono: seccion.icono };
 
         // ¿Cae dentro de alguno de sus subgrupos?
         for (const hijo of seccion.hijos) {
