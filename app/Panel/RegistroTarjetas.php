@@ -16,7 +16,7 @@ use App\Models\Identidad\Usuario;
  * Una tarjeta se descarta por dos motivos distintos y ambos importan:
  *  - no tiene el permiso (no le toca verla), o
  *  - lo tiene pero la tarjeta devolvió null (le toca, pero no aplica a él).
- * El segundo caso es el que evita que un administrativo con `ver-kardex` vea un
+ * El segundo caso es el que evita que un administrativo con `ver-historial-academico` vea un
  * "mi avance" vacío por no ser alumno de nada.
  */
 class RegistroTarjetas

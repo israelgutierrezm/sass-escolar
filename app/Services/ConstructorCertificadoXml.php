@@ -378,7 +378,7 @@ class ConstructorCertificadoXml
      * ── Por qué importa más aquí que en ningún otro sitio ──────────────────
      * Esto va dentro del certificado electrónico: un documento que se sella y
      * se manda a la SEP. Con dos decimales fijos —como estaba—, una escuela con
-     * plan de enteros veía un 8 en el expediente y en el kárdex, y su
+     * plan de enteros veía un 8 en el expediente y en el historial académico, y su
      * certificado oficial decía 8.33. Dos documentos de la misma escuela que no
      * concuerdan, y el que vale es el que estaba mal.
      *

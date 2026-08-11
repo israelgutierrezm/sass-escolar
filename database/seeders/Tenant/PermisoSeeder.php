@@ -55,11 +55,11 @@ class PermisoSeeder extends Seeder
         // llega a sus alumnos por sus materias, no por un listado global.
         'docente' => [
             'ver-mis-materias', 'editar-mi-expediente', 'editar-mi-disponibilidad',
-            'ver-kardex', 'pasar-lista', 'capturar-calificaciones', 'asentar-acta',
+            'ver-historial-academico', 'pasar-lista', 'capturar-calificaciones', 'asentar-acta',
         ],
 
         // Facetas no administrativas: su alcance se resuelve además por
-        // pertenencia (un alumno solo ve SU kárdex), no solo por permiso.
+        // pertenencia (un alumno solo ve SU historial académico), no solo por permiso.
         // El alumno traía solo dos permisos de consulta y NINGUNA pantalla
         // propia: podía entrar al sistema y no tenía a dónde ir. `ver-mis-cursos`
         // le abre su portal; el alcance —sus propias matrículas— lo resuelve el
@@ -73,18 +73,18 @@ class PermisoSeeder extends Seeder
         // comentario de arriba describe con `ver-mis-prospectos`, y se repitió
         // al agregar estas dos.
         'alumno' => [
-            'ver-mis-cursos', 'editar-mi-expediente-alumno', 'ver-kardex', 'ver-adeudos',
+            'ver-mis-cursos', 'editar-mi-expediente-alumno', 'ver-historial-academico', 'ver-adeudos',
             'ver-biblioteca', 'solicitar-servicios',
         ],
         // El interesado llena lo suyo desde `/mi-solicitud`. No ve nada más:
         // su alcance es su propia persona, no un permiso amplio.
         'aspirante' => ['llenar-mi-solicitud'],
         // SIN `ver-alumnos`: le abría el listado de TODA la escuela —y el
-        // kárdex de cualquiera— porque no había vínculo por el cual acotarlo.
+        // historial académico de cualquiera— porque no había vínculo por el cual acotarlo.
         // Ahora lo hay, en `tutorias`, y su portal resuelve el alcance por
         // pertenencia igual que el del padre y el del docente.
-        'tutor_educativo' => ['ver-mis-tutorados', 'ver-kardex'],
-        'padre_familia' => ['ver-mis-hijos', 'ver-kardex', 'ver-adeudos'],
+        'tutor_educativo' => ['ver-mis-tutorados', 'ver-historial-academico'],
+        'padre_familia' => ['ver-mis-hijos', 'ver-historial-academico', 'ver-adeudos'],
     ];
 
     public function run(): void

@@ -23,7 +23,7 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 /**
  * Carga masiva de alumnos. Cada fila crea/actualiza la persona (por CURP), su
  * registro de alumno y su matrícula en la oferta (carrera+plan+campus). Si el
- * archivo trae la hoja «Calificaciones», también carga el kárdex: el estatus se
+ * archivo trae la hoja «Calificaciones», también carga el historial académico: el estatus se
  * deriva de la calificación con la regla única del sistema (EstatusAcademico).
  * No crea nada si hay errores.
  */

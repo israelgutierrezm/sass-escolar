@@ -95,7 +95,7 @@ return new class extends Migration
             $table->date('vigente_hasta')->nullable();
 
             // Con qué promedio se otorgó/renovó: deja ver después por qué se
-            // aprobó, aunque el kárdex haya cambiado.
+            // aprobó, aunque el historial académico haya cambiado.
             $table->decimal('promedio_evaluado', 4, 2)->nullable();
 
             // Una beca es una decisión con costo: alguien responde por ella.

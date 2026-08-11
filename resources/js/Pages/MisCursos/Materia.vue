@@ -83,7 +83,7 @@ function iniciales(nombre: string | null): string {
     return (nombre ?? '?').split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
 }
 
-/** Color de una calificación: el mismo criterio del kárdex. */
+/** Color de una calificación: el mismo criterio del historial académico. */
 function colorCalificacion(c: number | null): string {
     if (c === null) return 'var(--color-suave)';
 

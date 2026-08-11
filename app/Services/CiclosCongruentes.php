@@ -14,7 +14,7 @@ use Illuminate\Support\Collection;
  * Un ciclo puede acotarse a ciertos campus y/o niveles de estudio (igual que en
  * los grupos). Para un alumno concreto solo aplican los que incluyen su campus
  * (o no acotan campus) y su nivel (o no acotan nivel). Vive en un solo lugar
- * para que cualquier desplegable de ciclo por alumno —kárdex, inscripción,
+ * para que cualquier desplegable de ciclo por alumno —historial académico, inscripción,
  * lo que venga— sea congruente con la misma regla.
  */
 class CiclosCongruentes

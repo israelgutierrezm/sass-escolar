@@ -24,7 +24,7 @@ use Tests\TenantTestCase;
  * Todo el módulo daba por hecho que la escala era 0–10 y multiplicaba por diez.
  * En una escuela que califica sobre 100 eso convierte un examen perfecto en un
  * 10, y como la calificación de la actividad ENTRA SOLA al componente del
- * parcial, ese número no se queda en la pantalla: llega al acta y al kárdex.
+ * parcial, ese número no se queda en la pantalla: llega al acta y al historial académico.
  *
  * No revienta nada —un 10 es una calificación perfectamente válida—, y por eso
  * hace falta una prueba: es un error que se asienta en silencio.

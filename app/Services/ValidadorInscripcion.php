@@ -176,7 +176,7 @@ class ValidadorInscripcion
 
     /**
      * La materia debe pertenecer al plan en el que el alumno está matriculado:
-     * su acta y su kárdex se llevan contra ese plan.
+     * su acta y su historial académico se llevan contra ese plan.
      */
     private function materiaDeOtroPlan(MatriculaOferta $matricula, AsignaturaGrupo $materiaGrupo): ?string
     {

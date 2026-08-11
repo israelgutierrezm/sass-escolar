@@ -330,7 +330,7 @@ function quitarFoto(): void {
 
         <TarjetaSeccion
             titulo="Mis datos"
-            descripcion="Manténlos al día: de aquí salen tus datos en constancias, kárdex y certificados."
+            descripcion="Manténlos al día: de aquí salen tus datos en constancias, historial académico y certificados."
             :icono="ICONOS.persona"
         >
             <form @submit.prevent="guardar">

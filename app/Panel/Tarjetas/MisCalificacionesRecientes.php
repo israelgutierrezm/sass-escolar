@@ -21,7 +21,7 @@ use Illuminate\Support\Collection;
  * retroalimentación que el docente se tomó el trabajo de escribir.
  *
  * ── Las últimas, no todas ──────────────────────────────────────────────────
- * Cinco. El historial completo es el kárdex; aquí lo que se contesta es «¿hay
+ * Cinco. El historial completo es el historial académico; aquí lo que se contesta es «¿hay
  * algo nuevo?», y para eso sobra con lo reciente.
  */
 class MisCalificacionesRecientes implements TarjetaPanel

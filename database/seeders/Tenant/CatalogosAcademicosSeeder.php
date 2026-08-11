@@ -15,6 +15,7 @@ use App\Models\Academico\TipoCampus;
 use App\Models\Academico\TipoPeriodo;
 use App\Models\Academico\TipoPlanEstudio;
 use App\Models\Academico\Turno;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
 
 /**
@@ -123,7 +124,7 @@ class CatalogosAcademicosSeeder extends Seeder
     }
 
     /**
-     * @param  class-string<\Illuminate\Database\Eloquent\Model>  $modelo
+     * @param  class-string<Model>  $modelo
      * @param  array<int, array<string, mixed>>  $filas  cada una con clave, nombre y lo que aporte
      */
     private function sembrar(string $modelo, array $filas): void
@@ -146,7 +147,7 @@ class CatalogosAcademicosSeeder extends Seeder
      * tenants nuevos —donde la tabla está vacía—; en existentes NO se corre para
      * no colisionar con los ids ya asignados a sus carreras/planes.
      *
-     * @param  class-string<\Illuminate\Database\Eloquent\Model>  $modelo
+     * @param  class-string<Model>  $modelo
      * @param  array<int, array{0: int, 1: string, 2?: int, 3?: string}>  $filas  [id, nombre, orden?, claveSat?]
      */
     private function sembrarFijos(string $modelo, array $filas): void

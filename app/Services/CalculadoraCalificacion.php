@@ -25,7 +25,7 @@ use Illuminate\Support\Collection;
  *     acta con la diferencia borrada sería reprobar gente por descuido.
  *  2. **El esquema manda y se verifica.** Si los porcentajes no suman 100 el
  *     resultado no se calcula: se reporta el motivo. Vale más una materia sin
- *     calificación que un kárdex con números que nadie puede reproducir.
+ *     calificación que un historial académico con números que nadie puede reproducir.
  *  3. **Aprobado lo define el plan**, con su `calificacion_minima_aprobatoria`,
  *     no una constante del código: cada plan tiene su escala.
  *
@@ -85,7 +85,7 @@ class CalculadoraCalificacion
          * En la precisión del plan, no en dos decimales fijos. El plan ya venía
          * como parámetro y sólo se usaba para la mínima aprobatoria: una escuela
          * configurada para calificar con enteros asentaba 8.33 en el acta,
-         * porque este es el número que el asentador vuelca al kárdex.
+         * porque este es el número que el asentador vuelca al historial académico.
          */
         $final = (float) PlanEstudio::redondearCon($plan, $acumulado);
         $minima = (float) ($plan?->calificacion_minima_aprobatoria ?? 0);

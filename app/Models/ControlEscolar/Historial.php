@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * historial (TENANT) — el kárdex, por matricula_oferta.
+ * historial (TENANT) — el historial académico, por matricula_oferta.
  */
 class Historial extends Model
 {
@@ -94,7 +94,7 @@ class Historial extends Model
         return $this->belongsTo(Acta::class, 'acta_id');
     }
 
-    /** Kárdex de una inscripción a oferta concreta. */
+    /** Historial académico de una inscripción a oferta concreta. */
     public function scopeDeMatricula(Builder $query, int $matriculaOfertaId): Builder
     {
         return $query->where('matricula_oferta_id', $matriculaOfertaId);

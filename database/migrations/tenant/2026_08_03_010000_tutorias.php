@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Schema;
  *
  * ── Por qué hacía falta ────────────────────────────────────────────────────
  * El rol existía y no tenía a quién tutorar. Sus permisos —`ver-alumnos` y
- * `ver-kardex`— le abrían el listado de TODA la escuela y el kárdex de
+ * `ver-historial-academico`— le abrían el listado de TODA la escuela y el historial académico de
  * cualquiera, no por descuido de quien los asignó sino porque no había nada por
  * lo que acotarlo: sin este vínculo, «sus» alumnos no eran un conjunto que el
  * sistema pudiera nombrar.

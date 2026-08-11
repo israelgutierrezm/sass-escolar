@@ -64,7 +64,7 @@ interface TarjetaPanel
     /**
      * Los datos ya listos para pintar. Devuelve null si esta tarjeta no aplica
      * a ESTA persona aunque tenga el permiso —el caso típico: un administrativo
-     * con `ver-kardex` que no es alumno de nadie—.
+     * con `ver-historial-academico` que no es alumno de nadie—.
      *
      * @return array<string, mixed>|null
      */

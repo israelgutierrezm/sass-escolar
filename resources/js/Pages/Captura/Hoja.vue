@@ -264,7 +264,7 @@ const cortesPorExcepcion = computed(() =>
         >
             <p class="font-medium">El acta ya está asentada.</p>
             <p class="mt-1" :style="{ color: 'var(--color-suave)' }">
-                Las calificaciones son parte del kárdex y no se editan. Para cambiar una hay que
+                Las calificaciones son parte del historial académico y no se editan. Para cambiar una hay que
                 emitir un acta de corrección: la original se conserva y queda la traza de qué cambió.
             </p>
 
@@ -320,7 +320,7 @@ const cortesPorExcepcion = computed(() =>
         >
             <p class="font-medium text-amber-700">Acta de corrección en curso.</p>
             <p class="mt-1" :style="{ color: 'var(--color-suave)' }">
-                Al firmarla sustituirá los renglones del kárdex que asentó el acta anterior.
+                Al firmarla sustituirá los renglones del historial académico que asentó el acta anterior.
             </p>
         </div>
 
@@ -445,7 +445,7 @@ const cortesPorExcepcion = computed(() =>
         <section v-if="estado.captura_abierta && permisos.cerrar" class="tarjeta p-6">
             <h2 class="text-base font-semibold">Asentar el acta</h2>
             <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                Al firmar, las calificaciones finales se vuelcan al kárdex con folio y dejan de ser
+                Al firmar, las calificaciones finales se vuelcan al historial académico con folio y dejan de ser
                 editables. Guarda la captura antes de firmar.
             </p>
 

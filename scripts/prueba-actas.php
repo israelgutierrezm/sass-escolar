@@ -246,7 +246,7 @@ try {
 
     verificar('Sin faltantes, ya no hay impedimentos', $asentador->impedimentos($acta->fresh()) === []);
 
-    echo PHP_EOL.'5. Cierre del acta y volcado al kárdex'.PHP_EOL;
+    echo PHP_EOL.'5. Cierre del acta y volcado al historial académico'.PHP_EOL;
 
     $acta = $asentador->cerrar($acta->fresh(), $docente->id);
 
@@ -265,7 +265,7 @@ try {
     $mReprobado = $alumnos['Reprobado']->matriculaOferta->matricula;
     $mRecursador = $alumnos['Recursador']->matriculaOferta->matricula;
 
-    verificar('El aprobado entra al kárdex como aprobada',
+    verificar('El aprobado entra al historial académico como aprobada',
         $porMatricula[$mAprobado]->estatus->clave === 'aprobada' && (float) $porMatricula[$mAprobado]->calificacion === 9.0);
     verificar('El reprobado entra como reprobada',
         $porMatricula[$mReprobado]->estatus->clave === 'reprobada' && (float) $porMatricula[$mReprobado]->calificacion === 3.9);
@@ -286,7 +286,7 @@ try {
     echo PHP_EOL.'5b. Una materia se asienta una sola vez'.PHP_EOL;
 
     // Regresión: antes se podía cerrar una SEGUNDA acta ordinaria sobre la
-    // misma materia, duplicando los renglones del kárdex sin que nadie lo
+    // misma materia, duplicando los renglones del historial académico sin que nadie lo
     // notara. El alumno aparecía dos veces en la misma materia.
     $segunda = $asentador->actaDeTrabajo($materiaGrupo);
     $impedimentosSegunda = $asentador->impedimentos($segunda);
@@ -305,7 +305,7 @@ try {
     // Se cuentan solo los renglones nacidos de un acta: la materia puede
     // traer historial previo cargado por otra vía (revalidación, semilla).
     $conActa = Historial::where('asignatura_grupo_id', $materiaGrupo->id)->whereNotNull('acta_id')->count();
-    verificar('El kárdex no se duplicó', $conActa === $esperados, $conActa." de {$esperados}");
+    verificar('El historial académico no se duplicó', $conActa === $esperados, $conActa." de {$esperados}");
 
     $segunda->forceDelete(); // no dejar el borrador estorbando a la corrección
 
@@ -337,7 +337,7 @@ try {
     verificar('La corrección asienta la calificación nueva',
         (float) $corregido->calificacion === 6.3 && $corregido->estatus->clave === 'aprobada',
         (string) $corregido->calificacion);
-    verificar('La corrección se marca en observaciones del kárdex',
+    verificar('La corrección se marca en observaciones del historial académico',
         $corregido->observacion?->clave === 'correccion_calificacion', (string) $corregido->observacion?->clave);
     verificar('El acta original sigue existiendo y cerrada',
         $acta->fresh()->situacion === Acta::CERRADA);

@@ -190,7 +190,7 @@ class AlcanceDeLaEscalaTest extends TenantTestCase
      */
     private function carreraEnPantalla(int $carreraId): array
     {
-        $peticion = $this->peticionDe($this->usuarioConAlcance(), '/escolar/configuracion');
+        $peticion = $this->peticionDe($this->usuarioConAlcance(), '/escolar/configuraciones/calificaciones');
         $props = $this->propsDe($this->controlador->index($peticion), $peticion);
 
         $carrera = collect($props['carreras'])->firstWhere('id', $carreraId);
@@ -268,7 +268,7 @@ class AlcanceDeLaEscalaTest extends TenantTestCase
         float $aprobatoria = 6,
         ?ModoRedondeo $redondeo = null,
     ): Request {
-        $peticion = Request::create("/escolar/configuracion/planes/{$plan->id}", 'PUT', [
+        $peticion = Request::create("/escolar/configuraciones/calificaciones/planes/{$plan->id}", 'PUT', [
             'calificacion_minima' => 0,
             'calificacion_maxima' => 10,
             'calificacion_minima_aprobatoria' => $aprobatoria,

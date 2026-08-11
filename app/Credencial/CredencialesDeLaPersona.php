@@ -17,7 +17,7 @@ use Illuminate\Support\Collection;
  * ── Una credencial POR MATRÍCULA ───────────────────────────────────────────
  * Quien estudia dos carreras tiene dos, no una. No es una interpretación: es la
  * decisión de arquitectura del proyecto —«el alumno es la MATRÍCULA, no la
- * persona»— y ya se aplica en el kárdex, que es independiente por inscripción.
+ * persona»— y ya se aplica en el historial académico, que es independiente por inscripción.
  * En la escuela de ejemplo hay tres personas con dos matrículas activas a la
  * vez, así que el caso no es hipotético.
  *

@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 /**
- * El asentamiento del acta: el paso que convierte capturas en kárdex.
+ * El asentamiento del acta: el paso que convierte capturas en historial académico.
  *
  * Es la operación más delicada del módulo, porque a partir de aquí la
  * calificación deja de ser editable y pasa a ser historia escolar. Por eso:
@@ -30,7 +30,7 @@ use RuntimeException;
  *  - El folio se genera al CERRAR, no al abrir: un acta que se abandona sin
  *    capturar no debe quemar un número del consecutivo del archivo.
  *  - Corregir no es editar. Una corrección es un acta nueva que apunta a la
- *    original; los renglones de kárdex que aquella asentó se dan de baja
+ *    original; los renglones de historial académico que aquella asentó se dan de baja
  *    lógica (soft delete) y quedan trazables, nunca se sobreescriben.
  */
 class AsentadorActa
@@ -145,7 +145,7 @@ class AsentadorActa
         }
 
         // Una materia se asienta UNA vez. Un segundo cierre "ordinario"
-        // duplicaría los renglones del kárdex sin que nadie lo note: el alumno
+        // duplicaría los renglones del historial académico sin que nadie lo note: el alumno
         // aparecería dos veces en la misma materia. Volver a asentar solo se
         // permite por la vía de la corrección, que sí sustituye lo anterior.
         if ($acta->acta_origen_id === null && $this->yaHayActaCerrada($acta)) {
@@ -191,7 +191,7 @@ class AsentadorActa
     }
 
     /**
-     * Cierra el acta y vuelca las calificaciones al kárdex.
+     * Cierra el acta y vuelca las calificaciones al historial académico.
      *
      * @param  int  $personaId  El docente titular que firma.
      *
@@ -270,7 +270,7 @@ class AsentadorActa
 
     /**
      * Abre un acta de corrección sobre una ya cerrada. La original se conserva
-     * intacta; al cerrar la corrección, sus renglones de kárdex sustituyen a
+     * intacta; al cerrar la corrección, sus renglones de historial académico sustituyen a
      * los de aquella.
      */
     public function abrirCorreccion(Acta $original, string $motivo): Acta
@@ -331,7 +331,7 @@ class AsentadorActa
     }
 
     /**
-     * Un recursamiento se asienta como tal en el kárdex aunque el acta sea la
+     * Un recursamiento se asienta como tal en el historial académico aunque el acta sea la
      * ordinaria del grupo: el catálogo `tipos_evaluacion` distingue ambos y el
      * historial debe reflejar cómo se cursó realmente.
      */
@@ -353,7 +353,7 @@ class AsentadorActa
 
     /**
      * Un acta firmada después del límite de captura del ciclo se marca como
-     * extemporánea en el kárdex, y una corrección como corrección. Es lo que
+     * extemporánea en el historial académico, y una corrección como corrección. Es lo que
      * el catálogo `observaciones_historial` ya preveía.
      */
     private function observacionDelActa(Acta $acta, AsignaturaGrupo $materiaGrupo): ?int

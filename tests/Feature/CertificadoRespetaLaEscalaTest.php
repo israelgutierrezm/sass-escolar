@@ -18,7 +18,7 @@ use Tests\TenantTestCase;
  * ── Por qué esto es lo más grave de la familia ─────────────────────────────
  * El certificado electrónico se sella y se manda a la SEP. Calculaba su
  * promedio con dos decimales fijos, ignorando la escala del plan: una escuela
- * con plan de enteros veía un 8 en el expediente y en el kárdex, y su
+ * con plan de enteros veía un 8 en el expediente y en el historial académico, y su
  * certificado oficial decía 8.33. Dos documentos de la misma escuela que no
  * concuerdan, y el que vale es el que estaba mal.
  *

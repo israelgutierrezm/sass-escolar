@@ -58,7 +58,7 @@ return new class extends Migration
             $table->string('xml_path', 255)->nullable();
             // Foto de los datos académicos al momento de certificar (alumno,
             // plan, materias, promedio): el certificado no debe cambiar si
-            // después se toca el kárdex.
+            // después se toca el historial académico.
             $table->json('datos_json')->nullable();
             $table->timestamp('fecha_certificacion')->nullable();
             $table->string('error_mensaje', 255)->nullable();

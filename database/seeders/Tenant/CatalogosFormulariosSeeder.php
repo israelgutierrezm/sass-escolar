@@ -8,6 +8,7 @@ use App\Models\Formularios\FormularioObligatoriedad;
 use App\Models\Formularios\FormularioVisibilidad;
 use App\Models\Formularios\TipoAntecedenteAcademico;
 use App\Models\Formularios\TipoCampo;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
 
 /**
@@ -55,7 +56,7 @@ class CatalogosFormulariosSeeder extends Seeder
     }
 
     /**
-     * @param  class-string<\Illuminate\Database\Eloquent\Model>  $modelo
+     * @param  class-string<Model>  $modelo
      * @param  array<int, array{clave: string, nombre: string}>  $filas
      */
     private function sembrar(string $modelo, array $filas): void

@@ -52,7 +52,7 @@ const props = defineProps<{
         situacion: string | null;
         fecha_ingreso: string | null;
         generacion: string | null;
-        materias_en_kardex: number;
+        materias_en_historial: number;
         es_actual: boolean;
     }[];
     ofertasDisponibles: { id: number; etiqueta: string }[];
@@ -145,7 +145,7 @@ const props = defineProps<{
     };
 }>();
 
-const pestana = ref<'kardex' | 'carga' | 'carreras' | 'tutores' | 'facturacion' | 'datos' | 'titulacion'>('kardex');
+const pestana = ref<'historial' | 'carga' | 'carreras' | 'tutores' | 'facturacion' | 'datos' | 'titulacion'>('historial');
 
 // ── Datos del título por carrera (modalidad, servicio social, antecedente) ──
 const formModalidad = useForm({ ...props.datosTitulo.modalidad });
@@ -262,7 +262,7 @@ const cumple = computed(() => {
     return { dias, esHoy, edad: edadActual };
 });
 
-/* Carga manual al historial (equivalencias, revalidaciones, kárdex histórico) */
+/* Carga manual al historial (equivalencias, revalidaciones, historial académico histórico) */
 const mostrarCargaHistorial = ref(false);
 const opciones = (lista: { id: number; nombre: string }[]) => lista.map((x) => ({ valor: x.id, texto: x.nombre }));
 
@@ -546,9 +546,9 @@ function fondoCalificacion(r: Renglon): string {
     return `color-mix(in srgb, ${colorCalificacion(r)} 12%, transparent)`;
 }
 
-// El kárdex agrupado por periodo (grado) del plan, con las estadísticas de cada
+// El historial académico agrupado por periodo (grado) del plan, con las estadísticas de cada
 // bloque: cuántas materias, créditos aprobados y promedio del periodo. Es la
-// forma en que se lee un kárdex —por semestre/cuatrimestre—, no como lista plana.
+// forma en que se lee un historial académico —por semestre/cuatrimestre—, no como lista plana.
 const historialPorPeriodo = computed(() => {
     const grupos = new Map<number, Renglon[]>();
 
@@ -782,7 +782,7 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                     <!-- Confirmar la baja lleva ETIQUETA, no un bote de basura:
                          es el botón principal de este mini formulario y hay que
                          leer qué se confirma. Además no borra nada —cambia el
-                         estatus y conserva el kárdex—, así que el icono de
+                         estatus y conserva el historial académico—, así que el icono de
                          eliminar diría algo falso. -->
                     <button
                         type="button"
@@ -986,7 +986,7 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
         <!-- Pestañas -->
         <PestanasPagina
             :pestanas="[
-                { clave: 'kardex', etiqueta: 'Kárdex' },
+                { clave: 'historial', etiqueta: 'Historial académico' },
                 { clave: 'carga', etiqueta: 'Carga por ciclo' },
                 { clave: 'carreras', etiqueta: `Carreras (${carreras.length})` },
                 { clave: 'tutores', etiqueta: `Padres/tutores (${tutores.length})` },
@@ -1014,15 +1014,15 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
             />
         </section>
 
-        <!-- Kárdex -->
-        <section v-if="pestana === 'kardex'" class="space-y-4">
+        <!-- Historial académico -->
+        <section v-if="pestana === 'historial'" class="space-y-4">
             <!-- Carga manual al historial (equivalencias, revalidaciones, histórico). -->
             <div v-if="puedeCargarHistorial" class="tarjeta p-6">
                 <div class="flex items-start justify-between gap-4">
                     <div>
                         <h3 class="text-base font-semibold">Agregar materia al historial</h3>
                         <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                            Para equivalencias, revalidaciones o kárdex histórico de otra institución. Se carga directo, sin acta.
+                            Para equivalencias, revalidaciones o historial académico histórico de otra institución. Se carga directo, sin acta.
                         </p>
                     </div>
                     <BotonAccion v-if="!mostrarCargaHistorial" variante="nuevo" texto="Agregar" @click="mostrarCargaHistorial = true" />
@@ -1207,7 +1207,7 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
             </div>
 
             <p v-else class="tarjeta px-6 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
-                Sin materias asentadas en el kárdex todavía.
+                Sin materias asentadas en el historial académico todavía.
             </p>
         </section>
 
@@ -1279,7 +1279,7 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                             <span v-if="carrera.generacion"> · generación {{ carrera.generacion }}</span>
                         </p>
                         <p class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">
-                            Ingresó {{ carrera.fecha_ingreso }} · {{ carrera.materias_en_kardex }} materias en kárdex
+                            Ingresó {{ carrera.fecha_ingreso }} · {{ carrera.materias_en_historial }} materias en historial académico
                         </p>
                     </div>
 
@@ -1343,7 +1343,7 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                         Cancelar
                     </button>
                     <p class="w-full text-xs" :style="{ color: 'var(--color-suave)' }">
-                        Su kárdex se conserva; la matrícula solo deja de estar activa.
+                        Su historial académico se conserva; la matrícula solo deja de estar activa.
                     </p>
                 </div>
             </article>
@@ -1409,7 +1409,7 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
             </section>
 
             <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                Una matrícula no se elimina: su kárdex es historia escolar y las actas donde aparece
+                Una matrícula no se elimina: su historial académico es historia escolar y las actas donde aparece
                 quedarían sin dueño. Se da de baja.
             </p>
         </section>

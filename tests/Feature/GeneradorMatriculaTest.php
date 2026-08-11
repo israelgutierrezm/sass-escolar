@@ -15,7 +15,7 @@ use Tests\TenantTestCase;
 /**
  * La matrícula del alumno.
  *
- * Es su identificador para toda la vida escolar: aparece en el kárdex, en el
+ * Es su identificador para toda la vida escolar: aparece en el historial académico, en el
  * certificado y en el título. Dos alumnos con la misma matrícula es un daño que
  * no se puede reparar sin tocar documentos ya emitidos, así que el consecutivo
  * se toma con un incremento atómico y no con un MAX()+1.

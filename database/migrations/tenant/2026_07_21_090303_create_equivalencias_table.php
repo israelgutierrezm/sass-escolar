@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * equivalencias (TENANT) — materias reconocidas de otra institución. Forman
- * parte del kárdex pero su origen es externo, por eso van aparte del historial.
+ * parte del historial académico pero su origen es externo, por eso van aparte del historial.
  */
 return new class extends Migration
 {

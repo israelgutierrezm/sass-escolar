@@ -64,7 +64,7 @@ return new class extends Migration
             // Ruta del XML de título firmado en el disco privado del tenant.
             $table->string('xml_path', 255)->nullable();
             // Foto de los datos académicos al momento de titular (no debe cambiar
-            // si después se toca el kárdex).
+            // si después se toca el historial académico).
             $table->json('datos_json')->nullable();
             $table->timestamp('fecha_titulacion')->nullable();
             $table->string('error_mensaje', 255)->nullable();

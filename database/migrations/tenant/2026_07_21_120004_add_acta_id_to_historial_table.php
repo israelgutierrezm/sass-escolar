@@ -7,13 +7,13 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Liga el kárdex con el acta de la que salió.
+ * Liga el historial académico con el acta de la que salió.
  *
  * `acta_folio` (spec) se queda: es la cadena que se imprime y por la que
  * pregunta control escolar. `acta_id` es la FK real, la que permite navegar
- * del renglón del kárdex al acta completa y a su cadena de correcciones.
+ * del renglón del historial académico al acta completa y a su cadena de correcciones.
  *
- * Nullable porque no todo lo que entra al kárdex viene de un acta: una
+ * Nullable porque no todo lo que entra al historial académico viene de un acta: una
  * revalidación o una equivalencia se asientan por dictamen.
  */
 return new class extends Migration

@@ -57,7 +57,7 @@ function corregir(f: Fila): void {
 
     guardando.value = f.id;
 
-    router.put(`/escolar/configuracion/historial/${f.id}`, { calificacion: valor }, {
+    router.put(`/escolar/configuraciones/calificaciones/historial/${f.id}`, { calificacion: valor }, {
         preserveScroll: true,
         onFinish: () => { guardando.value = null; },
     });
@@ -68,7 +68,7 @@ function corregir(f: Fila): void {
     <Head title="Calificaciones fuera de escala" />
 
     <AppLayout titulo="Calificaciones fuera de escala">
-        <BotonVolver href="/escolar/configuracion" texto="Configuración" />
+        <BotonVolver href="/escolar/configuraciones/calificaciones" texto="Calificaciones" />
 
         <div class="tarjeta mb-4 px-6 py-4">
             <h2 class="font-semibold">{{ plan.carrera }} · {{ plan.nombre }}</h2>

@@ -7,14 +7,14 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * historial (TENANT) — el kárdex.
+ * historial (TENANT) — el historial académico.
  *
  * Cuelga de `matricula_oferta`, no de un alumno genérico: así el historial de
  * la licenciatura no se mezcla con el de la maestría de la misma persona.
  * Soporta ordinaria / extraordinaria / revalidación / recursamiento y más vía
  * el catálogo `tipos_evaluacion`.
  *
- * `asignatura_grupo_id` es nullable porque una materia puede llegar al kárdex
+ * `asignatura_grupo_id` es nullable porque una materia puede llegar al historial académico
  * sin haberse cursado en un grupo (revalidación, equivalencia, examen a
  * título). `acta_folio` guarda el folio donde se asentó.
  */

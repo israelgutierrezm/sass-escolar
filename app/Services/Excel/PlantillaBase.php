@@ -16,7 +16,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
  * Helpers compartidos para generar plantillas de carga masiva en Excel: hoja de
  * captura con encabezados pintados y desplegables validados, hoja de listas
  * oculta, instrucciones y guardado. Cada plantilla concreta (docentes, alumnos,
- * kárdex) arma sus hojas con estos ladrillos.
+ * historial académico) arma sus hojas con estos ladrillos.
  */
 abstract class PlantillaBase
 {

@@ -21,7 +21,7 @@ use Inertia\Response as Pantalla;
  * La credencial de quien está en sesión.
  *
  * ── No recibe id de nadie ─────────────────────────────────────────────────
- * La persona sale de la SESIÓN, igual que en `/mi-kardex`: la ruta no lleva
+ * La persona sale de la SESIÓN, igual que en `/mi-historial`: la ruta no lleva
  * identificador, así que no existe siquiera dónde escribir el de otro. Quien
  * estudia dos carreras elige entre LAS SUYAS, y la elección se busca en esa
  * misma lista — una clave ajena no encuentra pareja y cae a la primera propia.

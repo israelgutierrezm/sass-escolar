@@ -19,11 +19,11 @@ use Tests\TenantTestCase;
  * El asentamiento del acta: donde una captura se vuelve historia escolar.
  *
  * Es la operación más delicada del sistema. A partir de aquí la calificación
- * deja de ser editable, viaja al kárdex y de ahí al certificado; y el acta se
+ * deja de ser editable, viaja al historial académico y de ahí al certificado; y el acta se
  * imprime y se firma, así que su folio tiene que ser único de verdad.
  *
  * Lo que se comprueba, sobre todo, es lo que impide asentar: un acta cerrada
- * con capturas incompletas produce un kárdex que nadie puede reconstruir.
+ * con capturas incompletas produce un historial académico que nadie puede reconstruir.
  */
 class AsentadorActaTest extends TenantTestCase
 {
@@ -37,7 +37,7 @@ class AsentadorActaTest extends TenantTestCase
 
         $this->asentador = app(AsentadorActa::class);
 
-        // El kárdex necesita saber qué es aprobar: son los dos estatus que el
+        // El historial académico necesita saber qué es aprobar: son los dos estatus que el
         // servicio busca por clave.
         $this->situacionCon('estatus_historial', 'aprobada');
         $this->situacionCon('estatus_historial', 'reprobada');
@@ -60,7 +60,7 @@ class AsentadorActaTest extends TenantTestCase
         $this->assertSame(['No hay alumnos inscritos que calificar.'], $this->asentador->impedimentos($caso['acta']));
     }
 
-    /** Vale más una materia sin acta que un kárdex con números irreproducibles. */
+    /** Vale más una materia sin acta que un historial académico con números irreproducibles. */
     public function test_un_esquema_que_no_suma_cien_impide_cerrar(): void
     {
         $caso = $this->materiaConAlumno(porcentajes: [40, 40]);
@@ -71,7 +71,7 @@ class AsentadorActaTest extends TenantTestCase
         $this->assertStringContainsString('80%', implode(' ', $impedimentos));
     }
 
-    public function test_al_cerrar_se_vuelca_el_kardex_con_folio(): void
+    public function test_al_cerrar_se_vuelca_el_historial_con_folio(): void
     {
         $caso = $this->materiaConAlumno();
         $this->capturar($caso, [8, 10]);
@@ -90,7 +90,7 @@ class AsentadorActaTest extends TenantTestCase
         $this->assertSame('9.00', Inscripcion::findOrFail($caso['inscripcion'])->calificacion_final);
     }
 
-    public function test_el_estatus_del_kardex_sale_de_la_minima_del_plan(): void
+    public function test_el_estatus_del_historial_sale_de_la_minima_del_plan(): void
     {
         $caso = $this->materiaConAlumno();
         // 4 y 6 dan 5: por debajo de la mínima (6) del plan de prueba.
@@ -105,7 +105,7 @@ class AsentadorActaTest extends TenantTestCase
 
     /**
      * Una materia se asienta UNA vez. Un segundo cierre duplicaría los
-     * renglones del kárdex sin que nadie lo note: el alumno aparecería dos
+     * renglones del historial académico sin que nadie lo note: el alumno aparecería dos
      * veces en la misma materia.
      */
     public function test_no_se_asienta_dos_veces_la_misma_materia(): void
@@ -182,7 +182,7 @@ class AsentadorActaTest extends TenantTestCase
         $this->assertSame($primera->id, $segunda->id);
     }
 
-    /** Una baja dejó de cursar: no entra al acta ni al kárdex. */
+    /** Una baja dejó de cursar: no entra al acta ni al historial académico. */
     public function test_un_alumno_dado_de_baja_no_se_califica(): void
     {
         $caso = $this->materiaConAlumno();

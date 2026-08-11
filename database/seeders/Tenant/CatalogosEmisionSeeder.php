@@ -7,6 +7,7 @@ namespace Database\Seeders\Tenant;
 use App\Models\Emision\Cargo;
 use App\Models\Emision\TipoResponsable;
 use App\Models\Emision\TituloProfesional;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
 
 /**
@@ -57,7 +58,7 @@ class CatalogosEmisionSeeder extends Seeder
     /**
      * Siembra un catálogo con id explícito (= referencia estable) y protegido.
      *
-     * @param  class-string<\Illuminate\Database\Eloquent\Model>  $modelo
+     * @param  class-string<Model>  $modelo
      * @param  array<int, array{0: int, 1: string, 2: string}>  $filas  [id, clave, nombre]
      */
     private function fijos(string $modelo, array $filas): void

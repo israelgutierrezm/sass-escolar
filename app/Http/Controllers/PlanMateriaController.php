@@ -30,7 +30,7 @@ use Inertia\Response;
  * del catálogo— sus créditos.
  *
  * Todo lo demás del sistema cuelga de aquí: los grupos abren una plan_materia,
- * el kárdex registra plan_materias y la seriación se define entre ellas.
+ * el historial académico registra plan_materias y la seriación se define entre ellas.
  */
 class PlanMateriaController extends Controller
 {

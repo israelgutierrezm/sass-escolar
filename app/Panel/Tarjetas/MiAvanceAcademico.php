@@ -30,7 +30,7 @@ class MiAvanceAcademico implements TarjetaPanel
 
     public function permiso(): ?string
     {
-        return 'ver-kardex';
+        return 'ver-historial-academico';
     }
 
     public function tipo(): string
@@ -55,14 +55,14 @@ class MiAvanceAcademico implements TarjetaPanel
             ->where('persona_id', $usuario->persona_id)
             ->get();
 
-        // Tener `ver-kardex` no te hace alumno: control escolar también lo
+        // Tener `ver-historial-academico` no te hace alumno: control escolar también lo
         // tiene. Sin matrículas propias, esta tarjeta no le toca.
         if ($matriculas->isEmpty()) {
             return null;
         }
 
         $renglones = $matriculas->map(function (MatriculaOferta $m) {
-            $kardex = Historial::query()
+            $historial = Historial::query()
                 ->where('matricula_oferta_id', $m->id)
                 ->selectRaw('count(*) as materias')
                 ->selectRaw('sum(case when calificacion is not null then 1 else 0 end) as calificadas')
@@ -79,13 +79,13 @@ class MiAvanceAcademico implements TarjetaPanel
                 // El promedio NO cuenta lo que no tiene calificación: una
                 // materia en curso no promedia como cero, o inscribirse bajaría
                 // el promedio, que es exactamente al revés.
-                'valor' => $kardex?->promedio !== null
-                    ? 'Promedio '.number_format((float) $kardex->promedio, 1)
+                'valor' => $historial?->promedio !== null
+                    ? 'Promedio '.number_format((float) $historial->promedio, 1)
                     : 'Sin calificaciones aún',
                 'progreso' => $totales > 0
                     ? min(100, (int) round(($this->creditosAprobados($m) / $totales) * 100))
                     : null,
-                'pie' => (int) ($kardex?->materias ?? 0).' materias en kárdex',
+                'pie' => (int) ($historial?->materias ?? 0).' materias en historial académico',
             ];
         })->values()->all();
 
@@ -94,7 +94,7 @@ class MiAvanceAcademico implements TarjetaPanel
 
     /**
      * Créditos de las materias APROBADAS. Se suman de `plan_materias`, que es
-     * donde vive el valor curricular; el kárdex solo dice qué se aprobó.
+     * donde vive el valor curricular; el historial académico solo dice qué se aprobó.
      */
     private function creditosAprobados(MatriculaOferta $matricula): float
     {

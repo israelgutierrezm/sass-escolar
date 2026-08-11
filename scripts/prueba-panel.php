@@ -132,8 +132,8 @@ try {
     verificar('Sí ve sus accesos directos', in_array('accesos', $delDocente, true),
         implode(', ', $delDocente));
 
-    // Tiene `ver-kardex`, pero NO es alumno: la tarjeta no debe salir vacía.
-    verificar('Tiene ver-kardex…', $usuarioDocente->can('ver-kardex'));
+    // Tiene `ver-historial-academico`, pero NO es alumno: la tarjeta no debe salir vacía.
+    verificar('Tiene ver-historial-academico…', $usuarioDocente->can('ver-historial-academico'));
     verificar('…y aun así NO ve "mi avance": no es alumno de nada',
         ! in_array('mi-avance', $delDocente, true));
 

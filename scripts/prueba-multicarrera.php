@@ -142,7 +142,7 @@ try {
 
         $matriculador->darDeBaja($segunda, $definitiva?->id);
 
-        verificar('El kárdex sobrevive a la baja',
+        verificar('El historial académico sobrevive a la baja',
             Historial::where('matricula_oferta_id', $segunda->id)->count() === 1);
         verificar('La matrícula sigue existiendo, solo cambió de estado',
             MatriculaOferta::find($segunda->id) !== null);

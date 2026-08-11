@@ -103,11 +103,11 @@ export const CATALOGO_MENU: GrupoMenu[] = [
         icono: 'M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25',
         hijos: [
             { clave: 'mis-cursos-listado', etiqueta: 'Mis cursos', url: '/mis-cursos', permiso: 'ver-mis-cursos' },
-            // Su historial académico completo. `ver-kardex` lo tenía el rol
+            // Su historial académico completo. `ver-historial-academico` lo tenía el rol
             // alumno desde siempre, pero sin ninguna entrada en el menú: el
-            // único kárdex del sistema estaba dentro del expediente de control
+            // único historial académico del sistema estaba dentro del expediente de control
             // escolar, que exige un permiso de personal administrativo.
-            { clave: 'mi-kardex', etiqueta: 'Mi kárdex', url: '/mi-kardex', permiso: 'ver-kardex' },
+            { clave: 'mi-historial', etiqueta: 'Mi historial académico', url: '/mi-historial', permiso: 'ver-historial-academico' },
             { clave: 'mi-expediente-alumno', etiqueta: 'Mi expediente', url: '/mi-expediente', permiso: 'editar-mi-expediente-alumno' },
         ],
     },
@@ -181,7 +181,19 @@ export const CATALOGO_MENU: GrupoMenu[] = [
             { clave: 'grupos', etiqueta: 'Grupos', url: '/escolar/grupos', permiso: 'ver-grupos' },
             { clave: 'horarios', etiqueta: 'Horarios', url: '/escolar/horarios', permiso: 'editar-horarios' },
             { clave: 'reglas-horario', etiqueta: 'Reglas de horario', url: '/escolar/reglas-horario', permiso: 'generar-horarios' },
-            { clave: 'configuracion-escolar', etiqueta: 'Configuración', url: '/escolar/configuracion', permiso: 'ver-catalogo-academico' },
+            // En PLURAL y como grupo: aquí no se configura «la configuración»,
+            // se configuran varias cosas de control escolar. Era una opción
+            // suelta llamada «Configuración» que en realidad sólo llevaba a la
+            // escala de calificación, así que el siguiente ajuste no tenía
+            // dónde ponerse sin disputarle el nombre.
+            {
+                clave: 'configuraciones-escolares',
+                etiqueta: 'Configuraciones',
+                prefijo: '/escolar/configuraciones',
+                hijos: [
+                    { clave: 'config-calificaciones', etiqueta: 'Calificaciones', url: '/escolar/configuraciones/calificaciones', permiso: 'ver-catalogo-academico' },
+                ],
+            },
             // Va después de Grupos porque se inscribe EN un grupo, y antes se
             // llegaba sólo entrando primero a uno.
             { clave: 'inscripcion-masiva', etiqueta: 'Inscripción masiva', url: '/escolar/inscripciones/masiva', permiso: 'inscribir-alumnos' },

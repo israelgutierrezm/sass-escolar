@@ -129,7 +129,7 @@ const ICONO_USUARIOS =
                         Una cuenta cuelga de una <strong>persona</strong>, no la reemplaza. Si das de alta
                         a alguien que ya está en el directorio —se busca por CURP— se le agregan
                         credenciales sin duplicarlo: quien entra como docente pudo haber sido alumno, y
-                        duplicarlo rompería su kárdex y su expediente.
+                        duplicarlo rompería su historial académico y su expediente.
                     </p>
                     <p class="mt-2 text-sm" :style="{ color: 'var(--color-suave)' }">
                         Una misma persona puede tener varios roles y conmutar entre ellos. Lo que un rol

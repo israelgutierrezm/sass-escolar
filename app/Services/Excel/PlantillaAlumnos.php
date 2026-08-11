@@ -13,7 +13,7 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
 /**
  * Plantilla de carga masiva de alumnos, en dos variantes: solo alumnos, o
- * alumnos con calificaciones (agrega una hoja «Calificaciones» para el kárdex).
+ * alumnos con calificaciones (agrega una hoja «Calificaciones» para el historial académico).
  */
 class PlantillaAlumnos extends PlantillaBase
 {

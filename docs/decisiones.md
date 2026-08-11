@@ -399,7 +399,7 @@ cliente antes de escribir código, según la regla del proyecto.
     algo que una escuela deba renombrar. Mismo criterio que `inscripcion.tipo`.
   - **Corregir no es editar.** Una calificación asentada no se toca: se emite
     un acta de corrección (`acta_origen_id`), y al firmarla los renglones de
-    kárdex de la original se dan de baja lógica y se asientan los nuevos. Ambas
+    historial académico de la original se dan de baja lógica y se asientan los nuevos. Ambas
     actas quedan. Es lo que ya insinuaba `observaciones_historial` con
     "Corrección de calificación".
   - `contadores_acta` repite el patrón de `contadores_matricula`, **incluida la
@@ -436,18 +436,18 @@ cliente antes de escribir código, según la regla del proyecto.
   si la materia ya tiene otra cerrada del mismo tipo de evaluación. Reasentar
   solo se hace por la vía de la corrección, que sí sustituye lo anterior.
 - **Razón (bug real detectado en la prueba por HTTP):** sin esa regla se podía
-  firmar una segunda acta ordinaria sobre la misma materia-grupo y el kárdex
+  firmar una segunda acta ordinaria sobre la misma materia-grupo y el historial académico
   quedaba con el alumno DUPLICADO en la misma materia, sin ningún aviso. La
   captura ya estaba protegida; el cierre no. Caso agregado a la suite de
   regresión (`scripts/prueba-actas.php`, sección 5b).
 
 ### Otras reglas del motor de cálculo
 - Si los porcentajes del `esquema_evaluacion` no suman 100, NO se calcula nada
-  y se reporta el motivo. Vale más una materia sin calificación que un kárdex
+  y se reporta el motivo. Vale más una materia sin calificación que un historial académico
   con números que nadie puede reproducir.
 - Aprobado lo define `planes_estudio.calificacion_minima_aprobatoria`, no una
   constante: cada plan tiene su escala.
-- Un recursamiento se asienta en el kárdex con `tipos_evaluacion` =
+- Un recursamiento se asienta en el historial académico con `tipos_evaluacion` =
   recursamiento aunque el acta del grupo sea la ordinaria.
 - Un acta firmada después de `ciclos.captura_calif_hasta` marca el renglón como
   `acta_extemporanea`; no se bloquea (la escuela sabrá por qué se atrasó).
@@ -774,7 +774,7 @@ acotada.
 - **Decisión:** el listado y el expediente cuelgan de `matricula_oferta`, no de
   `personas`. La búsqueda devuelve matrículas.
 - **Razón:** la misma persona puede cursar una licenciatura y una maestría, y
-  cada una tiene su matrícula, su kárdex y su situación. Quien busca en control
+  cada una tiene su matrícula, su historial académico y su situación. Quien busca en control
   escolar busca una matrícula concreta, no "a la persona". El expediente lista
   las OTRAS matrículas de esa persona con enlace, que es como se navega entre
   ellas.
@@ -806,7 +806,7 @@ acotada.
   comodín, o a una columna de búsqueda normalizada.
 
 ### El promedio no cuenta lo que no tiene calificación
-- **Decisión:** `resumen.promedio` solo promedia los renglones del kárdex con
+- **Decisión:** `resumen.promedio` solo promedia los renglones del historial académico con
   número. Una materia en curso no promedia como cero.
 - **Razón:** lo contrario haría que el promedio bajara al inscribirse, que es
   exactamente al revés de lo que significa.
@@ -819,7 +819,7 @@ acotada.
   del alta NO pisan lo que ya estaba.
 - **Razón:** mismo principio de cero recaptura que en admisiones. Quien entra
   como docente pudo haber sido alumno, ser tutor de alguien o haber estado dado
-  de alta antes; duplicar la persona rompe el kárdex, los roles y el expediente
+  de alta antes; duplicar la persona rompe el historial académico, los roles y el expediente
   que ya tuviera.
 - `docentes` tiene PK `persona_id`, así que la reutilización es literal: el
   docente ES esa persona.
@@ -840,7 +840,7 @@ acotada.
 ### Dar de baja no es borrar
 - **Decisión:** un docente con materias asignadas no se elimina; se cambia su
   situación a baja.
-- **Razón:** firmó actas y su nombre aparece en el kárdex de sus alumnos.
+- **Razón:** firmó actas y su nombre aparece en el historial académico de sus alumnos.
   Borrarlo dejaría esas actas sin responsable.
 
 ### Qué edita cada quien sobre el mismo docente
@@ -935,15 +935,15 @@ acotada.
 
 ### No se elimina una matrícula
 - **Decisión:** solo baja y reactivación.
-- **Razón:** su kárdex es historia escolar y las actas donde aparece quedarían
+- **Razón:** su historial académico es historia escolar y las actas donde aparece quedarían
   sin dueño. Verificado en la suite: se asienta una materia, se da de baja, y el
-  kárdex sigue ahí.
+  historial académico sigue ahí.
 - La opción de "eliminar la cargada por error" se descartó por ahora; si se
-  retoma, tendría que restringirse a matrículas sin kárdex ni pagos.
+  retoma, tendría que restringirse a matrículas sin historial académico ni pagos.
 
 ### Corregir la identidad alcanza a todas las matrículas
 - Ya era así, pero ahora se ve: la pestaña "Carreras" lista todas con su
-  estatus, situación, generación y cuántas materias llevan en kárdex, y la
+  estatus, situación, generación y cuántas materias llevan en historial académico, y la
   pantalla rotula qué cambia a una y qué a todas.
 
 ## 2026-07-21 — Catálogo de documentos con ámbito (bloque C)
@@ -1852,7 +1852,7 @@ roles que trae el sistema pasan a ser datos borrables y no la estructura.
 1. **No tiene el permiso** — no le toca verla.
 2. **Lo tiene, pero la tarjeta devolvió null** — le toca, pero no aplica a él.
 - El segundo caso es el importante y no es teórico: control escolar tiene
-  `ver-kardex` y no es alumno de nada, así que «Mi avance» le saldría vacío.
+  `ver-historial-academico` y no es alumno de nada, así que «Mi avance» le saldría vacío.
   Un alumno tiene `ver-adeudos` para lo suyo y no debe ver la cartera de la
   escuela, así que esa tarjeta pide además un permiso de operación
   (`registrar-pagos` o `gestionar-planes-cobro`). Ambos casos están en la suite.
@@ -2117,7 +2117,7 @@ Tenía razón y era un agujero de diseño, no un detalle de pantalla.
 - Los que aparecen en VARIAS facetas es porque el oficio de verdad se comparte:
   `capturar-calificaciones` y `asentar-acta` son de administrativo Y de docente
   —control escolar captura en nombre del docente ausente, y eso ya era una
-  decisión tomada—; `ver-kardex` lo consultan cinco perfiles sobre alcances
+  decisión tomada—; `ver-historial-academico` lo consultan cinco perfiles sobre alcances
   distintos.
 - El ámbito de un rol es el de su FACETA, no el suyo: un «auxiliar de
   admisiones» hereda el ámbito de `administrativo`.
@@ -2138,7 +2138,7 @@ Tenía razón y era un agujero de diseño, no un detalle de pantalla.
   demo. Es lo primero que hace falta al poner el sistema en manos de una escuela.
 - La cuenta cuelga de una PERSONA y no la reemplaza. Al dar de alta se busca por
   CURP y se reutiliza: quien entra como docente pudo haber sido alumno, y
-  duplicarlo rompería su kárdex, sus roles y su expediente. Misma regla de cero
+  duplicarlo rompería su historial académico, sus roles y su expediente. Misma regla de cero
   recaptura que el resto del sistema.
 - Los roles se ofrecen **agrupados por faceta**, que es lo que hace evidente que
   dar «Docente» y dar «Encargado de admisiones» son decisiones de distinta

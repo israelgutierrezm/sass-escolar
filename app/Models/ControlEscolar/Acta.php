@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * actas (TENANT) — el acta de calificaciones de una materia-grupo.
  *
  * Nace ABIERTA al empezar a capturar y se CIERRA cuando el titular la firma:
- * ese cierre es el que vuelca las calificaciones al kárdex. Una vez cerrada no
+ * ese cierre es el que vuelca las calificaciones al historial académico. Una vez cerrada no
  * se toca; para corregir se emite otra acta con `acta_origen_id` apuntando a
  * esta.
  */
@@ -77,7 +77,7 @@ class Acta extends Model
         return $this->hasMany(self::class, 'acta_origen_id');
     }
 
-    /** Los renglones del kárdex que asentó. */
+    /** Los renglones del historial académico que asentó. */
     public function historial(): HasMany
     {
         return $this->hasMany(Historial::class, 'acta_id');

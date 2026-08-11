@@ -16,7 +16,7 @@ use PHPUnit\Framework\TestCase;
  * La calificación final de un alumno en una materia.
  *
  * Es de lo poco en el sistema que no se puede corregir a la ligera: una vez
- * asentada el acta, el número va al kárdex y de ahí al certificado. Las tres
+ * asentada el acta, el número va al historial académico y de ahí al certificado. Las tres
  * reglas que se comprueban aquí son las que impiden que un descuido se
  * convierta en una materia reprobada.
  *
@@ -79,7 +79,7 @@ class CalculadoraCalificacionTest extends TestCase
     }
 
     /**
-     * Vale más una materia sin calificación que un kárdex con números que nadie
+     * Vale más una materia sin calificación que un historial académico con números que nadie
      * puede reproducir.
      */
     public function test_si_el_esquema_no_suma_cien_no_se_calcula(): void

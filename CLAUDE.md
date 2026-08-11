@@ -80,8 +80,8 @@ Cinco entregas, en este orden. A y B ✅ hechas; C, D y E pendientes:
   permiso configure todo antes de que existan registros»).
 - ✅ Resuelto para el ASPIRANTE: `/mi-solicitud` ya existe, así que el modo
   «inscripción autogestiva» del formulario público tiene a dónde entrar.
-- ✅ Resuelto para el ALUMNO: además de `/mis-cursos`, ya tiene su **kárdex**
-  en `/mi-kardex`. Su **estado de cuenta** resultó que YA existía —`ver-adeudos`
+- ✅ Resuelto para el ALUMNO: además de `/mis-cursos`, ya tiene su **historial académico**
+  en `/mi-historial`. Su **estado de cuenta** resultó que YA existía —`ver-adeudos`
   es de la faceta alumno y `VeLaCarteraDelAlumno` lo acota a sus matrículas—:
   entra por `/finanzas` y `/finanzas/cuentas/{matricula}`, y la de otra persona
   le responde 403. Se comprobó antes de construir nada.
@@ -120,10 +120,10 @@ Cinco entregas, en este orden. A y B ✅ hechas; C, D y E pendientes:
   tema de la escuela → tema del usuario → `usuario_tema_override`.
 - **La calificación asentada no se edita.** Un acta cerrada es historia
   escolar: para cambiar un número se emite un **acta de corrección**
-  (`actas.acta_origen_id`) que da de baja lógica los renglones de kárdex de la
+  (`actas.acta_origen_id`) que da de baja lógica los renglones de historial académico de la
   original y asienta los nuevos. Ambas actas se conservan. Y una materia se
   asienta **una sola vez**: un segundo cierre ordinario duplicaría al alumno en
-  su kárdex.
+  su historial académico.
 - **NULL no es cero en la captura.** Un componente sin capturar deja la
   calificación incompleta y bloquea el cierre del acta; nunca se pondera como
   0. Un cero es una calificación; un NULL es que el docente no llegó ahí.
@@ -231,7 +231,7 @@ Cinco entregas, en este orden. A y B ✅ hechas; C, D y E pendientes:
   rechaza `localhost`, así que un `$this->get('/mi-credencial')` devuelve 404 sin
   haber entrado nunca al controlador — y ese 404 se confunde con el que la
   pantalla devuelve a propósito. Se invoca al controlador con `peticionDe()`,
-  como hacen `MiKardexTest` y las demás.
+  como hacen `MiHistorialTest` y las demás.
 - **Una ruta que sirven DOS oficios no puede colgar del permiso de uno.** La
   descarga de un adjunto de entrega estaba bajo `can:ver-mis-cursos` con el
   resto del portal del alumno; el controlador sí contemplaba al docente, pero el
@@ -327,7 +327,7 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   firma del acta y acta de corrección.
 - **Portal del docente** (`/docencia`) y **catálogo administrativo de docentes**
   (`/escolar/docentes`) con revisión de su expediente; **gestión de alumnos**
-  (`/escolar/alumnos`) con búsqueda, kárdex y edición.
+  (`/escolar/alumnos`) con búsqueda, historial académico y edición.
 - **Aclaraciones del cliente sobre operación escolar** (cuatro bloques):
   ciclo multi-campus con alcance por rol; plantillas de evaluación
   reutilizables (`/academico/plantillas`) con reparto equitativo; calendario
@@ -349,7 +349,7 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     `FotoPersonaController` (son datos personales; nunca `public/`).
   - **Multicarrera**: una alumna con dos programas se ve como dos
     `matricula_oferta` de la misma persona, con alta, baja (preguntando cuál
-    situación de baja) y kárdex independiente por cada una.
+    situación de baja) y historial académico independiente por cada una.
   - **Documentos requeridos con ámbito** (`documento_ambitos`): el expediente
     del docente ya no ofrece papeles de aspirante. Los administradores validan
     o rechazan; alumnos y tutores sólo suben.
@@ -687,11 +687,11 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   - Requirió antes reparar el único de `adeudos`; ver la trampa de la columna
     soltada. Lo cubren 6 pruebas, incluidas las dos líneas del mismo mes y el
     plan roto.
-- **Kárdex del alumno** (`/mi-kardex`): `ver-kardex` lo tenía el rol alumno
-  desde siempre, pero el único kárdex del sistema vivía dentro del expediente de
+- **Historial académico del alumno** (`/mi-historial`): `ver-historial-academico` lo tenía el rol alumno
+  desde siempre, pero el único historial académico del sistema vivía dentro del expediente de
   control escolar, detrás de `ver-alumnos` —permiso de personal que abre el
   listado de TODA la escuela—. Un permiso concedido sin puerta por donde entrar.
-  - El cálculo se extrajo a **`App\Services\KardexDelAlumno`** y AHORA LO USAN
+  - El cálculo se extrajo a **`App\Services\HistorialDelAlumno`** y AHORA LO USAN
     LOS DOS: control escolar y el portal. No es una consulta, son tres
     decisiones de dominio —qué renglones cuentan para los totales (el MEJOR
     intento por materia, no todos), qué se considera «en curso» y cómo se
@@ -712,7 +712,7 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     desaparecía —créditos «148» sin el «de 336»— y el promedio se redondeaba con
     la regla por omisión en vez de la del plan. No falla ni avisa: sólo dice
     otro número. Se vio comparando el resumen de la pantalla contra el del
-    servicio; lo fija `MiKardexTest`.
+    servicio; lo fija `MiHistorialTest`.
 - **Asistencia con dos columnas de faltas**: la rejilla está recortada al mes,
   así que su total contesta «¿cómo le fue en noviembre?». Lo que decide el
   derecho a examen es el acumulado del curso, y había que ir mes por mes
@@ -728,7 +728,7 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     credencial de docente atada a «Licenciatura» no la elegiría nunca nadie y
     quedaría configurada para siempre sin emitirse.
   - **Una credencial por MATRÍCULA**: quien estudia dos carreras tiene dos, con
-    su propio QR cada una. Misma decisión que el kárdex.
+    su propio QR cada una. Misma decisión que el historial académico.
   - **Las cajas se arrastran** sobre el lienzo y se guardan en PORCENTAJE, así
     que el mapa sobrevive a cambiar el tamaño. El fondo del editor lo **dibuja
     el servidor** —el mismo diseño o machote real, pedido sin campos—: imitarlo

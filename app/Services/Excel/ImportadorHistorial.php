@@ -15,12 +15,12 @@ use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
 /**
- * Carga masiva de kárdex para un plan: por cada fila (matrícula, materia,
+ * Carga masiva de historial académico para un plan: por cada fila (matrícula, materia,
  * calificación, ciclo) crea/actualiza el renglón de historial. La matrícula
  * debe ser de ese plan y la materia estar en él; el estatus se deriva de la
  * calificación con la regla única del sistema. No crea nada si hay errores.
  */
-class ImportadorKardex extends ImportadorBase
+class ImportadorHistorial extends ImportadorBase
 {
     public function __construct(private EstatusAcademico $estatus) {}
 
@@ -41,17 +41,17 @@ class ImportadorKardex extends ImportadorBase
         $matriculas = MatriculaOferta::query()->whereHas('oferta', fn ($q) => $q->where('plan_id', $plan->id))
             ->pluck('id', 'matricula')->all();
 
-        $filas = $this->leer($libro, 'Kárdex');
+        $filas = $this->leer($libro, 'Historial académico');
 
         foreach ($filas as [$fila, $r]) {
-            $this->requerido('Kárdex', $fila, $r, [0 => 'Matrícula', 1 => 'Materia (clave en el plan)', 3 => 'Ciclo (clave)']);
+            $this->requerido('Historial académico', $fila, $r, [0 => 'Matrícula', 1 => 'Materia (clave en el plan)', 3 => 'Ciclo (clave)']);
             if (filled($r[0] ?? null) && ! isset($matriculas[trim((string) $r[0])])) {
-                $this->error('Kárdex', $fila, "La matrícula «{$r[0]}» no existe en este plan.");
+                $this->error('Historial académico', $fila, "La matrícula «{$r[0]}» no existe en este plan.");
             }
             if (filled($r[1] ?? null) && ! isset($materias[mb_strtolower(trim((string) $r[1]))])) {
-                $this->error('Kárdex', $fila, "La materia «{$r[1]}» no está en el plan.");
+                $this->error('Historial académico', $fila, "La materia «{$r[1]}» no está en el plan.");
             }
-            $this->refExiste('Kárdex', $fila, $r[3] ?? null, array_keys($cicloId), 'El ciclo (clave)');
+            $this->refExiste('Historial académico', $fila, $r[3] ?? null, array_keys($cicloId), 'El ciclo (clave)');
         }
 
         if ($this->errores !== []) {

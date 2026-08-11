@@ -7,9 +7,9 @@ namespace App\Http\Controllers\Academico;
 use App\Http\Controllers\Controller;
 use App\Models\Academico\PlanEstudio;
 use App\Services\Excel\ImportadorAcademico;
-use App\Services\Excel\ImportadorKardex;
+use App\Services\Excel\ImportadorHistorial;
 use App\Services\Excel\PlantillaAcademica;
-use App\Services\Excel\PlantillaKardex;
+use App\Services\Excel\PlantillaHistorial;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -62,12 +62,12 @@ class CargaMasivaController extends Controller
         });
     }
 
-    public function plantillaKardex(PlanEstudio $plan, PlantillaKardex $plantillas): BinaryFileResponse
+    public function plantillaHistorial(PlanEstudio $plan, PlantillaHistorial $plantillas): BinaryFileResponse
     {
-        return response()->download($plantillas->paraPlan($plan), 'plantilla-kardex.xlsx')->deleteFileAfterSend();
+        return response()->download($plantillas->paraPlan($plan), 'plantilla-historial.xlsx')->deleteFileAfterSend();
     }
 
-    public function importarKardex(Request $request, PlanEstudio $plan, ImportadorKardex $importador): RedirectResponse
+    public function importarHistorial(Request $request, PlanEstudio $plan, ImportadorHistorial $importador): RedirectResponse
     {
         $request->validate(['archivo' => ['required', 'file', 'max:5120']]);
 
@@ -78,7 +78,7 @@ class CargaMasivaController extends Controller
         }
 
         return $this->responder($resultado, function (array $r) {
-            return "Se cargaron {$r['calificaciones']} calificaciones al kárdex.";
+            return "Se cargaron {$r['calificaciones']} calificaciones al historial académico.";
         });
     }
 

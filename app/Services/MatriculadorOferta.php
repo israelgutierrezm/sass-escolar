@@ -108,7 +108,7 @@ class MatriculadorOferta
     /**
      * Da de baja una matrícula sin tocar las demás de esa persona.
      *
-     * NO se borra: su kárdex es historia escolar y las actas donde aparece
+     * NO se borra: su historial académico es historia escolar y las actas donde aparece
      * quedarían sin dueño. Una baja es un cambio de estado, no una desaparición.
      *
      * Se pide CUÁL baja porque son dos ejes distintos y el catálogo lo modela:

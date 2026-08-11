@@ -132,7 +132,7 @@ class AppServiceProvider extends ServiceProvider
      *
      * Se devuelve null (no false) cuando el rol no concede el permiso, para no
      * cortar la cadena: otras policies o gates definidos después pueden
-     * autorizar por otra vía (p. ej. que un alumno vea SU propio kárdex).
+     * autorizar por otra vía (p. ej. que un alumno vea SU propio historial académico).
      */
     protected function registrarResolucionDePermisos(): void
     {

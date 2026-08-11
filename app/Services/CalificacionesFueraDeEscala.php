@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\DB;
  * historial no se toca. Es lo correcto —son actas ya emitidas, y reescribir una
  * calificación pasada sin que nadie lo pida es exactamente lo que un sistema
  * escolar no debe hacer—, pero deja una incoherencia callada: la escuela
- * configura «aquí calificamos con enteros» y sigue viendo 8.5 en los kárdex,
+ * configura «aquí calificamos con enteros» y sigue viendo 8.5 en los historial académico,
  * sin entender por qué.
  *
  * Esto no arregla nada. Lo cuenta, que es lo que permite decidir con datos en

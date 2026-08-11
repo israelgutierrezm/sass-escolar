@@ -7,6 +7,7 @@ namespace Database\Seeders;
 use App\Models\Academico\Asignatura;
 use App\Models\Academico\Campus;
 use App\Models\Academico\Carrera;
+use App\Models\Academico\Institucion;
 use App\Models\Academico\Oferta;
 use App\Models\Academico\PlanEstudio;
 use App\Models\Academico\PlanMateria;
@@ -20,6 +21,7 @@ use App\Models\Identidad\Persona;
 use App\Models\Identidad\PersonaRol;
 use App\Models\Identidad\TutorAlumno;
 use App\Models\Identidad\Usuario;
+use App\Models\Landlord\EntidadFederativa;
 use App\Support\Curp;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
@@ -31,22 +33,27 @@ use Illuminate\Support\Str;
  * Datos de institución realistas para el tenant demo, para pruebas de volumen.
  *
  * Borra el dominio académico/escolar (campus, carreras, planes, materias,
- * ofertas, ciclos, grupos, docentes, alumnos y sus kárdex) SIN tocar el login,
+ * ofertas, ciclos, grupos, docentes, alumnos y sus historial académico) SIN tocar el login,
  * los roles ni los catálogos, y siembra:
  *  - 2 campus.
  *  - 10 carreras de varios niveles (licenciaturas y posgrados).
  *  - 2 planes por carrera: uno antiguo (no vigente) y uno actual (vigente).
  *  - malla completa por plan (≈48 materias en lic, 18-28 en posgrado).
  *  - 15 alumnos, cada uno con 2-3 matrículas (una concluida, otra en curso),
- *    con su kárdex generado.
+ *    con su historial académico generado.
  */
 class PoblarInstitucionDemoSeeder extends Seeder
 {
     private const NIVEL_LIC = 81;
+
     private const NIVEL_MAESTRIA = 82;
+
     private const NIVEL_ESPECIALIDAD = 85;
+
     private const NIVEL_DOCTORADO = 95;
+
     private const PERIODO_SEMESTRE = 91;
+
     private const PERIODO_CUATRIMESTRE = 93;
 
     private int $matriculaSeq = 1;
@@ -127,14 +134,14 @@ class PoblarInstitucionDemoSeeder extends Seeder
     {
         // La institución (nombre oficial) y la entidad federativa son datos que
         // el certificado electrónico exige; se dejan capturados en la demo.
-        $institucion = \App\Models\Academico\Institucion::firstOrCreate(
+        $institucion = Institucion::firstOrCreate(
             ['clave' => 'IPES-DEMO'],
             ['nombre' => 'Instituto Demo de Educación Superior', 'nombre_mostrar' => 'Instituto Demo', 'siglas' => 'IDES'],
         );
 
-        $entidad = \App\Models\Landlord\EntidadFederativa::query()
+        $entidad = EntidadFederativa::query()
             ->where('nombre', 'like', '%Ciudad de M%')->value('id')
-            ?? \App\Models\Landlord\EntidadFederativa::query()->min('id');
+            ?? EntidadFederativa::query()->min('id');
 
         $base = ['entidad_id' => $entidad, 'institucion_id' => $institucion->id];
 
@@ -152,7 +159,7 @@ class PoblarInstitucionDemoSeeder extends Seeder
             foreach ([1, 2] as $np) {
                 $inicio = $np === 1 ? "{$anio}-01-15" : "{$anio}-08-01";
                 $fin = $np === 1 ? "{$anio}-06-30" : "{$anio}-12-15";
-                $abierto = $hoy->between(\Illuminate\Support\Carbon::parse($inicio)->subDays(30), \Illuminate\Support\Carbon::parse($fin));
+                $abierto = $hoy->between(Carbon::parse($inicio)->subDays(30), Carbon::parse($fin));
                 $this->ciclos[] = Ciclo::create([
                     'clave' => "{$anio}-{$np}",
                     'anio' => $anio,
@@ -160,7 +167,7 @@ class PoblarInstitucionDemoSeeder extends Seeder
                     'nombre' => ($np === 1 ? 'Enero-Junio ' : 'Agosto-Diciembre ').$anio,
                     'fecha_inicio' => $inicio,
                     'fecha_fin' => $fin,
-                    'situacion_id' => $abierto ? 2 : (\Illuminate\Support\Carbon::parse($fin)->isFuture() ? 1 : 4),
+                    'situacion_id' => $abierto ? 2 : (Carbon::parse($fin)->isFuture() ? 1 : 4),
                 ]);
             }
         }
@@ -800,13 +807,13 @@ class PoblarInstitucionDemoSeeder extends Seeder
         $periodos = $p['periodos'];
         $cursados = $concluida ? $periodos : max(1, (int) ceil($periodos * 0.5));
 
-        $this->generarKardex($m, $p['materias'], $anioIngreso, $cursados, $concluida, $periodos);
+        $this->generarHistorial($m, $p['materias'], $anioIngreso, $cursados, $concluida, $periodos);
     }
 
     /**
      * @param  PlanMateria[]  $planMaterias
      */
-    private function generarKardex(MatriculaOferta $m, array $planMaterias, int $anioIngreso, int $cursados, bool $concluida, int $periodos): void
+    private function generarHistorial(MatriculaOferta $m, array $planMaterias, int $anioIngreso, int $cursados, bool $concluida, int $periodos): void
     {
         $filas = [];
 

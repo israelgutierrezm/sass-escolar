@@ -136,7 +136,7 @@ const etiquetaAccion: Record<string, string> = {
                     max="10"
                     etiqueta="Promedio con el que se otorga"
                     :error="otorgar.errors.promedio_evaluado"
-                    ayuda="Queda registrado aunque el kárdex cambie."
+                    ayuda="Queda registrado aunque el historial académico cambie."
                 />
                 <div class="sm:col-span-2">
                     <CampoTexto v-model="otorgar.motivo" etiqueta="Motivo" marcador="Ej. Promedio de excelencia" :error="otorgar.errors.motivo" />

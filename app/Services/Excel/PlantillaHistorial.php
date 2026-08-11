@@ -10,11 +10,11 @@ use App\Models\ControlEscolar\Ciclo;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
 /**
- * Plantilla para cargar kárdex (calificaciones) de una carrera/plan concreto.
+ * Plantilla para cargar historial académico (calificaciones) de una carrera/plan concreto.
  * La columna de materia es un desplegable con las asignaturas de ESE plan, así
  * no se puede capturar una materia ajena.
  */
-class PlantillaKardex extends PlantillaBase
+class PlantillaHistorial extends PlantillaBase
 {
     public function paraPlan(PlanEstudio $plan): string
     {
@@ -30,13 +30,13 @@ class PlantillaKardex extends PlantillaBase
         ]);
 
         $this->instrucciones($libro, [
-            "Kárdex del plan: {$plan->nombre}.",
+            "Historial académico del plan: {$plan->nombre}.",
             'Una fila por materia cursada. La Matrícula debe existir en el sistema.',
             'La Materia es la clave de la asignatura en este plan (desplegable).',
             'El estatus (aprobada/reprobada) se deriva de la calificación según el mínimo aprobatorio del plan.',
         ]);
 
-        $this->hoja($libro, 'Kárdex', [
+        $this->hoja($libro, 'Historial académico', [
             ['Matrícula *', null], ['Materia (clave en el plan) *', $rangos['materias']],
             ['Calificación', null], ['Ciclo (clave) *', $rangos['ciclos']],
         ], [
@@ -45,6 +45,6 @@ class PlantillaKardex extends PlantillaBase
 
         $libro->setActiveSheetIndexByName('Instrucciones');
 
-        return $this->guardar($libro, 'plan_kardex');
+        return $this->guardar($libro, 'plan_historial');
     }
 }

@@ -22,7 +22,7 @@ const props = defineProps<{
     huella: {
         matriculas: number;
         inscripciones: number;
-        kardex: number;
+        historial: number;
         personas_con_varias_matriculas: number;
     };
     puedeEditar: boolean;
@@ -48,7 +48,7 @@ function cambiado(a: Ajuste): boolean {
     return form.ajustes[a.clave] !== a.valor;
 }
 
-const hayOperacion = props.huella.inscripciones > 0 || props.huella.kardex > 0;
+const hayOperacion = props.huella.inscripciones > 0 || props.huella.historial > 0;
 </script>
 
 <template>
@@ -73,7 +73,7 @@ const hayOperacion = props.huella.inscripciones > 0 || props.huella.kardex > 0;
                 class="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800"
             >
                 <strong>Ya hay operación registrada</strong> — {{ huella.matriculas }} matrículas,
-                {{ huella.inscripciones }} inscripciones y {{ huella.kardex }} renglones de kárdex.
+                {{ huella.inscripciones }} inscripciones y {{ huella.historial }} renglones de historial académico.
                 Cambiar un límite aplica de aquí en adelante: <strong>no reevalúa el pasado</strong>.
                 Quien ya lleva tres recursamientos no se da de baja porque hoy el máximo pase a dos.
             </div>

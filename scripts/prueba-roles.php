@@ -202,10 +202,10 @@ try {
     verificar('«Capturar calificaciones» sí es de los dos oficios',
         CatalogoPermisos::correspondeA('capturar-calificaciones', CatalogoPermisos::ADMINISTRATIVO)
         && CatalogoPermisos::correspondeA('capturar-calificaciones', CatalogoPermisos::DOCENTE));
-    verificar('Y el kárdex lo consultan cinco perfiles',
+    verificar('Y el historial académico lo consultan cinco perfiles',
         collect([CatalogoPermisos::ADMINISTRATIVO, CatalogoPermisos::DOCENTE, CatalogoPermisos::ALUMNO,
             CatalogoPermisos::TUTOR, CatalogoPermisos::PADRE])
-            ->every(fn ($f) => CatalogoPermisos::correspondeA('ver-kardex', $f)));
+            ->every(fn ($f) => CatalogoPermisos::correspondeA('ver-historial-academico', $f)));
 
     $direccion = Rol::where('name', 'director_general')->firstOrFail();
     $docenteRol = Rol::where('name', 'docente')->firstOrFail();
@@ -231,7 +231,7 @@ try {
         ! $ofrecidos->contains('ver-mis-materias') && ! $ofrecidos->contains('editar-mi-expediente'),
         $ofrecidos->count().' permisos ofrecidos');
     verificar('Pero sí los que de verdad comparte',
-        $ofrecidos->contains('capturar-calificaciones') && $ofrecidos->contains('ver-kardex'));
+        $ofrecidos->contains('capturar-calificaciones') && $ofrecidos->contains('ver-historial-academico'));
 
     $delDocente = collect(CatalogoPermisos::paraPantalla(CatalogoPermisos::DOCENTE))
         ->flatMap(fn ($d) => collect($d['permisos'])->pluck('clave'));

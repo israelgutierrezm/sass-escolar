@@ -14,10 +14,10 @@ use Tests\TenantTestCase;
  *
  * La escala del plan decía de cuánto a cuánto pero no con cuántos decimales, y
  * `numeric` acepta un 8.756. Un acta con eso no la rechaza nadie: se guarda, se
- * imprime y aparece en el kárdex.
+ * imprime y aparece en el historial académico.
  *
  * Las reglas viven en el plan porque son DOS los sitios que capturan
- * calificaciones —la del docente y el kárdex a mano— y a los dos se les había
+ * calificaciones —la del docente y el historial académico a mano— y a los dos se les había
  * escapado lo mismo. Esta prueba es sobre la regla, no sobre cada pantalla:
  * mientras las dos la pidan al plan, no pueden discrepar.
  */

@@ -104,7 +104,7 @@ class PlanEstudio extends Model
      * Las reglas con las que se valida una calificación de este plan.
      *
      * Viven aquí y no repetidas en cada controlador porque son DOS los sitios
-     * que capturan calificaciones —la del docente y el kárdex a mano— y a los
+     * que capturan calificaciones —la del docente y el historial académico a mano— y a los
      * dos se les había escapado la precisión: aceptaban un 8.756 en un acta
      * porque `numeric` no dice cuántos decimales.
      *

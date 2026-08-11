@@ -12,12 +12,12 @@ use Illuminate\Support\Facades\Schema;
  * La spec solo previó `historial.acta_folio` (varchar). Se eleva a tabla
  * porque el acta es un documento con valor legal: hay que poder reimprimirla
  * tal como se firmó, saber QUIÉN la cerró y CUÁNDO, y emitir una corrección
- * sin borrar la original. Un folio suelto en el kárdex no sostiene nada de
+ * sin borrar la original. Un folio suelto en el historial académico no sostiene nada de
  * eso. `historial.acta_folio` se conserva (dato de la spec, es lo que se
  * imprime) y se acompaña de `historial.acta_id` para la integridad real.
  *
  * `acta_origen_id` apunta al acta que esta corrige. Una calificación nunca se
- * edita en el kárdex: se emite un acta de corrección que asienta filas nuevas,
+ * edita en el historial académico: se emite un acta de corrección que asienta filas nuevas,
  * y la cadena queda trazable. Es lo que ya insinuaba el catálogo
  * `observaciones_historial` con "Corrección de calificación".
  *

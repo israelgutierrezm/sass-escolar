@@ -169,7 +169,7 @@ class UsuarioController extends Controller
     /**
      * Crea la cuenta. Si la CURP ya existe se reutiliza esa persona: quien
      * entra como docente pudo haber sido alumno, y duplicarlo rompería su
-     * kárdex, sus roles y su expediente.
+     * historial académico, sus roles y su expediente.
      */
     public function store(Request $request, IdentidadPersona $identidad): RedirectResponse
     {

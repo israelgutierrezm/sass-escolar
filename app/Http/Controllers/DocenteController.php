@@ -365,7 +365,7 @@ class DocenteController extends Controller
 
     /**
      * Dar de baja NO borra: el docente firmó actas y su nombre aparece en el
-     * kárdex de sus alumnos. Se cambia su situación.
+     * historial académico de sus alumnos. Se cambia su situación.
      */
     public function destroy(Docente $docente): RedirectResponse
     {

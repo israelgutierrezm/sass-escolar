@@ -30,7 +30,7 @@ use Tests\TenantTestCase;
  * así que una petición HTTP a `/mi-credencial` devuelve 404 sin haber llegado
  * nunca al controlador — un 404 que no prueba nada y que se confunde con el
  * 404 legítimo de «este rol no emite». Es el mismo camino que sigue
- * `MiKardexTest`.
+ * `MiHistorialTest`.
  */
 class MiCredencialTest extends TenantTestCase
 {

@@ -29,7 +29,7 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  *
  * Cierra la operación diaria: el docente captura por componente, el sistema
  * pondera con el `esquema_evaluacion` del plan, y al firmar el acta las
- * calificaciones se vuelcan al kárdex con folio.
+ * calificaciones se vuelcan al historial académico con folio.
  *
  * La autorización tiene DOS capas y ambas importan:
  *  - el permiso (`capturar-calificaciones`, `asentar-acta`), que dice qué
@@ -217,7 +217,7 @@ class CapturaCalificacionesController extends Controller
             'calificaciones' => ['present', 'array'],
             'calificaciones.*.inscripcion_id' => ['required', 'integer'],
             'calificaciones.*.esquema_evaluacion_id' => ['required', 'integer'],
-            // Misma escala y misma precisión que el kárdex: las dos salen del
+            // Misma escala y misma precisión que el historial académico: las dos salen del
             // plan, así que no pueden discrepar.
             'calificaciones.*.calificacion' => array_merge(['nullable'], PlanEstudio::reglasPara($plan)),
         ], [
@@ -298,7 +298,7 @@ class CapturaCalificacionesController extends Controller
             : "Se guardaron {$guardadas} calificaciones.");
     }
 
-    /** Firma el acta: calcula finales, genera folio y vuelca al kárdex. */
+    /** Firma el acta: calcula finales, genera folio y vuelca al historial académico. */
     public function cerrar(Request $request, AsignaturaGrupo $asignaturaGrupo): RedirectResponse
     {
         if (! $this->puedeCerrar($request, $asignaturaGrupo)) {
@@ -326,12 +326,12 @@ class CapturaCalificacionesController extends Controller
             throw ValidationException::withMessages(['acta' => $e->getMessage()]);
         }
 
-        return back()->with('exito', "Acta {$acta->folio} asentada en el kárdex.");
+        return back()->with('exito', "Acta {$acta->folio} asentada en el historial académico.");
     }
 
     /**
      * Abre un acta de corrección sobre la cerrada. No edita nada todavía:
-     * reabre la captura y, al firmarla, sustituye los renglones de kárdex de
+     * reabre la captura y, al firmarla, sustituye los renglones de historial académico de
      * la original conservando ambas actas.
      */
     public function corregir(Request $request, AsignaturaGrupo $asignaturaGrupo): RedirectResponse

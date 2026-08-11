@@ -35,8 +35,8 @@ use App\Services\EstadoCertificacion;
 use App\Services\EstatusAcademico;
 use App\Services\Excel\ImportadorAlumnos;
 use App\Services\Excel\PlantillaAlumnos;
+use App\Services\HistorialDelAlumno;
 use App\Services\IdentidadPersona;
-use App\Services\KardexDelAlumno;
 use App\Services\MatriculadorOferta;
 use App\Services\ResolutorFormularios;
 use App\Services\Suplantador;
@@ -59,7 +59,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  *
  * El "alumno" es `matricula_oferta`, no la persona: la misma persona puede
  * cursar una licenciatura y una maestría, y cada una tiene su matrícula, su
- * kárdex y su situación. Por eso el listado es de matrículas y no de personas
+ * historial académico y su situación. Por eso el listado es de matrículas y no de personas
  * —quien busca a alguien en control escolar busca una matrícula concreta—.
  *
  * Lo que se edita aquí son los datos de IDENTIDAD (que viven en `personas` y
@@ -69,7 +69,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  */
 class AlumnoController extends Controller
 {
-    public function __construct(private readonly KardexDelAlumno $kardex) {}
+    public function __construct(private readonly HistorialDelAlumno $historial) {}
 
     /** Plantilla de carga masiva de alumnos (variante «calificaciones» opcional). */
     public function plantillaCarga(Request $request, PlantillaAlumnos $plantilla): BinaryFileResponse
@@ -246,7 +246,7 @@ class AlumnoController extends Controller
             ->with('exito', "Alumno registrado con matrícula {$matricula->matricula}.");
     }
 
-    /** Expediente del alumno: identidad, kárdex y su carga por ciclo. */
+    /** Expediente del alumno: identidad, historial académico y su carga por ciclo. */
     public function show(Request $request, MatriculaOferta $alumno): Response
     {
         $alumno->load([
@@ -262,11 +262,11 @@ class AlumnoController extends Controller
             'tituloAntecedente',
         ]);
 
-        // El kárdex lo arma `KardexDelAlumno`: lo miran también el alumno
+        // El historial académico lo arma `HistorialDelAlumno`: lo miran también el alumno
         // desde su portal y el padre desde el suyo, y tiene que dar el mismo
         // promedio en los tres sitios.
-        $renglones = $this->kardex->renglones($alumno);
-        $resumen = $this->kardex->resumen($alumno);
+        $renglones = $this->historial->renglones($alumno);
+        $resumen = $this->historial->resumen($alumno);
 
         return Inertia::render('Alumnos/Detalle', [
             'alumno' => [
@@ -346,7 +346,7 @@ class AlumnoController extends Controller
                     'situacion' => $m->situacion?->nombre,
                     'fecha_ingreso' => $m->fecha_ingreso?->toDateString(),
                     'generacion' => $m->generacion,
-                    'materias_en_kardex' => $m->historial_count,
+                    'materias_en_historial' => $m->historial_count,
                     'es_actual' => $m->id === $alumno->id,
                 ]),
             // Ofertas donde todavía NO está matriculada: son las que se le
@@ -393,7 +393,7 @@ class AlumnoController extends Controller
              */
             'emiteDocumentos' => (bool) ($alumno->oferta?->carrera?->emite_documentos_oficiales ?? true),
             // Nombre real del periodo del plan (Semestre, Cuatrimestre…), para
-            // titular los bloques del kárdex agrupado.
+            // titular los bloques del historial académico agrupado.
             'unidadPeriodo' => $alumno->oferta?->plan?->unidadPeriodo() ?? 'Periodo',
             'carga' => $this->cargaPorCiclo($alumno),
             // Carga manual al historial (equivalencias, revalidaciones, históricos):
@@ -450,7 +450,7 @@ class AlumnoController extends Controller
 
     /**
      * Carga una materia directo al historial de este alumno, sin pasar por un
-     * acta: para equivalencias, revalidaciones y kárdex histórico de otra
+     * acta: para equivalencias, revalidaciones y historial académico histórico de otra
      * institución. Lleva su estatus académico oficial SEP (`observacion_
      * asignatura`) y NO queda ligada a acta (por eso se puede retirar aquí).
      */
@@ -469,7 +469,7 @@ class AlumnoController extends Controller
 
         $datos = $request->validate([
             'plan_materia_id' => ['required', 'integer', Rule::exists('plan_materias', 'id')->where('plan_id', $planId)->whereNull('deleted_at')],
-            // Ciclo y calificación son los datos mínimos de un renglón de kárdex:
+            // Ciclo y calificación son los datos mínimos de un renglón de historial académico:
             // ambos obligatorios.
             'ciclo_id' => ['required', 'integer', Rule::in($ciclosOk)],
             'estatus_id' => ['required', 'integer', Rule::exists('estatus_historial', 'id')],
@@ -519,7 +519,7 @@ class AlumnoController extends Controller
 
         if ($duplicada) {
             throw ValidationException::withMessages([
-                'observacion_asignatura_id' => 'Esa materia ya está en el kárdex con ese tipo de evaluación en ese ciclo. Cambia el tipo o el ciclo, o retira el renglón anterior.',
+                'observacion_asignatura_id' => 'Esa materia ya está en el historial académico con ese tipo de evaluación en ese ciclo. Cambia el tipo o el ciclo, o retira el renglón anterior.',
             ]);
         }
 
@@ -544,7 +544,7 @@ class AlumnoController extends Controller
      * reingreso…— cae a «ordinaria». La observación SEP conserva el detalle fino.
      */
     /**
-     * Ciclos válidos para el kárdex de este alumno: los que incluyen su campus
+     * Ciclos válidos para el historial académico de este alumno: los que incluyen su campus
      * (o no acotan campus) y su nivel de estudios (o no acotan nivel). Un ciclo
      * de otro campus/nivel no corresponde a donde cursa. Es la MISMA regla de
      * acotamiento que usan los grupos.
@@ -579,7 +579,7 @@ class AlumnoController extends Controller
     /**
      * Retira un renglón del historial. Solo las cargas MANUALES (sin acta): lo
      * asentado por un acta se corrige con un acta de corrección, no borrando el
-     * kárdex a mano.
+     * historial académico a mano.
      */
     public function quitarHistorial(MatriculaOferta $alumno, Historial $historial): RedirectResponse
     {
@@ -691,7 +691,7 @@ class AlumnoController extends Controller
      * Da de baja o reactiva UNA matrícula, sin tocar las otras carreras de la
      * misma persona.
      *
-     * No hay opción de eliminar: el kárdex de esa matrícula es historia escolar
+     * No hay opción de eliminar: el historial académico de esa matrícula es historia escolar
      * y las actas donde aparece quedarían sin dueño.
      */
     public function cambiarEstadoCarrera(Request $request, MatriculaOferta $alumno, MatriculaOferta $carrera, MatriculadorOferta $matriculador): RedirectResponse

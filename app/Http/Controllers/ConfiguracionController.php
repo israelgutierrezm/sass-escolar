@@ -85,7 +85,7 @@ class ConfiguracionController extends Controller
         return [
             'matriculas' => MatriculaOferta::query()->count(),
             'inscripciones' => Inscripcion::query()->count(),
-            'kardex' => Historial::query()->count(),
+            'historial' => Historial::query()->count(),
             'personas_con_varias_matriculas' => (int) DB::table('matricula_oferta')
                 ->whereNull('deleted_at')
                 ->select('persona_id')

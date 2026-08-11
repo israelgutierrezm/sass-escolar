@@ -19,7 +19,7 @@ use Tests\TenantTestCase;
  * ── La pregunta que originó esto ───────────────────────────────────────────
  * «Un alumno con dos carreras tendría dos credenciales». Sí, y es lo correcto:
  * el proyecto ya decidió que el alumno es la MATRÍCULA y no la persona, y por
- * eso su kárdex es independiente por inscripción. Emitir una sola —la de la
+ * eso su historial académico es independiente por inscripción. Emitir una sola —la de la
  * matrícula más reciente— dejaría sin credencial la otra carrera en la que esa
  * persona TAMBIÉN está inscrita, que es justo la que va a enseñar el día que
  * entre a esa clase. En la escuela de ejemplo hay tres personas así.

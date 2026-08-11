@@ -76,7 +76,7 @@ const avance = computed(() => {
  *
  * El catálogo trae «NORMAL / ORDINARIO» como valor por omisión, o sea «esta
  * materia se cursó como cualquier otra». Pintarlo sale en los 28 renglones del
- * kárdex de una alumna al corriente: una columna entera repitiendo lo mismo,
+ * historial académico de una alumna al corriente: una columna entera repitiendo lo mismo,
  * que además hace pensar que significa algo. Lo que interesa señalar es lo
  * EXCEPCIONAL —una equivalencia, una revalidación—, y eso se ve solo si el
  * caso normal se calla.
@@ -90,7 +90,7 @@ function observacion(r: Renglon): string | null {
 }
 
 function cambiarMatricula(id: number): void {
-    router.get('/mi-kardex', { matricula: id }, { preserveScroll: true, preserveState: false });
+    router.get('/mi-historial', { matricula: id }, { preserveScroll: true, preserveState: false });
 }
 
 /** El color dice de un vistazo cómo quedó cada materia. */
@@ -106,9 +106,9 @@ function tono(r: Renglon): string {
 </script>
 
 <template>
-    <Head title="Mi kárdex" />
+    <Head title="Mi historial académico" />
 
-    <AppLayout titulo="Mi kárdex">
+    <AppLayout titulo="Mi historial académico">
         <section
             v-if="!matricula"
             class="tarjeta px-6 py-8 text-center text-sm"
@@ -146,7 +146,7 @@ function tono(r: Renglon): string {
                 </p>
 
                 <!--
-                    Los cuatro números que se buscan al abrir el kárdex. El
+                    Los cuatro números que se buscan al abrir el historial académico. El
                     promedio va primero porque es el que se viene a ver.
                 -->
                 <dl v-if="resumen" class="mt-4 grid gap-4 sm:grid-cols-4">
@@ -275,7 +275,7 @@ function tono(r: Renglon): string {
             </section>
 
             <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                Este kárdex es informativo. Para un documento con validez oficial pide tu constancia
+                Este historial académico es informativo. Para un documento con validez oficial pide tu constancia
                 o tu certificado en control escolar.
             </p>
         </template>

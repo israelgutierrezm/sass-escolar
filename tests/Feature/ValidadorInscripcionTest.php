@@ -70,7 +70,7 @@ class ValidadorInscripcionTest extends TenantTestCase
         $this->assertSame([], $this->validador->impedimentos($matricula, $materia));
     }
 
-    /** El acta y el kárdex se llevan contra el plan del alumno. */
+    /** El acta y el historial académico se llevan contra el plan del alumno. */
     public function test_no_se_puede_inscribir_una_materia_de_otro_plan(): void
     {
         [$matricula, , $ciclo, $escuela] = $this->escenario();

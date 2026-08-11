@@ -98,7 +98,7 @@ function guardar(): void {
 
     guardando.value = true;
 
-    router.put(`/escolar/configuracion/planes/${borrador.value.id}`, {
+    router.put(`/escolar/configuraciones/calificaciones/planes/${borrador.value.id}`, {
         calificacion_minima: borrador.value.minima,
         calificacion_maxima: borrador.value.maxima,
         calificacion_minima_aprobatoria: borrador.value.aprobatoria,
@@ -192,12 +192,12 @@ const porNivel = computed(() => {
 </script>
 
 <template>
-    <Head title="Configuración de control escolar" />
+    <Head title="Configuración de calificaciones" />
 
-    <AppLayout titulo="Configuración">
+    <AppLayout titulo="Calificaciones">
         <p class="mb-4 max-w-3xl text-sm" :style="{ color: 'var(--color-suave)' }">
             Con qué escala se califica en cada carrera. Se aplica al capturar calificaciones y al
-            registrar kárdex, así que un plan que califica con enteros va a rechazar un 8.5.
+            registrar historial académico, así que un plan que califica con enteros va a rechazar un 8.5.
         </p>
 
         <p v-if="desalineadas" class="mb-4 text-sm text-amber-700">
@@ -251,7 +251,7 @@ const porNivel = computed(() => {
                                 <p v-if="plan.desajustadas" class="mt-1 text-xs text-amber-700">
                                     {{ textoDesajuste(plan.desajustadas) }}
                                     <Link
-                                        :href="`/escolar/configuracion/planes/${plan.id}/calificaciones`"
+                                        :href="`/escolar/configuraciones/calificaciones/planes/${plan.id}/calificaciones`"
                                         class="underline"
                                     >
                                         Verlas

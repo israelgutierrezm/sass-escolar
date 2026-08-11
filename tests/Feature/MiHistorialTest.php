@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Http\Controllers\MiKardexController;
+use App\Http\Controllers\MiHistorialController;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Identidad\Usuario;
-use App\Services\KardexDelAlumno;
+use App\Services\HistorialDelAlumno;
 use Tests\Concerns\CreaEscuelaDePrueba;
 use Tests\TenantTestCase;
 
 /**
- * El kárdex que ve el alumno.
+ * El historial académico que ve el alumno.
  *
  * ── Lo que estas pruebas cuidan ────────────────────────────────────────────
  * Es el MISMO historial académico que consulta control escolar por otra puerta.
@@ -27,16 +27,16 @@ use Tests\TenantTestCase;
  * el promedio redondeado por la regla por omisión en vez de la del plan. No
  * falla, no avisa: sólo dice otro número.
  */
-class MiKardexTest extends TenantTestCase
+class MiHistorialTest extends TenantTestCase
 {
     use CreaEscuelaDePrueba;
 
-    public function test_el_alumno_ve_el_mismo_kardex_que_control_escolar(): void
+    public function test_el_alumno_ve_el_mismo_historial_que_control_escolar(): void
     {
         [$usuario, $matricula] = $this->alumnoConMatricula();
 
         $props = $this->abrir($usuario);
-        $servicio = app(KardexDelAlumno::class);
+        $servicio = app(HistorialDelAlumno::class);
 
         /*
          * Se compara el resumen del servicio DESPUÉS del mismo viaje por JSON
@@ -96,7 +96,7 @@ class MiKardexTest extends TenantTestCase
     }
 
     /** Quien tiene el permiso pero no es alumno no ve una tabla vacía sin explicación. */
-    public function test_sin_matricula_lo_dice_en_vez_de_pintar_un_kardex_vacio(): void
+    public function test_sin_matricula_lo_dice_en_vez_de_pintar_un_historial_vacio(): void
     {
         $props = $this->abrir($this->usuarioConAlcance());
 
@@ -109,9 +109,9 @@ class MiKardexTest extends TenantTestCase
     /** @return array<string, mixed> */
     private function abrir(Usuario $usuario, array $parametros = []): array
     {
-        $peticion = $this->peticionDe($usuario, '/mi-kardex', $parametros);
+        $peticion = $this->peticionDe($usuario, '/mi-historial', $parametros);
 
-        return app(MiKardexController::class)($peticion)
+        return app(MiHistorialController::class)($peticion)
             ->toResponse($peticion)
             ->getData(true)['props'];
     }

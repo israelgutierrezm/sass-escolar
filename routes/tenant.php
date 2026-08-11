@@ -73,7 +73,7 @@ use App\Http\Controllers\InstitucionController;
 use App\Http\Controllers\MenuRolController;
 use App\Http\Controllers\MisAvisosController;
 use App\Http\Controllers\MiCredencialController;
-use App\Http\Controllers\MiKardexController;
+use App\Http\Controllers\MiHistorialController;
 use App\Http\Controllers\MisCursosController;
 use App\Http\Controllers\OfertaController;
 use App\Http\Controllers\PadreController;
@@ -666,10 +666,10 @@ Route::middleware([
                         ->whereNumber('plan')->name('planes.plantilla-asignaturas');
                     Route::post('planes/{plan}/asignaturas/importar', [CargaMasivaController::class, 'importarPlan'])
                         ->whereNumber('plan')->name('planes.asignaturas.importar');
-                    Route::get('planes/{plan}/plantilla-kardex', [CargaMasivaController::class, 'plantillaKardex'])
-                        ->whereNumber('plan')->name('planes.plantilla-kardex');
-                    Route::post('planes/{plan}/kardex/importar', [CargaMasivaController::class, 'importarKardex'])
-                        ->whereNumber('plan')->name('planes.kardex.importar');
+                    Route::get('planes/{plan}/plantilla-historial', [CargaMasivaController::class, 'plantillaHistorial'])
+                        ->whereNumber('plan')->name('planes.plantilla-historial');
+                    Route::post('planes/{plan}/historial/importar', [CargaMasivaController::class, 'importarHistorial'])
+                        ->whereNumber('plan')->name('planes.historial.importar');
 
                     // Sin `destroy`: una institución no se elimina, solo se edita.
                     Route::resource('instituciones', InstitucionController::class)
@@ -847,7 +847,7 @@ Route::middleware([
                             ->name('facturacion');
 
                         // Carga manual al historial (equivalencias, revalidaciones,
-                        // kárdex histórico). Es administración del expediente del
+                        // historial académico histórico). Es administración del expediente del
                         // alumno → `editar-alumnos` (control escolar/dirección; no
                         // el docente, que solo firma sus propias actas).
                         Route::post('{alumno}/historial', 'agregarHistorial')
@@ -975,15 +975,20 @@ Route::middleware([
                     });
 
                 /*
-                 * Configuración de control escolar. Hoy sólo la escala de
-                 * calificación; es el sitio donde caerá lo que venga.
+                 * Cómo califica la escuela: la escala de cada plan.
+                 *
+                 * Cuelga de `escolar/configuraciones` —en plural— porque es UNA
+                 * de las cosas que se configuran de control escolar, no «la
+                 * configuración» a secas. Estaba en singular y en la raíz, y con
+                 * eso el siguiente ajuste que llegara no tenía dónde ponerse sin
+                 * competir con la escala por el mismo sitio.
                  *
                  * Con `ver-catalogo-academico` para mirar y
                  * `editar-catalogo-academico` para cambiar: la escala es parte
                  * del plan de estudios, no una preferencia de pantalla.
                  */
                 Route::controller(ConfiguracionEscolarController::class)
-                    ->prefix('configuracion')->name('configuracion.')
+                    ->prefix('configuraciones/calificaciones')->name('configuraciones.calificaciones.')
                     ->middleware('can:ver-catalogo-academico')
                     ->group(function () {
                         Route::get('/', 'index')->name('index');
@@ -1371,17 +1376,17 @@ Route::middleware([
          * controlador resuelve el alcance; la ruta no puede.
          */
         /*
-         * Su propio kárdex.
+         * Su propio historial académico.
          *
-         * Cuelga de `ver-kardex`, que el rol alumno YA tenía sin tener dónde
-         * ejercerlo: el único kárdex del sistema vivía en el expediente de
+         * Cuelga de `ver-historial-academico`, que el rol alumno YA tenía sin tener dónde
+         * ejercerlo: el único historial académico del sistema vivía en el expediente de
          * control escolar, detrás de `ver-alumnos` —un permiso de personal que
          * abre el listado de toda la escuela—. La matrícula sale de la sesión,
          * así que la ruta no lleva id y no hay dónde escribir el de otro.
          */
-        Route::get('mi-kardex', MiKardexController::class)
-            ->middleware('can:ver-kardex')
-            ->name('tenant.mikardex');
+        Route::get('mi-historial', MiHistorialController::class)
+            ->middleware('can:ver-historial-academico')
+            ->name('tenant.mihistorial');
 
         /*
          * Su credencial. Fuera del portal del alumno: la tienen todos.

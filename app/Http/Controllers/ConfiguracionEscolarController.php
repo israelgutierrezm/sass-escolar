@@ -43,7 +43,7 @@ class ConfiguracionEscolarController extends Controller
          *
          * Cambiar la escala no toca el historial —son actas emitidas—, así que
          * la incoherencia se queda ahí callada: la escuela configura enteros y
-         * sigue viendo 8.5 en los kárdex. Esto no arregla nada; lo dice, que es
+         * sigue viendo 8.5 en los historial académico. Esto no arregla nada; lo dice, que es
          * lo que permite decidir.
          */
         $desajustadas = $this->fueraDeEscala->porPlan();
@@ -96,7 +96,7 @@ class ConfiguracionEscolarController extends Controller
             ->filter(fn (array $c) => $c['planes']->isNotEmpty())
             ->values();
 
-        return Inertia::render('Escolar/Configuracion', [
+        return Inertia::render('Escolar/Configuraciones/Calificaciones', [
             'carreras' => $carreras,
             'puedeEditar' => $request->user()->can('editar-catalogo-academico'),
         ]);
@@ -167,7 +167,7 @@ class ConfiguracionEscolarController extends Controller
     {
         $plan->load('carrera:id,nombre');
 
-        return Inertia::render('Escolar/CalificacionesFueraDeEscala', [
+        return Inertia::render('Escolar/Configuraciones/CalificacionesFueraDeEscala', [
             'plan' => [
                 'id' => $plan->id,
                 'nombre' => $plan->nombre,

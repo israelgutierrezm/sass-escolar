@@ -13,7 +13,7 @@ use App\Support\Creditos;
 use Illuminate\Support\Collection;
 
 /**
- * El kárdex de una matrícula: sus renglones y sus totales.
+ * El historial académico de una matrícula: sus renglones y sus totales.
  *
  * ── Por qué es un servicio y no vive en el controlador ─────────────────────
  * Lo miran DOS oficios por dos puertas distintas: control escolar desde el
@@ -26,10 +26,10 @@ use Illuminate\Support\Collection;
  * varias maneras —qué renglones cuentan para los totales, qué se considera «en
  * curso» y cómo se promedia—. Copiadas en dos pantallas, divergen.
  */
-class KardexDelAlumno
+class HistorialDelAlumno
 {
     /**
-     * Los renglones del kárdex: lo asentado y, al final, lo que está cursando.
+     * Los renglones del historial académico: lo asentado y, al final, lo que está cursando.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -44,7 +44,7 @@ class KardexDelAlumno
                 'clave_en_plan' => $h->planMateria?->clave_en_plan,
                 'materia' => $h->planMateria?->asignatura?->nombre,
                 'creditos' => $h->planMateria?->asignatura?->creditos,
-                // El periodo (grado) de la materia en el plan: agrupa el kárdex.
+                // El periodo (grado) de la materia en el plan: agrupa el historial académico.
                 'periodo' => $h->planMateria?->periodo,
                 'ciclo' => $h->ciclo?->clave,
                 'calificacion' => $h->calificacion,
@@ -70,7 +70,7 @@ class KardexDelAlumno
      *
      * Se calculan sobre el MEJOR intento por materia, no por renglón: una
      * materia aprobada a título después de tronar el ordinario cuenta una vez, y
-     * como aprobada. El kárdex sí enseña los dos renglones —es historia y no se
+     * como aprobada. El historial académico sí enseña los dos renglones —es historia y no se
      * borra—, pero sumarlos daría un promedio que castiga dos veces el mismo
      * tropiezo y unos créditos que no existen.
      *
@@ -182,7 +182,7 @@ class KardexDelAlumno
                 'periodo' => $i->asignaturaGrupo?->planMateria?->periodo,
                 'ciclo' => $i->ciclo?->clave,
                 // Sin calificación: la que lleve acumulada es provisional y vive
-                // en «Carga por ciclo». El kárdex sólo dice lo definitivo.
+                // en «Carga por ciclo». El historial académico sólo dice lo definitivo.
                 'calificacion' => null,
                 'estatus' => 'En curso',
                 'estatus_clave' => 'en_curso',

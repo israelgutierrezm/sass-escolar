@@ -35,7 +35,7 @@ final class CatalogoPermisos
      *
      * Los que aparecen en VARIAS facetas es porque el oficio de verdad se
      * comparte: control escolar captura calificaciones en nombre del docente
-     * ausente, y el kárdex lo consultan cinco perfiles distintos sobre alcances
+     * ausente, y el historial académico lo consultan cinco perfiles distintos sobre alcances
      * distintos.
      */
     public const ADMINISTRATIVO = 'administrativo';
@@ -120,7 +120,7 @@ final class CatalogoPermisos
             'ver-alumnos' => ['Ver alumnos', 'Buscar matrículas y consultar su expediente. Alcanza a toda la escuela.', [self::ADMINISTRATIVO]],
             'editar-alumnos' => ['Editar alumnos', 'Corregir su situación y su estatus de inscripción.', [self::ADMINISTRATIVO]],
             'inscribir-alumnos' => ['Inscribir alumnos', 'Dar de alta y de baja materias, con las validaciones de seriación y cupo.', [self::ADMINISTRATIVO]],
-            'ver-kardex' => ['Ver kárdex', 'Consultar el historial académico.', [self::ADMINISTRATIVO, self::DOCENTE, self::ALUMNO, self::TUTOR, self::PADRE]],
+            'ver-historial-academico' => ['Ver historial académico', 'Consultar las materias cursadas de una matrícula, con su calificación y sus créditos.', [self::ADMINISTRATIVO, self::DOCENTE, self::ALUMNO, self::TUTOR, self::PADRE]],
             'gestionar-tutorias' => ['Asignar tutorías', 'Repartir los alumnos entre los tutores educativos, por ciclo.', [self::ADMINISTRATIVO]],
             'gestionar-biblioteca' => ['Gestionar la biblioteca digital', 'Publicar, ordenar y retirar los enlaces que el alumno ve en la biblioteca.', [self::ADMINISTRATIVO]],
             /*
@@ -149,7 +149,7 @@ final class CatalogoPermisos
 
         'Calificaciones' => [
             'capturar-calificaciones' => ['Capturar calificaciones', 'Vaciar los componentes de evaluación. NO alcanza a firmar el acta.', [self::ADMINISTRATIVO, self::DOCENTE]],
-            'asentar-acta' => ['Firmar actas', 'Cerrar el acta y asentar en kárdex. Una calificación asentada ya no se edita.', [self::ADMINISTRATIVO, self::DOCENTE]],
+            'asentar-acta' => ['Firmar actas', 'Cerrar el acta y asentar en historial académico. Una calificación asentada ya no se edita.', [self::ADMINISTRATIVO, self::DOCENTE]],
         ],
 
         'Familia' => [

@@ -40,7 +40,7 @@ return new class extends Migration
         Schema::dropIfExists('reglas_generacion');
 
         // 3) planes_cobro: nuevo alcance por ciclo/campus/carreras + config.
-        Schema::table('planes_cobro', function (Blueprint $table) use ($mysql) {
+        Schema::table('planes_cobro', function (Blueprint $table) {
             $table->foreignId('ciclo_id')->nullable()->after('nombre')->constrained('ciclos')->nullOnDelete();
             // ¿Los cargos llevan fecha límite? y si sí, ¿la mora empieza el mismo
             // día marcado o al día siguiente?
@@ -58,7 +58,7 @@ return new class extends Migration
                 // El índice compuesto impide soltar las columnas directamente.
                 try {
                     DB::statement('ALTER TABLE planes_cobro DROP INDEX planes_cobro_aplica_a_tipo_aplica_a_id_index');
-                } catch (\Throwable $e) {
+                } catch (Throwable $e) {
                     // el nombre del índice puede variar; se ignora si no existe.
                 }
             }

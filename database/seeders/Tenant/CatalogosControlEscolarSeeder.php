@@ -15,6 +15,7 @@ use App\Models\ControlEscolar\SituacionInscripcion;
 use App\Models\ControlEscolar\SituacionReprobatoria;
 use App\Models\ControlEscolar\TipoDocente;
 use App\Models\ControlEscolar\TipoEvaluacion;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
 
 /**
@@ -134,7 +135,7 @@ class CatalogosControlEscolarSeeder extends Seeder
     }
 
     /**
-     * @param  class-string<\Illuminate\Database\Eloquent\Model>  $modelo
+     * @param  class-string<Model>  $modelo
      * @param  array<int, array{clave: string, nombre: string}>  $filas
      */
     private function sembrar(string $modelo, array $filas): void

@@ -14,7 +14,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
  *
  * ── Una por matrícula ─────────────────────────────────────────────────────
  * Quien estudia dos carreras tiene dos, y elige entre las suyas. Es la misma
- * regla del kárdex: el alumno es la matrícula, no la persona.
+ * regla del historial académico: el alumno es la matrícula, no la persona.
  */
 
 interface Credencial {

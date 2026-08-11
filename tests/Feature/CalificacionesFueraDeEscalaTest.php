@@ -19,7 +19,7 @@ use Tests\TenantTestCase;
  * pasada sin que nadie lo pida es lo que un sistema escolar no debe hacer.
  *
  * Pero entonces la incoherencia se queda callada —la escuela configura enteros y
- * sigue viendo 8.5 en los kárdex—, y esto existe para decirlo. No arregla nada:
+ * sigue viendo 8.5 en los historial académico—, y esto existe para decirlo. No arregla nada:
  * cuenta, que es lo que permite decidir con datos.
  */
 class CalificacionesFueraDeEscalaTest extends TenantTestCase

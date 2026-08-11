@@ -23,7 +23,7 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  *
  * ── Qué arregla ────────────────────────────────────────────────────────────
  * El rol existía sin pantalla y sin nadie a quien tutorar. Sus permisos
- * —`ver-alumnos`, `ver-kardex`— le abrían el listado de TODA la escuela, no por
+ * —`ver-alumnos`, `ver-historial-academico`— le abrían el listado de TODA la escuela, no por
  * descuido de quien los asignó sino porque no había vínculo por el cual
  * acotarlo: «sus» alumnos no eran un conjunto que el sistema pudiera nombrar.
  * Ahora lo son, en `tutorias`.

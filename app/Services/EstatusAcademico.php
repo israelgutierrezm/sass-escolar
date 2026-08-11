@@ -21,7 +21,7 @@ namespace App\Services;
  *
  * Es la misma frontera de aprobado que usa el cierre de actas
  * (`CalculadoraCalificacion`: final >= mínimo); aquí se amplía con el matiz
- * reprobada/no-presentó que el kárdex manual sí necesita. Debe ser la única
+ * reprobada/no-presentó que el historial académico manual sí necesita. Debe ser la única
  * fuente de esta lógica: cualquier pantalla que derive estatus de una
  * calificación pasa por aquí.
  */

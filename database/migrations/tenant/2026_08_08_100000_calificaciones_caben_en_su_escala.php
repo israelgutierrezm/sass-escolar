@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\DB;
  * Peor, porque no avisa: la pantalla acepta configurar tres decimales y la
  * validación deja pasar un 8.756, pero la columna sólo guarda dos y MySQL lo
  * redondea a 8.76 sin protestar. Quien capturaba veía su número aceptado y en
- * el kárdex aparecía otro.
+ * el historial académico aparecía otro.
  *
  * `decimal(6,3)` da hasta 999.999: cubre las escalas de 0-10, 0-100 y las de
  * puntos, con los tres decimales que la configuración promete.

@@ -127,7 +127,7 @@ function subirExcel(archivo: File | null): void {
         <section v-if="puedeEditar" class="tarjeta p-4">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <p class="text-sm" :style="{ color: 'var(--color-suave)' }">
-                    Carga alumnos desde Excel. Con la variante «con calificaciones» también llenas su kárdex.
+                    Carga alumnos desde Excel. Con la variante «con calificaciones» también llenas su historial académico.
                 </p>
                 <button
                     type="button"

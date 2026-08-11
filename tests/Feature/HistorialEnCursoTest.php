@@ -6,14 +6,14 @@ namespace Tests\Feature;
 
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\Historial;
-use App\Services\KardexDelAlumno;
+use App\Services\HistorialDelAlumno;
 use Tests\Concerns\CreaEscuelaDePrueba;
 use Tests\TenantTestCase;
 
 /**
- * Lo que el alumno está cursando ahora, visible en su kárdex.
+ * Lo que el alumno está cursando ahora, visible en su historial académico.
  *
- * Antes el kárdex sólo mostraba lo asentado, así que las materias del ciclo
+ * Antes el historial académico sólo mostraba lo asentado, así que las materias del ciclo
  * vigente no aparecían por ningún lado hasta que se cerraba el acta: quien abría
  * el expediente a mitad de semestre veía un hueco donde el alumno tenía seis
  * materias.
@@ -22,17 +22,17 @@ use Tests\TenantTestCase;
  * el XML que se manda a la SEP, y sembrarla con renglones sin calificación
  * obligaría a que cada consulta se acordara de excluirlos. Se calculan al vuelo.
  */
-class KardexEnCursoTest extends TenantTestCase
+class HistorialEnCursoTest extends TenantTestCase
 {
     use CreaEscuelaDePrueba;
 
-    private KardexDelAlumno $kardex;
+    private HistorialDelAlumno $historial;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->kardex = app(KardexDelAlumno::class);
+        $this->historial = app(HistorialDelAlumno::class);
     }
 
     public function test_una_materia_inscrita_sin_acta_aparece_en_curso(): void
@@ -52,7 +52,7 @@ class KardexEnCursoTest extends TenantTestCase
 
     /**
      * Al asentar el acta la materia pasa a `historial`. Si siguiera saliendo como
-     * en curso, el kárdex la mostraría dos veces —una con su calificación y otra
+     * en curso, el historial académico la mostraría dos veces —una con su calificación y otra
      * sin ella— el mismo ciclo.
      */
     public function test_lo_ya_asentado_no_se_repite(): void
@@ -117,10 +117,10 @@ class KardexEnCursoTest extends TenantTestCase
             ->where('matricula_oferta_id', $matriculaId)
             ->get();
 
-        // El cálculo vive en `KardexDelAlumno` desde que el kárdex se
+        // El cálculo vive en `HistorialDelAlumno` desde que el historial académico se
         // compartió con el portal del alumno; antes era un método público del
         // controlador de administración.
-        return $this->kardex->materiasEnCurso($alumno, $historial)->all();
+        return $this->historial->materiasEnCurso($alumno, $historial)->all();
     }
 
     private function inscribir(int $matricula, int $asignaturaGrupo, int $ciclo, ?int $situacion = null): int

@@ -279,7 +279,7 @@ debe respetar:
 - El backend valida SIEMPRE que el `rol_activo_id` esté entre los roles activos de esa
   persona en `persona_rol` (defensa contra manipulación del cliente).
 - Un mismo usuario como Superadministrador ve todo; al cambiar a Alumno, el sistema lo
-  trata como alumno (ve solo sus ofertas, kárdex, pagos). El cambio es de contexto de
+  trata como alumno (ve solo sus ofertas, historial académico, pagos). El cambio es de contexto de
   sesión, no de identidad.
 - Middleware sugerido: un `SetActiveRole` que resuelve permisos con `spatie/laravel-permission`
   acotados al `rol_activo_id`.
@@ -748,7 +748,7 @@ las tablas que los referencian.
 
 # FASE 2 — Operación escolar
 
-## Módulo 5 — Control escolar (ciclos, grupos, inscripción, calificaciones, kárdex)
+## Módulo 5 — Control escolar (ciclos, grupos, inscripción, calificaciones, historial académico)
 
 Aterriza las aclaraciones del cliente sobre grupos, recursadores, docente titular/adjunto,
 tronco común compartible en grupo, y tipos de calificación. Corrige las dos fricciones
@@ -876,10 +876,10 @@ La tabla puente central. Un alumno (vía su `matricula_oferta`) inscrito a UNA
 
 Índice único (matricula_oferta_id, asignatura_grupo_id).
 
-### `historial` (TENANT)  ← kárdex, con tipos de evaluación
+### `historial` (TENANT)  ← historial académico, con tipos de evaluación
 Reemplaza `tr_historial`. Cuelga de `matricula_oferta` (no de alumno genérico), así el
 historial de la licenciatura no se mezcla con el de la maestría de la misma persona. El
-kárdex es la vista de este historial. Soporta ordinaria/extraordinaria/revalidación/
+historial académico es la vista de este historial. Soporta ordinaria/extraordinaria/revalidación/
 recursamiento y más (configurable).
 
 | Columna | Tipo | Notas |
@@ -897,7 +897,7 @@ recursamiento y más (configurable).
 | observacion_id | bigint FK → observaciones_historial (config) NULL | De academyx |
 
 ### `equivalencias` (TENANT)  ← revalidaciones de otras escuelas
-Para materias reconocidas de procedencia externa (parte del kárdex pero de origen distinto).
+Para materias reconocidas de procedencia externa (parte del historial académico pero de origen distinto).
 
 | Columna | Tipo | Notas |
 |---|---|---|
@@ -1209,7 +1209,7 @@ Renglones del CFDI, ligados a los pagos/adeudos que factura.
 ## Módulo 8 — LMS (banco de reactivos, foros, ponderaciones)
 
 **Módulo crítico del sistema.** LMS propio (no Moodle) para poder ligar ponderaciones
-directo al acta de Control Escolar — esa integración LMS↔kárdex es la ventaja competitiva.
+directo al acta de Control Escolar — esa integración LMS↔historial académico es la ventaja competitiva.
 El legacy IMEP (`estudyle`) ya es rico aquí: 12 tipos de reactivo, actividades tipadas,
 agrupación por parciales/módulos, videoconferencia Zoom y portafolio de evidencias. Esta
 spec toma ese vocabulario y lo modela 100% relacional (reactivos con tablas hijas, reutilización limpia por ciclo).
@@ -1543,7 +1543,7 @@ Cada título/certificado individual dentro de un lote.
 ### Reglas de negocio del módulo
 - **Generación del XML**: se arma contra el XSD oficial de la SEP (Título Profesional
   Electrónico / Certificado Electrónico) con datos de `personas` (CURP, entidad nacimiento),
-  `carreras` (clave DGP/SAT), `planes_estudio` (RVOE, autorización), kárdex e historial,
+  `carreras` (clave DGP/SAT), `planes_estudio` (RVOE, autorización), historial académico e historial,
   antecedentes y servicio social.
 - **Firma**: se sella con el certificado de `responsables_firma` (e.firma desde bóveda).
 - **Validación previa**: revisión humana obligatoria (patrón IDP) antes de firmar/enviar —
@@ -1864,7 +1864,7 @@ Reemplaza el borrador `tutores_familiares` con nombre propio y alcance relaciona
 | parentesco_id | bigint FK → parentescos (config) | padre/madre/tutor legal/otro |
 | es_contacto_emergencia | boolean | |
 | es_responsable_pago | boolean | Si es a quien se le factura/cobra |
-| ve_kardex | boolean DEFAULT true | |
+| ve_historial | boolean DEFAULT true | |
 | ve_pagos | boolean DEFAULT true | |
 | ve_facturas | boolean DEFAULT true | |
 | ve_asistencia | boolean DEFAULT true | Asistencia académica del alumno |

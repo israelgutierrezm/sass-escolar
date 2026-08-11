@@ -204,7 +204,7 @@ Tablas:
       único. Índice único (matricula_oferta_id, asignatura_grupo_id) verificado.
 - [x] `historial` (T, FK → matricula_oferta, plan_materias, ciclos,
       asignatura_grupo, tipos_evaluacion, estatus_historial,
-      situaciones_reprobatoria, observaciones_historial) — kárdex.
+      situaciones_reprobatoria, observaciones_historial) — historial académico.
 - [x] `equivalencias` (T, FK → matricula_oferta, plan_materias)
 - [x] **Pendiente del Módulo 4 cerrado**: migración de seguimiento que agrega
       la FK real `aspirantes.ciclo_ingreso_id → ciclos`.
@@ -224,7 +224,7 @@ ver `docs/decisiones.md`):
 > Prueba de integración (con rollback): ventanas del ciclo, TRONCO COMÚN (un
 > mismo grupo abriendo la misma asignatura de catálogo para dos planes, cada
 > uno con su clave de acta), detección de choque de horario, docente titular
-> que firma, inscripción de nivel único, asentamiento de acta al kárdex,
+> que firma, inscripción de nivel único, asentamiento de acta al historial académico,
 > SERIACIÓN evaluada contra el historial aprobado, equivalencia externa y
 > rechazo de doble inscripción.
 
@@ -495,7 +495,7 @@ Tablas:
 
 `php scripts/prueba-actas.php` — 43 verificaciones contra la BD real del tenant
 demo, todo dentro de una transacción con `DB::rollBack()`. Cubre ponderación,
-rechazo del acta incompleta, volcado al kárdex, recursamiento, extemporaneidad,
+rechazo del acta incompleta, volcado al historial académico, recursamiento, extemporaneidad,
 corrección con soft delete de los renglones previos, regresión del doble
 asentamiento y 200 folios sin colisión.
 

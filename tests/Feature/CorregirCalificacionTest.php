@@ -146,7 +146,7 @@ class CorregirCalificacionTest extends TenantTestCase
 
     private function corregir(int $historial, float $valor): void
     {
-        $peticion = Request::create("/escolar/configuracion/historial/{$historial}", 'PUT', [
+        $peticion = Request::create("/escolar/configuraciones/calificaciones/historial/{$historial}", 'PUT', [
             'calificacion' => $valor,
         ]);
 

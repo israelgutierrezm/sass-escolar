@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Schema;
  * La inscripción gana el TIPO DE EVALUACIÓN con el que el alumno cursa la
  * materia (ordinaria, extraordinaria, a título de suficiencia, recursamiento,
  * revalidación, regularización): el catálogo completo, no solo el `tipo`
- * ordinaria/recursamiento que había. Al asentar el acta, el kárdex hereda este
+ * ordinaria/recursamiento que había. Al asentar el acta, el historial académico hereda este
  * tipo. Se conserva `tipo` porque el validador y el asentador lo consultan; se
  * deriva de éste.
  */
