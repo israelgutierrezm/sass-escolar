@@ -13,6 +13,8 @@ require $raiz.'/vendor/autoload.php';
 $app = require $raiz.'/bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
+require __DIR__.'/apoyo-roles.php';
+
 use App\Models\Academico\Oferta;
 use App\Models\Academico\PlanEstudio;
 use App\Models\Admisiones\MatriculaOferta;
@@ -53,18 +55,34 @@ function buscar(string $termino): \Illuminate\Support\Collection
         ->pluck('matricula');
 }
 
-echo '1. Quién puede ver alumnos'.PHP_EOL;
-
-verificar('Control escolar sí',
-    Rol::where('name', 'encargado_control_escolar')->firstOrFail()->concede('ver-alumnos'));
-verificar('El docente NO',
-    ! Rol::where('name', 'docente')->firstOrFail()->concede('ver-alumnos'));
-verificar('El auxiliar de control escolar sí (hereda de administrativo)',
-    Rol::where('name', 'auxiliar_control_escolar')->firstOrFail()->concede('ver-alumnos'));
-
 DB::beginTransaction();
 
 try {
+    echo '1. Quién puede ver alumnos'.PHP_EOL;
+
+    /*
+     * Esto preguntaba por «encargado_control_escolar» y «auxiliar_control_escolar»
+     * con `firstOrFail()`. Son roles de EJEMPLO —borrables por diseño—, el demo
+     * los borró y la suite entera reventaba antes de empezar. Lo que se quería
+     * comprobar no era que existieran, sino de qué FACETA cuelga `ver-alumnos`:
+     * eso se prueba plantando un rol funcional cualquiera, que es además lo que
+     * hace una escuela de verdad.
+     *
+     * Va dentro de la transacción para que el rol plantado se vaya con el
+     * rollback.
+     */
+    $deAdministracion = rolFuncionalDePrueba('prueba_control_escolar', 'administrativo');
+
+    verificar('Un rol administrativo lo hereda de su faceta, sin permiso propio',
+        $deAdministracion->concede('ver-alumnos') && $deAdministracion->permissions()->count() === 0);
+    verificar('El docente NO',
+        ! Rol::where('name', 'docente')->firstOrFail()->concede('ver-alumnos'));
+
+    $deDocencia = rolFuncionalDePrueba('prueba_academia', 'docente');
+
+    verificar('Y un rol colgado de docencia tampoco',
+        ! $deDocencia->concede('ver-alumnos'));
+
     $sufijo = substr((string) microtime(true), -6);
     $oferta = Oferta::firstOrFail();
     $situacion = SituacionAlumno::firstOrFail();

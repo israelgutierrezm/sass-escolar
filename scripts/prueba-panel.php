@@ -59,6 +59,41 @@ function verificar(string $titulo, bool $condicion, string $detalle = ''): void
     }
 }
 
+/**
+ * El rol funcional que la prueba necesita, creándolo si la escuela lo borró.
+ *
+ * Los roles funcionales de ejemplo —encargado de finanzas, promotor— son
+ * BORRABLES por diseño: es una regla del proyecto que la escuela pueda tirarlos
+ * y armar los suyos. El demo los borró, y estas pruebas se caían con
+ * «No query results for model [Rol]» buscando algo que nadie prometió que
+ * seguiría ahí. Ahora la prueba planta lo que necesita, dentro de su propia
+ * transacción, y se lo lleva el rollback.
+ *
+ * Los permisos se declaran aquí y no se heredan del seeder por lo mismo: si el
+ * rol es de la escuela, sus permisos también, y una prueba no puede depender de
+ * cuáles le tocaron.
+ *
+ * @param  array<int, string>  $permisos
+ */
+function rolFuncional(string $clave, string $faceta, array $permisos = []): Rol
+{
+    $rol = Rol::where('name', $clave)->first();
+
+    if ($rol === null) {
+        $rol = Rol::create([
+            'name' => $clave,
+            'nombre' => ucfirst(str_replace('_', ' ', $clave)),
+            'guard_name' => 'web',
+            'rol_padre_id' => Rol::where('name', $faceta)->value('id'),
+            'protegido' => false,
+        ]);
+
+        $rol->syncPermissions($permisos);
+    }
+
+    return $rol;
+}
+
 /** Un usuario propio con el rol que se pida. */
 function usuarioCon(string $rolClave, string $apellido): array
 {
@@ -94,24 +129,38 @@ try {
 
     verificar('Hay tarjetas registradas', count($registro->registradas()) >= 8,
         count($registro->registradas()).' tarjetas');
+    /*
+     * Las formas que la pantalla sabe pintar. Esta lista tiene que seguir a los
+     * `v-else-if` de `Dashboard.vue`: una tarjeta que declare un tipo que el Vue
+     * no conoce no falla —simplemente no se dibuja—, y eso no se nota hasta que
+     * alguien pregunta por qué su tarjeta no sale.
+     *
+     * Decía cinco y son ocho: `embudo`, `encuestas` y `matriz` se agregaron
+     * después y nadie volvió aquí.
+     */
+    $formas = ['metrica', 'lista', 'barras', 'columnas', 'accesos', 'embudo', 'encuestas', 'matriz'];
+
     verificar('Cada una declara clave, tipo, ancho e icono',
-        collect($registro->registradas())->every(function (string $clase) {
+        collect($registro->registradas())->every(function (string $clase) use ($formas) {
             $t = app($clase);
 
             return $t->clave() !== ''
-                && in_array($t->tipo(), ['metrica', 'lista', 'barras', 'columnas', 'accesos'], true)
+                && in_array($t->tipo(), $formas, true)
                 && $t->ancho() >= 1 && $t->ancho() <= 4
                 && $t->icono() !== '';
         }));
 
-    // Una serie de 24 puntos no puede pintarse como barras horizontales: son
-    // 24 renglones apilados que se comen la pantalla a lo alto.
-    verificar('La serie por hora va en COLUMNAS y no ocupa todo el ancho',
-        (function () {
-            $t = app(ActividadPorHora::class);
-
-            return $t->tipo() === 'columnas' && $t->ancho() <= 2;
-        })());
+    /*
+     * La actividad por hora NO se pinta como barras horizontales.
+     *
+     * Antes exigía `columnas` con ancho ≤ 2, y dejó de ser cierto cuando se
+     * rediseñó a la matriz de día × hora que pidió el cliente: esa sí necesita
+     * el ancho entero, porque son siete renglones de veinticuatro casillas. Lo
+     * que la comprobación protegía sigue en pie —24 barras apiladas se comen la
+     * pantalla a lo alto—, así que se conserva eso y no la forma concreta.
+     */
+    verificar('La actividad por hora no se apila en barras horizontales',
+        app(ActividadPorHora::class)->tipo() !== 'barras');
     verificar('Las claves no se repiten',
         (function () use ($registro) {
             $claves = array_map(fn (string $c) => app($c)->clave(), $registro->registradas());
@@ -189,6 +238,8 @@ try {
 
     echo PHP_EOL.'4. Finanzas ve la cartera; el alumno no'.PHP_EOL;
 
+    rolFuncional('encargado_finanzas', 'administrativo', ['ver-adeudos', 'registrar-pagos']);
+
     [$personaFinanzas, $usuarioFinanzas] = usuarioCon('encargado_finanzas', 'Finanzas');
     $olvidar();
 
@@ -200,6 +251,8 @@ try {
     verificar('Ni las materias de docencia', ! in_array('mis-materias', $deFinanzas, true));
 
     echo PHP_EOL.'5. Promoción ve su embudo y sus pendientes'.PHP_EOL;
+
+    rolFuncional('promotor', 'administrativo', ['ver-mis-prospectos']);
 
     [$personaPromo, $usuarioPromo] = usuarioCon('promotor', 'Promotor');
     Asesor::create([
@@ -238,11 +291,25 @@ try {
             'metrica' => array_key_exists('valor', $datos),
             'lista' => array_key_exists('renglones', $datos) && $datos['renglones'] !== [],
             'barras', 'columnas' => array_key_exists('series', $datos) && $datos['series'] !== [],
-            // Cada acceso lleva su icono: sin él el mosaico vuelve a ser una
-            // lista de rectángulos que hay que leer entera.
-            'accesos' => array_key_exists('accesos', $datos)
-                && $datos['accesos'] !== []
-                && collect($datos['accesos'])->every(fn ($a) => ($a['icono'] ?? '') !== ''),
+            'matriz' => array_key_exists('series', $datos),
+            'embudo' => array_key_exists('series', $datos) && $datos['series'] !== [],
+            'encuestas' => array_key_exists('renglones', $datos),
+            /*
+             * Los accesos vienen AGRUPADOS por oficio, y cada uno con su icono.
+             *
+             * Esto miraba `$datos['accesos']`, que dejó de existir cuando la
+             * tarjeta pasó a agrupar: la comprobación no fallaba por un acceso
+             * sin icono sino por preguntar por una llave que ya no está. Sin el
+             * icono el mosaico vuelve a ser una lista de rectángulos que hay que
+             * leer entera, así que la exigencia se conserva —un nivel más
+             * adentro—.
+             */
+            'accesos' => array_key_exists('grupos', $datos)
+                && $datos['grupos'] !== []
+                && collect($datos['grupos'])->every(
+                    fn ($g) => ($g['accesos'] ?? []) !== []
+                        && collect($g['accesos'])->every(fn ($a) => ($a['icono'] ?? '') !== '')
+                ),
             default => false,
         };
 

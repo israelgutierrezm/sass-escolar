@@ -13,6 +13,8 @@ require $raiz.'/vendor/autoload.php';
 $app = require $raiz.'/bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
+require __DIR__.'/apoyo-roles.php';
+
 use App\Models\Academico\Campus;
 use App\Models\Academico\TipoCampus;
 use App\Models\ControlEscolar\Ciclo;
@@ -124,7 +126,10 @@ try {
         'password' => 'irrelevante',
     ]);
 
-    $rolAcotado = Rol::where('name', 'director_campus')->firstOrFail();
+    // Rol de EJEMPLO: la escuela puede borrarlo, y el demo lo borró. Se
+    // planta dentro de la transacción; aquí sólo importa que esté acotado a un
+    // campus, no qué permisos trae.
+    $rolAcotado = rolFuncionalDePrueba('director_campus', 'administrativo');
 
     PersonaRol::create([
         'persona_id' => $usuario->persona_id,

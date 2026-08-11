@@ -44,6 +44,8 @@ require $raiz.'/vendor/autoload.php';
 $app = require $raiz.'/bootstrap/app.php';
 $app->make(Kernel::class)->bootstrap();
 
+require __DIR__.'/apoyo-roles.php';
+
 tenancy()->initialize(Tenant::find('demo'));
 
 $ok = 0;
@@ -72,7 +74,9 @@ function crearPromotor(string $apellido): array
         'situacion_id' => SituacionAsesor::query()->value('id'),
     ]);
 
-    $rol = Rol::where('name', 'promotor')->firstOrFail();
+    // Rol de EJEMPLO, borrable por diseño; se planta con el permiso que da
+    // acceso al CRM acotado a los prospectos propios.
+    $rol = rolFuncionalDePrueba('promotor', 'administrativo', ['ver-mis-prospectos']);
     PersonaRol::create(['persona_id' => $persona->id, 'rol_id' => $rol->id, 'activo' => true]);
 
     $usuario = Usuario::create([
