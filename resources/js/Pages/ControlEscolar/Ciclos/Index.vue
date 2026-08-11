@@ -2,7 +2,7 @@
 import { Head, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import NavEscolar from '@/Components/NavEscolar.vue';
+import PestanasSeccion from '@/Components/PestanasSeccion.vue';
 import BarraListado from '@/Components/BarraListado.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import TarjetaListado from '@/Components/TarjetaListado.vue';
@@ -82,7 +82,7 @@ function eliminar(id: number, clave: string): void {
     <Head title="Ciclos" />
 
     <AppLayout titulo="Control escolar">
-        <NavEscolar />
+        <PestanasSeccion />
 
         <BarraListado
             v-model:vista="vista"

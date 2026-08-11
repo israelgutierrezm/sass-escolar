@@ -2,6 +2,7 @@
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import PestanasSeccion from '@/Components/PestanasSeccion.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoTextarea from '@/Components/CampoTextarea.vue';
 
@@ -237,6 +238,8 @@ const datosPuestos = computed(() => form.campos_alumno as string[]);
     <Head title="Diseño del historial académico" />
 
     <AppLayout titulo="Historial académico">
+        <PestanasSeccion />
+
         <div class="space-y-4">
             <section class="tarjeta p-5">
                 <h2 class="text-base font-semibold">Cómo se imprime el historial</h2>

@@ -2,7 +2,7 @@
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import NavEscolar from '@/Components/NavEscolar.vue';
+import PestanasSeccion from '@/Components/PestanasSeccion.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
@@ -172,11 +172,7 @@ function verComo(): void {
     <!-- «Expediente», no «Ficha»: es la misma palabra con la que se entra desde
          el listado, y la misma pantalla que la del alumno. -->
     <AppLayout titulo="Expediente del docente">
-        <NavEscolar
-            :secciones="[
-                { etiqueta: 'Listado', url: '/escolar/docentes', permiso: 'ver-docentes' },
-            ]"
-        />
+        <PestanasSeccion />
 
         <section class="tarjeta p-6">
             <BotonVolver href="/escolar/docentes" texto="Docentes" class="mb-4" />

@@ -3,7 +3,7 @@ import { Head, useForm } from '@inertiajs/vue3';
 import { computed, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
-import NavAcademico from '@/Components/NavAcademico.vue';
+import PestanasSeccion from '@/Components/PestanasSeccion.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoCasillas from '@/Components/CampoCasillas.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
@@ -72,7 +72,7 @@ function enviar(): void {
     <Head :title="esEdicion ? 'Editar oferta' : 'Nueva oferta'" />
 
     <AppLayout :titulo="esEdicion ? 'Editar oferta' : 'Nueva oferta'">
-        <NavAcademico />
+        <PestanasSeccion />
 
         <form class="space-y-6" @submit.prevent="enviar">
             <TarjetaSeccion titulo="Qué se imparte" :icono="ICONOS.birrete">

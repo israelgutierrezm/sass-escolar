@@ -3,7 +3,7 @@ import { Head, useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
-import NavAcademico from '@/Components/NavAcademico.vue';
+import PestanasSeccion from '@/Components/PestanasSeccion.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
@@ -44,7 +44,7 @@ function enviar(): void {
     <Head :title="esEdicion ? 'Editar campus' : 'Nuevo campus'" />
 
     <AppLayout :titulo="esEdicion ? 'Editar campus' : 'Nuevo campus'">
-        <NavAcademico />
+        <PestanasSeccion />
 
         <form @submit.prevent="enviar">
             <TarjetaSeccion titulo="Datos del campus" descripcion="Identificación y ubicación del plantel." :icono="ICONOS.edificio">

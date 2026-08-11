@@ -4,7 +4,7 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import draggable from 'vuedraggable';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
-import NavAcademico from '@/Components/NavAcademico.vue';
+import PestanasSeccion from '@/Components/PestanasSeccion.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import FormularioAsignatura from '@/Components/FormularioAsignatura.vue';
 import CargaHoraria from '@/Components/CargaHoraria.vue';
@@ -342,7 +342,7 @@ function textoSobre(color: string | null): string {
     <Head :title="`Materias · ${plan.nombre}`" />
 
     <AppLayout titulo="Malla curricular">
-        <NavAcademico />
+        <PestanasSeccion />
 
         <!-- Encabezado del plan -->
         <section class="tarjeta p-6">

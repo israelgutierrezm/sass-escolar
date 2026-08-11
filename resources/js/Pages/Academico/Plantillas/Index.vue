@@ -4,7 +4,7 @@ import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
-import NavAcademico from '@/Components/NavAcademico.vue';
+import PestanasSeccion from '@/Components/PestanasSeccion.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 
 interface Plantilla {
@@ -39,7 +39,7 @@ function crear(): void {
     <Head title="Plantillas de evaluación" />
 
     <AppLayout titulo="Criterios de evaluación">
-        <NavAcademico />
+        <PestanasSeccion />
 
         <section class="tarjeta p-6">
             <div class="flex flex-wrap items-start justify-between gap-4">

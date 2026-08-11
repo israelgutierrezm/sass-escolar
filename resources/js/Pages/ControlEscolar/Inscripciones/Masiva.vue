@@ -2,7 +2,7 @@
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import NavEscolar from '@/Components/NavEscolar.vue';
+import PestanasSeccion from '@/Components/PestanasSeccion.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
@@ -295,7 +295,7 @@ function iniciales(nombre: string | null): string {
     <Head title="Inscripción masiva" />
 
     <AppLayout titulo="Inscripción masiva">
-        <NavEscolar />
+        <PestanasSeccion />
 
         <!-- Selección de ciclo y grupo -->
         <section class="tarjeta p-6">

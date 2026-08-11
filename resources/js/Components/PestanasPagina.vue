@@ -2,8 +2,8 @@
 /**
  * Pestañas DENTRO de una página (cambian el contenido visible, no navegan).
  *
- * Comparten exactamente el aspecto de la sub-navegación de sección
- * (NavAcademico / NavEscolar): borde inferior, activo en acento con subrayado,
+ * Comparten exactamente el aspecto de las pestañas de sección
+ * ({@see PestanasSeccion}): borde inferior, activo en acento con subrayado,
  * hover suave. Así todas las pestañas del sistema —de sección o de contenido—
  * se ven idénticas. La diferencia es que aquí son botones con `v-model`, no
  * enlaces de navegación.

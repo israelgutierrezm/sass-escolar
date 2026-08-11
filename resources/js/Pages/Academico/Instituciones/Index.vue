@@ -4,7 +4,7 @@ import { computed, ref } from 'vue';
 import { toast } from 'vue-sonner';
 import { prepararImagen } from '@/utils/imagen';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import NavAcademico from '@/Components/NavAcademico.vue';
+import PestanasSeccion from '@/Components/PestanasSeccion.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import ZonaArchivo from '@/Components/ZonaArchivo.vue';
@@ -119,7 +119,7 @@ function guardar(): void {
     <Head title="Institución" />
 
     <AppLayout titulo="Catálogo académico">
-        <NavAcademico />
+        <PestanasSeccion />
 
         <!-- Alta: solo si aún no existe. -->
         <div

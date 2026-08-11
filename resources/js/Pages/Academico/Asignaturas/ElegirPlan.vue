@@ -2,7 +2,7 @@
 import { Head, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import NavAcademico from '@/Components/NavAcademico.vue';
+import PestanasSeccion from '@/Components/PestanasSeccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 
@@ -34,7 +34,7 @@ function continuar(): void {
     <Head title="Nueva asignatura" />
 
     <AppLayout titulo="Nueva asignatura">
-        <NavAcademico />
+        <PestanasSeccion />
 
         <section class="max-w-xl tarjeta p-6">
             <h2 class="text-base font-semibold">Elige el plan</h2>

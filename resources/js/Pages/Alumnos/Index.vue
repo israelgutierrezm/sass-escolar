@@ -2,7 +2,7 @@
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import NavEscolar from '@/Components/NavEscolar.vue';
+import PestanasSeccion from '@/Components/PestanasSeccion.vue';
 import BarraListado from '@/Components/BarraListado.vue';
 import Paginacion from '@/Components/Paginacion.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
@@ -96,11 +96,7 @@ function subirExcel(archivo: File | null): void {
     <Head title="Alumnos" />
 
     <AppLayout titulo="Alumnos">
-        <NavEscolar
-            :secciones="[
-                { etiqueta: 'Listado', url: '/escolar/alumnos', permiso: 'ver-alumnos' },
-            ]"
-        />
+        <PestanasSeccion />
 
         <BarraListado
             v-model:vista="vista"

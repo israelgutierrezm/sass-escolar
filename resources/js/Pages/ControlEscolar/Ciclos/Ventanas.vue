@@ -5,7 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
-import NavEscolar from '@/Components/NavEscolar.vue';
+import PestanasSeccion from '@/Components/PestanasSeccion.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 
@@ -104,7 +104,7 @@ function revocar(ventanaId: number, excepcionId: number): void {
     <Head :title="`Captura · ${ciclo.clave}`" />
 
     <AppLayout titulo="Calendario de captura">
-        <NavEscolar />
+        <PestanasSeccion />
 
         <section class="tarjeta p-6">
 

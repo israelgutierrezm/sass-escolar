@@ -4,7 +4,7 @@ import { computed, ref } from 'vue';
 import { prepararImagen } from '@/utils/imagen';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
-import NavAcademico from '@/Components/NavAcademico.vue';
+import PestanasSeccion from '@/Components/PestanasSeccion.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 import { ICONOS } from '@/iconos';
@@ -52,7 +52,7 @@ function enviar(): void {
     <Head :title="esEdicion ? 'Editar institución' : 'Nueva institución'" />
 
     <AppLayout :titulo="esEdicion ? 'Editar institución' : 'Nueva institución'">
-        <NavAcademico />
+        <PestanasSeccion />
 
         <form class="max-w-3xl" @submit.prevent="enviar">
             <TarjetaSeccion titulo="Datos de la institución" descripcion="Persona moral que emite los documentos oficiales." :icono="ICONOS.edificio">

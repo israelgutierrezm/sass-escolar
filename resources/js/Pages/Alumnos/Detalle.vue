@@ -2,7 +2,7 @@
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import NavEscolar from '@/Components/NavEscolar.vue';
+import PestanasSeccion from '@/Components/PestanasSeccion.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CamposIdentidad from '@/Components/CamposIdentidad.vue';
@@ -662,11 +662,7 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
     <Head :title="persona.nombre ? `${persona.nombre} ${persona.primer_apellido}` : 'Alumno'" />
 
     <AppLayout titulo="Expediente del alumno">
-        <NavEscolar
-            :secciones="[
-                { etiqueta: 'Listado', url: '/escolar/alumnos', permiso: 'ver-alumnos' },
-            ]"
-        />
+        <PestanasSeccion />
 
         <!-- Cabecera -->
         <section class="tarjeta p-6">

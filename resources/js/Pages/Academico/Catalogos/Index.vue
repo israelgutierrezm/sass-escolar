@@ -2,7 +2,7 @@
 import { Head, router } from '@inertiajs/vue3';
 import { computed, nextTick, reactive, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import NavAcademico from '@/Components/NavAcademico.vue';
+import PestanasSeccion from '@/Components/PestanasSeccion.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 
@@ -202,7 +202,7 @@ function esEditando(catalogo: string, id: number): boolean {
     <Head title="Catálogos" />
 
     <AppLayout titulo="Configuración de catálogos">
-        <NavAcademico />
+        <PestanasSeccion />
 
         <p class="text-sm" :style="{ color: 'var(--color-suave)' }">
             Los catálogos que alimentan los formularios de Académico. Cada uno lleva una clave y una

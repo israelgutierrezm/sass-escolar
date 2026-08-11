@@ -6,6 +6,14 @@ import type { Ubicacion } from '@/menu/construir';
 /**
  * Las pestañas de la sección donde está parada la pantalla.
  *
+ * ── Una sola barra para todo el sistema ───────────────────────────────────
+ * Eran DOS —`NavAcademico` y `NavEscolar`— haciendo exactamente lo mismo, y por
+ * eso divergieron: al derivar las de Académico del catálogo, las de Control
+ * escolar se quedaron con su lista escrita a mano de tres opciones (Ciclos,
+ * Grupos, Inscripción masiva) mientras la barra lateral mostraba siete. El
+ * mismo módulo con dos organigramas en la misma pantalla, que es justo el
+ * defecto que se había ido a corregir.
+ *
  * ── Salen del CATÁLOGO del menú, no de una lista propia ───────────────────
  * Tenían la suya escrita a mano con las ocho opciones de Académico, y al mover
  * Oferta, Evaluación y Catálogos a «Configuración» la barra lateral lo respetó
@@ -54,9 +62,9 @@ function ir(url: string): void {
     <div v-if="secciones.length > 1" class="mb-6">
         <!-- Móvil: selector desplegable -->
         <div class="sm:hidden">
-            <label class="sr-only" for="nav-academico">Sección</label>
+            <label class="sr-only" for="pestanas-seccion">Sección</label>
             <select
-                id="nav-academico"
+                id="pestanas-seccion"
                 class="w-full rounded-lg border px-3 py-2.5 text-sm font-medium"
                 :style="{ borderColor: 'var(--color-borde)', backgroundColor: 'var(--color-superficie)', color: 'var(--color-contenido)' }"
                 :value="seccionActual"

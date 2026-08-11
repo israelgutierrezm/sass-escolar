@@ -48,14 +48,20 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (23 suites, 641 verificaciones):
-   `prueba-actas`, `prueba-plantillas`, `prueba-ventanas-captura`,
-   `prueba-ciclo-campus`, `prueba-apertura-grupos`, `prueba-alcance-docente`,
-   `prueba-alumnos`, `prueba-docentes`, `prueba-documentos`,
-   `prueba-formularios`, `prueba-multicarrera`, `prueba-suplantacion`,
-   `prueba-finanzas`, `prueba-cobro`, `prueba-facturacion`, `prueba-emisores`,
-   `prueba-roles`, `prueba-crm`, `prueba-formulario-publico`, `prueba-panel`,
-   `prueba-configuracion`, `prueba-portal-aspirante`, `prueba-listados`.
+   Las suites versionadas viven en `scripts/` (**62 archivos `prueba-*.php`**;
+   esta lista decía 23 y llevaba tiempo desactualizada). Se corren todas de una
+   vez con `for f in scripts/prueba-*.php; do php "$f"; done` y cada una imprime
+   `Resultado: N correctas, M fallidas`.
+
+   **Trece están en rojo, y NINGUNA por un cambio reciente** — se comprobó
+   corriéndolas contra el árbol limpio. Es deriva acumulada: casi todas esperan
+   datos del demo que ya cambiaron (un rol por nombre que ya no existe, dos
+   planes que se llamaban igual). El caso grave es `prueba-cobro`, que **importa
+   `App\Services\PeriodosCobro`, una clase borrada en el refactor del motor de
+   cobro (`86a3899`)**: revienta en la primera línea, así que lleva meses
+   pasando por suite y sin comprobar nada. Antes de creerle a una de estas
+   suites, correrla.
+
    NO van en `tests/`:
    phpunit corre contra SQLite en memoria y ahí se prueba justo lo que SQLite
    no sabe hacer (`LAST_INSERT_ID`, FKs reales, InnoDB).
@@ -523,15 +529,28 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
 - **Listados con filtros y vista lista/cuadrícula** en Aspirantes, Grupos,
   Promoción por etapa y Usuarios, sobre cuatro componentes reutilizables:
   `PanelFiltros`, `SelectorVista`, `TarjetaPersona` y `TarjetaRegistro` (este
-  último para lo que no es persona: un grupo no tiene cara). `NavEscolar` ya no
-  trae lista fija — cada pantalla declara sus pestañas y se filtran por permiso.
+  último para lo que no es persona: un grupo no tiene cara).
   Grupos dejó de devolver TODOS los grupos sin paginar.
+- **Las pestañas de sección son UN componente, `PestanasSeccion`**, y salen del
+  catálogo del menú. Eran dos —`NavAcademico` y `NavEscolar`— haciendo lo mismo,
+  y por eso divergieron: al derivar las de Académico, Control escolar se quedó
+  con su lista escrita a mano de tres opciones mientras la barra lateral
+  mostraba siete. Dos organigramas del mismo módulo en la misma pantalla, que es
+  el defecto que se había ido a corregir. Con una sola no puede repetirse.
+  - Se muestran las HERMANAS del nivel donde está parada la pantalla: dentro de
+    un subgrupo, las suyas. Con una sola opción la barra no se dibuja (Alumnos y
+    Docentes tienen una).
+  - **No todas las secciones tienen pestañas**: Finanzas, Plataforma, Admisiones
+    y Certificación se navegan sólo desde la barra lateral. El encabezado no
+    depende de ellas, así que la miga se lee igual; ponérselas a todas es una
+    decisión de diseño pendiente, no un arreglo.
 - **Un aspirante dado de alta a mano nace en la primera etapa del embudo.**
   Antes solo lo hacía el formulario público, así que el prospecto capturado por
   personal quedaba con `etapa_crm_id` en null e **invisible para el CRM**.
   Corregido en el controlador + migración de backfill.
-- Pruebas: 23 suites en `scripts/`, 641 verificaciones, todas contra la BD real
-  del tenant demo con `DB::rollBack()` al final. `prueba-listados` es la primera
+- Pruebas: 62 suites en `scripts/`, contra la BD real del tenant demo con
+  `DB::rollBack()` al final —trece en rojo por deriva de datos del demo; ver la
+  regla 5—. `prueba-listados` es la primera
   que invoca a los CONTROLADORES y lee sus props de Inertia, en vez de
   reimplementar la consulta: un `or` sin paréntesis no se detecta de otra forma.
 - **Módulo 8 — LMS completo** (seis fases): cursos por materia impartida,

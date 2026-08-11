@@ -3,7 +3,7 @@ import { Head, useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
-import NavEscolar from '@/Components/NavEscolar.vue';
+import PestanasSeccion from '@/Components/PestanasSeccion.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
@@ -271,7 +271,7 @@ function enviar(): void {
     <Head :title="esEdicion ? 'Editar grupo' : 'Nuevo grupo'" />
 
     <AppLayout :titulo="esEdicion ? 'Editar grupo' : 'Nuevo grupo'">
-        <NavEscolar />
+        <PestanasSeccion />
 
         <form class="space-y-6" @submit.prevent="enviar">
             <!-- Cómo se llama el grupo: se escribe de corrido, sin depender de

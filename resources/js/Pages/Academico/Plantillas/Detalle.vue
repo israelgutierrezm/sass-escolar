@@ -5,7 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
-import NavAcademico from '@/Components/NavAcademico.vue';
+import PestanasSeccion from '@/Components/PestanasSeccion.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoCheckbox from '@/Components/CampoCheckbox.vue';
@@ -88,7 +88,7 @@ function repropagar(): void {
     <Head :title="plantilla.nombre" />
 
     <AppLayout :titulo="plantilla.nombre">
-        <NavAcademico />
+        <PestanasSeccion />
 
         <section class="tarjeta p-6">
 

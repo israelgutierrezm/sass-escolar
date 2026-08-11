@@ -3,7 +3,7 @@ import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
-import NavAcademico from '@/Components/NavAcademico.vue';
+import PestanasSeccion from '@/Components/PestanasSeccion.vue';
 import PestanasPagina from '@/Components/PestanasPagina.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
@@ -189,7 +189,7 @@ const etiquetaTipoReq = (tipo: string) => (tipo === 'aprobada' ? 'Aprobada' : 'C
     <Head :title="`${materia.clave_en_plan} · ${plan.nombre}`" />
 
     <AppLayout titulo="Editar materia del plan">
-        <NavAcademico />
+        <PestanasSeccion />
 
         <!-- Cabecera -->
         <section class="tarjeta p-6">

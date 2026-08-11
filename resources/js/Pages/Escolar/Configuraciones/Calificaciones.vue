@@ -2,6 +2,7 @@
 import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import PestanasSeccion from '@/Components/PestanasSeccion.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import { ICONOS } from '@/iconos';
@@ -195,6 +196,8 @@ const porNivel = computed(() => {
     <Head title="Configuración de calificaciones" />
 
     <AppLayout titulo="Calificaciones">
+        <PestanasSeccion />
+
         <p class="mb-4 max-w-3xl text-sm" :style="{ color: 'var(--color-suave)' }">
             Con qué escala se califica en cada carrera. Se aplica al capturar calificaciones y al
             registrar historial académico, así que un plan que califica con enteros va a rechazar un 8.5.

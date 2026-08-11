@@ -2,6 +2,7 @@
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import PestanasSeccion from '@/Components/PestanasSeccion.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
@@ -172,6 +173,8 @@ const incompletas = computed(() => props.materias.filter((m) => m.horas_colocada
     <Head title="Horarios" />
 
     <AppLayout titulo="Horarios">
+        <PestanasSeccion />
+
         <!-- Qué grupo se está viendo. -->
         <section class="tarjeta mb-4 flex flex-wrap items-end gap-4 p-5">
             <label class="text-sm">

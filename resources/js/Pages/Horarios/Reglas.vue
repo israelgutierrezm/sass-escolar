@@ -2,6 +2,7 @@
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import PestanasSeccion from '@/Components/PestanasSeccion.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
@@ -172,6 +173,8 @@ const alcanceDe = (r: Regla): string => {
     <Head title="Reglas de horario" />
 
     <AppLayout titulo="Reglas de horario">
+        <PestanasSeccion />
+
         <p class="mb-4 max-w-3xl text-sm" :style="{ color: 'var(--color-suave)' }">
             Con estos criterios se arman los horarios: la jornada, cuánto dura una clase y cuánta carga
             puede llevar un docente. Basta con una regla para toda la escuela; agrega otras sólo si algún

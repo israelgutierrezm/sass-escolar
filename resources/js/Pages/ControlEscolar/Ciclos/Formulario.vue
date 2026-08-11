@@ -3,7 +3,7 @@ import { Head, useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
-import NavEscolar from '@/Components/NavEscolar.vue';
+import PestanasSeccion from '@/Components/PestanasSeccion.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoCasillas from '@/Components/CampoCasillas.vue';
@@ -73,7 +73,7 @@ function enviar(): void {
     <Head :title="esEdicion ? 'Editar ciclo' : 'Nuevo ciclo'" />
 
     <AppLayout :titulo="esEdicion ? 'Editar ciclo' : 'Nuevo ciclo'">
-        <NavEscolar />
+        <PestanasSeccion />
 
         <form class="space-y-6" @submit.prevent="enviar">
             <TarjetaSeccion titulo="Identificación y periodo" descripcion="Clave, fechas y dónde aplica el ciclo." :icono="ICONOS.calendario">

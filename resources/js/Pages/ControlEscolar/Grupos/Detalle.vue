@@ -3,7 +3,7 @@ import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
-import NavEscolar from '@/Components/NavEscolar.vue';
+import PestanasSeccion from '@/Components/PestanasSeccion.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoCasillas from '@/Components/CampoCasillas.vue';
 import CampoBuscador from '@/Components/CampoBuscador.vue';
@@ -324,7 +324,7 @@ const urlInscribir = computed(
     <Head :title="`Grupo ${grupo.clave}`" />
 
     <AppLayout titulo="Control escolar">
-        <NavEscolar />
+        <PestanasSeccion />
 
         <!-- Cabecera: identidad del grupo de un vistazo -->
         <section class="tarjeta p-6">
