@@ -201,6 +201,18 @@ class PlanMateriaController extends Controller
         DB::transaction(function () use ($request, $plan) {
             $asignatura = Asignatura::create($request->datosAsignatura());
 
+            /*
+             * Los descriptores del alta se GUARDAN.
+             *
+             * `AgregarMateriaRequest` hereda su regla de validación, así que el
+             * alta los aceptaba… y los tiraba: sólo `actualizarAsignatura`
+             * llamaba a `descriptoresSync()`. Un dato validado que se descarta
+             * en silencio es el peor de los dos mundos —el formulario dice que
+             * lo recibió y la asignatura nace sin nada—. Lo encontró
+             * `prueba-descriptores` al reescribirse contra este endpoint.
+             */
+            $asignatura->descriptores()->sync($request->descriptoresSync());
+
             PlanMateria::create([
                 'plan_id' => $plan->id,
                 'asignatura_id' => $asignatura->id,

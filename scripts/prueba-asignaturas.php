@@ -13,6 +13,13 @@ require $raiz.'/vendor/autoload.php';
 $app = require $raiz.'/bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
+require __DIR__.'/apoyo-peticiones.php';
+
+use App\Models\Academico\PlanMateria;
+use App\Models\Academico\PlanEstudio;
+use App\Http\Requests\GuardarAsignaturaRequest;
+use App\Http\Requests\AgregarMateriaRequest;
+use App\Http\Controllers\PlanMateriaController;
 use App\Http\Controllers\AsignaturaController;
 use App\Models\Academico\Asignatura;
 use App\Models\Academico\Descriptor;
@@ -86,43 +93,60 @@ try {
         Descriptor::count() >= 4
         && Descriptor::whereIn('clave', ['bienvenida', 'contenido_tematico', 'actividades_aprendizaje', 'criterios_evaluacion'])->count() === 4);
 
-    echo PHP_EOL.'3. Al crear, TODOS los descriptores vienen marcados'.PHP_EOL;
+    echo PHP_EOL.'3. El alta vive en la ficha del plan, no en un CRUD aparte'.PHP_EOL;
 
-    // Los tipos oficiales se siembran con `clave` = id del catálogo SEP ('263'),
-    // no con una clave hablada: se busca por nombre.
+    /*
+     * `AsignaturaController::store()` y `update()` NO EXISTEN: se retiraron al
+     * unificar el editor (c67b682), y el alta pasó a
+     * `PlanMateriaController::store`, que crea la asignatura y la liga al plan
+     * en una sola transacción. Esta suite les seguía hablando y moría con «Call
+     * to undefined method» sin ejecutar una comprobación.
+     *
+     * Con ello se fue también «nace con TODOS los descriptores marcados»: ahora
+     * la ficha ofrece el catálogo y quien captura ELIGE cuáles aplican, que es
+     * lo que se ve en la pantalla. Se comprueba lo de hoy.
+     */
     $tipoObligatoria = TipoAsignatura::where('nombre', 'OBLIGATORIA')->value('id');
+    $plan = PlanEstudio::query()->firstOrFail();
+    $unico = uniqid();
 
-    // Sin mandar `descriptores`: el controlador debe marcar todos.
-    $controlador->store(peticion([
-        'identificador' => 'ASIG-'.random_int(1000, 9999),
-        'clave' => 'ASG-'.random_int(1000, 9999),
-        'nombre' => 'Asignatura de prueba',
-        'creditos' => 8,
-        'tipo_asignatura_id' => $tipoObligatoria,
-    ], $u));
+    app(PlanMateriaController::class)->store(
+        peticionDeFormulario(AgregarMateriaRequest::class, [
+            'identificador' => 'ASIG-'.random_int(1000, 9999),
+            'clave' => 'ASG-'.$unico,
+            'nombre' => 'Asignatura de prueba',
+            'creditos' => 8,
+            'tipo_asignatura_id' => $tipoObligatoria,
+            'periodo' => 1,
+        ], $u),
+        $plan,
+    );
 
-    $creada = Asignatura::where('nombre', 'Asignatura de prueba')->latest('id')->first();
+    $creada = Asignatura::where('clave', 'ASG-'.$unico)->first();
 
-    verificar('Nace con TODOS los descriptores del catálogo',
-        $creada?->descriptores()->count() === Descriptor::count(),
-        $creada?->descriptores()->count().' de '.Descriptor::count());
+    verificar('El alta creó la asignatura', $creada !== null);
+    verificar('Y la ligó al plan en el mismo paso',
+        PlanMateria::where('plan_id', $plan->id)->where('asignatura_id', $creada?->id)->exists());
+    verificar('Nace SIN descriptores: se eligen al capturarlos',
+        $creada?->descriptores()->count() === 0, (string) $creada?->descriptores()->count());
 
-    echo PHP_EOL.'4. Al editar se respeta la selección'.PHP_EOL;
+    echo PHP_EOL.'4. Al editar se respeta la selección de descriptores'.PHP_EOL;
 
-    $soloDos = Descriptor::orderBy('id')->take(2)->pluck('id')->all();
+    $materia = PlanMateria::where('plan_id', $plan->id)->where('asignatura_id', $creada->id)->firstOrFail();
+    $soloDos = Descriptor::orderBy('id')->take(2)->get();
 
-    $reqEdit = Request::create("/academico/asignaturas/{$creada->id}", 'PUT', [
-        'identificador' => $creada->identificador,
-        'clave' => $creada->clave,
-        'nombre' => $creada->nombre,
-        'creditos' => 8,
-        'tipo_asignatura_id' => $tipoObligatoria,
-        'descriptores' => $soloDos,
-    ]);
-    app()->instance('request', $reqEdit);
-    $reqEdit->setUserResolver(fn () => $u);
-
-    $controlador->update($reqEdit, $creada);
+    app(PlanMateriaController::class)->actualizarAsignatura(
+        peticionDeFormulario(GuardarAsignaturaRequest::class, [
+            'identificador' => $creada->identificador,
+            'clave' => $creada->clave,
+            'nombre' => $creada->nombre,
+            'creditos' => 8,
+            'tipo_asignatura_id' => $tipoObligatoria,
+            'descriptores' => $soloDos->map(fn ($d) => ['descriptor_id' => $d->id, 'contenido' => '<p>x</p>'])->all(),
+        ], $u, '/', 'PUT', ['materia' => $materia]),
+        $plan,
+        $materia,
+    );
 
     verificar('Quedan solo los dos elegidos', $creada->fresh()->descriptores()->count() === 2);
 
@@ -130,16 +154,16 @@ try {
     $rechazado = false;
 
     try {
-        $bad = Request::create("/academico/asignaturas/{$creada->id}", 'PUT', [
-            'identificador' => $creada->identificador, 'clave' => $creada->clave,
-            'nombre' => $creada->nombre, 'creditos' => 8, 'tipo_asignatura_id' => $tipoObligatoria,
-            'descriptores' => [999999],
-        ]);
-        app()->instance('request', $bad);
-        $bad->setUserResolver(fn () => $u);
-        $controlador->update($bad, $creada);
+        peticionDeFormulario(GuardarAsignaturaRequest::class, [
+            'identificador' => $creada->identificador,
+            'clave' => $creada->clave,
+            'nombre' => $creada->nombre,
+            'creditos' => 8,
+            'tipo_asignatura_id' => $tipoObligatoria,
+            'descriptores' => [['descriptor_id' => 999999, 'contenido' => null]],
+        ], $u, '/', 'PUT', ['materia' => $materia]);
     } catch (ValidationException $e) {
-        $rechazado = array_key_exists('descriptores.0', $e->errors());
+        $rechazado = array_key_exists('descriptores.0.descriptor_id', $e->errors());
     }
 
     verificar('Un descriptor inexistente se rechaza', $rechazado);

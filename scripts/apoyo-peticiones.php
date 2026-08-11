@@ -30,6 +30,7 @@ declare(strict_types=1);
 use App\Models\Identidad\Usuario;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Route;
 
 if (! function_exists('peticionDeFormulario')) {
     /**
@@ -37,6 +38,8 @@ if (! function_exists('peticionDeFormulario')) {
      *
      * @param  class-string<T>  $clase  el FormRequest que el controlador exige
      * @param  array<string, mixed>  $datos
+     * @param  array<string, mixed>  $parametrosDeRuta  los modelos que la ruta
+     *                                                  ataría, p. ej. `['materia' => $materia]`
      * @return T
      */
     function peticionDeFormulario(
@@ -45,8 +48,30 @@ if (! function_exists('peticionDeFormulario')) {
         ?Usuario $usuario = null,
         string $uri = '/',
         string $metodo = 'POST',
+        array $parametrosDeRuta = [],
     ): FormRequest {
         $base = Request::create($uri, $metodo, $datos);
+
+        /*
+         * Los parámetros de la RUTA, cuando las reglas los consultan.
+         *
+         * `GuardarAsignaturaRequest` saca de `$this->route('materia')` a quién
+         * debe IGNORAR la regla de clave única. Sin ruta atada, `route()`
+         * devuelve null, la regla no ignora a nadie y editar una asignatura
+         * choca contra su propia clave: «Ya existe una asignatura con esa
+         * clave», sobre sí misma. Se ve como si la validación estuviera mal
+         * cuando lo que falta es el contexto.
+         */
+        if ($parametrosDeRuta !== []) {
+            $ruta = new Route([$metodo], $uri, []);
+            $ruta->bind($base);
+
+            foreach ($parametrosDeRuta as $nombre => $valor) {
+                $ruta->setParameter($nombre, $valor);
+            }
+
+            $base->setRouteResolver(fn () => $ruta);
+        }
 
         if ($usuario !== null) {
             $base->setUserResolver(fn () => $usuario);
@@ -60,6 +85,7 @@ if (! function_exists('peticionDeFormulario')) {
         /** @var T $formulario */
         $formulario = $clase::createFrom($base);
         $formulario->setContainer(app())->setRedirector(app('redirect'));
+        $formulario->setRouteResolver($base->getRouteResolver());
 
         if ($usuario !== null) {
             $formulario->setUserResolver(fn () => $usuario);
