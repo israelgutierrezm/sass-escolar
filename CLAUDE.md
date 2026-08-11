@@ -190,6 +190,37 @@ Cinco entregas, en este orden. A y B ✅ hechas; C, D y E pendientes:
   revienta con `Unknown column 'created_by'` en el primer `create()`. Mordió al
   crear `imagenes_contenido`.
 
+## Qué número manda cada cosa al SEP (resuelto; no re-litigar)
+
+Los XML del certificado (DEC 3.0) y del título validan contra los XSD oficiales
+que viven en `resources/certificados/` y `resources/titulos/`. **Ésa es la
+prueba**: `ValidadorDec::validarLote()` y `ValidadorTitulo::validarMatricula()`
+los corren, y comprobado contra el demo los dos pasan.
+
+- **En los CATÁLOGOS, el valor oficial es la `clave`.** Nivel de estudios, tipo
+  de periodo, tipo de asignatura y tipo de certificación se leen por ahí, y su
+  columna `identificador` se retiró por redundante. En `tipos_certificacion` el
+  id NO coincide con la clave —1 y 2 contra 79 y 80—, así que leer el id sería
+  mandar un número que la SEP no reconoce.
+- **En carrera, asignatura, plan y campus NO se puede mover**: ahí
+  `identificador` y `clave` son datos DISTINTOS —la clave de una materia y su
+  identificador no significan lo mismo—. Se quedan como están; decisión del
+  cliente, confirmada.
+- **Y hay catálogos donde el valor oficial vive en `identificador` y la clave es
+  otra cosa**: `entidades_federativas` (clave = abreviatura RENAPO «AS»,
+  identificador = «01»), `cargos` (clave = «director», identificador = «1»), y
+  `modalidades_titulacion` y `fundamentos_legales_servicio_social`, que ni
+  siquiera tienen columna `clave`. **Unificar «todo por clave» rompería el
+  timbrado de todas las escuelas.** Por eso la columna se elige catálogo por
+  catálogo en `ConstructorCertificadoXml::idCatalogo()`, y lo fija
+  `ClavesSepDelCertificadoTest`.
+
+Lo que NO está cubierto y conviene saber: cuando carrera, asignatura o campus no
+tienen `identificador` capturado, el certificado cae en silencio a la clave y
+luego al id. Nadie avisa. En el demo `idCampus` sale «CENTRO» y `idCarrera` un
+uuid que puso el seeder — el XSD los acepta como `xs:string`, así que pasa la
+validación, pero no son identificadores que la SEP haya asignado.
+
 ## Trampas al programar (ya mordieron)
 
 - **Un `back()` después de PUT/PATCH/DELETE debe ser `back(303)`.** Ante un 302
@@ -752,6 +783,44 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     de credencial se busca DENTRO de las suyas: una ajena cae en la propia.
     **Sin permiso propio**: quien decide es la escuela al encender la del rol.
   - Lo cubren 11 pruebas contando píxeles sobre el PNG y comprobando los 404.
+
+- **Historial académico imprimible y su diseñador**
+  (`/escolar/configuracion/historial`, permiso `gestionar-historial`): la escuela
+  decide qué lleva el encabezado, QUÉ COLUMNAS trae la tabla y en qué orden, cómo
+  se agrupan las materias, el resumen, la leyenda, la firma y el sello.
+  - **No es un editor de cajas como la credencial, y no por atajo**: un historial
+    CRECE —siete renglones en primer semestre, trescientos al egresar—, así que
+    no hay coordenada que valga para la fila doscientos. Entre los historiales
+    reales de referencia la maqueta cambia poco y las columnas cambian mucho.
+  - **Una o dos columnas de bloques**: «Periodo 1» y «2» lado a lado, «3» y «4»
+    en la fila siguiente. Un bachillerato de seis semestres pasa de tres hojas a
+    una. Sin agrupar NO se parte: una lista corrida cortada por la mitad obliga a
+    bajar por la izquierda y volver a subir.
+  - **El bloque se rotula con la palabra del PLAN** (`tipo_periodo_id` →
+    `PlanEstudio::unidadPeriodo()`): «Semestre 1», «Cuatrimestre 3», «Módulo 2».
+    La cabecera de la columna homónima usa la misma palabra.
+  - **Descarga del alumno con interruptor**, y con marca de agua por omisión: sin
+    ella, un PDF idéntico al oficial circula sin sello ni firma autógrafa.
+    Cerrada, la ruta responde 404 —no 403—.
+  - **En Blade y no en PDF generado**: el proyecto no tiene librería de PDF y el
+    navegador ya sabe imprimir. Los estilos van en línea para que un fallo de
+    assets no deje sin forma el historial de alguien en el mostrador.
+  - Variantes por nivel de estudios, igual que la credencial.
+- **Los catálogos de nivel de estudios y tipo de periodo se pueden APAGAR**
+  (interruptor en la columna de acciones de `/academico/catalogos`). Apagado = no
+  aparece en ninguno de los catorce desplegables. **Sólo se apaga lo que nadie
+  usa**, y «nadie usa» mira las OCHO tablas que referencian al nivel, dos de
+  ellas sin foránea (`evento_destinos` y `emisor_asignaciones`). El filtro va
+  ESCRITO A MANO en cada desplegable (`->activos()`) y no como scope global: el
+  global habría filtrado también las lecturas POR ID, y entonces apagar un nivel
+  dejaría el historial de una alumna sin su nivel, sin error.
+- **Tipos de certificación y títulos profesionales viven en Académico →
+  Catálogos.** Los títulos profesionales estaban DOS VECES en el menú —bajo
+  certificación y bajo titulación— y era la misma tabla con el mismo controlador.
+  Sus columnas son `abreviatura` y `descripcion`, no `clave` y `nombre`: el
+  registro genérico las MAPEA en vez de renombrarlas, porque las lee el XML del
+  título.
+- **«Certificación y titulación» es un solo menú** con un submenú para cada una.
 
 **Pendiente inmediato — aquí se retoma:**
 
