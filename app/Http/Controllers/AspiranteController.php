@@ -19,6 +19,7 @@ use App\Models\Promocion\OrigenAspirante;
 use App\Models\Promocion\ResultadoSeguimiento;
 use App\Models\Promocion\SeguimientoAspirante;
 use App\Models\Promocion\TipoSeguimiento;
+use App\Services\AsignadorAsesor;
 use App\Services\ConvertidorAspirante;
 use App\Services\GeneradorMatricula;
 use App\Services\IdentidadPersona;
@@ -432,7 +433,9 @@ class AspiranteController extends Controller
         // prospecto en una sede ajena.
         $this->exigirCampusPropios($request, array_filter([$datos['campus_id'] ?? null]), 'campus_id');
 
-        $aspirante = DB::transaction(function () use ($datos, $identidad) {
+        $quienRegistra = $request->user()?->persona_id;
+
+        $aspirante = DB::transaction(function () use ($datos, $identidad, $quienRegistra) {
             $persona = $identidad->existentePorCurp($datos['curp'] ?? null);
 
             if ($persona === null) {
@@ -445,7 +448,7 @@ class AspiranteController extends Controller
                 ))->save();
             }
 
-            return Aspirante::create([
+            $nuevo = Aspirante::create([
                 ...$this->datosAspirante($datos),
                 'persona_id' => $persona->id,
                 // Nace en la PRIMERA etapa del embudo. Sin esto, un aspirante
@@ -456,6 +459,17 @@ class AspiranteController extends Controller
                 // esa asimetría es justo lo que se corrige.
                 'etapa_crm_id' => EtapaCrm::query()->orderBy('orden')->value('id'),
             ]);
+
+            /*
+             * Y nace CON DUEÑO, según lo que la escuela haya configurado.
+             *
+             * Dentro de la transacción a propósito: un prospecto guardado y sin
+             * asignar porque el reparto falló es justo el que se pierde. O
+             * quedan los dos o no queda ninguno.
+             */
+            app(AsignadorAsesor::class)->asignar($nuevo, $quienRegistra);
+
+            return $nuevo;
         });
 
         return redirect()

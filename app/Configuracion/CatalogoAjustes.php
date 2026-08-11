@@ -51,12 +51,21 @@ final class CatalogoAjustes
 
     public const EXIGE_PAGO = 'aspirante.exige_pago_para_convertir';
 
+    public const ASIGNACION_ASESOR = 'aspirante.asignacion_de_asesor';
+
     // Acta (ya existían sueltos; se traen al catálogo).
     public const ACTA_FORMATO_FOLIO = 'acta.formato_folio';
 
     public const ACTA_AMBITO = 'acta.ambito_consecutivo';
 
     private const ACCIONES = ['advertir' => 'Solo advertir', 'bloquear' => 'Bloquear'];
+
+    /** Cómo se le pone dueño a un prospecto recién llegado. */
+    private const REPARTOS = [
+        'manual' => 'A mano: alguien lo asigna',
+        'quien_registra' => 'Se lo queda quien lo registra',
+        'secuencial' => 'Por turno entre los asesores del campus',
+    ];
 
     /**
      * @return array<int, Ajuste>
@@ -177,6 +186,18 @@ final class CatalogoAjustes
                 descripcion: 'No deja generar matrícula mientras el aspirante tenga sin cubrir su cargo de inscripción.',
                 tipo: Ajuste::BOOLEANO,
                 porDefecto: false,
+            ),
+            new Ajuste(
+                clave: self::ASIGNACION_ASESOR,
+                grupo: 'Admisiones',
+                etiqueta: 'Asignación de asesor a los prospectos nuevos',
+                descripcion: 'Quién queda como titular de un aspirante en cuanto se registra. '
+                    .'«Por turno» reparte entre los asesores ACTIVOS del campus del prospecto, '
+                    .'dándoselo al que menos prospectos abiertos tenga.',
+                tipo: Ajuste::SELECCION,
+                porDefecto: 'manual',
+                opciones: self::REPARTOS,
+                consecuencia: 'Aplica a los que se registren de ahora en adelante: no reparte los que ya existen.',
             ),
 
             new Ajuste(

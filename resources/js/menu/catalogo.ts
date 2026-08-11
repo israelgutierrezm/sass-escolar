@@ -121,6 +121,9 @@ export const CATALOGO_MENU: GrupoMenu[] = [
             { clave: 'aspirantes', etiqueta: 'Aspirantes', url: '/aspirantes', permiso: 'ver-aspirantes' },
             { clave: 'promocion', etiqueta: 'Promoción (CRM)', url: '/promocion', permiso: 'ver-mis-prospectos', o: 'gestionar-promocion' },
             { clave: 'comisiones', etiqueta: 'Comisiones', url: '/promocion/comisiones', permiso: 'ver-mis-prospectos', o: 'gestionar-promocion' },
+            // Quién atiende prospectos. Va junto al CRM y no en Plataforma:
+            // es una decisión de promoción, no de administración del sistema.
+            { clave: 'asesores', etiqueta: 'Asesores', url: '/promocion/asesores', permiso: 'gestionar-promocion' },
             { clave: 'formularios-web', etiqueta: 'Formularios web', url: '/promocion/publicaciones', permiso: 'gestionar-promocion' },
             { clave: 'documentos', etiqueta: 'Documentos', url: '/documentos', permiso: 'gestionar-documentos' },
             { clave: 'formularios', etiqueta: 'Formularios', url: '/formularios', permiso: 'gestionar-formularios' },

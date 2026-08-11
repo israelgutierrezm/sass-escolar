@@ -237,6 +237,10 @@ try {
         'email' => 'alta.manual.'.random_int(100000, 999999).'@ejemplo.mx',
         'situacion_id' => SituacionAspirante::query()->value('id'),
         'origen_id' => $origen?->id,
+        // El campus se volvió OBLIGATORIO: de él depende a quién se le reparte
+        // el prospecto —el turno va entre los asesores de su campus—, y sin él
+        // se quedaba sin dueño por un dato que nadie capturó.
+        'campus_id' => App\Models\Academico\Campus::query()->value('id'),
     ]);
 
     app()->instance('request', $peticionAlta);

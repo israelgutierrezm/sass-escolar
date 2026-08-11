@@ -12,6 +12,7 @@ use App\Http\Controllers\AsignaturaController;
 use App\Http\Controllers\AsignaturaGrupoController;
 use App\Http\Controllers\BibliotecaController;
 use App\Http\Controllers\ActividadAspiranteController;
+use App\Http\Controllers\AsesorController;
 use App\Http\Controllers\AspiranteController;
 use App\Http\Controllers\AulaController;
 use App\Http\Controllers\AutenticacionController;
@@ -1746,6 +1747,26 @@ Route::middleware([
                     Route::post('/reglas-comision', 'guardarRegla')->name('reglas.store');
                     Route::delete('/reglas-comision/{regla}', 'eliminarRegla')->name('reglas.destroy');
                 });
+            });
+
+        /*
+         * El EQUIPO de promoción: quién es asesor y cuál está en turno.
+         *
+         * Las tablas existen desde la Fase 1 y nunca tuvieron pantalla, así que
+         * el pivote de asignación estaba vacío y todo el CRM colgaba de algo que
+         * nadie podía llenar. Es de quien coordina: repartir la cartera no es
+         * tarea de quien la trabaja.
+         */
+        Route::controller(AsesorController::class)
+            ->prefix('promocion/asesores')
+            ->name('tenant.promocion.asesores.')
+            ->middleware('can:gestionar-promocion')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('/candidatas', 'candidatas')->name('candidatas');
+                Route::post('/', 'store')->name('store');
+                Route::put('/{asesor}', 'update')->name('update');
+                Route::delete('/{asesor}', 'destroy')->name('destroy');
             });
 
         /*

@@ -85,7 +85,17 @@ class GuardarAspiranteRequest extends FormRequest
 
             // Aspirante
             'oferta_interes_id' => ['nullable', 'integer', Rule::exists('oferta', 'id')->whereNull('deleted_at')],
-            'campus_id' => ['nullable', 'integer', Rule::exists('campus', 'id')->whereNull('deleted_at')],
+            /*
+             * El campus es OBLIGATORIO desde el primer contacto.
+             *
+             * Era opcional y salía de la oferta de interés, que un prospecto
+             * puede no haber elegido todavía: sin campus no hay a quién
+             * repartirle el prospecto —el reparto por turno va entre los
+             * asesores DE SU CAMPUS— y se quedaba sin dueño por un dato que
+             * nadie capturó. Se puede cambiar después, que es lo normal cuando
+             * el interesado se decide por otra sede.
+             */
+            'campus_id' => ['required', 'integer', Rule::exists('campus', 'id')->whereNull('deleted_at')],
             'situacion_id' => ['required', 'integer', Rule::exists('situaciones_aspirante', 'id')->whereNull('deleted_at')],
             // `origen_id` es el catálogo del CRM; `origen` es el texto libre de
             // antes, que se conserva para no perder lo ya capturado.
