@@ -8,6 +8,7 @@ import NavAcademico from '@/Components/NavAcademico.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import ZonaArchivo from '@/Components/ZonaArchivo.vue';
+import BandaDecorada from '@/Components/BandaDecorada.vue';
 
 interface Institucion {
     id: number;
@@ -147,16 +148,24 @@ function guardar(): void {
 
         <!-- Ficha de la institución, con edición directa. -->
         <div v-else class="tarjeta overflow-hidden">
-            <!-- Cabecera con acento del tema. -->
-            <div class="h-24 w-full" :style="{ background: 'linear-gradient(120deg, var(--color-acento), color-mix(in srgb, var(--color-acento) 55%, #000))' }" />
+            <!-- Cabecera con el acento del tema, en adorno y no en macizo: lo
+                 que tiene que resaltar aquí es el logo de la escuela. -->
+            <BandaDecorada />
 
             <div class="px-6 pb-6">
                 <div class="-mt-12 flex flex-col gap-4 sm:flex-row sm:items-end">
                     <!-- Logo -->
                     <div class="relative">
+                        <!-- El filo propio lo pide la banda clara: con el aro
+                             del color de la tarjeta y nada más, el cuadro
+                             blanco del logo se disolvía en el fondo. -->
                         <div
-                            class="grid h-24 w-24 shrink-0 place-items-center overflow-hidden rounded-2xl ring-4"
-                            :style="{ backgroundColor: 'var(--color-superficie)', '--tw-ring-color': 'var(--color-superficie)' }"
+                            class="grid h-24 w-24 shrink-0 place-items-center overflow-hidden rounded-2xl border ring-4"
+                            :style="{
+                                backgroundColor: 'var(--color-superficie)',
+                                borderColor: 'var(--color-borde)',
+                                '--tw-ring-color': 'var(--color-superficie)',
+                            }"
                         >
                             <img v-if="vistaPrevia" :src="vistaPrevia" :alt="institucion.nombre" class="h-full w-full object-contain" />
                             <span v-else class="text-3xl font-bold" :style="{ color: 'var(--color-acento)' }">
