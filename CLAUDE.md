@@ -53,14 +53,33 @@ Los otros dos documentos vivos:
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y cada una imprime
    `Resultado: N correctas, M fallidas`.
 
-   **Trece están en rojo, y NINGUNA por un cambio reciente** — se comprobó
-   corriéndolas contra el árbol limpio. Es deriva acumulada: casi todas esperan
-   datos del demo que ya cambiaron (un rol por nombre que ya no existe, dos
-   planes que se llamaban igual). El caso grave es `prueba-cobro`, que **importa
-   `App\Services\PeriodosCobro`, una clase borrada en el refactor del motor de
-   cobro (`86a3899`)**: revienta en la primera línea, así que lleva meses
-   pasando por suite y sin comprobar nada. Antes de creerle a una de estas
-   suites, correrla.
+   **Estaban 33 en rojo** —no trece: ese primer conteo sólo miró las que
+   imprimían «N fallidas» e ignoró las 21 que morían antes, con una excepción
+   sin resumen—. Ninguna caía por un cambio reciente; se comprobó corriéndolas
+   contra el árbol limpio. **Quedan 12**, listadas abajo.
+
+   Lo que las tumbaba, por si vuelve a pasar:
+
+   - Roles funcionales de EJEMPLO buscados con `firstOrFail()`. Son borrables
+     por diseño y el demo los borró. Se plantan con
+     `scripts/apoyo-roles.php`, dentro de la transacción de cada suite.
+   - Controladores que dejaron de recibir `Request` y ahora piden su
+     FormRequest. Se arma con `scripts/apoyo-peticiones.php`, que además ata
+     los parámetros de RUTA —sin ellos, la regla de unicidad no sabe a quién
+     ignorar y una asignatura choca contra su propia clave—.
+   - Validaciones que crecieron (campus del ciclo, nivel y cupo del grupo) y
+     columnas retiradas (`oferta.turno_id`, `plan_materias.creditos_en_plan`).
+   - `prueba-cobro` importaba `App\Services\PeriodosCobro`, borrada en el
+     refactor del motor de cobro (`86a3899`): reventaba en la primera línea,
+     llevaba meses figurando como suite y sin comprobar NADA. Reescrita contra
+     el motor de líneas fechadas.
+
+   **Una suite crea sólo lo que su rollback puede deshacer.** Varias dejaban
+   basura en el demo al morir antes del `DB::rollBack()`, y una de las
+   reparaciones plantó un rol fuera de la transacción: a la corrida siguiente
+   ya existía y la prueba falló por un resto de sí misma.
+
+   Antes de creerle a una de estas suites, correrla.
 
    NO van en `tests/`:
    phpunit corre contra SQLite en memoria y ahí se prueba justo lo que SQLite
@@ -554,9 +573,9 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   Antes solo lo hacía el formulario público, así que el prospecto capturado por
   personal quedaba con `etapa_crm_id` en null e **invisible para el CRM**.
   Corregido en el controlador + migración de backfill.
-- Pruebas: 62 suites en `scripts/`, contra la BD real del tenant demo con
-  `DB::rollBack()` al final —trece en rojo por deriva de datos del demo; ver la
-  regla 5—. `prueba-listados` es la primera
+- Pruebas: 61 suites en `scripts/`, contra la BD real del tenant demo con
+  `DB::rollBack()` al final. **49 en verde, 12 en rojo** (ver la regla 5 para
+  qué las tumbó y cómo se repararon las otras 21). `prueba-listados` es la primera
   que invoca a los CONTROLADORES y lee sus props de Inertia, en vez de
   reimplementar la consulta: un `or` sin paréntesis no se detecta de otra forma.
 - **Módulo 8 — LMS completo** (seis fases): cursos por materia impartida,
