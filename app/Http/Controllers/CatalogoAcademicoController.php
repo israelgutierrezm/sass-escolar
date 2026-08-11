@@ -13,6 +13,7 @@ use App\Models\Academico\NivelEstudio;
 use App\Models\Academico\TipoAsignatura;
 use App\Models\Academico\TipoPeriodo;
 use App\Models\Academico\Turno;
+use App\Models\Emision\TipoCertificacion;
 use App\Models\Landlord\EntidadFederativa;
 use App\Models\Landlord\Genero;
 use App\Models\Landlord\IdentidadFederativa;
@@ -131,6 +132,33 @@ class CatalogoAcademicoController extends Controller
                 // papel que la materia juega en ESE plan —incluye `tronco_comun`,
                 // que no es un tipo SEP— y es texto libre sin FK a esta tabla.
                 'enUso' => fn (int $id) => DB::table('asignaturas')->whereNull('deleted_at')->where('tipo_asignatura_id', $id)->exists(),
+                'extras' => ['identificador' => ['tipo' => 'texto', 'etiqueta' => 'Identificador']],
+            ],
+            /*
+             * Tipos de certificación (79 = Total, 80 = Parcial).
+             *
+             * Vivía en Certificación → Configuración, con su propio controlador
+             * y su propia pantalla para hacer exactamente lo que hace este
+             * registro: clave, nombre e identificador oficial. Dos CRUD para el
+             * mismo formulario es donde uno gana una validación que el otro no
+             * tiene.
+             *
+             * ── Por qué `enUso` es siempre falso ──────────────────────────
+             * Porque NADA lo referencia: ninguna tabla tiene
+             * `tipo_certificacion_id`, y el XML del DEC escribe el 79 o el 80
+             * como literal según el certificado sea total o parcial
+             * (`ConstructorCertificadoXml`). El catálogo está para que la
+             * escuela vea los valores oficiales y pueda agregar los suyos si
+             * algún día el DEC los admite. Decir que «está en uso» sería
+             * mentir, y bloquear el borrado por si acaso deja una lista que
+             * nadie puede limpiar.
+             */
+            'tipocertificacion' => [
+                'modelo' => TipoCertificacion::class,
+                'etiqueta' => 'Tipos de certificación',
+                'singular' => 'tipo de certificación',
+                'grupo' => 'Certificación',
+                'enUso' => fn (int $id) => false,
                 'extras' => ['identificador' => ['tipo' => 'texto', 'etiqueta' => 'Identificador']],
             ],
             'turno' => [

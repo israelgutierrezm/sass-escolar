@@ -205,6 +205,24 @@ watch(rutaActual, () => {
     }
 });
 
+/**
+ * Un grupo está activo si la ruta cae en ÉL o en cualquiera de sus hijos.
+ *
+ * Antes se comparaba sólo contra el prefijo del grupo, y eso alcanzaba cuando
+ * cada sección tenía una única raíz de URL. Dejó de alcanzar al juntar
+ * «Certificación y titulación»: sus dos mitades viven en `/certificacion` y
+ * `/titulacion`, así que estando en titulación el grupo se abría —eso ya lo
+ * resolvía `prefijosActivos`— pero no se pintaba como activo.
+ *
+ * Se resuelve en general y no con un prefijo especial: cualquier sección futura
+ * que agrupe dos raíces funciona sin volver a tocar esto.
+ */
+const seccionesActivas = computed(() => new Set(prefijosActivos(navegacion.value, esActiva)));
+
+function seccionActiva(seccion: NodoNav): boolean {
+    return esActiva(seccion.prefijo) || seccionesActivas.value.has(seccion.clave);
+}
+
 // Los grupos (y subgrupos) que contienen la ruta actual aparecen desplegados.
 watch(
     navegacion,
@@ -374,8 +392,8 @@ const iniciales = computed(() => {
                         v-if="!seccion.hijos.length"
                         :href="seccion.url!"
                         class="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200"
-                        :class="esActiva(seccion.prefijo) ? 'font-medium text-white' : 'hover:bg-superficie/5 hover:text-white'"
-                        :style="esActiva(seccion.prefijo) ? { backgroundColor: 'var(--color-barra-lateral-activo)' } : {}"
+                        :class="seccionActiva(seccion) ? 'font-medium text-white' : 'hover:bg-superficie/5 hover:text-white'"
+                        :style="seccionActiva(seccion) ? { backgroundColor: 'var(--color-barra-lateral-activo)' } : {}"
                         :title="compacta ? seccion.etiqueta : undefined"
                     >
                         <svg class="h-5 w-5 shrink-0 transition-transform duration-200 group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor">
@@ -389,8 +407,8 @@ const iniciales = computed(() => {
                         <button
                             type="button"
                             class="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200"
-                            :class="esActiva(seccion.prefijo) ? 'text-white' : 'hover:bg-superficie/5 hover:text-white'"
-                            :style="esActiva(seccion.prefijo) ? { backgroundColor: 'var(--color-barra-lateral-suave)' } : {}"
+                            :class="seccionActiva(seccion) ? 'text-white' : 'hover:bg-superficie/5 hover:text-white'"
+                            :style="seccionActiva(seccion) ? { backgroundColor: 'var(--color-barra-lateral-suave)' } : {}"
                             :title="compacta ? seccion.etiqueta : undefined"
                             @click="activarGrupo(seccion.clave)"
                         >

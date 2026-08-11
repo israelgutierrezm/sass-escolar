@@ -45,7 +45,6 @@ use App\Http\Controllers\Emision\DatosTituloController;
 use App\Http\Controllers\Emision\LoteCertificacionController;
 use App\Http\Controllers\Emision\LoteTitulacionController;
 use App\Http\Controllers\Emision\ResponsableController;
-use App\Http\Controllers\Emision\TipoCertificacionController;
 use App\Http\Controllers\Emision\TitulacionWsConfigController;
 use App\Http\Controllers\Emision\TituloProfesionalController;
 use App\Http\Controllers\EmisorFiscalController;
@@ -2145,18 +2144,14 @@ Route::middleware([
             });
 
         /*
-         * Catálogo de tipos de certificación (79 Total / 80 Parcial) que
-         * alimenta el DEC. Bajo Certificación → Configuración.
+         * El catálogo de tipos de certificación (79 Total / 80 Parcial) se
+         * mudó a Académico → Catálogos, donde vive el resto de catálogos de
+         * clave + nombre + identificador. Tenía su propio controlador y su
+         * propia pantalla para hacer lo mismo que el registro genérico, y dos
+         * CRUD del mismo formulario es donde uno gana una validación que el
+         * otro no tiene. Certificación no cambió: el DEC nunca leyó esta tabla
+         * —escribe el 79 o el 80 como literal—.
          */
-        Route::controller(TipoCertificacionController::class)
-            ->prefix('certificacion/configuracion/tipos-certificacion')->name('tenant.certificacion.tipos-certificacion.')
-            ->middleware('can:gestionar-certificacion')
-            ->group(function () {
-                Route::get('/', 'index')->name('index');
-                Route::post('/', 'store')->name('store');
-                Route::put('/{tipo}', 'update')->whereNumber('tipo')->name('update');
-                Route::delete('/{tipo}', 'destroy')->whereNumber('tipo')->name('destroy');
-            });
 
         /*
          * Lotes de certificación: el flujo operativo (no la configuración). Se
