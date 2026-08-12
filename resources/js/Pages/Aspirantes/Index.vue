@@ -6,7 +6,6 @@ import BarraListado from '@/Components/BarraListado.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonExpediente from '@/Components/BotonExpediente.vue';
 import Paginacion from '@/Components/Paginacion.vue';
-import PildoraEstado from '@/Components/PildoraEstado.vue';
 import TarjetaPersona from '@/Components/TarjetaPersona.vue';
 import AvatarPersona from '@/Components/AvatarPersona.vue';
 
@@ -51,6 +50,14 @@ const props = defineProps<{
 const vista = ref<'lista' | 'cuadricula'>('lista');
 
 const definicionFiltros = [
+    /*
+     * La situación sigue como FILTRO aunque ya no sea columna.
+     *
+     * La columna decía «Prospecto» en todos los renglones —el recorrido lo
+     * cuenta la etapa—, y una columna con un solo valor distinto no informa:
+     * ocupa ancho y entrena a no mirarla. Como filtro sí sirve, que es
+     * justamente cuando se busca la excepción: «enséñame los rechazados».
+     */
     { clave: 'situacion_id', etiqueta: 'Situación', opciones: props.situaciones.map((s) => ({ valor: s.id, texto: s.nombre })) },
     { clave: 'etapa_crm_id', etiqueta: 'Etapa del embudo', opciones: props.etapas.map((e) => ({ valor: e.id, texto: e.nombre })) },
     { clave: 'origen_id', etiqueta: 'Cómo llegó', opciones: props.origenes.map((o) => ({ valor: o.id, texto: o.nombre })) },
@@ -110,7 +117,7 @@ function eliminar(aspirante: { id: number; nombre_completo: string | null }): vo
                     :identificador="aspirante.curp"
                     :foto="aspirante.foto"
                     :lineas="[aspirante.oferta, aspirante.campus, aspirante.celular ?? aspirante.email, aspirante.etapa]"
-                    :estado="aspirante.situacion"
+                    :estado="aspirante.situacion === 'Prospecto' ? null : aspirante.situacion"
                     :aviso="aspirante.etapa ? null : 'fuera del embudo'"
                     :url="`/aspirantes/${aspirante.id}`"
                 />
@@ -132,7 +139,6 @@ function eliminar(aspirante: { id: number; nombre_completo: string | null }): vo
                                 <th class="px-4 py-3 font-semibold">CURP</th>
                                 <th class="px-4 py-3 font-semibold">Interés</th>
                                 <th class="px-4 py-3 font-semibold">Etapa</th>
-                                <th class="px-4 py-3 font-semibold">Situación</th>
                                 <th class="px-4 py-3 font-semibold">Cómo llegó</th>
                                 <th class="px-6 py-3 font-semibold text-right">Acciones</th>
                             </tr>
@@ -175,11 +181,6 @@ function eliminar(aspirante: { id: number; nombre_completo: string | null }): vo
                                         :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 10%, transparent)', color: 'var(--color-acento)' }"
                                     >{{ aspirante.etapa }}</span>
                                     <span v-else class="text-[11px] font-medium" :style="{ color: '#b45309' }">Fuera del embudo</span>
-                                </td>
-
-                                <!-- Situación -->
-                                <td class="px-4 py-4">
-                                    <PildoraEstado :texto="aspirante.situacion" />
                                 </td>
 
                                 <!-- Cómo llegó -->

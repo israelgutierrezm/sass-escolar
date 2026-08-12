@@ -209,10 +209,21 @@ Se le generará su matrícula de todos modos y eso no se puede deshacer. ¿Conti
                             <template v-if="aspirante.campus"> · {{ aspirante.campus }}</template>
                         </p>
                         <p class="mt-1 flex flex-wrap items-center gap-1.5">
+                            <!--
+                                La situación se calla mientras sea «Prospecto».
+                                ─────────────────────────────────────────────
+                                Ese valor no dice nada que la etapa no diga
+                                mejor: es el estado de todo el que sigue vivo en
+                                el embudo. La píldora aparece cuando de verdad
+                                informa —Rechazado o Inscrito—, que son
+                                desenlaces y merecen verse de lejos. Es la misma
+                                regla del panel: lo que no informa no ocupa
+                                sitio, porque entrena a no mirarlo.
+                            -->
                             <span
-                                v-if="aspirante.situacion"
-                                class="rounded-full px-2.5 py-0.5 text-xs font-medium"
-                                :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }"
+                                v-if="aspirante.situacion && aspirante.situacion !== 'Prospecto'"
+                                class="rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                                :style="{ backgroundColor: 'color-mix(in srgb, #b45309 14%, transparent)', color: '#b45309' }"
                             >{{ aspirante.situacion }}</span>
                             <span
                                 v-if="aspirante.etapa"
