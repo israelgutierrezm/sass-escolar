@@ -2,7 +2,6 @@
 import { Head, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import AnilloProgreso from '@/Components/AnilloProgreso.vue';
 import BarraListado from '@/Components/BarraListado.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonExpediente from '@/Components/BotonExpediente.vue';
@@ -25,8 +24,6 @@ interface FilaAspirante {
     origen: string | null;
     paso: number;
     validado_admin: boolean;
-    /** Cuánto lleva recorrido del embudo. Lo calcula el servidor. */
-    avance_embudo: { porcentaje: number; paso: number; total: number };
 }
 
 const ICONO_ASPIRANTE =
@@ -170,44 +167,14 @@ function eliminar(aspirante: { id: number; nombre_completo: string | null }): vo
                                     <span v-if="aspirante.campus" class="mt-0.5 block text-[11px]" :style="{ color: 'var(--color-suave)' }">{{ aspirante.campus }}</span>
                                 </td>
 
-                                <!--
-                                    Etapa CON su avance.
-                                    ─────────────────────────────────────────
-                                    La píldora sola dice dónde está y no cuánto
-                                    lleva: para saber si «En documentación» es
-                                    el principio o casi el final había que
-                                    recordar el orden de las cinco etapas. El
-                                    anillo lo dice sin memoria, y el nombre
-                                    sigue ahí porque el porcentaje solo no
-                                    identifica la etapa.
-                                -->
+                                <!-- Etapa -->
                                 <td class="px-4 py-4">
-                                    <div class="flex items-center gap-2.5">
-                                        <AnilloProgreso
-                                            :porcentaje="aspirante.avance_embudo.porcentaje"
-                                            :tamano="38"
-                                            :grosor="3.5"
-                                            :detalle="aspirante.avance_embudo.paso
-                                                ? `paso ${aspirante.avance_embudo.paso} de ${aspirante.avance_embudo.total}`
-                                                : null"
-                                            :titulo="aspirante.etapa
-                                                ? `${aspirante.etapa} — paso ${aspirante.avance_embudo.paso} de ${aspirante.avance_embudo.total}`
-                                                : 'Fuera del embudo'"
-                                        />
-                                        <div class="min-w-0">
-                                            <span
-                                                v-if="aspirante.etapa"
-                                                class="block truncate text-[11px] font-medium"
-                                                :style="{ color: 'var(--color-acento)' }"
-                                            >{{ aspirante.etapa }}</span>
-                                            <span v-else class="text-[11px] font-medium" :style="{ color: '#b45309' }">Fuera del embudo</span>
-                                            <span
-                                                v-if="aspirante.avance_embudo.paso"
-                                                class="block text-[10px]"
-                                                :style="{ color: 'var(--color-suave)' }"
-                                            >{{ aspirante.avance_embudo.paso }} de {{ aspirante.avance_embudo.total }}</span>
-                                        </div>
-                                    </div>
+                                    <span
+                                        v-if="aspirante.etapa"
+                                        class="inline-block rounded-full px-2.5 py-0.5 text-[11px]"
+                                        :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 10%, transparent)', color: 'var(--color-acento)' }"
+                                    >{{ aspirante.etapa }}</span>
+                                    <span v-else class="text-[11px] font-medium" :style="{ color: '#b45309' }">Fuera del embudo</span>
                                 </td>
 
                                 <!-- Situación -->

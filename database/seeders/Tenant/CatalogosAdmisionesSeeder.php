@@ -23,10 +23,20 @@ class CatalogosAdmisionesSeeder extends Seeder
 {
     public function run(): void
     {
+        /*
+         * Sólo DESENLACES, no puntos del recorrido.
+         *
+         * Traía además «En proceso» y «Aceptado», que son etapas del embudo
+         * disfrazadas de situación: «Aceptado» vivía en los dos catálogos, se
+         * editaba en dos pantallas distintas y nada los sincronizaba. Dos
+         * campos que dicen lo mismo y pueden contradecirse no son redundancia,
+         * son una discusión sin árbitro.
+         *
+         * La ETAPA dice por dónde va; la situación, si sigue vivo, se cayó o
+         * llegó.
+         */
         $this->sembrar(SituacionAspirante::class, [
             ['clave' => 'prospecto', 'nombre' => 'Prospecto'],
-            ['clave' => 'en_proceso', 'nombre' => 'En proceso'],
-            ['clave' => 'aceptado', 'nombre' => 'Aceptado'],
             ['clave' => 'rechazado', 'nombre' => 'Rechazado'],
             ['clave' => 'inscrito', 'nombre' => 'Inscrito'],
         ]);
