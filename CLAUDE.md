@@ -936,6 +936,33 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
 mandó a construir cosas que estaban hechas: la titulación SEP y el estado de
 cuenta del alumno.)*
 
+0. **ELIMINAR LA SITUACIÓN DEL ASPIRANTE por completo** (decidido con el
+   cliente el 2026-08-11; se aplazó a una sesión propia por tamaño).
+
+   *Por qué*: `situaciones_aspirante` duplicaba al embudo. Ya se le retiraron
+   «En proceso» y «Aceptado» —eran etapas disfrazadas de desenlace—, la columna
+   salió de la tabla y en la ficha se calla mientras diga «Prospecto». Quedan
+   tres valores y sólo dos informan, así que el campo entero se va.
+
+   *Dónde van los dos que informan* —esta es la parte que no se puede
+   improvisar—:
+   - **Inscrito** → se DERIVA de tener `matricula_oferta`. Es más cierto que el
+     campo: hoy se puede tener situación «Inscrito» sin matrícula y nada se
+     queja.
+   - **Rechazado** → columnas nuevas en `aspirantes`: `descartado_en`
+     (timestamp) y `motivo_descarte`. Un descarte tiene fecha y razón; una fila
+     de catálogo no puede darlas.
+
+   *Alcance medido*: 6 archivos de aplicación (`AspiranteController`,
+   `GuardarAspiranteRequest`, `Aspirante`, `SituacionAspirante`,
+   `ConvertidorAspirante`, `RegistradorProspecto`), el seeder de admisiones,
+   8 suites de `scripts/` y 11 pruebas de `tests/Feature`. Más el `DROP` de la
+   tabla y de `aspirantes.situacion_id`.
+
+   *Por dónde empezar*: `ConvertidorAspirante` la escribe en TRES sitios y
+   `GuardarAspiranteRequest` la exige `required`; mientras esos dos no cambien,
+   nada más se puede tocar.
+
 1. Fase 4.
 
 **Deuda conocida:**
