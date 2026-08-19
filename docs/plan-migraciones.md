@@ -379,7 +379,12 @@ Tablas:
 - [ ] `cursos` (T, FK → asignatura_grupo, plan_materias, self origen_curso_id)
 - [ ] `unidades` (T, FK → cursos)
 - [ ] `contenidos` (T, FK → unidades)
-- [ ] `rubricas` (T) — referida por actividades.
+- [x] `rubricas` (T) — con `rubrica_criterios`, `rubrica_niveles` y
+      `entrega_rubrica`. Dos ámbitos en una tabla (plataforma / docente); el
+      máximo de un criterio se deriva de sus niveles y el total, de los máximos.
+      Se congela al primer uso y para cambiarla se duplica, que es lo que
+      permite que la actividad la APUNTE en vez de copiarla. Ver
+      `docs/decisiones.md`, 2026-08-18.
 - [ ] `bancos_reactivos` (T, FK → plan_materias, personas)
 - [ ] `actividades` (T, FK → cursos, unidades, tipos_actividad, dificultades, rubricas)
 - [ ] `reactivos` (T, FK → bancos_reactivos, dificultades, personas)

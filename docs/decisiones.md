@@ -2959,3 +2959,96 @@ acaso». Un índice de más se paga en cada escritura, para siempre, a cambio de
 evitar un problema que aparece solo cuando se cambia el esquema y se arregla en
 dos líneas. En una tabla como `mensajes` sería cobrarle a cada mensaje del chat
 el precio de una migración futura. Se paga cuando hace falta, no antes.
+
+## 2026-08-18 — Rúbricas de evaluación: ámbitos, congelamiento y escala
+
+Pedido del cliente: poder calificar una actividad **con rúbrica**, con rúbricas
+«de la plataforma» (de cada tenant) y rúbricas «del docente», y poder configurar
+en las actividades de un plan en línea que se califican con una y cuál.
+
+La spec preveía `rubricas` referida por `actividades` pero no definía la tabla
+(«tabla propia»). Estas son las decisiones que se tomaron al definirla.
+
+### Dos ámbitos en UNA tabla, no dos tablas
+
+`rubricas.ambito` es `plataforma` (sin dueño, la ve y la usa toda la escuela) o
+`docente` (con `persona_id`, sólo su dueño). Dos tablas habrían duplicado
+`criterios` y `niveles`, y con ellos cada regla: el congelamiento, el cálculo,
+el copiado a los grupos.
+
+**La rúbrica de otro docente no se ve ni con `gestionar-rubricas`**, y pedirla
+devuelve 404 y no 403 —un 403 ya revelaría que existe—. Una rúbrica propia es un
+borrador de trabajo; quien la quiera compartir la publica.
+
+### El máximo no se guarda: se deriva
+
+Un criterio no tiene columna de puntos; su máximo es el nivel más alto, y el
+total de la rúbrica es la suma de esos máximos. Una columna podría decir «vale
+10» con un nivel máximo de 8 y no habría forma de saber cuál manda. Los puntos
+viven en UN solo sitio: el nivel.
+
+### Se congela al primer uso; para cambiarla se DUPLICA
+
+En cuanto una rúbrica califica a alguien, su estructura deja de editarse:
+quitarle un criterio dejaría las evaluaciones hechas sumando un total que ya no
+cuadra con la suma de sus partes. Es la misma decisión que ya tomaban
+`formularios` (se congela con la primera respuesta) y `esquema_evaluacion` (no se
+edita con calificaciones capturadas).
+
+El nombre y el interruptor sí se siguen pudiendo cambiar: son de la ficha, no de
+la cuenta.
+
+### Por eso la actividad APUNTA a la rúbrica en vez de copiarla
+
+Rompe con `CopiadorDeCurso`, que copia todo lo que se lleva un grupo, y es a
+propósito. Copiar la rúbrica por grupo y ciclo partiría el catálogo en cientos
+de duplicados y «las rúbricas de la escuela» dejaría de significar algo: nadie
+podría corregir una y ver el efecto.
+
+Lo que obligaba a copiar el examen —que editar la plantilla cambie lo que un
+grupo está contestando— aquí no aplica, justamente por el congelamiento.
+
+### En la plantilla del plan, sólo las de la escuela
+
+La plantilla se copia a todos los grupos que abran esa materia, en todos los
+campus y ciclos. Una rúbrica propia de quien edita el plan acabaría calificando
+en grupos que dan otras personas, que ni siquiera pueden verla. En el curso del
+docente sí caben las suyas: es su materia y su grupo.
+
+### La rúbrica es una ESCALA, no la nota
+
+Sus puntos se llevan a los de la **actividad**, que es lo que ya pondera dentro
+del componente: una rúbrica de 20 en una actividad sobre 10 da 8.5, no 17. Sin
+esa conversión una misma rúbrica no se podría reusar en trabajos de distinto
+peso, que es justo para lo que sirve tener catálogo.
+
+### Un criterio sin evaluar NO es un cero
+
+Misma regla que ya rige la captura de calificaciones. Lo evaluado se guarda y la
+entrega queda **sin calificar** hasta que estén todos los criterios. Si faltara
+uno y se promediara igual, el alumno recibiría una nota más baja porque el
+docente se distrajo, y nada lo diría.
+
+### Los puntos los pone el servidor
+
+De la petición sólo se cree QUÉ nivel se eligió; cuánto vale se lee de la base, y
+se comprueba que el nivel sea **de ese criterio**. `entrega_rubrica.puntos` se
+guarda de todas formas —pudiendo leerse del nivel— porque la evaluación es un
+hecho fechado y el nivel es catálogo: un renglón que dice «le di 8» no debería
+tener que preguntarle a nadie cuánto valía ese 8.
+
+### El alumno la ve ANTES de entregar
+
+Es a lo que sirve. Leer «para el nivel alto hay que sostener la tesis con dos
+fuentes» cambia lo que se entrega; leerlo con la nota sólo explica un 7 que ya no
+se puede mover. Calificada, se marca el nivel obtenido y los demás se **atenúan**
+en vez de esconderse: ver dónde quedó uno respecto de lo que había arriba es la
+mitad de la información.
+
+### Dónde vive
+
+`/rubricas`, colgando de la raíz como `/captura`, porque la usan dos oficios.
+Entrar lo abre el permiso derivado `usar-rubricas` (`gestionar-rubricas` **o**
+`capturar-calificaciones`); lo que se puede hacer dentro lo resuelve el
+controlador, porque es alcance y no acceso. Al docente no se le pide permiso
+aparte para armarse una rúbrica: eso es parte de calificar.

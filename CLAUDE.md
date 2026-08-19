@@ -48,12 +48,16 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**62 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**63 archivos `prueba-*.php`**;
    esta lista decía 23 y llevaba tiempo desactualizada). Se corren todas de una
-   vez con `for f in scripts/prueba-*.php; do php "$f"; done` y cada una imprime
-   `Resultado: N correctas, M fallidas`.
+   vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
+   imprimen `Resultado: N correctas, M fallidas`. **Ojo al barrer con `grep`**:
+   cuatro cierran de otra forma —`prueba-cache-externo`, `prueba-captura-examen`
+   y `prueba-mensajes-espanol` con `N en verde`, y `prueba-listados` con
+   `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
+   «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 61 están en verde.** Llegaron a estar 33 en rojo —no trece: ese primer
+   **Las 63 están en verde.** Llegaron a estar 33 en rojo —no trece: ese primer
    conteo sólo miró las que imprimían «N fallidas» e ignoró las 21 que morían
    antes, con una excepción sin resumen—. Ninguna caía por un cambio reciente;
    se comprobó corriéndolas contra el árbol limpio.
@@ -620,11 +624,51 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     tenía asesor. Lo cazó `prueba-actividad-crm`.
   - Pruebas: `scripts/prueba-actividad-crm.php`, 29 verificaciones, comprobada
     mutando la regla de re-cierre (caen exactamente las tres que la vigilan).
-- Pruebas: 62 suites en `scripts/`, contra la BD real del tenant demo con
-  `DB::rollBack()` al final. **62 en verde** (ver la regla 5 para qué tumbó a
+- Pruebas: 63 suites en `scripts/`, contra la BD real del tenant demo con
+  `DB::rollBack()` al final. **63 en verde** (ver la regla 5 para qué tumbó a
   las 33 que estuvieron en rojo). `prueba-listados` es la primera
   que invoca a los CONTROLADORES y lee sus props de Inertia, en vez de
   reimplementar la consulta: un `or` sin paréntesis no se detecta de otra forma.
+- **Rúbricas de evaluación** (`/rubricas`, permiso `gestionar-rubricas` y
+  derivado `usar-rubricas`): calificar un trabajo eligiendo un nivel por
+  criterio, en vez de escribir un número. Cuelga de la RAÍZ como `/captura`,
+  porque la usan dos oficios.
+  - **DOS ámbitos en UNA tabla** (`rubricas.ambito`): las de la escuela
+    («plataforma», sin dueño) y las de cada quien («docente», con `persona_id`).
+    La de otro docente no se ve ni con permiso de gestionar, y pedirla da **404
+    y no 403** —un 403 ya revelaría que existe—.
+  - **El máximo de un criterio NO se guarda**: es su nivel más alto, y el total
+    de la rúbrica la suma de esos máximos. Una columna podría contradecir a los
+    niveles y no habría a cuál creerle.
+  - **Se CONGELA al primer uso** y para cambiarla se DUPLICA, como ya hacían
+    `formularios` y `esquema_evaluacion`. Quitarle un criterio dejaría las
+    evaluaciones hechas sumando un total que no cuadra. Renombrarla sí se puede:
+    es de la ficha, no de la cuenta.
+  - **Por eso la actividad la APUNTA en vez de copiarla**, al revés que todo lo
+    demás que `CopiadorDeCurso` se lleva al grupo: copiarla por grupo y ciclo
+    partiría el catálogo en cientos de duplicados. Lo que obligaba a copiar el
+    examen —editar la plantilla cambia lo que un grupo contesta— aquí no aplica.
+  - **En la PLANTILLA del plan sólo caben las de la escuela.** Se copia a todos
+    los grupos de esa materia; una propia acabaría calificando en grupos de
+    otras personas, que ni siquiera pueden verla.
+  - **La rúbrica es una ESCALA, no la nota**: sus puntos se llevan a los de la
+    ACTIVIDAD (una de 20 sobre una actividad de 10 da 8.5, no 17). Sin eso no se
+    podría reusar en trabajos de distinto peso.
+  - **Un criterio sin evaluar no es un cero**: lo evaluado se guarda y la
+    entrega queda SIN calificar. Misma regla que la captura de calificaciones.
+  - **Los puntos los pone el servidor**: de la petición sólo se cree qué nivel
+    se eligió, y se comprueba que el nivel sea DE ESE criterio.
+    `entrega_rubrica.puntos` se guarda igual porque la evaluación es un hecho
+    fechado y el nivel es catálogo.
+  - **El alumno la ve ANTES de entregar**, no sólo con la nota; calificada, se
+    marca el nivel obtenido y los demás se ATENÚAN, porque ver dónde quedó uno
+    respecto de lo de arriba es la mitad de la información.
+  - Ni la lectura ni el EXAMEN la llevan: el examen lo califica la máquina, y
+    con las dos cosas habría dos notas para la misma entrega.
+  - Pruebas: `scripts/prueba-rubricas.php`, 43 verificaciones, comprobada
+    mutando tres reglas —creerle los puntos a la petición, quitar el
+    congelamiento y contar el blanco como cero— y caen exactamente las que las
+    vigilan.
 - **Módulo 8 — LMS completo** (seis fases): cursos por materia impartida,
   actividades con entrega y archivos, exámenes con banco de reactivos y
   autocalificación, chat (1‑a‑1 y canal del grupo) y foros. La plantilla del
