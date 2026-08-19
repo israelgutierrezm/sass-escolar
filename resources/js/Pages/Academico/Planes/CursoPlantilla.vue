@@ -35,6 +35,8 @@ interface ActividadPlantilla {
     permite_reentrega: boolean;
     publicada: boolean;
     esquema_evaluacion_id: number | null;
+    rubrica_id: number | null;
+    rubrica: string | null;
     componente: string | null;
     tiene_examen: boolean;
 }
@@ -52,6 +54,12 @@ const props = defineProps<{
     } | null;
     actividades: ActividadPlantilla[];
     componentes: { id: number; etiqueta: string }[];
+    /*
+     * SÓLO las de la escuela. Esta plantilla se copia a todos los grupos que
+     * abran la materia, y una rúbrica propia de quien edita el plan acabaría
+     * calificando en grupos de otras personas, que ni siquiera pueden verla.
+     */
+    rubricas: { id: number; nombre: string; ambito: string; total: number; criterios: number; activa: boolean }[];
     tiposActividad: { valor: string; etiqueta: string; se_entrega: boolean }[];
     grupos_copiados: number;
     grupos_abiertos: number;
@@ -87,6 +95,7 @@ const formActividad = useForm({
     instrucciones: '',
     contenido: '',
     esquema_evaluacion_id: null as number | null,
+    rubrica_id: null as number | null,
     puntos: 10,
     permite_tarde: false,
     permite_reentrega: true,
@@ -109,6 +118,7 @@ function editarActividad(a: ActividadPlantilla): void {
     formActividad.instrucciones = a.instrucciones ?? '';
     formActividad.contenido = a.contenido ?? '';
     formActividad.esquema_evaluacion_id = a.esquema_evaluacion_id;
+    formActividad.rubrica_id = a.rubrica_id;
     formActividad.puntos = a.puntos;
     formActividad.permite_tarde = a.permite_tarde;
     formActividad.permite_reentrega = a.permite_reentrega;
@@ -337,6 +347,30 @@ const totalPonderado = computed(() =>
                         </select>
                         <span v-if="!componentes.length" class="mt-1 block text-xs" :style="{ color: '#d97706' }">
                             Esta materia todavía no tiene definida su forma de evaluación.
+                        </span>
+                    </label>
+
+                    <!-- Con qué se califica. Sin rúbrica, un número a mano:
+                         es lo que había y para un ejercicio de respuesta única
+                         basta. El examen no aparece porque se califica solo. -->
+                    <label v-if="tipoActual?.se_entrega && formActividad.tipo !== 'examen'" class="block">
+                        <span class="mb-1 block text-sm font-medium">Calificar con</span>
+                        <select
+                            v-model="formActividad.rubrica_id"
+                            class="w-full rounded-lg border px-3 py-2 text-sm"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                        >
+                            <option :value="null">Un número a mano</option>
+                            <option v-for="r in rubricas" :key="r.id" :value="r.id">
+                                {{ r.nombre }} · {{ r.total }} pts{{ r.activa ? '' : ' · apagada' }}
+                            </option>
+                        </select>
+                        <span v-if="!rubricas.length" class="mt-1 block text-xs text-suave">
+                            La escuela todavía no publica ninguna rúbrica. Se arman en Rúbricas,
+                            dentro de Académico › Configuración.
+                        </span>
+                        <span v-if="formActividad.errors.rubrica_id" class="mt-1 block text-xs text-red-600">
+                            {{ formActividad.errors.rubrica_id }}
                         </span>
                     </label>
 

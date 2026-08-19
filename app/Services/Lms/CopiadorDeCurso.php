@@ -137,6 +137,17 @@ class CopiadorDeCurso
             // con el curso listo y no con una lista de títulos vacíos.
             'contenido' => $original->contenido,
             'esquema_evaluacion_id' => $original->esquema_evaluacion_id,
+            /*
+             * La rúbrica se APUNTA, no se copia — al revés que todo lo demás de
+             * aquí. Copiarla por grupo y ciclo partiría el catálogo en cientos
+             * de duplicados, y entonces «las rúbricas de la escuela» no
+             * significaría nada: nadie podría corregir una y ver el efecto.
+             *
+             * Lo que hacía necesario copiar el examen —que editar la plantilla
+             * cambiara lo que un grupo está contestando— aquí no aplica: una
+             * rúbrica se congela en cuanto califica a alguien.
+             */
+            'rubrica_id' => $original->rubrica_id,
             'puntos' => $original->puntos,
             'permite_tarde' => $original->permite_tarde,
             'permite_reentrega' => $original->permite_reentrega,

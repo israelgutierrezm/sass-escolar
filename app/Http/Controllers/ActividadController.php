@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\TipoActividad;
 use App\Http\Controllers\Concerns\AutorizaMateriaPropia;
+use App\Http\Controllers\Concerns\EligeRubrica;
 use App\Models\Academico\EsquemaEvaluacion;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\Identidad\Usuario;
@@ -30,6 +31,7 @@ use Illuminate\Validation\ValidationException;
 class ActividadController extends Controller
 {
     use AutorizaMateriaPropia;
+    use EligeRubrica;
 
     public function __construct(private readonly CalculadorComponente $calculador) {}
 
@@ -65,7 +67,7 @@ class ActividadController extends Controller
         $this->autorizar($request, $asignaturaGrupo);
         $this->exigirDeLaMateria($actividad, $asignaturaGrupo);
 
-        $actividad->update($this->validar($request, $asignaturaGrupo, $actividad->curso));
+        $actividad->update($this->validar($request, $asignaturaGrupo, $actividad->curso, $actividad));
 
         // Cambiar a qué componente cuelga —o quitarle el amarre— altera lo que
         // promedia: hay que rehacer las cuentas de todos sus alumnos.
@@ -182,7 +184,7 @@ class ActividadController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function validar(Request $request, AsignaturaGrupo $asignaturaGrupo, Curso $curso): array
+    private function validar(Request $request, AsignaturaGrupo $asignaturaGrupo, Curso $curso, ?Actividad $actividad = null): array
     {
         $datos = $request->validate([
             'tipo' => ['required', Rule::enum(TipoActividad::class)],
@@ -193,6 +195,10 @@ class ActividadController extends Controller
             // accidental no llene la tabla.
             'contenido' => ['nullable', 'string', 'max:200000'],
             'esquema_evaluacion_id' => ['nullable', 'integer'],
+            // Con qué se califica. Sin rúbrica se sigue poniendo un número a
+            // mano, que es lo que había y para un ejercicio de respuesta única
+            // basta.
+            'rubrica_id' => ['nullable', 'integer'],
             'puntos' => ['required', 'numeric', 'min:1', 'max:1000'],
             'abre_en' => ['nullable', 'date'],
             'cierra_en' => ['nullable', 'date', 'after_or_equal:abre_en'],
@@ -201,6 +207,7 @@ class ActividadController extends Controller
             'publicada' => ['boolean'],
         ], [], [
             'esquema_evaluacion_id' => 'componente de evaluación',
+            'rubrica_id' => 'rúbrica',
             'cierra_en' => 'fecha de cierre',
             'abre_en' => 'fecha de apertura',
         ]);
@@ -214,7 +221,31 @@ class ActividadController extends Controller
         // amarrado prometería una calificación que nunca va a llegar.
         if ($datos['tipo'] === TipoActividad::Lectura->value) {
             $datos['esquema_evaluacion_id'] = null;
+            // Y tampoco se califica, así que la rúbrica sobra: dejarla puesta
+            // prometería un desglose que nunca va a existir.
+            $datos['rubrica_id'] = null;
         }
+
+        /*
+         * Un EXAMEN tampoco lleva rúbrica: lo califica la máquina al momento de
+         * entregarse. Con las dos cosas puestas habría dos notas para la misma
+         * entrega y ninguna forma de saber cuál manda — el mismo motivo por el
+         * que el panel de calificación no deja escribirle un número encima.
+         */
+        if ($datos['tipo'] === TipoActividad::Examen->value) {
+            $datos['rubrica_id'] = null;
+        }
+
+        /*
+         * La rúbrica sí puede ser SUYA además de la escuela: es su materia y su
+         * grupo. En la plantilla del plan no, y por eso este trait pregunta.
+         */
+        $this->exigirRubricaUsable(
+            $datos['rubrica_id'] ?? null,
+            $request->user()?->persona_id,
+            soloDeLaEscuela: false,
+            yaPuesta: $actividad?->rubrica_id,
+        );
 
         /*
          * `??` y no acceso directo: el campo es opcional, así que cuando no

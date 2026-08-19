@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Enums\TipoActividad;
+use App\Http\Controllers\Concerns\EligeRubrica;
 use App\Models\Academico\EsquemaEvaluacion;
 use App\Models\Asistencia\AsistenciaClase;
 use App\Models\ControlEscolar\AsignaturaGrupo;
@@ -38,6 +39,8 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  */
 class DocenciaController extends Controller
 {
+    use EligeRubrica;
+
     public function __construct(private readonly CalendarioCaptura $calendario) {}
 
     /** Mis materias, agrupadas por ciclo. */
@@ -180,7 +183,7 @@ class DocenciaController extends Controller
             'calendario' => $this->calendario->estadoPorParcial($asignaturaGrupo, $personaId),
             'puedeCapturar' => $request->user()->can('capturar-calificaciones'),
             'puedePasarLista' => $request->user()->can('pasar-lista'),
-            ...$this->datosLms($asignaturaGrupo, $inscripciones),
+            ...$this->datosLms($asignaturaGrupo, $inscripciones, $personaId),
             ...$this->datosMensajes($asignaturaGrupo, $personaId),
             ...$this->datosAsistencia($request, $asignaturaGrupo, $inscripciones),
         ]);
@@ -375,7 +378,7 @@ class DocenciaController extends Controller
      * @param  Collection<int, Inscripcion>  $inscripciones
      * @return array<string, mixed>
      */
-    private function datosLms(AsignaturaGrupo $asignaturaGrupo, $inscripciones): array
+    private function datosLms(AsignaturaGrupo $asignaturaGrupo, $inscripciones, int $personaId): array
     {
         $curso = Curso::query()->where('asignatura_grupo_id', $asignaturaGrupo->id)->first();
 
@@ -383,7 +386,7 @@ class DocenciaController extends Controller
             ? collect()
             : Actividad::query()
                 ->where('curso_id', $curso->id)
-                ->with('componente:id,componente,parcial')
+                ->with(['componente:id,componente,parcial', 'rubrica.criterios.niveles'])
                 ->orderBy('orden')->orderBy('id')
                 ->get();
 
@@ -433,6 +436,27 @@ class DocenciaController extends Controller
                 'tiene_contenido' => $a->tieneContenido(),
                 'puntos' => (float) $a->puntos,
                 'esquema_evaluacion_id' => $a->esquema_evaluacion_id,
+                'rubrica_id' => $a->rubrica_id,
+                // La rúbrica ENTERA y no sólo su nombre: el panel de
+                // calificación la necesita para pintar los niveles, y pedirla
+                // aparte al abrir cada entrega sería una petición por alumno.
+                'rubrica' => $a->rubrica === null ? null : [
+                    'id' => $a->rubrica->id,
+                    'nombre' => $a->rubrica->nombre,
+                    'total' => $a->rubrica->total(),
+                    'criterios' => $a->rubrica->criterios->map(fn ($c) => [
+                        'id' => $c->id,
+                        'titulo' => $c->titulo,
+                        'descripcion' => $c->descripcion,
+                        'maximo' => $c->maximo(),
+                        'niveles' => $c->niveles->map(fn ($n) => [
+                            'id' => $n->id,
+                            'titulo' => $n->titulo,
+                            'descripcion' => $n->descripcion,
+                            'puntos' => (float) $n->puntos,
+                        ])->values(),
+                    ])->values(),
+                ],
                 // Legible, igual que en el aula del alumno: `examen_p1` es la
                 // clave con la que control escolar armó el esquema, no un
                 // nombre que leerle a nadie.
@@ -495,6 +519,9 @@ class DocenciaController extends Controller
                 'id' => $e->id,
                 'etiqueta' => "Parcial {$e->parcial} · {$e->componente} ({$e->porcentaje}%)",
             ])->values(),
+            // Las de la escuela y las suyas: aquí sí, porque es su materia y su
+            // grupo. En la plantilla del plan sólo caben las de la escuela.
+            'rubricas' => $this->rubricasDisponibles($personaId, soloDeLaEscuela: false),
             'tiposActividad' => TipoActividad::paraSelect(),
         ];
     }

@@ -12,6 +12,7 @@ import MatrizCalificaciones from '@/Components/MatrizCalificaciones.vue';
 import PestanasPagina from '@/Components/PestanasPagina.vue';
 import EditorTexto from '@/Components/EditorTexto.vue';
 import InterruptorVisible from '@/Components/InterruptorVisible.vue';
+import type { RubricaDeActividad } from '@/utils/rubrica';
 
 interface Alumno {
     matricula: string | null;
@@ -37,6 +38,9 @@ interface ActividadDocente {
     puntos: number;
     esquema_evaluacion_id: number | null;
     componente: string | null;
+    rubrica_id: number | null;
+    /** La rúbrica ENTERA: el panel de calificación pinta sus niveles. */
+    rubrica: RubricaDeActividad | null;
     abre_en: string | null;
     cierra_en: string | null;
     permite_tarde: boolean;
@@ -44,6 +48,16 @@ interface ActividadDocente {
     permite_reentrega: boolean;
     publicada: boolean;
     entregadas: number;
+}
+
+/** Una rúbrica del catálogo, para el desplegable. */
+interface RubricaEnCatalogo {
+    id: number;
+    nombre: string;
+    ambito: string;
+    total: number;
+    criterios: number;
+    activa: boolean;
 }
 
 interface Casilla {
@@ -68,6 +82,8 @@ const props = defineProps<{
     actividades: ActividadDocente[];
     matriz: { inscripcion_id: number; matricula: string | null; nombre: string | null; de_baja: boolean; casillas: Casilla[] }[];
     componentes: { id: number; etiqueta: string }[];
+    /** Las de la escuela y las suyas: es su materia y su grupo. */
+    rubricas: RubricaEnCatalogo[];
     tiposActividad: { valor: string; etiqueta: string; se_entrega: boolean }[];
     puedePasarLista: boolean;
     /** Conversación directa con cada alumno, si ya existe: persona_id => …. */
@@ -111,6 +127,7 @@ const formActividad = useForm({
     instrucciones: '',
     contenido: '',
     esquema_evaluacion_id: null as number | null,
+    rubrica_id: null as number | null,
     puntos: 10,
     abre_en: '',
     cierra_en: '',
@@ -137,6 +154,7 @@ function editarActividad(a: ActividadDocente): void {
     formActividad.instrucciones = a.instrucciones ?? '';
     formActividad.contenido = a.contenido ?? '';
     formActividad.esquema_evaluacion_id = a.esquema_evaluacion_id;
+    formActividad.rubrica_id = a.rubrica_id;
     formActividad.puntos = a.puntos;
     formActividad.abre_en = a.abre_en ?? '';
     formActividad.cierra_en = a.cierra_en ?? '';
@@ -529,6 +547,23 @@ const cortesCerrados = computed(() =>
                         min="1"
                         :error="formActividad.errors.puntos"
                         ayuda="Su peso dentro del componente."
+                    />
+                    <!-- Con qué se califica. Sin rúbrica se sigue poniendo un
+                         número a mano, que es lo que había: para un ejercicio de
+                         respuesta única eso basta y una rúbrica estorba. -->
+                    <CampoSelect
+                        v-if="formActividad.tipo !== 'lectura' && formActividad.tipo !== 'examen'"
+                        v-model="formActividad.rubrica_id"
+                        etiqueta="Calificar con"
+                        :opciones="rubricas.map((r) => ({
+                            valor: r.id,
+                            texto: `${r.nombre} · ${r.total} pts${r.ambito === 'plataforma' ? ' · de la escuela' : ''}${r.activa ? '' : ' · apagada'}`,
+                        }))"
+                        vacio="Un número a mano"
+                        :error="formActividad.errors.rubrica_id"
+                        :ayuda="rubricas.length
+                            ? 'La nota sale de sumar criterios y se lleva a los puntos de arriba.'
+                            : 'Todavía no hay rúbricas. Se arman en Rúbricas, desde el menú.'"
                     />
                     <CampoTexto v-model="formActividad.abre_en" etiqueta="Abre" tipo="datetime-local" :error="formActividad.errors.abre_en" />
                     <CampoTexto v-model="formActividad.cierra_en" etiqueta="Cierra" tipo="datetime-local" :error="formActividad.errors.cierra_en" />

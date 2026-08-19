@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\TipoActividad;
 use App\Http\Controllers\Concerns\ArmaExamenes;
+use App\Http\Controllers\Concerns\EligeRubrica;
 use App\Models\Academico\EsquemaEvaluacion;
 use App\Models\Academico\PlanEstudio;
 use App\Models\Academico\PlanMateria;
@@ -36,6 +37,7 @@ use Inertia\Response;
 class CursoPlantillaController extends Controller
 {
     use ArmaExamenes;
+    use EligeRubrica;
 
     public function __construct(private readonly CopiadorDeCurso $copiador) {}
 
@@ -76,6 +78,8 @@ class CursoPlantillaController extends Controller
                 'publicada' => (bool) $a->publicada,
                 'esquema_evaluacion_id' => $a->esquema_evaluacion_id,
                 'componente' => $a->componente?->etiquetaCompleta(),
+                'rubrica_id' => $a->rubrica_id,
+                'rubrica' => $a->rubrica?->nombre,
                 'tiene_examen' => $a->tipo === TipoActividad::Examen,
             ])->values(),
             'componentes' => EsquemaEvaluacion::query()
@@ -86,6 +90,13 @@ class CursoPlantillaController extends Controller
                     'id' => $c->id,
                     'etiqueta' => "Parcial {$c->parcial} · {$c->componente} ({$c->porcentaje}%)",
                 ])->values(),
+            /*
+             * Sólo las de la ESCUELA: esta plantilla se copia a todos los
+             * grupos que abran la materia, y una rúbrica propia de quien edita
+             * el plan acabaría calificando en grupos de otras personas que ni
+             * siquiera pueden verla.
+             */
+            'rubricas' => $this->rubricasDisponibles(null, soloDeLaEscuela: true),
             'tiposActividad' => array_map(
                 fn (TipoActividad $t) => ['valor' => $t->value, 'etiqueta' => $t->etiqueta(), 'se_entrega' => $t->seEntrega()],
                 TipoActividad::cases(),
@@ -137,11 +148,15 @@ class CursoPlantillaController extends Controller
             'instrucciones' => ['nullable', 'string', 'max:20000'],
             'contenido' => ['nullable', 'string', 'max:200000'],
             'esquema_evaluacion_id' => ['nullable', 'integer'],
+            'rubrica_id' => ['nullable', 'integer'],
             'puntos' => ['required', 'numeric', 'min:1', 'max:1000'],
             'permite_tarde' => ['boolean'],
             'permite_reentrega' => ['boolean'],
             'publicada' => ['boolean'],
-        ], [], ['esquema_evaluacion_id' => 'componente de evaluación']);
+        ], [], [
+            'esquema_evaluacion_id' => 'componente de evaluación',
+            'rubrica_id' => 'rúbrica',
+        ]);
 
         // El material se pinta como HTML en la pantalla del alumno: entra por la
         // lista blanca antes de guardarse. La validación de arriba comprueba que
@@ -152,9 +167,37 @@ class CursoPlantillaController extends Controller
         // amarrado prometería una calificación que nunca va a llegar.
         if ($datos['tipo'] === TipoActividad::Lectura->value) {
             $datos['esquema_evaluacion_id'] = null;
+            // Una lectura no se califica: la rúbrica prometería un desglose
+            // que nunca va a existir.
+            $datos['rubrica_id'] = null;
         }
 
-        if ($datos['esquema_evaluacion_id'] !== null) {
+        /*
+         * Un EXAMEN tampoco lleva rúbrica: lo califica la máquina al momento de
+         * entregarse. Con las dos cosas puestas habría dos notas para la misma
+         * entrega y ninguna forma de saber cuál manda — el mismo motivo por el
+         * que el panel de calificación no deja escribirle un número encima.
+         */
+        if ($datos['tipo'] === TipoActividad::Examen->value) {
+            $datos['rubrica_id'] = null;
+        }
+
+        $this->exigirRubricaUsable(
+            $datos['rubrica_id'] ?? null,
+            personaId: null,
+            soloDeLaEscuela: true,
+            yaPuesta: $actividad?->rubrica_id,
+        );
+
+        /*
+         * `??` y no acceso directo. El campo es opcional, así que cuando no
+         * viaja tampoco aparece en los datos validados, y leerlo a secas tumbaba
+         * el alta con un 500. El formulario de la pantalla siempre lo manda —por
+         * eso no se notaba—, pero basta crear una actividad desde cualquier otro
+         * sitio para toparse con ello. Es el mismo defecto que ya se había
+         * corregido en `ActividadController` y que aquí quedó sin corregir.
+         */
+        if (($datos['esquema_evaluacion_id'] ?? null) !== null) {
             $esDeLaMateria = EsquemaEvaluacion::query()
                 ->where('id', $datos['esquema_evaluacion_id'])
                 ->where('plan_materia_id', $materia->id)
@@ -316,7 +359,7 @@ class CursoPlantillaController extends Controller
 
     private function plantillaDe(PlanMateria $materia): ?Curso
     {
-        return Curso::with('actividades.componente')
+        return Curso::with(['actividades.componente', 'actividades.rubrica'])
             ->where('plan_materia_id', $materia->id)
             ->first();
     }
