@@ -113,8 +113,12 @@ Cinco entregas, en este orden. A y B ✅ hechas; C, D y E pendientes:
   es de la faceta alumno y `VeLaCarteraDelAlumno` lo acota a sus matrículas—:
   entra por `/finanzas` y `/finanzas/cuentas/{matricula}`, y la de otra persona
   le responde 403. Se comprobó antes de construir nada.
-- ⏳ El portal **no cobra**: muestra los cargos, pero no hay pasarela conectada.
-  `pagos` ya tiene `pasarela` y `pasarela_txn_id` esperándola desde 7.1.
+- ✅ Resuelto: el portal **SÍ cobra**. Esta línea decía lo contrario y llevaba
+  tiempo desactualizada. Hay cinco pasarelas en `App\Services\Pagos\`
+  —Stripe, Conekta, MercadoPago, OpenPay, PayPal—, webhook, `PanelPagoEnLinea`
+  y `config/pagos.php` con un modo `fake` que recorre el flujo entero sin
+  credenciales. El default es `real` a propósito: a un despliegue que olvide la
+  variable le toca cobrar, no simular.
 
 ## Decisiones de arquitectura que NO se deben cambiar
 
@@ -983,9 +987,11 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
 
 **Pendiente inmediato — aquí se retoma:**
 
-*(Antes de tomar algo de esta lista, COMPROBARLO en el código. Dos veces ya
-mandó a construir cosas que estaban hechas: la titulación SEP y el estado de
-cuenta del alumno.)*
+*(Antes de tomar algo de esta lista, COMPROBARLO en el código. **Ya van cinco**
+que mandaba a construir cosas hechas: la titulación SEP, el estado de cuenta del
+alumno, los horarios, la pasarela de pago y el panel del landlord. Las tres
+últimas se cayeron al comprobarlas el 2026-08-19; lo comprobado ese día está
+marcado abajo con su fecha, y lo que NO la lleve sigue sin verificar.)*
 
 0. **ELIMINAR LA SITUACIÓN DEL ASPIRANTE por completo** (decidido con el
    cliente el 2026-08-11; se aplazó a una sesión propia por tamaño).
@@ -1014,7 +1020,18 @@ cuenta del alumno.)*
    `GuardarAspiranteRequest` la exige `required`; mientras esos dos no cambien,
    nada más se puede tocar.
 
-1. Fase 4.
+1. **Impresión del acta** (PDF con folio, firmas y lista de alumnos).
+   Comprobado el 2026-08-19: `/captura` tiene `index`, `guardar`, `cerrar` y
+   `corregir`, y **ninguna ruta de impresión**; en `resources/views/impresion/`
+   sólo está `historial.blade.php`. El acta existe y se consulta en pantalla.
+
+2. **El portal del TUTOR no opera, y no es que le falte la pantalla.**
+   Comprobado el 2026-08-19: `/mis-hijos` sólo tiene `index` y `hijo`, y
+   `PadreController` no menciona documentos — **no hay endpoint**, así que
+   construir la pantalla no bastaría. La regla «alumnos y padres suben, no
+   validan» sí está implementada y probada del lado de admisiones.
+
+3. Fase 4.
 
 **Deuda conocida:**
 
@@ -1027,23 +1044,43 @@ cuenta del alumno.)*
   funciona es medir el DOM con `javascript_tool` (altos, anchos, presencia de
   elementos), que sirve para comprobar geometría y estructura — pero NO
   sustituye a que un humano mire el render.
-- **Solo el PANEL se ha visto renderizado.** Las demás pantallas siguen
-  probadas por datos y por HTTP, sin verificación visual.
+- **Lo verificado en el navegador, hasta hoy**: el panel, y el 2026-08-19 el
+  recorrido entero de rúbricas —`/rubricas` (crear, tarjeta y matriz), el panel
+  de calificación del docente en modo rúbrica y el aula del alumno con su
+  desglose—. **Todo lo demás sigue probado por datos y por HTTP, sin ver el
+  render.** Y aun eso: la verificación es medición del DOM (texto, opacidades,
+  anchos, desplazamiento), no una mirada humana, porque las capturas se agotan
+  por tiempo.
 
 - `reactivos_cleaver` está vacía a propósito: el banco real del test DISC viene
-  del legacy y no debe inventarse.
-- Falta pantalla para horarios de `asignatura_grupo`; sin ellos la validación
-  de choque no bloquea.
-- Falta la **impresión del acta** (PDF con folio, firmas y lista de alumnos).
-  Hoy el acta existe y es consultable en pantalla, pero no se puede imprimir.
-- `esquema_evaluacion` no se puede editar una vez que hay calificaciones
-  capturadas contra él: la FK de `calificaciones_componente` lo impide y el
-  CRUD del catálogo académico revienta en vez de explicarlo.
-- No hay panel para la app central (landlord): `super_admins` existe pero sin
-  interfaz ni guard propio.
+  del legacy y no debe inventarse. No es deuda: es una decisión.
 
+- **Borrar un componente de evaluación con calificaciones NO revienta: pasa en
+  silencio, y es peor.** Esta entrada decía que «la FK lo impide y el CRUD
+  revienta en vez de explicarlo». Es falso, y el error real es más grave:
+  `EsquemaEvaluacion` usa `TieneAuditoria`, o sea **borrado lógico**, así que la
+  foránea de `calificaciones_componente` no llega a dispararse nunca.
+  `EsquemaEvaluacionController::destroy` hace `$componente->delete()` sin
+  preguntar nada.
 
-- **El portal del TUTOR muestra, no opera.** La regla «alumnos y padres sólo
-  suben documentos, no los validan» está implementada y probada en el backend;
-  la pantalla del padre (`/mis-hijos`) consulta, pero la subida de documentos
-  desde ahí sigue sin construirse.
+  Medido contra el demo el 2026-08-19, con rollback: el componente #290 tenía
+  una calificación, el borrado devolvió éxito, y la calificación **se quedó
+  colgando de un componente invisible** — contando para un porcentaje que ya no
+  aparece en el esquema. Sin error y sin aviso, que es lo que lo hace peligroso:
+  «revienta con un mensaje feo» se ve; esto no.
+
+**Tres deudas que estaban aquí y NO eran ciertas** (comprobadas el 2026-08-19;
+se dejan escritas para que no vuelvan a apuntarse como pendientes):
+
+- ~~«Falta pantalla para horarios de `asignatura_grupo`; sin ellos la validación
+  de choque no bloquea»~~. Están `HorarioController` y `ReglaHorarioController`,
+  las pantallas en `resources/js/Pages/Horarios`, la generación automática con
+  su propio permiso (`generar-horarios`, separado de `editar-horarios`) y
+  `ValidadorInscripcion::choqueDeHorario`, que sí valida.
+- ~~«No hay panel para la app central (landlord)»~~. `routes/web.php` tiene el
+  guard `auth:central`, login con SSO de Google, alta / suspensión / baja de
+  escuelas y la administración de créditos de emisión.
+- ~~«El portal no cobra»~~. Ver arriba, en el pedido del cliente.
+
+- **El portal del TUTOR no opera** — ver el punto 2 de los pendientes. Se
+  quedaba corto: no es que falte la pantalla, es que no hay endpoint.
