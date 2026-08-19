@@ -216,6 +216,15 @@ final class CatalogoPermisos
         'Académico' => [
             'ver-catalogo-academico' => ['Ver el catálogo académico', 'Campus, carreras, planes, asignaturas y oferta.', [self::ADMINISTRATIVO]],
             'editar-catalogo-academico' => ['Editar el catálogo académico', 'Modificar planes, malla curricular, seriación y criterios de evaluación.', [self::ADMINISTRATIVO]],
+            /*
+             * Las rúbricas DE LA ESCUELA, que las ve y las usa todo el mundo.
+             *
+             * Las suyas propias las arma cada docente sin este permiso: le
+             * basta `capturar-calificaciones`, que es exactamente el acto. Lo
+             * que este permiso concede es publicar para todos —y editar lo que
+             * ya publicó alguien—, que es otra responsabilidad.
+             */
+            'gestionar-rubricas' => ['Administrar las rúbricas de la escuela', 'Publicar rúbricas para toda la escuela y editar las que ya están publicadas. Las suyas propias las arma cada docente sin esto.', [self::ADMINISTRATIVO]],
         ],
 
         'Finanzas' => [

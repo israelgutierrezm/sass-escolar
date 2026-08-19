@@ -104,6 +104,39 @@ class Rubrica extends Model
             ->exists();
     }
 
+    /**
+     * Si esta persona la puede EDITAR.
+     *
+     * Dos dueños distintos y dos respuestas distintas:
+     *
+     * - Las de plataforma son de la escuela, así que las toca quien tenga
+     *   `gestionar-rubricas`. Cualquier docente las USA, pero editarlas
+     *   cambiaría con qué se califica en toda la escuela.
+     * - Las de un docente son suyas y de nadie más. Ni siquiera de quien
+     *   administra el catálogo: una rúbrica propia es un borrador de trabajo,
+     *   y quien la quiera compartir la publica como de plataforma.
+     */
+    public function laPuedeEditar(?int $personaId, bool $gestionaLasDeLaEscuela): bool
+    {
+        if ($this->esDePlataforma()) {
+            return $gestionaLasDeLaEscuela;
+        }
+
+        return $personaId !== null && (int) $this->persona_id === $personaId;
+    }
+
+    /**
+     * Si su ESTRUCTURA todavía se puede tocar.
+     *
+     * En cuanto calificó a alguien, no: quitarle un criterio dejaría a las
+     * evaluaciones hechas con un total que ya no cuadra con la suma de sus
+     * partes. Para cambiarla se duplica.
+     */
+    public function estructuraEditable(): bool
+    {
+        return ! $this->estaEnUso();
+    }
+
     public function scopeActivas(Builder $query): Builder
     {
         return $query->where('activa', true);

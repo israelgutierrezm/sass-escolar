@@ -99,6 +99,7 @@ use App\Http\Controllers\ReglaMatriculaController;
 use App\Http\Controllers\RespuestaFormularioController;
 use App\Http\Controllers\RolActivoController;
 use App\Http\Controllers\RolController;
+use App\Http\Controllers\RubricaController;
 use App\Http\Controllers\SeriacionController;
 use App\Http\Controllers\ServicioController;
 use App\Http\Controllers\SolicitudServicioController;
@@ -1538,6 +1539,29 @@ Route::middleware([
 
         Route::get('lms/imagenes/{uuid}', [ImagenContenidoController::class, 'ver'])
             ->name('tenant.lms.imagenes.ver');
+
+        /*
+         * El catálogo de RÚBRICAS.
+         *
+         * Cuelga de la raíz, como `/captura`, porque la usan dos oficios: quien
+         * administra las de la escuela y el docente que arma las suyas. Bajo
+         * `/academico` habría quedado detrás de un permiso administrativo y
+         * ningún docente entraría; bajo `/docencia`, al revés.
+         *
+         * Por eso el permiso es el derivado `usar-rubricas`. Qué se puede hacer
+         * DENTRO —publicar para toda la escuela o sólo guardar lo propio— lo
+         * resuelve el controlador: es alcance, no acceso.
+         */
+        Route::controller(RubricaController::class)
+            ->prefix('rubricas')->name('tenant.rubricas.')
+            ->middleware('can:usar-rubricas')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'store')->name('store');
+                Route::put('{rubrica}', 'update')->name('update');
+                Route::post('{rubrica}/duplicar', 'duplicar')->name('duplicar');
+                Route::delete('{rubrica}', 'destroy')->name('destroy');
+            });
 
         /*
          * El AULA: el curso recorrido como un libro. Mismo permiso y misma

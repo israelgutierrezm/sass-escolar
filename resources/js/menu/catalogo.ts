@@ -161,6 +161,10 @@ export const CATALOGO_MENU: GrupoMenu[] = [
                 hijos: [
                     { clave: 'oferta', etiqueta: 'Oferta', url: '/academico/ofertas', permiso: 'ver-catalogo-academico' },
                     { clave: 'evaluacion', etiqueta: 'Evaluación', url: '/academico/plantillas', permiso: 'ver-catalogo-academico' },
+                    // Las de la ESCUELA. El docente llega a la misma pantalla
+                    // desde su propio menú: son dos oficios entrando por la
+                    // misma puerta, no dos pantallas.
+                    { clave: 'rubricas', etiqueta: 'Rúbricas', url: '/rubricas', permiso: 'gestionar-rubricas' },
                     { clave: 'catalogos', etiqueta: 'Catálogos', url: '/academico/catalogos', permiso: 'ver-catalogo-academico' },
                 ],
             },
@@ -277,6 +281,10 @@ export const CATALOGO_MENU: GrupoMenu[] = [
         hijos: [
             { clave: 'mis-materias', etiqueta: 'Mis materias', url: '/docencia', permiso: 'ver-mis-materias' },
             { clave: 'captura-docente', etiqueta: 'Captura', url: '/captura', permiso: 'capturar-calificaciones' },
+            // Las SUYAS, más las que publicó la escuela. Misma URL que la
+            // entrada de Académico y clave distinta, porque la clave es lo que
+            // guarda el orden del menú de cada rol.
+            { clave: 'rubricas-docente', etiqueta: 'Rúbricas', url: '/rubricas', permiso: 'capturar-calificaciones' },
             { clave: 'mi-expediente', etiqueta: 'Mi expediente', url: '/docencia/expediente', permiso: 'editar-mi-expediente' },
         ],
     },

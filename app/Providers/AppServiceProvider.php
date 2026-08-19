@@ -188,6 +188,23 @@ class AppServiceProvider extends ServiceProvider
         );
 
         /*
+         * Entrar al catálogo de rúbricas.
+         *
+         * Otra vez dos oficios por la misma puerta: quien administra las de la
+         * escuela (`gestionar-rubricas`) y el docente, que entra a armar las
+         * SUYAS. Al docente no se le pide un permiso aparte porque armarse una
+         * rúbrica es parte de calificar, y `capturar-calificaciones` ya lo dice.
+         *
+         * Lo que se puede hacer DENTRO —publicar para toda la escuela, o sólo
+         * guardar lo propio— no lo resuelve esta puerta sino el controlador: es
+         * una diferencia de alcance, no de acceso.
+         */
+        Gate::define(
+            'usar-rubricas',
+            fn ($usuario) => $usuario->can('gestionar-rubricas') || $usuario->can('capturar-calificaciones')
+        );
+
+        /*
          * Ver la biblioteca tal como le queda al alumno.
          *
          * Quien la publica necesita mirarla: el orden, qué salió como tarjeta y
