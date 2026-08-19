@@ -72,6 +72,17 @@ class Entrega extends Model
         return $this->hasMany(EntregaArchivo::class, 'entrega_id');
     }
 
+    /**
+     * El desglose por criterio, cuando se calificó con rúbrica.
+     *
+     * La nota vive en `calificacion` y esto dice de dónde salió: ninguna
+     * pantalla necesita saber de rúbricas para leer el número.
+     */
+    public function porRubrica(): HasMany
+    {
+        return $this->hasMany(EntregaRubrica::class, 'entrega_id');
+    }
+
     public function estaCalificada(): bool
     {
         return $this->estado === self::CALIFICADA && $this->calificacion !== null;

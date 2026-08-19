@@ -37,6 +37,9 @@ class Actividad extends Model
         // instrucciones, que dicen qué hacer con él.
         'contenido',
         'esquema_evaluacion_id',
+        // Con qué se califica. NULL = a ojo, con un número suelto, como
+        // siempre; con rúbrica, la nota sale de sumar criterios.
+        'rubrica_id',
         'puntos',
         'abre_en',
         'cierra_en',
@@ -71,6 +74,17 @@ class Actividad extends Model
         return $this->belongsTo(EsquemaEvaluacion::class, 'esquema_evaluacion_id');
     }
 
+    /**
+     * La rúbrica con la que se califica, si se calificó con una.
+     *
+     * `withTrashed`: una rúbrica retirada del catálogo sigue teniendo que
+     * explicar las calificaciones que ya puso.
+     */
+    public function rubrica(): BelongsTo
+    {
+        return $this->belongsTo(Rubrica::class, 'rubrica_id')->withTrashed();
+    }
+
     public function entregas(): HasMany
     {
         return $this->hasMany(Entrega::class, 'actividad_id');
@@ -91,6 +105,12 @@ class Actividad extends Model
     public function tieneContenido(): bool
     {
         return filled($this->contenido);
+    }
+
+    /** Se califica con rúbrica y no con un número escrito a mano. */
+    public function seCalificaConRubrica(): bool
+    {
+        return $this->rubrica_id !== null;
     }
 
     /** Cuenta para la calificación del parcial. */
