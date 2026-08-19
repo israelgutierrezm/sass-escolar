@@ -355,7 +355,14 @@ npm run dev                # o npm run build
   campo pide **correo o CURP**, no el nombre de usuario. Credenciales
   comprobadas contra la base: **`demo@escuela.mx` / `password`**. La cuenta se
   llama `demo` pero eso no sirve para entrar.
-- Comandos de apoyo: `acadion:usuario-demo`, `acadion:oferta-demo`. Ojo:
+- Comandos de apoyo: `acadion:usuario-demo`, `acadion:oferta-demo`,
+  `acadion:rubrica-demo` (deja una materia con docente, rúbrica y entregas por
+  calificar; hizo falta porque **el LMS del demo no se podía abrir**:
+  `docente_asignatura_grupo` está vacía y los dos únicos cursos cuelgan de
+  `asignatura_grupo` 4 y 5, que ya no existen —las vivas van de la 41 a la 72—,
+  con 7 actividades y 3 entregas inalcanzables. Otro resto de resiembra con las
+  foráneas apagadas; no se repara, porque sería inventarle un grupo a un
+  contenido cuyo grupo se perdió). Ojo:
   `acadion:usuario-demo` sólo CREA; sobre la escuela de ejemplo, que ya tiene
   ese usuario, revienta con `Duplicate entry 'demo'`. Para restablecer la
   contraseña hay que hacerlo a mano.
