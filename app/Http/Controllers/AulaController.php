@@ -141,7 +141,7 @@ class AulaController extends Controller
         $actividades = Actividad::query()
             ->visibles()
             ->where('curso_id', $curso->id)
-            ->with('componente:id,componente,parcial')
+            ->with(['componente:id,componente,parcial', 'rubrica.criterios.niveles'])
             ->orderBy('orden')
             ->orderBy('id')
             ->get();
@@ -151,7 +151,9 @@ class AulaController extends Controller
         }
 
         $entregas = Entrega::query()
-            ->with('archivos')
+            // Con el desglose: es lo que convierte «8.33» en «te faltó
+            // ortografía», que es a lo que sirve una rúbrica.
+            ->with(['archivos', 'porRubrica'])
             ->where('inscripcion_id', $inscripcion->id)
             ->whereIn('actividad_id', $actividades->pluck('id'))
             ->get()
@@ -201,6 +203,31 @@ class AulaController extends Controller
                 'abierta' => $a->abierta(),
                 'parcial' => $a->componente?->parcial,
                 'componente' => $a->componente?->etiquetaCompleta(),
+                /*
+                 * La rúbrica ENTERA, esté o no calificado.
+                 *
+                 * Antes de entregar es lo que de verdad sirve: leer qué se va a
+                 * mirar y qué hay que hacer para el nivel de arriba. Enseñarla
+                 * sólo con la nota la volvería una explicación a toro pasado, y
+                 * la escuela ya habría escrito los descriptores para nada.
+                 */
+                'rubrica' => $a->rubrica === null ? null : [
+                    'id' => $a->rubrica->id,
+                    'nombre' => $a->rubrica->nombre,
+                    'total' => $a->rubrica->total(),
+                    'criterios' => $a->rubrica->criterios->map(fn ($c) => [
+                        'id' => $c->id,
+                        'titulo' => $c->titulo,
+                        'descripcion' => $c->descripcion,
+                        'maximo' => $c->maximo(),
+                        'niveles' => $c->niveles->map(fn ($n) => [
+                            'id' => $n->id,
+                            'titulo' => $n->titulo,
+                            'descripcion' => $n->descripcion,
+                            'puntos' => (float) $n->puntos,
+                        ])->values(),
+                    ])->values(),
+                ],
                 'completada' => $completada,
                 'visitada' => $vista !== null,
                 'entrega' => $entrega === null ? null : [
@@ -211,6 +238,14 @@ class AulaController extends Controller
                     'tarde' => (bool) $entrega->tarde,
                     'calificacion' => $entrega->calificacion === null ? null : (float) $entrega->calificacion,
                     'retroalimentacion' => $entrega->retroalimentacion,
+                    // En qué nivel quedó cada criterio, y la nota que el
+                    // docente le dejó en ese renglón.
+                    'por_rubrica' => $entrega->porRubrica->map(fn ($r) => [
+                        'criterio_id' => (int) $r->criterio_id,
+                        'nivel_id' => $r->nivel_id === null ? null : (int) $r->nivel_id,
+                        'puntos' => (float) $r->puntos,
+                        'comentario' => $r->comentario,
+                    ])->values(),
                     'archivos' => $entrega->archivos->map(fn ($f) => [
                         'id' => $f->id,
                         'nombre' => $f->nombre,

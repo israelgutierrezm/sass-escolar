@@ -7,6 +7,8 @@ import CuandoVence from '@/Components/CuandoVence.vue';
 import IndiceDelCurso from '@/Components/IndiceDelCurso.vue';
 import ZonaArchivos from '@/Components/ZonaArchivos.vue';
 import { ICONOS } from '@/iconos';
+import RubricaDelAlumno from '@/Components/RubricaDelAlumno.vue';
+import type { EvaluacionPorCriterio, RubricaDeActividad } from '@/utils/rubrica';
 
 /**
  * EL AULA — la materia recorrida como un libro.
@@ -37,6 +39,8 @@ interface Entrega {
     tarde: boolean;
     calificacion: number | null;
     retroalimentacion: string | null;
+    /** En qué nivel quedó cada criterio, si se calificó con rúbrica. */
+    por_rubrica: EvaluacionPorCriterio[];
     archivos: { id: number; nombre: string }[];
 }
 
@@ -60,6 +64,8 @@ interface Leccion {
     abierta: boolean;
     parcial: number | null;
     componente: string | null;
+    /** Con qué se califica. Se enseña ANTES de entregar, no sólo con la nota. */
+    rubrica: RubricaDeActividad | null;
     completada: boolean;
     visitada: boolean;
     entrega: Entrega | null;
@@ -378,8 +384,24 @@ const estado = computed(() => {
                             </p>
                         </div>
 
+                        <!-- Con qué se va a calificar, ANTES de entregar.
+                             Es a lo que sirve una rúbrica: leer qué se mira
+                             cambia lo que se entrega; leerlo con la nota sólo
+                             explica un número que ya no se puede mover.
+                             Cuando ya está calificada no se repite aquí: se
+                             muestra abajo, con los niveles obtenidos. -->
+                        <div
+                            v-if="leccion.rubrica && !leccion.entrega?.por_rubrica.length"
+                            class="border-t border-borde px-5 py-5 sm:px-8"
+                        >
+                            <RubricaDelAlumno
+                                :rubrica="leccion.rubrica"
+                                :puntos-actividad="leccion.puntos"
+                            />
+                        </div>
+
                         <p
-                            v-if="!leccion.tiene_contenido && !leccion.instrucciones"
+                            v-if="!leccion.tiene_contenido && !leccion.instrucciones && !leccion.rubrica"
                             class="px-5 py-10 text-center text-sm text-suave sm:px-8"
                         >
                             Esta lección no trae material cargado.
@@ -570,6 +592,16 @@ const estado = computed(() => {
                                     {{ leccion.entrega.retroalimentacion }}
                                 </p>
                             </div>
+
+                            <!-- De dónde salió esa nota. Sin el desglose, un
+                                 «8.33 / 10» no dice qué corregir. -->
+                            <RubricaDelAlumno
+                                v-if="leccion.rubrica && leccion.entrega.por_rubrica.length"
+                                class="mt-4"
+                                :rubrica="leccion.rubrica"
+                                :evaluacion="leccion.entrega.por_rubrica"
+                                :puntos-actividad="leccion.puntos"
+                            />
                         </div>
 
                         <p
