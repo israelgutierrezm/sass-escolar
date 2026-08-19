@@ -4,6 +4,7 @@ import { useForm } from '@inertiajs/vue3';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import { ICONOS } from '@/iconos';
 import { colorPorPuntos, ESCALA_POR_DEFECTO, type Escala } from '@/utils/escalaCalificacion';
+import { aEscalaDeLaActividad, type EvaluacionPorCriterio, type RubricaDeActividad } from '@/utils/rubrica';
 
 /**
  * Calificar una entrega, con lo que el alumno mandó a la vista.
@@ -17,6 +18,16 @@ import { colorPorPuntos, ESCALA_POR_DEFECTO, type Escala } from '@/utils/escalaC
  *
  * El panel se ancla al costado, no se mueve, y trae los tres datos que se
  * necesitan para poner una nota: qué entregó, cuándo, y sobre cuánto va.
+ *
+ * ── Con rúbrica no se escribe la nota: se elige un nivel por criterio ─────
+ * La cifra sale de la suma y no se puede teclear encima, porque entonces habría
+ * dos verdades sobre la misma entrega —el número y el desglose— sin forma de
+ * saber cuál manda. Y la suma se lleva a los puntos de la ACTIVIDAD: una rúbrica
+ * de 20 sobre una actividad de 10 da 8.5, no 17, que es lo que permite reusar la
+ * misma rúbrica en trabajos de distinto peso.
+ *
+ * Un criterio sin elegir NO es un cero: lo evaluado se guarda y la entrega queda
+ * sin calificar, igual que un componente sin capturar en el acta.
  *
  * ── Lo que se califica solo ────────────────────────────────────────────────
  * Un examen de opción múltiple lo califica la máquina en el momento en que el
@@ -42,6 +53,7 @@ interface Casilla {
     contenido: string | null;
     entregada_en: string | null;
     automatica: boolean;
+    por_rubrica: EvaluacionPorCriterio[];
     archivos: Archivo[];
 }
 
@@ -52,6 +64,8 @@ interface Actividad {
     titulo: string;
     puntos: number;
     componente: string | null;
+    /** Con qué se califica. Null = un número a mano, como siempre. */
+    rubrica: RubricaDeActividad | null;
 }
 
 const props = defineProps<{
@@ -86,6 +100,61 @@ watch(
 );
 
 const esExamen = computed(() => props.actividad.tipo === 'examen');
+const conRubrica = computed(() => props.actividad.rubrica !== null);
+
+/** Nivel elegido y comentario por criterio. Se rehace al saltar de entrega. */
+const porCriterio = ref<Record<number, { nivel_id: number | null; comentario: string }>>({});
+
+watch(
+    () => [props.casilla, props.actividad.rubrica] as const,
+    ([casilla, rubrica]) => {
+        const previo: Record<number, { nivel_id: number | null; comentario: string }> = {};
+
+        for (const c of rubrica?.criterios ?? []) {
+            const hecho = casilla.por_rubrica.find((e) => e.criterio_id === c.id);
+
+            previo[c.id] = { nivel_id: hecho?.nivel_id ?? null, comentario: hecho?.comentario ?? '' };
+        }
+
+        porCriterio.value = previo;
+    },
+    { immediate: true },
+);
+
+function elegir(criterioId: number, nivelId: number): void {
+    const actual = porCriterio.value[criterioId];
+
+    // Volver a tocar el nivel elegido lo QUITA. Sin esto no habría forma de
+    // deshacer un clic accidental salvo cerrar sin guardar.
+    actual.nivel_id = actual.nivel_id === nivelId ? null : nivelId;
+}
+
+/** Lo que se lleva sumado de la rúbrica. */
+const obtenido = computed(() => {
+    let suma = 0;
+
+    for (const c of props.actividad.rubrica?.criterios ?? []) {
+        const nivel = c.niveles.find((n) => n.id === porCriterio.value[c.id]?.nivel_id);
+
+        suma += nivel?.puntos ?? 0;
+    }
+
+    return Math.round(suma * 100) / 100;
+});
+
+const criteriosSinEvaluar = computed(
+    () => (props.actividad.rubrica?.criterios ?? []).filter((c) => porCriterio.value[c.id]?.nivel_id == null).length,
+);
+
+/**
+ * La nota que va a quedar. Se enseña ANTES de guardar porque es la decisión:
+ * el docente elige niveles, no cifras, y necesita ver a qué equivalen.
+ *
+ * La cuenta buena la hace el servidor —ésta es sólo para mirarla—.
+ */
+const notaDeLaRubrica = computed(() =>
+    aEscalaDeLaActividad(obtenido.value, props.actividad.rubrica?.total ?? 0, props.actividad.puntos),
+);
 
 /** Sin nota y ya entregada: es a lo que el docente vino. */
 const esperaRevision = computed(
@@ -94,7 +163,43 @@ const esperaRevision = computed(
 
 const seguirDespues = ref(true);
 
+const formRubrica = useForm({
+    criterios: [] as { criterio_id: number; nivel_id: number | null; comentario: string | null }[],
+    retroalimentacion: '',
+});
+
+function guardarConRubrica(): void {
+    formRubrica.criterios = (props.actividad.rubrica?.criterios ?? []).map((c) => ({
+        criterio_id: c.id,
+        nivel_id: porCriterio.value[c.id]?.nivel_id ?? null,
+        comentario: porCriterio.value[c.id]?.comentario || null,
+    }));
+    formRubrica.retroalimentacion = form.retroalimentacion;
+
+    formRubrica.put(`/docencia/materias/${props.materiaId}/entregas/${props.casilla.entrega_id}/calificar`, {
+        preserveScroll: true,
+        onSuccess: () => {
+            // Sólo se salta a la siguiente si ésta quedó cerrada: con un
+            // criterio en blanco la entrega sigue sin calificar y dejarla atrás
+            // sería perderla de vista.
+            if (seguirDespues.value && criteriosSinEvaluar.value === 0 && props.pendientes > 1) {
+                emit('siguiente');
+
+                return;
+            }
+
+            emit('cerrar');
+        },
+    });
+}
+
 function guardar(): void {
+    if (conRubrica.value) {
+        guardarConRubrica();
+
+        return;
+    }
+
     form.put(`/docencia/materias/${props.materiaId}/entregas/${props.casilla.entrega_id}/calificar`, {
         preserveScroll: true,
         onSuccess: () => {
@@ -122,6 +227,14 @@ function pesoLegible(bytes: number): string {
 }
 
 const colorNota = computed(() => {
+    // Con rúbrica la cifra no la teclea nadie: sale de los niveles elegidos, y
+    // mientras falte alguno no hay nota que colorear.
+    if (conRubrica.value) {
+        if (criteriosSinEvaluar.value > 0) return 'var(--color-suave)';
+
+        return colorPorPuntos(notaDeLaRubrica.value, props.actividad.puntos, props.escala ?? ESCALA_POR_DEFECTO);
+    }
+
     const n = Number(form.calificacion);
 
     if (form.calificacion === '' || Number.isNaN(n)) return 'var(--color-suave)';
@@ -157,6 +270,9 @@ const colorNota = computed(() => {
                 </span>
                 <span v-if="actividad.componente" class="mt-0.5 block text-[11px] text-suave">
                     {{ actividad.componente }} · sobre {{ actividad.puntos }} puntos
+                </span>
+                <span v-if="actividad.rubrica" class="mt-0.5 block text-[11px] text-suave">
+                    Se califica con «{{ actividad.rubrica.nombre }}»
                 </span>
             </span>
 
@@ -254,6 +370,69 @@ const colorNota = computed(() => {
                     </a>
                 </div>
             </section>
+
+            <!-- ===== La rúbrica ===== -->
+            <section v-if="actividad.rubrica" class="border-t border-borde px-5 py-4">
+                <h3 class="text-xs font-semibold uppercase tracking-wide text-suave">
+                    Rúbrica — elige un nivel por criterio
+                </h3>
+
+                <div
+                    v-for="c in actividad.rubrica.criterios"
+                    :key="c.id"
+                    class="mt-3 first:mt-2"
+                >
+                    <div class="flex items-baseline justify-between gap-2">
+                        <span class="text-sm font-medium text-contenido">{{ c.titulo }}</span>
+                        <span class="shrink-0 text-xs text-suave">hasta {{ c.maximo }}</span>
+                    </div>
+                    <p v-if="c.descripcion" class="mt-0.5 text-xs text-suave">{{ c.descripcion }}</p>
+
+                    <!-- Los niveles como botones y no como desplegable: el
+                         descriptor es lo que se compara para decidir, y dentro
+                         de un <select> no se puede leer más de uno a la vez. -->
+                    <div class="mt-1.5 grid gap-1.5 sm:grid-cols-2">
+                        <button
+                            v-for="n in c.niveles"
+                            :key="n.id"
+                            type="button"
+                            class="rounded-lg border px-2.5 py-2 text-left transition"
+                            :style="{
+                                borderColor: porCriterio[c.id]?.nivel_id === n.id
+                                    ? 'var(--color-acento)'
+                                    : 'var(--color-borde)',
+                                backgroundColor: porCriterio[c.id]?.nivel_id === n.id
+                                    ? 'color-mix(in srgb, var(--color-acento) 10%, transparent)'
+                                    : 'transparent',
+                            }"
+                            @click="elegir(c.id, n.id)"
+                        >
+                            <span class="flex items-baseline justify-between gap-2">
+                                <strong class="text-xs text-contenido">{{ n.titulo }}</strong>
+                                <span
+                                    class="text-xs font-semibold tabular-nums"
+                                    :style="{ color: 'var(--color-acento)' }"
+                                >{{ n.puntos }}</span>
+                            </span>
+                            <span v-if="n.descripcion" class="mt-0.5 block text-[11px] leading-snug text-suave">
+                                {{ n.descripcion }}
+                            </span>
+                        </button>
+                    </div>
+
+                    <!-- Una nota de este criterio y no de la entrega entera: es
+                         donde se explica por qué no se le dio el nivel de
+                         arriba, que es lo que el alumno quiere saber. -->
+                    <input
+                        v-if="porCriterio[c.id]"
+                        v-model="porCriterio[c.id].comentario"
+                        type="text"
+                        class="mt-1.5 w-full rounded-lg border px-2.5 py-1.5 text-xs"
+                        :style="{ borderColor: 'var(--color-borde)', backgroundColor: 'var(--color-superficie)', color: 'var(--color-contenido)' }"
+                        placeholder="Nota de este criterio (opcional)"
+                    />
+                </div>
+            </section>
         </div>
 
         <!-- Poner la nota -->
@@ -262,7 +441,33 @@ const colorNota = computed(() => {
             class="border-t border-borde px-5 py-4"
             @submit.prevent="guardar"
         >
-            <div class="flex items-end gap-3">
+            <!-- Con rúbrica la nota NO se teclea: sale de los niveles. Un
+                 campo editable aquí dejaría dos verdades sobre la misma
+                 entrega y ninguna forma de saber cuál manda. -->
+            <div v-if="conRubrica" class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <span class="text-xs font-medium text-suave">Calificación</span>
+                <span class="text-2xl font-semibold tabular-nums" :style="{ color: colorNota }">
+                    {{ criteriosSinEvaluar === 0 ? notaDeLaRubrica : '—' }}
+                </span>
+                <span class="text-sm text-suave">de {{ actividad.puntos }}</span>
+                <span class="text-xs text-suave">
+                    · {{ obtenido }} de {{ actividad.rubrica?.total }} de la rúbrica
+                </span>
+            </div>
+
+            <!-- Un criterio en blanco no es un cero: se dice antes de guardar,
+                 no después. -->
+            <p
+                v-if="conRubrica && criteriosSinEvaluar > 0"
+                class="mt-2 rounded-lg px-3 py-2 text-xs"
+                :style="{ backgroundColor: 'color-mix(in srgb, #d97706 12%, transparent)', color: '#b45309' }"
+            >
+                Falta elegir nivel en {{ criteriosSinEvaluar }}
+                {{ criteriosSinEvaluar === 1 ? 'criterio' : 'criterios' }}. Se guarda lo que llevas,
+                pero la entrega no queda calificada: un criterio en blanco no cuenta como cero.
+            </p>
+
+            <div v-if="!conRubrica" class="flex items-end gap-3">
                 <div>
                     <label class="mb-1 block text-xs font-medium text-suave">Calificación</label>
                     <div class="flex items-center gap-2">
@@ -306,6 +511,9 @@ const colorNota = computed(() => {
                 <p v-if="form.errors.retroalimentacion" class="mt-1 text-xs text-red-600">
                     {{ form.errors.retroalimentacion }}
                 </p>
+                <p v-if="formRubrica.errors.criterios" class="mt-1 text-xs text-red-600">
+                    {{ formRubrica.errors.criterios }}
+                </p>
             </div>
 
             <!-- Calificar es una tarea en serie: se hacen las treinta de un
@@ -322,8 +530,10 @@ const colorNota = computed(() => {
 
             <div class="mt-4 flex items-center gap-2">
                 <BotonPrincipal
-                    :procesando="form.processing"
-                    :texto="seguirDespues && pendientes > 1 ? 'Guardar y seguir' : 'Guardar'"
+                    :procesando="form.processing || formRubrica.processing"
+                    :texto="seguirDespues && pendientes > 1 && criteriosSinEvaluar === 0
+                        ? 'Guardar y seguir'
+                        : 'Guardar'"
                     icono="guardar"
                 />
                 <button

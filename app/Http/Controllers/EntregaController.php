@@ -11,6 +11,7 @@ use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Lms\Actividad;
 use App\Models\Lms\Entrega;
 use App\Models\Lms\EntregaArchivo;
+use App\Services\Lms\CalificadorPorRubrica;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -88,6 +89,16 @@ class EntregaController extends Controller
                 'calificada_en' => null,
             ],
         );
+
+        /*
+         * Y el desglose de la rúbrica, si lo había.
+         *
+         * La calificación se limpia arriba; el desglose es la explicación de esa
+         * calificación y explicaba un trabajo que ya no está. Dejarlo haría que
+         * el alumno leyera «Ortografía: insuficiente» sobre el texto corregido
+         * que acaba de subir.
+         */
+        app(CalificadorPorRubrica::class)->olvidar($entrega);
 
         foreach ($request->file('archivos', []) as $archivo) {
             // Disco `local` (privado), como el resto de los adjuntos del sistema.

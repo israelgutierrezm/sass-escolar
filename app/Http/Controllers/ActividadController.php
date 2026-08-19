@@ -14,6 +14,7 @@ use App\Models\Lms\Actividad;
 use App\Models\Lms\Curso;
 use App\Models\Lms\Entrega;
 use App\Services\Lms\CalculadorComponente;
+use App\Services\Lms\CalificadorPorRubrica;
 use App\Support\HtmlSeguro;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -33,7 +34,10 @@ class ActividadController extends Controller
     use AutorizaMateriaPropia;
     use EligeRubrica;
 
-    public function __construct(private readonly CalculadorComponente $calculador) {}
+    public function __construct(
+        private readonly CalculadorComponente $calculador,
+        private readonly CalificadorPorRubrica $porRubrica,
+    ) {}
 
     public function store(Request $request, AsignaturaGrupo $asignaturaGrupo): RedirectResponse
     {
@@ -142,6 +146,17 @@ class ActividadController extends Controller
         $this->autorizar($request, $asignaturaGrupo);
         $this->exigirDeLaMateria($entrega->actividad, $asignaturaGrupo);
 
+        /*
+         * Con rúbrica, la nota NO se escribe: sale de los niveles elegidos.
+         *
+         * Se ramifica por la ACTIVIDAD y no por lo que traiga la petición: si
+         * dependiera del cuerpo, un POST con `calificacion` pasaría por encima
+         * del desglose y dejaría la nota diciendo una cosa y la rúbrica otra.
+         */
+        if ($entrega->actividad->seCalificaConRubrica()) {
+            return $this->calificarConRubrica($request, $entrega);
+        }
+
         $datos = $request->validate([
             'calificacion' => ['required', 'numeric', 'min:0', 'max:'.$entrega->actividad->puntos],
             'retroalimentacion' => ['nullable', 'string', 'max:4000'],
@@ -161,6 +176,47 @@ class ActividadController extends Controller
         $this->calculador->tras($entrega);
 
         return back()->with('exito', 'Calificación registrada.');
+    }
+
+    /**
+     * La calificación que sale de la rúbrica.
+     *
+     * De la petición sólo viaja QUÉ nivel se eligió en cada criterio; los puntos
+     * los lee el servicio de la base. Y si algún criterio se queda sin evaluar,
+     * lo hecho se guarda pero la entrega no queda calificada: un criterio en
+     * blanco no es un cero, igual que en la captura de calificaciones.
+     */
+    private function calificarConRubrica(Request $request, Entrega $entrega): RedirectResponse
+    {
+        $datos = $request->validate([
+            'criterios' => ['required', 'array', 'min:1'],
+            'criterios.*.criterio_id' => ['required', 'integer'],
+            'criterios.*.nivel_id' => ['nullable', 'integer'],
+            'criterios.*.comentario' => ['nullable', 'string', 'max:1000'],
+            'retroalimentacion' => ['nullable', 'string', 'max:4000'],
+        ]);
+
+        /** @var Usuario $usuario */
+        $usuario = $request->user();
+
+        $resultado = $this->porRubrica->aplicar(
+            $entrega,
+            $datos['criterios'],
+            $datos['retroalimentacion'] ?? null,
+            $usuario->id,
+        );
+
+        if (! $resultado['completa']) {
+            return back()->with(
+                'exito',
+                'Se guardó lo evaluado. Falta elegir nivel en algún criterio, así que la entrega todavía no queda calificada: un criterio en blanco no cuenta como cero.',
+            );
+        }
+
+        return back()->with(
+            'exito',
+            "Calificación registrada: {$resultado['obtenido']} de {$resultado['total']} de la rúbrica, que en esta actividad son {$resultado['calificacion']}.",
+        );
     }
 
     /**

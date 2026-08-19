@@ -396,7 +396,10 @@ class DocenciaController extends Controller
                 // Los adjuntos viajan con la entrega: el docente califica lo que
                 // el alumno subió, y sin ellos el panel mostraba un cuadro vacío
                 // en toda entrega que fuera sólo un archivo.
-                ->with('archivos')
+                // Y el desglose de la rúbrica, por lo mismo: el panel lo pinta
+                // al abrir la entrega y pedirlo aparte sería una consulta por
+                // alumno.
+                ->with(['archivos', 'porRubrica'])
                 ->whereIn('actividad_id', $actividades->pluck('id'))
                 ->get()
                 ->groupBy('inscripcion_id');
@@ -506,6 +509,20 @@ class DocenciaController extends Controller
                              * alumno viene a reclamar una nota.
                              */
                             'automatica' => $e?->calificacion !== null && $e?->calificada_por === null,
+                            /*
+                             * Lo evaluado por criterio, cuando la actividad va
+                             * con rúbrica. Es lo que hace que reabrir una
+                             * entrega ya calificada muestre los niveles
+                             * elegidos en vez de la rúbrica en blanco —y que
+                             * corregir un solo criterio no obligue a volver a
+                             * elegirlos todos—.
+                             */
+                            'por_rubrica' => ($e?->porRubrica ?? collect())->map(fn ($r) => [
+                                'criterio_id' => (int) $r->criterio_id,
+                                'nivel_id' => $r->nivel_id === null ? null : (int) $r->nivel_id,
+                                'puntos' => (float) $r->puntos,
+                                'comentario' => $r->comentario,
+                            ])->values(),
                             'archivos' => ($e?->archivos ?? collect())->map(fn ($f) => [
                                 'id' => $f->id,
                                 'nombre' => $f->nombre,

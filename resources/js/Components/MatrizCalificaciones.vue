@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import { router } from '@inertiajs/vue3';
 import PanelCalificacion from '@/Components/PanelCalificacion.vue';
 import { colorPorPuntos, ESCALA_POR_DEFECTO, type Escala } from '@/utils/escalaCalificacion';
+import type { EvaluacionPorCriterio, RubricaDeActividad } from '@/utils/rubrica';
 
 /*
  * El libro de calificaciones: alumnos en filas, actividades en columnas.
@@ -33,6 +34,8 @@ interface Casilla {
     entregada_en: string | null;
     /** La puso la máquina (un examen que se califica solo), no el docente. */
     automatica: boolean;
+    /** Lo evaluado por criterio, si la actividad va con rúbrica. */
+    por_rubrica: EvaluacionPorCriterio[];
     archivos: { id: number; nombre: string; bytes: number }[];
 }
 
@@ -54,6 +57,8 @@ interface ActividadColumna {
     titulo: string;
     puntos: number;
     componente: string | null;
+    /** Con qué se califica. Null = un número a mano, como siempre. */
+    rubrica: RubricaDeActividad | null;
     entregadas: number;
 }
 
