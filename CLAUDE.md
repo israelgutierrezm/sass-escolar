@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**63 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**64 archivos `prueba-*.php`**;
    esta lista decía 23 y llevaba tiempo desactualizada). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
    imprimen `Resultado: N correctas, M fallidas`. **Ojo al barrer con `grep`**:
@@ -57,7 +57,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 63 están en verde.** Llegaron a estar 33 en rojo —no trece: ese primer
+   **Las 64 están en verde.** Llegaron a estar 33 en rojo —no trece: ese primer
    conteo sólo miró las que imprimían «N fallidas» e ignoró las 21 que morían
    antes, con una excepción sin resumen—. Ninguna caía por un cambio reciente;
    se comprobó corriéndolas contra el árbol limpio.
@@ -635,11 +635,47 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     tenía asesor. Lo cazó `prueba-actividad-crm`.
   - Pruebas: `scripts/prueba-actividad-crm.php`, 29 verificaciones, comprobada
     mutando la regla de re-cierre (caen exactamente las tres que la vigilan).
-- Pruebas: 63 suites en `scripts/`, contra la BD real del tenant demo con
-  `DB::rollBack()` al final. **63 en verde** (ver la regla 5 para qué tumbó a
+- Pruebas: 64 suites en `scripts/`, contra la BD real del tenant demo con
+  `DB::rollBack()` al final. **64 en verde** (ver la regla 5 para qué tumbó a
   las 33 que estuvieron en rojo). `prueba-listados` es la primera
   que invoca a los CONTROLADORES y lee sus props de Inertia, en vez de
   reimplementar la consulta: un `or` sin paréntesis no se detecta de otra forma.
+- **Clases en línea** (`/plataforma/clases-en-linea` para configurarlas, permiso
+  `gestionar-clases-en-linea`): el docente programa desde su materia y al alumno
+  le aparece el botón para entrar. Zoom y Google Meet.
+  - **Zoom y Meet NO son simétricos, y es la decisión que gobierna todo.** Una
+    licencia de Zoom sostiene UNA reunión a la vez —dos clases a las 9:00 exigen
+    dos licencias—; una cuenta de Meet no tiene ese límite, porque el enlace nace
+    de un evento de Calendar y no de una licencia de anfitrión. Lo declara
+    `ProveedoresVideoCatalogo::unaReunionPorCuenta` y ante un proveedor
+    desconocido responde `true`, que es el lado seguro.
+  - **Meet exige Google Workspace** y una cuenta de servicio con delegación en
+    todo el dominio: con Gmail personal no se puede. Y **no tiene enlace de
+    anfitrión aparte** —todos entran por el mismo—, así que `url_anfitrion` va
+    en null en vez de duplicar el otro.
+  - **La FILA es el apartado de la licencia**: se inserta la clase sin enlaces
+    dentro de una transacción que bloquea las cuentas, luego se llama al
+    proveedor, y al final se le ponen los enlaces. Sin eso, dos docentes
+    programando a la vez se llevan la misma licencia y la segunda clase echa a
+    la primera. La llamada HTTP va FUERA del bloqueo.
+  - **`url_anfitrion` es una CREDENCIAL**: el `start_url` de Zoom entra como
+    dueño de la sala sin pedir contraseña. Lo que ve el alumno lo arma
+    `Videoconferencia::paraElAlumno()` en el MODELO, no cada pantalla; y el
+    `url_join` tampoco viaja mientras la clase no esté abierta.
+  - El traslape se guarda con **inicio y fin** (no duración) y se comparan las
+    dos condiciones: una clase de 9 a 11 y otra de 10 a 10:30 no comparten hora
+    de arranque y chocan igual.
+  - `config/video.php` con modo `fake` para recorrer el flujo sin credenciales,
+    igual que el cobro. El default es `real`.
+  - **Ojo**: el manejador de excepciones no contemplaba el 422 y el aviso de
+    «tus licencias están ocupadas» no llegaba. Se agregó **sólo cuando el motivo
+    es nuestro**, porque `ValidationException` también es 422 y a ésa la maneja
+    Inertia con los errores por campo.
+  - Pruebas: `scripts/prueba-clases-en-linea.php`, 29 verificaciones, comprobada
+    mutando cuatro reglas —quitarle el límite a Zoom, medir el traslape sólo por
+    la hora de inicio, dar el enlace antes de que abra y filtrar el de
+    anfitrión— y caen exactamente las que las vigilan.
+
 - **Rúbricas de evaluación** (`/rubricas`, permiso `gestionar-rubricas` y
   derivado `usar-rubricas`): calificar un trabajo eligiendo un nivel por
   criterio, en vez de escribir un número. Cuelga de la RAÍZ como `/captura`,

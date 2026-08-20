@@ -7,12 +7,12 @@ namespace App\Services\Plataforma;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Inscripcion;
-use App\Models\Promocion\SeguimientoAspirante;
 use App\Models\Identidad\Usuario;
 use App\Models\Lms\Actividad;
 use App\Models\Lms\Curso;
 use App\Models\Lms\Entrega;
 use App\Models\Plataforma\EventoCalendario;
+use App\Models\Promocion\SeguimientoAspirante;
 use Illuminate\Support\Collection;
 
 /**

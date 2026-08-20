@@ -3052,3 +3052,86 @@ Entrar lo abre el permiso derivado `usar-rubricas` (`gestionar-rubricas` **o**
 `capturar-calificaciones`); lo que se puede hacer dentro lo resuelve el
 controlador, porque es alcance y no acceso. Al docente no se le pide permiso
 aparte para armarse una rúbrica: eso es parte de calificar.
+
+## 2026-08-19 — Clases en línea: Zoom y Meet no son simétricos
+
+Pedido del cliente: que los docentes levanten sesiones de videoconferencia desde
+su materia, con **Zoom** (cargando tantas licencias como haga falta «porque
+pueden existir múltiples clases simultáneas») y con **Google Meet** «si es que se
+puede, de la misma forma que Zoom». El administrador enciende, apaga y carga
+cuentas; al alumno le aparece el botón solo.
+
+### La decisión que gobierna todo: no son la misma cosa
+
+Se puede hacer lo mismo con los dos de cara al docente y al alumno, pero **por
+debajo no se parecen**, y fingir que sí producía una función rota:
+
+- En **Zoom**, una licencia de anfitrión sostiene UNA reunión a la vez. Dos
+  clases a las 9:00 exigen dos licencias. De ahí sale todo el reparto.
+- En **Google Meet** no hay tal límite: no existe API de reuniones, el enlace
+  nace de un evento de **Calendar** con `conferenceData`, y una cuenta de
+  Workspace puede organizar veinte eventos simultáneos. La «cuenta» ahí no es
+  una licencia que se agote: es la identidad que organiza.
+
+Tratarlos igual llevaba a una de dos mentiras: pedirle a la escuela comprar
+licencias de Meet que no existen, o dejar que Zoom sobrevenda una licencia y que
+la segunda clase eche a la primera de la sala con el grupo dentro.
+
+`ProveedoresVideoCatalogo::unaReunionPorCuenta` es la bandera que los separa, la
+lee el asignador, y ante un proveedor desconocido responde `true` —el lado
+seguro: como mucho se dirá que no hay cuentas libres—.
+
+**Lo que Meet exige y Zoom no**: Google Workspace (con Gmail personal no se
+puede) y una cuenta de servicio con delegación en todo el dominio. Se dice en la
+ayuda del campo, porque es la clase de requisito que se descubre a media
+configuración y con las credenciales ya pegadas. Y en Meet **no hay enlace de
+anfitrión aparte**: todos entran por el mismo y el control lo da ser el
+organizador, así que `url_anfitrion` va en null en vez de duplicar el otro.
+
+### La FILA es el apartado de la licencia
+
+Al programar: se inserta la clase SIN enlaces dentro de una transacción que
+bloquea las cuentas (`lockForUpdate`), luego se llama al proveedor, y al final se
+le ponen los enlaces.
+
+Sin eso hay una carrera real: dos docentes programando a las 9:00 al mismo tiempo
+preguntan «¿hay licencia libre?», los dos leen que sí —ninguno ha escrito
+todavía— y los dos se llevan la misma. La llamada HTTP queda FUERA del bloqueo:
+sostenerlo mientras se espera a Zoom serializaría a toda la escuela detrás de un
+servicio que a veces tarda cinco segundos.
+
+Y se limpia en las dos direcciones: si el proveedor falla se suelta el apartado,
+y si la sala se creó pero no se pudo guardar se cancela allá. Una reunión
+huérfana ocupa la licencia de las 9:00 para siempre y nadie sabe de dónde salió.
+
+### `url_anfitrion` es una credencial, no un enlace
+
+El `start_url` de Zoom entra como anfitrión **sin pedir contraseña**: quien lo
+tenga puede silenciar, expulsar y terminar la clase de otro. Por eso lo que se le
+manda al alumno lo arma `Videoconferencia::paraElAlumno()` —en el modelo, no en
+cada pantalla—: si cada vista tuviera que acordarse de omitirlo, algún día se le
+olvidaría a alguna. El `url_join` tampoco viaja mientras la clase no esté
+abierta: el enlace de la semana que viene no tiene por qué estar en el HTML de
+hoy.
+
+### El traslape se guarda con INICIO y FIN
+
+Y no con una duración. La pregunta al programar es «¿esta licencia está libre
+entre las 9 y las 11?»; con una duración habría que calcular el fin de cada
+candidata dentro del WHERE. Con dos columnas es una comparación que sostiene el
+índice `(cuenta_id, inicio)`, que además es el que cubre su foránea.
+
+Y se comparan las DOS condiciones, no sólo el inicio: una clase de 9 a 11 y otra
+de 10 a 10:30 no comparten hora de arranque y chocan igual.
+
+### Efecto colateral: el manejador de excepciones no contemplaba el 422
+
+`AvisoParaElUsuario::lanzar(422, …)` salía como página HTML de error, así que el
+mensaje más útil de toda la función —«tus 2 licencias están ocupadas de 9 a 10;
+mueve la clase o compra otra»— no llegaba a ninguna parte: el docente pedía la
+clase y no pasaba nada.
+
+Se agregó el 422 a la lista, **con la condición de que el motivo sea nuestro**.
+`ValidationException` también es 422 y a ésa la maneja Inertia devolviendo los
+errores por campo: dejarlo pasar a secas habría hecho que todos los formularios
+del sistema perdieran sus mensajes de validación.

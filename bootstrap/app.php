@@ -1,5 +1,9 @@
 <?php
 
+use App\Exceptions\AvisoParaElUsuario;
+use App\Http\Middleware\EstablecerRolActivo;
+use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\ModuloEncendido;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -16,16 +20,16 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Resuelve y valida el rol activo del usuario en cada request del tenant.
         $middleware->alias([
-            'rol.activo' => App\Http\Middleware\EstablecerRolActivo::class,
+            'rol.activo' => EstablecerRolActivo::class,
             // Cierra las rutas de un módulo que la escuela tiene apagado. Es lo
             // que hace que apagar una sección no deje viva su dirección.
-            'modulo' => App\Http\Middleware\ModuloEncendido::class,
+            'modulo' => ModuloEncendido::class,
         ]);
 
         // Inertia comparte el contexto de sesión (usuario, rol activo, permisos)
         // con todas las páginas Vue.
         $middleware->web(append: [
-            App\Http\Middleware\HandleInertiaRequests::class,
+            HandleInertiaRequests::class,
         ]);
 
         /*
@@ -54,7 +58,7 @@ return Application::configure(basePath: dirname(__DIR__))
          * se deja pasar en local para no ocultar el stack trace que hace falta
          * al depurar.
          */
-        $exceptions->respond(function (Response $respuesta, \Throwable $excepcion, Request $peticion) {
+        $exceptions->respond(function (Response $respuesta, Throwable $excepcion, Request $peticion) {
             $estado = $respuesta->getStatusCode();
 
             /*
@@ -66,7 +70,7 @@ return Application::configure(basePath: dirname(__DIR__))
              * inglés, describiendo su mecánica y a veces confirmando que existe
              * algo que quien pregunta no debería saber que existe—.
              */
-            $motivo = App\Exceptions\AvisoParaElUsuario::motivoDe($excepcion);
+            $motivo = AvisoParaElUsuario::motivoDe($excepcion);
 
             // El panel de la casa (dominios centrales) es Blade puro: sus errores
             // no se renderizan con la página Inertia de las escuelas.

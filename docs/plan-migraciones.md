@@ -397,7 +397,13 @@ Tablas:
 - [ ] `portafolio_archivos` (T, FK → portafolio_evidencias)
 - [ ] `foros` (T, FK → cursos, actividades)
 - [ ] `foro_mensajes` (T, FK → foros, personas, self mensaje_padre_id)
-- [ ] `videoconferencias` (T, FK → asignatura_grupo)
+- [x] `videoconferencias` (T, FK → asignatura_grupo), con
+      `integraciones_videoconferencia` (credenciales cifradas por proveedor) y
+      `cuentas_videoconferencia` (el pool de anfitriones) que la spec no
+      contemplaba. Zoom y Meet NO son simétricos —una licencia de Zoom sostiene
+      una reunión a la vez y una cuenta de Meet no tiene ese límite—, y esa
+      bandera es la que gobierna el reparto. Ver `docs/decisiones.md`,
+      2026-08-19.
 - [ ] `acceso_videoconferencia` (T, FK → videoconferencias, personas)
 
 ### Módulo 9 — Titulación y certificación SEP

@@ -6,8 +6,8 @@ namespace App\Services;
 
 use App\Configuracion\Ajustes;
 use App\Configuracion\CatalogoAjustes;
-use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\Asesor;
+use App\Models\Admisiones\Aspirante;
 use Illuminate\Support\Facades\DB;
 
 /**
