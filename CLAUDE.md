@@ -391,8 +391,8 @@ npm run dev                # o npm run build
   suplantación: `POST /suplantar/275` desde una sesión con
   `suplantar-usuarios`, y se sale con «Volver a mi cuenta».
 - `clases:recoger-grabaciones` busca en Google las de las clases de Meet ya
-  terminadas. La consulta a la API todavía no está conectada (hace falta un
-  Workspace real); el comando lo dice en vez de fingir.
+  terminadas (Meet no tiene webhook: hay que preguntarle). Mira las últimas 48 h
+  y salta las clases que ya tienen algo anotado.
 - `php artisan tenants:migrate`, `tenants:seed`, `tenants:list`.
 - Si `demo.localhost` no resuelve, agregar `127.0.0.1 demo.localhost` a
   `C:\Windows\System32\drivers\etc\hosts`.
@@ -729,11 +729,33 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     rechaza**: aceptarlo a ciegas sería «descárgame lo que yo diga».
   - Se descarga por trozos a un temporal que se borra en `finally`, también
     cuando falla: sin eso, cada reintento deja medio giga en la partición.
-  - **Lo que falta es la consulta a la API de Meet**, que necesita un Workspace
-    real para probarse. El comando existe y **avisa que esa parte no está
-    conectada** en vez de decir «listo» sin haber mirado.
-  - Pruebas: `scripts/prueba-grabaciones.php`, 30 verificaciones, comprobada
-    mutando cuatro reglas. **Una de esas mutaciones destapó que la prueba de los
+  - **La consulta a Meet ya está conectada** (`ConsultorDeGrabacionesMeet`). El
+    puente con la API es el **código de reunión** que esconde el enlace
+    (`abc-defg-hij`): la API de Meet no sabe de eventos de Calendar, que es lo
+    que Acadion crea. Van dos llamadas —`conferenceRecords` filtrando por ese
+    código, y `recordings` de cada sesión—, y se filtra por ESPACIO y no por
+    fecha porque un mismo enlace se reusa y por hora saldría la clase de otro
+    grupo.
+  - **Sólo se registra lo que está en `FILE_GENERATED`.** Google anuncia la
+    grabación desde que empieza; antes de ese estado el archivo no existe y
+    registrarla dejaría una pendiente imposible de bajar.
+  - **Con destino Drive no se copia nada**: Google ya dejó el archivo en el
+    Drive de quien organizó, y copiarlo del mismo Drive al mismo Drive sería
+    pagar dos veces y duplicar un video de menores. Se registra ya archivada.
+  - **Lo que va en camino no se reencola.** Sólo se reintenta lo FALLIDO: sin
+    eso, cada aviso repetido de Zoom o cada pasada del comando ponía a otro
+    trabajador a bajar el mismo video de 600 MB.
+  - **El JWT de Google vive en `App\Services\Google\TokenDeServicio`**, con el
+    alcance como parámetro. Estaba escrito dos veces (Calendar y Drive) y hacía
+    falta una tercera; tres copias de una firma criptográfica es como se llega a
+    que una tenga el `sub` mal y falle sólo en el camino que nadie prueba.
+  - **Lo que NO se ha comprobado es el viaje contra Google**: hace falta un
+    Workspace con grabación habilitada. Está escrito contra la forma documentada
+    de la API v2 y probado con respuestas fingidas de esa forma; lo que sí se
+    procuró es que cada respuesta inesperada quede en el registro con su cuerpo,
+    porque una lista vacía en silencio es indistinguible de «no se grabó».
+  - Pruebas: `scripts/prueba-grabaciones.php`, 43 verificaciones, comprobada
+    mutando ocho reglas. **Una de esas mutaciones destapó que la prueba de los
     temporales era falsa**: en Windows `tempnam()` recorta el prefijo a TRES
     letras (`grabacion-` → `gra910D.tmp`), así que el glob no encontraba nada y
     pasaba con el borrado quitado. Ahora compara el directorio antes y después.

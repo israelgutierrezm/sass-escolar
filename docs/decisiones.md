@@ -3237,3 +3237,73 @@ anterior se queda como estaba.
 Comprobado mutando las dos formas de romperlo: ignorar el ajuste al anotar, y
 leerlo al mirar (que es lo que lo volvería retroactivo). Caen las
 comprobaciones que vigilan cada una.
+
+
+## 2026-08-19 — Conectada la consulta de grabaciones de Meet
+
+Lo que quedaba pendiente de la entrega anterior. Tres decisiones y dos trampas.
+
+### El puente es el CÓDIGO DE REUNIÓN, no el evento
+
+La API de Meet no sabe nada de Calendar, que es lo que Acadion crea para obtener
+el enlace. Lo único que las dos partes comparten son las tres sílabas del enlace
+—`abc-defg-hij`—, que identifican el espacio. De ahí que se extraiga del
+`url_join` en vez de guardarse en una columna: guardado habría dos verdades sobre
+la misma reunión y una podría quedarse vieja.
+
+Se filtra por espacio y no por fecha porque un mismo enlace se reusa: filtrar por
+hora traería la clase de otro grupo que se dio en ese rato.
+
+### Sólo `FILE_GENERATED`
+
+Google anuncia la grabación desde que empieza a grabar. Antes de ese estado el
+archivo no existe, y registrarla dejaría una «pendiente» que nunca se puede
+bajar y que el docente ve como un fallo.
+
+### Con destino Drive no se copia nada
+
+Google ya dejó el archivo en el Drive de quien organizó. Copiarlo del mismo Drive
+al mismo Drive sería pagar dos veces el mismo archivo y duplicar un video de
+menores sin motivo. Se registra ya archivada, apuntando a donde está.
+
+### Y de paso: lo que va en camino no se reencola
+
+`RecolectorDeGrabaciones` sólo reintenta lo FALLIDO. Antes reencolaba todo lo que
+no estuviera archivado, así que cada aviso repetido de Zoom —que los reenvía— o
+cada pasada del comando ponía a otro trabajador a bajar el mismo video de 600 MB.
+De lo pendiente ya se encarga la cola con sus propios reintentos.
+
+### El JWT de Google, en un solo sitio
+
+`App\Services\Google\TokenDeServicio`, con el alcance como parámetro. Estaba
+escrito dos veces —Calendar en `ProveedorMeet`, Drive en `DestinoDrive`— y esto
+necesitaba una tercera. Tres copias de una firma criptográfica es como se llega a
+que una tenga el `sub` mal y falle sólo en el camino que nadie prueba.
+
+Los alcances NO son intercambiables y por eso están declarados aparte: para bajar
+lo que Meet grabó hace falta `drive.readonly` y no el `drive.file` que usa el
+destino para subir, porque ese archivo no lo creó esta app.
+
+### Dos comprobaciones que parecían buenas y no lo eran
+
+Salieron mutando, y las dos habrían dado falsa tranquilidad:
+
+- «Una grabación aún en curso no se registra» pasaba con la regla del estado
+  quitada: lo que la detenía era que el fixture no traía `driveDestination`, no
+  el `STARTED`. Ahora lo trae —como manda Google de verdad— y sólo el estado
+  puede pararla.
+- «Con error de Google no se registra nada» pasaba con el manejo de errores
+  quitado, porque un cuerpo de error tampoco trae `conferenceRecords`. Lo que de
+  verdad separa «falló» de «no se grabó» es que quede ESCRITO, así que ahora se
+  escuchan los avisos del registro.
+
+### Una trampa del entorno y otra de las pruebas
+
+- `openssl_pkey_new` falla en el PHP de WAMP con «configuration file
+  routines::no such file»: no encuentra `openssl.cnf`. Se le pasa la ruta del que
+  sí existe. Misma familia que la trampa de los certificados raíz.
+- **`Http::fake` ACUMULA stubs** y gana el primero que coincide. Un comodín `*`
+  en un paso ensombrecía a los de todos los siguientes, y `Http::clearResolvedInstances()`
+  no basta —la fábrica es un singleton del contenedor—: hay que reponerla con
+  `app()->forgetInstance(Factory::class)`. Sin eso, un paso medía el stub del
+  anterior y la prueba afirmaba lo contrario de lo que ocurría.

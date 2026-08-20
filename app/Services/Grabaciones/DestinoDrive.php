@@ -6,7 +6,7 @@ namespace App\Services\Grabaciones;
 
 use App\Exceptions\AvisoParaElUsuario;
 use App\Models\Lms\DestinoGrabacion;
-use App\Support\CacheExterno;
+use App\Services\Google\TokenDeServicio;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -28,9 +28,10 @@ use Illuminate\Support\Facades\Log;
  */
 class DestinoDrive implements Destino
 {
-    private const AMBITO = 'https://www.googleapis.com/auth/drive.file';
-
-    public function __construct(private readonly DestinoGrabacion $config) {}
+    public function __construct(
+        private readonly DestinoGrabacion $config,
+        private readonly TokenDeServicio $tokens,
+    ) {}
 
     public function subir(string $rutaLocal, string $nombre, string $carpeta): ArchivoArchivado
     {
@@ -96,91 +97,19 @@ class DestinoDrive implements Destino
     /**
      * Token de Drive, actuando como la cuenta que se configuró.
      *
-     * Misma mecánica que en Meet —cuenta de servicio con delegación— pero con
-     * OTRO alcance: `drive.file`, que sólo alcanza a los archivos que la propia
+     * El alcance es `drive.file`, que sólo alcanza a los archivos que la propia
      * app crea. Es deliberado: con el alcance completo de Drive, una credencial
      * filtrada abriría todo el Drive de la escuela.
      */
     private function token(): string
     {
-        $json = $this->cuentaDeServicio();
-        $comoQuien = $this->config->credencialesArray()['como_quien'];
+        $credenciales = $this->config->credencialesArray();
 
-        $llave = 'drive.token.'.md5((string) tenant('id').$json['client_email'].$comoQuien);
-
-        $token = CacheExterno::recordar($llave, 50, function () use ($json, $comoQuien) {
-            $respuesta = Http::asForm()->timeout(20)->post('https://oauth2.googleapis.com/token', [
-                'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-                'assertion' => $this->firmarJwt($json, $comoQuien),
-            ]);
-
-            if (! $respuesta->successful()) {
-                Log::warning('Google no entregó token para Drive', [
-                    'estado' => $respuesta->status(),
-                    'cuerpo' => $respuesta->body(),
-                ]);
-
-                return null;
-            }
-
-            return $respuesta->json('access_token');
-        });
-
-        AvisoParaElUsuario::si(
-            blank($token),
-            502,
-            "Google no aceptó las credenciales para actuar como «{$comoQuien}». Revisa que la cuenta de servicio "
-            .'tenga delegación en todo el dominio con el alcance de Drive.',
+        return $this->tokens->para(
+            (string) ($credenciales['cuenta_servicio_json'] ?? ''),
+            (string) ($credenciales['como_quien'] ?? ''),
+            TokenDeServicio::DRIVE_ESCRITURA,
         );
-
-        return $token;
-    }
-
-    /** @param  array<string, mixed>  $json */
-    private function firmarJwt(array $json, string $comoQuien): string
-    {
-        $ahora = time();
-
-        $sinFirmar = $this->base64Url(json_encode(['alg' => 'RS256', 'typ' => 'JWT']))
-            .'.'.$this->base64Url(json_encode([
-                'iss' => $json['client_email'],
-                'sub' => $comoQuien,
-                'scope' => self::AMBITO,
-                'aud' => 'https://oauth2.googleapis.com/token',
-                'iat' => $ahora,
-                'exp' => $ahora + 3600,
-            ]));
-
-        $llave = openssl_pkey_get_private($json['private_key']);
-
-        AvisoParaElUsuario::si(
-            $llave === false,
-            422,
-            'La llave privada de la cuenta de servicio no se pudo leer. Pega el archivo JSON completo.',
-        );
-
-        openssl_sign($sinFirmar, $firma, $llave, OPENSSL_ALGO_SHA256);
-
-        return $sinFirmar.'.'.$this->base64Url($firma);
-    }
-
-    private function base64Url(string $dato): string
-    {
-        return rtrim(strtr(base64_encode($dato), '+/', '-_'), '=');
-    }
-
-    /** @return array<string, mixed> */
-    private function cuentaDeServicio(): array
-    {
-        $json = json_decode((string) ($this->config->credencialesArray()['cuenta_servicio_json'] ?? ''), true);
-
-        AvisoParaElUsuario::si(
-            ! is_array($json) || blank($json['client_email'] ?? null) || blank($json['private_key'] ?? null),
-            422,
-            'El JSON de la cuenta de servicio no es válido: tiene que traer `client_email` y `private_key`.',
-        );
-
-        return $json;
     }
 
     private function exigirExito($respuesta, string $mensaje): void

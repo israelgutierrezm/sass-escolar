@@ -6,7 +6,10 @@ namespace App\Jobs;
 
 use App\Models\Lms\DestinoGrabacion;
 use App\Models\Lms\Grabacion;
+use App\Models\Lms\IntegracionVideo;
+use App\Services\Google\TokenDeServicio;
 use App\Services\Grabaciones\Destinos;
+use App\Support\ProveedoresVideoCatalogo;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -96,7 +99,7 @@ class ArchivarGrabacion implements ShouldQueue
         $temporal = tempnam(sys_get_temp_dir(), 'grabacion-');
 
         try {
-            $this->descargar($temporal);
+            $this->descargar($temporal, $this->tokenPara($grabacion));
 
             $guardado = $destinos->para($destino)->subir(
                 $temporal,
@@ -127,13 +130,51 @@ class ArchivarGrabacion implements ShouldQueue
         }
     }
 
+    /**
+     * Con qué credencial se baja este archivo.
+     *
+     * Zoom manda un `download_token` en su aviso y viaja con el trabajo. Meet no
+     * manda nada: la grabación está en Drive y hay que pedir un token AHORA —el
+     * de la consulta sirve para preguntar, no para bajar, y de todos modos
+     * habría caducado esperando en la cola—.
+     */
+    private function tokenPara(Grabacion $grabacion): ?string
+    {
+        if ($this->token !== null) {
+            return $this->token;
+        }
+
+        if ($grabacion->origen !== ProveedoresVideoCatalogo::MEET) {
+            return null;
+        }
+
+        $comoQuien = $grabacion->clase?->cuenta?->identificador;
+
+        if ($comoQuien === null) {
+            throw new \RuntimeException('La clase de Meet no tiene cuenta organizadora: no hay a nombre de quién bajar la grabación.');
+        }
+
+        /*
+         * Lectura y no escritura: aquí sólo se BAJA lo que Meet dejó. Y tiene
+         * que ser `drive.readonly` y no `drive.file` —el alcance que usa el
+         * destino para subir—, porque ese archivo no lo creó esta app y
+         * `drive.file` no lo alcanza.
+         */
+        return app(TokenDeServicio::class)->para(
+            (string) (IntegracionVideo::para(ProveedoresVideoCatalogo::MEET)
+                ->credencialesArray()['cuenta_servicio_json'] ?? ''),
+            $comoQuien,
+            TokenDeServicio::DRIVE_LECTURA,
+        );
+    }
+
     /** Escribe la descarga en el temporal conforme llega. */
-    private function descargar(string $temporal): void
+    private function descargar(string $temporal, ?string $token): void
     {
         $peticion = Http::timeout(1800);
 
-        if ($this->token !== null) {
-            $peticion = $peticion->withToken($this->token);
+        if ($token !== null) {
+            $peticion = $peticion->withToken($token);
         }
 
         $respuesta = $peticion->sink($temporal)->get($this->urlOrigen);

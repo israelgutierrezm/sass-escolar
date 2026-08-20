@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Models\Lms\Grabacion;
 use App\Models\Lms\IntegracionVideo;
 use App\Models\Lms\Videoconferencia;
 use App\Models\Tenant;
+use App\Services\Grabaciones\ConsultorDeGrabacionesMeet;
 use App\Support\ProveedoresVideoCatalogo;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -34,12 +34,17 @@ use Illuminate\Support\Facades\Log;
  * Con Dropbox o con el disco propio sí se copia, porque el archivo tiene que
  * salir de Google.
  *
- * ── Lo que este comando NO hace todavía ────────────────────────────────────
- * La consulta real a la API de Meet (`conferenceRecords.recordings`) exige que
- * la escuela tenga Workspace con grabación habilitada y el alcance
- * `meetings.space.readonly`. Mientras no haya un Workspace real contra el que
- * probarlo, este comando deja anotado lo que encuentra y NO inventa resultados:
- * un comando que finge haber revisado es peor que uno que dice que no pudo.
+ * ── Lo que exige, y lo que no se ha podido comprobar ───────────────────────
+ * La escuela necesita Workspace con grabación habilitada y la cuenta de servicio
+ * con el alcance `meetings.space.readonly` (más `drive.readonly` para bajar el
+ * archivo, salvo que el destino sea el propio Drive).
+ *
+ * El viaje de ida y vuelta contra Google NO está comprobado: está escrito contra
+ * la forma documentada de la API v2 y probado con respuestas fingidas de esa
+ * forma. Para ejercitarlo de verdad hace falta un Workspace. Lo que sí se
+ * procuró es que cada respuesta inesperada quede en el registro con su cuerpo,
+ * en vez de devolver una lista vacía —que es indistinguible de «no se grabó» y
+ * dejaría a la escuela creyendo que todo va bien—.
  */
 class RecogerGrabacionesMeet extends Command
 {
@@ -99,17 +104,29 @@ class RecogerGrabacionesMeet extends Command
 
         $this->line("  {$escuela}: {$candidatas->count()} clase(s) de Meet por revisar");
 
-        /*
-         * Aquí va la consulta a la API de Meet cuando haya un Workspace contra
-         * el cual probarla. Deliberadamente NO se escribe a ciegas: el código
-         * que nunca se ha ejecutado contra el servicio real es el que falla el
-         * día que se enciende, y aquí fallaría en silencio —dejando a la escuela
-         * creyendo que sus clases se están guardando—.
-         *
-         * Lo que sí queda listo es todo lo de este lado: la tabla, el archivado,
-         * los destinos y la pantalla. Conectarlo es implementar esta consulta.
-         */
-        $this->warn('    La consulta a la API de Meet todavía no está conectada (hace falta un Workspace real para probarla).');
-        $this->line('    Las grabaciones de Meet quedan en el Drive de la cuenta organizadora mientras tanto.');
+        $consultor = app(ConsultorDeGrabacionesMeet::class);
+        $encontradas = 0;
+
+        foreach ($candidatas as $clase) {
+            /*
+             * Clase por clase, aislada. Una con el enlace ilegible o con la
+             * cuenta dada de baja no puede dejar sin revisar a las demás —que es
+             * lo que pasaría con una sola excepción al aire—.
+             */
+            try {
+                $encontradas += $consultor->revisar($clase);
+            } catch (\Throwable $e) {
+                $this->warn("    clase {$clase->id}: {$e->getMessage()}");
+
+                Log::warning('No se pudo revisar una clase de Meet', [
+                    'clase' => $clase->id,
+                    'motivo' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        $this->line($encontradas > 0
+            ? "    {$encontradas} grabación(es) nueva(s)"
+            : '    sin grabaciones nuevas');
     }
 }

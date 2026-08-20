@@ -8,7 +8,7 @@ use App\Exceptions\AvisoParaElUsuario;
 use App\Models\Lms\CuentaVideo;
 use App\Models\Lms\IntegracionVideo;
 use App\Models\Lms\Videoconferencia;
-use App\Support\CacheExterno;
+use App\Services\Google\TokenDeServicio;
 use Carbon\CarbonInterface;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -44,9 +44,9 @@ use Illuminate\Support\Str;
  */
 class ProveedorMeet implements Proveedor
 {
-    private const AMBITO = 'https://www.googleapis.com/auth/calendar.events';
-
     private ?IntegracionVideo $integracion = null;
+
+    public function __construct(private readonly TokenDeServicio $tokens) {}
 
     public function con(IntegracionVideo $integracion): self
     {
@@ -139,112 +139,19 @@ class ProveedorMeet implements Proveedor
      * Token para actuar EN NOMBRE de esa cuenta del dominio.
      *
      * Va por cuenta y no por escuela: el token lleva dentro a quién suplanta, y
-     * reusar el de otra cuenta crearía los eventos en la agenda equivocada.
+     * reusar el de otra crearía los eventos en la agenda equivocada.
+     *
+     * La firma vive en `TokenDeServicio` y no aquí: este mismo JWT hacía falta
+     * también para Drive y para consultar las grabaciones, y tres copias de una
+     * firma criptográfica es como se llega a que una tenga el `sub` mal.
      */
     private function token(string $comoQuien): string
     {
-        $credenciales = $this->credenciales();
-        $json = $this->cuentaDeServicio($credenciales);
-
-        $llave = 'meet.token.'.md5((string) tenant('id').$json['client_email'].$comoQuien);
-
-        $token = CacheExterno::recordar($llave, 50, function () use ($json, $comoQuien) {
-            $respuesta = Http::asForm()->timeout(20)->post('https://oauth2.googleapis.com/token', [
-                'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-                'assertion' => $this->firmarJwt($json, $comoQuien),
-            ]);
-
-            if (! $respuesta->successful()) {
-                Log::warning('Google no entregó token', [
-                    'estado' => $respuesta->status(),
-                    'cuerpo' => $respuesta->body(),
-                ]);
-
-                return null;
-            }
-
-            return $respuesta->json('access_token');
-        });
-
-        AvisoParaElUsuario::si(
-            blank($token),
-            502,
-            "Google no aceptó las credenciales para actuar como «{$comoQuien}». Revisa la cuenta de servicio "
-            .'y que tenga delegación en todo el dominio con el alcance de Calendar.',
+        return $this->tokens->para(
+            (string) ($this->credenciales()['cuenta_servicio_json'] ?? ''),
+            $comoQuien,
+            TokenDeServicio::CALENDAR,
         );
-
-        return $token;
-    }
-
-    /**
-     * El JWT firmado con la llave privada de la cuenta de servicio.
-     *
-     * `sub` es la parte que hace la delegación: dice a nombre de QUIÉN se actúa.
-     * Sin él, Google devuelve un token válido de la cuenta de servicio, que no
-     * tiene calendario propio — el evento se crea en ninguna parte y no hay
-     * error que lo diga.
-     *
-     * @param  array<string, mixed>  $json
-     */
-    private function firmarJwt(array $json, string $comoQuien): string
-    {
-        $ahora = time();
-
-        $cabecera = ['alg' => 'RS256', 'typ' => 'JWT'];
-        $cuerpo = [
-            'iss' => $json['client_email'],
-            'sub' => $comoQuien,
-            'scope' => self::AMBITO,
-            'aud' => 'https://oauth2.googleapis.com/token',
-            'iat' => $ahora,
-            // Google no acepta más de una hora.
-            'exp' => $ahora + 3600,
-        ];
-
-        $sinFirmar = $this->base64Url(json_encode($cabecera)).'.'.$this->base64Url(json_encode($cuerpo));
-
-        $llave = openssl_pkey_get_private($json['private_key']);
-
-        AvisoParaElUsuario::si(
-            $llave === false,
-            422,
-            'La llave privada de la cuenta de servicio no se pudo leer. Pega el archivo JSON completo, tal como lo '
-            .'entrega Google, sin quitarle los saltos de línea.',
-        );
-
-        openssl_sign($sinFirmar, $firma, $llave, OPENSSL_ALGO_SHA256);
-
-        return $sinFirmar.'.'.$this->base64Url($firma);
-    }
-
-    private function base64Url(string $dato): string
-    {
-        return rtrim(strtr(base64_encode($dato), '+/', '-_'), '=');
-    }
-
-    /**
-     * El JSON de la cuenta de servicio, ya interpretado.
-     *
-     * Se guarda como texto y no como arreglo porque es lo que la escuela pega:
-     * el archivo tal cual. Interpretarlo aquí permite decirle que está mal
-     * cuando lo está, en vez de fallar más adelante con un error de Google que
-     * no menciona el JSON.
-     *
-     * @param  array<string, mixed>  $credenciales
-     * @return array<string, mixed>
-     */
-    private function cuentaDeServicio(array $credenciales): array
-    {
-        $json = json_decode((string) ($credenciales['cuenta_servicio_json'] ?? ''), true);
-
-        AvisoParaElUsuario::si(
-            ! is_array($json) || blank($json['client_email'] ?? null) || blank($json['private_key'] ?? null),
-            422,
-            'El JSON de la cuenta de servicio no es válido: tiene que traer `client_email` y `private_key`. '
-            .'Pega el archivo completo que descargaste de Google Cloud.',
-        );
-
-        return $json;
     }
 
     /** @return array<string, string> */

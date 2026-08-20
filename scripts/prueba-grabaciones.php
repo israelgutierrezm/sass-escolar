@@ -19,16 +19,20 @@ use App\Jobs\ArchivarGrabacion;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Identidad\Usuario;
+use App\Models\Lms\CuentaVideo;
 use App\Models\Lms\DestinoGrabacion;
+use App\Models\Lms\IntegracionVideo;
 use App\Models\Lms\Grabacion;
 use App\Models\Lms\Videoconferencia;
 use App\Models\Tenant;
+use App\Services\Grabaciones\ConsultorDeGrabacionesMeet;
 use App\Services\Grabaciones\Destinos;
 use App\Services\Grabaciones\RecolectorDeGrabaciones;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 
@@ -160,7 +164,15 @@ try {
     $video = Grabacion::query()->where('id_externo', "{$marca}-v")->firstOrFail();
 
     $contenido = 'VIDEO-DE-PRUEBA-'.str_repeat('x', 500);
-    Http::fake(['*' => Http::response($contenido, 200)]);
+
+    /*
+     * Acotado a `zoom.test` y no `*`. `Http::fake` ACUMULA stubs y gana el
+     * primero que coincide, así que un comodín aquí ensombrecería los de los
+     * pasos siguientes —y los de Google devolverían un cuerpo vacío, que se ve
+     * como «credenciales rechazadas» y manda a diagnosticar el sitio
+     * equivocado—.
+     */
+    Http::fake(['zoom.test/*' => Http::response($contenido, 200)]);
 
     (new ArchivarGrabacion('demo', $video->id, 'https://zoom.test/v', 'tok'))->handle($destinos);
     $video->refresh();
@@ -178,7 +190,7 @@ try {
     echo PHP_EOL.'5. Una descarga vacía NO se da por buena'.PHP_EOL;
 
     $chat = Grabacion::query()->where('id_externo', "{$marca}-c")->firstOrFail();
-    Http::fake(['*' => Http::response('', 200)]);
+    Http::fake(['zoom.test/c' => Http::response('', 200)]);
 
     $reventó = false;
 
@@ -353,7 +365,242 @@ try {
     verificar('Apagada, ni el alumno inscrito la abre',
         estadoDe(fn () => $controlador->ver($comoQuien($alumno), $video->fresh())) === 404);
 
-    echo PHP_EOL.'10. Cambiar de destino no mueve lo ya archivado'.PHP_EOL;
+    echo PHP_EOL.'10. Meet: se consulta a Google y se traduce lo que devuelve'.PHP_EOL;
+
+    /*
+     * Contra respuestas FINGIDAS con la forma documentada de la API v2. El viaje
+     * real contra Google no se puede ejercitar sin un Workspace; lo que sí se
+     * comprueba aquí es la traducción, que es donde están las decisiones de
+     * Acadion: qué se registra, qué se descarta y qué no se copia.
+     */
+    /*
+     * Una llave RSA de usar y tirar, generada aquí.
+     *
+     * No una cadena inventada: `TokenDeServicio` firma el JWT de verdad con
+     * `openssl_sign`, así que con un texto cualquiera reventaría antes de llegar
+     * a lo que se quiere probar. Con una llave real se ejercita también la
+     * firma, que es la parte que no se puede mirar contra Google.
+     */
+    $opciones = ['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA];
+
+    /*
+     * El PHP de WAMP no trae `openssl.cnf` en la ruta que openssl busca, así que
+     * `openssl_pkey_new` falla con «configuration file routines::no such file».
+     * Es la misma familia de trampa que la de los certificados raíz. Se le pasa
+     * el que sí existe; en Linux no hace falta y por eso se comprueba antes.
+     */
+    foreach ([
+        'C:/wamp64/bin/php/php8.3.6/extras/ssl/openssl.cnf',
+        'C:/wamp64/bin/apache/apache2.4.59/conf/openssl.cnf',
+    ] as $cnf) {
+        if (is_file($cnf)) {
+            $opciones['config'] = $cnf;
+
+            break;
+        }
+    }
+
+    $par = openssl_pkey_new($opciones);
+
+    if ($par === false) {
+        throw new RuntimeException('No se pudo generar una llave de prueba: '.openssl_error_string());
+    }
+
+    openssl_pkey_export($par, $llavePrivada, null, $opciones);
+
+    $cuentaServicio = json_encode([
+        'client_email' => 'svc@x.iam.gserviceaccount.com',
+        'private_key' => $llavePrivada,
+    ]);
+
+    $integracionMeet = IntegracionVideo::para('meet');
+    $integracionMeet->update([
+        'activa' => true,
+        'credenciales' => ['cuenta_servicio_json' => $cuentaServicio, 'dominio' => 'x.mx'],
+    ]);
+
+    $cuentaMeet = CuentaVideo::create([
+        'proveedor' => 'meet', 'etiqueta' => "{$marca} WS",
+        'identificador' => "{$marca}@x.mx", 'activa' => true,
+    ]);
+
+    $claseMeet = Videoconferencia::create([
+        'asignatura_grupo_id' => $materia->id,
+        'cuenta_id' => $cuentaMeet->id,
+        'proveedor' => 'meet',
+        'titulo' => "{$marca} meet",
+        'meeting_id' => 'evento-calendar-123',
+        // De aquí sale el código de reunión: es el puente con la API de Meet.
+        'url_join' => 'https://meet.google.com/abc-defg-hij',
+        'inicio' => now()->subHours(3),
+        'fin' => now()->subHours(2),
+        'estado' => Videoconferencia::TERMINADA,
+    ]);
+
+    /**
+     * Las tres llamadas que hace el consultor, con la forma que documenta Google.
+     *
+     * REINICIA los stubs antes de poner los suyos. `Http::fake` ACUMULA y gana
+     * el primero que coincide, así que sin esto el paso siguiente seguiría
+     * viendo la respuesta del anterior. Se descubrió aquí mismo: (b) recibía la
+     * respuesta «aún grabando» de (a) y la prueba parecía decir que una
+     * grabación lista no se registra, que es lo contrario de lo que pasa.
+     *
+     * Y no basta `Http::clearResolvedInstances()`: eso limpia el cache de la
+     * fachada, pero la fábrica es un SINGLETON del contenedor y sigue siendo la
+     * misma con sus stubs dentro. Hay que reponerla.
+     */
+    $googleResponde = function (array $grabaciones) {
+        app()->forgetInstance(\Illuminate\Http\Client\Factory::class);
+        Http::clearResolvedInstances();
+
+        Http::fake([
+            'oauth2.googleapis.com/*' => Http::response(['access_token' => 'tok-google'], 200),
+            'meet.googleapis.com/v2/conferenceRecords?*' => Http::response([
+                'conferenceRecords' => [['name' => 'conferenceRecords/rec-1']],
+            ], 200),
+            'meet.googleapis.com/v2/conferenceRecords/*/recordings' => Http::response([
+                'recordings' => $grabaciones,
+            ], 200),
+        ]);
+    };
+
+    $consultor = app(ConsultorDeGrabacionesMeet::class);
+
+    // a) Una que Google todavía está generando: NO se registra.
+    DestinoGrabacion::query()->update(['activo' => false]);
+    DestinoGrabacion::para('disco')->update(['activo' => true]);
+    Queue::fake();
+    /*
+     * Con `driveDestination` puesto, a propósito.
+     *
+     * Sin él, esta comprobación pasaba aunque se quitara la regla del estado:
+     * lo que la detenía era la falta de archivo, no el `STARTED`. Se vio
+     * mutando. Google llena el destino en cuanto lo sabe, así que esto además
+     * se parece más a lo que manda de verdad.
+     */
+    $googleResponde([
+        [
+            'name' => 'conferenceRecords/rec-1/recordings/aun-no',
+            'state' => 'STARTED',
+            'driveDestination' => ['file' => 'FILEID-EN-CURSO'],
+        ],
+    ]);
+
+    $consultor->revisar($claseMeet);
+    // Google la anuncia desde que empieza a grabar; hasta `FILE_GENERATED` el
+    // archivo no existe y registrarla dejaría una pendiente imposible de bajar.
+    verificar('Una grabación aún en curso no se registra',
+        Grabacion::query()->where('videoconferencia_id', $claseMeet->id)->doesntExist());
+
+    // b) Una lista: se registra y se encola la copia.
+    Queue::fake();
+    $googleResponde([
+        [
+            'name' => 'conferenceRecords/rec-1/recordings/lista',
+            'state' => 'FILE_GENERATED',
+            'driveDestination' => ['file' => 'FILEID-1', 'exportUri' => 'https://drive.google.com/file/d/FILEID-1/view'],
+        ],
+    ]);
+
+    $nuevasMeet = $consultor->revisar($claseMeet);
+    $deMeet = Grabacion::query()->where('videoconferencia_id', $claseMeet->id)->firstOrFail();
+
+    verificar('Una ya generada sí se registra', $nuevasMeet === 1, (string) $nuevasMeet);
+    verificar('Con el nombre del recurso como llave',
+        $deMeet->id_externo === 'conferenceRecords/rec-1/recordings/lista', $deMeet->id_externo);
+    verificar('Y queda pendiente de copiar al disco', $deMeet->estado === Grabacion::PENDIENTE);
+
+    // c) Volver a preguntar no duplica: es el caso de todos los días, porque el
+    //    comando corre cada tanto sobre las mismas clases.
+    $repetidasMeet = $consultor->revisar($claseMeet);
+
+    // Ni fila nueva ni copia encolada: lo que ya va en camino no se reencola,
+    // o dos trabajadores bajarían el mismo video.
+    verificar('Volver a consultar no encola otra copia', $repetidasMeet === 0, (string) $repetidasMeet);
+    verificar('Y sigue habiendo una sola fila',
+        Grabacion::query()->where('videoconferencia_id', $claseMeet->id)->count() === 1);
+
+    // d) Con destino DRIVE no se copia nada: el archivo ya está ahí.
+    Grabacion::query()->where('videoconferencia_id', $claseMeet->id)->forceDelete();
+    DestinoGrabacion::query()->update(['activo' => false]);
+    DestinoGrabacion::para('drive')->update([
+        'activo' => true,
+        'credenciales' => [
+            'cuenta_servicio_json' => $cuentaServicio,
+            'como_quien' => 'archivo@x.mx',
+            'carpeta_id' => 'CARPETA',
+        ],
+    ]);
+
+    Queue::fake();
+    $googleResponde([
+        [
+            'name' => 'conferenceRecords/rec-1/recordings/en-drive',
+            'state' => 'FILE_GENERATED',
+            'driveDestination' => ['file' => 'FILEID-2', 'exportUri' => 'https://drive.google.com/file/d/FILEID-2/view'],
+        ],
+    ]);
+
+    $consultor->revisar($claseMeet);
+    $enDrive = Grabacion::query()->where('id_externo', 'conferenceRecords/rec-1/recordings/en-drive')->firstOrFail();
+
+    /*
+     * Copiar del mismo Drive al mismo Drive sería pagar dos veces el mismo
+     * archivo y duplicar un video de menores sin ningún motivo.
+     */
+    verificar('Con destino Drive nace ya archivada', $enDrive->estado === Grabacion::ARCHIVADA, $enDrive->estado);
+    verificar('Apuntando al archivo que Google dejó', $enDrive->ruta_destino === 'FILEID-2');
+    verificar('Y no se encoló ninguna copia', count(Queue::pushedJobs()) === 0);
+
+    // e) Si Google contesta con error, NO se inventa una lista vacía silenciosa.
+    Grabacion::query()->where('videoconferencia_id', $claseMeet->id)->forceDelete();
+    app()->forgetInstance(\Illuminate\Http\Client\Factory::class);
+    Http::clearResolvedInstances();
+    Http::fake([
+        'oauth2.googleapis.com/*' => Http::response(['access_token' => 'tok-google'], 200),
+        'meet.googleapis.com/*' => Http::response(['error' => ['message' => 'permiso denegado']], 403),
+    ]);
+
+    /*
+     * Se escuchan los avisos del registro.
+     *
+     * Comprobar sólo que devuelve cero no probaba nada: con el manejo de
+     * errores quitado también devuelve cero, porque un cuerpo de error no trae
+     * `conferenceRecords`. Lo que de verdad separa «falló» de «no se grabó» es
+     * que quede escrito, y eso es lo que hay que medir.
+     */
+    $avisos = [];
+    Log::listen(function ($mensaje) use (&$avisos) {
+        $avisos[] = $mensaje->message;
+    });
+
+    $conError = $consultor->revisar($claseMeet);
+
+    verificar('Con error de Google no se registra nada', $conError === 0);
+    verificar('Y no queda una grabación fantasma',
+        Grabacion::query()->where('videoconferencia_id', $claseMeet->id)->doesntExist());
+    // Una lista vacía en silencio es indistinguible de «esta clase no se grabó»,
+    // y dejaría a la escuela creyendo que todo va bien.
+    verificar('Pero el fallo SÍ queda registrado',
+        collect($avisos)->contains(fn (string $m) => str_contains($m, 'Meet no devolvió')),
+        implode(' | ', $avisos));
+
+    // f) Un enlace del que no se puede sacar el código no revienta.
+    $sinCodigo = Videoconferencia::create([
+        'asignatura_grupo_id' => $materia->id,
+        'cuenta_id' => $cuentaMeet->id,
+        'proveedor' => 'meet',
+        'titulo' => "{$marca} sin codigo",
+        'url_join' => 'https://example.test/loquesea',
+        'inicio' => now()->subHours(3),
+        'fin' => now()->subHours(2),
+        'estado' => Videoconferencia::TERMINADA,
+    ]);
+
+    verificar('Un enlace ilegible devuelve cero y no revienta', $consultor->revisar($sinCodigo) === 0);
+
+    echo PHP_EOL.'11. Cambiar de destino no mueve lo ya archivado'.PHP_EOL;
 
     $rutaAntes = $video->fresh()->ruta_destino;
     $destinoAntes = $video->fresh()->destino;

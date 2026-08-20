@@ -37,7 +37,7 @@ class RecolectorDeGrabaciones
     /**
      * Anota los archivos de una clase y encola lo que haya que copiar.
      *
-     * @param  array<int, array{id: string, tipo: string, nombre: string, bytes: ?int, url: string}>  $archivos
+     * @param  array<int, array{id: string, tipo: string, nombre: string, bytes: ?int, url: string, ya_archivado?: array{destino: string, ruta: string, url: string}}>  $archivos
      * @return int cuántos se encolaron de nuevo
      */
     public function registrar(
@@ -67,8 +67,16 @@ class RecolectorDeGrabaciones
                 ->where('id_externo', $archivo['id'])
                 ->first();
 
-            if ($existente !== null && $existente->estaArchivada()) {
-                // Ya está guardada: el aviso repetido no vuelve a bajarla.
+            /*
+             * Lo que ya está guardado o ya va en camino NO se vuelve a encolar.
+             *
+             * Zoom reenvía su aviso y la consulta de Meet vuelve a pasar: sin
+             * esto, cada repetición pondría a otro trabajador a bajar el mismo
+             * video de seiscientos megas. Sólo se reintenta lo FALLIDO, que es
+             * justamente lo que necesita otra oportunidad — de lo pendiente ya
+             * se encarga la cola con sus propios reintentos.
+             */
+            if ($existente !== null && $existente->estado !== Grabacion::FALLIDA) {
                 continue;
             }
 
@@ -82,6 +90,29 @@ class RecolectorDeGrabaciones
                 'estado' => Grabacion::PENDIENTE,
                 'visible_alumnos' => $publicarSolas,
             ]);
+
+            /*
+             * Lo que YA está donde tiene que estar no se copia.
+             *
+             * Es el caso de Meet cuando la escuela archiva en Drive: Google
+             * dejó el archivo ahí al grabar. Copiarlo del mismo Drive al mismo
+             * Drive sería pagar dos veces el mismo archivo y duplicar un video
+             * de menores sin ningún motivo.
+             */
+            if (isset($archivo['ya_archivado'])) {
+                $grabacion->update([
+                    'estado' => Grabacion::ARCHIVADA,
+                    'destino' => $archivo['ya_archivado']['destino'],
+                    'ruta_destino' => $archivo['ya_archivado']['ruta'],
+                    'url_destino' => $archivo['ya_archivado']['url'],
+                    'error' => null,
+                    'archivada_en' => now(),
+                ]);
+
+                $nuevos++;
+
+                continue;
+            }
 
             /*
              * Sin destino encendido se ANOTA igual y no se encola.

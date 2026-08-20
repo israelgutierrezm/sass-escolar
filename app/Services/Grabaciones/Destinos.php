@@ -6,6 +6,7 @@ namespace App\Services\Grabaciones;
 
 use App\Exceptions\AvisoParaElUsuario;
 use App\Models\Lms\DestinoGrabacion;
+use App\Services\Google\TokenDeServicio;
 use App\Support\DestinosGrabacionCatalogo;
 
 /**
@@ -21,7 +22,10 @@ use App\Support\DestinosGrabacionCatalogo;
  */
 class Destinos
 {
-    public function __construct(private readonly DestinoDisco $disco) {}
+    public function __construct(
+        private readonly DestinoDisco $disco,
+        private readonly TokenDeServicio $tokens,
+    ) {}
 
     public function para(DestinoGrabacion $config): Destino
     {
@@ -46,7 +50,7 @@ class Destinos
         );
 
         return match ($config->clave) {
-            DestinosGrabacionCatalogo::DRIVE => new DestinoDrive($config),
+            DestinosGrabacionCatalogo::DRIVE => new DestinoDrive($config, $this->tokens),
             DestinosGrabacionCatalogo::DROPBOX => new DestinoDropbox($config),
         };
     }
