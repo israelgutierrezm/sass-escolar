@@ -46,6 +46,9 @@ final class CatalogoAjustes
 
     public const EXIGE_CEDULA = 'docente.exige_cedula_para_asignar';
 
+    // Clases en línea.
+    public const VIDEO_ANTELACION = 'video.minutos_antes_de_abrir';
+
     // Admisiones.
     public const EXIGE_DOCUMENTOS = 'aspirante.exige_documentos_para_convertir';
 
@@ -177,6 +180,17 @@ final class CatalogoAjustes
                 descripcion: 'Impide poner al frente de un grupo a alguien sin cédula profesional capturada.',
                 tipo: Ajuste::BOOLEANO,
                 porDefecto: false,
+            ),
+            new Ajuste(
+                clave: self::VIDEO_ANTELACION,
+                grupo: 'Docentes',
+                etiqueta: 'Abrir la clase en línea antes de la hora',
+                descripcion: 'Minutos antes del inicio en que al alumno ya le aparece el botón para entrar. '
+                    .'Con 0 sólo puede entrar a la hora exacta, y quien llegue puntual encuentra la puerta cerrada.',
+                tipo: Ajuste::ENTERO,
+                porDefecto: 10,
+                min: 0,
+                max: 120,
             ),
 
             new Ajuste(
