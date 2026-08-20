@@ -339,6 +339,21 @@ la cadena vacía, y de una carga masiva puede salir así.
   `npm run build` se ve**: se editan componentes, compila sin errores y la
   pantalla no cambia. Costó media hora de diagnóstico creyendo que el bug era
   del código. Si un cambio de Vue no aparece: `ls public/hot` y bórralo.
+- **`Prepared statement needs to be re-prepared` (MySQL 1615) tras migrar.**
+  Aparece de golpe en varias suites a la vez y NO es del código: la escuela demo
+  tiene **236 tablas** y el `table_definition_cache` de este MySQL está en 600
+  para todas las bases juntas. Al correr migraciones, MySQL sube la versión de
+  metadatos de lo que toca y va desalojando definiciones; un `DELETE` contra una
+  tabla desalojada revienta con 1615.
+  - **Se nota porque golpea a las tablas VIEJAS y no a las recién creadas**
+    —`ventanas_captura`, `actividades` y `ciclos` fallaban mientras
+    `videoconferencias` y `grabaciones`, creadas ese mismo día, iban bien—, que
+    es exactamente al revés de lo que haría un error de código nuevo.
+  - Se cura con `FLUSH TABLES` (o reiniciando MySQL). Comprobado: tras el flush,
+    el mismo `DELETE` pasa.
+  - **Ojo al barrer**: hizo caer una suite entera con «0 correctas, 1 fallidas»
+    y estuvo a punto de reportarse como una regresión de la entrega.
+
 - **La caché del tenant NO admite etiquetas.** `stancl/tenancy` envuelve
   `Cache::` con `tags()` para aislar por escuela y el driver del proyecto
   (`database`) no las soporta: cualquier `Cache::remember` revienta con «this
