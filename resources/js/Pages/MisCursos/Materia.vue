@@ -6,6 +6,7 @@ import BotonVolver from '@/Components/BotonVolver.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import CuandoVence from '@/Components/CuandoVence.vue';
 import AvancePorParcial from '@/Components/AvancePorParcial.vue';
+import ClaseEnVivoAlumno from '@/Components/ClaseEnVivoAlumno.vue';
 
 /*
  * Una materia, vista por el alumno que la cursa.
@@ -77,6 +78,12 @@ const props = defineProps<{
         porcentaje: number | null;
     };
     horarios: { dia: string | null; inicio: string | null; fin: string | null; aula: string | null }[];
+    /** Las clases en línea que vienen. El enlace sólo llega cuando ya se puede entrar. */
+    clasesEnLinea: {
+        id: number; titulo: string; proveedor: string;
+        inicio: string | null; fin: string | null; estado: string;
+        abierta: boolean; url: string | null;
+    }[];
 }>();
 
 function iniciales(nombre: string | null): string {
@@ -178,6 +185,10 @@ const etiquetaEstatus: Record<string, string> = {
     <Head :title="curso.materia ?? 'Materia'" />
 
     <AppLayout titulo="Mi materia">
+        <!-- Arriba del todo: si hay clase ahora, es lo único que importa de
+             esta pantalla, y hacer bajar a buscarla la volvería inútil. -->
+        <ClaseEnVivoAlumno v-if="clasesEnLinea.length" :clases="clasesEnLinea" class="mb-4" />
+
         <section class="tarjeta p-6">
             <BotonVolver href="/mis-cursos" texto="Mis cursos" class="mb-4" />
 

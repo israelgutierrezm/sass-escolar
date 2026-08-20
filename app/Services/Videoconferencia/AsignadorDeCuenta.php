@@ -9,6 +9,7 @@ use App\Models\Lms\IntegracionVideo;
 use App\Models\Lms\Videoconferencia;
 use App\Support\ProveedoresVideoCatalogo;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -133,7 +134,7 @@ class AsignadorDeCuenta
      * siempre castigaría a la cuenta que lleva más tiempo dada de alta, que es
      * exactamente al revés de lo que hace falta.
      *
-     * @param  \Illuminate\Support\Collection<int, CuentaVideo>  $candidatas
+     * @param  Collection<int, CuentaVideo>  $candidatas
      */
     private function laMenosCargada($candidatas): CuentaVideo
     {

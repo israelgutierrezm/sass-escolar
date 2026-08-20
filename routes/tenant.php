@@ -33,6 +33,8 @@ use App\Http\Controllers\CuentaBancariaController;
 use App\Http\Controllers\ConceptoPagoController;
 use App\Http\Controllers\ConfiguracionController;
 use App\Http\Controllers\CorreoConfigController;
+use App\Http\Controllers\ClaseEnVivoController;
+use App\Http\Controllers\ClasesEnLineaController;
 use App\Http\Controllers\CursoPlantillaController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DisposicionPanelController;
@@ -1632,6 +1634,26 @@ Route::middleware([
          * que las actividades —un examen ES una actividad—, con pantalla aparte
          * porque redactar reactivos es otro trabajo que poner una fecha.
          */
+        /*
+         * Clases en línea desde la materia del docente.
+         *
+         * Cuelga de `ver-mis-materias` y no de `capturar-calificaciones`: dar
+         * clase no es calificar, y un docente al que la escuela no deja poner
+         * notas debe poder abrir su sala igual.
+         *
+         * El alcance real lo comprueba el controlador contra la asignación, como
+         * en todo `/docencia`: programar en el grupo de otro es entrar a su
+         * salón.
+         */
+        Route::controller(ClaseEnVivoController::class)
+            ->prefix('docencia/materias/{asignaturaGrupo}/clases')->name('tenant.clasesvivo.')
+            ->middleware('can:ver-mis-materias')
+            ->whereNumber('asignaturaGrupo')
+            ->group(function () {
+                Route::post('/', 'programar')->name('programar');
+                Route::delete('{sesion}', 'cancelar')->whereNumber('sesion')->name('cancelar');
+            });
+
         Route::controller(ExamenController::class)
             ->prefix('docencia/materias/{asignaturaGrupo}')->name('tenant.examenes.')
             ->middleware('can:capturar-calificaciones')
@@ -2106,6 +2128,24 @@ Route::middleware([
                 Route::post('feriados', 'importarFeriados')->name('feriados');
                 Route::put('{evento}', 'guardar')->whereNumber('evento')->name('editar');
                 Route::delete('{evento}', 'eliminar')->whereNumber('evento')->name('eliminar');
+            });
+
+        /*
+         * Clases en línea: credenciales de Zoom / Meet y el pool de licencias.
+         *
+         * Permiso propio y no `editar-configuracion`: no es un parámetro de la
+         * escuela sino secretos con los que se crean reuniones a su nombre, y
+         * cuántas licencias hay decide cuántas clases simultáneas caben.
+         */
+        Route::controller(ClasesEnLineaController::class)
+            ->prefix('plataforma/clases-en-linea')->name('tenant.plataforma.video.')
+            ->middleware('can:gestionar-clases-en-linea')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::put('{proveedor}', 'guardar')->name('guardar');
+                Route::post('{proveedor}/cuentas', 'agregarCuenta')->name('cuentas.store');
+                Route::put('cuentas/{cuenta}', 'alternarCuenta')->whereNumber('cuenta')->name('cuentas.alternar');
+                Route::delete('cuentas/{cuenta}', 'eliminarCuenta')->whereNumber('cuenta')->name('cuentas.destroy');
             });
 
         Route::controller(UsuarioController::class)

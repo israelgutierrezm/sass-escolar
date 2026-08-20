@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Models\Finanzas;
 
 use App\Models\Academico\Carrera;
-use App\Models\Concerns\TieneAuditoria;
 use App\Models\Academico\NivelEstudio;
+use App\Models\Concerns\TieneAuditoria;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 

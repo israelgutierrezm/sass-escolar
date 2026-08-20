@@ -540,6 +540,10 @@ class DocenciaController extends Controller
             // grupo. En la plantilla del plan sólo caben las de la escuela.
             'rubricas' => $this->rubricasDisponibles($personaId, soloDeLaEscuela: false),
             'tiposActividad' => TipoActividad::paraSelect(),
+            // Las clases en línea las arma su propio controlador: mismo dato en
+            // dos sitios acaba divergiendo, y aquí lo que se le enseña al
+            // docente incluye un enlace que al alumno no se le puede dar.
+            'clasesEnLinea' => app(ClaseEnVivoController::class)->datosPara($asignaturaGrupo),
         ];
     }
 

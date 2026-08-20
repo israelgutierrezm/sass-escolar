@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Configuracion\Ajustes;
+use App\Configuracion\CatalogoAjustes;
 use App\Http\Controllers\Concerns\AlcanceDelAlumno;
 use App\Models\Academico\EsquemaEvaluacion;
 use App\Models\Asistencia\AsistenciaClase;
@@ -12,6 +14,7 @@ use App\Models\Lms\Actividad;
 use App\Models\Lms\ActividadVista;
 use App\Models\Lms\Curso;
 use App\Models\Lms\Entrega;
+use App\Models\Lms\Videoconferencia;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
@@ -316,7 +319,38 @@ class MisCursosController extends Controller
                     'fin' => $h->hora_fin ?? null,
                     'aula' => $h->aula ?? null,
                 ])->values() ?? [],
+            'clasesEnLinea' => $this->clasesEnLineaDe($inscripcion),
         ]);
+    }
+
+    /**
+     * Las clases en línea de esta materia, tal como se le pueden enseñar.
+     *
+     * ── El enlace sale por `paraElAlumno`, no a mano ───────────────────────
+     * Es lo que garantiza que nunca viaje `url_anfitrion` —el `start_url` de
+     * Zoom entra como dueño de la sala— y que el `url_join` sólo aparezca
+     * mientras la clase está abierta. Armar aquí el arreglo campo por campo
+     * habría puesto esa salvaguarda a merced de que alguien recuerde omitirlo.
+     *
+     * ── Se muestran también las que ya vienen ──────────────────────────────
+     * No sólo la que está abierta ahora: saber que el jueves hay clase a las 9
+     * es la mitad del valor. Lo que cambia con la hora es si el botón lleva a
+     * algún lado, no si la clase se anuncia.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function clasesEnLineaDe(Inscripcion $inscripcion): array
+    {
+        $antelacion = app(Ajustes::class)->entero(CatalogoAjustes::VIDEO_ANTELACION);
+
+        return Videoconferencia::query()
+            ->where('asignatura_grupo_id', $inscripcion->asignatura_grupo_id)
+            ->vigentes()
+            ->limit(10)
+            ->get()
+            ->map(fn (Videoconferencia $v) => $v->paraElAlumno($antelacion))
+            ->values()
+            ->all();
     }
 
     /**

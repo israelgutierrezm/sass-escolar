@@ -12,6 +12,7 @@ import MatrizCalificaciones from '@/Components/MatrizCalificaciones.vue';
 import PestanasPagina from '@/Components/PestanasPagina.vue';
 import EditorTexto from '@/Components/EditorTexto.vue';
 import InterruptorVisible from '@/Components/InterruptorVisible.vue';
+import ClasesEnVivo from '@/Components/ClasesEnVivo.vue';
 import type { RubricaDeActividad } from '@/utils/rubrica';
 
 interface Alumno {
@@ -84,6 +85,12 @@ const props = defineProps<{
     componentes: { id: number; etiqueta: string }[];
     /** Las de la escuela y las suyas: es su materia y su grupo. */
     rubricas: RubricaEnCatalogo[];
+    /** Proveedores listos, la antelación configurada y las clases de la materia. */
+    clasesEnLinea: {
+        proveedores: { clave: string; nombre: string }[];
+        antelacion: number;
+        sesiones: any[];
+    };
     tiposActividad: { valor: string; etiqueta: string; se_entrega: boolean }[];
     puedePasarLista: boolean;
     /** Conversación directa con cada alumno, si ya existe: persona_id => …. */
@@ -484,6 +491,16 @@ const cortesCerrados = computed(() =>
             v-if="puedePasarLista && tab === 'asistencia'"
             :materia-id="materia.id"
             :asistencia="asistencia"
+        />
+
+        <!-- ===== Clases en línea ===== -->
+        <ClasesEnVivo
+            v-if="tab === 'actividades'"
+            class="mb-4"
+            :materia-id="materia.id"
+            :proveedores="clasesEnLinea.proveedores"
+            :antelacion="clasesEnLinea.antelacion"
+            :sesiones="clasesEnLinea.sesiones"
         />
 
         <!-- ===== Actividades del curso ===== -->

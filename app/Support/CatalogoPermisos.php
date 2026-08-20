@@ -247,6 +247,16 @@ final class CatalogoPermisos
             'ver-configuracion' => ['Ver la configuración', 'Consultar los parámetros de la escuela.', [self::ADMINISTRATIVO]],
             'editar-configuracion' => ['Editar la configuración', 'Cambiar los parámetros de la escuela.', [self::ADMINISTRATIVO]],
             'gestionar-usuarios' => ['Administrar usuarios', 'Crear cuentas y asignarles roles.', [self::ADMINISTRATIVO]],
+            /*
+             * Las credenciales de Zoom / Meet y el pool de licencias.
+             *
+             * Aparte de `editar-configuracion` porque no es un parámetro de la
+             * escuela: son secretos con los que se crean reuniones a nombre de
+             * la institución, y cuántas licencias hay decide cuántas clases
+             * simultáneas se pueden dar. Quien programa una clase NO necesita
+             * esto: le basta tener la materia asignada.
+             */
+            'gestionar-clases-en-linea' => ['Configurar clases en línea', 'Encender Zoom o Google Meet, guardar sus credenciales y administrar las licencias de anfitrión. No hace falta para dar clase: eso lo abre tener la materia asignada.', [self::ADMINISTRATIVO]],
             'gestionar-avisos' => ['Publicar avisos', 'Redactar avisos, dirigirlos a quien corresponda y ver quién confirmó haberlos leído.', [self::ADMINISTRATIVO]],
             'gestionar-encuestas' => ['Administrar encuestas de evaluación', 'Armar cuestionarios, aplicarlos y consultar los resultados. Quien lo tiene ve los promedios de cada docente.', [self::ADMINISTRATIVO]],
             'ver-accesos' => ['Ver la bitácora de accesos', 'Consultar el registro y la gráfica de entradas y salidas de las cuentas.', [self::ADMINISTRATIVO]],

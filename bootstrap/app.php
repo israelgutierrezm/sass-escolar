@@ -74,7 +74,25 @@ return Application::configure(basePath: dirname(__DIR__))
                 return $respuesta;
             }
 
-            if (! in_array($estado, [403, 404, 419, 500, 503], true)) {
+            /*
+             * El 422 entra SÓLO si el motivo es nuestro.
+             *
+             * Es el código correcto para «no se puede hacer eso ahora» —las tres
+             * licencias de Zoom ocupadas a esa hora, por ejemplo— y sin esto la
+             * respuesta salía como página HTML de error: el docente no veía nada
+             * y la clase simplemente no aparecía.
+             *
+             * La condición importa. `ValidationException` también es 422, y a
+             * ésa la maneja Inertia devolviendo los errores por campo; si se
+             * dejara pasar por aquí, todos los formularios del sistema perderían
+             * sus mensajes de validación y mostrarían uno genérico. `motivoDe`
+             * devuelve null para todo lo que no sea `AvisoParaElUsuario`, así
+             * que es justo la línea que las separa.
+             */
+            $esAvisoNuestro = $motivo !== null;
+
+            if (! in_array($estado, [403, 404, 419, 500, 503], true)
+                && ! ($estado === 422 && $esAvisoNuestro)) {
                 return $respuesta;
             }
 
