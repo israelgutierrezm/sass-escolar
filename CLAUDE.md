@@ -711,9 +711,16 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     puede acotar de verdad quién abre el archivo: la URL la sirve Acadion
     comprobando materia y matrícula. Un enlace de Drive o Dropbox lo abre
     cualquiera que lo tenga.
-  - **La grabación nace INVISIBLE para el alumno** y la enciende el docente
-    desde su materia. Trae caras y voces de menores: publicarla es una decisión
-    sobre datos personales, no un efecto de haber configurado el archivado.
+  - **Si se publican solas lo decide la escuela**, con el ajuste «Publicar las
+    grabaciones en cuanto llegan» (`/plataforma/configuracion`, grupo «Clases en
+    línea»). Por omisión APAGADO: trae caras y voces de menores, así que el
+    valor por omisión es el que no publica a nadie sin que alguien lo pida, y el
+    docente enciende una por una desde su materia.
+  - **El ajuste se lee AL ANOTAR la grabación y se copia a la fila**, no al
+    mirarla. Así cambiar la regla no publica —ni esconde— de golpe lo que ya
+    existía: publicar de un plumazo un semestre de clases con menores dentro no
+    puede ser el efecto de mover un interruptor. Lo fija la suite con las dos
+    direcciones del cambio.
   - **Idempotente por `(origen, id_externo)`**: Zoom reenvía su aviso si no se
     le contesta rápido, y sin esa llave la misma clase se archiva tres veces.
   - **El webhook comprueba FIRMA** (HMAC con el Secret Token, ventana de 5 min).
@@ -725,7 +732,7 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   - **Lo que falta es la consulta a la API de Meet**, que necesita un Workspace
     real para probarse. El comando existe y **avisa que esa parte no está
     conectada** en vez de decir «listo» sin haber mirado.
-  - Pruebas: `scripts/prueba-grabaciones.php`, 26 verificaciones, comprobada
+  - Pruebas: `scripts/prueba-grabaciones.php`, 30 verificaciones, comprobada
     mutando cuatro reglas. **Una de esas mutaciones destapó que la prueba de los
     temporales era falsa**: en Windows `tempnam()` recorta el prefijo a TRES
     letras (`grabacion-` → `gra910D.tmp`), así que el glob no encontraba nada y

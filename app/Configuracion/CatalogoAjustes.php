@@ -49,6 +49,8 @@ final class CatalogoAjustes
     // Clases en línea.
     public const VIDEO_ANTELACION = 'video.minutos_antes_de_abrir';
 
+    public const VIDEO_PUBLICAR_GRABACIONES = 'video.grabaciones_visibles_al_llegar';
+
     // Admisiones.
     public const EXIGE_DOCUMENTOS = 'aspirante.exige_documentos_para_convertir';
 
@@ -183,14 +185,34 @@ final class CatalogoAjustes
             ),
             new Ajuste(
                 clave: self::VIDEO_ANTELACION,
-                grupo: 'Docentes',
-                etiqueta: 'Abrir la clase en línea antes de la hora',
+                grupo: 'Clases en línea',
+                etiqueta: 'Abrir la clase antes de la hora',
                 descripcion: 'Minutos antes del inicio en que al alumno ya le aparece el botón para entrar. '
                     .'Con 0 sólo puede entrar a la hora exacta, y quien llegue puntual encuentra la puerta cerrada.',
                 tipo: Ajuste::ENTERO,
                 porDefecto: 10,
                 min: 0,
                 max: 120,
+            ),
+            new Ajuste(
+                clave: self::VIDEO_PUBLICAR_GRABACIONES,
+                grupo: 'Clases en línea',
+                etiqueta: 'Publicar las grabaciones en cuanto llegan',
+                descripcion: 'Encendido, cada grabación que se archiva le aparece sola a los alumnos de esa '
+                    .'materia. Apagado, llega oculta y el docente decide cuáles publicar. '
+                    .'Sólo afecta a las que lleguen de aquí en adelante: cambiar esto NO publica ni esconde '
+                    .'las que ya están.',
+                tipo: Ajuste::BOOLEANO,
+                /*
+                 * Apagado por omisión, y la escuela decide.
+                 *
+                 * Una clase grabada trae caras y voces de menores, así que el
+                 * valor por omisión es el que no publica a nadie sin que alguien
+                 * lo pida. Quien quiera lo contrario lo enciende aquí — que es
+                 * justo lo que pidió el cliente— y queda dicho que fue una
+                 * decisión suya, no un efecto de haber configurado el archivado.
+                 */
+                porDefecto: false,
             ),
 
             new Ajuste(

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Grabaciones;
 
+use App\Configuracion\Ajustes;
+use App\Configuracion\CatalogoAjustes;
 use App\Jobs\ArchivarGrabacion;
 use App\Models\Lms\DestinoGrabacion;
 use App\Models\Lms\Grabacion;
@@ -18,6 +20,12 @@ use Illuminate\Support\Facades\Log;
  * copia. Si se hiciera todo en el aviso, un fallo de red dejaría la grabación
  * sin rastro en Acadion: nadie sabría que existió, y el enlace de Zoom caduca.
  * Con la fila, lo que falla se ve y se reintenta.
+ *
+ * ── Si se publican solas lo decide la ESCUELA ──────────────────────────────
+ * `visible_alumnos` sale del ajuste «Publicar las grabaciones en cuanto
+ * llegan», y se copia a la fila al anotarla. Por omisión va apagado —una clase
+ * grabada trae caras y voces de menores— pero la escuela puede encenderlo, y
+ * entonces cada grabación archivada le aparece sola al grupo.
  *
  * ── Idempotente por (origen, id_externo) ───────────────────────────────────
  * Zoom reenvía su aviso si no se le contesta rápido, y la consulta de Meet vuelve
@@ -40,6 +48,17 @@ class RecolectorDeGrabaciones
     ): int {
         $destino = DestinoGrabacion::activo();
 
+        /*
+         * Si la escuela quiere que se publiquen solas.
+         *
+         * Se lee AL ANOTAR y se guarda en la fila, en vez de consultarse cada
+         * vez que alguien mira: así cambiar la regla no publica ni esconde de
+         * golpe las grabaciones que ya existían. Publicar de un plumazo un
+         * semestre de clases con menores dentro no puede ser el efecto de
+         * mover un interruptor.
+         */
+        $publicarSolas = app(Ajustes::class)->bool(CatalogoAjustes::VIDEO_PUBLICAR_GRABACIONES);
+
         $nuevos = 0;
 
         foreach ($archivos as $archivo) {
@@ -61,6 +80,7 @@ class RecolectorDeGrabaciones
                 'nombre' => $archivo['nombre'],
                 'bytes' => $archivo['bytes'],
                 'estado' => Grabacion::PENDIENTE,
+                'visible_alumnos' => $publicarSolas,
             ]);
 
             /*

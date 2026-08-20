@@ -3215,3 +3215,25 @@ esa parte no está conectada** en vez de fingir que revisó: un comando que dice
 `gra910D.tmp`. La comprobación de «no quedan temporales» buscaba por
 `grabacion-*` y no encontraba nunca nada, así que pasaba con el borrado quitado.
 Se descubrió mutando a propósito. Ahora compara el directorio antes y después.
+
+### Ampliación (mismo día): que la publicación automática sea configurable
+
+El cliente pidió poder decidir desde la interfaz si las grabaciones se publican
+solas. Es el ajuste `video.grabaciones_visibles_al_llegar`, en
+`/plataforma/configuracion`, grupo «Clases en línea» —donde se le juntó la
+antelación con que se abre el botón, que estaba suelta en «Docentes»—.
+
+**Por omisión sigue apagado.** Lo que cambia es que ahora es una decisión de la
+escuela y no del código; el valor por omisión es el que no publica a nadie sin
+que alguien lo pida.
+
+**Se lee al ANOTAR la grabación y se copia a la fila**, no al mirarla. Es la
+parte que importa: si se leyera en cada consulta, encender el interruptor
+publicaría de golpe todo el historial —un semestre de clases con menores
+dentro—, y apagarlo escondería lo que un docente ya había decidido publicar.
+Con el valor copiado, el ajuste gobierna lo que llega de aquí en adelante y lo
+anterior se queda como estaba.
+
+Comprobado mutando las dos formas de romperlo: ignorar el ajuste al anotar, y
+leerlo al mirar (que es lo que lo volvería retroactivo). Caen las
+comprobaciones que vigilan cada una.

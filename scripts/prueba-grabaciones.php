@@ -12,6 +12,8 @@
  * romper sin que nadie se entere.
  */
 
+use App\Configuracion\Ajustes;
+use App\Configuracion\CatalogoAjustes;
 use App\Http\Controllers\GrabacionController;
 use App\Jobs\ArchivarGrabacion;
 use App\Models\ControlEscolar\AsignaturaGrupo;
@@ -223,7 +225,77 @@ try {
     $chat->update(['visible_alumnos' => true]);
     verificar('Una fallida no se ve aunque esté encendida', ! $chat->fresh()->laVeElAlumno());
 
-    echo PHP_EOL.'8. Sólo la abre quien es de esa materia'.PHP_EOL;
+    echo PHP_EOL.'8. Si se publican solas lo decide la escuela'.PHP_EOL;
+
+    $ajustes = app(Ajustes::class);
+
+    /*
+     * La foto de ANTES de tocar el interruptor.
+     *
+     * No se compara contra `false` escrito a mano: el paso anterior dejó esta
+     * grabación encendida a propósito, así que un literal estaría midiendo el
+     * guion y no la regla.
+     */
+    $visibleAntes = (bool) $video->fresh()->visible_alumnos;
+
+    // Con el interruptor ENCENDIDO, lo que llegue nace visible.
+    $ajustes->guardar([CatalogoAjustes::VIDEO_PUBLICAR_GRABACIONES => true]);
+
+    $otraClase = Videoconferencia::create([
+        'asignatura_grupo_id' => $materia->id,
+        'proveedor' => 'zoom',
+        'titulo' => "{$marca} segunda",
+        'meeting_id' => "{$marca}-r2",
+        'inicio' => now()->subHours(4),
+        'fin' => now()->subHours(3),
+        'estado' => Videoconferencia::TERMINADA,
+    ]);
+
+    Queue::fake();
+    $recolector->registrar($otraClase, 'zoom', [
+        ['id' => "{$marca}-auto", 'tipo' => 'video', 'nombre' => "{$marca}-auto.mp4", 'bytes' => 10, 'url' => 'https://zoom.test/a'],
+    ], 'tok');
+
+    $automatica = Grabacion::query()->where('id_externo', "{$marca}-auto")->firstOrFail();
+
+    verificar('Encendido, la nueva nace visible', $automatica->visible_alumnos);
+
+    /*
+     * Y lo que ya existía NO se toca al cambiar la regla.
+     *
+     * Es la parte que de verdad importa: publicar de un plumazo un semestre de
+     * clases con menores dentro no puede ser el efecto de mover un interruptor.
+     * `$video` se anotó antes, con el ajuste apagado.
+     */
+    verificar('Y la anterior no se movió', $video->fresh()->visible_alumnos === $visibleAntes,
+        $visibleAntes ? 'estaba visible' : 'estaba oculta');
+
+    // Apagado otra vez, lo nuevo vuelve a nacer oculto.
+    $ajustes->guardar([CatalogoAjustes::VIDEO_PUBLICAR_GRABACIONES => false]);
+
+    $terceraClase = Videoconferencia::create([
+        'asignatura_grupo_id' => $materia->id,
+        'proveedor' => 'zoom',
+        'titulo' => "{$marca} tercera",
+        'meeting_id' => "{$marca}-r3",
+        'inicio' => now()->subHours(6),
+        'fin' => now()->subHours(5),
+        'estado' => Videoconferencia::TERMINADA,
+    ]);
+
+    Queue::fake();
+    $recolector->registrar($terceraClase, 'zoom', [
+        ['id' => "{$marca}-oculta", 'tipo' => 'video', 'nombre' => "{$marca}-oculta.mp4", 'bytes' => 10, 'url' => 'https://zoom.test/o'],
+    ], 'tok');
+
+    verificar('Apagado, la nueva nace oculta',
+        ! Grabacion::query()->where('id_externo', "{$marca}-oculta")->firstOrFail()->visible_alumnos);
+
+    // Y la que nació visible con el interruptor encendido no cambia al apagarlo.
+    verificar('Apagarlo tampoco esconde lo que ya estaba publicado',
+        $automatica->fresh()->visible_alumnos);
+
+    echo PHP_EOL.'9. Sólo la abre quien es de esa materia'.PHP_EOL;
 
     $controlador = app(GrabacionController::class);
 
@@ -281,7 +353,7 @@ try {
     verificar('Apagada, ni el alumno inscrito la abre',
         estadoDe(fn () => $controlador->ver($comoQuien($alumno), $video->fresh())) === 404);
 
-    echo PHP_EOL.'9. Cambiar de destino no mueve lo ya archivado'.PHP_EOL;
+    echo PHP_EOL.'10. Cambiar de destino no mueve lo ya archivado'.PHP_EOL;
 
     $rutaAntes = $video->fresh()->ruta_destino;
     $destinoAntes = $video->fresh()->destino;
@@ -310,6 +382,10 @@ try {
     foreach (array_filter($aBorrar) as $ruta) {
         Storage::disk('local')->delete($ruta);
     }
+
+    // El cache de ajustes vive en memoria y no entra en el rollback: se olvida
+    // para no dejar el interruptor cambiado para lo que corra después.
+    app(Ajustes::class)->olvidar();
 
     echo PHP_EOL.'-- rollback aplicado y archivos de prueba borrados --'.PHP_EOL;
 }
