@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Configuracion\Ajustes;
+use App\Configuracion\CatalogoAjustes;
 use App\Models\Admisiones\Alumno;
 use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\EtapaCrm;
@@ -11,6 +13,7 @@ use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\RespuestaCampo;
 use App\Models\Admisiones\SituacionAlumno;
 use App\Models\Admisiones\SituacionAspirante;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -36,6 +39,8 @@ class ConvertidorAspirante
         private readonly GeneradorMatricula $generador,
         private readonly ReligadorFinanzas $religador,
         private readonly DevengadorComisiones $comisiones,
+        private readonly Ajustes $ajustes,
+        private readonly ProgresoSolicitud $progreso,
     ) {}
 
     /**
@@ -134,7 +139,91 @@ class ConvertidorAspirante
             $impedimentos[] = 'Falta el catálogo de situaciones de alumno.';
         }
 
+        return array_merge($impedimentos, $this->loQueExigeLaEscuela($aspirante));
+    }
+
+    /**
+     * Los requisitos que la escuela decidió, y que hasta hoy no se aplicaban.
+     *
+     * `aspirante.exige_documentos_para_convertir` y
+     * `aspirante.exige_pago_para_convertir` estaban en la pantalla de
+     * configuración desde que existe, y NADIE los leía: una escuela podía
+     * encenderlos, creer que había cerrado la puerta, y seguir generando
+     * matrículas de quien no entregó nada ni pagó. Un interruptor que no hace lo
+     * que dice es peor que no tenerlo, porque se confía en él.
+     *
+     * ── Se le pregunta a `ProgresoSolicitud`, no se recalcula aquí ─────────
+     * Ese servicio ya sabe qué documentos obligatorios faltan y qué cargos
+     * siguen sin cubrir —es lo que le enseña al aspirante en su portal—. Copiar
+     * el cálculo dejaría dos verdades: el día que diverjan, el interesado vería
+     * su expediente completo y la ventanilla se lo negaría, sin que nadie pueda
+     * decir cuál de los dos miente.
+     *
+     * @return array<int, string>
+     */
+    private function loQueExigeLaEscuela(Aspirante $aspirante): array
+    {
+        $exigeDocumentos = $this->ajustes->bool(CatalogoAjustes::EXIGE_DOCUMENTOS);
+        $exigePago = $this->ajustes->bool(CatalogoAjustes::EXIGE_PAGO);
+
+        if (! $exigeDocumentos && ! $exigePago) {
+            // Lo normal. Se sale antes de consultar nada: cobrarle el cálculo
+            // del progreso a cada conversión sería pagar por una regla apagada.
+            return [];
+        }
+
+        /*
+         * `para()` devuelve el resumen completo —porcentaje, siguiente paso— y
+         * los pasos van DENTRO de `pasos`. Indexar el resumen entero por `clave`
+         * no encuentra ninguno, y con un `?? true` de respaldo la regla se
+         * comportaba como si todo estuviera cumplido: parecía implementada y no
+         * hacía nada. Se descubrió porque la prueba, escrita para fallar, falló.
+         */
+        $pasos = collect($this->progreso->para($aspirante)['pasos'])->keyBy('clave');
+        $impedimentos = [];
+
+        $documentos = $this->paso($pasos, ProgresoSolicitud::PASO_DOCUMENTOS);
+
+        /*
+         * `aplica` es lo que distingue «no lo entregó» de «la escuela no pide
+         * nada en esta etapa». Sin mirarlo, una escuela sin documentos
+         * configurados no podría convertir a nadie.
+         */
+        if ($exigeDocumentos && $documentos['aplica'] && ! $documentos['completo']) {
+            $faltan = implode(', ', $documentos['faltantes']);
+
+            $impedimentos[] = trim("Le falta documentación obligatoria: {$faltan}.");
+        }
+
+        $pago = $this->paso($pasos, ProgresoSolicitud::PASO_PAGO);
+
+        if ($exigePago && $pago['aplica'] && ! $pago['completo']) {
+            $impedimentos[] = 'Tiene cargos sin cubrir: '.$pago['detalle'].'.';
+        }
+
         return $impedimentos;
+    }
+
+    /**
+     * Un paso del progreso, exigiendo que exista.
+     *
+     * Sin esto, una clave mal escrita devolvía null y los respaldos la
+     * convertían en «cumplido»: una regla de seguridad que falla ABIERTA y en
+     * silencio. Aquí revienta, que para un bug de programación es lo correcto —
+     * y lo que hace que una prueba lo vea.
+     *
+     * @param  Collection<string, array<string, mixed>>  $pasos
+     * @return array<string, mixed>
+     */
+    private function paso($pasos, string $clave): array
+    {
+        $paso = $pasos->get($clave);
+
+        if ($paso === null) {
+            throw new RuntimeException("El progreso de solicitud no trae el paso «{$clave}».");
+        }
+
+        return $paso;
     }
 
     private function validar(Aspirante $aspirante): void

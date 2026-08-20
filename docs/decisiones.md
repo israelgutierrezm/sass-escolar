@@ -3307,3 +3307,72 @@ Salieron mutando, y las dos habrían dado falsa tranquilidad:
   no basta —la fábrica es un singleton del contenedor—: hay que reponerla con
   `app()->forgetInstance(Factory::class)`. Sin eso, un paso medía el stub del
   anterior y la prueba afirmaba lo contrario de lo que ocurría.
+
+
+## 2026-08-20 — Auditoría: lo declarado que nadie usaba
+
+Se buscó, con evidencia y no de memoria, qué está declarado y no se ocupa:
+permisos, ajustes, tablas y foráneas con datos rotos.
+
+### Cinco interruptores que no hacían nada
+
+`aspirante.exige_documentos_para_convertir`, `aspirante.exige_pago_para_convertir`,
+`docente.exige_cedula_para_asignar`, `docente.max_materias_por_ciclo` y
+`alumno.matricula_unica_por_persona` estaban en la pantalla de configuración y
+NADIE los leía. Los cuatro primeros ya se aplican; el quinto se retiró.
+
+Esto es peor que una función faltante: una escuela podía encender «exigir
+inscripción pagada para convertir en alumno», dar por cerrada la puerta, y
+seguir generando matrículas de quien no había pagado. Un interruptor que no hace
+lo que dice se confía.
+
+### El que no se podía cumplir
+
+`alumno.matricula_unica_por_persona` prometía que quien cursa dos programas
+conserve el MISMO número de matrícula. `matricula_oferta.matricula` tiene índice
+ÚNICO: dos filas no pueden compartirlo. Cumplirlo exigiría tirar ese único, y
+entonces la matrícula dejaría de identificar una fila —contra la decisión de que
+el alumno ES la matrícula—. Se retiró, con su fila de `configuraciones`.
+
+### El permiso sin puerta
+
+`crear-personas` no lo comprobaba ninguna ruta. Una persona nunca se crea sola:
+nace dentro del alta de un aspirante, un alumno, un docente, un tutor o un
+usuario, y cada una ya tiene su permiso. Se retiró del catálogo y de la base,
+comprobando antes que ningún rol lo tuviera asignado — si alguna escuela se lo
+hubiera dado, borrarlo le cambiaría un rol por la espalda.
+
+### Dos declaraciones de la misma clave
+
+`acta.formato_folio` y `acta.ambito_consecutivo` vivían en `CatalogoAjustes` y
+OTRA VEZ dentro de `GeneradorFolioActa`, cada una con su valor por omisión. Hoy
+coincidían, y ese es el problema: dos declaraciones que coinciden por casualidad
+se separan el día que alguien cambia una, y entonces la pantalla diría que el
+formato es uno y los folios saldrían con otro sin que nada falle.
+
+### La trampa que casi deja la corrección sin efecto
+
+`ProgresoSolicitud::para()` devuelve `['pasos' => …, 'porcentaje' => …]`, no la
+lista de pasos. La primera versión indexaba el resumen entero por `clave`, no
+encontraba ninguno, y los respaldos `?? true` lo convertían en «cumplido»: la
+regla quedaba implementada de mentira, fallando ABIERTA y en silencio.
+
+Y la primera versión de la prueba tampoco lo veía, porque aceptaba las dos
+ramas —«o lo detiene o su expediente está completo»—, que pasa pase lo que pase.
+Se cazó mutando: quitar la regla entera dejaba la suite en verde.
+
+La corrección fue construir el caso en vez de buscar uno que sirviera: un
+aspirante propio, recién creado, sin un solo documento y con un cargo sin pagar.
+Con eso, la única razón posible de que pase es que la regla se aplique. Y el
+acceso a los pasos ahora revienta si falta uno, porque para un bug de
+programación eso es lo correcto — es lo que hace que una prueba lo vea.
+
+### Datos rotos en el demo (no es código)
+
+25 foráneas tienen filas apuntando a registros que ya no existen: `personas`,
+`inscripcion`, `matricula_oferta`, `ciclos`, `campus`, `carreras`. MySQL sólo
+comprueba las foráneas al ESCRIBIR, así que una resiembra con las comprobaciones
+apagadas deja filas envenenadas que viven meses sin dar señales y sólo estorban
+el día que alguien toca el esquema —como ya pasó al agregarle una columna a
+`actividades`—. Es del demo, no del código: las foráneas están declaradas y la
+aplicación escribe por Eloquent.

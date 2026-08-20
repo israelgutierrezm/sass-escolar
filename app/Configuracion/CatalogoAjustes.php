@@ -25,8 +25,6 @@ namespace App\Configuracion;
 final class CatalogoAjustes
 {
     // Alumnos.
-    public const MATRICULA_UNICA = 'alumno.matricula_unica_por_persona';
-
     public const MAX_RECURSAMIENTOS = 'alumno.max_recursamientos_por_materia';
 
     public const ACCION_RECURSAMIENTOS = 'alumno.accion_exceso_recursamientos';
@@ -86,15 +84,6 @@ final class CatalogoAjustes
     public static function todos(): array
     {
         return [
-            new Ajuste(
-                clave: self::MATRICULA_UNICA,
-                grupo: 'Alumnos',
-                etiqueta: 'Una sola matrícula por persona',
-                descripcion: 'Si quien cursa dos programas conserva el mismo número de matrícula en ambos, en vez de recibir uno por programa.',
-                tipo: Ajuste::BOOLEANO,
-                porDefecto: false,
-                consecuencia: 'No renumera a nadie: aplica a las matrículas que se generen a partir de ahora.',
-            ),
             new Ajuste(
                 clave: self::MAX_RECURSAMIENTOS,
                 grupo: 'Alumnos',

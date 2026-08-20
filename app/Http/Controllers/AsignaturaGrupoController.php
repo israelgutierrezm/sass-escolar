@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Configuracion\Ajustes;
+use App\Configuracion\CatalogoAjustes;
 use App\Models\ControlEscolar\AsignaturaGrupo;
+use App\Models\ControlEscolar\Docente;
 use App\Models\ControlEscolar\Grupo;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\ControlEscolar\SituacionAsignaturaGrupo;
@@ -133,6 +136,12 @@ class AsignaturaGrupoController extends Controller
             }
         }
 
+        $motivo = $this->motivoParaNoAsignar((int) $datos['persona_id'], (int) $grupo->ciclo_id);
+
+        if ($motivo !== null) {
+            throw ValidationException::withMessages(['persona_id' => $motivo]);
+        }
+
         $asignatura->docentes()->syncWithoutDetaching([
             $datos['persona_id'] => ['tipo' => $datos['tipo']],
         ]);
@@ -169,8 +178,15 @@ class AsignaturaGrupoController extends Controller
             ->with('docentes')
             ->get();
 
+        $motivo = $this->motivoParaNoAsignar((int) $datos['persona_id'], (int) $grupo->ciclo_id);
+
+        if ($motivo !== null) {
+            throw ValidationException::withMessages(['persona_id' => $motivo]);
+        }
+
         $asignadas = 0;
         $ocupadas = 0;
+        $porLimite = 0;
 
         foreach ($materias as $materia) {
             // Un titular por materia: es quien firma el acta.
@@ -181,6 +197,18 @@ class AsignaturaGrupoController extends Controller
 
             if ($tieneOtroTitular) {
                 $ocupadas++;
+
+                continue;
+            }
+
+            /*
+             * El límite se vuelve a mirar EN CADA VUELTA, contando lo que este
+             * mismo lote lleva asignado. Comprobarlo sólo al principio dejaría
+             * pasar las doce materias de un tirón a alguien con cupo para una:
+             * el límite se rebasaría con la operación que venía a respetarlo.
+             */
+            if ($this->motivoParaNoAsignar((int) $datos['persona_id'], (int) $grupo->ciclo_id) !== null) {
+                $porLimite++;
 
                 continue;
             }
@@ -201,7 +229,66 @@ class AsignaturaGrupoController extends Controller
                 : " {$ocupadas} se omitieron porque ya tenían titular.";
         }
 
+        if ($porLimite > 0) {
+            $mensaje .= $porLimite === 1
+                ? ' 1 se omitió porque alcanzó su carga máxima del ciclo.'
+                : " {$porLimite} se omitieron porque alcanzó su carga máxima del ciclo.";
+        }
+
         return back()->with($asignadas > 0 ? 'exito' : 'advertencia', $mensaje);
+    }
+
+    /**
+     * Por qué NO se le puede dar esta materia, o null si sí.
+     *
+     * Aplica dos reglas que la escuela lleva pudiendo configurar desde siempre y
+     * que NADIE leía: `docente.exige_cedula_para_asignar` y
+     * `docente.max_materias_por_ciclo`. Una escuela podía encenderlas, creer que
+     * había puesto un tope o un requisito, y seguir asignando igual. Un
+     * interruptor que no hace lo que dice es peor que no tenerlo.
+     *
+     * ── El tope se cuenta por CICLO, no en total ───────────────────────────
+     * «Cuántas materias puede impartir en el mismo ciclo» es lo que dice el
+     * ajuste, y es lo que tiene sentido: la carga de un profesor es la de este
+     * semestre, no la de su vida laboral.
+     *
+     * ── Y no desasigna a quien ya rebasa ───────────────────────────────────
+     * Bajar el límite a la mitad a media escuela no puede dejar veinte materias
+     * sin profesor de golpe. Lo dice la propia consecuencia declarada en el
+     * catálogo, y aquí se cumple: esto sólo se consulta al ASIGNAR.
+     */
+    private function motivoParaNoAsignar(int $personaId, int $cicloId): ?string
+    {
+        $ajustes = app(Ajustes::class);
+
+        if ($ajustes->bool(CatalogoAjustes::EXIGE_CEDULA)) {
+            $cedula = Docente::query()->whereKey($personaId)->value('cedula_profesional');
+
+            if (blank($cedula)) {
+                return 'Ese docente no tiene cédula profesional capturada, y la escuela la exige para ponerlo al frente de un grupo.';
+            }
+        }
+
+        $tope = $ajustes->entero(CatalogoAjustes::MAX_MATERIAS_DOCENTE);
+
+        if ($tope <= 0) {
+            return null;
+        }
+
+        $lleva = DB::table('docente_asignatura_grupo as dag')
+            ->join('asignatura_grupo as ag', 'ag.id', '=', 'dag.asignatura_grupo_id')
+            ->join('grupos as g', 'g.id', '=', 'ag.grupo_id')
+            ->where('dag.persona_id', $personaId)
+            ->where('g.ciclo_id', $cicloId)
+            ->whereNull('dag.deleted_at')
+            ->whereNull('ag.deleted_at')
+            ->count();
+
+        if ($lleva >= $tope) {
+            return "Ese docente ya tiene {$lleva} materia(s) en este ciclo y el máximo de la escuela es {$tope}.";
+        }
+
+        return null;
     }
 
     public function quitarDocente(Grupo $grupo, AsignaturaGrupo $asignatura, int $personaId): RedirectResponse

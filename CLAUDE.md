@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**65 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**66 archivos `prueba-*.php`**;
    esta lista decía 23 y llevaba tiempo desactualizada). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
    imprimen `Resultado: N correctas, M fallidas`. **Ojo al barrer con `grep`**:
@@ -57,7 +57,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 65 están en verde.** Llegaron a estar 33 en rojo —no trece: ese primer
+   **Las 66 están en verde.** Llegaron a estar 33 en rojo —no trece: ese primer
    conteo sólo miró las que imprimían «N fallidas» e ignoró las 21 que morían
    antes, con una excepción sin resumen—. Ninguna caía por un cambio reciente;
    se comprobó corriéndolas contra el árbol limpio.
@@ -653,11 +653,43 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     tenía asesor. Lo cazó `prueba-actividad-crm`.
   - Pruebas: `scripts/prueba-actividad-crm.php`, 29 verificaciones, comprobada
     mutando la regla de re-cierre (caen exactamente las tres que la vigilan).
-- Pruebas: 65 suites en `scripts/`, contra la BD real del tenant demo con
-  `DB::rollBack()` al final. **65 en verde** (ver la regla 5 para qué tumbó a
+- Pruebas: 66 suites en `scripts/`, contra la BD real del tenant demo con
+  `DB::rollBack()` al final. **66 en verde** (ver la regla 5 para qué tumbó a
   las 33 que estuvieron en rojo). `prueba-listados` es la primera
   que invoca a los CONTROLADORES y lee sus props de Inertia, en vez de
   reimplementar la consulta: un `or` sin paréntesis no se detecta de otra forma.
+- **Las reglas configurables se APLICAN de verdad** (auditoría del 2026-08-20).
+  Cinco interruptores de `/plataforma/configuracion` no los leía nadie: la
+  escuela podía encenderlos y creer que había puesto una regla. Un interruptor
+  que no hace lo que dice es peor que no tenerlo, porque se confía en él.
+  - `aspirante.exige_documentos_para_convertir` y
+    `aspirante.exige_pago_para_convertir` → `ConvertidorAspirante::impedimentos`,
+    preguntándole a `ProgresoSolicitud` en vez de recalcular: es lo que ya se le
+    enseña al aspirante en su portal, y copiarlo dejaría dos verdades.
+  - `docente.exige_cedula_para_asignar` y `docente.max_materias_por_ciclo` →
+    `AsignaturaGrupoController::motivoParaNoAsignar`, en el alta de uno y en la
+    de lote. En el lote el tope se mira EN CADA VUELTA: comprobarlo sólo al
+    principio dejaría pasar doce materias a quien tiene cupo para una.
+  - `acta.formato_folio` y `acta.ambito_consecutivo` estaban declarados DOS
+    veces —en el catálogo y dentro de `GeneradorFolioActa`, con su propio
+    default—. Coincidían por casualidad; ahora hay una sola declaración.
+  - **Se retiraron dos cosas que no se podían cumplir**:
+    `alumno.matricula_unica_por_persona` prometía el mismo número de matrícula en
+    dos programas, y `matricula_oferta.matricula` tiene índice ÚNICO —cumplirlo
+    exigiría tirarlo, y entonces la matrícula dejaría de identificar una fila—; y
+    el permiso `crear-personas`, que ninguna ruta comprobaba porque una persona
+    nunca se crea sola, nace dentro del alta de un aspirante, alumno, docente,
+    tutor o usuario, cada una con su propio permiso.
+  - **Trampa que mordió al escribir esto**: `ProgresoSolicitud::para()` devuelve
+    `['pasos' => …]`, no la lista de pasos. Indexar el resumen entero no
+    encontraba ninguno y los `?? true` de respaldo lo convertían en «cumplido»:
+    una regla de seguridad fallando ABIERTA y en silencio. La primera versión de
+    la prueba tampoco lo veía —decía «o lo detiene o está completo», que pasa
+    pase lo que pase—. Se cazó mutando y se corrigió construyendo el caso: un
+    aspirante propio, sin un solo documento y con un cargo sin pagar.
+  - Pruebas: `scripts/prueba-reglas-configurables.php`, 18 verificaciones,
+    comprobada mutando cinco reglas.
+
 - **Clases en línea** (`/plataforma/clases-en-linea` para configurarlas, permiso
   `gestionar-clases-en-linea`): el docente programa desde su materia y al alumno
   le aparece el botón para entrar. Zoom y Google Meet.

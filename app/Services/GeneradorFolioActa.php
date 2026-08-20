@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Configuracion\Ajustes;
+use App\Configuracion\CatalogoAjustes;
 use App\Models\ControlEscolar\AsignaturaGrupo;
-use App\Models\Plataforma\Configuracion;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -24,13 +25,17 @@ use Illuminate\Support\Facades\DB;
  */
 class GeneradorFolioActa
 {
-    public const CLAVE_FORMATO = 'acta.formato_folio';
-
-    public const CLAVE_AMBITO = 'acta.ambito_consecutivo';
-
-    private const FORMATO_POR_DEFECTO = 'ACT-{AAAA}-{#####}';
-
-    private const AMBITO_POR_DEFECTO = 'anio';
+    /*
+     * Las claves y sus valores por omisión viven en `CatalogoAjustes`, que es de
+     * donde los lee la pantalla de configuración.
+     *
+     * Aquí estaban declarados OTRA VEZ, con su propio default. Hoy coincidían, y
+     * ese es justamente el problema: dos declaraciones que coinciden por
+     * casualidad se separan el día que alguien cambia una — y entonces la
+     * pantalla diría que el formato es uno y los folios saldrían con otro, sin
+     * que nada falle.
+     */
+    public function __construct(private readonly Ajustes $ajustes) {}
 
     /**
      * Devuelve el siguiente folio. CONSUME el consecutivo: llamarlo dos veces
@@ -42,21 +47,14 @@ class GeneradorFolioActa
 
         $materiaGrupo->loadMissing(['grupo.campus', 'grupo.ciclo']);
 
-        $formato = $this->configuracion(self::CLAVE_FORMATO, self::FORMATO_POR_DEFECTO);
-        $ambito = $this->configuracion(self::CLAVE_AMBITO, self::AMBITO_POR_DEFECTO);
+        $formato = $this->ajustes->texto(CatalogoAjustes::ACTA_FORMATO_FOLIO);
+        $ambito = $this->ajustes->texto(CatalogoAjustes::ACTA_AMBITO);
 
         $consecutivo = $this->siguienteConsecutivo(
             $this->claveContador($ambito, $materiaGrupo, $anio)
         );
 
         return $this->renderizar($formato, $materiaGrupo, $anio, $consecutivo);
-    }
-
-    private function configuracion(string $clave, string $porDefecto): string
-    {
-        $valor = Configuracion::query()->find($clave)?->valor;
-
-        return ($valor === null || trim($valor) === '') ? $porDefecto : $valor;
     }
 
     /** Cada cuánto reinicia la numeración. */

@@ -87,7 +87,15 @@ final class CatalogoPermisos
     private const CATALOGO = [
         'Personas' => [
             'ver-personas' => ['Ver personas', 'Consultar el directorio de personas de la escuela.', [self::ADMINISTRATIVO]],
-            'crear-personas' => ['Dar de alta personas', 'Registrar una persona nueva.', [self::ADMINISTRATIVO]],
+            /*
+             * NO existe `crear-personas`, y es a propósito.
+             *
+             * Estaba declarado y NINGUNA ruta lo comprobaba: una persona nunca se
+             * crea sola, nace dentro del alta de un aspirante, un alumno, un
+             * docente, un tutor o un usuario —y cada una de esas ya tiene su
+             * permiso—. Un permiso asignable que no abre ninguna puerta se
+             * palomea creyendo que concede algo, y no concede nada.
+             */
             'editar-personas' => ['Editar personas', 'Corregir nombre, CURP y datos de contacto. Alcanza a todas las matrículas de esa persona.', [self::ADMINISTRATIVO]],
         ],
 
