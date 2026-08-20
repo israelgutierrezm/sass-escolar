@@ -405,6 +405,11 @@ Tablas:
       bandera es la que gobierna el reparto. Ver `docs/decisiones.md`,
       2026-08-19.
 - [ ] `acceso_videoconferencia` (T, FK → videoconferencias, personas)
+- [x] `grabaciones` + `destinos_grabacion` (T) — el archivado de lo que Zoom o
+      Meet graba, a disco propio, Drive o Dropbox. No estaba en la spec: sólo
+      preveía `videoconferencias.grabacion_ruta`, que no alcanza porque una
+      clase deja varios archivos (video, audio, chat, transcripción). Ver
+      `docs/decisiones.md`, 2026-08-19.
 
 ### Módulo 9 — Titulación y certificación SEP
 Catálogos TC:

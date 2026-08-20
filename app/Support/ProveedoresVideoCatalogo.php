@@ -78,6 +78,17 @@ class ProveedoresVideoCatalogo
                     ],
                     'client_id' => ['etiqueta' => 'Client ID', 'requerido' => true],
                     'client_secret' => ['etiqueta' => 'Client Secret', 'requerido' => true],
+                    /*
+                     * Opcional para dar clase, obligatorio para archivar: sin él
+                     * no se puede comprobar que el aviso de grabación viene de
+                     * Zoom, y un aviso sin firma se rechaza.
+                     */
+                    'webhook_secret' => [
+                        'etiqueta' => 'Secret Token del webhook',
+                        'requerido' => false,
+                        'ayuda' => 'Sólo hace falta para guardar las grabaciones. Es el «Secret Token» de la app, '
+                            .'y la URL que se registra en Zoom es la de abajo.',
+                    ],
                 ],
                 'campoCuenta' => [
                     'etiqueta' => 'Correo de la licencia',

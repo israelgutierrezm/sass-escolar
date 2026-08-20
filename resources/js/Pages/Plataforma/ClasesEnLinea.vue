@@ -48,7 +48,21 @@ interface Proveedor {
     cuentas: Cuenta[];
 }
 
-const props = defineProps<{ proveedores: Proveedor[] }>();
+interface DestinoGrabacion {
+    clave: string;
+    nombre: string;
+    descripcion: string;
+    color: string;
+    necesita_cuenta: boolean;
+    activo: boolean;
+    completo: boolean;
+    campos: Campo[];
+}
+
+const props = defineProps<{
+    proveedores: Proveedor[];
+    grabaciones: { destinos: DestinoGrabacion[]; url_aviso: string };
+}>();
 
 /** Qué proveedor tiene abierto el formulario de credenciales. */
 const configurando = ref<string | null>(null);
@@ -108,6 +122,45 @@ function quitarCuenta(c: Cuenta): void {
 
 function activasDe(p: Proveedor): number {
     return p.cuentas.filter((c) => c.activa).length;
+}
+
+/*
+ * Dónde se guardan las grabaciones. UNO a la vez: encender uno apaga los
+ * demás, y el servidor lo vuelve a imponer. Con dos habría que decidir qué
+ * enlace se le enseña al alumno y se pagaría dos veces el mismo archivo.
+ */
+const destinoAbierto = ref<string | null>(null);
+
+const archivado = useForm<{ activo: boolean; credenciales: Record<string, string> }>({
+    activo: false,
+    credenciales: {},
+});
+
+function abrirDestino(d: DestinoGrabacion): void {
+    destinoAbierto.value = destinoAbierto.value === d.clave ? null : d.clave;
+    archivado.clearErrors();
+    archivado.activo = d.activo;
+    archivado.credenciales = Object.fromEntries(d.campos.map((c) => [c.nombre, '']));
+}
+
+function guardarDestino(d: DestinoGrabacion): void {
+    archivado.put('/plataforma/clases-en-linea/destinos/' + d.clave, {
+        preserveScroll: true,
+        onSuccess: () => { destinoAbierto.value = null; },
+    });
+}
+
+/** El destino sin credenciales (el disco propio) se enciende de un clic. */
+function usarDestino(d: DestinoGrabacion): void {
+    router.put(
+        '/plataforma/clases-en-linea/destinos/' + d.clave,
+        { activo: !d.activo, credenciales: {} },
+        { preserveScroll: true },
+    );
+}
+
+function copiarUrlAviso(): void {
+    navigator.clipboard?.writeText(props.grabaciones.url_aviso);
 }
 </script>
 
@@ -342,6 +395,158 @@ function activasDe(p: Proveedor): number {
                         </button>
                     </li>
                 </ul>
+            </div>
+        </section>
+
+        <!-- ===== Dónde se guardan las grabaciones ===== -->
+        <section class="tarjeta mt-6 overflow-hidden">
+            <header class="px-5 py-4">
+                <h2 class="text-base font-semibold text-contenido">Guardar las grabaciones</h2>
+                <p class="mt-1 max-w-3xl text-sm text-suave">
+                    Zoom da unos pocos GB por licencia y, cuando se llenan, deja de grabar o borra
+                    lo viejo; las de Meet quedan en el Drive de la cuenta que organiza, donde nadie
+                    las encuentra. Traerlas a un sitio de la escuela es lo que las vuelve
+                    consultables, y el enlace queda colgado de la clase.
+                </p>
+                <p class="mt-2 max-w-3xl text-xs text-suave">
+                    <strong class="text-contenido">Se guarda en uno solo.</strong> Cambiar de sitio
+                    no mueve lo ya guardado: lo viejo se sigue abriendo donde está.
+                </p>
+            </header>
+
+            <div
+                v-for="d in grabaciones.destinos"
+                :key="d.clave"
+                class="border-t px-5 py-4"
+                :style="{ borderColor: 'var(--color-borde)' }"
+            >
+                <div class="flex flex-wrap items-start gap-3">
+                    <span
+                        class="mt-0.5 h-8 w-8 shrink-0 rounded-lg"
+                        :style="{ backgroundColor: 'color-mix(in srgb, ' + d.color + ' 18%, transparent)', border: '1px solid ' + d.color }"
+                    />
+                    <div class="min-w-0 flex-1">
+                        <span class="flex flex-wrap items-center gap-2">
+                            <strong class="text-sm text-contenido">{{ d.nombre }}</strong>
+                            <span
+                                v-if="d.activo"
+                                class="rounded-full px-2 py-0.5 text-[11px] font-medium"
+                                :style="{ backgroundColor: 'color-mix(in srgb, #16a34a 14%, transparent)', color: '#15803d' }"
+                            >
+                                En uso
+                            </span>
+                            <span
+                                v-else-if="d.necesita_cuenta && !d.completo"
+                                class="rounded-full px-2 py-0.5 text-[11px] font-medium"
+                                :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 14%, transparent)', color: 'var(--color-suave)' }"
+                            >
+                                Sin conectar
+                            </span>
+                        </span>
+                        <p class="mt-0.5 text-sm text-suave">{{ d.descripcion }}</p>
+                    </div>
+
+                    <div class="flex shrink-0 items-center gap-2">
+                        <button
+                            v-if="!d.necesita_cuenta || d.completo"
+                            type="button"
+                            class="rounded-lg border px-2.5 py-1 text-xs"
+                            :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-contenido)' }"
+                            @click="usarDestino(d)"
+                        >
+                            {{ d.activo ? 'Dejar de usar' : 'Usar éste' }}
+                        </button>
+                        <button
+                            v-if="d.necesita_cuenta"
+                            type="button"
+                            class="rounded-lg border px-2.5 py-1 text-xs"
+                            :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-contenido)' }"
+                            @click="abrirDestino(d)"
+                        >
+                            {{ destinoAbierto === d.clave ? 'Cerrar' : 'Conectar' }}
+                        </button>
+                    </div>
+                </div>
+
+                <form
+                    v-if="destinoAbierto === d.clave"
+                    class="mt-3 rounded-lg border p-4"
+                    :style="{ borderColor: 'var(--color-borde)' }"
+                    @submit.prevent="guardarDestino(d)"
+                >
+                    <div v-for="campo in d.campos" :key="campo.nombre" class="mb-3">
+                        <label class="mb-1 flex flex-wrap items-baseline gap-2 text-sm font-medium text-contenido">
+                            {{ campo.etiqueta }}
+                            <span v-if="campo.requerido" class="text-red-500">*</span>
+                            <span v-if="campo.puesto" class="text-[11px] font-normal" :style="{ color: '#15803d' }">
+                                guardado — déjalo vacío para no cambiarlo
+                            </span>
+                        </label>
+                        <textarea
+                            v-if="campo.nombre === 'cuenta_servicio_json'"
+                            v-model="archivado.credenciales[campo.nombre]"
+                            rows="3"
+                            class="w-full rounded-lg border px-3 py-2 font-mono text-xs"
+                            :style="{ borderColor: 'var(--color-borde)', backgroundColor: 'var(--color-superficie)', color: 'var(--color-contenido)' }"
+                        />
+                        <input
+                            v-else
+                            v-model="archivado.credenciales[campo.nombre]"
+                            type="password"
+                            autocomplete="off"
+                            class="w-full rounded-lg border px-3 py-2 text-sm"
+                            :style="{ borderColor: 'var(--color-borde)', backgroundColor: 'var(--color-superficie)', color: 'var(--color-contenido)' }"
+                        />
+                        <p v-if="campo.ayuda" class="mt-1 text-xs text-suave">{{ campo.ayuda }}</p>
+                    </div>
+
+                    <label class="flex items-center gap-2 text-sm text-contenido">
+                        <input v-model="archivado.activo" type="checkbox" />
+                        Guardar aquí las grabaciones nuevas
+                    </label>
+                    <p v-if="archivado.errors.activo" class="mt-1 text-xs text-red-600">{{ archivado.errors.activo }}</p>
+
+                    <button
+                        type="submit"
+                        class="mt-3 rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
+                        :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+                        :disabled="archivado.processing"
+                    >
+                        Guardar
+                    </button>
+                </form>
+            </div>
+
+            <!-- Lo que hay que pegar en Zoom. Copiar mal esta dirección es el
+                 error más fácil de cometer y el más difícil de diagnosticar:
+                 todo parece bien y las grabaciones no llegan nunca. -->
+            <div class="border-t px-5 py-4" :style="{ borderColor: 'var(--color-borde)' }">
+                <h3 class="text-sm font-semibold text-contenido">Para que Zoom avise</h3>
+                <p class="mt-1 max-w-3xl text-xs text-suave">
+                    En tu app de Zoom, activa el evento
+                    <strong class="text-contenido">recording.completed</strong> y pega esta
+                    dirección. Copia también su «Secret Token» al campo de credenciales de Zoom,
+                    arriba: sin él los avisos se rechazan.
+                </p>
+                <div class="mt-2 flex flex-wrap items-center gap-2">
+                    <code
+                        class="rounded-lg border px-3 py-1.5 text-xs"
+                        :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-contenido)' }"
+                    >{{ grabaciones.url_aviso }}</code>
+                    <button
+                        type="button"
+                        class="rounded-lg border px-2.5 py-1 text-xs"
+                        :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-contenido)' }"
+                        @click="copiarUrlAviso"
+                    >
+                        Copiar
+                    </button>
+                </div>
+                <p class="mt-2 max-w-3xl text-xs text-suave">
+                    Ojo: Zoom sólo entrega por API las grabaciones
+                    <strong class="text-contenido">en la nube</strong>. Si el docente graba «en este
+                    equipo», el archivo se queda en su computadora y no hay nada que traer.
+                </p>
             </div>
         </section>
     </AppLayout>

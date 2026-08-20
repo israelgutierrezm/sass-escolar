@@ -3135,3 +3135,83 @@ Se agregó el 422 a la lista, **con la condición de que el motivo sea nuestro**
 `ValidationException` también es 422 y a ésa la maneja Inertia devolviendo los
 errores por campo: dejarlo pasar a secas habría hecho que todos los formularios
 del sistema perdieran sus mensajes de validación.
+
+## 2026-08-19 — Archivar las grabaciones: dónde, y por qué hace falta
+
+Pedido del cliente: guardar en automático las grabaciones de Zoom y Meet en una
+nube, con opciones como Google Drive o Dropbox.
+
+### Tres hechos que gobiernan el diseño
+
+1. **Zoom sólo entrega por API lo que grabó EN LA NUBE.** Si el docente elige
+   «grabar en este equipo», el archivo se queda en su computadora y no hay nada
+   que traer. La grabación en la nube es de pago y da unos pocos GB por licencia:
+   cuando se llenan, Zoom deja de grabar o empieza a borrar lo viejo. Por eso
+   archivar no es un lujo — es lo que evita perder el semestre.
+2. **Las grabaciones de Meet YA están en Google Drive**, en el Drive de quien
+   organizó el evento. Eso cambia el trabajo: si el destino elegido es Drive, no
+   hay que copiar nada (sería pagar dos veces el mismo archivo en el mismo
+   Drive); con Dropbox o con el disco propio, sí.
+3. **Meet no tiene webhook de grabación.** Zoom avisa con `recording.completed`;
+   a Google hay que preguntarle. De ahí que haya un webhook para uno y un comando
+   periódico para el otro.
+
+### UN destino a la vez
+
+Con dos encendidos habría que decidir qué enlace se le enseña al alumno, se
+pagarían dos almacenamientos por el mismo archivo, y el día que uno falle media
+cartera de clases estaría en un sitio y media en otro.
+
+Cambiar de destino **no mueve lo ya archivado**: cada grabación guarda a dónde
+fue, así que lo viejo se sigue abriendo donde está.
+
+### El destino por omisión es el disco de la escuela
+
+Es el único que no pide cuentas de nadie, y además el único que puede acotar de
+verdad quién abre el archivo: la URL la sirve Acadion, que comprueba que quien
+pide sea el docente de la materia o un alumno inscrito. Un enlace de Drive o de
+Dropbox, una vez creado, lo abre cualquiera que lo tenga.
+
+### La grabación nace INVISIBLE para el alumno
+
+Y se enciende a mano, desde la materia. Una clase grabada trae caras y voces de
+menores de edad: publicarla es una decisión sobre datos personales, no un efecto
+secundario de que alguien haya configurado el archivado.
+
+### Se descarga a disco por trozos, y el temporal se borra SIEMPRE
+
+`Http::get()->body()` traería el video entero a memoria y tumbaría el proceso. Y
+el `finally` que borra el temporal no es higiene: sin él, cada reintento de cada
+clase deja medio giga en la partición del servidor y en un semestre tira todo lo
+demás que escribe ahí.
+
+### Idempotencia por `(origen, id_externo)`
+
+Zoom reenvía su aviso si no se le contesta rápido —y contestar tarde es fácil si
+uno se pone a descargar dentro del webhook—. Sin esa llave única, la misma clase
+se archivaría tres veces.
+
+### El webhook comprueba FIRMA, no origen
+
+En los pagos, el aviso sólo dice QUÉ preguntar y la respuesta sale de consultarle
+a la pasarela. Aquí no se puede: el cuerpo trae la URL de descarga y esa es la
+que se usa. Así que se valida el HMAC que manda Zoom con el token secreto de la
+escuela, con ventana de cinco minutos contra reenvíos. **Sin secreto configurado
+el aviso se rechaza**: aceptarlo a ciegas convertiría el endpoint en
+«descárgame lo que yo diga», que es un servidor haciendo peticiones a donde le
+manden.
+
+### Lo que quedó sin conectar, y por qué se dice
+
+La consulta real a la API de Meet (`conferenceRecords.recordings`) necesita un
+Workspace con grabación habilitada para probarse. El comando
+`clases:recoger-grabaciones` existe, recorre las clases candidatas y **avisa que
+esa parte no está conectada** en vez de fingir que revisó: un comando que dice
+«listo» sin haber mirado deja a la escuela creyendo que sus clases se guardan.
+
+### Una trampa de Windows que hizo falsa una prueba
+
+`tempnam()` recorta el prefijo a TRES caracteres: «grabacion-» se vuelve
+`gra910D.tmp`. La comprobación de «no quedan temporales» buscaba por
+`grabacion-*` y no encontraba nunca nada, así que pasaba con el borrado quitado.
+Se descubrió mutando a propósito. Ahora compara el directorio antes y después.

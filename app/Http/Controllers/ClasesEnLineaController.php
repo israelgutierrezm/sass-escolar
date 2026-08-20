@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Lms\CuentaVideo;
+use App\Models\Lms\DestinoGrabacion;
 use App\Models\Lms\IntegracionVideo;
+use App\Support\DestinosGrabacionCatalogo;
 use App\Support\ProveedoresVideoCatalogo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -73,7 +75,92 @@ class ClasesEnLineaController extends Controller
                         ])->values(),
                     ];
                 })->values(),
+            'grabaciones' => [
+                'destinos' => collect(DestinosGrabacionCatalogo::todos())
+                    ->map(function (array $catalogo, string $clave) {
+                        $destino = DestinoGrabacion::para($clave);
+                        $guardadas = $destino->credencialesArray();
+
+                        return [
+                            'clave' => $clave,
+                            'nombre' => $catalogo['nombre'],
+                            'descripcion' => $catalogo['descripcion'],
+                            'color' => $catalogo['color'],
+                            'necesita_cuenta' => $catalogo['necesitaCuenta'],
+                            'activo' => (bool) $destino->activo,
+                            'completo' => $destino->credencialesCompletas(),
+                            'campos' => collect($catalogo['campos'])->map(fn (array $campo, string $nombre) => [
+                                'nombre' => $nombre,
+                                'etiqueta' => $campo['etiqueta'],
+                                'requerido' => $campo['requerido'],
+                                'ayuda' => $campo['ayuda'] ?? null,
+                                'puesto' => filled($guardadas[$nombre] ?? null),
+                            ])->values(),
+                        ];
+                    })->values(),
+                // La URL que hay que registrar en Zoom. Se arma aquí porque
+                // depende del dominio de la escuela y copiarla mal es el error
+                // más fácil de cometer y el más difícil de diagnosticar.
+                'url_aviso' => url('/clases/grabacion/zoom'),
+            ],
         ]);
+    }
+
+    /** Enciende un destino de archivado y apaga los demás. */
+    public function guardarDestino(Request $request, string $destino): RedirectResponse
+    {
+        $catalogo = DestinosGrabacionCatalogo::uno($destino);
+
+        abort_if($catalogo === null, 404);
+
+        $datos = $request->validate([
+            'activo' => ['boolean'],
+            'credenciales' => ['array'],
+            'credenciales.*' => ['nullable', 'string', 'max:8000'],
+        ]);
+
+        $fila = DestinoGrabacion::para($destino);
+        $credenciales = $fila->credencialesArray();
+
+        foreach ($catalogo['campos'] as $nombre => $campo) {
+            if (filled($datos['credenciales'][$nombre] ?? null)) {
+                $credenciales[$nombre] = $datos['credenciales'][$nombre];
+            }
+        }
+
+        $fila->credenciales = $credenciales;
+
+        if ($request->boolean('activo') && ! $fila->credencialesCompletas()) {
+            $faltan = collect(DestinosGrabacionCatalogo::camposRequeridos($destino))
+                ->reject(fn (string $c) => filled($credenciales[$c] ?? null))
+                ->map(fn (string $c) => $catalogo['campos'][$c]['etiqueta'])
+                ->implode(', ');
+
+            throw ValidationException::withMessages([
+                'activo' => "No se puede usar {$catalogo['nombre']} sin sus credenciales. Falta: {$faltan}.",
+            ]);
+        }
+
+        $fila->activo = $request->boolean('activo');
+        $fila->save();
+
+        /*
+         * Uno solo a la vez. Con dos encendidos habría que decidir qué enlace se
+         * le enseña al alumno y se pagaría dos veces el mismo archivo.
+         *
+         * Lo ya archivado NO se mueve: cada grabación guarda a dónde fue, así
+         * que lo viejo sigue abriéndose donde está.
+         */
+        if ($fila->activo) {
+            DestinoGrabacion::query()->whereKeyNot($fila->id)->update(['activo' => false]);
+        }
+
+        return back(303)->with(
+            'exito',
+            $fila->activo
+                ? "Las grabaciones nuevas se guardarán en {$catalogo['nombre']}. Lo ya archivado se queda donde está."
+                : 'Destino apagado. Las grabaciones que lleguen no se van a guardar.',
+        );
     }
 
     /** Guarda credenciales y el interruptor de un proveedor. */

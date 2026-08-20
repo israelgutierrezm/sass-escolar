@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**64 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**65 archivos `prueba-*.php`**;
    esta lista decía 23 y llevaba tiempo desactualizada). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
    imprimen `Resultado: N correctas, M fallidas`. **Ojo al barrer con `grep`**:
@@ -57,7 +57,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 64 están en verde.** Llegaron a estar 33 en rojo —no trece: ese primer
+   **Las 65 están en verde.** Llegaron a estar 33 en rojo —no trece: ese primer
    conteo sólo miró las que imprimían «N fallidas» e ignoró las 21 que morían
    antes, con una excepción sin resumen—. Ninguna caía por un cambio reciente;
    se comprobó corriéndolas contra el árbol limpio.
@@ -375,6 +375,9 @@ npm run dev                # o npm run build
   así que **no se puede entrar como él**. Para ver su portal se usa la
   suplantación: `POST /suplantar/275` desde una sesión con
   `suplantar-usuarios`, y se sale con «Volver a mi cuenta».
+- `clases:recoger-grabaciones` busca en Google las de las clases de Meet ya
+  terminadas. La consulta a la API todavía no está conectada (hace falta un
+  Workspace real); el comando lo dice en vez de fingir.
 - `php artisan tenants:migrate`, `tenants:seed`, `tenants:list`.
 - Si `demo.localhost` no resuelve, agregar `127.0.0.1 demo.localhost` a
   `C:\Windows\System32\drivers\etc\hosts`.
@@ -635,8 +638,8 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     tenía asesor. Lo cazó `prueba-actividad-crm`.
   - Pruebas: `scripts/prueba-actividad-crm.php`, 29 verificaciones, comprobada
     mutando la regla de re-cierre (caen exactamente las tres que la vigilan).
-- Pruebas: 64 suites en `scripts/`, contra la BD real del tenant demo con
-  `DB::rollBack()` al final. **64 en verde** (ver la regla 5 para qué tumbó a
+- Pruebas: 65 suites en `scripts/`, contra la BD real del tenant demo con
+  `DB::rollBack()` al final. **65 en verde** (ver la regla 5 para qué tumbó a
   las 33 que estuvieron en rojo). `prueba-listados` es la primera
   que invoca a los CONTROLADORES y lee sus props de Inertia, en vez de
   reimplementar la consulta: un `or` sin paréntesis no se detecta de otra forma.
@@ -675,6 +678,43 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     mutando cuatro reglas —quitarle el límite a Zoom, medir el traslape sólo por
     la hora de inicio, dar el enlace antes de que abra y filtrar el de
     anfitrión— y caen exactamente las que las vigilan.
+
+- **Grabaciones archivadas** (`/plataforma/clases-en-linea`, misma pantalla):
+  lo que Zoom o Meet grabó se copia a donde la escuela diga y el enlace queda
+  colgado de la clase.
+  - **Tres hechos que gobiernan el diseño.** (1) Zoom sólo entrega por API lo
+    grabado EN LA NUBE —«grabar en este equipo» se queda en la computadora del
+    docente—, y esa nube da unos pocos GB por licencia. (2) Las de Meet YA están
+    en el Drive de quien organizó, así que con destino Drive no hay que copiar
+    nada. (3) Meet **no tiene webhook**: Zoom avisa con `recording.completed` y a
+    Google hay que preguntarle, de ahí el comando `clases:recoger-grabaciones`.
+  - **UN destino a la vez** (`disco`, `drive`, `dropbox`). Con dos habría que
+    decidir qué enlace ve el alumno y se pagaría dos veces el mismo archivo.
+    Cambiar de destino NO mueve lo ya archivado: cada grabación guarda a dónde
+    fue.
+  - **El destino por omisión es el disco de la escuela**, y es el único que
+    puede acotar de verdad quién abre el archivo: la URL la sirve Acadion
+    comprobando materia y matrícula. Un enlace de Drive o Dropbox lo abre
+    cualquiera que lo tenga.
+  - **La grabación nace INVISIBLE para el alumno** y la enciende el docente
+    desde su materia. Trae caras y voces de menores: publicarla es una decisión
+    sobre datos personales, no un efecto de haber configurado el archivado.
+  - **Idempotente por `(origen, id_externo)`**: Zoom reenvía su aviso si no se
+    le contesta rápido, y sin esa llave la misma clase se archiva tres veces.
+  - **El webhook comprueba FIRMA** (HMAC con el Secret Token, ventana de 5 min).
+    No puede usar la defensa de los pagos —allá el aviso sólo dice qué preguntar;
+    aquí el cuerpo trae la URL que se descarga—. **Sin secreto configurado se
+    rechaza**: aceptarlo a ciegas sería «descárgame lo que yo diga».
+  - Se descarga por trozos a un temporal que se borra en `finally`, también
+    cuando falla: sin eso, cada reintento deja medio giga en la partición.
+  - **Lo que falta es la consulta a la API de Meet**, que necesita un Workspace
+    real para probarse. El comando existe y **avisa que esa parte no está
+    conectada** en vez de decir «listo» sin haber mirado.
+  - Pruebas: `scripts/prueba-grabaciones.php`, 26 verificaciones, comprobada
+    mutando cuatro reglas. **Una de esas mutaciones destapó que la prueba de los
+    temporales era falsa**: en Windows `tempnam()` recorta el prefijo a TRES
+    letras (`grabacion-` → `gra910D.tmp`), así que el glob no encontraba nada y
+    pasaba con el borrado quitado. Ahora compara el directorio antes y después.
 
 - **Rúbricas de evaluación** (`/rubricas`, permiso `gestionar-rubricas` y
   derivado `usar-rubricas`): calificar un trabajo eligiendo un nivel por

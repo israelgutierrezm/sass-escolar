@@ -14,6 +14,7 @@ use App\Models\Lms\Actividad;
 use App\Models\Lms\ActividadVista;
 use App\Models\Lms\Curso;
 use App\Models\Lms\Entrega;
+use App\Models\Lms\Grabacion;
 use App\Models\Lms\Videoconferencia;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -332,6 +333,10 @@ class MisCursosController extends Controller
      * mientras la clase está abierta. Armar aquí el arreglo campo por campo
      * habría puesto esa salvaguarda a merced de que alguien recuerde omitirlo.
      *
+     * ── Y las que ya pasaron, si dejaron grabación ─────────────────────────
+     * Una clase terminada deja de tener botón pero puede tener video, y es justo
+     * lo que busca quien faltó. Por eso se consultan aparte de las vigentes.
+     *
      * ── Se muestran también las que ya vienen ──────────────────────────────
      * No sólo la que está abierta ahora: saber que el jueves hay clase a las 9
      * es la mitad del valor. Lo que cambia con la hora es si el botón lleva a
@@ -345,12 +350,40 @@ class MisCursosController extends Controller
 
         return Videoconferencia::query()
             ->where('asignatura_grupo_id', $inscripcion->asignatura_grupo_id)
+            // Con sus grabaciones: `paraElAlumno` las filtra, pero si la
+            // relación no está cargada devuelve vacío en vez de consultarla una
+            // vez por clase.
+            ->with('grabaciones')
             ->vigentes()
             ->limit(10)
             ->get()
             ->map(fn (Videoconferencia $v) => $v->paraElAlumno($antelacion))
+            ->concat($this->grabadasDe($inscripcion, $antelacion))
             ->values()
             ->all();
+    }
+
+    /**
+     * Las clases ya terminadas que dejaron grabación visible.
+     *
+     * Sólo las que tienen algo que ver: una clase pasada sin video no le sirve
+     * de nada al alumno y llenaría la lista de renglones muertos.
+     *
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     */
+    private function grabadasDe(Inscripcion $inscripcion, int $antelacion)
+    {
+        return Videoconferencia::query()
+            ->where('asignatura_grupo_id', $inscripcion->asignatura_grupo_id)
+            ->where('fin', '<', now())
+            ->whereHas('grabaciones', fn ($q) => $q
+                ->where('estado', Grabacion::ARCHIVADA)
+                ->where('visible_alumnos', true))
+            ->with('grabaciones')
+            ->orderByDesc('inicio')
+            ->limit(10)
+            ->get()
+            ->map(fn (Videoconferencia $v) => $v->paraElAlumno($antelacion));
     }
 
     /**

@@ -33,6 +33,7 @@ use App\Http\Controllers\CuentaBancariaController;
 use App\Http\Controllers\ConceptoPagoController;
 use App\Http\Controllers\ConfiguracionController;
 use App\Http\Controllers\CorreoConfigController;
+use App\Http\Controllers\AvisoGrabacionController;
 use App\Http\Controllers\ClaseEnVivoController;
 use App\Http\Controllers\ClasesEnLineaController;
 use App\Http\Controllers\CursoPlantillaController;
@@ -67,6 +68,7 @@ use App\Http\Controllers\FormularioController;
 use App\Http\Controllers\FormularioPublicoController;
 use App\Http\Controllers\ForoController;
 use App\Http\Controllers\FotoPersonaController;
+use App\Http\Controllers\GrabacionController;
 use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\HorarioController;
 use App\Http\Controllers\IdentidadController;
@@ -196,6 +198,21 @@ Route::middleware([
      * salientes: sin él, cualquiera puede usarnos para hacerle peticiones a
      * Mercado Pago.
      */
+    /*
+     * El aviso de Zoom de que una grabación ya está lista.
+     *
+     * Público y sin CSRF por lo mismo que el de pagos: lo manda un servidor que
+     * no tiene sesión. Pero aquí la defensa NO puede ser la misma —allá el aviso
+     * sólo dice qué preguntar; acá el cuerpo trae la URL de descarga y ésa se
+     * usa—, así que se comprueba la FIRMA con el secreto de la escuela. Sin
+     * secreto configurado se rechaza, en vez de convertir esto en
+     * «descárgame lo que yo diga».
+     */
+    Route::post('/clases/grabacion/zoom', [AvisoGrabacionController::class, 'zoom'])
+        ->middleware('throttle:120,1')
+        ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
+        ->name('tenant.clases.grabacion.zoom');
+
     Route::post('/pagos/aviso/{pasarela}', [CobroEnLineaController::class, 'aviso'])
         ->middleware('throttle:120,1')
         ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
@@ -1645,6 +1662,20 @@ Route::middleware([
          * en todo `/docencia`: programar en el grupo de otro es entrar a su
          * salón.
          */
+        /*
+         * Abrir una grabación archivada.
+         *
+         * SIN `can:` a propósito: por aquí entran el docente de la materia y el
+         * alumno inscrito, y un middleware con el permiso de uno rebotaría al
+         * otro. Lo resuelve el controlador con el par de siempre —pertenencia
+         * más, en el caso del alumno, que la escuela la haya hecho visible—.
+         */
+        Route::get('clases/grabaciones/{grabacion}', [GrabacionController::class, 'ver'])
+            ->whereNumber('grabacion')->name('tenant.grabaciones.ver');
+
+        Route::patch('clases/grabaciones/{grabacion}/visibilidad', [GrabacionController::class, 'visibilidad'])
+            ->whereNumber('grabacion')->name('tenant.grabaciones.visibilidad');
+
         Route::controller(ClaseEnVivoController::class)
             ->prefix('docencia/materias/{asignaturaGrupo}/clases')->name('tenant.clasesvivo.')
             ->middleware('can:ver-mis-materias')
@@ -2144,6 +2175,7 @@ Route::middleware([
                 Route::get('/', 'index')->name('index');
                 Route::put('{proveedor}', 'guardar')->name('guardar');
                 Route::post('{proveedor}/cuentas', 'agregarCuenta')->name('cuentas.store');
+                Route::put('destinos/{destino}', 'guardarDestino')->name('destinos.guardar');
                 Route::put('cuentas/{cuenta}', 'alternarCuenta')->whereNumber('cuenta')->name('cuentas.alternar');
                 Route::delete('cuentas/{cuenta}', 'eliminarCuenta')->whereNumber('cuenta')->name('cuentas.destroy');
             });

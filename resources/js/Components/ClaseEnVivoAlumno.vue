@@ -23,6 +23,8 @@ interface Clase {
     estado: string;
     abierta: boolean;
     url: string | null;
+    /** Sólo las que la escuela hizo visibles. El servidor ya las filtró. */
+    grabaciones: { id: number; tipo: string; peso: string | null }[];
 }
 
 const props = defineProps<{ clases: Clase[] }>();
@@ -31,7 +33,25 @@ const nombreDe: Record<string, string> = { zoom: 'Zoom', meet: 'Google Meet' };
 
 /** La que está abierta ahora, si hay alguna. */
 const enVivo = computed(() => props.clases.find((c) => c.abierta && c.url));
-const siguientes = computed(() => props.clases.filter((c) => c !== enVivo.value));
+
+/** Lo que todavía no ocurre: se anuncia, sin botón. */
+const siguientes = computed(() =>
+    props.clases.filter((c) => c !== enVivo.value && !c.grabaciones.length),
+);
+
+/*
+ * Las que ya pasaron y dejaron video. Van en su propio bloque y no mezcladas
+ * con las próximas: son dos cosas distintas —«qué me toca» y «qué me perdí»— y
+ * juntas obligan a leer la fecha de cada renglón para saber cuál es cuál.
+ */
+const grabadas = computed(() => props.clases.filter((c) => c.grabaciones.length > 0));
+
+const nombreTipo: Record<string, string> = {
+    video: 'Video',
+    audio: 'Audio',
+    chat: 'Chat',
+    transcripcion: 'Transcripción',
+};
 </script>
 
 <template>
@@ -82,6 +102,31 @@ const siguientes = computed(() => props.clases.filter((c) => c !== enVivo.value)
             <p class="mt-2 text-xs text-suave">
                 El botón para entrar aparece aquí solo, unos minutos antes de que empiece.
             </p>
+        </div>
+
+        <!-- Clases grabadas: lo que busca quien faltó. -->
+        <div v-if="grabadas.length" class="border-t border-borde px-5 py-4">
+            <h3 class="text-xs font-semibold uppercase tracking-wide text-suave">Clases grabadas</h3>
+            <ul class="mt-2 space-y-2">
+                <li v-for="c in grabadas" :key="c.id">
+                    <span class="block text-sm text-contenido">{{ c.titulo }}</span>
+                    <span class="text-xs text-suave">{{ c.inicio }}</span>
+                    <span class="mt-1 flex flex-wrap gap-2">
+                        <a
+                            v-for="g in c.grabaciones"
+                            :key="g.id"
+                            :href="`/clases/grabaciones/${g.id}`"
+                            target="_blank"
+                            rel="noopener"
+                            class="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs"
+                            :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-acento)' }"
+                        >
+                            {{ nombreTipo[g.tipo] ?? 'Archivo' }}
+                            <span v-if="g.peso" class="text-suave">{{ g.peso }}</span>
+                        </a>
+                    </span>
+                </li>
+            </ul>
         </div>
     </section>
 </template>

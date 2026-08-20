@@ -99,7 +99,7 @@ class ClaseEnVivoController extends Controller
     {
         $sesiones = Videoconferencia::query()
             ->where('asignatura_grupo_id', $asignaturaGrupo->id)
-            ->with('cuenta:id,etiqueta')
+            ->with(['cuenta:id,etiqueta', 'grabaciones'])
             ->orderByDesc('inicio')
             ->limit(30)
             ->get();
@@ -134,6 +134,22 @@ class ClaseEnVivoController extends Controller
                  */
                 'url_iniciar' => $s->estaCancelada() ? null : ($s->url_anfitrion ?? $s->url_join),
                 'url_invitado' => $s->url_join,
+                /*
+                 * Lo que dejó grabado. Se manda incluso lo que falló: si sólo
+                 * viajara lo archivado, una grabación que no se pudo traer sería
+                 * indistinguible de una clase que nadie grabó, y son dos
+                 * problemas distintos.
+                 */
+                'grabaciones' => $s->grabaciones->map(fn ($g) => [
+                    'id' => $g->id,
+                    'tipo' => $g->tipo,
+                    'nombre' => $g->nombre,
+                    'estado' => $g->estado,
+                    'peso' => $g->pesoLegible(),
+                    'destino' => $g->destino,
+                    'error' => $g->error,
+                    'visible_alumnos' => (bool) $g->visible_alumnos,
+                ])->values(),
             ])->values(),
         ];
     }

@@ -29,6 +29,18 @@ interface Sesion {
     /** Entra como anfitrión. NUNCA se le da a un alumno. */
     url_iniciar: string | null;
     url_invitado: string | null;
+    grabaciones: Grabacion[];
+}
+
+interface Grabacion {
+    id: number;
+    tipo: string;
+    nombre: string;
+    estado: string;
+    peso: string | null;
+    destino: string | null;
+    error: string | null;
+    visible_alumnos: boolean;
 }
 
 const props = defineProps<{
@@ -64,6 +76,29 @@ function cancelar(s: Sesion): void {
 /** Las que todavía no terminan, arriba: es lo que reclama atención. */
 const proximas = computed(() => props.sesiones.filter((s) => !s.termino && s.estado !== 'cancelada'));
 const pasadas = computed(() => props.sesiones.filter((s) => s.termino || s.estado === 'cancelada'));
+
+const nombreTipo: Record<string, string> = {
+    video: 'Video',
+    audio: 'Audio',
+    chat: 'Chat',
+    transcripcion: 'Transcripción',
+    otro: 'Archivo',
+};
+
+/**
+ * Encender la grabación para el grupo.
+ *
+ * Nace apagada y se enciende a mano a propósito: una clase grabada trae caras y
+ * voces de menores, y publicarla es una decisión de quien da la clase — no algo
+ * que deba pasar solo porque la escuela configuró el archivado.
+ */
+function alternarGrabacion(g: Grabacion): void {
+    router.patch(
+        `/clases/grabaciones/${g.id}/visibilidad`,
+        { visible_alumnos: !g.visible_alumnos },
+        { preserveScroll: true },
+    );
+}
 
 function copiarInvitado(s: Sesion): void {
     if (!s.url_invitado) return;
@@ -225,10 +260,52 @@ function copiarInvitado(s: Sesion): void {
             <summary class="cursor-pointer text-xs text-suave">
                 {{ pasadas.length }} clase(s) anteriores
             </summary>
-            <ul class="mt-2 space-y-1">
-                <li v-for="s in pasadas" :key="s.id" class="text-xs text-suave">
-                    {{ s.inicio }} · {{ s.titulo }}
-                    <span v-if="s.estado === 'cancelada'"> · cancelada</span>
+            <ul class="mt-2 space-y-2">
+                <li v-for="s in pasadas" :key="s.id">
+                    <span class="text-xs text-suave">
+                        {{ s.inicio }} · {{ s.titulo }}
+                        <span v-if="s.estado === 'cancelada'"> · cancelada</span>
+                    </span>
+
+                    <!-- Lo que dejó grabado. Se enseña también lo fallido: una
+                         grabación que no se pudo traer y una clase que nadie
+                         grabó son dos problemas distintos. -->
+                    <span
+                        v-for="g in s.grabaciones"
+                        :key="g.id"
+                        class="mt-1 flex flex-wrap items-center gap-2 rounded-lg border px-2.5 py-1.5"
+                        :style="{ borderColor: 'var(--color-borde)' }"
+                    >
+                        <span class="text-xs text-contenido">{{ nombreTipo[g.tipo] ?? g.tipo }}</span>
+                        <span v-if="g.peso" class="text-[11px] text-suave">{{ g.peso }}</span>
+
+                        <template v-if="g.estado === 'archivada'">
+                            <a
+                                :href="`/clases/grabaciones/${g.id}`"
+                                target="_blank"
+                                rel="noopener"
+                                class="text-xs font-medium"
+                                :style="{ color: 'var(--color-acento)' }"
+                            >Abrir</a>
+                            <label class="ml-auto flex items-center gap-1.5 text-[11px] text-suave">
+                                <input
+                                    type="checkbox"
+                                    :checked="g.visible_alumnos"
+                                    @change="alternarGrabacion(g)"
+                                />
+                                La ven mis alumnos
+                            </label>
+                        </template>
+
+                        <span
+                            v-else-if="g.estado === 'fallida'"
+                            class="text-[11px]"
+                            :style="{ color: '#b45309' }"
+                            :title="g.error ?? ''"
+                        >No se pudo guardar</span>
+
+                        <span v-else class="text-[11px] text-suave">Guardando…</span>
+                    </span>
                 </li>
             </ul>
         </details>

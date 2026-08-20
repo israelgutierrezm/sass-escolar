@@ -9,6 +9,7 @@ use App\Models\ControlEscolar\AsignaturaGrupo;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * videoconferencias (TENANT) — una clase en línea de una materia impartida.
@@ -70,6 +71,12 @@ class Videoconferencia extends Model
         return $this->belongsTo(CuentaVideo::class, 'cuenta_id');
     }
 
+    /** Los archivos que dejó: video, audio, chat, transcripción. */
+    public function grabaciones(): HasMany
+    {
+        return $this->hasMany(Grabacion::class, 'videoconferencia_id');
+    }
+
     /** Ya pasó su hora de término. */
     public function yaTermino(): bool
     {
@@ -121,6 +128,22 @@ class Videoconferencia extends Model
             // Sólo cuando de verdad puede entrar: el enlace de una clase de la
             // semana que viene no tiene por qué estar en el HTML de hoy.
             'url' => $this->abiertaPara($minutosAntes) ? $this->url_join : null,
+            /*
+             * Las grabaciones que la escuela haya hecho visibles. Se filtra
+             * AQUÍ, junto al resto de lo que se le puede enseñar a un alumno, y
+             * no en la consulta de cada pantalla: la regla vive con el dato.
+             */
+            'grabaciones' => $this->relationLoaded('grabaciones')
+                ? $this->grabaciones
+                    ->filter(fn (Grabacion $g) => $g->laVeElAlumno())
+                    ->map(fn (Grabacion $g) => [
+                        'id' => $g->id,
+                        'tipo' => $g->tipo,
+                        'peso' => $g->pesoLegible(),
+                    ])
+                    ->values()
+                    ->all()
+                : [],
         ];
     }
 
