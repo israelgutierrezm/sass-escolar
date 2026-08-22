@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\BuscadorAlumnosController;
 use App\Http\Controllers\Academico\CargaMasivaController;
 use App\Http\Controllers\AccesosController;
 use App\Http\Controllers\ActividadController;
@@ -1571,6 +1572,17 @@ Route::middleware([
          * DENTRO —publicar para toda la escuela o sólo guardar lo propio— lo
          * resuelve el controlador: es alcance, no acceso.
          */
+        /*
+         * Buscar alumnos para dirigirles un aviso, un evento o una encuesta.
+         *
+         * En la raíz porque la usan tres módulos con el mismo componente, y con
+         * permiso derivado porque son tres oficios entrando por la misma
+         * puerta. Ver `BuscadorAlumnosController`.
+         */
+        Route::get('buscar/alumnos', BuscadorAlumnosController::class)
+            ->middleware('can:dirigir-a-alumnos')
+            ->name('tenant.buscar.alumnos');
+
         Route::controller(RubricaController::class)
             ->prefix('rubricas')->name('tenant.rubricas.')
             ->middleware('can:usar-rubricas')
@@ -2154,7 +2166,6 @@ Route::middleware([
             ->middleware('can:gestionar-calendario')
             ->group(function () {
                 Route::get('/', 'index')->name('index');
-                Route::get('alumnos', 'buscarAlumnos')->name('alumnos');
                 Route::post('/', 'guardar')->name('crear');
                 Route::post('feriados', 'importarFeriados')->name('feriados');
                 Route::put('{evento}', 'guardar')->whereNumber('evento')->name('editar');

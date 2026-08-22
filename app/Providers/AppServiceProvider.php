@@ -221,6 +221,26 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('ver-biblioteca', fn ($usuario) => $usuario->can('gestionar-biblioteca'));
 
         /*
+         * Buscar alumnos para dirigirles algo.
+         *
+         * Tres pantallas de tres módulos usan el MISMO componente para elegir
+         * alumnos uno por uno: el calendario, los avisos y las encuestas. La
+         * búsqueda vivía sólo dentro del calendario y las otras dos apuntaban a
+         * una dirección que no existía, así que la caja se quedaba en blanco
+         * como si no hubiera resultados.
+         *
+         * Derivado por lo de siempre: colgarlo de un permiso dejaría fuera a
+         * dos oficios, y una casilla aparte sería una dependencia que la
+         * escuela no tiene por qué adivinar.
+         */
+        Gate::define(
+            'dirigir-a-alumnos',
+            fn ($usuario) => $usuario->can('gestionar-calendario')
+                || $usuario->can('gestionar-avisos')
+                || $usuario->can('gestionar-encuestas')
+        );
+
+        /*
          * Y lo mismo con el catálogo de servicios, pero SÓLO para verlo.
          *
          * Se define un nombre aparte en vez de derivar `solicitar-servicios`

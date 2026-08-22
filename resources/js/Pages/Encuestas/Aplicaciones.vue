@@ -280,7 +280,7 @@ const esDocente = computed(() => form.tipo === 'docente');
                         v-model="form.destinos"
                         :tipos="tiposDestino"
                         :opciones="opciones"
-                        url-alumnos="/api/buscar/alumnos"
+                        url-alumnos="/buscar/alumnos"
                         :error="form.errors.destinos"
                     />
 

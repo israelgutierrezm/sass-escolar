@@ -470,7 +470,7 @@ function fechaLegible(e: Evento): string {
                     v-model="form.destinos"
                     :tipos="destinos"
                     :opciones="opciones"
-                    url-alumnos="/plataforma/calendario/alumnos"
+                    url-alumnos="/buscar/alumnos"
                     :error="form.errors.destinos"
                 />
 

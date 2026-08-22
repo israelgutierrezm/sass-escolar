@@ -10,14 +10,13 @@ use App\Http\Controllers\Concerns\ArmaDestinos;
 use App\Http\Controllers\Controller;
 use App\Models\Academico\Campus;
 use App\Models\Academico\Carrera;
+use App\Models\Academico\NivelEstudio;
 use App\Models\Academico\PlanEstudio;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Grupo;
-use App\Models\Academico\NivelEstudio;
 use App\Models\Plataforma\EventoCalendario;
 use App\Services\Plataforma\AgendaDeUsuario;
 use App\Services\Plataforma\FeriadosOficiales;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -115,46 +114,6 @@ class CalendarioController extends Controller
                 ? "«{$guardado->titulo}» quedó en el calendario."
                 : "«{$guardado->titulo}» actualizado.",
         );
-    }
-
-    /**
-     * Busca alumnos para señalarlos uno por uno.
-     *
-     * Los alumnos no viajan con la pantalla —son miles— así que se consultan
-     * conforme se teclea, igual que en el resto del sistema. Devuelve JSON
-     * porque lo llama {@see BuscadorRemoto}, no una visita de Inertia.
-     *
-     * @return JsonResponse
-     */
-    public function buscarAlumnos(Request $request)
-    {
-        $q = trim((string) $request->query('q', ''));
-
-        if (mb_strlen($q) < 2) {
-            return response()->json([]);
-        }
-
-        $alumnos = DB::table('matricula_oferta')
-            ->join('personas', 'personas.id', '=', 'matricula_oferta.persona_id')
-            ->leftJoin('ofertas', 'ofertas.id', '=', 'matricula_oferta.oferta_id')
-            ->leftJoin('carreras', 'carreras.id', '=', 'ofertas.carrera_id')
-            ->whereNull('matricula_oferta.deleted_at')
-            ->where(function ($w) use ($q) {
-                $w->where('matricula_oferta.matricula', 'like', "%{$q}%")
-                    ->orWhereRaw("TRIM(CONCAT_WS(' ', personas.nombre, personas.primer_apellido, personas.segundo_apellido)) LIKE ?", ["%{$q}%"]);
-            })
-            ->orderBy('personas.primer_apellido')
-            ->limit(20)
-            // El destino se guarda contra la PERSONA y no contra la matrícula:
-            // el aviso es para el alumno, aunque tenga dos carreras.
-            ->get([
-                'personas.id',
-                'matricula_oferta.matricula',
-                'carreras.nombre as carrera',
-                DB::raw("TRIM(CONCAT_WS(' ', personas.nombre, personas.primer_apellido, personas.segundo_apellido)) AS nombre"),
-            ]);
-
-        return response()->json($alumnos->unique('id')->values());
     }
 
     /**

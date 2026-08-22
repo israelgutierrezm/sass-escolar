@@ -495,7 +495,7 @@ function aQuien(a: AvisoFila): string {
                         v-model="form.destinos"
                         :tipos="tiposDestino"
                         :opciones="opciones"
-                        url-alumnos="/api/buscar/alumnos"
+                        url-alumnos="/buscar/alumnos"
                         :error="form.errors.destinos"
                     />
 
