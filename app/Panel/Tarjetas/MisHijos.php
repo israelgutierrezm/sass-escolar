@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Panel\Tarjetas;
 
 use App\Models\Admisiones\MatriculaOferta;
+use App\Models\Identidad\Parentesco;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\Usuario;
 use App\Panel\TarjetaPanel;
@@ -128,7 +129,7 @@ class MisHijos implements TarjetaPanel
              */
             'detalle' => $carreras->isNotEmpty()
                 ? ($carreras->count() === 1 ? $carreras->first() : $carreras->count().' programas')
-                : (filled($vinculo->parentesco) ? $vinculo->parentesco : null),
+                : Parentesco::nombreDe($vinculo->parentesco_id),
             'valor' => $this->valor($matriculas->isEmpty(), $debe, $estado),
             'pie' => $this->pie($estado, $debe, $matriculas->isNotEmpty()),
             'alerta' => (bool) $estado['vencido'] || ($estado['reprobadas'] ?? 0) > 0,

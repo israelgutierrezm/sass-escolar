@@ -156,7 +156,7 @@ class Persona extends Model
         // El vínculo se borra en lógico (auditoría); un pivote soft-deleted no
         // cuenta como hijo vigente.
         return $this->belongsToMany(self::class, 'tutores_alumno', 'tutor_persona_id', 'alumno_persona_id')
-            ->withPivot(['parentesco', 'puede_ver_academico', 'puede_ver_finanzas', 'acceso_materia'])
+            ->withPivot(['parentesco_id', 'es_contacto_emergencia', 'es_responsable_pago', 'puede_ver_academico', 'puede_ver_finanzas'])
             ->wherePivotNull('deleted_at');
     }
 
@@ -164,7 +164,7 @@ class Persona extends Model
     public function tutoresFamiliares(): BelongsToMany
     {
         return $this->belongsToMany(self::class, 'tutores_alumno', 'alumno_persona_id', 'tutor_persona_id')
-            ->withPivot(['parentesco', 'puede_ver_academico', 'puede_ver_finanzas', 'acceso_materia'])
+            ->withPivot(['parentesco_id', 'es_contacto_emergencia', 'es_responsable_pago', 'puede_ver_academico', 'puede_ver_finanzas'])
             ->wherePivotNull('deleted_at');
     }
 

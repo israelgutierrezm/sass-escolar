@@ -579,7 +579,9 @@ class PoblarInstitucionDemoSeeder extends Seeder
                 TutorAlumno::create([
                     'tutor_persona_id' => $persona->id,
                     'alumno_persona_id' => $alumnoPersonaId,
-                    'parentesco' => $parentesco,
+                    // Por CLAVE del catálogo, no por texto libre: el
+                    // parentesco dejó de ser una cadena.
+                    'parentesco_id' => DB::table('parentescos')->where('clave', $parentesco)->value('id'),
                     'puede_ver_academico' => true,
                     'puede_ver_finanzas' => $i === 0,
                 ]);

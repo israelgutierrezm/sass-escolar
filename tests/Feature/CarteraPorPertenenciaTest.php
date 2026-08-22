@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use App\Http\Controllers\FinanzasController;
 use App\Models\Admisiones\MatriculaOferta;
+use App\Models\Identidad\Parentesco;
 use App\Models\Identidad\Usuario;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\Concerns\CreaEscuelaDePrueba;
@@ -152,7 +153,8 @@ class CarteraPorPertenenciaTest extends TenantTestCase
         $this->fila('tutores_alumno', [
             'tutor_persona_id' => $usuario->persona_id,
             'alumno_persona_id' => $alumnoPersonaId,
-            'parentesco' => 'padre',
+            // Del catálogo: el parentesco dejó de ser texto libre.
+            'parentesco_id' => Parentesco::query()->where('clave', 'padre')->value('id'),
             'puede_ver_academico' => true,
             'puede_ver_finanzas' => $finanzas,
         ]);

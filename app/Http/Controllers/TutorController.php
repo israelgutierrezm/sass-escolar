@@ -45,7 +45,7 @@ class TutorController extends Controller
                     'total_alumnos' => $vinculos->count(),
                     'alumnos' => $vinculos->map(fn (TutorAlumno $v) => [
                         'nombre' => $this->nombre($v->alumno),
-                        'parentesco' => $v->parentesco,
+                        'parentesco' => $v->parentesco?->nombre,
                     ])->values(),
                     // «Ver como»: solo si esa persona tiene cuenta con la que entrar.
                     'suplantable' => $suplantador->datosPara($request, $persona),
@@ -119,7 +119,7 @@ class TutorController extends Controller
                 'persona_id' => $v->alumno_persona_id,
                 'nombre' => $this->nombre($v->alumno),
                 'curp' => $v->alumno?->curp,
-                'parentesco' => $v->parentesco,
+                'parentesco' => $v->parentesco?->nombre,
                 'puede_ver_academico' => (bool) $v->puede_ver_academico,
                 'puede_ver_finanzas' => (bool) $v->puede_ver_finanzas,
                 // Al expediente del alumno se llega por su matrícula, no por su

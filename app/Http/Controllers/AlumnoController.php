@@ -23,6 +23,7 @@ use App\Models\Emision\FundamentoLegalServicioSocial;
 use App\Models\Emision\LoteCertificacion;
 use App\Models\Emision\ModalidadTitulacion;
 use App\Models\Finanzas\DatosFacturacion;
+use App\Models\Identidad\Parentesco;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\TutorAlumno;
 use App\Models\Identidad\Usuario;
@@ -303,6 +304,10 @@ class AlumnoController extends Controller
                 'entidad_nacimiento_id' => $alumno->persona?->entidad_nacimiento_id,
                 'pais_nacimiento_id' => $alumno->persona?->pais_nacimiento_id,
             ],
+            // Sólo los ACTIVOS: apagar un parentesco lo retira de la captura
+            // sin borrar los vínculos que ya lo usan —ésos siguen leyendo por
+            // id, que es por lo que el filtro va aquí y no en un scope global.
+            'parentescos' => Parentesco::query()->activos()->get(['id', 'nombre']),
             // Padres/tutores ligados a este alumno. Cada uno es —o pasa a ser—
             // usuario con rol de padre de familia al vincularlo.
             'tutores' => TutorAlumno::query()
@@ -314,7 +319,10 @@ class AlumnoController extends Controller
                     'nombre' => trim(($v->tutor?->nombre ?? '').' '.($v->tutor?->primer_apellido ?? '').' '.($v->tutor?->segundo_apellido ?? '')),
                     'curp' => $v->tutor?->curp,
                     'email' => $v->tutor?->email,
-                    'parentesco' => $v->parentesco,
+                    'parentesco' => $v->parentesco?->nombre,
+                    'parentesco_id' => $v->parentesco_id,
+                    'es_contacto_emergencia' => $v->es_contacto_emergencia,
+                    'es_responsable_pago' => $v->es_responsable_pago,
                     'puede_ver_academico' => $v->puede_ver_academico,
                     'puede_ver_finanzas' => $v->puede_ver_finanzas,
                     // «Ver como» el padre/tutor: solo si tiene cuenta con la que entrar.
@@ -738,7 +746,16 @@ class AlumnoController extends Controller
             'curp' => ['nullable', 'string', 'max:18'],
             'email' => ['nullable', 'email', 'max:150'],
             'celular' => ['nullable', 'string', 'max:20'],
-            'parentesco' => ['required', Rule::in(['padre', 'madre', 'tutor', 'otro'])],
+            // Del CATÁLOGO y no de una lista cableada: la escuela puede
+            // agregar «abuela» o «hermano mayor» sin tocar código. Se exige
+            // que esté ACTIVO — uno apagado no se ofrece, así que tampoco se
+            // acepta aunque llegue en la petición.
+            'parentesco_id' => [
+                'required',
+                Rule::exists('parentescos', 'id')->where('activo', true),
+            ],
+            'es_contacto_emergencia' => ['boolean'],
+            'es_responsable_pago' => ['boolean'],
             'puede_ver_academico' => ['boolean'],
             'puede_ver_finanzas' => ['boolean'],
         ]);
@@ -775,7 +792,9 @@ class AlumnoController extends Controller
             TutorAlumno::create([
                 'tutor_persona_id' => $tutor->id,
                 'alumno_persona_id' => $alumno->persona_id,
-                'parentesco' => $datos['parentesco'],
+                'parentesco_id' => $datos['parentesco_id'],
+                'es_contacto_emergencia' => $datos['es_contacto_emergencia'] ?? false,
+                'es_responsable_pago' => $datos['es_responsable_pago'] ?? false,
                 'puede_ver_academico' => $datos['puede_ver_academico'] ?? true,
                 'puede_ver_finanzas' => $datos['puede_ver_finanzas'] ?? true,
             ]);

@@ -56,12 +56,16 @@ const props = defineProps<{
         es_actual: boolean;
     }[];
     ofertasDisponibles: { id: number; etiqueta: string }[];
+    parentescos: { id: number; nombre: string }[];
     tutores: {
         id: number;
         nombre: string;
         curp: string | null;
         email: string | null;
-        parentesco: string;
+        parentesco: string | null;
+        parentesco_id: number | null;
+        es_contacto_emergencia: boolean;
+        es_responsable_pago: boolean;
         puede_ver_academico: boolean;
         puede_ver_finanzas: boolean;
         suplantable: { usuario_id: number; usuario: string } | null;
@@ -375,7 +379,9 @@ const formTutor = useForm({
     curp: '',
     email: '',
     celular: '',
-    parentesco: 'padre',
+    parentesco_id: null as number | null,
+    es_contacto_emergencia: false,
+    es_responsable_pago: false,
     puede_ver_academico: true,
     puede_ver_finanzas: true,
 });
@@ -446,13 +452,6 @@ function desvincularTutor(id: number, nombre: string): void {
 
     router.delete(`/escolar/alumnos/${props.alumno.id}/tutores/${id}`, { preserveScroll: true });
 }
-
-const etiquetaParentesco: Record<string, string> = {
-    padre: 'Padre',
-    madre: 'Madre',
-    tutor: 'Tutor',
-    otro: 'Otro',
-};
 
 /* Otras carreras de la misma persona */
 const agregando = ref(false);
@@ -1511,16 +1510,17 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                             <CampoTexto v-model="formTutor.email" etiqueta="Correo" tipo="email" :error="formTutor.errors.email" ayuda="Con él entrará a la plataforma." />
                             <CampoTexto v-model="formTutor.celular" etiqueta="Celular" :error="formTutor.errors.celular" />
                         </template>
+                        <!--
+                            Del catálogo y no de una lista escrita aquí: la
+                            escuela agrega «abuela» desde su configuración y
+                            aparece sola, sin recompilar el frontend.
+                        -->
                         <CampoSelect
-                            v-model="formTutor.parentesco"
+                            v-model="formTutor.parentesco_id"
                             etiqueta="Parentesco"
-                            :opciones="[
-                                { valor: 'padre', texto: 'Padre' },
-                                { valor: 'madre', texto: 'Madre' },
-                                { valor: 'tutor', texto: 'Tutor' },
-                                { valor: 'otro', texto: 'Otro' },
-                            ]"
-                            :error="formTutor.errors.parentesco"
+                            :opciones="parentescos.map((p) => ({ valor: p.id, texto: p.nombre }))"
+                            vacio="Selecciona…"
+                            :error="formTutor.errors.parentesco_id"
                         />
                     </div>
 
@@ -1532,6 +1532,20 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                         <label class="flex items-center gap-2">
                             <input v-model="formTutor.puede_ver_finanzas" type="checkbox" />
                             Puede ver lo financiero (pagos y facturas)
+                        </label>
+                        <!--
+                            Estos dos NO son permisos de lo que ve: son hechos de
+                            la relación. A quién se le llama en una urgencia y a
+                            quién se le cobra, que hasta ahora se resolvían
+                            preguntando por teléfono.
+                        -->
+                        <label class="flex items-center gap-2">
+                            <input v-model="formTutor.es_contacto_emergencia" type="checkbox" />
+                            Contacto en caso de emergencia
+                        </label>
+                        <label class="flex items-center gap-2">
+                            <input v-model="formTutor.es_responsable_pago" type="checkbox" />
+                            Responsable del pago
                         </label>
                     </div>
 
@@ -1568,7 +1582,7 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                                 <td class="px-4 py-3 font-medium">{{ t.nombre }}</td>
                                 <td class="px-4 py-3">
                                     <span class="rounded-full px-2 py-0.5 text-xs" :style="{ backgroundColor: 'var(--color-borde)' }">
-                                        {{ etiquetaParentesco[t.parentesco] ?? t.parentesco }}
+                                        {{ t.parentesco ?? '—' }}
                                     </span>
                                 </td>
                                 <td class="px-4 py-3 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ t.curp ?? '—' }}</td>

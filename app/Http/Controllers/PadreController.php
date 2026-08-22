@@ -11,6 +11,7 @@ use App\Models\ControlEscolar\Historial;
 use App\Models\Finanzas\CuentaBancaria;
 use App\Models\Finanzas\Factura;
 use App\Models\Identidad\BitacoraAcceso;
+use App\Models\Identidad\Parentesco;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\TutorAlumno;
 use App\Services\EstadoCuenta;
@@ -53,7 +54,7 @@ class PadreController extends Controller
                 'id' => $hijo->id,
                 'nombre' => $hijo->nombreCompleto(),
                 'foto' => $hijo->urlFoto(),
-                'parentesco' => $hijo->pivot->parentesco,
+                'parentesco' => Parentesco::nombreDe($hijo->pivot->parentesco_id),
                 'carreras' => $carreras,
                 'puede_ver_academico' => (bool) $hijo->pivot->puede_ver_academico,
                 'puede_ver_finanzas' => (bool) $hijo->pivot->puede_ver_finanzas,
@@ -103,7 +104,7 @@ class PadreController extends Controller
                 'nombre' => $hijo->nombreCompleto(),
                 'foto' => $hijo->urlFoto(),
                 'curp' => $hijo->curp,
-                'parentesco' => $vinculo->parentesco,
+                'parentesco' => $vinculo->parentesco?->nombre,
             ],
             'permisos' => [
                 'academico' => $vinculo->puede_ver_academico,

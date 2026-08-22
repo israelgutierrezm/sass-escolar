@@ -24,10 +24,11 @@ class TutorAlumno extends Model
     protected $fillable = [
         'tutor_persona_id',
         'alumno_persona_id',
-        'parentesco',
+        'parentesco_id',
+        'es_contacto_emergencia',
+        'es_responsable_pago',
         'puede_ver_academico',
         'puede_ver_finanzas',
-        'acceso_materia',
     ];
 
     protected function casts(): array
@@ -35,8 +36,14 @@ class TutorAlumno extends Model
         return [
             'puede_ver_academico' => 'boolean',
             'puede_ver_finanzas' => 'boolean',
-            'acceso_materia' => 'boolean',
+            'es_contacto_emergencia' => 'boolean',
+            'es_responsable_pago' => 'boolean',
         ];
+    }
+
+    public function parentesco(): BelongsTo
+    {
+        return $this->belongsTo(Parentesco::class, 'parentesco_id');
     }
 
     public function tutor(): BelongsTo
