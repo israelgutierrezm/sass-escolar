@@ -666,7 +666,11 @@ class PoblarInstitucionDemoSeeder extends Seeder
         foreach ([[$campus[0], 'staff.centro'], [$campus[1] ?? $campus[0], 'staff.norte']] as [$ca, $usuario]) {
             $email = $usuario.'@escuela.mx';
 
-            if (Usuario::where('email', $email)->exists()) {
+            $existente = Usuario::where('email', $email)->first();
+
+            if ($existente !== null) {
+                $this->devolverleSuCampus($existente, $rolId, $ca);
+
                 continue;
             }
 
@@ -692,6 +696,36 @@ class PoblarInstitucionDemoSeeder extends Seeder
                 'rol_activo_id' => $rolId,
             ]);
         }
+    }
+
+    /**
+     * Le devuelve su campus a una cuenta de staff que lo perdió.
+     *
+     * ── Por qué hace falta si el alta ya lo asigna ─────────────────────────
+     * Porque este seeder es idempotente por CORREO y hasta ahora se limitaba a
+     * saltarse las cuentas que ya existían: no duplicaba, pero tampoco reparaba.
+     * Una escuela demo que ya tuviera las dos cuentas podía resembrarse mil
+     * veces con el campus mal y el seeder no se enteraba.
+     *
+     * Y perderlo pasó de verdad: los campus a los que apuntaban se habían
+     * borrado, así que `acadion:auditar-datos --reparar` las dejó en NULL. En
+     * esta columna NULL no significa «menos» sino ALCANCE GLOBAL, o sea
+     * exactamente lo contrario de lo que estas dos cuentas existen para probar.
+     *
+     * ── Sólo se toca lo que está roto ──────────────────────────────────────
+     * En NULL o apuntando a un campus que ya no existe. Si alguien movió la
+     * asignación a mano —para probar otra cosa— el seeder no se la pisa: una
+     * resiembra no puede deshacer decisiones de quien está usando la demo.
+     */
+    private function devolverleSuCampus(Usuario $usuario, int $rolId, Campus $campus): void
+    {
+        $vivos = Campus::query()->pluck('id')->all();
+
+        PersonaRol::query()
+            ->where('persona_id', $usuario->persona_id)
+            ->where('rol_id', $rolId)
+            ->where(fn ($q) => $q->whereNull('campus_id')->orWhereNotIn('campus_id', $vivos))
+            ->update(['campus_id' => $campus->id]);
     }
 
     /**

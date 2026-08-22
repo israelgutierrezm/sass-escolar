@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**66 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**67 archivos `prueba-*.php`**;
    esta lista decía 23 y llevaba tiempo desactualizada). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
    imprimen `Resultado: N correctas, M fallidas`. **Ojo al barrer con `grep`**:
@@ -57,7 +57,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 66 están en verde.** Llegaron a estar 33 en rojo —no trece: ese primer
+   **Las 67 están en verde.** Llegaron a estar 33 en rojo —no trece: ese primer
    conteo sólo miró las que imprimían «N fallidas» e ignoró las 21 que morían
    antes, con una excepción sin resumen—. Ninguna caía por un cambio reciente;
    se comprobó corriéndolas contra el árbol limpio.
@@ -664,8 +664,8 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     tenía asesor. Lo cazó `prueba-actividad-crm`.
   - Pruebas: `scripts/prueba-actividad-crm.php`, 29 verificaciones, comprobada
     mutando la regla de re-cierre (caen exactamente las tres que la vigilan).
-- Pruebas: 66 suites en `scripts/`, contra la BD real del tenant demo con
-  `DB::rollBack()` al final. **66 en verde** (ver la regla 5 para qué tumbó a
+- Pruebas: 67 suites en `scripts/`, contra la BD real del tenant demo con
+  `DB::rollBack()` al final. **67 en verde** (ver la regla 5 para qué tumbó a
   las 33 que estuvieron en rojo). `prueba-listados` es la primera
   que invoca a los CONTROLADORES y lee sus props de Inertia, en vez de
   reimplementar la consulta: un `or` sin paréntesis no se detecta de otra forma.
@@ -1272,6 +1272,14 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     hacía: la excepción subía al `catch` por escuela, el contador se quedaba en
     cero y el comando declaraba limpia una base con 199 rotas. Ahora sale con
     error y dice que el reporte está incompleto.
+  - **El seeder del demo ya repara ese caso**, no sólo lo crea: era idempotente
+    por CORREO y se limitaba a saltarse las cuentas existentes, así que una
+    resiembra no devolvía el campus perdido —no duplicaba, pero tampoco
+    convergía—. Ahora `PoblarInstitucionDemoSeeder::devolverleSuCampus` reasigna
+    lo que está en NULL o apunta a un campus muerto, y **respeta lo movido a
+    mano**: una resiembra no puede deshacer lo que alguien decidió mientras usa
+    la demo. Lo fija `scripts/prueba-seeder-staff.php` (6 verificaciones,
+    comprobada mutando las dos direcciones).
   - **Ojo con `persona_rol.campus_id`: ahí NULL significa MÁS.** Reparar
     convierte un rol atado a un campus inexistente en un rol GLOBAL. Es la
     corrección correcta —apuntaba a la nada y así nadie podía trabajar— pero es
