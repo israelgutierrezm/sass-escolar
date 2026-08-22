@@ -1248,9 +1248,36 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   con `SET FOREIGN_KEY_CHECKS=0` deja filas envenenadas que sólo estorban el día
   que alguien toca el esquema. Lee las foráneas declaradas de
   `information_schema`; por omisión sólo informa y `--reparar` pone en NULL lo
-  que admite null. **En el demo: 199 filas rotas** —138 anulables y 61 en
-  columnas obligatorias, que no se tocan porque la fila entera perdió sentido y
-  borrarla es decisión de la escuela—.
+  que admite null.
+  - **El demo ya está reparado** (2026-08-22): de 199 filas rotas quedan **69**
+    —63 en columnas obligatorias, que no se tocan porque la fila entera perdió
+    sentido y borrarla es decisión de la escuela, y 6 en filas intocables (ver
+    abajo)—. Respaldo previo en
+    `C:\Dev\tenantdemo-antes-de-reparar-2026-08-22.sql`.
+  - **Que la columna admita NULL no basta.** `adeudos` tiene un CHECK que exige
+    exactamente un titular —matrícula o aspirante—, así que anular una matrícula
+    rota deja la fila sin ninguno y MySQL lo rechaza. Se intenta y se reporta lo
+    que la base niegue, en vez de interpretar cláusulas CHECK.
+  - **Y una fila rota en una columna OBLIGATORIA es intocable entera.** MySQL
+    revalida TODAS las foráneas de la fila en cualquier `UPDATE`, no sólo la que
+    se toca, así que anular su columna anulable revienta con 1452. Comprobado:
+    la beca 5 y la conversación 13 arrastran las dos cosas y son exactamente las
+    que fallaron. Se destraban resolviendo la obligatoria o borrando la fila.
+  - **Se repara COLUMNA POR COLUMNA, no todo o nada.** Iba en una sola
+    transacción por escuela «para que no quede media reparación», y con eso la
+    primera columna imposible tumbaba a las once buenas y la escuela se quedaba
+    sin reparar para siempre. Cada `UPDATE` es atómico de por sí y reparar es
+    idempotente. Lo fija `AuditarDatosTest`, comprobado mutando.
+  - **Un fallo NO puede terminar diciendo «ninguna referencia rota».** Es lo que
+    hacía: la excepción subía al `catch` por escuela, el contador se quedaba en
+    cero y el comando declaraba limpia una base con 199 rotas. Ahora sale con
+    error y dice que el reporte está incompleto.
+  - **Ojo con `persona_rol.campus_id`: ahí NULL significa MÁS.** Reparar
+    convierte un rol atado a un campus inexistente en un rol GLOBAL. Es la
+    corrección correcta —apuntaba a la nada y así nadie podía trabajar— pero es
+    un ensanchamiento de alcance hecho por un comando de mantenimiento, así que
+    lo avisa en pantalla y hay que volver a asignar el campus a mano. En el demo
+    le tocó a `staff.centro` y `staff.norte`.
   - **La subconsulta lleva alias y no es cosmético**: sin él una foránea que
     apunta a su propia tabla (`roles.rol_padre_id`, `encuestas.origen_id`)
     pierde la correlación y TODA jerarquía válida sale reportada como rota —con
