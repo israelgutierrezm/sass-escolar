@@ -77,6 +77,39 @@ class RetirarComponenteDeEvaluacionTest extends TenantTestCase
         ]);
     }
 
+    private function plantillaDeUnSoloRubro(): PlantillaEvaluacion
+    {
+        $plantilla = PlantillaEvaluacion::create([
+            'clave' => 'PLT-'.uniqid(),
+            'nombre' => 'Plantilla de prueba',
+            'activa' => true,
+        ]);
+
+        $this->fila('plantilla_componentes', [
+            'plantilla_id' => $plantilla->id,
+            'componente' => 'unico',
+            'parcial' => 1,
+            'porcentaje' => 100,
+            'orden' => 1,
+        ]);
+
+        return $plantilla;
+    }
+
+    private function actividadQuePonderaEn(EsquemaEvaluacion $componente): int
+    {
+        $curso = $this->fila('cursos', ['titulo' => 'Curso de prueba']);
+
+        return $this->fila('actividades', [
+            'curso_id' => $curso,
+            'esquema_evaluacion_id' => $componente->id,
+            'titulo' => 'Ensayo',
+            'tipo' => 'tarea',
+            'puntos' => 10,
+            'orden' => 1,
+        ]);
+    }
+
     private function retirar(array $caso)
     {
         return app(EsquemaEvaluacionController::class)
@@ -157,18 +190,7 @@ class RetirarComponenteDeEvaluacionTest extends TenantTestCase
         $caso = $this->escenario();
         $this->capturar($caso['inscripcion'], $caso['componente'], null);
 
-        $plantilla = PlantillaEvaluacion::create([
-            'clave' => 'PLT-'.uniqid(),
-            'nombre' => 'Plantilla de prueba',
-            'activa' => true,
-        ]);
-        $this->fila('plantilla_componentes', [
-            'plantilla_id' => $plantilla->id,
-            'componente' => 'unico',
-            'parcial' => 1,
-            'porcentaje' => 100,
-            'orden' => 1,
-        ]);
+        $plantilla = $this->plantillaDeUnSoloRubro();
 
         app(AplicadorPlantillaEvaluacion::class)->aplicarAMateria($plantilla, $caso['materia']);
 
@@ -184,37 +206,66 @@ class RetirarComponenteDeEvaluacionTest extends TenantTestCase
         $caso = $this->escenario();
         $this->capturar($caso['inscripcion'], $caso['componente'], 7.0);
 
-        $plantilla = PlantillaEvaluacion::create([
-            'clave' => 'PLT-'.uniqid(),
-            'nombre' => 'Plantilla de prueba',
-            'activa' => true,
-        ]);
-        $this->fila('plantilla_componentes', [
-            'plantilla_id' => $plantilla->id,
-            'componente' => 'unico',
-            'parcial' => 1,
-            'porcentaje' => 100,
-            'orden' => 1,
-        ]);
+        $plantilla = $this->plantillaDeUnSoloRubro();
 
         $this->expectException(\RuntimeException::class);
 
         app(AplicadorPlantillaEvaluacion::class)->aplicarAMateria($plantilla, $caso['materia']);
     }
 
+    /**
+     * Y bloquea la re-aplicación, no sólo el retiro del componente.
+     *
+     * El reemplazo borra el esquema viejo con `forceDelete`, y eso dispara el
+     * `nullOnDelete` de `actividades`: sin esta guarda, re-aplicar una
+     * plantilla dejaba SIN componente a todas las actividades del curso —las
+     * del plan y las copiadas a cada grupo— en silencio y sin error. Un
+     * semestre de tareas dejaba de ponderar y nadie se enteraba hasta el acta.
+     */
+    public function test_una_actividad_que_pondera_ahi_impide_reaplicar_la_plantilla(): void
+    {
+        $caso = $this->escenario();
+        $this->actividadQuePonderaEn($caso['componente']);
+
+        $plantilla = $this->plantillaDeUnSoloRubro();
+
+        try {
+            app(AplicadorPlantillaEvaluacion::class)->aplicarAMateria($plantilla, $caso['materia']);
+            $this->fail('Se re-aplicó la plantilla y las actividades quedaron sin componente.');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('actividad', $e->getMessage());
+        }
+
+        // Y el esquema siguió como estaba: no se reemplazó a medias.
+        $this->assertDatabaseHas('esquema_evaluacion', [
+            'id' => $caso['componente']->id,
+            'deleted_at' => null,
+        ]);
+    }
+
+    public function test_el_aviso_previo_nombra_la_materia_y_su_motivo(): void
+    {
+        $caso = $this->escenario();
+        $plantilla = $this->plantillaDeUnSoloRubro();
+
+        // La materia declara que sigue esta plantilla: así entra en la lista
+        // que la pantalla consulta ANTES de guardar.
+        $caso['materia']->update(['plantilla_evaluacion_id' => $plantilla->id]);
+        $this->actividadQuePonderaEn($caso['componente']);
+
+        $bloqueadas = app(AplicadorPlantillaEvaluacion::class)->materiasBloqueadas($plantilla);
+
+        $this->assertCount(1, $bloqueadas);
+        $this->assertArrayHasKey('motivo', $bloqueadas[0]);
+        $this->assertStringContainsString('actividad', $bloqueadas[0]['motivo']);
+        $this->assertNotSame('', $bloqueadas[0]['materia']);
+    }
+
     public function test_una_actividad_que_pondera_ahi_tambien_lo_sostiene(): void
     {
         $caso = $this->escenario();
 
-        $curso = $this->fila('cursos', ['titulo' => 'Curso de prueba']);
-        $this->fila('actividades', [
-            'curso_id' => $curso,
-            'esquema_evaluacion_id' => $caso['componente']->id,
-            'titulo' => 'Ensayo',
-            'tipo' => 'tarea',
-            'puntos' => 10,
-            'orden' => 1,
-        ]);
+        $this->actividadQuePonderaEn($caso['componente']);
 
         $respuesta = $this->retirar($caso);
 

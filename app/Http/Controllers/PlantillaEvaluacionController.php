@@ -229,7 +229,7 @@ class PlantillaEvaluacionController extends Controller
     */
 
     /**
-     * @param  array{aplicadas: int, bloqueadas: array<int, string>, omitidas: int}  $resultado
+     * @param  array{aplicadas: int, bloqueadas: array<int, array{materia: string, motivo: string}>, omitidas: int}  $resultado
      * @return array{0: string, 1: string}
      */
     private function mensajeDeResultado(array $resultado): array
@@ -245,14 +245,24 @@ class PlantillaEvaluacionController extends Controller
 
         if ($resultado['bloqueadas'] !== []) {
             $cuantas = count($resultado['bloqueadas']);
-            $lista = implode(', ', array_slice($resultado['bloqueadas'], 0, 3));
+
+            /*
+             * Se nombra la materia CON su motivo, y no sólo la lista de
+             * nombres: hay dos razones para bloquear —calificaciones capturadas
+             * y actividades que ponderan ahí— y cada una tiene una salida
+             * distinta. Decir «no se tocaron» sin decir por qué deja a quien lo
+             * lee sin nada que hacer.
+             */
+            $lista = collect($resultado['bloqueadas'])
+                ->take(3)
+                ->map(fn (array $b) => "{$b['materia']} ({$b['motivo']})")
+                ->implode('; ');
+
             $resto = $cuantas > 3 ? ' y '.($cuantas - 3).' más' : '';
 
-            $aviso = $cuantas === 1
-                ? '1 no se tocó porque ya tiene calificaciones capturadas'
-                : "{$cuantas} no se tocaron porque ya tienen calificaciones capturadas";
+            $aviso = $cuantas === 1 ? '1 no se tocó' : "{$cuantas} no se tocaron";
 
-            return ['advertencia', "{$partes[0]}. {$aviso}: {$lista}{$resto}."];
+            return ['advertencia', "{$partes[0]}. {$aviso} — {$lista}{$resto}."];
         }
 
         return ['exito', implode('; ', $partes).'.'];

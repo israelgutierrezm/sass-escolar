@@ -23,7 +23,7 @@ const props = defineProps<{
     componentes: Componente[];
     suma: number;
     completa: boolean;
-    bloqueadas: string[];
+    bloqueadas: { materia: string; motivo: string }[];
     materiasQueLaSiguen: number;
     planes: { id: number; etiqueta: string; usa_esta: boolean }[];
     puedeEditar: boolean;
@@ -248,18 +248,26 @@ function repropagar(): void {
             <h2 class="text-base font-semibold">Re-aplicar a las materias que la siguen</h2>
             <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
                 Si cambiaste los rubros, esto actualiza las {{ materiasQueLaSiguen }} materias que usan
-                esta plantilla. Las que ya tienen calificaciones capturadas no se tocan.
+                esta plantilla. Las que ya tienen trabajo colgando de su esquema —calificaciones
+                capturadas o actividades que ponderan ahí— no se tocan.
             </p>
 
             <div v-if="bloqueadas.length" class="mt-3 rounded-lg border-l-4 border-amber-500 px-3 py-2">
                 <p class="text-sm font-medium text-amber-700">
-                    {{ bloqueadas.length }} materias no se actualizarán
+                    {{ bloqueadas.length === 1 ? '1 materia no se actualizará' : `${bloqueadas.length} materias no se actualizarán` }}
                 </p>
-                <p class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">
-                    Ya tienen calificaciones capturadas: {{ bloqueadas.slice(0, 5).join(', ')
-                    }}<span v-if="bloqueadas.length > 5"> y {{ bloqueadas.length - 5 }} más</span>.
-                    Cambiarles el criterio ahora movería calificaciones que un docente ya asentó.
-                </p>
+                <!--
+                    Cada una con SU motivo: se bloquea por dos razones distintas
+                    —calificaciones capturadas o actividades que ponderan en su
+                    esquema— y la salida de cada una es otra. Una lista de
+                    nombres sin motivo no se puede accionar.
+                -->
+                <ul class="mt-1 space-y-0.5 text-xs" :style="{ color: 'var(--color-suave)' }">
+                    <li v-for="b in bloqueadas.slice(0, 5)" :key="b.materia">
+                        <span class="font-medium">{{ b.materia }}</span> — {{ b.motivo }}.
+                    </li>
+                    <li v-if="bloqueadas.length > 5">y {{ bloqueadas.length - 5 }} más.</li>
+                </ul>
             </div>
 
             <div class="mt-4">
