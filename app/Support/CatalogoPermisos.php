@@ -186,6 +186,7 @@ final class CatalogoPermisos
              * permiso: una autorización tiene consecuencias legales y la
              * escuela puede querer que sólo la emita dirección.
              */
+            'gestionar-bolsa-trabajo' => ['Gestionar la bolsa de trabajo', 'Registrar empleadores, publicar vacantes y dar seguimiento a las postulaciones.', [self::ADMINISTRATIVO]],
             'gestionar-autorizaciones' => ['Gestionar autorizaciones', 'Pedirle a los padres o tutores que autoricen salidas, uso de imagen y actividades.', [self::ADMINISTRATIVO]],
             'editar-mi-expediente-tutor' => ['Editar mi expediente (tutor)', 'Que el padre o tutor suba los documentos que la escuela le pide a él.', [self::PADRE]],
             'ver-tutores' => ['Ver padres y tutores', 'Consultar el directorio de padres y tutores y a qué alumnos están vinculados.', [self::ADMINISTRATIVO]],

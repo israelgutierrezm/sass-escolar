@@ -3556,3 +3556,34 @@ las de todos los grupos abiertos. Lo fija una mutación de la prueba.
 Esto no estorba la primera aplicación: una materia sin esquema no tiene nada
 colgando. Sólo la re-aplicación sobre trabajo ya hecho, que es cuando hay algo
 que perder.
+
+## 2026-08-22 — Bolsa de trabajo: un solo lugar para el contacto de la empresa
+
+La spec del módulo 11 pone un `persona_contacto_id` en `empresas` y ADEMÁS una
+tabla `empresa_contactos` con «contactos adicionales». Son dos representaciones
+de la misma cosa —con quién se habla en esa empresa— y dejan sin respuesta la
+pregunta obvia: si el principal aparece también en la tabla, ¿cuál manda?
+
+Se implementó con UNA sola tabla, `empresa_contactos`, con `es_principal` para
+distinguir al de siempre. Es la misma decisión que se tomó en el módulo 13 al no
+crear `vinculos_familiares` junto a `tutores_alumno`: dos representaciones de lo
+mismo acaban divergiendo, y la que se olvide de actualizar es la que alguien va
+a leer.
+
+`persona_id` queda como columna OPCIONAL del contacto, para el reclutador que
+además tenga cuenta en el sistema. Obligar a que todos sean `persona` llenaría
+el padrón de la escuela con gente que ni estudia ni trabaja ahí, y la mayoría de
+los contactos son un nombre y un teléfono.
+
+### La empresa se veta, no se borra
+
+`situaciones_empresa` incluye «vetada» y la pantalla NO tiene botón de eliminar.
+Una empresa con la que la escuela no quiere volver a trabajar tiene que dejar de
+publicar sin llevarse su historial: las colocaciones son el insumo de los
+reportes de acreditación, y borrarla las borra.
+
+Y `scopePublicables` se define excluyendo «vetada» en vez de exigiendo «activa».
+Con la exigencia positiva, una escuela que renombrara su catálogo —o agregara
+«en convenio»— dejaría de publicar sin entender por qué, y una empresa con la
+situación en null desaparecería en silencio. Lo que hay que impedir es lo
+vetado, y eso se dice por su nombre.

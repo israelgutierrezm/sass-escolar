@@ -19,6 +19,7 @@ use App\Http\Controllers\AulaController;
 use App\Http\Controllers\AutenticacionController;
 use App\Http\Controllers\BecaController;
 use App\Http\Controllers\AutorizacionController;
+use App\Http\Controllers\Bolsa\EmpresaController;
 use App\Http\Controllers\CampoFormularioController;
 use App\Http\Controllers\CampusController;
 use App\Http\Controllers\CapturaCalificacionesController;
@@ -1495,6 +1496,27 @@ Route::middleware([
             ->group(function () {
                 Route::get('/', 'misHijos')->name('index');
                 Route::get('{hijo}', 'hijo')->whereNumber('hijo')->name('hijo');
+            });
+
+        /*
+         * Módulo 11 · Bolsa de trabajo.
+         *
+         * Bajo `modulo:bolsa_trabajo` además del permiso: son dos preguntas
+         * distintas —si la escuela contrató la sección y si a esta persona le
+         * toca—, y la primera cierra la puerta con 404 porque la sección
+         * directamente no forma parte de esa escuela.
+         */
+        Route::controller(EmpresaController::class)
+            ->prefix('bolsa/empresas')->name('tenant.bolsa.empresas.')
+            ->middleware(['can:gestionar-bolsa-trabajo', 'modulo:bolsa_trabajo'])
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'guardar')->name('crear');
+                Route::get('{empresa}', 'show')->whereNumber('empresa')->name('show');
+                Route::put('{empresa}', 'guardar')->whereNumber('empresa')->name('actualizar');
+                Route::post('{empresa}/contactos', 'guardarContacto')->whereNumber('empresa')->name('contactos.crear');
+                Route::delete('{empresa}/contactos/{contacto}', 'eliminarContacto')
+                    ->whereNumber(['empresa', 'contacto'])->name('contactos.eliminar');
             });
 
         /*

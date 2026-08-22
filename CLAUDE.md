@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**72 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**73 archivos `prueba-*.php`**;
    esta lista decía 23 y llevaba tiempo desactualizada). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
    imprimen `Resultado: N correctas, M fallidas`. **Ojo al barrer con `grep`**:
@@ -57,7 +57,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 72 están en verde.** Llegaron a estar 33 en rojo —no trece: ese primer
+   **Las 73 están en verde.** Llegaron a estar 33 en rojo —no trece: ese primer
    conteo sólo miró las que imprimían «N fallidas» e ignoró las 21 que morían
    antes, con una excepción sin resumen—. Ninguna caía por un cambio reciente;
    se comprobó corriéndolas contra el árbol limpio.
@@ -664,8 +664,8 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     tenía asesor. Lo cazó `prueba-actividad-crm`.
   - Pruebas: `scripts/prueba-actividad-crm.php`, 29 verificaciones, comprobada
     mutando la regla de re-cierre (caen exactamente las tres que la vigilan).
-- Pruebas: 72 suites en `scripts/`, contra la BD real del tenant demo con
-  `DB::rollBack()` al final. **72 en verde** (ver la regla 5 para qué tumbó a
+- Pruebas: 73 suites en `scripts/`, contra la BD real del tenant demo con
+  `DB::rollBack()` al final. **73 en verde** (ver la regla 5 para qué tumbó a
   las 33 que estuvieron en rojo). `prueba-listados` es la primera
   que invoca a los CONTROLADORES y lee sus props de Inertia, en vez de
   reimplementar la consulta: un `or` sin paréntesis no se detecta de otra forma.
@@ -1206,6 +1206,35 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     con lector**. Nada que retirar; el barrido de `crear-personas` y compañía ya
     había limpiado esa clase.
 
+- **Módulo 11 · Bolsa de trabajo, primera rebanada** (2026-08-22): los
+  empleadores. `/bolsa/empresas`, permiso `gestionar-bolsa-trabajo`, bajo
+  `modulo:bolsa_trabajo` —comprobado que apagarlo devuelve 404 y encenderlo 200—.
+  - **UN solo lugar para «con quién se habla en esta empresa».** La spec ponía un
+    `persona_contacto_id` en `empresas` Y ADEMÁS una tabla de «contactos
+    adicionales»: dos sitios donde buscar al reclutador y la duda de si el
+    principal aparecía también en la tabla. Aquí hay una sola tabla, con
+    `es_principal` y `persona_id` OPCIONAL para el que además tenga cuenta.
+    Obligarlos a ser `persona` llenaría el padrón de la escuela con gente que ni
+    estudia ni trabaja ahí.
+  - **La empresa se APAGA con «vetada», no se borra.** Sus colocaciones
+    históricas son el insumo de los reportes de acreditación, y borrarla se las
+    llevaría. Por eso la pantalla no tiene botón de eliminar.
+  - **`scopePublicables` se define por lo que NO es** —vetada— y no exigiendo
+    «activa»: una escuela que renombre su catálogo o agregue «en convenio»
+    seguiría publicando, y una con la situación en null no desaparecería en
+    silencio.
+  - **El RFC es opcional pero único.** Una escuela captura empleadores que le
+    llaman antes de tener un papel suyo; pero la misma empresa capturada dos
+    veces reparte sus colocaciones entre los duplicados y ningún reporte cuadra.
+  - **Un solo contacto principal**, degradando al anterior en la misma
+    transacción: con dos, la pantalla enseña el que salga primero.
+  - Pruebas: `scripts/prueba-bolsa-empresas.php`, 13 verificaciones, comprobadas
+    mutando cuatro reglas. **Una mutación destapó una prueba floja**: quitarle la
+    regla de unicidad del RFC seguía impidiendo el duplicado —lo bloquea el
+    índice— sólo que con un 500. Ahora se exige que falle con
+    `ValidationException` y no de cualquier forma: lo que se prueba es que quien
+    captura lea el mensaje en su formulario, no que la base se defienda sola.
+
 - **«Y a sus familias»: el modificador que cierra el módulo 13** (2026-08-22).
   El destino `alumno` casa contra la persona de QUIEN INICIÓ SESIÓN, así que un
   citatorio dirigido a Juan le llegaba a Juan y no a su madre: no había forma de
@@ -1490,8 +1519,10 @@ marcado abajo con su fecha, y lo que NO la lleve sigue sin verificar.)*
       contra `avisos`, que ya segmenta por nueve tipos de destino).
       **Decisión del cliente: el vínculo se queda POR PERSONA**, no por
       matrícula como pedía la spec.
-   2. **Módulo 11 · Bolsa de trabajo** — autocontenido, no toca nada delicado, y
-      produce el dato que una escuela presume: colocación de egresados.
+   2. **Módulo 11 · Bolsa de trabajo** — EN CURSO. Autocontenido, no toca nada
+      delicado, y produce el dato que una escuela presume: colocación de
+      egresados. Rebanadas: **empresas ✅**, vacantes, postulaciones,
+      colocaciones.
    3. **Módulo 10 · Nómina y RH** — el de más valor y el más grande. Su insumo
       ya existe (el reloj checador). **Decisión del cliente sobre el CFDI de
       nómina: se implementa, pero el timbrado se enciende desde configuración.
