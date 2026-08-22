@@ -20,6 +20,7 @@ use App\Http\Controllers\AutenticacionController;
 use App\Http\Controllers\BecaController;
 use App\Http\Controllers\AutorizacionController;
 use App\Http\Controllers\Bolsa\EmpresaController;
+use App\Http\Controllers\Bolsa\VacanteController;
 use App\Http\Controllers\CampoFormularioController;
 use App\Http\Controllers\CampusController;
 use App\Http\Controllers\CapturaCalificacionesController;
@@ -1517,6 +1518,19 @@ Route::middleware([
                 Route::post('{empresa}/contactos', 'guardarContacto')->whereNumber('empresa')->name('contactos.crear');
                 Route::delete('{empresa}/contactos/{contacto}', 'eliminarContacto')
                     ->whereNumber(['empresa', 'contacto'])->name('contactos.eliminar');
+            });
+
+        Route::controller(VacanteController::class)
+            ->prefix('bolsa/vacantes')->name('tenant.bolsa.vacantes.')
+            ->middleware(['can:gestionar-bolsa-trabajo', 'modulo:bolsa_trabajo'])
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'guardar')->name('crear');
+                // Antes del comodín, y da igual el orden porque `{vacante}` sólo
+                // casa con números — se declara así por costumbre defensiva.
+                Route::get('nueva', 'crear')->name('nueva');
+                Route::get('{vacante}', 'show')->whereNumber('vacante')->name('show');
+                Route::put('{vacante}', 'guardar')->whereNumber('vacante')->name('actualizar');
             });
 
         /*

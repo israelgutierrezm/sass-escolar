@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**73 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**74 archivos `prueba-*.php`**;
    esta lista decía 23 y llevaba tiempo desactualizada). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
    imprimen `Resultado: N correctas, M fallidas`. **Ojo al barrer con `grep`**:
@@ -57,7 +57,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 73 están en verde.** Llegaron a estar 33 en rojo —no trece: ese primer
+   **Las 74 están en verde.** Llegaron a estar 33 en rojo —no trece: ese primer
    conteo sólo miró las que imprimían «N fallidas» e ignoró las 21 que morían
    antes, con una excepción sin resumen—. Ninguna caía por un cambio reciente;
    se comprobó corriéndolas contra el árbol limpio.
@@ -664,8 +664,8 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     tenía asesor. Lo cazó `prueba-actividad-crm`.
   - Pruebas: `scripts/prueba-actividad-crm.php`, 29 verificaciones, comprobada
     mutando la regla de re-cierre (caen exactamente las tres que la vigilan).
-- Pruebas: 73 suites en `scripts/`, contra la BD real del tenant demo con
-  `DB::rollBack()` al final. **73 en verde** (ver la regla 5 para qué tumbó a
+- Pruebas: 74 suites en `scripts/`, contra la BD real del tenant demo con
+  `DB::rollBack()` al final. **74 en verde** (ver la regla 5 para qué tumbó a
   las 33 que estuvieron en rojo). `prueba-listados` es la primera
   que invoca a los CONTROLADORES y lee sus props de Inertia, en vez de
   reimplementar la consulta: un `or` sin paréntesis no se detecta de otra forma.
@@ -1206,6 +1206,33 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     con lector**. Nada que retirar; el barrido de `crear-personas` y compañía ya
     había limpiado esa clase.
 
+- **Módulo 11 · Bolsa de trabajo, segunda rebanada** (2026-08-22): las vacantes.
+  `/bolsa/vacantes`, con alta y edición en la MISMA pantalla —dos casi iguales es
+  como se llega a que el alta pida un campo que la edición no ofrece—.
+  - **Sin carreras señaladas, la vacante es PARA TODAS.** No es un descuido de
+    captura: la mitad de las vacantes reales buscan «recién egresados de lo que
+    sea», y exigir al menos una obligaría a palomear las veinte carreras cada
+    vez. `scopeParaCarrera` incluye las que no señalan ninguna, y la pantalla lo
+    dice con palabras —un hueco se lee como captura incompleta—.
+  - **`scopeVigentes` cruza TRES condiciones**: abierta, con la fecha de cierre
+    por delante, y de una empresa no vetada. La tercera es la que hace que vetar
+    a un empleador apague también las vacantes que ya publicó; sin ella, el veto
+    sólo lo escondía del padrón mientras sus vacantes seguían recibiendo gente.
+  - **Vencida ≠ cerrada.** Una vacante con la situación «abierta» y la fecha
+    pasada seguiría pintándose en verde; el color de la lista habla del estado
+    REAL y la etiqueta dice «Venció».
+  - **Dos columnas de sueldo y no una**: casi ninguna vacante mexicana lo
+    publica y las que sí, publican un rango. Con una sola habría que elegir entre
+    mentir con el mínimo o inventar un promedio. Un rango invertido se rechaza:
+    no es un dato raro, es un error de captura que deja la vacante sin poderse
+    filtrar por sueldo.
+  - **`habilidades` se siembra con lo transversal, no con lo técnico**: lo
+    técnico depende de lo que enseña cada escuela y sembrarlo sería adivinar. Y
+    cada habilidad de una vacante puede marcarse `indispensable`, porque una
+    vacante con ocho requisitos parece exigirlos todos y nadie se postula.
+  - Pruebas: `scripts/prueba-bolsa-vacantes.php`, 16 verificaciones, comprobadas
+    mutando cuatro reglas.
+
 - **Módulo 11 · Bolsa de trabajo, primera rebanada** (2026-08-22): los
   empleadores. `/bolsa/empresas`, permiso `gestionar-bolsa-trabajo`, bajo
   `modulo:bolsa_trabajo` —comprobado que apagarlo devuelve 404 y encenderlo 200—.
@@ -1521,8 +1548,10 @@ marcado abajo con su fecha, y lo que NO la lleve sigue sin verificar.)*
       matrícula como pedía la spec.
    2. **Módulo 11 · Bolsa de trabajo** — EN CURSO. Autocontenido, no toca nada
       delicado, y produce el dato que una escuela presume: colocación de
-      egresados. Rebanadas: **empresas ✅**, vacantes, postulaciones,
-      colocaciones.
+      egresados. Rebanadas: **empresas ✅**, **vacantes ✅**, postulaciones,
+      colocaciones. **Decisión del cliente: la postulación es autogestiva Y por
+      ventanilla, con un interruptor para apagar la autogestiva y forzar el
+      mostrador.**
    3. **Módulo 10 · Nómina y RH** — el de más valor y el más grande. Su insumo
       ya existe (el reloj checador). **Decisión del cliente sobre el CFDI de
       nómina: se implementa, pero el timbrado se enciende desde configuración.
