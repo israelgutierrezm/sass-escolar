@@ -1179,6 +1179,25 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   - Pruebas: `tests/Feature/RetirarComponenteDeEvaluacionTest`, 7 casos,
     comprobadas mutando tres reglas.
 
+- **Elegir alumnos uno por uno ya funciona** (2026-08-21). Calendario, avisos y
+  encuestas comparten `SelectorDestinos` para dirigirle algo a alumnos
+  señalados. **No funcionaba en ninguna de las tres, por dos motivos distintos**:
+  avisos y encuestas apuntaban a `/api/buscar/alumnos`, que NUNCA existió —y
+  `BuscadorRemoto` sólo tiene `finally`, sin `catch`, así que el 404 dejaba la
+  caja en blanco, idéntico a «no hay resultados»—; y la del calendario, la única
+  con ruta real, unía contra `ofertas` en plural cuando la tabla es `oferta`, o
+  sea que reventaba. Ahora es UN endpoint en la raíz, `/buscar/alumnos`, con el
+  permiso derivado `dirigir-a-alumnos` (calendario **o** avisos **o** encuestas),
+  y los nombres de tabla se le preguntan a los modelos. Cinco pruebas.
+  - **Se encontró comparando las URLs literales del frontend contra las rutas
+    registradas.** Vale la pena repetirlo al agregar pantallas: es barato y
+    encuentra botones muertos que no dan error. Quedaron 22 avisos más, todos
+    revisados y falsos positivos —prefijos de menú, líneas de comentario, bases
+    a las que se les añade un id, y un `put`/`post` en el mismo renglón—.
+  - Se auditó también lo declarado y no usado: **74 permisos y 17 ajustes, todos
+    con lector**. Nada que retirar; el barrido de `crear-personas` y compañía ya
+    había limpiado esa clase.
+
 - **`acadion:auditar-datos`**: busca filas que apuntan a registros que ya no
   existen. MySQL sólo comprueba las foráneas al ESCRIBIR, así que una resiembra
   con `SET FOREIGN_KEY_CHECKS=0` deja filas envenenadas que sólo estorban el día
