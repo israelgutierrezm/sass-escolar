@@ -3449,3 +3449,110 @@ correcto—.
 
 Es el mismo tipo de deuda que los cinco pendientes que resultaron estar hechos:
 una regla escrita de más que manda a trabajar donde no hay nada roto.
+
+
+## 2026-08-22 — El panel se llena de datos, no de atajos
+
+«Accesos directos» eran doce recuadros con un icono y una etiqueta: exactamente
+lo que ya ofrece el menú lateral. Se le había añadido una cifra a algunos
+—«Aspirantes · 12 sin contactar»— justamente para que dijeran algo que el menú
+no puede decir, y esa idea era la correcta; lo que estaba mal era el envase.
+
+### Lo que se midió antes de decidir
+
+De los seis roles base del demo, el `administrativo` y el `aspirante` veían UNA
+tarjeta, y era ésa. Retirarla sin más les dejaba el panel en blanco. Y de los 74
+permisos del catálogo, sólo 9 tenían alguna tarjeta anclada: el panel se veía
+soso porque estaba vacío, no porque le faltara diseño.
+
+Así que la decisión no fue «rediseñar los atajos» sino convertir cada atajo que
+valía la pena en una tarjeta con su dato, y ancharlo a los oficios que no tenían
+ninguna.
+
+### La regla del vacío, aplicada tarjeta por tarjeta
+
+Ya estaba escrita —una cola de trabajo vacía se oculta, una métrica propia en
+cero se muestra— pero con trece tarjetas nuevas hubo que decidirla trece veces,
+y en dos casos el resultado no es el obvio:
+
+- **Mi solicitud** no se oculta con el avance en 0 %. Es la situación del propio
+  aspirante y es lo único que le dice qué sigue; ocultarla lo devolvería al
+  panel en blanco justo el día que se registra.
+- **Mis tutorados** tampoco se oculta «cuando no hay nada pendiente», porque la
+  señal más valiosa del tutor —«a éste no lo he visto en tres meses»— NUNCA
+  genera un pendiente. Una tarjeta que desapareciera al no haber urgencias
+  escondería precisamente lo que hay que mirar.
+
+### Tres criterios que estaban escritos dos veces
+
+Las tarjetas nuevas necesitaban preguntas que ya tenían respuesta en otro sitio,
+y en vez de copiarlas se subieron a un solo lugar:
+
+- `Grupo::scopeConAlumnos` — cuántos alumnos DISTINTOS tiene un grupo (matrículas
+  y no renglones de inscripción; el alumno es la matrícula; las bajas no ocupan
+  lugar). Vivía dentro de `GrupoController::index`. Copiada, el panel diría 3
+  donde la pantalla de grupos dice 17.
+- `EmisorFactura::pagosOcupados` — qué pago ya ampara una factura viva. Era
+  privado, y es donde está la sutileza de que una cancelada libera sus pagos y
+  una en error también.
+- `Pago::titular()` — el titular dual. `ComprobantePago` lo tenía y `Pago` no,
+  con la misma regla y las mismas columnas. La asimetría se cobró con un
+  BadMethodCallException en cuanto se probó con datos sembrados.
+
+### Lo que el frontend lee, que no es lo que el contrato decía
+
+Dos hallazgos al construir, los dos comprobados leyendo el render:
+
+- **`barras` dibuja la barra RELATIVA al mayor de la serie** y escribe `valor`
+  crudo a la derecha; `porcentaje` sólo lo lee el bloque a medida de encuestas.
+  Poniendo las cabezas en `valor`, un grupo 25/30 y otro 25/100 saldrían con la
+  misma barra —lo contrario de «dónde ya no cabe nadie»—. Por eso la ocupación
+  va en `valor` y los conteos en la etiqueta, como ya hacía «Continuar donde me
+  quedé».
+- **El formato de dinero es `moneda`**, no `dinero`: con el otro, la cifra sale
+  sin formato y sin símbolo, y sin error.
+
+### Dos pruebas que pasaban por la razón equivocada
+
+`prueba-tarjetas-rol` encendía la clave fija «accesos» y comprobaba que lo
+visible fuera un SUBCONJUNTO de ella. Eso también se cumple cuando no queda NADA
+visible, así que la prueba seguía en verde con la tarjeta ya borrada — y seguía
+en verde con `RegistroTarjetas` mutado para ignorar el apagado por rol. Ahora
+busca a alguien que vea tarjetas de verdad, exige que quede exactamente la
+encendida, y si nadie en la escuela ve una sola lo reporta en ROJO: un panel que
+nadie puede llenar no es un caso a saltarse.
+
+`prueba-panel` comprobaba que el docente viera «sus accesos directos» — tarjeta
+que veía todo el mundo, porque no tenía permiso. No decía nada del docente y se
+cayó sola al retirarla. Se sustituyó por la otra mitad de la regla: tiene el
+permiso de sus materias y aun así no las ve, porque no imparte ninguna.
+
+## 2026-08-22 — Re-aplicar una plantilla: bloquear y avisar
+
+Quedaba anotado como riesgo conocido: el reemplazo del esquema usa `forceDelete`
+y eso dispara el `nullOnDelete` de `actividades`, así que re-aplicar una
+plantilla dejaba sin componente, en silencio, a las actividades del curso. Se
+había dejado sin resolver a propósito porque bloquear volvería inservibles las
+plantillas en cualquier plan con contenido de LMS, y eso era decisión de
+producto.
+
+**El cliente decidió: bloquea y avisa.** Con dos consecuencias de diseño:
+
+1. **Las dos razones para bloquear se preguntan en UN sitio**
+   (`motivoParaNoAplicar`), porque las dos terminan en la misma lista y
+   separarlas es como se olvida una al agregar la siguiente.
+2. **El aviso lleva el motivo de cada materia, no sólo su nombre.** Se bloquea
+   por calificaciones capturadas o por actividades que ponderan en el esquema, y
+   la salida de cada una es distinta —vaciar celdas en la hoja de captura, o
+   mover las actividades a otro componente—. Una lista de nombres sin motivo no
+   se puede accionar. `bloqueadas` pasó de `string[]` a `{materia, motivo}[]`.
+
+Se cuentan las actividades de TODOS los cursos y no sólo las de la plantilla del
+plan: `CopiadorDeCurso` copia la actividad al grupo apuntando al MISMO
+`esquema_evaluacion_id` —el componente es del plan, no del grupo—, así que mirar
+sólo el curso del plan dejaría pasar el reemplazo y desengancharía en silencio
+las de todos los grupos abiertos. Lo fija una mutación de la prueba.
+
+Esto no estorba la primera aplicación: una materia sin esquema no tiene nada
+colgando. Sólo la re-aplicación sobre trabajo ya hecho, que es cuando hay algo
+que perder.

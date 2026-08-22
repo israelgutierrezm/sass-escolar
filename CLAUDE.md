@@ -1170,12 +1170,20 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     `forceDelete` y sin llevarse antes los rastros en blanco la foránea revienta.
     No se veía porque esas mismas filas bloqueaban antes — se cambiaba un aviso
     claro por un error de base.
-  - **Riesgo encontrado y NO corregido**: ese mismo `forceDelete` dispara el
-    `nullOnDelete` de `actividades`, así que re-aplicar una plantilla deja sin
-    componente, en silencio, a las actividades del curso. Bloquear por eso haría
-    inservibles las plantillas en cualquier plan con contenido de LMS, así que
-    qué hacer —bloquear, avisar o remapear— es decisión de producto, no un
-    arreglo. Está sin resolver.
+  - **Resuelto el 2026-08-22, por decisión del cliente: bloquea y avisa.** Ese
+    mismo `forceDelete` disparaba el `nullOnDelete` de `actividades`, así que
+    re-aplicar una plantilla dejaba sin componente, en silencio, a las
+    actividades del curso. Ahora `motivoParaNoAplicar` pregunta las DOS razones
+    en un solo sitio y la materia entra a `bloqueadas` CON su motivo —se bloquea
+    por dos causas distintas y la salida de cada una es otra: vaciar celdas de
+    captura, o mover las actividades—. `bloqueadas` pasó de `string[]` a
+    `{materia, motivo}[]` y la pantalla los enumera.
+    - **Se cuentan las actividades de TODOS los cursos**, no sólo las de la
+      plantilla del plan: `CopiadorDeCurso` copia al grupo apuntando al MISMO
+      `esquema_evaluacion_id`, así que mirar sólo el curso del plan dejaría
+      pasar el reemplazo y desengancharía en silencio las de cada grupo abierto.
+    - No estorba la PRIMERA aplicación: una materia sin esquema no tiene nada
+      colgando. Sólo la re-aplicación sobre trabajo ya hecho.
   - Pruebas: `tests/Feature/RetirarComponenteDeEvaluacionTest`, 7 casos,
     comprobadas mutando tres reglas.
 
@@ -1197,6 +1205,43 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   - Se auditó también lo declarado y no usado: **74 permisos y 17 ajustes, todos
     con lector**. Nada que retirar; el barrido de `crear-personas` y compañía ya
     había limpiado esa clase.
+
+- **El panel dejó de tener un mosaico de atajos y tiene TRECE tarjetas nuevas**
+  (2026-08-22). «Accesos directos» era el menú lateral otra vez, con una cifra al
+  lado; se retiró junto con `PendientesDeAcceso`, que sólo esa tarjeta usaba.
+  - **Lo que se midió antes de tocar nada**: de los seis roles base del demo, el
+    `administrativo` y el `aspirante` veían UNA tarjeta —los atajos—, así que
+    quitarlos dejaba su panel en blanco. Y de 74 permisos del catálogo, sólo 9
+    tenían tarjeta anclada. El panel no estaba soso: estaba vacío.
+  - Las nuevas, cada una sobre un permiso que no tenía ninguna: **Mi solicitud**
+    (aspirante), **Mis hijos**, **Mis tutorados**, **Materias sin titular**,
+    **Ocupación de los grupos**, **Listas sin pasar**, **Actas por asentar**,
+    **Mi expediente** (docente), **Expedientes por validar**, **Listos para
+    inscribir**, **Por confirmar en caja**, **Pendiente de facturar**,
+    **Certificación en curso** y **Clases en línea de hoy**.
+  - **Ninguna recalcula un criterio que ya existe.** Al revés: hizo falta subir
+    tres a un solo sitio —`Grupo::scopeConAlumnos` (estaba dentro de
+    `GrupoController::index`), `EmisorFactura::pagosOcupados` (era privado) y
+    `Pago::titular()` (lo tenía `ComprobantePago` y no `Pago`, asimetría que se
+    cobró con un BadMethodCallException al probar con datos sembrados)—.
+  - **Al tutor educativo NO se le enseña lo financiero.** Su pantalla se lo niega
+    a propósito —eso es de la familia y de la escuela— y el panel no puede
+    abrirlo por la puerta de atrás.
+  - **`barras` dibuja relativo al mayor de la serie y escribe `valor` crudo**;
+    `porcentaje` hoy sólo lo lee la tarjeta de encuestas. Por eso «Ocupación de
+    los grupos» pone el PORCENTAJE en `valor` (como ya hacía «Continuar donde me
+    quedé»): con las cabezas ahí, un grupo 25/30 y otro 25/100 saldrían con la
+    misma barra. Y el formato de dinero es `moneda`, no `dinero` — con el otro la
+    cifra sale sin formato y sin error.
+  - **Dos suites pasaban por la razón equivocada y se repararon**:
+    `prueba-tarjetas-rol` encendía la clave fija «accesos» y pedía que lo visible
+    fuera un SUBCONJUNTO de ella —lo cual se cumple también con CERO tarjetas—,
+    así que seguía en verde con la tarjeta ya borrada y con el apagado por rol
+    mutado a no hacer nada; y `prueba-panel` comprobaba que el docente viera los
+    atajos, que veía todo el mundo por no tener permiso.
+  - Comprobado en el navegador con la sesión del demo: 9 tarjetas, sin
+    desplazamiento horizontal, los iconos dibujan y ninguna vecina comparte tono.
+    Lo único que sobresale del marco es la marca de agua, cortada aposta.
 
 - **`acadion:auditar-datos`**: busca filas que apuntan a registros que ya no
   existen. MySQL sólo comprueba las foráneas al ESCRIBIR, así que una resiembra
