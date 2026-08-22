@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**69 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**71 archivos `prueba-*.php`**;
    esta lista decía 23 y llevaba tiempo desactualizada). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
    imprimen `Resultado: N correctas, M fallidas`. **Ojo al barrer con `grep`**:
@@ -57,7 +57,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 69 están en verde.** Llegaron a estar 33 en rojo —no trece: ese primer
+   **Las 71 están en verde.** Llegaron a estar 33 en rojo —no trece: ese primer
    conteo sólo miró las que imprimían «N fallidas» e ignoró las 21 que morían
    antes, con una excepción sin resumen—. Ninguna caía por un cambio reciente;
    se comprobó corriéndolas contra el árbol limpio.
@@ -664,8 +664,8 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     tenía asesor. Lo cazó `prueba-actividad-crm`.
   - Pruebas: `scripts/prueba-actividad-crm.php`, 29 verificaciones, comprobada
     mutando la regla de re-cierre (caen exactamente las tres que la vigilan).
-- Pruebas: 69 suites en `scripts/`, contra la BD real del tenant demo con
-  `DB::rollBack()` al final. **69 en verde** (ver la regla 5 para qué tumbó a
+- Pruebas: 71 suites en `scripts/`, contra la BD real del tenant demo con
+  `DB::rollBack()` al final. **71 en verde** (ver la regla 5 para qué tumbó a
   las 33 que estuvieron en rojo). `prueba-listados` es la primera
   que invoca a los CONTROLADORES y lee sus props de Inertia, en vez de
   reimplementar la consulta: un `or` sin paréntesis no se detecta de otra forma.
@@ -1206,6 +1206,51 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     con lector**. Nada que retirar; el barrido de `crear-personas` y compañía ya
     había limpiado esa clase.
 
+- **Módulo 13 · Familia, primera mitad** (2026-08-22): el parentesco pasa a
+  catálogo y aparecen las AUTORIZACIONES.
+  - **El parentesco era un enumerable cableado dos veces**: una lista a mano en
+    el controlador y otro mapa de etiquetas en el Vue, y ninguna escuela podía
+    agregar «abuela» sin tocar código. Ahora es `parentescos` (TENANT-CONFIG); el
+    texto viejo se tradujo por clave en la propia migración.
+  - **Dos hechos nuevos del vínculo**: `es_contacto_emergencia` y
+    `es_responsable_pago`. No son permisos de visibilidad, son datos de la
+    relación que se resolvían preguntando por teléfono.
+  - **Se retiró `acceso_materia`**: declarada en el modelo y en el pivote, y NO
+    la leía nadie. Además la spec exige que el LMS no se exponga a familiares, y
+    esa exclusión tiene que ser ESTRUCTURAL, no una casilla palomeable.
+  - **NO se agregaron las banderas finas de la spec** (`ve_pagos`, `ve_facturas`,
+    `ve_asistencia`, `ve_avisos`): ninguna tendría hoy quien la lea, y este
+    proyecto ya tuvo que retirar ajustes y permisos que nadie consultaba.
+  - **Autorizaciones** (`/plataforma/autorizaciones`, permiso
+    `gestionar-autorizaciones`; se contestan desde `/mis-hijos`): es lo único del
+    módulo 13 que no existía en ninguna forma.
+    - **Una fila por VÍNCULO, no por alumno.** Quien autoriza es una persona
+      concreta y su respuesta es suya; un alumno con padre y madre recibe dos y
+      la escuela ve «respondió uno de dos» en vez de un sí del que nadie se hace
+      responsable. **Cuántas respuestas hacen falta NO lo decide el sistema**:
+      depende del trámite, así que se muestra el conteo y no se inventa un quórum.
+    - **Lleva su propio `titulo`, `detalle` y `fecha_limite`**, que la spec no
+      contemplaba. Sin ellos sólo sirve para un consentimiento permanente («uso
+      de imagen: sí») y no para el caso más frecuente: «la salida del 5 de
+      octubre». Con ellos la misma tabla sirve para los dos.
+    - **`concedida` en NULL es «no ha contestado» y NO cuenta como negada.** La
+      diferencia es legal, no cosmética. Una vencida sin contestar se queda
+      pendiente y vencida — que es información distinta de un «no».
+    - **La respuesta se puede cambiar mientras no venza**: revocar un
+      consentimiento de uso de imagen es un derecho. Lo que queda del cambio es
+      la auditoría (`updated_by`, `updated_at`) más `fecha_respuesta`; la CADENA
+      completa de cambios sería una bitácora aparte, y no se construye por si
+      acaso.
+    - **Un alumno sin familiares vinculados se reporta POR SU NOMBRE al emitir.**
+      Es el caso que arruina el trámite: la escuela cree que salió a todos y el
+      día de la excursión resulta que a tres nunca se les pidió nada.
+    - Reutiliza `/buscar/alumnos` y el permiso derivado `dirigir-a-alumnos`, que
+      ahora también abre `gestionar-autorizaciones`.
+  - Pruebas: `scripts/prueba-autorizaciones.php`, 14 verificaciones, comprobadas
+    mutando cuatro reglas. **La primera versión era vacua**: tomaba el primer
+    alumno con familia, que tenía UN solo vínculo, y ahí «una fila por vínculo» y
+    «una por alumno» dan el mismo número. Ahora exige un alumno con dos.
+
 - **El expediente del tutor familiar** (`/mis-hijos/expediente`, permiso
   `editar-mi-expediente-tutor`): el padre o tutor entrega lo que la escuela le
   pide A ÉL —su identificación, su comprobante de domicilio—.
@@ -1403,7 +1448,30 @@ marcado abajo con su fecha, y lo que NO la lleve sigue sin verificar.)*
    financiero— y nada sobre qué puede entregar en su nombre, así que decidirlo
    aquí sería decidirlo por la escuela.
 
-3. Fase 4.
+3. **Fase 4 — en curso.** Revisada contra el código el 2026-08-22: de sus 50
+   tablas no existía NINGUNA, pero los cuatro módulos ya estaban registrados en
+   `modulos`. **La numeración no es una cadena de dependencias**: 10, 11, 12 y
+   13 no dependen entre sí —todos cuelgan de Fases 0-3—, así que el orden es
+   decisión de negocio. El acordado con el cliente:
+
+   1. ~~**Módulo 13 · Familia**~~ — en curso. Con el alcance REVISADO: buena
+      parte ya estaba construida con otros nombres, y hacerlo literal habría
+      creado un segundo vínculo familiar (`vinculos_familiares` contra
+      `tutores_alumno`) y un segundo sistema de avisos (`avisos_familiares`
+      contra `avisos`, que ya segmenta por nueve tipos de destino).
+      **Decisión del cliente: el vínculo se queda POR PERSONA**, no por
+      matrícula como pedía la spec.
+   2. **Módulo 11 · Bolsa de trabajo** — autocontenido, no toca nada delicado, y
+      produce el dato que una escuela presume: colocación de egresados.
+   3. **Módulo 10 · Nómina y RH** — el de más valor y el más grande. Su insumo
+      ya existe (el reloj checador). **Decisión del cliente sobre el CFDI de
+      nómina: se implementa, pero el timbrado se enciende desde configuración.
+      Apagado, no se puede timbrar; encendido, valida la información que el
+      timbrado exige.**
+   4. **Módulo 12 · Movilidad** — al final: es el dominio más complejo y ESCRIBE
+      en el historial académico al aprobar una revalidación, que es lo más
+      delicado del sistema. Además `equivalencias` sigue en 0 filas, o sea que
+      su mecanismo de apoyo nunca se ha ejercitado.
 
 **Deuda conocida:**
 

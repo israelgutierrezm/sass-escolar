@@ -76,7 +76,17 @@ class PadreController extends Controller
             ];
         })->values();
 
-        return Inertia::render('Padre/MisHijos', ['hijos' => $hijos]);
+        return Inertia::render('Padre/MisHijos', [
+            'hijos' => $hijos,
+            /*
+             * Lo que le PIDEN contestar, arriba de todo lo demás en la pantalla.
+             *
+             * Va aquí y no en una sección aparte porque una autorización tiene
+             * plazo: si vive en otra página, se contesta cuando alguien se
+             * acuerda de entrar, y el día de la excursión faltan firmas.
+             */
+            'autorizaciones' => AutorizacionController::deFamiliar($request->user()),
+        ]);
     }
 
     public function hijo(Request $request, Persona $hijo): Response

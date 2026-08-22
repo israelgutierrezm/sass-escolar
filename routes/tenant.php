@@ -18,6 +18,7 @@ use App\Http\Controllers\AspiranteController;
 use App\Http\Controllers\AulaController;
 use App\Http\Controllers\AutenticacionController;
 use App\Http\Controllers\BecaController;
+use App\Http\Controllers\AutorizacionController;
 use App\Http\Controllers\CampoFormularioController;
 use App\Http\Controllers\CampusController;
 use App\Http\Controllers\CapturaCalificacionesController;
@@ -1495,6 +1496,28 @@ Route::middleware([
                 Route::get('/', 'misHijos')->name('index');
                 Route::get('{hijo}', 'hijo')->whereNumber('hijo')->name('hijo');
             });
+
+        /*
+         * Autorizaciones: la escuela pide, la familia contesta.
+         *
+         * Emitir y consultar van bajo `gestionar-autorizaciones`. RESPONDER no:
+         * esa la usa el familiar desde su portal y su alcance no es un permiso
+         * sino el vínculo —la autorización se busca entre las suyas—. Es la
+         * regla de siempre: cuando dos oficios entran por rutas distintas de la
+         * misma cosa, cada una lleva la puerta que le toca.
+         */
+        Route::controller(AutorizacionController::class)
+            ->prefix('plataforma/autorizaciones')->name('tenant.plataforma.autorizaciones.')
+            ->middleware('can:gestionar-autorizaciones')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'emitir')->name('emitir');
+            });
+
+        Route::put('mis-hijos/autorizaciones/{autorizacion}', [AutorizacionController::class, 'responder'])
+            ->whereNumber('autorizacion')
+            ->middleware('can:ver-mis-hijos')
+            ->name('tenant.padre.autorizaciones.responder');
 
         /*
          * Y el expediente del propio TUTOR: lo que la escuela le pide A ÉL.

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 interface Hijo {
@@ -18,7 +19,49 @@ interface Hijo {
     };
 }
 
-defineProps<{ hijos: Hijo[] }>();
+interface Autorizacion {
+    id: number;
+    titulo: string;
+    detalle: string | null;
+    tipo: string | null;
+    alumno: string | null;
+    fecha_limite: string | null;
+    vencida: boolean;
+    concedida: boolean | null;
+    comentario: string | null;
+    fecha_respuesta: string | null;
+    puede_responder: boolean;
+}
+
+const props = defineProps<{ hijos: Hijo[]; autorizaciones: Autorizacion[] }>();
+
+/*
+ * Lo que falta contestar va arriba y lo resuelto se guarda detrás de un botón.
+ *
+ * Un padre que ya autorizó tres salidas no entra a releerlas: entra porque le
+ * pidieron algo. Mezclarlas obliga a buscar lo pendiente entre lo hecho, que es
+ * justo cuando se pasa un plazo.
+ */
+const pendientes = computed(() => props.autorizaciones.filter((a) => a.concedida === null && !a.vencida));
+const resueltas = computed(() => props.autorizaciones.filter((a) => a.concedida !== null || a.vencida));
+
+const verResueltas = ref(false);
+
+const respuesta = useForm({ concedida: true, comentario: '' });
+const respondiendo = ref<number | null>(null);
+
+function responder(autorizacion: Autorizacion, concedida: boolean): void {
+    respuesta.concedida = concedida;
+    respondiendo.value = autorizacion.id;
+
+    respuesta.put(`/mis-hijos/autorizaciones/${autorizacion.id}`, {
+        preserveScroll: true,
+        onFinish: () => {
+            respondiendo.value = null;
+            respuesta.reset();
+        },
+    });
+}
 
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
 
@@ -46,6 +89,105 @@ function colorPromedio(p: number | null): string | undefined {
         <p class="max-w-2xl text-sm" :style="{ color: 'var(--color-suave)' }">
             Aquí ves la información de los alumnos que la escuela tiene vinculados contigo.
         </p>
+
+        <!--
+            Lo que le piden contestar, antes que nada: tiene plazo, y lo que
+            tiene plazo no puede estar debajo de lo que sólo informa.
+        -->
+        <section v-if="pendientes.length" class="tarjeta mt-4 overflow-hidden">
+            <div class="border-b px-6 py-3" :style="{ borderColor: 'var(--color-borde)' }">
+                <h2 class="text-base font-semibold">
+                    {{ pendientes.length === 1 ? 'Te piden una autorización' : `Te piden ${pendientes.length} autorizaciones` }}
+                </h2>
+            </div>
+
+            <ul>
+                <li
+                    v-for="a in pendientes"
+                    :key="a.id"
+                    class="border-t px-6 py-4 text-sm"
+                    :style="{ borderColor: 'var(--color-borde)' }"
+                >
+                    <p class="font-medium">{{ a.titulo }}</p>
+                    <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                        {{ a.tipo }}<span v-if="a.alumno"> · {{ a.alumno }}</span>
+                        <span v-if="a.fecha_limite"> · hasta el {{ a.fecha_limite }}</span>
+                    </p>
+                    <p v-if="a.detalle" class="mt-1 text-sm">{{ a.detalle }}</p>
+
+                    <div class="mt-3 flex flex-wrap items-center gap-3">
+                        <input
+                            v-model="respuesta.comentario"
+                            type="text"
+                            placeholder="Comentario (opcional)"
+                            class="min-w-0 flex-1 rounded-lg border px-3 py-1.5 text-sm"
+                            :style="{ borderColor: 'var(--color-borde)', backgroundColor: 'transparent' }"
+                        />
+                        <button
+                            type="button"
+                            class="rounded-lg px-4 py-1.5 text-sm font-medium text-white"
+                            style="background-color: #16a34a"
+                            :disabled="respondiendo === a.id"
+                            @click="responder(a, true)"
+                        >
+                            Autorizo
+                        </button>
+                        <button
+                            type="button"
+                            class="rounded-lg border px-4 py-1.5 text-sm font-medium"
+                            style="border-color: #dc2626; color: #dc2626"
+                            :disabled="respondiendo === a.id"
+                            @click="responder(a, false)"
+                        >
+                            No autorizo
+                        </button>
+                    </div>
+                </li>
+            </ul>
+        </section>
+
+        <!--
+            Lo ya contestado se conserva —es el acuse de lo que uno autorizó— pero
+            plegado: no es a lo que se entra.
+        -->
+        <div v-if="resueltas.length" class="mt-3">
+            <button
+                type="button"
+                class="text-xs font-medium"
+                :style="{ color: 'var(--color-acento)' }"
+                @click="verResueltas = !verResueltas"
+            >
+                {{ verResueltas ? 'Ocultar' : `Ver ${resueltas.length} autorización(es) ya contestada(s)` }}
+            </button>
+
+            <ul v-if="verResueltas" class="tarjeta mt-2 overflow-hidden">
+                <li
+                    v-for="a in resueltas"
+                    :key="a.id"
+                    class="flex flex-wrap items-center justify-between gap-3 border-t px-6 py-3 text-sm"
+                    :style="{ borderColor: 'var(--color-borde)' }"
+                >
+                    <div class="min-w-0">
+                        <p class="font-medium">{{ a.titulo }}</p>
+                        <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                            {{ a.alumno }}<span v-if="a.fecha_respuesta"> · {{ a.fecha_respuesta }}</span>
+                        </p>
+                        <p v-if="a.comentario" class="text-xs italic" :style="{ color: 'var(--color-suave)' }">
+                            {{ a.comentario }}
+                        </p>
+                    </div>
+                    <span
+                        class="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium"
+                        :style="{
+                            backgroundColor: `color-mix(in srgb, ${a.concedida === null ? '#f59e0b' : a.concedida ? '#16a34a' : '#dc2626'} 14%, transparent)`,
+                            color: a.concedida === null ? '#b45309' : a.concedida ? '#16a34a' : '#dc2626',
+                        }"
+                    >
+                        {{ a.concedida === null ? 'Sin contestar, ya venció' : a.concedida ? 'Autorizada' : 'No autorizada' }}
+                    </span>
+                </li>
+            </ul>
+        </div>
 
         <section v-if="hijos.length" class="cuadricula-listado">
             <Link

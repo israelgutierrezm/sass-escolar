@@ -180,6 +180,13 @@ final class CatalogoPermisos
              * escuelas donde los papeles del padre se entregan en ventanilla y
              * el portal sólo sirve para consultar.
              */
+            /*
+             * Pedirle a las familias que autoricen algo. Aparte de
+             * `gestionar-avisos` porque no es lo mismo informar que pedir
+             * permiso: una autorización tiene consecuencias legales y la
+             * escuela puede querer que sólo la emita dirección.
+             */
+            'gestionar-autorizaciones' => ['Gestionar autorizaciones', 'Pedirle a los padres o tutores que autoricen salidas, uso de imagen y actividades.', [self::ADMINISTRATIVO]],
             'editar-mi-expediente-tutor' => ['Editar mi expediente (tutor)', 'Que el padre o tutor suba los documentos que la escuela le pide a él.', [self::PADRE]],
             'ver-tutores' => ['Ver padres y tutores', 'Consultar el directorio de padres y tutores y a qué alumnos están vinculados.', [self::ADMINISTRATIVO]],
             // Separado de `ver-tutores` a propósito: quien consulta el

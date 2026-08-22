@@ -251,6 +251,7 @@ class AppServiceProvider extends ServiceProvider
             fn ($usuario) => $usuario->can('gestionar-calendario')
                 || $usuario->can('gestionar-avisos')
                 || $usuario->can('gestionar-encuestas')
+                || $usuario->can('gestionar-autorizaciones')
         );
 
         /*

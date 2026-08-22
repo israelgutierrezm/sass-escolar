@@ -311,6 +311,14 @@ export const CATALOGO_MENU: GrupoMenu[] = [
             { clave: 'clases-en-linea', etiqueta: 'Clases en línea', url: '/plataforma/clases-en-linea', permiso: 'gestionar-clases-en-linea' },
             { clave: 'calendario', etiqueta: 'Calendario', url: '/plataforma/calendario', permiso: 'gestionar-calendario' },
             { clave: 'avisos', etiqueta: 'Avisos', url: '/plataforma/avisos', permiso: 'gestionar-avisos' },
+            // Junto a los avisos porque es la otra mitad de hablar con las
+            // familias: uno informa y el otro pide permiso.
+            {
+                clave: 'autorizaciones',
+                etiqueta: 'Autorizaciones',
+                url: '/plataforma/autorizaciones',
+                permiso: 'gestionar-autorizaciones',
+            },
             {
                 clave: 'encuestas',
                 etiqueta: 'Encuestas de evaluación',
