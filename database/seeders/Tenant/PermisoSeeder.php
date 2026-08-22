@@ -84,7 +84,7 @@ class PermisoSeeder extends Seeder
         // Ahora lo hay, en `tutorias`, y su portal resuelve el alcance por
         // pertenencia igual que el del padre y el del docente.
         'tutor_educativo' => ['ver-mis-tutorados', 'ver-historial-academico'],
-        'padre_familia' => ['ver-mis-hijos', 'ver-historial-academico', 'ver-adeudos'],
+        'padre_familia' => ['ver-mis-hijos', 'ver-historial-academico', 'ver-adeudos', 'editar-mi-expediente-tutor'],
     ];
 
     public function run(): void

@@ -76,6 +76,7 @@ use App\Http\Controllers\IdentidadController;
 use App\Http\Controllers\ImagenContenidoController;
 use App\Http\Controllers\ImpresionActaController;
 use App\Http\Controllers\ImpresionHistorialController;
+use App\Http\Controllers\ExpedienteTutorController;
 use App\Http\Controllers\InscripcionController;
 use App\Http\Controllers\InstitucionController;
 use App\Http\Controllers\MenuRolController;
@@ -1493,6 +1494,28 @@ Route::middleware([
             ->group(function () {
                 Route::get('/', 'misHijos')->name('index');
                 Route::get('{hijo}', 'hijo')->whereNumber('hijo')->name('hijo');
+            });
+
+        /*
+         * Y el expediente del propio TUTOR: lo que la escuela le pide A ÉL.
+         *
+         * Permiso aparte de `ver-mis-hijos` por lo mismo que el del alumno va
+         * aparte de su portal: hay escuelas donde los papeles del padre se
+         * entregan en ventanilla y esta sección no debe existir. Cuelga del
+         * mismo prefijo porque es parte del portal de la familia —la escuela le
+         * pide su identificación PORQUE es tutor de alguien—, y no choca con
+         * `{hijo}`, que sólo casa con números.
+         */
+        Route::controller(ExpedienteTutorController::class)
+            ->prefix('mis-hijos/expediente')->name('tenant.padre.expediente.')
+            ->middleware('can:editar-mi-expediente-tutor')
+            ->group(function () {
+                Route::get('/', 'show')->name('show');
+                Route::post('documentos', 'subir')->name('documentos.store');
+                Route::get('documentos/{documento}/descargar', 'descargar')
+                    ->whereNumber('documento')->name('documentos.descargar');
+                Route::delete('documentos/{documento}', 'eliminar')
+                    ->whereNumber('documento')->name('documentos.destroy');
             });
 
         /*

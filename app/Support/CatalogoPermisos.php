@@ -173,6 +173,14 @@ final class CatalogoPermisos
             // El alcance NO lo da este permiso sino el vínculo en `tutorias`:
             // deja entrar al portal, y a quiénes ve lo decide a quién acompaña.
             'ver-mis-tutorados' => ['Ver a mis tutorados', 'Portal del tutor educativo: los alumnos que acompaña académicamente.', [self::TUTOR]],
+            /*
+             * El expediente del TUTOR, no el de su hijo: su identificación, su
+             * comprobante de domicilio. Va aparte de `ver-mis-hijos` por lo
+             * mismo que el del alumno va aparte de `ver-mis-cursos`: hay
+             * escuelas donde los papeles del padre se entregan en ventanilla y
+             * el portal sólo sirve para consultar.
+             */
+            'editar-mi-expediente-tutor' => ['Editar mi expediente (tutor)', 'Que el padre o tutor suba los documentos que la escuela le pide a él.', [self::PADRE]],
             'ver-tutores' => ['Ver padres y tutores', 'Consultar el directorio de padres y tutores y a qué alumnos están vinculados.', [self::ADMINISTRATIVO]],
             // Separado de `ver-tutores` a propósito: quien consulta el
             // directorio no por eso debe poder capturar los datos personales

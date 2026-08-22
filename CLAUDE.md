@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**68 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**69 archivos `prueba-*.php`**;
    esta lista decía 23 y llevaba tiempo desactualizada). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
    imprimen `Resultado: N correctas, M fallidas`. **Ojo al barrer con `grep`**:
@@ -57,7 +57,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 68 están en verde.** Llegaron a estar 33 en rojo —no trece: ese primer
+   **Las 69 están en verde.** Llegaron a estar 33 en rojo —no trece: ese primer
    conteo sólo miró las que imprimían «N fallidas» e ignoró las 21 que morían
    antes, con una excepción sin resumen—. Ninguna caía por un cambio reciente;
    se comprobó corriéndolas contra el árbol limpio.
@@ -664,8 +664,8 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     tenía asesor. Lo cazó `prueba-actividad-crm`.
   - Pruebas: `scripts/prueba-actividad-crm.php`, 29 verificaciones, comprobada
     mutando la regla de re-cierre (caen exactamente las tres que la vigilan).
-- Pruebas: 68 suites en `scripts/`, contra la BD real del tenant demo con
-  `DB::rollBack()` al final. **68 en verde** (ver la regla 5 para qué tumbó a
+- Pruebas: 69 suites en `scripts/`, contra la BD real del tenant demo con
+  `DB::rollBack()` al final. **69 en verde** (ver la regla 5 para qué tumbó a
   las 33 que estuvieron en rojo). `prueba-listados` es la primera
   que invoca a los CONTROLADORES y lee sus props de Inertia, en vez de
   reimplementar la consulta: un `or` sin paréntesis no se detecta de otra forma.
@@ -1206,6 +1206,39 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     con lector**. Nada que retirar; el barrido de `crear-personas` y compañía ya
     había limpiado esa clase.
 
+- **El expediente del tutor familiar** (`/mis-hijos/expediente`, permiso
+  `editar-mi-expediente-tutor`): el padre o tutor entrega lo que la escuela le
+  pide A ÉL —su identificación, su comprobante de domicilio—.
+  - **El ámbito llevaba desde el principio sin quien lo consumiera.**
+    `DocumentoRequerido::AMBITO_TUTOR` existe en el catálogo y el demo YA lo usa
+    —«Identificación oficial», obligatoria—, pero el portal de la familia sólo
+    mostraba a los hijos: no había dónde entregarla. Es el mismo hueco que tenía
+    el ámbito `alumno` antes de «Mi expediente».
+  - **Son SUS papeles, no los de su hijo.** Que un tutor entregue por su hijo
+    menor es otra conversación y necesita una decisión que el modelo no tiene
+    tomada; se dejó anotada en vez de inventarla.
+  - Tabla `documentos_tutor`, tercera con la misma forma tras `documentos_alumno`
+    y `documentos_docente`. Se repite a propósito: con una sola tabla, los
+    papeles del tutor asomarían en el expediente del alumno de quien es las dos
+    cosas. Cuelga de `personas` y no del vínculo — quien deja de ser tutor de un
+    egresado sigue siéndolo de otro hijo, y sus papeles no se van con el primero.
+  - **Permiso propio**, como el del alumno y el del docente: hay escuelas donde
+    los papeles del padre se entregan en ventanilla y la sección no debe existir.
+  - **El permiso no basta: hace falta el VÍNCULO.** Un administrativo que se
+    concediera el permiso no tiene expediente de tutor porque no lo es de nadie.
+  - **El `exists` de la validación va acotado al ÁMBITO.** Sin eso, el id de un
+    documento de aspirante pasaba y acababa en el expediente del tutor, donde
+    nadie lo pidió y nadie lo va a revisar: el desplegable no es una defensa.
+  - Pruebas: `scripts/prueba-expediente-tutor.php`, 12 verificaciones,
+    comprobadas mutando cinco reglas. **Una de esas mutaciones destapó que la
+    prueba del documento ajeno era floja**: la fila existía pero el archivo no,
+    así que al quitar la salvaguarda fallaba igual —por 404— y la prueba mataba
+    el script en vez de reportar. Ahora el ajeno tiene archivo de verdad, y la
+    única razón de que no se descargue es la comprobación de propiedad.
+  - Comprobado además el recorrido entero por HTTP suplantando al tutor del
+    demo: subir (303), descargar (200) y borrar (303), con la fila y el archivo
+    desaparecidos al final.
+
 - **El acta impresa** (`/captura/{materia}/actas/{acta}/imprimir`, botón en la
   hoja de captura). En **Blade y no en PDF generado**, por lo mismo que el
   historial: el proyecto no tiene librería de PDF y el navegador ya sabe
@@ -1363,11 +1396,12 @@ marcado abajo con su fecha, y lo que NO la lleve sigue sin verificar.)*
 1. ~~**Impresión del acta**~~ — **hecha el 2026-08-22.** Ver «El acta impresa»
    en el estado, más arriba.
 
-2. **El portal del TUTOR no opera, y no es que le falte la pantalla.**
-   Comprobado el 2026-08-19: `/mis-hijos` sólo tiene `index` y `hijo`, y
-   `PadreController` no menciona documentos — **no hay endpoint**, así que
-   construir la pantalla no bastaría. La regla «alumnos y padres suben, no
-   validan» sí está implementada y probada del lado de admisiones.
+2. ~~**El portal del TUTOR no opera**~~ — **hecho el 2026-08-22.** Ver «El
+   expediente del tutor familiar» en el estado, más arriba. Queda ABIERTO, y a
+   propósito, si un tutor puede entregar documentos POR su hijo menor: el
+   vínculo `tutores_alumno` declara qué puede VER —lo académico, lo
+   financiero— y nada sobre qué puede entregar en su nombre, así que decidirlo
+   aquí sería decidirlo por la escuela.
 
 3. Fase 4.
 
