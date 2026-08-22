@@ -266,12 +266,23 @@ la cadena vacía, y de una carga masiva puede salir así.
 
 ## Trampas al programar (ya mordieron)
 
-- **Un `back()` después de PUT/PATCH/DELETE debe ser `back(303)`.** Ante un 302
-  el navegador repite el redirect CON EL MISMO MÉTODO: el PATCH sale otra vez
-  contra la pantalla destino —que sólo responde GET— y termina en 405 aunque el
-  cambio ya se haya guardado. Lo peor es cómo se ve: el dato cambió en la base y
-  la pantalla no se entera, así que parece que el botón no funciona. Mordió con
-  el interruptor de visibilidad.
+- **El 303 después de PUT/PATCH/DELETE lo pone Inertia solo; el `back()` pelado
+  NO está roto.** Esta entrada decía que había que escribir `back(303)` siempre,
+  y con ella un vistazo al código encuentra 154 acciones «rotas» y manda a
+  reescribirlas. Medido contra el demo con una ruta desechable: con la cabecera
+  `X-Inertia` un `back()` sale **303**, sin ella sale 302 — el middleware de
+  `inertiajs/inertia-laravel` lo convierte, y `HandleInertiaRequests` lo hereda
+  y está en el grupo `web`, que es el que usan las rutas de tenant.
+  - El mecanismo de fondo sí es real: ante un 302 el navegador repite el
+    redirect CON EL MISMO MÉTODO, el PATCH sale otra vez contra una pantalla que
+    sólo responde GET y termina en 405 con el cambio ya guardado —parece que el
+    botón no sirve—. Por eso importa **cuando la petición no lleva esa
+    cabecera**: un formulario Blade, un `fetch` a mano, algo fuera de la SPA.
+  - Comprobado que hoy no hay ninguno así: todas las llamadas de
+    `resources/js` que no pasan por el router de Inertia son GET o POST, y en
+    POST el 302 es correcto.
+  - `back(303)` explícito no estorba y hay ~60 sitios que lo usan. Los dos
+    estilos conviven sin consecuencia; no vale una reescritura masiva.
 - **Los catálogos universales viven en la base CENTRAL.** Sexos, países,
   entidades federativas… tienen modelo en `App\Models\Landlord\` con
   `CentralConnection`. Un `DB::table(...)` desde el tenant revienta con «table
@@ -1137,6 +1148,51 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   título.
 - **«Certificación y titulación» es un solo menú** con un submenú para cada una.
 
+- **Lo capturado ya no se puede enterrar** (2026-08-21). `EsquemaEvaluacion`
+  lleva `TieneAuditoria`, o sea borrado LÓGICO: la foránea de
+  `calificaciones_componente` no llegaba a dispararse nunca y borrar un
+  componente con calificaciones devolvía ÉXITO, dejando los números colgando de
+  una fila invisible. Peor que reventar, porque un error se ve: el esquema queda
+  sumando 90 %, la final deja de calcularse, y si alguien agrega otro componente
+  para llegar a 100 el trabajo del docente queda enterrado con la pantalla
+  normal.
+  - Ahora se niega y nombra la salida que EXISTE —vaciar esa celda en la hoja de
+    captura—, y las actividades del LMS también lo sostienen: una actividad
+    declara a qué componente pondera, y quitárselo la deja suelta (ya hubo que
+    escribir una migración para reparar tres así).
+  - **«Capturada» se define UNA vez**, en `CalificacionComponente::capturadas()`:
+    guardar la hoja escribe fila por alumno con NULL donde el docente no llegó,
+    así que contar FILAS haría que abrir la pantalla una vez congelara la
+    materia para siempre. La usan los dos que deciden congelar: esta guarda y
+    `AplicadorPlantillaEvaluacion`, que contaba filas y bloqueaba re-aplicar una
+    plantilla sin que nadie hubiera calificado a nadie.
+  - Relajarlo destapó un **500 latente**: el aplicador borra el esquema viejo con
+    `forceDelete` y sin llevarse antes los rastros en blanco la foránea revienta.
+    No se veía porque esas mismas filas bloqueaban antes — se cambiaba un aviso
+    claro por un error de base.
+  - **Riesgo encontrado y NO corregido**: ese mismo `forceDelete` dispara el
+    `nullOnDelete` de `actividades`, así que re-aplicar una plantilla deja sin
+    componente, en silencio, a las actividades del curso. Bloquear por eso haría
+    inservibles las plantillas en cualquier plan con contenido de LMS, así que
+    qué hacer —bloquear, avisar o remapear— es decisión de producto, no un
+    arreglo. Está sin resolver.
+  - Pruebas: `tests/Feature/RetirarComponenteDeEvaluacionTest`, 7 casos,
+    comprobadas mutando tres reglas.
+
+- **`acadion:auditar-datos`**: busca filas que apuntan a registros que ya no
+  existen. MySQL sólo comprueba las foráneas al ESCRIBIR, así que una resiembra
+  con `SET FOREIGN_KEY_CHECKS=0` deja filas envenenadas que sólo estorban el día
+  que alguien toca el esquema. Lee las foráneas declaradas de
+  `information_schema`; por omisión sólo informa y `--reparar` pone en NULL lo
+  que admite null. **En el demo: 199 filas rotas** —138 anulables y 61 en
+  columnas obligatorias, que no se tocan porque la fila entera perdió sentido y
+  borrarla es decisión de la escuela—.
+  - **La subconsulta lleva alias y no es cosmético**: sin él una foránea que
+    apunta a su propia tabla (`roles.rol_padre_id`, `encuestas.origen_id`)
+    pierde la correlación y TODA jerarquía válida sale reportada como rota —con
+    `--reparar`, la escuela entera se quedaba sin herencia de permisos—. Lo fija
+    `AuditarDatosTest`.
+
 **Pendiente inmediato — aquí se retoma:**
 
 *(Antes de tomar algo de esta lista, COMPROBARLO en el código. **Ya van cinco**
@@ -1207,19 +1263,8 @@ marcado abajo con su fecha, y lo que NO la lleve sigue sin verificar.)*
 - `reactivos_cleaver` está vacía a propósito: el banco real del test DISC viene
   del legacy y no debe inventarse. No es deuda: es una decisión.
 
-- **Borrar un componente de evaluación con calificaciones NO revienta: pasa en
-  silencio, y es peor.** Esta entrada decía que «la FK lo impide y el CRUD
-  revienta en vez de explicarlo». Es falso, y el error real es más grave:
-  `EsquemaEvaluacion` usa `TieneAuditoria`, o sea **borrado lógico**, así que la
-  foránea de `calificaciones_componente` no llega a dispararse nunca.
-  `EsquemaEvaluacionController::destroy` hace `$componente->delete()` sin
-  preguntar nada.
-
-  Medido contra el demo el 2026-08-19, con rollback: el componente #290 tenía
-  una calificación, el borrado devolvió éxito, y la calificación **se quedó
-  colgando de un componente invisible** — contando para un porcentaje que ya no
-  aparece en el esquema. Sin error y sin aviso, que es lo que lo hace peligroso:
-  «revienta con un mensaje feo» se ve; esto no.
+- ~~«Borrar un componente de evaluación con calificaciones pasa en silencio»~~.
+  **Resuelto** (ver más abajo, «Lo capturado ya no se puede enterrar»).
 
 **Tres deudas que estaban aquí y NO eran ciertas** (comprobadas el 2026-08-19;
 se dejan escritas para que no vuelvan a apuntarse como pendientes):

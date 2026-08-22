@@ -3376,3 +3376,76 @@ apagadas deja filas envenenadas que viven meses sin dar señales y sólo estorba
 el día que alguien toca el esquema —como ya pasó al agregarle una columna a
 `actividades`—. Es del demo, no del código: las foráneas están declaradas y la
 aplicación escribe por Eloquent.
+
+## 2026-08-21 — Qué cuenta como «capturado», y por qué había que decidirlo una vez
+
+`EsquemaEvaluacion` usa borrado lógico. Eso hacía que la foránea de
+`calificaciones_componente` no se disparara nunca, así que retirar un componente
+con calificaciones devolvía éxito y las dejaba colgando de una fila invisible.
+
+Lo que lo vuelve grave no es el dato suelto: es que **el esquema pasa a sumar
+90 %**, la calificación final deja de poderse calcular, y si alguien agrega otro
+componente para volver a llegar a 100, lo que el docente capturó desaparece del
+cálculo con la pantalla viéndose normal. Un error ruidoso se arregla; éste no se
+nota.
+
+### La decisión: se niega, y se dice por dónde salir
+
+No se borra en cascada. Una calificación capturada es trabajo de una persona y
+un hecho fechado: retirarle el componente no puede ser el efecto de un clic en
+otra pantalla. El aviso nombra la salida que de verdad existe —vaciar esa celda
+en la hoja de captura, que es lo que la vuelve un blanco— en vez de decir
+«bórrala primero» sin decir dónde.
+
+Las actividades del LMS cuentan igual: una actividad declara a qué componente
+pondera, y quitárselo la deja suelta. Ya hubo que escribir una migración para
+reparar tres así.
+
+### Un blanco no es una calificación
+
+Guardar la hoja de captura escribe una fila por alumno, con `calificacion` en
+NULL donde el docente no llegó — la regla de siempre, NULL no es cero. Si esas
+contaran, **abrir la pantalla una vez congelaría el esquema de la materia para
+siempre**, sin que nadie hubiera calificado a nadie y sin nada que lo explicara.
+
+Por eso la pregunta «¿esto ya está capturado?» se responde en UN sitio,
+`CalificacionComponente::capturadas()`. De ella cuelgan las dos decisiones que
+congelan trabajo ajeno: si un componente se puede retirar y si una plantilla se
+puede volver a aplicar. `AplicadorPlantillaEvaluacion` contaba FILAS, así que
+llevaba bloqueando materias sin capturas reales.
+
+### Lo que destapó relajarlo
+
+El aplicador borra el esquema viejo con `forceDelete`. Sin llevarse antes los
+rastros en blanco, la foránea revienta y la aplicación termina en 500. No se
+veía porque esas mismas filas bloqueaban la re-aplicación: se estaba cambiando
+un aviso claro por un error de base. Se limpian en la misma transacción.
+
+### Lo que queda sin resolver, a propósito
+
+Ese `forceDelete` dispara el `nullOnDelete` de `actividades`: re-aplicar una
+plantilla deja sin componente, en silencio, a las actividades del curso.
+Bloquear por eso volvería inservibles las plantillas en cualquier plan con
+contenido de LMS. Qué hacer —bloquear, avisar al terminar o remapear por
+nombre— es una decisión de producto y no un arreglo, así que se deja anotada en
+vez de resolverse por la puerta de atrás.
+
+## 2026-08-21 — El `back(303)` que no hacía falta
+
+La bitácora decía que «un `back()` después de PUT/PATCH/DELETE debe ser
+`back(303)`». Con esa regla, un vistazo al código encuentra 154 acciones
+«rotas».
+
+Se midió en vez de creerlo: una ruta desechable que sólo devuelve `back()`,
+llamada con curl contra el demo. Con la cabecera `X-Inertia` responde **303**;
+sin ella, 302. El middleware de `inertiajs/inertia-laravel` hace la conversión,
+`HandleInertiaRequests` lo hereda sin tocar `handle()`, y está en el grupo `web`
+que usan las rutas de tenant.
+
+El mecanismo de fondo sí es real y por eso la nota no se borra: importa cuando
+la petición NO lleva esa cabecera. Hoy no hay ninguna así —todas las llamadas de
+`resources/js` fuera del router de Inertia son GET o POST, y en POST el 302 es
+correcto—.
+
+Es el mismo tipo de deuda que los cinco pendientes que resultaron estar hechos:
+una regla escrita de más que manda a trabajar donde no hay nada roto.
