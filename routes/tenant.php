@@ -74,6 +74,7 @@ use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\HorarioController;
 use App\Http\Controllers\IdentidadController;
 use App\Http\Controllers\ImagenContenidoController;
+use App\Http\Controllers\ImpresionActaController;
 use App\Http\Controllers\ImpresionHistorialController;
 use App\Http\Controllers\InscripcionController;
 use App\Http\Controllers\InstitucionController;
@@ -570,6 +571,26 @@ Route::middleware([
                 Route::put('{asignaturaGrupo}', 'guardar')->whereNumber('asignaturaGrupo')->name('guardar');
                 Route::post('{asignaturaGrupo}/cerrar', 'cerrar')->whereNumber('asignaturaGrupo')->name('cerrar');
                 Route::post('{asignaturaGrupo}/corregir', 'corregir')->whereNumber('asignaturaGrupo')->name('corregir');
+            });
+
+        /*
+         * El acta impresa.
+         *
+         * En su propio grupo y no dentro del `Route::controller` de arriba,
+         * porque ése amarra todas sus rutas a un solo controlador y ésta es de
+         * otro: devuelve una vista Blade suelta, no una pantalla de Inertia.
+         *
+         * Repite el prefijo y el permiso a propósito: la imprimen los dos
+         * oficios que capturan —control escolar y el docente—, y el alcance del
+         * docente lo acota `AutorizaMateriaPropia` dentro del controlador, que
+         * es donde ya vive esa regla.
+         */
+        Route::prefix('captura')
+            ->middleware('can:capturar-calificaciones')
+            ->group(function () {
+                Route::get('{asignaturaGrupo}/actas/{acta}/imprimir', ImpresionActaController::class)
+                    ->whereNumber(['asignaturaGrupo', 'acta'])
+                    ->name('tenant.captura.acta.imprimir');
             });
 
         /*

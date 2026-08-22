@@ -526,6 +526,26 @@ const cortesPorExcepcion = computed(() =>
                         <span v-if="acta.cerrada_por" :style="{ color: 'var(--color-suave)' }">
                             firmó {{ acta.cerrada_por }} · {{ acta.cerrada_en }}
                         </span>
+
+                        <!--
+                            Sólo la firmada. Un borrador lleva un folio
+                            `BORRADOR-…` que no es folio de nada —el real se
+                            emite al cerrar—, así que su impresión sería un papel
+                            con aspecto oficial y un número inventado.
+
+                            Abre en pestaña aparte: se manda a la impresora y se
+                            vuelve a la captura, no se navega fuera de ella.
+                        -->
+                        <a
+                            v-if="acta.situacion === 'cerrada'"
+                            :href="`/captura/${materia.id}/actas/${acta.id}/imprimir`"
+                            target="_blank"
+                            rel="noopener"
+                            class="ml-auto rounded-lg border px-3 py-1 text-xs font-medium"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                        >
+                            Imprimir acta
+                        </a>
                     </div>
                     <p v-if="acta.observaciones" class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">
                         {{ acta.observaciones }}

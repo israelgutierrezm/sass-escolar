@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**67 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**68 archivos `prueba-*.php`**;
    esta lista decía 23 y llevaba tiempo desactualizada). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
    imprimen `Resultado: N correctas, M fallidas`. **Ojo al barrer con `grep`**:
@@ -57,7 +57,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 67 están en verde.** Llegaron a estar 33 en rojo —no trece: ese primer
+   **Las 68 están en verde.** Llegaron a estar 33 en rojo —no trece: ese primer
    conteo sólo miró las que imprimían «N fallidas» e ignoró las 21 que morían
    antes, con una excepción sin resumen—. Ninguna caía por un cambio reciente;
    se comprobó corriéndolas contra el árbol limpio.
@@ -664,8 +664,8 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     tenía asesor. Lo cazó `prueba-actividad-crm`.
   - Pruebas: `scripts/prueba-actividad-crm.php`, 29 verificaciones, comprobada
     mutando la regla de re-cierre (caen exactamente las tres que la vigilan).
-- Pruebas: 67 suites en `scripts/`, contra la BD real del tenant demo con
-  `DB::rollBack()` al final. **67 en verde** (ver la regla 5 para qué tumbó a
+- Pruebas: 68 suites en `scripts/`, contra la BD real del tenant demo con
+  `DB::rollBack()` al final. **68 en verde** (ver la regla 5 para qué tumbó a
   las 33 que estuvieron en rojo). `prueba-listados` es la primera
   que invoca a los CONTROLADORES y lee sus props de Inertia, en vez de
   reimplementar la consulta: un `or` sin paréntesis no se detecta de otra forma.
@@ -1206,6 +1206,39 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     con lector**. Nada que retirar; el barrido de `crear-personas` y compañía ya
     había limpiado esa clase.
 
+- **El acta impresa** (`/captura/{materia}/actas/{acta}/imprimir`, botón en la
+  hoja de captura). En **Blade y no en PDF generado**, por lo mismo que el
+  historial: el proyecto no tiene librería de PDF y el navegador ya sabe
+  imprimir. Estilos en línea, para que un fallo de assets no deje sin forma un
+  documento oficial justo cuando hay que firmarlo.
+  - **Se imprime lo ASENTADO, no lo calculado.** Los renglones salen de
+    `historial` —lo que el acta escribió al firmarse— y no de recalcular por
+    componente. Si mañana cambia el esquema de evaluación de esa materia, un
+    acta de hace un año seguiría imprimiendo los números del día que se firmó,
+    que es justo para lo que existe un acta.
+  - **Y por eso hace falta `withTrashed()`.** Al cerrar una corrección, los
+    renglones de la original se dan de BAJA LÓGICA; como el documento se
+    conserva, imprimirlo con la relación normal daba un acta con folio, firma y
+    CERO alumnos: se ve perfecta y está vacía. Lo fija una mutación de la suite.
+  - **La original avisa de que ya no tiene efecto**, con el folio de la que la
+    sustituyó. Sin eso las dos se ven igual de válidas y quien tenga la vieja no
+    tiene cómo saber que las calificaciones que lee ya no cuentan.
+  - **Un acta abierta responde 404**, no 403: su folio es un `BORRADOR-…` y el
+    real se emite al cerrar, así que imprimirla daría un papel con aspecto
+    oficial y un número inventado. Ese documento todavía no existe — no es que
+    no le toque a quien lo pide.
+  - La ruta lleva materia Y acta, y se comprueba que el acta sea de esa materia:
+    con sólo el id del acta, cualquiera con una materia propia tendría una puerta
+    lateral a la de otro grupo. El alcance lo pone `AutorizaMateriaPropia`.
+  - **Dos firmas cuando hace falta**: control escolar cierra el acta si el
+    docente se dio de baja, así que titular y firmante pueden no ser la misma
+    persona; con un solo espacio el papel diría que firmó quien no firmó.
+  - Pruebas: `scripts/prueba-acta-impresa.php`, 15 verificaciones sobre un acta
+    cerrada de verdad con `AsentadorActa` —no una fila insertada a mano—,
+    comprobada mutando cuatro reglas. Mirado en el navegador: ahí salió un
+    «22/08/2026 ." con espacio antes del punto y la nota de corrección repetida,
+    dos cosas que ninguna prueba iba a ver.
+
 - **El panel dejó de tener un mosaico de atajos y tiene TRECE tarjetas nuevas**
   (2026-08-22). «Accesos directos» era el menú lateral otra vez, con una cifra al
   lado; se retiró junto con `PendientesDeAcceso`, que sólo esa tarjeta usaba.
@@ -1327,10 +1360,8 @@ marcado abajo con su fecha, y lo que NO la lleve sigue sin verificar.)*
    `GuardarAspiranteRequest` la exige `required`; mientras esos dos no cambien,
    nada más se puede tocar.
 
-1. **Impresión del acta** (PDF con folio, firmas y lista de alumnos).
-   Comprobado el 2026-08-19: `/captura` tiene `index`, `guardar`, `cerrar` y
-   `corregir`, y **ninguna ruta de impresión**; en `resources/views/impresion/`
-   sólo está `historial.blade.php`. El acta existe y se consulta en pantalla.
+1. ~~**Impresión del acta**~~ — **hecha el 2026-08-22.** Ver «El acta impresa»
+   en el estado, más arriba.
 
 2. **El portal del TUTOR no opera, y no es que le falte la pantalla.**
    Comprobado el 2026-08-19: `/mis-hijos` sólo tiene `index` y `hijo`, y
