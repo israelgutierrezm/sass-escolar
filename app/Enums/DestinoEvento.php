@@ -47,6 +47,23 @@ enum DestinoEvento: string
     /** Personas señaladas una por una. */
     case Alumno = 'alumno';
 
+    /**
+     * Que además lo vean los FAMILIARES de los alumnos alcanzados.
+     *
+     * No es un destino como los otros: es un modificador. No señala a nadie por
+     * sí solo —igual que «toda la escuela», va sin id— sino que extiende a las
+     * familias lo que los demás destinos ya dijeron. «Grupo A» + «y a sus
+     * familias» llega a los treinta alumnos y a sus padres, sin tener que
+     * elegirlos uno por uno.
+     *
+     * Se resolvió así y no con un destino «familiares de este alumno» porque
+     * ése no compone: una circular a los padres del grupo A obligaría a
+     * señalar treinta alumnos a mano, y la de la carrera entera sería
+     * impracticable. Como modificador se multiplica con TODAS las
+     * segmentaciones que ya existen y con las que se agreguen mañana.
+     */
+    case Familiares = 'familiares';
+
     public function etiqueta(): string
     {
         return match ($this) {
@@ -59,13 +76,26 @@ enum DestinoEvento: string
             self::Grupo => 'Por grupo',
             self::Materia => 'Por materia',
             self::Alumno => 'Alumnos específicos',
+            self::Familiares => 'Y a sus familias',
         };
     }
 
-    /** «Toda la escuela» no lleva id; el resto señala a algo. */
+    /** «Toda la escuela» y el modificador de familias no llevan id. */
     public function necesitaId(): bool
     {
-        return $this !== self::Todos;
+        return $this !== self::Todos && $this !== self::Familiares;
+    }
+
+    /**
+     * ¿Es un destino de verdad o un modificador de los demás?
+     *
+     * Importa al validar: un aviso cuyo ÚNICO destino sea «y a sus familias» no
+     * va dirigido a nadie —no hay alumnos alcanzados cuyas familias extender—,
+     * y se guardaría como un aviso que nadie ve.
+     */
+    public function esModificador(): bool
+    {
+        return $this === self::Familiares;
     }
 
     /** @return array<int, array{valor: string, etiqueta: string, necesita_id: bool}> */

@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**71 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**72 archivos `prueba-*.php`**;
    esta lista decía 23 y llevaba tiempo desactualizada). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
    imprimen `Resultado: N correctas, M fallidas`. **Ojo al barrer con `grep`**:
@@ -57,7 +57,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 71 están en verde.** Llegaron a estar 33 en rojo —no trece: ese primer
+   **Las 72 están en verde.** Llegaron a estar 33 en rojo —no trece: ese primer
    conteo sólo miró las que imprimían «N fallidas» e ignoró las 21 que morían
    antes, con una excepción sin resumen—. Ninguna caía por un cambio reciente;
    se comprobó corriéndolas contra el árbol limpio.
@@ -664,8 +664,8 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     tenía asesor. Lo cazó `prueba-actividad-crm`.
   - Pruebas: `scripts/prueba-actividad-crm.php`, 29 verificaciones, comprobada
     mutando la regla de re-cierre (caen exactamente las tres que la vigilan).
-- Pruebas: 71 suites en `scripts/`, contra la BD real del tenant demo con
-  `DB::rollBack()` al final. **71 en verde** (ver la regla 5 para qué tumbó a
+- Pruebas: 72 suites en `scripts/`, contra la BD real del tenant demo con
+  `DB::rollBack()` al final. **72 en verde** (ver la regla 5 para qué tumbó a
   las 33 que estuvieron en rojo). `prueba-listados` es la primera
   que invoca a los CONTROLADORES y lee sus props de Inertia, en vez de
   reimplementar la consulta: un `or` sin paréntesis no se detecta de otra forma.
@@ -1206,6 +1206,34 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     con lector**. Nada que retirar; el barrido de `crear-personas` y compañía ya
     había limpiado esa clase.
 
+- **«Y a sus familias»: el modificador que cierra el módulo 13** (2026-08-22).
+  El destino `alumno` casa contra la persona de QUIEN INICIÓ SESIÓN, así que un
+  citatorio dirigido a Juan le llegaba a Juan y no a su madre: no había forma de
+  mandarle nada a una familia concreta.
+  - **Es un MODIFICADOR, no un destino.** No señala a nadie por sí solo —va sin
+    id, como «toda la escuela»—: extiende a los tutores lo que los demás
+    destinos ya dijeron. «Grupo A» + «y a sus familias» llega a los treinta
+    alumnos y a sus padres.
+  - **Por eso su condición se CRUZA con las demás**, y es lo único del servicio
+    que se cruza: hace falta el modificador Y que algún hijo encaje. Con un OR,
+    cualquier aviso con el modificador llegaría a todos los padres de la escuela.
+  - **Se descartó el destino «familiares de este alumno»** porque no compone:
+    una circular a los padres del grupo A obligaría a señalar treinta alumnos a
+    mano, y la de la carrera entera sería impracticable. Como modificador se
+    multiplica con todas las segmentaciones que ya existen y con las de mañana.
+  - **NO se miran los roles de los hijos.** «Rol: alumno» + familias sonaría a
+    «todas las familias», pero eso ya se dice dirigiéndolo al rol de padre; si
+    se mezclara, un aviso para docentes con el modificador puesto llegaría a los
+    padres de cualquier alumno.
+  - **Un aviso cuyo único destino sea el modificador se rechaza**: no habría
+    alumnos alcanzados cuyas familias extender, así que se guardaría sin público.
+    La regla vive en `App\Rules\AlMenosUnDestinoReal` porque la comparten los
+    DOS que guardan destinos —avisos y calendario—, y una validación repetida se
+    corrige en uno y se olvida en el otro.
+  - Pruebas: `scripts/prueba-aviso-a-familias.php`, 10 verificaciones,
+    comprobadas mutando tres reglas —quitar la rama de familiar, sumar en vez de
+    cruzar, y dejar que el modificador cuente como destino—.
+
 - **Módulo 13 · Familia, primera mitad** (2026-08-22): el parentesco pasa a
   catálogo y aparecen las AUTORIZACIONES.
   - **El parentesco era un enumerable cableado dos veces**: una lista a mano en
@@ -1454,7 +1482,8 @@ marcado abajo con su fecha, y lo que NO la lleve sigue sin verificar.)*
    13 no dependen entre sí —todos cuelgan de Fases 0-3—, así que el orden es
    decisión de negocio. El acordado con el cliente:
 
-   1. ~~**Módulo 13 · Familia**~~ — en curso. Con el alcance REVISADO: buena
+   1. ~~**Módulo 13 · Familia**~~ — **cerrado el 2026-08-22.** Con el alcance
+      REVISADO: buena
       parte ya estaba construida con otros nombres, y hacerlo literal habría
       creado un segundo vínculo familiar (`vinculos_familiares` contra
       `tutores_alumno`) y un segundo sistema de avisos (`avisos_familiares`

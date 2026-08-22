@@ -15,6 +15,7 @@ use App\Models\Academico\PlanEstudio;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Grupo;
 use App\Models\Plataforma\EventoCalendario;
+use App\Rules\AlMenosUnDestinoReal;
 use App\Services\Plataforma\AgendaDeUsuario;
 use App\Services\Plataforma\FeriadosOficiales;
 use Illuminate\Http\RedirectResponse;
@@ -175,7 +176,7 @@ class CalendarioController extends Controller
 
             // Sin destinos no lo ve nadie, y un aviso que nadie ve es un aviso
             // perdido: se exige al menos uno en vez de guardarlo en silencio.
-            'destinos' => ['required', 'array', 'min:1'],
+            'destinos' => ['required', 'array', 'min:1', new AlMenosUnDestinoReal],
             'destinos.*.tipo' => ['required', Rule::enum(DestinoEvento::class)],
             'destinos.*.destino_id' => ['nullable', 'integer'],
         ], [], [

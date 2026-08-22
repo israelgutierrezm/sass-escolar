@@ -11,6 +11,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Plataforma\Aviso;
 use App\Models\Plataforma\AvisoAdjunto;
 use App\Models\Plataforma\AvisoLectura;
+use App\Rules\AlMenosUnDestinoReal;
 use App\Services\Plataforma\SeguimientoDeAviso;
 use App\Support\HtmlSeguro;
 use Illuminate\Http\RedirectResponse;
@@ -96,9 +97,16 @@ class AvisoController extends Controller
             'publicado_desde' => ['nullable', 'date'],
             'vigente_hasta' => ['nullable', 'date', 'after_or_equal:publicado_desde'],
             'publicado' => ['boolean'],
-            // Sin destinos no lo ve nadie, y un aviso que nadie ve no es un
-            // aviso: es un texto guardado en una tabla.
-            'destinos' => ['required', 'array', 'min:1'],
+            /*
+             * Sin destinos no lo ve nadie, y un aviso que nadie ve no es un
+             * aviso: es un texto guardado en una tabla.
+             *
+             * Y «y a sus familias» no cuenta como destino: es un MODIFICADOR de
+             * los demás. Un aviso cuyo único destino fuera ése no tendría
+             * alumnos alcanzados cuyas familias extender, así que se guardaría
+             * sin público —el mismo defecto, disfrazado de estar bien—.
+             */
+            'destinos' => ['required', 'array', 'min:1', new AlMenosUnDestinoReal],
             'destinos.*.tipo' => ['required', Rule::enum(DestinoEvento::class)],
             'destinos.*.destino_id' => ['nullable', 'integer'],
 
