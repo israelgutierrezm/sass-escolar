@@ -78,22 +78,60 @@ try {
     verificar('Otros roles vienen con activas null', collect($props['roles'])->where('id', '!=', $rol->id)->every(fn ($r) => $r['activas'] === null));
 
     echo PHP_EOL.'4. para() respeta la activación del rol activo'.PHP_EOL;
-    // Un usuario cuyo rol activo tiene SOLO "accesos" encendida no debe ver otras.
-    $usuario = App\Models\Identidad\Usuario::query()->whereNotNull('rol_activo_id')->first();
-    if ($usuario) {
-        TarjetaRol::updateOrCreate(['rol_id' => $usuario->rol_activo_id], ['activas' => ['accesos']]);
-        $tarjetas = $registro->para($usuario);
-        $clavesVisibles = array_column($tarjetas, 'clave');
-        verificar('Solo aparecen tarjetas encendidas (subconjunto de {accesos})',
-            count(array_diff($clavesVisibles, ['accesos'])) === 0, implode(',', $clavesVisibles));
+    /*
+     * Se enciende UNA de las que esa persona ya ve, y se exige que quede
+     * exactamente ésa.
+     *
+     * Antes se encendía una clave fija —«accesos»— y se comprobaba que lo
+     * visible fuera un SUBCONJUNTO de ella. Eso también se cumple cuando no
+     * queda nada visible, así que el día que la clave dejara de existir la
+     * prueba seguiría en verde sin comprobar nada. Y dejó de existir: la
+     * tarjeta se retiró, y esta prueba pasó igual. Ahora la clave sale de lo
+     * que el usuario ve de verdad y se pide que quede una, no «como mucho una».
+     */
+    /*
+     * Y hay que BUSCAR a alguien que vea tarjetas, no tomar al primero.
+     *
+     * Tomando el primero salía `staff.centro`, cuyo rol veía CERO —el hueco que
+     * motivó todo este lote de tarjetas nuevas—, así que la prueba se iba por
+     * la rama del else y aprobaba dos verificaciones vacías. Se comprobó
+     * mutando `RegistroTarjetas` para que ignorara el apagado: seguía en verde.
+     *
+     * Si NADIE en la escuela ve una sola tarjeta, eso no es un caso a saltarse:
+     * es un panel roto, y la prueba lo dice en rojo.
+     */
+    $usuario = null;
+    $todasAntes = [];
 
-        // Sin config (restablecido) vuelven a salir varias.
+    foreach (App\Models\Identidad\Usuario::query()->whereNotNull('rol_activo_id')->limit(60)->get() as $candidato) {
+        $suyas = $registro->para($candidato);
+
+        if ($suyas !== []) {
+            $usuario = $candidato;
+            $todasAntes = $suyas;
+            break;
+        }
+    }
+
+    verificar('Hay al menos una persona que ve tarjetas en su panel',
+        $usuario !== null, $usuario?->usuario ?? 'ninguna');
+
+    if ($usuario !== null) {
+        $elegida = $todasAntes[0]['clave'];
+
+        TarjetaRol::updateOrCreate(['rol_id' => $usuario->rol_activo_id], ['activas' => [$elegida]]);
+        $clavesVisibles = array_column($registro->para($usuario), 'clave');
+
+        verificar("Encendida sólo «{$elegida}», es la única que sale",
+            $clavesVisibles === [$elegida], implode(',', $clavesVisibles));
+
+        // Sin config (restablecido) vuelven a salir todas las permitidas.
         TarjetaRol::query()->where('rol_id', $usuario->rol_activo_id)->forceDelete();
-        $todas = $registro->para($usuario);
-        verificar('Sin config, el panel muestra más de una tarjeta', count($todas) >= count($tarjetas));
+        verificar('Sin config, el panel vuelve a mostrar todas las permitidas',
+            count($registro->para($usuario)) === count($todasAntes));
     } else {
-        verificar('(sin usuario con rol activo para probar para())', true);
-        verificar('(idem)', true);
+        verificar('(no se pudo probar el apagado: nadie ve tarjetas)', false);
+        verificar('(idem)', false);
     }
 
     echo PHP_EOL.'5. Restablecer borra la fila (vuelve al default)'.PHP_EOL;

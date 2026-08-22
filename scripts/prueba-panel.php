@@ -136,9 +136,9 @@ try {
      * alguien pregunta por qué su tarjeta no sale.
      *
      * Decía cinco y son ocho: `embudo`, `encuestas` y `matriz` se agregaron
-     * después y nadie volvió aquí.
+     * después y nadie volvió aquí. Después se retiró `accesos` con su tarjeta.
      */
-    $formas = ['metrica', 'lista', 'barras', 'columnas', 'accesos', 'embudo', 'encuestas', 'matriz'];
+    $formas = ['metrica', 'lista', 'barras', 'columnas', 'embudo', 'encuestas', 'matriz'];
 
     verificar('Cada una declara clave, tipo, ancho e icono',
         collect($registro->registradas())->every(function (string $clase) use ($formas) {
@@ -178,7 +178,19 @@ try {
     verificar('No ve la cartera de la escuela', ! in_array('cartera', $delDocente, true));
     verificar('Ni el embudo de admisión', ! in_array('embudo', $delDocente, true));
     verificar('Ni la actividad de la plataforma', ! in_array('actividad-por-hora', $delDocente, true));
-    verificar('Sí ve sus accesos directos', in_array('accesos', $delDocente, true),
+    /*
+     * Y la otra mitad de la regla: tiene el permiso de sus materias, pero este
+     * docente recién creado no imparte ninguna, así que esas tarjetas NO salen.
+     *
+     * Antes aquí se comprobaba que viera «accesos directos». No decía nada del
+     * docente —esa tarjeta la veía todo el mundo, no tenía permiso— y se cayó
+     * sola cuando la tarjeta se retiró. Lo que sí vale comprobar es el null por
+     * no aplicar, que es lo que evita paneles con tarjetas vacías.
+     */
+    verificar('Tiene ver-mis-materias…', $usuarioDocente->can('ver-mis-materias'));
+    verificar('…y aun así NO ve sus materias: no imparte ninguna',
+        ! in_array('mis-materias', $delDocente, true)
+            && ! in_array('lo-que-espera-docente', $delDocente, true),
         implode(', ', $delDocente));
 
     // Tiene `ver-historial-academico`, pero NO es alumno: la tarjeta no debe salir vacía.
@@ -294,22 +306,6 @@ try {
             'matriz' => array_key_exists('series', $datos),
             'embudo' => array_key_exists('series', $datos) && $datos['series'] !== [],
             'encuestas' => array_key_exists('renglones', $datos),
-            /*
-             * Los accesos vienen AGRUPADOS por oficio, y cada uno con su icono.
-             *
-             * Esto miraba `$datos['accesos']`, que dejó de existir cuando la
-             * tarjeta pasó a agrupar: la comprobación no fallaba por un acceso
-             * sin icono sino por preguntar por una llave que ya no está. Sin el
-             * icono el mosaico vuelve a ser una lista de rectángulos que hay que
-             * leer entera, así que la exigencia se conserva —un nivel más
-             * adentro—.
-             */
-            'accesos' => array_key_exists('grupos', $datos)
-                && $datos['grupos'] !== []
-                && collect($datos['grupos'])->every(
-                    fn ($g) => ($g['accesos'] ?? []) !== []
-                        && collect($g['accesos'])->every(fn ($a) => ($a['icono'] ?? '') !== '')
-                ),
             default => false,
         };
 

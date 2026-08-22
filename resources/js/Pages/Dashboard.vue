@@ -13,7 +13,7 @@ import type { PropsCompartidas } from '@/tipos';
 interface Tarjeta {
     clave: string;
     titulo: string;
-    tipo: 'metrica' | 'lista' | 'barras' | 'columnas' | 'accesos' | 'encuestas';
+    tipo: 'metrica' | 'lista' | 'barras' | 'columnas' | 'encuestas';
     ancho: number;
     icono: string;
     datos: Record<string, any>;
@@ -74,7 +74,37 @@ const COLORES_TARJETA: Record<string, string> = {
     'mi-avance': '#2563EB',
     'mi-saldo': '#059669',
     'mis-materias': '#4F46E5',
-    accesos: '#475569',
+    /*
+     * Las trece que entraron al retirar los accesos directos.
+     *
+     * Todas pasan el 4.5:1 sobre blanco, que hace falta porque el mismo valor
+     * pinta el trazo del icono y el enlace «Ver», no sólo el aro de fondo.
+     *
+     * El reparto no es al azar: lo que se cuida es que no coincidan las que
+     * CONVIVEN. Dos tarjetas de facetas distintas nunca caen juntas —un
+     * aspirante no ve nada de caja—, así que el grupo que de verdad hay que
+     * separar es el de las colas administrativas, que a dirección le salen
+     * todas a la vez. De ahí que ese bloque recorra el círculo entero (azul,
+     * naranja, lima, pizarra, morado, verde, fucsia, rosa, ladrillo, cian) y que
+     * las personales puedan repetir familia sin estorbarse.
+     */
+    'actas-por-asentar': '#1D4ED8',
+    'listas-sin-pasar': '#C2410C',
+    'materias-sin-docente': '#4D7C0F',
+    'ocupacion-de-grupos': '#475569',
+    'expedientes-por-validar': '#7E22CE',
+    'listos-para-convertir': '#15803D',
+    'cobranza-por-confirmar': '#A21CAF',
+    'facturacion-pendiente': '#BE123C',
+    'emision-en-curso': '#7C2D12',
+    'clases-en-linea-hoy': '#0E7490',
+
+    // Las personales: cada una convive sólo con las de su faceta.
+    'mi-solicitud-avance': '#0369A1',
+    'mis-hijos': '#BE185D',
+    'mis-tutorados': '#6D28D9',
+    'mi-expediente-docente': '#854D0E',
+
     /*
      * Las dos del portal del alumno.
      *
@@ -1119,58 +1149,6 @@ function conmutar(rolId: number): void {
                     </ul>
                 </template>
 
-                <template v-else-if="tarjeta.tipo === 'accesos'">
-                    <div class="mt-4 space-y-4">
-                        <div v-for="grupo in tarjeta.datos.grupos" :key="grupo.nombre">
-                            <p class="mb-2 text-[11px] font-semibold uppercase tracking-wider" :style="{ color: 'var(--color-suave)' }">
-                                {{ grupo.nombre }}
-                            </p>
-
-                            <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                                <a
-                                    v-for="acceso in grupo.accesos"
-                                    :key="acceso.enlace"
-                                    :href="acceso.enlace"
-                                    class="acceso-directo flex items-center gap-3 rounded-xl border px-3 py-2.5 transition"
-                                    :style="acceso.pendiente
-                                        ? { borderColor: acceso.pendiente.urgente ? '#dc2626' : 'var(--color-acento)', backgroundColor: `color-mix(in srgb, ${acceso.pendiente.urgente ? '#dc2626' : 'var(--color-acento)'} 6%, transparent)` }
-                                        : { borderColor: 'var(--color-borde)' }"
-                                >
-                                    <span
-                                        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-                                        :style="{ backgroundColor: `color-mix(in srgb, ${acceso.pendiente?.urgente ? '#dc2626' : 'var(--color-acento)'} 12%, transparent)` }"
-                                    >
-                                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.6" :stroke="acceso.pendiente?.urgente ? '#dc2626' : 'var(--color-acento)'">
-                                            <path stroke-linecap="round" stroke-linejoin="round" :d="acceso.icono" />
-                                        </svg>
-                                    </span>
-
-                                    <span class="min-w-0 flex-1">
-                                        <span class="block truncate text-sm font-medium leading-tight">{{ acceso.etiqueta }}</span>
-                                        <!-- Sólo si hay algo que decir: un «0
-                                             por calificar» ocupa el mismo sitio
-                                             que un dato útil. -->
-                                        <span
-                                            v-if="acceso.pendiente"
-                                            class="block truncate text-xs"
-                                            :style="{ color: acceso.pendiente.urgente ? '#dc2626' : 'var(--color-acento)' }"
-                                        >
-                                            {{ acceso.pendiente.cantidad }} {{ acceso.pendiente.texto }}
-                                        </span>
-                                    </span>
-
-                                    <span
-                                        v-if="acceso.pendiente"
-                                        class="grid h-6 min-w-6 shrink-0 place-items-center rounded-full px-1.5 text-[11px] font-semibold text-white"
-                                        :style="{ backgroundColor: acceso.pendiente.urgente ? '#dc2626' : 'var(--color-acento)' }"
-                                    >
-                                        {{ acceso.pendiente.cantidad }}
-                                    </span>
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                </template>
             </div>
             </section>
             </div>
@@ -1262,12 +1240,6 @@ function conmutar(rolId: number): void {
 
 /* Cada tarjeta lleva un acento superior de su color y una elevación al pasar el
    cursor teñida del mismo color: vistoso pero sobrio (el fondo sigue neutro). */
-/* El atajo se levanta al pasar el cursor, como el resto de lo clicable. */
-.acceso-directo:hover {
-    border-color: var(--color-acento);
-    transform: translateY(-1px);
-}
-
 .tarjeta-panel {
     /*
      * El color propio de la tarjeta, para todo lo que ya lo usaba. Se declara

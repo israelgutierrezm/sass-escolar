@@ -91,6 +91,22 @@ class Pago extends Model
         return ($this->matricula_oferta_id !== null) !== ($this->aspirante_id !== null);
     }
 
+    /**
+     * Quién pagó: la matrícula o el aspirante, el que sea de los dos.
+     *
+     * El titular es DUAL porque el aspirante paga su ficha antes de tener
+     * matrícula, y exactamente uno de los dos está lleno —lo sostiene un CHECK
+     * en la base y lo comprueba `titularValido()`—. Quien sólo quiere el nombre
+     * de la persona no tiene por qué saber cuál de los dos caminos tocó.
+     *
+     * `ComprobantePago` ya lo tenía; que aquí faltara era una asimetría entre
+     * dos tablas con la misma regla, y se pagó con un error al pedirlo.
+     */
+    public function titular(): MatriculaOferta|Aspirante|null
+    {
+        return $this->matriculaOferta ?? $this->aspirante;
+    }
+
     /** Dinero de verdad: lo pendiente todavía puede no llegar. */
     public function estaCobrado(): bool
     {

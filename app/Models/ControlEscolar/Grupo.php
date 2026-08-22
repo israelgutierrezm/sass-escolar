@@ -8,6 +8,7 @@ use App\Models\Academico\Campus;
 use App\Models\Academico\PlanEstudio;
 use App\Models\Academico\Turno;
 use App\Models\Concerns\TieneAuditoria;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -64,6 +65,37 @@ class Grupo extends Model
     public function grupoOrigen(): BelongsTo
     {
         return $this->belongsTo(self::class, 'grupo_origen_id');
+    }
+
+    /**
+     * Cuántos alumnos DISTINTOS trae el grupo, en `alumnos_count`.
+     *
+     * Tres decisiones de dominio metidas en una subconsulta, y por eso vive
+     * aquí y no copiada en cada pantalla:
+     *
+     *  1. Se cuentan **matrículas distintas**, no renglones de `inscripcion`:
+     *     un alumno cursando seis materias del grupo es UN alumno, y es lo que
+     *     se compara contra el cupo. Contando filas, tres alumnos con seis
+     *     materias darían diecisiete.
+     *  2. Se cuenta por matrícula y no por persona, porque **el alumno es la
+     *     matrícula**: quien lleva dos carreras ocupa dos lugares.
+     *  3. Las **bajas no ocupan lugar**, tolerando la situación en null —una
+     *     escuela con el catálogo a medias no debe perder a sus inscritos—.
+     *
+     * Estaba escrita dentro de `GrupoController::index` y la necesitó también
+     * la tarjeta de ocupación del panel. Dos copias del mismo criterio es como
+     * se llega a que el panel diga 3 y la pantalla de grupos diga 17.
+     */
+    public function scopeConAlumnos(Builder $consulta): Builder
+    {
+        return $consulta->addSelect(['alumnos_count' => Inscripcion::query()
+            ->selectRaw('COUNT(DISTINCT inscripcion.matricula_oferta_id)')
+            ->join('asignatura_grupo', 'asignatura_grupo.id', '=', 'inscripcion.asignatura_grupo_id')
+            ->leftJoin('situaciones_inscripcion', 'situaciones_inscripcion.id', '=', 'inscripcion.situacion_id')
+            ->whereColumn('asignatura_grupo.grupo_id', 'grupos.id')
+            ->where(fn ($q) => $q->whereNull('situaciones_inscripcion.clave')
+                ->orWhere('situaciones_inscripcion.clave', '!=', 'baja')),
+        ]);
     }
 
     public function asignaturas(): HasMany

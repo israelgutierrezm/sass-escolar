@@ -11,6 +11,7 @@ use App\Models\Finanzas\Factura;
 use App\Models\Finanzas\FacturaConcepto;
 use App\Models\Finanzas\Pago;
 use App\Services\Cfdi\Pac;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -261,7 +262,21 @@ class EmisorFactura
      *
      * @return array<int, int>
      */
-    private function pagosYaFacturados(?int $exceptoFacturaId = null): array
+    /**
+     * La consulta de los pagos que YA ampara una factura.
+     *
+     * Se expone porque no es un detalle del emisor: es la definición de «este
+     * pago ya está facturado», y la necesita también el panel para decir qué
+     * falta por facturar. Una cancelada libera sus pagos —no está en `vivas()`—
+     * y una en error también, porque esa factura no ampara nada. Escrito dos
+     * veces, el día que cambie una de las dos la tarjeta y la pantalla dirían
+     * cosas distintas del mismo pago.
+     *
+     * Devuelve la CONSULTA y no los ids para poder encajarla como subconsulta;
+     * traerse a memoria los pagos facturados de una escuela con años de
+     * historia sería absurdo cuando lo único que se quiere es un `whereNotIn`.
+     */
+    public static function pagosOcupados(?int $exceptoFacturaId = null): Builder
     {
         return FacturaConcepto::query()
             ->whereNotNull('pago_id')
@@ -269,8 +284,13 @@ class EmisorFactura
                 ->vivas()
                 ->when($exceptoFacturaId !== null, fn ($c) => $c->whereKeyNot($exceptoFacturaId))
                 ->whereDoesntHave('sustituida', fn ($s) => $s->vivas()))
-            ->pluck('pago_id')
-            ->all();
+            ->select('pago_id');
+    }
+
+    /** @return array<int, int> */
+    private function pagosYaFacturados(?int $exceptoFacturaId = null): array
+    {
+        return self::pagosOcupados($exceptoFacturaId)->pluck('pago_id')->all();
     }
 
     /**

@@ -172,7 +172,19 @@ try {
 
     $bloqueadas = $aplicador->materiasBloqueadas($plantilla);
     verificar('La materia con capturas se reporta como bloqueada',
-        count($bloqueadas) === 1 && str_contains($bloqueadas[0], "T{$sufijo}B"), implode(' | ', $bloqueadas));
+        count($bloqueadas) === 1 && str_contains($bloqueadas[0]['materia'] ?? '', "T{$sufijo}B"),
+        json_encode($bloqueadas, JSON_UNESCAPED_UNICODE));
+
+    /*
+     * Y con el MOTIVO, no sólo el nombre. Se bloquea por dos razones distintas
+     * —calificaciones capturadas o actividades que ponderan en el esquema— y
+     * cada una tiene una salida diferente; una lista de nombres pelados no se
+     * puede accionar. Esto es lo que se rompería si `bloqueadas` volviera a ser
+     * un arreglo de cadenas.
+     */
+    verificar('…y dice por qué, nombrando las calificaciones',
+        str_contains($bloqueadas[0]['motivo'] ?? '', 'calificaciones capturadas'),
+        $bloqueadas[0]['motivo'] ?? 'sin motivo');
 
     $seBloqueo = false;
     try {

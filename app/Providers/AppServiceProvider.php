@@ -12,22 +12,35 @@ use App\Observers\AlumnoObserver;
 use App\Observers\AspiranteObserver;
 use App\Observers\DocenteObserver;
 use App\Panel\RegistroTarjetas;
-use App\Panel\Tarjetas\AccesosDirectos;
+use App\Panel\Tarjetas\ActasPorAsentar;
 use App\Panel\Tarjetas\ActividadPorHora;
 use App\Panel\Tarjetas\BibliotecaDigital;
 use App\Panel\Tarjetas\CarteraDeLaEscuela;
+use App\Panel\Tarjetas\ClasesEnLineaDeHoy;
+use App\Panel\Tarjetas\CobranzaPorConfirmar;
 use App\Panel\Tarjetas\ComisionesPorPagar;
 use App\Panel\Tarjetas\ContinuarCurso;
 use App\Panel\Tarjetas\EmbudoDeAdmision;
+use App\Panel\Tarjetas\EmisionEnCurso;
 use App\Panel\Tarjetas\EncuestasDeLaEscuela;
+use App\Panel\Tarjetas\ExpedientesPorValidar;
+use App\Panel\Tarjetas\FacturacionPendiente;
 use App\Panel\Tarjetas\IndicadoresDelDia;
+use App\Panel\Tarjetas\ListasSinPasar;
+use App\Panel\Tarjetas\ListosParaConvertir;
 use App\Panel\Tarjetas\LoQueEsperaAlDocente;
+use App\Panel\Tarjetas\MateriasSinDocente;
 use App\Panel\Tarjetas\MiAvanceAcademico;
 use App\Panel\Tarjetas\MiEstadoDeCuenta;
+use App\Panel\Tarjetas\MiExpedienteDocente;
 use App\Panel\Tarjetas\MiHorarioDeHoy;
 use App\Panel\Tarjetas\MisCalificacionesRecientes;
+use App\Panel\Tarjetas\MisHijos;
 use App\Panel\Tarjetas\MisMateriasDocente;
+use App\Panel\Tarjetas\MiSolicitudEnCurso;
 use App\Panel\Tarjetas\MisSolicitudes;
+use App\Panel\Tarjetas\MisTutorados;
+use App\Panel\Tarjetas\OcupacionDeGrupos;
 use App\Panel\Tarjetas\ProspectosPorContactar;
 use App\Services\Cfdi\FacturapiPac;
 use App\Services\Cfdi\Pac;
@@ -263,9 +276,11 @@ class AppServiceProvider extends ServiceProvider
      * así que un rol nuevo armado desde `/plataforma/roles` obtiene su panel
      * solo, sin tocar código.
      *
-     * El orden de este arreglo es el orden en que se pintan: primero lo
-     * personal (lo que le toca a quien entra), después lo agregado de la
-     * escuela, y los accesos directos al final.
+     * El orden de este arreglo es el orden en que se pintan, en tres bloques:
+     * lo PROPIO de quien entra, después las COLAS de trabajo de la escuela, y
+     * al final lo AGREGADO que sólo informa. Es el orden en que se decide qué
+     * hacer: primero lo mío, luego lo que me está esperando, y las cifras
+     * cuando ya sé si tengo algo encima.
      */
     protected function registrarTarjetasDelPanel(): void
     {
@@ -273,9 +288,15 @@ class AppServiceProvider extends ServiceProvider
             $registro = new RegistroTarjetas;
 
             foreach ([
+                // ── 1. Lo PROPIO de quien entra ──────────────────────────
+                // Primero lo de uno mismo, que es lo que se mira sin pensar. Y
+                // dentro de eso, la solicitud arriba del todo: al aspirante
+                // recién llegado es lo único que le dice qué sigue.
+                MiSolicitudEnCurso::class,
                 // Antes que «Mis materias»: lo que reclama trabajo va arriba de
                 // lo que solo informa.
                 LoQueEsperaAlDocente::class,
+                MiExpedienteDocente::class,
                 // Lo del alumno, en el orden de su día: qué le toca ahora, por
                 // dónde iba, qué le acaban de calificar. Después lo que sólo
                 // informa —su avance global y lo que debe—.
@@ -284,13 +305,34 @@ class AppServiceProvider extends ServiceProvider
                 MisCalificacionesRecientes::class,
                 MiAvanceAcademico::class,
                 MiEstadoDeCuenta::class,
+                // La familia mira a otro, pero sigue siendo «lo suyo».
+                MisHijos::class,
+                MisTutorados::class,
                 // Las dos secciones que sólo se alcanzan desde el panel: sin su
                 // tarjeta, el alumno no tiene por dónde entrar. Van después de
                 // lo suyo de cada día y antes de lo de los demás roles.
                 BibliotecaDigital::class,
                 MisSolicitudes::class,
                 MisMateriasDocente::class,
+
+                // ── 2. Las COLAS de trabajo de la escuela ────────────────
+                // Lo que espera a que alguien haga algo, y por eso va antes que
+                // cualquier cifra que sólo informa. En el orden del calendario
+                // escolar: lo que cierra el periodo, lo del día, la oferta, y
+                // después admisiones, caja y emisión.
+                ActasPorAsentar::class,
+                ListasSinPasar::class,
+                MateriasSinDocente::class,
+                ExpedientesPorValidar::class,
+                ListosParaConvertir::class,
                 ProspectosPorContactar::class,
+                CobranzaPorConfirmar::class,
+                FacturacionPendiente::class,
+                EmisionEnCurso::class,
+                ClasesEnLineaDeHoy::class,
+
+                // ── 3. Lo AGREGADO, que informa sin pedir nada ───────────
+                OcupacionDeGrupos::class,
                 CarteraDeLaEscuela::class,
                 IndicadoresDelDia::class,
                 ComisionesPorPagar::class,
@@ -300,7 +342,6 @@ class AppServiceProvider extends ServiceProvider
                 // hacer algo, y eso vale más que una gráfica de uso.
                 EncuestasDeLaEscuela::class,
                 ActividadPorHora::class,
-                AccesosDirectos::class,
             ] as $tarjeta) {
                 $registro->registrar($tarjeta);
             }

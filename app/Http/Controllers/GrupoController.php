@@ -65,16 +65,10 @@ class GrupoController extends Controller
         $grupos = Grupo::query()
             ->with(['ciclo:id,clave,nombre', 'campus:id,nombre', 'plan:id,nombre', 'turno:id,nombre', 'situacion:id,nombre'])
             ->withCount('asignaturas')
-            // Alumnos DISTINTOS en el grupo, no renglones de inscripción: un
-            // alumno en seis materias es un alumno, y es lo que se compara
-            // contra el cupo. Las bajas no ocupan lugar.
-            ->addSelect(['alumnos_count' => Inscripcion::query()
-                ->selectRaw('COUNT(DISTINCT inscripcion.matricula_oferta_id)')
-                ->join('asignatura_grupo', 'asignatura_grupo.id', '=', 'inscripcion.asignatura_grupo_id')
-                ->leftJoin('situaciones_inscripcion', 'situaciones_inscripcion.id', '=', 'inscripcion.situacion_id')
-                ->whereColumn('asignatura_grupo.grupo_id', 'grupos.id')
-                ->where(fn ($q) => $q->whereNull('situaciones_inscripcion.clave')->orWhere('situaciones_inscripcion.clave', '!=', 'baja')),
-            ])
+            // Alumnos DISTINTOS en el grupo, no renglones de inscripción. El
+            // criterio vive en el modelo porque lo comparten esta pantalla y la
+            // tarjeta de ocupación del panel; ver `Grupo::scopeConAlumnos`.
+            ->conAlumnos()
             ->when($campusVisibles !== [], fn ($q) => $q->whereIn('campus_id', $campusVisibles))
             ->when($filtros['busqueda'] !== '', function ($query) use ($filtros) {
                 $termino = "%{$filtros['busqueda']}%";
