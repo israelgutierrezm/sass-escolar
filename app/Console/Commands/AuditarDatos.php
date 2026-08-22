@@ -49,6 +49,25 @@ class AuditarDatos extends Command
     /** Alias de la tabla referenciada dentro de la subconsulta. Ver `rotas()`. */
     private const REF = '__referida';
 
+    /**
+     * Las columnas donde NULL significa MÁS, no menos.
+     *
+     * Casi siempre poner en NULL una referencia rota quita algo: un adeudo se
+     * queda sin ciclo, una imagen sin quien la subió. Pero en el alcance por
+     * campus el null es «sin acotar», así que reparar convierte un rol atado a
+     * un campus que ya no existe —y que por eso no veía nada— en un rol GLOBAL.
+     *
+     * Es la corrección correcta: la restricción apuntaba a la nada y nadie
+     * puede trabajar así. Pero es un ensanchamiento de alcance hecho por un
+     * comando de mantenimiento, y eso no puede pasar callado.
+     *
+     * @var array<string, string>
+     */
+    private const NULL_ES_MAS = [
+        'persona_rol.campus_id' => 'esos roles quedan con alcance GLOBAL, no acotado. '
+            .'Revisa a quién le tocaba qué campus y vuelve a asignárselo desde /plataforma/usuarios.',
+    ];
+
     public function handle(): int
     {
         $escuelas = $this->option('tenant') !== null
@@ -62,6 +81,7 @@ class AuditarDatos extends Command
         }
 
         $totalRotas = 0;
+        $escuelasQueFallaron = [];
 
         foreach ($escuelas as $escuela) {
             $this->newLine();
@@ -75,10 +95,25 @@ class AuditarDatos extends Command
                 $totalRotas += $escuela->run(fn () => $this->revisar());
             } catch (\Throwable $e) {
                 $this->error('  No se pudo revisar: '.$e->getMessage());
+                $escuelasQueFallaron[] = $escuela->getTenantKey();
             }
         }
 
         $this->newLine();
+
+        /*
+         * Una escuela que reventó a media revisión NO se puede reportar como
+         * limpia. Pasó de verdad: un CHECK rechazó una reparación, la excepción
+         * subió hasta aquí, el contador se quedó en cero y el comando terminó
+         * diciendo «Ninguna referencia rota» sobre una base con 199. Un
+         * diagnóstico que miente al fallar es peor que uno que no corre.
+         */
+        if ($escuelasQueFallaron !== []) {
+            $this->error('No se pudo terminar en: '.implode(', ', $escuelasQueFallaron).'.');
+            $this->line('Lo reportado arriba está incompleto; vuelve a correrlo tras resolver el error.');
+
+            return self::FAILURE;
+        }
 
         if ($totalRotas === 0) {
             $this->info('Ninguna referencia rota.');
@@ -152,7 +187,20 @@ class AuditarDatos extends Command
         $this->reportar('La fila entera quedó sin sentido (NO se tocan)', $obligatorias);
 
         if ($this->option('reparar') && $anulables !== []) {
-            $this->reparar($conexion, $anulables);
+            $resultado = $this->reparar($conexion, $anulables);
+
+            $this->newLine();
+            $this->info("  {$resultado['reparadas']} referencia(s) puestas en NULL.");
+
+            if ($resultado['imposibles'] !== []) {
+                $this->line('  Y estas no se pudieron, por lo que dice la base:');
+
+                foreach ($resultado['imposibles'] as $imposible) {
+                    $this->line("    {$imposible}");
+                }
+            }
+
+            $this->line('  Lo obligatorio se quedó como estaba: eso lo decide la escuela.');
         }
 
         if ($total === 0) {
@@ -234,19 +282,41 @@ class AuditarDatos extends Command
     /**
      * Pone en NULL lo que se puede.
      *
-     * En una transacción por escuela: si una tabla falla a la mitad, no queda
-     * media reparación hecha y media no — que sería peor que el estado inicial,
-     * porque ya nadie sabría qué se tocó.
+     * ── Columna por columna, y NO todo o nada ──────────────────────────────
+     * Antes esto iba en una sola transacción por escuela, con el argumento de
+     * que media reparación es peor que ninguna. El argumento no se sostuvo al
+     * primer contacto con datos reales: `adeudos` tiene un CHECK que exige
+     * EXACTAMENTE un titular —matrícula o aspirante—, así que poner en NULL una
+     * matrícula rota deja la fila sin ninguno y la base lo rechaza. Con la
+     * transacción única, esa sola columna tumbaba las once buenas y la escuela
+     * se quedaba sin reparar para siempre.
+     *
+     * Cada columna es un solo `UPDATE`, o sea atómico por su cuenta, así que no
+     * hay «media columna». Y reparar es idempotente: volver a correrlo termina
+     * lo que faltó.
+     *
+     * ── Que la columna admita NULL no basta ────────────────────────────────
+     * Un CHECK puede prohibir precisamente ese NULL, y eso no se lee en
+     * `IS_NULLABLE`. En vez de interpretar las cláusulas CHECK —frágil y
+     * distinto en cada motor—, se intenta y se reporta lo que la base rechace:
+     * esas columnas caen en el mismo saco que las obligatorias, porque la fila
+     * perdió sentido y borrarla es decisión de la escuela.
      *
      * @param  array<int, array<string, mixed>>  $anulables
+     * @return array{reparadas: int, imposibles: array<int, string>}
      */
-    private function reparar($conexion, array $anulables): void
+    private function reparar($conexion, array $anulables): array
     {
         $this->newLine();
         $this->line('  Reparando…');
 
-        $conexion->transaction(function () use ($conexion, $anulables) {
-            foreach ($anulables as $f) {
+        $reparadas = 0;
+        $imposibles = [];
+
+        foreach ($anulables as $f) {
+            $donde = "{$f['tabla']}.{$f['columna']}";
+
+            try {
                 // La MISMA consulta que contó, no una copia: si divergieran, se
                 // repararía algo distinto de lo que se reportó — y aquí eso
                 // significa poner en NULL filas que estaban bien.
@@ -258,10 +328,53 @@ class AuditarDatos extends Command
                     $f['referencia'],
                 )->update([$f['columna'] => null]);
 
-                $this->line("    {$f['tabla']}.{$f['columna']}: {$afectadas} puesta(s) en NULL");
-            }
-        });
+                $reparadas += $afectadas;
+                $this->line("    {$donde}: {$afectadas} puesta(s) en NULL");
 
-        $this->info('  Listo. Lo obligatorio se quedó como estaba: eso lo decide la escuela.');
+                if ($afectadas > 0 && array_key_exists($donde, self::NULL_ES_MAS)) {
+                    $this->warn('      ojo: '.self::NULL_ES_MAS[$donde]);
+                }
+            } catch (\Throwable $e) {
+                $motivo = $this->porQueNoSePudo($e);
+                $imposibles[] = "{$donde} — {$motivo}";
+                $this->warn("    {$donde}: no se pudo. {$motivo}");
+            }
+        }
+
+        return ['reparadas' => $reparadas, 'imposibles' => $imposibles];
+    }
+
+    /**
+     * Por qué la base rechazó el NULL, en una línea que se pueda leer.
+     *
+     * El mensaje del driver trae la consulta entera y los parámetros; en una
+     * lista de doce columnas eso es ilegible. Lo que hace falta saber es cuál
+     * es la regla que lo impide.
+     */
+    private function porQueNoSePudo(\Throwable $e): string
+    {
+        if (preg_match("/Check constraint '([^']+)' is violated/", $e->getMessage(), $coincide) === 1) {
+            return "la restricción «{$coincide[1]}» lo impide: sin esa referencia la fila queda sin sentido.";
+        }
+
+        /*
+         * 1452 al poner algo en NULL suena a imposible, y tiene una explicación
+         * concreta: MySQL revalida TODAS las foráneas de la fila en cualquier
+         * UPDATE, no sólo la columna que se toca. Si esa misma fila arrastra
+         * otra referencia rota en una columna que NO admite null, la fila entera
+         * se vuelve intocable hasta que alguien resuelva esa otra.
+         *
+         * Comprobado en el demo: la beca 5 tiene el ciclo roto (anulable) y la
+         * matrícula rota (obligatoria); la conversación 13, las dos personas
+         * (anulables) y la materia (obligatoria). Son exactamente las que
+         * fallaron.
+         */
+        if (str_contains($e->getMessage(), '1452')) {
+            return 'esa fila arrastra otra referencia rota en una columna obligatoria, '
+                .'y MySQL revalida todas las foráneas de la fila al actualizarla. '
+                .'Se destraba resolviendo la obligatoria (o borrando la fila).';
+        }
+
+        return trim(strtok($e->getMessage(), '(') ?: $e->getMessage());
     }
 }

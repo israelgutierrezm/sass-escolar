@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Console\Commands\AuditarDatos;
+use Illuminate\Console\OutputStyle;
 use Illuminate\Support\Facades\DB;
 use ReflectionMethod;
+use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Console\Output\NullOutput;
 use Tests\TenantTestCase;
 
 /**
@@ -27,6 +30,21 @@ use Tests\TenantTestCase;
  */
 class AuditarDatosTest extends TenantTestCase
 {
+    /** @param  array<int, array<string, mixed>>  $anulables */
+    private function reparar(array $anulables): array
+    {
+        $metodo = new ReflectionMethod(AuditarDatos::class, 'reparar');
+        $metodo->setAccessible(true);
+
+        $comando = app(AuditarDatos::class);
+        $comando->setOutput(new OutputStyle(
+            new ArrayInput([]),
+            new NullOutput,
+        ));
+
+        return $metodo->invoke($comando, DB::connection('mysql'), $anulables);
+    }
+
     /** Invoca la consulta privada tal como la usan el conteo y la reparación. */
     private function rotas(string $tabla, string $columna, string $referida, string $referencia)
     {
@@ -114,5 +132,70 @@ class AuditarDatosTest extends TenantTestCase
         $buena = DB::table('persona_rol')->where('rol_id', $bueno)->value('id');
         $this->assertContains($filaRota, $rotas);
         $this->assertNotContains($buena, $rotas);
+    }
+
+    /**
+     * Una columna que la base se niega a anular NO puede tumbar a las demás.
+     *
+     * Pasó de verdad contra el demo: `adeudos` tiene un CHECK que exige
+     * exactamente un titular —matrícula o aspirante—, así que anular una
+     * matrícula rota deja la fila sin ninguno y MySQL lo rechaza. Con la
+     * reparación entera en una sola transacción, esa columna tiraba las once
+     * buenas y la escuela se quedaba sin reparar para siempre.
+     */
+    public function test_una_columna_imposible_no_impide_reparar_las_demas(): void
+    {
+        // Reparable: un rol acotado a un campus que ya no existe.
+        $rol = $this->rol('auditoria-reparable');
+        $persona = DB::table('personas')->insertGetId([
+            'nombre' => 'Auditoría', 'primer_apellido' => 'Reparable',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $concepto = DB::table('conceptos_pago')->insertGetId([
+            'clave' => 'AUD'.substr(uniqid(), -6), 'nombre' => 'Concepto de auditoría',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        DB::connection('mysql')->statement('SET FOREIGN_KEY_CHECKS=0');
+
+        $vinculo = DB::table('persona_rol')->insertGetId([
+            'persona_id' => $persona, 'rol_id' => $rol, 'campus_id' => 987654321,
+        ]);
+
+        // Imposible: un adeudo cuya matrícula no existe y sin aspirante, así
+        // que el CHECK del titular prohíbe justo el NULL que lo arreglaría.
+        $adeudo = DB::table('adeudos')->insertGetId([
+            'matricula_oferta_id' => 987654321,
+            'concepto_id' => $concepto,
+            'monto' => 100, 'monto_total' => 100,
+            'fecha_generacion' => now()->toDateString(),
+            'fecha_vencimiento' => now()->toDateString(),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        DB::connection('mysql')->statement('SET FOREIGN_KEY_CHECKS=1');
+
+        $resultado = $this->reparar([
+            ['tabla' => 'adeudos', 'columna' => 'matricula_oferta_id',
+                'apunta_a' => 'matricula_oferta', 'referencia' => 'id', 'filas' => 1],
+            ['tabla' => 'persona_rol', 'columna' => 'campus_id',
+                'apunta_a' => 'campus', 'referencia' => 'id', 'filas' => 1],
+        ]);
+
+        // La buena se reparó aunque la primera de la lista fallara.
+        $this->assertNull(
+            DB::table('persona_rol')->where('id', $vinculo)->value('campus_id'),
+            'La columna reparable se quedó sin reparar por culpa de la imposible.',
+        );
+
+        // Y la imposible se quedó como estaba, reportada y no en silencio.
+        $this->assertSame(
+            987654321,
+            (int) DB::table('adeudos')->where('id', $adeudo)->value('matricula_oferta_id'),
+        );
+        $this->assertCount(1, $resultado['imposibles']);
+        $this->assertStringContainsString('adeudos.matricula_oferta_id', $resultado['imposibles'][0]);
+        $this->assertStringContainsString('chk_adeudos_titular', $resultado['imposibles'][0]);
     }
 }
