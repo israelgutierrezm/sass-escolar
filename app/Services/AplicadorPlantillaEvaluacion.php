@@ -55,6 +55,23 @@ class AplicadorPlantillaEvaluacion
         }
 
         DB::transaction(function () use ($plantilla, $materia): void {
+            $viejos = EsquemaEvaluacion::query()
+                ->where('plan_materia_id', $materia->id)
+                ->pluck('id');
+
+            /*
+             * Los rastros en blanco se van con el esquema que reemplazan.
+             *
+             * Son filas de `calificaciones_componente` con la calificación en
+             * NULL: el docente guardó la hoja sin llegar a ese componente. No
+             * cuentan como capturas —por eso la materia no está bloqueada— pero
+             * el borrado de abajo es DURO, así que dejarlas atrás hace que la
+             * foránea reviente y la aplicación termine en un 500. Antes no se
+             * notaba porque esas mismas filas bloqueaban la re-aplicación: se
+             * cambiaba un aviso claro por un error de base.
+             */
+            CalificacionComponente::query()->whereIn('esquema_evaluacion_id', $viejos)->forceDelete();
+
             EsquemaEvaluacion::query()->where('plan_materia_id', $materia->id)->forceDelete();
 
             foreach ($plantilla->componentes as $componente) {
@@ -194,6 +211,7 @@ class AplicadorPlantillaEvaluacion
     private function tieneCapturas(PlanMateria $materia): bool
     {
         return CalificacionComponente::query()
+            ->capturadas()
             ->whereIn(
                 'esquema_evaluacion_id',
                 EsquemaEvaluacion::query()->where('plan_materia_id', $materia->id)->select('id')

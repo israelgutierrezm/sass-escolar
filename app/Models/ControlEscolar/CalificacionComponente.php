@@ -8,6 +8,7 @@ use App\Models\Academico\EsquemaEvaluacion;
 use App\Models\Concerns\ReviveAlGuardar;
 use App\Models\Concerns\TieneAuditoria;
 use App\Models\Identidad\Persona;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -43,6 +44,25 @@ class CalificacionComponente extends Model
             'calificacion' => 'decimal:2',
             'capturado_en' => 'datetime',
         ];
+    }
+
+    /**
+     * Las que de verdad traen un número.
+     *
+     * Una fila con `calificacion` en NULL no es una calificación: es el rastro
+     * de que el docente guardó la hoja sin llegar a ese componente. Es la misma
+     * regla de siempre —NULL no es cero—, aplicada a la pregunta «¿esto ya está
+     * capturado?».
+     *
+     * Importa porque de esa respuesta cuelgan dos decisiones que congelan
+     * trabajo ajeno: si un componente se puede retirar y si una plantilla se
+     * puede volver a aplicar. Contando los blancos, abrir la pantalla de
+     * captura y guardar bastaría para congelar la materia entera sin que nadie
+     * haya calificado a nadie.
+     */
+    public function scopeCapturadas(Builder $consulta): Builder
+    {
+        return $consulta->whereNotNull('calificacion');
     }
 
     public function inscripcion(): BelongsTo

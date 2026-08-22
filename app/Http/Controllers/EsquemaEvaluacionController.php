@@ -7,8 +7,10 @@ namespace App\Http\Controllers;
 use App\Models\Academico\EsquemaEvaluacion;
 use App\Models\Academico\PlanEstudio;
 use App\Models\Academico\PlanMateria;
+use App\Models\ControlEscolar\CalificacionComponente;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -58,7 +60,28 @@ class EsquemaEvaluacionController extends Controller
     {
         abort_unless($materia->plan_id === $plan->id && $componente->plan_materia_id === $materia->id, 404);
 
-        $componente->delete();
+        $motivo = $componente->motivoParaNoRetirarlo();
+
+        if ($motivo !== null) {
+            return back()->with('error', $motivo);
+        }
+
+        DB::transaction(function () use ($componente): void {
+            /*
+             * Las capturas en blanco se van con él.
+             *
+             * Son filas con `calificacion` en NULL: el docente guardó la hoja
+             * sin llegar a este componente. No son calificaciones —por eso no
+             * impiden retirarlo— pero dejarlas atrás las convertiría en filas
+             * colgando de un componente invisible, que es justo el desorden que
+             * esta guarda viene a evitar.
+             */
+            CalificacionComponente::query()
+                ->where('esquema_evaluacion_id', $componente->id)
+                ->delete();
+
+            $componente->delete();
+        });
 
         $this->desligarDePlantilla($materia);
 
