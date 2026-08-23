@@ -521,7 +521,18 @@ function conmutar(rolId: number): void {
             <div class="relative flex flex-col sm:flex-row sm:items-stretch">
                 <div class="min-w-0 flex-1 p-6">
                     <p class="text-sm text-suave">{{ saludo }},</p>
-                    <h1 class="truncate text-2xl font-bold">
+                    <!--
+                        El nombre NO se trunca.
+                        Llevaba `truncate` y a 1024 px salía «Israel Gutie…»:
+                        el clima se lleva su 72 % y al saludo le quedaban 199 px
+                        para 267 que pide el nombre. Un nombre abreviado en el
+                        texto más grande del panel se lee como una falla, y con
+                        apellidos largos —«María Fernanda Gutiérrez
+                        Villaseñor»— le pasaría a media escuela.
+                        Envuelto ocupa dos renglones, que es lo que hace
+                        cualquier saludo.
+                    -->
+                    <h1 class="text-2xl font-bold leading-tight [overflow-wrap:anywhere]">
                         {{ usuario?.nombre_completo ?? usuario?.usuario }}
                     </h1>
                     <!--
@@ -549,10 +560,15 @@ function conmutar(rolId: number): void {
                     El cielo se ajusta a lo que ocupe el clima, no al revés: si
                     la pantalla no da para los próximos días, el trozo de color
                     encoge con ellos en vez de quedarse medio vacío.
+
+                    El tope era 72 % y con eso, entre `sm` y `xl`, el clima se
+                    quedaba con casi tres cuartos de la tarjeta y al saludo le
+                    tocaban 199 px. El clima es el acompañante; quien da nombre
+                    a la tarjeta es la persona.
                 -->
                 <div
                     v-if="clima"
-                    class="franja-cielo relative shrink-0 sm:max-w-[72%]"
+                    class="franja-cielo relative shrink-0 sm:max-w-[60%] xl:max-w-[72%]"
                     :style="{ background: cielo, color: tintaCielo }"
                 >
                     <CieloDecorado :noche="esDeNoche" />
@@ -855,6 +871,14 @@ function conmutar(rolId: number): void {
                     Tailwind, que no sabe nada del fondo, quedaría flojo encima.
                 -->
                 <template v-if="tarjeta.tipo === 'metrica'">
+                    <!--
+                        El número y su leyenda van en UN bloque.
+                        Sueltos, los dos casaban con la regla que hace crecer y
+                        centrar lo que sigue al encabezado, así que se repartían
+                        el hueco y la leyenda acababa flotando a cien píxeles del
+                        número que explica.
+                    -->
+                    <div class="metrica-cuerpo">
                     <p
                         class="mt-3 text-3xl font-semibold tracking-tight tabular-nums"
                         :class="tarjeta.datos.alerta && !esDestacada(tarjeta) ? 'text-red-600' : ''"
@@ -869,6 +893,7 @@ function conmutar(rolId: number): void {
                     >
                         {{ tarjeta.datos.pie }}
                     </p>
+                    </div>
                 </template>
 
                 <!--
@@ -1641,8 +1666,15 @@ function conmutar(rolId: number): void {
     flex: 1 1 auto;
 }
 
-/* La métrica centra su número en el espacio que le quede. */
-.tarjeta-panel > p:not(:first-child) {
+/*
+ * La métrica centra su número —CON su leyenda— en el espacio que le quede.
+ *
+ * Iba sobre `> p:not(:first-child)` y con eso alcanzaba también al pie de las
+ * demás formas —lista, matriz—, que es un renglón de nota al pie: centrado en
+ * el hueco sobrante se despegaba de lo que explica. Ahora sólo se centra este
+ * bloque, y los pies se quedan pegados a su contenido.
+ */
+.tarjeta-panel > .metrica-cuerpo {
     display: flex;
     flex-direction: column;
     justify-content: center;
