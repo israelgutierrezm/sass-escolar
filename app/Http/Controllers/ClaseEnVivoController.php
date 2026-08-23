@@ -9,6 +9,7 @@ use App\Configuracion\CatalogoAjustes;
 use App\Http\Controllers\Concerns\AutorizaMateriaPropia;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\Identidad\Usuario;
+use App\Models\Lms\AccesoVideoconferencia;
 use App\Models\Lms\Videoconferencia;
 use App\Services\Videoconferencia\AsignadorDeCuenta;
 use App\Services\Videoconferencia\ProgramadorDeClases;
@@ -106,6 +107,20 @@ class ClaseEnVivoController extends Controller
 
         $antelacion = $this->ajustes->entero(CatalogoAjustes::VIDEO_ANTELACION);
 
+        /*
+         * Los accesos de las treinta sesiones, en UNA consulta y agrupados.
+         *
+         * Preguntándolos por sesión serían treinta consultas para dibujar una
+         * pantalla, y con `with()` en la relación vendrían igual de bien pero
+         * sin el orden por llegada, que es el que hace legible la lista.
+         */
+        $accesos = AccesoVideoconferencia::query()
+            ->whereIn('videoconferencia_id', $sesiones->pluck('id'))
+            ->with('persona:id,nombre,primer_apellido,segundo_apellido')
+            ->orderBy('primer_acceso')
+            ->get()
+            ->groupBy('videoconferencia_id');
+
         return [
             // Sólo los que de verdad pueden dar clase: encendidos, con
             // credenciales y con al menos una cuenta. Ofrecer uno que no cumple
@@ -127,13 +142,40 @@ class ClaseEnVivoController extends Controller
                 'cuenta' => $s->cuenta?->etiqueta,
                 'termino' => $s->yaTermino(),
                 /*
-                 * El enlace de anfitrión. Aquí sí: quien lee esto ya pasó por
-                 * `autorizarMateriaPropia`. En Meet no existe uno aparte, así
-                 * que se cae al del invitado — es el mismo para todos y el
-                 * control lo da ser el organizador.
+                 * También el docente entra por la puerta propia.
+                 *
+                 * Podría llevarse el `url_anfitrion` directo —ya pasó por
+                 * `autorizarMateriaPropia`—, pero entonces su propia llegada no
+                 * quedaría anotada, y «¿el docente entró a su clase?» es
+                 * justamente una de las preguntas que esta tabla existe para
+                 * contestar. El controlador de la puerta le reconoce el papel y
+                 * le da el enlace de anfitrión.
+                 *
+                 * Efecto secundario: el `start_url` de Zoom —que es una
+                 * credencial, entra como dueño de la sala— deja de viajar al
+                 * navegador incluso aquí.
                  */
-                'url_iniciar' => $s->estaCancelada() ? null : ($s->url_anfitrion ?? $s->url_join),
+                'url_iniciar' => $s->estaCancelada() ? null : "/clases/{$s->id}/entrar",
+                /*
+                 * El del invitado SÍ viaja: el docente lo copia y lo pega en su
+                 * grupo de mensajería, que es como se avisa de verdad. No es una
+                 * credencial —es el mismo enlace que ve cualquier alumno—, y
+                 * quien lo use por ahí simplemente no quedará anotado.
+                 */
                 'url_invitado' => $s->url_join,
+                /*
+                 * Quiénes entraron. Va con la sesión y no en una pantalla
+                 * aparte: el docente lo mira mientras pasa lista, y una segunda
+                 * pantalla obligaría a cruzar dos listas de memoria.
+                 */
+                'accesos' => $accesos->get($s->id, collect())
+                    ->map(fn (AccesoVideoconferencia $a) => [
+                        'persona' => $a->persona?->nombreCompleto(),
+                        'papel' => $a->papel,
+                        'entro' => $a->primer_acceso?->format('H:i'),
+                        'veces' => $a->veces,
+                        'retraso' => $a->minutosDeRetraso(),
+                    ])->values(),
                 /*
                  * Lo que dejó grabado. Se manda incluso lo que falló: si sólo
                  * viajara lo archivado, una grabación que no se pudo traer sería

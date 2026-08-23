@@ -26,10 +26,25 @@ interface Sesion {
     estado: string;
     cuenta: string | null;
     termino: boolean;
-    /** Entra como anfitrión. NUNCA se le da a un alumno. */
+    /**
+     * La puerta propia de Acadion, no la del proveedor. Anota la llegada y de
+     * ahí redirige — al docente con el enlace de anfitrión.
+     */
     url_iniciar: string | null;
+    /** El del invitado. Se copia para pegarlo fuera de la plataforma. */
     url_invitado: string | null;
     grabaciones: Grabacion[];
+    /** Quiénes pulsaron «Entrar». No es asistencia: ver `conectados`. */
+    accesos: Acceso[];
+}
+
+interface Acceso {
+    persona: string | null;
+    papel: string;
+    entro: string | null;
+    veces: number;
+    /** Minutos respecto al inicio. Negativo = llegó antes. */
+    retraso: number | null;
 }
 
 interface Grabacion {
@@ -98,6 +113,20 @@ function alternarGrabacion(g: Grabacion): void {
         { visible_alumnos: !g.visible_alumnos },
         { preserveScroll: true },
     );
+}
+
+/*
+ * Cómo se describe una llegada.
+ *
+ * En palabras y no en un número con signo: «-3» obliga a acordarse de que el
+ * negativo es bueno, y quien lee esto está pasando lista, no leyendo un reporte.
+ */
+function llegada(a: Acceso): string {
+    if (a.retraso === null) return a.entro ?? '';
+    if (a.retraso <= 0) return `${a.entro} · puntual`;
+    if (a.retraso < 60) return `${a.entro} · ${a.retraso} min tarde`;
+
+    return `${a.entro} · tarde`;
 }
 
 function copiarInvitado(s: Sesion): void {
@@ -253,6 +282,35 @@ function copiarInvitado(s: Sesion): void {
                 >
                     Cancelar
                 </button>
+
+                <!--
+                    Quién va entrando, en la clase que está ocurriendo. Es lo
+                    que el docente mira sin salir de aquí; una pantalla aparte
+                    obligaría a cruzar dos listas de memoria.
+                -->
+                <div v-if="s.accesos.length" class="w-full">
+                    <details>
+                        <summary class="cursor-pointer text-xs text-suave">
+                            {{ s.accesos.length }} conectado(s)
+                        </summary>
+                        <ul class="mt-2 space-y-1">
+                            <li
+                                v-for="(a, i) in s.accesos"
+                                :key="i"
+                                class="flex flex-wrap items-baseline gap-x-2 text-xs"
+                            >
+                                <span class="text-contenido">{{ a.persona ?? '—' }}</span>
+                                <span v-if="a.papel === 'docente'" class="text-[11px] text-suave">(docente)</span>
+                                <span class="text-[11px] text-suave">{{ llegada(a) }}</span>
+                                <!-- Las reconexiones sólo se dicen cuando las
+                                     hubo: un «1 vez» en cada renglón es ruido. -->
+                                <span v-if="a.veces > 1" class="text-[11px] text-suave">
+                                    · {{ a.veces }} conexiones
+                                </span>
+                            </li>
+                        </ul>
+                    </details>
+                </div>
             </article>
         </div>
 
@@ -266,6 +324,39 @@ function copiarInvitado(s: Sesion): void {
                         {{ s.inicio }} · {{ s.titulo }}
                         <span v-if="s.estado === 'cancelada'"> · cancelada</span>
                     </span>
+
+                    <!--
+                        La lista de quien se conectó, en la clase que ya pasó:
+                        es cuando de verdad se consulta, porque el pase de lista
+                        se hace después.
+
+                        **Se dice qué mide.** «Conectados» y no «asistieron»: lo
+                        que hay es el clic en Entrar, no permanencia. Ponerlo
+                        como asistencia haría que alguien firmara un acta con
+                        un dato que el sistema no tiene.
+                    -->
+                    <details v-if="s.accesos.length" class="mt-1">
+                        <summary class="cursor-pointer text-xs" :style="{ color: 'var(--color-acento)' }">
+                            Se conectaron {{ s.accesos.length }}
+                        </summary>
+                        <p class="mt-1 text-[11px] text-suave">
+                            Es quien pulsó «Entrar» con la clase abierta. No dice cuánto se quedó.
+                        </p>
+                        <ul class="mt-1 space-y-1">
+                            <li
+                                v-for="(a, i) in s.accesos"
+                                :key="i"
+                                class="flex flex-wrap items-baseline gap-x-2 text-xs"
+                            >
+                                <span class="text-contenido">{{ a.persona ?? '—' }}</span>
+                                <span v-if="a.papel === 'docente'" class="text-[11px] text-suave">(docente)</span>
+                                <span class="text-[11px] text-suave">{{ llegada(a) }}</span>
+                                <span v-if="a.veces > 1" class="text-[11px] text-suave">
+                                    · {{ a.veces }} conexiones
+                                </span>
+                            </li>
+                        </ul>
+                    </details>
 
                     <!-- Lo que dejó grabado. Se enseña también lo fallido: una
                          grabación que no se pudo traer y una clase que nadie

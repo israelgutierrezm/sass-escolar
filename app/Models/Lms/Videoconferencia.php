@@ -125,9 +125,23 @@ class Videoconferencia extends Model
             'fin' => $this->fin?->format('Y-m-d H:i'),
             'estado' => $this->estado,
             'abierta' => $this->abiertaPara($minutosAntes),
-            // Sólo cuando de verdad puede entrar: el enlace de una clase de la
-            // semana que viene no tiene por qué estar en el HTML de hoy.
-            'url' => $this->abiertaPara($minutosAntes) ? $this->url_join : null,
+            /*
+             * La puerta PROPIA, no la del proveedor.
+             *
+             * Antes aquí viajaba el `url_join` y el alumno se iba derecho a
+             * Zoom, así que nadie se enteraba de quién entraba y una clase en
+             * línea no podía pasar lista. Ahora el clic pasa por Acadion, queda
+             * anotado y de ahí se le redirige.
+             *
+             * Efecto secundario que vale por sí solo: el enlace del proveedor ya
+             * no aparece en el HTML de nadie, así que no se reenvía por
+             * WhatsApp a quien no está inscrito.
+             *
+             * Sigue en null mientras la clase no abre: el botón se dibuja a
+             * partir de este campo, y encenderlo antes de tiempo llevaría a una
+             * pantalla que sólo sabe decir que todavía no.
+             */
+            'url' => $this->abiertaPara($minutosAntes) ? "/clases/{$this->id}/entrar" : null,
             /*
              * Las grabaciones que la escuela haya hecho visibles. Se filtra
              * AQUÍ, junto al resto de lo que se le puede enseñar a un alumno, y

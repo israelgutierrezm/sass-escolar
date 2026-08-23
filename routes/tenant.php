@@ -76,6 +76,7 @@ use App\Http\Controllers\FormularioController;
 use App\Http\Controllers\FormularioPublicoController;
 use App\Http\Controllers\ForoController;
 use App\Http\Controllers\FotoPersonaController;
+use App\Http\Controllers\EntrarAClaseController;
 use App\Http\Controllers\GrabacionController;
 use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\HorarioController;
@@ -1980,6 +1981,18 @@ Route::middleware([
 
         Route::patch('clases/grabaciones/{grabacion}/visibilidad', [GrabacionController::class, 'visibilidad'])
             ->whereNumber('grabacion')->name('tenant.grabaciones.visibilidad');
+
+        /*
+         * Entrar a la clase en línea. Sin `can:` por lo mismo que la descarga
+         * de la grabación: por aquí pasan el docente y el alumno inscrito, y el
+         * permiso de uno rebotaría al otro.
+         *
+         * Existe para que el clic quede ANOTADO —sin esto una clase en línea no
+         * puede pasar lista— y, de paso, para que el enlace del proveedor deje
+         * de viajar al navegador.
+         */
+        Route::get('clases/{clase}/entrar', EntrarAClaseController::class)
+            ->whereNumber('clase')->name('tenant.clases.entrar');
 
         Route::controller(ClaseEnVivoController::class)
             ->prefix('docencia/materias/{asignaturaGrupo}/clases')->name('tenant.clasesvivo.')
