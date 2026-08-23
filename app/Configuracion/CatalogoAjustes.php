@@ -49,6 +49,9 @@ final class CatalogoAjustes
 
     public const VIDEO_PUBLICAR_GRABACIONES = 'video.grabaciones_visibles_al_llegar';
 
+    // Bolsa de trabajo.
+    public const BOLSA_AUTOGESTIVA = 'bolsa.postulacion_autogestiva';
+
     // Admisiones.
     public const EXIGE_DOCUMENTOS = 'aspirante.exige_documentos_para_convertir';
 
@@ -200,6 +203,26 @@ final class CatalogoAjustes
                  * lo pida. Quien quiera lo contrario lo enciende aquí — que es
                  * justo lo que pidió el cliente— y queda dicho que fue una
                  * decisión suya, no un efecto de haber configurado el archivado.
+                 */
+                porDefecto: false,
+            ),
+            new Ajuste(
+                clave: self::BOLSA_AUTOGESTIVA,
+                grupo: 'Bolsa de trabajo',
+                etiqueta: 'Que el alumno se postule solo',
+                descripcion: 'Encendido, quien vea las vacantes puede postularse desde su portal. '
+                    .'Apagado, las sigue viendo pero la postulación se hace en ventanilla: el botón '
+                    .'desaparece y la dirección deja de responder. En los dos casos vinculación puede '
+                    .'capturar postulaciones por él.',
+                tipo: Ajuste::BOOLEANO,
+                /*
+                 * Apagado por omisión, por decisión del cliente y con razón.
+                 *
+                 * Una escuela que acaba de encender el módulo todavía no tiene a
+                 * nadie revisando lo que llegue; con esto encendido, la primera
+                 * vacante que publique le abre la puerta a toda la matrícula el
+                 * mismo día. Encenderlo es un acto deliberado, igual que
+                 * encender el módulo.
                  */
                 porDefecto: false,
             ),

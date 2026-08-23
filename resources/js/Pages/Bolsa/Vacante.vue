@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
@@ -71,6 +71,18 @@ function guardar(): void {
     <Head :title="esNueva ? 'Nueva vacante' : vacante.titulo" />
 
     <AppLayout :titulo="esNueva ? 'Nueva vacante' : vacante.titulo">
+        <!-- Los postulantes son lo que se viene a ver de una vacante ya
+             publicada; el formulario se abre una vez y casi no se vuelve. -->
+        <div v-if="!esNueva" class="mb-4 flex justify-end">
+            <Link
+                :href="`/bolsa/vacantes/${vacante.id}/postulaciones`"
+                class="rounded-lg px-4 py-2 text-sm font-medium"
+                :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+            >
+                Ver postulantes
+            </Link>
+        </div>
+
         <form @submit.prevent="guardar">
             <TarjetaSeccion titulo="El puesto" class="mb-4">
                 <div class="grid gap-4 sm:grid-cols-2">

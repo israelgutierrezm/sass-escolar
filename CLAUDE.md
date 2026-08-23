@@ -57,7 +57,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 74 están en verde.** Llegaron a estar 33 en rojo —no trece: ese primer
+   **Las 74 están en verde**, barridas el 2026-08-22. Llegaron a estar 33 en rojo —no trece: ese primer
    conteo sólo miró las que imprimían «N fallidas» e ignoró las 21 que morían
    antes, con una excepción sin resumen—. Ninguna caía por un cambio reciente;
    se comprobó corriéndolas contra el árbol limpio.
@@ -1206,6 +1206,69 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     con lector**. Nada que retirar; el barrido de `crear-personas` y compañía ya
     había limpiado esa clase.
 
+- **Módulo 11 · Bolsa de trabajo, tercera rebanada** (2026-08-22): las
+  postulaciones. `/mis-vacantes` para el alumno y
+  `/bolsa/vacantes/{id}/postulaciones` para vinculación.
+  - **VER y POSTULARSE son dos preguntas distintas.** El permiso `ver-vacantes`
+    —faceta ALUMNO— decide si esta persona ve el tablero; el ajuste
+    `bolsa.postulacion_autogestiva` decide si puede postularse sola. Apagado, las
+    vacantes se siguen viendo —le sirven: se entera y va a ventanilla— y lo que
+    desaparece es el botón, con la dirección respondiendo **404**. Es lo que el
+    cliente pidió con «poder apagar la postulación autogestiva para forzar en
+    ventanilla».
+  - **Apagado por omisión**, por decisión del cliente. Una escuela que acaba de
+    encender el módulo no tiene todavía a nadie revisando lo que llegue, y con
+    esto encendido la primera vacante que publique le abre la puerta a toda la
+    matrícula el mismo día.
+  - **El interruptor se construyó junto con quien lo lee**, en la misma rebanada:
+    un ajuste que nadie consulta es peor que no tenerlo, porque se confía en él.
+  - **Capturar por ventanilla NO depende del interruptor**: con él apagado es el
+    único camino, y con él encendido sigue llegando gente por teléfono. Los dos
+    caminos pasan por `App\Services\Bolsa\Postulador`, porque escribirlos dos
+    veces es como se llega a que uno deje de anotar la bitácora y los tiempos de
+    colocación cuenten la mitad de los casos.
+  - **`capturada_por` en null significa que se postuló SOLA.** Una columna
+    `origen` con dos valores diría menos por el mismo espacio: así se sabe además
+    QUIÉN la capturó, y la pantalla muestra «Portal» o «Ventanilla», que es lo
+    que mide si el portal sirve de algo.
+  - **La bitácora existe para MEDIR, no para auditar.** Una fila por cambio de
+    etapa, incluida la del ALTA con la etapa de origen en null: sin ese primer
+    renglón, «cuánto tarda un egresado en colocarse» no tiene desde cuándo
+    contar. Y volver a poner la MISMA etapa no anota nada —dos clics inflarían
+    la bitácora con renglones de cero días y falsearían justo lo que mide—.
+  - **Con dos carreras no se adivina cuál.** La matrícula de la postulación se
+    resuelve sola cuando la persona tiene una, y con varias se PREGUNTA. Hizo
+    falta de verdad: en el demo los quince alumnos con matrícula tienen dos o
+    tres, así que dejarlo sin preguntar significaba que casi ninguna postulación
+    de ventanilla sabría de qué carrera es. Se vio al capturar una en el
+    navegador —el renglón salió sin matrícula—, no en las pruebas.
+  - Por eso hay un endpoint aparte, `/bolsa/postulantes/{persona}/matriculas`:
+    `/buscar/alumnos` entrega PERSONAS y deduplica a propósito —quien estudia dos
+    carreras no puede salir dos veces en la caja de elegir a alguien—, así que de
+    ahí no sale con cuál se postula. Ese buscador ahora lo abre también
+    `gestionar-bolsa-trabajo`, sumado al permiso derivado `dirigir-a-alumnos`.
+  - **El CV cuelga de la POSTULACIÓN, no del expediente**: no es un papel que la
+    escuela exija, es lo que esa persona mandó a esa vacante, y cambia de una a
+    otra. Va al disco privado y su ruta comprueba de quién es.
+  - **Trampa que mordió**: `configuraciones.descripcion` era `varchar(255)` y esa
+    columna NO la escribe nadie a mano —`Ajustes::guardar()` copia ahí la
+    descripción declarada en `CatalogoAjustes`—, o sea que el largo del texto de
+    un archivo PHP decidía si la pantalla de configuración podía guardar. La del
+    ajuste de la bolsa ocupa 256 caracteres, uno de más, y mover el interruptor
+    reventaba con `Data too long` en la cara del usuario. Pasada a TEXT.
+  - Pruebas: `scripts/prueba-bolsa-postulaciones.php`, 44 verificaciones,
+    comprobadas mutando siete reglas. **Dos de ellas destaparon comprobaciones
+    vacías**: (1) `QueryException` desciende de `RuntimeException`, así que el
+    `catch` pelado daba por buena la explosión del índice único y la prueba
+    pasaba con la regla de «no postularse dos veces» quitada —lo que llegaba a la
+    pantalla era un error de SQL—; ahora se mira el tipo Y el mensaje. (2) La de
+    «vacante cerrada» se probaba con alguien que ya se había postulado, así que
+    el rechazo lo producía la regla de no repetir y la de vigencia nunca se
+    evaluaba; hicieron falta DOS personas limpias, una por cada camino.
+  - Y el escenario de «una sola matrícula» **se construye**, no se busca: en el
+    demo no existe, y una prueba que salta la comprobación cuando no encuentra el
+    caso es una prueba que se apaga sola el día que cambian los datos.
+
 - **Módulo 11 · Bolsa de trabajo, segunda rebanada** (2026-08-22): las vacantes.
   `/bolsa/vacantes`, con alta y edición en la MISMA pantalla —dos casi iguales es
   como se llega a que el alta pida un campo que la edición no ofrece—.
@@ -1548,10 +1611,10 @@ marcado abajo con su fecha, y lo que NO la lleve sigue sin verificar.)*
       matrícula como pedía la spec.
    2. **Módulo 11 · Bolsa de trabajo** — EN CURSO. Autocontenido, no toca nada
       delicado, y produce el dato que una escuela presume: colocación de
-      egresados. Rebanadas: **empresas ✅**, **vacantes ✅**, postulaciones,
-      colocaciones. **Decisión del cliente: la postulación es autogestiva Y por
-      ventanilla, con un interruptor para apagar la autogestiva y forzar el
-      mostrador.**
+      egresados. Rebanadas: **empresas ✅**, **vacantes ✅**,
+      **postulaciones ✅**, colocaciones. **Decisión del cliente: la postulación
+      es autogestiva Y por ventanilla, con un interruptor para apagar la
+      autogestiva y forzar el mostrador; apagado por omisión.**
    3. **Módulo 10 · Nómina y RH** — el de más valor y el más grande. Su insumo
       ya existe (el reloj checador). **Decisión del cliente sobre el CFDI de
       nómina: se implementa, pero el timbrado se enciende desde configuración.
@@ -1573,7 +1636,11 @@ marcado abajo con su fecha, y lo que NO la lleve sigue sin verificar.)*
   funciona es medir el DOM con `javascript_tool` (altos, anchos, presencia de
   elementos), que sirve para comprobar geometría y estructura — pero NO
   sustituye a que un humano mire el render.
-- **Lo verificado en el navegador, hasta hoy**: el panel, y el 2026-08-19 el
+- **Lo verificado en el navegador, hasta hoy**: el panel; el 2026-08-22 el
+  recorrido entero de la bolsa de trabajo —el tablero del alumno con el
+  interruptor en sus dos posiciones, postularse desde el portal, capturar por
+  ventanilla eligiendo carrera, mover de etapa y leer la bitácora, y el ajuste
+  guardándose desde `/plataforma/configuracion`—; y el 2026-08-19 el
   recorrido entero de rúbricas —`/rubricas` (crear, tarjeta y matriz), el panel
   de calificación del docente en modo rúbrica y el aula del alumno con su
   desglose—. **Todo lo demás sigue probado por datos y por HTTP, sin ver el

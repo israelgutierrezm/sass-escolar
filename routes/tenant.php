@@ -2,25 +2,28 @@
 
 declare(strict_types=1);
 
-use App\Http\Controllers\BuscadorAlumnosController;
 use App\Http\Controllers\Academico\CargaMasivaController;
 use App\Http\Controllers\AccesosController;
+use App\Http\Controllers\ActividadAspiranteController;
 use App\Http\Controllers\ActividadController;
 use App\Http\Controllers\AlumnoController;
 use App\Http\Controllers\ArchivoRespuestaController;
+use App\Http\Controllers\AsesorController;
 use App\Http\Controllers\AsignacionTutoriaController;
 use App\Http\Controllers\AsignaturaController;
 use App\Http\Controllers\AsignaturaGrupoController;
-use App\Http\Controllers\BibliotecaController;
-use App\Http\Controllers\ActividadAspiranteController;
-use App\Http\Controllers\AsesorController;
 use App\Http\Controllers\AspiranteController;
 use App\Http\Controllers\AulaController;
 use App\Http\Controllers\AutenticacionController;
-use App\Http\Controllers\BecaController;
 use App\Http\Controllers\AutorizacionController;
+use App\Http\Controllers\AvisoGrabacionController;
+use App\Http\Controllers\BecaController;
+use App\Http\Controllers\BibliotecaController;
 use App\Http\Controllers\Bolsa\EmpresaController;
+use App\Http\Controllers\Bolsa\MisVacantesController;
+use App\Http\Controllers\Bolsa\PostulacionController;
 use App\Http\Controllers\Bolsa\VacanteController;
+use App\Http\Controllers\BuscadorAlumnosController;
 use App\Http\Controllers\CampoFormularioController;
 use App\Http\Controllers\CampusController;
 use App\Http\Controllers\CapturaCalificacionesController;
@@ -28,26 +31,25 @@ use App\Http\Controllers\CarreraController;
 use App\Http\Controllers\CatalogoAcademicoController;
 use App\Http\Controllers\ChatMateriaController;
 use App\Http\Controllers\CicloController;
-use App\Http\Controllers\CobroAspiranteController;
-use App\Http\Controllers\CobroEnLineaController;
-use App\Http\Controllers\CredencialConfiguracionController;
-use App\Http\Controllers\ComprobantePagoController;
-use App\Http\Controllers\CreditosEmisionController;
-use App\Http\Controllers\CuentaBancariaController;
-use App\Http\Controllers\ConceptoPagoController;
-use App\Http\Controllers\ConfiguracionController;
-use App\Http\Controllers\CorreoConfigController;
-use App\Http\Controllers\AvisoGrabacionController;
 use App\Http\Controllers\ClaseEnVivoController;
 use App\Http\Controllers\ClasesEnLineaController;
+use App\Http\Controllers\CobroAspiranteController;
+use App\Http\Controllers\CobroEnLineaController;
+use App\Http\Controllers\ComprobantePagoController;
+use App\Http\Controllers\ConceptoPagoController;
+use App\Http\Controllers\ConfiguracionController;
+use App\Http\Controllers\ConfiguracionEscolarController;
+use App\Http\Controllers\CorreoConfigController;
+use App\Http\Controllers\CredencialConfiguracionController;
+use App\Http\Controllers\CreditosEmisionController;
+use App\Http\Controllers\CuentaBancariaController;
 use App\Http\Controllers\CursoPlantillaController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\DisposicionPanelController;
 use App\Http\Controllers\DescuentoController;
-use App\Http\Controllers\DocenciaController;
-use App\Http\Controllers\ConfiguracionEscolarController;
 use App\Http\Controllers\DisenoHistorialController;
 use App\Http\Controllers\DisponibilidadDocenteController;
+use App\Http\Controllers\DisposicionPanelController;
+use App\Http\Controllers\DocenciaController;
 use App\Http\Controllers\DocenteController;
 use App\Http\Controllers\DocumentoRequeridoController;
 use App\Http\Controllers\Emision\DatosTituloController;
@@ -65,6 +67,7 @@ use App\Http\Controllers\ExamenController;
 use App\Http\Controllers\ExpedienteAlumnoController;
 use App\Http\Controllers\ExpedienteAspiranteController;
 use App\Http\Controllers\ExpedienteDocenteController;
+use App\Http\Controllers\ExpedienteTutorController;
 use App\Http\Controllers\FacturacionConfigController;
 use App\Http\Controllers\FacturaController;
 use App\Http\Controllers\FinanzasController;
@@ -79,13 +82,12 @@ use App\Http\Controllers\IdentidadController;
 use App\Http\Controllers\ImagenContenidoController;
 use App\Http\Controllers\ImpresionActaController;
 use App\Http\Controllers\ImpresionHistorialController;
-use App\Http\Controllers\ExpedienteTutorController;
 use App\Http\Controllers\InscripcionController;
 use App\Http\Controllers\InstitucionController;
 use App\Http\Controllers\MenuRolController;
-use App\Http\Controllers\MisAvisosController;
 use App\Http\Controllers\MiCredencialController;
 use App\Http\Controllers\MiHistorialController;
+use App\Http\Controllers\MisAvisosController;
 use App\Http\Controllers\MisCursosController;
 use App\Http\Controllers\OfertaController;
 use App\Http\Controllers\PadreController;
@@ -123,6 +125,7 @@ use App\Http\Controllers\UsuarioController;
 use App\Http\Controllers\VentanaCapturaController;
 use App\Http\Controllers\VerificacionCredencialController;
 use App\Http\Middleware\EscuelaActiva;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
@@ -216,12 +219,12 @@ Route::middleware([
      */
     Route::post('/clases/grabacion/zoom', [AvisoGrabacionController::class, 'zoom'])
         ->middleware('throttle:120,1')
-        ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
+        ->withoutMiddleware([ValidateCsrfToken::class])
         ->name('tenant.clases.grabacion.zoom');
 
     Route::post('/pagos/aviso/{pasarela}', [CobroEnLineaController::class, 'aviso'])
         ->middleware('throttle:120,1')
-        ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
+        ->withoutMiddleware([ValidateCsrfToken::class])
         ->name('tenant.pagos.aviso');
 
     Route::middleware('guest')->group(function () {
@@ -1531,6 +1534,42 @@ Route::middleware([
                 Route::get('nueva', 'crear')->name('nueva');
                 Route::get('{vacante}', 'show')->whereNumber('vacante')->name('show');
                 Route::put('{vacante}', 'guardar')->whereNumber('vacante')->name('actualizar');
+            });
+
+        // Fuera del grupo de una vacante: se pregunta por la PERSONA, y hace
+        // falta antes de que exista la postulación.
+        Route::get('bolsa/postulantes/{persona}/matriculas', [PostulacionController::class, 'matriculasDe'])
+            ->middleware(['can:gestionar-bolsa-trabajo', 'modulo:bolsa_trabajo'])
+            ->whereNumber('persona')
+            ->name('tenant.bolsa.postulantes.matriculas');
+
+        Route::controller(PostulacionController::class)
+            ->prefix('bolsa/vacantes/{vacante}/postulaciones')->name('tenant.bolsa.postulaciones.')
+            ->middleware(['can:gestionar-bolsa-trabajo', 'modulo:bolsa_trabajo'])
+            ->whereNumber('vacante')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'capturar')->name('capturar');
+                Route::put('{postulacion}', 'mover')->whereNumber('postulacion')->name('mover');
+                Route::get('{postulacion}/bitacora', 'bitacora')->whereNumber('postulacion')->name('bitacora');
+                Route::get('{postulacion}/cv', 'descargarCv')->whereNumber('postulacion')->name('cv');
+            });
+
+        /*
+         * El tablero del alumno o egresado.
+         *
+         * El PERMISO decide si ve las vacantes; el ajuste
+         * `bolsa.postulacion_autogestiva` decide si puede postularse solo, y eso
+         * lo comprueba el controlador —con el interruptor apagado, la dirección
+         * de postularse responde 404—.
+         */
+        Route::controller(MisVacantesController::class)
+            ->prefix('mis-vacantes')->name('tenant.bolsa.mias.')
+            ->middleware(['can:ver-vacantes', 'modulo:bolsa_trabajo'])
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('{vacante}/postularme', 'postularme')->whereNumber('vacante')->name('postularme');
+                Route::get('postulaciones/{postulacion}/cv', 'descargarCv')->whereNumber('postulacion')->name('cv');
             });
 
         /*

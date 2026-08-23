@@ -252,6 +252,9 @@ class AppServiceProvider extends ServiceProvider
                 || $usuario->can('gestionar-avisos')
                 || $usuario->can('gestionar-encuestas')
                 || $usuario->can('gestionar-autorizaciones')
+                // Y vinculación, para capturar por ventanilla la
+                // postulación de quien no se postuló solo.
+                || $usuario->can('gestionar-bolsa-trabajo')
         );
 
         /*
