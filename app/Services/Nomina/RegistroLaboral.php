@@ -53,6 +53,23 @@ class RegistroLaboral
                 ->whereNull('vigente_hasta')
                 ->update(['vigente_hasta' => $fecha, 'updated_at' => now()]);
 
+            /*
+             * Y su esquema de sueldo, por lo mismo.
+             *
+             * Un esquema abierto sobre alguien que ya no trabaja aquí contesta
+             * «gana tanto» a una pregunta sobre una fecha en la que ya no
+             * ganaba nada. Hoy la nómina no le pagaría igual —`enNomina()` saca
+             * a los dados de baja— pero eso es una segunda defensa: el dato
+             * tiene que ser cierto por sí solo, porque el día que algo consulte
+             * el esquema sin pasar por ese filtro nadie se acordará de esto.
+             *
+             * Salió de una mutación que sobrevivió: sin ningún tramo cerrado sin
+             * sucesor, la consulta por fecha nunca ejercitaba su fecha de fin.
+             */
+            $expediente->esquemas()
+                ->whereNull('vigente_hasta')
+                ->update(['vigente_hasta' => $fecha, 'updated_at' => now()]);
+
             return $expediente->refresh();
         });
     }
@@ -65,13 +82,14 @@ class RegistroLaboral
         }
 
         /*
-         * Las adscripciones NO se reabren.
+         * Ni las adscripciones ni el esquema de sueldo se reabren.
          *
          * Al dar de baja se cerraron con la fecha de baja, y no hay forma de
-         * saber cuáles estaban abiertas antes ni si el puesto sigue siendo el
-         * mismo tras el regreso. Reabrirlas todas devolvería puestos que quizá
-         * ya ocupa alguien más; se deja que RH abra la que corresponda, que es
-         * un gesto que ya existe.
+         * saber cuáles estaban abiertas antes, si el puesto sigue libre ni si el
+         * sueldo del regreso es el mismo de la salida. Reabrirlos devolvería
+         * puestos que quizá ya ocupa alguien más y un sueldo que nadie volvió a
+         * autorizar; se deja que RH abra los que correspondan, que son gestos
+         * que ya existen.
          */
         $expediente->update(['fecha_baja' => null, 'motivo_baja_id' => null]);
 

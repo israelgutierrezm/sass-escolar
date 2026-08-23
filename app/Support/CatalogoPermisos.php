@@ -202,6 +202,15 @@ final class CatalogoPermisos
              * quien revisa expedientes docentes no tiene por qué ver sueldos.
              */
             'gestionar-rh' => ['Recursos humanos', 'Dar de alta expedientes laborales, adscribir a un puesto y dar de baja.', [self::ADMINISTRATIVO]],
+            /*
+             * Los SUELDOS, aparte del expediente.
+             *
+             * Quien captura altas, bajas y adscripciones no necesariamente
+             * puede ver cuánto gana cada quien: es el dato más sensible del
+             * sistema y en muchas escuelas sólo lo toca dirección. Es la misma
+             * separación que `registrar-pagos` frente a `gestionar-planes-cobro`.
+             */
+            'gestionar-percepciones' => ['Sueldos y percepciones', 'Ver y fijar cuánto se le paga a cada empleado, y administrar los conceptos de nómina.', [self::ADMINISTRATIVO]],
             'gestionar-bolsa-trabajo' => ['Gestionar la bolsa de trabajo', 'Registrar empleadores, publicar vacantes y dar seguimiento a las postulaciones.', [self::ADMINISTRATIVO]],
             'gestionar-autorizaciones' => ['Gestionar autorizaciones', 'Pedirle a los padres o tutores que autoricen salidas, uso de imagen y actividades.', [self::ADMINISTRATIVO]],
             'editar-mi-expediente-tutor' => ['Editar mi expediente (tutor)', 'Que el padre o tutor suba los documentos que la escuela le pide a él.', [self::PADRE]],

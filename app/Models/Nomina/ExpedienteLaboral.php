@@ -74,6 +74,23 @@ class ExpedienteLaboral extends Model
         return $this->hasMany(Adscripcion::class, 'expediente_laboral_id');
     }
 
+    public function esquemas(): HasMany
+    {
+        return $this->hasMany(EsquemaPercepcion::class, 'expediente_laboral_id');
+    }
+
+    /**
+     * Cuánto gana en una fecha.
+     *
+     * Se pregunta POR FECHA y no «el abierto»: la nómina calcula periodos
+     * pasados, y un recibo de la quincena anterior tiene que usar el sueldo que
+     * regía entonces, no el de hoy.
+     */
+    public function esquemaEn(string $fecha): ?EsquemaPercepcion
+    {
+        return $this->esquemas()->vigentesEn($fecha)->orderByDesc('vigente_desde')->first();
+    }
+
     /** ¿Sigue trabajando aquí? Lo dice la fecha de baja y sólo ella. */
     public function sigueContratado(): bool
     {

@@ -111,6 +111,7 @@ use App\Http\Controllers\ReglaHorarioController;
 use App\Http\Controllers\ReglaMatriculaController;
 use App\Http\Controllers\RespuestaFormularioController;
 use App\Http\Controllers\Rh\EmpleadoController;
+use App\Http\Controllers\Rh\PercepcionController;
 use App\Http\Controllers\RolActivoController;
 use App\Http\Controllers\RolController;
 use App\Http\Controllers\RubricaController;
@@ -1558,6 +1559,30 @@ Route::middleware([
                 Route::post('{expediente}/adscripciones', 'adscribir')->whereNumber('expediente')->name('adscribir');
                 Route::put('{expediente}/adscripciones/{adscripcion}', 'cerrarAdscripcion')
                     ->whereNumber(['expediente', 'adscripcion'])->name('adscripciones.cerrar');
+            });
+
+        /*
+         * Sueldos y conceptos de nómina.
+         *
+         * Permiso PROPIO, no `gestionar-rh`: quien captura altas y bajas no
+         * necesariamente puede ver cuánto gana cada quien. Por eso están en su
+         * propia ruta y no dentro de la ficha del expediente — esconder la
+         * sección con un `v-if` no es una defensa.
+         */
+        Route::controller(PercepcionController::class)
+            ->middleware(['can:gestionar-percepciones', 'modulo:nomina'])
+            ->name('tenant.rh.percepciones.')
+            ->group(function () {
+                Route::get('rh/catalogos-nomina', 'catalogos')->name('catalogos');
+                Route::post('rh/modalidades', 'guardarModalidad')->name('modalidades.crear');
+                Route::put('rh/modalidades/{modalidad}', 'guardarModalidad')->whereNumber('modalidad')->name('modalidades.guardar');
+                Route::post('rh/conceptos', 'guardarConcepto')->name('conceptos.crear');
+                Route::put('rh/conceptos/{concepto}', 'guardarConcepto')->whereNumber('concepto')->name('conceptos.guardar');
+
+                Route::get('rh/empleados/{expediente}/percepciones', 'index')->whereNumber('expediente')->name('index');
+                Route::post('rh/empleados/{expediente}/percepciones', 'abrir')->whereNumber('expediente')->name('abrir');
+                Route::put('rh/empleados/{expediente}/percepciones/{esquema}', 'corregir')
+                    ->whereNumber(['expediente', 'esquema'])->name('corregir');
             });
 
         /*

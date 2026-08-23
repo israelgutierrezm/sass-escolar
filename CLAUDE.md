@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**76 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**77 archivos `prueba-*.php`**;
    esta lista decía 23 y llevaba tiempo desactualizada). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
    imprimen `Resultado: N correctas, M fallidas`. **Ojo al barrer con `grep`**:
@@ -57,7 +57,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 76 están en verde**, barridas el 2026-08-22. Llegaron a estar 33 en rojo —no trece: ese primer
+   **Las 77 están en verde**, barridas el 2026-08-22. Llegaron a estar 33 en rojo —no trece: ese primer
    conteo sólo miró las que imprimían «N fallidas» e ignoró las 21 que morían
    antes, con una excepción sin resumen—. Ninguna caía por un cambio reciente;
    se comprobó corriéndolas contra el árbol limpio.
@@ -664,8 +664,8 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     tenía asesor. Lo cazó `prueba-actividad-crm`.
   - Pruebas: `scripts/prueba-actividad-crm.php`, 29 verificaciones, comprobada
     mutando la regla de re-cierre (caen exactamente las tres que la vigilan).
-- Pruebas: 76 suites en `scripts/`, contra la BD real del tenant demo con
-  `DB::rollBack()` al final. **76 en verde** (ver la regla 5 para qué tumbó a
+- Pruebas: 77 suites en `scripts/`, contra la BD real del tenant demo con
+  `DB::rollBack()` al final. **77 en verde** (ver la regla 5 para qué tumbó a
   las 33 que estuvieron en rojo). `prueba-listados` es la primera
   que invoca a los CONTROLADORES y lee sus props de Inertia, en vez de
   reimplementar la consulta: un `or` sin paréntesis no se detecta de otra forma.
@@ -1273,6 +1273,73 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     previa. Una prueba que sólo pasa cuando la corres sola no prueba nada el día
     que alguien la mete en el barrido.
 
+- **Módulo 10 · Nómina y RH, segunda rebanada** (2026-08-22): esquemas de
+  percepción y conceptos. `/rh/empleados/{id}/percepciones` y
+  `/rh/catalogos-nomina`, permiso **propio** `gestionar-percepciones`.
+  - **El sueldo va detrás de OTRO permiso.** Quien captura altas, bajas y
+    adscripciones no necesariamente puede ver cuánto gana cada quien: es el dato
+    más sensible del sistema. Por eso vive en su propia RUTA y no dentro de la
+    ficha —esconder la sección con un `v-if` no es una defensa—; en la ficha sólo
+    aparece la puerta, y sólo a quien la puede abrir.
+  - **La modalidad se lee por sus BANDERAS, no por su clave.** La spec la
+    describía como catálogo con cuatro valores, pero un catálogo cuyos valores el
+    código reconoce por nombre no es configurable: la escuela agrega una fila y no
+    pasa nada. Aquí cada modalidad declara qué componentes usa
+    —`usa_monto_base`, `usa_tarifa_hora`, `usa_tarifa_asignatura`— y el motor
+    suma lo que enciendan. **Así «mixto» deja de ser un cuarto caso especial: es
+    una fila con dos banderas**, y «base más horas» se crea desde la pantalla y
+    FUNCIONA. Comprobado en el navegador: la modalidad inventada apareció en el
+    desplegable y el formulario pidió sus dos cifras, sin tocar código.
+  - **Y las banderas EXIGEN su dato, mayor que cero.** Un esquema por horas con
+    la tarifa en blanco —o en cero— pagaría cero y el recibo saldría, con el neto
+    en nada y sin un solo error: es el defecto que no se descubre hasta el día de
+    pago. Lo mismo una modalidad sin ningún componente, que se rechaza al
+    guardarla en el catálogo y al colgarle un esquema.
+  - **Lo que la modalidad no usa se guarda en NULL**, no con lo que venga en la
+    petición: si no, cambiar de modalidad aplicaría una tarifa que nadie volvió a
+    autorizar. Y NULL y no cero, porque «se le paga cero por hora» es una
+    afirmación distinta de «no se le paga por hora».
+  - **Un solo esquema abierto por expediente**, y abrir uno cierra el anterior el
+    día ANTES —dos esquemas no pueden cubrir la misma fecha—. El anterior se
+    conserva: un aumento no borra lo que ganaba antes, que es lo que permite
+    explicar un recibo viejo. Y **el sueldo se consulta POR FECHA**
+    (`ExpedienteLaboral::esquemaEn`): un recibo de la quincena pasada usa el que
+    regía entonces, no el de hoy.
+  - Se corrigen las CIFRAS, no las fechas: mover la vigencia reacomodaría el
+    tramo que otro esquema ya cubre, y para eso está abrir uno nuevo.
+  - **Sin columna de MONEDA**, al revés de la spec: nada la convertiría. Pagar en
+    otra moneda necesita además una tasa, su fecha y una política de redondeo;
+    media de esas cosas no sirve y a cambio invita a capturar «USD» creyendo que
+    el sistema lo entiende.
+  - **`conceptos_nomina` sin `clave_sat` todavía**: es un mapeo al CFDI y llega
+    con él, igual que el régimen fiscal. `es_gravable` sí está —no es un mapeo,
+    es una propiedad que la escuela decide—. Y `naturaleza` es columna y no
+    catálogo: un renglón sólo puede sumar o restar, no hay una tercera cosa que
+    hacerle a una cuenta.
+  - **`formulas_nomina` se aplaza a la rebanada del cálculo**, que es lo único
+    que evaluaría una fórmula. Mismo criterio.
+  - **Una mutación que SOBREVIVIÓ destapó una inconsistencia real**: la baja
+    cerraba las adscripciones pero dejaba el esquema de sueldo ABIERTO, así que
+    la consulta por fecha nunca ejercitaba su `vigente_hasta` —no había ningún
+    tramo cerrado sin sucesor—. Ahora la baja lo cierra también: hoy la nómina no
+    le pagaría igual porque `enNomina()` saca a los dados de baja, pero eso es una
+    segunda defensa y el dato tiene que ser cierto por sí solo.
+  - Pruebas: `scripts/prueba-rh-percepciones.php`, 46 verificaciones,
+    comprobadas mutando siete reglas.
+
+- **`prueba-grabaciones` miraba TODO el directorio temporal del sistema**
+  (2026-08-22). Comparaba `glob(sys_get_temp_dir().'/*.tmp')` antes y después
+  para ver si el trabajo dejaba basura, así que cualquier temporal que otra
+  suite escribiera entremedio —`lote*.zip`, `xls*.xlsx`, `encuesta*`— se contaba
+  como suyo: **pasaba corriéndola sola y fallaba en el barrido**. Ahora el glob
+  va acotado al prefijo de ESE trabajo, con los dos patrones que hacen falta
+  porque `tempnam()` no se comporta igual en los dos sistemas —Windows recorta el
+  prefijo a tres letras (`gra*.tmp`) y Linux lo conserva entero y sin extensión
+  (`grabacion-*`)—. Comprobado que sigue cazando la mutación del borrado.
+  **Es la segunda vez en el día que muerde lo mismo**: una prueba que sólo pasa
+  aislada no prueba nada el día que alguien la mete en el barrido. La otra fue
+  `prueba-bolsa-colocaciones`, que medía contra cero en vez de por diferencia.
+
 - **Módulo 10 · Nómina y RH, primera rebanada** (2026-08-22): el expediente
   laboral. `/rh/empleados`, permiso `gestionar-rh`, bajo `modulo:nomina`.
   - **El reloj checador NO se llama `marcas_reloj`.** La spec lo nombra así y la
@@ -1761,8 +1828,8 @@ marcado abajo con su fecha, y lo que NO la lleve sigue sin verificar.)*
       es autogestiva Y por ventanilla, con un interruptor para apagar la
       autogestiva y forzar el mostrador; apagado por omisión.**
    3. **Módulo 10 · Nómina y RH** — EN CURSO, el de más valor y el más grande.
-      Rebanadas: **expediente laboral ✅**, esquemas de percepción y conceptos,
-      periodo y recibo, CFDI de nómina. Su insumo existe (el reloj checador,
+      Rebanadas: **expediente laboral ✅**, **esquemas de percepción y
+      conceptos ✅**, periodo y recibo (con `formulas_nomina`), CFDI de nómina. Su insumo existe (el reloj checador,
       tabla `checadas`) pero está VACÍO en el demo. **Decisión del cliente sobre el CFDI de
       nómina: se implementa, pero el timbrado se enciende desde configuración.
       Apagado, no se puede timbrar; encendido, valida la información que el

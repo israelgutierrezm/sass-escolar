@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Head, router, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
@@ -71,6 +71,15 @@ const adscripcion = useForm({
     vigente_hasta: '' as string | null,
     es_principal: false,
 });
+
+/*
+ * El sueldo vive detrás de OTRO permiso y en otra pantalla. Aquí sólo se enseña
+ * la puerta a quien la puede abrir; la defensa está en la ruta, no en este
+ * `v-if`.
+ */
+const puedeVerSueldos = computed(
+    () => ((usePage().props as any).auth?.usuario?.permisos ?? []).includes('gestionar-percepciones'),
+);
 
 function guardar(): void {
     datos.put(`/rh/empleados/${props.expediente.id}`, { preserveScroll: true });
@@ -217,6 +226,20 @@ function cerrarAdscripcion(a: Adscripcion): void {
 
                 <BotonPrincipal :procesando="datos.processing" texto="Guardar" />
             </form>
+        </TarjetaSeccion>
+
+        <TarjetaSeccion v-if="puedeVerSueldos" titulo="Sueldo" class="mb-4">
+            <p class="text-sm" :style="{ color: 'var(--color-suave)' }">
+                Cuánto se le paga, con qué modalidad y desde cuándo. Está aparte porque es el dato
+                más sensible del expediente y tiene su propio permiso.
+            </p>
+            <Link
+                :href="`/rh/empleados/${expediente.id}/percepciones`"
+                class="mt-3 inline-block rounded-lg px-4 py-2 text-sm font-medium"
+                :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+            >
+                Ver su esquema de percepción
+            </Link>
         </TarjetaSeccion>
 
         <TarjetaSeccion titulo="Adscripciones" sin-relleno>
