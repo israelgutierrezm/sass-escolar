@@ -21,20 +21,22 @@ use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Identidad\Usuario;
 use App\Models\Lms\CuentaVideo;
 use App\Models\Lms\DestinoGrabacion;
-use App\Models\Lms\IntegracionVideo;
 use App\Models\Lms\Grabacion;
+use App\Models\Lms\IntegracionVideo;
 use App\Models\Lms\Videoconferencia;
 use App\Models\Tenant;
 use App\Services\Grabaciones\ConsultorDeGrabacionesMeet;
 use App\Services\Grabaciones\Destinos;
 use App\Services\Grabaciones\RecolectorDeGrabaciones;
 use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 $raiz = dirname(__DIR__);
 
@@ -70,7 +72,7 @@ function estadoDe(callable $accion): int
         $accion();
 
         return 200;
-    } catch (Symfony\Component\HttpKernel\Exception\HttpException $e) {
+    } catch (HttpException $e) {
         return $e->getStatusCode();
     }
 }
@@ -148,15 +150,29 @@ try {
         Grabacion::query()->where('videoconferencia_id', $clase->id)->count() === 2);
 
     /*
-     * Foto del directorio temporal ANTES de archivar nada.
+     * Foto de los temporales DE ESTE TRABAJO antes de archivar nada.
      *
-     * Se compara contra la de después para ver si el trabajo dejó basura. No se
-     * busca por prefijo: en Windows `tempnam()` recorta el prefijo a TRES
-     * letras —«grabacion-» se vuelve «gra910D.tmp»—, así que un glob por
-     * «grabacion-*» no encuentra nunca nada y la comprobación pasaría siempre.
-     * Se descubrió mutando el borrado a propósito: la prueba seguía en verde.
+     * Se compara contra la de después para ver si dejó basura. Los dos patrones
+     * hacen falta porque `tempnam()` no se comporta igual en los dos sistemas:
+     * en Windows recorta el prefijo a TRES letras —«grabacion-» se vuelve
+     * «gra910D.tmp»— y en Linux lo conserva entero y sin extensión. Un glob por
+     * «grabacion-*» a secas no encuentra nada en Windows y la comprobación
+     * pasaría siempre; se descubrió mutando el borrado a propósito.
+     *
+     * ── Y NO se mira todo `*.tmp` ────────────────────────────────────────
+     * La versión anterior lo hacía, y con eso la prueba pasaba SOLA y fallaba en
+     * el barrido: las otras suites escriben sus propios temporales ahí
+     * —`lote*.zip`, `xls*.xlsx`, `encuesta*`— y cualquiera que apareciera entre
+     * las dos fotos se contaba como basura de este trabajo. Una prueba que sólo
+     * pasa cuando la corres sola no prueba nada el día que alguien la mete en el
+     * barrido; es la segunda vez que muerde en este proyecto.
      */
-    $temporalesAntes = glob(sys_get_temp_dir().'/*.tmp') ?: [];
+    $mios = fn () => array_merge(
+        glob(sys_get_temp_dir().'/gra*.tmp') ?: [],
+        glob(sys_get_temp_dir().'/grabacion-*') ?: [],
+    );
+
+    $temporalesAntes = $mios();
 
     echo PHP_EOL.'4. El trabajo descarga, sube y anota dónde quedó'.PHP_EOL;
 
@@ -218,7 +234,7 @@ try {
      * observable desde fuera del trabajo, y lo que de verdad falla si se quita
      * el borrado.
      */
-    $nuevos = array_diff(glob(sys_get_temp_dir().'/*.tmp') ?: [], $temporalesAntes);
+    $nuevos = array_diff($mios(), $temporalesAntes);
 
     verificar('No queda ningún temporal nuevo', $nuevos === [],
         implode(', ', array_map('basename', $nuevos)));
@@ -451,7 +467,7 @@ try {
      * misma con sus stubs dentro. Hay que reponerla.
      */
     $googleResponde = function (array $grabaciones) {
-        app()->forgetInstance(\Illuminate\Http\Client\Factory::class);
+        app()->forgetInstance(Factory::class);
         Http::clearResolvedInstances();
 
         Http::fake([
@@ -555,7 +571,7 @@ try {
 
     // e) Si Google contesta con error, NO se inventa una lista vacía silenciosa.
     Grabacion::query()->where('videoconferencia_id', $claseMeet->id)->forceDelete();
-    app()->forgetInstance(\Illuminate\Http\Client\Factory::class);
+    app()->forgetInstance(Factory::class);
     Http::clearResolvedInstances();
     Http::fake([
         'oauth2.googleapis.com/*' => Http::response(['access_token' => 'tok-google'], 200),
