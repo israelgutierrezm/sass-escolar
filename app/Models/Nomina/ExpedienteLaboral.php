@@ -32,6 +32,9 @@ class ExpedienteLaboral extends Model
         'persona_id',
         'numero_empleado',
         'tipo_contrato_id',
+        // c_TipoRegimen del SAT. Es del VÍNCULO y no de la persona: alguien
+        // puede ser asimilado en una plaza y de sueldos en otra.
+        'regimen_sat',
         'situacion_id',
         'fecha_ingreso',
         'fecha_baja',

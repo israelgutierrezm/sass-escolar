@@ -36,6 +36,11 @@ class ReciboNomina extends Model
         'total_deducciones',
         'neto',
         'incidencias',
+        'uuid',
+        'xml_ruta',
+        'pac',
+        'timbrado_en',
+        'error_timbrado',
     ];
 
     protected function casts(): array
@@ -44,7 +49,14 @@ class ReciboNomina extends Model
             'total_percepciones' => 'decimal:2',
             'total_deducciones' => 'decimal:2',
             'neto' => 'decimal:2',
+            'timbrado_en' => 'datetime',
         ];
+    }
+
+    /** ¿Ya tiene folio fiscal? */
+    public function estaTimbrado(): bool
+    {
+        return $this->uuid !== null;
     }
 
     public function periodo(): BelongsTo

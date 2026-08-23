@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**78 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**79 archivos `prueba-*.php`**;
    esta lista decía 23 y llevaba tiempo desactualizada). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
    imprimen `Resultado: N correctas, M fallidas`. **Ojo al barrer con `grep`**:
@@ -57,7 +57,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 78 están en verde**, barridas el 2026-08-23. Llegaron a estar 33 en rojo —no trece: ese primer
+   **Las 79 están en verde**, barridas el 2026-08-23. Llegaron a estar 33 en rojo —no trece: ese primer
    conteo sólo miró las que imprimían «N fallidas» e ignoró las 21 que morían
    antes, con una excepción sin resumen—. Ninguna caía por un cambio reciente;
    se comprobó corriéndolas contra el árbol limpio.
@@ -664,8 +664,8 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     tenía asesor. Lo cazó `prueba-actividad-crm`.
   - Pruebas: `scripts/prueba-actividad-crm.php`, 29 verificaciones, comprobada
     mutando la regla de re-cierre (caen exactamente las tres que la vigilan).
-- Pruebas: 78 suites en `scripts/`, contra la BD real del tenant demo con
-  `DB::rollBack()` al final. **78 en verde** (ver la regla 5 para qué tumbó a
+- Pruebas: 79 suites en `scripts/`, contra la BD real del tenant demo con
+  `DB::rollBack()` al final. **79 en verde** (ver la regla 5 para qué tumbó a
   las 33 que estuvieron en rojo). `prueba-listados` es la primera
   que invoca a los CONTROLADORES y lee sus props de Inertia, en vez de
   reimplementar la consulta: un `or` sin paréntesis no se detecta de otra forma.
@@ -1272,6 +1272,71 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     contra ella y elige a sus protagonistas entre los egresados SIN colocación
     previa. Una prueba que sólo pasa cuando la corres sola no prueba nada el día
     que alguien la mete en el barrido.
+
+- **Módulo 10 · Nómina y RH, CERRADO** (2026-08-23): el CFDI de nómina, con su
+  interruptor. `nomina.timbrado_cfdi` en `/plataforma/configuracion`.
+  - **Apagado por omisión, y apagado no se puede.** Es la decisión del cliente:
+    «se implementa, pero el timbrado se enciende desde configuración; si está
+    apagado no poder y si está encendido que sea posible y valide la información
+    requerida». Apagado, el bloque del CFDI ni se dibuja y la dirección responde
+    **404** —misma decisión que la postulación autogestiva de la bolsa—.
+  - **El VALIDADOR es lo que de verdad entrega esta rebanada.**
+    `ValidadorNomina` corre ANTES de mandar nada y dice **qué falta y DÓNDE se
+    captura**, renglón por renglón. Un PAC devolviendo `CFDI40147` sobre cuarenta
+    recibos el día de pago no le sirve a nadie. Es el mismo papel que
+    `ValidadorDec` con los certificados de la SEP, que nombra la asignatura
+    concreta a la que le falta el identificador.
+  - **Aquí aterrizan los campos que las rebanadas 1 y 2 dejaron fuera a
+    propósito**: `conceptos_nomina.clave_sat` y el régimen fiscal del empleado.
+    Se prometió que llegarían con su lector y llegaron con él.
+  - **El receptor REUSA `datos_facturacion`.** El RFC, el régimen y el código
+    postal de una persona ya viven ahí —es la tabla que la facturación usa para
+    el receptor— y son los mismos datos. Una tabla «datos fiscales del empleado»
+    sería una segunda verdad sobre el mismo RFC.
+  - **Las claves del SAT se capturan, y las que dependen de la escuela se
+    siembran en NULL a propósito**: `prestamo` y `por_asignatura` caen en «Otros»
+    del catálogo del SAT y qué sean exactamente lo decide cada contador.
+    Inventarles una clave daría un comprobante que el SAT acepta diciendo algo
+    que nadie decidió. El validador las reclama por su NOMBRE.
+  - **El estado del timbrado es del RECIBO**, como se anotó en la rebanada
+    anterior: `uuid`, `xml_ruta`, `pac`, `timbrado_en` y `error_timbrado` van en
+    cada uno. Un rechazo del PAC **no es una excepción**: se guarda y se enseña
+    tal cual, con su código.
+  - **`Pac` gana `timbrarNomina()`.** El complemento 1.2 es otro documento, así
+    que va aparte y no reusando `timbrar()`. `PacFalso` lo implementa —flujo
+    completo sin mandar nada al SAT— y **`FacturapiPac` lo RECHAZA con un
+    mensaje que dice qué hacer**: escribir su traducción sin credenciales con las
+    que probarla produciría código que parece funcionar y que nadie ha visto
+    responder, que es justo por lo que este proyecto tardó en tener driver real
+    de facturas.
+  - **Dos defectos que salieron al MIRAR la pantalla, no de las pruebas:**
+    - **Recalcular un periodo borraba los recibos ya timbrados**, destruyendo el
+      registro de un CFDI que existe ante el SAT y cuyo folio no se recupera.
+      Ahora los timbrados se saltan uno por uno —y no se bloquea el periodo
+      entero: con cuarenta recibos y cinco timbrados, los treinta y cinco
+      restantes tienen que poder corregirse—. Tampoco se les agregan ni quitan
+      renglones: cambiar importes después de timbrar deja el recibo diciendo una
+      cosa y el CFDI otra.
+    - **El validador inventaba faltantes.** El controlador cargaba el recibo con
+      listas de columnas acotadas y dejaba fuera `tipo_contrato_id` y
+      `clave_sat`, así que reclamaba que «el tipo de contrato "—" no tiene clave
+      del SAT» sobre un catálogo bien capturado. **Es la trampa que esta bitácora
+      ya tenía anotada** —las columnas que no se piden llegan en NULL— y no se
+      veía desde la suite porque ésta le preguntaba al servicio con un modelo
+      recién cargado. Ahora la prueba pasa POR EL CONTROLADOR.
+  - **Y `personas.nss` no estaba en el `$fillable`**: el modelo lo descartaba en
+    silencio. No se notó antes porque el controlador de RH escribe con el query
+    builder, que no mira el fillable.
+  - Pruebas: `scripts/prueba-rh-timbrado.php`, 47 verificaciones, comprobadas
+    mutando siete reglas. **Y una comprobación floja corregida**: preguntaba por
+    el valor GUARDADO del interruptor en vez de por el DECLARADO, así que pasaba
+    en un demo recién migrado y se caía en cuanto alguien lo encendía desde la
+    pantalla.
+  - **Lo que NO se hace, y hay que saberlo**: no se construye el XML del
+    complemento. En esta arquitectura lo arma el driver del PAC —las APIs
+    comerciales reciben JSON— y no hay PAC contratado ni XSD de nómina en el
+    repo con el que validarlo. Con `CFDI_PAC=falso` el recorrido entero funciona
+    y el folio es de mentiras.
 
 - **Módulo 10 · Nómina y RH, tercera rebanada** (2026-08-23): el periodo, el
   recibo y el cálculo. `/rh/nomina`, mismo permiso `gestionar-percepciones`.
@@ -1888,9 +1953,9 @@ marcado abajo con su fecha, y lo que NO la lleve sigue sin verificar.)*
       **postulaciones ✅**, **colocaciones ✅**. **Decisión del cliente: la postulación
       es autogestiva Y por ventanilla, con un interruptor para apagar la
       autogestiva y forzar el mostrador; apagado por omisión.**
-   3. **Módulo 10 · Nómina y RH** — EN CURSO, el de más valor y el más grande.
+   3. ~~**Módulo 10 · Nómina y RH**~~ — **CERRADO el 2026-08-23**, el de más valor y el más grande.
       Rebanadas: **expediente laboral ✅**, **esquemas de percepción y
-      conceptos ✅**, **periodo y recibo ✅**, CFDI de nómina. Su insumo existe (el reloj checador,
+      conceptos ✅**, **periodo y recibo ✅**, **CFDI de nómina ✅**. Su insumo existe (el reloj checador,
       tabla `checadas`) pero está VACÍO en el demo. **Decisión del cliente sobre el CFDI de
       nómina: se implementa, pero el timbrado se enciende desde configuración.
       Apagado, no se puede timbrar; encendido, valida la información que el

@@ -68,9 +68,22 @@ class CalculadoraNomina
     }
 
     /**
-     * Rehace todos los recibos del periodo.
+     * Rehace los recibos del periodo que TODAVÍA no se han timbrado.
      *
-     * @return array{recibos: int, manuales_borrados: int, con_incidencias: int}
+     * ── Un recibo timbrado no se recalcula ni se borra ────────────────────
+     * Sus importes ya están declarados ante el SAT: borrarlo destruiría el
+     * registro de un comprobante que existe, y recalcularlo dejaría el recibo
+     * diciendo una cosa y el CFDI otra. Para cambiarlo hay que cancelar el
+     * comprobante primero, que es un trámite y no un botón.
+     *
+     * Se saltan uno por uno en vez de bloquear el periodo entero: con cuarenta
+     * recibos y cinco timbrados, prohibir el recálculo dejaría los treinta y
+     * cinco restantes sin poder corregirse.
+     *
+     * Salió al escribir la suite del timbrado: el recálculo se llevaba por
+     * delante el folio fiscal que se acababa de guardar.
+     *
+     * @return array{recibos: int, manuales_borrados: int, con_incidencias: int, timbrados_intactos: int}
      *
      * @throws RuntimeException si el periodo está cerrado
      */
@@ -87,21 +100,27 @@ class CalculadoraNomina
          * préstamo agregado a mano desaparece. Se cuenta ANTES para poder
          * decirlo: perderlo en silencio es pagarle de más a alguien.
          */
+        $rehacibles = $periodo->recibos()->whereNull('uuid');
+
         $manuales = ReciboConcepto::query()
             ->where('manual', true)
-            ->whereIn('recibo_nomina_id', $periodo->recibos()->select('id'))
+            ->whereIn('recibo_nomina_id', (clone $rehacibles)->select('id'))
             ->count();
+
+        // Los que ya tienen folio se quedan como están, y sus dueños no vuelven
+        // a entrar al cálculo: si no, saldrían con un segundo recibo.
+        $timbrados = $periodo->recibos()->whereNotNull('uuid')->pluck('expediente_laboral_id');
 
         $conceptos = ConceptoNomina::query()->activos()->with('formula')->get()->keyBy('clave');
 
-        return DB::transaction(function () use ($periodo, $manuales, $conceptos) {
+        return DB::transaction(function () use ($periodo, $manuales, $conceptos, $timbrados) {
             // Los renglones se van con el recibo por la foránea en cascada.
-            $periodo->recibos()->forceDelete();
+            $periodo->recibos()->whereNull('uuid')->forceDelete();
 
             $hechos = 0;
             $conIncidencias = 0;
 
-            foreach ($this->elegibles($periodo)->cursor() as $expediente) {
+            foreach ($this->elegibles($periodo)->whereKeyNot($timbrados)->cursor() as $expediente) {
                 $recibo = $this->reciboDe($periodo, $expediente, $conceptos);
                 $hechos++;
 
@@ -116,6 +135,7 @@ class CalculadoraNomina
                 'recibos' => $hechos,
                 'manuales_borrados' => $manuales,
                 'con_incidencias' => $conIncidencias,
+                'timbrados_intactos' => $timbrados->count(),
             ];
         });
     }

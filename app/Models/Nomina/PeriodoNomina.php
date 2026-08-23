@@ -47,6 +47,9 @@ class PeriodoNomina extends Model
         'fecha_inicio',
         'fecha_fin',
         'fecha_pago',
+        // c_PeriodicidadPago. Es del periodo y no del empleado: la misma
+        // persona cobra en una quincena ordinaria y en un extraordinario.
+        'periodicidad_sat',
         'campus_id',
         'estado',
         'notas',

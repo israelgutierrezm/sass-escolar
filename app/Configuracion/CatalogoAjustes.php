@@ -52,6 +52,8 @@ final class CatalogoAjustes
     // Bolsa de trabajo.
     public const BOLSA_AUTOGESTIVA = 'bolsa.postulacion_autogestiva';
 
+    public const TIMBRADO_NOMINA = 'nomina.timbrado_cfdi';
+
     // Admisiones.
     public const EXIGE_DOCUMENTOS = 'aspirante.exige_documentos_para_convertir';
 
@@ -223,6 +225,25 @@ final class CatalogoAjustes
                  * vacante que publique le abre la puerta a toda la matrícula el
                  * mismo día. Encenderlo es un acto deliberado, igual que
                  * encender el módulo.
+                 */
+                porDefecto: false,
+            ),
+
+            new Ajuste(
+                clave: self::TIMBRADO_NOMINA,
+                grupo: 'Nómina',
+                etiqueta: 'Timbrar los recibos de nómina ante el SAT',
+                descripcion: 'Apagado, los recibos se calculan y se pagan pero no se timbran. '
+                    .'Encendido, aparece el timbrado y el sistema revisa lo que el SAT exige.',
+                tipo: Ajuste::BOOLEANO,
+                /*
+                 * Apagado por omisión, y es la decisión del cliente.
+                 *
+                 * Una escuela puede llevar su nómina interna sin timbrar —o
+                 * timbrar por fuera con su contador— y encender esto sin tener
+                 * el registro patronal, el CSD y las claves del SAT capturadas
+                 * llenaría la pantalla de errores el día de pago. Encendido, el
+                 * validador dice exactamente qué falta ANTES de intentarlo.
                  */
                 porDefecto: false,
             ),

@@ -36,8 +36,24 @@ const form = useForm({
     fecha_fin: hoyLocal(),
     fecha_pago: '',
     campus_id: null as number | null,
+    periodicidad_sat: '',
     notas: '',
 });
+
+/*
+ * c_PeriodicidadPago del SAT. Sólo hace falta si la escuela timbra, así que el
+ * campo va como opcional: obligarla a conocer el catálogo del SAT para crear
+ * una quincena que nunca va a timbrar es pedirle un dato que no usa.
+ */
+const PERIODICIDAD = [
+    { valor: '01', texto: '01 · Diario' },
+    { valor: '02', texto: '02 · Semanal' },
+    { valor: '03', texto: '03 · Catorcenal' },
+    { valor: '04', texto: '04 · Quincenal' },
+    { valor: '05', texto: '05 · Mensual' },
+    { valor: '06', texto: '06 · Bimestral' },
+    { valor: '99', texto: '99 · Otra periodicidad' },
+];
 
 const COLOR: Record<string, string> = {
     abierto: '#d97706',
@@ -54,7 +70,11 @@ function abrir(): void {
 }
 
 function guardar(): void {
-    form.transform((d) => ({ ...d, fecha_pago: d.fecha_pago === '' ? null : d.fecha_pago }))
+    form.transform((d) => ({
+        ...d,
+        fecha_pago: d.fecha_pago === '' ? null : d.fecha_pago,
+        periodicidad_sat: d.periodicidad_sat === '' ? null : d.periodicidad_sat,
+    }))
         .post('/rh/nomina', { preserveScroll: true });
 }
 
@@ -164,6 +184,15 @@ function dinero(v: string | number | null): string {
                             :error="form.errors.campus_id"
                         />
                     </div>
+
+                    <CampoSelect
+                        v-model="form.periodicidad_sat"
+                        etiqueta="Periodicidad de pago (SAT)"
+                        :opciones="PERIODICIDAD"
+                        vacio="Sin señalar"
+                        ayuda="Sólo hace falta si la escuela timbra los recibos."
+                        :error="form.errors.periodicidad_sat"
+                    />
 
                     <CampoTextarea v-model="form.notas" etiqueta="Notas" :filas="2" :error="form.errors.notas" />
 

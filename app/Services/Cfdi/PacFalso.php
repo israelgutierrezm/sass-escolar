@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Cfdi;
 
 use App\Models\Finanzas\Factura;
+use App\Models\Nomina\ReciboNomina;
 use Illuminate\Support\Str;
 
 /**
@@ -55,6 +56,30 @@ class PacFalso implements Pac
         return ResultadoTimbrado::timbrado(
             strtoupper((string) Str::uuid()),
             xml: '<?xml version="1.0" encoding="UTF-8"?><!-- comprobante de prueba, sin valor fiscal -->',
+        );
+    }
+
+    /**
+     * Un recibo de nómina.
+     *
+     * Comprueba lo mismo que rechazaría un PAC de verdad en su primera
+     * revisión. NO repite lo que ya mira `ValidadorNomina` —ése corre antes y
+     * dice qué falta y dónde—: aquí sólo quedan las dos cosas que dependen del
+     * comprobante ya armado.
+     */
+    public function timbrarNomina(ReciboNomina $recibo): ResultadoTimbrado
+    {
+        if ($recibo->conceptos()->count() === 0) {
+            return ResultadoTimbrado::rechazado('El recibo no tiene renglones.', 'NOM12001');
+        }
+
+        if ((float) $recibo->total_percepciones <= 0) {
+            return ResultadoTimbrado::rechazado('El total de percepciones debe ser mayor que cero.', 'NOM12002');
+        }
+
+        return ResultadoTimbrado::timbrado(
+            strtoupper((string) Str::uuid()),
+            xml: '<?xml version="1.0" encoding="UTF-8"?><!-- recibo de prueba, sin valor fiscal -->',
         );
     }
 

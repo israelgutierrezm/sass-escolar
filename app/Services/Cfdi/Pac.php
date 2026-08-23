@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Cfdi;
 
 use App\Models\Finanzas\Factura;
+use App\Models\Nomina\ReciboNomina;
 
 /**
  * El proveedor autorizado de certificación (PAC) que timbra los CFDI.
@@ -32,6 +33,20 @@ interface Pac
      * lanzarlas si la comunicación falla, para que la cola reintente.
      */
     public function timbrar(Factura $factura): ResultadoTimbrado;
+
+    /**
+     * Manda a timbrar un recibo de NÓMINA.
+     *
+     * Es otro tipo de comprobante —el complemento de nómina 1.2 tiene su propio
+     * nodo, con percepciones, deducciones y datos del patrón— así que va aparte
+     * y no reusando `timbrar()`. Quien implemente un PAC real arma el documento
+     * a partir del recibo: las APIs comerciales reciben JSON, no XML, así que
+     * construirlo aquí sería trabajo que cada driver tiraría.
+     *
+     * Mismas reglas que arriba: un rechazo del SAT es una respuesta y va en el
+     * resultado; una falla de comunicación sí puede ser excepción.
+     */
+    public function timbrarNomina(ReciboNomina $recibo): ResultadoTimbrado;
 
     /**
      * Cancela un CFDI ya timbrado.

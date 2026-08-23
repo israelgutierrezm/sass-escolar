@@ -36,6 +36,10 @@ class Persona extends Model
     protected $fillable = [
         'curp',
         'rfc',
+        // Lo asigna el IMSS, de por vida, igual que la CURP. Sin esto el
+        // modelo lo descartaba EN SILENCIO: el controlador de RH lo salvaba
+        // porque escribe con el query builder, que no mira el fillable.
+        'nss',
         'nombre',
         'primer_apellido',
         'segundo_apellido',

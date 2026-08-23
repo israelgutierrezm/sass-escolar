@@ -35,7 +35,13 @@ const props = defineProps<{
         deducciones: string;
         neto: string;
         incidencias: string | null;
+        uuid: string | null;
+        timbrado_en: string | null;
+        pac: string | null;
+        error_timbrado: string | null;
     };
+    timbrado: boolean;
+    faltantes: { falta: string; donde: string }[];
     renglones: Renglon[];
     conceptos: { id: number; nombre: string; naturaleza: string }[];
 }>();
@@ -68,6 +74,14 @@ function agregar(): void {
             agregando.value = false;
         },
     });
+}
+
+function timbrar(): void {
+    if (!confirm('Se va a timbrar este recibo ante el SAT. Un CFDI timbrado ya no se puede corregir sin cancelarlo. ¿Continuar?')) {
+        return;
+    }
+
+    router.post(`/rh/nomina/${props.periodo.id}/recibos/${props.recibo.id}/timbrar`, {}, { preserveScroll: true });
 }
 
 function quitar(r: Renglon): void {
@@ -127,6 +141,67 @@ function quitar(r: Renglon): void {
             </p>
         </section>
 
+        <!--
+            Todo el bloque del timbrado sólo existe si la escuela lo tiene
+            encendido. Apagado, la dirección responde 404: esto no es la defensa,
+            es no enseñar una puerta que no lleva a ninguna parte.
+        -->
+        <section v-if="timbrado" class="tarjeta mb-4 p-6">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <p class="text-sm font-medium">CFDI de nómina</p>
+
+                    <p v-if="recibo.uuid" class="mt-1 font-mono text-xs" :style="{ color: '#16a34a' }">
+                        {{ recibo.uuid }}
+                    </p>
+                    <p v-if="recibo.uuid" class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                        Timbrado el {{ recibo.timbrado_en }} por «{{ recibo.pac }}»
+                    </p>
+
+                    <p v-else-if="!faltantes.length" class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">
+                        Tiene todo lo que el SAT exige. Se puede timbrar.
+                    </p>
+
+                    <!--
+                        Lo que falta, con su lugar de captura. Un PAC devolviendo
+                        «CFDI40147» sobre cuarenta recibos el día de pago no le
+                        sirve a nadie: hay que decir qué falta y dónde se arregla.
+                    -->
+                    <div v-else class="mt-1">
+                        <p class="text-xs" :style="{ color: '#d97706' }">
+                            Le falta esto para poder timbrarse:
+                        </p>
+                        <ul class="mt-1 list-disc space-y-0.5 pl-5 text-xs" :style="{ color: 'var(--color-suave)' }">
+                            <li v-for="(f, i) in faltantes" :key="i">
+                                {{ f.falta }} <span class="opacity-70">→ {{ f.donde }}</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <button
+                    v-if="!recibo.uuid"
+                    type="button"
+                    class="shrink-0 rounded-lg px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40"
+                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+                    :disabled="faltantes.length > 0"
+                    @click="timbrar()"
+                >
+                    Timbrar
+                </button>
+            </div>
+
+            <!-- Un rechazo del SAT no es un error del sistema: se enseña tal
+                 cual, con su código, para poder corregirlo. -->
+            <p
+                v-if="recibo.error_timbrado"
+                class="mt-3 rounded-lg border px-4 py-2 text-xs"
+                :style="{ borderColor: '#dc2626', color: '#dc2626' }"
+            >
+                El último intento se rechazó: {{ recibo.error_timbrado }}
+            </p>
+        </section>
+
         <div class="grid gap-4 lg:grid-cols-2">
             <TarjetaSeccion titulo="Percepciones" sin-relleno>
                 <ul v-if="percepciones.length">
@@ -150,7 +225,7 @@ function quitar(r: Renglon): void {
                         <div class="flex shrink-0 items-center gap-2">
                             <span>{{ dinero(r.importe) }}</span>
                             <button
-                                v-if="r.manual && periodo.se_puede_tocar"
+                v-if="r.manual && periodo.se_puede_tocar && !recibo.uuid"
                                 type="button"
                                 class="text-xs"
                                 :style="{ color: '#dc2626' }"
@@ -191,7 +266,7 @@ function quitar(r: Renglon): void {
                         <div class="flex shrink-0 items-center gap-2">
                             <span>{{ dinero(r.importe) }}</span>
                             <button
-                                v-if="r.manual && periodo.se_puede_tocar"
+                v-if="r.manual && periodo.se_puede_tocar && !recibo.uuid"
                                 type="button"
                                 class="text-xs"
                                 :style="{ color: '#dc2626' }"
@@ -211,7 +286,7 @@ function quitar(r: Renglon): void {
             </TarjetaSeccion>
         </div>
 
-        <div v-if="periodo.se_puede_tocar" class="mt-4">
+        <div v-if="periodo.se_puede_tocar && !recibo.uuid" class="mt-4">
             <button
                 type="button"
                 class="rounded-lg border px-4 py-2 text-sm"

@@ -12,6 +12,8 @@ interface Recibo {
     deducciones: string;
     neto: string;
     incidencias: string | null;
+    uuid: string | null;
+    error_timbrado: string | null;
 }
 
 const props = defineProps<{
@@ -24,8 +26,10 @@ const props = defineProps<{
         campus: string | null;
         estado: string;
         se_puede_tocar: boolean;
+        periodicidad_sat: string | null;
         notas: string | null;
     };
+    timbrado: boolean;
     elegibles: number;
     recibos: Recibo[];
     totales: { percepciones: number; deducciones: number; neto: number; con_incidencias: number };
@@ -145,6 +149,19 @@ function reabrir(): void {
             checadas sin cerrar. Revísalos antes de cerrar el periodo.
         </p>
 
+        <!--
+            Sólo con el timbrado encendido: a una escuela que no timbra, un
+            aviso sobre el catálogo del SAT no le dice nada.
+        -->
+        <p
+            v-if="timbrado && !periodo.periodicidad_sat"
+            class="mb-4 rounded-lg border px-4 py-3 text-sm"
+            :style="{ borderColor: '#d97706', color: '#d97706' }"
+        >
+            Este periodo no dice su periodicidad de pago según el SAT, y el timbrado la exige.
+            Captúrala antes de timbrar.
+        </p>
+
         <TarjetaSeccion titulo="Recibos" sin-relleno>
             <ul v-if="recibos.length">
                 <li
@@ -177,6 +194,14 @@ function reabrir(): void {
 
                     <p v-if="r.incidencias" class="mt-1 text-xs" :style="{ color: '#d97706' }">
                         {{ r.incidencias }}
+                    </p>
+                    <p v-if="timbrado && r.uuid" class="mt-1 font-mono text-xs" :style="{ color: '#16a34a' }">
+                        Timbrado · {{ r.uuid }}
+                    </p>
+                    <!-- Un rechazo del SAT no es un error del sistema: se
+                         enseña tal cual para poder corregirlo. -->
+                    <p v-else-if="timbrado && r.error_timbrado" class="mt-1 text-xs" :style="{ color: '#dc2626' }">
+                        Rechazado: {{ r.error_timbrado }}
                     </p>
                 </li>
             </ul>

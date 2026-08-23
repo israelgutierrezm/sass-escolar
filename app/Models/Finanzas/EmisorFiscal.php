@@ -36,6 +36,9 @@ class EmisorFiscal extends Model
         'razon_social',
         'nombre_comercial',
         'regimen_fiscal',
+        // Ante el IMSS. Sólo lo pide la nómina, así que una escuela que ya
+        // factura puede tenerlo vacío hasta que timbre su primer recibo.
+        'registro_patronal',
         'cp',
         'correo_fiscal',
         'telefono',

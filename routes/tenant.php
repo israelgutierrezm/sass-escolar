@@ -1577,6 +1577,8 @@ Route::middleware([
                 Route::post('{periodo}/cerrar', 'cerrar')->whereNumber('periodo')->name('cerrar');
                 Route::post('{periodo}/reabrir', 'reabrir')->whereNumber('periodo')->name('reabrir');
                 Route::get('{periodo}/recibos/{recibo}', 'recibo')->whereNumber(['periodo', 'recibo'])->name('recibo');
+                Route::post('{periodo}/recibos/{recibo}/timbrar', 'timbrar')
+                    ->whereNumber(['periodo', 'recibo'])->name('timbrar');
                 Route::post('{periodo}/recibos/{recibo}/renglones', 'agregarRenglon')
                     ->whereNumber(['periodo', 'recibo'])->name('renglones.agregar');
                 Route::delete('{periodo}/recibos/{recibo}/renglones/{renglon}', 'quitarRenglon')

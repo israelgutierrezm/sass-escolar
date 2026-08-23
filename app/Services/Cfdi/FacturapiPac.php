@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Cfdi;
 
 use App\Models\Finanzas\Factura;
+use App\Models\Nomina\ReciboNomina;
 use App\Services\Facturacion\FacturapiRechazo;
 use App\Services\Facturacion\FacturapiService;
 
@@ -28,6 +29,25 @@ class FacturapiPac implements Pac
     public function nombre(): string
     {
         return 'facturapi';
+    }
+
+    /**
+     * Nómina: todavía NO.
+     *
+     * El complemento de nómina 1.2 es otro documento en la API de Facturapi y
+     * escribir su traducción sin credenciales con las que probarla produciría
+     * código que parece funcionar y que nadie ha visto responder — exactamente
+     * la razón por la que este proyecto tardó en tener driver real de facturas.
+     *
+     * Se rechaza con un mensaje que dice qué hacer, en vez de reventar: quien
+     * encienda el timbrado con este driver ve la razón en su pantalla.
+     */
+    public function timbrarNomina(ReciboNomina $recibo): ResultadoTimbrado
+    {
+        return ResultadoTimbrado::rechazado(
+            'Este PAC todavía no timbra nómina. Mientras tanto, usa el modo de prueba '
+            .'(CFDI_PAC=falso) o timbra los recibos por fuera.',
+        );
     }
 
     public function timbrar(Factura $factura): ResultadoTimbrado

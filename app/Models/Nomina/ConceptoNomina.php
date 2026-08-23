@@ -30,7 +30,7 @@ class ConceptoNomina extends Model
 
     protected $table = 'conceptos_nomina';
 
-    protected $fillable = ['clave', 'nombre', 'naturaleza', 'es_gravable', 'formula_id', 'orden', 'activo'];
+    protected $fillable = ['clave', 'nombre', 'naturaleza', 'clave_sat', 'es_gravable', 'formula_id', 'orden', 'activo'];
 
     protected function casts(): array
     {

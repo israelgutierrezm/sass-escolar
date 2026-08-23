@@ -15,7 +15,7 @@ class TipoContrato extends Model
 
     protected $table = 'tipos_contrato';
 
-    protected $fillable = ['clave', 'nombre', 'orden', 'activo'];
+    protected $fillable = ['clave', 'nombre', 'clave_sat', 'orden', 'activo'];
 
     protected function casts(): array
     {
