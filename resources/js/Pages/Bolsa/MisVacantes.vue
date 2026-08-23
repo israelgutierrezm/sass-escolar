@@ -119,9 +119,12 @@ function enviar(): void {
             Con la postulación autogestiva apagada las vacantes SÍ se ven: sirven
             para enterarse. Lo que cambia es a dónde hay que ir, y eso se dice
             aquí en vez de dejar un botón que no existe.
+
+            Sólo cuando hay alguna a la que postularse: sin vacantes, «para
+            postularte a cualquiera de estas» manda a ventanilla por nada.
         -->
         <p
-            v-if="!autogestiva"
+            v-if="!autogestiva && abiertas.length"
             class="mb-4 rounded-lg border px-4 py-3 text-sm"
             :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }"
         >

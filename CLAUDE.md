@@ -1273,6 +1273,24 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     previa. Una prueba que sólo pasa cuando la corres sola no prueba nada el día
     que alguien la mete en el barrido.
 
+- **El demo NO tiene datos de bolsa de trabajo, y es a propósito** (2026-08-22).
+  Se sembraron dos empresas, dos vacantes, seis postulaciones y cuatro
+  colocaciones para mirar las pantallas en el navegador, y se retiraron al
+  terminar por decisión del cliente. Las ocho tablas del módulo están en cero;
+  respaldo de lo borrado en
+  `C:\Dev\bolsa-demo-antes-de-limpiar-2026-08-22.sql`.
+  - El **módulo `bolsa_trabajo` se dejó ENCENDIDO**: apagarlo devuelve 404 en
+    todas sus rutas y esconde el menú, o sea que la sección no se podría ni
+    mirar. El interruptor está en `/plataforma/accesos`.
+  - `bolsa.postulacion_autogestiva` quedó como fila en `configuraciones` con
+    valor `0`, que es su valor por omisión: la pantalla de reglas escribe todas
+    al guardar, así que es indistinguible del uso normal.
+  - Comprobado que las cuatro pantallas se ven bien vacías —cada una con su
+    mensaje— y que la tarjeta «Postulantes en proceso» desaparece del panel, que
+    es la regla de vacíos del proyecto. Y que `acadion:auditar-datos` sigue
+    reportando **las mismas 69** filas rotas de siempre: el borrado no dejó
+    ninguna referencia colgando.
+
 - **`hoyLocal()` en `resources/js/utils/fechas.ts`** (2026-08-22): siete
   pantallas ponían la fecha de hoy con `new Date().toISOString().slice(0, 10)`,
   que devuelve UTC. En México —UTC-6— a partir de las 18:00 locales eso da
