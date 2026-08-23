@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**82 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**84 archivos `prueba-*.php`**;
    esta lista decía 23 y llevaba tiempo desactualizada). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
    imprimen `Resultado: N correctas, M fallidas`. **Ojo al barrer con `grep`**:
@@ -57,7 +57,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 82 están en verde**, barridas el 2026-08-23. Llegaron a estar 33 en rojo —no trece: ese primer
+   **Las 84 están en verde**, barridas el 2026-08-23. Llegaron a estar 33 en rojo —no trece: ese primer
    conteo sólo miró las que imprimían «N fallidas» e ignoró las 21 que morían
    antes, con una excepción sin resumen—. Ninguna caía por un cambio reciente;
    se comprobó corriéndolas contra el árbol limpio.
@@ -664,8 +664,8 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     tenía asesor. Lo cazó `prueba-actividad-crm`.
   - Pruebas: `scripts/prueba-actividad-crm.php`, 29 verificaciones, comprobada
     mutando la regla de re-cierre (caen exactamente las tres que la vigilan).
-- Pruebas: 82 suites en `scripts/`, contra la BD real del tenant demo con
-  `DB::rollBack()` al final. **82 en verde** (ver la regla 5 para qué tumbó a
+- Pruebas: 84 suites en `scripts/`, contra la BD real del tenant demo con
+  `DB::rollBack()` al final. **84 en verde** (ver la regla 5 para qué tumbó a
   las 33 que estuvieron en rojo). `prueba-listados` es la primera
   que invoca a los CONTROLADORES y lee sus props de Inertia, en vez de
   reimplementar la consulta: un `or` sin paréntesis no se detecta de otra forma.
@@ -2061,6 +2061,100 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     `routes/console.php`) y el conteo de suites (decía «43 verificaciones» de
     una sola; son 82 archivos, con las cuatro que no cierran con «Resultado:»).
 
+- **Las tres tablas que le faltaban al Módulo 8, construidas** (2026-08-23).
+  Eran lo único que quedaba pendiente de código tras poner al día el plan de
+  migraciones. El módulo se había declarado completo sin ellas.
+
+  **1. Quién entró a la clase en línea** (`accesos_videoconferencia`).
+  `videoconferencias` llevaba desde el 2026-08-19 repartiendo enlaces y nadie
+  anotaba quién los usaba.
+  - **El mecanismo lo propuso el cliente y es el bueno**: el botón deja de ser un
+    enlace directo al proveedor y pasa por una puerta propia
+    (`/clases/{clase}/entrar`) que anota el clic y redirige. Cuesta un
+    `redirect`; medir permanencia de verdad exigiría el reporte de participantes
+    de Zoom **y** de Meet, dos APIs más y un Workspace con el que probarlas.
+  - **Se dice QUÉ mide.** La pantalla habla de «se conectaron» y no de
+    «asistieron»: lo que hay es el clic con la clase abierta, no permanencia.
+    Ponerlo como asistencia haría que alguien firmara un acta con un dato que el
+    sistema no tiene. Por eso **no escribe en `asistencias`**: se le enseña al
+    docente mientras pasa lista y él decide.
+  - **UNA fila por persona y clase, no una por clic.** Contar asistentes tiene
+    que ser un `count()` y no un `count(distinct)` que alguien olvidará, y una
+    clase con red mala —donde la gente se reconecta seis veces— saldría con seis
+    veces más «asistencia» que otra. Las reconexiones viven en `veces` y
+    `ultimo_acceso`, que además distingue a quien estuvo desde el principio de
+    quien apareció al final.
+  - **El `upsert` va con `ON DUPLICATE KEY`**, no con «buscar y si no crear»: el
+    doble clic impaciente manda dos peticiones a la vez y el par SELECT+INSERT
+    las deja pasar a las dos, así que la segunda revienta contra el índice único
+    y le devuelve un error de base a quien sólo quería entrar a clase.
+  - **`papel` se congela en la fila.** Quien da clases y además estudia puede
+    aparecer de los dos lados en materias distintas, y resolverlo al MIRAR
+    obligaría a repreguntar la asignación de entonces, que puede haber cambiado.
+  - **Efecto secundario que vale por sí solo**: ni el `url_join` ni el
+    `start_url` de Zoom viajan ya al navegador. El de anfitrión es una
+    credencial —entra como dueño de la sala— y ahora sale sólo del controlador
+    de la puerta, que reconoce el papel. **El docente también entra por ahí**,
+    para que su propia llegada quede anotada: «¿el docente llegó a su clase?» es
+    de las preguntas que esta tabla existe para contestar.
+  - `url_invitado` SÍ sigue viajando al docente: lo copia y lo pega en su grupo
+    de mensajería, que es como se avisa de verdad. No es una credencial, y quien
+    lo use por ahí simplemente no queda anotado.
+  - Pruebas: `scripts/prueba-acceso-clase.php`, 23 verificaciones, comprobada
+    mutando cinco reglas —aflojar el 404 a 403, dar el anfitrión al alumno,
+    quitar el contador de reconexiones, dejar entrar a una clase cerrada y
+    volver a mandar el enlace del proveedor—.
+
+  **2. Portafolio de evidencias** (`portafolio_evidencias` +
+  `portafolio_archivos`), quinto valor de `TipoActividad`.
+  - **En qué se diferencia de una tarea con adjuntos**: una tarea se entrega DE
+    UNA VEZ y sus archivos no tienen nombre propio ni fecha propia. Un
+    portafolio se ACUMULA a lo largo del curso y cada pieza lleva su título, su
+    descripción y su momento. **Esa descripción por pieza ES el portafolio**: sin
+    ella sería una carpeta de archivos, que ya existía.
+  - **Cuelga de `entregas`, no de (inscripción, actividad)** como pedía la spec
+    —que es exactamente la pareja que `entregas` ya identifica—. Con dos tablas
+    diciendo «el trabajo de esta alumna en esta actividad», al calificar habría
+    que elegir a cuál creerle. Colgando de la entrega se hereda TODO lo que ya
+    funciona: calificación, retroalimentación, rúbrica, «entregada tarde», el
+    panel de calificación del docente y el aula del alumno.
+  - **La entrega nace en BORRADOR y se cierra aparte**, que es la diferencia con
+    una tarea: agregar una pieza NO es entregar, y darlo por entregado al subir
+    la primera dejaría al docente calificando un trabajo a medias. Por eso
+    `primeraOReviver` y no `actualizarOReviver`: con el otro, sumar una pieza a
+    un portafolio ya entregado lo devolvería a PENDIENTE y lo sacaría de la cola
+    del docente sin que nadie lo pidiera.
+  - **Dos tablas y no una**: una evidencia puede necesitar varios archivos —la
+    foto del montaje, el video del ensayo y el PDF del reporte son UNA
+    evidencia— y a la vez puede no necesitar ninguno (una reflexión escrita es
+    evidencia legítima). Con una sola, corregir una errata del título sería
+    corregirla tres veces.
+  - **`fecha_evidencia` NO es `created_at`.** Una práctica de octubre se captura
+    en diciembre al armar el portafolio, y ordenar por cuándo se subió contaría
+    la historia al revés.
+  - **Calificado no se toca** —ni agregando, ni editando, ni quitando—: cambiarlo
+    dejaría la calificación explicando un trabajo que ya no está. Misma regla del
+    acta asentada y de la rúbrica congelada. Y quitar es borrado LÓGICO, al revés
+    que `entrega_archivos`: un adjunto retirado antes de entregar es corregirse,
+    una evidencia retirada después de calificar es historia escolar.
+  - **Reordenar se acota a la entrega propia**: la lista de ids viene del
+    navegador y no es fuente de verdad; sin eso, mandar el id de la evidencia de
+    otro le reordenaría su portafolio. Lo cazó una mutación.
+  - **Con botones ↑↓ y no arrastrando**: arrastrar en táctil pelea con el
+    desplazamiento de la página, y esto se abre desde el teléfono.
+  - Pruebas: `scripts/prueba-portafolio.php`, 27 verificaciones, comprobada
+    mutando siete reglas.
+  - **Verificado en el navegador el recorrido entero**, suplantando al alumno y
+    al docente: agregar dos evidencias, reordenarlas, entregar, ver la matriz del
+    docente con las piezas y sus descripciones en el panel de calificación,
+    poner 18 de 20 con retroalimentación, y volver al alumno para leer
+    «Calificado: 18 de 20. Ya no se puede modificar.» con los botones
+    desaparecidos.
+  - **Los datos sembrados para mirarlo se retiraron**: era texto que me inventé
+    atribuido a una alumna real del demo. `acadion:auditar-datos` sigue
+    reportando las mismas 69 filas rotas de siempre, o sea que el borrado no
+    dejó referencias colgando.
+
 **Pendiente inmediato — aquí se retoma:**
 
 *(Antes de tomar algo de esta lista, COMPROBARLO en el código. **Ya van cinco**
@@ -2082,13 +2176,18 @@ marcado abajo con su fecha, y lo que NO la lleve sigue sin verificar.)*
    financiero— y nada sobre qué puede entregar en su nombre, así que decidirlo
    aquí sería decidirlo por la escuela.
 
-4. **Las TRES tablas del LMS que faltan** — es el único pendiente de código que
-   queda, y salió al poner al día `plan-migraciones.md` (ver la entrada de más
-   arriba). **Decidir si entran es del cliente**, porque ninguna se decidió no
-   hacer: se quedaron fuera sin que nadie lo anotara.
-   - `portafolio_evidencias` + `portafolio_archivos`: uno de los cuatro tipos de
-     actividad que la spec promete, hoy imposible de crear.
-   - `acceso_videoconferencia`: sin ella una clase en línea no pasa lista sola.
+4. ~~**Las TRES tablas del LMS que faltan**~~ — **hechas el 2026-08-23**, por
+   decisión del cliente. Ver «Las tres tablas que le faltaban al Módulo 8» en el
+   estado, más arriba. **Con esto el plan de migraciones no tiene un solo
+   renglón sin resolver.**
+
+   Queda ANOTADA, y sin hacer, la deuda de diseño que salió al mapear:
+   `tipos_actividad`, `tipos_reactivo`, `dificultades` y `metodos_resolver`
+   iban a ser catálogos y son dos `varchar` (`actividades.tipo` y
+   `reactivos.tipo`); las otras dos no existen ni como columna. Choca con la
+   regla 4 —una escuela no puede agregar un tipo de actividad sin tocar
+   código— y **volverlos tabla es una migración con lectores en once sitios**,
+   así que es decisión de negocio, no un arreglo al paso.
 
 3. **Fase 4 — COMPLETA** (2026-08-23): los cuatro módulos cerrados.
    Revisada contra el código el 2026-08-22: de sus 50

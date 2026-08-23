@@ -5,6 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CuandoVence from '@/Components/CuandoVence.vue';
 import IndiceDelCurso from '@/Components/IndiceDelCurso.vue';
+import PortafolioAlumno from '@/Components/PortafolioAlumno.vue';
 import ZonaArchivos from '@/Components/ZonaArchivos.vue';
 import { ICONOS } from '@/iconos';
 import RubricaDelAlumno from '@/Components/RubricaDelAlumno.vue';
@@ -42,6 +43,14 @@ interface Entrega {
     /** En qué nivel quedó cada criterio, si se calificó con rúbrica. */
     por_rubrica: EvaluacionPorCriterio[];
     archivos: { id: number; nombre: string }[];
+    /** Las piezas, si la actividad es un portafolio. Vacío en las demás. */
+    evidencias: {
+        id: number;
+        titulo: string;
+        descripcion: string | null;
+        fecha: string | null;
+        archivos: { id: number; nombre: string; peso: string | null }[];
+    }[];
 }
 
 interface Leccion {
@@ -509,6 +518,20 @@ const estado = computed(() => {
                             </a>
                         </div>
                     </section>
+
+                    <!--
+                        Portafolio: se arma pieza a pieza a lo largo del curso.
+                        Componente propio porque tiene su propio ciclo —agregar,
+                        describir, reordenar y sólo al final entregar— y meterlo
+                        aquí habría duplicado el tamaño de esta pantalla.
+                    -->
+                    <PortafolioAlumno
+                        v-else-if="leccion.tipo === 'portafolio'"
+                        :actividad-id="leccion.id"
+                        :abierta="leccion.abierta"
+                        :puntos="leccion.puntos"
+                        :entrega="leccion.entrega"
+                    />
 
                     <!-- Actividad: se entrega aquí mismo -->
                     <section v-else class="tarjeta overflow-hidden">

@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Enums;
 
 /**
- * Los cuatro tipos de actividad del LMS.
+ * Los cinco tipos de actividad del LMS.
  *
  * La diferencia que importa no es cómo se ven sino si el alumno ENTREGA algo:
- * una lectura se marca como vista y ya; una actividad, un foro y un examen
- * producen una entrega que alguien —o algo— califica.
+ * una lectura se marca como vista y ya; los demás producen una entrega que
+ * alguien —o algo— califica.
  */
 enum TipoActividad: string
 {
@@ -25,6 +25,13 @@ enum TipoActividad: string
     /** Reactivos con ponderación y, donde se pueda, autocalificación. */
     case Examen = 'examen';
 
+    /**
+     * Una colección que el alumno ACUMULA a lo largo del curso, pieza por pieza
+     * y con su descripción. Lo que lo distingue de una tarea con adjuntos es
+     * que cada evidencia se explica y se fecha por separado.
+     */
+    case Portafolio = 'portafolio';
+
     public function etiqueta(): string
     {
         return match ($this) {
@@ -32,6 +39,7 @@ enum TipoActividad: string
             self::Actividad => 'Actividad',
             self::Foro => 'Foro',
             self::Examen => 'Examen',
+            self::Portafolio => 'Portafolio de evidencias',
         };
     }
 
@@ -44,13 +52,27 @@ enum TipoActividad: string
         return $this !== self::Lectura;
     }
 
-    /** @return array<int, array{valor: string, etiqueta: string, se_entrega: bool}> */
+    /**
+     * Si el alumno arma la entrega PIEZA A PIEZA en vez de mandarla de una vez.
+     *
+     * Es lo que decide si la pantalla dibuja el formulario de siempre o el
+     * portafolio, y vive aquí y no en un `if` de cada vista: mientras la
+     * pregunta la conteste el tipo, agregar otro que se comporte igual es
+     * agregar un `case`.
+     */
+    public function seAcumula(): bool
+    {
+        return $this === self::Portafolio;
+    }
+
+    /** @return array<int, array{valor: string, etiqueta: string, se_entrega: bool, se_acumula: bool}> */
     public static function paraSelect(): array
     {
         return array_map(fn (self $t) => [
             'valor' => $t->value,
             'etiqueta' => $t->etiqueta(),
             'se_entrega' => $t->seEntrega(),
+            'se_acumula' => $t->seAcumula(),
         ], self::cases());
     }
 }

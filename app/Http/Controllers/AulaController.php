@@ -153,7 +153,7 @@ class AulaController extends Controller
         $entregas = Entrega::query()
             // Con el desglose: es lo que convierte «8.33» en «te faltó
             // ortografía», que es a lo que sirve una rúbrica.
-            ->with(['archivos', 'porRubrica'])
+            ->with(['archivos', 'porRubrica', 'evidencias.archivos'])
             ->where('inscripcion_id', $inscripcion->id)
             ->whereIn('actividad_id', $actividades->pluck('id'))
             ->get()
@@ -249,6 +249,23 @@ class AulaController extends Controller
                     'archivos' => $entrega->archivos->map(fn ($f) => [
                         'id' => $f->id,
                         'nombre' => $f->nombre,
+                    ])->values(),
+                    /*
+                     * Las piezas del portafolio, si lo es. Van DENTRO de la
+                     * entrega porque son suyas: la entrega es el trabajo y
+                     * éstas son sus partes. Sacarlas a un prop aparte obligaría
+                     * a la pantalla a cruzarlas.
+                     */
+                    'evidencias' => $entrega->evidencias->map(fn ($e) => [
+                        'id' => $e->id,
+                        'titulo' => $e->titulo,
+                        'descripcion' => $e->descripcion,
+                        'fecha' => $e->fecha_evidencia?->format('Y-m-d'),
+                        'archivos' => $e->archivos->map(fn ($f) => [
+                            'id' => $f->id,
+                            'nombre' => $f->nombre,
+                            'peso' => $f->pesoLegible(),
+                        ])->values(),
                     ])->values(),
                 ],
             ];

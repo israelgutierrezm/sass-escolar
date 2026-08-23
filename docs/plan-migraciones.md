@@ -378,7 +378,7 @@ Pendiente de 7.3 para cuando haya PAC contratado: escribir el driver real
 cuál está en uso. Falta también la representación impresa (PDF): hoy se guarda
 el que devuelva el PAC, y `PacFalso` no devuelve ninguno.
 
-### Módulo 8 — LMS  ✅ COMPLETO salvo tres tablas (ver el final del bloque)
+### Módulo 8 — LMS  ✅ COMPLETO (2026-08-23)
 
 > **Se construyó con OTROS NOMBRES que la spec, y esta lista llevaba meses sin
 > reflejarlo.** Un renglón sin tachar aquí decía «falta construir» de cosas
@@ -420,9 +420,14 @@ Tablas:
 - [x] `entrega_respuestas` → se llama **`respuestas`**, y cuelga del INTENTO
       (`intento_id`), no de la entrega: un examen admite varios intentos y la
       spec no lo contemplaba.
-- [ ] `portafolio_evidencias` (T, FK → inscripcion, actividades) — **NO
-      CONSTRUIDA.** Ver la nota del final.
-- [ ] `portafolio_archivos` (T, FK → portafolio_evidencias) — **NO CONSTRUIDA.**
+- [x] `portafolio_evidencias` (T) — cuelga de **`entregas`** y no de
+      (inscripcion, actividad) como pedía la spec: es la misma pareja que
+      `entregas` ya identifica, y con dos tablas diciendo «el trabajo de esta
+      alumna aquí» al calificar habría que elegir a cuál creerle. Colgando de la
+      entrega se hereda la calificación, la rúbrica y el «entregada tarde».
+- [x] `portafolio_archivos` (T, FK → portafolio_evidencias) — varios por
+      evidencia, y una evidencia puede no tener ninguno: una reflexión escrita
+      es evidencia legítima.
 - [x] `foros` → son **`foro_temas`** (el hilo) y **`foro_respuestas`**, colgando
       de la ACTIVIDAD y no del curso: un foro del LMS es un tipo de actividad.
 - [x] `foro_mensajes` → cubierto por `foro_respuestas`.
@@ -433,31 +438,22 @@ Tablas:
       una reunión a la vez y una cuenta de Meet no tiene ese límite—, y esa
       bandera es la que gobierna el reparto. Ver `docs/decisiones.md`,
       2026-08-19.
-- [ ] `acceso_videoconferencia` (T, FK → videoconferencias, personas) — **NO
-      CONSTRUIDA.** Ver la nota del final.
+- [x] `acceso_videoconferencia` → se llama **`accesos_videoconferencia`**. Una
+      fila por persona y clase (no por clic) con `veces` y `ultimo_acceso`. Mide
+      el CLIC en «Entrar», no permanencia, y la pantalla lo dice con esas
+      palabras. Ver `docs/decisiones.md`, 2026-08-23.
 - [x] `grabaciones` + `destinos_grabacion` (T) — el archivado de lo que Zoom o
       Meet graba, a disco propio, Drive o Dropbox. No estaba en la spec: sólo
       preveía `videoconferencias.grabacion_ruta`, que no alcanza porque una
       clase deja varios archivos (video, audio, chat, transcripción). Ver
       `docs/decisiones.md`, 2026-08-19.
 
-**Lo que de verdad falta del Módulo 8** (medido contra la base del demo el
-2026-08-23, no contra este documento):
+**Las tres que faltaban se construyeron el 2026-08-23** (portafolio y accesos a
+la clase en línea). Ver CLAUDE.md, «Las tres tablas que le faltaban al Módulo 8».
 
-1. **Portafolio de evidencias** (`portafolio_evidencias` + `portafolio_archivos`).
-   La spec lo lista como uno de los cuatro tipos de actividad —contenido,
-   ejercicio/examen, **portafolio**, SQA— y viene del legacy. Hoy no hay ni las
-   tablas ni el tipo: una actividad de portafolio no se puede crear. Lo más
-   cercano es una entrega con varios archivos (`entrega_archivos`), que NO es lo
-   mismo: el portafolio es una colección que el alumno acumula a lo largo del
-   curso y describe pieza por pieza.
-2. **`acceso_videoconferencia`** — quién entró a la clase en línea y cuánto se
-   quedó. `videoconferencias` está construida y funcionando, pero la asistencia
-   a la sesión no se registra, así que hoy una clase en línea no puede pasar
-   lista sola.
-
-Ninguna de las dos se decidió no hacer: se quedaron fuera sin que nadie lo
-anotara, y el módulo se declaró completo. Decidir si entran es del cliente.
+**Queda una deuda de diseño, anotada y sin hacer**: los cuatro catálogos de
+arriba. Volverlos tabla es una migración con lectores en once sitios, así que es
+decisión de negocio y no un arreglo al paso.
 
 ### Módulo 9 — Titulación y certificación SEP  ✅ COMPLETO
 

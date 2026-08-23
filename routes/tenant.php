@@ -63,6 +63,7 @@ use App\Http\Controllers\Encuestas\AplicacionController;
 use App\Http\Controllers\Encuestas\EncuestaController;
 use App\Http\Controllers\Encuestas\MisEncuestasController;
 use App\Http\Controllers\EntregaController;
+use App\Http\Controllers\PortafolioController;
 use App\Http\Controllers\EsquemaEvaluacionController;
 use App\Http\Controllers\ExamenController;
 use App\Http\Controllers\ExpedienteAlumnoController;
@@ -1931,6 +1932,34 @@ Route::middleware([
                  * otro.
                  */
                 Route::get('entregas/archivos/{archivo}', 'archivo')
+                    ->whereNumber('archivo')->name('archivo');
+            });
+
+        /*
+         * Portafolio de evidencias. Mismo criterio que las entregas —lo son: el
+         * portafolio son las PIEZAS de una entrega— y por eso comparte prefijo.
+         *
+         * El archivo va sin `can:` por lo mismo que el adjunto de arriba: lo
+         * abren el alumno que lo subió y el docente que lo va a calificar.
+         */
+        Route::controller(PortafolioController::class)
+            ->prefix('mis-cursos')->name('tenant.portafolio.')
+            ->group(function () {
+                Route::middleware('can:ver-mis-cursos')->group(function () {
+                    Route::post('actividades/{actividad}/portafolio', 'agregar')
+                        ->whereNumber('actividad')->name('agregar');
+                    Route::post('actividades/{actividad}/portafolio/orden', 'ordenar')
+                        ->whereNumber('actividad')->name('ordenar');
+                    Route::post('actividades/{actividad}/portafolio/entregar', 'entregar')
+                        ->whereNumber('actividad')->name('entregar');
+
+                    Route::put('portafolio/{evidencia}', 'editar')
+                        ->whereNumber('evidencia')->name('editar');
+                    Route::delete('portafolio/{evidencia}', 'quitar')
+                        ->whereNumber('evidencia')->name('quitar');
+                });
+
+                Route::get('portafolio/archivos/{archivo}', 'archivo')
                     ->whereNumber('archivo')->name('archivo');
             });
 

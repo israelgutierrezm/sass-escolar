@@ -399,7 +399,7 @@ class DocenciaController extends Controller
                 // Y el desglose de la rúbrica, por lo mismo: el panel lo pinta
                 // al abrir la entrega y pedirlo aparte sería una consulta por
                 // alumno.
-                ->with(['archivos', 'porRubrica'])
+                ->with(['archivos', 'porRubrica', 'evidencias.archivos'])
                 ->whereIn('actividad_id', $actividades->pluck('id'))
                 ->get()
                 ->groupBy('inscripcion_id');
@@ -527,6 +527,25 @@ class DocenciaController extends Controller
                                 'id' => $f->id,
                                 'nombre' => $f->nombre,
                                 'bytes' => (int) $f->bytes,
+                            ])->values(),
+                            /*
+                             * Las piezas del portafolio, cuando lo es.
+                             *
+                             * Sin esto el docente calificaría a ciegas —vería
+                             * «entregada» y nada más—, que es exactamente el
+                             * defecto que este panel vino a corregir con los
+                             * adjuntos de una tarea normal.
+                             */
+                            'evidencias' => ($e?->evidencias ?? collect())->map(fn ($ev) => [
+                                'id' => $ev->id,
+                                'titulo' => $ev->titulo,
+                                'descripcion' => $ev->descripcion,
+                                'fecha' => $ev->fecha_evidencia?->format('Y-m-d'),
+                                'archivos' => $ev->archivos->map(fn ($f) => [
+                                    'id' => $f->id,
+                                    'nombre' => $f->nombre,
+                                    'peso' => $f->pesoLegible(),
+                                ])->values(),
                             ])->values(),
                         ];
                     })->values(),

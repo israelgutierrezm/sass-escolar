@@ -3587,3 +3587,99 @@ Con la exigencia positiva, una escuela que renombrara su catálogo —o agregara
 «en convenio»— dejaría de publicar sin entender por qué, y una empresa con la
 situación en null desaparecería en silencio. Lo que hay que impedir es lo
 vetado, y eso se dice por su nombre.
+
+## 2026-08-23 — El clic en «Entrar» como pase de lista de la clase en línea
+
+`videoconferencias` llevaba desde el 2026-08-19 repartiendo enlaces y nadie
+anotaba quién los usaba. Había dos formas de arreglarlo:
+
+1. **Preguntarle al proveedor** por su reporte de participantes. Da minutos de
+   permanencia, que es el dato bueno. Cuesta dos APIs más —Zoom y Meet—, un
+   Workspace con el que probar la de Google, y un comando que las consulte
+   después de cada clase porque Meet no avisa.
+2. **Anotar el clic en «Entrar»**. Cuesta un `redirect`.
+
+Se eligió la segunda, por decisión del cliente: «con solo dar clic en el botón
+de entrar desde el alumno a la clase se puede saber si entró o no, pues el clic
+es una forma de saber que al menos se conectó». Es cierto y es barato, y quien
+nunca pulsó el botón desde luego no entró.
+
+**Lo que obliga es a decir qué mide.** La pantalla habla de «se conectaron» y no
+de «asistieron», y el registro NO escribe en `asistencias`: se le enseña al
+docente mientras pasa lista y él decide. Presentarlo como asistencia haría que
+alguien firmara un acta con un dato que el sistema no tiene — no sabemos si se
+quedó, si encendió la cámara ni si se durmió.
+
+Si algún día se agrega el reporte del proveedor, cabe en esta misma tabla:
+`minutos` sería una columna más, no otra tabla.
+
+### Una fila por persona y clase, no una por clic
+
+La pregunta que se le hace a la tabla es «¿entró?», no «¿cuántas veces le picó?».
+Con una fila por clic, contar asistentes exigiría un `DISTINCT` que alguien
+olvidará algún día, y una clase con red mala —donde la gente se reconecta seis
+veces— saldría con seis veces más «asistencia» que otra.
+
+Las reconexiones no se pierden: `veces` las cuenta y `ultimo_acceso` dice cuándo
+fue la última, lo que además distingue a quien estuvo desde el principio de quien
+apareció al final.
+
+El `upsert` va con `ON DUPLICATE KEY` y no con «buscar y si no crear»: el doble
+clic impaciente manda dos peticiones a la vez, y el par SELECT+INSERT las deja
+pasar a las dos — la segunda revienta contra el índice único y le devuelve un
+error de base a alguien que sólo quería entrar a clase.
+
+### Y el enlace del proveedor deja de viajar
+
+Efecto secundario que vale por sí solo. Antes el `url_join` llegaba al navegador
+y el alumno picaba un `<a>` que se iba derecho a Zoom. Ahora el botón apunta a
+`/clases/{clase}/entrar` y el enlace sale sólo del servidor, así que no se
+reenvía por WhatsApp a quien no está inscrito.
+
+El de anfitrión —el `start_url` de Zoom, que entra como dueño de la sala sin
+pedir contraseña— tampoco viaja ya ni siquiera al docente: la puerta le reconoce
+el papel y lo redirige. El docente entra por ahí a propósito, para que su propia
+llegada quede anotada: «¿el docente llegó a su clase?» es una de las preguntas
+que esta tabla existe para contestar.
+
+## 2026-08-23 — El portafolio de evidencias cuelga de la entrega
+
+La spec pedía `portafolio_evidencias` con `inscripcion_id` + `actividad_id`, que
+es exactamente la pareja que `entregas` ya identifica. Hacerlo literal habría
+creado DOS filas diciendo «el trabajo de esta alumna en esta actividad», y al
+calificar habría que elegir a cuál creerle — el mismo defecto que se evitó en el
+módulo 13 al no crear `vinculos_familiares` junto a `tutores_alumno`.
+
+Colgando de `entregas` se hereda todo lo que ya funciona y no hay que
+reescribirlo: la calificación, la retroalimentación, la rúbrica
+(`entrega_rubrica`), el «entregada tarde», el panel de calificación del docente
+y la vista del alumno en el aula. El portafolio aporta las PIEZAS; la entrega
+sigue siendo el trabajo.
+
+### En qué se diferencia de una tarea con adjuntos
+
+Es la pregunta que decide si esta tabla tenía razón de existir. Una tarea se
+entrega DE UNA VEZ: sus `entrega_archivos` son adjuntos sin nombre propio ni
+fecha propia, y sirven todos a lo mismo. Un portafolio se ACUMULA a lo largo del
+curso, y cada pieza tiene su título, su descripción y su momento.
+
+**Esa descripción por pieza ES el portafolio**: sin ella sería una carpeta de
+archivos, que es justo lo que ya existía y no hacía falta duplicar. Por eso una
+evidencia se rechaza si no trae descripción ni archivo, y por eso
+`fecha_evidencia` no es `created_at`: una práctica de octubre se captura en
+diciembre al armar el portafolio, y ordenar por cuándo se subió contaría la
+historia al revés.
+
+### Nace en borrador y se cierra aparte
+
+Agregar una pieza NO es entregar. Darlo por entregado al subir la primera
+dejaría al docente calificando un trabajo a medias, así que hay dos gestos
+separados y el contenedor se crea con `primeraOReviver`: con
+`actualizarOReviver`, sumar una pieza a un portafolio ya entregado lo devolvería
+a PENDIENTE y lo sacaría de la cola del docente sin que nadie lo pidiera.
+
+Y calificado no se toca —ni agregando, ni editando, ni quitando—: cambiarlo
+dejaría la calificación explicando un trabajo que ya no está. Misma regla del
+acta asentada y de la rúbrica congelada. Quitar es borrado LÓGICO, al revés que
+`entrega_archivos`: un adjunto retirado antes de entregar es corregirse, una
+evidencia retirada después de calificar es historia escolar.

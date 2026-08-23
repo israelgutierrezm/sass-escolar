@@ -78,6 +78,18 @@ class Entrega extends Model
      * La nota vive en `calificacion` y esto dice de dónde salió: ninguna
      * pantalla necesita saber de rúbricas para leer el número.
      */
+    /**
+     * Las piezas del portafolio, en el orden que decidió el alumno.
+     *
+     * Vacía para cualquier otro tipo de actividad, y no estorba: una tarea
+     * normal simplemente no tiene ninguna.
+     */
+    public function evidencias(): HasMany
+    {
+        return $this->hasMany(PortafolioEvidencia::class, 'entrega_id')
+            ->orderBy('orden')->orderBy('id');
+    }
+
     public function porRubrica(): HasMany
     {
         return $this->hasMany(EntregaRubrica::class, 'entrega_id');

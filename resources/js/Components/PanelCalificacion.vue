@@ -55,6 +55,14 @@ interface Casilla {
     automatica: boolean;
     por_rubrica: EvaluacionPorCriterio[];
     archivos: Archivo[];
+    /** Las piezas del portafolio, si la actividad lo es. */
+    evidencias?: {
+        id: number;
+        titulo: string;
+        descripcion: string | null;
+        fecha: string | null;
+        archivos: { id: number; nombre: string; peso: string | null }[];
+    }[];
 }
 
 interface Actividad {
@@ -336,8 +344,42 @@ const colorNota = computed(() => {
                     </li>
                 </ul>
 
+                <!--
+                    El portafolio, pieza por pieza. Es lo que hay que leer para
+                    calificarlo: la descripción de cada evidencia ES el trabajo,
+                    y sin ella el docente sólo vería «entregada».
+                -->
+                <ol v-if="casilla.evidencias?.length" class="mt-3 space-y-3">
+                    <li
+                        v-for="(ev, i) in casilla.evidencias"
+                        :key="ev.id"
+                        class="rounded-lg border px-3 py-2.5"
+                        :style="{ borderColor: 'var(--color-borde)' }"
+                    >
+                        <h4 class="text-sm font-medium text-contenido">
+                            <span class="text-suave">{{ i + 1 }}.</span> {{ ev.titulo }}
+                        </h4>
+                        <p v-if="ev.fecha" class="mt-0.5 text-xs text-suave">{{ ev.fecha }}</p>
+                        <p v-if="ev.descripcion" class="mt-1 whitespace-pre-line text-sm text-contenido">
+                            {{ ev.descripcion }}
+                        </p>
+                        <ul v-if="ev.archivos.length" class="mt-2 flex flex-wrap gap-2">
+                            <li v-for="f in ev.archivos" :key="f.id">
+                                <a
+                                    :href="`/mis-cursos/portafolio/archivos/${f.id}`"
+                                    class="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs"
+                                    :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-acento)' }"
+                                >
+                                    {{ f.nombre }}
+                                    <span v-if="f.peso" class="text-suave">{{ f.peso }}</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                </ol>
+
                 <p
-                    v-if="!casilla.contenido && !casilla.archivos.length && !esExamen"
+                    v-if="!casilla.contenido && !casilla.archivos.length && !casilla.evidencias?.length && !esExamen"
                     class="mt-2 text-sm text-suave"
                 >
                     La entrega llegó vacía: sin texto ni archivos.
