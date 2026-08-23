@@ -3683,3 +3683,53 @@ dejaría la calificación explicando un trabajo que ya no está. Misma regla del
 acta asentada y de la rúbrica congelada. Quitar es borrado LÓGICO, al revés que
 `entrega_archivos`: un adjunto retirado antes de entregar es corregirse, una
 evidencia retirada después de calificar es historia escolar.
+
+## 2026-08-23 — Por qué el tipo de actividad y el de reactivo NO son catálogo
+
+La spec pide `tipos_actividad` y `tipos_reactivo` como catálogos TENANT-CONFIG y
+están implementados como `varchar` respaldados por dos enums de PHP. Al auditar
+el plan de migraciones esto quedó anotado como **deuda** contra la regla 4 del
+proyecto («configurable, no cableado»). **Se comprobó y la deuda no existe: la
+decisión es la correcta y lo que faltaba era escribir el porqué**, que es
+exactamente lo que la regla 4 exige cuando algo enumerable se cablea.
+
+**El motivo es que cada valor NO es un dato: es una rama de código.** Medido:
+22 ramas por tipo de actividad y 74 por tipo de reactivo. No deciden cómo se
+pinta una etiqueta, deciden qué ocurre:
+
+- Una **lectura** no pondera y no lleva rúbrica —dejarle un componente amarrado
+  prometería una calificación que nunca va a llegar—; se completa con un botón
+  que declara el alumno.
+- Un **examen** tampoco lleva rúbrica: lo califica la máquina al entregarse, y
+  con las dos cosas habría dos notas para la misma entrega. Vive en su pantalla,
+  con su reloj y sus intentos.
+- Un **foro** tiene su propio controlador y su entrega son las participaciones.
+- Un **portafolio** se acumula pieza a pieza y se cierra aparte.
+- En los reactivos, `Ordenamiento` siempre baraja, `Clasificar` lleva categorías
+  y `Completar` lleva huecos: la forma de la respuesta y su autocalificación
+  salen del tipo.
+
+**Volverlo catálogo sería una promesa falsa.** Una escuela agregaría la fila
+«Podcast» y no pasaría nada: no hay rama que la atienda, así que tendría un tipo
+en el desplegable que no se puede entregar, ni calificar, ni abrir. Es
+literalmente el defecto que este proyecto ya corrigió dos veces —los cinco
+interruptores de configuración que nadie leía, y `cierra_el_embudo` que sólo se
+dibujaba— y que la propia bitácora resume: **un interruptor que no hace lo que
+dice es peor que no tenerlo, porque se confía en él.**
+
+La regla 4 no dice «todo enumerable es tabla»; dice que si se cablea hay que
+poder explicar por qué. La prueba de si algo debe ser catálogo es si una fila
+nueva HACE algo. En `modalidades_percepcion` sí —sus banderas encienden
+componentes del cálculo, y «base más horas» se creó desde la pantalla y
+funcionó—. Aquí no.
+
+### `dificultades` y `metodos_resolver` tampoco son deuda
+
+No existen ni como columna. No son una decisión pendiente: son una FUNCIÓN que
+nadie ha pedido —armar el examen tomando N reactivos de cada nivel de
+dificultad—. `examenes.reactivos_a_presentar` ya elige al azar del banco; el
+día que alguien quiera «tres fáciles y dos difíciles», la columna llega con su
+lector, como llegaron `clave_sat` y el régimen fiscal en la nómina.
+
+Anotarlas como deuda invitaría a crear columnas sin quien las lea, que es lo que
+este proyecto ya tuvo que retirar en dos ocasiones.

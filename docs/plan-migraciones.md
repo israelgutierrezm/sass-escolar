@@ -386,13 +386,17 @@ el que devuelva el PAC, y `PacFalso` no devuelve ninguno.
 > existente. Cada desvío va anotado con su equivalente real.
 
 Catálogos TC:
-- [~] `tipos_actividad`, `tipos_reactivo`, `dificultades`, `metodos_resolver`
-      (TC) — **NO se hicieron tabla**: son las columnas `actividades.tipo` y
-      `reactivos.tipo`, sendos `varchar`. ⚠️ **Esto choca con la regla 4 del
-      proyecto** («configurable, no cableado»): una escuela no puede agregar un
-      tipo de actividad sin tocar código. Es la deuda del módulo, no una
-      decisión razonada — nunca se escribió el porqué. `dificultades` y
-      `metodos_resolver` no existen ni como columna.
+- [~] `tipos_actividad` y `tipos_reactivo` (TC) — **NO se hicieron tabla, y es
+      correcto**: son `actividades.tipo` y `reactivos.tipo`, respaldados por dos
+      enums. Cada valor no es un dato, es una RAMA DE CÓDIGO —22 y 74 medidas—:
+      una lectura no pondera, un examen lo califica la máquina, un foro tiene su
+      propio controlador, un portafolio se acumula. Volverlo catálogo sería una
+      promesa falsa: la escuela agregaría «Podcast» y no habría rama que lo
+      atendiera. La regla 4 no pide que todo enumerable sea tabla, pide poder
+      explicar por qué no lo es. Ver `docs/decisiones.md`, 2026-08-23.
+- [~] `dificultades` y `metodos_resolver` (TC) — no existen ni como columna, y
+      **no son deuda**: son una FUNCIÓN que nadie ha pedido (armar el examen con
+      N reactivos de cada nivel). Llegarán con su lector, como `clave_sat`.
 
 Tablas:
 - [x] `cursos` (T, FK → asignatura_grupo, plan_materias, self origen_curso_id)
@@ -451,9 +455,9 @@ Tablas:
 **Las tres que faltaban se construyeron el 2026-08-23** (portafolio y accesos a
 la clase en línea). Ver CLAUDE.md, «Las tres tablas que le faltaban al Módulo 8».
 
-**Queda una deuda de diseño, anotada y sin hacer**: los cuatro catálogos de
-arriba. Volverlos tabla es una migración con lectores en once sitios, así que es
-decisión de negocio y no un arreglo al paso.
+**Y la «deuda» de los cuatro catálogos se comprobó y NO existía**: dos son ramas
+de código disfrazadas de datos y dos son una función que nadie ha pedido. Ver el
+detalle arriba y el razonamiento en `docs/decisiones.md`.
 
 ### Módulo 9 — Titulación y certificación SEP  ✅ COMPLETO
 

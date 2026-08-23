@@ -2155,6 +2155,37 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     reportando las mismas 69 filas rotas de siempre, o sea que el borrado no
     dejó referencias colgando.
 
+- **«Los tipos deberían ser catálogo» era falso: comprobado el 2026-08-23.** Al
+  auditar el plan quedó anotado que `tipos_actividad` y `tipos_reactivo` chocan
+  con la regla 4 por ser `varchar` y no tabla. Se midió y la decisión es la
+  correcta; lo que faltaba era el porqué, que es justo lo que la regla 4 exige.
+  - **Cada valor no es un dato, es una RAMA DE CÓDIGO**: 22 ramas por tipo de
+    actividad y 74 por tipo de reactivo. Una lectura no pondera ni lleva
+    rúbrica, un examen lo califica la máquina, un foro tiene su propio
+    controlador, un portafolio se acumula; en los reactivos, `Ordenamiento`
+    siempre baraja, `Clasificar` lleva categorías y `Completar` lleva huecos.
+  - **Volverlo catálogo sería una promesa falsa**: la escuela agregaría
+    «Podcast» y no habría rama que lo atendiera —un tipo en el desplegable que
+    no se puede entregar, ni calificar, ni abrir—. Es el mismo defecto de los
+    cinco interruptores que nadie leía y de `cierra_el_embudo`, que sólo se
+    dibujaba.
+  - **La prueba de si algo debe ser catálogo es si una fila nueva HACE algo.**
+    En `modalidades_percepcion` sí —«base más horas» se creó desde la pantalla y
+    funcionó—. Aquí no. La regla 4 no dice «todo enumerable es tabla»: dice que
+    si se cablea hay que poder explicarlo.
+  - **`dificultades` y `metodos_resolver` tampoco son deuda**: no existen ni
+    como columna, y son una FUNCIÓN que nadie ha pedido —armar el examen con N
+    reactivos de cada nivel—. Llegarán con su lector, como `clave_sat`.
+    Anotarlas como deuda invitaría a crear columnas sin quien las lea.
+
+- **El barrido de URLs del frontend contra las rutas, repetido el 2026-08-23**
+  tras agregar las pantallas del portafolio y la puerta de la clase en línea.
+  **23 sospechosas, las 23 falsos positivos**: seis `base-captura` a las que el
+  componente añade el id, nueve `prefijo:` del menú —que son para resaltar la
+  sección activa, no destinos—, dos líneas de comentario y cuatro que el
+  comparador midió mal (una ruta con parámetro opcional, dos con interpolación
+  en un segmento intermedio). Ningún botón muerto.
+
 **Pendiente inmediato — aquí se retoma:**
 
 *(Antes de tomar algo de esta lista, COMPROBARLO en el código. **Ya van cinco**
@@ -2181,13 +2212,10 @@ marcado abajo con su fecha, y lo que NO la lleve sigue sin verificar.)*
    estado, más arriba. **Con esto el plan de migraciones no tiene un solo
    renglón sin resolver.**
 
-   Queda ANOTADA, y sin hacer, la deuda de diseño que salió al mapear:
-   `tipos_actividad`, `tipos_reactivo`, `dificultades` y `metodos_resolver`
-   iban a ser catálogos y son dos `varchar` (`actividades.tipo` y
-   `reactivos.tipo`); las otras dos no existen ni como columna. Choca con la
-   regla 4 —una escuela no puede agregar un tipo de actividad sin tocar
-   código— y **volverlos tabla es una migración con lectores en once sitios**,
-   así que es decisión de negocio, no un arreglo al paso.
+   La «deuda de diseño» que anoté al mapear —`tipos_actividad`,
+   `tipos_reactivo`, `dificultades`, `metodos_resolver`— **se comprobó y NO
+   existía**. Ver «Por qué el tipo de actividad y el de reactivo no son
+   catálogo» en el estado, más abajo.
 
 3. **Fase 4 — COMPLETA** (2026-08-23): los cuatro módulos cerrados.
    Revisada contra el código el 2026-08-22: de sus 50
