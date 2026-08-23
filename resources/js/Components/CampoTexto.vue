@@ -18,10 +18,22 @@ const props = withDefaults(
         marcador?: string;
         mono?: boolean;
         maximo?: number;
+        /**
+         * El `step` de un campo numérico.
+         *
+         * Por omisión `any`, y hace falta: sin él el navegador usa `step=1` y
+         * RECHAZA cualquier decimal —«los dos valores válidos más aproximados
+         * son 8 y 9»— sin que el formulario llegue a enviarse. Con 67 campos
+         * `tipo="number"` en el sistema, eso dejaba fuera todo sueldo con
+         * centavos, toda calificación con décimas y todo porcentaje. Un campo
+         * que de verdad sólo admita enteros pasa `paso="1"`; la validación de
+         * verdad la hace el servidor.
+         */
+        paso?: string;
         /** Para mostrar un dato que el usuario no administra (lo fija la escuela). */
         deshabilitado?: boolean;
     }>(),
-    { tipo: 'text', requerido: false, mono: false, deshabilitado: false },
+    { tipo: 'text', requerido: false, mono: false, deshabilitado: false, paso: 'any' },
 );
 
 const modelo = defineModel<string | number | null>();
@@ -60,6 +72,7 @@ defineOptions({ inheritAttrs: false });
                 :required="requerido"
                 :placeholder="marcador"
                 :maxlength="maximo"
+                :step="tipo === 'number' ? paso : undefined"
                 :disabled="deshabilitado"
                 class="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1 disabled:cursor-not-allowed disabled:bg-fondo disabled:text-suave"
                 :class="[
