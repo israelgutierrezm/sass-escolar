@@ -415,7 +415,16 @@ const nivelesConVariante = computed(() =>
                 <section class="tarjeta space-y-5 p-5">
                     <div>
                         <p class="mb-2 text-sm font-semibold">Diseño</p>
-                        <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                        <!--
+                            DOS columnas, no cuatro.
+                            `lg:grid-cols-4` mira la VENTANA, y esta rejilla vive
+                            en la columna derecha de la pantalla: a 1024 px el
+                            contenedor mide 413, así que las cuatro tarjetas
+                            salían de 97 px con quince renglones de texto cada
+                            una. Cada tarjeta explica un diseño en una frase, y
+                            una frase no se lee en columnas de trece caracteres.
+                        -->
+                        <div class="grid gap-2 sm:grid-cols-2">
                             <button
                                 v-for="(d, clave) in disenos"
                                 :key="clave"

@@ -463,10 +463,10 @@ const iniciales = computed(() => {
                     <Link
                         v-if="!seccion.hijos.length"
                         :href="seccion.url!"
-                        class="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200"
+                        class="group flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-all duration-200"
                         :class="seccionActiva(seccion) ? 'font-medium text-white' : 'hover:bg-superficie/5 hover:text-white'"
                         :style="seccionActiva(seccion) ? { backgroundColor: 'var(--color-barra-lateral-activo)' } : {}"
-                        :title="compacta ? seccion.etiqueta : undefined"
+                        :title="seccion.etiqueta"
                     >
                         <svg class="h-5 w-5 shrink-0 transition-transform duration-200 group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" :d="seccion.icono" />
@@ -476,12 +476,23 @@ const iniciales = computed(() => {
 
                     <!-- Grupo con submenú -->
                     <div v-else>
+                        <!--
+                            `gap-2.5` y no `gap-3`: «Certificación y titulación»
+                            —la etiqueta más larga del menú— pide 148 px y en la
+                            barra de 256 le tocaban 138, así que salía cortada.
+                            Apretando el hueco entre el icono y el texto se
+                            recuperan 4; los 6 que faltan no se le quitan a nadie
+                            sin estrechar la barra entera por UNA etiqueta, así
+                            que ésa se sigue cortando —con puntos suspensivos,
+                            que es lo correcto— y el `title` de abajo deja leer
+                            el nombre completo al pasar el cursor.
+                        -->
                         <button
                             type="button"
-                            class="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200"
+                            class="group flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-all duration-200"
                             :class="seccionActiva(seccion) ? 'text-white' : 'hover:bg-superficie/5 hover:text-white'"
                             :style="seccionActiva(seccion) ? { backgroundColor: 'var(--color-barra-lateral-suave)' } : {}"
-                            :title="compacta ? seccion.etiqueta : undefined"
+                            :title="seccion.etiqueta"
                             @click="activarGrupo(seccion.clave)"
                         >
                             <svg class="h-5 w-5 shrink-0 transition-transform duration-200 group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor">

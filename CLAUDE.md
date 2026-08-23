@@ -2186,6 +2186,57 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   comparador midió mal (una ruta con parámetro opcional, dos con interpolación
   en un segmento intermedio). Ningún botón muerto.
 
+- **Primera ronda de revisión EN EL NAVEGADOR** (2026-08-23), la que la deuda
+  pedía desde hace meses. **Y lo primero que salió es que la deuda estaba
+  desactualizada: las capturas de pantalla YA FUNCIONAN.** Llevaba tiempo escrito
+  que se agotaban por tiempo en este entorno, y por eso todo se venía
+  verificando midiendo el DOM. Hoy responden.
+  - **Ojo con la geometría de la captura**: sale topada en 800×500, no admite
+    recorte por región y NO es un reescalado simple del lienzo —la posición de
+    las cosas en la imagen no corresponde a la del DOM—. Sirve para ver si algo
+    se ve roto; para medir, sigue mandando `javascript_tool`.
+  - Recorrido: panel, académico (carreras), control escolar (grupos), finanzas
+    (cartera), RH (nómina), reglas de la escuela, calendario, diseñador de
+    credencial y diseñador del historial. **Ninguna pantalla real dio 500**: se
+    comprobaron 52 direcciones del menú y todas responden 200.
+
+  **Cuatro defectos que sólo se ven mirando, corregidos:**
+  1. **El nombre de quien entra salía truncado en el saludo del panel.** El
+     clima llevaba `shrink-0` con tope del 72 % de la tarjeta, así que entre
+     `sm` y `xl` se quedaba con casi tres cuartos y al saludo le tocaban 199 px
+     para los 267 que pide «Israel Gutierrez Moreno»: se leía «Israel Gutie…».
+     Se le quitó el `truncate` —una persona no se abrevia, y en dos renglones
+     cabe— y el tope del clima bajó al 60 % hasta `xl`.
+  2. **La leyenda de cada tarjeta del panel flotaba lejos de lo que explica.**
+     La regla que centra el número de una métrica iba sobre
+     `> p:not(:first-child)`, así que alcanzaba también al pie de las otras
+     formas —lista, matriz— y a la propia leyenda del número: los dos crecían,
+     se repartían el hueco y cada uno se centraba en el suyo. Medido: el «2» en
+     una caja de 161 px y «recursos disponibles» en otra de 141, con cien
+     píxeles en medio. Ahora número y leyenda van en un bloque que se centra
+     junto (36 y 16 px, 2 px entre ellos) y los pies se quedan pegados a su
+     lista.
+  3. **El selector de diseño de la credencial salía en cuatro columnas de
+     97 px**, con quince renglones de texto cada una. `lg:grid-cols-4` mira la
+     VENTANA, y esa rejilla vive en la columna derecha: a 1024 px el contenedor
+     mide 413. Bajado a dos columnas: 202 px y cuatro renglones. **Se revisaron
+     las otras tres rejillas con el mismo patrón** —avisos, calendario y clases
+     en línea— y están bien: son cifras cortas o campos con `span`.
+  4. **«Certificación y titulación» no cabía en la barra lateral.** Pide 148 px
+     y tenía 138. Se apretó el hueco icono-texto (`gap-3`→`gap-2.5`, +4 px) y
+     los 6 que faltan no se le quitan a nadie sin estrechar la barra entera por
+     UNA etiqueta: se sigue cortando con puntos suspensivos, que es lo correcto,
+     y **el `title` pasó a estar siempre** —sólo salía en modo compacto— para
+     poder leer el nombre completo.
+
+  **Y una observación que NO se tocó**: el control flotante de tamaño de letra
+  (`fixed bottom-5 left-1/2`) se cruza con el contenido en todas las pantallas
+  largas —una celda de tabla en Carreras, un texto de ayuda en el diseñador del
+  historial—. Se comprobó que **no tapa nada con lo que se interactúe** (ningún
+  input ni botón debajo), y su colocación es deliberada y está comentada en el
+  código: se movió al centro porque a la izquierda lo tapaba la barra lateral.
+  Moverlo otra vez es una decisión de diseño, no un arreglo.
+
 **Pendiente inmediato — aquí se retoma:**
 
 *(Antes de tomar algo de esta lista, COMPROBARLO en el código. **Ya van cinco**
@@ -2257,10 +2308,12 @@ marcado abajo con su fecha, y lo que NO la lleve sigue sin verificar.)*
   `*.localhost` a loopback por su cuenta, sin tocar el archivo `hosts`. Se
   verificó el panel entrando con la cuenta demo. Para levantarlo:
   `php artisan serve` y navegar a `http://demo.localhost:8000`.
-- **Las capturas de pantalla se agotan por tiempo** en este entorno. Lo que sí
-  funciona es medir el DOM con `javascript_tool` (altos, anchos, presencia de
-  elementos), que sirve para comprobar geometría y estructura — pero NO
-  sustituye a que un humano mire el render.
+- ~~«Las capturas de pantalla se agotan por tiempo»~~. **Falso desde el
+  2026-08-23: funcionan.** Salen topadas en 800×500, sin recorte por región, y
+  su geometría NO corresponde a la del DOM —sirven para ver si algo se ve roto,
+  no para medir—. Para medir sigue mandando `javascript_tool`. Con ellas se
+  corrieron la primera ronda de revisión y sus cuatro correcciones (ver el
+  estado).
 - **Lo verificado en el navegador, hasta hoy**: el panel; el 2026-08-22 el
   recorrido entero de la bolsa de trabajo —el tablero del alumno con el
   interruptor en sus dos posiciones, postularse desde el portal, capturar por
