@@ -111,6 +111,7 @@ use App\Http\Controllers\ReglaHorarioController;
 use App\Http\Controllers\ReglaMatriculaController;
 use App\Http\Controllers\RespuestaFormularioController;
 use App\Http\Controllers\Rh\EmpleadoController;
+use App\Http\Controllers\Rh\NominaController;
 use App\Http\Controllers\Rh\PercepcionController;
 use App\Http\Controllers\RolActivoController;
 use App\Http\Controllers\RolController;
@@ -1559,6 +1560,27 @@ Route::middleware([
                 Route::post('{expediente}/adscripciones', 'adscribir')->whereNumber('expediente')->name('adscribir');
                 Route::put('{expediente}/adscripciones/{adscripcion}', 'cerrarAdscripcion')
                     ->whereNumber(['expediente', 'adscripcion'])->name('adscripciones.cerrar');
+            });
+
+        /*
+         * Los periodos de nómina y sus recibos. Mismo permiso que los sueldos:
+         * aquí se ven los importes de todo el personal junto.
+         */
+        Route::controller(NominaController::class)
+            ->prefix('rh/nomina')->name('tenant.rh.nomina.')
+            ->middleware(['can:gestionar-percepciones', 'modulo:nomina'])
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'guardar')->name('guardar');
+                Route::get('{periodo}', 'ver')->whereNumber('periodo')->name('ver');
+                Route::post('{periodo}/calcular', 'calcular')->whereNumber('periodo')->name('calcular');
+                Route::post('{periodo}/cerrar', 'cerrar')->whereNumber('periodo')->name('cerrar');
+                Route::post('{periodo}/reabrir', 'reabrir')->whereNumber('periodo')->name('reabrir');
+                Route::get('{periodo}/recibos/{recibo}', 'recibo')->whereNumber(['periodo', 'recibo'])->name('recibo');
+                Route::post('{periodo}/recibos/{recibo}/renglones', 'agregarRenglon')
+                    ->whereNumber(['periodo', 'recibo'])->name('renglones.agregar');
+                Route::delete('{periodo}/recibos/{recibo}/renglones/{renglon}', 'quitarRenglon')
+                    ->whereNumber(['periodo', 'recibo', 'renglon'])->name('renglones.quitar');
             });
 
         /*

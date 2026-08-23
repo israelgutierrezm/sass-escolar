@@ -7,6 +7,7 @@ namespace App\Models\Nomina;
 use App\Models\Concerns\TieneAuditoria;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * conceptos_nomina (TENANT-CONFIG) — qué renglones puede llevar un recibo.
@@ -29,7 +30,7 @@ class ConceptoNomina extends Model
 
     protected $table = 'conceptos_nomina';
 
-    protected $fillable = ['clave', 'nombre', 'naturaleza', 'es_gravable', 'orden', 'activo'];
+    protected $fillable = ['clave', 'nombre', 'naturaleza', 'es_gravable', 'formula_id', 'orden', 'activo'];
 
     protected function casts(): array
     {
@@ -37,6 +38,17 @@ class ConceptoNomina extends Model
             'activo' => 'boolean',
             'es_gravable' => 'boolean',
         ];
+    }
+
+    /**
+     * Cómo se calcula solo, si es que se calcula.
+     *
+     * En NULL se captura a mano, que es lo que le toca al ISR: su tarifa es por
+     * rangos y no un factor plano.
+     */
+    public function formula(): BelongsTo
+    {
+        return $this->belongsTo(FormulaNomina::class, 'formula_id');
     }
 
     public function scopeActivos(Builder $consulta): Builder

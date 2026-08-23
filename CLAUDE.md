@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**77 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**78 archivos `prueba-*.php`**;
    esta lista decía 23 y llevaba tiempo desactualizada). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
    imprimen `Resultado: N correctas, M fallidas`. **Ojo al barrer con `grep`**:
@@ -57,7 +57,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 77 están en verde**, barridas el 2026-08-22. Llegaron a estar 33 en rojo —no trece: ese primer
+   **Las 78 están en verde**, barridas el 2026-08-23. Llegaron a estar 33 en rojo —no trece: ese primer
    conteo sólo miró las que imprimían «N fallidas» e ignoró las 21 que morían
    antes, con una excepción sin resumen—. Ninguna caía por un cambio reciente;
    se comprobó corriéndolas contra el árbol limpio.
@@ -664,8 +664,8 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     tenía asesor. Lo cazó `prueba-actividad-crm`.
   - Pruebas: `scripts/prueba-actividad-crm.php`, 29 verificaciones, comprobada
     mutando la regla de re-cierre (caen exactamente las tres que la vigilan).
-- Pruebas: 77 suites en `scripts/`, contra la BD real del tenant demo con
-  `DB::rollBack()` al final. **77 en verde** (ver la regla 5 para qué tumbó a
+- Pruebas: 78 suites en `scripts/`, contra la BD real del tenant demo con
+  `DB::rollBack()` al final. **78 en verde** (ver la regla 5 para qué tumbó a
   las 33 que estuvieron en rojo). `prueba-listados` es la primera
   que invoca a los CONTROLADORES y lee sus props de Inertia, en vez de
   reimplementar la consulta: un `or` sin paréntesis no se detecta de otra forma.
@@ -1273,6 +1273,67 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     previa. Una prueba que sólo pasa cuando la corres sola no prueba nada el día
     que alguien la mete en el barrido.
 
+- **Módulo 10 · Nómina y RH, tercera rebanada** (2026-08-23): el periodo, el
+  recibo y el cálculo. `/rh/nomina`, mismo permiso `gestionar-percepciones`.
+  - **El recibo se MATERIALIZA.** Sus renglones guardan el importe calculado, no
+    una referencia al sueldo vigente: un documento que se recalcula al mirarlo
+    cambia de contenido cuando alguien actualiza un dato de hoy, y un recibo es
+    un hecho fechado que hay que poder explicar en cinco años. Misma decisión que
+    `esquema_evaluacion`, que la factura con su emisor y que el acta impresa. Y
+    además APUNTA al esquema con el que se calculó, para no tener que
+    reconstruir qué sueldo regía.
+  - **El sueldo se resuelve al FIN DEL PERIODO, no a hoy.** Recalcular una
+    quincena vieja tiene que seguir dando lo de entonces; preguntar por «el
+    abierto» le aplicaría el aumento de la semana pasada.
+  - **Una entrada de reloj SIN SALIDA no se paga, y se REPORTA.** Hay tres
+    formas de tratarla y sólo una sirve: contarla hasta el fin del día paga
+    horas no trabajadas y el error es a favor del empleado, así que nadie lo
+    reclama nunca; ignorarla en silencio le paga de menos sin que sepa por qué;
+    no pagarla y decirlo es la única que se puede corregir antes de pagar. Dos
+    entradas seguidas descartan la primera en vez de emparejarla con la salida
+    de la segunda, que pagaría el hueco de en medio.
+  - **La tabla del reloj es `checadas`, no `marcas_reloj`** —ver la rebanada
+    anterior—, y sigue VACÍA en el demo: el cálculo por horas se probó sembrando
+    checadas dentro de la transacción.
+  - **Lo que no se puede calcular se ANOTA, no se supone.** Sin sueldo fijado
+    sale el recibo en ceros CON el motivo escrito: uno que no aparece se confunde
+    con alguien a quien no le tocaba cobrar, y un cero mudo se paga.
+  - **Recalcular avisa de cuántos renglones capturados A MANO se lleva.**
+    Rehace todo desde cero, así que un descuento por préstamo desaparece;
+    perderlo en silencio es pagarle de más a alguien. Y sólo se quitan a mano los
+    que se pusieron a mano: quitar uno calculado dejaría el recibo diciendo algo
+    que el esquema no dice, y volvería a aparecer al recalcular.
+  - **`formulas_nomina` es porcentaje sobre una base, con tope. Nada más.**
+    **El ISR NO se calcula con esto, y es deliberado**: sale de la tarifa por
+    rangos del artículo 96 más el subsidio al empleo, no de un factor plano.
+    Sembrar una fórmula de ISR con un porcentaje inventado daría un número que
+    parece bueno, que alguien enteraría al SAT y que nadie descubriría hasta la
+    primera revisión. El concepto `isr` se queda sin fórmula y se captura a mano.
+  - **Aquí `es_gravable` por fin tiene lector**: la base `percepciones_gravables`
+    lo consulta. Se declaró en la rebanada anterior como propiedad que la escuela
+    decide; ahora además se usa.
+  - **Un empleado, un recibo por periodo** (único en la base). **Lo que NO se
+    prohíbe es que dos periodos se traslapen**: una quincena y un aguinaldo
+    extraordinario se enciman de forma legítima. A cambio cuentan las MISMAS
+    checadas, así que crear uno encimado lo advierte — descubrirlo en el importe
+    es peor.
+  - **El timbrado NO es un estado del periodo**, al revés de la spec: va a ser
+    una propiedad de cada RECIBO. El SAT puede rechazar uno y aceptar los otros
+    cuarenta, igual que la SEP con los títulos de un lote, y un estado de periodo
+    obligaría a elegir entre mentir o bloquear a todos.
+  - **Una mutación sobrevivió otra vez**, y por lo mismo de siempre: en el
+    escenario TODAS las percepciones eran gravables, así que cambiar la base de
+    la fórmula de «lo gravable» a «todas» no movía ningún número. Se construyó el
+    caso que las separa —una modalidad de base + horas con el concepto de horas
+    marcado como no gravable— y ahora la mutación muere. Es el caso que en una
+    escuela real aparece el primer mes que alguien recibe vales de despensa.
+  - Comprobado en el navegador con aritmética a mano: 28 000 mensuales
+    prorrateados a 15 días dan 14 000, el 2.75 % da 385, las 12.5 horas checadas
+    a 220 dan 2 750 —con la tercera entrada sin cerrar fuera y reportada—, y el
+    recibo sin sueldo sale en ceros con su motivo.
+  - Pruebas: `scripts/prueba-rh-nomina.php`, 39 verificaciones, comprobadas
+    mutando cinco reglas.
+
 - **Módulo 10 · Nómina y RH, segunda rebanada** (2026-08-22): esquemas de
   percepción y conceptos. `/rh/empleados/{id}/percepciones` y
   `/rh/catalogos-nomina`, permiso **propio** `gestionar-percepciones`.
@@ -1829,7 +1890,7 @@ marcado abajo con su fecha, y lo que NO la lleve sigue sin verificar.)*
       autogestiva y forzar el mostrador; apagado por omisión.**
    3. **Módulo 10 · Nómina y RH** — EN CURSO, el de más valor y el más grande.
       Rebanadas: **expediente laboral ✅**, **esquemas de percepción y
-      conceptos ✅**, periodo y recibo (con `formulas_nomina`), CFDI de nómina. Su insumo existe (el reloj checador,
+      conceptos ✅**, **periodo y recibo ✅**, CFDI de nómina. Su insumo existe (el reloj checador,
       tabla `checadas`) pero está VACÍO en el demo. **Decisión del cliente sobre el CFDI de
       nómina: se implementa, pero el timbrado se enciende desde configuración.
       Apagado, no se puede timbrar; encendido, valida la información que el
