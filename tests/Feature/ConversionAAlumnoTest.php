@@ -85,9 +85,6 @@ class ConversionAAlumnoTest extends TenantTestCase
         // pone al alumno recién creado.
         $this->situacionCon('situaciones_alumno', 'activo');
 
-        // Y la de aspirante «inscrito», que es a la que pasa al convertirse.
-        $this->situacionCon('situaciones_aspirante', 'inscrito');
-
         // Y una regla de matrícula: sin ella no hay con qué numerar al alumno.
         // La global con año y consecutivo es la que trae cualquier escuela.
         if (DB::table('reglas_matricula')->count() === 0) {
@@ -111,7 +108,6 @@ class ConversionAAlumnoTest extends TenantTestCase
             'persona_id' => $persona,
             'oferta_interes_id' => $escuela['oferta'],
             'campus_id' => $escuela['campus'],
-            'situacion_id' => $this->deCatalogo('situaciones_aspirante'),
             'etapa_crm_id' => EtapaCrm::query()->orderBy('orden')->value('id'),
         ]);
     }

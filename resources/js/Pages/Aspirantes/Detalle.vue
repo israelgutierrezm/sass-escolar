@@ -4,6 +4,7 @@ import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
+import CampoTextarea from '@/Components/CampoTextarea.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 import ActividadAspirante from '@/Components/ActividadAspirante.vue';
 import CobroAspirante from '@/Components/CobroAspirante.vue';
@@ -146,6 +147,31 @@ function cambiarEstado(entregaId: number, estadoId: number): void {
     );
 }
 
+/*
+ * Descartar es el OTRO desenlace, y por eso el motivo es obligatorio: la razón
+ * es justo lo que se pregunta meses después al revisar por qué se cayó un
+ * prospecto, y una fila de catálogo («Rechazado») no podía darla.
+ *
+ * Se deshace —reactivar— porque un descarte es un juicio, no un hecho: el que
+ * dejó de contestar en marzo puede llamar en agosto.
+ */
+const descartando = ref(false);
+const formDescarte = useForm({ motivo_descarte: '' });
+
+function descartar(): void {
+    formDescarte.post(`/aspirantes/${props.aspirante.id}/descartar`, {
+        preserveScroll: true,
+        onSuccess: () => {
+            descartando.value = false;
+            formDescarte.reset();
+        },
+    });
+}
+
+function reactivar(): void {
+    router.post(`/aspirantes/${props.aspirante.id}/reactivar`, {}, { preserveScroll: true });
+}
+
 function convertir(): void {
     /*
      * Convertir genera matrícula y no se deshace, así que un expediente
@@ -221,10 +247,13 @@ Se le generará su matrícula de todos modos y eso no se puede deshacer. ¿Conti
                                 sitio, porque entrena a no mirarlo.
                             -->
                             <span
-                                v-if="aspirante.situacion && aspirante.situacion !== 'Prospecto'"
+                                v-if="aspirante.desenlace !== 'abierto'"
                                 class="rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                                :style="{ backgroundColor: 'color-mix(in srgb, #b45309 14%, transparent)', color: '#b45309' }"
-                            >{{ aspirante.situacion }}</span>
+                                :style="{
+                                    backgroundColor: `color-mix(in srgb, ${aspirante.desenlace === 'inscrito' ? '#16a34a' : '#b45309'} 14%, transparent)`,
+                                    color: aspirante.desenlace === 'inscrito' ? '#16a34a' : '#b45309',
+                                }"
+                            >{{ aspirante.desenlace === 'inscrito' ? 'Inscrito' : 'Descartado' }}</span>
                             <span
                                 v-if="aspirante.etapa"
                                 class="rounded-full px-2.5 py-0.5 text-xs"
@@ -658,6 +687,86 @@ Se le generará su matrícula de todos modos y eso no se puede deshacer. ¿Conti
                         <p v-else-if="!permisos.convertir" class="mt-3 text-xs text-suave">
                             Tu rol no tiene permiso para convertir aspirantes.
                         </p>
+                    </template>
+                </TarjetaSeccion>
+
+                <!--
+                    El desenlace contrario, al lado del bueno: un prospecto acaba
+                    inscrito o descartado, y las dos decisiones se toman aquí.
+                -->
+                <TarjetaSeccion
+                    v-if="permisos.editar"
+                    titulo="Descarte"
+                    descripcion="Cuando el prospecto se da por perdido. Se puede deshacer."
+                    :icono="ICONOS.alerta"
+                >
+                    <div v-if="aspirante.desenlace === 'descartado'">
+                        <p class="text-sm">
+                            Descartado el {{ aspirante.descartado_en }}.
+                        </p>
+                        <p v-if="aspirante.motivo_descarte" class="mt-1 text-sm text-suave">
+                            {{ aspirante.motivo_descarte }}
+                        </p>
+
+                        <button
+                            type="button"
+                            class="mt-4 w-full rounded-lg border px-4 py-2 text-sm"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                            @click="reactivar"
+                        >
+                            Reactivar prospecto
+                        </button>
+                    </div>
+
+                    <!--
+                        Por qué no se puede, dicho por su nombre. Un botón
+                        ausente sin explicación obliga a adivinar.
+                    -->
+                    <p v-else-if="aspirante.motivo_no_descartable" class="text-sm text-suave">
+                        {{ aspirante.motivo_no_descartable }}
+                    </p>
+
+                    <form v-else-if="descartando" class="space-y-3" @submit.prevent="descartar">
+                        <CampoTextarea
+                            v-model="formDescarte.motivo_descarte"
+                            etiqueta="¿Por qué se descarta?"
+                            :filas="2"
+                            ayuda="Se guarda tal cual: es lo que se lee al revisar por qué se perdió."
+                            :error="formDescarte.errors.motivo_descarte"
+                        />
+
+                        <div class="flex items-center gap-2">
+                            <button
+                                type="submit"
+                                :disabled="formDescarte.processing"
+                                class="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-700 disabled:opacity-60"
+                            >
+                                {{ formDescarte.processing ? 'Descartando…' : 'Descartar' }}
+                            </button>
+                            <button
+                                type="button"
+                                class="rounded-lg border px-4 py-2 text-sm"
+                                :style="{ borderColor: 'var(--color-borde)' }"
+                                @click="descartando = false"
+                            >
+                                Cancelar
+                            </button>
+                        </div>
+                    </form>
+
+                    <template v-else>
+                        <p class="text-sm text-suave">
+                            Sigue abierto. Descartarlo lo saca del embudo sin borrar nada de lo
+                            que ya se le registró.
+                        </p>
+                        <button
+                            type="button"
+                            class="mt-4 w-full rounded-lg border px-4 py-2 text-sm"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                            @click="descartando = true"
+                        >
+                            Descartar prospecto
+                        </button>
                     </template>
                 </TarjetaSeccion>
             </div>

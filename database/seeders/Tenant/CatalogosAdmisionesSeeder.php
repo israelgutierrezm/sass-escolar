@@ -8,7 +8,6 @@ use App\Models\Admisiones\EstadoDocumento;
 use App\Models\Admisiones\EtapaCrm;
 use App\Models\Admisiones\SituacionAlumno;
 use App\Models\Admisiones\SituacionAsesor;
-use App\Models\Admisiones\SituacionAspirante;
 use App\Models\Admisiones\SituacionTutor;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
@@ -24,22 +23,15 @@ class CatalogosAdmisionesSeeder extends Seeder
     public function run(): void
     {
         /*
-         * Sólo DESENLACES, no puntos del recorrido.
+         * `situaciones_aspirante` ya NO se siembra: se retiró.
          *
-         * Traía además «En proceso» y «Aceptado», que son etapas del embudo
-         * disfrazadas de situación: «Aceptado» vivía en los dos catálogos, se
-         * editaba en dos pantallas distintas y nada los sincronizaba. Dos
-         * campos que dicen lo mismo y pueden contradecirse no son redundancia,
-         * son una discusión sin árbitro.
-         *
-         * La ETAPA dice por dónde va; la situación, si sigue vivo, se cayó o
-         * llegó.
+         * Duplicaba al embudo —«Aceptado» vivía en los dos catálogos y podían
+         * contradecirse— y de sus valores, los que informaban se resuelven
+         * mejor por otro lado: INSCRITO se deriva de tener matrícula para la
+         * oferta de interés, y RECHAZADO son `aspirantes.descartado_en` y
+         * `motivo_descarte`, que sí dicen cuándo y por qué.
          */
-        $this->sembrar(SituacionAspirante::class, [
-            ['clave' => 'prospecto', 'nombre' => 'Prospecto'],
-            ['clave' => 'rechazado', 'nombre' => 'Rechazado'],
-            ['clave' => 'inscrito', 'nombre' => 'Inscrito'],
-        ]);
+
 
         $this->sembrar(SituacionAsesor::class, [
             ['clave' => 'activo', 'nombre' => 'Activo'],

@@ -108,9 +108,45 @@ class AgendaDelAspirante
             ]);
 
             $this->moverEtapa($actividad, $datos['etapa_destino_id'] ?? null);
+            $this->cerrarElEmbudoSiToca($actividad, $resultado);
 
             return $actividad->fresh();
         });
+    }
+
+    /**
+     * Un desenlace que CIERRA EL EMBUDO descarta al prospecto.
+     *
+     * ── Por qué se ata aquí ───────────────────────────────────────────────
+     * `resultados_seguimiento.cierra_el_embudo` existía desde el CRM y sólo se
+     * DIBUJABA: marcar «no le interesa» dejaba al prospecto abierto, y entonces
+     * la bitácora decía que se perdió mientras el padrón lo seguía contando.
+     * Dos verdades sobre lo mismo, que es exactamente el defecto por el que se
+     * retiró `situaciones_aspirante`.
+     *
+     * ── Y no se toca a quien ya se inscribió ──────────────────────────────
+     * Su matrícula existe: un «no contestó» tardío no puede descartar a alguien
+     * que acabó matriculándose. Lo decide `motivoParaNoDescartar`, que es el
+     * mismo que usa la pantalla.
+     */
+    private function cerrarElEmbudoSiToca(SeguimientoAspirante $actividad, ResultadoSeguimiento $resultado): void
+    {
+        if (! $resultado->cierra_el_embudo) {
+            return;
+        }
+
+        $aspirante = $actividad->aspirante;
+
+        if ($aspirante === null || $aspirante->motivoParaNoDescartar() !== null) {
+            return;
+        }
+
+        // El motivo sale del RESULTADO: es la razón que quien atendió eligió, y
+        // pedirla otra vez sería pedir dos veces lo mismo.
+        $aspirante->update([
+            'descartado_en' => now(),
+            'motivo_descarte' => $resultado->nombre,
+        ]);
     }
 
     /**

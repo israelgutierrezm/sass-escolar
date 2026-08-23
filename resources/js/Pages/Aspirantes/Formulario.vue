@@ -32,7 +32,6 @@ interface AspiranteEditable {
     telefono_local: string | null;
     oferta_interes_id: number | null;
     campus_id: number | null;
-    situacion_id: number | null;
     origen_id: number | null;
     origen: string | null;
 }
@@ -44,7 +43,6 @@ const props = defineProps<{
     entidadExtranjero: Opcion | null;
     paises: Opcion[];
     mexicoId: number | null;
-    situaciones: Opcion[];
     origenes: Opcion[];
     campus: Opcion[];
     ofertas: { id: number; etiqueta: string; campus_id: number | null }[];
@@ -68,7 +66,6 @@ const form = useForm({
     telefono_local: props.aspirante?.telefono_local ?? '',
     oferta_interes_id: props.aspirante?.oferta_interes_id ?? null,
     campus_id: props.aspirante?.campus_id ?? null,
-    situacion_id: props.aspirante?.situacion_id ?? props.situaciones[0]?.id ?? null,
     origen_id: props.aspirante?.origen_id ?? null,
     origen: props.aspirante?.origen ?? '',
 });
@@ -152,13 +149,6 @@ function enviar(): void {
                         "
                     />
 
-                    <CampoSelect
-                        v-model="form.situacion_id"
-                        etiqueta="Situación"
-                        requerido
-                        :opciones="situaciones.map((s) => ({ valor: s.id, texto: s.nombre }))"
-                        :error="form.errors.situacion_id"
-                    />
 
                     <div>
                         <CampoSelect

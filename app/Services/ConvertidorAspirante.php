@@ -12,7 +12,6 @@ use App\Models\Admisiones\EtapaCrm;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\RespuestaCampo;
 use App\Models\Admisiones\SituacionAlumno;
-use App\Models\Admisiones\SituacionAspirante;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -103,10 +102,19 @@ class ConvertidorAspirante
              */
             $ultimaEtapa = EtapaCrm::query()->orderByDesc('orden')->value('id');
 
+            /*
+             * Ya no se escribe ninguna «situación»: que está inscrito lo dice
+             * la matrícula que se acaba de crear, y `Aspirante::estaInscrito()`
+             * lo deriva de ella. Un campo aparte podía quedarse en «Prospecto»
+             * con matrícula puesta, y nada se quejaba.
+             */
             $aspirante->update([
-                'situacion_id' => SituacionAspirante::query()->where('clave', 'inscrito')->value('id'),
                 'etapa_crm_id' => $ultimaEtapa ?? $aspirante->etapa_crm_id,
                 'validado_admin' => true,
+                // Si venía descartado y acabó inscribiéndose, el descarte deja
+                // de ser cierto.
+                'descartado_en' => null,
+                'motivo_descarte' => null,
             ]);
 
             return $matricula;

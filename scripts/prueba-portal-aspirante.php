@@ -19,7 +19,6 @@ use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\Admisiones\EstadoDocumento;
 use App\Models\Admisiones\EtapaCrm;
 use App\Models\Admisiones\ExpedienteDocumento;
-use App\Models\Admisiones\SituacionAspirante;
 use App\Models\Finanzas\Adeudo;
 use App\Models\Finanzas\ConceptoPago;
 use App\Models\Finanzas\MetodoPago;
@@ -80,7 +79,6 @@ try {
 
     $aspirante = Aspirante::create([
         'persona_id' => $persona->id,
-        'situacion_id' => SituacionAspirante::query()->value('id'),
         'etapa_crm_id' => $etapas->first()->id,
     ]);
 

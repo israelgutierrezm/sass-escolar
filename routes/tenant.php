@@ -333,6 +333,11 @@ Route::middleware([
             Route::put('/{aspirante}', 'update')->middleware('can:editar-aspirantes')->name('update');
             // La matrícula nace aquí, no antes.
             Route::post('/{aspirante}/convertir', 'convertir')->middleware('can:convertir-aspirante')->name('convertir');
+            // Dar por perdido a un prospecto, y deshacerlo. Cuelga de
+            // `editar-aspirantes` y no de `convertir-aspirante`: descartar es
+            // parte de atender el embudo, no de generar matrícula.
+            Route::post('/{aspirante}/descartar', 'descartar')->middleware('can:editar-aspirantes')->name('descartar');
+            Route::post('/{aspirante}/reactivar', 'reactivar')->middleware('can:editar-aspirantes')->name('reactivar');
             // La papelera del embudo: duplicados y registros de prueba. Pide el
             // permiso de editar, no uno propio: quien corrige un prospecto es
             // quien limpia los que sobran.

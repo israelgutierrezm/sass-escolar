@@ -78,7 +78,6 @@ try {
     $situacionDocente = DB::table('situaciones_docente')->value('id');
     $situacionAlumno = DB::table('situaciones_alumno')->where('clave', 'activo')->value('id')
         ?? DB::table('situaciones_alumno')->value('id');
-    $situacionAspirante = DB::table('situaciones_aspirante')->value('id');
     $etapaCrm = DB::table('etapas_crm')->orderBy('orden')->value('id');
     $origen = DB::table('origenes_aspirante')->value('id') ?? DB::table('origenes')->value('id');
 
@@ -108,7 +107,6 @@ try {
     $p3 = nuevaPersona();
     Aspirante::create([
         'persona_id' => $p3->id,
-        'situacion_id' => $situacionAspirante,
         'etapa_crm_id' => $etapaCrm,
         'origen_id' => $origen,
     ]);

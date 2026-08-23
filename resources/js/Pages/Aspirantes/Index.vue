@@ -16,7 +16,8 @@ interface FilaAspirante {
     email: string | null;
     celular: string | null;
     foto: string | null;
-    situacion: string | null;
+    desenlace: string;
+    motivo_descarte: string | null;
     etapa: string | null;
     campus: string | null;
     oferta: string | null;
@@ -38,7 +39,6 @@ const props = defineProps<{
         to: number | null;
     };
     filtros: Record<string, any>;
-    situaciones: { id: number; nombre: string }[];
     etapas: { id: number; nombre: string }[];
     origenes: { id: number; nombre: string }[];
     campusDisponibles: { id: number; nombre: string }[];
@@ -58,7 +58,17 @@ const definicionFiltros = [
      * ocupa ancho y entrena a no mirarla. Como filtro sí sirve, que es
      * justamente cuando se busca la excepción: «enséñame los rechazados».
      */
-    { clave: 'situacion_id', etiqueta: 'Situación', opciones: props.situaciones.map((s) => ({ valor: s.id, texto: s.nombre })) },
+    // El desenlace ya no sale de un catálogo: se deriva. Inscrito lo dice su
+    // matrícula y descartado, la fecha de descarte.
+    {
+        clave: 'desenlace',
+        etiqueta: 'Desenlace',
+        opciones: [
+            { valor: 'abierto', texto: 'Sigue abierto' },
+            { valor: 'descartado', texto: 'Descartado' },
+            { valor: 'inscrito', texto: 'Ya inscrito' },
+        ],
+    },
     { clave: 'etapa_crm_id', etiqueta: 'Etapa del embudo', opciones: props.etapas.map((e) => ({ valor: e.id, texto: e.nombre })) },
     { clave: 'origen_id', etiqueta: 'Cómo llegó', opciones: props.origenes.map((o) => ({ valor: o.id, texto: o.nombre })) },
     { clave: 'campus_id', etiqueta: 'Campus', opciones: props.campusDisponibles.map((c) => ({ valor: c.id, texto: c.nombre })) },
@@ -117,7 +127,7 @@ function eliminar(aspirante: { id: number; nombre_completo: string | null }): vo
                     :identificador="aspirante.curp"
                     :foto="aspirante.foto"
                     :lineas="[aspirante.oferta, aspirante.campus, aspirante.celular ?? aspirante.email, aspirante.etapa]"
-                    :estado="aspirante.situacion === 'Prospecto' ? null : aspirante.situacion"
+                    :estado="aspirante.desenlace === 'abierto' ? null : (aspirante.desenlace === 'inscrito' ? 'Inscrito' : 'Descartado')"
                     :aviso="aspirante.etapa ? null : 'fuera del embudo'"
                     :url="`/aspirantes/${aspirante.id}`"
                 />
@@ -175,12 +185,33 @@ function eliminar(aspirante: { id: number; nombre_completo: string | null }): vo
 
                                 <!-- Etapa -->
                                 <td class="px-4 py-4">
+                                  <div class="flex flex-wrap items-center gap-1">
                                     <span
                                         v-if="aspirante.etapa"
                                         class="inline-block rounded-full px-2.5 py-0.5 text-[11px]"
                                         :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 10%, transparent)', color: 'var(--color-acento)' }"
                                     >{{ aspirante.etapa }}</span>
                                     <span v-else class="text-[11px] font-medium" :style="{ color: '#b45309' }">Fuera del embudo</span>
+
+                                    <!--
+                                        El desenlace, en la MISMA celda que la
+                                        etapa: son la misma pregunta —dónde
+                                        quedó— y en columna aparte estaría vacía
+                                        en casi todos los renglones. Sin esto, un
+                                        descartado se ve idéntico a uno abierto y
+                                        el filtro devuelve filas que no dicen por
+                                        qué salieron.
+                                    -->
+                                    <span
+                                        v-if="aspirante.desenlace !== 'abierto'"
+                                        class="inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
+                                        :style="{
+                                            backgroundColor: `color-mix(in srgb, ${aspirante.desenlace === 'inscrito' ? '#16a34a' : '#b45309'} 14%, transparent)`,
+                                            color: aspirante.desenlace === 'inscrito' ? '#16a34a' : '#b45309',
+                                        }"
+                                        :title="aspirante.motivo_descarte ?? undefined"
+                                    >{{ aspirante.desenlace === 'inscrito' ? 'Inscrito' : 'Descartado' }}</span>
+                                  </div>
                                 </td>
 
                                 <!-- Cómo llegó -->

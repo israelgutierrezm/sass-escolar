@@ -7,7 +7,6 @@ namespace App\Services;
 use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\EtapaCrm;
 use App\Models\Admisiones\RespuestaCampo;
-use App\Models\Admisiones\SituacionAspirante;
 use App\Models\Formularios\CampoFormulario;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\Usuario;
@@ -85,7 +84,6 @@ class RegistradorProspecto
                 'persona_id' => $persona->id,
                 'oferta_interes_id' => $ofertaId,
                 'campus_id' => $publicacion->campus_id,
-                'situacion_id' => SituacionAspirante::query()->value('id'),
                 'etapa_crm_id' => $publicacion->etapa_crm_id ?? EtapaCrm::orderBy('orden')->value('id'),
                 'origen_id' => $publicacion->origen_id ?? $this->origenAutogestivoPorDefecto(),
                 'acepto_terminos' => (bool) ($datos['acepto_terminos'] ?? false),

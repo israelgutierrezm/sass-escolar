@@ -26,7 +26,6 @@ use App\Models\Academico\Campus;
 use App\Models\Academico\Oferta;
 use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\EtapaCrm;
-use App\Models\Admisiones\SituacionAspirante;
 use App\Models\ControlEscolar\Ciclo;
 use App\Models\ControlEscolar\Grupo;
 use App\Models\ControlEscolar\SituacionGrupo;
@@ -115,37 +114,67 @@ try {
 
     $todos = props($aspiranteController, 'index', $dirección);
 
-    verificar('El listado trae los catálogos de los cinco filtros',
-        isset($todos['situaciones'], $todos['etapas'], $todos['origenes'], $todos['campusDisponibles'], $todos['ofertas']));
+    // Ya no viene `situaciones`: el desenlace se deriva y sus tres valores los
+    // escribe la pantalla. Quedan cuatro catálogos.
+    verificar('El listado trae los catálogos de sus cuatro filtros',
+        isset($todos['etapas'], $todos['origenes'], $todos['campusDisponibles'], $todos['ofertas'])
+        && ! array_key_exists('situaciones', $todos));
 
-    $muestra = Aspirante::query()->whereNotNull('situacion_id')->first();
+    $muestra = Aspirante::query()->whereNull('descartado_en')->first();
 
     if ($muestra === null) {
         verificar('Hay al menos un aspirante sembrado para filtrar', false, 'sin datos');
     } else {
-        $porSituacion = props($aspiranteController, 'index', $dirección, ['situacion_id' => $muestra->situacion_id]);
-        $situaciones = array_unique(array_column($porSituacion['aspirantes']['data'], 'situacion'));
+        /*
+         * El caso se CONSTRUYE: en el demo no hay ningún descartado, y una
+         * prueba que se salta la comprobación cuando no encuentra el caso es una
+         * prueba que se apaga sola.
+         */
+        $muestra->update(['descartado_en' => now(), 'motivo_descarte' => 'Prueba']);
 
-        verificar('Filtrar por situación devuelve solo esa situación',
-            count($situaciones) <= 1, implode(', ', $situaciones));
+        $descartados = props($aspiranteController, 'index', $dirección, ['desenlace' => 'descartado']);
+        $ids = array_column($descartados['aspirantes']['data'], 'id');
 
-        verificar('Y devuelve menos o igual que el total',
-            $porSituacion['aspirantes']['total'] <= $todos['aspirantes']['total'],
-            "{$porSituacion['aspirantes']['total']} de {$todos['aspirantes']['total']}");
+        verificar('Filtrar por «descartado» trae al que acabamos de descartar',
+            in_array($muestra->id, $ids, true), implode(', ', $ids));
 
-        // Situación real + una etapa que ese aspirante NO tiene: si el segundo
+        /*
+         * Y lo que el renglón DICE, no sólo a quién trae.
+         *
+         * El desenlace del listado sale de una subconsulta (`withExists`) y el
+         * filtro de otro sitio (los scopes): si la subconsulta mintiera, el
+         * filtro seguiría trayendo a los correctos y la insignia diría
+         * «Inscrito» de todo el mundo sin que nada se quejara.
+         */
+        $dichos = array_unique(array_column($descartados['aspirantes']['data'], 'desenlace'));
+
+        verificar('Y cada renglón se DECLARA descartado, no sólo cae en el filtro',
+            $dichos === ['descartado'], implode(', ', $dichos));
+
+        $abiertos = props($aspiranteController, 'index', $dirección, ['desenlace' => 'abierto']);
+
+        verificar('Y «abierto» ya NO lo trae: los dos lados del filtro se comprueban',
+            ! in_array($muestra->id, array_column($abiertos['aspirantes']['data'], 'id'), true));
+
+        verificar('Los dos juntos suman el total sin filtro',
+            $descartados['aspirantes']['total'] + $abiertos['aspirantes']['total']
+                + props($aspiranteController, 'index', $dirección, ['desenlace' => 'inscrito'])['aspirantes']['total']
+                === $todos['aspirantes']['total'],
+            "{$descartados['aspirantes']['total']} + {$abiertos['aspirantes']['total']} vs {$todos['aspirantes']['total']}");
+
+        // Desenlace real + una etapa que ese aspirante NO tiene: si el segundo
         // filtro se ignorara, seguirían apareciendo resultados.
         $etapaAjena = EtapaCrm::query()->where('id', '!=', (int) $muestra->etapa_crm_id)->value('id');
 
         if ($etapaAjena !== null) {
             $cruzado = props($aspiranteController, 'index', $dirección, [
-                'situacion_id' => $muestra->situacion_id,
+                'desenlace' => 'descartado',
                 'etapa_crm_id' => $etapaAjena,
             ]);
 
             verificar('Dos filtros se INTERSECTAN, no se suman',
-                $cruzado['aspirantes']['total'] <= $porSituacion['aspirantes']['total'],
-                "{$cruzado['aspirantes']['total']} ≤ {$porSituacion['aspirantes']['total']}");
+                ! in_array($muestra->id, array_column($cruzado['aspirantes']['data'], 'id'), true),
+                (string) $cruzado['aspirantes']['total']);
         }
 
         $inexistente = props($aspiranteController, 'index', $dirección, ['busqueda' => 'zzzzz-no-existe']);
@@ -235,7 +264,6 @@ try {
         // Sin `sexo_id`: se dejó de preguntar (se deriva). Con correo: pasó a
         // ser obligatorio porque es la credencial del portal del aspirante.
         'email' => 'alta.manual.'.random_int(100000, 999999).'@ejemplo.mx',
-        'situacion_id' => SituacionAspirante::query()->value('id'),
         'origen_id' => $origen?->id,
         // El campus se volvió OBLIGATORIO: de él depende a quién se le reparte
         // el prospecto —el turno va entre los asesores de su campus—, y sin él

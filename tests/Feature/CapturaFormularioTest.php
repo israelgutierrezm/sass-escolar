@@ -211,7 +211,6 @@ class CapturaFormularioTest extends TenantTestCase
 
         $ajeno = Aspirante::create([
             'persona_id' => Persona::create(['nombre' => 'Otro', 'primer_apellido' => 'Distinto'])->id,
-            'situacion_id' => $this->deCatalogo('situaciones_aspirante'),
         ]);
 
         $this->expectException(HttpException::class);
@@ -412,7 +411,6 @@ class CapturaFormularioTest extends TenantTestCase
 
         $aspirante = Aspirante::create([
             'persona_id' => $persona->id,
-            'situacion_id' => $this->deCatalogo('situaciones_aspirante'),
         ]);
 
         $formulario = Formulario::create(['clave' => 'salud', 'titulo' => 'Salud', 'version' => 1, 'orden' => 1]);

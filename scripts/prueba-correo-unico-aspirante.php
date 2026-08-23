@@ -85,8 +85,7 @@ try {
     verificar('La cuenta nace SIN el correo ajeno (null)', $cuenta !== null && $cuenta->email === null, (string) $cuenta?->email);
 
     echo PHP_EOL.'3. La validación rechaza un correo en uso y deja pasar el reusado por CURP'.PHP_EOL;
-    $situacionId = App\Models\Admisiones\SituacionAspirante::query()->value('id');
-    $base = ['nombre' => 'X', 'primer_apellido' => 'Y', 'situacion_id' => $situacionId];
+    $base = ['nombre' => 'X', 'primer_apellido' => 'Y'];
 
     $vDup = validarAspirante([...$base, 'email' => $correoA]);
     verificar('Rechaza correo en uso por otra persona', $vDup->errors()->has('email'), implode(',', $vDup->errors()->get('email')));

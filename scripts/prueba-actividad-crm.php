@@ -19,7 +19,6 @@ use App\Models\Academico\Campus;
 use App\Models\Admisiones\Asesor;
 use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\EtapaCrm;
-use App\Models\Admisiones\SituacionAspirante;
 use App\Models\Identidad\Persona;
 use App\Models\Promocion\SeguimientoAspirante;
 use App\Models\Tenant;
@@ -83,7 +82,6 @@ try {
         return Aspirante::create([
             'persona_id' => $persona->id,
             'campus_id' => $enCampus ?? $campus,
-            'situacion_id' => SituacionAspirante::query()->value('id'),
             'etapa_crm_id' => EtapaCrm::query()->orderBy('orden')->value('id'),
         ]);
     };

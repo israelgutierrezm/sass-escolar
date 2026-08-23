@@ -19,7 +19,6 @@ use App\Models\Admisiones\Asesor;
 use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\EtapaCrm;
 use App\Models\Admisiones\SituacionAsesor;
-use App\Models\Admisiones\SituacionAspirante;
 use App\Models\Finanzas\Adeudo;
 use App\Models\Finanzas\ConceptoPago;
 use App\Models\Identidad\Persona;
@@ -95,7 +94,6 @@ DB::beginTransaction();
 try {
     $embudo = app(EmbudoAdmision::class);
     $oferta = Oferta::query()->with('carrera')->firstOrFail();
-    $situacionAspirante = SituacionAspirante::query()->value('id');
 
     echo '1. El embudo dejó de ser un catálogo huérfano'.PHP_EOL;
 
@@ -129,7 +127,6 @@ try {
     $mio = Aspirante::create([
         'persona_id' => Persona::create(['nombre' => 'Prospecto', 'primer_apellido' => 'Uno', 'sexo_id' => 2])->id,
         'oferta_interes_id' => $oferta->id,
-        'situacion_id' => $situacionAspirante,
         'etapa_crm_id' => $etapas->first()->id,
         'origen_id' => $promocionOrigen->id,
     ]);
@@ -137,7 +134,6 @@ try {
     $ajeno = Aspirante::create([
         'persona_id' => Persona::create(['nombre' => 'Prospecto', 'primer_apellido' => 'Dos', 'sexo_id' => 2])->id,
         'oferta_interes_id' => $oferta->id,
-        'situacion_id' => $situacionAspirante,
         'etapa_crm_id' => $etapas->first()->id,
         'origen_id' => $web->id,
     ]);
@@ -294,7 +290,6 @@ try {
     $sinPromotor = Aspirante::create([
         'persona_id' => Persona::create(['nombre' => 'Prospecto', 'primer_apellido' => 'Tres', 'sexo_id' => 1])->id,
         'oferta_interes_id' => $oferta->id,
-        'situacion_id' => $situacionAspirante,
         'etapa_crm_id' => $etapas->first()->id,
         'origen_id' => $web->id,
     ]);
@@ -310,7 +305,6 @@ try {
     $soloAcompana = Aspirante::create([
         'persona_id' => Persona::create(['nombre' => 'Prospecto', 'primer_apellido' => 'Cuatro', 'sexo_id' => 1])->id,
         'oferta_interes_id' => $oferta->id,
-        'situacion_id' => $situacionAspirante,
         'etapa_crm_id' => $etapas->first()->id,
     ]);
     $soloAcompana->asesores()->attach($personaB->id, ['titular' => false]);

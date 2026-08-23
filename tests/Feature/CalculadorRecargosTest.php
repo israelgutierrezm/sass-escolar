@@ -269,17 +269,8 @@ class CalculadorRecargosTest extends TenantTestCase
             'updated_at' => now(),
         ]);
 
-        $situacionId = DB::table('situaciones_aspirante')->value('id')
-            ?? DB::table('situaciones_aspirante')->insertGetId([
-                'clave' => 'prueba',
-                'nombre' => 'De prueba',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-
         return DB::table('aspirantes')->insertGetId([
             'persona_id' => $personaId,
-            'situacion_id' => $situacionId,
             'created_at' => now(),
             'updated_at' => now(),
         ]);

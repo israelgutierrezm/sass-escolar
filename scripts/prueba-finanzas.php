@@ -20,7 +20,6 @@
 use App\Models\Academico\Oferta;
 use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\MatriculaOferta;
-use App\Models\Admisiones\SituacionAspirante;
 use App\Models\Finanzas\Adeudo;
 use App\Models\Finanzas\BitacoraSituacionFinanciera;
 use App\Models\Finanzas\ConceptoPago;
@@ -105,7 +104,6 @@ try {
         'persona_id' => $persona->id,
         'oferta_interes_id' => $oferta->id,
         'campus_id' => $oferta->campus_id,
-        'situacion_id' => SituacionAspirante::query()->value('id'),
         'acepto_terminos' => true,
     ]);
 
@@ -342,7 +340,6 @@ try {
             'persona_id' => $persona->id,
             'oferta_interes_id' => $ofertaB->id,
             'campus_id' => $ofertaB->campus_id,
-            'situacion_id' => SituacionAspirante::query()->value('id'),
         ]);
 
         $fichaB = Adeudo::create([

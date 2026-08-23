@@ -484,7 +484,6 @@ class ResolutorFormulariosTest extends TenantTestCase
         return Aspirante::create([
             'persona_id' => $persona->id,
             'oferta_interes_id' => $ofertaId,
-            'situacion_id' => $this->deCatalogo('situaciones_aspirante'),
         ]);
     }
 }

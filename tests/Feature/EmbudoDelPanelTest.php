@@ -117,8 +117,6 @@ class EmbudoDelPanelTest extends TenantTestCase
 
     private function prospectosEn(EtapaCrm $etapa, int $cuantos): void
     {
-        $situacion = $this->deCatalogo('situaciones_aspirante');
-
         for ($i = 0; $i < $cuantos; $i++) {
             $persona = Persona::create([
                 'nombre' => 'Prospecto '.$i,
@@ -127,7 +125,6 @@ class EmbudoDelPanelTest extends TenantTestCase
 
             Aspirante::create([
                 'persona_id' => $persona->id,
-                'situacion_id' => $situacion,
                 'etapa_crm_id' => $etapa->id,
             ]);
         }

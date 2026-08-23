@@ -78,7 +78,6 @@ class FichaAspiranteTest extends TenantTestCase
 
         $datos = [
             'persona_id' => $persona->id,
-            'situacion_id' => $this->deCatalogo('situaciones_aspirante'),
         ];
 
         if ($ofertaId !== null) {

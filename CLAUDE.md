@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**81 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**82 archivos `prueba-*.php`**;
    esta lista decía 23 y llevaba tiempo desactualizada). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
    imprimen `Resultado: N correctas, M fallidas`. **Ojo al barrer con `grep`**:
@@ -57,7 +57,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 81 están en verde**, barridas el 2026-08-23. Llegaron a estar 33 en rojo —no trece: ese primer
+   **Las 82 están en verde**, barridas el 2026-08-23. Llegaron a estar 33 en rojo —no trece: ese primer
    conteo sólo miró las que imprimían «N fallidas» e ignoró las 21 que morían
    antes, con una excepción sin resumen—. Ninguna caía por un cambio reciente;
    se comprobó corriéndolas contra el árbol limpio.
@@ -664,8 +664,8 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     tenía asesor. Lo cazó `prueba-actividad-crm`.
   - Pruebas: `scripts/prueba-actividad-crm.php`, 29 verificaciones, comprobada
     mutando la regla de re-cierre (caen exactamente las tres que la vigilan).
-- Pruebas: 81 suites en `scripts/`, contra la BD real del tenant demo con
-  `DB::rollBack()` al final. **81 en verde** (ver la regla 5 para qué tumbó a
+- Pruebas: 82 suites en `scripts/`, contra la BD real del tenant demo con
+  `DB::rollBack()` al final. **82 en verde** (ver la regla 5 para qué tumbó a
   las 33 que estuvieron en rojo). `prueba-listados` es la primera
   que invoca a los CONTROLADORES y lee sus props de Inertia, en vez de
   reimplementar la consulta: un `or` sin paréntesis no se detecta de otra forma.
@@ -1960,6 +1960,59 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     `--reparar`, la escuela entera se quedaba sin herencia de permisos—. Lo fija
     `AuditarDatosTest`.
 
+- **El desenlace del aspirante se DERIVA: `situaciones_aspirante` se retiró**
+  (2026-08-23, decidido con el cliente el 2026-08-11). Era el último catálogo que
+  duplicaba al embudo: de sus cinco valores, tres eran puntos del recorrido
+  —que dice la etapa— y los dos que informaban de verdad se resuelven mejor por
+  otro lado.
+  - **INSCRITO sale de tener `matricula_oferta` PARA SU OFERTA DE INTERÉS.** Es
+    más cierto que el campo —con él se podía estar «Inscrito» sin matrícula y
+    nada se quejaba— y es la misma pareja (persona, oferta) que
+    `ConvertidorAspirante` ya comprobaba antes de convertir. Por la OFERTA y no
+    por «tiene alguna matrícula»: quien ya estudia una carrera y se postula a
+    una segunda sigue siendo un prospecto abierto para ésa, y darlo por inscrito
+    lo sacaría del embudo desde el primer día.
+  - **RECHAZADO se volvió `descartado_en` + `motivo_descarte`.** Un descarte
+    tiene FECHA y RAZÓN, y una fila de catálogo no puede darlas: «Rechazado» no
+    dice ni cuándo ni por qué, que es justo lo que se pregunta al revisar por
+    qué se cayó un prospecto. El motivo es obligatorio por eso mismo, y
+    reactivar se lo lleva.
+  - **A los que ya estaban rechazados se les puso `descartado_en` con su
+    `updated_at`, y el motivo se dejó en NULL**: nunca hubo uno guardado, y
+    escribir «Rechazado» ahí sería fabricar una razón que nadie dio.
+  - **`resultados_seguimiento.cierra_el_embudo` por fin hace algo.** Existía
+    desde el CRM y sólo se DIBUJABA: marcar «no le interesa» dejaba al prospecto
+    abierto, así que la bitácora decía que se perdió mientras el padrón lo
+    seguía contando. Ahora descarta, con el nombre del resultado como motivo
+    —es la razón que quien atendió ya eligió, y pedirla otra vez sería pedir dos
+    veces lo mismo—.
+  - **Al inscrito no se le descarta por ninguna de las dos puertas**: lo decide
+    `motivoParaNoDescartar()`, que usan la pantalla y la agenda.
+  - **`matriculaDeSuOferta()` sólo sirve CORRELACIONADA** —`whereHas`,
+    `whereDoesntHave`, `withExists`—. Precargarla con `with()` revienta con
+    «Unknown column 'aspirantes.oferta_interes_id'», porque ahí la relación se
+    consulta sola y la tabla del padre no está en el FROM. El listado usa
+    `withExists('matriculaDeSuOferta as ya_inscrito')`, y `estaInscrito()` se lo
+    cree si está: repetirlo por fila es la consulta N+1 que se venía a evitar.
+    Mordió al correr `prueba-listados`, con la precarga puesta por mí y encima
+    inútil.
+  - Pruebas: `scripts/prueba-desenlace-aspirante.php`, 22 verificaciones,
+    comprobada mutando cinco reglas —ignorar la oferta al derivar inscrito,
+    apagar `cierra_el_embudo`, quitar la defensa del inscrito, aflojar el motivo
+    a `nullable` y dejar que reactivar conserve el motivo— y caen exactamente
+    las que las vigilan.
+  - **Una mutación destapó un hueco en `prueba-listados`**: comprobaba a QUIÉN
+    trae el filtro pero no lo que el renglón DICE, así que una subconsulta que
+    mintiera —`ya_inscrito` siempre a 1— dejaba la insignia diciendo «Inscrito»
+    de todo el mundo y la prueba seguía en verde. El filtro sale de los scopes y
+    la insignia del `withExists`: son dos caminos y hay que comprobar los dos.
+  - **Y en el navegador salió lo que ninguna prueba iba a ver**: en vista de
+    lista un descartado se veía idéntico a uno abierto —el desenlace sólo estaba
+    en la cuadrícula—, de modo que filtrar por «Descartado» devolvía filas que no
+    decían por qué habían salido. La insignia va en la MISMA celda que la etapa,
+    porque son la misma pregunta —dónde quedó— y en columna aparte estaría vacía
+    en casi todos los renglones.
+
 **Pendiente inmediato — aquí se retoma:**
 
 *(Antes de tomar algo de esta lista, COMPROBARLO en el código. **Ya van cinco**
@@ -1968,32 +2021,8 @@ alumno, los horarios, la pasarela de pago y el panel del landlord. Las tres
 últimas se cayeron al comprobarlas el 2026-08-19; lo comprobado ese día está
 marcado abajo con su fecha, y lo que NO la lleve sigue sin verificar.)*
 
-0. **ELIMINAR LA SITUACIÓN DEL ASPIRANTE por completo** (decidido con el
-   cliente el 2026-08-11; se aplazó a una sesión propia por tamaño).
-
-   *Por qué*: `situaciones_aspirante` duplicaba al embudo. Ya se le retiraron
-   «En proceso» y «Aceptado» —eran etapas disfrazadas de desenlace—, la columna
-   salió de la tabla y en la ficha se calla mientras diga «Prospecto». Quedan
-   tres valores y sólo dos informan, así que el campo entero se va.
-
-   *Dónde van los dos que informan* —esta es la parte que no se puede
-   improvisar—:
-   - **Inscrito** → se DERIVA de tener `matricula_oferta`. Es más cierto que el
-     campo: hoy se puede tener situación «Inscrito» sin matrícula y nada se
-     queja.
-   - **Rechazado** → columnas nuevas en `aspirantes`: `descartado_en`
-     (timestamp) y `motivo_descarte`. Un descarte tiene fecha y razón; una fila
-     de catálogo no puede darlas.
-
-   *Alcance medido*: 6 archivos de aplicación (`AspiranteController`,
-   `GuardarAspiranteRequest`, `Aspirante`, `SituacionAspirante`,
-   `ConvertidorAspirante`, `RegistradorProspecto`), el seeder de admisiones,
-   8 suites de `scripts/` y 11 pruebas de `tests/Feature`. Más el `DROP` de la
-   tabla y de `aspirantes.situacion_id`.
-
-   *Por dónde empezar*: `ConvertidorAspirante` la escribe en TRES sitios y
-   `GuardarAspiranteRequest` la exige `required`; mientras esos dos no cambien,
-   nada más se puede tocar.
+0. ~~**ELIMINAR LA SITUACIÓN DEL ASPIRANTE**~~ — **hecho el 2026-08-23.** Ver
+   «El desenlace del aspirante se deriva» en el estado, más arriba.
 
 1. ~~**Impresión del acta**~~ — **hecha el 2026-08-22.** Ver «El acta impresa»
    en el estado, más arriba.

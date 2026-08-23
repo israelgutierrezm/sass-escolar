@@ -213,7 +213,6 @@ class PortalSolicitudDatosTest extends TenantTestCase
         return Aspirante::create([
             'persona_id' => $persona->id,
             'oferta_interes_id' => $escuela['oferta'],
-            'situacion_id' => $this->situacionCon('situaciones_aspirante', 'prospecto'),
         ]);
     }
 }

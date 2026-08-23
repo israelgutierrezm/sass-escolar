@@ -45,7 +45,6 @@ class EliminarAspiranteTest extends TenantTestCase
 
         $aspirante = Aspirante::create([
             'persona_id' => DB::table('matricula_oferta')->where('id', $escuela['matricula'])->value('persona_id'),
-            'situacion_id' => $this->deCatalogo('situaciones_aspirante'),
         ]);
 
         $respuesta = $this->eliminar($aspirante);
@@ -72,7 +71,6 @@ class EliminarAspiranteTest extends TenantTestCase
 
         return Aspirante::create([
             'persona_id' => $persona->id,
-            'situacion_id' => $this->deCatalogo('situaciones_aspirante'),
         ]);
     }
 }

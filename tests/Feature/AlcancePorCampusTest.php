@@ -133,7 +133,6 @@ class AlcancePorCampusTest extends TenantTestCase
         return $this->fila('aspirantes', [
             'persona_id' => $persona,
             'campus_id' => $campus,
-            'situacion_id' => $this->deCatalogo('situaciones_aspirante'),
         ]);
     }
 

@@ -14,7 +14,6 @@ use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\Admisiones\EstadoDocumento;
 use App\Models\Admisiones\EtapaCrm;
 use App\Models\Admisiones\MatriculaOferta;
-use App\Models\Admisiones\SituacionAspirante;
 use App\Models\Identidad\Persona;
 use App\Models\Promocion\OrigenAspirante;
 use App\Models\Promocion\ResultadoSeguimiento;
@@ -56,7 +55,9 @@ class AspiranteController extends Controller
         // el CRM, así que ya se puede filtrar por él sin adivinar.
         $filtros = [
             'busqueda' => trim((string) $request->query('busqueda', '')),
-            'situacion_id' => $request->query('situacion_id'),
+            // El DESENLACE ya no es un catálogo: se deriva. Abierto = ni
+            // descartado ni inscrito; los otros dos, sus scopes.
+            'desenlace' => $request->query('desenlace'),
             'etapa_crm_id' => $request->query('etapa_crm_id'),
             'origen_id' => $request->query('origen_id'),
             'campus_id' => $request->query('campus_id'),
@@ -64,7 +65,11 @@ class AspiranteController extends Controller
         ];
 
         $aspirantes = Aspirante::query()
-            ->with(['persona', 'situacion', 'campus', 'ofertaInteres.carrera', 'etapa:id,nombre', 'origenAspirante:id,nombre'])
+            ->with(['persona', 'campus', 'ofertaInteres.carrera', 'etapa:id,nombre', 'origenAspirante:id,nombre'])
+            // El desenlace de cada renglón, en la misma consulta. `with()` no
+            // vale: la relación va correlacionada contra `aspirantes` y
+            // precargarla la deja sin su tabla padre en el FROM.
+            ->withExists('matriculaDeSuOferta as ya_inscrito')
             // Quien administra un campus atiende a los prospectos de su campus:
             // el embudo de otro no es asunto suyo, y los contactos duplicados
             // entre sedes salen de ahí.
@@ -78,7 +83,9 @@ class AspiranteController extends Controller
                     ->orWhere('segundo_apellido', 'like', $termino)
                     ->orWhere('curp', 'like', $termino));
             })
-            ->when($filtros['situacion_id'], fn ($q, $v) => $q->where('situacion_id', $v))
+            ->when($filtros['desenlace'] === 'abierto', fn ($q) => $q->abiertos())
+            ->when($filtros['desenlace'] === 'descartado', fn ($q) => $q->descartados())
+            ->when($filtros['desenlace'] === 'inscrito', fn ($q) => $q->inscritos())
             ->when($filtros['etapa_crm_id'], fn ($q, $v) => $q->where('etapa_crm_id', $v))
             ->when($filtros['origen_id'], fn ($q, $v) => $q->where('origen_id', $v))
             ->when($filtros['campus_id'], fn ($q, $v) => $q->where('campus_id', $v))
@@ -91,7 +98,8 @@ class AspiranteController extends Controller
                 'nombre_completo' => $aspirante->persona?->nombreCompleto(),
                 'curp' => $aspirante->persona?->curp,
                 'email' => $aspirante->persona?->email,
-                'situacion' => $aspirante->situacion?->nombre,
+                'desenlace' => $aspirante->desenlace(),
+                'motivo_descarte' => $aspirante->motivo_descarte,
                 'campus' => $aspirante->campus?->nombre,
                 'oferta' => $aspirante->ofertaInteres?->carrera?->nombre,
                 'origen' => $aspirante->origenAspirante?->nombre ?? $aspirante->origen,
@@ -106,7 +114,6 @@ class AspiranteController extends Controller
         return Inertia::render('Aspirantes/Index', [
             'aspirantes' => $aspirantes,
             'filtros' => $filtros,
-            'situaciones' => SituacionAspirante::query()->orderBy('id')->get(['id', 'nombre']),
             'etapas' => EtapaCrm::query()->orderBy('orden')->get(['id', 'nombre']),
             'origenes' => OrigenAspirante::query()->activos()->orderBy('nombre')->get(['id', 'nombre']),
             // Sólo sus campus: ofrecer los demás en el filtro es ofrecer un
@@ -183,7 +190,6 @@ class AspiranteController extends Controller
             // suelta en cada visita.
             'persona.genero',
             'persona.entidadNacimiento',
-            'situacion',
             'etapa:id,nombre',
             'campus',
             'ofertaInteres.carrera',
@@ -217,7 +223,15 @@ class AspiranteController extends Controller
                 // XML; el sexo era un duplicado que aquí no se llenaba nunca.
                 'genero' => $aspirante->persona->genero?->nombre,
                 'entidad_nacimiento' => $aspirante->persona->entidadNacimiento?->nombre,
-                'situacion' => $aspirante->situacion?->nombre,
+                // El DESENLACE, derivado: inscrito lo dice su matrícula y
+                // descartado, la fecha. Ya no hay catálogo que pueda
+                // contradecir al embudo.
+                'desenlace' => $aspirante->desenlace(),
+                // En `d/m/Y` y no ISO: aquí la fecha va dentro de una FRASE
+                // («Descartado el …»), no en una celda como las otras dos.
+                'descartado_en' => $aspirante->descartado_en?->format('d/m/Y'),
+                'motivo_descarte' => $aspirante->motivo_descarte,
+                'motivo_no_descartable' => $aspirante->motivoParaNoDescartar(),
                 // La etapa del CRM y la foto: la cabecera de la ficha las pinta
                 // igual que la de alumnos y docentes.
                 'etapa' => $aspirante->etapa?->nombre,
@@ -560,7 +574,6 @@ class AspiranteController extends Controller
                 'telefono_local' => $aspirante->persona->telefono_local,
                 'oferta_interes_id' => $aspirante->oferta_interes_id,
                 'campus_id' => $aspirante->campus_id,
-                'situacion_id' => $aspirante->situacion_id,
                 'origen_id' => $aspirante->origen_id,
                 'origen' => $aspirante->origen,
                 'acepto_terminos' => $aspirante->acepto_terminos,
@@ -626,6 +639,45 @@ class AspiranteController extends Controller
     }
 
     /**
+     * Da por perdido a un prospecto.
+     *
+     * ── Con FECHA y con MOTIVO, que es lo que el catálogo no daba ─────────
+     * «Rechazado» como fila de catálogo no decía ni cuándo ni por qué, que es
+     * justo lo que se pregunta al revisar por qué se cayó un prospecto. El
+     * motivo es obligatorio por eso mismo.
+     */
+    public function descartar(Request $request, Aspirante $aspirante): RedirectResponse
+    {
+        $datos = $request->validate([
+            'motivo_descarte' => ['required', 'string', 'max:255'],
+        ], [
+            'motivo_descarte.required' => 'Di por qué se descarta: un descarte sin razón no sirve para nada después.',
+        ]);
+
+        $motivo = $aspirante->motivoParaNoDescartar();
+
+        if ($motivo !== null) {
+            return back(303)->with('error', $motivo);
+        }
+
+        $aspirante->update($datos + ['descartado_en' => now()]);
+
+        return back(303)->with('exito', 'Prospecto descartado.');
+    }
+
+    /** Deshace un descarte: el prospecto vuelve a estar abierto. */
+    public function reactivar(Aspirante $aspirante): RedirectResponse
+    {
+        if (! $aspirante->estaDescartado()) {
+            return back(303)->with('error', 'Ese prospecto no estaba descartado.');
+        }
+
+        $aspirante->update(['descartado_en' => null, 'motivo_descarte' => null]);
+
+        return back(303)->with('exito', 'Prospecto reabierto.');
+    }
+
+    /**
      * @param  array<string, mixed>  $datos
      * @return array<string, mixed>
      */
@@ -634,7 +686,6 @@ class AspiranteController extends Controller
         return [
             'oferta_interes_id' => $datos['oferta_interes_id'] ?? null,
             'campus_id' => $datos['campus_id'] ?? null,
-            'situacion_id' => $datos['situacion_id'],
             'origen_id' => $datos['origen_id'] ?? null,
             'origen' => $datos['origen'] ?? null,
         ];
@@ -655,7 +706,6 @@ class AspiranteController extends Controller
             // `IdentidadPersona`, que es quien decide el orden en que se
             // muestran (extranjero arriba, no perdido en la N).
             ...app(IdentidadPersona::class)->catalogosDeOrigen(),
-            'situaciones' => SituacionAspirante::query()->orderBy('id')->get(['id', 'nombre']),
             // Los del CRM: de dónde llegó deja de ser texto libre también en el
             // alta manual, para que el prospecto capturado por promoción se
             // pueda contar junto a los que entran por el formulario público.

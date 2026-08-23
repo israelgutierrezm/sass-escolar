@@ -91,7 +91,6 @@ try {
         'persona_id' => $personaAspirante->id,
         'oferta_interes_id' => DB::table('oferta')->whereNull('deleted_at')->value('id'),
         'campus_id' => DB::table('campus')->whereNull('deleted_at')->value('id'),
-        'situacion_id' => DB::table('situaciones_aspirante')->whereNull('deleted_at')->value('id'),
         'etapa_crm_id' => DB::table('etapas_crm')->whereNull('deleted_at')->orderBy('orden')->value('id'),
     ]);
 

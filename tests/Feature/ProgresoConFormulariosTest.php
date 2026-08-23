@@ -176,7 +176,6 @@ class ProgresoConFormulariosTest extends TenantTestCase
 
         return Aspirante::create([
             'persona_id' => $persona->id,
-            'situacion_id' => $this->deCatalogo('situaciones_aspirante'),
         ]);
     }
 }

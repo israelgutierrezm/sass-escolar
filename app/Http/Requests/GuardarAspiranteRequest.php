@@ -96,7 +96,6 @@ class GuardarAspiranteRequest extends FormRequest
              * el interesado se decide por otra sede.
              */
             'campus_id' => ['required', 'integer', Rule::exists('campus', 'id')->whereNull('deleted_at')],
-            'situacion_id' => ['required', 'integer', Rule::exists('situaciones_aspirante', 'id')->whereNull('deleted_at')],
             // `origen_id` es el catálogo del CRM; `origen` es el texto libre de
             // antes, que se conserva para no perder lo ya capturado.
             'origen_id' => ['nullable', 'integer', Rule::exists('origenes_aspirante', 'id')->whereNull('deleted_at')],
@@ -122,7 +121,6 @@ class GuardarAspiranteRequest extends FormRequest
             'entidad_nacimiento_id' => 'entidad de nacimiento',
             'oferta_interes_id' => 'oferta de interés',
             'campus_id' => 'campus',
-            'situacion_id' => 'situación',
         ];
     }
 

@@ -19,7 +19,6 @@ use App\Models\Admisiones\Asesor;
 use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\EtapaCrm;
 use App\Models\Admisiones\SituacionAsesor;
-use App\Models\Admisiones\SituacionAspirante;
 use App\Models\Finanzas\Adeudo;
 use App\Models\Finanzas\ConceptoPago;
 use App\Models\Identidad\Persona;
@@ -279,7 +278,6 @@ try {
     $prospecto = Aspirante::create([
         'persona_id' => Persona::create(['nombre' => 'Prospecto', 'primer_apellido' => 'Panel', 'sexo_id' => 2])->id,
         'oferta_interes_id' => $oferta->id,
-        'situacion_id' => SituacionAspirante::query()->value('id'),
         'etapa_crm_id' => EtapaCrm::orderBy('orden')->value('id'),
     ]);
     $prospecto->asesores()->attach($personaPromo->id, ['titular' => true]);
