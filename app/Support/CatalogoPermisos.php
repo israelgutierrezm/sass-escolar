@@ -201,6 +201,13 @@ final class CatalogoPermisos
              * administra la nómina no tiene por qué ver la carga académica, y
              * quien revisa expedientes docentes no tiene por qué ver sueldos.
              */
+            /*
+             * Movilidad. Aparte de `gestionar-rh` y de control escolar porque
+             * es otra oficina —vinculación internacional— y porque la segunda
+             * rebanada le va a dejar ESCRIBIR en el historial académico: eso no
+             * puede colgar de un permiso que se reparte por otra razón.
+             */
+            'gestionar-movilidad' => ['Movilidad e intercambios', 'Convenios con otras instituciones, convocatorias, postulaciones y estancias.', [self::ADMINISTRATIVO]],
             'gestionar-rh' => ['Recursos humanos', 'Dar de alta expedientes laborales, adscribir a un puesto y dar de baja.', [self::ADMINISTRATIVO]],
             /*
              * Los SUELDOS, aparte del expediente.

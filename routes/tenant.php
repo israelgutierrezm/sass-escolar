@@ -90,6 +90,8 @@ use App\Http\Controllers\MiCredencialController;
 use App\Http\Controllers\MiHistorialController;
 use App\Http\Controllers\MisAvisosController;
 use App\Http\Controllers\MisCursosController;
+use App\Http\Controllers\Movilidad\MovilidadController;
+use App\Http\Controllers\Movilidad\RevalidacionController;
 use App\Http\Controllers\OfertaController;
 use App\Http\Controllers\PadreController;
 use App\Http\Controllers\PasarelaPagoController;
@@ -1538,6 +1540,55 @@ Route::middleware([
                 Route::get('nueva', 'crear')->name('nueva');
                 Route::get('{vacante}', 'show')->whereNumber('vacante')->name('show');
                 Route::put('{vacante}', 'guardar')->whereNumber('vacante')->name('actualizar');
+            });
+
+        /*
+         * Módulo 12 · Movilidad — convenios, convocatorias y postulaciones.
+         *
+         * La revalidación va aparte: es la que escribe en el historial
+         * académico y no se mezcla con el papeleo.
+         */
+        Route::controller(MovilidadController::class)
+            ->prefix('movilidad')->name('tenant.movilidad.')
+            ->middleware(['can:gestionar-movilidad', 'modulo:movilidad'])
+            ->group(function () {
+                Route::get('convenios', 'convenios')->name('convenios');
+                Route::post('instituciones', 'guardarInstitucion')->name('instituciones.crear');
+                Route::post('convenios', 'guardarConvenio')->name('convenios.crear');
+                Route::put('convenios/{convenio}', 'guardarConvenio')->whereNumber('convenio')->name('convenios.guardar');
+
+                Route::get('convocatorias', 'convocatorias')->name('convocatorias');
+                Route::post('convocatorias', 'guardarConvocatoria')->name('convocatorias.crear');
+                Route::put('convocatorias/{convocatoria}', 'guardarConvocatoria')
+                    ->whereNumber('convocatoria')->name('convocatorias.guardar');
+
+                Route::get('convocatorias/{convocatoria}/postulaciones', 'postulaciones')
+                    ->whereNumber('convocatoria')->name('postulaciones');
+                Route::get('convocatorias/{convocatoria}/candidatos', 'candidatos')
+                    ->whereNumber('convocatoria')->name('candidatos');
+                Route::post('convocatorias/{convocatoria}/postulaciones', 'postular')
+                    ->whereNumber('convocatoria')->name('postular');
+                Route::put('convocatorias/{convocatoria}/postulaciones/{postulacion}', 'mover')
+                    ->whereNumber(['convocatoria', 'postulacion'])->name('mover');
+                Route::post('convocatorias/{convocatoria}/postulaciones/{postulacion}/estancia', 'abrirEstancia')
+                    ->whereNumber(['convocatoria', 'postulacion'])->name('estancia.abrir');
+                Route::put('convocatorias/{convocatoria}/estancias/{estancia}', 'concluirEstancia')
+                    ->whereNumber(['convocatoria', 'estancia'])->name('estancia.concluir');
+            });
+
+        /*
+         * Las revalidaciones, aparte: es el gesto que ESCRIBE en el historial
+         * académico y no se mezcla con el papeleo de convenios.
+         */
+        Route::controller(RevalidacionController::class)
+            ->prefix('movilidad/estancias/{estancia}/revalidaciones')->name('tenant.movilidad.revalidaciones.')
+            ->middleware(['can:gestionar-movilidad', 'modulo:movilidad'])
+            ->whereNumber('estancia')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'guardar')->name('guardar');
+                Route::put('{revalidacion}', 'dictaminar')->whereNumber('revalidacion')->name('dictaminar');
+                Route::delete('{revalidacion}', 'revocar')->whereNumber('revalidacion')->name('revocar');
             });
 
         /*

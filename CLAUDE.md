@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**79 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**81 archivos `prueba-*.php`**;
    esta lista decía 23 y llevaba tiempo desactualizada). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
    imprimen `Resultado: N correctas, M fallidas`. **Ojo al barrer con `grep`**:
@@ -57,7 +57,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 79 están en verde**, barridas el 2026-08-23. Llegaron a estar 33 en rojo —no trece: ese primer
+   **Las 81 están en verde**, barridas el 2026-08-23. Llegaron a estar 33 en rojo —no trece: ese primer
    conteo sólo miró las que imprimían «N fallidas» e ignoró las 21 que morían
    antes, con una excepción sin resumen—. Ninguna caía por un cambio reciente;
    se comprobó corriéndolas contra el árbol limpio.
@@ -664,8 +664,8 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     tenía asesor. Lo cazó `prueba-actividad-crm`.
   - Pruebas: `scripts/prueba-actividad-crm.php`, 29 verificaciones, comprobada
     mutando la regla de re-cierre (caen exactamente las tres que la vigilan).
-- Pruebas: 79 suites en `scripts/`, contra la BD real del tenant demo con
-  `DB::rollBack()` al final. **79 en verde** (ver la regla 5 para qué tumbó a
+- Pruebas: 81 suites en `scripts/`, contra la BD real del tenant demo con
+  `DB::rollBack()` al final. **81 en verde** (ver la regla 5 para qué tumbó a
   las 33 que estuvieron en rojo). `prueba-listados` es la primera
   que invoca a los CONTROLADORES y lee sus props de Inertia, en vez de
   reimplementar la consulta: un `or` sin paréntesis no se detecta de otra forma.
@@ -1272,6 +1272,78 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     contra ella y elige a sus protagonistas entre los egresados SIN colocación
     previa. Una prueba que sólo pasa cuando la corres sola no prueba nada el día
     que alguien la mete en el barrido.
+
+- **Módulo 12 · Movilidad, CERRADO** (2026-08-23): convenios, convocatorias,
+  postulaciones, estancias y **revalidaciones**. `/movilidad/convenios`,
+  permiso `gestionar-movilidad`, bajo `modulo:movilidad`.
+  - **EL HALLAZGO: el asiento NO necesita una columna «origen».** La spec pedía
+    «una bandera de origen movilidad» en `historial`. No hace falta, y además
+    habría sido peor: **`tipos_evaluacion` ya traía `revalidacion`** desde la
+    fase 2 y **`observaciones_asignatura` —catálogo de la SEP— ya traía
+    «REVALIDACIÓN DE ESTUDIOS»**, que es el valor que viaja en el XML del
+    certificado. Una columna propia habría dejado el dato FUERA del documento
+    oficial y habría creado una segunda forma de decir lo mismo.
+  - **Sin acta, a propósito**: `acta_id` y `acta_folio` quedan en NULL porque una
+    revalidación sale de un dictamen, no de un cierre de materia. Inventarle un
+    folio la haría indistinguible de una materia cursada aquí.
+  - **Sólo al SALIENTE y con la estancia CONCLUIDA.** A un entrante no se le
+    escribe historial nuestro —no tiene—; y mientras la estancia siga en curso
+    las calificaciones de allá no están cerradas, así que asentar metería un
+    número que todavía puede cambiar.
+  - **No se revalida lo que ya está APROBADO.** `HistorialDelAlumno` toma el
+    mejor intento por materia para los totales, así que un segundo asiento
+    regalaría los créditos. Sobre una materia REPROBADA sí se puede: ahí es un
+    intento legítimo, igual que un recursamiento. Y las ya aprobadas ni siquiera
+    se ofrecen en el desplegable.
+  - **La calificación equivalente se CAPTURA.** No hay tabla de conversión
+    universal entre sistemas de calificación —«B+», «16/20»— y fabricar una sería
+    inventarle una nota a alguien. Se guarda además lo que dijo el destino, tal
+    cual.
+  - **Revocar da de BAJA LÓGICA el renglón**, no lo borra: es historia escolar y
+    se conserva con su auditoría, igual que los renglones de un acta corregida.
+    Y deja la revalidación lista para rehacerse con la nota correcta.
+  - **El promedio se CALCULA de `HistorialDelAlumno` y se CONGELA** en la
+    postulación. Tecleado sería un número que alguien puede acomodar, y
+    recalcularlo sería una tercera verdad sobre el promedio de un alumno. El
+    buscador de candidatos lo ENSEÑA al elegir, para que quien captura vea por
+    qué no alcanza.
+  - **El cupo se cuenta por la bandera `acepta`, no por la clave**: quien ya
+    está en curso o concluyó sigue ocupando su lugar. Contando sólo la etapa
+    llamada «aceptado», el cupo se liberaría en cuanto alguien avanzara y la
+    escuela mandaría a dos personas a la misma plaza.
+  - **`direccion` es columna y no catálogo**, al revés de la spec: saliente y
+    entrante son dos caminos del código, no dos filas. Una fila nueva no
+    enseñaría un tercer camino.
+  - **Vencido ≠ suspendido** en los convenios, y **sin carreras señaladas cubre
+    TODAS**: las dos lecciones que ya había dejado la bolsa de trabajo.
+  - **Titular DUAL con CHECK**, como `adeudos`. Y aquí mordió **MySQL 3823**: una
+    columna que participa en un CHECK no puede tener foránea con acción
+    referencial. `nullOnDelete` era además lo incorrecto —dejaría la postulación
+    sin NINGÚN titular, justo lo que el CHECK impide—, así que van con
+    `constrained()` a secas, igual que `adeudos`.
+  - **Y una lección propia sobre la idempotencia**: el CHECK estaba DENTRO del
+    `if (! hasTable)`. Al fallar y reintentar, la tabla ya existía, se saltó el
+    bloque entero y el CHECK quedó sin crear PARA SIEMPRE con la migración
+    marcada como aplicada. **Comprobar antes de actuar es por PIEZA, no por
+    bloque.** Lo repara `2026_08_23_121000_movilidad_repara_el_check_del_titular`.
+  - Pruebas: `scripts/prueba-movilidad.php` (45 verificaciones, tres mutaciones)
+    y `scripts/prueba-movilidad-revalidacion.php` (42 verificaciones, seis
+    mutaciones). **Una mutación sobrevivió**: el único de la base
+    `(estancia, plan_materia)` tapaba la regla de «ya aprobada», así que quitarla
+    no tumbaba nada; se construyó el caso real —una materia que el alumno YA
+    aprobó aquí y cursó también allá—.
+  - Comprobado en el navegador el recorrido entero, hasta ver el renglón en el
+    expediente de la alumna: «Contabilidad I · Aprobada · Ciclo 2026-2 ·
+    Revalidación · REVALIDACIÓN DE ESTUDIOS · 8.60».
+
+- **`CampoTexto` rechazaba TODO decimal** (2026-08-23). Con `tipo="number"` el
+  navegador usa `step=1` por omisión y bloquea el envío del formulario —«los dos
+  valores válidos más aproximados son 8 y 9»— sin que la petición salga. Con
+  **67 campos `tipo="number"`** en el sistema, eso dejaba fuera todo sueldo con
+  centavos, toda calificación con décimas y todo porcentaje. No se había notado
+  porque las pruebas invocan a los controladores y los ejemplos capturados a mano
+  eran enteros; salió al escribir «8.6» en una revalidación. Ahora el `step` es
+  `any` por omisión y un campo que de verdad sólo admita enteros pasa `paso="1"`.
 
 - **Módulo 10 · Nómina y RH, CERRADO** (2026-08-23): el CFDI de nómina, con su
   interruptor. `nomina.timbrado_cfdi` en `/plataforma/configuracion`.
@@ -1933,7 +2005,8 @@ marcado abajo con su fecha, y lo que NO la lleve sigue sin verificar.)*
    financiero— y nada sobre qué puede entregar en su nombre, así que decidirlo
    aquí sería decidirlo por la escuela.
 
-3. **Fase 4 — en curso.** Revisada contra el código el 2026-08-22: de sus 50
+3. **Fase 4 — COMPLETA** (2026-08-23): los cuatro módulos cerrados.
+   Revisada contra el código el 2026-08-22: de sus 50
    tablas no existía NINGUNA, pero los cuatro módulos ya estaban registrados en
    `modulos`. **La numeración no es una cadena de dependencias**: 10, 11, 12 y
    13 no dependen entre sí —todos cuelgan de Fases 0-3—, así que el orden es
@@ -1960,7 +2033,7 @@ marcado abajo con su fecha, y lo que NO la lleve sigue sin verificar.)*
       nómina: se implementa, pero el timbrado se enciende desde configuración.
       Apagado, no se puede timbrar; encendido, valida la información que el
       timbrado exige.**
-   4. **Módulo 12 · Movilidad** — al final: es el dominio más complejo y ESCRIBE
+   4. ~~**Módulo 12 · Movilidad**~~ — **CERRADO el 2026-08-23.** Era el dominio más complejo y ESCRIBE
       en el historial académico al aprobar una revalidación, que es lo más
       delicado del sistema. Además `equivalencias` sigue en 0 filas, o sea que
       su mecanismo de apoyo nunca se ha ejercitado.
