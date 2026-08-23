@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**74 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**75 archivos `prueba-*.php`**;
    esta lista decía 23 y llevaba tiempo desactualizada). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
    imprimen `Resultado: N correctas, M fallidas`. **Ojo al barrer con `grep`**:
@@ -57,7 +57,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 74 están en verde**, barridas el 2026-08-22. Llegaron a estar 33 en rojo —no trece: ese primer
+   **Las 75 están en verde**, barridas el 2026-08-22. Llegaron a estar 33 en rojo —no trece: ese primer
    conteo sólo miró las que imprimían «N fallidas» e ignoró las 21 que morían
    antes, con una excepción sin resumen—. Ninguna caía por un cambio reciente;
    se comprobó corriéndolas contra el árbol limpio.
@@ -664,8 +664,8 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     tenía asesor. Lo cazó `prueba-actividad-crm`.
   - Pruebas: `scripts/prueba-actividad-crm.php`, 29 verificaciones, comprobada
     mutando la regla de re-cierre (caen exactamente las tres que la vigilan).
-- Pruebas: 74 suites en `scripts/`, contra la BD real del tenant demo con
-  `DB::rollBack()` al final. **74 en verde** (ver la regla 5 para qué tumbó a
+- Pruebas: 75 suites en `scripts/`, contra la BD real del tenant demo con
+  `DB::rollBack()` al final. **75 en verde** (ver la regla 5 para qué tumbó a
   las 33 que estuvieron en rojo). `prueba-listados` es la primera
   que invoca a los CONTROLADORES y lee sus props de Inertia, en vez de
   reimplementar la consulta: un `or` sin paréntesis no se detecta de otra forma.
@@ -1206,6 +1206,81 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     con lector**. Nada que retirar; el barrido de `crear-personas` y compañía ya
     había limpiado esa clase.
 
+- **Módulo 11 · Bolsa de trabajo, CERRADO** (2026-08-22): colocaciones e
+  indicador de empleabilidad. `/bolsa/colocaciones` y `/bolsa/empleabilidad`.
+  - **Una colocación NO siempre viene de una postulación**, al revés de lo que
+    pedía la spec: `postulacion_id` es NULLABLE. Un egresado consigue trabajo por
+    su cuenta y la escuela se entera al darle seguimiento, y ése es el dato que
+    piden las acreditadoras. Obligándolo, el indicador contestaría «a cuántos
+    colocó nuestra bolsa» en vez de «cuántos egresados están colocados» — dos
+    preguntas distintas, y la que una escuela presume es la segunda.
+  - **La etapa «contratado» y la colocación son EL MISMO HECHO**, así que no se
+    mueven por separado: `Postulador::mover` se niega a entrar a una etapa que
+    coloca si la colocación no existe. Sin ese candado la pantalla diría
+    «contratado» y el reporte contaría cero, y nadie lo notaría hasta que la
+    acreditadora pidiera el número.
+  - **Dos banderas de catálogo, no claves cableadas**:
+    `etapas_postulacion.marca_colocacion` y `.es_final` —independientes:
+    «Rechazado» cierra y no coloca—, y `situaciones_alumno.cuenta_como_egresado`,
+    que es el DENOMINADOR. Preguntar por `clave = 'contratado'` funciona hoy y
+    deja de funcionar en silencio el día que la escuela edite su catálogo.
+  - **`relacionado_con_carrera` es NULLABLE y son TRES cifras.** Con `false` por
+    omisión, una colocación capturada sin preguntar diría «no es de su área»,
+    que es una afirmación que nadie hizo. Misma regla que
+    `autorizaciones.concedida`.
+  - **Se cuenta por MATRÍCULA y con DISTINCT.** Cada programa reporta lo suyo y
+    quien egresó de dos carreras egresó de las dos; y quien cambió de trabajo dos
+    veces sigue siendo UN egresado colocado. Sin el distinct el porcentaje puede
+    pasar del 100 %.
+  - **Los filtros mueven las DOS cifras.** Generación y carrera acotan numerador
+    y denominador a la vez; un filtro que sólo acotara las colocaciones —«las de
+    este año» sobre todos los egresados— daría un número que no significa nada y
+    que aun así se leería como el indicador.
+  - **Lo que NO entra se dice, con su razón y su salida**: las que no señalan
+    carrera (edítalas y elige) y las de quien todavía no egresa —una práctica
+    profesional— (entra sola al egresar). Sin eso, la diferencia entre lo
+    registrado y lo contado es un misterio que hace desconfiar del número.
+  - **Deshacer usa `forceDelete`, no borrado lógico.** El único de la tabla es
+    sobre `postulacion_id` a secas y MySQL no distingue una fila dada de baja de
+    una viva: con borrado lógico, deshacer dejaría esa postulación sin poder
+    colocarse NUNCA —y «me equivoqué en la fecha, lo deshago y lo capturo otra
+    vez» es exactamente lo que alguien va a hacer—. La historia queda en la
+    bitácora de la postulación, que además la devuelve a la etapa de la que
+    venía, LEÍDA de ahí y no adivinada.
+  - **No se guarda la fecha de baja del empleo.** Una colocación es el hecho de
+    haber sido contratado, que es lo que mide la acreditación; el seguimiento
+    longitudinal es otro producto, y media columna de ese producto sería una
+    columna que nadie lee.
+  - **Trampa que mordió, y se vio SÓLO en el navegador**: el desglose «de dónde
+    salieron» contaba TODAS las colocaciones de la escuela mientras el porcentaje
+    contaba las de egresados, así que la pantalla ponía «1 por la bolsa» al lado
+    de «0 de 14 colocados». Dos universos pegados; quien lee eso deja de creerle
+    al tablero entero. Ahora los tres recuadros hablan del mismo conjunto.
+  - Tarjeta de panel **Postulantes en proceso**, que cuenta sólo las etapas no
+    finales: una cola que nunca baja enseña a ignorarla.
+  - Pruebas: `scripts/prueba-bolsa-colocaciones.php`, 56 verificaciones,
+    comprobadas mutando diez reglas. **Otra vez la trampa de `QueryException`**
+    —desciende de `RuntimeException`, así que el `catch` pelado daba por buena la
+    explosión del índice único—: es la segunda en este módulo. Y una comprobación
+    estaba escrita como `($x['carrera'] ?? 'x') === null`, que es falsa pase lo
+    que pase porque el coalescente reemplaza justamente el null que se quería
+    ver; ahora va con `array_key_exists`.
+  - **Y una tercera lección: la suite se mide POR DIFERENCIA, no contra cero.**
+    Afirmaba «hay dos colocados» dando por hecho que el demo no tenía ninguna;
+    pasaba aislada y se cayó con diez fallas en el barrido en cuanto la escuela
+    de ejemplo tuvo colocaciones sembradas. Ahora guarda la línea base, compara
+    contra ella y elige a sus protagonistas entre los egresados SIN colocación
+    previa. Una prueba que sólo pasa cuando la corres sola no prueba nada el día
+    que alguien la mete en el barrido.
+
+- **`hoyLocal()` en `resources/js/utils/fechas.ts`** (2026-08-22): siete
+  pantallas ponían la fecha de hoy con `new Date().toISOString().slice(0, 10)`,
+  que devuelve UTC. En México —UTC-6— a partir de las 18:00 locales eso da
+  MAÑANA toda la tarde y toda la noche. En `PaseDeLista` decidía de qué día era
+  la lista que el docente estaba pasando: una lista de la tarde quedaba anotada
+  al día siguiente. Se descubrió registrando una colocación por la noche y ver
+  la fecha de ingreso con un día de más.
+
 - **Módulo 11 · Bolsa de trabajo, tercera rebanada** (2026-08-22): las
   postulaciones. `/mis-vacantes` para el alumno y
   `/bolsa/vacantes/{id}/postulaciones` para vinculación.
@@ -1609,10 +1684,10 @@ marcado abajo con su fecha, y lo que NO la lleve sigue sin verificar.)*
       contra `avisos`, que ya segmenta por nueve tipos de destino).
       **Decisión del cliente: el vínculo se queda POR PERSONA**, no por
       matrícula como pedía la spec.
-   2. **Módulo 11 · Bolsa de trabajo** — EN CURSO. Autocontenido, no toca nada
+   2. ~~**Módulo 11 · Bolsa de trabajo**~~ — **CERRADO el 2026-08-22.** Autocontenido, no toca nada
       delicado, y produce el dato que una escuela presume: colocación de
       egresados. Rebanadas: **empresas ✅**, **vacantes ✅**,
-      **postulaciones ✅**, colocaciones. **Decisión del cliente: la postulación
+      **postulaciones ✅**, **colocaciones ✅**. **Decisión del cliente: la postulación
       es autogestiva Y por ventanilla, con un interruptor para apagar la
       autogestiva y forzar el mostrador; apagado por omisión.**
    3. **Módulo 10 · Nómina y RH** — el de más valor y el más grande. Su insumo
@@ -1639,8 +1714,10 @@ marcado abajo con su fecha, y lo que NO la lleve sigue sin verificar.)*
 - **Lo verificado en el navegador, hasta hoy**: el panel; el 2026-08-22 el
   recorrido entero de la bolsa de trabajo —el tablero del alumno con el
   interruptor en sus dos posiciones, postularse desde el portal, capturar por
-  ventanilla eligiendo carrera, mover de etapa y leer la bitácora, y el ajuste
-  guardándose desde `/plataforma/configuracion`—; y el 2026-08-19 el
+  ventanilla eligiendo carrera, mover de etapa y leer la bitácora, el ajuste
+  guardándose desde `/plataforma/configuracion`, registrar la contratación,
+  editar y deshacer una colocación viendo cómo la postulación vuelve a su etapa,
+  y el indicador con y sin filtro—; y el 2026-08-19 el
   recorrido entero de rúbricas —`/rubricas` (crear, tarjeta y matriz), el panel
   de calificación del docente en modo rúbrica y el aula del alumno con su
   desglose—. **Todo lo demás sigue probado por datos y por HTTP, sin ver el

@@ -6,10 +6,12 @@ import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
 import BuscadorRemoto from '@/Components/BuscadorRemoto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
+import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoTextarea from '@/Components/CampoTextarea.vue';
 import Modal from '@/Components/Modal.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
+import { hoyLocal } from '@/utils/fechas';
 
 interface Postulacion {
     id: number;
@@ -21,12 +23,13 @@ interface Postulacion {
     tiene_cv: boolean;
     carta: string | null;
     origen: string;
+    colocada: boolean;
 }
 
 const props = defineProps<{
     vacante: { id: number; titulo: string; empresa: string | null; vigente: boolean };
     postulaciones: Postulacion[];
-    etapas: { id: number; nombre: string }[];
+    etapas: { id: number; nombre: string; marca_colocacion: boolean }[];
 }>();
 
 const capturando = ref(false);
@@ -70,6 +73,56 @@ async function traerCarreras(personaId: number | null): Promise<void> {
 }
 
 const cambio = useForm<{ etapa_id: number | null; nota: string }>({ etapa_id: null, nota: '' });
+
+const contratando = ref<Postulacion | null>(null);
+
+const contrato = useForm<{
+    empresa_id: number | null;
+    puesto: string;
+    salario: string;
+    fecha_ingreso: string;
+    relacionado_con_carrera: string;
+    notas: string;
+}>({
+    empresa_id: null,
+    puesto: '',
+    salario: '',
+    fecha_ingreso: '',
+    relacionado_con_carrera: '',
+    notas: '',
+});
+
+const etapaQueColoca = computed(() => props.etapas.find((e) => e.marca_colocacion) ?? null);
+
+/*
+ * Mover a la etapa que coloca NO es un cambio de etapa: es registrar la
+ * contratación. La etapa y la colocación son el mismo hecho, y el servidor se
+ * niega a mover sin lo otro —así que el desplegable esconde esa opción y el
+ * gesto tiene su propio botón—.
+ */
+const etapasMovibles = computed(() => props.etapas.filter((e) => !e.marca_colocacion));
+
+function abrirContrato(p: Postulacion): void {
+    contratando.value = p;
+    contrato.reset();
+    contrato.fecha_ingreso = hoyLocal();
+    contrato.defaults();
+}
+
+function contratar(): void {
+    if (contratando.value === null) return;
+
+    contrato.transform((d) => ({
+        ...d,
+        salario: d.salario === '' ? null : d.salario,
+        relacionado_con_carrera: d.relacionado_con_carrera === '' ? null : d.relacionado_con_carrera === '1',
+    })).post(`/bolsa/vacantes/${props.vacante.id}/postulaciones/${contratando.value.id}/contratar`, {
+        preserveScroll: true,
+        onSuccess: () => {
+            contratando.value = null;
+        },
+    });
+}
 
 /** Cuántos hay en cada etapa: el embudo de esta vacante, en una línea. */
 const porEtapa = computed(() =>
@@ -196,6 +249,21 @@ function capturar(): void {
                             >
                                 Mover
                             </button>
+                            <!--
+                                Sólo si hay una etapa que declare la contratación
+                                y esta postulación no está ya colocada: dos
+                                colocaciones serían el mismo hecho contado dos
+                                veces y el indicador saldría inflado.
+                            -->
+                            <button
+                                v-if="etapaQueColoca && !p.colocada"
+                                type="button"
+                                class="rounded-lg px-3 py-1.5 text-xs font-medium"
+                                :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+                                @click="abrirContrato(p)"
+                            >
+                                Contratado
+                            </button>
                         </div>
                     </div>
 
@@ -259,6 +327,50 @@ function capturar(): void {
             </template>
         </Modal>
 
+        <Modal v-if="contratando" etiqueta="Registrar la contratación" :formulario="contrato" @cerrar="contratando = null">
+            <template #default="{ cerrar }">
+                <form class="space-y-4 p-6" @submit.prevent="contratar">
+                    <h2 class="text-base font-semibold">{{ contratando.persona }}</h2>
+                    <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                        Al guardar, la postulación queda como contratada y la colocación entra en el
+                        indicador de empleabilidad.
+                    </p>
+
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <CampoTexto v-model="contrato.puesto" etiqueta="Puesto" requerido :error="contrato.errors.puesto" />
+                        <CampoTexto
+                            v-model="contrato.fecha_ingreso"
+                            etiqueta="Fecha de ingreso"
+                            tipo="date"
+                            requerido
+                            :error="contrato.errors.fecha_ingreso"
+                        />
+                        <CampoTexto v-model="contrato.salario" etiqueta="Salario mensual" tipo="number" :error="contrato.errors.salario" />
+                        <CampoSelect
+                            v-model="contrato.relacionado_con_carrera"
+                            etiqueta="¿El empleo es de su área?"
+                            :opciones="[
+                                { valor: '1', texto: 'Sí, es de su área' },
+                                { valor: '0', texto: 'No, es de otra área' },
+                            ]"
+                            vacio="No se preguntó"
+                            ayuda="Dejarlo en blanco no es un «no»: se cuenta aparte."
+                            :error="contrato.errors.relacionado_con_carrera"
+                        />
+                    </div>
+
+                    <CampoTextarea v-model="contrato.notas" etiqueta="Notas" :filas="3" :error="contrato.errors.notas" />
+
+                    <div class="flex items-center gap-3 pt-2">
+                        <BotonPrincipal :procesando="contrato.processing" texto="Registrar contratación" />
+                        <button type="button" class="rounded-lg border border-borde px-4 py-2 text-sm" @click="cerrar">
+                            Cancelar
+                        </button>
+                    </div>
+                </form>
+            </template>
+        </Modal>
+
         <Modal v-if="moviendo" etiqueta="Mover de etapa" :formulario="cambio" @cerrar="moviendo = null">
             <template #default="{ cerrar }">
                 <form class="space-y-4 p-6" @submit.prevent="mover">
@@ -267,7 +379,8 @@ function capturar(): void {
                     <CampoSelect
                         v-model="cambio.etapa_id"
                         etiqueta="Etapa"
-                        :opciones="etapas.map((e) => ({ valor: e.id, texto: e.nombre }))"
+                        :opciones="etapasMovibles.map((e) => ({ valor: e.id, texto: e.nombre }))"
+                        ayuda="Para marcarla como contratada usa el botón «Contratado», que pide los datos del empleo."
                         :error="cambio.errors.etapa_id"
                     />
 

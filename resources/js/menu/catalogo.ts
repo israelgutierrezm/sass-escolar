@@ -102,6 +102,8 @@ export const CATALOGO_MENU: GrupoMenu[] = [
         hijos: [
             { clave: 'bolsa-empresas', etiqueta: 'Empresas', url: '/bolsa/empresas', permiso: 'gestionar-bolsa-trabajo' },
             { clave: 'bolsa-vacantes', etiqueta: 'Vacantes', url: '/bolsa/vacantes', permiso: 'gestionar-bolsa-trabajo' },
+            { clave: 'bolsa-colocaciones', etiqueta: 'Colocaciones', url: '/bolsa/colocaciones', permiso: 'gestionar-bolsa-trabajo' },
+            { clave: 'bolsa-empleabilidad', etiqueta: 'Empleabilidad', url: '/bolsa/empleabilidad', permiso: 'gestionar-bolsa-trabajo' },
             { clave: 'mis-vacantes', etiqueta: 'Mis vacantes', url: '/mis-vacantes', permiso: 'ver-vacantes' },
         ],
     },

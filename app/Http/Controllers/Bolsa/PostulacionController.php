@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Bolsa;
 
 use App\Http\Controllers\Controller;
 use App\Models\Admisiones\MatriculaOferta;
+use App\Models\Bolsa\Colocacion;
 use App\Models\Bolsa\EtapaPostulacion;
 use App\Models\Bolsa\Postulacion;
 use App\Models\Bolsa\PostulacionBitacora;
@@ -49,6 +50,12 @@ class PostulacionController extends Controller
             ->orderByDesc('fecha_postulacion')
             ->get();
 
+        // De una sola consulta: preguntarle a cada renglón si tiene colocación
+        // sería una consulta por postulante.
+        $colocadas = Colocacion::query()
+            ->whereIn('postulacion_id', $postulaciones->pluck('id'))
+            ->pluck('postulacion_id');
+
         return Inertia::render('Bolsa/Postulaciones', [
             'vacante' => [
                 'id' => $vacante->id,
@@ -67,8 +74,12 @@ class PostulacionController extends Controller
                 'carta' => $p->carta_presentacion,
                 // De dónde llegó: lo que mide si el portal sirve de algo.
                 'origen' => $p->esAutogestiva() ? 'Portal' : 'Ventanilla',
+                'colocada' => $colocadas->contains($p->id),
             ]),
-            'etapas' => EtapaPostulacion::query()->activos()->get(['id', 'nombre']),
+            // La pantalla necesita saber CUÁL etapa declara la contratación:
+            // mover a ésa exige registrar la colocación en el mismo gesto, y sin
+            // el dato tendría que adivinarlo por el nombre.
+            'etapas' => EtapaPostulacion::query()->activos()->get(['id', 'nombre', 'marca_colocacion']),
         ]);
     }
 

@@ -41,6 +41,7 @@ use App\Panel\Tarjetas\MiSolicitudEnCurso;
 use App\Panel\Tarjetas\MisSolicitudes;
 use App\Panel\Tarjetas\MisTutorados;
 use App\Panel\Tarjetas\OcupacionDeGrupos;
+use App\Panel\Tarjetas\PostulantesEnProceso;
 use App\Panel\Tarjetas\ProspectosPorContactar;
 use App\Services\Cfdi\FacturapiPac;
 use App\Services\Cfdi\Pac;
@@ -330,6 +331,7 @@ class AppServiceProvider extends ServiceProvider
                 ExpedientesPorValidar::class,
                 ListosParaConvertir::class,
                 ProspectosPorContactar::class,
+                PostulantesEnProceso::class,
                 CobranzaPorConfirmar::class,
                 FacturacionPendiente::class,
                 EmisionEnCurso::class,

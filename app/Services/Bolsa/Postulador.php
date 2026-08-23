@@ -6,6 +6,7 @@ namespace App\Services\Bolsa;
 
 use App\Configuracion\Ajustes;
 use App\Configuracion\CatalogoAjustes;
+use App\Models\Bolsa\Colocacion;
 use App\Models\Bolsa\EtapaPostulacion;
 use App\Models\Bolsa\Postulacion;
 use App\Models\Bolsa\PostulacionBitacora;
@@ -103,11 +104,33 @@ class Postulador
      * Volver a poner la MISMA etapa no anota nada: repetir el movimiento —dos
      * clics, o recargar la pantalla— inflaría la bitácora con renglones de cero
      * días y falsearía los tiempos que esto existe para medir.
+     *
+     * @throws RuntimeException si la etapa destino declara la contratación y no
+     *                          hay colocación registrada
      */
     public function mover(Postulacion $postulacion, int $etapaDestinoId, ?int $movidaPor, ?string $nota = null): Postulacion
     {
         if ((int) $postulacion->etapa_id === $etapaDestinoId) {
             return $postulacion;
+        }
+
+        /*
+         * A la etapa que coloca no se entra sin registrar la colocación.
+         *
+         * La etapa y la colocación son el mismo hecho: dejar mover sin lo otro
+         * haría que la pantalla dijera «contratado» y el indicador de
+         * empleabilidad contara cero, y eso no se descubre hasta que la
+         * acreditadora pide el número. El candado vive aquí y no en la pantalla
+         * porque ésta es la única puerta por la que se mueve una postulación.
+         */
+        $destino = EtapaPostulacion::find($etapaDestinoId);
+
+        if ($destino?->marca_colocacion
+            && ! Colocacion::query()->where('postulacion_id', $postulacion->id)->exists()) {
+            throw new RuntimeException(
+                'Para marcarla como contratada hay que registrar la colocación: dónde entró, '
+                .'en qué puesto y desde cuándo.'
+            );
         }
 
         return DB::transaction(function () use ($postulacion, $etapaDestinoId, $movidaPor, $nota) {

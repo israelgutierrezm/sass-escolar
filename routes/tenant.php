@@ -19,6 +19,7 @@ use App\Http\Controllers\AutorizacionController;
 use App\Http\Controllers\AvisoGrabacionController;
 use App\Http\Controllers\BecaController;
 use App\Http\Controllers\BibliotecaController;
+use App\Http\Controllers\Bolsa\ColocacionController;
 use App\Http\Controllers\Bolsa\EmpresaController;
 use App\Http\Controllers\Bolsa\MisVacantesController;
 use App\Http\Controllers\Bolsa\PostulacionController;
@@ -1534,6 +1535,28 @@ Route::middleware([
                 Route::get('nueva', 'crear')->name('nueva');
                 Route::get('{vacante}', 'show')->whereNumber('vacante')->name('show');
                 Route::put('{vacante}', 'guardar')->whereNumber('vacante')->name('actualizar');
+            });
+
+        /*
+         * Colocaciones y el indicador de empleabilidad.
+         *
+         * `contratar` cuelga de la vacante y su postulación porque es cerrar ESA
+         * postulación; las demás son de la colocación, que puede no tener
+         * ninguna —el seguimiento de egresados—.
+         */
+        Route::controller(ColocacionController::class)
+            ->middleware(['can:gestionar-bolsa-trabajo', 'modulo:bolsa_trabajo'])
+            ->name('tenant.bolsa.colocaciones.')
+            ->group(function () {
+                Route::get('bolsa/colocaciones', 'index')->name('index');
+                Route::post('bolsa/colocaciones', 'guardar')->name('guardar');
+                Route::put('bolsa/colocaciones/{colocacion}', 'actualizar')->whereNumber('colocacion')->name('actualizar');
+                Route::delete('bolsa/colocaciones/{colocacion}', 'eliminar')->whereNumber('colocacion')->name('eliminar');
+                Route::get('bolsa/empleabilidad', 'indicadores')->name('indicadores');
+
+                Route::post('bolsa/vacantes/{vacante}/postulaciones/{postulacion}/contratar', 'contratar')
+                    ->whereNumber(['vacante', 'postulacion'])
+                    ->name('contratar');
             });
 
         // Fuera del grupo de una vacante: se pregunta por la PERSONA, y hace
