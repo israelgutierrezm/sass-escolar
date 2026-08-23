@@ -199,7 +199,14 @@ function colorPromedio(p: number | null): string | undefined {
                 <div class="flex items-center gap-3">
                     <AvatarPersona :nombre="hijo.nombre" :foto="hijo.foto" />
                     <div class="min-w-0">
-                        <h3 class="truncate font-medium">{{ hijo.nombre }}</h3>
+                        <!--
+                            Sin `truncate`: es el nombre de su hijo y es el
+                            título de la tarjeta. «Mateo Martínez Ramírez» pedía
+                            179 px y tenía 175 —cortado por cuatro—, y con dos
+                            apellidos largos se corta de verdad. En dos
+                            renglones cabe.
+                        -->
+                        <h3 class="font-medium leading-tight">{{ hijo.nombre }}</h3>
                         <p class="text-xs capitalize" :style="{ color: 'var(--color-suave)' }">{{ hijo.parentesco }}</p>
                     </div>
                 </div>
@@ -219,8 +226,16 @@ function colorPromedio(p: number | null): string | undefined {
                     >
                         Estudia {{ hijo.carreras.length }} carreras
                     </p>
-                    <ul class="space-y-0.5 text-sm" :style="{ color: 'var(--color-suave)' }">
-                        <li v-for="c in hijo.carreras" :key="c" class="truncate">{{ c }}</li>
+                    <!--
+                        Y las carreras tampoco se truncan, por lo mismo que van
+                        una por renglón: «Licenciatura en Administración de
+                        Empresas» pide 271 px y tiene 187, así que dos carreras
+                        que empiecen igual se cortarían al MISMO texto y
+                        quedarían indistinguibles — que es justo lo que este
+                        diseño venía a evitar.
+                    -->
+                    <ul class="space-y-0.5 text-sm leading-snug" :style="{ color: 'var(--color-suave)' }">
+                        <li v-for="c in hijo.carreras" :key="c">{{ c }}</li>
                     </ul>
                 </div>
                 <p v-else class="text-sm" :style="{ color: 'var(--color-suave)' }">Sin carreras registradas.</p>

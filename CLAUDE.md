@@ -2229,6 +2229,25 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
      y **el `title` pasó a estar siempre** —sólo salía en modo compacto— para
      poder leer el nombre completo.
 
+  **Segunda mitad de la ronda: los PORTALES** (alumno, familia, docente).
+  - **En el portal de la familia, el nombre del hijo y sus carreras salían
+    truncados.** «Mateo Martínez Ramírez» pedía 179 px y tenía 175 —cortado por
+    cuatro—, y «Licenciatura en Administración de Empresas» pedía 271 con 187.
+    Lo segundo es lo grave: **dos carreras que empiecen igual se truncan al
+    MISMO texto**, y quedan indistinguibles — que es justo lo que el diseño de
+    una por renglón venía a evitar (su comentario lo dice). Las dos envuelven
+    ahora; las tarjetas se emparejan solas en la rejilla.
+  - Panel del alumno, sus cursos, su historial, el portal del docente y el de la
+    familia: **sin recortes ni desbordes**. Los vacíos están bien resueltos
+    («Todavía no estás inscrito en ninguna materia…»).
+  - **La credencial del demo tiene el QR dentro de la banda de color y el 78 %
+    del reverso vacío.** Medido sobre el PNG: la banda del diseño «clásico»
+    llega a y=223 y la caja del QR va de 104 a 218, con CERO píxeles pintados
+    por debajo. **No es del código**: el QR conserva su proporción y su zona
+    blanca —o sea que es legible, y la trampa anotada en su día quedó
+    resuelta—; lo que está mal es `campos_reverso` de esta escuela, que alguien
+    dejó en `y: 10 %`. Es dato del demo, así que se reporta y no se toca.
+
   **Y una observación que NO se tocó**: el control flotante de tamaño de letra
   (`fixed bottom-5 left-1/2`) se cruza con el contenido en todas las pantallas
   largas —una celda de tabla en Carreras, un texto de ayuda en el diseñador del
