@@ -6,6 +6,7 @@ import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import Paginacion from '@/Components/Paginacion.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
+import { hoyLocal } from '@/utils/fechas';
 
 interface Regla {
     id: number;
@@ -89,7 +90,7 @@ const regla = useForm({
     modo: 'monto_fijo',
     valor: null as number | null,
     concepto_id: null as number | null,
-    vigente_desde: new Date().toISOString().slice(0, 10),
+    vigente_desde: hoyLocal(),
     vigente_hasta: '',
 });
 

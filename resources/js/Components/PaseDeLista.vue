@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { router, useForm } from '@inertiajs/vue3';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
+import { hoyLocal } from '@/utils/fechas';
 
 /*
  * Pase de lista de una sesión.
@@ -252,7 +253,7 @@ function alternarDoblePase(): void {
     );
 }
 
-const hoy = new Date().toISOString().slice(0, 10);
+const hoy = hoyLocal();
 </script>
 
 <template>

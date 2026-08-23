@@ -8,6 +8,7 @@ import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoTextarea from '@/Components/CampoTextarea.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 import { ICONOS } from '@/iconos';
+import { hoyLocal } from '@/utils/fechas';
 
 /**
  * Un tutorado: cómo va y qué se ha hablado con él.
@@ -44,7 +45,7 @@ const props = defineProps<{
 
 const form = useForm({
     // Hoy por omisión: se anota al terminar la sesión, no una semana después.
-    fecha: new Date().toISOString().slice(0, 10),
+    fecha: hoyLocal(),
     modalidad: 'presencial',
     motivo: 'seguimiento',
     tema: '',

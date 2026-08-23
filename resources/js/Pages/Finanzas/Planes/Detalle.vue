@@ -11,6 +11,7 @@ import BotonAccion from '@/Components/BotonAccion.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import PestanasPagina from '@/Components/PestanasPagina.vue';
 import { ICONOS } from '@/iconos';
+import { hoyLocal } from '@/utils/fechas';
 
 interface Concepto {
     id: number;
@@ -59,7 +60,7 @@ const rango = useForm({
     concepto_id: props.catalogoConceptos[0]?.id ?? null,
     descripcion: 'Colegiatura',
     monto: '' as string | number,
-    desde: props.plan.ciclo_inicio ?? new Date().toISOString().slice(0, 10),
+    desde: props.plan.ciclo_inicio ?? hoyLocal(),
     cantidad: 6,
     cadencia: 'mensual',
     dia_limite: 5,

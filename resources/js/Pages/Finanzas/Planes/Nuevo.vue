@@ -9,6 +9,7 @@ import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoCasillas from '@/Components/CampoCasillas.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import { ICONOS } from '@/iconos';
+import { hoyLocal } from '@/utils/fechas';
 
 interface Opcion { id: number; nombre: string }
 
@@ -26,7 +27,7 @@ const form = useForm({
     fecha_limite_modo: 'exacta',
     aplica_recargos: false,
     afecta_estatus_deudor: false,
-    vigente_desde: new Date().toISOString().slice(0, 10),
+    vigente_desde: hoyLocal(),
     vigente_hasta: '',
 });
 

@@ -11,6 +11,7 @@ import CampoSelect from '@/Components/CampoSelect.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import { ICONOS } from '@/iconos';
+import { hoyLocal } from '@/utils/fechas';
 
 interface Movimiento { accion: string; detalle: string | null; por: string | null; fecha: string | null }
 interface Otorgada {
@@ -43,7 +44,7 @@ const buscador = ref<{ limpiar: () => void } | null>(null);
 const otorgar = useForm({
     matricula_oferta_id: null as number | null,
     ciclo_id: null as number | null,
-    vigente_desde: new Date().toISOString().slice(0, 10),
+    vigente_desde: hoyLocal(),
     vigente_hasta: '',
     promedio_evaluado: '' as string | number,
     motivo: '',
