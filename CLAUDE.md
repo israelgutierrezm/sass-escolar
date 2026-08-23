@@ -2240,13 +2240,25 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   - Panel del alumno, sus cursos, su historial, el portal del docente y el de la
     familia: **sin recortes ni desbordes**. Los vacíos están bien resueltos
     («Todavía no estás inscrito en ninguna materia…»).
-  - **La credencial del demo tiene el QR dentro de la banda de color y el 78 %
-    del reverso vacío.** Medido sobre el PNG: la banda del diseño «clásico»
-    llega a y=223 y la caja del QR va de 104 a 218, con CERO píxeles pintados
-    por debajo. **No es del código**: el QR conserva su proporción y su zona
-    blanca —o sea que es legible, y la trampa anotada en su día quedó
-    resuelta—; lo que está mal es `campos_reverso` de esta escuela, que alguien
-    dejó en `y: 10 %`. Es dato del demo, así que se reporta y no se toca.
+  - **La credencial del demo tenía el QR dentro de la banda de color.**
+    Medido sobre el PNG: la banda del diseño «clásico» llega a y=223 y la caja
+    del QR iba de 104 a 218, con CERO píxeles pintados por debajo —el 78 % del
+    reverso en blanco—. **No era del código**: el QR conserva su proporción y su
+    zona blanca, o sea que la trampa anotada en su día quedó resuelta; lo que
+    estaba mal era `campos_reverso` de esta escuela, con el QR en `y: 10 %`.
+    - **Corregido en el DATO** (no hay commit de código): la caja pasó de
+      `60 × 12 %` en `y: 10` a **`40 × 25.2 %` en `x: 30, y: 48`**. La caja se
+      hizo CUADRADA en píxeles —40 % de 638 son 255, y para igualar hacen falta
+      25.2 % de 1011—: con la anterior, ancha y baja, el QR sólo podía crecer
+      por el alto. Y va centrada en el área blanca, cuyo centro está en el 61 %.
+    - Comprobado recomponiendo el PNG y contando píxeles: QR de **240×240
+      (cuadrado)**, de y=492 a 732 —**fuera de la banda**—, márgenes de 198 y
+      200 px (centrado), 38 % del ancho, y zona quieta blanca por los cuatro
+      lados. Y mirado, que es la regla: los tres patrones de esquina se ven
+      limpios.
+    - Lo que NO se tocó: el reverso sigue teniendo sitio de sobra bajo el QR.
+      Qué poner ahí —leyenda, firma, vigencia— es decisión de la escuela, y el
+      diseñador ya deja arrastrar esos campos.
 
   **Y una observación que NO se tocó**: el control flotante de tamaño de letra
   (`fixed bottom-5 left-1/2`) se cruza con el contenido en todas las pantallas
