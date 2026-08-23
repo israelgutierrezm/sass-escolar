@@ -110,6 +110,7 @@ use App\Http\Controllers\RecuperacionController;
 use App\Http\Controllers\ReglaHorarioController;
 use App\Http\Controllers\ReglaMatriculaController;
 use App\Http\Controllers\RespuestaFormularioController;
+use App\Http\Controllers\Rh\EmpleadoController;
 use App\Http\Controllers\RolActivoController;
 use App\Http\Controllers\RolController;
 use App\Http\Controllers\RubricaController;
@@ -1535,6 +1536,28 @@ Route::middleware([
                 Route::get('nueva', 'crear')->name('nueva');
                 Route::get('{vacante}', 'show')->whereNumber('vacante')->name('show');
                 Route::put('{vacante}', 'guardar')->whereNumber('vacante')->name('actualizar');
+            });
+
+        /*
+         * Módulo 10 · Nómina y RH — el expediente laboral.
+         *
+         * Bajo `modulo:nomina` además del permiso: son dos preguntas —si la
+         * escuela contrató el módulo, y si a esta persona le toca—.
+         */
+        Route::controller(EmpleadoController::class)
+            ->prefix('rh/empleados')->name('tenant.rh.empleados.')
+            ->middleware(['can:gestionar-rh', 'modulo:nomina'])
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'guardar')->name('guardar');
+                Route::get('candidatos', 'candidatos')->name('candidatos');
+                Route::get('{expediente}', 'ficha')->whereNumber('expediente')->name('ficha');
+                Route::put('{expediente}', 'actualizar')->whereNumber('expediente')->name('actualizar');
+                Route::post('{expediente}/baja', 'darDeBaja')->whereNumber('expediente')->name('baja');
+                Route::post('{expediente}/reactivar', 'reactivar')->whereNumber('expediente')->name('reactivar');
+                Route::post('{expediente}/adscripciones', 'adscribir')->whereNumber('expediente')->name('adscribir');
+                Route::put('{expediente}/adscripciones/{adscripcion}', 'cerrarAdscripcion')
+                    ->whereNumber(['expediente', 'adscripcion'])->name('adscripciones.cerrar');
             });
 
         /*

@@ -193,6 +193,15 @@ final class CatalogoPermisos
              * postule sin pasar por ventanilla—.
              */
             'ver-vacantes' => ['Ver la bolsa de trabajo', 'Que el alumno o egresado vea las vacantes que aplican a su carrera.', [self::ALUMNO]],
+            /*
+             * Recursos humanos: el expediente laboral de quien trabaja aquí.
+             *
+             * Aparte de `ver-docentes`, que es del catálogo ACADÉMICO —cédula,
+             * tipo de docente, a qué materias se le puede asignar—. Quien
+             * administra la nómina no tiene por qué ver la carga académica, y
+             * quien revisa expedientes docentes no tiene por qué ver sueldos.
+             */
+            'gestionar-rh' => ['Recursos humanos', 'Dar de alta expedientes laborales, adscribir a un puesto y dar de baja.', [self::ADMINISTRATIVO]],
             'gestionar-bolsa-trabajo' => ['Gestionar la bolsa de trabajo', 'Registrar empleadores, publicar vacantes y dar seguimiento a las postulaciones.', [self::ADMINISTRATIVO]],
             'gestionar-autorizaciones' => ['Gestionar autorizaciones', 'Pedirle a los padres o tutores que autoricen salidas, uso de imagen y actividades.', [self::ADMINISTRATIVO]],
             'editar-mi-expediente-tutor' => ['Editar mi expediente (tutor)', 'Que el padre o tutor suba los documentos que la escuela le pide a él.', [self::PADRE]],

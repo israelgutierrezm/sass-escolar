@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**75 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**76 archivos `prueba-*.php`**;
    esta lista decía 23 y llevaba tiempo desactualizada). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
    imprimen `Resultado: N correctas, M fallidas`. **Ojo al barrer con `grep`**:
@@ -57,7 +57,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 75 están en verde**, barridas el 2026-08-22. Llegaron a estar 33 en rojo —no trece: ese primer
+   **Las 76 están en verde**, barridas el 2026-08-22. Llegaron a estar 33 en rojo —no trece: ese primer
    conteo sólo miró las que imprimían «N fallidas» e ignoró las 21 que morían
    antes, con una excepción sin resumen—. Ninguna caía por un cambio reciente;
    se comprobó corriéndolas contra el árbol limpio.
@@ -664,8 +664,8 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     tenía asesor. Lo cazó `prueba-actividad-crm`.
   - Pruebas: `scripts/prueba-actividad-crm.php`, 29 verificaciones, comprobada
     mutando la regla de re-cierre (caen exactamente las tres que la vigilan).
-- Pruebas: 75 suites en `scripts/`, contra la BD real del tenant demo con
-  `DB::rollBack()` al final. **75 en verde** (ver la regla 5 para qué tumbó a
+- Pruebas: 76 suites en `scripts/`, contra la BD real del tenant demo con
+  `DB::rollBack()` al final. **76 en verde** (ver la regla 5 para qué tumbó a
   las 33 que estuvieron en rojo). `prueba-listados` es la primera
   que invoca a los CONTROLADORES y lee sus props de Inertia, en vez de
   reimplementar la consulta: un `or` sin paréntesis no se detecta de otra forma.
@@ -1273,6 +1273,58 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     previa. Una prueba que sólo pasa cuando la corres sola no prueba nada el día
     que alguien la mete en el barrido.
 
+- **Módulo 10 · Nómina y RH, primera rebanada** (2026-08-22): el expediente
+  laboral. `/rh/empleados`, permiso `gestionar-rh`, bajo `modulo:nomina`.
+  - **El reloj checador NO se llama `marcas_reloj`.** La spec lo nombra así y la
+    tabla real es **`checadas`** (`App\Models\Asistencia\Checada`). Es la trampa
+    que la bitácora ya tenía anotada —el nombre de una tabla se pregunta, no se
+    adivina— y aquí volvía a estar servida porque el módulo 10 la cita por el
+    nombre de la spec. **Y está VACÍA en el demo**: el insumo existe
+    estructuralmente pero nunca se ha ejercitado con datos, así que el cálculo
+    por horas de la rebanada 3 no se podrá comprobar contra nada real sin
+    sembrar checadas antes.
+  - **El expediente laboral NO reemplaza a `docentes`, lo complementa.**
+    `docentes` es identidad ACADÉMICA —clave, cédula, tipo— y de ahí sale a qué
+    materias se le puede asignar; el expediente es el vínculo laboral, y lo tiene
+    también quien nunca da clase. Fundirlos obligaría a inventarle una cédula
+    profesional al personal de intendencia.
+  - **`puestos` NO es `cargos`.** `cargos` es el catálogo OFICIAL de la SEP
+    —doce entradas, con el número que va en el XML del certificado— y esta misma
+    bitácora prohíbe tocarlo. `puestos` es el organigrama de la escuela.
+    Fundirlos rompería el timbrado de todas las escuelas por ganar una tabla.
+  - **Ni RFC ni CURP se repiten en el expediente**, al revés de lo que pedía la
+    spec: `personas` ya los tiene y copiarlos crearía dos verdades. **El NSS se
+    agregó a `personas`** por la misma razón —es un identificador que el IMSS le
+    da a la PERSONA de por vida—, así que quien es recontratado no vuelve a
+    capturarlo. La CLABE y el banco sí van en el expediente: son «a dónde se
+    deposita ESTE sueldo».
+  - **«Baja» tiene UNA sola fuente de verdad: `fecha_baja`.** Por eso
+    `situaciones_empleado` **no siembra ninguna situación de baja** —con las dos
+    cosas, un expediente podría decir «activo» con fecha de baja puesta y nadie
+    sabría cuál manda—. El catálogo distingue matices de quien SIGUE contratado:
+    activo, licencia con goce, licencia sin goce, comisión.
+  - **A quién se le paga lo dice la bandera `entra_a_nomina`, no la clave.**
+    Licencia SIN goce sigue contratado y no cobra; comisión sí cobra. Preguntar
+    por `clave = 'activo'` se equivoca en los dos casos, y ninguno se notaría
+    hasta el día de pago. Lo fija una mutación de la suite.
+  - **Dar de baja CIERRA las adscripciones abiertas**, con la misma fecha. Sin
+    eso, quien renunció seguiría figurando como coordinador del campus norte, que
+    es justo la pregunta que esa tabla existe para contestar. **Deshacer la baja
+    NO las reabre**: no hay forma de saber si el puesto sigue libre, y
+    devolverlo podría pisar a quien ya lo ocupa.
+  - **`adscripciones` no duplica `persona_rol.campus_id`**: aquél acota lo que un
+    usuario PUEDE VER, ésta dice qué puesto ocupa en el organigrama y desde
+    cuándo. Alguien puede tener permisos globales y una sola adscripción.
+  - **El régimen fiscal NO está todavía**, a propósito: sólo lo lee el CFDI de
+    nómina, que es una rebanada posterior. Una columna sin lector es lo mismo que
+    un ajuste que nadie consulta, y este proyecto ya tuvo que retirar varios.
+  - **El número de empleado se captura, no se genera.** Una escuela que llega de
+    otro sistema ya trae sus números impresos en gafetes y recibos viejos, y
+    generárselos pelearía con los que tiene. Es único y lo detiene la VALIDACIÓN,
+    no el índice: quien captura lee el mensaje en su formulario.
+  - Pruebas: `scripts/prueba-rh-expediente-laboral.php`, 45 verificaciones,
+    comprobadas mutando ocho reglas.
+
 - **El demo NO tiene datos de bolsa de trabajo, y es a propósito** (2026-08-22).
   Se sembraron dos empresas, dos vacantes, seis postulaciones y cuatro
   colocaciones para mirar las pantallas en el navegador, y se retiraron al
@@ -1708,8 +1760,10 @@ marcado abajo con su fecha, y lo que NO la lleve sigue sin verificar.)*
       **postulaciones ✅**, **colocaciones ✅**. **Decisión del cliente: la postulación
       es autogestiva Y por ventanilla, con un interruptor para apagar la
       autogestiva y forzar el mostrador; apagado por omisión.**
-   3. **Módulo 10 · Nómina y RH** — el de más valor y el más grande. Su insumo
-      ya existe (el reloj checador). **Decisión del cliente sobre el CFDI de
+   3. **Módulo 10 · Nómina y RH** — EN CURSO, el de más valor y el más grande.
+      Rebanadas: **expediente laboral ✅**, esquemas de percepción y conceptos,
+      periodo y recibo, CFDI de nómina. Su insumo existe (el reloj checador,
+      tabla `checadas`) pero está VACÍO en el demo. **Decisión del cliente sobre el CFDI de
       nómina: se implementa, pero el timbrado se enciende desde configuración.
       Apagado, no se puede timbrar; encendido, valida la información que el
       timbrado exige.**
