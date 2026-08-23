@@ -2013,6 +2013,54 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     porque son la misma pregunta —dónde quedó— y en columna aparte estaría vacía
     en casi todos los renglones.
 
+- **`docs/plan-migraciones.md` estaba peligrosamente desactualizado, y al
+  ponerlo al día salieron TRES tablas del LMS que nunca se construyeron**
+  (2026-08-23). El plan marcaba **67 renglones como pendientes**; comprobados
+  uno por uno contra la base del demo, **40 existían tal cual** y **24 más
+  existían con otro nombre**. Sólo 3 faltaban de verdad.
+  - **Es exactamente la trampa contra la que esta bitácora avisa cinco veces.**
+    El plan es uno de los tres documentos vivos y se lee al empezar: un renglón
+    sin tachar dice «falta construir». Con módulos 8, 9, 10, 11, 12 y 13 enteros
+    sin tachar, la siguiente sesión tenía servido rehacer medio sistema.
+  - Se agregó la marca **`[~]`** para lo resuelto de OTRA forma que la spec —con
+    otro nombre, plegado en otra tabla, o deliberadamente no construido—, con el
+    porqué al lado. Sin ella no hay dónde escribir «esto existe pero no se llama
+    así», que es la mitad de los casos.
+  - **Los desvíos con nombre distinto**, por si vuelve a buscarse por el nombre
+    de la spec: `opciones_reactivo`→`reactivo_opciones`,
+    `actividad_reactivos`→`examen_reactivo`, `entrega_respuestas`→`respuestas`
+    (cuelga del INTENTO, no de la entrega), `foros`/`foro_mensajes`→`foro_temas`
+    + `foro_respuestas`, `responsables_firma`→`responsables`,
+    `tramites_titulacion`→`titulaciones`, `servicio_social`→
+    `titulo_servicio_social`, `antecedentes_academicos`→`titulo_antecedente`,
+    `lotes_documento`→`lotes_titulacion` + `lotes_certificacion`,
+    `vinculos_familiares`→`tutores_alumno`, `avisos_familiares`→`avisos`,
+    `aviso_destinatarios`→`avisos_destinos`.
+  - **Lo que falta de verdad, y nadie lo había anotado** (el módulo 8 se declaró
+    completo con esto fuera):
+    1. **Portafolio de evidencias** (`portafolio_evidencias` +
+       `portafolio_archivos`). La spec lo lista como uno de los CUATRO tipos de
+       actividad —contenido, ejercicio/examen, **portafolio**, SQA— y viene del
+       legacy. Hoy no existen ni las tablas ni el tipo. Lo más cercano es una
+       entrega con varios archivos (`entrega_archivos`), que NO es lo mismo: el
+       portafolio es una colección que el alumno acumula a lo largo del curso y
+       describe pieza por pieza.
+    2. **`acceso_videoconferencia`** — quién entró a la clase en línea y cuánto
+       se quedó. `videoconferencias` está construida y funcionando, pero la
+       asistencia a la sesión no se registra, así que **una clase en línea no
+       puede pasar lista sola**.
+  - **Y una deuda de diseño que sale a la luz al mapear**: `tipos_actividad`,
+    `tipos_reactivo`, `dificultades` y `metodos_resolver` iban a ser catálogos y
+    acabaron siendo `actividades.tipo` y `reactivos.tipo`, dos `varchar`.
+    `dificultades` y `metodos_resolver` no existen ni como columna. **Choca con
+    la regla 4** —«configurable, no cableado»—: una escuela no puede agregar un
+    tipo de actividad sin tocar código, y nunca se escribió por qué no es tabla.
+  - De paso quedaron al día: el Módulo 3 (`respuestas_campo` ya no está
+    diferida), el Módulo 7 (decía «EN CURSO, aquí se retoma 7.2» con 7.2 y 7.3
+    cerradas, y daba por pendiente el enganche al scheduler que ya está en
+    `routes/console.php`) y el conteo de suites (decía «43 verificaciones» de
+    una sola; son 82 archivos, con las cuatro que no cierran con «Resultado:»).
+
 **Pendiente inmediato — aquí se retoma:**
 
 *(Antes de tomar algo de esta lista, COMPROBARLO en el código. **Ya van cinco**
@@ -2033,6 +2081,14 @@ marcado abajo con su fecha, y lo que NO la lleve sigue sin verificar.)*
    vínculo `tutores_alumno` declara qué puede VER —lo académico, lo
    financiero— y nada sobre qué puede entregar en su nombre, así que decidirlo
    aquí sería decidirlo por la escuela.
+
+4. **Las TRES tablas del LMS que faltan** — es el único pendiente de código que
+   queda, y salió al poner al día `plan-migraciones.md` (ver la entrada de más
+   arriba). **Decidir si entran es del cliente**, porque ninguna se decidió no
+   hacer: se quedaron fuera sin que nadie lo anotara.
+   - `portafolio_evidencias` + `portafolio_archivos`: uno de los cuatro tipos de
+     actividad que la spec promete, hoy imposible de crear.
+   - `acceso_videoconferencia`: sin ella una clase en línea no pasa lista sola.
 
 3. **Fase 4 — COMPLETA** (2026-08-23): los cuatro módulos cerrados.
    Revisada contra el código el 2026-08-22: de sus 50

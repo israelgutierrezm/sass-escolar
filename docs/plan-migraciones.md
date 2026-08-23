@@ -7,7 +7,13 @@ de las tablas que los usan.
 
 ## Convenciones al ir tachando
 
-- `[ ]` pendiente · `[x]` migración creada y probada.
+- `[ ]` pendiente · `[x]` migración creada y probada · `[~]` **resuelto de otra
+  forma que la spec**: o con otro nombre, o plegado en otra tabla, o
+  deliberadamente no construido. Siempre con el porqué al lado.
+- **Este documento se comprueba contra la BASE, no contra la memoria.** Llevaba
+  meses diciendo que faltaban módulos enteros ya construidos, y CLAUDE.md tiene
+  anotadas cinco veces que una lista así manda a rehacer trabajo hecho. Al
+  cerrar un módulo se actualiza aquí, en el mismo commit.
 - **Capa:** `L` = LANDLORD (BD central) · `T` = TENANT (BD por escuela) ·
   `TC` = TENANT-CONFIG (tenant, catálogo sembrado con seeder).
 - Las migraciones `L` van en `database/migrations/`.
@@ -111,7 +117,7 @@ Tablas:
 > campus→carrera→plan→asignatura→plan_materia→evaluación→seriación→oferta;
 > relación cross-DB, seriación reflexiva, Σ%=100 y unique validados.
 
-### Módulo 3 — Formularios dinámicos  ✅ (salvo respuestas_campo)
+### Módulo 3 — Formularios dinámicos  ✅ COMPLETO
 Catálogos TC (sembrados con CatalogosFormulariosSeeder):
 - [x] `tipos_campo` (TC) — 11 tipos del legacy.
 - [x] `formulario_obligatoriedad` (TC)
@@ -124,8 +130,9 @@ Tablas (la de respuestas se difiere a fase 1/módulo 4 por FK a matricula_oferta
 - [x] `opciones_campo` (T, FK → campos_formulario)
 - [x] `formulario_asignacion` (T, FK → formularios) — polimórfico
       nivel/carrera/oferta/rol; `aplica_a_id` sin FK, indexado por par.
-- [ ] `respuestas_campo` (T) — DIFERIDA: depende de `matricula_oferta` y
-      `aspirantes` (Módulo 4), como indica la nota de dependencias.
+- [x] `respuestas_campo` (T) — ya NO está diferida: se creó al cerrar el Módulo
+      4, con `matricula_oferta_id` **y** `aspirante_id`, que es la dependencia
+      que la tenía esperando.
 
 > Prueba de integración (con rollback): formulario versionado, campo
 > condicional con auto-referencia, opciones relacionales, asignación a un
@@ -263,9 +270,9 @@ Tablas:
 
 ## FASE 3 — Módulos de valor
 
-### Módulo 7 — Finanzas  ⏳ EN CURSO (7.1 ✅ cerrada)
+### Módulo 7 — Finanzas  ✅ COMPLETO (7.1, 7.2 y 7.3 cerradas)
 
-> Se partió en tres entregas. **Aquí se retoma: entrega 7.2.**
+> Se partió en tres entregas, las tres cerradas.
 
 Catálogos TC — migrados y **sembrados** (`CatalogosFinanzasSeeder`):
 - [x] `conceptos_pago` (TC) — con clave SAT, gravado y tasa de IVA para el CFDI.
@@ -324,9 +331,9 @@ Núcleo transaccional:
 - [x] Permiso nuevo `gestionar-planes-cobro`, separado de `registrar-pagos`.
 - [x] Suite `scripts/prueba-cobro.php` — 53 verificaciones.
 
-Pendiente de 7.2 para cuando exista el scheduler: enganchar
-`GeneradorAdeudos::generarParaTodas` y `recalcularCartera` a un job diario. El
-servicio ya está listo y es idempotente; solo falta quién lo dispare.
+~~Pendiente de 7.2 para cuando exista el scheduler~~ — **hecho**: `routes/console.php`
+programa `finanzas:generar-cargos` a las 2:45 y `finanzas:evaluar` después. En
+ese orden a propósito: no se puede recargar por mora un cargo que no existe.
 
 **Entrega 7.3** — CFDI 4.0 ✅ CERRADA:
 - [x] `facturas` (T, FK → matricula_oferta y self `factura_sustituye_id`).
@@ -371,32 +378,54 @@ Pendiente de 7.3 para cuando haya PAC contratado: escribir el driver real
 cuál está en uso. Falta también la representación impresa (PDF): hoy se guarda
 el que devuelva el PAC, y `PacFalso` no devuelve ninguno.
 
-### Módulo 8 — LMS
+### Módulo 8 — LMS  ✅ COMPLETO salvo tres tablas (ver el final del bloque)
+
+> **Se construyó con OTROS NOMBRES que la spec, y esta lista llevaba meses sin
+> reflejarlo.** Un renglón sin tachar aquí decía «falta construir» de cosas
+> hechas, que es exactamente lo que ya mandó cinco veces a rehacer trabajo
+> existente. Cada desvío va anotado con su equivalente real.
+
 Catálogos TC:
-- [ ] `tipos_actividad`, `tipos_reactivo`, `dificultades`, `metodos_resolver` (TC)
+- [~] `tipos_actividad`, `tipos_reactivo`, `dificultades`, `metodos_resolver`
+      (TC) — **NO se hicieron tabla**: son las columnas `actividades.tipo` y
+      `reactivos.tipo`, sendos `varchar`. ⚠️ **Esto choca con la regla 4 del
+      proyecto** («configurable, no cableado»): una escuela no puede agregar un
+      tipo de actividad sin tocar código. Es la deuda del módulo, no una
+      decisión razonada — nunca se escribió el porqué. `dificultades` y
+      `metodos_resolver` no existen ni como columna.
 
 Tablas:
-- [ ] `cursos` (T, FK → asignatura_grupo, plan_materias, self origen_curso_id)
-- [ ] `unidades` (T, FK → cursos)
-- [ ] `contenidos` (T, FK → unidades)
+- [x] `cursos` (T, FK → asignatura_grupo, plan_materias, self origen_curso_id)
+- [~] `unidades` (T) — **no existe**: se plegó en `actividades`, que llevan
+      `orden` y su parcial. Un curso es una lista de lecciones, no un árbol de
+      dos niveles.
+- [~] `contenidos` (T) — **no existe**: es `actividades.contenido`, el HTML del
+      editor. Ver «El AULA del alumno» en CLAUDE.md.
 - [x] `rubricas` (T) — con `rubrica_criterios`, `rubrica_niveles` y
       `entrega_rubrica`. Dos ámbitos en una tabla (plataforma / docente); el
       máximo de un criterio se deriva de sus niveles y el total, de los máximos.
       Se congela al primer uso y para cambiarla se duplica, que es lo que
       permite que la actividad la APUNTE en vez de copiarla. Ver
       `docs/decisiones.md`, 2026-08-18.
-- [ ] `bancos_reactivos` (T, FK → plan_materias, personas)
-- [ ] `actividades` (T, FK → cursos, unidades, tipos_actividad, dificultades, rubricas)
-- [ ] `reactivos` (T, FK → bancos_reactivos, dificultades, personas)
-- [ ] `opciones_reactivo` (T, FK → reactivos)
-- [ ] `pares_reactivo` (T, FK → reactivos)
-- [ ] `actividad_reactivos` (T, FK → actividades, reactivos)
-- [ ] `entregas` (T, FK → actividades, inscripcion)
-- [ ] `entrega_respuestas` (T, FK → entregas, reactivos, opciones_reactivo, pares_reactivo)
-- [ ] `portafolio_evidencias` (T, FK → inscripcion, actividades)
-- [ ] `portafolio_archivos` (T, FK → portafolio_evidencias)
-- [ ] `foros` (T, FK → cursos, actividades)
-- [ ] `foro_mensajes` (T, FK → foros, personas, self mensaje_padre_id)
+- [~] `bancos_reactivos` (T) — **no existe**: el banco es el curso, y los
+      reactivos cuelgan de él con `reactivos.curso_id`. Una tabla intermedia sin
+      más atributos que su dueño no aporta nada.
+- [x] `actividades` (T, FK → cursos, esquema_evaluacion, rubricas)
+- [x] `reactivos` (T, FK → cursos)
+- [x] `opciones_reactivo` → se llama **`reactivo_opciones`**.
+- [~] `pares_reactivo` (T) — **no existe** como tabla propia.
+- [x] `actividad_reactivos` → se llama **`examen_reactivo`**, y cuelga de
+      `examenes` (la configuración del examen) y no de la actividad a secas.
+- [x] `entregas` (T, FK → actividades, inscripcion)
+- [x] `entrega_respuestas` → se llama **`respuestas`**, y cuelga del INTENTO
+      (`intento_id`), no de la entrega: un examen admite varios intentos y la
+      spec no lo contemplaba.
+- [ ] `portafolio_evidencias` (T, FK → inscripcion, actividades) — **NO
+      CONSTRUIDA.** Ver la nota del final.
+- [ ] `portafolio_archivos` (T, FK → portafolio_evidencias) — **NO CONSTRUIDA.**
+- [x] `foros` → son **`foro_temas`** (el hilo) y **`foro_respuestas`**, colgando
+      de la ACTIVIDAD y no del curso: un foro del LMS es un tipo de actividad.
+- [x] `foro_mensajes` → cubierto por `foro_respuestas`.
 - [x] `videoconferencias` (T, FK → asignatura_grupo), con
       `integraciones_videoconferencia` (credenciales cifradas por proveedor) y
       `cuentas_videoconferencia` (el pool de anfitriones) que la spec no
@@ -404,93 +433,195 @@ Tablas:
       una reunión a la vez y una cuenta de Meet no tiene ese límite—, y esa
       bandera es la que gobierna el reparto. Ver `docs/decisiones.md`,
       2026-08-19.
-- [ ] `acceso_videoconferencia` (T, FK → videoconferencias, personas)
+- [ ] `acceso_videoconferencia` (T, FK → videoconferencias, personas) — **NO
+      CONSTRUIDA.** Ver la nota del final.
 - [x] `grabaciones` + `destinos_grabacion` (T) — el archivado de lo que Zoom o
       Meet graba, a disco propio, Drive o Dropbox. No estaba en la spec: sólo
       preveía `videoconferencias.grabacion_ruta`, que no alcanza porque una
       clase deja varios archivos (video, audio, chat, transcripción). Ver
       `docs/decisiones.md`, 2026-08-19.
 
-### Módulo 9 — Titulación y certificación SEP
+**Lo que de verdad falta del Módulo 8** (medido contra la base del demo el
+2026-08-23, no contra este documento):
+
+1. **Portafolio de evidencias** (`portafolio_evidencias` + `portafolio_archivos`).
+   La spec lo lista como uno de los cuatro tipos de actividad —contenido,
+   ejercicio/examen, **portafolio**, SQA— y viene del legacy. Hoy no hay ni las
+   tablas ni el tipo: una actividad de portafolio no se puede crear. Lo más
+   cercano es una entrega con varios archivos (`entrega_archivos`), que NO es lo
+   mismo: el portafolio es una colección que el alumno acumula a lo largo del
+   curso y describe pieza por pieza.
+2. **`acceso_videoconferencia`** — quién entró a la clase en línea y cuánto se
+   quedó. `videoconferencias` está construida y funcionando, pero la asistencia
+   a la sesión no se registra, así que hoy una clase en línea no puede pasar
+   lista sola.
+
+Ninguna de las dos se decidió no hacer: se quedaron fuera sin que nadie lo
+anotara, y el módulo se declaró completo. Decidir si entran es del cliente.
+
+### Módulo 9 — Titulación y certificación SEP  ✅ COMPLETO
+
+> Igual que el 8: construido con otros nombres y sin tachar aquí. 17 modelos en
+> `App\Models\Emision\`, 38 rutas y sus pantallas.
+
 Catálogos TC:
-- [ ] `modalidades_titulacion`, `etapas_titulacion`, `etapas_certificacion`,
-      `estatus_titulo`, `estatus_certificado`, `estatus_lote`,
-      `tipos_responsable`, `cargos`, `abreviaturas_titulo`,
-      `cumplimientos_servicio_social`, `fundamentos_legales_ss`,
-      `titulos_academicos` (todas TC). (`tipos_antecedente_academico` ya en Módulo 3.)
+- [x] `modalidades_titulacion`, `tipos_certificacion`, `tipos_responsable`,
+      `cargos`, `titulos_profesionales`,
+      `fundamentos_legales_servicio_social` (todas TC).
+- [~] `etapas_titulacion`, `etapas_certificacion`, `estatus_titulo`,
+      `estatus_certificado`, `estatus_lote` — **no se hicieron catálogo**: son
+      columnas de estado en `titulaciones`, `certificaciones` y sus lotes. Un
+      trámite ante la SEP tiene los estados que la SEP reconoce y la escuela no
+      puede inventarse uno.
+- [~] `abreviaturas_titulo` → es `titulos_profesionales`, con `abreviatura` y
+      `descripcion` como columnas. Ver CLAUDE.md: las lee el XML del título, y
+      el registro genérico las MAPEA en vez de renombrarlas.
+- [~] `cumplimientos_servicio_social` — no existe; el cumplimiento vive en
+      `titulo_servicio_social`.
 
 Tablas:
-- [ ] `responsables_firma` (T, FK → personas, cargos, tipos_responsable, abreviaturas_titulo)
-- [ ] `tramites_titulacion` (T, FK → matricula_oferta, modalidades_titulacion,
-      etapas_titulacion, estatus_titulo)
-- [ ] `servicio_social` (T, FK → matricula_oferta, cumplimientos_servicio_social,
-      fundamentos_legales_ss)
-- [ ] `antecedentes_academicos` (T, FK → matricula_oferta,
-      tipos_antecedente_academico, entidades_federativas)
-- [ ] `lotes_documento` (T, FK → campus, estatus_lote, responsables_firma)
-- [ ] `documentos_electronicos` (T, FK → lotes_documento, matricula_oferta,
-      tramites_titulacion)
+- [x] `responsables_firma` → se llama **`responsables`**, con
+      `responsable_movimientos` (su historial) y `certificados_responsable`.
+- [x] `tramites_titulacion` → se llama **`titulaciones`**, con `titulo_modalidad`,
+      `titulo_antecedente` y `titulo_servicio_social` colgando.
+- [x] `servicio_social` → se llama **`titulo_servicio_social`**.
+- [x] `antecedentes_academicos` → se llama **`titulo_antecedente`**.
+- [x] `lotes_documento` → son **DOS**: `lotes_titulacion` y `lotes_certificacion`.
+      Un título y un certificado son trámites distintos ante la SEP, con XSD
+      distintos; un lote común habría obligado a un discriminador en cada
+      consulta.
+- [x] `documentos_electronicos` → cubierto por `titulaciones` y
+      `certificaciones`, que guardan su XML, su sello y su acuse.
+- [x] `titulacion_ws_config` (T) — la configuración del web service de la SEP.
+      No estaba en la spec.
+
+**Lo único que falta es de tu lado, no de código**: la **e.firma** de la escuela
+y el **WSDL de producción** de la SEP.
 
 ---
 
-## FASE 4 — RH, empleabilidad, movilidad y familia
+## FASE 4 — RH, empleabilidad, movilidad y familia  ✅ COMPLETA (2026-08-23)
 
-### Módulo 10 — Nómina y RH
+> Los cuatro módulos cerrados. **La numeración no es una cadena de
+> dependencias**: 10, 11, 12 y 13 no dependen entre sí, todos cuelgan de las
+> Fases 0-3, así que el orden fue decisión de negocio.
+
+### Módulo 10 — Nómina y RH  ✅ COMPLETO (2026-08-23)
 Catálogos TC:
-- [ ] `tipos_contrato`, `regimenes_fiscales`, `motivos_baja_laboral`,
-      `situaciones_empleado`, `puestos`, `modalidades_percepcion`,
-      `conceptos_nomina`, `formulas_nomina` (todas TC).
+- [x] `tipos_contrato`, `motivos_baja_laboral`, `situaciones_empleado`,
+      `puestos`, `modalidades_percepcion`, `conceptos_nomina`,
+      `formulas_nomina` (todas TC). `situaciones_empleado` NO siembra ninguna
+      situación de baja: «baja» tiene una sola fuente de verdad, `fecha_baja`.
+      A quién se le paga lo dice la bandera `entra_a_nomina`, no la clave.
+- [~] `regimenes_fiscales` — **no se hizo tabla a propósito**: el RFC, el
+      régimen y el código postal del empleado ya viven en `datos_facturacion`,
+      que es la que la facturación usa para el receptor. Una tabla propia sería
+      una segunda verdad sobre el mismo RFC.
 
 Tablas:
-- [ ] `expedientes_laborales` (T, FK → personas, tipos_contrato,
-      regimenes_fiscales, motivos_baja_laboral, situaciones_empleado)
-- [ ] `adscripciones` (T, FK → expedientes_laborales, puestos, campus)
-- [ ] `esquemas_percepcion` (T, FK → expedientes_laborales, modalidades_percepcion)
-- [ ] `periodos_nomina` (T, FK → campus)
-- [ ] `recibos_nomina` (T, FK → expedientes_laborales, periodos_nomina)
-- [ ] `recibo_conceptos` (T, FK → recibos_nomina, conceptos_nomina)
+- [x] `expedientes_laborales` (T) — sin RFC ni CURP, que ya están en `personas`.
+      El NSS se agregó a `personas` por lo mismo. La CLABE y el banco sí van
+      aquí: son «a dónde se deposita ESTE sueldo».
+- [x] `adscripciones` (T, FK → expedientes_laborales, puestos, campus) — no
+      duplican `persona_rol.campus_id`: aquél acota lo que un usuario PUEDE VER,
+      ésta dice qué puesto ocupa en el organigrama y desde cuándo.
+- [x] `esquemas_percepcion` (T, FK → expedientes_laborales, modalidades_percepcion)
+- [x] `periodos_nomina` (T, FK → campus)
+- [x] `recibos_nomina` (T) — con el estado del timbrado por RECIBO (`uuid`,
+      `xml_ruta`, `pac`, `timbrado_en`, `error_timbrado`) y no por periodo: el
+      SAT puede rechazar uno y aceptar los otros cuarenta.
+- [x] `recibo_conceptos` (T, FK → recibos_nomina, conceptos_nomina)
 
-### Módulo 11 — Bolsa de trabajo
+**Lo que NO se hace, y hay que saberlo**: no se construye el XML del complemento
+de nómina — lo arma el driver del PAC, y no hay PAC contratado. Con
+`CFDI_PAC=falso` el recorrido entero funciona y el folio es de mentiras.
+
+### Módulo 11 — Bolsa de trabajo  ✅ COMPLETO (2026-08-22)
 Catálogos TC:
-- [ ] `sectores_economicos`, `tamanos_empresa`, `situaciones_empresa`,
+- [x] `sectores_economicos`, `tamanos_empresa`, `situaciones_empresa`,
       `modalidades_trabajo`, `tipos_jornada`, `situaciones_vacante`,
-      `habilidades`, `etapas_postulacion` (todas TC).
+      `habilidades`, `etapas_postulacion` (todas TC). `etapas_postulacion` lleva
+      `marca_colocacion` y `es_final`, independientes entre sí: «Rechazado»
+      cierra y no coloca.
 
 Tablas:
-- [ ] `empresas` (T, FK → sectores_economicos, tamanos_empresa, personas, situaciones_empresa)
-- [ ] `empresa_contactos` (T, FK → empresas)
-- [ ] `vacantes` (T, FK → empresas, modalidades_trabajo, tipos_jornada, campus, situaciones_vacante)
-- [ ] `vacante_carreras` (T, FK → vacantes, carreras)
-- [ ] `vacante_habilidades` (T, FK → vacantes, habilidades)
-- [ ] `postulaciones` (T, FK → vacantes, personas, matricula_oferta, etapas_postulacion)
-- [ ] `postulacion_bitacora` (T, FK → postulaciones)
-- [ ] `colocaciones` (T, FK → postulaciones, personas, empresas)
+- [x] `empresas` (T) — se APAGA con «vetada», no se borra: sus colocaciones
+      históricas son el insumo de los reportes de acreditación.
+- [x] `empresa_contactos` (T, FK → empresas) — UN solo lugar para «con quién se
+      habla», con `es_principal`. La spec ponía además un `persona_contacto_id`
+      en `empresas`: dos sitios donde buscar al mismo reclutador.
+- [x] `vacantes` (T, FK → empresas, modalidades_trabajo, tipos_jornada, campus,
+      situaciones_vacante) — dos columnas de sueldo y no una: casi ninguna
+      vacante mexicana lo publica, y las que sí publican un rango.
+- [x] `vacante_carreras` (T) — vacío = para TODAS las carreras.
+- [x] `vacante_habilidades` (T, FK → vacantes, habilidades)
+- [x] `postulaciones` (T) — `capturada_por` en null significa que se postuló
+      sola; con eso se mide si el portal sirve de algo.
+- [x] `postulacion_bitacora` (T) — existe para MEDIR, no para auditar: sin el
+      renglón del alta, «cuánto tarda un egresado en colocarse» no tiene desde
+      cuándo contar.
+- [x] `colocaciones` (T) — **`postulacion_id` es NULLABLE**, al revés de la
+      spec: un egresado consigue trabajo por su cuenta y ése es el dato que
+      piden las acreditadoras. Obligándolo, el indicador contestaría «a cuántos
+      colocó nuestra bolsa» en vez de «cuántos egresados están colocados».
 
-### Módulo 12 — Movilidad e intercambios
+### Módulo 12 — Movilidad e intercambios  ✅ COMPLETO (2026-08-23)
 Catálogos TC:
-- [ ] `tipos_institucion`, `tipos_convenio`, `situaciones_convenio`,
-      `direcciones_movilidad`, `etapas_movilidad`, `dictamenes_revalidacion` (todas TC).
+- [x] `tipos_institucion`, `tipos_convenio`, `situaciones_convenio`,
+      `etapas_movilidad`, `dictamenes_revalidacion` (todas TC).
+- [~] `direcciones_movilidad` — **no se hizo catálogo**: `direccion` es columna.
+      Saliente y entrante son dos caminos del código, no dos filas; una fila
+      nueva no enseñaría un tercer camino.
 
 Tablas:
-- [ ] `instituciones_aliadas` (T, FK → paises, tipos_institucion)
-- [ ] `convenios` (T, FK → instituciones_aliadas, tipos_convenio, situaciones_convenio)
-- [ ] `convenio_carreras` (T, FK → convenios, carreras)
-- [ ] `convocatorias_movilidad` (T, FK → convenios, direcciones_movilidad)
-- [ ] `convocatoria_requisitos` (T, FK → convocatorias_movilidad, documentos_requeridos)
-- [ ] `postulaciones_movilidad` (T, FK → convocatorias_movilidad, matricula_oferta,
-      personas, etapas_movilidad)
-- [ ] `estancias` (T, FK → postulaciones_movilidad)
-- [ ] `revalidaciones` (T, FK → estancias, plan_materias, dictamenes_revalidacion)
+- [x] `instituciones_aliadas` (T, FK → paises, tipos_institucion)
+- [x] `convenios` (T) — vencido ≠ suspendido, y sin carreras señaladas cubre
+      TODAS. Las dos lecciones que ya había dejado la bolsa de trabajo.
+- [x] `convenio_carreras` (T, FK → convenios, carreras)
+- [x] `convocatorias_movilidad` (T, FK → convenios)
+- [x] `convocatoria_requisitos` (T) — REUSA `documentos_requeridos`: una segunda
+      lista de papeles sería otro sitio donde configurar «identificación».
+- [x] `postulaciones_movilidad` (T) — titular DUAL con CHECK, como `adeudos`.
+      Ojo con **MySQL 3823**: una columna que participa en un CHECK no admite
+      foránea con acción referencial. El promedio se CALCULA y se CONGELA.
+- [x] `estancias` (T, FK → postulaciones_movilidad)
+- [x] `revalidaciones` (T, FK → estancias, plan_materias, dictamenes_revalidacion)
 
-### Módulo 13 — Portal de familiares
+**El hallazgo del módulo**: el asiento en el historial NO necesitó una columna
+«origen», que es lo que la spec pedía. `tipos_evaluacion` ya traía
+`revalidacion` desde la Fase 2 y `observaciones_asignatura` —catálogo de la
+SEP— ya traía «REVALIDACIÓN DE ESTUDIOS», que es el valor que viaja en el XML
+del certificado. Una columna propia habría dejado el dato FUERA del documento
+oficial y habría creado una segunda forma de decir lo mismo.
+
+### Módulo 13 — Portal de familiares  ✅ COMPLETO (2026-08-22)
+
+> **Con el alcance REVISADO.** Buena parte ya estaba construida con otros
+> nombres, y hacerlo literal habría creado un segundo vínculo familiar y un
+> segundo sistema de avisos.
+
 Catálogos TC:
-- [ ] `parentescos`, `tipos_autorizacion` (TC)
+- [x] `parentescos`, `tipos_autorizacion` (TC). El parentesco era un enumerable
+      cableado DOS veces —una lista en el controlador y otro mapa en el Vue— y
+      ninguna escuela podía agregar «abuela» sin tocar código.
 
 Tablas:
-- [ ] `vinculos_familiares` (T, FK → personas, matricula_oferta, parentescos)
-- [ ] `avisos_familiares` (T)
-- [ ] `aviso_destinatarios` (T, FK → avisos_familiares, vinculos_familiares)
-- [ ] `autorizaciones` (T, FK → vinculos_familiares, tipos_autorizacion)
+- [~] `vinculos_familiares` → es **`tutores_alumno`**, que ya existía. Y el
+      vínculo se queda POR PERSONA, no por matrícula como pedía la spec:
+      decisión del cliente. Ganó `es_contacto_emergencia` y
+      `es_responsable_pago`; se retiró `acceso_materia`, que no leía nadie y que
+      además debe ser una exclusión ESTRUCTURAL y no una casilla palomeable.
+- [~] `avisos_familiares` → es **`avisos`**, que ya segmenta por nueve tipos de
+      destino. Un segundo sistema de avisos habría partido en dos la pregunta
+      «¿esto es para mí?».
+- [~] `aviso_destinatarios` → es **`avisos_destinos`**, con el modificador «y a
+      sus familias»: no señala a nadie por sí solo —va sin id—, extiende a los
+      tutores lo que los demás destinos ya dijeron. Es lo único del servicio que
+      se CRUZA en vez de sumarse.
+- [x] `autorizaciones` (T) — una fila por VÍNCULO, no por alumno: quien autoriza
+      es una persona concreta y su respuesta es suya. `concedida` en NULL es «no
+      ha contestado» y NO cuenta como negada; la diferencia es legal, no
+      cosmética.
 
 ---
 
@@ -507,11 +638,20 @@ Tablas:
 
 ---
 
-## Suite de integración versionada
+## Suites de integración versionadas
 
-`php scripts/prueba-actas.php` — 43 verificaciones contra la BD real del tenant
-demo, todo dentro de una transacción con `DB::rollBack()`. Cubre ponderación,
-rechazo del acta incompleta, volcado al historial académico, recursamiento, extemporaneidad,
+**82 archivos `scripts/prueba-*.php`**, todos contra la BD real del tenant demo
+y dentro de una transacción con `DB::rollBack()`. Se corren de una vez con
+`for f in scripts/prueba-*.php; do php "$f"; done`.
+
+**Ojo al barrer con `grep`**: casi todas cierran con `Resultado: N correctas, M
+fallidas`, pero cuatro no —`prueba-cache-externo`, `prueba-captura-examen` y
+`prueba-mensajes-espanol` dicen `N en verde`, y `prueba-listados` dice
+`TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
+«Resultado:» las reporta como rotas sin estarlo.
+
+La primera fue `prueba-actas.php` (43 verificaciones): ponderación, rechazo del
+acta incompleta, volcado al historial académico, recursamiento, extemporaneidad,
 corrección con soft delete de los renglones previos, regresión del doble
 asentamiento y 200 folios sin colisión.
 
