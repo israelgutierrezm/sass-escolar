@@ -34,6 +34,13 @@ export interface GrupoMenu {
     facetas: string[] | null;
     /** Trazo del icono (heroicon). */
     icono: string;
+    /**
+     * El módulo de la escuela que enciende esta sección. Si está apagado en
+     * `/plataforma/accesos`, la sección se oculta de la barra —sin esto quedaba
+     * un enlace que daba 404, porque la RUTA sí comprueba el módulo pero el menú
+     * no—. `null`/ausente = siempre visible.
+     */
+    modulo?: string | null;
     hijos: OpcionMenu[];
 }
 
@@ -90,6 +97,7 @@ export const CATALOGO_MENU: GrupoMenu[] = [
         prefijo: '/movilidad',
         facetas: ['administrativo'],
         icono: 'M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418',
+        modulo: 'movilidad',
         hijos: [
             { clave: 'movilidad-convenios', etiqueta: 'Convenios', url: '/movilidad/convenios', permiso: 'gestionar-movilidad' },
             { clave: 'movilidad-convocatorias', etiqueta: 'Convocatorias', url: '/movilidad/convocatorias', permiso: 'gestionar-movilidad' },
@@ -101,6 +109,7 @@ export const CATALOGO_MENU: GrupoMenu[] = [
         prefijo: '/rh',
         facetas: ['administrativo'],
         icono: 'M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z',
+        modulo: 'nomina',
         hijos: [
             { clave: 'rh-empleados', etiqueta: 'Empleados', url: '/rh/empleados', permiso: 'gestionar-rh' },
             { clave: 'rh-nomina', etiqueta: 'Nómina', url: '/rh/nomina', permiso: 'gestionar-percepciones' },
@@ -122,6 +131,7 @@ export const CATALOGO_MENU: GrupoMenu[] = [
         // el catálogo del que ordena su menú.
         facetas: ['administrativo', 'alumno'],
         icono: 'M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 0 0 .75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 0 0-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0 1 12 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 0 1-.673-.38m0 0A2.18 2.18 0 0 1 3 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 0 1 3.413-.387m7.5 0V5.25A2.25 2.25 0 0 0 13.5 3h-3a2.25 2.25 0 0 0-2.25 2.25v.894m7.5 0a48.667 48.667 0 0 0-7.5 0M12 12.75h.008v.008H12v-.008Z',
+        modulo: 'bolsa_trabajo',
         hijos: [
             { clave: 'bolsa-empresas', etiqueta: 'Empresas', url: '/bolsa/empresas', permiso: 'gestionar-bolsa-trabajo' },
             { clave: 'bolsa-vacantes', etiqueta: 'Vacantes', url: '/bolsa/vacantes', permiso: 'gestionar-bolsa-trabajo' },
@@ -183,6 +193,7 @@ export const CATALOGO_MENU: GrupoMenu[] = [
         prefijo: '/servicios',
         facetas: ['alumno'],
         icono: 'M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25Z',
+        modulo: 'servicios',
         hijos: [{ clave: 'servicios-listado', etiqueta: 'Servicios y trámites', url: '/servicios', permiso: 'solicitar-servicios' }],
     },
     {
@@ -191,6 +202,7 @@ export const CATALOGO_MENU: GrupoMenu[] = [
         prefijo: '/biblioteca',
         facetas: ['alumno'],
         icono: 'M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0 0 12 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75Z',
+        modulo: 'biblioteca',
         hijos: [{ clave: 'biblioteca-listado', etiqueta: 'Biblioteca digital', url: '/biblioteca', permiso: 'ver-biblioteca' }],
     },
     {

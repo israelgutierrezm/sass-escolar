@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
 import draggable from 'vuedraggable';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -17,6 +17,10 @@ interface Rol {
 
 const props = defineProps<{ roles: Rol[] }>();
 
+// Los módulos encendidos de la escuela (prop compartido, siempre presente): el
+// editor tampoco muestra la sección de un módulo apagado, igual que la barra.
+const modulos = (usePage().props.modulos as string[] | null) ?? null;
+
 const rolId = ref<number | null>(props.roles[0]?.id ?? null);
 const arbol = ref<NodoNav[]>([]);
 const ocultos = ref<NodoNav[]>([]);
@@ -31,7 +35,7 @@ function cargarArbol(): void {
     }
     // El editor solo muestra lo que ESE rol podría ver (su ámbito y permisos);
     // los ocultos se separan en su propio cajón para poder devolverlos.
-    const { visible, ocultos: bin } = construirParaEditor(rol.estructura ?? null, rol.ocultos ?? [], rol.permisos, rol.ambito);
+    const { visible, ocultos: bin } = construirParaEditor(rol.estructura ?? null, rol.ocultos ?? [], rol.permisos, rol.ambito, modulos);
     arbol.value = visible;
     ocultos.value = bin;
 }

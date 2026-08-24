@@ -227,8 +227,11 @@ watch(compacta, (valor) => {
 const navegacion = computed<NodoNav[]>(() => {
     const menu = page.props.menu as { arbol: { clave: string; hijos?: any[] }[] | null; ocultos: string[] } | null;
     const ambito = usuario.value?.rol_activo?.ambito ?? null;
+    // Los módulos encendidos de la escuela: una sección de un módulo apagado no
+    // se dibuja, así no queda un enlace que lleva a un 404.
+    const modulos = (page.props.modulos as string[] | null) ?? null;
 
-    return construirNavegacion(menu?.arbol ?? null, permisos.value, ambito, menu?.ocultos ?? []);
+    return construirNavegacion(menu?.arbol ?? null, permisos.value, ambito, menu?.ocultos ?? [], modulos);
 });
 
 const rutaActual = computed(() => page.url.split('?')[0]);

@@ -20,6 +20,8 @@ export interface NodoNav {
     permiso?: string | null;
     o?: string;
     facetas?: string[] | null;
+    /** Módulo de la escuela que enciende la sección; ausente = universal. */
+    modulo?: string | null;
     hijos: NodoNav[];
 }
 
@@ -53,6 +55,7 @@ function resolver(clave: string, hijos: NodoArreglo[] = []): NodoNav | null {
             prefijo: base.prefijo,
             url: base.prefijo,
             facetas: base.facetas,
+            modulo: base.modulo ?? null,
             hijos: hijos.map((h) => resolver(h.clave, h.hijos)).filter((n): n is NodoNav => n !== null),
         };
     }
@@ -141,7 +144,13 @@ function hojaVisible(nodo: NodoNav, permisos: string[]): boolean {
     return nodo.permiso == null || permisos.includes(nodo.permiso) || (nodo.o != null && permisos.includes(nodo.o));
 }
 
-function filtrar(nodos: NodoNav[], permisos: string[], ambito: string | null, ocultos: Set<string>): NodoNav[] {
+function filtrar(
+    nodos: NodoNav[],
+    permisos: string[],
+    ambito: string | null,
+    ocultos: Set<string>,
+    modulos: Set<string> | null,
+): NodoNav[] {
     const resultado: NodoNav[] = [];
 
     for (const nodo of nodos) {
@@ -162,13 +171,24 @@ function filtrar(nodos: NodoNav[], permisos: string[], ambito: string | null, oc
             continue;
         }
 
+        /*
+         * El módulo de la escuela. `modulos == null` = no llegó la lista (página
+         * cacheada tras un despliegue): se falla ABIERTO, mostrando la sección,
+         * porque vaciar la barra por un prop ausente es peor que un enlace de
+         * más. Con la lista presente, un módulo apagado oculta su sección: la
+         * ruta ya devolvía 404, esto quita el enlace muerto que llevaba a él.
+         */
+        if (nodo.modulo != null && modulos != null && !modulos.has(nodo.modulo)) {
+            continue;
+        }
+
         // Grupo-enlace (Panel): se muestra como enlace directo, sin desplegar.
         if (GRUPOS_ENLACE.has(nodo.clave)) {
             resultado.push({ ...nodo, hijos: [] });
             continue;
         }
 
-        const hijos = filtrar(nodo.hijos, permisos, ambito, ocultos);
+        const hijos = filtrar(nodo.hijos, permisos, ambito, ocultos, modulos);
         if (hijos.length > 0) {
             resultado.push({ ...nodo, hijos });
         }
@@ -182,6 +202,7 @@ export function construirNavegacion(
     permisos: string[],
     ambito: string | null,
     ocultos: string[] = [],
+    modulos: string[] | null = null,
 ): NodoNav[] {
     const set = new Set(ocultos);
     const base = arreglo
@@ -191,7 +212,8 @@ export function construirNavegacion(
         )
         : fusionarFaltantes(arbolPorDefecto(), set);
 
-    const nav = filtrar(base, permisos, ambito, set).map((n) => ({ ...n, icono: n.icono ?? ICONO_GENERICO }));
+    const nav = filtrar(base, permisos, ambito, set, modulos == null ? null : new Set(modulos))
+        .map((n) => ({ ...n, icono: n.icono ?? ICONO_GENERICO }));
 
     // «Panel» es la puerta de entrada de TODOS: va siempre primero, sin importar
     // la disposición que tenga el rol (nadie puede empujarlo hacia abajo).
@@ -230,6 +252,7 @@ export function construirParaEditor(
     ocultos: string[],
     permisos: string[],
     ambito: string | null,
+    modulos: string[] | null = null,
 ): { visible: NodoNav[]; ocultos: NodoNav[] } {
     const vacio = new Set<string>();
     const base = arreglo
@@ -239,7 +262,8 @@ export function construirParaEditor(
         )
         : fusionarFaltantes(arbolPorDefecto(), vacio);
 
-    const completo = filtrar(base, permisos, ambito, vacio).map((n) => ({ ...n, icono: n.icono ?? ICONO_GENERICO }));
+    const completo = filtrar(base, permisos, ambito, vacio, modulos == null ? null : new Set(modulos))
+        .map((n) => ({ ...n, icono: n.icono ?? ICONO_GENERICO }));
 
     const bin: NodoNav[] = [];
     const visible = podarOcultos(completo, new Set(ocultos), bin);

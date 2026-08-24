@@ -2398,6 +2398,35 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     (no es página aparte), y `ver-historial-academico` de padre y tutor se
     alcanza por el hijo/tutorado, no por un enlace directo.
 
+- **El menú lateral ahora respeta los MÓDULOS de la escuela** (2026-08-24).
+  Salió al revisar el pedido de "apagar/encender opciones por perfil": el sistema
+  ya tenía DOS niveles para eso —permisos (`/plataforma/roles`) y el editor de
+  menú por rol (`/plataforma/menu`, cajón de «Ocultos»)— pero **faltaba el
+  tercero**: apagar un MÓDULO en `/plataforma/accesos` dejaba su entrada en la
+  barra dando 404, porque la RUTA comprobaba el módulo (`modulo:` middleware) y
+  el menú no.
+  - Cinco secciones estaban gateadas por módulo y no lo declaraban: `movilidad`,
+    `rh`→nomina, `bolsa`→bolsa_trabajo, `servicios-alumno`→servicios,
+    `biblioteca-alumno`→biblioteca. Ahora cada una lleva `modulo:` en el
+    catálogo; `construir.ts` oculta la sección si su módulo está apagado, y el
+    middleware comparte `modulos` (las claves encendidas) como prop.
+  - **Fail-open**: si el prop `modulos` no llega —página cacheada tras un
+    despliegue— NO se filtra por módulo, porque vaciar la barra por un prop
+    ausente es peor que un enlace de más. Sólo con la lista presente se oculta.
+  - **El editor de menú por rol también los oculta** (`construirParaEditor` con
+    `modulos`): no tiene sentido arreglar una sección que nadie ve; al reencender
+    el módulo reaparece, igual que con los permisos.
+  - **Los módulos NÚCLEO no se tocan**: academico, control_escolar, finanzas,
+    etc. no tienen `modulo:` middleware ni campo `modulo` en el menú, así que no
+    se filtran. Ojo: en el demo esos figuran como "apagados" en
+    `modulos_activos` (sin fila = default false), pero da igual porque no están
+    gateados. **Trampa latente**: ponerle `modulo:` a una sección núcleo la
+    ocultaría de golpe, porque su módulo no tiene fila encendida.
+  - Verificado en el navegador: con `biblioteca` apagado, la sección desaparece
+    de la barra del alumno y `/biblioteca` da 404; al reencender, reaparece.
+    Y los otros niveles ya funcionaban —se comprobó ocultando `bolsa` para el
+    alumno vía el editor (MenuRol.ocultos): desaparece sin tocar permisos—.
+
 **Pendiente inmediato — aquí se retoma:**
 
 *(Antes de tomar algo de esta lista, COMPROBARLO en el código. **Ya van cinco**

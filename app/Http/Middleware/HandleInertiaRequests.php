@@ -12,6 +12,7 @@ use App\Models\Identidad\Rol;
 use App\Models\Identidad\Usuario;
 use App\Services\Encuestas\EncuestasDeUsuario;
 use App\Services\Plataforma\AvisosDeUsuario;
+use App\Services\Plataforma\ModulosDeLaEscuela;
 use App\Services\ResolutorTema;
 use App\Services\Suplantador;
 use Illuminate\Http\Request;
@@ -61,6 +62,12 @@ class HandleInertiaRequests extends Middleware
             // que definió la escuela). Null → la barra usa el orden por defecto
             // del catálogo. Lazy: solo se consulta si la página lo usa.
             'menu' => fn () => $this->menuDelRolActivo($usuario),
+
+            // Los módulos ENCENDIDOS de la escuela. La barra oculta la sección
+            // de un módulo apagado: sin esto, apagarlo en `/plataforma/accesos`
+            // dejaba el enlace en el menú y llevaba a un 404 (la ruta sí lo
+            // comprueba, el menú no lo hacía). Lazy y en UNA consulta.
+            'modulos' => fn () => $this->modulosActivos(),
 
             // Colores ya resueltos en cascada; el front solo los inyecta como
             // CSS custom properties.
@@ -254,6 +261,20 @@ class HandleInertiaRequests extends Middleware
      *
      * @return array<int, mixed>|null
      */
+    /**
+     * Las claves de los módulos ENCENDIDOS de la escuela.
+     *
+     * @return array<int, string>
+     */
+    private function modulosActivos(): array
+    {
+        return collect(app(ModulosDeLaEscuela::class)->catalogo())
+            ->filter(fn (array $m) => $m['activo'])
+            ->pluck('clave')
+            ->values()
+            ->all();
+    }
+
     private function menuDelRolActivo(?Usuario $usuario): ?array
     {
         $rolId = $usuario?->rolActivo?->id;
