@@ -73,8 +73,16 @@ function colorDeActa(estado: Materia['acta']['estado']): string {
             </p>
         </section>
 
-        <section class="tarjeta overflow-hidden">
-            <table v-if="materias.length" class="w-full text-sm">
+        <!--
+            `overflow-x-auto` y un ancho mínimo: son siete columnas en 709 px, y
+            sin sitio la tabla no desplazaba, APLASTABA — «Roberto Guzmán
+            Herrera» salía en tres renglones y cada fila medía 85 px de alto. Un
+            nombre partido en tres no se lee de un vistazo, que es justo lo que
+            se hace con esta lista. Es el patrón que ya usan las demás tablas
+            anchas del sistema.
+        -->
+        <section class="tarjeta overflow-x-auto">
+            <table v-if="materias.length" class="w-full min-w-[52rem] text-sm">
                 <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
                     <tr>
                         <th class="px-6 py-3 font-medium">Clave</th>
@@ -99,8 +107,16 @@ function colorDeActa(estado: Materia['acta']['estado']): string {
                         <td class="px-4 py-3">{{ materia.titular ?? '—' }}</td>
                         <td class="px-4 py-3">{{ materia.inscritos }}</td>
                         <td class="px-4 py-3">
+                            <!--
+                                `inline-block` + `whitespace-nowrap`: es una
+                                píldora hecha a mano —no pasa por
+                                `PildoraEstado`, así que no heredó su arreglo— y
+                                «Captura abierta» salía partida en tres dentro
+                                del óvalo. Una etiqueta de estado es de un
+                                renglón; lo que cede es la columna.
+                            -->
                             <span
-                                class="rounded-full px-2 py-0.5 text-xs"
+                                class="inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-xs"
                                 :style="{ backgroundColor: colorDeActa(materia.acta.estado) }"
                             >
                                 {{ etiquetasDeActa[materia.acta.estado] }}
