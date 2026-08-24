@@ -2381,6 +2381,23 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     comprobada mutando `renglones()` para que no parta: cae en la aserción del
     envolvido. Total 717 phpunit.
 
+- **Biblioteca y Servicios del alumno, ahora también en la barra lateral**
+  (2026-08-23). Vivían SÓLO como tarjetas del panel (`BibliotecaDigital`,
+  `MisSolicitudes`), así que un alumno que ya había salido del panel no tenía
+  cómo volver a ellas. Se agregaron al menú como dos secciones de un hijo —igual
+  que «Mi solicitud» del aspirante y «Mis tutorados» del tutor—, cada una tras
+  su permiso (`ver-biblioteca`, `solicitar-servicios`, ambos de faceta ALUMNO):
+  si la escuela no publica biblioteca ni abre el catálogo de trámites, la
+  entrada no aparece.
+  - **Auditoría completa, no sólo esas dos**: se cruzaron las claves de permiso
+    de las CINCO facetas no administrativas (`clavesDe()`) contra las URLs del
+    menú, y se revisaron los `enlace` de las 30 tarjetas del panel. **El alumno
+    era la única faceta con hueco en la barra**; padre, tutor, docente y
+    aspirante ya la tenían completa. Ojo con dos que PARECEN faltar y no:
+    `editar-mi-disponibilidad` del docente se edita DENTRO de «Mi expediente»
+    (no es página aparte), y `ver-historial-academico` de padre y tutor se
+    alcanza por el hijo/tutorado, no por un enlace directo.
+
 **Pendiente inmediato — aquí se retoma:**
 
 *(Antes de tomar algo de esta lista, COMPROBARLO en el código. **Ya van cinco**
