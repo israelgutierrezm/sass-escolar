@@ -2323,9 +2323,40 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   - Comprobado midiendo el color computado: todo lo elegido en `rgb(0,106,137)`
     —el acento de la escuela— y cero elementos morados. Lo único que el detector
     marcaba eran el azul de la barra lateral del tema.
-  - **Lo que NO se tocó**: `CampoBuscador` y `BarraListado` no tienen NINGÚN
-    estilo de foco propio. Es un hueco distinto —les falta, no les sobra— y no
-    entra en esto.
+  - **El hueco que dejó, cubierto el mismo día**: al medirlo salieron **11
+    campos de escritura con foco declarado y 264 SIN él**. Los segundos se
+    quedaban con el anillo por omisión del navegador, así que media plataforma
+    no se parecía a la otra media.
+    - Se resolvió con **una regla global** para `input`, `select` y `textarea`,
+      no clase por clase: declararlo campo por campo es justo lo que produjo la
+      deriva, y arreglarlo así la reproduce en el siguiente formulario. Las once
+      clases `foco-acento` se retiraron — dos mecanismos para lo mismo es como
+      se llega a que uno divergiera.
+    - **`:where()` no es adorno**: aporta CERO especificidad, así que la regla
+      queda en (0,1,0) y las utilidades del estado de error
+      —`focus:border-red-500`, `focus:ring-red-500`— siguen ganando. Sin él
+      subiría a (0,3,1) y pintaría de acento el foco de un campo que está
+      señalando un error. Comprobado poniéndole las clases de error a un campo:
+      el anillo pasa a rojo.
+    - Y **`:focus-visible`** y no `:focus`: en un campo de escritura el navegador
+      lo da igual al hacer clic, así que no se pierde nada, y se evita el anillo
+      en un `select` que sólo recibió el foco al cerrarse un diálogo.
+
+- **Las casillas y los radios no tenían NINGÚN indicador de foco** (defecto
+  anterior, encontrado el 2026-08-23 al medir lo de arriba). Su regla apagaba el
+  contorno del navegador y ponía un `box-shadow` que NO se pintaba —computado
+  salía `0 0 0 0` transparente, pisado por la maquinaria de anillos de
+  Tailwind—, así que entre las dos cosas quien navega con el teclado no podía
+  saber en qué casilla estaba. Ahora va con `outline`, que es el mecanismo del
+  navegador para esto y que nadie compone a partir de variables.
+  - **Ojo al medir el foco en este entorno**: si el panel del navegador no está
+    a la vista, el documento no tiene el foco del sistema y `:focus-visible` no
+    casa aunque `document.activeElement` sea el campo. Da un falso negativo. Se
+    recupera mandando un `Tab` real con `computer`, y entonces sí se mide.
+  - Y **la enumeración por CSSOM no sirve aquí**: `document.styleSheets` sólo
+    devolvió 103 reglas de un CSS de 70 KB, así que no encuentra lo que se
+    busca. Para saber qué regla gana, grep sobre el CSS compilado —con las
+    posiciones, que deciden el empate de especificidad—.
 
 **Pendiente inmediato — aquí se retoma:**
 
