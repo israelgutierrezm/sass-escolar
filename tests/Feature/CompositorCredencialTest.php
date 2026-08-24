@@ -90,6 +90,47 @@ class CompositorCredencialTest extends TenantTestCase
         $this->assertSame(0, $ancho, 'Se dibujó algo pese a que la persona no tiene matrícula.');
     }
 
+    /**
+     * Una leyenda larga se PARTE en renglones y no rebasa su caja.
+     *
+     * Es lo que la distingue de la vigencia: son un par de oraciones, y en una
+     * sola línea se saldrían del gafete. Se mide que lo dibujado sea más alto
+     * que un renglón —o sea, que envolvió— y que su ancho no pase del de la
+     * caja. Un desbordamiento aquí no lanza excepción: imprime una credencial
+     * con el aviso legal cortado por el canto.
+     */
+    public function test_una_leyenda_larga_se_parte_en_renglones(): void
+    {
+        $anchoCaja = 84; // % del lienzo
+        $config = $this->configuracion([
+            'diseno' => 'propio', // Lienzo liso: sólo está la leyenda.
+            'campos_reverso' => [[
+                'clave' => 'leyenda', 'x' => 8, 'y' => 40,
+                'ancho' => $anchoCaja, 'alto' => 20, 'tamano' => 15, 'alineacion' => 'centro',
+            ]],
+        ]);
+
+        $leyenda = 'Esta credencial es personal e intransferible. En caso de extravío, '
+            .'repórtelo de inmediato a Control Escolar.';
+
+        [$ancho, $alto] = $this->tintaEn(
+            app(Compositor::class)->componer($config, 'reverso', ['leyenda' => $leyenda]),
+        );
+
+        $this->assertGreaterThan(0, $alto, 'La leyenda no se dibujó.');
+
+        // Envolvió: más de un renglón. Un tamaño 15 da renglones de ~20 px.
+        $this->assertGreaterThan(30, $alto, "La leyenda salió en un solo renglón ({$alto} px de alto).");
+
+        // Y no se salió de su caja por los lados.
+        $anchoCajaPx = (int) round($config->ancho * $anchoCaja / 100);
+        $this->assertLessThanOrEqual(
+            $anchoCajaPx,
+            $ancho,
+            "La leyenda ({$ancho} px) rebasó su caja ({$anchoCajaPx} px): saldría cortada al imprimir.",
+        );
+    }
+
     // ── Andamiaje ──────────────────────────────────────────────────────────
 
     /** @param array<string, mixed> $cambios */

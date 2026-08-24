@@ -160,7 +160,7 @@ class CredencialConfiguracionController extends Controller
 
         $config->fill(array_merge(
             ['ancho' => 1011, 'alto' => 638, 'diseno' => 'clasico'],
-            array_filter($peticion->only(['diseno', 'vigencia']), fn ($v) => $v !== null),
+            array_filter($peticion->only(['diseno', 'vigencia', 'leyenda']), fn ($v) => $v !== null),
             [
                 // Acotados aquí también, no sólo al guardar: esto reserva un
                 // lienzo en memoria, así que un ancho de 40000 escrito a mano
@@ -226,6 +226,7 @@ class CredencialConfiguracionController extends Controller
             'campos_anverso' => ['nullable', 'array'],
             'campos_reverso' => ['nullable', 'array'],
             'vigencia' => ['nullable', 'string', 'max:120'],
+            'leyenda' => ['nullable', 'string', 'max:400'],
             'qr_activo' => ['required', 'boolean'],
             'qr_publico' => ['required', 'boolean'],
             'firma_nombre' => ['nullable', 'string', 'max:120'],
@@ -307,7 +308,7 @@ class CredencialConfiguracionController extends Controller
     {
         return array_merge($config->only([
             'id', 'rol_id', 'nivel_estudios_id', 'activa', 'diseno', 'ancho', 'alto',
-            'campos_anverso', 'campos_reverso', 'vigencia', 'qr_activo', 'qr_publico',
+            'campos_anverso', 'campos_reverso', 'vigencia', 'leyenda', 'qr_activo', 'qr_publico',
             'firma_nombre', 'firma_cargo',
         ]), [
             // Se manda si HAY imagen, no la ruta del disco: la pantalla sólo

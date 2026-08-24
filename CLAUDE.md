@@ -2256,9 +2256,8 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
       200 px (centrado), 38 % del ancho, y zona quieta blanca por los cuatro
       lados. Y mirado, que es la regla: los tres patrones de esquina se ven
       limpios.
-    - Lo que NO se tocó: el reverso sigue teniendo sitio de sobra bajo el QR.
-      Qué poner ahí —leyenda, firma, vigencia— es decisión de la escuela, y el
-      diseñador ya deja arrastrar esos campos.
+    - Bajo el QR se colocaron después la **vigencia** y una **leyenda** nueva
+      (ver la entrada siguiente).
 
   **Tercera parte: certificación, captura, examen y foro.**
   - **El folio del lote salía partido en tres renglones** —compartía celda con
@@ -2357,6 +2356,30 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     devolvió 103 reglas de un CSS de 70 KB, así que no encuentra lo que se
     busca. Para saber qué regla gana, grep sobre el CSS compilado —con las
     posiciones, que deciden el empate de especificidad—.
+
+- **La credencial gana una LEYENDA para el reverso** (2026-08-23). `vigencia` ya
+  existía —«Vigente hasta julio 2027»— pero es una frase corta sobre una fecha;
+  una leyenda es el aviso institucional del dorso: «personal e intransferible,
+  en caso de extravío…». Dos cosas distintas, dos columnas: mezclarlas obligaría
+  a meter el aviso legal dentro de la línea de la vigencia.
+  - Flujo completo, replicando el de `vigencia`: columna
+    `credenciales_rol.leyenda` (400, no 120 —son un par de oraciones—),
+    `fillable`, `CatalogoCampos` (const + entrada + `ejemplo()` + parámetro de
+    `valores()`), controlador (validación, vista previa, props) y los DOS
+    callers de `valores()` —`MiCredencial` y `VerificacionCredencial`—.
+  - En el Vue es un **`CampoTextarea`** y no un campo de una línea: en un renglón
+    único no se leería lo que se escribe. `CampoTextarea` ganó de paso una prop
+    `maximo` → `maxlength`, que no tenía, para que el tope del cliente (400)
+    coincida con el del servidor.
+  - **En el demo** se colocaron los dos campos bajo el QR: vigencia centrada al
+    78 % y la leyenda al 84 %. Medido sobre el PNG: la leyenda se parte en dos
+    renglones, va centrada (márgenes 70/68), y el bloque acaba a 127 px del
+    borde inferior. Verificado también en el navegador: el diseñador carga
+    ambos para el rol Alumno.
+  - Pruebas: `CompositorCredencialTest::una_leyenda_larga_se_parte_en_renglones`
+    —mide que el texto envuelva (más de un renglón) y no rebase su caja—,
+    comprobada mutando `renglones()` para que no parta: cae en la aserción del
+    envolvido. Total 717 phpunit.
 
 **Pendiente inmediato — aquí se retoma:**
 

@@ -3,6 +3,7 @@ import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
+import CampoTextarea from '@/Components/CampoTextarea.vue';
 import EditorCajasCredencial from '@/Components/EditorCajasCredencial.vue';
 import Modal from '@/Components/Modal.vue';
 
@@ -54,6 +55,7 @@ interface Config {
     campos_anverso: Caja[] | null;
     campos_reverso: Caja[] | null;
     vigencia: string | null;
+    leyenda: string | null;
     qr_activo: boolean;
     qr_publico: boolean;
     firma_nombre: string | null;
@@ -110,6 +112,7 @@ function vacia(): Omit<Config, 'id' | 'tiene_machote_anverso' | 'tiene_machote_r
         campos_anverso: [],
         campos_reverso: [],
         vigencia: null,
+        leyenda: null,
         qr_activo: false,
         qr_publico: false,
         firma_nombre: null,
@@ -137,6 +140,7 @@ watch(
                       campos_anverso: c.campos_anverso ?? [],
                       campos_reverso: c.campos_reverso ?? [],
                       vigencia: c.vigencia,
+                      leyenda: c.leyenda,
                       qr_activo: c.qr_activo,
                       qr_publico: c.qr_publico,
                       firma_nombre: c.firma_nombre,
@@ -236,6 +240,7 @@ async function verComoQueda(): Promise<void> {
                 ancho: form.ancho,
                 alto: form.alto,
                 vigencia: form.vigencia,
+                leyenda: form.leyenda,
                 campos_anverso: form.campos_anverso,
                 campos_reverso: form.campos_reverso,
             }),
@@ -559,6 +564,19 @@ const nivelesConVariante = computed(() =>
                         etiqueta="Leyenda de vigencia"
                         ayuda="Igual para todas las credenciales de este rol. Ej. «Vigente hasta julio 2027»."
                         :maximo="120"
+                    />
+
+                    <!--
+                        La leyenda del dorso. Textarea y no un campo de una línea
+                        porque son un par de oraciones —un aviso legal—, y en un
+                        renglón único no se leería lo que se está escribiendo.
+                    -->
+                    <CampoTextarea
+                        v-model="form.leyenda"
+                        etiqueta="Leyenda del reverso"
+                        ayuda="El aviso al dorso, igual para todas. Ej. «Personal e intransferible. En caso de extravío, repórtelo a Control Escolar»."
+                        :filas="3"
+                        :maximo="400"
                     />
 
                     <div class="space-y-2 rounded-lg border border-borde p-3">

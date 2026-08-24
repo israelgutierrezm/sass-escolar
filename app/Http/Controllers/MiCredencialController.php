@@ -90,7 +90,7 @@ class MiCredencialController extends Controller
         $png = $this->compositor->componer(
             $config,
             $cara,
-            CatalogoCampos::valores($persona, $usuario->rolActivo, $credencial['matricula'], $config->vigencia),
+            CatalogoCampos::valores($persona, $usuario->rolActivo, $credencial['matricula'], $config->vigencia, $config->leyenda),
             $this->foto($persona->foto_url),
             $config->qr_activo
                 ? $this->qr->png($persona, $usuario->rol_activo_id, $credencial['matricula'])

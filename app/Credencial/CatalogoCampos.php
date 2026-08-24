@@ -43,6 +43,8 @@ class CatalogoCampos
 
     public const FIRMA = 'firma';
 
+    public const LEYENDA = 'leyenda';
+
     /**
      * Todos los campos, con su etiqueta y de dónde sale su valor.
      *
@@ -96,6 +98,12 @@ class CatalogoCampos
             'vigencia' => [
                 'etiqueta' => 'Vigencia',
                 'ayuda' => 'El texto que definas abajo, igual para todos.',
+                'tipo' => 'texto',
+                'publico' => true,
+            ],
+            self::LEYENDA => [
+                'etiqueta' => 'Leyenda',
+                'ayuda' => 'El aviso al dorso, igual para todas. «Personal e intransferible…».',
                 'tipo' => 'texto',
                 'publico' => true,
             ],
@@ -162,6 +170,8 @@ class CatalogoCampos
             'rol' => 'Alumno',
             'curp' => 'GUVM060312MDFTLR09',
             'vigencia' => 'Vigente hasta julio 2027',
+            'leyenda' => 'Esta credencial es personal e intransferible. En caso de '
+                .'extravío, repórtelo a Control Escolar.',
         ];
     }
 
@@ -201,12 +211,14 @@ class CatalogoCampos
         Rol $rol,
         ?MatriculaOferta $matricula = null,
         ?string $vigencia = null,
+        ?string $leyenda = null,
     ): array {
         $valores = array_filter([
             'nombre' => $persona->nombreCompleto(),
             'curp' => $persona->curp,
             'rol' => $rol->nombre ?: $rol->name,
             'vigencia' => $vigencia,
+            'leyenda' => $leyenda,
         ], fn ($v) => filled($v));
 
         return $valores

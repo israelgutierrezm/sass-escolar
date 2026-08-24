@@ -34,6 +34,7 @@ class CredencialRol extends Model
         'campos_anverso',
         'campos_reverso',
         'vigencia',
+        'leyenda',
         'qr_activo',
         'qr_publico',
         'firma_imagen',

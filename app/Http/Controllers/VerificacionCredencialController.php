@@ -56,6 +56,7 @@ class VerificacionCredencialController extends Controller
                 $credencial->rol,
                 $credencial->matricula,
                 $config->vigencia,
+                $config->leyenda,
             )),
             'etiquetas' => array_map(fn (array $c) => $c['etiqueta'], CatalogoCampos::todos()),
             'tieneFoto' => filled($credencial->persona->foto_url),
