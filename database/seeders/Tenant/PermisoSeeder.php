@@ -56,6 +56,7 @@ class PermisoSeeder extends Seeder
         'docente' => [
             'ver-mis-materias', 'editar-mi-expediente', 'editar-mi-disponibilidad',
             'ver-historial-academico', 'pasar-lista', 'capturar-calificaciones', 'asentar-acta',
+            'levantar-incidencia',
         ],
 
         // Facetas no administrativas: su alcance se resuelve además por
@@ -84,7 +85,7 @@ class PermisoSeeder extends Seeder
         // Ahora lo hay, en `tutorias`, y su portal resuelve el alcance por
         // pertenencia igual que el del padre y el del docente.
         'tutor_educativo' => ['ver-mis-tutorados', 'ver-historial-academico'],
-        'padre_familia' => ['ver-mis-hijos', 'ver-historial-academico', 'ver-adeudos', 'editar-mi-expediente-tutor'],
+        'padre_familia' => ['ver-mis-hijos', 'ver-historial-academico', 'ver-adeudos', 'editar-mi-expediente-tutor', 'ver-conducta-hijo'],
     ];
 
     public function run(): void

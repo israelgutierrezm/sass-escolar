@@ -85,6 +85,7 @@ function resolver(clave: string, hijos: NodoArreglo[] = []): NodoNav | null {
         prefijo: base.url ?? '',
         permiso: base.permiso,
         o: base.o,
+        modulo: base.modulo ?? null,
         hijos: [],
     };
 }
@@ -159,7 +160,12 @@ function filtrar(
         }
 
         if (!nodo.esGrupo) {
-            if (hojaVisible(nodo, permisos)) {
+            // Una hoja de un módulo apagado se oculta igual que su sección: es
+            // el caso de «Incidencias» del docente, que cuelga de `disciplina`
+            // sin que su sección (Docencia) dependa del módulo.
+            const moduloOk = nodo.modulo == null || modulos == null || modulos.has(nodo.modulo);
+
+            if (moduloOk && hojaVisible(nodo, permisos)) {
                 resultado.push({ ...nodo, hijos: [] });
             }
             continue;

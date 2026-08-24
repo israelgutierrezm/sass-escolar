@@ -61,6 +61,10 @@ const props = defineProps<{
         clabe: string | null; numero_cuenta: string | null; instrucciones: string | null;
     }[];
     accesos: { tipo: string; ip: string | null; navegador: string | null; equipo: string | null; momento: string | null }[];
+    conducta: {
+        incidencias: { id: number; tipo: string | null; nivel: number; fecha: string | null; descripcion: string }[];
+        sanciones: { id: number; tipo: string | null; fecha: string | null; desde: string | null; hasta: string | null; vigente: boolean; motivo: string }[];
+    } | null;
 }>();
 
 /*
@@ -320,6 +324,44 @@ function colorCalif(estatusClave: string | null): string {
         </template>
 
         <!-- Accesos del hijo -->
+        <!--
+            La conducta: incidencias y sanciones, de sólo lectura. El padre las
+            consulta; registrarlas es de la escuela. Sólo aparece si la escuela
+            tiene el módulo encendido y le concedió el permiso.
+        -->
+        <section v-if="conducta && (conducta.incidencias.length || conducta.sanciones.length)" class="tarjeta overflow-hidden">
+            <header class="border-b px-6 py-4" :style="{ borderColor: 'var(--color-borde)' }">
+                <h2 class="text-base font-semibold">Conducta</h2>
+                <p class="mt-0.5 text-sm" :style="{ color: 'var(--color-suave)' }">Incidencias y sanciones registradas por la escuela.</p>
+            </header>
+
+            <div v-if="conducta.sanciones.length" class="border-b px-6 py-4" :style="{ borderColor: 'var(--color-borde)' }">
+                <h3 class="text-xs font-semibold uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">Sanciones</h3>
+                <ul class="mt-2 space-y-2">
+                    <li v-for="sa in conducta.sanciones" :key="'s' + sa.id" class="text-sm">
+                        <p class="flex flex-wrap items-center gap-2 font-medium">
+                            <span>{{ sa.tipo }}</span>
+                            <span v-if="sa.vigente" class="rounded-full px-2 py-0.5 text-[11px] font-medium" :style="{ backgroundColor: 'color-mix(in srgb, #dc2626 14%, transparent)', color: '#dc2626' }">Vigente</span>
+                        </p>
+                        <p class="whitespace-pre-line">{{ sa.motivo }}</p>
+                        <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                            {{ sa.fecha }}<template v-if="sa.desde"> · del {{ sa.desde }} al {{ sa.hasta }}</template>
+                        </p>
+                    </li>
+                </ul>
+            </div>
+
+            <div v-if="conducta.incidencias.length" class="px-6 py-4">
+                <h3 class="text-xs font-semibold uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">Incidencias</h3>
+                <ul class="mt-2 space-y-2">
+                    <li v-for="inc in conducta.incidencias" :key="'i' + inc.id" class="text-sm">
+                        <p class="font-medium">{{ inc.tipo }} <span class="text-xs font-normal" :style="{ color: 'var(--color-suave)' }">· {{ inc.fecha }}</span></p>
+                        <p class="whitespace-pre-line">{{ inc.descripcion }}</p>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
         <section v-if="accesos.length" class="tarjeta overflow-hidden">
             <div class="border-b p-5" :style="{ borderColor: 'var(--color-borde)' }">
                 <h3 class="font-semibold">Accesos recientes</h3>
@@ -352,7 +394,7 @@ function colorCalif(estatusClave: string | null): string {
         </section>
 
         <p
-            v-if="!permisos.academico && !permisos.finanzas && !accesos.length"
+            v-if="!permisos.academico && !permisos.finanzas && !accesos.length && !(conducta && (conducta.incidencias.length || conducta.sanciones.length))"
             class="tarjeta px-6 py-12 text-center text-sm"
             :style="{ color: 'var(--color-suave)' }"
         >

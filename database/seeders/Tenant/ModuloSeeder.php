@@ -34,6 +34,7 @@ class ModuloSeeder extends Seeder
             ['clave' => 'familia', 'nombre' => 'Portal de familiares'],
             ['clave' => 'biblioteca', 'nombre' => 'Biblioteca digital'],
             ['clave' => 'servicios', 'nombre' => 'Solicitud de servicios'],
+            ['clave' => 'disciplina', 'nombre' => 'Incidencias y sanciones'],
         ];
 
         foreach ($modulos as $modulo) {

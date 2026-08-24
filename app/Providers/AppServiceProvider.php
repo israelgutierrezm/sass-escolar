@@ -271,6 +271,19 @@ class AppServiceProvider extends ServiceProvider
             'ver-servicios-del-alumno',
             fn ($usuario) => $usuario->can('solicitar-servicios') || $usuario->can('atender-servicios')
         );
+
+        /*
+         * Buscar una matrícula para registrarle disciplina.
+         *
+         * La misma puerta la usan quien gestiona incidencias y quien gestiona
+         * sanciones. Derivado por lo de siempre: colgarlo de uno dejaría fuera
+         * al otro. El docente NO entra aquí —no elige de todo el padrón, sólo de
+         * sus alumnos—, así que su permiso no abre este buscador.
+         */
+        Gate::define(
+            'gestionar-disciplina',
+            fn ($usuario) => $usuario->can('gestionar-incidencias') || $usuario->can('gestionar-sanciones')
+        );
     }
 
     /**

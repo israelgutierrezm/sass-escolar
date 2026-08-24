@@ -168,6 +168,13 @@ final class CatalogoPermisos
             'asentar-acta' => ['Firmar actas', 'Cerrar el acta y asentar en historial académico. Una calificación asentada ya no se edita.', [self::ADMINISTRATIVO, self::DOCENTE]],
         ],
 
+        'Disciplina' => [
+            'gestionar-incidencias' => ['Gestionar incidencias', 'Registrar y editar las incidencias de conducta de los alumnos.', [self::ADMINISTRATIVO]],
+            'levantar-incidencia' => ['Levantar una incidencia', 'Que el docente registre una incidencia de un alumno de sus grupos.', [self::DOCENTE]],
+            'gestionar-sanciones' => ['Gestionar sanciones', 'Aplicar y editar las sanciones, citando las incidencias que las originaron.', [self::ADMINISTRATIVO]],
+            'ver-conducta-hijo' => ['Ver la conducta de mi hijo', 'Portal del padre o tutor familiar: el historial de incidencias y sanciones de su hijo.', [self::PADRE]],
+        ],
+
         'Familia' => [
             'ver-mis-hijos' => ['Ver a mis hijos', 'Portal del padre o tutor familiar: la información de los alumnos que tiene vinculados.', [self::PADRE]],
             // El alcance NO lo da este permiso sino el vínculo en `tutorias`:

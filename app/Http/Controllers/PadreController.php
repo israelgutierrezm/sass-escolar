@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Exceptions\AvisoParaElUsuario;
+use App\Services\Plataforma\ModulosDeLaEscuela;
 use App\Models\Academico\PlanEstudio;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\Historial;
@@ -172,6 +173,15 @@ class PadreController extends Controller
                         'instrucciones' => $c->instrucciones,
                     ])->values()
                 : [],
+            /*
+             * La conducta del hijo: incidencias y sanciones, gateadas por el
+             * permiso `ver-conducta-hijo` de la faceta —no por el vínculo, que
+             * distingue académico de financiero pero no contempla disciplina—.
+             * Sólo se consulta si el módulo está encendido y el padre puede.
+             */
+            'conducta' => ($request->user()->can('ver-conducta-hijo') && app(ModulosDeLaEscuela::class)->activo('disciplina'))
+                ? $this->conductaDe($matriculas)
+                : null,
             // Los accesos del hijo: un padre puede vigilar cuándo y desde dónde
             // entra su hijo, aunque no vea sus calificaciones ni sus finanzas.
             'accesos' => BitacoraAcceso::query()
@@ -188,6 +198,53 @@ class PadreController extends Controller
                     'momento' => $b->creado_en?->toDateTimeString(),
                 ]),
         ]);
+    }
+
+    /**
+     * Incidencias y sanciones de todas las matrículas del hijo, para su portal.
+     *
+     * De sólo lectura: el padre CONSULTA, no registra. Se juntan las de todas
+     * sus carreras porque la conducta se lee por alumno, aunque cuelgue de la
+     * matrícula.
+     *
+     * @param  \Illuminate\Support\Collection<int, MatriculaOferta>  $matriculas
+     * @return array{incidencias: array<int, mixed>, sanciones: array<int, mixed>}
+     */
+    private function conductaDe($matriculas): array
+    {
+        $ids = $matriculas->pluck('id');
+
+        $incidencias = \App\Models\Disciplina\Incidencia::query()
+            ->whereIn('matricula_oferta_id', $ids)
+            ->with('tipo:id,nombre,nivel')
+            ->orderByDesc('fecha')
+            ->limit(50)
+            ->get()
+            ->map(fn ($i) => [
+                'id' => $i->id,
+                'tipo' => $i->tipo?->nombre,
+                'nivel' => $i->tipo?->nivel,
+                'fecha' => $i->fecha?->format('Y-m-d'),
+                'descripcion' => $i->descripcion,
+            ]);
+
+        $sanciones = \App\Models\Disciplina\Sancion::query()
+            ->whereIn('matricula_oferta_id', $ids)
+            ->with('tipo:id,nombre')
+            ->orderByDesc('fecha')
+            ->limit(50)
+            ->get()
+            ->map(fn ($s) => [
+                'id' => $s->id,
+                'tipo' => $s->tipo?->nombre,
+                'fecha' => $s->fecha?->format('Y-m-d'),
+                'desde' => $s->desde?->format('Y-m-d'),
+                'hasta' => $s->hasta?->format('Y-m-d'),
+                'vigente' => $s->vigente(),
+                'motivo' => $s->motivo,
+            ]);
+
+        return ['incidencias' => $incidencias->all(), 'sanciones' => $sanciones->all()];
     }
 
     /**

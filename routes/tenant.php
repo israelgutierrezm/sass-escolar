@@ -25,6 +25,11 @@ use App\Http\Controllers\Bolsa\MisVacantesController;
 use App\Http\Controllers\Bolsa\PostulacionController;
 use App\Http\Controllers\Bolsa\VacanteController;
 use App\Http\Controllers\BuscadorAlumnosController;
+use App\Http\Controllers\BuscadorMatriculasController;
+use App\Http\Controllers\Disciplina\CatalogoConductaController;
+use App\Http\Controllers\Disciplina\IncidenciaController;
+use App\Http\Controllers\Disciplina\DocenteIncidenciaController;
+use App\Http\Controllers\Disciplina\SancionController;
 use App\Http\Controllers\CampoFormularioController;
 use App\Http\Controllers\CampusController;
 use App\Http\Controllers\CapturaCalificacionesController;
@@ -1877,6 +1882,65 @@ Route::middleware([
         Route::get('buscar/alumnos', BuscadorAlumnosController::class)
             ->middleware('can:dirigir-a-alumnos')
             ->name('tenant.buscar.alumnos');
+
+        // Buscar una MATRÍCULA para registrarle disciplina. Permiso derivado
+        // `gestionar-disciplina` (incidencias O sanciones); el docente no entra
+        // aquí —elige de sus alumnos, no del padrón—.
+        Route::get('buscar/matriculas', BuscadorMatriculasController::class)
+            ->middleware('can:gestionar-disciplina')
+            ->name('tenant.buscar.matriculas');
+
+        /*
+         * Disciplina: incidencias y sanciones. Bajo `modulo:disciplina`, así
+         * apagarlo en `/plataforma/accesos` cierra las rutas (404) además de
+         * ocultar el menú.
+         */
+        Route::middleware('modulo:disciplina')->group(function () {
+            Route::controller(IncidenciaController::class)
+                ->prefix('escolar/incidencias')->name('tenant.incidencias.')
+                ->middleware('can:gestionar-incidencias')
+                ->group(function () {
+                    Route::get('/', 'index')->name('index');
+                    Route::post('/', 'guardar')->name('guardar');
+                    Route::put('{incidencia}', 'guardar')->whereNumber('incidencia')->name('actualizar');
+                    Route::delete('{incidencia}', 'eliminar')->whereNumber('incidencia')->name('eliminar');
+                });
+
+            Route::controller(SancionController::class)
+                ->prefix('escolar/sanciones')->name('tenant.sanciones.')
+                ->middleware('can:gestionar-sanciones')
+                ->group(function () {
+                    Route::get('/', 'index')->name('index');
+                    Route::get('incidencias/{matricula}', 'incidenciasDe')->whereNumber('matricula')->name('incidencias');
+                    Route::post('/', 'guardar')->name('guardar');
+                    Route::put('{sancion}', 'guardar')->whereNumber('sancion')->name('actualizar');
+                    Route::delete('{sancion}', 'eliminar')->whereNumber('sancion')->name('eliminar');
+                });
+
+            // El docente levanta incidencias de SUS alumnos. Su alcance lo pone
+            // la asignación, no este permiso; el controlador lo comprueba.
+            Route::controller(DocenteIncidenciaController::class)
+                ->prefix('docencia/incidencias')->name('tenant.docencia.incidencias.')
+                ->middleware('can:levantar-incidencia')
+                ->group(function () {
+                    Route::get('/', 'index')->name('index');
+                    Route::post('/', 'guardar')->name('guardar');
+                });
+
+            // Los catálogos de conducta (tipos de incidencia y de sanción).
+            // Gateados por el derivado `gestionar-disciplina` (incidencias O
+            // sanciones): quien administra la conducta configura sus tipos.
+            Route::controller(CatalogoConductaController::class)
+                ->prefix('escolar/incidencias/catalogos')->name('tenant.conducta.catalogos.')
+                ->middleware('can:gestionar-disciplina')
+                ->group(function () {
+                    Route::get('/', 'index')->name('index');
+                    Route::post('{catalogo}', 'store')->whereIn('catalogo', ['incidencia', 'sancion'])->name('store');
+                    Route::put('{catalogo}/{item}', 'update')->whereIn('catalogo', ['incidencia', 'sancion'])->whereNumber('item')->name('update');
+                    Route::delete('{catalogo}/{item}', 'destroy')->whereIn('catalogo', ['incidencia', 'sancion'])->whereNumber('item')->name('destroy');
+                    Route::patch('{catalogo}/{item}/activo', 'alternar')->whereIn('catalogo', ['incidencia', 'sancion'])->whereNumber('item')->name('activo');
+                });
+        });
 
         Route::controller(RubricaController::class)
             ->prefix('rubricas')->name('tenant.rubricas.')

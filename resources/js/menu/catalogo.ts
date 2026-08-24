@@ -23,6 +23,8 @@ export interface OpcionMenu {
     prefijo?: string;
     /** Opciones anidadas: convierten a esta opción en un subgrupo plegable. */
     hijos?: OpcionMenu[];
+    /** Módulo de la escuela que enciende esta hoja; ausente = universal. */
+    modulo?: string | null;
 }
 
 export interface GrupoMenu {
@@ -114,6 +116,21 @@ export const CATALOGO_MENU: GrupoMenu[] = [
             { clave: 'rh-empleados', etiqueta: 'Empleados', url: '/rh/empleados', permiso: 'gestionar-rh' },
             { clave: 'rh-nomina', etiqueta: 'Nómina', url: '/rh/nomina', permiso: 'gestionar-percepciones' },
             { clave: 'rh-catalogos-nomina', etiqueta: 'Catálogos de nómina', url: '/rh/catalogos-nomina', permiso: 'gestionar-percepciones' },
+        ],
+    },
+    {
+        clave: 'disciplina',
+        etiqueta: 'Disciplina',
+        prefijo: '/escolar/incidencias',
+        facetas: ['administrativo'],
+        icono: 'M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z',
+        modulo: 'disciplina',
+        hijos: [
+            { clave: 'incidencias', etiqueta: 'Incidencias', url: '/escolar/incidencias', permiso: 'gestionar-incidencias' },
+            { clave: 'sanciones', etiqueta: 'Sanciones', url: '/escolar/sanciones', permiso: 'gestionar-sanciones' },
+            // Los tipos de incidencia y de sanción: los ve quien gestiona
+            // cualquiera de las dos (permiso + su alterno `o`).
+            { clave: 'conducta-catalogos', etiqueta: 'Catálogos', url: '/escolar/incidencias/catalogos', permiso: 'gestionar-incidencias', o: 'gestionar-sanciones' },
         ],
     },
     {
@@ -379,6 +396,11 @@ export const CATALOGO_MENU: GrupoMenu[] = [
             // entrada de Académico y clave distinta, porque la clave es lo que
             // guarda el orden del menú de cada rol.
             { clave: 'rubricas-docente', etiqueta: 'Rúbricas', url: '/rubricas', permiso: 'capturar-calificaciones' },
+            // Bajo módulo `disciplina`: si la escuela lo apaga, esta entrada
+            // se va con la sección de admin. La sección Docencia no lleva
+            // `modulo` porque sus otras opciones no dependen de él, así que el
+            // gate va en la hoja.
+            { clave: 'incidencias-docente', etiqueta: 'Incidencias', url: '/docencia/incidencias', permiso: 'levantar-incidencia', modulo: 'disciplina' },
             { clave: 'mi-expediente', etiqueta: 'Mi expediente', url: '/docencia/expediente', permiso: 'editar-mi-expediente' },
         ],
     },
