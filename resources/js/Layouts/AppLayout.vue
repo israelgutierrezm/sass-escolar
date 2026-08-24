@@ -149,6 +149,46 @@ function ajustarFuente(delta: number): void {
     aplicarEscala(escalaFuente.value + delta);
 }
 
+/*
+ * La barra lateral se asoma a donde estás parado.
+ *
+ * El menú mide más que la pantalla —1036 px de contenido en 580 visibles— y
+ * arrancaba siempre arriba: entrando a «Encuestas», su renglón quedaba a 825 px
+ * y había que buscarlo desplazando para saber en qué sección estabas. Con las
+ * secciones hondas —encuestas, roles, configuración, certificación— pasaba
+ * siempre.
+ *
+ * Se mueve `scrollTop` a mano y NO con `scrollIntoView`: aquél arrastraría
+ * también el desplazamiento de la página, y el usuario acaba de llegar arriba
+ * del todo.
+ */
+const listaNav = ref<HTMLElement | null>(null);
+
+function asomarseAlActivo(): void {
+    const nav = listaNav.value;
+
+    if (nav === null || nav.scrollHeight <= nav.clientHeight) {
+        return;
+    }
+
+    const activo = nav.querySelector<HTMLElement>(`a[href="${window.location.pathname}"]`);
+
+    if (activo === null) {
+        return;
+    }
+
+    const arriba = activo.offsetTop - nav.offsetTop;
+
+    // Sólo si de verdad no se ve. Si ya estaba a la vista, moverlo desorienta.
+    if (arriba >= nav.scrollTop && arriba + activo.offsetHeight <= nav.scrollTop + nav.clientHeight) {
+        return;
+    }
+
+    // Con un tercio de la altura por encima: pegado al borde superior parece
+    // que es el primero del menú y se pierde lo que viene antes.
+    nav.scrollTop = Math.max(0, arriba - nav.clientHeight / 3);
+}
+
 onMounted(() => {
     compacta.value = localStorage.getItem('acadion.barra.compacta') === '1';
     aplicarTema(tema.value?.tokens ?? {});
@@ -156,6 +196,10 @@ onMounted(() => {
     // Se retoma solo dentro de la MISMA sesión de navegador; una nueva empieza
     // en 100 porque sessionStorage viene vacío.
     aplicarEscala(Number(sessionStorage.getItem('acadion.escala-fuente')) || 100);
+
+    // Tras el primer pintado: los submenús se despliegan al resolver la ruta
+    // activa, y antes de eso el renglón todavía no tiene su sitio.
+    requestAnimationFrame(asomarseAlActivo);
 });
 
 watch(() => tema.value?.tokens, (tokens) => aplicarTema(tokens ?? {}), { deep: true });
@@ -457,7 +501,7 @@ const iniciales = computed(() => {
             </div>
 
             <!-- Navegación -->
-            <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-2">
+            <nav ref="listaNav" class="flex-1 space-y-1 overflow-y-auto px-3 py-2">
                 <template v-for="seccion in navegacion" :key="seccion.clave">
                     <!-- Enlace simple -->
                     <Link
