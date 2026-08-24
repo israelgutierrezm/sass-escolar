@@ -62,7 +62,9 @@ class ForoController extends Controller
                 'id' => $actividad->id,
                 'titulo' => $actividad->titulo,
                 'instrucciones' => $actividad->instrucciones,
-                'cierra_en' => $actividad->cierra_en?->toDateTimeString(),
+                // Sin SEGUNDOS: es un plazo dentro de una frase —«Participa hasta
+                // el …»—, y «21:17:34» no le dice nada a nadie.
+                'cierra_en' => $actividad->cierra_en?->format('d/m/Y H:i'),
                 'abierta' => $actividad->abierta(),
                 'pondera' => $actividad->pondera(),
                 'puntos' => (float) $actividad->puntos,

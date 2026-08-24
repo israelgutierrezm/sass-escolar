@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**84 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**85 archivos `prueba-*.php`**;
    esta lista decía 23 y llevaba tiempo desactualizada). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
    imprimen `Resultado: N correctas, M fallidas`. **Ojo al barrer con `grep`**:
@@ -57,7 +57,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 84 están en verde**, barridas el 2026-08-23. Llegaron a estar 33 en rojo —no trece: ese primer
+   **Las 85 están en verde**, barridas el 2026-08-23. Llegaron a estar 33 en rojo —no trece: ese primer
    conteo sólo miró las que imprimían «N fallidas» e ignoró las 21 que morían
    antes, con una excepción sin resumen—. Ninguna caía por un cambio reciente;
    se comprobó corriéndolas contra el árbol limpio.
@@ -664,8 +664,8 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     tenía asesor. Lo cazó `prueba-actividad-crm`.
   - Pruebas: `scripts/prueba-actividad-crm.php`, 29 verificaciones, comprobada
     mutando la regla de re-cierre (caen exactamente las tres que la vigilan).
-- Pruebas: 84 suites en `scripts/`, contra la BD real del tenant demo con
-  `DB::rollBack()` al final. **84 en verde** (ver la regla 5 para qué tumbó a
+- Pruebas: 85 suites en `scripts/`, contra la BD real del tenant demo con
+  `DB::rollBack()` al final. **85 en verde** (ver la regla 5 para qué tumbó a
   las 33 que estuvieron en rojo). `prueba-listados` es la primera
   que invoca a los CONTROLADORES y lee sus props de Inertia, en vez de
   reimplementar la consulta: un `or` sin paréntesis no se detecta de otra forma.
@@ -2260,13 +2260,54 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
       Qué poner ahí —leyenda, firma, vigencia— es decisión de la escuela, y el
       diseñador ya deja arrastrar esos campos.
 
-  **Y una observación que NO se tocó**: el control flotante de tamaño de letra
-  (`fixed bottom-5 left-1/2`) se cruza con el contenido en todas las pantallas
-  largas —una celda de tabla en Carreras, un texto de ayuda en el diseñador del
-  historial—. Se comprobó que **no tapa nada con lo que se interactúe** (ningún
-  input ni botón debajo), y su colocación es deliberada y está comentada en el
-  código: se movió al centro porque a la izquierda lo tapaba la barra lateral.
-  Moverlo otra vez es una decisión de diseño, no un arreglo.
+  **Tercera parte: certificación, captura, examen y foro.**
+  - **El folio del lote salía partido en tres renglones** —compartía celda con
+    la insignia en una línea rígida—, y al arreglarlo saltó que la píldora «En
+    espera de firma» hacía lo mismo dentro del óvalo. `PildoraEstado` gana
+    `whitespace-nowrap`: una píldora es de UN renglón, y lo que cede es la
+    columna. Para eso su tabla pasó de `overflow-hidden` a `overflow-x-auto`
+    —medía 720 px en 718, así que RECORTABA en vez de desplazar—.
+  - **La barra lateral no enseñaba dónde estabas.** 1036 px de menú en 580
+    visibles y arrancaba siempre arriba: en Encuestas el renglón activo quedaba
+    a 825 px con `scrollTop` en 0. Ahora se asoma sola, con un tercio de altura
+    por encima, y no se mueve si ya se veía.
+  - **La captura aplastaba los nombres**: siete columnas en 709 px sin
+    desplazar, «Roberto Guzmán Herrera» en tres renglones y filas de 85 px. Con
+    ancho mínimo y desplazamiento, 65 px.
+  - **El control de tamaño de letra se mudó al panel de Apariencia.** Lo había
+    reportado como observación inocua tras mirarlo en dos pantallas; en la hoja
+    de captura tapa «Fulano: falta capturar Actividades», que es la razón por la
+    que no se puede firmar el acta. Cualquier control fijo estorba en algún
+    sitio; éste no necesitaba estarlo.
+  - **Los plazos salían con SEGUNDOS** —«Cierra el 2026-09-23 21:17:33»— en el
+    examen y el foro, y en un formato que no usa ninguna otra pantalla. Sólo se
+    cambiaron esos tres: hay **46 usos de `toDateTimeString()`** en
+    controladores y un cambio en bloque es arriesgado, porque `Y-m-d H:i:s` lo
+    parsea `new Date()` y `d/m/Y H:i` no.
+
+- **El examen barajaba aunque el docente apagara el barajado** (2026-08-23).
+  Salió al presentar un examen sembrado para la revisión.
+  - `AplicadorExamen::sortearReactivos` tenía **elegir y ordenar en la misma
+    condición**: `if ($barajar || $reactivos_a_presentar !== null) shuffle()`.
+    Bastaba con fijar «presentar N» para que el orden saliera al azar con
+    `barajar_reactivos` en falso — y presentando TODOS también, donde no hay
+    siquiera nada que elegir.
+  - Son dos decisiones. Para quedarse con N de M hace falta azar —si no, todos
+    verían los mismos N—, pero el ORDEN es del docente: se sortea CUÁLES y
+    después se devuelven a su sitio. Un examen cuyas preguntas se apoyan unas en
+    otras se desordenaba sin que nadie lo pidiera.
+  - Pruebas: `scripts/prueba-orden-examen.php`, 7 verificaciones, comprobada
+    contra el código viejo —caen las dos que vigilan el orden—.
+  - **Y un falso positivo que se descartó comprobando**: la pista «Marca todas
+    las que correspondan» sobre una pregunta de una sola respuesta era culpa de
+    la semilla, no del producto. `TipoReactivo` distingue `OpcionUnica` de
+    `OpcionMultiple`, y la segunda significa justamente eso.
+
+  **Lo que sí queda como observación**: `bg-indigo` aparece 21 veces en 6
+  archivos, sobre todo en los diseñadores de credencial e historial. En un
+  producto donde cada escuela elige su acento, un morado fijo desentona con el
+  resto — pero está en bastantes sitios como para ser convención y no descuido.
+  Es decisión de diseño.
 
 **Pendiente inmediato — aquí se retoma:**
 

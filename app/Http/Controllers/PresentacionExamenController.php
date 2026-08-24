@@ -57,7 +57,10 @@ class PresentacionExamenController extends Controller
                 'titulo' => $actividad->titulo,
                 'instrucciones' => $actividad->instrucciones,
                 'puntos' => (float) $actividad->puntos,
-                'cierra_en' => $actividad->cierra_en?->toDateTimeString(),
+                // En `d/m/Y H:i`: `toDateTimeString()` sacaba los SEGUNDOS —«Cierra
+                // el 2026-09-23 21:17:33»—, que en un plazo son ruido, y en un
+                // formato que no usa ninguna otra pantalla.
+                'cierra_en' => $actividad->cierra_en?->format('d/m/Y H:i'),
                 'abierta' => $actividad->abierta(),
             ],
             'materia' => [

@@ -87,14 +87,31 @@ class AplicadorExamen
      */
     private function sortearReactivos(Examen $examen): array
     {
+        // Llegan en el orden que el docente les dio (`examen_reactivo.orden`).
         $ids = $examen->reactivos()->pluck('reactivos.id')->map(fn ($id) => (int) $id);
 
-        if ($examen->barajar_reactivos || $examen->reactivos_a_presentar !== null) {
-            $ids = $ids->shuffle();
+        /*
+         * ELEGIR un subconjunto y ORDENARLO son dos decisiones distintas, y
+         * estaban en la misma condición: bastaba con fijar «presentar N» para
+         * que el orden saliera al azar aunque `barajar_reactivos` estuviera
+         * APAGADO. A un examen cuyas preguntas se apoyan unas en otras —o que
+         * presenta TODAS las que tiene— eso le desordena el guion sin que nadie
+         * lo haya pedido.
+         *
+         * Para quedarse con N de M sí hace falta azar: sin él, todos verían
+         * exactamente los mismos N.
+         */
+        $cuantos = $examen->reactivos_a_presentar;
+
+        if ($cuantos !== null && $cuantos < $ids->count()) {
+            $elegidos = $ids->shuffle()->take($cuantos);
+
+            // Y se devuelven a su orden: se sorteó CUÁLES, no en qué orden.
+            $ids = $ids->filter(fn (int $id) => $elegidos->contains($id));
         }
 
-        if ($examen->reactivos_a_presentar !== null) {
-            $ids = $ids->take($examen->reactivos_a_presentar);
+        if ($examen->barajar_reactivos) {
+            $ids = $ids->shuffle();
         }
 
         return $ids->values()->all();
