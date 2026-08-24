@@ -2303,11 +2303,29 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     la semilla, no del producto. `TipoReactivo` distingue `OpcionUnica` de
     `OpcionMultiple`, y la segunda significa justamente eso.
 
-  **Lo que sí queda como observación**: `bg-indigo` aparece 21 veces en 6
-  archivos, sobre todo en los diseñadores de credencial e historial. En un
-  producto donde cada escuela elige su acento, un morado fijo desentona con el
-  resto — pero está en bastantes sitios como para ser convención y no descuido.
-  Es decisión de diseño.
+- **El morado cableado se fue** (2026-08-23). Eran **31 usos de `indigo`** en 15
+  archivos —no 21: ese conteo miraba sólo `bg-indigo`—, y el propio código ya
+  tenía el precedente escrito en `CampoCheckbox`: «llevaba `text-indigo-600`
+  fijo y se quedaba morada en cualquier tema».
+  - En un producto donde cada escuela escoge su color, el morado aparecía justo
+    al INTERACTUAR: al escribir en un campo (el anillo de foco) y al elegir una
+    opción (tarjetas de diseño, niveles, roles, caras de la credencial).
+  - Se resolvió con cuatro utilidades en `app.css` —`foco-acento`,
+    `elegido-acento`, `elegido-acento-macizo`, `texto-acento`/`fondo-acento`— y
+    no con `:style` en cada sitio: con estilo en línea, el siguiente que se
+    agregue vuelve a escribir el color a mano.
+  - **Trampa que mordió**: `focus:ring-1` de Tailwind compila DESPUÉS que la
+    regla propia y con la misma especificidad, así que le pisaba el
+    `box-shadow` y dejaba el anillo en `currentcolor`. No se arregla peleando
+    por el orden: `.foco-acento` le da el color por `--tw-ring-color` y Tailwind
+    lo dibuja. El `box-shadow` se conserva para los campos que no llevan esa
+    utilidad.
+  - Comprobado midiendo el color computado: todo lo elegido en `rgb(0,106,137)`
+    —el acento de la escuela— y cero elementos morados. Lo único que el detector
+    marcaba eran el azul de la barra lateral del tema.
+  - **Lo que NO se tocó**: `CampoBuscador` y `BarraListado` no tienen NINGÚN
+    estilo de foco propio. Es un hueco distinto —les falta, no les sobra— y no
+    entra en esto.
 
 **Pendiente inmediato — aquí se retoma:**
 

@@ -92,7 +92,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', alClicFuera));
             :class="
                 error
                     ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
-                    : 'border-borde focus:border-indigo-500 focus:ring-indigo-500'
+                    : 'border-borde foco-acento'
             "
             @click="abierto ? cerrar() : abrir()"
         >
@@ -116,7 +116,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', alClicFuera));
                     v-model="busqueda"
                     type="text"
                     placeholder="Buscar…"
-                    class="w-full rounded-md border border-borde px-2 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    class="foco-acento w-full rounded-md border border-borde px-2 py-1.5 text-sm"
                     @keydown.esc="cerrar"
                 />
             </div>
@@ -135,11 +135,11 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', alClicFuera));
                     <button
                         type="button"
                         class="flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-fondo"
-                        :class="opcion.valor === modelo ? 'font-medium text-indigo-600' : 'text-contenido'"
+                        :class="opcion.valor === modelo ? 'font-medium texto-acento' : 'text-contenido'"
                         @click="elegir(opcion.valor)"
                     >
                         {{ opcion.texto }}
-                        <svg v-if="opcion.valor === modelo" class="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor">
+                        <svg v-if="opcion.valor === modelo" class="h-4 w-4 texto-acento" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                         </svg>
                     </button>

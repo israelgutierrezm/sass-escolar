@@ -106,7 +106,7 @@ function enviar(): void {
                     />
                     Recordarme
                 </label>
-                <Link href="/recuperar" class="text-sm font-medium text-indigo-600 hover:text-indigo-700">
+                <Link href="/recuperar" class="texto-acento text-sm font-medium">
                     ¿Olvidaste tu contraseña?
                 </Link>
             </div>

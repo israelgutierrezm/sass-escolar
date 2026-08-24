@@ -167,7 +167,7 @@ const ICONO_USUARIOS =
                          que CampoSelect (lista plana) no puede expresar. -->
                     <div>
                         <label class="mb-1 block text-sm font-medium text-contenido">Rol inicial<span class="text-red-500"> *</span></label>
-                        <select v-model="alta.rol_id" required class="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1 border-borde focus:border-indigo-500 focus:ring-indigo-500">
+                        <select v-model="alta.rol_id" required class="foco-acento w-full rounded-lg border border-borde px-3 py-2 text-sm">
                             <optgroup v-for="(lista, faceta) in rolesPorFaceta" :key="faceta" :label="faceta">
                                 <option v-for="r in lista" :key="r.id" :value="r.id">{{ r.nombre }}</option>
                             </optgroup>

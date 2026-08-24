@@ -256,7 +256,7 @@ const datosPuestos = computed(() => form.campos_alumno as string[]);
                     <button
                         type="button"
                         class="rounded-full border px-3 py-1 text-xs"
-                        :class="nivelId === null ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-borde'"
+                        :class="nivelId === null ? 'elegido-acento' : 'border-borde'"
                         @click="nivelId = null"
                     >
                         Todos los niveles
@@ -268,7 +268,7 @@ const datosPuestos = computed(() => form.campos_alumno as string[]);
                         class="rounded-full border px-3 py-1 text-xs"
                         :class="
                             nivelId === n.id
-                                ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                                ? 'elegido-acento'
                                 : nivelesConVariante.includes(n.id)
                                   ? 'border-emerald-300 text-emerald-700'
                                   : 'border-borde text-slate-500'
@@ -394,7 +394,7 @@ const datosPuestos = computed(() => form.campos_alumno as string[]);
                         :key="clave"
                         type="button"
                         class="rounded-lg border p-3 text-left"
-                        :class="form.agrupacion === clave ? 'border-indigo-500 bg-indigo-50' : 'border-borde hover:bg-slate-50'"
+                        :class="form.agrupacion === clave ? 'elegido-acento' : 'border-borde hover:bg-slate-50'"
                         @click="form.agrupacion = String(clave)"
                     >
                         <span class="block text-sm font-medium">{{ meta.etiqueta }}</span>
@@ -417,7 +417,7 @@ const datosPuestos = computed(() => form.campos_alumno as string[]);
                             type="button"
                             :disabled="form.agrupacion === 'ninguna'"
                             class="rounded-lg border p-3 text-left disabled:cursor-not-allowed"
-                            :class="form.bloques_por_fila === Number(cuantos) ? 'border-indigo-500 bg-indigo-50' : 'border-borde hover:bg-slate-50'"
+                            :class="form.bloques_por_fila === Number(cuantos) ? 'elegido-acento' : 'border-borde hover:bg-slate-50'"
                             @click="form.bloques_por_fila = Number(cuantos)"
                         >
                             <span class="block text-sm font-medium">{{ meta.etiqueta }}</span>
@@ -547,7 +547,8 @@ const datosPuestos = computed(() => form.campos_alumno as string[]);
                 </button>
                 <button
                     type="button"
-                    class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+                    class="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60"
+                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
                     :disabled="form.processing"
                     @click="guardar"
                 >

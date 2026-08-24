@@ -344,7 +344,7 @@ const nivelesConVariante = computed(() =>
                     :key="r.id"
                     type="button"
                     class="block w-full rounded-lg px-2 py-1.5 text-left text-sm"
-                    :class="r.id === rolId ? 'bg-indigo-50 font-semibold text-indigo-700' : 'hover:bg-slate-50'"
+                    :class="r.id === rolId ? 'elegido-acento font-semibold' : 'hover:bg-slate-50'"
                     @click="rolId = r.id"
                 >
                     {{ r.nombre }}
@@ -376,7 +376,7 @@ const nivelesConVariante = computed(() =>
                         <button
                             type="button"
                             class="rounded-full border px-3 py-1 text-xs"
-                            :class="nivelId === null ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-borde'"
+                            :class="nivelId === null ? 'elegido-acento' : 'border-borde'"
                             @click="nivelId = null"
                         >
                             General del rol
@@ -388,7 +388,7 @@ const nivelesConVariante = computed(() =>
                             class="rounded-full border px-3 py-1 text-xs"
                             :class="
                                 nivelId === n.id
-                                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                                    ? 'elegido-acento'
                                     : nivelesConVariante.includes(n.id)
                                       ? 'border-emerald-300 text-emerald-700'
                                       : 'border-borde text-slate-500'
@@ -430,7 +430,7 @@ const nivelesConVariante = computed(() =>
                                 :key="clave"
                                 type="button"
                                 class="rounded-lg border p-3 text-left"
-                                :class="form.diseno === clave ? 'border-indigo-500 bg-indigo-50' : 'border-borde hover:bg-slate-50'"
+                                :class="form.diseno === clave ? 'elegido-acento' : 'border-borde hover:bg-slate-50'"
                                 @click="form.diseno = String(clave)"
                             >
                                 <span class="block text-sm font-medium">{{ d.nombre }}</span>
@@ -442,7 +442,7 @@ const nivelesConVariante = computed(() =>
                             <button
                                 type="button"
                                 class="rounded-lg border p-3 text-left"
-                                :class="form.diseno === 'propio' ? 'border-indigo-500 bg-indigo-50' : 'border-borde hover:bg-slate-50'"
+                                :class="form.diseno === 'propio' ? 'elegido-acento' : 'border-borde hover:bg-slate-50'"
                                 @click="form.diseno = 'propio'"
                             >
                                 <span class="block text-sm font-medium">Machote propio</span>
@@ -493,7 +493,7 @@ const nivelesConVariante = computed(() =>
                                 class="rounded-full border px-3 py-1 text-xs"
                                 :class="
                                     form.ancho === t.ancho && form.alto === t.alto
-                                        ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                                        ? 'elegido-acento'
                                         : 'border-borde'
                                 "
                                 @click="
@@ -523,7 +523,7 @@ const nivelesConVariante = computed(() =>
                                     :key="c"
                                     type="button"
                                     class="rounded-md px-3 py-1 text-xs capitalize"
-                                    :class="cara === c ? 'bg-indigo-500 text-white' : ''"
+                                    :class="cara === c ? 'elegido-acento-macizo' : ''"
                                     @click="cara = c"
                                 >
                                     {{ c }}
@@ -618,7 +618,8 @@ const nivelesConVariante = computed(() =>
                 <div class="flex justify-end">
                     <button
                         type="button"
-                        class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+                        class="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60"
+                        :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
                         :disabled="form.processing"
                         @click="guardar"
                     >

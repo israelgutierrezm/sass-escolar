@@ -177,7 +177,7 @@ function cambiar(campo: keyof Caja, valor: unknown): void {
                     v-for="(caja, i) in cajas"
                     :key="caja.clave"
                     class="absolute cursor-move rounded border-2 border-dashed text-[10px] leading-tight"
-                    :class="seleccionada === i ? 'border-indigo-500 bg-indigo-500/15' : 'border-slate-400/70 bg-white/40'"
+                    :class="seleccionada === i ? 'elegido-acento' : 'border-slate-400/70 bg-white/40'"
                     :style="{
                         left: caja.x + '%',
                         top: caja.y + '%',
@@ -193,7 +193,7 @@ function cambiar(campo: keyof Caja, valor: unknown): void {
                     <!-- La agarradera de la esquina: redimensionar y mover no
                          pueden ser el mismo gesto sobre la misma superficie. -->
                     <span
-                        class="absolute -bottom-1 -right-1 h-3 w-3 cursor-nwse-resize rounded-sm border border-white bg-indigo-500"
+                        class="absolute -bottom-1 -right-1 h-3 w-3 cursor-nwse-resize rounded-sm border border-white fondo-acento"
                         @pointerdown.stop="empezar($event, i, 'medir')"
                     />
                 </div>
@@ -273,7 +273,7 @@ function cambiar(campo: keyof Caja, valor: unknown): void {
                             class="flex-1 rounded border px-1.5 py-1 text-xs capitalize"
                             :class="
                                 (actual.alineacion ?? 'izquierda') === a
-                                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                                    ? 'elegido-acento'
                                     : 'border-borde'
                             "
                             @click="cambiar('alineacion', a)"

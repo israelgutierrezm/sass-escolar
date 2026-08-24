@@ -67,7 +67,7 @@ const hayFirma = computed(() => Boolean(props.firma.nombre || props.firma.cargo)
                     :key="c.clave"
                     type="button"
                     class="rounded-full border px-3 py-1.5 text-sm"
-                    :class="c.clave === elegida ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-borde'"
+                    :class="c.clave === elegida ? 'elegido-acento' : 'border-borde'"
                     @click="cambiar(c.clave)"
                 >
                     {{ c.etiqueta }}
@@ -100,7 +100,7 @@ const hayFirma = computed(() => Boolean(props.firma.nombre || props.firma.cargo)
                         :key="c"
                         type="button"
                         class="rounded-md px-4 py-1.5 text-sm capitalize"
-                        :class="cara === c ? 'bg-indigo-500 text-white' : ''"
+                        :class="cara === c ? 'elegido-acento-macizo' : ''"
                         @click="cara = c"
                     >
                         {{ c }}
@@ -109,7 +109,8 @@ const hayFirma = computed(() => Boolean(props.firma.nombre || props.firma.cargo)
 
                 <button
                     type="button"
-                    class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                    class="rounded-lg px-4 py-2 text-sm font-medium"
+                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
                     @click="descargar"
                 >
                     Descargar {{ tiene_reverso ? cara : 'imagen' }}

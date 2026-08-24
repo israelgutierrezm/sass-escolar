@@ -467,6 +467,64 @@
         cursor: not-allowed;
         opacity: 0.6;
     }
+
+    /*
+     * El acento de la escuela, en los dos sitios donde estaba escrito a mano.
+     *
+     * Las casillas y los radios ya lo seguían —lo arregló en su día el
+     * comentario que sigue en `CampoCheckbox`: «llevaba `text-indigo-600` fijo y
+     * se quedaba morada en cualquier tema»—, pero el foco de los campos de
+     * texto y el estado «elegido» de los selectores de tarjetas seguían con
+     * `indigo-500` de Tailwind. En un producto donde cada escuela escoge su
+     * color, un morado fijo aparece justo al interactuar: al escribir en un
+     * campo y al elegir una opción.
+     *
+     * Va como clase y no con `:style` en cada sitio porque son treinta y un
+     * lugares: con estilo en línea, el siguiente que se agregue vuelve a
+     * escribirlo a mano y volvemos aquí.
+     */
+    .foco-acento {
+        /*
+         * El color del anillo de Tailwind.
+         *
+         * Varios de estos campos conservan su `focus:ring-1`, y esa utilidad se
+         * compila DESPUÉS que esta regla —misma especificidad, gana la última—,
+         * así que pisaba el `box-shadow` de abajo y dejaba el anillo en
+         * `currentcolor`. En vez de pelearse por el orden, se le da el color por
+         * su variable y que lo dibuje él.
+         */
+        --tw-ring-color: var(--color-acento);
+    }
+
+    .foco-acento:focus {
+        outline: none;
+        border-color: var(--color-acento);
+
+        /* Para los campos que NO llevan `focus:ring-1`: mismo grosor y color. */
+        box-shadow: 0 0 0 1px var(--color-acento);
+    }
+
+    /* La opción elegida de un selector: tarjeta, pestaña o renglón de lista. */
+    .elegido-acento {
+        border-color: var(--color-acento);
+        background-color: color-mix(in srgb, var(--color-acento) 10%, transparent);
+        color: var(--color-acento);
+    }
+
+    /* Cuando lo elegido se pinta macizo, como una pestaña activa. */
+    .elegido-acento-macizo {
+        background-color: var(--color-acento);
+        color: var(--color-acento-texto);
+    }
+
+    /* Y los dos sueltos: un texto y un tirador. */
+    .texto-acento {
+        color: var(--color-acento);
+    }
+
+    .fondo-acento {
+        background-color: var(--color-acento);
+    }
 }
 
 @layer utilities {

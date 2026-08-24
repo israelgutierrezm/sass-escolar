@@ -86,7 +86,8 @@ const contenido = computed(() => {
             <div class="mt-8 flex justify-center gap-3">
                 <a
                     href="/panel"
-                    class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-700"
+                    class="rounded-lg px-5 py-2.5 text-sm font-medium transition"
+                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
                 >
                     Ir al panel
                 </a>

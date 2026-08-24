@@ -752,7 +752,7 @@ function textoSobre(color: string | null): string {
                                     <span
                                         v-if="materia.tipo"
                                         class="rounded-full px-2 py-1 text-xs"
-                                        :class="{ 'bg-indigo-50 text-indigo-700': !esOptativa(materia.tipo) }"
+                                        :class="{ 'elegido-acento': !esOptativa(materia.tipo) }"
                                         :style="esOptativa(materia.tipo) ? { backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' } : {}"
                                     >
                                         {{ materia.tipo }}

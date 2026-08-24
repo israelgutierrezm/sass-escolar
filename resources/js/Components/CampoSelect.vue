@@ -32,7 +32,7 @@ const modelo = defineModel<string | number | null>();
             :class="
                 error
                     ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
-                    : 'border-borde focus:border-indigo-500 focus:ring-indigo-500'
+                    : 'border-borde foco-acento'
             "
         >
             <option v-if="vacio" :value="null">{{ vacio }}</option>
