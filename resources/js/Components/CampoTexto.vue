@@ -78,7 +78,7 @@ defineOptions({ inheritAttrs: false });
                 :class="[
                     error
                         ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
-                        : 'border-borde foco-acento',
+                        : 'border-borde',
                     mono ? 'font-mono uppercase' : '',
                     esPassword ? 'pr-10' : '',
                 ]"

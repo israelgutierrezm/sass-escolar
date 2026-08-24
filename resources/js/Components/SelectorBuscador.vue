@@ -92,7 +92,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', alClicFuera));
             :class="
                 error
                     ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
-                    : 'border-borde foco-acento'
+                    : 'border-borde'
             "
             @click="abierto ? cerrar() : abrir()"
         >
@@ -116,7 +116,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', alClicFuera));
                     v-model="busqueda"
                     type="text"
                     placeholder="Buscar…"
-                    class="foco-acento w-full rounded-md border border-borde px-2 py-1.5 text-sm"
+                    class="w-full rounded-md border border-borde px-2 py-1.5 text-sm"
                     @keydown.esc="cerrar"
                 />
             </div>

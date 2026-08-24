@@ -32,7 +32,7 @@ const modelo = defineModel<string | null>();
             :class="
                 error
                     ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
-                    : 'border-borde foco-acento'
+                    : 'border-borde'
             "
         ></textarea>
         <p v-if="error" class="mt-1 text-xs text-red-600">{{ error }}</p>

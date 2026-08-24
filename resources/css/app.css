@@ -425,10 +425,24 @@
         background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3e%3ccircle cx='8' cy='8' r='3.2' fill='white'/%3e%3c/svg%3e");
     }
 
+    /*
+     * El foco va con `outline`, no con `box-shadow`.
+     *
+     * Iba con sombra y NO SE VEÍA: medido sobre una casilla enfocada, el
+     * `box-shadow` computado salía `0 0 0 0` transparente y el `outline: none`
+     * de esta misma regla sí se aplicaba, así que entre las dos cosas la casilla
+     * se quedaba SIN NINGÚN indicador de foco. Quien navega con el teclado no
+     * podía saber en cuál estaba.
+     *
+     * El `outline` no lo pisa la maquinaria de anillos de Tailwind —que
+     * compone `box-shadow` a partir de sus variables— y es el mecanismo que el
+     * navegador usa para esto. `outline-offset` lo separa del borde para que se
+     * distinga de la casilla marcada.
+     */
     input[type='checkbox']:focus-visible,
     input[type='radio']:focus-visible {
-        outline: none;
-        box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-acento) 25%, transparent);
+        outline: 2px solid var(--color-acento);
+        outline-offset: 2px;
     }
 
     input[type='checkbox']:disabled,
@@ -483,20 +497,43 @@
      * lugares: con estilo en línea, el siguiente que se agregue vuelve a
      * escribirlo a mano y volvemos aquí.
      */
-    .foco-acento {
+    /*
+     * ── El foco de CUALQUIER campo sigue al acento de la escuela ──────────
+     *
+     * Se hizo global y no clase por clase porque medido había **11 campos con
+     * foco declarado y 264 sin él**: los segundos se quedaban con el anillo por
+     * omisión del navegador, así que la mitad de los formularios del sistema no
+     * se parecía a la otra mitad. Declararlo campo por campo es justo lo que
+     * produjo esa deriva, y arreglarlo así la reproduce en el siguiente
+     * formulario que alguien escriba.
+     *
+     * Las casillas y los radios quedan fuera: ya tienen su regla arriba, con un
+     * anillo más grueso porque son mucho más chicos.
+     *
+     * ── `:where()` no es un adorno ────────────────────────────────────────
+     * Aporta CERO especificidad, así que estas reglas quedan en (0,1,0) y
+     * cualquier utilidad de Tailwind —`focus:border-red-500`,
+     * `focus:ring-red-500` del estado de error— sigue ganando. Sin `:where()`,
+     * el selector subiría a (0,3,1) y pintaría de acento el foco de un campo
+     * que está señalando un error.
+     *
+     * ── Y `:focus-visible`, no `:focus` ───────────────────────────────────
+     * En un campo de escritura el navegador lo da igual al hacer clic, así que
+     * no se pierde nada; lo que se evita es el anillo en un `select` que sólo
+     * recibió el foco de vuelta al cerrarse un diálogo.
+     */
+    :where(input:not([type='checkbox']):not([type='radio']), select, textarea) {
         /*
-         * El color del anillo de Tailwind.
-         *
-         * Varios de estos campos conservan su `focus:ring-1`, y esa utilidad se
-         * compila DESPUÉS que esta regla —misma especificidad, gana la última—,
-         * así que pisaba el `box-shadow` de abajo y dejaba el anillo en
-         * `currentcolor`. En vez de pelearse por el orden, se le da el color por
-         * su variable y que lo dibuje él.
+         * El color del anillo de Tailwind, para los campos que llevan
+         * `focus:ring-1`: esa utilidad se compila DESPUÉS y con la misma
+         * especificidad que una clase propia, así que pisaba el `box-shadow` y
+         * dejaba el anillo en `currentcolor`. En vez de pelearse por el orden,
+         * se le da el color por su variable y que lo dibuje él.
          */
         --tw-ring-color: var(--color-acento);
     }
 
-    .foco-acento:focus {
+    :where(input:not([type='checkbox']):not([type='radio']), select, textarea):focus-visible {
         outline: none;
         border-color: var(--color-acento);
 
