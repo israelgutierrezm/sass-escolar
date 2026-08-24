@@ -864,38 +864,8 @@ const iniciales = computed(() => {
              luego se le pide algo a la persona. -->
         <EncuestasPendientes />
 
-        <PanelTema :abierto="panelTema" @cerrar="panelTema = false" />
+        <PanelTema :abierto="panelTema" :escala="escalaFuente" :paso="ESCALA_PASO" @cerrar="panelTema = false" @ajustar="ajustarFuente" />
         <PanelRoles :abierto="panelRoles" @cerrar="panelRoles = false" />
 
-        <!-- Control flotante de tamaño de fuente. Centrado abajo (antes iba a la
-             izquierda, donde la barra lateral fija lo tapaba en escritorio). Es
-             una comodidad de escritorio: en móvil se oculta (ahí se usa el zoom
-             del navegador) y no estorba con el pulgar. -->
-        <div
-            class="fixed bottom-5 left-1/2 z-30 hidden -translate-x-1/2 items-center gap-1 rounded-full px-2 py-1 shadow-lg ring-1 lg:flex"
-            :style="{ backgroundColor: 'var(--color-superficie)', '--tw-ring-color': 'var(--color-borde)' }"
-        >
-            <button
-                type="button"
-                class="grid h-8 w-8 place-items-center rounded-full transition hover:bg-black/5 disabled:opacity-40"
-                title="Reducir tamaño de letra"
-                :disabled="escalaFuente <= 80"
-                @click="ajustarFuente(-ESCALA_PASO)"
-            >
-                <span class="text-xs font-semibold">A−</span>
-            </button>
-            <span class="w-10 text-center text-xs tabular-nums" :style="{ color: 'var(--color-suave)' }">
-                {{ escalaFuente }}%
-            </span>
-            <button
-                type="button"
-                class="grid h-8 w-8 place-items-center rounded-full transition hover:bg-black/5 disabled:opacity-40"
-                title="Aumentar tamaño de letra"
-                :disabled="escalaFuente >= 140"
-                @click="ajustarFuente(ESCALA_PASO)"
-            >
-                <span class="text-base font-semibold">A+</span>
-            </button>
-        </div>
     </div>
 </template>

@@ -7,8 +7,8 @@ import { computed, ref } from 'vue';
  * permite— ajustar colores puntuales. Los ajustes se guardan por usuario en
  * `usuario_tema_override`, una fila por token.
  */
-const props = defineProps<{ abierto: boolean }>();
-const emit = defineEmits<{ cerrar: [] }>();
+const props = defineProps<{ abierto: boolean; escala: number; paso: number }>();
+const emit = defineEmits<{ cerrar: []; ajustar: [delta: number] }>();
 
 const page = usePage<any>();
 const tema = computed(() => page.props.tema);
@@ -137,6 +137,48 @@ function restablecer(): void {
                             >
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                             </svg>
+                        </button>
+                    </div>
+                </section>
+
+                <!--
+                    Tamaño de letra.
+
+                    Vivía en un control FLOTANTE pegado abajo al centro, y desde
+                    ahí se cruzaba con el contenido en toda pantalla larga: en la
+                    hoja de captura tapaba «Mateo Martínez Ramírez: falta
+                    capturar Actividades», que es la razón por la que no se puede
+                    firmar el acta. Cualquier control fijo estorba en algún sitio;
+                    éste no necesitaba estarlo, porque es un ajuste de
+                    apariencia y ya había un panel de apariencia.
+                -->
+                <section>
+                    <h3 class="text-xs font-semibold uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
+                        Tamaño de letra
+                    </h3>
+                    <p class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">
+                        Sólo para ti, y sólo en este navegador.
+                    </p>
+
+                    <div class="mt-3 flex items-center gap-2">
+                        <button
+                            type="button"
+                            class="grid h-9 w-9 place-items-center rounded-lg border transition hover:bg-black/5 disabled:opacity-40"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                            :disabled="escala <= 80"
+                            @click="emit('ajustar', -paso)"
+                        >
+                            <span class="text-xs font-semibold">A−</span>
+                        </button>
+                        <span class="w-14 text-center text-sm tabular-nums">{{ escala }}%</span>
+                        <button
+                            type="button"
+                            class="grid h-9 w-9 place-items-center rounded-lg border transition hover:bg-black/5 disabled:opacity-40"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                            :disabled="escala >= 140"
+                            @click="emit('ajustar', paso)"
+                        >
+                            <span class="text-base font-semibold">A+</span>
                         </button>
                     </div>
                 </section>
