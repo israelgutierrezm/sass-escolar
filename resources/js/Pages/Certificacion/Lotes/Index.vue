@@ -155,8 +155,14 @@ const colorEstadoSolido: Record<string, string> = {
             class="mb-4"
         />
 
-        <div class="tarjeta overflow-hidden">
-            <table class="w-full text-sm">
+        <!--
+            `overflow-x-auto` y no `hidden`: la tabla mide 720 px en un
+            contenedor de 718, así que lo que no cupiera se RECORTABA en vez de
+            desplazarse. Es el patrón que ya usan las demás tablas anchas del
+            sistema.
+        -->
+        <div class="tarjeta overflow-x-auto">
+            <table class="w-full min-w-[46rem] text-sm">
                 <thead>
                     <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
                         <th class="px-6 py-3 font-semibold">Lote</th>
@@ -175,8 +181,17 @@ const colorEstadoSolido: Record<string, string> = {
                         :style="{ borderColor: 'var(--color-borde)' }"
                     >
                         <td class="px-6 py-4">
-                            <span class="flex items-center gap-2">
-                                <span class="font-mono font-semibold text-contenido">{{ lote.folio }}</span>
+                            <!--
+                                `flex-wrap` y el folio SIN partir.
+                                Iban los dos en una línea rígida, así que la
+                                insignia se quedaba con su ancho y al folio le
+                                sobraban 46 px: «LOTE-CERT-0013» salía cortado en
+                                TRES renglones. Un folio es un identificador que
+                                se lee y se compara de un golpe; el que baja de
+                                renglón es la insignia, que no se lee, se mira.
+                            -->
+                            <span class="flex flex-wrap items-center gap-2">
+                                <span class="whitespace-nowrap font-mono font-semibold text-contenido">{{ lote.folio }}</span>
                                 <span class="rounded-full px-2 py-0.5 text-[11px]" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)', color: 'var(--color-suave)' }">{{ lote.tipo_label }}</span>
                             </span>
                             <span v-if="lote.nombre" class="mt-0.5 block text-[11px]" :style="{ color: 'var(--color-suave)' }">{{ lote.nombre }}</span>

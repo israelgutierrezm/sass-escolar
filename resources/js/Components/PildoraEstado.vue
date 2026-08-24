@@ -79,9 +79,16 @@ const colorFinal = computed(
 </script>
 
 <template>
+    <!--
+        `whitespace-nowrap`: una píldora es una etiqueta de UN renglón. Sin eso,
+        en una columna estrecha «En espera de firma» salía partida en tres —una
+        píldora ovalada con tres líneas dentro no se lee como un estado, se lee
+        como algo roto—. Lo que tiene que ceder es la columna, no la etiqueta;
+        por eso la tabla que la contiene desplaza en vez de recortar.
+    -->
     <span
         v-if="texto"
-        class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
+        class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium"
         :class="sinCapitalizar ? '' : 'capitalize'"
         :style="{ color: colorFinal, backgroundColor: `color-mix(in srgb, ${colorFinal} 14%, transparent)` }"
     >
