@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**85 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**86 archivos `prueba-*.php`**;
    esta lista decía 23 y llevaba tiempo desactualizada). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
    imprimen `Resultado: N correctas, M fallidas`. **Ojo al barrer con `grep`**:
@@ -57,7 +57,8 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 85 están en verde**, barridas el 2026-08-23. Llegaron a estar 33 en rojo —no trece: ese primer
+   **Las 86 están en verde** (la 86 es `prueba-disciplina`, agregada y barrida el
+   2026-08-24 junto con el resto), barridas el 2026-08-23. Llegaron a estar 33 en rojo —no trece: ese primer
    conteo sólo miró las que imprimían «N fallidas» e ignoró las 21 que morían
    antes, con una excepción sin resumen—. Ninguna caía por un cambio reciente;
    se comprobó corriéndolas contra el árbol limpio.
@@ -664,8 +665,8 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     tenía asesor. Lo cazó `prueba-actividad-crm`.
   - Pruebas: `scripts/prueba-actividad-crm.php`, 29 verificaciones, comprobada
     mutando la regla de re-cierre (caen exactamente las tres que la vigilan).
-- Pruebas: 85 suites en `scripts/`, contra la BD real del tenant demo con
-  `DB::rollBack()` al final. **85 en verde** (ver la regla 5 para qué tumbó a
+- Pruebas: 86 suites en `scripts/`, contra la BD real del tenant demo con
+  `DB::rollBack()` al final. **86 en verde** (ver la regla 5 para qué tumbó a
   las 33 que estuvieron en rojo). `prueba-listados` es la primera
   que invoca a los CONTROLADORES y lee sus props de Inertia, en vez de
   reimplementar la consulta: un `or` sin paréntesis no se detecta de otra forma.
@@ -2426,6 +2427,72 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     de la barra del alumno y `/biblioteca` da 404; al reencender, reaparece.
     Y los otros niveles ya funcionaban —se comprobó ocultando `bolsa` para el
     alumno vía el editor (MenuRol.ocultos): desaparece sin tocar permisos—.
+
+- **Disciplina · incidencias y sanciones de conducta, CERRADO** (2026-08-24).
+  Pedido del cliente: «dos opciones para llevar el control de incidencias y
+  sanciones para alumnos». NO estaba en la spec —`especificacion-esquema.md`
+  sólo tiene «incidencias» de NÓMINA, otra cosa—, así que es función nueva
+  diseñada con los patrones del proyecto, no un módulo de la spec. Bajo
+  `modulo:disciplina` (apagarlo en `/plataforma/accesos` devuelve 404 y esconde
+  el menú), con sección propia en la barra: Incidencias, Sanciones y Catálogos.
+  - **El titular es la MATRÍCULA, no la persona.** `incidencias` y `sanciones`
+    cuelgan de `matricula_oferta`, igual que el historial académico: quien
+    estudia dos carreras tiene su conducta separada por programa, y corregir su
+    identidad no mezcla las dos.
+  - **`reportada_por`/`aplicada_por` salen de la SESIÓN, no de la petición**, y
+    editar NO los reescribe: quien la levantó sigue siendo quien la vio. Dejar
+    que el navegador dijera «la reportó fulano» permitiría atribuírsela a otro.
+  - **La vigencia la manda el TIPO** (`tipos_sancion.tiene_vigencia`): una
+    suspensión pide `desde`/`hasta`, una amonestación no; con un tipo puntual se
+    anulan aunque el formulario los traiga —cambiar de suspensión a amonestación
+    no puede conservar fechas que ya no significan nada—. Misma forma que las
+    modalidades de percepción de nómina: bandera de comportamiento, no clave.
+  - **Una sanción puede CITAR las incidencias que la originaron** (pivote
+    `incidencia_sancion`), y sólo las del MISMO alumno: sancionar a uno citando
+    la incidencia de otro se descarta en el servidor. El endpoint que las ofrece
+    (`SancionController::incidenciasDe`) va aparte porque se piden al elegir la
+    matrícula, no en la carga de la pantalla.
+  - **El docente levanta las de SUS alumnos, y el alcance lo pone la ASIGNACIÓN,
+    no el permiso.** `/docencia/incidencias` va con `can:levantar-incidencia`
+    (faceta docente), pero el desplegable trae sólo sus alumnos
+    (`docente_asignatura_grupo` → Inscripción) y al guardar se vuelve a comprobar
+    contra la asignación: una matrícula ajena da **403**. La lista de la pantalla
+    no es una defensa.
+  - **`/buscar/matriculas` es un endpoint APARTE de `/buscar/alumnos`.** Aquél
+    deduplica a PERSONAS —quien tiene dos carreras sale una vez—, y aquí hace
+    falta la MATRÍCULA concreta a sancionar. Gateado por el derivado
+    `gestionar-disciplina` (definido con `Gate::define`: incidencias O sanciones).
+  - **El padre/tutor ve la conducta de su hijo en `/mis-hijos`, SÓLO LECTURA**,
+    gateada por `ver-conducta-hijo` (faceta padre) Y el módulo encendido. **El
+    alumno NO la ve**: no hay permiso de faceta alumno que la abra. El gate cruza
+    permiso Y módulo: apagar el módulo la esconde aunque el padre tenga permiso.
+  - **Catálogos TENANT-CONFIG con banderas de comportamiento**
+    (`tipos_incidencia.nivel`, `tipos_sancion.tiene_vigencia`), no enums
+    cableados: una escuela agrega «Uso de celular» o cambia a cinco niveles de
+    gravedad sin tocar código. `CatalogoConductaController` es genérico
+    (registro catálogo→modelo con su `extra`), como `CatalogoAcademicoController`
+    pero acotado al módulo y gateado por su permiso —los catálogos de conducta
+    NO son catálogos de Académico—. Un tipo en uso se APAGA, no se borra (dejaría
+    incidencias colgando); apagar exige que nadie lo use, como en Académico.
+  - Permisos nuevos en `CatalogoPermisos`: `gestionar-incidencias` y
+    `gestionar-sanciones` (faceta administrativa), `levantar-incidencia` (faceta
+    docente), `ver-conducta-hijo` (faceta padre). `director_general` los hereda
+    de su faceta salvo `levantar-incidencia`/`ver-conducta-hijo`, que son de
+    otras facetas.
+  - **Trampa que mordió AL PROBAR, no en producción**: `DocenteIncidenciaController`
+    lee `$peticion->user()` mientras los de admin usan `Auth::user()`. En una
+    petición HTTP real dan lo mismo (el middleware de auth pone el resolutor del
+    request), pero la suite tuvo que fijar AMBOS —`auth()->login()` y
+    `setUserResolver()`— o el controlador del docente veía null y todo era «no es
+    tu alumno». Anotado por si otra prueba invoca ese controlador.
+  - Pruebas: `scripts/prueba-disciplina.php`, 25 verificaciones, comprobadas
+    mutando las cinco reglas de seguridad —reescribir el reportante al editar,
+    ignorar la vigencia del tipo, citar la incidencia de otro alumno, quitar el
+    403 del docente y quitar el gate del padre— y caen exactamente las que las
+    vigilan. Verificado además en el navegador: el catálogo con sus insignias
+    (Nivel 1–3, «Con vigencia» sólo en Suspensión), el formulario que adapta su
+    campo por catálogo (número para nivel, casilla para vigencia), y las tres
+    hojas en la barra lateral.
 
 **Pendiente inmediato — aquí se retoma:**
 
