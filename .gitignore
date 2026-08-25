@@ -25,3 +25,6 @@ Homestead.yaml
 Thumbs.db
 desktop.ini
 /database/*.sqlite*
+
+# Temporales de mpdf (fuentes compiladas y trabajo intermedio)
+/storage/app/mpdf
