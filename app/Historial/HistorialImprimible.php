@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Historial;
 
 use App\Models\Academico\Institucion;
+use App\Models\Academico\NivelEstudio;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\DisenoHistorial;
-use App\Models\Academico\NivelEstudio;
 use App\Services\HistorialDelAlumno;
 use Illuminate\Support\Carbon;
 
@@ -88,6 +88,7 @@ class HistorialImprimible
     public function armarEjemplo(DisenoHistorial $diseno): array
     {
         $columnas = $diseno->columnasEfectivas();
+        $renglones = $this->renglonesDeEjemplo();
 
         return [
             'diseno' => $diseno,
@@ -96,12 +97,21 @@ class HistorialImprimible
             'datos' => $this->datosDeEjemplo($diseno),
             // El ejemplo va por semestres: es lo más común, y de todos modos
             // aquí no hay plan del que sacar la unidad de verdad.
-            'grupos' => $this->agrupar($this->renglonesDeEjemplo(), $diseno->agrupacion, $columnas, 'Semestre'),
+            'grupos' => $this->agrupar($renglones, $diseno->agrupacion, $columnas, 'Semestre'),
+            /*
+             * El resumen se DERIVA de los renglones, no se escribe a mano.
+             *
+             * Decía literal `'materias_cursadas' => 36` de cuando el ejemplo
+             * tenía seis periodos; al ampliarlo a diez, el pie del documento
+             * habría seguido diciendo 36 debajo de una tabla con 60 materias.
+             * Un número escrito a mano al lado de una lista es exactamente lo
+             * que se descuadra la próxima vez que alguien toque la lista.
+             */
             'resumen' => [
-                'materias_cursadas' => 36,
-                'aprobadas' => 35,
+                'materias_cursadas' => count($renglones),
+                'aprobadas' => count($renglones) - 1,
                 'reprobadas' => 1,
-                'creditos' => 214,
+                'creditos' => array_sum(array_column($renglones, 'creditos')),
                 'creditos_del_plan' => 336,
                 'promedio' => 8.7,
             ],
@@ -182,7 +192,18 @@ class HistorialImprimible
     }
 
     /**
-     * Seis periodos de seis materias, con nombres de verdad.
+     * Diez periodos de seis materias, con nombres de verdad.
+     *
+     * ── Por que DIEZ y no seis ────────────────────────────────────────────
+     * Eran seis, o sea 36 materias, y eso cabia en UNA hoja: todo lo que la
+     * vista previa existe para comprobar --el salto de pagina, el membrete
+     * repetido, el folio «Hoja X de Y»-- era inverificable desde la propia
+     * pantalla hecha para verificarlo. Una licenciatura son 50-60 materias, asi
+     * que diez periodos ademas se parecen mas a la verdad.
+     *
+     * El criterio de datos LARGOS («Maria Fernanda Gutierrez Villaseñor») sigue
+     * siendo el correcto; solo se habia quedado corto en el eje que importa para
+     * la paginacion, que es el ALTO.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -195,6 +216,10 @@ class HistorialImprimible
             ['Sistemas Operativos', 'Ingeniería de Software', 'Redes de Computadoras', 'Teoría de la Computación', 'Investigación de Operaciones', 'Desarrollo Web'],
             ['Inteligencia Artificial', 'Sistemas Distribuidos', 'Seguridad Informática', 'Administración de Proyectos', 'Minería de Datos', 'Cómputo en la Nube'],
             ['Seminario de Titulación', 'Cómputo Móvil', 'Interacción Humano-Computadora', 'Emprendimiento Tecnológico', 'Estancia Profesional', 'Optativa de Especialidad'],
+            ['Compiladores', 'Robótica', 'Sistemas Embebidos', 'Gestión de la Calidad', 'Optativa I', 'Servicio Social'],
+            ['Visión Computacional', 'Cómputo Paralelo', 'Análisis de Algoritmos', 'Legislación Informática', 'Optativa II', 'Prácticas Profesionales'],
+            ['Aprendizaje Automático', 'Internet de las Cosas', 'Arquitectura de Software', 'Formulación de Proyectos', 'Optativa III', 'Taller de Investigación I'],
+            ['Ciencia de Datos', 'Blockchain y Criptografía', 'Automatización de Pruebas', 'Innovación Tecnológica', 'Optativa IV', 'Taller de Investigación II'],
         ];
 
         $renglones = [];

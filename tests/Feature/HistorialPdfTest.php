@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Documentos\DocumentoPdf;
+use App\Historial\CatalogoColumnas;
 use App\Historial\HistorialImprimible;
 use App\Historial\HistorialPdf;
+use App\Http\Controllers\DisenoHistorialController;
 use App\Models\ControlEscolar\DisenoHistorial;
+use Illuminate\Http\Request;
 use Tests\TenantTestCase;
 
 /**
@@ -76,7 +79,7 @@ class HistorialPdfTest extends TenantTestCase
          * reparten el sobrante cada uno a su manera y el documento sale distinto
          * según quién lo mire.
          */
-        foreach ([null, ['materia'], ['clave', 'materia', 'calificacion'], array_keys(\App\Historial\CatalogoColumnas::columnas())] as $columnas) {
+        foreach ([null, ['materia'], ['clave', 'materia', 'calificacion'], array_keys(CatalogoColumnas::columnas())] as $columnas) {
             $diseno = DisenoHistorial::paraNivel(null);
 
             if ($columnas !== null) {
@@ -189,6 +192,63 @@ class HistorialPdfTest extends TenantTestCase
 
         $this->assertGreaterThan(1, $hojas,
             'El historial de ejemplo debe ocupar más de una hoja; si cabe en una, la prueba del folio no significa nada');
+    }
+
+    public function test_la_vista_previa_es_el_pdf_de_verdad(): void
+    {
+        /*
+         * Dibujaba `impresion.historial`, que es la vista del NAVEGADOR. Desde
+         * que el documento se genera con mpdf, eso enseñaba una maqueta que
+         * nadie iba a recibir —otra tipografía, otros cortes de hoja, sin folio
+         * ni membrete repetido—, así que quien acomodaba columnas las acomodaba
+         * contra un documento falso. Una vista previa que no es el artefacto no
+         * sirve para lo único que existe.
+         */
+        $peticion = Request::create('/escolar/configuracion/historial/vista-previa', 'POST', [
+            'titulo' => 'Historial académico',
+            'muestra_logo' => '1',
+            'muestra_nombre_escuela' => '1',
+            'agrupacion' => 'periodo',
+            'bloques_por_fila' => '1',
+            'muestra_resumen' => '1',
+            'muestra_promedio' => '1',
+            'muestra_creditos' => '1',
+            'tamano_papel' => 'carta',
+            'orientacion' => 'vertical',
+            'descarga_alumno' => '0',
+            'marca_agua_alumno' => '1',
+            'marca_agua_texto' => 'COPIA',
+            'columnas' => ['clave', 'materia', 'calificacion'],
+            'campos_alumno' => ['nombre', 'matricula'],
+        ]);
+
+        $respuesta = app(DisenoHistorialController::class)->vistaPrevia($peticion);
+
+        $this->assertSame('application/pdf', $respuesta->headers->get('Content-Type'));
+        $this->assertStringStartsWith('%PDF', $respuesta->getContent());
+
+        // Sin caché: la previa cambia con cada ajuste del formulario, y una
+        // cacheada devuelve al diseñador a ser ciego.
+        $this->assertStringContainsString('no-store', (string) $respuesta->headers->get('Cache-Control'));
+    }
+
+    public function test_el_ejemplo_ocupa_varias_hojas(): void
+    {
+        /*
+         * Eran 6 periodos —36 materias— y cabían en UNA hoja: todo lo que la
+         * vista previa existe para comprobar (el salto de página, el membrete
+         * repetido, el folio) era inverificable desde la pantalla hecha para
+         * verificarlo. Y el resumen decía literal 36, así que al ampliarlo
+         * habría quedado mintiendo debajo de la tabla.
+         */
+        $armado = $this->armadoDeEjemplo();
+        $materias = array_sum(array_map(fn ($g) => count($g['filas']), $armado['grupos']));
+
+        $this->assertGreaterThanOrEqual(50, $materias,
+            'Una licenciatura son 50-60 materias; con menos no se ve el corte de hoja');
+
+        $this->assertSame($materias, $armado['resumen']['materias_cursadas'],
+            'El resumen debe DERIVARSE de los renglones, no escribirse a mano');
     }
 
     public function test_una_escuela_sin_diseno_guardado_puede_imprimir(): void

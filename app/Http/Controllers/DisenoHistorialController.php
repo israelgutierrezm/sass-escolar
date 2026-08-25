@@ -6,11 +6,12 @@ namespace App\Http\Controllers;
 
 use App\Historial\CatalogoColumnas;
 use App\Historial\HistorialImprimible;
-use App\Models\ControlEscolar\DisenoHistorial;
+use App\Historial\HistorialPdf;
 use App\Models\Academico\NivelEstudio;
-use Illuminate\Contracts\Support\Renderable;
+use App\Models\ControlEscolar\DisenoHistorial;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -121,19 +122,35 @@ class DisenoHistorialController extends Controller
      * No sobre lo guardado, y sin exigir que la fila exista. Quien está
      * decidiendo si el historial va a una o a dos columnas necesita verlo ANTES
      * de guardarlo; obligar a guardar para mirar convierte cada prueba en un
-     * cambio real sobre el documento oficial de la escuela.
+     * cambio real sobre el documento oficial de la escuela. Por eso va por POST
+     * y no por GET: lo que se dibuja son los campos del formulario.
      *
-     * Va por POST y abre en otra pestaña: es una hoja completa, y meterla en un
-     * recuadro dentro de la pantalla de configuración no deja juzgar si el
-     * nombre de una asignatura cabe en su celda — que es justo la pregunta.
+     * ── Es el PDF DE VERDAD, no una aproximación en HTML ──────────────────
+     * Antes dibujaba `impresion.historial`, que es la vista del NAVEGADOR. Desde
+     * que el documento se genera con mpdf eso dejó de servir para lo que una
+     * vista previa existe: enseñaba una maqueta distinta de la que se imprime
+     * —otra tipografía, otros cortes de página, sin folio ni membrete
+     * repetido—, así que quien acomodaba columnas las acomodaba contra un
+     * documento que nadie iba a recibir.
      */
-    public function vistaPrevia(Request $peticion): Renderable
+    public function vistaPrevia(Request $peticion): Response
     {
         $guardado = DisenoHistorial::query()->find($peticion->integer('diseno_id'));
 
-        $diseno = ($guardado ?? new DisenoHistorial)->fill($this->validado($peticion));
+        $diseno = ($guardado ?? new DisenoHistorial(CatalogoColumnas::porOmision()))
+            ->fill($this->validado($peticion));
 
-        return view('impresion.historial', app(HistorialImprimible::class)->armarEjemplo($diseno));
+        $bytes = app(HistorialPdf::class)->generar(
+            app(HistorialImprimible::class)->armarEjemplo($diseno)
+        );
+
+        return new Response($bytes, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="vista-previa.pdf"',
+            // La vista previa cambia con cada tecla del formulario: si el
+            // navegador la cachea, el diseñador vuelve a ser ciego.
+            'Cache-Control' => 'no-store, max-age=0',
+        ]);
     }
 
     /** @return array<string, mixed> */

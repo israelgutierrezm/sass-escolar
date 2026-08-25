@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PestanasSeccion from '@/Components/PestanasSeccion.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
@@ -155,16 +155,98 @@ function mover(lista: 'columnas' | 'campos_alumno', i: number, delta: number): v
     form[lista] = actual;
 }
 
+/** Los campos del formulario, tal como los espera el servidor. */
+function camposDelFormulario(): Record<string, unknown> {
+    return {
+        ...form.data(),
+        diseno_id: guardado.value?.id ?? '',
+    };
+}
+
+function token(): string {
+    return document.querySelector<HTMLMetaElement>('meta[name=csrf-token]')?.content ?? '';
+}
+
+/*
+ * ── La vista previa VIVA ──────────────────────────────────────────────────
+ *
+ * Esta pantalla era un formulario a ciegas: listas con flechas y ningún dibujo
+ * del documento. Para ver el efecto de mover una columna había que guardar y
+ * abrir otra pestaña, o sea decidir a ojo y comprobar después.
+ *
+ * Lo que se pinta es el PDF DE VERDAD, el mismo que se imprime —no una
+ * aproximación en HTML—, así que lo que se ve es lo que sale.
+ */
+const previa = ref<string | null>(null);
+const refrescando = ref(false);
+const fallo = ref(false);
+let urlPrevia: string | null = null;
+let temporizador: ReturnType<typeof setTimeout> | undefined;
+
+async function refrescarPrevia(): Promise<void> {
+    refrescando.value = true;
+    fallo.value = false;
+
+    try {
+        const cuerpo = new FormData();
+
+        for (const [clave, valor] of Object.entries(camposDelFormulario())) {
+            for (const v of Array.isArray(valor) ? valor : [valor]) {
+                cuerpo.append(Array.isArray(valor) ? `${clave}[]` : clave, typeof v === 'boolean' ? (v ? '1' : '0') : String(v ?? ''));
+            }
+        }
+
+        const r = await fetch('/escolar/configuracion/historial/vista-previa', {
+            method: 'POST',
+            body: cuerpo,
+            headers: { 'X-CSRF-TOKEN': token() },
+        });
+
+        if (!r.ok) {
+            fallo.value = true;
+            return;
+        }
+
+        const blob = await r.blob();
+
+        // Se libera la anterior: cada refresco crea un objeto en memoria y sin
+        // revocarlo la pestaña se va llenando de PDFs muertos mientras alguien
+        // acomoda columnas.
+        if (urlPrevia) URL.revokeObjectURL(urlPrevia);
+        urlPrevia = URL.createObjectURL(blob);
+        previa.value = urlPrevia;
+    } catch {
+        fallo.value = true;
+    } finally {
+        refrescando.value = false;
+    }
+}
+
+/*
+ * Con retraso: armar el PDF cuesta un par de segundos, así que pedirlo en cada
+ * tecla dejaría al servidor generando documentos que nadie va a mirar.
+ */
+watch(
+    () => JSON.stringify(form.data()),
+    () => {
+        clearTimeout(temporizador);
+        temporizador = setTimeout(refrescarPrevia, 700);
+    },
+);
+
+onMounted(refrescarPrevia);
+
+onBeforeUnmount(() => {
+    clearTimeout(temporizador);
+    if (urlPrevia) URL.revokeObjectURL(urlPrevia);
+});
+
 /**
- * Abre el documento con datos inventados, en otra pestaña.
+ * Abre el documento a tamaño completo, en otra pestaña.
  *
- * Se manda un formulario de verdad y no un `fetch`: la vista previa es una hoja
- * completa —seis periodos de seis materias— y encajarla en un recuadro dentro
- * de esta pantalla no dejaría juzgar si el nombre de una asignatura cabe en su
- * celda, que es exactamente la pregunta que se viene a responder aquí.
- *
- * Va sobre lo que hay EN EL FORMULARIO, sin guardar: probar «dos columnas» no
- * debería cambiar el documento oficial de la escuela hasta estar decidido.
+ * Sigue haciendo falta junto a la previa del costado: el recuadro sirve para
+ * ver el EFECTO de un cambio, y la pestaña para juzgar si el nombre de una
+ * asignatura cabe de verdad en su celda.
  */
 function verComoQueda(): void {
     const f = document.createElement('form');
@@ -173,9 +255,8 @@ function verComoQueda(): void {
     f.target = '_blank';
 
     const campos: Record<string, unknown> = {
-        ...form.data(),
-        diseno_id: guardado.value?.id ?? '',
-        _token: document.querySelector<HTMLMetaElement>('meta[name=csrf-token]')?.content ?? '',
+        ...camposDelFormulario(),
+        _token: token(),
     };
 
     for (const [clave, valor] of Object.entries(campos)) {
@@ -240,6 +321,13 @@ const datosPuestos = computed(() => form.campos_alumno as string[]);
     <AppLayout titulo="Historial académico">
         <PestanasSeccion />
 
+        <!--
+            Formulario a la IZQUIERDA y el documento a la derecha, pegado al
+            desplazarse: es lo que esta pantalla no tenía y por lo que se
+            configuraba a ciegas. Debajo de `xl` se apila, porque un PDF en una
+            columna de 300 px no se puede juzgar.
+        -->
+        <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_26rem]">
         <div class="space-y-4">
             <section class="tarjeta p-5">
                 <h2 class="text-base font-semibold">Cómo se imprime el historial</h2>
@@ -555,6 +643,53 @@ const datosPuestos = computed(() => form.campos_alumno as string[]);
                     Guardar diseño
                 </button>
             </div>
+        </div>
+
+            <aside class="xl:sticky xl:top-4 xl:self-start">
+                <section class="tarjeta overflow-hidden">
+                    <div class="flex items-center justify-between border-b border-borde px-4 py-2.5">
+                        <p class="text-sm font-semibold">Así queda</p>
+                        <span v-if="refrescando" class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                            actualizando…
+                        </span>
+                        <button
+                            v-else
+                            type="button"
+                            class="text-xs underline"
+                            :style="{ color: 'var(--color-suave)' }"
+                            @click="verComoQueda"
+                        >Abrir a tamaño completo</button>
+                    </div>
+
+                    <!--
+                        El PDF de verdad, el mismo que se imprime. Se pinta en un
+                        iframe porque el visor del navegador ya sabe paginarlo:
+                        así se ve el corte de hoja, el membrete repetido y el
+                        folio, que es justo lo que no se podía comprobar antes.
+                    -->
+                    <iframe
+                        v-if="previa && !fallo"
+                        :src="previa"
+                        class="block w-full"
+                        style="height: 34rem; border: 0"
+                        title="Vista previa del historial"
+                    ></iframe>
+
+                    <p v-else-if="fallo" class="px-4 py-10 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
+                        No se pudo dibujar la vista previa. Revisa que el título y los demás campos
+                        obligatorios estén llenos.
+                    </p>
+
+                    <p v-else class="px-4 py-10 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
+                        Preparando la vista previa…
+                    </p>
+
+                    <p class="border-t border-borde px-4 py-2 text-xs" :style="{ color: 'var(--color-suave)' }">
+                        Datos inventados, a propósito: acomodar columnas no es motivo para abrir el
+                        expediente de nadie. El ejemplo son 60 materias para que se vea el corte de hoja.
+                    </p>
+                </section>
+            </aside>
         </div>
     </AppLayout>
 </template>

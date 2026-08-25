@@ -165,11 +165,29 @@ class HistorialImprimibleTest extends TenantTestCase
 
         $rejillas = $this->bloquesPorRejilla($html);
 
+        /*
+         * Se comprueba el EMPAREJADO, no cuántos semestres trae el ejemplo.
+         *
+         * Antes iba la lista literal de los seis que había, así que ampliar el
+         * ejemplo a diez periodos —para que la vista previa llegue a la hoja 2 y
+         * se pueda ver el corte— tumbaba esta prueba sin que nada del
+         * emparejado se hubiera roto. Una prueba atada al tamaño de los datos de
+         * ejemplo se cae cada vez que alguien los toca, y no por lo que dice
+         * vigilar.
+         */
+        $this->assertNotEmpty($rejillas);
+
         // El ejemplo va por semestres: no hay plan del que sacar la palabra.
-        $this->assertSame(
-            [['Semestre 1', 'Semestre 2'], ['Semestre 3', 'Semestre 4'], ['Semestre 5', 'Semestre 6']],
-            $rejillas,
-        );
+        $esperado = [];
+        foreach (array_chunk(range(1, count($rejillas) * 2), 2) as $par) {
+            $esperado[] = array_map(fn (int $n) => "Semestre {$n}", $par);
+        }
+
+        // La última fila puede ir sola si el número de bloques es impar.
+        $ultima = array_pop($esperado);
+        $esperado[] = array_slice($ultima, 0, count(end($rejillas)));
+
+        $this->assertSame($esperado, $rejillas);
     }
 
     /** A una columna cada bloque va en su fila. */

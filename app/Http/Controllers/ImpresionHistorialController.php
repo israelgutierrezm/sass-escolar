@@ -10,8 +10,8 @@ use App\Http\Controllers\Concerns\AlcanceDelAlumno;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\DisenoHistorial;
 use Illuminate\Contracts\Support\Renderable;
-use Illuminate\Http\Response;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 /**
  * El historial académico impreso, por sus dos puertas.
