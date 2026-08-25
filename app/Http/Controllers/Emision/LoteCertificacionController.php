@@ -24,10 +24,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
-use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use App\Services\Excel\Exportador;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
@@ -498,23 +495,9 @@ class LoteCertificacionController extends Controller
      */
     private function descargarExcel(string $titulo, array $encabezados, array $filas, string $archivo): BinaryFileResponse
     {
-        $libro = new Spreadsheet;
-        $hoja = $libro->getActiveSheet();
-
-        $hoja->fromArray($encabezados, null, 'A1');
-        $ultima = Coordinate::stringFromColumnIndex(count($encabezados));
-        $hoja->getStyle("A1:{$ultima}1")->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
-        $hoja->getStyle("A1:{$ultima}1")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FF2F6FED');
-        $hoja->fromArray($filas, null, 'A2');
-        foreach (range(1, count($encabezados)) as $i) {
-            $hoja->getColumnDimensionByColumn($i)->setAutoSize(true);
-        }
-        $hoja->setTitle(mb_substr($titulo, 0, 31));
-
-        $tmp = tempnam(sys_get_temp_dir(), 'xls').'.xlsx';
-        (new Xlsx($libro))->save($tmp);
-
-        return response()->download($tmp, $archivo)->deleteFileAfterSend(true);
+        // El armado vive en App\Services\Excel\Exportador: estaba duplicado
+        // literal con LoteTitulacionController y dejaba un temporal huérfano.
+        return app(Exportador::class)->descargar($titulo, $encabezados, $filas, $archivo);
     }
 
     /** @return array<string, mixed> */

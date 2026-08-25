@@ -4,17 +4,16 @@ declare(strict_types=1);
 
 namespace App\Panel\Tarjetas;
 
-use App\Models\Finanzas\Adeudo;
-use App\Models\Finanzas\Pago;
 use App\Models\Identidad\Usuario;
 use App\Panel\TarjetaPanel;
-use Illuminate\Support\Facades\DB;
+use App\Services\Finanzas\SaldosDeCartera;
 
 /**
  * Saldo y vencido de toda la escuela, para quien lleva finanzas.
  *
  * Se agrega en SQL, no recorriendo adeudos: es una tarjeta del panel, o sea
- * algo que se pinta en CADA carga de la pantalla principal.
+ * algo que se pinta en CADA carga de la pantalla principal. La consulta la pone
+ * `SaldosDeCartera`, que es el unico sitio donde se define cuanto se debe.
  */
 class CarteraDeLaEscuela implements TarjetaPanel
 {
@@ -57,33 +56,40 @@ class CarteraDeLaEscuela implements TarjetaPanel
             return null;
         }
 
-        $aplicados = DB::table('pago_adeudo as pa')
-            ->join('pagos as p', 'p.id', '=', 'pa.pago_id')
-            ->whereNull('pa.deleted_at')->whereNull('p.deleted_at')
-            ->where('p.estatus', Pago::ESTATUS_COMPLETADO)
-            ->groupBy('pa.adeudo_id')
-            ->select('pa.adeudo_id', DB::raw('sum(pa.monto_aplicado) as aplicado'));
+        /*
+         * La agregación vive en `SaldosDeCartera`, no aquí.
+         *
+         * Estaba escrita dos veces —esta tarjeta y `FinanzasController`— y ya
+         * habían divergido: aquélla deja fuera los adeudos de aspirante y ésta
+         * los sumaba, sin decirlo. Como esta tarjeta ENLAZA a `/finanzas`, las
+         * dos cifras se leen una tras otra y la diferencia se ve.
+         */
+        $total = app(SaldosDeCartera::class)->totalDeLaEscuela(now()->toDateString());
 
-        $fila = DB::table('adeudos as a')
-            ->leftJoinSub($aplicados, 'ap', 'ap.adeudo_id', '=', 'a.id')
-            ->whereNull('a.deleted_at')
-            ->whereIn('a.estatus', [Adeudo::ESTATUS_PENDIENTE, Adeudo::ESTATUS_PARCIAL])
-            ->selectRaw('coalesce(sum(a.monto_total - coalesce(ap.aplicado, 0)), 0) as saldo')
-            ->selectRaw(
-                'coalesce(sum(case when a.fecha_vencimiento < ? then a.monto_total - coalesce(ap.aplicado, 0) else 0 end), 0) as vencido',
-                [now()->toDateString()]
-            )
-            ->first();
+        /*
+         * Lo de los aspirantes se NOMBRA en vez de esconderse.
+         *
+         * El listado de `/finanzas` va por matrícula, así que no puede
+         * enseñarlo: quien compare los dos números encontraría una diferencia
+         * sin explicación. Decir cuánta es y de quién es lo que hace que
+         * cuadren. Sólo se menciona cuando hay: un «0 de aspirantes» ocupa el
+         * renglón del dato que sí importa, que es lo vencido.
+         */
+        $pie = match (true) {
+            $total['vencido'] > 0 => number_format($total['vencido'], 2).' vencido',
+            $total['de_aspirantes'] > 0 => number_format($total['de_aspirantes'], 2).' de aspirantes',
+            default => 'Nada vencido',
+        };
 
-        $vencido = round((float) ($fila->vencido ?? 0), 2);
+        if ($total['vencido'] > 0 && $total['de_aspirantes'] > 0) {
+            $pie .= ' · '.number_format($total['de_aspirantes'], 2).' de aspirantes';
+        }
 
         return [
-            'valor' => round((float) ($fila->saldo ?? 0), 2),
+            'valor' => $total['saldo'],
             'formato' => 'moneda',
-            'pie' => $vencido > 0
-                ? number_format($vencido, 2).' vencido'
-                : 'Nada vencido',
-            'alerta' => $vencido > 0,
+            'pie' => $pie,
+            'alerta' => $total['vencido'] > 0,
             'enlace' => '/finanzas',
         ];
     }

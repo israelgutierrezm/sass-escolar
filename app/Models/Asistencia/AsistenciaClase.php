@@ -20,9 +20,23 @@ class AsistenciaClase extends Model
     use ReviveAlGuardar;
     use TieneAuditoria;
 
+    /*
+     * Los cuatro valores que de verdad se guardan en `estatus`.
+     *
+     * Los escribe `PaseListaController::ESTATUS`, que es la única puerta por la
+     * que entra un pase de lista, y son los que hay en la base del demo.
+     *
+     * ── Ojo: esto decía `AUSENTE = 'ausente'` ─────────────────────────────
+     * Lo guardado siempre fue `'falta'`, así que `scopeFaltas()` comparaba
+     * contra un valor que no existe y devolvía CERO pase lo que pase. No se
+     * notó porque nadie llamaba al scope todavía —es una trampa armada, no un
+     * número mal en pantalla—, y habría mordido en el primer reporte de
+     * inasistencias, que es justo lo que sigue. La constante se renombra
+     * además de corregirse: `AUSENTE` no era el nombre del dato.
+     */
     public const PRESENTE = 'presente';
 
-    public const AUSENTE = 'ausente';
+    public const FALTA = 'falta';
 
     public const JUSTIFICADA = 'justificada';
 
@@ -66,7 +80,7 @@ class AsistenciaClase extends Model
      */
     public function scopeFaltas(Builder $query): Builder
     {
-        return $query->where('estatus', self::AUSENTE);
+        return $query->where('estatus', self::FALTA);
     }
 
     public function scopeDeInscripcion(Builder $query, int $inscripcionId): Builder

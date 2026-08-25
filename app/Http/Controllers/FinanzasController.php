@@ -15,6 +15,7 @@ use App\Models\Finanzas\Factura;
 use App\Models\Finanzas\MetodoPago;
 use App\Models\Finanzas\Pago;
 use App\Models\Finanzas\SituacionPago;
+use App\Services\Finanzas\SaldosDeCartera;
 use App\Services\CalculadorRecargos;
 use App\Services\EstadoCuenta;
 use App\Services\GeneradorAdeudos;
@@ -399,52 +400,17 @@ class FinanzasController extends Controller
     }
 
     /**
-     * Saldo, vencido y número de adeudos abiertos por matrícula, en una sola
-     * subconsulta agregada.
+     * Saldo, vencido y numero de adeudos abiertos por matricula.
      *
-     * Lo aplicado se calcula aparte y se une por LEFT JOIN porque un adeudo
-     * puede tener varios pagos: sumarlo en el mismo GROUP BY multiplicaría el
-     * `monto_total` por cuantos pagos tenga encima.
+     * El armado vive en `App\Services\Finanzas\SaldosDeCartera`: estaba escrito
+     * tambien en la tarjeta `CarteraDeLaEscuela` del panel --que enlaza AQUI-- y
+     * las dos copias ya habian divergido en si contar los adeudos de aspirante.
+     *
+     * @param  array<int, int>|null  $matriculaIds
      */
     private function saldosPorMatricula(string $hoy, ?array $matriculaIds = null): Builder
     {
-        $aplicados = DB::table('pago_adeudo as pa')
-            ->join('pagos as p', 'p.id', '=', 'pa.pago_id')
-            ->whereNull('pa.deleted_at')
-            ->whereNull('p.deleted_at')
-            ->where('p.estatus', Pago::ESTATUS_COMPLETADO)
-            ->groupBy('pa.adeudo_id')
-            ->select('pa.adeudo_id', DB::raw('sum(pa.monto_aplicado) as aplicado'));
-
-        return DB::table('adeudos as a')
-            ->leftJoinSub($aplicados, 'ap', 'ap.adeudo_id', '=', 'a.id')
-            ->whereNull('a.deleted_at')
-            ->whereNotNull('a.matricula_oferta_id')
-            ->whereIn('a.estatus', [Adeudo::ESTATUS_PENDIENTE, Adeudo::ESTATUS_PARCIAL])
-            /*
-             * Para el encabezado de quien no ve toda la cartera: se acota a las
-             * matrículas que puede ver, así el «saldo» y el «vencido» de arriba
-             * son sólo de ellas.
-             *
-             * Recibe la LISTA de matrículas y no la persona titular, que era lo
-             * que hacía antes: un padre de familia no es titular de la
-             * matrícula de su hijo, así que por titular le habría seguido
-             * sumando la cartera completa de la escuela debajo de una tabla ya
-             * acotada —el número más visible de la pantalla, y el más fácil de
-             * dar por bueno—.
-             */
-            ->when($matriculaIds !== null, fn ($q) => $q->whereIn('a.matricula_oferta_id', $matriculaIds))
-            ->groupBy('a.matricula_oferta_id')
-            ->select('a.matricula_oferta_id')
-            ->selectRaw('sum(a.monto_total - coalesce(ap.aplicado, 0)) as saldo')
-            // La fecha va como binding y no interpolada: es de `now()` y no del
-            // usuario, pero una consulta cruda con fechas pegadas a mano es la
-            // que alguien copia mañana para un filtro que sí viene de fuera.
-            ->selectRaw(
-                'sum(case when a.fecha_vencimiento < ? then a.monto_total - coalesce(ap.aplicado, 0) else 0 end) as vencido',
-                [$hoy]
-            )
-            ->selectRaw('count(*) as adeudos');
+        return app(SaldosDeCartera::class)->porMatricula($hoy, $matriculaIds);
     }
 
     /** La situación vigente, o la de "al corriente" si nunca se registró una. */

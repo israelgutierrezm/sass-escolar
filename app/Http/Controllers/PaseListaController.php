@@ -29,8 +29,20 @@ class PaseListaController extends Controller
 {
     use AutorizaMateriaPropia;
 
-    /** Los estados posibles de una asistencia. */
-    private const ESTATUS = ['presente', 'retardo', 'falta', 'justificada'];
+    /**
+     * Los estados posibles de una asistencia.
+     *
+     * Salen de las constantes del MODELO y no de una lista escrita aquí: eran
+     * dos declaraciones de lo mismo y ya habían divergido —el modelo decía
+     * `'ausente'` donde esto escribe `'falta'`, y su `scopeFaltas()` no
+     * encontraba nada—. Con una sola declaración no puede repetirse.
+     */
+    private const ESTATUS = [
+        AsistenciaClase::PRESENTE,
+        AsistenciaClase::RETARDO,
+        AsistenciaClase::FALTA,
+        AsistenciaClase::JUSTIFICADA,
+    ];
 
     public function guardar(Request $request, AsignaturaGrupo $asignaturaGrupo): RedirectResponse
     {

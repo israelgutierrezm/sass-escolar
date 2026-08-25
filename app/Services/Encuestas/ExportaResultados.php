@@ -7,6 +7,7 @@ namespace App\Services\Encuestas;
 use App\Enums\TipoPregunta;
 use App\Models\Encuestas\AplicacionEncuesta;
 use App\Models\Encuestas\Pregunta;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
@@ -195,11 +196,13 @@ class ExportaResultados
     private function encabezado(Worksheet $hoja, int $fila, array $titulos): void
     {
         foreach ($titulos as $i => $titulo) {
-            $columna = chr(ord('A') + $i);
+            // Coordinate y no chr(ord('A') + $i): pasada la Z eso produce '[',
+            // y una encuesta de más de 26 preguntas generaba un archivo corrupto.
+            $columna = Coordinate::stringFromColumnIndex($i + 1);
             $hoja->setCellValue("{$columna}{$fila}", $titulo);
         }
 
-        $ultima = chr(ord('A') + count($titulos) - 1);
+        $ultima = Coordinate::stringFromColumnIndex(max(1, count($titulos)));
         $rango = "A{$fila}:{$ultima}{$fila}";
 
         $hoja->getStyle($rango)->getFont()->setBold(true);

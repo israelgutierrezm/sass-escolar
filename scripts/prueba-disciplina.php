@@ -109,6 +109,18 @@ function usuarioConRol(string $rol): Usuario
 
 $db->beginTransaction();
 
+/*
+ * Las fechas van RELATIVAS a hoy, no escritas a mano.
+ *
+ * Estaban fijas —24, 25 y 27 de agosto— y la prueba afirmaba «la suspensión
+ * empieza mañana»: cierto el día que se escribió y falso al siguiente, que es
+ * cuando se cayó. Una prueba atada al calendario sólo pasa el día que la
+ * corriste.
+ */
+$ayer = now()->subDay()->toDateString();
+$manana = now()->addDay()->toDateString();
+$enTresDias = now()->addDays(3)->toDateString();
+
 try {
     // ── Datos reales: un docente con alumnos, una matrícula suya y una ajena ──
     $asignacion = $db->table('docente_asignatura_grupo as dag')
@@ -171,7 +183,7 @@ try {
     $ctrlInc->guardar(peticion([
         'matricula_oferta_id' => $matriculaSuya,
         'tipo_incidencia_id' => $tipoInc->id,
-        'fecha' => '2026-08-24',
+        'fecha' => $ayer,
         'descripcion' => 'Incidencia de prueba (admin).',
     ]));
 
@@ -186,7 +198,7 @@ try {
     $ctrlInc->guardar(peticion([
         'matricula_oferta_id' => $matriculaSuya,
         'tipo_incidencia_id' => $tipoInc->id,
-        'fecha' => '2026-08-24',
+        'fecha' => $ayer,
         'descripcion' => 'Editada por otro admin.',
     ], 'PUT'), $inc->fresh());
 
@@ -206,9 +218,9 @@ try {
     $ctrlSan->guardar(peticion([
         'matricula_oferta_id' => $matriculaSuya,
         'tipo_sancion_id' => $tipoPuntual->id,
-        'fecha' => '2026-08-24',
-        'desde' => '2026-08-25',
-        'hasta' => '2026-08-27',
+        'fecha' => $ayer,
+        'desde' => $manana,
+        'hasta' => $enTresDias,
         'motivo' => 'Amonestación de prueba.',
     ]));
 
@@ -223,17 +235,17 @@ try {
     $ctrlSan->guardar(peticion([
         'matricula_oferta_id' => $matriculaSuya,
         'tipo_sancion_id' => $tipoVigencia->id,
-        'fecha' => '2026-08-24',
-        'desde' => '2026-08-25',
-        'hasta' => '2026-08-27',
+        'fecha' => $ayer,
+        'desde' => $manana,
+        'hasta' => $enTresDias,
         'motivo' => 'Suspensión de prueba.',
     ]));
 
     $sanVigente = Sancion::query()->where('motivo', 'Suspensión de prueba.')->latest('id')->first();
     verificar('Tipo con vigencia: desde/hasta sí se guardan',
         $sanVigente !== null
-        && $sanVigente->desde?->format('Y-m-d') === '2026-08-25'
-        && $sanVigente->hasta?->format('Y-m-d') === '2026-08-27');
+        && $sanVigente->desde?->format('Y-m-d') === $manana
+        && $sanVigente->hasta?->format('Y-m-d') === $enTresDias);
     verificar('vigente() es falso: la suspensión empieza mañana',
         $sanVigente->vigente() === false);
 
@@ -243,14 +255,14 @@ try {
     $incSuya = Incidencia::create([
         'matricula_oferta_id' => $matriculaSuya,
         'tipo_incidencia_id' => $tipoInc->id,
-        'fecha' => '2026-08-20',
+        'fecha' => $ayer,
         'descripcion' => 'La que origina la sanción.',
         'reportada_por' => $admin->persona_id,
     ]);
     $incAjena = Incidencia::create([
         'matricula_oferta_id' => $matriculaAjena,
         'tipo_incidencia_id' => $tipoInc->id,
-        'fecha' => '2026-08-20',
+        'fecha' => $ayer,
         'descripcion' => 'De otro alumno, no debe colarse.',
         'reportada_por' => $admin->persona_id,
     ]);
@@ -258,7 +270,7 @@ try {
     $ctrlSan->guardar(peticion([
         'matricula_oferta_id' => $matriculaSuya,
         'tipo_sancion_id' => $tipoPuntual->id,
-        'fecha' => '2026-08-24',
+        'fecha' => $ayer,
         'motivo' => 'Sanción que cita incidencias.',
         'incidencias' => [$incSuya->id, $incAjena->id],
     ]));
@@ -298,7 +310,7 @@ try {
     $ctrlDoc->guardar(peticion([
         'matricula_oferta_id' => $matriculaSuya,
         'tipo_incidencia_id' => $tipoInc->id,
-        'fecha' => '2026-08-24',
+        'fecha' => $ayer,
         'descripcion' => 'Levantada por el docente.',
     ], 'POST', $usuarioDocente));
     $incDoc = Incidencia::query()->where('descripcion', 'Levantada por el docente.')->latest('id')->first();
@@ -311,7 +323,7 @@ try {
         $ctrlDoc->guardar(peticion([
             'matricula_oferta_id' => $matriculaAjena,
             'tipo_incidencia_id' => $tipoInc->id,
-            'fecha' => '2026-08-24',
+            'fecha' => $ayer,
             'descripcion' => 'No debería poder.',
         ], 'POST', $usuarioDocente));
     } catch (HttpException $e) {
@@ -412,7 +424,7 @@ try {
     Incidencia::create([
         'matricula_oferta_id' => $matriculaSuya,
         'tipo_incidencia_id' => $nuevo->id,
-        'fecha' => '2026-08-24',
+        'fecha' => $ayer,
         'descripcion' => 'Usa el tipo de prueba.',
         'reportada_por' => $admin->persona_id,
     ]);
