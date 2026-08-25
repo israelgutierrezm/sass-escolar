@@ -38,8 +38,6 @@ interface Diseno {
     muestra_promedio: boolean;
     muestra_creditos: boolean;
     leyenda: string | null;
-    responsable_nombre: string | null;
-    responsable_cargo: string | null;
     tamano_papel: string;
     orientacion: string;
     descarga_alumno: boolean;
@@ -56,8 +54,16 @@ interface Diseno {
     interlineado: number;
     salto_por_bloque: boolean;
     usa_color_acento: boolean;
-    tiene_firma: boolean;
     tiene_sello: boolean;
+    firmantes: Firmante[];
+}
+
+/** Quien rubrica el documento. Cada uno trae su imagen de firma. */
+interface Firmante {
+    id: number;
+    nombre: string;
+    cargo: string | null;
+    tiene_firma: boolean;
 }
 
 const props = defineProps<{
@@ -96,8 +102,6 @@ function vacio() {
         muestra_promedio: true,
         muestra_creditos: true,
         leyenda: '',
-        responsable_nombre: '',
-        responsable_cargo: '',
         tamano_papel: 'carta',
         orientacion: 'vertical',
         descarga_alumno: false,
@@ -140,8 +144,6 @@ watch(
                       muestra_promedio: d.muestra_promedio,
                       muestra_creditos: d.muestra_creditos,
                       leyenda: d.leyenda ?? '',
-                      responsable_nombre: d.responsable_nombre ?? '',
-                      responsable_cargo: d.responsable_cargo ?? '',
                       tamano_papel: d.tamano_papel,
                       orientacion: d.orientacion,
                       descarga_alumno: d.descarga_alumno,
@@ -338,6 +340,83 @@ function subir(campo: string, evento: Event): void {
         `/escolar/configuracion/historial/${guardado.value.id}/imagen`,
         { campo, archivo },
         { preserveScroll: true, forceFormData: true },
+    );
+}
+
+/*
+ * ── Los FIRMANTES ─────────────────────────────────────────────────────────
+ *
+ * Antes habia un solo `responsable_nombre`, asi que una escuela que exige la
+ * rubrica del director Y la de control escolar --lo normal en un documento
+ * escolar-- no lo podia expresar, y quien lo necesitaba acababa metiendo dos
+ * nombres en el mismo campo.
+ */
+const editandoFirmante = ref<Firmante | null>(null);
+const altaFirmante = ref(false);
+
+const formFirmante = useForm({
+    nombre: '',
+    cargo: '',
+    archivo: null as File | null,
+    quitar_firma: false as boolean,
+});
+
+const firmantes = computed<Firmante[]>(() => guardado.value?.firmantes ?? []);
+
+// Cuatro: las rubricas se reparten el ancho de la hoja en una fila, y con
+// cinco la linea de cada una queda mas corta que el nombre que va debajo.
+const TOPE_FIRMANTES = 4;
+
+function abrirAltaFirmante(): void {
+    editandoFirmante.value = null;
+    altaFirmante.value = true;
+    formFirmante.reset();
+    formFirmante.clearErrors();
+}
+
+function abrirEdicionFirmante(f: Firmante): void {
+    editandoFirmante.value = f;
+    altaFirmante.value = true;
+    formFirmante.clearErrors();
+    formFirmante.nombre = f.nombre;
+    formFirmante.cargo = f.cargo ?? '';
+    formFirmante.archivo = null;
+    formFirmante.quitar_firma = false;
+}
+
+function guardarFirmante(): void {
+    if (!guardado.value) return;
+
+    const base = `/escolar/configuracion/historial/${guardado.value.id}/firmantes`;
+    const destino = editandoFirmante.value ? `${base}/${editandoFirmante.value.id}` : base;
+
+    formFirmante.post(destino, {
+        preserveScroll: true,
+        forceFormData: true,
+        onSuccess: () => {
+            altaFirmante.value = false;
+            editandoFirmante.value = null;
+            formFirmante.reset();
+        },
+    });
+}
+
+function eliminarFirmante(f: Firmante): void {
+    if (!guardado.value) return;
+    if (!confirm(`Retirar a ${f.nombre} de las firmas del historial?`)) return;
+
+    router.delete(`/escolar/configuracion/historial/${guardado.value.id}/firmantes/${f.id}`, {
+        preserveScroll: true,
+    });
+}
+
+function moverFirmante(f: Firmante, hacia: 'izquierda' | 'derecha'): void {
+    if (!guardado.value) return;
+
+    router.patch(
+        `/escolar/configuracion/historial/${guardado.value.id}/firmantes/${f.id}/mover`,
+        { hacia },
+        { preserveScroll: true },
     );
 }
 
@@ -588,35 +667,115 @@ const datosPuestos = computed(() => form.campos_alumno as string[]);
                     ayuda="El texto legal del pie. Ej. «Se extiende el presente para los fines que al interesado convengan…»."
                 />
 
-                <div class="grid gap-3 sm:grid-cols-2">
-                    <CampoTexto v-model="form.responsable_nombre" etiqueta="Responsable que firma" :maximo="120" />
-                    <CampoTexto v-model="form.responsable_cargo" etiqueta="Cargo" :maximo="120" />
-                </div>
+                <!--
+                    Los firmantes. Reemplazan al «responsable» único: un
+                    historial suele llevar la rúbrica del director Y la de
+                    control escolar, y con un solo campo había que meter los dos
+                    nombres juntos.
+                -->
+                <div v-if="guardado">
+                    <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                        <p class="text-sm font-medium">Quién firma</p>
+                        <button
+                            v-if="firmantes.length < TOPE_FIRMANTES"
+                            type="button"
+                            class="rounded-lg border border-borde px-3 py-1.5 text-xs hover:bg-slate-50"
+                            @click="abrirAltaFirmante"
+                        >Agregar firmante</button>
+                        <span v-else class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                            Cuatro es el máximo: con más, las líneas no caben en el ancho de la hoja.
+                        </span>
+                    </div>
 
-                <div v-if="guardado" class="grid gap-3 sm:grid-cols-2">
-                    <div v-for="c in (['firma_imagen', 'sello_imagen'] as const)" :key="c">
-                        <p class="mb-1 text-xs font-medium">{{ c === 'firma_imagen' ? 'Firma' : 'Sello' }}</p>
+                    <ul v-if="firmantes.length" class="divide-y rounded-lg border border-borde" :style="{ borderColor: 'var(--color-borde)' }">
+                        <li v-for="(f, i) in firmantes" :key="f.id" class="flex flex-wrap items-center gap-3 p-3">
+                            <img
+                                v-if="f.tiene_firma"
+                                :src="`/escolar/configuracion/historial/${guardado.id}/firmantes/${f.id}/imagen`"
+                                alt=""
+                                class="h-10 rounded border border-borde bg-white p-0.5"
+                            />
+                            <span v-else class="text-xs" :style="{ color: 'var(--color-suave)' }">sin rúbrica</span>
+
+                            <div class="min-w-0 flex-1">
+                                <p class="truncate text-sm font-medium">{{ f.nombre }}</p>
+                                <p v-if="f.cargo" class="truncate text-xs" :style="{ color: 'var(--color-suave)' }">{{ f.cargo }}</p>
+                            </div>
+
+                            <div class="flex items-center gap-1">
+                                <button type="button" class="rounded border border-borde px-2 py-1 text-xs disabled:opacity-40" :disabled="i === 0" @click="moverFirmante(f, 'izquierda')">←</button>
+                                <button type="button" class="rounded border border-borde px-2 py-1 text-xs disabled:opacity-40" :disabled="i === firmantes.length - 1" @click="moverFirmante(f, 'derecha')">→</button>
+                                <button type="button" class="rounded border border-borde px-2 py-1 text-xs" @click="abrirEdicionFirmante(f)">Editar</button>
+                                <button type="button" class="rounded border border-borde px-2 py-1 text-xs text-red-600" @click="eliminarFirmante(f)">Quitar</button>
+                            </div>
+                        </li>
+                    </ul>
+                    <p v-else class="rounded-lg border border-dashed border-borde px-3 py-4 text-center text-xs" :style="{ color: 'var(--color-suave)' }">
+                        Sin firmantes, el historial se imprime sin espacio de rúbrica.
+                    </p>
+
+                    <!-- Alta y edición en el mismo formulario: dos casi iguales es
+                         como se llega a que uno pida un campo que el otro no. -->
+                    <div v-if="altaFirmante" class="mt-3 space-y-3 rounded-lg border border-borde p-3">
+                        <p class="text-sm font-medium">{{ editandoFirmante ? 'Editar firmante' : 'Nuevo firmante' }}</p>
+
+                        <div class="grid gap-3 sm:grid-cols-2">
+                            <CampoTexto v-model="formFirmante.nombre" etiqueta="Nombre" :maximo="120" requerido :error="formFirmante.errors.nombre" />
+                            <CampoTexto v-model="formFirmante.cargo" etiqueta="Cargo" :maximo="120" :error="formFirmante.errors.cargo" />
+                        </div>
+
+                        <div>
+                            <p class="mb-1 text-xs font-medium">Rúbrica (PNG o JPG)</p>
+                            <input
+                                type="file"
+                                accept="image/png,image/jpeg"
+                                class="text-xs"
+                                @change="formFirmante.archivo = ($event.target as HTMLInputElement).files?.[0] ?? null"
+                            />
+                            <label v-if="editandoFirmante?.tiene_firma" class="mt-1 flex items-center gap-2 text-xs">
+                                <input v-model="formFirmante.quitar_firma" type="checkbox" class="h-3.5 w-3.5 rounded border-borde" />
+                                Quitar la rúbrica que tiene
+                            </label>
+                            <p class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">
+                                Se guarda en el disco privado: una firma escaneada es media falsificación de un
+                                historial.
+                            </p>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <button
+                                type="button"
+                                class="rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-60"
+                                :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+                                :disabled="formFirmante.processing"
+                                @click="guardarFirmante"
+                            >Guardar firmante</button>
+                            <button type="button" class="rounded-lg border border-borde px-3 py-1.5 text-sm" @click="altaFirmante = false">Cancelar</button>
+                        </div>
+                    </div>
+
+                    <!-- El sello es de la ESCUELA, no de una persona: se queda en el diseño. -->
+                    <div class="mt-4">
+                        <p class="mb-1 text-xs font-medium">Sello de la escuela</p>
                         <img
-                            v-if="c === 'firma_imagen' ? guardado.tiene_firma : guardado.tiene_sello"
-                            :src="`/escolar/configuracion/historial/${guardado.id}/imagen/${c}`"
+                            v-if="guardado.tiene_sello"
+                            :src="`/escolar/configuracion/historial/${guardado.id}/imagen/sello_imagen`"
                             alt=""
                             class="mb-1.5 h-20 rounded border border-borde bg-white p-1"
                         />
                         <div class="flex items-center gap-2">
-                            <input type="file" accept="image/png,image/jpeg" class="text-xs" @change="subir(c, $event)" />
+                            <input type="file" accept="image/png,image/jpeg" class="text-xs" @change="subir('sello_imagen', $event)" />
                             <button
-                                v-if="c === 'firma_imagen' ? guardado.tiene_firma : guardado.tiene_sello"
+                                v-if="guardado.tiene_sello"
                                 type="button"
                                 class="text-xs text-red-600 hover:underline"
-                                @click="quitarImagen(c)"
-                            >
-                                Quitar
-                            </button>
+                                @click="quitarImagen('sello_imagen')"
+                            >Quitar</button>
                         </div>
                     </div>
                 </div>
                 <p v-else class="text-xs text-amber-700">
-                    Guarda primero el diseño para poder cargar la firma y el sello.
+                    Guarda primero el diseño para poder agregar firmantes y el sello.
                 </p>
             </section>
 

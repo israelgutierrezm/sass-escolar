@@ -1138,6 +1138,9 @@ Route::middleware([
                         Route::get('/{diseno}/imagen/{campo}', 'imagen')
                             ->whereNumber('diseno')->name('imagen');
 
+                        Route::get('/{diseno}/firmantes/{firmante}/imagen', 'imagenFirmante')
+                            ->whereNumber(['diseno', 'firmante'])->name('firmantes.imagen');
+
                         Route::middleware('can:gestionar-historial')->group(function () {
                             Route::get('/', 'index')->name('index');
                             Route::put('/', 'guardar')->name('guardar');
@@ -1151,6 +1154,20 @@ Route::middleware([
                              * pestaña porque es una hoja entera.
                              */
                             Route::post('/vista-previa', 'vistaPrevia')->name('vista-previa');
+
+                            /*
+                             * Los firmantes. Van por POST y no por PUT aunque
+                             * uno sea edicion: llevan ARCHIVO, y un PUT con
+                             * multipart no lo lee PHP sin trucos.
+                             */
+                            Route::post('/{diseno}/firmantes', 'guardarFirmante')
+                                ->whereNumber('diseno')->name('firmantes.crear');
+                            Route::post('/{diseno}/firmantes/{firmante}', 'guardarFirmante')
+                                ->whereNumber(['diseno', 'firmante'])->name('firmantes.guardar');
+                            Route::delete('/{diseno}/firmantes/{firmante}', 'eliminarFirmante')
+                                ->whereNumber(['diseno', 'firmante'])->name('firmantes.eliminar');
+                            Route::patch('/{diseno}/firmantes/{firmante}/mover', 'moverFirmante')
+                                ->whereNumber(['diseno', 'firmante'])->name('firmantes.mover');
                         });
                     });
 

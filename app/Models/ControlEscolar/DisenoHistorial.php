@@ -7,6 +7,7 @@ namespace App\Models\ControlEscolar;
 use App\Historial\CatalogoColumnas;
 use App\Models\Concerns\TieneAuditoria;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * disenos_historial (TENANT) — cómo se imprime el historial. Ver la migración.
@@ -31,9 +32,6 @@ class DisenoHistorial extends Model
         'muestra_promedio',
         'muestra_creditos',
         'leyenda',
-        'responsable_nombre',
-        'responsable_cargo',
-        'firma_imagen',
         'sello_imagen',
         'tamano_papel',
         'orientacion',
@@ -77,6 +75,18 @@ class DisenoHistorial extends Model
             'campos_alumno' => 'array',
             'columnas' => 'array',
         ];
+    }
+
+    /**
+     * Quiénes rubrican el documento, en el orden en que se imprimen.
+     *
+     * Reemplaza al `responsable_nombre` único: una escuela que exige la firma
+     * del director Y la de control escolar no lo podía expresar, y quien lo
+     * necesitaba acababa metiendo dos nombres en el mismo campo.
+     */
+    public function firmantes(): HasMany
+    {
+        return $this->hasMany(FirmanteHistorial::class, 'diseno_id')->enOrden();
     }
 
     /**

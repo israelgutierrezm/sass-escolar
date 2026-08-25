@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\AvisoParaElUsuario;
 use App\Historial\CatalogoColumnas;
 use App\Historial\HistorialImprimible;
 use App\Historial\HistorialPdf;
 use App\Models\Academico\NivelEstudio;
 use App\Models\ControlEscolar\DisenoHistorial;
+use App\Models\ControlEscolar\FirmanteHistorial;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -33,7 +35,7 @@ class DisenoHistorialController extends Controller
     public function index(): Pantalla
     {
         return Inertia::render('Escolar/Configuraciones/Historial', [
-            'disenos' => DisenoHistorial::query()->get()->map(fn (DisenoHistorial $d) => $this->aPantalla($d))->values(),
+            'disenos' => DisenoHistorial::query()->with('firmantes')->get()->map(fn (DisenoHistorial $d) => $this->aPantalla($d))->values(),
             'columnas' => CatalogoColumnas::columnas(),
             'datos' => CatalogoColumnas::datosDelAlumno(),
             'agrupaciones' => CatalogoColumnas::AGRUPACIONES,
@@ -69,33 +71,146 @@ class DisenoHistorialController extends Controller
     }
 
     /**
-     * Sube la firma o el sello, o los quita.
+     * Sube el sello de la escuela, o lo quita.
      *
-     * Al disco PRIVADO. La firma de quien encabeza servicios escolares y el
-     * sello de la escuela son justamente las dos piezas que hacen falta para
-     * falsificar un historial: en `public/` cualquiera se las descarga sin
-     * sesión.
+     * Al disco PRIVADO: el sello y las firmas son justamente las dos piezas que
+     * hacen falta para falsificar un historial, y ahi cualquiera se las
+     * descargaria sin sesion.
+     *
+     * Las FIRMAS ya no pasan por aqui: cuelgan de cada firmante, no del diseno.
      */
     public function subir(Request $peticion, DisenoHistorial $diseno): RedirectResponse
     {
-        $datos = $peticion->validate([
-            'campo' => ['required', Rule::in(['firma_imagen', 'sello_imagen'])],
+        $peticion->validate([
             'archivo' => ['nullable', 'image', 'mimes:png,jpg,jpeg', 'max:4096'],
         ]);
 
-        $anterior = $diseno->{$datos['campo']};
+        $anterior = $diseno->sello_imagen;
 
         $ruta = $peticion->hasFile('archivo')
             ? $peticion->file('archivo')->store('historial', 'local')
             : null;
 
-        $diseno->update([$datos['campo'] => $ruta]);
+        $diseno->update(['sello_imagen' => $ruta]);
 
         if (filled($anterior)) {
             Storage::disk('local')->delete($anterior);
         }
 
         return back(303)->with('exito', $ruta === null ? 'Imagen retirada.' : 'Imagen cargada.');
+    }
+
+    /**
+     * Guarda un firmante: alta, edicion y su imagen de firma, en una sola
+     * puerta.
+     *
+     * Van juntas porque en la pantalla es un solo gesto --se escribe el nombre y
+     * se elige la firma--, y separarlas obligaria a guardar el firmante antes de
+     * poder ponerle su rubrica, que es el paso intermedio que nadie entiende.
+     */
+    public function guardarFirmante(Request $peticion, DisenoHistorial $diseno, ?FirmanteHistorial $firmante = null): RedirectResponse
+    {
+        AvisoParaElUsuario::si(
+            $firmante !== null && $firmante->diseno_id !== $diseno->id,
+            404,
+            'Ese firmante no es de este diseno.',
+        );
+
+        $datos = $peticion->validate([
+            'nombre' => ['required', 'string', 'max:120'],
+            'cargo' => ['nullable', 'string', 'max:120'],
+            'archivo' => ['nullable', 'image', 'mimes:png,jpg,jpeg', 'max:4096'],
+            'quitar_firma' => ['nullable', 'boolean'],
+        ]);
+
+        /*
+         * Tope de CUATRO.
+         *
+         * No es un numero redondo: las rubricas se reparten el ancho de la hoja
+         * en una fila, y con cinco la linea de cada una queda mas corta que el
+         * nombre que va debajo --medido sobre carta con los margenes por
+         * omision--. Ofrecer un quinto seria ofrecer un documento ilegible.
+         */
+        AvisoParaElUsuario::si(
+            $firmante === null && $diseno->firmantes()->count() >= 4,
+            422,
+            'Un historial admite hasta cuatro firmantes: con mas, las lineas de firma no caben en el ancho de la hoja.',
+        );
+
+        $anterior = $firmante?->firma_imagen;
+
+        $ruta = match (true) {
+            $peticion->hasFile('archivo') => $peticion->file('archivo')->store('historial', 'local'),
+            (bool) ($datos['quitar_firma'] ?? false) => null,
+            // Sin archivo nuevo ni orden de quitarla, se CONSERVA la que habia:
+            // editar el cargo no puede borrar la rubrica.
+            default => $anterior,
+        };
+
+        if ($firmante === null) {
+            $diseno->firmantes()->create([
+                'nombre' => $datos['nombre'],
+                'cargo' => $datos['cargo'] ?? null,
+                'firma_imagen' => $ruta,
+                'orden' => (int) $diseno->firmantes()->max('orden') + 1,
+            ]);
+        } else {
+            $firmante->update([
+                'nombre' => $datos['nombre'],
+                'cargo' => $datos['cargo'] ?? null,
+                'firma_imagen' => $ruta,
+            ]);
+        }
+
+        // El archivo viejo se borra DESPUES de guardar la ruta nueva: al reves,
+        // un fallo al guardar dejaria el diseno apuntando a un archivo que ya no
+        // esta y la firma desapareceria del documento.
+        if (filled($anterior) && $anterior !== $ruta) {
+            Storage::disk('local')->delete($anterior);
+        }
+
+        return back(303)->with('exito', 'Firmante guardado.');
+    }
+
+    public function eliminarFirmante(DisenoHistorial $diseno, FirmanteHistorial $firmante): RedirectResponse
+    {
+        AvisoParaElUsuario::si($firmante->diseno_id !== $diseno->id, 404, 'Ese firmante no es de este diseno.');
+
+        $imagen = $firmante->firma_imagen;
+
+        $firmante->delete();
+
+        if (filled($imagen)) {
+            Storage::disk('local')->delete($imagen);
+        }
+
+        return back(303)->with('exito', 'Firmante retirado.');
+    }
+
+    /** Mueve un firmante una posicion, para decidir quien va a la izquierda. */
+    public function moverFirmante(Request $peticion, DisenoHistorial $diseno, FirmanteHistorial $firmante): RedirectResponse
+    {
+        AvisoParaElUsuario::si($firmante->diseno_id !== $diseno->id, 404, 'Ese firmante no es de este diseno.');
+
+        $hacia = $peticion->validate(['hacia' => ['required', Rule::in(['izquierda', 'derecha'])]])['hacia'];
+
+        $vecino = $diseno->firmantes()
+            ->when($hacia === 'izquierda',
+                fn ($q) => $q->where('orden', '<', $firmante->orden)->reorder()->orderByDesc('orden'),
+                fn ($q) => $q->where('orden', '>', $firmante->orden)->reorder()->orderBy('orden'),
+            )
+            ->first();
+
+        // En el extremo no pasa nada: no es un error, es que ya esta ahi.
+        if ($vecino === null) {
+            return back(303);
+        }
+
+        [$firmante->orden, $vecino->orden] = [$vecino->orden, $firmante->orden];
+        $firmante->save();
+        $vecino->save();
+
+        return back(303)->with('exito', 'Orden actualizado.');
     }
 
     /**
@@ -107,10 +222,21 @@ class DisenoHistorialController extends Controller
      */
     public function imagen(DisenoHistorial $diseno, string $campo): StreamedResponse
     {
-        abort_unless(in_array($campo, ['firma_imagen', 'sello_imagen'], true), 404);
+        abort_unless($campo === 'sello_imagen', 404);
 
-        $ruta = $diseno->{$campo};
+        return $this->archivo($diseno->sello_imagen);
+    }
 
+    /** La rubrica de un firmante, para la pantalla. */
+    public function imagenFirmante(DisenoHistorial $diseno, FirmanteHistorial $firmante): StreamedResponse
+    {
+        abort_if($firmante->diseno_id !== $diseno->id, 404);
+
+        return $this->archivo($firmante->firma_imagen);
+    }
+
+    private function archivo(?string $ruta): StreamedResponse
+    {
         abort_if(blank($ruta) || ! Storage::disk('local')->exists($ruta), 404);
 
         return Storage::disk('local')->response($ruta);
@@ -171,8 +297,6 @@ class DisenoHistorialController extends Controller
             'muestra_promedio' => ['required', 'boolean'],
             'muestra_creditos' => ['required', 'boolean'],
             'leyenda' => ['nullable', 'string', 'max:600'],
-            'responsable_nombre' => ['nullable', 'string', 'max:120'],
-            'responsable_cargo' => ['nullable', 'string', 'max:120'],
             'tamano_papel' => ['required', Rule::in(CatalogoColumnas::PAPELES)],
             'orientacion' => ['required', Rule::in(CatalogoColumnas::ORIENTACIONES)],
             'descarga_alumno' => ['required', 'boolean'],
@@ -230,14 +354,19 @@ class DisenoHistorialController extends Controller
         return array_merge($diseno->only([
             'id', 'nivel_estudios_id', 'titulo', 'subtitulo', 'muestra_logo', 'muestra_nombre_escuela',
             'campos_alumno', 'columnas', 'agrupacion', 'bloques_por_fila', 'muestra_resumen', 'muestra_promedio',
-            'muestra_creditos', 'leyenda', 'responsable_nombre', 'responsable_cargo',
+            'muestra_creditos', 'leyenda',
             'tamano_papel', 'orientacion', 'descarga_alumno', 'marca_agua_alumno', 'marca_agua_texto',
             'marca_agua_ventanilla', 'marca_agua_opacidad',
             'margen_superior', 'margen_inferior', 'margen_izquierdo', 'margen_derecho',
             'fuente', 'tamano_fuente', 'interlineado', 'salto_por_bloque', 'usa_color_acento',
         ]), [
-            'tiene_firma' => filled($diseno->firma_imagen),
             'tiene_sello' => filled($diseno->sello_imagen),
+            'firmantes' => $diseno->firmantes->map(fn (FirmanteHistorial $f) => [
+                'id' => $f->id,
+                'nombre' => $f->nombre,
+                'cargo' => $f->cargo,
+                'tiene_firma' => filled($f->firma_imagen),
+            ])->values(),
         ]);
     }
 }

@@ -175,22 +175,35 @@
     <p class="leyenda">{{ $diseno->leyenda }}</p>
 @endif
 
-@if ($diseno->responsable_nombre || $sello)
+{{--
+    Las rúbricas, repartidas en una fila.
+
+    Van en una TABLA con celdas de ancho igual y no con flex: mpdf no entiende
+    flex, y una fila de firmas apiladas es justamente el defecto que no da error.
+    El ancho se reparte entre los firmantes que haya —dos firmas ocupan media
+    hoja cada una, tres un tercio— para que las líneas queden a la misma altura
+    y del mismo largo, que es lo que hace que un documento parezca oficial.
+--}}
+@php
+    $celdas = count($firmantes) + ($sello ? 1 : 0);
+@endphp
+@if ($celdas > 0)
     <table class="firmas">
         <tr>
-            @if ($diseno->responsable_nombre)
-                <td>
-                    @if ($firma)
-                        <img src="{{ $firma }}" style="height:48pt;"><br>
+            @foreach ($firmantes as $firmante)
+                <td width="{{ (int) floor(100 / $celdas) }}%">
+                    @if ($firmante['firma'])
+                        <img src="{{ $firmante['firma'] }}" style="height:44pt;"><br>
                     @endif
-                    <div class="linea">{{ $diseno->responsable_nombre }}</div>
-                    @if ($diseno->responsable_cargo)
-                        <div class="cargo">{{ $diseno->responsable_cargo }}</div>
+                    <div class="linea">{{ $firmante['nombre'] }}</div>
+                    @if ($firmante['cargo'])
+                        <div class="cargo">{{ $firmante['cargo'] }}</div>
                     @endif
                 </td>
-            @endif
+            @endforeach
+
             @if ($sello)
-                <td><img src="{{ $sello }}" style="height:62pt;"></td>
+                <td width="{{ (int) floor(100 / $celdas) }}%"><img src="{{ $sello }}" style="height:62pt;"></td>
             @endif
         </tr>
     </table>

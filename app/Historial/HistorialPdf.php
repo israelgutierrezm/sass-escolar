@@ -47,17 +47,36 @@ class HistorialPdf
         $diseno = $armado['diseno'];
         $institucion = $armado['institucion'] ?? null;
 
-        // La firma y el sello se INCRUSTAN. Por URL no llegarían: la ruta que
-        // las sirve exige sesión y mpdf las pide con su propio cliente, sin la
-        // cookie —el documento saldría sin firma y sin ningún error—.
-        $firma = $this->pdf->imagenIncrustada($diseno->firma_imagen);
+        /*
+         * Las firmas y el sello se INCRUSTAN. Por URL no llegarían: la ruta que
+         * las sirve exige sesión y mpdf las pide con su propio cliente, sin la
+         * cookie —el documento saldría sin firmas y sin ningún error—.
+         *
+         * Los firmantes se resuelven aquí y no en la vista, para que la vista
+         * reciba datos planos y no tenga que consultar la base mientras dibuja.
+         *
+         * Un diseño SIN GUARDAR —el de la vista previa cuando la escuela nunca
+         * configuró nada— no necesita defensa: Eloquent devuelve una colección
+         * vacía para una relación de un modelo que no existe. Se comprobó, y por
+         * eso NO hay un `if ($diseno->exists)` aquí: sería código que aparenta
+         * proteger algo que ya está resuelto.
+         */
+        $firmantes = $diseno->firmantes
+            ->map(fn ($f) => [
+                'nombre' => $f->nombre,
+                'cargo' => $f->cargo,
+                'firma' => $this->pdf->imagenIncrustada($f->firma_imagen),
+            ])
+            ->values()
+            ->all();
+
         $sello = $this->pdf->imagenIncrustada($diseno->sello_imagen);
         $logo = $diseno->muestra_logo ? $this->pdf->imagenIncrustada($institucion?->logo_url) : null;
 
         $acento = $diseno->usa_color_acento ? $this->acentoDeLaEscuela() : null;
 
         $html = View::make('impresion.historial-pdf', $armado + [
-            'firma' => $firma,
+            'firmantes' => $firmantes,
             'sello' => $sello,
             'acento' => $acento,
             'acento_suave' => $this->aclarar($acento),

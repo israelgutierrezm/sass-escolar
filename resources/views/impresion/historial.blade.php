@@ -319,19 +319,24 @@
             <p class="leyenda">{{ $diseno->leyenda }}</p>
         @endif
 
-        @if ($diseno->responsable_nombre || $diseno->firma_imagen || $diseno->sello_imagen)
+        {{-- Las rúbricas. Un diseño sin guardar devuelve una colección vacía,
+             así que no hace falta comprobar `exists`. --}}
+        @php
+            $firmantes = $diseno->firmantes;
+        @endphp
+        @if ($firmantes->isNotEmpty() || $diseno->sello_imagen)
             <footer class="firmas">
-                @if ($diseno->responsable_nombre || $diseno->firma_imagen)
+                @foreach ($firmantes as $firmante)
                     <div class="bloque rubrica">
-                        @if ($diseno->firma_imagen)
-                            <img src="{{ route('tenant.escolar.configuracion.historial.imagen', ['diseno' => $diseno->id, 'campo' => 'firma_imagen']) }}" alt="">
+                        @if ($firmante->firma_imagen)
+                            <img src="{{ route('tenant.escolar.configuracion.historial.firmantes.imagen', ['diseno' => $diseno->id, 'firmante' => $firmante->id]) }}" alt="">
                         @endif
-                        <div class="linea">{{ $diseno->responsable_nombre }}</div>
-                        @if ($diseno->responsable_cargo)
-                            <div class="cargo">{{ $diseno->responsable_cargo }}</div>
+                        <div class="linea">{{ $firmante->nombre }}</div>
+                        @if ($firmante->cargo)
+                            <div class="cargo">{{ $firmante->cargo }}</div>
                         @endif
                     </div>
-                @endif
+                @endforeach
 
                 @if ($diseno->sello_imagen)
                     <div class="bloque sello">
