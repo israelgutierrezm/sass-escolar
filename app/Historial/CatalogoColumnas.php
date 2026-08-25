@@ -162,12 +162,41 @@ class CatalogoColumnas
 
     public const ORIENTACIONES = ['vertical', 'horizontal'];
 
-    /** Lo que trae un diseño recién creado: lo que casi todas las escuelas usan. */
+    /**
+     * Lo que trae un diseño recién creado: lo que casi todas las escuelas usan.
+     *
+     * ── Están TODOS los campos, no sólo las listas ────────────────────────
+     * Éstos son los mismos valores que la migración pone como `default`, y
+     * tienen que estar aquí porque `DisenoHistorial::paraNivel()` construye un
+     * `new self(porOmision())` cuando la escuela nunca abrió el diseñador — y
+     * un default de la BASE sólo se aplica al INSERTAR, así que esa instancia
+     * nunca lo recibe.
+     *
+     * Faltaban, y no era cosmético: `agrupacion` llegaba en NULL y
+     * `HistorialImprimible::agrupar()` la exige `string`, así que **una escuela
+     * que no hubiera entrado a configurar el historial no podía imprimir
+     * ninguno** —reventaba con un TypeError—. No se había visto porque el demo
+     * sí tiene un diseño guardado. Lo cazó `HistorialPdfTest`, que corre contra
+     * una escuela limpia.
+     */
     public static function porOmision(): array
     {
         return [
+            'titulo' => 'Historial académico',
+            'muestra_logo' => true,
+            'muestra_nombre_escuela' => true,
             'campos_alumno' => ['nombre', 'matricula', 'carrera', 'plan', 'fecha_emision'],
             'columnas' => ['consecutivo', 'clave', 'materia', 'calificacion', 'creditos', 'ciclo', 'observacion'],
+            'agrupacion' => 'periodo',
+            'bloques_por_fila' => 1,
+            'muestra_resumen' => true,
+            'muestra_promedio' => true,
+            'muestra_creditos' => true,
+            'tamano_papel' => 'carta',
+            'orientacion' => 'vertical',
+            'descarga_alumno' => false,
+            'marca_agua_alumno' => true,
+            'marca_agua_texto' => 'No válido sin sello ni firma',
         ];
     }
 

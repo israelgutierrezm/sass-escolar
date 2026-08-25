@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Historial\HistorialImprimible;
+use App\Historial\HistorialPdf;
 use App\Http\Controllers\Concerns\AlcanceDelAlumno;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\DisenoHistorial;
 use Illuminate\Contracts\Support\Renderable;
+use Illuminate\Http\Response;
 use Illuminate\Http\Request;
 
 /**
@@ -32,12 +34,19 @@ class ImpresionHistorialController extends Controller
 {
     use AlcanceDelAlumno;
 
-    public function __construct(private readonly HistorialImprimible $imprimible) {}
+    public function __construct(
+        private readonly HistorialImprimible $imprimible,
+        private readonly HistorialPdf $pdf,
+    ) {}
 
     /** La de control escolar: cualquier matrícula, sin marca de agua. */
-    public function deControlEscolar(MatriculaOferta $matricula): Renderable
+    public function deControlEscolar(Request $peticion, MatriculaOferta $matricula): Renderable|Response
     {
-        return $this->documento($matricula, conMarcaDeAgua: false);
+        return $this->documento(
+            $matricula,
+            conMarcaDeAgua: false,
+            comoHtml: $peticion->query('vista') === 'html',
+        );
     }
 
     /**
@@ -48,7 +57,7 @@ class ImpresionHistorialController extends Controller
      * no encuentra pareja y cae a la propia — la misma salvaguarda que la
      * pantalla del historial y la de la credencial.
      */
-    public function delAlumno(Request $peticion): Renderable
+    public function delAlumno(Request $peticion): Renderable|Response
     {
         $matriculas = $this->misMatriculas($peticion);
 
@@ -63,14 +72,42 @@ class ImpresionHistorialController extends Controller
         // que es una conversación que nadie va a poder resolver en ventanilla.
         abort_unless($diseno->descarga_alumno, 404);
 
-        return $this->documento($elegida, conMarcaDeAgua: $diseno->marca_agua_alumno, diseno: $diseno);
+        return $this->documento(
+            $elegida,
+            conMarcaDeAgua: $diseno->marca_agua_alumno,
+            diseno: $diseno,
+            comoHtml: $peticion->query('vista') === 'html',
+        );
     }
 
-    private function documento(MatriculaOferta $matricula, bool $conMarcaDeAgua, ?DisenoHistorial $diseno = null): Renderable
-    {
-        return view(
-            'impresion.historial',
-            $this->imprimible->armar($matricula, $diseno ?? $this->disenoDe($matricula), $conMarcaDeAgua),
+    /**
+     * El documento: PDF por omisión, y el Blade de siempre con `?vista=html`.
+     *
+     * ── Por qué siguen los DOS ────────────────────────────────────────────
+     * El PDF es el bueno: lo arma el servidor, así que sale igual quien sea que
+     * lo pida, lleva membrete en cada hoja, folio «Hoja X de Y» y la marca de
+     * agua en todas —las tres cosas que la impresión del navegador no puede
+     * dar—. Pero la vista en HTML se queda como salida de emergencia: si un día
+     * mpdf revienta con un historial raro, quien está en la ventanilla con el
+     * alumno enfrente necesita poder imprimir ALGO. Su argumento original sigue
+     * escrito en `historial.blade.php` y sigue siendo cierto.
+     */
+    private function documento(
+        MatriculaOferta $matricula,
+        bool $conMarcaDeAgua,
+        ?DisenoHistorial $diseno = null,
+        bool $comoHtml = false,
+    ): Renderable|Response {
+        $diseno ??= $this->disenoDe($matricula);
+        $armado = $this->imprimible->armar($matricula, $diseno, $conMarcaDeAgua);
+
+        if ($comoHtml) {
+            return view('impresion.historial', $armado);
+        }
+
+        return $this->pdf->responder(
+            $armado,
+            'historial-'.$matricula->matricula.'.pdf',
         );
     }
 

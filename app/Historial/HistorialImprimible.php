@@ -119,15 +119,44 @@ class HistorialImprimible
     {
         $catalogo = CatalogoColumnas::columnas();
 
-        return array_map(function (string $c) use ($catalogo, $unidad) {
+        /*
+         * Los anchos se NORMALIZAN a 100, no se usan tal cual.
+         *
+         * En el catálogo cada uno es una sugerencia pensada para su columna, y
+         * con las doce puestas suman 135 %: el navegador lo reparte como puede y
+         * un motor de PDF hace otra cosa distinta, así que el documento salía
+         * distinto según quién lo dibujara. Y como la escuela ELIGE un
+         * subconjunto, no hay números fijos que sumen 100 en todos los casos:
+         * hay que repartir sobre los que quedaron.
+         *
+         * Se reparte proporcionalmente y el redondeo sobrante se le da a la
+         * columna más ancha —la de la materia, normalmente—, que es donde un
+         * punto porcentual no se nota.
+         */
+        $anchos = array_map(fn (string $c) => $catalogo[$c]['ancho'], $columnas);
+        $suma = array_sum($anchos);
+
+        $normalizados = $suma > 0
+            ? array_map(fn (int $a) => (int) round($a * 100 / $suma), $anchos)
+            : array_fill(0, count($columnas), (int) round(100 / max(1, count($columnas))));
+
+        $sobrante = 100 - array_sum($normalizados);
+
+        if ($sobrante !== 0 && $normalizados !== []) {
+            $masAncha = array_search(max($normalizados), $normalizados, true);
+            $normalizados[$masAncha] += $sobrante;
+        }
+
+        return array_map(function (string $c, int $ancho) use ($catalogo, $unidad) {
             $meta = ['clave' => $c] + $catalogo[$c];
+            $meta['ancho'] = $ancho;
 
             if ($c === 'periodo') {
                 $meta['etiqueta'] = $unidad;
             }
 
             return $meta;
-        }, $columnas);
+        }, $columnas, $normalizados);
     }
 
     /** @return array<int, array{etiqueta: string, valor: string}> */
