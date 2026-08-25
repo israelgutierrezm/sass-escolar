@@ -1,0 +1,106 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Reportes;
+
+use App\Models\Identidad\Usuario;
+use App\Services\Plataforma\ModulosDeLaEscuela;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+
+/**
+ * El catálogo de fuentes y reportes. Calcado de `RegistroTarjetas`.
+ *
+ * Se puebla en `AppServiceProvider`. El controlador no conoce ningún reporte
+ * concreto: un reporte nuevo es una clase más y aparece solo en su área, igual
+ * que una tarjeta del panel.
+ */
+class RegistroReportes
+{
+    /** @var array<string, FuenteDeReporte> */
+    private array $fuentes = [];
+
+    /** @var array<string, DefinicionReporte> */
+    private array $reportes = [];
+
+    /** @param  class-string<FuenteDeReporte>  $clase */
+    public function registrarFuente(string $clase): void
+    {
+        $fuente = app($clase);
+        $this->fuentes[$fuente->clave()] = $fuente;
+    }
+
+    /** @param  class-string<DefinicionReporte>  $clase */
+    public function registrarReporte(string $clase): void
+    {
+        $reporte = app($clase);
+        $this->reportes[$reporte->clave()] = $reporte;
+    }
+
+    /**
+     * Una fuente por su clave.
+     *
+     * 404 y no 403 ante una clave desconocida: un 403 ya confirma que el
+     * reporte existe, y eso es información.
+     */
+    public function fuente(string $clave): FuenteDeReporte
+    {
+        return $this->fuentes[$clave] ?? throw new NotFoundHttpException("Fuente de reporte desconocida: {$clave}");
+    }
+
+    public function definicion(string $clave): DefinicionReporte
+    {
+        return $this->reportes[$clave] ?? throw new NotFoundHttpException("Reporte desconocido: {$clave}");
+    }
+
+    /** @return array<string, DefinicionReporte> */
+    public function todos(): array
+    {
+        return $this->reportes;
+    }
+
+    /**
+     * Los reportes que este usuario puede ver de verdad.
+     *
+     * Se filtra por las TRES cosas, y las tres importan por separado:
+     *  - el permiso de la fuente (no le toca),
+     *  - el módulo apagable (la escuela no usa esa función), y
+     *  - la faceta del rol activo (una fuente sin recorte declarado para su
+     *    oficio no se le ofrece).
+     *
+     * @return array<int, DefinicionReporte>
+     */
+    public function para(Usuario $usuario): array
+    {
+        $modulos = app(ModulosDeLaEscuela::class);
+        $faceta = $usuario->rolActivo?->faceta()?->name;
+
+        $visibles = [];
+
+        foreach ($this->reportes as $reporte) {
+            $fuente = $this->fuentes[$reporte->fuente()] ?? null;
+
+            // Un reporte que apunta a una fuente que ya no existe se calla en
+            // vez de reventar la pantalla entera de reportes.
+            if ($fuente === null) {
+                continue;
+            }
+
+            if (! $usuario->can($fuente->permiso())) {
+                continue;
+            }
+
+            if ($fuente->modulo() !== null && ! $modulos->activo($fuente->modulo())) {
+                continue;
+            }
+
+            if ($faceta !== null && ! in_array($faceta, $fuente->facetas(), true)) {
+                continue;
+            }
+
+            $visibles[] = $reporte;
+        }
+
+        return $visibles;
+    }
+}

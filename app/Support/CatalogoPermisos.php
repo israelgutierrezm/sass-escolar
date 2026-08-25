@@ -168,6 +168,20 @@ final class CatalogoPermisos
             'asentar-acta' => ['Firmar actas', 'Cerrar el acta y asentar en historial académico. Una calificación asentada ya no se edita.', [self::ADMINISTRATIVO, self::DOCENTE]],
         ],
 
+        'Reportes' => [
+            /*
+             * UNO solo, y a proposito.
+             *
+             * Lo que se puede sacar en cada reporte lo decide el permiso de su
+             * FUENTE --el de matriculas exige `ver-alumnos`--, asi que un
+             * permiso por area seria pedirle dos veces lo mismo a la escuela y
+             * abrir la puerta a concederle «reportes de finanzas» a quien no
+             * puede ver la cartera. Este solo abre la seccion; que haya algo
+             * dentro depende de lo que ya podia ver.
+             */
+            'ver-reportes' => ['Entrar a Reportes', 'Ver la seccion de reportes. Cada reporte ademas exige el permiso de los datos que saca: quien no ve la cartera no vera los reportes de finanzas.', [self::ADMINISTRATIVO]],
+        ],
+
         'Disciplina' => [
             'gestionar-incidencias' => ['Gestionar incidencias', 'Registrar y editar las incidencias de conducta de los alumnos.', [self::ADMINISTRATIVO]],
             'levantar-incidencia' => ['Levantar una incidencia', 'Que el docente registre una incidencia de un alumno de sus grupos.', [self::DOCENTE]],

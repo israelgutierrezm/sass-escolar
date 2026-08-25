@@ -43,6 +43,11 @@ use App\Panel\Tarjetas\MisTutorados;
 use App\Panel\Tarjetas\OcupacionDeGrupos;
 use App\Panel\Tarjetas\PostulantesEnProceso;
 use App\Panel\Tarjetas\ProspectosPorContactar;
+use App\Reportes\Definiciones\AlumnosInscritos;
+use App\Reportes\Definiciones\BajasDeAlumnos;
+use App\Reportes\Definiciones\EgresadosPorGeneracion;
+use App\Reportes\Fuentes\Matriculas;
+use App\Reportes\RegistroReportes;
 use App\Services\Cfdi\FacturapiPac;
 use App\Services\Cfdi\Pac;
 use App\Services\Emision\ClienteTitulosSep;
@@ -118,6 +123,7 @@ class AppServiceProvider extends ServiceProvider
         $this->registrarResolucionDePermisos();
         $this->registrarPermisosDerivados();
         $this->registrarTarjetasDelPanel();
+        $this->registrarReportes();
         $this->registrarObservadoresDeAcceso();
     }
 
@@ -300,6 +306,37 @@ class AppServiceProvider extends ServiceProvider
      * hacer: primero lo mío, luego lo que me está esperando, y las cifras
      * cuando ya sé si tengo algo encima.
      */
+    /**
+     * El catalogo de reportes.
+     *
+     * Igual que las tarjetas del panel: el controlador no conoce ninguno
+     * concreto, asi que un reporte nuevo es una clase mas y aparece solo en su
+     * area. Las FUENTES van aparte de los REPORTES porque varios reportes se
+     * montan sobre la misma fuente cambiando solo sus filtros fijos.
+     */
+    protected function registrarReportes(): void
+    {
+        $this->app->singleton(RegistroReportes::class, function () {
+            $registro = new RegistroReportes;
+
+            foreach ([
+                Matriculas::class,
+            ] as $fuente) {
+                $registro->registrarFuente($fuente);
+            }
+
+            foreach ([
+                AlumnosInscritos::class,
+                BajasDeAlumnos::class,
+                EgresadosPorGeneracion::class,
+            ] as $reporte) {
+                $registro->registrarReporte($reporte);
+            }
+
+            return $registro;
+        });
+    }
+
     protected function registrarTarjetasDelPanel(): void
     {
         $this->app->singleton(RegistroTarjetas::class, function () {

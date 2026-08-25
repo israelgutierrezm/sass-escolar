@@ -26,6 +26,7 @@ use App\Http\Controllers\Bolsa\PostulacionController;
 use App\Http\Controllers\Bolsa\VacanteController;
 use App\Http\Controllers\BuscadorAlumnosController;
 use App\Http\Controllers\BuscadorMatriculasController;
+use App\Http\Controllers\Reportes\ReporteController;
 use App\Http\Controllers\Disciplina\CatalogoConductaController;
 use App\Http\Controllers\Disciplina\IncidenciaController;
 use App\Http\Controllers\Disciplina\DocenteIncidenciaController;
@@ -1912,6 +1913,19 @@ Route::middleware([
          * apagarlo en `/plataforma/accesos` cierra las rutas (404) además de
          * ocultar el menú.
          */
+        /*
+         * Reportes. Bajo `modulo:reportes`, y cada reporte exige ademas el
+         * permiso de SU fuente --el motor lo vuelve a comprobar, que es la
+         * segunda red para lo que no pasa por una ruta--.
+         */
+        Route::middleware(['modulo:reportes', 'can:ver-reportes'])
+            ->controller(ReporteController::class)
+            ->prefix('reportes')->name('tenant.reportes.')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('{clave}', 'ver')->name('ver');
+            });
+
         Route::middleware('modulo:disciplina')->group(function () {
             Route::controller(IncidenciaController::class)
                 ->prefix('escolar/incidencias')->name('tenant.incidencias.')
