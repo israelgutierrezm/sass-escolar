@@ -72,6 +72,10 @@ function resolver(clave: string, hijos: NodoArreglo[] = []): NodoNav | null {
             prefijo: base.prefijo ?? '',
             url: base.prefijo,
             facetas: null, // hereda el ámbito del grupo padre
+            // Un subgrupo SÍ puede depender de un módulo (Movilidad, Disciplina
+            // y Bolsa cuelgan de «Alumnos» y cada uno tiene el suyo): sin
+            // copiarlo aquí, `filtrar` no tendría con qué ocultarlo.
+            modulo: base.modulo ?? null,
             hijos: arreglo.map((h) => resolver(h.clave, h.hijos)).filter((n): n is NodoNav => n !== null),
         };
     }

@@ -94,18 +94,6 @@ export const CATALOGO_MENU: GrupoMenu[] = [
         hijos: [{ clave: 'mis-formularios-listado', etiqueta: 'Mis datos', url: '/mis-datos' }],
     },
     {
-        clave: 'movilidad',
-        etiqueta: 'Movilidad',
-        prefijo: '/movilidad',
-        facetas: ['administrativo'],
-        icono: 'M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418',
-        modulo: 'movilidad',
-        hijos: [
-            { clave: 'movilidad-convenios', etiqueta: 'Convenios', url: '/movilidad/convenios', permiso: 'gestionar-movilidad' },
-            { clave: 'movilidad-convocatorias', etiqueta: 'Convocatorias', url: '/movilidad/convocatorias', permiso: 'gestionar-movilidad' },
-        ],
-    },
-    {
         clave: 'rh',
         etiqueta: 'Recursos humanos',
         prefijo: '/rh',
@@ -116,45 +104,6 @@ export const CATALOGO_MENU: GrupoMenu[] = [
             { clave: 'rh-empleados', etiqueta: 'Empleados', url: '/rh/empleados', permiso: 'gestionar-rh' },
             { clave: 'rh-nomina', etiqueta: 'Nómina', url: '/rh/nomina', permiso: 'gestionar-percepciones' },
             { clave: 'rh-catalogos-nomina', etiqueta: 'Catálogos de nómina', url: '/rh/catalogos-nomina', permiso: 'gestionar-percepciones' },
-        ],
-    },
-    {
-        clave: 'disciplina',
-        etiqueta: 'Disciplina',
-        prefijo: '/escolar/incidencias',
-        facetas: ['administrativo'],
-        icono: 'M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z',
-        modulo: 'disciplina',
-        hijos: [
-            { clave: 'incidencias', etiqueta: 'Incidencias', url: '/escolar/incidencias', permiso: 'gestionar-incidencias' },
-            { clave: 'sanciones', etiqueta: 'Sanciones', url: '/escolar/sanciones', permiso: 'gestionar-sanciones' },
-            // Los tipos de incidencia y de sanción: los ve quien gestiona
-            // cualquiera de las dos (permiso + su alterno `o`).
-            { clave: 'conducta-catalogos', etiqueta: 'Catálogos', url: '/escolar/incidencias/catalogos', permiso: 'gestionar-incidencias', o: 'gestionar-sanciones' },
-        ],
-    },
-    {
-        // Módulo 11. Sección propia y no dentro de Control escolar: la bolsa
-        // mira hacia afuera —empleadores, vacantes— y su público son alumnos y
-        // egresados, no la administración del plantel.
-        clave: 'bolsa',
-        etiqueta: 'Bolsa de trabajo',
-        prefijo: '/bolsa',
-        // DOS facetas en el mismo grupo: vinculación administra la bolsa y el
-        // alumno se postula. Los hijos ya se filtran por permiso —`ver-vacantes`
-        // es de la faceta alumno y `gestionar-bolsa-trabajo` de la
-        // administrativa—, así que cada oficio ve sólo lo suyo bajo el mismo
-        // rótulo. Partirlo en dos grupos pondría «Bolsa de trabajo» dos veces en
-        // el catálogo del que ordena su menú.
-        facetas: ['administrativo', 'alumno'],
-        icono: 'M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 0 0 .75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 0 0-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0 1 12 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 0 1-.673-.38m0 0A2.18 2.18 0 0 1 3 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 0 1 3.413-.387m7.5 0V5.25A2.25 2.25 0 0 0 13.5 3h-3a2.25 2.25 0 0 0-2.25 2.25v.894m7.5 0a48.667 48.667 0 0 0-7.5 0M12 12.75h.008v.008H12v-.008Z',
-        modulo: 'bolsa_trabajo',
-        hijos: [
-            { clave: 'bolsa-empresas', etiqueta: 'Empresas', url: '/bolsa/empresas', permiso: 'gestionar-bolsa-trabajo' },
-            { clave: 'bolsa-vacantes', etiqueta: 'Vacantes', url: '/bolsa/vacantes', permiso: 'gestionar-bolsa-trabajo' },
-            { clave: 'bolsa-colocaciones', etiqueta: 'Colocaciones', url: '/bolsa/colocaciones', permiso: 'gestionar-bolsa-trabajo' },
-            { clave: 'bolsa-empleabilidad', etiqueta: 'Empleabilidad', url: '/bolsa/empleabilidad', permiso: 'gestionar-bolsa-trabajo' },
-            { clave: 'mis-vacantes', etiqueta: 'Mis vacantes', url: '/mis-vacantes', permiso: 'ver-vacantes' },
         ],
     },
     {
@@ -223,6 +172,19 @@ export const CATALOGO_MENU: GrupoMenu[] = [
         hijos: [{ clave: 'biblioteca-listado', etiqueta: 'Biblioteca digital', url: '/biblioteca', permiso: 'ver-biblioteca' }],
     },
     {
+        // «Mis vacantes» del alumno: su lado de la bolsa. Aparte de la sección
+        // administrativa (que ahora cuelga de «Alumnos»), porque el estudiante
+        // no ve secciones de faceta administrativa. Mismo patrón que Biblioteca
+        // y Servicios: una sección de un solo tema, tras su módulo.
+        clave: 'bolsa-alumno',
+        etiqueta: 'Bolsa de trabajo',
+        prefijo: '/mis-vacantes',
+        facetas: ['alumno'],
+        icono: 'M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 0 0 .75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 0 0-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0 1 12 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 0 1-.673-.38m0 0A2.18 2.18 0 0 1 3 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 0 1 3.413-.387m7.5 0V5.25A2.25 2.25 0 0 0 13.5 3h-3a2.25 2.25 0 0 0-2.25 2.25v.894m7.5 0a48.667 48.667 0 0 0-7.5 0M12 12.75h.008v.008H12v-.008Z',
+        modulo: 'bolsa_trabajo',
+        hijos: [{ clave: 'mis-vacantes', etiqueta: 'Vacantes', url: '/mis-vacantes', permiso: 'ver-vacantes' }],
+    },
+    {
         clave: 'admisiones',
         etiqueta: 'Admisiones',
         prefijo: '/aspirantes',
@@ -289,6 +251,48 @@ export const CATALOGO_MENU: GrupoMenu[] = [
         icono: 'M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342',
         hijos: [
             { clave: 'alumnos-listado', etiqueta: 'Listado', url: '/escolar/alumnos', permiso: 'ver-alumnos' },
+            // Movilidad, Disciplina y Bolsa cuelgan de «Alumnos»: son funciones
+            // administrativas SOBRE el alumno, operadas por personal. Cada una
+            // conserva su `modulo`, así que apagarlo en /plataforma/accesos la
+            // esconde igual que cuando eran secciones propias.
+            {
+                clave: 'movilidad',
+                etiqueta: 'Movilidad',
+                prefijo: '/movilidad',
+                modulo: 'movilidad',
+                hijos: [
+                    { clave: 'movilidad-convenios', etiqueta: 'Convenios', url: '/movilidad/convenios', permiso: 'gestionar-movilidad' },
+                    { clave: 'movilidad-convocatorias', etiqueta: 'Convocatorias', url: '/movilidad/convocatorias', permiso: 'gestionar-movilidad' },
+                ],
+            },
+            {
+                clave: 'disciplina',
+                etiqueta: 'Disciplina',
+                prefijo: '/escolar/incidencias',
+                modulo: 'disciplina',
+                hijos: [
+                    { clave: 'incidencias', etiqueta: 'Incidencias', url: '/escolar/incidencias', permiso: 'gestionar-incidencias' },
+                    { clave: 'sanciones', etiqueta: 'Sanciones', url: '/escolar/sanciones', permiso: 'gestionar-sanciones' },
+                    // Los tipos: los ve quien gestiona cualquiera de las dos.
+                    { clave: 'conducta-catalogos', etiqueta: 'Catálogos', url: '/escolar/incidencias/catalogos', permiso: 'gestionar-incidencias', o: 'gestionar-sanciones' },
+                ],
+            },
+            {
+                // Sólo lo ADMINISTRATIVO de la bolsa (empleadores, vacantes,
+                // colocaciones). Lo del alumno —«Mis vacantes»— vive en su propia
+                // sección de faceta alumno, más abajo: un estudiante no ve
+                // secciones administrativas.
+                clave: 'bolsa',
+                etiqueta: 'Bolsa de trabajo',
+                prefijo: '/bolsa',
+                modulo: 'bolsa_trabajo',
+                hijos: [
+                    { clave: 'bolsa-empresas', etiqueta: 'Empresas', url: '/bolsa/empresas', permiso: 'gestionar-bolsa-trabajo' },
+                    { clave: 'bolsa-vacantes', etiqueta: 'Vacantes', url: '/bolsa/vacantes', permiso: 'gestionar-bolsa-trabajo' },
+                    { clave: 'bolsa-colocaciones', etiqueta: 'Colocaciones', url: '/bolsa/colocaciones', permiso: 'gestionar-bolsa-trabajo' },
+                    { clave: 'bolsa-empleabilidad', etiqueta: 'Empleabilidad', url: '/bolsa/empleabilidad', permiso: 'gestionar-bolsa-trabajo' },
+                ],
+            },
         ],
     },
     {

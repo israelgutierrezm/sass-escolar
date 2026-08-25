@@ -2494,6 +2494,35 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     campo por catálogo (número para nivel, casilla para vigencia), y las tres
     hojas en la barra lateral.
 
+- **Movilidad, Disciplina y Bolsa pasaron a colgar de «Alumnos»** (2026-08-25).
+  A pedido del cliente: son funciones administrativas SOBRE el alumno, y tenerlas
+  como tres secciones sueltas de primer nivel llenaba la barra. Ahora son
+  SUBGRUPOS de «Alumnos» —el mismo patrón que «Generación de horarios» dentro de
+  Control escolar—, cada uno con su `prefijo` y su `modulo`.
+  - **La corrección que el pedido no vio**: esas pantallas las opera PERSONAL,
+    no el alumno. El único trozo del alumno es «Mis vacantes» de la bolsa, y no
+    podía quedar bajo «Alumnos» —faceta administrativa, que un estudiante nunca
+    ve—. Se sacó a su propia sección `bolsa-alumno` (faceta `alumno`, módulo
+    `bolsa_trabajo`, una sola hoja `/mis-vacantes`), igual que Biblioteca y
+    Servicios. El resto de la bolsa (empresas, vacantes, colocaciones,
+    empleabilidad) es el subgrupo administrativo bajo «Alumnos».
+  - **Un SUBGRUPO ahora puede depender de un módulo.** `resolver()` en
+    `construir.ts` no copiaba `modulo` al bajar de nivel —sólo los grupos de
+    primer nivel lo llevaban—, así que un subgrupo con módulo apagado se habría
+    quedado visible. Se corrigió: el subgrupo hereda el ámbito del padre pero
+    conserva SU módulo, y `filtrar()` ya lo gateaba. Sin esto, apagar
+    `disciplina` en `/plataforma/accesos` habría dejado el subgrupo en la barra
+    dando 404, justo lo que la entrada anterior vino a arreglar para los grupos.
+  - Las claves NO cambiaron (`movilidad`, `disciplina`, `bolsa`, sus hijos): son
+    lo que guardan las disposiciones de menú por rol, y renombrarlas rompería los
+    menús ya configurados. Sólo cambió DÓNDE cuelgan en el catálogo.
+  - Las RUTAS y sus `modulo:` middleware no se tocaron: es reorganización de
+    menú, no de acceso. Verificado en el navegador: el admin ve «Alumnos» →
+    Listado, Movilidad, Disciplina (→ Incidencias/Sanciones/Catálogos) y Bolsa de
+    trabajo; ya no hay Movilidad/Disciplina/Bolsa en la raíz; y el alumno ve su
+    «Bolsa de trabajo» → «Vacantes» (`/mis-vacantes`) sin la sección
+    administrativa.
+
 **Pendiente inmediato — aquí se retoma:**
 
 *(Antes de tomar algo de esta lista, COMPROBARLO en el código. **Ya van cinco**
