@@ -28,29 +28,57 @@
     <meta charset="utf-8">
     <title>{{ $diseno->titulo }}</title>
     <style>
-        body { font-family: sans-serif; font-size: 9pt; color: #111; }
+        {{-- Tipografía del diseño. `fuente` es una familia genérica: mpdf sólo
+             dibuja las que trae embebidas, y guardar «Arial» daría un documento
+             tipografiado con otra cosa sin avisar. --}}
+        body {
+            font-family: {{ ['sans' => 'sans-serif', 'serif' => 'serif', 'mono' => 'monospace'][$diseno->fuente] ?? 'sans-serif' }};
+            font-size: {{ $diseno->tamano_fuente }}pt;
+            line-height: {{ $diseno->interlineado }};
+            color: #111;
+        }
 
         /* Datos del alumno: una TABLA de dos columnas, no una rejilla. */
         table.datos { width: 100%; border-collapse: collapse; margin-bottom: 8pt; }
         table.datos td { padding: 1.5pt 0; vertical-align: top; width: 50%; }
         table.datos .etiqueta { color: #444; }
 
+        {{-- El color sale del acento que la escuela ya eligió, no de un gris
+             cableado: en un producto donde cada escuela escoge su color, fijarlo
+             aquí es el mismo defecto que el morado que ya se retiró de 31
+             sitios. Si el interruptor está apagado, se cae al gris de siempre. --}}
         h2.grupo {
-            font-size: 9.5pt;
+            font-size: {{ $diseno->tamano_fuente + 0.5 }}pt;
             margin: 8pt 0 3pt;
             padding: 2pt 4pt;
-            background: #eef2f7;
-            border-left: 2pt solid #64748b;
+            background: {{ $acento_suave ?: '#eef2f7' }};
+            border-left: 2pt solid {{ $acento ?: '#64748b' }};
         }
 
         /* El bloque de un periodo no se parte a la mitad si puede evitarse. */
         .bloque { page-break-inside: avoid; }
+        {{-- «Cada periodo en hoja nueva»: hay escuelas que entregan el historial
+             por semestres sueltos.
+
+             La clase se le pone al ELEMENTO y no con `.bloque + .bloque`: mpdf
+             no soporta el combinador de hermano adyacente, así que esa regla se
+             emitía y no se aplicaba —el ajuste parecía encendido y el documento
+             salía igual—. Comprobado: con el selector `+` el ejemplo seguía en 3
+             hojas en vez de 10.
+
+             Sólo a UNA columna: a dos, los bloques viven dentro de celdas de una
+             tabla y el salto no se aplica ahí. La pantalla lo desactiva. --}}
+        {{-- `page-break-inside: avoid` se ANULA en los bloques con salto: cada
+             uno abre su propia hoja, así que ya no hay nada que evitar partir, y
+             con las dos reglas juntas mpdf gastaba DOS hojas por periodo —el
+             ejemplo salía en 19 en vez de 10—. --}}
+        .salto { page-break-before: always; page-break-inside: auto; }
 
         table.materias { width: 100%; border-collapse: collapse; }
         table.materias th {
             font-size: 7.5pt;
             text-transform: uppercase;
-            border-bottom: 0.6pt solid #64748b;
+            border-bottom: 0.6pt solid {{ $acento ?: '#64748b' }};
             padding: 2pt 3pt;
             text-align: left;
         }
@@ -58,7 +86,7 @@
         .cen { text-align: center; }
         .der { text-align: right; }
 
-        table.resumen { width: 100%; border-collapse: collapse; margin-top: 10pt; border-top: 0.6pt solid #64748b; }
+        table.resumen { width: 100%; border-collapse: collapse; margin-top: 10pt; border-top: 0.6pt solid {{ $acento ?: '#64748b' }}; }
         table.resumen td { padding: 4pt 3pt; text-align: center; font-size: 8.5pt; }
         table.resumen b { font-size: 11pt; }
 
@@ -103,7 +131,7 @@
             <tr>
                 @foreach ($par as $grupo)
                     <td style="width:50%; vertical-align:top;">
-                        @include('impresion.partes.bloque-historial', ['grupo' => $grupo, 'columnas' => $columnas, 'diseno' => $diseno])
+                        @include('impresion.partes.bloque-historial', ['grupo' => $grupo, 'columnas' => $columnas, 'diseno' => $diseno, 'salto' => false])
                     </td>
                 @endforeach
                 @if (count($par) === 1)
@@ -113,8 +141,15 @@
         @endforeach
     </table>
 @else
-    @foreach ($grupos as $grupo)
-        @include('impresion.partes.bloque-historial', ['grupo' => $grupo, 'columnas' => $columnas, 'diseno' => $diseno])
+    @foreach ($grupos as $i => $grupo)
+        @include('impresion.partes.bloque-historial', [
+            'grupo' => $grupo,
+            'columnas' => $columnas,
+            'diseno' => $diseno,
+            // El primero NO lleva salto, o el documento abriría con una hoja
+            // en blanco.
+            'salto' => $diseno->salto_por_bloque && $i > 0,
+        ])
     @endforeach
 @endif
 

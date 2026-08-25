@@ -40,6 +40,7 @@ class DisenoHistorialController extends Controller
             'bloquesPorFila' => CatalogoColumnas::BLOQUES_POR_FILA,
             'papeles' => CatalogoColumnas::PAPELES,
             'orientaciones' => CatalogoColumnas::ORIENTACIONES,
+            'fuentes' => CatalogoColumnas::FUENTES,
             'niveles' => NivelEstudio::query()->activos()->orderBy('nombre')->get(['id', 'nombre']),
             'omision' => CatalogoColumnas::porOmision(),
         ]);
@@ -176,7 +177,28 @@ class DisenoHistorialController extends Controller
             'orientacion' => ['required', Rule::in(CatalogoColumnas::ORIENTACIONES)],
             'descarga_alumno' => ['required', 'boolean'],
             'marca_agua_alumno' => ['required', 'boolean'],
+            'marca_agua_ventanilla' => ['required', 'boolean'],
             'marca_agua_texto' => ['required', 'string', 'max:80'],
+            // Topes con sentido físico, no números redondos: por debajo de 1 la
+            // marca no se ve y por encima de 60 tapa las calificaciones.
+            'marca_agua_opacidad' => ['required', 'integer', 'min:1', 'max:60'],
+            /*
+             * Márgenes en milímetros. El máximo de 80 no es capricho: sobre
+             * carta (216 mm de ancho), 80 arriba y 80 abajo dejan 119 mm de
+             * alto útil, que es lo mínimo donde caben la tabla y su cabecera.
+             * Más que eso produce un documento que no puede imprimir nada.
+             */
+            'margen_superior' => ['required', 'integer', 'min:5', 'max:80'],
+            'margen_inferior' => ['required', 'integer', 'min:5', 'max:80'],
+            'margen_izquierdo' => ['required', 'integer', 'min:5', 'max:50'],
+            'margen_derecho' => ['required', 'integer', 'min:5', 'max:50'],
+            'fuente' => ['required', Rule::in(array_keys(CatalogoColumnas::FUENTES))],
+            // Por debajo de 6 pt no se lee en papel; por encima de 14 un
+            // historial de una egresada se vuelve un tomo.
+            'tamano_fuente' => ['required', 'numeric', 'min:6', 'max:14'],
+            'interlineado' => ['required', 'numeric', 'min:1', 'max:2'],
+            'salto_por_bloque' => ['required', 'boolean'],
+            'usa_color_acento' => ['required', 'boolean'],
         ]);
 
         /*
@@ -210,6 +232,9 @@ class DisenoHistorialController extends Controller
             'campos_alumno', 'columnas', 'agrupacion', 'bloques_por_fila', 'muestra_resumen', 'muestra_promedio',
             'muestra_creditos', 'leyenda', 'responsable_nombre', 'responsable_cargo',
             'tamano_papel', 'orientacion', 'descarga_alumno', 'marca_agua_alumno', 'marca_agua_texto',
+            'marca_agua_ventanilla', 'marca_agua_opacidad',
+            'margen_superior', 'margen_inferior', 'margen_izquierdo', 'margen_derecho',
+            'fuente', 'tamano_fuente', 'interlineado', 'salto_por_bloque', 'usa_color_acento',
         ]), [
             'tiene_firma' => filled($diseno->firma_imagen),
             'tiene_sello' => filled($diseno->sello_imagen),

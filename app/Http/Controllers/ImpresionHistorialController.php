@@ -39,12 +39,25 @@ class ImpresionHistorialController extends Controller
         private readonly HistorialPdf $pdf,
     ) {}
 
-    /** La de control escolar: cualquier matrícula, sin marca de agua. */
+    /**
+     * La de control escolar: cualquier matrícula.
+     *
+     * ── La marca de agua aquí la DECIDE la escuela ────────────────────────
+     * Iba en `false` fijo, así que la copia de MOSTRADOR no podía llevar
+     * «COPIA» aunque la escuela lo quisiera: sólo existía el interruptor del
+     * alumno. Hay planteles que entregan en ventanilla una copia informativa y
+     * reservan el papel sellado para el trámite, y no tenían cómo distinguirlas.
+     * Sigue apagado por omisión —éste es el documento bueno—, pero ya es una
+     * decisión y no una constante.
+     */
     public function deControlEscolar(Request $peticion, MatriculaOferta $matricula): Renderable|Response
     {
+        $diseno = $this->disenoDe($matricula);
+
         return $this->documento(
             $matricula,
-            conMarcaDeAgua: false,
+            conMarcaDeAgua: $diseno->marca_agua_ventanilla,
+            diseno: $diseno,
             comoHtml: $peticion->query('vista') === 'html',
         );
     }

@@ -10,6 +10,8 @@ use App\Historial\HistorialImprimible;
 use App\Historial\HistorialPdf;
 use App\Http\Controllers\DisenoHistorialController;
 use App\Models\ControlEscolar\DisenoHistorial;
+use App\Models\Identidad\Tema;
+use App\Models\Identidad\TemaToken;
 use Illuminate\Http\Request;
 use Tests\TenantTestCase;
 
@@ -43,6 +45,12 @@ class HistorialPdfTest extends TenantTestCase
         }
 
         return app(HistorialImprimible::class)->armarEjemplo($diseno);
+    }
+
+    /** Cuántas hojas tiene el PDF, contando objetos de página. */
+    private function hojas(string $pdf): int
+    {
+        return substr_count($pdf, '/Type /Page') - substr_count($pdf, '/Type /Pages');
     }
 
     /**
@@ -194,6 +202,151 @@ class HistorialPdfTest extends TenantTestCase
             'El historial de ejemplo debe ocupar más de una hoja; si cabe en una, la prueba del folio no significa nada');
     }
 
+    public function test_los_margenes_del_diseno_llegan_al_motor(): void
+    {
+        $motor = $this->motorEspia();
+
+        app(HistorialPdf::class, ['pdf' => $motor])->generar(
+            $this->armadoDeEjemplo(function (DisenoHistorial $d) {
+                $d->margen_superior = 60;
+                $d->margen_inferior = 25;
+                $d->margen_izquierdo = 20;
+                $d->margen_derecho = 15;
+            })
+        );
+
+        // Antes se subía a 40 con logo y a 32 sin él: resolvía el encimado del
+        // membrete pero le quitaba la decisión a quien imprime sobre papel ya
+        // membretado, que necesita 60 y no tenía dónde pedirlo.
+        $this->assertSame(60, $motor->opciones['margen_superior']);
+        $this->assertSame(25, $motor->opciones['margen_inferior']);
+        $this->assertSame(20, $motor->opciones['margen_izquierdo']);
+        $this->assertSame(15, $motor->opciones['margen_derecho']);
+    }
+
+    public function test_los_margenes_cambian_cuantas_hojas_salen(): void
+    {
+        // No basta con que el número viaje: tiene que MOVER el documento.
+        $normal = app(HistorialPdf::class)->generar($this->armadoDeEjemplo());
+        $apretado = app(HistorialPdf::class)->generar($this->armadoDeEjemplo(function (DisenoHistorial $d) {
+            $d->margen_superior = 80;
+            $d->margen_inferior = 80;
+        }));
+
+        $this->assertGreaterThan($this->hojas($normal), $this->hojas($apretado),
+            'Con menos alto útil el historial tiene que ocupar más hojas');
+    }
+
+    public function test_la_letra_mas_grande_ocupa_mas_hojas(): void
+    {
+        $chica = app(HistorialPdf::class)->generar($this->armadoDeEjemplo());
+        $grande = app(HistorialPdf::class)->generar(
+            $this->armadoDeEjemplo(fn (DisenoHistorial $d) => $d->tamano_fuente = 13)
+        );
+
+        $this->assertGreaterThan($this->hojas($chica), $this->hojas($grande));
+    }
+
+    public function test_cada_periodo_en_hoja_nueva(): void
+    {
+        $armado = $this->armadoDeEjemplo(function (DisenoHistorial $d) {
+            $d->salto_por_bloque = true;
+            $d->bloques_por_fila = 1;
+        });
+
+        $bloques = count($armado['grupos']);
+        $hojas = $this->hojas(app(HistorialPdf::class)->generar($armado));
+
+        /*
+         * Una hoja por periodo, ni más ni menos.
+         *
+         * Dos trampas que mordieron aquí: (1) la regla iba como
+         * `.bloque + .bloque`, y mpdf NO soporta el combinador de hermano
+         * adyacente, así que se emitía y no se aplicaba —el ajuste parecía
+         * encendido y el documento salía idéntico—; y (2) con
+         * `page-break-inside: avoid` todavía puesto encima, gastaba DOS hojas
+         * por periodo (19 en vez de 10). Por eso se comprueba el número EXACTO
+         * y no «más que antes»: las dos versiones rotas daban más que antes.
+         */
+        $this->assertSame($bloques, $hojas,
+            "Con salto por bloque deben salir {$bloques} hojas, una por periodo, y salieron {$hojas}");
+    }
+
+    public function test_a_dos_columnas_el_salto_por_bloque_no_se_aplica(): void
+    {
+        // Ahí los bloques viven en celdas de una tabla y el salto no tendría
+        // dónde ocurrir; encenderlo no puede romper la maqueta.
+        $armado = $this->armadoDeEjemplo(function (DisenoHistorial $d) {
+            $d->salto_por_bloque = true;
+            $d->bloques_por_fila = 2;
+        });
+
+        $hojas = $this->hojas(app(HistorialPdf::class)->generar($armado));
+
+        $this->assertLessThan(count($armado['grupos']), $hojas,
+            'A dos columnas no debe salir una hoja por periodo');
+    }
+
+    public function test_la_marca_de_agua_de_ventanilla_es_una_decision(): void
+    {
+        // Iba en `false` fijo: la copia de mostrador no podía llevar «COPIA»
+        // aunque la escuela lo quisiera.
+        $diseno = DisenoHistorial::paraNivel(null);
+
+        $this->assertFalse($diseno->marca_agua_ventanilla, 'Sigue apagada por omisión: es el documento bueno');
+        $this->assertContains('marca_agua_ventanilla', $diseno->getFillable());
+    }
+
+    public function test_la_opacidad_de_la_marca_viaja_al_motor(): void
+    {
+        $motor = $this->motorEspia();
+
+        app(HistorialPdf::class, ['pdf' => $motor])->generar(
+            $this->armadoDeEjemplo(fn (DisenoHistorial $d) => $d->marca_agua_opacidad = 30)
+        );
+
+        $this->assertSame(30, $motor->opciones['marca_agua_opacidad']);
+    }
+
+    public function test_el_color_de_la_escuela_entra_y_se_puede_apagar(): void
+    {
+        /*
+         * Se SIEMBRA el tema, no se da por hecho.
+         *
+         * La primera versión de esta prueba no lo hacía y pasaba por la razón
+         * equivocada: sin tema predeterminado, `acentoDeLaEscuela()` devuelve
+         * null y el documento sale idéntico encendido o apagado, así que la
+         * comparación no medía el interruptor sino la ausencia de datos.
+         */
+        $tema = Tema::create([
+            'clave' => 'prueba-acento',
+            'nombre' => 'Prueba',
+            'es_default' => true,
+            'permite_override_usuario' => false,
+        ]);
+        TemaToken::create(['tema_id' => $tema->id, 'token' => 'acento', 'valor' => '#B5179E']);
+
+        $motor = $this->motorEspia();
+
+        app(HistorialPdf::class, ['pdf' => $motor])->generar(
+            $this->armadoDeEjemplo(fn (DisenoHistorial $d) => $d->usa_color_acento = false)
+        );
+        $apagado = $motor->cuerpo;
+
+        app(HistorialPdf::class, ['pdf' => $motor])->generar(
+            $this->armadoDeEjemplo(fn (DisenoHistorial $d) => $d->usa_color_acento = true)
+        );
+        $encendido = $motor->cuerpo;
+
+        $this->assertNotSame($apagado, $encendido,
+            'Encender el color de la escuela tiene que cambiar el documento');
+
+        // Encendido usa el color sembrado; apagado cae al gris de siempre.
+        $this->assertStringContainsString('#B5179E', $encendido);
+        $this->assertStringContainsString('#64748b', $apagado);
+        $this->assertStringNotContainsString('#B5179E', $apagado);
+    }
+
     public function test_la_vista_previa_es_el_pdf_de_verdad(): void
     {
         /*
@@ -220,6 +373,17 @@ class HistorialPdfTest extends TenantTestCase
             'marca_agua_texto' => 'COPIA',
             'columnas' => ['clave', 'materia', 'calificacion'],
             'campos_alumno' => ['nombre', 'matricula'],
+            'marca_agua_ventanilla' => '0',
+            'marca_agua_opacidad' => '9',
+            'margen_superior' => '40',
+            'margen_inferior' => '18',
+            'margen_izquierdo' => '12',
+            'margen_derecho' => '12',
+            'fuente' => 'sans',
+            'tamano_fuente' => '9',
+            'interlineado' => '1.3',
+            'salto_por_bloque' => '0',
+            'usa_color_acento' => '1',
         ]);
 
         $respuesta = app(DisenoHistorialController::class)->vistaPrevia($peticion);

@@ -96,7 +96,12 @@ class DocumentoPdf
         if (! empty($opciones['marca_agua'])) {
             $mpdf->SetWatermarkText($opciones['marca_agua']);
             $mpdf->showWatermarkText = true;
-            $mpdf->watermarkTextAlpha = 0.09;
+            /*
+             * La opacidad es DATO y no una constante: 9 % se pierde en una
+             * impresora láser vieja y se ve de más en una buena, y quien decide
+             * cuánto debe estorbar la marca es la escuela que la va a entregar.
+             */
+            $mpdf->watermarkTextAlpha = max(1, min(60, (int) ($opciones['marca_agua_opacidad'] ?? 9))) / 100;
         }
 
         $mpdf->WriteHTML($html);
@@ -128,10 +133,10 @@ class DocumentoPdf
              * Por eso son parámetros y no constantes: un membrete con logo pide
              * más que uno de una línea.
              */
-            'margin_top' => $opciones['margen_superior'] ?? 34,
+            'margin_top' => $opciones['margen_superior'] ?? 40,
             'margin_bottom' => $opciones['margen_inferior'] ?? 18,
-            'margin_left' => 12,
-            'margin_right' => 12,
+            'margin_left' => $opciones['margen_izquierdo'] ?? 12,
+            'margin_right' => $opciones['margen_derecho'] ?? 12,
         ];
     }
 

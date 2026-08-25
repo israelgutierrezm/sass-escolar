@@ -44,7 +44,18 @@ interface Diseno {
     orientacion: string;
     descarga_alumno: boolean;
     marca_agua_alumno: boolean;
+    marca_agua_ventanilla: boolean;
     marca_agua_texto: string;
+    marca_agua_opacidad: number;
+    margen_superior: number;
+    margen_inferior: number;
+    margen_izquierdo: number;
+    margen_derecho: number;
+    fuente: string;
+    tamano_fuente: number;
+    interlineado: number;
+    salto_por_bloque: boolean;
+    usa_color_acento: boolean;
     tiene_firma: boolean;
     tiene_sello: boolean;
 }
@@ -57,6 +68,7 @@ const props = defineProps<{
     bloquesPorFila: Record<string, { etiqueta: string; ayuda: string }>;
     papeles: string[];
     orientaciones: string[];
+    fuentes: Record<string, string>;
     niveles: { id: number; nombre: string }[];
     omision: { campos_alumno: string[]; columnas: string[] };
 }>();
@@ -90,7 +102,18 @@ function vacio() {
         orientacion: 'vertical',
         descarga_alumno: false,
         marca_agua_alumno: true,
+        marca_agua_ventanilla: false,
         marca_agua_texto: 'No válido sin sello ni firma',
+        marca_agua_opacidad: 9,
+        margen_superior: 40,
+        margen_inferior: 18,
+        margen_izquierdo: 12,
+        margen_derecho: 12,
+        fuente: 'sans',
+        tamano_fuente: 9,
+        interlineado: 1.3,
+        salto_por_bloque: false,
+        usa_color_acento: true,
     };
 }
 
@@ -123,7 +146,18 @@ watch(
                       orientacion: d.orientacion,
                       descarga_alumno: d.descarga_alumno,
                       marca_agua_alumno: d.marca_agua_alumno,
+                      marca_agua_ventanilla: d.marca_agua_ventanilla,
                       marca_agua_texto: d.marca_agua_texto,
+                      marca_agua_opacidad: d.marca_agua_opacidad,
+                      margen_superior: d.margen_superior,
+                      margen_inferior: d.margen_inferior,
+                      margen_izquierdo: d.margen_izquierdo,
+                      margen_derecho: d.margen_derecho,
+                      fuente: d.fuente,
+                      tamano_fuente: d.tamano_fuente,
+                      interlineado: d.interlineado,
+                      salto_por_bloque: d.salto_por_bloque,
+                      usa_color_acento: d.usa_color_acento,
                   }
                 : vacio(),
         );
@@ -163,8 +197,20 @@ function camposDelFormulario(): Record<string, unknown> {
     };
 }
 
+/**
+ * El token CSRF, tomado de la COOKIE y no del `<meta>`.
+ *
+ * El `<meta>` se escribe al renderizar el HTML y se queda con el valor de ese
+ * momento; la sesión se regenera al iniciarla, y como Inertia navega sin
+ * recargar la página, el `<meta>` puede quedar viejo. Con él, la vista previa
+ * respondía **419** y el panel decía «no se pudo dibujar» sobre un formulario
+ * perfectamente lleno. La cookie `XSRF-TOKEN` sí la mantiene Laravel al día, y
+ * es lo que usa el propio Inertia.
+ */
 function token(): string {
-    return document.querySelector<HTMLMetaElement>('meta[name=csrf-token]')?.content ?? '';
+    const cookie = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+
+    return cookie ? decodeURIComponent(cookie[1]) : '';
 }
 
 /*
@@ -199,7 +245,7 @@ async function refrescarPrevia(): Promise<void> {
         const r = await fetch('/escolar/configuracion/historial/vista-previa', {
             method: 'POST',
             body: cuerpo,
-            headers: { 'X-CSRF-TOKEN': token() },
+            headers: { 'X-XSRF-TOKEN': token() },
         });
 
         if (!r.ok) {
@@ -256,7 +302,10 @@ function verComoQueda(): void {
 
     const campos: Record<string, unknown> = {
         ...camposDelFormulario(),
-        _token: token(),
+        // Un `<form>` no lleva cabeceras: el token va como campo. Se toma del
+        // `<meta>`, que para un envío de página completa sí sirve —el navegador
+        // hace una petición nueva y la sesión se revalida—.
+        _token: document.querySelector<HTMLMetaElement>('meta[name=csrf-token]')?.content ?? '',
     };
 
     for (const [clave, valor] of Object.entries(campos)) {
@@ -587,7 +636,65 @@ const datosPuestos = computed(() => form.campos_alumno as string[]);
                             <option v-for="o in orientaciones" :key="o" :value="o">{{ o }}</option>
                         </select>
                     </label>
+                    <label class="text-sm">
+                        <span class="mb-1 block font-medium">Tipografía</span>
+                        <select v-model="form.fuente" class="rounded-lg border border-borde px-3 py-2 text-sm">
+                            <option v-for="(etiqueta, clave) in fuentes" :key="clave" :value="clave">{{ etiqueta }}</option>
+                        </select>
+                    </label>
                 </div>
+
+                <!-- Márgenes en milímetros: es como los piensa quien compra el papel. -->
+                <div>
+                    <p class="mb-1 text-sm font-medium">Márgenes (mm)</p>
+                    <div class="grid gap-2 sm:grid-cols-4">
+                        <CampoTexto v-model.number="form.margen_superior" etiqueta="Arriba" tipo="number" paso="1" :error="form.errors.margen_superior" />
+                        <CampoTexto v-model.number="form.margen_inferior" etiqueta="Abajo" tipo="number" paso="1" :error="form.errors.margen_inferior" />
+                        <CampoTexto v-model.number="form.margen_izquierdo" etiqueta="Izquierda" tipo="number" paso="1" :error="form.errors.margen_izquierdo" />
+                        <CampoTexto v-model.number="form.margen_derecho" etiqueta="Derecha" tipo="number" paso="1" :error="form.errors.margen_derecho" />
+                    </div>
+                    <p class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">
+                        Arriba tiene que caber el membrete, que se repite en cada hoja. Sobre papel ya
+                        membretado, súbelo a 55 o 60.
+                    </p>
+                </div>
+
+                <div class="grid gap-2 sm:grid-cols-2">
+                    <CampoTexto v-model.number="form.tamano_fuente" etiqueta="Tamaño de letra (pt)" tipo="number" paso="0.5" :error="form.errors.tamano_fuente" />
+                    <CampoTexto v-model.number="form.interlineado" etiqueta="Interlineado" tipo="number" paso="0.1" :error="form.errors.interlineado" />
+                </div>
+
+                <label class="flex cursor-pointer items-start gap-2 text-sm">
+                    <input v-model="form.usa_color_acento" type="checkbox" class="mt-0.5 h-4 w-4 rounded border-borde" />
+                    <span>
+                        <span class="font-medium">Usar el color de la escuela</span>
+                        <span class="block text-xs" :style="{ color: 'var(--color-suave)' }">
+                            Los rótulos de periodo y las líneas de la tabla toman el acento que ya elegiste
+                            para la plataforma. Apagado, salen en gris.
+                        </span>
+                    </span>
+                </label>
+
+                <label class="flex cursor-pointer items-start gap-2 text-sm" :class="form.bloques_por_fila === 2 ? 'opacity-50' : ''">
+                    <input
+                        v-model="form.salto_por_bloque"
+                        type="checkbox"
+                        class="mt-0.5 h-4 w-4 rounded border-borde"
+                        :disabled="form.bloques_por_fila === 2"
+                    />
+                    <span>
+                        <span class="font-medium">Cada periodo en hoja nueva</span>
+                        <span class="block text-xs" :style="{ color: 'var(--color-suave)' }">
+                            <template v-if="form.bloques_por_fila === 2">
+                                No aplica a dos columnas: ahí los periodos van dentro de una rejilla y el
+                                salto no tendría dónde ocurrir.
+                            </template>
+                            <template v-else>
+                                Para entregar el historial por semestres sueltos. Ojo: multiplica las hojas.
+                            </template>
+                        </span>
+                    </span>
+                </label>
 
                 <div class="space-y-2 rounded-lg border border-borde p-3">
                     <label class="flex cursor-pointer items-start gap-2 text-sm">
@@ -614,12 +721,33 @@ const datosPuestos = computed(() => form.campos_alumno as string[]);
                             </span>
                         </label>
 
+                    </template>
+
+                    <!--
+                        La copia de VENTANILLA también puede llevarla. Sólo existía
+                        el interruptor del alumno, así que una escuela que entrega
+                        en mostrador una copia informativa no tenía cómo
+                        distinguirla del papel sellado del trámite.
+                    -->
+                    <label class="flex cursor-pointer items-start gap-2 border-t border-borde pt-2 text-sm">
+                        <input v-model="form.marca_agua_ventanilla" type="checkbox" class="mt-0.5 h-4 w-4 rounded border-borde" />
+                        <span>
+                            <span class="font-medium">Marca de agua también en la copia de ventanilla</span>
+                            <span class="block text-xs" :style="{ color: 'var(--color-suave)' }">
+                                Apagado por omisión: el de ventanilla es el documento bueno.
+                            </span>
+                        </span>
+                    </label>
+
+                    <template v-if="form.marca_agua_alumno || form.marca_agua_ventanilla">
+                        <CampoTexto v-model="form.marca_agua_texto" etiqueta="Texto de la marca" :maximo="80" requerido />
                         <CampoTexto
-                            v-if="form.marca_agua_alumno"
-                            v-model="form.marca_agua_texto"
-                            etiqueta="Texto de la marca"
-                            :maximo="80"
-                            requerido
+                            v-model.number="form.marca_agua_opacidad"
+                            etiqueta="Intensidad (%)"
+                            tipo="number"
+                            paso="1"
+                            ayuda="9 % es discreto. Súbelo si tu impresora la pierde; bájalo si tapa las calificaciones."
+                            :error="form.errors.marca_agua_opacidad"
                         />
                     </template>
                 </div>

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Historial;
 
 use App\Documentos\DocumentoPdf;
+use App\Models\Identidad\Tema;
+use App\Models\Identidad\TemaToken;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\View;
 
@@ -52,21 +54,36 @@ class HistorialPdf
         $sello = $this->pdf->imagenIncrustada($diseno->sello_imagen);
         $logo = $diseno->muestra_logo ? $this->pdf->imagenIncrustada($institucion?->logo_url) : null;
 
+        $acento = $diseno->usa_color_acento ? $this->acentoDeLaEscuela() : null;
+
         $html = View::make('impresion.historial-pdf', $armado + [
             'firma' => $firma,
             'sello' => $sello,
+            'acento' => $acento,
+            'acento_suave' => $this->aclarar($acento),
         ])->render();
 
         return $this->pdf->generar($html, [
             'titulo' => $diseno->titulo,
             'papel' => $diseno->tamano_papel,
             'orientacion' => $diseno->orientacion,
-            'membrete' => $this->membrete($armado, $logo),
+            'membrete' => $this->membrete($armado, $logo, $acento),
             'pie' => $this->pie($armado),
             'marca_agua' => $armado['marca_agua'] ?? null,
-            // Con logo hace falta más margen arriba, o el membrete se encima
-            // con la primera tabla.
-            'margen_superior' => $logo !== null ? 40 : 32,
+            'marca_agua_opacidad' => $diseno->marca_agua_opacidad,
+            /*
+             * Los márgenes salen del DISEÑO, en milímetros.
+             *
+             * Antes se subía el de arriba a 40 cuando había logo y a 32 cuando
+             * no. Eso resolvía el encimado del membrete pero le quitaba a la
+             * escuela la decisión: quien imprime sobre papel ya membretado
+             * necesita 60, y no había dónde pedirlo. Ahora el valor por omisión
+             * ya contempla el logo y quien no lo usa lo baja.
+             */
+            'margen_superior' => $diseno->margen_superior,
+            'margen_inferior' => $diseno->margen_inferior,
+            'margen_izquierdo' => $diseno->margen_izquierdo,
+            'margen_derecho' => $diseno->margen_derecho,
         ]);
     }
 
@@ -79,7 +96,7 @@ class HistorialPdf
      *
      * @param  array<string, mixed>  $armado
      */
-    private function membrete(array $armado, ?string $logo): string
+    private function membrete(array $armado, ?string $logo, ?string $acento): string
     {
         $diseno = $armado['diseno'];
         $institucion = $armado['institucion'] ?? null;
@@ -100,7 +117,7 @@ class HistorialPdf
             ? '<div style="font-size:8pt;color:#444">'.e($diseno->subtitulo).'</div>'
             : '';
 
-        return '<table width="100%" style="border-bottom:0.6pt solid #333;padding-bottom:3pt">
+        return '<table width="100%" style="border-bottom:0.6pt solid '.($acento ?: '#333').';padding-bottom:3pt">
             <tr>
                 '.$celdaLogo.'
                 <td style="text-align:center">
@@ -111,6 +128,56 @@ class HistorialPdf
                 '.$contrapeso.'
             </tr>
         </table>';
+    }
+
+    /**
+     * El acento que la escuela ya eligió para su plataforma.
+     *
+     * ── Por qué no es un color propio del historial ───────────────────────
+     * Sería pedir dos veces lo mismo y garantizar que alguien los
+     * desincronice. El documento tenía `#eef2f7` y `#64748b` cableados, que es
+     * exactamente el defecto por el que este proyecto ya retiró el morado fijo
+     * de 31 sitios.
+     *
+     * Se lee del tema PREDETERMINADO de la escuela y no del tema del usuario:
+     * el historial de una alumna no puede salir de otro color porque quien lo
+     * imprimió tenga puesto el tema oscuro.
+     */
+    private function acentoDeLaEscuela(): ?string
+    {
+        $valor = TemaToken::query()
+            ->where('token', 'acento')
+            ->whereIn('tema_id', Tema::query()->where('es_default', true)->select('id'))
+            ->value('valor');
+
+        // Sólo hexadecimal: este valor entra en el HTML del documento, y aunque
+        // hoy lo escribe el catálogo de temas, un color que se pega dentro de un
+        // atributo `style` sin comprobar es la clase de hueco que se aprovecha
+        // cuando mañana ese campo lo llene otra pantalla.
+        return is_string($valor) && preg_match('/^#[0-9A-Fa-f]{6}$/', $valor) ? $valor : null;
+    }
+
+    /**
+     * El mismo color, mezclado con blanco, para usarlo de fondo.
+     *
+     * Se calcula aquí y no con un hexadecimal de ocho dígitos (`#RRGGBBAA`):
+     * el canal alfa en hexadecimal no es fiable en mpdf, y un color que el
+     * motor no entiende se descarta en silencio dejando el fondo transparente.
+     */
+    private function aclarar(?string $hex, float $peso = 0.12): ?string
+    {
+        if ($hex === null) {
+            return null;
+        }
+
+        [$r, $g, $b] = sscanf($hex, '#%02x%02x%02x');
+
+        return sprintf(
+            '#%02X%02X%02X',
+            (int) round(255 - (255 - $r) * $peso),
+            (int) round(255 - (255 - $g) * $peso),
+            (int) round(255 - (255 - $b) * $peso),
+        );
     }
 
     /**

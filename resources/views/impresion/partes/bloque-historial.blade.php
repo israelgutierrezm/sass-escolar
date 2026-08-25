@@ -5,7 +5,7 @@
     y dentro de la celda de la rejilla de dos—, y escribirlo dos veces es como se
     llega a que una columna aparezca en una y no en la otra.
 --}}
-<div class="bloque">
+<div class="bloque @if ($salto ?? false) salto @endif">
     @if ($grupo['titulo'])
         <h2 class="grupo">{{ $grupo['titulo'] }}</h2>
     @endif

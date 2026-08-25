@@ -163,6 +163,19 @@ class CatalogoColumnas
     public const ORIENTACIONES = ['vertical', 'horizontal'];
 
     /**
+     * Las familias que ofrece el diseñador.
+     *
+     * Son GENÉRICAS y no nombres de tipografía: mpdf sólo dibuja las que trae
+     * embebidas, y ofrecer «Arial» daría un documento tipografiado con otra cosa
+     * sin avisar. Estas tres cubren lo que usa un documento oficial.
+     */
+    public const FUENTES = [
+        'sans' => 'Sans serif (moderna)',
+        'serif' => 'Con serifas (tradicional)',
+        'mono' => 'Monoespaciada',
+    ];
+
+    /**
      * Lo que trae un diseño recién creado: lo que casi todas las escuelas usan.
      *
      * ── Están TODOS los campos, no sólo las listas ────────────────────────
@@ -196,7 +209,20 @@ class CatalogoColumnas
             'orientacion' => 'vertical',
             'descarga_alumno' => false,
             'marca_agua_alumno' => true,
+            'marca_agua_ventanilla' => false,
             'marca_agua_texto' => 'No válido sin sello ni firma',
+            'marca_agua_opacidad' => 9,
+            // En milímetros. El de arriba nace en 40 porque tiene que caber el
+            // membrete CON logo; sobre papel ya membretado se sube a 60.
+            'margen_superior' => 40,
+            'margen_inferior' => 18,
+            'margen_izquierdo' => 12,
+            'margen_derecho' => 12,
+            'fuente' => 'sans',
+            'tamano_fuente' => 9.0,
+            'interlineado' => 1.3,
+            'salto_por_bloque' => false,
+            'usa_color_acento' => true,
         ];
     }
 
