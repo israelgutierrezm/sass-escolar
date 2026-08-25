@@ -105,6 +105,24 @@ function tono(r: Renglon): string {
           ? '#b91c1c'
           : 'var(--color-contenido)';
 }
+
+/**
+ * Lo secundario de una materia en una sola línea tenue: clave, créditos, ciclo,
+ * tipo de evaluación y folio de acta. Se arma aquí y no en la plantilla para no
+ * tener que intercalar separadores condicionales entre trozos que a veces
+ * faltan; los ausentes se caen y no dejan un «·» suelto.
+ */
+function metaDe(r: Renglon): string {
+    return [
+        r.clave_en_plan,
+        r.creditos != null ? `${r.creditos} créd.` : null,
+        r.ciclo ? `Ciclo ${r.ciclo}` : null,
+        r.tipo_evaluacion,
+        r.acta_folio && r.acta_folio !== '—' ? `Acta ${r.acta_folio}` : null,
+    ]
+        .filter(Boolean)
+        .join(' · ');
+}
 </script>
 
 <template>
@@ -231,67 +249,46 @@ function tono(r: Renglon): string {
             </section>
 
             <!--
-                Una tabla por periodo del plan. Se desplaza dentro de su tarjeta:
-                son ocho columnas y en un teléfono no caben, pero eso no debe
-                arrastrar la pantalla entera de lado.
+                Antes era una tabla de ocho columnas por periodo: en una pantalla
+                angosta se apretaba y había que desplazarla de lado. Ahora cada
+                materia es un renglón que se lee a cualquier ancho —la
+                calificación y el estatus a la derecha, lo secundario en una línea
+                tenue debajo— sin desplazamiento horizontal.
             -->
             <section v-for="bloque in porPeriodo" :key="bloque.periodo ?? 'sin'" class="tarjeta p-5">
-                <h3 class="text-sm font-semibold">
-                    {{ bloque.periodo ? `Periodo ${bloque.periodo}` : 'Sin periodo en el plan' }}
-                </h3>
-
-                <div class="mt-3 overflow-x-auto">
-                    <table class="w-full min-w-[40rem] text-sm">
-                        <thead>
-                            <tr class="text-left text-xs" :style="{ color: 'var(--color-suave)' }">
-                                <th class="pb-2 font-medium">Clave</th>
-                                <th class="pb-2 font-medium">Materia</th>
-                                <th class="pb-2 text-right font-medium">Créd.</th>
-                                <th class="pb-2 text-right font-medium">Calif.</th>
-                                <th class="pb-2 font-medium">Estatus</th>
-                                <th class="pb-2 font-medium">Ciclo</th>
-                                <th class="pb-2 font-medium">Evaluación</th>
-                                <th class="pb-2 font-medium">Acta</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr
-                                v-for="r in bloque.materias"
-                                :key="r.id"
-                                class="border-t"
-                                :style="{ borderColor: 'var(--color-borde)' }"
-                            >
-                                <td class="py-2 tabular-nums" :style="{ color: 'var(--color-suave)' }">
-                                    {{ r.clave_en_plan ?? '—' }}
-                                </td>
-                                <td class="py-2">
-                                    {{ r.materia ?? 'Materia' }}
-                                    <span
-                                        v-if="observacion(r)"
-                                        class="ml-1 text-xs"
-                                        :style="{ color: 'var(--color-suave)' }"
-                                    >
-                                        ({{ observacion(r) }})
-                                    </span>
-                                </td>
-                                <td class="py-2 text-right tabular-nums">{{ r.creditos ?? '—' }}</td>
-                                <td class="py-2 text-right font-semibold tabular-nums" :style="{ color: tono(r) }">
-                                    {{ r.calificacion ?? '—' }}
-                                </td>
-                                <td class="py-2 text-xs" :style="{ color: tono(r) }">{{ r.estatus ?? '—' }}</td>
-                                <td class="py-2 text-xs" :style="{ color: 'var(--color-suave)' }">
-                                    {{ r.ciclo ?? '—' }}
-                                </td>
-                                <td class="py-2 text-xs" :style="{ color: 'var(--color-suave)' }">
-                                    {{ r.tipo_evaluacion ?? '—' }}
-                                </td>
-                                <td class="py-2 text-xs tabular-nums" :style="{ color: 'var(--color-suave)' }">
-                                    {{ r.acta_folio ?? '—' }}
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div class="flex flex-wrap items-baseline justify-between gap-2">
+                    <h3 class="text-sm font-semibold">
+                        {{ bloque.periodo ? `Periodo ${bloque.periodo}` : 'Sin periodo en el plan' }}
+                    </h3>
+                    <span class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                        {{ bloque.materias.length }} {{ bloque.materias.length === 1 ? 'materia' : 'materias' }}
+                    </span>
                 </div>
+
+                <ul class="mt-1 divide-y" :style="{ borderColor: 'var(--color-borde)' }">
+                    <li v-for="r in bloque.materias" :key="r.id" class="flex items-start justify-between gap-4 py-3">
+                        <div class="min-w-0">
+                            <p class="font-medium leading-snug">
+                                {{ r.materia ?? 'Materia' }}
+                                <span
+                                    v-if="observacion(r)"
+                                    class="ml-1 text-xs font-normal"
+                                    :style="{ color: 'var(--color-suave)' }"
+                                >({{ observacion(r) }})</span>
+                            </p>
+                            <p v-if="metaDe(r)" class="mt-0.5 text-xs tabular-nums" :style="{ color: 'var(--color-suave)' }">
+                                {{ metaDe(r) }}
+                            </p>
+                        </div>
+
+                        <div class="shrink-0 text-right">
+                            <p class="text-lg font-semibold leading-none tabular-nums" :style="{ color: tono(r) }">
+                                {{ r.calificacion ?? '—' }}
+                            </p>
+                            <p class="mt-1 text-xs" :style="{ color: tono(r) }">{{ r.estatus ?? '—' }}</p>
+                        </div>
+                    </li>
+                </ul>
             </section>
 
             <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
