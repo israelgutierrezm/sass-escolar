@@ -10,9 +10,12 @@ use App\Reportes\DefinicionReporte;
 use App\Reportes\Ejecutor;
 use App\Reportes\FiltroReporte;
 use App\Reportes\RegistroReportes;
+use App\Reportes\Salida\ExportadorCsv;
+use App\Reportes\Salida\ExportadorXlsx;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * La sección de Reportes.
@@ -27,6 +30,28 @@ class ReporteController extends Controller
         private readonly RegistroReportes $registro,
         private readonly Ejecutor $ejecutor,
     ) {}
+
+    /**
+     * La descarga. Un solo camino: el mismo motor que la pantalla.
+     *
+     * El formato lo decide la URL y no un parametro suelto, para que la
+     * direccion de una descarga sea enlazable igual que la del reporte.
+     */
+    public function descargar(Request $peticion, string $clave, string $formato): StreamedResponse
+    {
+        abort_unless(in_array($formato, ['xlsx', 'csv'], true), 404);
+
+        $exportacion = $this->ejecutor->paraExportar($peticion->user(), $clave, [
+            'columnas' => $peticion->input('columnas'),
+            'filtros' => $peticion->input('filtros', []),
+            'orden_por' => $peticion->input('orden_por'),
+            'orden_dir' => $peticion->input('orden_dir'),
+        ]);
+
+        return $formato === 'csv'
+            ? app(ExportadorCsv::class)->responder($exportacion)
+            : app(ExportadorXlsx::class)->responder($exportacion);
+    }
 
     /** El índice: qué reportes hay, agrupados por área. */
     public function index(Request $peticion): Response

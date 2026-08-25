@@ -1924,6 +1924,8 @@ Route::middleware([
             ->group(function () {
                 Route::get('/', 'index')->name('index');
                 Route::get('{clave}', 'ver')->name('ver');
+                Route::get('{clave}/descargar/{formato}', 'descargar')
+                    ->whereIn('formato', ['xlsx', 'csv'])->name('descargar');
             });
 
         Route::middleware('modulo:disciplina')->group(function () {

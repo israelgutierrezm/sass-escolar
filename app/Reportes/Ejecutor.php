@@ -30,10 +30,20 @@ class Ejecutor
     /**
      * @param  array<string, mixed>  $peticion  columnas, filtros, orden, paginado
      */
-    public function ejecutar(Usuario $usuario, string $clave, array $peticion = []): Resultado
+    /**
+     * Todo lo comun a pantalla y exportacion, en un solo sitio.
+     *
+     * Autorizar, sanear columnas, sanear filtros, aplicar el recorte, aplicar
+     * los filtros y ordenar. Si la exportacion repitiera estos pasos, el Excel y
+     * la pantalla acabarian diciendo numeros distintos --y nadie sabria a cual
+     * creerle--, que es exactamente el defecto que este proyecto ya encontro
+     * entre la cartera del panel y la de finanzas.
+     *
+     * @param  array<string, mixed>  $peticion
+     * @return array{0: DefinicionReporte, 1: FuenteDeReporte, 2: array<int, string>, 3: array<int, string>, 4: array<string, mixed>, 5: Builder}
+     */
+    private function preparar(Usuario $usuario, string $clave, array $peticion): array
     {
-        $inicio = microtime(true);
-
         $reporte = $this->registro->definicion($clave);
         $fuente = $this->registro->fuente($reporte->fuente());
 
@@ -58,6 +68,15 @@ class Ejecutor
 
         $this->aplicarFiltros($consulta, $fuente, $filtros);
         $this->ordenar($consulta, $fuente, $reporte, $peticion);
+
+        return [$reporte, $fuente, $columnas, $omitidas, $filtros, $consulta];
+    }
+
+    public function ejecutar(Usuario $usuario, string $clave, array $peticion = []): Resultado
+    {
+        $inicio = microtime(true);
+
+        [$reporte, $fuente, $columnas, $omitidas, $filtros, $consulta] = $this->preparar($usuario, $clave, $peticion);
 
         $porPagina = max(1, min(200, (int) ($peticion['por_pagina'] ?? 50)));
         $pagina = $consulta->paginate($porPagina)->withQueryString();
@@ -84,6 +103,139 @@ class Ejecutor
     }
 
     /**
+     * Prepara una exportacion: las columnas y un recorrido de TODAS las filas.
+     *
+     * @param  array<string, mixed>  $peticion
+     */
+    public function paraExportar(Usuario $usuario, string $clave, array $peticion = []): Exportacion
+    {
+        [$reporte, $fuente, $columnas, $omitidas, $filtros, $consulta] = $this->preparar($usuario, $clave, $peticion);
+
+        $total = (clone $consulta)->toBase()->getCountForPagination();
+
+        return new Exportacion(
+            reporte: $reporte,
+            fuente: $fuente,
+            columnas: array_map(fn (string $c) => $fuente->columnas()[$c], $columnas),
+            total: $total,
+            filas: fn () => $this->recorrer($consulta, $fuente, $reporte, $columnas, $peticion),
+            alTerminar: function (int $filas, string $formato) use ($usuario, $reporte, $columnas, $filtros, $omitidas): void {
+                $this->anotarCrudo($usuario, $reporte, $formato, $filas, 0, $filtros, $columnas, $omitidas);
+            },
+        );
+    }
+
+    /**
+     * Recorre TODAS las filas con memoria constante, respetando el orden pedido.
+     *
+     * ── Keyset y no `chunkById` ───────────────────────────────────────────
+     * `chunkById` REEMPLAZA el ORDER BY por el de la llave primaria: un CSV
+     * «ordenado por fecha de ingreso» saldria ordenado por id, sin ningun error
+     * y sin que nadie lo note --justo cuando el usuario acaba de elegir un
+     * orden--. Aqui se avanza comparando la TUPLA (columna de orden, llave), que
+     * MySQL 8 soporta: respeta el orden, no descuadra si los datos cambian a
+     * media descarga y no carga todo en memoria.
+     *
+     * @param  array<int, string>  $columnas
+     * @return \Generator<int, array<string, mixed>>
+     */
+    private function recorrer(Builder $consulta, FuenteDeReporte $fuente, DefinicionReporte $reporte, array $columnas, array $peticion): \Generator
+    {
+        [$columnaOrden, $direccion] = $this->ordenPedido($fuente, $reporte, $peticion);
+
+        $llave = $fuente->llavePrimaria();
+        $comparador = $direccion === 'desc' ? '<' : '>';
+
+        // El atributo del modelo con el que se compara: `matricula_oferta.matricula`
+        // se lee de `$fila->matricula`.
+        $atributoOrden = $columnaOrden === null ? null : $this->atributo($columnaOrden);
+        $atributoLlave = $this->atributo($llave);
+
+        $ultimo = null;
+        $tam = $this->tamanoDeLote();
+
+        while (true) {
+            $lote = (clone $consulta);
+
+            if ($ultimo !== null) {
+                if ($columnaOrden === null) {
+                    $lote->where($llave, $comparador, $ultimo['llave']);
+                } else {
+                    // Comparacion de tuplas: avanza aunque la columna de orden
+                    // tenga empates, sin repetir ni saltarse filas.
+                    $lote->whereRaw(
+                        "({$columnaOrden}, {$llave}) {$comparador} (?, ?)",
+                        [$ultimo['orden'], $ultimo['llave']],
+                    );
+                }
+            }
+
+            $filas = $lote->limit($tam)->get();
+
+            if ($filas->isEmpty()) {
+                return;
+            }
+
+            foreach ($filas as $fila) {
+                yield $this->fila($fila, $fuente, $columnas);
+            }
+
+            $fin = $filas->last();
+            $ultimo = [
+                'llave' => $fin->{$atributoLlave},
+                'orden' => $atributoOrden === null ? null : $fin->{$atributoOrden},
+            ];
+
+            if ($filas->count() < $tam) {
+                return;
+            }
+        }
+    }
+
+    /**
+     * Cuantas filas se traen por vuelta del recorrido.
+     *
+     * Sale a un metodo para poder BAJARLO en la prueba: con el valor real, un
+     * reporte de dieciocho filas cabe en un solo lote y el bucle del keyset
+     * nunca da una segunda vuelta --o sea que la parte mas delicada de la
+     * exportacion quedaria sin probar, y al mutarla la suite seguia en verde--.
+     */
+    protected function tamanoDeLote(): int
+    {
+        return 500;
+    }
+
+    /** El nombre del atributo dentro de `tabla.columna`. */
+    private function atributo(string $columnaSql): string
+    {
+        $partes = explode('.', $columnaSql);
+
+        return end($partes);
+    }
+
+    /**
+     * Por que columna se ordena de verdad, ya resuelta contra el catalogo.
+     *
+     * @return array{0: string|null, 1: string}
+     */
+    private function ordenPedido(FuenteDeReporte $fuente, DefinicionReporte $reporte, array $peticion): array
+    {
+        $catalogo = $fuente->columnas();
+        [$porOmision, $dirOmision] = $reporte->ordenPorOmision() ?? [null, 'asc'];
+
+        $por = $peticion['orden_por'] ?? $porOmision;
+        $dir = in_array($peticion['orden_dir'] ?? $dirOmision, ['asc', 'desc'], true)
+            ? ($peticion['orden_dir'] ?? $dirOmision)
+            : 'asc';
+
+        $columna = is_string($por) && isset($catalogo[$por]) && $catalogo[$por]->ordenable
+            ? $catalogo[$por]->columnaSql
+            : null;
+
+        return [$columna, $dir];
+    }
+
+    /**
      * Deja constancia de la corrida.
      *
      * Va DENTRO del ejecutor y no en el controlador porque hay mas de una puerta
@@ -93,17 +245,44 @@ class Ejecutor
      */
     private function anotar(Usuario $usuario, Resultado $resultado, string $formato): void
     {
+        $this->anotarCrudo(
+            $usuario,
+            $resultado->reporte,
+            $formato,
+            $resultado->total(),
+            $resultado->milisegundos,
+            $resultado->filtros,
+            array_map(fn (ColumnaReporte $c) => $c->clave, $resultado->columnas),
+            $resultado->columnasOmitidas,
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $filtros
+     * @param  array<int, string>  $columnas
+     * @param  array<int, string>  $omitidas
+     */
+    private function anotarCrudo(
+        Usuario $usuario,
+        DefinicionReporte $reporte,
+        string $formato,
+        int $filas,
+        int $ms,
+        array $filtros,
+        array $columnas,
+        array $omitidas,
+    ): void {
         EjecucionReporte::create([
-            'reporte' => $resultado->reporte->clave(),
+            'reporte' => $reporte->clave(),
             'persona_id' => $usuario->persona_id,
             'formato' => $formato,
-            'filas' => $resultado->total(),
-            'milisegundos' => $resultado->milisegundos,
+            'filas' => $filas,
+            'milisegundos' => $ms,
             // Se guardan los filtros EFECTIVOS --con los fijos ya encima--, que
             // son los que de verdad produjeron esas filas.
-            'filtros' => $resultado->filtros,
-            'columnas' => array_map(fn (ColumnaReporte $c) => $c->clave, $resultado->columnas),
-            'columnas_omitidas' => $resultado->columnasOmitidas,
+            'filtros' => $filtros,
+            'columnas' => $columnas,
+            'columnas_omitidas' => $omitidas,
         ]);
     }
 

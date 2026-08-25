@@ -25,6 +25,8 @@ namespace App\Configuracion;
 final class CatalogoAjustes
 {
     // Alumnos.
+    public const TOPE_FILAS_XLSX = 'reportes.tope_filas_xlsx';
+
     public const MAX_RECURSAMIENTOS = 'alumno.max_recursamientos_por_materia';
 
     public const ACCION_RECURSAMIENTOS = 'alumno.accion_exceso_recursamientos';
@@ -89,6 +91,17 @@ final class CatalogoAjustes
     public static function todos(): array
     {
         return [
+            new Ajuste(
+                clave: self::TOPE_FILAS_XLSX,
+                grupo: 'Reportes',
+                etiqueta: 'Tope de filas en Excel',
+                descripcion: 'Cuantas filas admite una descarga en .xlsx. No es un capricho: PhpSpreadsheet arma el libro entero en memoria, asi que un archivo muy grande no se hace mas lento, se muere a la mitad.',
+                tipo: Ajuste::ENTERO,
+                porDefecto: 5000,
+                min: 100,
+                max: 50000,
+                consecuencia: 'Por encima del tope el reporte se niega ANTES de empezar y ofrece el CSV, que no tiene limite porque se escribe fila por fila. Subirlo mucho cambia un aviso claro por un error de memoria a los tres minutos.',
+            ),
             new Ajuste(
                 clave: self::MAX_RECURSAMIENTOS,
                 grupo: 'Alumnos',

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Paginacion from '@/Components/Paginacion.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
@@ -51,6 +51,12 @@ function alternarColumna(clave: string): void {
         ? elegidas.value.filter((c) => c !== clave)
         : [...elegidas.value, clave];
 }
+
+/**
+ * La cadena de consulta actual, para que la descarga lleve lo mismo que la
+ * pantalla. Se expone porque `window` no esta disponible en el template.
+ */
+const consulta = computed(() => (typeof window === 'undefined' ? '' : window.location.search));
 
 function claseAlineacion(a: string): string {
     return a === 'derecha' ? 'text-right' : a === 'centro' ? 'text-center' : '';
@@ -129,6 +135,21 @@ function claseAlineacion(a: string): string {
                     class="rounded-lg border border-borde px-3 py-1.5 text-sm"
                     @click="eligiendo = !eligiendo"
                 >Columnas ({{ elegidas.length }})</button>
+                <!--
+                    Las descargas llevan los MISMOS filtros y columnas que la
+                    pantalla: es el mismo motor, así que lo que se ve es lo que
+                    se baja. Van como enlaces y no con `router`: son archivos.
+                -->
+                <a
+                    :href="`/reportes/${reporte.clave}/descargar/xlsx${consulta}`"
+                    class="rounded-lg border border-borde px-3 py-1.5 text-sm hover:bg-slate-50"
+                >Excel</a>
+                <a
+                    :href="`/reportes/${reporte.clave}/descargar/csv${consulta}`"
+                    class="rounded-lg border border-borde px-3 py-1.5 text-sm hover:bg-slate-50"
+                    title="Sin límite de filas: se escribe renglón por renglón."
+                >CSV</a>
+
                 <span class="ml-auto text-xs" :style="{ color: 'var(--color-suave)' }">
                     {{ paginacion.total }} en {{ ms }} ms
                 </span>

@@ -23,6 +23,9 @@
  *     salen del catálogo por clave o bandera, no de ids cableados.
  */
 
+use App\Configuracion\Ajustes;
+use App\Configuracion\CatalogoAjustes;
+use App\Exceptions\AvisoParaElUsuario;
 use App\Models\Admisiones\SituacionAlumno;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\Rol;
@@ -31,6 +34,7 @@ use App\Models\Reportes\EjecucionReporte;
 use App\Models\Tenant;
 use App\Reportes\Ejecutor;
 use App\Reportes\RegistroReportes;
+use App\Reportes\Salida\ExportadorXlsx;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -316,6 +320,96 @@ try {
     }
 
     verificar('Un reporte desconocido da 404 y no 403', $estado === 404);
+
+    echo PHP_EOL.'9. La exportación sale del MISMO motor'.PHP_EOL;
+
+    auth()->login($global);
+
+    /*
+     * Con lotes de CINCO, no de quinientos.
+     *
+     * Con el tamaño real, dieciocho filas caben en un solo lote y el bucle del
+     * keyset nunca da una segunda vuelta: la parte más delicada de la
+     * exportación quedaría sin probar. Comprobado —al mutar el keyset para que
+     * ignorara el orden, la suite seguía en verde—. Con lotes de cinco son
+     * cuatro vueltas y las mutaciones mueren.
+     */
+    $ejecutorLotesChicos = new class(app(RegistroReportes::class), app(App\Services\Plataforma\ModulosDeLaEscuela::class)) extends Ejecutor
+    {
+        protected function tamanoDeLote(): int
+        {
+            return 5;
+        }
+    };
+
+    $exp = $ejecutorLotesChicos->paraExportar($global, 'alumnos-inscritos');
+
+    verificar('El total de la exportación es el de la pantalla',
+        $exp->total === $inscritos->total(),
+        "exportación {$exp->total}, pantalla {$inscritos->total()}");
+
+    // Se recorre TODO, no una página: es lo que distingue una descarga de una
+    // captura de pantalla.
+    $recorridas = iterator_to_array($exp->recorrer(), false);
+
+    verificar('El recorrido entrega todas las filas',
+        count($recorridas) === $exp->total,
+        count($recorridas).' de '.$exp->total);
+
+    verificar('Y con las columnas del reporte',
+        array_keys($recorridas[0] ?? []) === array_map(fn ($c) => $c->clave, $exp->columnas));
+
+    /*
+     * El recorrido RESPETA el orden pedido.
+     *
+     * Es lo que `chunkById` habria roto: reemplaza el ORDER BY por el de la
+     * llave primaria, asi que un CSV «ordenado por fecha de ingreso» habria
+     * salido ordenado por id --sin ningun error y sin que nadie lo note--.
+     */
+    $porFecha = $ejecutorLotesChicos->paraExportar($global, 'alumnos-inscritos', [
+        'columnas' => ['matricula', 'fecha_ingreso'],
+        'orden_por' => 'fecha_ingreso',
+        'orden_dir' => 'asc',
+    ]);
+
+    $fechas = array_values(array_filter(array_map(
+        fn ($f) => $f['fecha_ingreso'] instanceof DateTimeInterface ? $f['fecha_ingreso']->format('Y-m-d') : (string) $f['fecha_ingreso'],
+        iterator_to_array($porFecha->recorrer(), false),
+    )));
+
+    $ordenadas = $fechas;
+    sort($ordenadas);
+
+    verificar('El recorrido respeta el orden pedido, no el de la llave',
+        $fechas === $ordenadas,
+        'primeras: '.implode(', ', array_slice($fechas, 0, 3)));
+
+    verificar('Y no repite ni se salta filas',
+        count($fechas) === $exp->total,
+        count($fechas).' de '.$exp->total);
+
+    echo PHP_EOL.'10. El Excel avisa ANTES en vez de morirse a la mitad'.PHP_EOL;
+
+    app(Ajustes::class)->guardar([CatalogoAjustes::TOPE_FILAS_XLSX => 5]);
+    app(Ajustes::class)->olvidar();
+
+    $estadoTope = null;
+    $mensajeTope = '';
+
+    try {
+        app(ExportadorXlsx::class)->responder($ejecutorLotesChicos->paraExportar($global, 'alumnos-inscritos'));
+    } catch (AvisoParaElUsuario $e) {
+        $estadoTope = $e->getStatusCode();
+        $mensajeTope = $e->getMessage();
+    }
+
+    verificar('Por encima del tope se niega con 422', $estadoTope === 422);
+
+    verificar('Y el mensaje dice la cifra real Y la salida',
+        str_contains($mensajeTope, (string) $exp->total) && str_contains($mensajeTope, 'CSV'),
+        $mensajeTope);
+
+    app(Ajustes::class)->olvidar();
 
     echo PHP_EOL.'Resultado: '.($verificaciones - $fallidas)." correctas, {$fallidas} fallidas".PHP_EOL;
 } finally {
