@@ -31,7 +31,7 @@ interface Diseno {
     muestra_logo: boolean;
     muestra_nombre_escuela: boolean;
     campos_alumno: string[] | null;
-    columnas: string[] | null;
+    columnas: ColumnaPuesta[] | null;
     agrupacion: string;
     bloques_por_fila: number;
     muestra_resumen: boolean;
@@ -56,6 +56,20 @@ interface Diseno {
     usa_color_acento: boolean;
     tiene_sello: boolean;
     firmantes: Firmante[];
+}
+
+/**
+ * Una columna del historial, con lo que la escuela ajusta de ella.
+ *
+ * El ancho y la alineacion estaban cableados iguales para todas: son lo que MAS
+ * se ajusta en un historial real --una escuela con nombres de asignatura largos
+ * necesita darle mas sitio a «Asignatura», y otra que imprime la observacion de
+ * la SEP necesita al reves--.
+ */
+interface ColumnaPuesta {
+    clave: string;
+    ancho: number;
+    alineacion: 'izquierda' | 'centro' | 'derecha';
 }
 
 /** Quien rubrica el documento. Cada uno trae su imagen de firma. */
@@ -95,7 +109,7 @@ function vacio() {
         muestra_logo: true,
         muestra_nombre_escuela: true,
         campos_alumno: [...props.omision.campos_alumno],
-        columnas: [...props.omision.columnas],
+        columnas: columnasPorOmision(),
         agrupacion: 'periodo',
         bloques_por_fila: 1,
         muestra_resumen: true,
@@ -121,6 +135,20 @@ function vacio() {
     };
 }
 
+/**
+ * Las columnas por omision, ya con su ancho y su alineacion.
+ *
+ * Salen del catalogo que manda el servidor: son la SUGERENCIA de cada columna,
+ * el punto de partida sobre el que la escuela ajusta.
+ */
+function columnasPorOmision(): ColumnaPuesta[] {
+    return props.omision.columnas.map((clave) => ({
+        clave,
+        ancho: props.columnas[clave]?.ancho ?? 10,
+        alineacion: (props.columnas[clave]?.alineacion ?? 'izquierda') as ColumnaPuesta['alineacion'],
+    }));
+}
+
 const form = useForm(vacio());
 
 watch(
@@ -137,7 +165,7 @@ watch(
                       muestra_logo: d.muestra_logo,
                       muestra_nombre_escuela: d.muestra_nombre_escuela,
                       campos_alumno: d.campos_alumno ?? [...props.omision.campos_alumno],
-                      columnas: d.columnas ?? [...props.omision.columnas],
+                      columnas: d.columnas ?? columnasPorOmision(),
                       agrupacion: d.agrupacion,
                       bloques_por_fila: d.bloques_por_fila,
                       muestra_resumen: d.muestra_resumen,
@@ -176,19 +204,35 @@ watch(
  * diseño, no un detalle. Se agregan al final y se suben o bajan a mano.
  */
 function alternar(lista: 'columnas' | 'campos_alumno', clave: string): void {
-    const actual = form[lista] as string[];
+    if (lista === 'campos_alumno') {
+        const actual = form.campos_alumno as string[];
+        form.campos_alumno = actual.includes(clave) ? actual.filter((c) => c !== clave) : [...actual, clave];
 
-    form[lista] = actual.includes(clave) ? actual.filter((c) => c !== clave) : [...actual, clave];
+        return;
+    }
+
+    const actual = form.columnas as ColumnaPuesta[];
+
+    // Al ponerla vuelve con la sugerencia del catalogo; al quitarla y volverla a
+    // poner, el ancho que la escuela habia ajustado se pierde --y es lo
+    // correcto: quitarla es decir que ya no la quiere--.
+    form.columnas = actual.some((c) => c.clave === clave)
+        ? actual.filter((c) => c.clave !== clave)
+        : [...actual, {
+            clave,
+            ancho: props.columnas[clave]?.ancho ?? 10,
+            alineacion: (props.columnas[clave]?.alineacion ?? 'izquierda') as ColumnaPuesta['alineacion'],
+        }];
 }
 
 function mover(lista: 'columnas' | 'campos_alumno', i: number, delta: number): void {
-    const actual = [...(form[lista] as string[])];
+    const actual = [...(form[lista] as unknown[])];
     const j = i + delta;
 
     if (j < 0 || j >= actual.length) return;
 
     [actual[i], actual[j]] = [actual[j], actual[i]];
-    form[lista] = actual;
+    (form[lista] as unknown) = actual;
 }
 
 /** Los campos del formulario, tal como los espera el servidor. */
@@ -209,6 +253,35 @@ function camposDelFormulario(): Record<string, unknown> {
  * perfectamente lleno. La cookie `XSRF-TOKEN` sí la mantiene Laravel al día, y
  * es lo que usa el propio Inertia.
  */
+/**
+ * Vuelca el formulario en pares nombre/valor con la notacion que PHP entiende.
+ *
+ * ── Por que hace falta ────────────────────────────────────────────────────
+ * Estaba escrito para arreglos de CADENAS: mandaba `columnas[]` con cada valor.
+ * Desde que una columna es un objeto --`{clave, ancho, alineacion}`-- eso
+ * enviaba literalmente `"[object Object]"`, la validacion lo rechazaba y el
+ * redirect de vuelta se colaba como si fuera el documento. Ahora recorre en
+ * profundidad y produce `columnas[0][clave]`, que es lo que PHP arma como
+ * arreglo.
+ */
+function volcar(valor: unknown, nombre: string, poner: (n: string, v: string) => void): void {
+    if (Array.isArray(valor)) {
+        valor.forEach((v, i) => volcar(v, `${nombre}[${i}]`, poner));
+
+        return;
+    }
+
+    if (valor !== null && typeof valor === 'object') {
+        for (const [k, v] of Object.entries(valor as Record<string, unknown>)) {
+            volcar(v, `${nombre}[${k}]`, poner);
+        }
+
+        return;
+    }
+
+    poner(nombre, typeof valor === 'boolean' ? (valor ? '1' : '0') : String(valor ?? ''));
+}
+
 function token(): string {
     const cookie = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
 
@@ -239,9 +312,7 @@ async function refrescarPrevia(): Promise<void> {
         const cuerpo = new FormData();
 
         for (const [clave, valor] of Object.entries(camposDelFormulario())) {
-            for (const v of Array.isArray(valor) ? valor : [valor]) {
-                cuerpo.append(Array.isArray(valor) ? `${clave}[]` : clave, typeof v === 'boolean' ? (v ? '1' : '0') : String(v ?? ''));
-            }
+            volcar(valor, clave, (n, v) => cuerpo.append(n, v));
         }
 
         const r = await fetch('/escolar/configuracion/historial/vista-previa', {
@@ -250,8 +321,17 @@ async function refrescarPrevia(): Promise<void> {
             headers: { 'X-XSRF-TOKEN': token() },
         });
 
-        if (!r.ok) {
+        /*
+         * Se exige un PDF, no basta con que la respuesta sea 200.
+         *
+         * Ante un error de validacion Laravel redirige de vuelta, y `fetch`
+         * SIGUE los redirects: la respuesta llegaba con 200 y el HTML de esta
+         * misma pantalla, que se pintaba en el visor como si fuera el documento.
+         * Un fallo que se ve como un documento en blanco es peor que un fallo.
+         */
+        if (!r.ok || !(r.headers.get('content-type') ?? '').includes('application/pdf')) {
             fallo.value = true;
+
             return;
         }
 
@@ -310,17 +390,16 @@ function verComoQueda(): void {
         _token: document.querySelector<HTMLMetaElement>('meta[name=csrf-token]')?.content ?? '',
     };
 
+    // La misma notación que la previa del costado: `columnas[0][clave]`. Con
+    // `columnas[]` una columna se enviaba como «[object Object]».
     for (const [clave, valor] of Object.entries(campos)) {
-        // Los arreglos viajan como `columnas[]`, que es como PHP los recibe;
-        // mandarlos con `JSON.stringify` los dejaría como una cadena y el
-        // saneador del servidor los descartaría enteros.
-        for (const v of Array.isArray(valor) ? valor : [valor]) {
+        volcar(valor, clave, (nombre, v) => {
             const i = document.createElement('input');
             i.type = 'hidden';
-            i.name = Array.isArray(valor) ? `${clave}[]` : clave;
-            i.value = typeof v === 'boolean' ? (v ? '1' : '0') : String(v ?? '');
+            i.name = nombre;
+            i.value = v;
             f.appendChild(i);
-        }
+        });
     }
 
     document.body.appendChild(f);
@@ -439,7 +518,17 @@ function eliminarVariante(): void {
     });
 }
 
-const columnasPuestas = computed(() => form.columnas as string[]);
+const columnasPuestas = computed(() => form.columnas as ColumnaPuesta[]);
+
+/**
+ * La suma de los anchos. Se ENSENA aunque el documento la normalice.
+ *
+ * El motor reparte proporcionalmente para que la hoja nunca salga rota, asi que
+ * poner 50/50/50 funciona --da 33/33/33-- pero no es lo que la escuela creia
+ * estar pidiendo. El aviso es lo que convierte «funciona igual» en «sabes lo
+ * que estas haciendo».
+ */
+const sumaDeAnchos = computed(() => columnasPuestas.value.reduce((t, c) => t + (Number(c.ancho) || 0), 0));
 const datosPuestos = computed(() => form.campos_alumno as string[]);
 </script>
 
@@ -570,16 +659,52 @@ const datosPuestos = computed(() => form.campos_alumno as string[]);
 
                     <ul v-if="columnasPuestas.length" class="space-y-1">
                         <li
-                            v-for="(clave, i) in columnasPuestas"
-                            :key="clave"
-                            class="flex items-center gap-2 rounded border border-borde px-2 py-1 text-sm"
+                            v-for="(col, i) in columnasPuestas"
+                            :key="col.clave"
+                            class="flex flex-wrap items-center gap-2 rounded border border-borde px-2 py-1 text-sm"
                         >
-                            <span class="flex-1">{{ columnas[clave]?.etiqueta ?? clave }}</span>
+                            <span class="min-w-0 flex-1 truncate">{{ columnas[col.clave]?.etiqueta ?? col.clave }}</span>
+
+                            <!-- Ancho en % de la hoja. -->
+                            <label class="flex items-center gap-1 text-xs">
+                                <input
+                                    v-model.number="col.ancho"
+                                    type="number"
+                                    step="1"
+                                    class="w-14 rounded border border-borde px-1.5 py-0.5 text-right text-xs"
+                                />
+                                <span :style="{ color: 'var(--color-suave)' }">%</span>
+                            </label>
+
+                            <select v-model="col.alineacion" class="rounded border border-borde px-1 py-0.5 text-xs">
+                                <option value="izquierda">izq.</option>
+                                <option value="centro">centro</option>
+                                <option value="derecha">der.</option>
+                            </select>
+
                             <button type="button" class="px-1 text-xs disabled:opacity-25" :disabled="i === 0" @click="mover('columnas', i, -1)">↑</button>
                             <button type="button" class="px-1 text-xs disabled:opacity-25" :disabled="i === columnasPuestas.length - 1" @click="mover('columnas', i, 1)">↓</button>
-                            <button type="button" class="px-1 text-xs text-red-600" @click="alternar('columnas', clave)">✕</button>
+                            <button type="button" class="px-1 text-xs text-red-600" @click="alternar('columnas', col.clave)">✕</button>
                         </li>
                     </ul>
+
+                    <!--
+                        El aviso de desborde. El documento nunca sale roto —el
+                        motor reparte proporcionalmente—, pero 50/50/50 no es lo
+                        que quien lo escribió creía estar pidiendo.
+                    -->
+                    <p
+                        v-if="columnasPuestas.length"
+                        class="text-xs"
+                        :class="sumaDeAnchos === 100 ? '' : 'rounded bg-amber-50 px-2 py-1 text-amber-800'"
+                        :style="sumaDeAnchos === 100 ? { color: 'var(--color-suave)' } : {}"
+                    >
+                        <template v-if="sumaDeAnchos === 100">Los anchos suman 100 %.</template>
+                        <template v-else>
+                            Los anchos suman {{ sumaDeAnchos }} %. Se repartirán en proporción para que quepan
+                            en la hoja, así que se respeta el tamaño relativo pero no los números que escribiste.
+                        </template>
+                    </p>
                     <p v-else class="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
                         Sin columnas no hay tabla. Al imprimir se cae a «Asignatura», que es lo único sin lo cual
                         el documento no significa nada.
@@ -589,7 +714,7 @@ const datosPuestos = computed(() => form.campos_alumno as string[]);
                         <button
                             v-for="(meta, clave) in columnas"
                             :key="clave"
-                            v-show="!columnasPuestas.includes(String(clave))"
+                            v-show="!columnasPuestas.some((c) => c.clave === String(clave))"
                             type="button"
                             class="rounded-full border border-borde px-2.5 py-1 text-xs hover:bg-slate-50"
                             :title="meta.ayuda"

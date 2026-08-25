@@ -109,7 +109,9 @@ class HistorialImprimibleTest extends TenantTestCase
     {
         $diseno = new DisenoHistorial(['columnas' => ['materia', 'columna-que-no-existe']]);
 
-        $this->assertSame(['materia'], $diseno->columnasEfectivas());
+        // `columnasEfectivas()` devuelve `{clave, ancho, alineacion}` desde que
+        // la escuela ajusta el ancho; lo que aquí se vigila son las CLAVES.
+        $this->assertSame(['materia'], array_column($diseno->columnasEfectivas(), 'clave'));
     }
 
     /**
@@ -123,7 +125,7 @@ class HistorialImprimibleTest extends TenantTestCase
     {
         $this->assertSame(
             CatalogoColumnas::porOmision()['columnas'],
-            (new DisenoHistorial(['columnas' => []]))->columnasEfectivas(),
+            array_column((new DisenoHistorial(['columnas' => []]))->columnasEfectivas(), 'clave'),
         );
     }
 
@@ -132,7 +134,7 @@ class HistorialImprimibleTest extends TenantTestCase
     {
         $this->assertSame(
             ['materia'],
-            (new DisenoHistorial(['columnas' => ['inventada', 'otra']]))->columnasEfectivas(),
+            array_column((new DisenoHistorial(['columnas' => ['inventada', 'otra']]))->columnasEfectivas(), 'clave'),
         );
     }
 

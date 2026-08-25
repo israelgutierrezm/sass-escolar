@@ -202,6 +202,80 @@ class HistorialPdfTest extends TenantTestCase
             'El historial de ejemplo debe ocupar más de una hoja; si cabe en una, la prueba del folio no significa nada');
     }
 
+    public function test_el_ancho_y_la_alineacion_los_decide_la_escuela(): void
+    {
+        // El catálogo propone; lo que la escuela ajustó manda. Antes estaban
+        // cableados iguales para todas.
+        $diseno = DisenoHistorial::paraNivel(null);
+        $diseno->columnas = [
+            ['clave' => 'materia', 'ancho' => 70, 'alineacion' => 'derecha'],
+            ['clave' => 'calificacion', 'ancho' => 30, 'alineacion' => 'izquierda'],
+        ];
+
+        $columnas = app(HistorialImprimible::class)->armarEjemplo($diseno)['columnas'];
+
+        $this->assertSame(70, $columnas[0]['ancho']);
+        $this->assertSame('derecha', $columnas[0]['alineacion']);
+        $this->assertSame(30, $columnas[1]['ancho']);
+        $this->assertSame('izquierda', $columnas[1]['alineacion']);
+    }
+
+    public function test_los_anchos_desproporcionados_se_reparten_sin_romper_la_hoja(): void
+    {
+        /*
+         * La pantalla avisa cuando la suma no da 100, pero el documento no puede
+         * quedarse esperando a que alguien haga caso: con 150 % el motor de PDF y
+         * el navegador reparten el sobrante cada uno a su manera y el mismo
+         * historial sale distinto según quién lo mire.
+         *
+         * Se reparte en PROPORCIÓN, así que 100/50 se convierte en 67/33: el
+         * tamaño relativo que la escuela pidió se respeta.
+         */
+        $diseno = DisenoHistorial::paraNivel(null);
+        $diseno->columnas = [
+            ['clave' => 'materia', 'ancho' => 100, 'alineacion' => 'izquierda'],
+            ['clave' => 'calificacion', 'ancho' => 50, 'alineacion' => 'centro'],
+        ];
+
+        $columnas = app(HistorialImprimible::class)->armarEjemplo($diseno)['columnas'];
+
+        $this->assertSame(100, array_sum(array_column($columnas, 'ancho')));
+        $this->assertSame(67, $columnas[0]['ancho']);
+        $this->assertSame(33, $columnas[1]['ancho']);
+    }
+
+    public function test_se_sigue_leyendo_el_formato_viejo_de_columnas(): void
+    {
+        /*
+         * La forma anterior era una lista de claves. La migración convierte lo
+         * guardado, pero una petición en vuelo durante el despliegue puede dejar
+         * una fila con la forma vieja, y eso no puede dejar el historial sin
+         * columnas.
+         */
+        $diseno = DisenoHistorial::paraNivel(null);
+        $diseno->columnas = ['clave', 'materia', 'calificacion'];
+
+        $columnas = app(HistorialImprimible::class)->armarEjemplo($diseno)['columnas'];
+
+        $this->assertSame(['clave', 'materia', 'calificacion'], array_column($columnas, 'clave'));
+        $this->assertSame(100, array_sum(array_column($columnas, 'ancho')));
+    }
+
+    public function test_una_columna_inventada_no_llega_al_documento(): void
+    {
+        // El JSON lo puede escribir a mano cualquiera con el permiso: una clave
+        // inventada quedaría como una cabecera que nadie rellena.
+        $diseno = DisenoHistorial::paraNivel(null);
+        $diseno->columnas = [
+            ['clave' => 'materia', 'ancho' => 50, 'alineacion' => 'izquierda'],
+            ['clave' => 'inventada', 'ancho' => 50, 'alineacion' => 'centro'],
+        ];
+
+        $columnas = app(HistorialImprimible::class)->armarEjemplo($diseno)['columnas'];
+
+        $this->assertSame(['materia'], array_column($columnas, 'clave'));
+    }
+
     public function test_los_margenes_del_diseno_llegan_al_motor(): void
     {
         $motor = $this->motorEspia();
@@ -371,7 +445,11 @@ class HistorialPdfTest extends TenantTestCase
             'descarga_alumno' => '0',
             'marca_agua_alumno' => '1',
             'marca_agua_texto' => 'COPIA',
-            'columnas' => ['clave', 'materia', 'calificacion'],
+            'columnas' => [
+                ['clave' => 'clave', 'ancho' => '20', 'alineacion' => 'izquierda'],
+                ['clave' => 'materia', 'ancho' => '60', 'alineacion' => 'izquierda'],
+                ['clave' => 'calificacion', 'ancho' => '20', 'alineacion' => 'centro'],
+            ],
             'campos_alumno' => ['nombre', 'matricula'],
             'marca_agua_ventanilla' => '0',
             'marca_agua_opacidad' => '9',

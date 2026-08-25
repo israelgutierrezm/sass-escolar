@@ -291,6 +291,11 @@ class DisenoHistorialController extends Controller
             'muestra_nombre_escuela' => ['required', 'boolean'],
             'campos_alumno' => ['nullable', 'array'],
             'columnas' => ['nullable', 'array'],
+            'columnas.*.clave' => ['required', 'string'],
+            // Topes con sentido: por debajo de 3 % una columna no cabe ni su
+            // cabecera, y por encima de 80 no queda sitio para las demas.
+            'columnas.*.ancho' => ['required', 'integer', 'min:3', 'max:80'],
+            'columnas.*.alineacion' => ['required', Rule::in(DisenoHistorial::ALINEACIONES)],
             'agrupacion' => ['required', Rule::in(array_keys(CatalogoColumnas::AGRUPACIONES))],
             'bloques_por_fila' => ['required', 'integer', 'in:1,2'],
             'muestra_resumen' => ['required', 'boolean'],
@@ -326,18 +331,32 @@ class DisenoHistorialController extends Controller
         ]);
 
         /*
-         * Se filtran contra el catálogo y se conserva el ORDEN que mandó la
+         * Se filtran contra el catalogo y se conserva el ORDEN que mando la
          * pantalla.
          *
          * Lo primero porque esto es un JSON que cualquiera con el permiso puede
-         * escribir a mano, y una clave inventada quedaría guardada para siempre
+         * escribir a mano, y una clave inventada quedaria guardada para siempre
          * como una cabecera que nadie rellena. Lo segundo porque el orden ES
-         * parte del diseño: mover «Créditos» antes de «Ciclo» es lo que se está
-         * decidiendo aquí.
+         * parte del diseno: mover «Creditos» antes de «Ciclo» es lo que se esta
+         * decidiendo aqui.
+         *
+         * Se guarda `{clave, ancho, alineacion}` y no la clave a secas: el ancho
+         * y la alineacion son lo que MAS se ajusta en un historial real --una
+         * escuela con nombres de asignatura largos necesita darle mas sitio a
+         * «Asignatura»-- y hasta ahora estaban cableados iguales para todas.
          */
-        $datos['columnas'] = array_values(array_filter(
-            $datos['columnas'] ?? [],
-            fn ($c) => is_string($c) && CatalogoColumnas::existeColumna($c),
+        $datos['columnas'] = array_values(array_map(
+            fn (array $c) => [
+                'clave' => $c['clave'],
+                'ancho' => (int) $c['ancho'],
+                'alineacion' => $c['alineacion'],
+            ],
+            array_filter(
+                $datos['columnas'] ?? [],
+                fn ($c) => is_array($c)
+                    && is_string($c['clave'] ?? null)
+                    && CatalogoColumnas::existeColumna($c['clave']),
+            ),
         ));
 
         $datos['campos_alumno'] = array_values(array_filter(
@@ -353,7 +372,7 @@ class DisenoHistorialController extends Controller
     {
         return array_merge($diseno->only([
             'id', 'nivel_estudios_id', 'titulo', 'subtitulo', 'muestra_logo', 'muestra_nombre_escuela',
-            'campos_alumno', 'columnas', 'agrupacion', 'bloques_por_fila', 'muestra_resumen', 'muestra_promedio',
+            'campos_alumno', 'agrupacion', 'bloques_por_fila', 'muestra_resumen', 'muestra_promedio',
             'muestra_creditos', 'leyenda',
             'tamano_papel', 'orientacion', 'descarga_alumno', 'marca_agua_alumno', 'marca_agua_texto',
             'marca_agua_ventanilla', 'marca_agua_opacidad',
@@ -361,6 +380,9 @@ class DisenoHistorialController extends Controller
             'fuente', 'tamano_fuente', 'interlineado', 'salto_por_bloque', 'usa_color_acento',
         ]), [
             'tiene_sello' => filled($diseno->sello_imagen),
+            // Ya normalizadas: la pantalla no tiene que saber que existio un
+            // formato anterior ni rellenar los valores por omision.
+            'columnas' => $diseno->columnasEfectivas(),
             'firmantes' => $diseno->firmantes->map(fn (FirmanteHistorial $f) => [
                 'id' => $f->id,
                 'nombre' => $f->nombre,

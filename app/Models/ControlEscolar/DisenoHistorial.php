@@ -14,6 +14,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class DisenoHistorial extends Model
 {
+    /** Las tres formas en que se puede leer una columna. */
+    public const ALINEACIONES = ['izquierda', 'centro', 'derecha'];
+
     use TieneAuditoria;
 
     protected $table = 'disenos_historial';
@@ -113,25 +116,55 @@ class DisenoHistorial extends Model
     }
 
     /**
-     * Las columnas efectivas, ya filtradas contra el catálogo.
+     * Las columnas efectivas, con su ancho y su alineación.
      *
-     * Se filtra al LEER y no sólo al guardar: un diseño guardado hace un año
-     * puede nombrar una columna que desde entonces se retiró del catálogo, y
-     * eso no debe dejar la tabla con una cabecera que no rellena nadie.
+     * ── Se filtra al LEER, no sólo al guardar ─────────────────────────────
+     * Un diseño guardado hace un año puede nombrar una columna que desde
+     * entonces se retiró del catálogo, y eso no debe dejar la tabla con una
+     * cabecera que no rellena nadie.
      *
-     * @return array<int, string>
+     * ── Acepta las DOS formas ─────────────────────────────────────────────
+     * La vieja era una lista de claves —`["clave","materia"]`— con el ancho
+     * cableado en el catálogo; la nueva guarda `{clave, ancho, alineacion}` por
+     * columna. La migración convierte lo guardado, pero una petición en vuelo
+     * durante el despliegue puede dejar una fila con la forma anterior, y eso no
+     * puede dejar el historial sin columnas.
+     *
+     * @return array<int, array{clave: string, ancho: int, alineacion: string}>
      */
     public function columnasEfectivas(): array
     {
-        $columnas = array_values(array_filter(
-            $this->columnas ?: CatalogoColumnas::porOmision()['columnas'],
-            fn ($c) => is_string($c) && CatalogoColumnas::existeColumna($c),
-        ));
+        $catalogo = CatalogoColumnas::columnas();
+        $guardadas = $this->columnas ?: CatalogoColumnas::porOmision()['columnas'];
+        $columnas = [];
+
+        foreach (is_array($guardadas) ? $guardadas : [] as $entrada) {
+            // Forma vieja: la clave a secas.
+            $clave = is_string($entrada) ? $entrada : ($entrada['clave'] ?? null);
+
+            if (! is_string($clave) || ! isset($catalogo[$clave])) {
+                continue;
+            }
+
+            $columnas[] = [
+                'clave' => $clave,
+                // El ancho y la alineación del catálogo son el PUNTO DE PARTIDA,
+                // no la última palabra: lo que la escuela ajustó manda.
+                'ancho' => max(1, (int) ($entrada['ancho'] ?? $catalogo[$clave]['ancho'])),
+                'alineacion' => in_array($entrada['alineacion'] ?? null, self::ALINEACIONES, true)
+                    ? $entrada['alineacion']
+                    : $catalogo[$clave]['alineacion'],
+            ];
+        }
 
         // Sin una sola columna válida no hay tabla que imprimir; se cae a la
         // materia, que es el único dato sin el cual el documento no significa
         // nada.
-        return $columnas ?: ['materia'];
+        return $columnas ?: [[
+            'clave' => 'materia',
+            'ancho' => $catalogo['materia']['ancho'],
+            'alineacion' => $catalogo['materia']['alineacion'],
+        ]];
     }
 
     /** @return array<int, string> */

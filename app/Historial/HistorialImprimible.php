@@ -120,9 +120,9 @@ class HistorialImprimible
     }
 
     /**
-     * Las columnas con su metadata, cambiando «Periodo» por la palabra del plan.
+     * Las columnas con su etiqueta, su ancho y su alineacion.
      *
-     * @param  array<int, string>  $columnas
+     * @param  array<int, array{clave: string, ancho: int, alineacion: string}>  $columnas
      * @return array<int, array<string, mixed>>
      */
     private function columnasConEtiquetas(array $columnas, string $unidad): array
@@ -130,20 +130,19 @@ class HistorialImprimible
         $catalogo = CatalogoColumnas::columnas();
 
         /*
-         * Los anchos se NORMALIZAN a 100, no se usan tal cual.
+         * Los anchos se NORMALIZAN a 100, aunque los elija la escuela.
          *
-         * En el catálogo cada uno es una sugerencia pensada para su columna, y
-         * con las doce puestas suman 135 %: el navegador lo reparte como puede y
-         * un motor de PDF hace otra cosa distinta, así que el documento salía
-         * distinto según quién lo dibujara. Y como la escuela ELIGE un
-         * subconjunto, no hay números fijos que sumen 100 en todos los casos:
-         * hay que repartir sobre los que quedaron.
+         * La pantalla ya avisa cuando la suma no da 100, pero el documento no
+         * puede quedarse esperando a que alguien haga caso: con 135 % el motor
+         * de PDF y el navegador reparten el sobrante cada uno a su manera, y el
+         * mismo historial sale distinto segun quien lo mire. Se reparte
+         * proporcionalmente, asi que la PROPORCION que la escuela pidio se
+         * respeta aunque los numeros no sumen redondo.
          *
-         * Se reparte proporcionalmente y el redondeo sobrante se le da a la
-         * columna más ancha —la de la materia, normalmente—, que es donde un
-         * punto porcentual no se nota.
+         * El sobrante del redondeo va a la columna mas ancha --la de la materia,
+         * normalmente--, que es donde un punto porcentual no se nota.
          */
-        $anchos = array_map(fn (string $c) => $catalogo[$c]['ancho'], $columnas);
+        $anchos = array_map(fn (array $c) => $c['ancho'], $columnas);
         $suma = array_sum($anchos);
 
         $normalizados = $suma > 0
@@ -157,15 +156,19 @@ class HistorialImprimible
             $normalizados[$masAncha] += $sobrante;
         }
 
-        return array_map(function (string $c, int $ancho) use ($catalogo, $unidad) {
-            $meta = ['clave' => $c] + $catalogo[$c];
-            $meta['ancho'] = $ancho;
+        return array_map(function (array $columna, int $ancho) use ($catalogo, $unidad) {
+            $meta = $catalogo[$columna['clave']];
 
-            if ($c === 'periodo') {
-                $meta['etiqueta'] = $unidad;
-            }
-
-            return $meta;
+            return [
+                'clave' => $columna['clave'],
+                'ayuda' => $meta['ayuda'],
+                // La etiqueta del catalogo, salvo «Periodo»: ahi manda la
+                // palabra del plan --«Semestre», «Cuatrimestre», «Modulo»--.
+                'etiqueta' => $columna['clave'] === 'periodo' ? $unidad : $meta['etiqueta'],
+                'ancho' => $ancho,
+                // La alineacion la decide la ESCUELA; el catalogo solo propone.
+                'alineacion' => $columna['alineacion'],
+            ];
         }, $columnas, $normalizados);
     }
 
@@ -405,7 +408,11 @@ class HistorialImprimible
     {
         $fila = [];
 
-        foreach ($columnas as $columna) {
+        foreach ($columnas as $entrada) {
+            // Las columnas llegan como `{clave, ancho, alineacion}`; aquí sólo
+            // interesa la clave, que es la que dice QUÉ dato va en la celda.
+            $columna = $entrada['clave'];
+
             $fila[$columna] = match ($columna) {
                 'consecutivo' => (string) $consecutivo,
                 'clave' => (string) ($renglon['clave_en_plan'] ?? ''),
