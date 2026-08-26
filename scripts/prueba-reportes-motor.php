@@ -950,10 +950,24 @@ try {
         ($controlEscolar['cuantos'] ?? 0) === $deControlEscolar,
         'cuenta '.($controlEscolar['cuantos'] ?? 'null').' y el registro declara '.$deControlEscolar);
 
-    $vacia = collect($props['areas'])->firstWhere('clave', 'movilidad');
+    /*
+     * El área vacía se BUSCA, no se nombra.
+     *
+     * Decía «movilidad» y se cayó en cuanto esa área tuvo reportes: es la
+     * tercera comprobación de esta suite que un nombre o un número escrito a
+     * mano pone en rojo sin señalar ningún defecto. Lo que se vigila es que un
+     * área sin reportes cuente cero, no cuál es esa área.
+     */
+    $conReportes = array_unique(array_map(fn ($r) => $r->areaSugerida(), $registro->todos()));
+
+    $vacia = collect($props['areas'])->first(fn (array $a) => ! in_array($a['clave'], $conReportes, true));
+
+    verificar('Hay un área sin reportes para comprobarlo',
+        $vacia !== null, $vacia['clave'] ?? 'todas tienen reportes');
 
     verificar('Y un área de verdad vacía sigue contando cero',
-        ($vacia['cuantos'] ?? null) === 0, (string) ($vacia['cuantos'] ?? 'null'));
+        ($vacia['cuantos'] ?? null) === 0,
+        ($vacia['clave'] ?? '?').' cuenta '.($vacia['cuantos'] ?? 'null'));
 
     echo PHP_EOL.'18. Una cuenta sin rol activo no ejecuta nada'.PHP_EOL;
 
@@ -995,7 +1009,88 @@ try {
     verificar('Sin rol activo no se ejecuta ningún reporte',
         $estadoFaceta !== null, $estadoFaceta === null ? 'lo ejecutó' : (string) $estadoFaceta);
 
+    echo PHP_EOL.'19. Un filtro booleano llega de la pantalla como CADENA'.PHP_EOL;
+
+    /*
+     * Validar NO es convertir, y la diferencia daba un 500 en cada casilla.
+     *
+     * La regla `boolean` de Laravel acepta la cadena «1» —que es lo que manda
+     * una casilla marcada— pero devuelve el valor tal cual, así que a la closure
+     * del filtro, tipada `bool $v`, le llegaba un string y reventaba con
+     * TypeError.
+     *
+     * Ninguna suite lo veía porque todas pasaban booleanos de PHP, que es lo que
+     * escribe un `filtrosFijos()`. Ésta manda LO QUE MANDA EL NAVEGADOR, que es
+     * lo único que lo caza. Se recorren TODOS los filtros booleanos de TODOS los
+     * reportes: es un defecto de clase.
+     */
+    $rotos = [];
+    $probados = 0;
+
+    foreach ($registro->todos() as $reporte) {
+        $fuente = $registro->fuente($reporte->fuente());
+
+        foreach ($fuente->filtros() as $clave => $filtro) {
+            if ($filtro->tipo !== App\Reportes\TipoFiltro::Booleano) {
+                continue;
+            }
+
+            // Las dos formas que manda la pantalla: marcada y sin marcar.
+            foreach (['1', '0'] as $comoLoMandaLaPantalla) {
+                try {
+                    $ejecutor->ejecutar($global, $reporte->clave(), [
+                        'filtros' => [$clave => $comoLoMandaLaPantalla],
+                    ]);
+
+                    $probados++;
+                } catch (\TypeError $e) {
+                    $rotos[] = $reporte->clave().'/'.$clave.'="'.$comoLoMandaLaPantalla.'": TypeError';
+                } catch (\Throwable $e) {
+                    // Un reporte que exige otro filtro se niega, y eso es
+                    // correcto: no es el defecto que se busca.
+                    if (! $e instanceof AvisoParaElUsuario) {
+                        $rotos[] = $reporte->clave().'/'.$clave.': '.class_basename($e);
+                    }
+                }
+            }
+        }
+    }
+
+    verificar('Hay filtros booleanos que probar', $probados > 0, $probados.' combinaciones');
+
+    verificar('Ninguno revienta al recibir la cadena que manda la pantalla',
+        $rotos === [], $rotos === [] ? $probados.' combinaciones, ninguna rota' : implode(' | ', array_slice($rotos, 0, 3)));
+
+    /*
+     * Y «0» de verdad APAGA el filtro, en vez de encenderlo por ser una cadena
+     * no vacía. Es el otro lado del mismo defecto: `(bool) '0'` es false en PHP,
+     * pero `'0'` a secas dentro de un `if` también — lo que fallaría es una
+     * conversión escrita a mano con `(bool)` sobre «false» o «off».
+     */
+    $conCero = collect($ejecutor->ejecutar($global, 'estado-de-cartera', [
+        'columnas' => ['matricula'],
+        'filtros' => ['solo_con_saldo' => '0'],
+    ])->filas);
+
+    $sinFiltro = collect($ejecutor->ejecutar($global, 'estado-de-cartera', [
+        'columnas' => ['matricula'],
+    ])->filas);
+
+    verificar('Un booleano en «0» deja el reporte igual que sin filtro',
+        $conCero->count() === $sinFiltro->count(),
+        $conCero->count().' vs '.$sinFiltro->count());
+
+    $conUno = collect($ejecutor->ejecutar($global, 'estado-de-cartera', [
+        'columnas' => ['matricula'],
+        'filtros' => ['solo_con_saldo' => '1'],
+    ])->filas);
+
+    verificar('Y en «1» sí acota',
+        $conUno->count() < $sinFiltro->count(),
+        $conUno->count().' de '.$sinFiltro->count());
+
     echo PHP_EOL.'Resultado: '.($verificaciones - $fallidas)." correctas, {$fallidas} fallidas".PHP_EOL;
+
 } finally {
     $db->rollBack();
 }

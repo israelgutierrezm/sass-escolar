@@ -58,10 +58,12 @@ use App\Reportes\Definiciones\DocentesSinCedula;
 use App\Reportes\Definiciones\EgresadosSinColocar;
 use App\Reportes\Definiciones\EmpleabilidadDeEgresados;
 use App\Reportes\Definiciones\EstadoDeCartera;
+use App\Reportes\Definiciones\EstanciasConcluidas;
 use App\Reportes\Definiciones\ListosParaCertificar;
 use App\Reportes\Definiciones\MateriasSinTitular;
 use App\Reportes\Definiciones\PlantillaDocente;
 use App\Reportes\Definiciones\OcupacionDeGrupos as ReporteOcupacionDeGrupos;
+use App\Reportes\Definiciones\MovilidadDelPeriodo;
 use App\Reportes\Definiciones\PlantillaVigente;
 use App\Reportes\Definiciones\ProspectosAbiertos;
 use App\Reportes\Definiciones\ProspectosConvertidos;
@@ -81,6 +83,7 @@ use App\Reportes\Fuentes\Docentes;
 use App\Reportes\Fuentes\Grupos;
 use App\Reportes\Fuentes\Ingresos;
 use App\Reportes\Fuentes\Matriculas;
+use App\Reportes\Fuentes\MovilidadSaliente;
 use App\Reportes\Fuentes\Plantilla;
 use App\Reportes\RegistroReportes;
 use App\Services\Cfdi\FacturapiPac;
@@ -366,6 +369,7 @@ class AppServiceProvider extends ServiceProvider
                 Certificables::class,
                 EgresadosYColocacion::class,
                 Plantilla::class,
+                MovilidadSaliente::class,
             ] as $fuente) {
                 $registro->registrarFuente($fuente);
             }
@@ -404,6 +408,8 @@ class AppServiceProvider extends ServiceProvider
                 PlantillaVigente::class,
                 QuienEntraANomina::class,
                 BajasDePersonal::class,
+                MovilidadDelPeriodo::class,
+                EstanciasConcluidas::class,
             ] as $reporte) {
                 $registro->registrarReporte($reporte);
             }

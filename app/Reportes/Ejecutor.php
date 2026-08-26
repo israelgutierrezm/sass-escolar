@@ -573,6 +573,24 @@ class Ejecutor
 
         $datos = Validator::make(['v' => $valor], ['v' => $regla])->validate();
 
+        /*
+         * Validar NO es convertir, y esa diferencia daba un 500.
+         *
+         * La regla `boolean` de Laravel ACEPTA la cadena «1» —es lo que manda
+         * una casilla marcada desde la pantalla— pero el validador devuelve el
+         * valor tal cual, así que a la closure del filtro, tipada `bool $v`, le
+         * llegaba un string y reventaba con TypeError. En pantalla: 500 al
+         * pulsar «Aplicar» con cualquier casilla marcada.
+         *
+         * No lo vio ninguna suite porque todas pasaban booleanos de PHP —el
+         * valor que escribe un `filtrosFijos()`— y no el que escribe el
+         * navegador. Lo cazó la primera prueba que mandó «1» como lo manda la
+         * pantalla.
+         */
+        if ($filtro->tipo === TipoFiltro::Booleano) {
+            return filter_var($datos['v'], FILTER_VALIDATE_BOOLEAN);
+        }
+
         if ($filtro->tipo === TipoFiltro::ListaMultiple) {
             $permitidas = array_keys($filtro->opcionesPara($usuario));
 
