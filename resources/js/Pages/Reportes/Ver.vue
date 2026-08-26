@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Paginacion from '@/Components/Paginacion.vue';
+import CampoTexto from '@/Components/CampoTexto.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 
 interface Columna {
@@ -10,6 +11,23 @@ interface Columna {
     etiqueta: string;
     alineacion: string;
     ordenable: boolean;
+}
+
+/**
+ * Una forma guardada de ver el reporte.
+ *
+ * Guarda COLUMNAS y FILTROS, jamas filas: al abrirla, el motor rehace el
+ * pipeline con el permiso y el alcance de QUIEN la abre. Por eso una vista se
+ * puede compartir sin compartir datos.
+ */
+interface Vista {
+    id: number;
+    nombre: string;
+    descripcion: string | null;
+    predeterminada: boolean;
+    deLaEscuela: boolean;
+    mia: boolean;
+    puedeEditar: boolean;
 }
 
 interface Filtro {
@@ -31,6 +49,10 @@ const props = defineProps<{
     paginacion: { total: number; links: any[]; from: number | null; to: number | null };
     omitidas: string[];
     ms: number;
+    vistas: Vista[];
+    vistaActiva: number | null;
+    puedeCompartir: boolean;
+    esFavorito: boolean;
 }>();
 
 const eligiendo = ref(false);
@@ -58,6 +80,51 @@ function alternarColumna(clave: string): void {
  */
 const consulta = computed(() => (typeof window === 'undefined' ? '' : window.location.search));
 
+const guardando = ref(false);
+
+const formVista = useForm({
+    nombre: '',
+    descripcion: '',
+    columnas: [] as string[],
+    filtros: {} as Record<string, unknown>,
+    predeterminada: false as boolean,
+    de_la_escuela: false as boolean,
+});
+
+function abrirGuardar(): void {
+    guardando.value = true;
+    formVista.clearErrors();
+    formVista.nombre = '';
+    formVista.descripcion = '';
+    // Se guarda LO QUE HAY EN PANTALLA: es lo que la persona acaba de armar.
+    formVista.columnas = [...elegidas.value];
+    formVista.filtros = { ...valores.value };
+}
+
+function guardarVista(): void {
+    formVista.post(`/reportes/${props.reporte.clave}/vistas`, {
+        preserveScroll: true,
+        onSuccess: () => {
+            guardando.value = false;
+            formVista.reset();
+        },
+    });
+}
+
+function abrirVista(id: number | null): void {
+    router.get(`/reportes/${props.reporte.clave}`, id === null ? {} : { vista: id }, { preserveScroll: true });
+}
+
+function eliminarVista(v: Vista): void {
+    if (!confirm(`Eliminar la vista «${v.nombre}»?`)) return;
+
+    router.delete(`/reportes/vistas/${v.id}`, { preserveScroll: true });
+}
+
+function alternarFavorito(): void {
+    router.post(`/reportes/${props.reporte.clave}/favorito`, {}, { preserveScroll: true });
+}
+
 function claseAlineacion(a: string): string {
     return a === 'derecha' ? 'text-right' : a === 'centro' ? 'text-center' : '';
 }
@@ -71,6 +138,95 @@ function claseAlineacion(a: string): string {
             <Link href="/reportes" class="text-xs hover:underline" :style="{ color: 'var(--color-suave)' }">
                 ← Todos los reportes
             </Link>
+        </div>
+
+        <!--
+            Las vistas guardadas. Es la respuesta al «los mismos reportes de
+            formas personalizadas»: se guarda la configuracion, no una consulta
+            nueva. Compartir una vista NO comparte datos --el motor rehace el
+            pipeline con el alcance de quien la abre--.
+        -->
+        <section class="tarjeta mb-4 flex flex-wrap items-center gap-2 p-3">
+            <button
+                type="button"
+                class="text-lg leading-none"
+                :title="esFavorito ? 'Quitar de favoritos' : 'Marcar como favorito'"
+                @click="alternarFavorito"
+            >{{ esFavorito ? '★' : '☆' }}</button>
+
+            <button
+                type="button"
+                class="rounded-full border px-3 py-1 text-xs"
+                :class="vistaActiva === null ? 'elegido-acento' : 'border-borde hover:bg-slate-50'"
+                @click="abrirVista(null)"
+            >Como viene</button>
+
+            <span v-for="v in vistas" :key="v.id" class="inline-flex items-center">
+                <button
+                    type="button"
+                    class="rounded-full border px-3 py-1 text-xs"
+                    :class="vistaActiva === v.id ? 'elegido-acento' : 'border-borde hover:bg-slate-50'"
+                    :title="v.descripcion ?? ''"
+                    @click="abrirVista(v.id)"
+                >
+                    {{ v.nombre }}
+                    <span v-if="v.deLaEscuela" :style="{ color: 'var(--color-suave)' }" title="De la escuela"> · escuela</span>
+                    <span v-else-if="v.predeterminada" :style="{ color: 'var(--color-suave)' }" title="Se abre sola"> · ★</span>
+                </button>
+                <button
+                    v-if="v.puedeEditar"
+                    type="button"
+                    class="ml-0.5 text-xs text-red-600"
+                    title="Eliminar la vista"
+                    @click="eliminarVista(v)"
+                >✕</button>
+            </span>
+
+            <button
+                type="button"
+                class="ml-auto rounded-lg border border-borde px-3 py-1 text-xs hover:bg-slate-50"
+                @click="abrirGuardar"
+            >Guardar esta vista</button>
+        </section>
+
+        <div v-if="guardando" class="tarjeta mb-4 space-y-3 p-4">
+            <p class="text-sm font-medium">Guardar la vista actual</p>
+            <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                Se guardan las columnas y los filtros que tienes puestos, no las filas: quien la abra verá
+                lo que su permiso y su campus le permitan.
+            </p>
+
+            <div class="grid gap-3 sm:grid-cols-2">
+                <CampoTexto v-model="formVista.nombre" etiqueta="Nombre" :maximo="120" requerido :error="formVista.errors.nombre" />
+                <CampoTexto v-model="formVista.descripcion" etiqueta="Para qué sirve" :maximo="255" :error="formVista.errors.descripcion" />
+            </div>
+
+            <label class="flex items-center gap-2 text-sm">
+                <input v-model="formVista.predeterminada" type="checkbox" class="h-4 w-4 rounded border-borde" />
+                Que se abra sola cuando entre a este reporte
+            </label>
+
+            <label v-if="puedeCompartir" class="flex items-start gap-2 text-sm">
+                <input v-model="formVista.de_la_escuela" type="checkbox" class="mt-0.5 h-4 w-4 rounded border-borde" />
+                <span>
+                    <span class="font-medium">Para toda la escuela</span>
+                    <span class="block text-xs" :style="{ color: 'var(--color-suave)' }">
+                        La verá cualquiera que pueda ejecutar este reporte. No le concede acceso a nada:
+                        cada quien sigue viendo sólo lo suyo.
+                    </span>
+                </span>
+            </label>
+
+            <div class="flex gap-2">
+                <button
+                    type="button"
+                    class="rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-60"
+                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+                    :disabled="formVista.processing"
+                    @click="guardarVista"
+                >Guardar</button>
+                <button type="button" class="rounded-lg border border-borde px-3 py-1.5 text-sm" @click="guardando = false">Cancelar</button>
+            </div>
         </div>
 
         <section class="tarjeta mb-4 p-5">

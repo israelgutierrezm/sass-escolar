@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Reportes;
 
 use App\Http\Controllers\Controller;
+use App\Models\Reportes\ReporteFavorito;
+use App\Models\Reportes\VistaReporte;
 use App\Reportes\ColumnaReporte;
 use App\Reportes\Ejecutor;
 use App\Reportes\FiltroReporte;
@@ -74,11 +76,24 @@ class ReporteController extends Controller
     {
         $usuario = $peticion->user();
 
+        $vista = $this->vistaAplicable($peticion, $clave, $usuario);
+
+        /*
+         * Lo de la URL gana sobre lo de la vista.
+         *
+         * Abrir una vista y despues tocar un filtro tiene que funcionar sin
+         * tener que guardarla otra vez; si la vista ganara, la pantalla
+         * ignoraria lo que la persona acaba de pedir.
+         *
+         * Y lo que se aplica son COLUMNAS y FILTROS: el permiso, la faceta y el
+         * alcance por campus los vuelve a resolver el motor con los de QUIEN
+         * ejecuta, no con los del dueno de la vista.
+         */
         $resultado = $this->ejecutor->ejecutar($usuario, $clave, [
-            'columnas' => $peticion->input('columnas'),
-            'filtros' => $peticion->input('filtros', []),
-            'orden_por' => $peticion->input('orden_por'),
-            'orden_dir' => $peticion->input('orden_dir'),
+            'columnas' => $peticion->input('columnas') ?? $vista?->columnas,
+            'filtros' => $peticion->input('filtros') ?? $vista?->filtros ?? [],
+            'orden_por' => $peticion->input('orden_por') ?? $vista?->orden_por,
+            'orden_dir' => $peticion->input('orden_dir') ?? $vista?->orden_dir,
             'por_pagina' => $peticion->input('por_pagina', 50),
         ]);
 
@@ -128,6 +143,66 @@ class ReporteController extends Controller
             // el reporte no trae esa columna.
             'omitidas' => $resultado->etiquetasOmitidas(),
             'ms' => $resultado->milisegundos,
+
+            // Las vistas que esta persona puede abrir: las suyas, las de su rol
+            // ACTIVO y las de la escuela.
+            'vistas' => VistaReporte::query()
+                ->where('reporte', $clave)
+                ->visiblesPara($usuario)
+                ->orderByDesc('predeterminada')
+                ->orderBy('nombre')
+                ->get()
+                ->map(fn (VistaReporte $v) => [
+                    'id' => $v->id,
+                    'nombre' => $v->nombre,
+                    'descripcion' => $v->descripcion,
+                    'predeterminada' => $v->predeterminada,
+                    'deLaEscuela' => $v->persona_id === null,
+                    'mia' => $v->persona_id === $usuario->persona_id,
+                    'puedeEditar' => $v->laPuedeEditar($usuario),
+                ])
+                ->values(),
+            'vistaActiva' => $vista?->id,
+            'puedeCompartir' => $usuario->can('gestionar-areas-reporte'),
+            'esFavorito' => ReporteFavorito::query()
+                ->where('persona_id', $usuario->persona_id)
+                ->where('reporte', $clave)
+                ->exists(),
         ]);
+    }
+
+    /**
+     * La vista que se abre: la pedida por la URL, o la predeterminada propia.
+     *
+     * Se busca DENTRO de las visibles para esta persona: pedir el id de una
+     * vista ajena no la abre, cae a la predeterminada. Es la misma salvaguarda
+     * que la credencial y el historial --la eleccion se busca en la lista
+     * propia, asi que un id ajeno no encuentra pareja--.
+     */
+    private function vistaAplicable(Request $peticion, string $clave, $usuario): ?VistaReporte
+    {
+        $visibles = VistaReporte::query()->where('reporte', $clave)->visiblesPara($usuario);
+
+        $pedida = $peticion->integer('vista');
+
+        if ($pedida > 0) {
+            return (clone $visibles)->whereKey($pedida)->first()
+                ?? $this->predeterminada($clave, $usuario);
+        }
+
+        // Sin vista pedida NI filtros en la URL se abre la predeterminada. Con
+        // filtros en la URL no: quien llego con un enlace pidio algo concreto.
+        return $peticion->hasAny(['filtros', 'columnas', 'orden_por'])
+            ? null
+            : $this->predeterminada($clave, $usuario);
+    }
+
+    private function predeterminada(string $clave, $usuario): ?VistaReporte
+    {
+        return VistaReporte::query()
+            ->where('reporte', $clave)
+            ->where('persona_id', $usuario->persona_id)
+            ->where('predeterminada', true)
+            ->first();
     }
 }

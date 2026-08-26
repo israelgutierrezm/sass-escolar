@@ -26,11 +26,16 @@
 use App\Configuracion\Ajustes;
 use App\Configuracion\CatalogoAjustes;
 use App\Exceptions\AvisoParaElUsuario;
+use App\Http\Controllers\Reportes\ConfiguracionReportesController;
+use App\Http\Controllers\Reportes\VistaReporteController;
+use Database\Seeders\Tenant\AreasReporteSeeder;
 use App\Models\Admisiones\SituacionAlumno;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\Rol;
 use App\Models\Identidad\Usuario;
 use App\Models\Reportes\AreaReporte;
+use App\Models\Reportes\ReporteFavorito;
+use App\Models\Reportes\VistaReporte;
 use App\Models\Reportes\EjecucionReporte;
 use App\Models\Reportes\UbicacionReporte;
 use App\Models\Tenant;
@@ -64,10 +69,20 @@ function verificar(string $que, bool $ok, string $detalle = ''): void
         .($detalle !== '' ? "  [{$detalle}]" : '').PHP_EOL;
 }
 
-/** Una petición con datos, para invocar a un controlador. */
-function peticionCon(array $datos): Illuminate\Http\Request
+/**
+ * Una petición con datos, para invocar a un controlador.
+ *
+ * Lleva el resolutor de usuario: varios controladores leen `$peticion->user()`
+ * y no `Auth::user()`, así que sin esto ven null. Es la misma trampa que ya
+ * mordió en la suite de disciplina.
+ */
+function peticionCon(array $datos, ?Usuario $como = null): Illuminate\Http\Request
 {
-    return Illuminate\Http\Request::create('/', 'POST', $datos);
+    $p = Illuminate\Http\Request::create('/', 'POST', $datos);
+
+    $p->setUserResolver(fn () => $como ?? auth()->user());
+
+    return $p;
 }
 
 /** Un usuario propio con su rol activo: nunca se toca el de nadie más. */
@@ -566,6 +581,197 @@ try {
     verificar('Un reporte vive en UNA sola área',
         UbicacionReporte::query()->where('reporte', 'alumnos-inscritos')->count() === 1,
         (string) UbicacionReporte::query()->where('reporte', 'alumnos-inscritos')->count());
+
+    echo PHP_EOL.'12. Una vista guarda CONFIGURACIÓN, no filas'.PHP_EOL;
+
+    $vistas = app(VistaReporteController::class);
+
+    auth()->login($global);
+
+    // El global guarda una vista SIN filtro de campus: la suya ve toda la escuela.
+    $vistas->guardar(peticionCon([
+        'nombre' => 'Padrón completo',
+        'columnas' => ['matricula', 'alumno', 'campus'],
+        'orden_dir' => 'asc',
+        'de_la_escuela' => '1',
+    ]), 'alumnos-inscritos');
+
+    $vista = VistaReporte::query()->where('nombre', 'Padrón completo')->firstOrFail();
+
+    verificar('La vista guarda columnas y filtros, no filas',
+        $vista->columnas === ['matricula', 'alumno', 'campus'] && $vista->persona_id === null);
+
+    /*
+     * ── LA PRUEBA CENTRAL: compartir una vista no comparte datos ──────────
+     *
+     * La misma vista, guardada por quien ve toda la escuela, ejecutada por el
+     * coordinador de un campus: tiene que devolver SÓLO lo suyo. Si el motor
+     * arrastrara el alcance del dueño, compartir una vista sería una fuga —y
+     * una que nadie notaría, porque el reporte «funciona»—.
+     */
+    $comoGlobal = $ejecutor->ejecutar($global, 'alumnos-inscritos', [
+        'columnas' => $vista->columnas,
+        'filtros' => $vista->filtros ?? [],
+    ]);
+
+    auth()->login($acotado);
+
+    $comoAcotado = $ejecutor->ejecutar($acotado, 'alumnos-inscritos', [
+        'columnas' => $vista->columnas,
+        'filtros' => $vista->filtros ?? [],
+    ]);
+
+    verificar('La misma vista da menos filas a quien ve menos',
+        $comoAcotado->total() < $comoGlobal->total(),
+        "acotado {$comoAcotado->total()}, global {$comoGlobal->total()}");
+
+    $campusVistos = collect($comoAcotado->filas)->pluck('campus')->unique()->filter()->values();
+
+    verificar('Y sólo de SU campus: compartir una vista no comparte datos',
+        $campusVistos->count() <= 1 && ($campusVistos->first() ?? $nombreCampus) === $nombreCampus,
+        $campusVistos->implode(', '));
+
+    auth()->login($global);
+
+    echo PHP_EOL.'13. Una vista vieja sobrevive a que cambie el catálogo'.PHP_EOL;
+
+    // Se guarda una vista que nombra una columna que NO existe --como una vista
+    // de hace un año cuya columna se retiró del código--.
+    $vistas->guardar(peticionCon([
+        'nombre' => 'Vista antigua',
+        'columnas' => ['matricula', 'columna-retirada-hace-un-anio', 'alumno'],
+    ]), 'alumnos-inscritos');
+
+    $antigua = VistaReporte::query()->where('nombre', 'Vista antigua')->firstOrFail();
+
+    verificar('Se guarda tal cual, sin sanear al escribir',
+        in_array('columna-retirada-hace-un-anio', $antigua->columnas, true));
+
+    $conAntigua = $ejecutor->ejecutar($global, 'alumnos-inscritos', ['columnas' => $antigua->columnas]);
+
+    // Abre igual, SIN esa columna, en vez de reventar: una vista guardada hace
+    // un año no puede dejar de funcionar porque el catálogo evolucione.
+    verificar('Se ejecuta igual, descartando la columna que ya no existe',
+        array_map(fn ($c) => $c->clave, $conAntigua->columnas) === ['matricula', 'alumno'],
+        implode(',', array_map(fn ($c) => $c->clave, $conAntigua->columnas)));
+
+    echo PHP_EOL.'14. De quién es cada vista'.PHP_EOL;
+
+    // Una vista de la ESCUELA sólo la crea quien organiza.
+    $estadoEscuela = null;
+
+    try {
+        $vistas->guardar(peticionCon([
+            'nombre' => 'Intento sin permiso',
+            'de_la_escuela' => '1',
+        ]), 'alumnos-inscritos');
+    } catch (AvisoParaElUsuario $e) {
+        $estadoEscuela = $e->getStatusCode();
+    }
+
+    // El global SÍ organiza, así que para probarlo hace falta alguien que no.
+    $sinOrganizar = usuarioConRol($rolPelado->name);
+    auth()->login($sinOrganizar);
+
+    $estadoEscuela = null;
+
+    try {
+        $vistas->guardar(peticionCon([
+            'nombre' => 'Intento sin permiso',
+            'de_la_escuela' => '1',
+        ]), 'alumnos-inscritos');
+    } catch (AvisoParaElUsuario $e) {
+        $estadoEscuela = $e->getStatusCode();
+    }
+
+    verificar('Sin permiso de organizar no se crea una vista de la escuela',
+        $estadoEscuela === 403, (string) $estadoEscuela);
+
+    // Y la vista de otro no se borra.
+    $estadoBorrar = null;
+
+    try {
+        $vistas->eliminar(peticionCon([]), $antigua);
+    } catch (AvisoParaElUsuario $e) {
+        $estadoBorrar = $e->getStatusCode();
+    }
+
+    verificar('La vista de otra persona no se elimina', $estadoBorrar === 403);
+    verificar('Y sigue ahí', VistaReporte::query()->whereKey($antigua->id)->exists());
+
+    /*
+     * Y ni siquiera se VE.
+     *
+     * No basta con que no se pueda borrar: si apareciera en la lista, cualquiera
+     * sabría qué reportes guarda cada quien y con qué nombres --y un nombre como
+     * «bajas por impago del campus norte» ya dice algo--. Faltaba esta
+     * comprobación: al quitar el filtro del scope, la suite seguía en verde.
+     */
+    $vistaPropia = VistaReporte::query()->create([
+        'reporte' => 'alumnos-inscritos',
+        'nombre' => 'Sólo mía, de nadie más',
+        'persona_id' => $sinOrganizar->persona_id,
+    ]);
+
+    $visiblesParaOtro = VistaReporte::query()
+        ->where('reporte', 'alumnos-inscritos')
+        ->visiblesPara($global)
+        ->pluck('nombre');
+
+    verificar('La vista privada de otra persona NO aparece en la lista',
+        ! $visiblesParaOtro->contains('Sólo mía, de nadie más'),
+        $visiblesParaOtro->implode(', '));
+
+    verificar('Pero su dueño sí la ve',
+        VistaReporte::query()->where('reporte', 'alumnos-inscritos')->visiblesPara($sinOrganizar)
+            ->pluck('nombre')->contains('Sólo mía, de nadie más'));
+
+    // Y la de la ESCUELA la ven los dos: es lo que la hace compartida.
+    verificar('La vista de la escuela la ven todos',
+        VistaReporte::query()->where('reporte', 'alumnos-inscritos')->visiblesPara($sinOrganizar)
+            ->pluck('nombre')->contains('Padrón completo'));
+
+    auth()->login($global);
+
+    echo PHP_EOL.'15. Predeterminada: una sola, y favoritos'.PHP_EOL;
+
+    foreach (['Primera propia', 'Segunda propia'] as $nombre) {
+        $vistas->guardar(peticionCon([
+            'nombre' => $nombre,
+            'columnas' => ['matricula'],
+            'predeterminada' => '1',
+        ]), 'alumnos-inscritos');
+    }
+
+    $predeterminadas = VistaReporte::query()
+        ->where('reporte', 'alumnos-inscritos')
+        ->where('persona_id', $global->persona_id)
+        ->where('predeterminada', true)
+        ->pluck('nombre');
+
+    verificar('Sólo queda UNA predeterminada por persona',
+        $predeterminadas->count() === 1, $predeterminadas->implode(', '));
+
+    verificar('Y es la última que se marcó',
+        $predeterminadas->first() === 'Segunda propia', (string) $predeterminadas->first());
+
+    // Favoritos: marcar y desmarcar por la misma puerta.
+    $vistas->favorito(peticionCon([]), 'alumnos-inscritos');
+
+    verificar('Se marca el favorito',
+        ReporteFavorito::query()->where('persona_id', $global->persona_id)->where('reporte', 'alumnos-inscritos')->exists());
+
+    $vistas->favorito(peticionCon([]), 'alumnos-inscritos');
+
+    verificar('Y se desmarca por la misma puerta',
+        ! ReporteFavorito::query()->where('persona_id', $global->persona_id)->where('reporte', 'alumnos-inscritos')->exists());
+
+    // Dos clics seguidos no revientan contra el índice único.
+    $vistas->favorito(peticionCon([]), 'alumnos-inscritos');
+    ReporteFavorito::query()->firstOrCreate(['persona_id' => $global->persona_id, 'reporte' => 'alumnos-inscritos']);
+
+    verificar('Marcarlo dos veces no duplica ni revienta',
+        ReporteFavorito::query()->where('persona_id', $global->persona_id)->where('reporte', 'alumnos-inscritos')->count() === 1);
 
     echo PHP_EOL.'Resultado: '.($verificaciones - $fallidas)." correctas, {$fallidas} fallidas".PHP_EOL;
 } finally {

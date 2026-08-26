@@ -28,6 +28,7 @@ use App\Http\Controllers\BuscadorAlumnosController;
 use App\Http\Controllers\BuscadorMatriculasController;
 use App\Http\Controllers\Reportes\ConfiguracionReportesController;
 use App\Http\Controllers\Reportes\ReporteController;
+use App\Http\Controllers\Reportes\VistaReporteController;
 use App\Http\Controllers\Disciplina\CatalogoConductaController;
 use App\Http\Controllers\Disciplina\IncidenciaController;
 use App\Http\Controllers\Disciplina\DocenteIncidenciaController;
@@ -1944,6 +1945,21 @@ Route::middleware([
                         Route::delete('areas/{area}', 'eliminarArea')->whereNumber('area')->name('areas.eliminar');
                         Route::put('reportes/{clave}', 'ubicarReporte')->name('reportes.ubicar');
                     });
+
+                /*
+                 * Vistas guardadas y favoritos. Van ANTES del comodin `{clave}`
+                 * por lo mismo que la configuracion: si no, `/reportes/vistas`
+                 * buscaria un reporte llamado «vistas».
+                 *
+                 * SIN permiso propio: una vista no concede acceso a nada --el
+                 * motor rehace el pipeline con el permiso de quien la ejecuta--,
+                 * asi que basta con poder entrar a la seccion.
+                 */
+                Route::controller(VistaReporteController::class)->group(function () {
+                    Route::delete('vistas/{vista}', 'eliminar')->whereNumber('vista')->name('vistas.eliminar');
+                    Route::post('{clave}/vistas', 'guardar')->name('vistas.guardar');
+                    Route::post('{clave}/favorito', 'favorito')->name('favorito');
+                });
 
                 Route::get('{clave}', 'ver')->name('ver');
                 Route::get('{clave}/descargar/{formato}', 'descargar')
