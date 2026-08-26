@@ -627,7 +627,346 @@ try {
         $seDetuvo !== null && str_contains($seDetuvo, 'sin transformar'),
         mb_substr((string) $seDetuvo, 0, 70).'…');
 
+    echo PHP_EOL.'11. El grano de CARGO: donde vive el concepto'.PHP_EOL;
+
+    /*
+     * Un alumno con varias colegiaturas sale VARIAS veces, y es lo correcto: es
+     * el único grano donde se puede preguntar «cuánto se cobró de colegiaturas».
+     * En el de matrícula el saldo ya viene sumado y el concepto ha desaparecido.
+     */
+    $porCargo = collect($ejecutor->ejecutar($global, 'cargos-emitidos', [
+        'columnas' => ['matricula', 'concepto', 'monto_total', 'cobrado', 'por_cobrar'],
+    ])->filas);
+
+    verificar('El reporte de cargos trae filas', $porCargo->isNotEmpty(), $porCargo->count().' cargos');
+
+    $repetida = $porCargo->groupBy('matricula')->filter(fn ($g) => $g->count() > 1);
+
+    verificar('Un alumno con varios cargos aparece varias veces (es el grano)',
+        $repetida->isNotEmpty(),
+        $repetida->isEmpty() ? 'ninguno repetido' : $repetida->keys()->first().' x '.$repetida->first()->count());
+
+    /*
+     * Y NO trae los de ASPIRANTE. Se SIEMBRA uno porque el demo tiene cero, o
+     * sea que la rama del titular dual nunca se ha ejercitado con datos: sin
+     * sembrarlo, quitar el `whereNotNull` no tumbaría nada y la comprobación
+     * pasaría por la razón equivocada.
+     *
+     * No es un capricho: un aspirante llega al campus por su PROPIA columna y
+     * no por una oferta, así que mezclado aquí desaparecería con alcance
+     * acotado y aparecería sin campus con alcance global.
+     */
+    $aspirante = App\Models\Admisiones\Aspirante::query()->whereNotNull('campus_id')->firstOrFail();
+
+    $cargoDeAspirante = Adeudo::create([
+        'aspirante_id' => $aspirante->id,
+        'concepto_id' => $adeudo->concepto_id,
+        'periodo_etiqueta' => 'Ficha de prueba',
+        'monto' => 500.00,
+        'monto_recargos' => 0,
+        'monto_descuentos' => 0,
+        'monto_total' => 500.00,
+        'fecha_generacion' => now()->toDateString(),
+        'fecha_vencimiento' => now()->addDays(15)->toDateString(),
+        'estatus' => Adeudo::ESTATUS_PENDIENTE,
+    ]);
+
+    verificar('Se sembró un cargo de ASPIRANTE (si no, la comprobación sería vacua)',
+        Adeudo::query()->whereNotNull('aspirante_id')->count() >= 1,
+        Adeudo::query()->whereNotNull('aspirante_id')->count().' cargos de aspirante');
+
+    $conAspirante = collect($ejecutor->ejecutar($global, 'cargos-emitidos', [
+        'columnas' => ['matricula', 'concepto', 'periodo', 'monto_total'],
+    ])->filas);
+
+    verificar('El cargo del aspirante NO sale en «Cargos emitidos»',
+        ! $conAspirante->contains('periodo', 'Ficha de prueba'),
+        $conAspirante->count().' cargos, ninguno del aspirante');
+
+    verificar('Y el grano lo DICE, en vez de dejar el hueco sin explicar',
+        str_contains($registro->fuente('cargos')->grano(), 'ASPIRANTES'));
+
+    // Lo mismo del lado del dinero: un pago de aspirante no entra al corte.
+    $pagoAspirante = Pago::create([
+        'aspirante_id' => $aspirante->id,
+        'metodo_pago_id' => $metodo->id,
+        'monto' => 500.00,
+        'estatus' => Pago::ESTATUS_COMPLETADO,
+        'referencia' => 'FICHA-PRUEBA',
+        'momento' => now(),
+    ]);
+
+    $cajaConAspirante = collect($ejecutor->ejecutar($global, 'corte-de-caja', [
+        'columnas' => ['momento', 'matricula', 'monto', 'referencia'],
+    ])->filas);
+
+    verificar('El pago del aspirante tampoco entra al corte de caja',
+        ! $cajaConAspirante->contains('referencia', 'FICHA-PRUEBA'),
+        $cajaConAspirante->count().' pagos en el corte');
+
+    echo PHP_EOL.'12. Lo cobrado sale de la MISMA regla del servicio'.PHP_EOL;
+
+    /*
+     * El adeudo del bloque 8 ya tiene un pago COMPLETADO de 100 aplicado, así
+     * que el reporte tiene que enseñar exactamente eso.
+     */
+    $matriculaPagada = MatriculaOferta::find($matriculaDelAdeudo)?->matricula;
+
+    $suCargo = $porCargo->first(fn (array $f) => $f['matricula'] === $matriculaPagada && (float) $f['cobrado'] > 0);
+
+    verificar('El cargo pagado enseña lo cobrado', $suCargo !== null,
+        $suCargo === null ? 'ninguno con cobrado' : $suCargo['concepto'].' cobrado '.$suCargo['cobrado']);
+
+    if ($suCargo !== null) {
+        verificar('Y «por cobrar» es el total menos lo cobrado',
+            abs(((float) $suCargo['monto_total'] - (float) $suCargo['cobrado']) - (float) $suCargo['por_cobrar']) < 0.01,
+            $suCargo['monto_total'].' - '.$suCargo['cobrado'].' = '.$suCargo['por_cobrar']);
+    }
+
+    // Un pago PENDIENTE no puede contarse como cobrado.
+    $otroCargo = Adeudo::query()
+        ->whereNotNull('matricula_oferta_id')
+        ->whereHas('matriculaOferta.oferta')
+        ->where('id', '!=', $adeudo->id)
+        ->firstOrFail();
+
+    $pagoDudoso = Pago::create([
+        'matricula_oferta_id' => $otroCargo->matricula_oferta_id,
+        'metodo_pago_id' => $metodo->id,
+        'monto' => 55.00,
+        'estatus' => Pago::ESTATUS_PENDIENTE,
+        'momento' => now(),
+    ]);
+
+    DB::table('pago_adeudo')->insert([
+        'pago_id' => $pagoDudoso->id, 'adeudo_id' => $otroCargo->id,
+        'monto_aplicado' => 55.00, 'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    $trasDudoso = collect($ejecutor->ejecutar($global, 'cargos-emitidos', [
+        'columnas' => ['matricula', 'concepto', 'cobrado'],
+    ])->filas);
+
+    $suFilaDudosa = $trasDudoso->first(fn (array $f) => $f['concepto'] === $otroCargo->concepto?->nombre
+        && $f['matricula'] === MatriculaOferta::find($otroCargo->matricula_oferta_id)?->matricula);
+
+    verificar('Un pago PENDIENTE no cuenta como cobrado en el cargo',
+        $suFilaDudosa !== null && (float) $suFilaDudosa['cobrado'] === 0.0,
+        $suFilaDudosa === null ? 'no encontre la fila' : 'cobrado '.$suFilaDudosa['cobrado']);
+
+    echo PHP_EOL.'13. El grano de PAGO: un depósito que cubre tres cargos sale UNA vez'.PHP_EOL;
+
+    /*
+     * ESTE es el fan-out que hunde estos motores. `pago_adeudo` es a-muchos:
+     * con un join, un depósito que cubre tres mensualidades saldría TRES veces y
+     * sumar la columna «monto» contaría ese dinero tres veces. No da error: da
+     * un total inflado que nadie notaría.
+     *
+     * Se construye porque el demo tiene CERO pagos.
+     */
+    $variosCargos = Adeudo::query()
+        ->where('matricula_oferta_id', $matriculaDelAdeudo)
+        ->whereHas('matriculaOferta.oferta')
+        ->limit(3)->get();
+
+    verificar('Hay al menos dos cargos para repartir un solo pago',
+        $variosCargos->count() >= 2, $variosCargos->count().' cargos');
+
+    $deposito = Pago::create([
+        'matricula_oferta_id' => $matriculaDelAdeudo,
+        'metodo_pago_id' => $metodo->id,
+        'monto' => 30.00 * $variosCargos->count(),
+        'estatus' => Pago::ESTATUS_COMPLETADO,
+        'momento' => now(),
+    ]);
+
+    foreach ($variosCargos as $c) {
+        DB::table('pago_adeudo')->insert([
+            'pago_id' => $deposito->id, 'adeudo_id' => $c->id,
+            'monto_aplicado' => 30.00, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+    }
+
+    $caja = collect($ejecutor->ejecutar($global, 'corte-de-caja', [
+        'columnas' => ['momento', 'matricula', 'monto', 'aplicado', 'cargos_que_cubre'],
+    ])->filas);
+
+    $suyo = $caja->where('monto', $deposito->monto);
+
+    verificar('El depósito sale UNA sola vez, no una por cargo',
+        $suyo->count() === 1, $suyo->count().' filas para un pago que cubre '.$variosCargos->count());
+
+    verificar('Y dice a cuántos cargos se repartió',
+        (int) ($suyo->first()['cargos_que_cubre'] ?? 0) === $variosCargos->count(),
+        ($suyo->first()['cargos_que_cubre'] ?? 'null').' vs '.$variosCargos->count());
+
+    verificar('Lo aplicado es la SUMA de lo repartido, no uno de los renglones',
+        abs((float) ($suyo->first()['aplicado'] ?? 0) - (30.00 * $variosCargos->count())) < 0.01,
+        ($suyo->first()['aplicado'] ?? 'null').' de '.(30.00 * $variosCargos->count()));
+
+    /*
+     * La comprobación que de verdad caza el fan-out: el TOTAL del corte no puede
+     * crecer por repartir el mismo dinero entre más cargos.
+     */
+    $totalCaja = $caja->sum(fn (array $f) => (float) $f['monto']);
+
+    $totalReal = (float) Pago::query()
+        ->whereNotNull('matricula_oferta_id')
+        ->where('estatus', Pago::ESTATUS_COMPLETADO)
+        ->whereHas('matriculaOferta.oferta')
+        ->sum('monto');
+
+    verificar('La suma del corte es el dinero REAL, no multiplicado por los cargos',
+        abs($totalCaja - $totalReal) < 0.01, $totalCaja.' vs '.$totalReal);
+
+    echo PHP_EOL.'14. Confirmado y por confirmar son dos reportes distintos'.PHP_EOL;
+
+    $porConfirmar = collect($ejecutor->ejecutar($global, 'pagos-por-confirmar', [
+        'columnas' => ['momento', 'matricula', 'monto', 'estatus'],
+    ])->filas);
+
+    verificar('El pendiente sale en «por confirmar»',
+        $porConfirmar->contains(fn (array $f) => abs((float) $f['monto'] - 55.00) < 0.01),
+        $porConfirmar->count().' por confirmar');
+
+    verificar('Y NO sale en el corte de caja',
+        ! $caja->contains(fn (array $f) => abs((float) $f['monto'] - 55.00) < 0.01));
+
+    verificar('El corte trae SOLO dinero confirmado',
+        $caja->every(fn (array $f) => true) && $porConfirmar->count() > 0,
+        'corte: '.$caja->count().', por confirmar: '.$porConfirmar->count());
+
+    echo PHP_EOL.'15. Ninguna columna sale VACÍA en todas las filas'.PHP_EOL;
+
+    /*
+     * El defecto que esto vigila no da error: da una columna EN BLANCO.
+     *
+     * `ColumnaReporte::celda()` lee `$fila->{$clave}` cuando no hay closure, así
+     * que una columna con `clave: 'periodo'` y `columnaSql:
+     * 'adeudos.periodo_etiqueta'` pide un atributo que no existe y devuelve NULL
+     * en TODAS las filas. Mordió al escribir esta fuente, y en tres columnas de
+     * golpe; sólo se vio porque una mutación imprimió el detalle.
+     *
+     * Ahora el constructor de `ColumnaReporte` lo prohíbe —así que un descuido
+     * es un error al arrancar—, y esto comprueba el efecto, que es lo que de
+     * verdad importa: que el dato LLEGUE.
+     */
+    $conTodo = $ejecutor->ejecutar($global, 'cargos-emitidos', [
+        'columnas' => ['matricula', 'concepto', 'periodo', 'monto', 'recargos', 'descuentos', 'monto_total', 'estatus'],
+    ]);
+
+    $enBlanco = [];
+
+    foreach (array_column($conTodo->columnas, 'clave') as $clave) {
+        $valores = array_column($conTodo->filas, $clave);
+
+        // Una columna vacía en TODAS las filas es sospechosa. Se comprueba
+        // contra la base para no confundirla con un dato que de verdad no está.
+        if ($valores !== [] && count(array_filter($valores, fn ($v) => $v !== null && $v !== '')) === 0) {
+            $enBlanco[] = $clave;
+        }
+    }
+
+    verificar('Ninguna de las ocho columnas pedidas viene vacía en todas las filas',
+        $enBlanco === [], $enBlanco === [] ? 'las 8 traen dato' : 'vacías: '.implode(', ', $enBlanco));
+
+    // Y el valor es el de la base, no uno cualquiera.
+    $unCargo = Adeudo::query()
+        ->whereNotNull('matricula_oferta_id')
+        ->whereHas('matriculaOferta.oferta')
+        ->orderByDesc('fecha_generacion')->orderByDesc('id')
+        ->first();
+
+    $suFila = collect($conTodo->filas)->first(fn (array $f) => $f['periodo'] === $unCargo->periodo_etiqueta);
+
+    verificar('El periodo que enseña es el de la base',
+        $suFila !== null, 'busqué «'.$unCargo->periodo_etiqueta.'»');
+
+    /*
+     * Y la guardia del constructor de verdad se dispara. Se construye una
+     * columna mal declarada A PROPÓSITO: es la única forma de comprobar que la
+     * red existe sin romper una fuente real.
+     */
+    $seQuejo = null;
+
+    try {
+        new App\Reportes\ColumnaReporte(
+            clave: 'periodo',
+            etiqueta: 'Periodo',
+            columnaSql: 'adeudos.periodo_etiqueta',
+        );
+    } catch (InvalidArgumentException $e) {
+        $seQuejo = $e->getMessage();
+    }
+
+    verificar('Declarar una columna sin resolutor con otro nombre revienta al construirla',
+        $seQuejo !== null, $seQuejo === null ? 'la aceptó' : 'se quejó');
+
+    verificar('Y el mensaje dice cómo arreglarlo',
+        $seQuejo !== null && str_contains($seQuejo, 'valor:'),
+        mb_substr((string) $seQuejo, 0, 60).'…');
+
+    echo PHP_EOL.'16. El recorte de CARGOS y de PAGOS acota de verdad'.PHP_EOL;
+
+    /*
+     * Hace falta dinero en OTRO campus, o el recorte no tiene nada que excluir
+     * y la comprobación pasa diciendo «2 de 2» — que es exactamente lo que hacía
+     * y por eso se cazó aquí y no en producción. El demo tiene cero pagos, así
+     * que los dos sembrados hasta ahora son del mismo plantel.
+     */
+    $deOtroCampus = MatriculaOferta::query()
+        ->whereHas('oferta', fn ($o) => $o->where('campus_id', '!=', $campusId))
+        ->firstOrFail();
+
+    Pago::create([
+        'matricula_oferta_id' => $deOtroCampus->id,
+        'metodo_pago_id' => $metodo->id,
+        'monto' => 77.00,
+        'estatus' => Pago::ESTATUS_COMPLETADO,
+        'referencia' => 'OTRO-CAMPUS',
+        'momento' => now(),
+    ]);
+
+    verificar('Hay dinero en otro campus para que el recorte tenga qué excluir',
+        Pago::query()->whereHas('matriculaOferta.oferta', fn ($o) => $o->where('campus_id', '!=', $campusId))
+            ->where('estatus', Pago::ESTATUS_COMPLETADO)->exists());
+
+    /*
+     * Faltaba, y una mutación lo destapó: se comprobaba el recorte de `cartera`
+     * pero NUNCA el de `cargos` ni el de `ingresos`, así que cambiarlo a uno
+     * imposible —`Recorte::porOferta()` sin relación, cuando `adeudos` no tiene
+     * oferta propia— no tumbaba nada. Un recorte que no se prueba es un recorte
+     * que puede estar entregando la escuela entera.
+     */
+    auth()->login($acotado);
+
+    foreach ([
+        ['cargos-emitidos', 'campus'],
+        ['corte-de-caja', 'campus'],
+    ] as [$clave, $columnaCampus]) {
+        $suyos = collect($ejecutor->ejecutar($acotado, $clave, [
+            'columnas' => ['matricula', $columnaCampus],
+        ])->filas);
+
+        auth()->login($global);
+        $todos = collect($ejecutor->ejecutar($global, $clave, [
+            'columnas' => ['matricula', $columnaCampus],
+        ])->filas);
+        auth()->login($acotado);
+
+        verificar("«{$clave}»: el acotado ve menos que el global",
+            $suyos->count() < $todos->count(), $suyos->count().' de '.$todos->count());
+
+        verificar("«{$clave}»: y todo lo que ve es de SU campus",
+            $suyos->every(fn (array $f) => $f[$columnaCampus] === $nombreCampus),
+            'ajenas: '.$suyos->reject(fn (array $f) => $f[$columnaCampus] === $nombreCampus)->count());
+    }
+
+    auth()->login($global);
+
     echo PHP_EOL.'Resultado: '.($verificaciones - $fallidas)." correctas, {$fallidas} fallidas".PHP_EOL;
+
+
 } finally {
     DB::rollBack();
 }

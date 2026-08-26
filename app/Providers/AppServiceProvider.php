@@ -45,11 +45,17 @@ use App\Panel\Tarjetas\PostulantesEnProceso;
 use App\Panel\Tarjetas\ProspectosPorContactar;
 use App\Reportes\Definiciones\AlumnosInscritos;
 use App\Reportes\Definiciones\BloqueadosPorAdeudo;
+use App\Reportes\Definiciones\CargosEmitidos;
+use App\Reportes\Definiciones\Condonaciones;
+use App\Reportes\Definiciones\CorteDeCaja;
 use App\Reportes\Definiciones\CarteraVencida;
 use App\Reportes\Definiciones\EstadoDeCartera;
+use App\Reportes\Definiciones\PagosPorConfirmar;
 use App\Reportes\Definiciones\BajasDeAlumnos;
 use App\Reportes\Definiciones\EgresadosPorGeneracion;
+use App\Reportes\Fuentes\Cargos;
 use App\Reportes\Fuentes\Cartera;
+use App\Reportes\Fuentes\Ingresos;
 use App\Reportes\Fuentes\Matriculas;
 use App\Reportes\RegistroReportes;
 use App\Services\Cfdi\FacturapiPac;
@@ -326,6 +332,8 @@ class AppServiceProvider extends ServiceProvider
             foreach ([
                 Matriculas::class,
                 Cartera::class,
+                Cargos::class,
+                Ingresos::class,
             ] as $fuente) {
                 $registro->registrarFuente($fuente);
             }
@@ -337,6 +345,10 @@ class AppServiceProvider extends ServiceProvider
                 CarteraVencida::class,
                 EstadoDeCartera::class,
                 BloqueadosPorAdeudo::class,
+                CargosEmitidos::class,
+                Condonaciones::class,
+                CorteDeCaja::class,
+                PagosPorConfirmar::class,
             ] as $reporte) {
                 $registro->registrarReporte($reporte);
             }

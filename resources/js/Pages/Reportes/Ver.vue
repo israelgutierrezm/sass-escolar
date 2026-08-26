@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
+
+import { celdaReporte, type TipoDato } from '@/utils/celdaReporte';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Paginacion from '@/Components/Paginacion.vue';
@@ -390,7 +392,7 @@ function claseAlineacion(a: string): string {
                                 :key="c.clave"
                                 class="px-4 py-2"
                                 :class="claseAlineacion(c.alineacion)"
-                            >{{ fila[c.clave] ?? '—' }}</td>
+                            >{{ celdaReporte(fila[c.clave], c.tipo as TipoDato) }}</td>
                         </tr>
                     </tbody>
                 </table>

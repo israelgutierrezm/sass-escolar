@@ -55,6 +55,35 @@ final readonly class ColumnaReporte
         if ($ordenable && $columnaSql === null) {
             throw new InvalidArgumentException("La columna «{$clave}» se declara ordenable pero no dice por qué columna SQL.");
         }
+
+        /*
+         * Sin resolutor, la CLAVE tiene que ser el nombre del atributo.
+         *
+         * `celda()` lee `$fila->{$clave}` cuando no hay closure, así que una
+         * columna con `clave: 'periodo'` y `columnaSql: 'adeudos.periodo_etiqueta'`
+         * pide un atributo que no existe y devuelve **NULL en todas las filas**.
+         * No lanza nada: la columna sale EN BLANCO en la pantalla y en el Excel,
+         * y quien lo reciba pensará que ese dato no está capturado.
+         *
+         * Mordió al escribir la fuente de cargos, y en tres columnas de golpe
+         * —periodo, recargos y descuentos—; sólo se vio porque una mutación
+         * imprimió el detalle. Comprobarlo aquí lo convierte en un error al
+         * arrancar la aplicación, no en un archivo mudo entregado a la SEP.
+         *
+         * La salida cuando los nombres no pueden coincidir —porque la clave es
+         * la que guardan las vistas y no se renombra— es escribir la closure.
+         */
+        if ($valor === null && $columnaSql !== null) {
+            $atributo = str_contains($columnaSql, '.') ? explode('.', $columnaSql)[1] : $columnaSql;
+
+            if ($atributo !== $clave) {
+                throw new InvalidArgumentException(
+                    "La columna «{$clave}» saca «{$columnaSql}» y no tiene resolutor, así que leería el "
+                    ."atributo «{$clave}», que no existe: saldría vacía en todas las filas. Ponle "
+                    ."`valor: fn (\$f) => \$f->{$atributo}` o llámala «{$atributo}»."
+                );
+            }
+        }
     }
 
     /** La alineación sale del TIPO: los números a la derecha, el texto a la izquierda. */

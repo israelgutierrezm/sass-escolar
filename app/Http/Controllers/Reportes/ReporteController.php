@@ -111,6 +111,17 @@ class ReporteController extends Controller
             'columnas' => array_map(fn (ColumnaReporte $c) => [
                 'clave' => $c->clave,
                 'etiqueta' => $c->etiqueta,
+                /*
+                 * El TIPO viaja, no solo su consecuencia.
+                 *
+                 * Iba `alineacion` y no `tipo`, asi que la pantalla sabia hacia
+                 * que lado pegar el numero y NO como escribirlo: el dinero salia
+                 * «2750.00», «0» y «2750» en la misma fila --segun viniera del
+                 * SELECT como cadena o de una closure como numero-- y una fecha
+                 * salia «2026-08-05T06:00:00.000000Z». Ninguna de las dos cosas
+                 * da error; se ven mirando la pantalla.
+                 */
+                'tipo' => $c->tipo->value,
                 'alineacion' => $c->alineacion(),
                 'ordenable' => $c->ordenable,
             ], $resultado->columnas),
