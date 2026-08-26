@@ -45,6 +45,7 @@ use App\Panel\Tarjetas\PostulantesEnProceso;
 use App\Panel\Tarjetas\ProspectosPorContactar;
 use App\Reportes\Definiciones\AlumnosInscritos;
 use App\Reportes\Definiciones\BloqueadosPorAdeudo;
+use App\Reportes\Definiciones\CargaAcademicaDelCiclo;
 use App\Reportes\Definiciones\CargosEmitidos;
 use App\Reportes\Definiciones\Condonaciones;
 use App\Reportes\Definiciones\CorteDeCaja;
@@ -63,6 +64,7 @@ use App\Reportes\Definiciones\PagosPorConfirmar;
 use App\Reportes\Definiciones\BajasDeAlumnos;
 use App\Reportes\Definiciones\EgresadosPorGeneracion;
 use App\Reportes\Fuentes\Aspirantes;
+use App\Reportes\Fuentes\CargaAcademica;
 use App\Reportes\Fuentes\Cargos;
 use App\Reportes\Fuentes\Cartera;
 use App\Reportes\Fuentes\Docentes;
@@ -349,6 +351,7 @@ class AppServiceProvider extends ServiceProvider
                 Grupos::class,
                 Aspirantes::class,
                 Docentes::class,
+                CargaAcademica::class,
             ] as $fuente) {
                 $registro->registrarFuente($fuente);
             }
@@ -378,6 +381,7 @@ class AppServiceProvider extends ServiceProvider
                 PlantillaDocente::class,
                 DocentesSinCarga::class,
                 DocentesSinCedula::class,
+                CargaAcademicaDelCiclo::class,
             ] as $reporte) {
                 $registro->registrarReporte($reporte);
             }

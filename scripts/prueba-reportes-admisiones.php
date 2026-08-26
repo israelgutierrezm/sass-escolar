@@ -416,8 +416,18 @@ try {
      */
     $porLaRelacion = Docente::withCount('asignaturasGrupo')->find($docente->persona_id)->asignaturas_grupo_count;
 
-    verificar('La relación del modelo SÍ cuenta la retirada (por eso no se usa)',
-        $porLaRelacion > (int) $retirado['materias'],
+    /*
+     * Y ahora la RELACIÓN da el mismo número, que es lo correcto.
+     *
+     * Esta comprobación decía lo contrario —«la relación SÍ cuenta la retirada,
+     * por eso no se usa»— y era cierto hasta que la asignación pasó a retirarse
+     * con baja lógica: entonces  ganó su  y
+     * el listado de docentes dejó de enseñar una carga que ya no existe. Se deja
+     * fijado que las dos cifras coinciden, porque el defecto sería que
+     * volvieran a separarse.
+     */
+    verificar('La relación del modelo da el MISMO número que el reporte',
+        $porLaRelacion === (int) $retirado['materias'],
         'relación: '.$porLaRelacion.', reporte: '.$retirado['materias']);
 
     echo PHP_EOL.'8. El grano del docente tampoco se multiplica'.PHP_EOL;

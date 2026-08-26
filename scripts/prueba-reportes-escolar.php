@@ -182,12 +182,19 @@ try {
         (int) $retirado['sin_titular'] === (int) $antes['sin_titular'],
         $conTitular['sin_titular'].' -> '.$retirado['sin_titular'].' (esperado '.$antes['sin_titular'].')');
 
-    // Y se comprueba que la RELACIÓN del modelo sí se la traga, que es la razón
-    // de escribir el `whereNull` a mano en vez de apoyarse en ella.
+    /*
+     * Y la RELACIÓN da el mismo número que la subconsulta.
+     *
+     * Esto decía lo contrario —«la relación SÍ devuelve la retirada, por eso no
+     * se usa»— y era cierto hasta que la asignación pasó a retirarse con baja
+     * lógica: entonces `AsignaturaGrupo::docentes()` ganó su `wherePivotNull`,
+     * que además es lo que impide que un docente retirado siga entrando a su
+     * aula. El defecto ahora sería que las dos cifras se separaran.
+     */
     $porLaRelacion = AsignaturaGrupo::with('docentes')->find($materia->id)->docentes->count();
 
-    verificar('La relación del modelo SÍ devuelve la retirada (por eso no se usa)',
-        $porLaRelacion >= 1, $porLaRelacion.' docentes según la relación, 0 vivos en la tabla');
+    verificar('La relación del modelo tampoco cuenta la retirada',
+        $porLaRelacion === 0, $porLaRelacion.' docentes según la relación');
 
     echo PHP_EOL.'3. El grano no se multiplica'.PHP_EOL;
 

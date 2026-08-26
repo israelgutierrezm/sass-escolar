@@ -151,7 +151,18 @@ try {
             }
 
             $opciones = $filtro->opcionesPara($usuario);
-            $valores[$clave] = (string) array_key_first($opciones);
+            $primera = (string) array_key_first($opciones);
+
+            /*
+             * Respetando el TIPO del filtro: uno de lista MÚLTIPLE espera un
+             * arreglo y rechaza un escalar con «v debe ser una lista». La
+             * primera versión mandaba siempre una cadena y contaba esa negativa
+             * —que es correcta— como si el reporte estuviera roto.
+             */
+            $valores[$clave] = $filtro->tipo === App\Reportes\TipoFiltro::ListaMultiple
+                ? [$primera]
+                : $primera;
+
             $conObligatorios[$reporte->clave()] = $clave;
         }
 

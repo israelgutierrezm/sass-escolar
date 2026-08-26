@@ -63,7 +63,13 @@ class Docente extends Model
             ->withTimestamps();
     }
 
-    /** Materias que imparte, con su tipo (titular/adjunto) en el pivote. */
+    /**
+     * Materias que imparte HOY, con su tipo (titular/adjunto) en el pivote.
+     *
+     * Las RETIRADAS quedan fuera: desde que la asignación se puede dar de baja
+     * lógica, contarlas haría que el listado de docentes enseñara una carga que
+     * ya no tiene —y `destroy()` se negara a dar de baja a quien no imparte nada—.
+     */
     public function asignaturasGrupo(): BelongsToMany
     {
         return $this->belongsToMany(
@@ -71,7 +77,7 @@ class Docente extends Model
             'docente_asignatura_grupo',
             'persona_id',
             'asignatura_grupo_id'
-        )->withPivot('tipo')->withTimestamps();
+        )->withPivot('tipo')->wherePivotNull('deleted_at')->withTimestamps();
     }
 
     /**

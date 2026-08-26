@@ -295,7 +295,21 @@ class AsignaturaGrupoController extends Controller
     {
         abort_unless($asignatura->grupo_id === $grupo->id, 404);
 
-        $asignatura->docentes()->detach($personaId);
+        /*
+         * Se MARCA, no se borra.
+         *
+         * `detach()` tiraba la fila, así que de quien dio una materia durante
+         * medio semestre y dejó de darla no quedaba ni rastro —mientras el acta
+         * que firmó sigue nombrándolo—. La tabla siempre declaró
+         * `$table->auditoria()`; lo que faltaba era poder usarlo: con la llave
+         * compuesta vieja, la fila retirada seguía ocupando el par y volver a
+         * asignarle esa materia reventaba con `Duplicate entry` PARA SIEMPRE.
+         * La llave sustituta y el único con `deleted_at` lo destrabaron.
+         */
+        $asignatura->docentes()->updateExistingPivot($personaId, [
+            'deleted_at' => now(),
+            'updated_by' => auth()->id(),
+        ]);
 
         return back()->with('exito', 'Docente retirado.');
     }

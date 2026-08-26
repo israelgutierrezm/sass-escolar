@@ -29,13 +29,12 @@ use Illuminate\Support\Facades\DB;
  * son un CONTEO suyo, nunca filas: desplegarlas convertiría «nueve docentes» en
  * «veintitrés», que es el error de conteo que no avisa.
  *
- * ── La carga se cuenta filtrando la asignación RETIRADA ──────────────────
- * `Docente::asignaturasGrupo()` NO filtra `docente_asignatura_grupo.deleted_at`
- * —comprobado en su SQL—, así que el `withCount` que hoy enseña
- * `/escolar/docentes` incluye materias que ya se le quitaron. Aquí se escribe
- * explícito, igual que en {@see Grupos}. Que la pantalla y el reporte den
- * números distintos es una consecuencia conocida de esto y está anotada como
- * deuda: el arreglo es corregir la relación, no copiar su defecto.
+ * ── La carga NO cuenta las asignaciones retiradas ────────────────────────
+ * Desde la migración `2026_08_26_090000` una asignación se retira con baja
+ * lógica en vez de borrarse. `Docente::asignaturasGrupo()` filtra lo retirado
+ * —y por eso el listado de docentes y este reporte dan el MISMO número—, pero
+ * esta subconsulta va contra la tabla en crudo y no hereda ese filtro: el
+ * `whereNull` se escribe a mano, igual que en {@see Grupos}.
  *
  * ── Lo que NO se ofrece ──────────────────────────────────────────────────
  *  - **Horas frente a grupo.** `horarios_asignatura_grupo` está VACÍA en el
@@ -186,8 +185,8 @@ class Docentes implements FuenteDeReporte
                 columnaSql: 'carga.materias',
                 ordenable: true,
                 ancho: 9,
-                ayuda: 'Materias vivas que imparte en el ciclo elegido. NO cuenta las asignaciones que '
-                    .'ya se le retiraron, al revés que el listado de docentes.',
+                ayuda: 'Materias vivas que imparte en el ciclo elegido. Las asignaciones retiradas no '
+                    .'cuentan, igual que en el listado de docentes.',
             ),
             'grupos' => new ColumnaReporte(
                 clave: 'grupos',
@@ -295,8 +294,8 @@ class Docentes implements FuenteDeReporte
         $carga = DB::table('docente_asignatura_grupo as dag')
             ->join('asignatura_grupo as ag', 'ag.id', '=', 'dag.asignatura_grupo_id')
             ->join('grupos as g', 'g.id', '=', 'ag.grupo_id')
-            // Las RETIRADAS no cuentan. La relación del modelo no lo filtra, y
-            // por eso este conteo puede no coincidir con el del listado.
+            // Las RETIRADAS no cuentan. Va contra la tabla en crudo, así que el
+            // filtro de la relación no llega hasta aquí.
             ->whereNull('dag.deleted_at')
             ->whereNull('ag.deleted_at')
             ->whereNull('g.deleted_at')

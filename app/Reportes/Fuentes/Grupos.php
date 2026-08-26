@@ -33,14 +33,14 @@ use Illuminate\Support\Facades\DB;
  * distintas del mismo grupo y nadie sabría cuál creer; era una consulta privada
  * dentro de un controlador hasta que se subió al modelo precisamente para esto.
  *
- * ── LA TRAMPA DEL `deleted_at` QUE NADIE FILTRA ──────────────────────────
- * `docente_asignatura_grupo` TIENE columna `deleted_at`, pero
- * `AsignaturaGrupo::docentes()` es un `belongsToMany(...)->withPivot('tipo')`
- * **sin `wherePivotNull('deleted_at')`**: la relación devuelve también las
- * asignaciones RETIRADAS. Un docente al que se le quitó la materia seguiría
- * contando como titular, y «materias sin titular» —que es una cola de trabajo—
- * diría cero cuando hay tres. Por eso las subconsultas de esta fuente lo
- * escriben explícito en vez de apoyarse en la relación.
+ * ── POR QUÉ EL `deleted_at` SE ESCRIBE EXPLÍCITO ─────────────────────────
+ * Una asignación docente se RETIRA con baja lógica desde la migración
+ * `2026_08_26_090000` —antes se borraba, y de quien dio una materia medio
+ * semestre no quedaba rastro—. `AsignaturaGrupo::docentes()` ya filtra lo
+ * retirado, pero estas subconsultas van contra la tabla en crudo y por ahí no
+ * pasa ninguna relación: sin el `whereNull`, un docente al que se le quitó la
+ * materia seguiría contando como titular y «materias sin titular» —que es una
+ * cola de trabajo— diría cero cuando hay tres.
  */
 class Grupos implements FuenteDeReporte
 {
@@ -279,9 +279,9 @@ class Grupos implements FuenteDeReporte
              * subconsulta: son la misma tabla y separarlas costaría dos barridos
              * de `asignatura_grupo` para contestar dos preguntas del mismo sitio.
              *
-             * El `dag.deleted_at is null` es lo que hace cierto el conteo: la
-             * relación `docentes()` del modelo NO lo filtra, así que una
-             * asignación RETIRADA seguiría contando como titular.
+             * El `dag.deleted_at is null` es lo que hace cierto el conteo: esto
+             * va contra la tabla en crudo, así que no hereda el filtro de la
+             * relación y una asignación RETIRADA contaría como titular.
              */
             ->leftJoinSub(
                 DB::table('asignatura_grupo as ag')

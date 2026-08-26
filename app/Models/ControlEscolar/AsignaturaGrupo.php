@@ -61,6 +61,18 @@ class AsignaturaGrupo extends Model
     }
 
     /** Docentes de la materia, con su tipo (titular/adjunto) en el pivote. */
+    /**
+     * Sus docentes VIGENTES. Los retirados no cuentan.
+     *
+     * ── El `wherePivotNull` no es cosmético ───────────────────────────────
+     * Retirar a un docente de una materia dejó de borrar la fila y pasa a
+     * marcarla —el rastro de quién dio qué es historia escolar—. Por esta
+     * relación pasan cuatro caminos de AUTORIZACIÓN
+     * —`AutorizaMateriaPropia`, `DocenciaController`, `EntrarAClaseController`
+     * y `SalaDeMateria`—, así que sin filtrar, a quien se le quitó la materia
+     * seguiría entrando a su aula, capturando sus calificaciones y abriendo su
+     * clase en línea.
+     */
     public function docentes(): BelongsToMany
     {
         return $this->belongsToMany(
@@ -68,7 +80,18 @@ class AsignaturaGrupo extends Model
             'docente_asignatura_grupo',
             'asignatura_grupo_id',
             'persona_id'
-        )->withPivot('tipo')->withTimestamps();
+        )->withPivot('tipo')->wherePivotNull('deleted_at')->withTimestamps();
+    }
+
+    /** Incluidos los retirados: para el historial, nunca para autorizar. */
+    public function docentesHistoricos(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Docente::class,
+            'docente_asignatura_grupo',
+            'asignatura_grupo_id',
+            'persona_id'
+        )->withPivot('tipo', 'deleted_at')->withTimestamps();
     }
 
     /** El docente titular: el único que puede firmar el acta. */
