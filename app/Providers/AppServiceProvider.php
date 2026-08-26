@@ -50,11 +50,14 @@ use App\Reportes\Definiciones\Condonaciones;
 use App\Reportes\Definiciones\CorteDeCaja;
 use App\Reportes\Definiciones\CarteraVencida;
 use App\Reportes\Definiciones\EstadoDeCartera;
+use App\Reportes\Definiciones\MateriasSinTitular;
+use App\Reportes\Definiciones\OcupacionDeGrupos as ReporteOcupacionDeGrupos;
 use App\Reportes\Definiciones\PagosPorConfirmar;
 use App\Reportes\Definiciones\BajasDeAlumnos;
 use App\Reportes\Definiciones\EgresadosPorGeneracion;
 use App\Reportes\Fuentes\Cargos;
 use App\Reportes\Fuentes\Cartera;
+use App\Reportes\Fuentes\Grupos;
 use App\Reportes\Fuentes\Ingresos;
 use App\Reportes\Fuentes\Matriculas;
 use App\Reportes\RegistroReportes;
@@ -334,6 +337,7 @@ class AppServiceProvider extends ServiceProvider
                 Cartera::class,
                 Cargos::class,
                 Ingresos::class,
+                Grupos::class,
             ] as $fuente) {
                 $registro->registrarFuente($fuente);
             }
@@ -349,6 +353,13 @@ class AppServiceProvider extends ServiceProvider
                 Condonaciones::class,
                 CorteDeCaja::class,
                 PagosPorConfirmar::class,
+                // Con alias: la TARJETA del panel se llama igual. Las dos
+                // contestan lo mismo y usan el mismo `Grupo::scopeConAlumnos()`,
+                // asi que no divergen; lo unico que cambia es que la tarjeta
+                // tope la barra al 100 % y el reporte no --un grupo con sobrecupo
+                // tiene que poder decir 110 %--.
+                ReporteOcupacionDeGrupos::class,
+                MateriasSinTitular::class,
             ] as $reporte) {
                 $registro->registrarReporte($reporte);
             }

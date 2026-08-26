@@ -62,10 +62,32 @@ final readonly class Recorte
         return new self(self::POR_COLUMNA, ['columna' => $columna]);
     }
 
-    /** Llega por una relación de muchos a muchos: docentes. */
-    public static function porRelacion(string $relacion = 'campus'): self
+    /**
+     * Llega por una relación: docentes por sus campus, un curso por su grupo.
+     *
+     * ── `incluirSinAsignar` se PIDE, no se regala ─────────────────────────
+     * Iba siempre con `orWhereDoesntHave`, y eso perdona TRES cosas a la vez
+     * cuando la relación es una cadena: que no haya campus asignado, que el
+     * campus esté dado de baja lógica, y que **un eslabón intermedio esté dado
+     * de baja**. Lo tercero es una operación normal —dar de baja un grupo—, así
+     * que no hacía falta ninguna referencia rota para que una fila se colara:
+     * pasaba para TODOS los campus, que es la fuga que este objeto existe para
+     * impedir.
+     *
+     * `porColumnaPropia` perdona UNA cosa y sólo una —`campus_id` en null— y ahí
+     * está bien: un aspirante que todavía no eligió plantel no es de nadie y
+     * esconderlo lo convertiría en un prospecto que nadie atiende. Aquí no es lo
+     * mismo, y por eso la tolerancia es un argumento con nombre que la fuente
+     * tiene que escribir a propósito.
+     *
+     * @param  bool  $incluirSinAsignar  deja pasar lo que no completa la cadena, para todos los campus
+     */
+    public static function porRelacion(string $relacion = 'campus', bool $incluirSinAsignar = false): self
     {
-        return new self(self::POR_RELACION, ['relacion' => $relacion]);
+        return new self(self::POR_RELACION, [
+            'relacion' => $relacion,
+            'sin_asignar' => $incluirSinAsignar,
+        ]);
     }
 
     /** Personal: el campus sale de su adscripción vigente. */
@@ -116,9 +138,14 @@ final readonly class Recorte
                 // no eligió a dónde entrar no es de nadie, y esconderlo de todo
                 // el mundo lo convierte en un prospecto que nadie atiende.
                 ->orWhereNull($this->args['columna'])),
-            self::POR_RELACION => $consulta->where(fn (Builder $q) => $q
-                ->whereHas($this->args['relacion'], fn (Builder $c) => $c->whereIn('campus.id', $campus))
-                ->orWhereDoesntHave($this->args['relacion'])),
+            self::POR_RELACION => $consulta->where(function (Builder $q) use ($campus) {
+                $q->whereHas($this->args['relacion'], fn (Builder $c) => $c->whereIn('campus.id', $campus));
+
+                // Sólo si la fuente lo pidió: ver el docblock de `porRelacion`.
+                if ($this->args['sin_asignar'] ?? false) {
+                    $q->orWhereDoesntHave($this->args['relacion']);
+                }
+            }),
             self::POR_ADSCRIPCION => $consulta->whereHas(
                 $this->args['relacion'],
                 fn (Builder $a) => $a->whereIn('campus_id', $campus),

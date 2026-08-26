@@ -37,6 +37,15 @@ const MONEDA = new Intl.NumberFormat('es-MX', {
 const DECIMAL = new Intl.NumberFormat('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const ENTERO = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
 
+/*
+ * El porcentaje NO fuerza dos decimales.
+ *
+ * El servidor redondea la ocupacion a UNO, asi que pintar «6.70 %» inventa un
+ * digito de precision que el dato no tiene, y «0.00 %» pesa mas que «0 %» sin
+ * decir nada mas.
+ */
+const PORCENTAJE = new Intl.NumberFormat('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 1 });
+
 /**
  * Una fecha del servidor, en formato mexicano.
  *
@@ -99,7 +108,7 @@ export function celdaReporte(valor: unknown, tipo: TipoDato): string {
 
         if (tipo === 'dinero') return MONEDA.format(n);
         if (tipo === 'entero') return ENTERO.format(n);
-        if (tipo === 'porcentaje') return `${DECIMAL.format(n)} %`;
+        if (tipo === 'porcentaje') return `${PORCENTAJE.format(n)} %`;
 
         return DECIMAL.format(n);
     }

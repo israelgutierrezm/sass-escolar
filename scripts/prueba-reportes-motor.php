@@ -932,9 +932,23 @@ try {
 
     $controlEscolar = collect($props['areas'])->firstWhere('clave', 'control-escolar');
 
+    /*
+     * Se compara contra el REGISTRO, no contra un número escrito.
+     *
+     * Decía «=== 3» y se cayó en cuanto se agregó la primera fuente de control
+     * escolar: es la segunda comprobación de esta suite que un conteo fijo
+     * convierte en roja sin señalar ningún defecto. Lo que se vigila es que la
+     * cuenta incluya los reportes que viven ahí POR OMISIÓN, y eso se mide
+     * contra lo que el registro declara.
+     */
+    $deControlEscolar = count(array_filter(
+        $registro->todos(),
+        fn ($r) => $r->areaSugerida() === 'control-escolar',
+    ));
+
     verificar('Un área cuenta los reportes que viven en ella por omisión',
-        ($controlEscolar['cuantos'] ?? 0) === 3,
-        'cuenta '.($controlEscolar['cuantos'] ?? 'null'));
+        ($controlEscolar['cuantos'] ?? 0) === $deControlEscolar,
+        'cuenta '.($controlEscolar['cuantos'] ?? 'null').' y el registro declara '.$deControlEscolar);
 
     $vacia = collect($props['areas'])->firstWhere('clave', 'movilidad');
 
