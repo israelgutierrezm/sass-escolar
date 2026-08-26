@@ -280,6 +280,30 @@ function claseAlineacion(a: string): string {
                         <option v-for="(etiqueta, valor) in f.opciones" :key="valor" :value="valor">{{ etiqueta }}</option>
                     </select>
 
+                    <!--
+                        Un si/no es una CASILLA, no una caja de texto.
+                        Se dibujaba con `type="text"` porque hasta la fuente de
+                        cartera no habia ningun filtro booleano: quien lo viera
+                        tendria que adivinar que se escribe «1» dentro. Y va
+                        `false` explicito y no vacio, porque el motor solo salta
+                        null, cadena vacia y arreglo vacio -- un `false` SI llega
+                        a la closure del filtro.
+                    -->
+                    <label
+                        v-else-if="f.tipo === 'booleano'"
+                        class="flex items-center gap-2 py-1.5 text-sm"
+                        :class="filtrosFijos.includes(f.clave) ? 'opacity-60' : 'cursor-pointer'"
+                    >
+                        <input
+                            type="checkbox"
+                            class="h-4 w-4 rounded border-borde"
+                            :disabled="filtrosFijos.includes(f.clave)"
+                            :checked="filtrosFijos.includes(f.clave)"
+                            @change="valores[f.clave] = ($event.target as HTMLInputElement).checked ? '1' : ''"
+                        />
+                        <span>Sí</span>
+                    </label>
+
                     <input
                         v-else
                         :type="f.tipo === 'fecha' ? 'date' : 'text'"

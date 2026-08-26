@@ -331,9 +331,19 @@ try {
 
     echo PHP_EOL.'8. El registro sólo ofrece lo que la persona puede ver'.PHP_EOL;
 
-    verificar('El director ve los tres reportes',
-        count($registro->para($global)) === 3,
-        (string) count($registro->para($global)));
+    /*
+     * Se comprueba POR CLAVE y no por CANTIDAD.
+     *
+     * Decía «=== 3» y se cayó en cuanto se agregó la primera fuente de
+     * finanzas: un conteo fijo convierte cada reporte nuevo en una suite roja
+     * que no señala ningún defecto. Lo que importa es que estén los que tiene
+     * que ver, no cuántos hay.
+     */
+    $suyos = array_map(fn ($r) => $r->clave(), $registro->para($global));
+
+    verificar('El director ve los reportes de matrículas',
+        array_diff(['alumnos-inscritos', 'bajas-de-alumnos', 'egresados-por-generacion'], $suyos) === [],
+        implode(', ', $suyos));
 
     // Una clave desconocida es 404, no 403: un 403 ya confirma que existe.
     $estado = null;

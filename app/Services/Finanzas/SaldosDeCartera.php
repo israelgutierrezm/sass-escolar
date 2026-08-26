@@ -44,13 +44,55 @@ class SaldosDeCartera
      */
     private function aplicados(): Builder
     {
+        return $this->reparto()
+            ->groupBy('pa.adeudo_id')
+            ->select('pa.adeudo_id', DB::raw('sum(pa.monto_aplicado) as aplicado'));
+    }
+
+    /**
+     * QUÉ CUENTA COMO PAGADO, sin agrupar todavía.
+     *
+     * ── Por qué es público y por qué está separado ────────────────────────
+     * La regla es una sola —pivote vivo, pago vivo, pago COMPLETADO— y este
+     * servicio existe justamente porque había estado escrita dos veces y ya
+     * había divergido. Las fuentes de reportes la necesitan desde los DOS lados
+     * de la misma tabla puente: «cuánto se ha cobrado de este adeudo» y «cuánto
+     * de este pago se repartió». Con `aplicados()` privado, la primera fuente
+     * que la necesitara la copiaría, y el servicio dejaría de ser el único sitio
+     * al día siguiente de haberse creado para eso.
+     *
+     * Se devuelve SIN `groupBy` ni `select` para que quien la use decida por
+     * cuál de las dos columnas agrupa. Lo que no se puede tocar es el criterio.
+     */
+    public function reparto(): Builder
+    {
         return DB::table('pago_adeudo as pa')
             ->join('pagos as p', 'p.id', '=', 'pa.pago_id')
             ->whereNull('pa.deleted_at')
             ->whereNull('p.deleted_at')
-            ->where('p.estatus', Pago::ESTATUS_COMPLETADO)
-            ->groupBy('pa.adeudo_id')
-            ->select('pa.adeudo_id', DB::raw('sum(pa.monto_aplicado) as aplicado'));
+            ->where('p.estatus', Pago::ESTATUS_COMPLETADO);
+    }
+
+    /**
+     * Cuánto se ha cobrado de UN adeudo, como subconsulta correlacionada.
+     *
+     * Va así y no con `Adeudo::montoAplicado()` porque aquél consulta POR FILA:
+     * en una exportación de cinco mil cargos son cinco mil consultas, y eso no
+     * se nota en pantalla —donde hay veinticinco— sino de madrugada.
+     */
+    public function aplicadoDeAdeudo(string $columnaAdeudo = 'adeudos.id'): Builder
+    {
+        return $this->reparto()
+            ->whereColumn('pa.adeudo_id', $columnaAdeudo)
+            ->selectRaw('coalesce(sum(pa.monto_aplicado), 0)');
+    }
+
+    /** La otra cara: cuánto de UN pago se repartió entre adeudos. */
+    public function aplicadoDePago(string $columnaPago = 'pagos.id'): Builder
+    {
+        return $this->reparto()
+            ->whereColumn('pa.pago_id', $columnaPago)
+            ->selectRaw('coalesce(sum(pa.monto_aplicado), 0)');
     }
 
     /** Los adeudos que siguen abiertos, con lo ya aplicado descontado. */

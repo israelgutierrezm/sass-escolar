@@ -172,10 +172,40 @@ class Ejecutor
             }
 
             $fin = $filas->last();
+            $anterior = $ultimo;
+
             $ultimo = [
                 'llave' => $fin->{$atributoLlave},
                 'orden' => $atributoOrden === null ? null : $fin->{$atributoOrden},
             ];
+
+            /*
+             * EL CURSOR TIENE QUE AVANZAR. Si no, se para y se dice por qué.
+             *
+             * El keyset compara el ATRIBUTO del ultimo modelo contra la COLUMNA
+             * del ORDER BY, asi que una fuente que declare `columnaSql: 'f.saldo'`
+             * y saque al SELECT `coalesce(f.saldo, 0) as saldo` esta comparando
+             * dos cosas distintas: el predicado no descarta el lote que acaba de
+             * emitir y el recorrido **repite las mismas filas para siempre**.
+             *
+             * Medido: con esa combinacion, una exportacion DESCENDENTE de 32
+             * matriculas emitio 161 filas y seguia. No es una truncadura —eso da
+             * un archivo corto— sino un CSV que crece sin fin y un trabajador
+             * que no termina nunca, de madrugada y sin nadie mirando.
+             *
+             * La regla que lo evita esta escrita en las fuentes (la columna
+             * ordenable viaja al SELECT sin transformar), pero una regla que solo
+             * vive en un comentario se rompe el dia que alguien escriba la fuente
+             * numero doce. Esto es la red: cuesta una comparacion por lote y
+             * convierte un cuelgue silencioso en un error que dice que arreglar.
+             */
+            if ($anterior !== null && $anterior == $ultimo) {
+                throw new \RuntimeException(
+                    "El recorrido del reporte no avanza: la columna de orden «{$columnaOrden}» no coincide "
+                    ."con lo que la fuente saca al SELECT. Sácala sin transformar —el `coalesce` va en la "
+                    ."closure `valor`, no en el SQL— o quítale la bandera `ordenable`."
+                );
+            }
 
             if ($filas->count() < $tam) {
                 return;
