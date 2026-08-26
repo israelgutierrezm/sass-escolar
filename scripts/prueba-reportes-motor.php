@@ -931,6 +931,46 @@ try {
     verificar('Y un área de verdad vacía sigue contando cero',
         ($vacia['cuantos'] ?? null) === 0, (string) ($vacia['cuantos'] ?? 'null'));
 
+    echo PHP_EOL.'18. Una cuenta sin rol activo no ejecuta nada'.PHP_EOL;
+
+    /*
+     * Quién lo detiene: el PERMISO, no la faceta.
+     *
+     * Se llegó aquí sospechando un fail-open en la comprobación de faceta
+     * (`$faceta !== null && ...`). Medido, la rama es inalcanzable:
+     * `Rol::faceta()` devuelve `self` y nunca null, así que sólo vale null sin
+     * rol activo — y sin rol activo el `Gate::before` no concede ningún permiso
+     * y `can()` ya negó. Cerrar la faceta con `facetas() !== []` no tumbaba
+     * ninguna comprobación, así que se retiró.
+     *
+     * La comprobación se queda porque el HECHO sí importa y no estaba fijado en
+     * ningún sitio: una cuenta a la que se le quitó el rol activo no puede
+     * seguir descargando el padrón de la escuela. Da 403 —lo niega el permiso—
+     * y ésa es la respuesta correcta.
+     */
+    $sinRol = usuarioConRol('director_general');
+    // `rolActivo` es un `belongsTo` sobre `usuarios.rol_activo_id`, no la
+    // bandera del pivote: apagar `persona_rol.activo` no lo vacía.
+    DB::table('usuarios')->where('id', $sinRol->id)->update(['rol_activo_id' => null]);
+
+    $sinRol = Usuario::find($sinRol->id);
+
+    verificar('El usuario de prueba quedó sin rol activo (si no, la prueba sería vacua)',
+        $sinRol->rolActivo === null, $sinRol->rolActivo?->name ?? 'null');
+
+    $estadoFaceta = null;
+
+    try {
+        $ejecutor->ejecutar($sinRol, 'alumnos-inscritos');
+    } catch (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e) {
+        $estadoFaceta = 404;
+    } catch (AvisoParaElUsuario $e) {
+        $estadoFaceta = $e->getStatusCode();
+    }
+
+    verificar('Sin rol activo no se ejecuta ningún reporte',
+        $estadoFaceta !== null, $estadoFaceta === null ? 'lo ejecutó' : (string) $estadoFaceta);
+
     echo PHP_EOL.'Resultado: '.($verificaciones - $fallidas)." correctas, {$fallidas} fallidas".PHP_EOL;
 } finally {
     $db->rollBack();

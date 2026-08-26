@@ -388,6 +388,22 @@ class Ejecutor
             throw new NotFoundHttpException('Ese reporte pertenece a un módulo que la escuela no tiene encendido.');
         }
 
+        /*
+         * La faceta separa oficios, no cuentas sin rol.
+         *
+         * `ver-adeudos` y `ver-alumnos` pertenecen tambien a facetas no
+         * administrativas, asi que `facetas(): ['administrativo']` es lo que
+         * separa «la cartera de la escuela» de «mi estado de cuenta».
+         *
+         * El `!== null` NO es un fail-open, aunque lo parezca: `Rol::faceta()`
+         * devuelve `self` --nunca null-- asi que esto solo vale null cuando no
+         * hay rol activo, y sin rol activo `can()` ya nego arriba, porque el
+         * `Gate::before` resuelve contra los permisos del rol ACTIVO. Se probo
+         * a cerrarlo con `facetas() !== []` y la mutacion sobrevivio: la rama es
+         * inalcanzable. Mismo desenlace que el `if ($diseno->exists)` de los
+         * firmantes del historial — una salvaguarda que no salva nada se retira
+         * en vez de dejarla dando confianza.
+         */
         $faceta = $usuario->rolActivo?->faceta()?->name;
 
         if ($faceta !== null && ! in_array($faceta, $fuente->facetas(), true)) {
