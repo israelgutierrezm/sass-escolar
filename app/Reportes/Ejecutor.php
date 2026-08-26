@@ -215,9 +215,42 @@ class Ejecutor
 
         $ascendente = $comparador === '>';
 
-        // Ya dentro del tramo de NULL: solo queda avanzar por la llave.
+        /*
+         * El lote anterior TERMINO dentro del tramo de nulos.
+         *
+         * Y aqui la direccion decide dos cosas distintas, no una. MySQL ordena
+         * los NULL PRIMERO en ASC y AL FINAL en DESC:
+         *
+         *  - En DESC el tramo de nulos es la COLA. Lo que queda por delante son
+         *    mas nulos, y basta avanzar por la llave.
+         *  - En ASC el tramo de nulos es la CABEZA, asi que despues de el viene
+         *    TODO lo que tiene valor. Quedarse en `whereNull` deja esas filas
+         *    fuera para siempre: el recorrido se detiene al acabarse los nulos.
+         *
+         * Esta rama ignoraba la direccion y por eso una exportacion ASC sobre
+         * una columna nulable salia truncada, con un archivo que abre
+         * perfectamente. Medido contra el demo: 14 egresados, 8 sin generacion,
+         * lotes de 5 → **se emitian 8 de 14**, sin un solo error.
+         *
+         * Y no se veia con pocos nulos: con 4 nulos y lotes de 5, el primer
+         * lote se lleva los 4 mas una fila con valor, asi que el cursor nunca
+         * TERMINA dentro del tramo nulo y esta rama no se ejecuta. La prueba
+         * que la vigilaba tenia justo esa aritmetica y pasaba en verde.
+         */
         if ($ultimo['orden'] === null) {
-            $lote->whereNull($columnaOrden)->where($llave, $comparador, $ultimo['llave']);
+            if (! $ascendente) {
+                $lote->whereNull($columnaOrden)->where($llave, $comparador, $ultimo['llave']);
+
+                return;
+            }
+
+            $lote->where(fn (Builder $q) => $q
+                ->where(fn (Builder $n) => $n
+                    ->whereNull($columnaOrden)
+                    ->where($llave, $comparador, $ultimo['llave']))
+                // Lo que tiene valor va DESPUES de los nulos en ascendente, asi
+                // que entra entero: todavia no se ha emitido ni una de esas.
+                ->orWhereNotNull($columnaOrden));
 
             return;
         }

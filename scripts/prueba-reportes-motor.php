@@ -799,15 +799,32 @@ try {
      */
     $sinGeneracion = MatriculaOferta::query()
         ->whereIn('situacion_id', $conBandera)
-        ->limit(7)
+        ->limit(14)
         ->pluck('id');
 
     verificar('Hay egresados suficientes para partir en lotes',
-        $sinGeneracion->count() >= 6, (string) $sinGeneracion->count());
+        $sinGeneracion->count() >= 12, (string) $sinGeneracion->count());
 
-    // A la mitad se les quita la generación: es el estado NORMAL de un dato
-    // «sin definir», no un dato roto.
-    MatriculaOferta::query()->whereIn('id', $sinGeneracion->take(4))->update(['generacion' => null]);
+    /*
+     * MÁS NULOS QUE EL TAMAÑO DEL LOTE, y eso es la prueba entera.
+     *
+     * Con 4 nulos y lotes de 5 el cursor NUNCA termina un lote dentro del
+     * bloque de nulos: el primero se lleva los 4 y una fila con valor, así que
+     * `$ultimo['orden']` sale con valor y la rama del NULL no se ejercita. La
+     * primera versión de esta comprobación tenía justo eso y pasaba en las dos
+     * direcciones con el defecto de ASC vivo — la cuarta prueba de este
+     * proyecto que pasa por la razón equivocada.
+     *
+     * Con 8 nulos y lotes de 5, el primer lote acaba DENTRO del bloque nulo,
+     * que es donde el predicado tiene que decidir si lo que sigue son más nulos
+     * (DESC: van al final) o las filas con valor (ASC: van después).
+     */
+    $cuantosNulos = 8;
+
+    verificar('Los nulos son MÁS que el lote (si no, la rama del NULL no se ejercita)',
+        $cuantosNulos > 5, $cuantosNulos.' nulos, lotes de 5');
+
+    MatriculaOferta::query()->whereIn('id', $sinGeneracion->take($cuantosNulos))->update(['generacion' => null]);
 
     $totalEgresados = $ejecutorLotesChicos->paraExportar($global, 'egresados-por-generacion')->total;
 
@@ -834,7 +851,7 @@ try {
         $conNulo = array_filter($filas, fn (array $f) => blank($f['generacion']));
 
         verificar("Orden {$direccion}: las que no tienen generación también salen",
-            count($conNulo) === 4, count($conNulo).' de 4');
+            count($conNulo) === $cuantosNulos, count($conNulo).' de '.$cuantosNulos);
     }
 
     echo PHP_EOL.'17. Lo que destapó la revisión adversaria'.PHP_EOL;
