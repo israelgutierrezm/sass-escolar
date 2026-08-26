@@ -6,7 +6,6 @@ namespace App\Http\Controllers\Reportes;
 
 use App\Http\Controllers\Controller;
 use App\Reportes\ColumnaReporte;
-use App\Reportes\DefinicionReporte;
 use App\Reportes\Ejecutor;
 use App\Reportes\FiltroReporte;
 use App\Reportes\RegistroReportes;
@@ -56,15 +55,11 @@ class ReporteController extends Controller
     /** El índice: qué reportes hay, agrupados por área. */
     public function index(Request $peticion): Response
     {
-        $reportes = $this->registro->para($peticion->user());
-
         return Inertia::render('Reportes/Index', [
-            'reportes' => array_map(fn (DefinicionReporte $r) => [
-                'clave' => $r->clave(),
-                'titulo' => $r->titulo(),
-                'descripcion' => $r->descripcion(),
-                'area' => $r->areaSugerida(),
-            ], $reportes),
+            // Ya agrupados por el area CONFIGURADA: la escuela pudo renombrarla
+            // o mover el reporte a otra, y el indice tiene que reflejarlo.
+            'areas' => $this->registro->agrupadosPara($peticion->user()),
+            'puedeOrganizar' => $peticion->user()->can('gestionar-areas-reporte'),
         ]);
     }
 

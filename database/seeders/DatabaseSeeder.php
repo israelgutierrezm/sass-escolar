@@ -15,6 +15,7 @@ use Database\Seeders\Tenant\ConfiguracionSeeder;
 use Database\Seeders\Tenant\DocumentoRequeridoSeeder;
 use Database\Seeders\Tenant\EfemerideSeeder;
 use Database\Seeders\Tenant\MenuRolSeeder;
+use Database\Seeders\Tenant\AreasReporteSeeder;
 use Database\Seeders\Tenant\CatalogosDisciplinaSeeder;
 use Database\Seeders\Tenant\ModuloSeeder;
 use Database\Seeders\Tenant\PermisoSeeder;
@@ -51,6 +52,7 @@ class DatabaseSeeder extends Seeder
             CatalogosFinanzasSeeder::class,
             CatalogosEmisionSeeder::class,
             CatalogosDisciplinaSeeder::class,
+            AreasReporteSeeder::class,
             DocumentoRequeridoSeeder::class,
             RolSeeder::class,
             PermisoSeeder::class,

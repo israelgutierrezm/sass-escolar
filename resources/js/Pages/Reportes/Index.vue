@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 
@@ -8,53 +7,47 @@ interface Reporte {
     clave: string;
     titulo: string;
     descripcion: string;
-    area: string;
 }
 
-const props = defineProps<{ reportes: Reporte[] }>();
-
-/*
- * Agrupados por área.
- *
- * El área es hoy la que sugiere cada reporte; la rebanada siguiente la vuelve
- * configurable —renombrable y con los reportes movibles— y esta pantalla no
- * tendrá que cambiar: seguirá agrupando por lo que le llegue.
- */
-const porArea = computed(() => {
-    const grupos = new Map<string, Reporte[]>();
-
-    for (const r of props.reportes) {
-        if (!grupos.has(r.area)) grupos.set(r.area, []);
-        grupos.get(r.area)!.push(r);
-    }
-
-    return [...grupos.entries()].map(([area, reportes]) => ({ area, reportes }));
-});
-
-const NOMBRES: Record<string, string> = {
-    'control-escolar': 'Control escolar',
-    general: 'General',
-};
-
-function nombreArea(clave: string): string {
-    return NOMBRES[clave] ?? clave;
+interface Area {
+    clave: string;
+    nombre: string;
+    descripcion: string | null;
+    reportes: Reporte[];
 }
+
+defineProps<{ areas: Area[]; puedeOrganizar: boolean }>();
 </script>
 
 <template>
     <Head title="Reportes" />
 
     <AppLayout titulo="Reportes">
-        <p class="mb-4 max-w-3xl text-sm" :style="{ color: 'var(--color-suave)' }">
-            Cada reporte contesta una pregunta concreta y dice también qué NO contesta. Sólo aparecen los
-            que puedes ver: además de entrar aquí, cada uno exige el permiso de los datos que saca.
-        </p>
+        <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <p class="max-w-3xl text-sm" :style="{ color: 'var(--color-suave)' }">
+                Cada reporte contesta una pregunta concreta y dice también qué NO contesta. Sólo aparecen los
+                que puedes ver: además de entrar aquí, cada uno exige el permiso de los datos que saca.
+            </p>
 
-        <div v-if="reportes.length" class="space-y-4">
-            <TarjetaSeccion v-for="grupo in porArea" :key="grupo.area" :titulo="nombreArea(grupo.area)" sin-relleno>
+            <Link
+                v-if="puedeOrganizar"
+                href="/reportes/configuracion"
+                class="rounded-lg border border-borde px-3 py-1.5 text-sm hover:bg-slate-50"
+            >Organizar</Link>
+        </div>
+
+        <div v-if="areas.length" class="space-y-4">
+            <!-- El nombre del área es el que la escuela le puso, no el del código. -->
+            <TarjetaSeccion
+                v-for="area in areas"
+                :key="area.clave"
+                :titulo="area.nombre"
+                :descripcion="area.descripcion ?? ''"
+                sin-relleno
+            >
                 <ul>
                     <li
-                        v-for="r in grupo.reportes"
+                        v-for="r in area.reportes"
                         :key="r.clave"
                         class="border-t px-6 py-3"
                         :style="{ borderColor: 'var(--color-borde)' }"

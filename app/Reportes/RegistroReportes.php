@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Reportes;
 
 use App\Models\Identidad\Usuario;
+use App\Models\Reportes\AreaReporte;
+use App\Models\Reportes\UbicacionReporte;
 use App\Services\Plataforma\ModulosDeLaEscuela;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -102,5 +104,73 @@ class RegistroReportes
         }
 
         return $visibles;
+    }
+
+    /**
+     * Los reportes de esta persona, ya AGRUPADOS por su area configurada.
+     *
+     * El area sale de `ubicaciones_reporte` si la escuela lo movio, y si no de
+     * la que el reporte declara. Lo mismo el nombre: `nombre` en null significa
+     * «el titulo que declara la clase», asi que un reporte renombrado en el
+     * codigo se sigue actualizando solo para quien no lo haya rebautizado.
+     *
+     * Un reporte APAGADO en su ubicacion no se ofrece --pero eso es cosmetico y
+     * NO sustituye al permiso, que ya filtro antes--.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function agrupadosPara(Usuario $usuario): array
+    {
+        $reportes = $this->para($usuario);
+
+        $ubicaciones = UbicacionReporte::query()
+            ->with('area')
+            ->get()
+            ->keyBy('reporte');
+
+        $areas = AreaReporte::query()->get()->keyBy('clave');
+
+        $grupos = [];
+
+        foreach ($reportes as $reporte) {
+            $ubicacion = $ubicaciones->get($reporte->clave());
+
+            if ($ubicacion !== null && ! $ubicacion->activo) {
+                continue;
+            }
+
+            $area = $ubicacion?->area ?? $areas->get($reporte->areaSugerida());
+
+            // Un area apagada esconde lo que tiene dentro: es la forma de
+            // retirar del indice un bloque entero sin borrar nada.
+            if ($area !== null && ! $area->activo) {
+                continue;
+            }
+
+            $clave = $area?->clave ?? $reporte->areaSugerida();
+
+            $grupos[$clave] ??= [
+                'clave' => $clave,
+                'nombre' => $area?->nombre ?? $clave,
+                'descripcion' => $area?->descripcion,
+                'orden' => $area?->orden ?? 999,
+                'reportes' => [],
+            ];
+
+            $grupos[$clave]['reportes'][] = [
+                'clave' => $reporte->clave(),
+                'titulo' => $ubicacion?->nombre ?? $reporte->titulo(),
+                'descripcion' => $reporte->descripcion(),
+                'orden' => $ubicacion?->orden ?? 0,
+            ];
+        }
+
+        usort($grupos, fn (array $a, array $b) => [$a['orden'], $a['nombre']] <=> [$b['orden'], $b['nombre']]);
+
+        foreach ($grupos as &$grupo) {
+            usort($grupo['reportes'], fn (array $a, array $b) => [$a['orden'], $a['titulo']] <=> [$b['orden'], $b['titulo']]);
+        }
+
+        return $grupos;
     }
 }

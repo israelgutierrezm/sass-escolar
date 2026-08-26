@@ -179,6 +179,16 @@ final class CatalogoPermisos
              * puede ver la cartera. Este solo abre la seccion; que haya algo
              * dentro depende de lo que ya podia ver.
              */
+            /*
+             * Acomodar el indice es OTRA cosa que consultarlo.
+             *
+             * Quien saca reportes todos los dias no tiene por que poder
+             * reorganizar la seccion para todos los demas; y quien la organiza
+             * --normalmente direccion-- no necesariamente saca reportes.
+             * Mover un reporte de area NO cambia quien lo ve: eso lo decide el
+             * permiso de su fuente.
+             */
+            'gestionar-areas-reporte' => ['Organizar los reportes', 'Renombrar las areas, reordenarlas y mover reportes de un area a otra. NO concede acceso a ningun dato: quien ve cada reporte lo sigue decidiendo el permiso de su fuente.', [self::ADMINISTRATIVO]],
             'ver-reportes' => ['Entrar a Reportes', 'Ver la seccion de reportes. Cada reporte ademas exige el permiso de los datos que saca: quien no ve la cartera no vera los reportes de finanzas.', [self::ADMINISTRATIVO]],
         ],
 

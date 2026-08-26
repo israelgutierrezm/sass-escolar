@@ -26,6 +26,7 @@ use App\Http\Controllers\Bolsa\PostulacionController;
 use App\Http\Controllers\Bolsa\VacanteController;
 use App\Http\Controllers\BuscadorAlumnosController;
 use App\Http\Controllers\BuscadorMatriculasController;
+use App\Http\Controllers\Reportes\ConfiguracionReportesController;
 use App\Http\Controllers\Reportes\ReporteController;
 use App\Http\Controllers\Disciplina\CatalogoConductaController;
 use App\Http\Controllers\Disciplina\IncidenciaController;
@@ -1923,6 +1924,27 @@ Route::middleware([
             ->prefix('reportes')->name('tenant.reportes.')
             ->group(function () {
                 Route::get('/', 'index')->name('index');
+
+                /*
+                 * La configuracion va ANTES de `{clave}`.
+                 *
+                 * Si fuera despues, `/reportes/configuracion` casaria con el
+                 * comodin y buscaria un reporte llamado «configuracion»: un 404
+                 * en la pantalla de organizar, que nadie relacionaria con el
+                 * orden de las rutas.
+                 */
+                Route::middleware('can:gestionar-areas-reporte')
+                    ->controller(ConfiguracionReportesController::class)
+                    ->prefix('configuracion')->name('configuracion.')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::post('areas', 'guardarArea')->name('areas.crear');
+                        Route::put('areas/{area}', 'guardarArea')->whereNumber('area')->name('areas.guardar');
+                        Route::patch('areas/{area}/activo', 'alternarArea')->whereNumber('area')->name('areas.activo');
+                        Route::delete('areas/{area}', 'eliminarArea')->whereNumber('area')->name('areas.eliminar');
+                        Route::put('reportes/{clave}', 'ubicarReporte')->name('reportes.ubicar');
+                    });
+
                 Route::get('{clave}', 'ver')->name('ver');
                 Route::get('{clave}/descargar/{formato}', 'descargar')
                     ->whereIn('formato', ['xlsx', 'csv'])->name('descargar');

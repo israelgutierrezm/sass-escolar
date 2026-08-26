@@ -30,7 +30,9 @@ use App\Models\Admisiones\SituacionAlumno;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\Rol;
 use App\Models\Identidad\Usuario;
+use App\Models\Reportes\AreaReporte;
 use App\Models\Reportes\EjecucionReporte;
+use App\Models\Reportes\UbicacionReporte;
 use App\Models\Tenant;
 use App\Reportes\Ejecutor;
 use App\Reportes\RegistroReportes;
@@ -60,6 +62,12 @@ function verificar(string $que, bool $ok, string $detalle = ''): void
 
     echo ($ok ? "  \033[32mOK\033[39m   " : "  \033[31mFALLA\033[39m ").$que
         .($detalle !== '' ? "  [{$detalle}]" : '').PHP_EOL;
+}
+
+/** Una petición con datos, para invocar a un controlador. */
+function peticionCon(array $datos): Illuminate\Http\Request
+{
+    return Illuminate\Http\Request::create('/', 'POST', $datos);
 }
 
 /** Un usuario propio con su rol activo: nunca se toca el de nadie más. */
@@ -410,6 +418,154 @@ try {
         $mensajeTope);
 
     app(Ajustes::class)->olvidar();
+
+    echo PHP_EOL.'11. Las áreas se renombran y los reportes se mueven'.PHP_EOL;
+
+    (new Database\Seeders\Tenant\AreasReporteSeeder)->run();
+
+    $config = app(App\Http\Controllers\Reportes\ConfiguracionReportesController::class);
+
+    $control = AreaReporte::query()->where('clave', 'control-escolar')->firstOrFail();
+    $finanzas = AreaReporte::query()->where('clave', 'finanzas')->firstOrFail();
+
+    $agrupadoAntes = $registro->agrupadosPara($global);
+    $nombreAntes = collect($agrupadoAntes)->firstWhere('clave', 'control-escolar')['nombre'] ?? null;
+
+    verificar('El índice agrupa por el área configurada',
+        $nombreAntes === 'Control escolar', (string) $nombreAntes);
+
+    // ── Renombrar: la CLAVE no se toca ──
+    $config->guardarArea(peticionCon(['nombre' => 'Servicios escolares']), $control);
+
+    $agrupado = $registro->agrupadosPara($global);
+    $grupo = collect($agrupado)->firstWhere('clave', 'control-escolar');
+
+    verificar('Renombrar el área cambia lo que se ve',
+        ($grupo['nombre'] ?? null) === 'Servicios escolares', $grupo['nombre'] ?? 'null');
+
+    verificar('Pero la CLAVE sigue siendo la del código',
+        $control->fresh()->clave === 'control-escolar',
+        $control->fresh()->clave);
+
+    // ── Mover un reporte de área ──
+    $config->ubicarReporte(
+        peticionCon(['area_id' => $finanzas->id, 'nombre' => null, 'activo' => '1']),
+        'alumnos-inscritos',
+    );
+
+    $agrupado = $registro->agrupadosPara($global);
+    $enFinanzas = collect(collect($agrupado)->firstWhere('clave', 'finanzas')['reportes'] ?? [])
+        ->pluck('clave')->all();
+
+    verificar('El reporte movido aparece en su área nueva',
+        in_array('alumnos-inscritos', $enFinanzas, true), implode(',', $enFinanzas));
+
+    $enControl = collect(collect($agrupado)->firstWhere('clave', 'control-escolar')['reportes'] ?? [])
+        ->pluck('clave')->all();
+
+    verificar('Y ya no en la anterior',
+        ! in_array('alumnos-inscritos', $enControl, true), implode(',', $enControl));
+
+    /*
+     * Mover NO concede acceso.
+     *
+     * Es lo que alguien podría suponer al arrastrar un reporte a un área
+     * llamada «Dirección»: que quien entra ahí ya lo ve. El permiso lo sigue
+     * decidiendo la FUENTE.
+     */
+    /*
+     * El rol se CONSTRUYE, no se busca.
+     *
+     * La primera version usaba el rol `administrativo` «si no tiene
+     * ver-alumnos», y en esta escuela SI lo tiene: la comprobacion se saltaba en
+     * silencio y la prueba pasaba sin probar nada. Aqui se crea un rol funcional
+     * colgado de la faceta administrativa y sin un solo permiso.
+     */
+    $facetaAdmin = Rol::query()->where('name', 'administrativo')->firstOrFail();
+
+    $rolPelado = Rol::query()->create([
+        'name' => 'prueba_sin_permisos_'.random_int(1000, 9999),
+        'nombre' => 'Rol de prueba sin permisos',
+        'guard_name' => 'web',
+        'rol_padre_id' => $facetaAdmin->id,
+    ]);
+
+    /*
+     * Y se le retira `ver-alumnos` a la FACETA, dentro de la transaccion.
+     *
+     * Un rol funcional HEREDA los permisos de su faceta --asi esta disenado--,
+     * asi que crear uno pelado no basta: seguia viendo alumnos por herencia. Lo
+     * deshace el rollback.
+     */
+    $facetaAdmin->revokePermissionTo('ver-alumnos');
+    app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+
+    $sinAlumnos = usuarioConRol($rolPelado->name);
+
+    verificar('El rol construido de verdad NO ve alumnos',
+        ! $sinAlumnos->can('ver-alumnos'));
+
+    $claves = collect($registro->agrupadosPara($sinAlumnos))
+        ->flatMap(fn ($g) => collect($g['reportes'])->pluck('clave'))
+        ->all();
+
+    verificar('Mover un reporte de área NO concede acceso a sus datos',
+        ! in_array('alumnos-inscritos', $claves, true), implode(',', $claves));
+
+    // ── Renombrar el reporte, y volver al del código ──
+    $config->ubicarReporte(
+        peticionCon(['area_id' => $finanzas->id, 'nombre' => 'Padrón vigente', 'activo' => '1']),
+        'alumnos-inscritos',
+    );
+
+    $titulo = collect(collect($registro->agrupadosPara($global))->firstWhere('clave', 'finanzas')['reportes'])
+        ->firstWhere('clave', 'alumnos-inscritos')['titulo'] ?? null;
+
+    verificar('Un reporte se puede renombrar localmente', $titulo === 'Padrón vigente', (string) $titulo);
+
+    $config->ubicarReporte(
+        peticionCon(['area_id' => $finanzas->id, 'nombre' => '', 'activo' => '1']),
+        'alumnos-inscritos',
+    );
+
+    // Vacío se guarda como NULL, que significa «el título de la clase»: así un
+    // reporte renombrado en el código se sigue actualizando solo.
+    verificar('Dejarlo en blanco vuelve al título del código',
+        UbicacionReporte::query()->where('reporte', 'alumnos-inscritos')->value('nombre') === null);
+
+    // ── Apagar el área esconde lo que tiene dentro ──
+    $config->alternarArea(peticionCon(['activo' => '0']), $finanzas);
+
+    $claves = collect($registro->agrupadosPara($global))
+        ->flatMap(fn ($g) => collect($g['reportes'])->pluck('clave'))
+        ->all();
+
+    verificar('Un área apagada esconde sus reportes',
+        ! in_array('alumnos-inscritos', $claves, true), implode(',', $claves));
+
+    verificar('Pero no borra nada',
+        UbicacionReporte::query()->where('reporte', 'alumnos-inscritos')->exists());
+
+    // ── Un área con reportes NO se borra ──
+    $config->alternarArea(peticionCon(['activo' => '1']), $finanzas);
+
+    $estadoBorrar = null;
+
+    try {
+        $config->eliminarArea($finanzas);
+    } catch (AvisoParaElUsuario $e) {
+        $estadoBorrar = $e->getStatusCode();
+    }
+
+    verificar('Un área con reportes dentro no se elimina', $estadoBorrar === 422);
+    verificar('Y sigue ahí', AreaReporte::query()->whereKey($finanzas->id)->exists());
+
+    // ── UNA sola ubicación por reporte ──
+    $config->ubicarReporte(peticionCon(['area_id' => $control->id, 'nombre' => null, 'activo' => '1']), 'alumnos-inscritos');
+
+    verificar('Un reporte vive en UNA sola área',
+        UbicacionReporte::query()->where('reporte', 'alumnos-inscritos')->count() === 1,
+        (string) UbicacionReporte::query()->where('reporte', 'alumnos-inscritos')->count());
 
     echo PHP_EOL.'Resultado: '.($verificaciones - $fallidas)." correctas, {$fallidas} fallidas".PHP_EOL;
 } finally {
