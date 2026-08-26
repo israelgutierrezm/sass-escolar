@@ -88,14 +88,52 @@ class Grupo extends Model
      */
     public function scopeConAlumnos(Builder $consulta): Builder
     {
-        return $consulta->addSelect(['alumnos_count' => Inscripcion::query()
-            ->selectRaw('COUNT(DISTINCT inscripcion.matricula_oferta_id)')
+        return $consulta->addSelect([
+            'alumnos_count' => self::inscritosDelGrupo()
+                ->selectRaw('COUNT(DISTINCT inscripcion.matricula_oferta_id)')
+                ->whereColumn('asignatura_grupo.grupo_id', 'grupos.id'),
+        ]);
+    }
+
+    /**
+     * El MISMO conteo, pero AGRUPADO para poder unirlo como tabla derivada.
+     *
+     * ── Por qué hacen falta las dos formas ────────────────────────────────
+     * `scopeConAlumnos()` mete el conteo con un `addSelect` correlacionado, y
+     * eso produce un ALIAS. MySQL acepta un alias en el `ORDER BY` y **no lo
+     * acepta en el `WHERE`**, así que un reporte ordenado por esa columna
+     * ordena bien en la pantalla y revienta al exportar —el recorrido por lotes
+     * avanza con un `WHERE` sobre la columna de orden—. Con un `leftJoinSub`,
+     * `alumnos.cuantos` es una columna calificada de verdad y sirve para las dos
+     * cosas.
+     *
+     * El CRITERIO no se duplica: las dos formas salen de
+     * {@see inscritosDelGrupo()}, que es donde vive «qué cuenta como alumno de
+     * un grupo». Lo que cambia es la forma de pegarlo a la consulta.
+     */
+    public static function conteoDeAlumnosAgrupado(): \Illuminate\Database\Eloquent\Builder
+    {
+        return self::inscritosDelGrupo()
+            ->select('asignatura_grupo.grupo_id')
+            ->selectRaw('COUNT(DISTINCT inscripcion.matricula_oferta_id) as cuantos')
+            ->groupBy('asignatura_grupo.grupo_id');
+    }
+
+    /**
+     * QUÉ CUENTA como alumno de un grupo. La única declaración.
+     *
+     *  1. Se cuenta por matrícula y no por persona, porque **el alumno es la
+     *     matrícula**: quien lleva dos carreras ocupa dos lugares.
+     *  2. Las **bajas no ocupan lugar**, tolerando la situación en null —una
+     *     escuela con el catálogo a medias no debe perder a sus inscritos—.
+     */
+    private static function inscritosDelGrupo(): \Illuminate\Database\Eloquent\Builder
+    {
+        return Inscripcion::query()
             ->join('asignatura_grupo', 'asignatura_grupo.id', '=', 'inscripcion.asignatura_grupo_id')
             ->leftJoin('situaciones_inscripcion', 'situaciones_inscripcion.id', '=', 'inscripcion.situacion_id')
-            ->whereColumn('asignatura_grupo.grupo_id', 'grupos.id')
             ->where(fn ($q) => $q->whereNull('situaciones_inscripcion.clave')
-                ->orWhere('situaciones_inscripcion.clave', '!=', 'baja')),
-        ]);
+                ->orWhere('situaciones_inscripcion.clave', '!=', 'baja'));
     }
 
     public function asignaturas(): HasMany

@@ -159,8 +159,11 @@ class Grupos implements FuenteDeReporte
                 etiqueta: 'Alumnos',
                 tipo: TipoDato::Entero,
                 // Del scope del modelo, que es el mismo que usa la pantalla.
-                valor: fn (Grupo $g) => (int) ($g->alumnos_count ?? 0),
-                columnaSql: 'alumnos_count',
+                valor: fn (Grupo $g) => (int) ($g->cuantos ?? 0),
+                // Del JOIN, no del alias del scope: un alias no se puede poner
+                // en el `WHERE` del recorrido por lotes y la exportación
+                // reventaría. Ver `Grupo::conteoDeAlumnosAgrupado()`.
+                columnaSql: 'al.cuantos',
                 ordenable: true,
                 ancho: 9,
             ),
@@ -169,7 +172,7 @@ class Grupos implements FuenteDeReporte
                 etiqueta: 'Ocupación',
                 tipo: TipoDato::Porcentaje,
                 valor: fn (Grupo $g) => $g->cupo > 0
-                    ? round(((int) ($g->alumnos_count ?? 0)) * 100 / $g->cupo, 1)
+                    ? round(((int) ($g->cuantos ?? 0)) * 100 / $g->cupo, 1)
                     // Sin cupo no hay porcentaje que calcular, y un 0 % diría
                     // que está vacío cuando puede estar lleno.
                     : null,
@@ -180,8 +183,8 @@ class Grupos implements FuenteDeReporte
                 clave: 'materias',
                 etiqueta: 'Materias',
                 tipo: TipoDato::Entero,
-                valor: fn (Grupo $g) => (int) ($g->materias ?? 0),
-                columnaSql: 'materias',
+                valor: fn (Grupo $g) => (int) ($g->cuantas ?? 0),
+                columnaSql: 'mat.cuantas',
                 ordenable: true,
                 ancho: 9,
             ),
@@ -190,7 +193,7 @@ class Grupos implements FuenteDeReporte
                 etiqueta: 'Sin titular',
                 tipo: TipoDato::Entero,
                 valor: fn (Grupo $g) => (int) ($g->sin_titular ?? 0),
-                columnaSql: 'sin_titular',
+                columnaSql: 'mat.sin_titular',
                 ordenable: true,
                 ancho: 10,
                 ayuda: 'Materias abiertas del grupo a las que no se les ha asignado docente titular. '
@@ -230,31 +233,37 @@ class Grupos implements FuenteDeReporte
                 clave: 'solo_sin_titular',
                 etiqueta: 'Sólo con materias sin titular',
                 tipo: TipoFiltro::Booleano,
-                aplicar: fn (Builder $q, bool $v) => $v ? $q->having('sin_titular', '>', 0) : $q,
+                aplicar: fn (Builder $q, bool $v) => $v ? $q->where('mat.sin_titular', '>', 0) : $q,
             ),
             'solo_vacios' => new FiltroReporte(
                 clave: 'solo_vacios',
                 etiqueta: 'Sólo grupos sin alumnos',
                 tipo: TipoFiltro::Booleano,
-                aplicar: fn (Builder $q, bool $v) => $v ? $q->having('alumnos_count', '=', 0) : $q,
+                aplicar: fn (Builder $q, bool $v) => $v ? $q->where(fn (Builder $x) => $x
+                    ->whereNull('al.cuantos')->orWhere('al.cuantos', '=', 0)) : $q,
                 ayuda: 'Un grupo abierto y vacío: o no se ha inscrito nadie, o hay que cerrarlo.',
             ),
         ];
     }
 
+    /**
+     * Los agregados entran por JOIN, no por subconsulta correlacionada.
+     *
+     * Y no es preferencia: una columna que sale de un `selectSub` es un ALIAS, y
+     * MySQL acepta un alias en el `ORDER BY` pero NO en el `WHERE`. El
+     * recorrido por lotes de la exportación avanza con un `WHERE` sobre la
+     * columna de orden, así que ordenar por «Alumnos» funcionaba en la pantalla
+     * y reventaba al pulsar «Excel» con «Unknown column 'alumnos_count' in
+     * 'where clause'». Con `leftJoinSub`, `al.cuantos` es una columna de verdad.
+     *
+     * Los dos JOIN son a subconsultas ya AGRUPADAS por grupo, así que no
+     * multiplican filas: hay a lo sumo una por grupo. Es el mismo patrón que
+     * {@see Cartera} usa con `SaldosDeCartera::porMatricula()`.
+     */
     public function consulta(Usuario $usuario, array $filtros): Builder
     {
         return Grupo::query()
-            /*
-             * El `select` va ANTES del scope, y el orden no es cosmético.
-             *
-             * `scopeConAlumnos()` usa `addSelect`, así que un `select('grupos.*')`
-             * puesto después lo BORRA: la columna de alumnos salía vacía en todas
-             * las filas, sin un solo error. Es el mismo defecto que las tres
-             * columnas de `Cargos`, por otro camino.
-             */
             ->select('grupos.*')
-            ->conAlumnos()
             ->with([
                 'ciclo:id,clave',
                 'campus:id,nombre',
@@ -262,33 +271,45 @@ class Grupos implements FuenteDeReporte
                 'turno:id,nombre',
                 'situacion:id,nombre',
             ])
-            ->selectSub(
+            // El conteo de alumnos sale del MODELO, que es donde vive el
+            // criterio que comparten la pantalla de grupos y el panel.
+            ->leftJoinSub(Grupo::conteoDeAlumnosAgrupado(), 'al', 'al.grupo_id', '=', 'grupos.id')
+            /*
+             * Las materias del grupo y cuántas están sin titular, en UNA sola
+             * subconsulta: son la misma tabla y separarlas costaría dos barridos
+             * de `asignatura_grupo` para contestar dos preguntas del mismo sitio.
+             *
+             * El `dag.deleted_at is null` es lo que hace cierto el conteo: la
+             * relación `docentes()` del modelo NO lo filtra, así que una
+             * asignación RETIRADA seguiría contando como titular.
+             */
+            ->leftJoinSub(
                 DB::table('asignatura_grupo as ag')
-                    ->whereColumn('ag.grupo_id', 'grupos.id')
                     ->whereNull('ag.deleted_at')
-                    ->selectRaw('count(*)'),
-                'materias',
+                    ->select('ag.grupo_id')
+                    ->selectRaw('count(*) as cuantas')
+                    ->selectRaw('sum(case when exists (
+                        select 1 from docente_asignatura_grupo dag
+                        where dag.asignatura_grupo_id = ag.id
+                          and dag.deleted_at is null
+                          and dag.tipo = ?
+                    ) then 0 else 1 end) as sin_titular', ['titular'])
+                    ->groupBy('ag.grupo_id'),
+                'mat',
+                'mat.grupo_id',
+                '=',
+                'grupos.id',
             )
             /*
-             * Las materias SIN titular.
+             * El ALIAS tiene que ser el ultimo segmento de `columnaSql`.
              *
-             * El `whereNull('dag.deleted_at')` es lo que hace que esto sea
-             * cierto: la relación `docentes()` del modelo no lo filtra, así que
-             * una asignación RETIRADA seguiría contando como titular y esta
-             * columna diría cero donde hay tres. Ver el docblock de la clase.
+             * El recorrido por lotes lee el atributo con el nombre de la columna
+             * --`al.cuantos` se lee como `$fila->cuantos`--, asi que aliasarlo
+             * como `alumnos_count` dejaba al cursor leyendo NULL en cada vuelta:
+             * en descendente truncaba y en ascendente NO TERMINABA. Es el mismo
+             * defecto que dejaba tres columnas en blanco, ahora contra el cursor.
              */
-            ->selectSub(
-                DB::table('asignatura_grupo as ag2')
-                    ->whereColumn('ag2.grupo_id', 'grupos.id')
-                    ->whereNull('ag2.deleted_at')
-                    ->whereNotExists(fn ($q) => $q
-                        ->from('docente_asignatura_grupo as dag')
-                        ->whereColumn('dag.asignatura_grupo_id', 'ag2.id')
-                        ->whereNull('dag.deleted_at')
-                        ->where('dag.tipo', 'titular'))
-                    ->selectRaw('count(*)'),
-                'sin_titular',
-            );
+            ->addSelect(['al.cuantos', 'mat.cuantas', 'mat.sin_titular']);
     }
 
     public function llavePrimaria(): string

@@ -172,6 +172,26 @@ class Ejecutor
             }
 
             $fin = $filas->last();
+
+            /*
+             * El ATRIBUTO de la columna de orden tiene que EXISTIR en la fila.
+             *
+             * El cursor lee `al.cuantos` como `$fila->cuantos`, así que una
+             * fuente que la saque al SELECT con otro alias deja al cursor
+             * leyendo NULL en cada vuelta. El síntoma no señala la causa:
+             * descendente TRUNCA y ascendente NO TERMINA. Se comprueba una sola
+             * vez, en el primer lote, y se dice exactamente qué arreglar.
+             */
+            if ($atributoOrden !== null && $ultimo === null
+                && ! array_key_exists($atributoOrden, $fin->getAttributes())) {
+                throw new \RuntimeException(
+                    "El reporte ordena por «{$columnaOrden}» pero la fila no trae el atributo "
+                    ."«{$atributoOrden}»: la fuente lo saca al SELECT con otro nombre. El alias tiene "
+                    ."que ser el último segmento de la columna, o el recorrido por lotes se trunca en "
+                    .'descendente y no termina en ascendente.'
+                );
+            }
+
             $anterior = $ultimo;
 
             $ultimo = [

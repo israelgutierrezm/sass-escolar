@@ -180,8 +180,10 @@ class Cargos implements FuenteDeReporte
                 tipo: TipoDato::Dinero,
                 // Sale de la subconsulta correlacionada del SELECT, no de
                 // `montoAplicado()`, que consulta por fila.
-                valor: fn (Adeudo $a) => (float) ($a->cobrado ?? 0),
-                columnaSql: 'cobrado',
+                valor: fn (Adeudo $a) => (float) ($a->aplicado ?? 0),
+                // Del JOIN, no del alias: un alias no vale en el `WHERE` del
+                // recorrido por lotes y la exportacion reventaria.
+                columnaSql: 'ap.aplicado',
                 ordenable: true,
                 ancho: 12,
                 ayuda: 'Sólo lo cubierto por pagos COMPLETADOS: un depósito en espera de confirmación no baja nada.',
@@ -190,7 +192,7 @@ class Cargos implements FuenteDeReporte
                 clave: 'por_cobrar',
                 etiqueta: 'Por cobrar',
                 tipo: TipoDato::Dinero,
-                valor: fn (Adeudo $a) => round((float) $a->monto_total - (float) ($a->cobrado ?? 0), 2),
+                valor: fn (Adeudo $a) => round((float) $a->monto_total - (float) ($a->aplicado ?? 0), 2),
                 ancho: 12,
             ),
             'generado' => new ColumnaReporte(
@@ -329,7 +331,16 @@ class Cargos implements FuenteDeReporte
                 'ciclo:id,clave',
             ])
             ->select('adeudos.*')
-            ->selectSub($this->saldos->aplicadoDeAdeudo('adeudos.id'), 'cobrado');
+            /*
+             * Lo cobrado entra por JOIN a la version AGRUPADA del reparto.
+             *
+             * Iba con `selectSub`, que produce un ALIAS, y MySQL no admite un
+             * alias en el `WHERE`: ordenar por «Cobrado» funcionaba en pantalla
+             * y reventaba al exportar. La subconsulta ya viene agrupada por
+             * adeudo, asi que no multiplica filas.
+             */
+            ->leftJoinSub($this->saldos->repartoPorAdeudo(), 'ap', 'ap.adeudo_id', '=', 'adeudos.id')
+            ->addSelect(['ap.aplicado']);
     }
 
     public function llavePrimaria(): string

@@ -95,6 +95,37 @@ class SaldosDeCartera
             ->selectRaw('coalesce(sum(pa.monto_aplicado), 0)');
     }
 
+    /**
+     * Lo mismo, AGRUPADO, para unirlo como tabla derivada.
+     *
+     * ── Por qué existen las dos formas ────────────────────────────────────
+     * Las correlacionadas de arriba producen un ALIAS en el SELECT, y MySQL
+     * acepta un alias en el `ORDER BY` pero **no en el `WHERE`**. El recorrido
+     * por lotes de una exportación avanza con un `WHERE` sobre la columna de
+     * orden, así que un reporte ordenado por «Cobrado» ordenaba bien en la
+     * pantalla y reventaba al pulsar «Excel». Uniendo la versión agrupada, la
+     * columna queda calificada y sirve para las dos cosas.
+     *
+     * Van ya agrupadas, así que NO multiplican filas: hay a lo sumo una por
+     * adeudo o por pago. El criterio sigue siendo uno solo: `reparto()`.
+     */
+    public function repartoPorAdeudo(): Builder
+    {
+        return $this->reparto()
+            ->groupBy('pa.adeudo_id')
+            ->select('pa.adeudo_id')
+            ->selectRaw('sum(pa.monto_aplicado) as aplicado');
+    }
+
+    public function repartoPorPago(): Builder
+    {
+        return $this->reparto()
+            ->groupBy('pa.pago_id')
+            ->select('pa.pago_id')
+            ->selectRaw('sum(pa.monto_aplicado) as aplicado')
+            ->selectRaw('count(*) as cargos');
+    }
+
     /** Los adeudos que siguen abiertos, con lo ya aplicado descontado. */
     private function abiertos(): Builder
     {

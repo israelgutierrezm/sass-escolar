@@ -166,7 +166,7 @@ class Ingresos implements FuenteDeReporte
                 etiqueta: 'Aplicado',
                 tipo: TipoDato::Dinero,
                 valor: fn (Pago $p) => (float) ($p->aplicado ?? 0),
-                columnaSql: 'aplicado',
+                columnaSql: 'rep.aplicado',
                 ordenable: true,
                 ancho: 12,
                 ayuda: 'Cuánto de este pago se repartió entre cargos.',
@@ -257,13 +257,20 @@ class Ingresos implements FuenteDeReporte
                 'metodoPago:id,nombre',
             ])
             ->select('pagos.*')
-            // Las dos caras de la misma tabla puente, AGREGADAS: nunca un join,
-            // que multiplicaría el pago por cada cargo que cubre.
-            ->selectSub($this->saldos->aplicadoDePago('pagos.id'), 'aplicado')
-            ->selectSub(
-                $this->saldos->reparto()->whereColumn('pa.pago_id', 'pagos.id')->selectRaw('count(*)'),
-                'cargos',
-            );
+            /*
+             * El reparto entra por JOIN a su version YA AGRUPADA por pago.
+             *
+             * Un join a `pago_adeudo` en crudo multiplicaria el pago por cada
+             * cargo que cubre --un deposito de tres mensualidades saldria tres
+             * veces y el total del corte contaria ese dinero tres veces--. Ya
+             * agrupada no: hay a lo sumo una fila por pago.
+             *
+             * Y va por JOIN y no por `selectSub` porque un alias no se puede
+             * poner en el `WHERE` del recorrido por lotes: ordenar por
+             * «Aplicado» reventaba la exportacion.
+             */
+            ->leftJoinSub($this->saldos->repartoPorPago(), 'rep', 'rep.pago_id', '=', 'pagos.id')
+            ->addSelect(['rep.aplicado', 'rep.cargos']);
     }
 
     public function llavePrimaria(): string
