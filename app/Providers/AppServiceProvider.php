@@ -44,6 +44,8 @@ use App\Panel\Tarjetas\OcupacionDeGrupos;
 use App\Panel\Tarjetas\PostulantesEnProceso;
 use App\Panel\Tarjetas\ProspectosPorContactar;
 use App\Reportes\Definiciones\AlumnosInscritos;
+use App\Reportes\Definiciones\AvanceDeCertificacion;
+use App\Reportes\Definiciones\AvanceParaCertificadoParcial;
 use App\Reportes\Definiciones\BloqueadosPorAdeudo;
 use App\Reportes\Definiciones\CargaAcademicaDelCiclo;
 use App\Reportes\Definiciones\CargosEmitidos;
@@ -53,6 +55,7 @@ use App\Reportes\Definiciones\CarteraVencida;
 use App\Reportes\Definiciones\DocentesSinCarga;
 use App\Reportes\Definiciones\DocentesSinCedula;
 use App\Reportes\Definiciones\EstadoDeCartera;
+use App\Reportes\Definiciones\ListosParaCertificar;
 use App\Reportes\Definiciones\MateriasSinTitular;
 use App\Reportes\Definiciones\PlantillaDocente;
 use App\Reportes\Definiciones\OcupacionDeGrupos as ReporteOcupacionDeGrupos;
@@ -66,6 +69,7 @@ use App\Reportes\Definiciones\EgresadosPorGeneracion;
 use App\Reportes\Fuentes\Aspirantes;
 use App\Reportes\Fuentes\CargaAcademica;
 use App\Reportes\Fuentes\Cargos;
+use App\Reportes\Fuentes\Certificables;
 use App\Reportes\Fuentes\Cartera;
 use App\Reportes\Fuentes\Docentes;
 use App\Reportes\Fuentes\Grupos;
@@ -352,6 +356,7 @@ class AppServiceProvider extends ServiceProvider
                 Aspirantes::class,
                 Docentes::class,
                 CargaAcademica::class,
+                Certificables::class,
             ] as $fuente) {
                 $registro->registrarFuente($fuente);
             }
@@ -382,6 +387,9 @@ class AppServiceProvider extends ServiceProvider
                 DocentesSinCarga::class,
                 DocentesSinCedula::class,
                 CargaAcademicaDelCiclo::class,
+                ListosParaCertificar::class,
+                AvanceParaCertificadoParcial::class,
+                AvanceDeCertificacion::class,
             ] as $reporte) {
                 $registro->registrarReporte($reporte);
             }
