@@ -6,7 +6,6 @@ namespace App\Http\Controllers;
 
 use App\Exceptions\AvisoParaElUsuario;
 use App\Services\Plataforma\ModulosDeLaEscuela;
-use App\Models\Academico\PlanEstudio;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\Historial;
 use App\Models\Finanzas\CuentaBancaria;
@@ -17,8 +16,8 @@ use App\Models\Identidad\Persona;
 use App\Models\Identidad\TutorAlumno;
 use App\Services\EstadoCuenta;
 use App\Services\EstadoDelAlumno;
+use App\Services\HistorialDelAlumno;
 use App\Services\Pagos\Pasarelas;
-use App\Support\Creditos;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -37,6 +36,7 @@ class PadreController extends Controller
     public function __construct(
         private readonly EstadoCuenta $estadoCuenta,
         private readonly EstadoDelAlumno $estadoDelAlumno,
+        private readonly HistorialDelAlumno $historialDelAlumno,
     ) {}
 
     public function misHijos(Request $request): Response
@@ -259,27 +259,30 @@ class PadreController extends Controller
             ->sortBy([['ciclo.clave', 'asc']])
             ->values();
 
-        $aprobadas = $historial->filter(fn (Historial $h) => $h->estatus?->clave === 'aprobada');
-        $conCalif = $historial->filter(fn (Historial $h) => $h->calificacion !== null);
+        /*
+         * Las cifras salen de `HistorialDelAlumno`, no de aquí.
+         *
+         * Ésta era la TERCERA implementación del promedio del proyecto, y
+         * promediaba TODOS los renglones: una materia reprobada en ordinario y
+         * aprobada a título contaba dos veces, y sus créditos también —
+         * `Creditos::sumar()` sobre todas las aprobadas los cobra dos veces si
+         * la misma materia se aprobó dos veces—. El servicio toma el MEJOR
+         * intento por materia, que es la regla oficial escrita en
+         * `docs/decisiones.md` (2026-08-26).
+         *
+         * Los RENGLONES sí se enseñan todos: es historia escolar y no se borra.
+         * Lo que no se hace es sumarlos.
+         */
+        $resumen = $this->historialDelAlumno->resumen($m);
 
         return [
             'matricula' => $m->matricula,
             'carrera' => $m->oferta?->carrera?->nombre,
             'plan' => $m->oferta?->plan?->nombre,
             'estatus' => $m->estatus,
-            // El promedio, en la precisión del plan del hijo: se redondeaba a
-            // dos decimales fijos aquí y a uno en el expediente, así que el
-            // mismo alumno tenía dos promedios según quién lo mirara.
-            'promedio' => $conCalif->isEmpty()
-                ? null
-                : PlanEstudio::redondearCon(
-                    $m->oferta?->plan,
-                    (float) $conCalif->avg(fn (Historial $h) => (float) $h->calificacion),
-                ),
-            // Redondeaba a UN decimal donde el expediente usa dos: el mismo
-            // alumno tenía 295 créditos en una pantalla y 295.3 en otra.
-            'creditos' => Creditos::sumar($aprobadas),
-            'creditos_del_plan' => $m->oferta?->plan?->total_creditos,
+            'promedio' => $resumen['promedio'],
+            'creditos' => $resumen['creditos'],
+            'creditos_del_plan' => $resumen['creditos_del_plan'],
             'materias' => $historial->map(fn (Historial $h) => [
                 'materia' => $h->planMateria?->asignatura?->nombre,
                 'ciclo' => $h->ciclo?->clave,

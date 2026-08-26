@@ -153,9 +153,26 @@ class MisHijos implements TarjetaPanel
         return match (true) {
             $sinMatricula => 'Aún sin inscripción',
             $debe => '$'.number_format((float) $estado['saldo'], 2),
-            $estado['promedio'] !== null => 'Promedio '.$estado['promedio'],
+            $estado['promedio'] !== null => 'Promedio '.$this->conCarrera($estado),
             default => 'Sin calificaciones',
         };
+    }
+
+    /**
+     * El promedio, y de qué carrera cuando hay más de una.
+     *
+     * Con dos programas la cifra es la MÁS BAJA —a la que hay que atender— y
+     * sin decir cuál se leería como si fuera el único promedio que tiene.
+     *
+     * @param  array<string, mixed>  $estado
+     */
+    private function conCarrera(array $estado): string
+    {
+        $promedio = (string) $estado['promedio'];
+
+        return $estado['promedio_de'] === null
+            ? $promedio
+            : $promedio.' en '.$estado['promedio_de'];
     }
 
     /** @param  array<string, mixed>  $estado */
@@ -166,7 +183,7 @@ class MisHijos implements TarjetaPanel
         // El promedio baja al pie sólo cuando el adeudo le quitó el sitio de
         // arriba: si no, se estaría diciendo dos veces.
         if ($debe && $estado['promedio'] !== null) {
-            $piezas[] = 'promedio '.$estado['promedio'];
+            $piezas[] = 'promedio '.$this->conCarrera($estado);
         }
 
         if (($estado['reprobadas'] ?? 0) > 0) {

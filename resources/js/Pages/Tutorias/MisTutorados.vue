@@ -25,6 +25,7 @@ interface Tutorado {
     ciclo: string | null;
     estado: {
         promedio: number | null;
+        promedio_de: string | null;
         reprobadas: number | null;
         saldo: number | null;
         vencido: boolean;
@@ -130,11 +131,16 @@ function colorPromedio(p: number | null): string | undefined {
                 </p>
 
                 <div class="mt-auto space-y-1.5 border-t pt-3" :style="{ borderColor: 'var(--color-borde)' }">
+                    <!-- Ver la nota del portal del padre: con dos carreras se
+                         enseña el mas bajo y se nombra cual. -->
                     <p v-if="t.estado.promedio !== null" class="flex items-baseline gap-1.5 text-sm">
                         <span class="text-xs" :style="{ color: 'var(--color-suave)' }">Promedio</span>
                         <strong class="tabular-nums" :style="{ color: colorPromedio(t.estado.promedio) }">
                             {{ t.estado.promedio }}
                         </strong>
+                        <span v-if="t.estado.promedio_de" class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                            en {{ t.estado.promedio_de }}
+                        </span>
                     </p>
                     <p v-else class="text-xs" :style="{ color: 'var(--color-suave)' }">
                         Todavía sin calificaciones.

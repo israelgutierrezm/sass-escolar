@@ -4,11 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\Academico\PlanEstudio;
 use App\Models\Admisiones\MatriculaOferta;
-use App\Models\ControlEscolar\Historial;
 use App\Models\Identidad\Persona;
-use Illuminate\Support\Collection;
 
 /**
  * Cómo va un alumno, en cuatro cifras.
@@ -24,52 +21,53 @@ use Illuminate\Support\Collection;
  * padre y un tutor no se rigen por lo mismo—, pero sí respeta la decisión: lo
  * que no se autoriza NO SE CALCULA, así que tampoco puede filtrarse por
  * descuido a la vista. Que el dato no exista es más seguro que ocultarlo.
+ *
+ * ── El promedio ya NO se calcula aquí ──────────────────────────────────────
+ * Lo resuelve {@see HistorialDelAlumno}, POR MATRÍCULA. Este servicio lo
+ * promediaba por PERSONA, mezclando las carreras de quien estudia dos, y sobre
+ * todos los renglones en vez del mejor intento por materia. Medido contra el
+ * demo: de las 15 personas con dos matrículas, LAS 15 salían con un promedio
+ * distinto del que enseña su propio historial —Sofía García Pérez con 8.54 aquí
+ * y 8.59 / 8.50 allá—, o sea que el padre leía un número que no era el promedio
+ * de ninguna de las dos carreras de su hija. Ver `docs/decisiones.md`,
+ * 2026-08-26.
  */
 class EstadoDelAlumno
 {
-    public function __construct(private readonly EstadoCuenta $estadoCuenta) {}
+    public function __construct(
+        private readonly EstadoCuenta $estadoCuenta,
+        private readonly HistorialDelAlumno $historial,
+    ) {}
 
     /**
-     * @return array{promedio: float|null, reprobadas: int|null, saldo: float|null, vencido: bool}
+     * @return array{
+     *     promedio: float|null,
+     *     promedio_de: string|null,
+     *     programas: array<int, array<string, mixed>>,
+     *     reprobadas: int|null,
+     *     saldo: float|null,
+     *     vencido: bool
+     * }
      */
     public function de(Persona $alumno, bool $academico = true, bool $finanzas = true): array
     {
         $estado = [
             'promedio' => null,
+            'promedio_de' => null,
+            'programas' => [],
             'reprobadas' => null,
             'saldo' => null,
             'vencido' => false,
         ];
 
-        $matriculas = $alumno->matriculas()->with('oferta.plan')->get();
+        $matriculas = $alumno->matriculas()->with('oferta.plan', 'oferta.carrera')->get();
 
         if ($matriculas->isEmpty()) {
             return $estado;
         }
 
         if ($academico) {
-            $historial = Historial::query()
-                ->with('estatus:id,clave')
-                ->whereIn('matricula_oferta_id', $matriculas->pluck('id'))
-                ->get();
-
-            $conCalif = $historial->filter(fn (Historial $h) => $h->calificacion !== null);
-
-            $estado['promedio'] = $conCalif->isEmpty()
-                ? null
-                : PlanEstudio::redondearCon(
-                    $this->planQueManda($matriculas),
-                    (float) $conCalif->avg(fn (Historial $h) => (float) $h->calificacion),
-                );
-
-            /*
-             * Reprobadas, no «no aprobadas»: una materia en curso todavía no
-             * tiene veredicto, y contarla como mala pintaría en rojo a un
-             * alumno que va al corriente.
-             */
-            $estado['reprobadas'] = $historial
-                ->filter(fn (Historial $h) => $h->estatus?->clave === 'reprobada')
-                ->count();
+            $estado = [...$estado, ...$this->academicoDe($matriculas)];
         }
 
         if ($finanzas) {
@@ -102,25 +100,51 @@ class EstadoDelAlumno
     }
 
     /**
-     * Con qué plan se redondea un promedio que mezcla carreras.
+     * Lo académico, PROGRAMA POR PROGRAMA.
      *
-     * Aquí el promedio junta TODAS las matrículas —si cursa dos carreras, es
-     * uno solo—, y cada plan puede calificar distinto: uno con enteros y otro
-     * con dos decimales. No hay una respuesta correcta, así que no se elige una
-     * a escondidas: sólo se usa el plan cuando todas las matrículas comparten
-     * el mismo. Con planes distintos se cae al comportamiento de siempre —dos
-     * decimales, medio arriba— en vez de aplicarle a una carrera la regla de la
-     * otra.
+     * ── Por qué hay una cifra suelta además del desglose ──────────────────
+     * Las dos pantallas que llaman aquí ordenan por el promedio y lo resumen en
+     * una línea: con una lista no podrían hacer ninguna de las dos cosas. La
+     * cifra suelta es el promedio **más bajo** de sus programas, que es
+     * literalmente lo que este servicio existe para contestar —«a cuál hay que
+     * atender»—, y viaja con `promedio_de` para que se pueda nombrar la carrera
+     * en cuanto hay más de una. Sin ese nombre, «Promedio 8.29» se leería como
+     * si fuera el único que tiene.
      *
-     * @param  Collection<int, MatriculaOferta>  $matriculas
+     * `reprobadas` sí se suma entre programas: es una cuenta de la persona.
+     *
+     * @param  \Illuminate\Support\Collection<int, MatriculaOferta>  $matriculas
+     * @return array<string, mixed>
      */
-    private function planQueManda($matriculas): ?PlanEstudio
+    private function academicoDe($matriculas): array
     {
-        $planes = $matriculas
-            ->map(fn ($m) => $m->oferta?->plan)
-            ->filter()
-            ->unique('id');
+        $programas = $matriculas
+            ->map(function (MatriculaOferta $m) {
+                // El MISMO resumen que ve el alumno en `/mi-historial` y la
+                // ventanilla en el expediente. No se recalcula nada: el día que
+                // dieran números distintos, nadie sabría cuál creer.
+                $resumen = $this->historial->resumen($m);
 
-        return $planes->count() === 1 ? $planes->first() : null;
+                return [
+                    'matricula' => $m->matricula,
+                    'carrera' => $m->oferta?->carrera?->nombre,
+                    'promedio' => $resumen['promedio'],
+                    'reprobadas' => $resumen['reprobadas'],
+                ];
+            })
+            ->values();
+
+        $conPromedio = $programas->filter(fn (array $p) => $p['promedio'] !== null);
+
+        // El más bajo, y de cuál es. Con un solo programa —el caso de casi
+        // todos— esto da exactamente lo mismo que antes.
+        $peor = $conPromedio->sortBy('promedio')->first();
+
+        return [
+            'programas' => $programas->all(),
+            'promedio' => $peor['promedio'] ?? null,
+            'promedio_de' => $conPromedio->count() > 1 ? ($peor['carrera'] ?? null) : null,
+            'reprobadas' => (int) $programas->sum('reprobadas'),
+        ];
     }
 }

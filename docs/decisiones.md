@@ -811,6 +811,51 @@ acotada.
 - **Razón:** lo contrario haría que el promedio bajara al inscribirse, que es
   exactamente al revés de lo que significa.
 
+## 2026-08-26 — El promedio oficial (bloqueo del módulo de Reportes)
+
+### Hay UN promedio, es de la MATRÍCULA, y lo calcula `HistorialDelAlumno`
+- **Decisión:** el promedio oficial es
+  `App\Services\HistorialDelAlumno::promedio()`, sobre el **mejor intento por
+  materia** y con la precisión que fija el plan. Es de una **matrícula**, no de
+  una persona. `EstadoDelAlumno` y el detalle de `/mis-hijos` dejan de
+  calcularlo por su cuenta y lo consultan.
+- **Razón:** había **tres** implementaciones dando **tres números distintos**
+  para el mismo alumno, y ninguna fallaba:
+
+  | Dónde | Grano | Qué promedia |
+  |---|---|---|
+  | `HistorialDelAlumno::promedio()` | matrícula | el **mejor intento** por materia |
+  | `EstadoDelAlumno` (`/mis-hijos`, `/mis-tutorados`) | **persona**, mezclando carreras | todos los renglones |
+  | `PadreController` (detalle del hijo) | matrícula | todos los renglones |
+
+- **Medido contra el demo antes de decidir**: de las 15 personas con más de una
+  matrícula, **las 15** tenían un promedio distinto en el portal del padre que
+  en su propio historial. Sofía García Pérez sale con **8.54** en `/mis-hijos` y
+  con **8.59** y **8.50** en sus dos carreras: el padre lee un número que no es
+  el promedio de ninguna de las dos. Un catálogo de reportes que eligiera mal
+  habría añadido una cuarta.
+- **Por qué el MEJOR intento y no todos:** ya estaba argumentado en
+  `HistorialDelAlumno` y se ratifica — una materia aprobada a título después de
+  tronar el ordinario cuenta una vez y como aprobada. Sumar los dos renglones
+  castiga dos veces el mismo tropiezo. El historial académico sí enseña ambos,
+  porque es historia y no se borra. **En el demo esto no se nota**: no hay ni un
+  solo recursamiento, así que la divergencia sólo se vería el día que lo haya.
+- **Por qué de la MATRÍCULA:** es la regla vertebral del proyecto («el alumno es
+  la matrícula, no la persona»), la que ya siguen el historial académico, la
+  credencial y la disciplina. Un promedio que mezcla dos carreras no es el
+  promedio de ninguna, y ni siquiera se puede redondear: cada plan califica con
+  su propia precisión — el código lo reconocía y se caía a dos decimales fijos
+  «en vez de aplicarle a una carrera la regla de la otra».
+- **Lo que ven las pantallas de padre y tutor**, que necesitan UNA cifra para
+  ordenar y para el resumen de una línea: el promedio **más bajo** de sus
+  programas, y con el nombre de la carrera al lado en cuanto hay más de uno. Es
+  lo que su propio docblock dice que existe para contestar —«a cuál hay que
+  atender»— y con el nombre puesto deja de leerse como si fuera el único.
+  `programas` trae el desglose completo para quien lo quiera enseñar.
+- **`reprobadas` sí se SUMA entre programas** y no cambia: «cuántas materias
+  trae reprobadas» es una cuenta de la persona, y partirla obligaría a leer dos
+  cifras para contestar una pregunta. Igual que el saldo, que ya se sumaba.
+
 ## 2026-07-21 — Catálogo de docentes
 
 ### El alta reutiliza a la persona

@@ -13,6 +13,7 @@ interface Hijo {
     puede_ver_finanzas: boolean;
     estado: {
         promedio: number | null;
+        promedio_de: string | null;
         reprobadas: number | null;
         saldo: number | null;
         vencido: boolean;
@@ -249,11 +250,26 @@ function colorPromedio(p: number | null): string | undefined {
                 -->
                 <div class="mt-auto space-y-2 border-t pt-3" :style="{ borderColor: 'var(--color-borde)' }">
                     <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm">
+                        <!--
+                            Con dos carreras se enseña el promedio MAS BAJO, que
+                            es a lo que hay que atender, y se NOMBRA la carrera.
+                            Sin el nombre se leeria como si fuera el unico que
+                            tiene -- y antes ni siquiera era uno de los suyos:
+                            se promediaban las dos juntas y salia una cifra que
+                            no era el promedio de ninguna.
+                        -->
                         <span v-if="hijo.estado.promedio !== null" class="flex items-baseline gap-1.5">
                             <span class="text-xs" :style="{ color: 'var(--color-suave)' }">Promedio</span>
                             <strong class="tabular-nums" :style="{ color: colorPromedio(hijo.estado.promedio) }">
                                 {{ hijo.estado.promedio }}
                             </strong>
+                            <span
+                                v-if="hijo.estado.promedio_de"
+                                class="text-xs"
+                                :style="{ color: 'var(--color-suave)' }"
+                            >
+                                en {{ hijo.estado.promedio_de }}
+                            </span>
                         </span>
 
                         <span v-if="hijo.estado.saldo !== null" class="flex items-baseline gap-1.5">

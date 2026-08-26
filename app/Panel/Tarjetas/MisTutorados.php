@@ -150,6 +150,9 @@ class MisTutorados implements TarjetaPanel
             'id' => $tutoria->alumno->id,
             'reprobadas' => $estado['reprobadas'] ?? 0,
             'promedio' => $estado['promedio'],
+            // De cuál de sus carreras es, cuando tiene más de una. Sin esto la
+            // cifra se lee como si fuera su único promedio.
+            'promedio_de' => $estado['promedio_de'],
             'sesiones' => (int) ($sesiones->cuantas ?? 0),
             'dias' => $ultima === null
                 ? null
@@ -179,7 +182,12 @@ class MisTutorados implements TarjetaPanel
             return $fila['reprobadas'] === 1 ? '1 reprobada' : $fila['reprobadas'].' reprobadas';
         }
 
-        return $fila['promedio'] !== null ? 'Promedio '.$fila['promedio'] : 'Sin calificaciones';
+        if ($fila['promedio'] === null) {
+            return 'Sin calificaciones';
+        }
+
+        return 'Promedio '.$fila['promedio']
+            .($fila['promedio_de'] === null ? '' : ' en '.$fila['promedio_de']);
     }
 
     /** @param  array<string, mixed>  $fila */
