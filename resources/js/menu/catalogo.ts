@@ -38,7 +38,7 @@ export interface GrupoMenu {
     icono: string;
     /**
      * El módulo de la escuela que enciende esta sección. Si está apagado en
-     * `/plataforma/accesos`, la sección se oculta de la barra —sin esto quedaba
+     * `/plataforma/modulos`, la sección se oculta de la barra —sin esto quedaba
      * un enlace que daba 404, porque la RUTA sí comprueba el módulo pero el menú
      * no—. `null`/ausente = siempre visible.
      */
@@ -264,7 +264,7 @@ export const CATALOGO_MENU: GrupoMenu[] = [
             { clave: 'alumnos-listado', etiqueta: 'Listado', url: '/escolar/alumnos', permiso: 'ver-alumnos' },
             // Movilidad, Disciplina y Bolsa cuelgan de «Alumnos»: son funciones
             // administrativas SOBRE el alumno, operadas por personal. Cada una
-            // conserva su `modulo`, así que apagarlo en /plataforma/accesos la
+            // conserva su `modulo`, así que apagarlo en /plataforma/modulos la
             // esconde igual que cuando eran secciones propias.
             {
                 clave: 'movilidad',
@@ -469,6 +469,20 @@ export const CATALOGO_MENU: GrupoMenu[] = [
                 prefijo: '/plataforma/configuracion',
                 hijos: [
                     { clave: 'reglas', etiqueta: 'Reglas institucionales', url: '/plataforma/configuracion', permiso: 'ver-configuracion' },
+                    /*
+                     * El interruptor de las secciones apagables.
+                     *
+                     * La ruta existe desde que existen los modulos y NO estaba
+                     * en el menu de nadie: la unica forma de apagar una seccion
+                     * era teclear la URL. Y la bitacora mandaba cuatro veces a
+                     * `/plataforma/accesos`, que es el registro de quien inicio
+                     * sesion y no apaga nada.
+                     *
+                     * Cuelga de Configuracion y con su mismo permiso porque es
+                     * lo mismo que declara su ruta: una regla de operacion de
+                     * toda la escuela, no una preferencia.
+                     */
+                    { clave: 'modulos', etiqueta: 'Secciones activas', url: '/plataforma/modulos', permiso: 'ver-configuracion' },
                     { clave: 'config-correo', etiqueta: 'Envío de correos', url: '/plataforma/configuraciones/correo', permiso: 'configurar-correo' },
                     { clave: 'config-facturacion', etiqueta: 'API Facturación', url: '/plataforma/configuraciones/facturacion', permiso: 'configurar-facturacion' },
                     { clave: 'config-pasarelas', etiqueta: 'API Pasarelas', url: '/plataforma/configuraciones/pasarelas', permiso: 'configurar-facturacion' },

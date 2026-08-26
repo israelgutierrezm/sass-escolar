@@ -1600,7 +1600,7 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   `C:\Dev\bolsa-demo-antes-de-limpiar-2026-08-22.sql`.
   - El **módulo `bolsa_trabajo` se dejó ENCENDIDO**: apagarlo devuelve 404 en
     todas sus rutas y esconde el menú, o sea que la sección no se podría ni
-    mirar. El interruptor está en `/plataforma/accesos`.
+    mirar. El interruptor está en `/plataforma/modulos`.
   - `bolsa.postulacion_autogestiva` quedó como fila en `configuraciones` con
     valor `0`, que es su valor por omisión: la pantalla de reglas escribe todas
     al guardar, así que es indistinguible del uso normal.
@@ -2406,7 +2406,7 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   Salió al revisar el pedido de "apagar/encender opciones por perfil": el sistema
   ya tenía DOS niveles para eso —permisos (`/plataforma/roles`) y el editor de
   menú por rol (`/plataforma/menu`, cajón de «Ocultos»)— pero **faltaba el
-  tercero**: apagar un MÓDULO en `/plataforma/accesos` dejaba su entrada en la
+  tercero**: apagar un MÓDULO en `/plataforma/modulos` dejaba su entrada en la
   barra dando 404, porque la RUTA comprobaba el módulo (`modulo:` middleware) y
   el menú no.
   - Cinco secciones estaban gateadas por módulo y no lo declaraban: `movilidad`,
@@ -2436,7 +2436,7 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   sanciones para alumnos». NO estaba en la spec —`especificacion-esquema.md`
   sólo tiene «incidencias» de NÓMINA, otra cosa—, así que es función nueva
   diseñada con los patrones del proyecto, no un módulo de la spec. Bajo
-  `modulo:disciplina` (apagarlo en `/plataforma/accesos` devuelve 404 y esconde
+  `modulo:disciplina` (apagarlo en `/plataforma/modulos` devuelve 404 y esconde
   el menú), con sección propia en la barra: Incidencias, Sanciones y Catálogos.
   - **El titular es la MATRÍCULA, no la persona.** `incidencias` y `sanciones`
     cuelgan de `matricula_oferta`, igual que el historial académico: quien
@@ -2514,7 +2514,7 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     primer nivel lo llevaban—, así que un subgrupo con módulo apagado se habría
     quedado visible. Se corrigió: el subgrupo hereda el ámbito del padre pero
     conserva SU módulo, y `filtrar()` ya lo gateaba. Sin esto, apagar
-    `disciplina` en `/plataforma/accesos` habría dejado el subgrupo en la barra
+    `disciplina` en `/plataforma/modulos` habría dejado el subgrupo en la barra
     dando 404, justo lo que la entrada anterior vino a arreglar para los grupos.
   - Las claves NO cambiaron (`movilidad`, `disciplina`, `bolsa`, sus hijos): son
     lo que guardan las disposiciones de menú por rol, y renombrarlas rompería los

@@ -1912,7 +1912,7 @@ Route::middleware([
 
         /*
          * Disciplina: incidencias y sanciones. Bajo `modulo:disciplina`, así
-         * apagarlo en `/plataforma/accesos` cierra las rutas (404) además de
+         * apagarlo en `/plataforma/modulos` cierra las rutas (404) además de
          * ocultar el menú.
          */
         /*
