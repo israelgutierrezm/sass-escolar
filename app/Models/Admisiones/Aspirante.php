@@ -62,9 +62,28 @@ class Aspirante extends Model
      * y no la usaba nadie: sin esta columna el embudo era un catálogo, no un
      * dato, y no se podía saber cuántos se caen entre una etapa y otra.
      */
+    /**
+     * Dónde está parado en el embudo, incluso si la escuela RETIRÓ esa etapa.
+     *
+     * ── Por qué `withTrashed()` ───────────────────────────────────────────
+     * Apagar una etapa la saca del embudo para lo que venga, pero NO mueve a
+     * quien ya estaba parado ahí. Sin esto la relación devuelve null y el
+     * prospecto aparece «sin etapa» en el tablero y en los reportes: se pierde
+     * el dato por editar un catálogo, y encima el filtro por etapa tampoco lo
+     * alcanza —sus opciones salen del catálogo vivo—, así que queda invisible
+     * por los dos lados.
+     *
+     * En el demo la etapa 4 «En evaluación» está dada de baja, así que el caso
+     * no es hipotético: hoy no muerde sólo porque nadie está parado en ella.
+     *
+     * Es la misma decisión —y ahora la misma escritura— que
+     * {@see \App\Models\Promocion\SeguimientoAspirante::etapa()}, que ya la
+     * llevaba. Que dos lecturas del mismo catálogo se comportaran distinto era
+     * la incongruencia.
+     */
     public function etapa(): BelongsTo
     {
-        return $this->belongsTo(EtapaCrm::class, 'etapa_crm_id');
+        return $this->belongsTo(EtapaCrm::class, 'etapa_crm_id')->withTrashed();
     }
 
     public function origenAspirante(): BelongsTo

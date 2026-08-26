@@ -49,14 +49,23 @@ use App\Reportes\Definiciones\CargosEmitidos;
 use App\Reportes\Definiciones\Condonaciones;
 use App\Reportes\Definiciones\CorteDeCaja;
 use App\Reportes\Definiciones\CarteraVencida;
+use App\Reportes\Definiciones\DocentesSinCarga;
+use App\Reportes\Definiciones\DocentesSinCedula;
 use App\Reportes\Definiciones\EstadoDeCartera;
 use App\Reportes\Definiciones\MateriasSinTitular;
+use App\Reportes\Definiciones\PlantillaDocente;
 use App\Reportes\Definiciones\OcupacionDeGrupos as ReporteOcupacionDeGrupos;
+use App\Reportes\Definiciones\ProspectosAbiertos;
+use App\Reportes\Definiciones\ProspectosConvertidos;
+use App\Reportes\Definiciones\ProspectosDescartados;
+use App\Reportes\Definiciones\ProspectosSinContactar;
 use App\Reportes\Definiciones\PagosPorConfirmar;
 use App\Reportes\Definiciones\BajasDeAlumnos;
 use App\Reportes\Definiciones\EgresadosPorGeneracion;
+use App\Reportes\Fuentes\Aspirantes;
 use App\Reportes\Fuentes\Cargos;
 use App\Reportes\Fuentes\Cartera;
+use App\Reportes\Fuentes\Docentes;
 use App\Reportes\Fuentes\Grupos;
 use App\Reportes\Fuentes\Ingresos;
 use App\Reportes\Fuentes\Matriculas;
@@ -338,6 +347,8 @@ class AppServiceProvider extends ServiceProvider
                 Cargos::class,
                 Ingresos::class,
                 Grupos::class,
+                Aspirantes::class,
+                Docentes::class,
             ] as $fuente) {
                 $registro->registrarFuente($fuente);
             }
@@ -360,6 +371,13 @@ class AppServiceProvider extends ServiceProvider
                 // tiene que poder decir 110 %--.
                 ReporteOcupacionDeGrupos::class,
                 MateriasSinTitular::class,
+                ProspectosAbiertos::class,
+                ProspectosSinContactar::class,
+                ProspectosDescartados::class,
+                ProspectosConvertidos::class,
+                PlantillaDocente::class,
+                DocentesSinCarga::class,
+                DocentesSinCedula::class,
             ] as $reporte) {
                 $registro->registrarReporte($reporte);
             }

@@ -132,6 +132,31 @@ try {
     $rotas = [];
     $probadas = 0;
     $vacios = [];
+    $conObligatorios = [];
+
+    /*
+     * Un reporte puede EXIGIR filtros —«Docentes sin carga» no significa nada
+     * sin ciclo— y entonces se niega a correr. Eso no es el defecto que esta
+     * suite busca, así que se le da lo que pide: la primera opción viva de su
+     * catálogo. Se anota cuáles, para que no parezca que corrieron pelados.
+     */
+    $obligatorios = function ($fuente, $reporte) use ($usuario, &$conObligatorios) {
+        $valores = [];
+
+        foreach ($reporte->filtrosObligatorios() as $clave) {
+            $filtro = $fuente->filtros()[$clave] ?? null;
+
+            if ($filtro === null) {
+                continue;
+            }
+
+            $opciones = $filtro->opcionesPara($usuario);
+            $valores[$clave] = (string) array_key_first($opciones);
+            $conObligatorios[$reporte->clave()] = $clave;
+        }
+
+        return $valores;
+    };
 
     foreach ($registro->todos() as $reporte) {
         $fuente = $registro->fuente($reporte->fuente());
@@ -144,6 +169,10 @@ try {
                     $exportacion = $ejecutor->paraExportar($usuario, $reporte->clave(), [
                         'orden_por' => $columna->clave,
                         'orden_dir' => $direccion,
+                        // Los OBLIGATORIOS se rellenan con la primera opción del
+                        // catálogo: sin ellos el reporte se niega a correr, y esa
+                        // negativa es correcta —no es el defecto que se busca—.
+                        'filtros' => $obligatorios($fuente, $reporte),
                     ]);
 
                     $emitidas = 0;
@@ -194,6 +223,11 @@ try {
      * que la red cubre más de lo que cubre.
      */
     $sinDatos = array_values(array_unique($vacios));
+
+    if ($conObligatorios !== []) {
+        echo "  [33m·[0m    Con su filtro obligatorio puesto para poder correr: "
+            .implode(', ', array_keys($conObligatorios)).PHP_EOL;
+    }
 
     echo '  '.($sinDatos === []
         ? "\033[32m·\033[0m    Todos los reportes tenían filas: la red cubrió todo."
