@@ -62,6 +62,20 @@ class VistaReporteController extends Controller
             'Para guardar una vista que vea toda la escuela hace falta el permiso de organizar los reportes.',
         );
 
+        /*
+         * Compartir a un ROL es lo mismo que compartir a la escuela, en pequeño.
+         *
+         * Sin esto, cualquiera con `ver-reportes` podía plantarle una vista al
+         * rol que quisiera —a dirección general, por ejemplo— y encima ser el
+         * único que la puede quitar, porque el dueño sigue siendo él. Un
+         * elemento en la pantalla de otro que ese otro no puede retirar.
+         */
+        AvisoParaElUsuario::si(
+            filled($datos['rol_id'] ?? null) && ! $usuario->can('gestionar-areas-reporte'),
+            403,
+            'Para compartirle una vista a un rol hace falta el permiso de organizar los reportes.',
+        );
+
         DB::connection('tenant')->transaction(function () use ($datos, $clave, $usuario, $deLaEscuela) {
             $vista = VistaReporte::query()->create([
                 'reporte' => $clave,

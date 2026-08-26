@@ -131,7 +131,7 @@ class ExportadorXlsx
             TipoDato::Entero => (int) $valor,
             TipoDato::Decimal, TipoDato::Dinero, TipoDato::Porcentaje => (float) $valor,
             TipoDato::Booleano => (bool) $valor,
-            default => (string) $valor,
+            default => TextoDeCelda::neutralizado((string) $valor),
         };
     }
 

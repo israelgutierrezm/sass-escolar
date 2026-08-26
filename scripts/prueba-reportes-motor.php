@@ -29,6 +29,7 @@ use App\Exceptions\AvisoParaElUsuario;
 use App\Http\Controllers\Reportes\ConfiguracionReportesController;
 use App\Http\Controllers\Reportes\VistaReporteController;
 use Database\Seeders\Tenant\AreasReporteSeeder;
+use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\SituacionAlumno;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\Rol;
@@ -41,6 +42,7 @@ use App\Models\Reportes\UbicacionReporte;
 use App\Models\Tenant;
 use App\Reportes\Ejecutor;
 use App\Reportes\RegistroReportes;
+use App\Reportes\Salida\TextoDeCelda;
 use App\Reportes\Salida\ExportadorXlsx;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\DB;
@@ -772,6 +774,145 @@ try {
 
     verificar('Marcarlo dos veces no duplica ni revienta',
         ReporteFavorito::query()->where('persona_id', $global->persona_id)->where('reporte', 'alumnos-inscritos')->count() === 1);
+
+    echo PHP_EOL.'16. El recorrido DESCENDENTE y con NULLs no pierde filas'.PHP_EOL;
+
+    auth()->login($global);
+
+    /*
+     * Los dos defectos que esto vigila son de EXPORTACION, no de pantalla, y
+     * ninguno da error: producen un archivo que abre perfectamente con filas
+     * repetidas o de menos.
+     *
+     *  (1) El desempate del ORDER BY iba sin direccion --o sea ASC fijo--,
+     *      mientras el cursor del keyset avanza con la del reporte. Con
+     *      `col DESC, id ASC` y empates en la frontera de un lote, se repiten
+     *      filas y se saltan otras.
+     *  (2) En MySQL `(3,2) > (null,1)` no es falso: es NULL, y una condicion
+     *      NULL descarta la fila. Con la columna de orden nulable, el recorrido
+     *      se truncaba en silencio.
+     *
+     * Los dos se disparan por el camino POR OMISION de «Egresados por
+     * generacion», que ordena `['generacion', 'desc']` sobre una columna
+     * nullable. El demo no los exhibe porque no tiene generaciones en null ni
+     * pasa de un lote.
+     */
+    $sinGeneracion = MatriculaOferta::query()
+        ->whereIn('situacion_id', $conBandera)
+        ->limit(7)
+        ->pluck('id');
+
+    verificar('Hay egresados suficientes para partir en lotes',
+        $sinGeneracion->count() >= 6, (string) $sinGeneracion->count());
+
+    // A la mitad se les quita la generación: es el estado NORMAL de un dato
+    // «sin definir», no un dato roto.
+    MatriculaOferta::query()->whereIn('id', $sinGeneracion->take(4))->update(['generacion' => null]);
+
+    $totalEgresados = $ejecutorLotesChicos->paraExportar($global, 'egresados-por-generacion')->total;
+
+    foreach (['desc', 'asc'] as $direccion) {
+        $exportacion = $ejecutorLotesChicos->paraExportar($global, 'egresados-por-generacion', [
+            'columnas' => ['matricula', 'generacion'],
+            'orden_por' => 'generacion',
+            'orden_dir' => $direccion,
+        ]);
+
+        $filas = iterator_to_array($exportacion->recorrer(), false);
+        $matriculas = array_column($filas, 'matricula');
+
+        verificar("Orden {$direccion}: salen TODAS las filas, ninguna de menos",
+            count($filas) === $totalEgresados,
+            count($filas).' de '.$totalEgresados);
+
+        verificar("Orden {$direccion}: ninguna fila repetida",
+            count(array_unique($matriculas)) === count($matriculas),
+            (count($matriculas) - count(array_unique($matriculas))).' repetidas');
+
+        // Las que no tienen generación también salen: en DESC van al final y
+        // eran justo las que desaparecían.
+        $conNulo = array_filter($filas, fn (array $f) => blank($f['generacion']));
+
+        verificar("Orden {$direccion}: las que no tienen generación también salen",
+            count($conNulo) === 4, count($conNulo).' de 4');
+    }
+
+    echo PHP_EOL.'17. Lo que destapó la revisión adversaria'.PHP_EOL;
+
+    /*
+     * Una celda no puede convertirse en FÓRMULA al abrir el archivo.
+     *
+     * Excel interpreta como fórmula lo que empieza por = + - @, y un reporte
+     * escolar está lleno de texto que escribió alguien de fuera: el nombre de un
+     * aspirante que llegó por el formulario público. Un
+     * `=HYPERLINK("http://…"&A2)` en el archivo que control escolar le manda a
+     * la SEP se dispara solo al abrirlo, y nada en el archivo lo delata.
+     */
+    foreach (['=1+1', '+A1', '-2', '@SUM(A1)'] as $peligroso) {
+        verificar("«{$peligroso}» sale neutralizado, no como fórmula",
+            str_starts_with(TextoDeCelda::neutralizado($peligroso), "'"),
+            TextoDeCelda::neutralizado($peligroso));
+    }
+
+    // Y el dato sigue siendo el dato: no se mutila nada normal.
+    verificar('Un texto normal no se toca',
+        TextoDeCelda::neutralizado('Leonardo Díaz') === 'Leonardo Díaz');
+
+    /*
+     * Compartirle una vista a un ROL es compartir en pequeño.
+     *
+     * Sin comprobarlo, cualquiera con `ver-reportes` le plantaba una vista al
+     * rol que quisiera —y era el único que podía quitarla, porque el dueño
+     * seguía siendo él—.
+     */
+    auth()->login($sinOrganizar);
+
+    $estadoRol = null;
+
+    try {
+        $vistas->guardar(peticionCon([
+            'nombre' => 'Colada en otro rol',
+            'rol_id' => (string) Rol::query()->where('name', 'director_general')->value('id'),
+        ]), 'alumnos-inscritos');
+    } catch (AvisoParaElUsuario $e) {
+        $estadoRol = $e->getStatusCode();
+    }
+
+    verificar('Sin permiso de organizar no se le planta una vista a un rol',
+        $estadoRol === 403, (string) $estadoRol);
+
+    auth()->login($global);
+
+    /*
+     * La cuenta de un área tiene que incluir los reportes que viven ahí POR
+     * OMISIÓN, no sólo los movidos: si no, un área recién sembrada figura con
+     * cero, se ofrece el botón de eliminar y borrarla deja sus reportes sin
+     * sitio.
+     */
+    UbicacionReporte::query()->forceDelete();
+
+    // La respuesta de Inertia sólo entrega JSON si la petición lo pide: sin la
+    // cabecera devuelve el HTML de la SPA y las props no se ven.
+    $comoInertia = Illuminate\Http\Request::create('/reportes/configuracion', 'GET');
+    $comoInertia->headers->set('X-Inertia', 'true');
+    $comoInertia->headers->set('X-Inertia-Version', '');
+    $comoInertia->setUserResolver(fn () => auth()->user());
+
+    $props = json_decode(
+        $config->index($comoInertia)->toResponse($comoInertia)->getContent(),
+        true
+    )['props'];
+
+    $controlEscolar = collect($props['areas'])->firstWhere('clave', 'control-escolar');
+
+    verificar('Un área cuenta los reportes que viven en ella por omisión',
+        ($controlEscolar['cuantos'] ?? 0) === 3,
+        'cuenta '.($controlEscolar['cuantos'] ?? 'null'));
+
+    $vacia = collect($props['areas'])->firstWhere('clave', 'movilidad');
+
+    verificar('Y un área de verdad vacía sigue contando cero',
+        ($vacia['cuantos'] ?? null) === 0, (string) ($vacia['cuantos'] ?? 'null'));
 
     echo PHP_EOL.'Resultado: '.($verificaciones - $fallidas)." correctas, {$fallidas} fallidas".PHP_EOL;
 } finally {

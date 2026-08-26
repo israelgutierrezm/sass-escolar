@@ -33,6 +33,25 @@ class ConfiguracionReportesController extends Controller
     {
         $ubicaciones = UbicacionReporte::query()->get()->keyBy('reporte');
 
+        /*
+         * Cuantos reportes vive de verdad en cada area.
+         *
+         * Contar solo `ubicaciones_reporte` era contar los MOVIDOS: un reporte
+         * que nunca se movio no tiene fila y vive en su area por omision. Con
+         * esa cuenta, un area recien sembrada figuraba con cero y se ofrecia el
+         * boton de eliminar --y borrarla dejaba sus reportes sin sitio--.
+         */
+        // Los ids por clave, UNA vez: se resolvia con una consulta dentro del
+        // map, o sea una por reporte.
+        $idsPorClave = AreaReporte::query()->pluck('id', 'clave')->all();
+
+        $porArea = [];
+
+        foreach ($this->registro->todos() as $reporte) {
+            $clave = $ubicaciones->get($reporte->clave())?->area?->clave ?? $reporte->areaSugerida();
+            $porArea[$clave] = ($porArea[$clave] ?? 0) + 1;
+        }
+
         return Inertia::render('Reportes/Configuracion', [
             'areas' => AreaReporte::query()
                 ->orderBy('orden')
@@ -42,7 +61,7 @@ class ConfiguracionReportesController extends Controller
                 ]), [
                     // Sólo se borra un área VACÍA: con reportes dentro, borrarla
                     // los dejaría sin sitio. Para retirarla del índice se apaga.
-                    'cuantos' => $ubicaciones->where('area_id', $a->id)->count(),
+                    'cuantos' => $porArea[$a->clave] ?? 0,
                 ]))
                 ->values(),
 
@@ -51,7 +70,7 @@ class ConfiguracionReportesController extends Controller
              * puede ejecutar: quien acomoda el índice tiene que poder mover
              * también los que él no usa.
              */
-            'reportes' => array_values(array_map(function (DefinicionReporte $r) use ($ubicaciones) {
+            'reportes' => array_values(array_map(function (DefinicionReporte $r) use ($ubicaciones, $idsPorClave) {
                 $u = $ubicaciones->get($r->clave());
 
                 return [
@@ -60,7 +79,7 @@ class ConfiguracionReportesController extends Controller
                     'tituloPropio' => $u?->nombre,
                     'descripcion' => $r->descripcion(),
                     'areaClave' => $u?->area?->clave ?? $r->areaSugerida(),
-                    'areaId' => $u?->area_id ?? AreaReporte::query()->where('clave', $r->areaSugerida())->value('id'),
+                    'areaId' => $u?->area_id ?? $idsPorClave[$r->areaSugerida()] ?? null,
                     'activo' => $u?->activo ?? true,
                     'movido' => $u !== null,
                 ];

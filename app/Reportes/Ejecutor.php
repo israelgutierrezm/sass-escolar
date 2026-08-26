@@ -158,16 +158,7 @@ class Ejecutor
             $lote = (clone $consulta);
 
             if ($ultimo !== null) {
-                if ($columnaOrden === null) {
-                    $lote->where($llave, $comparador, $ultimo['llave']);
-                } else {
-                    // Comparacion de tuplas: avanza aunque la columna de orden
-                    // tenga empates, sin repetir ni saltarse filas.
-                    $lote->whereRaw(
-                        "({$columnaOrden}, {$llave}) {$comparador} (?, ?)",
-                        [$ultimo['orden'], $ultimo['llave']],
-                    );
-                }
+                $this->avanzar($lote, $columnaOrden, $llave, $comparador, $ultimo);
             }
 
             $filas = $lote->limit($tam)->get();
@@ -190,6 +181,64 @@ class Ejecutor
                 return;
             }
         }
+    }
+
+    /**
+     * El predicado que avanza al siguiente lote.
+     *
+     * ── Por que los NULL van APARTE ───────────────────────────────────────
+     * En MySQL, una comparacion de tuplas con un NULL dentro no da falso: da
+     * NULL. Comprobado contra la base: `(3,2) > (null,1)` devuelve NULL, y una
+     * condicion NULL descarta la fila. O sea que en cuanto la columna de orden
+     * tiene nulos, la tupla pelada TRUNCA el recorrido en silencio.
+     *
+     * Y no es un caso raro: `matricula_oferta.generacion` es nullable y
+     * `ordenable`, y «Egresados por generacion» ordena por ella POR OMISION. En
+     * DESC los nulos van al final, asi que las matriculas sin generacion no
+     * aparecian NUNCA en el CSV --un archivo que abre bien, con menos filas de
+     * las que dice el total, y sin un solo error--. En ASC el corte es seco.
+     *
+     * MySQL ordena los NULL primero en ASC y al final en DESC, y el predicado
+     * sigue exactamente esa forma.
+     *
+     * @param  array{llave: mixed, orden: mixed}  $ultimo
+     */
+    private function avanzar(Builder $lote, ?string $columnaOrden, string $llave, string $comparador, array $ultimo): void
+    {
+        // Sin columna de orden, el unico criterio es la llave. Va con el mismo
+        // comparador que el ORDER BY, que ahora comparten.
+        if ($columnaOrden === null) {
+            $lote->where($llave, $comparador, $ultimo['llave']);
+
+            return;
+        }
+
+        $ascendente = $comparador === '>';
+
+        // Ya dentro del tramo de NULL: solo queda avanzar por la llave.
+        if ($ultimo['orden'] === null) {
+            $lote->whereNull($columnaOrden)->where($llave, $comparador, $ultimo['llave']);
+
+            return;
+        }
+
+        $lote->where(function (Builder $q) use ($columnaOrden, $llave, $comparador, $ultimo, $ascendente) {
+            // Comparacion de tuplas: avanza aunque la columna de orden tenga
+            // empates, sin repetir ni saltarse filas.
+            $q->whereRaw(
+                "({$columnaOrden}, {$llave}) {$comparador} (?, ?)",
+                [$ultimo['orden'], $ultimo['llave']],
+            );
+
+            /*
+             * En DESC los NULL van DESPUES de todo valor, asi que el tramo de
+             * nulos todavia esta por delante y hay que dejarlo entrar. En ASC ya
+             * quedo atras y la tupla lo excluye sola, que es lo correcto.
+             */
+            if (! $ascendente) {
+                $q->orWhereNull($columnaOrden);
+            }
+        });
     }
 
     /**
@@ -467,13 +516,20 @@ class Ejecutor
         }
 
         /*
-         * Desempate estable, SIEMPRE.
+         * Desempate estable, SIEMPRE, y con la MISMA direccion.
          *
-         * Sin él, dos filas con el mismo valor en la columna ordenada salen en
-         * orden indeterminado y la página 2 repite filas de la 1: el mismo
-         * reporte leído dos veces da dos resultados.
+         * Sin desempate, dos filas con el mismo valor en la columna ordenada
+         * salen en orden indeterminado y la pagina 2 repite filas de la 1.
+         *
+         * Y la direccion NO es un detalle: iba sin ella --o sea ASC fijo--, asi
+         * que en un reporte descendente el SQL quedaba `col DESC, id ASC`
+         * mientras el cursor del keyset avanza como `col DESC, id DESC`. Con
+         * empates en la frontera de un lote, la exportacion REPETIA filas y se
+         * SALTABA otras, en un archivo que abre perfectamente. Lo dispara el
+         * camino por omision de «Egresados por generacion», que ordena
+         * `['generacion', 'desc']`.
          */
-        $consulta->orderBy($fuente->llavePrimaria());
+        $consulta->orderBy($fuente->llavePrimaria(), $dir);
     }
 
     /**

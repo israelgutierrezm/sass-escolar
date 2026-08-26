@@ -6,6 +6,7 @@ namespace App\Reportes\Salida;
 
 use App\Reportes\ColumnaReporte;
 use App\Reportes\Exportacion;
+use App\Reportes\Salida\TextoDeCelda;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -70,11 +71,13 @@ class ExportadorCsv
     /** Los valores viajan como texto plano; las fechas en ISO, que Excel entiende. */
     private function celda(mixed $valor): string
     {
-        return match (true) {
+        $texto = match (true) {
             $valor === null => '',
             is_bool($valor) => $valor ? 'Sí' : 'No',
             $valor instanceof \DateTimeInterface => $valor->format('Y-m-d'),
             default => (string) $valor,
         };
+
+        return TextoDeCelda::neutralizado($texto);
     }
 }

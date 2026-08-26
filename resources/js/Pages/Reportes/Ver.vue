@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Paginacion from '@/Components/Paginacion.vue';
@@ -74,11 +74,24 @@ function alternarColumna(clave: string): void {
         : [...elegidas.value, clave];
 }
 
+const page = usePage();
+
 /**
- * La cadena de consulta actual, para que la descarga lleve lo mismo que la
- * pantalla. Se expone porque `window` no esta disponible en el template.
+ * La cadena de consulta VIVA, para que la descarga lleve lo mismo que la
+ * pantalla.
+ *
+ * Sale de `usePage().url`, que Inertia actualiza en cada navegacion. Iba con
+ * `window.location.search` dentro de un computed, y eso NO es reactivo: un
+ * computed sin dependencias se calcula una vez y se queda cacheado con la URL
+ * del montaje. O sea que quien filtraba y despues pulsaba «Excel» se bajaba el
+ * archivo SIN sus filtros --el archivo abre bien y trae de mas, que es la peor
+ * forma de fallar--.
  */
-const consulta = computed(() => (typeof window === 'undefined' ? '' : window.location.search));
+const consulta = computed(() => {
+    const i = page.url.indexOf('?');
+
+    return i === -1 ? '' : page.url.slice(i);
+});
 
 const guardando = ref(false);
 
