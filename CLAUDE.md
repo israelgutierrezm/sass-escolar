@@ -49,7 +49,7 @@ Los otros dos documentos vivos:
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
    Las suites versionadas viven en `scripts/` (**86 archivos `prueba-*.php`**;
-   esta lista decía 23 y llevaba tiempo desactualizada). Se corren todas de una
+   esta lista decía 23 y llevaba tiempo desactualizada; hoy son 88). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
    imprimen `Resultado: N correctas, M fallidas`. **Ojo al barrer con `grep`**:
    cuatro cierran de otra forma —`prueba-cache-externo`, `prueba-captura-examen`
@@ -57,8 +57,8 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 86 están en verde** (la 86 es `prueba-disciplina`, agregada y barrida el
-   2026-08-24 junto con el resto), barridas el 2026-08-23. Llegaron a estar 33 en rojo —no trece: ese primer
+   **Las 88 están en verde**, barridas el 2026-08-25 (las dos últimas son
+   `prueba-disciplina` y `prueba-reportes-motor`). Llegaron a estar 33 en rojo —no trece: ese primer
    conteo sólo miró las que imprimían «N fallidas» e ignoró las 21 que morían
    antes, con una excepción sin resumen—. Ninguna caía por un cambio reciente;
    se comprobó corriéndolas contra el árbol limpio.
@@ -1129,9 +1129,10 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   - **Descarga del alumno con interruptor**, y con marca de agua por omisión: sin
     ella, un PDF idéntico al oficial circula sin sello ni firma autógrafa.
     Cerrada, la ruta responde 404 —no 403—.
-  - **En Blade y no en PDF generado**: el proyecto no tiene librería de PDF y el
-    navegador ya sabe imprimir. Los estilos van en línea para que un fallo de
-    assets no deje sin forma el historial de alguien en el mostrador.
+  - ~~«En Blade y no en PDF generado: el proyecto no tiene librería de PDF»~~.
+    **Revocado el 2026-08-25**: hay mpdf y el historial se genera en PDF. Ver
+    «El historial se imprime en PDF de verdad» más abajo. La vista Blade se
+    conserva como respaldo en `?vista=html`.
   - Variantes por nivel de estudios, igual que la credencial.
 - **Los catálogos de nivel de estudios y tipo de periodo se pueden APAGAR**
   (interruptor en la columna de acciones de `/academico/catalogos`). Apagado = no
@@ -1843,10 +1844,12 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     desaparecidos al final.
 
 - **El acta impresa** (`/captura/{materia}/actas/{acta}/imprimir`, botón en la
-  hoja de captura). En **Blade y no en PDF generado**, por lo mismo que el
-  historial: el proyecto no tiene librería de PDF y el navegador ya sabe
-  imprimir. Estilos en línea, para que un fallo de assets no deje sin forma un
-  documento oficial justo cuando hay que firmarlo.
+  hoja de captura). En **Blade**, con estilos en línea para que un fallo de
+  assets no deje sin forma un documento oficial justo cuando hay que firmarlo.
+  (Decía «porque el proyecto no tiene librería de PDF»; desde el 2026-08-25 sí
+  la hay, así que el acta es candidata a pasar a `DocumentoPdf` — pero es una
+  hoja suelta que se firma a mano y ahí el PDF aporta menos que en el
+  historial, que crece y se pagina.)
   - **Se imprime lo ASENTADO, no lo calculado.** Los renglones salen de
     `historial` —lo que el acta escribió al firmarse— y no de recalcular por
     componente. Si mañana cambia el esquema de evaluación de esa materia, un
@@ -2523,7 +2526,114 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     «Bolsa de trabajo» → «Vacantes» (`/mis-vacantes`) sin la sección
     administrativa.
 
+- **El historial académico se imprime en PDF de verdad, y su diseñador ya no es
+  ciego** (2026-08-25). El cliente lo dijo sin rodeos: «actualmente como está no
+  sirve».
+  - **Lo que estaba mal, medido antes de tocar nada**: el navegador le ponía SU
+    encabezado —la URL y la fecha del sistema, encima del membrete de la
+    escuela—, no había numeración de páginas («Hoja 2 de 7» es lo que impide que
+    a un historial de trescientos renglones se le extravíe una hoja), y el
+    membrete salía sólo en la primera. Un documento oficial que se entrega en
+    ventanilla no puede depender de la configuración de impresión de quien lo
+    saca.
+  - **Se REVOCÓ la decisión de «sin librería de PDF»**, que llevaba meses
+    escrita aquí. Era correcta cuando se tomó —el navegador ya sabe imprimir— y
+    dejó de serlo en cuanto el documento necesitó encabezado repetido, pie
+    numerado y marca de agua: eso el navegador no lo da y no hay CSS que lo
+    supla. Se instaló **mpdf 8.3**.
+  - **`App\Documentos\DocumentoPdf` es la base y `App\Historial\HistorialPdf`
+    el caso**: el siguiente documento oficial —el acta, un lote— hereda el
+    membrete que se repite, el `Hoja {PAGENO} de {nbpg}` y la marca de agua sin
+    reescribirlos.
+  - **Tres trampas de mpdf que no dan error**, y por eso son caras: no entiende
+    el selector de hermano adyacente (`.bloque + .bloque`) —la regla se acepta y
+    no se aplica: diez periodos salían en tres páginas—; `page-break-inside:
+    avoid` peleando con el salto daba diecinueve páginas en vez de diez; y el
+    **hex de ocho dígitos** (color con alfa) lo descarta en silencio, así que el
+    tinte se calcula en PHP. Ninguna lanza excepción: producen un PDF que abre.
+  - **El diseñador enseña el PDF DE VERDAD mientras se ajusta**, no una imitación
+    en HTML. Es la lección de la credencial —ahí el fondo lo dibuja el servidor
+    porque acomodar cajas contra algo que no existe es acomodarlas mal—, llevada
+    al documento entero: la vista previa pide el mismo PDF que va a salir, con
+    datos de ejemplo largos (diez periodos, sesenta materias) para que el ancho
+    de columna se decida contra el caso difícil.
+  - **El ancho y la alineación son POR COLUMNA**, y los anchos se normalizan a
+    100 en el servidor: quien los teclea no tiene por qué hacer que sumen.
+  - **Varios firmantes en vez de un responsable único** (`firmantes_historial`).
+    Un historial se firma por control escolar Y por la dirección; con tres
+    columnas en la tabla del diseño sólo cabía uno, y la migración las retira
+    tras copiar lo que hubiera.
+  - **Trampas de este trabajo, ya mordidas**: el token CSRF del `<meta>` queda
+    viejo tras iniciar sesión —Inertia no recarga la página— y la vista previa
+    daba 419; sale de la cookie `XSRF-TOKEN`. El `fetch` seguía el redirect y se
+    tragaba el HTML como si fuera un PDF; ahora exige `application/pdf`. Y
+    `CatalogoColumnas::porOmision()` no devolvía todas las columnas, así que una
+    escuela que nunca abrió el diseñador reventaba con un TypeError.
+  - Pruebas: `tests/Feature/HistorialPdfTest` (23 casos, con un motor espía que
+    captura las opciones y el cuerpo en vez de contar cadenas dentro del PDF —el
+    subsetting de fuentes hacía frágil lo segundo—) y
+    `tests/Feature/FirmantesHistorialTest` (13).
+  - **Una salvaguarda que no salvaba nada**: un `if ($diseno->exists)` antes de
+    leer `firmantes`. La mutación sobrevivió; comprobado que Eloquent devuelve
+    una colección vacía, se retiró.
+
+- **Módulo de Reportes** (`/reportes`, permiso `ver-reportes`): reportes por
+  área, con filtros, columnas elegibles y descarga en Excel o CSV. Pedido del
+  cliente del 2026-08-25. El plan completo, con las diez rebanadas, vive en
+  **`docs/plan-reportes.md`**.
+  - **Un reporte es una DEFINICIÓN, no una consulta.** `FuenteDeReporte` declara
+    las columnas y los filtros de un dominio (hoy `Matriculas`) y cada
+    `DefinicionReporte` es una pregunta concreta sobre esa fuente, con sus
+    filtros fijos. Así «Alumnos inscritos», «Bajas» y «Egresados por generación»
+    comparten el alcance por campus, los permisos por columna y el recorrido por
+    lotes en vez de tener tres consultas que divergen.
+  - **La autorización la vuelve a resolver el EJECUTOR en cada camino**
+    —pantalla, XLSX y CSV—, no la pantalla que armó la petición. Es lo que hace
+    que una vista compartida comparta la CONFIGURACIÓN y no los datos: quien la
+    abre ve lo suyo, con su alcance de campus y sin las columnas que su permiso
+    no alcanza. Lo fija una prueba con ese nombre.
+  - **Una columna puede ser SENSIBLE y pedir un permiso extra** (la CURP pide
+    `editar-alumnos`): el `select` no es una defensa, y una columna se puede
+    pedir por la URL.
+  - **El recorte por campus tiene cinco formas** (`Recorte`), porque no todas las
+    tablas tienen `campus_id`: por oferta, por columna, por relación, por
+    adscripción, y `SIN_CAMPUS`, que **lanza 403** en vez de devolver todo — una
+    fuente que no sepa acotarse no puede acabar entregando la escuela entera a
+    quien está acotado a un campus.
+  - **El CSV se escribe renglón por renglón contra `php://output`** y no con
+    PhpSpreadsheet: su escritor de CSV también exige el libro completo en
+    memoria, o sea el mismo techo que el XLSX y ninguna de sus ventajas. El XLSX
+    sí lo usa, y por eso lleva tope de filas.
+  - **Áreas renombrables y reportes movibles** (`/reportes/configuracion`): la
+    escuela decide cómo se llaman sus áreas y qué reporte vive en cuál. Un
+    reporte que nunca se movió NO tiene fila: vive en su área por omisión, y ésa
+    es la trampa que se cobró la cuenta por área (ver el commit de la revisión).
+  - **Vistas guardadas, compartidas y favoritos**: una vista guarda filtros,
+    columnas y orden con un nombre. Compartirla a toda la escuela o a un rol
+    exige `gestionar-areas-reporte` — sin eso, cualquiera le plantaba una vista a
+    dirección general y encima era el único que podía quitarla.
+  - **Dos defectos del recorrido por lotes que sólo se ven en la EXPORTACIÓN**,
+    encontrados por una revisión adversaria y ambos silenciosos: el desempate sin
+    dirección y la comparación de tuplas con NULL. Están explicados en el commit
+    `013ed0d` y en `Ejecutor::avanzar()`; lo que hay que recordar es la regla de
+    MySQL: **`(3,2) > (null,1)` no es falso, es NULL, y una condición NULL
+    descarta la fila**.
+  - **Lo que sale del sistema hay que neutralizarlo** (`TextoDeCelda`): Excel
+    toma como fórmula lo que empieza por `= + - @`, y medio reporte escolar es
+    texto que escribió alguien de fuera.
+  - Pruebas: `scripts/prueba-reportes-motor.php`, 77 verificaciones.
+  - **Rebanadas pendientes** (ver el plan): 7 —más fuentes por área—, 8 —totales
+    y agrupación, más la pantalla de la bitácora de ejecuciones—, 9 —envío
+    programado por correo— y 10 —el constructor de reportes que pidió el
+    cliente, aplazado a propósito y con criterio de entrada escrito—.
+
 **Pendiente inmediato — aquí se retoma:**
+
+**5. Reportes, rebanadas 7 a 10** — es lo que está en curso. El detalle y el
+orden están en `docs/plan-reportes.md`; la 10 es el **constructor de reportes**
+que pidió el cliente («la SEP en ocasiones los solicita de formas
+personalizadas»), aplazado a propósito hasta tener varias fuentes reales, que es
+su criterio de entrada.
 
 *(Antes de tomar algo de esta lista, COMPROBARLO en el código. **Ya van cinco**
 que mandaba a construir cosas hechas: la titulación SEP, el estado de cuenta del
