@@ -49,7 +49,7 @@ Los otros dos documentos vivos:
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
    Las suites versionadas viven en `scripts/` (**86 archivos `prueba-*.php`**;
-   esta lista decía 23 y llevaba tiempo desactualizada; hoy son 88). Se corren todas de una
+   esta lista decía 23 y llevaba tiempo desactualizada; hoy son 92). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
    imprimen `Resultado: N correctas, M fallidas`. **Ojo al barrer con `grep`**:
    cuatro cierran de otra forma —`prueba-cache-externo`, `prueba-captura-examen`
@@ -57,8 +57,9 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 88 están en verde**, barridas el 2026-08-25 (las dos últimas son
-   `prueba-disciplina` y `prueba-reportes-motor`). Llegaron a estar 33 en rojo —no trece: ese primer
+   **Las 92 están en verde**, barridas el 2026-08-26 (las últimas:
+   `prueba-promedio-oficial`, `prueba-reportes-finanzas` y
+   `prueba-reportes-escolar`). Llegaron a estar 33 en rojo —no trece: ese primer
    conteo sólo miró las que imprimían «N fallidas» e ignoró las 21 que morían
    antes, con una excepción sin resumen—. Ninguna caía por un cambio reciente;
    se comprobó corriéndolas contra el árbol limpio.
@@ -2526,6 +2527,32 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     «Bolsa de trabajo» → «Vacantes» (`/mis-vacantes`) sin la sección
     administrativa.
 
+- **Hay UN promedio oficial: el de la MATRÍCULA** (2026-08-26). Había **tres**
+  implementaciones dando **tres números distintos** para el mismo alumno, y
+  ninguna fallaba. El detalle y la tabla comparativa están en
+  `docs/decisiones.md`; lo que hay que recordar:
+  - Manda `HistorialDelAlumno::promedio()`: **mejor intento por materia**, con la
+    precisión del plan, y **por matrícula**. `EstadoDelAlumno` y el detalle del
+    portal del padre lo consultan en vez de calcularlo.
+  - **Medido antes de decidir**: de las 15 personas con dos carreras en el demo,
+    **las 15** leían en `/mis-hijos` un promedio que no era el de ninguna de sus
+    dos carreras —Sofía con 8.54 teniendo 8.59 y 8.50—, porque aquel servicio
+    promediaba por PERSONA mezclando programas.
+  - Las pantallas de padre y tutor necesitan UNA cifra para ordenar: es la **más
+    baja** de sus programas —«a cuál hay que atender», que es lo que su docblock
+    dice que contestan— y viaja con `promedio_de` para nombrar la carrera en
+    cuanto hay más de una. `reprobadas` sí se suma: es cuenta de la persona.
+  - De paso, el detalle del portal del padre cobraba los **créditos dos veces**
+    de una materia aprobada dos veces.
+  - **En el demo no hay ni un recursamiento**, así que la mitad de esta regla
+    sólo se ve con el escenario construido dentro de la transacción.
+
+- **El interruptor de secciones vivía en una pantalla inalcanzable**
+  (2026-08-26). `/plataforma/modulos` es lo que apaga una sección y **no estaba
+  en el menú de nadie**; ahora cuelga de Plataforma → Configuración. Esta
+  bitácora mandaba cuatro veces a `/plataforma/accesos`, que es el registro de
+  quién inició sesión y no apaga nada — las cuatro están corregidas.
+
 - **El historial académico se imprime en PDF de verdad, y su diseñador ya no es
   ciego** (2026-08-25). El cliente lo dijo sin rodeos: «actualmente como está no
   sirve».
@@ -2622,9 +2649,58 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     toma como fórmula lo que empieza por `= + - @`, y medio reporte escolar es
     texto que escribió alguien de fuera.
   - Pruebas: `scripts/prueba-reportes-motor.php`, 77 verificaciones.
-  - **Rebanadas pendientes** (ver el plan): 7 —más fuentes por área—, 8 —totales
-    y agrupación, más la pantalla de la bitácora de ejecuciones—, 9 —envío
-    programado por correo— y 10 —el constructor de reportes que pidió el
+  - **Rebanada 7 EN CURSO** (2026-08-26): van tres áreas de once. Cada fuente se
+    escribió después de un reconocimiento adversario del dominio, y ese
+    reconocimiento encontró más defectos que la propia construcción.
+    - **Finanzas**: `Cartera` (grano de MATRÍCULA), `Cargos` (grano de CARGO, el
+      único donde vive el CONCEPTO) e `Ingresos` (grano de PAGO, donde vive el
+      MÉTODO), con siete reportes.
+    - **Control escolar**: `Grupos`, con ocupación y materias sin titular.
+    - **Ninguna fuente de finanzas declara `modulo`**, y no es descuido:
+      `finanzas` está en el catálogo `modulos` SIN fila en `modulos_activos` y el
+      ejecutor falla cerrado, así que declararlo daría 404 en todos sus reportes.
+      Es la trampa latente de las secciones núcleo, servida.
+    - **«Ingresos por concepto Y método» en una tabla NO se puede**: el método
+      está en `pagos`, el concepto en `adeudos`, y los une `pago_adeudo`, que es
+      a-muchos por los dos lados. Un join contaría el mismo dinero tres veces.
+      Son dos preguntas y se contestan con dos reportes.
+    - **El titular DUAL obliga a elegir rama**: un aspirante llega al campus por
+      su propia columna y no por una oferta, así que mezclado desaparecería con
+      alcance acotado y aparecería sin campus con alcance global. Las fuentes lo
+      declaran EN SU GRANO en vez de dejar un descuadre sin explicar.
+  - **Cuatro defectos del motor que salieron construyendo esas fuentes:**
+    1. **El keyset truncaba en ASCENDENTE.** MySQL ordena los NULL primero en ASC
+       y al final en DESC, y la rama del cursor no miraba la dirección: `8 de 14`
+       filas. La prueba que lo vigilaba pasaba **por suerte aritmética** —4 nulos
+       y lotes de 5 significan que el cursor nunca termina dentro del bloque
+       nulo—. Ahora la suite exige que los nulos sean MÁS que el lote.
+    2. **Y podía no terminar NUNCA.** Con la columna de orden envuelta en un
+       `coalesce`, el cursor compara el atributo contra la columna, no descarta
+       el lote emitido y repite las mismas filas sin fin: 32 matrículas → 161
+       filas y subiendo. Peor que una truncadura, porque no hay archivo corto que
+       delate nada. Ahora el cursor tiene que avanzar o el motor se detiene
+       diciendo qué arreglar. **Regla que lo evita: la columna `ordenable` viaja
+       al SELECT SIN transformar; el `coalesce` va en la closure `valor`.**
+    3. **Una columna sin resolutor cuya clave no es el nombre del atributo sale
+       VACÍA en todas las filas.** Mordió en tres columnas de golpe. Ahora el
+       constructor de `ColumnaReporte` lo prohíbe y dice cómo arreglarlo.
+    4. **El TIPO no viajaba al frontend**: iba `alineacion` y no `tipo`, así que
+       la pantalla sabía hacia qué lado pegar el número y no cómo escribirlo. Se
+       veía «2750.00», «0» y «2750» en la misma fila y las fechas en ISO con zona
+       horaria. Lo resuelve `resources/js/utils/celdaReporte.ts`.
+  - **`Recorte::porRelacion` fallaba ABIERTO.** Llevaba `orWhereDoesntHave`
+    siempre, y en una cadena eso perdona tres cosas: campus sin asignar, campus
+    dado de baja y **un eslabón intermedio dado de baja** —que es una operación
+    normal—. Una fila así pasaba PARA TODOS LOS CAMPUS. Hoy la tolerancia es
+    `incluirSinAsignar`, un argumento con nombre. Se pudo cambiar el valor por
+    omisión porque ninguna fuente lo usaba todavía.
+  - **Y una trampa del dominio**: `docente_asignatura_grupo` tiene `deleted_at`
+    pero `AsignaturaGrupo::docentes()` NO lo filtra, así que una asignación
+    retirada seguiría contando como titular. Las subconsultas lo escriben a mano.
+  - **Rebanadas pendientes** (ver el plan): lo que queda de la 7 —admisiones,
+    docentes, certificación, asistencia, LMS, bolsa, RH, movilidad y familia—,
+    8 —totales y agrupación, más la pantalla de la bitácora de ejecuciones—,
+    9 —envío programado por correo— y 10 —el constructor de reportes que pidió el
     cliente, aplazado a propósito y con criterio de entrada escrito—.
 
 **Pendiente inmediato — aquí se retoma:**
