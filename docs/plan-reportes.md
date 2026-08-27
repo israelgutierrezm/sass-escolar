@@ -740,7 +740,43 @@ Orden por valor: **finanzas** (cartera sobre `SaldosDeCartera`, ingresos por con
 
 ---
 
-### Rebanada 8 · Totales, agrupados y bitácora con pantalla — **EN CURSO**
+### ~~Rebanada 8 · Totales, agrupados y bitácora con pantalla~~ ✅ HECHA
+
+> **[~] El modo agrupado NO se pudo montar sobre las columnas**, que es como lo
+> pedía este renglón. Medido: de las 181 columnas de las 14 fuentes sólo 67
+> existen en SQL, y son identificadores —agrupar por matrícula da 32 grupos
+> sobre 32 filas— o medidas. **Campus no era agrupable en ninguna de las
+> catorce**, ni carrera, ni situación, ni concepto, ni etapa: todas se resuelven
+> con una closure sobre una relación precargada. `columnaSql` no significa
+> «dimensión», significa «por aquí se puede ORDENAR».
+>
+> Las dimensiones se DECLARAN aparte (`DimensionReporte` + `FuenteAgrupable`),
+> y van tres fuentes por decisión del cliente —una a la vez—: Matrículas
+> (conteos), Cartera (medidas de dinero) y Aspirantes (donde el grupo vacío
+> existe de verdad).
+>
+> **[~] Las agregaciones NO son «por subconsulta correlacionada»**, como decía
+> este renglón. Se revoca con la medición delante: un alias del SELECT no se
+> puede meter dentro de un `sum()` ni usar en un `WHERE` —MySQL 1054—, y el
+> módulo lleva meses migrando en la dirección contraria. Se arman vaciando
+> `columns` y `orders` sobre el mismo builder ya recortado.
+>
+> **[~] La barra NO se reutiliza del panel.** No hay componente que reutilizar
+> —es plantilla en línea en `Dashboard.vue` con su helper local— y además su
+> escala es OTRA: allá se mide contra el mayor de la serie, a propósito, para
+> que un embudo que arranca en 200 y termina en 3 no deje invisibles las últimas
+> etapas. Aquí el denominador es el total. Dos preguntas distintas.
+>
+> **[~] Y la bitácora no dejó de anotar los repintados: los DEDUPLICA.**
+> Decisión del cliente con la medición delante — 113 de 119 filas eran de
+> pantalla, y quitarlas se llevaba el 95 % del insumo con el que se decide la
+> rebanada 10, cuyo criterio de entrada se mide justo con esta tabla.
+>
+> **[ ] La tarjeta «Mis reportes» y el `modulo()` de `TarjetaPanel` quedaron
+> fuera.** El defecto que este renglón cita es REAL —`RegistroTarjetas::para()`
+> no comprueba el módulo y `PostulantesEnProceso` lo tiene vivo—, pero
+> corregirlo bien toca las 31 tarjetas y es del PANEL, no de reportes. Se
+> retoma aparte.
 
 Modo agrupado con `GROUP BY` y agregaciones por subconsulta correlacionada; totales de consulta aparte; pantalla de `ejecuciones_reporte` bajo `auditar-reportes`; una barra horizontal reutilizando el tipo `barras` del panel; tarjeta "Mis reportes" que **inyecta `ModulosDeLaEscuela` ella misma**, porque `RegistroTarjetas::para()` no comprueba el módulo (`PostulantesEnProceso` ya tiene ese defecto vivo).
 

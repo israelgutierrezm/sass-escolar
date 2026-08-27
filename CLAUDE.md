@@ -49,7 +49,7 @@ Los otros dos documentos vivos:
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
    Las suites versionadas viven en `scripts/` (**86 archivos `prueba-*.php`**;
-   esta lista decía 23 y llevaba tiempo desactualizada; hoy son 99). Se corren todas de una
+   esta lista decía 23 y llevaba tiempo desactualizada; hoy son 102). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
    imprimen `Resultado: N correctas, M fallidas`. **Ojo al barrer con `grep`**:
    cuatro cierran de otra forma —`prueba-cache-externo`, `prueba-captura-examen`
@@ -57,7 +57,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 99 están en verde**, barridas el 2026-08-26. Nueve son del módulo de
+   **Las 102 están en verde**, barridas el 2026-08-26. Trece son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -2846,6 +2846,129 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     es reordenar 67 archivos: es no pasarle pint a `scripts/`, que no es código
     de la aplicación.
 
+  - **Rebanada 8 · Totales, agrupados y bitácora, CERRADA** (2026-08-26). Cinco
+    entregas, y tres de ellas salieron distintas de como el plan las escribía —en
+    los tres casos con la medición delante—.
+
+    - **La BITÁCORA por fin se puede mirar** (`/reportes/bitacora`, permiso
+      propio `auditar-reportes`). Llevaba desde la primera rebanada
+      escribiéndose sin puerta: 119 filas y ninguna pantalla.
+      - **No es una puerta trasera a los datos**: guarda lo que se PIDIÓ
+        —reporte, filtros, columnas— y nunca lo que salió. Quien audita ve que
+        alguien exportó la cartera del campus norte, no la cartera.
+      - El permiso se declaró, se sembró y se comprobó con un `can()` EN VIVO
+        antes de que existiera la ruta: un `can:` sobre un permiso inexistente
+        cierra la puerta a todo el mundo en silencio.
+      - Los filtros se traducen a su etiqueta —«ciclo_id: [331]» no se puede
+        auditar, «Ciclo de la carga: 331» sí— y un reporte RETIRADO conserva sus
+        ejecuciones con su clave, en vez de reventar o desaparecer.
+      - **Un defecto que sólo se vio MIRANDO la pantalla**: filtrando por un
+        nombre inexistente, la tabla decía «ninguna ejecución» y el resumen de
+        arriba seguía diciendo 119. El resumen no aplicaba ese filtro porque va
+        por relación y los demás no. Dos universos pegados, el mismo defecto que
+        el tablero de la bolsa. Los filtros viven ahora en un solo sitio.
+
+    - **La PURGA que el plan pedía «desde el primer día» y nunca se construyó**
+      (`reportes:purgar-ejecuciones`, semanal). Dos trampas medidas:
+      - `->delete()` NO borra: el modelo lleva `TieneAuditoria`, así que
+        informaría «borradas 400» sin quitar una fila. Y lo peor es que la
+        comprobación obvia —«las de dentro de la retención siguen ahí»— se
+        cumple igual. Va `forceDelete()` y la prueba mira la tabla FÍSICA.
+      - **`withTrashed()` NO es lo que hace falta para borrarlas**, aunque lo
+        parezca: comprobado que el macro `forceDelete` va contra el query builder
+        crudo y se salta el scope. Lo que sí cambia es el CONTEO —1 contra 2— y
+        ése tiene lector: es el número que `--seco` le enseña a quien decide.
+
+    - **La bitácora cuenta PREGUNTAS, no clics.** Medido: 113 de 119 filas eran
+      de pantalla, con 44 repeticiones idénticas en menos de dos minutos sobre
+      sólo 40 consultas distintas.
+      - **Se deduplica en vez de dejar de anotar la pantalla**, que era la letra
+        del plan. Decisión del cliente: quitarlas se llevaba el 95 % del insumo
+        con el que se decide si construir el constructor de reportes —su criterio
+        de entrada se mide con esta tabla— y dejaba de registrar a quien LEE
+        columnas sensibles sin descargarlas.
+      - Se compara contra la ÚLTIMA de esa persona en ese reporte dentro de diez
+        minutos: A, B, A son tres preguntas. **Las DESCARGAS nunca se
+        deduplican**: un archivo sale de la escuela y se reenvía.
+
+    - **El PIE de la tabla, y ninguna columna numérica sin decidir.** Los totales
+      salen de una consulta agregada aparte sobre el mismo builder ya recortado,
+      nunca de la página.
+      - **Una columna numérica que no diga qué va al pie NO DEJA ARRANCAR la
+        aplicación.** No se deduce del tipo: `TipoDato::esNumerico()` —que
+        existía sin un solo lector— se equivoca en ordinales, en umbrales
+        repetidos por fila (`certificables.meta` es la meta del PLAN: sumarla
+        cuenta cada plan una vez por alumno), en conteos que no se suman entre sí
+        (`docentes.grupos` es un `count(distinct)` por docente, su suma son
+        parejas) y en porcentajes.
+      - Las 38 columnas numéricas de las 13 fuentes quedaron declaradas: **25
+        Suma, 1 Promedio, 12 Ninguno**, y las doce escriben en su `ayuda` por qué
+        no se totalizan.
+      - **El cuadre protege contra `groupBy`/`having` en una fuente, NO contra un
+        join que multiplique** —medido: ahí las dos consultas ven las mismas
+        filas repetidas, 17 y 17, y cuadran—. El docblock decía lo contrario y se
+        corrigió: prometer una red que no existe es peor que no tenerla.
+      - Los totales van SÓLO en pantalla: un CSV se abre con otro programa y un
+        renglón final que no es un dato lo corrompe en silencio.
+
+    - **Las CABECERAS por fin se pueden pulsar.** Había **165 ranuras
+      `ordenable`** declaradas y ningún `<th>` pulsable: al orden sólo se llegaba
+      escribiendo la URL a mano, y una suite entera comprobaba un camino que
+      nadie tenía. El orden viaja por la misma vía que los filtros, así que el
+      enlace de descarga lo hereda solo.
+
+    - **El modo AGRUPADO, y el hallazgo que lo gobierna.** El plan lo pedía sobre
+      las columnas y se midió que no se puede: de 181 columnas sólo 67 existen en
+      SQL, y son identificadores o medidas. **Campus no era agrupable en ninguna
+      de las catorce**, ni carrera, ni situación, ni etapa.
+      **`columnaSql` no significa «dimensión»: significa «por aquí se puede
+      ORDENAR».**
+      - Las dimensiones se declaran aparte (`DimensionReporte` +
+        `FuenteAgrupable`). Van tres fuentes, una a la vez por decisión del
+        cliente: Matrículas (conteos), Cartera (dinero) y Aspirantes.
+      - **Se agrupa por el ID y se rotula con el NOMBRE**: agrupar por el nombre
+        fundiría dos campus homónimos.
+      - **La dimensión pasa por el filtro de permisos**, que `columnasOmitidas()`
+        no puede hacer —recorre las columnas pedidas y `agrupar_por` es otro
+        camino—. La etiqueta de un grupo ES el valor de la columna. Hoy eso no se
+        podía porque ninguna sensible tiene `columnaSql`: la puerta estaba
+        cerrada POR ACCIDENTE.
+      - **NO reusa el keyset**: bajo `GROUP BY` la llave primaria no identifica
+        la fila y el recorrido lanza «Illegal operator and value combination»
+        —pero sólo a partir del SEGUNDO lote, o sea con más de 500 grupos: en la
+        escuela grande y nunca en la prueba—.
+      - **El grupo SIN etiqueta se enseña.** Esconderlo haría que los subtotales
+        dejaran de sumar, que es lo único que un agrupado promete.
+      - **Y `leftJoin` sólo donde el NULL es posible**: medido,
+        `matricula_oferta.situacion_id` y `.oferta_id` son NOT NULL, así que ahí
+        prometía un grupo que la base no puede producir ni sembrándolo. Donde sí
+        existe es en `aspirantes`, cuyas tres foráneas son nullable.
+      - La barra **no es la del panel** aunque se parezca: allá se mide contra el
+        MAYOR de la serie a propósito —para que un embudo que arranca en 200 y
+        termina en 3 no deje invisibles las últimas etapas— y aquí contra el
+        total. Dos escalas para dos preguntas; queda escrito para que nadie las
+        unifique sin leer.
+
+    - **Lo que quedó FUERA, y por qué**: la tarjeta «Mis reportes» y el
+      `modulo()` de `TarjetaPanel`. El defecto que el plan cita es real
+      —`RegistroTarjetas::para()` no comprueba el módulo y `PostulantesEnProceso`
+      lo tiene vivo, comprobado— pero corregirlo bien toca las 31 tarjetas y es
+      del PANEL, no de reportes.
+
+    - Pruebas: `prueba-bitacora-reportes` (26), `prueba-reportes-totales` (22) y
+      `prueba-reportes-agrupados` (29), más las secciones nuevas de
+      `prueba-reportes-motor` y `prueba-reportes-ordenables`. **Comprobadas
+      mutando 26 reglas.** Cuatro sobrevivieron y las cuatro enseñaron algo:
+      - «el total sale de la página» **no es expresable con un LIMIT** —un LIMIT
+        no restringe lo que agrega un `count()`—, así que hizo falta la mutación
+        fiel: agregar sobre una subconsulta ya topada.
+      - «cuadra siempre true» sobrevivía porque nada construía el caso; se
+        construyó una fuente con `groupBy`.
+      - «la ventana de repintado se vuelve eterna» sobrevivió DOS veces: la
+        primera porque nada la vigilaba, y la segunda porque la comprobación que
+        le escribí envejecía una sola fila y el motor busca la más reciente, así
+        que encontraba otra y no ejercitaba la ventana.
+
   - **Lo que NO se construyó de la rebanada 7, y por qué**: el **LMS** se quedó
     fuera —de sus tres cursos, dos cuelgan de `asignatura_grupo` que ya no
     existen, así que no hay contra qué comparar— y la **evaluación docente**
@@ -2853,10 +2976,14 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     pasar por `ResultadosDeEncuesta` para respetar el umbral de anonimato
     (`MINIMO_PARA_MOSTRAR = 4`) — un archivo se reenvía más fácil que una
     pantalla, y la siguiente encuesta ya nadie la contesta con sinceridad.
-  - **Rebanadas pendientes** (ver el plan): 8 —totales y agrupación, más la
-    pantalla de la bitácora de ejecuciones—, 9 —envío programado por correo— y
-    10 —el constructor de reportes que pidió el cliente, cuyo criterio de entrada
-    era tener varias fuentes reales: hoy hay catorce—.
+  - **Rebanadas pendientes** (ver el plan): 9 —envío programado por correo, y la
+    que el propio plan marca como «la primera que recortaría»— y 10 —el
+    constructor de reportes que pidió el cliente—. **El criterio de entrada de la
+    10 ya se puede MEDIR**: son tres vistas guardadas del mismo reporte con
+    formas distintas, o una petición concreta de la SEP que ninguna fuente cubra,
+    y eso se lee en la pantalla de uso que la rebanada 8
+    acaba de entregar. Hoy el demo tiene CERO vistas guardadas, así que el
+    criterio no se cumple todavía y decirlo es parte del trabajo.
 
 **Pendiente inmediato — aquí se retoma:**
 
