@@ -10,7 +10,17 @@
 > contra la base del demo ANTES de escribirlo — incluidos cuatro defectos reales
 > que este plan destapa y que se listan en la sección 9.
 >
-> **Nada de esto está implementado todavía.** Al construir cada rebanada, tacharla.
+> **ESTADO AL 2026-08-26: las rebanadas 0 a 7 están CONSTRUIDAS y en producción.**
+> Quedan la 8 (en curso), la 9 y la 10. Esta línea decía «nada de esto está
+> implementado todavía» con las ocho ya entregadas, que es exactamente la trampa
+> que `docs/plan-migraciones.md` se cobró en su día: un plan sin tachar manda a
+> reconstruir lo que ya existe. Al cerrar una rebanada, **tacharla aquí el mismo
+> día**.
+>
+> Lo que se construyó **distinto de lo escrito** está anotado en cada rebanada
+> con `[~]`. Lo que el plan pedía y NO se construyó está anotado con `[ ]`
+> **dentro de la rebanada que lo prometía**, no al final: un pendiente escrito
+> lejos de su promesa no se encuentra.
 
 ## 0. HECHOS VERIFICADOS QUE CONDICIONAN EL PLAN
 
@@ -498,6 +508,15 @@ El documento generado lo **confiesa**: encabezado del PDF y una fila del XLSX/CS
 
 ### 4.10 Catálogos LANDLORD: nunca JOIN
 
+> **[ ] NO construido.** `TipoDato` no tiene `CatalogoLandlord` —hoy son ocho:
+> texto, entero, decimal, dinero, fecha, fecha_hora, booleano y porcentaje— y
+> ninguna de las 14 fuentes ofrece agrupar ni filtrar por un catálogo de la base
+> central. No estorbó porque las fuentes de la rebanada 7 resolvieron esos
+> nombres con closures `valor:`, que traducen en PHP igual que aquí se pedía;
+> lo que falta es poder AGRUPAR por ellos, y eso lo decide la rebanada 8.
+> **Ojo si se retoma**: agrupar por `sexo_id` sobre una fuente de personas es
+> justo el caso donde un grupo de una sola fila identifica a alguien.
+
 `personas.sexo_id`, `genero_id`, `pais_nacimiento_id`, `entidad_nacimiento_id`, `campus.entidad_id` apuntan a la base central y esas tablas **no existen en el tenant**. Se declaran con `TipoDato::CatalogoLandlord` + la clase del modelo con `CentralConnection`; el motor trae el id y traduce en PHP con un mapa cargado una vez.
 
 - **Filtrar** traduce el valor a ids ANTES del `whereIn`.
@@ -610,7 +629,7 @@ Cada una entregable y verificable por sí sola. Ninguna es andamio para la sigui
 
 ---
 
-### Rebanada 0 · Las dos extracciones (sin pantallas)
+### ~~Rebanada 0 · Las dos extracciones (sin pantallas)~~ ✅ HECHA
 
 **Se paga sola aunque el módulo se cancele aquí.**
 
@@ -623,7 +642,20 @@ Cada una entregable y verificable por sí sola. Ninguna es andamio para la sigui
 
 ---
 
-### Rebanada 1 · El motor y UNA fuente real, con bitácora
+### ~~Rebanada 1 · El motor y UNA fuente real, con bitácora~~ ✅ HECHA
+
+> **[~] La bitácora se construyó con MENOS columnas que §1.4.** Tiene `reporte`,
+> `persona_id`, `formato`, `filas`, `milisegundos` (así, no `duracion_ms`),
+> `filtros`, `columnas` y `columnas_omitidas`. Le faltan `vista_id`, `rol_id`,
+> `estado`, `mensaje` e `ip`. Ninguna se echó de menos hasta hoy porque no había
+> pantalla que las leyera; se deciden en la rebanada 8, que es la que le pone
+> lectores — y sólo se agrega lo que la pantalla vaya a leer, que es la regla de
+> esta casa.
+>
+> **[ ] Y NO se construyó la retención**, que §1.4 pedía «desde el primer día»:
+> no existe el ajuste `reportes.dias_bitacora` ni el comando
+> `reportes:purgar-ejecuciones`. La bitácora lleva 119 filas y crece sin tope.
+> Entra en la rebanada 8, con su pantalla.
 
 - Migración que registra el módulo `reportes` en `modulos` **y lo enciende en `modulos_activos`**, calcada de `2026_08_09_110000`. Clave en `ModuloSeeder`.
 - Dominio "Reportes" en `CatalogoPermisos::CATALOGO`, faceta `[ADMINISTRATIVO]`: `ver-reportes`, `gestionar-areas-reporte`, `exportar-datos-personales`, `auditar-reportes`.
@@ -643,7 +675,7 @@ Cada una entregable y verificable por sí sola. Ninguna es andamio para la sigui
 
 ---
 
-### Rebanada 2 · Exportación XLSX y CSV
+### ~~Rebanada 2 · Exportación XLSX y CSV~~ ✅ HECHA
 
 - `ExportadorXlsx` y `ExportadorCsv` sobre el `Exportador` de la rebanada 0, los dos a `php://output`.
 - **Keyset**, no `chunkById`.
@@ -658,7 +690,7 @@ Cada una entregable y verificable por sí sola. Ninguna es andamio para la sigui
 
 ---
 
-### Rebanada 3 · Áreas configurables (pedidos 2 y 4)
+### ~~Rebanada 3 · Áreas configurables (pedidos 2 y 4)~~ ✅ HECHA
 
 `areas_reporte` + `ubicaciones_reporte` + seeder de once áreas borrables + `/reportes/configuracion` + índice agrupado.
 
@@ -666,7 +698,7 @@ Cada una entregable y verificable por sí sola. Ninguna es andamio para la sigui
 
 ---
 
-### Rebanada 4 · Vistas guardadas, compartidas y favoritos
+### ~~Rebanada 4 · Vistas guardadas, compartidas y favoritos~~ ✅ HECHA
 
 `vistas_reporte` + `reportes_favoritos`. Predeterminada propia; compartir a un rol; compartir a la escuela sólo con `gestionar-areas-reporte`.
 
@@ -676,7 +708,7 @@ Cada una entregable y verificable por sí sola. Ninguna es andamio para la sigui
 
 ---
 
-### Rebanada 5 · PDF de verdad, y con él el historial (pedido 1, primera mitad)
+### ~~Rebanada 5 · PDF de verdad, y con él el historial (pedido 1, primera mitad)~~ ✅ HECHA
 
 `composer require mpdf/mpdf`. `App\Documentos\DocumentoPdf` con `tempDir` en `storage/app/mpdf`, membrete por página, folio y marca de agua nativa. Vista nueva `impresion/historial-pdf.blade.php` con tablas. Firma, sello y logo del disco como `data:` URI. El mismo motor sirve al PDF de reportes, con su propio tope (más bajo que el del XLSX).
 
@@ -686,7 +718,7 @@ Cada una entregable y verificable por sí sola. Ninguna es andamio para la sigui
 
 ---
 
-### Rebanada 6 · El diseñador del historial, ampliado (pedido 1, segunda mitad)
+### ~~Rebanada 6 · El diseñador del historial, ampliado (pedido 1, segunda mitad)~~ ✅ HECHA
 
 Los ocho huecos de §5.5, **empezando por normalizar los anchos a 100 %**. `armarEjemplo()` sube a 10 periodos. Editor de cajas sobre las cuatro zonas fijas con `EditorCajasCredencial.vue`.
 
@@ -694,7 +726,7 @@ Los ocho huecos de §5.5, **empezando por normalizar los anchos a 100 %**. `arma
 
 ---
 
-### Rebanada 7 · Cobertura por área, una fuente a la vez
+### ~~Rebanada 7 · Cobertura por área, una fuente a la vez~~ ✅ HECHA — 34 reportes sobre 14 fuentes, en 9 áreas
 
 Cada fuente es una rebanada verificable de por sí, con su grano, su recorte declarado, sus columnas sensibles marcadas y su suite. **Ninguna reimplementa una regla que ya viva en un servicio.**
 
@@ -708,7 +740,7 @@ Orden por valor: **finanzas** (cartera sobre `SaldosDeCartera`, ingresos por con
 
 ---
 
-### Rebanada 8 · Totales, agrupados y bitácora con pantalla
+### Rebanada 8 · Totales, agrupados y bitácora con pantalla — **EN CURSO**
 
 Modo agrupado con `GROUP BY` y agregaciones por subconsulta correlacionada; totales de consulta aparte; pantalla de `ejecuciones_reporte` bajo `auditar-reportes`; una barra horizontal reutilizando el tipo `barras` del panel; tarjeta "Mis reportes" que **inyecta `ModulosDeLaEscuela` ella misma**, porque `RegistroTarjetas::para()` no comprueba el módulo (`PostulantesEnProceso` ya tiene ese defecto vivo).
 
