@@ -86,6 +86,33 @@ Schedule::command('reportes:enviar-programados')
     ->runInBackground();
 
 /*
+ * Las grabaciones de Google Meet.
+ *
+ * ── Este comando existía desde el 2026-08-19 y NADIE lo invocaba ─────────
+ * Meet **no tiene webhook**: Zoom avisa con `recording.completed` y a Google hay
+ * que preguntarle, y ésa es la razón de ser de este comando. Sin programarlo, la
+ * mitad de Meet del archivado de grabaciones no se ejecutaba nunca —ni fallaba,
+ * ni avisaba: la clase simplemente se quedaba sin grabación—. Mismo hueco que la
+ * cola, encontrado el mismo día y por lo mismo: se construyó el mecanismo y no
+ * se enganchó a nada que corriera.
+ *
+ * ── Cada hora ────────────────────────────────────────────────────────────
+ * Una grabación de Meet tarda de minutos a horas en aparecer. Cada quince
+ * minutos sería preguntarle a Google cuatro veces por lo mismo sin que pueda
+ * haber cambiado; una vez al día dejaría una clase de la mañana sin grabación
+ * hasta el día siguiente.
+ *
+ * Es barato de repetir: sale a la primera si la escuela no tiene Meet
+ * configurado, salta las clases que ya tienen algo anotado, y sólo mira las
+ * últimas 48 horas.
+ */
+Schedule::command('clases:recoger-grabaciones')
+    ->hourly()
+    ->withoutOverlapping(10)
+    ->onOneServer()
+    ->runInBackground();
+
+/*
  * Latido del despachador.
  *
  * Un scheduler que deja de correr NO FALLA: simplemente no pasa nada, y nadie
@@ -99,3 +126,51 @@ Schedule::command('reportes:enviar-programados')
 Schedule::call(function () {
     Cache::store('scheduler')->forever('ultimo-latido', now()->toIso8601String());
 })->everyMinute()->name('latido-del-despachador');
+
+/*
+ * El trabajador de la COLA.
+ *
+ * ── El hueco que esto cierra ─────────────────────────────────────────────
+ * Tres sitios encolan trabajo —`TimbrarFactura` desde el controlador de
+ * facturas y desde `EmisorFactura`, y `ArchivarGrabacion` desde el recolector—
+ * y **no había nadie que lo procesara**: ni aquí, ni en `deploy/scheduler/`, ni
+ * en `docs/scheduler.md`. Con `QUEUE_CONNECTION=database`, una escuela que
+ * timbrara una factura dejaba la fila en `jobs` para siempre. Sin error, sin
+ * aviso: la factura simplemente nunca se timbraba y quien la emitió creía que
+ * sí. No se había notado porque esos caminos nunca se ejercitaron con datos.
+ *
+ * ── Por qué desde AQUÍ y no con un supervisor ────────────────────────────
+ * Porque el despachador ya es un requisito instalado y documentado, y esto no
+ * añade una segunda cosa que alguien pueda olvidar. Un supervisor sería mejor
+ * para una carga alta; este proyecto no la tiene, y una pieza más de
+ * infraestructura que nadie instale no procesa nada.
+ *
+ * ── Un solo trabajador sirve a TODAS las escuelas ────────────────────────
+ * Medido: un trabajo despachado dentro del tenant `demo` cae en la tabla `jobs`
+ * de la base CENTRAL, no en la suya, y su payload lleva `tenant: demo`. El
+ * `QueueTenancyBootstrapper` —que este proyecto ya tiene encendido en
+ * `config/tenancy.php`— reinicia la escuela correcta al ejecutarlo. Así que no
+ * hace falta un trabajador por escuela.
+ *
+ * ── Las banderas, una por una ────────────────────────────────────────────
+ * `--stop-when-empty` para que salga en cuanto no haya nada: con la cola vacía
+ * —que es lo normal— el costo es un proceso que arranca y muere.
+ *
+ * `--max-time=55` para que ni con trabajo se quede corriendo indefinidamente:
+ * un trabajador eterno se queda con el CÓDIGO VIEJO tras un despliegue y sigue
+ * procesando con él sin que nadie lo note. El límite se mira ENTRE trabajos, así
+ * que una grabación de media hora se termina de bajar; lo que no hace es
+ * empezar otra.
+ *
+ * `withoutOverlapping(10)` y no más: si un trabajo largo pasa de diez minutos
+ * puede arrancar un segundo trabajador, y está bien —la cola de base de datos
+ * reserva cada fila, así que no se procesa dos veces, y mientras se baja un
+ * video de 600 MB los timbrados no tienen por qué esperar—. Un candado más
+ * largo sí sería un problema: si el trabajador muere, nadie lo releva hasta que
+ * expire.
+ */
+Schedule::command('queue:work --stop-when-empty --max-time=55')
+    ->everyMinute()
+    ->withoutOverlapping(10)
+    ->onOneServer()
+    ->runInBackground();

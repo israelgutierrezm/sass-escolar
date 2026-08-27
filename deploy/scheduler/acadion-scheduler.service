@@ -18,3 +18,20 @@ ExecStart=/usr/bin/php /var/www/acadion/artisan schedule:run
 # Que un fallo no arrastre al timer: si una tarea revienta, la siguiente
 # corrida vuelve a intentarlo por su cuenta.
 SuccessExitStatus=0 1
+
+# ── Sin esta línea, systemd mata todo lo que el despachador acaba de lanzar ──
+#
+# Todas las tareas de Acadion se declaran con `runInBackground()`: Laravel las
+# arranca con `&` y `schedule:run` vuelve enseguida. Con un servicio `oneshot` y
+# el modo de terminación por omisión (control-group), systemd da la unidad por
+# acabada en cuanto ese proceso sale y limpia el cgroup — o sea que manda SIGTERM
+# a los hijos recién lanzados.
+#
+# El síntoma es exactamente el que este archivo existe para evitar: nada falla,
+# nada se registra, y las tareas simplemente no ocurren. Con el trabajador de la
+# cola —que puede estar hasta 55 segundos procesando, o bajando un video de
+# 600 MB— es todavía más visible: se lo lleva a mitad del trabajo.
+#
+# Con `process` sólo se termina el proceso principal y los hijos siguen su curso.
+# `withoutOverlapping` es lo que impide que se apilen.
+KillMode=process

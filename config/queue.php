@@ -40,7 +40,27 @@ return [
             'connection' => env('DB_QUEUE_CONNECTION'),
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
-            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),
+            /*
+             * MÁS que el trabajo más largo, y por eso no son los 90 segundos de
+             * Laravel.
+             *
+             * `retry_after` es cuánto dura la RESERVA de una fila. Pasado ese
+             * tiempo, la cola da el trabajo por perdido y otro trabajador se lo
+             * lleva — aunque el primero siga trabajando. `ArchivarGrabacion`
+             * declara `timeout = 1800` porque baja videos de cientos de megas:
+             * con 90 segundos, un archivado de media hora se ejecutaba en
+             * paralelo consigo mismo una y otra vez, quemando sus tres intentos
+             * en duplicados y acabando en `failed_jobs` sin que nada fallara.
+             *
+             * No era visible hasta hoy porque no había trabajador. Lo vigila
+             * `scripts/prueba-cola-de-trabajos.php`, que compara este número
+             * contra el `timeout` de cada trabajo de `app/Jobs/`.
+             *
+             * El precio de subirlo: si un trabajador muere a media faena, su
+             * trabajo espera todo esto antes de que otro lo retome. Barato al
+             * lado de bajar el mismo video tres veces a la vez.
+             */
+            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 1830),
             'after_commit' => false,
         ],
 

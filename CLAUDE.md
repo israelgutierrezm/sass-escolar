@@ -48,8 +48,9 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**86 archivos `prueba-*.php`**;
-   esta lista decía 23 y llevaba tiempo desactualizada; hoy son 104). Se corren todas de una
+   Las suites versionadas viven en `scripts/` (**105 archivos `prueba-*.php`**;
+   este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
+   se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
    imprimen `Resultado: N correctas, M fallidas`. **Ojo al barrer con `grep`**:
    cuatro cierran de otra forma —`prueba-cache-externo`, `prueba-captura-examen`
@@ -57,7 +58,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 104 están en verde**, barridas el 2026-08-27. Catorce son del módulo de
+   **Las 105 están en verde**, barridas el 2026-08-27. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -2606,6 +2607,85 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     leer `firmantes`. La mutación sobrevivió; comprobado que Eloquent devuelve
     una colección vacía, se retiró.
 
+- **La cola por fin tiene quien la procese** (2026-08-27). Pedido del cliente:
+  «arregla lo de la cola». `QUEUE_CONNECTION=database` y **nadie tomaba las
+  filas**: ni el despachador, ni `deploy/scheduler/`, ni `docs/scheduler.md`, que
+  no nombraba la cola una sola vez.
+  - **Encolar sin trabajador NO FALLA**, que es lo que lo dejó pasar meses. La
+    fila se inserta, nadie la toma, y no hay excepción ni log ni alerta: la
+    factura nunca se timbra y la pantalla ya le dijo a quien la emitió que sí.
+    Encolan tres sitios —`TimbrarFactura` desde `FacturaController` y desde
+    `EmisorFactura`, y `ArchivarGrabacion` desde `RecolectorDeGrabaciones`, al
+    que llegan el webhook de Zoom y la consulta a Meet—.
+  - **El trabajador lo levanta el DESPACHADOR**, cada minuto, y no un supervisor
+    aparte: el despachador ya es un requisito instalado y documentado, y una
+    segunda pieza de infraestructura que nadie instale no procesa nada. A cambio,
+    si el despachador se cae la cola cae con él —que es justo lo que
+    `scheduler:estado` dice ahora—.
+  - **Un solo trabajador sirve a TODAS las escuelas.** Medido: un trabajo
+    despachado dentro del tenant `demo` cae en la tabla `jobs` de la base
+    **CENTRAL**, no en la suya, con `tenant: demo` en el payload; el
+    `QueueTenancyBootstrapper` reinicia la escuela al ejecutarlo. **Ojo al
+    probar**: un `DB::rollBack()` sobre el tenant NO deshace esas filas. Mordió
+    al escribir la suite, que dejó una fila suelta en `jobs`.
+  - `--stop-when-empty` (con la cola vacía el costo es un proceso que arranca y
+    muere), `--max-time=55` (un trabajador eterno se queda con el CÓDIGO VIEJO
+    tras un despliegue) y `withoutOverlapping(10)` **con caducidad corta**: la de
+    Laravel por omisión es de un DÍA, así que un trabajador que muera dejaría la
+    cola trabada veinticuatro horas. Se exige que caduque antes de que la cola se
+    dé por atorada.
+  - **`scheduler:estado` ahora dice DOS cosas**, porque las dos fallan igual de
+    calladas. De la cola informa pendientes, desde cuándo espera el más viejo y
+    cuántos fallaron, y **sale con error si está atorada**.
+    - **Lo VIEJO es la señal, no lo pendiente**: que haya trabajos esperando es
+      normal —se acaban de encolar—. Y se mira **`available_at` y no
+      `created_at`**, o un trabajo aguardando su reintento dispararía una alarma
+      cada vez que el PAC devuelva un error pasajero.
+    - Los FALLIDOS se dicen aunque la cola esté al día: nadie los reintenta solo,
+      y un timbrado fallido es una factura que no existe ante el SAT.
+  - **`KillMode=process` en el servicio de systemd, y no es cosmético.** TODAS
+    las tareas de este proyecto van con `runInBackground()`: Laravel las lanza
+    con `&` y `schedule:run` vuelve enseguida. Con un servicio `oneshot` y el
+    modo de terminación por omisión, systemd da la unidad por acabada y limpia el
+    cgroup — matando a los hijos que acaba de lanzar. **No verificado en esta
+    máquina**: aquí no hay systemd.
+  - **Y el mismo defecto estaba en otro sitio**: `clases:recoger-grabaciones`
+    llevaba desde el 2026-08-19 construido, documentado y **sin nadie que lo
+    invocara**. Meet no tiene webhook —hay que preguntarle—, así que la mitad de
+    Meet del archivado de grabaciones no corría jamás. Ya va cada hora.
+  - Por eso la suite trae una red para la CLASE: cruza los 13 comandos propios
+    contra los programados, con los siete manuales enumerados **con su razón**.
+    Un comando nuevo que no esté en ninguna de las dos listas la tumba, y quien
+    lo escribió tiene que decidir a cuál pertenece — que es la decisión que las
+    dos veces se saltó.
+  - **La reserva duraba MENOS que el trabajo, y era una bomba de tiempo.**
+    `retry_after` son los segundos que la cola guarda una fila antes de darla por
+    perdida; venía en los 90 de Laravel mientras `ArchivarGrabacion` declara
+    `timeout = 1800`. Con un trabajador vivo, un archivado de media hora se
+    ejecutaba en paralelo consigo mismo cada 90 segundos: el mismo video de
+    cientos de megas bajado varias veces a la vez, los tres intentos quemados en
+    duplicados y el trabajo en `failed_jobs` **sin que nada hubiera fallado**.
+    Subido a 1830. **Encolar y no procesar esconde todos los defectos de la cola
+    a la vez**: éste llevaba ahí desde que se escribió el trabajo.
+  - **La marca del más viejo salía en UTC.** `Carbon::createFromTimestamp()` sin
+    zona devuelve UTC, y la espera en minutos sale bien igual —son dos instantes
+    absolutos—, así que el defecto no asoma por ahí: lo que se leía era «hace 180
+    minutos (18:04)» con el reloj del servidor en las 15:04, o sea una hora en el
+    futuro. Misma trampa que `hoyLocal()`. **Se vio corriendo el comando, no la
+    prueba** — la comprobación pedía que la marca no fuera nula, y eso se cumple
+    en cualquier zona.
+  - **La primera versión de la prueba medía su propia prosa.** Leía
+    `routes/console.php` con `str_contains` para comprobar las banderas, y el
+    comentario que las explica también las nombra: quitar `--stop-when-empty` del
+    comando dejaba la prueba en verde. Lo cazaron dos mutaciones que
+    sobrevivieron. Ahora se pregunta al REGISTRO del despachador
+    (`Schedule::events()`), que es lo que de verdad se va a ejecutar.
+  - Pruebas: `scripts/prueba-cola-de-trabajos.php`, 19 verificaciones,
+    comprobadas mutando **quince reglas**. Dos de ellas son redes de CLASE: el
+    cruce de comandos contra los programados, y `retry_after` contra el `timeout`
+    de cada trabajo de `app/Jobs/` —así, subirle el tiempo a un trabajo sin subir
+    la reserva tumba la prueba en vez de duplicar descargas en silencio—.
+
 - **Módulo de Reportes** (`/reportes`, permiso `ver-reportes`): reportes por
   área, con filtros, columnas elegibles y descarga en Excel o CSV. Pedido del
   cliente del 2026-08-25. El plan completo, con las diez rebanadas, vive en
@@ -3016,9 +3096,9 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
       escuela no controla.
     - **Llegar tarde no salta el turno**: se compara con la hora YA PASADA. Lo que
       impide el correo repetido es `ultima_corrida_en`, no la puntería.
-    - **Sin cola**: `QUEUE_CONNECTION=database` y este repositorio **no declara
-      ningún trabajador** —lo que afecta también a `TimbrarFactura` y
-      `ArchivarGrabacion`, que ya existían y se quedan esperando—.
+    - ~~«Sin cola: este repositorio no declara ningún trabajador»~~.
+      **Resuelto el 2026-08-27**: el despachador levanta uno cada minuto. Ver
+      «La cola por fin tiene quien la procese» más abajo.
     - Pruebas: `scripts/prueba-reportes-programados.php`, 26 verificaciones,
       **nueve mutaciones**. Dos sobrevivieron al primer intento porque el
       escenario no distinguía el rol guardado del activo: el dueño tenía uno
