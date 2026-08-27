@@ -162,6 +162,13 @@ Append-only por disciplina. Tres razones y las tres pesan: (1) es la única form
 
 ### 1.5 `reportes_favoritos`
 
+> **[ ] Se construyó SIN `vista_id`** (y sin `orden`). Un favorito apunta hoy
+> sólo al reporte, no a «la cartera con mis columnas». No se agregó al escribir
+> la tarjeta «Mis reportes» del panel porque tampoco hay forma de marcar un
+> favorito CON vista desde la pantalla: la columna nacería sin quien la escriba,
+> que es lo que este proyecto ya tuvo que retirar cinco veces. Llega el día que
+> la pantalla la escriba.
+
 ```
 id
 persona_id  FK personas cascadeOnDelete
@@ -772,11 +779,21 @@ Orden por valor: **finanzas** (cartera sobre `SaldosDeCartera`, ingresos por con
 > pantalla, y quitarlas se llevaba el 95 % del insumo con el que se decide la
 > rebanada 10, cuyo criterio de entrada se mide justo con esta tabla.
 >
-> **[ ] La tarjeta «Mis reportes» y el `modulo()` de `TarjetaPanel` quedaron
-> fuera.** El defecto que este renglón cita es REAL —`RegistroTarjetas::para()`
-> no comprueba el módulo y `PostulantesEnProceso` lo tiene vivo—, pero
-> corregirlo bien toca las 31 tarjetas y es del PANEL, no de reportes. Se
-> retoma aparte.
+> **[~] La tarjeta «Mis reportes» y el módulo de las tarjetas: HECHOS, y de
+> otra forma.** El defecto que este renglón cita era real y se reprodujo: con
+> `bolsa_trabajo` apagado, «Postulantes en proceso» seguía en el panel con un
+> enlace que daba 404.
+>
+> Pero NO se resolvió como decía —«que la tarjeta inyecte `ModulosDeLaEscuela`
+> ella misma»—, porque eso deja la comprobación repartida y **la tarjeta que se
+> olvide no falla: se pinta**, que es exactamente lo que había pasado. Se
+> comprueba en `RegistroTarjetas::para()`, con una interfaz opcional
+> `TarjetaDeModulo` que sólo declaran las tres tarjetas que dependen de un
+> módulo apagable.
+>
+> Y la tarjeta consume `RegistroReportes::para()` en vez de decidir por su
+> cuenta qué reportes ofrecer: ese criterio ya existe y son tres cosas —permiso,
+> módulo y faceta—.
 
 Modo agrupado con `GROUP BY` y agregaciones por subconsulta correlacionada; totales de consulta aparte; pantalla de `ejecuciones_reporte` bajo `auditar-reportes`; una barra horizontal reutilizando el tipo `barras` del panel; tarjeta "Mis reportes" que **inyecta `ModulosDeLaEscuela` ella misma**, porque `RegistroTarjetas::para()` no comprueba el módulo (`PostulantesEnProceso` ya tiene ese defecto vivo).
 

@@ -49,7 +49,7 @@ Los otros dos documentos vivos:
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
    Las suites versionadas viven en `scripts/` (**86 archivos `prueba-*.php`**;
-   esta lista decía 23 y llevaba tiempo desactualizada; hoy son 102). Se corren todas de una
+   esta lista decía 23 y llevaba tiempo desactualizada; hoy son 103). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
    imprimen `Resultado: N correctas, M fallidas`. **Ojo al barrer con `grep`**:
    cuatro cierran de otra forma —`prueba-cache-externo`, `prueba-captura-examen`
@@ -57,7 +57,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 102 están en verde**, barridas el 2026-08-26. Trece son del módulo de
+   **Las 103 están en verde**, barridas el 2026-08-27. Trece son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -2949,11 +2949,27 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
         total. Dos escalas para dos preguntas; queda escrito para que nadie las
         unifique sin leer.
 
-    - **Lo que quedó FUERA, y por qué**: la tarjeta «Mis reportes» y el
-      `modulo()` de `TarjetaPanel`. El defecto que el plan cita es real
-      —`RegistroTarjetas::para()` no comprueba el módulo y `PostulantesEnProceso`
-      lo tiene vivo, comprobado— pero corregirlo bien toca las 31 tarjetas y es
-      del PANEL, no de reportes.
+    - **El panel no comprobaba el MÓDULO, y ya lo hace.** Reproducido sembrando
+      una postulación: con `bolsa_trabajo` apagado, «Postulantes en proceso»
+      seguía en el panel con su enlace a `/bolsa/vacantes`, que la RUTA sí
+      comprueba — o sea que llevaba a un 404. Misma lección que el menú lateral.
+      - **La comprobación vive en UN sitio**, `RegistroTarjetas::para()`, con la
+        interfaz opcional `TarjetaDeModulo`. Dos tarjetas se lo miraban por su
+        cuenta y funcionaban; el problema es que con la comprobación repartida,
+        **la que se olvida no falla: se pinta**.
+      - **Trampa al declararlo**: los módulos NÚCLEO figuran como APAGADOS —no
+        tienen fila en `modulos_activos` y `ModulosDeLaEscuela` falla cerrado—,
+        así que declarárselo a una tarjeta de finanzas la haría desaparecer de
+        golpe. Lo vigila la suite.
+      - Y con eso llegó la tarjeta **«Mis reportes»**: los favoritos, y sin
+        ninguno, lo que más se corrió en 90 días. Eso último sólo tiene sentido
+        desde que la bitácora deduplica: antes habría contado recargas de página.
+        Qué reportes ofrece lo dice `RegistroReportes::para()` —permiso, módulo y
+        faceta—, no la tarjeta: la bitácora conserva lo que alguien corrió cuando
+        SÍ podía, y ofrecerle el atajo hoy lo llevaría a un 403.
+      - Pruebas: `scripts/prueba-panel-modulos.php`, 18 verificaciones,
+        comprobadas mutando seis reglas. La sexta sobrevivió porque nada
+        comprobaba que la tarjeta se CALLE cuando no tiene nada que ofrecer.
 
     - Pruebas: `prueba-bitacora-reportes` (26), `prueba-reportes-totales` (22) y
       `prueba-reportes-agrupados` (29), más las secciones nuevas de
