@@ -150,18 +150,31 @@ try {
                 continue;
             }
 
-            $opciones = $filtro->opcionesPara($usuario);
-            $primera = (string) array_key_first($opciones);
-
             /*
-             * Respetando el TIPO del filtro: uno de lista MÚLTIPLE espera un
-             * arreglo y rechaza un escalar con «v debe ser una lista». La
-             * primera versión mandaba siempre una cadena y contaba esa negativa
-             * —que es correcta— como si el reporte estuviera roto.
+             * Un valor válido SEGÚN EL TIPO del filtro.
+             *
+             * No basta con la primera opción del catálogo: un filtro obligatorio
+             * puede ser un NÚMERO —«asistencia por debajo de»— y entonces no
+             * tiene opciones, `array_key_first([])` da null, el filtro no se pone
+             * y el reporte se niega a correr. La red contaba esa negativa —que es
+             * correcta— como si el reporte estuviera roto.
+             *
+             * Y el de lista MÚLTIPLE espera un arreglo: un escalar lo rechaza con
+             * «v debe ser una lista».
              */
-            $valores[$clave] = $filtro->tipo === App\Reportes\TipoFiltro::ListaMultiple
-                ? [$primera]
-                : $primera;
+            $opciones = $filtro->opcionesPara($usuario);
+            $primera = $opciones === [] ? null : (string) array_key_first($opciones);
+
+            $valores[$clave] = match ($filtro->tipo) {
+                App\Reportes\TipoFiltro::ListaMultiple => [$primera],
+                App\Reportes\TipoFiltro::Numero => '100',
+                App\Reportes\TipoFiltro::Fecha => now()->toDateString(),
+                App\Reportes\TipoFiltro::RangoNumero => ['0', '100'],
+                App\Reportes\TipoFiltro::RangoFecha => [now()->subYear()->toDateString(), now()->toDateString()],
+                App\Reportes\TipoFiltro::Booleano => '1',
+                App\Reportes\TipoFiltro::Texto => 'x',
+                default => $primera,
+            };
 
             $conObligatorios[$reporte->clave()] = $clave;
         }

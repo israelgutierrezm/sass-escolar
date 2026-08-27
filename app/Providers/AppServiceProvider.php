@@ -44,6 +44,7 @@ use App\Panel\Tarjetas\OcupacionDeGrupos;
 use App\Panel\Tarjetas\PostulantesEnProceso;
 use App\Panel\Tarjetas\ProspectosPorContactar;
 use App\Reportes\Definiciones\AlumnosInscritos;
+use App\Reportes\Definiciones\AsistenciaEnRiesgo;
 use App\Reportes\Definiciones\AvanceDeCertificacion;
 use App\Reportes\Definiciones\AvanceParaCertificadoParcial;
 use App\Reportes\Definiciones\BajasDePersonal;
@@ -55,14 +56,17 @@ use App\Reportes\Definiciones\CorteDeCaja;
 use App\Reportes\Definiciones\CarteraVencida;
 use App\Reportes\Definiciones\DocentesSinCarga;
 use App\Reportes\Definiciones\DocentesSinCedula;
+use App\Reportes\Definiciones\DirectorioDeFamilias;
 use App\Reportes\Definiciones\EgresadosSinColocar;
 use App\Reportes\Definiciones\EmpleabilidadDeEgresados;
 use App\Reportes\Definiciones\EstadoDeCartera;
 use App\Reportes\Definiciones\EstanciasConcluidas;
+use App\Reportes\Definiciones\FamiliaresSinCuenta;
 use App\Reportes\Definiciones\ListosParaCertificar;
 use App\Reportes\Definiciones\MateriasSinTitular;
 use App\Reportes\Definiciones\PlantillaDocente;
 use App\Reportes\Definiciones\OcupacionDeGrupos as ReporteOcupacionDeGrupos;
+use App\Reportes\Definiciones\MateriasSinListaPasada;
 use App\Reportes\Definiciones\MovilidadDelPeriodo;
 use App\Reportes\Definiciones\PlantillaVigente;
 use App\Reportes\Definiciones\ProspectosAbiertos;
@@ -75,6 +79,7 @@ use App\Reportes\Definiciones\BajasDeAlumnos;
 use App\Reportes\Definiciones\EgresadosPorGeneracion;
 use App\Reportes\Fuentes\Aspirantes;
 use App\Reportes\Fuentes\CargaAcademica;
+use App\Reportes\Fuentes\AsistenciaPorMateria;
 use App\Reportes\Fuentes\Cargos;
 use App\Reportes\Fuentes\Certificables;
 use App\Reportes\Fuentes\EgresadosYColocacion;
@@ -85,6 +90,7 @@ use App\Reportes\Fuentes\Ingresos;
 use App\Reportes\Fuentes\Matriculas;
 use App\Reportes\Fuentes\MovilidadSaliente;
 use App\Reportes\Fuentes\Plantilla;
+use App\Reportes\Fuentes\VinculosFamiliares;
 use App\Reportes\RegistroReportes;
 use App\Services\Cfdi\FacturapiPac;
 use App\Services\Cfdi\Pac;
@@ -370,6 +376,8 @@ class AppServiceProvider extends ServiceProvider
                 EgresadosYColocacion::class,
                 Plantilla::class,
                 MovilidadSaliente::class,
+                AsistenciaPorMateria::class,
+                VinculosFamiliares::class,
             ] as $fuente) {
                 $registro->registrarFuente($fuente);
             }
@@ -410,6 +418,10 @@ class AppServiceProvider extends ServiceProvider
                 BajasDePersonal::class,
                 MovilidadDelPeriodo::class,
                 EstanciasConcluidas::class,
+                AsistenciaEnRiesgo::class,
+                MateriasSinListaPasada::class,
+                DirectorioDeFamilias::class,
+                FamiliaresSinCuenta::class,
             ] as $reporte) {
                 $registro->registrarReporte($reporte);
             }
