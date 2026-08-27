@@ -6,6 +6,7 @@ namespace App\Reportes\Fuentes;
 
 use App\Models\Academico\Campus;
 use App\Models\Identidad\Usuario;
+use App\Models\Nomina\Adscripcion;
 use App\Models\Nomina\ExpedienteLaboral;
 use App\Models\Nomina\Puesto;
 use App\Models\Nomina\SituacionEmpleado;
@@ -84,15 +85,22 @@ class Plantilla implements FuenteDeReporte
     }
 
     /**
-     * El campus del personal sale de su ADSCRIPCIÓN vigente.
+     * El campus del personal sale de SU adscripción.
      *
      * Y no de `persona_rol.campus_id`: aquél acota lo que un usuario PUEDE VER,
      * ésta dice qué puesto ocupa en el organigrama. Alguien puede tener permisos
      * globales y una sola adscripción.
+     *
+     * Nombra `adscripcionesQueCuentan` y no `adscripciones` —que es la HISTORIA
+     * entera— porque con la historia el recorte casaba contra adscripciones ya
+     * cerradas: el coordinador de un plantel veía el expediente de quien HOY
+     * trabaja en otro, con la columna «Campus» de esa misma fila diciéndoselo.
+     * La regla está en `Adscripcion::laQueCuenta()` y la comparten los tres
+     * sitios de esta fuente que preguntan por «su» adscripción.
      */
     public function recorte(): Recorte
     {
-        return Recorte::porAdscripcion('adscripciones');
+        return Recorte::porAdscripcion('adscripcionesQueCuentan');
     }
 
     public function columnas(): array
@@ -221,7 +229,7 @@ class Plantilla implements FuenteDeReporte
                 etiqueta: 'Campus',
                 tipo: TipoFiltro::ListaMultiple,
                 aplicar: fn (Builder $q, array $v) => $q->whereHas(
-                    'adscripciones',
+                    'adscripcionesQueCuentan',
                     fn (Builder $a) => $a->whereIn('campus_id', $v),
                 ),
                 opciones: fn (Usuario $u) => Campus::query()
@@ -232,8 +240,15 @@ class Plantilla implements FuenteDeReporte
                 clave: 'puesto_id',
                 etiqueta: 'Puesto',
                 tipo: TipoFiltro::ListaMultiple,
+                /*
+                 * Igual que el de campus y que el recorte: por la relación que
+                 * lleva la vigencia. Con la historia entera, filtrar por
+                 * «Coordinador de carrera» devolvía a quien lo FUE y hoy da
+                 * clases, con la columna «Puesto» de la misma fila diciendo
+                 * «Docente». Una fila que se contradice a sí misma.
+                 */
                 aplicar: fn (Builder $q, array $v) => $q->whereHas(
-                    'adscripciones',
+                    'adscripcionesQueCuentan',
                     fn (Builder $a) => $a->whereIn('puesto_id', $v),
                 ),
                 opciones: fn (Usuario $u) => Puesto::query()->orderBy('orden')->pluck('nombre', 'id')->all(),
@@ -281,8 +296,6 @@ class Plantilla implements FuenteDeReporte
      */
     public function consulta(Usuario $usuario, array $filtros): Builder
     {
-        $hoy = now()->toDateString();
-
         return ExpedienteLaboral::query()
             ->select('expedientes_laborales.*')
             ->with([
@@ -293,18 +306,31 @@ class Plantilla implements FuenteDeReporte
             ])
             ->leftJoinSub(
                 DB::table('adscripciones as a')
+                    ->join('expedientes_laborales as el', 'el.id', '=', 'a.expediente_laboral_id')
                     ->leftJoin('puestos as pu', 'pu.id', '=', 'a.puesto_id')
                     ->leftJoin('campus as ca', 'ca.id', '=', 'a.campus_id')
                     ->whereNull('a.deleted_at')
-                    ->where(fn ($q) => $q->whereNull('a.vigente_hasta')->orWhereDate('a.vigente_hasta', '>=', $hoy))
+                    /*
+                     * La MISMA regla que el recorte y los filtros, aquí en SQL
+                     * crudo porque esto es un `leftJoinSub` y no puede usar la
+                     * relación. Se une a `expedientes_laborales` sólo para que
+                     * la condición alcance `fecha_baja`.
+                     *
+                     * Preguntaba por `curdate()`, y como dar de baja CIERRA las
+                     * adscripciones abiertas con la fecha de la baja, a quien ya
+                     * se fue no le quedaba ninguna: «Bajas de personal» salía con
+                     * Puesto y Campus en blanco —dos de sus ocho columnas por
+                     * omisión— para toda baja pasada, y no por falta de captura.
+                     */
+                    ->whereRaw(Adscripcion::laQueCuenta('a', 'el'))
                     ->select('a.expediente_laboral_id')
                     // La principal primero, y entre ésas la más reciente.
-                    ->selectRaw("substring_index(group_concat(
+                    ->selectRaw('substring_index(group_concat(
                         pu.nombre order by a.es_principal desc, a.vigente_desde desc, a.id desc separator 0x1f
-                    ), 0x1f, 1) as puesto")
-                    ->selectRaw("substring_index(group_concat(
+                    ), 0x1f, 1) as puesto')
+                    ->selectRaw('substring_index(group_concat(
                         ca.nombre order by a.es_principal desc, a.vigente_desde desc, a.id desc separator 0x1f
-                    ), 0x1f, 1) as campus")
+                    ), 0x1f, 1) as campus')
                     ->groupBy('a.expediente_laboral_id'),
                 'ads',
                 'ads.expediente_laboral_id',

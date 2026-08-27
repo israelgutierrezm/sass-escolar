@@ -77,6 +77,19 @@ class ExpedienteLaboral extends Model
         return $this->hasMany(Adscripcion::class, 'expediente_laboral_id');
     }
 
+    /**
+     * SU adscripción: la que cubría el día que se fue —o la de hoy, si sigue.
+     *
+     * `adscripciones()` es la HISTORIA completa y así tiene que quedarse: es la
+     * mitad de para qué existe la tabla. Ésta es la que contesta «¿dónde está?»,
+     * y la regla vive en `Adscripcion::laQueCuenta()`.
+     */
+    public function adscripcionesQueCuentan(): HasMany
+    {
+        return $this->hasMany(Adscripcion::class, 'expediente_laboral_id')
+            ->whereRaw(Adscripcion::laQueCuenta());
+    }
+
     public function esquemas(): HasMany
     {
         return $this->hasMany(EsquemaPercepcion::class, 'expediente_laboral_id');

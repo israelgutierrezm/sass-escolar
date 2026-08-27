@@ -36,6 +36,7 @@ use App\Models\Tenant;
 use App\Reportes\Ejecutor;
 use App\Reportes\RegistroReportes;
 use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
@@ -368,6 +369,103 @@ try {
     verificar('Y el global sí lo ve',
         $globales->contains('numero_empleado', $delOtro->numero_empleado),
         $suyos->count().' de '.$globales->count());
+
+    /*
+     * ── «SU adscripción» es UNA sola definición ───────────────────────────
+     *
+     * Estaba escrita tres veces —el recorte por campus, los filtros de campus y
+     * de puesto, y la subconsulta que pinta las columnas— y las tres divergían.
+     * Lo cazó una revisión adversaria y aquí queda vigilado, porque los tres
+     * defectos eran silenciosos: ninguno da error, dan otra fila.
+     */
+    echo PHP_EOL.'9. «Su adscripción»: una sola definición para los tres consumidores'.PHP_EOL;
+
+    $campusA = DB::table('campus')->whereNull('deleted_at')->orderBy('id')->value('id');
+    $campusB = DB::table('campus')->whereNull('deleted_at')->where('id', '!=', $campusA)->orderBy('id')->value('id');
+    $puestoA = DB::table('puestos')->orderBy('id')->value('id');
+    $puestoB = DB::table('puestos')->where('id', '!=', $puestoA)->orderBy('id')->value('id');
+
+    verificar('Hay dos campus y dos puestos con los que construir el caso',
+        $campusB !== null && $puestoB !== null);
+
+    /*
+     * SE MUDÓ: cerrada en A, abierta en B. Es el caso que el demo no tiene
+     * —cero adscripciones— y sin el cual las tres reglas se cumplen solas.
+     */
+    $mudado = contratar('Mudado', ['adscripciones' => [
+        ['campus_id' => $campusA, 'puesto_id' => $puestoA, 'desde' => '2020-01-01', 'hasta' => '2023-12-31', 'principal' => true],
+        ['campus_id' => $campusB, 'puesto_id' => $puestoB, 'desde' => '2024-01-01', 'principal' => true],
+    ]]);
+
+    /* SE FUE: la baja CIERRA la adscripción el mismo día, como hace `darDeBaja`. */
+    $ido = contratar('Ido', [
+        'baja' => '2026-03-31',
+        'adscripciones' => [
+            ['campus_id' => $campusB, 'puesto_id' => $puestoB, 'desde' => '2021-01-01', 'hasta' => '2026-03-31', 'principal' => true],
+        ],
+    ]);
+
+    $coordA = usuarioConRol('director_general', $campusA);
+    $coordB = usuarioConRol('director_general', $campusB);
+
+    $corre = function (Usuario $quien, string $reporte, array $filtros = []) use ($ejecutor): Collection {
+        auth()->login($quien);
+
+        return collect($ejecutor->ejecutar($quien, $reporte, [
+            'columnas' => ['numero_empleado', 'empleado', 'puesto', 'campus'],
+            'filtros' => $filtros,
+        ])->filas);
+    };
+
+    $tiene = fn (Collection $filas, ExpedienteLaboral $e) => $filas
+        ->contains(fn (array $f) => $f['numero_empleado'] === $e->numero_empleado);
+
+    // (a) el RECORTE
+    verificar('El coordinador de donde ya NO trabaja no lo ve',
+        ! $tiene($corre($coordA, 'plantilla-vigente'), $mudado),
+        'campus '.$campusA);
+
+    verificar('Y el de donde trabaja HOY sí',
+        $tiene($corre($coordB, 'plantilla-vigente'), $mudado),
+        'campus '.$campusB);
+
+    // (b) los FILTROS: la fila no puede contradecirse a sí misma
+    auth()->login($global);
+    $porCampusViejo = $corre($global, 'plantilla-vigente', ['campus_id' => [$campusA]]);
+
+    verificar('Filtrar por el campus VIEJO no lo trae',
+        ! $tiene($porCampusViejo, $mudado),
+        $porCampusViejo->count().' filas');
+
+    $porPuestoViejo = $corre($global, 'plantilla-vigente', ['puesto_id' => [$puestoA]]);
+
+    verificar('Filtrar por el puesto que ya NO ocupa no lo trae',
+        ! $tiene($porPuestoViejo, $mudado),
+        $porPuestoViejo->count().' filas');
+
+    $porCampusNuevo = $corre($global, 'plantilla-vigente', ['campus_id' => [$campusB]]);
+    $fila = $porCampusNuevo->firstWhere('numero_empleado', $mudado->numero_empleado);
+
+    verificar('Y la fila que el filtro devuelve dice lo mismo que el filtro',
+        $fila !== null && $fila['campus'] === DB::table('campus')->where('id', $campusB)->value('nombre'),
+        $fila === null ? 'no salió' : 'campus: '.$fila['campus']);
+
+    // (c) la SUBCONSULTA: una baja tiene puesto y campus
+    $bajas = $corre($global, 'bajas-de-personal');
+    $filaIdo = $bajas->firstWhere('numero_empleado', $ido->numero_empleado);
+
+    verificar('Una BAJA sale con su puesto y su campus, no en blanco',
+        $filaIdo !== null && $filaIdo['puesto'] !== null && $filaIdo['campus'] !== null,
+        $filaIdo === null ? 'no salió' : 'puesto: '.($filaIdo['puesto'] ?? '—').', campus: '.($filaIdo['campus'] ?? '—'));
+
+    verificar('Y el coordinador de donde trabajaba puede verla',
+        $tiene($corre($coordB, 'bajas-de-personal'), $ido),
+        'campus '.$campusB);
+
+    verificar('Mientras el del otro campus no',
+        ! $tiene($corre($coordA, 'bajas-de-personal'), $ido));
+
+    auth()->login($global);
 
     echo PHP_EOL.'Resultado: '.($verificaciones - $fallidas)." correctas, {$fallidas} fallidas".PHP_EOL;
 } finally {

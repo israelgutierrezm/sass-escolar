@@ -74,4 +74,47 @@ class Adscripcion extends Model
             ->whereNull('vigente_hasta')
             ->orWhereDate('vigente_hasta', '>=', now()->toDateString()));
     }
+
+    /**
+     * «SU adscripción»: la que cubría el día que se fue —o el de hoy, si sigue.
+     *
+     * ── Por qué la fecha de corte no es siempre «hoy» ─────────────────────
+     * `darDeBaja` cierra las adscripciones abiertas con la fecha de la baja, así
+     * que a quien ya se fue NINGUNA le sigue vigente. Preguntar por «hoy» —que
+     * es lo que hace `scopeVigentes`— deja al personal dado de baja sin puesto y
+     * sin campus, y entonces el reporte de rotación no puede decir de qué
+     * plantel se fue nadie, que es para lo que existe.
+     *
+     * Es el mismo criterio que `ExpedienteLaboral::esquemaEn` usa para el
+     * sueldo: se resuelve A UNA FECHA, y la fecha de un expediente cerrado es
+     * la de su cierre.
+     *
+     * ── Y por qué es una sola definición ──────────────────────────────────
+     * Estuvo escrita TRES veces —el recorte por campus, los filtros de campus y
+     * puesto, y la subconsulta que pinta las columnas— y las tres divergieron:
+     *
+     *  - El recorte y los filtros no miraban la vigencia, así que casaban contra
+     *    adscripciones ya cerradas: el coordinador de un plantel veía el
+     *    expediente de quien HOY trabaja en otro, y la propia columna «Campus»
+     *    de esa fila se lo decía. Filtrar por «Campus Centro» devolvía filas que
+     *    se contradecían a sí mismas.
+     *  - La subconsulta sí la miraba, pero contra `curdate()`, y por eso las
+     *    bajas salían con puesto y campus en blanco.
+     *
+     * Las tres nombran ahora `ExpedienteLaboral::adscripcionesQueCuentan()`, o
+     * esta condición cuando el consumidor es SQL crudo y no puede usar la
+     * relación.
+     *
+     * @param  string  $alias  cómo se llama `adscripciones` en la consulta
+     * @param  string  $expediente  cómo se llama `expedientes_laborales`
+     */
+    public static function laQueCuenta(
+        string $alias = 'adscripciones',
+        string $expediente = 'expedientes_laborales',
+    ): string {
+        $corte = "coalesce($expediente.fecha_baja, curdate())";
+
+        return "$alias.vigente_desde <= $corte "
+            ."and ($alias.vigente_hasta is null or $alias.vigente_hasta >= $corte)";
+    }
 }
