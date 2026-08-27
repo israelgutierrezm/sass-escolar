@@ -55,6 +55,14 @@ class MateriasSinListaPasada extends DefinicionReporte
         return ['matricula', 'alumno', 'materia', 'grupo', 'ciclo', 'campus'];
     }
 
+    /**
+     * Por matrícula, para que las materias de un mismo alumno salgan juntas.
+     *
+     * Ya lo pedía, y el motor lo DESCARTABA en silencio: la columna no era
+     * ordenable —no tenía columna SQL— y `ordenPedido()` caía a la llave
+     * primaria sin avisar. Hoy lo es, y `RegistroReportes` no deja registrar un
+     * reporte cuyo orden por omisión no se pueda aplicar.
+     */
     public function ordenPorOmision(): ?array
     {
         return ['matricula', 'asc'];

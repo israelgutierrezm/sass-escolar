@@ -113,14 +113,31 @@ class Ejecutor
 
         $total = (clone $consulta)->toBase()->getCountForPagination();
 
+        /*
+         * El cronómetro arranca AQUÍ y lo cierra `alTerminar`, que se llama
+         * cuando salió la última fila.
+         *
+         * Estaba cableado a 0, y era el peor sitio para no medir: la bitácora
+         * existe —lo dice el docblock de `EjecucionReporte`— para saber «cuáles
+         * tardan», y las exportaciones son justamente las lentas, porque son las
+         * que recorren la tabla entera por lotes. Un CSV de treinta mil renglones
+         * quedaba anotado igual que uno instantáneo, y un cero se lee como una
+         * medición y no como un dato ausente.
+         */
+        $arranque = microtime(true);
+
         return new Exportacion(
             reporte: $reporte,
             fuente: $fuente,
             columnas: array_map(fn (string $c) => $fuente->columnas()[$c], $columnas),
             total: $total,
             filas: fn () => $this->recorrer($consulta, $fuente, $reporte, $columnas, $peticion),
-            alTerminar: function (int $filas, string $formato) use ($usuario, $reporte, $columnas, $filtros, $omitidas): void {
-                $this->anotarCrudo($usuario, $reporte, $formato, $filas, 0, $filtros, $columnas, $omitidas);
+            alTerminar: function (int $filas, string $formato) use ($usuario, $reporte, $columnas, $filtros, $omitidas, $arranque): void {
+                $this->anotarCrudo(
+                    $usuario, $reporte, $formato, $filas,
+                    (int) round((microtime(true) - $arranque) * 1000),
+                    $filtros, $columnas, $omitidas,
+                );
             },
         );
     }
@@ -187,7 +204,7 @@ class Ejecutor
                 throw new \RuntimeException(
                     "El reporte ordena por «{$columnaOrden}» pero la fila no trae el atributo "
                     ."«{$atributoOrden}»: la fuente lo saca al SELECT con otro nombre. El alias tiene "
-                    ."que ser el último segmento de la columna, o el recorrido por lotes se trunca en "
+                    .'que ser el último segmento de la columna, o el recorrido por lotes se trunca en '
                     .'descendente y no termina en ascendente.'
                 );
             }
@@ -222,8 +239,8 @@ class Ejecutor
             if ($anterior !== null && $anterior == $ultimo) {
                 throw new \RuntimeException(
                     "El recorrido del reporte no avanza: la columna de orden «{$columnaOrden}» no coincide "
-                    ."con lo que la fuente saca al SELECT. Sácala sin transformar —el `coalesce` va en la "
-                    ."closure `valor`, no en el SQL— o quítale la bandera `ordenable`."
+                    .'con lo que la fuente saca al SELECT. Sácala sin transformar —el `coalesce` va en la '
+                    .'closure `valor`, no en el SQL— o quítale la bandera `ordenable`.'
                 );
             }
 

@@ -141,9 +141,27 @@ final readonly class Recorte
             self::POR_RELACION => $consulta->where(function (Builder $q) use ($campus) {
                 $q->whereHas($this->args['relacion'], fn (Builder $c) => $c->whereIn('campus.id', $campus));
 
-                // Sólo si la fuente lo pidió: ver el docblock de `porRelacion`.
+                /*
+                 * Sólo si la fuente lo pidió: ver el docblock de `porRelacion`.
+                 *
+                 * Y la tolerancia se mide contra la relación SIN filtrar el
+                 * borrado del campus (`withTrashed`), que es lo que la acota a
+                 * lo que promete: «a nadie le han asignado campus».
+                 *
+                 * Con la relación normal perdonaba tres cosas y no una. La
+                 * tercera es la que muerde: si alguien borra un plantel —se
+                 * puede, `CampusController::destroy` sólo se niega si tiene
+                 * oferta, y `Campus` usa borrado lógico—, sus docentes dejan de
+                 * tener campus VIVO y pasan a verlos TODOS los coordinadores, de
+                 * todos los planteles. No es lo mismo «todavía no le asignan
+                 * campus» que «su campus desapareció»: lo primero es una cola de
+                 * trabajo, lo segundo es una fuga.
+                 */
                 if ($this->args['sin_asignar'] ?? false) {
-                    $q->orWhereDoesntHave($this->args['relacion']);
+                    $q->orWhereDoesntHave(
+                        $this->args['relacion'],
+                        fn (Builder $c) => $c->withTrashed(),
+                    );
                 }
             }),
             self::POR_ADSCRIPCION => $consulta->whereHas(

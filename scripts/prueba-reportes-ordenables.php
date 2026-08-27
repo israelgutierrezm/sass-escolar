@@ -33,10 +33,16 @@ use App\Models\Identidad\Rol;
 use App\Models\Identidad\Usuario;
 use App\Models\Tenant;
 use App\Reportes\ColumnaReporte;
+use App\Reportes\Definiciones\OcupacionDeGrupos;
+use App\Reportes\DefinicionReporte;
 use App\Reportes\Ejecutor;
+use App\Reportes\Fuentes\Grupos;
+use App\Reportes\Fuentes\Matriculas;
 use App\Reportes\RegistroReportes;
+use App\Reportes\TipoFiltro;
 use App\Services\Plataforma\ModulosDeLaEscuela;
 use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
@@ -166,13 +172,13 @@ try {
             $primera = $opciones === [] ? null : (string) array_key_first($opciones);
 
             $valores[$clave] = match ($filtro->tipo) {
-                App\Reportes\TipoFiltro::ListaMultiple => [$primera],
-                App\Reportes\TipoFiltro::Numero => '100',
-                App\Reportes\TipoFiltro::Fecha => now()->toDateString(),
-                App\Reportes\TipoFiltro::RangoNumero => ['0', '100'],
-                App\Reportes\TipoFiltro::RangoFecha => [now()->subYear()->toDateString(), now()->toDateString()],
-                App\Reportes\TipoFiltro::Booleano => '1',
-                App\Reportes\TipoFiltro::Texto => 'x',
+                TipoFiltro::ListaMultiple => [$primera],
+                TipoFiltro::Numero => '100',
+                TipoFiltro::Fecha => now()->toDateString(),
+                TipoFiltro::RangoNumero => ['0', '100'],
+                TipoFiltro::RangoFecha => [now()->subYear()->toDateString(), now()->toDateString()],
+                TipoFiltro::Booleano => '1',
+                TipoFiltro::Texto => 'x',
                 default => $primera,
             };
 
@@ -227,7 +233,7 @@ try {
                         $rotas[] = $reporte->clave().'/'.$columna->clave.' '.$direccion
                             .': '.$emitidas.' de '.$exportacion->total;
                     }
-                } catch (\Throwable $e) {
+                } catch (Throwable $e) {
                     $rotas[] = $reporte->clave().'/'.$columna->clave.' '.$direccion
                         .': '.class_basename($e).' — '.mb_substr($e->getMessage(), 0, 60);
                 }
@@ -235,8 +241,30 @@ try {
         }
     }
 
-    verificar('Se probó al menos una columna ordenable por reporte',
-        $probadas >= count($registro->todos()), $probadas.' combinaciones sobre '.count($registro->todos()).' reportes');
+    /*
+     * Medía `$probadas >= count($todos)`, que con 330 combinaciones y 34
+     * reportes es cierto aunque una fuente entera no aporte ninguna —y dos no
+     * aportaban: los de vínculos familiares, cuya fuente no declaraba una sola
+     * columna ordenable—. Ahora se cuenta REPORTE POR REPORTE.
+     */
+    $sinOrdenable = [];
+
+    foreach ($registro->todos() as $definicion) {
+        $ordenables = array_filter(
+            $registro->fuente($definicion->fuente())->columnas(),
+            fn ($c) => $c->ordenable,
+        );
+
+        if ($ordenables === []) {
+            $sinOrdenable[] = $definicion->clave();
+        }
+    }
+
+    verificar('TODO reporte tiene al menos una columna ordenable',
+        $sinOrdenable === [],
+        $sinOrdenable === []
+            ? count($registro->todos()).' reportes, '.$probadas.' combinaciones'
+            : 'sin ninguna: '.implode(', ', $sinOrdenable));
 
     verificar('Ninguna exportación por columna ordenable falla ni descuadra',
         $rotas === [], $rotas === [] ? $probadas.' combinaciones, todas completas' : implode(' | ', array_slice($rotas, 0, 4)));
@@ -249,7 +277,7 @@ try {
     $sinDatos = array_values(array_unique($vacios));
 
     if ($conObligatorios !== []) {
-        echo "  [33m·[0m    Con su filtro obligatorio puesto para poder correr: "
+        echo '  [33m·[0m    Con su filtro obligatorio puesto para poder correr: '
             .implode(', ', array_keys($conObligatorios)).PHP_EOL;
     }
 
@@ -269,10 +297,10 @@ try {
      * Se construye una fuente rota A PROPÓSITO. No se puede comprobar mutando
      * una buena: la mutación cuelga la propia suite.
      */
-    $rota = new class extends App\Reportes\Fuentes\Grupos
+    $rota = new class extends Grupos
     {
         /** El defecto: la columna sale al SELECT con OTRO nombre. */
-        public function consulta(Usuario $usuario, array $filtros): Illuminate\Database\Eloquent\Builder
+        public function consulta(Usuario $usuario, array $filtros): Builder
         {
             /*
              * `select()` REEMPLAZA, asi que esto de verdad quita `cuantos` de la
@@ -301,11 +329,11 @@ try {
         }
     };
 
-    app()->instance(App\Reportes\Fuentes\Grupos::class, $rota);
+    app()->instance(Grupos::class, $rota);
 
     $registroRoto = new RegistroReportes;
-    $registroRoto->registrarFuente(App\Reportes\Fuentes\Grupos::class);
-    $registroRoto->registrarReporte(App\Reportes\Definiciones\OcupacionDeGrupos::class);
+    $registroRoto->registrarFuente(Grupos::class);
+    $registroRoto->registrarReporte(OcupacionDeGrupos::class);
 
     $conRota = new class($registroRoto, app(ModulosDeLaEscuela::class)) extends Ejecutor
     {
@@ -338,13 +366,82 @@ try {
     verificar('Una columna de orden cuyo atributo no llega SE DETIENE',
         $aviso !== null, $aviso === null ? "siguió, {$emitidas} filas" : 'se detuvo');
 
+    /*
+     * La segunda mitad era `str_contains($aviso, 'cuantos')`, que está CONTENIDA
+     * en la primera: no podía distinguir nada. Lo que hay que exigir es que el
+     * aviso nombre el ATRIBUTO por separado —que es lo que ahorra el
+     * diagnóstico: dice qué añadirle al `select`—, así que se busca entrecomillado.
+     */
     verificar('Y el aviso nombra la columna y el atributo que falta',
-        $aviso !== null && str_contains($aviso, 'al.cuantos') && str_contains($aviso, 'cuantos'),
+        $aviso !== null && str_contains($aviso, 'al.cuantos') && str_contains($aviso, '«cuantos»'),
         mb_substr((string) $aviso, 0, 70).'…');
 
     verificar('Y explica la consecuencia, no sólo que falló',
         $aviso !== null && str_contains($aviso, 'no termina'),
         $aviso !== null && str_contains($aviso, 'no termina') ? 'la explica' : 'no la explica');
+
+    /*
+     * ── El guard del REGISTRO, comprobado sobre un reporte malo ───────────
+     *
+     * No basta con recorrer los 34 y ver que todos están bien: el guard IMPIDE
+     * que uno malo se registre, así que un barrido del registro pasa aunque el
+     * guard no exista. Hay que construir el caso que se quiere prohibir.
+     *
+     * El defecto que vigila era silencioso: `ordenPedido()` sólo devuelve la
+     * columna si es `ordenable`, y si no cae a la llave primaria SIN AVISAR. El
+     * reporte salía ordenado por otra cosa mientras su definición declaraba una.
+     */
+    echo PHP_EOL.'4. Un orden por omisión que no se puede aplicar se RECHAZA al registrar'.PHP_EOL;
+
+    $malo = new class extends DefinicionReporte
+    {
+        public function clave(): string
+        {
+            return 'reporte-de-prueba-con-orden-imposible';
+        }
+
+        public function titulo(): string
+        {
+            return 'Prueba';
+        }
+
+        public function descripcion(): string
+        {
+            return 'Existe sólo para comprobar que el registro lo rechaza.';
+        }
+
+        public function fuente(): string
+        {
+            return 'matriculas';
+        }
+
+        public function ordenPorOmision(): ?array
+        {
+            // «alumno» sale de una closure: no tiene columna SQL, así que no es
+            // ordenable y el motor lo descartaría en silencio.
+            return ['alumno', 'asc'];
+        }
+    };
+
+    $columnaElegida = $registro->fuente('matriculas')->columnas()[$malo->ordenPorOmision()[0]] ?? null;
+
+    verificar('La columna que pide el reporte malo existe pero NO es ordenable',
+        $columnaElegida !== null && ! $columnaElegida->ordenable);
+
+    $rechazo = null;
+
+    try {
+        (new RegistroReportes)->registrarFuente(Matriculas::class);
+        $registro->registrarReporte($malo::class);
+    } catch (InvalidArgumentException $e) {
+        $rechazo = $e->getMessage();
+    } catch (Throwable $e) {
+        $rechazo = null;
+    }
+
+    verificar('El registro lo RECHAZA en vez de aceptarlo y ordenar por otra cosa',
+        $rechazo !== null && str_contains($rechazo, 'no es ordenable'),
+        $rechazo === null ? 'lo aceptó' : mb_substr($rechazo, 0, 80).'…');
 
     echo PHP_EOL.'Resultado: '.($verificaciones - $fallidas)." correctas, {$fallidas} fallidas".PHP_EOL;
 

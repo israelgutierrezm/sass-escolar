@@ -32,10 +32,44 @@ class RegistroReportes
         $this->fuentes[$fuente->clave()] = $fuente;
     }
 
-    /** @param  class-string<DefinicionReporte>  $clase */
+    /**
+     * @param  class-string<DefinicionReporte>  $clase
+     *
+     * Se comprueba que el ORDEN POR OMISIÓN nombre una columna que de verdad se
+     * puede ordenar. El motor, si no, lo descarta EN SILENCIO —«ordenable» exige
+     * , y sin ella  cae a null— y el reporte sale
+     * ordenado por su llave primaria mientras su definición declara otra cosa.
+     * Mordió en «Materias sin lista pasada», que pedía orden por matrícula.
+     *
+     * Aquí y no en  porque hacen falta las dos mitades: la
+     * definición dice por qué columna, y quién sabe si esa columna es ordenable
+     * es la FUENTE.
+     */
     public function registrarReporte(string $clase): void
     {
         $reporte = app($clase);
+
+        // Sin orden por omisión no hay nada que comprobar: el motor cae a la
+        // llave primaria y la definición no promete otra cosa.
+        $orden = $reporte->ordenPorOmision();
+
+        if ($orden === null) {
+            $this->reportes[$reporte->clave()] = $reporte;
+
+            return;
+        }
+
+        [$por] = $orden;
+        $columna = $this->fuente($reporte->fuente())->columnas()[$por] ?? null;
+
+        if ($columna === null || ! $columna->ordenable) {
+            throw new \InvalidArgumentException(
+                "El reporte «{$reporte->clave()}» pide orden por omisión «{$por}», que "
+                .($columna === null ? 'no existe en su fuente.' : 'no es ordenable.')
+                .' Sin columna SQL el motor lo descarta sin avisar y ordena por la llave primaria.',
+            );
+        }
+
         $this->reportes[$reporte->clave()] = $reporte;
     }
 

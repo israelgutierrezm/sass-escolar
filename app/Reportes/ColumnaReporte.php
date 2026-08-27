@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Reportes;
 
+use App\Support\CatalogoPermisos;
 use Closure;
 use InvalidArgumentException;
 
@@ -52,6 +53,27 @@ final readonly class ColumnaReporte
         // Ordenar exige saber POR QUÉ columna de la base: sin el literal, el
         // motor no tendría qué poner en el ORDER BY y la columna saldría
         // marcada como ordenable sin serlo.
+        /*
+         * Un permiso que NO EXISTE esconde la columna para TODO EL MUNDO.
+         *
+         * Falla cerrado, o sea que no hay fuga —y por eso mismo es silencioso:
+         * la columna sale del Excel sin decir por qué, la pantalla explica «tu
+         * rol no las alcanza» a quien tiene TODOS los permisos administrativos
+         * de la escuela, y el permiso ni siquiera se puede conceder desde
+         * «/plataforma/roles» porque no está en el catálogo.
+         *
+         * Mordió con «editar-docentes», que nunca existió: cuatro columnas
+         * —correo, celular, CURP y RFC del profesorado— llevaban meses muertas.
+         * Se comprueba aquí, al construirse, que es al arrancar la aplicación y
+         * no con un usuario delante.
+         */
+        if ($permisoExtra !== null && ! CatalogoPermisos::existe($permisoExtra)) {
+            throw new InvalidArgumentException(
+                "La columna «{$clave}» exige el permiso «{$permisoExtra}», que no está en CatalogoPermisos. "
+                .'Un permiso inexistente esconde la columna para todo el mundo, incluida dirección general.',
+            );
+        }
+
         if ($ordenable && $columnaSql === null) {
             throw new InvalidArgumentException("La columna «{$clave}» se declara ordenable pero no dice por qué columna SQL.");
         }

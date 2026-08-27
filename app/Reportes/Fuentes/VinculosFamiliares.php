@@ -99,10 +99,19 @@ class VinculosFamiliares implements FuenteDeReporte
     public function columnas(): array
     {
         return [
+            /*
+             * Ordena por APELLIDO, que es lo que se espera de una columna de
+             * nombres. Y es ordenable a propósito: esta fuente no declaraba UNA
+             * SOLA columna ordenable, así que sus dos reportes no se podían
+             * ordenar por nada y quedaban fuera de la red que barre las columnas
+             * ordenables de todos los reportes.
+             */
             'alumno' => new ColumnaReporte(
                 clave: 'alumno',
                 etiqueta: 'Alumno',
                 valor: fn (TutorAlumno $v) => $v->alumno?->nombreCompleto(),
+                columnaSql: 'pa.apellido_alumno',
+                ordenable: true,
                 ancho: 32,
             ),
             'matriculas' => new ColumnaReporte(
@@ -117,6 +126,8 @@ class VinculosFamiliares implements FuenteDeReporte
                 clave: 'tutor',
                 etiqueta: 'Tutor o familiar',
                 valor: fn (TutorAlumno $v) => $v->tutor?->nombreCompleto(),
+                columnaSql: 'pt.apellido_tutor',
+                ordenable: true,
                 ancho: 32,
             ),
             'parentesco' => new ColumnaReporte(
@@ -226,6 +237,28 @@ class VinculosFamiliares implements FuenteDeReporte
     {
         return TutorAlumno::query()
             ->select('tutores_alumno.*')
+            /*
+             * Las dos personas, sólo para poder ORDENAR por su apellido: el
+             * `ORDER BY` no puede salir de una relación que se carga después.
+             * Los dos son `belongsTo`, así que no multiplican filas, y el `with`
+             * de abajo sigue siendo quien las pinta.
+             *
+             * Van como subconsulta y no como join a secas por una razón concreta:
+             * el keyset compara el ATRIBUTO de la fila contra la columna, y el
+             * atributo es el último segmento de `columnaSql`. Con dos joins a
+             * `personas` los dos apellidos se llamarían igual y el segundo
+             * pisaría al primero, así que cada uno trae el suyo con nombre
+             * propio. Son subconsultas MERGEABLES —sin agregación, sin distinct,
+             * sin límite—, así que MySQL las pliega de vuelta a un join.
+             */
+            ->leftJoinSub(
+                DB::table('personas')->select('id')->selectRaw('primer_apellido as apellido_alumno'),
+                'pa', 'pa.id', '=', 'tutores_alumno.alumno_persona_id',
+            )
+            ->leftJoinSub(
+                DB::table('personas')->select('id')->selectRaw('primer_apellido as apellido_tutor'),
+                'pt', 'pt.id', '=', 'tutores_alumno.tutor_persona_id',
+            )
             ->with([
                 'alumno:id,nombre,primer_apellido,segundo_apellido',
                 'tutor:id,nombre,primer_apellido,segundo_apellido,celular,email',
@@ -262,7 +295,7 @@ class VinculosFamiliares implements FuenteDeReporte
                 '=',
                 'tutores_alumno.tutor_persona_id',
             )
-            ->addSelect(['mat.matriculas', 'cta.cuentas']);
+            ->addSelect(['mat.matriculas', 'cta.cuentas', 'pa.apellido_alumno', 'pt.apellido_tutor']);
     }
 
     public function llavePrimaria(): string

@@ -51,6 +51,6 @@ class DirectorioDeFamilias extends DefinicionReporte
 
     public function ordenPorOmision(): ?array
     {
-        return null;
+        return ['alumno', 'asc'];
     }
 }
