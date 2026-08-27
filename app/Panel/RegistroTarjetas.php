@@ -6,6 +6,7 @@ namespace App\Panel;
 
 use App\Models\Identidad\TarjetaRol;
 use App\Models\Identidad\Usuario;
+use App\Services\Plataforma\ModulosDeLaEscuela;
 
 /**
  * El catálogo de tarjetas del panel.
@@ -13,16 +14,30 @@ use App\Models\Identidad\Usuario;
  * Se registra en `AppServiceProvider`. El controlador no conoce ninguna tarjeta
  * concreta: pide las que el usuario puede ver y las entrega tal cual.
  *
- * Una tarjeta se descarta por dos motivos distintos y ambos importan:
+ * Una tarjeta se descarta por TRES motivos distintos y los tres importan:
+ *  - su MÓDULO está apagado (esa función no existe para esta escuela),
  *  - no tiene el permiso (no le toca verla), o
  *  - lo tiene pero la tarjeta devolvió null (le toca, pero no aplica a él).
+ *
  * El segundo caso es el que evita que un administrativo con `ver-historial-academico` vea un
  * "mi avance" vacío por no ser alumno de nada.
+ *
+ * Y el PRIMERO faltaba: apagar `bolsa_trabajo` en `/plataforma/modulos` dejaba
+ * «Postulantes en proceso» en el panel, con un enlace a `/bolsa/vacantes` que la
+ * ruta sí comprueba — o sea que llevaba a un 404. Se comprobó sembrando una
+ * postulación, porque el demo tiene la bolsa vacía a propósito y sin el caso la
+ * tarjeta devuelve null en las dos direcciones.
+ *
+ * Se comprueba AQUÍ y no en cada tarjeta, que es la misma decisión que este
+ * proyecto tomó para el menú lateral cuando le pasó lo mismo: si cada una se
+ * comprueba sola, la que se olvide no falla — se pinta.
  */
 class RegistroTarjetas
 {
     /** @var array<int, class-string<TarjetaPanel>> */
     private array $tarjetas = [];
+
+    public function __construct(private readonly ModulosDeLaEscuela $modulos) {}
 
     /**
      * @param  class-string<TarjetaPanel>  $tarjeta
@@ -51,6 +66,20 @@ class RegistroTarjetas
         foreach ($this->tarjetas as $clase) {
             /** @var TarjetaPanel $tarjeta */
             $tarjeta = app($clase);
+
+            /*
+             * El MÓDULO primero, porque es la más fuerte de las tres: un módulo
+             * apagado significa que esa función no existe para esta escuela, así
+             * que da igual quién mire.
+             *
+             * Sólo lo declaran las tarjetas cuya sección ya está gateada por
+             * `modulo:`. Los módulos NÚCLEO figuran como apagados en el demo
+             * —no tienen fila y `ModulosDeLaEscuela` falla cerrado—, así que
+             * declarárselo a una tarjeta de finanzas la haría desaparecer.
+             */
+            if ($tarjeta instanceof TarjetaDeModulo && ! $this->modulos->activo($tarjeta->modulo())) {
+                continue;
+            }
 
             $permiso = $tarjeta->permiso();
 

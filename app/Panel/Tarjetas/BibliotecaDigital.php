@@ -6,8 +6,8 @@ namespace App\Panel\Tarjetas;
 
 use App\Models\ControlEscolar\BibliotecaEnlace;
 use App\Models\Identidad\Usuario;
+use App\Panel\TarjetaDeModulo;
 use App\Panel\TarjetaPanel;
-use App\Services\Plataforma\ModulosDeLaEscuela;
 
 /**
  * La biblioteca digital, en el panel del alumno.
@@ -20,9 +20,20 @@ use App\Services\Plataforma\ModulosDeLaEscuela;
  * todavía no hay nada publicado. Este último evita el peor resultado de todos:
  * una tarjeta que invita a entrar a una pantalla vacía.
  */
-class BibliotecaDigital implements TarjetaPanel
+class BibliotecaDigital implements TarjetaDeModulo, TarjetaPanel
 {
-    public function __construct(private readonly ModulosDeLaEscuela $modulos) {}
+    /**
+     * Se DECLARA en vez de inyectarse.
+     *
+     * Estas eran las dos únicas tarjetas que comprobaban su módulo por su
+     * cuenta, y así funcionaban — pero con la comprobación repartida, la que se
+     * olvide no falla: se pinta. Es lo que le pasó a «Postulantes en proceso».
+     * Ahora lo mira `RegistroTarjetas::para()`, en un solo sitio.
+     */
+    public function modulo(): string
+    {
+        return 'biblioteca';
+    }
 
     public function clave(): string
     {
@@ -56,10 +67,6 @@ class BibliotecaDigital implements TarjetaPanel
 
     public function datos(Usuario $usuario): ?array
     {
-        if (! $this->modulos->activo('biblioteca')) {
-            return null;
-        }
-
         $publicados = BibliotecaEnlace::query()->publicados()->count();
 
         if ($publicados === 0) {

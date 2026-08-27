@@ -8,8 +8,8 @@ use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Finanzas\Servicio;
 use App\Models\Finanzas\SolicitudServicio;
 use App\Models\Identidad\Usuario;
+use App\Panel\TarjetaDeModulo;
 use App\Panel\TarjetaPanel;
-use App\Services\Plataforma\ModulosDeLaEscuela;
 
 /**
  * La solicitud de servicios, en el panel del alumno.
@@ -22,9 +22,20 @@ use App\Services\Plataforma\ModulosDeLaEscuela;
  * algo. Por eso el pie dice cuántas esperan pago: es lo único de esta tarjeta
  * sobre lo que se puede actuar hoy.
  */
-class MisSolicitudes implements TarjetaPanel
+class MisSolicitudes implements TarjetaDeModulo, TarjetaPanel
 {
-    public function __construct(private readonly ModulosDeLaEscuela $modulos) {}
+    /**
+     * Se DECLARA en vez de inyectarse.
+     *
+     * Estas eran las dos únicas tarjetas que comprobaban su módulo por su
+     * cuenta, y así funcionaban — pero con la comprobación repartida, la que se
+     * olvide no falla: se pinta. Es lo que le pasó a «Postulantes en proceso».
+     * Ahora lo mira `RegistroTarjetas::para()`, en un solo sitio.
+     */
+    public function modulo(): string
+    {
+        return 'servicios';
+    }
 
     public function clave(): string
     {
@@ -58,7 +69,9 @@ class MisSolicitudes implements TarjetaPanel
 
     public function datos(Usuario $usuario): ?array
     {
-        if (! $this->modulos->activo('servicios') || $usuario->persona_id === null) {
+        // El módulo lo comprueba el registro; aquí queda lo que es de la
+        // PERSONA: sin expediente no hay solicitudes suyas que contar.
+        if ($usuario->persona_id === null) {
             return null;
         }
 

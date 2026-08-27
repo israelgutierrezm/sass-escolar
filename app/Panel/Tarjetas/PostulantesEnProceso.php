@@ -8,6 +8,7 @@ use App\Models\Bolsa\EtapaPostulacion;
 use App\Models\Bolsa\Postulacion;
 use App\Models\Bolsa\Vacante;
 use App\Models\Identidad\Usuario;
+use App\Panel\TarjetaDeModulo;
 use App\Panel\TarjetaPanel;
 
 /**
@@ -25,9 +26,20 @@ use App\Panel\TarjetaPanel;
  * Sin nadie esperando no hay nada que hacer, y una tarjeta en cero ocupa el
  * sitio de otra que sí pide trabajo.
  */
-class PostulantesEnProceso implements TarjetaPanel
+class PostulantesEnProceso implements TarjetaDeModulo, TarjetaPanel
 {
     private const A_LA_VISTA = 5;
+
+    /**
+     * Sin bolsa de trabajo no hay postulantes que contar.
+     *
+     * Faltaba, y se notaba: con el módulo apagado la tarjeta seguía en el panel
+     * y su enlace a `/bolsa/vacantes` daba 404, porque la RUTA sí lo comprueba.
+     */
+    public function modulo(): string
+    {
+        return 'bolsa_trabajo';
+    }
 
     public function clave(): string
     {
