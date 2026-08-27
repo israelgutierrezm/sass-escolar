@@ -11,7 +11,9 @@ use App\Models\Admisiones\SituacionAlumno;
 use App\Models\Identidad\Usuario;
 use App\Reportes\Agregacion;
 use App\Reportes\ColumnaReporte;
+use App\Reportes\DimensionReporte;
 use App\Reportes\FiltroReporte;
+use App\Reportes\FuenteAgrupable;
 use App\Reportes\FuenteDeReporte;
 use App\Reportes\Recorte;
 use App\Reportes\TipoDato;
@@ -30,7 +32,7 @@ use Illuminate\Database\Eloquent\Builder;
  * Sobre esta misma fuente se montan varios reportes —inscritos, bajas,
  * egresados— cambiando sólo los filtros fijos. Ver `DefinicionReporte`.
  */
-class Matriculas implements FuenteDeReporte
+class Matriculas implements FuenteAgrupable, FuenteDeReporte
 {
     public function clave(): string
     {
@@ -237,6 +239,88 @@ class Matriculas implements FuenteDeReporte
      * reporte de mil filas dispara mil consultas y no se nota hasta que alguien
      * pide el ciclo entero.
      */
+    /**
+     * Por qué se puede agrupar el padrón.
+     *
+     * Las tres son dimensiones de verdad —pocos valores, muchas filas— y las
+     * tres son las que alguien pregunta: cuántos alumnos por campus, por carrera
+     * y en qué situación están. Ninguna se podía agrupar antes de esto: las tres
+     * se resuelven con una closure sobre una relación precargada, que sirve para
+     * pintar la celda y no existe en SQL.
+     *
+     * **Se agrupa por el ID y se rotula con el NOMBRE.** Agrupar por el nombre
+     * fundiría dos campus homónimos —una escuela con «Plantel Centro» en dos
+     * municipios los tiene— y agrupar por el id sin rotular daría una tabla de
+     * números.
+     *
+     * **Y la unión es un `join` y no un `leftJoin` donde la foránea es
+     * obligatoria**: `matricula_oferta.oferta_id` lo es, así que un `leftJoin`
+     * prometería un grupo «sin oferta» que la base no puede producir. Donde SÍ
+     * puede faltar —la situación es nullable— va `leftJoin`, y ese grupo sin
+     * etiqueta se enseña: esconderlo haría que los subtotales no sumaran el
+     * total, que es lo único que un agrupado promete.
+     */
+    public function dimensiones(): array
+    {
+        /*
+         * `oferta` se une UNA vez aunque se agrupe por dos de sus columnas.
+         * Repetir el join daría «Not unique table/alias», y esto se llama justo
+         * antes de agrupar, sobre una consulta que todavía no lo trae.
+         */
+        $conOferta = function (Builder $consulta): void {
+            $consulta->join('oferta', 'oferta.id', '=', 'matricula_oferta.oferta_id');
+        };
+
+        return [
+            'campus' => new DimensionReporte(
+                clave: 'campus',
+                etiqueta: 'Campus',
+                sqlAgrupacion: 'oferta.campus_id',
+                sqlEtiqueta: 'campus.nombre',
+                join: function (Builder $consulta) use ($conOferta): void {
+                    $conOferta($consulta);
+                    $consulta->join('campus', 'campus.id', '=', 'oferta.campus_id');
+                },
+                ayuda: 'El campus de la OFERTA en que está inscrita, que es donde estudia — no el de su rol.',
+            ),
+            'carrera' => new DimensionReporte(
+                clave: 'carrera',
+                etiqueta: 'Carrera',
+                sqlAgrupacion: 'oferta.carrera_id',
+                sqlEtiqueta: 'carreras.nombre',
+                join: function (Builder $consulta) use ($conOferta): void {
+                    $conOferta($consulta);
+                    $consulta->join('carreras', 'carreras.id', '=', 'oferta.carrera_id');
+                },
+                ayuda: 'Quien estudia dos carreras cuenta en las dos: una fila es una MATRÍCULA, no una persona.',
+            ),
+            'situacion' => new DimensionReporte(
+                clave: 'situacion',
+                etiqueta: 'Situación escolar',
+                sqlAgrupacion: 'matricula_oferta.situacion_id',
+                sqlEtiqueta: 'situaciones_alumno.nombre',
+                /*
+                 * `join` y no `leftJoin`: medido, `matricula_oferta.situacion_id`
+                 * es NOT NULL. Un `leftJoin` prometería aquí un grupo «sin
+                 * situación» que la base no puede producir — otra salvaguarda
+                 * que no salva nada, de las que este proyecto ya retiró dos.
+                 *
+                 * Donde el grupo vacío SÍ existe es en los aspirantes, cuyo
+                 * campus, etapa y origen son nullable a propósito.
+                 */
+                join: function (Builder $consulta): void {
+                    $consulta->join(
+                        'situaciones_alumno',
+                        'situaciones_alumno.id',
+                        '=',
+                        'matricula_oferta.situacion_id',
+                    );
+                },
+                ayuda: 'Sale del catálogo de la escuela. Es obligatoria, así que no hay grupo sin situación.',
+            ),
+        ];
+    }
+
     public function consulta(Usuario $usuario, array $filtros): Builder
     {
         return MatriculaOferta::query()->with([

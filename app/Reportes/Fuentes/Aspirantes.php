@@ -11,7 +11,9 @@ use App\Models\Identidad\Usuario;
 use App\Models\Promocion\OrigenAspirante;
 use App\Reportes\Agregacion;
 use App\Reportes\ColumnaReporte;
+use App\Reportes\DimensionReporte;
 use App\Reportes\FiltroReporte;
+use App\Reportes\FuenteAgrupable;
 use App\Reportes\FuenteDeReporte;
 use App\Reportes\Recorte;
 use App\Reportes\TipoDato;
@@ -53,7 +55,7 @@ use Illuminate\Support\Facades\DB;
  *    motor todavía no tiene el tipo `CatalogoLandlord` que describe el plan:
  *    un JOIN reventaría con «table doesn't exist».
  */
-class Aspirantes implements FuenteDeReporte
+class Aspirantes implements FuenteAgrupable, FuenteDeReporte
 {
     public function clave(): string
     {
@@ -364,6 +366,71 @@ class Aspirantes implements FuenteDeReporte
      * columnas se ORDENAN, y un alias de SELECT no se puede poner en el `WHERE`
      * del recorrido por lotes de la exportación.
      */
+    /**
+     * Por qué se puede agrupar el padrón de prospectos.
+     *
+     * La de ETAPA es la pregunta del embudo —cuántos hay en cada paso— y hasta
+     * ahora sólo la contestaba el tablero de `/promocion`, que no se puede
+     * filtrar por campaña ni exportar.
+     *
+     * ── Aquí SÍ existe el grupo sin etiqueta, y por eso van con `leftJoin` ──
+     * Las tres foráneas son nullable, y las tres a propósito: un aspirante puede
+     * llegar sin campus elegido, sin origen registrado —una llamada que nadie
+     * clasificó— y, si se capturó antes de que el CRM existiera, sin etapa.
+     *
+     * Ese grupo se ENSEÑA. Esconderlo haría que los subtotales dejaran de sumar
+     * el total, que es lo único que un agrupado promete; y además es el grupo
+     * que hay que atender: son los prospectos que nadie ha clasificado.
+     *
+     * Es al revés que en `Matriculas` y `Cartera`, donde la situación es NOT
+     * NULL y el `leftJoin` prometería un grupo que la base no puede producir.
+     */
+    public function dimensiones(): array
+    {
+        return [
+            'etapa' => new DimensionReporte(
+                clave: 'etapa',
+                etiqueta: 'Etapa del embudo',
+                sqlAgrupacion: 'aspirantes.etapa_crm_id',
+                sqlEtiqueta: 'etapas_crm.nombre',
+                join: fn (Builder $consulta) => $consulta->leftJoin(
+                    'etapas_crm',
+                    'etapas_crm.id',
+                    '=',
+                    'aspirantes.etapa_crm_id',
+                ),
+                ayuda: 'La pregunta del embudo. Los que salen sin etapa son los que nadie ha clasificado.',
+            ),
+            'campus' => new DimensionReporte(
+                clave: 'campus',
+                etiqueta: 'Campus',
+                sqlAgrupacion: 'aspirantes.campus_id',
+                sqlEtiqueta: 'campus.nombre',
+                join: fn (Builder $consulta) => $consulta->leftJoin(
+                    'campus',
+                    'campus.id',
+                    '=',
+                    'aspirantes.campus_id',
+                ),
+                ayuda: 'El campus al que aspira. Es obligatorio al capturarlo, pero la columna admite null: '
+                    .'los viejos pueden no tenerlo.',
+            ),
+            'origen' => new DimensionReporte(
+                clave: 'origen',
+                etiqueta: 'Cómo nos encontró',
+                sqlAgrupacion: 'aspirantes.origen_id',
+                sqlEtiqueta: 'origenes_aspirante.nombre',
+                join: fn (Builder $consulta) => $consulta->leftJoin(
+                    'origenes_aspirante',
+                    'origenes_aspirante.id',
+                    '=',
+                    'aspirantes.origen_id',
+                ),
+                ayuda: 'En qué se está gastando bien el dinero de promoción. Sin origen = nadie lo registró.',
+            ),
+        ];
+    }
+
     public function consulta(Usuario $usuario, array $filtros): Builder
     {
         return Aspirante::query()

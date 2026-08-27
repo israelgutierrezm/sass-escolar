@@ -32,6 +32,15 @@ class Ejecutor
      */
     private const MINUTOS_DE_REPINTADO = 10;
 
+    /**
+     * Cuántos grupos caben en un agrupado.
+     *
+     * Doscientos es mucho más de lo que tiene cualquier dimensión real —una
+     * escuela con doscientas carreras no existe— y bastante menos de lo que
+     * empieza a doler. Pasarse significa que lo elegido no era una dimensión.
+     */
+    private const MAXIMO_DE_GRUPOS = 200;
+
     public function __construct(
         private readonly RegistroReportes $registro,
         private readonly ModulosDeLaEscuela $modulos,
@@ -203,6 +212,162 @@ class Ejecutor
             'filas' => (int) $fila->cuantas_filas,
             'valores' => $valores,
         ];
+    }
+
+    /**
+     * El mismo reporte, visto POR GRUPOS.
+     *
+     * ── Reusa `preparar()` entero ────────────────────────────────────────
+     * Autorización, recorte por campus, filtros y columnas omitidas son los
+     * mismos: todos son `WHERE`, o sea previos a la agregación, y componen con
+     * un `GROUP BY` sin tocarlos. Escribir un segundo camino es como se llega a
+     * que la pantalla agrupada enseñe lo que la plana esconde.
+     *
+     * ── Hay que vaciar `columns` y `orders` ──────────────────────────────
+     * 13 de las 14 fuentes traen un SELECT explícito y todas salen de
+     * `ordenar()` con un `ORDER BY` sobre su llave primaria. Bajo `GROUP BY`,
+     * lo primero da MySQL 1055 —«expression #1 of SELECT list is not in GROUP BY
+     * clause»— y lo segundo, el mismo 1055 sobre el ORDER BY. Medido: con las
+     * dos cosas vacías, funciona en las catorce.
+     *
+     * ── Y el TOPE no es una precaución, es la definición ─────────────────
+     * Un agrupado con más grupos que el tope no es un agrupado: es el detalle
+     * con otro nombre, y quiere decir que la dimensión elegida no era una
+     * dimensión. Se corta y se DICE, porque una tabla cortada en silencio se lee
+     * como el total de la escuela.
+     *
+     * @param  array<string, mixed>  $peticion
+     */
+    public function agrupar(Usuario $usuario, string $clave, string $dimension, array $peticion = []): ResultadoAgrupado
+    {
+        $inicio = microtime(true);
+
+        [$reporte, $fuente, $columnas, $omitidas, $filtros, $consulta] = $this->preparar($usuario, $clave, $peticion);
+
+        $dim = $this->dimensionAutorizada($usuario, $fuente, $dimension);
+
+        $dim->unir($consulta);
+
+        /*
+         * Las MEDIDAS son las columnas pedidas que se totalizan.
+         *
+         * Y sólo ésas: dentro de un grupo, una columna de texto no significa
+         * nada —¿el nombre de cuál de los treinta alumnos?— y enseñar el primero
+         * que devuelva MySQL sería inventar un representante.
+         */
+        $catalogo = $fuente->columnas();
+        $medidas = [];
+
+        foreach ($columnas as $columna) {
+            if ($catalogo[$columna]->total?->totaliza()) {
+                $medidas[$columna] = $catalogo[$columna];
+            }
+        }
+
+        $seleccion = [
+            $dim->sqlAgrupacion.' as grupo_clave',
+            $dim->sqlEtiqueta.' as grupo_etiqueta',
+            'count(*) as grupo_filas',
+        ];
+
+        foreach ($medidas as $columna => $objeto) {
+            $seleccion[] = $objeto->total->sql($objeto->sqlTotal ?? $objeto->columnaSql)." as medida_{$columna}";
+        }
+
+        $agrupada = (clone $consulta)->toBase();
+        $agrupada->columns = null;
+        $agrupada->orders = null;
+
+        $filas = $agrupada
+            ->selectRaw(implode(', ', $seleccion))
+            ->groupBy($dim->sqlAgrupacion, $dim->sqlEtiqueta)
+            ->orderBy('grupo_etiqueta')
+            // Uno de más, para saber si hay que cortar SIN contar los grupos en
+            // una segunda consulta.
+            ->limit(self::MAXIMO_DE_GRUPOS + 1)
+            ->get();
+
+        $truncado = $filas->count() > self::MAXIMO_DE_GRUPOS;
+        $filas = $filas->take(self::MAXIMO_DE_GRUPOS);
+
+        $grupos = $filas->map(function ($fila) use ($medidas) {
+            $valores = [];
+
+            foreach (array_keys($medidas) as $columna) {
+                $bruto = $fila->{"medida_{$columna}"};
+                $valores[$columna] = $bruto === null ? null : (float) $bruto;
+            }
+
+            return [
+                /*
+                 * Sin etiqueta significa que la dimensión está en NULL: un
+                 * aspirante sin campus, una matrícula sin situación. Se enseña
+                 * como grupo propio y no se esconde — esconderlo haría que los
+                 * subtotales no sumaran el total, que es lo único que un
+                 * agrupado promete.
+                 */
+                'etiqueta' => $fila->grupo_etiqueta === null ? null : (string) $fila->grupo_etiqueta,
+                'filas' => (int) $fila->grupo_filas,
+                'valores' => $valores,
+            ];
+        })->values()->all();
+
+        $resultado = new ResultadoAgrupado(
+            reporte: $reporte,
+            fuente: $fuente,
+            dimension: $dim,
+            grupos: $grupos,
+            medidas: $medidas,
+            filtros: $filtros,
+            milisegundos: (int) round((microtime(true) - $inicio) * 1000),
+            truncado: $truncado,
+        );
+
+        $this->anotarCrudo(
+            $usuario, $reporte, 'agrupado', $resultado->filas(),
+            $resultado->milisegundos, $filtros, $columnas, $omitidas,
+        );
+
+        return $resultado;
+    }
+
+    /**
+     * La dimensión pedida, comprobando que exista y que esta persona la alcance.
+     *
+     * La etiqueta de un grupo ES el valor de la columna, así que agrupar por un
+     * dato sensible lo publica como encabezado. `columnasOmitidas()` no lo ve
+     * —recorre las columnas pedidas, y esto es un camino aparte—, de modo que la
+     * comprobación va aquí o no va.
+     *
+     * Se NIEGA en vez de omitir, al revés que con las columnas: una columna
+     * omitida deja el reporte utilizable, pero un agrupado sin dimensión no es
+     * nada.
+     */
+    private function dimensionAutorizada(Usuario $usuario, FuenteDeReporte $fuente, string $clave): DimensionReporte
+    {
+        AvisoParaElUsuario::si(
+            ! $fuente instanceof FuenteAgrupable,
+            422,
+            'Este reporte no se puede agrupar: su fuente no declara ninguna dimensión.',
+        );
+
+        $dimensiones = $fuente->dimensiones();
+
+        AvisoParaElUsuario::si(
+            ! isset($dimensiones[$clave]),
+            422,
+            'Ese agrupado no existe para este reporte.',
+        );
+
+        $dimension = $dimensiones[$clave];
+
+        AvisoParaElUsuario::si(
+            $dimension->permisoExtra !== null && ! $usuario->can($dimension->permisoExtra),
+            403,
+            "No tienes permiso para agrupar por «{$dimension->etiqueta}»: la etiqueta de cada grupo es el dato.",
+        );
+
+        return $dimension;
     }
 
     /**

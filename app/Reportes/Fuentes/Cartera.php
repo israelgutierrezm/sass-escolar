@@ -11,7 +11,9 @@ use App\Models\Finanzas\SituacionPago;
 use App\Models\Identidad\Usuario;
 use App\Reportes\Agregacion;
 use App\Reportes\ColumnaReporte;
+use App\Reportes\DimensionReporte;
 use App\Reportes\FiltroReporte;
+use App\Reportes\FuenteAgrupable;
 use App\Reportes\FuenteDeReporte;
 use App\Reportes\Recorte;
 use App\Reportes\TipoDato;
@@ -51,7 +53,7 @@ use Illuminate\Support\Facades\DB;
  * SELECT lleva `f.saldo` crudo. Es la misma clase de defecto que ya costó dos
  * arreglos al motor.
  */
-class Cartera implements FuenteDeReporte
+class Cartera implements FuenteAgrupable, FuenteDeReporte
 {
     public function __construct(private readonly SaldosDeCartera $saldos) {}
 
@@ -308,6 +310,80 @@ class Cartera implements FuenteDeReporte
      *    cuatro cambios de situación saldría cuatro veces— y ése es el error de
      *    conteo que no avisa. Va como subconsulta correlacionada.
      */
+    /**
+     * Por qué se puede agrupar la cartera.
+     *
+     * Es la fuente donde agrupar de verdad paga: «cuánto se debe por campus» y
+     * «por carrera» son las dos preguntas con las que se arma una junta de
+     * dirección, y hasta ahora había que exportar las 32 filas y sumarlas en
+     * Excel.
+     *
+     * Y aquí las MEDIDAS son dinero —saldo y vencido—, así que el agrupado
+     * enseña importes por grupo y no sólo cuántos son. En `Matriculas` no hay
+     * ninguna columna sumable y el agrupado sale con puros conteos, que para esa
+     * pregunta es lo correcto.
+     *
+     * `situacion_financiera` NO se ofrece a propósito: sale de la bitácora por
+     * su último renglón, con una subconsulta correlacionada, y meterla en un
+     * `GROUP BY` la evaluaría una vez por fila del grupo. La respuesta que da
+     * hoy la columna es la misma; lo que no vale la pena es el agrupado.
+     */
+    public function dimensiones(): array
+    {
+        $conOferta = function (Builder $consulta): void {
+            $consulta->join('oferta', 'oferta.id', '=', 'matricula_oferta.oferta_id');
+        };
+
+        return [
+            'campus' => new DimensionReporte(
+                clave: 'campus',
+                etiqueta: 'Campus',
+                sqlAgrupacion: 'oferta.campus_id',
+                sqlEtiqueta: 'campus.nombre',
+                join: function (Builder $consulta) use ($conOferta): void {
+                    $conOferta($consulta);
+                    $consulta->join('campus', 'campus.id', '=', 'oferta.campus_id');
+                },
+                ayuda: 'Cuánto se debe en cada plantel. El campus sale de la OFERTA, que es donde estudia.',
+            ),
+            'carrera' => new DimensionReporte(
+                clave: 'carrera',
+                etiqueta: 'Carrera',
+                sqlAgrupacion: 'oferta.carrera_id',
+                sqlEtiqueta: 'carreras.nombre',
+                join: function (Builder $consulta) use ($conOferta): void {
+                    $conOferta($consulta);
+                    $consulta->join('carreras', 'carreras.id', '=', 'oferta.carrera_id');
+                },
+                ayuda: 'Quien estudia dos carreras aporta a las dos: una fila es una MATRÍCULA, no una persona.',
+            ),
+            'situacion' => new DimensionReporte(
+                clave: 'situacion',
+                etiqueta: 'Situación escolar',
+                sqlAgrupacion: 'matricula_oferta.situacion_id',
+                sqlEtiqueta: 'situaciones_alumno.nombre',
+                /*
+                 * `join` y no `leftJoin`: medido, `matricula_oferta.situacion_id`
+                 * es NOT NULL. Un `leftJoin` prometería aquí un grupo «sin
+                 * situación» que la base no puede producir — otra salvaguarda
+                 * que no salva nada, de las que este proyecto ya retiró dos.
+                 *
+                 * Donde el grupo vacío SÍ existe es en los aspirantes, cuyo
+                 * campus, etapa y origen son nullable a propósito.
+                 */
+                join: function (Builder $consulta): void {
+                    $consulta->join(
+                        'situaciones_alumno',
+                        'situaciones_alumno.id',
+                        '=',
+                        'matricula_oferta.situacion_id',
+                    );
+                },
+                ayuda: 'Separa lo que deben los activos de lo que deben los dados de baja, que se cobra distinto.',
+            ),
+        ];
+    }
+
     public function consulta(Usuario $usuario, array $filtros): Builder
     {
         $hoy = now()->toDateString();

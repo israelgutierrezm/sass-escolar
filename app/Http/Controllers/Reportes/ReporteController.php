@@ -8,8 +8,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Reportes\ReporteFavorito;
 use App\Models\Reportes\VistaReporte;
 use App\Reportes\ColumnaReporte;
+use App\Reportes\DimensionReporte;
 use App\Reportes\Ejecutor;
 use App\Reportes\FiltroReporte;
+use App\Reportes\FuenteAgrupable;
 use App\Reportes\RegistroReportes;
 use App\Reportes\Salida\ExportadorCsv;
 use App\Reportes\Salida\ExportadorXlsx;
@@ -101,6 +103,28 @@ class ReporteController extends Controller
 
         $fuente = $resultado->fuente;
 
+        /*
+         * El AGRUPADO va en la misma pantalla, con `?agrupar_por=`.
+         *
+         * Y no en una ruta propia, para que agrupar no pierda los filtros ni las
+         * columnas que la persona acaba de elegir: es la MISMA pregunta mirada
+         * de otra forma, no otra pantalla. Además la URL sigue siendo enlazable
+         * y el enlace de descarga sigue llevándolo todo.
+         *
+         * Se calcula APARTE del plano y no en su lugar: la tabla de detalle se
+         * sigue viendo debajo, que es lo que permite comprobar de un vistazo que
+         * los subtotales suman.
+         */
+        $agrupadoPor = $peticion->string('agrupar_por')->toString() ?: null;
+        $agrupado = null;
+
+        if ($agrupadoPor !== null) {
+            $agrupado = $this->ejecutor->agrupar($usuario, $clave, $agrupadoPor, [
+                'columnas' => $peticion->input('columnas') ?? $vista?->columnas,
+                'filtros' => $peticion->input('filtros') ?? $vista?->filtros ?? [],
+            ]);
+        }
+
         return Inertia::render('Reportes/Ver', [
             'reporte' => [
                 'clave' => $resultado->reporte->clave(),
@@ -142,6 +166,32 @@ class ReporteController extends Controller
             // ser aplicable, y entonces la flecha estaria sobre una columna por
             // la que no se esta ordenando.
             'orden' => ['por' => $resultado->orden[0], 'dir' => $resultado->orden[1]],
+            // Por que se PUEDE agrupar esta fuente. Vacio = no se puede, y
+            // entonces el selector ni se dibuja: una fuente sin dimensiones no
+            // ofrece el modo, que es fallar cerrado y es honesto.
+            'dimensiones' => $fuente instanceof FuenteAgrupable
+                ? array_values(array_map(fn (DimensionReporte $d) => [
+                    'clave' => $d->clave,
+                    'etiqueta' => $d->etiqueta,
+                    'ayuda' => $d->ayuda,
+                ], array_filter(
+                    $fuente->dimensiones(),
+                    fn (DimensionReporte $d) => $d->permisoExtra === null || $usuario->can($d->permisoExtra),
+                )))
+                : [],
+            'agrupadoPor' => $agrupadoPor,
+            'agrupado' => $agrupado === null ? null : [
+                'dimension' => $agrupado->dimension->etiqueta,
+                'grupos' => $agrupado->grupos,
+                'medidas' => array_values(array_map(fn (ColumnaReporte $c) => [
+                    'clave' => $c->clave,
+                    'etiqueta' => $c->etiqueta,
+                    'tipo' => $c->tipo->value,
+                    'alineacion' => $c->alineacion(),
+                ], $agrupado->medidas)),
+                'filas' => $agrupado->filas(),
+                'truncado' => $agrupado->truncado,
+            ],
             // TODAS las de la fuente, para poder elegir cuáles se quieren.
             'disponibles' => array_values(array_map(fn (ColumnaReporte $c) => [
                 'clave' => $c->clave,

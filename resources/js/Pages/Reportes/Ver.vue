@@ -70,11 +70,58 @@ const props = defineProps<{
     esFavorito: boolean;
     /** Por que columna se ordena y hacia donde. `por` en null = por la llave. */
     orden: { por: string | null; dir: string };
+    /** Por que se PUEDE agrupar. Vacio = esta fuente no se agrupa. */
+    dimensiones: { clave: string; etiqueta: string; ayuda: string | null }[];
+    agrupadoPor: string | null;
+    agrupado: {
+        dimension: string;
+        grupos: { etiqueta: string | null; filas: number; valores: Record<string, number | null> }[];
+        medidas: { clave: string; etiqueta: string; tipo: string; alineacion: string }[];
+        filas: number;
+        truncado: boolean;
+    } | null;
 }>();
 
 const eligiendo = ref(false);
 const valores = ref<Record<string, unknown>>({ ...props.aplicados });
 const elegidas = ref<string[]>(props.columnas.map((c) => c.clave));
+
+const agrupadoPor = ref<string | null>(props.agrupadoPor);
+
+/**
+ * Agrupar o dejar de agrupar recarga con TODO lo demas puesto.
+ *
+ * Es la misma pregunta mirada de otra forma, asi que no se pierden ni los
+ * filtros ni las columnas: perderlos obligaria a volver a armar el reporte cada
+ * vez que alguien quiere ver el resumen.
+ */
+function agrupar(clave: string | null): void {
+    agrupadoPor.value = agrupadoPor.value === clave ? null : clave;
+    aplicar();
+}
+
+/**
+ * El ancho de la barra, sobre el TOTAL de las filas agrupadas.
+ *
+ * Ojo: NO es la misma barra que la del panel, aunque se parezca. Alla se mide
+ * contra el MAYOR de la serie y esta decidido asi a proposito --en un embudo que
+ * arranca en 200 y termina en 3, medir contra el total deja invisibles las
+ * ultimas etapas, que son las que interesan--. Aqui la pregunta es <<que parte
+ * del total es este grupo>>, y la respuesta es una proporcion: medir contra el
+ * mayor diria que el grupo mas grande es el 100 % de la escuela.
+ *
+ * Dos escalas distintas para dos preguntas distintas. Si algun dia se unifican,
+ * el denominador tiene que ser un parametro.
+ */
+function anchoDelGrupo(filas: number): string {
+    const total = props.agrupado?.filas ?? 0;
+
+    return total === 0 ? '0%' : Math.max(1, Math.round((filas / total) * 100)) + '%';
+}
+
+function sumaDeMedida(clave: string): number {
+    return (props.agrupado?.grupos ?? []).reduce((s, g) => s + Number(g.valores[clave] ?? 0), 0);
+}
 
 const ordenPor = ref<string | null>(props.orden.por);
 const ordenDir = ref<string>(props.orden.dir);
@@ -86,6 +133,7 @@ function aplicar(): void {
         {
             filtros: valores.value,
             columnas: elegidas.value,
+            agrupar_por: agrupadoPor.value,
             // El orden viaja por la MISMA via que los filtros, asi que entra en
             // la URL y de ahi lo recoge la descarga: el Excel sale ordenado como
             // la pantalla sin escribir una linea mas.
@@ -412,6 +460,116 @@ function claseAlineacion(a: string): string {
                 </button>
             </div>
         </section>
+
+        <!-- El AGRUPADO, arriba del detalle y no en su lugar: verlos juntos es
+             lo que deja comprobar de un vistazo que los subtotales suman. -->
+        <TarjetaSeccion
+            v-if="dimensiones.length"
+            :titulo="agrupado ? `Por ${agrupado.dimension.toLowerCase()}` : 'Resumen'"
+            sin-relleno
+            class="mb-4"
+        >
+            <div class="flex flex-wrap items-center gap-2 px-6 py-3">
+                <span class="text-sm" :style="{ color: 'var(--color-suave)' }">Agrupar por:</span>
+
+                <button
+                    v-for="d in dimensiones"
+                    :key="d.clave"
+                    type="button"
+                    class="rounded-lg border px-3 py-1 text-sm"
+                    :class="agrupadoPor === d.clave ? 'elegido-acento' : 'border-borde hover:bg-slate-50'"
+                    :title="d.ayuda ?? ''"
+                    @click="agrupar(d.clave)"
+                >{{ d.etiqueta }}</button>
+
+                <button
+                    v-if="agrupadoPor"
+                    type="button"
+                    class="ml-1 text-sm underline"
+                    :style="{ color: 'var(--color-suave)' }"
+                    @click="agrupar(null)"
+                >Quitar</button>
+            </div>
+
+            <div v-if="agrupado" class="overflow-x-auto border-t" :style="{ borderColor: 'var(--color-borde)' }">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-xs" :style="{ color: 'var(--color-suave)' }">
+                            <th class="px-4 pb-2 pt-3 font-medium">{{ agrupado.dimension }}</th>
+                            <th class="px-4 pb-2 pt-3 text-right font-medium">Filas</th>
+                            <th class="w-1/3 px-4 pb-2 pt-3 font-medium">Parte del total</th>
+                            <th
+                                v-for="m in agrupado.medidas"
+                                :key="m.clave"
+                                class="whitespace-nowrap px-4 pb-2 pt-3 font-medium"
+                                :class="claseAlineacion(m.alineacion)"
+                            >{{ m.etiqueta }}</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        <tr
+                            v-for="(g, i) in agrupado.grupos"
+                            :key="i"
+                            class="border-t"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                        >
+                            <td class="px-4 py-2">
+                                <span v-if="g.etiqueta">{{ g.etiqueta }}</span>
+                                <!-- El grupo SIN etiqueta se enseña, no se
+                                     esconde: si se escondiera, los subtotales
+                                     dejarían de sumar el total. -->
+                                <span v-else :style="{ color: 'var(--color-suave)' }">Sin asignar</span>
+                            </td>
+
+                            <td class="px-4 py-2 text-right tabular-nums">{{ g.filas.toLocaleString('es-MX') }}</td>
+
+                            <td class="px-4 py-2">
+                                <div
+                                    class="h-2 w-full overflow-hidden rounded-full"
+                                    :style="{ background: 'var(--color-borde)' }"
+                                >
+                                    <div
+                                        class="fondo-acento h-full rounded-full"
+                                        :style="{ width: anchoDelGrupo(g.filas) }"
+                                    />
+                                </div>
+                            </td>
+
+                            <td
+                                v-for="m in agrupado.medidas"
+                                :key="m.clave"
+                                class="px-4 py-2 tabular-nums"
+                                :class="claseAlineacion(m.alineacion)"
+                            >{{ celdaReporte(g.valores[m.clave], m.tipo as TipoDato) }}</td>
+                        </tr>
+
+                        <tr class="border-t-2 font-semibold" :style="{ borderColor: 'var(--color-borde)' }">
+                            <td class="px-4 py-3">{{ agrupado.grupos.length }} grupos</td>
+                            <td class="px-4 py-3 text-right tabular-nums">{{ agrupado.filas.toLocaleString('es-MX') }}</td>
+                            <td />
+                            <td
+                                v-for="m in agrupado.medidas"
+                                :key="m.clave"
+                                class="px-4 py-3 tabular-nums"
+                                :class="claseAlineacion(m.alineacion)"
+                            >{{ celdaReporte(sumaDeMedida(m.clave), m.tipo as TipoDato) }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Cortado se DICE: una tabla truncada en silencio se lee como el
+                 total de la escuela, y sus subtotales no sumarían. -->
+            <p
+                v-if="agrupado?.truncado"
+                class="border-t px-6 py-3 text-sm"
+                :style="{ borderColor: 'var(--color-borde)', color: '#b45309' }"
+            >
+                Sólo se muestran los primeros grupos: esta columna tiene demasiados valores distintos
+                para ser un agrupado. Los subtotales de arriba NO suman el total del reporte.
+            </p>
+        </TarjetaSeccion>
 
         <TarjetaSeccion titulo="Resultado" sin-relleno>
             <!-- Se desplaza dentro de su tarjeta: con doce columnas no cabe en
