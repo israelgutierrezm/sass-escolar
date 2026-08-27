@@ -49,7 +49,7 @@ Los otros dos documentos vivos:
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
    Las suites versionadas viven en `scripts/` (**86 archivos `prueba-*.php`**;
-   esta lista decía 23 y llevaba tiempo desactualizada; hoy son 92). Se corren todas de una
+   esta lista decía 23 y llevaba tiempo desactualizada; hoy son 99). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
    imprimen `Resultado: N correctas, M fallidas`. **Ojo al barrer con `grep`**:
    cuatro cierran de otra forma —`prueba-cache-externo`, `prueba-captura-examen`
@@ -57,9 +57,11 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 92 están en verde**, barridas el 2026-08-26 (las últimas:
-   `prueba-promedio-oficial`, `prueba-reportes-finanzas` y
-   `prueba-reportes-escolar`). Llegaron a estar 33 en rojo —no trece: ese primer
+   **Las 99 están en verde**, barridas el 2026-08-26. Nueve son del módulo de
+   Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
+   una fuente sino una CLASE de defecto sobre todas: recorre el registro y
+   exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
+   entra solo a la prueba el día que se registra. Llegaron a estar 33 en rojo —no trece: ese primer
    conteo sólo miró las que imprimían «N fallidas» e ignoró las 21 que morían
    antes, con una excepción sin resumen—. Ninguna caía por un cambio reciente;
    se comprobó corriéndolas contra el árbol limpio.
@@ -2649,26 +2651,53 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     toma como fórmula lo que empieza por `= + - @`, y medio reporte escolar es
     texto que escribió alguien de fuera.
   - Pruebas: `scripts/prueba-reportes-motor.php`, 77 verificaciones.
-  - **Rebanada 7 EN CURSO** (2026-08-26): van tres áreas de once. Cada fuente se
-    escribió después de un reconocimiento adversario del dominio, y ese
-    reconocimiento encontró más defectos que la propia construcción.
-    - **Finanzas**: `Cartera` (grano de MATRÍCULA), `Cargos` (grano de CARGO, el
-      único donde vive el CONCEPTO) e `Ingresos` (grano de PAGO, donde vive el
-      MÉTODO), con siete reportes.
-    - **Control escolar**: `Grupos`, con ocupación y materias sin titular.
+  - **Rebanada 7 COMPLETA** (2026-08-26): **34 reportes sobre 14 fuentes, en las
+    nueve áreas**. Cada fuente se escribió después de un reconocimiento
+    adversario del dominio, y ese reconocimiento encontró más defectos que la
+    propia construcción.
+
+    | Área | Fuentes | Reportes |
+    |---|---|---|
+    | Control escolar | Matriculas, Grupos, AsistenciaPorMateria | 7 |
+    | Finanzas | Cartera, Cargos, Ingresos | 7 |
+    | Admisiones | Aspirantes | 4 |
+    | Docentes | Docentes, CargaAcademica | 4 |
+    | Certificación | Certificables | 3 |
+    | RH | Plantilla | 3 |
+    | Bolsa | EgresadosYColocacion | 2 |
+    | Movilidad | MovilidadSaliente | 2 |
+    | Familia | VinculosFamiliares | 2 |
+
+  - **Las decisiones que se repiten, y hay que conocer antes de tocar esto:**
     - **Ninguna fuente de finanzas declara `modulo`**, y no es descuido:
       `finanzas` está en el catálogo `modulos` SIN fila en `modulos_activos` y el
       ejecutor falla cerrado, así que declararlo daría 404 en todos sus reportes.
-      Es la trampa latente de las secciones núcleo, servida.
-    - **«Ingresos por concepto Y método» en una tabla NO se puede**: el método
-      está en `pagos`, el concepto en `adeudos`, y los une `pago_adeudo`, que es
-      a-muchos por los dos lados. Un join contaría el mismo dinero tres veces.
-      Son dos preguntas y se contestan con dos reportes.
-    - **El titular DUAL obliga a elegir rama**: un aspirante llega al campus por
-      su propia columna y no por una oferta, así que mezclado desaparecería con
-      alcance acotado y aparecería sin campus con alcance global. Las fuentes lo
-      declaran EN SU GRANO en vez de dejar un descuadre sin explicar.
-  - **Cuatro defectos del motor que salieron construyendo esas fuentes:**
+      Lo mismo certificación. Bolsa, RH y movilidad SÍ lo declaran, y están
+      encendidos.
+    - **Un TITULAR DUAL obliga a elegir rama y a decirlo en el GRANO.** Pasa tres
+      veces: los cargos y pagos de aspirante (llegan al campus por su propia
+      columna, no por una oferta), y las postulaciones de movilidad ENTRANTES
+      (no tienen campus nuestro por ningún camino). Mezclarlas obligaría a
+      declarar `sinCampus`, que **lanza 403 a todo rol acotado a un plantel**.
+    - **`sinCampus` es correcto cuando de verdad no hay campus**: los vínculos
+      familiares cuelgan de dos PERSONAS. Ahí se niega el reporte con su razón,
+      porque acotarlo por la matrícula del hijo haría que un padre con hijos en
+      dos planteles apareciera y desapareciera según quién mire.
+    - **Las reglas se leen por la BANDERA del catálogo, nunca por la clave**:
+      `entra_a_nomina`, `cuenta_como_egresado`, `acepta`, `cuenta_como_contacto`,
+      `bloquea`, `emite_documentos_oficiales`. Cada una se comprueba con un
+      escenario SEMBRADO que separe la bandera de la clave — sin él las dos daban
+      lo mismo en el demo y la regla pasaba sin comprobarse.
+    - **Un agregado que se ORDENA entra por `leftJoinSub`, no por `selectSub`.**
+      Ver el defecto 5 más abajo.
+    - **Lo que la fuente NO puede contestar se declara con su medición.** El
+      ejemplo: la lista de qué le falta a cada quien para certificarse la sabe
+      `ValidadorDec`, pero cuesta **255 ms por matrícula** cuando llega a armar
+      el XML —más de cuatro minutos en mil filas— y reimplementar sus reglas
+      mandaría un lote a la SEP creyéndolo bueno.
+
+  - **SIETE defectos del motor que salieron construyendo esas fuentes.** Ninguno
+    daba error; todos daban otro número, una columna vacía o un 500:
     1. **El keyset truncaba en ASCENDENTE.** MySQL ordena los NULL primero en ASC
        y al final en DESC, y la rama del cursor no miraba la dirección: `8 de 14`
        filas. La prueba que lo vigilaba pasaba **por suerte aritmética** —4 nulos
@@ -2677,10 +2706,8 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     2. **Y podía no terminar NUNCA.** Con la columna de orden envuelta en un
        `coalesce`, el cursor compara el atributo contra la columna, no descarta
        el lote emitido y repite las mismas filas sin fin: 32 matrículas → 161
-       filas y subiendo. Peor que una truncadura, porque no hay archivo corto que
-       delate nada. Ahora el cursor tiene que avanzar o el motor se detiene
-       diciendo qué arreglar. **Regla que lo evita: la columna `ordenable` viaja
-       al SELECT SIN transformar; el `coalesce` va en la closure `valor`.**
+       filas y subiendo. Ahora el cursor tiene que avanzar o el motor se detiene
+       diciendo qué arreglar.
     3. **Una columna sin resolutor cuya clave no es el nombre del atributo sale
        VACÍA en todas las filas.** Mordió en tres columnas de golpe. Ahora el
        constructor de `ColumnaReporte` lo prohíbe y dice cómo arreglarlo.
@@ -2688,20 +2715,48 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
        la pantalla sabía hacia qué lado pegar el número y no cómo escribirlo. Se
        veía «2750.00», «0» y «2750» en la misma fila y las fechas en ISO con zona
        horaria. Lo resuelve `resources/js/utils/celdaReporte.ts`.
-  - **`Recorte::porRelacion` fallaba ABIERTO.** Llevaba `orWhereDoesntHave`
-    siempre, y en una cadena eso perdona tres cosas: campus sin asignar, campus
-    dado de baja y **un eslabón intermedio dado de baja** —que es una operación
-    normal—. Una fila así pasaba PARA TODOS LOS CAMPUS. Hoy la tolerancia es
-    `incluirSinAsignar`, un argumento con nombre. Se pudo cambiar el valor por
-    omisión porque ninguna fuente lo usaba todavía.
-  - **Y una trampa del dominio**: `docente_asignatura_grupo` tiene `deleted_at`
-    pero `AsignaturaGrupo::docentes()` NO lo filtra, así que una asignación
-    retirada seguiría contando como titular. Las subconsultas lo escriben a mano.
-  - **Rebanadas pendientes** (ver el plan): lo que queda de la 7 —admisiones,
-    docentes, certificación, asistencia, LMS, bolsa, RH, movilidad y familia—,
-    8 —totales y agrupación, más la pantalla de la bitácora de ejecuciones—,
-    9 —envío programado por correo— y 10 —el constructor de reportes que pidió el
-    cliente, aplazado a propósito y con criterio de entrada escrito—.
+    5. **Ordenar por una columna de `selectSub` reventaba la EXPORTACIÓN.** MySQL
+       acepta un alias de SELECT en el `ORDER BY` y **no en el `WHERE`**, y el
+       keyset avanza con un `WHERE`: en pantalla ordenaba bien y al pulsar
+       «Excel» daba «Unknown column». **La regla: un agregado que se ordena entra
+       por `leftJoinSub` a una subconsulta YA AGRUPADA, y su alias en el SELECT
+       tiene que ser el último segmento de `columnaSql`.**
+    6. **TODA casilla marcada daba 500.** Validar no es convertir: la regla
+       `boolean` de Laravel ACEPTA la cadena «1» —lo que manda una casilla— pero
+       devuelve el valor tal cual, y las closures están tipadas `bool`. Ninguna
+       suite lo veía porque todas pasaban booleanos de PHP, que es lo que escribe
+       un `filtrosFijos()`. **Probaban el mecanismo, no el camino.**
+    7. **`Recorte::porRelacion` fallaba ABIERTO.** Llevaba `orWhereDoesntHave`
+       siempre, y en una cadena eso perdona tres cosas: campus sin asignar,
+       campus dado de baja y **un eslabón intermedio dado de baja** —que es una
+       operación normal—. Una fila así pasaba PARA TODOS LOS CAMPUS. Hoy la
+       tolerancia es `incluirSinAsignar`, un argumento con nombre.
+
+  - **La red que cubre la clase entera**: `scripts/prueba-reportes-ordenables.php`
+    recorre el REGISTRO y exporta por cada columna ordenable de cada reporte, en
+    las dos direcciones y con lotes de 2 para obligar al cursor a avanzar —**318
+    combinaciones** hoy—. Rellena los filtros obligatorios según su TIPO y DICE
+    qué reportes no tenían filas, para no dar por cubierto lo que no se ejercitó.
+
+  - **Y una lección que se repitió en CADA área**: de las mutaciones que
+    sobrevivieron, casi todas fue porque **el demo no tiene el caso**. No hay ni
+    un recursamiento, ni un plan con meta cero, ni una carrera que no expida
+    papel, ni un empleado en comisión, ni nadie con su única adscripción cerrada,
+    ni un aspirante convertido, ni un docente con dos materias del mismo grupo.
+    Cada uno de esos escenarios se CONSTRUYE ahora dentro de la transacción. Una
+    comprobación que se cumple porque el escenario no existe no comprueba nada.
+
+  - **Lo que NO se construyó de la rebanada 7, y por qué**: el **LMS** se quedó
+    fuera —de sus tres cursos, dos cuelgan de `asignatura_grupo` que ya no
+    existen, así que no hay contra qué comparar— y la **evaluación docente**
+    también: sus encuestas están todas dadas de baja, y esa fuente tiene que
+    pasar por `ResultadosDeEncuesta` para respetar el umbral de anonimato
+    (`MINIMO_PARA_MOSTRAR = 4`) — un archivo se reenvía más fácil que una
+    pantalla, y la siguiente encuesta ya nadie la contesta con sinceridad.
+  - **Rebanadas pendientes** (ver el plan): 8 —totales y agrupación, más la
+    pantalla de la bitácora de ejecuciones—, 9 —envío programado por correo— y
+    10 —el constructor de reportes que pidió el cliente, cuyo criterio de entrada
+    era tener varias fuentes reales: hoy hay catorce—.
 
 **Pendiente inmediato — aquí se retoma:**
 
