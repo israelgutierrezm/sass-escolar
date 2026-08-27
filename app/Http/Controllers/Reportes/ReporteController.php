@@ -62,6 +62,8 @@ class ReporteController extends Controller
             // o mover el reporte a otra, y el indice tiene que reflejarlo.
             'areas' => $this->registro->agrupadosPara($peticion->user()),
             'puedeOrganizar' => $peticion->user()->can('gestionar-areas-reporte'),
+            // La bitacora es de quien AUDITA, que puede no ser quien organiza.
+            'puedeAuditar' => $peticion->user()->can('auditar-reportes'),
         ]);
     }
 

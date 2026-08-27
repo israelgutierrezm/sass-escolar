@@ -16,7 +16,7 @@ interface Area {
     reportes: Reporte[];
 }
 
-defineProps<{ areas: Area[]; puedeOrganizar: boolean }>();
+defineProps<{ areas: Area[]; puedeOrganizar: boolean; puedeAuditar: boolean }>();
 </script>
 
 <template>
@@ -29,11 +29,23 @@ defineProps<{ areas: Area[]; puedeOrganizar: boolean }>();
                 que puedes ver: además de entrar aquí, cada uno exige el permiso de los datos que saca.
             </p>
 
-            <Link
-                v-if="puedeOrganizar"
-                href="/reportes/configuracion"
-                class="rounded-lg border border-borde px-3 py-1.5 text-sm hover:bg-slate-50"
-            >Organizar</Link>
+            <div class="flex flex-wrap gap-2">
+                <!-- Las dos pantallas administrativas del modulo entran por
+                     aqui y no por el menu: la seccion tiene un solo hijo, asi
+                     que no dibuja pestanas, y meter una sola de las dos
+                     ensenaria un organigrama incompleto del mismo modulo. -->
+                <Link
+                    v-if="puedeAuditar"
+                    href="/reportes/bitacora"
+                    class="rounded-lg border border-borde px-3 py-1.5 text-sm hover:bg-slate-50"
+                >Uso</Link>
+
+                <Link
+                    v-if="puedeOrganizar"
+                    href="/reportes/configuracion"
+                    class="rounded-lg border border-borde px-3 py-1.5 text-sm hover:bg-slate-50"
+                >Organizar</Link>
+            </div>
         </div>
 
         <div v-if="areas.length" class="space-y-4">

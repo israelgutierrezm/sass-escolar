@@ -190,6 +190,21 @@ final class CatalogoPermisos
              */
             'gestionar-areas-reporte' => ['Organizar los reportes', 'Renombrar las areas, reordenarlas y mover reportes de un area a otra. NO concede acceso a ningun dato: quien ve cada reporte lo sigue decidiendo el permiso de su fuente.', [self::ADMINISTRATIVO]],
             'ver-reportes' => ['Entrar a Reportes', 'Ver la seccion de reportes. Cada reporte ademas exige el permiso de los datos que saca: quien no ve la cartera no vera los reportes de finanzas.', [self::ADMINISTRATIVO]],
+
+            /*
+             * AUDITAR es otra pregunta que sacar.
+             *
+             * La bitacora contesta "quien se llevo el padron de 900 alumnos y
+             * con que filtros", asi que es un permiso de control interno y no de
+             * consulta: quien saca reportes todos los dias no tiene por que ver
+             * lo que sacan los demas, y quien vigila --direccion, control
+             * interno-- no necesariamente saca ninguno.
+             *
+             * Y NO concede ver los datos: la bitacora guarda los FILTROS y las
+             * COLUMNAS que se pidieron, nunca las filas. Quien la audita ve que
+             * alguien exporto la cartera del campus norte, no la cartera.
+             */
+            'auditar-reportes' => ['Auditar el uso de los reportes', 'Ver quien corrio cada reporte, con que filtros y cuantas filas se llevo. NO concede ver los datos de ningun reporte: la bitacora guarda lo que se pidio, no lo que salio.', [self::ADMINISTRATIVO]],
         ],
 
         'Disciplina' => [

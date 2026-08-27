@@ -58,6 +58,19 @@ Schedule::command('tutorias:purgar-accesos')
     ->runInBackground();
 
 /*
+ * La bitacora de reportes, por lo mismo y a otra hora.
+ *
+ * Escribe una fila cada vez que alguien abre un reporte, asi que crece sola.
+ * A las 04:00 y no a las 03:30 para no encimarla con la purga de tutorias: las
+ * dos borran por lotes y compartir la ventana no gana nada.
+ */
+Schedule::command('reportes:purgar-ejecuciones')
+    ->weeklyOn(0, '04:00')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->runInBackground();
+
+/*
  * Latido del despachador.
  *
  * Un scheduler que deja de correr NO FALLA: simplemente no pasa nada, y nadie

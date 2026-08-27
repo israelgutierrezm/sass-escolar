@@ -26,6 +26,7 @@ use App\Http\Controllers\Bolsa\PostulacionController;
 use App\Http\Controllers\Bolsa\VacanteController;
 use App\Http\Controllers\BuscadorAlumnosController;
 use App\Http\Controllers\BuscadorMatriculasController;
+use App\Http\Controllers\Reportes\BitacoraReportesController;
 use App\Http\Controllers\Reportes\ConfiguracionReportesController;
 use App\Http\Controllers\Reportes\ReporteController;
 use App\Http\Controllers\Reportes\VistaReporteController;
@@ -1960,6 +1961,18 @@ Route::middleware([
                     Route::post('{clave}/vistas', 'guardar')->name('vistas.guardar');
                     Route::post('{clave}/favorito', 'favorito')->name('favorito');
                 });
+
+                /*
+                 * La BITACORA, tambien antes del comodin y por lo mismo:
+                 *  buscaria un reporte llamado «bitacora».
+                 *
+                 * Con su PROPIO permiso y no con : auditar quien
+                 * saca los reportes es otra pregunta que sacarlos, y quien
+                 * vigila no necesariamente saca ninguno.
+                 */
+                Route::middleware('can:auditar-reportes')
+                    ->get('bitacora', [BitacoraReportesController::class, 'index'])
+                    ->name('bitacora');
 
                 Route::get('{clave}', 'ver')->name('ver');
                 Route::get('{clave}/descargar/{formato}', 'descargar')
