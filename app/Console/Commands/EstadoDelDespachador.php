@@ -98,9 +98,26 @@ class EstadoDelDespachador extends Command
             return self::FAILURE;
         }
 
+        /*
+         * Lo que se está haciendo AHORA se dice aparte de lo que espera. Un
+         * archivado de media hora tiene la cola trabajando, no parada, y quien
+         * mira esto tiene que poder distinguirlo de un trabajador muerto.
+         */
+        $enCurso = [];
+
+        if ($estado['en_proceso'] > 0) {
+            $enCurso[] = "{$estado['en_proceso']} en proceso";
+        }
+
+        if ($estado['diferidos'] > 0) {
+            $enCurso[] = "{$estado['diferidos']} aguardando su reintento";
+        }
+
+        $cola = $enCurso === [] ? '' : ' ('.implode(', ', $enCurso).')';
+
         $this->info($estado['pendientes'] === 0
-            ? 'La cola está al día: no hay trabajos esperando.'
-            : "La cola avanza: {$estado['pendientes']} trabajo(s) esperando, el más viejo desde hace {$estado['espera_minutos']} min.");
+            ? 'La cola está al día: no hay trabajos esperando.'.$cola
+            : "La cola avanza: {$estado['pendientes']} trabajo(s) esperando, el más viejo desde hace {$estado['espera_minutos']} min.".$cola);
 
         return self::SUCCESS;
     }

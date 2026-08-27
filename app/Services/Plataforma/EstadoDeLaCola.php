@@ -46,8 +46,8 @@ class EstadoDeLaCola
 
     /**
      * @return array{
-     *     hay_tabla: bool, pendientes: int, fallidos: int,
-     *     mas_viejo: ?string, espera_minutos: ?int, atorada: bool
+     *     hay_tabla: bool, pendientes: int, en_proceso: int, diferidos: int,
+     *     fallidos: int, mas_viejo: ?string, espera_minutos: ?int, atorada: bool
      * }
      */
     public function estado(?int $tolerancia = null): array
@@ -57,22 +57,44 @@ class EstadoDeLaCola
 
         if (! Schema::connection($central)->hasTable('jobs')) {
             return [
-                'hay_tabla' => false, 'pendientes' => 0, 'fallidos' => 0,
-                'mas_viejo' => null, 'espera_minutos' => null, 'atorada' => false,
+                'hay_tabla' => false, 'pendientes' => 0, 'en_proceso' => 0, 'diferidos' => 0,
+                'fallidos' => 0, 'mas_viejo' => null, 'espera_minutos' => null, 'atorada' => false,
             ];
         }
 
         $conexion = DB::connection($central);
-
-        $pendientes = (int) $conexion->table('jobs')->count();
+        $ahora = now()->timestamp;
 
         /*
-         * `available_at` y no `created_at`: un trabajo con reintento espera a
-         * propósito hasta su siguiente turno, y contarlo como atorado desde que
-         * se creó daría una alarma cada vez que el PAC devuelva un error
-         * transitorio — que es exactamente cuando NO hay que distraer a nadie.
+         * Una fila de `jobs` puede estar en TRES situaciones distintas, y
+         * confundirlas produce alarmas falsas o silencios peligrosos:
+         *
+         *   - ESPERANDO: sin reservar y con su turno llegado. Es lo único que
+         *     mide si hay quien trabaje.
+         *   - EN PROCESO: reservada, o sea que un trabajador la está haciendo.
+         *     `markJobAsReserved` escribe `reserved_at` y NO mueve
+         *     `available_at`, así que un archivado de media hora sigue
+         *     mostrando su hora original: contarlo como espera declaraba la
+         *     cola atorada precisamente mientras funcionaba.
+         *   - DIFERIDA: sin reservar pero con `available_at` en el futuro. Es
+         *     un reintento aguardando su turno —el PAC devolvió un error
+         *     pasajero— y no hay nada que arreglar.
+         *
+         * El corte es el mismo que usa Laravel en
+         * `DatabaseQueue::creationTimeOfOldestPendingJob()`.
          */
-        $masViejo = $conexion->table('jobs')->min('available_at');
+        $esperando = fn () => $conexion->table('jobs')
+            ->whereNull('reserved_at')
+            ->where('available_at', '<=', $ahora);
+
+        $pendientes = (int) $esperando()->count();
+        $enProceso = (int) $conexion->table('jobs')->whereNotNull('reserved_at')->count();
+        $diferidos = (int) $conexion->table('jobs')
+            ->whereNull('reserved_at')
+            ->where('available_at', '>', $ahora)
+            ->count();
+
+        $masViejo = $esperando()->min('available_at');
 
         /*
          * Con la zona de la aplicación, no en UTC.
@@ -97,6 +119,8 @@ class EstadoDeLaCola
         return [
             'hay_tabla' => true,
             'pendientes' => $pendientes,
+            'en_proceso' => $enProceso,
+            'diferidos' => $diferidos,
             'fallidos' => $fallidos,
             'mas_viejo' => $desde?->toDateTimeString(),
             'espera_minutos' => $espera,

@@ -131,9 +131,20 @@ señales, y si la cola avanza. De la cola informa cuántos trabajos esperan, des
 cuándo espera el más viejo y cuántos fallaron.
 
 Lo que delata a un trabajador muerto no es que haya pendientes —se acaban de
-encolar— sino que el **más viejo** lleve ahí más de quince minutos. Se mira
-`available_at` y no `created_at`, para que un trabajo aguardando su reintento no
-dispare una alarma cuando el PAC devuelve un error pasajero.
+encolar— sino que el **más viejo ESPERANDO** lleve ahí más de quince minutos. Una
+fila de `jobs` puede estar en tres situaciones y confundirlas da alarmas falsas:
+
+| Situación | Qué significa | ¿Cuenta como espera? |
+|---|---|---|
+| **Esperando** | sin reservar y con su turno llegado | sí — es lo único que mide si hay quien trabaje |
+| **En proceso** | reservada: un trabajador la está haciendo | no; se informa aparte |
+| **Diferida** | sin reservar, con su turno en el futuro | no — es un reintento aguardando |
+
+La distinción importa de verdad: reservar una fila escribe `reserved_at` y **no**
+mueve `available_at`, así que un archivado de media hora conserva su hora
+original. Contándolo, la cola se declaraba atorada precisamente mientras
+trabajaba. Es el mismo corte que usa Laravel en
+`DatabaseQueue::creationTimeOfOldestPendingJob()`.
 
 Devuelve **código de salida 1** cuando lleva más de diez minutos sin señales o
 cuando la cola está atorada, así que se puede enganchar a la vigilancia del

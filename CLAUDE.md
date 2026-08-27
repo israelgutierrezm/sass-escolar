@@ -2641,6 +2641,18 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
       normal —se acaban de encolar—. Y se mira **`available_at` y no
       `created_at`**, o un trabajo aguardando su reintento dispararía una alarma
       cada vez que el PAC devuelva un error pasajero.
+    - **Una fila de `jobs` está en UNA de tres situaciones, y la primera versión
+      de esto las confundía**: ESPERANDO (sin reservar y con su turno llegado, lo
+      único que mide si hay quien trabaje), EN PROCESO (reservada) y DIFERIDA
+      (su turno está en el futuro). `markJobAsReserved` escribe `reserved_at` y
+      **no mueve `available_at`**, así que un `ArchivarGrabacion` bajando un
+      video de 600 MB —hasta media hora— conserva su hora original: midiendo
+      todas las filas, la cola se declaraba **atorada justo mientras
+      trabajaba**, y `scheduler:estado` salía con error. El corte bueno es el
+      que usa Laravel en `DatabaseQueue::creationTimeOfOldestPendingJob()`.
+      Comprobado sembrando un trabajo reservado hace 25 minutos: antes decía
+      «ATORADA, 28 minutos» y salía 1; ahora dice «al día (1 en proceso)» y sale
+      0.
     - Los FALLIDOS se dicen aunque la cola esté al día: nadie los reintenta solo,
       y un timbrado fallido es una factura que no existe ante el SAT.
   - **`KillMode=process` en el servicio de systemd, y no es cosmético.** TODAS
@@ -2680,8 +2692,8 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     comando dejaba la prueba en verde. Lo cazaron dos mutaciones que
     sobrevivieron. Ahora se pregunta al REGISTRO del despachador
     (`Schedule::events()`), que es lo que de verdad se va a ejecutar.
-  - Pruebas: `scripts/prueba-cola-de-trabajos.php`, 19 verificaciones,
-    comprobadas mutando **quince reglas**. Dos de ellas son redes de CLASE: el
+  - Pruebas: `scripts/prueba-cola-de-trabajos.php`, 21 verificaciones,
+    comprobadas mutando **diecinueve reglas**. Dos de ellas son redes de CLASE: el
     cruce de comandos contra los programados, y `retry_after` contra el `timeout`
     de cada trabajo de `app/Jobs/` —así, subirle el tiempo a un trabajo sin subir
     la reserva tumba la prueba en vez de duplicar descargas en silencio—.

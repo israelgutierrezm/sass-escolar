@@ -216,9 +216,42 @@ try {
         'available_at' => now()->addMinutes(5)->timestamp,
     ]);
 
+    $diferido = $cola->estado();
+
     verificar('Un trabajo ESPERANDO su reintento no cuenta como atorado',
-        ! $cola->estado()['atorada'],
-        'creado hace 2 h pero disponible en 5 min');
+        ! $diferido['atorada'] && $diferido['diferidos'] === 1 && $diferido['pendientes'] === 0,
+        'creado hace 2 h pero disponible en 5 min; se cuenta como diferido');
+
+    /*
+     * Y lo que un trabajador ESTÁ HACIENDO tampoco.
+     *
+     * `markJobAsReserved` escribe `reserved_at` y NO mueve `available_at`, así
+     * que un `ArchivarGrabacion` bajando un video de 600 MB —hasta media hora—
+     * conserva su hora original. Midiendo todas las filas, la cola se declaraba
+     * ATORADA justo mientras trabajaba, y `scheduler:estado` salía con error.
+     * El corte es el mismo que usa Laravel en
+     * `DatabaseQueue::creationTimeOfOldestPendingJob()`.
+     */
+    DB::connection($central)->table('jobs')->where('id', $encolado->id)->update([
+        'available_at' => now()->subHours(2)->timestamp,
+        'reserved_at' => now()->subMinutes(25)->timestamp,
+    ]);
+
+    $enProceso = $cola->estado();
+
+    verificar('Un trabajo que se está PROCESANDO no declara la cola atorada',
+        ! $enProceso['atorada'] && $enProceso['en_proceso'] === 1 && $enProceso['pendientes'] === 0,
+        'reservado hace 25 min, disponible desde hace 2 h');
+
+    verificar('Y lo en proceso se dice, en vez de desaparecer del informe',
+        $enProceso['en_proceso'] === 1,
+        'un archivado largo tiene la cola trabajando, no parada');
+
+    // Se devuelve a esperando para lo que sigue.
+    DB::connection($central)->table('jobs')->where('id', $encolado->id)->update([
+        'reserved_at' => null,
+        'available_at' => now()->subHours(2)->timestamp,
+    ]);
 
     echo PHP_EOL.'4. Los trabajos FALLIDOS se dicen aunque la cola esté sana'.PHP_EOL;
 
