@@ -146,7 +146,33 @@ try {
         ! $postulado->acepta && $concluido->acepta,
         'postulado='.var_export((bool) $postulado->acepta, true).' concluido='.var_export((bool) $concluido->acepta, true));
 
-    $alumnos = MatriculaOferta::query()->whereHas('oferta')->limit(3)->get();
+    /*
+     * Los tres, de DOS campus distintos a propósito.
+     *
+     * `limit(3)` a secas devolvía tres matrículas que en el demo caen todas en
+     * el mismo plantel, y entonces la comprobación del recorte —«el acotado ve
+     * menos que el global»— pasaba o fallaba según qué tres tocaran. Una prueba
+     * que depende de qué devuelva un `limit` sin orden no prueba el recorte:
+     * prueba la suerte.
+     */
+    $primerCampus = MatriculaOferta::query()->whereHas('oferta')
+        ->with('oferta:id,campus_id')->first()?->oferta?->campus_id;
+
+    $deOtroCampus = MatriculaOferta::query()
+        ->whereHas('oferta', fn ($o) => $o->where('campus_id', '!=', $primerCampus))
+        ->first();
+
+    if ($deOtroCampus === null) {
+        throw new RuntimeException(
+            'No hay matrículas en dos campus distintos: sin eso el recorte de movilidad no se puede comprobar.',
+        );
+    }
+
+    $alumnos = MatriculaOferta::query()
+        ->whereHas('oferta', fn ($o) => $o->where('campus_id', $primerCampus))
+        ->limit(2)->get()
+        ->push($deOtroCampus)
+        ->values();
 
     verificar('Hay tres matrículas para el escenario', $alumnos->count() === 3, (string) $alumnos->count());
 

@@ -22,6 +22,16 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 class Ejecutor
 {
+    /**
+     * Cuántos minutos hacen de una repetición un REPINTADO.
+     *
+     * Diez, y no dos: alguien que está armando un reporte va y viene entre los
+     * filtros durante varios minutos, y cada vuelta al mismo estado es el mismo
+     * clic. Más allá de esa ventana, volver a pedir lo mismo ya es consultarlo
+     * otra vez y cuenta como uso — que es lo que esta tabla mide.
+     */
+    private const MINUTOS_DE_REPINTADO = 10;
+
     public function __construct(
         private readonly RegistroReportes $registro,
         private readonly ModulosDeLaEscuela $modulos,
@@ -421,6 +431,10 @@ class Ejecutor
         array $columnas,
         array $omitidas,
     ): void {
+        if ($this->esUnRepintado($usuario, $reporte, $formato, $filtros, $columnas)) {
+            return;
+        }
+
         EjecucionReporte::create([
             'reporte' => $reporte->clave(),
             'persona_id' => $usuario->persona_id,
@@ -433,6 +447,64 @@ class Ejecutor
             'columnas' => $columnas,
             'columnas_omitidas' => $omitidas,
         ]);
+    }
+
+    /**
+     * Si esto es la MISMA consulta que la persona acaba de hacer.
+     *
+     * ── Por qué existe ────────────────────────────────────────────────────
+     * Volver atrás, cambiar un filtro y deshacerlo, o recargar la pestaña
+     * escribían una fila cada vez. Medido sobre el demo: 113 de 119 filas eran
+     * de pantalla, con 44 repeticiones IDÉNTICAS en menos de dos minutos sobre
+     * sólo 40 consultas distintas. La bitácora contaba clics, no preguntas.
+     *
+     * ── Y por qué NO se dejó simplemente de anotar la pantalla ────────────
+     * Era la letra del plan, y se llevaba por delante dos cosas que sí valen:
+     *
+     *  1. El 95 % del insumo con el que se decide si construir el constructor
+     *     de reportes. Su criterio de entrada está escrito y se mide con esta
+     *     tabla; sin las corridas de pantalla no habría nada que medir.
+     *  2. El rastro de quien LEE columnas sensibles sin descargarlas — que es
+     *     media respuesta a «¿quién consultó las CURP?».
+     *
+     * ── Lo que NUNCA se deduplica ─────────────────────────────────────────
+     * Las DESCARGAS. Un archivo sale de la escuela y se reenvía, así que
+     * «bajó el padrón tres veces» es un hecho distinto de «lo bajó una». La
+     * pregunta que esta tabla existe para contestar es justamente ésa.
+     *
+     * ── Cómo se compara ───────────────────────────────────────────────────
+     * Contra la ÚLTIMA de esa persona en ese reporte, no contra todas: pedir A,
+     * luego B y volver a A son tres preguntas y se anotan tres. Lo que se quita
+     * es la repetición seguida, que es lo que produce un repintado.
+     *
+     * @param  array<string, mixed>  $filtros
+     * @param  array<int, string>  $columnas
+     */
+    private function esUnRepintado(
+        Usuario $usuario,
+        DefinicionReporte $reporte,
+        string $formato,
+        array $filtros,
+        array $columnas,
+    ): bool {
+        // Una descarga siempre se anota, y una corrida sin sesión también: sin
+        // persona no hay «la misma persona» contra quien comparar.
+        if ($formato !== 'pantalla' || $usuario->persona_id === null) {
+            return false;
+        }
+
+        $ultima = EjecucionReporte::query()
+            ->where('persona_id', $usuario->persona_id)
+            ->where('reporte', $reporte->clave())
+            ->where('created_at', '>=', now()->subMinutes(self::MINUTOS_DE_REPINTADO))
+            ->latest('created_at')
+            ->latest('id')
+            ->first();
+
+        return $ultima !== null
+            && $ultima->formato === $formato
+            && $ultima->filtros === $filtros
+            && $ultima->columnas === $columnas;
     }
 
     /**

@@ -316,13 +316,94 @@ try {
         $rechazado || ($conAjeno->filtros['campus_id'] ?? []) === [],
         json_encode($conAjeno->filtros['campus_id'] ?? null));
 
-    echo PHP_EOL.'7. La bitácora anota cada corrida'.PHP_EOL;
+    echo PHP_EOL.'7. La bitácora anota cada PREGUNTA, no cada clic'.PHP_EOL;
+
+    /*
+     * Con un juego de columnas PROPIO, para que sea una pregunta nueva.
+     *
+     * Las secciones de arriba ya corrieron este reporte, y desde que los
+     * repintados se deduplican, repetir lo mismo dentro de la ventana no
+     * escribe. Sin esto, la comprobación medía la deduplicación creyendo medir
+     * la anotación — y las dos de abajo leerían la fila de otra corrida.
+     */
+    $columnasPropias = ['matricula', 'egresado', 'generacion'];
 
     $antes = EjecucionReporte::count();
-    $ejecutor->ejecutar($global, 'egresados-por-generacion');
+    $ejecutor->ejecutar($global, 'egresados-por-generacion', ['columnas' => $columnasPropias]);
     $ultima = EjecucionReporte::latest('id')->first();
 
-    verificar('Se anotó una ejecución más', EjecucionReporte::count() === $antes + 1);
+    verificar('Se anotó una ejecución más', EjecucionReporte::count() === $antes + 1,
+        $antes.' → '.EjecucionReporte::count());
+
+    /*
+     * ── El REPINTADO no se anota ──────────────────────────────────────────
+     *
+     * Volver atrás, recargar la pestaña o deshacer un filtro pedían lo mismo
+     * otra vez y escribían una fila cada vez: la bitácora contaba clics. Medido
+     * antes de cambiarlo, 113 de 119 filas del demo eran de pantalla, con 44
+     * repeticiones idénticas en menos de dos minutos sobre 40 consultas
+     * distintas.
+     *
+     * Lo que NO se deduplica es la descarga: un archivo sale de la escuela y se
+     * reenvía, así que «bajó el padrón tres veces» es otro hecho que «una».
+     */
+    $trasLaPrimera = EjecucionReporte::count();
+    $ejecutor->ejecutar($global, 'egresados-por-generacion', ['columnas' => $columnasPropias]);
+
+    verificar('Pedir LO MISMO otra vez no agrega fila',
+        EjecucionReporte::count() === $trasLaPrimera,
+        $trasLaPrimera.' → '.EjecucionReporte::count());
+
+    /*
+     * Y cambiar la pregunta sí. Se cambian las COLUMNAS y no los filtros porque
+     * este reporte lleva filtros fijos: dos peticiones distintas pueden
+     * normalizar al mismo JSON efectivo, y entonces son la misma pregunta.
+     */
+    $ejecutor->ejecutar($global, 'egresados-por-generacion', ['columnas' => ['matricula']]);
+
+    verificar('Pero cambiar la pregunta sí agrega fila',
+        EjecucionReporte::count() === $trasLaPrimera + 1,
+        $trasLaPrimera.' → '.EjecucionReporte::count());
+
+    $antesDeVolver = EjecucionReporte::count();
+    $ejecutor->ejecutar($global, 'egresados-por-generacion', ['columnas' => $columnasPropias]);
+
+    verificar('Y VOLVER a la anterior también: A, B, A son tres preguntas',
+        EjecucionReporte::count() === $antesDeVolver + 1,
+        $antesDeVolver.' → '.EjecucionReporte::count());
+
+    /*
+     * Y la VENTANA tiene su lector: pasados los diez minutos, volver a pedir lo
+     * mismo ya no es un repintado —es consultarlo otra vez— y cuenta como uso,
+     * que es lo que esta tabla mide. Sin esta comprobación la ventana sería una
+     * regla que nadie vigila: quitarla del todo pasaba en verde.
+     */
+    /*
+     * Se envejecen TODAS las suyas de ese reporte, no sólo la última: el motor
+     * busca la más reciente por fecha, así que envejecer una sola la manda al
+     * fondo y encuentra otra. La primera versión de esto no ejercitaba la
+     * ventana —se vio porque la mutación que la quitaba sobrevivía—.
+     */
+    DB::table('ejecuciones_reporte')
+        ->where('persona_id', $global->persona_id)
+        ->where('reporte', 'egresados-por-generacion')
+        ->update(['created_at' => now()->subMinutes(60)]);
+
+    $antesDeLaVentana = EjecucionReporte::count();
+    $ejecutor->ejecutar($global, 'egresados-por-generacion', ['columnas' => $columnasPropias]);
+
+    verificar('Pasada la ventana, lo mismo SÍ vuelve a anotarse',
+        EjecucionReporte::count() === $antesDeLaVentana + 1,
+        $antesDeLaVentana.' → '.EjecucionReporte::count());
+
+    $antesDeBajar = EjecucionReporte::count();
+    $exportacion = $ejecutor->paraExportar($global, 'egresados-por-generacion');
+    ($exportacion->alTerminar)(14, 'csv');
+    ($exportacion->alTerminar)(14, 'csv');
+
+    verificar('Una DESCARGA repetida SÍ se anota las dos veces',
+        EjecucionReporte::count() === $antesDeBajar + 2,
+        $antesDeBajar.' → '.EjecucionReporte::count());
     verificar('Con el reporte y quién lo corrió',
         $ultima->reporte === 'egresados-por-generacion' && $ultima->persona_id === $global->persona_id);
     verificar('Y con los filtros EFECTIVOS, no los que se pidieron',
