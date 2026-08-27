@@ -2746,6 +2746,106 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     Cada uno de esos escenarios se CONSTRUYE ahora dentro de la transacción. Una
     comprobación que se cumple porque el escenario no existe no comprueba nada.
 
+  - **REVISIÓN ADVERSARIA de la rebanada 7** (2026-08-26): diez agentes sobre
+    las 14 fuentes y los 34 reportes, en cinco lentes, con una fase de
+    REFUTACIÓN que reprodujo cada hallazgo contra el demo antes de creerle.
+    **16 confirmados, 5 refutados.** Las refutaciones valieron tanto como los
+    hallazgos: tres describían estados que ninguna línea del código puede
+    producir, y una señalaba como duplicado un criterio que no existe a ese
+    grano. Todo lo confirmado está corregido, con nueve mutaciones que mueren.
+
+    - **«Su adscripción» estaba escrita TRES veces y las tres divergían.** Es el
+      hallazgo grande, y lo reportaron tres lentes por separado.
+      - El RECORTE por campus y los FILTROS de campus y puesto no miraban la
+        vigencia: casaban contra adscripciones ya cerradas. El coordinador de un
+        plantel veía el expediente de quien HOY trabaja en otro —con la columna
+        «Campus» de esa misma fila diciéndoselo— y filtrar por «Coordinador de
+        carrera» devolvía a quien lo FUE y hoy da clases. **Filas que se
+        contradicen a sí mismas.**
+      - La SUBCONSULTA que pinta las columnas sí la miraba, pero contra
+        `curdate()`. Y como dar de baja CIERRA las adscripciones abiertas, a
+        quien ya se fue no le quedaba ninguna: «Bajas de personal» salía con
+        **Puesto y Campus en blanco —dos de sus ocho columnas por omisión—**
+        para toda baja pasada, y no por falta de captura.
+      - Hoy hay UNA definición, `Adscripcion::laQueCuenta()`: la que cubría el
+        día que se fue —o el de hoy, si sigue—. Es el mismo criterio que
+        `ExpedienteLaboral::esquemaEn` usa para el sueldo. La nombran los tres:
+        el recorte y los filtros por la relación `adscripcionesQueCuentan()`, y
+        la subconsulta por su SQL, que es la única que no puede usar la relación.
+      - **La fecha de corte es lo que destraba las dos mitades a la vez**: una
+        vigencia cruda contra `curdate()` habría arreglado la fuga y dejado
+        «Bajas» en cero.
+
+    - **Un `permisoExtra` que NO EXISTE esconde la columna para TODO EL MUNDO.**
+      Las cuatro sensibles de la plantilla docente —correo, celular, CURP y
+      RFC— pedían `editar-docentes`, que nunca estuvo en `CatalogoPermisos` ni
+      en la tabla `permissions`. Falla CERRADO, o sea que no hubo fuga, y por
+      eso llevaba meses sin notarse: la columna sale del Excel sin decir por
+      qué, y la pantalla le explica «tu rol no las alcanza» a quien tiene TODOS
+      los permisos administrativos de la escuela. Lo prohíbe ahora el
+      constructor de `ColumnaReporte`, junto a sus otras dos comprobaciones.
+      - **Ninguna suite lo veía porque todas comprobaban la OMISIÓN —que
+        funcionaba— y ninguna que la columna LLEGARA a quien tiene el permiso.**
+
+    - **Un orden por omisión que no se puede aplicar se descartaba EN SILENCIO.**
+      `ordenPedido()` sólo devuelve la columna si es `ordenable`, y si no cae a
+      la llave primaria sin avisar: el reporte salía ordenado por otra cosa
+      mientras su definición declaraba una. Lo prohíbe `RegistroReportes` al
+      registrar, que es donde están las dos mitades —la definición dice por qué
+      columna, y quién sabe si es ordenable es la FUENTE—.
+      - Y el guard **destapó otro hueco al ponerlo**: dos reportes no tenían UNA
+        SOLA columna ordenable, así que no se podían ordenar por nada. Hoy los
+        34 se pueden ordenar, con 330 combinaciones en la red.
+      - **Un guard hace vacua la prueba que lo barre**: recorrer el registro
+        pasa siempre, porque el guard impide registrar uno malo. Se comprueba
+        construyendo el reporte que se quiere prohibir.
+
+    - **`Recorte::porRelacion` con `incluirSinAsignar` perdonaba TRES cosas y no
+      una.** El docente sin campus se enseña a todos —es una cola de trabajo—;
+      el docente cuyo campus se BORRÓ, no. Y se puede borrar: `destroy` sólo se
+      niega si el campus tiene oferta, y `Campus` usa borrado lógico. Sus
+      docentes pasaban a verlos TODOS los coordinadores. La tolerancia se mide
+      ahora contra la relación **`withTrashed()`**, que es lo que la acota a lo
+      que promete.
+
+    - **La asistencia contaba a los DADOS DE BAJA y la carga académica no**: dos
+      fuentes de la misma entrega dando números distintos sobre la misma
+      materia. Y es peor que un número de más: a esa inscripción no se le puede
+      pasar lista nunca —`DocenciaController` la saca de la lista del docente—,
+      así que el renglón se quedaba en «materias sin lista pasada» para siempre,
+      sin gesto que lo limpiara.
+
+    - **La bitácora anotaba `milisegundos = 0` en toda EXPORTACIÓN**, que es el
+      único formato donde el dato importa: son las que recorren la tabla entera
+      por lotes. Y un cero se lee como una medición, no como un dato ausente.
+
+    - **Tres docblocks mandaban a un reporte que no existe** («Cobros de
+      aspirantes»), y uno de ellos mandaba a conciliar un descuadre contra él.
+      El texto llega al usuario: el controlador pasa `grano()` como prop.
+
+    - **Cinco comprobaciones que pasaban por la razón equivocada**, encontradas
+      por la lente de suites vacuas y todas reparadas: un `every(fn => true)`,
+      un `verificar(..., true)` literal, un `318 >= 34` que se cumple aunque una
+      fuente entera no aporte nada, un `str_contains` contenido en el anterior, y
+      un `catch (\Throwable)` que daba por buena cualquier explosión —la tercera
+      vez que este proyecto se cobra el `catch` pelado—.
+      - Y **una sexta que se cayó al arreglar el código**: «el acotado ve menos
+        que el global» sobre los cargos se cumplía sólo por TRES filas huérfanas
+        del demo. Al excluirlas —lo correcto: una fila que el recorte no puede
+        resolver no puede ser visible sólo para el global— la comprobación se
+        vino abajo, bien caída. Ahora se siembra un cargo en otro campus.
+
+  - **NO pasar `pint` sobre `scripts/`** (mordió el 2026-08-26). Su fixer de
+    nombres cualificados convierte los FQN en alias y **añade los `use` al bloque
+    de importaciones, que en estas suites está DESPUÉS del arranque** —primero
+    `require`, luego `$app->make(Kernel::class)->bootstrap()`, y los `use` más
+    abajo—. Un alias no aplica a lo que va antes, así que `Kernel::class` pasó a
+    resolver al `\Kernel` global: **67 suites reventaron de golpe** al arrancar,
+    todas con «Target class [Kernel] does not exist». No es un fallo de pint —el
+    código quedaría bien si el bloque estuviera arriba—, pero el arreglo bueno no
+    es reordenar 67 archivos: es no pasarle pint a `scripts/`, que no es código
+    de la aplicación.
+
   - **Lo que NO se construyó de la rebanada 7, y por qué**: el **LMS** se quedó
     fuera —de sus tres cursos, dos cuelgan de `asignatura_grupo` que ya no
     existen, así que no hay contra qué comparar— y la **evaluación docente**
