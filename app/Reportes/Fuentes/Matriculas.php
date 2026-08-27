@@ -9,6 +9,7 @@ use App\Models\Academico\Carrera;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\SituacionAlumno;
 use App\Models\Identidad\Usuario;
+use App\Reportes\Agregacion;
 use App\Reportes\ColumnaReporte;
 use App\Reportes\FiltroReporte;
 use App\Reportes\FuenteDeReporte;
@@ -131,6 +132,20 @@ class Matriculas implements FuenteDeReporte
                 columnaSql: 'matricula_oferta.periodo_actual',
                 ordenable: true,
                 ancho: 8,
+                /*
+                 * Es un ORDINAL —«va en 3.º»— y por eso no lleva pie.
+                 *
+                 * Sumarlo da la cifra sin sentido que el docblock de
+                 * `Agregacion` usa de ejemplo; y promediarlo tampoco sirve,
+                 * porque el número cuenta periodos DEL PLAN de cada quien: el 3
+                 * de un bachillerato de seis semestres y el 3 de una
+                 * licenciatura de nueve no son la misma posición, así que su
+                 * media no dice por dónde va nadie.
+                 */
+                ayuda: 'El periodo del plan en que va el alumno. No se totaliza: es un ordinal '
+                    .'—sumar los semestres de treinta alumnos no da nada, y promediarlos mezcla '
+                    .'planes de distinta duración—.',
+                total: Agregacion::Ninguno,
             ),
             'situacion' => new ColumnaReporte(
                 clave: 'situacion',

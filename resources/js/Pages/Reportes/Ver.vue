@@ -50,6 +50,19 @@ const props = defineProps<{
     filas: Record<string, unknown>[];
     paginacion: { total: number; links: any[]; from: number | null; to: number | null };
     omitidas: string[];
+    /**
+     * El pie de la tabla. Null si ninguna columna elegida se totaliza.
+     *
+     * `cuadra` dice si la consulta agregada vio las MISMAS filas que el
+     * paginador. En falso no se pintan las cifras: un total inflado por un join
+     * que multiplica no da error, da otro numero — y el pie es lo que alguien
+     * copia a una junta.
+     */
+    totales: {
+        cuadra: boolean;
+        filas: number;
+        valores: Record<string, number | null>;
+    } | null;
     ms: number;
     vistas: Vista[];
     vistaActiva: number | null;
@@ -395,8 +408,51 @@ function claseAlineacion(a: string): string {
                             >{{ celdaReporte(fila[c.clave], c.tipo as TipoDato) }}</td>
                         </tr>
                     </tbody>
+
+                    <!-- El pie: los totales DEL REPORTE, no de la pagina. Se
+                         dice con palabras al lado, porque un numero al pie de
+                         una tabla paginada se lee como el de lo que se ve. -->
+                    <tfoot v-if="totales && totales.cuadra && filas.length">
+                        <tr
+                            class="border-t-2 font-semibold"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                        >
+                            <td
+                                v-for="(c, i) in columnas"
+                                :key="c.clave"
+                                class="px-4 py-3 tabular-nums"
+                                :class="claseAlineacion(c.alineacion)"
+                            >
+                                <span v-if="totales.valores[c.clave] !== undefined">
+                                    {{ celdaReporte(totales.valores[c.clave], c.tipo as TipoDato) }}
+                                </span>
+                                <!-- La primera columna rotula el renglon; las
+                                     demas sin total quedan en blanco a
+                                     proposito: un cero ahi se leeria como «vale
+                                     cero», que es otra afirmacion. -->
+                                <span
+                                    v-else-if="i === 0"
+                                    class="font-normal"
+                                    :style="{ color: 'var(--color-suave)' }"
+                                >Total de {{ totales.filas.toLocaleString('es-MX') }}</span>
+                            </td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
+
+            <!-- Y si NO cuadra se dice, en vez de ensenar una cifra que no se
+                 pudo verificar. -->
+            <p
+                v-if="totales && !totales.cuadra"
+                class="border-t px-6 py-3 text-sm"
+                :style="{ borderColor: 'var(--color-borde)', color: '#b45309' }"
+            >
+                No se pueden mostrar los totales de este reporte: la suma vio
+                {{ totales.filas.toLocaleString('es-MX') }} renglones y el listado tiene
+                {{ paginacion.total.toLocaleString('es-MX') }}. Enseñar la cifra sin cuadrarla
+                sería enseñar otro número.
+            </p>
 
             <p v-if="!filas.length" class="px-6 py-8 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
                 Ninguna fila cumple con lo que pediste.

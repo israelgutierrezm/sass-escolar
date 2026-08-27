@@ -8,6 +8,7 @@ use App\Models\Academico\Campus;
 use App\Models\ControlEscolar\AsignacionDocente;
 use App\Models\ControlEscolar\Ciclo;
 use App\Models\Identidad\Usuario;
+use App\Reportes\Agregacion;
 use App\Reportes\ColumnaReporte;
 use App\Reportes\FiltroReporte;
 use App\Reportes\FuenteDeReporte;
@@ -146,7 +147,12 @@ class CargaAcademica implements FuenteDeReporte
                 columnaSql: 'ins.inscritos',
                 ordenable: true,
                 ancho: 10,
-                ayuda: 'Alumnos en ESA materia, sin los dados de baja. No son los del grupo entero.',
+                ayuda: 'Alumnos en ESA materia, sin los dados de baja. No son los del grupo entero. '
+                    .'No se totaliza: el número es de la MATERIA y una fila es una ASIGNACIÓN, así que '
+                    .'una materia con titular y adjunto sumaría sus inscritos dos veces; y aun con un '
+                    .'solo docente, sumar cuenta parejas alumno-materia y no alumnos —quien cursa seis '
+                    .'materias entra seis veces—. Cuántos alumnos hay lo contesta la fuente de matrículas.',
+                total: Agregacion::Ninguno,
             ),
             'asignada_en' => new ColumnaReporte(
                 clave: 'asignada_en',

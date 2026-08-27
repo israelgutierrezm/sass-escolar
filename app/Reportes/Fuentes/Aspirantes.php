@@ -7,8 +7,9 @@ namespace App\Reportes\Fuentes;
 use App\Models\Academico\Campus;
 use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\EtapaCrm;
-use App\Models\Promocion\OrigenAspirante;
 use App\Models\Identidad\Usuario;
+use App\Models\Promocion\OrigenAspirante;
+use App\Reportes\Agregacion;
 use App\Reportes\ColumnaReporte;
 use App\Reportes\FiltroReporte;
 use App\Reportes\FuenteDeReporte;
@@ -219,6 +220,16 @@ class Aspirantes implements FuenteDeReporte
                 valor: fn (Aspirante $a) => (int) ($a->actividades ?? 0),
                 columnaSql: 'act.actividades',
                 ordenable: true,
+                /*
+                 * Se SUMA, y no es el caso de `docentes.grupos`.
+                 *
+                 * Aquel conteo cuenta parejas porque el mismo grupo se le cuenta
+                 * a varios docentes. Aquí un seguimiento cuelga de UN aspirante
+                 * (`seguimientos_aspirante.aspirante_id`), así que ninguna
+                 * actividad se cuenta dos veces: la suma es cuántos intentos de
+                 * contacto se hicieron sobre los prospectos consultados.
+                 */
+                total: Agregacion::Suma,
                 ancho: 11,
                 ayuda: 'Cuántas veces se le intentó contactar. NO son contactos efectivos: marcarle '
                     .'seis veces sin que conteste son seis actividades y cero contactos.',
@@ -230,6 +241,10 @@ class Aspirantes implements FuenteDeReporte
                 valor: fn (Aspirante $a) => (int) ($a->contactos ?? 0),
                 columnaSql: 'act.contactos',
                 ordenable: true,
+                // Misma razón que la columna de al lado: cada contacto pertenece
+                // a un solo prospecto, así que sumarlos da cuántas veces se habló
+                // con alguien en todo el conjunto consultado.
+                total: Agregacion::Suma,
                 ancho: 10,
                 ayuda: 'Los que de verdad hablaron con alguien, por la bandera `cuenta_como_contacto` '
                     .'del catálogo de resultados. Sin esto, «se le llamó seis veces» no dice si lo atendieron.',

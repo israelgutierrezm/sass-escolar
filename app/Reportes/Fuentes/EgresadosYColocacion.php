@@ -9,6 +9,7 @@ use App\Models\Academico\Carrera;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\SituacionAlumno;
 use App\Models\Identidad\Usuario;
+use App\Reportes\Agregacion;
 use App\Reportes\ColumnaReporte;
 use App\Reportes\FiltroReporte;
 use App\Reportes\FuenteDeReporte;
@@ -144,6 +145,20 @@ class EgresadosYColocacion implements FuenteDeReporte
                 columnaSql: 'col.colocaciones',
                 ordenable: true,
                 ancho: 12,
+                /*
+                 * Se SUMA, al revés que `docentes.grupos`, y la diferencia está
+                 * en la foránea: una colocación cuelga de UNA matrícula
+                 * (`colocaciones.matricula_oferta_id`), así que ningún renglón
+                 * comparte colocación con otro y la suma no cuenta parejas —es
+                 * el número de empleos registrados a los egresados que se están
+                 * viendo—.
+                 *
+                 * Lo que NO es, y por eso la `ayuda` ya lo advertía antes de que
+                 * hubiera pie de tabla: el número de COLOCADOS. Quien cambió de
+                 * trabajo dos veces suma dos aquí y sigue siendo un egresado
+                 * colocado; ese otro número lo da la columna «¿Colocado?».
+                 */
+                total: Agregacion::Suma,
                 ayuda: 'Cuántas veces se le ha registrado un empleo. Para el indicador cuenta UNA: quien '
                     .'cambió de trabajo dos veces sigue siendo un egresado colocado.',
             ),
@@ -298,12 +313,12 @@ class EgresadosYColocacion implements FuenteDeReporte
                      * separator») y no una coma: una razón social lleva comas y
                      * partiría el valor por la mitad.
                      */
-                    ->selectRaw("substring_index(group_concat(
+                    ->selectRaw('substring_index(group_concat(
                         e.razon_social order by c.fecha_ingreso desc, c.id desc separator 0x1f
-                    ), 0x1f, 1) as empresa")
-                    ->selectRaw("substring_index(group_concat(
+                    ), 0x1f, 1) as empresa')
+                    ->selectRaw('substring_index(group_concat(
                         c.puesto order by c.fecha_ingreso desc, c.id desc separator 0x1f
-                    ), 0x1f, 1) as puesto")
+                    ), 0x1f, 1) as puesto')
                     ->selectRaw("nullif(substring_index(group_concat(
                         coalesce(c.relacionado_con_carrera, '') order by c.fecha_ingreso desc, c.id desc separator 0x1f
                     ), 0x1f, 1), '') as en_su_area")

@@ -32,6 +32,16 @@ final readonly class Resultado
         public array $filtros,
         public array $columnasOmitidas,
         public int $milisegundos,
+        /**
+         * El pie de la tabla, o null si ninguna columna pedida se totaliza.
+         *
+         * `cuadra` dice si la consulta agregada vio las mismas filas que el
+         * paginador. En falso, la pantalla NO enseña las cifras: un total
+         * inflado por un join que multiplica no da error, da otro número.
+         *
+         * @var array{cuadra: bool, filas: int, valores: array<string, float|null>}|null
+         */
+        public ?array $totales = null,
     ) {}
 
     /** Cuántas filas tiene el reporte completo, no la página. */

@@ -9,6 +9,7 @@ use App\Models\Identidad\Usuario;
 use App\Models\Movilidad\ConvocatoriaMovilidad;
 use App\Models\Movilidad\EtapaMovilidad;
 use App\Models\Movilidad\PostulacionMovilidad;
+use App\Reportes\Agregacion;
 use App\Reportes\ColumnaReporte;
 use App\Reportes\FiltroReporte;
 use App\Reportes\FuenteDeReporte;
@@ -160,7 +161,19 @@ class MovilidadSaliente implements FuenteDeReporte
                 ordenable: true,
                 ancho: 14,
                 ayuda: 'CONGELADO al postularse. No se recalcula: sería una tercera verdad sobre el '
-                    .'promedio de un alumno, y tecleado sería un número que alguien puede acomodar.',
+                    .'promedio de un alumno, y tecleado sería un número que alguien puede acomodar. '
+                    .'No se totaliza: es un promedio YA CALCULADO por alumno, así que sumarlo no da '
+                    .'ninguna cifra y promediarlo sin ponderar mezclaría medias sacadas de distinto '
+                    .'número de materias, contando además dos veces a quien se postuló dos veces.',
+                /*
+                 * Y aquí la duplicación no es hipotética: una fila es una
+                 * POSTULACIÓN, no un alumno, así que quien va a dos
+                 * convocatorias pesa el doble en cualquier media. «Qué promedio
+                 * traen los que mandamos» es una pregunta legítima, pero se
+                 * contesta sobre personas y ponderando, no con `avg()` sobre
+                 * este renglón.
+                 */
+                total: Agregacion::Ninguno,
             ),
             'postulada_en' => new ColumnaReporte(
                 clave: 'postulada_en',
@@ -197,6 +210,18 @@ class MovilidadSaliente implements FuenteDeReporte
                 ancho: 12,
                 ayuda: 'Materias que se le asentaron en su historial por esta estancia. Las revocadas no '
                     .'cuentan: se dan de baja lógica y se conservan como historia escolar.',
+                /*
+                 * Aquí SÍ se suma, al revés que los conteos que no se suman
+                 * entre sí: una revalidación cuelga de UNA estancia y una
+                 * estancia de UNA postulación, así que los conteos por fila
+                 * reparten sin repetir y el pie son las materias revalidadas
+                 * del conjunto consultado —no parejas de nada—.
+                 *
+                 * Se agrega por `columnaSql`, que es el alias de la subconsulta
+                 * YA AGRUPADA que arma `consulta()`: contar ahí y sumar aquí es
+                 * lo mismo que contar una sola vez.
+                 */
+                total: Agregacion::Suma,
             ),
         ];
     }

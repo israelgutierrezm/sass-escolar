@@ -10,6 +10,7 @@ use App\Models\Nomina\Adscripcion;
 use App\Models\Nomina\ExpedienteLaboral;
 use App\Models\Nomina\Puesto;
 use App\Models\Nomina\SituacionEmpleado;
+use App\Reportes\Agregacion;
 use App\Reportes\ColumnaReporte;
 use App\Reportes\FiltroReporte;
 use App\Reportes\FuenteDeReporte;
@@ -217,6 +218,66 @@ class Plantilla implements FuenteDeReporte
                     return round($e->fecha_ingreso->floatDiffInYears($hasta), 1);
                 },
                 ancho: 14,
+                /*
+                 * Se PROMEDIA, no se suma.
+                 *
+                 * Sumar la antigüedad de treinta empleados da «años-persona»,
+                 * que es una cifra que nadie pide; la antigüedad MEDIA de la
+                 * plantilla sí se pide, y es de las primeras que se citan al
+                 * describir a un centro de trabajo. Y el vacío queda en NULL y
+                 * no en cero, que es justo lo que {@see Agregacion::Promedio}
+                 * defiende: al pie de una plantilla sin filas, «0 años» sería
+                 * afirmar algo que nadie midió.
+                 *
+                 * ── Por qué hace falta `sqlTotal` ─────────────────────────
+                 * La columna NO existe en la base: la calcula la closure de
+                 * arriba con Carbon. Así que el pie necesita la expresión
+                 * entera, y tiene que dar lo MISMO que los renglones —la
+                 * lección que dejó escrita «Sin aplicar» en la fuente de
+                 * ingresos: el pie no puede decir algo distinto de lo que
+                 * suman las filas—.
+                 *
+                 * ── Y por qué es el algoritmo de Carbon y no días/365.25 ──
+                 * `floatDiffInYears` cuenta los años CALENDARIO completos y
+                 * luego interpola la fracción entre el aniversario que ya pasó
+                 * y el siguiente; dividir los días entre 365.25 es otra cosa.
+                 * Medido contra el demo con 1 500 pares de fechas: la división
+                 * burda redondea distinto que la closure en 11 de ellos —una
+                 * décima de año de diferencia en el renglón—, y este espejo en
+                 * 0. Se comprobó también sobre los 29 de febrero, donde PHP
+                 * desborda el aniversario al 1 de marzo y MySQL lo recorta al
+                 * 28: la décima los absorbe y siguen coincidiendo.
+                 *
+                 * La interpolación va en SEGUNDOS y contra `now()` —no
+                 * `curdate()`— porque a quien sigue contratado la closure lo
+                 * mide hasta la hora actual: con la fecha pelada, 33 de 1 200
+                 * vigentes redondeaban una décima por debajo de su propio
+                 * renglón. Y el `coalesce` es el `?? now()` de la closure: la
+                 * antigüedad de quien ya se fue no sigue creciendo.
+                 *
+                 * Un ingreso en NULL propaga NULL y `avg` lo descarta, igual
+                 * que la closure devuelve null y la fila sale en blanco.
+                 *
+                 * ── Y el `round(…, 1)` de fuera no es adorno ──────────────
+                 * El renglón que se ve —y el que viaja al Excel— es el
+                 * REDONDEADO a una décima, así que el pie tiene que promediar
+                 * esos y no el valor continuo. Sin este redondeo el pie salía
+                 * 11.40 sobre unas filas que promediadas a mano dan 11.41:
+                 * medido con doce expedientes sembrados, se separaban 0.014,
+                 * que a los dos decimales con los que se pinta un decimal ya
+                 * es un número distinto del que cualquiera saca con la
+                 * calculadora sobre la columna que está leyendo.
+                 */
+                total: Agregacion::Promedio,
+                sqlTotal: 'round(timestampdiff(year, expedientes_laborales.fecha_ingreso, '
+                    .'coalesce(expedientes_laborales.fecha_baja, now())) + (timestampdiff(second, '
+                    .'expedientes_laborales.fecha_ingreso + interval timestampdiff(year, '
+                    .'expedientes_laborales.fecha_ingreso, coalesce(expedientes_laborales.fecha_baja, now())) year, '
+                    .'coalesce(expedientes_laborales.fecha_baja, now())) / timestampdiff(second, '
+                    .'expedientes_laborales.fecha_ingreso + interval timestampdiff(year, '
+                    .'expedientes_laborales.fecha_ingreso, coalesce(expedientes_laborales.fecha_baja, now())) year, '
+                    .'expedientes_laborales.fecha_ingreso + interval (timestampdiff(year, '
+                    .'expedientes_laborales.fecha_ingreso, coalesce(expedientes_laborales.fecha_baja, now())) + 1) year)), 1)',
             ),
         ];
     }

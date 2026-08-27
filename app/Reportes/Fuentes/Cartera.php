@@ -9,6 +9,7 @@ use App\Models\Academico\Carrera;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Finanzas\SituacionPago;
 use App\Models\Identidad\Usuario;
+use App\Reportes\Agregacion;
 use App\Reportes\ColumnaReporte;
 use App\Reportes\FiltroReporte;
 use App\Reportes\FuenteDeReporte;
@@ -161,6 +162,21 @@ class Cartera implements FuenteDeReporte
                 columnaSql: 'f.saldo',
                 ordenable: true,
                 ancho: 12,
+                /*
+                 * Se suma, y el resultado ES la cartera de lo consultado.
+                 *
+                 * Cada adeudo abierto cae en UNA sola fila —`porMatricula()`
+                 * agrupa por `matricula_oferta_id`—, así que sumar las filas no
+                 * cuenta ningún cargo dos veces. La advertencia del docblock de
+                 * la clase es sobre sumar LA PÁGINA; el motor agrega sobre la
+                 * consulta entera ya filtrada y recortada, que es otra cosa.
+                 *
+                 * Lo que este total NO incluye es la deuda de los ASPIRANTES:
+                 * el servicio la deja fuera por construcción porque no tiene
+                 * matrícula donde caer. Para «cuánto se le debe a la escuela»
+                 * está `SaldosDeCartera::totalDeLaEscuela()`.
+                 */
+                total: Agregacion::Suma,
             ),
             'vencido' => new ColumnaReporte(
                 clave: 'vencido',
@@ -171,6 +187,10 @@ class Cartera implements FuenteDeReporte
                 ordenable: true,
                 ancho: 12,
                 ayuda: 'Lo que ya pasó su fecha de vencimiento HOY. Deber no es lo mismo que deber tarde.',
+                // Misma partición que el saldo, y es la mitad de la pregunta que
+                // se le hace a una cartera: no «cuánto se debe» sino «cuánto de
+                // eso ya está tarde».
+                total: Agregacion::Suma,
             ),
             'cargos_abiertos' => new ColumnaReporte(
                 clave: 'cargos_abiertos',
@@ -181,6 +201,25 @@ class Cartera implements FuenteDeReporte
                 ordenable: true,
                 ancho: 8,
                 ayuda: 'Cuántos cargos siguen abiertos, sin importar de qué concepto.',
+                /*
+                 * Este conteo SÍ se suma, al revés que el de `docentes.grupos`.
+                 *
+                 * Aquélla es una cuenta sobre una relación de muchos a muchos y
+                 * su suma da parejas docente-grupo. Aquí un adeudo pertenece a
+                 * UNA matrícula —`porMatricula()` agrupa por ella y descarta los
+                 * de aspirante—, así que las filas PARTEN el conjunto y sumarlas
+                 * devuelve el número de cargos abiertos, sin repetir ninguno.
+                 *
+                 * Ojo al cuadrar contra `SaldosDeCartera` a mano: este total
+                 * cuenta lo de las matrículas que EXISTEN, y el servicio cuenta
+                 * también lo de las huérfanas. En el demo hay un adeudo colgado
+                 * de la matrícula 288, que ya no está —una de las filas rotas
+                 * que reporta `acadion:auditar-datos`—, así que el servicio dice
+                 * 5 cargos y el reporte 4. No es un error de la suma: es que esa
+                 * fila no tiene alumno, carrera ni campus que enseñar, y el
+                 * `left join` la descarta de las filas y del pie a la vez.
+                 */
+                total: Agregacion::Suma,
             ),
             'situacion_financiera' => new ColumnaReporte(
                 clave: 'situacion_financiera',

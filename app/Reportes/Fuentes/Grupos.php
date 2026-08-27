@@ -9,6 +9,7 @@ use App\Models\Academico\PlanEstudio;
 use App\Models\ControlEscolar\Ciclo;
 use App\Models\ControlEscolar\Grupo;
 use App\Models\Identidad\Usuario;
+use App\Reportes\Agregacion;
 use App\Reportes\ColumnaReporte;
 use App\Reportes\FiltroReporte;
 use App\Reportes\FuenteDeReporte;
@@ -132,6 +133,9 @@ class Grupos implements FuenteDeReporte
                 columnaSql: 'grupos.semestre',
                 ordenable: true,
                 ancho: 8,
+                ayuda: 'No se totaliza: es un ordinal —en qué periodo del plan va el grupo—, así que '
+                    .'sumar el 3.º con el 5.º da 8, que no es ningún periodo.',
+                total: Agregacion::Ninguno,
             ),
             'turno' => new ColumnaReporte(
                 clave: 'turno',
@@ -153,6 +157,10 @@ class Grupos implements FuenteDeReporte
                 columnaSql: 'grupos.cupo',
                 ordenable: true,
                 ancho: 8,
+                // El cupo es de ESTE grupo y una fila es un grupo, así que la
+                // suma no repite a nadie: son los lugares que la escuela ofrece
+                // en el conjunto consultado.
+                total: Agregacion::Suma,
             ),
             'alumnos' => new ColumnaReporte(
                 clave: 'alumnos',
@@ -166,6 +174,10 @@ class Grupos implements FuenteDeReporte
                 columnaSql: 'al.cuantos',
                 ordenable: true,
                 ancho: 9,
+                ayuda: 'No se totaliza: es un COUNT(DISTINCT) por grupo, y su suma no son alumnos '
+                    .'sino parejas alumno-grupo —quien cursa una materia con otro grupo se cuenta en '
+                    .'los dos—. Cuántos alumnos hay lo contesta la fuente de matrículas.',
+                total: Agregacion::Ninguno,
             ),
             'ocupacion' => new ColumnaReporte(
                 clave: 'ocupacion',
@@ -177,7 +189,23 @@ class Grupos implements FuenteDeReporte
                     // que está vacío cuando puede estar lleno.
                     : null,
                 ancho: 11,
-                ayuda: 'En blanco cuando el grupo no tiene cupo capturado: no es 0 %.',
+                ayuda: 'En blanco cuando el grupo no tiene cupo capturado: no es 0 %. Tampoco se '
+                    .'totaliza: los porcentajes no se suman, y promediarlos sin ponderar mezcla un '
+                    .'grupo de 40 con uno de 2 —el 80 % de aquél y el 100 % de éste no dan 90 %—.',
+                /*
+                 * La ponderada tampoco se puede declarar aquí, y no por
+                 * descuido: `sqlTotal` es la expresión que va DENTRO del
+                 * `sum()`/`avg()` que arma {@see Agregacion::sql()}, y una
+                 * ocupación honesta del conjunto es `sum(alumnos)/sum(cupo)`
+                 * —un cociente de dos agregados, no una expresión por fila—.
+                 * Meterla ahí produciría `avg(sum(...)/sum(...))`, que MySQL
+                 * rechaza con «Invalid use of group function» (1111) —
+                 * comprobado contra el demo—. Y además tendría que descartar
+                 * los grupos sin cupo, que esta columna deja en blanco a
+                 * propósito: sumarían alumnos al numerador sin poner cupo en el
+                 * denominador y la cifra podría pasar del 100 %.
+                 */
+                total: Agregacion::Ninguno,
             ),
             'materias' => new ColumnaReporte(
                 clave: 'materias',
@@ -187,6 +215,10 @@ class Grupos implements FuenteDeReporte
                 columnaSql: 'mat.cuantas',
                 ordenable: true,
                 ancho: 9,
+                // Aquí sí se suma, al revés que «Alumnos»: una materia abierta
+                // cuelga de UN grupo, así que los conteos reparten sin repetir
+                // y el total son las materias abiertas del conjunto.
+                total: Agregacion::Suma,
             ),
             'sin_titular' => new ColumnaReporte(
                 clave: 'sin_titular',
@@ -198,6 +230,10 @@ class Grupos implements FuenteDeReporte
                 ancho: 10,
                 ayuda: 'Materias abiertas del grupo a las que no se les ha asignado docente titular. '
                     .'Es una cola de trabajo: cada una es un grupo que empieza sin quien le dé clase.',
+                // Una cola de trabajo se suma: el pie dice cuántas materias hay
+                // que asignar en total, y ninguna se cuenta dos veces porque
+                // cada una pertenece a un solo grupo.
+                total: Agregacion::Suma,
             ),
         ];
     }

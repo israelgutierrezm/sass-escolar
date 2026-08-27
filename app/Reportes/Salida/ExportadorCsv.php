@@ -6,7 +6,6 @@ namespace App\Reportes\Salida;
 
 use App\Reportes\ColumnaReporte;
 use App\Reportes\Exportacion;
-use App\Reportes\Salida\TextoDeCelda;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**

@@ -8,6 +8,7 @@ use App\Models\Academico\Campus;
 use App\Models\Finanzas\MetodoPago;
 use App\Models\Finanzas\Pago;
 use App\Models\Identidad\Usuario;
+use App\Reportes\Agregacion;
 use App\Reportes\ColumnaReporte;
 use App\Reportes\FiltroReporte;
 use App\Reportes\FuenteDeReporte;
@@ -132,6 +133,11 @@ class Ingresos implements FuenteDeReporte
                 columnaSql: 'pagos.monto',
                 ordenable: true,
                 ancho: 12,
+                // Se suma, y su suma ES el corte de caja: el grano de esta
+                // fuente es el pago, así que cada peso aparece en un solo
+                // renglón. Es justo lo que el docblock de la clase protege al
+                // negarse a unir con `pago_adeudo` en crudo.
+                total: Agregacion::Suma,
             ),
             'metodo' => new ColumnaReporte(
                 clave: 'metodo',
@@ -171,6 +177,16 @@ class Ingresos implements FuenteDeReporte
                 ordenable: true,
                 ancho: 12,
                 ayuda: 'Cuánto de este pago se repartió entre cargos.',
+                /*
+                 * Se suma sobre `rep`, que ya viene AGRUPADA por pago: hay a lo
+                 * sumo una fila por pago, así que sumar la columna no repite
+                 * ningún peso. Sobre `pago_adeudo` en crudo sí lo repetiría.
+                 *
+                 * Los nulos como cero es lo correcto aquí: un pago sin reparto
+                 * —uno pendiente, o uno cobrado que nadie abonó— aportó cero al
+                 * total aplicado, que es una afirmación cierta y no un relleno.
+                 */
+                total: Agregacion::Suma,
             ),
             'sin_aplicar' => new ColumnaReporte(
                 clave: 'sin_aplicar',
@@ -179,6 +195,20 @@ class Ingresos implements FuenteDeReporte
                 valor: fn (Pago $p) => round((float) $p->monto - (float) ($p->aplicado ?? 0), 2),
                 ancho: 12,
                 ayuda: 'Dinero cobrado que todavía no se abonó a ningún cargo. Un saldo a favor, o un pago mal capturado.',
+                /*
+                 * Se suma, y es la cifra que EXPLICA un descuadre: cuánto del
+                 * dinero que entró no ha bajado ningún saldo. Sin total al pie
+                 * habría que restar dos columnas de cabeza para saberlo.
+                 *
+                 * Va con `sqlTotal` porque la columna no existe en la base: la
+                 * resta la hace una closure de PHP. La expresión repite esa
+                 * misma resta —`coalesce` incluido, que es el `?? 0` de la
+                 * closure— para que el pie no pueda decir algo distinto de lo
+                 * que suman los renglones. Los alias son los de `consulta()`:
+                 * `pagos` es la tabla base y `rep` el reparto ya agrupado.
+                 */
+                total: Agregacion::Suma,
+                sqlTotal: 'pagos.monto - coalesce(rep.aplicado, 0)',
             ),
             'cargos_que_cubre' => new ColumnaReporte(
                 clave: 'cargos_que_cubre',
@@ -186,7 +216,24 @@ class Ingresos implements FuenteDeReporte
                 tipo: TipoDato::Entero,
                 valor: fn (Pago $p) => (int) ($p->cargos ?? 0),
                 ancho: 8,
-                ayuda: 'A cuántos cargos se repartió. Es la relación a-muchos, contada — nunca desplegada en filas.',
+                ayuda: 'A cuántos cargos se repartió. Es la relación a-muchos, contada — nunca desplegada en filas. '
+                    .'No se totaliza: un cargo pagado en dos abonos se cuenta en los dos renglones, así que la suma '
+                    .'no sería el número de cargos cobrados sino el de parejas pago-cargo.',
+                /*
+                 * Un conteo POR FILA de una relación a-muchos, que es una de
+                 * las clases que enumera el docblock de `Agregacion`.
+                 *
+                 * Sumarlo da el número de renglones de `pago_adeudo`, y esa no
+                 * es la pregunta que el encabezado «Cargos» promete: un adeudo
+                 * liquidado en dos abonos —el caso PARCIAL, que esta escuela
+                 * tiene por diseño— aparece en los dos pagos y se contaría dos
+                 * veces. Nadie leería «Cargos: 412» como «412 parejas».
+                 *
+                 * Cuántos cargos DISTINTOS se cobraron es una pregunta del otro
+                 * grano, y se contesta en {@see Cargos} con su columna
+                 * «cobrado», donde una fila es un cargo y no un pago.
+                 */
+                total: Agregacion::Ninguno,
             ),
         ];
     }

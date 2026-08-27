@@ -8,6 +8,7 @@ use App\Models\Academico\Campus;
 use App\Models\Finanzas\Adeudo;
 use App\Models\Finanzas\ConceptoPago;
 use App\Models\Identidad\Usuario;
+use App\Reportes\Agregacion;
 use App\Reportes\ColumnaReporte;
 use App\Reportes\FiltroReporte;
 use App\Reportes\FuenteDeReporte;
@@ -146,6 +147,9 @@ class Cargos implements FuenteDeReporte
                 columnaSql: 'adeudos.monto',
                 ordenable: true,
                 ancho: 12,
+                // Cada fila es un cargo con su propio importe, así que la suma
+                // es lo que el motor de cobro facturó antes de tocar nada.
+                total: Agregacion::Suma,
             ),
             'recargos' => new ColumnaReporte(
                 clave: 'recargos',
@@ -155,6 +159,8 @@ class Cargos implements FuenteDeReporte
                 columnaSql: 'adeudos.monto_recargos',
                 ordenable: true,
                 ancho: 11,
+                // Cuánta mora acumuló la escuela en el conjunto consultado.
+                total: Agregacion::Suma,
             ),
             'descuentos' => new ColumnaReporte(
                 clave: 'descuentos',
@@ -165,6 +171,10 @@ class Cargos implements FuenteDeReporte
                 ordenable: true,
                 ancho: 11,
                 ayuda: 'Becas y descuentos ya aplicados al cargo. Viaja en positivo aunque reste.',
+                // Cuánto dejó de cobrar la escuela por becas y descuentos. Se
+                // suma en positivo, igual que viaja la celda: negarlo aquí
+                // haría que el pie dijera lo contrario que la columna.
+                total: Agregacion::Suma,
             ),
             'monto_total' => new ColumnaReporte(
                 clave: 'monto_total',
@@ -173,6 +183,9 @@ class Cargos implements FuenteDeReporte
                 columnaSql: 'adeudos.monto_total',
                 ordenable: true,
                 ancho: 12,
+                // Lo emitido de verdad, que es la cifra con la que se concilia
+                // la generación de cargos.
+                total: Agregacion::Suma,
             ),
             'cobrado' => new ColumnaReporte(
                 clave: 'cobrado',
@@ -187,6 +200,16 @@ class Cargos implements FuenteDeReporte
                 ordenable: true,
                 ancho: 12,
                 ayuda: 'Sólo lo cubierto por pagos COMPLETADOS: un depósito en espera de confirmación no baja nada.',
+                /*
+                 * Suma sobre la columna del JOIN, no sobre el alias.
+                 *
+                 * Un cargo sin un solo pago no trae fila en `ap`, así que su
+                 * `aplicado` es NULL y `sum()` lo salta — que es lo correcto:
+                 * no se cobró nada de él. El `coalesce` de la agregación es el
+                 * de afuera, y convierte «ningún cargo» en cero pesos, no en
+                 * NULL.
+                 */
+                total: Agregacion::Suma,
             ),
             'por_cobrar' => new ColumnaReporte(
                 clave: 'por_cobrar',
@@ -194,6 +217,20 @@ class Cargos implements FuenteDeReporte
                 tipo: TipoDato::Dinero,
                 valor: fn (Adeudo $a) => round((float) $a->monto_total - (float) ($a->aplicado ?? 0), 2),
                 ancho: 12,
+                /*
+                 * Sólo existe en PHP —es una resta entre dos importes—, así que
+                 * el pie necesita la expresión completa.
+                 *
+                 * Va CALCADA de la closure, con el mismo `coalesce` que ella
+                 * hace con `?? 0` y sin recortar en cero: si la expresión no
+                 * dijera exactamente lo mismo, el pie no sería la suma de lo
+                 * que el lector tiene delante, y el motor lo daría por bueno
+                 * porque su comprobación de cuadre sólo mira el CONTEO de filas.
+                 * Los alias son los de `consulta()`: `ap` es la subconsulta ya
+                 * agrupada del reparto.
+                 */
+                total: Agregacion::Suma,
+                sqlTotal: 'adeudos.monto_total - coalesce(ap.aplicado, 0)',
             ),
             'generado' => new ColumnaReporte(
                 clave: 'generado',

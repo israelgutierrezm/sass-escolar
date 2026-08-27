@@ -23,6 +23,8 @@ final readonly class ColumnaReporte
      * @param  string|null  $columnaSql  literal para ORDENAR; sólo lo escribe el código
      * @param  bool  $sensible  dato personal o financiero que no ve cualquiera
      * @param  string|null  $permisoExtra  permiso YA existente que además hace falta
+     * @param  Agregacion|null  $total  qué va al pie; OBLIGATORIO si el tipo es numérico
+     * @param  string|null  $sqlTotal  expresión completa a agregar, para las que sólo existen en PHP
      */
     public function __construct(
         public string $clave,
@@ -35,6 +37,8 @@ final readonly class ColumnaReporte
         public ?string $permisoExtra = null,
         public int $ancho = 16,
         public ?string $ayuda = null,
+        public ?Agregacion $total = null,
+        public ?string $sqlTotal = null,
     ) {
         /*
          * Doble red sobre `columnaSql`.
@@ -71,6 +75,56 @@ final readonly class ColumnaReporte
             throw new InvalidArgumentException(
                 "La columna «{$clave}» exige el permiso «{$permisoExtra}», que no está en CatalogoPermisos. "
                 .'Un permiso inexistente esconde la columna para todo el mundo, incluida dirección general.',
+            );
+        }
+
+        /*
+         * Una columna NUMÉRICA tiene que decir qué va al pie.
+         *
+         * No se deduce del tipo, y el porqué está en el docblock de
+         * `Agregacion`: entre las numéricas hay ordinales, umbrales repetidos
+         * por fila, conteos que no se suman entre sí y porcentajes. Un total
+         * ofrecido sobre una de ésas es una cifra que alguien va a citar.
+         *
+         * Se exige AL CONSTRUIRSE —o sea al arrancar— y no al pintar: quien
+         * escribe una columna de dinero nueva se entera en el momento, no un
+         * mes después con un pie de tabla equivocado en producción.
+         */
+        if ($tipo->esNumerico() && $total === null) {
+            throw new InvalidArgumentException(
+                "La columna «{$clave}» es numérica y no dice qué va al pie. Declara `total:` con "
+                .'`Agregacion::Suma`, `Agregacion::Promedio` o `Agregacion::Ninguno` — y si es Ninguno, '
+                .'escribe en su `ayuda` por qué no se totaliza.',
+            );
+        }
+
+        /*
+         * Y si se totaliza, tiene que haber QUÉ agregar.
+         *
+         * Las columnas que sólo existen en PHP —una closure sobre una relación,
+         * una resta entre dos importes— no tienen nada que meter dentro de un
+         * `sum()`. Para ésas se declara `sqlTotal` con la expresión completa,
+         * que `columnaSql` no puede llevar: su comprobación de forma sólo acepta
+         * `tabla.columna` porque ese literal se pega en un `ORDER BY`.
+         */
+        if ($total?->totaliza() && $columnaSql === null && $sqlTotal === null) {
+            throw new InvalidArgumentException(
+                "La columna «{$clave}» se totaliza pero sólo existe en PHP. Dale `sqlTotal:` con la "
+                .'expresión que hay que agregar, o declárala `Agregacion::Ninguno`.',
+            );
+        }
+
+        /*
+         * Un PORCENTAJE no se promedia sin ponderar.
+         *
+         * El 80 % de un grupo de 40 y el 100 % de uno de 2 no dan 90 %. Si un
+         * día hace falta el promedio ponderado, se declara con `sqlTotal` y su
+         * fórmula, no con esta bandera.
+         */
+        if ($tipo === TipoDato::Porcentaje && $total === Agregacion::Promedio && $sqlTotal === null) {
+            throw new InvalidArgumentException(
+                "La columna «{$clave}» es un porcentaje: promediarlo sin ponderar da un número falso. "
+                .'Declara la fórmula ponderada en `sqlTotal`, o ponla en `Agregacion::Ninguno`.',
             );
         }
 

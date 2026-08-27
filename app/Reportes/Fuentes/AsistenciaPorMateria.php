@@ -9,6 +9,7 @@ use App\Models\Asistencia\AsistenciaClase;
 use App\Models\ControlEscolar\Ciclo;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Identidad\Usuario;
+use App\Reportes\Agregacion;
 use App\Reportes\ColumnaReporte;
 use App\Reportes\FiltroReporte;
 use App\Reportes\FuenteDeReporte;
@@ -148,8 +149,24 @@ class AsistenciaPorMateria implements FuenteDeReporte
                 ordenable: true,
                 ancho: 9,
                 ayuda: 'Cuántas veces se le pasó lista. Sin este dato, un 100 % sobre dos sesiones se '
-                    .'lee igual que uno sobre cuarenta.',
+                    .'lee igual que uno sobre cuarenta. No se totaliza: es un conteo POR ALUMNO, así '
+                    .'que sumarlo cuenta cada clase una vez por inscrito —treinta alumnos de un grupo '
+                    .'con cuarenta sesiones darían «1200 sesiones» donde hubo cuarenta—.',
+                total: Agregacion::Ninguno,
             ),
+            /*
+             * Los CUATRO estatus sí se suman, al revés que las sesiones.
+             *
+             * La diferencia no es de estilo: una sesión es del GRUPO y el
+             * renglón la repite una vez por inscrito, mientras que una falta es
+             * de una persona en un día concreto y no la comparte nadie. Sumadas,
+             * las de cada renglón son conjuntos ajenos, así que «340 faltas» son
+             * 340 inasistencias de verdad y es el número que alguien pide.
+             *
+             * El nulo como cero es correcto aquí y no un maquillaje: a quien
+             * nadie le ha pasado lista se le han registrado cero faltas, que es
+             * justo lo que la celda enseña.
+             */
             'presentes' => new ColumnaReporte(
                 clave: 'presentes',
                 etiqueta: 'Presentes',
@@ -158,6 +175,7 @@ class AsistenciaPorMateria implements FuenteDeReporte
                 columnaSql: 'asis.presentes',
                 ordenable: true,
                 ancho: 10,
+                total: Agregacion::Suma,
             ),
             'faltas' => new ColumnaReporte(
                 clave: 'faltas',
@@ -167,6 +185,7 @@ class AsistenciaPorMateria implements FuenteDeReporte
                 columnaSql: 'asis.faltas',
                 ordenable: true,
                 ancho: 8,
+                total: Agregacion::Suma,
             ),
             'justificadas' => new ColumnaReporte(
                 clave: 'justificadas',
@@ -178,6 +197,7 @@ class AsistenciaPorMateria implements FuenteDeReporte
                 ancho: 12,
                 ayuda: 'NO cuentan como falta —para eso se justifican— pero tampoco son una presencia, '
                     .'así que van aparte en vez de sumarse a un lado y perder el dato.',
+                total: Agregacion::Suma,
             ),
             'retardos' => new ColumnaReporte(
                 clave: 'retardos',
@@ -189,6 +209,7 @@ class AsistenciaPorMateria implements FuenteDeReporte
                 ancho: 10,
                 ayuda: 'Su propia cosa: tres retardos NO son una falta salvo que la escuela lo decida, '
                     .'y esa regla todavía no existe en el sistema.',
+                total: Agregacion::Suma,
             ),
             'porcentaje' => new ColumnaReporte(
                 clave: 'porcentaje',
@@ -201,7 +222,25 @@ class AsistenciaPorMateria implements FuenteDeReporte
                     : round(((int) $i->presentes + (int) $i->justificadas) * 100 / (int) $i->sesiones, 1),
                 ancho: 13,
                 ayuda: 'Presentes MÁS justificadas, sobre las sesiones registradas. En blanco si nadie '
-                    .'le ha pasado lista: eso no es 0 % ni 100 %.',
+                    .'le ha pasado lista: eso no es 0 % ni 100 %. Tampoco se totaliza: los porcentajes '
+                    .'no se suman, y promediarlos sin ponderar mezcla a quien lleva cuarenta sesiones '
+                    .'con quien lleva dos —el 80 % de aquél y el 100 % de éste no dan 90 %—.',
+                /*
+                 * Y la ponderada tampoco cabe en `sqlTotal`, por lo mismo que en
+                 * la ocupación de los grupos: esa expresión va DENTRO del
+                 * `sum()`/`avg()` que arma {@see Agregacion::sql()}, y la
+                 * asistencia honesta del conjunto es
+                 * `sum(presentes + justificadas) / sum(sesiones)` —un cociente de
+                 * dos agregados, no una expresión por fila—. Puesta ahí produciría
+                 * `avg(sum(...)/sum(...))`, que MySQL rechaza con «Invalid use of
+                 * group function» (1111).
+                 *
+                 * Y aunque cupiera, habría que descartar a quien no tiene lista
+                 * pasada, que esta columna deja en blanco a propósito: sus
+                 * sesiones son NULL y sus presentes se enseñan como cero, así que
+                 * entrarían al numerador como inasistencias que nadie registró.
+                 */
+                total: Agregacion::Ninguno,
             ),
         ];
     }

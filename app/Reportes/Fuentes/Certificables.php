@@ -8,6 +8,7 @@ use App\Models\Academico\Campus;
 use App\Models\Academico\Carrera;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Identidad\Usuario;
+use App\Reportes\Agregacion;
 use App\Reportes\ColumnaReporte;
 use App\Reportes\FiltroReporte;
 use App\Reportes\FuenteDeReporte;
@@ -160,6 +161,19 @@ class Certificables implements FuenteDeReporte
                 ordenable: true,
                 ancho: 10,
                 ayuda: 'Materias DISTINTAS del plan aprobadas: un recursamiento aprobado dos veces cuenta una.',
+                /*
+                 * Sí se suma, al revés que el «Alumnos» de la fuente de grupos.
+                 *
+                 * Aquel conteo cuenta parejas porque el mismo alumno se le cuenta
+                 * a varios grupos. Aquí lo que se cuenta —una materia del plan
+                 * aprobada— cuelga de UNA matrícula (`historial.matricula_oferta_id`),
+                 * así que ninguna aprobación se cuenta dos veces y el pie dice
+                 * cuántas materias lleva aprobadas en total el conjunto
+                 * consultado. Y el `count(distinct)` de `apr` va agrupado por
+                 * matrícula y unido uno a uno, así que el join no multiplica
+                 * filas ni infla la suma.
+                 */
+                total: Agregacion::Suma,
             ),
             'meta' => new ColumnaReporte(
                 clave: 'meta',
@@ -169,7 +183,18 @@ class Certificables implements FuenteDeReporte
                 columnaSql: 'mp.meta',
                 ordenable: true,
                 ancho: 12,
-                ayuda: 'Su `minimo_asignaturas`, o el número de materias de su malla si no lo fija.',
+                ayuda: 'Su `minimo_asignaturas`, o el número de materias de su malla si no lo fija. '
+                    .'No se totaliza: es el umbral DEL PLAN y se repite igual en cada renglón de ese '
+                    .'plan, así que sumarlo cuenta el plan una vez por alumno inscrito. Por eso la '
+                    .'columna de al lado sí lleva pie y ésta no: el total de «Aprobadas» no es «de» '
+                    .'ningún total de aquí.',
+                /*
+                 * Y promediarla tampoco: la media saldría ponderada por cuántos
+                 * alumnos tiene cada plan, así que un plan con muchos inscritos
+                 * arrastraría la cifra y nadie la podría explicar. Lo que exige
+                 * un plan se lee plan por plan, en su renglón.
+                 */
+                total: Agregacion::Ninguno,
             ),
             'cerro_plan' => new ColumnaReporte(
                 clave: 'cerro_plan',

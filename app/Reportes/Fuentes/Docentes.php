@@ -10,6 +10,7 @@ use App\Models\ControlEscolar\Docente;
 use App\Models\ControlEscolar\SituacionDocente;
 use App\Models\ControlEscolar\TipoDocente;
 use App\Models\Identidad\Usuario;
+use App\Reportes\Agregacion;
 use App\Reportes\ColumnaReporte;
 use App\Reportes\FiltroReporte;
 use App\Reportes\FuenteDeReporte;
@@ -209,7 +210,19 @@ class Docentes implements FuenteDeReporte
                 ordenable: true,
                 ancho: 9,
                 ayuda: 'Materias vivas que imparte en el ciclo elegido. Las asignaciones retiradas no '
-                    .'cuentan, igual que en el listado de docentes.',
+                    .'cuentan, igual que en el listado de docentes. No se totaliza: la misma materia se '
+                    .'cuenta en su titular y en cada adjunto, así que la suma son parejas docente-materia '
+                    .'y no materias —y las que no tienen a nadie asignado no aparecen en ningún renglón—. '
+                    .'Cuántas materias hay abiertas lo contesta la fuente de grupos.',
+                /*
+                 * Es la misma clase de conteo que «Grupos» aunque no lleve
+                 * `distinct`: el pivote `docente_asignatura_grupo` guarda un
+                 * `tipo` —titular o adjunto— y el alta sólo limita a UN titular,
+                 * o sea que una materia compartida suma en los dos renglones. Al
+                 * pie de una columna que se llama «Materias», ese número se lee
+                 * como las materias de la escuela, y no lo es.
+                 */
+                total: Agregacion::Ninguno,
             ),
             'grupos' => new ColumnaReporte(
                 clave: 'grupos',
@@ -219,7 +232,13 @@ class Docentes implements FuenteDeReporte
                 columnaSql: 'carga.grupos',
                 ordenable: true,
                 ancho: 9,
-                ayuda: 'Grupos distintos. Dos materias del mismo grupo son un grupo, no dos.',
+                ayuda: 'Grupos distintos. Dos materias del mismo grupo son un grupo, no dos. No se '
+                    .'totaliza: es un COUNT(DISTINCT) por docente, y su suma son parejas docente-grupo '
+                    .'—un grupo con seis profesores se cuenta seis veces—. Cuántos grupos hay lo '
+                    .'contesta la fuente de grupos.',
+                // Es el ejemplo que el docblock de `Agregacion` usa para esta
+                // clase de columna, y por eso mismo no se le pone pie.
+                total: Agregacion::Ninguno,
             ),
             'titulos' => new ColumnaReporte(
                 clave: 'titulos',
@@ -230,6 +249,19 @@ class Docentes implements FuenteDeReporte
                 ordenable: true,
                 ancho: 9,
                 ayuda: 'Grados registrados en su expediente. Es lo que sostiene el perfil ante una acreditadora.',
+                /*
+                 * Aquí sí se suma, al revés que las dos de arriba: un título
+                 * cuelga de UNA persona y cada renglón es una persona distinta,
+                 * así que los conteos reparten sin repetir y el pie son los
+                 * grados que acumula la plantilla consultada —que es la cifra
+                 * que se le entrega a una acreditadora—.
+                 *
+                 * Promediarlos mentiría: el JOIN deja en NULL al docente sin un
+                 * solo título, `avg` salta los nulos y la media saldría sólo
+                 * entre quienes sí tienen, o sea más alta que la de la plantilla.
+                 * `sum` también los salta, pero saltar un cero no cambia la suma.
+                 */
+                total: Agregacion::Suma,
             ),
         ];
     }

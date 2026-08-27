@@ -127,6 +127,16 @@ class ReporteController extends Controller
                 'alineacion' => $c->alineacion(),
                 'ordenable' => $c->ordenable,
             ], $resultado->columnas),
+            /*
+             * El pie de la tabla, o null si ninguna columna pedida se totaliza.
+             *
+             * Sale de una consulta agregada aparte sobre el mismo builder ya
+             * recortado, NO de la pagina: un total sacado de la pagina diria
+             * «la cartera son 40 mil» cuando son los 40 mil de los 25 que se
+             * estan viendo, y sin recortar filtraria la cifra de toda la
+             * escuela debajo de una lista acotada a un plantel.
+             */
+            'totales' => $resultado->totales,
             // TODAS las de la fuente, para poder elegir cuáles se quieren.
             'disponibles' => array_values(array_map(fn (ColumnaReporte $c) => [
                 'clave' => $c->clave,

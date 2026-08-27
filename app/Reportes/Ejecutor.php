@@ -105,11 +105,103 @@ class Ejecutor
             filtros: $filtros,
             columnasOmitidas: $omitidas,
             milisegundos: (int) round((microtime(true) - $inicio) * 1000),
+            totales: $this->totales($consulta, $fuente, $columnas, $pagina->total()),
         );
 
         $this->anotar($usuario, $resultado, (string) ($peticion['formato'] ?? 'pantalla'));
 
         return $resultado;
+    }
+
+    /**
+     * El pie de la tabla: los totales de LO CONSULTADO.
+     *
+     * ── De una consulta aparte, no de la página ───────────────────────────
+     * Es la lección literal que dejó escrita la cartera: un total sacado de la
+     * página diría «la cartera son 40 mil» cuando son los 40 mil de los 25 que
+     * se están viendo. Y es además una FUGA — un total sin recortar filtra la
+     * cifra de toda la escuela debajo de una lista acotada a un plantel, que es
+     * el número más visible de la pantalla y el más fácil de dar por bueno—.
+     * Por eso se agrega sobre el MISMO builder ya recortado y filtrado.
+     *
+     * ── Hay que vaciar `columns` y `orders`, y las dos por su razón ───────
+     * 13 de las 14 fuentes traen un SELECT explícito, y meterle un agregado
+     * encima revienta con «In aggregated query without GROUP BY, expression #1
+     * of SELECT list contains nonaggregated column» (MySQL 1140). Y el ORDER BY
+     * que dejó `ordenar()` apunta a columnas que ya no están en el SELECT, que
+     * es otro error. Medido: con las dos cosas vacías, funciona en las catorce.
+     *
+     * ── Y se comprueba que CUADRE ────────────────────────────────────────
+     * La suma sólo vale si la consulta agregada ve exactamente las mismas filas
+     * que el paginador. Si no cuadra NO se enseña un número equivocado: se dice
+     * que no se pudo verificar, que es lo único honesto.
+     *
+     * **Contra qué protege, medido**: contra una fuente cuya `consulta()` lleve
+     * un `groupBy` o un `having`. Ahí `getCountForPagination()` devuelve el
+     * número de GRUPOS y esta agregada cuenta las filas de UNO —medido sobre el
+     * demo: 3 contra 6—, así que el pie sería el total del primer grupo
+     * presentado como el de todo el reporte.
+     *
+     * **Contra qué NO protege, también medido**: contra un `join` que
+     * multiplique. Ahí las dos consultas ven las mismas filas repetidas —17 y
+     * 17—, así que cuadran; lo que sale inflado es el listado ENTERO, no sólo su
+     * pie, y eso lo vigila el grano de cada fuente y la prueba de fan-out de la
+     * rebanada 7. Escribir aquí que lo cazaba habría sido prometer una red que
+     * no existe.
+     *
+     * ── Y SÓLO en pantalla ───────────────────────────────────────────────
+     * El CSV y el XLSX no llevan pie, a propósito: un archivo de datos se abre
+     * con otro programa —se importa, se filtra, se pega en una tabla dinámica— y
+     * un renglón final que no es un dato lo corrompe en silencio. Quien quiera
+     * el total en su hoja lo saca con la función de su hoja, que además le deja
+     * ver de dónde sale.
+     *
+     * @param  array<int, string>  $columnas
+     * @return array{cuadra: bool, filas: int, valores: array<string, float|null>}|null
+     */
+    private function totales(Builder $consulta, FuenteDeReporte $fuente, array $columnas, int $total): ?array
+    {
+        $catalogo = $fuente->columnas();
+
+        $agregables = array_filter(
+            $columnas,
+            fn (string $c) => $catalogo[$c]->total?->totaliza() === true,
+        );
+
+        if ($agregables === []) {
+            return null;
+        }
+
+        $seleccion = ['count(*) as cuantas_filas'];
+
+        foreach ($agregables as $clave) {
+            $columna = $catalogo[$clave];
+            $expresion = $columna->sqlTotal ?? $columna->columnaSql;
+            $seleccion[] = $columna->total->sql($expresion)." as total_{$clave}";
+        }
+
+        $agregada = (clone $consulta)->toBase();
+        $agregada->columns = null;
+        $agregada->orders = null;
+
+        $fila = $agregada->selectRaw(implode(', ', $seleccion))->first();
+
+        if ($fila === null) {
+            return null;
+        }
+
+        $valores = [];
+
+        foreach ($agregables as $clave) {
+            $bruto = $fila->{"total_{$clave}"};
+            $valores[$clave] = $bruto === null ? null : (float) $bruto;
+        }
+
+        return [
+            'cuadra' => (int) $fila->cuantas_filas === $total,
+            'filas' => (int) $fila->cuantas_filas,
+            'valores' => $valores,
+        ];
     }
 
     /**
