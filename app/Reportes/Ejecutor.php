@@ -106,6 +106,7 @@ class Ejecutor
             columnasOmitidas: $omitidas,
             milisegundos: (int) round((microtime(true) - $inicio) * 1000),
             totales: $this->totales($consulta, $fuente, $columnas, $pagina->total()),
+            orden: array_slice($this->ordenResuelto($fuente, $reporte, $peticion), 1),
         );
 
         $this->anotar($usuario, $resultado, (string) ($peticion['formato'] ?? 'pantalla'));
@@ -471,6 +472,28 @@ class Ejecutor
      */
     private function ordenPedido(FuenteDeReporte $fuente, DefinicionReporte $reporte, array $peticion): array
     {
+        [, $clave, $dir] = $this->ordenResuelto($fuente, $reporte, $peticion);
+        $catalogo = $fuente->columnas();
+
+        return [$clave === null ? null : $catalogo[$clave]->columnaSql, $dir];
+    }
+
+    /**
+     * Por qué columna se está ordenando de verdad, y hacia dónde.
+     *
+     * Devuelve la CLAVE además de la columna SQL, y hace falta: la pantalla
+     * necesita saber cuál de sus cabeceras marcar, y con sólo el literal de SQL
+     * no puede — dos columnas distintas pueden salir de la misma tabla.
+     *
+     * Y devuelve null cuando lo pedido no se puede aplicar, que es la misma
+     * respuesta que el motor le da a la consulta: así la flecha de la pantalla
+     * no aparece sobre una columna por la que en realidad no se está ordenando.
+     *
+     * @param  array<string, mixed>  $peticion
+     * @return array{0: bool, 1: string|null, 2: string}
+     */
+    private function ordenResuelto(FuenteDeReporte $fuente, DefinicionReporte $reporte, array $peticion): array
+    {
         $catalogo = $fuente->columnas();
         [$porOmision, $dirOmision] = $reporte->ordenPorOmision() ?? [null, 'asc'];
 
@@ -479,11 +502,9 @@ class Ejecutor
             ? ($peticion['orden_dir'] ?? $dirOmision)
             : 'asc';
 
-        $columna = is_string($por) && isset($catalogo[$por]) && $catalogo[$por]->ordenable
-            ? $catalogo[$por]->columnaSql
-            : null;
+        $aplicable = is_string($por) && isset($catalogo[$por]) && $catalogo[$por]->ordenable;
 
-        return [$columna, $dir];
+        return [$aplicable, $aplicable ? $por : null, $dir];
     }
 
     /**

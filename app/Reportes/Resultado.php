@@ -42,6 +42,17 @@ final readonly class Resultado
          * @var array{cuadra: bool, filas: int, valores: array<string, float|null>}|null
          */
         public ?array $totales = null,
+        /**
+         * Por qué columna se está ordenando y hacia dónde: `[clave|null, dir]`.
+         *
+         * La CLAVE y no el literal de SQL, porque es lo que la pantalla necesita
+         * para marcar su cabecera. Y null cuando lo pedido no se puede aplicar,
+         * para que la flecha no aparezca sobre una columna por la que en
+         * realidad no se ordena.
+         *
+         * @var array{0: string|null, 1: string}
+         */
+        public array $orden = [null, 'asc'],
     ) {}
 
     /** Cuántas filas tiene el reporte completo, no la página. */

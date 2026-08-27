@@ -137,6 +137,11 @@ class ReporteController extends Controller
              * escuela debajo de una lista acotada a un plantel.
              */
             'totales' => $resultado->totales,
+            // Por que columna se ordena de verdad, para que la cabecera lo
+            // marque. Sale del MOTOR y no del request: lo que se pidio puede no
+            // ser aplicable, y entonces la flecha estaria sobre una columna por
+            // la que no se esta ordenando.
+            'orden' => ['por' => $resultado->orden[0], 'dir' => $resultado->orden[1]],
             // TODAS las de la fuente, para poder elegir cuáles se quieren.
             'disponibles' => array_values(array_map(fn (ColumnaReporte $c) => [
                 'clave' => $c->clave,

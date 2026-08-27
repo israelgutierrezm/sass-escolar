@@ -443,6 +443,110 @@ try {
         $rechazo !== null && str_contains($rechazo, 'no es ordenable'),
         $rechazo === null ? 'lo aceptó' : mb_substr($rechazo, 0, 80).'…');
 
+    /*
+     * ── El orden RESUELTO viaja a la pantalla ─────────────────────────────
+     *
+     * Hasta hoy el backend aceptaba `orden_por` desde la primera rebanada y las
+     * 14 fuentes declaraban 165 ranuras `ordenable`, pero el `<th>` no era
+     * pulsable: al orden sólo se llegaba escribiendo la dirección a mano. Esta
+     * suite entera comprobaba un camino que nadie tenía.
+     *
+     * Lo que hace falta para marcar la cabecera es la CLAVE, no el literal de
+     * SQL: dos columnas distintas pueden salir de la misma tabla. Y tiene que
+     * salir del MOTOR y no del request, porque lo pedido puede no ser aplicable
+     * —y entonces la flecha estaría sobre una columna por la que en realidad no
+     * se ordena—.
+     */
+    echo PHP_EOL.'5. El orden que se aplica es el que la pantalla enseña'.PHP_EOL;
+
+    $conOrden = null;
+
+    foreach ($registro->todos() as $clave => $definicion) {
+        $fuente = $registro->fuente($definicion->fuente());
+        $ordenables = array_keys(array_filter($fuente->columnas(), fn ($c) => $c->ordenable));
+
+        if (count($ordenables) < 2) {
+            continue;
+        }
+
+        $conOrden = [$clave, $definicion, $fuente, $ordenables];
+        break;
+    }
+
+    verificar('Hay un reporte con dos columnas ordenables',
+        $conOrden !== null, $conOrden === null ? 'ninguno' : $conOrden[0]);
+
+    if ($conOrden !== null) {
+        [$clave, $definicion, $fuente, $ordenables] = $conOrden;
+        $base = ['filtros' => $obligatorios($fuente, $definicion)];
+
+        $pedida = $ordenables[1];
+
+        $r = $ejecutor->ejecutar($usuario, $clave, $base + [
+            'orden_por' => $pedida, 'orden_dir' => 'desc',
+        ]);
+
+        verificar('Devuelve la CLAVE por la que ordena, no la columna SQL',
+            $r->orden[0] === $pedida, json_encode($r->orden));
+
+        verificar('Y la dirección que se pidió', $r->orden[1] === 'desc');
+
+        /*
+         * Y lo que NO se puede aplicar se dice en null. Sin esto, la pantalla
+         * pintaría la flecha sobre una columna por la que no está ordenando —que
+         * es peor que no pintarla: afirma algo falso sobre el orden—.
+         */
+        $noOrdenable = null;
+
+        foreach ($fuente->columnas() as $k => $c) {
+            if (! $c->ordenable) {
+                $noOrdenable = $k;
+                break;
+            }
+        }
+
+        if ($noOrdenable !== null) {
+            $imposible = $ejecutor->ejecutar($usuario, $clave, $base + [
+                'orden_por' => $noOrdenable, 'orden_dir' => 'asc',
+            ]);
+
+            verificar('Pedir orden por una columna NO ordenable devuelve null',
+                $imposible->orden[0] === null,
+                $noOrdenable.' → '.json_encode($imposible->orden));
+        }
+
+        $inventada = $ejecutor->ejecutar($usuario, $clave, $base + [
+            'orden_por' => 'no-existe-esta-columna', 'orden_dir' => 'asc',
+        ]);
+
+        verificar('Y una columna inventada tampoco se marca',
+            $inventada->orden[0] === null, json_encode($inventada->orden));
+
+        /*
+         * Y ordena DE VERDAD: las dos direcciones dan el primer renglón
+         * distinto. Sin esto, devolver la clave correcta y no aplicar el orden
+         * pasaría en verde.
+         */
+        $columnaOrdenable = $ordenables[0];
+        $columnas = array_slice(array_keys($fuente->columnas()), 0, 8);
+
+        $asc = $ejecutor->ejecutar($usuario, $clave, $base + [
+            'orden_por' => $columnaOrdenable, 'orden_dir' => 'asc', 'columnas' => $columnas,
+        ]);
+        $desc = $ejecutor->ejecutar($usuario, $clave, $base + [
+            'orden_por' => $columnaOrdenable, 'orden_dir' => 'desc', 'columnas' => $columnas,
+        ]);
+
+        if ($asc->total() > 1) {
+            verificar('Las dos direcciones dan un primer renglón distinto',
+                ($asc->filas[0][$columnaOrdenable] ?? null) !== ($desc->filas[0][$columnaOrdenable] ?? null),
+                $columnaOrdenable.': asc «'.json_encode($asc->filas[0][$columnaOrdenable] ?? null)
+                    .'» vs desc «'.json_encode($desc->filas[0][$columnaOrdenable] ?? null).'»');
+        } else {
+            echo '  (el reporte tiene una sola fila; se omite el caso de las dos direcciones)'.PHP_EOL;
+        }
+    }
+
     echo PHP_EOL.'Resultado: '.($verificaciones - $fallidas)." correctas, {$fallidas} fallidas".PHP_EOL;
 
 } finally {

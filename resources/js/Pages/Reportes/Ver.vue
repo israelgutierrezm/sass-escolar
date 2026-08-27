@@ -68,19 +68,54 @@ const props = defineProps<{
     vistaActiva: number | null;
     puedeCompartir: boolean;
     esFavorito: boolean;
+    /** Por que columna se ordena y hacia donde. `por` en null = por la llave. */
+    orden: { por: string | null; dir: string };
 }>();
 
 const eligiendo = ref(false);
 const valores = ref<Record<string, unknown>>({ ...props.aplicados });
 const elegidas = ref<string[]>(props.columnas.map((c) => c.clave));
 
+const ordenPor = ref<string | null>(props.orden.por);
+const ordenDir = ref<string>(props.orden.dir);
+
 /** Recarga con lo que hay en pantalla. La URL lleva todo: el resultado es enlazable. */
 function aplicar(): void {
     router.get(
         `/reportes/${props.reporte.clave}`,
-        { filtros: valores.value, columnas: elegidas.value },
+        {
+            filtros: valores.value,
+            columnas: elegidas.value,
+            // El orden viaja por la MISMA via que los filtros, asi que entra en
+            // la URL y de ahi lo recoge la descarga: el Excel sale ordenado como
+            // la pantalla sin escribir una linea mas.
+            orden_por: ordenPor.value,
+            orden_dir: ordenDir.value,
+        },
         { preserveState: true, preserveScroll: true },
     );
+}
+
+/**
+ * Pulsar una cabecera ordena por ella; volver a pulsarla le da la vuelta.
+ *
+ * El backend aceptaba `orden_por` desde el primer dia y habia 165 ranuras
+ * `ordenable` declaradas en las 14 fuentes, pero el `<th>` no era pulsable: al
+ * orden solo se llegaba escribiendo la direccion a mano. Una suite entera lo
+ * comprobaba sobre un camino que nadie tenia.
+ *
+ * La primera pulsada va ASCENDENTE porque es lo que se espera de una lista;
+ * para una fecha o un importe, la segunda da lo que casi siempre se busca.
+ */
+function ordenarPor(clave: string): void {
+    if (ordenPor.value === clave) {
+        ordenDir.value = ordenDir.value === 'asc' ? 'desc' : 'asc';
+    } else {
+        ordenPor.value = clave;
+        ordenDir.value = 'asc';
+    }
+
+    aplicar();
 }
 
 function alternarColumna(clave: string): void {
@@ -390,7 +425,30 @@ function claseAlineacion(a: string): string {
                                 :key="c.clave"
                                 class="whitespace-nowrap px-4 pb-2 pt-3 font-medium"
                                 :class="claseAlineacion(c.alineacion)"
-                            >{{ c.etiqueta }}</th>
+                                :aria-sort="orden.por === c.clave
+                                    ? (orden.dir === 'asc' ? 'ascending' : 'descending')
+                                    : 'none'"
+                            >
+                                <!-- Boton solo donde SE PUEDE ordenar: una
+                                     cabecera que invita a pulsarla y no hace
+                                     nada es peor que una que no invita. Lo que
+                                     no es ordenable no tiene columna SQL, y el
+                                     motor lo descartaria en silencio. -->
+                                <button
+                                    v-if="c.ordenable"
+                                    type="button"
+                                    class="inline-flex items-center gap-1 hover:underline"
+                                    :title="`Ordenar por ${c.etiqueta}`"
+                                    @click="ordenarPor(c.clave)"
+                                >
+                                    {{ c.etiqueta }}
+                                    <span
+                                        v-if="orden.por === c.clave"
+                                        aria-hidden="true"
+                                    >{{ orden.dir === 'asc' ? '↑' : '↓' }}</span>
+                                </button>
+                                <span v-else>{{ c.etiqueta }}</span>
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
