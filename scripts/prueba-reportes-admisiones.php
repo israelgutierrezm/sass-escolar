@@ -23,19 +23,23 @@
  *  6. Un reporte con filtros OBLIGATORIOS se niega a correr sin ellos.
  */
 
+use App\Exceptions\AvisoParaElUsuario;
 use App\Models\Academico\Campus;
 use App\Models\Admisiones\Aspirante;
+use App\Models\Admisiones\EtapaCrm;
+use App\Models\Admisiones\MatriculaOferta;
+use App\Models\Admisiones\SituacionAlumno;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Docente;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\Rol;
 use App\Models\Identidad\Usuario;
-use App\Models\Admisiones\EtapaCrm;
 use App\Models\Promocion\ResultadoSeguimiento;
 use App\Models\Promocion\SeguimientoAspirante;
 use App\Models\Tenant;
 use App\Reportes\Ejecutor;
 use App\Reportes\RegistroReportes;
+use App\Support\CatalogoPermisos;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -151,11 +155,11 @@ try {
         ->where('id', '!=', $victima->id)
         ->firstOrFail();
 
-    App\Models\Admisiones\MatriculaOferta::create([
+    MatriculaOferta::create([
         'persona_id' => $porConvertir->persona_id,
         'oferta_id' => $porConvertir->oferta_interes_id,
         'matricula' => 'PRUEBA-'.random_int(100000, 999999),
-        'situacion_id' => App\Models\Admisiones\SituacionAlumno::query()->where('clave', 'activo')->value('id'),
+        'situacion_id' => SituacionAlumno::query()->where('clave', 'activo')->value('id'),
         'fecha_ingreso' => now()->toDateString(),
         'periodo_actual' => 1,
         // NOT NULL sin valor por omision: se copia el de una fila viva en vez
@@ -497,14 +501,21 @@ try {
 
     $motivo = null;
 
+    /*
+     * Se atrapaba `\Throwable` y se exigía sólo `$motivo !== null`, así que un
+     * TypeError o un QueryException habrían pasado por «se niega bien». Este
+     * proyecto ya se cobró dos veces el `catch` pelado con `QueryException`, que
+     * desciende de `RuntimeException`. Ahora se exige el TIPO y el 422.
+     */
     try {
         $ejecutor->ejecutar($global, 'docentes-sin-carga', ['columnas' => ['clave_profesor']]);
-    } catch (\Throwable $e) {
-        $motivo = class_basename($e);
+    } catch (AvisoParaElUsuario $e) {
+        $motivo = $e->getStatusCode().': '.$e->getMessage();
     }
 
     verificar('«Docentes sin carga» se niega a correr sin ciclo',
-        $motivo !== null, $motivo ?? 'lo ejecutó');
+        $motivo !== null && str_starts_with($motivo, '422') && str_contains($motivo, 'Ciclo'),
+        $motivo ?? 'lo ejecutó');
 
     $ciclo = DB::table('grupos')->whereNull('deleted_at')->value('ciclo_id');
 
@@ -515,6 +526,132 @@ try {
 
     verificar('Con el ciclo puesto sí corre',
         $conCiclo->isNotEmpty(), $conCiclo->count().' docentes sin carga en ese ciclo');
+
+    /*
+     * ── Lo que una revisión adversaria encontró en la plantilla docente ───
+     *
+     * Los tres eran silenciosos: ninguno da error.
+     */
+    echo PHP_EOL.'10. Las columnas sensibles y el filtro de cédula'.PHP_EOL;
+
+    auth()->login($global);
+
+    /*
+     * (a) Un `permisoExtra` que NO EXISTE esconde la columna para TODO EL MUNDO.
+     *
+     * Las cuatro columnas sensibles pedían «editar-docentes», que nunca estuvo
+     * en `CatalogoPermisos` ni en la tabla `permissions`. Falla CERRADO —no hay
+     * fuga— y por eso llevaba meses sin notarse: la columna sale del Excel sin
+     * decir por qué, y la pantalla le explica a dirección general que «tu rol no
+     * las alcanza».
+     *
+     * Se comprueba por los DOS lados: que el permiso exista, y que con él la
+     * columna LLEGUE. Sólo lo primero es lo que ya se comprobaba antes —que se
+     * omitiera— y eso funcionaba: era la mitad que no se miraba.
+     */
+    $sensibles = ['email', 'celular', 'curp', 'rfc'];
+
+    foreach ($sensibles as $clave) {
+        $columna = $registro->fuente('docentes')->columnas()[$clave];
+
+        verificar("La columna «{$clave}» exige un permiso que EXISTE",
+            $columna->permisoExtra !== null && CatalogoPermisos::existe($columna->permisoExtra),
+            (string) $columna->permisoExtra);
+    }
+
+    $conSensibles = $ejecutor->ejecutar($global, 'plantilla-docente', [
+        'columnas' => array_merge(['clave_profesor'], $sensibles),
+    ]);
+
+    verificar('Y quien tiene el permiso las RECIBE, no sólo deja de verlas omitidas',
+        $conSensibles->columnasOmitidas === []
+            && collect($conSensibles->columnas)->pluck('clave')->intersect($sensibles)->count() === 4,
+        'omitidas: '.(implode(', ', $conSensibles->columnasOmitidas) ?: 'ninguna'));
+
+    verificar('Y traen dato de verdad',
+        collect($conSensibles->filas)->contains(fn (array $f) => ($f['curp'] ?? null) !== null),
+        'primera: '.json_encode(collect($conSensibles->filas)->first(), JSON_UNESCAPED_UNICODE));
+
+    /*
+     * (b) El filtro «sin cédula» comparaba contra la cadena literal «=».
+     *
+     * `orWhere('col', '=')` con DOS argumentos no compara contra la cadena
+     * vacía: Laravel toma el segundo como VALOR y compila `col = '='`. La lista
+     * existe para encontrar a quien no puede recibir materias, y quien dejó la
+     * cédula en blanco se quedaba fuera de ella.
+     */
+    $victima = DB::table('docentes')->whereNotNull('cedula_profesional')->first();
+
+    verificar('Hay un docente CON cédula al que volverle la cédula vacía',
+        $victima !== null);
+
+    DB::table('docentes')->where('persona_id', $victima->persona_id)->update(['cedula_profesional' => '']);
+
+    $sinCedula = collect($ejecutor->ejecutar($global, 'plantilla-docente', [
+        'columnas' => ['clave_profesor', 'cedula'],
+        'filtros' => ['sin_cedula' => true],
+    ])->filas);
+
+    verificar('La cédula VACÍA cuenta como sin cédula',
+        $sinCedula->contains(fn (array $f) => $f['clave_profesor'] === $victima->clave_profesor),
+        $sinCedula->count().' sin cédula');
+
+    DB::table('docentes')->where('persona_id', $victima->persona_id)->update(['cedula_profesional' => null]);
+
+    verificar('Y la NULA también',
+        collect($ejecutor->ejecutar($global, 'plantilla-docente', [
+            'columnas' => ['clave_profesor'],
+            'filtros' => ['sin_cedula' => true],
+        ])->filas)->contains(fn (array $f) => $f['clave_profesor'] === $victima->clave_profesor));
+
+    DB::table('docentes')->where('persona_id', $victima->persona_id)
+        ->update(['cedula_profesional' => $victima->cedula_profesional]);
+
+    /*
+     * (c) La tolerancia de `incluirSinAsignar` perdonaba TRES cosas y no una.
+     *
+     * El docente sin campus asignado se enseña a todos —es una cola de trabajo—.
+     * El docente cuyo campus se BORRÓ no: eso no es «todavía no le asignan», es
+     * una fuga, y se colaba en el listado de todos los coordinadores.
+     */
+    echo PHP_EOL.'11. Borrar un plantel no reparte a sus docentes entre los demás'.PHP_EOL;
+
+    $campusDelDocente = DB::table('campus')->whereNull('deleted_at')->orderBy('id')->value('id');
+    $otroCampus = DB::table('campus')->whereNull('deleted_at')->where('id', '!=', $campusDelDocente)->value('id');
+    $coordinador = usuarioConRol('director_general', $otroCampus);
+
+    $victima2 = DB::table('docentes')->whereNull('deleted_at')
+        ->where('persona_id', '!=', $victima->persona_id)->first();
+
+    $antes = collect($ejecutor->ejecutar($coordinador, 'plantilla-docente', ['columnas' => ['clave_profesor']])->filas)
+        ->pluck('clave_profesor');
+
+    verificar('El coordinador del otro campus NO lo ve mientras su plantel vive',
+        ! $antes->contains($victima2->clave_profesor),
+        $antes->count().' docentes');
+
+    // Un plantel propio, sin oferta, que es lo único que `destroy` exige.
+    $efimero = Campus::create(['nombre' => 'Campus Efímero', 'clave' => 'EFI-'.random_int(100, 999), 'identificador' => 'EFI-'.random_int(100, 999)]);
+    DB::table('campus_docente')->where('persona_id', $victima2->persona_id)->delete();
+    DB::table('campus_docente')->insert([
+        'persona_id' => $victima2->persona_id,
+        'campus_id' => $efimero->id,
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+    $efimero->delete();   // borrado LÓGICO, el camino de `CampusController::destroy`
+
+    $despues = collect($ejecutor->ejecutar($coordinador, 'plantilla-docente', ['columnas' => ['clave_profesor']])->filas)
+        ->pluck('clave_profesor');
+
+    verificar('Y tampoco después de que su plantel se borre',
+        ! $despues->contains($victima2->clave_profesor),
+        $despues->count().' docentes');
+
+    auth()->login($global);
+
+    verificar('Aunque quien ve toda la escuela sí lo siga viendo',
+        collect($ejecutor->ejecutar($global, 'plantilla-docente', ['columnas' => ['clave_profesor']])->filas)
+            ->pluck('clave_profesor')->contains($victima2->clave_profesor));
 
     echo PHP_EOL.'Resultado: '.($verificaciones - $fallidas)." correctas, {$fallidas} fallidas".PHP_EOL;
 } finally {

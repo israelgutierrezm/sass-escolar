@@ -64,7 +64,8 @@ class Ingresos implements FuenteDeReporte
     public function grano(): string
     {
         return 'Una fila es un PAGO. Un depósito que cubre tres mensualidades sale UNA vez, no tres. '
-            .'NO incluye lo que pagan los ASPIRANTES antes de matricularse: eso va en «Cobros de aspirantes».';
+            .'NO incluye lo que pagan los ASPIRANTES antes de matricularse: eso se ve en la ficha de cada '
+            .'aspirante y todavía no tiene reporte propio.';
     }
 
     public function permiso(): string
@@ -247,7 +248,16 @@ class Ingresos implements FuenteDeReporte
     public function consulta(Usuario $usuario, array $filtros): Builder
     {
         return Pago::query()
-            ->whereNotNull('pagos.matricula_oferta_id')
+            /*
+             * Por la RELACIÓN y no por la columna: el recorte por campus llega a
+             * la matrícula con un `whereHas`, así que admitir aquí una fila cuya
+             * matrícula no se puede resolver la hace visible SÓLO para quien ve
+             * toda la escuela. El total del mismo reporte dependería de quién lo
+             * corre, y la fila saldría con matrícula, alumno, carrera y campus en
+             * blanco. Hoy nada lo dispara —ningún camino del código borra una
+             * matrícula—, pero es una palabra y cierra la asimetría.
+             */
+            ->whereHas('matriculaOferta')
             ->with([
                 'matriculaOferta:id,persona_id,oferta_id,matricula',
                 'matriculaOferta.persona:id,nombre,primer_apellido,segundo_apellido',

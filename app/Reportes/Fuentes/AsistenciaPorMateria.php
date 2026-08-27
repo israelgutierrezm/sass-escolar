@@ -40,6 +40,17 @@ use Illuminate\Support\Facades\DB;
  * retardo es su propia cosa: tres retardos no son una falta salvo que la
  * escuela lo decida, y esa regla no existe todavía en el sistema.
  *
+ * ── Los DADOS DE BAJA no salen ───────────────────────────────────────────
+ * Y hay que decirlo porque no salía de balde: al que se dio de baja de una
+ * materia NO se le puede pasar lista —`DocenciaController` lo saca de la lista
+ * del docente—, así que se quedaba para siempre en la cola de «materias sin
+ * lista pasada» sin gesto que la limpiara, y en «asistencia en riesgo» con un
+ * 0 % que nadie podía corregir.
+ *
+ * El criterio es el que ya usaban `CargaAcademica`, `Grupo::inscritosDelGrupo()`
+ * y `SalaDeMateria`: la clave del catálogo distinta de `baja`, tolerando el NULL
+ * —una inscripción sin situación todavía cuenta—.
+ *
  * ── Lo que NO se ofrece: el UMBRAL del derecho a examen ──────────────────
  * No hay ajuste que lo declare —se buscó en `CatalogoAjustes` y no está—, así
  * que una columna «¿pierde el derecho?» tendría que inventarse un porcentaje.
@@ -94,6 +105,8 @@ class AsistenciaPorMateria implements FuenteDeReporte
                 clave: 'matricula',
                 etiqueta: 'Matrícula',
                 valor: fn (Inscripcion $i) => $i->matriculaOferta?->matricula,
+                columnaSql: 'mo.matricula',
+                ordenable: true,
                 ancho: 14,
             ),
             'alumno' => new ColumnaReporte(
@@ -270,6 +283,19 @@ class AsistenciaPorMateria implements FuenteDeReporte
     {
         return Inscripcion::query()
             ->select('inscripcion.*')
+            /*
+             * Fuera los dados de baja: ver el docblock. Al que ya no está no se
+             * le puede pasar lista, así que su renglón es una tarea imposible.
+             */
+            ->leftJoin('situaciones_inscripcion as si', 'si.id', '=', 'inscripcion.situacion_id')
+            ->where(fn ($q) => $q->whereNull('si.clave')->orWhere('si.clave', '!=', 'baja'))
+            /*
+             * La matrícula, para poder ORDENAR por ella. Es un `belongsTo`, así
+             * que el join no multiplica filas; el `with` de abajo sigue sirviendo
+             * para pintar, y esto sólo existe para el `ORDER BY` —que no puede
+             * salir de una relación cargada después—.
+             */
+            ->leftJoin('matricula_oferta as mo', 'mo.id', '=', 'inscripcion.matricula_oferta_id')
             ->with([
                 'matriculaOferta:id,persona_id,oferta_id,matricula',
                 'matriculaOferta.persona:id,nombre,primer_apellido,segundo_apellido',
@@ -296,7 +322,13 @@ class AsistenciaPorMateria implements FuenteDeReporte
                 '=',
                 'inscripcion.id',
             )
-            ->addSelect(['asis.sesiones', 'asis.presentes', 'asis.faltas', 'asis.justificadas', 'asis.retardos']);
+            /*
+             * `mo.matricula` viaja al SELECT porque el keyset compara el
+             * ATRIBUTO de la fila contra la columna: sin él, exportar ordenando
+             * por matrícula se detiene con «la fila no trae el atributo». El
+             * alias tiene que ser el último segmento de `columnaSql`.
+             */
+            ->addSelect(['asis.sesiones', 'asis.presentes', 'asis.faltas', 'asis.justificadas', 'asis.retardos', 'mo.matricula']);
     }
 
     public function llavePrimaria(): string

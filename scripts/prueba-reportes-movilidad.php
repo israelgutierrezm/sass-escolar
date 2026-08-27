@@ -344,8 +344,16 @@ try {
 
     auth()->login($global);
 
+    /*
+     * Pasaba `true` literal. La regla que dice cubrir —que esta fuente NO usa
+     * `sinCampus`, que lanzaría 403 a todo rol acotado— la sostiene de verdad la
+     * línea de arriba: si lo usara, la ejecución habría muerto ahí y la suite
+     * entera con ella. Aquí se comprueba lo único que quedaba sin mirar: que el
+     * acotado ve MENOS que el global y no cero.
+     */
     verificar('Y NO se le niega el área entera con un 403',
-        true, 've '.$suyas->count().' de '.$conEntrante->count());
+        $suyas->isNotEmpty() && $suyas->count() < $conEntrante->count(),
+        've '.$suyas->count().' de '.$conEntrante->count());
 
     echo PHP_EOL.'Resultado: '.($verificaciones - $fallidas)." correctas, {$fallidas} fallidas".PHP_EOL;
 } finally {

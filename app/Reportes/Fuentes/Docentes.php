@@ -88,6 +88,13 @@ class Docentes implements FuenteDeReporte
      * esconderlo de todos los planteles lo convierte en un expediente que nadie
      * revisa. Es la misma decisión que `porColumnaPropia` toma con el campus en
      * null, y aquí se escribe porque desde hoy hay que pedirla.
+     *
+     * Ese ES el único caso que se perdona, y hubo que apretarlo: la tolerancia
+     * miraba la relación viva, así que también dejaba pasar —para TODOS los
+     * campus— al docente cuyo plantel se dio de BAJA LÓGICA. La analogía con
+     * `porColumnaPropia` no alcanzaba hasta ahí: borrar un campus no pone la
+     * foránea en null, así que aquella tolerancia no puede dispararse por ese
+     * camino y ésta sí. Ver `Recorte::aplicar`.
      */
     public function recorte(): Recorte
     {
@@ -145,12 +152,28 @@ class Docentes implements FuenteDeReporte
                 ancho: 28,
                 ayuda: 'El de la escuela, no el personal: es dato de trabajo y no de contacto privado.',
             ),
+            /*
+             * El permiso extra es `gestionar-docentes`, y hubo que corregirlo:
+             * las cuatro columnas de abajo pedían `editar-docentes`, que NO
+             * EXISTE —ni en `CatalogoPermisos` ni en la tabla `permissions`—.
+             *
+             * Y el efecto era silencioso y total: una columna cuyo
+             * `permisoExtra` no existe se omite para TODO EL MUNDO, incluida
+             * dirección general, que hereda todos los permisos de su faceta. Las
+             * cuatro salían vacías siempre y el reporte lo ANOTABA como «omitida
+             * por permisos», así que ni siquiera parecía un error.
+             *
+             * Lo cazó una revisión adversaria; tres de sus cinco lentes lo
+             * reportaron por separado. Ninguna suite lo veía porque todas
+             * comprobaban la omisión —que funcionaba— y ninguna comprobaba que
+             * la columna SÍ llegara a quien tiene el permiso.
+             */
             'email' => new ColumnaReporte(
                 clave: 'email',
                 etiqueta: 'Correo personal',
                 valor: fn (Docente $d) => $d->persona?->email,
                 sensible: true,
-                permisoExtra: 'editar-docentes',
+                permisoExtra: 'gestionar-docentes',
                 ancho: 26,
             ),
             'celular' => new ColumnaReporte(
@@ -158,7 +181,7 @@ class Docentes implements FuenteDeReporte
                 etiqueta: 'Celular',
                 valor: fn (Docente $d) => $d->persona?->celular,
                 sensible: true,
-                permisoExtra: 'editar-docentes',
+                permisoExtra: 'gestionar-docentes',
                 ancho: 16,
             ),
             'curp' => new ColumnaReporte(
@@ -166,7 +189,7 @@ class Docentes implements FuenteDeReporte
                 etiqueta: 'CURP',
                 valor: fn (Docente $d) => $d->persona?->curp,
                 sensible: true,
-                permisoExtra: 'editar-docentes',
+                permisoExtra: 'gestionar-docentes',
                 ancho: 20,
             ),
             'rfc' => new ColumnaReporte(
@@ -174,7 +197,7 @@ class Docentes implements FuenteDeReporte
                 etiqueta: 'RFC',
                 valor: fn (Docente $d) => $d->persona?->rfc,
                 sensible: true,
-                permisoExtra: 'editar-docentes',
+                permisoExtra: 'gestionar-docentes',
                 ancho: 16,
             ),
             'materias' => new ColumnaReporte(
@@ -261,9 +284,17 @@ class Docentes implements FuenteDeReporte
                 tipo: TipoFiltro::Booleano,
                 // El guard `$v ?` no es opcional: el motor sólo salta null,
                 // cadena vacía y arreglo vacío — un `false` SÍ llega aquí.
+                /*
+                 * `orWhere('col', '=')` con DOS argumentos no compara contra la
+                 * cadena vacía: Laravel toma el segundo como VALOR y compila
+                 * `col = '='`. O sea que el filtro sólo encontraba a quien tiene
+                 * la cédula en NULL, y quien la dejó en blanco —lo que produce
+                 * un formulario enviado vacío— se quedaba fuera de la lista que
+                 * existe para encontrarlo.
+                 */
                 aplicar: fn (Builder $q, bool $v) => $v
                     ? $q->where(fn (Builder $x) => $x->whereNull('docentes.cedula_profesional')
-                        ->orWhere('docentes.cedula_profesional', '='))
+                        ->orWhere('docentes.cedula_profesional', '=', ''))
                     : $q,
             ),
             'sin_carga' => new FiltroReporte(

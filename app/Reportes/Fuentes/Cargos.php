@@ -64,7 +64,7 @@ class Cargos implements FuenteDeReporte
     {
         return 'Una fila es un CARGO. Un alumno con tres colegiaturas aparece tres veces. '
             .'NO incluye los cargos de ASPIRANTES —todavía no tienen matrícula y se acotan por otro camino—: '
-            .'ésos van en «Cobros de aspirantes».';
+            .'ésos se ven en la FICHA de cada aspirante y todavía no tienen reporte propio.';
     }
 
     public function permiso(): string
@@ -320,7 +320,29 @@ class Cargos implements FuenteDeReporte
     public function consulta(Usuario $usuario, array $filtros): Builder
     {
         return Adeudo::query()
-            ->whereNotNull('adeudos.matricula_oferta_id')
+            /*
+             * Los cargos de ASPIRANTE quedan fuera, y no hay reporte que los
+             * recoja: los tres sitios que decían «van en Cobros de aspirantes»
+             * mandaban a un reporte que no existe entre los 34 registrados —el
+             * de cartera mandaba a conciliar un descuadre contra él—. El texto
+             * llega al usuario: el controlador pasa `grano()` como prop y la
+             * pantalla lo pinta bajo el título.
+             *
+             * La exclusión sí es deliberada —un aspirante no tiene matrícula ni
+             * llega al campus por una oferta, así que mezclarlo obligaría a
+             * declarar `sinCampus` y negar el reporte a todo rol acotado a un
+             * plantel—. Lo único falso era a dónde mandaba al lector.
+             */
+            /*
+             * Por la RELACIÓN y no por la columna: el recorte por campus llega a
+             * la matrícula con un `whereHas`, así que admitir aquí una fila cuya
+             * matrícula no se puede resolver la hace visible SÓLO para quien ve
+             * toda la escuela. El total del mismo reporte dependería de quién lo
+             * corre, y la fila saldría con matrícula, alumno, carrera y campus en
+             * blanco. Hoy nada lo dispara —ningún camino del código borra una
+             * matrícula—, pero es una palabra y cierra la asimetría.
+             */
+            ->whereHas('matriculaOferta')
             ->with([
                 'matriculaOferta:id,persona_id,oferta_id,matricula',
                 'matriculaOferta.persona:id,nombre,primer_apellido,segundo_apellido',

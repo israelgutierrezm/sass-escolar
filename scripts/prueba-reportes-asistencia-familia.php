@@ -25,6 +25,7 @@
  *  6. Un tutor sin cuenta tiene permisos que no puede ejercer.
  */
 
+use App\Exceptions\AvisoParaElUsuario;
 use App\Models\Asistencia\AsistenciaClase;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Identidad\Persona;
@@ -32,7 +33,6 @@ use App\Models\Identidad\Rol;
 use App\Models\Identidad\TutorAlumno;
 use App\Models\Identidad\Usuario;
 use App\Models\Tenant;
-use App\Exceptions\AvisoParaElUsuario;
 use App\Reportes\Ejecutor;
 use App\Reportes\RegistroReportes;
 use Illuminate\Contracts\Console\Kernel;
@@ -305,6 +305,98 @@ try {
 
     verificar('Los que YA tienen cuenta no salen en la cola',
         $conCuentaEnCola->isEmpty(), $conCuentaEnCola->implode(', '));
+
+    /*
+     * ── Al DADO DE BAJA no se le puede pasar lista ────────────────────────
+     *
+     * Y salía igual en los dos reportes de asistencia. Es peor que un número de
+     * más: `DocenciaController` saca a los dados de baja de la lista del
+     * docente, así que a esa inscripción NO se le puede pasar lista nunca — el
+     * renglón se quedaba en «materias sin lista pasada» para siempre, sin gesto
+     * que lo limpiara, y en «asistencia en riesgo» con un 0 % incorregible.
+     *
+     * Además `CargaAcademica` sí los excluía, así que dos fuentes de la misma
+     * entrega daban números distintos sobre la misma materia.
+     *
+     * El demo tiene sus 17 inscripciones en situación «inscrito» y ninguna
+     * baja: sin sembrar el caso, esto se cumple solo.
+     */
+    echo PHP_EOL.'5. El dado de BAJA no se queda en la cola de asistencia'.PHP_EOL;
+
+    auth()->login($global);
+
+    $bajaId = DB::table('situaciones_inscripcion')->where('clave', 'baja')->value('id');
+
+    verificar('El catálogo tiene la situación «baja»', $bajaId !== null);
+
+    /*
+     * La víctima se elige entre las que DE VERDAD están en la cola: una sección
+     * anterior de esta misma suite le siembra asistencia a la primera, así que
+     * tomarla con `firstOrFail()` elegía justo a una que el reporte ya no trae
+     * —y entonces darla de baja no movía el conteo y la comprobación fallaba
+     * sin haber nada roto—.
+     */
+    $victima = Inscripcion::query()->whereNull('deleted_at')
+        ->where('situacion_id', '!=', $bajaId)
+        ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('asistencia_clase as ac')
+            ->whereColumn('ac.inscripcion_id', 'inscripcion.id')->whereNull('ac.deleted_at'))
+        ->firstOrFail();
+
+    $sinLista = fn () => collect($ejecutor->ejecutar($global, 'materias-sin-lista', [
+        'columnas' => ['matricula', 'materia'],
+    ])->filas);
+
+    /*
+     * Se mide POR DIFERENCIA y en las DOS fuentes a la vez, no contra un número
+     * fijo: la divergencia que había era exactamente que `CargaAcademica`
+     * descontaba al dado de baja y esta otra no, así que las dos tienen que
+     * moverse igual sobre la MISMA materia.
+     */
+    $suMateria = $victima->asignaturaGrupo?->planMateria?->asignatura?->nombre;
+
+    /*
+     * Su materia necesita TITULAR: `carga-academica` sale de las asignaciones
+     * docentes y en el demo casi no hay ninguna, así que sin esto la materia no
+     * aparece en esa fuente y la comparación entre las dos no se puede hacer.
+     * Se construye dentro de la transacción, como todo lo que el demo no trae.
+     */
+    if (! DB::table('docente_asignatura_grupo')->whereNull('deleted_at')
+        ->where('asignatura_grupo_id', $victima->asignatura_grupo_id)->exists()) {
+        DB::table('docente_asignatura_grupo')->insert([
+            'asignatura_grupo_id' => $victima->asignatura_grupo_id,
+            'persona_id' => DB::table('docentes')->whereNull('deleted_at')->value('persona_id'),
+            'tipo' => 'titular',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+    }
+
+    $enCola = fn () => $sinLista()->where('materia', $suMateria)->count();
+    $inscritos = fn () => (int) collect($ejecutor->ejecutar($global, 'carga-academica', [
+        'columnas' => ['materia', 'inscritos'],
+        'filtros' => ['ciclo_id' => [$victima->ciclo_id]],
+    ])->filas)->where('materia', $suMateria)->sum('inscritos');
+
+    [$colaAntes, $cargaAntes] = [$enCola(), $inscritos()];
+
+    verificar('La inscripción está en la cola de asistencia antes de darla de baja',
+        $colaAntes > 0 && $cargaAntes > 0,
+        $suMateria.': cola '.$colaAntes.', carga '.$cargaAntes);
+
+    DB::table('inscripcion')->where('id', $victima->id)->update(['situacion_id' => $bajaId]);
+
+    [$colaDespues, $cargaDespues] = [$enCola(), $inscritos()];
+
+    verificar('Al darla de baja SALE de la cola de asistencia',
+        $colaDespues === $colaAntes - 1, $colaAntes.' → '.$colaDespues);
+
+    verificar('Y las DOS fuentes se mueven igual sobre la misma materia',
+        $colaAntes - $colaDespues === $cargaAntes - $cargaDespues,
+        'cola -'.($colaAntes - $colaDespues).', carga -'.($cargaAntes - $cargaDespues));
+
+    DB::table('inscripcion')->where('id', $victima->id)->update(['situacion_id' => $victima->situacion_id]);
+
+    verificar('Y al reactivarla vuelve',
+        $enCola() === $colaAntes, $enCola().' de '.$colaAntes);
 
     echo PHP_EOL.'Resultado: '.($verificaciones - $fallidas)." correctas, {$fallidas} fallidas".PHP_EOL;
 } finally {

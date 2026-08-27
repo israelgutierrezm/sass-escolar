@@ -33,10 +33,10 @@
  */
 
 use App\Models\Academico\Campus;
+use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Finanzas\Adeudo;
 use App\Models\Finanzas\BitacoraSituacionFinanciera;
-use App\Models\Finanzas\ConceptoPago;
 use App\Models\Finanzas\MetodoPago;
 use App\Models\Finanzas\Pago;
 use App\Models\Finanzas\SituacionPago;
@@ -44,12 +44,17 @@ use App\Models\Identidad\Persona;
 use App\Models\Identidad\Rol;
 use App\Models\Identidad\Usuario;
 use App\Models\Tenant;
+use App\Reportes\ColumnaReporte;
+use App\Reportes\Definiciones\EstadoDeCartera;
 use App\Reportes\Ejecutor;
+use App\Reportes\Fuentes\Cartera;
 use App\Reportes\RegistroReportes;
 use App\Services\Finanzas\SaldosDeCartera;
 use App\Services\Plataforma\ModulosDeLaEscuela;
 use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 require __DIR__.'/../vendor/autoload.php';
 $app = require __DIR__.'/../bootstrap/app.php';
@@ -87,7 +92,7 @@ function usuarioConRol(string $rol, ?int $campusId = null): Usuario
         'persona_id' => $persona->id,
         'usuario' => 'prueba_fin_'.random_int(100000, 999999),
         'email' => 'prueba_fin_'.random_int(100000, 999999).'@ejemplo.mx',
-        'password' => Illuminate\Support\Facades\Hash::make('secreto12345'),
+        'password' => Hash::make('secreto12345'),
         'rol_activo_id' => Rol::where('name', $rol)->firstOrFail()->id,
     ]);
 
@@ -404,7 +409,7 @@ try {
         implode(',', array_column($suyo->columnas, 'clave')));
 
     verificar('Y se ANOTA que se omitió, en vez de callarlo',
-        $suyo->columnasOmitidas !== [], implode(",", $suyo->columnasOmitidas));
+        $suyo->columnasOmitidas !== [], implode(',', $suyo->columnasOmitidas));
 
     auth()->login($global);
 
@@ -566,10 +571,10 @@ try {
      * buena: la mutación cuelga la propia suite, que es exactamente lo que pasó
      * la primera vez que se intentó.
      */
-    $rota = new class(app(SaldosDeCartera::class)) extends App\Reportes\Fuentes\Cartera
+    $rota = new class(app(SaldosDeCartera::class)) extends Cartera
     {
         /** El defecto: la columna sale ENVUELTA y el ORDER BY apunta a la cruda. */
-        public function consulta(Usuario $usuario, array $filtros): Illuminate\Database\Eloquent\Builder
+        public function consulta(Usuario $usuario, array $filtros): Builder
         {
             return parent::consulta($usuario, $filtros)->select([
                 'matricula_oferta.*',
@@ -583,11 +588,11 @@ try {
      * resuelve con `app($clase)`, así que un registro nuevo se lleva ésta en vez
      * de la buena. Nada de esto toca al registro de la aplicación.
      */
-    app()->instance(App\Reportes\Fuentes\Cartera::class, $rota);
+    app()->instance(Cartera::class, $rota);
 
     $registroRoto = new RegistroReportes;
-    $registroRoto->registrarFuente(App\Reportes\Fuentes\Cartera::class);
-    $registroRoto->registrarReporte(App\Reportes\Definiciones\EstadoDeCartera::class);
+    $registroRoto->registrarFuente(Cartera::class);
+    $registroRoto->registrarReporte(EstadoDeCartera::class);
 
     $conRota = new class($registroRoto, app(ModulosDeLaEscuela::class)) extends Ejecutor
     {
@@ -656,7 +661,7 @@ try {
      * no por una oferta, así que mezclado aquí desaparecería con alcance
      * acotado y aparecería sin campus con alcance global.
      */
-    $aspirante = App\Models\Admisiones\Aspirante::query()->whereNotNull('campus_id')->firstOrFail();
+    $aspirante = Aspirante::query()->whereNotNull('campus_id')->firstOrFail();
 
     $cargoDeAspirante = Adeudo::create([
         'aspirante_id' => $aspirante->id,
@@ -788,7 +793,9 @@ try {
     }
 
     $caja = collect($ejecutor->ejecutar($global, 'corte-de-caja', [
-        'columnas' => ['momento', 'matricula', 'monto', 'aplicado', 'cargos_que_cubre'],
+        // `estatus` se pide EXPRESAMENTE: no está entre las de omisión y la
+        // aserción de abajo mira el estatus de cada renglón.
+        'columnas' => ['momento', 'matricula', 'monto', 'aplicado', 'cargos_que_cubre', 'estatus'],
     ])->filas);
 
     $suyo = $caja->where('monto', $deposito->monto);
@@ -832,9 +839,19 @@ try {
     verificar('Y NO sale en el corte de caja',
         ! $caja->contains(fn (array $f) => abs((float) $f['monto'] - 55.00) < 0.01));
 
+    /*
+     * Decía `every(fn => true)`, que es cierto pase lo que pase —y con el corte
+     * lleno de reembolsos también—. Ahora mira el ESTATUS de cada renglón, que
+     * es lo que el título promete: comprobado mutando `Ingresos::solo_cobrados`
+     * para que dejara entrar los reembolsos, y esta línea cae mientras las dos
+     * vecinas seguían en verde.
+     */
     verificar('El corte trae SOLO dinero confirmado',
-        $caja->every(fn (array $f) => true) && $porConfirmar->count() > 0,
-        'corte: '.$caja->count().', por confirmar: '.$porConfirmar->count());
+        $caja->isNotEmpty()
+            && $caja->every(fn (array $f) => $f['estatus'] === 'completado')
+            && $porConfirmar->count() > 0,
+        'corte: '.$caja->count().' ('.$caja->pluck('estatus')->unique()->implode(', ')
+            .'), por confirmar: '.$porConfirmar->count());
 
     echo PHP_EOL.'15. Ninguna columna sale VACÍA en todas las filas'.PHP_EOL;
 
@@ -890,7 +907,7 @@ try {
     $seQuejo = null;
 
     try {
-        new App\Reportes\ColumnaReporte(
+        new ColumnaReporte(
             clave: 'periodo',
             etiqueta: 'Periodo',
             columnaSql: 'adeudos.periodo_etiqueta',
@@ -938,6 +955,51 @@ try {
      * oferta propia— no tumbaba nada. Un recorte que no se prueba es un recorte
      * que puede estar entregando la escuela entera.
      */
+    /*
+     * El caso se CONSTRUYE, no se busca. Esta comprobación pasaba por la razón
+     * equivocada: los cuatro cargos reales del demo son todos del mismo campus
+     * —el del coordinador—, y la diferencia «global ve más» la producían TRES
+     * filas huérfanas, cargos cuya matrícula no existe, restos de una resiembra
+     * con las foráneas apagadas. Al excluirlas —que es lo correcto: una fila que
+     * el recorte no puede resolver no puede ser visible sólo para el global— la
+     * comprobación se cayó, y bien caída.
+     *
+     * Así que se siembra un cargo y un pago en OTRO campus, que es lo que el
+     * recorte tiene que esconder.
+     */
+    $deOtroCampus = DB::table('matricula_oferta as mo')
+        ->join('oferta as o', 'o.id', '=', 'mo.oferta_id')
+        ->whereNull('mo.deleted_at')
+        ->where('o.campus_id', '!=', $campusId)
+        ->value('mo.id');
+
+    if ($deOtroCampus === null) {
+        throw new RuntimeException('No hay ninguna matrícula fuera del campus del coordinador: sin eso el recorte no se puede comprobar.');
+    }
+
+    $ajeno = DB::table('adeudos')->insertGetId([
+        'matricula_oferta_id' => $deOtroCampus,
+        'concepto_id' => DB::table('conceptos_pago')->value('id'),
+        'periodo_etiqueta' => 'RECORTE-AJENO',
+        'monto' => 1234.00,
+        'monto_recargos' => 0,
+        'monto_descuentos' => 0,
+        'monto_total' => 1234.00,
+        'fecha_generacion' => now()->toDateString(),
+        'fecha_vencimiento' => now()->addMonth()->toDateString(),
+        'estatus' => 'pendiente',
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    $pagoAjeno = DB::table('pagos')->insertGetId([
+        'matricula_oferta_id' => $deOtroCampus,
+        'metodo_pago_id' => DB::table('metodos_pago')->value('id'),
+        'monto' => 1234.00,
+        'momento' => now(),
+        'estatus' => 'completado',
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+
     auth()->login($acotado);
 
     foreach ([
@@ -955,7 +1017,13 @@ try {
         auth()->login($acotado);
 
         verificar("«{$clave}»: el acotado ve menos que el global",
-            $suyos->count() < $todos->count(), $suyos->count().' de '.$todos->count());
+            $suyos->isNotEmpty() && $suyos->count() < $todos->count(),
+            $suyos->count().' de '.$todos->count());
+
+        verificar("«{$clave}»: y lo sembrado en otro campus NO se le enseña",
+            $todos->count() - $suyos->count() >= 1
+                && $suyos->every(fn (array $f) => $f[$columnaCampus] === $nombreCampus),
+            'lo ajeno queda fuera');
 
         verificar("«{$clave}»: y todo lo que ve es de SU campus",
             $suyos->every(fn (array $f) => $f[$columnaCampus] === $nombreCampus),
@@ -965,7 +1033,6 @@ try {
     auth()->login($global);
 
     echo PHP_EOL.'Resultado: '.($verificaciones - $fallidas)." correctas, {$fallidas} fallidas".PHP_EOL;
-
 
 } finally {
     DB::rollBack();

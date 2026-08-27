@@ -30,7 +30,7 @@ class EstadoDeCartera extends DefinicionReporte
         return 'Todas las matrículas con su saldo, deban o no. Sirve para conciliar contra '
             .'contabilidad. NO cuadra con el total del panel, y no es un error: la tarjeta de la '
             .'escuela incluye lo que deben los ASPIRANTES, que no tienen matrícula donde caer. '
-            .'La diferencia está desglosada en «Cobros de aspirantes».';
+            .'La diferencia son los cobros de aspirantes, que se ven en la ficha de cada uno.';
     }
 
     public function fuente(): string
