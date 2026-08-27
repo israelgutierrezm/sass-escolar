@@ -71,6 +71,21 @@ Schedule::command('reportes:purgar-ejecuciones')
     ->runInBackground();
 
 /*
+ * Los reportes programados.
+ *
+ * Cada cuarto de hora y no cada minuto: nadie programa un reporte «a las 7:03»,
+ * y con cuartos el despachador no abre una conexion por escuela sesenta veces
+ * por hora para no hacer nada. Llegar tarde no salta el turno --la programacion
+ * compara con la hora YA PASADA-- y lo que impide el correo repetido es
+ * `ultima_corrida_en`, no la punteria.
+ */
+Schedule::command('reportes:enviar-programados')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->runInBackground();
+
+/*
  * Latido del despachador.
  *
  * Un scheduler que deja de correr NO FALLA: simplemente no pasa nada, y nadie
