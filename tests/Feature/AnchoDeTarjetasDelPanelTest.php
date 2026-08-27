@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Models\Identidad\Usuario;
 use App\Panel\RegistroTarjetas;
 use App\Panel\TarjetaPanel;
+use App\Services\Plataforma\ModulosDeLaEscuela;
 use Tests\Concerns\CreaEscuelaDePrueba;
 use Tests\TenantTestCase;
 
@@ -114,7 +115,7 @@ class AnchoDeTarjetasDelPanelTest extends TenantTestCase
     /** El ancho sugerido por los datos gana al declarado, y también se redondea. */
     public function test_el_ancho_sugerido_manda_pero_tambien_se_redondea(): void
     {
-        $registro = new RegistroTarjetas;
+        $registro = new RegistroTarjetas(app(ModulosDeLaEscuela::class));
         $registro->registrar(TarjetaQuePideAncho::class);
 
         TarjetaQuePideAncho::$declarado = 4;
@@ -127,7 +128,7 @@ class AnchoDeTarjetasDelPanelTest extends TenantTestCase
 
     private function anchoResuelto(int $pide): int
     {
-        $registro = new RegistroTarjetas;
+        $registro = new RegistroTarjetas(app(ModulosDeLaEscuela::class));
         $registro->registrar(TarjetaQuePideAncho::class);
 
         TarjetaQuePideAncho::$declarado = $pide;
