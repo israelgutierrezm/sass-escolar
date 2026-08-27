@@ -28,6 +28,7 @@ use App\Http\Controllers\BuscadorAlumnosController;
 use App\Http\Controllers\BuscadorMatriculasController;
 use App\Http\Controllers\Reportes\BitacoraReportesController;
 use App\Http\Controllers\Reportes\ConfiguracionReportesController;
+use App\Http\Controllers\Reportes\ProgramacionReporteController;
 use App\Http\Controllers\Reportes\ReporteController;
 use App\Http\Controllers\Reportes\VistaReporteController;
 use App\Http\Controllers\Disciplina\CatalogoConductaController;
@@ -1973,6 +1974,23 @@ Route::middleware([
                 Route::middleware('can:auditar-reportes')
                     ->get('bitacora', [BitacoraReportesController::class, 'index'])
                     ->name('bitacora');
+
+                /*
+                 * Las PROGRAMACIONES, tambien antes del comodin.
+                 *
+                 * Sin permiso propio: quien puede ver un reporte puede pedir que
+                 * se lo manden. Lo que decide QUE sale es el rol guardado en la
+                 * programacion, que el motor comprueba en cada corrida.
+                 */
+                Route::controller(ProgramacionReporteController::class)
+                    ->prefix('programaciones')->name('programaciones.')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::post('/', 'guardar')->name('crear');
+                        Route::put('{programacion}', 'guardar')->whereNumber('programacion')->name('guardar');
+                        Route::patch('{programacion}/activa', 'alternar')->whereNumber('programacion')->name('activa');
+                        Route::delete('{programacion}', 'eliminar')->whereNumber('programacion')->name('eliminar');
+                    });
 
                 Route::get('{clave}', 'ver')->name('ver');
                 Route::get('{clave}/descargar/{formato}', 'descargar')

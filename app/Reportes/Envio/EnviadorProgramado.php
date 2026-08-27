@@ -143,8 +143,16 @@ class EnviadorProgramado
         $destinos = $this->destinos($programacion, $fuente->permiso());
 
         if ($destinos['correos'] === []) {
+            /*
+             * Se dice A QUIÉN se descartó y por qué. «Ninguno de sus
+             * destinatarios puede ver este reporte» es cierto y no sirve: quien
+             * lo lea tiene que poder ir a arreglarlo, y para eso necesita el
+             * nombre y el motivo de cada uno.
+             */
             return $this->anotar($programacion, ProgramacionReporte::ERROR, $momento, $seco, [
-                'error' => $destinos['motivo'] ?? 'Ninguno de sus destinatarios puede ver este reporte.',
+                'error' => $destinos['motivo']
+                    ?? ('No quedó nadie a quien mandarlo: se descartó a '
+                        .implode('; ', $destinos['descartados']).'.'),
                 'descartados' => $destinos['descartados'],
             ]);
         }

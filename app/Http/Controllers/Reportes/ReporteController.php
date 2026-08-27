@@ -85,6 +85,9 @@ class ReporteController extends Controller
             'puedeOrganizar' => $peticion->user()->can('gestionar-areas-reporte'),
             // La bitacora es de quien AUDITA, que puede no ser quien organiza.
             'puedeAuditar' => $peticion->user()->can('auditar-reportes'),
+            // Programar no exige permiso propio: quien puede ver un reporte
+            // puede pedir que se lo manden. Lo que decide QUE sale es el rol
+            // guardado, que el motor comprueba en cada corrida.
         ]);
     }
 

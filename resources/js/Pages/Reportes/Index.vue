@@ -35,6 +35,12 @@ defineProps<{ areas: Area[]; puedeOrganizar: boolean; puedeAuditar: boolean }>()
                      que no dibuja pestanas, y meter una sola de las dos
                      ensenaria un organigrama incompleto del mismo modulo. -->
                 <Link
+                    href="/reportes/programaciones"
+                    class="rounded-lg border border-borde px-3 py-1.5 text-sm hover:bg-slate-50"
+                    title="Reportes que llegan solos por correo"
+                >Programados</Link>
+
+                <Link
                     v-if="puedeAuditar"
                     href="/reportes/bitacora"
                     class="rounded-lg border border-borde px-3 py-1.5 text-sm hover:bg-slate-50"
