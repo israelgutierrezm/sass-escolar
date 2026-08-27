@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Reportes;
 
+use App\Exceptions\AvisoParaElUsuario;
 use App\Http\Controllers\Controller;
+use App\Models\Identidad\Usuario;
 use App\Models\Reportes\ReporteFavorito;
 use App\Models\Reportes\VistaReporte;
 use App\Reportes\ColumnaReporte;
@@ -39,16 +41,33 @@ class ReporteController extends Controller
      *
      * El formato lo decide la URL y no un parametro suelto, para que la
      * direccion de una descarga sea enlazable igual que la del reporte.
+     *
+     * ── Y con la VISTA resuelta, igual que `ver()` ────────────────────────
+     * No lo hacía, y era un desfase de verdad: `ver()` resuelve la vista
+     * guardada y `descargar()` leía sólo la petición, así que con una vista
+     * abierta la pantalla salía con TRES columnas y el Excel con las SEIS por
+     * omisión —y con los filtros de la vista fuera—. Medido en su día:
+     *
+     *     PANTALLA columnas: 3  -> matricula, alumno, curp
+     *     DESCARGA columnas: 6  -> matricula, alumno, carrera, campus, ...
+     *
+     * Un archivo que trae MÁS de lo que la pantalla enseñó es la peor forma de
+     * fallar: abre perfectamente y nadie lo revisa.
+     *
+     * La resolución es la MISMA función, no una copia: si divergieran, el
+     * desfase volvería el día que una cambie.
      */
     public function descargar(Request $peticion, string $clave, string $formato): StreamedResponse
     {
         abort_unless(in_array($formato, ['xlsx', 'csv'], true), 404);
 
+        $vista = $this->vistaAplicable($peticion, $clave, $peticion->user());
+
         $exportacion = $this->ejecutor->paraExportar($peticion->user(), $clave, [
-            'columnas' => $peticion->input('columnas'),
-            'filtros' => $peticion->input('filtros', []),
-            'orden_por' => $peticion->input('orden_por'),
-            'orden_dir' => $peticion->input('orden_dir'),
+            'columnas' => $peticion->input('columnas') ?? $vista?->columnas,
+            'filtros' => $peticion->input('filtros') ?? $vista?->filtros ?? [],
+            'orden_por' => $peticion->input('orden_por') ?? $vista?->orden_por,
+            'orden_dir' => $peticion->input('orden_dir') ?? $vista?->orden_dir,
         ]);
 
         return $formato === 'csv'
@@ -93,13 +112,42 @@ class ReporteController extends Controller
          * alcance por campus los vuelve a resolver el motor con los de QUIEN
          * ejecuta, no con los del dueno de la vista.
          */
-        $resultado = $this->ejecutor->ejecutar($usuario, $clave, [
+        $peticionAlMotor = [
             'columnas' => $peticion->input('columnas') ?? $vista?->columnas,
             'filtros' => $peticion->input('filtros') ?? $vista?->filtros ?? [],
             'orden_por' => $peticion->input('orden_por') ?? $vista?->orden_por,
             'orden_dir' => $peticion->input('orden_dir') ?? $vista?->orden_dir,
             'por_pagina' => $peticion->input('por_pagina', 50),
-        ]);
+        ];
+
+        /*
+         * ── Un filtro OBLIGATORIO que falta NO es un error de pantalla ────
+         *
+         * Tres reportes exigen uno —«Ciclo de la carga», «Ciclo» y «Asistencia
+         * por debajo de»— y el motor se niega a correr sin él con un 422, que es
+         * lo correcto: sin ciclo, «carga académica» barrería todos los ciclos y
+         * la pregunta no está hecha.
+         *
+         * Pero ese 422 se lanzaba dentro de `preparar()`, o sea ANTES de que el
+         * controlador pudiera dibujar nada: **pulsarlos desde el índice daba una
+         * página de error**, y los tres eran inalcanzables desde la interfaz. La
+         * única forma de abrirlos era escribir el filtro a mano en la URL.
+         *
+         * Así que se atrapa y se dibuja la pantalla SIN resultados, con el panel
+         * de filtros y el motivo escrito: el reporte existe, sólo necesita que
+         * le digas por dónde empezar. El 422 se conserva tal cual en la
+         * DESCARGA, donde no hay nada que dibujar.
+         */
+        try {
+            $resultado = $this->ejecutor->ejecutar($usuario, $clave, $peticionAlMotor);
+            $faltaFiltro = null;
+        } catch (AvisoParaElUsuario $aviso) {
+            if ($aviso->getStatusCode() !== 422) {
+                throw $aviso;
+            }
+
+            return $this->pantallaSinCorrer($usuario, $clave, $aviso->getMessage());
+        }
 
         $fuente = $resultado->fuente;
 
@@ -209,7 +257,19 @@ class ReporteController extends Controller
             // Los fijos se ENSEÑAN pero no se pueden mover: es lo que hace que
             // el reporte conteste su pregunta y no otra.
             'filtrosFijos' => array_keys($resultado->reporte->filtrosFijos()),
-            'aplicados' => (object) $peticion->input('filtros', []),
+            /*
+             * Los filtros EFECTIVOS, no los de la petición.
+             *
+             * Iban los de la petición, así que con una vista abierta —o con los
+             * filtros fijos de la definición— la pantalla mandaba un arreglo
+             * vacío a los controles. Y como `aplicar()` reenvía lo que tiene en
+             * pantalla, la primera pulsada en una cabecera recargaba SIN los
+             * filtros de la vista: el reporte cambiaba de contenido al ordenarlo.
+             */
+            'aplicados' => (object) $resultado->filtros,
+            // Null salvo que el reporte no se pueda correr todavía: ver
+            // `pantallaSinCorrer()`.
+            'faltaFiltro' => $faltaFiltro,
             'filas' => $resultado->filas,
             'paginacion' => [
                 'total' => $resultado->total(),
@@ -257,6 +317,58 @@ class ReporteController extends Controller
      * que la credencial y el historial --la eleccion se busca en la lista
      * propia, asi que un id ajeno no encuentra pareja--.
      */
+    /**
+     * La pantalla de un reporte que todavía no se puede correr.
+     *
+     * Trae su catálogo de filtros y de columnas —para que se pueda elegir lo que
+     * falta— y ni una fila. No es un error: es el reporte pidiendo lo que
+     * necesita para contestar.
+     */
+    private function pantallaSinCorrer(Usuario $usuario, string $clave, string $motivo): Response
+    {
+        $definicion = $this->registro->definicion($clave);
+        $fuente = $this->registro->fuente($definicion->fuente());
+
+        return Inertia::render('Reportes/Ver', [
+            'reporte' => [
+                'clave' => $definicion->clave(),
+                'titulo' => $definicion->titulo(),
+                'descripcion' => $definicion->descripcion(),
+                'grano' => $fuente->grano(),
+            ],
+            'columnas' => [],
+            'disponibles' => array_values(array_map(fn (ColumnaReporte $c) => [
+                'clave' => $c->clave,
+                'etiqueta' => $c->etiqueta,
+                'ayuda' => $c->ayuda,
+                'sensible' => $c->sensible,
+            ], $fuente->columnas())),
+            'filtros' => array_values(array_map(fn (FiltroReporte $f) => [
+                'clave' => $f->clave,
+                'etiqueta' => $f->etiqueta,
+                'tipo' => $f->tipo->value,
+                'ayuda' => $f->ayuda,
+                'opciones' => $f->opcionesPara($usuario),
+            ], $fuente->filtros())),
+            'filtrosFijos' => array_keys($definicion->filtrosFijos()),
+            'aplicados' => (object) [],
+            'faltaFiltro' => $motivo,
+            'filas' => [],
+            'paginacion' => ['total' => 0, 'links' => [], 'from' => null, 'to' => null],
+            'omitidas' => [],
+            'totales' => null,
+            'ms' => 0,
+            'vistas' => [],
+            'vistaActiva' => null,
+            'puedeCompartir' => $usuario->can('gestionar-areas-reporte'),
+            'esFavorito' => false,
+            'orden' => ['por' => null, 'dir' => 'asc'],
+            'dimensiones' => [],
+            'agrupadoPor' => null,
+            'agrupado' => null,
+        ]);
+    }
+
     private function vistaAplicable(Request $peticion, string $clave, $usuario): ?VistaReporte
     {
         $visibles = VistaReporte::query()->where('reporte', $clave)->visiblesPara($usuario);

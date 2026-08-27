@@ -149,7 +149,25 @@ class ExportadorXlsx
             $formato = match ($columna->tipo) {
                 TipoDato::Fecha => NumberFormat::FORMAT_DATE_DDMMYYYY,
                 TipoDato::FechaHora => NumberFormat::FORMAT_DATE_DATETIME,
-                TipoDato::Dinero => NumberFormat::FORMAT_CURRENCY_USD_SIMPLE,
+                /*
+                 * El formato del dinero va ESCRITO, no por constante.
+                 *
+                 * Aquí decía `NumberFormat::FORMAT_CURRENCY_USD_SIMPLE`, que **no
+                 * existe** en esta versión de PhpSpreadsheet: el botón «Excel»
+                 * devolvía una página de error en TODO reporte con una columna
+                 * de dinero y al menos una fila —o sea en casi todo finanzas—,
+                 * mientras el CSV del mismo reporte salía bien.
+                 *
+                 * Ninguna suite lo veía: la única que ejercitaba el XLSX
+                 * exportaba «Alumnos inscritos», cuya única columna numérica es
+                 * un entero, así que esta rama nunca se pisaba.
+                 *
+                 * Y las constantes que SÍ existen son de dólares, libras, euros
+                 * y yenes. Esto factura en pesos, así que el literal es la
+                 * respuesta correcta y no un atajo — con la coma de miles y dos
+                 * decimales, que es como se leen aquí.
+                 */
+                TipoDato::Dinero => '"$"#,##0.00',
                 TipoDato::Porcentaje => NumberFormat::FORMAT_PERCENTAGE_00,
                 TipoDato::Decimal => NumberFormat::FORMAT_NUMBER_00,
                 TipoDato::Entero => NumberFormat::FORMAT_NUMBER,

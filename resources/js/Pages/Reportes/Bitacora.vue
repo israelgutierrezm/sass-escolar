@@ -105,8 +105,11 @@ const MILES = new Intl.NumberFormat('es-MX');
  * Es la diferencia que importa al auditar: un archivo sale de la escuela y se
  * reenvía; una pantalla se mira y se cierra.
  */
+/** Lo que es MIRAR. Tiene que decir lo mismo que `Ejecutor::FORMATOS_DE_PANTALLA`. */
+const DE_PANTALLA = ['pantalla', 'agrupado'];
+
 function colorDelFormato(formato: string): string | undefined {
-    return formato === 'pantalla' ? undefined : '#b45309';
+    return DE_PANTALLA.includes(formato) ? undefined : '#b45309';
 }
 
 /** Milisegundos como se leen: 340 ms, 2.4 s. */
@@ -145,7 +148,7 @@ function duracion(ms: number): string {
                 ]"
                 :key="dato.etiqueta"
                 class="rounded-xl border p-3"
-                :style="{ borderColor: 'var(--color-borde)', background: 'var(--color-panel)' }"
+                :style="{ borderColor: 'var(--color-borde)', background: 'var(--color-superficie)' }"
             >
                 <p class="text-xs" :style="{ color: 'var(--color-suave)' }">{{ dato.etiqueta }}</p>
                 <p class="mt-1 text-2xl font-semibold tabular-nums">{{ dato.valor }}</p>

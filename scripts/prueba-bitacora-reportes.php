@@ -305,19 +305,40 @@ try {
 
     verificar('El comando termina bien', $codigo === 0, 'código '.$codigo);
 
-    $fisicasDespues = filasFisicas();
+    /*
+     * Se miden SUS PROPIAS filas, por id, y no un delta global.
+     *
+     * Decía `$fisicasAntes - $fisicasDespues === 4`, o sea que daba por hecho
+     * que la bitácora no tenía NINGUNA otra fila pasada de la retención. Se cayó
+     * en cuanto la tuvo: una revisión dejó cincuenta mil corridas viejas y la
+     * suite reportó «120367 → 70447 (esperado -4)» — roja sin que nada estuviera
+     * roto.
+     *
+     * Es la misma lección que este proyecto ya pagó dos veces en un solo día:
+     * **una suite se mide POR DIFERENCIA sobre lo suyo, no contra cero.** Y aquí
+     * ni siquiera hace falta la diferencia: los ids se conocen.
+     *
+     * Contra la tabla FÍSICA y no contra el modelo: con `->delete()` el modelo
+     * diría que borró y la tabla no habría cambiado.
+     */
+    $sembradasViejas = array_merge($fuera, [$viejaYDeBaja->id]);
+
+    verificar('Las cuatro viejas DESAPARECIERON de la tabla física',
+        DB::table('ejecuciones_reporte')->whereIn('id', $sembradasViejas)->count() === 0,
+        count($sembradasViejas).' sembradas, quedan '
+            .DB::table('ejecuciones_reporte')->whereIn('id', $sembradasViejas)->count());
+
+    verificar('Y la purga se llevó al menos esas cuatro',
+        $fisicasAntes - filasFisicas() >= 4,
+        $fisicasAntes.' → '.filasFisicas());
 
     /*
-     * Contra la tabla FÍSICA: con `->delete()` el modelo diría que borró y la
-     * tabla no habría cambiado. Es la mitad que caza el borrado lógico.
+     * Y la que YA estaba dada de baja lógica también se fue. Sin `withTrashed()`
+     * en el conteo del comando, ésa no se contaría al informar —ver el docblock
+     * de `viejas()`—, aunque el `forceDelete` se la lleve igual.
      */
-    verificar('Las cuatro viejas DESAPARECIERON de la tabla física',
-        $fisicasAntes - $fisicasDespues === 4,
-        $fisicasAntes.' → '.$fisicasDespues.' (esperado -4)');
-
-    verificar('Y ni una de ellas quedó como baja lógica',
-        DB::table('ejecuciones_reporte')->whereIn('id', $fuera)->count() === 0
-            && DB::table('ejecuciones_reporte')->where('id', $viejaYDeBaja->id)->count() === 0);
+    verificar('Incluida la que ya estaba dada de baja lógica',
+        DB::table('ejecuciones_reporte')->where('id', $viejaYDeBaja->id)->count() === 0);
 
     verificar('La de DENTRO de la retención sigue ahí',
         DB::table('ejecuciones_reporte')->where('id', $dentro->id)->count() === 1);

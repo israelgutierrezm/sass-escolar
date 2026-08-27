@@ -396,6 +396,51 @@ try {
         EjecucionReporte::count() === $antesDeLaVentana + 1,
         $antesDeLaVentana.' → '.EjecucionReporte::count());
 
+    /*
+     * ── Dos consultas del mismo reporte con distintos FILTROS son dos ─────
+     *
+     * No lo comprobaba nadie: quitando la comparación de filtros, todo seguía en
+     * verde porque las comprobaciones de arriba cambian las COLUMNAS.
+     */
+    $antesDeFiltros = EjecucionReporte::count();
+    $conCiclo = DB::table('grupos')->whereNull('deleted_at')->value('ciclo_id');
+    $otroCiclo = DB::table('ciclos')->whereNull('deleted_at')
+        ->where('id', '!=', $conCiclo)->value('id');
+
+    if ($otroCiclo !== null) {
+        $ejecutor->ejecutar($global, 'carga-academica', ['filtros' => ['ciclo_id' => [$conCiclo]]]);
+        $ejecutor->ejecutar($global, 'carga-academica', ['filtros' => ['ciclo_id' => [$conCiclo]]]);
+
+        verificar('Dos veces el mismo filtro: una sola fila',
+            EjecucionReporte::count() === $antesDeFiltros + 1,
+            $antesDeFiltros.' → '.EjecucionReporte::count());
+
+        $trasElPrimero = EjecucionReporte::count();
+        $ejecutor->ejecutar($global, 'carga-academica', ['filtros' => ['ciclo_id' => [$otroCiclo]]]);
+
+        verificar('Y cambiar SÓLO el filtro sí agrega fila',
+            EjecucionReporte::count() === $trasElPrimero + 1,
+            $trasElPrimero.' → '.EjecucionReporte::count());
+    } else {
+        echo '  (la escuela tiene un solo ciclo; se omite el caso de los filtros)'.PHP_EOL;
+    }
+
+    /*
+     * ── Y el orden de las claves NO hace de dos consultas dos ─────────────
+     *
+     * Se compara contra lo GUARDADO, y la columna es `json` nativo: MySQL
+     * normaliza el orden de las claves al escribirlas, así que el arreglo que se
+     * lee de vuelta no conserva el orden con que se mandó. Con `===` eso hacía
+     * fallar la deduplicación en silencio en cuanto había más de un filtro.
+     */
+    $antesDeOrden = EjecucionReporte::count();
+    $ejecutor->ejecutar($global, 'alumnos-inscritos', ['columnas' => ['alumno', 'matricula']]);
+    $ejecutor->ejecutar($global, 'alumnos-inscritos', ['columnas' => ['matricula', 'alumno']]);
+
+    verificar('Las mismas columnas en otro orden son la MISMA consulta',
+        EjecucionReporte::count() === $antesDeOrden + 1,
+        $antesDeOrden.' → '.EjecucionReporte::count());
+
     $antesDeBajar = EjecucionReporte::count();
     $exportacion = $ejecutor->paraExportar($global, 'egresados-por-generacion');
     ($exportacion->alTerminar)(14, 'csv');

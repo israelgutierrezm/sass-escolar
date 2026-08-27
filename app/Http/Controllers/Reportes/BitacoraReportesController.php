@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Reportes;
 
 use App\Http\Controllers\Controller;
 use App\Models\Reportes\EjecucionReporte;
+use App\Reportes\Ejecutor;
 use App\Reportes\FiltroReporte;
 use App\Reportes\RegistroReportes;
 use Illuminate\Database\Eloquent\Builder;
@@ -265,9 +266,21 @@ class BitacoraReportesController extends Controller
             /*
              * Las DESCARGAS aparte, porque son la pregunta cara: un archivo sale
              * de la escuela y se reenvía; una pantalla se mira y se cierra.
+             *
+             * Se enumera lo que ES pantalla en vez de definir la descarga por
+             * descarte, y hubo que corregirlo: iba `formato != 'pantalla'`, el
+             * modo agrupado añadió el formato «agrupado» dos commits después, y
+             * cayó del lado de las descargas. Medido sobre el demo, la pantalla
+             * decía **125 descargas y 1 492 filas descargadas** cuando de la
+             * escuela habían salido **79 archivos con 532 filas**: inventaba una
+             * fuga que no hubo, en la única pantalla cuyo trabajo es auditar.
+             *
+             * Un formato nuevo ya no hereda una respuesta por omisión.
              */
-            'descargas' => $base()->where('formato', '!=', 'pantalla')->count(),
-            'filas_descargadas' => (int) $base()->where('formato', '!=', 'pantalla')->sum('filas'),
+            'descargas' => $base()->whereNotIn('formato', Ejecutor::FORMATOS_DE_PANTALLA)->count(),
+            'filas_descargadas' => (int) $base()
+                ->whereNotIn('formato', Ejecutor::FORMATOS_DE_PANTALLA)
+                ->sum('filas'),
             'mas_lento' => $base()->max('milisegundos'),
         ];
     }

@@ -577,6 +577,70 @@ try {
             $cortado->filas().' de '.$renglones);
     }
 
+    echo PHP_EOL.'7b. Lo que el agrupado deja en la BITÁCORA'.PHP_EOL;
+
+    /*
+     * Una pantalla agrupada escribe DOS filas —«pantalla» y «agrupado»— porque
+     * el controlador llama a `ejecutar()` y además a `agrupar()`. Eso rompió dos
+     * cosas a la vez y ninguna daba error:
+     *
+     *  1. El agrupado quedaba FUERA de la deduplicación, porque ésta sólo
+     *     miraba el formato «pantalla» literal.
+     *  2. Y su fila envenenaba la de pantalla: la deduplicación comparaba contra
+     *     la ÚLTIMA de esa persona, que era siempre la de agrupado, así que
+     *     tampoco la de pantalla casaba nunca.
+     *
+     * Medido antes de arreglarlo: cinco recargas de una pantalla agrupada
+     * dejaban NUEVE filas, cuando sin agrupar dejan una.
+     */
+    auth()->login($global);
+    $cuantas = fn () => App\Models\Reportes\EjecucionReporte::query()->count();
+
+    /*
+     * Con un juego de columnas PROPIO: las secciones de arriba ya corrieron este
+     * reporte y ya están deduplicadas, así que sin esto se contarían cero filas
+     * nuevas y la comprobación mediría la deduplicación creyendo medir el
+     * defecto del agrupado.
+     */
+    $columnasPropias = ['matricula', 'alumno', 'saldo'];
+    $antesDeAgrupar = $cuantas();
+
+    foreach (range(1, 5) as $vuelta) {
+        $ejecutor->ejecutar($global, 'estado-de-cartera', ['columnas' => $columnasPropias]);
+        $ejecutor->agrupar($global, 'estado-de-cartera', 'campus', ['columnas' => $columnasPropias]);
+    }
+
+    verificar('Cinco recargas de una pantalla agrupada dejan DOS filas',
+        $cuantas() - $antesDeAgrupar === 2,
+        'quedaron '.($cuantas() - $antesDeAgrupar).' (una de pantalla y una de agrupado)');
+
+    $antesDeOtra = $cuantas();
+    $ejecutor->agrupar($global, 'estado-de-cartera', 'carrera', ['columnas' => $columnas]);
+
+    /*
+     * Y agrupar por OTRA dimensión es otra pregunta. Sin anotar la dimensión, las
+     * dos filas serían idénticas y la deduplicación las fundiría: la bitácora no
+     * podría decir qué se preguntó.
+     */
+    verificar('Agrupar por otra dimensión SÍ agrega fila',
+        $cuantas() - $antesDeOtra === 1,
+        $antesDeOtra.' → '.$cuantas());
+
+    $ultima = App\Models\Reportes\EjecucionReporte::query()->latest('id')->first();
+
+    verificar('Y la bitácora guarda POR QUÉ dimensión se agrupó',
+        ($ultima->filtros['agrupar_por'] ?? null) === 'carrera',
+        json_encode($ultima->filtros, JSON_UNESCAPED_UNICODE));
+
+    /*
+     * Y un agrupado NO es una descarga. El resumen de la bitácora las separa
+     * enumerando lo que es pantalla, no por descarte: cuando se definía por
+     * descarte, el formato nuevo cayó del lado equivocado y la pantalla decía
+     * 125 descargas cuando habían salido 79 archivos.
+     */
+    verificar('El formato del agrupado cuenta como PANTALLA, no como descarga',
+        in_array('agrupado', App\Reportes\Ejecutor::FORMATOS_DE_PANTALLA, true));
+
     echo PHP_EOL.'8. La dimensión comprueba su forma al construirse'.PHP_EOL;
 
     $rechazo = null;

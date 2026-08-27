@@ -241,6 +241,138 @@ try {
 
         verificar('Y la página trae UNA fila, no todas',
             count($unaPorPagina->filas) === 1, count($unaPorPagina->filas).' filas');
+
+        /*
+         * ── Y el pie existe en la PÁGINA 2 ────────────────────────────────
+         *
+         * Faltaba, y se cobró: `paginate()` MUTA el builder con el `limit` y el
+         * `offset` de la página, y como los totales se calculaban después, el
+         * clon los heredaba. En una consulta agregada el `offset` no salta
+         * filas: salta el ÚNICO renglón del resultado, así que a partir de la
+         * página 2 los totales viajaban en null y el pie desaparecía sin decir
+         * nada. Medido antes de arreglarlo:
+         *
+         *     pagina 1: 10 filas, totales={"saldo":8335}
+         *     pagina 2: 10 filas, totales=NULL
+         *
+         * Todo lo que había comprobaba la página 1, o sea el único offset con el
+         * que el defecto no aparece.
+         */
+        $porPagina = max(1, (int) floor($completo->total() / 3));
+
+        if ($completo->total() >= 3) {
+            $paginas = [];
+
+            foreach ([1, 2, 3] as $numero) {
+                /*
+                 * La página se pone con el RESOLUTOR de Laravel, no pasándola en
+                 * la petición del motor.
+                 *
+                 * `paginate()` la lee de `Paginator::resolveCurrentPage()`, que
+                 * mira el request — así que un `'page' => 2` en el arreglo del
+                 * motor no hace absolutamente nada. La primera versión de esta
+                 * comprobación lo hacía así y las tres «páginas» eran la misma:
+                 * pasaba en verde y la mutación que devolvía el defecto
+                 * SOBREVIVÍA.
+                 */
+                Illuminate\Pagination\Paginator::currentPageResolver(fn () => $numero);
+
+                $pagina = $ejecutor->ejecutar($global, $clave, [
+                    'por_pagina' => $porPagina,
+                    'columnas' => array_map(fn ($c) => $c->clave, $completo->columnas),
+                ]);
+
+                $paginas[$numero] = [
+                    'total' => $pagina->totales === null
+                        ? null
+                        : (float) $pagina->totales['valores'][$columnaTotalizada],
+                    'filas' => count($pagina->filas),
+                ];
+            }
+
+            Illuminate\Pagination\Paginator::currentPageResolver(fn () => 1);
+
+            // Y que las páginas sean DISTINTAS: si todas trajeran las mismas
+            // filas, el offset no se estaría aplicando y esto no probaría nada.
+            verificar('Las tres páginas traen filas y son tres páginas distintas',
+                collect($paginas)->every(fn (array $p) => $p['filas'] > 0),
+                implode(' | ', array_map(
+                    fn ($n, $p) => "pág {$n}: {$p['filas']} filas", array_keys($paginas), $paginas,
+                )));
+
+            $paginas = array_map(fn (array $p) => $p['total'], $paginas);
+
+            verificar('El pie existe en TODAS las páginas, no sólo en la primera',
+                ! in_array(null, $paginas, true),
+                implode(' | ', array_map(
+                    fn ($n, $v) => "pág {$n}: ".($v === null ? 'SIN PIE' : $v),
+                    array_keys($paginas), $paginas,
+                )));
+
+            verificar('Y dice lo mismo en las tres',
+                count(array_unique($paginas, SORT_REGULAR)) === 1,
+                implode(' / ', array_map(fn ($v) => (string) $v, $paginas)));
+        } else {
+            echo '  (el reporte no llega a tres páginas; se omite el caso)'.PHP_EOL;
+        }
+    }
+
+    echo PHP_EOL.'2b. El XLSX sale de verdad, con columna de DINERO'.PHP_EOL;
+
+    /*
+     * El botón «Excel» estuvo roto para todo reporte con una columna de dinero:
+     * `NumberFormat::FORMAT_CURRENCY_USD_SIMPLE` no existe en esta versión de
+     * PhpSpreadsheet, así que la descarga devolvía una página de error mientras
+     * el CSV del mismo reporte salía bien.
+     *
+     * Ninguna suite lo veía: la única que ejercitaba el XLSX exportaba «Alumnos
+     * inscritos», cuya única columna numérica es un entero. Se prueba aquí sobre
+     * un reporte de DINERO, que es donde la rama se pisa — y con `sendContent()`,
+     * porque `responder()` sólo devuelve la respuesta y no ejecuta nada.
+     */
+    $conDinero = null;
+
+    foreach ($registro->todos() as $clave => $definicion) {
+        $tieneDinero = collect($registro->fuente($definicion->fuente())->columnas())
+            ->contains(fn (ColumnaReporte $c) => $c->tipo === TipoDato::Dinero);
+
+        if (! $tieneDinero) {
+            continue;
+        }
+
+        try {
+            $r = $ejecutor->ejecutar($global, $clave, ['por_pagina' => 5]);
+        } catch (Throwable) {
+            continue;
+        }
+
+        if ($r->total() > 0) {
+            $conDinero = $clave;
+            break;
+        }
+    }
+
+    verificar('Hay un reporte de dinero con filas sobre el que probar',
+        $conDinero !== null, (string) $conDinero);
+
+    if ($conDinero !== null) {
+        $reventon = null;
+
+        try {
+            ob_start();
+            app(App\Reportes\Salida\ExportadorXlsx::class)
+                ->responder($ejecutor->paraExportar($global, $conDinero))
+                ->sendContent();
+            $bytes = strlen((string) ob_get_clean());
+        } catch (Throwable $e) {
+            ob_end_clean();
+            $bytes = 0;
+            $reventon = $e->getMessage();
+        }
+
+        verificar('El XLSX de un reporte con dinero se genera',
+            $reventon === null && $bytes > 1000,
+            $reventon ?? $bytes.' bytes');
     }
 
     echo PHP_EOL.'3. Los 34 reportes CUADRAN'.PHP_EOL;

@@ -73,6 +73,14 @@ const props = defineProps<{
     /** Por que se PUEDE agrupar. Vacio = esta fuente no se agrupa. */
     dimensiones: { clave: string; etiqueta: string; ayuda: string | null }[];
     agrupadoPor: string | null;
+    /**
+     * Por que el reporte no se pudo correr todavia, o null.
+     *
+     * Tres reportes exigen un filtro y el motor se niega sin el, con razon. Lo
+     * que no puede ser es que pulsarlos desde el indice de una pagina de error:
+     * el reporte existe, solo necesita que le digas por donde empezar.
+     */
+    faltaFiltro: string | null;
     agrupado: {
         dimension: string;
         grupos: { etiqueta: string | null; filas: number; valores: Record<string, number | null> }[];
@@ -119,8 +127,37 @@ function anchoDelGrupo(filas: number): string {
     return total === 0 ? '0%' : Math.max(1, Math.round((filas / total) * 100)) + '%';
 }
 
+/**
+ * La primera columna que NO se totaliza, para colgarle el rotulo del pie.
+ *
+ * Null si todas se totalizan --y entonces no hay hueco donde ponerlo, que es
+ * correcto: la fila entera son cifras--.
+ */
+const primeraSinTotal = computed(() => {
+    const sinTotal = props.columnas.find((c) => props.totales?.valores[c.clave] === undefined);
+
+    return sinTotal?.clave ?? null;
+});
+
 function sumaDeMedida(clave: string): number {
     return (props.agrupado?.grupos ?? []).reduce((s, g) => s + Number(g.valores[clave] ?? 0), 0);
+}
+
+/** Si este valor esta entre los elegidos de un filtro de lista multiple. */
+function estaElegido(clave: string, valor: string | number): boolean {
+    const puesto = valores.value[clave];
+
+    return Array.isArray(puesto) && puesto.map(String).includes(String(valor));
+}
+
+/**
+ * Si un filtro booleano esta puesto.
+ *
+ * El motor acepta '1', 1, true y 'true' segun de donde venga --de la URL llega
+ * como cadena y de una vista guardada como booleano--, asi que se miran todos.
+ */
+function esVerdadero(valor: unknown): boolean {
+    return valor === true || valor === 1 || valor === '1' || valor === 'true';
 }
 
 const ordenPor = ref<string | null>(props.orden.por);
@@ -375,7 +412,20 @@ function claseAlineacion(a: string): string {
                         :disabled="filtrosFijos.includes(f.clave)"
                         @change="valores[f.clave] = Array.from(($event.target as HTMLSelectElement).selectedOptions).map((o) => o.value)"
                     >
-                        <option v-for="(etiqueta, valor) in f.opciones" :key="valor" :value="valor">{{ etiqueta }}</option>
+                        <!--
+                            `:selected` con lo APLICADO. Sin esto, abrir un
+                            reporte con filtros en la URL --o una vista
+                            guardada-- pintaba el panel VACIO: la tabla salia
+                            filtrada y los controles decian que no habia ningun
+                            filtro puesto. Y como «Aplicar» reenvia lo que hay en
+                            pantalla, tocarlo los perdia.
+                        -->
+                        <option
+                            v-for="(etiqueta, valor) in f.opciones"
+                            :key="valor"
+                            :value="valor"
+                            :selected="estaElegido(f.clave, valor)"
+                        >{{ etiqueta }}</option>
                     </select>
 
                     <!--
@@ -396,7 +446,7 @@ function claseAlineacion(a: string): string {
                             type="checkbox"
                             class="h-4 w-4 rounded border-borde"
                             :disabled="filtrosFijos.includes(f.clave)"
-                            :checked="filtrosFijos.includes(f.clave)"
+                            :checked="filtrosFijos.includes(f.clave) || esVerdadero(valores[f.clave])"
                             @change="valores[f.clave] = ($event.target as HTMLInputElement).checked ? '1' : ''"
                         />
                         <span>Sí</span>
@@ -407,12 +457,23 @@ function claseAlineacion(a: string): string {
                         :type="f.tipo === 'fecha' ? 'date' : 'text'"
                         class="w-full rounded-lg border border-borde px-2 py-1.5 text-sm"
                         :disabled="filtrosFijos.includes(f.clave)"
+                        :value="valores[f.clave] ?? ''"
                         @input="valores[f.clave] = ($event.target as HTMLInputElement).value"
                     />
 
                     <p v-if="f.ayuda" class="mt-0.5 text-xs" :style="{ color: 'var(--color-suave)' }">{{ f.ayuda }}</p>
                 </div>
             </div>
+
+            <!--
+                El reporte pide un filtro antes de poder contestar. No es un
+                error: es la pregunta a medio hacer.
+            -->
+            <p
+                v-if="faltaFiltro"
+                class="rounded-lg border px-3 py-2 text-sm"
+                :style="{ borderColor: '#b45309', color: '#b45309' }"
+            >{{ faltaFiltro }}</p>
 
             <div class="flex flex-wrap items-center gap-2 border-t border-borde pt-3">
                 <button
@@ -491,7 +552,14 @@ function claseAlineacion(a: string): string {
                 >Quitar</button>
             </div>
 
-            <div v-if="agrupado" class="overflow-x-auto border-t" :style="{ borderColor: 'var(--color-borde)' }">
+            <!-- Con cero grupos no se dibuja la tabla: un encabezado y un
+                 renglon de totales en cero se leen como «la escuela no tiene
+                 nada», cuando lo que pasa es que el filtro no dejo filas. -->
+            <div
+                v-if="agrupado && agrupado.grupos.length"
+                class="overflow-x-auto border-t"
+                :style="{ borderColor: 'var(--color-borde)' }"
+            >
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="text-left text-xs" :style="{ color: 'var(--color-suave)' }">
@@ -545,7 +613,10 @@ function claseAlineacion(a: string): string {
                         </tr>
 
                         <tr class="border-t-2 font-semibold" :style="{ borderColor: 'var(--color-borde)' }">
-                            <td class="px-4 py-3">{{ agrupado.grupos.length }} grupos</td>
+                            <td class="px-4 py-3">
+                                {{ agrupado.grupos.length }}
+                                {{ agrupado.grupos.length === 1 ? 'grupo' : 'grupos' }}
+                            </td>
                             <td class="px-4 py-3 text-right tabular-nums">{{ agrupado.filas.toLocaleString('es-MX') }}</td>
                             <td />
                             <td
@@ -558,6 +629,12 @@ function claseAlineacion(a: string): string {
                     </tbody>
                 </table>
             </div>
+
+            <p
+                v-if="agrupado && !agrupado.grupos.length"
+                class="border-t px-6 py-6 text-center text-sm"
+                :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }"
+            >Ninguna fila cumple con lo que pediste, así que no hay nada que agrupar.</p>
 
             <!-- Cortado se DICE: una tabla truncada en silencio se lee como el
                  total de la escuela, y sus subtotales no sumarían. -->
@@ -642,12 +719,16 @@ function claseAlineacion(a: string): string {
                                 <span v-if="totales.valores[c.clave] !== undefined">
                                     {{ celdaReporte(totales.valores[c.clave], c.tipo as TipoDato) }}
                                 </span>
-                                <!-- La primera columna rotula el renglon; las
-                                     demas sin total quedan en blanco a
+                                <!-- La primera columna SIN total rotula el
+                                     renglon; las demas quedan en blanco a
                                      proposito: un cero ahi se leeria como «vale
-                                     cero», que es otra afirmacion. -->
+                                     cero», que es otra afirmacion.
+                                     Iba atado a `i === 0`, asi que el rotulo
+                                     desaparecia en cuanto la primera columna
+                                     elegida era de dinero y el pie quedaba sin
+                                     decir de cuantas filas hablaba. -->
                                 <span
-                                    v-else-if="i === 0"
+                                    v-else-if="c.clave === primeraSinTotal"
                                     class="font-normal"
                                     :style="{ color: 'var(--color-suave)' }"
                                 >Total de {{ totales.filas.toLocaleString('es-MX') }}</span>
@@ -671,7 +752,11 @@ function claseAlineacion(a: string): string {
             </p>
 
             <p v-if="!filas.length" class="px-6 py-8 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
-                Ninguna fila cumple con lo que pediste.
+                <!-- Sin correr todavia no es lo mismo que sin resultados: decir
+                     «ninguna fila cumple con lo que pediste» cuando no se ha
+                     pedido nada hace pensar que la escuela no tiene datos. -->
+                <span v-if="faltaFiltro">Elige lo que falta arriba y pulsa «Aplicar» para ver el reporte.</span>
+                <span v-else>Ninguna fila cumple con lo que pediste.</span>
             </p>
         </TarjetaSeccion>
 

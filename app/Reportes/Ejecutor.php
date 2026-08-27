@@ -41,6 +41,21 @@ class Ejecutor
      */
     private const MAXIMO_DE_GRUPOS = 200;
 
+    /**
+     * Los formatos que son MIRAR, no llevarse.
+     *
+     * Se deduplican los repintados de éstos y nunca los de una descarga: un
+     * archivo sale de la escuela y se reenvía, así que «bajó el padrón tres
+     * veces» es un hecho distinto de «lo bajó una».
+     *
+     * Va como lista y no como `!== 'pantalla'` por lo que costó la primera vez:
+     * el modo agrupado añadió el formato «agrupado» dos commits después y cayó
+     * del lado equivocado en los dos sitios que definían la descarga POR
+     * DESCARTE. Aquí y en `BitacoraReportesController` se enumera lo que es
+     * pantalla, para que un formato nuevo no herede una respuesta por omisión.
+     */
+    public const FORMATOS_DE_PANTALLA = ['pantalla', 'agrupado'];
+
     public function __construct(
         private readonly RegistroReportes $registro,
         private readonly ModulosDeLaEscuela $modulos,
@@ -193,6 +208,29 @@ class Ejecutor
         $agregada = (clone $consulta)->toBase();
         $agregada->columns = null;
         $agregada->orders = null;
+        /*
+         * Y sin LÍMITE ni SALTO, que es lo que faltaba.
+         *
+         * `paginate()` MUTA el builder: le deja el `limit` y el `offset` de la
+         * página. Como los totales se calculan después, el clon los heredaba —y
+         * en una consulta agregada el `offset` no salta filas, salta el ÚNICO
+         * renglón del resultado—. Efecto medido sobre «Estado de cartera» con
+         * páginas de 10:
+         *
+         *     pagina 1: 10 filas, totales={"saldo":8335}
+         *     pagina 2: 10 filas, totales=NULL
+         *     pagina 3: 10 filas, totales=NULL
+         *
+         * O sea que el pie sólo existía en la primera página. No daba error: la
+         * fila de totales simplemente desaparecía, y quien mirara la página 2
+         * vería una tabla sin total sin saber por qué.
+         *
+         * Se limpia AQUÍ y no clonando antes de paginar, porque es aquí donde
+         * vive el invariante: esto agrega sobre TODO lo filtrado, pase lo que
+         * pase con quien llame.
+         */
+        $agregada->limit = null;
+        $agregada->offset = null;
 
         $fila = $agregada->selectRaw(implode(', ', $seleccion))->first();
 
@@ -277,6 +315,9 @@ class Ejecutor
         $agrupada = (clone $consulta)->toBase();
         $agrupada->columns = null;
         $agrupada->orders = null;
+        // El `offset` de la página no tiene nada que hacer aquí: un agrupado
+        // resume TODO lo filtrado. El `limit` se pone abajo, con su tope.
+        $agrupada->offset = null;
 
         $filas = $agrupada
             ->selectRaw(implode(', ', $seleccion))
@@ -323,9 +364,19 @@ class Ejecutor
             truncado: $truncado,
         );
 
+        /*
+         * La DIMENSIÓN entra en los filtros anotados.
+         *
+         * Sin ella, agrupar por campus y agrupar por carrera dejaban dos filas
+         * idénticas: la bitácora no podía decir qué se preguntó, y la
+         * deduplicación fundía dos consultas distintas en una. Va aquí y no en
+         * una columna nueva porque `filtros` es exactamente eso —lo que acotó
+         * esta corrida— y una columna sin más lector que ésta sería la sexta que
+         * este proyecto tiene que retirar.
+         */
         $this->anotarCrudo(
             $usuario, $reporte, 'agrupado', $resultado->filas(),
-            $resultado->milisegundos, $filtros, $columnas, $omitidas,
+            $resultado->milisegundos, $filtros + ['agrupar_por' => $dim->clave], $columnas, $omitidas,
         );
 
         return $resultado;
@@ -767,22 +818,88 @@ class Ejecutor
     ): bool {
         // Una descarga siempre se anota, y una corrida sin sesión también: sin
         // persona no hay «la misma persona» contra quien comparar.
-        if ($formato !== 'pantalla' || $usuario->persona_id === null) {
+        if (! in_array($formato, self::FORMATOS_DE_PANTALLA, true) || $usuario->persona_id === null) {
             return false;
         }
 
+        /*
+         * Se compara contra la última DE ESE FORMATO, no contra la última a
+         * secas.
+         *
+         * Iba sin el filtro de formato, y con el agrupado eso se rompió: una
+         * pantalla agrupada escribe DOS filas —«pantalla» y «agrupado»—, así que
+         * la última de la persona era siempre la de agrupado y la de pantalla no
+         * casaba nunca. Medido: cinco recargas de una pantalla agrupada dejaban
+         * NUEVE filas, cuando sin agrupar dejan una.
+         */
         $ultima = EjecucionReporte::query()
             ->where('persona_id', $usuario->persona_id)
             ->where('reporte', $reporte->clave())
+            ->where('formato', $formato)
             ->where('created_at', '>=', now()->subMinutes(self::MINUTOS_DE_REPINTADO))
             ->latest('created_at')
             ->latest('id')
             ->first();
 
         return $ultima !== null
-            && $ultima->formato === $formato
-            && $ultima->filtros === $filtros
-            && $ultima->columnas === $columnas;
+            && $this->mismo($ultima->filtros, $filtros)
+            && $this->mismo($ultima->columnas, $columnas);
+    }
+
+    /**
+     * Si dos juegos de filtros o de columnas son el MISMO, sin mirar el orden.
+     *
+     * ── Por qué no vale `===` ─────────────────────────────────────────────
+     * Porque una de las dos partes viene de MySQL. La columna es de tipo `json`
+     * nativo y MySQL **normaliza el orden de las claves al guardarlas**, así que
+     * lo que se lee de vuelta no conserva el orden con que se escribió — y el
+     * `===` de PHP sobre arreglos exige el mismo orden además de los mismos
+     * pares.
+     *
+     * Medido: con un solo filtro coincidía —no hay orden que cambiar— y la
+     * deduplicación parecía funcionar. Con dos dejaba de funcionar en silencio:
+     * tres corridas idénticas de un agrupado por campus escribían tres filas
+     * porque el arreglo guardado salía `{agrupar_por, situacion_id}` y el recién
+     * construido era `{situacion_id, agrupar_por}`.
+     *
+     * Se ordena RECURSIVAMENTE porque un filtro de lista múltiple lleva dentro
+     * un arreglo, y ahí el orden sí lo decide quien lo manda.
+     *
+     * @param  array<array-key, mixed>|null  $guardado
+     * @param  array<array-key, mixed>  $nuevo
+     */
+    private function mismo(?array $guardado, array $nuevo): bool
+    {
+        return $this->canonico($guardado ?? []) === $this->canonico($nuevo);
+    }
+
+    /**
+     * El mismo contenido, siempre escrito igual.
+     *
+     * @param  array<array-key, mixed>  $valores
+     * @return array<array-key, mixed>
+     */
+    private function canonico(array $valores): array
+    {
+        foreach ($valores as $clave => $valor) {
+            if (is_array($valor)) {
+                $valores[$clave] = $this->canonico($valor);
+            }
+        }
+
+        /*
+         * Por clave si las tiene, por valor si es una lista: `columnas` es una
+         * lista y sus posiciones no significan nada para esta comparación —dos
+         * peticiones con las mismas columnas en distinto orden son la misma
+         * consulta, porque el ORDEN de las columnas se decide aparte—.
+         */
+        if (array_is_list($valores)) {
+            sort($valores);
+        } else {
+            ksort($valores);
+        }
+
+        return $valores;
     }
 
     /**
