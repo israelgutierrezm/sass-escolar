@@ -49,7 +49,7 @@ Los otros dos documentos vivos:
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
    Las suites versionadas viven en `scripts/` (**86 archivos `prueba-*.php`**;
-   esta lista decía 23 y llevaba tiempo desactualizada; hoy son 103). Se corren todas de una
+   esta lista decía 23 y llevaba tiempo desactualizada; hoy son 104). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
    imprimen `Resultado: N correctas, M fallidas`. **Ojo al barrer con `grep`**:
    cuatro cierran de otra forma —`prueba-cache-externo`, `prueba-captura-examen`
@@ -57,7 +57,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 103 están en verde**, barridas el 2026-08-27. Trece son del módulo de
+   **Las 104 están en verde**, barridas el 2026-08-27. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -2992,14 +2992,49 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     pasar por `ResultadosDeEncuesta` para respetar el umbral de anonimato
     (`MINIMO_PARA_MOSTRAR = 4`) — un archivo se reenvía más fácil que una
     pantalla, y la siguiente encuesta ya nadie la contesta con sinceridad.
-  - **Rebanadas pendientes** (ver el plan): 9 —envío programado por correo, y la
-    que el propio plan marca como «la primera que recortaría»— y 10 —el
-    constructor de reportes que pidió el cliente—. **El criterio de entrada de la
-    10 ya se puede MEDIR**: son tres vistas guardadas del mismo reporte con
-    formas distintas, o una petición concreta de la SEP que ninguna fuente cubra,
-    y eso se lee en la pantalla de uso que la rebanada 8
-    acaba de entregar. Hoy el demo tiene CERO vistas guardadas, así que el
-    criterio no se cumple todavía y decirlo es parte del trabajo.
+  - **Rebanada 9 · Reportes programados por correo, CERRADA** (2026-08-27).
+    Una vista guardada se programa y llega sola. `/reportes/programaciones`,
+    `reportes:enviar-programados`, cada quince minutos.
+    - **Toda la seguridad está en una línea: corre con el ROL GUARDADO en la
+      programación**, no en global ni con el que su dueño tenga activo hoy. De
+      madrugada no hay sesión abierta, así que no hay rol activo del que sacar el
+      alcance por campus; correr en global sería mandarle por correo la escuela
+      entera a quien sólo ve un plantel, todos los lunes y sin que nadie lo
+      mirara. Medido por la suite: **guardado 22 filas, activo 32, escuela 32**.
+    - **Si el dueño pierde el rol o el permiso, se SUSPENDE con el motivo
+      escrito.** Son dos casos distintos —quitarle el rol, o quitarle AL ROL el
+      permiso, que es lo que pasa al reorganizar `/plataforma/roles`— y los dos
+      suspenden. Nunca se degrada: correr «con lo que le quede» convertiría un
+      cambio de permisos en un correo con distinto contenido que nadie pidió.
+    - **Un destinatario sin el permiso del reporte se descarta y se ANOTA**, con
+      su nombre y su razón. Sin eso, programar sería una puerta lateral para
+      hacerle llegar a alguien un padrón que su rol le niega.
+    - **NO existe el destinatario «una dirección de correo».** El plan lo preveía
+      para el contador externo; o recibe un enlace que exige sesión y no puede
+      abrirlo —y quien lo configure creerá que le llega—, o recibe el adjunto, y
+      entonces un padrón con CURP sale todos los lunes a una dirección que la
+      escuela no controla.
+    - **Llegar tarde no salta el turno**: se compara con la hora YA PASADA. Lo que
+      impide el correo repetido es `ultima_corrida_en`, no la puntería.
+    - **Sin cola**: `QUEUE_CONNECTION=database` y este repositorio **no declara
+      ningún trabajador** —lo que afecta también a `TimbrarFactura` y
+      `ArchivarGrabacion`, que ya existían y se quedan esperando—.
+    - Pruebas: `scripts/prueba-reportes-programados.php`, 26 verificaciones,
+      **nueve mutaciones**. Dos sobrevivieron al primer intento porque el
+      escenario no distinguía el rol guardado del activo: el dueño tenía uno
+      solo. Y tres cosas de la propia suite estaban mal y pasaban igual —
+      `startOfWeek()` devuelve DOMINGO en esta aplicación, los reinicios con
+      `forceFill`+`save` no se escribían porque `save()` sólo manda lo sucio, y
+      había un `verificar(..., true)` literal—.
+
+  - **Rebanada pendiente**: sólo la 10, el constructor de reportes que pidió el
+    cliente. **Su criterio de entrada ya se puede MEDIR** —tres vistas guardadas
+    del mismo reporte con formas distintas, o una petición concreta de la SEP que
+    ninguna fuente cubra— y se lee en `/reportes/bitacora`, la pantalla que la
+    rebanada 8 entregó. **Hoy NO se cumple, y no por poco**: el demo tiene cero
+    vistas guardadas y las ejecuciones registradas son todas de una sola persona
+    probando. Hace falta que la escuela use el módulo unas semanas; construirlo
+    antes es exactamente lo que ese criterio existe para evitar.
 
 **Pendiente inmediato — aquí se retoma:**
 

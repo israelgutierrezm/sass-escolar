@@ -801,7 +801,25 @@ Modo agrupado con `GROUP BY` y agregaciones por subconsulta correlacionada; tota
 
 ---
 
-### Rebanada 9 · Programación por correo — la primera que recortaría
+### ~~Rebanada 9 · Programación por correo~~ ✅ HECHA
+
+> **[~] La infraestructura de correo NO era mínima**, como decía este renglón.
+> Hay `CorreoConfig` con SMTP por escuela, `CorreoService::aplicar()` que cambia
+> el mailer en caliente y un probador que funciona. Lo que sí era cierto es lo
+> otro: `QUEUE_CONNECTION=database` y **ningún trabajador declarado en el
+> repositorio** —cosa que afecta también a `TimbrarFactura` y
+> `ArchivarGrabacion`, que ya existían—. Por eso los correos van SÍNCRONOS
+> dentro del comando: encolarlos los dejaría esperando para siempre.
+>
+> **[~] Y NO se construyó el destinatario de tipo `correo`.** El plan lo preveía
+> para el contador externo sin cuenta, «que recibe un enlace que exige sesión, no
+> el adjunto». Al escribirlo se ve que no funciona: un enlace que exige sesión no
+> lo puede abrir quien no tiene cuenta, así que ese destinatario recibiría una
+> puerta cerrada y quien lo configure creería que su contador recibe el reporte.
+> Y la alternativa —mandarle el adjunto— es exfiltración por diseño: un padrón
+> con CURP saliendo todos los lunes a una dirección que la escuela no controla.
+> Quien necesite mandárselo a alguien de fuera lo descarga y lo reenvía, con su
+> nombre en el envío.
 
 `programaciones_reporte` + `destinatarios_reporte`, comando `reportes:enviar-programados` con `--tenant=*`, en `routes/console.php` con `withoutOverlapping()` y `onOneServer()`, sobre `CorreoConfig`/`CorreoService`.
 
