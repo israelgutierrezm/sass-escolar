@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Academico\Carrera;
+use App\Models\Academico\NivelEstudio;
 use App\Models\Academico\Oferta;
 use App\Models\Formularios\CampoFormulario;
 use App\Models\Formularios\Formulario;
@@ -12,7 +13,6 @@ use App\Models\Formularios\FormularioAsignacion;
 use App\Models\Formularios\OpcionCampo;
 use App\Models\Formularios\TipoCampo;
 use App\Models\Identidad\Rol;
-use App\Models\Academico\NivelEstudio;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -241,11 +241,29 @@ class FormularioController extends Controller
                 }
             }
 
+            /*
+             * ── A QUIÉN va dirigido se copia entero ───────────────────────
+             *
+             * Aquí decía `aplica_a_tipo` y `aplica_a_id`, columnas que la
+             * migración `2026_08_05_160000` retiró y que además no están en el
+             * `$fillable` del modelo. Eloquent descarta en silencio lo que no es
+             * fillable, así que la copia nacía con `rol_id`, `ambito_tipo` y
+             * `ambito_id` en NULL: **la versión 2 se publicaba sin llegarle a
+             * nadie, y no lanzaba ninguna excepción** —`rol_id` es nullable, así
+             * que la base tampoco se quejaba—.
+             *
+             * No se notó porque `formulario_asignacion` está vacía en el demo, y
+             * la prueba escribía las mismas columnas muertas.
+             *
+             * Reproducido: sembrada una asignación con rol 4 y ámbito
+             * carrera/7, la copia salía «rol=NULL ambito=NULL/NULL».
+             */
             foreach ($formulario->asignaciones as $asignacion) {
                 FormularioAsignacion::create([
                     'formulario_id' => $copia->id,
-                    'aplica_a_tipo' => $asignacion->aplica_a_tipo,
-                    'aplica_a_id' => $asignacion->aplica_a_id,
+                    'rol_id' => $asignacion->rol_id,
+                    'ambito_tipo' => $asignacion->ambito_tipo,
+                    'ambito_id' => $asignacion->ambito_id,
                     'obligatorio' => $asignacion->obligatorio,
                 ]);
             }

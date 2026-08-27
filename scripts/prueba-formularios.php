@@ -15,6 +15,7 @@ $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
 require __DIR__.'/apoyo-roles.php';
 
+use App\Http\Controllers\FormularioController;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Formularios\CampoFormulario;
 use App\Models\Formularios\Formulario;
@@ -104,65 +105,88 @@ try {
 
     $rolAlumno = Rol::where('name', 'alumno')->firstOrFail();
 
+    /*
+     * Con las columnas REALES.
+     *
+     * Decía `aplica_a_tipo` y `aplica_a_id`, que la migración
+     * `2026_08_05_160000` retiró y que tampoco están en el `$fillable`. Eloquent
+     * descarta en silencio lo que no es fillable, así que esta asignación se
+     * creaba SIN público y la prueba la contaba igual — y por eso no cazó que el
+     * controlador escribía las mismas columnas muertas.
+     */
     FormularioAsignacion::create([
         'formulario_id' => $f->id,
-        'aplica_a_tipo' => 'rol',
-        'aplica_a_id' => $rolAlumno->id,
+        'rol_id' => $rolAlumno->id,
+        'ambito_tipo' => 'carrera',
+        'ambito_id' => 7,
         'obligatorio' => true,
     ]);
 
     verificar('Se asigna a un rol', $f->asignaciones()->count() === 1);
 
+    // Y con su público de verdad: contar la fila no dice si llegó a alguien.
+    $recienAsignada = $f->asignaciones()->first();
+
+    verificar('Y la asignación GUARDA a quién va dirigida',
+        $recienAsignada->rol_id === $rolAlumno->id
+            && $recienAsignada->ambito_tipo === 'carrera'
+            && $recienAsignada->ambito_id === 7,
+        'rol='.var_export($recienAsignada->rol_id, true)
+            .' ambito='.var_export($recienAsignada->ambito_tipo, true)
+            .'/'.var_export($recienAsignada->ambito_id, true));
+
     echo PHP_EOL.'4. Versionar copia todo y RE-ATA los condicionales'.PHP_EOL;
 
-    // Lo que hace el controlador, en corto.
-    $v2 = Formulario::create([
-        'clave' => $f->clave,
-        'titulo' => $f->titulo,
-        'version' => (int) Formulario::withTrashed()->where('clave', $f->clave)->max('version') + 1,
-    ]);
+    /*
+     * ── Se llama al CONTROLADOR, no se reimplementa ───────────────────────
+     *
+     * Aquí decía «lo que hace el controlador, en corto» y copiaba a mano lo que
+     * `versionar()` hace. Una prueba que reimplementa lo que dice probar no
+     * puede cazar un defecto del código real, y no lo cazó: el controlador
+     * escribía `aplica_a_tipo`/`aplica_a_id` —columnas retiradas y no
+     * fillable—, así que **la versión 2 se publicaba sin llegarle a nadie, sin
+     * lanzar ninguna excepción**, mientras esta sección seguía en verde
+     * comprobando su propia copia.
+     */
+    app(FormularioController::class)->versionar($f->fresh(['campos.opciones', 'asignaciones']));
 
-    $equivalencias = [];
+    $v2 = Formulario::query()->where('clave', $f->clave)->orderByDesc('version')->firstOrFail();
 
-    foreach ($f->campos()->get() as $campo) {
-        $nuevo = CampoFormulario::create([
-            'formulario_id' => $v2->id,
-            'tipo_campo_id' => $campo->tipo_campo_id,
-            'pregunta' => $campo->pregunta,
-            'obligatorio' => $campo->obligatorio,
-            'orden' => $campo->orden,
-            'condicional' => $campo->condicional,
-        ]);
+    verificar('Se creó la versión 2', $v2->version === 2 && $v2->id !== $f->id, 'v'.$v2->version);
 
-        $equivalencias[$campo->id] = $nuevo->id;
-
-        foreach ($campo->opciones as $opcion) {
-            OpcionCampo::create([
-                'campo_formulario_id' => $nuevo->id,
-                'valor' => $opcion->valor,
-                'etiqueta' => $opcion->etiqueta,
-                'orden' => $opcion->orden,
-            ]);
-        }
-    }
-
-    foreach ($f->campos()->get() as $campo) {
-        if ($campo->campo_padre_id !== null && isset($equivalencias[$campo->campo_padre_id])) {
-            CampoFormulario::whereKey($equivalencias[$campo->id])
-                ->update(['campo_padre_id' => $equivalencias[$campo->campo_padre_id]]);
-        }
-    }
-
-    $hijoV2 = CampoFormulario::find($equivalencias[$hijo->id]);
+    $porPregunta = $v2->campos()->get()->keyBy('pregunta');
+    $padreV2 = $porPregunta[$padre->pregunta] ?? null;
+    $hijoV2 = $porPregunta[$hijo->pregunta] ?? null;
 
     verificar('La versión 2 tiene los mismos campos', $v2->campos()->count() === 2);
-    verificar('Las opciones se copiaron',
-        CampoFormulario::find($equivalencias[$padre->id])->opciones()->count() === 2);
+    verificar('Las opciones se copiaron', $padreV2?->opciones()->count() === 2);
+
     // Lo que se rompería sin la segunda pasada: el hijo apuntaria al padre VIEJO.
     verificar('El condicional apunta al padre de SU versión, no al viejo',
-        $hijoV2->campo_padre_id === $equivalencias[$padre->id],
-        'v1: '.$padre->id.' → v2: '.$hijoV2->campo_padre_id);
+        $hijoV2?->campo_padre_id === $padreV2?->id,
+        'v1: '.$padre->id.' → v2: '.var_export($hijoV2?->campo_padre_id, true));
+
     verificar('La versión 1 sigue intacta', $f->fresh()->campos()->count() === 2);
+
+    /*
+     * ── Y LO QUE FALTABA: la versión nueva conserva su PÚBLICO ────────────
+     *
+     * Es la comprobación que este módulo no tenía y que dejó pasar meses un
+     * defecto silencioso. Un formulario versionado sin público se publica, no
+     * falla, y simplemente no le aparece a nadie.
+     */
+    $copiada = $v2->asignaciones()->first();
+
+    verificar('La versión 2 hereda la asignación', $v2->asignaciones()->count() === 1);
+
+    verificar('Y con su PÚBLICO, no en blanco',
+        $copiada?->rol_id === $rolAlumno->id
+            && $copiada?->ambito_tipo === 'carrera'
+            && $copiada?->ambito_id === 7
+            && (bool) $copiada?->obligatorio === true,
+        'rol='.var_export($copiada?->rol_id, true)
+            .' ambito='.var_export($copiada?->ambito_tipo, true)
+            .'/'.var_export($copiada?->ambito_id, true));
 
     echo PHP_EOL.'5. Una versión borrada sigue ocupando el número'.PHP_EOL;
 
@@ -201,10 +225,18 @@ try {
 
     echo PHP_EOL.'7. Borrar un campo no deja condicionales rotos'.PHP_EOL;
 
-    $huerfano = CampoFormulario::find($equivalencias[$hijo->id]);
+    /*
+     * Sobre los campos de la versión 2, buscados por su pregunta.
+     *
+     * Iban por un mapa de equivalencias que esta suite construía al copiar el
+     * formulario a mano; desde que versiona por el CONTROLADOR, ese mapa no
+     * existe — y no debe: era justo lo que impedía que la prueba viera un
+     * defecto del código real.
+     */
+    $huerfano = $hijoV2;
 
     CampoFormulario::query()
-        ->where('campo_padre_id', $equivalencias[$padre->id])
+        ->where('campo_padre_id', $padreV2->id)
         ->update(['campo_padre_id' => null, 'condicional' => null]);
 
     verificar('Al quitar el padre, el hijo deja de estar condicionado',
