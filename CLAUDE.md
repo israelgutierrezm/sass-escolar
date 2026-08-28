@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**105 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**106 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -58,7 +58,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 105 están en verde**, barridas el 2026-08-27. Catorce son del módulo de
+   **Las 106 están en verde**, barridas el 2026-08-27. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -2606,6 +2606,50 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   - **Una salvaguarda que no salvaba nada**: un `if ($diseno->exists)` antes de
     leer `firmantes`. La mutación sobrevivió; comprobado que Eloquent devuelve
     una colección vacía, se retiró.
+
+- **La foto de cualquier persona se la podía bajar cualquiera con cuenta**
+  (2026-08-27). Salió barriendo la clase «declarado y nunca aplicado», la misma
+  que ese día ya había dado dos casos.
+  - `FotoPersonaController::mostrar()` recibía la petición y **no la miraba**: la
+    ruta va detrás de `auth` y **sin un solo `can:`**, así que un alumno, un
+    aspirante o un padre podían pedir `/personas/1/foto`, `/personas/2/foto`… y
+    llevarse la cara de toda la escuela, **menores incluidos**. Los ids son
+    consecutivos: enumerarlos es trivial.
+  - **El docblock del propio controlador YA declaraba la regla** —«quién puede
+    verla: cualquiera que pueda ver su ficha»— y no la aplicaba ninguna línea.
+    Es la forma más cara de este defecto: quien lee el archivo se queda
+    tranquilo.
+  - **Guardar el archivo en el disco privado no protege nada por sí solo**: sólo
+    mueve la pregunta a la ruta que lo sirve. Si esa ruta no pregunta quién
+    llama, el disco privado es decoración.
+  - Comprobado ANTES de tocar nada, invocando al controlador: `alumno.demo.1`,
+    sin ninguno de los permisos de personal, recibía **200 con la imagen**. Y
+    después, por HTTP real en el navegador: como administrador **200**, y
+    suplantando a un alumno **404**.
+  - **No se resuelve con un `can:` en la ruta**, porque por ese endpoint entran
+    SIETE oficios: control escolar, el catálogo de docentes, admisiones y
+    promoción, la pantalla de usuarios, el padrón de padres y tutores, el padre
+    con su hijo, el tutor educativo con su tutorado, la inscripción por grupo y
+    —al revés que todo lo demás— **el alumno mirando a sus docentes**. Un
+    middleware con el permiso de uno rebotaría a los demás. Misma lección que la
+    descarga de adjuntos de entrega.
+  - **Los consumidores se ENUMERARON uno por uno** (`urlFoto()`) antes de dar la
+    regla por buena, y menos mal: tres —el padrón de tutores, la inscripción
+    masiva y el portal del alumno— no encajaban en la primera versión. El
+    síntoma no habría sido un error sino **una pantalla llena de avatares
+    rotos**, que es de las cosas que nadie reporta.
+  - En los cuatro casos con vínculo se exigen las DOS capas de siempre: el
+    permiso dice QUÉ, el vínculo dice SOBRE QUIÉN.
+  - **Se niega con 404 y no con 403**: un 403 confirma que esa persona existe y
+    tiene foto, así que enumerando ids se levanta el padrón de la escuela sin
+    ver una sola cara. Misma decisión que con la rúbrica ajena.
+  - Pruebas: `scripts/prueba-foto-de-persona.php`, 23 verificaciones,
+    comprobadas mutando **trece reglas**. Una sobrevivió —quitarle a la rama de
+    tutores su condición de «tiene a alguien a cargo»— porque faltaba el caso de
+    que `ver-tutores` NO es un pase libre; se construyó y ahora muere.
+  - **En el demo hay UNA sola persona con foto**, así que el escenario se siembra
+    dentro de la transacción: sin eso, «no se la pudo bajar» se cumpliría por
+    404 de archivo inexistente y no por la salvaguarda.
 
 - **La cola por fin tiene quien la procese** (2026-08-27). Pedido del cliente:
   «arregla lo de la cola». `QUEUE_CONNECTION=database` y **nadie tomaba las

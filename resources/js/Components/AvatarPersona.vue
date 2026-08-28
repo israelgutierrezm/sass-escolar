@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 /**
  * La cara de una persona: su foto, o sus iniciales cuando no la hay.
@@ -57,12 +57,31 @@ const MEDIDAS = {
 } as const;
 
 const medida = computed(() => MEDIDAS[props.tamano]);
+
+/**
+ * Si la foto no llega, se cae a las iniciales.
+ *
+ * Sin esto sale el icono de imagen rota del navegador, que es peor que no tener
+ * foto: parece que la pantalla falló. Pasa cuando el archivo se borró del disco
+ * y desde que la ruta comprueba QUIÉN pide —una foto que no le corresponde a
+ * quien mira responde 404, y en ese caso lo correcto es enseñar las iniciales,
+ * no un cuadro roto—.
+ *
+ * Se reinicia al cambiar de foto: en una lista virtualizada el mismo componente
+ * se reusa para otra persona, y sin esto arrastraría el fallo de la anterior.
+ */
+const fallo = ref(false);
+
+watch(() => props.foto, () => {
+    fallo.value = false;
+});
 </script>
 
 <template>
     <img
-        v-if="foto"
+        v-if="foto && !fallo"
         :src="foto"
+        @error="fallo = true"
         :alt="nombre ?? ''"
         class="shrink-0 rounded-full object-cover ring-1 ring-black/5"
         :class="medida"
