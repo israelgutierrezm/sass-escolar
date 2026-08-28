@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**106 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**108 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -58,7 +58,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 106 están en verde**, barridas el 2026-08-27. Catorce son del módulo de
+   **Las 108 están en verde**, barridas el 2026-08-28. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -2611,6 +2611,67 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   - **Una salvaguarda que no salvaba nada**: un `if ($diseno->exists)` antes de
     leer `firmantes`. La mutación sobrevivió; comprobado que Eloquent devuelve
     una colección vacía, se retiró.
+
+- **Un permiso COMPARTIDO entre oficios abría dos pantallas de finanzas**
+  (2026-08-28). Salió de barrer la clase «declarado y nunca aplicado» por otra
+  lente: los permisos que pertenecen a más de una faceta.
+  - Sólo hay CINCO así, y `ver-adeudos` es el peor: es de administrativo,
+    **alumno y padre de familia** —el alumno lo necesita para su estado de
+    cuenta— y de él cuelga TODO el módulo de finanzas. Cada pantalla
+    administrativa añade el suyo encima… menos dos, que se quedaron sólo con el
+    del grupo: **`/finanzas/comprobantes`** (nombre, matrícula, carrera, monto,
+    banco y referencia SPEI de toda la escuela) y **`/finanzas/cuentas-bancarias`**
+    (las CLABE y los números de cuenta).
+  - **Un permiso compartido entre oficios no puede ser lo único que cierre una
+    puerta administrativa: no distingue de quién es.** Es la lente que hay que
+    repetir al agregar pantallas —`CatalogoPermisos` declara las facetas de cada
+    permiso, así que la lista de sospechosos se saca en una consulta—.
+  - **La regla ya estaba escrita en un comentario justo encima de esas rutas**
+    —«configurar las cuentas va con el permiso de configurar el cobro; aprobar va
+    con el de registrar pagos»— y a los dos `index` no se les había aplicado.
+    Tercera vez en el día que una regla vive sólo en la prosa.
+  - Comprobado sembrando el caso, porque **el demo no tiene ni un comprobante ni
+    una cuenta**: sin sembrar, el alumno entraba igual y veía «0 filas», que se
+    lee como si no hubiera fuga. Con datos, se llevaba el comprobante de otra
+    familia. Y por HTTP real suplantando: antes 200, ahora **403**, con
+    `/finanzas` —su cartera— intacto en 200.
+  - **Al alumno no se le rompe el pago**: sus cuentas salen de OTRO camino, el de
+    su propia cartera (`CuentaBancaria::paraCarrera()` filtrado por
+    `puedeRecibir()`), ya acotado a su matrícula. Se comprobó ANTES de cerrar.
+  - `ver-cuentas-bancarias` es puerta DERIVADA —quien configura el cobro las
+    administra y quien está en caja necesita consultarlas para casar una
+    transferencia—, y escribir sigue exigiendo `gestionar-planes-cobro`.
+  - Pruebas: `scripts/prueba-puertas-de-finanzas.php`, 14 verificaciones, cuatro
+    mutaciones.
+
+- **Dos pantallas administrativas no se alcanzaban desde ningún sitio, y ahora
+  hay red para toda la clase** (2026-08-28).
+  - **`/escolar/servicios`** (el mostrador de trámites, `atender-servicios`) y
+    **`/escolar/biblioteca`** (`gestionar-biblioteca`) existían, con su ruta y su
+    permiso, y **no las nombraba el menú, ni un enlace, ni una tarjeta de panel**
+    —las tarjetas apuntan a `/servicios` y `/biblioteca`, que son las del
+    ALUMNO—. Una escuela que le diera `gestionar-biblioteca` a su bibliotecaria
+    le daba un permiso que no abría nada que pudiera encontrar. Es el tercer caso
+    tras `/plataforma/modulos`.
+  - **El menú sabía decir «este permiso O este otro» (`o:`) y no «Y ADEMÁS».**
+    Varios grupos de rutas llevan un `can:` de sección encima del de cada
+    pantalla —`/escolar` exige `ver-grupos`, `/finanzas` exige `ver-adeudos`— y
+    el menú sólo declaraba el de la hoja: **quince entradas** se le ofrecían a
+    quien iba a recibir un 403. Se agregó `y:`, que es lo que las rutas ya
+    hacían.
+  - **Y el `permiso` de un GRUPO del menú no lo lee nadie**: `hojaVisible()` sólo
+    se llama para hojas. Dos grupos lo declaran y no hace nada; hoy es inocuo
+    porque sus hijos piden lo mismo, pero es una promesa falsa. Anotado, no
+    tocado.
+  - Red: `scripts/prueba-pantallas-con-puerta.php`. Recorre las **115 pantallas**
+    con permiso y exige que cada una se alcance por menú, por prefijo o por
+    enlace, y que las **92 entradas** del menú no ofrezcan nada que la ruta
+    niegue. Cuatro mutaciones.
+  - **Trampa al escribir la red**: para no contar como «alcanzable» un formulario
+    que hace `PUT` a su propia URL, se excluye el componente que la ruta pinta —y
+    la primera versión lo sacaba del PRIMER `Inertia::render` del ARCHIVO, no del
+    método. Así se excluía el Vue equivocado y dos pantallas alcanzables salían
+    como escondidas. Se saca del cuerpo del método.
 
 - **Retirado el permiso `ver-personas`** (2026-08-28, decisión del cliente).
   Prometía «consultar el directorio de personas de la escuela» y **ese directorio

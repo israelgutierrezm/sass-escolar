@@ -19,6 +19,20 @@ export interface OpcionMenu {
     permiso?: string | null;
     /** Permiso alternativo: la opción se muestra con cualquiera de los dos. */
     o?: string;
+    /**
+     * Permiso que hace falta ADEMÁS del anterior.
+     *
+     * Existe porque varios grupos de rutas llevan un `can:` de sección encima
+     * del de cada pantalla —`/escolar` exige `ver-grupos` y `/finanzas` exige
+     * `ver-adeudos`—, y el menú sólo sabía declarar el de la pantalla. Un rol
+     * con `facturar` y sin `ver-adeudos` veía «Facturas» y se llevaba un 403:
+     * quince entradas estaban así.
+     *
+     * `o` es un O y esto es un Y. Se necesitan los dos porque las rutas usan
+     * los dos: una puerta derivada (`usar-rubricas`) es un O, y un grupo de
+     * rutas con dos `can:` es un Y.
+     */
+    y?: string;
     /** Prefijo para marcar activo un SUBGRUPO (nivel 2 con hijos). */
     prefijo?: string;
     /** Opciones anidadas: convierten a esta opción en un subgrupo plegable. */
@@ -261,7 +275,7 @@ export const CATALOGO_MENU: GrupoMenu[] = [
         facetas: ['administrativo'],
         icono: 'M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342',
         hijos: [
-            { clave: 'alumnos-listado', etiqueta: 'Listado', url: '/escolar/alumnos', permiso: 'ver-alumnos' },
+            { clave: 'alumnos-listado', etiqueta: 'Listado', url: '/escolar/alumnos', permiso: 'ver-alumnos', y: 'ver-grupos' },
             // Movilidad, Disciplina y Bolsa cuelgan de «Alumnos»: son funciones
             // administrativas SOBRE el alumno, operadas por personal. Cada una
             // conserva su `modulo`, así que apagarlo en /plataforma/modulos la
@@ -312,7 +326,7 @@ export const CATALOGO_MENU: GrupoMenu[] = [
         prefijo: '/escolar/docentes',
         facetas: ['administrativo'],
         icono: 'M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z',
-        hijos: [{ clave: 'docentes-listado', etiqueta: 'Listado', url: '/escolar/docentes', permiso: 'ver-docentes' }],
+        hijos: [{ clave: 'docentes-listado', etiqueta: 'Listado', url: '/escolar/docentes', permiso: 'ver-docentes', y: 'ver-grupos' }],
     },
     {
         clave: 'padres',
@@ -341,9 +355,26 @@ export const CATALOGO_MENU: GrupoMenu[] = [
             { clave: 'grupos', etiqueta: 'Grupos', url: '/escolar/grupos', permiso: 'ver-grupos' },
             // Va después de Grupos porque se inscribe EN un grupo, y antes se
             // llegaba sólo entrando primero a uno.
-            { clave: 'inscripcion-masiva', etiqueta: 'Inscripción masiva', url: '/escolar/inscripciones/masiva', permiso: 'inscribir-alumnos' },
+            { clave: 'inscripcion-masiva', etiqueta: 'Inscripción masiva', url: '/escolar/inscripciones/masiva', permiso: 'inscribir-alumnos', y: 'ver-grupos' },
             { clave: 'tutorias', etiqueta: 'Tutorías', url: '/escolar/tutorias', permiso: 'gestionar-tutorias' },
             { clave: 'captura-admin', etiqueta: 'Captura', url: '/captura', permiso: 'capturar-calificaciones' },
+            /*
+             * El mostrador de las dos secciones que el alumno ve por su lado.
+             *
+             * Las dos pantallas EXISTÍAN, con su ruta y su permiso, y no se
+             * alcanzaban desde ningún sitio: ni menú, ni enlace, ni tarjeta de
+             * panel —las tarjetas apuntan a `/biblioteca` y `/servicios`, que
+             * son las del ALUMNO—. Una escuela que le diera
+             * `gestionar-biblioteca` a su bibliotecaria le estaba dando un
+             * permiso que no abría nada que pudiera encontrar.
+             *
+             * Van aquí porque es donde las pone el catálogo de permisos —las dos
+             * se declaran en el dominio «Control escolar»— y porque sus URL ya
+             * cuelgan de `/escolar`. Con su `modulo`, para que apagar la sección
+             * las esconda igual que a la del alumno.
+             */
+            { clave: 'servicios-mostrador', etiqueta: 'Servicios y trámites', url: '/escolar/servicios', permiso: 'atender-servicios', modulo: 'servicios' },
+            { clave: 'biblioteca-admin', etiqueta: 'Biblioteca', url: '/escolar/biblioteca', permiso: 'gestionar-biblioteca', modulo: 'biblioteca' },
             /*
              * Las dos pantallas del horario, juntas.
              *
@@ -359,8 +390,8 @@ export const CATALOGO_MENU: GrupoMenu[] = [
                 etiqueta: 'Generación de horarios',
                 prefijo: '/escolar/horarios',
                 hijos: [
-                    { clave: 'horarios', etiqueta: 'Horarios', url: '/escolar/horarios', permiso: 'editar-horarios' },
-                    { clave: 'reglas-horario', etiqueta: 'Reglas de horario', url: '/escolar/reglas-horario', permiso: 'generar-horarios' },
+                    { clave: 'horarios', etiqueta: 'Horarios', url: '/escolar/horarios', permiso: 'editar-horarios', y: 'ver-grupos' },
+                    { clave: 'reglas-horario', etiqueta: 'Reglas de horario', url: '/escolar/reglas-horario', permiso: 'generar-horarios', y: 'ver-grupos' },
                 ],
             },
             // Un GRUPO, no una opción suelta. Antes «Configuración» llevaba
@@ -373,8 +404,8 @@ export const CATALOGO_MENU: GrupoMenu[] = [
                 etiqueta: 'Configuración',
                 prefijo: '/escolar/configuracion',
                 hijos: [
-                    { clave: 'config-calificaciones', etiqueta: 'Calificaciones', url: '/escolar/configuracion/calificaciones', permiso: 'ver-catalogo-academico' },
-                    { clave: 'config-historial', etiqueta: 'Historial académico', url: '/escolar/configuracion/historial', permiso: 'gestionar-historial' },
+                    { clave: 'config-calificaciones', etiqueta: 'Calificaciones', url: '/escolar/configuracion/calificaciones', permiso: 'ver-catalogo-academico', y: 'ver-grupos' },
+                    { clave: 'config-historial', etiqueta: 'Historial académico', url: '/escolar/configuracion/historial', permiso: 'gestionar-historial', y: 'ver-grupos' },
                 ],
             },
         ],
@@ -387,15 +418,22 @@ export const CATALOGO_MENU: GrupoMenu[] = [
         icono: 'M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
         hijos: [
             { clave: 'cartera', etiqueta: 'Cartera', url: '/finanzas', permiso: 'ver-adeudos' },
-            { clave: 'facturas', etiqueta: 'Facturas', url: '/finanzas/facturas', permiso: 'facturar' },
-            { clave: 'planes-cobro', etiqueta: 'Planes de cobro', url: '/finanzas/planes', permiso: 'gestionar-planes-cobro' },
-            { clave: 'becas', etiqueta: 'Becas', url: '/finanzas/becas', permiso: 'gestionar-planes-cobro' },
-            { clave: 'descuentos', etiqueta: 'Descuentos', url: '/finanzas/descuentos', permiso: 'gestionar-planes-cobro' },
-            { clave: 'conceptos', etiqueta: 'Conceptos de pago', url: '/finanzas/conceptos', permiso: 'gestionar-planes-cobro' },
-            // Transferencias directas: dónde se reciben y qué falta por validar.
-            { clave: 'cuentas-bancarias', etiqueta: 'Cuentas bancarias', url: '/finanzas/cuentas-bancarias', permiso: 'ver-adeudos' },
-            { clave: 'comprobantes', etiqueta: 'Comprobantes', url: '/finanzas/comprobantes', permiso: 'ver-adeudos' },
-            { clave: 'emisores', etiqueta: 'Razones sociales', url: '/finanzas/emisores', permiso: 'gestionar-emisores' },
+            { clave: 'facturas', etiqueta: 'Facturas', url: '/finanzas/facturas', permiso: 'facturar', y: 'ver-adeudos' },
+            { clave: 'planes-cobro', etiqueta: 'Planes de cobro', url: '/finanzas/planes', permiso: 'gestionar-planes-cobro', y: 'ver-adeudos' },
+            { clave: 'becas', etiqueta: 'Becas', url: '/finanzas/becas', permiso: 'gestionar-planes-cobro', y: 'ver-adeudos' },
+            { clave: 'descuentos', etiqueta: 'Descuentos', url: '/finanzas/descuentos', permiso: 'gestionar-planes-cobro', y: 'ver-adeudos' },
+            { clave: 'conceptos', etiqueta: 'Conceptos de pago', url: '/finanzas/conceptos', permiso: 'gestionar-planes-cobro', y: 'ver-adeudos' },
+            /*
+             * Transferencias directas: dónde se reciben y qué falta por validar.
+             *
+             * Con `ver-adeudos` —que es de tres facetas, y por eso lo lleva
+             * «Cartera»— estas dos entradas le salían al ALUMNO y al PADRE, y la
+             * ruta se las abría. Van con lo que exige cada ruta, que es lo que
+             * las demás hijas de esta sección ya hacían.
+             */
+            { clave: 'cuentas-bancarias', etiqueta: 'Cuentas bancarias', url: '/finanzas/cuentas-bancarias', permiso: 'ver-cuentas-bancarias', y: 'ver-adeudos' },
+            { clave: 'comprobantes', etiqueta: 'Comprobantes', url: '/finanzas/comprobantes', permiso: 'registrar-pagos', y: 'ver-adeudos' },
+            { clave: 'emisores', etiqueta: 'Razones sociales', url: '/finanzas/emisores', permiso: 'gestionar-emisores', y: 'ver-adeudos' },
         ],
     },
     {

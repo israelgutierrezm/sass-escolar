@@ -26,15 +26,6 @@ use App\Http\Controllers\Bolsa\PostulacionController;
 use App\Http\Controllers\Bolsa\VacanteController;
 use App\Http\Controllers\BuscadorAlumnosController;
 use App\Http\Controllers\BuscadorMatriculasController;
-use App\Http\Controllers\Reportes\BitacoraReportesController;
-use App\Http\Controllers\Reportes\ConfiguracionReportesController;
-use App\Http\Controllers\Reportes\ProgramacionReporteController;
-use App\Http\Controllers\Reportes\ReporteController;
-use App\Http\Controllers\Reportes\VistaReporteController;
-use App\Http\Controllers\Disciplina\CatalogoConductaController;
-use App\Http\Controllers\Disciplina\IncidenciaController;
-use App\Http\Controllers\Disciplina\DocenteIncidenciaController;
-use App\Http\Controllers\Disciplina\SancionController;
 use App\Http\Controllers\CampoFormularioController;
 use App\Http\Controllers\CampusController;
 use App\Http\Controllers\CapturaCalificacionesController;
@@ -57,6 +48,10 @@ use App\Http\Controllers\CuentaBancariaController;
 use App\Http\Controllers\CursoPlantillaController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DescuentoController;
+use App\Http\Controllers\Disciplina\CatalogoConductaController;
+use App\Http\Controllers\Disciplina\DocenteIncidenciaController;
+use App\Http\Controllers\Disciplina\IncidenciaController;
+use App\Http\Controllers\Disciplina\SancionController;
 use App\Http\Controllers\DisenoHistorialController;
 use App\Http\Controllers\DisponibilidadDocenteController;
 use App\Http\Controllers\DisposicionPanelController;
@@ -72,8 +67,8 @@ use App\Http\Controllers\EmisorFiscalController;
 use App\Http\Controllers\Encuestas\AplicacionController;
 use App\Http\Controllers\Encuestas\EncuestaController;
 use App\Http\Controllers\Encuestas\MisEncuestasController;
+use App\Http\Controllers\EntrarAClaseController;
 use App\Http\Controllers\EntregaController;
-use App\Http\Controllers\PortafolioController;
 use App\Http\Controllers\EsquemaEvaluacionController;
 use App\Http\Controllers\ExamenController;
 use App\Http\Controllers\ExpedienteAlumnoController;
@@ -87,7 +82,6 @@ use App\Http\Controllers\FormularioController;
 use App\Http\Controllers\FormularioPublicoController;
 use App\Http\Controllers\ForoController;
 use App\Http\Controllers\FotoPersonaController;
-use App\Http\Controllers\EntrarAClaseController;
 use App\Http\Controllers\GrabacionController;
 use App\Http\Controllers\GrupoController;
 use App\Http\Controllers\HorarioController;
@@ -117,12 +111,18 @@ use App\Http\Controllers\Plataforma\AvisoController;
 use App\Http\Controllers\Plataforma\CalendarioController;
 use App\Http\Controllers\Plataforma\ClimaController;
 use App\Http\Controllers\Plataforma\ModuloController;
+use App\Http\Controllers\PortafolioController;
 use App\Http\Controllers\PortalAspiranteController;
 use App\Http\Controllers\PresentacionExamenController;
 use App\Http\Controllers\PromocionController;
 use App\Http\Controllers\RecuperacionController;
 use App\Http\Controllers\ReglaHorarioController;
 use App\Http\Controllers\ReglaMatriculaController;
+use App\Http\Controllers\Reportes\BitacoraReportesController;
+use App\Http\Controllers\Reportes\ConfiguracionReportesController;
+use App\Http\Controllers\Reportes\ProgramacionReporteController;
+use App\Http\Controllers\Reportes\ReporteController;
+use App\Http\Controllers\Reportes\VistaReporteController;
 use App\Http\Controllers\RespuestaFormularioController;
 use App\Http\Controllers\Rh\EmpleadoController;
 use App\Http\Controllers\Rh\NominaController;
@@ -1324,11 +1324,25 @@ Route::middleware([
                  * cobro; APROBAR un comprobante va con el de registrar pagos,
                  * porque aprobar es cobrar y no tiene por qué poder hacerlo
                  * quien sólo arma planes.
+                 *
+                 * Y MIRARLAS también pide lo suyo. Esta regla estaba escrita
+                 * aquí desde el principio y a los dos `index` no se les aplicó:
+                 * se quedaban con el `can:ver-adeudos` del grupo, que es un
+                 * permiso de TRES facetas —administrativo, alumno y padre de
+                 * familia—. Comprobado sembrando el caso: un alumno con sesión
+                 * leía las CLABE de la escuela y los comprobantes de OTRAS
+                 * familias, con nombre, matrícula, monto y referencia.
+                 *
+                 * Un permiso compartido entre oficios no puede ser lo único que
+                 * cierre una puerta administrativa: no distingue de quién es.
                  */
                 Route::controller(CuentaBancariaController::class)
                     ->prefix('cuentas-bancarias')->name('cuentas.')
                     ->group(function () {
-                        Route::get('/', 'index')->name('index');
+                        // Derivado: las administra quien configura el cobro y
+                        // las consulta quien está en caja para casar una
+                        // transferencia. Ver `AppServiceProvider`.
+                        Route::get('/', 'index')->middleware('can:ver-cuentas-bancarias')->name('index');
                         Route::post('/', 'guardar')->middleware('can:gestionar-planes-cobro')->name('store');
                         Route::put('/{cuenta}', 'guardar')->whereNumber('cuenta')->middleware('can:gestionar-planes-cobro')->name('update');
                         Route::delete('/{cuenta}', 'eliminar')->whereNumber('cuenta')->middleware('can:gestionar-planes-cobro')->name('destroy');
@@ -1337,7 +1351,9 @@ Route::middleware([
                 Route::controller(ComprobantePagoController::class)
                     ->prefix('comprobantes')->name('comprobantes.')
                     ->group(function () {
-                        Route::get('/', 'index')->name('index');
+                        // La cola de revisión: existe para aprobar o rechazar,
+                        // así que pide lo mismo que aprobar y rechazar.
+                        Route::get('/', 'index')->middleware('can:registrar-pagos')->name('index');
                         Route::post('/{comprobante}/aprobar', 'aprobar')
                             ->whereNumber('comprobante')->middleware('can:registrar-pagos')->name('aprobar');
                         Route::post('/{comprobante}/rechazar', 'rechazar')

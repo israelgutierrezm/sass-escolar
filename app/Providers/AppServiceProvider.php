@@ -335,6 +335,31 @@ class AppServiceProvider extends ServiceProvider
             'gestionar-disciplina',
             fn ($usuario) => $usuario->can('gestionar-incidencias') || $usuario->can('gestionar-sanciones')
         );
+
+        /*
+         * El catálogo de cuentas bancarias de la escuela, sólo para MIRARLO.
+         *
+         * Estaba colgado de `ver-adeudos`, que es un permiso de TRES facetas
+         * —administrativo, alumno y padre de familia—, así que la pantalla con
+         * las CLABE y los números de cuenta se le abría a cualquier alumno con
+         * sesión. Un permiso compartido entre oficios no puede ser lo único que
+         * cierre una puerta administrativa: no distingue de quién es.
+         *
+         * El alumno no pierde nada, y ése fue el motivo de mirar antes de
+         * cerrar: para pagar, sus cuentas salen de OTRO camino —el de su propia
+         * cartera, `CuentaBancaria::paraCarrera()` filtrado por
+         * `puedeRecibir()`—, que ya está acotado a su matrícula.
+         *
+         * Derivado y no un permiso nuevo porque son dos oficios: quien configura
+         * el cobro las administra, y quien está en caja necesita CONSULTARLAS
+         * para casar una transferencia. Escribir sigue exigiendo
+         * `gestionar-planes-cobro`, que es lo que ya pedían el alta, la edición
+         * y el borrado.
+         */
+        Gate::define(
+            'ver-cuentas-bancarias',
+            fn ($usuario) => $usuario->can('gestionar-planes-cobro') || $usuario->can('registrar-pagos')
+        );
     }
 
     /**

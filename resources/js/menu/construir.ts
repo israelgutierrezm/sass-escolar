@@ -19,6 +19,8 @@ export interface NodoNav {
     prefijo: string;
     permiso?: string | null;
     o?: string;
+    /** Permiso exigido ADEMÁS del anterior (el `can:` de sección de su grupo de rutas). */
+    y?: string;
     facetas?: string[] | null;
     /** Módulo de la escuela que enciende la sección; ausente = universal. */
     modulo?: string | null;
@@ -89,6 +91,7 @@ function resolver(clave: string, hijos: NodoArreglo[] = []): NodoNav | null {
         prefijo: base.url ?? '',
         permiso: base.permiso,
         o: base.o,
+        y: base.y,
         modulo: base.modulo ?? null,
         hijos: [],
     };
@@ -146,7 +149,14 @@ function fusionarFaltantes(base: NodoNav[], ocultos: Set<string>): NodoNav[] {
 }
 
 function hojaVisible(nodo: NodoNav, permisos: string[]): boolean {
-    return nodo.permiso == null || permisos.includes(nodo.permiso) || (nodo.o != null && permisos.includes(nodo.o));
+    // `o` es un O —las puertas derivadas—; `y` es un Y —el `can:` de sección
+    // que su grupo de rutas exige encima—. Las rutas usan los dos, así que el
+    // menú tiene que saber decir los dos o acaba ofreciendo lo que da 403.
+    const suyo = nodo.permiso == null
+        || permisos.includes(nodo.permiso)
+        || (nodo.o != null && permisos.includes(nodo.o));
+
+    return suyo && (nodo.y == null || permisos.includes(nodo.y));
 }
 
 function filtrar(
