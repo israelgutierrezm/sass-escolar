@@ -32,13 +32,13 @@ class JerarquiaDeRolesTest extends TenantTestCase
         $administrativo = $this->rol('administrativo');
         $encargado = $this->rol('encargado_admisiones', padre: $administrativo);
 
-        $administrativo->givePermissionTo($this->permiso('ver-personas'));
+        $administrativo->givePermissionTo($this->permiso('ver-alumnos'));
         $encargado->givePermissionTo($this->permiso('gestionar-admisiones'));
 
         $efectivos = $encargado->permisosEfectivos()->pluck('name')->all();
 
-        $this->assertEqualsCanonicalizing(['ver-personas', 'gestionar-admisiones'], $efectivos);
-        $this->assertTrue($encargado->concede('ver-personas'));
+        $this->assertEqualsCanonicalizing(['ver-alumnos', 'gestionar-admisiones'], $efectivos);
+        $this->assertTrue($encargado->concede('ver-alumnos'));
         $this->assertTrue($encargado->concede('gestionar-admisiones'));
     }
 
@@ -59,9 +59,9 @@ class JerarquiaDeRolesTest extends TenantTestCase
         $medio = $this->rol('coordinacion', padre: $faceta);
         $hoja = $this->rol('auxiliar', padre: $medio);
 
-        $faceta->givePermissionTo($this->permiso('ver-personas'));
+        $faceta->givePermissionTo($this->permiso('ver-alumnos'));
 
-        $this->assertTrue($hoja->concede('ver-personas'));
+        $this->assertTrue($hoja->concede('ver-alumnos'));
         $this->assertCount(2, $hoja->ancestros());
     }
 
@@ -71,7 +71,7 @@ class JerarquiaDeRolesTest extends TenantTestCase
         $faceta = $this->rol('administrativo');
         $hijo = $this->rol('auxiliar', padre: $faceta);
 
-        $permiso = $this->permiso('ver-personas');
+        $permiso = $this->permiso('ver-alumnos');
         $faceta->givePermissionTo($permiso);
         $hijo->givePermissionTo($permiso);
 

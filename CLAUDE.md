@@ -1208,9 +1208,14 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     encuentra botones muertos que no dan error. Quedaron 22 avisos más, todos
     revisados y falsos positivos —prefijos de menú, líneas de comentario, bases
     a las que se les añade un id, y un `put`/`post` en el mismo renglón—.
-  - Se auditó también lo declarado y no usado: **74 permisos y 17 ajustes, todos
-    con lector**. Nada que retirar; el barrido de `crear-personas` y compañía ya
-    había limpiado esa clase.
+  - Se auditó también lo declarado y no usado: **74 permisos y 17 ajustes**, y
+    se concluyó que todos tenían lector. ~~Nada que retirar.~~ **Ese «todos» era
+    falso**: `ver-personas` no lo comprobaba nadie ya entonces, y siguió ahí
+    hasta el 2026-08-28. Lo que engaña es medir si la clave APARECE en algún
+    lado —aparece: en el seeder que la concede— en vez de si alguien la
+    COMPRUEBA (`can:`, `->can(`, `Gate`, el permiso de una tarjeta o de una
+    entrada de menú). Un barrido de esta clase tiene que buscar al lector, no a
+    la mención.
 
 - **Módulo 11 · Bolsa de trabajo, CERRADO** (2026-08-22): colocaciones e
   indicador de empleabilidad. `/bolsa/colocaciones` y `/bolsa/empleabilidad`.
@@ -2606,6 +2611,36 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   - **Una salvaguarda que no salvaba nada**: un `if ($diseno->exists)` antes de
     leer `firmantes`. La mutación sobrevivió; comprobado que Eloquent devuelve
     una colección vacía, se retiró.
+
+- **Retirado el permiso `ver-personas`** (2026-08-28, decisión del cliente).
+  Prometía «consultar el directorio de personas de la escuela» y **ese directorio
+  no existe, ni existía cuando se declaró**: ninguna ruta, pantalla, tarjeta ni
+  entrada de menú lo comprobaba. Se palomeaba en `/plataforma/roles` creyendo que
+  concedía algo. Es el segundo de la familia; el primero fue `crear-personas`.
+  - **Y tampoco debería existir.** A una persona no se la consulta en abstracto:
+    se la consulta como alumna, docente, prospecto, tutora o cuenta, y cada uno
+    de esos listados tiene su permiso **y su alcance** —por campus, por
+    asignación—. Un directorio plano sería la puerta que se salta todos esos
+    alcances a la vez.
+  - **La foto sí es un endpoint común**, y ahí la regla no es un permiso
+    genérico sino la de cada oficio, comprobada una por una. Ver la entrada
+    siguiente.
+  - **Este caso obligó a afinar la salvaguarda del precedente.** Aquél no lo
+    tenía asignado nadie y bastaba con borrarlo; éste lo concede el propio
+    `PermisoSeeder` a la faceta administrativa y de ahí lo hereda dirección
+    general, así que en TODA escuela hay al menos dos roles con él y un «no lo
+    borro si alguien lo usa» rehusaría siempre — dejando la fila para siempre en
+    una tabla desde la que ya no se puede ni ver, porque el catálogo dejó de
+    declararla. La línea se traza por **quién lo asignó**: lo que sembramos
+    nosotros (roles con `protegido`) se revoca, y lo que decidió la escuela
+    (cualquier rol no protegido, o una persona con el permiso directo) no se toca
+    y se avisa.
+  - Comprobadas las tres ramas de la migración contra el demo, cada una dentro de
+    su transacción: sólo protegidos → borra; un rol de la escuela → conserva,
+    revoca igualmente a los protegidos y avisa; y correrla dos veces no revienta.
+  - Las tres pruebas que lo usaban **como permiso de EJEMPLO** —`prueba-roles` y
+    dos de phpunit, que comprueban la herencia y no ese permiso— pasaron a
+    `ver-alumnos`.
 
 - **La foto de cualquier persona se la podía bajar cualquiera con cuenta**
   (2026-08-27). Salió barriendo la clase «declarado y nunca aplicado», la misma

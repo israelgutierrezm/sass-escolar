@@ -64,7 +64,7 @@ class PuertasDerivadasDelAlumnoTest extends TenantTestCase
     /** Y quien no tiene ninguno de los dos, sigue fuera. */
     public function test_un_tercero_no_entra_por_ninguna_de_las_dos_puertas(): void
     {
-        $usuario = $this->usuarioCon('ver-personas');
+        $usuario = $this->usuarioCon('ver-alumnos');
 
         $this->assertFalse($usuario->can('ver-servicios-del-alumno'));
         $this->assertFalse($usuario->can('ver-biblioteca'));

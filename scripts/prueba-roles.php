@@ -114,7 +114,7 @@ try {
     $efectivos = $coordinador->permisosEfectivos()->pluck('name');
 
     verificar('Y HEREDA los de su faceta sin volver a palomearlos',
-        $efectivos->contains('ver-personas') && $efectivos->contains('ver-alumnos'),
+        $efectivos->contains('ver-catalogo-academico') && $efectivos->contains('ver-alumnos'),
         $efectivos->implode(', '));
     verificar('Los efectivos son propios + heredados, sin duplicar',
         $efectivos->count() === $efectivos->unique()->count()
@@ -137,7 +137,7 @@ try {
 
     verificar('La herencia atraviesa dos niveles',
         $sub->permisosEfectivos()->pluck('name')->contains('condonar-adeudos')
-        && $sub->permisosEfectivos()->pluck('name')->contains('ver-personas'));
+        && $sub->permisosEfectivos()->pluck('name')->contains('ver-alumnos'));
 
     echo PHP_EOL.'5. Asignación a personas'.PHP_EOL;
 

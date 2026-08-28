@@ -29,7 +29,7 @@ class PermisoSeeder extends Seeder
     /** Qué permisos concede cada rol, además de los que hereda de su padre. */
     private const ASIGNACIONES = [
         // Faceta administrativa: lo mínimo común a todo el personal.
-        'administrativo' => ['ver-personas', 'ver-alumnos', 'ver-catalogo-academico', 'ver-grupos'],
+        'administrativo' => ['ver-alumnos', 'ver-catalogo-academico', 'ver-grupos'],
 
         // Dirección general se DERIVA del catálogo: todos los permisos de su
         // faceta, sin lista a mano. Una lista escrita a mano se queda vieja

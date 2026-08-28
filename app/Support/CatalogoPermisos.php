@@ -86,15 +86,29 @@ final class CatalogoPermisos
      */
     private const CATALOGO = [
         'Personas' => [
-            'ver-personas' => ['Ver personas', 'Consultar el directorio de personas de la escuela.', [self::ADMINISTRATIVO]],
             /*
-             * NO existe `crear-personas`, y es a propósito.
+             * NO existen `ver-personas` ni `crear-personas`, y es a propósito.
              *
-             * Estaba declarado y NINGUNA ruta lo comprobaba: una persona nunca se
-             * crea sola, nace dentro del alta de un aspirante, un alumno, un
-             * docente, un tutor o un usuario —y cada una de esas ya tiene su
-             * permiso—. Un permiso asignable que no abre ninguna puerta se
-             * palomea creyendo que concede algo, y no concede nada.
+             * Los dos estaban declarados y NINGUNA ruta los comprobaba. Un
+             * permiso asignable que no abre ninguna puerta se palomea creyendo
+             * que concede algo, y no concede nada.
+             *
+             * `crear-personas`: una persona nunca se crea sola. Nace dentro del
+             * alta de un aspirante, un alumno, un docente, un tutor o un
+             * usuario, y cada una de esas ya tiene su permiso.
+             *
+             * `ver-personas` (retirado el 2026-08-28) prometía «consultar el
+             * directorio de personas de la escuela», y ese directorio NO EXISTE
+             * — ni existía cuando se declaró—. Tampoco debería: a una persona no
+             * se la consulta en abstracto, se la consulta como alumna, docente,
+             * prospecto, tutora o cuenta, y cada uno de esos listados tiene su
+             * permiso Y su alcance —por campus, por asignación—. Un directorio
+             * plano sería precisamente la puerta que se salta todos esos
+             * alcances a la vez.
+             *
+             * La cara de una persona sí se sirve por un endpoint común
+             * (`FotoPersonaController`), y ahí la regla NO es un permiso
+             * genérico: es la de cada oficio, comprobada una por una.
              */
             'editar-personas' => ['Editar personas', 'Corregir nombre, CURP y datos de contacto. Alcanza a todas las matrículas de esa persona.', [self::ADMINISTRATIVO]],
         ],
