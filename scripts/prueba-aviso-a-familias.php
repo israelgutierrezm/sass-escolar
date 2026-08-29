@@ -101,7 +101,26 @@ try {
     }
 
     $padre = Usuario::query()->where('persona_id', $vinculo->tutor_persona_id)->firstOrFail();
+    /*
+     * La cuenta del hijo se CONSTRUYE si no la tiene.
+     *
+     * Antes se buscaba, y si no aparecía la prueba registraba un ACIERTO con la
+     * etiqueta «(el hijo no tiene cuenta con la que comprobarlo)». O sea que la
+     * mitad de lo que esta suite dice comprobar —que al hijo le sigue llegando—
+     * se apagaba sola el día que los datos cambiaran, sin ponerse en rojo. Es la
+     * regla del proyecto: el escenario se construye, no se busca.
+     *
+     * Va dentro de la transacción, como todo lo demás.
+     */
     $hijo = Usuario::query()->where('persona_id', $vinculo->alumno_persona_id)->first();
+
+    if ($hijo === null) {
+        $hijo = Usuario::create([
+            'persona_id' => $vinculo->alumno_persona_id,
+            'usuario' => 'prueba.avisos.'.$vinculo->alumno_persona_id,
+            'password' => bcrypt('sin-importancia'),
+        ]);
+    }
 
     $grupo = (int) $db->table('inscripcion as i')
         ->join('asignatura_grupo as ag', 'ag.id', '=', 'i.asignatura_grupo_id')
@@ -120,11 +139,7 @@ try {
 
     verificar('el padre no lo recibe', ! alcanza($padre, $soloAlumnos->id));
 
-    if ($hijo !== null) {
-        verificar('pero el hijo sí', alcanza($hijo, $soloAlumnos->id));
-    } else {
-        verificar('(el hijo no tiene cuenta con la que comprobarlo)', true);
-    }
+    verificar('pero el hijo sí', alcanza($hijo, $soloAlumnos->id));
 
     echo PHP_EOL.'2. Con el modificador, sí le llega'.PHP_EOL;
 
@@ -135,11 +150,7 @@ try {
 
     verificar('el padre lo recibe', alcanza($padre, $conFamilias->id));
 
-    if ($hijo !== null) {
-        verificar('y el hijo lo sigue recibiendo', alcanza($hijo, $conFamilias->id));
-    } else {
-        verificar('(idem)', true);
-    }
+    verificar('y el hijo lo sigue recibiendo', alcanza($hijo, $conFamilias->id));
 
     echo PHP_EOL.'3. El modificador se CRUZA, no se suma'.PHP_EOL;
 

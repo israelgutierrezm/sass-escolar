@@ -100,7 +100,14 @@ try {
         $resp = $ctrl->destroy($c);
         verificar('El borrado se rechaza con mensaje de error', $resp->getSession()?->get('error') !== null && ConceptoPago::whereKey($c->id)->exists());
     } else {
-        verificar('El borrado se rechaza con mensaje de error', true, 'omitido: sin matrículas');
+        /*
+         * Ruidosa, no silenciosa. Antes decía lo MISMO que la comprobación real
+         * y con `true`, así que su salida era indistinguible de un acierto: la
+         * regla de «un concepto en uso no se borra» se apagaba sola sin ponerse
+         * en rojo. Es el idioma que el resto de las suites ya usa.
+         */
+        verificar('Hace falta una matrícula para probar el concepto EN USO', false,
+            'el demo no tiene ninguna');
     }
 
     echo PHP_EOL.'6. Un concepto sin uso sí se borra'.PHP_EOL;

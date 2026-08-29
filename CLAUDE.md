@@ -2612,6 +2612,37 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     leer `firmantes`. La mutación sobrevivió; comprobado que Eloquent devuelve
     una colección vacía, se retiró.
 
+- **Tres comprobaciones que se apagaban solas** (2026-08-29). Barrido de la
+  clase «una prueba que pasa pase lo que pase» sobre las 108 suites y los tests.
+  - **Dos formas, y sólo una es defecto.** La buena, que el proyecto ya usa en
+    casi todas partes: cuando el escenario no está, `verificar(..., false)` y la
+    suite se pone ROJA. La mala: `verificar(..., true)`, que registra un ACIERTO
+    —y en `prueba-conceptos-fiscales` con la MISMA etiqueta que la comprobación
+    real, así que la salida era indistinguible de un acierto de verdad—.
+  - Estaban en `prueba-aviso-a-familias` (dos: «el hijo no tiene cuenta con la
+    que comprobarlo») y `prueba-conceptos-fiscales` (una: «omitido: sin
+    matrículas»). Hoy ninguna se disparaba —el hijo del demo sí tiene cuenta y
+    hay matrículas—, o sea que eran trampas **latentes**: pasaban en verde y el
+    día que los datos cambiaran seguirían pasando en verde sin comprobar nada.
+  - Arregladas como manda la regla del proyecto: la cuenta del hijo se
+    **construye** dentro de la transacción en vez de buscarse, y la de conceptos
+    pasa a guardia ruidosa. Comprobado forzando la rama: antes «7 correctas, 0
+    fallidas»; ahora, con la escuela sin matrículas simulada, **1 fallida**.
+  - **La medición que las encontró, por si hay que repetirla**: se cuentan los
+    `verificar(` ESCRITOS en cada suite (quitando comentarios y la declaración de
+    la función) y se comparan con los EJECUTADOS que reporta el barrido. Once
+    suites ejecutan menos de las que tienen escritas; en ocho es un `if/else`
+    legítimo —guardia ruidosa en una rama, comprobación real en la otra—, y las
+    tres restantes eran éstas.
+  - Los otros patrones buscados **no aparecieron**: `every(fn => true)`,
+    comparaciones siempre ciertas, y `?? true` de respaldo (los dos que hay
+    fallan cerrado: `($x['vigente'] ?? true) === false` es falso si falta la
+    clave). Un `catch` pelado seguido de `verificar` tampoco.
+  - **Y un falso positivo del propio barrido**, que vale anotar: marcó
+    `($x['k'] ?? 'x') === null` en `prueba-reportes-escolar`… dentro del
+    comentario que explica por qué NO se escribe así. El detector de prosa
+    encontró prosa.
+
 - **Un permiso COMPARTIDO entre oficios abría dos pantallas de finanzas**
   (2026-08-28). Salió de barrer la clase «declarado y nunca aplicado» por otra
   lente: los permisos que pertenecen a más de una faceta.
@@ -2659,10 +2690,13 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     el menú sólo declaraba el de la hoja: **quince entradas** se le ofrecían a
     quien iba a recibir un 403. Se agregó `y:`, que es lo que las rutas ya
     hacían.
-  - **Y el `permiso` de un GRUPO del menú no lo lee nadie**: `hojaVisible()` sólo
-    se llama para hojas. Dos grupos lo declaran y no hace nada; hoy es inocuo
-    porque sus hijos piden lo mismo, pero es una promesa falsa. Anotado, no
-    tocado.
+  - **Y el `permiso` de un GRUPO del menú no lo leía nadie**: `hojaVisible()`
+    sólo se llamaba para hojas. **Resuelto el 2026-08-29**, con la corrección de
+    que era UN grupo y no dos —«Autorizaciones» tiene `url` y no `hijos`, así que
+    es una hoja y su permiso sí se leía—. El único era «Encuestas de
+    evaluación», y como sus dos hijas piden lo mismo no cambia nada visible;
+    pero un campo declarado y no aplicado es una promesa falsa, y el siguiente
+    que lo use creerá que cierra la sección.
   - Red: `scripts/prueba-pantallas-con-puerta.php`. Recorre las **115 pantallas**
     con permiso y exige que cada una se alcance por menú, por prefijo o por
     enlace, y que las **92 entradas** del menú no ofrezcan nada que la ruta

@@ -192,6 +192,20 @@ function filtrar(
         }
 
         /*
+         * Y su permiso, si lo declara.
+         *
+         * `hojaVisible()` sólo se llamaba para hojas, así que el `permiso` de un
+         * GRUPO estaba escrito y no lo leía nadie. Hoy sólo lo declara
+         * «Encuestas de evaluación», y sus dos hijas piden lo mismo, así que
+         * esto no cambia nada visible — pero un campo que se declara y no se
+         * aplica es una promesa falsa, y el siguiente que lo use creerá que
+         * cierra la sección.
+         */
+        if (!hojaVisible(nodo, permisos)) {
+            continue;
+        }
+
+        /*
          * El módulo de la escuela. `modulos == null` = no llegó la lista (página
          * cacheada tras un despliegue): se falla ABIERTO, mostrando la sección,
          * porque vaciar la barra por un prop ausente es peor que un enlace de
