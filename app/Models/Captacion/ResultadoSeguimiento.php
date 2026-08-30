@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Models\Promocion;
+namespace App\Models\Captacion;
 
 use App\Models\Concerns\TieneAuditoria;
 use Illuminate\Database\Eloquent\Builder;
@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Model;
  * resultados_seguimiento (TENANT-CONFIG) — cómo terminó un contacto.
  *
  * Es catálogo y no enum porque de aquí salen los reportes que le importan a
- * promoción —«cuántos no contestan», «cuántos piden informes y no vuelven»— y
+ * captación —«cuántos no contestan», «cuántos piden informes y no vuelven»— y
  * porque cada escuela nombra distinto sus desenlaces.
  *
  * Dos banderas hacen el trabajo:

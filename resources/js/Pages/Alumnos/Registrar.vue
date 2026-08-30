@@ -105,7 +105,7 @@ function enviar(): void {
                     />
                     <CampoSelect
                         v-model="form.oferta_id"
-                        etiqueta="Oferta (carrera · plan · campus)"
+                        etiqueta="Oferta (programa académico · plan · campus)"
                         requerido
                         vacio="Selecciona la oferta…"
                         :opciones="ofertasVisibles"

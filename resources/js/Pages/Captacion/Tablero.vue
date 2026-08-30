@@ -18,9 +18,9 @@ const mayorOrigen = Math.max(1, ...props.origenes.map((o) => o.total));
 </script>
 
 <template>
-    <Head title="Promoción" />
+    <Head title="Captación" />
 
-    <AppLayout titulo="Promoción">
+    <AppLayout titulo="Captación">
         <section class="tarjeta p-6">
             <h2 class="text-base font-semibold">
                 {{ esCoordinador ? 'Embudo de admisión' : 'Mis prospectos' }}
@@ -39,7 +39,7 @@ const mayorOrigen = Math.max(1, ...props.origenes.map((o) => o.total));
 
             <ul class="mt-4 space-y-3">
                 <li v-for="etapa in etapas" :key="etapa.id">
-                    <a :href="`/promocion/etapas/${etapa.id}`" class="block">
+                    <a :href="`/captacion/etapas/${etapa.id}`" class="block">
                         <div class="flex items-center justify-between text-sm">
                             <span class="font-medium">{{ etapa.nombre }}</span>
                             <span class="tabular-nums" :style="{ color: 'var(--color-suave)' }">{{ etapa.total }}</span>

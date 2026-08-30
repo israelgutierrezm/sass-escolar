@@ -7,8 +7,8 @@ namespace App\Reportes\Fuentes;
 use App\Models\Academico\Campus;
 use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\EtapaCrm;
+use App\Models\Captacion\OrigenAspirante;
 use App\Models\Identidad\Usuario;
-use App\Models\Promocion\OrigenAspirante;
 use App\Reportes\Agregacion;
 use App\Reportes\ColumnaReporte;
 use App\Reportes\DimensionReporte;
@@ -23,7 +23,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Los ASPIRANTES: el embudo de promoción, fila por fila.
+ * Los ASPIRANTES: el embudo de captación, fila por fila.
  *
  * ── Una fila es un ASPIRANTE, no una persona ─────────────────────────────
  * `aspirantes.persona_id` NO es único: quien se postuló a dos programas son dos
@@ -50,7 +50,7 @@ use Illuminate\Support\Facades\DB;
  *  - **El % de avance de la solicitud.** `ProgresoSolicitud::para()` dispara al
  *    menos cuatro consultas POR ASPIRANTE; en una exportación de mil filas son
  *    cuatro mil. Y ese avance NO es la etapa del CRM —el embudo lo mueve
- *    promoción con su criterio—, así que ponerlos juntos invita a confundirlos.
+ *    captación con su criterio—, así que ponerlos juntos invita a confundirlos.
  *  - **Sexo, país o entidad de nacimiento.** Viven en la base CENTRAL y el
  *    motor todavía no tiene el tipo `CatalogoLandlord` que describe el plan:
  *    un JOIN reventaría con «table doesn't exist».
@@ -150,7 +150,7 @@ class Aspirantes implements FuenteAgrupable, FuenteDeReporte
             'programa' => new ColumnaReporte(
                 clave: 'programa',
                 etiqueta: 'Programa de interés',
-                valor: fn (Aspirante $a) => $a->ofertaInteres?->carrera?->nombre,
+                valor: fn (Aspirante $a) => $a->ofertaInteres?->programaAcademico?->nombre,
                 ancho: 32,
             ),
             'etapa' => new ColumnaReporte(
@@ -370,7 +370,7 @@ class Aspirantes implements FuenteAgrupable, FuenteDeReporte
      * Por qué se puede agrupar el padrón de prospectos.
      *
      * La de ETAPA es la pregunta del embudo —cuántos hay en cada paso— y hasta
-     * ahora sólo la contestaba el tablero de `/promocion`, que no se puede
+     * ahora sólo la contestaba el tablero de `/captacion`, que no se puede
      * filtrar por campaña ni exportar.
      *
      * ── Aquí SÍ existe el grupo sin etiqueta, y por eso van con `leftJoin` ──
@@ -426,7 +426,7 @@ class Aspirantes implements FuenteAgrupable, FuenteDeReporte
                     '=',
                     'aspirantes.origen_id',
                 ),
-                ayuda: 'En qué se está gastando bien el dinero de promoción. Sin origen = nadie lo registró.',
+                ayuda: 'En qué se está gastando bien el dinero de captación. Sin origen = nadie lo registró.',
             ),
         ];
     }
@@ -438,8 +438,8 @@ class Aspirantes implements FuenteAgrupable, FuenteDeReporte
             ->with([
                 'persona:id,nombre,primer_apellido,segundo_apellido,curp,email,celular',
                 'campus:id,nombre',
-                'ofertaInteres:id,carrera_id',
-                'ofertaInteres.carrera:id,nombre',
+                'ofertaInteres:id,programa_academico_id',
+                'ofertaInteres.programaAcademico:id,nombre',
                 'etapa',
                 'origenAspirante:id,nombre',
                 'asesores.persona:id,nombre,primer_apellido,segundo_apellido',

@@ -35,7 +35,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * para que el dueño de la información pueda adelantarla él mismo.
  *
  * **No mueve la etapa del CRM.** El avance que calcula `ProgresoSolicitud` es
- * del EXPEDIENTE; el embudo lo sigue moviendo promoción con su criterio. Un
+ * del EXPEDIENTE; el embudo lo sigue moviendo captación con su criterio. Un
  * aspirante que subió todo no está "listo" hasta que alguien lo revise.
  *
  * Alcance: siempre el aspirante de la persona autenticada. No recibe id por la
@@ -57,7 +57,7 @@ class PortalAspiranteController extends Controller
         // precargarla saldría por consulta suelta en cada visita.
         $aspirante->load(
             'persona.entidadNacimiento',
-            'ofertaInteres.carrera:id,nombre',
+            'ofertaInteres.programaAcademico:id,nombre',
             'ofertaInteres.campus:id,nombre',
         );
 
@@ -84,7 +84,7 @@ class PortalAspiranteController extends Controller
             ],
             'solicitud' => [
                 'oferta_id' => $aspirante->oferta_interes_id,
-                'oferta' => $aspirante->ofertaInteres?->carrera?->nombre,
+                'oferta' => $aspirante->ofertaInteres?->programaAcademico?->nombre,
                 'campus' => $aspirante->ofertaInteres?->campus?->nombre,
             ],
             'documentos' => $this->documentos($aspirante),
@@ -93,10 +93,10 @@ class PortalAspiranteController extends Controller
             // desde la ficha: es un solo expediente mirado desde dos lados.
             'formularios' => $formularios,
             'generos' => Genero::orderBy('id')->get(['id', 'nombre']),
-            'ofertas' => Oferta::query()->with('carrera:id,nombre', 'campus:id,nombre')->get()
+            'ofertas' => Oferta::query()->with('programaAcademico:id,nombre', 'campus:id,nombre')->get()
                 ->map(fn (Oferta $o) => [
                     'id' => $o->id,
-                    'nombre' => ($o->carrera?->nombre ?? 'Programa').' · '.($o->campus?->nombre ?? ''),
+                    'nombre' => ($o->programaAcademico?->nombre ?? 'Programa').' · '.($o->campus?->nombre ?? ''),
                 ])->sortBy('nombre')->values(),
         ]);
     }
@@ -228,7 +228,7 @@ class PortalAspiranteController extends Controller
         ExpedienteDocumento::updateOrCreate(
             ['aspirante_id' => $aspirante->id, 'documento_id' => $datos['documento_id']],
             [
-                'carrera_id' => $aspirante->ofertaInteres?->carrera_id,
+                'programa_academico_id' => $aspirante->ofertaInteres?->programa_academico_id,
                 'url' => $ruta,
                 'estado_documento_id' => EstadoDocumento::query()->where('clave', 'pendiente')->value('id'),
             ],

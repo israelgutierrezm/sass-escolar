@@ -25,7 +25,7 @@ use Tests\TenantTestCase;
  *
  * Y el «nadie usa» tiene que mirar las OCHO tablas que lo referencian, dos de
  * ellas sin llave foránea —`evento_destinos` y `emisor_asignaciones` apuntan a
- * catálogos distintos según su tipo—. Preguntar sólo por `carreras`, que es lo
+ * catálogos distintos según su tipo—. Preguntar sólo por `programas_academicos`, que es lo
  * que había, dejaría apagar el nivel que sostiene un aviso del calendario.
  */
 class CatalogoApagableTest extends TenantTestCase
@@ -56,12 +56,12 @@ class CatalogoApagableTest extends TenantTestCase
         $this->assertTrue($nivel->fresh()->activo);
     }
 
-    public function test_no_se_apaga_un_nivel_que_usa_una_carrera(): void
+    public function test_no_se_apaga_un_nivel_que_usa_una_programa_academico(): void
     {
         $escuela = $this->alumnoInscrito();
         $nivel = $this->nivelLibre();
 
-        DB::table('carreras')->where('id', $escuela['carrera'])->update(['nivel_estudios_id' => $nivel->id]);
+        DB::table('programas_academicos')->where('id', $escuela['programa_academico'])->update(['nivel_estudios_id' => $nivel->id]);
 
         $this->expectException(ValidationException::class);
 

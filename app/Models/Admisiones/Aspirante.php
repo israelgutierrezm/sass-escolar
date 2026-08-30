@@ -6,10 +6,10 @@ namespace App\Models\Admisiones;
 
 use App\Models\Academico\Campus;
 use App\Models\Academico\Oferta;
+use App\Models\Captacion\OrigenAspirante;
+use App\Models\Captacion\SeguimientoAspirante;
 use App\Models\Concerns\TieneAuditoria;
 use App\Models\Identidad\Persona;
-use App\Models\Promocion\OrigenAspirante;
-use App\Models\Promocion\SeguimientoAspirante;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -77,7 +77,7 @@ class Aspirante extends Model
      * no es hipotético: hoy no muerde sólo porque nadie está parado en ella.
      *
      * Es la misma decisión —y ahora la misma escritura— que
-     * {@see \App\Models\Promocion\SeguimientoAspirante::etapa()}, que ya la
+     * {@see SeguimientoAspirante::etapa()}, que ya la
      * llevaba. Que dos lecturas del mismo catálogo se comportaran distinto era
      * la incongruencia.
      */
@@ -127,7 +127,7 @@ class Aspirante extends Model
      * antes de convertir.
      *
      * Por la OFERTA y no por «tiene alguna matrícula»: quien ya estudia una
-     * carrera y se postula a una segunda sigue siendo un prospecto abierto para
+     * programa académico y se postula a una segunda sigue siendo un prospecto abierto para
      * ésa, y darlo por inscrito lo sacaría del embudo desde el primer día.
      */
     public function estaInscrito(): bool
@@ -241,10 +241,10 @@ class Aspirante extends Model
             ->withTimestamps();
     }
 
-    /** Promociones/descuentos de admisión otorgados. */
-    public function promociones(): BelongsToMany
+    /** Descuentos de admisión otorgados. */
+    public function descuentos_admision(): BelongsToMany
     {
-        return $this->belongsToMany(Promocion::class, 'aspirante_promocion', 'aspirante_id', 'promocion_id')
+        return $this->belongsToMany(DescuentoAdmision::class, 'aspirante_descuento_admision', 'aspirante_id', 'descuento_admision_id')
             ->withTimestamps();
     }
 

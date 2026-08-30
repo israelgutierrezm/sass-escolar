@@ -30,11 +30,11 @@ interface Resumen {
 }
 
 const props = defineProps<{
-    matriculas: { id: number; matricula: string; carrera: string | null }[];
+    matriculas: { id: number; matricula: string; programa_academico: string | null }[];
     matricula: {
         id: number;
         matricula: string;
-        carrera: string | null;
+        programa_academico: string | null;
         plan: string | null;
         campus: string | null;
         generacion: string | null;
@@ -156,7 +156,7 @@ function metaDe(r: Renglon): string {
                 </a>
             </div>
 
-            <!-- Quien estudia dos carreras elige cuál está viendo. -->
+            <!-- Quien estudia dos programas académicos elige cuál está viendo. -->
             <section v-if="matriculas.length > 1" class="tarjeta flex flex-wrap gap-2 p-4">
                 <button
                     v-for="m in matriculas"
@@ -170,12 +170,12 @@ function metaDe(r: Renglon): string {
                     "
                     @click="cambiarMatricula(m.id)"
                 >
-                    {{ m.carrera ?? m.matricula }}
+                    {{ m.programa_academico ?? m.matricula }}
                 </button>
             </section>
 
             <section class="tarjeta p-6">
-                <h2 class="text-base font-semibold">{{ matricula.carrera }}</h2>
+                <h2 class="text-base font-semibold">{{ matricula.programa_academico }}</h2>
                 <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
                     Matrícula {{ matricula.matricula }}
                     <template v-if="matricula.plan"> · {{ matricula.plan }}</template>

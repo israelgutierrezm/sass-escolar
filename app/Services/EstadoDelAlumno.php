@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Identidad\Persona;
+use Illuminate\Support\Collection;
 
 /**
  * Cómo va un alumno, en cuatro cifras.
@@ -24,12 +25,12 @@ use App\Models\Identidad\Persona;
  *
  * ── El promedio ya NO se calcula aquí ──────────────────────────────────────
  * Lo resuelve {@see HistorialDelAlumno}, POR MATRÍCULA. Este servicio lo
- * promediaba por PERSONA, mezclando las carreras de quien estudia dos, y sobre
+ * promediaba por PERSONA, mezclando los programas académicos de quien estudia dos, y sobre
  * todos los renglones en vez del mejor intento por materia. Medido contra el
  * demo: de las 15 personas con dos matrículas, LAS 15 salían con un promedio
  * distinto del que enseña su propio historial —Sofía García Pérez con 8.54 aquí
  * y 8.59 / 8.50 allá—, o sea que el padre leía un número que no era el promedio
- * de ninguna de las dos carreras de su hija. Ver `docs/decisiones.md`,
+ * de ninguna de las dos programas académicos de su hija. Ver `docs/decisiones.md`,
  * 2026-08-26.
  */
 class EstadoDelAlumno
@@ -60,7 +61,7 @@ class EstadoDelAlumno
             'vencido' => false,
         ];
 
-        $matriculas = $alumno->matriculas()->with('oferta.plan', 'oferta.carrera')->get();
+        $matriculas = $alumno->matriculas()->with('oferta.plan', 'oferta.programaAcademico')->get();
 
         if ($matriculas->isEmpty()) {
             return $estado;
@@ -75,7 +76,7 @@ class EstadoDelAlumno
             $vencido = false;
 
             /*
-             * Todas sus matrículas juntas: si cursa dos carreras y debe en una,
+             * Todas sus matrículas juntas: si cursa dos programas académicos y debe en una,
              * debe. Partirlo obligaría a leer dos cifras para responder una
              * sola pregunta.
              */
@@ -107,13 +108,13 @@ class EstadoDelAlumno
      * una línea: con una lista no podrían hacer ninguna de las dos cosas. La
      * cifra suelta es el promedio **más bajo** de sus programas, que es
      * literalmente lo que este servicio existe para contestar —«a cuál hay que
-     * atender»—, y viaja con `promedio_de` para que se pueda nombrar la carrera
+     * atender»—, y viaja con `promedio_de` para que se pueda nombrar el programa académico
      * en cuanto hay más de una. Sin ese nombre, «Promedio 8.29» se leería como
      * si fuera el único que tiene.
      *
      * `reprobadas` sí se suma entre programas: es una cuenta de la persona.
      *
-     * @param  \Illuminate\Support\Collection<int, MatriculaOferta>  $matriculas
+     * @param  Collection<int, MatriculaOferta>  $matriculas
      * @return array<string, mixed>
      */
     private function academicoDe($matriculas): array
@@ -127,7 +128,7 @@ class EstadoDelAlumno
 
                 return [
                     'matricula' => $m->matricula,
-                    'carrera' => $m->oferta?->carrera?->nombre,
+                    'programa_academico' => $m->oferta?->programaAcademico?->nombre,
                     'promedio' => $resumen['promedio'],
                     'reprobadas' => $resumen['reprobadas'],
                 ];
@@ -143,7 +144,7 @@ class EstadoDelAlumno
         return [
             'programas' => $programas->all(),
             'promedio' => $peor['promedio'] ?? null,
-            'promedio_de' => $conPromedio->count() > 1 ? ($peor['carrera'] ?? null) : null,
+            'promedio_de' => $conPromedio->count() > 1 ? ($peor['programa_academico'] ?? null) : null,
             'reprobadas' => (int) $programas->sum('reprobadas'),
         ];
     }

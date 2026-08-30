@@ -36,7 +36,7 @@ const props = withDefaults(
     }>(),
     {
         minimo: 2,
-        campos: () => ({ titulo: 'nombre', subtitulo: 'matricula', detalle: 'carrera' }),
+        campos: () => ({ titulo: 'nombre', subtitulo: 'matricula', detalle: 'programa_academico' }),
     },
 );
 

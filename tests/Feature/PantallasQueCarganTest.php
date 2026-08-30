@@ -13,7 +13,7 @@ use Tests\TenantTestCase;
  * Que la pantalla abra. Nada más, y no es poco.
  *
  * Dos listados llevaban meses reventando con un 500 y nadie se enteró, porque un
- * `with('carreras')` o un `withCount('reglas')` sólo falla cuando alguien entra:
+ * `with('programasAcademicos')` o un `withCount('reglas')` sólo falla cuando alguien entra:
  * la relación se renombró en un refactor, el controlador se quedó con el nombre
  * viejo y ninguna prueba pasaba por ahí.
  *
@@ -37,7 +37,7 @@ class PantallasQueCarganTest extends TenantTestCase
         $this->assertFalse($props['conceptos'][0]['en_uso'], 'Recién creado no lo usa nadie.');
     }
 
-    /** Rompió con «Call to undefined relationship [carreras]». */
+    /** Rompió con «Call to undefined relationship [programas académicos]». */
     public function test_el_catalogo_de_documentos_requeridos_abre(): void
     {
         // Los ámbitos viven en su propia tabla; aquí basta el documento.

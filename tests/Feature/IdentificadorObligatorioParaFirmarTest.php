@@ -12,7 +12,7 @@ use Tests\Concerns\CreaEscuelaDePrueba;
 use Tests\TenantTestCase;
 
 /**
- * Un lote no se firma si al campus, la carrera o una asignatura les falta su
+ * Un lote no se firma si al campus, el programa académico o una asignatura les falta su
  * identificador oficial.
  *
  * ── Por qué esto tiene que BLOQUEAR y no sólo avisar ───────────────────────
@@ -42,18 +42,18 @@ class IdentificadorObligatorioParaFirmarTest extends TenantTestCase
         );
     }
 
-    public function test_sin_identificador_de_carrera_no_se_firma(): void
+    public function test_sin_identificador_de_programa_academico_no_se_firma(): void
     {
         [$lote, $escuela] = $this->loteDe();
 
-        // Vacío y no null: en `carreras` la columna es NOT NULL, así que lo que
+        // Vacío y no null: en `programas_academicos` la columna es NOT NULL, así que lo que
         // de verdad puede llegar —de una carga masiva, de un dedazo— es la
         // cadena vacía. Probar con null sería probar algo que la base impide.
-        DB::table('carreras')->where('id', $escuela['carrera'])->update(['identificador' => '']);
+        DB::table('programas_academicos')->where('id', $escuela['programa_academico'])->update(['identificador' => '']);
 
         $this->assertTrue(
-            $this->seQuejaDe(app(ValidadorDec::class)->validarLote($lote), 'carrera'),
-            'El lote se dejó firmar con una carrera sin identificador oficial.',
+            $this->seQuejaDe(app(ValidadorDec::class)->validarLote($lote), 'programa_academico'),
+            'El lote se dejó firmar con un programa académico sin identificador oficial.',
         );
     }
 
@@ -142,7 +142,7 @@ class IdentificadorObligatorioParaFirmarTest extends TenantTestCase
         $escuela = $this->alumnoInscrito();
 
         DB::table('campus')->where('id', $escuela['campus'])->update(['identificador' => 'CAMPUS-1']);
-        DB::table('carreras')->where('id', $escuela['carrera'])->update(['identificador' => 'CARRERA-1']);
+        DB::table('programas_academicos')->where('id', $escuela['programa_academico'])->update(['identificador' => 'CARRERA-1']);
 
         $lote = LoteCertificacion::query()->create([
             'folio' => 'LOTE-'.uniqid(),

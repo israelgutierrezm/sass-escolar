@@ -14,9 +14,9 @@ defineProps<{ tarjetas: Enlace[]; directos: Enlace[] }>();
 </script>
 
 <template>
-    <Head title="Biblioteca digital" />
+    <Head title="Recursos digitales" />
 
-    <AppLayout titulo="Biblioteca digital">
+    <AppLayout titulo="Recursos digitales">
         <!--
             Las tarjetas, todas del mismo tamaño.
 

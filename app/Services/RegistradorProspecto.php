@@ -7,12 +7,12 @@ namespace App\Services;
 use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\EtapaCrm;
 use App\Models\Admisiones\RespuestaCampo;
+use App\Models\Captacion\FormularioPublico;
+use App\Models\Captacion\OrigenAspirante;
+use App\Models\Captacion\SeguimientoAspirante;
 use App\Models\Formularios\CampoFormulario;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\Usuario;
-use App\Models\Promocion\FormularioPublico;
-use App\Models\Promocion\OrigenAspirante;
-use App\Models\Promocion\SeguimientoAspirante;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use RuntimeException;
@@ -65,7 +65,7 @@ class RegistradorProspecto
 
             if ($existente !== null) {
                 // No se duplica; se deja constancia de que volvió a escribir,
-                // que para promoción es una señal de interés, no ruido.
+                // que para captación es una señal de interés, no ruido.
                 SeguimientoAspirante::create([
                     'aspirante_id' => $existente->id,
                     'persona_id' => null,

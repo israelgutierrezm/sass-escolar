@@ -6,7 +6,7 @@ namespace App\Http\Controllers\Bolsa;
 
 use App\Http\Controllers\Controller;
 use App\Models\Academico\Campus;
-use App\Models\Academico\Carrera;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Bolsa\Empresa;
 use App\Models\Bolsa\Habilidad;
 use App\Models\Bolsa\ModalidadTrabajo;
@@ -40,7 +40,7 @@ class VacanteController extends Controller
         ];
 
         $vacantes = Vacante::query()
-            ->with(['empresa:id,razon_social', 'modalidad:id,nombre', 'jornada:id,nombre', 'situacion:id,clave,nombre', 'carreras:id,nombre'])
+            ->with(['empresa:id,razon_social', 'modalidad:id,nombre', 'jornada:id,nombre', 'situacion:id,clave,nombre', 'programas_academicos:id,nombre'])
             ->when($filtros['busqueda'] !== '', fn ($q) => $q->where('titulo', 'like', "%{$filtros['busqueda']}%"))
             ->when($filtros['empresa_id'], fn ($q, $v) => $q->where('empresa_id', $v))
             ->when($filtros['situacion_id'], fn ($q, $v) => $q->where('situacion_id', $v))
@@ -61,9 +61,9 @@ class VacanteController extends Controller
                 'vencida' => $v->estaVencida(),
                 'fecha_cierre' => $v->fecha_cierre?->toDateString(),
                 'vacantes_disponibles' => $v->vacantes_disponibles,
-                // Vacía a propósito significa «para todas las carreras»; la
+                // Vacía a propósito significa «para todos los programas académicos»; la
                 // pantalla lo dice con palabras en vez de dejar un hueco.
-                'carreras' => $v->carreras->pluck('nombre'),
+                'programas_academicos' => $v->programasAcademicos->pluck('nombre'),
                 'salario' => $this->salario($v),
             ]),
             'filtros' => $filtros,
@@ -97,7 +97,7 @@ class VacanteController extends Controller
                 'fecha_publicacion' => now()->toDateString(),
                 'fecha_cierre' => null,
                 'situacion_id' => SituacionVacante::query()->where('clave', 'abierta')->value('id'),
-                'carreras' => [],
+                'programas_academicos' => [],
                 'habilidades' => [],
             ],
             'catalogos' => $this->catalogos(),
@@ -106,7 +106,7 @@ class VacanteController extends Controller
 
     public function show(Vacante $vacante): Response
     {
-        $vacante->load(['empresa:id,razon_social', 'carreras:id', 'habilidades:id']);
+        $vacante->load(['empresa:id,razon_social', 'programas_academicos:id', 'habilidades:id']);
 
         return Inertia::render('Bolsa/Vacante', [
             'vacante' => [
@@ -125,7 +125,7 @@ class VacanteController extends Controller
                 'fecha_publicacion' => $vacante->fecha_publicacion?->toDateString(),
                 'fecha_cierre' => $vacante->fecha_cierre?->toDateString(),
                 'situacion_id' => $vacante->situacion_id,
-                'carreras' => $vacante->carreras->pluck('id'),
+                'programas_academicos' => $vacante->programasAcademicos->pluck('id'),
                 'habilidades' => $vacante->habilidades->map(fn (Habilidad $h) => [
                     'id' => $h->id,
                     'indispensable' => (bool) $h->pivot->indispensable,
@@ -165,8 +165,8 @@ class VacanteController extends Controller
             'fecha_publicacion' => ['required', 'date'],
             'fecha_cierre' => ['nullable', 'date', 'after_or_equal:fecha_publicacion'],
             'situacion_id' => ['required', Rule::exists('situaciones_vacante', 'id')],
-            'carreras' => ['array'],
-            'carreras.*' => ['integer', Rule::exists('carreras', 'id')],
+            'programas_academicos' => ['array'],
+            'programas_academicos.*' => ['integer', Rule::exists('programas_academicos', 'id')],
             'habilidades' => ['array'],
             'habilidades.*.id' => ['required', 'integer', Rule::exists('habilidades', 'id')],
             'habilidades.*.indispensable' => ['boolean'],
@@ -176,18 +176,18 @@ class VacanteController extends Controller
         ]);
 
         DB::transaction(function () use ($datos, &$vacante) {
-            $carreras = $datos['carreras'] ?? [];
+            $programasAcademicos = $datos['programas_academicos'] ?? [];
             $habilidades = collect($datos['habilidades'] ?? [])
                 ->mapWithKeys(fn (array $h) => [$h['id'] => ['indispensable' => $h['indispensable'] ?? false]])
                 ->all();
 
-            unset($datos['carreras'], $datos['habilidades']);
+            unset($datos['programas_academicos'], $datos['habilidades']);
 
             $vacante === null || ! $vacante->exists
                 ? $vacante = Vacante::create($datos)
                 : $vacante->update($datos);
 
-            $vacante->carreras()->sync($carreras);
+            $vacante->programasAcademicos()->sync($programasAcademicos);
             $vacante->habilidades()->sync($habilidades);
         });
 
@@ -217,7 +217,7 @@ class VacanteController extends Controller
             'jornadas' => TipoJornada::query()->activos()->get(['id', 'nombre']),
             'situaciones' => SituacionVacante::query()->activos()->get(['id', 'nombre']),
             'habilidades' => Habilidad::query()->activos()->get(['id', 'nombre']),
-            'carreras' => Carrera::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'programas_academicos' => ProgramaAcademico::query()->orderBy('nombre')->get(['id', 'nombre']),
             'campus' => Campus::query()->orderBy('nombre')->get(['id', 'nombre']),
         ];
     }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Models\ControlEscolar\BibliotecaEnlace;
+use App\Models\ControlEscolar\RecursoDigital;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -13,7 +13,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * La biblioteca digital: lo que ve el alumno y lo que administra la escuela.
+ * La recursos digitales: lo que ve el alumno y lo que administra la escuela.
  *
  * Las dos caras viven en el mismo controlador porque comparten el catálogo y la
  * regla de qué se pinta como tarjeta y qué como enlace suelto. Separarlas
@@ -23,14 +23,14 @@ use Inertia\Response;
  * El permiso dice QUIÉN entra; el interruptor de la sección, si la escuela la
  * tiene abierta. Las rutas llevan los dos.
  */
-class BibliotecaController extends Controller
+class RecursosDigitalesController extends Controller
 {
     /** Lo que ve el alumno. */
     public function index(): Response
     {
-        $enlaces = BibliotecaEnlace::query()->publicados()->get();
+        $enlaces = RecursoDigital::query()->publicados()->get();
 
-        return Inertia::render('Biblioteca/Index', [
+        return Inertia::render('RecursosDigitales/Index', [
             /*
              * Van separados desde el servidor y no mezclados con una bandera.
              *
@@ -46,8 +46,8 @@ class BibliotecaController extends Controller
     /** Lo que administra Control Escolar. */
     public function gestion(): Response
     {
-        return Inertia::render('Escolar/Biblioteca', [
-            'enlaces' => BibliotecaEnlace::query()
+        return Inertia::render('Escolar/RecursosDigitales', [
+            'enlaces' => RecursoDigital::query()
                 ->orderBy('orden')
                 ->orderBy('id')
                 ->get(['id', 'titulo', 'descripcion', 'url', 'imagen_url', 'orden', 'activo']),
@@ -60,25 +60,25 @@ class BibliotecaController extends Controller
 
         // Al final de la lista: quien publica algo nuevo no espera que se le
         // cuele en medio de lo que ya tenía ordenado.
-        $datos['orden'] = (int) BibliotecaEnlace::query()->max('orden') + 1;
+        $datos['orden'] = (int) RecursoDigital::query()->max('orden') + 1;
 
-        BibliotecaEnlace::create($datos);
+        RecursoDigital::create($datos);
 
         return back()->with('success', 'El recurso quedó publicado.');
     }
 
-    public function update(Request $peticion, BibliotecaEnlace $enlace): RedirectResponse
+    public function update(Request $peticion, RecursoDigital $enlace): RedirectResponse
     {
         $enlace->update($this->validado($peticion));
 
         return back()->with('success', 'Se guardaron los cambios.');
     }
 
-    public function destroy(BibliotecaEnlace $enlace): RedirectResponse
+    public function destroy(RecursoDigital $enlace): RedirectResponse
     {
         $enlace->delete();
 
-        return back()->with('success', 'El recurso se quitó de la biblioteca.');
+        return back()->with('success', 'El recurso se quitó de los recursos digitales.');
     }
 
     /**
@@ -93,12 +93,12 @@ class BibliotecaController extends Controller
     {
         $datos = $peticion->validate([
             'ids' => ['present', 'array'],
-            'ids.*' => ['integer', 'exists:biblioteca_enlaces,id'],
+            'ids.*' => ['integer', 'exists:recursos_digitales,id'],
         ]);
 
         DB::transaction(function () use ($datos) {
             foreach (array_values($datos['ids']) as $orden => $id) {
-                BibliotecaEnlace::query()->whereKey($id)->update(['orden' => $orden]);
+                RecursoDigital::query()->whereKey($id)->update(['orden' => $orden]);
             }
         });
 
@@ -128,13 +128,13 @@ class BibliotecaController extends Controller
     }
 
     /**
-     * @param  Collection<int, BibliotecaEnlace>  $enlaces
+     * @param  Collection<int, RecursoDigital>  $enlaces
      * @return array<int, array<string, mixed>>
      */
     private function paraPantalla($enlaces): array
     {
         return $enlaces
-            ->map(fn (BibliotecaEnlace $e) => [
+            ->map(fn (RecursoDigital $e) => [
                 'id' => $e->id,
                 'titulo' => $e->titulo,
                 'descripcion' => $e->descripcion,

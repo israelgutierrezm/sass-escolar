@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Models\Promocion;
+namespace App\Models\Captacion;
 
-use App\Models\Academico\Carrera;
 use App\Models\Academico\Oferta;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Concerns\TieneAuditoria;
 use App\Models\Finanzas\ConceptoPago;
 use Illuminate\Database\Eloquent\Builder;
@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * reglas_comision (TENANT) — cuánto gana el promotor por alumno inscrito.
  *
- * Precedencia oferta → carrera → global, el mismo patrón de `planes_cobro` y
+ * Precedencia oferta → programa académico → global, el mismo patrón de `planes_cobro` y
  * `emisores_fiscales`: la escuela pone una regla general y la excepciona donde
  * hace falta ("10% en general, pero la maestría paga fijo").
  *
@@ -29,7 +29,7 @@ class ReglaComision extends Model
 
     public const APLICA_GLOBAL = 'global';
 
-    public const APLICA_CARRERA = 'carrera';
+    public const APLICA_CARRERA = 'programa_academico';
 
     public const APLICA_OFERTA = 'oferta';
 
@@ -78,7 +78,7 @@ class ReglaComision extends Model
         }
 
         return match ($this->aplica_a_tipo) {
-            self::APLICA_CARRERA => Carrera::find($this->aplica_a_id),
+            self::APLICA_CARRERA => ProgramaAcademico::find($this->aplica_a_id),
             self::APLICA_OFERTA => Oferta::find($this->aplica_a_id),
             default => null,
         };

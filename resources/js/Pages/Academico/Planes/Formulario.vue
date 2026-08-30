@@ -11,7 +11,7 @@ import { ICONOS } from '@/iconos';
 
 const props = defineProps<{
     plan: Record<string, any> | null;
-    carreras: { id: number; nombre: string }[];
+    programas_academicos: { id: number; nombre: string }[];
     autorizaciones: { id: number; nombre: string }[];
     tiposPeriodo: { id: number; nombre: string }[];
 }>();
@@ -19,7 +19,7 @@ const props = defineProps<{
 const esEdicion = computed(() => props.plan !== null);
 
 const form = useForm({
-    carrera_id: props.plan?.carrera_id ?? null,
+    programa_academico_id: props.plan?.programa_academico_id ?? null,
     clave: props.plan?.clave ?? '',
     abreviacion: props.plan?.abreviacion ?? '',
     nombre: props.plan?.nombre ?? '',
@@ -50,15 +50,15 @@ function enviar(): void {
         <PestanasSeccion />
 
         <form class="space-y-6" @submit.prevent="enviar">
-            <TarjetaSeccion titulo="Identificación" descripcion="A qué carrera pertenece y cómo se identifica." :icono="ICONOS.birrete">
+            <TarjetaSeccion titulo="Identificación" descripcion="A qué programa académico pertenece y cómo se identifica." :icono="ICONOS.birrete">
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <CampoSelect
-                        v-model="form.carrera_id"
-                        etiqueta="Carrera"
+                        v-model="form.programa_academico_id"
+                        etiqueta="Programa académico"
                         requerido
-                        :opciones="opciones(carreras)"
+                        :opciones="opciones(programas_academicos)"
                         vacio="Selecciona…"
-                        :error="form.errors.carrera_id"
+                        :error="form.errors.programa_academico_id"
                     />
                     <CampoTexto v-model="form.clave" etiqueta="Clave" requerido :error="form.errors.clave" mono />
                     <CampoTexto v-model="form.nombre" etiqueta="Nombre" requerido :error="form.errors.nombre" />

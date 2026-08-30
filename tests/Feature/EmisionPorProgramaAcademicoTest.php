@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Models\Academico\Carrera;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Services\EstadoCertificacion;
 use Illuminate\Support\Facades\DB;
@@ -12,7 +12,7 @@ use Tests\Concerns\CreaEscuelaDePrueba;
 use Tests\TenantTestCase;
 
 /**
- * No toda carrera termina en papel oficial.
+ * No toda programa académico termina en papel oficial.
  *
  * Diplomados, cursos y educación continua viven en el mismo catálogo que las
  * licenciaturas y no tienen RVOE que respalde un certificado ni un título.
@@ -20,7 +20,7 @@ use Tests\TenantTestCase;
  * de un lote es prometer un trámite que la escuela no puede cumplir —alguien
  * acaba diciéndoselo al alumno—.
  */
-class EmisionPorCarreraTest extends TenantTestCase
+class EmisionPorProgramaAcademicoTest extends TenantTestCase
 {
     use CreaEscuelaDePrueba;
 
@@ -33,7 +33,7 @@ class EmisionPorCarreraTest extends TenantTestCase
         $this->estado = app(EstadoCertificacion::class);
     }
 
-    public function test_una_carrera_nace_emitiendo_documentos(): void
+    public function test_una_programa_academico_nace_emitiendo_documentos(): void
     {
         $this->assertTrue($this->estado->emiteDocumentos($this->egresado()));
     }
@@ -46,7 +46,7 @@ class EmisionPorCarreraTest extends TenantTestCase
 
         $this->apagar($matricula);
 
-        $this->assertFalse($this->estado->elegibleParaLote($matricula->fresh(['oferta.carrera'])));
+        $this->assertFalse($this->estado->elegibleParaLote($matricula->fresh(['oferta.programaAcademico'])));
     }
 
     /**
@@ -60,7 +60,7 @@ class EmisionPorCarreraTest extends TenantTestCase
 
         $this->apagar($matricula);
 
-        $this->assertFalse($this->estado->emiteDocumentos($matricula->fresh(['oferta.carrera'])));
+        $this->assertFalse($this->estado->emiteDocumentos($matricula->fresh(['oferta.programaAcademico'])));
     }
 
     /**
@@ -68,19 +68,19 @@ class EmisionPorCarreraTest extends TenantTestCase
      * certificación como titulación, y mezclarle una de las dos banderas apagaba
      * la otra sin que nadie lo pidiera.
      */
-    public function test_el_avance_academico_no_depende_de_lo_que_la_carrera_emita(): void
+    public function test_el_avance_academico_no_depende_de_lo_que_la_programa_academico_emita(): void
     {
         $matricula = $this->egresado();
 
         $this->apagar($matricula);
 
         $this->assertTrue(
-            $this->estado->disponible($matricula->fresh(['oferta.carrera', 'oferta.plan'])),
+            $this->estado->disponible($matricula->fresh(['oferta.programaAcademico', 'oferta.plan'])),
             'Sigue habiendo cerrado su plan: eso no se lo quita ningún trámite.',
         );
     }
 
-    /** Sin el dato —carrera vieja, relación no cargada— se responde que sí. */
+    /** Sin el dato —programa académico vieja, relación no cargada— se responde que sí. */
     public function test_ante_la_duda_se_deja_pasar(): void
     {
         $matricula = $this->egresado();
@@ -113,12 +113,12 @@ class EmisionPorCarreraTest extends TenantTestCase
             'tipo_evaluacion_id' => $this->deCatalogo('tipos_evaluacion'),
         ]);
 
-        return MatriculaOferta::with(['oferta.carrera', 'oferta.plan'])->findOrFail($escuela['matricula']);
+        return MatriculaOferta::with(['oferta.programaAcademico', 'oferta.plan'])->findOrFail($escuela['matricula']);
     }
 
     private function apagar(MatriculaOferta $matricula): void
     {
-        Carrera::query()->where('id', $matricula->oferta->carrera_id)
+        ProgramaAcademico::query()->where('id', $matricula->oferta->programa_academico_id)
             ->update(['emite_documentos_oficiales' => false]);
     }
 }

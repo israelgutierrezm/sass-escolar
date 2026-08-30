@@ -78,7 +78,7 @@ class Grupo extends Model
      *     se compara contra el cupo. Contando filas, tres alumnos con seis
      *     materias darían diecisiete.
      *  2. Se cuenta por matrícula y no por persona, porque **el alumno es la
-     *     matrícula**: quien lleva dos carreras ocupa dos lugares.
+     *     matrícula**: quien lleva dos programas académicos ocupa dos lugares.
      *  3. Las **bajas no ocupan lugar**, tolerando la situación en null —una
      *     escuela con el catálogo a medias no debe perder a sus inscritos—.
      *
@@ -111,7 +111,7 @@ class Grupo extends Model
      * {@see inscritosDelGrupo()}, que es donde vive «qué cuenta como alumno de
      * un grupo». Lo que cambia es la forma de pegarlo a la consulta.
      */
-    public static function conteoDeAlumnosAgrupado(): \Illuminate\Database\Eloquent\Builder
+    public static function conteoDeAlumnosAgrupado(): Builder
     {
         return self::inscritosDelGrupo()
             ->select('asignatura_grupo.grupo_id')
@@ -123,11 +123,11 @@ class Grupo extends Model
      * QUÉ CUENTA como alumno de un grupo. La única declaración.
      *
      *  1. Se cuenta por matrícula y no por persona, porque **el alumno es la
-     *     matrícula**: quien lleva dos carreras ocupa dos lugares.
+     *     matrícula**: quien lleva dos programas académicos ocupa dos lugares.
      *  2. Las **bajas no ocupan lugar**, tolerando la situación en null —una
      *     escuela con el catálogo a medias no debe perder a sus inscritos—.
      */
-    private static function inscritosDelGrupo(): \Illuminate\Database\Eloquent\Builder
+    private static function inscritosDelGrupo(): Builder
     {
         return Inscripcion::query()
             ->join('asignatura_grupo', 'asignatura_grupo.id', '=', 'inscripcion.asignatura_grupo_id')

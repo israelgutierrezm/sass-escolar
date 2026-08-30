@@ -22,7 +22,7 @@ const form = useForm({
     nombre: '',
     ciclo_id: null as number | null,
     campus: [] as number[],
-    carreras: [] as number[],
+    programas_academicos: [] as number[],
     tiene_fecha_limite: true,
     fecha_limite_modo: 'exacta',
     aplica_recargos: false,
@@ -31,21 +31,21 @@ const form = useForm({
     vigente_hasta: '',
 });
 
-// Filtro de nivel: acota las carreras que se ofrecen. Vacío = todos los niveles.
+// Filtro de nivel: acota los programas académicos que se ofrecen. Vacío = todos los niveles.
 const nivelId = ref<number | null>(null);
 
 const campusDisponibles = ref<Opcion[]>([]);
-const carrerasDisponibles = ref<(Opcion & { clave: string })[]>([]);
+const programasAcademicosDisponibles = ref<(Opcion & { clave: string })[]>([]);
 const cargandoCampus = ref(false);
-const cargandoCarreras = ref(false);
+const cargandoProgramasAcademicos = ref(false);
 
 // Al cambiar el ciclo se traen SUS campus: un plan solo puede cobrar donde el
 // ciclo existe.
 watch(() => form.ciclo_id, async (id) => {
     form.campus = [];
-    form.carreras = [];
+    form.programas_academicos = [];
     campusDisponibles.value = [];
-    carrerasDisponibles.value = [];
+    programasAcademicosDisponibles.value = [];
 
     if (!id) return;
 
@@ -58,35 +58,35 @@ watch(() => form.ciclo_id, async (id) => {
     }
 });
 
-// Las carreras dependen de los campus elegidos (solo las que ahí se ofertan) y
+// Los programas académicos dependen de los campus elegidos (solo las que ahí se ofertan) y
 // del filtro de nivel.
 watch([() => form.campus, nivelId], async ([campus, nivel]) => {
-    carrerasDisponibles.value = [];
+    programasAcademicosDisponibles.value = [];
 
     if (!campus.length) {
-        form.carreras = [];
+        form.programas_academicos = [];
         return;
     }
 
-    cargandoCarreras.value = true;
+    cargandoProgramasAcademicos.value = true;
     try {
-        const { data } = await axios.post('/finanzas/planes/carreras-de-campus', {
+        const { data } = await axios.post('/finanzas/planes/programas-academicos-de-campus', {
             campus,
             nivel_estudios_id: nivel,
         });
-        carrerasDisponibles.value = data;
+        programasAcademicosDisponibles.value = data;
         // Se descartan las que ya no están disponibles tras el cambio.
         const ids = data.map((c: Opcion) => c.id);
-        form.carreras = form.carreras.filter((id) => ids.includes(id));
+        form.programas_academicos = form.programas_academicos.filter((id) => ids.includes(id));
     } finally {
-        cargandoCarreras.value = false;
+        cargandoProgramasAcademicos.value = false;
     }
 }, { deep: true });
 
 const opcionesCiclo = computed(() => props.ciclos.map((c) => ({ valor: c.id, texto: c.nombre })));
 const opcionesNivel = computed(() => props.niveles.map((n) => ({ valor: n.id, texto: n.nombre })));
 const opcionesCampus = computed(() => campusDisponibles.value.map((c) => ({ valor: c.id, texto: c.nombre })));
-const opcionesCarrera = computed(() => carrerasDisponibles.value.map((c) => ({ valor: c.id, texto: c.nombre })));
+const opcionesProgramaAcademico = computed(() => programasAcademicosDisponibles.value.map((c) => ({ valor: c.id, texto: c.nombre })));
 
 const listo = computed(() => !!form.nombre && !!form.ciclo_id && form.campus.length > 0);
 
@@ -94,8 +94,8 @@ function guardar(): void {
     form.post('/finanzas/planes');
 }
 
-function todasLasCarreras(): void {
-    form.carreras = carrerasDisponibles.value.map((c) => c.id);
+function todasLasProgramasAcademicos(): void {
+    form.programas_academicos = programasAcademicosDisponibles.value.map((c) => c.id);
 }
 </script>
 
@@ -132,7 +132,7 @@ function todasLasCarreras(): void {
 
             <TarjetaSeccion
                 titulo="A quién le aplica"
-                descripcion="Los campus del ciclo y las carreras que ahí se ofertan."
+                descripcion="Los campus del ciclo y los programas académicos que ahí se ofertan."
                 :icono="ICONOS.edificio"
             >
                 <p v-if="!form.ciclo_id" class="text-sm" :style="{ color: 'var(--color-suave)' }">
@@ -161,33 +161,33 @@ function todasLasCarreras(): void {
 
                         <div class="mt-4 flex items-center justify-between gap-3">
                             <p class="text-sm font-medium">
-                                Carreras
+                                Programas académicos
                                 <span class="font-normal" :style="{ color: 'var(--color-suave)' }">
-                                    ({{ carrerasDisponibles.length }} ofertadas en esos campus)
+                                    ({{ programasAcademicosDisponibles.length }} ofertadas en esos campus)
                                 </span>
                             </p>
                             <button
-                                v-if="carrerasDisponibles.length"
+                                v-if="programasAcademicosDisponibles.length"
                                 type="button"
                                 class="text-xs font-medium"
                                 :style="{ color: 'var(--color-acento)' }"
-                                @click="todasLasCarreras"
+                                @click="todasLasProgramasAcademicos"
                             >
                                 Seleccionar todas
                             </button>
                         </div>
 
-                        <p v-if="cargandoCarreras" class="mt-2 text-sm" :style="{ color: 'var(--color-suave)' }">Cargando carreras…</p>
-                        <p v-else-if="!carrerasDisponibles.length" class="mt-2 text-sm" :style="{ color: 'var(--color-suave)' }">
-                            No hay carreras ofertadas en esos campus para ese nivel.
+                        <p v-if="cargandoProgramasAcademicos" class="mt-2 text-sm" :style="{ color: 'var(--color-suave)' }">Cargando programas académicos…</p>
+                        <p v-else-if="!programasAcademicosDisponibles.length" class="mt-2 text-sm" :style="{ color: 'var(--color-suave)' }">
+                            No hay programas académicos ofertados en esos campus para ese nivel.
                         </p>
                         <div v-else class="mt-2">
                             <CampoCasillas
-                                v-model="form.carreras"
+                                v-model="form.programas_academicos"
                                 etiqueta=""
-                                :opciones="opcionesCarrera"
-                                :error="form.errors.carreras"
-                                ayuda="Sin marcar ninguna, el plan aplica a todas las carreras de esos campus."
+                                :opciones="opcionesProgramaAcademico"
+                                :error="form.errors.programas_academicos"
+                                ayuda="Sin marcar ninguna, el plan aplica a todos los programas académicos de esos campus."
                             />
                         </div>
                     </div>

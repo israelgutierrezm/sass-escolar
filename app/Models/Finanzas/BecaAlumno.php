@@ -17,7 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * becas_alumno (TENANT) — la beca otorgada a un alumno concreto.
  *
  * Cuelga de `matricula_oferta` (persona + oferta) y no de la persona: alguien
- * con dos carreras puede tener beca en una y no en la otra.
+ * con dos programas académicos puede tener beca en una y no en la otra.
  *
  * Si la beca es por ciclo, hay una fila por ciclo: renovar es crear la del
  * ciclo siguiente, no editar la anterior. Así el histórico queda intacto y se

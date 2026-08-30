@@ -19,25 +19,25 @@ const props = defineProps<{
         en_su_area: number;
         fuera_de_su_area: number;
         sin_ese_dato: number;
-        sin_carrera_senalada: number;
+        sin_programa_academico_senalado: number;
         de_quien_no_ha_egresado: number;
         de_la_bolsa: number;
         de_seguimiento: number;
     };
-    por_carrera: (Renglon & { carrera_id: number; carrera: string })[];
+    por_programa_academico: (Renglon & { programa_academico_id: number; programa_academico: string })[];
     por_generacion: (Renglon & { generacion: string })[];
-    filtros: { generacion: string | null; carrera_id: number | null };
+    filtros: { generacion: string | null; programa_academico_id: number | null };
     generaciones: string[];
-    carreras: { id: number; nombre: string }[];
+    programas_academicos: { id: number; nombre: string }[];
 }>();
 
 const generacion = ref(props.filtros.generacion);
-const carreraId = ref(props.filtros.carrera_id);
+const programaAcademicoId = ref(props.filtros.programa_academico_id);
 
 function filtrar(): void {
     router.get(
         '/bolsa/empleabilidad',
-        { generacion: generacion.value, carrera_id: carreraId.value },
+        { generacion: generacion.value, programa_academico_id: programaAcademicoId.value },
         { preserveState: true, replace: true },
     );
 }
@@ -63,7 +63,7 @@ function color(p: number): string {
 const hayDatos = computed(() => props.resumen.egresados > 0);
 
 /** Las colocaciones registradas que el indicador no cuenta, y por qué. */
-const fuera = computed(() => props.resumen.sin_carrera_senalada + props.resumen.de_quien_no_ha_egresado);
+const fuera = computed(() => props.resumen.sin_programa_academico_senalado + props.resumen.de_quien_no_ha_egresado);
 </script>
 
 <template>
@@ -72,7 +72,7 @@ const fuera = computed(() => props.resumen.sin_carrera_senalada + props.resumen.
     <AppLayout titulo="Empleabilidad">
         <p class="mb-4 text-sm" :style="{ color: 'var(--color-suave)' }">
             De los que egresaron, cuántos están colocados. Se cuenta por matrícula, así que quien
-            egresó de dos carreras cuenta en las dos —cada programa reporta lo suyo—. Lo alimentan
+            egresó de dos programas académicos cuenta en las dos —cada programa reporta lo suyo—. Lo alimentan
             las <Link href="/bolsa/colocaciones" class="underline" :style="{ color: 'var(--color-acento)' }">colocaciones</Link>.
         </p>
 
@@ -85,10 +85,10 @@ const fuera = computed(() => props.resumen.sin_carrera_senalada + props.resumen.
                 @update:model-value="filtrar"
             />
             <CampoSelect
-                v-model="carreraId"
+                v-model="programaAcademicoId"
                 etiqueta=""
-                :opciones="carreras.map((c) => ({ valor: c.id, texto: c.nombre }))"
-                vacio="Todas las carreras"
+                :opciones="programas_academicos.map((c) => ({ valor: c.id, texto: c.nombre }))"
+                vacio="Todos los programas académicos"
                 @update:model-value="filtrar"
             />
         </div>
@@ -146,11 +146,11 @@ const fuera = computed(() => props.resumen.sin_carrera_senalada + props.resumen.
                 <template v-else>Hay {{ fuera }} colocaciones que no entran en estas cifras:</template>
             </p>
             <ul class="mt-1 list-disc space-y-0.5 pl-5">
-                <li v-if="resumen.sin_carrera_senalada > 0">
-                    {{ resumen.sin_carrera_senalada }} sin carrera señalada — no se pueden atribuir a
+                <li v-if="resumen.sin_programa_academico_senalado > 0">
+                    {{ resumen.sin_programa_academico_senalado }} sin programa_academico señalada — no se pueden atribuir a
                     ningún programa.
                     <Link href="/bolsa/colocaciones" class="underline" :style="{ color: 'var(--color-acento)' }">
-                        Edítalas</Link> y elige con cuál de sus carreras van.
+                        Edítalas</Link> y elige con cuál de sus programas académicos van.
                 </li>
                 <li v-if="resumen.de_quien_no_ha_egresado > 0">
                     {{ resumen.de_quien_no_ha_egresado }} de quien todavía no egresa —una práctica
@@ -159,16 +159,16 @@ const fuera = computed(() => props.resumen.sin_carrera_senalada + props.resumen.
             </ul>
         </div>
 
-        <TarjetaSeccion titulo="Por carrera" sin-relleno class="mb-4">
-            <ul v-if="por_carrera.length">
+        <TarjetaSeccion titulo="Por programa académico" sin-relleno class="mb-4">
+            <ul v-if="por_programa_academico.length">
                 <li
-                    v-for="r in por_carrera"
-                    :key="r.carrera_id"
+                    v-for="r in por_programa_academico"
+                    :key="r.programa_academico_id"
                     class="border-t px-6 py-3 text-sm"
                     :style="{ borderColor: 'var(--color-borde)' }"
                 >
                     <div class="flex items-center justify-between gap-3">
-                        <span class="min-w-0 truncate font-medium">{{ r.carrera }}</span>
+                        <span class="min-w-0 truncate font-medium">{{ r.programa_academico }}</span>
                         <span class="shrink-0 text-xs" :style="{ color: 'var(--color-suave)' }">
                             {{ r.colocados }} de {{ r.egresados }} · {{ r.porcentaje }}%
                         </span>

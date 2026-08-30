@@ -31,12 +31,12 @@ class ReglasMatriculaPantallaTest extends TenantTestCase
      */
     public function test_se_puede_volver_a_crear_una_regla_que_se_borro(): void
     {
-        $carrera = $this->alumnoInscrito()['carrera'];
+        $programaAcademico = $this->alumnoInscrito()['programa_academico'];
 
-        $primera = $this->crear($carrera, 'A{###}');
+        $primera = $this->crear($programaAcademico, 'A{###}');
         app(ReglaMatriculaController::class)->destroy($primera);
 
-        $segunda = $this->crear($carrera, 'B{###}');
+        $segunda = $this->crear($programaAcademico, 'B{###}');
 
         $this->assertSame('B{###}', $segunda->plantilla);
         $this->assertSame($primera->id, $segunda->id, 'Se revive la misma fila, no se crea otra.');
@@ -45,21 +45,21 @@ class ReglasMatriculaPantallaTest extends TenantTestCase
     /** Dos reglas vivas para el mismo alcance no tendrían desempate. */
     public function test_no_se_pueden_tener_dos_reglas_para_el_mismo_alcance(): void
     {
-        $carrera = $this->alumnoInscrito()['carrera'];
+        $programaAcademico = $this->alumnoInscrito()['programa_academico'];
 
-        $this->crear($carrera, 'A{###}');
+        $this->crear($programaAcademico, 'A{###}');
 
         $this->expectExceptionMessage('Ya hay una regla para ese alcance');
-        $this->crear($carrera, 'B{###}');
+        $this->crear($programaAcademico, 'B{###}');
     }
 
     /** Sin consecutivo, todos los alumnos del año saldrían con el mismo número. */
     public function test_una_plantilla_sin_consecutivo_se_rechaza(): void
     {
-        $carrera = $this->alumnoInscrito()['carrera'];
+        $programaAcademico = $this->alumnoInscrito()['programa_academico'];
 
         $this->expectExceptionMessage('necesita un consecutivo');
-        $this->crear($carrera, '{AAAA}-SIN-NUMERO');
+        $this->crear($programaAcademico, '{AAAA}-SIN-NUMERO');
     }
 
     /**
@@ -83,19 +83,19 @@ class ReglasMatriculaPantallaTest extends TenantTestCase
 
     // ── Andamiaje ──────────────────────────────────────────────────────────
 
-    private function crear(int $carrera, string $plantilla): ReglaMatricula
+    private function crear(int $programaAcademico, string $plantilla): ReglaMatricula
     {
         $peticion = Request::create('/admisiones/reglas-matricula', 'POST', [
-            'ambito' => 'carrera',
-            'ambito_id' => $carrera,
+            'ambito' => 'programa_academico',
+            'ambito_id' => $programaAcademico,
             'plantilla' => $plantilla,
-            'consecutivo_dimensiones' => ['campus', 'carrera'],
+            'consecutivo_dimensiones' => ['campus', 'programa_academico'],
             'consecutivo_reinicia' => 'ciclo',
             'activo' => true,
         ]);
 
         app(ReglaMatriculaController::class)->store($peticion);
 
-        return ReglaMatricula::where('ambito', 'carrera')->where('ambito_id', $carrera)->firstOrFail();
+        return ReglaMatricula::where('ambito', 'programa_academico')->where('ambito_id', $programaAcademico)->firstOrFail();
     }
 }

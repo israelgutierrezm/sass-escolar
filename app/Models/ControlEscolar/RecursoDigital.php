@@ -9,15 +9,15 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * biblioteca_enlaces (TENANT) — un recurso publicado en la biblioteca digital.
+ * recursos_digitales (TENANT) — un recurso publicado en la recursos digitales.
  *
  * Se administra desde Control Escolar y lo consulta el alumno desde su panel.
  */
-class BibliotecaEnlace extends Model
+class RecursoDigital extends Model
 {
     use TieneAuditoria;
 
-    protected $table = 'biblioteca_enlaces';
+    protected $table = 'recursos_digitales';
 
     protected $fillable = ['titulo', 'descripcion', 'url', 'imagen_url', 'orden', 'activo'];
 

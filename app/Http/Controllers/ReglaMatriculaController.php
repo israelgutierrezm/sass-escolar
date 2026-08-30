@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Academico\Campus;
-use App\Models\Academico\Carrera;
 use App\Models\Academico\NivelEstudio;
 use App\Models\Academico\Oferta;
 use App\Models\Academico\PlanEstudio;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Admisiones\ContadorMatricula;
 use App\Models\Admisiones\ReglaMatricula;
 use App\Models\ControlEscolar\Ciclo;
@@ -41,7 +41,7 @@ class ReglaMatriculaController extends Controller
     {
         return Inertia::render('Admisiones/ReglasMatricula/Index', [
             'reglas' => ReglaMatricula::query()
-                ->orderByRaw("FIELD(ambito, 'plan', 'carrera', 'global')")
+                ->orderByRaw("FIELD(ambito, 'plan', 'programa_academico', 'global')")
                 ->get()
                 ->map(fn (ReglaMatricula $r) => [
                     'id' => $r->id,
@@ -64,7 +64,7 @@ class ReglaMatriculaController extends Controller
                     'valor' => $c->valor,
                     'descripcion' => $this->descripcionContador($c->clave),
                 ]),
-            'carreras' => Carrera::query()->orderBy('nombre')->get(['id', 'clave', 'nombre']),
+            'programas_academicos' => ProgramaAcademico::query()->orderBy('nombre')->get(['id', 'clave', 'nombre']),
             'planes' => PlanEstudio::query()->orderBy('nombre')->get(['id', 'clave', 'nombre']),
             'tokens' => ReglaMatricula::TOKENS,
             'dimensiones' => ReglaMatricula::CONSECUTIVO_DIMENSIONES,
@@ -84,11 +84,11 @@ class ReglaMatriculaController extends Controller
          *
          * El borrado es lógico —lo pone el trait de auditoría— pero el índice
          * único de (ambito, ambito_id) no distingue: la fila en la papelera
-         * sigue ocupando el sitio. Crear otra para la misma carrera reventaba
+         * sigue ocupando el sitio. Crear otra para la mismo programa académico reventaba
          * con un 1062 que la pantalla mostraba como un 500, y desde la interfaz
          * no había forma de entenderlo porque la regla vieja no se ve.
          *
-         * Revivir es además lo que se quiere decir: «esta carrera vuelve a
+         * Revivir es además lo que se quiere decir: «este programa académico vuelve a
          * numerarse aparte», con el formato que se acaba de capturar.
          */
         $enPapelera = ReglaMatricula::onlyTrashed()
@@ -210,7 +210,7 @@ class ReglaMatriculaController extends Controller
             /*
              * La plantilla TIENE que traer un consecutivo.
              *
-             * Sin él, todos los alumnos de la misma carrera y el mismo año
+             * Sin él, todos los alumnos de la mismo programa académico y el mismo año
              * saldrían con la misma matrícula. Es el único requisito de forma:
              * el resto de la plantilla es cosa de cada escuela.
              */
@@ -223,12 +223,12 @@ class ReglaMatriculaController extends Controller
             'plantilla.regex' => 'La plantilla necesita un consecutivo: agrega {####} donde vaya el número.',
         ]);
 
-        // Una regla global no apunta a nada; una de carrera o plan, sí.
+        // Una regla global no apunta a nada; una de programa académico o plan, sí.
         $datos['ambito_id'] = $datos['ambito'] === 'global' ? null : ($datos['ambito_id'] ?? null);
 
         if ($datos['ambito'] !== 'global' && $datos['ambito_id'] === null) {
             throw ValidationException::withMessages([
-                'ambito_id' => 'Elige a qué '.($datos['ambito'] === 'plan' ? 'plan' : 'carrera').' se aplica.',
+                'ambito_id' => 'Elige a qué '.($datos['ambito'] === 'plan' ? 'plan' : 'programa_academico').' se aplica.',
             ]);
         }
 
@@ -257,7 +257,7 @@ class ReglaMatriculaController extends Controller
     {
         $oferta = Oferta::query()
             ->when($regla->ambito === 'plan', fn ($q) => $q->where('plan_id', $regla->ambito_id))
-            ->when($regla->ambito === 'carrera', fn ($q) => $q->where('carrera_id', $regla->ambito_id))
+            ->when($regla->ambito === 'programa_academico', fn ($q) => $q->where('programa_academico_id', $regla->ambito_id))
             ->first();
 
         if ($oferta === null) {
@@ -274,7 +274,7 @@ class ReglaMatriculaController extends Controller
     /**
      * La llave del contador, en español.
      *
-     * Se guarda como «carrera:12|anio:2026» porque tiene que ser estable y
+     * Se guarda como «programa académico:12|anio:2026» porque tiene que ser estable y
      * corta; nadie debería tener que descifrarla en pantalla.
      */
     private function descripcionContador(string $clave): string
@@ -290,7 +290,7 @@ class ReglaMatriculaController extends Controller
                 'ciclo' => 'ciclo '.(Ciclo::find($valor)?->nombre ?? $valor),
                 'campus' => 'campus '.(Campus::find($valor)?->nombre ?? $valor),
                 'nivel' => 'nivel '.(NivelEstudio::find($valor)?->nombre ?? $valor),
-                'carrera' => 'carrera '.(Carrera::find($valor)?->nombre ?? $valor),
+                'programa_academico' => 'programa académico '.(ProgramaAcademico::find($valor)?->nombre ?? $valor),
                 'plan' => 'plan '.(PlanEstudio::find($valor)?->nombre ?? $valor),
                 default => $trozo,
             };

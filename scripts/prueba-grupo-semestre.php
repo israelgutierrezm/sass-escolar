@@ -15,7 +15,7 @@ $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
 use App\Http\Controllers\GrupoController;
 use App\Models\Academico\Campus;
-use App\Models\Academico\Carrera;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Academico\NivelEstudio;
 use App\Models\Academico\PlanEstudio;
 use App\Models\ControlEscolar\Ciclo;
@@ -81,9 +81,9 @@ try {
     $sitGrupo = SituacionGrupo::query()->value('id');
     $sitCiclo = SituacionCiclo::query()->value('id');
 
-    // Un plan y su carrera, para conocer el nivel real.
-    $plan = PlanEstudio::query()->join('carreras', 'carreras.id', '=', 'planes_estudio.carrera_id')
-        ->select('planes_estudio.id', 'carreras.nivel_estudios_id')
+    // Un plan y su programa académico, para conocer el nivel real.
+    $plan = PlanEstudio::query()->join('programas_academicos', 'programas_academicos.id', '=', 'planes_estudio.programa_academico_id')
+        ->select('planes_estudio.id', 'programas_academicos.nivel_estudios_id')
         ->first();
     $nivelDelPlan = $plan->nivel_estudios_id;
     $otroNivel = NivelEstudio::query()->where('id', '!=', $nivelDelPlan)->value('id');

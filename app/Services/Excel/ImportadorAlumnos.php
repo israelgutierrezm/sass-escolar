@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Services\Excel;
 
 use App\Models\Academico\Campus;
-use App\Models\Academico\Carrera;
 use App\Models\Academico\Oferta;
 use App\Models\Academico\PlanEstudio;
 use App\Models\Academico\PlanMateria;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Admisiones\Alumno;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\SituacionAlumno;
@@ -22,7 +22,7 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 
 /**
  * Carga masiva de alumnos. Cada fila crea/actualiza la persona (por CURP), su
- * registro de alumno y su matrícula en la oferta (carrera+plan+campus). Si el
+ * registro de alumno y su matrícula en la oferta (programa académico+plan+campus). Si el
  * archivo trae la hoja «Calificaciones», también carga el historial académico: el estatus se
  * deriva de la calificación con la regla única del sistema (EstatusAcademico).
  * No crea nada si hay errores.
@@ -38,7 +38,7 @@ class ImportadorAlumnos extends ImportadorBase
         $libro = IOFactory::load($path);
 
         $situaciones = $this->mapaCatalogo(SituacionAlumno::class);
-        $carreraId = Carrera::query()->pluck('id', 'clave')->all();
+        $programaAcademicoId = ProgramaAcademico::query()->pluck('id', 'clave')->all();
         $planId = PlanEstudio::query()->pluck('id', 'clave')->all();
         $campusId = Campus::query()->pluck('id', 'clave')->all();
         $cicloId = Ciclo::query()->pluck('id', 'clave')->all();
@@ -72,17 +72,17 @@ class ImportadorAlumnos extends ImportadorBase
 
         // ---- Validación ----
         foreach ($alumnos as [$fila, $r]) {
-            $this->requerido('Alumnos', $fila, $r, [0 => 'Nombre', 1 => 'Primer apellido', 3 => 'CURP', 7 => 'Matrícula', 10 => 'Carrera (clave)', 11 => 'Plan (clave)', 12 => 'Campus (clave)']);
+            $this->requerido('Alumnos', $fila, $r, [0 => 'Nombre', 1 => 'Primer apellido', 3 => 'CURP', 7 => 'Matrícula', 10 => 'Programa académico (clave)', 11 => 'Plan (clave)', 12 => 'Campus (clave)']);
             if (filled($r[3] ?? null) && mb_strlen(trim((string) $r[3])) !== 18) {
                 $this->error('Alumnos', $fila, 'La CURP debe tener 18 caracteres.');
             }
-            $this->refExiste('Alumnos', $fila, $r[10] ?? null, array_keys($carreraId), 'La carrera (clave)');
+            $this->refExiste('Alumnos', $fila, $r[10] ?? null, array_keys($programaAcademicoId), 'El programa académico (clave)');
             $this->refExiste('Alumnos', $fila, $r[11] ?? null, array_keys($planId), 'El plan (clave)');
             $this->refExiste('Alumnos', $fila, $r[12] ?? null, array_keys($campusId), 'El campus (clave)');
             $this->enCatalogo('Alumnos', $fila, $r[13] ?? null, $situaciones, 'Situación', opcional: true);
 
-            if ($this->sinErrorEn('Alumnos', $fila) && $this->resolverOferta($r, $carreraId, $planId, $campusId) === null) {
-                $this->error('Alumnos', $fila, 'No existe una oferta con esa carrera, plan y campus.');
+            if ($this->sinErrorEn('Alumnos', $fila) && $this->resolverOferta($r, $programaAcademicoId, $planId, $campusId) === null) {
+                $this->error('Alumnos', $fila, 'No existe una oferta con ese programa académico, plan y campus.');
             }
         }
 
@@ -113,7 +113,7 @@ class ImportadorAlumnos extends ImportadorBase
         $situacionDefault = SituacionAlumno::query()->where('clave', 'activo')->value('id') ?? SituacionAlumno::query()->min('id');
         $matriculaOfertaId = [];
 
-        DB::transaction(function () use ($alumnos, $calif, $situaciones, $situacionDefault, $carreraId, $planId, $campusId, $cicloId, $estatusId, $minimaPlan, $planPorMatricula, $mapaMaterias, &$resumen, &$matriculaOfertaId) {
+        DB::transaction(function () use ($alumnos, $calif, $situaciones, $situacionDefault, $programaAcademicoId, $planId, $campusId, $cicloId, $estatusId, $minimaPlan, $planPorMatricula, $mapaMaterias, &$resumen, &$matriculaOfertaId) {
             foreach ($alumnos as [, $r]) {
                 $persona = Persona::query()->updateOrCreate(
                     ['curp' => mb_strtoupper(trim((string) $r[3]))],
@@ -130,7 +130,7 @@ class ImportadorAlumnos extends ImportadorBase
                 $sit = $this->idOpcional($situaciones, $r[13] ?? null) ?? $situacionDefault;
                 Alumno::query()->updateOrCreate(['persona_id' => $persona->id], ['situacion_id' => $sit]);
 
-                $oferta = $this->resolverOferta($r, $carreraId, $planId, $campusId);
+                $oferta = $this->resolverOferta($r, $programaAcademicoId, $planId, $campusId);
                 $matricula = trim((string) $r[7]);
                 $m = MatriculaOferta::query()->updateOrCreate(
                     ['matricula' => $matricula],
@@ -174,13 +174,13 @@ class ImportadorAlumnos extends ImportadorBase
 
     /**
      * @param  array<int, mixed>  $r
-     * @param  array<string, int>  $carreraId
+     * @param  array<string, int>  $programaAcademicoId
      * @param  array<string, int>  $planId
      * @param  array<string, int>  $campusId
      */
-    private function resolverOferta(array $r, array $carreraId, array $planId, array $campusId): ?Oferta
+    private function resolverOferta(array $r, array $programaAcademicoId, array $planId, array $campusId): ?Oferta
     {
-        $ca = $carreraId[trim((string) ($r[10] ?? ''))] ?? null;
+        $ca = $programaAcademicoId[trim((string) ($r[10] ?? ''))] ?? null;
         $pl = $planId[trim((string) ($r[11] ?? ''))] ?? null;
         $cm = $campusId[trim((string) ($r[12] ?? ''))] ?? null;
 
@@ -188,7 +188,7 @@ class ImportadorAlumnos extends ImportadorBase
             return null;
         }
 
-        return Oferta::query()->where('carrera_id', $ca)->where('plan_id', $pl)->where('campus_id', $cm)->first();
+        return Oferta::query()->where('programa_academico_id', $ca)->where('plan_id', $pl)->where('campus_id', $cm)->first();
     }
 
     /** True si aún no hay ningún error en esa hoja/fila. */

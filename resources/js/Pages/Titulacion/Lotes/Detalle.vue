@@ -34,7 +34,7 @@ interface Egresado {
     matricula: string | null;
     alumno: string;
     curp: string | null;
-    carrera: string | null;
+    programa_academico: string | null;
     plan: string | null;
     campus: string | null;
     estado: string;
@@ -72,7 +72,7 @@ interface Candidato {
     matricula: string | null;
     alumno: string;
     curp: string | null;
-    carrera: string | null;
+    programa_academico: string | null;
     plan: string | null;
     campus: string | null;
 }
@@ -515,7 +515,7 @@ watch(
                     <input type="checkbox" :checked="seleccion.includes(c.matricula_oferta_id)" :disabled="yaEnLote.has(c.matricula_oferta_id)" @change="alternar(c.matricula_oferta_id)" />
                     <span class="font-mono">{{ c.matricula ?? '—' }}</span>
                     <span class="font-medium">{{ c.alumno }}</span>
-                    <span :style="{ color: 'var(--color-suave)' }">{{ c.carrera }}<span v-if="c.campus"> · {{ c.campus }}</span></span>
+                    <span :style="{ color: 'var(--color-suave)' }">{{ c.programa_academico }}<span v-if="c.campus"> · {{ c.campus }}</span></span>
                     <span v-if="yaEnLote.has(c.matricula_oferta_id)" class="ml-auto text-xs" :style="{ color: 'var(--color-suave)' }">Ya en el lote</span>
                 </label>
 
@@ -534,7 +534,7 @@ watch(
                     <tr class="border-b text-left" :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }">
                         <th class="px-5 py-3 font-medium">Matrícula</th>
                         <th class="px-5 py-3 font-medium">Egresado</th>
-                        <th class="px-5 py-3 font-medium">Carrera</th>
+                        <th class="px-5 py-3 font-medium">Programa académico</th>
                         <th class="px-5 py-3 font-medium">Estado</th>
                         <th class="px-5 py-3 font-medium">WS</th>
                         <th class="px-5 py-3 font-medium"></th>
@@ -547,7 +547,7 @@ watch(
                             <div class="font-medium">{{ e.alumno }}</div>
                             <div class="text-xs" :style="{ color: 'var(--color-suave)' }">{{ e.curp }}</div>
                         </td>
-                        <td class="px-5 py-3" :style="{ color: 'var(--color-suave)' }">{{ e.carrera }}<span v-if="e.plan"> · {{ e.plan }}</span></td>
+                        <td class="px-5 py-3" :style="{ color: 'var(--color-suave)' }">{{ e.programa_academico }}<span v-if="e.plan"> · {{ e.plan }}</span></td>
                         <td class="px-5 py-3">
                             <span class="rounded-full px-2.5 py-1 text-xs font-medium" :style="badgeEgresado(e.estado)">{{ etiquetaEgresado(e.estado) }}</span>
                             <div v-if="e.error_mensaje" class="mt-1 text-xs text-red-600">{{ e.error_mensaje }}</div>

@@ -52,7 +52,7 @@ class BloqueadosPorAdeudo extends DefinicionReporte
 
     public function columnasPorOmision(): ?array
     {
-        return ['matricula', 'alumno', 'carrera', 'campus', 'situacion_financiera', 'saldo', 'vencido'];
+        return ['matricula', 'alumno', 'programa_academico', 'campus', 'situacion_financiera', 'saldo', 'vencido'];
     }
 
     public function ordenPorOmision(): ?array

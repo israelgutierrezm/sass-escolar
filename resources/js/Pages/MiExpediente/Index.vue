@@ -39,7 +39,7 @@ interface TipoDocumento {
 
 const props = defineProps<{
     persona: Record<string, any>;
-    inscripciones: { matricula: string | null; carrera: string | null; campus: string | null }[];
+    inscripciones: { matricula: string | null; programa_academico: string | null; campus: string | null }[];
     situacion: string | null;
     documentos: Documento[];
     tiposDocumento: TipoDocumento[];
@@ -217,7 +217,7 @@ function quitarFoto(): void {
 
                     <!--
                         Una línea por inscripción: un alumno puede cursar dos
-                        carreras a la vez, y enseñarle sólo una sería mentirle a
+                        programas académicos a la vez, y enseñarle sólo una sería mentirle a
                         medias sobre en qué está inscrito.
                     -->
                     <div v-if="inscripciones.length" class="mt-2 space-y-1">
@@ -228,13 +228,13 @@ function quitarFoto(): void {
                             >
                                 {{ i.matricula ?? 'sin matrícula' }}
                             </span>
-                            <span class="text-suave">{{ [i.carrera, i.campus].filter(Boolean).join(' · ') }}</span>
+                            <span class="text-suave">{{ [i.programa_academico, i.campus].filter(Boolean).join(' · ') }}</span>
                         </p>
                     </div>
 
                     <p v-if="situacion" class="mt-2 text-xs text-suave">
                         Situación: <strong class="text-contenido">{{ situacion }}</strong> ·
-                        la matrícula, la carrera y la situación las administra control escolar.
+                        la matrícula, el programa académico y la situación las administra control escolar.
                     </p>
                 </div>
 

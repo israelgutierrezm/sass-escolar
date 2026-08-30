@@ -114,7 +114,7 @@ class AsignacionTutoriaController extends Controller
             ->map(fn ($filas) => $filas->pluck('clave')->filter()->unique()->values()->all());
 
         $alumnos = Alumno::query()
-            ->with(['persona', 'matriculas.oferta.carrera:id,nombre'])
+            ->with(['persona', 'matriculas.oferta.programaAcademico:id,nombre'])
             ->get()
             ->map(function (Alumno $a) use ($asignadas, $sesiones, $gruposPorAlumno) {
                 $tutoria = $asignadas->get($a->persona_id);
@@ -124,7 +124,7 @@ class AsignacionTutoriaController extends Controller
                     'id' => $a->persona_id,
                     'nombre' => $a->persona?->nombreCompleto() ?? 'Alumno',
                     'matricula' => $a->matriculas->first()?->matricula,
-                    'carrera' => $a->matriculas->first()?->oferta?->carrera?->nombre,
+                    'programa_academico' => $a->matriculas->first()?->oferta?->programaAcademico?->nombre,
                     'grupos' => $gruposPorAlumno->get($a->persona_id, []),
                     'tutor' => $tutoria?->tutor?->nombreCompleto(),
                     'tutoria_id' => $tutoria?->id,
@@ -162,11 +162,11 @@ class AsignacionTutoriaController extends Controller
             ],
             /*
              * Los desplegables se arman con lo que HAY en la lista, no con el
-             * catálogo completo: ofrecer una carrera sin alumnos sólo produce
+             * catálogo completo: ofrecer un programa académico sin alumnos sólo produce
              * un filtro que deja la pantalla vacía y hace dudar de si falló
              * algo.
              */
-            'carreras' => $alumnos->pluck('carrera')->filter()->unique()->sort()->values(),
+            'programas_academicos' => $alumnos->pluck('programa_academico')->filter()->unique()->sort()->values(),
             'grupos' => $alumnos->pluck('grupos')->flatten()->filter()->unique()->sort()->values(),
         ]);
     }

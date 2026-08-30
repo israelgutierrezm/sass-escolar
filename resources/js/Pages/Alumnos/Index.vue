@@ -18,9 +18,9 @@ interface Alumno {
     curp: string | null;
     email: string | null;
     foto: string | null;
-    carrera: string | null;
+    programa_academico: string | null;
     plan: string | null;
-    carreras_activas: number;
+    programas_academicos_activos: number;
     campus: string[];
     situacion: string | null;
     estatus: string;
@@ -42,7 +42,7 @@ function textoCampus(campus: string[]): string {
 const props = defineProps<{
     alumnos: { data: Alumno[]; links: { url: string | null; label: string; active: boolean }[]; total: number; from: number | null; to: number | null };
     filtros: Record<string, any>;
-    carreras: { id: number; nombre: string }[];
+    programas_academicos: { id: number; nombre: string }[];
     campus: { id: number; nombre: string }[];
     situaciones: { id: number; nombre: string }[];
     puedeEditar: boolean;
@@ -52,7 +52,7 @@ const props = defineProps<{
 const vista = ref<'lista' | 'cuadricula'>('lista');
 
 const definicionFiltros = [
-    { clave: 'carrera_id', etiqueta: 'Carrera', opciones: props.carreras.map((c) => ({ valor: c.id, texto: c.nombre })) },
+    { clave: 'programa_academico_id', etiqueta: 'Programa académico', opciones: props.programas_academicos.map((c) => ({ valor: c.id, texto: c.nombre })) },
     { clave: 'campus_id', etiqueta: 'Campus', opciones: props.campus.map((c) => ({ valor: c.id, texto: c.nombre })) },
     { clave: 'situacion_id', etiqueta: 'Situación', opciones: props.situaciones.map((s) => ({ valor: s.id, texto: s.nombre })) },
     {
@@ -177,7 +177,7 @@ function subirExcel(archivo: File | null): void {
                     :nombre="alumno.nombre_completo"
                     :identificador="alumno.matricula"
                     :foto="alumno.foto"
-                    :lineas="[alumno.carreras_activas >= 2 ? `${alumno.carreras_activas} carreras activas` : alumno.carrera, textoCampus(alumno.campus)]"
+                    :lineas="[alumno.programas_academicos_activos >= 2 ? `${alumno.programas_academicos_activos} programas académicos activos` : alumno.programa_academico, textoCampus(alumno.campus)]"
                     :estado="alumno.estatus"
                     :color-estado="colorEstatus[alumno.estatus]"
                     :atenuada="alumno.estatus === 'baja'"
@@ -199,7 +199,7 @@ function subirExcel(archivo: File | null): void {
                             <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
                                 <th class="px-6 py-3 font-semibold">Alumno</th>
                                 <th class="px-4 py-3 font-semibold">Matrícula / CURP</th>
-                                <th class="px-4 py-3 font-semibold">Carreras</th>
+                                <th class="px-4 py-3 font-semibold">Programas académicos</th>
                                 <th class="px-4 py-3 font-semibold">Campus</th>
                                 <th class="px-4 py-3 font-semibold">Estatus</th>
                                 <th class="px-6 py-3 font-semibold text-right">Acciones</th>
@@ -230,13 +230,13 @@ function subirExcel(archivo: File | null): void {
                                     <span v-if="alumno.curp" class="mt-1 block font-mono text-[11px]" :style="{ color: 'var(--color-suave)' }">{{ alumno.curp }}</span>
                                 </td>
 
-                                <!-- Carreras -->
+                                <!-- Programas académicos -->
                                 <td class="px-4 py-4">
-                                    <template v-if="alumno.carreras_activas >= 2">
-                                        <span class="rounded-full px-2 py-0.5 text-[11px] font-medium" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }">{{ alumno.carreras_activas }} carreras</span>
+                                    <template v-if="alumno.programas_academicos_activos >= 2">
+                                        <span class="rounded-full px-2 py-0.5 text-[11px] font-medium" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }">{{ alumno.programas_academicos_activos }} programas académicos</span>
                                     </template>
                                     <template v-else>
-                                        <span class="text-xs">{{ alumno.carrera ?? '—' }}</span>
+                                        <span class="text-xs">{{ alumno.programa_academico ?? '—' }}</span>
                                         <span v-if="alumno.plan" class="mt-0.5 block text-[11px]" :style="{ color: 'var(--color-suave)' }">{{ alumno.plan }}</span>
                                     </template>
                                 </td>

@@ -2,8 +2,8 @@
 
 /**
  * Prueba de integración de las razones sociales (varias personas morales por
- * escuela): precedencia carrera → nivel → global, congelado del emisor en la
- * factura, cifrado de credenciales y el error cuando una carrera queda sin
+ * escuela): precedencia programa académico → nivel → global, congelado del emisor en la
+ * factura, cifrado de credenciales y el error cuando un programa académico queda sin
  * asignar. Con rollback.
  *
  * Se corre con `php scripts/prueba-emisores.php` desde la raíz.
@@ -14,7 +14,7 @@
  * de donde se declara.
  */
 
-use App\Models\Academico\Carrera;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Academico\Oferta;
 use App\Models\Finanzas\Adeudo;
 use App\Models\Finanzas\ConceptoPago;
@@ -77,17 +77,17 @@ try {
     $efectivo = MetodoPago::where('clave', 'efectivo')->firstOrFail();
     $colegiatura = ConceptoPago::where('clave', 'colegiatura')->firstOrFail();
 
-    // Dos ofertas de carreras distintas: es lo que permite probar que a cada
+    // Dos ofertas de programas académicos distintas: es lo que permite probar que a cada
     // una le toca una razón social diferente.
-    $ofertaA = Oferta::query()->with('carrera')->firstOrFail();
-    $ofertaB = Oferta::query()->with('carrera')
-        ->where('carrera_id', '!=', $ofertaA->carrera_id)->first();
+    $ofertaA = Oferta::query()->with('programaAcademico')->firstOrFail();
+    $ofertaB = Oferta::query()->with('programaAcademico')
+        ->where('programa_academico_id', '!=', $ofertaA->programa_academico_id)->first();
 
     if ($ofertaB === null) {
-        echo 'AVISO: la escuela demo solo tiene una carrera con oferta; se omiten los casos por carrera.'.PHP_EOL;
+        echo 'AVISO: la escuela demo solo tiene un programa académico con oferta; se omiten los casos por programa académico.'.PHP_EOL;
     }
 
-    $carreraA = $ofertaA->carrera;
+    $programaAcademicoA = $ofertaA->programaAcademico;
 
     echo '1. Alta de razones sociales'.PHP_EOL;
 
@@ -144,26 +144,26 @@ try {
         $sinAsignar = true;
         $mensaje = $e->getMessage();
     }
-    // Hay emisores dados de alta pero ninguno cubre esta carrera: eso es una
+    // Hay emisores dados de alta pero ninguno cubre este programa académico: eso es una
     // configuración incompleta y hay que gritarlo, no facturar a nombre de
     // cualquiera.
     verificar('Y facturar se rechaza diciendo qué falta', $sinAsignar, $mensaje);
-    verificar('El mensaje nombra la carrera concreta',
-        str_contains($mensaje, (string) $carreraA?->nombre), (string) $carreraA?->nombre);
+    verificar('El mensaje nombra el programa académico concreta',
+        str_contains($mensaje, (string) $programaAcademicoA?->nombre), (string) $programaAcademicoA?->nombre);
 
-    echo PHP_EOL.'4. Precedencia: global → nivel → carrera'.PHP_EOL;
+    echo PHP_EOL.'4. Precedencia: global → nivel → programa académico'.PHP_EOL;
 
     // Global: cubre a todos.
     $bachillerato->asignaciones()->create(['aplica_a_tipo' => EmisorAsignacion::APLICA_GLOBAL]);
 
-    verificar('Con una asignación global, esa aplica a cualquier carrera',
+    verificar('Con una asignación global, esa aplica a cualquier programa académico',
         $resolutor->para($matricula)?->id === $bachillerato->id);
 
-    // Nivel: gana al global para las carreras de ese nivel.
-    if ($carreraA?->nivel_estudios_id !== null) {
+    // Nivel: gana al global para los programas académicos de ese nivel.
+    if ($programaAcademicoA?->nivel_estudios_id !== null) {
         $superior->asignaciones()->create([
             'aplica_a_tipo' => EmisorAsignacion::APLICA_NIVEL,
-            'aplica_a_id' => $carreraA->nivel_estudios_id,
+            'aplica_a_id' => $programaAcademicoA->nivel_estudios_id,
         ]);
 
         verificar('Una asignación por NIVEL le gana a la global',
@@ -171,7 +171,7 @@ try {
             (string) $resolutor->para($matricula)?->razon_social);
     }
 
-    // Carrera: gana a todo.
+    // Programa académico: gana a todo.
     $tercera = EmisorFiscal::create([
         'rfc' => 'PSG030303CC3',
         'razon_social' => 'POSGRADOS ESPECIALIZADOS SC',
@@ -180,7 +180,7 @@ try {
     ]);
     $tercera->asignaciones()->create([
         'aplica_a_tipo' => EmisorAsignacion::APLICA_CARRERA,
-        'aplica_a_id' => $carreraA->id,
+        'aplica_a_id' => $programaAcademicoA->id,
     ]);
 
     verificar('Una asignación por CARRERA le gana al nivel y a la global',
@@ -200,14 +200,14 @@ try {
 
     $tercera->update(['activo' => true]);
 
-    echo PHP_EOL.'5. Carreras distintas, razones sociales distintas'.PHP_EOL;
+    echo PHP_EOL.'5. Programas académicos distintas, razones sociales distintas'.PHP_EOL;
 
     if ($ofertaB !== null) {
         $persona2 = Persona::create(['nombre' => 'Bruno', 'primer_apellido' => 'Salas', 'sexo_id' => 1]);
         $matricula2 = app(MatriculadorOferta::class)->matricular($persona2, $ofertaB, '2026-2030');
 
-        // La carrera B no tiene asignación propia: cae al nivel o al global.
-        verificar('La otra carrera resuelve a una razón social DISTINTA',
+        // El programa académico B no tiene asignación propia: cae al nivel o al global.
+        verificar('La otro programa académico resuelve a una razón social DISTINTA',
             $resolutor->para($matricula2)?->id !== $tercera->id,
             (string) $resolutor->para($matricula2)?->razon_social);
         verificar('Y la primera sigue con la suya',
@@ -234,7 +234,7 @@ try {
     }
 
     verificar('La factura se timbra', $factura->estatus === Factura::ESTATUS_TIMBRADA);
-    verificar('Con la razón social que le tocaba a su carrera',
+    verificar('Con la razón social que le tocaba a su programa académico',
         $factura->emisor_rfc === $tercera->rfc, (string) $factura->emisor_razon_social);
     verificar('Y guarda de dónde salió', $factura->emisor_id === $tercera->id);
 
@@ -246,12 +246,12 @@ try {
         (string) $factura->fresh()->emisor_razon_social);
     verificar('Ni su código postal', $factura->fresh()->emisor_cp === '11000');
 
-    // Y reasignar la carrera a otra razón social tampoco toca lo emitido.
+    // Y reasignar el programa académico a otra razón social tampoco toca lo emitido.
     $tercera->asignaciones()->delete();
 
     verificar('Quitarle la asignación tampoco cambia el comprobante',
         $factura->fresh()->emisor_rfc === $tercera->rfc);
-    verificar('Aunque la carrera ya resuelva a otra',
+    verificar('Aunque el programa académico ya resuelva a otra',
         $resolutor->para($matricula)?->id !== $tercera->id,
         (string) $resolutor->para($matricula)?->razon_social);
 

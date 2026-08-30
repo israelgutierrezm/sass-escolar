@@ -45,7 +45,7 @@ class EstadoDeCartera extends DefinicionReporte
 
     public function columnasPorOmision(): ?array
     {
-        return ['matricula', 'alumno', 'carrera', 'campus', 'situacion', 'saldo', 'vencido'];
+        return ['matricula', 'alumno', 'programa_academico', 'campus', 'situacion', 'saldo', 'vencido'];
     }
 
     public function ordenPorOmision(): ?array

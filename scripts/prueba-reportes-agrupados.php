@@ -108,7 +108,7 @@ try {
         $plano->total() > 0 && $plano->totales !== null,
         $plano->total().' filas, saldo '.($plano->totales['valores']['saldo'] ?? '—'));
 
-    foreach (['campus', 'carrera', 'situacion'] as $dimension) {
+    foreach (['campus', 'programa_academico', 'situacion'] as $dimension) {
         $agrupado = $ejecutor->agrupar($global, 'estado-de-cartera', $dimension, [
             'columnas' => $columnas,
         ]);
@@ -135,7 +135,7 @@ try {
     echo PHP_EOL.'2. Sólo se agregan las MEDIDAS, no cualquier columna'.PHP_EOL;
 
     $conTexto = $ejecutor->agrupar($global, 'estado-de-cartera', 'campus', [
-        'columnas' => ['matricula', 'alumno', 'carrera', 'saldo'],
+        'columnas' => ['matricula', 'alumno', 'programa_academico', 'saldo'],
     ]);
 
     verificar('Las columnas de texto no salen como medida',
@@ -615,7 +615,7 @@ try {
         'quedaron '.($cuantas() - $antesDeAgrupar).' (una de pantalla y una de agrupado)');
 
     $antesDeOtra = $cuantas();
-    $ejecutor->agrupar($global, 'estado-de-cartera', 'carrera', ['columnas' => $columnas]);
+    $ejecutor->agrupar($global, 'estado-de-cartera', 'programa_academico', ['columnas' => $columnas]);
 
     /*
      * Y agrupar por OTRA dimensión es otra pregunta. Sin anotar la dimensión, las
@@ -629,7 +629,7 @@ try {
     $ultima = App\Models\Reportes\EjecucionReporte::query()->latest('id')->first();
 
     verificar('Y la bitácora guarda POR QUÉ dimensión se agrupó',
-        ($ultima->filtros['agrupar_por'] ?? null) === 'carrera',
+        ($ultima->filtros['agrupar_por'] ?? null) === 'programa_academico',
         json_encode($ultima->filtros, JSON_UNESCAPED_UNICODE));
 
     /*

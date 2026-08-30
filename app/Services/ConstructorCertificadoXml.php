@@ -31,7 +31,7 @@ use Illuminate\Support\Collection;
  * y el sello los inyecta el FirmadorLote en `$firma` al momento de firmar.
  *
  * Los identificadores oficiales de catálogos SEP (idEntidad, idCampus,
- * idCarrera, idAsignatura, etc.) todavía no se mapean: se rellenan con los ids
+ * idProgramaAcademico, idAsignatura, etc.) todavía no se mapean: se rellenan con los ids
  * y claves LOCALES como placeholder para que el XML valide estructuralmente.
  * Cuando la escuela tenga sus claves SEP, solo cambian estos valores aquí.
  */
@@ -39,7 +39,7 @@ class ConstructorCertificadoXml
 {
     private const NS = 'https://www.siged.sep.gob.mx/certificados/';
 
-    /** Foto académica del alumno-carrera, en el vocabulario del DEC.
+    /** Foto académica del alumno-programa académico, en el vocabulario del DEC.
      *
      * @return array<string, mixed>
      */
@@ -49,7 +49,7 @@ class ConstructorCertificadoXml
 
         $matricula->loadMissing([
             'persona',
-            'oferta.carrera',
+            'oferta.programaAcademico',
             'oferta.plan',
             'oferta.campus.institucion',
             'oferta.campus.entidad',
@@ -58,7 +58,7 @@ class ConstructorCertificadoXml
         $persona = $matricula->persona;
         $oferta = $matricula->oferta;
         $plan = $oferta?->plan;
-        $carrera = $oferta?->carrera;
+        $programaAcademico = $oferta?->programaAcademico;
         $campus = $oferta?->campus;
         $institucion = $campus?->institucion;
         $entidad = $campus?->entidad;
@@ -83,7 +83,7 @@ class ConstructorCertificadoXml
          * de todas las escuelas. Por eso la columna se elige catálogo por
          * catálogo y no con una regla general.
          */
-        $idNivel = $this->idCatalogo(NivelEstudio::class, $carrera?->nivel_estudios_id, 'clave');
+        $idNivel = $this->idCatalogo(NivelEstudio::class, $programaAcademico?->nivel_estudios_id, 'clave');
         $idTipoPeriodo = $this->idCatalogo(TipoPeriodo::class, $plan?->tipo_periodo_id, 'clave');
         $idGenero = $this->idGeneroSep($persona);
         $idEntidad = $this->idCatalogo(EntidadFederativa::class, $campus?->entidad_id, 'identificador');
@@ -149,13 +149,13 @@ class ConstructorCertificadoXml
             // Rvoe
             'numeroRvoe' => (string) ($plan?->rvoe ?? 'SIN-RVOE'),
             'fechaExpedicionRvoe' => $this->fechaHora($plan?->fecha_rvoe),
-            // Carrera
-            'idCarrera' => (string) ($carrera?->identificador ?? $carrera?->id ?? '0'),
-            'claveCarrera' => $carrera?->clave,
-            'nombreCarrera' => $carrera?->nombre,
+            // Programa académico
+            'idProgramaAcademico' => (string) ($programaAcademico?->identificador ?? $programaAcademico?->id ?? '0'),
+            'claveProgramaAcademico' => $programaAcademico?->clave,
+            'nombreProgramaAcademico' => $programaAcademico?->nombre,
             'idTipoPeriodo' => (string) ($idTipoPeriodo ?? $plan?->tipo_periodo_id ?? '0'),
             'clavePlan' => (string) ($plan?->clave ?? 'SIN-PLAN'),
-            'idNivelEstudios' => (string) ($idNivel ?? $carrera?->nivel_estudios_id ?? '0'),
+            'idNivelEstudios' => (string) ($idNivel ?? $programaAcademico?->nivel_estudios_id ?? '0'),
             'calificacionMinima' => (string) ($plan?->calificacion_minima ?? '0'),
             'calificacionMaxima' => (string) ($plan?->calificacion_maxima ?? '10'),
             'calificacionMinimaAprobatoria' => (string) ($plan?->calificacion_minima_aprobatoria ?? '6'),
@@ -203,7 +203,7 @@ class ConstructorCertificadoXml
             $d['idNombreInstitucion'], $d['idCampus'], $d['idEntidadFederativa'],
             $firma['responsable_curp'] ?? '', $firma['responsable_id_cargo'] ?? '',
             $d['numeroRvoe'], $d['fechaExpedicionRvoe'],
-            $d['idCarrera'], $d['idTipoPeriodo'], $d['clavePlan'], $d['idNivelEstudios'],
+            $d['idProgramaAcademico'], $d['idTipoPeriodo'], $d['clavePlan'], $d['idNivelEstudios'],
             $d['calificacionMinima'], $d['calificacionMaxima'], $d['calificacionMinimaAprobatoria'],
             $d['numeroControl'], $d['curpAlumno'], $d['nombre'], $d['primerApellido'], $d['segundoApellido'],
             $d['idGenero'], $d['fechaNacimiento'],
@@ -272,11 +272,11 @@ class ConstructorCertificadoXml
             'fechaExpedicion' => $d['fechaExpedicionRvoe'],
         ]));
 
-        // 4) Carrera
-        $dec->appendChild($this->nodo($dom, 'Carrera', [
-            'idCarrera' => $d['idCarrera'],
-            'claveCarrera' => $d['claveCarrera'],
-            'nombreCarrera' => $d['nombreCarrera'],
+        // 4) Programa académico
+        $dec->appendChild($this->nodo($dom, 'ProgramaAcademico', [
+            'idProgramaAcademico' => $d['idProgramaAcademico'],
+            'claveProgramaAcademico' => $d['claveProgramaAcademico'],
+            'nombreProgramaAcademico' => $d['nombreProgramaAcademico'],
             'idTipoPeriodo' => $d['idTipoPeriodo'],
             'clavePlan' => $d['clavePlan'],
             'idNivelEstudios' => $d['idNivelEstudios'],

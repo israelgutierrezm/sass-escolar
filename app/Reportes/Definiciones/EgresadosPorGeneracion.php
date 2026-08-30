@@ -60,7 +60,7 @@ class EgresadosPorGeneracion extends DefinicionReporte
 
     public function columnasPorOmision(): ?array
     {
-        return ['matricula', 'alumno', 'carrera', 'campus', 'generacion', 'situacion'];
+        return ['matricula', 'alumno', 'programa_academico', 'campus', 'generacion', 'situacion'];
     }
 
     public function ordenPorOmision(): ?array

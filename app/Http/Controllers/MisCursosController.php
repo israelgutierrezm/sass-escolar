@@ -277,8 +277,8 @@ class MisCursosController extends Controller
         $inscripcion = $this->miInscripcionEn($request, $asignaturaGrupo, [
             'ciclo:id,clave,nombre',
             'asignaturaGrupo.planMateria.asignatura:id,nombre,clave',
-            'asignaturaGrupo.planMateria.plan:id,nombre,carrera_id',
-            'asignaturaGrupo.planMateria.plan.carrera:id,nombre',
+            'asignaturaGrupo.planMateria.plan:id,nombre,programa_academico_id',
+            'asignaturaGrupo.planMateria.plan.programaAcademico:id,nombre',
             'asignaturaGrupo.grupo:id,clave,campus_id,turno_id',
             'asignaturaGrupo.grupo.campus:id,nombre',
             'asignaturaGrupo.grupo.turno:id,nombre',
@@ -298,7 +298,7 @@ class MisCursosController extends Controller
                 'materia' => $planMateria?->asignatura?->nombre,
                 'periodo' => $planMateria?->periodo,
                 'creditos' => $planMateria?->creditos,
-                'carrera' => $planMateria?->plan?->carrera?->nombre,
+                'programa_academico' => $planMateria?->plan?->programaAcademico?->nombre,
                 'plan' => $planMateria?->plan?->nombre,
                 'grupo' => $inscripcion->asignaturaGrupo?->grupo?->clave,
                 'campus' => $inscripcion->asignaturaGrupo?->grupo?->campus?->nombre,
@@ -369,7 +369,7 @@ class MisCursosController extends Controller
      * Sólo las que tienen algo que ver: una clase pasada sin video no le sirve
      * de nada al alumno y llenaría la lista de renglones muertos.
      *
-     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     * @return Collection<int, array<string, mixed>>
      */
     private function grabadasDe(Inscripcion $inscripcion, int $antelacion)
     {

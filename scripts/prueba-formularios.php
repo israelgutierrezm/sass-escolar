@@ -117,7 +117,7 @@ try {
     FormularioAsignacion::create([
         'formulario_id' => $f->id,
         'rol_id' => $rolAlumno->id,
-        'ambito_tipo' => 'carrera',
+        'ambito_tipo' => 'programa_academico',
         'ambito_id' => 7,
         'obligatorio' => true,
     ]);
@@ -129,7 +129,7 @@ try {
 
     verificar('Y la asignación GUARDA a quién va dirigida',
         $recienAsignada->rol_id === $rolAlumno->id
-            && $recienAsignada->ambito_tipo === 'carrera'
+            && $recienAsignada->ambito_tipo === 'programa_academico'
             && $recienAsignada->ambito_id === 7,
         'rol='.var_export($recienAsignada->rol_id, true)
             .' ambito='.var_export($recienAsignada->ambito_tipo, true)
@@ -181,7 +181,7 @@ try {
 
     verificar('Y con su PÚBLICO, no en blanco',
         $copiada?->rol_id === $rolAlumno->id
-            && $copiada?->ambito_tipo === 'carrera'
+            && $copiada?->ambito_tipo === 'programa_academico'
             && $copiada?->ambito_id === 7
             && (bool) $copiada?->obligatorio === true,
         'rol='.var_export($copiada?->rol_id, true)

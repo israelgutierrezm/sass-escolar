@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Models\Academico\Carrera;
+use App\Models\Academico\NivelEstudio;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Facturacion\FacturacionConfig;
 use App\Models\Finanzas\EmisorAsignacion;
 use App\Models\Finanzas\EmisorFiscal;
 use App\Models\Finanzas\Factura;
-use App\Models\Academico\NivelEstudio;
 use App\Services\Facturacion\FacturapiRechazo;
 use App\Services\Facturacion\SincronizadorEmisorFacturapi;
 use App\Support\CatalogosSat;
@@ -92,10 +92,10 @@ class EmisorFiscalController extends Controller
                 ]),
             'destinos' => $this->destinos(),
             'catalogos' => CatalogosSat::todos(),
-            // Se avisa cuando una carrera quedó sin razón social: es
+            // Se avisa cuando un programa académico quedó sin razón social: es
             // exactamente el hueco que hace fallar la primera facturación del
             // mes, y descubrirlo aquí es mucho más barato.
-            'carrerasSinAsignar' => $this->carrerasSinAsignar(),
+            'programasAcademicosSinAsignar' => $this->programasAcademicosSinAsignar(),
         ]);
     }
 
@@ -238,11 +238,11 @@ class EmisorFiscalController extends Controller
         if ($datos['aplica_a_tipo'] === EmisorAsignacion::APLICA_GLOBAL) {
             $datos['aplica_a_id'] = null;
         } elseif (($datos['aplica_a_id'] ?? null) === null) {
-            return back()->with('error', 'Elige a qué nivel o carrera aplica.');
+            return back()->with('error', 'Elige a qué nivel o programa académico aplica.');
         }
 
         // La misma asignación dos veces no significa nada, y dos razones
-        // sociales para la misma carrera es una ambigüedad que después nadie
+        // sociales para la mismo programa académico es una ambigüedad que después nadie
         // sabe cómo se resolvió. Se avisa en vez de dejarlo pasar.
         $ocupada = EmisorAsignacion::query()
             ->where('aplica_a_tipo', $datos['aplica_a_tipo'])
@@ -340,17 +340,17 @@ class EmisorFiscalController extends Controller
     {
         return [
             'nivel' => NivelEstudio::query()->activos()->orderBy('orden')->get(['id', 'nombre']),
-            'carrera' => Carrera::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'programa_academico' => ProgramaAcademico::query()->orderBy('nombre')->get(['id', 'nombre']),
         ];
     }
 
     /**
-     * Carreras que hoy no resolverían a ninguna razón social. Si existe una
+     * Programas académicos que hoy no resolverían a ninguna razón social. Si existe una
      * asignación global, ninguna queda huérfana.
      *
      * @return array<int, string>
      */
-    private function carrerasSinAsignar(): array
+    private function programasAcademicosSinAsignar(): array
     {
         $hayGlobal = EmisorAsignacion::query()
             ->where('aplica_a_tipo', EmisorAsignacion::APLICA_GLOBAL)
@@ -361,7 +361,7 @@ class EmisorFiscalController extends Controller
             return [];
         }
 
-        $porCarrera = EmisorAsignacion::query()
+        $porProgramaAcademico = EmisorAsignacion::query()
             ->where('aplica_a_tipo', EmisorAsignacion::APLICA_CARRERA)
             ->whereHas('emisor', fn ($q) => $q->activos())
             ->pluck('aplica_a_id');
@@ -371,8 +371,8 @@ class EmisorFiscalController extends Controller
             ->whereHas('emisor', fn ($q) => $q->activos())
             ->pluck('aplica_a_id');
 
-        return Carrera::query()
-            ->whereNotIn('id', $porCarrera)
+        return ProgramaAcademico::query()
+            ->whereNotIn('id', $porProgramaAcademico)
             ->where(fn ($q) => $q->whereNull('nivel_estudios_id')->orWhereNotIn('nivel_estudios_id', $porNivel))
             ->orderBy('nombre')
             ->pluck('nombre')

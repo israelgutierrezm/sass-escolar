@@ -7,7 +7,7 @@ namespace Tests\Feature;
 use App\Enums\ModoRedondeo;
 use App\Exceptions\AvisoParaElUsuario;
 use App\Http\Controllers\ConfiguracionEscolarController;
-use App\Models\Academico\Carrera;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Academico\PlanEstudio;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -18,7 +18,7 @@ use Tests\TenantTestCase;
  * A cuántos planes alcanza un cambio de escala.
  *
  * La escala se guarda en el plan, pero la decisión rara vez es de un plan
- * suelto: se toma para una carrera —«aquí calificamos con enteros»— o para un
+ * suelto: se toma para un programa académico —«aquí calificamos con enteros»— o para un
  * nivel entero —«los posgrados van con dos decimales»—. Aplicarla plan por plan
  * es donde se olvida uno y queda calificando distinto sin que nadie lo note
  * hasta un acta.
@@ -39,7 +39,7 @@ class AlcanceDeLaEscalaTest extends TenantTestCase
     /** Con alcance «plan», sólo ese. */
     public function test_alcance_plan_no_toca_a_los_hermanos(): void
     {
-        [$plan, $hermano] = $this->dosPlanesDeLaMismaCarrera();
+        [$plan, $hermano] = $this->dosPlanesDeLaMismaProgramaAcademico();
 
         $this->guardar($plan, decimales: 0, alcance: 'plan');
 
@@ -47,30 +47,30 @@ class AlcanceDeLaEscalaTest extends TenantTestCase
         $this->assertSame(2, $hermano->fresh()->decimales_calificacion);
     }
 
-    /** Con «carrera», todos los planes de esa carrera. */
-    public function test_alcance_carrera_toca_a_todos_sus_planes(): void
+    /** Con «programa académico», todos los planes de ese programa académico. */
+    public function test_alcance_programa_academico_toca_a_todos_sus_planes(): void
     {
-        [$plan, $hermano] = $this->dosPlanesDeLaMismaCarrera();
+        [$plan, $hermano] = $this->dosPlanesDeLaMismaProgramaAcademico();
 
-        $this->guardar($plan, decimales: 0, alcance: 'carrera');
+        $this->guardar($plan, decimales: 0, alcance: 'programa_academico');
 
         $this->assertSame(0, $plan->fresh()->decimales_calificacion);
         $this->assertSame(0, $hermano->fresh()->decimales_calificacion);
     }
 
     /**
-     * Con «nivel», los de todas las carreras de ese nivel.
+     * Con «nivel», los de todos los programas académicos de ese nivel.
      *
-     * Es el caso que se pidió y el que no se podía hacer sin repetirlo carrera
-     * por carrera: los planes no llevan el nivel, hay que pasar por ellas.
+     * Es el caso que se pidió y el que no se podía hacer sin repetirlo programa académico
+     * por programa académico: los planes no llevan el nivel, hay que pasar por ellas.
      */
-    public function test_alcance_nivel_cruza_carreras(): void
+    public function test_alcance_nivel_cruza_programas_academicos(): void
     {
-        [$plan] = $this->dosPlanesDeLaMismaCarrera();
-        $nivel = $plan->carrera->nivel_estudios_id;
+        [$plan] = $this->dosPlanesDeLaMismaProgramaAcademico();
+        $nivel = $plan->programaAcademico->nivel_estudios_id;
 
-        $deOtraCarreraMismoNivel = $this->planDeOtraCarrera($nivel);
-        $deOtroNivel = $this->planDeOtraCarrera($nivel + 99);
+        $deOtraCarreraMismoNivel = $this->planDeOtraProgramaAcademico($nivel);
+        $deOtroNivel = $this->planDeOtraProgramaAcademico($nivel + 99);
 
         $this->guardar($plan, decimales: 3, alcance: 'nivel');
 
@@ -81,14 +81,14 @@ class AlcanceDeLaEscalaTest extends TenantTestCase
     /**
      * El modo de redondeo también viaja con el alcance.
      *
-     * Es la mitad que faltaba: de nada sirve decidir «esta carrera califica con
+     * Es la mitad que faltaba: de nada sirve decidir «este programa académico califica con
      * enteros» si cada plan resuelve por su cuenta qué es un 8.5.
      */
-    public function test_el_redondeo_se_aplica_a_toda_la_carrera(): void
+    public function test_el_redondeo_se_aplica_a_toda_la_programa_academico(): void
     {
-        [$plan, $hermano] = $this->dosPlanesDeLaMismaCarrera();
+        [$plan, $hermano] = $this->dosPlanesDeLaMismaProgramaAcademico();
 
-        $this->guardar($plan, decimales: 0, alcance: 'carrera', redondeo: ModoRedondeo::SEIS_ARRIBA);
+        $this->guardar($plan, decimales: 0, alcance: 'programa_academico', redondeo: ModoRedondeo::SEIS_ARRIBA);
 
         $this->assertSame(ModoRedondeo::SEIS_ARRIBA, $hermano->fresh()->modoRedondeo());
         $this->assertSame(8.0, $hermano->fresh()->redondear(8.5), 'Con seis-arriba, 8.5 no sube.');
@@ -97,7 +97,7 @@ class AlcanceDeLaEscalaTest extends TenantTestCase
     /** Y un modo que no existe se rechaza. */
     public function test_rechaza_un_modo_de_redondeo_inventado(): void
     {
-        [$plan] = $this->dosPlanesDeLaMismaCarrera();
+        [$plan] = $this->dosPlanesDeLaMismaProgramaAcademico();
 
         $peticion = $this->peticionDeGuardado($plan, decimales: 0, alcance: 'plan');
         $peticion->merge(['redondeo_calificacion' => 'hacia_los_lados']);
@@ -110,7 +110,7 @@ class AlcanceDeLaEscalaTest extends TenantTestCase
     /** Tres decimales se aceptan; cuatro no. */
     public function test_el_maximo_configurable_es_tres(): void
     {
-        [$plan] = $this->dosPlanesDeLaMismaCarrera();
+        [$plan] = $this->dosPlanesDeLaMismaProgramaAcademico();
 
         $this->guardar($plan, decimales: 3, alcance: 'plan');
         $this->assertSame(3, $plan->fresh()->decimales_calificacion);
@@ -127,7 +127,7 @@ class AlcanceDeLaEscalaTest extends TenantTestCase
      */
     public function test_rechaza_una_aprobatoria_fuera_de_la_escala(): void
     {
-        [$plan] = $this->dosPlanesDeLaMismaCarrera();
+        [$plan] = $this->dosPlanesDeLaMismaProgramaAcademico();
 
         $this->expectException(AvisoParaElUsuario::class);
 
@@ -140,13 +140,13 @@ class AlcanceDeLaEscalaTest extends TenantTestCase
      * La pantalla agrupa por nivel, y el nombre se pedía a
      * `Landlord\NivelEstudio` —donde vivían los niveles antes de que cada
      * escuela administrara los suyos—. No fallaba: los ids existían, en la
-     * tabla equivocada, así que las carreras salían como «Nivel desconocido
+     * tabla equivocada, así que los programas académicos salían como «Nivel desconocido
      * (#81)» estando perfectamente bien y la pantalla invitaba a «arreglar»
      * datos que no estaban rotos.
      */
     public function test_el_nivel_sale_del_catalogo_de_la_escuela(): void
     {
-        [$plan] = $this->dosPlanesDeLaMismaCarrera();
+        [$plan] = $this->dosPlanesDeLaMismaProgramaAcademico();
 
         $nivel = $this->fila('niveles_estudio', [
             'clave' => 'POS-'.uniqid(),
@@ -154,60 +154,60 @@ class AlcanceDeLaEscalaTest extends TenantTestCase
             'orden' => 9,
         ]);
 
-        $plan->carrera->update(['nivel_estudios_id' => $nivel]);
+        $plan->programaAcademico->update(['nivel_estudios_id' => $nivel]);
 
-        $carrera = $this->carreraEnPantalla($plan->carrera_id);
+        $programaAcademico = $this->programaAcademicoEnPantalla($plan->programa_academico_id);
 
-        $this->assertSame('Posgrado de prueba', $carrera['nivel']);
-        $this->assertSame(9, $carrera['nivel_orden']);
+        $this->assertSame('Posgrado de prueba', $programaAcademico['nivel']);
+        $this->assertSame(9, $programaAcademico['nivel_orden']);
     }
 
     /**
      * Y un nivel que ya no está se dice CON su id.
      *
-     * La carrera siempre tiene nivel —la columna no admite nulos—, pero la
+     * El programa académico siempre tiene nivel —la columna no admite nulos—, pero la
      * referencia al catálogo no lleva llave foránea y puede quedar señalando a
      * uno borrado. El id es lo único que permite ir a buscar cuál era.
      */
     public function test_un_nivel_borrado_se_dice_con_su_id(): void
     {
-        [$plan] = $this->dosPlanesDeLaMismaCarrera();
+        [$plan] = $this->dosPlanesDeLaMismaProgramaAcademico();
 
-        $plan->carrera->update(['nivel_estudios_id' => 999999]);
+        $plan->programaAcademico->update(['nivel_estudios_id' => 999999]);
 
         $this->assertSame(
             'Nivel desconocido (#999999)',
-            $this->carreraEnPantalla($plan->carrera_id)['nivel'],
+            $this->programaAcademicoEnPantalla($plan->programa_academico_id)['nivel'],
         );
     }
 
     // ── Andamiaje ──────────────────────────────────────────────────────────
 
     /**
-     * Cómo llega una carrera a la pantalla.
+     * Cómo llega un programa académico a la pantalla.
      *
      * @return array<string, mixed>
      */
-    private function carreraEnPantalla(int $carreraId): array
+    private function programaAcademicoEnPantalla(int $programaAcademicoId): array
     {
         $peticion = $this->peticionDe($this->usuarioConAlcance(), '/escolar/configuracion/calificaciones');
         $props = $this->propsDe($this->controlador->index($peticion), $peticion);
 
-        $carrera = collect($props['carreras'])->firstWhere('id', $carreraId);
+        $programaAcademico = collect($props['programas_academicos'])->firstWhere('id', $programaAcademicoId);
 
-        $this->assertNotNull($carrera, 'La carrera no llegó a la pantalla.');
+        $this->assertNotNull($programaAcademico, 'El programa académico no llegó a la pantalla.');
 
-        return $carrera;
+        return $programaAcademico;
     }
 
     /** @return array{0: PlanEstudio, 1: PlanEstudio} */
-    private function dosPlanesDeLaMismaCarrera(): array
+    private function dosPlanesDeLaMismaProgramaAcademico(): array
     {
         $escuela = $this->alumnoInscrito();
         $plan = PlanEstudio::findOrFail($escuela['plan']);
 
         $hermano = PlanEstudio::create([
-            'carrera_id' => $plan->carrera_id,
+            'programa_academico_id' => $plan->programa_academico_id,
             'clave' => 'PLA-'.uniqid(),
             'nombre' => 'Plan hermano',
             'rvoe' => 'RVOE-001',
@@ -222,22 +222,22 @@ class AlcanceDeLaEscalaTest extends TenantTestCase
         return [$plan, $hermano];
     }
 
-    private function planDeOtraCarrera(int $nivel): PlanEstudio
+    private function planDeOtraProgramaAcademico(int $nivel): PlanEstudio
     {
         $unico = uniqid();
 
-        $carrera = Carrera::create([
-            'institucion_id' => Carrera::first()->institucion_id,
+        $programaAcademico = ProgramaAcademico::create([
+            'institucion_id' => ProgramaAcademico::first()->institucion_id,
             'identificador' => "ID-{$unico}",
             'clave' => "CAR-{$unico}",
-            'nombre' => 'Otra carrera',
+            'nombre' => 'Otro programa académico',
             'nivel_estudios_id' => $nivel,
         ]);
 
         return PlanEstudio::create([
-            'carrera_id' => $carrera->id,
+            'programa_academico_id' => $programaAcademico->id,
             'clave' => "PLA-{$unico}",
-            'nombre' => 'Plan de otra carrera',
+            'nombre' => 'Plan de otro programa académico',
             'rvoe' => 'RVOE-002',
             'autorizacion_reconocimiento_id' => $this->deCatalogo('autorizaciones_reconocimiento'),
             'tipo_periodo_id' => $this->deCatalogo('tipos_periodo'),

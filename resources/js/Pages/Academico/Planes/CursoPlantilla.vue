@@ -42,7 +42,7 @@ interface ActividadPlantilla {
 }
 
 const props = defineProps<{
-    plan: { id: number; nombre: string; carrera: string | null };
+    plan: { id: number; nombre: string; programa_academico: string | null };
     materia: { id: number; clave: string | null; nombre: string };
     curso: {
         id: number;
@@ -174,7 +174,7 @@ const totalPonderado = computed(() =>
                     <h2 class="text-lg font-semibold text-contenido">{{ materia.nombre }}</h2>
                     <p class="mt-0.5 text-sm text-suave">
                         <span v-if="materia.clave" class="font-mono">{{ materia.clave }} · </span>
-                        {{ plan.nombre }}<span v-if="plan.carrera"> · {{ plan.carrera }}</span>
+                        {{ plan.nombre }}<span v-if="plan.programaAcademico"> · {{ plan.programaAcademico }}</span>
                     </p>
                 </div>
                 <PildoraEstado

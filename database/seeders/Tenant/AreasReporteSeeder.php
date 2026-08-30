@@ -25,7 +25,7 @@ class AreasReporteSeeder extends Seeder
     {
         $areas = [
             ['control-escolar', 'Control escolar', 'Matrículas, grupos, calificaciones y asistencia.'],
-            ['admisiones', 'Admisiones y promoción', 'Aspirantes, embudo y comisiones.'],
+            ['admisiones', 'Admisiones y captación', 'Aspirantes, embudo y comisiones.'],
             ['finanzas', 'Finanzas', 'Cartera, pagos, becas y facturación.'],
             ['docentes', 'Docentes', 'Plantilla, carga académica y expedientes.'],
             ['lms', 'Aula virtual', 'Actividades, entregas, exámenes y participación.'],

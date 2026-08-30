@@ -10,7 +10,7 @@ use Illuminate\Database\Seeder;
 
 /**
  * Documentos que se piden en admisión (TENANT). Son los típicos de una escuela
- * mexicana; cada escuela ajusta la lista y decide qué carreras exigen cuáles
+ * mexicana; cada escuela ajusta la lista y decide qué programas académicos exigen cuáles
  * (pivote documento_carrera).
  *
  * Idempotente por nombre.

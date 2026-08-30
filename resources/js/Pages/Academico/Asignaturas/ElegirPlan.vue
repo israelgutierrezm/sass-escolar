@@ -6,20 +6,20 @@ import PestanasSeccion from '@/Components/PestanasSeccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 
-interface Carrera {
+interface ProgramaAcademico {
     id: number;
     nombre: string;
     planes: { id: number; nombre: string }[];
 }
 
-const props = defineProps<{ carreras: Carrera[] }>();
+const props = defineProps<{ programas_academicos: ProgramaAcademico[] }>();
 
-// Una asignatura siempre nace dentro de un plan. Aquí se elige carrera → plan y
+// Una asignatura siempre nace dentro de un plan. Aquí se elige programa académico → plan y
 // se cae en el alta de la malla de ese plan (la única alta de asignaturas).
-const carreraId = ref<number | null>(null);
+const programaAcademicoId = ref<number | null>(null);
 const planId = ref<number | null>(null);
 
-const planesDeCarrera = computed(() => props.carreras.find((c) => c.id === carreraId.value)?.planes ?? []);
+const planesDeProgramaAcademico = computed(() => props.programas_academicos.find((c) => c.id === programaAcademicoId.value)?.planes ?? []);
 
 function continuar(): void {
     if (planId.value === null) {
@@ -39,24 +39,24 @@ function continuar(): void {
         <section class="max-w-xl tarjeta p-6">
             <h2 class="text-base font-semibold">Elige el plan</h2>
             <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                Una asignatura se da de alta dentro de un plan de estudios. Elige la carrera y su plan;
+                Una asignatura se da de alta dentro de un plan de estudios. Elige el programa académico y su plan;
                 capturarás los datos de la asignatura en la malla de ese plan.
             </p>
 
             <div class="mt-5 space-y-4">
                 <CampoSelect
-                    v-model="carreraId"
-                    etiqueta="Carrera"
+                    v-model="programaAcademicoId"
+                    etiqueta="Programa académico"
                     requerido
-                    :opciones="carreras.map((c) => ({ valor: c.id, texto: c.nombre }))"
+                    :opciones="programas_academicos.map((c) => ({ valor: c.id, texto: c.nombre }))"
                     vacio="Selecciona…"
                 />
                 <CampoSelect
                     v-model="planId"
                     etiqueta="Plan de estudios"
                     requerido
-                    :opciones="planesDeCarrera.map((p) => ({ valor: p.id, texto: p.nombre }))"
-                    :vacio="carreraId ? 'Selecciona…' : 'Elige una carrera primero'"
+                    :opciones="planesDeProgramaAcademico.map((p) => ({ valor: p.id, texto: p.nombre }))"
+                    :vacio="programaAcademicoId ? 'Selecciona…' : 'Elige una programa_academico primero'"
                 />
             </div>
 

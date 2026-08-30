@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Alta de oferta en LOTE (fan-out): una carrera+plan por varios campus,
+ * Alta de oferta en LOTE (fan-out): un programa académico+plan por varios campus,
  * modalidades y turnos genera una Oferta por combinación, sin duplicar.
  * Contra la BD real, con rollback.
  *
@@ -77,7 +77,7 @@ try {
     $c = new OfertaController;
 
     $plan = PlanEstudio::query()->firstOrFail();
-    $carreraId = $plan->carrera_id;
+    $programaAcademicoId = $plan->programa_academico_id;
 
     // Dos campus, dos modalidades, un turno → 2×2×1 = 4 combinaciones.
     $campusIds = Campus::query()->take(2)->pluck('id')->all();
@@ -97,12 +97,12 @@ try {
      * Y la modalidad se fue por el mismo camino: dejó de ser una dimensión del
      * fan-out (`modalidades[]`) para ser UN atributo opcional que se aplica a
      * todas. Hoy el fan-out reparte por CAMPUS y nada más, y la combinación que
-     * no se duplica es (carrera, plan, campus).
+     * no se duplica es (programa académico, plan, campus).
      */
     echo '1. El fan-out genera una oferta por combinación'.PHP_EOL;
 
     $c->store(pet([
-        'carrera_id' => $carreraId,
+        'programa_academico_id' => $programaAcademicoId,
         'plan_id' => $plan->id,
         'campus_ids' => $campusIds,
         'modalidad' => $modalidades[0],
@@ -125,7 +125,7 @@ try {
     echo PHP_EOL.'2. Re-ejecutar el mismo lote NO duplica'.PHP_EOL;
 
     $c->store(pet([
-        'carrera_id' => $carreraId,
+        'programa_academico_id' => $programaAcademicoId,
         'plan_id' => $plan->id,
         'campus_ids' => $campusIds,
         'modalidad' => $modalidades[0],
@@ -142,7 +142,7 @@ try {
     $campusUno = [Campus::query()->value('id')];
 
     $c->store(pet([
-        'carrera_id' => $otroPlan->carrera_id,
+        'programa_academico_id' => $otroPlan->programa_academico_id,
         'plan_id' => $otroPlan->id,
         'campus_ids' => $campusUno,
         'modalidad' => $modalidades[0],
@@ -150,7 +150,7 @@ try {
     ], $u));
 
     /*
-     * La combinación que NO se duplica es (carrera, plan, campus): la modalidad
+     * La combinación que NO se duplica es (programa académico, plan, campus): la modalidad
      * quedó fuera de la llave. Si ese plan ya tenía oferta en ese campus, el
      * lote la omite y conserva la modalidad con la que nació —comprobar la
      * modalidad aquí haría fallar la prueba por un dato preexistente del demo,
@@ -166,7 +166,7 @@ try {
 
     try {
         $c->store(pet([
-            'carrera_id' => $carreraId, 'plan_id' => $plan->id,
+            'programa_academico_id' => $programaAcademicoId, 'plan_id' => $plan->id,
             'campus_ids' => $campusUno, 'modalidad' => 'inventada',
             'estatus' => 'abierta',
         ], $u));
@@ -176,16 +176,16 @@ try {
 
     verificar('Una modalidad fuera del catálogo se rechaza', $rechazada);
 
-    echo PHP_EOL.'5. El plan debe pertenecer a la carrera'.PHP_EOL;
+    echo PHP_EOL.'5. El plan debe pertenecer al programa académico'.PHP_EOL;
 
-    $carreraAjena = \App\Models\Academico\Carrera::query()->where('id', '!=', $carreraId)->value('id');
+    $programaAcademicoAjena = \App\Models\Academico\ProgramaAcademico::query()->where('id', '!=', $programaAcademicoId)->value('id');
 
-    if ($carreraAjena !== null) {
+    if ($programaAcademicoAjena !== null) {
         $malPlan = false;
 
         try {
             $c->store(pet([
-                'carrera_id' => $carreraAjena, 'plan_id' => $plan->id,
+                'programa_academico_id' => $programaAcademicoAjena, 'plan_id' => $plan->id,
                 'campus_ids' => $campusUno, 'modalidades' => [$modalidades[0]], 'turno_ids' => [],
                 'estatus' => 'abierta',
             ], $u));
@@ -193,7 +193,7 @@ try {
             $malPlan = array_key_exists('plan_id', $e->errors());
         }
 
-        verificar('Un plan de otra carrera se rechaza', $malPlan);
+        verificar('Un plan de otro programa académico se rechaza', $malPlan);
     }
 } finally {
     DB::rollBack();

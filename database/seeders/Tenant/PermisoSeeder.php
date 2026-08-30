@@ -68,14 +68,14 @@ class PermisoSeeder extends Seeder
         // `editar-mi-expediente-alumno` es el suyo, no el del docente: son dos
         // expedientes distintos y quien enseña y además estudia no debe heredar
         // uno del otro rol.
-        // `ver-biblioteca` y `solicitar-servicios` son las dos secciones que
+        // `ver-recursos-digitales` y `solicitar-servicios` son las dos secciones que
         // sólo se alcanzan desde el panel. Sin ellas aquí, la tarjeta no sale y
         // el alumno no tiene por dónde llegar —es el mismo olvido que el
         // comentario de arriba describe con `ver-mis-prospectos`, y se repitió
         // al agregar estas dos.
         'alumno' => [
             'ver-mis-cursos', 'editar-mi-expediente-alumno', 'ver-historial-academico', 'ver-adeudos',
-            'ver-biblioteca', 'solicitar-servicios', 'ver-vacantes',
+            'ver-recursos-digitales', 'solicitar-servicios', 'ver-vacantes',
         ],
         // El interesado llena lo suyo desde `/mi-solicitud`. No ve nada más:
         // su alcance es su propia persona, no un permiso amplio.

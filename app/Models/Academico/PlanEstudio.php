@@ -20,7 +20,7 @@ class PlanEstudio extends Model
     protected $table = 'planes_estudio';
 
     protected $fillable = [
-        'carrera_id',
+        'programa_academico_id',
         'clave',
         'abreviacion',
         'nombre',
@@ -55,9 +55,9 @@ class PlanEstudio extends Model
         ];
     }
 
-    public function carrera(): BelongsTo
+    public function programaAcademico(): BelongsTo
     {
-        return $this->belongsTo(Carrera::class);
+        return $this->belongsTo(ProgramaAcademico::class);
     }
 
     /** Criterio de evaluación por defecto para las materias de este plan. */

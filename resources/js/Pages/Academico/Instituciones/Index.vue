@@ -275,7 +275,7 @@ function guardar(): void {
                 <div class="max-w-xl">
                     <h2 class="text-base font-semibold">Cargar desde Excel</h2>
                     <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                        Da de alta institución, campus, carreras, planes de estudio y asignaturas de una sola vez
+                        Da de alta institución, campus, programas académicos, planes de estudio y asignaturas de una sola vez
                         con la plantilla. Trae listas desplegables y valida los datos antes de crearlos.
                     </p>
                 </div>

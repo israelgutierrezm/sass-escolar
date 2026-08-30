@@ -19,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * instalación.
  *
  * Qué factura cada una vive en `emisor_asignaciones`, no aquí: una misma razón
- * social puede cubrir un nivel completo y además una carrera suelta.
+ * social puede cubrir un nivel completo y además un programa académico suelta.
  */
 class EmisorFiscal extends Model
 {

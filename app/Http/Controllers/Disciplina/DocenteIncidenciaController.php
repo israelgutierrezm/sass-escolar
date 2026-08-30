@@ -12,7 +12,7 @@ use App\Models\Disciplina\Incidencia;
 use App\Models\Disciplina\TipoIncidencia;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -82,7 +82,7 @@ class DocenteIncidenciaController extends Controller
     /**
      * Los alumnos de los grupos que imparte, sin repetir.
      *
-     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     * @return Collection<int, array<string, mixed>>
      */
     private function misAlumnos(?int $personaId)
     {

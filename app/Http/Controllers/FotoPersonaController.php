@@ -41,7 +41,7 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  *
  * ── Por qué no se resuelve con un `can:` en la ruta ───────────────────────
  * Porque por este endpoint entran SIETE oficios: control escolar mirando a un
- * alumno, el catálogo de docentes, admisiones y promoción mirando a un
+ * alumno, el catálogo de docentes, admisiones y captación mirando a un
  * prospecto, la pantalla de usuarios, el padrón de padres y tutores, el padre
  * mirando a su hijo, el tutor educativo a su tutorado, la inscripción por grupo,
  * el ALUMNO mirando a sus docentes, y cada quien su propia cara. Un middleware
@@ -144,7 +144,7 @@ class FotoPersonaController extends Controller
             && $persona->docente()->exists());
 
         $puede = $puede || (($usuario->can('ver-aspirantes') || $usuario->can('editar-aspirantes')
-            || $usuario->can('gestionar-promocion'))
+            || $usuario->can('gestionar-captacion'))
             && Aspirante::where('persona_id', $persona->id)->exists());
 
         $puede = $puede || ($usuario->can('gestionar-usuarios') && $persona->usuario()->exists());

@@ -10,7 +10,7 @@ use App\Models\ControlEscolar\Ciclo;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
 /**
- * Plantilla para cargar historial académico (calificaciones) de una carrera/plan concreto.
+ * Plantilla para cargar historial académico (calificaciones) de un programa académico/plan concreto.
  * La columna de materia es un desplegable con las asignaturas de ESE plan, así
  * no se puede capturar una materia ajena.
  */

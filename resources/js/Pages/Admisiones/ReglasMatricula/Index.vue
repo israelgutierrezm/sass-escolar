@@ -39,7 +39,7 @@ interface Regla {
 const props = defineProps<{
     reglas: Regla[];
     contadores: { clave: string; valor: number; descripcion: string }[];
-    carreras: { id: number; clave: string; nombre: string }[];
+    programas_academicos: { id: number; clave: string; nombre: string }[];
     planes: { id: number; clave: string; nombre: string }[];
     tokens: Record<string, string>;
     dimensiones: string[];
@@ -61,7 +61,7 @@ const form = useForm({
     nombre: '',
     ambito: 'global',
     ambito_id: null as number | null,
-    plantilla: '{AAAA}{CARRERA}{####}',
+    plantilla: '{AAAA}{PROGRAMA}{####}',
     consecutivo_dimensiones: [] as string[],
     consecutivo_reinicia: 'anio',
     activo: true,
@@ -119,7 +119,7 @@ function eliminar(regla: Regla): void {
  *
  * Valores de mentira pero con la forma de los de verdad: lo que importa es que
  * se vea DÓNDE cae cada pieza, no que la clave sea la real. Se rellena con la
- * primera carrera y el primer plan que existan para que se parezca a lo suyo.
+ * primera programa académico y el primer plan que existan para que se parezca a lo suyo.
  */
 const muestra = computed<Record<string, string>>(() => ({
     AAAA: String(new Date().getFullYear()),
@@ -127,7 +127,7 @@ const muestra = computed<Record<string, string>>(() => ({
     MM: String(new Date().getMonth() + 1).padStart(2, '0'),
     CICLO: props.cicloEnCurso ?? '2026-1',
     NIVEL: 'LIC',
-    CARRERA: props.carreras[0]?.clave ?? 'ADM',
+    CARRERA: props.programas_academicos[0]?.clave ?? 'ADM',
     PLAN: props.planes[0]?.clave ?? '2022',
     CAMPUS: 'CEN',
 }));
@@ -192,7 +192,7 @@ function guardarAjuste(): void {
 const ETIQUETA_DIMENSION: Record<string, string> = {
     campus: 'campus',
     nivel: 'nivel de estudios',
-    carrera: 'carrera',
+    programa_academico: 'programa_academico',
     plan: 'plan de estudios',
 };
 
@@ -226,7 +226,7 @@ function alternarDimension(dimension: string): void {
 
 const opcionesAmbito = [
     { valor: 'global', texto: 'Toda la escuela' },
-    { valor: 'carrera', texto: 'Una carrera' },
+    { valor: 'programa_academico', texto: 'Un programa académico' },
     { valor: 'plan', texto: 'Un plan de estudios' },
 ];
 
@@ -235,7 +235,7 @@ const opcionesReinicio = computed(() =>
 );
 
 const opcionesAlcance = computed(() =>
-    (form.ambito === 'plan' ? props.planes : props.carreras).map((o) => ({
+    (form.ambito === 'plan' ? props.planes : props.programas_academicos).map((o) => ({
         valor: o.id,
         texto: `${o.clave} · ${o.nombre}`,
     })),
@@ -277,7 +277,7 @@ function copiar(texto: string): void {
 
             <TarjetaSeccion
                 titulo="Reglas"
-                descripcion="De la más específica a la más general: si un plan tiene la suya se usa esa; si no, la de su carrera; si tampoco, la general."
+                descripcion="De la más específica a la más general: si un plan tiene la suya se usa esa; si no, la de su programa académico; si tampoco, la general."
                 :icono="ICONOS.ajustes"
             >
                 <template #insignia>
@@ -354,7 +354,7 @@ function copiar(texto: string): void {
                         <CampoSelect
                             v-if="form.ambito !== 'global'"
                             v-model="form.ambito_id"
-                            :etiqueta="form.ambito === 'plan' ? 'Plan' : 'Carrera'"
+                            :etiqueta="form.ambito === 'plan' ? 'Plan' : 'ProgramaAcademico'"
                             requerido
                             vacio="Elige…"
                             :opciones="opcionesAlcance"
@@ -413,7 +413,7 @@ function copiar(texto: string): void {
                                     </li>
                                 </ul>
                                 <p v-else class="mt-2 text-sm text-amber-700">
-                                    Falta el consecutivo: sin él todos los alumnos de la misma carrera y
+                                    Falta el consecutivo: sin él todos los alumnos de la misma programa_academico y
                                     el mismo año tendrían la misma matrícula. Agrega {{ '{####}' }}.
                                 </p>
                                 <p class="mt-3 text-xs text-suave">
@@ -434,8 +434,8 @@ function copiar(texto: string): void {
                             <!--
                                 Casillas y no un desplegable: se pueden combinar.
                                 Una escuela con dos campus que además numera
-                                aparte cada carrera marca las dos, y el contador
-                                pasa a ser uno por cada par campus+carrera.
+                                aparte cada programa académico marca las dos, y el contador
+                                pasa a ser uno por cada par campus+programa académico.
                             -->
                             <div>
                                 <p class="mb-1 block text-sm font-medium">Se cuenta por</p>

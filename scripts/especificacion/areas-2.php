@@ -50,7 +50,7 @@ return [
                 'quien' => 'Control escolar, con «abrir-grupos»',
                 'pasos' => [
                     'Control escolar → Ciclos: alta del ciclo, con sus fechas y al menos un campus.',
-                    'Control escolar → Grupos: crear los grupos del ciclo, con su carrera, plan, campus, turno y cupo.',
+                    'Control escolar → Grupos: crear los grupos del ciclo, con su programa académico, plan, campus, turno y cupo.',
                     'Dentro del grupo, abrir las materias del periodo en lote y asignar docente a cada una.',
                     'Opcional: Horarios, para acomodar los bloques y detectar choques.',
                     'Opcional: en el ciclo, definir las ventanas de captura por parcial.',
@@ -129,7 +129,7 @@ return [
 
         'tablas' => [
             ['nombre' => 'ciclos / ciclo_campus', 'para_que' => 'El periodo escolar y a qué planteles aplica. Al menos uno.'],
-            ['nombre' => 'grupos', 'para_que' => 'El grupo: carrera, plan, campus, turno y cupo.'],
+            ['nombre' => 'grupos', 'para_que' => 'El grupo: programa académico, plan, campus, turno y cupo.'],
             ['nombre' => 'asignatura_grupo', 'para_que' => 'Una materia abierta en un grupo. Es la unidad sobre la que todo lo demás se apoya.'],
             ['nombre' => 'docente_asignatura_grupo', 'para_que' => 'Qué docente imparte qué materia. De aquí sale su alcance.'],
             ['nombre' => 'inscripcion', 'para_que' => 'Una matrícula cursando una materia abierta. Singular.'],
@@ -184,7 +184,7 @@ return [
         'no_tecnico' => [
             [
                 'subtitulo' => 'El plan de cobro y de dónde sale la deuda',
-                'texto' => "La escuela arma planes de cobro: qué conceptos se cobran, cuándo vencen y de cuánto son. Un plan puede aplicarse a toda la escuela, a una carrera, a un plan de estudios o a una oferta concreta; cuando varios aplican, gana el más específico que esté vigente.\n"
+                'texto' => "La escuela arma planes de cobro: qué conceptos se cobran, cuándo vencen y de cuánto son. Un plan puede aplicarse a toda la escuela, a una programa_academico, a un plan de estudios o a una oferta concreta; cuando varios aplican, gana el más específico que esté vigente.\n"
                     .'Los cargos se emiten solos, de madrugada, recorriendo plan por plan. Es un comando aparte del que recalcula recargos, y corre antes: no se puede recargar por mora un cargo que todavía no existe, y esconder un cobro dentro de un comando llamado «evaluar» es como se llega a que nadie sepa de dónde salió un adeudo.',
             ],
             [
@@ -200,12 +200,12 @@ return [
             [
                 'subtitulo' => 'Facturación',
                 'texto' => "Se factura contra PAGOS cobrados, no contra deuda: se factura lo que entró. El IVA se desglosa por concepto y hacia atrás desde lo cobrado.\n"
-                    ."Una escuela puede tener varias razones sociales —bachillerato con una, licenciatura con otra— y cada una guarda su propio certificado de sello digital y sus credenciales. Cuál se usa se decide por carrera, por nivel de estudios o global, y queda congelada en la factura junto con el receptor.\n"
+                    ."Una escuela puede tener varias razones sociales —bachillerato con una, licenciatura con otra— y cada una guarda su propio certificado de sello digital y sus credenciales. Cuál se usa se decide por programa_academico, por nivel de estudios o global, y queda congelada en la factura junto con el receptor.\n"
                     .'Una factura timbrada no se edita: se emite la sustituta y luego se cancela la original con el motivo que el SAT pide para eso.',
             ],
             [
                 'subtitulo' => 'Lo que ve el alumno y su familia',
-                'texto' => "El alumno entra a su estado de cuenta y ve lo que debe, lo que pagó y a dónde puede pagar. Si estudia dos carreras, ve cada una por separado.\n"
+                'texto' => "El alumno entra a su estado de cuenta y ve lo que debe, lo que pagó y a dónde puede pagar. Si estudia dos programas_academicos, ve cada una por separado.\n"
                     .'Ese acceso usa el mismo permiso que el personal de finanzas, pero acotado: sólo alcanza sus propias matrículas. Las pantallas administrativas —la cola de comprobantes, el catálogo de cuentas— exigen además el permiso del oficio que las opera.',
             ],
         ],
@@ -216,7 +216,7 @@ return [
                 'quien' => 'Con «gestionar-planes-cobro»',
                 'pasos' => [
                     'Finanzas → Planes de cobro → nuevo.',
-                    'Elegir a qué aplica: global, carrera, plan o una oferta concreta, y con qué vigencia.',
+                    'Elegir a qué aplica: global, programa académico, plan o una oferta concreta, y con qué vigencia.',
                     'Agregar los conceptos con su monto y su calendario: único, con parcialidades, semanal, quincenal o mensual.',
                     'Opcional: regla de recargo por concepto, con sus días de gracia.',
                     'Guardar. Los cargos se emitirán en la corrida de las 2:45.',
@@ -257,7 +257,7 @@ return [
         'tecnico' => [
             [
                 'subtitulo' => 'El motor de cobro',
-                'texto' => "`ResolutorPlanCobro` elige el plan (oferta → plan → carrera → global, el más específico vigente). `PeriodosCobro` calcula el calendario. `GeneradorAdeudos` emite, y es idempotente por índice ÚNICO y no sólo por un SELECT previo.\n"
+                'texto' => "`ResolutorPlanCobro` elige el plan (oferta → plan → programa_academico → global, el más específico vigente). `PeriodosCobro` calcula el calendario. `GeneradorAdeudos` emite, y es idempotente por índice ÚNICO y no sólo por un SELECT previo.\n"
                     ."El único es `adeudos_generacion_unica` sobre (matricula_oferta_id, concepto_plan_id, periodo_etiqueta), que es la terna por la que pregunta la generación.\n"
                     .'`generarParaTodas` recorre plan por plan —no alumno por alumno— en bloques de 200 con `chunkById`, y AÍSLA cada plan: un plan roto no puede dejar a la escuela entera sin emitir.',
             ],
@@ -275,7 +275,7 @@ return [
                 'subtitulo' => 'CFDI',
                 'texto' => "`facturas` + `factura_conceptos`; `App\\Services\\Cfdi\\Pac` como interfaz, con `PacFalso` y `FacturapiPac`. El timbrado va en cola (`TimbrarFactura`), con reintento sólo de lo que tiene sentido reintentar: un rechazo del SAT no se reintenta porque la respuesta sería la misma.\n"
                     ."`failed()` saca la factura de «timbrando» y la deja en error con el motivo: sin eso se quedaría en ese estado para siempre.\n"
-                    .'`emisores_fiscales` + `emisor_asignaciones` resuelven la razón social por carrera → nivel → global.',
+                    .'`emisores_fiscales` + `emisor_asignaciones` resuelven la razón social por programa académico → nivel → global.',
             ],
         ],
 

@@ -18,7 +18,7 @@
  *     con CHECK en la base.
  *  5. La convocatoria SALIENTE no admite entrantes y al revés: son dos caminos
  *     del código, no dos etiquetas.
- *  6. Sin carreras señaladas, el convenio cubre TODAS.
+ *  6. Sin programas académicos señaladas, el convenio cubre TODAS.
  *  7. La estancia se abre sólo a quien está aceptado, y concluirla es lo que
  *     habilita revalidar.
  *
@@ -26,7 +26,7 @@
  * de donde se declara.
  */
 
-use App\Models\Academico\Carrera;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Identidad\Persona;
 use App\Models\Movilidad\Convenio;
@@ -115,8 +115,8 @@ try {
     ]);
 
     verificar('el convenio nace vigente', Convenio::query()->vigentes()->whereKey($convenio->id)->exists());
-    verificar('y sin carreras señaladas cubre CUALQUIERA',
-        Convenio::query()->paraCarrera(Carrera::query()->value('id'))->whereKey($convenio->id)->exists());
+    verificar('y sin programas académicos señaladas cubre CUALQUIERA',
+        Convenio::query()->paraProgramaAcademico(ProgramaAcademico::query()->value('id'))->whereKey($convenio->id)->exists());
 
     $saliente = ConvocatoriaMovilidad::create([
         'convenio_id' => $convenio->id,
@@ -315,34 +315,34 @@ try {
 
     $convenio->update(['vigente_hasta' => null]);
 
-    echo PHP_EOL.'7. El convenio acotado a carreras'.PHP_EOL;
+    echo PHP_EOL.'7. El convenio acotado a programas académicos'.PHP_EOL;
 
-    [$carreraA, $carreraB] = Carrera::query()->take(2)->get()->all();
-    $convenio->carreras()->sync([$carreraA->id]);
+    [$programaAcademicoA, $programaAcademicoB] = ProgramaAcademico::query()->take(2)->get()->all();
+    $convenio->programasAcademicos()->sync([$programaAcademicoA->id]);
 
     verificar('cubre la señalada',
-        Convenio::query()->paraCarrera($carreraA->id)->whereKey($convenio->id)->exists());
+        Convenio::query()->paraProgramaAcademico($programaAcademicoA->id)->whereKey($convenio->id)->exists());
     verificar('y NO la otra',
-        ! Convenio::query()->paraCarrera($carreraB->id)->whereKey($convenio->id)->exists());
+        ! Convenio::query()->paraProgramaAcademico($programaAcademicoB->id)->whereKey($convenio->id)->exists());
 
-    // Un alumno de otra carrera se rechaza al postularse.
-    $deOtraCarrera = $conHistorial->first(fn ($m) => (int) $m->oferta?->carrera_id !== (int) $carreraA->id);
+    // Un alumno de otro programa académico se rechaza al postularse.
+    $deOtraProgramaAcademico = $conHistorial->first(fn ($m) => (int) $m->oferta?->programa_academico_id !== (int) $programaAcademicoA->id);
 
-    if ($deOtraCarrera !== null) {
+    if ($deOtraProgramaAcademico !== null) {
         $fueraDeConvenio = false;
 
         try {
-            $registro->postularSaliente($saliente->refresh(), $deOtraCarrera);
+            $registro->postularSaliente($saliente->refresh(), $deOtraProgramaAcademico);
         } catch (RuntimeException $e) {
-            $fueraDeConvenio = str_contains($e->getMessage(), 'no cubre la carrera');
+            $fueraDeConvenio = str_contains($e->getMessage(), 'no cubre el programa académico');
         }
 
-        verificar('y no se postula a alguien de una carrera que no cubre', $fueraDeConvenio);
+        verificar('y no se postula a alguien de un programa académico que no cubre', $fueraDeConvenio);
     } else {
-        verificar('hay un alumno de otra carrera con el que probarlo', false);
+        verificar('hay un alumno de otro programa académico con el que probarlo', false);
     }
 
-    $convenio->carreras()->sync([]);
+    $convenio->programasAcademicos()->sync([]);
 
     echo PHP_EOL.'8. La estancia'.PHP_EOL;
 

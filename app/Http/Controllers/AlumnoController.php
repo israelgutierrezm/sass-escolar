@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Academico\Campus;
-use App\Models\Academico\Carrera;
 use App\Models\Academico\Modalidad;
 use App\Models\Academico\NivelEstudio;
 use App\Models\Academico\Oferta;
 use App\Models\Academico\PlanEstudio;
 use App\Models\Academico\PlanMateria;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\SituacionAlumno;
 use App\Models\ControlEscolar\Ciclo;
@@ -105,14 +105,14 @@ class AlumnoController extends Controller
     {
         $filtros = [
             'busqueda' => trim((string) $request->query('busqueda', '')),
-            'carrera_id' => $request->query('carrera_id'),
+            'programa_academico_id' => $request->query('programa_academico_id'),
             'campus_id' => $request->query('campus_id'),
             'situacion_id' => $request->query('situacion_id'),
             'estatus' => $request->query('estatus'),
         ];
 
         // El alcance del rol activo: a qué campus se acota. Vacío = global (ve
-        // todos). Todo lo que se muestre —carreras y campus— se limita a estos.
+        // todos). Todo lo que se muestre —programas académicos y campus— se limita a estos.
         $campusVisibles = $request->user()->campusDelRolActivo();
 
         // Filtros sobre las matrículas de una persona (incluye el acotamiento por
@@ -120,13 +120,13 @@ class AlumnoController extends Controller
         // listado como para cargar solo sus matrículas visibles.
         $matriculaVisible = function ($q) use ($filtros, $campusVisibles) {
             $q->when($campusVisibles !== [], fn ($qq) => $qq->whereHas('oferta', fn ($o) => $o->whereIn('campus_id', $campusVisibles)))
-                ->when($filtros['carrera_id'], fn ($qq, $id) => $qq->whereHas('oferta', fn ($o) => $o->where('carrera_id', $id)))
+                ->when($filtros['programa_academico_id'], fn ($qq, $id) => $qq->whereHas('oferta', fn ($o) => $o->where('programa_academico_id', $id)))
                 ->when($filtros['campus_id'], fn ($qq, $id) => $qq->whereHas('oferta', fn ($o) => $o->where('campus_id', $id)))
                 ->when($filtros['situacion_id'], fn ($qq, $id) => $qq->where('situacion_id', $id))
                 ->when($filtros['estatus'], fn ($qq, $e) => $qq->where('estatus', $e));
         };
 
-        // La fila del listado es la PERSONA (un alumno con dos carreras es UNA
+        // La fila del listado es la PERSONA (un alumno con dos programas académicos es UNA
         // fila, no dos). Aparece si tiene al menos una matrícula visible que pase
         // los filtros.
         $alumnos = Persona::query()
@@ -139,7 +139,7 @@ class AlumnoController extends Controller
                     ->orWhereHas('matriculas', fn ($m) => $m->where('matricula', 'like', "%{$filtros['busqueda']}%")));
             })
             ->with(['matriculas' => function ($q) use ($campusVisibles) {
-                $q->with(['oferta.carrera:id,nombre', 'oferta.plan:id,nombre', 'oferta.campus:id,nombre', 'situacion:id,nombre'])
+                $q->with(['oferta.programaAcademico:id,nombre', 'oferta.plan:id,nombre', 'oferta.campus:id,nombre', 'situacion:id,nombre'])
                     ->when($campusVisibles !== [], fn ($qq) => $qq->whereHas('oferta', fn ($o) => $o->whereIn('campus_id', $campusVisibles)))
                     ->orderByDesc('fecha_ingreso');
             }])
@@ -152,7 +152,7 @@ class AlumnoController extends Controller
         return Inertia::render('Alumnos/Index', [
             'alumnos' => $alumnos,
             'filtros' => $filtros,
-            'carreras' => Carrera::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'programas_academicos' => ProgramaAcademico::query()->orderBy('nombre')->get(['id', 'nombre']),
             'campus' => Campus::query()->orderBy('nombre')->get(['id', 'nombre']),
             'situaciones' => SituacionAlumno::query()->orderBy('id')->get(['id', 'nombre']),
             'puedeEditar' => $request->user()->can('editar-alumnos'),
@@ -173,14 +173,14 @@ class AlumnoController extends Controller
         return Inertia::render('Alumnos/Registrar', [
             ...$identidad->catalogosDeOrigen(),
             'ofertas' => Oferta::query()
-                ->with(['carrera:id,nombre', 'plan:id,nombre,clave', 'campus:id,nombre'])
+                ->with(['programaAcademico:id,nombre', 'plan:id,nombre,clave', 'campus:id,nombre'])
                 ->where('estatus', 'abierta')
                 ->get()
                 ->map(fn (Oferta $o) => [
                     'id' => $o->id,
                     'campus_id' => $o->campus_id,
                     'etiqueta' => implode(' · ', array_filter([
-                        $o->carrera?->nombre,
+                        $o->programaAcademico?->nombre,
                         $o->plan?->nombre,
                         $o->campus?->nombre,
                         $modalidades[$o->modalidad] ?? $o->modalidad,
@@ -254,7 +254,7 @@ class AlumnoController extends Controller
             'persona.sexo',
             'persona.genero',
             'persona.entidadNacimiento',
-            'oferta.carrera',
+            'oferta.programaAcademico',
             'oferta.plan',
             'oferta.campus.entidad',
             'situacion',
@@ -279,7 +279,7 @@ class AlumnoController extends Controller
                 'estatus' => $alumno->estatus,
                 'situacion_id' => $alumno->situacion_id,
                 'situacion' => $alumno->situacion?->nombre,
-                'carrera' => $alumno->oferta?->carrera?->nombre,
+                'programa_academico' => $alumno->oferta?->programaAcademico?->nombre,
                 'plan' => $alumno->oferta?->plan?->nombre,
                 'campus' => $alumno->oferta?->campus?->nombre,
                 // Entidad del campus: es la entidad de expedición del título.
@@ -335,11 +335,11 @@ class AlumnoController extends Controller
                 'usos_cfdi' => CatalogosSat::usosCfdi(),
                 'regimenes' => CatalogosSat::regimenesFiscales(),
             ],
-            // TODAS las carreras de esta persona, la actual incluida: es el
+            // TODAS los programas académicos de esta persona, la actual incluida: es el
             // caso que justifica que el alumno sea la matrícula y no la
             // persona, y quien la atiende necesita verlas juntas.
-            'carreras' => MatriculaOferta::query()
-                ->with(['oferta.carrera:id,nombre', 'oferta.plan:id,nombre', 'oferta.campus:id,nombre', 'situacion:id,nombre'])
+            'programas_academicos' => MatriculaOferta::query()
+                ->with(['oferta.programaAcademico:id,nombre', 'oferta.plan:id,nombre', 'oferta.campus:id,nombre', 'situacion:id,nombre'])
                 ->withCount('historial')
                 ->where('persona_id', $alumno->persona_id)
                 ->orderByDesc('fecha_ingreso')
@@ -347,7 +347,7 @@ class AlumnoController extends Controller
                 ->map(fn (MatriculaOferta $m) => [
                     'id' => $m->id,
                     'matricula' => $m->matricula,
-                    'carrera' => $m->oferta?->carrera?->nombre,
+                    'programa_academico' => $m->oferta?->programaAcademico?->nombre,
                     'plan' => $m->oferta?->plan?->nombre,
                     'campus' => $m->oferta?->campus?->nombre,
                     'estatus' => $m->estatus,
@@ -360,7 +360,7 @@ class AlumnoController extends Controller
             // Ofertas donde todavía NO está matriculada: son las que se le
             // pueden agregar. Ofrecer las que ya tiene solo produce un error.
             'ofertasDisponibles' => Oferta::query()
-                ->with(['carrera:id,nombre', 'plan:id,nombre', 'campus:id,nombre'])
+                ->with(['programaAcademico:id,nombre', 'plan:id,nombre', 'campus:id,nombre'])
                 ->whereNotIn('id', MatriculaOferta::query()
                     ->where('persona_id', $alumno->persona_id)
                     ->pluck('oferta_id'))
@@ -369,7 +369,7 @@ class AlumnoController extends Controller
                     'id' => $o->id,
                     'etiqueta' => trim(sprintf(
                         '%s · %s%s',
-                        $o->carrera?->nombre ?? '',
+                        $o->programaAcademico?->nombre ?? '',
                         $o->plan?->nombre ?? '',
                         $o->campus !== null ? ' · '.$o->campus->nombre : '',
                     )),
@@ -392,14 +392,14 @@ class AlumnoController extends Controller
                 : [],
             'puedeCertificar' => $request->user()->can('certificar-alumnos'),
             /*
-             * ¿Su carrera expide documentos oficiales?
+             * ¿Su programa académico expide documentos oficiales?
              *
              * Un diplomado o un curso de educación continua vive en el mismo
              * catálogo y no tiene RVOE detrás. Sin esto, su expediente ofrecía
              * pestaña de titulación y botón de agregar a un lote: un trámite que
              * no existe, que alguien acaba prometiéndole al alumno.
              */
-            'emiteDocumentos' => (bool) ($alumno->oferta?->carrera?->emite_documentos_oficiales ?? true),
+            'emiteDocumentos' => (bool) ($alumno->oferta?->programaAcademico?->emite_documentos_oficiales ?? true),
             // Nombre real del periodo del plan (Semestre, Cuatrimestre…), para
             // titular los bloques del historial académico agrupado.
             'unidadPeriodo' => $alumno->oferta?->plan?->unidadPeriodo() ?? 'Periodo',
@@ -438,7 +438,7 @@ class AlumnoController extends Controller
             // criterio que siendo aspirante: su expediente no cambia de forma
             // al convertirlo.
             'formularios' => app(ResolutorFormularios::class)->para($alumno),
-            // Datos del título capturados por administración para ESTA carrera
+            // Datos del título capturados por administración para ESTA programa académico
             // (modalidad, servicio social, antecedente) + sus catálogos.
             'datosTitulo' => $this->datosTituloDe($alumno),
             'catalogosTitulo' => [
@@ -675,7 +675,7 @@ class AlumnoController extends Controller
      * `editar-alumnos`: numerar a un alumno es un acto distinto de corregirle
      * el teléfono.
      */
-    public function agregarCarrera(Request $request, MatriculaOferta $alumno, MatriculadorOferta $matriculador): RedirectResponse
+    public function agregarProgramaAcademico(Request $request, MatriculaOferta $alumno, MatriculadorOferta $matriculador): RedirectResponse
     {
         $datos = $request->validate([
             'oferta_id' => ['required', 'integer', Rule::exists('oferta', 'id')->whereNull('deleted_at')],
@@ -696,17 +696,17 @@ class AlumnoController extends Controller
     }
 
     /**
-     * Da de baja o reactiva UNA matrícula, sin tocar las otras carreras de la
+     * Da de baja o reactiva UNA matrícula, sin tocar las otros programas académicos de la
      * misma persona.
      *
      * No hay opción de eliminar: el historial académico de esa matrícula es historia escolar
      * y las actas donde aparece quedarían sin dueño.
      */
-    public function cambiarEstadoCarrera(Request $request, MatriculaOferta $alumno, MatriculaOferta $carrera, MatriculadorOferta $matriculador): RedirectResponse
+    public function cambiarEstadoProgramaAcademico(Request $request, MatriculaOferta $alumno, MatriculaOferta $programaAcademico, MatriculadorOferta $matriculador): RedirectResponse
     {
         // La matrícula a tocar tiene que ser de la MISMA persona del expediente
         // abierto: sin esto, un id en la URL daría de baja a cualquiera.
-        abort_unless($carrera->persona_id === $alumno->persona_id, 404);
+        abort_unless($programaAcademico->persona_id === $alumno->persona_id, 404);
 
         $datos = $request->validate([
             'accion' => ['required', Rule::in(['baja', 'reactivar'])],
@@ -716,14 +716,14 @@ class AlumnoController extends Controller
         ], [], ['situacion_id' => 'tipo de baja']);
 
         if ($datos['accion'] === 'baja') {
-            $matriculador->darDeBaja($carrera, $datos['situacion_id'] ?? null);
+            $matriculador->darDeBaja($programaAcademico, $datos['situacion_id'] ?? null);
 
-            return back()->with('exito', "Matrícula {$carrera->matricula} dada de baja.");
+            return back()->with('exito', "Matrícula {$programaAcademico->matricula} dada de baja.");
         }
 
-        $matriculador->reactivar($carrera);
+        $matriculador->reactivar($programaAcademico);
 
-        return back()->with('exito', "Matrícula {$carrera->matricula} reactivada.");
+        return back()->with('exito', "Matrícula {$programaAcademico->matricula} reactivada.");
     }
 
     /**
@@ -949,10 +949,10 @@ class AlumnoController extends Controller
             'curp' => $persona->curp,
             'email' => $persona->email,
             'foto' => $persona->urlFoto(),
-            // Carrera: si cursa 2+ a la vez se resume; si solo una (o ninguna
+            // Programa académico: si cursa 2+ a la vez se resume; si solo una (o ninguna
             // activa), se muestra la representativa como hasta ahora.
-            'carreras_activas' => $activas->count(),
-            'carrera' => $rep?->oferta?->carrera?->nombre,
+            'programas_academicos_activas' => $activas->count(),
+            'programa_academico' => $rep?->oferta?->programaAcademico?->nombre,
             'plan' => $rep?->oferta?->plan?->nombre,
             'situacion' => $rep?->situacion?->nombre,
             'estatus' => $rep?->estatus,
@@ -1043,7 +1043,7 @@ class AlumnoController extends Controller
     }
 
     /**
-     * Datos del título de ESTA carrera-alumno, en la forma que consumen los tres
+     * Datos del título de ESTA programa académico-alumno, en la forma que consumen los tres
      * formularios (modalidad, servicio social, antecedente). Cada bloque trae sus
      * campos con valores por defecto nulos aunque la fila no exista todavía.
      *
@@ -1061,7 +1061,7 @@ class AlumnoController extends Controller
                 'fecha_expedicion' => $mod?->fecha_expedicion?->toDateString(),
                 'fecha_examen_profesional' => $mod?->fecha_examen_profesional?->toDateString(),
                 'fecha_exencion_examen' => $mod?->fecha_exencion_examen?->toDateString(),
-                'fecha_terminacion_carrera' => $mod?->fecha_terminacion_carrera?->toDateString(),
+                'fecha_terminacion_programa_academico' => $mod?->fecha_terminacion_programa_academico?->toDateString(),
             ],
             'servicio_social' => [
                 'cumplio_servicio_social' => $ss?->cumplio_servicio_social,

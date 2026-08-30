@@ -201,7 +201,7 @@ const etiquetaEstatus: Record<string, string> = {
                     <p class="mt-0.5 font-mono text-xs text-suave">{{ curso.clave }}</p>
 
                     <p class="mt-3 text-sm text-suave">
-                        {{ curso.carrera }}<span v-if="curso.plan"> · {{ curso.plan }}</span>
+                        {{ curso.programa_academico }}<span v-if="curso.plan"> · {{ curso.plan }}</span>
                     </p>
                     <p class="text-sm text-suave">
                         Ciclo {{ curso.ciclo }} · Grupo {{ curso.grupo }}

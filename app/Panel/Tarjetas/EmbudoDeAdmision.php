@@ -9,7 +9,7 @@ use App\Panel\TarjetaPanel as Contrato;
 use App\Services\EmbudoAdmision;
 
 /**
- * El embudo, con el mismo alcance que la pantalla de promoción: el promotor ve
+ * El embudo, con el mismo alcance que la pantalla de captación: el promotor ve
  * los suyos, quien coordina los ve todos. La tarjeta no reimplementa el
  * acotamiento — se lo pide al servicio, para que no puedan divergir.
  */
@@ -80,10 +80,10 @@ class EmbudoDeAdmision implements Contrato
                 // barra del 90 llenaba el ancho igual que si fueran 9, y el
                 // 3 se veía idéntico llevara detrás cien prospectos o diez.
                 'parte' => (int) round($e['total'] * 100 / $total),
-                'enlace' => '/promocion/etapas/'.$e['id'],
+                'enlace' => '/captacion/etapas/'.$e['id'],
             ], $etapas),
             'pie' => $total.' prospectos',
-            'enlace' => '/promocion',
+            'enlace' => '/captacion',
         ];
     }
 }

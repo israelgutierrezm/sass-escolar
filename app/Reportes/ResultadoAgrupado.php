@@ -8,7 +8,7 @@ namespace App\Reportes;
  * Un reporte visto por grupos: una fila por valor de la dimensión.
  *
  * ── Por qué NO trae paginador ────────────────────────────────────────────
- * Un agrupado es corto por construcción: tantas filas como campus, carreras o
+ * Un agrupado es corto por construcción: tantas filas como campus, programas académicos o
  * situaciones tenga la escuela. Si sale con más grupos que el tope, no es un
  * agrupado — es el detalle con ruido, y la dimensión elegida no era una
  * dimensión. Se dice y se corta, en vez de paginar algo que no debería existir.

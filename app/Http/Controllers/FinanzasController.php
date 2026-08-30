@@ -15,9 +15,9 @@ use App\Models\Finanzas\Factura;
 use App\Models\Finanzas\MetodoPago;
 use App\Models\Finanzas\Pago;
 use App\Models\Finanzas\SituacionPago;
-use App\Services\Finanzas\SaldosDeCartera;
 use App\Services\CalculadorRecargos;
 use App\Services\EstadoCuenta;
+use App\Services\Finanzas\SaldosDeCartera;
 use App\Services\GeneradorAdeudos;
 use App\Services\Pagos\Pasarelas;
 use App\Services\RegistradorPago;
@@ -75,7 +75,7 @@ class FinanzasController extends Controller
         $consulta = MatriculaOferta::query()
             ->leftJoinSub($this->saldosPorMatricula($hoy), 'f', 'f.matricula_oferta_id', '=', 'matricula_oferta.id')
             ->join('personas', 'personas.id', '=', 'matricula_oferta.persona_id')
-            ->with(['persona:id,nombre,primer_apellido,segundo_apellido', 'oferta.carrera:id,nombre', 'oferta.campus:id,nombre'])
+            ->with(['persona:id,nombre,primer_apellido,segundo_apellido', 'oferta.programaAcademico:id,nombre', 'oferta.campus:id,nombre'])
             ->when($acotado, fn ($q) => $q->whereIn('matricula_oferta.id', $visibles))
             ->select([
                 'matricula_oferta.*',
@@ -121,7 +121,7 @@ class FinanzasController extends Controller
                 'id' => $m->id,
                 'matricula' => $m->matricula,
                 'nombre' => $m->persona?->nombreCompleto() ?? '',
-                'carrera' => $m->oferta?->carrera?->nombre,
+                'programa_academico' => $m->oferta?->programaAcademico?->nombre,
                 'campus' => $m->oferta?->campus?->nombre,
                 'estatus' => $m->estatus,
                 'saldo' => round((float) $m->saldo, 2),
@@ -161,7 +161,7 @@ class FinanzasController extends Controller
         // descompuso.
         $this->exigirQuePuedaVerLaCuenta($request, $matricula);
 
-        $matricula->load(['persona', 'oferta.carrera:id,nombre', 'oferta.campus:id,nombre', 'situacion:id,nombre']);
+        $matricula->load(['persona', 'oferta.programaAcademico:id,nombre', 'oferta.campus:id,nombre', 'situacion:id,nombre']);
 
         $planes = $this->resolutor->planesDe($matricula);
         $plan = $planes->first();
@@ -171,7 +171,7 @@ class FinanzasController extends Controller
                 'id' => $matricula->id,
                 'matricula' => $matricula->matricula,
                 'nombre' => $matricula->persona?->nombreCompleto(),
-                'carrera' => $matricula->oferta?->carrera?->nombre,
+                'programa_academico' => $matricula->oferta?->programaAcademico?->nombre,
                 'campus' => $matricula->oferta?->campus?->nombre,
                 'estatus' => $matricula->estatus,
                 'situacion' => $matricula->situacion?->nombre,
@@ -200,11 +200,11 @@ class FinanzasController extends Controller
             'pasarelas' => app(Pasarelas::class)->disponibles(),
             /*
              * La otra forma de pagar: transferir a la cuenta de la escuela y
-             * subir el comprobante. Sólo las cuentas que sirven para SU carrera
-             * —una escuela suele tener una por carrera o por nivel— y que
+             * subir el comprobante. Sólo las cuentas que sirven para SU programa académico
+             * —una escuela suele tener una por programa académico o por nivel— y que
              * tengan a dónde transferir.
              */
-            'cuentasBancarias' => CuentaBancaria::paraCarrera($matricula->oferta?->carrera_id)
+            'cuentasBancarias' => CuentaBancaria::paraProgramaAcademico($matricula->oferta?->programa_academico_id)
                 ->filter(fn (CuentaBancaria $c) => $c->puedeRecibir())
                 ->map(fn (CuentaBancaria $c) => [
                     'id' => $c->id,

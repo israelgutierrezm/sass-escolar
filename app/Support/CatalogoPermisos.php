@@ -119,7 +119,7 @@ final class CatalogoPermisos
             'editar-aspirantes' => ['Editar aspirantes', 'Modificar los datos de un prospecto y subir su documentación.', [self::ADMINISTRATIVO]],
             'validar-expediente' => ['Validar expedientes', 'Aceptar o rechazar los documentos que entrega un aspirante. Quien sube no valida.', [self::ADMINISTRATIVO]],
             'convertir-aspirante' => ['Convertir en alumno', 'Cerrar la admisión: genera la matrícula. Es el paso irreversible del embudo.', [self::ADMINISTRATIVO]],
-            'generar-matricula' => ['Generar matrícula', 'Numerar a un alumno. Cubre reingresos y segundas carreras de quien ya está dentro.', [self::ADMINISTRATIVO]],
+            'generar-matricula' => ['Generar matrícula', 'Numerar a un alumno. Cubre reingresos y segundas programas académicos de quien ya está dentro.', [self::ADMINISTRATIVO]],
             'gestionar-documentos' => ['Administrar el catálogo de documentos', 'Definir qué papeles se le piden a cada tipo de persona.', [self::ADMINISTRATIVO]],
             'configurar-matriculas' => ['Configurar el formato de matrícula', 'Definir con qué se arma la matrícula y ajustar los consecutivos. Toca la numeración de TODA la escuela: no es lo mismo que poder numerar a un alumno.', [self::ADMINISTRATIVO]],
         ],
@@ -128,11 +128,11 @@ final class CatalogoPermisos
             'llenar-mi-solicitud' => ['Llenar mi solicitud', 'El aspirante captura sus datos, sube su documentación y consulta lo que debe. Solo lo SUYO: no recibe id por la URL.', [self::ASPIRANTE]],
         ],
 
-        'Promoción y CRM' => [
+        'Captación y CRM' => [
             'ver-mis-prospectos' => ['Ver mis prospectos', 'El promotor ve y da seguimiento SOLO a los aspirantes que le asignaron.', [self::ADMINISTRATIVO]],
-            'gestionar-promocion' => ['Coordinar promoción', 'Ver el embudo completo, asignar promotores y mover prospectos de etapa.', [self::ADMINISTRATIVO]],
+            'gestionar-captacion' => ['Coordinar captación', 'Ver el embudo completo, asignar promotores y mover prospectos de etapa.', [self::ADMINISTRATIVO]],
             'gestionar-comisiones' => ['Administrar comisiones', 'Ver las comisiones de todos, marcarlas pagadas y cancelarlas. Sin esto, cada promotor ve solo las suyas.', [self::ADMINISTRATIVO]],
-            'configurar-comisiones' => ['Configurar comisiones', 'Definir cuánto se paga por alumno inscrito y a qué carreras aplica.', [self::ADMINISTRATIVO]],
+            'configurar-comisiones' => ['Configurar comisiones', 'Definir cuánto se paga por alumno inscrito y a qué programas académicos aplica.', [self::ADMINISTRATIVO]],
         ],
 
         'Control escolar' => [
@@ -152,7 +152,7 @@ final class CatalogoPermisos
              * descargar—. Lo segundo es de dirección o de servicios escolares.
              */
             'gestionar-historial' => ['Diseñar el historial académico', 'Definir cómo se imprime el historial: columnas, agrupación, firma y si el alumno puede descargarlo.', [self::ADMINISTRATIVO]],
-            'gestionar-biblioteca' => ['Gestionar la biblioteca digital', 'Publicar, ordenar y retirar los enlaces que el alumno ve en la biblioteca.', [self::ADMINISTRATIVO]],
+            'gestionar-recursos-digitales' => ['Gestionar la recursos digitales', 'Publicar, ordenar y retirar los enlaces que el alumno ve en los recursos digitales.', [self::ADMINISTRATIVO]],
             /*
              * Atender el mostrador y decidir el catálogo son la misma tarea de
              * ventanilla —quien entrega las constancias es quien sabe cuáles se
@@ -252,7 +252,7 @@ final class CatalogoPermisos
              * persona le toca ver las vacantes, y si la escuela deja que se
              * postule sin pasar por ventanilla—.
              */
-            'ver-vacantes' => ['Ver la bolsa de trabajo', 'Que el alumno o egresado vea las vacantes que aplican a su carrera.', [self::ALUMNO]],
+            'ver-vacantes' => ['Ver la bolsa de trabajo', 'Que el alumno o egresado vea las vacantes que aplican a su programa académico.', [self::ALUMNO]],
             /*
              * Recursos humanos: el expediente laboral de quien trabaja aquí.
              *
@@ -304,11 +304,11 @@ final class CatalogoPermisos
             /*
              * El permiso es de quién ENTRA; el interruptor de la sección, de si
              * la escuela la tiene abierta. Son dos cosas distintas y hacen falta
-             * las dos: apagar la biblioteca no debe obligar a repartir permisos
+             * las dos: apagar los recursos digitales no debe obligar a repartir permisos
              * de nuevo, y quitarle el permiso a un rol no debe cerrarla para
              * todos los demás.
              */
-            'ver-biblioteca' => ['Ver la biblioteca digital', 'Portal del alumno: los enlaces y recursos que la escuela publica.', [self::ALUMNO]],
+            'ver-recursos-digitales' => ['Ver la recursos digitales', 'Portal del alumno: los enlaces y recursos que la escuela publica.', [self::ALUMNO]],
             'solicitar-servicios' => ['Solicitar servicios', 'Portal del alumno: pedir constancias, credenciales y demás trámites del catálogo, y pagarlos si tienen costo.', [self::ALUMNO]],
         ],
 
@@ -330,7 +330,7 @@ final class CatalogoPermisos
         ],
 
         'Académico' => [
-            'ver-catalogo-academico' => ['Ver el catálogo académico', 'Campus, carreras, planes, asignaturas y oferta.', [self::ADMINISTRATIVO]],
+            'ver-catalogo-academico' => ['Ver el catálogo académico', 'Campus, programas académicos, planes, asignaturas y oferta.', [self::ADMINISTRATIVO]],
             'editar-catalogo-academico' => ['Editar el catálogo académico', 'Modificar planes, malla curricular, seriación y criterios de evaluación.', [self::ADMINISTRATIVO]],
             /*
              * Las rúbricas DE LA ESCUELA, que las ve y las usa todo el mundo.

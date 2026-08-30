@@ -182,7 +182,7 @@ function icono(prioridad: string): string {
             </svg>
             <p class="mt-3 text-sm text-suave">
                 No tienes avisos por ahora. Aquí aparecerán los que la escuela dirija a tu grupo, a tu
-                carrera o a ti.
+                programa académico o a ti.
             </p>
         </div>
     </AppLayout>

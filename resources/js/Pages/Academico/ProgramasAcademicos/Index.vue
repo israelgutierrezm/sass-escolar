@@ -8,7 +8,7 @@ import BotonAccion from '@/Components/BotonAccion.vue';
 import TarjetaListado from '@/Components/TarjetaListado.vue';
 import Paginacion from '@/Components/Paginacion.vue';
 
-interface Carrera {
+interface ProgramaAcademico {
     id: number;
     clave: string;
     nombre: string;
@@ -17,8 +17,8 @@ interface Carrera {
 }
 
 const props = defineProps<{
-    carreras: {
-        data: Carrera[];
+    programas_academicos: {
+        data: ProgramaAcademico[];
         links: { url: string | null; label: string; active: boolean }[];
         total: number;
         from: number | null;
@@ -38,45 +38,45 @@ const definicionFiltros = computed(() => [
     { clave: 'nivel_estudios_id', etiqueta: 'Nivel de estudios', opciones: props.niveles.map((n) => ({ valor: n.id, texto: n.nombre })) },
 ]);
 
-const vacio = computed(() => !props.carreras.data.length);
+const vacio = computed(() => !props.programas_academicos.data.length);
 const mensajeVacio = computed(() =>
     props.filtros.busqueda || props.filtros.nivel_estudios_id
-        ? 'Ninguna carrera coincide con la búsqueda.'
-        : 'Aún no hay carreras registradas.',
+        ? 'Ningún programa académico coincide con la búsqueda.'
+        : 'Aún no hay programas académicos registrados.',
 );
 
 function eliminar(id: number, nombre: string): void {
-    if (!confirm(`¿Eliminar la carrera "${nombre}"?`)) {
+    if (!confirm(`¿Eliminar la programa_academico "${nombre}"?`)) {
         return;
     }
 
-    router.delete(`/academico/carreras/${id}`, { preserveScroll: true });
+    router.delete(`/academico/programas-academicos/${id}`, { preserveScroll: true });
 }
 </script>
 
 <template>
-    <Head title="Carreras" />
+    <Head title="Programas académicos" />
 
     <AppLayout titulo="Catálogo académico">
         <PestanasSeccion />
 
         <BarraListado
             v-model:vista="vista"
-            url="/academico/carreras"
-            vista-clave="academico.carreras"
+            url="/academico/programas-academicos"
+            vista-clave="academico.programas académicos"
             :valores="filtros"
             :filtros="definicionFiltros"
             placeholder="Buscar por clave, nombre o identificador…"
             :puede-crear="puedeEditar"
-            nuevo-texto="Nueva carrera"
-            nuevo-href="/academico/carreras/create"
-            titulo="Carreras"
+            nuevo-texto="Nuevo programa académico"
+            nuevo-href="/academico/programas-academicos/create"
+            titulo="Programas académicos"
             descripcion="Programas educativos de la institución"
             :icono="ICONO_CARRERA"
         >
             <template #conteo>
                 <span class="rounded-full px-3 py-1 text-xs font-medium" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }">
-                    {{ carreras.total }} en total
+                    {{ programas_academicos.total }} en total
                 </span>
             </template>
         </BarraListado>
@@ -85,18 +85,18 @@ function eliminar(id: number, nombre: string): void {
         <template v-if="vista === 'cuadricula'">
             <section v-if="!vacio" class="cuadricula-listado">
                 <TarjetaListado
-                    v-for="carrera in carreras.data"
-                    :key="carrera.id"
-                    :titulo="carrera.nombre"
-                    :clave="carrera.clave"
+                    v-for="programa_academico in programas_academicos.data"
+                    :key="programa_academico.id"
+                    :titulo="programa_academico.nombre"
+                    :clave="programa_academico.clave"
                     :metas="[
-                        { etiqueta: 'Nivel', valor: carrera.nivel },
-                        { etiqueta: 'Planes', valor: carrera.planes_count },
+                        { etiqueta: 'Nivel', valor: programa_academico.nivel },
+                        { etiqueta: 'Planes', valor: programa_academico.planes_count },
                     ]"
                 >
                     <template v-if="puedeEditar" #acciones>
-                        <BotonAccion redondo variante="editar" solo-icono :href="`/academico/carreras/${carrera.id}/edit`" />
-                        <BotonAccion redondo variante="eliminar" solo-icono @click="eliminar(carrera.id, carrera.nombre)" />
+                        <BotonAccion redondo variante="editar" solo-icono :href="`/academico/programas-academicos/${programa_academico.id}/edit`" />
+                        <BotonAccion redondo variante="eliminar" solo-icono @click="eliminar(programa_academico.id, programa_academico.nombre)" />
                     </template>
                 </TarjetaListado>
             </section>
@@ -105,8 +105,8 @@ function eliminar(id: number, nombre: string): void {
                 {{ mensajeVacio }}
             </p>
 
-            <section v-if="carreras.links.length > 3" class="tarjeta">
-                <Paginacion :enlaces="carreras.links" :total="carreras.total" :desde="carreras.from" :hasta="carreras.to" />
+            <section v-if="programas_academicos.links.length > 3" class="tarjeta">
+                <Paginacion :enlaces="programas_academicos.links" :total="programas_academicos.total" :desde="programas_academicos.from" :hasta="programas_academicos.to" />
             </section>
         </template>
 
@@ -116,30 +116,30 @@ function eliminar(id: number, nombre: string): void {
                 <table v-if="!vacio" class="w-full text-sm">
                     <thead>
                         <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
-                            <th class="px-6 py-3 font-semibold">Carrera</th>
+                            <th class="px-6 py-3 font-semibold">Programa académico</th>
                             <th class="px-4 py-3 font-semibold">Nivel</th>
                             <th class="px-4 py-3 font-semibold text-center">Planes</th>
                             <th class="px-6 py-3 font-semibold text-right">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="carrera in carreras.data" :key="carrera.id" class="fila-nueva border-t transition-colors" :style="{ borderColor: 'var(--color-borde)' }">
-                            <!-- Carrera: nombre + clave -->
+                        <tr v-for="programa_academico in programas_academicos.data" :key="programa_academico.id" class="fila-nueva border-t transition-colors" :style="{ borderColor: 'var(--color-borde)' }">
+                            <!-- Programa académico: nombre + clave -->
                             <td class="px-6 py-4">
-                                <span class="block font-semibold text-contenido">{{ carrera.nombre }}</span>
-                                <span class="mt-1 block font-mono text-[11px]" :style="{ color: 'var(--color-suave)' }">{{ carrera.clave }}</span>
+                                <span class="block font-semibold text-contenido">{{ programa_academico.nombre }}</span>
+                                <span class="mt-1 block font-mono text-[11px]" :style="{ color: 'var(--color-suave)' }">{{ programa_academico.clave }}</span>
                             </td>
                             <td class="px-4 py-4">
-                                <span v-if="carrera.nivel" class="inline-block rounded-full px-2.5 py-0.5 text-[11px]" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 10%, transparent)', color: 'var(--color-suave)' }">{{ carrera.nivel }}</span>
+                                <span v-if="programa_academico.nivel" class="inline-block rounded-full px-2.5 py-0.5 text-[11px]" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 10%, transparent)', color: 'var(--color-suave)' }">{{ programa_academico.nivel }}</span>
                                 <span v-else :style="{ color: 'var(--color-suave)' }">—</span>
                             </td>
                             <td class="px-4 py-4 text-center">
-                                <span class="inline-grid h-7 min-w-7 place-items-center rounded-full px-2 text-xs font-semibold" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)' }">{{ carrera.planes_count }}</span>
+                                <span class="inline-grid h-7 min-w-7 place-items-center rounded-full px-2 text-xs font-semibold" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)' }">{{ programa_academico.planes_count }}</span>
                             </td>
                             <td class="px-6 py-4">
                                 <div v-if="puedeEditar" class="flex justify-end gap-1">
-                                    <BotonAccion variante="editar" solo-icono :href="`/academico/carreras/${carrera.id}/edit`" />
-                                    <BotonAccion variante="eliminar" solo-icono @click="eliminar(carrera.id, carrera.nombre)" />
+                                    <BotonAccion variante="editar" solo-icono :href="`/academico/programas-academicos/${programa_academico.id}/edit`" />
+                                    <BotonAccion variante="eliminar" solo-icono @click="eliminar(programa_academico.id, programa_academico.nombre)" />
                                 </div>
                             </td>
                         </tr>
@@ -151,7 +151,7 @@ function eliminar(id: number, nombre: string): void {
                 </p>
             </div>
 
-            <Paginacion :enlaces="carreras.links" :total="carreras.total" :desde="carreras.from" :hasta="carreras.to" />
+            <Paginacion :enlaces="programas_academicos.links" :total="programas_academicos.total" :desde="programas_academicos.from" :hasta="programas_academicos.to" />
         </div>
     </AppLayout>
 </template>

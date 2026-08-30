@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Bolsa;
 
 use App\Http\Controllers\Controller;
-use App\Models\Academico\Carrera;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Bolsa\Colocacion;
 use App\Models\Bolsa\Empresa;
 use App\Models\Bolsa\Postulacion;
@@ -42,8 +42,8 @@ class ColocacionController extends Controller
                 'persona:id,nombre,primer_apellido,segundo_apellido',
                 'empresa:id,razon_social',
                 'matricula:id,matricula,oferta_id',
-                'matricula.oferta:id,carrera_id',
-                'matricula.oferta.carrera:id,nombre',
+                'matricula.oferta:id,programa_academico_id',
+                'matricula.oferta.programaAcademico:id,nombre',
             ])
             ->when($peticion->filled('empresa_id'), fn ($q) => $q->where('empresa_id', $peticion->integer('empresa_id')))
             ->when(
@@ -61,13 +61,13 @@ class ColocacionController extends Controller
                 'id' => $c->id,
                 'persona' => $c->persona?->nombreCompleto(),
                 'matricula' => $c->matricula?->matricula,
-                'carrera' => $c->matricula?->oferta?->carrera?->nombre,
+                'programa_academico' => $c->matricula?->oferta?->programaAcademico?->nombre,
                 'empresa' => $c->empresa?->razon_social,
                 'puesto' => $c->puesto,
                 'salario' => $c->salario === null ? null : '$'.number_format((float) $c->salario, 2),
                 'fecha_ingreso' => $c->fecha_ingreso?->toDateString(),
                 // Tres estados: null no es «no». Ver el modelo.
-                'relacionado' => $c->relacionado_con_carrera,
+                'relacionado' => $c->relacionado_con_programa_academico,
                 'notas' => $c->notas,
                 'origen' => $c->salioDeLaBolsa() ? 'Bolsa de trabajo' : 'Seguimiento',
             ]),
@@ -143,16 +143,16 @@ class ColocacionController extends Controller
     {
         $filtros = [
             'generacion' => $peticion->query('generacion') ?: null,
-            'carrera_id' => $peticion->integer('carrera_id') ?: null,
+            'programa_academico_id' => $peticion->integer('programa_academico_id') ?: null,
         ];
 
         return Inertia::render('Bolsa/Empleabilidad', [
             'resumen' => $this->indicador->resumen($filtros),
-            'por_carrera' => $this->indicador->porCarrera($filtros),
+            'por_programa_academico' => $this->indicador->porProgramaAcademico($filtros),
             'por_generacion' => $this->indicador->porGeneracion($filtros),
             'filtros' => $filtros,
             'generaciones' => $this->indicador->generaciones(),
-            'carreras' => Carrera::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'programas_academicos' => ProgramaAcademico::query()->orderBy('nombre')->get(['id', 'nombre']),
         ]);
     }
 
@@ -165,7 +165,7 @@ class ColocacionController extends Controller
             'fecha_ingreso' => ['required', 'date'],
             // Nullable a propósito: «no se preguntó» es una respuesta y no se
             // puede confundir con «no es de su área».
-            'relacionado_con_carrera' => ['nullable', 'boolean'],
+            'relacionado_con_programa_academico' => ['nullable', 'boolean'],
             'notas' => ['nullable', 'string', 'max:2000'],
         ];
     }

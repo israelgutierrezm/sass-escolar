@@ -21,9 +21,9 @@ use Illuminate\Support\Facades\DB;
  *
  * La salida es contar siempre y cobrar sólo la primera vez, reconociendo el
  * trámite por **CURP + plan de estudios**: identifica «el certificado de esta
- * persona para esta carrera» sin depender del folio, que cambia justamente al
+ * persona para este programa académico» sin depender del folio, que cambia justamente al
  * regenerar. Y distingue el caso legítimo de dos cobros: el mismo alumno
- * titulándose de dos carreras son dos trámites.
+ * titulándose de dos programas académicos son dos trámites.
  *
  * ── Se comprueba ANTES de firmar el lote entero ────────────────────────────
  * Firmar hasta donde alcance dejaría un lote partido —unos alumnos certificados

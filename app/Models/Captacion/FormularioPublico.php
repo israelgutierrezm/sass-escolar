@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Models\Promocion;
+namespace App\Models\Captacion;
 
 use App\Models\Academico\Campus;
 use App\Models\Academico\Oferta;
@@ -21,7 +21,7 @@ use Illuminate\Support\Str;
  *
  * Dos modos, que es la decisión del cliente:
  *  - `captacion`: el visitante deja sus datos y entra al CRM como prospecto.
- *    Promoción da el seguimiento.
+ *    Captación da el seguimiento.
  *  - `inscripcion`: además se le crea su cuenta para que continúe solo.
  */
 class FormularioPublico extends Model

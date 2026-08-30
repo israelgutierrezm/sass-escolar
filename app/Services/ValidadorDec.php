@@ -33,7 +33,7 @@ class ValidadorDec
 
         $pendientes = $lote->certificaciones()
             ->where('estado', '!=', Certificacion::CERTIFICADO)
-            ->with(['matricula.persona', 'matricula.oferta.carrera', 'matricula.oferta.plan', 'matricula.oferta.campus.institucion', 'matricula.oferta.campus.entidad'])
+            ->with(['matricula.persona', 'matricula.oferta.programaAcademico', 'matricula.oferta.plan', 'matricula.oferta.campus.institucion', 'matricula.oferta.campus.entidad'])
             ->get();
 
         foreach ($pendientes as $cert) {
@@ -82,7 +82,7 @@ class ValidadorDec
             }
 
             /*
-             * El identificador OFICIAL del campus, la carrera y cada asignatura.
+             * El identificador OFICIAL del campus, el programa académico y cada asignatura.
              *
              * Sin él, el certificado no fallaba: caía en silencio a la clave y
              * luego al id local, y el XSD lo aceptaba —esos atributos son
@@ -96,10 +96,10 @@ class ValidadorDec
             }
         }
 
-        $carrera = $m->oferta?->carrera;
+        $programaAcademico = $m->oferta?->programaAcademico;
 
-        if ($carrera !== null && blank($carrera->identificador)) {
-            $errores[] = "{$etq}: la carrera «{$carrera->nombre}» no tiene identificador oficial. Captúralo en Académico → Carreras.";
+        if ($programaAcademico !== null && blank($programaAcademico->identificador)) {
+            $errores[] = "{$etq}: la programa_academico «{$programaAcademico->nombre}» no tiene identificador oficial. Captúralo en Académico → ProgramasAcademicos.";
         }
 
         foreach ($this->asignaturasSinIdentificador($m) as $nombre) {

@@ -12,7 +12,7 @@
  * el suyo encima… menos dos, que se quedaron sólo con el del grupo:
  *
  *   - `/finanzas/comprobantes`, la cola de revisión: nombre, matrícula,
- *     carrera, monto, banco y referencia SPEI de TODA la escuela.
+ *     programa académico, monto, banco y referencia SPEI de TODA la escuela.
  *   - `/finanzas/cuentas-bancarias`: las CLABE y los números de cuenta.
  *
  * Un permiso compartido entre oficios no puede ser lo único que cierre una
@@ -168,12 +168,12 @@ try {
         'activa' => true, 'created_at' => now(), 'updated_at' => now(),
     ]);
 
-    $suyas = App\Models\Finanzas\CuentaBancaria::paraCarrera($matricula->oferta?->carrera_id)
+    $suyas = App\Models\Finanzas\CuentaBancaria::paraProgramaAcademico($matricula->oferta?->programa_academico_id)
         ->filter(fn ($c) => $c->puedeRecibir());
 
     verificar('El alumno sigue viendo a dónde pagar, por el camino de su cartera',
         $suyas->contains(fn ($c) => $c->id === $cuenta),
-        $suyas->count().' cuenta(s) por `paraCarrera` + `puedeRecibir`');
+        $suyas->count().' cuenta(s) por `paraProgramaAcademico` + `puedeRecibir`');
 
     echo PHP_EOL.'5. Con datos sembrados, la fuga era real (no «0 filas» del demo)'.PHP_EOL;
 

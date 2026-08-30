@@ -106,7 +106,7 @@ const esPrimario = computed(() => props.variante === 'nuevo');
 // solo-icono (sin texto, solo su tooltip), sin importar cómo se invoque el
 // botón. Así ninguna pantalla puede volver a mostrarlos como texto suelto.
 // «nuevo» y «ver» respetan lo que pida quien los use (llevan texto porque su
-// destino no es obvio: «Nueva carrera», «Malla», «Captura»).
+// destino no es obvio: «Nuevo programa académico», «Malla», «Captura»).
 //
 // «cerrar» es solo-icono por omisión —la X sola se entiende—, pero acepta texto
 // cuando hace falta decir QUÉ se cierra: el botón que abre el alta de un alumno

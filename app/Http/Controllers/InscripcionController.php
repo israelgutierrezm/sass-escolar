@@ -98,7 +98,7 @@ class InscripcionController extends Controller
         $grupo = $request->query('grupo_id') === null
             ? null
             : Grupo::query()
-                ->with(['plan:id,nombre', 'ciclo:id,clave', 'campus:id,nombre', 'turno:id,nombre', 'asignaturas.planMateria.asignatura:id,nombre', 'asignaturas.planMateria.plan:id,nombre,carrera_id', 'asignaturas.planMateria.plan.carrera:id,nombre'])
+                ->with(['plan:id,nombre', 'ciclo:id,clave', 'campus:id,nombre', 'turno:id,nombre', 'asignaturas.planMateria.asignatura:id,nombre', 'asignaturas.planMateria.plan:id,nombre,programa_academico_id', 'asignaturas.planMateria.plan.programaAcademico:id,nombre'])
                 ->when($campusVisibles !== [], fn ($q) => $q->whereIn('campus_id', $campusVisibles))
                 ->find($request->query('grupo_id'));
 
@@ -252,12 +252,12 @@ class InscripcionController extends Controller
             // abiertas. Se muestra para que la lista vacía se explique sola.
             //
             // Lleva la CARRERA por delante porque el nombre del plan solo dice
-            // el año («Plan 2022») y hay uno por carrera: sin la carrera, decir
+            // el año («Plan 2022») y hay uno por programa académico: sin el programa académico, decir
             // «ningún alumno de Plan 2022» nombra a diez planes distintos.
             'planes_admitidos' => $grupo->asignaturas
                 ->map(fn (AsignaturaGrupo $ag) => $ag->planMateria?->plan === null
                     ? null
-                    : trim(($ag->planMateria->plan->carrera?->nombre ?? '').' · '.$ag->planMateria->plan->nombre, ' ·'))
+                    : trim(($ag->planMateria->plan->programaAcademico?->nombre ?? '').' · '.$ag->planMateria->plan->nombre, ' ·'))
                 ->filter()->unique()->values()->all(),
             // El id es el de `asignatura_grupo`, no el de la materia del plan:
             // es a lo que se inscribe alguien puntualmente.
@@ -316,7 +316,7 @@ class InscripcionController extends Controller
         ]);
 
         return MatriculaOferta::query()
-            ->with(['persona', 'oferta.carrera:id,nombre'])
+            ->with(['persona', 'oferta.programaAcademico:id,nombre'])
             ->whereIn('id', $vigentes->keys())
             ->orderBy('matricula')
             ->get()
@@ -327,7 +327,7 @@ class InscripcionController extends Controller
                     'id' => $m->id,
                     'matricula' => $m->matricula,
                     'nombre' => $m->persona?->nombreCompleto(),
-                    'carrera' => $m->oferta?->carrera?->nombre,
+                    'programa_academico' => $m->oferta?->programaAcademico?->nombre,
                     'foto' => $m->persona?->urlFoto(),
                     'materias' => $suyas->count(),
                     'total_materias' => $total,
@@ -390,11 +390,11 @@ class InscripcionController extends Controller
             ->pluck('matricula_oferta_id');
 
         return MatriculaOferta::query()
-            ->with(['persona', 'oferta.carrera:id,nombre', 'oferta.campus:id,nombre'])
+            ->with(['persona', 'oferta.programaAcademico:id,nombre', 'oferta.campus:id,nombre'])
             ->where('estatus', 'activo')
             ->whereHas('oferta', fn ($q) => $planesQueSirven !== []
                 ? $q->whereIn('plan_id', $planesQueSirven)
-                : $q->whereHas('carrera', fn ($c) => $c->where('nivel_estudios_id', $grupo->nivel_estudios_id)))
+                : $q->whereHas('programaAcademico', fn ($c) => $c->where('nivel_estudios_id', $grupo->nivel_estudios_id)))
             ->whereNotIn('id', $yaEnCiclo)
             ->orderBy('matricula')
             ->get()
@@ -402,7 +402,7 @@ class InscripcionController extends Controller
                 'id' => $m->id,
                 'matricula' => $m->matricula,
                 'nombre' => $m->persona?->nombreCompleto(),
-                'carrera' => $m->oferta?->carrera?->nombre,
+                'programa_academico' => $m->oferta?->programaAcademico?->nombre,
                 'campus' => $m->oferta?->campus?->nombre,
                 'mismo_campus' => $m->oferta?->campus_id === $grupo->campus_id,
                 'periodo_actual' => $m->periodo_actual,

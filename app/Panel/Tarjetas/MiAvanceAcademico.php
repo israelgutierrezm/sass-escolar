@@ -51,7 +51,7 @@ class MiAvanceAcademico implements TarjetaPanel
     public function datos(Usuario $usuario): ?array
     {
         $matriculas = MatriculaOferta::query()
-            ->with('oferta.carrera:id,nombre', 'oferta.plan:id,nombre,total_creditos')
+            ->with('oferta.programaAcademico:id,nombre', 'oferta.plan:id,nombre,total_creditos')
             ->where('persona_id', $usuario->persona_id)
             ->get();
 
@@ -74,7 +74,7 @@ class MiAvanceAcademico implements TarjetaPanel
             $totales = (float) ($m->oferta?->plan?->total_creditos ?? 0);
 
             return [
-                'etiqueta' => $m->oferta?->carrera?->nombre ?? 'Programa',
+                'etiqueta' => $m->oferta?->programaAcademico?->nombre ?? 'Programa',
                 'detalle' => $m->matricula,
                 // El promedio NO cuenta lo que no tiene calificación: una
                 // materia en curso no promedia como cero, o inscribirse bajaría

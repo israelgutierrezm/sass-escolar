@@ -36,7 +36,7 @@ const props = defineProps<{
     reglaRecargo: Record<string, any> | null;
     overridesRecargo: Record<string, any>;
     asignados: number;
-    candidatos: { id: number; matricula: string; nombre: string | null; carrera: string | null; campus: string | null }[];
+    candidatos: { id: number; matricula: string; nombre: string | null; programa_academico: string | null; campus: string | null }[];
 }>();
 
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
@@ -204,10 +204,10 @@ function todos(): void {
                     </dd>
                 </div>
                 <div class="sm:col-span-2">
-                    <dt class="text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">Carreras</dt>
+                    <dt class="text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">Programas académicos</dt>
                     <dd class="mt-1 text-sm">
-                        <span v-if="!plan.carreras.length" :style="{ color: 'var(--color-suave)' }">Todas las de esos campus</span>
-                        <span v-else>{{ plan.carreras.join(', ') }}</span>
+                        <span v-if="!plan.programas_academicos.length" :style="{ color: 'var(--color-suave)' }">Todas las de esos campus</span>
+                        <span v-else>{{ plan.programas_academicos.join(', ') }}</span>
                     </dd>
                 </div>
                 <div>
@@ -528,7 +528,7 @@ function todos(): void {
                         <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
                             <th class="px-6 py-3"></th>
                             <th class="px-4 py-3 font-semibold">Alumno</th>
-                            <th class="px-4 py-3 font-semibold">Carrera</th>
+                            <th class="px-4 py-3 font-semibold">Programa académico</th>
                             <th class="px-6 py-3 font-semibold">Campus</th>
                         </tr>
                     </thead>
@@ -541,7 +541,7 @@ function todos(): void {
                                 <span class="block font-medium text-contenido">{{ a.nombre }}</span>
                                 <span class="block font-mono text-[11px]" :style="{ color: 'var(--color-suave)' }">{{ a.matricula }}</span>
                             </td>
-                            <td class="px-4 py-3 text-xs" :style="{ color: 'var(--color-suave)' }">{{ a.carrera }}</td>
+                            <td class="px-4 py-3 text-xs" :style="{ color: 'var(--color-suave)' }">{{ a.programa_academico }}</td>
                             <td class="px-6 py-3 text-xs" :style="{ color: 'var(--color-suave)' }">{{ a.campus }}</td>
                         </tr>
                     </tbody>

@@ -20,7 +20,7 @@ $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
 use App\Http\Controllers\AspiranteController;
 use App\Http\Controllers\GrupoController;
-use App\Http\Controllers\PromocionController;
+use App\Http\Controllers\CaptacionController;
 use App\Http\Controllers\UsuarioController;
 use App\Models\Academico\Campus;
 use App\Models\Academico\Oferta;
@@ -32,7 +32,7 @@ use App\Models\ControlEscolar\SituacionGrupo;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\Rol;
 use App\Models\Identidad\Usuario;
-use App\Models\Promocion\OrigenAspirante;
+use App\Models\Captacion\OrigenAspirante;
 use App\Services\EmbudoAdmision;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -282,19 +282,19 @@ try {
 
     $nuevo = Aspirante::query()->latest('id')->first();
 
-    verificar('Cae en la PRIMERA etapa, no en null (si no, promoción no lo ve)',
+    verificar('Cae en la PRIMERA etapa, no en null (si no, captación no lo ve)',
         $nuevo?->etapa_crm_id === $primeraEtapa->id,
         'etapa='.($nuevo?->etapa_crm_id ?? 'null'));
 
     verificar('Y guarda el origen del CATÁLOGO, no solo texto libre',
         $origen === null || $nuevo?->origen_id === $origen->id);
 
-    echo PHP_EOL.'5. Promoción: filtros dentro de una etapa'.PHP_EOL;
+    echo PHP_EOL.'5. Captación: filtros dentro de una etapa'.PHP_EOL;
 
-    $promocionController = new PromocionController(app(EmbudoAdmision::class));
+    $captacionController = new CaptacionController(app(EmbudoAdmision::class));
     $etapa = EtapaCrm::query()->orderBy('orden')->firstOrFail();
 
-    $prospectos = props($promocionController, 'etapa', $dirección, [], [$etapa]);
+    $prospectos = props($captacionController, 'etapa', $dirección, [], [$etapa]);
 
     verificar('Trae los catálogos de origen, oferta y promotor',
         isset($prospectos['origenes'], $prospectos['ofertas'], $prospectos['promotores']));
@@ -306,14 +306,14 @@ try {
     $origen = OrigenAspirante::query()->first();
 
     if ($origen !== null) {
-        $porOrigen = props($promocionController, 'etapa', $dirección, ['origen_id' => $origen->id], [$etapa]);
+        $porOrigen = props($captacionController, 'etapa', $dirección, ['origen_id' => $origen->id], [$etapa]);
 
         verificar('Filtrar por origen no saca a nadie de la etapa',
             $porOrigen['aspirantes']['total'] <= $prospectos['aspirantes']['total'],
             "{$porOrigen['aspirantes']['total']} ≤ {$prospectos['aspirantes']['total']}");
     }
 
-    $sinCoincidencia = props($promocionController, 'etapa', $dirección, ['busqueda' => 'zzzzz-no-existe'], [$etapa]);
+    $sinCoincidencia = props($captacionController, 'etapa', $dirección, ['busqueda' => 'zzzzz-no-existe'], [$etapa]);
 
     verificar('Búsqueda sin coincidencias vacía la etapa, no la ignora',
         $sinCoincidencia['aspirantes']['total'] === 0);

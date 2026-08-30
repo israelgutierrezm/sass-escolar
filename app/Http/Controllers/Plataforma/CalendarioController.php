@@ -9,9 +9,9 @@ use App\Enums\TipoEventoCalendario;
 use App\Http\Controllers\Concerns\ArmaDestinos;
 use App\Http\Controllers\Controller;
 use App\Models\Academico\Campus;
-use App\Models\Academico\Carrera;
 use App\Models\Academico\NivelEstudio;
 use App\Models\Academico\PlanEstudio;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Grupo;
 use App\Models\Plataforma\EventoCalendario;
@@ -252,7 +252,7 @@ class CalendarioController extends Controller
             DestinoEvento::Rol => Role::find($id)?->name,
             DestinoEvento::Campus => Campus::find($id)?->nombre,
             DestinoEvento::Nivel => NivelEstudio::find($id)?->nombre,
-            DestinoEvento::Carrera => Carrera::find($id)?->nombre,
+            DestinoEvento::ProgramaAcademico => ProgramaAcademico::find($id)?->nombre,
             DestinoEvento::Plan => PlanEstudio::find($id)?->nombre,
             DestinoEvento::Grupo => Grupo::find($id)?->clave,
             DestinoEvento::Materia => $this->nombreDeMateria($id),

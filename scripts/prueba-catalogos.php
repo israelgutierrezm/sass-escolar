@@ -86,14 +86,14 @@ try {
         implode(', ', $claves));
 
     // Nivel de estudios pasó de landlord a tenant: debe listarse por `orden`
-    // (progresión), no alfabético, y las carreras deben seguir resolviéndolo.
+    // (progresión), no alfabético, y los programas académicos deben seguir resolviéndolo.
     $nivel = collect($props['catalogos'])->firstWhere('clave', 'nivel');
     $nombres = array_column($nivel['items'], 'nombre');
 
     verificar('El nivel se lista por progresión (Bachillerato antes que Licenciatura)',
         array_search('Bachillerato', $nombres, true) < array_search('Licenciatura', $nombres, true));
 
-    verificar('Un nivel usado por una carrera aparece «en uso»',
+    verificar('Un nivel usado por un programa académico aparece «en uso»',
         collect($nivel['items'])->contains(fn ($i) => $i['en_uso'] === true));
 
     echo PHP_EOL.'2. Alta y unicidad de clave'.PHP_EOL;

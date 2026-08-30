@@ -127,7 +127,7 @@ class ComprobantePagoController extends Controller
         $estado = $request->query('estado', ComprobantePago::PENDIENTE);
 
         $comprobantes = ComprobantePago::query()
-            ->with(['matriculaOferta.persona', 'matriculaOferta.oferta.carrera:id,nombre', 'cuenta:id,nombre,banco', 'revisor.persona'])
+            ->with(['matriculaOferta.persona', 'matriculaOferta.oferta.programaAcademico:id,nombre', 'cuenta:id,nombre,banco', 'revisor.persona'])
             ->when(
                 in_array($estado, [ComprobantePago::PENDIENTE, ComprobantePago::APROBADO, ComprobantePago::RECHAZADO], true),
                 fn ($q) => $q->where('estado', $estado),
@@ -140,7 +140,7 @@ class ComprobantePagoController extends Controller
                 'id' => $c->id,
                 'alumno' => $c->matriculaOferta?->persona?->nombreCompleto(),
                 'matricula' => $c->matriculaOferta?->matricula,
-                'carrera' => $c->matriculaOferta?->oferta?->carrera?->nombre,
+                'programa_academico' => $c->matriculaOferta?->oferta?->programaAcademico?->nombre,
                 'cuenta' => $c->cuenta?->nombre,
                 'banco' => $c->cuenta?->banco,
                 'monto' => (float) $c->monto,

@@ -20,9 +20,9 @@ const props = defineProps<{
     grupo: Record<string, any> | null;
     ciclos: Ciclo[];
     campus: { id: number; nombre: string }[];
-    carreras: { id: number; nombre: string; nivel_estudios_id: number | null }[];
-    planes: { id: number; nombre: string; clave: string; carrera_id: number; total_periodos: number | null; unidad_periodo: string }[];
-    ofertas: { carrera_id: number; plan_id: number; campus_id: number }[];
+    programas_academicos: { id: number; nombre: string; nivel_estudios_id: number | null }[];
+    planes: { id: number; nombre: string; clave: string; programa_academico_id: number; total_periodos: number | null; unidad_periodo: string }[];
+    ofertas: { programa_academico_id: number; plan_id: number; campus_id: number }[];
     turnos: { id: number; nombre: string }[];
     niveles: { id: number; nombre: string }[];
 }>();
@@ -86,13 +86,13 @@ const nivelesVisibles = computed(() => {
     return ids.length ? props.niveles.filter((n) => ids.includes(n.id)) : props.niveles;
 });
 
-// Carreras ofrecidas: las del NIVEL elegido y con oferta abierta en el campus.
-// La oferta manda: si una carrera no está ofertada ahí, no puede abrirse un
+// Programas académicos ofrecidas: las del NIVEL elegido y con oferta abierta en el campus.
+// La oferta manda: si un programa académico no está ofertada ahí, no puede abrirse un
 // grupo suyo.
-const carrerasVisibles = computed(() => {
-    const ofertadas = new Set(ofertasDelCampus.value.map((o) => o.carrera_id));
+const programasAcademicosVisibles = computed(() => {
+    const ofertadas = new Set(ofertasDelCampus.value.map((o) => o.programa_academico_id));
 
-    return props.carreras.filter(
+    return props.programas_academicos.filter(
         (c) =>
             ofertadas.has(c.id) &&
             (form.nivel_estudios_id === null || c.nivel_estudios_id === form.nivel_estudios_id),
@@ -111,32 +111,32 @@ const restriccionCiclo = computed(() => {
     }
 
     if (cicloElegido.value.nivel_ids.length) {
-        partes.push('a las carreras de sus niveles de estudio');
+        partes.push('a los programas académicos de sus niveles de estudio');
     }
 
     return partes.length ? `Este ciclo acota el grupo ${partes.join(' y ')}.` : null;
 });
 
 /*
- * Carrera → plan, en cascada.
+ * Programa académico → plan, en cascada.
  *
- * El grupo solo guarda `plan_id`; la carrera es un filtro de la pantalla, no un
+ * El grupo solo guarda `plan_id`; el programa académico es un filtro de la pantalla, no un
  * dato que se persista. Se ofrecía un único desplegable con TODOS los planes de
- * la escuela, donde "Plan 2026" de dos carreras distintas se ve idéntico y es
- * fácil atar el grupo a la carrera equivocada.
+ * la escuela, donde "Plan 2026" de dos programas académicos distintas se ve idéntico y es
+ * fácil atar el grupo al programa académico equivocada.
  *
- * Al editar, la carrera se deduce del plan que ya tiene guardado.
+ * Al editar, el programa académico se deduce del plan que ya tiene guardado.
  */
-const carreraId = ref<number | null>(
-    props.planes.find((plan) => plan.id === props.grupo?.plan_id)?.carrera_id ?? null,
+const programaAcademicoId = ref<number | null>(
+    props.planes.find((plan) => plan.id === props.grupo?.plan_id)?.programa_academico_id ?? null,
 );
 
-// Planes ofrecidos en el campus elegido; si ya se eligió carrera, solo los suyos.
+// Planes ofrecidos en el campus elegido; si ya se eligió programa académico, solo los suyos.
 // También sale de la oferta: no se puede fijar un plan que no esté ofertado ahí.
 const planesVisibles = computed(() => {
     const ofertados = new Set(
         ofertasDelCampus.value
-            .filter((o) => carreraId.value === null || o.carrera_id === carreraId.value)
+            .filter((o) => programaAcademicoId.value === null || o.programa_academico_id === programaAcademicoId.value)
             .map((o) => o.plan_id),
     );
 
@@ -173,8 +173,8 @@ const opcionesPeriodo = computed(() => {
  * captura se ve sin tener que descubrirlo.
  */
 const hayOrigen = computed(() => form.ciclo_id !== null && form.campus_id !== null);
-const muestraCarrera = computed(() => hayOrigen.value && form.nivel_estudios_id !== null);
-const muestraPlan = computed(() => muestraCarrera.value && carreraId.value !== null);
+const muestraProgramaAcademico = computed(() => hayOrigen.value && form.nivel_estudios_id !== null);
+const muestraPlan = computed(() => muestraProgramaAcademico.value && programaAcademicoId.value !== null);
 const muestraGrado = computed(() => muestraPlan.value && form.plan_id !== null);
 
 /*
@@ -184,11 +184,11 @@ const muestraGrado = computed(() => muestraPlan.value && form.plan_id !== null);
  * combinación, el desplegable siguiente aparece vacío y no hay forma de saber
  * por qué desde esta pantalla. Se dice cuál es el hueco y dónde se llena.
  */
-const nivelSinCarreras = computed(() => muestraCarrera.value && carrerasVisibles.value.length === 0);
-const carreraSinPlanes = computed(() => muestraPlan.value && planesVisibles.value.length === 0);
+const nivelSinProgramasAcademicos = computed(() => muestraProgramaAcademico.value && programasAcademicosVisibles.value.length === 0);
+const programaAcademicoSinPlanes = computed(() => muestraPlan.value && planesVisibles.value.length === 0);
 
-// Cambiar de carrera invalida el plan elegido si ya no pertenece a ella.
-watch(carreraId, () => {
+// Cambiar de programa académico invalida el plan elegido si ya no pertenece a ella.
+watch(programaAcademicoId, () => {
     const sigueSiendoValido = planesVisibles.value.some((plan) => plan.id === form.plan_id);
 
     if (!sigueSiendoValido) {
@@ -196,7 +196,7 @@ watch(carreraId, () => {
     }
 });
 
-// Cambiar de campus rehace la oferta disponible: se limpian carrera y plan que
+// Cambiar de campus rehace la oferta disponible: se limpian programa académico y plan que
 // ya no estén ofertados en el nuevo campus.
 watch(
     () => form.campus_id,
@@ -207,8 +207,8 @@ watch(
             form.ciclo_id = null;
         }
 
-        if (carreraId.value && !carrerasVisibles.value.some((c) => c.id === carreraId.value)) {
-            carreraId.value = null;
+        if (programaAcademicoId.value && !programasAcademicosVisibles.value.some((c) => c.id === programaAcademicoId.value)) {
+            programaAcademicoId.value = null;
         }
 
         if (form.plan_id && !planesVisibles.value.some((p) => p.id === form.plan_id)) {
@@ -236,19 +236,19 @@ watch(
     },
 );
 
-// Cambiar de nivel rehace las carreras: se limpia lo que ya no corresponde.
+// Cambiar de nivel rehace los programas académicos: se limpia lo que ya no corresponde.
 watch(
     () => form.nivel_estudios_id,
     () => {
-        if (carreraId.value && !carrerasVisibles.value.some((c) => c.id === carreraId.value)) {
-            carreraId.value = null;
+        if (programaAcademicoId.value && !programasAcademicosVisibles.value.some((c) => c.id === programaAcademicoId.value)) {
+            programaAcademicoId.value = null;
             form.plan_id = null;
         }
     },
 );
 
 // Al cambiar de ciclo, lo que ya no cabe en su acotamiento se limpia: un campus
-// que el nuevo ciclo no incluye, o una carrera/plan de otro nivel.
+// que el nuevo ciclo no incluye, o un programa académico/plan de otro nivel.
 watch(
     () => form.ciclo_id,
     () => {
@@ -256,8 +256,8 @@ watch(
             form.campus_id = null;
         }
 
-        if (carreraId.value && !carrerasVisibles.value.some((c) => c.id === carreraId.value)) {
-            carreraId.value = null;
+        if (programaAcademicoId.value && !programasAcademicosVisibles.value.some((c) => c.id === programaAcademicoId.value)) {
+            programaAcademicoId.value = null;
         }
     },
 );
@@ -335,14 +335,14 @@ function enviar(): void {
                         :opciones="opciones(nivelesVisibles)"
                         vacio="Selecciona…"
                         :error="form.errors.nivel_estudios_id"
-                        ayuda="Todo grupo pertenece a un nivel. Filtra las carreras."
+                        ayuda="Todo grupo pertenece a un nivel. Filtra los programas académicos."
                     />
                     <CampoSelect
-                        v-if="muestraCarrera"
-                        v-model="carreraId"
-                        etiqueta="3 · Carrera"
+                        v-if="muestraProgramaAcademico"
+                        v-model="programaAcademicoId"
+                        etiqueta="3 · Programa académico"
                         requerido
-                        :opciones="opciones(carrerasVisibles)"
+                        :opciones="opciones(programasAcademicosVisibles)"
                         vacio="Selecciona…"
                         ayuda="Solo las ofertadas en ese campus. Filtra los planes; no se guarda en el grupo."
                     />
@@ -374,11 +374,11 @@ function enviar(): void {
                         otra pantalla.
                     -->
                     <p
-                        v-if="nivelSinCarreras"
+                        v-if="nivelSinProgramasAcademicos"
                         class="rounded-lg border-l-4 border-l-amber-500 p-3 text-sm sm:col-span-2 lg:col-span-3"
                         style="background-color: color-mix(in srgb, #f59e0b 8%, transparent)"
                     >
-                        Ese nivel no tiene ninguna carrera ofertada en este campus. Cárgala en
+                        Ese nivel no tiene ningún programa académico ofertado en este campus. Cárgala en
                         <!-- En otra pestaña a propósito: lo capturado hasta aquí
                              se conserva para poder seguir al volver. -->
                         <a href="/academico/ofertas" target="_blank" rel="noopener" class="underline">Oferta</a>
@@ -386,11 +386,11 @@ function enviar(): void {
                     </p>
 
                     <p
-                        v-else-if="carreraSinPlanes"
+                        v-else-if="programaAcademicoSinPlanes"
                         class="rounded-lg border-l-4 border-l-amber-500 p-3 text-sm sm:col-span-2 lg:col-span-3"
                         style="background-color: color-mix(in srgb, #f59e0b 8%, transparent)"
                     >
-                        Esa carrera no tiene ningún plan de estudios ofertado en este campus. Cárgalo
+                        Ese programa académico no tiene ningún plan de estudios ofertado en este campus. Cárgalo
                         en <a href="/academico/ofertas" target="_blank" rel="noopener" class="underline">Oferta</a>
                         y vuelve.
                     </p>

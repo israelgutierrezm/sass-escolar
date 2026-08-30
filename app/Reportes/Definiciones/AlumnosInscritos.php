@@ -28,7 +28,7 @@ class AlumnosInscritos extends DefinicionReporte
     public function descripcion(): string
     {
         return 'Las matrículas con situación activa, hoy. NO dice cuántos se inscribieron en un ciclo '
-            .'—para eso está el filtro de fecha de ingreso— ni cuenta personas: quien estudia dos carreras aparece dos veces.';
+            .'—para eso está el filtro de fecha de ingreso— ni cuenta personas: quien estudia dos programas académicos aparece dos veces.';
     }
 
     public function fuente(): string
@@ -63,7 +63,7 @@ class AlumnosInscritos extends DefinicionReporte
 
     public function columnasPorOmision(): ?array
     {
-        return ['matricula', 'alumno', 'carrera', 'campus', 'generacion', 'periodo_actual'];
+        return ['matricula', 'alumno', 'programa_academico', 'campus', 'generacion', 'periodo_actual'];
     }
 
     public function ordenPorOmision(): ?array

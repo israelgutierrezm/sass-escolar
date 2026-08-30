@@ -13,7 +13,7 @@ interface Plan {
     nombre: string;
     ciclo: string | null;
     campus: string[];
-    carreras: string[];
+    programas_academicos: string[];
     conceptos: number;
     alumnos: number;
     aplica_recargos: boolean;
@@ -60,7 +60,7 @@ function eliminar(plan: Plan): void {
             :filtros="definicionFiltros"
             placeholder="Buscar por nombre del plan…"
             titulo="El motor de cobro, configurado"
-            descripcion="Un plan vive en un ciclo y aplica a los campus y carreras que le marques. Sus conceptos son cargos con fecha: una colegiatura se captura por rango y se expande sola. Vincular el plan a un alumno es lo que le genera los cargos."
+            descripcion="Un plan vive en un ciclo y aplica a los campus y programas académicos que le marques. Sus conceptos son cargos con fecha: una colegiatura se captura por rango y se expande sola. Vincular el plan a un alumno es lo que le genera los cargos."
             :icono="ICONOS.dinero"
             puede-crear
             nuevo-texto="Nuevo plan"
@@ -106,7 +106,7 @@ function eliminar(plan: Plan): void {
                                     <span v-if="plan.campus.length > 2" class="text-[11px]" :style="{ color: 'var(--color-suave)' }">+{{ plan.campus.length - 2 }}</span>
                                 </span>
                                 <span class="mt-1 block text-[11px]" :style="{ color: 'var(--color-suave)' }">
-                                    {{ plan.carreras.length ? `${plan.carreras.length} carrera(s)` : 'todas las carreras' }}
+                                    {{ plan.programas_academicos.length ? `${plan.programas_academicos.length} programa_academico(s)` : 'todas las programas_academicos' }}
                                 </span>
                             </td>
 

@@ -12,7 +12,7 @@
  *  2. Una vacante VENCIDA no está vigente aunque su situación diga «abierta».
  *     Es la trampa del tablero: se publica con fecha de cierre, se pasa, y la
  *     lista la sigue enseñando en verde.
- *  3. Sin carreras señaladas la vacante es PARA TODAS, y tiene que aparecerle a
+ *  3. Sin programas académicos señaladas la vacante es PARA TODAS, y tiene que aparecerle a
  *     cualquier alumno. Dejarlas fuera escondería la mitad de la oferta real.
  *  4. Un rango de sueldo invertido se rechaza.
  *
@@ -21,7 +21,7 @@
  */
 
 use App\Http\Controllers\Bolsa\VacanteController;
-use App\Models\Academico\Carrera;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Bolsa\Empresa;
 use App\Models\Bolsa\Habilidad;
 use App\Models\Bolsa\SituacionEmpresa;
@@ -77,11 +77,11 @@ try {
 
     $empresa = Empresa::create(['razon_social' => 'Empleador de prueba', 'situacion_id' => $activa->id]);
 
-    [$carreraA, $carreraB] = Carrera::query()->limit(2)->get()->all();
+    [$programaAcademicoA, $programaAcademicoB] = ProgramaAcademico::query()->limit(2)->get()->all();
     $habilidad = Habilidad::query()->firstOrFail();
 
-    verificar('hay dos carreras distintas con las que probar',
-        $carreraA !== null && $carreraB !== null && $carreraA->id !== $carreraB->id);
+    verificar('hay dos programas académicos distintas con las que probar',
+        $programaAcademicoA !== null && $programaAcademicoB !== null && $programaAcademicoA->id !== $programaAcademicoB->id);
 
     $base = fn (array $extra = []) => array_merge([
         'empresa_id' => $empresa->id,
@@ -95,29 +95,29 @@ try {
     echo PHP_EOL.'1. Se publica una vacante'.PHP_EOL;
 
     $control->guardar(peticionDe($usuario, 'POST', $base([
-        'carreras' => [$carreraA->id],
+        'programas_academicos' => [$programaAcademicoA->id],
         'habilidades' => [['id' => $habilidad->id, 'indispensable' => true]],
     ])));
 
     $vacante = Vacante::query()->where('empresa_id', $empresa->id)->firstOrFail();
 
     verificar('queda publicada', $vacante->titulo === 'Auxiliar de prueba');
-    verificar('con su carrera', $vacante->carreras()->count() === 1);
+    verificar('con su programa académico', $vacante->programasAcademicos()->count() === 1);
     verificar('y su habilidad marcada como indispensable',
         (bool) $vacante->habilidades()->first()?->pivot?->indispensable);
     verificar('está vigente', Vacante::query()->vigentes()->whereKey($vacante->id)->exists());
 
-    echo PHP_EOL.'2. Sin carreras señaladas es PARA TODAS'.PHP_EOL;
+    echo PHP_EOL.'2. Sin programas académicos señaladas es PARA TODAS'.PHP_EOL;
 
     $control->guardar(peticionDe($usuario, 'POST', $base(['titulo' => 'Abierta a todas'])));
     $general = Vacante::query()->where('titulo', 'Abierta a todas')->firstOrFail();
 
-    verificar('la acotada NO le sale a la otra carrera',
-        ! Vacante::query()->paraCarrera($carreraB->id)->whereKey($vacante->id)->exists());
-    verificar('la general SÍ le sale a esa carrera',
-        Vacante::query()->paraCarrera($carreraB->id)->whereKey($general->id)->exists());
+    verificar('la acotada NO le sale a la otro programa académico',
+        ! Vacante::query()->paraProgramaAcademico($programaAcademicoB->id)->whereKey($vacante->id)->exists());
+    verificar('la general SÍ le sale a ese programa académico',
+        Vacante::query()->paraProgramaAcademico($programaAcademicoB->id)->whereKey($general->id)->exists());
     verificar('y también a la primera',
-        Vacante::query()->paraCarrera($carreraA->id)->whereKey($general->id)->exists());
+        Vacante::query()->paraProgramaAcademico($programaAcademicoA->id)->whereKey($general->id)->exists());
 
     echo PHP_EOL.'3. Vencida no está vigente aunque diga «abierta»'.PHP_EOL;
 

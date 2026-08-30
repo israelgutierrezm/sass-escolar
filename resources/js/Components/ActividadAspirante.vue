@@ -344,7 +344,7 @@ const colorEstatus: Record<string, string> = {
             </div>
             <p v-if="puedeReasignar && !catalogos.asesores.length" class="mt-2 text-xs text-suave">
                 No hay asesores activos. Da de alta a alguien en
-                <a href="/promocion/asesores" :style="{ color: 'var(--color-acento)' }">Asesores</a>.
+                <a href="/captacion/asesores" :style="{ color: 'var(--color-acento)' }">Asesores</a>.
             </p>
             <p v-else class="mt-2 text-xs text-suave">El cambio queda registrado abajo, con quién lo hizo.</p>
         </div>

@@ -24,7 +24,7 @@ use RuntimeException;
  * ── De dónde sale la matrícula ─────────────────────────────────────────────
  * Siempre de la SESIÓN, nunca de la petición. Es lo que impide que alguien pida
  * una constancia a nombre de otro cambiando un número en el formulario —y el
- * cargo le llegaría al otro—. Cuando alguien tiene dos carreras elige entre las
+ * cargo le llegaría al otro—. Cuando alguien tiene dos programas académicos elige entre las
  * suyas, y esa elección se comprueba contra las suyas otra vez.
  */
 class SolicitudServicioController extends Controller

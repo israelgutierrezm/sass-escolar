@@ -5,18 +5,18 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Concerns;
 
 use App\Models\Academico\Campus;
-use App\Models\Academico\Carrera;
+use App\Models\Academico\NivelEstudio;
 use App\Models\Academico\PlanEstudio;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Grupo;
 use App\Models\Identidad\Rol;
-use App\Models\Academico\NivelEstudio;
 
 /**
  * Los catálogos que alimentan el selector de destinos.
  *
  * Lo comparten el calendario y los avisos: los dos dirigen a la misma escuela
- * con los mismos criterios —rol, campus, nivel, carrera, plan, grupo, materia,
+ * con los mismos criterios —rol, campus, nivel, programa académico, plan, grupo, materia,
  * alumno— y tener dos listas sería garantizar que un día una ofrezca un campus
  * que la otra no.
  */
@@ -46,7 +46,7 @@ trait ArmaDestinos
             'nivel' => NivelEstudio::query()->activos()->orderBy('nombre')->get(['id', 'nombre'])
                 ->map(fn ($n) => ['id' => $n->id, 'nombre' => $n->nombre])->values(),
 
-            'carrera' => Carrera::query()->orderBy('nombre')->get(['id', 'nombre', 'clave'])
+            'programa_academico' => ProgramaAcademico::query()->orderBy('nombre')->get(['id', 'nombre', 'clave'])
                 ->map(fn ($c) => ['id' => $c->id, 'nombre' => "{$c->nombre} ({$c->clave})"])->values(),
 
             'plan' => PlanEstudio::query()->orderBy('nombre')->get(['id', 'nombre'])

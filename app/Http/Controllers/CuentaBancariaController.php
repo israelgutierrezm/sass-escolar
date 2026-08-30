@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Exceptions\AvisoParaElUsuario;
-use App\Models\Academico\Carrera;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Finanzas\ComprobantePago;
 use App\Models\Finanzas\CuentaBancaria;
 use Illuminate\Http\RedirectResponse;
@@ -14,13 +14,13 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Las cuentas de la escuela para recibir transferencias, y a qué carreras
+ * Las cuentas de la escuela para recibir transferencias, y a qué programas académicos
  * aplica cada una.
  *
- * ── Sin carreras marcadas vale para todas ──────────────────────────────────
+ * ── Sin programas académicos marcados vale para todas ──────────────────────────────────
  * Es el caso simple —una escuela, una cuenta— y el más común, así que se
  * resuelve no marcando nada en vez de obligando a seleccionar la lista entera
- * cada vez que se abre una carrera nueva.
+ * cada vez que se abre un programa académico nueva.
  */
 class CuentaBancariaController extends Controller
 {
@@ -28,7 +28,7 @@ class CuentaBancariaController extends Controller
     {
         return Inertia::render('Finanzas/CuentasBancarias', [
             'cuentas' => CuentaBancaria::query()
-                ->with('carreras:id,nombre')
+                ->with('programasAcademicos:id,nombre')
                 ->orderBy('nombre')
                 ->get()
                 ->map(fn (CuentaBancaria $c) => [
@@ -40,13 +40,13 @@ class CuentaBancariaController extends Controller
                     'numero_cuenta' => $c->numero_cuenta,
                     'instrucciones' => $c->instrucciones,
                     'activa' => $c->activa,
-                    'carreras' => $c->carreras->pluck('id'),
+                    'programas_academicos' => $c->programasAcademicos->pluck('id'),
                     // Vacío = todas: se dice con palabras, no con una lista larga.
-                    'alcance' => $c->carreras->isEmpty()
-                        ? 'Todas las carreras'
-                        : $c->carreras->pluck('nombre')->implode(', '),
+                    'alcance' => $c->programasAcademicos->isEmpty()
+                        ? 'Todos los programas académicos'
+                        : $c->programasAcademicos->pluck('nombre')->implode(', '),
                 ]),
-            'carreras' => Carrera::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'programas_academicos' => ProgramaAcademico::query()->orderBy('nombre')->get(['id', 'nombre']),
             'puedeEditar' => $request->user()->can('gestionar-planes-cobro'),
         ]);
     }
@@ -58,8 +58,8 @@ class CuentaBancariaController extends Controller
         $cuenta ??= new CuentaBancaria;
         $cuenta->fill($datos)->save();
 
-        // Vacío = todas las carreras; `sync` con lista vacía es justo eso.
-        $cuenta->carreras()->sync($request->input('carreras', []));
+        // Vacío = todos los programas académicos; `sync` con lista vacía es justo eso.
+        $cuenta->programasAcademicos()->sync($request->input('programas_academicos', []));
 
         return back()->with('exito', 'Cuenta bancaria guardada.');
     }
@@ -96,8 +96,8 @@ class CuentaBancariaController extends Controller
             'numero_cuenta' => ['nullable', 'string', 'max:30'],
             'instrucciones' => ['nullable', 'string', 'max:1000'],
             'activa' => ['boolean'],
-            'carreras' => ['array'],
-            'carreras.*' => ['integer'],
+            'programas_academicos' => ['array'],
+            'programas_academicos.*' => ['integer'],
         ], [
             'clabe.digits' => 'La CLABE tiene exactamente 18 dígitos.',
         ]);
@@ -113,6 +113,6 @@ class CuentaBancariaController extends Controller
             'Pon al menos la CLABE o el número de cuenta: sin eso no hay a dónde transferir.',
         );
 
-        return collect($datos)->except('carreras')->all();
+        return collect($datos)->except('programas_academicos')->all();
     }
 }

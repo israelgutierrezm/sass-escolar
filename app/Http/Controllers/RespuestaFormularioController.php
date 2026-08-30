@@ -121,7 +121,7 @@ class RespuestaFormularioController extends Controller
     /*
      * El mismo expediente después de la conversión.
      *
-     * Un alumno sigue teniendo formularios que llenar —los que su carrera le
+     * Un alumno sigue teniendo formularios que llenar —los que su programa académico le
      * pide, los que se agregaron después de que entró—, y son los mismos
      * bloques resueltos con el mismo criterio. Que aspirante y alumno usen esta
      * misma captura es lo que hace que su expediente no se parta al cruzar.
@@ -153,7 +153,7 @@ class RespuestaFormularioController extends Controller
      * A un docente también se le piden bloques de datos —la constancia de
      * situación fiscal, a quién avisar en una emergencia—, y hasta ahora los
      * formularios sólo sabían de quien estudia. El titular aquí es la PERSONA:
-     * no hay carrera ni matrícula de la que colgarlos, y tampoco hacen falta.
+     * no hay programa académico ni matrícula de la que colgarlos, y tampoco hacen falta.
      *
      * Un docente lo es una sola vez, así que no hay ambigüedad que resolver
      * como la que hay con alguien que tiene dos matrículas.

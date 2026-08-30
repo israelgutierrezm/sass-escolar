@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Models\Promocion;
+namespace App\Models\Captacion;
 
 use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\EtapaCrm;

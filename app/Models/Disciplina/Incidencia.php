@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 /**
  * incidencias (TENANT) — una conducta registrada de un alumno.
  *
- * Cuelga de la MATRICULA, no de la persona: quien estudia dos carreras lleva la
+ * Cuelga de la MATRICULA, no de la persona: quien estudia dos programas académicos lleva la
  * conducta de cada una por separado. `fecha` es cuando OCURRIO, que no es
  * `created_at`.
  */

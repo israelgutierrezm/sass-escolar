@@ -45,7 +45,7 @@ class MovilidadDelPeriodo extends DefinicionReporte
 
     public function columnasPorOmision(): ?array
     {
-        return ['matricula', 'alumno', 'carrera', 'convocatoria', 'institucion', 'periodo', 'etapa', 'promedio'];
+        return ['matricula', 'alumno', 'programa_academico', 'convocatoria', 'institucion', 'periodo', 'etapa', 'promedio'];
     }
 
     public function ordenPorOmision(): ?array

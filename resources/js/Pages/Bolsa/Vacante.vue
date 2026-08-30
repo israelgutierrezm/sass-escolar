@@ -34,14 +34,14 @@ const form = useForm({
     fecha_publicacion: props.vacante.fecha_publicacion ?? '',
     fecha_cierre: props.vacante.fecha_cierre ?? '',
     situacion_id: props.vacante.situacion_id,
-    carreras: [...(props.vacante.carreras ?? [])] as number[],
+    programas_academicos: [...(props.vacante.programas_academicos ?? [])] as number[],
     habilidades: [...(props.vacante.habilidades ?? [])] as { id: number; indispensable: boolean }[],
 });
 
-function alternarCarrera(id: number): void {
-    form.carreras = form.carreras.includes(id)
-        ? form.carreras.filter((c) => c !== id)
-        : [...form.carreras, id];
+function alternarProgramaAcademico(id: number): void {
+    form.programas_academicos = form.programas_academicos.includes(id)
+        ? form.programas_academicos.filter((c) => c !== id)
+        : [...form.programas_academicos, id];
 }
 
 function habilidadElegida(id: number): { id: number; indispensable: boolean } | undefined {
@@ -179,25 +179,25 @@ function guardar(): void {
 
             <TarjetaSeccion
                 titulo="Perfil"
-                descripcion="Sin ninguna carrera marcada, la vacante queda abierta a todas."
+                descripcion="Sin ningún programa académico marcado, la vacante queda abierta a todas."
                 class="mb-4"
             >
-                <p class="mb-2 text-sm font-medium">Carreras</p>
+                <p class="mb-2 text-sm font-medium">Programas académicos</p>
                 <div class="flex flex-wrap gap-2">
                     <button
-                        v-for="c in catalogos.carreras"
+                        v-for="c in catalogos.programas_academicos"
                         :key="c.id"
                         type="button"
                         class="rounded-full border px-3 py-1 text-xs"
-                        :style="form.carreras.includes(c.id)
+                        :style="form.programas_academicos.includes(c.id)
                             ? { borderColor: 'var(--color-acento)', color: 'var(--color-acento)', backgroundColor: 'color-mix(in srgb, var(--color-acento) 10%, transparent)' }
                             : { borderColor: 'var(--color-borde)' }"
-                        @click="alternarCarrera(c.id)"
+                        @click="alternarProgramaAcademico(c.id)"
                     >
                         {{ c.nombre }}
                     </button>
                 </div>
-                <p v-if="!form.carreras.length" class="mt-2 text-xs" :style="{ color: 'var(--color-suave)' }">
+                <p v-if="!form.programas_academicos.length" class="mt-2 text-xs" :style="{ color: 'var(--color-suave)' }">
                     Ninguna marcada — la verán todos los alumnos y egresados.
                 </p>
 

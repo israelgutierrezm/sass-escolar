@@ -78,7 +78,7 @@ class EmbudoDelPanelTest extends TenantTestCase
     }
 
     /**
-     * Quien coordina promoción, no un promotor.
+     * Quien coordina captación, no un promotor.
      *
      * El servicio acota por asignación: un promotor sólo cuenta los prospectos
      * que tiene asignados, y aquí los de prueba no tienen asesor —darían cero y
@@ -90,7 +90,7 @@ class EmbudoDelPanelTest extends TenantTestCase
         $usuario = $this->usuarioConAlcance();
 
         Role::findByName('administrativo', 'web')->givePermissionTo(
-            Permission::firstOrCreate(['name' => 'gestionar-promocion', 'guard_name' => 'web'])
+            Permission::firstOrCreate(['name' => 'gestionar-captacion', 'guard_name' => 'web'])
         );
 
         return $usuario->fresh();

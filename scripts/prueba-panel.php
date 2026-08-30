@@ -261,7 +261,7 @@ try {
     verificar('No ve "mi avance": no es alumno', ! in_array('mi-avance', $deFinanzas, true));
     verificar('Ni las materias de docencia', ! in_array('mis-materias', $deFinanzas, true));
 
-    echo PHP_EOL.'5. Promoción ve su embudo y sus pendientes'.PHP_EOL;
+    echo PHP_EOL.'5. Captación ve su embudo y sus pendientes'.PHP_EOL;
 
     rolFuncional('promotor', 'administrativo', ['ver-mis-prospectos']);
 
@@ -331,7 +331,7 @@ try {
 
     verificar('Ve la cartera porque le palomearon sus permisos',
         in_array('cartera', $delNuevo, true), implode(', ', $delNuevo));
-    verificar('Y no ve nada de promoción, que no le dieron',
+    verificar('Y no ve nada de captación, que no le dieron',
         ! in_array('embudo', $delNuevo, true) && ! in_array('por-contactar', $delNuevo, true));
     verificar('Sin haber tocado una sola línea de código para ese rol', true);
 } catch (Throwable $e) {

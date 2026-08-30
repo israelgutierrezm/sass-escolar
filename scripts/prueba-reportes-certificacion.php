@@ -103,7 +103,7 @@ try {
     /*
      * Se siembran ANTES de todo lo demás, para que todas las secciones los
      * ejerciten. Los tres salieron de mutaciones que sobrevivían: el demo no
-     * tiene ni un recursamiento, ni un plan sin meta, ni una carrera que no
+     * tiene ni un recursamiento, ni un plan sin meta, ni un programa académico que no
      * expida papel, así que tres reglas de verdad pasaban sin comprobarse.
      */
 
@@ -143,20 +143,20 @@ try {
         $renglones >= 2, $renglones.' renglones de la misma materia');
 
     // (b) Una CARRERA que no expide documentos oficiales: un diplomado.
-    $carreraSinPapel = MatriculaOferta::query()
-        ->whereHas('oferta.carrera')
+    $programaAcademicoSinPapel = MatriculaOferta::query()
+        ->whereHas('oferta.programaAcademico')
         ->get()
         ->first(fn (MatriculaOferta $m) => $servicio->disponible($m) && $servicio->emiteDocumentos($m));
 
     verificar('Hay una matrícula que cerró su plan para el escenario',
-        $carreraSinPapel !== null, $carreraSinPapel?->matricula ?? 'ninguna');
+        $programaAcademicoSinPapel !== null, $programaAcademicoSinPapel?->matricula ?? 'ninguna');
 
-    $idCarreraSinPapel = $carreraSinPapel?->oferta?->carrera_id;
+    $idCarreraSinPapel = $programaAcademicoSinPapel?->oferta?->programa_academico_id;
 
-    DB::table('carreras')->where('id', $idCarreraSinPapel)->update(['emite_documentos_oficiales' => false]);
+    DB::table('programas_academicos')->where('id', $idCarreraSinPapel)->update(['emite_documentos_oficiales' => false]);
 
-    verificar('(b) Esa carrera ya NO expide documentos oficiales',
-        DB::table('carreras')->where('id', $idCarreraSinPapel)->value('emite_documentos_oficiales') == 0);
+    verificar('(b) Ese programa académico ya NO expide documentos oficiales',
+        DB::table('programas_academicos')->where('id', $idCarreraSinPapel)->value('emite_documentos_oficiales') == 0);
 
     echo PHP_EOL.'1. Las DOS formas de la regla dicen lo mismo'.PHP_EOL;
 
@@ -219,7 +219,7 @@ try {
     ])->filas)->pluck('matricula')->sort()->values();
 
     $porElServicio = MatriculaOferta::query()
-        ->with('oferta.carrera', 'oferta.plan')
+        ->with('oferta.programaAcademico', 'oferta.plan')
         ->get()
         ->filter(fn (MatriculaOferta $m) => $servicio->elegibleParaLote($m, 'total'))
         ->pluck('matricula')->sort()->values();
@@ -298,7 +298,7 @@ try {
     echo PHP_EOL.'5. Lo que ya está en trámite no se ofrece'.PHP_EOL;
 
     $candidato = MatriculaOferta::query()
-        ->with('oferta.carrera', 'oferta.plan')
+        ->with('oferta.programaAcademico', 'oferta.plan')
         ->get()
         ->first(fn (MatriculaOferta $m) => $servicio->elegibleParaLote($m, 'total'));
 
@@ -422,22 +422,22 @@ try {
         $renglonesTotales.' renglones vs '.$porElServicioAprobadas.' materias');
 
     /*
-     * (b) Una carrera que NO expide papel no se ofrece, aunque haya cerrado su
+     * (b) Un programa académico que NO expide papel no se ofrece, aunque haya cerrado su
      * plan: un diplomado vive en el mismo catálogo y no tiene RVOE que respalde
      * un certificado.
      */
     $trasQuitarPapel = collect($ejecutor->ejecutar($global, 'listos-para-certificar', [
-        'columnas' => ['matricula', 'carrera'],
+        'columnas' => ['matricula', 'programa_academico'],
     ])->filas);
 
-    verificar('(b) Quien cerró su plan pero cuya carrera NO expide papel, no sale',
-        ! $trasQuitarPapel->contains('matricula', $carreraSinPapel->matricula),
-        $carreraSinPapel->matricula.' — '.$trasQuitarPapel->count().' listos');
+    verificar('(b) Quien cerró su plan pero cuya programa académico NO expide papel, no sale',
+        ! $trasQuitarPapel->contains('matricula', $programaAcademicoSinPapel->matricula),
+        $programaAcademicoSinPapel->matricula.' — '.$trasQuitarPapel->count().' listos');
 
     // Y la columna lo DICE, en vez de que desaparezca sin explicación.
     $suFila = collect($ejecutor->ejecutar($global, 'avance-de-certificacion', [
         'columnas' => ['matricula', 'cerro_plan', 'emite_documentos'],
-    ])->filas)->firstWhere('matricula', $carreraSinPapel->matricula);
+    ])->filas)->firstWhere('matricula', $programaAcademicoSinPapel->matricula);
 
     verificar('Y el reporte de avance explica por qué: cerró, pero no expide',
         ($suFila['cerro_plan'] ?? null) === true && ($suFila['emite_documentos'] ?? null) === false,
@@ -475,14 +475,14 @@ try {
      */
     /*
      * Y tiene que ser una que SÍ podría aparecer en «listos» si la regla se
-     * aflojara: de otra carrera que sí expida papel y sin trámite abierto. La
+     * aflojara: de otro programa académico que sí expida papel y sin trámite abierto. La
      * primera versión tomaba la primera matrícula a secas y resultó ser de la
-     * carrera que el escenario (b) acababa de dejar sin papel, así que quedaba
+     * programa académico que el escenario (b) acababa de dejar sin papel, así que quedaba
      * excluida por OTRA condición y quitarle el `meta > 0` no tumbaba nada.
      */
     $sinAvance = MatriculaOferta::query()
         ->whereHas('oferta.plan')
-        ->whereHas('oferta.carrera', fn ($c) => $c->where('id', '!=', $idCarreraSinPapel))
+        ->whereHas('oferta.programaAcademico', fn ($c) => $c->where('id', '!=', $idCarreraSinPapel))
         ->whereDoesntHave('certificaciones')
         ->firstOrFail();
 

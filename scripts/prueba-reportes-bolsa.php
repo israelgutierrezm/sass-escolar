@@ -21,7 +21,7 @@
  *     `situaciones_alumno.cuenta_como_egresado`, no una lista de claves.
  *  2. **Quien cambió de trabajo dos veces sigue siendo UN egresado colocado.**
  *     Es lo que impide que el porcentaje pase del 100 %.
- *  3. **`relacionado_con_carrera` tiene TRES estados.** «No se preguntó» no es
+ *  3. **`relacionado_con_programa_academico` tiene TRES estados.** «No se preguntó» no es
  *     «no es de su área», y la columna lo respeta.
  *  4. La empresa y el puesto que se enseñan son los de la ÚLTIMA colocación,
  *     no los alfabéticamente mayores.
@@ -181,7 +181,7 @@ try {
         'empresa_id' => $empresaA,
         'puesto' => 'Auxiliar de obra',
         'fecha_ingreso' => now()->subYear()->toDateString(),
-        'relacionado_con_carrera' => 0,
+        'relacionado_con_programa_academico' => 0,
         'created_at' => now(), 'updated_at' => now(),
     ]);
 
@@ -193,7 +193,7 @@ try {
         'empresa_id' => $empresaB,
         'puesto' => 'Desarrollador',
         'fecha_ingreso' => now()->subMonth()->toDateString(),
-        'relacionado_con_carrera' => 1,
+        'relacionado_con_programa_academico' => 1,
         'created_at' => now(), 'updated_at' => now(),
     ]);
 
@@ -234,7 +234,7 @@ try {
     echo PHP_EOL.'5. «No se preguntó» NO es «no es de su área»'.PHP_EOL;
 
     /*
-     * `relacionado_con_carrera` es NULLABLE a propósito: con `false` por
+     * `relacionado_con_programa_academico` es NULLABLE a propósito: con `false` por
      * omisión, una colocación capturada sin preguntar afirmaría algo que nadie
      * dijo. La columna tiene que tener TRES estados.
      */
@@ -252,7 +252,7 @@ try {
         'empresa_id' => $empresaA,
         'puesto' => 'Sin preguntar',
         'fecha_ingreso' => now()->subDays(10)->toDateString(),
-        'relacionado_con_carrera' => null,
+        'relacionado_con_programa_academico' => null,
         'created_at' => now(), 'updated_at' => now(),
     ]);
 
@@ -283,7 +283,7 @@ try {
         'persona_id' => $egresado->persona_id,
         'matricula_oferta_id' => null,
         'empresa_id' => $empresaA,
-        'puesto' => 'Sin carrera señalada',
+        'puesto' => 'Sin programa académico señalada',
         'fecha_ingreso' => now()->toDateString(),
         'created_at' => now(), 'updated_at' => now(),
     ]);

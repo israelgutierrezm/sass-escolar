@@ -18,7 +18,7 @@ interface Vacante {
     vencida: boolean;
     fecha_cierre: string | null;
     vacantes_disponibles: number;
-    carreras: string[];
+    programas_academicos: string[];
     salario: string | null;
 }
 
@@ -117,13 +117,13 @@ function etiquetaDe(v: Vacante): string {
                             <span v-if="v.vacantes_disponibles > 1"> · {{ v.vacantes_disponibles }} plazas</span>
                         </p>
                         <!--
-                            Sin carreras señaladas NO es un dato faltante: es
+                            Sin programas académicos señaladas NO es un dato faltante: es
                             «para todas». Se dice con palabras porque un hueco se
                             lee como captura incompleta.
                         -->
                         <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                            <template v-if="v.carreras.length">Para {{ v.carreras.join(', ') }}</template>
-                            <template v-else>Abierta a todas las carreras</template>
+                            <template v-if="v.programas_academicos.length">Para {{ v.programas_academicos.join(', ') }}</template>
+                            <template v-else>Abierta a todos los programas académicos</template>
                             <span v-if="v.fecha_cierre"> · cierra el {{ v.fecha_cierre }}</span>
                         </p>
                     </div>

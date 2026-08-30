@@ -10,7 +10,7 @@ use App\Reportes\DefinicionReporte;
  * Quién puede pedir un certificado PARCIAL.
  *
  * Avanzó y todavía no cerró: es el papel que necesita quien se cambia de
- * escuela o pide una beca a media carrera. Sin este reporte hay que abrir el
+ * escuela o pide una beca a media programa académico. Sin este reporte hay que abrir el
  * expediente de cada alumno para saber si tiene algo que acreditar.
  */
 class AvanceParaCertificadoParcial extends DefinicionReporte
@@ -49,7 +49,7 @@ class AvanceParaCertificadoParcial extends DefinicionReporte
 
     public function columnasPorOmision(): ?array
     {
-        return ['matricula', 'alumno', 'carrera', 'campus', 'aprobadas', 'meta', 'generacion'];
+        return ['matricula', 'alumno', 'programa_academico', 'campus', 'aprobadas', 'meta', 'generacion'];
     }
 
     public function ordenPorOmision(): ?array

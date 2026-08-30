@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Admisiones\Aspirante;
-use App\Models\Promocion\ResultadoSeguimiento;
-use App\Models\Promocion\SeguimientoAspirante;
-use App\Models\Promocion\TipoSeguimiento;
+use App\Models\Captacion\ResultadoSeguimiento;
+use App\Models\Captacion\SeguimientoAspirante;
+use App\Models\Captacion\TipoSeguimiento;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 

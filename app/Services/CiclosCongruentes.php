@@ -24,9 +24,9 @@ class CiclosCongruentes
      */
     public function paraAlumno(MatriculaOferta $alumno): Collection
     {
-        $alumno->loadMissing('oferta.carrera');
+        $alumno->loadMissing('oferta.programaAcademico');
         $campusId = $alumno->oferta?->campus_id;
-        $nivelId = $alumno->oferta?->carrera?->nivel_estudios_id;
+        $nivelId = $alumno->oferta?->programaAcademico?->nivel_estudios_id;
 
         return Ciclo::query()
             ->with(['campus:id', 'niveles:id'])

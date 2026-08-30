@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Exceptions\AvisoParaElUsuario;
-use App\Services\Plataforma\ModulosDeLaEscuela;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\Historial;
+use App\Models\Disciplina\Incidencia;
+use App\Models\Disciplina\Sancion;
 use App\Models\Finanzas\CuentaBancaria;
 use App\Models\Finanzas\Factura;
 use App\Models\Identidad\BitacoraAcceso;
@@ -18,7 +19,9 @@ use App\Services\EstadoCuenta;
 use App\Services\EstadoDelAlumno;
 use App\Services\HistorialDelAlumno;
 use App\Services\Pagos\Pasarelas;
+use App\Services\Plataforma\ModulosDeLaEscuela;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -44,10 +47,10 @@ class PadreController extends Controller
         $persona = $request->user()->persona;
 
         $hijos = $persona->hijos()->get()->map(function (Persona $hijo) {
-            $carreras = $hijo->matriculas()
-                ->with('oferta.carrera:id,nombre')
+            $programasAcademicos = $hijo->matriculas()
+                ->with('oferta.programaAcademico:id,nombre')
                 ->get()
-                ->map(fn (MatriculaOferta $m) => $m->oferta?->carrera?->nombre)
+                ->map(fn (MatriculaOferta $m) => $m->oferta?->programaAcademico?->nombre)
                 ->filter()
                 ->values();
 
@@ -56,13 +59,13 @@ class PadreController extends Controller
                 'nombre' => $hijo->nombreCompleto(),
                 'foto' => $hijo->urlFoto(),
                 'parentesco' => Parentesco::nombreDe($hijo->pivot->parentesco_id),
-                'carreras' => $carreras,
+                'programas_academicos' => $programasAcademicos,
                 'puede_ver_academico' => (bool) $hijo->pivot->puede_ver_academico,
                 'puede_ver_finanzas' => (bool) $hijo->pivot->puede_ver_finanzas,
                 /*
                  * El ESTADO, no solo el nombre.
                  *
-                 * El listado era un directorio: nombre, parentesco y carreras.
+                 * El listado era un directorio: nombre, parentesco y programas académicos.
                  * Un padre no entra aquí a recordar cómo se llaman sus hijos;
                  * entra a saber si deben algo o si van mal, y para enterarse
                  * tenía que abrir cada ficha una por una. Con dos hijos son dos
@@ -101,7 +104,7 @@ class PadreController extends Controller
 
         $matriculas = $hijo->matriculas()
             ->with([
-                'oferta.carrera:id,nombre',
+                'oferta.programaAcademico:id,nombre',
                 'oferta.plan:id,nombre,total_creditos',
                 'oferta.campus:id,nombre',
                 'situacion:id,nombre',
@@ -124,15 +127,15 @@ class PadreController extends Controller
             /*
              * Qué estudia, aparte del detalle de cada cosa.
              *
-             * La pantalla elige una carrera a la vez, y necesita la lista para
+             * La pantalla elige un programa académico a la vez, y necesita la lista para
              * ofrecerla. Va por separado de `academico` y `finanzas` porque
              * cada uno de ésos depende de su propio permiso: sin esto, a un
              * padre que sólo ve lo financiero no se le podría decir cuál de las
-             * dos carreras está mirando.
+             * dos programas académicos está mirando.
              */
-            'carreras' => $matriculas->map(fn (MatriculaOferta $m) => [
+            'programas_academicos' => $matriculas->map(fn (MatriculaOferta $m) => [
                 'matricula' => $m->matricula,
-                'carrera' => $m->oferta?->carrera?->nombre,
+                'programa_academico' => $m->oferta?->programaAcademico?->nombre,
                 'campus' => $m->oferta?->campus?->nombre,
             ])->values(),
             'academico' => $vinculo->puede_ver_academico
@@ -154,13 +157,13 @@ class PadreController extends Controller
                 : [],
             /*
              * Y la transferencia directa, con las cuentas que sirven para las
-             * carreras de sus hijos. Se juntan las de todas sus matrículas: la
-             * pantalla enseña una carrera a la vez, pero pedirlas por separado
+             * programas académicos de sus hijos. Se juntan las de todas sus matrículas: la
+             * pantalla enseña un programa académico a la vez, pero pedirlas por separado
              * obligaría a recargar al cambiar de foco.
              */
             'cuentasBancarias' => $vinculo->puede_ver_finanzas
                 ? $matriculas
-                    ->flatMap(fn (MatriculaOferta $m) => CuentaBancaria::paraCarrera($m->oferta?->carrera_id))
+                    ->flatMap(fn (MatriculaOferta $m) => CuentaBancaria::paraProgramaAcademico($m->oferta?->programa_academico_id))
                     ->filter(fn (CuentaBancaria $c) => $c->puedeRecibir())
                     ->unique('id')
                     ->map(fn (CuentaBancaria $c) => [
@@ -204,17 +207,17 @@ class PadreController extends Controller
      * Incidencias y sanciones de todas las matrículas del hijo, para su portal.
      *
      * De sólo lectura: el padre CONSULTA, no registra. Se juntan las de todas
-     * sus carreras porque la conducta se lee por alumno, aunque cuelgue de la
+     * sus programas académicos porque la conducta se lee por alumno, aunque cuelgue de la
      * matrícula.
      *
-     * @param  \Illuminate\Support\Collection<int, MatriculaOferta>  $matriculas
+     * @param  Collection<int, MatriculaOferta>  $matriculas
      * @return array{incidencias: array<int, mixed>, sanciones: array<int, mixed>}
      */
     private function conductaDe($matriculas): array
     {
         $ids = $matriculas->pluck('id');
 
-        $incidencias = \App\Models\Disciplina\Incidencia::query()
+        $incidencias = Incidencia::query()
             ->whereIn('matricula_oferta_id', $ids)
             ->with('tipo:id,nombre,nivel')
             ->orderByDesc('fecha')
@@ -228,7 +231,7 @@ class PadreController extends Controller
                 'descripcion' => $i->descripcion,
             ]);
 
-        $sanciones = \App\Models\Disciplina\Sancion::query()
+        $sanciones = Sancion::query()
             ->whereIn('matricula_oferta_id', $ids)
             ->with('tipo:id,nombre')
             ->orderByDesc('fecha')
@@ -277,7 +280,7 @@ class PadreController extends Controller
 
         return [
             'matricula' => $m->matricula,
-            'carrera' => $m->oferta?->carrera?->nombre,
+            'programa_academico' => $m->oferta?->programaAcademico?->nombre,
             'plan' => $m->oferta?->plan?->nombre,
             'estatus' => $m->estatus,
             'promedio' => $resumen['promedio'],
@@ -316,7 +319,7 @@ class PadreController extends Controller
             // de pago para decirle al servidor qué cuenta se está pagando.
             'matricula_id' => $m->id,
             'matricula' => $m->matricula,
-            'carrera' => $m->oferta?->carrera?->nombre,
+            'programa_academico' => $m->oferta?->programaAcademico?->nombre,
             'saldo' => $cuenta['resumen']['saldo'],
             'adeudos' => $cuenta['adeudos'],
             'pagos' => $cuenta['pagos'],

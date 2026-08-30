@@ -24,7 +24,7 @@ use Inertia\Response;
  *
  * ── La matrícula sale de la sesión ─────────────────────────────────────────
  * Nunca de la URL. No hay forma de pedir el historial académico de otro porque no hay dónde
- * escribir su id. Quien estudia dos carreras elige entre las SUYAS, y la
+ * escribir su id. Quien estudia dos programas académicos elige entre las SUYAS, y la
  * elección se comprueba contra esa misma lista.
  */
 class MiHistorialController extends Controller
@@ -58,27 +58,27 @@ class MiHistorialController extends Controller
          *
          * De él salen `total_creditos` y `minimo_asignaturas` —los denominadores
          * del resumen— y la escala con la que `HistorialDelAlumno::promedio`
-         * redondea. Pidiendo `plan:id,nombre`, como se hace con la carrera y el
+         * redondea. Pidiendo `plan:id,nombre`, como se hace con el programa académico y el
          * campus, esas columnas llegan en NULL y no falla nada: los créditos
          * salen «148» sin el «de 336» y el promedio se redondea con la regla por
          * omisión en vez de la del plan. Pasó al escribir esta pantalla y sólo se
          * vio comparando su resumen contra el del servicio.
          */
-        $elegida->load(['oferta.carrera:id,nombre,nivel_estudios_id', 'oferta.plan', 'oferta.campus:id,nombre']);
+        $elegida->load(['oferta.programaAcademico:id,nombre,nivel_estudios_id', 'oferta.plan', 'oferta.campus:id,nombre']);
 
         return Inertia::render('MiHistorial', [
             'matriculas' => $matriculas
                 ->map(fn (MatriculaOferta $m) => [
                     'id' => $m->id,
                     'matricula' => $m->matricula,
-                    'carrera' => $m->oferta?->carrera?->nombre,
+                    'programa_academico' => $m->oferta?->programaAcademico?->nombre,
                 ])
                 ->values(),
 
             'matricula' => [
                 'id' => $elegida->id,
                 'matricula' => $elegida->matricula,
-                'carrera' => $elegida->oferta?->carrera?->nombre,
+                'programa_academico' => $elegida->oferta?->programaAcademico?->nombre,
                 'plan' => $elegida->oferta?->plan?->nombre,
                 'campus' => $elegida->oferta?->campus?->nombre,
                 'generacion' => $elegida->generacion,
@@ -98,7 +98,7 @@ class MiHistorialController extends Controller
              * 404 en las escuelas que sólo lo entregan en ventanilla.
              */
             'descargable' => DisenoHistorial::paraNivel(
-                $elegida->oferta?->carrera?->nivel_estudios_id,
+                $elegida->oferta?->programaAcademico?->nivel_estudios_id,
             )->descarga_alumno,
         ]);
     }

@@ -16,7 +16,7 @@ interface Materia {
 
 interface Academico {
     matricula: string;
-    carrera: string | null;
+    programa_academico: string | null;
     plan: string | null;
     estatus: string;
     promedio: number | null;
@@ -39,7 +39,7 @@ interface Adeudo {
 interface Finanza {
     matricula_id: number;
     matricula: string;
-    carrera: string | null;
+    programa_academico: string | null;
     saldo: number;
     adeudos: Adeudo[];
     pagos: any[];
@@ -50,7 +50,7 @@ const props = defineProps<{
     hijo: { id: number; nombre: string; foto: string | null; curp: string | null; parentesco: string };
     permisos: { academico: boolean; finanzas: boolean };
     /** Lo que estudia, aunque no se le deje ver el detalle de ninguna. */
-    carreras: { matricula: string; carrera: string | null; campus: string | null }[];
+    programas_academicos: { matricula: string; programa_academico: string | null; campus: string | null }[];
     academico: Academico[] | null;
     finanzas: Finanza[] | null;
     /** Con qué se puede pagar aquí mismo. Vacío = la escuela no tiene ninguna. */
@@ -68,19 +68,19 @@ const props = defineProps<{
 }>();
 
 /*
- * Una carrera a la vez.
+ * Un programa académico a la vez.
  *
  * Cuando el hijo estudia dos cosas, esta pantalla apilaba una tarjeta completa
- * por carrera —con toda su tabla de materias— y la segunda quedaba tan abajo
+ * por programa académico —con toda su tabla de materias— y la segunda quedaba tan abajo
  * que había que buscarla con scroll para descubrir que existía. Se elige entre
  * ellas, como en el expediente del alumno, y así las dos están a la vista desde
  * el primer momento.
  *
  * Se identifica por MATRÍCULA y no por posición: académico y finanzas son dos
  * listas distintas y sólo la matrícula garantiza que se está mirando la misma
- * carrera en ambas.
+ * programa académico en ambas.
  */
-const enFoco = ref(props.carreras[0]?.matricula ?? null);
+const enFoco = ref(props.programas_academicos[0]?.matricula ?? null);
 
 const academicoEnFoco = computed(
     () => (props.academico ?? []).filter((a) => a.matricula === enFoco.value),
@@ -97,7 +97,7 @@ const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN
 /*
  * Qué cuenta se está pagando, POR MATRÍCULA.
  *
- * Un hijo puede tener dos carreras y cada una su propio saldo: con una sola
+ * Un hijo puede tener dos programas académicos y cada una su propio saldo: con una sola
  * bandera, abrir el pago de una abriría también el de la otra y se acabaría
  * pagando la equivocada.
  */
@@ -142,20 +142,20 @@ function colorCalif(estatusClave: string | null): string {
             </div>
 
             <!--
-                Con una sola carrera no hay nada que elegir y el selector sería
+                Con una sola programa académico no hay nada que elegir y el selector sería
                 un control que no hace nada.
             -->
             <div
-                v-if="carreras.length > 1"
+                v-if="programas_academicos.length > 1"
                 class="mt-4 border-t pt-4"
                 :style="{ borderColor: 'var(--color-borde)' }"
             >
                 <p class="mb-2 text-sm">
-                    Estudia <strong>{{ carreras.length }} carreras</strong>. Elige cuál quieres ver:
+                    Estudia <strong>{{ programas_academicos.length }} programas académicos</strong>. Elige cuál quieres ver:
                 </p>
                 <div class="flex flex-wrap gap-2">
                     <button
-                        v-for="c in carreras"
+                        v-for="c in programas_academicos"
                         :key="c.matricula"
                         type="button"
                         class="rounded-lg border px-3 py-2 text-left text-sm transition"
@@ -164,7 +164,7 @@ function colorCalif(estatusClave: string | null): string {
                             : { borderColor: 'var(--color-borde)' }"
                         @click="enFoco = c.matricula"
                     >
-                        <span class="block font-medium">{{ c.carrera ?? 'Carrera' }}</span>
+                        <span class="block font-medium">{{ c.programa_academico ?? 'ProgramaAcademico' }}</span>
                         <span class="block text-xs" :style="{ color: 'var(--color-suave)' }">
                             {{ c.matricula }}<template v-if="c.campus"> · {{ c.campus }}</template>
                         </span>
@@ -178,7 +178,7 @@ function colorCalif(estatusClave: string | null): string {
             <section v-for="(a, i) in academicoEnFoco" :key="'a' + i" class="tarjeta overflow-hidden">
                 <div class="flex flex-wrap items-center justify-between gap-3 border-b p-5" :style="{ borderColor: 'var(--color-borde)' }">
                     <div>
-                        <h3 class="font-semibold">{{ a.carrera ?? 'Carrera' }}</h3>
+                        <h3 class="font-semibold">{{ a.programa_academico ?? 'ProgramaAcademico' }}</h3>
                         <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
                             {{ a.matricula }} <span v-if="a.plan">· {{ a.plan }}</span>
                         </p>
@@ -236,7 +236,7 @@ function colorCalif(estatusClave: string | null): string {
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h3 class="font-semibold">Estado de cuenta</h3>
-                        <p class="text-xs" :style="{ color: 'var(--color-suave)' }">{{ f.carrera ?? f.matricula }} · {{ f.matricula }}</p>
+                        <p class="text-xs" :style="{ color: 'var(--color-suave)' }">{{ f.programa_academico ?? f.matricula }} · {{ f.matricula }}</p>
                     </div>
                     <div class="text-right">
                         <p class="text-xs" :style="{ color: 'var(--color-suave)' }">Saldo</p>

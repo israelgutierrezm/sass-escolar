@@ -6,7 +6,7 @@ namespace Database\Seeders;
 
 use App\Models\Academico\Asignatura;
 use App\Models\Academico\Campus;
-use App\Models\Academico\Carrera;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Academico\Institucion;
 use App\Models\Academico\Oferta;
 use App\Models\Academico\PlanEstudio;
@@ -32,12 +32,12 @@ use Illuminate\Support\Str;
 /**
  * Datos de institución realistas para el tenant demo, para pruebas de volumen.
  *
- * Borra el dominio académico/escolar (campus, carreras, planes, materias,
+ * Borra el dominio académico/escolar (campus, programas académicos, planes, materias,
  * ofertas, ciclos, grupos, docentes, alumnos y sus historial académico) SIN tocar el login,
  * los roles ni los catálogos, y siembra:
  *  - 2 campus.
- *  - 10 carreras de varios niveles (licenciaturas y posgrados).
- *  - 2 planes por carrera: uno antiguo (no vigente) y uno actual (vigente).
+ *  - 10 programas académicos de varios niveles (licenciaturas y posgrados).
+ *  - 2 planes por programa académico: uno antiguo (no vigente) y uno actual (vigente).
  *  - malla completa por plan (≈48 materias en lic, 18-28 en posgrado).
  *  - 15 alumnos, cada uno con 2-3 matrículas (una concluida, otra en curso),
  *    con su historial académico generado.
@@ -79,9 +79,9 @@ class PoblarInstitucionDemoSeeder extends Seeder
 
         $campus = $this->crearCampus();
         $this->crearCiclos();
-        $carreras = $this->crearCarrerasYPlanes();
-        $this->crearOfertas($carreras, $campus);
-        $this->crearAlumnos($carreras);
+        $programasAcademicos = $this->crearCarrerasYPlanes();
+        $this->crearOfertas($programasAcademicos, $campus);
+        $this->crearAlumnos($programasAcademicos);
         $this->crearTutores();
         $this->crearAspirantes();
         $this->crearDocentes($campus);
@@ -111,7 +111,7 @@ class PoblarInstitucionDemoSeeder extends Seeder
             'documentos_docente', 'titulos_docente', 'campus_docente', 'docentes',
             'aspirantes',
             'oferta', 'seriacion', 'esquema_evaluacion', 'plan_materias', 'planes_estudio',
-            'asignaturas', 'carreras',
+            'asignaturas', 'programas_academicos',
             'ciclo_nivel', 'ciclo_campus', 'campus_ciclo', 'ciclos',
             'campus',
         ];
@@ -186,7 +186,7 @@ class PoblarInstitucionDemoSeeder extends Seeder
     }
 
     /**
-     * @return array<int, array<string, mixed>> cada una con carrera + planes[] (con plan_materias[])
+     * @return array<int, array<string, mixed>> cada una con programa académico + planes[] (con plan_materias[])
      */
     private function crearCarrerasYPlanes(): array
     {
@@ -203,10 +203,10 @@ class PoblarInstitucionDemoSeeder extends Seeder
             ['Doctorado en Ciencias Administrativas', 'DCA', self::NIVEL_DOCTORADO, self::PERIODO_CUATRIMESTRE, 6, 24, 'admin'],
         ];
 
-        $carreras = [];
+        $programasAcademicos = [];
 
         foreach ($defs as [$nombre, $clave, $nivel, $tipoPeriodo, $periodos, $totalMaterias, $tema]) {
-            $carrera = Carrera::create([
+            $programaAcademico = ProgramaAcademico::create([
                 'identificador' => (string) Str::uuid(),
                 'clave' => $clave,
                 'nombre' => $nombre,
@@ -216,7 +216,7 @@ class PoblarInstitucionDemoSeeder extends Seeder
             $planes = [];
             foreach ([['2016', false], ['2022', true]] as [$anioPlan, $vigente]) {
                 $plan = PlanEstudio::create([
-                    'carrera_id' => $carrera->id,
+                    'programa_academico_id' => $programaAcademico->id,
                     'clave' => "{$clave}-{$anioPlan}",
                     'abreviacion' => "{$clave}{$anioPlan}",
                     'nombre' => "Plan {$anioPlan}",
@@ -238,10 +238,10 @@ class PoblarInstitucionDemoSeeder extends Seeder
                 $planes[] = ['plan' => $plan, 'materias' => $planMaterias, 'periodos' => $periodos, 'vigente' => $vigente];
             }
 
-            $carreras[] = ['carrera' => $carrera, 'nivel' => $nivel, 'planes' => $planes];
+            $programasAcademicos[] = ['programa_academico' => $programaAcademico, 'nivel' => $nivel, 'planes' => $planes];
         }
 
-        return $carreras;
+        return $programasAcademicos;
     }
 
     /**
@@ -408,12 +408,12 @@ class PoblarInstitucionDemoSeeder extends Seeder
     }
 
     /**
-     * @param  array<int, array<string, mixed>>  $carreras
+     * @param  array<int, array<string, mixed>>  $programasAcademicos
      * @param  Campus[]  $campus
      */
-    private function crearOfertas(array $carreras, array $campus): void
+    private function crearOfertas(array $programasAcademicos, array $campus): void
     {
-        foreach ($carreras as $c) {
+        foreach ($programasAcademicos as $c) {
             foreach ($c['planes'] as $p) {
                 // El plan actual se oferta en ambos campus; el antiguo solo en el
                 // primero y cerrado (ya no recibe inscripción, pero sostiene el
@@ -421,7 +421,7 @@ class PoblarInstitucionDemoSeeder extends Seeder
                 $campusDelPlan = $p['vigente'] ? $campus : [$campus[0]];
                 foreach ($campusDelPlan as $ca) {
                     Oferta::create([
-                        'carrera_id' => $c['carrera']->id,
+                        'programa_academico_id' => $c['programa_academico']->id,
                         'plan_id' => $p['plan']->id,
                         'campus_id' => $ca->id,
                         'modalidad' => 'presencial',
@@ -731,12 +731,12 @@ class PoblarInstitucionDemoSeeder extends Seeder
     }
 
     /**
-     * @param  array<int, array<string, mixed>>  $carreras
+     * @param  array<int, array<string, mixed>>  $programasAcademicos
      */
-    private function crearAlumnos(array $carreras): void
+    private function crearAlumnos(array $programasAcademicos): void
     {
-        $lics = array_values(array_filter($carreras, fn ($c) => $c['nivel'] === self::NIVEL_LIC));
-        $posgrados = array_values(array_filter($carreras, fn ($c) => $c['nivel'] !== self::NIVEL_LIC));
+        $lics = array_values(array_filter($programasAcademicos, fn ($c) => $c['nivel'] === self::NIVEL_LIC));
+        $posgrados = array_values(array_filter($programasAcademicos, fn ($c) => $c['nivel'] !== self::NIVEL_LIC));
 
         $activo = SituacionAlumno::where('clave', 'activo')->value('id');
         $egresado = SituacionAlumno::where('clave', 'egresado')->value('id');
@@ -788,7 +788,7 @@ class PoblarInstitucionDemoSeeder extends Seeder
 
             if ($i < 3) {
                 // DOS licenciaturas EN CURSO a la vez, en campus distintos (para
-                // ver «2 carreras activas» y «Múltiples campus»).
+                // ver «2 programas académicos activos» y «Múltiples campus»).
                 $this->matricular($persona, $a, antiguo: false, concluida: false, egresado: $egresado, activo: $activo, anioIngreso: 2022, campusId: $centro);
                 $this->matricular($persona, $b, antiguo: false, concluida: false, egresado: $egresado, activo: $activo, anioIngreso: 2023, campusId: $norte);
             } elseif ($i < 8) {
@@ -813,11 +813,11 @@ class PoblarInstitucionDemoSeeder extends Seeder
     }
 
     /**
-     * @param  array<string, mixed>  $carrera
+     * @param  array<string, mixed>  $programaAcademico
      */
-    private function matricular(Persona $persona, array $carrera, bool $antiguo, bool $concluida, int $egresado, int $activo, int $anioIngreso, ?int $campusId = null): void
+    private function matricular(Persona $persona, array $programaAcademico, bool $antiguo, bool $concluida, int $egresado, int $activo, int $anioIngreso, ?int $campusId = null): void
     {
-        $p = $carrera['planes'][$antiguo ? 0 : 1];
+        $p = $programaAcademico['planes'][$antiguo ? 0 : 1];
         $oferta = Oferta::where('plan_id', $p['plan']->id)
             ->when($campusId !== null, fn ($q) => $q->where('campus_id', $campusId))
             ->first()
@@ -827,7 +827,7 @@ class PoblarInstitucionDemoSeeder extends Seeder
             return;
         }
 
-        $clavePref = $carrera['nivel'] === self::NIVEL_LIC ? 'L' : ($carrera['nivel'] === self::NIVEL_DOCTORADO ? 'D' : 'P');
+        $clavePref = $programaAcademico['nivel'] === self::NIVEL_LIC ? 'L' : ($programaAcademico['nivel'] === self::NIVEL_DOCTORADO ? 'D' : 'P');
         $matricula = sprintf('%s%d%04d', $clavePref, $anioIngreso, $this->matriculaSeq++);
 
         $m = MatriculaOferta::create([

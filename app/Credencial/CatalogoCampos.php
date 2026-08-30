@@ -21,7 +21,7 @@ use App\Models\Identidad\Rol;
  * compositor ni la pantalla.
  *
  * ── El «si aplica», que es lo que pidió el cliente ─────────────────────────
- * Matrícula y carrera existen para un alumno y no para un administrativo. No se
+ * Matrícula y programa académico existen para un alumno y no para un administrativo. No se
  * resuelve preguntando por el rol —alguien puede ser docente Y estudiar— sino
  * preguntando por el DATO: si la persona tiene matrícula, se imprime; si no, el
  * campo se omite y su hueco queda vacío. Preguntar por el rol dejaría sin
@@ -71,8 +71,8 @@ class CatalogoCampos
                 'tipo' => 'texto',
                 'publico' => true,
             ],
-            'carrera' => [
-                'etiqueta' => 'Carrera',
+            'programa_academico' => [
+                'etiqueta' => 'ProgramaAcademico',
                 'ayuda' => 'Sólo si la persona es alumno.',
                 'tipo' => 'texto',
                 'publico' => true,
@@ -155,7 +155,7 @@ class CatalogoCampos
      * corto cabe en cualquier parte y no avisa de que la caja está chica.
      *
      * Estos valores son deliberadamente largos —nombre de cuatro palabras con
-     * acentos, una carrera que no cabe en un renglón— para que quien configura
+     * acentos, un programa académico que no cabe en un renglón— para que quien configura
      * vea el problema mientras lo está armando y no cuando salga impreso.
      *
      * @return array<string, string>
@@ -165,7 +165,7 @@ class CatalogoCampos
         return [
             'nombre' => 'María Fernanda Gutiérrez Villaseñor',
             'matricula' => 'L20260123',
-            'carrera' => 'Ingeniería en Sistemas Computacionales',
+            'programa_academico' => 'Ingeniería en Sistemas Computacionales',
             'campus' => 'Campus Norte',
             'rol' => 'Alumno',
             'curp' => 'GUVM060312MDFTLR09',
@@ -200,7 +200,7 @@ class CatalogoCampos
      * esa persona en ese momento. Dos: el QR se lee SIN SESIÓN, y ahí no hay
      * usuario a quien preguntarle nada.
      *
-     * La matrícula se RECIBE, no se adivina: quien estudia dos carreras tiene
+     * La matrícula se RECIBE, no se adivina: quien estudia dos programas académicos tiene
      * dos credenciales, una por cada una, y es quien llama el que dice cuál se
      * está dibujando. Ver `CredencialesDeLaPersona`.
      *
@@ -227,17 +227,17 @@ class CatalogoCampos
     }
 
     /**
-     * Matrícula, carrera y campus de ESTA inscripción.
+     * Matrícula, programa académico y campus de ESTA inscripción.
      *
      * @return array<string, string>
      */
     private static function deLaMatricula(MatriculaOferta $matricula): array
     {
-        $matricula->loadMissing('oferta.carrera:id,nombre', 'oferta.campus:id,nombre');
+        $matricula->loadMissing('oferta.programaAcademico:id,nombre', 'oferta.campus:id,nombre');
 
         return array_filter([
             'matricula' => $matricula->matricula,
-            'carrera' => $matricula->oferta?->carrera?->nombre,
+            'programa_academico' => $matricula->oferta?->programaAcademico?->nombre,
             'campus' => $matricula->oferta?->campus?->nombre,
         ], fn ($v) => filled($v));
     }

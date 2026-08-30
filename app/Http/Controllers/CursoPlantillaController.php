@@ -49,7 +49,7 @@ class CursoPlantillaController extends Controller
         $curso = $this->plantillaDe($materia);
 
         return Inertia::render('Academico/Planes/CursoPlantilla', [
-            'plan' => ['id' => $plan->id, 'nombre' => $plan->nombre, 'carrera' => $plan->carrera?->nombre],
+            'plan' => ['id' => $plan->id, 'nombre' => $plan->nombre, 'programa_academico' => $plan->programaAcademico?->nombre],
             'materia' => [
                 'id' => $materia->id,
                 'clave' => $materia->clave_en_plan,

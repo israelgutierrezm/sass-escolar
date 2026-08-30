@@ -12,7 +12,7 @@ use App\Reportes\DefinicionReporte;
  * ── Por qué existe además de los dos filtrados ───────────────────────────
  * Los otros dos contestan «a quién sí». Éste contesta «por qué a fulano no»,
  * que es la pregunta que llega a ventanilla. Con las cuatro condiciones a la
- * vista —cerró el plan, la carrera expide papel, ya está en trámite y el
+ * vista —cerró el plan, el programa académico expide papel, ya está en trámite y el
  * identificador del campus— el motivo se lee en el renglón en vez de
  * reconstruirse abriendo cuatro pantallas.
  */
@@ -48,7 +48,7 @@ class AvanceDeCertificacion extends DefinicionReporte
 
     public function columnasPorOmision(): ?array
     {
-        return ['matricula', 'alumno', 'carrera', 'aprobadas', 'meta', 'cerro_plan', 'emite_documentos', 'ya_en_lote'];
+        return ['matricula', 'alumno', 'programa_academico', 'aprobadas', 'meta', 'cerro_plan', 'emite_documentos', 'ya_en_lote'];
     }
 
     public function ordenPorOmision(): ?array

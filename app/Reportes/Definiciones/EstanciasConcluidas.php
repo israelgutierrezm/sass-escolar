@@ -53,7 +53,7 @@ class EstanciasConcluidas extends DefinicionReporte
 
     public function columnasPorOmision(): ?array
     {
-        return ['matricula', 'alumno', 'carrera', 'institucion', 'estancia_inicio', 'estancia_concluida', 'revalidaciones'];
+        return ['matricula', 'alumno', 'programa_academico', 'institucion', 'estancia_inicio', 'estancia_concluida', 'revalidaciones'];
     }
 
     public function ordenPorOmision(): ?array

@@ -7,7 +7,7 @@
  *
  * ── Lo que hay que vigilar ─────────────────────────────────────────────────
  *  1. INSCRITO sale de tener matrícula PARA SU OFERTA DE INTERÉS, no de «tiene
- *     alguna matrícula»: quien ya estudia una carrera y se postula a otra sigue
+ *     alguna matrícula»: quien ya estudia un programa académico y se postula a otra sigue
  *     siendo un prospecto abierto para esa segunda.
  *  2. DESCARTADO lleva fecha y motivo. El motivo es obligatorio: es lo que se
  *     pregunta meses después, y una fila de catálogo no podía darlo.
@@ -23,8 +23,8 @@ use App\Http\Controllers\AspiranteController;
 use App\Models\Academico\Oferta;
 use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\MatriculaOferta;
-use App\Models\Promocion\ResultadoSeguimiento;
-use App\Models\Promocion\TipoSeguimiento;
+use App\Models\Captacion\ResultadoSeguimiento;
+use App\Models\Captacion\TipoSeguimiento;
 use App\Models\Tenant;
 use App\Services\AgendaDelAspirante;
 use Illuminate\Contracts\Console\Kernel;

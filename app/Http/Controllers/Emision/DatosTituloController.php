@@ -11,10 +11,10 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 /**
- * Captura administrativa de los datos del título por carrera-alumno (una fila por
+ * Captura administrativa de los datos del título por programa académico-alumno (una fila por
  * `matricula_oferta`). Son tres formularios de esquema fijo —modalidad de
  * titulación, servicio social y antecedente— que alimentan el XML del título
- * electrónico y viven como pestañas del expediente de la carrera. Cada uno hace
+ * electrónico y viven como pestañas del expediente del programa académico. Cada uno hace
  * upsert de su fila; no son los formularios dinámicos de admisiones.
  */
 class DatosTituloController extends Controller
@@ -26,7 +26,7 @@ class DatosTituloController extends Controller
             'fecha_expedicion' => ['nullable', 'date'],
             'fecha_examen_profesional' => ['nullable', 'date'],
             'fecha_exencion_examen' => ['nullable', 'date'],
-            'fecha_terminacion_carrera' => ['nullable', 'date'],
+            'fecha_terminacion_programa_academico' => ['nullable', 'date'],
         ]);
 
         $alumno->tituloModalidad()->updateOrCreate([], $datos);

@@ -14,13 +14,13 @@ use Illuminate\Support\Collection;
  * Qué plan de cobro le toca a quién.
  *
  * Con el modelo anterior el plan se "resolvía" por especificidad (oferta → plan
- * → carrera → global) y el alumno quedaba amarrado al que ganara. Ahora el plan
+ * → programa académico → global) y el alumno quedaba amarrado al que ganara. Ahora el plan
  * se le VINCULA explícitamente (`plan_cobro_alumno`), así que aquí quedan dos
  * preguntas distintas:
  *
  *  - `planesDe()`   — qué planes tiene vinculados este alumno (los que le cobran).
  *  - `candidatos()` — a qué alumnos ALCANZA un plan por su alcance
- *                     (campus + carreras), para la asignación masiva.
+ *                     (campus + programas académicos), para la asignación masiva.
  *
  * Separarlas evita el error de cobrarle a alguien solo porque "cae en el
  * alcance": alcanzar es ser candidato, no estar cobrado.
@@ -39,7 +39,7 @@ class ResolutorPlanCobro
     }
 
     /**
-     * ¿El alcance del plan (campus + carreras) cubre a este alumno? El ciclo no
+     * ¿El alcance del plan (campus + programas académicos) cubre a este alumno? El ciclo no
      * se exige aquí: un plan del ciclo entrante se le puede asignar a alguien
      * que todavía no está inscrito en él, que es justamente el caso de uso.
      */
@@ -52,13 +52,13 @@ class ResolutorPlanCobro
         }
 
         $campus = $plan->campus->pluck('id')->all();
-        $carreras = $plan->carreras->pluck('id')->all();
+        $programasAcademicos = $plan->programasAcademicos->pluck('id')->all();
 
         // Sin restricción marcada, no se acota por esa dimensión.
         $enCampus = $campus === [] || in_array($oferta->campus_id, $campus, true);
-        $enCarrera = $carreras === [] || in_array($oferta->carrera_id, $carreras, true);
+        $enProgramaAcademico = $programasAcademicos === [] || in_array($oferta->programa_academico_id, $programasAcademicos, true);
 
-        return $enCampus && $enCarrera;
+        return $enCampus && $enProgramaAcademico;
     }
 
     /**
@@ -75,7 +75,7 @@ class ResolutorPlanCobro
     public function candidatos(PlanCobro $plan, ?array $campusDelUsuario = null): Collection
     {
         $campus = $plan->campus->pluck('id')->all();
-        $carreras = $plan->carreras->pluck('id')->all();
+        $programasAcademicos = $plan->programasAcademicos->pluck('id')->all();
 
         if ($campusDelUsuario !== null) {
             // La intersección: lo que el plan alcanza Y el usuario administra.
@@ -97,17 +97,17 @@ class ResolutorPlanCobro
         return MatriculaOferta::query()
             ->where('estatus', 'activo')
             ->whereNotIn('id', $yaAsignados)
-            ->whereHas('oferta', function (Builder $q) use ($campus, $carreras) {
+            ->whereHas('oferta', function (Builder $q) use ($campus, $programasAcademicos) {
                 if ($campus !== []) {
                     $q->whereIn('campus_id', $campus);
                 }
-                if ($carreras !== []) {
-                    $q->whereIn('carrera_id', $carreras);
+                if ($programasAcademicos !== []) {
+                    $q->whereIn('programa_academico_id', $programasAcademicos);
                 }
             })
             ->with([
                 'persona:id,nombre,primer_apellido,segundo_apellido',
-                'oferta.carrera:id,nombre',
+                'oferta.programaAcademico:id,nombre',
                 'oferta.campus:id,nombre',
             ])
             ->orderBy('matricula')

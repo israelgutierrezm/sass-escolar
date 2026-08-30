@@ -218,7 +218,7 @@ class HistorialImprimibleTest extends TenantTestCase
     /**
      * El bloque se rotula con la palabra del PLAN, no con «Periodo».
      *
-     * `planes_estudio.tipo_periodo_id` ya dice si esa carrera va por semestres,
+     * `planes_estudio.tipo_periodo_id` ya dice si ese programa académico va por semestres,
      * cuatrimestres o módulos. Imprimir «Periodo 1» en el historial de un
      * bachillerato es poner en el documento oficial una palabra que la escuela
      * no usa — y el dato para decirlo bien ya estaba en la base.

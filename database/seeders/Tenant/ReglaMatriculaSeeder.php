@@ -13,7 +13,7 @@ use Illuminate\Database\Seeder;
  *
  * Es solo un punto de partida razonable: cada escuela ajusta su plantilla y el
  * ámbito del consecutivo desde la administración, y puede agregar reglas más
- * específicas por carrera o por plan.
+ * específicas por programa académico o por plan.
  */
 class ReglaMatriculaSeeder extends Seeder
 {

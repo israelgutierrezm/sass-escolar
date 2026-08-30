@@ -95,7 +95,7 @@ class MatriculaOferta extends Model
         return $this->hasMany(Titulacion::class, 'matricula_oferta_id');
     }
 
-    /** Datos del título capturados por administración (uno por carrera-alumno). */
+    /** Datos del título capturados por administración (uno por programa académico-alumno). */
     public function tituloModalidad(): HasOne
     {
         return $this->hasOne(TituloModalidad::class, 'matricula_oferta_id');
@@ -118,7 +118,7 @@ class MatriculaOferta extends Model
         return $this->hasMany(Adeudo::class, 'matricula_oferta_id');
     }
 
-    /** Becas otorgadas a este alumno (en esta carrera). */
+    /** Becas otorgadas a este alumno (en este programa académico). */
     public function becas(): HasMany
     {
         return $this->hasMany(BecaAlumno::class, 'matricula_oferta_id');

@@ -123,14 +123,14 @@ class TutorController extends Controller
                 'puede_ver_academico' => (bool) $v->puede_ver_academico,
                 'puede_ver_finanzas' => (bool) $v->puede_ver_finanzas,
                 // Al expediente del alumno se llega por su matrícula, no por su
-                // persona: una misma persona puede tener dos carreras.
+                // persona: una misma persona puede tener dos programas académicos.
                 'matriculas' => $v->alumno?->matriculas()
-                    ->with(['oferta.carrera:id,nombre'])
+                    ->with(['oferta.programaAcademico:id,nombre'])
                     ->get()
                     ->map(fn ($m) => [
                         'id' => $m->id,
                         'matricula' => $m->matricula,
-                        'carrera' => $m->oferta?->carrera?->nombre,
+                        'programa_academico' => $m->oferta?->programaAcademico?->nombre,
                     ])->values() ?? [],
             ])->values(),
             // Lo que la escuela le pide a él —no a sus hijos—: un padre también

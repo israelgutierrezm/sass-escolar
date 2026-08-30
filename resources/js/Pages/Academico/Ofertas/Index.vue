@@ -11,7 +11,7 @@ import PildoraEstado from '@/Components/PildoraEstado.vue';
 
 interface Oferta {
     id: number;
-    carrera: string | null;
+    programa_academico: string | null;
     plan: string | null;
     plan_clave: string | null;
     campus: string | null;
@@ -56,7 +56,7 @@ const vacio = computed(() => !props.ofertas.data.length);
 const mensajeVacio = computed(() =>
     props.filtros.busqueda || props.filtros.campus_id || props.filtros.modalidad || props.filtros.estatus
         ? 'Ninguna oferta coincide con la búsqueda.'
-        : 'Aún no hay oferta registrada. Necesitas al menos una carrera, un plan y un campus.',
+        : 'Aún no hay oferta registrada. Necesitas al menos un programa académico, un plan y un campus.',
 );
 
 function eliminar(id: number): void {
@@ -80,12 +80,12 @@ function eliminar(id: number): void {
             vista-clave="academico.ofertas"
             :valores="filtros"
             :filtros="definicionFiltros"
-            placeholder="Buscar por carrera o plan…"
+            placeholder="Buscar por programa académico o plan…"
             :puede-crear="puedeEditar"
             nuevo-texto="Nueva oferta"
             nuevo-href="/academico/ofertas/create"
             titulo="Oferta educativa"
-            descripcion="Carrera + plan + campus abiertos a matrícula"
+            descripcion="Programa académico + plan + campus abiertos a matrícula"
             :icono="ICONO_OFERTA"
         >
             <template #conteo>
@@ -101,7 +101,7 @@ function eliminar(id: number): void {
                 <TarjetaListado
                     v-for="oferta in ofertas.data"
                     :key="oferta.id"
-                    :titulo="oferta.carrera ?? '—'"
+                    :titulo="oferta.programaAcademico ?? '—'"
                     :clave="oferta.plan_clave"
                     :metas="[
                         { etiqueta: 'Plan', valor: oferta.plan },
@@ -142,7 +142,7 @@ function eliminar(id: number): void {
                 <table v-if="!vacio" class="w-full text-sm">
                     <thead>
                         <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
-                            <th class="px-6 py-3 font-semibold">Carrera / Plan</th>
+                            <th class="px-6 py-3 font-semibold">Programa académico / Plan</th>
                             <th class="px-4 py-3 font-semibold">Campus</th>
                             <th class="px-4 py-3 font-semibold">Modalidad</th>
                             <th class="px-4 py-3 font-semibold text-center">Alumnos</th>
@@ -152,9 +152,9 @@ function eliminar(id: number): void {
                     </thead>
                     <tbody>
                         <tr v-for="oferta in ofertas.data" :key="oferta.id" class="fila-nueva border-t transition-colors" :style="{ borderColor: 'var(--color-borde)' }">
-                            <!-- Carrera + plan -->
+                            <!-- Programa académico + plan -->
                             <td class="px-6 py-4">
-                                <span class="block font-semibold text-contenido">{{ oferta.carrera ?? '—' }}</span>
+                                <span class="block font-semibold text-contenido">{{ oferta.programaAcademico ?? '—' }}</span>
                                 <span class="mt-1 block text-[11px]" :style="{ color: 'var(--color-suave)' }">
                                     {{ oferta.plan ?? '—' }}<template v-if="oferta.plan_clave"> · <span class="font-mono">{{ oferta.plan_clave }}</span></template>
                                 </span>

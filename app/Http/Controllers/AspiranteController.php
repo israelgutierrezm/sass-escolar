@@ -14,11 +14,11 @@ use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\Admisiones\EstadoDocumento;
 use App\Models\Admisiones\EtapaCrm;
 use App\Models\Admisiones\MatriculaOferta;
+use App\Models\Captacion\OrigenAspirante;
+use App\Models\Captacion\ResultadoSeguimiento;
+use App\Models\Captacion\SeguimientoAspirante;
+use App\Models\Captacion\TipoSeguimiento;
 use App\Models\Identidad\Persona;
-use App\Models\Promocion\OrigenAspirante;
-use App\Models\Promocion\ResultadoSeguimiento;
-use App\Models\Promocion\SeguimientoAspirante;
-use App\Models\Promocion\TipoSeguimiento;
 use App\Services\AsignadorAsesor;
 use App\Services\ConvertidorAspirante;
 use App\Services\GeneradorMatricula;
@@ -65,7 +65,7 @@ class AspiranteController extends Controller
         ];
 
         $aspirantes = Aspirante::query()
-            ->with(['persona', 'campus', 'ofertaInteres.carrera', 'etapa:id,nombre', 'origenAspirante:id,nombre'])
+            ->with(['persona', 'campus', 'ofertaInteres.programaAcademico', 'etapa:id,nombre', 'origenAspirante:id,nombre'])
             // El desenlace de cada renglón, en la misma consulta. `with()` no
             // vale: la relación va correlacionada contra `aspirantes` y
             // precargarla la deja sin su tabla padre en el FROM.
@@ -101,7 +101,7 @@ class AspiranteController extends Controller
                 'desenlace' => $aspirante->desenlace(),
                 'motivo_descarte' => $aspirante->motivo_descarte,
                 'campus' => $aspirante->campus?->nombre,
-                'oferta' => $aspirante->ofertaInteres?->carrera?->nombre,
+                'oferta' => $aspirante->ofertaInteres?->programaAcademico?->nombre,
                 'origen' => $aspirante->origenAspirante?->nombre ?? $aspirante->origen,
                 'etapa' => $aspirante->etapa?->nombre,
                 'etapa_crm_id' => $aspirante->etapa_crm_id,
@@ -121,10 +121,10 @@ class AspiranteController extends Controller
             'campusDisponibles' => Campus::query()
                 ->when($this->alcanceCampus($request) !== null, fn ($q) => $q->whereIn('id', $this->alcanceCampus($request)))
                 ->orderBy('nombre')->get(['id', 'nombre']),
-            'ofertas' => Oferta::query()->with('carrera:id,nombre', 'campus:id,nombre')->get()
+            'ofertas' => Oferta::query()->with('programaAcademico:id,nombre', 'campus:id,nombre')->get()
                 ->map(fn (Oferta $o) => [
                     'id' => $o->id,
-                    'nombre' => ($o->carrera?->nombre ?? '—').' · '.($o->campus?->nombre ?? '—'),
+                    'nombre' => ($o->programaAcademico?->nombre ?? '—').' · '.($o->campus?->nombre ?? '—'),
                 ])->sortBy('nombre')->values(),
             'puedeCrear' => $request->user()->can('crear-aspirantes'),
             'puedeEditar' => $request->user()->can('editar-aspirantes'),
@@ -192,14 +192,14 @@ class AspiranteController extends Controller
             'persona.entidadNacimiento',
             'etapa:id,nombre',
             'campus',
-            'ofertaInteres.carrera',
+            'ofertaInteres.programaAcademico',
             'ofertaInteres.plan',
             'expedienteDocumentos.documento',
             'expedienteDocumentos.estado',
         ]);
 
         $matricula = MatriculaOferta::query()
-            ->with('oferta.carrera')
+            ->with('oferta.programaAcademico')
             ->where('persona_id', $aspirante->persona_id)
             ->latest('id')
             ->first();
@@ -208,7 +208,7 @@ class AspiranteController extends Controller
 
         return Inertia::render('Aspirantes/Detalle', [
             // Avance del EXPEDIENTE, informativo. No es la etapa del CRM: esa
-            // la mueve promoción con su criterio y no debe avanzar sola.
+            // la mueve captación con su criterio y no debe avanzar sola.
             // Se resuelven UNA vez y se comparten con el avance: el paso de
             // formularios sale de esta misma lista.
             'progresoSolicitud' => app(ProgresoSolicitud::class)->para($aspirante, $formularios),
@@ -243,7 +243,7 @@ class AspiranteController extends Controller
                 'campus' => $aspirante->campus?->nombre,
                 'oferta' => $aspirante->ofertaInteres === null ? null : sprintf(
                     '%s — %s',
-                    $aspirante->ofertaInteres->carrera?->nombre ?? 'Sin carrera',
+                    $aspirante->ofertaInteres->programaAcademico?->nombre ?? 'Sin programa académico',
                     $aspirante->ofertaInteres->plan?->nombre ?? 'Sin plan',
                 ),
                 'origen' => $aspirante->origen,
@@ -256,7 +256,7 @@ class AspiranteController extends Controller
             'estadosDocumento' => EstadoDocumento::query()->orderBy('id')->get(['id', 'nombre']),
             'matricula' => $matricula === null ? null : [
                 'matricula' => $matricula->matricula,
-                'oferta' => $matricula->oferta?->carrera?->nombre,
+                'oferta' => $matricula->oferta?->programaAcademico?->nombre,
                 'fecha_ingreso' => $matricula->fecha_ingreso?->toDateString(),
             ],
             'impedimentosConversion' => $convertidor->impedimentos($aspirante),
@@ -308,7 +308,7 @@ class AspiranteController extends Controller
                 // Asignar y retirar asesores es de quien coordina, no de quien
                 // sólo da seguimiento: si el asesor pudiera reasignar, podría
                 // quitarse de encima un prospecto difícil.
-                'coordinarPromocion' => $request->user()->can('gestionar-promocion'),
+                'coordinarCaptacion' => $request->user()->can('gestionar-captacion'),
             ],
             // «Ver como» el aspirante: solo si tiene cuenta con la que entrar.
             'suplantable' => app(Suplantador::class)->datosPara($request, $aspirante->persona),
@@ -427,10 +427,10 @@ class AspiranteController extends Controller
      * Los documentos que se le piden a un aspirante, cruzados con lo que ya
      * entregó.
      *
-     * Salen por ÁMBITO, no por carrera: el puente `documento_carrera` se
+     * Salen por ÁMBITO, no por programa académico: el puente `documento_carrera` se
      * eliminó (ver la migración `eliminar_documento_carrera`) porque los
      * requisitos de admisión se definen por a quién se le piden, no por la
-     * carrera de interés. Filtrar aquí por carrera invocaba una relación que
+     * programa académico de interés. Filtrar aquí por programa académico invocaba una relación que
      * ya no existe y reventaba la ficha del aspirante.
      *
      * @return array<int, array<string, mixed>>
@@ -439,7 +439,7 @@ class AspiranteController extends Controller
      * Con qué matrícula saldría este aspirante si se convirtiera ahora.
      *
      * Devuelve null y el motivo cuando no se puede saber —sin oferta de interés
-     * no hay carrera de la que sacar la clave, y sin regla configurada no hay
+     * no hay programa académico de la que sacar la clave, y sin regla configurada no hay
      * plantilla—. No se lanza: la ficha tiene que abrir igual, y quien la mira
      * necesita LEER el problema, no toparse con un 500.
      *
@@ -524,7 +524,7 @@ class AspiranteController extends Controller
                 // Nace en la PRIMERA etapa del embudo. Sin esto, un aspirante
                 // dado de alta a mano quedaba con `etapa_crm_id` en null: no
                 // aparecía en ninguna etapa del CRM ni en el filtro por etapa,
-                // así que promoción no lo veía nunca. El que llega por el
+                // así que captación no lo veía nunca. El que llega por el
                 // formulario público sí la recibía (`RegistradorProspecto`), y
                 // esa asimetría es justo lo que se corrige.
                 'etapa_crm_id' => EtapaCrm::query()->orderBy('orden')->value('id'),
@@ -707,7 +707,7 @@ class AspiranteController extends Controller
             // muestran (extranjero arriba, no perdido en la N).
             ...app(IdentidadPersona::class)->catalogosDeOrigen(),
             // Los del CRM: de dónde llegó deja de ser texto libre también en el
-            // alta manual, para que el prospecto capturado por promoción se
+            // alta manual, para que el prospecto capturado por captación se
             // pueda contar junto a los que entran por el formulario público.
             'origenes' => OrigenAspirante::query()->activos()->orderBy('nombre')->get(['id', 'nombre']),
             // Sólo sus campus: dar de alta un aspirante en una sede ajena es
@@ -717,7 +717,7 @@ class AspiranteController extends Controller
                 ->orderBy('nombre')->get(['id', 'nombre']),
             'ofertas' => (function () {
                 return Oferta::query()
-                    ->with(['carrera:id,nombre', 'campus:id,nombre'])
+                    ->with(['programaAcademico:id,nombre', 'campus:id,nombre'])
                     ->where('estatus', 'abierta')
                     ->get()
                     ->map(fn (Oferta $oferta) => [
@@ -729,7 +729,7 @@ class AspiranteController extends Controller
                         'campus_id' => $oferta->campus_id,
                         'etiqueta' => trim(sprintf(
                             '%s — %s',
-                            $oferta->carrera?->nombre ?? 'Sin carrera',
+                            $oferta->programaAcademico?->nombre ?? 'Sin programa académico',
                             $oferta->campus?->nombre ?? 'Sin campus',
                         )),
                     ]);

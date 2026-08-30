@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models\Finanzas;
 
-use App\Models\Academico\Carrera;
 use App\Models\Academico\NivelEstudio;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Concerns\TieneAuditoria;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -27,8 +27,8 @@ class EmisorAsignacion extends Model
     /** Un nivel de estudios completo: bachillerato, licenciatura, posgrado. */
     public const APLICA_NIVEL = 'nivel';
 
-    /** Una carrera concreta. Es lo más específico y por tanto lo que gana. */
-    public const APLICA_CARRERA = 'carrera';
+    /** Un programa académico concreta. Es lo más específico y por tanto lo que gana. */
+    public const APLICA_CARRERA = 'programa_academico';
 
     protected $table = 'emisor_asignaciones';
 
@@ -41,7 +41,7 @@ class EmisorAsignacion extends Model
 
     /**
      * A qué apunta. Se resuelve a mano y no con `morphTo` porque `aplica_a_id`
-     * no tiene FK —apunta a `carreras` del tenant o a `niveles_estudio` de la
+     * no tiene FK —apunta a `programas_academicos` del tenant o a `niveles_estudio` de la
      * landlord— y porque `aplica_a_tipo` guarda un tipo de dominio ('nivel')
      * que sobrevive a un cambio de namespace.
      */
@@ -52,7 +52,7 @@ class EmisorAsignacion extends Model
         }
 
         return match ($this->aplica_a_tipo) {
-            self::APLICA_CARRERA => Carrera::find($this->aplica_a_id),
+            self::APLICA_CARRERA => ProgramaAcademico::find($this->aplica_a_id),
             self::APLICA_NIVEL => NivelEstudio::find($this->aplica_a_id),
             default => null,
         };

@@ -15,7 +15,7 @@ interface Candidato {
     id: number;
     matricula: string;
     nombre: string | null;
-    carrera: string | null;
+    programa_academico: string | null;
     campus: string | null;
     mismo_campus: boolean;
     periodo_actual: number | null;
@@ -34,7 +34,7 @@ interface Inscrito {
     id: number;
     matricula: string;
     nombre: string | null;
-    carrera: string | null;
+    programa_academico: string | null;
     foto: string | null;
     materias: number;
     total_materias: number;
@@ -101,7 +101,7 @@ const busqueda = ref('');
  * «Sugerido» es el alumno cuyo grado coincide con el del grupo, y en la carga
  * normal de un ciclo son casi todos. El filtro arranca en ellos porque inscribir
  * a un grupo de tercero es, casi siempre, meter a los de tercero; ver de entrada
- * la lista completa de la carrera obliga a distinguir a ojo quién toca.
+ * la lista completa del programa académico obliga a distinguir a ojo quién toca.
  */
 const soloSugeridos = ref(true);
 
@@ -359,7 +359,7 @@ function iniciales(nombre: string | null): string {
                         </div>
 
                         <!-- De qué planes admite alumnos. Con un chip por plan,
-                             porque con dos carreras el texto corrido no se lee. -->
+                             porque con dos programas académicos el texto corrido no se lee. -->
                         <p v-if="grupo.planes_admitidos.length" class="mt-2 flex flex-wrap items-center gap-1.5 text-xs" :style="{ color: 'var(--color-suave)' }">
                             Admite alumnos de:
                             <span

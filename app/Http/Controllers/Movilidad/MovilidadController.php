@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Movilidad;
 
 use App\Http\Controllers\Controller;
-use App\Models\Academico\Carrera;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Landlord\Pais;
@@ -43,7 +43,7 @@ class MovilidadController extends Controller
     public function convenios(Request $peticion): Response
     {
         $convenios = Convenio::query()
-            ->with(['institucion:id,nombre,pais_id,ciudad', 'tipo:id,nombre', 'situacion:id,nombre', 'carreras:id,nombre'])
+            ->with(['institucion:id,nombre,pais_id,ciudad', 'tipo:id,nombre', 'situacion:id,nombre', 'programas_academicos:id,nombre'])
             ->withCount('convocatorias')
             ->when($peticion->filled('institucion_id'), fn (Builder $q) => $q
                 ->where('institucion_aliada_id', $peticion->integer('institucion_id')))
@@ -65,7 +65,7 @@ class MovilidadController extends Controller
                 // estado REAL y la etiqueta lo dice.
                 'vencido' => $c->estaVencido(),
                 'vigente' => Convenio::query()->vigentes()->whereKey($c->id)->exists(),
-                'carreras' => $c->carreras->pluck('nombre'),
+                'programas_academicos' => $c->programasAcademicos->pluck('nombre'),
                 'convocatorias' => $c->convocatorias_count,
             ]),
             'filtros' => ['institucion_id' => $peticion->integer('institucion_id') ?: null],
@@ -103,22 +103,22 @@ class MovilidadController extends Controller
             'vigente_hasta' => ['nullable', 'date', 'after_or_equal:vigente_desde'],
             'situacion_id' => ['required', Rule::exists('situaciones_convenio', 'id')],
             'notas' => ['nullable', 'string', 'max:2000'],
-            'carreras' => ['array'],
-            'carreras.*' => ['integer', Rule::exists('carreras', 'id')],
+            'programas_academicos' => ['array'],
+            'programas_academicos.*' => ['integer', Rule::exists('programas_academicos', 'id')],
         ], [
             'vigente_hasta.after_or_equal' => 'El convenio no puede vencer antes de empezar.',
             'folio.unique' => 'Ya hay un convenio con ese folio.',
         ]);
 
-        $carreras = $datos['carreras'] ?? [];
-        unset($datos['carreras']);
+        $programasAcademicos = $datos['programas_academicos'] ?? [];
+        unset($datos['programas_academicos']);
 
         $convenio === null
             ? $convenio = Convenio::create($datos)
             : $convenio->update($datos);
 
         // Vacío = TODAS. Se sincroniza igual, para poder volver a «todas».
-        $convenio->carreras()->sync($carreras);
+        $convenio->programasAcademicos()->sync($programasAcademicos);
 
         return back(303)->with('exito', 'Convenio guardado.');
     }
@@ -332,7 +332,7 @@ class MovilidadController extends Controller
         }
 
         $matriculas = MatriculaOferta::query()
-            ->with(['persona:id,nombre,primer_apellido,segundo_apellido', 'oferta.plan', 'oferta.carrera:id,nombre'])
+            ->with(['persona:id,nombre,primer_apellido,segundo_apellido', 'oferta.plan', 'oferta.programaAcademico:id,nombre'])
             ->where(fn (Builder $q) => $q
                 ->where('matricula', 'like', "%{$texto}%")
                 ->orWhereHas('persona', fn (Builder $p) => $p->whereRaw(
@@ -353,7 +353,7 @@ class MovilidadController extends Controller
                 'matricula' => $m->matricula,
                 // El promedio se ENSEÑA al elegir, no después de rechazarlo:
                 // quien captura tiene que ver por qué no alcanza.
-                'carrera' => ($m->oferta?->carrera?->nombre ?? '—')
+                'programa_academico' => ($m->oferta?->programaAcademico?->nombre ?? '—')
                     .' · promedio '.($promedio === null ? 'sin calcular' : number_format($promedio, 2))
                     .($alcanza ? '' : ' (no alcanza el mínimo)'),
             ];
@@ -368,7 +368,7 @@ class MovilidadController extends Controller
             'tipos_institucion' => TipoInstitucion::query()->activos()->get(['id', 'nombre']),
             'tipos_convenio' => TipoConvenio::query()->activos()->get(['id', 'nombre']),
             'situaciones' => SituacionConvenio::query()->activos()->get(['id', 'nombre']),
-            'carreras' => Carrera::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'programas_academicos' => ProgramaAcademico::query()->orderBy('nombre')->get(['id', 'nombre']),
             'paises' => Pais::query()->orderBy('nombre')->get(['id', 'nombre']),
         ];
     }

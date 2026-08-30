@@ -50,7 +50,7 @@ async function subirPortada(archivo: File | null): Promise<void> {
     cuerpo.append('imagen', archivo);
 
     try {
-        const respuesta = await fetch('/escolar/biblioteca/imagenes', {
+        const respuesta = await fetch('/escolar/recursos-digitales/imagenes', {
             method: 'POST',
             body: cuerpo,
             headers: {
@@ -90,14 +90,14 @@ function guardar(): void {
     const alTerminar = { preserveScroll: true, onSuccess: () => limpiar() };
 
     if (editando.value === null) {
-        formulario.post('/escolar/biblioteca', alTerminar);
+        formulario.post('/escolar/recursos-digitales', alTerminar);
     } else {
-        formulario.put(`/escolar/biblioteca/${editando.value}`, alTerminar);
+        formulario.put(`/escolar/recursos-digitales/${editando.value}`, alTerminar);
     }
 }
 
 function eliminar(enlace: Enlace): void {
-    router.delete(`/escolar/biblioteca/${enlace.id}`, { preserveScroll: true });
+    router.delete(`/escolar/recursos-digitales/${enlace.id}`, { preserveScroll: true });
 }
 
 /**
@@ -116,16 +116,16 @@ function mover(indice: number, hacia: number): void {
     const ids = props.enlaces.map((e) => e.id);
     [ids[indice], ids[destino]] = [ids[destino], ids[indice]];
 
-    router.put('/escolar/biblioteca/orden', { ids }, { preserveScroll: true });
+    router.put('/escolar/recursos-digitales/orden', { ids }, { preserveScroll: true });
 }
 </script>
 
 <template>
-    <Head title="Biblioteca digital" />
+    <Head title="Recursos digitales" />
 
-    <AppLayout titulo="Biblioteca digital">
+    <AppLayout titulo="Recursos digitales">
         <section class="tarjeta p-6">
-            <h2 class="text-base font-semibold">Lo que tus alumnos ven en la biblioteca</h2>
+            <h2 class="text-base font-semibold">Lo que tus alumnos ven en los recursos digitales</h2>
             <p class="mt-1 max-w-3xl text-sm" :style="{ color: 'var(--color-suave)' }">
                 Los recursos <strong>con portada</strong> se muestran como tarjetas del mismo tamaño;
                 los que no la tienen salen como enlaces directos en una lista aparte. El orden que

@@ -33,7 +33,7 @@ const props = defineProps<{
         id: number;
         nombre: string;
         clave: string;
-        carrera: string | null;
+        programa_academico: string | null;
         total_periodos: number | null;
         total_creditos: number | null;
         minimo_creditos: number;
@@ -352,7 +352,7 @@ function textoSobre(color: string | null): string {
                 <div>
                     <h2 class="text-base font-semibold text-contenido">{{ plan.nombre }}</h2>
                     <p class="mt-0.5 text-sm text-suave">
-                        {{ plan.carrera }} · <span class="font-mono text-xs">{{ plan.clave }}</span>
+                        {{ plan.programaAcademico }} · <span class="font-mono text-xs">{{ plan.clave }}</span>
                     </p>
                 </div>
             </div>

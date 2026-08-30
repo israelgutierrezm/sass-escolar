@@ -9,7 +9,7 @@ namespace App\Enums;
  *
  * ── Por qué una lista de destinos y no columnas ────────────────────────────
  * Un aviso puede ir «a todos», «a los alumnos del campus norte» o «a estos tres
- * alumnos». Con una columna por criterio (campus_id, carrera_id…) cada evento
+ * alumnos». Con una columna por criterio (campus_id, programa_academico_id…) cada evento
  * quedaría atado a UNA combinación y no se podría decir «a los de enfermería
  * MÁS a los del grupo A de sistemas», que es justo lo que pide quien manda
  * avisos de verdad.
@@ -32,10 +32,10 @@ enum DestinoEvento: string
 
     case Campus = 'campus';
 
-    /** Nivel de estudios (licenciatura, maestría…). Cuelga de la carrera. */
+    /** Nivel de estudios (licenciatura, maestría…). Cuelga del programa académico. */
     case Nivel = 'nivel';
 
-    case Carrera = 'carrera';
+    case ProgramaAcademico = 'programa_academico';
 
     case Plan = 'plan';
 
@@ -58,7 +58,7 @@ enum DestinoEvento: string
      *
      * Se resolvió así y no con un destino «familiares de este alumno» porque
      * ése no compone: una circular a los padres del grupo A obligaría a
-     * señalar treinta alumnos a mano, y la de la carrera entera sería
+     * señalar treinta alumnos a mano, y la del programa académico entera sería
      * impracticable. Como modificador se multiplica con TODAS las
      * segmentaciones que ya existen y con las que se agreguen mañana.
      */
@@ -71,7 +71,7 @@ enum DestinoEvento: string
             self::Rol => 'Por rol',
             self::Campus => 'Por campus',
             self::Nivel => 'Por nivel',
-            self::Carrera => 'Por carrera',
+            self::ProgramaAcademico => 'Por programa académico',
             self::Plan => 'Por plan de estudios',
             self::Grupo => 'Por grupo',
             self::Materia => 'Por materia',

@@ -40,7 +40,7 @@ const props = defineProps<{
         validarExpediente: boolean;
         convertir: boolean;
         cobrar: boolean;
-        coordinarPromocion: boolean;
+        coordinarCaptacion: boolean;
     };
     // El CRM del prospecto: su línea de tiempo y los catálogos con los que se
     // captura. Los arma el controlador para que la pantalla no consulte nada.
@@ -311,7 +311,7 @@ Se le generará su matrícula de todos modos y eso no se puede deshacer. ¿Conti
                         :etapa-actual-id="aspirante.etapa_crm_id"
                         :avance="aspirante.avance_embudo"
                         :asesores="asesores"
-                        :puede-reasignar="permisos.coordinarPromocion"
+                        :puede-reasignar="permisos.coordinarCaptacion"
                     />
                 </TarjetaSeccion>
 
@@ -465,7 +465,7 @@ Se le generará su matrícula de todos modos y eso no se puede deshacer. ¿Conti
                     </ul>
 
                     <p v-else class="text-sm text-suave">
-                        No hay documentos configurados para esta carrera.
+                        No hay documentos configurados para este programa académico.
                     </p>
                 </TarjetaSeccion>
 

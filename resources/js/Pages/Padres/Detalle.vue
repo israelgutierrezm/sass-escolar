@@ -25,7 +25,7 @@ interface Hijo {
     parentesco: string | null;
     puede_ver_academico: boolean;
     puede_ver_finanzas: boolean;
-    matriculas: { id: number; matricula: string | null; carrera: string | null }[];
+    matriculas: { id: number; matricula: string | null; programa_academico: string | null }[];
 }
 
 const props = defineProps<{
@@ -102,7 +102,7 @@ function verComo(suplantable: { usuario_id: number; usuario: string }): void {
                             <!-- Un span y no PildoraEstado: ésa capitaliza cada
                                  palabra —sirve para estados de una sola— y aquí
                                  dejaba «Tutor De 2 Alumnos». Es la misma
-                                 insignia que usa el alumno para sus carreras. -->
+                                 insignia que usa el alumno para sus programas académicos. -->
                             <span
                                 class="rounded-full px-2 py-0.5 text-xs"
                                 :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }"
@@ -141,7 +141,7 @@ function verComo(suplantable: { usuario_id: number; usuario: string }): void {
                                         <Link :href="`/escolar/alumnos/${m.id}`" class="hover:underline" :style="{ color: 'var(--color-acento)' }">
                                             {{ m.matricula }}
                                         </Link>
-                                        <template v-if="m.carrera"> · {{ m.carrera }}</template>
+                                        <template v-if="m.programa_academico"> · {{ m.programa_academico }}</template>
                                         <template v-if="i < h.matriculas.length - 1"> — </template>
                                     </template>
                                 </p>

@@ -15,7 +15,7 @@ interface Colocacion {
     id: number;
     persona: string | null;
     matricula: string | null;
-    carrera: string | null;
+    programa_academico: string | null;
     empresa: string | null;
     puesto: string;
     salario: string | null;
@@ -37,7 +37,7 @@ const origen = ref(props.filtros.origen);
 
 const nueva = ref(false);
 const editando = ref<Colocacion | null>(null);
-const susCarreras = ref<{ id: number; matricula: string; carrera: string | null }[]>([]);
+const susProgramasAcademicos = ref<{ id: number; matricula: string; programa_academico: string | null }[]>([]);
 
 const alta = useForm<{
     persona_id: number | null;
@@ -46,7 +46,7 @@ const alta = useForm<{
     puesto: string;
     salario: string;
     fecha_ingreso: string;
-    relacionado_con_carrera: string;
+    relacionado_con_programa_academico: string;
     notas: string;
 }>({
     persona_id: null,
@@ -55,7 +55,7 @@ const alta = useForm<{
     puesto: '',
     salario: '',
     fecha_ingreso: '',
-    relacionado_con_carrera: '',
+    relacionado_con_programa_academico: '',
     notas: '',
 });
 
@@ -64,14 +64,14 @@ const edicion = useForm<{
     puesto: string;
     salario: string;
     fecha_ingreso: string;
-    relacionado_con_carrera: string;
+    relacionado_con_programa_academico: string;
     notas: string;
 }>({
     empresa_id: null,
     puesto: '',
     salario: '',
     fecha_ingreso: '',
-    relacionado_con_carrera: '',
+    relacionado_con_programa_academico: '',
     notas: '',
 });
 
@@ -93,8 +93,8 @@ function filtrar(): void {
     );
 }
 
-async function traerCarreras(personaId: number | null): Promise<void> {
-    susCarreras.value = [];
+async function traerProgramasAcademicos(personaId: number | null): Promise<void> {
+    susProgramasAcademicos.value = [];
     alta.matricula_oferta_id = null;
 
     if (personaId === null) return;
@@ -102,17 +102,17 @@ async function traerCarreras(personaId: number | null): Promise<void> {
     const r = await fetch(`/bolsa/postulantes/${personaId}/matriculas`, { headers: { Accept: 'application/json' } });
     if (!r.ok) return;
 
-    susCarreras.value = await r.json();
+    susProgramasAcademicos.value = await r.json();
 
-    if (susCarreras.value.length === 1) {
-        alta.matricula_oferta_id = susCarreras.value[0].id;
+    if (susProgramasAcademicos.value.length === 1) {
+        alta.matricula_oferta_id = susProgramasAcademicos.value[0].id;
     }
 }
 
 function abrirAlta(): void {
     nueva.value = true;
     alta.reset();
-    susCarreras.value = [];
+    susProgramasAcademicos.value = [];
     alta.defaults();
 }
 
@@ -120,13 +120,13 @@ function guardar(): void {
     alta.transform((d) => ({
         ...d,
         salario: d.salario === '' ? null : d.salario,
-        relacionado_con_carrera: d.relacionado_con_carrera === '' ? null : d.relacionado_con_carrera === '1',
+        relacionado_con_programa_academico: d.relacionado_con_programa_academico === '' ? null : d.relacionado_con_programa_academico === '1',
     })).post('/bolsa/colocaciones', {
         preserveScroll: true,
         onSuccess: () => {
             nueva.value = false;
             alta.reset();
-            susCarreras.value = [];
+            susProgramasAcademicos.value = [];
         },
     });
 }
@@ -137,7 +137,7 @@ function abrirEdicion(c: Colocacion): void {
     edicion.puesto = c.puesto;
     edicion.salario = c.salario === null ? '' : c.salario.replace(/[$,]/g, '');
     edicion.fecha_ingreso = c.fecha_ingreso ?? '';
-    edicion.relacionado_con_carrera = c.relacionado === null ? '' : c.relacionado ? '1' : '0';
+    edicion.relacionado_con_programa_academico = c.relacionado === null ? '' : c.relacionado ? '1' : '0';
     edicion.notas = c.notas ?? '';
     edicion.defaults();
 }
@@ -148,7 +148,7 @@ function actualizar(): void {
     edicion.transform((d) => ({
         ...d,
         salario: d.salario === '' ? null : d.salario,
-        relacionado_con_carrera: d.relacionado_con_carrera === '' ? null : d.relacionado_con_carrera === '1',
+        relacionado_con_programa_academico: d.relacionado_con_programa_academico === '' ? null : d.relacionado_con_programa_academico === '1',
     })).put(`/bolsa/colocaciones/${editando.value.id}`, {
         preserveScroll: true,
         onSuccess: () => {
@@ -234,8 +234,8 @@ function etiquetaRelacion(v: boolean | null): string {
                                 <span v-if="c.salario"> · {{ c.salario }}</span>
                             </p>
                             <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                                <template v-if="c.carrera">{{ c.carrera }}</template>
-                                <template v-else>Sin carrera señalada</template>
+                                <template v-if="c.programa_academico">{{ c.programa_academico }}</template>
+                                <template v-else>Sin programa académico señalada</template>
                                 <span> · {{ etiquetaRelacion(c.relacionado) }}</span>
                                 <span> · {{ c.origen }}</span>
                             </p>
@@ -295,14 +295,14 @@ function etiquetaRelacion(v: boolean | null): string {
                         etiqueta="¿Quién se colocó?"
                         marcador="Nombre o matrícula…"
                         :error="alta.errors.persona_id"
-                        @elegido="traerCarreras(alta.persona_id)"
+                        @elegido="traerProgramasAcademicos(alta.persona_id)"
                     />
 
                     <CampoSelect
-                        v-if="susCarreras.length > 1"
+                        v-if="susProgramasAcademicos.length > 1"
                         v-model="alta.matricula_oferta_id"
-                        etiqueta="¿Con cuál de sus carreras cuenta?"
-                        :opciones="susCarreras.map((m) => ({ valor: m.id, texto: `${m.carrera ?? m.matricula}` }))"
+                        etiqueta="¿Con cuál de sus programas académicos cuenta?"
+                        :opciones="susProgramasAcademicos.map((m) => ({ valor: m.id, texto: `${m.programa_academico ?? m.matricula}` }))"
                         vacio="Sin señalar"
                         ayuda="Egresó de más de una. Sin elegir, la colocación no entra en el porcentaje de ningún programa."
                         :error="alta.errors.matricula_oferta_id"
@@ -328,12 +328,12 @@ function etiquetaRelacion(v: boolean | null): string {
                         />
                         <CampoTexto v-model="alta.salario" etiqueta="Salario mensual" tipo="number" :error="alta.errors.salario" />
                         <CampoSelect
-                            v-model="alta.relacionado_con_carrera"
+                            v-model="alta.relacionado_con_programa_academico"
                             etiqueta="¿El empleo es de su área?"
                             :opciones="RELACION"
                             vacio="No se preguntó"
                             ayuda="Dejarlo en blanco no es un «no»: se cuenta aparte."
-                            :error="alta.errors.relacionado_con_carrera"
+                            :error="alta.errors.relacionado_con_programa_academico"
                         />
                     </div>
 
@@ -354,12 +354,12 @@ function etiquetaRelacion(v: boolean | null): string {
                 <form class="space-y-4 p-6" @submit.prevent="actualizar">
                     <h2 class="text-base font-semibold">{{ editando.persona }}</h2>
                     <!--
-                        Ni la persona ni la carrera se editan: cambiarlas mueve el
+                        Ni la persona ni el programa académico se editan: cambiarlas mueve el
                         número de dos renglones del reporte a la vez. Para eso se
                         deshace y se vuelve a capturar.
                     -->
                     <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                        {{ editando.carrera ?? 'Sin carrera señalada' }} · para cambiar a quién o a qué
+                        {{ editando.programa_academico ?? 'Sin programa_academico señalada' }} · para cambiar a quién o a qué
                         programa cuenta, deshaz la colocación y captúrala otra vez.
                     </p>
 
@@ -382,11 +382,11 @@ function etiquetaRelacion(v: boolean | null): string {
                         />
                         <CampoTexto v-model="edicion.salario" etiqueta="Salario mensual" tipo="number" :error="edicion.errors.salario" />
                         <CampoSelect
-                            v-model="edicion.relacionado_con_carrera"
+                            v-model="edicion.relacionado_con_programa_academico"
                             etiqueta="¿El empleo es de su área?"
                             :opciones="RELACION"
                             vacio="No se preguntó"
-                            :error="edicion.errors.relacionado_con_carrera"
+                            :error="edicion.errors.relacionado_con_programa_academico"
                         />
                     </div>
 

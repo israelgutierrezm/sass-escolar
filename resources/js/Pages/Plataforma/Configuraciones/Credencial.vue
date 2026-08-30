@@ -657,7 +657,7 @@ const nivelesConVariante = computed(() =>
                 <div class="p-5">
                     <h2 class="text-base font-semibold">Así se va a imprimir · {{ cara }}</h2>
                     <p class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">
-                        Con datos de ejemplo a propósito: el nombre y la carrera son largos, para que se vea si
+                        Con datos de ejemplo a propósito: el nombre y el programa académico son largos, para que se vea si
                         alguna caja quedó chica.
                     </p>
 

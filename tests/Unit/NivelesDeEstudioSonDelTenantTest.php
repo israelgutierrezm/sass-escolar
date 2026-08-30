@@ -15,7 +15,7 @@ use PHPUnit\Framework\TestCase;
  * dejó como semilla, y seis pantallas se quedaron importándolo.
  *
  * Eso no se veía: la copia central sigue existiendo y contestando, sólo que con
- * los ids de la siembra original (1…7) mientras las carreras de la escuela
+ * los ids de la siembra original (1…7) mientras los programas académicos de la escuela
  * apuntan a los suyos (81, 82, 85, 95). O sea que el select de niveles ofrecía
  * una lista que no correspondía a ningún dato guardado, y guardarla habría
  * dejado el registro apuntando a un nivel inexistente.

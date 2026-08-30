@@ -13,7 +13,7 @@ use Illuminate\Database\Query\Builder as ConsultaCruda;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Responde dos preguntas sobre una matrícula-carrera: ¿ya cerró su plan (está
+ * Responde dos preguntas sobre una matrícula-programa académico: ¿ya cerró su plan (está
  * lista para certificar)? y ¿tiene una certificación (emitida o en un lote)?
  *
  * Es la fuente única de la regla de elegibilidad, para que el buscador de
@@ -50,10 +50,10 @@ class EstadoCertificacion
     }
 
     /**
-     * ¿La carrera de esta matrícula expide documentos oficiales?
+     * ¿El programa académico de esta matrícula expide documentos oficiales?
      *
      * Un diplomado o un curso de educación continua vive en el mismo catálogo de
-     * carreras y no tiene RVOE que respalde papel oficial. Cerrar su plan no lo
+     * programas académicos y no tiene RVOE que respalde papel oficial. Cerrar su plan no lo
      * vuelve certificable, y ofrecerlo entre los candidatos de un lote es
      * prometer un trámite que la escuela no puede cumplir.
      *
@@ -61,20 +61,20 @@ class EstadoCertificacion
      * —el certificado acredita las materias y el título haberla terminado— y
      * separarlos sólo permitía media configuración.
      *
-     * Ante la duda —carrera no cargada, dato ausente— se responde que sí: es lo
+     * Ante la duda —programa académico no cargada, dato ausente— se responde que sí: es lo
      * que se asumía de todas antes de que el campo existiera, y equivocarse por
      * exceso deja al alumno visible para que una persona decida, mientras que
      * equivocarse por defecto lo desaparece sin que nadie se entere.
      */
     public function emiteDocumentos(MatriculaOferta $matricula): bool
     {
-        return (bool) ($matricula->oferta?->carrera?->emite_documentos_oficiales ?? true);
+        return (bool) ($matricula->oferta?->programaAcademico?->emite_documentos_oficiales ?? true);
     }
 
     /**
      * Cerró su plan: aprobó al menos las materias que exige.
      *
-     * Es el requisito ACADÉMICO y nada más: si la carrera expide documentos se
+     * Es el requisito ACADÉMICO y nada más: si el programa académico expide documentos se
      * pregunta aparte. Lo consultan tanto certificación como titulación, así que
      * mezclarle esa condición aquí escondería el motivo real de un descarte.
      */

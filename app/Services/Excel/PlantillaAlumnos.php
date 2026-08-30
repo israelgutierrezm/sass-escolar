@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Excel;
 
 use App\Models\Academico\Campus;
-use App\Models\Academico\Carrera;
 use App\Models\Academico\PlanEstudio;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Admisiones\SituacionAlumno;
 use App\Models\ControlEscolar\Ciclo;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -24,7 +24,7 @@ class PlantillaAlumnos extends PlantillaBase
 
         $rangos = $this->listas($libro, [
             'situaciones' => SituacionAlumno::query()->orderBy('nombre')->pluck('nombre')->all(),
-            'carreras' => Carrera::query()->orderBy('clave')->pluck('clave')->all(),
+            'programas_academicos' => ProgramaAcademico::query()->orderBy('clave')->pluck('clave')->all(),
             'planes' => PlanEstudio::query()->orderBy('clave')->pluck('clave')->all(),
             'campus' => Campus::query()->orderBy('clave')->pluck('clave')->all(),
             'ciclos' => Ciclo::query()->orderBy('clave')->pluck('clave')->all(),
@@ -33,7 +33,7 @@ class PlantillaAlumnos extends PlantillaBase
         $lineas = [
             'Una fila por alumno. La primera fila (gris) es un ejemplo: bórrala o reemplázala.',
             'Los encabezados con * son obligatorios. CURP identifica a la persona (no se duplica).',
-            'Carrera, Plan y Campus (clave) deben existir y formar una oferta válida.',
+            'Programa académico, Plan y Campus (clave) deben existir y formar una oferta válida.',
         ];
         if ($conCalificaciones) {
             $lineas[] = 'En la hoja «Calificaciones»: la Matrícula debe estar en «Alumnos» o ya existir; la Materia es la clave de la asignatura en el plan del alumno.';
@@ -45,12 +45,12 @@ class PlantillaAlumnos extends PlantillaBase
             ['Nombre *', null], ['Primer apellido *', null], ['Segundo apellido', null],
             ['CURP *', null], ['Correo', null], ['Fecha de nacimiento (AAAA-MM-DD)', null], ['Celular', null],
             ['Matrícula *', null], ['Generación', null], ['Fecha de ingreso (AAAA-MM-DD)', null],
-            ['Carrera (clave) *', $rangos['carreras']], ['Plan (clave) *', $rangos['planes']],
+            ['Programa académico (clave) *', $rangos['programas_academicos']], ['Plan (clave) *', $rangos['planes']],
             ['Campus (clave) *', $rangos['campus']], ['Situación', $rangos['situaciones']],
         ], [
             'Regina', 'González', 'Rivera', 'GORR020819MDFNVG09', 'regina.gonzalez@alumnos.escuela.mx',
             '2002-08-19', '5599887766', 'L20200001', '2020', '2020-08-01',
-            $this->primero(Carrera::class, 'clave'), $this->primero(PlanEstudio::class, 'clave'),
+            $this->primero(ProgramaAcademico::class, 'clave'), $this->primero(PlanEstudio::class, 'clave'),
             $this->primero(Campus::class, 'clave'), $this->primero(SituacionAlumno::class),
         ]);
 

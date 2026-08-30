@@ -8,12 +8,12 @@ import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import { ICONOS } from '@/iconos';
 
 /**
- * Cómo se califica en cada carrera.
+ * Cómo se califica en cada programa académico.
  *
- * ── Organizada por carrera, guardada por plan ──────────────────────────────
- * La escala vive en el plan de estudios —una carrera tiene el 2018 y el 2022, y
- * pueden calificar distinto—, pero la decisión se toma por carrera. Así que se
- * agrupa por carrera y, cuando sus planes NO coinciden, se dice: es justo lo
+ * ── Organizada por programa académico, guardada por plan ──────────────────────────────
+ * La escala vive en el plan de estudios —un programa académico tiene el 2018 y el 2022, y
+ * pueden calificar distinto—, pero la decisión se toma por programa académico. Así que se
+ * agrupa por programa académico y, cuando sus planes NO coinciden, se dice: es justo lo
  * que hay que saber antes de tocar nada.
  */
 interface Plan {
@@ -35,7 +35,7 @@ interface Plan {
     desajustadas: { precision: number; rango: number } | null;
 }
 
-interface Carrera {
+interface ProgramaAcademico {
     id: number;
     nombre: string;
     nivel_id: number | null;
@@ -45,7 +45,7 @@ interface Carrera {
 }
 
 const props = defineProps<{
-    carreras: Carrera[];
+    programas_academicos: ProgramaAcademico[];
     puedeEditar: boolean;
 }>();
 
@@ -72,13 +72,13 @@ const REDONDEOS = [
  * A qué alcanza el cambio.
  *
  * La escala se guarda en el plan, pero la decisión rara vez es de un plan
- * suelto: se toma para una carrera o para un nivel entero. Elegirlo aquí evita
+ * suelto: se toma para un programa académico o para un nivel entero. Elegirlo aquí evita
  * el olvido de repetirlo plan por plan, que es donde queda uno calificando
  * distinto sin que nadie lo note hasta un acta.
  */
 const ALCANCES = [
     { valor: 'plan', texto: 'Sólo este plan' },
-    { valor: 'carrera', texto: 'Todos los planes de esta carrera' },
+    { valor: 'programa_academico', texto: 'Todos los planes de este programa académico' },
     { valor: 'nivel', texto: 'Todos los planes de este nivel de estudios' },
 ];
 
@@ -113,7 +113,7 @@ function guardar(): void {
     });
 }
 
-/** ¿Los planes de esta carrera califican todos igual? */
+/** ¿Los planes de este programa académico califican todos igual? */
 function coinciden(planes: Plan[]): boolean {
     const primero = planes[0];
 
@@ -163,13 +163,13 @@ function textoDesajuste(d: { precision: number; rango: number }): string {
     return `${partes.join(' y ')}. No se han tocado: el historial es lo que se asentó en actas.`;
 }
 
-const desalineadas = computed(() => props.carreras.filter((c) => !coinciden(c.planes)).length);
+const desalineadas = computed(() => props.programas_academicos.filter((c) => !coinciden(c.planes)).length);
 
 /**
- * Las carreras agrupadas por nivel, en la progresión de la escuela.
+ * Los programas académicos agrupadas por nivel, en la progresión de la escuela.
  *
  * Es como se decide: «los posgrados califican con dos decimales» es una frase
- * sobre un nivel, no sobre once carreras. Verlas juntas también deja ver de un
+ * sobre un nivel, no sobre once programas académicos. Verlas juntas también deja ver de un
  * vistazo si el nivel entero es coherente.
  *
  * Y se ordenan por el `orden` del catálogo —bachillerato, licenciatura,
@@ -177,13 +177,13 @@ const desalineadas = computed(() => props.carreras.filter((c) => !coinciden(c.pl
  * que no es como nadie piensa en los niveles.
  */
 const porNivel = computed(() => {
-    const grupos = new Map<string, { orden: number; carreras: Carrera[] }>();
+    const grupos = new Map<string, { orden: number; programas_academicos: ProgramaAcademico[] }>();
 
-    for (const carrera of props.carreras) {
-        const grupo = grupos.get(carrera.nivel) ?? { orden: carrera.nivel_orden, carreras: [] };
+    for (const programa_academico of props.programas_academicos) {
+        const grupo = grupos.get(programa_academico.nivel) ?? { orden: programa_academico.nivel_orden, programas_academicos: [] };
 
-        grupo.carreras.push(carrera);
-        grupos.set(carrera.nivel, grupo);
+        grupo.programas_academicos.push(programa_academico);
+        grupos.set(programa_academico.nivel, grupo);
     }
 
     return [...grupos.entries()]
@@ -199,13 +199,13 @@ const porNivel = computed(() => {
         <PestanasSeccion />
 
         <p class="mb-4 max-w-3xl text-sm" :style="{ color: 'var(--color-suave)' }">
-            Con qué escala se califica en cada carrera. Se aplica al capturar calificaciones y al
+            Con qué escala se califica en cada programa académico. Se aplica al capturar calificaciones y al
             registrar historial académico, así que un plan que califica con enteros va a rechazar un 8.5.
         </p>
 
         <p v-if="desalineadas" class="mb-4 text-sm text-amber-700">
             {{ desalineadas }}
-            {{ desalineadas === 1 ? 'carrera tiene planes que califican distinto' : 'carreras tienen planes que califican distinto' }}.
+            {{ desalineadas === 1 ? 'programa académico tiene planes que califican distinto' : 'programas académicos tienen planes que califican distinto' }}.
             Puede ser a propósito —un plan viejo con otra escala— o algo que se quedó a medias.
         </p>
 
@@ -216,17 +216,17 @@ const porNivel = computed(() => {
                 </h2>
 
             <TarjetaSeccion
-                v-for="carrera in grupo.carreras"
-                :key="carrera.id"
-                :titulo="carrera.nombre"
-                :descripcion="carrera.planes.length === 1
+                v-for="programa_academico in grupo.programas_academicos"
+                :key="programa_academico.id"
+                :titulo="programa_academico.nombre"
+                :descripcion="programa_academico.planes.length === 1
                     ? 'Un plan de estudios'
-                    : `${carrera.planes.length} planes de estudio`"
+                    : `${programa_academico.planes.length} planes de estudio`"
                 :icono="ICONOS.libro"
             >
                 <template #insignia>
                     <span
-                        v-if="!coinciden(carrera.planes)"
+                        v-if="!coinciden(programa_academico.planes)"
                         class="rounded-full px-2.5 py-0.5 text-xs"
                         :style="{ backgroundColor: 'color-mix(in srgb, #f59e0b 14%, transparent)', color: '#b45309' }"
                     >
@@ -235,7 +235,7 @@ const porNivel = computed(() => {
                 </template>
 
                 <ul class="divide-y divide-borde">
-                    <li v-for="plan in carrera.planes" :key="plan.id" class="py-3 first:pt-0 last:pb-0">
+                    <li v-for="plan in programa_academico.planes" :key="plan.id" class="py-3 first:pt-0 last:pb-0">
                         <!-- En reposo: lo que dice la escala, en una línea legible. -->
                         <div v-if="editando !== plan.id" class="flex flex-wrap items-center justify-between gap-3">
                             <div class="min-w-0">
@@ -314,8 +314,8 @@ const porNivel = computed(() => {
 
                             <!--
                                 Lo que hace útil la pantalla: quien decide «esta
-                                carrera califica con enteros» lo decide para la
-                                carrera, y hacerlo plan por plan es donde se
+                                programa académico califica con enteros» lo decide para la
+                                programa académico, y hacerlo plan por plan es donde se
                                 olvida uno.
                             -->
                             <label class="block text-sm">
@@ -339,8 +339,8 @@ const porNivel = computed(() => {
             </TarjetaSeccion>
             </section>
 
-            <p v-if="!carreras.length" class="tarjeta px-6 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
-                Todavía no hay carreras con planes de estudio.
+            <p v-if="!programas_academicos.length" class="tarjeta px-6 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
+                Todavía no hay programas académicos con planes de estudio.
             </p>
         </div>
     </AppLayout>

@@ -147,7 +147,7 @@ class ClavesSepDelCertificadoTest extends TenantTestCase
             'nombre' => 'Entidad de prueba',
         ]);
 
-        DB::table('carreras')->where('id', $escuela['carrera'])->update(['nivel_estudios_id' => $nivel->id]);
+        DB::table('programas_academicos')->where('id', $escuela['programa_academico'])->update(['nivel_estudios_id' => $nivel->id]);
         DB::table('planes_estudio')->where('id', $escuela['plan'])->update(['tipo_periodo_id' => $periodo->id]);
         DB::table('campus')->where('id', $escuela['campus'])->update(['entidad_id' => $entidad->id]);
 

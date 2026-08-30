@@ -11,8 +11,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * titulo_modalidad (TENANT) — datos de la modalidad/expedición del título de una
- * carrera-alumno. Alimenta el nodo Expedicion (y la fechaTerminacion del nodo
- * Carrera) del XML del título electrónico.
+ * programa académico-alumno. Alimenta el nodo Expedicion (y la fechaTerminacion del nodo
+ * Programa académico) del XML del título electrónico.
  */
 class TituloModalidad extends Model
 {
@@ -26,7 +26,7 @@ class TituloModalidad extends Model
         'fecha_expedicion',
         'fecha_examen_profesional',
         'fecha_exencion_examen',
-        'fecha_terminacion_carrera',
+        'fecha_terminacion_programa_academico',
     ];
 
     protected function casts(): array
@@ -35,7 +35,7 @@ class TituloModalidad extends Model
             'fecha_expedicion' => 'date',
             'fecha_examen_profesional' => 'date',
             'fecha_exencion_examen' => 'date',
-            'fecha_terminacion_carrera' => 'date',
+            'fecha_terminacion_programa_academico' => 'date',
         ];
     }
 

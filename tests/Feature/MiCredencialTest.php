@@ -225,7 +225,7 @@ class MiCredencialTest extends TenantTestCase
             'campos_anverso' => [
                 ['clave' => 'nombre', 'x' => 10, 'y' => 30, 'ancho' => 80, 'alto' => 10, 'tamano' => 24],
                 ['clave' => 'matricula', 'x' => 10, 'y' => 50, 'ancho' => 80, 'alto' => 10, 'tamano' => 24],
-                ['clave' => 'carrera', 'x' => 10, 'y' => 70, 'ancho' => 80, 'alto' => 10, 'tamano' => 20],
+                ['clave' => 'programa_academico', 'x' => 10, 'y' => 70, 'ancho' => 80, 'alto' => 10, 'tamano' => 20],
             ],
             'campos_reverso' => [
                 ['clave' => 'qr', 'x' => 30, 'y' => 20, 'ancho' => 40, 'alto' => 30],

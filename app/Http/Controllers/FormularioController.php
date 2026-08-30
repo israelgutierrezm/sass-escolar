@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Models\Academico\Carrera;
 use App\Models\Academico\NivelEstudio;
 use App\Models\Academico\Oferta;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Formularios\CampoFormulario;
 use App\Models\Formularios\Formulario;
 use App\Models\Formularios\FormularioAsignacion;
@@ -25,7 +25,7 @@ use Inertia\Response;
  * Constructor de formularios dinámicos.
  *
  * El motor completo —formularios versionados, once tipos de campo, opciones,
- * campos condicionales y asignación por nivel, carrera, oferta o rol— vive en
+ * campos condicionales y asignación por nivel, programa académico, oferta o rol— vive en
  * la base desde la Fase 1 y nunca tuvo interfaz: para pedir un dato nuevo había
  * que insertar filas a mano. Esto es esa interfaz.
  *
@@ -256,7 +256,7 @@ class FormularioController extends Controller
              * la prueba escribía las mismas columnas muertas.
              *
              * Reproducido: sembrada una asignación con rol 4 y ámbito
-             * carrera/7, la copia salía «rol=NULL ambito=NULL/NULL».
+             * programa académico/7, la copia salía «rol=NULL ambito=NULL/NULL».
              */
             foreach ($formulario->asignaciones as $asignacion) {
                 FormularioAsignacion::create([
@@ -301,22 +301,22 @@ class FormularioController extends Controller
             'ambito_id' => ['nullable', 'integer', 'required_with:ambito_tipo'],
             'obligatorio' => ['boolean'],
         ], [
-            'ambito_id.required_with' => 'Elige a qué nivel, carrera u oferta se acota.',
+            'ambito_id.required_with' => 'Elige a qué nivel, programa académico u oferta se acota.',
         ], ['rol_id' => 'rol']);
 
         $rol = Rol::findOrFail($datos['rol_id']);
 
         /*
-         * El recorte por carrera sólo aplica a quien TIENE carrera.
+         * El recorte por programa académico sólo aplica a quien TIENE programa académico.
          *
          * La pantalla ya lo esconde para los demás roles, pero la regla vive
          * aquí: una petición armada a mano no debe poder dejar guardada una
-         * asignación que no significa nada —«docentes de la carrera de
+         * asignación que no significa nada —«docentes del programa académico de
          * Derecho»— y que después nadie sabría cómo resolver.
          */
         if ($datos['ambito_tipo'] !== null && ! FormularioAsignacion::admiteAmbito($rol)) {
             throw ValidationException::withMessages([
-                'ambito_tipo' => "El rol {$rol->nombre} no tiene carrera, así que no se le puede acotar por nivel, carrera u oferta.",
+                'ambito_tipo' => "El rol {$rol->nombre} no tiene programa_academico, así que no se le puede acotar por nivel, programa_academico u oferta.",
             ]);
         }
 
@@ -404,7 +404,7 @@ class FormularioController extends Controller
     {
         return match ($asignacion->ambito_tipo) {
             'nivel' => NivelEstudio::find($asignacion->ambito_id)?->nombre ?? 'nivel desconocido',
-            'carrera' => Carrera::find($asignacion->ambito_id)?->nombre ?? 'carrera desconocida',
+            'programa_academico' => ProgramaAcademico::find($asignacion->ambito_id)?->nombre ?? 'programa académico desconocida',
             'oferta' => $this->nombreOferta((int) $asignacion->ambito_id),
             default => null,
         };
@@ -412,11 +412,11 @@ class FormularioController extends Controller
 
     private function nombreOferta(int $id): string
     {
-        $oferta = Oferta::with(['carrera:id,nombre', 'plan:id,nombre'])->find($id);
+        $oferta = Oferta::with(['programaAcademico:id,nombre', 'plan:id,nombre'])->find($id);
 
         return $oferta === null
             ? 'oferta desconocida'
-            : trim(($oferta->carrera?->nombre ?? '').' · '.($oferta->plan?->nombre ?? ''));
+            : trim(($oferta->programaAcademico?->nombre ?? '').' · '.($oferta->plan?->nombre ?? ''));
     }
 
     /**
@@ -429,11 +429,11 @@ class FormularioController extends Controller
         return [
             'nivel' => NivelEstudio::query()->activos()->orderBy('orden')->get(['id', 'nombre'])
                 ->map(fn ($n) => ['id' => $n->id, 'nombre' => $n->nombre]),
-            'carrera' => Carrera::query()->orderBy('nombre')->get(['id', 'nombre']),
-            'oferta' => Oferta::query()->with(['carrera:id,nombre', 'plan:id,nombre'])->get()
+            'programa_academico' => ProgramaAcademico::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'oferta' => Oferta::query()->with(['programaAcademico:id,nombre', 'plan:id,nombre'])->get()
                 ->map(fn (Oferta $o) => [
                     'id' => $o->id,
-                    'nombre' => trim(($o->carrera?->nombre ?? '').' · '.($o->plan?->nombre ?? '')),
+                    'nombre' => trim(($o->programaAcademico?->nombre ?? '').' · '.($o->plan?->nombre ?? '')),
                 ]),
         ];
     }

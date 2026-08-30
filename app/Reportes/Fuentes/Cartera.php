@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Reportes\Fuentes;
 
 use App\Models\Academico\Campus;
-use App\Models\Academico\Carrera;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Finanzas\SituacionPago;
 use App\Models\Identidad\Usuario;
@@ -26,7 +26,7 @@ use Illuminate\Support\Facades\DB;
  * La CARTERA: quién debe cuánto.
  *
  * ── Una fila es una MATRÍCULA, no una persona ni un cargo ────────────────
- * Quien estudia dos carreras aparece dos veces y cada una debe lo suyo, igual
+ * Quien estudia dos programas académicos aparece dos veces y cada una debe lo suyo, igual
  * que en el historial académico. Y el saldo de la fila es la SUMA de sus cargos
  * abiertos, así que sumar la columna de una página NO da la cartera de la
  * escuela: da la de los que se están viendo. Para preguntar por CONCEPTO
@@ -69,7 +69,7 @@ class Cartera implements FuenteAgrupable, FuenteDeReporte
 
     public function grano(): string
     {
-        return 'Una fila es una MATRÍCULA con su saldo. Quien estudia dos carreras aparece dos veces, '
+        return 'Una fila es una MATRÍCULA con su saldo. Quien estudia dos programas académicos aparece dos veces, '
             .'y el saldo de la fila es la suma de sus cargos abiertos — no lo desglosa por concepto.';
     }
 
@@ -136,10 +136,10 @@ class Cartera implements FuenteAgrupable, FuenteDeReporte
                 permisoExtra: 'editar-alumnos',
                 ancho: 20,
             ),
-            'carrera' => new ColumnaReporte(
-                clave: 'carrera',
-                etiqueta: 'Carrera',
-                valor: fn (MatriculaOferta $m) => $m->oferta?->carrera?->nombre,
+            'programa_academico' => new ColumnaReporte(
+                clave: 'programa_academico',
+                etiqueta: 'Programa académico',
+                valor: fn (MatriculaOferta $m) => $m->oferta?->programaAcademico?->nombre,
                 ancho: 32,
             ),
             'campus' => new ColumnaReporte(
@@ -218,7 +218,7 @@ class Cartera implements FuenteAgrupable, FuenteDeReporte
                  * de la matrícula 288, que ya no está —una de las filas rotas
                  * que reporta `acadion:auditar-datos`—, así que el servicio dice
                  * 5 cargos y el reporte 4. No es un error de la suma: es que esa
-                 * fila no tiene alumno, carrera ni campus que enseñar, y el
+                 * fila no tiene alumno, programa académico ni campus que enseñar, y el
                  * `left join` la descarta de las filas y del pie a la vez.
                  */
                 total: Agregacion::Suma,
@@ -259,15 +259,15 @@ class Cartera implements FuenteAgrupable, FuenteDeReporte
                     ->pluck('nombre', 'id')
                     ->all(),
             ),
-            'carrera_id' => new FiltroReporte(
-                clave: 'carrera_id',
-                etiqueta: 'Carrera',
+            'programa_academico_id' => new FiltroReporte(
+                clave: 'programa_academico_id',
+                etiqueta: 'Programa académico',
                 tipo: TipoFiltro::ListaMultiple,
                 aplicar: fn (Builder $q, array $v) => $q->whereHas(
                     'oferta',
-                    fn (Builder $o) => $o->whereIn('carrera_id', $v),
+                    fn (Builder $o) => $o->whereIn('programa_academico_id', $v),
                 ),
-                opciones: fn (Usuario $u) => Carrera::query()->orderBy('nombre')->pluck('nombre', 'id')->all(),
+                opciones: fn (Usuario $u) => ProgramaAcademico::query()->orderBy('nombre')->pluck('nombre', 'id')->all(),
             ),
             'situacion_pago_id' => new FiltroReporte(
                 clave: 'situacion_pago_id',
@@ -314,7 +314,7 @@ class Cartera implements FuenteAgrupable, FuenteDeReporte
      * Por qué se puede agrupar la cartera.
      *
      * Es la fuente donde agrupar de verdad paga: «cuánto se debe por campus» y
-     * «por carrera» son las dos preguntas con las que se arma una junta de
+     * «por programa académico» son las dos preguntas con las que se arma una junta de
      * dirección, y hasta ahora había que exportar las 32 filas y sumarlas en
      * Excel.
      *
@@ -346,16 +346,16 @@ class Cartera implements FuenteAgrupable, FuenteDeReporte
                 },
                 ayuda: 'Cuánto se debe en cada plantel. El campus sale de la OFERTA, que es donde estudia.',
             ),
-            'carrera' => new DimensionReporte(
-                clave: 'carrera',
-                etiqueta: 'Carrera',
-                sqlAgrupacion: 'oferta.carrera_id',
-                sqlEtiqueta: 'carreras.nombre',
+            'programa_academico' => new DimensionReporte(
+                clave: 'programa_academico',
+                etiqueta: 'Programa académico',
+                sqlAgrupacion: 'oferta.programa_academico_id',
+                sqlEtiqueta: 'programas_academicos.nombre',
                 join: function (Builder $consulta) use ($conOferta): void {
                     $conOferta($consulta);
-                    $consulta->join('carreras', 'carreras.id', '=', 'oferta.carrera_id');
+                    $consulta->join('programas_academicos', 'programas_academicos.id', '=', 'oferta.programa_academico_id');
                 },
-                ayuda: 'Quien estudia dos carreras aporta a las dos: una fila es una MATRÍCULA, no una persona.',
+                ayuda: 'Quien estudia dos programas académicos aporta a las dos: una fila es una MATRÍCULA, no una persona.',
             ),
             'situacion' => new DimensionReporte(
                 clave: 'situacion',
@@ -391,8 +391,8 @@ class Cartera implements FuenteAgrupable, FuenteDeReporte
         return MatriculaOferta::query()
             ->with([
                 'persona:id,nombre,primer_apellido,segundo_apellido,curp',
-                'oferta:id,carrera_id,campus_id',
-                'oferta.carrera:id,nombre',
+                'oferta:id,programa_academico_id,campus_id',
+                'oferta.programaAcademico:id,nombre',
                 'oferta.campus:id,nombre',
                 'situacion:id,nombre',
             ])

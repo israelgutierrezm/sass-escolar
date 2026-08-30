@@ -97,7 +97,7 @@ class EntrarAClaseController extends Controller
          * El alumno lo dice su INSCRIPCIÓN a esa materia, no un permiso.
          *
          * Va por `matricula_oferta` de esta persona: una persona con dos
-         * carreras tiene dos matrículas, y basta con que cualquiera de ellas
+         * programas académicos tiene dos matrículas, y basta con que cualquiera de ellas
          * esté inscrita en el grupo.
          */
         $cursa = Inscripcion::query()

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models\Finanzas;
 
-use App\Models\Academico\Carrera;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Concerns\TieneAuditoria;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -37,14 +37,14 @@ class CuentaBancaria extends Model
     }
 
     /**
-     * Para qué carreras vale. VACÍO significa «todas».
+     * Para qué programas académicos vale. VACÍO significa «todas».
      *
      * Es el caso simple y el más común —una escuela, una cuenta—, así que se
      * resuelve no diciendo nada en vez de obligando a marcar la lista entera.
      */
-    public function carreras(): BelongsToMany
+    public function programasAcademicos(): BelongsToMany
     {
-        return $this->belongsToMany(Carrera::class, 'cuenta_bancaria_carrera');
+        return $this->belongsToMany(ProgramaAcademico::class, 'cuenta_bancaria_programa_academico');
     }
 
     public function scopeActivas(Builder $query): Builder
@@ -53,28 +53,28 @@ class CuentaBancaria extends Model
     }
 
     /**
-     * Las cuentas que puede usar quien estudia esta carrera.
+     * Las cuentas que puede usar quien estudia este programa académico.
      *
      * @return Collection<int, self>
      */
-    public static function paraCarrera(?int $carreraId)
+    public static function paraProgramaAcademico(?int $programaAcademicoId)
     {
         return static::query()
             ->activas()
-            ->with('carreras:id')
+            ->with('programasAcademicos:id')
             ->get()
-            ->filter(fn (self $c) => $c->aplicaA($carreraId))
+            ->filter(fn (self $c) => $c->aplicaA($programaAcademicoId))
             ->values();
     }
 
-    /** ¿Sirve para esta carrera? Sin carreras asignadas, para todas. */
-    public function aplicaA(?int $carreraId): bool
+    /** ¿Sirve para este programa académico? Sin programas académicos asignados, para todas. */
+    public function aplicaA(?int $programaAcademicoId): bool
     {
-        if ($this->carreras->isEmpty()) {
+        if ($this->programasAcademicos->isEmpty()) {
             return true;
         }
 
-        return $carreraId !== null && $this->carreras->contains('id', $carreraId);
+        return $programaAcademicoId !== null && $this->programasAcademicos->contains('id', $programaAcademicoId);
     }
 
     /**

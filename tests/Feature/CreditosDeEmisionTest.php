@@ -20,7 +20,7 @@ use Tests\TenantTestCase;
  *
  * El trámite se reconoce por CURP + plan: no por folio, que cambia justamente al
  * regenerar. Y distingue el caso en que SÍ son dos cobros: el mismo alumno
- * titulándose de dos carreras distintas.
+ * titulándose de dos programas académicos distintas.
  */
 class CreditosDeEmisionTest extends TenantTestCase
 {
@@ -82,7 +82,7 @@ class CreditosDeEmisionTest extends TenantTestCase
     /**
      * El mismo alumno en OTRO plan sí son dos trámites.
      *
-     * Titularse de dos carreras son dos documentos distintos y dos cobros
+     * Titularse de dos programas académicos son dos documentos distintos y dos cobros
      * legítimos: si sólo se mirara la CURP, el segundo saldría gratis.
      */
     public function test_el_mismo_alumno_en_otro_plan_si_cobra(): void
@@ -90,7 +90,7 @@ class CreditosDeEmisionTest extends TenantTestCase
         $this->conSaldo(SaldoEmision::PREPAGO, 5);
 
         $this->assertTrue($this->emitir('CURP010101HDFAAA01', 'LIC-DER-2020'));
-        $this->assertTrue($this->emitir('CURP010101HDFAAA01', 'LIC-PSI-2020'), 'Otra carrera, otro trámite.');
+        $this->assertTrue($this->emitir('CURP010101HDFAAA01', 'LIC-PSI-2020'), 'Otro programa académico, otro trámite.');
 
         $this->assertSame(3, $this->saldo()->creditos);
     }

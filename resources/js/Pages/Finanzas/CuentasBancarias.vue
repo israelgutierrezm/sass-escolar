@@ -18,13 +18,13 @@ interface Cuenta {
     numero_cuenta: string | null;
     instrucciones: string | null;
     activa: boolean;
-    carreras: number[];
+    programas_academicos: number[];
     alcance: string;
 }
 
 const props = defineProps<{
     cuentas: Cuenta[];
-    carreras: { id: number; nombre: string }[];
+    programas_academicos: { id: number; nombre: string }[];
     puedeEditar: boolean;
 }>();
 
@@ -38,7 +38,7 @@ const form = useForm({
     numero_cuenta: '',
     instrucciones: '',
     activa: true,
-    carreras: [] as number[],
+    programas_academicos: [] as number[],
 });
 
 function abrir(cuenta: Cuenta | null): void {
@@ -52,7 +52,7 @@ function abrir(cuenta: Cuenta | null): void {
         numero_cuenta: cuenta?.numero_cuenta ?? '',
         instrucciones: cuenta?.instrucciones ?? '',
         activa: cuenta?.activa ?? true,
-        carreras: [...(cuenta?.carreras ?? [])],
+        programas_academicos: [...(cuenta?.programas_academicos ?? [])],
     });
 
     form.reset();
@@ -75,9 +75,9 @@ function eliminar(cuenta: Cuenta): void {
     router.delete(`/finanzas/cuentas-bancarias/${cuenta.id}`, { preserveScroll: true });
 }
 
-function alternarCarrera(id: number): void {
-    const i = form.carreras.indexOf(id);
-    i === -1 ? form.carreras.push(id) : form.carreras.splice(i, 1);
+function alternarProgramaAcademico(id: number): void {
+    const i = form.programas_academicos.indexOf(id);
+    i === -1 ? form.programas_academicos.push(id) : form.programas_academicos.splice(i, 1);
 }
 </script>
 
@@ -143,22 +143,22 @@ function alternarCarrera(id: number): void {
             <!--
                 Sin marcar nada vale para todas. Es el caso simple y el más
                 común; obligar a marcar la lista entera haría que abrir una
-                carrera nueva dejara la cuenta fuera sin que nadie lo note.
+                programa académico nueva dejara la cuenta fuera sin que nadie lo note.
             -->
             <div class="mt-4">
                 <p class="mb-2 text-xs" :style="{ color: 'var(--color-suave)' }">
-                    ¿Para qué carreras? Sin marcar ninguna, vale para todas.
+                    ¿Para qué programas académicos? Sin marcar ninguna, vale para todas.
                 </p>
                 <div class="flex flex-wrap gap-1.5">
                     <button
-                        v-for="c in carreras"
+                        v-for="c in programas_academicos"
                         :key="c.id"
                         type="button"
                         class="rounded-full border px-3 py-1 text-xs transition"
-                        :style="form.carreras.includes(c.id)
+                        :style="form.programas_academicos.includes(c.id)
                             ? { backgroundColor: 'var(--color-acento)', borderColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }
                             : { borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }"
-                        @click="alternarCarrera(c.id)"
+                        @click="alternarProgramaAcademico(c.id)"
                     >
                         {{ c.nombre }}
                     </button>

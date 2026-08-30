@@ -2,7 +2,7 @@
 /**
  * Tarjeta genérica para la vista de cuadrícula de un listado.
  *
- * Los listados de catálogo (campus, carreras, planes, oferta…) no tienen foto
+ * Los listados de catálogo (campus, programas académicos, planes, oferta…) no tienen foto
  * como las personas, así que en lugar de repetir un `<article>` distinto en
  * cada página se centraliza aquí: un título, una clave opcional, una lista de
  * pares etiqueta/valor y dos ranuras —una para una insignia arriba a la derecha

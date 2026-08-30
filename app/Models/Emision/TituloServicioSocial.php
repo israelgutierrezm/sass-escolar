@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * titulo_servicio_social (TENANT) — datos del servicio social de una
- * carrera-alumno para el título. Alimenta los atributos de servicio social del
+ * programa académico-alumno para el título. Alimenta los atributos de servicio social del
  * nodo Expedicion del XML del título electrónico.
  */
 class TituloServicioSocial extends Model

@@ -86,7 +86,7 @@ try {
 
     /*
      * CUATRO pasos, no tres: los formularios entraron al avance en `20d3e03`.
-     * Siguen siendo fijos —no varían por campaña ni por carrera, que es la
+     * Siguen siendo fijos —no varían por campaña ni por programa académico, que es la
      * decisión del cliente que esta comprobación protege—, pero ahora son
      * datos, documentos, formularios y pago.
      */
@@ -248,12 +248,12 @@ try {
     echo PHP_EOL.'7. NADA de esto tocó la etapa del CRM'.PHP_EOL;
 
     // Es la corrección del cliente: el módulo del aspirante es para llenar sus
-    // datos; el embudo lo mueve promoción con su criterio.
-    verificar('El aspirante sigue en la etapa en que lo dejó promoción',
+    // datos; el embudo lo mueve captación con su criterio.
+    verificar('El aspirante sigue en la etapa en que lo dejó captación',
         $aspirante->fresh()->etapa_crm_id === $etapas->first()->id,
         'etapa '.$aspirante->fresh()->etapa_crm_id);
     verificar('Aunque su expediente esté al 100%', $avance['porcentaje'] === 100);
-    verificar('Y promoción sigue pudiendo moverlo a mano',
+    verificar('Y captación sigue pudiendo moverlo a mano',
         (function () use ($aspirante, $etapas) {
             $aspirante->update(['etapa_crm_id' => $etapas[1]->id]);
 

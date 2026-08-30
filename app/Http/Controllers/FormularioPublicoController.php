@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Academico\Oferta;
+use App\Models\Captacion\FormularioPublico;
 use App\Models\Formularios\CampoFormulario;
 use App\Models\Landlord\Genero;
-use App\Models\Promocion\FormularioPublico;
 use App\Services\RegistradorProspecto;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -142,12 +142,12 @@ class FormularioPublicoController extends Controller
     private function ofertas()
     {
         return Oferta::query()
-            ->with('carrera:id,nombre', 'campus:id,nombre')
+            ->with('programaAcademico:id,nombre', 'campus:id,nombre')
             ->get()
             ->map(fn (Oferta $o) => [
                 'id' => $o->id,
                 'nombre' => trim(
-                    ($o->carrera?->nombre ?? 'Programa')
+                    ($o->programaAcademico?->nombre ?? 'Programa')
                     .' · '.($o->campus?->nombre ?? '')
                 ),
             ])

@@ -1,10 +1,10 @@
 <?php
 
 /**
- * Prueba de integración de las carreras de una misma persona: matricular en
+ * Prueba de integración de los programas académicos de una misma persona: matricular en
  * otra oferta, dar de baja una sin tocar las demás, reactivar. Con rollback.
  *
- * Se corre con `php scripts/prueba-multicarrera.php` desde la raíz.
+ * Se corre con `php scripts/prueba-multiprograma.php` desde la raíz.
  */
 
 $raiz = dirname(__DIR__);
@@ -49,7 +49,7 @@ try {
     $ofertaA = Oferta::firstOrFail();
     $ofertaB = Oferta::where('id', '!=', $ofertaA->id)->first()
         ?? Oferta::create([
-            'carrera_id' => PlanEstudio::where('id', '!=', $ofertaA->plan_id)->first()?->carrera_id ?? $ofertaA->carrera_id,
+            'programa_academico_id' => PlanEstudio::where('id', '!=', $ofertaA->plan_id)->first()?->programa_academico_id ?? $ofertaA->programa_academico_id,
             'plan_id' => PlanEstudio::where('id', '!=', $ofertaA->plan_id)->first()?->id ?? $ofertaA->plan_id,
             'campus_id' => $ofertaA->campus_id,
             'turno_id' => $ofertaA->turno_id,
@@ -98,7 +98,7 @@ try {
     verificar('Siguen siendo 2 matrículas',
         MatriculaOferta::where('persona_id', $persona->id)->count() === 2);
 
-    echo PHP_EOL.'3. Baja de UNA carrera'.PHP_EOL;
+    echo PHP_EOL.'3. Baja de UNA programa académico'.PHP_EOL;
 
     $definitiva = SituacionAlumno::where('clave', 'baja_definitiva')->first();
 

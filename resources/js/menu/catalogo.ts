@@ -159,12 +159,12 @@ export const CATALOGO_MENU: GrupoMenu[] = [
         ],
     },
     /*
-     * Servicios y biblioteca del alumno.
+     * Servicios y recursos digitales del alumno.
      *
      * Vivían SÓLO como tarjetas del panel, así que un alumno que ya había salido
      * del panel no tenía cómo volver a ellas: la barra lateral no las listaba.
      * Van como dos secciones de un hijo —igual que «Mi solicitud» y «Mis
-     * tutorados»—, cada una tras su permiso: si la escuela no publica biblioteca
+     * tutorados»—, cada una tras su permiso: si la escuela no publica recursos digitales
      * ni abre el catálogo de trámites, la entrada no aparece.
      */
     {
@@ -177,18 +177,18 @@ export const CATALOGO_MENU: GrupoMenu[] = [
         hijos: [{ clave: 'servicios-listado', etiqueta: 'Servicios y trámites', url: '/servicios', permiso: 'solicitar-servicios' }],
     },
     {
-        clave: 'biblioteca-alumno',
-        etiqueta: 'Biblioteca',
-        prefijo: '/biblioteca',
+        clave: 'recursos-digitales-alumno',
+        etiqueta: 'Recursos digitales',
+        prefijo: '/recursos-digitales',
         facetas: ['alumno'],
         icono: 'M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0 0 12 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75Z',
-        modulo: 'biblioteca',
-        hijos: [{ clave: 'biblioteca-listado', etiqueta: 'Biblioteca digital', url: '/biblioteca', permiso: 'ver-biblioteca' }],
+        modulo: 'recursos_digitales',
+        hijos: [{ clave: 'recursos-digitales-listado', etiqueta: 'Recursos digitales', url: '/recursos-digitales', permiso: 'ver-recursos-digitales' }],
     },
     {
         // «Mis vacantes» del alumno: su lado de la bolsa. Aparte de la sección
         // administrativa (que ahora cuelga de «Alumnos»), porque el estudiante
-        // no ve secciones de faceta administrativa. Mismo patrón que Biblioteca
+        // no ve secciones de faceta administrativa. Mismo patrón que Recursos digitales
         // y Servicios: una sección de un solo tema, tras su módulo.
         clave: 'bolsa-alumno',
         etiqueta: 'Bolsa de trabajo',
@@ -217,12 +217,12 @@ export const CATALOGO_MENU: GrupoMenu[] = [
         icono: 'M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
         hijos: [
             { clave: 'aspirantes', etiqueta: 'Aspirantes', url: '/aspirantes', permiso: 'ver-aspirantes' },
-            { clave: 'promocion', etiqueta: 'Promoción (CRM)', url: '/promocion', permiso: 'ver-mis-prospectos', o: 'gestionar-promocion' },
-            { clave: 'comisiones', etiqueta: 'Comisiones', url: '/promocion/comisiones', permiso: 'ver-mis-prospectos', o: 'gestionar-promocion' },
+            { clave: 'captacion', etiqueta: 'Captación', url: '/captacion', permiso: 'ver-mis-prospectos', o: 'gestionar-captacion' },
+            { clave: 'comisiones', etiqueta: 'Comisiones', url: '/captacion/comisiones', permiso: 'ver-mis-prospectos', o: 'gestionar-captacion' },
             // Quién atiende prospectos. Va junto al CRM y no en Plataforma:
-            // es una decisión de promoción, no de administración del sistema.
-            { clave: 'asesores', etiqueta: 'Asesores', url: '/promocion/asesores', permiso: 'gestionar-promocion' },
-            { clave: 'formularios-web', etiqueta: 'Formularios web', url: '/promocion/publicaciones', permiso: 'gestionar-promocion' },
+            // es una decisión de captación, no de administración del sistema.
+            { clave: 'asesores', etiqueta: 'Asesores', url: '/captacion/asesores', permiso: 'gestionar-captacion' },
+            { clave: 'formularios-web', etiqueta: 'Formularios web', url: '/captacion/publicaciones', permiso: 'gestionar-captacion' },
             { clave: 'documentos', etiqueta: 'Documentos', url: '/documentos', permiso: 'gestionar-documentos' },
             { clave: 'formularios', etiqueta: 'Formularios', url: '/formularios', permiso: 'gestionar-formularios' },
             { clave: 'reglas-matricula', etiqueta: 'Formato de matrícula', url: '/admisiones/reglas-matricula', permiso: 'configurar-matriculas' },
@@ -237,13 +237,13 @@ export const CATALOGO_MENU: GrupoMenu[] = [
         hijos: [
             { clave: 'institucion', etiqueta: 'Institución', url: '/academico/instituciones', permiso: 'ver-catalogo-academico' },
             { clave: 'campus', etiqueta: 'Campus', url: '/academico/campus', permiso: 'ver-catalogo-academico' },
-            { clave: 'carreras', etiqueta: 'Carreras', url: '/academico/carreras', permiso: 'ver-catalogo-academico' },
+            { clave: 'programas_academicos', etiqueta: 'Programas académicos', url: '/academico/programas-academicos', permiso: 'ver-catalogo-academico' },
             { clave: 'planes', etiqueta: 'Planes de estudio', url: '/academico/planes', permiso: 'ver-catalogo-academico' },
             { clave: 'asignaturas', etiqueta: 'Asignaturas', url: '/academico/asignaturas', permiso: 'ver-catalogo-academico' },
             /*
              * Lo que se ARMA UNA VEZ, aparte de lo que se consulta a diario.
              *
-             * Institución, campus, carreras, planes y asignaturas son el mapa de
+             * Institución, campus, programas académicos, planes y asignaturas son el mapa de
              * la escuela y se entra a ellos todo el tiempo. La oferta, las
              * plantillas de evaluación y los catálogos se configuran al principio
              * del ciclo y casi no se vuelven a tocar; mezclados en la misma lista
@@ -363,9 +363,9 @@ export const CATALOGO_MENU: GrupoMenu[] = [
              *
              * Las dos pantallas EXISTÍAN, con su ruta y su permiso, y no se
              * alcanzaban desde ningún sitio: ni menú, ni enlace, ni tarjeta de
-             * panel —las tarjetas apuntan a `/biblioteca` y `/servicios`, que
+             * panel —las tarjetas apuntan a `/recursos-digitales` y `/servicios`, que
              * son las del ALUMNO—. Una escuela que le diera
-             * `gestionar-biblioteca` a su bibliotecaria le estaba dando un
+             * `gestionar-recursos-digitales` a su responsable de recursos digitales le estaba dando un
              * permiso que no abría nada que pudiera encontrar.
              *
              * Van aquí porque es donde las pone el catálogo de permisos —las dos
@@ -374,7 +374,7 @@ export const CATALOGO_MENU: GrupoMenu[] = [
              * las esconda igual que a la del alumno.
              */
             { clave: 'servicios-mostrador', etiqueta: 'Servicios y trámites', url: '/escolar/servicios', permiso: 'atender-servicios', modulo: 'servicios' },
-            { clave: 'biblioteca-admin', etiqueta: 'Biblioteca', url: '/escolar/biblioteca', permiso: 'gestionar-biblioteca', modulo: 'biblioteca' },
+            { clave: 'recursos-digitales-admin', etiqueta: 'Recursos digitales', url: '/escolar/recursos-digitales', permiso: 'gestionar-recursos-digitales', modulo: 'recursos_digitales' },
             /*
              * Las dos pantallas del horario, juntas.
              *

@@ -6,7 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\EtapaCrm;
-use App\Models\Promocion\SeguimientoAspirante;
+use App\Models\Captacion\SeguimientoAspirante;
 use App\Models\Identidad\Persona;
 use App\Services\AgendaDelAspirante;
 use App\Services\AsignadorAsesor;
@@ -18,7 +18,7 @@ use RuntimeException;
 /**
  * La ACTIVIDAD de un prospecto, operada desde su ficha.
  *
- * ── Por qué aquí y no en `/promocion` ──────────────────────────────────────
+ * ── Por qué aquí y no en `/captacion` ──────────────────────────────────────
  * El seguimiento se registraba sólo desde el tablero del embudo, y ahí se ve la
  * cartera entera: para anotar una llamada había que salir de la ficha de la
  * persona con la que se acababa de hablar, encontrarla en una lista y volver.
@@ -173,7 +173,7 @@ class ActividadAspiranteController extends Controller
      */
     public function asignarAsesor(Request $request, Aspirante $aspirante): RedirectResponse
     {
-        abort_unless($request->user()->can('gestionar-promocion'), 403);
+        abort_unless($request->user()->can('gestionar-captacion'), 403);
 
         $datos = $request->validate([
             'persona_id' => ['required', Rule::exists('asesores', 'persona_id')],
@@ -237,7 +237,7 @@ class ActividadAspiranteController extends Controller
     /**
      * El permiso dice qué; la asignación, sobre quién.
      *
-     * Quien coordina promoción o ve aspirantes alcanza a todos. El asesor sólo
+     * Quien coordina captación o ve aspirantes alcanza a todos. El asesor sólo
      * a los suyos — misma regla que el tablero, para que no haya una puerta
      * lateral por la ficha.
      */
@@ -245,7 +245,7 @@ class ActividadAspiranteController extends Controller
     {
         $usuario = $request->user();
 
-        if ($usuario->can('ver-aspirantes') || $usuario->can('gestionar-promocion')) {
+        if ($usuario->can('ver-aspirantes') || $usuario->can('gestionar-captacion')) {
             return;
         }
 

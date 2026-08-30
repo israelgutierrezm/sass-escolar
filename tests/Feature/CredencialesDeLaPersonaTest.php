@@ -17,10 +17,10 @@ use Tests\TenantTestCase;
  * Cuántas credenciales tiene una persona.
  *
  * ── La pregunta que originó esto ───────────────────────────────────────────
- * «Un alumno con dos carreras tendría dos credenciales». Sí, y es lo correcto:
+ * «Un alumno con dos programas académicos tendría dos credenciales». Sí, y es lo correcto:
  * el proyecto ya decidió que el alumno es la MATRÍCULA y no la persona, y por
  * eso su historial académico es independiente por inscripción. Emitir una sola —la de la
- * matrícula más reciente— dejaría sin credencial la otra carrera en la que esa
+ * matrícula más reciente— dejaría sin credencial la otro programa académico en la que esa
  * persona TAMBIÉN está inscrita, que es justo la que va a enseñar el día que
  * entre a esa clase. En la escuela de ejemplo hay tres personas así.
  *
@@ -31,7 +31,7 @@ class CredencialesDeLaPersonaTest extends TenantTestCase
 {
     use CreaEscuelaDePrueba;
 
-    public function test_un_alumno_con_dos_carreras_tiene_dos_credenciales(): void
+    public function test_un_alumno_con_dos_programas_academicos_tiene_dos_credenciales(): void
     {
         $usuario = $this->alumnoCon(2);
         $this->configurar($usuario->rol_activo_id);
@@ -90,7 +90,7 @@ class CredencialesDeLaPersonaTest extends TenantTestCase
     {
         $usuario = $this->alumnoCon(1);
         $rolId = $usuario->rol_activo_id;
-        $nivel = $this->nivelDeSuCarrera($usuario);
+        $nivel = $this->nivelDeSuProgramaAcademico($usuario);
 
         $this->configurar($rolId, ['diseno' => 'clasico']);
 
@@ -125,7 +125,7 @@ class CredencialesDeLaPersonaTest extends TenantTestCase
         $primera = MatriculaOferta::findOrFail($this->alumnoInscrito()['matricula']);
 
         for ($i = 1; $i < $cuantas; $i++) {
-            // Otra inscripción de la MISMA persona: es lo que hace multicarrera.
+            // Otra inscripción de la MISMA persona: es lo que hace multiprograma.
             $otra = MatriculaOferta::findOrFail($this->alumnoInscrito()['matricula']);
             $otra->update(['persona_id' => $primera->persona_id]);
         }
@@ -138,22 +138,22 @@ class CredencialesDeLaPersonaTest extends TenantTestCase
         return $usuario->fresh();
     }
 
-    private function nivelDeSuCarrera(Usuario $usuario): int
+    private function nivelDeSuProgramaAcademico(Usuario $usuario): int
     {
         $matricula = MatriculaOferta::query()
-            ->with('oferta.carrera')
+            ->with('oferta.programaAcademico')
             ->where('persona_id', $usuario->persona_id)
             ->firstOrFail();
 
-        $nivel = $matricula->oferta?->carrera?->nivel_estudios_id;
+        $nivel = $matricula->oferta?->programaAcademico?->nivel_estudios_id;
 
         if ($nivel === null) {
-            // La escuela de prueba no siempre le pone nivel a la carrera; se le
+            // La escuela de prueba no siempre le pone nivel al programa académico; se le
             // pone uno para que la aserción compare algo real.
             $nivel = DB::table('niveles_estudio')->value('id')
                 ?? DB::table('niveles_estudio')->insertGetId(['nombre' => 'Licenciatura']);
 
-            DB::table('carreras')->where('id', $matricula->oferta->carrera_id)
+            DB::table('programas_academicos')->where('id', $matricula->oferta->programa_academico_id)
                 ->update(['nivel_estudios_id' => $nivel]);
         }
 

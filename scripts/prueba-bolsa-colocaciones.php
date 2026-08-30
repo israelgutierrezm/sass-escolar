@@ -19,13 +19,13 @@
  *     egresados, y sin él el indicador mediría el trabajo de vinculación en vez
  *     del destino de los egresados.
  *  5. La matrícula de una colocación directa es DE esa persona: con la de otro,
- *     el porcentaje de una carrera ajena subiría sin que nada fallara.
+ *     el porcentaje de un programa académico ajena subiría sin que nada fallara.
  *  6. El denominador sale del CATÁLOGO (`cuenta_como_egresado`), no de una lista
  *     de claves: apagar una situación tiene que mover el número.
  *  7. Se cuenta por MATRÍCULA y con DISTINCT: quien cambió de trabajo dos veces
  *     sigue siendo un egresado colocado, no dos, y el porcentaje no puede pasar
  *     del 100 %.
- *  8. Las colocaciones sin carrera señalada NO entran en ningún renglón por
+ *  8. Las colocaciones sin programa académico señalada NO entran en ningún renglón por
  *     programa: se reportan aparte.
  *
  * Los `use` van ARRIBA del arranque a propósito: un alias sólo aplica a partir
@@ -172,7 +172,7 @@ try {
         'puesto' => 'Analista junior',
         'fecha_ingreso' => now()->toDateString(),
         'salario' => 15000,
-        'relacionado_con_carrera' => true,
+        'relacionado_con_programa_academico' => true,
     ];
 
     echo PHP_EOL.'2. A la etapa que coloca no se entra sin la colocación'.PHP_EOL;
@@ -269,14 +269,14 @@ try {
         'empresa_id' => $otraEmpresa->id,
         'puesto' => 'Coordinador',
         'fecha_ingreso' => now()->subMonths(3)->toDateString(),
-        'relacionado_con_carrera' => false,
+        'relacionado_con_programa_academico' => false,
     ]);
 
     verificar('queda registrada sin postulación', $directa->postulacion_id === null);
     verificar('y NO cuenta como salida de la bolsa', ! $directa->salioDeLaBolsa());
 
     // Con la matrícula de otra persona se rechaza: si no, esta colocación
-    // sumaría al porcentaje de una carrera que no es la suya.
+    // sumaría al porcentaje de un programa académico que no es la suya.
     $ajena = false;
 
     try {
@@ -336,35 +336,35 @@ try {
         'empresa_id' => $empresa->id,
         'puesto' => 'Se cambió de trabajo',
         'fecha_ingreso' => now()->toDateString(),
-        'relacionado_con_carrera' => false,
+        'relacionado_con_programa_academico' => false,
     ]);
 
     verificar('dos empleos de la misma matrícula siguen siendo UN colocado',
         $indicador->resumen()['colocados'] === $resumen['colocados'],
         $resumen['colocados'].' → '.$indicador->resumen()['colocados']);
 
-    echo PHP_EOL.'8. Lo que no señala carrera se cuenta aparte'.PHP_EOL;
+    echo PHP_EOL.'8. Lo que no señala programa académico se cuenta aparte'.PHP_EOL;
 
-    $sinCarrera = $registrador->directa([
+    $sinProgramaAcademico = $registrador->directa([
         'persona_id' => (int) $unoA->persona_id,
         'matricula_oferta_id' => null,
         'empresa_id' => $empresa->id,
-        'puesto' => 'Sin señalar carrera',
+        'puesto' => 'Sin señalar programa académico',
         'fecha_ingreso' => now()->toDateString(),
     ]);
 
     $conSuelta = $indicador->resumen();
 
-    verificar('se reporta como sin carrera señalada',
-        $conSuelta['sin_carrera_senalada'] === $base['sin_carrera_senalada'] + 1,
-        $base['sin_carrera_senalada'].' → '.$conSuelta['sin_carrera_senalada']);
+    verificar('se reporta como sin programa académico señalada',
+        $conSuelta['sin_programa_academico_senalado'] === $base['sin_programa_academico_senalado'] + 1,
+        $base['sin_programa_academico_senalado'].' → '.$conSuelta['sin_programa_academico_senalado']);
     verificar('y NO mueve el número de colocados', $conSuelta['colocados'] === $resumen['colocados'],
         $resumen['colocados'].' → '.$conSuelta['colocados']);
 
-    $sumaPorCarrera = collect($indicador->porCarrera())->sum('colocados');
+    $sumaPorProgramaAcademico = collect($indicador->porProgramaAcademico())->sum('colocados');
 
-    verificar('la suma por carrera tampoco la incluye', $sumaPorCarrera === $conSuelta['colocados'],
-        $sumaPorCarrera.' vs '.$conSuelta['colocados']);
+    verificar('la suma por programa académico tampoco la incluye', $sumaPorProgramaAcademico === $conSuelta['colocados'],
+        $sumaPorProgramaAcademico.' vs '.$conSuelta['colocados']);
 
     /*
      * Y una colocación de quien TODAVÍA NO EGRESA tampoco entra: se cuenta
@@ -384,7 +384,7 @@ try {
         'empresa_id' => $empresa->id,
         'puesto' => 'Práctica profesional',
         'fecha_ingreso' => now()->toDateString(),
-        'relacionado_con_carrera' => true,
+        'relacionado_con_programa_academico' => true,
     ]);
 
     $conLaPractica = $indicador->resumen();
@@ -444,16 +444,16 @@ try {
     verificar('el listado trae las colocaciones', count($props['colocaciones']['data']) >= 3,
         (string) count($props['colocaciones']['data']));
 
-    $suelta = collect($props['colocaciones']['data'])->firstWhere('id', $sinCarrera->id);
+    $suelta = collect($props['colocaciones']['data'])->firstWhere('id', $sinProgramaAcademico->id);
 
     /*
      * `array_key_exists` y no `?? 'x'`: el coalescente reemplaza justamente el
      * null que se quiere comprobar, así que la condición era falsa pasara lo que
      * pasara. Estaba mal escrita y se vio al correrla.
      */
-    verificar('la que no señala carrera llegó a la pantalla', $suelta !== null);
-    verificar('se ve sin carrera',
-        $suelta !== null && array_key_exists('carrera', $suelta) && $suelta['carrera'] === null);
+    verificar('la que no señala programa académico llegó a la pantalla', $suelta !== null);
+    verificar('se ve sin programa académico',
+        $suelta !== null && array_key_exists('programa_academico', $suelta) && $suelta['programa_academico'] === null);
     verificar('y sin el dato de si es de su área',
         $suelta !== null && array_key_exists('relacionado', $suelta) && $suelta['relacionado'] === null);
 
@@ -464,13 +464,13 @@ try {
 
     verificar('la pantalla del indicador trae el resumen', isset($ind['resumen']['porcentaje']));
     verificar('y las dos aperturas',
-        count($ind['por_carrera']) > 0 && count($ind['por_generacion']) > 0);
+        count($ind['por_programa_academico']) > 0 && count($ind['por_generacion']) > 0);
 
     echo PHP_EOL.'12. «No se preguntó» no es «no es de su área»'.PHP_EOL;
 
     /*
      * Hace falta una colocación CON matrícula y SIN el dato: la de arriba que no
-     * señala carrera nunca llega al desglose por área —no se une contra ningún
+     * señala programa académico nunca llega al desglose por área —no se une contra ningún
      * egresado— así que con ella sola la comprobación sería vacua. Se vio
      * mutando: sumar el hueco a los de otra área no tumbaba nada.
      */
@@ -485,7 +485,7 @@ try {
         'empresa_id' => $otraEmpresa->id,
         'puesto' => 'No se le preguntó',
         'fecha_ingreso' => now()->toDateString(),
-        // A propósito sin `relacionado_con_carrera`.
+        // A propósito sin `relacionado_con_programa_academico`.
     ]);
 
     $despues = $indicador->resumen();

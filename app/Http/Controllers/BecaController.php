@@ -148,7 +148,7 @@ class BecaController extends Controller
         $otorgadas = $consulta
             ->with([
                 'matricula.persona:id,nombre,primer_apellido,segundo_apellido',
-                'matricula.oferta.carrera:id,nombre',
+                'matricula.oferta.programaAcademico:id,nombre',
                 'ciclo:id,nombre',
                 'movimientos',
             ])
@@ -158,7 +158,7 @@ class BecaController extends Controller
                 'id' => $b->id,
                 'alumno' => $b->matricula?->persona?->nombreCompleto(),
                 'matricula' => $b->matricula?->matricula,
-                'carrera' => $b->matricula?->oferta?->carrera?->nombre,
+                'programa_academico' => $b->matricula?->oferta?->programaAcademico?->nombre,
                 'ciclo' => $b->ciclo?->nombre,
                 'estatus' => $b->estatus,
                 'vigente_desde' => $b->vigente_desde?->toDateString(),
@@ -221,14 +221,14 @@ class BecaController extends Controller
                         ->orWhere('primer_apellido', 'like', "%{$q}%")
                         ->orWhere('segundo_apellido', 'like', "%{$q}%"));
             })
-            ->with(['persona:id,nombre,primer_apellido,segundo_apellido', 'oferta.carrera:id,nombre'])
+            ->with(['persona:id,nombre,primer_apellido,segundo_apellido', 'oferta.programaAcademico:id,nombre'])
             ->limit(20)
             ->get()
             ->map(fn (MatriculaOferta $m) => [
                 'id' => $m->id,
                 'matricula' => $m->matricula,
                 'nombre' => $m->persona?->nombreCompleto(),
-                'carrera' => $m->oferta?->carrera?->nombre,
+                'programa_academico' => $m->oferta?->programaAcademico?->nombre,
             ]);
 
         return response()->json($alumnos);

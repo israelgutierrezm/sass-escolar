@@ -25,13 +25,13 @@ return [
             ],
             [
                 'subtitulo' => 'El sistema conoce PERSONAS, no alumnos',
-                'texto' => "La ficha básica es la de una persona: su nombre, su CURP, sus datos de contacto. Sobre esa persona se cuelgan los papeles que va teniendo: aspirante, alumna de una carrera y también de otra, docente, madre de familia, empleada.\n"
+                'texto' => "La ficha básica es la de una persona: su nombre, su CURP, sus datos de contacto. Sobre esa persona se cuelgan los papeles que va teniendo: aspirante, alumna de una programa_academico y también de otra, docente, madre de familia, empleada.\n"
                     ."Esto importa porque en una escuela real la misma persona hace varias cosas. Una docente puede estar estudiando una maestría en la misma institución, y su hijo puede ser alumno. Con una ficha por papel habría tres versiones de la misma persona y tres domicilios que se contradicen; con una sola, corregir su teléfono lo corrige en todas partes.\n"
                     .'También significa que el aspirante tiene cuenta desde el primer día, antes de existir como alumno.',
             ],
             [
                 'subtitulo' => 'La matrícula es el alumno, no la persona',
-                'texto' => "Quien estudia dos carreras tiene dos matrículas, y cada una lleva su propia historia: su avance, sus materias, sus adeudos, su situación. Puede estar al corriente en una y dada de baja en la otra.\n"
+                'texto' => "Quien estudia dos programas_academicos tiene dos matrículas, y cada una lleva su propia historia: su avance, sus materias, sus adeudos, su situación. Puede estar al corriente en una y dada de baja en la otra.\n"
                     .'Por eso, cuando el sistema pregunta «¿de qué alumno?», normalmente pregunta por una matrícula. Corregir la identidad de la persona alcanza a las dos; darla de baja alcanza sólo a una.',
             ],
             [
@@ -108,7 +108,7 @@ return [
             [
                 'subtitulo' => 'Autorización',
                 'texto' => "Se usa el `can:` de Laravel, no el `permission:` de Spatie. La razón es que los roles cuelgan de la PERSONA y no del usuario, y hay un rol ACTIVO: un `Gate::before` resuelve cada comprobación contra los permisos efectivos de ese rol activo, incluidos los heredados de su faceta.\n"
-                    ."Cuando dos oficios entran por la misma puerta, la puerta se declara aparte con `Gate::define` en vez de pedirle a la escuela que adivine una dependencia entre permisos. Son puertas derivadas: `entrar-promocion`, `subir-material`, `usar-rubricas`, `dirigir-a-alumnos`, `gestionar-disciplina`, `ver-servicios-del-alumno`, `ver-biblioteca` y `ver-cuentas-bancarias`.\n"
+                    ."Cuando dos oficios entran por la misma puerta, la puerta se declara aparte con `Gate::define` en vez de pedirle a la escuela que adivine una dependencia entre permisos. Son puertas derivadas: `entrar-captacion`, `subir-material`, `usar-rubricas`, `dirigir-a-alumnos`, `gestionar-disciplina`, `ver-servicios-del-alumno`, `ver-recursos-digitales` y `ver-cuentas-bancarias`.\n"
                     .'El alcance por campus vive en `persona_rol.campus_id`. `Usuario::campusVisibles()` devuelve null con alcance global y un arreglo cuando está acotado; null no es lo mismo que arreglo vacío. Al guardar, lo que el usuario no alcanza se preserva.',
             ],
             [
@@ -169,13 +169,13 @@ return [
     [
         'clave' => 'academico',
         'titulo' => 'Estructura académica y formularios',
-        'resumen' => 'El mapa de lo que la escuela ofrece —campus, carreras, planes, materias— y la herramienta con la que arma los cuestionarios que necesita.',
+        'resumen' => 'El mapa de lo que la escuela ofrece —campus, programas académicos, planes, materias— y la herramienta con la que arma los cuestionarios que necesita.',
 
         'no_tecnico' => [
             [
                 'subtitulo' => 'De la institución a la materia',
-                'texto' => "La estructura baja por niveles: la institución tiene campus; los campus ofrecen carreras; cada carrera tiene uno o más planes de estudio; cada plan ordena sus materias por periodo y les pone créditos.\n"
-                    ."Encima de eso está la OFERTA: qué carrera, con qué plan, se imparte en qué campus. Es lo que un aspirante elige y a lo que una matrícula queda atada.\n"
+                'texto' => "La estructura baja por niveles: la institución tiene campus; los campus ofrecen programas_academicos; cada programa_academico tiene uno o más planes de estudio; cada plan ordena sus materias por periodo y les pone créditos.\n"
+                    ."Encima de eso está la OFERTA: qué programa_academico, con qué plan, se imparte en qué campus. Es lo que un aspirante elige y a lo que una matrícula queda atada.\n"
                     .'Se puede tener el plan 2019 y el plan 2024 conviviendo: quien entró antes termina con el suyo.',
             ],
             [
@@ -196,15 +196,15 @@ return [
 
         'operacion' => [
             [
-                'flujo' => 'Dar de alta una carrera y dejarla lista para inscribir',
+                'flujo' => 'Dar de alta un programa académico y dejarla lista para inscribir',
                 'quien' => 'Control escolar, con «editar-catalogo-academico»',
                 'pasos' => [
-                    'Académico → Carreras: alta de la carrera con su nivel de estudios y su identificador oficial.',
+                    'Académico → Programas académicos: alta del programa académico con su nivel de estudios y su identificador oficial.',
                     'Académico → Planes de estudio: crear el plan, con su tipo de periodo (semestre, cuatrimestre, módulo) y sus créditos.',
                     'Dentro del plan, cargar la malla: qué materia va en qué periodo y con cuántos créditos.',
                     'Si aplica, declarar la seriación entre materias.',
                     'Aplicar una plantilla de evaluación al plan, o capturar el esquema materia por materia.',
-                    'Académico → Oferta: publicar la combinación carrera + plan + campus. Sin oferta no hay dónde inscribir.',
+                    'Académico → Oferta: publicar la combinación programa académico + plan + campus. Sin oferta no hay dónde inscribir.',
                 ],
             ],
             [
@@ -231,7 +231,7 @@ return [
         'tecnico' => [
             [
                 'subtitulo' => 'La oferta y su unicidad',
-                'texto' => "La tabla es `oferta`, en SINGULAR. La combinación que no se duplica es (carrera, plan, campus); el alta reparte por campus y la modalidad es un atributo opcional que se aplica a todas.\n"
+                'texto' => "La tabla es `oferta`, en SINGULAR. La combinación que no se duplica es (programa_academico, plan, campus); el alta reparte por campus y la modalidad es un atributo opcional que se aplica a todas.\n"
                     .'El TURNO no es de la oferta sino del GRUPO: no distingue una oferta de otra, así que `oferta.turno_id` se retiró.',
             ],
             [
@@ -241,7 +241,7 @@ return [
             ],
             [
                 'subtitulo' => 'Nivel de estudios: el del tenant',
-                'texto' => '`niveles_estudio` dejó de ser universal y vive en el tenant (`App\\Models\\Academico\\NivelEstudio`). El modelo de landlord se conservó sólo como semilla y sigue contestando, que es lo que lo hace peligroso: devuelve la lista sembrada mientras las carreras de la escuela apuntan a las suyas. Un test prohíbe el import viejo.',
+                'texto' => '`niveles_estudio` dejó de ser universal y vive en el tenant (`App\\Models\\Academico\\NivelEstudio`). El modelo de landlord se conservó sólo como semilla y sigue contestando, que es lo que lo hace peligroso: devuelve la lista sembrada mientras las programas_academicos de la escuela apuntan a las suyas. Un test prohíbe el import viejo.',
             ],
             [
                 'subtitulo' => 'Formularios sin JSON',
@@ -251,14 +251,14 @@ return [
 
         'tablas' => [
             ['nombre' => 'instituciones / campus', 'para_que' => 'La escuela y sus planteles, con coordenadas opcionales.'],
-            ['nombre' => 'carreras', 'para_que' => 'Los programas que ofrece, con su identificador oficial.'],
+            ['nombre' => 'programas_academicos', 'para_que' => 'Los programas que ofrece, con su identificador oficial.'],
             ['nombre' => 'planes_estudio', 'para_que' => 'Cada versión de un programa, con su tipo de periodo y sus créditos.'],
             ['nombre' => 'asignaturas', 'para_que' => 'El catálogo de materias de la escuela.'],
             ['nombre' => 'plan_materias', 'para_que' => 'La malla: qué materia va en qué periodo de qué plan.'],
             ['nombre' => 'seriacion', 'para_que' => 'Qué materia exige cuál aprobada antes.'],
             ['nombre' => 'esquema_evaluacion', 'para_que' => 'De qué se compone la calificación de una materia y cuánto pesa cada parte.'],
             ['nombre' => 'plantillas_evaluacion', 'para_que' => 'Moldes reutilizables que se aplican en lote a un plan.'],
-            ['nombre' => 'oferta', 'para_que' => 'Carrera + plan + campus: lo que se puede cursar.'],
+            ['nombre' => 'oferta', 'para_que' => 'Programa académico + plan + campus: lo que se puede cursar.'],
             ['nombre' => 'niveles_estudio', 'para_que' => 'Los niveles que administra la escuela. Vive en el tenant, no en la central.'],
             ['nombre' => 'formularios / campos_formulario', 'para_que' => 'Los cuestionarios que arma la escuela y sus preguntas.'],
             ['nombre' => 'respuestas_campo', 'para_que' => 'Lo contestado, campo por campo.'],
@@ -267,7 +267,7 @@ return [
         'pantallas' => [
             ['ruta' => '/academico/instituciones', 'que_hace' => 'Datos de la institución y su logo.', 'permiso' => 'ver-catalogo-academico'],
             ['ruta' => '/academico/campus', 'que_hace' => 'Planteles, con su identificador oficial y sus coordenadas.', 'permiso' => 'ver-catalogo-academico'],
-            ['ruta' => '/academico/carreras', 'que_hace' => 'Programas educativos.', 'permiso' => 'ver-catalogo-academico'],
+            ['ruta' => '/academico/programas_academicos', 'que_hace' => 'Programas educativos.', 'permiso' => 'ver-catalogo-academico'],
             ['ruta' => '/academico/planes', 'que_hace' => 'Planes de estudio, malla, seriación y esquema de evaluación.', 'permiso' => 'ver-catalogo-academico'],
             ['ruta' => '/academico/asignaturas', 'que_hace' => 'Catálogo de materias.', 'permiso' => 'ver-catalogo-academico'],
             ['ruta' => '/academico/ofertas', 'que_hace' => 'Qué se imparte, dónde.', 'permiso' => 'ver-catalogo-academico'],
@@ -278,10 +278,10 @@ return [
 
         'reglas' => [
             ['regla' => 'La tabla es `oferta`, en singular, y `planes_estudio` no se llama como su modelo.', 'porque' => 'El nombre de una tabla se pregunta, no se adivina; consultar por Eloquent evita el problema entero.'],
-            ['regla' => 'El turno es del grupo, no de la oferta.', 'porque' => 'No distingue una oferta de otra. La combinación que no se duplica es carrera + plan + campus.'],
+            ['regla' => 'El turno es del grupo, no de la oferta.', 'porque' => 'No distingue una oferta de otra. La combinación que no se duplica es programa académico + plan + campus.'],
             ['regla' => 'Las plantillas de evaluación se materializan, no se leen en vivo.', 'porque' => 'Las calificaciones apuntan al esquema de la materia; si se leyera la plantilla, editarla cambiaría notas ya puestas.'],
             ['regla' => 'Una materia con calificaciones capturadas no se re-aplica.', 'porque' => 'Reemplazar su esquema dejaría los números colgando y desengancharía en silencio las actividades del LMS que ponderan a esos componentes.'],
-            ['regla' => '`niveles_estudio` es del tenant; el modelo de landlord sólo es semilla.', 'porque' => 'El viejo sigue contestando con la lista sembrada mientras las carreras apuntan a las suyas: falla sin error, devolviendo otra cosa.'],
+            ['regla' => '`niveles_estudio` es del tenant; el modelo de landlord sólo es semilla.', 'porque' => 'El viejo sigue contestando con la lista sembrada mientras los programas académicos apuntan a las suyas: falla sin error, devolviendo otra cosa.'],
             ['regla' => 'Un formulario se congela en cuanto tiene una respuesta.', 'porque' => 'Cambiar una pregunta dejaría las respuestas anteriores contestando algo distinto de lo que se les preguntó.'],
             ['regla' => 'Un catálogo sólo se apaga si nadie lo usa, y el filtro va escrito en cada desplegable.', 'porque' => 'Un filtro global también afectaría a las lecturas por id, y entonces apagar un nivel dejaría el historial de una alumna sin su nivel, sin error.'],
         ],
@@ -290,7 +290,7 @@ return [
     // ─────────────────────────────────────────────────────────────────────
     [
         'clave' => 'admisiones',
-        'titulo' => 'Admisiones, promoción y portal del aspirante',
+        'titulo' => 'Admisiones, captación y portal del aspirante',
         'resumen' => 'Desde que alguien pregunta por la escuela hasta que se convierte en alumno con matrícula: el embudo, los asesores, el expediente y el portal donde el interesado hace su parte.',
 
         'no_tecnico' => [
@@ -301,7 +301,7 @@ return [
             ],
             [
                 'subtitulo' => 'Los asesores y cómo se reparten',
-                'texto' => "La escuela registra a sus asesores de promoción y decide cómo se reparte lo que llega: a mano, se lo queda quien lo registra, o por turno.\n"
+                'texto' => "La escuela registra a sus asesores de captación y decide cómo se reparte lo que llega: a mano, se lo queda quien lo registra, o por turno.\n"
                     .'El turno se calcula por CARGA —cuántos prospectos abiertos tiene cada quien— y no con un contador guardado. Un contador se desincroniza cuando alguien se da de baja o cuando entran dos altas a la vez, y a partir de ahí reparte torcido para siempre sin que nadie lo note. Se cuentan los abiertos y no los históricos, porque contar los históricos castigaría a quien más ha inscrito.',
             ],
             [
@@ -313,7 +313,7 @@ return [
             [
                 'subtitulo' => 'El interesado también trabaja',
                 'texto' => "El aspirante entra a «Mi solicitud» y ve su avance sobre cuatro pasos: sus datos, sus documentos, sus formularios y su pago. Sube lo que le piden y consulta lo que debe.\n"
-                    .'Ese avance NO es la etapa del embudo. El embudo lo mueve promoción con su criterio; el avance sólo informa. Y el cálculo es el mismo lo llene quien lo llene, así que la escuela ve exactamente lo que ve el aspirante.',
+                    .'Ese avance NO es la etapa del embudo. El embudo lo mueve captación con su criterio; el avance sólo informa. Y el cálculo es el mismo lo llene quien lo llene, así que la escuela ve exactamente lo que ve el aspirante.',
             ],
             [
                 'subtitulo' => 'Convertirse en alumno',
@@ -330,7 +330,7 @@ return [
         'operacion' => [
             [
                 'flujo' => 'Capturar un prospecto que llamó por teléfono',
-                'quien' => 'Promoción, con «crear-aspirantes»',
+                'quien' => 'Captación, con «crear-aspirantes»',
                 'pasos' => [
                     'Aspirantes → nuevo.',
                     'Capturar sus datos y el CAMPUS, que es obligatorio: sin campus no hay entre quiénes repartir.',
@@ -340,7 +340,7 @@ return [
             ],
             [
                 'flujo' => 'Dar seguimiento y agendar el siguiente contacto',
-                'quien' => 'El asesor, con «ver-mis-prospectos»; promoción con «gestionar-promocion» ve a todos',
+                'quien' => 'El asesor, con «ver-mis-prospectos»; captación con «gestionar-captacion» ve a todos',
                 'pasos' => [
                     'Abrir la ficha del aspirante.',
                     'Registrar el contacto hecho, con su tipo y su desenlace.',
@@ -351,9 +351,9 @@ return [
             ],
             [
                 'flujo' => 'Publicar un formulario en la página de la escuela',
-                'quien' => 'Con «gestionar-promocion»',
+                'quien' => 'Con «gestionar-captacion»',
                 'pasos' => [
-                    'Promoción → Formularios web.',
+                    'Captación → Formularios web.',
                     'Elegir el cuestionario y el modo: captación (sólo deja el prospecto) o inscripción (además le crea su cuenta).',
                     'Copiar el código del iframe y pegarlo en la página de la escuela.',
                     'Lo que llegue entra al embudo con su origen marcado y su asesor asignado.',
@@ -384,7 +384,7 @@ return [
             ],
             [
                 'subtitulo' => 'El desenlace se deriva',
-                'texto' => "No hay catálogo de «situación del aspirante». INSCRITO se deriva de tener `matricula_oferta` para SU oferta de interés —por la oferta y no por «tiene alguna matrícula», porque quien ya estudia una carrera y se postula a otra sigue siendo prospecto abierto para ésa—. RECHAZADO es `descartado_en` + `motivo_descarte`.\n"
+                'texto' => "No hay catálogo de «situación del aspirante». INSCRITO se deriva de tener `matricula_oferta` para SU oferta de interés —por la oferta y no por «tiene alguna matrícula», porque quien ya estudia una programa_academico y se postula a otra sigue siendo prospecto abierto para ésa—. RECHAZADO es `descartado_en` + `motivo_descarte`.\n"
                     .'`Aspirante::matriculaDeSuOferta()` sólo funciona CORRELACIONADA (`whereHas`, `withExists`); precargarla con `with()` revienta porque la relación se consulta sola y la tabla del padre no está en el FROM.',
             ],
             [
@@ -411,10 +411,10 @@ return [
 
         'pantallas' => [
             ['ruta' => '/aspirantes', 'que_hace' => 'Listado de prospectos, con filtros y vista de lista o cuadrícula.', 'permiso' => 'ver-aspirantes'],
-            ['ruta' => '/promocion', 'que_hace' => 'El embudo por etapas.', 'permiso' => 'entrar-promocion'],
-            ['ruta' => '/promocion/asesores', 'que_hace' => 'Padrón de asesores y su campus.', 'permiso' => 'gestionar-promocion'],
-            ['ruta' => '/promocion/comisiones', 'que_hace' => 'Lo devengado por cada asesor.', 'permiso' => 'entrar-promocion'],
-            ['ruta' => '/promocion/publicaciones', 'que_hace' => 'Formularios web embebibles.', 'permiso' => 'gestionar-promocion'],
+            ['ruta' => '/captacion', 'que_hace' => 'El embudo por etapas.', 'permiso' => 'entrar-captacion'],
+            ['ruta' => '/captacion/asesores', 'que_hace' => 'Padrón de asesores y su campus.', 'permiso' => 'gestionar-captacion'],
+            ['ruta' => '/captacion/comisiones', 'que_hace' => 'Lo devengado por cada asesor.', 'permiso' => 'entrar-captacion'],
+            ['ruta' => '/captacion/publicaciones', 'que_hace' => 'Formularios web embebibles.', 'permiso' => 'gestionar-captacion'],
             ['ruta' => '/documentos', 'que_hace' => 'Qué papeles se piden, por ámbito.', 'permiso' => 'gestionar-documentos'],
             ['ruta' => '/admisiones/reglas-matricula', 'que_hace' => 'Formato de la matrícula y sus consecutivos.', 'permiso' => 'configurar-matriculas'],
             ['ruta' => '/mi-solicitud', 'que_hace' => 'El portal del interesado: sus datos, documentos, formularios y pagos.', 'permiso' => 'llenar-mi-solicitud'],
@@ -428,8 +428,8 @@ return [
             ['regla' => 'El campus del aspirante es obligatorio al capturarlo.', 'porque' => 'Sin campus no hay entre quiénes repartir. La regla vive en el FormRequest para decir «elige el campus» en vez de reventar en la base.'],
             ['regla' => 'Agendar y registrar son la misma tabla.', 'porque' => 'Una llamada agendada y una hecha son la misma cosa en dos momentos; separarlas obligaría a volver a mezclarlas en la pantalla.'],
             ['regla' => 'El descarte exige fecha y motivo.', 'porque' => 'Una fila de catálogo que diga «rechazado» no dice ni cuándo ni por qué, que es justo lo que se pregunta al revisar.'],
-            ['regla' => '«Inscrito» se deriva de tener matrícula PARA SU OFERTA.', 'porque' => 'Quien ya estudia una carrera y se postula a otra sigue siendo un prospecto abierto para ésa.'],
-            ['regla' => 'El avance de la solicitud no es la etapa del embudo.', 'porque' => 'El embudo lo mueve promoción con su criterio; el avance sólo informa, y son cuatro pasos fijos por decisión del cliente.'],
+            ['regla' => '«Inscrito» se deriva de tener matrícula PARA SU OFERTA.', 'porque' => 'Quien ya estudia un programa académico y se postula a otra sigue siendo un prospecto abierto para ésa.'],
+            ['regla' => 'El avance de la solicitud no es la etapa del embudo.', 'porque' => 'El embudo lo mueve captación con su criterio; el avance sólo informa, y son cuatro pasos fijos por decisión del cliente.'],
             ['regla' => 'El formulario público nunca sobreescribe una persona existente.', 'porque' => 'Los datos los escribe un desconocido. Deduplica sólo por CURP y no toca credenciales de quien ya tenía cuenta.'],
             ['regla' => '`contadores_matricula` no lleva id autoincremental.', 'porque' => 'Rompía el incremento atómico y producía matrículas duplicadas.'],
         ],

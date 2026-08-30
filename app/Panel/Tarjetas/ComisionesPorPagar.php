@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Panel\Tarjetas;
 
+use App\Models\Captacion\Comision;
 use App\Models\Identidad\Usuario;
-use App\Models\Promocion\Comision;
 use App\Panel\TarjetaPanel;
 
 /**
- * Lo que la escuela le debe a promoción. Quien coordina ve el total; cada
+ * Lo que la escuela le debe a captación. Quien coordina ve el total; cada
  * promotor, lo suyo — es la misma frontera de la pantalla de comisiones.
  */
 class ComisionesPorPagar implements TarjetaPanel
@@ -67,7 +67,7 @@ class ComisionesPorPagar implements TarjetaPanel
             'pie' => $mias
                 ? "{$cuantas} tuyas por cobrar"
                 : "{$cuantas} devengadas sin pagar",
-            'enlace' => '/promocion/comisiones',
+            'enlace' => '/captacion/comisiones',
         ];
     }
 }

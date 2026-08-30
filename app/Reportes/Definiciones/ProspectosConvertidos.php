@@ -28,7 +28,7 @@ class ProspectosConvertidos extends DefinicionReporte
     public function descripcion(): string
     {
         return 'Los aspirantes que llegaron a matricularse EN SU PROGRAMA DE INTERÉS. Quien se '
-            .'inscribió a otra carrera distinta de la que preguntó NO cuenta aquí, y es correcto: su '
+            .'inscribió a otro programa académico distinta de la que preguntó NO cuenta aquí, y es correcto: su '
             .'postulación original sigue abierta. NO dice cuántos siguen estudiando —para eso está '
             .'«Alumnos inscritos»—.';
     }

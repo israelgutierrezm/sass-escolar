@@ -130,7 +130,7 @@ try {
     // alumno sea la matrícula y no la persona.
     $otraOferta = Oferta::where('id', '!=', $oferta->id)->first()
         ?? Oferta::create([
-            'carrera_id' => PlanEstudio::where('id', '!=', $oferta->plan_id)->first()?->carrera_id ?? $oferta->carrera_id,
+            'programa_academico_id' => PlanEstudio::where('id', '!=', $oferta->plan_id)->first()?->programa_academico_id ?? $oferta->programa_academico_id,
             'plan_id' => PlanEstudio::where('id', '!=', $oferta->plan_id)->first()?->id ?? $oferta->plan_id,
             'campus_id' => $oferta->campus_id,
             'turno_id' => $oferta->turno_id,
@@ -204,12 +204,12 @@ try {
 
     echo PHP_EOL.'5. Filtros del listado'.PHP_EOL;
 
-    $porCarrera = MatriculaOferta::query()
-        ->whereHas('oferta', fn ($o) => $o->where('carrera_id', $oferta->carrera_id))
+    $porProgramaAcademico = MatriculaOferta::query()
+        ->whereHas('oferta', fn ($o) => $o->where('programa_academico_id', $oferta->programa_academico_id))
         ->pluck('matricula');
 
-    verificar('Filtrar por carrera incluye al alumno de esa carrera',
-        $porCarrera->contains($matricula->matricula));
+    verificar('Filtrar por programa académico incluye al alumno de ese programa académico',
+        $porProgramaAcademico->contains($matricula->matricula));
 
     $activos = MatriculaOferta::where('estatus', 'activo')->pluck('matricula');
     verificar('Filtrar por estatus activo lo incluye', $activos->contains($matricula->matricula));

@@ -65,7 +65,7 @@ class ImpresionHistorialController extends Controller
     /**
      * La del alumno: la suya, y sólo si la escuela dejó abierta la descarga.
      *
-     * La matrícula sale de la sesión. Quien estudia dos carreras elige entre
+     * La matrícula sale de la sesión. Quien estudia dos programas académicos elige entre
      * LAS SUYAS y la elección se busca en esa misma lista, así que un id ajeno
      * no encuentra pareja y cae a la propia — la misma salvaguarda que la
      * pantalla del historial y la de la credencial.
@@ -124,11 +124,11 @@ class ImpresionHistorialController extends Controller
         );
     }
 
-    /** El diseño del nivel de esta carrera, o el general. */
+    /** El diseño del nivel de este programa académico, o el general. */
     private function disenoDe(MatriculaOferta $matricula): DisenoHistorial
     {
-        $matricula->loadMissing('oferta.carrera:id,nombre,nivel_estudios_id');
+        $matricula->loadMissing('oferta.programaAcademico:id,nombre,nivel_estudios_id');
 
-        return DisenoHistorial::paraNivel($matricula->oferta?->carrera?->nivel_estudios_id);
+        return DisenoHistorial::paraNivel($matricula->oferta?->programaAcademico?->nivel_estudios_id);
     }
 }

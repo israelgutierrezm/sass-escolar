@@ -31,7 +31,7 @@ use Inertia\Response;
  *
  * ── La segmentación se reusa entera ────────────────────────────────────────
  * Los mismos criterios que el calendario —`DestinoEvento`: todos, rol, campus,
- * nivel, carrera, plan, grupo, materia, alumno— con el mismo componente de
+ * nivel, programa académico, plan, grupo, materia, alumno— con el mismo componente de
  * captura. No hay una segunda forma de decir «esto es para los de tercero de
  * Derecho», que es como acaban divergiendo dos pantallas que hacen lo mismo.
  */

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Reportes\Fuentes;
 
 use App\Models\Academico\Campus;
-use App\Models\Academico\Carrera;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\SituacionAlumno;
 use App\Models\Identidad\Usuario;
@@ -25,7 +25,7 @@ use Illuminate\Database\Eloquent\Builder;
  *
  * ── Una fila es una MATRÍCULA, no una persona ────────────────────────────
  * Es la distinción más importante de este reporte y por eso `grano()` la dice
- * con palabras en la pantalla: quien estudia dos carreras aparece DOS veces, y
+ * con palabras en la pantalla: quien estudia dos programas académicos aparece DOS veces, y
  * es lo correcto —cada programa reporta lo suyo— pero quien lea «1 200 alumnos»
  * sin saberlo estará contando matrículas y presumiendo personas.
  *
@@ -46,7 +46,7 @@ class Matriculas implements FuenteAgrupable, FuenteDeReporte
 
     public function grano(): string
     {
-        return 'Una fila es una MATRÍCULA: quien estudia dos carreras aparece dos veces, una por programa.';
+        return 'Una fila es una MATRÍCULA: quien estudia dos programas académicos aparece dos veces, una por programa.';
     }
 
     public function permiso(): string
@@ -102,10 +102,10 @@ class Matriculas implements FuenteAgrupable, FuenteDeReporte
                 permisoExtra: 'editar-alumnos',
                 ancho: 20,
             ),
-            'carrera' => new ColumnaReporte(
-                clave: 'carrera',
-                etiqueta: 'Carrera',
-                valor: fn (MatriculaOferta $m) => $m->oferta?->carrera?->nombre,
+            'programa_academico' => new ColumnaReporte(
+                clave: 'programa_academico',
+                etiqueta: 'Programa académico',
+                valor: fn (MatriculaOferta $m) => $m->oferta?->programaAcademico?->nombre,
                 ancho: 32,
             ),
             'plan' => new ColumnaReporte(
@@ -200,15 +200,15 @@ class Matriculas implements FuenteAgrupable, FuenteDeReporte
                     ->pluck('nombre', 'id')
                     ->all(),
             ),
-            'carrera_id' => new FiltroReporte(
-                clave: 'carrera_id',
-                etiqueta: 'Carrera',
+            'programa_academico_id' => new FiltroReporte(
+                clave: 'programa_academico_id',
+                etiqueta: 'Programa académico',
                 tipo: TipoFiltro::ListaMultiple,
                 aplicar: fn (Builder $q, array $v) => $q->whereHas(
                     'oferta',
-                    fn (Builder $o) => $o->whereIn('carrera_id', $v),
+                    fn (Builder $o) => $o->whereIn('programa_academico_id', $v),
                 ),
-                opciones: fn (Usuario $u) => Carrera::query()->orderBy('nombre')->pluck('nombre', 'id')->all(),
+                opciones: fn (Usuario $u) => ProgramaAcademico::query()->orderBy('nombre')->pluck('nombre', 'id')->all(),
             ),
             'generacion' => new FiltroReporte(
                 clave: 'generacion',
@@ -243,7 +243,7 @@ class Matriculas implements FuenteAgrupable, FuenteDeReporte
      * Por qué se puede agrupar el padrón.
      *
      * Las tres son dimensiones de verdad —pocos valores, muchas filas— y las
-     * tres son las que alguien pregunta: cuántos alumnos por campus, por carrera
+     * tres son las que alguien pregunta: cuántos alumnos por campus, por programa académico
      * y en qué situación están. Ninguna se podía agrupar antes de esto: las tres
      * se resuelven con una closure sobre una relación precargada, que sirve para
      * pintar la celda y no existe en SQL.
@@ -283,16 +283,16 @@ class Matriculas implements FuenteAgrupable, FuenteDeReporte
                 },
                 ayuda: 'El campus de la OFERTA en que está inscrita, que es donde estudia — no el de su rol.',
             ),
-            'carrera' => new DimensionReporte(
-                clave: 'carrera',
-                etiqueta: 'Carrera',
-                sqlAgrupacion: 'oferta.carrera_id',
-                sqlEtiqueta: 'carreras.nombre',
+            'programa_academico' => new DimensionReporte(
+                clave: 'programa_academico',
+                etiqueta: 'Programa académico',
+                sqlAgrupacion: 'oferta.programa_academico_id',
+                sqlEtiqueta: 'programas_academicos.nombre',
                 join: function (Builder $consulta) use ($conOferta): void {
                     $conOferta($consulta);
-                    $consulta->join('carreras', 'carreras.id', '=', 'oferta.carrera_id');
+                    $consulta->join('programas_academicos', 'programas_academicos.id', '=', 'oferta.programa_academico_id');
                 },
-                ayuda: 'Quien estudia dos carreras cuenta en las dos: una fila es una MATRÍCULA, no una persona.',
+                ayuda: 'Quien estudia dos programas académicos cuenta en las dos: una fila es una MATRÍCULA, no una persona.',
             ),
             'situacion' => new DimensionReporte(
                 clave: 'situacion',
@@ -325,8 +325,8 @@ class Matriculas implements FuenteAgrupable, FuenteDeReporte
     {
         return MatriculaOferta::query()->with([
             'persona:id,nombre,primer_apellido,segundo_apellido,curp',
-            'oferta:id,carrera_id,plan_id,campus_id',
-            'oferta.carrera:id,nombre',
+            'oferta:id,programa_academico_id,plan_id,campus_id',
+            'oferta.programaAcademico:id,nombre',
             'oferta.plan:id,nombre',
             'oferta.campus:id,nombre',
             'situacion:id,nombre',

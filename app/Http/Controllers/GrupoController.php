@@ -5,15 +5,15 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Academico\Campus;
-use App\Models\Academico\Carrera;
 use App\Models\Academico\NivelEstudio;
 use App\Models\Academico\Oferta;
 use App\Models\Academico\PlanEstudio;
-// El nivel del grupo tiene que hablar el MISMO catálogo que `carreras.
+use App\Models\Academico\PlanMateria;
+// El nivel del grupo tiene que hablar el MISMO catálogo que `programas académicos.
 // nivel_estudios_id`, que es el del tenant (los niveles que esta escuela
 // oferta). El homónimo de Landlord son los niveles estandarizados de la SEP y
-// usarlo aquí produce ids que no cruzan con ninguna carrera.
-use App\Models\Academico\PlanMateria;
+// usarlo aquí produce ids que no cruzan con ningún programa académico.
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Academico\Turno;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\AsignaturaGrupo;
@@ -169,7 +169,7 @@ class GrupoController extends Controller
 
         $asignaturas = AsignaturaGrupo::query()
             ->with([
-                'planMateria.asignatura:id,nombre', 'planMateria.plan:id,nombre,carrera_id', 'planMateria.plan.carrera:id,nombre',
+                'planMateria.asignatura:id,nombre', 'planMateria.plan:id,nombre,programa_academico_id', 'planMateria.plan.programaAcademico:id,nombre',
                 'situacion:id,nombre', 'docentes.persona',
             ])
             // Conteo en SQL en vez de traer las filas para contarlas en PHP.
@@ -218,10 +218,10 @@ class GrupoController extends Controller
                 'id' => $asignatura->id,
                 'clave_en_plan' => $asignatura->planMateria?->clave_en_plan,
                 'materia' => $asignatura->planMateria?->asignatura?->nombre,
-                // Mismo criterio que en materias disponibles: carrera + plan.
+                // Mismo criterio que en materias disponibles: programa académico + plan.
                 'plan' => $asignatura->planMateria?->plan === null
                     ? null
-                    : trim(($asignatura->planMateria->plan->carrera?->nombre ?? '').' · '.$asignatura->planMateria->plan->nombre, ' ·'),
+                    : trim(($asignatura->planMateria->plan->programaAcademico?->nombre ?? '').' · '.$asignatura->planMateria->plan->nombre, ' ·'),
                 'situacion' => $asignatura->situacion?->nombre,
                 'inscritos_count' => (int) $asignatura->inscritos_count,
                 // Los ids de quienes ya imparten esta materia, con nombre y
@@ -352,7 +352,7 @@ class GrupoController extends Controller
                         ->orWhere('primer_apellido', 'like', "%{$q}%")
                         ->orWhere('segundo_apellido', 'like', "%{$q}%"));
             })
-            ->with(['persona:id,nombre,primer_apellido,segundo_apellido', 'oferta.carrera:id,nombre', 'oferta.campus:id,nombre'])
+            ->with(['persona:id,nombre,primer_apellido,segundo_apellido', 'oferta.programaAcademico:id,nombre', 'oferta.campus:id,nombre'])
             ->orderBy('matricula')
             ->limit(20)
             ->get()
@@ -362,7 +362,7 @@ class GrupoController extends Controller
                 'nombre' => $m->persona?->nombreCompleto(),
                 // El campus se muestra cuando NO es el del grupo: inscribir a
                 // alguien de otro campus se puede, pero no por descuido.
-                'carrera' => trim(($m->oferta?->carrera?->nombre ?? '').
+                'programa_academico' => trim(($m->oferta?->programaAcademico?->nombre ?? '').
                     ($m->oferta?->campus_id !== $grupo->campus_id ? ' · '.($m->oferta?->campus?->nombre ?? 'otro campus') : '')),
             ]);
 
@@ -379,7 +379,7 @@ class GrupoController extends Controller
     private function materiasDisponibles(Grupo $grupo, array $yaAbiertas): array
     {
         return PlanMateria::query()
-            ->with(['asignatura:id,nombre', 'plan:id,nombre,carrera_id', 'plan.carrera:id,nombre'])
+            ->with(['asignatura:id,nombre', 'plan:id,nombre,programa_academico_id', 'plan.programaAcademico:id,nombre'])
             ->when($grupo->plan_id !== null, fn ($q) => $q->where('plan_id', $grupo->plan_id))
             ->whereNotIn('id', $yaAbiertas)
             ->orderBy('periodo')
@@ -389,14 +389,14 @@ class GrupoController extends Controller
                 'id' => $materia->id,
                 'clave_en_plan' => $materia->clave_en_plan,
                 'materia' => $materia->asignatura?->nombre,
-                // Carrera + plan, no solo el plan: los planes se llaman por su
-                // año («Plan 2022») y hay uno por carrera, así que el nombre a
+                // Programa académico + plan, no solo el plan: los planes se llaman por su
+                // año («Plan 2022») y hay uno por programa académico, así que el nombre a
                 // secas no distingue dos materias de clave y nombre iguales
                 // —que es justo lo que hay que distinguir en un grupo sin plan
-                // fijo, donde se ven todas las de todas las carreras.
+                // fijo, donde se ven todas las de todos los programas académicos.
                 'plan' => $materia->plan === null
                     ? null
-                    : trim(($materia->plan->carrera?->nombre ?? '').' · '.$materia->plan->nombre, ' ·'),
+                    : trim(($materia->plan->programaAcademico?->nombre ?? '').' · '.$materia->plan->nombre, ' ·'),
                 // El periodo va suelto, no embebido en la etiqueta: la pantalla
                 // filtra por él para proponer "las de tercer semestre" en vez de
                 // obligar a leer una lista de cincuenta.
@@ -478,7 +478,7 @@ class GrupoController extends Controller
      *
      * Ahora que el nivel es un dato propio y el plan es opcional, quedan dos
      * formas de contradecirse: elegir un nivel que el ciclo no admite, o un plan
-     * cuya carrera es de otro nivel. Ninguna se puede detectar sola en el
+     * cuya programa académico es de otro nivel. Ninguna se puede detectar sola en el
      * formulario, y las dos producen grupos que después nadie sabe interpretar.
      *
      * @param  array<string, mixed>  $datos
@@ -501,9 +501,9 @@ class GrupoController extends Controller
         }
 
         $nivelDelPlan = PlanEstudio::query()
-            ->join('carreras', 'carreras.id', '=', 'planes_estudio.carrera_id')
+            ->join('programas_academicos', 'programas_academicos.id', '=', 'planes_estudio.programa_academico_id')
             ->where('planes_estudio.id', $datos['plan_id'])
-            ->value('carreras.nivel_estudios_id');
+            ->value('programas_academicos.nivel_estudios_id');
 
         if ($nivelDelPlan !== null && (int) $nivelDelPlan !== $nivel) {
             throw ValidationException::withMessages([
@@ -574,15 +574,15 @@ class GrupoController extends Controller
         }
 
         // Si el ciclo se acota a uno o varios niveles, el plan del grupo debe
-        // ser de una carrera de alguno de esos niveles. Sin plan no hay nivel
+        // ser de un programa académico de alguno de esos niveles. Sin plan no hay nivel
         // que contradecir.
         $nivelesDelCiclo = $ciclo->niveles->pluck('id');
 
         if ($nivelesDelCiclo->isNotEmpty() && ! empty($datos['plan_id'])) {
             $nivelDelPlan = PlanEstudio::query()
-                ->join('carreras', 'carreras.id', '=', 'planes_estudio.carrera_id')
+                ->join('programas_academicos', 'programas_academicos.id', '=', 'planes_estudio.programa_academico_id')
                 ->where('planes_estudio.id', $datos['plan_id'])
-                ->value('carreras.nivel_estudios_id');
+                ->value('programas_academicos.nivel_estudios_id');
 
             if (! $nivelesDelCiclo->contains((int) $nivelDelPlan)) {
                 throw ValidationException::withMessages([
@@ -609,42 +609,42 @@ class GrupoController extends Controller
                     'nivel_ids' => $ciclo->niveles->pluck('id')->all(),
                 ]),
             'campus' => Campus::query()->orderBy('nombre')->get(['id', 'nombre']),
-            // La carrera viaja con su nivel para poder filtrar por el del ciclo.
-            'carreras' => Carrera::query()->orderBy('nombre')->get(['id', 'nombre', 'nivel_estudios_id']),
-            // Los planes viajan con su carrera para que el formulario los
-            // filtre en cascada: una escuela con seis carreras y cuatro planes
+            // El programa académico viaja con su nivel para poder filtrar por el del ciclo.
+            'programas_academicos' => ProgramaAcademico::query()->orderBy('nombre')->get(['id', 'nombre', 'nivel_estudios_id']),
+            // Los planes viajan con su programa académico para que el formulario los
+            // filtre en cascada: una escuela con seis programas académicos y cuatro planes
             // cada una presenta 24 opciones en un solo desplegable, y elegir el
-            // plan equivocado ata el grupo a una carrera que no era.
+            // plan equivocado ata el grupo a un programa académico que no era.
             // `total_periodos` alimenta el select de periodo (1..N), que respeta
-            // si la carrera es semestral, cuatrimestral, etc.
+            // si el programa académico es semestral, cuatrimestral, etc.
             'planes' => PlanEstudio::query()
                 ->with('tipoPeriodo:id,nombre')
                 ->orderBy('nombre')
-                ->get(['id', 'nombre', 'carrera_id', 'clave', 'total_periodos', 'tipo_periodo_id'])
+                ->get(['id', 'nombre', 'programa_academico_id', 'clave', 'total_periodos', 'tipo_periodo_id'])
                 ->map(fn (PlanEstudio $plan) => [
                     'id' => $plan->id,
                     'nombre' => $plan->nombre,
                     'clave' => $plan->clave,
-                    'carrera_id' => $plan->carrera_id,
+                    'programa_academico_id' => $plan->programa_academico_id,
                     'total_periodos' => $plan->total_periodos,
                     // Nombre real del periodo (Semestre, Cuatrimestre, Módulo…):
                     // el formulario nombra el campo con él en vez del genérico
                     // "Periodo".
                     'unidad_periodo' => $plan->unidadPeriodo(),
                 ]),
-            // La oferta manda: un grupo solo puede abrirse para una carrera+plan
+            // La oferta manda: un grupo solo puede abrirse para un programa académico+plan
             // que ya esté ofertada en ese campus. Se envían las combinaciones
-            // abiertas para que el formulario filtre carrera y plan según el
+            // abiertas para que el formulario filtre programa académico y plan según el
             // campus elegido.
             'ofertas' => Oferta::query()
                 ->where('estatus', 'abierta')
-                ->get(['carrera_id', 'plan_id', 'campus_id'])
+                ->get(['programa_academico_id', 'plan_id', 'campus_id'])
                 ->map(fn (Oferta $oferta) => [
-                    'carrera_id' => $oferta->carrera_id,
+                    'programa_academico_id' => $oferta->programa_academico_id,
                     'plan_id' => $oferta->plan_id,
                     'campus_id' => $oferta->campus_id,
                 ])
-                ->unique(fn (array $o) => "{$o['carrera_id']}-{$o['plan_id']}-{$o['campus_id']}")
+                ->unique(fn (array $o) => "{$o['programa_academico_id']}-{$o['plan_id']}-{$o['campus_id']}")
                 ->values(),
             'turnos' => Turno::query()->orderBy('nombre')->get(['id', 'nombre']),
             // El nivel ahora es un dato propio del grupo, no un derivado del

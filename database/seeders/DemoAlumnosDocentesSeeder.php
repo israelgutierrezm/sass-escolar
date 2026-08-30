@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
-use App\Models\Academico\Carrera;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Academico\Oferta;
 use App\Models\Academico\PlanEstudio;
 use App\Models\ControlEscolar\Docente;
@@ -15,8 +15,8 @@ use Illuminate\Database\Seeder;
 /**
  * Datos de ejemplo para el tenant demo: alumnos y docentes.
  *
- * - 5 alumnos por carrera (matriculados en una oferta abierta de esa carrera;
- *   si la carrera no tenía oferta, se le crea una mínima).
+ * - 5 alumnos por programa académico (matriculados en una oferta abierta de ese programa académico;
+ *   si el programa académico no tenía oferta, se le crea una mínima).
  * - 3 docentes por campus (ligados solo a ese campus).
  * - 3 docentes ligados a los 3 campus.
  *
@@ -47,30 +47,30 @@ class DemoAlumnosDocentesSeeder extends Seeder
         $creadosAlumnos = 0;
         $creadosDocentes = 0;
 
-        // ---- Alumnos: 5 por carrera ----
-        // Campus sugerido por carrera (solo para crear la oferta que falte).
-        $campusPorCarrera = [1 => 1, 2 => 1, 3 => 2, 4 => 2, 5 => 3, 6 => 3];
+        // ---- Alumnos: 5 por programa académico ----
+        // Campus sugerido por programa académico (solo para crear la oferta que falte).
+        $campusPorProgramaAcademico = [1 => 1, 2 => 1, 3 => 2, 4 => 2, 5 => 3, 6 => 3];
 
-        foreach (Carrera::query()->orderBy('id')->get() as $carrera) {
-            $oferta = $this->ofertaDe($carrera, $campusPorCarrera[$carrera->id] ?? 1);
+        foreach (ProgramaAcademico::query()->orderBy('id')->get() as $programaAcademico) {
+            $oferta = $this->ofertaDe($programaAcademico, $campusPorProgramaAcademico[$programaAcademico->id] ?? 1);
 
             if ($oferta === null) {
-                $this->command?->warn("Carrera {$carrera->nombre}: sin plan, se omite.");
+                $this->command?->warn("ProgramaAcademico {$programaAcademico->nombre}: sin plan, se omite.");
 
                 continue;
             }
 
             for ($i = 1; $i <= 5; $i++) {
-                $email = "alumno.c{$carrera->id}.{$i}@demo.mx";
+                $email = "alumno.c{$programaAcademico->id}.{$i}@demo.mx";
 
                 if (Persona::query()->where('email', $email)->exists()) {
                     continue; // ya sembrado
                 }
 
                 $persona = Persona::create([
-                    'nombre' => $this->nombre($carrera->id * 7 + $i),
-                    'primer_apellido' => $this->apellido($carrera->id * 3 + $i),
-                    'segundo_apellido' => $this->apellido($carrera->id + $i * 5),
+                    'nombre' => $this->nombre($programaAcademico->id * 7 + $i),
+                    'primer_apellido' => $this->apellido($programaAcademico->id * 3 + $i),
+                    'segundo_apellido' => $this->apellido($programaAcademico->id + $i * 5),
                     'email' => $email,
                     'celular' => '55'.str_pad((string) random_int(0, 99999999), 8, '0', STR_PAD_LEFT),
                 ]);
@@ -101,13 +101,13 @@ class DemoAlumnosDocentesSeeder extends Seeder
     }
 
     /**
-     * Oferta abierta de la carrera; si no hay, se crea una mínima (plan de la
-     * carrera + campus sugerido, turno matutino, presencial).
+     * Oferta abierta del programa académico; si no hay, se crea una mínima (plan de la
+     * programa académico + campus sugerido, turno matutino, presencial).
      */
-    private function ofertaDe(Carrera $carrera, int $campusId): ?Oferta
+    private function ofertaDe(ProgramaAcademico $programaAcademico, int $campusId): ?Oferta
     {
         $existente = Oferta::query()
-            ->where('carrera_id', $carrera->id)
+            ->where('programa_academico_id', $programaAcademico->id)
             ->where('estatus', 'abierta')
             ->first();
 
@@ -115,14 +115,14 @@ class DemoAlumnosDocentesSeeder extends Seeder
             return $existente;
         }
 
-        $plan = PlanEstudio::query()->where('carrera_id', $carrera->id)->first();
+        $plan = PlanEstudio::query()->where('programa_academico_id', $programaAcademico->id)->first();
 
         if ($plan === null) {
             return null;
         }
 
         return Oferta::create([
-            'carrera_id' => $carrera->id,
+            'programa_academico_id' => $programaAcademico->id,
             'plan_id' => $plan->id,
             'campus_id' => $campusId,
             'estatus' => 'abierta',

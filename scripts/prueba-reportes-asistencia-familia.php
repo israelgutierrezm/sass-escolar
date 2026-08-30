@@ -242,7 +242,7 @@ try {
 
     verificar('El global ve el directorio', $directorio->isNotEmpty(), $directorio->count().' vínculos');
 
-    verificar('Un alumno con dos carreras trae las DOS matrículas en una celda',
+    verificar('Un alumno con dos programas académicos trae las DOS matrículas en una celda',
         $directorio->contains(fn (array $f) => str_contains((string) $f['matriculas'], ',')),
         $directorio->first()['matriculas'] ?? 'null');
 

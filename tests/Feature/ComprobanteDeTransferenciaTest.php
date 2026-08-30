@@ -186,8 +186,8 @@ class ComprobanteDeTransferenciaTest extends TenantTestCase
 
     // ── Cuentas bancarias ──────────────────────────────────────────────────
 
-    /** Una cuenta sin carreras marcadas vale para todas. */
-    public function test_una_cuenta_sin_carreras_vale_para_todas(): void
+    /** Una cuenta sin programas académicos marcados vale para todas. */
+    public function test_una_cuenta_sin_programas_academicos_vale_para_todas(): void
     {
         $cuenta = CuentaBancaria::create([
             'nombre' => 'General', 'banco' => 'BBVA', 'titular' => 'Escuela',
@@ -199,20 +199,20 @@ class ComprobanteDeTransferenciaTest extends TenantTestCase
         $this->assertTrue($cuenta->aplicaA(null));
     }
 
-    /** Con carreras marcadas, sólo para ésas. */
-    public function test_una_cuenta_con_carreras_solo_vale_para_esas(): void
+    /** Con programas académicos marcados, sólo para ésas. */
+    public function test_una_cuenta_con_programas_academicos_solo_vale_para_esas(): void
     {
         $escuela = $this->alumnoInscrito();
-        $carrera = MatriculaOferta::findOrFail($escuela['matricula'])->oferta?->carrera_id;
+        $programaAcademico = MatriculaOferta::findOrFail($escuela['matricula'])->oferta?->programa_academico_id;
 
         $cuenta = CuentaBancaria::create([
             'nombre' => 'Posgrado', 'banco' => 'Santander', 'titular' => 'Escuela',
             'clabe' => '012345678901234567', 'activa' => true,
         ]);
-        $cuenta->carreras()->attach($carrera);
+        $cuenta->programasAcademicos()->attach($programaAcademico);
 
-        $this->assertTrue($cuenta->fresh()->aplicaA($carrera));
-        $this->assertFalse($cuenta->fresh()->aplicaA($carrera + 999));
+        $this->assertTrue($cuenta->fresh()->aplicaA($programaAcademico));
+        $this->assertFalse($cuenta->fresh()->aplicaA($programaAcademico + 999));
     }
 
     /**

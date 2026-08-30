@@ -6,6 +6,7 @@ namespace App\Services\Videoconferencia;
 
 use App\Models\Lms\AccesoVideoconferencia;
 use App\Models\Lms\Videoconferencia;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -21,7 +22,7 @@ use Illuminate\Support\Facades\DB;
  * picarle— manda dos peticiones a la vez, y el par SELECT+INSERT las deja pasar
  * a las dos: la segunda revienta contra el índice único y le devuelve un error
  * de base a alguien que sólo quería entrar a clase. Con `ON DUPLICATE KEY` la
- * carrera se resuelve en el motor.
+ * programa académico se resuelve en el motor.
  */
 class RegistroDeAcceso
 {
@@ -58,7 +59,7 @@ class RegistroDeAcceso
     /**
      * Quiénes entraron a esta clase, para enseñárselo al docente.
      *
-     * @return \Illuminate\Support\Collection<int, AccesoVideoconferencia>
+     * @return Collection<int, AccesoVideoconferencia>
      */
     public function deLaClase(Videoconferencia $clase)
     {

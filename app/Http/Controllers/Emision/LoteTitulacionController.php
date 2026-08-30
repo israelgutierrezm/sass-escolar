@@ -17,6 +17,7 @@ use App\Services\Emision\ClienteTitulosSep;
 use App\Services\Emision\FirmadorLoteTitulo;
 use App\Services\Emision\ValidadorTitulo;
 use App\Services\EstadoCertificacion;
+use App\Services\Excel\Exportador;
 use App\Services\LectorCertificado;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -27,7 +28,6 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
-use App\Services\Excel\Exportador;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
@@ -121,7 +121,7 @@ class LoteTitulacionController extends Controller
     public function show(Request $request, LoteTitulacion $lote): Response
     {
         $lote->load([
-            'titulaciones' => fn ($q) => $q->with(['matricula.persona', 'matricula.oferta.carrera:id,nombre', 'matricula.oferta.plan:id,nombre', 'matricula.oferta.campus:id,nombre'])->orderBy('id'),
+            'titulaciones' => fn ($q) => $q->with(['matricula.persona', 'matricula.oferta.programaAcademico:id,nombre', 'matricula.oferta.plan:id,nombre', 'matricula.oferta.campus:id,nombre'])->orderBy('id'),
             'responsable',
             'certificado',
         ]);
@@ -146,7 +146,7 @@ class LoteTitulacionController extends Controller
         $matriculas = MatriculaOferta::query()
             // La bandera viaja en el select: sin la columna el modelo llega a
             // medias y el filtro de abajo dejaría pasar a todos.
-            ->with(['persona:id,nombre,primer_apellido,segundo_apellido,curp', 'oferta.carrera:id,nombre,emite_documentos_oficiales', 'oferta.plan:id,nombre,minimo_asignaturas', 'oferta.campus:id,nombre'])
+            ->with(['persona:id,nombre,primer_apellido,segundo_apellido,curp', 'oferta.programaAcademico:id,nombre,emite_documentos_oficiales', 'oferta.plan:id,nombre,minimo_asignaturas', 'oferta.campus:id,nombre'])
             ->when($campusVisibles !== [], fn ($qq) => $qq->whereHas('oferta', fn ($o) => $o->whereIn('campus_id', $campusVisibles)))
             ->when($q !== '', fn ($qq) => $qq->where(function ($w) use ($q) {
                 $w->where('matricula', 'like', "%{$q}%")
@@ -162,7 +162,7 @@ class LoteTitulacionController extends Controller
             ->get();
 
         $elegibles = $matriculas
-            // La carrera tiene que expedir documentos oficiales.
+            // El programa académico tiene que expedir documentos oficiales.
             ->filter(fn (MatriculaOferta $m) => $estado->emiteDocumentos($m) && $estado->disponible($m))
             ->take(40)
             ->map(fn (MatriculaOferta $m) => [
@@ -170,7 +170,7 @@ class LoteTitulacionController extends Controller
                 'matricula' => $m->matricula,
                 'alumno' => trim(implode(' ', array_filter([$m->persona?->nombre, $m->persona?->primer_apellido, $m->persona?->segundo_apellido]))),
                 'curp' => $m->persona?->curp,
-                'carrera' => $m->oferta?->carrera?->nombre,
+                'programa_academico' => $m->oferta?->programaAcademico?->nombre,
                 'plan' => $m->oferta?->plan?->nombre,
                 'campus' => $m->oferta?->campus?->nombre,
             ])->values();
@@ -192,10 +192,10 @@ class LoteTitulacionController extends Controller
         $omitidos = 0;
 
         foreach (array_unique($datos['matricula_oferta_ids']) as $id) {
-            // La carrera se carga porque de ella depende que haya título que
+            // El programa académico se carga porque de ella depende que haya título que
             // emitir; sin esto el filtro del buscador se podría saltar mandando
             // los ids a mano.
-            $matricula = MatriculaOferta::with(['oferta.plan', 'oferta.carrera'])->find($id);
+            $matricula = MatriculaOferta::with(['oferta.plan', 'oferta.programaAcademico'])->find($id);
 
             if ($matricula === null
                 || ($campusVisibles !== [] && ! in_array($matricula->oferta?->campus_id, $campusVisibles, true))
@@ -573,13 +573,13 @@ class LoteTitulacionController extends Controller
     /** Exporta a Excel los títulos del lote (una fila por egresado). */
     public function excel(LoteTitulacion $lote): BinaryFileResponse
     {
-        $lote->load(['titulaciones.matricula.persona', 'titulaciones.matricula.oferta.carrera', 'titulaciones.matricula.oferta.plan', 'titulaciones.matricula.oferta.campus']);
+        $lote->load(['titulaciones.matricula.persona', 'titulaciones.matricula.oferta.programaAcademico', 'titulaciones.matricula.oferta.plan', 'titulaciones.matricula.oferta.campus']);
 
         $filas = $lote->titulaciones->map(fn (Titulacion $t) => [
             $t->matricula?->matricula,
             trim(implode(' ', array_filter([$t->matricula?->persona?->nombre, $t->matricula?->persona?->primer_apellido, $t->matricula?->persona?->segundo_apellido]))),
             $t->matricula?->persona?->curp,
-            $t->matricula?->oferta?->carrera?->nombre,
+            $t->matricula?->oferta?->programaAcademico?->nombre,
             $t->matricula?->oferta?->plan?->nombre,
             $t->matricula?->oferta?->campus?->nombre,
             $t->folio,
@@ -591,7 +591,7 @@ class LoteTitulacionController extends Controller
 
         return $this->descargarExcel(
             "Lote {$lote->folio} ({$lote->etapa})",
-            ['Matrícula', 'Egresado', 'CURP', 'Carrera', 'Plan', 'Campus', 'Folio', 'Estado', 'Estado WS', 'Folio proceso WS', 'Titulado'],
+            ['Matrícula', 'Egresado', 'CURP', 'ProgramaAcademico', 'Plan', 'Campus', 'Folio', 'Estado', 'Estado WS', 'Folio proceso WS', 'Titulado'],
             $filas,
             "{$lote->folio}.xlsx",
         );
@@ -644,7 +644,7 @@ class LoteTitulacionController extends Controller
             'matricula' => $t->matricula?->matricula,
             'alumno' => trim(implode(' ', array_filter([$persona?->nombre, $persona?->primer_apellido, $persona?->segundo_apellido]))),
             'curp' => $persona?->curp,
-            'carrera' => $t->matricula?->oferta?->carrera?->nombre,
+            'programa_academico' => $t->matricula?->oferta?->programaAcademico?->nombre,
             'plan' => $t->matricula?->oferta?->plan?->nombre,
             'campus' => $t->matricula?->oferta?->campus?->nombre,
             'estado' => $t->estado,

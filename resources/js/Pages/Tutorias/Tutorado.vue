@@ -33,7 +33,7 @@ interface Sesion {
 }
 
 const props = defineProps<{
-    alumno: { id: number; nombre: string; foto: string | null; matricula: string | null; carreras: string[] };
+    alumno: { id: number; nombre: string; foto: string | null; matricula: string | null; programas_academicos: string[] };
     estado: { promedio: number | null; promedio_de: string | null; reprobadas: number | null };
     sesiones: Sesion[];
     catalogos: {
@@ -117,7 +117,7 @@ function colorPromedio(p: number | null): string | undefined {
                     <h2 class="truncate text-xl font-semibold text-contenido">{{ alumno.nombre }}</h2>
                     <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
                         <span v-if="alumno.matricula" class="font-mono">{{ alumno.matricula }}</span>
-                        <span v-if="alumno.carreras.length"> · {{ alumno.carreras.join(' · ') }}</span>
+                        <span v-if="alumno.programas_academicos.length"> · {{ alumno.programas_academicos.join(' · ') }}</span>
                     </p>
                 </div>
 
@@ -127,7 +127,7 @@ function colorPromedio(p: number | null): string | undefined {
                         <p class="mt-1 text-2xl font-semibold tabular-nums" :style="{ color: colorPromedio(estado.promedio) }">
                             {{ estado.promedio ?? '—' }}
                         </p>
-                        <!-- Con dos carreras es el mas bajo, y hay que decir de
+                        <!-- Con dos programas académicos es el mas bajo, y hay que decir de
                              cual: si no, se lee como su unico promedio. -->
                         <p v-if="estado.promedio_de" class="text-xs" :style="{ color: 'var(--color-suave)' }">
                             en {{ estado.promedio_de }}

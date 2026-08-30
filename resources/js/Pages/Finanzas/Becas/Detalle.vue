@@ -18,7 +18,7 @@ interface Otorgada {
     id: number;
     alumno: string | null;
     matricula: string | null;
-    carrera: string | null;
+    programa_academico: string | null;
     ciclo: string | null;
     estatus: string;
     vigente_desde: string | null;
@@ -168,7 +168,7 @@ const etiquetaAccion: Record<string, string> = {
                                 <td class="px-6 py-4">
                                     <span class="block font-semibold text-contenido">{{ o.alumno }}</span>
                                     <span class="mt-0.5 block font-mono text-[11px]" :style="{ color: 'var(--color-suave)' }">
-                                        {{ o.matricula }}<template v-if="o.carrera"> · {{ o.carrera }}</template>
+                                        {{ o.matricula }}<template v-if="o.programa_academico"> · {{ o.programa_academico }}</template>
                                     </span>
                                 </td>
                                 <td class="px-4 py-4 text-xs" :style="{ color: 'var(--color-suave)' }">{{ o.ciclo ?? 'Indefinida' }}</td>

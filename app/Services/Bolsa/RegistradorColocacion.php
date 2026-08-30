@@ -38,7 +38,7 @@ class RegistradorColocacion
     /**
      * Cierra una postulación como contratada y deja su colocación.
      *
-     * @param  array{empresa_id?:int|null, puesto:string, salario?:float|null, fecha_ingreso:string, relacionado_con_carrera?:bool|null, notas?:string|null}  $datos
+     * @param  array{empresa_id?:int|null, puesto:string, salario?:float|null, fecha_ingreso:string, relacionado_con_programa_academico?:bool|null, notas?:string|null}  $datos
      *
      * @throws RuntimeException si esa postulación ya tenía colocación o si no
      *                          hay ninguna etapa que declare la contratación
@@ -61,7 +61,7 @@ class RegistradorColocacion
             $colocacion = Colocacion::create([
                 'postulacion_id' => $postulacion->id,
                 'persona_id' => $postulacion->persona_id,
-                // Con qué carrera cuenta: se hereda de la postulación, que ya
+                // Con qué programa académico cuenta: se hereda de la postulación, que ya
                 // resolvió esa pregunta. Recalcularla aquí abriría la puerta a
                 // que el reporte por programa y la ficha del postulante
                 // dijeran cosas distintas.
@@ -70,7 +70,7 @@ class RegistradorColocacion
                 'puesto' => $datos['puesto'],
                 'salario' => $datos['salario'] ?? null,
                 'fecha_ingreso' => $datos['fecha_ingreso'],
-                'relacionado_con_carrera' => $datos['relacionado_con_carrera'] ?? null,
+                'relacionado_con_programa_academico' => $datos['relacionado_con_programa_academico'] ?? null,
                 'notas' => $datos['notas'] ?? null,
             ]);
 
@@ -137,7 +137,7 @@ class RegistradorColocacion
     /**
      * Seguimiento de egresados: consiguió trabajo por su cuenta.
      *
-     * @param  array{persona_id:int, matricula_oferta_id?:int|null, empresa_id:int, puesto:string, salario?:float|null, fecha_ingreso:string, relacionado_con_carrera?:bool|null, notas?:string|null}  $datos
+     * @param  array{persona_id:int, matricula_oferta_id?:int|null, empresa_id:int, puesto:string, salario?:float|null, fecha_ingreso:string, relacionado_con_programa_academico?:bool|null, notas?:string|null}  $datos
      *
      * @throws RuntimeException si la matrícula señalada no es de esa persona
      */
@@ -147,7 +147,7 @@ class RegistradorColocacion
 
         /*
          * La matrícula tiene que ser DE esa persona. Sin comprobarlo, un id
-         * cualquiera sumaría esta colocación al porcentaje de otra carrera y el
+         * cualquiera sumaría esta colocación al porcentaje de otro programa académico y el
          * reporte de acreditación saldría torcido sin que nada fallara.
          */
         if ($matricula !== null && ! MatriculaOferta::query()
@@ -165,7 +165,7 @@ class RegistradorColocacion
             'puesto' => $datos['puesto'],
             'salario' => $datos['salario'] ?? null,
             'fecha_ingreso' => $datos['fecha_ingreso'],
-            'relacionado_con_carrera' => $datos['relacionado_con_carrera'] ?? null,
+            'relacionado_con_programa_academico' => $datos['relacionado_con_programa_academico'] ?? null,
             'notas' => $datos['notas'] ?? null,
         ]);
     }

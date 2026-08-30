@@ -25,7 +25,7 @@ use App\Services\ConvertidorAspirante;
  * Con los dos interruptores apagados —el valor por omisión— los impedimentos se
  * reducen a «tiene oferta y no está matriculado», y entonces sale «listo» hasta
  * quien apenas contestó el primer mensaje. Contando sólo el final del embudo,
- * la cifra dice lo que se quiere leer: *a los que promoción ya me pasó y
+ * la cifra dice lo que se quiere leer: *a los que captación ya me pasó y
  * todavía no he inscrito*.
  *
  * Se toma la ÚLTIMA etapa por orden y no una clave fija, con la misma línea que

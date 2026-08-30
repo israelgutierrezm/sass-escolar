@@ -90,24 +90,24 @@ class CatalogoAcademicoController extends Controller
                 'modelo' => NivelEstudio::class,
                 'etiqueta' => 'Nivel de estudios',
                 'singular' => 'nivel',
-                'grupo' => 'Carreras',
+                'grupo' => 'ProgramasAcademicos',
                 /*
-                 * El nivel lo usan OCHO tablas, no sólo las carreras.
+                 * El nivel lo usan OCHO tablas, no sólo los programas académicos.
                  *
                  * Y dos de ellas sin llave foránea: `evento_destinos` apunta a
                  * catálogos distintos según su `tipo` —es lo que permite dirigir
                  * un aviso «por nivel» sin migrar—, y `emisor_asignaciones`
-                 * igual. Preguntar sólo por `carreras` dejaría apagar un nivel
+                 * igual. Preguntar sólo por `programas_academicos` dejaría apagar un nivel
                  * que sostiene un aviso del calendario o la razón social con la
                  * que se factura ese nivel, y esas dos se romperían en silencio.
                  */
                 'enUso' => fn (int $id) => $this->usadoEn($id, [
-                    ['carreras', 'nivel_estudios_id'],
+                    ['programas_academicos', 'nivel_estudios_id'],
                     ['ciclo_nivel', 'nivel_estudios_id'],
                     ['grupos', 'nivel_estudios_id'],
                     ['credenciales_rol', 'nivel_estudios_id'],
                     ['disenos_historial', 'nivel_estudios_id'],
-                    ['plan_cobro_carrera', 'nivel_estudios_id'],
+                    ['plan_cobro_programa_academico', 'nivel_estudios_id'],
                 ]) || $this->usadoComoDestino('nivel', $id) || $this->usadoComoEmisor('nivel', $id),
                 'apagable' => true,
             ],
@@ -182,7 +182,7 @@ class CatalogoAcademicoController extends Controller
                 'modelo' => Turno::class,
                 'etiqueta' => 'Turnos',
                 'singular' => 'turno',
-                'grupo' => 'Carreras',
+                'grupo' => 'ProgramasAcademicos',
                 // El turno se eliminó de la oferta; hoy solo lo usan los grupos.
                 'enUso' => fn (int $id) => DB::table('grupos')->whereNull('deleted_at')->where('turno_id', $id)->exists(),
             ],
@@ -190,7 +190,7 @@ class CatalogoAcademicoController extends Controller
                 'modelo' => Modalidad::class,
                 'etiqueta' => 'Modalidades',
                 'singular' => 'modalidad',
-                'grupo' => 'Carreras',
+                'grupo' => 'ProgramasAcademicos',
                 // La oferta guarda la modalidad como texto todavía (se liga en la
                 // parte B); por ahora no hay FK que consultar.
                 'enUso' => fn (int $id) => false,
@@ -239,7 +239,7 @@ class CatalogoAcademicoController extends Controller
             && DB::table('evento_destinos')->where('tipo', $tipo)->where('destino_id', $id)->exists();
     }
 
-    /** Una razón social asignada a este ítem (precedencia carrera → nivel → global). */
+    /** Una razón social asignada a este ítem (precedencia programa académico → nivel → global). */
     private function usadoComoEmisor(string $tipo, int $id): bool
     {
         return Schema::hasTable('emisor_asignaciones')

@@ -164,28 +164,28 @@ class PostulacionController extends Controller
     }
 
     /**
-     * Las carreras que cursa una persona, para que la ventanilla elija.
+     * Los programas académicos que cursa una persona, para que la ventanilla elija.
      *
      * ── Por qué un endpoint y no un dato del buscador ─────────────────────
      * `/buscar/alumnos` entrega PERSONAS y deduplica a propósito —quien estudia
-     * dos carreras no puede salir dos veces en la caja de elegir a alguien—, así
+     * dos programas académicos no puede salir dos veces en la caja de elegir a alguien—, así
      * que de ahí no sale con cuál se postula. Y no es un caso raro: en la
      * escuela de ejemplo los quince alumnos con matrícula tienen dos o tres, o
      * sea que dejarlo sin preguntar significaría que casi ninguna postulación
-     * capturada en ventanilla sabría de qué carrera es, y el indicador de
-     * empleabilidad por carrera saldría contando sólo a los del portal.
+     * capturada en ventanilla sabría de qué programa académico es, y el indicador de
+     * empleabilidad por programa académico saldría contando sólo a los del portal.
      */
     public function matriculasDe(Persona $persona): JsonResponse
     {
         return response()->json(
             MatriculaOferta::query()
                 ->where('persona_id', $persona->id)
-                ->with('oferta:id,carrera_id', 'oferta.carrera:id,nombre')
+                ->with('oferta:id,programa_academico_id', 'oferta.programaAcademico:id,nombre')
                 ->get()
                 ->map(fn (MatriculaOferta $m) => [
                     'id' => $m->id,
                     'matricula' => $m->matricula,
-                    'carrera' => $m->oferta?->carrera?->nombre,
+                    'programa_academico' => $m->oferta?->programaAcademico?->nombre,
                 ])
                 ->values()
         );
@@ -196,10 +196,10 @@ class PostulacionController extends Controller
      *
      * ── Por qué se resuelve aquí y no lo elige la pantalla ────────────────
      * El buscador de alumnos entrega PERSONAS —deduplica a propósito, para que
-     * quien estudia dos carreras no salga dos veces en la caja—, así que la
+     * quien estudia dos programas académicos no salga dos veces en la caja—, así que la
      * ventanilla no tiene de dónde elegir la matrícula. Cuando la persona tiene
      * una sola, no hay nada que preguntar y se usa; cuando tiene dos, se deja
-     * SIN SEÑALAR en vez de adivinar: una postulación colgada de la carrera
+     * SIN SEÑALAR en vez de adivinar: una postulación colgada del programa académico
      * equivocada torcería los indicadores de empleabilidad y nadie lo notaría.
      * Si viene un id explícito, se comprueba que sea de esa persona.
      *

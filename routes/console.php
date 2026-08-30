@@ -27,7 +27,7 @@ Artisan::command('inspire', function () {
  * recalcula la que ya hay —esconder un cobro dentro de un comando llamado
  * «evaluar» es como se llega a que nadie sepa de dónde salió un adeudo—.
  *
- * Los quince minutos de margen no son una carrera contra el reloj: si el
+ * Los quince minutos de margen no son un programa académico contra el reloj: si el
  * generador se alarga, `withoutOverlapping` impide que dos corridas suyas se
  * pisen, y lo peor que pasa es que unos cargos se emitan después del barrido y
  * su recargo entre al día siguiente.

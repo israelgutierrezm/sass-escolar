@@ -8,12 +8,12 @@ use App\Models\Academico\Area;
 use App\Models\Academico\Asignatura;
 use App\Models\Academico\AutorizacionReconocimiento;
 use App\Models\Academico\Campus;
-use App\Models\Academico\Carrera;
 use App\Models\Academico\ClasificacionAsignatura;
 use App\Models\Academico\Institucion;
 use App\Models\Academico\NivelEstudio;
 use App\Models\Academico\PlanEstudio;
 use App\Models\Academico\PlanMateria;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Academico\TipoAsignatura;
 use App\Models\Academico\TipoCampus;
 use App\Models\Academico\TipoPeriodo;
@@ -36,7 +36,7 @@ class ImportadorAcademico
     private array $errores = [];
 
     /**
-     * Carga completa: campus, carreras, planes y asignaturas. La institución se
+     * Carga completa: campus, programas académicos, planes y asignaturas. La institución se
      * carga aparte (una por escuela), no por esta plantilla.
      *
      * @return array{errores: array<int, array<string, mixed>>, resumen: array<string, int>}
@@ -50,14 +50,14 @@ class ImportadorAcademico
 
         $instituciones = $this->leer($libro, 'Institución');
         $campus = $this->leer($libro, 'Campus');
-        $carreras = $this->leer($libro, 'Carreras');
+        $programasAcademicos = $this->leer($libro, 'ProgramasAcademicos');
         $planes = $this->leer($libro, 'Planes');
         $asignaturas = $this->leer($libro, 'Asignaturas');
 
         // Claves conocidas (las del archivo + las que ya existen) para validar
-        // refs. La CLAVE de la carrera es la columna 1 (0 es el identificador).
+        // refs. La CLAVE del programa académico es la columna 1 (0 es el identificador).
         $clavesInstitucion = $this->union($instituciones, 0, Institucion::query()->pluck('clave')->all());
-        $clavesCarrera = $this->union($carreras, 1, Carrera::query()->pluck('clave')->all());
+        $clavesProgramaAcademico = $this->union($programasAcademicos, 1, ProgramaAcademico::query()->pluck('clave')->all());
         $clavesPlan = $this->union($planes, 1, PlanEstudio::query()->pluck('clave')->all());
 
         // ---- Validaciones ----
@@ -70,15 +70,15 @@ class ImportadorAcademico
             $this->enCatalogo('Campus', $fila, $r[3] ?? null, $cat['entidades'], 'Entidad federativa', opcional: true);
             $this->enCatalogo('Campus', $fila, $r[4] ?? null, $cat['tiposCampus'], 'Tipo de campus');
         }
-        foreach ($carreras as [$fila, $r]) {
-            $this->requerido('Carreras', $fila, $r, [0 => 'Identificador', 1 => 'Clave', 2 => 'Nombre', 3 => 'Nivel']);
-            $this->enCatalogo('Carreras', $fila, $r[3] ?? null, $cat['niveles'], 'Nivel');
+        foreach ($programasAcademicos as [$fila, $r]) {
+            $this->requerido('ProgramasAcademicos', $fila, $r, [0 => 'Identificador', 1 => 'Clave', 2 => 'Nombre', 3 => 'Nivel']);
+            $this->enCatalogo('ProgramasAcademicos', $fila, $r[3] ?? null, $cat['niveles'], 'Nivel');
         }
         foreach ($planes as [$fila, $r]) {
-            $this->requerido('Planes', $fila, $r, [0 => 'Carrera (clave)', 1 => 'Clave', 2 => 'Nombre', 3 => 'Tipo de periodo', 4 => 'Total de periodos', 7 => 'Calif. mínima', 8 => 'Calif. máxima', 9 => 'Calif. mínima aprobatoria', 10 => 'Tipo de autorización']);
+            $this->requerido('Planes', $fila, $r, [0 => 'Programa académico (clave)', 1 => 'Clave', 2 => 'Nombre', 3 => 'Tipo de periodo', 4 => 'Total de periodos', 7 => 'Calif. mínima', 8 => 'Calif. máxima', 9 => 'Calif. mínima aprobatoria', 10 => 'Tipo de autorización']);
             $this->enCatalogo('Planes', $fila, $r[3] ?? null, $cat['tiposPeriodo'], 'Tipo de periodo');
             $this->enCatalogo('Planes', $fila, $r[10] ?? null, $cat['autorizaciones'], 'Tipo de autorización');
-            $this->refExiste('Planes', $fila, $r[0] ?? null, $clavesCarrera, 'La carrera (clave)');
+            $this->refExiste('Planes', $fila, $r[0] ?? null, $clavesProgramaAcademico, 'El programa académico (clave)');
             $this->entero('Planes', $fila, $r[4] ?? null, 'Total de periodos');
         }
         foreach ($asignaturas as [$fila, $r]) {
@@ -94,9 +94,9 @@ class ImportadorAcademico
         }
 
         // ---- Creación ----
-        $resumen = ['instituciones' => 0, 'campus' => 0, 'carreras' => 0, 'planes' => 0, 'asignaturas' => 0];
+        $resumen = ['instituciones' => 0, 'campus' => 0, 'programas_academicos' => 0, 'planes' => 0, 'asignaturas' => 0];
 
-        DB::transaction(function () use ($instituciones, $campus, $carreras, $planes, $asignaturas, $cat, &$resumen) {
+        DB::transaction(function () use ($instituciones, $campus, $programasAcademicos, $planes, $asignaturas, $cat, &$resumen) {
             $institucionId = Institucion::query()->pluck('id', 'clave')->all();
             foreach ($instituciones as [, $r]) {
                 $ins = Institucion::query()->updateOrCreate(['clave' => trim((string) $r[0])], [
@@ -122,23 +122,23 @@ class ImportadorAcademico
                 $resumen['campus']++;
             }
 
-            $carreraId = Carrera::query()->pluck('id', 'clave')->all();
-            foreach ($carreras as [, $r]) {
+            $programaAcademicoId = ProgramaAcademico::query()->pluck('id', 'clave')->all();
+            foreach ($programasAcademicos as [, $r]) {
                 $nivel = $cat['niveles'][$this->norm($r[3])];
-                $c = Carrera::query()->updateOrCreate(['clave' => trim((string) $r[1])], [
+                $c = ProgramaAcademico::query()->updateOrCreate(['clave' => trim((string) $r[1])], [
                     'identificador' => trim((string) $r[0]),
                     'nombre' => trim((string) $r[2]),
                     'nivel_estudios_id' => $nivel['id'],
-                    // La clave SAT ya no se guarda por carrera: vive en el nivel.
+                    // La clave SAT ya no se guarda por programa académico: vive en el nivel.
                 ]);
-                $carreraId[trim((string) $r[1])] = $c->id;
-                $resumen['carreras']++;
+                $programaAcademicoId[trim((string) $r[1])] = $c->id;
+                $resumen['programas_academicos']++;
             }
 
             $planId = PlanEstudio::query()->pluck('id', 'clave')->all();
             foreach ($planes as [, $r]) {
                 $p = PlanEstudio::query()->updateOrCreate(['clave' => trim((string) $r[1])], [
-                    'carrera_id' => $carreraId[trim((string) $r[0])],
+                    'programa_academico_id' => $programaAcademicoId[trim((string) $r[0])],
                     'nombre' => trim((string) $r[2]),
                     'tipo_periodo_id' => $cat['tiposPeriodo'][$this->norm($r[3])]['id'],
                     'total_periodos' => (int) $r[4],

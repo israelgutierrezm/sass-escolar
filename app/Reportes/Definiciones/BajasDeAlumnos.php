@@ -61,7 +61,7 @@ class BajasDeAlumnos extends DefinicionReporte
 
     public function columnasPorOmision(): ?array
     {
-        return ['matricula', 'alumno', 'carrera', 'campus', 'situacion', 'periodo_actual'];
+        return ['matricula', 'alumno', 'programa_academico', 'campus', 'situacion', 'periodo_actual'];
     }
 
     public function ordenPorOmision(): ?array

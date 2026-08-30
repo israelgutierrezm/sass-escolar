@@ -84,7 +84,7 @@ class MisHijos implements TarjetaPanel
         // una tarjeta que se pinta en cada carga del panel.
         $matriculas = MatriculaOferta::query()
             ->whereIn('persona_id', $hijos->pluck('id'))
-            ->with('oferta.carrera:id,nombre')
+            ->with('oferta.programaAcademico:id,nombre')
             ->get()
             ->groupBy('persona_id');
 
@@ -112,8 +112,8 @@ class MisHijos implements TarjetaPanel
             (bool) $vinculo->puede_ver_finanzas,
         );
 
-        $carreras = $matriculas
-            ->map(fn (MatriculaOferta $m) => $m->oferta?->carrera?->nombre)
+        $programasAcademicos = $matriculas
+            ->map(fn (MatriculaOferta $m) => $m->oferta?->programaAcademico?->nombre)
             ->filter()
             ->unique()
             ->values();
@@ -123,12 +123,12 @@ class MisHijos implements TarjetaPanel
         return [
             'etiqueta' => $hijo->nombreCompleto(),
             /*
-             * La carrera identifica mejor que el parentesco —el nombre ya dice
+             * El programa académico identifica mejor que el parentesco —el nombre ya dice
              * quién es—, y el parentesco sólo entra cuando todavía no estudia
-             * nada, que es cuando no hay carrera que poner.
+             * nada, que es cuando no hay programa académico que poner.
              */
-            'detalle' => $carreras->isNotEmpty()
-                ? ($carreras->count() === 1 ? $carreras->first() : $carreras->count().' programas')
+            'detalle' => $programasAcademicos->isNotEmpty()
+                ? ($programasAcademicos->count() === 1 ? $programasAcademicos->first() : $programasAcademicos->count().' programas')
                 : Parentesco::nombreDe($vinculo->parentesco_id),
             'valor' => $this->valor($matriculas->isEmpty(), $debe, $estado),
             'pie' => $this->pie($estado, $debe, $matriculas->isNotEmpty()),
@@ -153,20 +153,20 @@ class MisHijos implements TarjetaPanel
         return match (true) {
             $sinMatricula => 'Aún sin inscripción',
             $debe => '$'.number_format((float) $estado['saldo'], 2),
-            $estado['promedio'] !== null => 'Promedio '.$this->conCarrera($estado),
+            $estado['promedio'] !== null => 'Promedio '.$this->conProgramaAcademico($estado),
             default => 'Sin calificaciones',
         };
     }
 
     /**
-     * El promedio, y de qué carrera cuando hay más de una.
+     * El promedio, y de qué programa académico cuando hay más de una.
      *
      * Con dos programas la cifra es la MÁS BAJA —a la que hay que atender— y
      * sin decir cuál se leería como si fuera el único promedio que tiene.
      *
      * @param  array<string, mixed>  $estado
      */
-    private function conCarrera(array $estado): string
+    private function conProgramaAcademico(array $estado): string
     {
         $promedio = (string) $estado['promedio'];
 
@@ -183,7 +183,7 @@ class MisHijos implements TarjetaPanel
         // El promedio baja al pie sólo cuando el adeudo le quitó el sitio de
         // arriba: si no, se estaría diciendo dos veces.
         if ($debe && $estado['promedio'] !== null) {
-            $piezas[] = 'promedio '.$this->conCarrera($estado);
+            $piezas[] = 'promedio '.$this->conProgramaAcademico($estado);
         }
 
         if (($estado['reprobadas'] ?? 0) > 0) {

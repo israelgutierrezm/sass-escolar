@@ -2612,6 +2612,67 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     leer `firmantes`. La mutación sobrevivió; comprobado que Eloquent devuelve
     una colección vacía, se retiró.
 
+- **Cuatro renombrados de concepto** (2026-08-30, pedido del cliente). No es un
+  cambio de etiqueta: el cliente pidió expresamente cambiar también columnas,
+  tablas y código, «respetando todas las referencias y datos actuales».
+
+  | De | A | Alcance |
+  |---|---|---|
+  | carrera | programa académico | 5 tablas, 9 columnas, ~250 archivos |
+  | biblioteca | recursos digitales | 1 tabla, 2 permisos, 1 módulo |
+  | promoción (el CRM) | captación | namespace, rutas, 1 permiso |
+  | promoción (descuentos de admisión) | descuento de admisión | 2 tablas, 1 columna |
+
+  - **«Promoción» significaba TRES cosas distintas**, y ésa fue la trampa
+    principal: el CRM, los DESCUENTOS de admisión (`promociones`,
+    `aspirante_promocion`) y el ORIGEN «Personal de promoción» del catálogo de
+    aspirantes. Un reemplazo ciego de la palabra habría roto el descuento. Los
+    tres se renombraron, cada uno a lo suyo.
+  - **`descuento_admision` y no `descuento` a secas**: ya existe una tabla
+    `descuentos` en Finanzas, y serían dos cosas distintas con el mismo nombre.
+  - **El orden de las pasadas es lo que hace que salga bien.** Primero la PROSA
+    —que deja «programa académico» con acento, fuera del alcance de cualquier
+    regla de identificador— y sólo después los IDENTIFICADORES. Al revés, la
+    segunda pasada convierte el texto humano en `programa_academico`: se probó y
+    quedaron cosas como «nombre, matrícula, programa_academico, monto» dentro de
+    un comentario, y peor, dentro de etiquetas que ve el usuario.
+  - **La concordancia hay que tratarla aparte.** «carrera» es femenino y
+    «programa académico» masculino: sin reglas de artículo salen «la programa
+    académico», «todas los programas académicos» y «ningún programa académico
+    marcada». Va en dos tiempos: determinante antes, adjetivo posterior después.
+  - **En un `.vue` la plantilla y el script NO se tratan igual.** Un atributo que
+    empieza por `:`, `@` o `v-` es JavaScript: la primera versión lo tocó y dejó
+    `v-for="programa académico in programas académicos.data"`, que ni compila.
+  - **Lo que NO se tocó, y por qué**: `cveCarrera` y compañía son nombres de
+    campo del XML de la SEP —un contrato con alguien de fuera—; los nombres de
+    las migraciones ya aplicadas son el registro de lo que corrió; y el texto que
+    escribió la escuela o un alumno («Coordinador de carrera» en su organigrama,
+    «por qué elegí esta carrera» en un ensayo) es su contenido, no nuestro.
+  - **La migración también mueve los DATOS**, que es lo que hace que nada se
+    rompa: el discriminador de un destino, las claves de columna de las vistas y
+    ejecuciones de reporte (171 filas), los campos del gafete y del historial,
+    las claves de menú por rol, los nombres de los permisos, la clave del módulo,
+    el token `{CARRERA}` de las plantillas de matrícula y las dimensiones de su
+    consecutivo.
+  - **Las URLs cambian con redirección 301** desde las viejas, para que ningún
+    enlace guardado se rompa.
+  - **Cinco trampas que mordieron, todas del renombrado masivo:**
+    1. El renombrador se renombró a sí mismo dentro de la MIGRACIÓN: dejó
+       `'programas_academicos' => 'programas_academicos'` y la migración corrió
+       en 400 ms sin hacer nada. Al editar una migración de renombrado con una
+       herramienta masiva, el lado izquierdo tiene que conservar el nombre viejo.
+    2. Lo mismo con el mapa de REDIRECCIONES: al volver a pasar los scripts para
+       actualizar la especificación, renombraron el lado viejo y quedaron
+       apuntando a sí mismas. Bucle infinito, y el navegador cachea el 301.
+    3. `compact('carrera')` no casa con `$programaAcademico`: 321 pruebas caídas
+       por una sola línea de un helper.
+    4. Dos clases de prueba dejaron de coincidir con su archivo y PHPUnit las
+       saltó **con un aviso, no con un fallo**: 753 pruebas pasaron a 742 y el
+       resumen seguía diciendo «passed».
+    5. La prosa se coló dentro de una URL: `https://recursos digitales.example.mx`.
+  - Verificado: 108 suites y 753 pruebas de phpunit en verde, y las pantallas
+    renombradas respondiendo.
+
 - **Tres comprobaciones que se apagaban solas** (2026-08-29). Barrido de la
   clase «una prueba que pasa pase lo que pase» sobre las 108 suites y los tests.
   - **Dos formas, y sólo una es defecto.** La buena, que el proyecto ya usa en

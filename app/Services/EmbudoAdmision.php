@@ -6,9 +6,9 @@ namespace App\Services;
 
 use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\EtapaCrm;
+use App\Models\Captacion\SeguimientoAspirante;
+use App\Models\Captacion\TipoSeguimiento;
 use App\Models\Identidad\Usuario;
-use App\Models\Promocion\SeguimientoAspirante;
-use App\Models\Promocion\TipoSeguimiento;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -18,7 +18,7 @@ use RuntimeException;
  * seguimiento y qué contacto toca hoy.
  *
  * Los conteos se agregan en SQL, no recorriendo aspirantes en PHP: es la
- * pantalla que abre promoción todas las mañanas y una escuela con mil
+ * pantalla que abre captación todas las mañanas y una escuela con mil
  * prospectos la volvería inservible.
  */
 class EmbudoAdmision
@@ -26,14 +26,14 @@ class EmbudoAdmision
     /**
      * Acota la consulta a lo que el usuario alcanza.
      *
-     * Un promotor ve SUS prospectos; quien gestiona promoción los ve todos.
+     * Un promotor ve SUS prospectos; quien gestiona captación los ve todos.
      * El alcance sale de la asignación (`aspirante_asesor`), no del permiso:
      * el permiso dice qué puede hacer, la asignación dice sobre quién — la
      * misma regla de dos capas que ya gobierna al docente.
      */
     public function acotar(Builder $consulta, Usuario $usuario): Builder
     {
-        if ($usuario->can('gestionar-promocion')) {
+        if ($usuario->can('gestionar-captacion')) {
             return $consulta;
         }
 

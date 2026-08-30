@@ -8,7 +8,7 @@ interface Hijo {
     nombre: string;
     foto: string | null;
     parentesco: string;
-    carreras: string[];
+    programas_academicos: string[];
     puede_ver_academico: boolean;
     puede_ver_finanzas: boolean;
     estado: {
@@ -213,33 +213,33 @@ function colorPromedio(p: number | null): string | undefined {
                 </div>
 
                 <!--
-                    Las carreras, una por renglón cuando son varias.
-                    Unidas con «·» en una sola línea, dos carreras largas se
+                    Los programas académicos, una por renglón cuando son varias.
+                    Unidas con «·» en una sola línea, dos programas académicos largas se
                     leían como una sola cosa rara y no se notaba que eran dos.
                     Que estudie dos es justo lo que hay que ver antes de entrar,
                     porque adentro se elige entre ellas.
                 -->
-                <div v-if="hijo.carreras.length">
+                <div v-if="hijo.programas_academicos.length">
                     <p
-                        v-if="hijo.carreras.length > 1"
+                        v-if="hijo.programas_academicos.length > 1"
                         class="mb-1 inline-block rounded-full px-2 py-0.5 text-xs"
                         :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }"
                     >
-                        Estudia {{ hijo.carreras.length }} carreras
+                        Estudia {{ hijo.programas_academicos.length }} programas_academicos
                     </p>
                     <!--
-                        Y las carreras tampoco se truncan, por lo mismo que van
+                        Y los programas académicos tampoco se truncan, por lo mismo que van
                         una por renglón: «Licenciatura en Administración de
-                        Empresas» pide 271 px y tiene 187, así que dos carreras
+                        Empresas» pide 271 px y tiene 187, así que dos programas académicos
                         que empiecen igual se cortarían al MISMO texto y
                         quedarían indistinguibles — que es justo lo que este
                         diseño venía a evitar.
                     -->
                     <ul class="space-y-0.5 text-sm leading-snug" :style="{ color: 'var(--color-suave)' }">
-                        <li v-for="c in hijo.carreras" :key="c">{{ c }}</li>
+                        <li v-for="c in hijo.programas_academicos" :key="c">{{ c }}</li>
                     </ul>
                 </div>
-                <p v-else class="text-sm" :style="{ color: 'var(--color-suave)' }">Sin carreras registradas.</p>
+                <p v-else class="text-sm" :style="{ color: 'var(--color-suave)' }">Sin programas académicos registrados.</p>
 
                 <!--
                     Antes aquí decía «Académico» y «Finanzas»: dos etiquetas que
@@ -251,8 +251,8 @@ function colorPromedio(p: number | null): string | undefined {
                 <div class="mt-auto space-y-2 border-t pt-3" :style="{ borderColor: 'var(--color-borde)' }">
                     <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm">
                         <!--
-                            Con dos carreras se enseña el promedio MAS BAJO, que
-                            es a lo que hay que atender, y se NOMBRA la carrera.
+                            Con dos programas académicos se enseña el promedio MAS BAJO, que
+                            es a lo que hay que atender, y se NOMBRA el programa académico.
                             Sin el nombre se leeria como si fuera el unico que
                             tiene -- y antes ni siquiera era uno de los suyos:
                             se promediaban las dos juntas y salia una cifra que

@@ -110,7 +110,7 @@ class CampusController extends Controller
         $datos = $request->validate([
             'clave' => ['required', 'string', 'max:50', Rule::unique('campus', 'clave')->ignore($id)->whereNull('deleted_at')],
             /*
-             * OBLIGATORIO, como en carrera y asignatura.
+             * OBLIGATORIO, como en programa académico y asignatura.
              *
              * Es el `idCampus` del certificado. Cuando faltaba, el XML caía en
              * silencio a la clave del campus —«CENTRO»— y el esquema lo aceptaba

@@ -158,7 +158,7 @@ class CatalogosAcademicosSeeder extends Seeder
      * Se identifican por id para que el id sea el pedido; `forceFill` porque el
      * id no es fillable. Idempotente: re-sembrar no duplica. Pensado para
      * tenants nuevos —donde la tabla está vacía—; en existentes NO se corre para
-     * no colisionar con los ids ya asignados a sus carreras/planes.
+     * no colisionar con los ids ya asignados a sus programas académicos/planes.
      *
      * @param  class-string<Model>  $modelo
      * @param  array<int, array{0: int, 1: string, 2?: int, 3?: string}>  $filas  [id, nombre, orden?, claveSat?]
@@ -181,7 +181,7 @@ class CatalogosAcademicosSeeder extends Seeder
 
         // El catálogo queda EXACTAMENTE con estos valores: se quita lo demás
         // (p. ej. los niveles que la migración copió de la landlord). Seguro en
-        // tenants nuevos (sin carreras/planes); por eso NO se re-siembra sobre
+        // tenants nuevos (sin programas académicos/planes); por eso NO se re-siembra sobre
         // tenants existentes, donde borraría valores en uso.
         $modelo::query()->whereNotIn('id', array_column($filas, 0))->delete();
     }

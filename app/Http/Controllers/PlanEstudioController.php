@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Academico\AutorizacionReconocimiento;
-use App\Models\Academico\Carrera;
 use App\Models\Academico\PlanEstudio;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Academico\TipoPeriodo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,11 +15,11 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Planes de estudio. Un plan pertenece a una carrera y define las reglas
+ * Planes de estudio. Un plan pertenece a un programa académico y define las reglas
  * académicas (escala de calificación, créditos para titularse) y los datos que
  * la SEP exige para el título electrónico (RVOE y tipo de autorización).
  *
- * Una carrera puede tener varios planes coexistiendo: `vigente` distingue el
+ * Un programa académico puede tener varios planes coexistiendo: `vigente` distingue el
  * que se ofrece hoy de los que solo siguen vivos para los alumnos que los
  * cursan.
  */
@@ -29,23 +29,23 @@ class PlanEstudioController extends Controller
     {
         $filtros = [
             'busqueda' => trim((string) $request->query('busqueda', '')),
-            'carrera_id' => $request->query('carrera_id'),
+            'programa_academico_id' => $request->query('programa_academico_id'),
             'vigente' => $request->query('vigente'),
         ];
 
         return Inertia::render('Academico/Planes/Index', [
             'planes' => PlanEstudio::query()
-                ->with(['carrera:id,nombre', 'tipoPeriodo:id,nombre'])
+                ->with(['programaAcademico:id,nombre', 'tipoPeriodo:id,nombre'])
                 ->withCount('planMaterias')
                 ->when($filtros['busqueda'] !== '', fn ($q) => $q->where(fn ($sub) => $sub
                     ->where('clave', 'like', "%{$filtros['busqueda']}%")
                     ->orWhere('nombre', 'like', "%{$filtros['busqueda']}%")
                     ->orWhere('rvoe', 'like', "%{$filtros['busqueda']}%")))
-                ->when($filtros['carrera_id'], fn ($q, $v) => $q->where('carrera_id', $v))
+                ->when($filtros['programa_academico_id'], fn ($q, $v) => $q->where('programa_academico_id', $v))
                 // 'si'/'no' llegan como texto desde la URL del filtro.
                 ->when($filtros['vigente'] === 'si', fn ($q) => $q->where('vigente', true))
                 ->when($filtros['vigente'] === 'no', fn ($q) => $q->where('vigente', false))
-                ->orderBy('carrera_id')
+                ->orderBy('programa_academico_id')
                 ->orderByDesc('vigente')
                 ->paginate(10)
                 ->withQueryString()
@@ -53,7 +53,7 @@ class PlanEstudioController extends Controller
                     'id' => $plan->id,
                     'clave' => $plan->clave,
                     'nombre' => $plan->nombre,
-                    'carrera' => $plan->carrera?->nombre,
+                    'programa_academico' => $plan->programaAcademico?->nombre,
                     'periodo' => $plan->tipoPeriodo?->nombre,
                     'rvoe' => $plan->rvoe,
                     'vigente' => $plan->vigente,
@@ -61,7 +61,7 @@ class PlanEstudioController extends Controller
                     'materias_count' => $plan->plan_materias_count,
                 ]),
             'filtros' => $filtros,
-            'carreras' => Carrera::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'programas_academicos' => ProgramaAcademico::query()->orderBy('nombre')->get(['id', 'nombre']),
             'puedeEditar' => $request->user()->can('editar-catalogo-academico'),
         ]);
     }
@@ -86,7 +86,7 @@ class PlanEstudioController extends Controller
         return Inertia::render('Academico/Planes/Formulario', [
             'plan' => [
                 ...$plane->only([
-                    'id', 'carrera_id', 'clave', 'abreviacion', 'nombre', 'rvoe',
+                    'id', 'programa_academico_id', 'clave', 'abreviacion', 'nombre', 'rvoe',
                     'autorizacion_reconocimiento_id', 'tipo_periodo_id', 'total_periodos',
                     'calificacion_minima', 'calificacion_maxima', 'calificacion_minima_aprobatoria',
                     'minimo_creditos', 'minimo_asignaturas',
@@ -125,7 +125,7 @@ class PlanEstudioController extends Controller
     private function validar(Request $request, ?int $id = null): array
     {
         return $request->validate([
-            'carrera_id' => ['required', 'integer', Rule::exists('carreras', 'id')->whereNull('deleted_at')],
+            'programa_academico_id' => ['required', 'integer', Rule::exists('programas_academicos', 'id')->whereNull('deleted_at')],
             'clave' => ['required', 'string', 'max:50', Rule::unique('planes_estudio', 'clave')->ignore($id)->whereNull('deleted_at')],
             'abreviacion' => ['nullable', 'string', 'max:50'],
             'nombre' => ['required', 'string', 'max:255'],
@@ -142,13 +142,13 @@ class PlanEstudioController extends Controller
             // El CURP del responsable se retiró del formulario: se capturaba
             // como dato de la SEP y no alimenta ningún XML. La columna se
             // conserva por si vuelve, igual que se hizo con «objetivo» en
-            // carreras.
+            // programas académicos.
         ], [
             'calificacion_maxima.gt' => 'La calificación máxima debe ser mayor que la mínima.',
             'calificacion_minima_aprobatoria.gte' => 'La mínima aprobatoria no puede ser menor que la calificación mínima.',
             'calificacion_minima_aprobatoria.lte' => 'La mínima aprobatoria no puede superar la calificación máxima.',
         ], [
-            'carrera_id' => 'carrera',
+            'programa_academico_id' => 'programa_academico',
             'autorizacion_reconocimiento_id' => 'tipo de autorización',
             'tipo_periodo_id' => 'tipo de periodo',
         ]);
@@ -160,7 +160,7 @@ class PlanEstudioController extends Controller
     private function catalogos(): array
     {
         return [
-            'carreras' => Carrera::query()->orderBy('nombre')->get(['id', 'nombre']),
+            'programas_academicos' => ProgramaAcademico::query()->orderBy('nombre')->get(['id', 'nombre']),
             'autorizaciones' => AutorizacionReconocimiento::query()->orderBy('nombre')->get(['id', 'nombre']),
             'tiposPeriodo' => TipoPeriodo::query()->activos()->orderBy('nombre')->get(['id', 'nombre']),
         ];

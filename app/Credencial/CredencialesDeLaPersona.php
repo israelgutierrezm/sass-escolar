@@ -15,14 +15,14 @@ use Illuminate\Support\Collection;
  * una.
  *
  * ── Una credencial POR MATRÍCULA ───────────────────────────────────────────
- * Quien estudia dos carreras tiene dos, no una. No es una interpretación: es la
+ * Quien estudia dos programas académicos tiene dos, no una. No es una interpretación: es la
  * decisión de arquitectura del proyecto —«el alumno es la MATRÍCULA, no la
  * persona»— y ya se aplica en el historial académico, que es independiente por inscripción.
  * En la escuela de ejemplo hay tres personas con dos matrículas activas a la
  * vez, así que el caso no es hipotético.
  *
  * Elegir «la más reciente» y emitir una sola parecía más simple, pero deja sin
- * credencial la carrera en la que esa persona también está inscrita —y es la
+ * credencial el programa académico en la que esa persona también está inscrita —y es la
  * que va a enseñar el día que entre a ESE campus o a ESA clase—.
  *
  * Quien no es alumno tiene UNA: no hay matrícula que multiplique nada.
@@ -67,7 +67,7 @@ class CredencialesDeLaPersona
                 return $config?->emitible() ? [
                     'clave' => 'matricula-'.$m->id,
                     'matricula' => $m,
-                    'etiqueta' => $m->oferta?->carrera?->nombre ?? $m->matricula,
+                    'etiqueta' => $m->oferta?->programaAcademico?->nombre ?? $m->matricula,
                     'config' => $config,
                 ] : null;
             })
@@ -115,7 +115,7 @@ class CredencialesDeLaPersona
     private function matriculasDe(Usuario $usuario): Collection
     {
         return MatriculaOferta::query()
-            ->with('oferta.carrera:id,nombre,nivel_estudios_id', 'oferta.campus:id,nombre')
+            ->with('oferta.programaAcademico:id,nombre,nivel_estudios_id', 'oferta.campus:id,nombre')
             ->where('persona_id', $usuario->persona_id)
             ->orderBy('matricula')
             ->get();
@@ -124,13 +124,13 @@ class CredencialesDeLaPersona
     /**
      * El nivel de estudios de esa inscripción.
      *
-     * Sale de la carrera, y es el del catálogo del TENANT: hay dos clases
+     * Sale del programa académico, y es el del catálogo del TENANT: hay dos clases
      * `NivelEstudio` y consultar la del landlord devuelve otro nivel con el
      * mismo id, sin fallar. Aquí sólo se usa el id, así que no hay riesgo, pero
      * conviene que quede dicho para quien vaya a mostrar su nombre.
      */
     private function nivelDe(MatriculaOferta $matricula): ?int
     {
-        return $matricula->oferta?->carrera?->nivel_estudios_id;
+        return $matricula->oferta?->programaAcademico?->nivel_estudios_id;
     }
 }

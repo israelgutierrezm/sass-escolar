@@ -150,7 +150,7 @@ class MisTutorados implements TarjetaPanel
             'id' => $tutoria->alumno->id,
             'reprobadas' => $estado['reprobadas'] ?? 0,
             'promedio' => $estado['promedio'],
-            // De cuál de sus carreras es, cuando tiene más de una. Sin esto la
+            // De cuál de sus programas académicos es, cuando tiene más de una. Sin esto la
             // cifra se lee como si fuera su único promedio.
             'promedio_de' => $estado['promedio_de'],
             'sesiones' => (int) ($sesiones->cuantas ?? 0),

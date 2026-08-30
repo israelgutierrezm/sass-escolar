@@ -16,7 +16,7 @@ interface Comprobante {
     id: number;
     alumno: string | null;
     matricula: string | null;
-    carrera: string | null;
+    programa_academico: string | null;
     cuenta: string | null;
     banco: string | null;
     monto: number;
@@ -120,7 +120,7 @@ function filtrar(estado: string): void {
                         <td class="px-4 py-3">
                             <p class="font-medium">{{ c.alumno ?? '—' }}</p>
                             <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                                {{ c.matricula }}<template v-if="c.carrera"> · {{ c.carrera }}</template>
+                                {{ c.matricula }}<template v-if="c.programa_academico"> · {{ c.programa_academico }}</template>
                             </p>
                         </td>
                         <td class="px-4 py-3">

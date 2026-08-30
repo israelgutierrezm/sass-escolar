@@ -15,7 +15,7 @@ const props = defineProps<{
     /** Matrícula, clave de profesor… lo que identifica a esa persona en su rol. */
     identificador?: string | null;
     foto?: string | null;
-    /** Líneas de contexto: carrera, campus, tipo… */
+    /** Líneas de contexto: programa académico, campus, tipo… */
     lineas?: (string | null)[];
     /** Etiqueta de estado, con su color SÓLIDO (texto + punto; fondo tinte). */
     estado?: string | null;

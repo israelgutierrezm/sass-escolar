@@ -42,10 +42,10 @@ interface Renglon {
 const props = defineProps<{
     alumno: Record<string, any>;
     persona: Record<string, any>;
-    carreras: {
+    programas_academicos: {
         id: number;
         matricula: string;
-        carrera: string | null;
+        programa_academico: string | null;
         plan: string | null;
         campus: string | null;
         estatus: string;
@@ -109,7 +109,7 @@ const props = defineProps<{
     lotesAbiertos: { id: number; folio: string; nombre: string | null; tipo: string }[];
     puedeCertificar: boolean;
     /**
-     * Si su carrera expide documentos oficiales. Un diplomado o un curso de
+     * Si su programa académico expide documentos oficiales. Un diplomado o un curso de
      * educación continua vive en el mismo catálogo y no tiene RVOE detrás:
      * ofrecerle titulación es prometer un trámite que no existe.
      */
@@ -129,7 +129,7 @@ const props = defineProps<{
             fecha_expedicion: string | null;
             fecha_examen_profesional: string | null;
             fecha_exencion_examen: string | null;
-            fecha_terminacion_carrera: string | null;
+            fecha_terminacion_programa_academico: string | null;
         };
         servicio_social: { cumplio_servicio_social: boolean | null; fundamento_legal_ss_id: number | null };
         antecedente: {
@@ -149,9 +149,9 @@ const props = defineProps<{
     };
 }>();
 
-const pestana = ref<'historial' | 'carga' | 'carreras' | 'tutores' | 'facturacion' | 'datos' | 'titulacion'>('historial');
+const pestana = ref<'historial' | 'carga' | 'programas_academicos' | 'tutores' | 'facturacion' | 'datos' | 'titulacion'>('historial');
 
-// ── Datos del título por carrera (modalidad, servicio social, antecedente) ──
+// ── Datos del título por programa académico (modalidad, servicio social, antecedente) ──
 const formModalidad = useForm({ ...props.datosTitulo.modalidad });
 const formServicioSocial = useForm({ ...props.datosTitulo.servicio_social });
 const formAntecedente = useForm({ ...props.datosTitulo.antecedente });
@@ -174,7 +174,7 @@ const cedulaRequerida = computed(() => {
 });
 
 // Completitud por bloque, para el resumen visual de la pestaña.
-const modalidadCompleta = computed(() => !!formModalidad.modalidad_titulacion_id && !!formModalidad.fecha_expedicion && !!formModalidad.fecha_terminacion_carrera);
+const modalidadCompleta = computed(() => !!formModalidad.modalidad_titulacion_id && !!formModalidad.fecha_expedicion && !!formModalidad.fecha_terminacion_programa_academico);
 const servicioSocialCompleto = computed(() => formServicioSocial.cumplio_servicio_social !== null && !!formServicioSocial.fundamento_legal_ss_id);
 const antecedenteCompleto = computed(() =>
     !!formAntecedente.institucion_procedencia && !!formAntecedente.nivel_antecedente_id && !!formAntecedente.entidad_federativa_id
@@ -203,7 +203,7 @@ const formulariosPendientes = computed(
 // Según su avance, al alumno le toca certificado total (cerró el plan) o
 // parcial (tiene avance sin cerrarlo); se le ofrecen solo lotes de ese tipo.
 const tipoCertificado = computed<'total' | 'parcial' | null>(() => {
-    // Si su carrera no emite certificado, no le toca ninguno: el avance da
+    // Si su programa académico no emite certificado, no le toca ninguno: el avance da
     // igual. El backend descarta igual, esto evita ofrecerlo aquí.
     if (! props.emiteDocumentos) {
         return null;
@@ -231,9 +231,9 @@ function agregarALote(): void {
     });
 }
 
-// Alternar la carrera en foco: navega al detalle de esa matrícula (misma
-// persona, otra carrera). Todo lo académico se recarga para la elegida.
-function cambiarCarrera(id: string | number): void {
+// Alternar el programa académico en foco: navega al detalle de esa matrícula (misma
+// persona, otro programa académico). Todo lo académico se recarga para la elegida.
+function cambiarProgramaAcademico(id: string | number): void {
     router.get(`/escolar/alumnos/${id}`);
 }
 
@@ -453,14 +453,14 @@ function desvincularTutor(id: number, nombre: string): void {
     router.delete(`/escolar/alumnos/${props.alumno.id}/tutores/${id}`, { preserveScroll: true });
 }
 
-/* Otras carreras de la misma persona */
+/* Otras programas académicos de la misma persona */
 const agregando = ref(false);
-const formCarrera = useForm({ oferta_id: null as number | null, generacion: '' });
+const formProgramaAcademico = useForm({ oferta_id: null as number | null, generacion: '' });
 
-function agregarCarrera(): void {
-    formCarrera.post(`/escolar/alumnos/${props.alumno.id}/carreras`, {
+function agregarProgramaAcademico(): void {
+    formProgramaAcademico.post(`/escolar/alumnos/${props.alumno.id}/programas-academicos`, {
         onSuccess: () => {
-            formCarrera.reset();
+            formProgramaAcademico.reset();
             agregando.value = false;
         },
     });
@@ -474,27 +474,27 @@ function agregarCarrera(): void {
 const bajando = ref<number | null>(null);
 const situacionBaja = ref<number | null>(props.situacionesDeBaja[0]?.id ?? null);
 
-function confirmarBaja(carreraId: number): void {
+function confirmarBaja(programaAcademicoId: number): void {
     router.put(
-        `/escolar/alumnos/${props.alumno.id}/carreras/${carreraId}`,
+        `/escolar/alumnos/${props.alumno.id}/programas-academicos/${programaAcademicoId}`,
         { accion: 'baja', situacion_id: situacionBaja.value },
         { preserveScroll: true, onFinish: () => (bajando.value = null) },
     );
 }
 
-function reactivar(carreraId: number, matricula: string): void {
+function reactivar(programaAcademicoId: number, matricula: string): void {
     if (!confirm(`Reactivar la matricula ${matricula}?`)) {
         return;
     }
 
     router.put(
-        `/escolar/alumnos/${props.alumno.id}/carreras/${carreraId}`,
+        `/escolar/alumnos/${props.alumno.id}/programas-academicos/${programaAcademicoId}`,
         { accion: 'reactivar' },
         { preserveScroll: true },
     );
 }
 
-const colorEstatusCarrera: Record<string, string> = {
+const colorEstatusProgramaAcademico: Record<string, string> = {
     activo: 'color-mix(in srgb, #16a34a 16%, transparent)',
     egresado: 'color-mix(in srgb, var(--color-acento) 14%, transparent)',
     baja: 'color-mix(in srgb, #dc2626 14%, transparent)',
@@ -676,11 +676,11 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
             >
                 <template #insignias>
                     <span
-                        v-if="carreras.length > 1"
+                        v-if="programas_academicos.length > 1"
                         class="rounded-full px-2 py-0.5 text-xs"
                         :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }"
                     >
-                        {{ carreras.length }} carreras
+                        {{ programas_academicos.length }} programas_academicos
                     </span>
                 </template>
 
@@ -701,13 +701,13 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                 </template>
             </EncabezadoPersona>
 
-            <!-- Carrera en foco: el select alterna entre las carreras de la
+            <!-- Programa académico en foco: el select alterna entre los programas académicos de la
                  persona y todo lo académico de abajo refleja la elegida. -->
             <div class="mt-4 border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <div class="flex flex-wrap items-center gap-2">
-                        <span class="text-sm font-medium">Carrera</span>
-                        <div v-if="carreras.length > 1" class="relative flex items-center">
+                        <span class="text-sm font-medium">Programa académico</span>
+                        <div v-if="programas_academicos.length > 1" class="relative flex items-center">
                             <svg
                                 xmlns="http://www.w3.org/2000/svg"
                                 fill="none"
@@ -724,20 +724,20 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                                 :value="alumno.id"
                                 class="rounded-lg border bg-transparent py-1.5 pl-8 pr-3 text-sm font-medium"
                                 :style="{ borderColor: 'var(--color-borde)' }"
-                                title="Cambiar de carrera"
-                                @change="cambiarCarrera(($event.target as HTMLSelectElement).value)"
+                                title="Cambiar de programa académico"
+                                @change="cambiarProgramaAcademico(($event.target as HTMLSelectElement).value)"
                             >
-                                <option v-for="c in carreras" :key="c.id" :value="c.id">
-                                    {{ c.carrera }} · {{ c.campus }} ({{ c.estatus }})
+                                <option v-for="c in programas_academicos" :key="c.id" :value="c.id">
+                                    {{ c.programa_academico }} · {{ c.campus }} ({{ c.estatus }})
                                 </option>
                             </select>
                         </div>
-                        <span v-else class="text-sm font-medium">{{ alumno.carrera }}</span>
+                        <span v-else class="text-sm font-medium">{{ alumno.programa_academico }}</span>
                     </div>
                     <div class="flex flex-col items-end gap-1.5">
                         <span
                             class="rounded-full px-2.5 py-1 text-xs font-medium capitalize"
-                            :style="{ backgroundColor: colorEstatusCarrera[alumno.estatus] ?? 'var(--color-fondo)' }"
+                            :style="{ backgroundColor: colorEstatusProgramaAcademico[alumno.estatus] ?? 'var(--color-fondo)' }"
                         >
                             {{ alumno.estatus }}
                         </span>
@@ -761,7 +761,7 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                     </div>
                 </div>
 
-                <!-- Baja de la carrera en foco: mismo flujo que la pestaña Carreras. -->
+                <!-- Baja del programa académico en foco: mismo flujo que la pestaña Programas académicos. -->
                 <div
                     v-if="bajando === alumno.id"
                     class="mt-4 flex flex-wrap items-end gap-3 rounded-lg border-l-2 py-3 pl-3"
@@ -983,10 +983,10 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
             :pestanas="[
                 { clave: 'historial', etiqueta: 'Historial académico' },
                 { clave: 'carga', etiqueta: 'Carga por ciclo' },
-                { clave: 'carreras', etiqueta: `Carreras (${carreras.length})` },
+                { clave: 'programas_academicos', etiqueta: `ProgramasAcademicos (${programas_academicos.length})` },
                 { clave: 'tutores', etiqueta: `Padres/tutores (${tutores.length})` },
                 { clave: 'facturacion', etiqueta: 'Facturación' },
-                // La titulación sólo aparece si su carrera llega a emitir
+                // La titulación sólo aparece si su programa_academico llega a emitir
                 // título: en un diplomado, la pestaña ofrecía un trámite
                 // inexistente y quien la llenaba esperaba un documento.
                 ...(emiteDocumentos ? [{ clave: 'titulacion', etiqueta: 'Titulación' }] : []),
@@ -1269,48 +1269,48 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
             </p>
         </section>
 
-        <!-- Carreras -->
-        <section v-else-if="pestana === 'carreras'" class="space-y-4">
+        <!-- Programas académicos -->
+        <section v-else-if="pestana === 'programas_academicos'" class="space-y-4">
             <article
-                v-for="carrera in carreras"
-                :key="carrera.id"
+                v-for="programa_academico in programas_academicos"
+                :key="programa_academico.id"
                 class="tarjeta p-5"
-                :class="carrera.estatus === 'baja' ? 'opacity-70' : ''"
+                :class="programa_academico.estatus === 'baja' ? 'opacity-70' : ''"
             >
                 <div class="flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <p class="font-mono text-xs" :style="{ color: 'var(--color-suave)' }">
-                            {{ carrera.matricula }}
-                            <span v-if="carrera.es_actual" class="ml-1 rounded-full px-2 py-0.5" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 14%, transparent)', color: 'var(--color-acento)' }">
+                            {{ programa_academico.matricula }}
+                            <span v-if="programa_academico.es_actual" class="ml-1 rounded-full px-2 py-0.5" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 14%, transparent)', color: 'var(--color-acento)' }">
                                 viendo esta
                             </span>
                         </p>
-                        <p class="mt-0.5 font-medium">{{ carrera.carrera }}</p>
+                        <p class="mt-0.5 font-medium">{{ programa_academico.programa_academico }}</p>
                         <p class="text-sm" :style="{ color: 'var(--color-suave)' }">
-                            {{ carrera.plan }}
-                            <span v-if="carrera.campus"> · {{ carrera.campus }}</span>
-                            <span v-if="carrera.generacion"> · generación {{ carrera.generacion }}</span>
+                            {{ programa_academico.plan }}
+                            <span v-if="programa_academico.campus"> · {{ programa_academico.campus }}</span>
+                            <span v-if="programa_academico.generacion"> · generación {{ programa_academico.generacion }}</span>
                         </p>
                         <p class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">
-                            Ingresó {{ carrera.fecha_ingreso }} · {{ carrera.materias_en_historial }} materias en historial académico
+                            Ingresó {{ programa_academico.fecha_ingreso }} · {{ programa_academico.materias_en_historial }} materias en historial académico
                         </p>
                     </div>
 
                     <div class="flex flex-col items-end gap-2">
-                        <span class="rounded-full px-2 py-0.5 text-xs capitalize" :style="{ backgroundColor: colorEstatusCarrera[carrera.estatus] }">
-                            {{ carrera.estatus }}
+                        <span class="rounded-full px-2 py-0.5 text-xs capitalize" :style="{ backgroundColor: colorEstatusProgramaAcademico[programa_academico.estatus] }">
+                            {{ programa_academico.estatus }}
                         </span>
-                        <span class="text-xs" :style="{ color: 'var(--color-suave)' }">{{ carrera.situacion }}</span>
+                        <span class="text-xs" :style="{ color: 'var(--color-suave)' }">{{ programa_academico.situacion }}</span>
 
                         <div class="flex gap-3 text-sm">
-                            <a v-if="!carrera.es_actual" :href="`/escolar/alumnos/${carrera.id}`" :style="{ color: 'var(--color-acento)' }">
+                            <a v-if="!programa_academico.es_actual" :href="`/escolar/alumnos/${programa_academico.id}`" :style="{ color: 'var(--color-acento)' }">
                                 Abrir
                             </a>
                             <button
-                                v-if="puedeEditar && carrera.estatus !== 'baja'"
+                                v-if="puedeEditar && programa_academico.estatus !== 'baja'"
                                 type="button"
                                 class="boton-baja"
-                                @click="bajando = bajando === carrera.id ? null : carrera.id"
+                                @click="bajando = bajando === programa_academico.id ? null : programa_academico.id"
                             >
                                 Dar de baja
                             </button>
@@ -1318,7 +1318,7 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                                 v-else-if="puedeEditar"
                                 type="button"
                                 :style="{ color: 'var(--color-acento)' }"
-                                @click="reactivar(carrera.id, carrera.matricula)"
+                                @click="reactivar(programa_academico.id, programa_academico.matricula)"
                             >
                                 Reactivar
                             </button>
@@ -1328,7 +1328,7 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
 
                 <!-- Qué tipo de baja: el catálogo de la escuela manda -->
                 <div
-                    v-if="bajando === carrera.id"
+                    v-if="bajando === programa_academico.id"
                     class="mt-4 flex flex-wrap items-end gap-3 rounded-lg border-l-2 py-3 pl-3"
                     style="border-color: #dc2626"
                 >
@@ -1343,7 +1343,7 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                         type="button"
                         class="rounded-lg px-3 py-2 text-sm font-medium text-white"
                         style="background-color: #dc2626"
-                        @click="confirmarBaja(carrera.id)"
+                        @click="confirmarBaja(programa_academico.id)"
                     >
                         Confirmar baja
                     </button>
@@ -1361,9 +1361,9 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                 </div>
             </article>
 
-            <!-- Agregar otra carrera -->
+            <!-- Agregar otro programa académico -->
             <section v-if="puedeMatricular" class="tarjeta p-6">
-                <h3 class="text-base font-semibold">Agregar otra carrera</h3>
+                <h3 class="text-base font-semibold">Agregar otro programa académico</h3>
                 <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
                     Para quien ya es alumno de la casa —la egresada que empieza la maestría, quien suma
                     una segunda licenciatura—. Genera una matrícula nueva con la regla de la escuela;
@@ -1385,24 +1385,24 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                     <div v-else class="grid gap-3 sm:grid-cols-3">
                         <div class="sm:col-span-2">
                             <CampoSelect
-                                v-model="formCarrera.oferta_id"
+                                v-model="formProgramaAcademico.oferta_id"
                                 etiqueta="Oferta"
                                 :opciones="ofertasDisponibles.map((o) => ({ valor: o.id, texto: o.etiqueta }))"
-                                vacio="Elige la carrera, plan y campus…"
-                                :error="formCarrera.errors.oferta_id"
+                                vacio="Elige el programa académico, plan y campus…"
+                                :error="formProgramaAcademico.errors.oferta_id"
                             />
                         </div>
-                        <CampoTexto v-model="formCarrera.generacion" etiqueta="Generación" :error="formCarrera.errors.generacion" />
+                        <CampoTexto v-model="formProgramaAcademico.generacion" etiqueta="Generación" :error="formProgramaAcademico.errors.generacion" />
 
                         <div class="flex gap-2 sm:col-span-3">
                             <button
                                 type="button"
-                                :disabled="!formCarrera.oferta_id || formCarrera.processing"
+                                :disabled="!formProgramaAcademico.oferta_id || formProgramaAcademico.processing"
                                 class="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
                                 :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                                @click="agregarCarrera"
+                                @click="agregarProgramaAcademico"
                             >
-                                {{ formCarrera.processing ? 'Generando matrícula…' : 'Matricular' }}
+                                {{ formProgramaAcademico.processing ? 'Generando matrícula…' : 'Matricular' }}
                             </button>
                             <button
                                 type="button"
@@ -1674,7 +1674,7 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
             </div>
         </section>
 
-        <!-- Titulación: datos del título para ESTA carrera (alimentan el XML SEP) -->
+        <!-- Titulación: datos del título para ESTA programa académico (alimentan el XML SEP) -->
         <!-- La bandera otra vez: la pestaña ya no se ofrece sin ella, pero
              `pestana` es un valor suelto y basta recordarlo de otra visita. -->
         <section v-else-if="pestana === 'titulacion' && emiteDocumentos" class="space-y-5">
@@ -1684,8 +1684,8 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                     <div class="max-w-xl">
                         <h2 class="text-base font-semibold">Datos para el título electrónico</h2>
                         <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                            Los captura administración para <span class="font-medium" :style="{ color: 'var(--color-contenido)' }">{{ alumno.carrera }}</span>.
-                            Son por carrera: si la persona tiene otra, se capturan aparte. Alimentan el XML que se envía a la SEP.
+                            Los captura administración para <span class="font-medium" :style="{ color: 'var(--color-contenido)' }">{{ alumno.programa_academico }}</span>.
+                            Son por programa académico: si la persona tiene otra, se capturan aparte. Alimentan el XML que se envía a la SEP.
                         </p>
                     </div>
                     <div class="text-right">
@@ -1719,7 +1719,7 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                         :error="formModalidad.errors.modalidad_titulacion_id"
                     />
                     <CampoTexto v-model="formModalidad.fecha_expedicion" etiqueta="Fecha de expedición" tipo="date" requerido :error="formModalidad.errors.fecha_expedicion" />
-                    <CampoTexto v-model="formModalidad.fecha_terminacion_carrera" etiqueta="Fecha de terminación de la carrera" tipo="date" requerido :error="formModalidad.errors.fecha_terminacion_carrera" />
+                    <CampoTexto v-model="formModalidad.fecha_terminacion_programa_academico" etiqueta="Fecha de terminación del programa académico" tipo="date" requerido :error="formModalidad.errors.fecha_terminacion_programa_academico" />
                     <CampoTexto v-model="formModalidad.fecha_examen_profesional" etiqueta="Fecha de examen profesional" tipo="date" ayuda="Según la modalidad." :error="formModalidad.errors.fecha_examen_profesional" />
                     <CampoTexto v-model="formModalidad.fecha_exencion_examen" etiqueta="Fecha de exención de examen" tipo="date" ayuda="Según la modalidad." :error="formModalidad.errors.fecha_exencion_examen" />
                 </div>
@@ -1823,7 +1823,7 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
 
                 <h2 class="mt-8 text-base font-semibold">Situación escolar</h2>
                 <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                    Aplica solo a esta matrícula, no a las otras carreras de la persona.
+                    Aplica solo a esta matrícula, no a las otros programas académicos de la persona.
                 </p>
 
                 <div class="mt-5 grid gap-4 sm:grid-cols-3">

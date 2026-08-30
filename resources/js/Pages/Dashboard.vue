@@ -119,7 +119,7 @@ const COLORES_TARJETA: Record<string, string> = {
      * Los dos pasan el 4.5:1 sobre blanco (5.70 y 5.02), que hace falta porque
      * el mismo valor pinta la cifra y el enlace «Ver».
      */
-    biblioteca: '#7C3AED',
+    recursos_digitales: '#7C3AED',
     'mis-solicitudes': '#B45309',
 };
 

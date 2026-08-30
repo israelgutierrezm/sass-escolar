@@ -304,7 +304,7 @@ class Plantilla implements FuenteDeReporte
                 /*
                  * Igual que el de campus y que el recorte: por la relación que
                  * lleva la vigencia. Con la historia entera, filtrar por
-                 * «Coordinador de carrera» devolvía a quien lo FUE y hoy da
+                 * «Coordinador de programa académico» devolvía a quien lo FUE y hoy da
                  * clases, con la columna «Puesto» de la misma fila diciendo
                  * «Docente». Una fila que se contradice a sí misma.
                  */

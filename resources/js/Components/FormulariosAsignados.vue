@@ -7,7 +7,7 @@ import { ICONOS } from '@/iconos';
  * Los formularios que le tocan a esta persona, y cuánto lleva contestado.
  *
  * Sale de `ResolutorFormularios`: rol —con su herencia— más el recorte por
- * nivel, carrera u oferta. Hasta ahora las asignaciones se configuraban y no
+ * nivel, programa académico u oferta. Hasta ahora las asignaciones se configuraban y no
  * se veían por ningún lado, así que nadie podía comprobar si lo que había
  * configurado alcanzaba a quien creía.
  *
@@ -31,7 +31,7 @@ const props = withDefaults(defineProps<{
     formularios: FormularioAsignado[];
     /**
      * Para que el texto diga lo que corresponde a cada caso. Un docente no
-     * tiene programa, y prometerle un recorte por carrera que no existe manda
+     * tiene programa, y prometerle un recorte por programa académico que no existe manda
      * a buscar una configuración que nunca va a encontrar.
      */
     titular: 'aspirante' | 'alumno' | 'docente' | 'tutor' | 'persona';
@@ -68,8 +68,8 @@ const pendientesObligatorios = computed(
     () => props.formularios.filter((f) => f.obligatorio && !f.completo).length,
 );
 
-/** Sólo aspirante y alumno se recortan por carrera; los demás, por rol y ya. */
-const porCarrera = computed(() => props.titular === 'aspirante' || props.titular === 'alumno');
+/** Sólo aspirante y alumno se recortan por programa académico; los demás, por rol y ya. */
+const porProgramaAcademico = computed(() => props.titular === 'aspirante' || props.titular === 'alumno');
 
 const descripcion = computed(() => {
     if (props.tuteo) {
@@ -78,7 +78,7 @@ const descripcion = computed(() => {
         return 'Lo que la escuela necesita que llenes.';
     }
 
-    return porCarrera.value
+    return porProgramaAcademico.value
         ? 'Los bloques de datos que la escuela le pide, según su rol y su programa.'
         : 'Los bloques de datos que la escuela le pide, según su rol.';
 });
@@ -88,8 +88,8 @@ const vacio = computed(() => {
         return 'La escuela no te pide nada por ahora.';
     }
 
-    return porCarrera.value
-        ? 'No le toca ninguno. Los formularios se asignan por rol —y opcionalmente por carrera— desde el constructor de cada uno; mientras no haya asignaciones, a nadie le aparecen.'
+    return porProgramaAcademico.value
+        ? 'No le toca ninguno. Los formularios se asignan por rol —y opcionalmente por programa académico— desde el constructor de cada uno; mientras no haya asignaciones, a nadie le aparecen.'
         : 'No le toca ninguno. Los formularios se asignan por rol desde el constructor de cada uno; mientras no haya asignaciones, a nadie le aparecen.';
 });
 

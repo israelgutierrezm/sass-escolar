@@ -15,7 +15,7 @@ use Tests\TenantTestCase;
  * Quien publica puede MIRAR lo que publicó, sin poder pedirlo.
  *
  * ── El problema que resuelven estas dos puertas ────────────────────────────
- * La biblioteca y el catálogo de servicios se ven desde el portal del alumno, y
+ * Los recursos digitales y el catálogo de servicios se ven desde el portal del alumno, y
  * sus permisos son del alumno. Quien los administra quedaba fuera: curaba a
  * ciegas —sin ver el orden, qué salió como tarjeta, cómo quedó recortada la
  * portada— y sólo lo veía quien no puede corregirlo.
@@ -32,17 +32,17 @@ class PuertasDerivadasDelAlumnoTest extends TenantTestCase
 
     public function test_quien_administra_la_biblioteca_puede_verla(): void
     {
-        $usuario = $this->usuarioCon('gestionar-biblioteca');
+        $usuario = $this->usuarioCon('gestionar-recursos-digitales');
 
         // Su rol NO tiene el permiso del alumno —eso es lo que resuelve
         // `tienePermiso`, que es por donde pasa `Gate::before`…
-        $this->assertFalse($usuario->tienePermiso('ver-biblioteca'));
+        $this->assertFalse($usuario->tienePermiso('ver-recursos-digitales'));
 
         // …y aun así la puerta abre, por la vía derivada. Comprobar las dos
         // cosas es lo que distingue «se le concedió el permiso» de «entra por
         // otro camino»: sólo con la segunda, la prueba pasaría igual si alguien
         // le regalara el permiso al rol administrativo.
-        $this->assertTrue($usuario->can('ver-biblioteca'));
+        $this->assertTrue($usuario->can('ver-recursos-digitales'));
     }
 
     public function test_quien_atiende_el_mostrador_ve_el_catalogo_pero_no_pide(): void
@@ -67,7 +67,7 @@ class PuertasDerivadasDelAlumnoTest extends TenantTestCase
         $usuario = $this->usuarioCon('ver-alumnos');
 
         $this->assertFalse($usuario->can('ver-servicios-del-alumno'));
-        $this->assertFalse($usuario->can('ver-biblioteca'));
+        $this->assertFalse($usuario->can('ver-recursos-digitales'));
     }
 
     // ── Andamiaje ──────────────────────────────────────────────────────────

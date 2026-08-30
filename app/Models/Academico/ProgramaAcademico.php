@@ -10,13 +10,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * carreras (TENANT). `nivelEstudios` apunta al catálogo tenant homónimo.
+ * programas académicos (TENANT). `nivelEstudios` apunta al catálogo tenant homónimo.
  */
-class Carrera extends Model
+class ProgramaAcademico extends Model
 {
     use TieneAuditoria;
 
-    protected $table = 'carreras';
+    protected $table = 'programas_academicos';
 
     protected $fillable = [
         'identificador',
@@ -46,7 +46,7 @@ class Carrera extends Model
 
     /**
      * `cveCarrera` del título electrónico de la SEP: se reutiliza la `clave` de
-     * la carrera (por decisión, no hay columna oficial aparte). El
+     * el programa académico (por decisión, no hay columna oficial aparte). El
      * `identificador` es el id interno estable, no la clave oficial.
      */
     public function cveCarrera(): string
@@ -56,6 +56,6 @@ class Carrera extends Model
 
     public function planes(): HasMany
     {
-        return $this->hasMany(PlanEstudio::class, 'carrera_id');
+        return $this->hasMany(PlanEstudio::class, 'programa_academico_id');
     }
 }

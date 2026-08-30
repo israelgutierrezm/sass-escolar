@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Models\Finanzas;
 
 use App\Models\Academico\Campus;
-use App\Models\Academico\Carrera;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Concerns\TieneAuditoria;
 use App\Models\ControlEscolar\Ciclo;
@@ -20,8 +20,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  *
  * El alcance NO es polimórfico: un plan vive en un CICLO y aplica a los CAMPUS
  * y CARRERAS que se le marcan (las que realmente se ofertan en esos campus). Se
- * cambió el modelo anterior (carrera/plan/oferta/global) porque la pregunta real
- * de la escuela es "¿qué cobro este ciclo, en qué campus y a qué carreras?".
+ * cambió el modelo anterior (programa académico/plan/oferta/global) porque la pregunta real
+ * de la escuela es "¿qué cobro este ciclo, en qué campus y a qué programas académicos?".
  *
  * Los cargos NO nacen del plan por sí solos: nacen cuando el plan se le vincula
  * a un alumno (`plan_cobro_alumno`), que es lo que dispara la generación masiva.
@@ -71,9 +71,9 @@ class PlanCobro extends Model
         return $this->belongsToMany(Campus::class, 'plan_cobro_campus', 'plan_cobro_id', 'campus_id');
     }
 
-    public function carreras(): BelongsToMany
+    public function programasAcademicos(): BelongsToMany
     {
-        return $this->belongsToMany(Carrera::class, 'plan_cobro_carrera', 'plan_cobro_id', 'carrera_id')
+        return $this->belongsToMany(ProgramaAcademico::class, 'plan_cobro_programa_academico', 'plan_cobro_id', 'programa_academico_id')
             ->withPivot('nivel_estudios_id');
     }
 

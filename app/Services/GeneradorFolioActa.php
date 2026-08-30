@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\DB;
  * El formato es configurable por escuela desde `configuraciones` (claves
  * `acta.formato_folio` y `acta.ambito_consecutivo`) en vez de una tabla de
  * reglas propia: a diferencia de la matrícula —que la escuela quiere distinta
- * por carrera y por plan— el folio del acta es un consecutivo de archivo, uno
+ * por programa académico y por plan— el folio del acta es un consecutivo de archivo, uno
  * solo para toda la escuela.
  */
 class GeneradorFolioActa

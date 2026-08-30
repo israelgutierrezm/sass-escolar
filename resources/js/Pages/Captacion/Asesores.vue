@@ -5,7 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import BuscadorRemoto from '@/Components/BuscadorRemoto.vue';
 
 /**
- * El equipo de promoción: quién es asesor y cuál está en turno.
+ * El equipo de captación: quién es asesor y cuál está en turno.
  *
  * ── Lo que esta pantalla decide de verdad ─────────────────────────────────
  * No reparte permisos —eso es `/plataforma/roles`—: dice quién ATIENDE
@@ -44,7 +44,7 @@ const alta = useForm({
 const dandoDeAlta = ref(false);
 
 function guardar(): void {
-    alta.post('/promocion/asesores', {
+    alta.post('/captacion/asesores', {
         preserveScroll: true,
         onSuccess: () => {
             alta.reset();
@@ -54,7 +54,7 @@ function guardar(): void {
 }
 
 function alternar(personaId: number, activo: boolean): void {
-    router.put(`/promocion/asesores/${personaId}`, { activo: !activo }, { preserveScroll: true });
+    router.put(`/captacion/asesores/${personaId}`, { activo: !activo }, { preserveScroll: true });
 }
 
 /** Los campus que atiende. Vacío = todos, que es lo que espera un coordinador. */
@@ -68,7 +68,7 @@ function abrirCampus(a: { persona_id: number; activo: boolean; campus: { id: num
 }
 
 function guardarCampus(personaId: number): void {
-    campusForm.put(`/promocion/asesores/${personaId}`, {
+    campusForm.put(`/captacion/asesores/${personaId}`, {
         preserveScroll: true,
         onSuccess: () => { editandoCampus.value = null; },
     });
@@ -79,7 +79,7 @@ function retirar(personaId: number, nombre: string | null): void {
         return;
     }
 
-    router.delete(`/promocion/asesores/${personaId}`, { preserveScroll: true });
+    router.delete(`/captacion/asesores/${personaId}`, { preserveScroll: true });
 }
 
 const comoReparte: Record<string, string> = {
@@ -126,7 +126,7 @@ const comoReparte: Record<string, string> = {
             <div class="sm:col-span-2">
                 <BuscadorRemoto
                     v-model="alta.persona_id"
-                    url="/promocion/asesores/candidatas"
+                    url="/captacion/asesores/candidatas"
                     etiqueta="Persona"
                     marcador="Busca por nombre, correo o CURP…"
                     ayuda="Alguien que ya existe en el sistema: un asesor no es un registro nuevo."

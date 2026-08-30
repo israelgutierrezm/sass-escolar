@@ -8,12 +8,12 @@ use App\Models\Concerns\TieneAuditoria;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-/** promociones (TENANT) — descuentos de admisión. */
-class Promocion extends Model
+/** descuentos de admisión (TENANT) — descuentos de admisión. */
+class Captacion extends Model
 {
     use TieneAuditoria;
 
-    protected $table = 'promociones';
+    protected $table = 'descuentos_admision';
 
     protected $fillable = ['clave', 'nombre', 'descripcion', 'descuento', 'vigencia'];
 
@@ -26,7 +26,7 @@ class Promocion extends Model
 
     public function aspirantes(): BelongsToMany
     {
-        return $this->belongsToMany(Aspirante::class, 'aspirante_promocion', 'promocion_id', 'aspirante_id')
+        return $this->belongsToMany(Aspirante::class, 'aspirante_descuento_admision', 'descuento_admision_id', 'aspirante_id')
             ->withTimestamps();
     }
 }

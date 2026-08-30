@@ -86,12 +86,12 @@ class PlantillaEvaluacionController extends Controller
             'bloqueadas' => $this->aplicador->materiasBloqueadas($plantilla),
             'materiasQueLaSiguen' => $plantilla->materias()->count(),
             'planes' => PlanEstudio::query()
-                ->with('carrera:id,nombre')
+                ->with('programaAcademico:id,nombre')
                 ->orderBy('nombre')
                 ->get()
                 ->map(fn (PlanEstudio $p) => [
                     'id' => $p->id,
-                    'etiqueta' => trim(($p->carrera?->nombre ?? '').' · '.$p->nombre),
+                    'etiqueta' => trim(($p->programaAcademico?->nombre ?? '').' · '.$p->nombre),
                     'usa_esta' => $p->plantilla_evaluacion_id === $plantilla->id,
                 ]),
             'puedeEditar' => $request->user()->can('editar-catalogo-academico'),

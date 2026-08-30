@@ -27,7 +27,7 @@ use Illuminate\Support\Collection;
  *     «encargado de admisiones» recibe lo asignado a «administrativo», igual
  *     que hereda sus permisos. Sin eso, cada escuela tendría que repetir la
  *     asignación en cada variante de rol que se haya inventado.
- *  2. El ÁMBITO, cuando lo hay. Nivel, carrera u oferta, contra la carrera del
+ *  2. El ÁMBITO, cuando lo hay. Nivel, programa académico u oferta, contra el programa académico del
  *     titular. Un formulario sin ámbito le llega a todo el rol.
  *
  * ── El expediente viaja ────────────────────────────────────────────────────
@@ -92,7 +92,7 @@ class ResolutorFormularios
                      * Obligatorio si lo es el formulario O la asignación.
                      *
                      * Son dos decisiones distintas: el bloque puede ser
-                     * opcional en general y obligatorio para una carrera
+                     * opcional en general y obligatorio para un programa académico
                      * concreta. Gana el que exige.
                      */
                     'obligatorio' => $f->obligatorio || $asignacion->obligatorio,
@@ -117,7 +117,7 @@ class ResolutorFormularios
      * Las asignaciones que alcanzan al titular, indexadas por formulario.
      *
      * Cuando un formulario le llega por dos caminos —al rol entero y además a
-     * su carrera— se conserva la MÁS específica: es la que la escuela configuró
+     * su programa académico— se conserva la MÁS específica: es la que la escuela configuró
      * pensando en él.
      *
      * @return Collection<int, FormularioAsignacion>
@@ -157,7 +157,7 @@ class ResolutorFormularios
             default => null,
         };
 
-        // Sin oferta no hay carrera contra la que comparar. Se deja FUERA a
+        // Sin oferta no hay programa académico contra la que comparar. Se deja FUERA a
         // propósito: un formulario acotado a Derecho no le toca a quien todavía
         // no ha dicho qué quiere estudiar, ni a quien no estudia.
         if ($oferta === null) {
@@ -165,8 +165,8 @@ class ResolutorFormularios
         }
 
         return match ($asignacion->ambito_tipo) {
-            'nivel' => (int) $asignacion->ambito_id === (int) $oferta->carrera?->nivel_estudios_id,
-            'carrera' => (int) $asignacion->ambito_id === (int) $oferta->carrera_id,
+            'nivel' => (int) $asignacion->ambito_id === (int) $oferta->programaAcademico?->nivel_estudios_id,
+            'programa_academico' => (int) $asignacion->ambito_id === (int) $oferta->programa_academico_id,
             'oferta' => (int) $asignacion->ambito_id === (int) $oferta->id,
             default => false,
         };

@@ -61,7 +61,7 @@ const form = useForm({
 });
 
 function crear(): void {
-    form.post('/promocion/publicaciones', {
+    form.post('/captacion/publicaciones', {
         onSuccess: () => {
             form.reset();
             creando.value = false;
@@ -73,7 +73,7 @@ function alternarActivo(p: Publicacion): void {
     // Se reenvían los campos requeridos por la validación tal como están: esto
     // solo alterna la bandera, no es una edición.
     router.put(
-        `/promocion/publicaciones/${p.id}`,
+        `/captacion/publicaciones/${p.id}`,
         {
             formulario_id: p.formulario_id,
             nombre: p.nombre,
@@ -268,7 +268,7 @@ function conversion(p: Publicacion): string {
                     <BotonAccion
                         v-if="p.envios === 0"
                         variante="eliminar"
-                        @click="router.delete(`/promocion/publicaciones/${p.id}`, { preserveScroll: true })"
+                        @click="router.delete(`/captacion/publicaciones/${p.id}`, { preserveScroll: true })"
                     />
                 </div>
             </div>

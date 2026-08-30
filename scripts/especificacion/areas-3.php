@@ -19,11 +19,11 @@ return [
             [
                 'subtitulo' => 'La validación es lo que de verdad protege',
                 'texto' => "Antes de mandar nada, el sistema revisa cada egresado y dice qué le falta, nombrando la materia concreta cuando el problema es de una materia. Descubrirlo por el rechazo de la SEP, sobre cuarenta expedientes, no le sirve a nadie.\n"
-                    .'Lo más frecuente es que falte el identificador oficial de un campus, una carrera o una asignatura. Antes, si faltaba, el documento caía en silencio a otro número y el validador oficial lo aceptaba —esos campos admiten cualquier texto—: el documento pasaba llevando un número que la SEP nunca asignó. Ahora se detiene antes de firmar.',
+                    .'Lo más frecuente es que falte el identificador oficial de un campus, una programa_academico o una asignatura. Antes, si faltaba, el documento caía en silencio a otro número y el validador oficial lo aceptaba —esos campos admiten cualquier texto—: el documento pasaba llevando un número que la SEP nunca asignó. Ahora se detiene antes de firmar.',
             ],
             [
                 'subtitulo' => 'Qué número manda cada catálogo',
-                'texto' => "Ésta es la parte que más se presta a equivocarse. En unos catálogos el valor oficial es la CLAVE; en otros vive en el campo de identificador y la clave es otra cosa; y en carrera, asignatura, plan y campus son datos distintos que no se pueden intercambiar.\n"
+                'texto' => "Ésta es la parte que más se presta a equivocarse. En unos catálogos el valor oficial es la CLAVE; en otros vive en el campo de identificador y la clave es otra cosa; y en programa_academico, asignatura, plan y campus son datos distintos que no se pueden intercambiar.\n"
                     .'Por eso la elección se hace catálogo por catálogo y está fijada por una prueba. Unificarlo todo «por clave» rompería el timbrado de todas las escuelas.',
             ],
             [
@@ -83,7 +83,7 @@ return [
                 'texto' => "`ConstructorCertificadoXml::idCatalogo()` decide por catálogo, y `ClavesSepDelCertificadoTest` lo fija.\n"
                     ."Por clave: nivel de estudios, tipo de periodo, tipo de asignatura, tipo de certificación —en éste el id NO coincide con la clave: 1 y 2 contra 79 y 80, así que leer el id sería mandar un número que la SEP no reconoce—.\n"
                     ."Por identificador: `entidades_federativas` (clave = abreviatura RENAPO, identificador = «01»), `cargos`, `modalidades_titulacion` y `fundamentos_legales_servicio_social`, que ni siquiera tienen columna `clave`.\n"
-                    .'En carrera, asignatura, plan y campus, `identificador` y `clave` son datos DISTINTOS y no se pueden intercambiar.',
+                    .'En programa académico, asignatura, plan y campus, `identificador` y `clave` son datos DISTINTOS y no se pueden intercambiar.',
             ],
             [
                 'subtitulo' => 'Lo que falta, y no es de código',
@@ -116,8 +116,8 @@ return [
 
         'reglas' => [
             ['regla' => 'La prueba de que el documento está bien es el XSD oficial.', 'porque' => 'Los esquemas viven en el repositorio y se corren antes de firmar; no se valida contra una idea de cómo debería ser.'],
-            ['regla' => 'El identificador de campus, carrera y asignatura es obligatorio para firmar.', 'porque' => 'Si faltaba, el documento caía en silencio a otro número y el XSD lo aceptaba —esos campos son texto libre—: pasaba llevando un número que la SEP nunca asignó.'],
-            ['regla' => 'La columna que viaja se elige catálogo por catálogo.', 'porque' => 'En unos el valor oficial es la clave, en otros el identificador, y en carrera o asignatura son datos distintos. Unificar rompería el timbrado de todas las escuelas.'],
+            ['regla' => 'El identificador de campus, programa académico y asignatura es obligatorio para firmar.', 'porque' => 'Si faltaba, el documento caía en silencio a otro número y el XSD lo aceptaba —esos campos son texto libre—: pasaba llevando un número que la SEP nunca asignó.'],
+            ['regla' => 'La columna que viaja se elige catálogo por catálogo.', 'porque' => 'En unos el valor oficial es la clave, en otros el identificador, y en programa académico o asignatura son datos distintos. Unificar rompería el timbrado de todas las escuelas.'],
             ['regla' => 'Reenviar es por documento, no por lote.', 'porque' => 'El error suele venir del otro lado, y remandar el lote duplicaría los trámites que allá ya se aceptaron.'],
             ['regla' => '`cargos` es el catálogo oficial de la SEP y `puestos` el organigrama de la escuela.', 'porque' => 'Fundirlos rompería el timbrado de todas las escuelas por ganar una tabla.'],
             ['regla' => 'Una regeneración no vuelve a cobrar crédito.', 'porque' => 'El crédito paga la emisión, no cada intento; y un repetido dentro del lote tampoco cuenta dos veces.'],
@@ -153,7 +153,7 @@ return [
                 'subtitulo' => 'Bolsa de trabajo',
                 'texto' => "La escuela registra empleadores y sus vacantes, y los egresados se postulan —o los captura vinculación por ventanilla, según lo que la escuela permita—.\n"
                     ."Lo que se mide al final es la EMPLEABILIDAD: cuántos egresados están colocados. Por eso una colocación no siempre viene de una postulación: un egresado consigue trabajo por su cuenta y la escuela se entera al darle seguimiento, y ése es el dato que piden las acreditadoras.\n"
-                    .'Se cuenta por matrícula y sin repetir: quien egresó de dos carreras reporta en las dos, y quien cambió de trabajo dos veces sigue siendo un egresado colocado.',
+                    .'Se cuenta por matrícula y sin repetir: quien egresó de dos programas académicos reporta en las dos, y quien cambió de trabajo dos veces sigue siendo un egresado colocado.',
             ],
             [
                 'subtitulo' => 'Movilidad',
@@ -192,7 +192,7 @@ return [
                 'pasos' => [
                     'Bolsa → Colocaciones → nueva.',
                     'Elegir al egresado. Si viene de una postulación, ligarla; si no, se captura sola.',
-                    'Capturar la empresa, el puesto, la fecha de ingreso y si el empleo se relaciona con su carrera —que admite «no se sabe», porque afirmar que no lo es sin haber preguntado es una afirmación que nadie hizo—.',
+                    'Capturar la empresa, el puesto, la fecha de ingreso y si el empleo se relaciona con su programa académico —que admite «no se sabe», porque afirmar que no lo es sin haber preguntado es una afirmación que nadie hizo—.',
                     'El indicador de empleabilidad se recalcula solo.',
                 ],
             ],
@@ -245,7 +245,7 @@ return [
             ['nombre' => 'conceptos_nomina / formulas_nomina', 'para_que' => 'Percepciones y deducciones, y los cálculos porcentuales.'],
             ['nombre' => 'periodos_nomina / recibos_nomina / recibo_conceptos', 'para_que' => 'El periodo y el recibo materializado, renglón por renglón.'],
             ['nombre' => 'empresas / empresa_contactos', 'para_que' => 'Los empleadores y con quién se habla. Una empresa se veta, no se borra.'],
-            ['nombre' => 'vacantes / habilidades', 'para_que' => 'Las plazas publicadas. Sin carreras señaladas, la vacante es para todas.'],
+            ['nombre' => 'vacantes / habilidades', 'para_que' => 'Las plazas publicadas. Sin programas académicos señaladas, la vacante es para todas.'],
             ['nombre' => 'postulaciones / postulacion_bitacora', 'para_que' => 'Quién se postuló y cómo avanzó. La bitácora existe para medir tiempos.'],
             ['nombre' => 'colocaciones', 'para_que' => 'El hecho de haber sido contratado. `postulacion_id` es nullable a propósito.'],
             ['nombre' => 'convenios / convocatorias_movilidad', 'para_que' => 'Con quién hay acuerdo y qué se convoca.'],
@@ -296,20 +296,20 @@ return [
             ],
             [
                 'subtitulo' => 'Conducta',
-                'texto' => "Incidencias y sanciones, colgadas de la MATRÍCULA: quien estudia dos carreras tiene su conducta separada por programa.\n"
+                'texto' => "Incidencias y sanciones, colgadas de la MATRÍCULA: quien estudia dos programas_academicos tiene su conducta separada por programa.\n"
                     ."El docente levanta incidencias de SUS alumnos —el alcance lo da su asignación, no el permiso—, y control escolar sanciona. Una sanción puede citar las incidencias que la originaron, y sólo las del mismo alumno.\n"
                     .'Si una sanción tiene vigencia lo dice su tipo: una suspensión pide fechas, una amonestación no. El padre lo ve en su portal, sólo de lectura; el alumno no.',
             ],
             [
                 'subtitulo' => 'Calendario, avisos y encuestas',
-                'texto' => "El calendario escolar guarda feriados y eventos, y a cada uno se le dice a QUIÉN va: a toda la escuela, a un rol, a un campus, a una carrera, a un grupo, a una materia, o a alumnos señalados uno por uno. Los destinos se SUMAN: «campus norte» más «grupo A» son los del norte y además el grupo A, porque exigir cumplir todos dejaría casi cualquier aviso sin público.\n"
+                'texto' => "El calendario escolar guarda feriados y eventos, y a cada uno se le dice a QUIÉN va: a toda la escuela, a un rol, a un campus, a una programa_academico, a un grupo, a una materia, o a alumnos señalados uno por uno. Los destinos se SUMAN: «campus norte» más «grupo A» son los del norte y además el grupo A, porque exigir cumplir todos dejaría casi cualquier aviso sin público.\n"
                     ."Hay además un modificador «y a sus familias», que no señala a nadie por sí solo: extiende a los tutores lo que los demás destinos ya dijeron.\n"
                     .'Los avisos usan la misma segmentación, con adjuntos y acuse de lectura. Y las encuestas —de evaluación docente, por ejemplo— tienen un umbral de anonimato: por debajo de cierto número de respuestas no se muestran resultados, para que la siguiente encuesta se conteste con sinceridad.',
             ],
             [
-                'subtitulo' => 'Biblioteca, trámites y credencial',
-                'texto' => "La biblioteca digital publica enlaces y recursos que el alumno consulta. Los trámites —constancias, cartas— se piden desde el portal del alumno y se atienden desde el mostrador.\n"
-                    .'La credencial virtual se diseña por ROL: el gafete del alumno trae matrícula y carrera, el del docente no. Cada quien descarga la suya, y quien estudia dos carreras tiene dos. El QR lleva una DIRECCIÓN y no los datos: un código que cargue el nombre dentro no verifica nada, porque cualquiera genera uno que diga lo que quiera.',
+                'subtitulo' => 'Recursos digitales, trámites y credencial',
+                'texto' => "La recursos_digitales digital publica enlaces y recursos que el alumno consulta. Los trámites —constancias, cartas— se piden desde el portal del alumno y se atienden desde el mostrador.\n"
+                    .'La credencial virtual se diseña por ROL: el gafete del alumno trae matrícula y programa_academico, el del docente no. Cada quien descarga la suya, y quien estudia dos programas_academicos tiene dos. El QR lleva una DIRECCIÓN y no los datos: un código que cargue el nombre dentro no verifica nada, porque cualquiera genera uno que diga lo que quiera.',
             ],
             [
                 'subtitulo' => 'Reportes',
@@ -401,7 +401,7 @@ return [
             ['nombre' => 'eventos_calendario / evento_destinos', 'para_que' => 'Qué pasa y a quién le toca. Los destinos se suman.'],
             ['nombre' => 'avisos / avisos_destinos / avisos_lecturas', 'para_que' => 'Comunicados, su público y su acuse.'],
             ['nombre' => 'encuestas / aplicaciones_encuesta / encuesta_respuestas', 'para_que' => 'Cuestionarios aplicados y lo contestado, con umbral de anonimato.'],
-            ['nombre' => 'biblioteca_enlaces', 'para_que' => 'Los recursos que publica la escuela.'],
+            ['nombre' => 'recursos_digitales', 'para_que' => 'Los recursos que publica la escuela.'],
             ['nombre' => 'servicios / solicitudes_servicio', 'para_que' => 'Trámites del alumno y su atención.'],
             ['nombre' => 'credenciales / credenciales_rol', 'para_que' => 'El diseño del gafete por rol y cada emisión con su uuid.'],
             ['nombre' => 'areas_reporte / ubicaciones_reporte', 'para_que' => 'Cómo llama la escuela a sus áreas y dónde puso cada reporte.'],
@@ -422,7 +422,7 @@ return [
             ['ruta' => '/plataforma/calendario', 'que_hace' => 'Feriados y eventos, con su público.', 'permiso' => 'gestionar-calendario'],
             ['ruta' => '/plataforma/avisos', 'que_hace' => 'Comunicados segmentados, con acuse.', 'permiso' => 'gestionar-avisos'],
             ['ruta' => '/encuestas/aplicaciones', 'que_hace' => 'Aplicación de encuestas y resultados.', 'permiso' => 'gestionar-encuestas'],
-            ['ruta' => '/escolar/biblioteca', 'que_hace' => 'Administración de la biblioteca digital.', 'permiso' => 'gestionar-biblioteca'],
+            ['ruta' => '/escolar/recursos-digitales', 'que_hace' => 'Administración de la recursos digitales.', 'permiso' => 'gestionar-recursos-digitales'],
             ['ruta' => '/escolar/servicios', 'que_hace' => 'El mostrador de trámites.', 'permiso' => 'atender-servicios'],
             ['ruta' => '/plataforma/configuraciones/credencial', 'que_hace' => 'Diseñador de la credencial por rol.', 'permiso' => 'gestionar-credenciales'],
             ['ruta' => '/reportes', 'que_hace' => 'Reportes por área, con filtros, totales y agrupados.', 'permiso' => 'ver-reportes'],
@@ -436,7 +436,7 @@ return [
             ['regla' => 'Los destinos de un aviso se suman, no se cruzan.', 'porque' => 'Exigir cumplir todos dejaría casi cualquier aviso sin público: nadie es a la vez «todos los docentes» y «el grupo A».'],
             ['regla' => '«Y a sus familias» es un modificador, y es lo único que se cruza.', 'porque' => 'No señala a nadie por sí solo: extiende a los tutores lo que los demás destinos dijeron. Con un OR llegaría a todos los padres de la escuela.'],
             ['regla' => 'El público de un aviso sale de todos los roles de la persona, no del activo.', 'porque' => 'Un aviso para docentes no puede desaparecer porque alguien conmutó de rol para revisar otra cosa.'],
-            ['regla' => 'La conducta cuelga de la matrícula.', 'porque' => 'Quien estudia dos carreras tiene su conducta separada por programa, igual que su historial.'],
+            ['regla' => 'La conducta cuelga de la matrícula.', 'porque' => 'Quien estudia dos programas académicos tiene su conducta separada por programa, igual que su historial.'],
             ['regla' => 'Si una sanción tiene vigencia lo dice su tipo.', 'porque' => 'Una suspensión pide fechas y una amonestación no; cambiar de tipo no puede conservar fechas que ya no significan nada.'],
             ['regla' => 'Un reporte programado corre con el rol GUARDADO.', 'porque' => 'De madrugada no hay sesión, así que no hay rol activo del que sacar el alcance. En global le mandaría la escuela entera a quien sólo ve un plantel.'],
             ['regla' => 'La bitácora de reportes guarda lo que se PIDIÓ, nunca lo que salió.', 'porque' => 'Quien audita ve que alguien exportó la cartera del campus norte, no la cartera.'],

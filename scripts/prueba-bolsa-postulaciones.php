@@ -113,7 +113,7 @@ try {
         $ajustes->bool(CatalogoAjustes::BOLSA_AUTOGESTIVA) === false);
 
     /*
-     * El escenario: una empresa, una vacante abierta a todas las carreras, y
+     * El escenario: una empresa, una vacante abierta a todos los programas académicos, y
      * DOS alumnos con matrícula. Se crea todo aquí para no depender de que el
      * demo tenga bolsa sembrada ni tocar sus datos.
      */
@@ -140,7 +140,7 @@ try {
      * Lo de «una sola» no es un detalle de armado: es lo que hace comprobable la
      * resolución automática del perfil académico. Y en el demo NO existe ese
      * caso —los quince alumnos con matrícula tienen dos o tres, porque la
-     * multicarrera se sembró a propósito—, así que se construye aquí: se toman
+     * multiprograma se sembró a propósito—, así que se construye aquí: se toman
      * dos personas sin ninguna matrícula y se les da una, dentro de la
      * transacción. Buscar «alguien con una sola» y saltar la comprobación si no
      * aparece sería una prueba que se apaga sola el día que cambien los datos.
@@ -253,8 +253,8 @@ try {
         Postulacion::query()->where('vacante_id', $vacante->id)->where('persona_id', $personaB)->doesntExist());
 
     /*
-     * Y con DOS carreras no se adivina: se deja sin señalar. Colgarla de la
-     * primera que aparezca torcería los indicadores por carrera sin que nada
+     * Y con DOS programas académicos no se adivina: se deja sin señalar. Colgarla de la
+     * primera que aparezca torcería los indicadores por programa académico sin que nada
      * fallara, que es la peor forma de equivocarse.
      */
     if ($variasDeUna !== null) {
@@ -265,7 +265,7 @@ try {
         $deAmbigua = Postulacion::query()
             ->where('vacante_id', $vacante->id)->where('persona_id', $ambigua)->first();
 
-        verificar('con dos carreras, se registra igual', $deAmbigua !== null);
+        verificar('con dos programas académicos, se registra igual', $deAmbigua !== null);
         verificar('pero sin señalar con cuál', $deAmbigua?->matricula_oferta_id === null);
     } else {
         verificar('el demo tiene alguien con dos matrículas para probar la ambigüedad', false);
@@ -284,7 +284,7 @@ try {
             true,
         );
 
-        verificar('el endpoint devuelve sus dos carreras', count($suyas) === $variasDeUna->count(),
+        verificar('el endpoint devuelve sus dos programas académicos', count($suyas) === $variasDeUna->count(),
             count($suyas).' de '.$variasDeUna->count());
         verificar('y ninguna es de otra persona',
             collect($suyas)->pluck('id')->diff($variasDeUna->pluck('id'))->isEmpty());
@@ -296,7 +296,7 @@ try {
             peticionDe($staff, 'POST', ['persona_id' => $ambigua, 'matricula_oferta_id' => $elegida]),
             $otraParaElegir = Vacante::create([
                 'empresa_id' => $empresa->id,
-                'titulo' => 'Vacante para elegir carrera',
+                'titulo' => 'Vacante para elegir programa académico',
                 'descripcion' => 'Otra.',
                 'vacantes_disponibles' => 1,
                 'fecha_publicacion' => now()->toDateString(),
@@ -304,11 +304,11 @@ try {
             ]),
         );
 
-        $conCarrera = Postulacion::query()
+        $conProgramaAcademico = Postulacion::query()
             ->where('vacante_id', $otraParaElegir->id)->where('persona_id', $ambigua)->first();
 
-        verificar('la carrera elegida se respeta',
-            $conCarrera !== null && (int) $conCarrera->matricula_oferta_id === $elegida);
+        verificar('el programa académico elegida se respeta',
+            $conProgramaAcademico !== null && (int) $conProgramaAcademico->matricula_oferta_id === $elegida);
     }
 
     echo PHP_EOL.'3. La bitácora se abre en el alta'.PHP_EOL;
@@ -381,7 +381,7 @@ try {
 
     $enTablero = collect($vista['vacantes'] ?? [])->firstWhere('id', $vacante->id);
 
-    verificar('la vacante sin carreras señaladas le aparece', $enTablero !== null);
+    verificar('la vacante sin programas académicos señaladas le aparece', $enTablero !== null);
     verificar('marcada como ya postulada', ($enTablero['ya_postulado'] ?? false) === true);
     verificar('y aparece entre sus postulaciones',
         collect($vista['postulaciones'] ?? [])->contains(fn ($p) => (int) $p['id'] === (int) $deB->id));

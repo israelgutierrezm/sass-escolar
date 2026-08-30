@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * certificaciones (TENANT) — un alumno-carrera dentro de un lote. Mientras el
+ * certificaciones (TENANT) — un alumno-programa académico dentro de un lote. Mientras el
  * lote no se firma es `pendiente`; al firmar pasa a `certificado` con su XML
  * sellado y una foto (`datos_json`) de su expediente académico en ese momento.
  */

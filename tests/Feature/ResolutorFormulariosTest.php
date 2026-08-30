@@ -77,7 +77,7 @@ class ResolutorFormulariosTest extends TenantTestCase
 
     // ── El recorte académico ───────────────────────────────────────────────
 
-    public function test_el_recorte_por_carrera_deja_fuera_a_quien_no_es_de_esa_carrera(): void
+    public function test_el_recorte_por_programa_academico_deja_fuera_a_quien_no_es_de_ese_programa_academico(): void
     {
         $escuela = $this->alumnoInscrito();
         $otra = $this->alumnoInscrito();
@@ -85,17 +85,17 @@ class ResolutorFormulariosTest extends TenantTestCase
         $aspirante = $this->aspirante(ofertaId: $escuela['oferta']);
         $formulario = $this->formulario('titulacion');
 
-        $this->asignar($formulario, $this->rol('aspirante'), 'carrera', $otra['carrera']);
+        $this->asignar($formulario, $this->rol('aspirante'), 'programa_academico', $otra['programa_academico']);
 
         $this->assertSame([], $this->clavesPara($aspirante));
 
-        // Y con SU carrera, sí.
-        FormularioAsignacion::query()->update(['ambito_id' => $escuela['carrera']]);
+        // Y con SU programa académico, sí.
+        FormularioAsignacion::query()->update(['ambito_id' => $escuela['programa_academico']]);
 
         $this->assertSame(['titulacion'], $this->clavesPara($aspirante));
     }
 
-    public function test_el_recorte_por_nivel_alcanza_a_toda_carrera_de_ese_nivel(): void
+    public function test_el_recorte_por_nivel_alcanza_a_toda_programa_academico_de_ese_nivel(): void
     {
         $escuela = $this->alumnoInscrito();
         $aspirante = $this->aspirante(ofertaId: $escuela['oferta']);
@@ -106,7 +106,7 @@ class ResolutorFormulariosTest extends TenantTestCase
     }
 
     /**
-     * Sin programa de interés no hay carrera contra la que comparar, y se queda
+     * Sin programa de interés no hay programa académico contra la que comparar, y se queda
      * fuera: un formulario acotado a Derecho no le toca a quien todavía no ha
      * dicho qué quiere estudiar.
      */
@@ -115,7 +115,7 @@ class ResolutorFormulariosTest extends TenantTestCase
         $escuela = $this->alumnoInscrito();
         $aspirante = $this->aspirante();
 
-        $this->asignar($this->formulario('titulacion'), $this->rol('aspirante'), 'carrera', $escuela['carrera']);
+        $this->asignar($this->formulario('titulacion'), $this->rol('aspirante'), 'programa_academico', $escuela['programa_academico']);
         $this->asignar($this->formulario('salud'), $this->rol('aspirante'));
 
         $this->assertSame(['salud'], $this->clavesPara($aspirante), 'El sin recorte sí; el recortado no.');
@@ -134,7 +134,7 @@ class ResolutorFormulariosTest extends TenantTestCase
         $escuela = $this->alumnoInscrito();
         $matricula = MatriculaOferta::findOrFail($escuela['matricula']);
 
-        $this->asignar($this->formulario('salud'), $this->rol('alumno'), 'carrera', $escuela['carrera']);
+        $this->asignar($this->formulario('salud'), $this->rol('alumno'), 'programa_academico', $escuela['programa_academico']);
 
         $this->assertSame(['salud'], $this->clavesPara($matricula));
     }
@@ -178,7 +178,7 @@ class ResolutorFormulariosTest extends TenantTestCase
     /**
      * A un docente o a un tutor también se le piden bloques de datos.
      *
-     * El titular es la PERSONA: no hay matrícula ni carrera de la que colgarlos.
+     * El titular es la PERSONA: no hay matrícula ni programa académico de la que colgarlos.
      * Sin esto, los formularios sólo sabían de quien estudia.
      */
     public function test_a_una_persona_le_tocan_los_formularios_de_su_rol(): void
@@ -244,15 +244,15 @@ class ResolutorFormulariosTest extends TenantTestCase
      * Los recortes académicos no le llegan.
      *
      * Un formulario acotado a Derecho no le toca a quien no cursa nada. Sin
-     * esto, un docente recibiría los bloques de todas las carreras a la vez.
+     * esto, un docente recibiría los bloques de todos los programas académicos a la vez.
      */
-    public function test_a_una_persona_no_le_llegan_los_recortados_por_carrera(): void
+    public function test_a_una_persona_no_le_llegan_los_recortados_por_programa_academico(): void
     {
         $escuela = $this->alumnoInscrito();
         $persona = $this->persona();
         $this->darRol($persona->id, $this->rol('docente'));
 
-        $this->asignar($this->formulario('titulacion'), $this->rol('docente'), 'carrera', $escuela['carrera']);
+        $this->asignar($this->formulario('titulacion'), $this->rol('docente'), 'programa_academico', $escuela['programa_academico']);
         $this->asignar($this->formulario('constancia_fiscal'), $this->rol('docente'));
 
         $this->assertSame(['constancia_fiscal'], $this->clavesPara($persona), 'El sin recorte sí; el recortado no.');
@@ -315,7 +315,7 @@ class ResolutorFormulariosTest extends TenantTestCase
     }
 
     /**
-     * Un formulario opcional asignado como obligatorio a una carrera, lo es.
+     * Un formulario opcional asignado como obligatorio a un programa académico, lo es.
      * Son dos decisiones distintas y gana la que exige.
      */
     public function test_la_asignacion_puede_volver_obligatorio_un_formulario_que_no_lo_era(): void
@@ -324,7 +324,7 @@ class ResolutorFormulariosTest extends TenantTestCase
         $aspirante = $this->aspirante(ofertaId: $escuela['oferta']);
 
         $formulario = $this->formulario('salud', obligatorio: false);
-        $this->asignar($formulario, $this->rol('aspirante'), 'carrera', $escuela['carrera'], obligatorio: true);
+        $this->asignar($formulario, $this->rol('aspirante'), 'programa_academico', $escuela['programa_academico'], obligatorio: true);
 
         $this->assertTrue($this->resolutor->para($aspirante)->first()['obligatorio']);
     }

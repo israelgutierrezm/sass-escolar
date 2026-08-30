@@ -23,7 +23,7 @@ interface Convenio {
     hasta: string | null;
     vencido: boolean;
     vigente: boolean;
-    carreras: string[];
+    programas_academicos: string[];
     convocatorias: number;
 }
 
@@ -53,7 +53,7 @@ const convenio = useForm({
     vigente_hasta: '',
     situacion_id: null as number | null,
     notas: '',
-    carreras: [] as number[],
+    programas_academicos: [] as number[],
 });
 
 function filtrar(): void {
@@ -154,12 +154,12 @@ function etiquetaDe(c: Convenio): string {
                             <span v-if="c.hasta"> hasta el {{ c.hasta }}</span>
                         </p>
                         <!--
-                            Sin carreras señaladas NO es captura incompleta: es
+                            Sin programas académicos señaladas NO es captura incompleta: es
                             «para todas». Se dice con palabras.
                         -->
                         <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                            <template v-if="c.carreras.length">Cubre {{ c.carreras.join(', ') }}</template>
-                            <template v-else>Cubre todas las carreras</template>
+                            <template v-if="c.programas_academicos.length">Cubre {{ c.programas_academicos.join(', ') }}</template>
+                            <template v-else>Cubre todos los programas académicos</template>
                             <span> · {{ c.convocatorias }} convocatoria(s)</span>
                         </p>
                     </div>
@@ -268,11 +268,11 @@ function etiquetaDe(c: Convenio): string {
                         y exigir al menos una obligaría a palomear las veinte.
                     -->
                     <CampoCasillas
-                        v-model="convenio.carreras"
-                        etiqueta="Carreras que cubre"
-                        :opciones="(catalogos.carreras ?? []).map((c) => ({ valor: c.id, texto: c.nombre }))"
-                        ayuda="Sin marcar ninguna, el convenio cubre TODAS las carreras."
-                        :error="convenio.errors.carreras"
+                        v-model="convenio.programas_academicos"
+                        etiqueta="Programas académicos que cubre"
+                        :opciones="(catalogos.programas_academicos ?? []).map((c) => ({ valor: c.id, texto: c.nombre }))"
+                        ayuda="Sin marcar ninguna, el convenio cubre TODAS los programas académicos."
+                        :error="convenio.errors.programas_academicos"
                     />
 
                     <CampoTextarea v-model="convenio.notas" etiqueta="Notas" :filas="2" :error="convenio.errors.notas" />

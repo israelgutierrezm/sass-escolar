@@ -29,7 +29,7 @@ class CarteraVencida extends DefinicionReporte
         return 'Las matrículas con saldo que ya pasó su fecha de vencimiento, de mayor a menor. '
             .'NO es la cartera total —para eso está «Estado de cartera»— ni incluye lo que deben los '
             .'ASPIRANTES, que todavía no tienen matrícula. Y una fila es una matrícula: quien estudia '
-            .'dos carreras aparece dos veces, cada una con lo suyo.';
+            .'dos programas académicos aparece dos veces, cada una con lo suyo.';
     }
 
     public function fuente(): string
@@ -55,7 +55,7 @@ class CarteraVencida extends DefinicionReporte
 
     public function columnasPorOmision(): ?array
     {
-        return ['matricula', 'alumno', 'carrera', 'campus', 'vencido', 'saldo', 'cargos_abiertos'];
+        return ['matricula', 'alumno', 'programa_academico', 'campus', 'vencido', 'saldo', 'cargos_abiertos'];
     }
 
     public function ordenPorOmision(): ?array

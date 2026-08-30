@@ -285,7 +285,7 @@ class EmpleadoController extends Controller
                     // doble plaza es legítima, pero quien captura tiene que
                     // saber que no está dando de alta a alguien por segunda vez
                     // sin querer.
-                    'carrera' => ExpedienteLaboral::query()->vigentes()->where('persona_id', $p->id)->exists()
+                    'programa_academico' => ExpedienteLaboral::query()->vigentes()->where('persona_id', $p->id)->exists()
                         ? 'Ya tiene un expediente vigente'
                         : null,
                 ])

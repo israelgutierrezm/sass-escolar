@@ -29,7 +29,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * ventanilla— pero el botón no aparece y la dirección responde 404.
  *
  * ── Qué vacantes le tocan ─────────────────────────────────────────────────
- * Las VIGENTES de su carrera, más las que no señalan ninguna —ésas son para
+ * Las VIGENTES de su programa académico, más las que no señalan ninguna —ésas son para
  * todas—. Un egresado que ya no tenga matrícula viva ve las generales, que es
  * más que nada y no le inventa un perfil que ya no tiene.
  */
@@ -41,15 +41,15 @@ class MisVacantesController extends Controller
     {
         $usuario = $peticion->user();
         $matriculas = $this->misMatriculas($usuario);
-        $carreras = $matriculas->pluck('oferta.carrera_id')->filter()->unique();
+        $programasAcademicos = $matriculas->pluck('oferta.programa_academico_id')->filter()->unique();
 
         $vacantes = Vacante::query()
             ->vigentes()
             ->where(fn ($q) => $q
-                ->whereDoesntHave('carreras')
-                ->when($carreras->isNotEmpty(), fn ($c) => $c->orWhereHas(
-                    'carreras',
-                    fn ($cc) => $cc->whereIn('carreras.id', $carreras),
+                ->whereDoesntHave('programasAcademicos')
+                ->when($programasAcademicos->isNotEmpty(), fn ($c) => $c->orWhereHas(
+                    'programasAcademicos',
+                    fn ($cc) => $cc->whereIn('programas_academicos.id', $programasAcademicos),
                 )))
             ->with(['empresa:id,razon_social', 'modalidad:id,nombre', 'jornada:id,nombre', 'habilidades:id,nombre'])
             ->orderByDesc('fecha_publicacion')
@@ -91,7 +91,7 @@ class MisVacantesController extends Controller
             'matriculas' => $matriculas->map(fn (MatriculaOferta $m) => [
                 'id' => $m->id,
                 'matricula' => $m->matricula,
-                'carrera' => $m->oferta?->carrera?->nombre,
+                'programa_academico' => $m->oferta?->programaAcademico?->nombre,
             ])->values(),
         ]);
     }
@@ -117,7 +117,7 @@ class MisVacantesController extends Controller
         ]);
 
         /*
-         * La matrícula se busca DENTRO de las suyas: quien estudia dos carreras
+         * La matrícula se busca DENTRO de las suyas: quien estudia dos programas académicos
          * elige con cuál se postula, y un id ajeno no encuentra pareja y cae a
          * null en vez de colgarle a otra persona su postulación.
          */
@@ -157,7 +157,7 @@ class MisVacantesController extends Controller
         return Storage::disk('local')->download($postulacion->cv_ruta);
     }
 
-    /** Las matrículas de quien tiene la sesión, con su carrera. */
+    /** Las matrículas de quien tiene la sesión, con su programa académico. */
     private function misMatriculas(Usuario $usuario)
     {
         if ($usuario->persona_id === null) {
@@ -166,7 +166,7 @@ class MisVacantesController extends Controller
 
         return MatriculaOferta::query()
             ->where('persona_id', $usuario->persona_id)
-            ->with('oferta:id,carrera_id', 'oferta.carrera:id,nombre')
+            ->with('oferta:id,programa_academico_id', 'oferta.programaAcademico:id,nombre')
             ->get();
     }
 }

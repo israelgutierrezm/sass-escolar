@@ -103,7 +103,7 @@ class VerificacionCredencialController extends Controller
             ->with([
                 'persona',
                 'rol',
-                'matricula.oferta.carrera:id,nombre,nivel_estudios_id',
+                'matricula.oferta.programaAcademico:id,nombre,nivel_estudios_id',
                 'matricula.oferta.campus:id,nombre',
             ])
             ->where('uuid', $uuid)
@@ -113,7 +113,7 @@ class VerificacionCredencialController extends Controller
 
         $config = $this->credenciales->configuracion(
             $credencial->rol_id,
-            $credencial->matricula?->oferta?->carrera?->nivel_estudios_id,
+            $credencial->matricula?->oferta?->programaAcademico?->nivel_estudios_id,
         );
 
         /*

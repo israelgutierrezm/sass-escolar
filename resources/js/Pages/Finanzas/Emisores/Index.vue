@@ -53,15 +53,15 @@ interface Emisor {
 const props = defineProps<{
     filtros: { busqueda: string; activo: string | null };
     emisores: Emisor[];
-    destinos: { nivel: { id: number; nombre: string }[]; carrera: { id: number; nombre: string }[] };
-    carrerasSinAsignar: string[];
+    destinos: { nivel: { id: number; nombre: string }[]; programa_academico: { id: number; nombre: string }[] };
+    programasAcademicosSinAsignar: string[];
     catalogos: Record<string, { clave: string; texto: string }[]>;
 }>();
 
 /*
  * Las razones sociales dadas de baja se conservan: sus facturas ya emitidas
  * siguen colgando de ellas. Filtrar por activas es lo que se pregunta al
- * asignarle una a una carrera.
+ * asignarle una a un programa académico.
  */
 const definicionFiltros = [
     { clave: 'activo', etiqueta: 'Solo activas', tipo: 'booleano' as const },
@@ -166,7 +166,7 @@ function subirCredenciales(emisor: Emisor): void {
 const etiquetaTipo: Record<string, string> = {
     global: 'Toda la escuela',
     nivel: 'Nivel de estudios',
-    carrera: 'Carrera',
+    programa_academico: 'ProgramaAcademico',
 };
 </script>
 
@@ -179,8 +179,8 @@ const etiquetaTipo: Record<string, string> = {
             :valores="filtros"
             :filtros="definicionFiltros"
             placeholder="Buscar por RFC, razón social o nombre comercial…"
-            titulo="Con qué persona moral factura cada carrera"
-            descripcion="Una escuela puede tener varias razones sociales: bachillerato con una, licenciatura con otra, posgrado con otra. Cada una timbra con su propio certificado de sello digital. Cuando varias asignaciones aplican gana la más específica: carrera → nivel de estudios → toda la escuela."
+            titulo="Con qué persona moral factura cada programa académico"
+            descripcion="Una escuela puede tener varias razones sociales: bachillerato con una, licenciatura con otra, posgrado con otra. Cada una timbra con su propio certificado de sello digital. Cuando varias asignaciones aplican gana la más específica: programa académico → nivel de estudios → toda la escuela."
             :icono="ICONOS.edificio"
             :puede-crear="!creando"
             nuevo-texto="Nueva razón social"
@@ -196,13 +196,13 @@ const etiquetaTipo: Record<string, string> = {
         <section class="tarjeta p-6">
 
             <!--
-                Una carrera sin razón social hace fallar la primera facturación
+                Un programa académico sin razón social hace fallar la primera facturación
                 del mes. Descubrirlo aquí es mucho más barato que descubrirlo en
                 ventanilla con el alumno enfrente.
             -->
-            <div v-if="carrerasSinAsignar.length" class="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                <strong>Estas carreras no tienen razón social asignada</strong> y no se les podrá facturar:
-                {{ carrerasSinAsignar.join(', ') }}. Asígnales una, o agrega una asignación
+            <div v-if="programasAcademicosSinAsignar.length" class="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <strong>Estos programas académicos no tienen razón social asignada</strong> y no se les podrá facturar:
+                {{ programasAcademicosSinAsignar.join(', ') }}. Asígnales una, o agrega una asignación
                 "Toda la escuela" que sirva de respaldo.
             </div>
 
@@ -276,7 +276,7 @@ const etiquetaTipo: Record<string, string> = {
                         :opciones="[
                             { valor: 'global', texto: 'Toda la escuela' },
                             { valor: 'nivel', texto: 'Un nivel de estudios' },
-                            { valor: 'carrera', texto: 'Una carrera' },
+                            { valor: 'programa_academico', texto: 'Una programa_academico' },
                         ]"
                     />
                     <CampoSelect

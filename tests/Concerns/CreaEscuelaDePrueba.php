@@ -13,7 +13,7 @@ use Inertia\Response;
  * Lo mínimo para que exista un alumno inscrito.
  *
  * ── Por qué hace falta tanto ───────────────────────────────────────────────
- * Una matrícula cuelga de una oferta, que cuelga de una carrera, un plan y un
+ * Una matrícula cuelga de una oferta, que cuelga de un programa académico, un plan y un
  * campus, que a su vez cuelgan de una institución y de catálogos con llaves
  * foráneas reales. No es ceremonia: es el esquema el que impide inventarse un
  * alumno suelto, y eso está bien —lo que estaría mal es que cada prueba lo
@@ -28,7 +28,7 @@ trait CreaEscuelaDePrueba
     /**
      * Una matrícula de alumno lista para usar, con toda su cadena detrás.
      *
-     * @return array{persona: int, matricula: int, oferta: int, plan: int, carrera: int, campus: int}
+     * @return array{persona: int, matricula: int, oferta: int, plan: int, programa académico: int, campus: int}
      */
     protected function alumnoInscrito(): array
     {
@@ -39,15 +39,15 @@ trait CreaEscuelaDePrueba
 
         $nivel = $this->nivelDePrueba();
 
-        $carrera = $this->fila('carreras', [
+        $programaAcademico = $this->fila('programas_academicos', [
             'identificador' => "ID-{$unico}",
             'clave' => "CAR-{$unico}",
-            'nombre' => 'Carrera de prueba',
+            'nombre' => 'Programa académico de prueba',
             'nivel_estudios_id' => $nivel,
         ]);
 
         $plan = $this->fila('planes_estudio', [
-            'carrera_id' => $carrera,
+            'programa_academico_id' => $programaAcademico,
             'clave' => "PLA-{$unico}",
             'nombre' => 'Plan de prueba',
             'rvoe' => 'RVOE-000',
@@ -60,7 +60,7 @@ trait CreaEscuelaDePrueba
         ]);
 
         $oferta = $this->fila('oferta', [
-            'carrera_id' => $carrera,
+            'programa_academico_id' => $programaAcademico,
             'plan_id' => $plan,
             'campus_id' => $campus,
             'estatus' => 'activa',
@@ -77,7 +77,16 @@ trait CreaEscuelaDePrueba
             'estatus' => 'activo',
         ]);
 
-        return compact('persona', 'matricula', 'oferta', 'plan', 'carrera', 'campus');
+        // Explícito y no `compact()`: la CLAVE va en snake —es lo que leen las
+        // pruebas— y la variable en camel, como el resto del código.
+        return [
+            'persona' => $persona,
+            'matricula' => $matricula,
+            'oferta' => $oferta,
+            'plan' => $plan,
+            'programa_academico' => $programaAcademico,
+            'campus' => $campus,
+        ];
     }
 
     /**
@@ -171,9 +180,9 @@ trait CreaEscuelaDePrueba
      *
      * Se creaba en la base CENTRAL «porque es catálogo de la SEP», pero el
      * modelo `Academico\NivelEstudio` es TENANT desde que cada escuela
-     * administra los suyos. El id que quedaba en `carreras.nivel_estudios_id`
+     * administra los suyos. El id que quedaba en `programas_academicos.nivel_estudios_id`
      * existía en la central y no en la escuela, así que `nivelEstudios`
-     * resolvía a NULL en toda prueba: lo que se ejercía era el caso «carrera
+     * resolvía a NULL en toda prueba: lo que se ejercía era el caso «programa académico
      * sin nivel», no el normal. Se notó al probar el token {NIVEL} de la
      * matrícula, que salía vacío sin motivo aparente.
      */

@@ -113,7 +113,7 @@ try {
 
     echo PHP_EOL.'1. El contexto académico de cada quien'.PHP_EOL;
     verificar('El alumno pertenece a un campus', $deMateo['campus'] !== []);
-    verificar('El alumno tiene carrera y plan', $deMateo['carrera'] !== [] && $deMateo['plan'] !== []);
+    verificar('El alumno tiene programa académico y plan', $deMateo['programa_academico'] !== [] && $deMateo['plan'] !== []);
     verificar('El alumno está en materias', $deMateo['materia'] !== []);
     verificar('La docente pertenece por su asignación', $deAdriana['materia'] !== [] && $deAdriana['campus'] !== []);
     verificar('Quien no es nadie no pertenece a nada', app(ContextoAcademico::class)->de(null)['campus'] === []);
@@ -132,8 +132,8 @@ try {
     $ven = quienesVen([[DestinoEvento::Campus, $deMateo['campus'][0]]], $gente);
     verificar('Por campus alcanza a quien está en él', in_array('Mateo', $ven, true), implode(', ', $ven));
 
-    $ven = quienesVen([[DestinoEvento::Carrera, $deMateo['carrera'][0]]], $gente);
-    verificar('Por carrera no alcanza a quien cursa otra', ! in_array('Adriana', $ven, true), implode(', ', $ven));
+    $ven = quienesVen([[DestinoEvento::ProgramaAcademico, $deMateo['programa_academico'][0]]], $gente);
+    verificar('Por programa académico no alcanza a quien cursa otra', ! in_array('Adriana', $ven, true), implode(', ', $ven));
 
     $ven = quienesVen([[DestinoEvento::Grupo, $deMateo['grupo'][0]]], $gente);
     verificar('Por grupo alcanza al alumno y a quien le da clase', in_array('Mateo', $ven, true) && in_array('Adriana', $ven, true), implode(', ', $ven));

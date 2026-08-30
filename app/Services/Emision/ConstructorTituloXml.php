@@ -16,7 +16,7 @@ use Illuminate\Support\Carbon;
  * (namespace https://www.siged.sep.gob.mx/titulos/, versión 1.0) con la estructura
  * y el orden exactos del XSD oficial.
  *
- * `snapshot()` congela los datos del alumno-carrera (institución, carrera,
+ * `snapshot()` congela los datos del alumno-programa académico (institución, programa académico,
  * profesionista, expedición, antecedente); los datos de los RESPONSABLES que
  * firman y su sello los inyecta el firmador en `$firma` al momento de firmar.
  *
@@ -29,7 +29,7 @@ class ConstructorTituloXml
     private const NS = 'https://www.siged.sep.gob.mx/titulos/';
 
     /**
-     * Foto de los datos del título del alumno-carrera, en el vocabulario del XSD.
+     * Foto de los datos del título del alumno-programa académico, en el vocabulario del XSD.
      *
      * @return array<string, mixed>
      */
@@ -37,7 +37,7 @@ class ConstructorTituloXml
     {
         $matricula->loadMissing([
             'persona',
-            'oferta.carrera',
+            'oferta.programaAcademico',
             'oferta.plan.autorizacionReconocimiento',
             'oferta.campus.institucion',
             'oferta.campus.entidad',
@@ -49,7 +49,7 @@ class ConstructorTituloXml
         $persona = $matricula->persona;
         $oferta = $matricula->oferta;
         $plan = $oferta?->plan;
-        $carrera = $oferta?->carrera;
+        $programaAcademico = $oferta?->programaAcademico;
         $campus = $oferta?->campus;
         $institucion = $campus?->institucion;
 
@@ -70,11 +70,11 @@ class ConstructorTituloXml
             'cveInstitucion' => $institucion?->cveInstitucion(),
             'nombreInstitucion' => $this->mayus($institucion?->nombre),
 
-            // Carrera
-            'cveCarrera' => $carrera?->cveCarrera(),
-            'nombreCarrera' => $this->mayus($carrera?->nombre),
-            'carreraFechaInicio' => $this->fecha($matricula->fecha_ingreso),
-            'carreraFechaTerminacion' => $this->fecha($mod?->fecha_terminacion_carrera),
+            // Programa académico
+            'cveCarrera' => $programaAcademico?->cveCarrera(),
+            'nombreProgramaAcademico' => $this->mayus($programaAcademico?->nombre),
+            'programaAcademicoFechaInicio' => $this->fecha($matricula->fecha_ingreso),
+            'programaAcademicoFechaTerminacion' => $this->fecha($mod?->fecha_terminacion_programa_academico),
             // El id de fila del catálogo YA es el idAutorizacionReconocimiento SEP.
             'idAutorizacionReconocimiento' => $this->str($plan?->autorizacion_reconocimiento_id),
             'autorizacionReconocimiento' => $this->mayus($plan?->autorizacionReconocimiento?->nombre),
@@ -157,12 +157,12 @@ class ConstructorTituloXml
             'nombreInstitucion' => $d['nombreInstitucion'],
         ]));
 
-        // 3) Carrera
-        $raiz->appendChild($this->nodo($dom, 'Carrera', [
+        // 3) Programa académico
+        $raiz->appendChild($this->nodo($dom, 'ProgramaAcademico', [
             'cveCarrera' => $d['cveCarrera'],
-            'nombreCarrera' => $d['nombreCarrera'],
-            'fechaInicio' => $d['carreraFechaInicio'],
-            'fechaTerminacion' => $d['carreraFechaTerminacion'],
+            'nombreProgramaAcademico' => $d['nombreProgramaAcademico'],
+            'fechaInicio' => $d['programaAcademicoFechaInicio'],
+            'fechaTerminacion' => $d['programaAcademicoFechaTerminacion'],
             'idAutorizacionReconocimiento' => $d['idAutorizacionReconocimiento'],
             'autorizacionReconocimiento' => $d['autorizacionReconocimiento'],
             'numeroRvoe' => $d['numeroRvoe'],
@@ -208,7 +208,7 @@ class ConstructorTituloXml
 
     /**
      * Cadena original del título: valores del DOCUMENTO en orden del XSD
-     * (Institucion → Carrera → Profesionista → Expedicion → Antecedente), con `||`
+     * (Institucion → Programa académico → Profesionista → Expedicion → Antecedente), con `||`
      * al inicio/fin y `|` como separador. Es lo que SELLA cada responsable: todos
      * firman la MISMA cadena (por eso NO incluye datos del responsable), y el
      * ejemplo oficial confirma que un mismo documento produce un sello por firmante.
@@ -224,7 +224,7 @@ class ConstructorTituloXml
         $partes = [
             $d['version'],
             $d['cveInstitucion'], $d['nombreInstitucion'],
-            $d['cveCarrera'], $d['nombreCarrera'], $d['carreraFechaInicio'], $d['carreraFechaTerminacion'],
+            $d['cveCarrera'], $d['nombreProgramaAcademico'], $d['programaAcademicoFechaInicio'], $d['programaAcademicoFechaTerminacion'],
             $d['idAutorizacionReconocimiento'], $d['autorizacionReconocimiento'], $d['numeroRvoe'],
             $d['curp'], $d['nombre'], $d['primerApellido'], $d['segundoApellido'], $d['correoElectronico'],
             $d['fechaExpedicion'], $d['idModalidadTitulacion'], $d['modalidadTitulacion'],

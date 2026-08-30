@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * titulo_antecedente (TENANT) — estudios antecedentes de una carrera-alumno para
+ * titulo_antecedente (TENANT) — estudios antecedentes de un programa académico-alumno para
  * el título. Alimenta el nodo Antecedente del XML del título electrónico. El
  * tipo de estudio se toma de niveles_estudio (su identificador_titulo es el
  * idTipoEstudioAntecedente).

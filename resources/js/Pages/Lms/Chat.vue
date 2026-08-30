@@ -129,7 +129,7 @@ async function sondear(): Promise<void> {
          * Y aun con el cerrojo, se filtra por id antes de insertar: el mensaje
          * puede llegar por el sondeo y por una recarga de props a la vez, y una
          * lista de chat no puede permitirse mostrar dos veces lo mismo. El
-         * cerrojo evita la carrera; esto evita cualquier otra.
+         * cerrojo evita el programa académico; esto evita cualquier otra.
          */
         const conocidos = new Set(mensajes.value.map((m) => m.id));
         const nuevos = (datos.mensajes ?? []).filter((m: MensajeChat) => !conocidos.has(m.id));

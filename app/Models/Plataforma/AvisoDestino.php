@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * avisos_destinos (TENANT) — a quién alcanza un aviso.
  *
  * Gemela de `evento_destinos` y con el MISMO enum (`DestinoEvento`): todos,
- * rol, campus, nivel, carrera, plan, grupo, materia o alumno. Se copia la forma
+ * rol, campus, nivel, programa académico, plan, grupo, materia o alumno. Se copia la forma
  * y no se comparte la tabla —ver la migración—.
  *
  * Varios renglones SUMAN: «rol docente» + «campus norte» alcanza a los docentes

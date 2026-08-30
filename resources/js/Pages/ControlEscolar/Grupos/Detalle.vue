@@ -68,7 +68,7 @@ const unidadPeriodo = computed(() => props.grupo.unidad_periodo ?? 'Periodo');
 // así solo hay que confirmar.
 //
 // Sin plan fijo NO se premarca nada, aunque el grado exista: ahí las materias
-// disponibles son las de tercero de TODAS las carreras del campus —más de cien—
+// disponibles son las de tercero de TODAS los programas académicos del campus —más de cien—
 // y premarcarlas convertiría el botón en una trampa de un clic. Cuando no hay
 // plan que acote, la elección tiene que ser deliberada.
 const materiasDelPeriodoInicial = props.grupo.plan && props.grupo.semestre

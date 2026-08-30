@@ -122,7 +122,7 @@ class Persona extends Model
     }
 
     /**
-     * Sus matrículas: una persona puede cursar varias carreras a la vez o a lo
+     * Sus matrículas: una persona puede cursar varios programas académicos a la vez o a lo
      * largo del tiempo, y cada una es un "alumno" distinto con su historial académico.
      */
     public function matriculas(): HasMany

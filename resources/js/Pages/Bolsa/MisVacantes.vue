@@ -41,7 +41,7 @@ const props = defineProps<{
     autogestiva: boolean;
     vacantes: Vacante[];
     postulaciones: Postulacion[];
-    matriculas: { id: number; matricula: string; carrera: string | null }[];
+    matriculas: { id: number; matricula: string; programa_academico: string | null }[];
 }>();
 
 const elegida = ref<Vacante | null>(null);
@@ -192,10 +192,10 @@ function enviar(): void {
 
             <p v-else class="px-6 py-8 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
                 <template v-if="yaPostuladas.length">
-                    Ya te postulaste a todas las vacantes disponibles para tu carrera.
+                    Ya te postulaste a todas las vacantes disponibles para tu programa académico.
                 </template>
                 <template v-else>
-                    Ahorita no hay vacantes publicadas para tu carrera. Vuelve a asomarte más adelante.
+                    Ahorita no hay vacantes publicadas para tu programa académico. Vuelve a asomarte más adelante.
                 </template>
             </p>
         </TarjetaSeccion>
@@ -207,14 +207,14 @@ function enviar(): void {
                     <p class="text-xs" :style="{ color: 'var(--color-suave)' }">{{ elegida.empresa }}</p>
 
                     <!--
-                        Sólo cuando hay más de una: con una sola carrera preguntar
+                        Sólo cuando hay más de una: con una sola programa académico preguntar
                         de cuál se postula es hacer trabajo por nada.
                     -->
                     <CampoSelect
                         v-if="matriculas.length > 1"
                         v-model="form.matricula_oferta_id"
-                        etiqueta="¿Con cuál de tus carreras?"
-                        :opciones="matriculas.map((m) => ({ valor: m.id, texto: `${m.carrera ?? m.matricula}` }))"
+                        etiqueta="¿Con cuál de tus programas académicos?"
+                        :opciones="matriculas.map((m) => ({ valor: m.id, texto: `${m.programa_academico ?? m.matricula}` }))"
                         vacio="Sin señalar"
                         :error="form.errors.matricula_oferta_id"
                     />

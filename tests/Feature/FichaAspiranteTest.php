@@ -17,10 +17,10 @@ use Tests\TenantTestCase;
  * La ficha del aspirante y su expediente documental.
  *
  * Regresión: la ficha reventaba con «Call to undefined method
- * DocumentoRequerido::carreras()». El puente `documento_carrera` se eliminó
- * —los requisitos se piden por ámbito, no por carrera— pero el controlador
- * conservó un filtro `whereHas('carreras')` que ya no tenía respaldo. Cualquier
- * aspirante con carrera de interés hacía caer la pantalla.
+ * DocumentoRequerido::programas_academicos()». El puente `documento_carrera` se eliminó
+ * —los requisitos se piden por ámbito, no por programa académico— pero el controlador
+ * conservó un filtro `whereHas('programasAcademicos')` que ya no tenía respaldo. Cualquier
+ * aspirante con programa académico de interés hacía caer la pantalla.
  */
 class FichaAspiranteTest extends TenantTestCase
 {
@@ -43,10 +43,10 @@ class FichaAspiranteTest extends TenantTestCase
     }
 
     /**
-     * El caso exacto que reventaba: un aspirante CON carrera de interés. El
-     * filtro por carrera desaparecido invocaba la relación inexistente.
+     * El caso exacto que reventaba: un aspirante CON programa académico de interés. El
+     * filtro por programa académico desaparecido invocaba la relación inexistente.
      */
-    public function test_la_ficha_no_cae_para_un_aspirante_con_carrera_de_interes(): void
+    public function test_la_ficha_no_cae_para_un_aspirante_con_programa_academico_de_interes(): void
     {
         $this->documentoRequerido('Acta de nacimiento', DocumentoRequerido::AMBITO_ASPIRANTE);
 

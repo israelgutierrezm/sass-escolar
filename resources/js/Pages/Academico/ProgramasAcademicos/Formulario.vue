@@ -10,38 +10,38 @@ import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 import { ICONOS } from '@/iconos';
 
 const props = defineProps<{
-    carrera: Record<string, any> | null;
+    programa_academico: Record<string, any> | null;
     niveles: { id: number; nombre: string }[];
 }>();
 
-const esEdicion = computed(() => props.carrera !== null);
+const esEdicion = computed(() => props.programa_academico !== null);
 
 const form = useForm({
-    identificador: props.carrera?.identificador ?? '',
-    clave: props.carrera?.clave ?? '',
-    nombre: props.carrera?.nombre ?? '',
-    nivel_estudios_id: props.carrera?.nivel_estudios_id ?? null,
-    imagen_url: props.carrera?.imagen_url ?? '',
-    // Al crear se asume que sí: es lo normal en una carrera con RVOE. Se apaga
+    identificador: props.programa_academico?.identificador ?? '',
+    clave: props.programa_academico?.clave ?? '',
+    nombre: props.programa_academico?.nombre ?? '',
+    nivel_estudios_id: props.programa_academico?.nivel_estudios_id ?? null,
+    imagen_url: props.programa_academico?.imagen_url ?? '',
+    // Al crear se asume que sí: es lo normal en un programa académico con RVOE. Se apaga
     // a propósito para lo que no lo tiene.
-    emite_documentos_oficiales: props.carrera?.emite_documentos_oficiales ?? true,
+    emite_documentos_oficiales: props.programa_academico?.emite_documentos_oficiales ?? true,
 });
 
 const opcionesNivel = computed(() => props.niveles.map((n) => ({ valor: n.id, texto: n.nombre })));
 
 function enviar(): void {
-    esEdicion.value ? form.put(`/academico/carreras/${props.carrera!.id}`) : form.post('/academico/carreras');
+    esEdicion.value ? form.put(`/academico/programas-academicos/${props.programa_academico!.id}`) : form.post('/academico/programas-academicos');
 }
 </script>
 
 <template>
-    <Head :title="esEdicion ? 'Editar carrera' : 'Nueva carrera'" />
+    <Head :title="esEdicion ? 'Editar programa_academico' : 'Nueva programa_academico'" />
 
-    <AppLayout :titulo="esEdicion ? 'Editar carrera' : 'Nueva carrera'">
+    <AppLayout :titulo="esEdicion ? 'Editar programa_academico' : 'Nueva programa_academico'">
         <PestanasSeccion />
 
         <form class="space-y-6" @submit.prevent="enviar">
-            <TarjetaSeccion titulo="Datos de la carrera" descripcion="Identificación y nivel de estudios." :icono="ICONOS.birrete">
+            <TarjetaSeccion titulo="Datos del programa académico" descripcion="Identificación y nivel de estudios." :icono="ICONOS.birrete">
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <CampoTexto
                         v-model="form.identificador"
@@ -56,7 +56,7 @@ function enviar(): void {
                         requerido
                         mono
                         :error="form.errors.clave"
-                        ayuda="Clave oficial de la carrera ante la SEP (cveCarrera del título). El «Identificador» es interno."
+                        ayuda="Clave oficial del programa académico ante la SEP (cveCarrera del título). El «Identificador» es interno."
                     />
                     <CampoTexto v-model="form.nombre" etiqueta="Nombre" requerido :error="form.errors.nombre" />
                     <CampoSelect
@@ -71,7 +71,7 @@ function enviar(): void {
             </TarjetaSeccion>
 
             <!--
-                No toda carrera termina en papel oficial: diplomados, cursos y
+                No toda programa académico termina en papel oficial: diplomados, cursos y
                 educación continua viven en este mismo catálogo y no tienen RVOE
                 que respalde una emisión. Declararlo aquí es lo que evita que sus
                 alumnos aparezcan como candidatos en los lotes y con una pestaña
@@ -79,7 +79,7 @@ function enviar(): void {
             -->
             <TarjetaSeccion
                 titulo="Emisión oficial"
-                descripcion="Qué documentos con validez ante la SEP llega a emitir esta carrera."
+                descripcion="Qué documentos con validez ante la SEP llega a emitir este programa académico."
                 :icono="ICONOS.escudo"
             >
                 <div class="space-y-3">
@@ -108,7 +108,7 @@ function enviar(): void {
                         class="rounded-lg border-l-4 border-l-amber-500 p-3 text-sm"
                         style="background-color: color-mix(in srgb, #f59e0b 8%, transparent)"
                     >
-                        Esta carrera no emitirá documentos oficiales. Se sigue cursando y calificando
+                        Este programa académico no emitirá documentos oficiales. Se sigue cursando y calificando
                         igual, pero sus alumnos no aparecerán en lotes de certificación ni de
                         titulación. Es lo que corresponde a diplomados y educación continua, que no
                         tienen RVOE detrás.
@@ -117,9 +117,9 @@ function enviar(): void {
 
                 <template #pie>
                     <div class="flex items-center gap-3">
-                        <BotonPrincipal :procesando="form.processing" :texto="esEdicion ? 'Guardar cambios' : 'Crear carrera'" />
+                        <BotonPrincipal :procesando="form.processing" :texto="esEdicion ? 'Guardar cambios' : 'Crear programa_academico'" />
                         <a
-                            href="/academico/carreras"
+                            href="/academico/programas-academicos"
                             class="rounded-lg border border-borde px-5 py-2.5 text-sm text-contenido hover:bg-fondo"
                         >
                             Cancelar

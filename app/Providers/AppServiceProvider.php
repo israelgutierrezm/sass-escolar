@@ -14,7 +14,6 @@ use App\Observers\DocenteObserver;
 use App\Panel\RegistroTarjetas;
 use App\Panel\Tarjetas\ActasPorAsentar;
 use App\Panel\Tarjetas\ActividadPorHora;
-use App\Panel\Tarjetas\BibliotecaDigital;
 use App\Panel\Tarjetas\CarteraDeLaEscuela;
 use App\Panel\Tarjetas\ClasesEnLineaDeHoy;
 use App\Panel\Tarjetas\CobranzaPorConfirmar;
@@ -44,6 +43,7 @@ use App\Panel\Tarjetas\MisTutorados;
 use App\Panel\Tarjetas\OcupacionDeGrupos;
 use App\Panel\Tarjetas\PostulantesEnProceso;
 use App\Panel\Tarjetas\ProspectosPorContactar;
+use App\Panel\Tarjetas\RecursosDigitales;
 use App\Reportes\Definiciones\AlumnosInscritos;
 use App\Reportes\Definiciones\AsistenciaEnRiesgo;
 use App\Reportes\Definiciones\AvanceDeCertificacion;
@@ -213,15 +213,15 @@ class AppServiceProvider extends ServiceProvider
     /**
      * Permisos que se DEDUCEN de otros, no se conceden.
      *
-     * `entrar-promocion` es la puerta del CRM y la abre cualquiera de dos:
+     * `entrar-captacion` es la puerta del CRM y la abre cualquiera de dos:
      * `ver-mis-prospectos` (el promotor, que verá solo los suyos) o
-     * `gestionar-promocion` (quien coordina, que los ve todos). El alcance lo
+     * `gestionar-captacion` (quien coordina, que los ve todos). El alcance lo
      * resuelve después `EmbudoAdmision::acotar`.
      *
      * Se hace así y NO exigiendo que la escuela conceda los dos porque es
      * exactamente el tipo de dependencia oculta que produce un 403 imposible de
      * explicar: alguien arma el rol «coordinador de admisiones», le palomea
-     * «Coordinar promoción», y la pantalla le rebota sin decir que además
+     * «Coordinar captación», y la pantalla le rebota sin decir que además
      * necesitaba otra casilla. La dependencia la conoce el código; la escuela
      * no tiene por qué.
      *
@@ -231,8 +231,8 @@ class AppServiceProvider extends ServiceProvider
     protected function registrarPermisosDerivados(): void
     {
         Gate::define(
-            'entrar-promocion',
-            fn ($usuario) => $usuario->can('ver-mis-prospectos') || $usuario->can('gestionar-promocion')
+            'entrar-captacion',
+            fn ($usuario) => $usuario->can('ver-mis-prospectos') || $usuario->can('gestionar-captacion')
         );
 
         /*
@@ -270,7 +270,7 @@ class AppServiceProvider extends ServiceProvider
         );
 
         /*
-         * Ver la biblioteca tal como le queda al alumno.
+         * Ver los recursos digitales tal como le queda al alumno.
          *
          * Quien la publica necesita mirarla: el orden, qué salió como tarjeta y
          * qué como enlace suelto, si la portada se ve bien recortada. Sin esto
@@ -283,7 +283,7 @@ class AppServiceProvider extends ServiceProvider
          * definición actúa de segunda vía. El alumno entra por su permiso;
          * quien administra, por aquí.
          */
-        Gate::define('ver-biblioteca', fn ($usuario) => $usuario->can('gestionar-biblioteca'));
+        Gate::define('ver-recursos-digitales', fn ($usuario) => $usuario->can('gestionar-recursos-digitales'));
 
         /*
          * Buscar alumnos para dirigirles algo.
@@ -347,7 +347,7 @@ class AppServiceProvider extends ServiceProvider
          *
          * El alumno no pierde nada, y ése fue el motivo de mirar antes de
          * cerrar: para pagar, sus cuentas salen de OTRO camino —el de su propia
-         * cartera, `CuentaBancaria::paraCarrera()` filtrado por
+         * cartera, `CuentaBancaria::paraProgramaAcademico()` filtrado por
          * `puedeRecibir()`—, que ya está acotado a su matrícula.
          *
          * Derivado y no un permiso nuevo porque son dos oficios: quien configura
@@ -487,7 +487,7 @@ class AppServiceProvider extends ServiceProvider
                 // Las dos secciones que sólo se alcanzan desde el panel: sin su
                 // tarjeta, el alumno no tiene por dónde entrar. Van después de
                 // lo suyo de cada día y antes de lo de los demás roles.
-                BibliotecaDigital::class,
+                RecursosDigitales::class,
                 MisSolicitudes::class,
                 MisMateriasDocente::class,
                 // Los reportes de cada quien. Va con lo PROPIO y no con las

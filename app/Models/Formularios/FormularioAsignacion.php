@@ -14,17 +14,17 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * formulario_asignacion (TENANT) — a quién se le muestra un formulario.
  *
- * Un ROL, y opcionalmente acotado a un nivel de estudios, una carrera o una
+ * Un ROL, y opcionalmente acotado a un nivel de estudios, un programa académico o una
  * oferta. El ámbito no es un destinatario alternativo: es un recorte del
- * destinatario, y sólo tiene sentido para quien tiene carrera —aspirantes y
- * alumnos—. Un formulario «para la carrera de Derecho» no le llega a nadie
- * mientras no se diga a quién de esa carrera.
+ * destinatario, y sólo tiene sentido para quien tiene programa académico —aspirantes y
+ * alumnos—. Un formulario «para el programa académico de Derecho» no le llega a nadie
+ * mientras no se diga a quién de ese programa académico.
  *
  * Que aspirante y alumno se recorten con el MISMO criterio es deliberado: el
  * aspirante se convierte en alumno y su expediente de formularios viaja con él;
  * si cada rol se acotara distinto, el expediente se partiría al cruzar.
  *
- * La referencia al ámbito es polimórfica y sin FK: nivel, carrera y oferta
+ * La referencia al ámbito es polimórfica y sin FK: nivel, programa académico y oferta
  * viven en tablas distintas.
  */
 class FormularioAsignacion extends Model
@@ -32,12 +32,12 @@ class FormularioAsignacion extends Model
     use TieneAuditoria;
 
     /** Los recortes posibles, del más amplio al más específico. */
-    public const AMBITOS = ['nivel', 'carrera', 'oferta'];
+    public const AMBITOS = ['nivel', 'programa_academico', 'oferta'];
 
     /**
      * Las facetas cuyo rol admite recorte académico.
      *
-     * Un docente o un administrativo no tienen carrera, así que acotarles un
+     * Un docente o un administrativo no tienen programa académico, así que acotarles un
      * formulario «a Derecho» no querría decir nada.
      */
     public const FACETAS_CON_AMBITO = [CatalogoPermisos::ASPIRANTE, CatalogoPermisos::ALUMNO];
@@ -69,7 +69,7 @@ class FormularioAsignacion extends Model
         return $this->belongsTo(Rol::class);
     }
 
-    /** ¿A este rol se le puede recortar el formulario por carrera? */
+    /** ¿A este rol se le puede recortar el formulario por programa académico? */
     public static function admiteAmbito(?Rol $rol): bool
     {
         return $rol !== null && in_array($rol->ambitoDePermisos(), self::FACETAS_CON_AMBITO, true);

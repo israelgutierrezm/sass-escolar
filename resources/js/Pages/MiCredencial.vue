@@ -8,12 +8,12 @@ import AppLayout from '@/Layouts/AppLayout.vue';
  *
  * ── Grande y centrada ─────────────────────────────────────────────────────
  * Esta pantalla se abre casi siempre para ENSEÑARLE la credencial a alguien —en
- * la puerta, en la biblioteca, en un examen—, con el teléfono en la mano y a un
+ * la puerta, en los recursos digitales, en un examen—, con el teléfono en la mano y a un
  * brazo de distancia de quien la revisa. Todo lo demás sobra: la imagen ocupa
  * lo que puede y los botones se quedan al pie.
  *
  * ── Una por matrícula ─────────────────────────────────────────────────────
- * Quien estudia dos carreras tiene dos, y elige entre las suyas. Es la misma
+ * Quien estudia dos programas académicos tiene dos, y elige entre las suyas. Es la misma
  * regla del historial académico: el alumno es la matrícula, no la persona.
  */
 

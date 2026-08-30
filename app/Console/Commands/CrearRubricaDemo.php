@@ -231,7 +231,7 @@ class CrearRubricaDemo extends Command
          * actividad de prueba, crear otra es lo correcto.
          */
         return Actividad::updateOrCreate(
-            ['curso_id' => $curso->id, 'titulo' => 'Ensayo: por qué elegí esta carrera'],
+            ['curso_id' => $curso->id, 'titulo' => 'Ensayo: por qué elegí este programa académico'],
             [
                 'tipo' => 'actividad',
                 'instrucciones' => 'Dos cuartillas. Se califica con la rúbrica de abajo: léela antes de escribir.',
@@ -263,7 +263,7 @@ class CrearRubricaDemo extends Command
                 [
                     'estado' => Entrega::ENTREGADA,
                     'entregada_en' => now()->subDays($i + 1),
-                    'contenido' => 'Elegí esta carrera porque desde la preparatoria me llamó '
+                    'contenido' => 'Elegí este programa académico porque desde la preparatoria me llamó '
                         .'la atención cómo se resuelven los problemas con lógica, y quiero '
                         .'dedicarme a eso. (Texto de prueba.)',
                 ],

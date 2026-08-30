@@ -75,7 +75,7 @@ class BuscarAlumnosParaDirigirlesAlgoTest extends TenantTestCase
         $this->assertSame([], $this->buscar('A'));
     }
 
-    public function test_quien_estudia_dos_carreras_aparece_una_vez(): void
+    public function test_quien_estudia_dos_programas_academicos_aparece_una_vez(): void
     {
         $escuela = $this->alumnoInscrito();
 
@@ -86,14 +86,14 @@ class BuscarAlumnosParaDirigirlesAlgoTest extends TenantTestCase
         // Segunda matrícula de la MISMA persona, en OTRA oferta: el destino se
         // guarda contra la persona, así que verla dos veces en la lista sería
         // elegir dos veces al mismo alumno.
-        // En otro campus: el único de `oferta` es (carrera, plan, campus).
+        // En otro campus: el único de `oferta` es (programa académico, plan, campus).
         $otroCampus = $this->fila('campus', [
             'clave' => 'C2-'.uniqid(),
             'nombre' => 'Segundo campus',
         ]);
 
         $otraOferta = $this->fila('oferta', [
-            'carrera_id' => $escuela['carrera'],
+            'programa_academico_id' => $escuela['programa_academico'],
             'plan_id' => $escuela['plan'],
             'campus_id' => $otroCampus,
             'estatus' => 'activa',

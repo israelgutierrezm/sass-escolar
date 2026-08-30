@@ -21,7 +21,7 @@ interface Tutorado {
     id: number;
     nombre: string;
     foto: string | null;
-    carreras: string[];
+    programas_academicos: string[];
     ciclo: string | null;
     estado: {
         promedio: number | null;
@@ -126,12 +126,12 @@ function colorPromedio(p: number | null): string | undefined {
                     </div>
                 </div>
 
-                <p v-if="t.carreras.length" class="text-sm" :style="{ color: 'var(--color-suave)' }">
-                    {{ t.carreras.join(' · ') }}
+                <p v-if="t.programas_academicos.length" class="text-sm" :style="{ color: 'var(--color-suave)' }">
+                    {{ t.programas_academicos.join(' · ') }}
                 </p>
 
                 <div class="mt-auto space-y-1.5 border-t pt-3" :style="{ borderColor: 'var(--color-borde)' }">
-                    <!-- Ver la nota del portal del padre: con dos carreras se
+                    <!-- Ver la nota del portal del padre: con dos programas académicos se
                          enseña el mas bajo y se nombra cual. -->
                     <p v-if="t.estado.promedio !== null" class="flex items-baseline gap-1.5 text-sm">
                         <span class="text-xs" :style="{ color: 'var(--color-suave)' }">Promedio</span>

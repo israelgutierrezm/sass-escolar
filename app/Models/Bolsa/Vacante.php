@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Models\Bolsa;
 
 use App\Models\Academico\Campus;
-use App\Models\Academico\Carrera;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Concerns\TieneAuditoria;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -15,9 +15,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 /**
  * vacantes (TENANT) — un puesto que una empresa ofrece a la escuela.
  *
- * ── «Sin carreras señaladas» significa PARA TODAS ─────────────────────────
+ * ── «Sin programas académicos señaladas» significa PARA TODAS ─────────────────────────
  * No es un descuido de captura: la mitad de las vacantes reales buscan «recién
- * egresados de lo que sea», y exigir al menos una carrera obligaría a palomear
+ * egresados de lo que sea», y exigir al menos un programa académico obligaría a palomear
  * las veinte de la escuela cada vez. Lo que sí hay que hacer es decirlo en la
  * pantalla, para que nadie tenga que deducirlo.
  */
@@ -78,9 +78,9 @@ class Vacante extends Model
         return $this->belongsTo(Campus::class, 'campus_id');
     }
 
-    public function carreras(): BelongsToMany
+    public function programasAcademicos(): BelongsToMany
     {
-        return $this->belongsToMany(Carrera::class, 'vacante_carreras', 'vacante_id', 'carrera_id')
+        return $this->belongsToMany(ProgramaAcademico::class, 'vacante_programas_academicos', 'vacante_id', 'programa_academico_id')
             ->wherePivotNull('deleted_at')
             ->withTimestamps();
     }
@@ -116,18 +116,18 @@ class Vacante extends Model
     }
 
     /**
-     * Las que le aplican a una carrera concreta.
+     * Las que le aplican a un programa académico concreta.
      *
      * Incluye las que NO señalan ninguna: ésas son para todas, y dejarlas fuera
      * escondería del tablero del alumno la mitad de la oferta real.
      */
-    public function scopeParaCarrera(Builder $consulta, ?int $carreraId): Builder
+    public function scopeParaProgramaAcademico(Builder $consulta, ?int $programaAcademicoId): Builder
     {
         return $consulta->where(fn (Builder $q) => $q
-            ->whereDoesntHave('carreras')
-            ->when($carreraId !== null, fn (Builder $c) => $c->orWhereHas(
-                'carreras',
-                fn (Builder $cc) => $cc->where('carreras.id', $carreraId),
+            ->whereDoesntHave('programasAcademicos')
+            ->when($programaAcademicoId !== null, fn (Builder $c) => $c->orWhereHas(
+                'programasAcademicos',
+                fn (Builder $cc) => $cc->where('programas_academicos.id', $programaAcademicoId),
             )));
     }
 }

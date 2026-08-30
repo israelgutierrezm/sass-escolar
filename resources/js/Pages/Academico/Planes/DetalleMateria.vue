@@ -25,7 +25,7 @@ interface Requisito {
 interface Componente { id: number; componente: string; parcial: number | null; porcentaje: number; orden: number }
 
 const props = defineProps<{
-    plan: { id: number; nombre: string; carrera: string | null; total_periodos: number | null; periodo_unidad: string };
+    plan: { id: number; nombre: string; programa_academico: string | null; total_periodos: number | null; periodo_unidad: string };
     materia: {
         id: number;
         clave_en_plan: string;
@@ -200,7 +200,7 @@ const etiquetaTipoReq = (tipo: string) => (tipo === 'aprobada' ? 'Aprobada' : 'C
                     <p class="font-mono text-sm" :style="{ color: 'var(--color-suave)' }">{{ materia.clave_en_plan }}</p>
                     <h2 class="text-lg font-semibold">{{ materia.asignatura }}</h2>
                     <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                        {{ plan.nombre }} · {{ plan.carrera }}
+                        {{ plan.nombre }} · {{ plan.programaAcademico }}
                         <span v-if="materia.periodo"> · {{ plan.periodo_unidad }} {{ materia.periodo }}</span>
                         · {{ materia.creditos }} créditos
                     </p>

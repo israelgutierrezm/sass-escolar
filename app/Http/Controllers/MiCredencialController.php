@@ -23,7 +23,7 @@ use Inertia\Response as Pantalla;
  * ── No recibe id de nadie ─────────────────────────────────────────────────
  * La persona sale de la SESIÓN, igual que en `/mi-historial`: la ruta no lleva
  * identificador, así que no existe siquiera dónde escribir el de otro. Quien
- * estudia dos carreras elige entre LAS SUYAS, y la elección se busca en esa
+ * estudia dos programas académicos elige entre LAS SUYAS, y la elección se busca en esa
  * misma lista — una clave ajena no encuentra pareja y cae a la primera propia.
  *
  * ── Sin permiso propio ────────────────────────────────────────────────────
@@ -102,7 +102,7 @@ class MiCredencialController extends Controller
         return response($png, 200, [
             'Content-Type' => 'image/png',
             /*
-             * Sin caché. La credencial se compone con el nombre, la carrera y
+             * Sin caché. La credencial se compone con el nombre, el programa académico y
              * la vigencia que la escuela tiene HOY: si el navegador guarda la
              * imagen, corregir un apellido no alcanzaría a quien ya la abrió,
              * y una vigencia vencida seguiría enseñándose como buena.

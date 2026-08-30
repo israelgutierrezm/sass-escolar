@@ -54,7 +54,7 @@ const props = defineProps<{
         id: number;
         matricula: string;
         nombre: string | null;
-        carrera: string | null;
+        programa_academico: string | null;
         campus: string | null;
         estatus: string;
         situacion: string | null;
@@ -101,7 +101,7 @@ const props = defineProps<{
     }[];
     /**
      * La otra vía: transferir a la cuenta de la escuela y subir el comprobante.
-     * Vacío = la escuela no tiene ninguna cuenta para esta carrera.
+     * Vacío = la escuela no tiene ninguna cuenta para este programa académico.
      */
     cuentasBancarias: {
         id: number; nombre: string; banco: string; titular: string;
@@ -218,7 +218,7 @@ function guardarSituacion(): void {
                 <div>
                     <p class="font-mono text-sm">{{ matricula.matricula }}</p>
                     <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                        {{ matricula.carrera ?? '—' }}
+                        {{ matricula.programa_academico ?? '—' }}
                         <span v-if="matricula.campus"> · {{ matricula.campus }}</span>
                         <span v-if="matricula.ingreso"> · ingresó el {{ matricula.ingreso }}</span>
                     </p>

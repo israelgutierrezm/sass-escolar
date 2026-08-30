@@ -49,7 +49,7 @@ class ReporteController extends Controller
      * omisión —y con los filtros de la vista fuera—. Medido en su día:
      *
      *     PANTALLA columnas: 3  -> matricula, alumno, curp
-     *     DESCARGA columnas: 6  -> matricula, alumno, carrera, campus, ...
+     *     DESCARGA columnas: 6  -> matricula, alumno, programa académico, campus, ...
      *
      * Un archivo que trae MÁS de lo que la pantalla enseñó es la peor forma de
      * fallar: abre perfectamente y nadie lo revisa.

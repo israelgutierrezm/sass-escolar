@@ -76,10 +76,10 @@ class TutoriaController extends Controller
                 /** @var Persona $alumno */
                 $alumno = $t->alumno;
 
-                $carreras = $alumno->matriculas()
-                    ->with('oferta.carrera:id,nombre')
+                $programasAcademicos = $alumno->matriculas()
+                    ->with('oferta.programaAcademico:id,nombre')
                     ->get()
-                    ->map(fn (MatriculaOferta $m) => $m->oferta?->carrera?->nombre)
+                    ->map(fn (MatriculaOferta $m) => $m->oferta?->programaAcademico?->nombre)
                     ->filter()
                     ->values();
 
@@ -87,7 +87,7 @@ class TutoriaController extends Controller
                     'id' => $alumno->id,
                     'nombre' => $alumno->nombreCompleto(),
                     'foto' => $alumno->urlFoto(),
-                    'carreras' => $carreras,
+                    'programas_academicos' => $programasAcademicos,
                     'ciclo' => $t->ciclo?->clave,
                     // Sin finanzas: no es asunto suyo.
                     'estado' => $this->estado->de($alumno, academico: true, finanzas: false),
@@ -174,10 +174,10 @@ class TutoriaController extends Controller
                 'nombre' => $alumno->nombreCompleto(),
                 'foto' => $alumno->urlFoto(),
                 'matricula' => $alumno->matriculas()->first()?->matricula,
-                'carreras' => $alumno->matriculas()
-                    ->with('oferta.carrera:id,nombre')
+                'programas_academicos' => $alumno->matriculas()
+                    ->with('oferta.programaAcademico:id,nombre')
                     ->get()
-                    ->map(fn (MatriculaOferta $m) => $m->oferta?->carrera?->nombre)
+                    ->map(fn (MatriculaOferta $m) => $m->oferta?->programaAcademico?->nombre)
                     ->filter()
                     ->values(),
             ],

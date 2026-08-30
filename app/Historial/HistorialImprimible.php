@@ -39,7 +39,7 @@ class HistorialImprimible
         // `oferta.plan.tipoPeriodo` va explícito: de ahí sale la palabra con la
         // que se rotulan los bloques, y sin cargarla `unidadPeriodo()` cae
         // silenciosamente a «Periodo» sin que nada falle.
-        $matricula->loadMissing('oferta.carrera', 'oferta.plan.tipoPeriodo', 'oferta.campus', 'persona', 'situacion');
+        $matricula->loadMissing('oferta.programaAcademico', 'oferta.plan.tipoPeriodo', 'oferta.campus', 'persona', 'situacion');
 
         $renglones = $this->historial->renglones($matricula);
         $columnas = $diseno->columnasEfectivas();
@@ -57,7 +57,7 @@ class HistorialImprimible
             /*
              * La etiqueta del bloque sale del PLAN, no de la palabra «Periodo».
              *
-             * `planes_estudio.tipo_periodo_id` ya dice si esa carrera va por
+             * `planes_estudio.tipo_periodo_id` ya dice si ese programa académico va por
              * semestres, cuatrimestres, trimestres o módulos, y el plan sabe
              * traducirlo (`unidadPeriodo()`, que además convierte MODULAR en
              * «Módulo» y ANUAL en «Año»). Imprimir «Periodo 1» en un historial
@@ -181,7 +181,7 @@ class HistorialImprimible
             'nombre' => 'María Fernanda Gutiérrez Villaseñor',
             'matricula' => 'L20260123',
             'curp' => 'GUVM060312MDFTLR09',
-            'carrera' => 'Ingeniería en Sistemas Computacionales',
+            'programa_academico' => 'Ingeniería en Sistemas Computacionales',
             'plan' => 'Plan 2024',
             'campus' => 'Campus Norte',
             'nivel' => 'Licenciatura',
@@ -254,7 +254,7 @@ class HistorialImprimible
      * Los datos del encabezado, en el ORDEN en que la escuela los puso.
      *
      * Se recorre la lista configurada y no el catálogo: mover «CURP» arriba de
-     * «Carrera» es parte del diseño, y recorrer el catálogo lo ignoraría.
+     * «Programa académico» es parte del diseño, y recorrer el catálogo lo ignoraría.
      *
      * @return array<int, array{etiqueta: string, valor: string}>
      */
@@ -280,27 +280,27 @@ class HistorialImprimible
     /** @return array<string, string|null> */
     private function valores(MatriculaOferta $matricula): array
     {
-        $carrera = $matricula->oferta?->carrera;
+        $programaAcademico = $matricula->oferta?->programaAcademico;
 
         return [
             'nombre' => $matricula->persona?->nombreCompleto(),
             'matricula' => $matricula->matricula,
             'curp' => $matricula->persona?->curp,
-            'carrera' => $carrera?->nombre,
+            'programa_academico' => $programaAcademico?->nombre,
             'plan' => $matricula->oferta?->plan?->nombre,
             'campus' => $matricula->oferta?->campus?->nombre,
             /*
              * SIN `->activos()`, y es deliberado.
              *
-             * Esto resuelve POR ID un nivel que ya está guardado en la carrera.
+             * Esto resuelve POR ID un nivel que ya está guardado en el programa académico.
              * Filtrar por encendido aquí haría que apagar un nivel borrara ese
              * renglón del historial de quien ya lo cursó, sin error y sin aviso.
              * El interruptor decide qué se puede ELEGIR de aquí en adelante, no
              * qué existió.
              */
-            'nivel' => $carrera?->nivel_estudios_id === null
+            'nivel' => $programaAcademico?->nivel_estudios_id === null
                 ? null
-                : NivelEstudio::query()->whereKey($carrera->nivel_estudios_id)->value('nombre'),
+                : NivelEstudio::query()->whereKey($programaAcademico->nivel_estudios_id)->value('nombre'),
             'situacion' => $matricula->situacion?->nombre,
             'fecha_emision' => Carbon::now()->translatedFormat('d \d\e F \d\e Y'),
         ];

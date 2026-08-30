@@ -216,7 +216,7 @@ function guardar(): void {
                         url="/rh/empleados/candidatos"
                         etiqueta="¿Quién?"
                         marcador="Nombre o CURP…"
-                        :campos="{ titulo: 'nombre', subtitulo: 'curp', detalle: 'carrera' }"
+                        :campos="{ titulo: 'nombre', subtitulo: 'curp', detalle: 'programa_academico' }"
                         ayuda="Se busca en el directorio. Si ya tiene un expediente vigente, se avisa."
                         :error="form.errors.persona_id"
                     />

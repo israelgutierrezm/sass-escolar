@@ -51,7 +51,7 @@ class EgresadosSinColocar extends DefinicionReporte
 
     public function columnasPorOmision(): ?array
     {
-        return ['matricula', 'egresado', 'carrera', 'campus', 'generacion', 'situacion'];
+        return ['matricula', 'egresado', 'programa_academico', 'campus', 'generacion', 'situacion'];
     }
 
     public function ordenPorOmision(): ?array

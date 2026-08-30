@@ -168,7 +168,7 @@ class AsentadorRevalidacion
 
         /*
          * Que la materia sea DE SU PLAN. Sin esto, un dedazo en el buscador
-         * asentaría en su expediente una materia de otra carrera, y el
+         * asentaría en su expediente una materia de otro programa académico, y el
          * certificado la llevaría.
          */
         $delPlan = DB::connection('tenant')->table('plan_materias')

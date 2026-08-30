@@ -10,7 +10,7 @@ interface Fila {
     id: number;
     matricula: string;
     nombre: string;
-    carrera: string | null;
+    programa_academico: string | null;
     campus: string | null;
     estatus: string;
     saldo: number;
@@ -68,7 +68,7 @@ const etiquetaSaldo = computed(() => ({
  *
  * Decía «Matrículas» cuando alguien miraba lo suyo, y el número no es ése: la
  * cifra cuenta las matrículas CON ADEUDO ABIERTO, que es lo que devuelve la
- * subconsulta de saldos. A una alumna con dos carreras y deuda en una le salía
+ * subconsulta de saldos. A una alumna con dos programas académicos y deuda en una le salía
  * «Matrículas 1» arriba de una tabla con sus dos renglones — un número que
  * contradice a la lista que tiene debajo.
  *
@@ -129,7 +129,7 @@ const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN
                     :clave="fila.matricula"
                     :href="`/finanzas/cuentas/${fila.id}`"
                     :metas="[
-                        { etiqueta: 'Carrera', valor: fila.carrera },
+                        { etiqueta: 'Programa académico', valor: fila.programa_academico },
                         { etiqueta: 'Cargos', valor: fila.adeudos },
                         { etiqueta: 'Saldo', valor: fila.saldo > 0 ? pesos.format(fila.saldo) : '—' },
                         { etiqueta: 'Vencido', valor: fila.vencido > 0 ? pesos.format(fila.vencido) : '—' },
@@ -160,7 +160,7 @@ const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN
                     <tr>
                         <th class="px-6 py-3 font-medium">Matrícula</th>
                         <th class="px-4 py-3 font-medium">Alumno</th>
-                        <th class="px-4 py-3 font-medium">Carrera</th>
+                        <th class="px-4 py-3 font-medium">Programa académico</th>
                         <th class="px-4 py-3 text-right font-medium">Cargos</th>
                         <th class="px-4 py-3 text-right font-medium">Saldo</th>
                         <th class="px-4 py-3 text-right font-medium">Vencido</th>
@@ -186,7 +186,7 @@ const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN
                             </span>
                         </td>
                         <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">
-                            {{ fila.carrera ?? '—' }}
+                            {{ fila.programa_academico ?? '—' }}
                             <span v-if="fila.campus" class="text-xs"> · {{ fila.campus }}</span>
                         </td>
                         <td class="px-4 py-3 text-right tabular-nums">{{ fila.adeudos }}</td>

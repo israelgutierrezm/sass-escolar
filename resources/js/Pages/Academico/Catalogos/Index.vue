@@ -52,7 +52,7 @@ const props = defineProps<{
 const globalAbierto = ref<string | null>(null);
 
 // Los catálogos se muestran agrupados por dónde se usan (Asignaturas, Plan de
-// estudios, Carreras), que es como el cliente los pensó.
+// estudios, Programas académicos), que es como el cliente los pensó.
 const grupos = computed(() => {
     const mapa = new Map<string, Catalogo[]>();
 

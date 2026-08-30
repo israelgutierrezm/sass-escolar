@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Reportes\Fuentes;
 
 use App\Models\Academico\Campus;
-use App\Models\Academico\Carrera;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Identidad\Usuario;
 use App\Reportes\Agregacion;
@@ -22,7 +22,7 @@ use Illuminate\Database\Eloquent\Builder;
  * Quién puede CERTIFICARSE, y a quién le falta qué.
  *
  * ── Una fila es una MATRÍCULA-CARRERA ────────────────────────────────────
- * Un certificado es de una carrera: quien estudia dos se certifica dos veces,
+ * Un certificado es de un programa académico: quien estudia dos se certifica dos veces,
  * con su propio avance y su propio faltante. Misma regla vertebral que el
  * historial académico y la credencial.
  *
@@ -47,7 +47,7 @@ use Illuminate\Database\Eloquent\Builder;
  * que discrepe manda un lote a la SEP creyéndolo bueno.
  *
  * Lo que SÍ se ofrece son las condiciones baratas y ciertas —cerró el plan, la
- * carrera expide documentos, ya está en un lote, y el identificador del campus—,
+ * programa académico expide documentos, ya está en un lote, y el identificador del campus—,
  * que hoy explican todos los bloqueos del demo.
  *
  * ── El identificador del campus no es un adorno ──────────────────────────
@@ -127,10 +127,10 @@ class Certificables implements FuenteDeReporte
                 ancho: 20,
                 ayuda: 'Viaja en el XML del certificado: sin ella la SEP lo rechaza.',
             ),
-            'carrera' => new ColumnaReporte(
-                clave: 'carrera',
-                etiqueta: 'Carrera',
-                valor: fn (MatriculaOferta $m) => $m->oferta?->carrera?->nombre,
+            'programa_academico' => new ColumnaReporte(
+                clave: 'programa_academico',
+                etiqueta: 'Programa académico',
+                valor: fn (MatriculaOferta $m) => $m->oferta?->programaAcademico?->nombre,
                 ancho: 32,
             ),
             'plan' => new ColumnaReporte(
@@ -203,7 +203,7 @@ class Certificables implements FuenteDeReporte
                 valor: fn (MatriculaOferta $m) => (int) ($m->meta ?? 0) > 0
                     && (int) ($m->aprobadas ?? 0) >= (int) $m->meta,
                 ancho: 13,
-                ayuda: 'Es el requisito ACADÉMICO y nada más. Que la carrera expida documentos se pregunta aparte.',
+                ayuda: 'Es el requisito ACADÉMICO y nada más. Que el programa académico expida documentos se pregunta aparte.',
             ),
             'emite_documentos' => new ColumnaReporte(
                 clave: 'emite_documentos',
@@ -212,7 +212,7 @@ class Certificables implements FuenteDeReporte
                 // Del servicio, que además decide qué contestar ante la duda.
                 valor: fn (MatriculaOferta $m) => $this->estado->emiteDocumentos($m),
                 ancho: 13,
-                ayuda: 'Un diplomado vive en el mismo catálogo de carreras y no tiene RVOE que respalde '
+                ayuda: 'Un diplomado vive en el mismo catálogo de programas académicos y no tiene RVOE que respalde '
                     .'papel oficial: cerrar su plan no lo vuelve certificable.',
             ),
             'ya_en_lote' => new ColumnaReporte(
@@ -251,15 +251,15 @@ class Certificables implements FuenteDeReporte
                     ->when($u->campusVisibles() !== null, fn ($q) => $q->whereIn('id', $u->campusVisibles()))
                     ->orderBy('nombre')->pluck('nombre', 'id')->all(),
             ),
-            'carrera_id' => new FiltroReporte(
-                clave: 'carrera_id',
-                etiqueta: 'Carrera',
+            'programa_academico_id' => new FiltroReporte(
+                clave: 'programa_academico_id',
+                etiqueta: 'Programa académico',
                 tipo: TipoFiltro::ListaMultiple,
                 aplicar: fn (Builder $q, array $v) => $q->whereHas(
                     'oferta',
-                    fn (Builder $o) => $o->whereIn('carrera_id', $v),
+                    fn (Builder $o) => $o->whereIn('programa_academico_id', $v),
                 ),
-                opciones: fn (Usuario $u) => Carrera::query()->orderBy('nombre')->pluck('nombre', 'id')->all(),
+                opciones: fn (Usuario $u) => ProgramaAcademico::query()->orderBy('nombre')->pluck('nombre', 'id')->all(),
             ),
             'generacion' => new FiltroReporte(
                 clave: 'generacion',
@@ -290,7 +290,7 @@ class Certificables implements FuenteDeReporte
             ),
             'expide_documentos' => new FiltroReporte(
                 clave: 'expide_documentos',
-                etiqueta: 'Sólo carreras que expiden papel',
+                etiqueta: 'Sólo programas académicos que expiden papel',
                 tipo: TipoFiltro::Booleano,
                 /*
                  * La TERCERA condición de `elegibleParaLote()`, y faltaba.
@@ -298,7 +298,7 @@ class Certificables implements FuenteDeReporte
                  * El reporte de «listos» tenía sólo dos —cerró el plan y no está
                  * en trámite— así que ofrecía a quien cursa un diplomado, que no
                  * tiene RVOE que respalde un certificado. No se vio hasta que la
-                 * suite SEMBRÓ una carrera sin papel: en el demo todas expiden,
+                 * suite SEMBRÓ un programa académico sin papel: en el demo todas expiden,
                  * y la comprobación «el reporte trae lo mismo que el servicio»
                  * pasaba por eso.
                  *
@@ -307,7 +307,7 @@ class Certificables implements FuenteDeReporte
                  * que el alumno desaparezca sin que nadie se entere.
                  */
                 aplicar: fn (Builder $q, bool $v) => $v
-                    ? $q->whereHas('oferta.carrera', fn (Builder $c) => $c
+                    ? $q->whereHas('oferta.programaAcademico', fn (Builder $c) => $c
                         ->where(fn (Builder $x) => $x->where('emite_documentos_oficiales', true)
                             ->orWhereNull('emite_documentos_oficiales')))
                     : $q,
@@ -327,8 +327,8 @@ class Certificables implements FuenteDeReporte
             ->select('matricula_oferta.*')
             ->with([
                 'persona:id,nombre,primer_apellido,segundo_apellido,curp',
-                'oferta:id,carrera_id,plan_id,campus_id',
-                'oferta.carrera:id,nombre,emite_documentos_oficiales',
+                'oferta:id,programa_academico_id,plan_id,campus_id',
+                'oferta.programaAcademico:id,nombre,emite_documentos_oficiales',
                 'oferta.plan:id,nombre',
                 'oferta.campus:id,nombre,identificador',
             ])

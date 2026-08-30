@@ -6,19 +6,19 @@ namespace App\Http\Controllers;
 
 use App\Exceptions\AvisoParaElUsuario;
 use App\Models\Academico\Campus;
-use App\Models\Academico\Carrera;
 use App\Models\Academico\Oferta;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Admisiones\Asesor;
 use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\EtapaCrm;
+use App\Models\Captacion\Comision;
+use App\Models\Captacion\FormularioPublico;
+use App\Models\Captacion\OrigenAspirante;
+use App\Models\Captacion\ReglaComision;
+use App\Models\Captacion\SeguimientoAspirante;
+use App\Models\Captacion\TipoSeguimiento;
 use App\Models\Finanzas\ConceptoPago;
 use App\Models\Formularios\Formulario;
-use App\Models\Promocion\Comision;
-use App\Models\Promocion\FormularioPublico;
-use App\Models\Promocion\OrigenAspirante;
-use App\Models\Promocion\ReglaComision;
-use App\Models\Promocion\SeguimientoAspirante;
-use App\Models\Promocion\TipoSeguimiento;
 use App\Services\EmbudoAdmision;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -29,15 +29,15 @@ use Inertia\Response;
 use RuntimeException;
 
 /**
- * El CRM de promoción: el embudo, el seguimiento y las comisiones.
+ * El CRM de captación: el embudo, el seguimiento y las comisiones.
  *
  * Alcance en dos capas, la misma regla que ya gobierna al docente: el PERMISO
  * dice qué puede hacer el rol (`ver-mis-prospectos` para el promotor,
- * `gestionar-promocion` para quien coordina); la ASIGNACIÓN en
+ * `gestionar-captacion` para quien coordina); la ASIGNACIÓN en
  * `aspirante_asesor` dice sobre quién. Un promotor con el permiso no ve los
  * prospectos de otro.
  */
-class PromocionController extends Controller
+class CaptacionController extends Controller
 {
     public function __construct(private readonly EmbudoAdmision $embudo) {}
 
@@ -46,12 +46,12 @@ class PromocionController extends Controller
     {
         $usuario = $request->user();
 
-        return Inertia::render('Promocion/Tablero', [
+        return Inertia::render('Captacion/Tablero', [
             'etapas' => $this->embudo->porEtapa($usuario),
             'origenes' => $this->embudo->porOrigen($usuario),
             'pendientes' => $this->embudo->pendientesDeContacto($usuario),
             'total' => $this->embudo->acotar(Aspirante::query(), $usuario)->count(),
-            'esCoordinador' => $usuario->can('gestionar-promocion'),
+            'esCoordinador' => $usuario->can('gestionar-captacion'),
         ]);
     }
 
@@ -72,7 +72,7 @@ class PromocionController extends Controller
             ->acotar(Aspirante::query(), $request->user())
             ->with([
                 'persona:id,nombre,primer_apellido,segundo_apellido,celular,email,foto_url',
-                'ofertaInteres.carrera:id,nombre',
+                'ofertaInteres.programaAcademico:id,nombre',
                 'origenAspirante:id,nombre',
                 'asesores.persona:id,nombre,primer_apellido,segundo_apellido',
             ])
@@ -99,21 +99,21 @@ class PromocionController extends Controller
                 'nombre' => $a->persona?->nombreCompleto(),
                 'telefono' => $a->persona?->celular,
                 'email' => $a->persona?->email,
-                'carrera' => $a->ofertaInteres?->carrera?->nombre,
+                'programa_academico' => $a->ofertaInteres?->programaAcademico?->nombre,
                 'origen' => $a->origenAspirante?->nombre,
                 'foto' => $a->persona?->urlFoto(),
                 'titular' => $a->asesores->first(fn ($x) => (bool) $x->pivot->titular)?->persona?->nombreCompleto(),
                 'ultimo_contacto' => $a->seguimientos()->value('momento'),
             ]);
 
-        return Inertia::render('Promocion/Etapa', [
+        return Inertia::render('Captacion/Etapa', [
             'etapa' => ['id' => $etapa->id, 'nombre' => $etapa->nombre, 'clave' => $etapa->clave],
             'aspirantes' => $aspirantes,
             'etapas' => EtapaCrm::orderBy('orden')->get(['id', 'nombre']),
             'filtros' => $filtros,
             'origenes' => OrigenAspirante::query()->activos()->orderBy('nombre')->get(['id', 'nombre']),
-            'ofertas' => Oferta::query()->with('carrera:id,nombre')->get()
-                ->map(fn (Oferta $o) => ['id' => $o->id, 'nombre' => $o->carrera?->nombre ?? '—'])
+            'ofertas' => Oferta::query()->with('programaAcademico:id,nombre')->get()
+                ->map(fn (Oferta $o) => ['id' => $o->id, 'nombre' => $o->programaAcademico?->nombre ?? '—'])
                 ->sortBy('nombre')->values(),
             'promotores' => Asesor::query()->with('persona:id,nombre,primer_apellido,segundo_apellido')->get()
                 ->map(fn (Asesor $a) => ['id' => $a->persona_id, 'nombre' => $a->persona?->nombreCompleto() ?? '—'])
@@ -204,7 +204,7 @@ class PromocionController extends Controller
             ->groupBy('estatus')
             ->get();
 
-        return Inertia::render('Promocion/Comisiones', [
+        return Inertia::render('Captacion/Comisiones', [
             'comisiones' => $consulta->paginate(30)->withQueryString()->through(fn (Comision $c) => [
                 'id' => $c->id,
                 'promotor' => $c->asesor?->persona?->nombreCompleto(),
@@ -243,16 +243,16 @@ class PromocionController extends Controller
                 ]),
             'conceptos' => ConceptoPago::orderBy('nombre')->get(['id', 'nombre']),
             'destinos' => [
-                'carrera' => Carrera::orderBy('nombre')->get(['id', 'nombre']),
-                'oferta' => Oferta::with('carrera:id,nombre', 'campus:id,nombre')->get()
-                    ->map(fn ($o) => ['id' => $o->id, 'nombre' => ($o->carrera?->nombre ?? '—').' · '.($o->campus?->nombre ?? '—')]),
+                'programa_academico' => ProgramaAcademico::orderBy('nombre')->get(['id', 'nombre']),
+                'oferta' => Oferta::with('programaAcademico:id,nombre', 'campus:id,nombre')->get()
+                    ->map(fn ($o) => ['id' => $o->id, 'nombre' => ($o->programaAcademico?->nombre ?? '—').' · '.($o->campus?->nombre ?? '—')]),
             ],
         ]);
     }
 
     /**
      * Marca comisiones como pagadas. No se borran ni se editan los montos: una
-     * comisión es lo que se devengó ese día, y la nómina de promoción tiene que
+     * comisión es lo que se devengó ese día, y la nómina de captación tiene que
      * poder reconstruirse después.
      */
     public function pagarComisiones(Request $request): RedirectResponse
@@ -316,7 +316,7 @@ class PromocionController extends Controller
         if ($datos['aplica_a_tipo'] === ReglaComision::APLICA_GLOBAL) {
             $datos['aplica_a_id'] = null;
         } elseif (($datos['aplica_a_id'] ?? null) === null) {
-            return back()->with('error', 'Elige a qué carrera u oferta aplica.');
+            return back()->with('error', 'Elige a qué programa académico u oferta aplica.');
         }
 
         // Un porcentaje sin concepto no dice de qué: ¿de la inscripción, de la
@@ -354,10 +354,10 @@ class PromocionController extends Controller
      */
     public function publicaciones(Request $request): Response
     {
-        return Inertia::render('Promocion/Publicaciones', [
+        return Inertia::render('Captacion/Publicaciones', [
             'publicaciones' => FormularioPublico::query()
                 ->with('formulario:id,clave,titulo,version', 'origen:id,nombre', 'etapa:id,nombre',
-                    'oferta.carrera:id,nombre', 'campus:id,nombre', 'asesor.persona:id,nombre,primer_apellido,segundo_apellido')
+                    'oferta.programaAcademico:id,nombre', 'campus:id,nombre', 'asesor.persona:id,nombre,primer_apellido,segundo_apellido')
                 ->orderByDesc('id')
                 ->get()
                 ->map(fn (FormularioPublico $p) => [
@@ -371,7 +371,7 @@ class PromocionController extends Controller
                     'formulario' => $p->formulario?->titulo.' v'.$p->formulario?->version,
                     'origen' => $p->origen?->nombre,
                     'etapa' => $p->etapa?->nombre,
-                    'oferta' => $p->oferta?->carrera?->nombre,
+                    'oferta' => $p->oferta?->programaAcademico?->nombre,
                     'campus' => $p->campus?->nombre,
                     'asesor' => $p->asesor?->persona?->nombreCompleto(),
                     'activo' => $p->activo,
@@ -387,8 +387,8 @@ class PromocionController extends Controller
             'origenes' => OrigenAspirante::activos()->orderBy('nombre')->get(['id', 'nombre', 'autogestivo']),
             'etapas' => EtapaCrm::orderBy('orden')->get(['id', 'nombre']),
             'campus' => Campus::orderBy('nombre')->get(['id', 'nombre']),
-            'ofertas' => Oferta::with('carrera:id,nombre', 'campus:id,nombre')->get()
-                ->map(fn ($o) => ['id' => $o->id, 'nombre' => ($o->carrera?->nombre ?? '—').' · '.($o->campus?->nombre ?? '—')]),
+            'ofertas' => Oferta::with('programaAcademico:id,nombre', 'campus:id,nombre')->get()
+                ->map(fn ($o) => ['id' => $o->id, 'nombre' => ($o->programaAcademico?->nombre ?? '—').' · '.($o->campus?->nombre ?? '—')]),
             'promotores' => Asesor::query()->with('persona:id,nombre,primer_apellido,segundo_apellido')->get()
                 ->map(fn (Asesor $a) => ['persona_id' => $a->persona_id, 'nombre' => $a->persona?->nombreCompleto()]),
         ]);
@@ -475,7 +475,7 @@ class PromocionController extends Controller
      */
     private function autorizarProspecto(Request $request, Aspirante $aspirante): void
     {
-        if ($request->user()->can('gestionar-promocion')) {
+        if ($request->user()->can('gestionar-captacion')) {
             return;
         }
 

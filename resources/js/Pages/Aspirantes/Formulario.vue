@@ -120,7 +120,7 @@ function enviar(): void {
 
             <TarjetaSeccion titulo="Proceso de admisión" descripcion="La matrícula NO se genera aquí: se asigna al convertirlo en alumno." :icono="ICONOS.birrete">
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <!-- Primero el campus: la oferta de carrera depende de él.
+                    <!-- Primero el campus: la oferta de programa académico depende de él.
                          Elegir una oferta de otro campus no tiene sentido, así
                          que la oferta se filtra y se habilita solo con campus. -->
                     <CampoSelect

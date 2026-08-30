@@ -55,7 +55,7 @@ const porClave = computed(() => {
                 <div class="max-w-2xl">
                     <h2 class="text-base font-semibold">Qué datos pide la escuela</h2>
                     <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                        Bloques de preguntas que se le muestran a un rol, a una carrera o a una oferta.
+                        Bloques de preguntas que se le muestran a un rol, a un programa académico o a una oferta.
                         Un formulario que ya tiene respuestas se congela: para cambiarlo se publica una
                         versión nueva, y la anterior conserva lo que la gente contestó.
                     </p>

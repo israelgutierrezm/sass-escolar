@@ -36,7 +36,7 @@ class Ejecutor
      * Cuántos grupos caben en un agrupado.
      *
      * Doscientos es mucho más de lo que tiene cualquier dimensión real —una
-     * escuela con doscientas carreras no existe— y bastante menos de lo que
+     * escuela con doscientas programas académicos no existe— y bastante menos de lo que
      * empieza a doler. Pasarse significa que lo elegido no era una dimensión.
      */
     private const MAXIMO_DE_GRUPOS = 200;
@@ -367,7 +367,7 @@ class Ejecutor
         /*
          * La DIMENSIÓN entra en los filtros anotados.
          *
-         * Sin ella, agrupar por campus y agrupar por carrera dejaban dos filas
+         * Sin ella, agrupar por campus y agrupar por programa académico dejaban dos filas
          * idénticas: la bitácora no podía decir qué se preguntó, y la
          * deduplicación fundía dos consultas distintas en una. Va aquí y no en
          * una columna nueva porque `filtros` es exactamente eso —lo que acotó

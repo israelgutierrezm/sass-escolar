@@ -18,9 +18,9 @@ use Illuminate\Support\Facades\Schema;
  *
  * `plantilla` usa tokens (se renderizan en App\Services\GeneradorMatricula):
  *   {AA}      año en 2 dígitos          {AAAA}   año en 4 dígitos
- *   {CARRERA} clave de la carrera       {PLAN}   clave del plan
+ *   {PROGRAMA} clave del programa académico       {PLAN}   clave del plan
  *   {CAMPUS}  clave del campus          {####}   consecutivo (padding = nº de #)
- * Ejemplos: "{AAAA}{CARRERA}{####}"  ·  "{AA}-{PLAN}-{#####}"
+ * Ejemplos: "{AAAA}{PROGRAMA}{####}"  ·  "{AA}-{PLAN}-{#####}"
  *
  * `ambito_consecutivo` define la LLAVE del contador, es decir cada cuánto se
  * reinicia la numeración: global | anio | carrera | plan | carrera_anio | plan_anio.

@@ -46,7 +46,7 @@ class ExpedienteAspiranteController extends Controller
                 'documento_id' => $datos['documento_id'],
             ],
             [
-                'carrera_id' => $aspirante->ofertaInteres?->carrera_id,
+                'programa_academico_id' => $aspirante->ofertaInteres?->programa_academico_id,
                 'url' => $ruta,
                 'estado_documento_id' => EstadoDocumento::query()->where('clave', 'pendiente')->value('id'),
                 'copia_certificada' => $datos['copia_certificada'] ?? false,

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Models\Academico\Carrera;
 use App\Models\Academico\Oferta;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Identidad\Persona;
 use Illuminate\Http\JsonResponse;
@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\DB;
  *
  * ── Devuelve matrículas, no personas ──────────────────────────────────────
  * A diferencia de `BuscadorAlumnosController` —que deduplica por persona porque
- * ahí lo que se manda es al alumno, curse una o dos carreras—, aquí cada
+ * ahí lo que se manda es al alumno, curse una o dos programas académicos—, aquí cada
  * matrícula es un destino DISTINTO: la conducta cuelga de la matrícula, y quien
  * estudia dos programas puede tener una incidencia en uno y no en el otro. Por
  * eso NO se deduplica y se devuelve `matricula_oferta_id`, no `persona_id`.
@@ -39,12 +39,12 @@ class BuscadorMatriculasController extends Controller
         $matriculas = (new MatriculaOferta)->getTable();
         $personas = (new Persona)->getTable();
         $ofertas = (new Oferta)->getTable();
-        $carreras = (new Carrera)->getTable();
+        $programasAcademicos = (new ProgramaAcademico)->getTable();
 
         $filas = DB::table($matriculas)
             ->join($personas, "{$personas}.id", '=', "{$matriculas}.persona_id")
             ->leftJoin($ofertas, "{$ofertas}.id", '=', "{$matriculas}.oferta_id")
-            ->leftJoin($carreras, "{$carreras}.id", '=', "{$ofertas}.carrera_id")
+            ->leftJoin($programasAcademicos, "{$programasAcademicos}.id", '=', "{$ofertas}.programa_academico_id")
             ->whereNull("{$matriculas}.deleted_at")
             ->where(function ($donde) use ($texto, $matriculas, $personas) {
                 $donde->where("{$matriculas}.matricula", 'like', "%{$texto}%")
@@ -58,7 +58,7 @@ class BuscadorMatriculasController extends Controller
             ->get([
                 "{$matriculas}.id",
                 "{$matriculas}.matricula",
-                "{$carreras}.nombre as carrera",
+                "{$programasAcademicos}.nombre as programa_academico",
                 DB::raw("TRIM(CONCAT_WS(' ', {$personas}.nombre, {$personas}.primer_apellido, {$personas}.segundo_apellido)) AS nombre"),
             ]);
 

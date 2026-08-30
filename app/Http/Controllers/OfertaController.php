@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Academico\Campus;
-use App\Models\Academico\Carrera;
 use App\Models\Academico\Modalidad;
 use App\Models\Academico\Oferta;
 use App\Models\Academico\PlanEstudio;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Admisiones\MatriculaOferta;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,7 +20,7 @@ use Inertia\Response;
 /**
  * La oferta: qué se imparte y dónde.
  *
- * Es la combinación carrera + plan + campus —y solo eso la delimita— y la
+ * Es la combinación programa académico + plan + campus —y solo eso la delimita— y la
  * unidad a la que se matriculan los alumnos. De aquí depende todo el CRM: sin
  * oferta abierta, un aspirante no puede convertirse en alumno. La `modalidad`
  * es un atributo OPCIONAL (no distingue una oferta de otra) y el turno se
@@ -43,23 +43,23 @@ class OfertaController extends Controller
 
         return Inertia::render('Academico/Ofertas/Index', [
             'ofertas' => Oferta::query()
-                ->with(['carrera:id,nombre', 'plan:id,nombre,clave', 'campus:id,nombre'])
+                ->with(['programaAcademico:id,nombre', 'plan:id,nombre,clave', 'campus:id,nombre'])
                 ->withCount('matriculas')
-                // La búsqueda cae sobre la carrera y el plan (por su nombre),
+                // La búsqueda cae sobre el programa académico y el plan (por su nombre),
                 // que es como la gente reconoce una oferta.
                 ->when($filtros['busqueda'] !== '', fn ($q) => $q->where(fn ($sub) => $sub
-                    ->whereHas('carrera', fn ($c) => $c->where('nombre', 'like', "%{$filtros['busqueda']}%"))
+                    ->whereHas('programaAcademico', fn ($c) => $c->where('nombre', 'like', "%{$filtros['busqueda']}%"))
                     ->orWhereHas('plan', fn ($p) => $p->where('nombre', 'like', "%{$filtros['busqueda']}%")
                         ->orWhere('clave', 'like', "%{$filtros['busqueda']}%"))))
                 ->when($filtros['campus_id'], fn ($q, $v) => $q->where('campus_id', $v))
                 ->when($filtros['modalidad'], fn ($q, $v) => $q->where('modalidad', $v))
                 ->when($filtros['estatus'], fn ($q, $v) => $q->where('estatus', $v))
-                ->orderBy('carrera_id')
+                ->orderBy('programa_academico_id')
                 ->paginate(10)
                 ->withQueryString()
                 ->through(fn (Oferta $oferta) => [
                     'id' => $oferta->id,
-                    'carrera' => $oferta->carrera?->nombre,
+                    'programa_academico' => $oferta->programaAcademico?->nombre,
                     'plan' => $oferta->plan?->nombre,
                     'plan_clave' => $oferta->plan?->clave,
                     'campus' => $oferta->campus?->nombre,
@@ -85,7 +85,7 @@ class OfertaController extends Controller
     }
 
     /**
-     * Alta con FAN-OUT por campus: una misma carrera+plan puede ofertarse en
+     * Alta con FAN-OUT por campus: una mismo programa académico+plan puede ofertarse en
      * varios campus a la vez. Se elige el conjunto de campus y se genera una
      * oferta por cada uno. La modalidad (opcional) se aplica a todas.
      */
@@ -100,7 +100,7 @@ class OfertaController extends Controller
             // La misma combinación no se duplica: se cuenta como omitida y se
             // sigue, para que un choque no aborte todo el lote.
             $existe = Oferta::query()
-                ->where('carrera_id', $datos['carrera_id'])
+                ->where('programa_academico_id', $datos['programa_academico_id'])
                 ->where('plan_id', $datos['plan_id'])
                 ->where('campus_id', $campusId)
                 ->exists();
@@ -112,7 +112,7 @@ class OfertaController extends Controller
             }
 
             Oferta::create([
-                'carrera_id' => $datos['carrera_id'],
+                'programa_academico_id' => $datos['programa_academico_id'],
                 'plan_id' => $datos['plan_id'],
                 'campus_id' => $campusId,
                 'modalidad' => $datos['modalidad'] ?? null,
@@ -136,7 +136,7 @@ class OfertaController extends Controller
     public function edit(Oferta $oferta): Response
     {
         return Inertia::render('Academico/Ofertas/Formulario', [
-            'oferta' => $oferta->only(['id', 'carrera_id', 'plan_id', 'campus_id', 'modalidad', 'estatus']),
+            'oferta' => $oferta->only(['id', 'programa_academico_id', 'plan_id', 'campus_id', 'modalidad', 'estatus']),
             ...$this->catalogos(),
         ]);
     }
@@ -164,7 +164,7 @@ class OfertaController extends Controller
     }
 
     /**
-     * Validación del ALTA en lote: carrera+plan, el conjunto de campus, y la
+     * Validación del ALTA en lote: programa académico+plan, el conjunto de campus, y la
      * modalidad opcional que se aplicará a todas.
      *
      * @return array<string, mixed>
@@ -174,19 +174,19 @@ class OfertaController extends Controller
         $modalidades = Modalidad::query()->pluck('clave')->all();
 
         $datos = $request->validate([
-            'carrera_id' => ['required', 'integer', Rule::exists('carreras', 'id')->whereNull('deleted_at')],
+            'programa_academico_id' => ['required', 'integer', Rule::exists('programas_academicos', 'id')->whereNull('deleted_at')],
             'plan_id' => ['required', 'integer', Rule::exists('planes_estudio', 'id')->whereNull('deleted_at')],
             'campus_ids' => ['required', 'array', 'min:1'],
             'campus_ids.*' => ['integer', Rule::exists('campus', 'id')->whereNull('deleted_at')],
             'modalidad' => ['nullable', Rule::in($modalidades)],
             'estatus' => ['required', Rule::in(['abierta', 'cerrada'])],
         ], [], [
-            'carrera_id' => 'carrera',
+            'programa_academico_id' => 'programa_academico',
             'plan_id' => 'plan de estudios',
             'campus_ids' => 'campus',
         ]);
 
-        $this->exigirPlanDeLaCarrera((int) $datos['plan_id'], (int) $datos['carrera_id']);
+        $this->exigirPlanDeLaProgramaAcademico((int) $datos['plan_id'], (int) $datos['programa_academico_id']);
 
         return $datos;
     }
@@ -199,14 +199,14 @@ class OfertaController extends Controller
         $modalidades = Modalidad::query()->pluck('clave')->all();
 
         $datos = $request->validate([
-            'carrera_id' => ['required', 'integer', Rule::exists('carreras', 'id')->whereNull('deleted_at')],
+            'programa_academico_id' => ['required', 'integer', Rule::exists('programas_academicos', 'id')->whereNull('deleted_at')],
             'plan_id' => ['required', 'integer', Rule::exists('planes_estudio', 'id')->whereNull('deleted_at')],
             'campus_id' => ['required', 'integer', Rule::exists('campus', 'id')->whereNull('deleted_at')],
             // La modalidad es opcional y no delimita la oferta; solo la describe.
             'modalidad' => ['nullable', Rule::in($modalidades)],
             'estatus' => ['required', Rule::in(['abierta', 'cerrada'])],
         ], [], [
-            'carrera_id' => 'carrera',
+            'programa_academico_id' => 'programa_academico',
             'plan_id' => 'plan de estudios',
             'campus_id' => 'campus',
         ]);
@@ -216,31 +216,31 @@ class OfertaController extends Controller
         return $datos;
     }
 
-    private function exigirPlanDeLaCarrera(int $planId, int $carreraId): void
+    private function exigirPlanDeLaProgramaAcademico(int $planId, int $programaAcademicoId): void
     {
         $plan = PlanEstudio::find($planId);
 
-        if ($plan !== null && $plan->carrera_id !== $carreraId) {
+        if ($plan !== null && $plan->programa_academico_id !== $programaAcademicoId) {
             throw ValidationException::withMessages([
-                'plan_id' => 'El plan seleccionado no pertenece a esa carrera.',
+                'plan_id' => 'El plan seleccionado no pertenece a ese programa académico.',
             ]);
         }
     }
 
     /**
      * Dos reglas que el esquema no expresa solo con FKs:
-     *  1. El plan debe pertenecer a la carrera elegida.
-     *  2. No puede repetirse la misma combinación carrera+plan+campus (lo único
+     *  1. El plan debe pertenecer al programa académico elegida.
+     *  2. No puede repetirse la misma combinación programa académico+plan+campus (lo único
      *     que delimita una oferta).
      *
      * @param  array<string, mixed>  $datos
      */
     private function validarCoherencia(array $datos, ?int $id): void
     {
-        $this->exigirPlanDeLaCarrera((int) $datos['plan_id'], (int) $datos['carrera_id']);
+        $this->exigirPlanDeLaProgramaAcademico((int) $datos['plan_id'], (int) $datos['programa_academico_id']);
 
         $duplicada = Oferta::query()
-            ->where('carrera_id', $datos['carrera_id'])
+            ->where('programa_academico_id', $datos['programa_academico_id'])
             ->where('plan_id', $datos['plan_id'])
             ->where('campus_id', $datos['campus_id'])
             ->when($id !== null, fn ($q) => $q->whereKeyNot($id))
@@ -248,7 +248,7 @@ class OfertaController extends Controller
 
         if ($duplicada) {
             throw ValidationException::withMessages([
-                'campus_id' => 'Ya existe esa combinación de carrera, plan y campus.',
+                'campus_id' => 'Ya existe esa combinación de programa académico, plan y campus.',
             ]);
         }
     }
@@ -259,9 +259,9 @@ class OfertaController extends Controller
     private function catalogos(): array
     {
         return [
-            'carreras' => Carrera::query()->orderBy('nombre')->get(['id', 'nombre']),
-            // Se envían con su carrera para poder filtrar el selector en el front.
-            'planes' => PlanEstudio::query()->orderBy('nombre')->get(['id', 'nombre', 'clave', 'carrera_id']),
+            'programas_academicos' => ProgramaAcademico::query()->orderBy('nombre')->get(['id', 'nombre']),
+            // Se envían con su programa académico para poder filtrar el selector en el front.
+            'planes' => PlanEstudio::query()->orderBy('nombre')->get(['id', 'nombre', 'clave', 'programa_academico_id']),
             'campus' => Campus::query()->orderBy('nombre')->get(['id', 'nombre']),
             // Del catálogo: se ofrece por clave (lo que se guarda) y nombre. Opcional.
             'modalidades' => Modalidad::query()->orderBy('nombre')->get(['clave', 'nombre']),

@@ -6,8 +6,9 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\AcotaPorCampus;
 use App\Models\Academico\Campus;
-use App\Models\Academico\Carrera;
+use App\Models\Academico\NivelEstudio;
 use App\Models\Academico\Oferta;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\ControlEscolar\Ciclo;
 use App\Models\Finanzas\Adeudo;
 use App\Models\Finanzas\ConceptoPago;
@@ -16,7 +17,6 @@ use App\Models\Finanzas\PagoAdeudo;
 use App\Models\Finanzas\PlanCobro;
 use App\Models\Finanzas\PlanCobroAlumno;
 use App\Models\Finanzas\ReglaRecargo;
-use App\Models\Academico\NivelEstudio;
 use App\Services\ExpansorColegiaturas;
 use App\Services\GeneradorAdeudos;
 use App\Services\ResolutorPlanCobro;
@@ -31,7 +31,7 @@ use Inertia\Response;
 /**
  * El esquema de cobro, en dos pasos.
  *
- * **Paso 1 (alcance).** Nombre → ciclo → campus de ese ciclo → carreras que se
+ * **Paso 1 (alcance).** Nombre → ciclo → campus de ese ciclo → programas académicos que se
  * ofertan en esos campus (con filtro de nivel) → si hay fecha límite y desde
  * cuándo corre la mora → si admite recargos → si vuelve deudor al alumno.
  *
@@ -58,7 +58,7 @@ class PlanCobroController extends Controller
         ];
 
         $planes = PlanCobro::query()
-            ->with(['ciclo:id,nombre', 'campus:id,nombre', 'carreras:id,nombre'])
+            ->with(['ciclo:id,nombre', 'campus:id,nombre', 'programas_academicos:id,nombre'])
             ->when($filtros['busqueda'] !== '', fn ($q) => $q->where('nombre', 'like', "%{$filtros['busqueda']}%"))
             ->when($filtros['ciclo_id'], fn ($q, $id) => $q->where('ciclo_id', $id))
             // Vigente es «sin fecha de fin o con una que no ha llegado»: un plan
@@ -77,7 +77,7 @@ class PlanCobroController extends Controller
                 'nombre' => $p->nombre,
                 'ciclo' => $p->ciclo?->nombre,
                 'campus' => $p->campus->pluck('nombre')->all(),
-                'carreras' => $p->carreras->pluck('nombre')->all(),
+                'programas_academicos' => $p->programasAcademicos->pluck('nombre')->all(),
                 'conceptos' => $p->conceptos_count,
                 'alumnos' => $p->asignaciones_count,
                 'aplica_recargos' => $p->aplica_recargos,
@@ -147,11 +147,11 @@ class PlanCobroController extends Controller
     }
 
     /**
-     * Carreras realmente ofertadas en esos campus, opcionalmente acotadas por
-     * nivel. Ofrecer carreras que no se imparten ahí solo produce planes que no
+     * Programas académicos realmente ofertadas en esos campus, opcionalmente acotadas por
+     * nivel. Ofrecer programas académicos que no se imparten ahí solo produce planes que no
      * le tocan a nadie.
      */
-    public function carrerasDeCampus(Request $request): JsonResponse
+    public function programasAcademicosDeCampus(Request $request): JsonResponse
     {
         $datos = $request->validate([
             'campus' => ['required', 'array', 'min:1'],
@@ -159,16 +159,16 @@ class PlanCobroController extends Controller
             'nivel_estudios_id' => ['nullable', 'integer'],
         ]);
 
-        // Mismo candado que al guardar: no se listan carreras de campus ajenos.
+        // Mismo candado que al guardar: no se listan programas académicos de campus ajenos.
         $this->exigirCampusPropios($request, $datos['campus']);
 
-        $carreraIds = Oferta::query()
+        $programaAcademicoIds = Oferta::query()
             ->whereIn('campus_id', $datos['campus'])
             ->distinct()
-            ->pluck('carrera_id');
+            ->pluck('programa_academico_id');
 
-        $carreras = Carrera::query()
-            ->whereIn('id', $carreraIds)
+        $programasAcademicos = ProgramaAcademico::query()
+            ->whereIn('id', $programaAcademicoIds)
             ->when(
                 ! empty($datos['nivel_estudios_id']),
                 fn ($q) => $q->where('nivel_estudios_id', $datos['nivel_estudios_id'])
@@ -176,7 +176,7 @@ class PlanCobroController extends Controller
             ->orderBy('nombre')
             ->get(['id', 'nombre', 'clave', 'nivel_estudios_id']);
 
-        return response()->json($carreras);
+        return response()->json($programasAcademicos);
     }
 
     /** Guarda el paso 1 y manda al paso 2. */
@@ -199,7 +199,7 @@ class PlanCobroController extends Controller
         $plan->load([
             'ciclo:id,nombre,fecha_inicio,fecha_fin',
             'campus:id,nombre',
-            'carreras:id,nombre',
+            'programas_academicos:id,nombre',
             'conceptos.concepto:id,nombre',
         ]);
 
@@ -211,7 +211,7 @@ class PlanCobroController extends Controller
                 'ciclo_id' => $plan->ciclo_id,
                 'ciclo_inicio' => $plan->ciclo?->fecha_inicio?->toDateString(),
                 'campus' => $plan->campus->pluck('nombre')->all(),
-                'carreras' => $plan->carreras->pluck('nombre')->all(),
+                'programas_academicos' => $plan->programasAcademicos->pluck('nombre')->all(),
                 'tiene_fecha_limite' => $plan->tiene_fecha_limite,
                 'fecha_limite_modo' => $plan->fecha_limite_modo,
                 'aplica_recargos' => $plan->aplica_recargos,
@@ -247,7 +247,7 @@ class PlanCobroController extends Controller
                 'id' => $m->id,
                 'matricula' => $m->matricula,
                 'nombre' => $m->persona?->nombreCompleto(),
-                'carrera' => $m->oferta?->carrera?->nombre,
+                'programa_academico' => $m->oferta?->programaAcademico?->nombre,
                 'campus' => $m->oferta?->campus?->nombre,
             ])->values(),
         ]);
@@ -526,8 +526,8 @@ class PlanCobroController extends Controller
             'ciclo_id' => ['required', 'integer', Rule::exists('ciclos', 'id')],
             'campus' => ['required', 'array', 'min:1'],
             'campus.*' => ['integer', Rule::exists('campus', 'id')],
-            'carreras' => ['array'],
-            'carreras.*' => ['integer', Rule::exists('carreras', 'id')],
+            'programas_academicos' => ['array'],
+            'programas_academicos.*' => ['integer', Rule::exists('programas_academicos', 'id')],
             'tiene_fecha_limite' => ['boolean'],
             'fecha_limite_modo' => ['required', Rule::in([PlanCobro::LIMITE_EXACTA, PlanCobro::LIMITE_DIA_SIGUIENTE])],
             'aplica_recargos' => ['boolean'],
@@ -546,12 +546,12 @@ class PlanCobroController extends Controller
     {
         $plan->campus()->sync($datos['campus']);
 
-        // Se guarda el nivel de cada carrera para poder reportar por nivel sin
+        // Se guarda el nivel de cada programa académico para poder reportar por nivel sin
         // volver a cruzar con el catálogo.
-        $niveles = Carrera::whereIn('id', $datos['carreras'] ?? [])->pluck('nivel_estudios_id', 'id');
+        $niveles = ProgramaAcademico::whereIn('id', $datos['programas_academicos'] ?? [])->pluck('nivel_estudios_id', 'id');
 
-        $plan->carreras()->sync(
-            collect($datos['carreras'] ?? [])
+        $plan->programasAcademicos()->sync(
+            collect($datos['programas_academicos'] ?? [])
                 ->mapWithKeys(fn (int $id) => [$id => ['nivel_estudios_id' => $niveles[$id] ?? null]])
                 ->all()
         );

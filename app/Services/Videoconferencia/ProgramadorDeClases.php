@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\Log;
  * las cuentas candidatas (`lockForUpdate`); después se llama al proveedor; al
  * final se le ponen los enlaces.
  *
- * Se hizo así por la carrera que de otro modo existe: dos docentes programando a
+ * Se hizo así por el programa académico que de otro modo existe: dos docentes programando a
  * las 9:00 al mismo tiempo consultan «¿hay licencia libre?», los dos leen que sí
  * —ninguno ha escrito todavía— y los dos se llevan la misma. La segunda clase
  * echaría a la primera de la sala, con el grupo dentro, y el registro no diría

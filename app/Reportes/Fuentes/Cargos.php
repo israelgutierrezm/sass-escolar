@@ -105,10 +105,10 @@ class Cargos implements FuenteDeReporte
                 valor: fn (Adeudo $a) => $a->matriculaOferta?->persona?->nombreCompleto(),
                 ancho: 34,
             ),
-            'carrera' => new ColumnaReporte(
-                clave: 'carrera',
-                etiqueta: 'Carrera',
-                valor: fn (Adeudo $a) => $a->matriculaOferta?->oferta?->carrera?->nombre,
+            'programa_academico' => new ColumnaReporte(
+                clave: 'programa_academico',
+                etiqueta: 'Programa académico',
+                valor: fn (Adeudo $a) => $a->matriculaOferta?->oferta?->programaAcademico?->nombre,
                 ancho: 30,
             ),
             'campus' => new ColumnaReporte(
@@ -375,7 +375,7 @@ class Cargos implements FuenteDeReporte
              * la matrícula con un `whereHas`, así que admitir aquí una fila cuya
              * matrícula no se puede resolver la hace visible SÓLO para quien ve
              * toda la escuela. El total del mismo reporte dependería de quién lo
-             * corre, y la fila saldría con matrícula, alumno, carrera y campus en
+             * corre, y la fila saldría con matrícula, alumno, programa académico y campus en
              * blanco. Hoy nada lo dispara —ningún camino del código borra una
              * matrícula—, pero es una palabra y cierra la asimetría.
              */
@@ -383,8 +383,8 @@ class Cargos implements FuenteDeReporte
             ->with([
                 'matriculaOferta:id,persona_id,oferta_id,matricula',
                 'matriculaOferta.persona:id,nombre,primer_apellido,segundo_apellido',
-                'matriculaOferta.oferta:id,carrera_id,campus_id',
-                'matriculaOferta.oferta.carrera:id,nombre',
+                'matriculaOferta.oferta:id,programa_academico_id,campus_id',
+                'matriculaOferta.oferta.programaAcademico:id,nombre',
                 'matriculaOferta.oferta.campus:id,nombre',
                 'concepto:id,nombre',
                 'ciclo:id,clave',

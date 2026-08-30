@@ -42,18 +42,18 @@ const alta = useForm<{ persona_id: number | null; matricula_oferta_id: number | 
 });
 
 /**
- * Las carreras de quien se acaba de elegir.
+ * Los programas académicos de quien se acaba de elegir.
  *
  * Se piden APARTE porque el buscador entrega personas —deduplica, para que
  * quien estudia dos no salga dos veces—, así que de ahí no sale con cuál se
- * postula. Y hay que preguntarlo: con dos carreras el servidor no adivina, deja
- * la postulación sin perfil académico, y el reporte por carrera se queda sin
+ * postula. Y hay que preguntarlo: con dos programas académicos el servidor no adivina, deja
+ * la postulación sin perfil académico, y el reporte por programa académico se queda sin
  * los que llegaron por ventanilla.
  */
-const susCarreras = ref<{ id: number; matricula: string; carrera: string | null }[]>([]);
+const susProgramasAcademicos = ref<{ id: number; matricula: string; programa_academico: string | null }[]>([]);
 
-async function traerCarreras(personaId: number | null): Promise<void> {
-    susCarreras.value = [];
+async function traerProgramasAcademicos(personaId: number | null): Promise<void> {
+    susProgramasAcademicos.value = [];
     alta.matricula_oferta_id = null;
 
     if (personaId === null) return;
@@ -64,11 +64,11 @@ async function traerCarreras(personaId: number | null): Promise<void> {
 
     if (!r.ok) return;
 
-    susCarreras.value = await r.json();
+    susProgramasAcademicos.value = await r.json();
 
     // Con una sola no hay nada que preguntar.
-    if (susCarreras.value.length === 1) {
-        alta.matricula_oferta_id = susCarreras.value[0].id;
+    if (susProgramasAcademicos.value.length === 1) {
+        alta.matricula_oferta_id = susProgramasAcademicos.value[0].id;
     }
 }
 
@@ -81,14 +81,14 @@ const contrato = useForm<{
     puesto: string;
     salario: string;
     fecha_ingreso: string;
-    relacionado_con_carrera: string;
+    relacionado_con_programa_academico: string;
     notas: string;
 }>({
     empresa_id: null,
     puesto: '',
     salario: '',
     fecha_ingreso: '',
-    relacionado_con_carrera: '',
+    relacionado_con_programa_academico: '',
     notas: '',
 });
 
@@ -115,7 +115,7 @@ function contratar(): void {
     contrato.transform((d) => ({
         ...d,
         salario: d.salario === '' ? null : d.salario,
-        relacionado_con_carrera: d.relacionado_con_carrera === '' ? null : d.relacionado_con_carrera === '1',
+        relacionado_con_programa_academico: d.relacionado_con_programa_academico === '' ? null : d.relacionado_con_programa_academico === '1',
     })).post(`/bolsa/vacantes/${props.vacante.id}/postulaciones/${contratando.value.id}/contratar`, {
         preserveScroll: true,
         onSuccess: () => {
@@ -152,7 +152,7 @@ function mover(): void {
 function abrirCaptura(): void {
     capturando.value = true;
     alta.reset();
-    susCarreras.value = [];
+    susProgramasAcademicos.value = [];
     alta.defaults();
 }
 
@@ -162,7 +162,7 @@ function capturar(): void {
         onSuccess: () => {
             capturando.value = false;
             alta.reset();
-            susCarreras.value = [];
+            susProgramasAcademicos.value = [];
         },
     });
 }
@@ -292,7 +292,7 @@ function capturar(): void {
                         etiqueta="¿Quién se postula?"
                         marcador="Nombre o matrícula…"
                         :error="alta.errors.persona_id"
-                        @elegido="traerCarreras(alta.persona_id)"
+                        @elegido="traerProgramasAcademicos(alta.persona_id)"
                     />
 
                     <!--
@@ -300,12 +300,12 @@ function capturar(): void {
                         hacerle trabajo a quien captura para nada.
                     -->
                     <CampoSelect
-                        v-if="susCarreras.length > 1"
+                        v-if="susProgramasAcademicos.length > 1"
                         v-model="alta.matricula_oferta_id"
-                        etiqueta="¿Con cuál de sus carreras?"
-                        :opciones="susCarreras.map((m) => ({ valor: m.id, texto: `${m.carrera ?? m.matricula}` }))"
+                        etiqueta="¿Con cuál de sus programas académicos?"
+                        :opciones="susProgramasAcademicos.map((m) => ({ valor: m.id, texto: `${m.programa_academico ?? m.matricula}` }))"
                         vacio="Sin señalar"
-                        ayuda="Cursa más de una. Sin elegir, la postulación queda sin carrera y no entra en el reporte por programa."
+                        ayuda="Cursa más de una. Sin elegir, la postulación queda sin programa académico y no entra en el reporte por programa."
                         :error="alta.errors.matricula_oferta_id"
                     />
 
@@ -347,7 +347,7 @@ function capturar(): void {
                         />
                         <CampoTexto v-model="contrato.salario" etiqueta="Salario mensual" tipo="number" :error="contrato.errors.salario" />
                         <CampoSelect
-                            v-model="contrato.relacionado_con_carrera"
+                            v-model="contrato.relacionado_con_programa_academico"
                             etiqueta="¿El empleo es de su área?"
                             :opciones="[
                                 { valor: '1', texto: 'Sí, es de su área' },
@@ -355,7 +355,7 @@ function capturar(): void {
                             ]"
                             vacio="No se preguntó"
                             ayuda="Dejarlo en blanco no es un «no»: se cuenta aparte."
-                            :error="contrato.errors.relacionado_con_carrera"
+                            :error="contrato.errors.relacionado_con_programa_academico"
                         />
                     </div>
 

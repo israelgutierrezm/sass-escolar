@@ -52,7 +52,7 @@ class Condonaciones extends DefinicionReporte
 
     public function columnasPorOmision(): ?array
     {
-        return ['matricula', 'alumno', 'carrera', 'concepto', 'periodo', 'monto_total', 'estatus'];
+        return ['matricula', 'alumno', 'programa_academico', 'concepto', 'periodo', 'monto_total', 'estatus'];
     }
 
     public function ordenPorOmision(): ?array

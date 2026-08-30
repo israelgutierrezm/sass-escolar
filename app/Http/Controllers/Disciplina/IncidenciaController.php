@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Disciplina;
 
 use App\Http\Controllers\Controller;
-use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Disciplina\Incidencia;
 use App\Models\Disciplina\TipoIncidencia;
 use Illuminate\Http\RedirectResponse;

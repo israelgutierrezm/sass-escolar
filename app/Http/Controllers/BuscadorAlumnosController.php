@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Models\Academico\Carrera;
 use App\Models\Academico\Oferta;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Identidad\Persona;
 use Illuminate\Http\JsonResponse;
@@ -56,12 +56,12 @@ class BuscadorAlumnosController extends Controller
         $matriculas = (new MatriculaOferta)->getTable();
         $personas = (new Persona)->getTable();
         $ofertas = (new Oferta)->getTable();
-        $carreras = (new Carrera)->getTable();
+        $programasAcademicos = (new ProgramaAcademico)->getTable();
 
         $alumnos = DB::table($matriculas)
             ->join($personas, "{$personas}.id", '=', "{$matriculas}.persona_id")
             ->leftJoin($ofertas, "{$ofertas}.id", '=', "{$matriculas}.oferta_id")
-            ->leftJoin($carreras, "{$carreras}.id", '=', "{$ofertas}.carrera_id")
+            ->leftJoin($programasAcademicos, "{$programasAcademicos}.id", '=', "{$ofertas}.programa_academico_id")
             ->whereNull("{$matriculas}.deleted_at")
             ->where(function ($donde) use ($texto, $matriculas, $personas) {
                 $donde->where("{$matriculas}.matricula", 'like', "%{$texto}%")
@@ -74,14 +74,14 @@ class BuscadorAlumnosController extends Controller
             ->limit(20)
             /*
              * El destino se guarda contra la PERSONA y no contra la matrícula:
-             * lo que se le manda es al alumno, aunque curse dos carreras. Por
+             * lo que se le manda es al alumno, aunque curse dos programas académicos. Por
              * eso además se deduplica por id — si no, quien estudia dos
              * programas aparecería dos veces en la lista para elegir.
              */
             ->get([
                 "{$personas}.id",
                 "{$matriculas}.matricula",
-                "{$carreras}.nombre as carrera",
+                "{$programasAcademicos}.nombre as programa_academico",
                 DB::raw("TRIM(CONCAT_WS(' ', {$personas}.nombre, {$personas}.primer_apellido, {$personas}.segundo_apellido)) AS nombre"),
             ]);
 

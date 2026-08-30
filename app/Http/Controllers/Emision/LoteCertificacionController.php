@@ -13,6 +13,7 @@ use App\Models\Emision\Responsable;
 use App\Models\Emision\TipoResponsable;
 use App\Models\Landlord\SaldoEmision;
 use App\Services\EstadoCertificacion;
+use App\Services\Excel\Exportador;
 use App\Services\FirmadorLote;
 use App\Services\LectorCertificado;
 use App\Services\ValidadorDec;
@@ -24,7 +25,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
-use App\Services\Excel\Exportador;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
@@ -34,7 +34,7 @@ use Throwable;
  * cerrarlo y firmarlo con la e.firma del responsable de certificación. Cada
  * alumno del lote produce su XML sellado.
  *
- * El lote no discrimina campus ni carrera; lo único que acota es el alcance del
+ * El lote no discrimina campus ni programa académico; lo único que acota es el alcance del
  * rol de quien agrega alumnos (sus campus). Ver App\Services\EstadoCertificacion
  * para la regla de elegibilidad.
  */
@@ -105,7 +105,7 @@ class LoteCertificacionController extends Controller
     public function show(Request $request, LoteCertificacion $lote): Response
     {
         $lote->load([
-            'certificaciones' => fn ($q) => $q->with(['matricula.persona', 'matricula.oferta.carrera:id,nombre', 'matricula.oferta.plan:id,nombre', 'matricula.oferta.campus:id,nombre'])->orderBy('id'),
+            'certificaciones' => fn ($q) => $q->with(['matricula.persona', 'matricula.oferta.programaAcademico:id,nombre', 'matricula.oferta.plan:id,nombre', 'matricula.oferta.campus:id,nombre'])->orderBy('id'),
             'responsable',
             'certificado',
         ]);
@@ -132,7 +132,7 @@ class LoteCertificacionController extends Controller
         $matriculas = MatriculaOferta::query()
             // La bandera viaja en el select: sin la columna el modelo llega a
             // medias y el filtro de abajo dejaría pasar a todos.
-            ->with(['persona:id,nombre,primer_apellido,segundo_apellido,curp', 'oferta.carrera:id,nombre,emite_documentos_oficiales', 'oferta.plan:id,nombre,minimo_asignaturas', 'oferta.campus:id,nombre'])
+            ->with(['persona:id,nombre,primer_apellido,segundo_apellido,curp', 'oferta.programaAcademico:id,nombre,emite_documentos_oficiales', 'oferta.plan:id,nombre,minimo_asignaturas', 'oferta.campus:id,nombre'])
             ->when($campusVisibles !== [], fn ($qq) => $qq->whereHas('oferta', fn ($o) => $o->whereIn('campus_id', $campusVisibles)))
             ->when($q !== '', fn ($qq) => $qq->where(function ($w) use ($q) {
                 $w->where('matricula', 'like', "%{$q}%")
@@ -148,7 +148,7 @@ class LoteCertificacionController extends Controller
             ->get();
 
         $elegibles = $matriculas
-            // La carrera tiene que expedir documentos: un diplomado sin RVOE
+            // El programa académico tiene que expedir documentos: un diplomado sin RVOE
             // puede cerrar su plan y no por eso hay nada que emitir.
             ->filter(fn (MatriculaOferta $m) => $estado->emiteDocumentos($m))
             ->filter(fn (MatriculaOferta $m) => $tipo === 'parcial' ? $estado->disponibleParcial($m) : $estado->disponible($m))
@@ -158,7 +158,7 @@ class LoteCertificacionController extends Controller
                 'matricula' => $m->matricula,
                 'alumno' => trim(implode(' ', array_filter([$m->persona?->nombre, $m->persona?->primer_apellido, $m->persona?->segundo_apellido]))),
                 'curp' => $m->persona?->curp,
-                'carrera' => $m->oferta?->carrera?->nombre,
+                'programa_academico' => $m->oferta?->programaAcademico?->nombre,
                 'plan' => $m->oferta?->plan?->nombre,
                 'campus' => $m->oferta?->campus?->nombre,
             ])->values();
@@ -181,9 +181,9 @@ class LoteCertificacionController extends Controller
         $omitidos = 0;
 
         foreach (array_unique($datos['matricula_oferta_ids']) as $id) {
-            // La carrera se carga porque `elegibleParaLote` pregunta si emite
+            // El programa académico se carga porque `elegibleParaLote` pregunta si emite
             // certificado; sin ella, ese chequeo consulta un modelo a medias.
-            $matricula = MatriculaOferta::with(['oferta.plan', 'oferta.carrera'])->find($id);
+            $matricula = MatriculaOferta::with(['oferta.plan', 'oferta.programaAcademico'])->find($id);
 
             // Fuera de mi alcance de campus, o no elegible para el TIPO del lote,
             // o ya en un lote.
@@ -464,13 +464,13 @@ class LoteCertificacionController extends Controller
     /** Exporta a Excel los certificados del lote (una fila por alumno). */
     public function excel(LoteCertificacion $lote): BinaryFileResponse
     {
-        $lote->load(['certificaciones.matricula.persona', 'certificaciones.matricula.oferta.carrera', 'certificaciones.matricula.oferta.plan', 'certificaciones.matricula.oferta.campus']);
+        $lote->load(['certificaciones.matricula.persona', 'certificaciones.matricula.oferta.programaAcademico', 'certificaciones.matricula.oferta.plan', 'certificaciones.matricula.oferta.campus']);
 
         $filas = $lote->certificaciones->map(fn (Certificacion $c) => [
             $c->matricula?->matricula,
             trim(implode(' ', array_filter([$c->matricula?->persona?->nombre, $c->matricula?->persona?->primer_apellido, $c->matricula?->persona?->segundo_apellido]))),
             $c->matricula?->persona?->curp,
-            $c->matricula?->oferta?->carrera?->nombre,
+            $c->matricula?->oferta?->programaAcademico?->nombre,
             $c->matricula?->oferta?->plan?->nombre,
             $c->matricula?->oferta?->campus?->nombre,
             $c->folio,
@@ -480,7 +480,7 @@ class LoteCertificacionController extends Controller
 
         return $this->descargarExcel(
             "Lote {$lote->folio} ({$lote->tipo})",
-            ['Matrícula', 'Alumno', 'CURP', 'Carrera', 'Plan', 'Campus', 'Folio', 'Estado', 'Certificado'],
+            ['Matrícula', 'Alumno', 'CURP', 'ProgramaAcademico', 'Plan', 'Campus', 'Folio', 'Estado', 'Certificado'],
             $filas,
             "{$lote->folio}.xlsx",
         );
@@ -532,7 +532,7 @@ class LoteCertificacionController extends Controller
             'matricula' => $c->matricula?->matricula,
             'alumno' => trim(implode(' ', array_filter([$persona?->nombre, $persona?->primer_apellido, $persona?->segundo_apellido]))),
             'curp' => $persona?->curp,
-            'carrera' => $c->matricula?->oferta?->carrera?->nombre,
+            'programa_academico' => $c->matricula?->oferta?->programaAcademico?->nombre,
             'plan' => $c->matricula?->oferta?->plan?->nombre,
             'campus' => $c->matricula?->oferta?->campus?->nombre,
             'estado' => $c->estado,

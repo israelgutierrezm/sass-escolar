@@ -6,9 +6,9 @@ namespace App\Services;
 
 use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\MatriculaOferta;
+use App\Models\Captacion\Comision;
+use App\Models\Captacion\ReglaComision;
 use App\Models\Finanzas\Adeudo;
-use App\Models\Promocion\Comision;
-use App\Models\Promocion\ReglaComision;
 use Illuminate\Database\QueryException;
 
 /**
@@ -20,7 +20,7 @@ use Illuminate\Database\QueryException;
  *
  * Se llama DENTRO de la transacción de conversión, como el religador de
  * finanzas: una comisión sin matrícula, o una matrícula sin la comisión que le
- * correspondía, son dos formas de que después no cuadre la nómina de promoción.
+ * correspondía, son dos formas de que después no cuadre la nómina de captación.
  *
  * Silencioso por diseño: si el aspirante no trae promotor titular, o no hay
  * regla vigente, no devenga y no falla. La conversión de un alumno NO debe
@@ -94,7 +94,7 @@ class DevengadorComisiones
             ->value('asesores.persona_id');
     }
 
-    /** Gana la regla vigente más específica: oferta → carrera → global. */
+    /** Gana la regla vigente más específica: oferta → programa académico → global. */
     private function reglaPara(MatriculaOferta $matricula): ?ReglaComision
     {
         $matricula->loadMissing('oferta');
@@ -102,7 +102,7 @@ class DevengadorComisiones
 
         $identificador = [
             ReglaComision::APLICA_OFERTA => $oferta?->id,
-            ReglaComision::APLICA_CARRERA => $oferta?->carrera_id,
+            ReglaComision::APLICA_CARRERA => $oferta?->programa_academico_id,
             ReglaComision::APLICA_GLOBAL => null,
         ];
 

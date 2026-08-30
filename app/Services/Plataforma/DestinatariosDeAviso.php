@@ -109,12 +109,12 @@ class DestinatariosDeAviso
                 $this->porCampusDeRol($id),
             ),
             DestinoEvento::Nivel => $this->unir(
-                $this->alumnosPor('oferta.carrera.nivel_estudios_id', $id),
-                $this->docentesPor('grupo.plan.carrera.nivel_estudios_id', $id),
+                $this->alumnosPor('oferta.programaAcademico.nivel_estudios_id', $id),
+                $this->docentesPor('grupo.plan.programaAcademico.nivel_estudios_id', $id),
             ),
-            DestinoEvento::Carrera => $this->unir(
-                $this->alumnosPor('oferta.carrera_id', $id),
-                $this->docentesPor('grupo.plan.carrera_id', $id),
+            DestinoEvento::ProgramaAcademico => $this->unir(
+                $this->alumnosPor('oferta.programa_academico_id', $id),
+                $this->docentesPor('grupo.plan.programa_academico_id', $id),
             ),
             DestinoEvento::Plan => $this->unir(
                 $this->alumnosPor('oferta.plan_id', $id),
@@ -174,7 +174,7 @@ class DestinatariosDeAviso
     /**
      * Alumnos cuya oferta cumple la condición.
      *
-     * La ruta viene con puntos («oferta.carrera.nivel_estudios_id») y se
+     * La ruta viene con puntos («oferta.programa académico.nivel_estudios_id») y se
      * traduce a `whereHas` anidados: escribir los joins a mano repetiría los
      * nombres de tabla, que ya viven en los modelos.
      *

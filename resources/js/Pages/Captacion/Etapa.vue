@@ -13,7 +13,7 @@ interface Prospecto {
     nombre: string | null;
     telefono: string | null;
     email: string | null;
-    carrera: string | null;
+    programa_academico: string | null;
     origen: string | null;
     foto: string | null;
     titular: string | null;
@@ -48,7 +48,7 @@ watch(busqueda, () => {
 
 function consultar(cambios: Record<string, any>): void {
     router.get(
-        `/promocion/etapas/${props.etapa.id}`,
+        `/captacion/etapas/${props.etapa.id}`,
         {
             busqueda: busqueda.value || undefined,
             origen_id: props.filtros.origen_id || undefined,
@@ -72,13 +72,13 @@ const definicionFiltros = [
 
     <AppLayout :titulo="etapa.nombre">
         <section class="tarjeta p-6">
-            <BotonVolver href="/promocion" texto="Embudo" class="mb-4" />
+            <BotonVolver href="/captacion" texto="Embudo" class="mb-4" />
 
             <div class="flex flex-wrap items-center gap-2">
                 <a
                     v-for="e in etapas"
                     :key="e.id"
-                    :href="`/promocion/etapas/${e.id}`"
+                    :href="`/captacion/etapas/${e.id}`"
                     class="rounded-full border px-3 py-1 text-xs"
                     :style="{
                         borderColor: 'var(--color-borde)',
@@ -100,7 +100,7 @@ const definicionFiltros = [
                         :style="{ borderColor: 'var(--color-borde)' }"
                     />
                 </div>
-                <SelectorVista v-model="vista" clave="promocion-etapa" />
+                <SelectorVista v-model="vista" clave="captacion-etapa" />
             </div>
 
             <div class="mt-3">
@@ -116,7 +116,7 @@ const definicionFiltros = [
                     :key="a.id"
                     :nombre="a.nombre"
                     :foto="a.foto"
-                    :lineas="[a.carrera, a.telefono ?? a.email, a.origen]"
+                    :lineas="[a.programa_academico, a.telefono ?? a.email, a.origen]"
                     :estado="a.titular ?? 'sin promotor'"
                     :aviso="a.ultimo_contacto ? null : 'nunca contactado'"
                     :url="`/aspirantes/${a.id}`"
@@ -158,7 +158,7 @@ const definicionFiltros = [
                             <span v-if="a.email" class="block">{{ a.email }}</span>
                             <span v-if="!a.telefono && !a.email">Sin datos de contacto</span>
                         </td>
-                        <td class="px-4 py-3">{{ a.carrera ?? '—' }}</td>
+                        <td class="px-4 py-3">{{ a.programa_academico ?? '—' }}</td>
                         <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ a.origen ?? '—' }}</td>
                         <td class="px-4 py-3">
                             <span v-if="a.titular">{{ a.titular }}</span>

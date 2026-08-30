@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\DB;
  * Cuánto lleva llenado un aspirante de su solicitud.
  *
  * **Los pasos son fijos para toda la escuela y no varían por campaña ni por
- * carrera** — decisión del cliente. Por eso viven aquí como código y no como
+ * programa académico** — decisión del cliente. Por eso viven aquí como código y no como
  * tabla configurable: no hay nada que la escuela deba poder reordenar, y una
  * tabla de pasos que siempre tiene las mismas tres filas sería configuración
  * falsa. Lo que SÍ es configurable —si el expediente y el pago son requisito
@@ -23,12 +23,12 @@ use Illuminate\Support\Facades\DB;
  *
  * Que un paso APLIQUE o no sí varía por persona, y siempre fue así: quien no
  * tiene cargos no ve el de pago. Los formularios se suman con la misma regla
- * —le tocan según su rol y su carrera—, y sin ellos el porcentaje mentía:
+ * —le tocan según su rol y su programa académico—, y sin ellos el porcentaje mentía:
  * alguien con todo lo obligatorio sin contestar veía «100%».
  *
  * **Este avance NO es la etapa del CRM, y es deliberado.** El embudo lo mueve
- * promoción con su criterio; esto solo dice qué tanto llenó el interesado. Que
- * alguien haya subido sus papeles no significa que promoción lo dé por
+ * captación con su criterio; esto solo dice qué tanto llenó el interesado. Que
+ * alguien haya subido sus papeles no significa que captación lo dé por
  * "documentado": puede estar esperando validarlos, o haber hablado con él y
  * saber algo que el sistema no. Mezclarlos haría que el embudo avanzara solo y
  * dejara de reflejar el trabajo del equipo.
@@ -53,7 +53,7 @@ class ProgresoSolicitud
      */
     public function para(Aspirante $aspirante, ?Collection $formularios = null): array
     {
-        $aspirante->loadMissing('persona', 'ofertaInteres.carrera');
+        $aspirante->loadMissing('persona', 'ofertaInteres.programaAcademico');
 
         /*
          * Los formularios se pueden pasar ya resueltos.
@@ -220,7 +220,7 @@ class ProgresoSolicitud
      * opcional para poder avanzar convertiría un «puedes contestarlo» en un
      * requisito.
      *
-     * Aplica cuando tiene alguno asignado. Que eso dependa de su carrera no
+     * Aplica cuando tiene alguno asignado. Que eso dependa de su programa académico no
      * rompe la regla de «pasos fijos para toda la escuela»: el paso es el
      * mismo para todos, lo que varía es si le toca —igual que el pago, que no
      * aplica a quien no tiene cargos—.

@@ -14,7 +14,7 @@ $app = require $raiz.'/bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
 use App\Models\Academico\Asignatura;
-use App\Models\Academico\Carrera;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Academico\PlanEstudio;
 use App\Models\Academico\PlanMateria;
 use App\Models\ControlEscolar\AsignaturaGrupo;
@@ -161,17 +161,17 @@ try {
             $elegibles->count() === $docentes->count(), $elegibles->count().' visibles');
     }
 
-    echo PHP_EOL.'6. Cascada carrera → planes'.PHP_EOL;
+    echo PHP_EOL.'6. Cascada programa académico → planes'.PHP_EOL;
 
-    $carreraB = Carrera::create([
+    $programaAcademicoB = ProgramaAcademico::create([
         'identificador' => "CB{$sufijo}",
         'clave' => "CB{$sufijo}",
-        'nombre' => 'Carrera de prueba',
-        'nivel_estudios_id' => $plan->carrera?->nivel_estudios_id ?? 1,
+        'nombre' => 'Programa académico de prueba',
+        'nivel_estudios_id' => $plan->programaAcademico?->nivel_estudios_id ?? 1,
     ]);
 
     $planB = PlanEstudio::create([
-        'carrera_id' => $carreraB->id,
+        'programa_academico_id' => $programaAcademicoB->id,
         'clave' => "PB{$sufijo}",
         'nombre' => 'Plan 2026',   // mismo nombre que otro plan, a propósito
         'rvoe' => 'RVOE-TEST',
@@ -189,12 +189,12 @@ try {
      *
      * Buscaba dos planes llamados «Plan 2026» habiendo creado uno solo: el otro
      * lo ponía el demo, y cuando dejó de estar la comprobación se cayó sin que
-     * nada del sistema hubiera cambiado. El punto es que dos planes de carreras
+     * nada del sistema hubiera cambiado. El punto es que dos planes de programas académicos
      * distintas puedan llamarse igual —por eso el desplegable filtra por
-     * carrera—, así que la prueba planta los dos.
+     * programa académico—, así que la prueba planta los dos.
      */
     $planHomonimo = PlanEstudio::create([
-        'carrera_id' => $plan->carrera_id,
+        'programa_academico_id' => $plan->programa_academico_id,
         'clave' => "PH{$sufijo}",
         'nombre' => 'Plan 2026',
         'rvoe' => 'RVOE-TEST',
@@ -207,15 +207,15 @@ try {
         'total_creditos' => 300,
     ]);
 
-    $todos = PlanEstudio::query()->get(['id', 'nombre', 'carrera_id']);
-    $deLaCarreraB = $todos->where('carrera_id', $carreraB->id);
+    $todos = PlanEstudio::query()->get(['id', 'nombre', 'programa_academico_id']);
+    $deLaCarreraB = $todos->where('programa_academico_id', $programaAcademicoB->id);
 
-    verificar('Filtrando por carrera solo queda su plan',
+    verificar('Filtrando por programa académico solo queda su plan',
         $deLaCarreraB->count() === 1 && $deLaCarreraB->first()->id === $planB->id);
     verificar('Sin filtro se ven todos', $todos->count() >= 2, $todos->count().' planes');
-    verificar('Dos planes de carreras distintas pueden llamarse igual (por eso importa el filtro)',
+    verificar('Dos planes de programas académicos distintas pueden llamarse igual (por eso importa el filtro)',
         $todos->where('nombre', 'Plan 2026')->count() >= 2
-        && $planHomonimo->carrera_id !== $planB->carrera_id,
+        && $planHomonimo->programa_academico_id !== $planB->programa_academico_id,
         'planes llamados "Plan 2026": '.$todos->where('nombre', 'Plan 2026')->count());
 } catch (Throwable $e) {
     echo PHP_EOL.'EXCEPCIÓN: '.$e->getMessage().PHP_EOL;

@@ -36,13 +36,13 @@ class GeneradorMatriculaTest extends TenantTestCase
     public function test_arma_la_matricula_con_los_tokens_de_la_plantilla(): void
     {
         $escuela = $this->alumnoInscrito();
-        $oferta = Oferta::with(['carrera', 'plan', 'campus'])->findOrFail($escuela['oferta']);
+        $oferta = Oferta::with(['programaAcademico', 'plan', 'campus'])->findOrFail($escuela['oferta']);
 
-        $this->regla('global', null, '{AAAA}-{CARRERA}-{####}');
+        $this->regla('global', null, '{AAAA}-{PROGRAMA}-{####}');
 
         $matricula = $this->generador->generar($oferta, anio: 2026);
 
-        $this->assertSame("2026-{$oferta->carrera->clave}-0001", $matricula);
+        $this->assertSame("2026-{$oferta->programaAcademico->clave}-0001", $matricula);
     }
 
     /** El relleno de ceros lo decide la cantidad de almohadillas. */
@@ -87,25 +87,25 @@ class GeneradorMatriculaTest extends TenantTestCase
      * escuela puede tener un formato distinto para posgrado sin duplicarlo en
      * cada plan.
      */
-    public function test_la_regla_del_plan_gana_a_la_de_la_carrera_y_a_la_global(): void
+    public function test_la_regla_del_plan_gana_a_la_de_la_programa_academico_y_a_la_global(): void
     {
         $escuela = $this->alumnoInscrito();
-        $oferta = Oferta::with(['carrera', 'plan', 'campus'])->findOrFail($escuela['oferta']);
+        $oferta = Oferta::with(['programaAcademico', 'plan', 'campus'])->findOrFail($escuela['oferta']);
 
         $this->regla('global', null, 'GLOBAL-{###}');
-        $this->regla('carrera', $oferta->carrera_id, 'CARRERA-{###}');
+        $this->regla('programa_academico', $oferta->programa_academico_id, 'CARRERA-{###}');
         $this->regla('plan', $oferta->plan_id, 'PLAN-{###}');
 
         $this->assertStringStartsWith('PLAN-', $this->generador->generar($oferta, anio: 2026));
     }
 
-    public function test_sin_regla_del_plan_se_usa_la_de_la_carrera(): void
+    public function test_sin_regla_del_plan_se_usa_la_del_programa_academico(): void
     {
         $escuela = $this->alumnoInscrito();
-        $oferta = Oferta::with(['carrera', 'plan', 'campus'])->findOrFail($escuela['oferta']);
+        $oferta = Oferta::with(['programaAcademico', 'plan', 'campus'])->findOrFail($escuela['oferta']);
 
         $this->regla('global', null, 'GLOBAL-{###}');
-        $this->regla('carrera', $oferta->carrera_id, 'CARRERA-{###}');
+        $this->regla('programa_academico', $oferta->programa_academico_id, 'CARRERA-{###}');
 
         $this->assertStringStartsWith('CARRERA-', $this->generador->generar($oferta, anio: 2026));
     }
@@ -114,7 +114,7 @@ class GeneradorMatriculaTest extends TenantTestCase
     public function test_una_regla_inactiva_se_ignora(): void
     {
         $escuela = $this->alumnoInscrito();
-        $oferta = Oferta::with(['carrera', 'plan', 'campus'])->findOrFail($escuela['oferta']);
+        $oferta = Oferta::with(['programaAcademico', 'plan', 'campus'])->findOrFail($escuela['oferta']);
 
         $this->regla('global', null, 'GLOBAL-{###}');
         $this->regla('plan', $oferta->plan_id, 'PLAN-{###}', activo: false);
@@ -158,16 +158,16 @@ class GeneradorMatriculaTest extends TenantTestCase
         $this->assertSame('2027-002', $this->generador->generar($oferta, anio: 2027), 'Sigue la misma cuenta.');
     }
 
-    public function test_el_ambito_por_carrera_lleva_cuentas_separadas(): void
+    public function test_el_ambito_por_programa_academico_lleva_cuentas_separadas(): void
     {
         $primera = $this->ofertaDePrueba();
         $segunda = $this->ofertaDePrueba();
 
-        $this->regla('global', null, 'M{###}', dimensiones: ['carrera'], reinicia: 'nunca');
+        $this->regla('global', null, 'M{###}', dimensiones: ['programa_academico'], reinicia: 'nunca');
 
         $this->assertSame('M001', $this->generador->generar($primera, anio: 2026));
         $this->assertSame('M002', $this->generador->generar($primera, anio: 2026));
-        $this->assertSame('M001', $this->generador->generar($segunda, anio: 2026), 'Otra carrera, otra cuenta.');
+        $this->assertSame('M001', $this->generador->generar($segunda, anio: 2026), 'Otro programa académico, otra cuenta.');
     }
 
     public function test_un_ambito_de_consecutivo_desconocido_falla(): void
@@ -185,52 +185,52 @@ class GeneradorMatriculaTest extends TenantTestCase
     // ── Los tres formatos que se pidieron ──────────────────────────────────
 
     /**
-     * ClaveNivel + ClaveCarrera + ClavePlan + Año + consecutivo del año.
+     * ClaveNivel + ClaveProgramaAcademico + ClavePlan + Año + consecutivo del año.
      *
      * El que motivó el token {NIVEL}: no existía y no había forma de armar este
      * formato sin él.
      */
-    public function test_nivel_carrera_plan_anio_y_consecutivo_del_anio(): void
+    public function test_nivel_programa_academico_plan_anio_y_consecutivo_del_anio(): void
     {
         $oferta = $this->ofertaDePrueba();
 
-        $this->regla('global', null, '{NIVEL}{CARRERA}{PLAN}{AAAA}{###}');
+        $this->regla('global', null, '{NIVEL}{PROGRAMA}{PLAN}{AAAA}{###}');
 
-        $esperado = $oferta->carrera->nivelEstudios->clave
-            .$oferta->carrera->clave
+        $esperado = $oferta->programaAcademico->nivelEstudios->clave
+            .$oferta->programaAcademico->clave
             .$oferta->plan->clave
             .'2026001';
 
         $this->assertSame($esperado, $this->generador->generar($oferta, anio: 2026));
     }
 
-    /** Año + ClaveCarrera + consecutivo histórico de la carrera. */
-    public function test_anio_carrera_y_consecutivo_historico_de_la_carrera(): void
+    /** Año + ClaveProgramaAcademico + consecutivo histórico del programa académico. */
+    public function test_anio_programa_academico_y_consecutivo_historico_del_programa_academico(): void
     {
         $oferta = $this->ofertaDePrueba();
 
-        $this->regla('global', null, '{AAAA}{CARRERA}{####}', dimensiones: ['carrera'], reinicia: 'nunca');
+        $this->regla('global', null, '{AAAA}{PROGRAMA}{####}', dimensiones: ['programa_academico'], reinicia: 'nunca');
 
         $this->generador->generar($oferta, anio: 2026);
 
         $this->assertSame(
-            '2027'.$oferta->carrera->clave.'0002',
+            '2027'.$oferta->programaAcademico->clave.'0002',
             $this->generador->generar($oferta, anio: 2027),
-            'El año cambia en la matrícula, pero la cuenta de la carrera sigue.',
+            'El año cambia en la matrícula, pero la cuenta del programa académico sigue.',
         );
     }
 
-    /** ClaveCarrera + Año + consecutivo del campus por año. */
-    public function test_carrera_anio_y_consecutivo_del_campus_por_anio(): void
+    /** ClaveProgramaAcademico + Año + consecutivo del campus por año. */
+    public function test_programa_academico_anio_y_consecutivo_del_campus_por_anio(): void
     {
         $oferta = $this->ofertaDePrueba();
 
-        $this->regla('global', null, '{CARRERA}{AAAA}{####}', dimensiones: ['campus']);
+        $this->regla('global', null, '{PROGRAMA}{AAAA}{####}', dimensiones: ['campus']);
 
-        $this->assertSame($oferta->carrera->clave.'20260001', $this->generador->generar($oferta, anio: 2026));
-        $this->assertSame($oferta->carrera->clave.'20260002', $this->generador->generar($oferta, anio: 2026));
+        $this->assertSame($oferta->programaAcademico->clave.'20260001', $this->generador->generar($oferta, anio: 2026));
+        $this->assertSame($oferta->programaAcademico->clave.'20260002', $this->generador->generar($oferta, anio: 2026));
         $this->assertSame(
-            $oferta->carrera->clave.'20270001',
+            $oferta->programaAcademico->clave.'20270001',
             $this->generador->generar($oferta, anio: 2027),
             'Año nuevo, cuenta nueva del campus.',
         );
@@ -300,21 +300,21 @@ class GeneradorMatriculaTest extends TenantTestCase
     // ── Contar sobre varias dimensiones ────────────────────────────────────
 
     /**
-     * Dos campus que ADEMÁS numeran aparte cada carrera.
+     * Dos campus que ADEMÁS numeran aparte cada programa académico.
      *
      * Con una sola dimensión no se podía escribir: o contabas por campus o por
-     * carrera. Es el caso que motivó pasar a lista.
+     * programa académico. Es el caso que motivó pasar a lista.
      */
-    public function test_se_puede_contar_por_campus_y_carrera_a_la_vez(): void
+    public function test_se_puede_contar_por_campus_y_programa_academico_a_la_vez(): void
     {
         $primera = $this->ofertaDePrueba();
         $segunda = $this->ofertaDePrueba();
 
-        $this->regla('global', null, 'X{###}', dimensiones: ['campus', 'carrera'], reinicia: 'nunca');
+        $this->regla('global', null, 'X{###}', dimensiones: ['campus', 'programa_academico'], reinicia: 'nunca');
 
         $this->assertSame('X001', $this->generador->generar($primera, anio: 2026));
         $this->assertSame('X002', $this->generador->generar($primera, anio: 2026));
-        $this->assertSame('X001', $this->generador->generar($segunda, anio: 2026), 'Otro par campus+carrera.');
+        $this->assertSame('X001', $this->generador->generar($segunda, anio: 2026), 'Otro par campus+programa académico.');
     }
 
     /**
@@ -326,11 +326,11 @@ class GeneradorMatriculaTest extends TenantTestCase
     public function test_el_orden_en_que_se_eligieron_las_dimensiones_no_importa(): void
     {
         $oferta = $this->ofertaDePrueba();
-        $regla = $this->regla('global', null, 'X{###}', dimensiones: ['campus', 'carrera'], reinicia: 'nunca');
+        $regla = $this->regla('global', null, 'X{###}', dimensiones: ['campus', 'programa_academico'], reinicia: 'nunca');
 
         $primera = $this->generador->claveContador($regla, $oferta, 2026);
 
-        $regla->update(['consecutivo_dimensiones' => ['carrera', 'campus']]);
+        $regla->update(['consecutivo_dimensiones' => ['programa_academico', 'campus']]);
 
         $this->assertSame($primera, $this->generador->claveContador($regla->fresh(), $oferta, 2026));
     }
@@ -385,9 +385,9 @@ class GeneradorMatriculaTest extends TenantTestCase
     // ── Recorte de tokens ──────────────────────────────────────────────────
 
     /**
-     * `{CARRERA:2}` deja las dos primeras letras.
+     * `{PROGRAMA:2}` deja las dos primeras letras.
      *
-     * Hay escuelas cuya clave de carrera mide cinco caracteres y en la
+     * Hay escuelas cuya clave de programa académico mide cinco caracteres y en la
      * matrícula sólo caben dos; sin recorte, el único camino era inventarse una
      * clave falsa en el catálogo para que cupiera.
      */
@@ -395,10 +395,10 @@ class GeneradorMatriculaTest extends TenantTestCase
     {
         $oferta = $this->ofertaDePrueba();
 
-        $this->regla('global', null, '{CARRERA:3}-{###}');
+        $this->regla('global', null, '{PROGRAMA:3}-{###}');
 
         $this->assertSame(
-            mb_substr($oferta->carrera->clave, 0, 3).'-001',
+            mb_substr($oferta->programaAcademico->clave, 0, 3).'-001',
             $this->generador->generar($oferta, anio: 2026),
         );
     }
@@ -430,7 +430,7 @@ class GeneradorMatriculaTest extends TenantTestCase
 
     private function ofertaDePrueba(): Oferta
     {
-        return Oferta::with(['carrera', 'plan', 'campus'])->findOrFail($this->alumnoInscrito()['oferta']);
+        return Oferta::with(['programaAcademico', 'plan', 'campus'])->findOrFail($this->alumnoInscrito()['oferta']);
     }
 
     /**

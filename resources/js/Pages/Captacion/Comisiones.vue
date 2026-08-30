@@ -47,20 +47,20 @@ const props = defineProps<{
     puedeConfigurar: boolean;
     reglas: Regla[];
     conceptos: { id: number; nombre: string }[];
-    destinos: { carrera: { id: number; nombre: string }[]; oferta: { id: number; nombre: string }[] };
+    destinos: { programa_academico: { id: number; nombre: string }[]; oferta: { id: number; nombre: string }[] };
 }>();
 
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
 
 const filtro = ref(props.filtros.estatus);
 watch(filtro, () => {
-    router.get('/promocion/comisiones', { estatus: filtro.value || undefined }, { preserveState: true, replace: true });
+    router.get('/captacion/comisiones', { estatus: filtro.value || undefined }, { preserveState: true, replace: true });
 });
 
 const seleccionadas = ref<number[]>([]);
 
 function pagar(): void {
-    router.post('/promocion/comisiones/pagar', { ids: seleccionadas.value }, {
+    router.post('/captacion/comisiones/pagar', { ids: seleccionadas.value }, {
         preserveScroll: true,
         onSuccess: () => (seleccionadas.value = []),
     });
@@ -72,7 +72,7 @@ const cancelacion = useForm({ motivo: '' });
 function cancelar(): void {
     if (!cancelando.value) return;
 
-    cancelacion.post(`/promocion/comisiones/${cancelando.value}/cancelar`, {
+    cancelacion.post(`/captacion/comisiones/${cancelando.value}/cancelar`, {
         preserveScroll: true,
         onSuccess: () => {
             cancelacion.reset();
@@ -102,7 +102,7 @@ const opcionesDestino = computed<{ id: number; nombre: string }[]>(() => {
 });
 
 function guardarRegla(): void {
-    regla.post('/promocion/reglas-comision', {
+    regla.post('/captacion/reglas-comision', {
         preserveScroll: true,
         // Se queda abierta tras agregar para encadenar altas (se cierra con «Cancelar»).
         onSuccess: () => regla.reset(),
@@ -117,7 +117,7 @@ const hayReglaVigente = computed(() => props.reglas.some((r) => r.activo && !r.v
 <template>
     <Head title="Comisiones" />
 
-    <AppLayout titulo="Comisiones de promoción">
+    <AppLayout titulo="Comisiones de captación">
         <section class="tarjeta p-6">
             <p class="max-w-3xl text-sm" :style="{ color: 'var(--color-suave)' }">
                 El promotor devenga cuando su prospecto <strong>se inscribe</strong>, no cuando lo captura:
@@ -139,7 +139,7 @@ const hayReglaVigente = computed(() => props.reglas.some((r) => r.activo && !r.v
                 <div>
                     <h2 class="text-base font-semibold">Reglas de comisión</h2>
                     <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
-                        Gana la más específica: oferta → carrera → toda la escuela.
+                        Gana la más específica: oferta → programa académico → toda la escuela.
                     </p>
                 </div>
                 <BotonAccion v-if="!creandoRegla" variante="nuevo" texto="Nueva regla" @click="creandoRegla = true" />
@@ -159,7 +159,7 @@ const hayReglaVigente = computed(() => props.reglas.some((r) => r.activo && !r.v
                     <span class="mb-1 block font-medium">Aplica a</span>
                     <select v-model="regla.aplica_a_tipo" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
                         <option value="global">Toda la escuela</option>
-                        <option value="carrera">Una carrera</option>
+                        <option value="programa académico">Un programa académico</option>
                         <option value="oferta">Una oferta</option>
                     </select>
                 </label>
@@ -221,7 +221,7 @@ const hayReglaVigente = computed(() => props.reglas.some((r) => r.activo && !r.v
                     <BotonAccion
                         v-if="r.devengadas === 0"
                         variante="eliminar"
-                        @click="router.delete(`/promocion/reglas-comision/${r.id}`, { preserveScroll: true })"
+                        @click="router.delete(`/captacion/reglas-comision/${r.id}`, { preserveScroll: true })"
                     />
                     <span v-else class="text-xs" :style="{ color: 'var(--color-suave)' }">en uso</span>
                 </li>

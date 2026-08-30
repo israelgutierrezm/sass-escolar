@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Prueba de integración del CRM de promoción: embudo por etapa, seguimiento con
+ * Prueba de integración del CRM de captación: embudo por etapa, seguimiento con
  * próximo contacto, alcance del promotor y devengo de comisiones al inscribirse
  * el prospecto. Con rollback.
  *
@@ -25,10 +25,10 @@ use App\Models\Identidad\Persona;
 use App\Models\Identidad\PersonaRol;
 use App\Models\Identidad\Rol;
 use App\Models\Identidad\Usuario;
-use App\Models\Promocion\Comision;
-use App\Models\Promocion\OrigenAspirante;
-use App\Models\Promocion\ReglaComision;
-use App\Models\Promocion\TipoSeguimiento;
+use App\Models\Captacion\Comision;
+use App\Models\Captacion\OrigenAspirante;
+use App\Models\Captacion\ReglaComision;
+use App\Models\Captacion\TipoSeguimiento;
 use App\Models\Tenant;
 use App\Services\ConvertidorAspirante;
 use App\Services\EmbudoAdmision;
@@ -93,7 +93,7 @@ DB::beginTransaction();
 
 try {
     $embudo = app(EmbudoAdmision::class);
-    $oferta = Oferta::query()->with('carrera')->firstOrFail();
+    $oferta = Oferta::query()->with('programaAcademico')->firstOrFail();
 
     echo '1. El embudo dejó de ser un catálogo huérfano'.PHP_EOL;
 
@@ -109,13 +109,13 @@ try {
     echo PHP_EOL.'2. El origen es catálogo, no texto libre'.PHP_EOL;
 
     $web = OrigenAspirante::where('clave', 'sitio_web')->firstOrFail();
-    $promocionOrigen = OrigenAspirante::where('clave', 'promocion')->firstOrFail();
+    $captacionOrigen = OrigenAspirante::where('clave', 'captacion')->firstOrFail();
 
     verificar('El sitio web se marca como autogestivo', $web->autogestivo);
-    verificar('La captura por promoción NO', ! $promocionOrigen->autogestivo);
+    verificar('La captura por captación NO', ! $captacionOrigen->autogestivo);
     verificar('El scope de autogestivos los separa',
         OrigenAspirante::autogestivos()->pluck('clave')->contains('sitio_web')
-        && ! OrigenAspirante::autogestivos()->pluck('clave')->contains('promocion'));
+        && ! OrigenAspirante::autogestivos()->pluck('clave')->contains('captacion'));
 
     echo PHP_EOL.'3. Alcance: el promotor ve SOLO los suyos'.PHP_EOL;
 
@@ -128,7 +128,7 @@ try {
         'persona_id' => Persona::create(['nombre' => 'Prospecto', 'primer_apellido' => 'Uno', 'sexo_id' => 2])->id,
         'oferta_interes_id' => $oferta->id,
         'etapa_crm_id' => $etapas->first()->id,
-        'origen_id' => $promocionOrigen->id,
+        'origen_id' => $captacionOrigen->id,
     ]);
 
     $ajeno = Aspirante::create([
@@ -146,7 +146,7 @@ try {
     verificar('El promotor A ve el suyo', $visiblesA->contains($mio->id));
     verificar('Y NO ve el de B', ! $visiblesA->contains($ajeno->id));
     verificar('El alcance sale de la ASIGNACIÓN, no del permiso',
-        $usuarioA->can('ver-mis-prospectos') && ! $usuarioA->can('gestionar-promocion'));
+        $usuarioA->can('ver-mis-prospectos') && ! $usuarioA->can('gestionar-captacion'));
 
     echo PHP_EOL.'4. Seguimiento y movimiento de etapa'.PHP_EOL;
 

@@ -42,7 +42,7 @@ class RegistroMovilidad
      * Postula a un alumno SALIENTE.
      *
      * @throws RuntimeException si la convocatoria no admite, si el convenio no
-     *                          cubre su carrera o si no alcanza el promedio
+     *                          cubre su programa académico o si no alcanza el promedio
      */
     public function postularSaliente(
         ConvocatoriaMovilidad $convocatoria,
@@ -56,14 +56,14 @@ class RegistroMovilidad
         }
 
         /*
-         * El convenio tiene que cubrir SU carrera. Sin esto, una convocatoria
+         * El convenio tiene que cubrir SU programa académico. Sin esto, una convocatoria
          * amparada por un convenio de ingeniería aceptaría a alguien de derecho
          * y el destino lo rebotaría al llegar.
          */
-        $carreraId = $matricula->oferta?->carrera_id;
+        $programaAcademicoId = $matricula->oferta?->programa_academico_id;
 
-        if (! $convocatoria->convenio()->paraCarrera($carreraId)->exists()) {
-            throw new RuntimeException('El convenio de esa convocatoria no cubre la carrera de esa persona.');
+        if (! $convocatoria->convenio()->paraProgramaAcademico($programaAcademicoId)->exists()) {
+            throw new RuntimeException('El convenio de esa convocatoria no cubre el programa académico de esa persona.');
         }
 
         $promedio = $this->promedioDe($matricula);

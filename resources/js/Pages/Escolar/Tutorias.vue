@@ -25,7 +25,7 @@ interface AlumnoFila {
     id: number;
     nombre: string;
     matricula: string | null;
-    carrera: string | null;
+    programa_academico: string | null;
     grupos: string[];
     tutor: string | null;
     tutoria_id: number | null;
@@ -39,7 +39,7 @@ const props = defineProps<{
     tutores: { id: number; nombre: string; tutorados: number }[];
     alumnos: AlumnoFila[];
     resumen: { total: number; sin_tutor: number };
-    carreras: string[];
+    programas_academicos: string[];
     grupos: string[];
 }>();
 
@@ -61,14 +61,14 @@ const busqueda = ref('');
 const soloSinTutor = ref(false);
 
 /*
- * Filtrar por carrera o por grupo ES el reparto por carrera o por grupo.
+ * Filtrar por programa académico o por grupo ES el reparto por programa académico o por grupo.
  *
- * No hace falta un botón de «asignar a toda la carrera»: se acota la lista y
+ * No hace falta un botón de «asignar a toda el programa académico»: se acota la lista y
  * se palomea el encabezado, que ya alcanza sólo a los VISIBLES. Un botón
  * aparte tendría que decidir por su cuenta a quién incluye —¿también a los que
  * ya tienen tutor?— sin que se vea antes de pulsarlo, y aquí se ve.
  */
-const carrera = ref('');
+const programa_academico = ref('');
 const grupo = ref('');
 
 /**
@@ -89,14 +89,14 @@ const visibles = computed(() => {
 
     return props.alumnos.filter((a) => {
         if (soloSinTutor.value && a.tutor !== null) return false;
-        if (carrera.value !== '' && a.carrera !== carrera.value) return false;
+        if (programa_academico.value !== '' && a.programa_academico !== programa_academico.value) return false;
         if (grupo.value !== '' && ! a.grupos.includes(grupo.value)) return false;
         if (q === '') return true;
 
         return (
             a.nombre.toLowerCase().includes(q) ||
             (a.matricula ?? '').toLowerCase().includes(q) ||
-            (a.carrera ?? '').toLowerCase().includes(q)
+            (a.programa_academico ?? '').toLowerCase().includes(q)
         );
     });
 });
@@ -259,14 +259,14 @@ function quitar(a: AlumnoFila): void {
         <section class="tarjeta overflow-hidden">
             <div class="flex flex-wrap items-center gap-4 border-b px-5 py-3" :style="{ borderColor: 'var(--color-borde)' }">
                 <div class="w-64">
-                    <CampoTexto v-model="busqueda" etiqueta="" marcador="Buscar por nombre, matrícula o carrera" />
+                    <CampoTexto v-model="busqueda" etiqueta="" marcador="Buscar por nombre, matrícula o programa académico" />
                 </div>
-                <div v-if="carreras.length > 1" class="w-56">
+                <div v-if="programas_academicos.length > 1" class="w-56">
                     <CampoSelect
-                        v-model="carrera"
+                        v-model="programa_academico"
                         etiqueta=""
-                        vacio="Todas las carreras"
-                        :opciones="carreras.map((c) => ({ valor: c, texto: c }))"
+                        vacio="Todos los programas académicos"
+                        :opciones="programas_academicos.map((c) => ({ valor: c, texto: c }))"
                     />
                 </div>
 
@@ -302,7 +302,7 @@ function quitar(a: AlumnoFila): void {
                             <input v-model="todosVisibles" type="checkbox" :title="`Seleccionar los ${visibles.length} visibles`" />
                         </th>
                         <th class="py-2 font-medium">Alumno</th>
-                        <th class="py-2 font-medium">Carrera</th>
+                        <th class="py-2 font-medium">Programa académico</th>
                         <th class="py-2 font-medium">Tutor</th>
                         <!--
                             Asignar tutores no sirve de nada si nadie comprueba
@@ -339,7 +339,7 @@ function quitar(a: AlumnoFila): void {
                             </div>
                         </td>
                         <td class="py-2.5" :style="{ color: 'var(--color-suave)' }">
-                            {{ a.carrera ?? '—' }}
+                            {{ a.programa_academico ?? '—' }}
                             <!-- El grupo, a la vista: filtrar por algo que no se
                                  ve en la fila hace dudar de si el filtro acertó. -->
                             <span v-if="a.grupos.length" class="ml-1 text-xs">

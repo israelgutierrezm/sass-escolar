@@ -30,18 +30,18 @@ class ModuloEncendidoTest extends TenantTestCase
 {
     public function test_una_seccion_apagada_no_deja_pasar(): void
     {
-        $this->modulos()->cambiar('biblioteca', false);
+        $this->modulos()->cambiar('recursos_digitales', false);
 
         $this->expectException(NotFoundHttpException::class);
 
-        $this->pasarPor('biblioteca');
+        $this->pasarPor('recursos_digitales');
     }
 
     public function test_una_seccion_encendida_deja_pasar(): void
     {
-        $this->modulos()->cambiar('biblioteca', true);
+        $this->modulos()->cambiar('recursos_digitales', true);
 
-        $this->assertSame('siguió', $this->pasarPor('biblioteca')->getContent());
+        $this->assertSame('siguió', $this->pasarPor('recursos_digitales')->getContent());
     }
 
     /** Sin fila en `modulos_activos` no hay paso: se falla cerrado. */
@@ -71,7 +71,7 @@ class ModuloEncendidoTest extends TenantTestCase
      */
     public function test_biblioteca_y_servicios_nacen_encendidos(): void
     {
-        $this->assertTrue($this->modulos()->activo('biblioteca'));
+        $this->assertTrue($this->modulos()->activo('recursos_digitales'));
         $this->assertTrue($this->modulos()->activo('servicios'));
     }
 

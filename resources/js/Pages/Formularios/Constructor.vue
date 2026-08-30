@@ -48,7 +48,7 @@ const props = defineProps<{
     }[];
     /** Los recortes disponibles, por tipo. */
     destinos: Record<string, { id: number; nombre: string }[]>;
-    /** `admite_ambito` dice si a ese rol se le puede acotar por carrera. */
+    /** `admite_ambito` dice si a ese rol se le puede acotar por programa académico. */
     roles: { id: number; nombre: string; admite_ambito: boolean }[];
     respuestas: number;
     congelado: boolean;
@@ -158,9 +158,9 @@ function eliminarOpcion(campoId: number, opcionId: number): void {
 /*
  * Primero el ROL y sólo despues el recorte.
  *
- * Antes los cuatro destinos —rol, nivel, carrera, oferta— se elegían como
+ * Antes los cuatro destinos —rol, nivel, programa académico, oferta— se elegían como
  * hermanos, y eso decía algo que no es cierto: que un formulario asignado «a la
- * carrera de Derecho» le llega a alguien. Nivel, carrera y oferta no son
+ * programa académico de Derecho» le llega a alguien. Nivel, programa académico y oferta no son
  * destinatarios, son recortes del destinatario.
  */
 const formAsignacion = useForm({
@@ -173,10 +173,10 @@ const formAsignacion = useForm({
 const rolElegido = computed(() => props.roles.find((r) => r.id === formAsignacion.rol_id) ?? null);
 
 /**
- * El recorte sólo se ofrece a quien TIENE carrera: aspirantes y alumnos.
+ * El recorte sólo se ofrece a quien TIENE programa académico: aspirantes y alumnos.
  *
  * A un docente no se le puede acotar un formulario «a Derecho» porque no
- * pertenece a ninguna carrera; ofrecérselo era invitar a guardar una asignación
+ * pertenece a ningún programa académico; ofrecérselo era invitar a guardar una asignación
  * que después nadie sabría cómo resolver.
  */
 const admiteAmbito = computed(() => rolElegido.value?.admite_ambito ?? false);
@@ -185,7 +185,7 @@ const opcionesAmbito = computed(() =>
     (props.destinos[formAsignacion.ambito_tipo ?? ''] ?? []).map((d) => ({ valor: d.id, texto: d.nombre })),
 );
 
-/** Cambiar de rol a uno sin carrera limpia el recorte que hubiera puesto. */
+/** Cambiar de rol a uno sin programa académico limpia el recorte que hubiera puesto. */
 function alCambiarRol(): void {
     if (! admiteAmbito.value) {
         formAsignacion.ambito_tipo = null;
@@ -226,7 +226,7 @@ const opcionesDelPadre = computed(() => {
 
 /** El recorte, en minúscula: va dentro de una frase, no como encabezado. */
 const etiquetaAmbito = (tipo: string | null) =>
-    ({ nivel: 'nivel', carrera: 'carrera', oferta: 'oferta' })[tipo ?? ''] ?? tipo ?? '';
+    ({ nivel: 'nivel', programa_academico: 'programa_academico', oferta: 'oferta' })[tipo ?? ''] ?? tipo ?? '';
 </script>
 
 <template>
@@ -559,7 +559,7 @@ const etiquetaAmbito = (tipo: string | null) =>
 
                     <!--
                         Los subfiltros aparecen SOLO para aspirantes y alumnos.
-                        Son los únicos con carrera, y se acotan igual a propósito:
+                        Son los únicos con programa académico, y se acotan igual a propósito:
                         el aspirante se convierte en alumno y su expediente de
                         formularios viaja con él, así que si cada rol se recortara
                         distinto el expediente se partiría al cruzar.
@@ -571,7 +571,7 @@ const etiquetaAmbito = (tipo: string | null) =>
                             :opciones="[
                                 { valor: null, texto: 'Todo el rol' },
                                 { valor: 'nivel', texto: 'Un nivel de estudios' },
-                                { valor: 'carrera', texto: 'Una carrera' },
+                                { valor: 'programa_academico', texto: 'Una programa_academico' },
                                 { valor: 'oferta', texto: 'Una oferta' },
                             ]"
                             :error="formAsignacion.errors.ambito_tipo"
@@ -600,7 +600,7 @@ const etiquetaAmbito = (tipo: string | null) =>
 
                 <p v-if="rolElegido && !admiteAmbito" class="mt-2 text-xs" :style="{ color: 'var(--color-suave)' }">
                     A {{ rolElegido.nombre.toLowerCase() }} se le muestra siempre: no pertenece a una
-                    carrera, así que no hay por dónde acotarlo.
+                    programa_academico, así que no hay por dónde acotarlo.
                 </p>
             </form>
         </section>

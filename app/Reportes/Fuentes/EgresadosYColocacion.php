@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Reportes\Fuentes;
 
 use App\Models\Academico\Campus;
-use App\Models\Academico\Carrera;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\SituacionAlumno;
 use App\Models\Identidad\Usuario;
@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\DB;
  * EGRESADOS y su colocación: el número que una escuela presenta.
  *
  * ── Una fila es una MATRÍCULA EGRESADA — el DENOMINADOR ──────────────────
- * Quien egresó de dos carreras egresó de las dos y sale dos veces: cada
+ * Quien egresó de dos programas académicos egresó de las dos y sale dos veces: cada
  * programa reporta lo suyo. Y quien cambió de trabajo tres veces sigue siendo
  * UN egresado colocado, porque la colocación entra como conteo y no como filas.
  * Sin esa distinción el porcentaje puede pasar del 100 %.
@@ -36,7 +36,7 @@ use Illuminate\Support\Facades\DB;
  *
  * ── Lo que este reporte NO puede contar, y lo dice ───────────────────────
  * Las colocaciones **sin matrícula señalada** no aparecen: no se pueden
- * atribuir a ningún programa, y repartirlas exigiría inventarle una carrera a
+ * atribuir a ningún programa, y repartirlas exigiría inventarle un programa académico a
  * alguien. Tampoco las de quien todavía no egresa —una práctica profesional—.
  * Las dos cifras las da el tablero de empleabilidad; aquí se declaran en el
  * grano para que la diferencia entre lo registrado y lo contado no sea un
@@ -104,10 +104,10 @@ class EgresadosYColocacion implements FuenteDeReporte
                 valor: fn (MatriculaOferta $m) => $m->persona?->nombreCompleto(),
                 ancho: 34,
             ),
-            'carrera' => new ColumnaReporte(
-                clave: 'carrera',
-                etiqueta: 'Carrera',
-                valor: fn (MatriculaOferta $m) => $m->oferta?->carrera?->nombre,
+            'programa_academico' => new ColumnaReporte(
+                clave: 'programa_academico',
+                etiqueta: 'Programa académico',
+                valor: fn (MatriculaOferta $m) => $m->oferta?->programaAcademico?->nombre,
                 ancho: 32,
             ),
             'campus' => new ColumnaReporte(
@@ -192,7 +192,7 @@ class EgresadosYColocacion implements FuenteDeReporte
                     default => 'No',
                 },
                 ancho: 12,
-                // Tres estados y no dos: `relacionado_con_carrera` es NULLABLE a
+                // Tres estados y no dos: `relacionado_con_programa_academico` es NULLABLE a
                 // propósito, porque «no se preguntó» no es «no es de su área».
                 ayuda: 'En blanco cuando nadie lo capturó: eso NO es un «no».',
             ),
@@ -218,15 +218,15 @@ class EgresadosYColocacion implements FuenteDeReporte
                 aplicar: fn (Builder $q, string $v) => $q->where('matricula_oferta.generacion', $v),
                 ayuda: 'Acota las DOS cifras: quiénes egresaron y cuántos de ésos están colocados.',
             ),
-            'carrera_id' => new FiltroReporte(
-                clave: 'carrera_id',
-                etiqueta: 'Carrera',
+            'programa_academico_id' => new FiltroReporte(
+                clave: 'programa_academico_id',
+                etiqueta: 'Programa académico',
                 tipo: TipoFiltro::ListaMultiple,
                 aplicar: fn (Builder $q, array $v) => $q->whereHas(
                     'oferta',
-                    fn (Builder $o) => $o->whereIn('carrera_id', $v),
+                    fn (Builder $o) => $o->whereIn('programa_academico_id', $v),
                 ),
-                opciones: fn (Usuario $u) => Carrera::query()->orderBy('nombre')->pluck('nombre', 'id')->all(),
+                opciones: fn (Usuario $u) => ProgramaAcademico::query()->orderBy('nombre')->pluck('nombre', 'id')->all(),
             ),
             'campus_id' => new FiltroReporte(
                 clave: 'campus_id',
@@ -279,8 +279,8 @@ class EgresadosYColocacion implements FuenteDeReporte
             ->whereIn('matricula_oferta.situacion_id', $deEgreso)
             ->with([
                 'persona:id,nombre,primer_apellido,segundo_apellido',
-                'oferta:id,carrera_id,campus_id',
-                'oferta.carrera:id,nombre',
+                'oferta:id,programa_academico_id,campus_id',
+                'oferta.programaAcademico:id,nombre',
                 'oferta.campus:id,nombre',
                 'situacion:id,nombre',
             ])
@@ -320,7 +320,7 @@ class EgresadosYColocacion implements FuenteDeReporte
                         c.puesto order by c.fecha_ingreso desc, c.id desc separator 0x1f
                     ), 0x1f, 1) as puesto')
                     ->selectRaw("nullif(substring_index(group_concat(
-                        coalesce(c.relacionado_con_carrera, '') order by c.fecha_ingreso desc, c.id desc separator 0x1f
+                        coalesce(c.relacionado_con_programa_academico, '') order by c.fecha_ingreso desc, c.id desc separator 0x1f
                     ), 0x1f, 1), '') as en_su_area")
                     ->selectRaw('sum(case when c.postulacion_id is not null then 1 else 0 end) as por_la_bolsa')
                     ->groupBy('c.matricula_oferta_id'),

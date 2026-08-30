@@ -33,7 +33,7 @@ class ValidadorTitulo
             ->where('estado', '!=', Titulacion::TITULADO)
             ->with([
                 'matricula.persona',
-                'matricula.oferta.carrera',
+                'matricula.oferta.programaAcademico',
                 'matricula.oferta.plan.autorizacionReconocimiento',
                 'matricula.oferta.campus.institucion',
                 'matricula.tituloModalidad.modalidad',
@@ -88,19 +88,19 @@ class ValidadorTitulo
     private function reglasDeNegocio(MatriculaOferta $m): array
     {
         $m->loadMissing([
-            'persona', 'oferta.carrera', 'oferta.plan.autorizacionReconocimiento',
+            'persona', 'oferta.programaAcademico', 'oferta.plan.autorizacionReconocimiento',
             'oferta.campus.institucion', 'oferta.campus.entidad',
             'tituloModalidad.modalidad', 'tituloServicioSocial.fundamento', 'tituloAntecedente.nivel',
         ]);
 
         $errores = [];
         $persona = $m->persona;
-        $carrera = $m->oferta?->carrera;
+        $programaAcademico = $m->oferta?->programaAcademico;
         $plan = $m->oferta?->plan;
         $campus = $m->oferta?->campus;
         $institucion = $campus?->institucion;
 
-        // Institución, campus y carrera.
+        // Institución, campus y programa académico.
         if ($campus === null) {
             $errores[] = 'la oferta no tiene campus asignado.';
         } elseif ($campus->entidad === null) {
@@ -116,11 +116,11 @@ class ValidadorTitulo
                 $errores[] = 'la institución no tiene nombre oficial. Captúralo en Académico → Institución.';
             }
         }
-        if (blank($carrera?->clave)) {
-            $errores[] = 'la carrera no tiene clave.';
+        if (blank($programaAcademico?->clave)) {
+            $errores[] = 'el programa académico no tiene clave.';
         }
-        if (blank($carrera?->nombre)) {
-            $errores[] = 'la carrera no tiene nombre.';
+        if (blank($programaAcademico?->nombre)) {
+            $errores[] = 'el programa académico no tiene nombre.';
         }
         if (blank($plan?->autorizacion_reconocimiento_id) || $plan?->autorizacionReconocimiento === null) {
             $errores[] = 'el plan no tiene tipo de autorización/reconocimiento. Asígnalo en Académico → Planes.';
@@ -145,8 +145,8 @@ class ValidadorTitulo
         if ($mod === null || blank($mod->fecha_expedicion)) {
             $errores[] = 'falta la fecha de expedición (pestaña Titulación).';
         }
-        if ($mod === null || blank($mod->fecha_terminacion_carrera)) {
-            $errores[] = 'falta la fecha de terminación de la carrera (pestaña Titulación).';
+        if ($mod === null || blank($mod->fecha_terminacion_programa_academico)) {
+            $errores[] = 'falta la fecha de terminación del programa académico (pestaña Titulación).';
         }
 
         // Formulario Servicio social.

@@ -22,7 +22,7 @@ use InvalidArgumentException;
  *   docentes.clave_profesor  9 /  9               ← una fila por grupo
  *   cartera.saldo, cargos.monto…                  ← se agregan, no se agrupan
  *
- * Y **campus no es agrupable en ninguna de las 14**, ni carrera, ni situación,
+ * Y **campus no es agrupable en ninguna de las 14**, ni programa académico, ni situación,
  * ni concepto, ni método de pago. O sea que un modo agrupado montado sobre
  * `columnaSql` ofrecería «agrupar por matrícula» —la pregunta inútil— y no
  * «agrupar por campus», que es la que alguien hace.

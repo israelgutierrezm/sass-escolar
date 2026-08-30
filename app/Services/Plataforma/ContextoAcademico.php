@@ -13,7 +13,7 @@ use App\Models\Identidad\PersonaRol;
 /**
  * Dónde está parada una persona dentro de la escuela.
  *
- * A qué campus pertenece, qué carrera cursa o imparte, en qué grupos está, qué
+ * A qué campus pertenece, qué programa académico cursa o imparte, en qué grupos está, qué
  * materias le tocan. Es lo que hace falta para contestar «¿este aviso es para
  * mí?» sin que quien lo escribió tenga que enumerar personas.
  *
@@ -35,7 +35,7 @@ class ContextoAcademico
     /**
      * Los ids a los que pertenece la persona, por criterio.
      *
-     * @return array{campus: int[], nivel: int[], carrera: int[], plan: int[], grupo: int[], materia: int[]}
+     * @return array{campus: int[], nivel: int[], programa académico: int[], plan: int[], grupo: int[], materia: int[]}
      */
     public function de(?int $personaId): array
     {
@@ -47,7 +47,7 @@ class ContextoAcademico
     }
 
     /**
-     * @return array{campus: int[], nivel: int[], carrera: int[], plan: int[], grupo: int[], materia: int[]}
+     * @return array{campus: int[], nivel: int[], programa académico: int[], plan: int[], grupo: int[], materia: int[]}
      */
     private function resolver(int $personaId): array
     {
@@ -68,7 +68,7 @@ class ContextoAcademico
                 $this->porAlcanceDeRol($personaId),
             ),
             'nivel' => $this->unir($comoAlumno['nivel'], $comoDocente['nivel']),
-            'carrera' => $this->unir($comoAlumno['carrera'], $comoDocente['carrera']),
+            'programa_academico' => $this->unir($comoAlumno['programa_academico'], $comoDocente['programa_academico']),
             'plan' => $this->unir($comoAlumno['plan'], $comoDocente['plan']),
             'grupo' => $this->unir($comoAlumno['grupo'], $comoDocente['grupo']),
             'materia' => $this->unir($comoAlumno['materia'], $comoDocente['materia']),
@@ -103,7 +103,7 @@ class ContextoAcademico
     /**
      * Lo que le toca por estar inscrito.
      *
-     * El campus, la carrera y el plan salen de la OFERTA de su matrícula —que
+     * El campus, el programa académico y el plan salen de la OFERTA de su matrícula —que
      * es donde vive esa combinación—; los grupos y materias, de sus
      * inscripciones del ciclo.
      *
@@ -119,7 +119,7 @@ class ContextoAcademico
          */
         $matriculas = MatriculaOferta::query()
             ->where('persona_id', $personaId)
-            ->with(['oferta:id,campus_id,carrera_id,plan_id', 'oferta.carrera:id,nivel_estudios_id'])
+            ->with(['oferta:id,campus_id,programa_academico_id,plan_id', 'oferta.programaAcademico:id,nivel_estudios_id'])
             ->get(['id', 'oferta_id']);
 
         if ($matriculas->isEmpty()) {
@@ -133,8 +133,8 @@ class ContextoAcademico
 
         return [
             'campus' => $matriculas->pluck('oferta.campus_id')->filter()->unique()->values()->all(),
-            'nivel' => $matriculas->pluck('oferta.carrera.nivel_estudios_id')->filter()->unique()->values()->all(),
-            'carrera' => $matriculas->pluck('oferta.carrera_id')->filter()->unique()->values()->all(),
+            'nivel' => $matriculas->pluck('oferta.programaAcademico.nivel_estudios_id')->filter()->unique()->values()->all(),
+            'programa_academico' => $matriculas->pluck('oferta.programa_academico_id')->filter()->unique()->values()->all(),
             'plan' => $matriculas->pluck('oferta.plan_id')->filter()->unique()->values()->all(),
             'grupo' => $inscripciones->pluck('asignaturaGrupo.grupo_id')->filter()->unique()->values()->all(),
             'materia' => $inscripciones->pluck('asignatura_grupo_id')->filter()->unique()->values()->all(),
@@ -145,7 +145,7 @@ class ContextoAcademico
      * Lo que le toca por dar clase.
      *
      * Se entra por `docente_asignatura_grupo` —la asignación—, y de ahí se sube
-     * al grupo para saber campus y plan. Un docente no tiene «su» carrera: se le
+     * al grupo para saber campus y plan. Un docente no tiene «su» programa académico: se le
      * atribuyen las de los grupos donde imparte.
      *
      * @return array<string, int[]>
@@ -156,8 +156,8 @@ class ContextoAcademico
             ->whereHas('docentes', fn ($q) => $q->where('docentes.persona_id', $personaId))
             ->with([
                 'grupo:id,campus_id,plan_id',
-                'grupo.plan:id,carrera_id',
-                'grupo.plan.carrera:id,nivel_estudios_id',
+                'grupo.plan:id,programa_academico_id',
+                'grupo.plan.programaAcademico:id,nivel_estudios_id',
             ])
             ->get(['id', 'grupo_id']);
 
@@ -167,8 +167,8 @@ class ContextoAcademico
 
         return [
             'campus' => $materias->pluck('grupo.campus_id')->filter()->unique()->values()->all(),
-            'nivel' => $materias->pluck('grupo.plan.carrera.nivel_estudios_id')->filter()->unique()->values()->all(),
-            'carrera' => $materias->pluck('grupo.plan.carrera_id')->filter()->unique()->values()->all(),
+            'nivel' => $materias->pluck('grupo.plan.programaAcademico.nivel_estudios_id')->filter()->unique()->values()->all(),
+            'programa_academico' => $materias->pluck('grupo.plan.programa_academico_id')->filter()->unique()->values()->all(),
             'plan' => $materias->pluck('grupo.plan_id')->filter()->unique()->values()->all(),
             'grupo' => $materias->pluck('grupo_id')->filter()->unique()->values()->all(),
             'materia' => $materias->pluck('id')->values()->all(),
@@ -186,10 +186,10 @@ class ContextoAcademico
     }
 
     /**
-     * @return array{campus: int[], nivel: int[], carrera: int[], plan: int[], grupo: int[], materia: int[]}
+     * @return array{campus: int[], nivel: int[], programa académico: int[], plan: int[], grupo: int[], materia: int[]}
      */
     private function vacio(): array
     {
-        return ['campus' => [], 'nivel' => [], 'carrera' => [], 'plan' => [], 'grupo' => [], 'materia' => []];
+        return ['campus' => [], 'nivel' => [], 'programa_academico' => [], 'plan' => [], 'grupo' => [], 'materia' => []];
     }
 }

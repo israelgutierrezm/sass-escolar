@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * colocaciones (TENANT) — a alguien lo contrataron.
  *
  * Es el hecho que el módulo existe para producir: el indicador de empleabilidad
- * por carrera y por generación, que es lo que piden las acreditadoras.
+ * por programa académico y por generación, que es lo que piden las acreditadoras.
  *
  * Con `postulacion_id` en null, la colocación NO salió de la bolsa: la escuela
  * se enteró dándole seguimiento al egresado. Contar sólo las que vienen de una
@@ -35,7 +35,7 @@ class Colocacion extends Model
         'puesto',
         'salario',
         'fecha_ingreso',
-        'relacionado_con_carrera',
+        'relacionado_con_programa_academico',
         'notas',
     ];
 
@@ -44,7 +44,7 @@ class Colocacion extends Model
         return [
             'fecha_ingreso' => 'date',
             'salario' => 'decimal:2',
-            'relacionado_con_carrera' => 'boolean',
+            'relacionado_con_programa_academico' => 'boolean',
         ];
     }
 

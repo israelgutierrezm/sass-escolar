@@ -18,7 +18,7 @@ use RuntimeException;
  *
  * Dos garantías:
  *  1. La regla se resuelve de lo más específico a lo más general
- *     (plan → carrera → global), así una escuela puede tener un formato
+ *     (plan → programa académico → global), así una escuela puede tener un formato
  *     distinto para posgrado sin duplicar la regla en cada plan.
  *  2. El consecutivo se obtiene con un incremento ATÓMICO sobre
  *     `contadores_matricula`. Nunca se calcula con MAX(matricula)+1: bajo
@@ -90,7 +90,7 @@ class GeneradorMatricula
     {
         $candidatas = [
             ['plan', $oferta->plan_id],
-            ['carrera', $oferta->carrera_id],
+            ['programa_academico', $oferta->programa_academico_id],
             ['global', null],
         ];
 
@@ -181,8 +181,8 @@ class GeneradorMatricula
     {
         return match ($dimension) {
             'campus' => "campus:{$oferta->campus_id}",
-            'nivel' => 'nivel:'.($oferta->carrera?->nivel_estudios_id ?? 0),
-            'carrera' => "carrera:{$oferta->carrera_id}",
+            'nivel' => 'nivel:'.($oferta->programaAcademico?->nivel_estudios_id ?? 0),
+            'programa_academico' => "programa_academico:{$oferta->programa_academico_id}",
             'plan' => "plan:{$oferta->plan_id}",
             default => throw new RuntimeException(
                 "Dimensión de consecutivo no reconocida: {$dimension}"
@@ -214,10 +214,10 @@ class GeneradorMatricula
         return (int) DB::selectOne('SELECT LAST_INSERT_ID() AS valor')->valor;
     }
 
-    /** El nivel se lee a través de la carrera, así que hay que traerla. */
+    /** El nivel se lee a través del programa académico, así que hay que traerla. */
     private function conRelaciones(Oferta $oferta): Oferta
     {
-        $oferta->loadMissing(['carrera.nivelEstudios', 'plan', 'campus']);
+        $oferta->loadMissing(['programaAcademico.nivelEstudios', 'plan', 'campus']);
 
         return $oferta;
     }
@@ -225,9 +225,9 @@ class GeneradorMatricula
     /**
      * Sustituye los tokens de la plantilla.
      *
-     * Dos formas: `{CARRERA}` pone la clave entera y `{CARRERA:2}` sus dos
+     * Dos formas: `{PROGRAMA}` pone la clave entera y `{PROGRAMA:2}` sus dos
      * primeras letras. El recorte existe porque hay escuelas cuya clave de
-     * carrera mide cinco caracteres y en la matrícula sólo caben dos; sin él,
+     * programa académico mide cinco caracteres y en la matrícula sólo caben dos; sin él,
      * el único camino era inventarse una clave falsa en el catálogo.
      *
      * El consecutivo va aparte, con su propio token: se rellena con ceros según
@@ -240,8 +240,8 @@ class GeneradorMatricula
             'AA' => substr((string) $anio, -2),
             'MM' => now()->format('m'),
             'CICLO' => (string) Ciclo::enCurso()?->clave,
-            'NIVEL' => (string) $oferta->carrera?->nivelEstudios?->clave,
-            'CARRERA' => (string) $oferta->carrera?->clave,
+            'NIVEL' => (string) $oferta->programaAcademico?->nivelEstudios?->clave,
+            'PROGRAMA' => (string) $oferta->programaAcademico?->clave,
             'PLAN' => (string) $oferta->plan?->clave,
             'CAMPUS' => (string) $oferta->campus?->clave,
         ];

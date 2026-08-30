@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Models\Academico\Carrera;
 use App\Models\Academico\NivelEstudio;
+use App\Models\Academico\ProgramaAcademico;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -13,10 +13,10 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Carreras. Incluye los campos que exige la SEP (clave SAT para CFDI) y la
- * lista de documentos que la carrera pide en admisión.
+ * Programas académicos. Incluye los campos que exige la SEP (clave SAT para CFDI) y la
+ * lista de documentos que el programa académico pide en admisión.
  */
-class CarreraController extends Controller
+class ProgramaAcademicoController extends Controller
 {
     public function index(Request $request): Response
     {
@@ -25,8 +25,8 @@ class CarreraController extends Controller
             'nivel_estudios_id' => $request->query('nivel_estudios_id'),
         ];
 
-        return Inertia::render('Academico/Carreras/Index', [
-            'carreras' => Carrera::query()
+        return Inertia::render('Academico/ProgramasAcademicos/Index', [
+            'programas_academicos' => ProgramaAcademico::query()
                 ->with('nivelEstudios:id,nombre')
                 ->withCount('planes')
                 ->when($filtros['busqueda'] !== '', fn ($q) => $q->where(fn ($sub) => $sub
@@ -37,12 +37,12 @@ class CarreraController extends Controller
                 ->orderBy('nombre')
                 ->paginate(10)
                 ->withQueryString()
-                ->through(fn (Carrera $carrera) => [
-                    'id' => $carrera->id,
-                    'clave' => $carrera->clave,
-                    'nombre' => $carrera->nombre,
-                    'nivel' => $carrera->nivelEstudios?->nombre,
-                    'planes_count' => $carrera->planes_count,
+                ->through(fn (ProgramaAcademico $programaAcademico) => [
+                    'id' => $programaAcademico->id,
+                    'clave' => $programaAcademico->clave,
+                    'nombre' => $programaAcademico->nombre,
+                    'nivel' => $programaAcademico->nivelEstudios?->nombre,
+                    'planes_count' => $programaAcademico->planes_count,
                 ]),
             'filtros' => $filtros,
             'niveles' => NivelEstudio::query()->activos()->orderBy('orden')->get(['id', 'nombre']),
@@ -52,23 +52,23 @@ class CarreraController extends Controller
 
     public function create(): Response
     {
-        return Inertia::render('Academico/Carreras/Formulario', [
-            'carrera' => null,
+        return Inertia::render('Academico/ProgramasAcademicos/Formulario', [
+            'programa_academico' => null,
             ...$this->catalogos(),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
-        Carrera::create($this->validar($request));
+        ProgramaAcademico::create($this->validar($request));
 
-        return redirect()->route('tenant.academico.carreras.index')->with('exito', 'Carrera creada.');
+        return redirect()->route('tenant.academico.programas_academicos.index')->with('exito', 'Programa académico creada.');
     }
 
-    public function edit(Carrera $carrera): Response
+    public function edit(ProgramaAcademico $programaAcademico): Response
     {
-        return Inertia::render('Academico/Carreras/Formulario', [
-            'carrera' => $carrera->only([
+        return Inertia::render('Academico/ProgramasAcademicos/Formulario', [
+            'programa_academico' => $programaAcademico->only([
                 'id', 'identificador', 'clave', 'nombre', 'nivel_estudios_id',
                 'imagen_url', 'emite_documentos_oficiales',
             ]),
@@ -76,26 +76,26 @@ class CarreraController extends Controller
         ]);
     }
 
-    public function update(Request $request, Carrera $carrera): RedirectResponse
+    public function update(Request $request, ProgramaAcademico $programaAcademico): RedirectResponse
     {
-        $carrera->update($this->validar($request, $carrera->id));
+        $programaAcademico->update($this->validar($request, $programaAcademico->id));
 
-        return redirect()->route('tenant.academico.carreras.index')->with('exito', 'Carrera actualizada.');
+        return redirect()->route('tenant.academico.programas_academicos.index')->with('exito', 'Programa académico actualizada.');
     }
 
     /**
-     * Una carrera con planes no se elimina: sus planes cuelgan de ella y a su
+     * Un programa académico con planes no se elimina: sus planes cuelgan de ella y a su
      * vez tienen materias e historial.
      */
-    public function destroy(Carrera $carrera): RedirectResponse
+    public function destroy(ProgramaAcademico $programaAcademico): RedirectResponse
     {
-        if ($carrera->planes()->exists()) {
-            return back()->with('error', 'No se puede eliminar: la carrera tiene planes de estudio.');
+        if ($programaAcademico->planes()->exists()) {
+            return back()->with('error', 'No se puede eliminar: el programa académico tiene planes de estudio.');
         }
 
-        $carrera->delete();
+        $programaAcademico->delete();
 
-        return back()->with('exito', 'Carrera eliminada.');
+        return back()->with('exito', 'Programa académico eliminada.');
     }
 
     /**
@@ -105,7 +105,7 @@ class CarreraController extends Controller
     {
         return $request->validate([
             'identificador' => ['required', 'string', 'max:50'],
-            'clave' => ['required', 'string', 'max:50', Rule::unique('carreras', 'clave')->ignore($id)->whereNull('deleted_at')],
+            'clave' => ['required', 'string', 'max:50', Rule::unique('programas_academicos', 'clave')->ignore($id)->whereNull('deleted_at')],
             'nombre' => ['required', 'string', 'max:255'],
             // Ya es catálogo TENANT (misma conexión), así que se puede validar
             // que exista de verdad, cosa que con la landlord no se hacía.
@@ -131,7 +131,7 @@ class CarreraController extends Controller
     private function catalogos(): array
     {
         return [
-            // La clave SAT ya no se captura por carrera: vive en el nivel de
+            // La clave SAT ya no se captura por programa académico: vive en el nivel de
             // estudios (el SAT la asigna por nivel).
             'niveles' => NivelEstudio::query()->activos()->orderBy('orden')->get(['id', 'nombre']),
         ];

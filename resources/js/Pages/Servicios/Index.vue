@@ -41,7 +41,7 @@ const eligiendo = ref<Servicio | null>(null);
 
 const formulario = useForm({
     servicio_id: 0,
-    // Casi siempre hay una sola; quien estudia dos carreras elige.
+    // Casi siempre hay una sola; quien estudia dos programas académicos elige.
     matricula_oferta_id: props.matriculas[0]?.id ?? 0,
     nota: '',
 });

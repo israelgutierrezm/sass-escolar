@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Http\Controllers\BibliotecaController;
-use App\Models\ControlEscolar\BibliotecaEnlace;
+use App\Http\Controllers\RecursosDigitalesController;
+use App\Models\ControlEscolar\RecursoDigital;
 use App\Models\Identidad\Usuario;
 use App\Panel\RegistroTarjetas;
-use App\Panel\Tarjetas\BibliotecaDigital;
+use App\Panel\Tarjetas\RecursosDigitales;
 use App\Services\Plataforma\ModulosDeLaEscuela;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -17,7 +17,7 @@ use Tests\Concerns\CreaEscuelaDePrueba;
 use Tests\TenantTestCase;
 
 /**
- * La biblioteca digital.
+ * La recursos digitales.
  *
  * ── El caso que justifica la prueba de la dirección ────────────────────────
  * Lo que se captura aquí lo publica la escuela a TODOS sus alumnos y sale como
@@ -29,7 +29,7 @@ use Tests\TenantTestCase;
  * los que fija la lista de esquemas. Por eso la prueba los incluye: sin ellos
  * pasaría igual con la regla sin acotar y no estaría comprobando nada.
  */
-class BibliotecaDigitalTest extends TenantTestCase
+class RecursosDigitalesTest extends TenantTestCase
 {
     use CreaEscuelaDePrueba;
 
@@ -58,9 +58,9 @@ class BibliotecaDigitalTest extends TenantTestCase
 
     public function test_una_direccion_normal_se_acepta(): void
     {
-        $this->publicar(['url' => 'https://biblioteca.example.mx/revistas']);
+        $this->publicar(['url' => 'https://recursos-digitales.example.mx/revistas']);
 
-        $this->assertSame(1, BibliotecaEnlace::query()->count());
+        $this->assertSame(1, RecursoDigital::query()->count());
     }
 
     /**
@@ -75,7 +75,7 @@ class BibliotecaDigitalTest extends TenantTestCase
         $this->publicar(['titulo' => 'Con portada', 'imagen_url' => 'https://cdn.example.mx/a.png']);
         $this->publicar(['titulo' => 'Sin portada', 'imagen_url' => null]);
 
-        $props = app(BibliotecaController::class)->index()->toResponse($this->peticionDe($this->usuarioConAlcance()))->getData(true)['props'];
+        $props = app(RecursosDigitalesController::class)->index()->toResponse($this->peticionDe($this->usuarioConAlcance()))->getData(true)['props'];
 
         $this->assertSame(['Con portada'], array_column($props['tarjetas'], 'titulo'));
         $this->assertSame(['Sin portada'], array_column($props['directos'], 'titulo'));
@@ -86,8 +86,8 @@ class BibliotecaDigitalTest extends TenantTestCase
     {
         $this->publicar(['titulo' => 'Retirado', 'activo' => false]);
 
-        $this->assertSame(0, BibliotecaEnlace::query()->publicados()->count());
-        $this->assertSame(1, BibliotecaEnlace::query()->count());
+        $this->assertSame(0, RecursoDigital::query()->publicados()->count());
+        $this->assertSame(1, RecursoDigital::query()->count());
     }
 
     /**
@@ -122,19 +122,19 @@ class BibliotecaDigitalTest extends TenantTestCase
          */
         $usuario = $this->usuarioConAlcance();
         $usuario->rolActivo->givePermissionTo(
-            Permission::findOrCreate('ver-biblioteca', 'web'),
+            Permission::findOrCreate('ver-recursos-digitales', 'web'),
         );
 
-        $this->assertContains('biblioteca', $this->clavesDelPanel($usuario));
+        $this->assertContains('recursos_digitales', $this->clavesDelPanel($usuario));
 
-        $this->modulos()->cambiar('biblioteca', false);
+        $this->modulos()->cambiar('recursos_digitales', false);
 
-        $this->assertNotContains('biblioteca', $this->clavesDelPanel($usuario));
+        $this->assertNotContains('recursos_digitales', $this->clavesDelPanel($usuario));
 
         // Y al reencenderla vuelve: apagar no es borrar.
-        $this->modulos()->cambiar('biblioteca', true);
+        $this->modulos()->cambiar('recursos_digitales', true);
 
-        $this->assertContains('biblioteca', $this->clavesDelPanel($usuario));
+        $this->assertContains('recursos_digitales', $this->clavesDelPanel($usuario));
     }
 
     public function test_la_tarjeta_no_invita_a_una_biblioteca_vacia(): void
@@ -147,7 +147,7 @@ class BibliotecaDigitalTest extends TenantTestCase
     /** @param array<string, mixed> $cambios */
     private function publicar(array $cambios): void
     {
-        $peticion = Request::create('/escolar/biblioteca', 'POST', array_merge([
+        $peticion = Request::create('/escolar/recursos-digitales', 'POST', array_merge([
             'titulo' => 'Recurso de prueba',
             'descripcion' => null,
             'url' => 'https://example.mx',
@@ -155,12 +155,12 @@ class BibliotecaDigitalTest extends TenantTestCase
             'activo' => true,
         ], $cambios));
 
-        app(BibliotecaController::class)->store($peticion);
+        app(RecursosDigitalesController::class)->store($peticion);
     }
 
-    private function tarjeta(): BibliotecaDigital
+    private function tarjeta(): RecursosDigitales
     {
-        return new BibliotecaDigital;
+        return new RecursosDigitales;
     }
 
     /**
@@ -175,7 +175,7 @@ class BibliotecaDigitalTest extends TenantTestCase
     private function clavesDelPanel(Usuario $usuario): array
     {
         $registro = new RegistroTarjetas($this->modulos());
-        $registro->registrar(BibliotecaDigital::class);
+        $registro->registrar(RecursosDigitales::class);
 
         return array_column($registro->para($usuario->fresh(['rolActivo'])), 'clave');
     }

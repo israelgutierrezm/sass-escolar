@@ -12,17 +12,17 @@ use RuntimeException;
 /**
  * Con qué razón social se le factura a una matrícula.
  *
- * Gana la asignación MÁS ESPECÍFICA: carrera → nivel de estudios → global. Es
+ * Gana la asignación MÁS ESPECÍFICA: programa académico → nivel de estudios → global. Es
  * el mismo criterio de `ResolutorPlanCobro`, y por la misma razón: la escuela
  * dice "todo con la razón social A, salvo posgrado, que va con la B" sin tener
- * que repetir la A en cada una de sus veinte carreras.
+ * que repetir la A en cada una de sus veinte programas académicos.
  *
  * Cuando NO hay ningún emisor dado de alta se cae a `config('cfdi.emisor')`,
  * que es el emisor único que existía antes de esta feature. Es compatibilidad
  * hacia atrás, no un respaldo permanente: en cuanto la escuela da de alta el
  * primero, la configuración deja de usarse. Distinguir los dos casos importa —
  * "no hay ninguno configurado" es una instalación que aún no llega aquí; "hay
- * varios y ninguno aplica a esta carrera" es un error que hay que gritar, no
+ * varios y ninguno aplica a este programa académico" es un error que hay que gritar, no
  * tapar con un emisor por omisión que facturaría a nombre equivocado.
  */
 class ResolutorEmisorFiscal
@@ -36,19 +36,19 @@ class ResolutorEmisorFiscal
 
     public function para(MatriculaOferta $matricula): ?EmisorFiscal
     {
-        $matricula->loadMissing('oferta.carrera');
-        $carrera = $matricula->oferta?->carrera;
+        $matricula->loadMissing('oferta.programaAcademico');
+        $programaAcademico = $matricula->oferta?->programaAcademico;
 
         $identificador = [
-            EmisorAsignacion::APLICA_CARRERA => $carrera?->id,
-            EmisorAsignacion::APLICA_NIVEL => $carrera?->nivel_estudios_id,
+            EmisorAsignacion::APLICA_CARRERA => $programaAcademico?->id,
+            EmisorAsignacion::APLICA_NIVEL => $programaAcademico?->nivel_estudios_id,
             EmisorAsignacion::APLICA_GLOBAL => null,
         ];
 
         foreach (self::PRECEDENCIA as $tipo) {
             $id = $identificador[$tipo];
 
-            // Sin carrera o sin nivel no se puede buscar por ese eje; se salta
+            // Sin programa académico o sin nivel no se puede buscar por ese eje; se salta
             // al siguiente en vez de traer cualquier asignación de ese tipo.
             if ($tipo !== EmisorAsignacion::APLICA_GLOBAL && $id === null) {
                 continue;
@@ -94,15 +94,15 @@ class ResolutorEmisorFiscal
             ];
         }
 
-        // Hay razones sociales dadas de alta pero ninguna cubre esta carrera.
+        // Hay razones sociales dadas de alta pero ninguna cubre este programa académico.
         // Es una configuración incompleta y hay que decirlo: facturar con la
         // primera que aparezca emitiría el comprobante a nombre equivocado, y
         // eso no se corrige con un UPDATE sino cancelando ante el SAT.
         if (EmisorFiscal::query()->activos()->exists()) {
-            $carrera = $matricula->oferta?->carrera?->nombre ?? 'esta carrera';
+            $programaAcademico = $matricula->oferta?->programaAcademico?->nombre ?? 'este programa académico';
 
             throw new RuntimeException(
-                "No hay razón social asignada para {$carrera}. "
+                "No hay razón social asignada para {$programaAcademico}. "
                 .'Asígnale una en Finanzas → Razones sociales, o agrega una asignación global.'
             );
         }

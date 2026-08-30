@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models\Admisiones;
 
-use App\Models\Academico\Carrera;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Concerns\TieneAuditoria;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -21,7 +21,7 @@ class ExpedienteDocumento extends Model
     protected $fillable = [
         'aspirante_id',
         'documento_id',
-        'carrera_id',
+        'programa_academico_id',
         'descripcion',
         'url',
         'estado_documento_id',
@@ -48,9 +48,9 @@ class ExpedienteDocumento extends Model
         return $this->belongsTo(DocumentoRequerido::class, 'documento_id');
     }
 
-    public function carrera(): BelongsTo
+    public function programaAcademico(): BelongsTo
     {
-        return $this->belongsTo(Carrera::class);
+        return $this->belongsTo(ProgramaAcademico::class);
     }
 
     public function estado(): BelongsTo

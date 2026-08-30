@@ -20,7 +20,7 @@ use App\Models\Admisiones\Asesor;
 use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\EtapaCrm;
 use App\Models\Identidad\Persona;
-use App\Models\Promocion\SeguimientoAspirante;
+use App\Models\Captacion\SeguimientoAspirante;
 use App\Models\Tenant;
 use App\Services\AgendaDelAspirante;
 use App\Services\AsignadorAsesor;

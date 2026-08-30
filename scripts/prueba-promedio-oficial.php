@@ -10,7 +10,7 @@
  * números distintos para el mismo alumno, y ninguna fallaba: sólo decían otra
  * cosa. Ver `docs/decisiones.md`, 2026-08-26.
  *
- *  1. El promedio es de la MATRÍCULA. Quien estudia dos carreras tiene dos, y
+ *  1. El promedio es de la MATRÍCULA. Quien estudia dos programas académicos tiene dos, y
  *     el que se enseña en una sola cifra es UNO DE LOS SUYOS —el más bajo—, no
  *     la mezcla de ambos. Antes salía 8.41 para quien tiene 8.53 y 8.29.
  *  2. Y se DICE de cuál es, en cuanto hay más de uno. Sin el nombre, la cifra
@@ -70,7 +70,7 @@ try {
 
     /*
      * Alguien con DOS matrículas y calificaciones en las dos. Es donde la
-     * implementación vieja mezclaba las carreras.
+     * implementación vieja mezclaba los programas académicos.
      */
     $conVarias = MatriculaOferta::query()
         ->selectRaw('persona_id, count(*) as cuantas')
@@ -82,7 +82,7 @@ try {
     $suyas = null;
 
     foreach ($conVarias as $personaId) {
-        $ms = MatriculaOferta::with('oferta.plan', 'oferta.carrera', 'persona')
+        $ms = MatriculaOferta::with('oferta.plan', 'oferta.programaAcademico', 'persona')
             ->where('persona_id', $personaId)->get();
 
         $conCalif = $ms->filter(fn (MatriculaOferta $m) => Historial::query()
@@ -110,7 +110,7 @@ try {
 
     /*
      * LA comprobación. Antes salía la media de las dos —8.41 sobre 8.53 y
-     * 8.29—, un número que no es el promedio de ninguna de sus carreras.
+     * 8.29—, un número que no es el promedio de ninguna de sus programas académicos.
      */
     verificar('La cifra que se enseña es UNO DE SUS promedios, no la mezcla',
         in_array((float) $leido['promedio'], $porPrograma->all(), true),
@@ -120,18 +120,18 @@ try {
         (float) $leido['promedio'] === $porPrograma->min(),
         $leido['promedio'].' vs mínimo '.$porPrograma->min());
 
-    echo PHP_EOL.'2. Se dice DE CUÁL carrera es'.PHP_EOL;
+    echo PHP_EOL.'2. Se dice DE CUÁL programa académico es'.PHP_EOL;
 
-    verificar('Con dos programas, la carrera va nombrada',
+    verificar('Con dos programas, el programa académico va nombrada',
         filled($leido['promedio_de']), (string) $leido['promedio_de']);
 
-    $carreraDelPeor = $suyas
+    $programaAcademicoDelPeor = $suyas
         ->sortBy(fn (MatriculaOferta $m) => (float) $historial->resumen($m)['promedio'])
-        ->first()?->oferta?->carrera?->nombre;
+        ->first()?->oferta?->programaAcademico?->nombre;
 
-    verificar('Y es la carrera del promedio que se está enseñando',
-        $leido['promedio_de'] === $carreraDelPeor,
-        $leido['promedio_de'].' vs '.$carreraDelPeor);
+    verificar('Y es el programa académico del promedio que se está enseñando',
+        $leido['promedio_de'] === $programaAcademicoDelPeor,
+        $leido['promedio_de'].' vs '.$programaAcademicoDelPeor);
 
     verificar('El desglose por programa viaja completo',
         count($leido['programas']) === MatriculaOferta::where('persona_id', $elegida->id)->count(),
@@ -147,7 +147,7 @@ try {
      * cambian los datos.
      *
      * Y es un escenario REAL, no artificial: es exactamente cómo se ve quien
-     * acaba de inscribirse a una segunda carrera.
+     * acaba de inscribirse a una segunda programa académico.
      */
     $laQueSeQueda = $suyas->first();
     $laOtra = $suyas->last();
@@ -160,9 +160,9 @@ try {
         (float) $unSoloPrograma['promedio'] === (float) $historial->resumen($laQueSeQueda)['promedio'],
         (string) $unSoloPrograma['promedio']);
 
-    // Nombrar la carrera cuando no hay entre qué elegir sería ruido: la pantalla
+    // Nombrar el programa académico cuando no hay entre qué elegir sería ruido: la pantalla
     // se tiene que ver igual que siempre para la inmensa mayoría.
-    verificar('Y NO se le nombra la carrera: no hay entre qué elegir',
+    verificar('Y NO se le nombra el programa académico: no hay entre qué elegir',
         $unSoloPrograma['promedio_de'] === null, var_export($unSoloPrograma['promedio_de'], true));
 
     // Se devuelve el historial para las secciones que siguen.

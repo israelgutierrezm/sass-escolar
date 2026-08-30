@@ -29,7 +29,7 @@ const props = defineProps<{
     plan: {
         id: number;
         nombre: string;
-        carrera: string | null;
+        programa_academico: string | null;
         minima: number;
         maxima: number;
         decimales: number;
@@ -71,7 +71,7 @@ function corregir(f: Fila): void {
         <BotonVolver href="/escolar/configuracion/calificaciones" texto="Calificaciones" />
 
         <div class="tarjeta mb-4 px-6 py-4">
-            <h2 class="font-semibold">{{ plan.carrera }} · {{ plan.nombre }}</h2>
+            <h2 class="font-semibold">{{ plan.programaAcademico }} · {{ plan.nombre }}</h2>
             <p class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
                 Hoy este plan califica de {{ plan.minima }} a {{ plan.maxima }}, {{ plan.como_califica }}.
                 Al redondear: {{ plan.como_redondea.toLowerCase() }}.

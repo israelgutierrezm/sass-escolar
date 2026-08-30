@@ -34,7 +34,7 @@ class PlantillaAcademica
     private const FILAS = 300;
 
     /**
-     * Plantilla COMPLETA: campus, carreras, planes y asignaturas. La institución
+     * Plantilla COMPLETA: campus, programas académicos, planes y asignaturas. La institución
      * NO va aquí; se carga aparte, a mano, porque hay una sola por escuela.
      *
      * @return string ruta del .xlsx temporal
@@ -51,7 +51,7 @@ class PlantillaAcademica
             'Las columnas con lista desplegable solo aceptan valores del catálogo de tu escuela.',
             'Los encabezados con * son obligatorios.',
             'Institución (clave) en «Campus» debe coincidir con una Clave de la hoja «Institución».',
-            'Carrera (clave) en «Planes» debe coincidir con una Clave de la hoja «Carreras».',
+            'Programa académico (clave) en «Planes» debe coincidir con una Clave de la hoja «Programas académicos».',
             'Plan (clave) en «Asignaturas» debe coincidir con una Clave de la hoja «Planes».',
             'Para el certificado electrónico, el campus necesita entidad federativa y estar ligado a una institución.',
         ]);
@@ -67,14 +67,14 @@ class PlantillaAcademica
             ['Entidad federativa', $rangos['entidades']], ['Tipo de campus', $rangos['tiposCampus']],
         ], ['CEN', 'Campus Central', 'IPES-DEMO', $this->primero(EntidadFederativa::class), $this->primero(TipoCampus::class)]);
 
-        $this->hoja($libro, 'Carreras', [
+        $this->hoja($libro, 'ProgramasAcademicos', [
             ['Identificador *', null], ['Clave *', null], ['Nombre *', null], ['Nivel *', $rangos['niveles']],
         ], ['ISC', 'ISC-2024', 'Ingeniería en Sistemas', $this->primero(NivelEstudio::class)]);
 
         $this->hoja($libro, 'Planes', [
-            ['Carrera (clave) *', null], ['Clave *', null], ['Nombre *', null],
+            ['Programa académico (clave) *', null], ['Clave *', null], ['Nombre *', null],
             ['Tipo de periodo *', $rangos['tiposPeriodo']], ['Total de periodos *', null],
-            ['Número de asignaturas para completar la carrera', null], ['Créditos para completar la carrera', null],
+            ['Número de asignaturas para completar el programa académico', null], ['Créditos para completar el programa académico', null],
             ['Calif. mínima *', null], ['Calif. máxima *', null], ['Calif. mínima aprobatoria *', null],
             ['Tipo de autorización *', $rangos['autorizaciones']], ['RVOE', null], ['Fecha de RVOE (AAAA-MM-DD)', null],
         ], ['ISC-2024', 'PLAN-ISC-24', 'Plan ISC 2024', $this->primero(TipoPeriodo::class), 9, 50, 300, 0, 100, 70, $this->primero(AutorizacionReconocimiento::class), 'RVOE-12345', '2024-08-15']);

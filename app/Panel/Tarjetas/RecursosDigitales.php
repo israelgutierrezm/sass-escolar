@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Panel\Tarjetas;
 
-use App\Models\ControlEscolar\BibliotecaEnlace;
+use App\Models\ControlEscolar\RecursoDigital;
 use App\Models\Identidad\Usuario;
 use App\Panel\TarjetaDeModulo;
 use App\Panel\TarjetaPanel;
 
 /**
- * La biblioteca digital, en el panel del alumno.
+ * La recursos digitales, en el panel del alumno.
  *
  * Es la ÚNICA puerta de entrada: la sección no cuelga del menú lateral, así que
  * si esta tarjeta no sale, el alumno no tiene por dónde llegar.
@@ -20,7 +20,7 @@ use App\Panel\TarjetaPanel;
  * todavía no hay nada publicado. Este último evita el peor resultado de todos:
  * una tarjeta que invita a entrar a una pantalla vacía.
  */
-class BibliotecaDigital implements TarjetaDeModulo, TarjetaPanel
+class RecursosDigitales implements TarjetaDeModulo, TarjetaPanel
 {
     /**
      * Se DECLARA en vez de inyectarse.
@@ -32,22 +32,22 @@ class BibliotecaDigital implements TarjetaDeModulo, TarjetaPanel
      */
     public function modulo(): string
     {
-        return 'biblioteca';
+        return 'recursos_digitales';
     }
 
     public function clave(): string
     {
-        return 'biblioteca';
+        return 'recursos_digitales';
     }
 
     public function titulo(): string
     {
-        return 'Biblioteca digital';
+        return 'Recursos digitales';
     }
 
     public function permiso(): ?string
     {
-        return 'ver-biblioteca';
+        return 'ver-recursos-digitales';
     }
 
     public function tipo(): string
@@ -67,7 +67,7 @@ class BibliotecaDigital implements TarjetaDeModulo, TarjetaPanel
 
     public function datos(Usuario $usuario): ?array
     {
-        $publicados = BibliotecaEnlace::query()->publicados()->count();
+        $publicados = RecursoDigital::query()->publicados()->count();
 
         if ($publicados === 0) {
             return null;
@@ -77,7 +77,7 @@ class BibliotecaDigital implements TarjetaDeModulo, TarjetaPanel
             'valor' => $publicados,
             'formato' => 'entero',
             'pie' => $publicados === 1 ? 'recurso disponible' : 'recursos disponibles',
-            'enlace' => '/biblioteca',
+            'enlace' => '/recursos-digitales',
         ];
     }
 }

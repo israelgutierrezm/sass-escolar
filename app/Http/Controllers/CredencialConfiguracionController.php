@@ -26,7 +26,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  *
  * ── Por qué por ROL y no una sola para la escuela ──────────────────────────
  * Porque un gafete de alumno y uno de personal no llevan lo mismo ni se ven
- * igual: el del alumno trae matrícula y carrera, el del docente no tiene ni una
+ * igual: el del alumno trae matrícula y programa académico, el del docente no tiene ni una
  * ni otra. Y hay escuelas que emiten sólo para alumnos. Una configuración
  * global obligaría a poner campos que la mitad de la gente no tiene.
  *
@@ -137,7 +137,7 @@ class CredencialConfiguracionController extends Controller
      *
      * Con datos INVENTADOS y no con los de una persona real. Configurar no es
      * consultar el expediente de nadie, y quien acomoda las cajas necesita ver
-     * el caso difícil —el nombre largo, la carrera larga— que justo la primera
+     * el caso difícil —el nombre largo, el programa académico larga— que justo la primera
      * persona de la lista puede no tener.
      */
     public function vistaPrevia(Request $peticion, string $cara): Response

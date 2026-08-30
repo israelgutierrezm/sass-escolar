@@ -6,17 +6,17 @@ namespace App\Console\Commands;
 
 use App\Models\Academico\AutorizacionReconocimiento;
 use App\Models\Academico\Campus;
-use App\Models\Academico\Carrera;
+use App\Models\Academico\NivelEstudio;
 use App\Models\Academico\Oferta;
 use App\Models\Academico\PlanEstudio;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Academico\TipoCampus;
 use App\Models\Academico\TipoPeriodo;
-use App\Models\Academico\NivelEstudio;
 use App\Models\Tenant;
 use Illuminate\Console\Command;
 
 /**
- * Crea una estructura académica mínima (campus → carrera → plan → oferta) para
+ * Crea una estructura académica mínima (campus → programa académico → plan → oferta) para
  * poder probar el flujo de admisión de punta a punta mientras no existan las
  * pantallas de catálogo académico.
  *
@@ -26,7 +26,7 @@ class CrearOfertaDemo extends Command
 {
     protected $signature = 'acadion:oferta-demo {--tenant=demo : Id de la escuela}';
 
-    protected $description = 'Crea campus, carrera, plan y oferta de prueba en una escuela';
+    protected $description = 'Crea campus, programa académico, plan y oferta de prueba en una escuela';
 
     public function handle(): int
     {
@@ -61,7 +61,7 @@ class CrearOfertaDemo extends Command
             ],
         );
 
-        $carrera = Carrera::query()->firstOrCreate(
+        $programaAcademico = ProgramaAcademico::query()->firstOrCreate(
             ['clave' => 'ISC'],
             [
                 'identificador' => 'ISC-001',
@@ -71,7 +71,7 @@ class CrearOfertaDemo extends Command
         );
 
         $plan = PlanEstudio::query()->firstOrCreate(
-            ['carrera_id' => $carrera->id, 'clave' => 'ISC-2026'],
+            ['programa_academico_id' => $programaAcademico->id, 'clave' => 'ISC-2026'],
             [
                 'nombre' => 'Plan 2026',
                 'abreviacion' => 'ISC26',
@@ -90,7 +90,7 @@ class CrearOfertaDemo extends Command
 
         $oferta = Oferta::query()->firstOrCreate(
             [
-                'carrera_id' => $carrera->id,
+                'programa_academico_id' => $programaAcademico->id,
                 'plan_id' => $plan->id,
                 'campus_id' => $campus->id,
             ],
@@ -101,7 +101,7 @@ class CrearOfertaDemo extends Command
 
         $this->info('Estructura académica de prueba lista.');
         $this->line("  Campus:  {$campus->nombre}");
-        $this->line("  Carrera: {$carrera->nombre}");
+        $this->line("  ProgramaAcademico: {$programaAcademico->nombre}");
         $this->line("  Plan:    {$plan->nombre} ({$plan->clave})");
         $this->line("  Oferta:  #{$oferta->id} presencial, abierta");
 

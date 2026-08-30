@@ -87,7 +87,7 @@ class AlcanceDeDestinos
         $d->orWhere(fn (Builder $q) => $this->porCriterio($q, DestinoEvento::Rol, $roles));
         $d->orWhere(fn (Builder $q) => $this->porCriterio($q, DestinoEvento::Campus, $mio['campus']));
         $d->orWhere(fn (Builder $q) => $this->porCriterio($q, DestinoEvento::Nivel, $mio['nivel']));
-        $d->orWhere(fn (Builder $q) => $this->porCriterio($q, DestinoEvento::Carrera, $mio['carrera']));
+        $d->orWhere(fn (Builder $q) => $this->porCriterio($q, DestinoEvento::ProgramaAcademico, $mio['programa_academico']));
         $d->orWhere(fn (Builder $q) => $this->porCriterio($q, DestinoEvento::Plan, $mio['plan']));
         $d->orWhere(fn (Builder $q) => $this->porCriterio($q, DestinoEvento::Grupo, $mio['grupo']));
         $d->orWhere(fn (Builder $q) => $this->porCriterio($q, DestinoEvento::Materia, $mio['materia']));
@@ -149,7 +149,7 @@ class AlcanceDeDestinos
     /**
      * El contexto académico de VARIAS personas, unido.
      *
-     * Un padre con dos hijos en carreras distintas alcanza lo de las dos: sus
+     * Un padre con dos hijos en programas académicos distintas alcanza lo de las dos: sus
      * contextos se suman igual que se suman los destinos de un aviso.
      *
      * @param  array<int, int>  $personas
@@ -157,7 +157,7 @@ class AlcanceDeDestinos
      */
     private function contextoDe(array $personas): array
     {
-        $unido = ['campus' => [], 'nivel' => [], 'carrera' => [], 'plan' => [], 'grupo' => [], 'materia' => []];
+        $unido = ['campus' => [], 'nivel' => [], 'programa_academico' => [], 'plan' => [], 'grupo' => [], 'materia' => []];
 
         foreach ($personas as $persona) {
             foreach ($this->contexto->de($persona) as $clave => $ids) {

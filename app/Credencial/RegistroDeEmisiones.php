@@ -28,7 +28,7 @@ class RegistroDeEmisiones
      * primera vez.
      *
      * El rol y la matrícula forman parte de la llave: quien estudia dos
-     * carreras tiene dos credenciales y cada QR lleva a la suya, y quien da
+     * programas académicos tiene dos credenciales y cada QR lleva a la suya, y quien da
      * clases y además estudia tiene una por oficio.
      */
     public function de(Persona $persona, int $rolId, ?MatriculaOferta $matricula): Credencial

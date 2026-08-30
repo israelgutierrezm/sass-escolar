@@ -6,10 +6,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Academico\Area;
 use App\Models\Academico\Asignatura;
-use App\Models\Academico\Carrera;
 use App\Models\Academico\ClasificacionAsignatura;
 use App\Models\Academico\PlanEstudio;
 use App\Models\Academico\PlanMateria;
+use App\Models\Academico\ProgramaAcademico;
 use App\Models\Academico\TipoAsignatura;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -22,12 +22,12 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * Catálogo de asignaturas.
  *
  * Es catálogo PURO: la misma asignatura se reutiliza entre planes y entre
- * carreras. Su vida dentro de un plan concreto —la clave que sale en el acta,
+ * programas académicos. Su vida dentro de un plan concreto —la clave que sale en el acta,
  * el periodo sugerido, si es obligatoria u optativa— no vive aquí sino en
  * `plan_materias`, porque cambia de un plan a otro.
  *
  * Eso es lo que permite el tronco común: una sola "Matemáticas I" en el
- * catálogo, compartida por varias carreras, con distinta clave de acta en cada
+ * catálogo, compartida por varios programas académicos, con distinta clave de acta en cada
  * plan.
  */
 class AsignaturaController extends Controller
@@ -89,17 +89,17 @@ class AsignaturaController extends Controller
 
     /**
      * Alta de asignatura: como toda asignatura nace ligada a un plan, primero se
-     * elige carrera → plan y de ahí se cae en el alta de la malla de ese plan
+     * elige programa académico → plan y de ahí se cae en el alta de la malla de ese plan
      * (la ÚNICA alta; ya no hay un formulario de asignatura aparte).
      */
     public function create(): Response
     {
         return Inertia::render('Academico/Asignaturas/ElegirPlan', [
-            'carreras' => Carrera::query()->orderBy('nombre')->get(['id', 'nombre'])
-                ->map(fn (Carrera $c) => [
+            'programas_academicos' => ProgramaAcademico::query()->orderBy('nombre')->get(['id', 'nombre'])
+                ->map(fn (ProgramaAcademico $c) => [
                     'id' => $c->id,
                     'nombre' => $c->nombre,
-                    'planes' => PlanEstudio::query()->where('carrera_id', $c->id)->orderBy('nombre')->get(['id', 'nombre']),
+                    'planes' => PlanEstudio::query()->where('programa_academico_id', $c->id)->orderBy('nombre')->get(['id', 'nombre']),
                 ]),
         ]);
     }

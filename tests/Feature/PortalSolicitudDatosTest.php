@@ -27,7 +27,7 @@ use Tests\TenantTestCase;
  *
  * Y ninguno de los dos identificadores puede repetirse: dos filas con la misma
  * CURP —o el mismo correo— son la misma persona partida en dos. Una persona es
- * una, aunque se le cuelguen varias carreras y varios roles.
+ * una, aunque se le cuelguen varios programas académicos y varios roles.
  */
 class PortalSolicitudDatosTest extends TenantTestCase
 {

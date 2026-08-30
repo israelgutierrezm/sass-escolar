@@ -11,8 +11,8 @@ import { ICONOS } from '@/iconos';
 
 const props = defineProps<{
     oferta: Record<string, any> | null;
-    carreras: { id: number; nombre: string }[];
-    planes: { id: number; nombre: string; clave: string; carrera_id: number }[];
+    programas_academicos: { id: number; nombre: string }[];
+    planes: { id: number; nombre: string; clave: string; programa_academico_id: number }[];
     campus: { id: number; nombre: string }[];
     modalidades: { clave: string; nombre: string }[];
 }>();
@@ -25,14 +25,14 @@ const esEdicion = computed(() => props.oferta !== null);
 const form = useForm(
     esEdicion.value
         ? {
-              carrera_id: props.oferta!.carrera_id,
+              programa_academico_id: props.oferta!.programa_academico_id,
               plan_id: props.oferta!.plan_id,
               campus_id: props.oferta!.campus_id,
               modalidad: props.oferta!.modalidad ?? null,
               estatus: props.oferta!.estatus,
           }
         : {
-              carrera_id: null as number | null,
+              programa_academico_id: null as number | null,
               plan_id: null as number | null,
               campus_ids: [] as number[],
               modalidad: null as string | null,
@@ -40,16 +40,16 @@ const form = useForm(
           },
 );
 
-const planesDeLaCarrera = computed(() =>
+const planesDeLaProgramaAcademico = computed(() =>
     props.planes
-        .filter((plan) => plan.carrera_id === form.carrera_id)
+        .filter((plan) => plan.programa_academico_id === form.programa_academico_id)
         .map((plan) => ({ valor: plan.id, texto: `${plan.nombre} (${plan.clave})` })),
 );
 
 watch(
-    () => form.carrera_id,
+    () => form.programa_academico_id,
     () => {
-        if (!planesDeLaCarrera.value.some((plan) => plan.valor === form.plan_id)) {
+        if (!planesDeLaProgramaAcademico.value.some((plan) => plan.valor === form.plan_id)) {
             form.plan_id = null;
         }
     },
@@ -77,30 +77,30 @@ function enviar(): void {
         <form class="space-y-6" @submit.prevent="enviar">
             <TarjetaSeccion titulo="Qué se imparte" :icono="ICONOS.birrete">
                 <template #descripcion>
-                    <template v-if="esEdicion">No puede repetirse la misma combinación de carrera, plan y campus.</template>
-                    <template v-else>Elige la carrera y el plan, y los campus donde se ofrecerá. Se creará una oferta por campus.</template>
+                    <template v-if="esEdicion">No puede repetirse la misma combinación de programa académico, plan y campus.</template>
+                    <template v-else>Elige el programa académico y el plan, y los campus donde se ofrecerá. Se creará una oferta por campus.</template>
                 </template>
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <CampoSelect
-                        v-model="form.carrera_id"
-                        etiqueta="Carrera"
+                        v-model="form.programa_academico_id"
+                        etiqueta="Programa académico"
                         requerido
-                        :opciones="opciones(carreras)"
+                        :opciones="opciones(programas_academicos)"
                         vacio="Selecciona…"
-                        :error="form.errors.carrera_id"
+                        :error="form.errors.programa_academico_id"
                     />
                     <CampoSelect
                         v-model="form.plan_id"
                         etiqueta="Plan de estudios"
                         requerido
-                        :opciones="planesDeLaCarrera"
+                        :opciones="planesDeLaProgramaAcademico"
                         vacio="Selecciona…"
                         :error="form.errors.plan_id"
                         :ayuda="
-                            form.carrera_id === null
-                                ? 'Elige primero una carrera.'
-                                : planesDeLaCarrera.length === 0
-                                  ? 'Esa carrera no tiene planes registrados.'
+                            form.programa_academico_id === null
+                                ? 'Elige primero una programa_academico.'
+                                : planesDeLaProgramaAcademico.length === 0
+                                  ? 'Esa programa_academico no tiene planes registrados.'
                                   : undefined
                         "
                     />

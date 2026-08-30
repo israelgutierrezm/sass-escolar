@@ -12,7 +12,7 @@
  *
  *   - `/plataforma/modulos`, el interruptor de secciones (2026-08-26);
  *   - `/escolar/servicios`, el mostrador de trámites, y
- *   - `/escolar/biblioteca`, la administración de la biblioteca (2026-08-28).
+ *   - `/escolar/recursos-digitales`, la administración de los recursos digitales (2026-08-28).
  *
  * Los dos últimos tenían tarjeta de panel… apuntando a la pantalla del ALUMNO.
  *
@@ -206,7 +206,7 @@ echo PHP_EOL.'2. Las dos que estaban escondidas, por su nombre'.PHP_EOL;
  */
 foreach ([
     '/escolar/servicios' => 'el mostrador de trámites',
-    '/escolar/biblioteca' => 'la administración de la biblioteca',
+    '/escolar/recursos-digitales' => 'la administración de los recursos digitales',
 ] as $url => $que) {
     verificar('Tiene entrada de menú '.$que,
         isset($urlsDelMenu[$url]),

@@ -105,10 +105,10 @@ class MovilidadSaliente implements FuenteDeReporte
                 valor: fn (PostulacionMovilidad $p) => $p->matricula?->persona?->nombreCompleto(),
                 ancho: 32,
             ),
-            'carrera' => new ColumnaReporte(
-                clave: 'carrera',
-                etiqueta: 'Carrera',
-                valor: fn (PostulacionMovilidad $p) => $p->matricula?->oferta?->carrera?->nombre,
+            'programa_academico' => new ColumnaReporte(
+                clave: 'programa_academico',
+                etiqueta: 'Programa académico',
+                valor: fn (PostulacionMovilidad $p) => $p->matricula?->oferta?->programaAcademico?->nombre,
                 ancho: 30,
             ),
             'campus' => new ColumnaReporte(
@@ -285,8 +285,8 @@ class MovilidadSaliente implements FuenteDeReporte
             ->with([
                 'matricula:id,persona_id,oferta_id,matricula',
                 'matricula.persona:id,nombre,primer_apellido,segundo_apellido',
-                'matricula.oferta:id,carrera_id,campus_id',
-                'matricula.oferta.carrera:id,nombre',
+                'matricula.oferta:id,programa_academico_id,campus_id',
+                'matricula.oferta.programaAcademico:id,nombre',
                 'matricula.oferta.campus:id,nombre',
                 'convocatoria:id,convenio_id,titulo,periodo',
                 'convocatoria.convenio:id,institucion_aliada_id',

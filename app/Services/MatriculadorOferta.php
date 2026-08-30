@@ -49,12 +49,12 @@ class MatriculadorOferta
             throw new RuntimeException(implode(' ', $impedimentos));
         }
 
-        $oferta->loadMissing(['carrera', 'plan', 'campus']);
+        $oferta->loadMissing(['programaAcademico', 'plan', 'campus']);
 
         return DB::transaction(function () use ($persona, $oferta, $generacion, $matricula) {
             $situacionActivo = SituacionAlumno::query()->where('clave', 'activo')->value('id');
 
-            // El rol materializado; si ya lo tenía por su otra carrera, se
+            // El rol materializado; si ya lo tenía por su otro programa académico, se
             // respeta, porque es de la persona y no de cada matrícula.
             Alumno::query()->firstOrCreate(
                 ['persona_id' => $persona->id],

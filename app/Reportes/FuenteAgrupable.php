@@ -18,7 +18,7 @@ namespace App\Reportes;
  *
  * ── Cuándo vale la pena implementarla ────────────────────────────────────
  * Cuando la fuente tenga alguna DIMENSIÓN de verdad: pocas categorías y muchas
- * filas. Campus, carrera, situación, concepto, método de pago, etapa. No un
+ * filas. Campus, programa académico, situación, concepto, método de pago, etapa. No un
  * identificador —agrupar por matrícula devuelve 32 grupos de 32 filas, que no
  * es agrupar— ni una medida, que es lo que se agrega dentro de cada grupo.
  */

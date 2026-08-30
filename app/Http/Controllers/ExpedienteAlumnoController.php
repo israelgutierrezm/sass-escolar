@@ -43,7 +43,7 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  * se sirven por ruta autenticada: son datos personales sujetos a la LFPDPPP y
  * nunca se exponen desde public/.
  *
- * Lo que el alumno NO controla: su matrícula, su carrera y su situación las
+ * Lo que el alumno NO controla: su matrícula, su programa académico y su situación las
  * administra control escolar, y el estado de revisión de cada documento lo
  * decide quien valida. Subir un acta no es acreditarla.
  */
@@ -54,7 +54,7 @@ class ExpedienteAlumnoController extends Controller
     public function show(Request $request): Response
     {
         $alumno = $this->miAlumno($request);
-        $alumno->load(['persona', 'situacion:id,nombre', 'matriculas.oferta.carrera:id,nombre', 'matriculas.oferta.campus:id,nombre']);
+        $alumno->load(['persona', 'situacion:id,nombre', 'matriculas.oferta.programaAcademico:id,nombre', 'matriculas.oferta.campus:id,nombre']);
 
         $persona = $alumno->persona;
 
@@ -77,11 +77,11 @@ class ExpedienteAlumnoController extends Controller
             /*
              * De solo lectura: lo administra control escolar. Se manda una
              * inscripción por matrícula porque un alumno puede cursar dos
-             * carreras a la vez, y decirle sólo una sería mentirle a medias.
+             * programas académicos a la vez, y decirle sólo una sería mentirle a medias.
              */
             'inscripciones' => $alumno->matriculas->map(fn ($m) => [
                 'matricula' => $m->matricula,
-                'carrera' => $m->oferta?->carrera?->nombre,
+                'programa_academico' => $m->oferta?->programaAcademico?->nombre,
                 'campus' => $m->oferta?->campus?->nombre,
             ])->values(),
             'situacion' => $alumno->situacion?->nombre,

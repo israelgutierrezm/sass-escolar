@@ -23,7 +23,7 @@ use Inertia\Response;
  * `asesores`, `situaciones_asesor` y `campus_asesor` existen desde la primera
  * fase y NUNCA tuvieron pantalla: la escuela demo tenía cero asesores, así que
  * el pivote `aspirante_asesor` estaba vacío, el embudo no podía acotarse por
- * asignación y la comisión no tenía a quién pagarle. Todo el CRM de promoción
+ * asignación y la comisión no tenía a quién pagarle. Todo el CRM de captación
  * estaba construido encima de una tabla que nadie podía llenar.
  *
  * ── Ser asesor es una ASIGNACIÓN, no un permiso ───────────────────────────
@@ -40,7 +40,7 @@ class AsesorController extends Controller
 {
     public function index(): Response
     {
-        return Inertia::render('Promocion/Asesores', [
+        return Inertia::render('Captacion/Asesores', [
             'asesores' => Asesor::query()
                 ->with(['persona:id,nombre,primer_apellido,segundo_apellido,email',
                     'situacion:id,clave,nombre', 'campus:id,nombre'])

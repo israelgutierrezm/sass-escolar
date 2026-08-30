@@ -13,12 +13,12 @@ return [
         ],
         [
             'subtitulo' => 'Sin llaves foráneas cruzadas',
-            'texto' => "Las columnas del tenant que apuntan a un catálogo central (`personas.sexo_id`, `carreras.nivel_estudios_id`…) son enteros SIN constraint: son bases distintas y la restricción no se puede declarar.\n"
+            'texto' => "Las columnas del tenant que apuntan a un catálogo central (`personas.sexo_id`, `programas_academicos.nivel_estudios_id`…) son enteros SIN constraint: son bases distintas y la restricción no se puede declarar.\n"
                 ."Las relaciones de Eloquent sí resuelven, porque los modelos de landlord usan el trait `CentralConnection`. Desde el tenant se consultan por el modelo y nunca con `DB::table(...)`: la tabla no existe en esa conexión y la consulta revienta con «table doesn't exist».",
         ],
         [
             'subtitulo' => 'Modelos organizados por capa y módulo',
-            'texto' => "`App\\Models\\Landlord\\` para la base central, y para el tenant: `Identidad`, `Academico`, `Admisiones`, `ControlEscolar`, `Asistencia`, `Finanzas`, `Lms`, `Emision`, `Nomina`, `Bolsa`, `Movilidad`, `Disciplina`, `Encuestas`, `Formularios`, `Promocion`, `Reportes`, `Plataforma`, `Correo`, `Facturacion`.\n"
+            'texto' => "`App\\Models\\Landlord\\` para la base central, y para el tenant: `Identidad`, `Academico`, `Admisiones`, `ControlEscolar`, `Asistencia`, `Finanzas`, `Lms`, `Emision`, `Nomina`, `Bolsa`, `Movilidad`, `Disciplina`, `Encuestas`, `Formularios`, `Captacion`, `Reportes`, `Plataforma`, `Correo`, `Facturacion`.\n"
                 .'Son unas 265 tablas. Toda tabla de tenant lleva `$table->auditoria()` —el macro que agrega `created_by` y `updated_by` además de las marcas de tiempo— y su modelo el trait `TieneAuditoria`.',
         ],
         [
@@ -57,7 +57,7 @@ return [
         [
             'subtitulo' => 'Puertas derivadas',
             'texto' => "Cuando dos oficios entran por la misma pantalla, la puerta se declara aparte con `Gate::define` en vez de pedirle a la escuela que adivine una dependencia entre permisos. Un middleware con el permiso de uno rebotaría al otro.\n"
-                .'Hoy son ocho: `entrar-promocion`, `subir-material`, `usar-rubricas`, `dirigir-a-alumnos`, `gestionar-disciplina`, `ver-servicios-del-alumno`, `ver-biblioteca` y `ver-cuentas-bancarias`. No son asignables ni están en el catálogo.',
+                .'Hoy son ocho: `entrar-captacion`, `subir-material`, `usar-rubricas`, `dirigir-a-alumnos`, `gestionar-disciplina`, `ver-servicios-del-alumno`, `ver-recursos-digitales` y `ver-cuentas-bancarias`. No son asignables ni están en el catálogo.',
         ],
         [
             'subtitulo' => 'Un permiso compartido no cierra una puerta administrativa',
@@ -147,8 +147,8 @@ return [
         ['termino' => 'Faceta', 'definicion' => 'Lo que alguien ES en la escuela: administrativo, docente, alumno, aspirante, tutor educativo o padre de familia. Son seis y no se borran.'],
         ['termino' => 'Rol funcional', 'definicion' => 'Lo que alguien HACE. Cuelga de una faceta, hereda sus permisos y lo crea la escuela.'],
         ['termino' => 'Rol activo', 'definicion' => 'Con cuál de sus roles está trabajando ahora quien entró. Cambia lo que ve y lo que puede hacer.'],
-        ['termino' => 'Matrícula', 'definicion' => 'Una persona cursando un programa concreto. Es «el alumno»: quien estudia dos carreras tiene dos.'],
-        ['termino' => 'Oferta', 'definicion' => 'La combinación de carrera, plan de estudios y campus. Es lo que se puede cursar.'],
+        ['termino' => 'Matrícula', 'definicion' => 'Una persona cursando un programa concreto. Es «el alumno»: quien estudia dos programas académicos tiene dos.'],
+        ['termino' => 'Oferta', 'definicion' => 'La combinación de programa académico, plan de estudios y campus. Es lo que se puede cursar.'],
         ['termino' => 'Asignatura-grupo', 'definicion' => 'Una materia abierta en un grupo de un ciclo. La unidad sobre la que se inscribe, se pasa lista y se califica.'],
         ['termino' => 'Esquema de evaluación', 'definicion' => 'De qué se compone la calificación de una materia y cuánto pesa cada parte.'],
         ['termino' => 'Acta', 'definicion' => 'El cierre de una materia. Emite folio, asienta el historial y ya no se edita; para corregir se emite un acta de corrección.'],

@@ -18,7 +18,7 @@ use App\Http\Controllers\AutenticacionController;
 use App\Http\Controllers\AutorizacionController;
 use App\Http\Controllers\AvisoGrabacionController;
 use App\Http\Controllers\BecaController;
-use App\Http\Controllers\BibliotecaController;
+use App\Http\Controllers\RecursosDigitalesController;
 use App\Http\Controllers\Bolsa\ColocacionController;
 use App\Http\Controllers\Bolsa\EmpresaController;
 use App\Http\Controllers\Bolsa\MisVacantesController;
@@ -29,7 +29,7 @@ use App\Http\Controllers\BuscadorMatriculasController;
 use App\Http\Controllers\CampoFormularioController;
 use App\Http\Controllers\CampusController;
 use App\Http\Controllers\CapturaCalificacionesController;
-use App\Http\Controllers\CarreraController;
+use App\Http\Controllers\ProgramaAcademicoController;
 use App\Http\Controllers\CatalogoAcademicoController;
 use App\Http\Controllers\ChatMateriaController;
 use App\Http\Controllers\CicloController;
@@ -114,7 +114,7 @@ use App\Http\Controllers\Plataforma\ModuloController;
 use App\Http\Controllers\PortafolioController;
 use App\Http\Controllers\PortalAspiranteController;
 use App\Http\Controllers\PresentacionExamenController;
-use App\Http\Controllers\PromocionController;
+use App\Http\Controllers\CaptacionController;
 use App\Http\Controllers\RecuperacionController;
 use App\Http\Controllers\ReglaHorarioController;
 use App\Http\Controllers\ReglaMatriculaController;
@@ -360,7 +360,7 @@ Route::middleware([
          * La ACTIVIDAD del prospecto, desde su propia ficha.
          *
          * SIN `can:` a propósito, y no por descuido: por aquí entran dos
-         * oficios —quien coordina promoción, que alcanza a todos, y el asesor,
+         * oficios —quien coordina captación, que alcanza a todos, y el asesor,
          * que sólo alcanza a los suyos—. Un middleware con el permiso de uno
          * rebotaría al otro antes de llegar al controlador, que es la trampa
          * que ya mordió con la descarga de adjuntos de entrega. El propio
@@ -689,8 +689,8 @@ Route::middleware([
             });
 
         /*
-         * Catálogo académico. Campus y carreras son la base; los planes cuelgan
-         * de la carrera y la oferta los combina para definir qué se imparte
+         * Catálogo académico. Campus y programas académicos son la base; los planes cuelgan
+         * del programa académico y la oferta los combina para definir qué se imparte
          * dónde. Sin oferta abierta no hay a qué matricular a un aspirante.
          */
         Route::prefix('academico')->name('tenant.academico.')
@@ -704,7 +704,7 @@ Route::middleware([
                 Route::get('instituciones/{institucion}/logo', [InstitucionController::class, 'logo'])
                     ->whereNumber('institucion')->name('instituciones.logo');
                 Route::get('campus', [CampusController::class, 'index'])->name('campus.index');
-                Route::get('carreras', [CarreraController::class, 'index'])->name('carreras.index');
+                Route::get('programas-academicos', [ProgramaAcademicoController::class, 'index'])->name('programas_academicos.index');
                 Route::get('planes', [PlanEstudioController::class, 'index'])->name('planes.index');
                 Route::get('ofertas', [OfertaController::class, 'index'])->name('ofertas.index');
                 Route::get('catalogos', [CatalogoAcademicoController::class, 'index'])->name('catalogos.index');
@@ -774,7 +774,15 @@ Route::middleware([
                         ->except(['index', 'show', 'destroy'])->parameters(['instituciones' => 'institucion']);
                     Route::resource('campus', CampusController::class)
                         ->except(['index', 'show'])->parameters(['campus' => 'campus']);
-                    Route::resource('carreras', CarreraController::class)->except(['index', 'show']);
+                    /*
+                     * El parámetro se declara: de «programas-academicos»
+                     * Laravel deduce `{programas_academico}`, que no casa con
+                     * la firma del controlador y deja el modelo sin resolver.
+                     */
+                    Route::resource('programas-academicos', ProgramaAcademicoController::class)
+                        ->except(['index', 'show'])
+                        ->parameters(['programas-academicos' => 'programaAcademico'])
+                        ->names('programas_academicos');
                     Route::resource('planes', PlanEstudioController::class)->except(['index', 'show']);
                     Route::resource('ofertas', OfertaController::class)->except(['index', 'show']);
                     // Configuración de catálogos: un CRUD genérico por clave de
@@ -919,17 +927,17 @@ Route::middleware([
                             ->middleware('can:editar-alumnos')
                             ->name('update');
 
-                        // Otra carrera para quien ya es alumno de la casa.
+                        // Otro programa académico para quien ya es alumno de la casa.
                         // Genera matrícula, así que pide `generar-matricula`.
-                        Route::post('{alumno}/carreras', 'agregarCarrera')
+                        Route::post('{alumno}/programas-academicos', 'agregarProgramaAcademico')
                             ->whereNumber('alumno')
                             ->middleware('can:generar-matricula')
-                            ->name('carreras.store');
+                            ->name('programas_academicos.store');
 
-                        Route::put('{alumno}/carreras/{carrera}', 'cambiarEstadoCarrera')
-                            ->whereNumber('alumno')->whereNumber('carrera')
+                        Route::put('{alumno}/programas-academicos/{programa_academico}', 'cambiarEstadoProgramaAcademico')
+                            ->whereNumber('alumno')->whereNumber('programa_academico')
                             ->middleware('can:editar-alumnos')
-                            ->name('carreras.estado');
+                            ->name('programas_academicos.estado');
 
                         // Padres/tutores del alumno: vincularlos los vuelve
                         // usuarios con rol de padre de familia.
@@ -967,7 +975,7 @@ Route::middleware([
                             ->middleware('can:editar-alumnos')
                             ->name('historial.destroy');
 
-                        // Datos del título por carrera-alumno (modalidad, servicio
+                        // Datos del título por programa académico-alumno (modalidad, servicio
                         // social, antecedente). Los captura administración; alimentan
                         // el XML del título electrónico.
                         Route::middleware('can:editar-alumnos')->group(function () {
@@ -1281,7 +1289,7 @@ Route::middleware([
          *
          * Configurar el esquema de cobro es un permiso APARTE de cobrar: el
          * auxiliar de ventanilla registra pagos todo el día y no debe poder
-         * cambiarle el monto de la colegiatura a una carrera entera.
+         * cambiarle el monto de la colegiatura a un programa académico entera.
          */
         Route::prefix('finanzas')->name('tenant.finanzas.')
             ->middleware('can:ver-adeudos')
@@ -1294,7 +1302,7 @@ Route::middleware([
                         // Paso 1 del wizard (alcance) y sus selects encadenados.
                         Route::get('/nuevo', 'create')->name('create');
                         Route::get('/ciclos/{ciclo}/campus', 'campusDelCiclo')->name('ciclo.campus');
-                        Route::post('/carreras-de-campus', 'carrerasDeCampus')->name('carreras');
+                        Route::post('/programas-academicos-de-campus', 'programasAcademicosDeCampus')->name('programas_academicos');
                         Route::post('/', 'store')->name('store');
 
                         // Paso 2 (conceptos, recargos y asignación).
@@ -1449,7 +1457,7 @@ Route::middleware([
 
                 /*
                  * Razones sociales. Configurar con qué persona moral factura
-                 * cada carrera es distinto de emitir un CFDI: lo primero lo
+                 * cada programa académico es distinto de emitir un CFDI: lo primero lo
                  * define la dirección una vez, lo segundo se hace a diario.
                  * Aquí además se guardan certificados de sello digital.
                  */
@@ -2309,24 +2317,24 @@ Route::middleware([
             });
 
         /*
-         * CRM de promoción. Dos permisos y dos alcances: `ver-mis-prospectos`
+         * CRM de captación. Dos permisos y dos alcances: `ver-mis-prospectos`
          * deja entrar al promotor —que solo ve los que le asignaron— y
-         * `gestionar-promocion` abre el embudo completo. El alcance lo resuelve
+         * `gestionar-captacion` abre el embudo completo. El alcance lo resuelve
          * `EmbudoAdmision::acotar`, no la ruta.
          */
-        Route::controller(PromocionController::class)
-            ->prefix('promocion')->name('tenant.promocion.')
+        Route::controller(CaptacionController::class)
+            ->prefix('captacion')->name('tenant.captacion.')
             ->group(function () {
-                // `entrar-promocion` es derivado: lo abre el promotor con
+                // `entrar-captacion` es derivado: lo abre el promotor con
                 // `ver-mis-prospectos` o quien coordina con
-                // `gestionar-promocion`. El alcance lo acota el servicio.
-                Route::middleware('can:entrar-promocion')->group(function () {
+                // `gestionar-captacion`. El alcance lo acota el servicio.
+                Route::middleware('can:entrar-captacion')->group(function () {
                     Route::get('/', 'index')->name('index');
                     Route::get('/etapas/{etapa}', 'etapa')->name('etapa');
                     Route::post('/aspirantes/{aspirante}/seguimientos', 'seguir')->name('seguir');
                 });
 
-                Route::middleware('can:gestionar-promocion')->group(function () {
+                Route::middleware('can:gestionar-captacion')->group(function () {
                     Route::post('/aspirantes/{aspirante}/promotores', 'asignarPromotor')->name('promotores.asignar');
                     Route::delete('/aspirantes/{aspirante}/promotores/{personaId}', 'retirarPromotor')->name('promotores.retirar');
                 });
@@ -2334,7 +2342,7 @@ Route::middleware([
                 // Cada promotor ve las suyas; `gestionar-comisiones` las de
                 // todos. El filtro va dentro del controlador.
                 Route::get('/comisiones', 'comisiones')
-                    ->middleware('can:entrar-promocion')->name('comisiones');
+                    ->middleware('can:entrar-captacion')->name('comisiones');
 
                 Route::middleware('can:gestionar-comisiones')->group(function () {
                     Route::post('/comisiones/pagar', 'pagarComisiones')->name('comisiones.pagar');
@@ -2343,7 +2351,7 @@ Route::middleware([
 
                 // Publicaciones: qué formulario se ofrece en la web, con qué
                 // token y a quién se le asignan los que lleguen.
-                Route::middleware('can:gestionar-promocion')->group(function () {
+                Route::middleware('can:gestionar-captacion')->group(function () {
                     Route::get('/publicaciones', 'publicaciones')->name('publicaciones');
                     Route::post('/publicaciones', 'guardarPublicacion')->name('publicaciones.store');
                     Route::put('/publicaciones/{publicacion}', 'actualizarPublicacion')->name('publicaciones.update');
@@ -2357,7 +2365,7 @@ Route::middleware([
             });
 
         /*
-         * El EQUIPO de promoción: quién es asesor y cuál está en turno.
+         * El EQUIPO de captación: quién es asesor y cuál está en turno.
          *
          * Las tablas existen desde la Fase 1 y nunca tuvieron pantalla, así que
          * el pivote de asignación estaba vacío y todo el CRM colgaba de algo que
@@ -2365,9 +2373,9 @@ Route::middleware([
          * tarea de quien la trabaja.
          */
         Route::controller(AsesorController::class)
-            ->prefix('promocion/asesores')
-            ->name('tenant.promocion.asesores.')
-            ->middleware('can:gestionar-promocion')
+            ->prefix('captacion/asesores')
+            ->name('tenant.captacion.asesores.')
+            ->middleware('can:gestionar-captacion')
             ->group(function () {
                 Route::get('/', 'index')->name('index');
                 Route::get('/candidatas', 'candidatas')->name('candidatas');
@@ -2422,9 +2430,9 @@ Route::middleware([
             });
 
         /*
-         * La biblioteca digital.
+         * La recursos digitales.
          *
-         * Todo el grupo va detrás de `modulo:biblioteca`, la gestión incluida:
+         * Todo el grupo va detrás de `modulo:recursos_digitales`, la gestión incluida:
          * si la escuela cerró la sección, no tiene sentido que alguien siga
          * publicando recursos que nadie puede abrir.
          *
@@ -2432,15 +2440,15 @@ Route::middleware([
          * por su tarjeta del panel—, pero eso es dónde está el botón; quien
          * cierra la puerta es el middleware.
          */
-        Route::controller(BibliotecaController::class)
-            ->middleware('modulo:biblioteca')
+        Route::controller(RecursosDigitalesController::class)
+            ->middleware('modulo:recursos_digitales')
             ->group(function () {
-                Route::get('biblioteca', 'index')
-                    ->middleware('can:ver-biblioteca')
-                    ->name('tenant.biblioteca.index');
+                Route::get('recursos-digitales', 'index')
+                    ->middleware('can:ver-recursos-digitales')
+                    ->name('tenant.recursos_digitales.index');
 
-                Route::prefix('escolar/biblioteca')->name('tenant.escolar.biblioteca.')
-                    ->middleware('can:gestionar-biblioteca')
+                Route::prefix('escolar/recursos-digitales')->name('tenant.escolar.recursos_digitales.')
+                    ->middleware('can:gestionar-recursos-digitales')
                     ->group(function () {
                         Route::get('/', 'gestion')->name('index');
                         /*
@@ -2462,7 +2470,7 @@ Route::middleware([
         /*
          * La solicitud de servicios.
          *
-         * Igual que la biblioteca: todo el grupo detrás de `modulo:servicios`,
+         * Igual que los recursos digitales: todo el grupo detrás de `modulo:servicios`,
          * el mostrador incluido. Y la vista del alumno no cuelga del menú —se
          * entra por su tarjeta del panel—, pero quien cierra la puerta cuando la
          * escuela apaga la sección es el middleware, no la ausencia del botón.
@@ -2907,5 +2915,32 @@ Route::middleware([
             ->whereNumber('titulacion')
             ->middleware('can:titular-alumnos')
             ->name('tenant.titulacion.titulaciones.cadena');
+
+        /*
+         * Las direcciones VIEJAS, que siguen llevando a donde llevaban.
+         *
+         * Tres conceptos se renombraron —programa académico → programa académico,
+         * recursos digitales → recursos digitales, captación → captación— y con ellos
+         * cambiaron sus URL. Un marcador guardado, un correo con un enlace o
+         * una pestaña abierta apuntan a la vieja, así que redirigen en vez de
+         * dar 404.
+         *
+         * Con 301 y no 302: el cambio es definitivo, y así el navegador y los
+         * buscadores dejan de pedir la vieja.
+         */
+        foreach ([
+            'academico/carreras' => 'academico/programas-academicos',
+            'biblioteca' => 'recursos-digitales',
+            'escolar/biblioteca' => 'escolar/recursos-digitales',
+            'promocion' => 'captacion',
+        ] as $vieja => $nueva) {
+            /*
+             * El destino va con barra inicial: sin ella el navegador lo resuelve
+             * contra la carpeta actual y `/academico/carreras` acababa en
+             * `/academico/academico/programas-academicos`.
+             */
+            Route::redirect($vieja, '/'.$nueva, 301);
+            Route::redirect($vieja.'/{resto}', '/'.$nueva.'/{resto}', 301)->where('resto', '.*');
+        }
     });
 });

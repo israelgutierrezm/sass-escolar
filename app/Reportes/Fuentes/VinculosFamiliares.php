@@ -29,7 +29,7 @@ use Illuminate\Support\Facades\DB;
  * Decisión del cliente, y por eso esta fuente no puede acotarse por campus:
  * `tutores_alumno` cuelga de dos personas y una persona no tiene campus. La
  * matrícula sí lo tendría, pero el vínculo no es de la matrícula —quien es
- * padre de alguien lo es de sus dos carreras—.
+ * padre de alguien lo es de sus dos programas académicos—.
  *
  * Por eso el recorte es `sinCampus` CON SU RAZÓN, y eso significa que a un rol
  * acotado a un plantel se le NIEGA este reporte en vez de darle la escuela
@@ -119,7 +119,7 @@ class VinculosFamiliares implements FuenteDeReporte
                 etiqueta: 'Matrículas',
                 valor: fn (TutorAlumno $v) => $v->matriculas,
                 ancho: 24,
-                ayuda: 'Todas las suyas, juntas: quien estudia dos carreras tiene dos, y el vínculo es '
+                ayuda: 'Todas las suyas, juntas: quien estudia dos programas académicos tiene dos, y el vínculo es '
                     .'de la persona, así que alcanza a las dos.',
             ),
             'tutor' => new ColumnaReporte(
@@ -267,7 +267,7 @@ class VinculosFamiliares implements FuenteDeReporte
             /*
              * Las matrículas del hijo, JUNTAS en una celda.
              *
-             * Es a-muchos: quien estudia dos carreras tiene dos, y desplegarlas
+             * Es a-muchos: quien estudia dos programas académicos tiene dos, y desplegarlas
              * duplicaría el vínculo —el mismo padre saldría dos veces por el
              * mismo hijo—. El vínculo es de la PERSONA, así que alcanza a todas.
              */

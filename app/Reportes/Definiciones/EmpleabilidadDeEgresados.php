@@ -28,7 +28,7 @@ class EmpleabilidadDeEgresados extends DefinicionReporte
     public function descripcion(): string
     {
         return 'Cada matrícula egresada con su colocación, si la tiene. Una fila es una MATRÍCULA: '
-            .'quien egresó de dos carreras sale dos veces y quien cambió de trabajo tres veces sale '
+            .'quien egresó de dos programas académicos sale dos veces y quien cambió de trabajo tres veces sale '
             .'UNA. NO incluye colocaciones sin matrícula señalada ni de quien todavía no egresa —una '
             .'práctica profesional—: esas dos cifras las da el tablero de empleabilidad, y por eso el '
             .'total de aquí puede no cuadrar con el número de colocaciones registradas.';
@@ -46,7 +46,7 @@ class EmpleabilidadDeEgresados extends DefinicionReporte
 
     public function columnasPorOmision(): ?array
     {
-        return ['matricula', 'egresado', 'carrera', 'generacion', 'colocado', 'empresa', 'puesto', 'en_su_area'];
+        return ['matricula', 'egresado', 'programa_academico', 'generacion', 'colocado', 'empresa', 'puesto', 'en_su_area'];
     }
 
     public function ordenPorOmision(): ?array

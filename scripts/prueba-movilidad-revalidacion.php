@@ -286,7 +286,7 @@ try {
     if ($deOtroPlan !== null) {
         $ajena = Revalidacion::create([
             'estancia_id' => $estancia->id,
-            'materia_externa' => 'Materia de otra carrera',
+            'materia_externa' => 'Materia de otro programa académico',
             'plan_materia_id' => $deOtroPlan,
             'calificacion_equivalente' => 9.00,
             'dictamen_id' => $pendiente->id,
