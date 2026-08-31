@@ -359,6 +359,14 @@ export const CATALOGO_MENU: GrupoMenu[] = [
             { clave: 'tutorias', etiqueta: 'Tutorías', url: '/escolar/tutorias', permiso: 'gestionar-tutorias' },
             { clave: 'captura-admin', etiqueta: 'Captura', url: '/captura', permiso: 'capturar-calificaciones' },
             /*
+             * Control de documentación: cuántos tienen cada papel y a cuántos
+             * les falta. Vive en la raíz —habla de cuatro oficios, no sólo de
+             * control escolar— pero se busca desde aquí, que es quien la usa a
+             * diario. La ruta pide sólo `validar-expediente`, así que la entrada
+             * no lleva `y:`.
+             */
+            { clave: 'documentacion', etiqueta: 'Documentación', url: '/documentacion', permiso: 'validar-expediente' },
+            /*
              * El mostrador de las dos secciones que el alumno ve por su lado.
              *
              * Las dos pantallas EXISTÍAN, con su ruta y su permiso, y no se

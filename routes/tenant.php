@@ -101,6 +101,7 @@ use App\Http\Controllers\Movilidad\RevalidacionController;
 use App\Http\Controllers\MovimientoEscolarController;
 use App\Http\Controllers\OfertaController;
 use App\Http\Controllers\PadreController;
+use App\Http\Controllers\PanoramaDocumentalController;
 use App\Http\Controllers\PasarelaPagoController;
 use App\Http\Controllers\PaseListaController;
 use App\Http\Controllers\PerfilController;
@@ -849,6 +850,17 @@ Route::middleware([
          * Control escolar: ciclos, grupos y la apertura de materias.
          * `ver-grupos` para consultar; `abrir-grupos` para modificar.
          */
+
+        /*
+         * Control de documentación: cuántos tienen cada papel y a cuántos les
+         * falta. Cuelga de la RAÍZ y no de `/escolar` porque habla de cuatro
+         * oficios —aspirantes, alumnos, docentes y tutores— y ponerla bajo
+         * control escolar la dejaría detrás de `ver-grupos`, que no tiene nada
+         * que ver con revisar papeles.
+         */
+        Route::get('/documentacion', [PanoramaDocumentalController::class, 'index'])
+            ->middleware('can:validar-expediente')
+            ->name('tenant.documentacion');
         /*
          * Directorio de padres y tutores (administración). El VÍNCULO se
          * administra en el expediente del alumno; aquí es solo el panorama y el

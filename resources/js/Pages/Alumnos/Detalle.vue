@@ -125,7 +125,7 @@ const props = defineProps<{
     puedeEditar: boolean;
     /** Su expediente de documentos, y con qué revisarlo. */
     documentos: {
-        id: number; documento: string | null; descripcion: string | null;
+        id: number; documento_id: number | null; documento: string | null; descripcion: string | null;
         estado_id: number | null; estado: string | null; estado_clave: string | null;
         vigencia: string | null; vencido: boolean; observaciones: string | null;
         subido: string | null; entregado_por: string | null;

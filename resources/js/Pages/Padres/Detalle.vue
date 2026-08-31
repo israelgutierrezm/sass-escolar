@@ -54,7 +54,7 @@ const props = defineProps<{
     formularios: Record<string, any>[];
     /** Los papeles que la escuela le pide A ÉL, y con qué revisarlos. */
     documentos: {
-        id: number; documento: string | null; descripcion: string | null;
+        id: number; documento_id: number | null; documento: string | null; descripcion: string | null;
         estado_id: number | null; estado: string | null; estado_clave: string | null;
         vigencia: string | null; vencido: boolean; observaciones: string | null;
         subido: string | null;

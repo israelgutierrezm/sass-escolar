@@ -22,6 +22,8 @@ import PildoraEstado from '@/Components/PildoraEstado.vue';
  */
 interface Documento {
     id: number;
+    /** El TIPO de papel, para el filtro: `id` es el de esta entrega concreta. */
+    documento_id: number | null;
     documento: string | null;
     descripcion: string | null;
     estado_id: number | null;
@@ -48,6 +50,58 @@ const props = defineProps<{
 }>();
 
 const revisando = ref<number | null>(null);
+
+/*
+ * Filtros de PANTALLA.
+ *
+ * Un expediente son unos cuantos papeles —tres en el demo, ocho en el del
+ * docente—, así que filtrar aquí responde al instante y sin una petición por
+ * tecla. La barra no se dibuja con UN solo documento, donde filtrar no
+ * significa nada; con dos ya sirve.
+ */
+const filtroDocumento = ref<number | null>(null);
+const filtroEstado = ref<string | null>(null);
+
+const MINIMO_PARA_FILTRAR = 2;
+
+const vale = computed(() => props.documentos.length >= MINIMO_PARA_FILTRAR);
+
+const opcionesDocumento = computed(() => {
+    const vistos = new Map<number, string>();
+    props.documentos.forEach((d) => {
+        if (d.documento_id !== null && d.documento) vistos.set(d.documento_id, d.documento);
+    });
+
+    return [...vistos].map(([valor, texto]) => ({ valor, texto }));
+});
+
+const opcionesEstado = computed(() => {
+    const vistos = new Map<string, string>();
+    props.documentos.forEach((d) => {
+        const clave = d.vencido && d.estado_clave !== 'rechazado' ? 'vencido' : (d.estado_clave ?? 'pendiente');
+        vistos.set(clave, d.vencido && d.estado_clave !== 'rechazado' ? 'Vencido' : (d.estado ?? 'Pendiente'));
+    });
+
+    return [...vistos].map(([valor, texto]) => ({ valor, texto }));
+});
+
+const visibles = computed(() => props.documentos.filter((d) => {
+    if (filtroDocumento.value && d.documento_id !== filtroDocumento.value) return false;
+
+    if (filtroEstado.value) {
+        const clave = d.vencido && d.estado_clave !== 'rechazado' ? 'vencido' : d.estado_clave;
+        if (clave !== filtroEstado.value) return false;
+    }
+
+    return true;
+}));
+
+const hayFiltro = computed(() => Boolean(filtroDocumento.value || filtroEstado.value));
+
+function limpiar(): void {
+    filtroDocumento.value = null;
+    filtroEstado.value = null;
+}
 
 const form = useForm({
     estado_documento_id: null as number | null,
@@ -104,11 +158,31 @@ function etiqueta(doc: Documento): string {
                 explicar qué corregir.
             </p>
             <p v-if="nota" class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">{{ nota }}</p>
+
+            <!--
+                Con un solo documento no se dibuja: filtrar una lista de uno no
+                significa nada y la barra ocuparía más que lo que filtra.
+            -->
+            <div v-if="vale" class="mt-3 grid gap-3 sm:grid-cols-3">
+                <CampoSelect v-model="filtroDocumento" etiqueta="Documento" vacio="Todos" :opciones="opcionesDocumento" />
+                <CampoSelect v-model="filtroEstado" etiqueta="Estado" vacio="Todos" :opciones="opcionesEstado" />
+                <div class="flex items-end">
+                    <button
+                        v-if="hayFiltro"
+                        type="button"
+                        class="text-sm underline"
+                        :style="{ color: 'var(--color-acento)' }"
+                        @click="limpiar"
+                    >
+                        Quitar filtros
+                    </button>
+                </div>
+            </div>
         </div>
 
-        <ul v-if="documentos.length">
+        <ul v-if="visibles.length">
             <li
-                v-for="doc in documentos"
+                v-for="doc in visibles"
                 :key="doc.id"
                 class="border-t px-6 py-3"
                 :style="{ borderColor: 'var(--color-borde)' }"
@@ -199,7 +273,8 @@ function etiqueta(doc: Documento): string {
         </ul>
 
         <p v-else class="px-6 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
-            Todavía no ha cargado documentos.
+            <template v-if="hayFiltro">Ningún documento coincide con esos filtros.</template>
+            <template v-else>Todavía no ha cargado documentos.</template>
         </p>
     </section>
 </template>

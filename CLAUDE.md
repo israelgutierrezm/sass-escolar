@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**111 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**112 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -58,7 +58,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 111 están en verde**, barridas el 2026-08-31. Catorce son del módulo de
+   **Las 112 están en verde**, barridas el 2026-08-31. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -2439,6 +2439,77 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     de la barra del alumno y `/biblioteca` da 404; al reencender, reaparece.
     Y los otros niveles ya funcionaban —se comprobó ocultando `bolsa` para el
     alumno vía el editor (MenuRol.ocultos): desaparece sin tocar permisos—.
+
+- **«Control de documentación»: el expediente de la escuela visto al revés**
+  (2026-08-31, pedido del cliente). `/documentacion`, permiso
+  `validar-expediente`. La ficha contesta «¿qué le falta a ÉL?»; quien lleva
+  control escolar pregunta al revés —«¿a cuántos les falta el acta?», «¿cuántos
+  comprobantes tengo por revisar?»— y para saberlo tenía que abrir las fichas
+  una por una.
+  - **Cuelga de la RAÍZ, no de `/escolar`.** Habla de aspirantes, alumnos,
+    docentes y tutores: cuatro oficios. Bajo control escolar quedaría detrás de
+    `ver-grupos`, que no tiene nada que ver con revisar papeles. Se busca desde
+    el menú de Control escolar, que es quien la usa a diario.
+  - **«FALTAN» necesita un denominador, y por eso hay UNIVERSO.** Lo entregado
+    se cuenta solo; lo que falta sólo se puede contar contra el conjunto de
+    personas a las que se les pide. Sin definirlo, «faltan» no significa nada — y
+    es la mitad de lo que se viene a preguntar.
+  - **El universo del alumno es por PERSONA, no por matrícula**: quien estudia
+    dos programas entrega UN acta de nacimiento. Contarlo dos veces infla el
+    «faltan» justo en las escuelas con multiprograma —el demo tiene 18
+    matrículas para 15 personas, así que la diferencia se ejercita de verdad—.
+  - **Sólo los ACTIVOS por omisión, con interruptor.** A quien se dio de baja
+    hace tres años no se le va a pedir el comprobante, y contarlo hincha la cifra
+    hasta que deja de mirarse.
+  - **ENTREGADO no es ACEPTADO ni es VÁLIDO**: cinco cifras y no una —entregados,
+    aceptados, por validar, rechazados y vencidos—, más los que faltan. Un
+    expediente «completo» donde la mitad está sin revisar no está completo, y una
+    sola cifra lo escondería.
+  - **Cada cifra es PULSABLE** y abre la lista de quiénes son, con enlace a su
+    ficha. Una cifra que no se puede abrir obliga a salir a filtrar el listado a
+    ojo, que es el trabajo que la pantalla venía a quitar. El CERO no se pulsa:
+    un enlace a una pantalla vacía se lee como que algo se rompió.
+  - **El detalle sale de un `leftJoin`**: los que NO tienen fila son justo los
+    que interesan, y con un join normal desaparecerían.
+  - **Y sólo se pide cuando hay un documento elegido**: es la consulta cara
+    —recorre el universo entero— y la mayoría de las visitas son para mirar el
+    resumen y decidir por dónde empezar.
+  - **El universo va como SUBCONSULTA, no como lista de ids.** Con quince
+    alumnos daría igual; con cinco mil, un `whereIn` de cinco mil enteros es una
+    consulta que hay que armar en PHP y mandar por el cable en cada pregunta.
+  - **Y filtros en la pantalla de validación de cada ficha** (documento y
+    estado), que es lo otro que pidió el cliente. Son de pantalla —un expediente
+    son unos cuantos papeles— y no se dibujan con uno solo, donde filtrar no
+    significa nada.
+  - **Tres defectos que destapó la suite, ninguno visible sin ella:**
+    - **El recorte por campus fallaba ABIERTO.** Cruzar el campus pedido con el
+      alcance del rol da un arreglo VACÍO cuando el pedido no es suyo, y
+      `->when([])` **no aplica el filtro** porque un arreglo vacío es falso en
+      PHP: pedir por la URL un campus ajeno enseñaba la escuela entera. Se
+      pregunta por `!== null`.
+    - **VALIDAR NO ES CONVERTIR.** `integer` acepta «32» y lo devuelve como
+      CADENA —un TypeError, o sea un 500 al pulsar el desplegable de campus— y
+      `boolean` acepta «0» y lo devuelve tal cual, que en PHP es verdadero, así
+      que «sólo activos» no se podía apagar. Es la misma trampa que ya se cobró
+      el motor de reportes con las casillas.
+    - **`expediente_documentos` no tiene columna `vigencia`.** El resumen ya la
+      esquivaba y el detalle no: abrir el de un aspirante reventaba con «Unknown
+      column». Lo cazó la comprobación del detalle de los OTROS ámbitos, que es
+      el camino de verdad arriesgado —la llave del titular no siempre es
+      `persona_id`: el aspirante cuelga de su propio id—.
+  - Pruebas: `scripts/prueba-panorama-documental.php`, 39 verificaciones,
+    comprobadas mutando catorce reglas. **Una sobrevivió**: «los estados se
+    cuentan por CLAVE y no por id» no se ejercitaba porque en el demo los ids son
+    justo 1, 2 y 3. Se construyó el caso —se reemplaza el estado por otro con la
+    misma clave y un id nuevo— y ahora muere.
+  - Y la suite **parte de cero dentro de la transacción**: lo que prueba es
+    aritmética, y eso sólo se puede afirmar sabiendo qué hay. Sin vaciar pasaba
+    corriéndola sola y se caía en cuanto el demo tenía documentos sembrados,
+    que es la lección que este proyecto ya se cobró dos veces.
+  - Verificado en el navegador los cuatro ámbitos, el detalle de cada cubo con
+    su motivo de rechazo, el cambio de ámbito soltando el documento elegido, los
+    enlaces a las fichas de aspirante y alumno, y los filtros de la ficha.
+    **Los datos sembrados se retiraron.**
 
 - **La escuela por fin REVISA lo que alumnos y tutores entregan** (2026-08-31,
   pedido del cliente). `documentos_alumno` y `documentos_tutor` llevaban desde
