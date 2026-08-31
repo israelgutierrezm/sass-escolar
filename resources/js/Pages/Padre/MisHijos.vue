@@ -225,7 +225,7 @@ function colorPromedio(p: number | null): string | undefined {
                         class="mb-1 inline-block rounded-full px-2 py-0.5 text-xs"
                         :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }"
                     >
-                        Estudia {{ hijo.programas_academicos.length }} programas_academicos
+                        Estudia {{ hijo.programas_academicos.length }} programas académicos
                     </p>
                     <!--
                         Y los programas académicos tampoco se truncan, por lo mismo que van

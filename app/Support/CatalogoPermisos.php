@@ -142,6 +142,17 @@ final class CatalogoPermisos
             'ver-alumnos' => ['Ver alumnos', 'Buscar matrículas y consultar su expediente. Alcanza a toda la escuela.', [self::ADMINISTRATIVO]],
             'editar-alumnos' => ['Editar alumnos', 'Corregir su situación y su estatus de inscripción.', [self::ADMINISTRATIVO]],
             'inscribir-alumnos' => ['Inscribir alumnos', 'Dar de alta y de baja materias, con las validaciones de seriación y cupo.', [self::ADMINISTRATIVO]],
+
+            /*
+             * La trayectoria administrativa. Se parte en tres porque son tres
+             * decisiones distintas: consultarla la necesita cualquiera que
+             * atienda al alumno; registrarla, quien tramita; y CORREGIR un
+             * movimiento ya asentado es un acto de excepción, como el acta de
+             * corrección — no se le da a quien captura todos los días.
+             */
+            'ver-movimientos-escolares' => ['Ver movimientos escolares', 'Consultar la trayectoria administrativa de una matrícula: altas, bajas, reingresos y cambios.', [self::ADMINISTRATIVO]],
+            'registrar-movimiento-escolar' => ['Registrar movimientos escolares', 'Asentar a mano un movimiento que ningún proceso emitió. No permite editar ni borrar los ya asentados.', [self::ADMINISTRATIVO]],
+            'corregir-movimiento-escolar' => ['Corregir movimientos escolares', 'Enmendar un movimiento ya asentado emitiendo otro que lo corrige. El original se conserva.', [self::ADMINISTRATIVO]],
             'ver-historial-academico' => ['Ver historial académico', 'Consultar las materias cursadas de una matrícula, con su calificación y sus créditos.', [self::ADMINISTRATIVO, self::DOCENTE, self::ALUMNO, self::TUTOR, self::PADRE]],
             'gestionar-tutorias' => ['Asignar tutorías', 'Repartir los alumnos entre los tutores educativos, por ciclo.', [self::ADMINISTRATIVO]],
             /*

@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**108 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**109 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -58,7 +58,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 108 están en verde**, barridas el 2026-08-28. Catorce son del módulo de
+   **Las 109 están en verde**, barridas el 2026-08-31. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -2439,6 +2439,104 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     de la barra del alumno y `/biblioteca` da 404; al reencender, reaparece.
     Y los otros niveles ya funcionaban —se comprobó ocultando `bolsa` para el
     alumno vía el editor (MenuRol.ocultos): desaparece sin tocar permisos—.
+
+- **Movimientos escolares · la trayectoria administrativa, CERRADO**
+  (2026-08-31). Pedido del cliente. NO está en la spec, así que es función nueva
+  diseñada con los patrones del proyecto. Pestaña **Movimientos** dentro del
+  expediente del alumno; permisos `ver-movimientos-escolares`,
+  `registrar-movimiento-escolar` y `corregir-movimiento-escolar`.
+  - **Cuelga de la MATRÍCULA, no de la persona.** `matricula_oferta` ya ES la
+    trayectoria —persona + oferta + matrícula + generación + periodo +
+    situación— y quien estudia dos programas tiene dos historias. Misma decisión
+    que el historial académico, la conducta y la cartera. La cabecera de la
+    pestaña dice de cuál se habla aunque haya una sola, y enlaza a las otras: sin
+    eso, en el expediente de quien tiene dos la lista se lee como «todo lo que le
+    ha pasado», que es falso.
+  - **Lo que NO se guarda**: ni programa, ni plan, ni campus, ni la persona.
+    Todos salen de `matricula_oferta->oferta` y esa relación no cambia —cambiar
+    de programa aquí es OTRA matrícula, no una edición—. Repetirlos sería un dato
+    con dos dueños.
+  - **Lo que SÍ, los pares «de → a»**, y sólo donde el modelo operativo no
+    conserva el antes: situación, oferta, grupo y periodo. **Un par de oferta y
+    no cuatro columnas**: programa, plan, campus y modalidad son atributos de la
+    oferta, así que cuatro pares dirían lo mismo cuatro veces.
+  - **Inmutable.** No hay ruta que edite ni que borre —lo fija una prueba que
+    barre las rutas registradas—: para enmendar se registra otro que apunta al
+    anterior (`corrige_movimiento_id`) y los dos se conservan. Misma decisión que
+    el acta de corrección. En la línea de tiempo el enmendado se marca
+    «Corregido después» y la corrección dice **a QUIÉN corrige por su nombre y
+    fecha**, no por un id: un id es de la base, no del expediente.
+  - **Corregir es un permiso APARTE de registrar.** Enmendar lo ya asentado es un
+    acto de excepción y no tiene por qué acompañar a la captura de todos los
+    días. Se comprueba en el servidor, no escondiendo el botón.
+  - **El catálogo lleva BANDERAS de comportamiento, no claves cableadas**
+    (`pide_ciclo`, `pide_grupos`, `pide_situacion`, `pide_oferta`, `pide_periodo`,
+    `pide_motivo`, `solo_automatico`). Qué campos dibuja el formulario lo dice el
+    TIPO, así que la escuela agrega «Cambio de modalidad» desde la pantalla y le
+    pide lo que corresponde. Y **lo que el tipo no pide NO se guarda aunque
+    llegue en la petición**: un grupo dentro de una baja temporal ahí no
+    significa nada. Se siembran 18 tipos.
+  - **`solo_automatico` cierra un hueco real**: «Alta» la emite la conversión del
+    aspirante, y ofrecerla en el formulario dejaría registrar dos altas de la
+    misma matrícula, o sea una trayectoria que empieza dos veces. Responde 422.
+  - **`situacion_anterior_id` sale de la MATRÍCULA, no de la petición.** El
+    navegador no puede decir de dónde venía el alumno.
+  - **La generación automática vive en UN solo sitio**,
+    `App\Services\RegistradorMovimientos`, y la usan `MatriculadorOferta`
+    (alta, baja, reingreso) y `ConvertidorAspirante` (alta), **dentro de sus
+    transacciones**. Con cada controlador escribiendo el suyo, cada uno guardaría
+    un juego distinto de campos y la trayectoria contaría la mitad de los casos
+    —es lo que le pasó a la bitácora de postulaciones antes de centralizarla en
+    `Postulador`—.
+  - **Un tipo que la escuela apagó no rompe la operación que lo disparó**: se
+    deja de anotar y la baja se da igual.
+  - **La `referencia` es lo que impide el duplicado, y sólo sirve si nombra un
+    HECHO** —`conversion:412`, `matriculacion:87`—, con índice único
+    `(matricula_oferta_id, referencia)`. Un `SELECT` previo no bastaría: dos
+    peticiones simultáneas lo pasan las dos. MySQL admite repetir NULL, así que
+    dos capturas manuales del mismo día no se estorban.
+  - **Y por eso la baja y el reingreso van SIN referencia.** Llevaban
+    `baja:{id}:{timestamp}`, que no es ninguna de las dos cosas: un reintento un
+    segundo después la esquiva, y **dos bajas legítimas del mismo segundo —de
+    temporal a definitiva— se fundían en una**, o sea que la segunda no quedaba
+    registrada. Lo destapó la suite al construir ese caso.
+  - **El doble clic lo detiene el ESTADO, no la hora**: `darDeBaja` no hace nada
+    si ya está de baja en esa misma situación, y `reactivar` no hace nada si ya
+    está activa. Antes daba igual —se reescribían dos columnas con lo que ya
+    tenían— y desde que esto deja historia, no. **Se vio en el navegador**: un
+    reingreso sobre una matrícula activa dejaba un renglón permanente con los dos
+    lados iguales.
+  - **La fecha EFECTIVA no es `created_at`.** Una baja del 3 de junio se captura
+    el 10: la línea de tiempo ordena por la primera y la auditoría contesta con
+    la segunda. No puede ser futura.
+  - **Un «cambio» sólo se pinta si de verdad lo hubo.** Un alta no tiene
+    situación anterior y un «— → Activo» se lee como un dato faltante. Una
+    mutación destapó que el guard de «los dos lados vacíos» era **dead code**
+    —dos nulos también son iguales—: se retiró.
+  - **Es historia, no estado.** La situación vigente la siguen diciendo
+    `matricula_oferta` e `inscripcion`; esto no se recorre para reconstruirla,
+    porque serían dos verdades sobre lo mismo.
+  - **Los renglones se piden al ABRIR la pestaña**, no viajan con el expediente:
+    esa pantalla ya carga historial, carga, tutores, formularios y catálogos de
+    título, y casi ninguna visita es para mirar movimientos.
+  - **Los filtros son de pantalla** (tipo, ciclo, desde/hasta): una trayectoria
+    son decenas de renglones, no miles, y filtrar en el servidor sería una
+    petición por tecla.
+  - **El alcance por campus se reusa de `AcotaPorCampus`** y se comprueba en los
+    TRES caminos —leer, registrar y pedir catálogos—. Una mutación destapó que la
+    suite sólo miraba la lectura, que es justo el error contra el que ese trait
+    avisa: filtrar la lista no basta, el id viaja en la URL.
+  - Pruebas: `scripts/prueba-movimientos-escolares.php`, 57 verificaciones,
+    comprobadas mutando **dieciocho** reglas.
+  - Verificado en el navegador el recorrido entero: la pestaña vacía, el alta
+    manual con los campos cambiando por tipo, la corrección, los filtros —y su
+    vacío—, y la baja desde el botón del expediente dejando su movimiento
+    marcado «⚙ Automático» con «Activo → Baja temporal». **Los datos que se
+    capturaron para mirarlo se retiraron**: era texto que me inventé atribuido a
+    una alumna real del demo.
+  - **De paso, dos rótulos que el renombre de «carrera» había dejado con forma de
+    identificador**: la pestaña decía `ProgramasAcademicos (2)` y la insignia del
+    encabezado `2 programas_academicos`; el portal del padre tenía el segundo.
 
 - **Disciplina · incidencias y sanciones de conducta, CERRADO** (2026-08-24).
   Pedido del cliente: «dos opciones para llevar el control de incidencias y

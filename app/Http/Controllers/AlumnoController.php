@@ -434,6 +434,20 @@ class AlumnoController extends Controller
             // (géneros, entidades, países, id de México) — autollenado por CURP.
             ...app(IdentidadPersona::class)->catalogosDeOrigen(),
             'puedeEditar' => $request->user()->can('editar-alumnos'),
+            /*
+             * Movimientos escolares. Son TRES permisos y no uno: consultar la
+             * trayectoria es rutina, registrar es la captura del día, y
+             * corregir un movimiento ya asentado es un acto de excepción que no
+             * tiene por qué acompañar a los otros dos.
+             *
+             * Los renglones NO viajan aquí: la pestaña los pide al abrirse. El
+             * expediente ya carga historial, carga, tutores, formularios y
+             * catálogos de título, y sumarle una consulta más que casi nadie
+             * mira encarecería la pantalla para todo el mundo.
+             */
+            'puedeVerMovimientos' => $request->user()->can('ver-movimientos-escolares'),
+            'puedeRegistrarMovimiento' => $request->user()->can('registrar-movimiento-escolar'),
+            'puedeCorregirMovimiento' => $request->user()->can('corregir-movimiento-escolar'),
             // Los formularios que le tocan. Los mismos bloques y el mismo
             // criterio que siendo aspirante: su expediente no cambia de forma
             // al convertirlo.

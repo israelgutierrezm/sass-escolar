@@ -10,6 +10,7 @@ import BotonAccion from '@/Components/BotonAccion.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
 import PestanasPagina from '@/Components/PestanasPagina.vue';
+import MovimientosEscolares from '@/Components/MovimientosEscolares.vue';
 import FormulariosAsignados from '@/Components/FormulariosAsignados.vue';
 import EncabezadoPersona from '@/Components/EncabezadoPersona.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
@@ -121,6 +122,10 @@ const props = defineProps<{
     paises: { id: number; nombre: string }[];
     mexicoId: number | null;
     puedeEditar: boolean;
+    /** Movimientos escolares: consultar, registrar y corregir son tres permisos. */
+    puedeVerMovimientos: boolean;
+    puedeRegistrarMovimiento: boolean;
+    puedeCorregirMovimiento: boolean;
     /** Los formularios que le tocan, de `ResolutorFormularios`. */
     formularios: Record<string, any>[];
     datosTitulo: {
@@ -149,7 +154,19 @@ const props = defineProps<{
     };
 }>();
 
-const pestana = ref<'historial' | 'carga' | 'programas_academicos' | 'tutores' | 'facturacion' | 'datos' | 'titulacion'>('historial');
+const pestana = ref<'historial' | 'carga' | 'programas_academicos' | 'movimientos' | 'tutores' | 'facturacion' | 'datos' | 'titulacion'>('historial');
+
+/**
+ * Las OTRAS trayectorias de esta persona, para la pestaña de movimientos.
+ *
+ * Se excluye la que está en foco: la cabecera ya la describe, y repetirla entre
+ * los enlaces invitaría a pulsar el que devuelve a donde uno ya está.
+ */
+const otrasTrayectorias = computed(() =>
+    props.programas_academicos
+        .filter((p) => p.id !== props.alumno.id)
+        .map((p) => ({ id: p.id, matricula: p.matricula, programa_academico: p.programa_academico })),
+);
 
 // ── Datos del título por programa académico (modalidad, servicio social, antecedente) ──
 const formModalidad = useForm({ ...props.datosTitulo.modalidad });
@@ -680,7 +697,7 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                         class="rounded-full px-2 py-0.5 text-xs"
                         :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }"
                     >
-                        {{ programas_academicos.length }} programas_academicos
+                        {{ programas_academicos.length }} programas académicos
                     </span>
                 </template>
 
@@ -983,7 +1000,8 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
             :pestanas="[
                 { clave: 'historial', etiqueta: 'Historial académico' },
                 { clave: 'carga', etiqueta: 'Carga por ciclo' },
-                { clave: 'programas_academicos', etiqueta: `ProgramasAcademicos (${programas_academicos.length})` },
+                { clave: 'programas_academicos', etiqueta: `Programas académicos (${programas_academicos.length})` },
+                ...(puedeVerMovimientos ? [{ clave: 'movimientos', etiqueta: 'Movimientos' }] : []),
                 { clave: 'tutores', etiqueta: `Padres/tutores (${tutores.length})` },
                 { clave: 'facturacion', etiqueta: 'Facturación' },
                 // La titulación sólo aparece si su programa_academico llega a emitir
@@ -1426,6 +1444,33 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                 quedarían sin dueño. Se da de baja.
             </p>
         </section>
+
+        <!--
+            Movimientos escolares de ESTA matrícula.
+
+            La bandera se vuelve a mirar aquí: la pestaña ya no se ofrece sin
+            ella, pero `pestana` es un valor suelto y basta recordarlo de otra
+            visita —el mismo cuidado que la pestaña de titulación—.
+        -->
+        <MovimientosEscolares
+            v-else-if="pestana === 'movimientos' && puedeVerMovimientos"
+            :matricula="{
+                id: alumno.id,
+                matricula: alumno.matricula,
+                programa_academico: alumno.programa_academico,
+                plan: alumno.plan,
+                campus: alumno.campus,
+                situacion: alumno.situacion,
+                estatus: alumno.estatus,
+                generacion: alumno.generacion,
+                fecha_ingreso: alumno.fecha_ingreso,
+                periodo_actual: alumno.periodo_actual,
+            }"
+            :otras-trayectorias="otrasTrayectorias"
+            :unidad-periodo="unidadPeriodo"
+            :puede-registrar="puedeRegistrarMovimiento"
+            :puede-corregir="puedeCorregirMovimiento"
+        />
 
         <!-- Padres / tutores -->
         <section v-else-if="pestana === 'tutores'" class="space-y-4">

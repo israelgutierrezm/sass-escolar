@@ -12,6 +12,7 @@ use App\Models\Admisiones\EtapaCrm;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\RespuestaCampo;
 use App\Models\Admisiones\SituacionAlumno;
+use App\Models\ControlEscolar\MovimientoEscolar;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -40,6 +41,7 @@ class ConvertidorAspirante
         private readonly DevengadorComisiones $comisiones,
         private readonly Ajustes $ajustes,
         private readonly ProgresoSolicitud $progreso,
+        private readonly RegistradorMovimientos $movimientos,
     ) {}
 
     /**
@@ -80,6 +82,19 @@ class ConvertidorAspirante
 
             $this->religarRespuestas($aspirante, $matricula);
             $this->religador->religar($aspirante, $matricula);
+
+            /*
+             * El primer movimiento de su trayectoria, dentro de esta misma
+             * transacción. La referencia va por ASPIRANTE y no por matrícula:
+             * es el hecho que lo originó, y así un reintento de la conversión
+             * no deja dos altas.
+             */
+            $this->movimientos->alta(
+                $matricula,
+                MovimientoEscolar::ORIGEN_CONVERSION,
+                'conversion:'.$aspirante->id,
+                'Convertido desde su solicitud de admisión.',
+            );
 
             // La comisión del promotor se devenga aquí, no al capturarlo: se
             // paga por resultado. Es silencioso — sin promotor titular o sin

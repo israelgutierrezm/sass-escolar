@@ -8,6 +8,7 @@ use App\Models\Academico\Oferta;
 use App\Models\Admisiones\Alumno;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\SituacionAlumno;
+use App\Models\ControlEscolar\MovimientoEscolar;
 use App\Models\Identidad\Persona;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -30,6 +31,7 @@ class MatriculadorOferta
     public function __construct(
         private readonly GeneradorMatricula $generador,
         private readonly ReligadorFinanzas $religador,
+        private readonly RegistradorMovimientos $movimientos,
     ) {}
 
     /**
@@ -76,6 +78,18 @@ class MatriculadorOferta
             // los pagos de otra candidatura suya no le corresponden.
             $this->religador->religarPorOferta($persona->id, $matriculaCreada);
 
+            /*
+             * Y el primer movimiento de su trayectoria. Va DENTRO de la misma
+             * transacción: una matrícula sin su alta sería una trayectoria que
+             * empieza en el aire, y la referencia impide que un reintento deje
+             * dos.
+             */
+            $this->movimientos->alta(
+                $matriculaCreada,
+                MovimientoEscolar::ORIGEN_MATRICULACION,
+                'matriculacion:'.$matriculaCreada->id,
+            );
+
             return $matriculaCreada;
         });
     }
@@ -118,10 +132,42 @@ class MatriculadorOferta
      */
     public function darDeBaja(MatriculaOferta $matricula, ?int $situacionId = null): void
     {
-        $matricula->update([
-            'estatus' => 'baja',
-            'situacion_id' => $situacionId ?? $this->primeraSituacionDeBaja() ?? $matricula->situacion_id,
-        ]);
+        // La anterior se lee ANTES de pisarla: es la mitad del movimiento que
+        // el modelo operativo no conserva.
+        $anterior = $matricula->situacion_id;
+        $nueva = $situacionId ?? $this->primeraSituacionDeBaja() ?? $matricula->situacion_id;
+
+        /*
+         * Bajar a quien YA está de baja en la misma situación no es un hecho:
+         * es el segundo clic del botón. Antes daba igual —se reescribían dos
+         * columnas con lo que ya tenían— y desde que esto deja movimiento sí
+         * importa: la trayectoria acabaría con dos bajas idénticas, y la
+         * historia escolar no se corrige quitando renglones.
+         */
+        if ($matricula->estatus === 'baja' && $matricula->situacion_id === $nueva) {
+            return;
+        }
+
+        DB::transaction(function () use ($matricula, $anterior, $nueva) {
+            $matricula->update(['estatus' => 'baja', 'situacion_id' => $nueva]);
+
+            $clave = SituacionAlumno::query()->whereKey($nueva)->value('clave') ?? '';
+
+            /*
+             * SIN referencia, a propósito.
+             *
+             * La referencia existe para que un proceso repetido no duplique, y
+             * sólo sirve cuando identifica un HECHO —`conversion:412`—. Aquí
+             * iba `baja:{id}:{timestamp}`, que no es ninguna de las dos cosas:
+             * un reintento un segundo después la esquiva, y dos bajas legítimas
+             * del mismo segundo —de temporal a definitiva— se fundían en una,
+             * o sea que la segunda no quedaba registrada. Lo destapó la suite.
+             *
+             * Lo que impide el doble clic es el guard de arriba, que mira el
+             * estado real en vez de la hora.
+             */
+            $this->movimientos->baja($matricula, $anterior, $nueva, $clave);
+        });
     }
 
     /**
@@ -144,14 +190,27 @@ class MatriculadorOferta
         return $this->situacionesDeBaja()->first()?->id;
     }
 
-    /** Reactiva una matrícula dada de baja. */
+    /**
+     * Reactiva una matrícula dada de baja.
+     *
+     * A la que ya está activa no se le hace nada, por lo mismo que a la baja
+     * repetida: reactivar dos veces es un doble clic, no dos reingresos.
+     */
     public function reactivar(MatriculaOferta $matricula): void
     {
-        $situacionActivo = SituacionAlumno::query()->where('clave', 'activo')->value('id');
+        if ($matricula->estatus === 'activo') {
+            return;
+        }
 
-        $matricula->update([
-            'estatus' => 'activo',
-            'situacion_id' => $situacionActivo ?? $matricula->situacion_id,
-        ]);
+        $anterior = $matricula->situacion_id;
+        $situacionActivo = SituacionAlumno::query()->where('clave', 'activo')->value('id');
+        $nueva = $situacionActivo ?? $matricula->situacion_id;
+
+        DB::transaction(function () use ($matricula, $anterior, $nueva) {
+            $matricula->update(['estatus' => 'activo', 'situacion_id' => $nueva]);
+
+            // Sin referencia, por lo mismo que la baja.
+            $this->movimientos->reingreso($matricula, $anterior, $nueva);
+        });
     }
 }

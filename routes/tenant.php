@@ -18,7 +18,6 @@ use App\Http\Controllers\AutenticacionController;
 use App\Http\Controllers\AutorizacionController;
 use App\Http\Controllers\AvisoGrabacionController;
 use App\Http\Controllers\BecaController;
-use App\Http\Controllers\RecursosDigitalesController;
 use App\Http\Controllers\Bolsa\ColocacionController;
 use App\Http\Controllers\Bolsa\EmpresaController;
 use App\Http\Controllers\Bolsa\MisVacantesController;
@@ -28,8 +27,8 @@ use App\Http\Controllers\BuscadorAlumnosController;
 use App\Http\Controllers\BuscadorMatriculasController;
 use App\Http\Controllers\CampoFormularioController;
 use App\Http\Controllers\CampusController;
+use App\Http\Controllers\CaptacionController;
 use App\Http\Controllers\CapturaCalificacionesController;
-use App\Http\Controllers\ProgramaAcademicoController;
 use App\Http\Controllers\CatalogoAcademicoController;
 use App\Http\Controllers\ChatMateriaController;
 use App\Http\Controllers\CicloController;
@@ -98,6 +97,7 @@ use App\Http\Controllers\MisAvisosController;
 use App\Http\Controllers\MisCursosController;
 use App\Http\Controllers\Movilidad\MovilidadController;
 use App\Http\Controllers\Movilidad\RevalidacionController;
+use App\Http\Controllers\MovimientoEscolarController;
 use App\Http\Controllers\OfertaController;
 use App\Http\Controllers\PadreController;
 use App\Http\Controllers\PasarelaPagoController;
@@ -114,8 +114,9 @@ use App\Http\Controllers\Plataforma\ModuloController;
 use App\Http\Controllers\PortafolioController;
 use App\Http\Controllers\PortalAspiranteController;
 use App\Http\Controllers\PresentacionExamenController;
-use App\Http\Controllers\CaptacionController;
+use App\Http\Controllers\ProgramaAcademicoController;
 use App\Http\Controllers\RecuperacionController;
+use App\Http\Controllers\RecursosDigitalesController;
 use App\Http\Controllers\ReglaHorarioController;
 use App\Http\Controllers\ReglaMatriculaController;
 use App\Http\Controllers\Reportes\BitacoraReportesController;
@@ -986,6 +987,29 @@ Route::middleware([
                             Route::put('{alumno}/titulo/antecedente', [DatosTituloController::class, 'antecedente'])
                                 ->whereNumber('alumno')->name('titulo.antecedente');
                         });
+                    });
+
+                /*
+                 * Movimientos escolares: la trayectoria administrativa de una
+                 * MATRÍCULA. Cuelga de `matricula_oferta` y no del alumno
+                 * porque quien estudia dos programas tiene dos trayectorias, y
+                 * mezclarlas contaría dos historias como si fueran una.
+                 *
+                 * Consultar y registrar son permisos distintos, y corregir es un
+                 * tercero: enmendar lo ya asentado es un acto de excepción, no
+                 * la captura de todos los días. El alcance por campus lo pone el
+                 * controlador con `AcotaPorCampus`, igual que el expediente.
+                 */
+                Route::controller(MovimientoEscolarController::class)
+                    ->prefix('matriculas/{matricula}/movimientos')->name('movimientos.')
+                    ->whereNumber('matricula')
+                    ->group(function () {
+                        Route::get('/', 'index')
+                            ->middleware('can:ver-movimientos-escolares')->name('index');
+                        Route::get('catalogos', 'catalogos')
+                            ->middleware('can:registrar-movimiento-escolar')->name('catalogos');
+                        Route::post('/', 'store')
+                            ->middleware('can:registrar-movimiento-escolar')->name('store');
                     });
 
                 /*
