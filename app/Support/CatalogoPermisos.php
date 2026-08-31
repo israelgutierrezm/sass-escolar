@@ -117,7 +117,7 @@ final class CatalogoPermisos
             'ver-aspirantes' => ['Ver aspirantes', 'Consultar el embudo de admisión y la ficha de cada prospecto.', [self::ADMINISTRATIVO]],
             'crear-aspirantes' => ['Dar de alta aspirantes', 'Registrar prospectos nuevos.', [self::ADMINISTRATIVO]],
             'editar-aspirantes' => ['Editar aspirantes', 'Modificar los datos de un prospecto y subir su documentación.', [self::ADMINISTRATIVO]],
-            'validar-expediente' => ['Validar expedientes', 'Aceptar o rechazar los documentos que entrega un aspirante. Quien sube no valida.', [self::ADMINISTRATIVO]],
+            'validar-expediente' => ['Validar expedientes', 'Aceptar o rechazar los documentos que entregan aspirantes, alumnos y padres o tutores. Quien sube no valida, y un rechazo tiene que decir por qué.', [self::ADMINISTRATIVO]],
             'convertir-aspirante' => ['Convertir en alumno', 'Cerrar la admisión: genera la matrícula. Es el paso irreversible del embudo.', [self::ADMINISTRATIVO]],
             'generar-matricula' => ['Generar matrícula', 'Numerar a un alumno. Cubre reingresos y segundas programas académicos de quien ya está dentro.', [self::ADMINISTRATIVO]],
             'gestionar-documentos' => ['Administrar el catálogo de documentos', 'Definir qué papeles se le piden a cada tipo de persona.', [self::ADMINISTRATIVO]],

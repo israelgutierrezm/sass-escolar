@@ -11,6 +11,7 @@ import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
 import PestanasPagina from '@/Components/PestanasPagina.vue';
 import MovimientosEscolares from '@/Components/MovimientosEscolares.vue';
+import RevisionDeDocumentos from '@/Components/RevisionDeDocumentos.vue';
 import FormulariosAsignados from '@/Components/FormulariosAsignados.vue';
 import EncabezadoPersona from '@/Components/EncabezadoPersona.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
@@ -122,6 +123,15 @@ const props = defineProps<{
     paises: { id: number; nombre: string }[];
     mexicoId: number | null;
     puedeEditar: boolean;
+    /** Su expediente de documentos, y con qué revisarlo. */
+    documentos: {
+        id: number; documento: string | null; descripcion: string | null;
+        estado_id: number | null; estado: string | null; estado_clave: string | null;
+        vigencia: string | null; vencido: boolean; observaciones: string | null;
+        subido: string | null; entregado_por: string | null;
+    }[];
+    estadosDocumento: { id: number; clave: string; nombre: string }[];
+    puedeValidar: boolean;
     /** Movimientos escolares: consultar, registrar y corregir son tres permisos. */
     puedeVerMovimientos: boolean;
     puedeRegistrarMovimiento: boolean;
@@ -154,7 +164,7 @@ const props = defineProps<{
     };
 }>();
 
-const pestana = ref<'historial' | 'carga' | 'programas_academicos' | 'movimientos' | 'tutores' | 'facturacion' | 'datos' | 'titulacion'>('historial');
+const pestana = ref<'historial' | 'carga' | 'programas_academicos' | 'movimientos' | 'documentos' | 'tutores' | 'facturacion' | 'datos' | 'titulacion'>('historial');
 
 /**
  * Las OTRAS trayectorias de esta persona, para la pestaña de movimientos.
@@ -162,6 +172,11 @@ const pestana = ref<'historial' | 'carga' | 'programas_academicos' | 'movimiento
  * Se excluye la que está en foco: la cabecera ya la describe, y repetirla entre
  * los enlaces invitaría a pulsar el que devuelve a donde uno ya está.
  */
+/** Cuántos papeles suyos esperan revisión, para la etiqueta de la pestaña. */
+const documentosPorRevisar = computed(
+    () => props.documentos.filter((d) => d.estado_clave === 'pendiente').length,
+);
+
 const otrasTrayectorias = computed(() =>
     props.programas_academicos
         .filter((p) => p.id !== props.alumno.id)
@@ -1002,6 +1017,7 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                 { clave: 'carga', etiqueta: 'Carga por ciclo' },
                 { clave: 'programas_academicos', etiqueta: `Programas académicos (${programas_academicos.length})` },
                 ...(puedeVerMovimientos ? [{ clave: 'movimientos', etiqueta: 'Movimientos' }] : []),
+                { clave: 'documentos', etiqueta: `Documentos${documentosPorRevisar ? ` · ${documentosPorRevisar} por revisar` : ''}` },
                 { clave: 'tutores', etiqueta: `Padres/tutores (${tutores.length})` },
                 { clave: 'facturacion', etiqueta: 'Facturación' },
                 // La titulación sólo aparece si su programa_academico llega a emitir
@@ -1444,6 +1460,24 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                 quedarían sin dueño. Se da de baja.
             </p>
         </section>
+
+        <!--
+            Su expediente de documentos. Cuelga de la PERSONA, así que quien
+            estudia dos programas ve los mismos papeles en sus dos fichas: el
+            acta de nacimiento es una sola. La nota lo dice, porque si no la
+            repetición se lee como un error.
+        -->
+        <RevisionDeDocumentos
+            v-else-if="pestana === 'documentos'"
+            :documentos="documentos"
+            :estados="estadosDocumento"
+            :base="`/escolar/alumnos/${alumno.id}/documentos`"
+            :puede-validar="puedeValidar"
+            quien-entrega="el alumno —o su padre o tutor, si es menor—"
+            :nota="programas_academicos.length > 1
+                ? 'Son los papeles de la persona, no de esta matrícula: los mismos aparecen en sus otros programas académicos.'
+                : undefined"
+        />
 
         <!--
             Movimientos escolares de ESTA matrícula.

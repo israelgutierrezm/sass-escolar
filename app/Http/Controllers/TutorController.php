@@ -4,14 +4,20 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\Admisiones\EstadoDocumento;
+use App\Models\Identidad\DocumentoTutor;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\TutorAlumno;
 use App\Models\Identidad\Usuario;
 use App\Services\ResolutorFormularios;
 use App\Services\Suplantador;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Directorio de padres y tutores: la vista de administración de las personas
@@ -137,9 +143,80 @@ class TutorController extends Controller
             // llena bloques de datos, y hasta ahora los formularios sólo sabían
             // de quien estudia.
             'formularios' => app(ResolutorFormularios::class)->para($tutor),
+            /*
+             * Los papeles que la escuela le pide A ÉL —no a sus hijos—, con qué
+             * revisarlos. Los sube desde su portal y hasta ahora nadie tenía
+             * dónde aceptarlos: se quedaban «pendientes» para siempre.
+             */
+            'documentos' => DocumentoTutor::query()
+                ->with(['documento:id,nombre', 'estado:id,clave,nombre'])
+                ->where('persona_id', $tutor->id)
+                ->get()
+                ->map(fn (DocumentoTutor $d) => [
+                    'id' => $d->id,
+                    'documento' => $d->documento?->nombre,
+                    'descripcion' => $d->descripcion,
+                    'estado_id' => $d->estado_documento_id,
+                    'estado' => $d->estado?->nombre,
+                    'estado_clave' => $d->estado?->clave,
+                    'vigencia' => $d->vigencia?->toDateString(),
+                    'vencido' => $d->estaVencido(),
+                    'observaciones' => $d->observaciones,
+                    'subido' => $d->created_at?->format('d/m/Y'),
+                ])->values(),
+            'estadosDocumento' => EstadoDocumento::query()->orderBy('id')->get(['id', 'clave', 'nombre']),
+            'puedeValidar' => $request->user()->can('validar-expediente'),
             'puedeEditar' => $request->user()->can('editar-tutores'),
             'suplantable' => app(Suplantador::class)->datosPara($request, $tutor),
         ]);
+    }
+
+    /**
+     * Revisa un documento del expediente DEL TUTOR: aceptarlo o rechazarlo.
+     *
+     * Gemelo del de alumno y del de docente. Sin aviso automático, y no por
+     * descuido: `avisos_destinos` sabe señalar alumnos y extender a sus
+     * familias, pero no tiene forma de dirigirse a UNA persona que es tutor y
+     * nada más. El motivo lo lee en su propio expediente, que es donde subió el
+     * papel; inventar aquí un destino nuevo para un caso sería agregar una
+     * forma de segmentar que después habría que sostener en toda la pantalla de
+     * avisos.
+     */
+    public function revisarDocumento(Request $request, Persona $tutor, DocumentoTutor $documento): RedirectResponse
+    {
+        abort_unless($documento->persona_id === $tutor->id, 404);
+
+        $datos = $request->validate([
+            'estado_documento_id' => ['required', 'integer', Rule::exists('estados_documento', 'id')->whereNull('deleted_at')],
+            'observaciones' => ['nullable', 'string', 'max:255'],
+        ], [], ['estado_documento_id' => 'estado']);
+
+        $estado = EstadoDocumento::find($datos['estado_documento_id']);
+
+        if ($estado?->clave === 'rechazado' && trim((string) ($datos['observaciones'] ?? '')) === '') {
+            return back()->withErrors([
+                'observaciones' => 'Explica por qué se rechaza: es lo único que el tutor va a leer.',
+            ]);
+        }
+
+        $documento->update([
+            'estado_documento_id' => $datos['estado_documento_id'],
+            'observaciones' => $datos['observaciones'] ?? null,
+        ]);
+
+        return back(303)->with('exito', 'Documento revisado.');
+    }
+
+    /** Descarga autenticada del documento del tutor. Nunca por URL directa. */
+    public function descargarDocumento(Persona $tutor, DocumentoTutor $documento): StreamedResponse
+    {
+        abort_unless($documento->persona_id === $tutor->id, 404);
+        abort_unless(Storage::disk('local')->exists($documento->url), 404);
+
+        return Storage::disk('local')->download(
+            $documento->url,
+            sprintf('%s - %s', $documento->documento?->nombre ?? 'documento', $this->nombre($tutor)),
+        );
     }
 
     private function nombre(?Persona $p): string

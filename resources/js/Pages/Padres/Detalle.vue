@@ -5,6 +5,7 @@ import BotonVolver from '@/Components/BotonVolver.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 import EncabezadoPersona from '@/Components/EncabezadoPersona.vue';
 import FormulariosAsignados from '@/Components/FormulariosAsignados.vue';
+import RevisionDeDocumentos from '@/Components/RevisionDeDocumentos.vue';
 import { ICONOS } from '@/iconos';
 
 /**
@@ -51,6 +52,16 @@ const props = defineProps<{
     hijos: Hijo[];
     /** Los bloques de datos que la escuela le pide a ÉL, de `ResolutorFormularios`. */
     formularios: Record<string, any>[];
+    /** Los papeles que la escuela le pide A ÉL, y con qué revisarlos. */
+    documentos: {
+        id: number; documento: string | null; descripcion: string | null;
+        estado_id: number | null; estado: string | null; estado_clave: string | null;
+        vigencia: string | null; vencido: boolean; observaciones: string | null;
+        subido: string | null;
+    }[];
+    estadosDocumento: { id: number; clave: string; nombre: string }[];
+    /** Quien SUBE no valida: revisar va con su propio permiso. */
+    puedeValidar: boolean;
     /** Los vínculos se editan desde el alumno; esto sólo abre sus formularios. */
     puedeEditar: boolean;
     /** Con qué cuenta entrar como esta persona; null si no tiene. */
@@ -187,6 +198,20 @@ function verComo(suplantable: { usuario_id: number; usuario: string }): void {
                     titular="tutor"
                     :base-captura="`/padres-tutores/${tutor.persona_id}/formularios`"
                     :puede-capturar="puedeEditar"
+                />
+
+                <!--
+                    Sus papeles —los de él, no los de sus hijos—. Los sube desde
+                    su portal y hasta ahora nadie tenía dónde aceptarlos: se
+                    quedaban «pendientes» para siempre.
+                -->
+                <RevisionDeDocumentos
+                    :documentos="documentos"
+                    :estados="estadosDocumento"
+                    :base="`/padres-tutores/${tutor.persona_id}/documentos`"
+                    :puede-validar="puedeValidar"
+                    quien-entrega="el tutor"
+                    nota="Son los papeles que la escuela le pide a él. Los de sus hijos viven en el expediente de cada alumno."
                 />
             </div>
 

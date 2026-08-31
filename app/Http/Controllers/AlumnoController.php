@@ -11,9 +11,11 @@ use App\Models\Academico\Oferta;
 use App\Models\Academico\PlanEstudio;
 use App\Models\Academico\PlanMateria;
 use App\Models\Academico\ProgramaAcademico;
+use App\Models\Admisiones\EstadoDocumento;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\SituacionAlumno;
 use App\Models\ControlEscolar\Ciclo;
+use App\Models\ControlEscolar\DocumentoAlumno;
 use App\Models\ControlEscolar\EstatusHistorial;
 use App\Models\ControlEscolar\Historial;
 use App\Models\ControlEscolar\Inscripcion;
@@ -39,6 +41,7 @@ use App\Services\Excel\PlantillaAlumnos;
 use App\Services\HistorialDelAlumno;
 use App\Services\IdentidadPersona;
 use App\Services\MatriculadorOferta;
+use App\Services\Plataforma\AvisoDeDocumentoRechazado;
 use App\Services\ResolutorFormularios;
 use App\Services\Suplantador;
 use App\Support\CatalogosSat;
@@ -48,12 +51,14 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Alumnos: buscar, consultar el expediente completo y corregir sus datos.
@@ -445,6 +450,40 @@ class AlumnoController extends Controller
              * catálogos de título, y sumarle una consulta más que casi nadie
              * mira encarecería la pantalla para todo el mundo.
              */
+            /*
+             * Su expediente de documentos, y con qué revisarlos.
+             *
+             * Cuelga de la PERSONA y no de la matrícula: el acta de nacimiento
+             * es una sola aunque estudie dos programas, así que las dos fichas
+             * de quien tiene dos matrículas enseñan los mismos papeles. La
+             * pantalla lo dice con palabras.
+             */
+            'documentos' => DocumentoAlumno::query()
+                ->with(['documento:id,nombre', 'estado:id,clave,nombre', 'registro.persona'])
+                ->where('persona_id', $alumno->persona_id)
+                ->get()
+                ->map(fn (DocumentoAlumno $d) => [
+                    'id' => $d->id,
+                    'documento' => $d->documento?->nombre,
+                    'descripcion' => $d->descripcion,
+                    'estado_id' => $d->estado_documento_id,
+                    'estado' => $d->estado?->nombre,
+                    'estado_clave' => $d->estado?->clave,
+                    'vigencia' => $d->vigencia?->toDateString(),
+                    'vencido' => $d->estaVencido(),
+                    'observaciones' => $d->observaciones,
+                    'subido' => $d->created_at?->format('d/m/Y'),
+                    // Quién lo entregó: importa al revisar, porque un papel que
+                    // subió el tutor se le reclama al tutor.
+                    'entregado_por' => $d->registro?->persona?->nombreCompleto(),
+                ])->values(),
+            'estadosDocumento' => EstadoDocumento::query()->orderBy('id')->get(['id', 'clave', 'nombre']),
+            /*
+             * Quien SUBE no valida: el permiso de revisar va aparte del de ver
+             * el expediente, y es el mismo con el que se revisa el del
+             * aspirante. Es el mismo acto sobre la misma clase de papel.
+             */
+            'puedeValidar' => $request->user()->can('validar-expediente'),
             'puedeVerMovimientos' => $request->user()->can('ver-movimientos-escolares'),
             'puedeRegistrarMovimiento' => $request->user()->can('registrar-movimiento-escolar'),
             'puedeCorregirMovimiento' => $request->user()->can('corregir-movimiento-escolar'),
@@ -476,6 +515,79 @@ class AlumnoController extends Controller
      * institución. Lleva su estatus académico oficial SEP (`observacion_
      * asignatura`) y NO queda ligada a acta (por eso se puede retirar aquí).
      */
+    /**
+     * Revisa un documento del expediente del alumno: aceptarlo o rechazarlo.
+     *
+     * ── El hueco que cierra ────────────────────────────────────────────────
+     * `documentos_alumno` llevaba desde que existe sin contraparte: el alumno
+     * —y desde hace poco su tutor— subía, y el estado se quedaba en «pendiente»
+     * para siempre porque nadie tenía dónde revisarlo. Un expediente que no se
+     * revisa no acredita nada, y la escuela se enteraba el día que hacía falta
+     * el papel.
+     *
+     * Es el gemelo de `DocenteController::revisarDocumento` y del de aspirante.
+     */
+    public function revisarDocumento(Request $request, MatriculaOferta $alumno, DocumentoAlumno $documento): RedirectResponse
+    {
+        abort_unless($documento->persona_id === $alumno->persona_id, 404);
+
+        $datos = $request->validate([
+            'estado_documento_id' => ['required', 'integer', Rule::exists('estados_documento', 'id')->whereNull('deleted_at')],
+            'observaciones' => ['nullable', 'string', 'max:255'],
+        ], [], ['estado_documento_id' => 'estado']);
+
+        $estado = EstadoDocumento::find($datos['estado_documento_id']);
+        $rechaza = $estado?->clave === 'rechazado';
+
+        /*
+         * Rechazar SIN decir por qué obliga al alumno a adivinar qué corregir,
+         * y lo va a volver a subir igual. El motivo es lo único que él lee.
+         */
+        if ($rechaza && trim((string) ($datos['observaciones'] ?? '')) === '') {
+            return back()->withErrors([
+                'observaciones' => 'Explica por qué se rechaza: es lo único que el alumno y su familia van a leer.',
+            ]);
+        }
+
+        // Cómo estaba ANTES, para saber si esto es un hecho nuevo.
+        $yaEstabaRechazado = $documento->estado?->clave === 'rechazado';
+
+        $documento->update([
+            'estado_documento_id' => $datos['estado_documento_id'],
+            'observaciones' => $datos['observaciones'] ?? null,
+        ]);
+
+        /*
+         * El aviso se levanta al CAMBIAR a rechazado, no cada vez que se
+         * guarda: corregir el texto de un rechazo que ya estaba rechazado no es
+         * un hecho nuevo, y un segundo aviso sólo enseñaría a ignorar el
+         * primero.
+         */
+        if ($rechaza && ! $yaEstabaRechazado && $alumno->persona !== null) {
+            app(AvisoDeDocumentoRechazado::class)->emitir(
+                $alumno->persona,
+                $documento->documento?->nombre ?? 'Documento',
+                $datos['observaciones'] ?? null,
+            );
+        }
+
+        return back(303)->with('exito', $rechaza
+            ? 'Documento rechazado. Se le avisó al alumno con el motivo.'
+            : 'Documento revisado.');
+    }
+
+    /** Descarga autenticada del documento del alumno. Nunca por URL directa. */
+    public function descargarDocumento(MatriculaOferta $alumno, DocumentoAlumno $documento): StreamedResponse
+    {
+        abort_unless($documento->persona_id === $alumno->persona_id, 404);
+        abort_unless(Storage::disk('local')->exists($documento->url), 404);
+
+        return Storage::disk('local')->download(
+            $documento->url,
+            sprintf('%s - %s', $documento->documento?->nombre ?? 'documento', $alumno->persona?->nombreCompleto()),
+        );
+    }
+
     public function agregarHistorial(Request $request, MatriculaOferta $alumno, EstatusAcademico $estatusAcademico): RedirectResponse
     {
         $alumno->loadMissing('oferta.plan');

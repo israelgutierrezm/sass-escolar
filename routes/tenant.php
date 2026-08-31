@@ -884,6 +884,25 @@ Route::middleware([
                     ->whereNumber('respuesta')->name('documento');
             });
 
+        /*
+         * Y sus documentos: descargarlos y revisarlos.
+         *
+         * Consultarlos va con `ver-tutores` —son parte de su expediente— y
+         * revisarlos con `validar-expediente`, el mismo permiso del aspirante y
+         * del alumno: quien sube no valida.
+         */
+        Route::prefix('padres-tutores/{tutor}/documentos')->name('tenant.padres.documentos.')
+            ->whereNumber('tutor')
+            ->middleware('can:ver-tutores')
+            ->group(function () {
+                Route::get('{documento}/descargar', [TutorController::class, 'descargarDocumento'])
+                    ->whereNumber('documento')->name('descargar');
+                Route::put('{documento}', [TutorController::class, 'revisarDocumento'])
+                    ->whereNumber('documento')
+                    ->middleware('can:validar-expediente')
+                    ->name('revisar');
+            });
+
         Route::prefix('escolar')->name('tenant.escolar.')
             ->middleware('can:ver-grupos')
             ->group(function () {
@@ -963,6 +982,23 @@ Route::middleware([
                             ->whereNumber('alumno')
                             ->middleware('can:editar-alumnos')
                             ->name('facturacion');
+
+                        /*
+                         * Su expediente de documentos: descargar lo entregado y
+                         * revisarlo.
+                         *
+                         * Revisar va con `validar-expediente` y no con
+                         * `editar-alumnos`: quien sube no valida, y es el MISMO
+                         * permiso con el que se revisa el del aspirante, porque
+                         * es el mismo acto sobre la misma clase de papel.
+                         */
+                        Route::get('{alumno}/documentos/{documento}/descargar', 'descargarDocumento')
+                            ->whereNumber('alumno')->whereNumber('documento')
+                            ->name('documentos.descargar');
+                        Route::put('{alumno}/documentos/{documento}', 'revisarDocumento')
+                            ->whereNumber('alumno')->whereNumber('documento')
+                            ->middleware('can:validar-expediente')
+                            ->name('documentos.revisar');
 
                         // Carga manual al historial (equivalencias, revalidaciones,
                         // historial académico histórico). Es administración del expediente del

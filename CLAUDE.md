@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**110 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**111 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -58,7 +58,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 110 están en verde**, barridas el 2026-08-31. Catorce son del módulo de
+   **Las 111 están en verde**, barridas el 2026-08-31. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -2440,6 +2440,88 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     Y los otros niveles ya funcionaban —se comprobó ocultando `bolsa` para el
     alumno vía el editor (MenuRol.ocultos): desaparece sin tocar permisos—.
 
+- **La escuela por fin REVISA lo que alumnos y tutores entregan** (2026-08-31,
+  pedido del cliente). `documentos_alumno` y `documentos_tutor` llevaban desde
+  que existen sin contraparte: se subía y el estado se quedaba en «pendiente»
+  para siempre, así que la promesa escrita en esta bitácora —«los
+  administradores validan o rechazan; alumnos y tutores sólo suben»— estaba a
+  medias. Un expediente que no se revisa no acredita nada.
+  - **Dentro de la ficha de cada quien**, no en una sección aparte: pestaña
+    **Documentos** en `/escolar/alumnos/{matrícula}` y bloque propio en
+    `/padres-tutores/{tutor}`. Es donde ya viven la del aspirante y la del
+    docente, y quien valida abre un expediente, no una bandeja de archivos.
+  - **UN componente, `RevisionDeDocumentos.vue`**, para los dos. Las tablas son
+    tres a propósito —los papeles del padre no deben asomar en el expediente del
+    hijo— pero el ACTO es el mismo, con las mismas reglas. Escrito tres veces,
+    la tercera acabaría dejando rechazar sin explicación.
+  - **Se reusa `validar-expediente`, no se inventan dos permisos.** Es el mismo
+    acto sobre la misma clase de papel, y su descripción se amplió a los tres
+    ámbitos. El ensanchamiento es acotado: sigue haciendo falta llegar a la
+    ficha (`ver-alumnos`, `ver-tutores`), así que lo que agrega es el botón de
+    revisar a quien ya ve el archivo.
+  - **RECHAZAR SIN MOTIVO no se puede**, y el motivo es lo único que lee quien
+    entregó: sin él va a volver a subir lo mismo. El campo se marca obligatorio
+    EN CUANTO se elige «rechazado» —enterarse al enviar es enterarse tarde— y el
+    servidor lo vuelve a exigir, porque la pantalla no es una defensa.
+  - **Y el rechazo levanta un AVISO automático**
+    (`App\Services\Plataforma\AvisoDeDocumentoRechazado`). El motivo ya se veía
+    en el portal, pero sólo si el alumno entraba a mirarlo, y nadie entra a su
+    expediente «por si acaso». El aviso es lo que empuja.
+    - **Con el motivo DENTRO del cuerpo.** Uno que diga «tienes un documento
+      rechazado» y obligue a ir a otra pantalla para saber por qué es media
+      notificación.
+    - **Al alumno siempre; a su FAMILIA sólo si es menor**, con el modificador
+      `familiares` y no señalando tutores uno por uno. No depende del
+      interruptor de entrega —ése decide si el tutor puede SUBIR, y enterarse es
+      otra cosa—: de un menor responde su familia, tenga o no permiso de cargar
+      el archivo, porque es quien va a traer el papel. La edad la resuelve
+      `RepresentacionDelTutor`, que es donde vive esa definición.
+    - **Se levanta al CAMBIAR a rechazado, no cada vez que se guarda.**
+      Reescribir el motivo de un rechazo que ya estaba rechazado no es un hecho
+      nuevo: el texto corregido se lee en el expediente y un segundo aviso sólo
+      enseñaría a ignorar el primero.
+    - **Importante y no crítico**: un crítico exige confirmación y se pone
+      delante de todo. Un papel por corregir admite «luego lo veo».
+    - **Y CADUCA a los 30 días.** En cuanto el alumno vuelve a subirlo, el aviso
+      dice algo que ya no es cierto. No se retira al re-subir —eso ataría la
+      carga de un archivo a la tabla de avisos por una referencia que no
+      existe—: nace con vigencia y se calla solo.
+  - **Al TUTOR no se le levanta aviso, y no por descuido**: `avisos_destinos`
+    sabe señalar alumnos y extender a sus familias, pero no dirigirse a UNA
+    persona que es tutor y nada más. El motivo lo lee en su propio expediente,
+    que es donde subió el papel. Inventar un destino nuevo para un caso sería
+    agregar una forma de segmentar que después habría que sostener en toda la
+    pantalla de avisos.
+  - **La bandeja del panel junta las TRES colas** —aspirantes, alumnos y
+    tutores— ordenadas por antigüedad, cada renglón con su enlace y con quién es
+    («Aspirante · Contactado», «Alumno · L20220001», «Padre o tutor»). Con tres
+    tarjetas habría que sumarlas de memoria y acordarse de mirar las tres; y sin
+    tocarla, las dos pantallas nuevas no las habría encontrado nadie, que es como
+    se llega otra vez a que nadie revise.
+    - La cola de tutores va **SIN recorte por campus**: un tutor no tiene campus
+      —sus hijos pueden estar en dos— y acotarlo por el de alguno lo haría
+      aparecer y desaparecer según quién mire. Misma decisión que la fuente de
+      vínculos familiares de Reportes.
+  - **En la ficha del alumno se dice de quién son los papeles**: cuelgan de la
+    PERSONA, así que quien estudia dos programas ve los mismos en sus dos
+    fichas. Sin la nota, la repetición se lee como un error.
+  - **Y quién los entregó**, porque un papel que subió el tutor se le reclama al
+    tutor y no al alumno de doce años.
+  - Pruebas: `scripts/prueba-validar-documentos.php`, 38 verificaciones,
+    comprobadas mutando doce reglas. **Una sobrevivió**: «aceptar no avisa» se
+    probaba sobre un documento que venía de estar rechazado, así que el guard de
+    «ya estaba rechazado» tapaba al de «sólo al rechazar». Se construyó el caso
+    limpio.
+  - Verificado en el navegador: la bandeja del panel con los dos renglones
+    nuevos, la pestaña «Documentos · 2 por revisar», el campo que se vuelve
+    obligatorio al elegir «Rechazado» con el botón deshabilitado hasta
+    escribirlo, el rechazo dejando el motivo a la vista, el aviso apareciendo en
+    el panel del alumno suplantándolo, y la descarga administrativa (200,
+    `application/pdf`) con la cruzada en 404. **Los datos se retiraron.**
+  - **Lo que NO se tocó**: la revisión del expediente del DOCENTE sigue sin
+    aviso automático. Es el mismo mecanismo y una línea, pero cambiar el
+    comportamiento de algo que ya funcionaba no estaba en lo pedido.
+
 - **El tutor entrega los documentos de su hijo MENOR** (2026-08-31, decisión del
   cliente). Cierra la única pregunta que este proyecto había dejado abierta a
   propósito: `tutores_alumno` declaraba qué puede VER el tutor y nada sobre qué
@@ -2507,10 +2589,9 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     contra otro hijo (403); y suplantando después al alumno, «Lo entregó Jorge
     Ramírez Soto» en su propio expediente. **Los datos se retiraron y la edad
     volvió a 18.**
-  - **Lo que sale a la luz y NO se arregla aquí**: `documentos_alumno` no tiene
-    pantalla administrativa donde validar. El alumno —y ahora su tutor— suben, y
-    el estado se queda en «pendiente» para siempre porque nadie lo revisa. Es un
-    hueco anterior a esto y de otro oficio.
+  - ~~**Lo que sale a la luz y NO se arregla aquí**: `documentos_alumno` no
+    tiene pantalla administrativa donde validar.~~ **Resuelto el mismo día**: ver
+    «La escuela por fin REVISA lo que alumnos y tutores entregan», más arriba.
 
 - **Movimientos escolares · la trayectoria administrativa, CERRADO**
   (2026-08-31). Pedido del cliente. NO está en la spec, así que es función nueva
