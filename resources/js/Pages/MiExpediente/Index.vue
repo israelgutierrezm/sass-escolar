@@ -29,6 +29,8 @@ interface Documento {
     vigencia: string | null;
     vencido: boolean;
     observaciones: string | null;
+    /** Quién lo subió, cuando no fuiste tú. Null en los propios. */
+    entregado_por?: string | null;
 }
 
 interface TipoDocumento {
@@ -394,6 +396,15 @@ function quitarFoto(): void {
                         </p>
                         <p v-if="doc.observaciones" class="mt-0.5 text-xs italic text-amber-700">
                             {{ doc.observaciones }}
+                        </p>
+                        <!--
+                            Sólo cuando lo subió alguien más: desde que un tutor
+                            puede entregar por su hijo menor, aquí pueden
+                            aparecer archivos que uno no cargó, y sin decirlo se
+                            leen como propios.
+                        -->
+                        <p v-if="doc.entregado_por" class="mt-0.5 text-xs text-suave">
+                            Lo entregó {{ doc.entregado_por }}
                         </p>
                     </div>
 

@@ -8,6 +8,7 @@ use App\Models\Admisiones\Alumno;
 use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\Admisiones\EstadoDocumento;
 use App\Models\Concerns\TieneAuditoria;
+use App\Models\Identidad\Usuario;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -55,6 +56,19 @@ class DocumentoAlumno extends Model
     public function estado(): BelongsTo
     {
         return $this->belongsTo(EstadoDocumento::class, 'estado_documento_id');
+    }
+
+    /**
+     * Quién lo subió.
+     *
+     * Sale de la auditoría, que ya lo guardaba: desde que el tutor puede
+     * entregar por su hijo menor, el alumno tiene que poder distinguir lo que
+     * subió él de lo que subió su madre. Sin esto, en su expediente aparecería
+     * un archivo que no recuerda haber cargado.
+     */
+    public function registro(): BelongsTo
+    {
+        return $this->belongsTo(Usuario::class, 'created_by');
     }
 
     /** Un documento con vigencia pasada ya no acredita nada. */

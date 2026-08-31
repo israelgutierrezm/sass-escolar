@@ -5,6 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import PanelPagoEnLinea from '@/Components/PanelPagoEnLinea.vue';
+import DocumentosDelHijo from '@/Components/DocumentosDelHijo.vue';
 
 interface Materia {
     materia: string | null;
@@ -64,6 +65,21 @@ const props = defineProps<{
     conducta: {
         incidencias: { id: number; tipo: string | null; nivel: number; fecha: string | null; descripcion: string }[];
         sanciones: { id: number; tipo: string | null; fecha: string | null; desde: string | null; hasta: string | null; vigente: boolean; motivo: string }[];
+    } | null;
+    /**
+     * Los papeles del hijo, cuando el tutor puede entregarlos por él.
+     *
+     * `null` significa que la escuela tiene apagado ese acto: la sección no se
+     * dibuja y no se anuncia. Con el objeto puesto y `motivo` lleno significa
+     * que aquí sí existe pero que a ESTE vínculo no le toca —el hijo ya cumplió
+     * la edad, o falta su fecha de nacimiento—, y entonces se dice por qué.
+     */
+    entregaDocumentos: {
+        motivo: string | null;
+        edad: number | null;
+        mayoria_de_edad: number;
+        documentos: any[];
+        tipos: { id: number; nombre: string; obligatorio: boolean }[];
     } | null;
 }>();
 
@@ -322,6 +338,18 @@ function colorCalif(estatusClave: string | null): string {
                 </div>
             </section>
         </template>
+
+        <!--
+            Sus documentos, entregados por su tutor. Va antes de la conducta y
+            de los accesos porque es lo único de esta pantalla en lo que hay
+            algo que HACER: lo demás se consulta.
+        -->
+        <DocumentosDelHijo
+            v-if="entregaDocumentos"
+            :hijo-id="hijo.id"
+            :hijo="hijo.nombre"
+            :entrega="entregaDocumentos"
+        />
 
         <!-- Accesos del hijo -->
         <!--

@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**109 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**110 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -58,7 +58,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 109 están en verde**, barridas el 2026-08-31. Catorce son del módulo de
+   **Las 110 están en verde**, barridas el 2026-08-31. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -2440,6 +2440,78 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     Y los otros niveles ya funcionaban —se comprobó ocultando `bolsa` para el
     alumno vía el editor (MenuRol.ocultos): desaparece sin tocar permisos—.
 
+- **El tutor entrega los documentos de su hijo MENOR** (2026-08-31, decisión del
+  cliente). Cierra la única pregunta que este proyecto había dejado abierta a
+  propósito: `tutores_alumno` declaraba qué puede VER el tutor y nada sobre qué
+  puede ENTREGAR por él, así que en una secundaria el papeleo se cobraba en
+  ventanilla o se le pedía a un niño de doce años.
+  - **La MAYORÍA DE EDAD es un ajuste** (`familia.mayoria_de_edad`, por omisión
+    **18**, entre 15 y 21). 18 es la mayoría de edad en México y por eso es el
+    valor por omisión, pero es un dato de la escuela —alumnado extranjero,
+    programas donde la escuela decide tratar como menor a quien no cumple 21— y
+    escribirlo en el código lo habría vuelto incambiable. Lo fija una prueba que
+    mueve el número y ve al MISMO hijo pasar de poderse a no poderse.
+  - **Y el acto tiene su propio interruptor**
+    (`familia.tutor_entrega_documentos`, **encendido** por omisión). Al revés
+    que los interruptores que exponen datos de menores: aquí quien mira es el
+    tutor legal del menor, que es exactamente quien responde por su expediente,
+    y la escuela donde el papeleo lo lleva el padre es el caso normal, no la
+    excepción. Apagado por omisión, quien lo necesita descubre la sección sólo
+    si adivina que existe.
+  - **NO es un catálogo de «actos delegables».** Hoy hay un solo acto y cada
+    acto es una rama de código con su ruta, su validación y su pantalla, así que
+    una fila nueva no haría nada — mismo criterio que `tipos_actividad`. El
+    siguiente acto que se delegue trae su propio ajuste y su propio lector.
+  - **TRES capas, y ninguna sobra**: el permiso `ver-mis-hijos` deja entrar al
+    portal; el AJUSTE dice si el acto existe en esta escuela —apagado, **404**,
+    igual que la postulación autogestiva—; y el VÍNCULO más la EDAD dicen si es
+    por ESTE hijo —si no, **403 con su razón escrita**—. Las tres viven en
+    `App\Services\Familia\RepresentacionDelTutor`, que usan la pantalla y el
+    controlador: con la regla escrita dos veces, el portal acabaría ofreciendo
+    lo que el servidor rechaza.
+  - **Sin fecha de nacimiento falla CERRADO**, y el motivo dice qué falta. Quien
+    no puede demostrar que representa a un menor no lo representa; y un «no se
+    puede» pelado manda a la gente a soporte en vez de a capturar la fecha.
+  - **Escribe en `documentos_alumno`, la MISMA tabla del alumno.** El acta de
+    nacimiento es del expediente del alumno, la haya subido él o su madre. Con
+    una tabla aparte habría dos sitios donde buscar el mismo papel y dos estados
+    de revisión del mismo trámite.
+  - **Por eso el alumno tiene que ENTERARSE**: en su expediente aparece «Lo
+    entregó Fulano», y **sólo cuando no fue él** —ponerlo en todos los renglones
+    sería ruido para señalar la excepción—. Sale de la auditoría, que ya lo
+    guardaba; no hizo falta columna.
+  - **Al hijo ya mayor no se le enseñan sus papeles siquiera**: consultarlos es
+    representarlo igual que subirlos. Lo destapó una mutación que sobrevivía
+    porque el hijo del escenario no tenía ninguno.
+  - **Lo ACEPTADO no se pisa ni se retira desde el portal de la familia.** Al
+    alumno se le niega borrarlo y se le ofrece re-subir; al tutor no se le
+    ofrece: un documento aprobado y reemplazado por otra persona volvería a
+    revisión sin que el alumno se entere de que su expediente cambió.
+  - Las dos ids viajan por la URL, así que se comprueba la PAREJA (hijo,
+    documento): con sólo la primera, un tutor legítimo pedía el documento de
+    cualquier alumno poniendo a su hijo en el primer hueco. Comprobado por HTTP
+    real: **403**.
+  - **Trampa que mordió al escribir la prueba, y es la tercera vez en este
+    proyecto**: `($fila['entregado_por'] ?? 'x') === null` es falsa pase lo que
+    pase, porque el coalescente reemplaza justamente el null que se quiere ver.
+    Va con `array_key_exists`.
+  - **Y otra**: `TieneAuditoria` escribe `created_by` desde la SESIÓN y pisa lo
+    que se le pase a mano, así que el documento «del alumno» del escenario
+    quedaba con el id del tutor y la comprobación medía otra cosa.
+  - Pruebas: `scripts/prueba-tutor-entrega-documentos.php`, 35 verificaciones,
+    comprobadas mutando diez reglas.
+  - Verificado en el navegador el recorrido entero, suplantando al tutor del
+    demo: el motivo «Ya cumplió 20 años» con la mayoría en 18; con la mayoría en
+    21, la sección completa con «Le falta entregar 3 documentos»; la subida por
+    HTTP real dejándolo en 2; la descarga (200, `application/pdf`) y la cruzada
+    contra otro hijo (403); y suplantando después al alumno, «Lo entregó Jorge
+    Ramírez Soto» en su propio expediente. **Los datos se retiraron y la edad
+    volvió a 18.**
+  - **Lo que sale a la luz y NO se arregla aquí**: `documentos_alumno` no tiene
+    pantalla administrativa donde validar. El alumno —y ahora su tutor— suben, y
+    el estado se queda en «pendiente» para siempre porque nadie lo revisa. Es un
+    hueco anterior a esto y de otro oficio.
+
 - **Movimientos escolares · la trayectoria administrativa, CERRADO**
   (2026-08-31). Pedido del cliente. NO está en la spec, así que es función nueva
   diseñada con los patrones del proyecto. Pestaña **Movimientos** dentro del
@@ -3482,11 +3554,12 @@ marcado abajo con su fecha, y lo que NO la lleve sigue sin verificar.)*
    en el estado, más arriba.
 
 2. ~~**El portal del TUTOR no opera**~~ — **hecho el 2026-08-22.** Ver «El
-   expediente del tutor familiar» en el estado, más arriba. Queda ABIERTO, y a
-   propósito, si un tutor puede entregar documentos POR su hijo menor: el
-   vínculo `tutores_alumno` declara qué puede VER —lo académico, lo
-   financiero— y nada sobre qué puede entregar en su nombre, así que decidirlo
-   aquí sería decidirlo por la escuela.
+   expediente del tutor familiar» en el estado, más arriba. ~~Queda ABIERTO si
+   un tutor puede entregar documentos POR su hijo menor.~~ **Resuelto el
+   2026-08-31, decisión del cliente: SÍ puede, mientras el hijo sea menor de
+   edad y la escuela lo permita.** La edad y el permiso del acto son dos ajustes
+   de `/plataforma/configuracion`; ver «El tutor entrega los documentos de su
+   hijo MENOR» en el estado.
 
 4. ~~**Las TRES tablas del LMS que faltan**~~ — **hechas el 2026-08-23**, por
    decisión del cliente. Ver «Las tres tablas que le faltaban al Módulo 8» en el

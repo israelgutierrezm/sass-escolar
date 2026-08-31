@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Exceptions\AvisoParaElUsuario;
+use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\Admisiones\MatriculaOferta;
+use App\Models\ControlEscolar\DocumentoAlumno;
 use App\Models\ControlEscolar\Historial;
 use App\Models\Disciplina\Incidencia;
 use App\Models\Disciplina\Sancion;
@@ -17,6 +19,7 @@ use App\Models\Identidad\Persona;
 use App\Models\Identidad\TutorAlumno;
 use App\Services\EstadoCuenta;
 use App\Services\EstadoDelAlumno;
+use App\Services\Familia\RepresentacionDelTutor;
 use App\Services\HistorialDelAlumno;
 use App\Services\Pagos\Pasarelas;
 use App\Services\Plataforma\ModulosDeLaEscuela;
@@ -185,6 +188,21 @@ class PadreController extends Controller
             'conducta' => ($request->user()->can('ver-conducta-hijo') && app(ModulosDeLaEscuela::class)->activo('disciplina'))
                 ? $this->conductaDe($matriculas)
                 : null,
+            /*
+             * Los papeles que la escuela le pide AL HIJO, cuando el tutor puede
+             * entregarlos por él.
+             *
+             * Va en `null` —y no en una lista vacía— cuando no puede: la
+             * pantalla no dibuja la sección, y `entregaDocumentos.motivo` dice
+             * por qué. Sin el motivo, un padre cuyo hijo acaba de cumplir años
+             * vería desaparecer la sección sin explicación y llamaría a la
+             * escuela.
+             *
+             * Con el interruptor apagado ni siquiera se dice el motivo: esa
+             * sección no existe en esta escuela, y anunciar una función que no
+             * se contrató es peor que no tenerla.
+             */
+            'entregaDocumentos' => $this->entregaDocumentos($vinculo, $hijo),
             // Los accesos del hijo: un padre puede vigilar cuándo y desde dónde
             // entra su hijo, aunque no vea sus calificaciones ni sus finanzas.
             'accesos' => BitacoraAcceso::query()
@@ -201,6 +219,79 @@ class PadreController extends Controller
                     'momento' => $b->creado_en?->toDateTimeString(),
                 ]),
         ]);
+    }
+
+    /**
+     * El bloque de documentos del hijo, o null si aquí no aplica.
+     *
+     * Las tres capas las decide `RepresentacionDelTutor`, que es el mismo
+     * servicio del que se defiende el controlador de subida: la pantalla no
+     * puede ofrecer lo que el servidor rechaza.
+     *
+     * @return array{
+     *     motivo: string|null, edad: int|null, mayoria_de_edad: int,
+     *     documentos: array<int, mixed>, tipos: array<int, mixed>
+     * }|null
+     */
+    private function entregaDocumentos(TutorAlumno $vinculo, Persona $hijo): ?array
+    {
+        $representacion = app(RepresentacionDelTutor::class);
+
+        if (! $representacion->laEscuelaPermiteEntregarDocumentos()) {
+            return null;
+        }
+
+        $motivo = $representacion->motivoParaNoEntregarDocumentos($vinculo, $hijo);
+
+        $bloque = [
+            'motivo' => $motivo,
+            'edad' => $representacion->edad($hijo),
+            'mayoria_de_edad' => $representacion->mayoriaDeEdad(),
+            'documentos' => [],
+            'tipos' => [],
+        ];
+
+        /*
+         * Si no puede entregar tampoco se le enseñan los papeles: son del
+         * expediente del alumno, y consultarlos es representarlo igual que
+         * subirlos. Se devuelve el motivo y nada más.
+         */
+        if ($motivo !== null) {
+            return $bloque;
+        }
+
+        return [
+            ...$bloque,
+            'documentos' => DocumentoAlumno::query()
+                ->with(['documento:id,nombre', 'estado:id,clave,nombre'])
+                ->where('persona_id', $hijo->id)
+                ->get()
+                ->map(fn (DocumentoAlumno $d) => [
+                    'id' => $d->id,
+                    'documento_id' => $d->documento_id,
+                    'documento' => $d->documento?->nombre,
+                    'descripcion' => $d->descripcion,
+                    'estado' => $d->estado?->nombre,
+                    'estado_clave' => $d->estado?->clave,
+                    'vigencia' => $d->vigencia?->toDateString(),
+                    'vencido' => $d->estaVencido(),
+                    'observaciones' => $d->observaciones,
+                ])->values(),
+            /*
+             * Sólo el ámbito ALUMNO. Ofrecerle el catálogo entero le pediría su
+             * propia identificación de tutor, que tiene su pantalla aparte.
+             */
+            'tipos' => DocumentoRequerido::query()
+                ->delAmbito(DocumentoRequerido::AMBITO_ALUMNO)
+                ->orderByDesc('obligatorio')
+                ->orderBy('nombre')
+                ->get(['id', 'nombre', 'obligatorio'])
+                ->map(fn (DocumentoRequerido $d) => [
+                    'id' => $d->id,
+                    'nombre' => $d->nombre,
+                    'obligatorio' => (bool) $d->obligatorio,
+                ])->values(),
+        ];
     }
 
     /**

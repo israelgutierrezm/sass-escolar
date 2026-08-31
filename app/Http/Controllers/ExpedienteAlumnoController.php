@@ -86,7 +86,7 @@ class ExpedienteAlumnoController extends Controller
             ])->values(),
             'situacion' => $alumno->situacion?->nombre,
             'documentos' => DocumentoAlumno::query()
-                ->with(['documento:id,nombre', 'estado:id,clave,nombre'])
+                ->with(['documento:id,nombre', 'estado:id,clave,nombre', 'registro.persona'])
                 ->where('persona_id', $alumno->persona_id)
                 ->get()
                 ->map(fn (DocumentoAlumno $d) => [
@@ -99,6 +99,19 @@ class ExpedienteAlumnoController extends Controller
                     'vigencia' => $d->vigencia?->toDateString(),
                     'vencido' => $d->estaVencido(),
                     'observaciones' => $d->observaciones,
+                    /*
+                     * Quién lo entregó, y sólo cuando NO fue él.
+                     *
+                     * Desde que el tutor puede entregar por su hijo menor,
+                     * el expediente del alumno puede tener archivos que él no
+                     * subió. Sin decirlo, aparecería un documento que no
+                     * recuerda haber cargado y no sabría si es suyo. Poner
+                     * «lo subiste tú» en los demás sería ruido en todos los
+                     * renglones para señalar la excepción.
+                     */
+                    'entregado_por' => $d->created_by !== null && $d->registro?->persona_id !== $alumno->persona_id
+                        ? $d->registro?->persona?->nombreCompleto()
+                        : null,
                 ]),
             // Solo lo que la escuela pide a los ALUMNOS, no el catálogo entero:
             // ofrecerle el del aspirante le pediría cosas que ya entregó al

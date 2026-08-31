@@ -57,6 +57,7 @@ use App\Http\Controllers\DisposicionPanelController;
 use App\Http\Controllers\DocenciaController;
 use App\Http\Controllers\DocenteController;
 use App\Http\Controllers\DocumentoRequeridoController;
+use App\Http\Controllers\DocumentosDelHijoController;
 use App\Http\Controllers\Emision\DatosTituloController;
 use App\Http\Controllers\Emision\LoteCertificacionController;
 use App\Http\Controllers\Emision\LoteTitulacionController;
@@ -1842,6 +1843,31 @@ Route::middleware([
                     ->whereNumber('documento')->name('documentos.descargar');
                 Route::delete('documentos/{documento}', 'eliminar')
                     ->whereNumber('documento')->name('documentos.destroy');
+            });
+
+        /*
+         * Y los documentos del HIJO, que el tutor entrega en su nombre.
+         *
+         * Cuelgan del mismo prefijo que el portal de la familia y del mismo
+         * permiso: `ver-mis-hijos` deja entrar, y quién puede entregar por
+         * quién lo resuelve `RepresentacionDelTutor` dentro del controlador
+         * —vínculo, edad del hijo y el interruptor de la escuela—. Un `can:`
+         * nuevo no serviría: la decisión no es del rol, es de la escuela y del
+         * parentesco.
+         *
+         * Van DESPUÉS de `mis-hijos/expediente`, que no es numérico y por eso
+         * no choca con `{hijo}`.
+         */
+        Route::controller(DocumentosDelHijoController::class)
+            ->prefix('mis-hijos/{hijo}/documentos')->name('tenant.padre.hijo.documentos.')
+            ->whereNumber('hijo')
+            ->middleware('can:ver-mis-hijos')
+            ->group(function () {
+                Route::post('/', 'subir')->name('store');
+                Route::get('{documento}/descargar', 'descargar')
+                    ->whereNumber('documento')->name('descargar');
+                Route::delete('{documento}', 'eliminar')
+                    ->whereNumber('documento')->name('destroy');
             });
 
         /*

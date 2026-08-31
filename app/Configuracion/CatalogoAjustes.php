@@ -65,6 +65,11 @@ final class CatalogoAjustes
 
     public const ASIGNACION_ASESOR = 'aspirante.asignacion_de_asesor';
 
+    // Familia.
+    public const MAYORIA_DE_EDAD = 'familia.mayoria_de_edad';
+
+    public const TUTOR_ENTREGA_DOCUMENTOS = 'familia.tutor_entrega_documentos';
+
     // Acta (ya existían sueltos; se traen al catálogo).
     public const ACTA_FORMATO_FOLIO = 'acta.formato_folio';
 
@@ -298,6 +303,49 @@ final class CatalogoAjustes
                 porDefecto: 'manual',
                 opciones: self::REPARTOS,
                 consecuencia: 'Aplica a los que se registren de ahora en adelante: no reparte los que ya existen.',
+            ),
+
+            new Ajuste(
+                clave: self::MAYORIA_DE_EDAD,
+                grupo: 'Familia',
+                etiqueta: 'Edad en que el alumno se considera mayor de edad',
+                descripcion: 'A partir de esta edad el alumno hace sus trámites él mismo y su padre o tutor '
+                    .'deja de poder hacerlos en su nombre.',
+                tipo: Ajuste::ENTERO,
+                /*
+                 * 18 es la mayoría de edad en México, y por eso es el valor por
+                 * omisión y no una constante: hay escuelas que operan con
+                 * alumnado extranjero y programas donde la escuela decide tratar
+                 * como menor a quien todavía no cumple 21.
+                 */
+                porDefecto: 18,
+                min: 15,
+                max: 21,
+                consecuencia: 'Se mira contra la fecha de nacimiento del alumno cada vez, así que subirlo '
+                    .'alcanza también a quien ya cumplió años y bajarlo se lo quita de golpe. '
+                    .'Lo ya entregado se queda: es del expediente del alumno, no del tutor.',
+            ),
+            new Ajuste(
+                clave: self::TUTOR_ENTREGA_DOCUMENTOS,
+                grupo: 'Familia',
+                etiqueta: 'El padre o tutor entrega los documentos de su hijo menor',
+                descripcion: 'Deja que el tutor suba, descargue y retire desde el portal de la familia los '
+                    .'papeles que la escuela le pide AL ALUMNO, mientras el alumno sea menor de edad.',
+                tipo: Ajuste::BOOLEANO,
+                /*
+                 * Encendido por omisión, al revés que los interruptores que
+                 * exponen datos de menores.
+                 *
+                 * Aquí no se le abre nada a un tercero: quien mira es el tutor
+                 * legal del menor, que es exactamente quien responde por su
+                 * expediente. Y el caso contrario —una secundaria donde el
+                 * papeleo lo lleva el padre— es el normal, no la excepción: con
+                 * esto apagado por omisión, la escuela que lo necesita descubre
+                 * la sección sólo si adivina que existe.
+                 */
+                porDefecto: true,
+                consecuencia: 'Apagado, la sección desaparece del portal de la familia y su dirección responde '
+                    .'404. No se borra ni se oculta lo que ya se entregó.',
             ),
 
             new Ajuste(
