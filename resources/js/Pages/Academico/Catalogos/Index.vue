@@ -225,12 +225,17 @@ function esEditando(catalogo: string, id: number): boolean {
                     <!-- Encabezado de columnas: da a la lista lectura de tabla
                          (clave | descripción | color) y evita que se lean como
                          un texto corrido pegado. -->
+                    <!--
+                        `hidden sm:flex`: es una cabecera de columnas, y en un
+                        teléfono las columnas no existen —el renglón se apila—.
+                        Dejarla puesta pinta tres rótulos sobre nada.
+                    -->
                     <div
-                        class="mt-3 flex items-center gap-3 border-b pb-1.5 text-[11px] font-semibold uppercase tracking-wide"
+                        class="mt-3 hidden items-center gap-3 border-b pb-1.5 text-[11px] font-semibold uppercase tracking-wide sm:flex"
                         :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }"
                     >
                         <span class="w-24 shrink-0">Clave</span>
-                        <span class="flex-1">Descripción</span>
+                        <span class="min-w-0 flex-1">Descripción</span>
                         <span v-if="tieneColor(catalogo)" class="w-12 shrink-0 text-center">Color</span>
                         <span v-if="puedeEditar" class="w-28 shrink-0 text-right">Acciones</span>
                     </div>
@@ -239,7 +244,7 @@ function esEditando(catalogo: string, id: number): boolean {
                         <li
                             v-for="item in catalogo.items"
                             :key="item.id"
-                            class="flex items-center gap-3 py-2"
+                            class="flex flex-wrap items-center gap-x-3 gap-y-1 py-2"
                             :style="{ borderColor: 'var(--color-borde)' }"
                         >
                             <template v-if="esEditando(catalogo.clave, item.id)">
@@ -269,7 +274,7 @@ function esEditando(catalogo: string, id: number): boolean {
                                     class="h-8 w-12 shrink-0 cursor-pointer rounded border"
                                     :style="{ borderColor: 'var(--color-borde)' }"
                                 />
-                                <span class="flex w-28 shrink-0 items-center justify-end gap-1">
+                                <span class="flex w-full shrink-0 items-center justify-end gap-1 sm:w-28">
                                     <button type="button" class="text-sm font-medium" :style="{ color: 'var(--color-acento)' }" @click="guardarEdicion(catalogo)">
                                         Guardar
                                     </button>
@@ -323,7 +328,7 @@ function esEditando(catalogo: string, id: number): boolean {
                                         :title="item.color || 'Sin color'"
                                     />
                                 </span>
-                                <span v-if="puedeEditar" class="flex w-36 shrink-0 items-center justify-end gap-1">
+                                <span v-if="puedeEditar" class="flex w-full shrink-0 items-center justify-end gap-1 sm:w-36">
                                     <!--
                                         El interruptor va con el resto de
                                         ACCIONES, no en una columna propia:

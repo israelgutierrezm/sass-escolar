@@ -170,66 +170,68 @@ const colorEstadoSolido: Record<string, string> = {
         />
 
         <div class="tarjeta overflow-hidden">
-            <table class="w-full text-sm">
-                <thead>
-                    <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
-                        <th class="px-6 py-3 font-semibold">Lote</th>
-                        <th class="px-4 py-3 font-semibold">Etapa</th>
-                        <th class="px-4 py-3 font-semibold">Estado</th>
-                        <th class="px-4 py-3 text-center font-semibold">Egresados</th>
-                        <th class="px-4 py-3 font-semibold">Responsable</th>
-                        <th class="px-4 py-3 font-semibold">Creado</th>
-                        <th class="px-6 py-3 text-right font-semibold">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr
-                        v-for="lote in lotes"
-                        :key="lote.id"
-                        class="fila-nueva border-t transition-colors"
-                        :style="{ borderColor: 'var(--color-borde)' }"
-                    >
-                        <td class="px-6 py-4">
-                            <span class="block font-mono font-semibold text-contenido">{{ lote.folio }}</span>
-                            <span v-if="lote.nombre" class="mt-0.5 block text-[11px]" :style="{ color: 'var(--color-suave)' }">{{ lote.nombre }}</span>
-                        </td>
-                        <td class="px-4 py-4">
-                            <span class="inline-flex items-center gap-1">
-                                <PildoraEstado :texto="lote.etapa" :color="lote.etapa === 'produccion' ? '#16a34a' : '#d97706'" />
-                                <span v-if="!lote.etapa_coincide" class="text-xs" :style="{ color: '#dc2626' }" title="La etapa del lote no coincide con la activa">⚠</span>
-                            </span>
-                        </td>
-                        <td class="px-4 py-4">
-                            <PildoraEstado :texto="lote.estado_label" :color="colorEstadoSolido[lote.estado_color] ?? 'var(--color-suave)'" sin-capitalizar />
-                        </td>
-                        <td class="px-4 py-4 text-center tabular-nums" :style="{ color: 'var(--color-suave)' }">
-                            <span v-if="lote.titulados > 0">{{ lote.titulados }}/{{ lote.total }}</span>
-                            <span v-else>{{ lote.total }}</span>
-                            <!-- Lo rechazado se dice aquí para no abrir lote por lote. -->
-                            <span
-                                v-if="lote.rechazados_ws > 0"
-                                class="mt-0.5 block text-[11px] font-medium text-red-600"
-                                :title="`${lote.rechazados_ws} rechazado(s) por el web service`"
-                            >
-                                {{ lote.rechazados_ws }} rechazado{{ lote.rechazados_ws === 1 ? '' : 's' }}
-                            </span>
-                        </td>
-                        <td class="px-4 py-4" :style="{ color: 'var(--color-suave)' }">{{ lote.responsable ?? '—' }}</td>
-                        <td class="px-4 py-4 text-xs" :style="{ color: 'var(--color-suave)' }">{{ lote.creado_en }}</td>
-                        <td class="px-6 py-4">
-                            <div class="flex items-center justify-end gap-2">
-                                <BotonAccion variante="ver" texto="Abrir" :href="`/titulacion/lotes/${lote.id}`" />
-                                <BotonAccion v-if="lote.estado !== 'firmado' && lote.estado !== 'enviado'" variante="eliminar" solo-icono @click="eliminar(lote)" />
-                            </div>
-                        </td>
-                    </tr>
-                    <tr v-if="lotes.length === 0">
-                        <td colspan="7" class="px-6 py-10 text-center" :style="{ color: 'var(--color-suave)' }">
-                            Aún no hay lotes. Crea el primero para empezar a titular.
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
+                            <th class="px-6 py-3 font-semibold">Lote</th>
+                            <th class="px-4 py-3 font-semibold">Etapa</th>
+                            <th class="px-4 py-3 font-semibold">Estado</th>
+                            <th class="px-4 py-3 text-center font-semibold">Egresados</th>
+                            <th class="px-4 py-3 font-semibold">Responsable</th>
+                            <th class="px-4 py-3 font-semibold">Creado</th>
+                            <th class="px-6 py-3 text-right font-semibold">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr
+                            v-for="lote in lotes"
+                            :key="lote.id"
+                            class="fila-nueva border-t transition-colors"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                        >
+                            <td class="px-6 py-4">
+                                <span class="block font-mono font-semibold text-contenido">{{ lote.folio }}</span>
+                                <span v-if="lote.nombre" class="mt-0.5 block text-[11px]" :style="{ color: 'var(--color-suave)' }">{{ lote.nombre }}</span>
+                            </td>
+                            <td class="px-4 py-4">
+                                <span class="inline-flex items-center gap-1">
+                                    <PildoraEstado :texto="lote.etapa" :color="lote.etapa === 'produccion' ? '#16a34a' : '#d97706'" />
+                                    <span v-if="!lote.etapa_coincide" class="text-xs" :style="{ color: '#dc2626' }" title="La etapa del lote no coincide con la activa">⚠</span>
+                                </span>
+                            </td>
+                            <td class="px-4 py-4">
+                                <PildoraEstado :texto="lote.estado_label" :color="colorEstadoSolido[lote.estado_color] ?? 'var(--color-suave)'" sin-capitalizar />
+                            </td>
+                            <td class="px-4 py-4 text-center tabular-nums" :style="{ color: 'var(--color-suave)' }">
+                                <span v-if="lote.titulados > 0">{{ lote.titulados }}/{{ lote.total }}</span>
+                                <span v-else>{{ lote.total }}</span>
+                                <!-- Lo rechazado se dice aquí para no abrir lote por lote. -->
+                                <span
+                                    v-if="lote.rechazados_ws > 0"
+                                    class="mt-0.5 block text-[11px] font-medium text-red-600"
+                                    :title="`${lote.rechazados_ws} rechazado(s) por el web service`"
+                                >
+                                    {{ lote.rechazados_ws }} rechazado{{ lote.rechazados_ws === 1 ? '' : 's' }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-4" :style="{ color: 'var(--color-suave)' }">{{ lote.responsable ?? '—' }}</td>
+                            <td class="px-4 py-4 text-xs" :style="{ color: 'var(--color-suave)' }">{{ lote.creado_en }}</td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center justify-end gap-2">
+                                    <BotonAccion variante="ver" texto="Abrir" :href="`/titulacion/lotes/${lote.id}`" />
+                                    <BotonAccion v-if="lote.estado !== 'firmado' && lote.estado !== 'enviado'" variante="eliminar" solo-icono @click="eliminar(lote)" />
+                                </div>
+                            </td>
+                        </tr>
+                        <tr v-if="lotes.length === 0">
+                            <td colspan="7" class="px-6 py-10 text-center" :style="{ color: 'var(--color-suave)' }">
+                                Aún no hay lotes. Crea el primero para empezar a titular.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </AppLayout>
 </template>

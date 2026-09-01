@@ -183,24 +183,26 @@ const indicadores = computed(() => [
         <section class="tarjeta overflow-hidden">
             <h3 class="border-b border-borde px-5 py-3 text-sm font-semibold text-contenido">Quién lo ha tenido delante</h3>
 
-            <table v-if="lecturas.length" class="w-full text-sm">
-                <thead class="text-left text-xs uppercase tracking-wide text-suave">
-                    <tr class="border-b border-borde">
-                        <th class="px-5 py-2 font-medium">Persona</th>
-                        <th class="py-2 font-medium">Lo vio</th>
-                        <th class="py-2 pr-5 font-medium">Confirmó haberlo leído</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="(l, i) in lecturas" :key="i" class="border-b border-borde last:border-0">
-                        <td class="px-5 py-2.5 font-medium">{{ l.quien }}</td>
-                        <td class="py-2.5 tabular-nums text-suave">{{ l.visto ?? '—' }}</td>
-                        <td class="py-2.5 pr-5 tabular-nums" :style="{ color: l.confirmado ? '#16a34a' : 'var(--color-suave)' }">
-                            {{ l.confirmado ?? 'Todavía no' }}
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+            <div v-if="lecturas.length" class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="text-left text-xs uppercase tracking-wide text-suave">
+                        <tr class="border-b border-borde">
+                            <th class="px-5 py-2 font-medium">Persona</th>
+                            <th class="py-2 font-medium">Lo vio</th>
+                            <th class="py-2 pr-5 font-medium">Confirmó haberlo leído</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(l, i) in lecturas" :key="i" class="border-b border-borde last:border-0">
+                            <td class="px-5 py-2.5 font-medium">{{ l.quien }}</td>
+                            <td class="py-2.5 tabular-nums text-suave">{{ l.visto ?? '—' }}</td>
+                            <td class="py-2.5 pr-5 tabular-nums" :style="{ color: l.confirmado ? '#16a34a' : 'var(--color-suave)' }">
+                                {{ l.confirmado ?? 'Todavía no' }}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
             <p v-else class="px-5 py-12 text-center text-sm text-suave">
                 Nadie lo ha visto todavía. Si el aviso está publicado y vigente, aparecerá aquí en

@@ -533,6 +533,29 @@
         --tw-ring-color: var(--color-acento);
     }
 
+    /*
+     * ── Un campo nunca es más ancho que su hueco ──────────────────────────
+     *
+     * Un `<select>` se dimensiona por su opción MÁS LARGA y no encoge solo:
+     * «Licenciatura en Psicología · Campus Norte (activo)» medía 425 px y
+     * empujaba la ficha del alumno 59 px fuera de la pantalla del teléfono,
+     * arrastrando con ella la página entera. Lo mismo un `input` con `size`.
+     *
+     * Va aquí y no clase por clase a propósito: declararlo en cada campo es
+     * justo lo que produce la deriva —el siguiente formulario nace sin él— y
+     * este proyecto ya se cobró esa lección con el anillo de foco. Con
+     * `:where()` la regla no aporta especificidad, así que un `w-56` o un
+     * `min-w-[12rem]` puestos a conciencia siguen ganando.
+     */
+    :where(input, select, textarea) {
+        max-width: 100%;
+    }
+
+    :where(select) {
+        /* Lo que no cabe se corta con puntos suspensivos, no a media letra. */
+        text-overflow: ellipsis;
+    }
+
     :where(input:not([type='checkbox']):not([type='radio']), select, textarea):focus-visible {
         outline: none;
         border-color: var(--color-acento);

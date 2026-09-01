@@ -252,11 +252,21 @@ const colorEstatus: Record<string, string> = {
                 </div>
             </div>
 
-            <ol class="flex items-start">
+            <!--
+                El embudo DESPLAZA en vez de apretarse.
+
+                Con cinco etapas en una pantalla de teléfono a cada escalón le
+                tocaban 50 px, y «Información enviada» pide 62: el rótulo salía
+                cortado a media palabra y el embudo dejaba de decir en qué punto
+                está el prospecto, que es lo único que viene a decir. Con un
+                ancho mínimo por escalón se lee entero y se recorre con el dedo;
+                en pantalla ancha `flex-1` los sigue repartiendo por igual.
+            -->
+            <ol class="-mx-1 flex items-start overflow-x-auto px-1 pb-1">
                 <li
                     v-for="(e, i) in catalogos.etapas"
                     :key="e.id"
-                    class="relative min-w-0 flex-1 text-center"
+                    class="relative min-w-[5.5rem] flex-1 text-center"
                 >
                     <!-- La línea que llega desde el escalón anterior. Va
                          encendida sólo hasta donde el prospecto llegó. -->

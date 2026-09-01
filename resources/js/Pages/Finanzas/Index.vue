@@ -155,63 +155,63 @@ const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN
         <!-- Lista -->
         <section v-else class="tarjeta overflow-hidden">
             <div class="overflow-x-auto">
-            <table v-if="matriculas.data.length" class="w-full text-sm">
-                <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                    <tr>
-                        <th class="px-6 py-3 font-medium">Matrícula</th>
-                        <th class="px-4 py-3 font-medium">Alumno</th>
-                        <th class="px-4 py-3 font-medium">Programa académico</th>
-                        <th class="px-4 py-3 text-right font-medium">Cargos</th>
-                        <th class="px-4 py-3 text-right font-medium">Saldo</th>
-                        <th class="px-4 py-3 text-right font-medium">Vencido</th>
-                        <th class="px-6 py-3 font-medium text-right">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr
-                        v-for="fila in matriculas.data"
-                        :key="fila.id"
-                        class="border-t"
-                        :style="{ borderColor: 'var(--color-borde)' }"
-                    >
-                        <td class="px-6 py-3 font-mono text-xs">{{ fila.matricula }}</td>
-                        <td class="px-4 py-3">
-                            <span class="font-medium">{{ fila.nombre }}</span>
-                            <span
-                                v-if="fila.estatus !== 'activo'"
-                                class="ml-2 rounded px-1.5 py-0.5 text-xs"
-                                :style="{ backgroundColor: 'var(--color-borde)', color: 'var(--color-suave)' }"
-                            >
-                                {{ fila.estatus }}
-                            </span>
-                        </td>
-                        <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">
-                            {{ fila.programa_academico ?? '—' }}
-                            <span v-if="fila.campus" class="text-xs"> · {{ fila.campus }}</span>
-                        </td>
-                        <td class="px-4 py-3 text-right tabular-nums">{{ fila.adeudos }}</td>
-                        <td class="px-4 py-3 text-right font-medium tabular-nums">
-                            {{ fila.saldo > 0 ? pesos.format(fila.saldo) : '—' }}
-                        </td>
-                        <td class="px-4 py-3 text-right tabular-nums" :class="fila.vencido > 0 ? 'font-semibold text-red-600' : ''">
-                            {{ fila.vencido > 0 ? pesos.format(fila.vencido) : '—' }}
-                        </td>
-                        <td class="px-6 py-3 text-right">
-                            <a
-                                :href="`/finanzas/cuentas/${fila.id}`"
-                                class="text-sm font-medium"
-                                :style="{ color: 'var(--color-acento)' }"
-                            >
-                                Estado de cuenta
-                            </a>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+                <table v-if="matriculas.data.length" class="w-full text-sm">
+                    <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
+                        <tr>
+                            <th class="px-6 py-3 font-medium">Matrícula</th>
+                            <th class="px-4 py-3 font-medium">Alumno</th>
+                            <th class="px-4 py-3 font-medium">Programa académico</th>
+                            <th class="px-4 py-3 text-right font-medium">Cargos</th>
+                            <th class="px-4 py-3 text-right font-medium">Saldo</th>
+                            <th class="px-4 py-3 text-right font-medium">Vencido</th>
+                            <th class="px-6 py-3 font-medium text-right">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr
+                            v-for="fila in matriculas.data"
+                            :key="fila.id"
+                            class="border-t"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                        >
+                            <td class="px-6 py-3 font-mono text-xs">{{ fila.matricula }}</td>
+                            <td class="px-4 py-3">
+                                <span class="font-medium">{{ fila.nombre }}</span>
+                                <span
+                                    v-if="fila.estatus !== 'activo'"
+                                    class="ml-2 rounded px-1.5 py-0.5 text-xs"
+                                    :style="{ backgroundColor: 'var(--color-borde)', color: 'var(--color-suave)' }"
+                                >
+                                    {{ fila.estatus }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">
+                                {{ fila.programa_academico ?? '—' }}
+                                <span v-if="fila.campus" class="text-xs"> · {{ fila.campus }}</span>
+                            </td>
+                            <td class="px-4 py-3 text-right tabular-nums">{{ fila.adeudos }}</td>
+                            <td class="px-4 py-3 text-right font-medium tabular-nums">
+                                {{ fila.saldo > 0 ? pesos.format(fila.saldo) : '—' }}
+                            </td>
+                            <td class="px-4 py-3 text-right tabular-nums" :class="fila.vencido > 0 ? 'font-semibold text-red-600' : ''">
+                                {{ fila.vencido > 0 ? pesos.format(fila.vencido) : '—' }}
+                            </td>
+                            <td class="px-6 py-3 text-right">
+                                <a
+                                    :href="`/finanzas/cuentas/${fila.id}`"
+                                    class="text-sm font-medium"
+                                    :style="{ color: 'var(--color-acento)' }"
+                                >
+                                    Estado de cuenta
+                                </a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
 
-            <p v-else class="px-6 py-10 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
-                No hay matrículas que coincidan.
-            </p>
+                <p v-else class="px-6 py-10 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
+                    No hay matrículas que coincidan.
+                </p>
             </div>
 
             <Paginacion

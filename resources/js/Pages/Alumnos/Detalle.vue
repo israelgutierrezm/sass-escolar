@@ -737,9 +737,9 @@ function entrarComo(suplantable: { usuario_id: number; usuario: string } | null)
                  persona y todo lo académico de abajo refleja la elegida. -->
             <div class="mt-4 border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }">
                 <div class="flex flex-wrap items-center justify-between gap-3">
-                    <div class="flex flex-wrap items-center gap-2">
+                    <div class="flex min-w-0 flex-wrap items-center gap-2">
                         <span class="text-sm font-medium">Programa académico</span>
-                        <div v-if="programas_academicos.length > 1" class="relative flex items-center">
+                        <div v-if="programas_academicos.length > 1" class="relative flex min-w-0 items-center">
                             <svg
                                 xmlns="http://www.w3.org/2000/svg"
                                 fill="none"

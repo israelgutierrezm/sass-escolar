@@ -136,64 +136,66 @@ function revocar(ventanaId: number, excepcionId: number): void {
                 <h2 class="text-base font-semibold">Ventanas por parcial</h2>
             </div>
 
-            <table v-if="ventanas.length" class="w-full text-sm">
-                <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                    <tr>
-                        <th class="px-6 py-3 font-medium">Corte</th>
-                        <th class="px-4 py-3 font-medium">Desde</th>
-                        <th class="px-4 py-3 font-medium">Hasta</th>
-                        <th class="px-4 py-3 font-medium">Estado</th>
-                        <th class="px-4 py-3 font-medium">Excepciones</th>
-                        <th class="px-6 py-3 font-medium text-right">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr
-                        v-for="ventana in ventanas"
-                        :key="ventana.id"
-                        class="border-t"
-                        :style="{ borderColor: 'var(--color-borde)' }"
-                    >
-                        <td class="px-6 py-3 font-medium">{{ ventana.etiqueta }}</td>
-                        <td class="px-4 py-3">{{ ventana.desde }}</td>
-                        <td class="px-4 py-3">{{ ventana.hasta }}</td>
-                        <td class="px-4 py-3">
-                            <span
-                                class="rounded-full px-2 py-0.5 text-xs"
-                                :style="{
-                                    backgroundColor: ventana.abierta
-                                        ? 'color-mix(in srgb, #16a34a 18%, transparent)'
-                                        : 'color-mix(in srgb, #64748b 18%, transparent)',
-                                }"
-                            >
-                                {{ ventana.abierta ? 'abierta' : ventana.activa ? 'fuera de fecha' : 'desactivada' }}
-                            </span>
-                        </td>
-                        <td class="px-4 py-3">{{ ventana.excepciones_count || '—' }}</td>
-                        <td class="px-6 py-3 text-right">
-                            <span v-if="puedeEditar" class="flex justify-end gap-3">
-                                <button
-                                    type="button"
-                                    class="text-sm"
-                                    :style="{ color: 'var(--color-acento)' }"
-                                    @click="concediendoEn = concediendoEn === ventana.id ? null : ventana.id"
+            <div v-if="ventanas.length" class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
+                        <tr>
+                            <th class="px-6 py-3 font-medium">Corte</th>
+                            <th class="px-4 py-3 font-medium">Desde</th>
+                            <th class="px-4 py-3 font-medium">Hasta</th>
+                            <th class="px-4 py-3 font-medium">Estado</th>
+                            <th class="px-4 py-3 font-medium">Excepciones</th>
+                            <th class="px-6 py-3 font-medium text-right">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr
+                            v-for="ventana in ventanas"
+                            :key="ventana.id"
+                            class="border-t"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                        >
+                            <td class="px-6 py-3 font-medium">{{ ventana.etiqueta }}</td>
+                            <td class="px-4 py-3">{{ ventana.desde }}</td>
+                            <td class="px-4 py-3">{{ ventana.hasta }}</td>
+                            <td class="px-4 py-3">
+                                <span
+                                    class="rounded-full px-2 py-0.5 text-xs"
+                                    :style="{
+                                        backgroundColor: ventana.abierta
+                                            ? 'color-mix(in srgb, #16a34a 18%, transparent)'
+                                            : 'color-mix(in srgb, #64748b 18%, transparent)',
+                                    }"
                                 >
-                                    Reabrir a un docente
-                                </button>
-                                <button
-                                    type="button"
-                                    class="text-sm"
-                                    :style="{ color: 'var(--color-suave)' }"
-                                    @click="alternar(ventana)"
-                                >
-                                    {{ ventana.activa ? 'Desactivar' : 'Activar' }}
-                                </button>
-                                <BotonAccion variante="eliminar" @click="eliminar(ventana)" />
-                            </span>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+                                    {{ ventana.abierta ? 'abierta' : ventana.activa ? 'fuera de fecha' : 'desactivada' }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3">{{ ventana.excepciones_count || '—' }}</td>
+                            <td class="px-6 py-3 text-right">
+                                <span v-if="puedeEditar" class="flex justify-end gap-3">
+                                    <button
+                                        type="button"
+                                        class="text-sm"
+                                        :style="{ color: 'var(--color-acento)' }"
+                                        @click="concediendoEn = concediendoEn === ventana.id ? null : ventana.id"
+                                    >
+                                        Reabrir a un docente
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="text-sm"
+                                        :style="{ color: 'var(--color-suave)' }"
+                                        @click="alternar(ventana)"
+                                    >
+                                        {{ ventana.activa ? 'Desactivar' : 'Activar' }}
+                                    </button>
+                                    <BotonAccion variante="eliminar" @click="eliminar(ventana)" />
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
             <p v-else class="px-6 py-8 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
                 Sin ventanas: la captura de este ciclo está abierta siempre.

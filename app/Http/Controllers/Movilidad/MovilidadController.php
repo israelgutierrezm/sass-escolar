@@ -43,7 +43,7 @@ class MovilidadController extends Controller
     public function convenios(Request $peticion): Response
     {
         $convenios = Convenio::query()
-            ->with(['institucion:id,nombre,pais_id,ciudad', 'tipo:id,nombre', 'situacion:id,nombre', 'programas_academicos:id,nombre'])
+            ->with(['institucion:id,nombre,pais_id,ciudad', 'tipo:id,nombre', 'situacion:id,nombre', 'programasAcademicos:id,nombre'])
             ->withCount('convocatorias')
             ->when($peticion->filled('institucion_id'), fn (Builder $q) => $q
                 ->where('institucion_aliada_id', $peticion->integer('institucion_id')))

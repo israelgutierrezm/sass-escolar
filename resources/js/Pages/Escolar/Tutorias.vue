@@ -295,118 +295,120 @@ function quitar(a: AlumnoFila): void {
                 </span>
             </div>
 
-            <table class="w-full text-sm">
-                <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                    <tr class="border-b" :style="{ borderColor: 'var(--color-borde)' }">
-                        <th class="w-10 px-5 py-2">
-                            <input v-model="todosVisibles" type="checkbox" :title="`Seleccionar los ${visibles.length} visibles`" />
-                        </th>
-                        <th class="py-2 font-medium">Alumno</th>
-                        <th class="py-2 font-medium">Programa académico</th>
-                        <th class="py-2 font-medium">Tutor</th>
-                        <!--
-                            Asignar tutores no sirve de nada si nadie comprueba
-                            que las sesiones ocurren: un alumno con tutor desde
-                            marzo y cero sesiones es el caso que hay que ver, y
-                            sin esta columna no se distingue del que va al día.
-                        -->
-                        <th class="py-2 font-medium">Sesiones</th>
-                        <th class="w-10 py-2"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr
-                        v-for="a in visibles"
-                        :key="a.id"
-                        class="border-b last:border-0"
-                        :style="{ borderColor: 'var(--color-borde)' }"
-                    >
-                        <td class="px-5 py-2.5">
-                            <input v-model="elegidos" type="checkbox" :value="a.id" />
-                        </td>
-                        <td class="py-2.5">
-                            <div class="flex items-center gap-3">
-                                <span
-                                    class="grid h-9 w-9 shrink-0 place-items-center rounded-full text-xs font-semibold"
-                                    :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }"
-                                >{{ iniciales(a.nombre) }}</span>
-                                <div class="min-w-0">
-                                    <p class="truncate font-medium">{{ a.nombre }}</p>
-                                    <p v-if="a.matricula" class="font-mono text-xs" :style="{ color: 'var(--color-suave)' }">
-                                        {{ a.matricula }}
-                                    </p>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
+                        <tr class="border-b" :style="{ borderColor: 'var(--color-borde)' }">
+                            <th class="w-10 px-5 py-2">
+                                <input v-model="todosVisibles" type="checkbox" :title="`Seleccionar los ${visibles.length} visibles`" />
+                            </th>
+                            <th class="py-2 font-medium">Alumno</th>
+                            <th class="py-2 font-medium">Programa académico</th>
+                            <th class="py-2 font-medium">Tutor</th>
+                            <!--
+                                Asignar tutores no sirve de nada si nadie comprueba
+                                que las sesiones ocurren: un alumno con tutor desde
+                                marzo y cero sesiones es el caso que hay que ver, y
+                                sin esta columna no se distingue del que va al día.
+                            -->
+                            <th class="py-2 font-medium">Sesiones</th>
+                            <th class="w-10 py-2"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr
+                            v-for="a in visibles"
+                            :key="a.id"
+                            class="border-b last:border-0"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                        >
+                            <td class="px-5 py-2.5">
+                                <input v-model="elegidos" type="checkbox" :value="a.id" />
+                            </td>
+                            <td class="py-2.5">
+                                <div class="flex items-center gap-3">
+                                    <span
+                                        class="grid h-9 w-9 shrink-0 place-items-center rounded-full text-xs font-semibold"
+                                        :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }"
+                                    >{{ iniciales(a.nombre) }}</span>
+                                    <div class="min-w-0">
+                                        <p class="truncate font-medium">{{ a.nombre }}</p>
+                                        <p v-if="a.matricula" class="font-mono text-xs" :style="{ color: 'var(--color-suave)' }">
+                                            {{ a.matricula }}
+                                        </p>
+                                    </div>
                                 </div>
-                            </div>
-                        </td>
-                        <td class="py-2.5" :style="{ color: 'var(--color-suave)' }">
-                            {{ a.programa_academico ?? '—' }}
-                            <!-- El grupo, a la vista: filtrar por algo que no se
-                                 ve en la fila hace dudar de si el filtro acertó. -->
-                            <span v-if="a.grupos.length" class="ml-1 text-xs">
-                                · {{ a.grupos.join(', ') }}
-                            </span>
-                        </td>
-                        <td class="py-2.5">
-                            <!-- Con tutor: sus iniciales y su nombre, para
-                                 reconocer de un vistazo el reparto. Sin tutor:
-                                 una píldora ámbar, que es a quien hay que
-                                 asignarle uno. -->
-                            <span v-if="a.tutor" class="flex items-center gap-2">
-                                <span
-                                    class="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[10px] font-semibold"
-                                    :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 18%, transparent)', color: 'var(--color-suave)' }"
-                                >{{ iniciales(a.tutor) }}</span>
-                                <span class="truncate text-sm">{{ a.tutor }}</span>
-                            </span>
-                            <span
-                                v-else
-                                class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium"
-                                style="background-color: color-mix(in srgb, #f59e0b 14%, transparent); color: #b45309"
-                            >Sin tutor</span>
-                        </td>
-                        <td class="py-2.5">
-                            <!--
-                                Se marca en ámbar el que TIENE tutor y ninguna
-                                sesión: sin tutor asignado, cero sesiones es lo
-                                esperado y pintarlo de alarma sería ruido.
-                            -->
-                            <!--
-                                El CONTEO se ve siempre; abrir lo que se dijo,
-                                sólo con permiso. Supervisar que la tutoría
-                                ocurre no exige leer las notas personales del
-                                alumno, y son dos oficios distintos: coordinar el
-                                reparto y acompañar el caso.
-                            -->
-                            <component
-                                :is="puedeLeerBitacoras ? Link : 'span'"
-                                :href="puedeLeerBitacoras ? `/escolar/tutorias/${a.id}/bitacora` : undefined"
-                                class="inline-flex items-center gap-1.5"
-                                :title="a.ultima_sesion ? `Última: ${a.ultima_sesion}` : 'Sin sesiones anotadas'"
-                            >
-                                <!-- El número, en píldora: ámbar si tiene tutor y
-                                     ninguna sesión —el caso que hay que
-                                     perseguir—, gris si son cero sin tutor
-                                     (esperado) y en color de acento cuando la
-                                     tutoría sí está ocurriendo. -->
-                                <span
-                                    class="grid h-6 min-w-6 place-items-center rounded-full px-1.5 text-xs font-semibold tabular-nums"
-                                    :style="a.tutor && a.sesiones === 0
-                                        ? { backgroundColor: 'color-mix(in srgb, #f59e0b 16%, transparent)', color: '#b45309' }
-                                        : (a.sesiones > 0
-                                            ? { backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }
-                                            : { backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)', color: 'var(--color-suave)' })"
-                                >{{ a.sesiones }}</span>
-                                <span v-if="a.ultima_sesion" class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                                    {{ a.ultima_sesion }}
+                            </td>
+                            <td class="py-2.5" :style="{ color: 'var(--color-suave)' }">
+                                {{ a.programa_academico ?? '—' }}
+                                <!-- El grupo, a la vista: filtrar por algo que no se
+                                     ve en la fila hace dudar de si el filtro acertó. -->
+                                <span v-if="a.grupos.length" class="ml-1 text-xs">
+                                    · {{ a.grupos.join(', ') }}
                                 </span>
-                            </component>
-                        </td>
-                        <td class="py-2.5 pr-5">
-                            <BotonAccion v-if="a.tutoria_id" variante="eliminar" texto="Quitar el tutor" @click="quitar(a)" />
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+                            </td>
+                            <td class="py-2.5">
+                                <!-- Con tutor: sus iniciales y su nombre, para
+                                     reconocer de un vistazo el reparto. Sin tutor:
+                                     una píldora ámbar, que es a quien hay que
+                                     asignarle uno. -->
+                                <span v-if="a.tutor" class="flex items-center gap-2">
+                                    <span
+                                        class="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[10px] font-semibold"
+                                        :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 18%, transparent)', color: 'var(--color-suave)' }"
+                                    >{{ iniciales(a.tutor) }}</span>
+                                    <span class="truncate text-sm">{{ a.tutor }}</span>
+                                </span>
+                                <span
+                                    v-else
+                                    class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium"
+                                    style="background-color: color-mix(in srgb, #f59e0b 14%, transparent); color: #b45309"
+                                >Sin tutor</span>
+                            </td>
+                            <td class="py-2.5">
+                                <!--
+                                    Se marca en ámbar el que TIENE tutor y ninguna
+                                    sesión: sin tutor asignado, cero sesiones es lo
+                                    esperado y pintarlo de alarma sería ruido.
+                                -->
+                                <!--
+                                    El CONTEO se ve siempre; abrir lo que se dijo,
+                                    sólo con permiso. Supervisar que la tutoría
+                                    ocurre no exige leer las notas personales del
+                                    alumno, y son dos oficios distintos: coordinar el
+                                    reparto y acompañar el caso.
+                                -->
+                                <component
+                                    :is="puedeLeerBitacoras ? Link : 'span'"
+                                    :href="puedeLeerBitacoras ? `/escolar/tutorias/${a.id}/bitacora` : undefined"
+                                    class="inline-flex items-center gap-1.5"
+                                    :title="a.ultima_sesion ? `Última: ${a.ultima_sesion}` : 'Sin sesiones anotadas'"
+                                >
+                                    <!-- El número, en píldora: ámbar si tiene tutor y
+                                         ninguna sesión —el caso que hay que
+                                         perseguir—, gris si son cero sin tutor
+                                         (esperado) y en color de acento cuando la
+                                         tutoría sí está ocurriendo. -->
+                                    <span
+                                        class="grid h-6 min-w-6 place-items-center rounded-full px-1.5 text-xs font-semibold tabular-nums"
+                                        :style="a.tutor && a.sesiones === 0
+                                            ? { backgroundColor: 'color-mix(in srgb, #f59e0b 16%, transparent)', color: '#b45309' }
+                                            : (a.sesiones > 0
+                                                ? { backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }
+                                                : { backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)', color: 'var(--color-suave)' })"
+                                    >{{ a.sesiones }}</span>
+                                    <span v-if="a.ultima_sesion" class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                                        {{ a.ultima_sesion }}
+                                    </span>
+                                </component>
+                            </td>
+                            <td class="py-2.5 pr-5">
+                                <BotonAccion v-if="a.tutoria_id" variante="eliminar" texto="Quitar el tutor" @click="quitar(a)" />
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
             <p v-if="!visibles.length" class="px-5 py-10 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
                 Nada que mostrar con ese filtro.

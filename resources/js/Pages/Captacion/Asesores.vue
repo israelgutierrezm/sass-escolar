@@ -174,94 +174,96 @@ const comoReparte: Record<string, string> = {
         </div>
 
         <div v-else class="tarjeta overflow-hidden">
-            <table class="w-full text-sm">
-                <thead>
-                    <tr class="border-b text-left text-xs uppercase tracking-wide text-suave" :style="{ borderColor: 'var(--color-borde)' }">
-                        <th class="px-4 py-3">Asesor</th>
-                        <th class="px-4 py-3">Campus</th>
-                        <th class="px-4 py-3 text-right">Prospectos</th>
-                        <th class="px-4 py-3 text-right">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <template v-for="a in asesores" :key="a.persona_id">
-                        <tr class="border-b" :style="{ borderColor: 'var(--color-borde)' }">
-                            <td class="px-4 py-3">
-                                <div class="flex items-center gap-2">
-                                    <span
-                                        class="h-2 w-2 shrink-0 rounded-full"
-                                        :style="{ backgroundColor: a.activo ? '#16a34a' : 'var(--color-suave)' }"
-                                        :title="a.activo ? 'Activo' : 'Inactivo'"
-                                    />
-                                    <div class="min-w-0">
-                                        <p class="truncate font-medium text-contenido">{{ a.nombre }}</p>
-                                        <p class="truncate text-xs text-suave">
-                                            {{ a.email ?? '—' }}
-                                            <span v-if="a.clave_asesor"> · {{ a.clave_asesor }}</span>
-                                        </p>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b text-left text-xs uppercase tracking-wide text-suave" :style="{ borderColor: 'var(--color-borde)' }">
+                            <th class="px-4 py-3">Asesor</th>
+                            <th class="px-4 py-3">Campus</th>
+                            <th class="px-4 py-3 text-right">Prospectos</th>
+                            <th class="px-4 py-3 text-right">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template v-for="a in asesores" :key="a.persona_id">
+                            <tr class="border-b" :style="{ borderColor: 'var(--color-borde)' }">
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center gap-2">
+                                        <span
+                                            class="h-2 w-2 shrink-0 rounded-full"
+                                            :style="{ backgroundColor: a.activo ? '#16a34a' : 'var(--color-suave)' }"
+                                            :title="a.activo ? 'Activo' : 'Inactivo'"
+                                        />
+                                        <div class="min-w-0">
+                                            <p class="truncate font-medium text-contenido">{{ a.nombre }}</p>
+                                            <p class="truncate text-xs text-suave">
+                                                {{ a.email ?? '—' }}
+                                                <span v-if="a.clave_asesor"> · {{ a.clave_asesor }}</span>
+                                            </p>
+                                        </div>
                                     </div>
-                                </div>
-                            </td>
-                            <td class="px-4 py-3">
-                                <span v-if="!a.campus.length" class="text-xs text-suave">Todos</span>
-                                <span v-else class="text-xs text-contenido">
-                                    {{ a.campus.map((c) => c.nombre).join(', ') }}
-                                </span>
-                            </td>
-                            <td class="px-4 py-3 text-right tabular-nums text-contenido">{{ a.prospectos }}</td>
-                            <td class="px-4 py-3">
-                                <div class="flex justify-end gap-1.5">
-                                    <button
-                                        type="button"
-                                        class="rounded-lg border px-2.5 py-1.5 text-xs"
-                                        :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-acento)' }"
-                                        @click="abrirCampus(a)"
-                                    >
-                                        Campus
-                                    </button>
-                                    <button
-                                        type="button"
-                                        class="rounded-lg border px-2.5 py-1.5 text-xs"
-                                        :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-contenido)' }"
-                                        @click="alternar(a.persona_id, a.activo)"
-                                    >
-                                        {{ a.activo ? 'Desactivar' : 'Activar' }}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        class="rounded-lg border px-2.5 py-1.5 text-xs"
-                                        :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }"
-                                        @click="retirar(a.persona_id, a.nombre)"
-                                    >
-                                        Retirar
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr v-if="editandoCampus === a.persona_id" :style="{ borderColor: 'var(--color-borde)' }" class="border-b">
-                            <td colspan="4" class="px-4 py-3">
-                                <p class="mb-2 text-xs text-suave">
-                                    Sin marcar ninguno atiende todos los campus, que es lo que se espera de un coordinador.
-                                </p>
-                                <div class="flex flex-wrap items-center gap-3">
-                                    <label v-for="c in campus" :key="c.id" class="flex items-center gap-1.5 text-sm">
-                                        <input v-model="campusForm.campus_ids" type="checkbox" :value="c.id" />
-                                        {{ c.nombre }}
-                                    </label>
-                                    <button
-                                        type="button"
-                                        class="ml-auto rounded-lg px-3 py-1.5 text-xs font-medium"
-                                        :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                                        @click="guardarCampus(a.persona_id)"
-                                    >
-                                        Guardar
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    </template>
-                </tbody>
-            </table>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <span v-if="!a.campus.length" class="text-xs text-suave">Todos</span>
+                                    <span v-else class="text-xs text-contenido">
+                                        {{ a.campus.map((c) => c.nombre).join(', ') }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 text-right tabular-nums text-contenido">{{ a.prospectos }}</td>
+                                <td class="px-4 py-3">
+                                    <div class="flex justify-end gap-1.5">
+                                        <button
+                                            type="button"
+                                            class="rounded-lg border px-2.5 py-1.5 text-xs"
+                                            :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-acento)' }"
+                                            @click="abrirCampus(a)"
+                                        >
+                                            Campus
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="rounded-lg border px-2.5 py-1.5 text-xs"
+                                            :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-contenido)' }"
+                                            @click="alternar(a.persona_id, a.activo)"
+                                        >
+                                            {{ a.activo ? 'Desactivar' : 'Activar' }}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="rounded-lg border px-2.5 py-1.5 text-xs"
+                                            :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }"
+                                            @click="retirar(a.persona_id, a.nombre)"
+                                        >
+                                            Retirar
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr v-if="editandoCampus === a.persona_id" :style="{ borderColor: 'var(--color-borde)' }" class="border-b">
+                                <td colspan="4" class="px-4 py-3">
+                                    <p class="mb-2 text-xs text-suave">
+                                        Sin marcar ninguno atiende todos los campus, que es lo que se espera de un coordinador.
+                                    </p>
+                                    <div class="flex flex-wrap items-center gap-3">
+                                        <label v-for="c in campus" :key="c.id" class="flex items-center gap-1.5 text-sm">
+                                            <input v-model="campusForm.campus_ids" type="checkbox" :value="c.id" />
+                                            {{ c.nombre }}
+                                        </label>
+                                        <button
+                                            type="button"
+                                            class="ml-auto rounded-lg px-3 py-1.5 text-xs font-medium"
+                                            :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+                                            @click="guardarCampus(a.persona_id)"
+                                        >
+                                            Guardar
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </AppLayout>
 </template>

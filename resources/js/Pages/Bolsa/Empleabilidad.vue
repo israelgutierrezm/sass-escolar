@@ -168,7 +168,7 @@ const fuera = computed(() => props.resumen.sin_programa_academico_senalado + pro
                     :style="{ borderColor: 'var(--color-borde)' }"
                 >
                     <div class="flex items-center justify-between gap-3">
-                        <span class="min-w-0 truncate font-medium">{{ r.programa_academico }}</span>
+                        <span class="min-w-0 truncate font-medium" :title="r.programa_academico ?? undefined">{{ r.programa_academico }}</span>
                         <span class="shrink-0 text-xs" :style="{ color: 'var(--color-suave)' }">
                             {{ r.colocados }} de {{ r.egresados }} · {{ r.porcentaje }}%
                         </span>

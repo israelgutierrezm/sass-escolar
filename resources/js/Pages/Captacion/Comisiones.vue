@@ -248,46 +248,48 @@ const hayReglaVigente = computed(() => props.reglas.some((r) => r.activo && !r.v
                 </button>
             </header>
 
-            <table v-if="comisiones.data.length" class="w-full text-sm">
-                <thead>
-                    <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
-                        <th v-if="puedeGestionar" class="px-6 py-3"></th>
-                        <th class="px-6 py-3 font-semibold" :class="puedeGestionar ? 'pl-0' : ''">Promotor</th>
-                        <th class="px-4 py-3 font-semibold">Matrícula</th>
-                        <th class="px-4 py-3 font-semibold">Regla</th>
-                        <th class="px-4 py-3 text-right font-semibold">Monto</th>
-                        <th class="px-4 py-3 font-semibold">Devengada</th>
-                        <th class="px-4 py-3 font-semibold">Estatus</th>
-                        <th class="px-6 py-3 font-semibold text-right">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="c in comisiones.data" :key="c.id" class="fila-nueva border-t transition-colors" :style="{ borderColor: 'var(--color-borde)' }">
-                        <td v-if="puedeGestionar" class="px-6 py-4">
-                            <input v-if="c.estatus === 'devengada'" v-model="seleccionadas" type="checkbox" :value="c.id" />
-                        </td>
-                        <td class="px-6 py-4 font-semibold text-contenido" :class="puedeGestionar ? 'pl-0' : ''">{{ c.promotor ?? '—' }}</td>
-                        <td class="px-4 py-4 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ c.matricula ?? '—' }}</td>
-                        <td class="px-4 py-4" :style="{ color: 'var(--color-suave)' }">{{ c.regla ?? '—' }}</td>
-                        <td class="px-4 py-4 text-right font-semibold tabular-nums">{{ pesos.format(c.monto) }}</td>
-                        <td class="px-4 py-4 tabular-nums text-xs" :style="{ color: 'var(--color-suave)' }">{{ c.devengada_en }}</td>
-                        <td class="px-4 py-4">
-                            <PildoraEstado :texto="c.estatus" />
-                            <span v-if="c.motivo_cancelacion" class="mt-0.5 block text-[11px]" :style="{ color: 'var(--color-suave)' }">{{ c.motivo_cancelacion }}</span>
-                        </td>
-                        <td class="px-6 py-4 text-right">
-                            <button
-                                v-if="puedeGestionar && c.estatus === 'devengada'"
-                                type="button"
-                                class="text-xs font-medium text-red-600"
-                                @click="cancelando = c.id"
-                            >
-                                Cancelar
-                            </button>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+            <div v-if="comisiones.data.length" class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)', backgroundColor: 'color-mix(in srgb, var(--color-suave) 6%, transparent)' }">
+                            <th v-if="puedeGestionar" class="px-6 py-3"></th>
+                            <th class="px-6 py-3 font-semibold" :class="puedeGestionar ? 'pl-0' : ''">Promotor</th>
+                            <th class="px-4 py-3 font-semibold">Matrícula</th>
+                            <th class="px-4 py-3 font-semibold">Regla</th>
+                            <th class="px-4 py-3 text-right font-semibold">Monto</th>
+                            <th class="px-4 py-3 font-semibold">Devengada</th>
+                            <th class="px-4 py-3 font-semibold">Estatus</th>
+                            <th class="px-6 py-3 font-semibold text-right">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="c in comisiones.data" :key="c.id" class="fila-nueva border-t transition-colors" :style="{ borderColor: 'var(--color-borde)' }">
+                            <td v-if="puedeGestionar" class="px-6 py-4">
+                                <input v-if="c.estatus === 'devengada'" v-model="seleccionadas" type="checkbox" :value="c.id" />
+                            </td>
+                            <td class="px-6 py-4 font-semibold text-contenido" :class="puedeGestionar ? 'pl-0' : ''">{{ c.promotor ?? '—' }}</td>
+                            <td class="px-4 py-4 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ c.matricula ?? '—' }}</td>
+                            <td class="px-4 py-4" :style="{ color: 'var(--color-suave)' }">{{ c.regla ?? '—' }}</td>
+                            <td class="px-4 py-4 text-right font-semibold tabular-nums">{{ pesos.format(c.monto) }}</td>
+                            <td class="px-4 py-4 tabular-nums text-xs" :style="{ color: 'var(--color-suave)' }">{{ c.devengada_en }}</td>
+                            <td class="px-4 py-4">
+                                <PildoraEstado :texto="c.estatus" />
+                                <span v-if="c.motivo_cancelacion" class="mt-0.5 block text-[11px]" :style="{ color: 'var(--color-suave)' }">{{ c.motivo_cancelacion }}</span>
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <button
+                                    v-if="puedeGestionar && c.estatus === 'devengada'"
+                                    type="button"
+                                    class="text-xs font-medium text-red-600"
+                                    @click="cancelando = c.id"
+                                >
+                                    Cancelar
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
             <p v-else class="px-6 py-10 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
                 No hay comisiones. Se devengan solas cuando un prospecto con promotor titular se inscribe.

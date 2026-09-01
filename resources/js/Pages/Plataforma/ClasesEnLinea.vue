@@ -530,7 +530,7 @@ function copiarUrlAviso(): void {
                 </p>
                 <div class="mt-2 flex flex-wrap items-center gap-2">
                     <code
-                        class="rounded-lg border px-3 py-1.5 text-xs"
+                        class="min-w-0 break-all rounded-lg border px-3 py-1.5 text-xs"
                         :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-contenido)' }"
                     >{{ grabaciones.url_aviso }}</code>
                     <button

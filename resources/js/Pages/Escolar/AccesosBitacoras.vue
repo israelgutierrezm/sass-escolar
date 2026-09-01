@@ -100,51 +100,53 @@ function filtrar(): void {
         </section>
 
         <section class="tarjeta overflow-hidden">
-            <table v-if="accesos.length" class="w-full text-sm">
-                <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                    <tr class="border-b" :style="{ borderColor: 'var(--color-borde)' }">
-                        <th class="px-5 py-2 font-medium">Cuándo</th>
-                        <th class="py-2 font-medium">Quién consultó</th>
-                        <th class="py-2 font-medium">Bitácora de</th>
-                        <th class="py-2 font-medium">Sesiones</th>
-                        <th class="py-2 pr-5 font-medium">IP</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr
-                        v-for="a in accesos"
-                        :key="a.id"
-                        class="border-b last:border-0"
-                        :style="{ borderColor: 'var(--color-borde)' }"
-                    >
-                        <td class="px-5 py-2.5 tabular-nums">{{ a.cuando }}</td>
-                        <td class="py-2.5 font-medium">{{ a.quien }}</td>
-                        <td class="py-2.5">
-                            <Link
-                                :href="`/escolar/tutorias/${a.alumno_id}/bitacora`"
-                                :style="{ color: 'var(--color-acento)' }"
-                            >
-                                {{ a.alumno }}
-                            </Link>
-                        </td>
-                        <td class="py-2.5 tabular-nums">
-                            {{ a.sesiones }}
-                            <!--
-                                Cuántas quedaron reservadas distingue a quien
-                                leyó un expediente completo de quien topó con
-                                una pared: al revisar una filtración, no es lo
-                                mismo.
-                            -->
-                            <span v-if="a.reservadas" class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                                ({{ a.reservadas }} reservada{{ a.reservadas === 1 ? '' : 's' }})
-                            </span>
-                        </td>
-                        <td class="py-2.5 pr-5 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">
-                            {{ a.ip ?? '—' }}
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+            <div v-if="accesos.length" class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
+                        <tr class="border-b" :style="{ borderColor: 'var(--color-borde)' }">
+                            <th class="px-5 py-2 font-medium">Cuándo</th>
+                            <th class="py-2 font-medium">Quién consultó</th>
+                            <th class="py-2 font-medium">Bitácora de</th>
+                            <th class="py-2 font-medium">Sesiones</th>
+                            <th class="py-2 pr-5 font-medium">IP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr
+                            v-for="a in accesos"
+                            :key="a.id"
+                            class="border-b last:border-0"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                        >
+                            <td class="px-5 py-2.5 tabular-nums">{{ a.cuando }}</td>
+                            <td class="py-2.5 font-medium">{{ a.quien }}</td>
+                            <td class="py-2.5">
+                                <Link
+                                    :href="`/escolar/tutorias/${a.alumno_id}/bitacora`"
+                                    :style="{ color: 'var(--color-acento)' }"
+                                >
+                                    {{ a.alumno }}
+                                </Link>
+                            </td>
+                            <td class="py-2.5 tabular-nums">
+                                {{ a.sesiones }}
+                                <!--
+                                    Cuántas quedaron reservadas distingue a quien
+                                    leyó un expediente completo de quien topó con
+                                    una pared: al revisar una filtración, no es lo
+                                    mismo.
+                                -->
+                                <span v-if="a.reservadas" class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                                    ({{ a.reservadas }} reservada{{ a.reservadas === 1 ? '' : 's' }})
+                                </span>
+                            </td>
+                            <td class="py-2.5 pr-5 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">
+                                {{ a.ip ?? '—' }}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
             <p v-else class="px-5 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
                 Nadie abrió ninguna bitácora en ese rango.

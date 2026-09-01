@@ -714,83 +714,85 @@ function textoSobre(color: string | null): string {
                     </span>
                 </div>
 
-                <table class="w-full text-sm">
-                    <draggable
-                        tag="tbody"
-                        :list="grupo.lista"
-                        :group="grupo.optativa ? { name: 'malla-opt', pull: false, put: false } : 'malla-materias'"
-                        :disabled="!puedeEditar"
-                        item-key="id"
-                        :animation="150"
-                        handle=".asa-fila"
-                        ghost-class="fantasma-arrastre"
-                        @change="(e) => alMover(grupo, e)"
-                    >
-                        <template #item="{ element: materia }">
-                            <tr class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                                <td class="px-6 py-3 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">
-                                    <span class="flex items-center gap-1.5">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <draggable
+                            tag="tbody"
+                            :list="grupo.lista"
+                            :group="grupo.optativa ? { name: 'malla-opt', pull: false, put: false } : 'malla-materias'"
+                            :disabled="!puedeEditar"
+                            item-key="id"
+                            :animation="150"
+                            handle=".asa-fila"
+                            ghost-class="fantasma-arrastre"
+                            @change="(e) => alMover(grupo, e)"
+                        >
+                            <template #item="{ element: materia }">
+                                <tr class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
+                                    <td class="px-6 py-3 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">
+                                        <span class="flex items-center gap-1.5">
+                                            <span
+                                                v-if="puedeEditar"
+                                                class="asa-fila cursor-grab select-none text-sm opacity-60"
+                                                title="Arrastrar a otro periodo"
+                                                @click.stop
+                                            >⠿</span>
+                                            {{ materia.clave_en_plan }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <span class="font-medium">{{ materia.asignatura }}</span>
+                                        <span class="block font-mono text-xs" :style="{ color: 'var(--color-suave)' }">
+                                            catálogo: {{ materia.asignatura_clave }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <!-- Tipo del catálogo de la asignatura; la optativa se
+                                             resalta con el acento porque es la que sale del
+                                             orden por periodos. -->
                                         <span
-                                            v-if="puedeEditar"
-                                            class="asa-fila cursor-grab select-none text-sm opacity-60"
-                                            title="Arrastrar a otro periodo"
-                                            @click.stop
-                                        >⠿</span>
-                                        {{ materia.clave_en_plan }}
-                                    </span>
-                                </td>
-                                <td class="px-4 py-3">
-                                    <span class="font-medium">{{ materia.asignatura }}</span>
-                                    <span class="block font-mono text-xs" :style="{ color: 'var(--color-suave)' }">
-                                        catálogo: {{ materia.asignatura_clave }}
-                                    </span>
-                                </td>
-                                <td class="px-4 py-3">
-                                    <!-- Tipo del catálogo de la asignatura; la optativa se
-                                         resalta con el acento porque es la que sale del
-                                         orden por periodos. -->
-                                    <span
-                                        v-if="materia.tipo"
-                                        class="rounded-full px-2 py-1 text-xs"
-                                        :class="{ 'elegido-acento': !esOptativa(materia.tipo) }"
-                                        :style="esOptativa(materia.tipo) ? { backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' } : {}"
-                                    >
-                                        {{ materia.tipo }}
-                                    </span>
-                                    <span v-else class="text-xs" :style="{ color: 'var(--color-suave)' }">—</span>
-                                </td>
-                                <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">
-                                    {{ materia.creditos }} cr.
-                                </td>
-                                <td class="px-6 py-3">
-                                    <div class="flex items-center justify-end gap-1">
-                                        <!-- «Editar» abre la ficha completa: datos, descriptores, imágenes,
-                                             requisitos y evaluación en un solo lugar. -->
-                                        <BotonAccion
-                                            v-if="puedeEditar"
-                                            variante="editar"
-                                            :href="`/academico/planes/${plan.id}/materias/${materia.id}`"
-                                        />
-                                        <BotonAccion
-                                            v-else
-                                            variante="ver"
-                                            texto="Ver"
-                                            :href="`/academico/planes/${plan.id}/materias/${materia.id}`"
-                                        />
-                                        <BotonAccion v-if="puedeEditar" variante="eliminar" @click="quitar(materia)" />
-                                    </div>
+                                            v-if="materia.tipo"
+                                            class="rounded-full px-2 py-1 text-xs"
+                                            :class="{ 'elegido-acento': !esOptativa(materia.tipo) }"
+                                            :style="esOptativa(materia.tipo) ? { backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' } : {}"
+                                        >
+                                            {{ materia.tipo }}
+                                        </span>
+                                        <span v-else class="text-xs" :style="{ color: 'var(--color-suave)' }">—</span>
+                                    </td>
+                                    <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">
+                                        {{ materia.creditos }} cr.
+                                    </td>
+                                    <td class="px-6 py-3">
+                                        <div class="flex items-center justify-end gap-1">
+                                            <!-- «Editar» abre la ficha completa: datos, descriptores, imágenes,
+                                                 requisitos y evaluación en un solo lugar. -->
+                                            <BotonAccion
+                                                v-if="puedeEditar"
+                                                variante="editar"
+                                                :href="`/academico/planes/${plan.id}/materias/${materia.id}`"
+                                            />
+                                            <BotonAccion
+                                                v-else
+                                                variante="ver"
+                                                texto="Ver"
+                                                :href="`/academico/planes/${plan.id}/materias/${materia.id}`"
+                                            />
+                                            <BotonAccion v-if="puedeEditar" variante="eliminar" @click="quitar(materia)" />
+                                        </div>
+                                    </td>
+                                </tr>
+                            </template>
+                        </draggable>
+                        <tbody v-if="!grupo.lista.length">
+                            <tr>
+                                <td colspan="5" class="px-6 py-4 text-center text-xs" :style="{ color: 'var(--color-suave)' }">
+                                    Sin materias en este {{ plan.periodo_unidad.toLowerCase() }}.
                                 </td>
                             </tr>
-                        </template>
-                    </draggable>
-                    <tbody v-if="!grupo.lista.length">
-                        <tr>
-                            <td colspan="5" class="px-6 py-4 text-center text-xs" :style="{ color: 'var(--color-suave)' }">
-                                Sin materias en este {{ plan.periodo_unidad.toLowerCase() }}.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                        </tbody>
+                    </table>
+                </div>
             </div>
             </section>
         </template>

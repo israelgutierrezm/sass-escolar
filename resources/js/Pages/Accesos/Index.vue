@@ -91,8 +91,15 @@ const ICONO_ACCESOS =
         <!-- Gráfica de entradas por día -->
         <section class="tarjeta p-5">
             <h2 class="text-sm font-semibold">Entradas por día (últimos 14 días)</h2>
-            <div class="mt-4 flex items-end gap-2" style="height: 140px">
-                <div v-for="d in porDia" :key="d.dia" class="flex flex-1 flex-col items-center justify-end gap-1">
+            <!--
+                La gráfica DESPLAZA en vez de apretarse. Cada columna es un día
+                y su rótulo («28/08») pide unos 30 px: con dos semanas eso son
+                460 px, y en un teléfono empujaba la página 132 px fuera de la
+                pantalla. Con un ancho mínimo por columna se recorre con el
+                dedo, y en pantalla ancha `flex-1` las sigue repartiendo.
+            -->
+            <div class="-mx-1 mt-4 flex items-end gap-2 overflow-x-auto px-1 pb-1" style="height: 152px">
+                <div v-for="d in porDia" :key="d.dia" class="flex min-w-[2.25rem] flex-1 flex-col items-center justify-end gap-1">
                     <span class="text-xs tabular-nums" :style="{ color: 'var(--color-suave)' }">{{ d.total || '' }}</span>
                     <div
                         class="w-full rounded-t"

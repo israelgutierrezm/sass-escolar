@@ -105,65 +105,67 @@ function filtrar(estado: string): void {
         </div>
 
         <div class="tarjeta overflow-hidden">
-            <table v-if="comprobantes.length" class="w-full text-sm">
-                <thead>
-                    <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)' }">
-                        <th class="px-4 py-3 font-semibold">Alumno</th>
-                        <th class="px-4 py-3 font-semibold">Transferencia</th>
-                        <th class="px-4 py-3 text-right font-semibold">Monto</th>
-                        <th class="px-4 py-3 font-semibold">Estado</th>
-                        <th class="px-4 py-3 font-semibold"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="c in comprobantes" :key="c.id" class="border-t align-top" :style="{ borderColor: 'var(--color-borde)' }">
-                        <td class="px-4 py-3">
-                            <p class="font-medium">{{ c.alumno ?? '—' }}</p>
-                            <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                                {{ c.matricula }}<template v-if="c.programa_academico"> · {{ c.programa_academico }}</template>
-                            </p>
-                        </td>
-                        <td class="px-4 py-3">
-                            <p>{{ c.fecha ?? '—' }}</p>
-                            <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                                <template v-if="c.cuenta">{{ c.cuenta }}</template>
-                                <template v-if="c.referencia"> · ref. {{ c.referencia }}</template>
-                                <template v-if="c.cargos"> · {{ c.cargos === 1 ? '1 cargo' : `${c.cargos} cargos` }}</template>
-                            </p>
-                        </td>
-                        <td class="px-4 py-3 text-right font-medium tabular-nums">{{ pesos.format(c.monto) }}</td>
-                        <td class="px-4 py-3">
-                            <span
-                                class="rounded-full px-2 py-0.5 text-xs"
-                                :style="c.estado === 'aprobado'
-                                    ? { backgroundColor: 'color-mix(in srgb, #16a34a 14%, transparent)', color: '#15803d' }
-                                    : c.estado === 'rechazado'
-                                        ? { backgroundColor: 'color-mix(in srgb, #dc2626 14%, transparent)', color: '#b91c1c' }
-                                        : { backgroundColor: 'color-mix(in srgb, #d97706 14%, transparent)', color: '#b45309' }"
-                            >{{ c.estado }}</span>
-                            <p v-if="c.motivo_rechazo" class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">{{ c.motivo_rechazo }}</p>
-                            <p v-if="c.revisor" class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">
-                                {{ c.revisor }} · {{ c.revisado_en }}
-                            </p>
-                        </td>
-                        <td class="px-4 py-3">
-                            <div class="flex flex-wrap gap-2">
-                                <button type="button" class="text-xs underline" :style="{ color: 'var(--color-acento)' }" @click="verArchivo(c)">
-                                    Ver comprobante
-                                </button>
-                                <template v-if="c.estado === 'pendiente'">
-                                    <button type="button" class="rounded-lg px-2.5 py-1 text-xs font-medium" :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }" @click="abrir(c, 'aprobar')">
-                                        Aprobar
+            <div v-if="comprobantes.length" class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)' }">
+                            <th class="px-4 py-3 font-semibold">Alumno</th>
+                            <th class="px-4 py-3 font-semibold">Transferencia</th>
+                            <th class="px-4 py-3 text-right font-semibold">Monto</th>
+                            <th class="px-4 py-3 font-semibold">Estado</th>
+                            <th class="px-4 py-3 font-semibold"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="c in comprobantes" :key="c.id" class="border-t align-top" :style="{ borderColor: 'var(--color-borde)' }">
+                            <td class="px-4 py-3">
+                                <p class="font-medium">{{ c.alumno ?? '—' }}</p>
+                                <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                                    {{ c.matricula }}<template v-if="c.programa_academico"> · {{ c.programa_academico }}</template>
+                                </p>
+                            </td>
+                            <td class="px-4 py-3">
+                                <p>{{ c.fecha ?? '—' }}</p>
+                                <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                                    <template v-if="c.cuenta">{{ c.cuenta }}</template>
+                                    <template v-if="c.referencia"> · ref. {{ c.referencia }}</template>
+                                    <template v-if="c.cargos"> · {{ c.cargos === 1 ? '1 cargo' : `${c.cargos} cargos` }}</template>
+                                </p>
+                            </td>
+                            <td class="px-4 py-3 text-right font-medium tabular-nums">{{ pesos.format(c.monto) }}</td>
+                            <td class="px-4 py-3">
+                                <span
+                                    class="rounded-full px-2 py-0.5 text-xs"
+                                    :style="c.estado === 'aprobado'
+                                        ? { backgroundColor: 'color-mix(in srgb, #16a34a 14%, transparent)', color: '#15803d' }
+                                        : c.estado === 'rechazado'
+                                            ? { backgroundColor: 'color-mix(in srgb, #dc2626 14%, transparent)', color: '#b91c1c' }
+                                            : { backgroundColor: 'color-mix(in srgb, #d97706 14%, transparent)', color: '#b45309' }"
+                                >{{ c.estado }}</span>
+                                <p v-if="c.motivo_rechazo" class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">{{ c.motivo_rechazo }}</p>
+                                <p v-if="c.revisor" class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">
+                                    {{ c.revisor }} · {{ c.revisado_en }}
+                                </p>
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="flex flex-wrap gap-2">
+                                    <button type="button" class="text-xs underline" :style="{ color: 'var(--color-acento)' }" @click="verArchivo(c)">
+                                        Ver comprobante
                                     </button>
-                                    <button type="button" class="rounded-lg border px-2.5 py-1 text-xs text-red-600" :style="{ borderColor: 'var(--color-borde)' }" @click="abrir(c, 'rechazar')">
-                                        Rechazar
-                                    </button>
-                                </template>
-                            </div>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+                                    <template v-if="c.estado === 'pendiente'">
+                                        <button type="button" class="rounded-lg px-2.5 py-1 text-xs font-medium" :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }" @click="abrir(c, 'aprobar')">
+                                            Aprobar
+                                        </button>
+                                        <button type="button" class="rounded-lg border px-2.5 py-1 text-xs text-red-600" :style="{ borderColor: 'var(--color-borde)' }" @click="abrir(c, 'rechazar')">
+                                            Rechazar
+                                        </button>
+                                    </template>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
             <p v-else class="px-6 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
                 No hay comprobantes {{ estado === 'pendiente' ? 'por revisar' : estado + 's' }}.

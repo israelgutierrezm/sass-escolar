@@ -440,46 +440,48 @@ const cortesCerrados = computed(() =>
                 </div>
             </div>
 
-            <table v-if="visibles.length" class="w-full text-sm">
-                <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                    <tr>
-                        <th class="px-6 py-3 font-medium">Matrícula</th>
-                        <th class="px-4 py-3 font-medium">Alumno</th>
-                        <th class="px-4 py-3 font-medium">Contacto</th>
-                        <th class="px-4 py-3 font-medium">Situación</th>
-                        <th class="px-4 py-3 font-medium">Final</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr
-                        v-for="alumno in visibles"
-                        :key="alumno.matricula ?? alumno.nombre ?? ''"
-                        class="border-t"
-                        :class="alumno.de_baja ? 'opacity-50' : ''"
-                        :style="{ borderColor: 'var(--color-borde)' }"
-                    >
-                        <td class="px-6 py-2 font-mono text-xs">{{ alumno.matricula }}</td>
-                        <td class="px-4 py-2">
-                            {{ alumno.nombre }}
-                            <span
-                                v-if="alumno.tipo === 'recursamiento'"
-                                class="ml-1 rounded-full px-2 py-0.5 text-xs"
-                                style="background-color: color-mix(in srgb, #f59e0b 18%, transparent)"
-                            >
-                                recursa
-                            </span>
-                        </td>
-                        <td class="px-4 py-2 text-xs" :style="{ color: 'var(--color-suave)' }">
-                            <span v-if="alumno.email">{{ alumno.email }}</span>
-                            <span v-if="alumno.email && alumno.celular"> · </span>
-                            <span v-if="alumno.celular">{{ alumno.celular }}</span>
-                            <span v-if="!alumno.email && !alumno.celular">�</span>
-                        </td>
-                        <td class="px-4 py-2">{{ alumno.situacion }}</td>
-                        <td class="px-4 py-2">{{ alumno.calificacion_final ?? '�' }}</td>
-                    </tr>
-                </tbody>
-            </table>
+            <div v-if="visibles.length" class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
+                        <tr>
+                            <th class="px-6 py-3 font-medium">Matrícula</th>
+                            <th class="px-4 py-3 font-medium">Alumno</th>
+                            <th class="px-4 py-3 font-medium">Contacto</th>
+                            <th class="px-4 py-3 font-medium">Situación</th>
+                            <th class="px-4 py-3 font-medium">Final</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr
+                            v-for="alumno in visibles"
+                            :key="alumno.matricula ?? alumno.nombre ?? ''"
+                            class="border-t"
+                            :class="alumno.de_baja ? 'opacity-50' : ''"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                        >
+                            <td class="px-6 py-2 font-mono text-xs">{{ alumno.matricula }}</td>
+                            <td class="px-4 py-2">
+                                {{ alumno.nombre }}
+                                <span
+                                    v-if="alumno.tipo === 'recursamiento'"
+                                    class="ml-1 rounded-full px-2 py-0.5 text-xs"
+                                    style="background-color: color-mix(in srgb, #f59e0b 18%, transparent)"
+                                >
+                                    recursa
+                                </span>
+                            </td>
+                            <td class="px-4 py-2 text-xs" :style="{ color: 'var(--color-suave)' }">
+                                <span v-if="alumno.email">{{ alumno.email }}</span>
+                                <span v-if="alumno.email && alumno.celular"> · </span>
+                                <span v-if="alumno.celular">{{ alumno.celular }}</span>
+                                <span v-if="!alumno.email && !alumno.celular">�</span>
+                            </td>
+                            <td class="px-4 py-2">{{ alumno.situacion }}</td>
+                            <td class="px-4 py-2">{{ alumno.calificacion_final ?? '�' }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
             <p v-else class="px-6 py-10 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
                 {{ busqueda ? 'Nadie coincide con la búsqueda.' : 'Todavía no hay alumnos inscritos.' }}

@@ -663,7 +663,7 @@ const datosPuestos = computed(() => form.campos_alumno as string[]);
                             :key="col.clave"
                             class="flex flex-wrap items-center gap-2 rounded border border-borde px-2 py-1 text-sm"
                         >
-                            <span class="min-w-0 flex-1 truncate">{{ columnas[col.clave]?.etiqueta ?? col.clave }}</span>
+                            <span class="min-w-0 flex-1 truncate" :title="columnas[col.clave]?.etiqueta ?? col.clave">{{ columnas[col.clave]?.etiqueta ?? col.clave }}</span>
 
                             <!-- Ancho en % de la hoja. -->
                             <label class="flex items-center gap-1 text-xs">
@@ -823,8 +823,8 @@ const datosPuestos = computed(() => form.campos_alumno as string[]);
                             <span v-else class="text-xs" :style="{ color: 'var(--color-suave)' }">sin rúbrica</span>
 
                             <div class="min-w-0 flex-1">
-                                <p class="truncate text-sm font-medium">{{ f.nombre }}</p>
-                                <p v-if="f.cargo" class="truncate text-xs" :style="{ color: 'var(--color-suave)' }">{{ f.cargo }}</p>
+                                <p class="truncate text-sm font-medium" :title="f.nombre">{{ f.nombre }}</p>
+                                <p v-if="f.cargo" class="truncate text-xs" :style="{ color: 'var(--color-suave)' }" :title="f.cargo">{{ f.cargo }}</p>
                             </div>
 
                             <div class="flex items-center gap-1">

@@ -321,46 +321,48 @@ function eliminar(): void {
                 </p>
             </header>
 
-            <table class="w-full text-sm">
-                <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                    <tr>
-                        <th class="px-6 py-3 font-medium">Clave SAT</th>
-                        <th class="px-4 py-3 font-medium">Descripción</th>
-                        <th class="px-4 py-3 font-medium">Pago</th>
-                        <th class="px-4 py-3 text-right font-medium">Cantidad</th>
-                        <th class="px-4 py-3 text-right font-medium">Importe</th>
-                        <th class="px-6 py-3 text-right font-medium">IVA</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="c in conceptos" :key="c.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                        <td class="px-6 py-3 font-mono text-xs">{{ c.clave_sat }}</td>
-                        <td class="px-4 py-3">{{ c.descripcion }}</td>
-                        <td class="px-4 py-3 text-xs" :style="{ color: 'var(--color-suave)' }">
-                            #{{ c.pago_id }} <span v-if="c.pago_metodo">· {{ c.pago_metodo }}</span>
-                        </td>
-                        <td class="px-4 py-3 text-right tabular-nums">{{ c.cantidad }}</td>
-                        <td class="px-4 py-3 text-right tabular-nums">{{ pesos.format(c.importe) }}</td>
-                        <td class="px-6 py-3 text-right tabular-nums">{{ pesos.format(c.iva) }}</td>
-                    </tr>
-                </tbody>
-                <tfoot>
-                    <tr class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                        <td colspan="4" class="px-6 py-2 text-right" :style="{ color: 'var(--color-suave)' }">Subtotal</td>
-                        <td colspan="2" class="px-6 py-2 text-right tabular-nums">{{ pesos.format(factura.subtotal) }}</td>
-                    </tr>
-                    <tr>
-                        <td colspan="4" class="px-6 py-2 text-right" :style="{ color: 'var(--color-suave)' }">IVA</td>
-                        <td colspan="2" class="px-6 py-2 text-right tabular-nums">{{ pesos.format(factura.iva) }}</td>
-                    </tr>
-                    <tr class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                        <td colspan="4" class="px-6 py-3 text-right font-semibold">Total</td>
-                        <td colspan="2" class="px-6 py-3 text-right text-base font-semibold tabular-nums">
-                            {{ pesos.format(factura.total) }}
-                        </td>
-                    </tr>
-                </tfoot>
-            </table>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
+                        <tr>
+                            <th class="px-6 py-3 font-medium">Clave SAT</th>
+                            <th class="px-4 py-3 font-medium">Descripción</th>
+                            <th class="px-4 py-3 font-medium">Pago</th>
+                            <th class="px-4 py-3 text-right font-medium">Cantidad</th>
+                            <th class="px-4 py-3 text-right font-medium">Importe</th>
+                            <th class="px-6 py-3 text-right font-medium">IVA</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="c in conceptos" :key="c.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
+                            <td class="px-6 py-3 font-mono text-xs">{{ c.clave_sat }}</td>
+                            <td class="px-4 py-3">{{ c.descripcion }}</td>
+                            <td class="px-4 py-3 text-xs" :style="{ color: 'var(--color-suave)' }">
+                                #{{ c.pago_id }} <span v-if="c.pago_metodo">· {{ c.pago_metodo }}</span>
+                            </td>
+                            <td class="px-4 py-3 text-right tabular-nums">{{ c.cantidad }}</td>
+                            <td class="px-4 py-3 text-right tabular-nums">{{ pesos.format(c.importe) }}</td>
+                            <td class="px-6 py-3 text-right tabular-nums">{{ pesos.format(c.iva) }}</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
+                            <td colspan="4" class="px-6 py-2 text-right" :style="{ color: 'var(--color-suave)' }">Subtotal</td>
+                            <td colspan="2" class="px-6 py-2 text-right tabular-nums">{{ pesos.format(factura.subtotal) }}</td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" class="px-6 py-2 text-right" :style="{ color: 'var(--color-suave)' }">IVA</td>
+                            <td colspan="2" class="px-6 py-2 text-right tabular-nums">{{ pesos.format(factura.iva) }}</td>
+                        </tr>
+                        <tr class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
+                            <td colspan="4" class="px-6 py-3 text-right font-semibold">Total</td>
+                            <td colspan="2" class="px-6 py-3 text-right text-base font-semibold tabular-nums">
+                                {{ pesos.format(factura.total) }}
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
         </section>
     </AppLayout>
 </template>

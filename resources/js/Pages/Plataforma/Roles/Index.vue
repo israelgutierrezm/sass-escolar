@@ -178,28 +178,30 @@ const totalPermisos = props.catalogo.reduce((s, d) => s + d.permisos.length, 0);
                 </a>
             </header>
 
-            <table v-if="faceta.hijos.length" class="w-full text-sm">
-                <tbody>
-                    <tr v-for="hijo in faceta.hijos" :key="hijo.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                        <td class="py-3 pl-12 pr-4">
-                            <span class="font-medium">{{ hijo.nombre }}</span>
-                            <span class="ml-2 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ hijo.clave }}</span>
-                            <span v-if="hijo.id === rolActivo" class="ml-2 rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">
-                                tu rol activo
-                            </span>
-                        </td>
-                        <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">
-                            {{ hijo.permisos }} propios + los de {{ faceta.nombre }}
-                        </td>
-                        <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ hijo.personas }} personas</td>
-                        <td class="px-6 py-3 text-right">
-                            <a :href="`/plataforma/roles/${hijo.id}`" class="text-sm font-medium" :style="{ color: 'var(--color-acento)' }">
-                                Configurar
-                            </a>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+            <div v-if="faceta.hijos.length" class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <tbody>
+                        <tr v-for="hijo in faceta.hijos" :key="hijo.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
+                            <td class="py-3 pl-12 pr-4">
+                                <span class="font-medium">{{ hijo.nombre }}</span>
+                                <span class="ml-2 font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ hijo.clave }}</span>
+                                <span v-if="hijo.id === rolActivo" class="ml-2 rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">
+                                    tu rol activo
+                                </span>
+                            </td>
+                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">
+                                {{ hijo.permisos }} propios + los de {{ faceta.nombre }}
+                            </td>
+                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ hijo.personas }} personas</td>
+                            <td class="px-6 py-3 text-right">
+                                <a :href="`/plataforma/roles/${hijo.id}`" class="text-sm font-medium" :style="{ color: 'var(--color-acento)' }">
+                                    Configurar
+                                </a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
             <p v-else class="border-t px-6 py-4 text-sm" :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }">
                 Sin puestos colgando de esta faceta.

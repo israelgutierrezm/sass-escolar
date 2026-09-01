@@ -87,36 +87,38 @@ const regimenes = [
                 <template #descripcion>
                     Solo aparecen los pagos <strong>cobrados</strong> que no están ya en una factura vigente. Un pago sin confirmar es una promesa: facturarlo emitiría un comprobante por dinero que todavía puede no llegar.
                 </template>
-                <table v-if="pagos.length" class="w-full text-sm">
-                    <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                        <tr>
-                            <th class="px-6 py-3"></th>
-                            <th class="px-4 py-3 font-medium">Fecha</th>
-                            <th class="px-4 py-3 font-medium">Método</th>
-                            <th class="px-4 py-3 font-medium">Referencia</th>
-                            <th class="px-6 py-3 text-right font-medium">Monto</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="p in pagos" :key="p.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                            <td class="px-6 py-3">
-                                <input v-model="form.pago_ids" type="checkbox" :value="p.id" />
-                            </td>
-                            <td class="px-4 py-3">{{ p.momento ?? '—' }}</td>
-                            <td class="px-4 py-3">{{ p.metodo ?? '—' }}</td>
-                            <td class="px-4 py-3 font-mono text-xs">{{ p.referencia ?? '—' }}</td>
-                            <td class="px-6 py-3 text-right font-medium tabular-nums">{{ pesos.format(p.monto) }}</td>
-                        </tr>
-                    </tbody>
-                    <tfoot>
-                        <tr class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                            <td colspan="4" class="px-6 py-3 text-right font-medium">Seleccionado</td>
-                            <td class="px-6 py-3 text-right text-base font-semibold tabular-nums">
-                                {{ pesos.format(total) }}
-                            </td>
-                        </tr>
-                    </tfoot>
-                </table>
+                <div v-if="pagos.length" class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
+                            <tr>
+                                <th class="px-6 py-3"></th>
+                                <th class="px-4 py-3 font-medium">Fecha</th>
+                                <th class="px-4 py-3 font-medium">Método</th>
+                                <th class="px-4 py-3 font-medium">Referencia</th>
+                                <th class="px-6 py-3 text-right font-medium">Monto</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="p in pagos" :key="p.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
+                                <td class="px-6 py-3">
+                                    <input v-model="form.pago_ids" type="checkbox" :value="p.id" />
+                                </td>
+                                <td class="px-4 py-3">{{ p.momento ?? '—' }}</td>
+                                <td class="px-4 py-3">{{ p.metodo ?? '—' }}</td>
+                                <td class="px-4 py-3 font-mono text-xs">{{ p.referencia ?? '—' }}</td>
+                                <td class="px-6 py-3 text-right font-medium tabular-nums">{{ pesos.format(p.monto) }}</td>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
+                                <td colspan="4" class="px-6 py-3 text-right font-medium">Seleccionado</td>
+                                <td class="px-6 py-3 text-right text-base font-semibold tabular-nums">
+                                    {{ pesos.format(total) }}
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
 
                 <p v-else class="px-6 py-10 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
                     No hay pagos cobrados pendientes de facturar.

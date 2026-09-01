@@ -125,7 +125,7 @@ function alElegirFoto(evento: Event): void {
             <dl v-if="datos.length" class="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
                 <div v-for="d in datos" :key="d.etiqueta" class="min-w-0">
                     <dt class="text-xs" :style="{ color: 'var(--color-suave)' }">{{ d.etiqueta }}</dt>
-                    <dd class="truncate" :class="d.mono ? 'font-mono text-xs' : ''">{{ d.valor }}</dd>
+                    <dd class="truncate" :class="d.mono ? 'font-mono text-xs' : ''" :title="d.valor ?? undefined">{{ d.valor }}</dd>
                 </div>
 
                 <!-- La fecha va aparte porque arrastra la entidad de nacimiento. -->

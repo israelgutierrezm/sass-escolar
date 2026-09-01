@@ -420,99 +420,101 @@ function guardarSituacion(): void {
                 <BotonPrincipal :procesando="pago.processing" texto="Registrar pago" icono="crear" class="mt-3" />
             </form>
 
-            <table v-if="cuenta.adeudos.length" class="w-full text-sm">
-                <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                    <tr>
-                        <th v-if="cobrando" class="px-6 py-3"></th>
-                        <th class="px-6 py-3 font-medium" :class="cobrando ? 'pl-0' : ''">Concepto</th>
-                        <th class="px-4 py-3 font-medium">Periodo</th>
-                        <th class="px-4 py-3 font-medium">Vence</th>
-                        <th class="px-4 py-3 text-right font-medium">Monto</th>
-                        <th class="px-4 py-3 text-right font-medium">Saldo</th>
-                        <th class="px-4 py-3 font-medium">Estatus</th>
-                        <th class="px-6 py-3 font-medium text-right">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr
-                        v-for="adeudo in cuenta.adeudos"
-                        :key="adeudo.id"
-                        class="border-t"
-                        :style="{ borderColor: 'var(--color-borde)' }"
-                    >
-                        <td v-if="cobrando" class="px-6 py-3">
-                            <input
-                                type="checkbox"
-                                :disabled="adeudo.saldo <= 0"
-                                :checked="seleccionados.includes(adeudo.id)"
-                                @change="alternar(adeudo)"
-                            />
-                        </td>
-                        <td class="px-6 py-3" :class="cobrando ? 'pl-0' : ''">
-                            <span class="font-medium">{{ adeudo.concepto ?? '—' }}</span>
-                            <span v-if="adeudo.ciclo" class="ml-2 text-xs" :style="{ color: 'var(--color-suave)' }">
-                                {{ adeudo.ciclo }}
-                            </span>
-                        </td>
-                        <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ adeudo.periodo ?? '—' }}</td>
-                        <td class="px-4 py-3">
-                            {{ adeudo.vencimiento ?? '—' }}
-                            <span v-if="adeudo.vencido" class="ml-1 text-xs font-medium text-red-600">
-                                ({{ adeudo.dias_vencido }} d)
-                            </span>
-                        </td>
-                        <td class="px-4 py-3 text-right tabular-nums">
-                            {{ pesos.format(adeudo.total) }}
-                            <!--
-                                Se desglosa solo cuando hay algo que explicar:
-                                la pregunta de ventanilla es "¿por qué me cobran
-                                2 300 si son 2 000?" y un solo número no la
-                                responde.
-                            -->
-                            <span
-                                v-if="adeudo.ajustes.length"
-                                class="mt-0.5 block text-xs"
-                                :style="{ color: 'var(--color-suave)' }"
-                            >
-                                {{ pesos.format(adeudo.monto) }} base
-                            </span>
-                            <!--
-                                Cada ajuste con su NOMBRE: no basta decir
-                                "−400", hay que poder responder "de qué beca".
-                                La etiqueta es un snapshot, así que sigue
-                                explicando aunque la beca se renombre después.
-                            -->
-                            <span
-                                v-for="(j, i) in adeudo.ajustes"
-                                :key="i"
-                                class="block text-xs"
-                                :style="{ color: j.monto < 0 ? '#16a34a' : '#dc2626' }"
-                                :title="j.periodo ? `Periodo ${j.periodo}` : ''"
-                            >
-                                {{ j.monto < 0 ? '−' : '+' }}{{ pesos.format(Math.abs(j.monto)) }}
-                                <span :style="{ color: 'var(--color-suave)' }">{{ j.etiqueta }}</span>
-                            </span>
-                        </td>
-                        <td class="px-4 py-3 text-right font-medium tabular-nums">
-                            {{ adeudo.saldo > 0 ? pesos.format(adeudo.saldo) : '—' }}
-                        </td>
-                        <td class="px-4 py-3">
-                            <PildoraEstado :texto="adeudo.estatus" />
-                        </td>
-                        <td class="px-6 py-3 text-right">
-                            <button
-                                v-if="permisos.condonar && adeudo.estatus !== 'pagado' && adeudo.estatus !== 'condonado' && adeudo.estatus !== 'cancelado'"
-                                type="button"
-                                class="text-xs font-medium"
-                                :style="{ color: 'var(--color-acento)' }"
-                                @click="resolviendo = adeudo"
-                            >
-                                Condonar / cancelar
-                            </button>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+            <div v-if="cuenta.adeudos.length" class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
+                        <tr>
+                            <th v-if="cobrando" class="px-6 py-3"></th>
+                            <th class="px-6 py-3 font-medium" :class="cobrando ? 'pl-0' : ''">Concepto</th>
+                            <th class="px-4 py-3 font-medium">Periodo</th>
+                            <th class="px-4 py-3 font-medium">Vence</th>
+                            <th class="px-4 py-3 text-right font-medium">Monto</th>
+                            <th class="px-4 py-3 text-right font-medium">Saldo</th>
+                            <th class="px-4 py-3 font-medium">Estatus</th>
+                            <th class="px-6 py-3 font-medium text-right">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr
+                            v-for="adeudo in cuenta.adeudos"
+                            :key="adeudo.id"
+                            class="border-t"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                        >
+                            <td v-if="cobrando" class="px-6 py-3">
+                                <input
+                                    type="checkbox"
+                                    :disabled="adeudo.saldo <= 0"
+                                    :checked="seleccionados.includes(adeudo.id)"
+                                    @change="alternar(adeudo)"
+                                />
+                            </td>
+                            <td class="px-6 py-3" :class="cobrando ? 'pl-0' : ''">
+                                <span class="font-medium">{{ adeudo.concepto ?? '—' }}</span>
+                                <span v-if="adeudo.ciclo" class="ml-2 text-xs" :style="{ color: 'var(--color-suave)' }">
+                                    {{ adeudo.ciclo }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ adeudo.periodo ?? '—' }}</td>
+                            <td class="px-4 py-3">
+                                {{ adeudo.vencimiento ?? '—' }}
+                                <span v-if="adeudo.vencido" class="ml-1 text-xs font-medium text-red-600">
+                                    ({{ adeudo.dias_vencido }} d)
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-right tabular-nums">
+                                {{ pesos.format(adeudo.total) }}
+                                <!--
+                                    Se desglosa solo cuando hay algo que explicar:
+                                    la pregunta de ventanilla es "¿por qué me cobran
+                                    2 300 si son 2 000?" y un solo número no la
+                                    responde.
+                                -->
+                                <span
+                                    v-if="adeudo.ajustes.length"
+                                    class="mt-0.5 block text-xs"
+                                    :style="{ color: 'var(--color-suave)' }"
+                                >
+                                    {{ pesos.format(adeudo.monto) }} base
+                                </span>
+                                <!--
+                                    Cada ajuste con su NOMBRE: no basta decir
+                                    "−400", hay que poder responder "de qué beca".
+                                    La etiqueta es un snapshot, así que sigue
+                                    explicando aunque la beca se renombre después.
+                                -->
+                                <span
+                                    v-for="(j, i) in adeudo.ajustes"
+                                    :key="i"
+                                    class="block text-xs"
+                                    :style="{ color: j.monto < 0 ? '#16a34a' : '#dc2626' }"
+                                    :title="j.periodo ? `Periodo ${j.periodo}` : ''"
+                                >
+                                    {{ j.monto < 0 ? '−' : '+' }}{{ pesos.format(Math.abs(j.monto)) }}
+                                    <span :style="{ color: 'var(--color-suave)' }">{{ j.etiqueta }}</span>
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-right font-medium tabular-nums">
+                                {{ adeudo.saldo > 0 ? pesos.format(adeudo.saldo) : '—' }}
+                            </td>
+                            <td class="px-4 py-3">
+                                <PildoraEstado :texto="adeudo.estatus" />
+                            </td>
+                            <td class="px-6 py-3 text-right">
+                                <button
+                                    v-if="permisos.condonar && adeudo.estatus !== 'pagado' && adeudo.estatus !== 'condonado' && adeudo.estatus !== 'cancelado'"
+                                    type="button"
+                                    class="text-xs font-medium"
+                                    :style="{ color: 'var(--color-acento)' }"
+                                    @click="resolviendo = adeudo"
+                                >
+                                    Condonar / cancelar
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
             <p v-else class="px-6 py-10 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
                 Todavía no tiene cargos. Usa "Generar cargos" para correr el plan de cobro.
@@ -559,65 +561,67 @@ function guardarSituacion(): void {
                 <h2 class="text-base font-semibold">Pagos</h2>
             </header>
 
-            <table v-if="cuenta.pagos.length" class="w-full text-sm">
-                <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                    <tr>
-                        <th class="px-6 py-3 font-medium">Fecha</th>
-                        <th class="px-4 py-3 font-medium">Método</th>
-                        <th class="px-4 py-3 font-medium">Referencia</th>
-                        <th class="px-4 py-3 font-medium">Cubre</th>
-                        <th class="px-4 py-3 text-right font-medium">Monto</th>
-                        <th class="px-4 py-3 font-medium">Estatus</th>
-                        <th class="px-6 py-3 font-medium text-right">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="p in cuenta.pagos" :key="p.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                        <td class="px-6 py-3">{{ p.momento ?? '—' }}</td>
-                        <td class="px-4 py-3">{{ p.metodo ?? '—' }}</td>
-                        <td class="px-4 py-3 font-mono text-xs">{{ p.referencia ?? '—' }}</td>
-                        <td class="px-4 py-3 text-xs" :style="{ color: 'var(--color-suave)' }">
-                            {{ p.cubre.length ? p.cubre.join(', ') : '—' }}
-                            <span v-if="p.sin_aplicar > 0" class="block">
-                                {{ pesos.format(p.sin_aplicar) }} sin aplicar
-                            </span>
-                        </td>
-                        <td class="px-4 py-3 text-right font-medium tabular-nums">{{ pesos.format(p.monto) }}</td>
-                        <td class="px-4 py-3">
-                            <PildoraEstado :texto="p.estatus" />
-                        </td>
-                        <td class="px-6 py-3 text-right">
-                            <div v-if="permisos.registrarPagos" class="flex justify-end gap-3">
-                                <button
-                                    v-if="p.estatus === 'pendiente'"
-                                    type="button"
-                                    class="text-xs font-medium"
-                                    :style="{ color: 'var(--color-acento)' }"
-                                    @click="confirmar(p.id)"
-                                >
-                                    Confirmar
-                                </button>
-                                <button
-                                    v-if="p.estatus === 'pendiente'"
-                                    type="button"
-                                    class="text-xs font-medium text-red-600"
-                                    @click="revertir(p.id, 'fallido')"
-                                >
-                                    Marcar fallido
-                                </button>
-                                <button
-                                    v-if="p.estatus === 'completado'"
-                                    type="button"
-                                    class="text-xs font-medium text-red-600"
-                                    @click="revertir(p.id, 'reembolsado')"
-                                >
-                                    Reembolsar
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+            <div v-if="cuenta.pagos.length" class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
+                        <tr>
+                            <th class="px-6 py-3 font-medium">Fecha</th>
+                            <th class="px-4 py-3 font-medium">Método</th>
+                            <th class="px-4 py-3 font-medium">Referencia</th>
+                            <th class="px-4 py-3 font-medium">Cubre</th>
+                            <th class="px-4 py-3 text-right font-medium">Monto</th>
+                            <th class="px-4 py-3 font-medium">Estatus</th>
+                            <th class="px-6 py-3 font-medium text-right">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="p in cuenta.pagos" :key="p.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
+                            <td class="px-6 py-3">{{ p.momento ?? '—' }}</td>
+                            <td class="px-4 py-3">{{ p.metodo ?? '—' }}</td>
+                            <td class="px-4 py-3 font-mono text-xs">{{ p.referencia ?? '—' }}</td>
+                            <td class="px-4 py-3 text-xs" :style="{ color: 'var(--color-suave)' }">
+                                {{ p.cubre.length ? p.cubre.join(', ') : '—' }}
+                                <span v-if="p.sin_aplicar > 0" class="block">
+                                    {{ pesos.format(p.sin_aplicar) }} sin aplicar
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-right font-medium tabular-nums">{{ pesos.format(p.monto) }}</td>
+                            <td class="px-4 py-3">
+                                <PildoraEstado :texto="p.estatus" />
+                            </td>
+                            <td class="px-6 py-3 text-right">
+                                <div v-if="permisos.registrarPagos" class="flex justify-end gap-3">
+                                    <button
+                                        v-if="p.estatus === 'pendiente'"
+                                        type="button"
+                                        class="text-xs font-medium"
+                                        :style="{ color: 'var(--color-acento)' }"
+                                        @click="confirmar(p.id)"
+                                    >
+                                        Confirmar
+                                    </button>
+                                    <button
+                                        v-if="p.estatus === 'pendiente'"
+                                        type="button"
+                                        class="text-xs font-medium text-red-600"
+                                        @click="revertir(p.id, 'fallido')"
+                                    >
+                                        Marcar fallido
+                                    </button>
+                                    <button
+                                        v-if="p.estatus === 'completado'"
+                                        type="button"
+                                        class="text-xs font-medium text-red-600"
+                                        @click="revertir(p.id, 'reembolsado')"
+                                    >
+                                        Reembolsar
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
             <p v-else class="px-6 py-10 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
                 Sin pagos registrados.
@@ -628,34 +632,36 @@ function guardarSituacion(): void {
             <header class="px-6 py-4">
                 <h2 class="text-base font-semibold">Facturas</h2>
             </header>
-            <table class="w-full text-sm">
-                <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                    <tr>
-                        <th class="px-6 py-3 font-medium">Folio fiscal</th>
-                        <th class="px-4 py-3 font-medium">Timbrado</th>
-                        <th class="px-4 py-3 text-right font-medium">Total</th>
-                        <th class="px-4 py-3 font-medium">Estatus</th>
-                        <th class="px-6 py-3 font-medium text-right">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="f in facturas" :key="f.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                        <td class="px-6 py-3 font-mono text-xs">{{ f.uuid ?? '—' }}</td>
-                        <td class="px-4 py-3 tabular-nums" :style="{ color: 'var(--color-suave)' }">
-                            {{ f.fecha_timbrado ?? '—' }}
-                        </td>
-                        <td class="px-4 py-3 text-right tabular-nums">{{ pesos.format(f.total) }}</td>
-                        <td class="px-4 py-3">
-                            <PildoraEstado :texto="f.estatus" />
-                        </td>
-                        <td class="px-6 py-3">
-                            <div class="flex justify-end">
-                                <BotonAccion variante="ver" solo-icono :href="`/finanzas/facturas/${f.id}`" />
-                            </div>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
+                        <tr>
+                            <th class="px-6 py-3 font-medium">Folio fiscal</th>
+                            <th class="px-4 py-3 font-medium">Timbrado</th>
+                            <th class="px-4 py-3 text-right font-medium">Total</th>
+                            <th class="px-4 py-3 font-medium">Estatus</th>
+                            <th class="px-6 py-3 font-medium text-right">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="f in facturas" :key="f.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
+                            <td class="px-6 py-3 font-mono text-xs">{{ f.uuid ?? '—' }}</td>
+                            <td class="px-4 py-3 tabular-nums" :style="{ color: 'var(--color-suave)' }">
+                                {{ f.fecha_timbrado ?? '—' }}
+                            </td>
+                            <td class="px-4 py-3 text-right tabular-nums">{{ pesos.format(f.total) }}</td>
+                            <td class="px-4 py-3">
+                                <PildoraEstado :texto="f.estatus" />
+                            </td>
+                            <td class="px-6 py-3">
+                                <div class="flex justify-end">
+                                    <BotonAccion variante="ver" solo-icono :href="`/finanzas/facturas/${f.id}`" />
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </section>
 
         <section v-if="cuenta.bitacora.length" class="tarjeta p-6">

@@ -175,55 +175,59 @@ function enviar(): void {
         <!-- Compras -->
         <section v-if="compras.length" class="tarjeta mb-4 overflow-hidden">
             <h2 class="px-6 py-4 font-semibold">Compras</h2>
-            <table class="w-full text-sm">
-                <thead>
-                    <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)' }">
-                        <th class="px-4 py-2 font-semibold">Fecha</th>
-                        <th class="px-4 py-2 text-right font-semibold">Créditos</th>
-                        <th class="px-4 py-2 text-right font-semibold">Importe</th>
-                        <th class="px-4 py-2 font-semibold">Estado</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="c in compras" :key="c.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                        <td class="px-4 py-2">{{ c.cuando }}</td>
-                        <td class="px-4 py-2 text-right tabular-nums">{{ c.creditos }}</td>
-                        <td class="px-4 py-2 text-right tabular-nums">{{ c.monto === null ? '—' : pesos.format(c.monto) }}</td>
-                        <td class="px-4 py-2">
-                            <span class="capitalize">{{ c.estado }}</span>
-                            <p v-if="c.motivo_rechazo" class="text-xs text-red-600">{{ c.motivo_rechazo }}</p>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)' }">
+                            <th class="px-4 py-2 font-semibold">Fecha</th>
+                            <th class="px-4 py-2 text-right font-semibold">Créditos</th>
+                            <th class="px-4 py-2 text-right font-semibold">Importe</th>
+                            <th class="px-4 py-2 font-semibold">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="c in compras" :key="c.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
+                            <td class="px-4 py-2">{{ c.cuando }}</td>
+                            <td class="px-4 py-2 text-right tabular-nums">{{ c.creditos }}</td>
+                            <td class="px-4 py-2 text-right tabular-nums">{{ c.monto === null ? '—' : pesos.format(c.monto) }}</td>
+                            <td class="px-4 py-2">
+                                <span class="capitalize">{{ c.estado }}</span>
+                                <p v-if="c.motivo_rechazo" class="text-xs text-red-600">{{ c.motivo_rechazo }}</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </section>
 
         <!-- Consumo -->
         <section class="tarjeta overflow-hidden">
             <h2 class="px-6 py-4 font-semibold">Últimos XML emitidos</h2>
-            <table v-if="ultimos.length" class="w-full text-sm">
-                <thead>
-                    <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)' }">
-                        <th class="px-4 py-2 font-semibold">Cuándo</th>
-                        <th class="px-4 py-2 font-semibold">Tipo</th>
-                        <th class="px-4 py-2 font-semibold">Alumno (CURP)</th>
-                        <th class="px-4 py-2 font-semibold">Plan</th>
-                        <th class="px-4 py-2 font-semibold">Costo</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="(u, i) in ultimos" :key="i" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                        <td class="px-4 py-2">{{ u.cuando }}</td>
-                        <td class="px-4 py-2 capitalize">{{ u.tipo }}</td>
-                        <td class="px-4 py-2 font-mono text-xs">{{ u.curp }}</td>
-                        <td class="px-4 py-2">{{ u.plan }}</td>
-                        <td class="px-4 py-2">
-                            <span v-if="u.cobrado">1 crédito</span>
-                            <span v-else :style="{ color: 'var(--color-suave)' }">rehecho, sin costo</span>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+            <div v-if="ultimos.length" class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)' }">
+                            <th class="px-4 py-2 font-semibold">Cuándo</th>
+                            <th class="px-4 py-2 font-semibold">Tipo</th>
+                            <th class="px-4 py-2 font-semibold">Alumno (CURP)</th>
+                            <th class="px-4 py-2 font-semibold">Plan</th>
+                            <th class="px-4 py-2 font-semibold">Costo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(u, i) in ultimos" :key="i" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
+                            <td class="px-4 py-2">{{ u.cuando }}</td>
+                            <td class="px-4 py-2 capitalize">{{ u.tipo }}</td>
+                            <td class="px-4 py-2 font-mono text-xs">{{ u.curp }}</td>
+                            <td class="px-4 py-2">{{ u.plan }}</td>
+                            <td class="px-4 py-2">
+                                <span v-if="u.cobrado">1 crédito</span>
+                                <span v-else :style="{ color: 'var(--color-suave)' }">rehecho, sin costo</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
             <p v-else class="px-6 py-8 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
                 Todavía no se ha emitido ningún XML.
             </p>

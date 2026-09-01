@@ -58,7 +58,7 @@ class PlanCobroController extends Controller
         ];
 
         $planes = PlanCobro::query()
-            ->with(['ciclo:id,nombre', 'campus:id,nombre', 'programas_academicos:id,nombre'])
+            ->with(['ciclo:id,nombre', 'campus:id,nombre', 'programasAcademicos:id,nombre'])
             ->when($filtros['busqueda'] !== '', fn ($q) => $q->where('nombre', 'like', "%{$filtros['busqueda']}%"))
             ->when($filtros['ciclo_id'], fn ($q, $id) => $q->where('ciclo_id', $id))
             // Vigente es «sin fecha de fin o con una que no ha llegado»: un plan
@@ -199,7 +199,7 @@ class PlanCobroController extends Controller
         $plan->load([
             'ciclo:id,nombre,fecha_inicio,fecha_fin',
             'campus:id,nombre',
-            'programas_academicos:id,nombre',
+            'programasAcademicos:id,nombre',
             'conceptos.concepto:id,nombre',
         ]);
 

@@ -293,7 +293,7 @@ Se le generará su matrícula de todos modos y eso no se puede deshacer. ¿Conti
 
         <div class="grid gap-6 lg:grid-cols-3">
             <!-- Identidad y proceso -->
-            <div class="space-y-6 lg:col-span-2">
+            <div class="min-w-0 space-y-6 lg:col-span-2">
                 <!--
                     La ACTIVIDAD va primero: es a lo que se entra a diario.
                     Los datos personales se consultan una vez y se corrigen de
@@ -504,7 +504,7 @@ Se le generará su matrícula de todos modos y eso no se puede deshacer. ¿Conti
                 nada de lo que acompaña se va.
             -->
             <div
-                class="space-y-6 lg:sticky lg:top-20 lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:pr-1"
+                class="min-w-0 space-y-6 lg:sticky lg:top-20 lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:pr-1"
             >
                 <TarjetaSeccion
                     titulo="Avance del proceso"
@@ -566,7 +566,7 @@ Se le generará su matrícula de todos modos y eso no se puede deshacer. ¿Conti
                         </div>
                         <div>
                             <dt class="text-xs uppercase tracking-wide text-suave">Correo</dt>
-                            <dd class="mt-0.5 text-sm text-contenido">{{ aspirante.email ?? '—' }}</dd>
+                            <dd class="mt-0.5 break-words text-sm text-contenido">{{ aspirante.email ?? '—' }}</dd>
                         </div>
                         <div>
                             <dt class="text-xs uppercase tracking-wide text-suave">Celular</dt>

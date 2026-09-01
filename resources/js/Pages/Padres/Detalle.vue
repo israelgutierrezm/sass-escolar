@@ -84,7 +84,7 @@ function verComo(suplantable: { usuario_id: number; usuario: string }): void {
         <BotonVolver href="/padres-tutores" texto="Padres y tutores" class="mb-4" />
 
         <div class="grid gap-6 lg:grid-cols-3">
-            <div class="space-y-6 lg:col-span-2">
+            <div class="min-w-0 space-y-6 lg:col-span-2">
                 <!--
                     El MISMO encabezado que la ficha del alumno y la del
                     docente. Antes esto era una tarjeta de «Identidad» con tres
@@ -215,7 +215,7 @@ function verComo(suplantable: { usuario_id: number; usuario: string }): void {
                 />
             </div>
 
-            <aside class="space-y-6">
+            <aside class="min-w-0 space-y-6">
                 <TarjetaSeccion titulo="Soporte" descripcion="Ver la plataforma como la ve él" :icono="ICONOS.llave">
                     <p class="text-sm text-suave">
                         Entrar como esta persona muestra exactamente lo que ella ve. Queda registrado en

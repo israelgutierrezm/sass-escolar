@@ -40,7 +40,7 @@ class VacanteController extends Controller
         ];
 
         $vacantes = Vacante::query()
-            ->with(['empresa:id,razon_social', 'modalidad:id,nombre', 'jornada:id,nombre', 'situacion:id,clave,nombre', 'programas_academicos:id,nombre'])
+            ->with(['empresa:id,razon_social', 'modalidad:id,nombre', 'jornada:id,nombre', 'situacion:id,clave,nombre', 'programasAcademicos:id,nombre'])
             ->when($filtros['busqueda'] !== '', fn ($q) => $q->where('titulo', 'like', "%{$filtros['busqueda']}%"))
             ->when($filtros['empresa_id'], fn ($q, $v) => $q->where('empresa_id', $v))
             ->when($filtros['situacion_id'], fn ($q, $v) => $q->where('situacion_id', $v))
@@ -106,7 +106,7 @@ class VacanteController extends Controller
 
     public function show(Vacante $vacante): Response
     {
-        $vacante->load(['empresa:id,razon_social', 'programas_academicos:id', 'habilidades:id']);
+        $vacante->load(['empresa:id,razon_social', 'programasAcademicos:id', 'habilidades:id']);
 
         return Inertia::render('Bolsa/Vacante', [
             'vacante' => [

@@ -183,7 +183,7 @@ function retirar(servicio: Servicio): void {
                                 {{ servicio.clave }}
                             </span>
                         </span>
-                        <span class="block truncate text-xs" :style="{ color: 'var(--color-suave)' }">
+                        <span class="block text-xs" :style="{ color: 'var(--color-suave)' }">
                             {{ servicio.concepto ?? 'Sin concepto' }}
                             <template v-if="servicio.solicitable"> · lo puede pedir el alumno</template>
                             <template v-if="!servicio.activo"> · fuera del catálogo</template>

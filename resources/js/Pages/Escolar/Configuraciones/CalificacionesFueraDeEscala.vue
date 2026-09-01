@@ -88,63 +88,65 @@ function corregir(f: Fila): void {
         </div>
 
         <div class="tarjeta overflow-hidden">
-            <table v-if="filas.length" class="w-full text-sm">
-                <thead>
-                    <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)' }">
-                        <th class="px-4 py-3 font-semibold">Alumno</th>
-                        <th class="px-4 py-3 font-semibold">Materia</th>
-                        <th class="px-4 py-3 font-semibold">Ciclo</th>
-                        <th class="px-4 py-3 text-right font-semibold">Capturada</th>
-                        <th class="px-4 py-3 text-right font-semibold">Quedaría</th>
-                        <th v-if="puedeCorregir" class="px-4 py-3 font-semibold">Corregir</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="f in filas" :key="f.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                        <td class="px-4 py-3">
-                            <p class="font-medium">{{ f.alumno || '—' }}</p>
-                            <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                                {{ f.matricula }}
-                                <span v-if="f.acta"> · acta {{ f.acta }}</span>
-                            </p>
-                        </td>
-                        <td class="px-4 py-3">{{ f.materia || '—' }}</td>
-                        <td class="px-4 py-3">{{ f.ciclo || '—' }}</td>
-                        <td class="px-4 py-3 text-right tabular-nums" :class="fueraDeRango(f) ? 'font-semibold text-red-600' : ''">
-                            {{ f.calificacion }}
-                            <!--
-                                Fuera de rango no es un decimal de más: suele
-                                significar que el plan cambió de escala entera y
-                                el historial se quedó en la anterior. Redondear
-                                ahí no arregla nada.
-                            -->
-                            <span v-if="fueraDeRango(f)" class="block text-[11px] font-normal">fuera de escala</span>
-                        </td>
-                        <td class="px-4 py-3 text-right tabular-nums">{{ f.sugerida }}</td>
-                        <td v-if="puedeCorregir" class="px-4 py-3">
-                            <div class="flex items-center gap-2">
-                                <input
-                                    v-model="editado[f.id]"
-                                    type="number"
-                                    step="any"
-                                    :placeholder="String(f.sugerida)"
-                                    class="w-20 rounded-lg border bg-transparent px-2 py-1 text-sm"
-                                    :style="{ borderColor: 'var(--color-borde)' }"
-                                />
-                                <button
-                                    type="button"
-                                    class="rounded-lg px-3 py-1.5 text-xs font-medium disabled:opacity-50"
-                                    :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                                    :disabled="guardando !== null"
-                                    @click="corregir(f)"
-                                >
-                                    {{ guardando === f.id ? 'Guardando…' : 'Aplicar' }}
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+            <div v-if="filas.length" class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-[11px] uppercase tracking-wider" :style="{ color: 'var(--color-suave)' }">
+                            <th class="px-4 py-3 font-semibold">Alumno</th>
+                            <th class="px-4 py-3 font-semibold">Materia</th>
+                            <th class="px-4 py-3 font-semibold">Ciclo</th>
+                            <th class="px-4 py-3 text-right font-semibold">Capturada</th>
+                            <th class="px-4 py-3 text-right font-semibold">Quedaría</th>
+                            <th v-if="puedeCorregir" class="px-4 py-3 font-semibold">Corregir</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="f in filas" :key="f.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
+                            <td class="px-4 py-3">
+                                <p class="font-medium">{{ f.alumno || '—' }}</p>
+                                <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                                    {{ f.matricula }}
+                                    <span v-if="f.acta"> · acta {{ f.acta }}</span>
+                                </p>
+                            </td>
+                            <td class="px-4 py-3">{{ f.materia || '—' }}</td>
+                            <td class="px-4 py-3">{{ f.ciclo || '—' }}</td>
+                            <td class="px-4 py-3 text-right tabular-nums" :class="fueraDeRango(f) ? 'font-semibold text-red-600' : ''">
+                                {{ f.calificacion }}
+                                <!--
+                                    Fuera de rango no es un decimal de más: suele
+                                    significar que el plan cambió de escala entera y
+                                    el historial se quedó en la anterior. Redondear
+                                    ahí no arregla nada.
+                                -->
+                                <span v-if="fueraDeRango(f)" class="block text-[11px] font-normal">fuera de escala</span>
+                            </td>
+                            <td class="px-4 py-3 text-right tabular-nums">{{ f.sugerida }}</td>
+                            <td v-if="puedeCorregir" class="px-4 py-3">
+                                <div class="flex items-center gap-2">
+                                    <input
+                                        v-model="editado[f.id]"
+                                        type="number"
+                                        step="any"
+                                        :placeholder="String(f.sugerida)"
+                                        class="w-20 rounded-lg border bg-transparent px-2 py-1 text-sm"
+                                        :style="{ borderColor: 'var(--color-borde)' }"
+                                    />
+                                    <button
+                                        type="button"
+                                        class="rounded-lg px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+                                        :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+                                        :disabled="guardando !== null"
+                                        @click="corregir(f)"
+                                    >
+                                        {{ guardando === f.id ? 'Guardando…' : 'Aplicar' }}
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
             <p v-else class="px-6 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
                 Todas las calificaciones de este plan cuadran con su escala.

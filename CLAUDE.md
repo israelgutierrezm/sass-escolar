@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**112 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**113 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -58,7 +58,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 112 están en verde**, barridas el 2026-08-31. Catorce son del módulo de
+   **Las 113 están en verde**, barridas el 2026-08-31. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -2609,6 +2609,81 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
       paso se retiró un `colorEstado` que se quedó sin quien lo llame.
     - El del TUTOR sigue sin aviso, y por lo dicho arriba: no hay destino con el
       que dirigirse a una persona que es tutor y nada más.
+
+- **Revisión responsive de todo el sistema** (2026-08-31, pedido del cliente).
+  Se midieron **133 pantallas** a 375, 768 y 1024 px, con las cuentas de los
+  cuatro oficios —administrativo, alumno, padre y docente—.
+  - **Cómo se midió, porque el método es la mitad del trabajo.** Cada pantalla
+    se carga en un `iframe` del ancho objetivo y se pregunta por lo
+    INALCANZABLE: elementos con texto o pulsables que se pintan fuera de la
+    ventana y **sin ningún ancestro que desplace**. Desbordar dentro de un
+    contenedor que desplaza es correcto; desbordar sin él es contenido perdido.
+  - **Dos trampas del método que casi hacen dar por bueno un sistema roto:**
+    - **Medir antes de que Vue monte** devuelve «todo limpio». La primera
+      barrida usó un retardo fijo y salió impecable; con la espera al `<main>`
+      aparecieron los defectos. Un `setTimeout` a ojo mide una página en blanco.
+    - **Redimensionar la ventana NO vale**: la barra lateral se queda con sus
+      256 px del ancho anterior y la medición sale disparatada —una vez marcó
+      175 px de desborde donde no había ninguno—. Hay que CARGAR al ancho que se
+      quiere medir.
+  - **El caparazón ya estaba bien**: `AppLayout` saca la barra lateral fuera de
+    pantalla en móvil, con velo y margen sólo desde `lg`. Lo que fallaba era el
+    contenido.
+  - **La clase dominante: TABLAS QUE NO PUEDEN DESPLAZARSE.** Una `<table>` no
+    encoge por debajo de su contenido, y metida en una tarjeta con
+    `overflow-hidden` sus últimas columnas quedan fuera **sin forma de
+    alcanzarlas**. Eran **23 tablas en 20 archivos**. La peor era el estado de
+    cuenta del alumno: 725 px en un hueco de 342, así que MONTO, SALDO, ESTATUS
+    y los botones no existían para quien lo abriera del celular — y es
+    justamente la pantalla que un padre abre del celular.
+  - **La segunda clase: hijos de flex o grid sin `min-w-0`.** Nacen con
+    `min-width: auto` y no encogen por debajo del ancho mínimo de su contenido,
+    así que ESTIRAN a su padre y con él la página. Mordió en la ficha del
+    aspirante (+37 px), en la del padre y en el encabezado de la del alumno.
+  - **Un `<select>` se dimensiona por su opción MÁS LARGA.** «Licenciatura en
+    Psicología · Campus Norte (activo)» medía 425 px y empujaba la ficha del
+    alumno 59 px fuera. Se corrigió con **una regla global** en `app.css`
+    —`:where(input, select, textarea) { max-width: 100% }`— y no campo por
+    campo: declararlo en cada uno es lo que produce la deriva, como ya pasó con
+    el anillo de foco. Va con `:where()` para no pisar un `w-56` puesto a
+    conciencia. Hizo falta además `min-w-0` en su envoltorio: el tope del campo
+    no sirve si el envoltorio también crece.
+  - **Lo que no cabe, DESPLAZA; no se aprieta.** El embudo del CRM daba 50 px
+    por etapa e «Información enviada» pide 62, así que el embudo dejaba de decir
+    en qué punto está el prospecto —lo único que viene a decir—. La gráfica de
+    accesos por día empujaba 132 px. Las dos ahora se recorren con el dedo y en
+    pantalla ancha se siguen repartiendo por igual.
+  - **Un `truncate` sin `title` pierde el dato.** El correo de una persona
+    cortado no sirve para escribirle, y dos programas que empiezan igual se
+    recortan al MISMO texto y quedan indistinguibles. Se les puso `title`
+    —mismo remedio que la barra lateral— y a lo que no tiene espacios
+    (correos, URLs) `break-words` / `break-all`.
+  - **Red contra la reincidencia**: `scripts/prueba-responsive.php` recorre los
+    248 componentes, encuentra las **70 tablas** y exige que cada una viva
+    dentro de algo que desplace. Comprobada mutando —quitarle el envoltorio a
+    una la pone en rojo— y con dos casos de laboratorio que verifican que el
+    detector distingue, porque uno que dijera siempre «sí» dejaría pasar el
+    proyecto entero roto.
+    - El detector sube por la SANGRÍA y lee la etiqueta ENTERA del ancestro:
+      con varios atributos la clase baja a su propio renglón y, mirando una sola
+      línea, un envoltorio correcto parecía no desplazar. Un detector que marca
+      lo bueno enseña a ignorar sus avisos.
+    - Y encontró **cuatro tablas más** que el barrido por archivo no vio: aquél
+      buscaba `overflow-x-auto` en cualquier parte del componente, y basta que
+      OTRA tabla del mismo archivo lo tenga.
+  - **De paso, un 500 que no era de diseño**: `/finanzas/planes` reventaba con
+    `RelationNotFoundException`. El renombrado de «carrera» convirtió la cadena
+    de carga ansiosa `'carreras:id,nombre'` en `'programas_academicos:id,nombre'`
+    —el nombre de la TABLA— cuando la relación se llama `programasAcademicos`.
+    Había cinco cadenas así en tres controladores; dos estaban latentes porque
+    su consulta no devolvía filas y Eloquent no llegaba a cargar la relación.
+    Se barrió la clase entera cruzando cada cadena de `with`/`load`/`withCount`
+    contra los métodos declarados en los modelos: no queda ninguna.
+  - Y se comprobó que **las 133 rutas GET responden sin error**, invocando el
+    kernel HTTP con la sesión del administrador.
+  - **Lo que NO se pudo medir**: el aula y la materia del alumno. El demo tiene
+    los cursos colgando de `asignatura_grupo` que ya no existen —documentado más
+    arriba—, así que ese alumno no tiene ninguna materia inscrita.
 
 - **El tutor entrega los documentos de su hijo MENOR** (2026-08-31, decisión del
   cliente). Cierra la única pregunta que este proyecto había dejado abierta a

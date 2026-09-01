@@ -490,73 +490,75 @@ watch(
 
         <!-- Alumnos del lote -->
         <div class="tarjeta overflow-hidden">
-            <table class="w-full text-sm">
-                <thead>
-                    <tr class="border-b text-left" :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }">
-                        <th class="px-5 py-3 font-medium">Matrícula</th>
-                        <th class="px-5 py-3 font-medium">Alumno</th>
-                        <th class="px-5 py-3 font-medium">Programa académico</th>
-                        <th class="px-5 py-3 font-medium">Campus</th>
-                        <th class="px-5 py-3 font-medium">Estado</th>
-                        <th class="px-5 py-3 font-medium"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr
-                        v-for="a in alumnos"
-                        :key="a.id"
-                        class="border-b"
-                        :style="{ borderColor: 'var(--color-borde)' }"
-                    >
-                        <td class="px-5 py-3 font-mono">{{ a.matricula ?? '—' }}</td>
-                        <td class="px-5 py-3">
-                            <div class="font-medium">{{ a.alumno }}</div>
-                            <div class="text-xs" :style="{ color: 'var(--color-suave)' }">{{ a.curp }}</div>
-                        </td>
-                        <td class="px-5 py-3" :style="{ color: 'var(--color-suave)' }">
-                            {{ a.programa_academico }}<span v-if="a.plan"> · {{ a.plan }}</span>
-                        </td>
-                        <td class="px-5 py-3" :style="{ color: 'var(--color-suave)' }">{{ a.campus ?? '—' }}</td>
-                        <td class="px-5 py-3">
-                            <span class="rounded-full px-2.5 py-1 text-xs font-medium" :style="badgeAlumno(a.estado)">
-                                {{ etiquetaAlumno(a.estado) }}
-                            </span>
-                            <div v-if="a.error_mensaje" class="mt-1 text-xs text-red-600">{{ a.error_mensaje }}</div>
-                        </td>
-                        <td class="px-5 py-3">
-                            <div class="flex items-center justify-end gap-2">
-                                <a v-if="a.xml_url" :href="a.xml_url" class="inline-flex items-center gap-1.5 text-sm font-medium" :style="{ color: 'var(--color-acento)' }">
-                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-6L12 15m0 0 4.5-4.5M12 15V3" />
-                                    </svg>
-                                    XML
-                                </a>
-                                <a v-if="a.cadena_url" :href="a.cadena_url" class="text-sm font-medium" :style="{ color: 'var(--color-suave)' }" title="Cadena original (.txt)">Cadena</a>
-                                <!--
-                                    Rehacer se ofrece cuando ya hay XML o cuando el sellado falló:
-                                    son los dos momentos en que se descubre el error de captura.
-                                -->
-                                <button
-                                    v-if="a.xml_url || a.estado === 'error'"
-                                    type="button"
-                                    class="text-sm font-medium"
-                                    :style="{ color: 'var(--color-suave)' }"
-                                    title="Borrar el XML y volver a generarlo (sin costo)"
-                                    @click="rehacer(a)"
-                                >
-                                    Rehacer
-                                </button>
-                                <BotonAccion v-if="esBorrador && !a.xml_url" variante="eliminar" solo-icono texto="Quitar del lote" @click="quitar(a)" />
-                            </div>
-                        </td>
-                    </tr>
-                    <tr v-if="alumnos.length === 0">
-                        <td colspan="6" class="px-5 py-10 text-center" :style="{ color: 'var(--color-suave)' }">
-                            El lote está vacío. Agrega alumnos con el buscador de arriba.
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b text-left" :style="{ borderColor: 'var(--color-borde)', color: 'var(--color-suave)' }">
+                            <th class="px-5 py-3 font-medium">Matrícula</th>
+                            <th class="px-5 py-3 font-medium">Alumno</th>
+                            <th class="px-5 py-3 font-medium">Programa académico</th>
+                            <th class="px-5 py-3 font-medium">Campus</th>
+                            <th class="px-5 py-3 font-medium">Estado</th>
+                            <th class="px-5 py-3 font-medium"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr
+                            v-for="a in alumnos"
+                            :key="a.id"
+                            class="border-b"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                        >
+                            <td class="px-5 py-3 font-mono">{{ a.matricula ?? '—' }}</td>
+                            <td class="px-5 py-3">
+                                <div class="font-medium">{{ a.alumno }}</div>
+                                <div class="text-xs" :style="{ color: 'var(--color-suave)' }">{{ a.curp }}</div>
+                            </td>
+                            <td class="px-5 py-3" :style="{ color: 'var(--color-suave)' }">
+                                {{ a.programa_academico }}<span v-if="a.plan"> · {{ a.plan }}</span>
+                            </td>
+                            <td class="px-5 py-3" :style="{ color: 'var(--color-suave)' }">{{ a.campus ?? '—' }}</td>
+                            <td class="px-5 py-3">
+                                <span class="rounded-full px-2.5 py-1 text-xs font-medium" :style="badgeAlumno(a.estado)">
+                                    {{ etiquetaAlumno(a.estado) }}
+                                </span>
+                                <div v-if="a.error_mensaje" class="mt-1 text-xs text-red-600">{{ a.error_mensaje }}</div>
+                            </td>
+                            <td class="px-5 py-3">
+                                <div class="flex items-center justify-end gap-2">
+                                    <a v-if="a.xml_url" :href="a.xml_url" class="inline-flex items-center gap-1.5 text-sm font-medium" :style="{ color: 'var(--color-acento)' }">
+                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-6L12 15m0 0 4.5-4.5M12 15V3" />
+                                        </svg>
+                                        XML
+                                    </a>
+                                    <a v-if="a.cadena_url" :href="a.cadena_url" class="text-sm font-medium" :style="{ color: 'var(--color-suave)' }" title="Cadena original (.txt)">Cadena</a>
+                                    <!--
+                                        Rehacer se ofrece cuando ya hay XML o cuando el sellado falló:
+                                        son los dos momentos en que se descubre el error de captura.
+                                    -->
+                                    <button
+                                        v-if="a.xml_url || a.estado === 'error'"
+                                        type="button"
+                                        class="text-sm font-medium"
+                                        :style="{ color: 'var(--color-suave)' }"
+                                        title="Borrar el XML y volver a generarlo (sin costo)"
+                                        @click="rehacer(a)"
+                                    >
+                                        Rehacer
+                                    </button>
+                                    <BotonAccion v-if="esBorrador && !a.xml_url" variante="eliminar" solo-icono texto="Quitar del lote" @click="quitar(a)" />
+                                </div>
+                            </td>
+                        </tr>
+                        <tr v-if="alumnos.length === 0">
+                            <td colspan="6" class="px-5 py-10 text-center" :style="{ color: 'var(--color-suave)' }">
+                                El lote está vacío. Agrega alumnos con el buscador de arriba.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </AppLayout>
 </template>

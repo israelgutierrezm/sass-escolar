@@ -99,33 +99,35 @@ const mayorOrigen = Math.max(1, ...props.origenes.map((o) => o.total));
                 </p>
             </header>
 
-            <table v-if="pendientes.length" class="w-full text-sm">
-                <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
-                    <tr>
-                        <th class="px-6 py-3 font-medium">Prospecto</th>
-                        <th class="px-4 py-3 font-medium">Etapa</th>
-                        <th class="px-4 py-3 font-medium">Tocaba</th>
-                        <th class="px-6 py-3 font-medium text-right">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="p in pendientes" :key="p.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                        <td class="px-6 py-3 font-medium">{{ p.nombre }}</td>
-                        <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ p.etapa ?? '—' }}</td>
-                        <td class="px-4 py-3">
-                            {{ p.proximo_contacto }}
-                            <span v-if="p.dias > 0" class="ml-1 text-xs font-medium text-red-600">
-                                ({{ p.dias }} d de retraso)
-                            </span>
-                        </td>
-                        <td class="px-6 py-3 text-right">
-                            <a :href="`/aspirantes/${p.id}`" class="text-sm font-medium" :style="{ color: 'var(--color-acento)' }">
-                                Abrir ficha
-                            </a>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+            <div v-if="pendientes.length" class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
+                        <tr>
+                            <th class="px-6 py-3 font-medium">Prospecto</th>
+                            <th class="px-4 py-3 font-medium">Etapa</th>
+                            <th class="px-4 py-3 font-medium">Tocaba</th>
+                            <th class="px-6 py-3 font-medium text-right">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="p in pendientes" :key="p.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
+                            <td class="px-6 py-3 font-medium">{{ p.nombre }}</td>
+                            <td class="px-4 py-3" :style="{ color: 'var(--color-suave)' }">{{ p.etapa ?? '—' }}</td>
+                            <td class="px-4 py-3">
+                                {{ p.proximo_contacto }}
+                                <span v-if="p.dias > 0" class="ml-1 text-xs font-medium text-red-600">
+                                    ({{ p.dias }} d de retraso)
+                                </span>
+                            </td>
+                            <td class="px-6 py-3 text-right">
+                                <a :href="`/aspirantes/${p.id}`" class="text-sm font-medium" :style="{ color: 'var(--color-acento)' }">
+                                    Abrir ficha
+                                </a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
             <p v-else class="px-6 py-10 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
                 Nada pendiente de contactar.
