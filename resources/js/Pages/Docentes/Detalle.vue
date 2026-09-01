@@ -18,10 +18,12 @@ import EncabezadoPersona from '@/Components/EncabezadoPersona.vue';
 import DisponibilidadSemanal from '@/Components/DisponibilidadSemanal.vue';
 import AptitudesDocente from '@/Components/AptitudesDocente.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
+import RevisionDeDocumentos from '@/Components/RevisionDeDocumentos.vue';
 import { ICONOS } from '@/iconos';
 
 interface DocumentoDoc {
     id: number;
+    documento_id: number | null;
     documento: string | null;
     descripcion: string | null;
     estado_id: number;
@@ -97,38 +99,6 @@ const form = useForm({
 function guardar(): void {
     form.put(`/escolar/docentes/${props.docente.id}`, { preserveScroll: true });
 }
-
-/* Revisión de documentos */
-const revisando = ref<number | null>(null);
-const formRevision = useForm({ estado_documento_id: null as number | null, observaciones: '' });
-
-function abrirRevision(doc: DocumentoDoc): void {
-    revisando.value = revisando.value === doc.id ? null : doc.id;
-    formRevision.estado_documento_id = doc.estado_id;
-    formRevision.observaciones = doc.observaciones ?? '';
-}
-
-function revisar(doc: DocumentoDoc): void {
-    formRevision.put(`/escolar/docentes/${props.docente.id}/documentos/${doc.id}`, {
-        preserveScroll: true,
-        onSuccess: () => {
-            revisando.value = null;
-            formRevision.reset();
-        },
-    });
-}
-
-// Color SÓLIDO por estado del documento (para PildoraEstado).
-function colorEstado(clave: string | null): string {
-    return {
-        aceptado: '#16a34a',
-        rechazado: '#dc2626',
-    }[clave ?? ''] ?? '#d97706';
-}
-
-const esRechazo = computed(
-    () => props.estadosDocumento.find((e) => e.id === formRevision.estado_documento_id)?.clave === 'rechazado',
-);
 
 /* Foto de perfil */
 const formFoto = useForm({ foto: null as File | null });
@@ -262,91 +232,21 @@ function verComo(): void {
         </section>
 
         <!-- Documentos -->
-        <section v-else-if="pestana === 'documentos'" class="tarjeta overflow-hidden">
-            <div class="border-b px-6 py-3" :style="{ borderColor: 'var(--color-borde)' }">
-                <h2 class="text-base font-semibold">Expediente</h2>
-                <p class="mt-0.5 text-sm" :style="{ color: 'var(--color-suave)' }">
-                    Lo carga el docente desde su portal; aquí se acepta o se rechaza. Un rechazo tiene
-                    que explicar qué corregir.
-                </p>
-            </div>
-
-            <ul v-if="documentos.length">
-                <li v-for="doc in documentos" :key="doc.id" class="border-t px-6 py-3" :style="{ borderColor: 'var(--color-borde)' }">
-                    <div class="flex flex-wrap items-center justify-between gap-3 text-sm">
-                        <div>
-                            <p class="font-medium">{{ doc.documento }}</p>
-                            <p v-if="doc.descripcion" class="text-xs" :style="{ color: 'var(--color-suave)' }">{{ doc.descripcion }}</p>
-                            <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                                Subido {{ doc.subido }}
-                                <span v-if="doc.vigencia"> · vigencia {{ doc.vigencia }}</span>
-                                <span v-if="doc.vencido" class="text-red-600"> · vencido</span>
-                            </p>
-                            <p v-if="doc.observaciones" class="mt-0.5 text-xs italic text-amber-700">{{ doc.observaciones }}</p>
-                        </div>
-
-                        <div class="flex items-center gap-3">
-                            <PildoraEstado :texto="doc.estado" :color="colorEstado(doc.estado_clave)" />
-                            <a
-                                :href="`/escolar/docentes/${docente.id}/documentos/${doc.id}/descargar`"
-                                class="text-sm"
-                                :style="{ color: 'var(--color-acento)' }"
-                            >
-                                Descargar
-                            </a>
-                            <button
-                                v-if="puedeGestionar"
-                                type="button"
-                                class="text-sm"
-                                :style="{ color: 'var(--color-acento)' }"
-                                @click="abrirRevision(doc)"
-                            >
-                                Revisar
-                            </button>
-                        </div>
-                    </div>
-
-                    <div v-if="revisando === doc.id" class="mt-3 grid gap-3 rounded-lg p-3 sm:grid-cols-3" style="background-color: color-mix(in srgb, currentColor 4%, transparent)">
-                        <CampoSelect
-                            v-model="formRevision.estado_documento_id"
-                            etiqueta="Estado"
-                            :opciones="estadosDocumento.map((e) => ({ valor: e.id, texto: e.nombre }))"
-                            :error="formRevision.errors.estado_documento_id"
-                        />
-                        <CampoTexto
-                            v-model="formRevision.observaciones"
-                            etiqueta="Observaciones"
-                            :marcador="esRechazo ? 'Qué debe corregir…' : 'Opcional'"
-                            :error="formRevision.errors.observaciones"
-                            :ayuda="esRechazo ? 'Obligatorio al rechazar.' : undefined"
-                        />
-                        <div class="flex items-end gap-2">
-                            <button
-                                type="button"
-                                :disabled="formRevision.processing"
-                                class="rounded-lg px-3 py-2 text-sm font-medium disabled:opacity-50"
-                                :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                                @click="revisar(doc)"
-                            >
-                                Guardar
-                            </button>
-                            <button
-                                type="button"
-                                class="rounded-lg border px-3 py-2 text-sm"
-                                :style="{ borderColor: 'var(--color-borde)' }"
-                                @click="revisando = null"
-                            >
-                                Cancelar
-                            </button>
-                        </div>
-                    </div>
-                </li>
-            </ul>
-
-            <p v-else class="px-6 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
-                El docente no ha cargado documentos todavía.
-            </p>
-        </section>
+        <!--
+            Documentos: el MISMO componente que el expediente del alumno y el
+            del tutor. Antes esta pantalla llevaba su propio panel copiado, y
+            por eso se quedó sin los filtros y sin decir que el motivo del
+            rechazo le llega al docente como aviso. Tres copias de un acto son
+            como se llega a que una deje de pedir el motivo.
+        -->
+        <RevisionDeDocumentos
+            v-else-if="pestana === 'documentos'"
+            :documentos="documentos"
+            :estados="estadosDocumento"
+            :base="`/escolar/docentes/${docente.id}/documentos`"
+            :puede-validar="puedeGestionar"
+            quien-entrega="el docente desde su portal"
+        />
 
         <!-- Títulos / grados (CV) -->
         <div v-else-if="pestana === 'titulos'">

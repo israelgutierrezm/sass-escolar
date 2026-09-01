@@ -2589,9 +2589,26 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     escribirlo, el rechazo dejando el motivo a la vista, el aviso apareciendo en
     el panel del alumno suplantándolo, y la descarga administrativa (200,
     `application/pdf`) con la cruzada en 404. **Los datos se retiraron.**
-  - **Lo que NO se tocó**: la revisión del expediente del DOCENTE sigue sin
-    aviso automático. Es el mismo mecanismo y una línea, pero cambiar el
-    comportamiento de algo que ya funcionaba no estaba en lo pedido.
+  - ~~**Lo que NO se tocó**: la revisión del expediente del DOCENTE sigue sin
+    aviso automático.~~ **Hecho el mismo día**, a pedido del cliente:
+    - El **ÁMBITO decide si el aviso alcanza a la familia**, y por eso es un
+      parámetro y no se deduce de la edad. De un docente responde el docente,
+      tenga la edad que tenga. Deducirlo funcionaría de casualidad —nadie
+      contrata a un menor— y dejaría el sistema listo para filtrarle el
+      expediente de alguien a una familia el día que la casualidad falle. Lo
+      fija una prueba que le pone al docente fecha de nacimiento de MENOR: con
+      un adulto, quitar el ámbito no tumbaba nada.
+    - `DestinoEvento::Alumno` se llama así por historia y significa «personas
+      señaladas una por una»: casa contra `persona_id`, así que sirve igual para
+      un docente (`AlcanceDeDestinos::comoDestinatario`). No hizo falta destino
+      nuevo.
+    - **Y la ficha del docente pasó a usar el componente compartido**
+      `RevisionDeDocumentos`. Llevaba su propio panel copiado, y por eso se
+      quedó sin los filtros y sin decir que el motivo le llega como aviso: tres
+      copias de un acto son como se llega a que una deje de pedir el motivo. De
+      paso se retiró un `colorEstado` que se quedó sin quien lo llame.
+    - El del TUTOR sigue sin aviso, y por lo dicho arriba: no hay destino con el
+      que dirigirse a una persona que es tutor y nada más.
 
 - **El tutor entrega los documentos de su hijo MENOR** (2026-08-31, decisión del
   cliente). Cierra la única pregunta que este proyecto había dejado abierta a

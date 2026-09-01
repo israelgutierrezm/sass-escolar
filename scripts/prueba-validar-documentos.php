@@ -38,11 +38,14 @@
 
 use App\Enums\DestinoEvento;
 use App\Http\Controllers\AlumnoController;
+use App\Http\Controllers\DocenteController;
 use App\Http\Controllers\TutorController;
 use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\Admisiones\EstadoDocumento;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\DocumentoAlumno;
+use App\Models\ControlEscolar\Docente;
+use App\Models\ControlEscolar\DocumentoDocente;
 use App\Models\Identidad\DocumentoTutor;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\Rol;
@@ -408,6 +411,91 @@ try {
      * nada más. Lo lee en su propio expediente, que es donde lo subió.
      */
     verificar('al tutor no se le levanta aviso: no hay destino para eso', Aviso::query()->count() === $antesTutor);
+
+    // ── El expediente del DOCENTE, con su propio aviso ─────────────────────
+    echo PHP_EOL."[1mY el expediente del docente[0m".PHP_EOL;
+
+    $tipoDocente = DocumentoRequerido::query()->delAmbito(DocumentoRequerido::AMBITO_DOCENTE)->first();
+    $docente = Docente::query()->with('persona')->whereNull('deleted_at')->first();
+
+    verificar('la escuela pide algún documento a sus docentes', $tipoDocente !== null);
+    verificar('y hay un docente con el que probar', $docente !== null);
+
+    /*
+     * Se le pone fecha de nacimiento de MENOR a propósito.
+     *
+     * Es el caso que separa «no se avisa a la familia porque es mayor» de «no se
+     * avisa porque es un docente». Con un docente adulto las dos reglas dan el
+     * mismo resultado y la mutación que quita el ámbito sobreviviría — que es
+     * exactamente lo que pasó la primera vez que se escribió esto.
+     */
+    $docente->persona->update(['fecha_nacimiento' => now()->subYears(15)->toDateString()]);
+
+    $docDocente = DocumentoDocente::create([
+        'persona_id' => $docente->persona_id,
+        'documento_id' => $tipoDocente->id,
+        'url' => 'docentes/'.$docente->persona_id.'/prueba.pdf',
+        'estado_documento_id' => $pendiente,
+    ]);
+
+    $docenteControlador = app(DocenteController::class);
+    $revisorDocentes = usuarioCon(['ver-grupos', 'ver-docentes', 'gestionar-docentes', 'validar-expediente']);
+
+    $antesDocente = Aviso::query()->count();
+
+    $docenteControlador->revisarDocumento(
+        peticion(['estado_documento_id' => $rechazado, 'observaciones' => '  '], 'PUT', $revisorDocentes),
+        $docente,
+        $docDocente,
+    );
+    verificar('tampoco se le puede rechazar sin motivo', $docDocente->fresh()->estado_documento_id === $pendiente);
+    verificar('y sin motivo no se levanta ningún aviso', Aviso::query()->count() === $antesDocente);
+
+    $docenteControlador->revisarDocumento(
+        peticion([
+            'estado_documento_id' => $rechazado,
+            'observaciones' => 'El título viene sin sello de la institución.',
+        ], 'PUT', $revisorDocentes),
+        $docente,
+        $docDocente,
+    );
+
+    verificar('con motivo sí se rechaza', $docDocente->fresh()->estado_documento_id === $rechazado);
+    verificar('y se levanta su aviso', Aviso::query()->count() === $antesDocente + 1);
+
+    $suAviso = Aviso::query()->with('destinos')->orderByDesc('id')->first();
+    $destinosDocente = $suAviso?->destinos->map(fn ($d) => $d->tipo->value.':'.($d->destino_id ?? '—'))->all() ?? [];
+
+    verificar(
+        'con el motivo dentro',
+        str_contains((string) $suAviso?->cuerpo, 'sin sello'),
+    );
+    verificar(
+        'dirigido al DOCENTE por su persona',
+        in_array(DestinoEvento::Alumno->value.':'.$docente->persona_id, $destinosDocente, true),
+        implode(' · ', $destinosDocente),
+    );
+    verificar(
+        'y NUNCA a una familia, aunque su fecha de nacimiento diga que es menor',
+        ! in_array(DestinoEvento::Familiares->value.':—', $destinosDocente, true),
+        implode(' · ', $destinosDocente),
+    );
+
+    // Y tampoco se repite al reescribir el motivo.
+    $trasDocente = Aviso::query()->count();
+    $docenteControlador->revisarDocumento(
+        peticion(['estado_documento_id' => $rechazado, 'observaciones' => 'Sigue sin sello.'], 'PUT', $revisorDocentes),
+        $docente,
+        $docDocente->fresh(),
+    );
+    verificar('reescribir el motivo no levanta otro aviso', Aviso::query()->count() === $trasDocente);
+
+    $docenteControlador->revisarDocumento(
+        peticion(['estado_documento_id' => $aceptado], 'PUT', $revisorDocentes),
+        $docente,
+        $docDocente->fresh(),
+    );
+    verificar('y aceptar tampoco', Aviso::query()->count() === $trasDocente);
 
     // ── 9 · La bandeja del panel ───────────────────────────────────────────
     echo PHP_EOL."\033[1mLa bandeja junta las tres colas\033[0m".PHP_EOL;

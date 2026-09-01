@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\AcotaPorCampus;
 use App\Models\Academico\Asignatura;
 use App\Models\Academico\Campus;
+use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\Admisiones\EstadoDocumento;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Docente;
@@ -20,6 +21,7 @@ use App\Services\Excel\ImportadorDocentes;
 use App\Services\Excel\PlantillaDocentes;
 use App\Services\GestorTitulosDocente;
 use App\Services\IdentidadPersona;
+use App\Services\Plataforma\AvisoDeDocumentoRechazado;
 use App\Services\ResolutorFormularios;
 use App\Services\Suplantador;
 use Illuminate\Database\Eloquent\Builder;
@@ -231,6 +233,7 @@ class DocenteController extends Controller
                 ->get()
                 ->map(fn (DocumentoDocente $d) => [
                     'id' => $d->id,
+                    'documento_id' => $d->documento_id,
                     'documento' => $d->documento?->nombre,
                     'descripcion' => $d->descripcion,
                     'estado_id' => $d->estado_documento_id,
@@ -337,18 +340,45 @@ class DocenteController extends Controller
         ], [], ['estado_documento_id' => 'estado']);
 
         $estado = EstadoDocumento::find($datos['estado_documento_id']);
+        $rechaza = $estado?->clave === 'rechazado';
 
         // Rechazar sin decir por qué obliga al docente a adivinar qué corregir.
-        if ($estado?->clave === 'rechazado' && trim((string) ($datos['observaciones'] ?? '')) === '') {
+        if ($rechaza && trim((string) ($datos['observaciones'] ?? '')) === '') {
             return back()->withErrors(['observaciones' => 'Explica por qué se rechaza: el docente necesita saber qué corregir.']);
         }
+
+        // Cómo estaba ANTES, para saber si esto es un hecho nuevo.
+        $yaEstabaRechazado = $documento->estado?->clave === 'rechazado';
 
         $documento->update([
             'estado_documento_id' => $datos['estado_documento_id'],
             'observaciones' => $datos['observaciones'] ?? null,
         ]);
 
-        return back()->with('exito', 'Documento revisado.');
+        /*
+         * Y el aviso, igual que con el alumno: el motivo ya se ve en su
+         * expediente, pero sólo si entra a mirarlo, y nadie entra «por si
+         * acaso». Un papel rechazado que nadie corrige es un expediente
+         * incompleto del que la escuela se entera cuando hace falta.
+         *
+         * Se pasa el ÁMBITO para que NO se extienda a ninguna familia: de un
+         * docente responde el docente, tenga la edad que tenga.
+         *
+         * Al CAMBIAR a rechazado, no cada vez que se guarda: reescribir el
+         * motivo de un rechazo que ya lo estaba no es un hecho nuevo.
+         */
+        if ($rechaza && ! $yaEstabaRechazado && $docente->persona !== null) {
+            app(AvisoDeDocumentoRechazado::class)->emitir(
+                $docente->persona,
+                $documento->documento?->nombre ?? 'Documento',
+                $datos['observaciones'] ?? null,
+                DocumentoRequerido::AMBITO_DOCENTE,
+            );
+        }
+
+        return back()->with('exito', $rechaza
+            ? 'Documento rechazado. Se le avisó al docente con el motivo.'
+            : 'Documento revisado.');
     }
 
     /** Descarga autenticada del documento. Nunca por URL directa. */

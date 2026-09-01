@@ -6,6 +6,7 @@ namespace App\Services\Plataforma;
 
 use App\Enums\DestinoEvento;
 use App\Enums\PrioridadAviso;
+use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\Identidad\Persona;
 use App\Models\Plataforma\Aviso;
 use App\Services\Familia\RepresentacionDelTutor;
@@ -20,12 +21,23 @@ use App\Services\Familia\RepresentacionDelTutor;
  * se entera el día que hace falta el papel. El aviso es lo que empuja.
  *
  * ── A quién llega ──────────────────────────────────────────────────────────
- * Siempre al ALUMNO, y además a su FAMILIA cuando es menor de edad. La segunda
- * mitad no depende del interruptor de entrega —ése decide si el tutor puede
- * SUBIR, y enterarse es otra cosa—: de un menor responde su familia, tenga o no
- * permiso de cargar el archivo, porque es quien va a traer el papel a la
- * ventanilla. La edad la resuelve {@see RepresentacionDelTutor}, que es donde
- * vive esa definición.
+ * Siempre a QUIEN ENTREGÓ, y además a su FAMILIA cuando es un ALUMNO menor de
+ * edad. La segunda mitad no depende del interruptor de entrega —ése decide si
+ * el tutor puede SUBIR, y enterarse es otra cosa—: de un menor responde su
+ * familia, tenga o no permiso de cargar el archivo, porque es quien va a traer
+ * el papel a la ventanilla. La edad la resuelve {@see RepresentacionDelTutor},
+ * que es donde vive esa definición.
+ *
+ * ── Y el ÁMBITO decide si esa segunda mitad aplica siquiera ────────────────
+ * De un docente responde el docente, tenga la edad que tenga: sus papeles son
+ * asunto suyo y su familia no pinta nada. Por eso el ámbito es un parámetro y
+ * no se deduce de la edad — deducirlo funcionaría por casualidad, porque nadie
+ * contrata a un menor, y dejaría el sistema listo para filtrar el expediente de
+ * alguien a una familia el día que la casualidad falle.
+ *
+ * `DestinoEvento::Alumno` se llama así por historia pero significa «personas
+ * señaladas una por una»: casa contra `persona_id`, así que sirve igual para un
+ * docente. Ver `AlcanceDeDestinos::comoDestinatario`.
  *
  * ── Se emite al CAMBIAR de estado, no cada vez que se guarda ───────────────
  * Un aviso anuncia un hecho nuevo. Reescribir el motivo de un rechazo que ya
@@ -57,12 +69,18 @@ class AvisoDeDocumentoRechazado
     /**
      * Levanta el aviso del rechazo.
      *
-     * @param  Persona  $persona  el alumno dueño del expediente
+     * @param  Persona  $persona  quien entregó el documento
      * @param  string  $documento  cómo se llama el papel, tal cual lo ve él
      * @param  string|null  $motivo  lo que escribió quien revisó
+     * @param  string  $ambito  de qué expediente se habla; sólo el del ALUMNO
+     *                          extiende el aviso a la familia
      */
-    public function emitir(Persona $persona, string $documento, ?string $motivo): Aviso
-    {
+    public function emitir(
+        Persona $persona,
+        string $documento,
+        ?string $motivo,
+        string $ambito = DocumentoRequerido::AMBITO_ALUMNO,
+    ): Aviso {
         $aviso = Aviso::create([
             'titulo' => 'Documento rechazado: '.$documento,
             /*
@@ -89,7 +107,7 @@ class AvisoDeDocumentoRechazado
             'destino_id' => $persona->id,
         ]);
 
-        if ($this->representacion->esMenor($persona)) {
+        if ($ambito === DocumentoRequerido::AMBITO_ALUMNO && $this->representacion->esMenor($persona)) {
             // El modificador, sin id: extiende a las familias lo que el destino
             // de arriba ya dijo.
             $aviso->destinos()->create([

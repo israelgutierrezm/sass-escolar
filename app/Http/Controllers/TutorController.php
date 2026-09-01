@@ -154,7 +154,6 @@ class TutorController extends Controller
                 ->get()
                 ->map(fn (DocumentoTutor $d) => [
                     'id' => $d->id,
-                    'documento_id' => $d->documento_id,
                     'documento' => $d->documento?->nombre,
                     'descripcion' => $d->descripcion,
                     'estado_id' => $d->estado_documento_id,
