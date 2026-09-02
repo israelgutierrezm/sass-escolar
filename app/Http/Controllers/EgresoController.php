@@ -34,6 +34,16 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class EgresoController extends Controller
 {
+    /**
+     * Cuántos renglones trae la pantalla.
+     *
+     * Constante pública y no un número suelto, por lo mismo que el tope de la
+     * descarga masiva de CFDI: con el número escondido, comprobar que el TOTAL
+     * suma lo filtrado y no la página exigiría inventar trescientos egresos a
+     * ciegas, y esa regla se quedaría sin probar.
+     */
+    public const POR_PAGINA = 300;
+
     public function index(Request $peticion): Response
     {
         $ciclo = (int) $peticion->query('ciclo', 0)
@@ -48,7 +58,7 @@ class EgresoController extends Controller
             ->when($centro > 0, fn ($q) => $q->where('centro_costo_id', $centro))
             ->when($partida > 0, fn ($q) => $q->where('partida_id', $partida));
 
-        $egresos = (clone $consulta)->orderByDesc('fecha')->orderByDesc('id')->limit(300)->get();
+        $egresos = (clone $consulta)->orderByDesc('fecha')->orderByDesc('id')->limit(self::POR_PAGINA)->get();
 
         return Inertia::render('Finanzas/Egresos/Index', [
             'egresos' => $egresos->map(fn (Egreso $e) => [

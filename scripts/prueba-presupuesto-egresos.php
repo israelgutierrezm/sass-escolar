@@ -103,6 +103,14 @@ try {
         'ciclo_id' => $ciclo->id, 'monto' => 50000.00,
     ]);
 
+    // Y otro en OTRO ciclo, sobre un cruce que este ciclo no tiene: si el
+    // tablero no filtrara por ciclo, aparecerian los 12,345 de un ano que
+    // nadie esta mirando.
+    Presupuesto::create([
+        'centro_costo_id' => $general->id, 'partida_id' => $sueldos->id,
+        'ciclo_id' => $otroCiclo->id, 'monto' => 12345.00,
+    ]);
+
     echo PHP_EOL.'1. El ejercido se mide de los egresos'.PHP_EOL;
 
     verificar('Sin egresos, cero', abs($servicio->ejercido($centro->id, $manten->id, $ciclo->id)) < 0.005);
@@ -175,6 +183,15 @@ try {
     verificar(
         'Pero sí en el suyo',
         collect($servicio->panorama($otroCiclo->id))->contains(fn ($f) => abs($f['ejercido'] - 777.0) < 0.005)
+    );
+    verificar(
+        'Y el presupuesto de otro ciclo tampoco se cuela',
+        ! $panorama->contains(fn ($f) => $f['asignado'] !== null && abs($f['asignado'] - 12345.0) < 0.005),
+        'esta asignado en el otro ciclo, no en este'
+    );
+    verificar(
+        'Aunque sí sale en el suyo',
+        collect($servicio->panorama($otroCiclo->id))->contains(fn ($f) => $f['asignado'] !== null && abs($f['asignado'] - 12345.0) < 0.005)
     );
 
     echo PHP_EOL.'3. Pasarse se avisa, no se bloquea'.PHP_EOL;
@@ -287,14 +304,45 @@ try {
         'estado' => PeriodoNomina::CERRADO,
     ]);
 
-    $sinCentro = motivoDe(fn () => $servicio->traerNomina($huerfanoPeriodo, $sueldos, $ciclo->id));
+    /*
+     * Con RECIBOS a proposito: sin ellos, quitarle el filtro por campus seguia
+     * dando un rechazo —«no tiene recibos»— y la comprobacion pasaba por la
+     * razon equivocada. Lo destapo una mutacion.
+     */
+    DB::table('recibos_nomina')->insert([
+        'periodo_nomina_id' => $huerfanoPeriodo->id,
+        'expediente_laboral_id' => $expediente->id,
+        'total_percepciones' => 5000,
+        'total_deducciones' => 0,
+        'neto' => 5000,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $sinCentro = motivoDe(fn () => $servicio->traerNomina($huerfanoPeriodo->fresh(), $sueldos, $ciclo->id));
 
     verificar('Sin centro para ese campus, se rehúsa', $sinCentro !== null, (string) $sinCentro);
+    verificar('Y el motivo es ése, no otro', str_contains((string) $sinCentro, 'centro de costo'));
     verificar(
         'En vez de cargarlo a otro centro',
         Egreso::where('origen', Egreso::ORIGEN_NOMINA)->where('origen_id', $huerfanoPeriodo->id)->count() === 0
     );
 
+    $abiertoSiempre = PeriodoNomina::create([
+        'nombre' => 'Quincena todavía abierta',
+        'fecha_inicio' => '2026-07-01',
+        'fecha_fin' => '2026-07-15',
+        'fecha_pago' => '2026-07-15',
+        'periodicidad_sat' => '04',
+        'campus_id' => $campus->id,
+        'estado' => PeriodoNomina::ABIERTO,
+    ]);
+
+    verificar(
+        'Un periodo abierto no figura entre los pendientes',
+        ! $servicio->nominasPendientes()->contains('id', $abiertoSiempre->id),
+        'todavía puede cambiar de importe'
+    );
     verificar(
         'Y deja de figurar como pendiente el que ya se trajo',
         ! $servicio->nominasPendientes()->contains('id', $periodo->id)
@@ -389,6 +437,48 @@ try {
     verificar(
         'Y el total es el de lo FILTRADO, no el de la página',
         abs($props['total'] - (55000.0 + 999.0)) < 0.005,
+        (string) $props['total']
+    );
+
+    /*
+     * Y con MAS renglones que la pagina. Con pocos, «el total de lo filtrado» y
+     * «el total de la pagina» dan lo mismo y la regla se queda sin comprobar —
+     * lo destapo una mutacion. Se insertan de golpe: son de relleno.
+     */
+    $relleno = [];
+
+    for ($i = 0; $i <= EgresoController::POR_PAGINA; $i++) {
+        $relleno[] = [
+            'fecha' => '2026-06-12',
+            'centro_costo_id' => $general->id,
+            'partida_id' => $manten->id,
+            'ciclo_id' => $ciclo->id,
+            'monto' => 1.00,
+            'descripcion' => 'Relleno para pasar del tope',
+            'origen' => Egreso::ORIGEN_CAPTURA,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
+    }
+
+    DB::table('egresos')->insert($relleno);
+
+    $peticionMuchos = Request::create('/', 'GET', ['ciclo' => $ciclo->id, 'partida' => $manten->id]);
+    $peticionMuchos->headers->set('X-Inertia', 'true');
+    $peticionMuchos->headers->set('X-Inertia-Version', '');
+    $peticionMuchos->setUserResolver(fn () => $usuario);
+    app()->instance('request', $peticionMuchos);
+
+    $props = json_decode($egresos->index($peticionMuchos)->toResponse($peticionMuchos)->getContent(), true)['props'];
+
+    verificar(
+        'La página se topa',
+        count($props['egresos']) === EgresoController::POR_PAGINA,
+        (string) count($props['egresos'])
+    );
+    verificar(
+        'Pero el total suma TODO lo filtrado',
+        abs($props['total'] - (55000.0 + 999.0 + (EgresoController::POR_PAGINA + 1))) < 0.005,
         (string) $props['total']
     );
 
