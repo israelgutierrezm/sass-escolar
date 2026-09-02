@@ -118,7 +118,7 @@ class FacturapiPac implements Pac
      */
     public function cuerpoDe(Factura $factura): array
     {
-        $factura->loadMissing('conceptos', 'iedu');
+        $factura->loadMissing('conceptos', 'iedu', 'origen');
 
         $items = $factura->conceptos->map(function ($c) {
             $importe = (float) $c->importe;
@@ -153,7 +153,7 @@ class FacturapiPac implements Pac
             'payment_form' => $factura->forma_pago_sat,
             'payment_method' => $factura->metodo_pago_sat,
             'currency' => 'MXN',
-        ] + $this->complementos($factura);
+        ] + $this->complementos($factura) + $this->egreso($factura);
     }
 
     /**
@@ -183,6 +183,41 @@ class FacturapiPac implements Pac
                 'school_code' => $iedu->aut_rvoe,
             ],
         ]]];
+    }
+
+    /**
+     * Lo que convierte el comprobante en una NOTA DE CRÉDITO.
+     *
+     * Son dos cosas y las dos hacen falta: el tipo de comprobante ('E' de
+     * egreso) y la relación con el CFDI que reduce. Sin la relación, el SAT
+     * recibe un egreso suelto que no rebaja nada — un documento válido que no
+     * corrige la factura que se quería corregir.
+     *
+     * Una factura de ingreso no manda ninguna de las dos claves: el tipo por
+     * omisión de Facturapi ya es 'I', y escribirlo daría lo mismo con más
+     * ruido.
+     *
+     * OJO: esta traducción está escrita contra la forma DOCUMENTADA de la API y
+     * no se ha visto responder a un Facturapi real —no hay credenciales—. Misma
+     * advertencia que la consulta de grabaciones de Meet.
+     *
+     * @return array<string, mixed>
+     */
+    private function egreso(Factura $factura): array
+    {
+        if (! $factura->esNotaCredito()) {
+            return [];
+        }
+
+        $uuid = $factura->origen?->uuid;
+
+        return array_filter([
+            'type' => 'E',
+            'related_documents' => $uuid === null ? null : [[
+                'relationship' => Factura::RELACION_NOTA_CREDITO,
+                'documents' => [$uuid],
+            ]],
+        ], fn ($v) => $v !== null);
     }
 
     private function descargarSilencioso(FacturapiService $servicio, string $facturapiId, string $tipo): ?string

@@ -34,6 +34,10 @@ class FacturaConcepto extends Model
     protected $fillable = [
         'factura_id',
         'pago_id',
+        // Sólo en una nota de crédito: el renglón de la factura que este
+        // renglón reduce. Es lo que permite decir cuánto queda por acreditar
+        // de cada concepto, que es la pregunta con tasas de IVA distintas.
+        'concepto_origen_id',
         'clave_sat',
         'clave_unidad_sat',
         'descripcion',

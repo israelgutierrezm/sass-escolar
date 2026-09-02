@@ -1522,6 +1522,11 @@ Route::middleware([
                         Route::post('/emitir/{matricula}', 'store')->name('store');
                         Route::get('/{factura}', 'show')->name('show');
                         Route::post('/{factura}/reintentar', 'reintentar')->name('reintentar');
+                        // Va con el mismo permiso que facturar: es el
+                        // instrumento de correccion de quien emite, no otro
+                        // oficio. Lo que la acota es que solo se puede sobre
+                        // una factura timbrada y vigente.
+                        Route::post('/{factura}/nota-credito', 'notaCredito')->name('nota_credito');
                         Route::post('/{factura}/refacturar', 'refacturar')->name('refacturar');
                         Route::post('/{factura}/cancelar', 'cancelar')->name('cancelar');
                         Route::delete('/{factura}', 'destroy')->name('destroy');

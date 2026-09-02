@@ -41,6 +41,26 @@ class Factura extends Model
 
     public const ESTATUS_CANCELADA = 'cancelada';
 
+    /**
+     * Tipo de comprobante del SAT.
+     *
+     * La de INGRESO es la factura de siempre: dice cuánto cobró la escuela. La
+     * de EGRESO es la nota de crédito, que reduce lo cobrado en una anterior
+     * sin cancelarla — el instrumento para una beca autorizada tarde o un cobro
+     * de más, y el único que queda cuando ya venció el plazo para cancelar.
+     */
+    public const TIPO_INGRESO = 'I';
+
+    public const TIPO_EGRESO = 'E';
+
+    /**
+     * Relación 01 del SAT: «nota de crédito de los documentos relacionados».
+     *
+     * Es OTRA relación que la sustitución (04), y por eso la nota de crédito
+     * apunta con su propia columna. Ver la migración.
+     */
+    public const RELACION_NOTA_CREDITO = '01';
+
     /** Motivos de cancelación del SAT. */
     public const MOTIVO_CON_RELACION = '01';   // se emitió con errores, hay sustituta
 
@@ -54,6 +74,7 @@ class Factura extends Model
 
     /** Los mismos defaults que la migración; ver la nota en `Adeudo`. */
     protected $attributes = [
+        'tipo' => self::TIPO_INGRESO,
         'estatus' => self::ESTATUS_BORRADOR,
         'metodo_pago_sat' => 'PUE',
         'moneda' => 'MXN',
@@ -92,6 +113,9 @@ class Factura extends Model
         'motivo_cancelacion',
         'factura_sustituye_id',
         'iedu_motivo',
+        'tipo',
+        'factura_origen_id',
+        'motivo_egreso',
     ];
 
     protected function casts(): array
@@ -139,6 +163,40 @@ class Factura extends Model
         return $this->hasOne(FacturaIedu::class, 'factura_id');
     }
 
+    /** La factura que esta nota de crédito reduce. */
+    public function origen(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'factura_origen_id');
+    }
+
+    /** Las notas de crédito emitidas contra esta factura. */
+    public function notasCredito(): HasMany
+    {
+        return $this->hasMany(self::class, 'factura_origen_id');
+    }
+
+    public function esNotaCredito(): bool
+    {
+        return $this->tipo === self::TIPO_EGRESO;
+    }
+
+    /**
+     * Cuánto de esta factura ya está acreditado.
+     *
+     * Sólo las notas VIVAS cuentan: una cancelada no reduce nada, y si contara
+     * seguiría restando importe de una factura que volvió a valer por completo.
+     */
+    public function acreditado(): float
+    {
+        return (float) $this->notasCredito()->vivas()->sum('total');
+    }
+
+    /** Lo que la factura vale hoy, ya restadas sus notas de crédito. */
+    public function totalEfectivo(): float
+    {
+        return round((float) $this->total - $this->acreditado(), 2);
+    }
+
     /** La factura que ésta vino a sustituir (cancelación con relación 01). */
     public function sustituye(): BelongsTo
     {
@@ -181,6 +239,18 @@ class Factura extends Model
             self::ESTATUS_TIMBRANDO,
             self::ESTATUS_TIMBRADA,
         ]);
+    }
+
+    /**
+     * Las de ingreso: las que dicen cuánto cobró la escuela.
+     *
+     * Existe porque casi toda pregunta sobre facturación es sobre éstas —
+     * cuánto se facturó, cuál fue el último receptor— y sumar las de egreso
+     * daría un total inflado por documentos que RESTAN.
+     */
+    public function scopeDeIngreso(Builder $query): Builder
+    {
+        return $query->where('tipo', self::TIPO_INGRESO);
     }
 
     public function scopeTimbradas(Builder $query): Builder

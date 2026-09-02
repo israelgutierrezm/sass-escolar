@@ -11,6 +11,7 @@ import TarjetaListado from '@/Components/TarjetaListado.vue';
 interface Fila {
     id: number;
     uuid: string | null;
+    tipo: string;
     estatus: string;
     receptor_rfc: string;
     receptor_razon_social: string;
@@ -100,7 +101,10 @@ const ICONO_FACTURA =
                     :href="`/finanzas/facturas/${f.id}`"
                     :metas="[
                         { etiqueta: 'Alumno', valor: f.alumno },
-                        { etiqueta: 'Total', valor: pesos.format(f.total) },
+                        {
+                            etiqueta: f.tipo === 'E' ? 'Nota de crédito' : 'Total',
+                            valor: (f.tipo === 'E' ? '−' : '') + pesos.format(f.total),
+                        },
                         { etiqueta: 'Timbrado', valor: f.fecha_timbrado },
                         { etiqueta: 'Folio', valor: f.uuid },
                     ]"
@@ -151,7 +155,22 @@ const ICONO_FACTURA =
                                 {{ f.uuid ?? '—' }}
                                 <span v-if="f.fecha_timbrado" class="mt-0.5 block tabular-nums">{{ f.fecha_timbrado }}</span>
                             </td>
-                            <td class="px-4 py-4 text-right font-semibold tabular-nums">{{ pesos.format(f.total) }}</td>
+                            <td class="px-4 py-4 text-right font-semibold tabular-nums">
+                                <!--
+                                    El importe de una nota de crédito RESTA. Sin
+                                    decirlo, quien suma la columna a ojo cuenta
+                                    como ingreso un documento que lo reduce, y
+                                    dos comprobantes idénticos en la lista dicen
+                                    cosas opuestas.
+                                -->
+                                <span v-if="f.tipo === 'E'">−{{ pesos.format(f.total) }}</span>
+                                <span v-else>{{ pesos.format(f.total) }}</span>
+                                <span
+                                    v-if="f.tipo === 'E'"
+                                    class="mt-0.5 block whitespace-nowrap text-[11px] font-medium"
+                                    :style="{ color: 'var(--color-suave)' }"
+                                >Nota de crédito</span>
+                            </td>
                             <td class="px-4 py-4">
                                 <PildoraEstado :texto="f.estatus" :color="colorEstatusSolido[f.estatus] ?? 'var(--color-suave)'" />
                             </td>

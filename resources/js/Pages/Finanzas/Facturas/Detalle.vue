@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, useForm, router } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
@@ -19,6 +19,7 @@ interface Concepto {
     iva: number;
     pago_id: number | null;
     pago_metodo: string | null;
+    disponible: number;
 }
 
 const props = defineProps<{
@@ -54,6 +55,20 @@ const props = defineProps<{
             aut_rvoe: string;
         } | null;
         iedu_motivo: string | null;
+        tipo: string;
+        motivo_egreso: string | null;
+        origen: { id: number; uuid: string | null; total: number } | null;
+        acreditado: number;
+        total_efectivo: number;
+        notas_credito: {
+            id: number;
+            uuid: string | null;
+            estatus: string;
+            total: number;
+            motivo: string | null;
+            fecha: string | null;
+        }[];
+        acreditable: boolean;
         editable: boolean;
         fiscal: boolean;
         tiene_xml: boolean;
@@ -101,6 +116,38 @@ function reintentar(): void {
 
 function eliminar(): void {
     router.delete(`/finanzas/facturas/${props.factura.id}`);
+}
+
+/*
+ * La nota de crédito: reduce la factura sin cancelarla.
+ *
+ * Se acredita RENGLÓN POR RENGLÓN y no por un importe total, que es la misma
+ * razón por la que la factura desglosa el IVA por concepto: en un comprobante
+ * conviven la colegiatura exenta y la constancia gravada, y un importe global
+ * no diría cuánto impuesto se reversa.
+ *
+ * El tope de cada renglón lo manda el SERVIDOR (`disponible`): calcularlo aquí
+ * sería una segunda cuenta que el día que difiera ofrecería un importe que el
+ * servidor rechaza.
+ */
+const acreditando = ref(false);
+const nota = useForm({
+    motivo: '',
+    renglones: props.conceptos.map((c) => ({ concepto_id: c.id, importe: 0 })),
+});
+
+const totalNota = computed(() =>
+    nota.renglones.reduce((s, r) => s + (Number(r.importe) || 0), 0),
+);
+
+function acreditarTodo(): void {
+    nota.renglones.forEach((r, i) => (r.importe = props.conceptos[i].disponible));
+}
+
+function emitirNota(): void {
+    nota.post(`/finanzas/facturas/${props.factura.id}/nota-credito`, {
+        preserveScroll: true,
+    });
 }
 
 
@@ -181,6 +228,57 @@ function eliminar(): void {
                 </p>
             </div>
 
+            <!--
+                Una nota de crédito no se lee sola: sin decir a qué factura
+                reduce, es un documento con un importe y sin sentido.
+            -->
+            <div
+                v-if="factura.tipo === 'E'"
+                class="mt-4 rounded-lg border-l-4 px-4 py-3 text-sm"
+                :style="{ borderLeftColor: 'var(--color-acento)', backgroundColor: 'color-mix(in srgb, var(--color-acento) 8%, transparent)' }"
+            >
+                <p class="font-medium">Nota de crédito</p>
+                <p class="mt-1" :style="{ color: 'var(--color-suave)' }">
+                    Reduce
+                    <a
+                        v-if="factura.origen"
+                        :href="`/finanzas/facturas/${factura.origen.id}`"
+                        :style="{ color: 'var(--color-acento)' }"
+                    >la factura {{ factura.origen.uuid ?? factura.origen.id }}</a>
+                    <span v-else>una factura que ya no está</span>
+                    en {{ pesos.format(factura.total) }}. La original sigue vigente.
+                </p>
+                <p v-if="factura.motivo_egreso" class="mt-1" :style="{ color: 'var(--color-suave)' }">
+                    Motivo: {{ factura.motivo_egreso }}
+                </p>
+            </div>
+
+            <!--
+                Y al revés: en la factura, lo que ya se le acreditó. El total de
+                arriba sigue siendo el que se timbró —eso no cambia nunca—, así
+                que sin esta línea la pantalla diría que se cobraron 2 500
+                cuando de verdad se cobraron 2 000.
+            -->
+            <div
+                v-if="factura.notas_credito.length"
+                class="mt-4 rounded-lg border px-4 py-3 text-sm"
+                :style="{ borderColor: 'var(--color-borde)' }"
+            >
+                <p class="font-medium">
+                    Acreditada en {{ pesos.format(factura.acreditado) }} · vale hoy
+                    {{ pesos.format(factura.total_efectivo) }}
+                </p>
+                <ul class="mt-2 space-y-1" :style="{ color: 'var(--color-suave)' }">
+                    <li v-for="n in factura.notas_credito" :key="n.id">
+                        <a :href="`/finanzas/facturas/${n.id}`" :style="{ color: 'var(--color-acento)' }">
+                            Nota {{ n.uuid ?? n.id }}</a>
+                        · {{ pesos.format(n.total) }}
+                        <span v-if="n.estatus !== 'timbrada'">· {{ n.estatus }}</span>
+                        <span v-if="n.motivo">· {{ n.motivo }}</span>
+                    </li>
+                </ul>
+            </div>
+
             <p v-if="factura.sustituye" class="mt-3 text-sm" :style="{ color: 'var(--color-suave)' }">
                 Sustituye a la
                 <a :href="`/finanzas/facturas/${factura.sustituye.id}`" :style="{ color: 'var(--color-acento)' }">
@@ -228,6 +326,15 @@ function eliminar(): void {
                     Refacturar con datos corregidos
                 </button>
                 <button
+                    v-if="factura.acreditable"
+                    type="button"
+                    class="rounded-lg border px-4 py-2 text-sm"
+                    :style="{ borderColor: 'var(--color-borde)' }"
+                    @click="acreditando = !acreditando"
+                >
+                    Emitir nota de crédito
+                </button>
+                <button
                     v-if="factura.estatus === 'timbrada'"
                     type="button"
                     class="rounded-lg border px-4 py-2 text-sm text-red-600"
@@ -246,6 +353,93 @@ function eliminar(): void {
                 Al revés, la escuela se queda sin comprobante vigente en el
                 hueco entre las dos operaciones.
             -->
+            <!--
+                Acreditar es renglón por renglón: el tope de cada uno lo manda el
+                servidor, porque acreditar de más declararía al SAT un ingreso
+                negativo que nunca existió.
+            -->
+            <form
+                v-if="acreditando"
+                class="mt-4 border-t pt-4"
+                :style="{ borderColor: 'var(--color-borde)' }"
+                @submit.prevent="emitirNota"
+            >
+                <p class="text-sm" :style="{ color: 'var(--color-suave)' }">
+                    Reduce esta factura sin cancelarla. Es lo que corresponde cuando el importe estaba bien
+                    al emitirla y cambió después —una beca autorizada tarde, un cobro de más—, o
+                    cuando ya venció el plazo para cancelar. No modifica la cartera del alumno.
+                </p>
+
+                <div class="mt-3 overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
+                            <tr>
+                                <th class="py-2 pr-4 font-medium">Concepto</th>
+                                <th class="py-2 pr-4 text-right font-medium">Por acreditar</th>
+                                <th class="py-2 text-right font-medium">Acreditar</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr
+                                v-for="(r, i) in nota.renglones"
+                                :key="r.concepto_id"
+                                class="border-t"
+                                :style="{ borderColor: 'var(--color-borde)' }"
+                            >
+                                <td class="py-2 pr-4">{{ conceptos[i].descripcion }}</td>
+                                <td class="py-2 pr-4 text-right tabular-nums" :style="{ color: 'var(--color-suave)' }">
+                                    {{ pesos.format(conceptos[i].disponible) }}
+                                </td>
+                                <td class="py-2 text-right">
+                                    <input
+                                        v-model.number="r.importe"
+                                        type="number"
+                                        step="any"
+                                        min="0"
+                                        :max="conceptos[i].disponible"
+                                        class="w-32 rounded-lg border px-3 py-2 text-right text-sm tabular-nums"
+                                        :style="{ borderColor: 'var(--color-borde)' }"
+                                    />
+                                </td>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
+                                <td colspan="2" class="py-2 pr-4 text-right font-medium">Total de la nota</td>
+                                <td class="py-2 text-right font-semibold tabular-nums">{{ pesos.format(totalNota) }}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <button
+                    type="button"
+                    class="mt-2 text-xs underline"
+                    :style="{ color: 'var(--color-acento)' }"
+                    @click="acreditarTodo"
+                >
+                    Acreditar todo lo disponible
+                </button>
+
+                <div class="mt-3">
+                    <CampoTexto
+                        v-model="nota.motivo"
+                        etiqueta="Motivo"
+                        requerido
+                        :error="nota.errors.motivo"
+                        ayuda="Queda en el comprobante. Dentro de un año es lo único que explica por qué la escuela declaró menos ingreso."
+                    />
+                </div>
+
+                <BotonPrincipal
+                    :procesando="nota.processing"
+                    :deshabilitado="totalNota <= 0 || nota.motivo.trim() === ''"
+                    texto="Emitir y timbrar la nota"
+                    cargando="Timbrando…"
+                    class="mt-3"
+                />
+            </form>
+
             <form
                 v-if="refacturando"
                 class="mt-4 grid gap-3 border-t pt-4 sm:grid-cols-2"

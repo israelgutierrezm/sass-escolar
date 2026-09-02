@@ -12,6 +12,7 @@ use App\Models\Finanzas\FacturaConcepto;
 use App\Models\Finanzas\Pago;
 use App\Services\Cfdi\ComplementoEducativo;
 use App\Services\EmisorFactura;
+use App\Services\EmisorNotaCredito;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -36,6 +37,7 @@ class FacturaController extends Controller
     public function __construct(
         private readonly EmisorFactura $emisor,
         private readonly ComplementoEducativo $complemento,
+        private readonly EmisorNotaCredito $notasCredito,
     ) {}
 
     public function index(Request $request): Response
@@ -76,7 +78,15 @@ class FacturaController extends Controller
             'sustituye:id,uuid,fecha_timbrado',
             'sustituida:id,uuid,factura_sustituye_id',
             'iedu',
+            'origen:id,uuid,total',
+            'notasCredito',
         ]);
+
+        // Sólo tiene sentido en una factura de ingreso vigente; en las demás es
+        // una consulta que nadie va a mirar.
+        $disponible = $factura->esNotaCredito() || ! $factura->estaVigente()
+            ? []
+            : $this->notasCredito->disponiblePorConcepto($factura);
 
         return Inertia::render('Finanzas/Facturas/Detalle', [
             'factura' => array_merge($this->resumen($factura), [
@@ -108,6 +118,31 @@ class FacturaController extends Controller
                     'aut_rvoe' => $factura->iedu->aut_rvoe,
                 ],
                 'iedu_motivo' => $factura->iedu_motivo,
+                'tipo' => $factura->tipo,
+                'motivo_egreso' => $factura->motivo_egreso,
+                'origen' => $factura->origen === null ? null : [
+                    'id' => $factura->origen->id,
+                    'uuid' => $factura->origen->uuid,
+                    'total' => (float) $factura->origen->total,
+                ],
+                // Lo acreditado y lo que la factura vale hoy. Van CALCULADOS y
+                // no en bruto: es la misma cuenta que decide si se puede
+                // acreditar más, y repetirla en la pantalla la haría divergir.
+                'acreditado' => $factura->acreditado(),
+                'total_efectivo' => $factura->totalEfectivo(),
+                'notas_credito' => $factura->notasCredito->map(fn (Factura $n) => [
+                    'id' => $n->id,
+                    'uuid' => $n->uuid,
+                    'estatus' => $n->estatus,
+                    'total' => (float) $n->total,
+                    'motivo' => $n->motivo_egreso,
+                    'fecha' => $n->fecha_timbrado?->toDateTimeString(),
+                ])->values(),
+                // La pantalla no es la defensa: el servicio lo vuelve a
+                // comprobar. Esto sólo decide si se dibuja el botón.
+                'acreditable' => ! $factura->esNotaCredito()
+                    && $factura->estaVigente()
+                    && $factura->totalEfectivo() > 0,
                 'editable' => $factura->esEditable(),
                 'fiscal' => $factura->esFiscal(),
                 'tiene_xml' => $factura->xml_ruta !== null,
@@ -123,6 +158,10 @@ class FacturaController extends Controller
             ]),
             'conceptos' => $factura->conceptos->map(fn (FacturaConcepto $c) => [
                 'id' => $c->id,
+                // Cuánto queda por acreditar de este renglón: es lo que la
+                // pantalla usa como tope, para no ofrecer un importe que el
+                // servidor va a rechazar.
+                'disponible' => $disponible[$c->id] ?? 0.0,
                 'clave_sat' => $c->clave_sat,
                 'descripcion' => $c->descripcion,
                 'cantidad' => (float) $c->cantidad,
@@ -205,6 +244,45 @@ class FacturaController extends Controller
         // usuario la buscara para imprimirla y no la encontrara.
         return redirect("/finanzas/facturas/{$factura->id}")
             ->with('advertencia', 'La factura se mandó a timbrar. En cuanto el PAC responda aparecerá su folio fiscal.');
+    }
+
+    /**
+     * Emite la nota de crédito que reduce una factura sin cancelarla.
+     *
+     * Es la corrección que `refacturar` no cubre: el importe estaba bien el día
+     * que se emitió y cambió después —una beca autorizada tarde, un cobro de
+     * más—, o ya venció el plazo del SAT para cancelar.
+     */
+    public function notaCredito(Request $request, Factura $factura): RedirectResponse
+    {
+        $datos = $request->validate([
+            // Obligatorio: reduce lo declarado al SAT, y sin la razón escrita
+            // nadie puede explicar dentro de un año por qué la escuela declaró
+            // menos ingreso.
+            'motivo' => ['required', 'string', 'max:255'],
+            'renglones' => ['required', 'array', 'min:1'],
+            'renglones.*.concepto_id' => ['required', 'integer'],
+            'renglones.*.importe' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        try {
+            $nota = $this->notasCredito->emitir(
+                $factura,
+                // Se convierte a propósito: `numeric` ACEPTA la cadena «100» y
+                // la devuelve como cadena. Es la trampa que este proyecto ya se
+                // cobró en el motor de reportes y en el panorama documental.
+                array_map(fn (array $r) => [
+                    'concepto_id' => (int) $r['concepto_id'],
+                    'importe' => (float) $r['importe'],
+                ], $datos['renglones']),
+                $datos['motivo'],
+            );
+        } catch (RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect("/finanzas/facturas/{$nota->id}")
+            ->with('advertencia', 'La nota de crédito se mandó a timbrar. En cuanto el PAC responda aparecerá su folio fiscal.');
     }
 
     /**
@@ -314,6 +392,10 @@ class FacturaController extends Controller
         return [
             'id' => $factura->id,
             'uuid' => $factura->uuid,
+            // Va en el resumen y no sólo en el detalle: en el listado, una nota
+            // de crédito se ve idéntica a una factura y su total RESTA. Sin
+            // distinguirlas, quien suma la columna con la vista se equivoca.
+            'tipo' => $factura->tipo,
             'estatus' => $factura->estatus,
             'receptor_rfc' => $factura->receptor_rfc,
             'receptor_razon_social' => $factura->receptor_razon_social,
@@ -332,6 +414,10 @@ class FacturaController extends Controller
     private function ultimoReceptor(MatriculaOferta $matricula): ?array
     {
         $ultima = Factura::query()
+            // De INGRESO: la pregunta es «con qué datos facturó la última vez»,
+            // y una nota de crédito copia los del comprobante que reduce, así
+            // que como respuesta sería el reflejo de otra factura.
+            ->deIngreso()
             ->where('matricula_oferta_id', $matricula->id)
             ->orderByDesc('id')
             ->first();
