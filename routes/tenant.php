@@ -1520,6 +1520,7 @@ Route::middleware([
                         Route::get('/', 'index')->name('index');
                         Route::get('/emitir/{matricula}', 'facturables')->name('emitir');
                         Route::post('/emitir/{matricula}', 'store')->name('store');
+                        Route::get('/descargar-lote', 'descargarLote')->name('descargar_lote');
                         Route::get('/{factura}', 'show')->name('show');
                         Route::post('/{factura}/reintentar', 'reintentar')->name('reintentar');
                         // Va con el mismo permiso que facturar: es el

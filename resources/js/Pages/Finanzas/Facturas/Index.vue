@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
 import BarraListado from '@/Components/BarraListado.vue';
@@ -45,6 +45,35 @@ const definicionFiltros = [
 ];
 
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
+
+/*
+ * El paquete del mes.
+ *
+ * Va como enlace y no como formulario POST porque es una LECTURA: se puede
+ * repetir, compartir y guardar en favoritos, y el navegador la descarga sin
+ * salir de la pantalla.
+ *
+ * Arranca en el mes pasado completo, que es el que se entrega a contabilidad:
+ * el mes en curso todavía tiene facturas por emitir y bajarlo entero sería
+ * bajarlo dos veces.
+ */
+const hoy = new Date();
+const mesPasado = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
+const finMesPasado = new Date(hoy.getFullYear(), hoy.getMonth(), 0);
+
+const aIso = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+const paquete = ref({ desde: aIso(mesPasado), hasta: aIso(finMesPasado), conPdf: false });
+
+const urlPaquete = computed(() => {
+    const p = new URLSearchParams({ desde: paquete.value.desde, hasta: paquete.value.hasta });
+    if (paquete.value.conPdf) p.set('con_pdf', '1');
+
+    return `/finanzas/facturas/descargar-lote?${p.toString()}`;
+});
+
+const descargando = ref(false);
 
 const colorEstatus: Record<string, string> = {
     borrador: 'text-suave bg-fondo',
@@ -108,6 +137,62 @@ const ICONO_FACTURA =
                 </a>
             </template>
         </BarraListado>
+
+        <!--
+            El paquete para contabilidad. Se despliega porque es mensual: tenerlo
+            siempre abierto le quitaría sitio al listado, que es a lo que se
+            entra todos los días.
+        -->
+        <section class="tarjeta mb-4 p-4">
+            <button
+                type="button"
+                class="text-sm font-medium"
+                :style="{ color: 'var(--color-acento)' }"
+                @click="descargando = !descargando"
+            >
+                {{ descargando ? '−' : '+' }} Descargar los comprobantes de un periodo
+            </button>
+
+            <div v-if="descargando" class="mt-3">
+                <p class="text-sm" :style="{ color: 'var(--color-suave)' }">
+                    Un ZIP con los XML del periodo y un <strong>manifiesto</strong> que los lista con su
+                    estado. Van también las canceladas —la contabilidad electrónica las pide— y el
+                    manifiesto dice cuáles lo están y a cuáles les falta el XML.
+                </p>
+
+                <div class="mt-3 flex flex-wrap items-end gap-3">
+                    <label class="text-sm">
+                        <span class="mb-1 block font-medium">Desde</span>
+                        <input
+                            v-model="paquete.desde"
+                            type="date"
+                            class="rounded-lg border px-3 py-2 text-sm"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                        />
+                    </label>
+                    <label class="text-sm">
+                        <span class="mb-1 block font-medium">Hasta</span>
+                        <input
+                            v-model="paquete.hasta"
+                            type="date"
+                            class="rounded-lg border px-3 py-2 text-sm"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                        />
+                    </label>
+                    <label class="flex items-center gap-2 pb-2 text-sm">
+                        <input v-model="paquete.conPdf" type="checkbox" />
+                        Incluir también los PDF
+                    </label>
+                    <a
+                        :href="urlPaquete"
+                        class="rounded-lg px-4 py-2 text-sm font-medium"
+                        :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+                    >
+                        Descargar
+                    </a>
+                </div>
+            </div>
+        </section>
 
         <!-- Cuadrícula -->
         <template v-if="vista === 'cuadricula'">

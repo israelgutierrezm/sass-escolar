@@ -11,6 +11,7 @@ use App\Models\Finanzas\Factura;
 use App\Models\Finanzas\FacturaConcepto;
 use App\Models\Finanzas\Pago;
 use App\Services\Cfdi\ComplementoEducativo;
+use App\Services\DescargaMasivaCfdi;
 use App\Services\EmisorFactura;
 use App\Services\EmisorNotaCredito;
 use Illuminate\Http\RedirectResponse;
@@ -20,6 +21,7 @@ use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -38,6 +40,7 @@ class FacturaController extends Controller
         private readonly EmisorFactura $emisor,
         private readonly ComplementoEducativo $complemento,
         private readonly EmisorNotaCredito $notasCredito,
+        private readonly DescargaMasivaCfdi $descargaMasiva,
     ) {}
 
     public function index(Request $request): Response
@@ -77,6 +80,40 @@ class FacturaController extends Controller
                 Factura::ESTATUS_CANCELADA,
             ],
         ]);
+    }
+
+    /**
+     * El paquete de comprobantes de un periodo: el trabajo mensual del contador.
+     *
+     * Se acota por campus igual que el listado —y no es cosmético: sin eso,
+     * quien sólo alcanza un plantel se llevaría en un ZIP los CFDI de toda la
+     * escuela, que es justo lo que su alcance le niega en la pantalla—.
+     */
+    public function descargarLote(Request $peticion): BinaryFileResponse|RedirectResponse
+    {
+        $datos = $peticion->validate([
+            'desde' => ['required', 'date'],
+            'hasta' => ['required', 'date', 'after_or_equal:desde'],
+            'con_pdf' => ['boolean'],
+        ]);
+
+        $consulta = Factura::query();
+        $this->acotarMatriculas($consulta, $peticion, 'matriculaOferta');
+
+        try {
+            $paquete = $this->descargaMasiva->armar(
+                $consulta,
+                $datos['desde'],
+                $datos['hasta'],
+                // `boolean()` y no el valor crudo: la cadena «0» de una casilla
+                // es VERDADERA en PHP. Misma trampa de siempre.
+                $peticion->boolean('con_pdf'),
+            );
+        } catch (RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return response()->download($paquete['ruta'], $paquete['nombre'])->deleteFileAfterSend(true);
     }
 
     public function show(Factura $factura): Response
