@@ -40,6 +40,18 @@ class Adeudo extends Model
 
     public const ESTATUS_CONDONADO = 'condonado';
 
+    /**
+     * Lo cubre un convenio de pago: se cobra por sus parcialidades, no por
+     * aquí.
+     *
+     * No es «cancelado» —el cargo existió y sigue explicando qué se debía y
+     * desde cuándo— ni «pagado», porque nadie lo ha pagado todavía. Todo el
+     * motor de cartera filtra por la lista blanca `[pendiente, parcial]`, así
+     * que este valor no se cuenta dos veces, no acumula mora y no se puede
+     * pagar por la puerta de atrás.
+     */
+    public const ESTATUS_EN_CONVENIO = 'en_convenio';
+
     protected $table = 'adeudos';
 
     /**
@@ -69,6 +81,9 @@ class Adeudo extends Model
         'fecha_generacion',
         'fecha_vencimiento',
         'estatus',
+        // Puesto sólo en las PARCIALIDADES: este cargo lo creó ese convenio.
+        // Los cargos que el convenio cubre se identifican por el pivote.
+        'convenio_id',
     ];
 
     protected function casts(): array
@@ -163,6 +178,12 @@ class Adeudo extends Model
     public function scopePorCobrar(Builder $query): Builder
     {
         return $query->whereIn('estatus', [self::ESTATUS_PENDIENTE, self::ESTATUS_PARCIAL]);
+    }
+
+    /** El convenio del que este cargo es parcialidad, si lo es. */
+    public function convenio(): BelongsTo
+    {
+        return $this->belongsTo(ConvenioPago::class, 'convenio_id');
     }
 
     public function scopeDeAspirante(Builder $query, int $aspiranteId): Builder

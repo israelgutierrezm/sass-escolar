@@ -44,6 +44,7 @@ use App\Http\Controllers\ConceptoPagoController;
 use App\Http\Controllers\ConciliacionBancariaController;
 use App\Http\Controllers\ConfiguracionController;
 use App\Http\Controllers\ConfiguracionEscolarController;
+use App\Http\Controllers\ConvenioPagoController;
 use App\Http\Controllers\CorreoConfigController;
 use App\Http\Controllers\CredencialConfiguracionController;
 use App\Http\Controllers\CreditosEmisionController;
@@ -1693,6 +1694,28 @@ Route::middleware([
                         Route::post('/{emisor}/asignaciones', 'asignar')->name('asignar');
                         Route::delete('/{emisor}/asignaciones/{asignacion}', 'desasignar')->name('desasignar');
                         Route::delete('/{emisor}', 'destroy')->name('destroy');
+                    });
+
+                /*
+                 * Convenios de pago. Permiso PROPIO: firmar uno decide cuándo
+                 * se le cobra a alguien, y por tanto si queda bloqueado. Es una
+                 * autorización, no una operación de mostrador.
+                 *
+                 * Va ANTES del grupo de `FinanzasController` porque comparte el
+                 * prefijo `/finanzas` y ahí hay comodines.
+                 */
+                Route::controller(ConvenioPagoController::class)
+                    ->prefix('convenios')->name('convenios.')
+                    ->middleware('can:autorizar-convenios')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::get('/elegibles/{matricula}', 'elegibles')
+                            ->whereNumber('matricula')->name('elegibles');
+                        Route::post('/{matricula}', 'crear')->whereNumber('matricula')->name('store');
+                        Route::put('/{convenio}/cancelar', 'cancelar')
+                            ->whereNumber('convenio')->name('cancelar');
+                        Route::put('/{convenio}/incumplir', 'incumplir')
+                            ->whereNumber('convenio')->name('incumplir');
                     });
 
                 Route::controller(FinanzasController::class)->group(function () {

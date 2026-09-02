@@ -69,6 +69,14 @@ class EstadoCuenta
                 'generacion' => $a->fecha_generacion?->toDateString(),
                 'vencimiento' => $a->fecha_vencimiento?->toDateString(),
                 'estatus' => $a->estatus,
+                /*
+                 * De qué convenio es parcialidad este cargo, si lo es. Sin
+                 * decirlo, en el estado de cuenta aparece «Colegiatura» con una
+                 * fecha que no cuadra con ninguna del plan y nadie sabe de
+                 * dónde salió. El cargo CUBIERTO por un convenio se reconoce
+                 * por su estatus `en_convenio`.
+                 */
+                'convenio_id' => $a->convenio_id,
                 'vencido' => $a->estaVencido($fecha->toDateString()),
                 'dias_vencido' => $a->estaVencido($fecha->toDateString())
                     ? (int) $a->fecha_vencimiento->diffInDays($fecha)
