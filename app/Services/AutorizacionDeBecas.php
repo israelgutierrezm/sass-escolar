@@ -124,6 +124,18 @@ class AutorizacionDeBecas
             return 'Ese nivel ya está firmado.';
         }
 
+        /*
+         * Y la beca tiene que seguir esperando. Revocarla mientras espera firma
+         * la deja PERDIDA con sus autorizaciones abiertas: sin esto se le
+         * seguiría pidiendo la firma a alguien —y firmarla la volvería a
+         * ACTIVAR, deshaciendo la revocación sin que nadie lo pidiera—.
+         */
+        $becaAlumno = $autorizacion->becaAlumno;
+
+        if ($becaAlumno !== null && $becaAlumno->estatus !== BecaAlumno::POR_AUTORIZAR) {
+            return 'Esta beca ya no está en espera de autorización.';
+        }
+
         $rol = $autorizacion->nivel?->rol_id;
         $roles = $usuario->rolesDisponibles()->pluck('id')->map(fn ($id) => (int) $id)->all();
 
@@ -214,8 +226,9 @@ class AutorizacionDeBecas
      * La cola de firmas de una persona: lo que ESTÁ esperando su rol.
      *
      * Se excluye lo que ella misma ya firmó en otro nivel —no puede firmarlo—
-     * porque una cola con renglones que no se pueden atender enseña a ignorar
-     * la cola.
+     * y las becas que ya dejaron de esperar: revocar una mientras espera firma
+     * la deja PERDIDA con sus autorizaciones abiertas, y una cola con renglones
+     * que no se pueden atender enseña a ignorar la cola.
      */
     public function pendientesDe(Usuario $usuario): Collection
     {
@@ -232,6 +245,7 @@ class AutorizacionDeBecas
 
         return BecaAlumnoAutorizacion::query()
             ->whereNull('autorizada_en')
+            ->whereIn('beca_alumno_id', BecaAlumno::query()->porAutorizar()->select('id'))
             ->whereIn('nivel_id', NivelAutorizacionBeca::query()->whereIn('rol_id', $roles)->select('id'))
             ->whereNotIn('beca_alumno_id', $yaFirmadas)
             ->with([
@@ -257,6 +271,7 @@ class AutorizacionDeBecas
         $pendientes = BecaAlumnoAutorizacion::query()
             ->where('nivel_id', $nivel->id)
             ->whereNull('autorizada_en')
+            ->whereIn('beca_alumno_id', BecaAlumno::query()->porAutorizar()->select('id'))
             ->count();
 
         return $pendientes > 0

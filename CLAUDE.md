@@ -838,8 +838,14 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     con la cola abierta lo pasan las dos y la segunda borraría del acta a quien
     cerró el nivel. La suite reproduce la carrera con una copia leída antes de
     que nadie firmara.
-  - Pruebas: `scripts/prueba-autorizacion-becas.php`, 65 verificaciones,
-    comprobadas mutando **24 reglas**. En la primera pasada sobrevivieron siete:
+  - **Revocar mientras espera firma la SACA de la cola.** `perder()` deja la
+    beca PERDIDA con sus autorizaciones abiertas: sin filtrar, se le seguiría
+    pidiendo la firma a alguien —y firmarla la volvería a ACTIVAR, deshaciendo
+    la revocación sin que nadie lo pidiera—, y además congelaría el apagado de
+    su nivel para siempre. Se filtra en los TRES sitios que preguntan: la cola,
+    el impedimento para firmar y el motivo para no apagar.
+  - Pruebas: `scripts/prueba-autorizacion-becas.php`, 70 verificaciones,
+    comprobadas mutando **27 reglas**. En la primera pasada sobrevivieron siete:
     - **Tres eran huecos de verdad**, los tres del mismo tipo —el escenario no
       contenía el caso—: no se probaba un nivel APAGADO, `firmar` sólo se
       ejercitaba por caminos felices (se comprobaba `motivoParaNoFirmar` y no

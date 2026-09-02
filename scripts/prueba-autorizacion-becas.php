@@ -533,6 +533,36 @@ try {
     $firmanteB->refresh();
     $firmanteB->load('persona');
 
+    echo PHP_EOL.'9.b Revocar mientras espera firma la saca de la cola'.PHP_EOL;
+
+    /*
+     * Revocar deja la beca PERDIDA con sus autorizaciones ABIERTAS. Sin
+     * filtrar, se le seguiría pidiendo la firma a alguien —y firmarla la
+     * volvería a ACTIVAR, deshaciendo la revocación sin que nadie lo pidiera—,
+     * además de bloquear para siempre el apagado de su nivel.
+     */
+    $porRevocar = BecaAlumno::where('beca_id', $tercera->id)->firstOrFail();
+    $suFirma = $porRevocar->autorizaciones()->whereNull('autorizada_en')->firstOrFail();
+
+    verificar('Antes de revocar, está en la cola', $servicio->pendientesDe($firmanteA)->contains('id', $suFirma->id));
+
+    $peticion = Request::create('/', 'PUT', ['motivo' => 'Se retira la beca.']);
+    entrarComo($otorgante, $peticion);
+    $becas->revocar($peticion, $tercera, $porRevocar);
+    $porRevocar->refresh();
+
+    verificar('Queda perdida', $porRevocar->estatus === BecaAlumno::PERDIDA, $porRevocar->estatus);
+    verificar('Y sale de la cola', ! $servicio->pendientesDe($firmanteA)->contains('id', $suFirma->id));
+    verificar(
+        'Y no se puede firmar',
+        $servicio->motivoParaNoFirmar($firmanteA, $suFirma->fresh()) !== null,
+        (string) $servicio->motivoParaNoFirmar($firmanteA, $suFirma->fresh())
+    );
+
+    // Y deja de bloquear el apagado de su nivel: si no, revocar una beca dejaría
+    // el nivel congelado para siempre sin pantalla desde donde destrabarlo.
+    verificar('Su nivel ya se puede apagar', $servicio->motivoParaNoApagar($nivel1) === null);
+
     echo PHP_EOL.'10. Renovar vuelve a pedir firmas'.PHP_EOL;
 
     $ciclo = App\Models\ControlEscolar\Ciclo::query()->orderByDesc('id')->firstOrFail();
