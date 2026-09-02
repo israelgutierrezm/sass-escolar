@@ -20,6 +20,9 @@ class BecaAlumnoMovimiento extends Model
 
     public const OTORGADA = 'otorgada';
 
+    /** Alguien firmó uno de los niveles que la beca exige. */
+    public const AUTORIZADA = 'autorizada';
+
     public const RENOVADA = 'renovada';
 
     /** Pasó el corte del ciclo y espera que alguien confirme la renovación. */

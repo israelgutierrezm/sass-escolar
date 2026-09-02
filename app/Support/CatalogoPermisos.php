@@ -364,6 +364,7 @@ final class CatalogoPermisos
             'cerrar-periodo-fiscal' => ['Cerrar el periodo fiscal', 'Declarar un mes cerrado, con lo que deja de poderse cancelar un comprobante suyo. Es un acto de supervisión, aparte de emitir CFDI todos los días.', [self::ADMINISTRATIVO]],
             'gestionar-cajas' => ['Administrar cajas', 'Dar de alta los mostradores donde se recibe dinero, por campus. No es cobrar: es decidir qué cajas existen.', [self::ADMINISTRATIVO]],
             'operar-caja' => ['Operar una caja', 'Abrir el turno con su fondo, cobrar dentro de él y cerrarlo contando el efectivo.', [self::ADMINISTRATIVO]],
+            'autorizar-becas' => ['Autorizar becas', 'Firmar el nivel que le corresponda a su rol para que una beca entre en vigor. Va aparte de otorgarla: quien la propone no es quien la aprueba, y mientras falte una firma la beca no descuenta nada.', [self::ADMINISTRATIVO]],
             'autorizar-corte-caja' => ['Autorizar diferencias de caja', 'Explicar y dar por buena la diferencia de un corte que no cuadró. Va aparte de operar: quien cuenta el dinero no puede autorizarse a sí mismo su propio faltante.', [self::ADMINISTRATIVO]],
         ],
 

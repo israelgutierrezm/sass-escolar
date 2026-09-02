@@ -15,6 +15,7 @@ use App\Http\Controllers\AsignaturaGrupoController;
 use App\Http\Controllers\AspiranteController;
 use App\Http\Controllers\AulaController;
 use App\Http\Controllers\AutenticacionController;
+use App\Http\Controllers\AutorizacionBecaController;
 use App\Http\Controllers\AutorizacionController;
 use App\Http\Controllers\AvisoGrabacionController;
 use App\Http\Controllers\BecaController;
@@ -1485,13 +1486,52 @@ Route::middleware([
 
                         // Cierre de ciclo: decide qué becas se renuevan.
                         Route::post('/renovacion', 'evaluarRenovacion')->name('renovacion');
-                        Route::get('/{beca}', 'show')->name('show');
-                        Route::put('/{beca}', 'update')->name('update');
-                        Route::delete('/{beca}', 'destroy')->name('destroy');
+                        // Con número: si no, `/becas/autorizaciones` casaría
+                        // contra este comodín y respondería 404 sin que nada se
+                        // quejara.
+                        Route::get('/{beca}', 'show')->whereNumber('beca')->name('show');
+                        Route::put('/{beca}', 'update')->whereNumber('beca')->name('update');
+                        Route::delete('/{beca}', 'destroy')->whereNumber('beca')->name('destroy');
 
                         Route::post('/{beca}/otorgar', 'otorgar')->name('otorgar');
                         Route::put('/{beca}/otorgadas/{otorgada}/revocar', 'revocar')->name('revocar');
                         Route::post('/{beca}/otorgadas/{otorgada}/renovar', 'renovar')->name('renovar');
+
+                        // Con qué se sostiene la beca. Va con el permiso del
+                        // grupo: quien la otorga es quien junta sus papeles.
+                        Route::post('/{beca}/otorgadas/{otorgada}/evidencias', 'subirEvidencia')
+                            ->name('evidencias.store');
+                        Route::get('/{beca}/otorgadas/{otorgada}/evidencias/{evidencia}', 'descargarEvidencia')
+                            ->name('evidencias.descargar');
+                        Route::delete('/{beca}/otorgadas/{otorgada}/evidencias/{evidencia}', 'eliminarEvidencia')
+                            ->name('evidencias.destroy');
+                    });
+
+                /*
+                 * La escala de firmas. DOS puertas y no una:
+                 *
+                 * - configurarla es configurar el cobro, como poner el monto de
+                 *   una colegiatura;
+                 * - firmarla es aprobar un gasto caso por caso.
+                 *
+                 * Quien define la política no tiene por qué poder aprobar cada
+                 * beca, y quien aprueba no tiene por qué poder bajarse el
+                 * umbral que le toca firmar.
+                 */
+                Route::controller(AutorizacionBecaController::class)
+                    ->prefix('becas')->name('becas.')
+                    ->group(function () {
+                        Route::middleware('can:autorizar-becas')->group(function () {
+                            Route::get('/autorizaciones', 'pendientes')->name('autorizaciones');
+                            Route::post('/autorizaciones/{autorizacion}/firmar', 'firmar')
+                                ->name('autorizaciones.firmar');
+                        });
+
+                        Route::middleware('can:gestionar-planes-cobro')->group(function () {
+                            Route::get('/niveles', 'niveles')->name('niveles');
+                            Route::post('/niveles', 'guardarNivel')->name('niveles.store');
+                            Route::put('/niveles/{nivel}', 'actualizarNivel')->name('niveles.update');
+                        });
                     });
 
                 // Descuentos comerciales (pago anticipado, campaña).

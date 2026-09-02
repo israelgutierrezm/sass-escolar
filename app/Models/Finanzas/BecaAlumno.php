@@ -29,6 +29,13 @@ class BecaAlumno extends Model
 
     public const ACTIVA = 'activa';
 
+    /**
+     * Otorgada, pero esperando firmas. NO descuenta nada: `aplicaEn()` exige
+     * ACTIVA, así que el estado es por sí solo la puerta que la autorización
+     * multinivel necesitaba —ninguna guarda aparte—.
+     */
+    public const POR_AUTORIZAR = 'por_autorizar';
+
     /** Perdió el descuento temporalmente (p. ej. por un atraso). */
     public const SUSPENDIDA = 'suspendida';
 
@@ -79,9 +86,25 @@ class BecaAlumno extends Model
         return $this->belongsTo(Persona::class, 'autorizado_por');
     }
 
+    public function autorizaciones(): HasMany
+    {
+        return $this->hasMany(BecaAlumnoAutorizacion::class, 'beca_alumno_id');
+    }
+
+    public function evidencias(): HasMany
+    {
+        return $this->hasMany(BecaAlumnoEvidencia::class, 'beca_alumno_id');
+    }
+
     public function movimientos(): HasMany
     {
         return $this->hasMany(BecaAlumnoMovimiento::class, 'beca_alumno_id')->latest('id');
+    }
+
+    /** Las que esperan firma. La cola de quien autoriza. */
+    public function scopePorAutorizar(Builder $query): Builder
+    {
+        return $query->where('estatus', self::POR_AUTORIZAR);
     }
 
     public function scopeActivas(Builder $query): Builder

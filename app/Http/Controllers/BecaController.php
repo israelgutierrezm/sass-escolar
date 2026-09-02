@@ -9,19 +9,25 @@ use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\Ciclo;
 use App\Models\Finanzas\Beca;
 use App\Models\Finanzas\BecaAlumno;
+use App\Models\Finanzas\BecaAlumnoAutorizacion;
+use App\Models\Finanzas\BecaAlumnoEvidencia;
 use App\Models\Finanzas\BecaAlumnoMovimiento;
 use App\Models\Finanzas\ConceptoPago;
 use App\Models\Finanzas\Patrocinador;
 use App\Models\Finanzas\PresupuestoBeca;
+use App\Services\AutorizacionDeBecas;
 use App\Services\EvaluadorBecas;
 use App\Services\GeneradorAdeudos;
 use App\Services\PresupuestoDeBecas;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Becas: el catálogo y su otorgamiento.
@@ -39,6 +45,7 @@ class BecaController extends Controller
     public function __construct(
         private readonly GeneradorAdeudos $generador,
         private readonly EvaluadorBecas $evaluador,
+        private readonly AutorizacionDeBecas $autorizacion,
     ) {}
 
     public function index(Request $request): Response
@@ -245,6 +252,9 @@ class BecaController extends Controller
                 'matricula.oferta.programaAcademico:id,nombre',
                 'ciclo:id,nombre',
                 'movimientos',
+                'autorizaciones.nivel.rol:id,name,nombre',
+                'autorizaciones.usuario.persona:id,nombre,primer_apellido,segundo_apellido',
+                'evidencias',
             ])
             ->orderByDesc('id')
             ->get()
@@ -259,6 +269,22 @@ class BecaController extends Controller
                 'vigente_hasta' => $b->vigente_hasta?->toDateString(),
                 'promedio_evaluado' => $b->promedio_evaluado !== null ? (float) $b->promedio_evaluado : null,
                 'motivo' => $b->motivo,
+                'autorizaciones' => $b->autorizaciones
+                    ->sortBy(fn (BecaAlumnoAutorizacion $a) => [$a->nivel?->orden ?? 0, $a->nivel_id])
+                    ->map(fn (BecaAlumnoAutorizacion $a) => [
+                        'nivel' => $a->nivel?->nombre,
+                        'rol' => $a->nivel?->rol?->nombre ?: $a->nivel?->rol?->name,
+                        'firmada' => $a->estaFirmada(),
+                        'por' => $a->usuario?->persona?->nombreCompleto(),
+                        'fecha' => $a->autorizada_en?->format('d/m/Y H:i'),
+                        'motivo' => $a->motivo,
+                    ])->values(),
+                'evidencias' => $b->evidencias->map(fn (BecaAlumnoEvidencia $e) => [
+                    'id' => $e->id,
+                    'nombre' => $e->nombre,
+                    'notas' => $e->notas,
+                    'fecha' => $e->created_at?->format('d/m/Y'),
+                ])->values(),
                 'movimientos' => $b->movimientos->map(fn (BecaAlumnoMovimiento $m) => [
                     'accion' => $m->accion,
                     'detalle' => $m->detalle,
@@ -290,6 +316,79 @@ class BecaController extends Controller
             // Vigentes: una beca se otorga o se renueva sobre el ciclo que corre.
             'ciclos' => Ciclo::query()->vigentes()->orderByDesc('fecha_inicio')->get(['id', 'nombre']),
         ]);
+    }
+
+    /**
+     * Con qué se sostiene una beca: el estudio socioeconómico, la carta, el
+     * acta del comité.
+     *
+     * Cuelga de la beca OTORGADA y no del expediente de la persona: el papel
+     * sostiene ESTA decisión, y la del ciclo que viene tendrá el suyo. Colgada
+     * de la persona, renovar heredaría la evidencia vieja sin que nadie la
+     * volviera a mirar.
+     */
+    public function subirEvidencia(Request $request, Beca $beca, BecaAlumno $otorgada): RedirectResponse
+    {
+        abort_unless($otorgada->beca_id === $beca->id, 404);
+        $this->autorizarOtorgada($request, $otorgada);
+
+        $datos = $request->validate([
+            'nombre' => ['required', 'string', 'max:150'],
+            'notas' => ['nullable', 'string', 'max:255'],
+            'archivo' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:8192'],
+        ]);
+
+        // Al disco PRIVADO: un estudio socioeconómico trae el ingreso de una
+        // familia, y en `public/` lo abriría cualquiera con la dirección.
+        $ruta = $request->file('archivo')->store(
+            sprintf('becas/evidencias/%d', $otorgada->id),
+            'local',
+        );
+
+        BecaAlumnoEvidencia::create([
+            'beca_alumno_id' => $otorgada->id,
+            'nombre' => $datos['nombre'],
+            'archivo_ruta' => $ruta,
+            'notas' => $datos['notas'] ?? null,
+        ]);
+
+        return back(303)->with('exito', 'Evidencia cargada.');
+    }
+
+    public function descargarEvidencia(Request $request, Beca $beca, BecaAlumno $otorgada, BecaAlumnoEvidencia $evidencia): StreamedResponse
+    {
+        abort_unless($otorgada->beca_id === $beca->id, 404);
+        // Las tres ids viajan por la URL: sin comprobar la PAREJA, con una beca
+        // propia en los primeros huecos se pediría la evidencia de cualquiera.
+        abort_unless($evidencia->beca_alumno_id === $otorgada->id, 404);
+        $this->autorizarOtorgada($request, $otorgada);
+
+        abort_unless(Storage::disk('local')->exists($evidencia->archivo_ruta), 404);
+
+        return Storage::disk('local')->download($evidencia->archivo_ruta, $evidencia->nombre);
+    }
+
+    /**
+     * Se retira mientras la beca espera firma. Una vez autorizada, no: la
+     * evidencia es sobre lo que alguien firmó, y quitarla dejaría la firma
+     * explicando un expediente que ya no está.
+     */
+    public function eliminarEvidencia(Request $request, Beca $beca, BecaAlumno $otorgada, BecaAlumnoEvidencia $evidencia): RedirectResponse
+    {
+        abort_unless($otorgada->beca_id === $beca->id, 404);
+        abort_unless($evidencia->beca_alumno_id === $otorgada->id, 404);
+        $this->autorizarOtorgada($request, $otorgada);
+
+        $firmada = $otorgada->autorizaciones()->whereNotNull('autorizada_en')->exists();
+
+        if ($firmada) {
+            return back(303)->with('error', 'Esta beca ya tiene firmas: su evidencia no se retira. Sube la que falte.');
+        }
+
+        Storage::disk('local')->delete($evidencia->archivo_ruta);
+        $evidencia->delete();
+
+        return back(303)->with('exito', 'Evidencia retirada.');
     }
 
     /** Busca alumnos activos por matrícula o nombre, para otorgarles la beca. */
@@ -357,16 +456,46 @@ class BecaController extends Controller
             return back()->with('error', 'Ese alumno ya tiene esta beca en ese ciclo.');
         }
 
-        $becaAlumno = BecaAlumno::create($datos + [
-            'beca_id' => $beca->id,
-            'estatus' => BecaAlumno::ACTIVA,
-            'autorizado_por' => $request->user()?->persona_id,
-        ]);
+        /*
+         * Si la escuela configuró niveles para una beca de este tamaño, nace
+         * `por_autorizar` y NO descuenta: `aplicaEn()` exige ACTIVA. Sin
+         * niveles se comporta como siempre, así que quien no use la escala no
+         * nota el cambio.
+         *
+         * `autorizado_por` guarda a quien la PROPUSO. Las firmas viven en
+         * `beca_alumno_autorizaciones`, que es lo que de verdad la habilita.
+         */
+        $niveles = $this->autorizacion->nivelesPara($beca);
 
-        $this->evaluador->registrar($becaAlumno, BecaAlumnoMovimiento::OTORGADA, $datos['motivo'] ?? null);
+        [, $tocados] = DB::transaction(function () use ($datos, $beca, $request, $niveles) {
+            $creada = BecaAlumno::create($datos + [
+                'beca_id' => $beca->id,
+                'estatus' => $niveles->isEmpty() ? BecaAlumno::ACTIVA : BecaAlumno::POR_AUTORIZAR,
+                'autorizado_por' => $request->user()?->persona_id,
+            ]);
 
-        $matricula = MatriculaOferta::find($datos['matricula_oferta_id']);
-        $tocados = $matricula !== null ? $this->generador->recalcularPendientes($matricula) : 0;
+            $this->autorizacion->abrir($creada, $beca);
+            $this->evaluador->registrar($creada, BecaAlumnoMovimiento::OTORGADA, $datos['motivo'] ?? null);
+
+            // Recalcular una beca que todavía no descuenta sería recorrer sus
+            // cargos para dejarlos igual, y el mensaje diría que se tocaron.
+            if ($niveles->isNotEmpty()) {
+                return [$creada, 0];
+            }
+
+            $matricula = MatriculaOferta::find($datos['matricula_oferta_id']);
+
+            return [$creada, $matricula !== null ? $this->generador->recalcularPendientes($matricula) : 0];
+        });
+
+        if ($niveles->isNotEmpty()) {
+            $quienes = $niveles->map(fn ($n) => $n->rol?->nombre ?: $n->rol?->name)->filter()->implode(', ');
+
+            return back()->with(
+                'exito',
+                "Beca otorgada, en espera de {$niveles->count()} autorización(es): {$quienes}. No descuenta nada hasta que se firme."
+            );
+        }
 
         return back()->with(
             'exito',
@@ -399,25 +528,39 @@ class BecaController extends Controller
             'vigente_hasta' => ['nullable', 'date', 'after_or_equal:vigente_desde'],
         ]);
 
-        $nueva = BecaAlumno::create([
-            'matricula_oferta_id' => $otorgada->matricula_oferta_id,
-            'beca_id' => $beca->id,
-            'ciclo_id' => $datos['ciclo_id'],
-            'estatus' => BecaAlumno::ACTIVA,
-            'vigente_desde' => $datos['vigente_desde'],
-            'vigente_hasta' => $datos['vigente_hasta'] ?? null,
-            'promedio_evaluado' => $otorgada->promedio_evaluado,
-            'autorizado_por' => $request->user()?->persona_id,
-            'motivo' => 'Renovación',
-        ]);
+        /*
+         * Renovar VUELVE a pedir firmas. Es un gasto nuevo, de otro ciclo, y
+         * heredar la autorización del anterior convertiría una beca firmada
+         * una vez en una beca firmada para siempre.
+         */
+        $niveles = $this->autorizacion->nivelesPara($beca);
 
-        $this->evaluador->registrar($nueva, BecaAlumnoMovimiento::RENOVADA, 'Renovada desde el ciclo anterior.');
+        DB::transaction(function () use ($otorgada, $beca, $datos, $request, $niveles) {
+            $creada = BecaAlumno::create([
+                'matricula_oferta_id' => $otorgada->matricula_oferta_id,
+                'beca_id' => $beca->id,
+                'ciclo_id' => $datos['ciclo_id'],
+                'estatus' => $niveles->isEmpty() ? BecaAlumno::ACTIVA : BecaAlumno::POR_AUTORIZAR,
+                'vigente_desde' => $datos['vigente_desde'],
+                'vigente_hasta' => $datos['vigente_hasta'] ?? null,
+                'promedio_evaluado' => $otorgada->promedio_evaluado,
+                'autorizado_por' => $request->user()?->persona_id,
+                'motivo' => 'Renovación',
+            ]);
 
-        if ($otorgada->matricula !== null) {
-            $this->generador->recalcularPendientes($otorgada->matricula);
-        }
+            $this->autorizacion->abrir($creada, $beca);
+            $this->evaluador->registrar($creada, BecaAlumnoMovimiento::RENOVADA, 'Renovada desde el ciclo anterior.');
 
-        return back()->with('exito', 'Beca renovada para el ciclo nuevo.');
+            if ($niveles->isEmpty() && $otorgada->matricula !== null) {
+                $this->generador->recalcularPendientes($otorgada->matricula);
+            }
+
+            return $creada;
+        });
+
+        return back()->with('exito', $niveles->isEmpty()
+            ? 'Beca renovada para el ciclo nuevo.'
+            : "Renovación registrada, en espera de {$niveles->count()} autorización(es). No descuenta hasta que se firme.");
     }
 
     /**

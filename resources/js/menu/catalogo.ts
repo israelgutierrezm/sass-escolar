@@ -430,6 +430,11 @@ export const CATALOGO_MENU: GrupoMenu[] = [
             { clave: 'planes-cobro', etiqueta: 'Planes de cobro', url: '/finanzas/planes', permiso: 'gestionar-planes-cobro', y: 'ver-adeudos' },
             { clave: 'becas', etiqueta: 'Becas', url: '/finanzas/becas', permiso: 'gestionar-planes-cobro', y: 'ver-adeudos' },
             { clave: 'presupuesto-becas', etiqueta: 'Presupuesto de becas', url: '/finanzas/becas/presupuesto', permiso: 'gestionar-planes-cobro', y: 'ver-adeudos' },
+            // Dos entradas y no una: configurar la escala es del oficio del
+            // cobro, y firmarla es de quien aprueba el gasto. Sin la
+            // segunda, `autorizar-becas` sería un permiso sin puerta.
+            { clave: 'niveles-beca', etiqueta: 'Niveles de autorización', url: '/finanzas/becas/niveles', permiso: 'gestionar-planes-cobro', y: 'ver-adeudos' },
+            { clave: 'autorizaciones-beca', etiqueta: 'Becas por autorizar', url: '/finanzas/becas/autorizaciones', permiso: 'autorizar-becas', y: 'ver-adeudos' },
             { clave: 'descuentos', etiqueta: 'Descuentos', url: '/finanzas/descuentos', permiso: 'gestionar-planes-cobro', y: 'ver-adeudos' },
             { clave: 'conceptos', etiqueta: 'Conceptos de pago', url: '/finanzas/conceptos', permiso: 'gestionar-planes-cobro', y: 'ver-adeudos' },
             /*

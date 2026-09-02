@@ -26,6 +26,25 @@ interface Otorgada {
     promedio_evaluado: number | null;
     motivo: string | null;
     movimientos: Movimiento[];
+    autorizaciones: Autorizacion[];
+    evidencias: Evidencia[];
+}
+
+/** Una firma de la escala: pendiente mientras `firmada` sea falso. */
+interface Autorizacion {
+    nivel: string | null;
+    rol: string | null;
+    firmada: boolean;
+    por: string | null;
+    fecha: string | null;
+    motivo: string | null;
+}
+
+interface Evidencia {
+    id: number;
+    nombre: string;
+    notas: string | null;
+    fecha: string | null;
 }
 
 const props = defineProps<{
@@ -40,6 +59,33 @@ const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN
 // coincidencia que en las materias de un grupo. Antes esta pantalla llevaba su
 // propia copia del widget —debounce, resultados, elegido— y era la única.
 const buscador = ref<{ limpiar: () => void } | null>(null);
+
+// --- evidencia de la beca otorgada
+const evidencia = useForm<{ nombre: string; notas: string; archivo: File | null }>({
+    nombre: '',
+    notas: '',
+    archivo: null,
+});
+
+function tomarArchivo(e: Event): void {
+    evidencia.archivo = (e.target as HTMLInputElement).files?.[0] ?? null;
+}
+
+function subirEvidencia(o: Otorgada): void {
+    evidencia.post(`/finanzas/becas/${props.beca.id}/otorgadas/${o.id}/evidencias`, {
+        preserveScroll: true,
+        forceFormData: true,
+        onSuccess: () => evidencia.reset(),
+    });
+}
+
+function retirarEvidencia(o: Otorgada, e: Evidencia): void {
+    if (!confirm(`¿Retirar «${e.nombre}»?`)) return;
+
+    router.delete(`/finanzas/becas/${props.beca.id}/otorgadas/${o.id}/evidencias/${e.id}`, {
+        preserveScroll: true,
+    });
+}
 
 const otorgar = useForm({
     matricula_oferta_id: null as number | null,
@@ -202,6 +248,60 @@ const etiquetaAccion: Record<string, string> = {
                             <!-- Bitácora -->
                             <tr v-if="detalle === o.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
                                 <td colspan="5" class="px-6 py-4" style="background-color: color-mix(in srgb, var(--color-acento) 4%, transparent)">
+                                    <!--
+                                        Las firmas van ARRIBA de la bitácora: la
+                                        pregunta de quien abre una beca en
+                                        espera es qué falta para que descuente,
+                                        no qué le ha pasado.
+                                    -->
+                                    <template v-if="o.autorizaciones.length">
+                                        <p class="mb-2 text-xs font-medium" :style="{ color: 'var(--color-suave)' }">Autorizaciones</p>
+                                        <ul class="mb-4 space-y-1.5">
+                                            <li v-for="(a, i) in o.autorizaciones" :key="'a' + i" class="flex flex-wrap items-center gap-x-2 text-xs">
+                                                <span class="rounded-full px-2 py-0.5 font-medium" :style="a.firmada
+                                                    ? { backgroundColor: 'color-mix(in srgb, var(--color-exito) 14%, transparent)', color: 'var(--color-exito)' }
+                                                    : { backgroundColor: 'color-mix(in srgb, var(--color-suave) 14%, transparent)', color: 'var(--color-suave)' }">
+                                                    {{ a.firmada ? 'Firmada' : 'Pendiente' }}
+                                                </span>
+                                                <span class="font-medium text-contenido">{{ a.nivel }}</span>
+                                                <span :style="{ color: 'var(--color-suave)' }">{{ a.rol }}</span>
+                                                <span v-if="a.motivo" :style="{ color: 'var(--color-suave)' }">— {{ a.motivo }}</span>
+                                                <span class="ml-auto" :style="{ color: 'var(--color-suave)' }">
+                                                    <template v-if="a.firmada">{{ a.fecha }}<template v-if="a.por"> · {{ a.por }}</template></template>
+                                                    <template v-else>sin firmar</template>
+                                                </span>
+                                            </li>
+                                        </ul>
+                                    </template>
+
+                                    <!-- Con qué se sostiene esta beca. -->
+                                    <p class="mb-2 text-xs font-medium" :style="{ color: 'var(--color-suave)' }">Evidencia</p>
+                                    <ul class="mb-2 space-y-1.5">
+                                        <li v-for="e in o.evidencias" :key="e.id" class="flex flex-wrap items-center gap-x-2 text-xs">
+                                            <a
+                                                class="font-medium underline"
+                                                :href="`/finanzas/becas/${beca.id}/otorgadas/${o.id}/evidencias/${e.id}`"
+                                            >{{ e.nombre }}</a>
+                                            <span v-if="e.notas" :style="{ color: 'var(--color-suave)' }">{{ e.notas }}</span>
+                                            <span class="ml-auto" :style="{ color: 'var(--color-suave)' }">{{ e.fecha }}</span>
+                                            <BotonAccion variante="eliminar" texto="Retirar" @click="retirarEvidencia(o, e)" />
+                                        </li>
+                                        <li v-if="!o.evidencias.length" class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                                            Sin evidencia cargada.
+                                        </li>
+                                    </ul>
+
+                                    <form class="mb-4 flex flex-wrap items-end gap-2" @submit.prevent="subirEvidencia(o)">
+                                        <div class="w-56"><CampoTexto v-model="evidencia.nombre" etiqueta="Nombre" :error="evidencia.errors.nombre" /></div>
+                                        <div class="w-56"><CampoTexto v-model="evidencia.notas" etiqueta="Notas" :error="evidencia.errors.notas" /></div>
+                                        <div class="w-64">
+                                            <label class="block text-xs" :style="{ color: 'var(--color-suave)' }">Archivo (PDF o imagen)</label>
+                                            <input type="file" accept=".pdf,.jpg,.jpeg,.png" class="mt-1 text-xs" @change="tomarArchivo" />
+                                            <p v-if="evidencia.errors.archivo" class="mt-1 text-xs" :style="{ color: 'var(--color-peligro)' }">{{ evidencia.errors.archivo }}</p>
+                                        </div>
+                                        <BotonPrincipal type="submit" :disabled="evidencia.processing">Subir</BotonPrincipal>
+                                    </form>
+
                                     <p class="mb-2 text-xs font-medium" :style="{ color: 'var(--color-suave)' }">Movimientos</p>
                                     <ul class="space-y-1.5">
                                         <li v-for="(m, i) in o.movimientos" :key="i" class="flex flex-wrap items-center gap-x-2 text-xs">
