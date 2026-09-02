@@ -333,9 +333,16 @@ class FinanzasController extends Controller
     {
         $datos = $request->validate([
             'estatus' => ['required', Rule::in([Pago::ESTATUS_FALLIDO, Pago::ESTATUS_REEMBOLSADO])],
+            'motivo' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $this->registrador->revertir($pago, $datos['estatus']);
+        try {
+            $this->registrador->revertir($pago, $datos['estatus'], $datos['motivo'] ?? null);
+        } catch (RuntimeException $e) {
+            // Devolver efectivo sin un turno abierto saca billetes de un cajón
+            // que nadie va a contar.
+            return back()->with('error', $e->getMessage());
+        }
 
         return back()->with('advertencia', 'El pago se marcó como '.$datos['estatus'].' y los adeudos volvieron a quedar abiertos.');
     }

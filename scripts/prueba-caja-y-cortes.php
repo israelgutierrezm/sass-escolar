@@ -30,6 +30,7 @@ use App\Models\Academico\Oferta;
 use App\Models\Finanzas\Adeudo;
 use App\Models\Finanzas\Caja;
 use App\Models\Finanzas\ConceptoPago;
+use App\Models\Finanzas\DevolucionCaja;
 use App\Models\Finanzas\MetodoPago;
 use App\Models\Finanzas\Pago;
 use App\Models\Finanzas\SesionCaja;
@@ -362,6 +363,127 @@ try {
         $conTurno->sesion_caja_id === $cuarta->id);
 
     $ajustes->guardar([CatalogoAjustes::CAJA_EXIGE_SESION => false]);
+
+    echo PHP_EOL.'10 bis. Las devoluciones sacan dinero del cajón'.PHP_EOL;
+
+    // El turno abierto es `$cuarta`, con un cobro en efectivo de 50 y fondo 0.
+    verificar('El turno arranca con 50 esperados',
+        $caja->efectivoEsperado($cuarta) === 50.0, (string) $caja->efectivoEsperado($cuarta));
+
+    // Un pago capturado por error NO movió billetes: anotarle una salida
+    // dejaría la caja corta por un dinero que nunca entró.
+    $porError = $cobrar($efectivo, 70.0);
+    $registrador->revertir($porError, Pago::ESTATUS_FALLIDO);
+
+    verificar('Un pago FALLIDO no deja devolución',
+        DevolucionCaja::query()->where('pago_id', $porError->id)->doesntExist());
+    verificar('Y no cuenta como dinero del turno',
+        $caja->efectivoEsperado($cuarta->fresh()) === 50.0,
+        (string) $caja->efectivoEsperado($cuarta->fresh()));
+
+    // Un reembolso del MISMO turno: el dinero entró y salió, neto cero.
+    $devuelto = $cobrar($efectivo, 200.0);
+
+    verificar('Antes de devolverlo, el turno espera 250',
+        $caja->efectivoEsperado($cuarta->fresh()) === 250.0,
+        (string) $caja->efectivoEsperado($cuarta->fresh()));
+
+    $registrador->revertir($devuelto, Pago::ESTATUS_REEMBOLSADO, 'Se canceló el trámite');
+
+    $devolucion = DevolucionCaja::query()->where('pago_id', $devuelto->id)->first();
+
+    verificar('Un REEMBOLSO sí deja su devolución', $devolucion !== null);
+    verificar('Por el importe del pago', (float) $devolucion?->monto === 200.0);
+    verificar('Con su motivo', $devolucion?->motivo === 'Se canceló el trámite');
+    verificar('Y colgada del turno donde salió el dinero',
+        $devolucion?->sesion_caja_id === $cuarta->id);
+
+    // Ésta es la comprobación que importa: la entrada sigue contando —el dinero
+    // entró— y la salida resta. Sin contar lo reembolsado, restaría dos veces.
+    verificar('El neto vuelve a 50, no baja a −150',
+        $caja->efectivoEsperado($cuarta->fresh()) === 50.0,
+        (string) $caja->efectivoEsperado($cuarta->fresh()));
+    verificar('Y la salida se ve por separado', $caja->devuelto($cuarta->fresh()) === 200.0,
+        (string) $caja->devuelto($cuarta->fresh()));
+
+    // Un pago se devuelve UNA vez: el único de la base lo sostiene.
+    $registrador->revertir($devuelto->fresh(), Pago::ESTATUS_REEMBOLSADO, 'otra vez');
+
+    verificar('Devolver dos veces no duplica la salida',
+        DevolucionCaja::query()->where('pago_id', $devuelto->id)->count() === 1);
+
+    echo PHP_EOL.'10 ter. Devolver un pago de OTRO día'.PHP_EOL;
+
+    // El caso que hace falta el registro: el pago es de un turno ya cerrado, así
+    // que revertirlo no toca aquel corte —está firmado— y el dinero sale del
+    // cajón de HOY.
+    $viejo = Pago::query()
+        ->where('sesion_caja_id', $descuadrada->id)
+        ->where('estatus', Pago::ESTATUS_COMPLETADO)
+        ->firstOrFail();
+
+    $esperadoAntes = $caja->efectivoEsperado($cuarta->fresh());
+    $registrador->revertir($viejo, Pago::ESTATUS_REEMBOLSADO, 'Devolución de un cobro de ayer');
+
+    verificar('La salida cae en el turno de HOY',
+        DevolucionCaja::query()->where('pago_id', $viejo->id)->value('sesion_caja_id') === $cuarta->id);
+    verificar('Y baja lo esperado de hoy',
+        $caja->efectivoEsperado($cuarta->fresh()) === round($esperadoAntes - (float) $viejo->monto, 2),
+        $esperadoAntes.' -> '.$caja->efectivoEsperado($cuarta->fresh()));
+    // El corte de ayer NO se mueve: está firmado, y sus cifras están congeladas.
+    verificar('El corte de ayer no cambia',
+        (float) $descuadrada->fresh()->efectivo_esperado === (float) $descuadrada->efectivo_esperado);
+
+    // Con turno ABIERTO y un método que no es de cajón: sin la guardia, esto
+    // anotaría una salida de efectivo por dinero que nunca entró en billetes, y
+    // el arqueo saldría faltante por el importe de una tarjeta.
+    $tarjetaEnTurno = $cobrar($tarjeta, 45.0);
+    $tarjetaEnTurno->update(['estatus' => Pago::ESTATUS_COMPLETADO]);
+    $esperadoConTarjeta = $caja->efectivoEsperado($cuarta->fresh());
+
+    $registrador->revertir($tarjetaEnTurno, Pago::ESTATUS_REEMBOLSADO, 'Se canceló');
+
+    verificar('Devolver una tarjeta CON turno abierto no toca el cajón',
+        DevolucionCaja::query()->where('pago_id', $tarjetaEnTurno->id)->doesntExist());
+    verificar('Y lo esperado no se mueve',
+        $caja->efectivoEsperado($cuarta->fresh()) === $esperadoConTarjeta,
+        $esperadoConTarjeta.' -> '.$caja->efectivoEsperado($cuarta->fresh()));
+
+    echo PHP_EOL.'10 quater. Devolver sin turno abierto'.PHP_EOL;
+
+    $ajustes->guardar([CatalogoAjustes::CAJA_EXIGE_SESION => true]);
+    Auth::logout();
+
+    $otroPago = Pago::query()
+        ->where('sesion_caja_id', $cuarta->id)
+        ->where('estatus', Pago::ESTATUS_COMPLETADO)
+        ->firstOrFail();
+
+    [$bien, $mensaje] = seNiega(
+        fn () => $registrador->revertir($otroPago, Pago::ESTATUS_REEMBOLSADO),
+        'turno de caja abierto',
+    );
+    // Sacar billetes de un cajón que no está abierto es dinero que no aparece en
+    // ningún corte: misma regla que al cobrar.
+    verificar('Sin turno, devolver efectivo se rehúsa', $bien, $mensaje);
+    verificar('Y el pago se queda como estaba',
+        $otroPago->fresh()->estatus === Pago::ESTATUS_COMPLETADO);
+
+    // Lo que no entra al cajón se puede devolver sin turno: no saca billetes de
+    // ningún lado.
+    Auth::login($cajera);
+    $porTarjeta = $cobrar($tarjeta, 90.0);
+    Auth::logout();
+
+    $registrador->revertir($porTarjeta, Pago::ESTATUS_REEMBOLSADO);
+
+    verificar('Lo que no es de cajón se devuelve sin turno',
+        $porTarjeta->fresh()->estatus === Pago::ESTATUS_REEMBOLSADO);
+    verificar('Y no deja movimiento de caja',
+        DevolucionCaja::query()->where('pago_id', $porTarjeta->id)->doesntExist());
+
+    $ajustes->guardar([CatalogoAjustes::CAJA_EXIGE_SESION => false]);
+    Auth::login($cajera);
 
     echo PHP_EOL.'11. Las pantallas, invocadas de verdad'.PHP_EOL;
 

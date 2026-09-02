@@ -113,6 +113,7 @@ class CajaController extends Controller
                 'cerrada_en' => $s->cerrada_en?->toDateTimeString(),
                 'estatus' => $s->estatus,
                 'fondo_inicial' => (float) $s->fondo_inicial,
+                'devuelto' => $this->caja->devuelto($s),
                 'efectivo_esperado' => $s->efectivo_esperado === null ? null : (float) $s->efectivo_esperado,
                 'efectivo_contado' => $s->efectivo_contado === null ? null : (float) $s->efectivo_contado,
                 'diferencia' => $s->diferencia === null ? null : (float) $s->diferencia,
@@ -226,6 +227,9 @@ class CajaController extends Controller
             'abierta_en' => $sesion->abierta_en?->toDateTimeString(),
             'fondo_inicial' => (float) $sesion->fondo_inicial,
             'totales' => $totales,
+            // Lo que salió del cajón. Va aparte de los totales porque no es un
+            // cobro: es la otra mitad de la cuenta del arqueo.
+            'devuelto' => $this->caja->devuelto($sesion),
             'efectivo_esperado' => $this->caja->efectivoEsperado($sesion),
             'cobros' => $sesion->pagos()->count(),
         ];

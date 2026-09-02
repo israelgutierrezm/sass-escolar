@@ -7,6 +7,7 @@ namespace App\Services\Caja;
 use App\Configuracion\Ajustes;
 use App\Configuracion\CatalogoAjustes;
 use App\Models\Finanzas\Caja;
+use App\Models\Finanzas\DevolucionCaja;
 use App\Models\Finanzas\MetodoPago;
 use App\Models\Finanzas\Pago;
 use App\Models\Finanzas\SesionCaja;
@@ -90,10 +91,20 @@ class OperacionDeCaja
     {
         $filas = Pago::query()
             ->where('sesion_caja_id', $sesion->id)
-            // Sólo el dinero que de verdad entró: un pago pendiente de
-            // confirmar es una promesa, y contarlo haría salir faltante todos
-            // los turnos que reciban una transferencia sin confirmar.
-            ->cobrados()
+            /*
+             * Lo que de verdad ENTRÓ al cajón, que no es lo mismo que lo que
+             * hoy sigue siendo un cobro válido.
+             *
+             * `pendiente` no entra: es una promesa, y contarla haría salir
+             * faltante todo turno que reciba una transferencia sin confirmar.
+             * `fallido` tampoco: nunca fue dinero.
+             *
+             * `reembolsado` SÍ, y es la parte que se piensa al revés: ese
+             * dinero entró y luego salió, y la salida se registra aparte como
+             * devolución. Dejándolo fuera aquí, una devolución del mismo día
+             * restaría dos veces.
+             */
+            ->whereIn('estatus', [Pago::ESTATUS_COMPLETADO, Pago::ESTATUS_REEMBOLSADO])
             ->join('metodos_pago', 'metodos_pago.id', '=', 'pagos.metodo_pago_id')
             ->groupBy('metodos_pago.id', 'metodos_pago.nombre', 'metodos_pago.afecta_caja')
             ->selectRaw('metodos_pago.nombre as metodo, metodos_pago.afecta_caja, sum(pagos.monto) as total')
@@ -116,10 +127,89 @@ class OperacionDeCaja
         ];
     }
 
-    /** Lo que debería haber en el cajón: el fondo más lo cobrado en efectivo. */
+    /** Lo que salió del cajón en este turno. */
+    public function devuelto(SesionCaja $sesion): float
+    {
+        return round((float) DevolucionCaja::query()
+            ->where('sesion_caja_id', $sesion->id)
+            ->sum('monto'), 2);
+    }
+
+    /**
+     * Lo que debería haber en el cajón.
+     *
+     * Fondo, más lo que entró en efectivo, menos lo que se devolvió. Las tres
+     * partes hacen falta: sin el fondo sale sobrante siempre por el mismo
+     * importe, y sin las devoluciones sale faltante cada vez que se reembolsa
+     * un pago de otro día.
+     */
     public function efectivoEsperado(SesionCaja $sesion): float
     {
-        return round((float) $sesion->fondo_inicial + $this->totales($sesion)['efectivo'], 2);
+        return round(
+            (float) $sesion->fondo_inicial
+            + $this->totales($sesion)['efectivo']
+            - $this->devuelto($sesion),
+            2
+        );
+    }
+
+    /**
+     * Anota que salió dinero del cajón por devolver un pago.
+     *
+     * La llama `RegistradorPago` al reembolsar, igual que resuelve el turno al
+     * cobrar: si hubiera que acordarse de invocarla, el camino que lo olvidara
+     * dejaría la caja corta sin explicación.
+     *
+     * Devuelve null cuando no hay nada que anotar —el pago no era de cajón, o
+     * no hay turno abierto—, que NO es un error: una transferencia devuelta no
+     * saca billetes de ningún lado.
+     */
+    public function registrarDevolucion(Pago $pago, ?Usuario $usuario, ?string $motivo = null): ?DevolucionCaja
+    {
+        $pago->loadMissing('metodoPago');
+
+        if ($pago->metodoPago?->afecta_caja !== true) {
+            return null;
+        }
+
+        $sesion = $this->sesionDe($usuario);
+
+        if ($sesion === null) {
+            return null;
+        }
+
+        return DevolucionCaja::firstOrCreate(
+            // Por el PAGO y no por (pago, turno): un pago se devuelve una vez, y
+            // el único de la base lo sostiene contra dos peticiones a la vez.
+            ['pago_id' => $pago->id],
+            ['sesion_caja_id' => $sesion->id, 'monto' => (float) $pago->monto, 'motivo' => $motivo],
+        );
+    }
+
+    /**
+     * Por qué no se puede devolver este pago, o null si se puede.
+     *
+     * Misma regla que al cobrar: sacar billetes de un cajón que no está abierto
+     * es dinero que no aparecerá en ningún corte.
+     */
+    public function motivoParaNoDevolver(Pago $pago, ?Usuario $usuario): ?string
+    {
+        $pago->loadMissing('metodoPago');
+
+        if ($pago->metodoPago?->afecta_caja !== true) {
+            return null;
+        }
+
+        if (! $this->ajustes->bool(CatalogoAjustes::CAJA_EXIGE_SESION)) {
+            return null;
+        }
+
+        if ($this->sesionDe($usuario) !== null) {
+            return null;
+        }
+
+        return 'No hay un turno de caja abierto a tu nombre, y devolver este pago saca efectivo del '
+            .'cajón: sin turno, esa salida no aparecería en ningún corte. Abre tu caja en Finanzas › Caja.';
     }
 
     public function cerrar(SesionCaja $sesion, Usuario $usuario, float $contado, ?string $notas = null): SesionCaja

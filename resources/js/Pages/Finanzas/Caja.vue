@@ -37,6 +37,7 @@ interface Sesion {
     abierta_en: string | null;
     fondo_inicial: number;
     totales: Totales;
+    devuelto: number;
     efectivo_esperado: number;
     cobros: number;
 }
@@ -50,6 +51,7 @@ interface Corte {
     cerrada_en: string | null;
     estatus: string;
     fondo_inicial: number;
+    devuelto: number;
     efectivo_esperado: number | null;
     efectivo_contado: number | null;
     diferencia: number | null;
@@ -164,6 +166,16 @@ function autorizar(c: Corte): void {
                         <dt class="text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">Cobros del turno</dt>
                         <dd class="mt-0.5 text-sm tabular-nums">{{ sesion.cobros }}</dd>
                     </div>
+                    <!--
+                        Sólo cuando salió algo: un renglón en cero enseña a no
+                        leer la columna.
+                    -->
+                    <div v-if="sesion.devuelto > 0">
+                        <dt class="text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">Devuelto del cajón</dt>
+                        <dd class="mt-0.5 text-sm tabular-nums" :style="{ color: '#b45309' }">
+                            −{{ pesos.format(sesion.devuelto) }}
+                        </dd>
+                    </div>
                     <div>
                         <dt class="text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">Debería haber en el cajón</dt>
                         <dd class="mt-0.5 text-base font-semibold tabular-nums">{{ pesos.format(sesion.efectivo_esperado) }}</dd>
@@ -275,6 +287,11 @@ function autorizar(c: Corte): void {
                                 </td>
                                 <td class="px-4 py-3 text-right tabular-nums">
                                     {{ c.efectivo_esperado === null ? '—' : pesos.format(c.efectivo_esperado) }}
+                                    <span
+                                        v-if="c.devuelto > 0"
+                                        class="block text-[11px]"
+                                        :style="{ color: 'var(--color-suave)' }"
+                                    >ya con −{{ pesos.format(c.devuelto) }} devueltos</span>
                                 </td>
                                 <td class="px-4 py-3 text-right tabular-nums">
                                     {{ c.efectivo_contado === null ? '—' : pesos.format(c.efectivo_contado) }}

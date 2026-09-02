@@ -146,10 +146,34 @@ class RegistradorPago
      * parte de la historia de la cuenta, y borrarlo dejaría al alumno
      * preguntando por un cargo que aparecía cubierto la semana pasada.
      */
-    public function revertir(Pago $pago, string $estatus = Pago::ESTATUS_FALLIDO): void
+    public function revertir(Pago $pago, string $estatus = Pago::ESTATUS_FALLIDO, ?string $motivo = null): void
     {
-        DB::transaction(function () use ($pago, $estatus) {
+        $quienDevuelve = Auth::user() instanceof Usuario ? Auth::user() : null;
+
+        /*
+         * Sólo un REEMBOLSO saca dinero del cajón.
+         *
+         * `fallido` es «esto nunca fue dinero» —un cobro capturado por error— y
+         * no mueve billetes: anotarle una salida dejaría la caja corta por un
+         * dinero que jamás entró. La diferencia entre los dos estatus ya
+         * existía; aquí por fin la usa alguien.
+         */
+        $esReembolso = $estatus === Pago::ESTATUS_REEMBOLSADO;
+
+        if ($esReembolso) {
+            $impedimento = $this->caja->motivoParaNoDevolver($pago, $quienDevuelve);
+
+            if ($impedimento !== null) {
+                throw new RuntimeException($impedimento);
+            }
+        }
+
+        DB::transaction(function () use ($pago, $estatus, $esReembolso, $quienDevuelve, $motivo) {
             $pago->update(['estatus' => $estatus]);
+
+            if ($esReembolso) {
+                $this->caja->registrarDevolucion($pago, $quienDevuelve, $motivo);
+            }
 
             foreach ($pago->adeudos as $adeudo) {
                 $this->actualizarEstatus($adeudo);
