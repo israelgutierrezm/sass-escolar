@@ -1474,6 +1474,15 @@ Route::middleware([
                         Route::get('/', 'index')->name('index');
                         Route::post('/', 'store')->name('store');
                         Route::get('/alumnos', 'buscarAlumnos')->name('alumnos');
+                        // El presupuesto y sus bolsas. Van con las becas
+                        // porque son la misma conversación: de dónde sale el
+                        // dinero de lo que se está otorgando.
+                        Route::get('/presupuesto', 'presupuesto')->name('presupuesto');
+                        Route::post('/presupuesto', 'guardarPresupuesto')->name('presupuesto.guardar');
+                        Route::post('/patrocinadores', 'crearPatrocinador')->name('patrocinadores.store');
+                        Route::put('/patrocinadores/{patrocinador}', 'actualizarPatrocinador')
+                            ->name('patrocinadores.update');
+
                         // Cierre de ciclo: decide qué becas se renuevan.
                         Route::post('/renovacion', 'evaluarRenovacion')->name('renovacion');
                         Route::get('/{beca}', 'show')->name('show');

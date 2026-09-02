@@ -6,6 +6,7 @@ namespace App\Models\Finanzas;
 
 use App\Models\Concerns\TieneAuditoria;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -49,6 +50,9 @@ class Beca extends Model
         'clave',
         'nombre',
         'descripcion',
+        // De qué bolsa sale. Ver `Patrocinador`: dice quién la financia, no a
+        // quién se le factura.
+        'patrocinador_id',
         'modo',
         'valor',
         'tope_monto',
@@ -79,6 +83,11 @@ class Beca extends Model
     public function conceptos(): BelongsToMany
     {
         return $this->belongsToMany(ConceptoPago::class, 'beca_concepto', 'beca_id', 'concepto_id');
+    }
+
+    public function patrocinador(): BelongsTo
+    {
+        return $this->belongsTo(Patrocinador::class, 'patrocinador_id');
     }
 
     public function otorgadas(): HasMany

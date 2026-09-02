@@ -11,8 +11,11 @@ use App\Models\Finanzas\Beca;
 use App\Models\Finanzas\BecaAlumno;
 use App\Models\Finanzas\BecaAlumnoMovimiento;
 use App\Models\Finanzas\ConceptoPago;
+use App\Models\Finanzas\Patrocinador;
+use App\Models\Finanzas\PresupuestoBeca;
 use App\Services\EvaluadorBecas;
 use App\Services\GeneradorAdeudos;
+use App\Services\PresupuestoDeBecas;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -100,6 +103,97 @@ class BecaController extends Controller
                 ['valor' => Beca::PROMEDIO_PIERDE, 'etiqueta' => 'Pierde la beca'],
             ],
         ]);
+    }
+
+    // ---------------------------------------------------- Bolsas y presupuesto
+
+    public function presupuesto(Request $peticion, PresupuestoDeBecas $presupuesto): Response
+    {
+        $ciclos = $presupuesto->ciclos();
+        // Sin ciclo pedido, el más reciente: es el que se está otorgando.
+        $cicloId = (int) ($peticion->query('ciclo') ?: ($ciclos->first()->id ?? 0));
+
+        return Inertia::render('Finanzas/Becas/Presupuesto', [
+            'ciclos' => $ciclos->map(fn ($c) => ['valor' => $c->id, 'texto' => $c->nombre])->values(),
+            'cicloId' => $cicloId,
+            'bolsas' => $cicloId === 0 ? [] : $presupuesto->panorama($cicloId),
+            'patrocinadores' => Patrocinador::query()->orderBy('nombre')->get()
+                ->map(fn (Patrocinador $p) => [
+                    'id' => $p->id,
+                    'clave' => $p->clave,
+                    'nombre' => $p->nombre,
+                    'contacto' => $p->contacto,
+                    'correo' => $p->correo,
+                    'telefono' => $p->telefono,
+                    'notas' => $p->notas,
+                    'activo' => $p->activo,
+                    'protegido' => (bool) $p->protegido,
+                    'becas' => $p->becas()->count(),
+                ])->values(),
+        ]);
+    }
+
+    public function guardarPresupuesto(Request $peticion): RedirectResponse
+    {
+        $datos = $peticion->validate([
+            'patrocinador_id' => ['required', 'integer', Rule::exists('patrocinadores', 'id')],
+            'ciclo_id' => ['required', 'integer', Rule::exists('ciclos', 'id')],
+            'monto' => ['required', 'numeric', 'min:0'],
+            'notas' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        // `updateOrCreate` sobre la pareja que ya es única en la base: dos
+        // capturas simultáneas no dejan dos bolsas del mismo ciclo, y volver a
+        // guardar corrige el monto en vez de acumular filas.
+        PresupuestoBeca::updateOrCreate(
+            ['patrocinador_id' => (int) $datos['patrocinador_id'], 'ciclo_id' => (int) $datos['ciclo_id']],
+            ['monto' => (float) $datos['monto'], 'notas' => $datos['notas'] ?? null],
+        );
+
+        return back()->with('exito', 'Presupuesto guardado.');
+    }
+
+    public function crearPatrocinador(Request $peticion): RedirectResponse
+    {
+        Patrocinador::create($this->validarPatrocinador($peticion));
+
+        return back()->with('exito', 'Patrocinador creado.');
+    }
+
+    public function actualizarPatrocinador(Request $peticion, Patrocinador $patrocinador): RedirectResponse
+    {
+        $datos = $this->validarPatrocinador($peticion, $patrocinador);
+
+        // «La escuela» no se renombra ni se apaga: es el valor por omisión de
+        // toda beca nueva y hay becas colgando de ella. Sus datos de contacto sí
+        // se pueden llenar, que es lo único que ahí significa algo.
+        if ($patrocinador->protegido) {
+            unset($datos['clave'], $datos['nombre'], $datos['activo']);
+        }
+
+        $patrocinador->update($datos);
+
+        return back()->with('exito', 'Patrocinador actualizado.');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function validarPatrocinador(Request $peticion, ?Patrocinador $patrocinador = null): array
+    {
+        $datos = $peticion->validate([
+            'clave' => ['required', 'string', 'max:30', Rule::unique('patrocinadores', 'clave')->ignore($patrocinador?->id)],
+            'nombre' => ['required', 'string', 'max:150'],
+            'contacto' => ['nullable', 'string', 'max:150'],
+            'correo' => ['nullable', 'email', 'max:150'],
+            'telefono' => ['nullable', 'string', 'max:30'],
+            'notas' => ['nullable', 'string', 'max:1000'],
+            'activo' => ['boolean'],
+        ]);
+
+        $datos['activo'] = $peticion->boolean('activo');
+
+        return $datos;
     }
 
     public function store(Request $request): RedirectResponse
