@@ -53,6 +53,7 @@ class SesionCaja extends Model
         'notas',
         'autorizada_por_usuario_id',
         'autorizada_en',
+        'deposito_caja_id',
     ];
 
     protected function casts(): array
@@ -81,6 +82,12 @@ class SesionCaja extends Model
     public function autorizadaPor(): BelongsTo
     {
         return $this->belongsTo(Usuario::class, 'autorizada_por_usuario_id');
+    }
+
+    /** El depósito en el que se llevó su efectivo al banco, si ya se llevó. */
+    public function deposito(): BelongsTo
+    {
+        return $this->belongsTo(DepositoCaja::class, 'deposito_caja_id');
     }
 
     public function pagos(): HasMany

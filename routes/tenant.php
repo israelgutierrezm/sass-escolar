@@ -1543,6 +1543,13 @@ Route::middleware([
                         // cajero y el supervisor, y un middleware con el permiso
                         // del segundo rebotaría al primero.
                         Route::post('/cortes/{sesion}/autorizar', 'autorizar')->name('autorizar');
+                        // El depósito va con `operar-caja` y no con un permiso
+                        // propio: no mueve dinero, REGISTRA que se movió, y lo
+                        // captura quien cerró la caja. Un cuarto permiso para un
+                        // acto que nadie separa sería un interruptor que nadie
+                        // toca.
+                        Route::get('/depositos', 'depositos')->name('depositos');
+                        Route::post('/depositos', 'depositar')->name('depositar');
                     });
 
                 /*

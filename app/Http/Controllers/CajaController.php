@@ -7,6 +7,8 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\AcotaPorCampus;
 use App\Models\Academico\Campus;
 use App\Models\Finanzas\Caja;
+use App\Models\Finanzas\CuentaBancaria;
+use App\Models\Finanzas\DepositoCaja;
 use App\Models\Finanzas\SesionCaja;
 use App\Services\Caja\OperacionDeCaja;
 use Illuminate\Http\RedirectResponse;
@@ -209,6 +211,85 @@ class CajaController extends Controller
         }
 
         return back()->with('exito', 'Diferencia autorizada.');
+    }
+
+    // ------------------------------------------------------------ Depósitos
+
+    public function depositos(Request $peticion): Response
+    {
+        $alcance = $this->alcanceCampus($peticion);
+
+        return Inertia::render('Finanzas/Depositos', [
+            'pendientes' => $this->caja->sesionesPorDepositar($alcance)->map(fn (SesionCaja $s) => [
+                'id' => $s->id,
+                'caja' => $s->caja?->nombre,
+                'campus' => $s->caja?->campus?->nombre,
+                'usuario' => $s->usuario?->persona?->nombreCompleto() ?? $s->usuario?->usuario,
+                'cerrada_en' => $s->cerrada_en?->toDateTimeString(),
+                'fondo_inicial' => (float) $s->fondo_inicial,
+                'efectivo_contado' => (float) $s->efectivo_contado,
+                // Lo que toca llevar al banco: lo contado menos el fondo, que se
+                // queda para el turno de mañana.
+                'por_depositar' => $this->caja->porDepositar($s),
+                'estatus' => $s->estatus,
+            ])->values(),
+            'cuentas' => CuentaBancaria::query()
+                ->activas()
+                ->orderBy('nombre')
+                ->get(['id', 'nombre', 'banco'])
+                ->map(fn (CuentaBancaria $c) => [
+                    'id' => $c->id,
+                    'nombre' => $c->banco ? $c->nombre.' · '.$c->banco : $c->nombre,
+                ])
+                ->values(),
+            'depositos' => DepositoCaja::query()
+                ->with(['cuenta:id,nombre,banco', 'sesiones.caja:id,nombre'])
+                ->orderByDesc('fecha')->orderByDesc('id')
+                ->limit(30)
+                ->get()
+                ->map(fn (DepositoCaja $d) => [
+                    'id' => $d->id,
+                    'fecha' => $d->fecha?->toDateString(),
+                    'monto' => (float) $d->monto,
+                    'cuenta' => $d->cuenta?->nombre,
+                    'referencia' => $d->referencia,
+                    'notas' => $d->notas,
+                    'turnos' => $d->sesiones->map(fn (SesionCaja $s) => $s->caja?->nombre
+                        .' · '.$s->cerrada_en?->toDateString())->values(),
+                ])->values(),
+        ]);
+    }
+
+    public function depositar(Request $peticion): RedirectResponse
+    {
+        $datos = $peticion->validate([
+            'sesiones' => ['required', 'array', 'min:1'],
+            'sesiones.*' => ['integer'],
+            'cuenta_bancaria_id' => ['required', 'integer', Rule::exists('cuentas_bancarias', 'id')],
+            'monto' => ['required', 'numeric', 'min:0.01'],
+            'fecha' => ['required', 'date'],
+            'referencia' => ['nullable', 'string', 'max:100'],
+            'notas' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        try {
+            $this->caja->depositar(
+                // Se convierten a propósito: `integer` ACEPTA la cadena «7» y la
+                // devuelve como cadena. Es la trampa que este proyecto ya se
+                // cobró tres veces.
+                array_map('intval', $datos['sesiones']),
+                CuentaBancaria::findOrFail((int) $datos['cuenta_bancaria_id']),
+                (float) $datos['monto'],
+                $datos['fecha'],
+                $datos['referencia'] ?? null,
+                $datos['notas'] ?? null,
+                $this->alcanceCampus($peticion),
+            );
+        } catch (RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('exito', 'Depósito registrado.');
     }
 
     // -------------------------------------------------------------- Interno

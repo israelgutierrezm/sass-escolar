@@ -7,6 +7,8 @@ namespace App\Services\Caja;
 use App\Configuracion\Ajustes;
 use App\Configuracion\CatalogoAjustes;
 use App\Models\Finanzas\Caja;
+use App\Models\Finanzas\CuentaBancaria;
+use App\Models\Finanzas\DepositoCaja;
 use App\Models\Finanzas\DevolucionCaja;
 use App\Models\Finanzas\MetodoPago;
 use App\Models\Finanzas\Pago;
@@ -14,6 +16,7 @@ use App\Models\Finanzas\SesionCaja;
 use App\Models\Identidad\Usuario;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 /**
@@ -303,6 +306,95 @@ class OperacionDeCaja
             ->orderByDesc('abierta_en')
             ->limit($limite)
             ->get();
+    }
+
+    /**
+     * Lo que de un turno cerrado toca llevar al banco.
+     *
+     * Lo contado MENOS el fondo: el fondo se queda en el cajón para el turno de
+     * mañana. Llevándoselo también, cada mañana habría que reponerlo y la caja
+     * abriría en cero sin que nadie lo decidiera.
+     */
+    public function porDepositar(SesionCaja $sesion): float
+    {
+        return round((float) $sesion->efectivo_contado - (float) $sesion->fondo_inicial, 2);
+    }
+
+    /**
+     * Los turnos cerrados cuyo efectivo todavía no llegó al banco.
+     *
+     * @param  array<int, int>|null  $campus  null = sin acotar
+     */
+    public function sesionesPorDepositar(?array $campus = null)
+    {
+        return SesionCaja::query()
+            ->with(['caja.campus:id,nombre', 'usuario.persona:id,nombre,primer_apellido,segundo_apellido'])
+            // Sólo lo CERRADO: el efectivo de un turno abierto todavía se está
+            // moviendo y no se ha contado.
+            ->whereNotNull('cerrada_en')
+            ->whereNull('deposito_caja_id')
+            ->when($campus !== null, fn ($q) => $q->whereHas('caja', fn ($c) => $c->whereIn('campus_id', $campus)))
+            ->orderBy('cerrada_en')
+            ->get();
+    }
+
+    /**
+     * Registra que el efectivo de unos turnos se llevó al banco.
+     *
+     * @param  array<int, int>  $sesionIds
+     */
+    public function depositar(
+        array $sesionIds,
+        CuentaBancaria $cuenta,
+        float $monto,
+        string $fecha,
+        ?string $referencia = null,
+        ?string $notas = null,
+        ?array $campus = null,
+    ): DepositoCaja {
+        if ($monto <= 0) {
+            throw new RuntimeException('El importe del depósito debe ser mayor que cero.');
+        }
+
+        $sesiones = SesionCaja::query()->whereIn('id', $sesionIds)->with('caja')->get();
+
+        if ($sesiones->isEmpty()) {
+            throw new RuntimeException('Hay que elegir al menos un turno.');
+        }
+
+        foreach ($sesiones as $sesion) {
+            if ($sesion->estaAbierta()) {
+                throw new RuntimeException('Un turno abierto no se deposita: su efectivo todavía no se ha contado.');
+            }
+
+            // Un turno se deposita UNA vez: sin esto, dos capturas mandarían el
+            // mismo dinero al banco dos veces sobre el papel.
+            if ($sesion->deposito_caja_id !== null) {
+                throw new RuntimeException('Alguno de esos turnos ya se depositó.');
+            }
+
+            // Los ids viajan en la petición: sin comprobarlo, quien está acotado
+            // a un campus depositaría el efectivo de otro plantel.
+            if ($campus !== null && ! in_array($sesion->caja?->campus_id, $campus, true)) {
+                throw new RuntimeException('Alguno de esos turnos es de un campus que no alcanzas.');
+            }
+        }
+
+        return DB::transaction(function () use ($sesiones, $cuenta, $monto, $fecha, $referencia, $notas) {
+            $deposito = DepositoCaja::create([
+                'cuenta_bancaria_id' => $cuenta->id,
+                'monto' => $monto,
+                'fecha' => $fecha,
+                'referencia' => $referencia,
+                'notas' => $notas,
+            ]);
+
+            SesionCaja::query()
+                ->whereIn('id', $sesiones->pluck('id'))
+                ->update(['deposito_caja_id' => $deposito->id]);
+
+            return $deposito;
+        });
     }
 
     /** Cuántos cortes esperan que alguien explique su diferencia. */

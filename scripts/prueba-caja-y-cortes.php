@@ -30,6 +30,7 @@ use App\Models\Academico\Oferta;
 use App\Models\Finanzas\Adeudo;
 use App\Models\Finanzas\Caja;
 use App\Models\Finanzas\ConceptoPago;
+use App\Models\Finanzas\CuentaBancaria;
 use App\Models\Finanzas\DevolucionCaja;
 use App\Models\Finanzas\MetodoPago;
 use App\Models\Finanzas\Pago;
@@ -485,6 +486,91 @@ try {
     $ajustes->guardar([CatalogoAjustes::CAJA_EXIGE_SESION => false]);
     Auth::login($cajera);
 
+    echo PHP_EOL.'10 quinquies. El depósito al banco'.PHP_EOL;
+
+    $cuenta = CuentaBancaria::create([
+        'nombre' => 'Cuenta de prueba', 'banco' => 'Banco X',
+        'titular' => 'Escuela demo', 'clabe' => '000000000000000000', 'activa' => true,
+    ]);
+
+    // `$descuadrada` es un turno CERRADO con fondo 0 y 80 contados.
+    $porDepositar = $caja->sesionesPorDepositar();
+
+    verificar('Los turnos cerrados aparecen por depositar',
+        $porDepositar->contains('id', $descuadrada->id));
+    // El abierto NO: su efectivo todavía se está moviendo y no se ha contado.
+    verificar('El turno abierto no', ! $porDepositar->contains('id', $cuarta->id));
+
+    // Lo contado MENOS el fondo: el fondo se queda para mañana. Llevándoselo
+    // también, la caja abriría en cero sin que nadie lo decidiera.
+    //
+    // Se mide sobre `$cerrada` —fondo 500, contados 1 700— y contra un número
+    // FIJO. Sobre un turno con fondo cero las dos fórmulas dan lo mismo, y
+    // recalcular la esperada con la misma cuenta del código es escribir dos
+    // veces la implementación en vez de comprobarla.
+    verificar('Lo que toca llevar es lo contado menos el fondo',
+        $caja->porDepositar($cerrada->fresh()) === 1200.0,
+        (string) $caja->porDepositar($cerrada->fresh()));
+
+    [$bien, $mensaje] = seNiega(
+        fn () => $caja->depositar([$cuarta->id], $cuenta, 10.0, '2026-09-02'),
+        'turno abierto no se deposita',
+    );
+    verificar('Un turno abierto no se deposita', $bien, $mensaje);
+
+    [$bien, $mensaje] = seNiega(
+        fn () => $caja->depositar([], $cuenta, 10.0, '2026-09-02'),
+        'al menos un turno',
+    );
+    verificar('Ni un depósito sin turnos', $bien, $mensaje);
+
+    [$bien, $mensaje] = seNiega(
+        fn () => $caja->depositar([$descuadrada->id], $cuenta, 0.0, '2026-09-02'),
+        'mayor que cero',
+    );
+    verificar('Ni con importe cero', $bien, $mensaje);
+
+    $deposito = $caja->depositar(
+        [$descuadrada->id, $conTolerancia->id], $cuenta, 160.0, '2026-09-02', 'FICHA-99', 'Ida a la sucursal'
+    );
+
+    verificar('El depósito se registra', $deposito->exists);
+    verificar('Con su cuenta, importe y ficha',
+        $deposito->cuenta_bancaria_id === $cuenta->id
+        && (float) $deposito->monto === 160.0
+        && $deposito->referencia === 'FICHA-99');
+    // Junta los turnos que se llevaron juntos, que es como se hace: al final del
+    // día va todo en una sola ficha.
+    verificar('Y junta los dos turnos', $deposito->sesiones()->count() === 2);
+    verificar('Que quedan marcados como depositados',
+        $descuadrada->fresh()->deposito_caja_id === $deposito->id
+        && $conTolerancia->fresh()->deposito_caja_id === $deposito->id);
+
+    // Un turno se deposita UNA vez: sin esto, dos capturas mandarían el mismo
+    // dinero al banco dos veces sobre el papel.
+    [$bien, $mensaje] = seNiega(
+        fn () => $caja->depositar([$descuadrada->id], $cuenta, 50.0, '2026-09-02'),
+        'ya se depositó',
+    );
+    verificar('Y no se deposita dos veces', $bien, $mensaje);
+
+    verificar('Ya no aparecen entre los pendientes',
+        ! $caja->sesionesPorDepositar()->contains('id', $descuadrada->id));
+
+    // El alcance por campus: los ids viajan en la petición, así que sin
+    // comprobarlo quien está acotado a un plantel depositaría el de otro.
+    //
+    // Hace falta un turno LIMPIO —cerrado y sin depositar—: sobre uno ya
+    // depositado saltaría antes la otra regla y esta comprobación pasaría por el
+    // motivo equivocado.
+    $paraElCampus = $caja->cerrar($caja->abrir($otra, $otroCajero, 0.0), $otroCajero, 0.0);
+
+    [$bien, $mensaje] = seNiega(
+        fn () => $caja->depositar([$paraElCampus->id], $cuenta, 10.0, '2026-09-02', campus: [-1]),
+        'campus que no alcanzas',
+    );
+    verificar('Y no se deposita el turno de un campus ajeno', $bien, $mensaje);
+
     echo PHP_EOL.'11. Las pantallas, invocadas de verdad'.PHP_EOL;
 
     // Se llama al CONTROLADOR y se leen sus props. Es lo único que caza un
@@ -515,6 +601,15 @@ try {
     // Ni la que ya tiene turno abierto.
     verificar('Ni la que ya está ocupada', ! $ofrecidas->contains('Ventanilla de prueba'),
         $ofrecidas->implode(', '));
+
+    $pantallaDepositos = props($controlador, 'depositos', $cajera);
+
+    verificar('La pantalla de depósitos responde',
+        isset($pantallaDepositos['pendientes']) && isset($pantallaDepositos['cuentas']));
+    verificar('Con el depósito ya registrado',
+        collect($pantallaDepositos['depositos'])->contains('id', $deposito->id));
+    verificar('Y sin los turnos que ya se depositaron',
+        ! collect($pantallaDepositos['pendientes'])->contains('id', $descuadrada->id));
 
     echo PHP_EOL.'Resultado: '.$ok.' correctas, '.count($fallos).' fallidas'.PHP_EOL;
 } catch (Throwable $e) {
