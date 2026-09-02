@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**118 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**119 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -58,7 +58,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 118 están en verde**, barridas el 2026-09-02. Catorce son del módulo de
+   **Las 119 están en verde**, barridas el 2026-09-02. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -764,6 +764,64 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
   CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
   adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
+- **Caja y cortes** (2026-09-02, primera rebanada de 3.2). `/finanzas/cajas`
+  para el catálogo y `/finanzas/caja` para el turno. Dominio NUEVO: no había una
+  sola tabla de caja, y el docblock de `RegistradorPago` llevaba desde que
+  existe hablando de «una caja que no cuadra» sobre un sistema que no tenía
+  cajas.
+  - **El pago APUNTA a su sesión; no se deduce por hora.** Derivarlo —«los pagos
+    de este usuario entre la apertura y el cierre»— reparte por el reloj el
+    dinero de quien cobra en dos ventanillas, y manda al corte equivocado un
+    cobro registrado a las 14:00 por alguien cuyo turno abrió a las 8:00 en otra
+    caja.
+  - **Y el turno se RESUELVE en `RegistradorPago`, no se pasa como parámetro.**
+    Pedirlo habría bastado con que un solo camino lo olvidara para dejar
+    efectivo fuera del arqueo, en silencio y para siempre. Lo que entra sin
+    persona detrás —una pasarela, un comando— no cae en ningún turno, que es lo
+    correcto.
+  - **`metodos_pago.afecta_caja` es bandera, no clave cableada**: lo que el
+    arqueo cuenta es lo que entró al CAJÓN. Una tarjeta cobrada en la misma
+    ventanilla pertenece al corte pero no al conteo de billetes, y lo pendiente
+    de confirmar no cuenta porque es una promesa.
+  - **Dos columnas GENERADAS con su único** (`caja_abierta`, `usuario_abierto`).
+    «Una caja tiene como mucho un turno abierto» y «una persona también» son las
+    dos preguntas que DEBEN tener una sola respuesta. Un `SELECT` previo lo
+    pasan dos peticiones simultáneas, y un único sobre `(caja_id, cerrada_en)`
+    **no sirve**: MySQL considera distintos dos NULL, así que admitiría dos
+    turnos abiertos. La columna generada vale `caja_id` mientras está abierta y
+    NULL al cerrar, así que el único la vigila y deja pasar todos los cierres.
+  - **El fondo inicial entra en lo esperado**: sin él saldría sobrante todos los
+    días por el mismo importe. Y los totales del corte se **congelan** al
+    cerrar: confirmar una transferencia vieja no puede mover un corte de hace un
+    mes.
+  - **Tres estados y no dos.** El cajero TIENE que poder terminar su turno —no
+    se le deja la caja abierta hasta que aparezca un supervisor— y a la vez la
+    diferencia no puede darse por buena sola: `por_autorizar` permite las dos
+    cosas. La tolerancia es configurable, cero por omisión.
+  - **Nadie autoriza su propio faltante**, y autorizar NO borra la diferencia.
+  - Tres permisos porque son tres oficios: `gestionar-cajas`, `operar-caja` y
+    `autorizar-corte-caja`. El interruptor `caja.exige_sesion_para_efectivo`
+    nace APAGADO: encendido en una escuela sin cajas dadas de alta bloquearía
+    todo el cobro en efectivo desde el primer minuto.
+  - Pruebas: `scripts/prueba-caja-y-cortes.php`, 49 verificaciones, comprobadas
+    mutando diecisiete reglas.
+  - **DOS defectos que la suite no veía y salieron al usarlo**, los dos de la
+    misma familia —lo que revienta lo arma la pantalla, no el servicio—:
+    1. **`Pago` no tenía `sesion_caja_id` en su `$fillable`**, así que la
+       asignación masiva lo descartaba EN SILENCIO y ningún cobro caía en su
+       turno. Es la trampa de siempre: no falla, sólo deja de guardar.
+    2. **El trait `SePuedeApagar` filtra por `activo` y aquí la columna es
+       `activa`** —como en `cuentas_bancarias`—, así que la consulta reventaba
+       con «Unknown column» **sólo desde la pantalla**.
+  - Por eso la suite gana una sección que **INVOCA a los controladores y lee sus
+    props**, como `prueba-listados`. Comprobado que caza el 500 original.
+    Vale la pena repetirlo en cualquier rebanada con pantalla: comprobar el
+    servicio no basta cuando la consulta que revienta la arma el controlador.
+  - **Y un resto que casi se escapa al limpiar el demo**: al borrar el pago que
+    se registró para mirarlo, su adeudo quedó en «parcial» SIN pago que lo
+    respaldara. Se caza cruzando `adeudos` contra `pago_adeudo`; el estatus del
+    adeudo lo DERIVA `RegistradorPago` de lo aplicado, así que borrar un pago a
+    mano exige devolverlo a mano.
   - **Y una trampa del entorno**: emitir desde el navegador NO timbra solo, la
     cola es `database`. La factura se queda en `timbrando`, que no es
     acreditable, y parece que el botón no existe. Se procesa con
