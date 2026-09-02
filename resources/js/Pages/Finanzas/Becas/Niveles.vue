@@ -110,7 +110,7 @@ const montoFijo = computed(() => props.niveles.filter((n) => n.modo === 'monto_f
                 </p>
 
                 <div class="mt-4">
-                    <BotonPrincipal v-if="!creando" @click="creando = true">Agregar nivel</BotonPrincipal>
+                    <BotonPrincipal v-if="!creando" tipo="button" texto="Agregar nivel" icono="crear" @click="creando = true" />
                 </div>
 
                 <form v-if="creando" class="mt-4 rounded-lg border p-4" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="crear">
@@ -123,8 +123,13 @@ const montoFijo = computed(() => props.niveles.filter((n) => n.modo === 'monto_f
                         <CampoCheckbox v-model="alta.activo" etiqueta="Activo" />
                     </div>
                     <div class="mt-4 flex gap-2">
-                        <BotonPrincipal type="submit" :disabled="alta.processing">Guardar</BotonPrincipal>
-                        <BotonAccion type="button" @click="creando = false; alta.reset()">Cancelar</BotonAccion>
+                        <BotonPrincipal :procesando="alta.processing" texto="Guardar" icono="crear" />
+                        <button
+                            type="button"
+                            class="rounded-lg border px-4 py-2 text-sm"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                            @click="creando = false; alta.reset()"
+                        >Cancelar</button>
                     </div>
                 </form>
 
@@ -162,7 +167,7 @@ const montoFijo = computed(() => props.niveles.filter((n) => n.modo === 'monto_f
                                     <td class="px-4 py-3 text-right tabular-nums">{{ n.umbral }}</td>
                                     <td class="px-4 py-3 text-right tabular-nums">{{ n.pendientes || '—' }}</td>
                                     <td class="px-6 py-3 text-right">
-                                        <BotonAccion @click="abrir(n)">{{ editando === n.id ? 'Cerrar' : 'Editar' }}</BotonAccion>
+                                        <BotonAccion :variante="editando === n.id ? 'cerrar' : 'editar'" @click="abrir(n)" />
                                     </td>
                                 </tr>
                                 <tr v-if="editando === n.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
@@ -175,7 +180,7 @@ const montoFijo = computed(() => props.niveles.filter((n) => n.modo === 'monto_f
                                             <CampoTexto v-model="datos.orden" tipo="number" paso="1" min="1" etiqueta="Orden" requerido :error="datos.errors.orden" />
                                             <CampoCheckbox v-model="datos.activo" etiqueta="Activo" :ayuda="n.pendientes ? `Hay ${n.pendientes} beca(s) esperando esta firma: no se puede apagar todavía.` : undefined" />
                                             <div class="sm:col-span-2 lg:col-span-3">
-                                                <BotonPrincipal type="submit" :disabled="datos.processing">Guardar</BotonPrincipal>
+                                                <BotonPrincipal :procesando="datos.processing" texto="Guardar" />
                                             </div>
                                         </form>
                                     </td>

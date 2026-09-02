@@ -23,6 +23,9 @@ class BecaAlumnoMovimiento extends Model
     /** Alguien firmó uno de los niveles que la beca exige. */
     public const AUTORIZADA = 'autorizada';
 
+    /** Ya no falta ninguna firma: desde aquí descuenta. */
+    public const EN_VIGOR = 'en_vigor';
+
     public const RENOVADA = 'renovada';
 
     /** Pasó el corte del ciclo y espera que alguien confirme la renovación. */

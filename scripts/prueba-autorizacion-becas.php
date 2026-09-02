@@ -90,6 +90,19 @@ try {
     echo '0. Escenario'.PHP_EOL;
 
     /*
+     * Se parte de CERO niveles, dentro de la transacción.
+     *
+     * Lo que esta suite comprueba es aritmética de firmas —«esta beca dispara
+     * dos»— y eso sólo se puede afirmar sabiendo cuáles existen. Sin vaciar,
+     * pasaba corriéndola sola y se cayó en cuanto la escuela configuró el
+     * primero desde la pantalla: aparecía una tercera firma pendiente y la beca
+     * ya no se activaba al firmar las dos del escenario. Es la lección que este
+     * proyecto ya se cobró tres veces.
+     */
+    $nivelesDelDemo = NivelAutorizacionBeca::query()->count();
+    NivelAutorizacionBeca::query()->update(['activo' => false]);
+
+    /*
      * Cuelgan de dirección general y NO de la faceta administrativa: en el demo
      * la escuela reorganizó sus roles y la faceta se quedó con tres permisos,
      * así que colgar de ella no ejercitaría la herencia —que es justo lo que
@@ -108,6 +121,12 @@ try {
 
     // Heredan `autorizar-becas` de la faceta, no lo tienen ellos: es
     // exactamente el caso que un `whereHas('permissions')` dejaría fuera.
+    verificar(
+        'Se parte sin ningún nivel activo',
+        NivelAutorizacionBeca::query()->activos()->count() === 0,
+        "la escuela tenía {$nivelesDelDemo}"
+    );
+
     verificar('Los roles de prueba heredan el permiso de firmar', $rolA->concede('autorizar-becas'));
     verificar('Y no lo tienen concedido directamente', ! $rolA->permissions->contains('name', 'autorizar-becas'));
 

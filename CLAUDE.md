@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**120 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**122 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -764,6 +764,110 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
   CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
   adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
+- **Patrocinadores y presupuesto de becas** (2026-09-02, parte de 3.3). De qué
+  bolsa sale cada beca, y cuánto llevamos. `/finanzas/becas/presupuesto`.
+  - **El ejercido se MIDE, no se estima.** Sale de `adeudo_ajustes` —un renglón
+    por cada beca que movió un cargo, con `origen_id` apuntando a la otorgada—,
+    así que es auditable renglón a renglón.
+  - **Y hay que decir en la pantalla lo que ese número NO es**, porque se lee al
+    revés: es lo YA aplicado, no lo que costará el ciclo. Una beca por
+    porcentaje no tiene importe hasta que existen los cargos, y proyectarla
+    exigiría inventar cuántos faltan y de cuánto — un número inventado, al lado
+    de uno medido, se lee igual de cierto.
+  - **Pasarse NO se bloquea, se avisa.** Un tope duro impediría la última beca
+    del año a quien la necesita por unos pesos, y esa es una decisión de la
+    dirección. Lo que el sistema garantiza es que nadie se pase sin enterarse.
+  - **Salen TODOS los patrocinadores activos, tengan bolsa o no.** Uno sin
+    presupuesto asignado que ya lleva becas dadas es exactamente lo que hay que
+    ver; listando sólo los que tienen bolsa, ese gasto es invisible. Y su
+    `disponible` va en NULL y no en cero: «ya no queda» es distinto de «nadie ha
+    dicho cuánto hay».
+  - `patrocinadores` siembra «La escuela» con `protegido`, y `becas.patrocinador_id`
+    es NOT NULL apuntando ahí: una beca siempre sale de alguna bolsa, y la de la
+    propia escuela es la que ya se estaba usando sin nombrarla.
+  - Pruebas: `scripts/prueba-presupuesto-becas.php`, 26 verificaciones, ocho
+    mutaciones.
+
+- **Autorización multinivel y evidencia de becas** (2026-09-02, cierra 3.3).
+  `/finanzas/becas/niveles` para armar la escala, `/finanzas/becas/autorizaciones`
+  para firmarla, y la evidencia dentro del detalle de la beca.
+  - **La autorización BLOQUEA, no anota.** `becas_alumno.autorizado_por` ya
+    guardaba quién la dio, pero se escribía junto con la beca y ésta nacía
+    ACTIVA: era un dato del acta, no una puerta. Ahora una beca que alcanza un
+    umbral nace `por_autorizar` y **no descuenta nada**.
+  - **Y no hizo falta ninguna guarda nueva**: `aplicaEn()` exige ACTIVA y
+    `CalculadorCargo::becasDe()` sólo mira las activas, así que el ESTADO es la
+    defensa. Una comprobación aparte sería una segunda verdad que algún día
+    divergiría.
+  - **El umbral se mide sobre lo que la beca DICE** —40 %, o $3,000—, no sobre
+    el dinero que acabará descontando: ese número no existe cuando hay que
+    decidir quién firma. Por eso cada nivel declara su `modo` y sólo mira las
+    becas de su misma escala; comparar 0.40 contra un umbral en pesos sería
+    comparar cosas distintas.
+  - **Dos niveles firmados por la misma persona son UN nivel.** Quien ya firmó
+    uno no puede firmar otro de la misma beca aunque tenga los dos roles: sin
+    eso, dirección general —que suele tener varios— cerraría sola una escala de
+    tres. A quien la otorgó no se le prohíbe: es normalmente el primer nivel, y
+    lo que impide que la cierre sola es esta misma regla.
+  - **El nivel apunta a un ROL, no a un permiso.** «Quién firma el segundo
+    nivel» es una pregunta de organigrama, y el organigrama de esta plataforma
+    son los roles, que la escuela crea desde pantalla. Con un permiso habría que
+    declararlo en `CatalogoPermisos` —código— y no se podría agregar un tercer
+    nivel sin programar.
+  - **Los roles que se ofrecen se filtran con `concede()`, NO con un
+    `whereHas('permissions')`.** Un rol funcional HEREDA los permisos de su
+    faceta, así que la consulta directa dejaría fuera a casi todos y la lista
+    saldría casi vacía sin un solo error.
+  - **La evidencia cuelga de la beca OTORGADA**, no de la persona como
+    `documentos_alumno`: el estudio socioeconómico sostiene ESTA decisión y el
+    del ciclo que viene será otro. De la persona, renovar heredaría la evidencia
+    vieja sin que nadie la revisara. Va al disco privado y **no se retira una
+    vez que hay firmas**: quitarla dejaría la firma explicando un expediente que
+    ya no está.
+  - **Renovar vuelve a pedir firmas.** Es un gasto nuevo, de otro ciclo, y
+    heredar la autorización convertiría una beca firmada una vez en una beca
+    firmada para siempre.
+  - **Un nivel se APAGA y no se borra, y no mientras alguien lo espere**: esas
+    becas se quedarían colgadas de una firma que ya no se le va a pedir a nadie,
+    y no hay pantalla desde donde destrabarlas.
+  - **`/becas/{beca}` pasó a exigir número.** Sin eso `/becas/autorizaciones`
+    casaba contra el comodín —se registra después— y respondía 404 sin que nada
+    se quejara: el defecto de «botón muerto» que no da error.
+  - **La firma se escribe con un `update` condicionado a que siga vacía.** El
+    guard de «ya está firmada» mira el objeto EN MEMORIA, así que dos personas
+    con la cola abierta lo pasan las dos y la segunda borraría del acta a quien
+    cerró el nivel. La suite reproduce la carrera con una copia leída antes de
+    que nadie firmara.
+  - Pruebas: `scripts/prueba-autorizacion-becas.php`, 65 verificaciones,
+    comprobadas mutando **24 reglas**. En la primera pasada sobrevivieron siete:
+    - **Tres eran huecos de verdad**, los tres del mismo tipo —el escenario no
+      contenía el caso—: no se probaba un nivel APAGADO, `firmar` sólo se
+      ejercitaba por caminos felices (se comprobaba `motivoParaNoFirmar` y no
+      que quien firma lo honre), y la cola se probaba con alguien a quien
+      excluía otro filtro, así que quitar el filtro POR ROL no cambiaba nada.
+    - **Dos eran mutantes EQUIVALENTES**, medidos: `validate` devuelve «0.75» y
+      «0» como CADENAS, pero el `casts()` del modelo las convierte antes de
+      escribir. Se retiraron las conversiones de `desde` y `orden` —una segunda
+      conversión que no cambia nada— y se conservó la de `activo`, que sí tiene
+      lector antes del modelo: el guard de apagado, que ahora compara con
+      `=== false` en vez de confiar en que «0» sea falso en PHP.
+  - **Y dos defectos que sólo salieron MIRÁNDOLO en el navegador:**
+    - **`BotonAccion` no tiene slot**: exige `variante` y de ahí saca su icono y
+      su etiqueta. Con hijos —`<BotonAccion>Editar</BotonAccion>`— sale un botón
+      VACÍO, y la celda de la tabla queda en blanco. Ninguna prueba lo ve. Se
+      barrió la clase entera: los tres usos malos eran los míos.
+    - **La bitácora decía «autorizada» en minúscula** al lado de «Otorgada»,
+      porque `etiquetaAccion` en `Detalle.vue` no tenía entrada para el
+      movimiento nuevo y caía a la clave cruda. Y el asiento de la activación
+      iba como `OTORGADA`, así que la bitácora repetía «Otorgada» dos veces —una
+      al otorgarla y otra al activarla, días después— sin poder distinguirlas:
+      ahora es `EN_VIGOR`.
+  - **La suite parte de CERO niveles dentro de la transacción**, y no es
+    cosmético: comprueba aritmética de firmas —«esta beca dispara dos»— y eso
+    sólo se puede afirmar sabiendo cuáles existen. Pasaba corriéndola sola y se
+    cayó en cuanto configuré el primer nivel desde la pantalla. Cuarta vez que
+    este proyecto se cobra lo mismo.
+
 - **Caja y cortes** (2026-09-02, primera rebanada de 3.2). `/finanzas/cajas`
   para el catálogo y `/finanzas/caja` para el turno. Dominio NUEVO: no había una
   sola tabla de caja, y el docblock de `RegistradorPago` llevaba desde que

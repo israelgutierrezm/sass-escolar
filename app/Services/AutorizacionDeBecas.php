@@ -200,7 +200,7 @@ class AutorizacionDeBecas
             // no descontaba nada, así que aquí es donde hay que recomponer los
             // cargos que siguen pendientes.
             $becaAlumno->update(['estatus' => BecaAlumno::ACTIVA]);
-            $evaluador->registrar($becaAlumno, BecaAlumnoMovimiento::OTORGADA, 'Autorización completa: la beca entra en vigor.');
+            $evaluador->registrar($becaAlumno, BecaAlumnoMovimiento::EN_VIGOR, 'Ya no falta ninguna firma.');
 
             $cargos = $becaAlumno->matricula !== null
                 ? $generador->recalcularPendientes($becaAlumno->matricula)

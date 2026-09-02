@@ -107,7 +107,12 @@ function firmar(p: Pendiente): void {
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap">{{ p.solicitada ?? '—' }}</td>
                                 <td class="px-6 py-3 text-right">
-                                    <BotonAccion @click="abrir(p)">{{ firmando === p.id ? 'Cancelar' : 'Firmar' }}</BotonAccion>
+                                    <BotonAccion
+                                        :variante="firmando === p.id ? 'cerrar' : 'ver'"
+                                        texto="Firmar"
+                                        :icono-al-final="firmando === p.id"
+                                        @click="abrir(p)"
+                                    />
                                 </td>
                             </tr>
                             <tr v-if="firmando === p.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
@@ -120,9 +125,11 @@ function firmar(p: Pendiente): void {
                                                 ayuda="Opcional. Queda en la bitácora de la beca junto a tu firma."
                                             />
                                         </div>
-                                        <BotonPrincipal type="submit" :disabled="enviando">
-                                            {{ p.faltan > 1 ? 'Firmar mi nivel' : 'Firmar y activar la beca' }}
-                                        </BotonPrincipal>
+                                        <BotonPrincipal
+                                            :procesando="enviando"
+                                            cargando="Firmando…"
+                                            :texto="p.faltan > 1 ? 'Firmar mi nivel' : 'Firmar y activar la beca'"
+                                        />
                                     </form>
                                 </td>
                             </tr>

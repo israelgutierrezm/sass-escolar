@@ -118,6 +118,7 @@ const etiquetaAccion: Record<string, string> = {
     otorgada: 'Otorgada', renovada: 'Renovada', por_renovar: 'Cumple para renovar',
     suspendida: 'Suspendida', reactivada: 'Reactivada', perdida: 'Perdida',
     no_renovada: 'No renovada', cancelada: 'Cancelada',
+    autorizada: 'Firmada', en_vigor: 'En vigor',
 };
 </script>
 
