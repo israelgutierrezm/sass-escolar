@@ -29,11 +29,15 @@ class CuentaBancaria extends Model
         'numero_cuenta',
         'instrucciones',
         'activa',
+        // Cómo se lee el archivo del banco de ESTA cuenta. Es la forma de un
+        // archivo, no algo enumerable, así que no es catálogo: un JSON dice lo
+        // mismo sin inventar una tabla. Ver `MapeoEstadoCuenta`.
+        'mapeo_estado_cuenta',
     ];
 
     protected function casts(): array
     {
-        return ['activa' => 'boolean'];
+        return ['activa' => 'boolean', 'mapeo_estado_cuenta' => 'array'];
     }
 
     /**

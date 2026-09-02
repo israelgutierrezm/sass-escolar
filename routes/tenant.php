@@ -41,6 +41,7 @@ use App\Http\Controllers\CobroAspiranteController;
 use App\Http\Controllers\CobroEnLineaController;
 use App\Http\Controllers\ComprobantePagoController;
 use App\Http\Controllers\ConceptoPagoController;
+use App\Http\Controllers\ConciliacionBancariaController;
 use App\Http\Controllers\ConfiguracionController;
 use App\Http\Controllers\ConfiguracionEscolarController;
 use App\Http\Controllers\CorreoConfigController;
@@ -1420,6 +1421,45 @@ Route::middleware([
                  * Un permiso compartido entre oficios no puede ser lo único que
                  * cierre una puerta administrativa: no distingue de quién es.
                  */
+                /*
+                 * Conciliación bancaria.
+                 *
+                 * Permiso PROPIO y no `registrar-pagos`: conciliar es
+                 * supervisión —declarar que el dinero llegó de verdad—, y quien
+                 * registra el cobro no debería ser quien lo declara. Mismo
+                 * criterio que cerrar el periodo fiscal y que autorizar un
+                 * corte de caja.
+                 *
+                 * Sin acotar por campus: una cuenta bancaria es de la persona
+                 * moral, y «conciliar el campus norte» no significa nada frente
+                 * al banco.
+                 */
+                Route::controller(ConciliacionBancariaController::class)
+                    ->prefix('conciliacion')->name('conciliacion.')
+                    ->middleware('can:conciliar-banco')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::post('/', 'importar')->name('importar');
+                        Route::put('/cuentas/{cuenta}/mapeo', 'guardarMapeo')
+                            ->whereNumber('cuenta')->name('mapeo');
+
+                        // Antes del comodín: `/conciliacion/movimientos` casaría
+                        // contra `{estado}` y daría un 404 mudo.
+                        Route::get('/movimientos/{movimiento}/candidatos', 'candidatos')
+                            ->whereNumber('movimiento')->name('candidatos');
+                        Route::post('/movimientos/{movimiento}/conciliar', 'conciliar')
+                            ->whereNumber('movimiento')->name('conciliar');
+                        Route::post('/movimientos/{movimiento}/clasificar', 'clasificar')
+                            ->whereNumber('movimiento')->name('clasificar');
+                        Route::delete('/partidas/{partida}', 'desconciliar')
+                            ->whereNumber('partida')->name('desconciliar');
+
+                        Route::get('/{estado}', 'detalle')->whereNumber('estado')->name('detalle');
+                        Route::post('/{estado}/automatico', 'automatico')
+                            ->whereNumber('estado')->name('automatico');
+                        Route::delete('/{estado}', 'eliminar')->whereNumber('estado')->name('destroy');
+                    });
+
                 Route::controller(CuentaBancariaController::class)
                     ->prefix('cuentas-bancarias')->name('cuentas.')
                     ->group(function () {
