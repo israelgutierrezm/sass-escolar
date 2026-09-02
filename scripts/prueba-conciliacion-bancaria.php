@@ -22,6 +22,13 @@
  * se mide es aritmética de conciliación, y eso sólo se puede afirmar sabiendo
  * exactamente qué hay.
  *
+ * ── Las referencias son SUYAS ──────────────────────────────────────────────
+ * Llevan un prefijo propio a propósito. Una escuela real tiene otros cobros, y
+ * con una referencia que ya exista el pareo automático encuentra dos candidatos
+ * igual de buenos y —correctamente— no decide: la suite se caería por hacer
+ * bien su trabajo. Pasaba corriéndola sola y se cayó en cuanto se sembró una
+ * cuenta para mirar la pantalla.
+ *
  * Los `use` van ARRIBA del arranque a propósito: un alias sólo aplica a partir
  * de donde se declara.
  */
@@ -130,9 +137,9 @@ try {
 
     // Tres entradas y un cargo: 2500 + 1800 + 3200 - 150 = 7350.
     $renglones = [
-        '05/03/2026,SPEI RECIBIDO DE GARCIA,REF7788,,2500.00',
-        '06/03/2026,SPEI RECIBIDO,REF9911,,1800.00',
-        '09/03/2026,DEPOSITO EN EFECTIVO,FICHA22,,3200.00',
+        '05/03/2026,SPEI RECIBIDO DE GARCIA,PRUEBACONC7788,,2500.00',
+        '06/03/2026,SPEI RECIBIDO,PRUEBACONC9911,,1800.00',
+        '09/03/2026,DEPOSITO EN EFECTIVO,PRUEBACONCF22,,3200.00',
         '31/03/2026,COMISION POR MANEJO DE CUENTA,,150.00,',
     ];
 
@@ -160,7 +167,7 @@ try {
     echo PHP_EOL.'2. Cómo se leyó el archivo'.PHP_EOL;
 
     $comision = MovimientoBancario::where('estado_cuenta_id', $estado->id)->where('descripcion', 'like', 'COMISION%')->firstOrFail();
-    $spei = MovimientoBancario::where('estado_cuenta_id', $estado->id)->where('referencia', 'REF7788')->firstOrFail();
+    $spei = MovimientoBancario::where('estado_cuenta_id', $estado->id)->where('referencia', 'PRUEBACONC7788')->firstOrFail();
 
     verificar('Un cargo entra en NEGATIVO', (float) $comision->monto === -150.0, (string) $comision->monto);
     verificar('Y un abono en positivo', (float) $spei->monto === 2500.0);
@@ -262,7 +269,7 @@ try {
         'matricula_oferta_id' => $matricula->id,
         'metodo_pago_id' => $transferencia->id,
         'monto' => 2500.00,
-        'referencia' => 'REF7788',
+        'referencia' => 'PRUEBACONC7788',
         'estatus' => Pago::ESTATUS_COMPLETADO,
         'momento' => '2026-03-05 11:00:00',
     ]);
@@ -280,7 +287,7 @@ try {
         'cuenta_bancaria_id' => $cuenta->id,
         'monto' => 3200.00,
         'fecha' => '2026-03-09',
-        'referencia' => 'FICHA22',
+        'referencia' => 'PRUEBACONCF22',
     ]);
 
     $candidatos = $conciliador->candidatos($spei);
@@ -292,7 +299,7 @@ try {
         ! in_array('pago:'.$pagoEfectivo->id, $claves, true)
     );
 
-    $delEfectivo = MovimientoBancario::where('estado_cuenta_id', $estado->id)->where('referencia', 'FICHA22')->firstOrFail();
+    $delEfectivo = MovimientoBancario::where('estado_cuenta_id', $estado->id)->where('referencia', 'PRUEBACONCF22')->firstOrFail();
     $clavesDeposito = array_column($conciliador->candidatos($delEfectivo), 'clave');
 
     verificar('Y el depósito del turno sí', in_array('deposito:'.$deposito->id, $clavesDeposito, true));
@@ -353,7 +360,7 @@ try {
 
     echo PHP_EOL.'7. Un movimiento del sistema se concilia una sola vez'.PHP_EOL;
 
-    $otroRenglon = MovimientoBancario::where('estado_cuenta_id', $estado->id)->where('referencia', 'REF9911')->firstOrFail();
+    $otroRenglon = MovimientoBancario::where('estado_cuenta_id', $estado->id)->where('referencia', 'PRUEBACONC9911')->firstOrFail();
 
     $motivoDoble = motivoDe(fn () => $conciliador->conciliar($otroRenglon, ['pago:'.$pagoSpei->id]));
 
@@ -379,7 +386,7 @@ try {
         'matricula_oferta_id' => $matricula->id,
         'metodo_pago_id' => $transferencia->id,
         'monto' => 1800.00,
-        'referencia' => 'REF9911',
+        'referencia' => 'PRUEBACONC9911',
         'estatus' => Pago::ESTATUS_PENDIENTE,
         'momento' => '2026-03-06 10:00:00',
     ]);
@@ -515,7 +522,7 @@ try {
 
     $panorama = $conciliador->panorama($estado);
 
-    // REF9911 entró al banco y no hay cobro que lo respalde: alguien pagó y
+    // PRUEBACONC9911 entró al banco y no hay cobro que lo respalde: alguien pagó y
     // nadie lo registró.
     verificar(
         'Lo que entró y nadie registró aparece',

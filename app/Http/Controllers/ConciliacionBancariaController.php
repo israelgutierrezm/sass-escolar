@@ -261,9 +261,18 @@ class ConciliacionBancariaController extends Controller
     /** @return array<string, mixed> */
     private function resumen(EstadoCuentaBancaria $estado): array
     {
+        /*
+         * TODOS los renglones sin explicar, entren o salgan. Con `entradas()`
+         * el encabezado decía «3» mientras la tabla enseñaba cuatro importes en
+         * rojo —la comisión es una salida—, y dos cifras que se contradicen en
+         * la misma pantalla hacen desconfiar del tablero entero.
+         *
+         * Es OTRA pregunta que la de `panorama()['sin_registrar']`, que sí mira
+         * sólo entradas porque ahí lo que se busca es dinero que llegó y nadie
+         * registró.
+         */
         $sinResolver = MovimientoBancario::query()
             ->where('estado_cuenta_id', $estado->id)
-            ->entradas()
             ->sinResolver()
             ->count();
 

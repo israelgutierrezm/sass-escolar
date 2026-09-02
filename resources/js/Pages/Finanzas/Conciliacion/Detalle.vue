@@ -312,15 +312,23 @@ function automatico(): void {
 
         <TarjetaSeccion
             class="mt-6"
-            titulo="Cobrado aquí que el banco no vio"
-            :descripcion="`${pesos.format(totales.sin_llegar)} registrados en el periodo sin un renglón que los respalde.`"
+            titulo="Cobrado aquí y todavía sin casar"
+            :descripcion="`${pesos.format(totales.sin_llegar)} registrados en el periodo sin un renglón del banco que los respalde.`"
             :icono="ICONOS.escudo"
             sin-relleno
         >
             <div class="px-6 pt-4">
+                <!--
+                    Recién importado el archivo, aquí sale TODO: nada se ha
+                    casado todavía. Decirlo evita que quien abre la pantalla la
+                    primera vez lea que el banco no vio ni un peso de lo
+                    cobrado.
+                -->
                 <p class="text-sm" :style="{ color: 'var(--color-suave)' }">
-                    Aquí aparece un comprobante aprobado sobre una imagen repetida, o un depósito de caja que se
-                    capturó y no se hizo. La cartera los da por cobrados y el banco nunca los vio.
+                    Antes de casar los renglones aparece aquí todo lo cobrado del periodo. Lo que <strong>siga
+                    aquí después</strong> es lo que importa: un comprobante aprobado sobre una imagen repetida,
+                    o un depósito de caja que se capturó y no se hizo. La cartera los da por cobrados y el banco
+                    nunca los vio.
                 </p>
             </div>
 
