@@ -196,6 +196,52 @@ try {
 
     verificar('Y reimportarlos no agrega un tercero', $r4['nuevos'] === 0);
 
+    /*
+     * La huella tiene que mirar TODO lo que el banco dijo. Dos renglones del
+     * mismo día y del mismo importe con conceptos distintos son dos cosas
+     * distintas —una comisión y un cobro—, y dos con el mismo concepto y
+     * distinto importe también. Sin el concepto o sin el importe dentro, uno de
+     * los dos se perdería en silencio.
+     */
+    $parecidos = [
+        '15/04/2026,SPEI RECIBIDO,,,700.00',
+        '15/04/2026,PAGO DE SERVICIOS,,,700.00',
+        '15/04/2026,SPEI RECIBIDO,,,800.00',
+    ];
+    $r5 = $importador->importar($cuenta, csv($parecidos), '2026-04-01', '2026-04-30', 0.0, 2200.00);
+
+    verificar('Mismo día e importe, conceptos distintos: son dos', $r5['nuevos'] === 3, 'nuevos: '.$r5['nuevos']);
+
+    /*
+     * Y donde una huella floja de verdad muerde es en la importación
+     * SIGUIENTE: si el concepto o el importe no entran en ella, un movimiento
+     * distinto choca contra el que ya está y se traga en silencio. Dentro de un
+     * mismo archivo no se nota, porque las ocurrencias lo tapan.
+     */
+    $rConcepto = $importador->importar(
+        $cuenta,
+        csv(['15/04/2026,COMPRA EN TIENDA,,,700.00']),
+        '2026-04-15', '2026-04-15', 0.0, 700.00
+    );
+
+    verificar(
+        'Otro archivo con el mismo día e importe y OTRO concepto sí entra',
+        $rConcepto['nuevos'] === 1,
+        'nuevos: '.$rConcepto['nuevos']
+    );
+
+    $rImporte = $importador->importar(
+        $cuenta,
+        csv(['15/04/2026,COMPRA EN TIENDA,,,900.00']),
+        '2026-04-15', '2026-04-15', 0.0, 900.00
+    );
+
+    verificar(
+        'Y con el mismo concepto y OTRO importe, también',
+        $rImporte['nuevos'] === 1,
+        'nuevos: '.$rImporte['nuevos']
+    );
+
     echo PHP_EOL.'4. Un movimiento fuera del periodo capturado se rechaza'.PHP_EOL;
 
     $motivoFuera = motivoDe(fn () => $importador->importar(
@@ -251,7 +297,25 @@ try {
 
     verificar('Y el depósito del turno sí', in_array('deposito:'.$deposito->id, $clavesDeposito, true));
 
-    verificar('Un cargo del banco no ofrece candidatos', $conciliador->candidatos($comision) === []);
+    /*
+     * Y para que «un cargo no ofrece candidatos» signifique algo, tiene que
+     * haber un cobro que SÍ encajaría por importe y fecha: sin él la lista
+     * saldría vacía de todas formas y la comprobación pasaría sin comprobar.
+     */
+    $cercaDelCargo = Pago::create([
+        'matricula_oferta_id' => $matricula->id,
+        'metodo_pago_id' => $transferencia->id,
+        'monto' => 150.00,
+        'referencia' => 'COMISION',
+        'estatus' => Pago::ESTATUS_COMPLETADO,
+        'momento' => '2026-03-31 09:00:00',
+    ]);
+
+    verificar(
+        'Ese cobro encajaría con el cargo por importe y fecha',
+        abs((float) $cercaDelCargo->monto - abs((float) $comision->monto)) < 0.005
+    );
+    verificar('Y aun así un cargo del banco no ofrece candidatos', $conciliador->candidatos($comision) === []);
 
     echo PHP_EOL.'6. El pareo automático sólo cuando no hay duda'.PHP_EOL;
 
@@ -296,9 +360,140 @@ try {
     verificar('El mismo pago no cuadra dos renglones', $motivoDoble !== null, (string) $motivoDoble);
     verificar('Y el mensaje lo explica', str_contains((string) $motivoDoble, 'ya estaba conciliado'));
 
-    $motivoSalida = motivoDe(fn () => $conciliador->conciliar($comision, ['pago:'.$pagoSpei->id]));
+    // Con un pago LIBRE: sobre uno ya conciliado, el rechazo lo produciría el
+    // único de la base y la regla de «una salida no es un cobro» no se
+    // evaluaría nunca.
+    $motivoSalida = motivoDe(fn () => $conciliador->conciliar($comision, ['pago:'.$cercaDelCargo->id]));
 
     verificar('Una salida del banco no se concilia contra un cobro', $motivoSalida !== null, (string) $motivoSalida);
+    verificar('Y el motivo es ése, no otro', str_contains((string) $motivoSalida, 'salida del banco'));
+
+    verificar(
+        'El pago libre siguió sin conciliarse',
+        ! ConciliacionPartida::where('pago_id', $cercaDelCargo->id)->exists()
+    );
+
+    // Y un cobro que todavía no es dinero tampoco se concilia: no debería
+    // haber llegado al banco.
+    $pendiente = Pago::create([
+        'matricula_oferta_id' => $matricula->id,
+        'metodo_pago_id' => $transferencia->id,
+        'monto' => 1800.00,
+        'referencia' => 'REF9911',
+        'estatus' => Pago::ESTATUS_PENDIENTE,
+        'momento' => '2026-03-06 10:00:00',
+    ]);
+
+    $motivoPendiente = motivoDe(fn () => $conciliador->conciliar($otroRenglon, ['pago:'.$pendiente->id]));
+
+    verificar('Un cobro sin confirmar no se concilia', $motivoPendiente !== null, (string) $motivoPendiente);
+    verificar('Y tampoco sale como candidato', ! in_array('pago:'.$pendiente->id, array_column($conciliador->candidatos($otroRenglon), 'clave'), true));
+
+    echo PHP_EOL.'7.b La liquidación de pasarela: un renglón, varios cobros'.PHP_EOL;
+
+    /*
+     * El caso que obliga a que un renglón case con VARIOS y a que el importe
+     * aplicado sea el del COBRO y no el del banco: la pasarela liquida en
+     * bloque y NETA de comisión, así que dos cobros de 6,000 llegan como un
+     * solo renglón de 11,700.
+     */
+    $liquidacion = ['20/05/2026,LIQUIDACION PASARELA,LIQ0520,,11700.00'];
+    $rMayo = $importador->importar($cuenta, csv($liquidacion), '2026-05-01', '2026-05-31', 0.0, 11700.00);
+    $renglonLiq = MovimientoBancario::where('estado_cuenta_id', $rMayo['estado']->id)->firstOrFail();
+
+    $cobrosPasarela = [];
+    foreach ([1, 2] as $i) {
+        $cobrosPasarela[] = Pago::create([
+            'matricula_oferta_id' => $matricula->id,
+            'metodo_pago_id' => $transferencia->id,
+            'monto' => 6000.00,
+            'referencia' => 'PASARELA-'.$i,
+            'estatus' => Pago::ESTATUS_COMPLETADO,
+            'momento' => '2026-05-20 08:0'.$i.':00',
+        ]);
+    }
+
+    $conciliador->conciliar($renglonLiq, array_map(fn ($p) => 'pago:'.$p->id, $cobrosPasarela));
+    $renglonLiq->refresh();
+
+    verificar('Un renglón casa con varios cobros', $renglonLiq->partidas()->count() === 2);
+    verificar(
+        'Y cada partida guarda el importe del COBRO, no el del banco',
+        abs((float) $renglonLiq->partidas()->first()->monto_aplicado - 6000.0) < 0.005,
+        (string) $renglonLiq->partidas()->first()->monto_aplicado
+    );
+    verificar('Lo conciliado son los 12,000', abs($renglonLiq->conciliado() - 12000.0) < 0.005);
+    verificar('Y sobran 300 sin explicar', abs($renglonLiq->pendiente() + 300.0) < 0.005, (string) $renglonLiq->pendiente());
+    verificar('Así que el renglón NO está resuelto', ! $renglonLiq->estaResuelto());
+
+    $conciliador->clasificar($renglonLiq, MovimientoBancario::COMISION, 'Comisión de la pasarela.');
+
+    verificar('Declarada la comisión, queda resuelto', $renglonLiq->fresh()->estaResuelto());
+    verificar(
+        'Y el scope de sin resolver ya no lo trae',
+        ! MovimientoBancario::query()->sinResolver()->whereKey($renglonLiq->id)->exists()
+    );
+
+    echo PHP_EOL.'7.c Coincidir sólo en el importe no basta para casar solo'.PHP_EOL;
+
+    $juntoAlIgual = ['22/05/2026,SPEI RECIBIDO DE PEREZ,OTRAREFERENCIA,,4321.00'];
+    $rIgual = $importador->importar($cuenta, csv($juntoAlIgual), '2026-05-22', '2026-05-22', 0.0, 4321.00);
+    $renglonIgual = MovimientoBancario::where('estado_cuenta_id', $rIgual['estado']->id)->firstOrFail();
+
+    $mismoImporte = Pago::create([
+        'matricula_oferta_id' => $matricula->id,
+        'metodo_pago_id' => $transferencia->id,
+        'monto' => 4321.00,
+        'referencia' => 'NADAQUEVERCONESTO',
+        'estatus' => Pago::ESTATUS_COMPLETADO,
+        'momento' => '2026-05-22 09:00:00',
+    ]);
+
+    $tarjetas = collect($conciliador->candidatos($renglonIgual))->firstWhere('clave', 'pago:'.$mismoImporte->id);
+
+    verificar('Sale como candidato', $tarjetas !== null);
+    verificar('Coincide en importe', $tarjetas['mismo_importe'] === true);
+    verificar('Pero no en referencia', $tarjetas['misma_referencia'] === false);
+    verificar('Así que NO es seguro', $tarjetas['seguro'] === false);
+
+    $autoIgual = $conciliador->conciliarAutomatico($rIgual['estado']);
+
+    verificar('Y el automático no lo casa', $autoIgual['casados'] === 0, 'casados: '.$autoIgual['casados']);
+
+    echo PHP_EOL.'7.d Una referencia demasiado corta no basta'.PHP_EOL;
+
+    /*
+     * Una referencia de tres caracteres aparece por casualidad dentro de
+     * cualquier concepto largo. Casarla automáticamente sería inventar el
+     * pareo, y un pareo automático equivocado deja la pantalla en verde.
+     */
+    $conCorta = ['23/05/2026,PAGO 123 SERVICIOS ESCOLARES,,,555.00'];
+    $rCorta = $importador->importar($cuenta, csv($conCorta), '2026-05-23', '2026-05-23', 0.0, 555.00);
+    $renglonCorta = MovimientoBancario::where('estado_cuenta_id', $rCorta['estado']->id)->firstOrFail();
+
+    $refCorta = Pago::create([
+        'matricula_oferta_id' => $matricula->id,
+        'metodo_pago_id' => $transferencia->id,
+        'monto' => 555.00,
+        'referencia' => '123',
+        'estatus' => Pago::ESTATUS_COMPLETADO,
+        'momento' => '2026-05-23 09:00:00',
+    ]);
+
+    $tarjetaCorta = collect($conciliador->candidatos($renglonCorta))->firstWhere('clave', 'pago:'.$refCorta->id);
+
+    verificar('«123» aparece dentro del concepto del banco', str_contains($renglonCorta->descripcion, '123'));
+    verificar('Y aun así no cuenta como referencia coincidente', $tarjetaCorta['misma_referencia'] === false);
+    verificar('Ni el automático lo casa', $conciliador->conciliarAutomatico($rCorta['estado'])['casados'] === 0);
+
+    echo PHP_EOL.'7.e Lo ya conciliado deja de ofrecerse'.PHP_EOL;
+
+    $antes = array_column($conciliador->candidatos($renglonIgual), 'clave');
+    $conciliador->conciliar($renglonIgual, ['pago:'.$mismoImporte->id]);
+    $despues = array_column($conciliador->candidatos($renglonCorta), 'clave');
+
+    verificar('Antes de casarlo, se ofrecía', in_array('pago:'.$mismoImporte->id, $antes, true));
+    verificar('Después ya no se ofrece en otro renglón', ! in_array('pago:'.$mismoImporte->id, $despues, true));
 
     echo PHP_EOL.'8. Lo que no es un cobro se clasifica'.PHP_EOL;
 
