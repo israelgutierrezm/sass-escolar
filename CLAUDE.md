@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**116 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**118 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -58,7 +58,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 116 están en verde**, barridas el 2026-09-01. Catorce son del módulo de
+   **Las 118 están en verde**, barridas el 2026-09-02. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -700,6 +700,70 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     puede leer el archivo VIEJO y la mutación se reporta como superviviente. Se
     escribe con `with` y se relee el archivo para comprobar que el disco lo
     tiene.
+- **El paquete mensual de comprobantes** (2026-09-01, cuarta rebanada del ciclo
+  fiscal). `/finanzas/facturas/descargar-lote`, desde el listado.
+  - Es el trabajo mensual del contador. Sin esto los XML se bajan uno por uno
+    desde la pantalla de cada factura, que con doscientas al mes no lo hace
+    nadie; lo que pasa de verdad es que se piden por correo al PAC.
+  - **Las CANCELADAS van dentro.** Tentador dejarlas fuera («ya no valen») y
+    sería un error: la contabilidad electrónica las pide igual.
+  - **El MANIFIESTO es la mitad del entregable.** Un ZIP con doscientos archivos
+    no se puede cuadrar contra nada. El CSV lista TODO el periodo —incluido lo
+    que no tiene XML guardado porque la descarga desde el PAC falló— con su
+    estatus y su estado ante el SAT. Sin él, un paquete al que le faltan tres
+    XML se ve igual que uno completo y se entrega como si lo fuera.
+  - **Pasarse del tope se REHÚSA, no se recorta.** Un paquete truncado en
+    silencio se entrega a contabilidad como el mes completo. El tope entra por
+    el CONSTRUCTOR para poder comprobarlo: con la constante a secas, ejercitar
+    el rechazo exigiría crear dos mil comprobantes y esa regla se quedaría sin
+    probar.
+  - **`tempnam()` CREA el archivo**, así que escribir en «esa ruta + .zip» deja
+    el original huérfano para siempre, uno por descarga. (Ese defecto sí existe
+    en las descargas de lotes de certificación y titulación; queda anotado
+    aparte.)
+  - Pruebas: `scripts/prueba-descarga-masiva-cfdi.php`, 24 verificaciones,
+    catorce mutaciones. Una sobrevivió y enseñó algo: la comprobación de «sin
+    PDF si no se piden» corría antes de que el escenario tuviera un solo PDF.
+- **El cierre del periodo fiscal** (2026-09-02, quinta y última rebanada).
+  `/finanzas/cierre`, permiso propio `cerrar-periodo-fiscal`.
+  - **Lo primero fue averiguar qué significa cerrar AQUÍ**, y no es lo obvio: en
+    este sistema una factura se emite siempre con la fecha de hoy, así que «que
+    no entren comprobantes con fecha vieja» no puede pasar y bloquearlo no
+    protegería de nada. Lo que sí puede pasar es que alguien CANCELE un
+    comprobante de un mes ya declarado.
+  - **La nota de crédito sigue permitida, a propósito.** Es la asimetría que
+    hace útil todo esto: se fecha HOY, así que corrige el mes cerrado sin
+    tocarlo — lo que hace un contador cuando el mes ya se declaró. Cerrar no
+    bloquea la corrección: la empuja al instrumento correcto, y el mensaje del
+    rechazo lo dice con esas palabras.
+  - **Los totales se CONGELAN al cerrar.** Un cierre es una afirmación fechada;
+    recalcularla al mirarla haría que el cierre cambiara solo, que es justo lo
+    que existe para impedir. La pantalla enseña las dos cifras y avisa cuando
+    difieren.
+  - **Un mes que no ha terminado no se cierra**: quedaría cerrado con facturas
+    por emitir, y las de mañana caerían en un periodo incorregible.
+  - **Los egresos van APARTE de los ingresos**, no restados: un neto escondería
+    la mitad de lo que hay que declarar. Y una cancelada no cuenta como ingreso
+    declarado.
+  - **Reabrir exige motivo**, y volver a cerrar lo RETIRA: describe por qué se
+    abrió, y con el mes cerrado otra vez ya no vale.
+  - Permiso propio y no `facturar`: cerrar es supervisión, y quien emite CFDI a
+    diario no tiene por qué poder hacerlo. Y la pantalla **no se acota por
+    campus**: un periodo fiscal es de la persona moral, y «cerrar marzo del
+    campus norte» no significa nada ante el SAT.
+  - Pruebas: `scripts/prueba-cierre-fiscal.php`, 30 verificaciones, quince
+    mutaciones.
+  - **Y una mejora de método que vale para cualquier suite**: varias mutaciones
+    MATABAN el script antes del resumen, así que un barrido que busca
+    «Resultado:» las contaba como suite rota en vez de como prueba que detectó
+    algo. Ahora el `try` lleva un `catch (Throwable)` que registra «la suite
+    murió antes de terminar» como FALLA y el resumen se imprime desde el
+    `finally`.
+- **Lo que NO se hizo del ciclo fiscal, y por qué**: **PPD y complemento de
+  pagos**. No es un hueco de implementación: este sistema factura contra PAGOS y
+  no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
+  CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
+  adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
   - **Y una trampa del entorno**: emitir desde el navegador NO timbra solo, la
     cola es `database`. La factura se queda en `timbrando`, que no es
     acreditable, y parece que el botón no existe. Se procesa con
