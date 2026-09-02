@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**119 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**120 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -58,7 +58,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 119 están en verde**, barridas el 2026-09-02. Catorce son del módulo de
+   **Las 120 están en verde**, barridas el 2026-09-02. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -822,6 +822,54 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     respaldara. Se caza cruzando `adeudos` contra `pago_adeudo`; el estatus del
     adeudo lo DERIVA `RegistradorPago` de lo aplicado, así que borrar un pago a
     mano exige devolverlo a mano.
+- **Las devoluciones sacan dinero del cajón** (2026-09-02, segunda parte de
+  3.2). Revertir un pago ya lo sacaba de los totales de SU turno, y eso alcanza
+  sólo en el caso fácil —se devuelve el mismo día y en la misma caja—. En el
+  normal no: se devuelve HOY un pago de la semana pasada, el dinero sale del
+  cajón de hoy y el turno de entonces no se toca porque su corte está firmado.
+  - **Y por eso el turno cuenta también lo REEMBOLSADO.** Si la salida se
+    registra siempre, la entrada tiene que seguir contando o la devolución del
+    mismo día restaría dos veces. Lo hace posible una distinción que el sistema
+    YA tenía y que hasta hoy no usaba nadie: `fallido` es «nunca fue dinero» —ni
+    entra ni sale— y `reembolsado` es «fue dinero y se devolvió» —entra y sale—.
+  - La devolución se anota desde `revertir`, igual que el turno se resuelve al
+    cobrar. Lo que no entra al cajón no deja movimiento; sin turno abierto no se
+    devuelve efectivo; y un único sobre `pago_id` impide la salida doble.
+- **El recibo de ventanilla** (2026-09-02, tercera parte). PDF en media carta.
+  - **LA regla: dice que NO es un comprobante fiscal.** Un papel con el logo de
+    la escuela, un folio y un importe se archiva creyendo que se puede deducir,
+    y se descubre en abril. Remite al CFDI, que se pide aparte.
+  - Enumera los cargos que cubrió con su periodo —un recibo que sólo diga el
+    importe obliga a preguntar en ventanilla qué se abonó—, y un ANTICIPO se
+    dice en vez de dejar un importe sin explicación.
+  - Sólo de dinero que de verdad entró: el de un pago PENDIENTE responde **404**.
+  - **Obligó a agregar `a5` al mapa de `DocumentoPdf`**, y es la trampa que su
+    propio docblock avisa: un nombre de papel que no conoce cae a Letter EN
+    SILENCIO y el documento sale de otro tamaño sin decirlo.
+  - Pruebas: `scripts/prueba-recibo-de-caja.php`, 24 verificaciones, once
+    mutaciones. Se miden sobre el HTML que recibe mpdf —con un motor espía, como
+    `HistorialPdfTest`— y además se genera el PDF de verdad para comprobar que
+    **cabe en una hoja**, que en un recibo de mostrador es la mitad del asunto y
+    no lo avisa ningún error.
+- **El depósito bancario** (2026-09-02, última parte de 3.2). Cierra el rastro:
+  el corte dice si el cajón cuadra y esto dice si ese dinero llegó al banco. Es
+  además lo que hará posible la conciliación bancaria de 3.1.
+  - **Una COLUMNA en la sesión, no un pivote**: un turno se deposita como mucho
+    una vez y un depósito junta varios turnos. Con `deposito_caja_id` la regla
+    la sostiene la estructura.
+  - **Lo que toca llevar es lo contado MENOS el fondo**, que se queda para
+    mañana. Y el importe se CAPTURA: la escuela junta dos días o separa un
+    gasto, así que forzar la igualdad convertiría cada caso normal en un
+    impedimento; lo que se enseña es la diferencia.
+  - Sólo turnos cerrados, y la referencia de la ficha no es adorno: sin ella,
+    casar el depósito con el renglón del banco es adivinar por importe.
+  - La suite de caja llega a 85 verificaciones con **32 mutaciones**, todas
+    mueren. **Dos sobrevivieron por el mismo motivo y vale recordarlo**: una
+    porque el caso no existía en el escenario —devolver una tarjeta CON turno
+    abierto—, y otra porque «lo contado menos el fondo» se medía sobre un turno
+    con fondo CERO, donde las dos fórmulas dan lo mismo, y encima recalculando
+    la esperada con la misma cuenta del código: eso es escribir dos veces la
+    implementación, no comprobarla.
   - **Y una trampa del entorno**: emitir desde el navegador NO timbra solo, la
     cola es `database`. La factura se queda en `timbrando`, que no es
     acreditable, y parece que el botón no existe. Se procesa con
