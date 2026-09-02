@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**115 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**116 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -58,7 +58,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 115 están en verde**, barridas el 2026-09-01. Catorce son del módulo de
+   **Las 116 están en verde**, barridas el 2026-09-01. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -652,6 +652,54 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     cualquier pantalla de detalle con formularios desplegables.**
   - Pruebas: `scripts/prueba-nota-credito.php`, 38 verificaciones, comprobadas
     mutando **dieciséis** reglas.
+- **Conciliación de los CFDI con el SAT** (2026-09-01, tercera rebanada del
+  ciclo fiscal). `finanzas:conciliar-cfdi`, diaria a las 4:00.
+  - **Los dos desajustes que caza aparecen SIN un acto nuestro**: alguien
+    cancela el comprobante desde el portal del PAC o del SAT —y aquí sigue
+    figurando vigente, así que la escuela cuenta como ingreso algo que ya no
+    existe—, o una cancelación pedida aquí se queda esperando que el receptor la
+    acepte —la base dice «cancelada» y el CFDI sigue vivo—. Ninguno falla ni
+    avisa, y los dos se descubren en la declaración. Por eso es un comando y no
+    un botón: no hay nada en la aplicación que dispare la revisión.
+  - **LA REGLA: nunca escribe `estatus`.** Es el estado de trabajo y tiene
+    consecuencias —`Factura::vivas()` decide qué pagos siguen amparados—, así
+    que moverlo desde un comando de madrugada LIBERARÍA esos pagos y alguien
+    podría refacturar el mismo dinero sin haberlo pedido. Se guardan las dos
+    versiones en columnas propias y se reporta la diferencia; resolverla es un
+    acto deliberado. Mismo criterio que `acadion:auditar-datos`.
+  - **`Pac::puedeConciliar()` se declara aparte de la respuesta**, porque las
+    dos cosas se parecen y significan lo contrario: «este PAC no consulta» es
+    una propiedad del driver que se dice UNA vez, y «el PAC no contestó» es un
+    fallo que se reporta factura por factura. Sin separarlas, el modo de prueba
+    llenaría el informe de errores que no lo son.
+  - **`PacFalso` contesta que NO concilia, a propósito.** Ahí la única verdad es
+    la fila de la base; un PAC de mentiras que dijera «vigente» convertiría la
+    conciliación en un espejo que siempre cuadra.
+  - **`sat_estado_cancelacion` es otra columna que `sat_estado`**: una factura
+    puede estar VIGENTE con una cancelación PENDIENTE, que es el caso que más
+    engaña. Y **`sat_error` no sobra**: que el PAC no conteste es una tercera
+    respuesta, y sólo en la salida del comando se perdería —eso corre de
+    madrugada y nadie lo lee—.
+  - El comando **sale con ERROR si hay discrepancias**: uno programado que
+    termina en verde teniendo comprobantes que no cuadran es cómo esto se queda
+    sin mirar durante meses.
+  - Pruebas: `scripts/prueba-conciliacion-sat.php`, 36 verificaciones con un
+    DOBLE del PAC —heredado de `PacFalso` para que timbrar siga igual—,
+    comprobadas mutando doce reglas.
+  - **HALLAZGO que corrige una creencia de este proyecto: un `or` dentro de un
+    SCOPE lo agrupa Eloquent solo.** Se intentó mutar
+    `scopeConDiscrepanciaSat` quitándole los paréntesis y la mutación
+    SOBREVIVIÓ; medido con `toRawSql()`, al aplicarse como scope Laravel envuelve
+    sus condiciones —`estatus='timbrada' AND (… OR …)`— y el defecto no se
+    reproduce. **La trampa del `or` suelto es real en una consulta escrita EN
+    LÍNEA** (un controlador, un `when()`), no en un scope. Los paréntesis
+    explícitos se conservan igual: expresan la intención y sobreviven al día que
+    alguien saque esa consulta del scope.
+  - **Y una trampa del método de mutación**: `io.open(...).write(...)` sin
+    cerrar deja al recolector decidir cuándo se vacía el búfer, así que PHP
+    puede leer el archivo VIEJO y la mutación se reporta como superviviente. Se
+    escribe con `with` y se relee el archivo para comprobar que el disco lo
+    tiene.
   - **Y una trampa del entorno**: emitir desde el navegador NO timbra solo, la
     cola es `database`. La factura se queda en `timbrando`, que no es
     acreditable, y parece que el botón no existe. Se procesa con

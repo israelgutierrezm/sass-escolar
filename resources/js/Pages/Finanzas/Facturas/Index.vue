@@ -104,7 +104,7 @@ const ICONO_FACTURA =
                     class="rounded-full px-3 py-1 text-xs font-medium"
                     :style="{ backgroundColor: 'color-mix(in srgb, #dc2626 12%, transparent)', color: '#dc2626' }"
                 >
-                    {{ discrepancias }} no coinciden con el SAT
+                    {{ discrepancias }} {{ discrepancias === 1 ? 'no coincide' : 'no coinciden' }} con el SAT
                 </a>
             </template>
         </BarraListado>
