@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**125 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**126 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -764,6 +764,70 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
   CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
   adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
+- **Presupuesto de egresos y centros de costo, CERRADO** (2026-09-02, rebanada
+  3.6). `/finanzas/presupuesto` y `/finanzas/egresos`. Permisos
+  `gestionar-presupuesto` y `registrar-egresos`, con `ver-presupuesto`
+  derivado.
+  - **Lo primero que salió al reconocer**: este sistema mide hasta el último
+    peso el dinero que ENTRA —cartera, cobro, caja, CFDI, conciliación— y del
+    que SALE no tenía una sola tabla. Lo único que el cierre fiscal llama
+    «egresos» son notas de crédito, que no son gasto sino ingreso que se
+    reversa. Un presupuesto no se podía comparar contra nada.
+  - **Y esto NO es contabilidad**, dicho en la pantalla y no sólo en un
+    docblock: no hay órdenes de compra, ni cuentas por pagar, ni CFDI recibidos
+    que validar. Es control presupuestal. Media implementación de cuentas por
+    pagar sería peor que ninguna, porque se usaría como si fuera contabilidad.
+  - **El ejercido tiene UNA sola fuente: los egresos registrados.** La tentación
+    es derivarlo —«la nómina de este campus cuenta contra su centro de costo»—
+    y eso crea un número que cambia según de dónde se mire y que nadie puede
+    auditar renglón por renglón.
+  - **La nómina entra como un EGRESO más, con un acto deliberado** y su
+    `origen`. Exige que el periodo esté CERRADO —uno abierto cambia de importe
+    cada vez que alguien recalcula, y el presupuesto quedaría persiguiendo una
+    cifra móvil— y va por CAMPUS, que es lo que `periodos_nomina.campus_id` ya
+    dice desde que existe la nómina: no hay que adivinar ninguna atribución. Si
+    ese campus no tiene centro de costo, **se DICE**: cargarla a otro metería el
+    gasto más grande de la escuela en el sitio equivocado y cuadraría igual. Y
+    traerla dos veces lo detiene un ÚNICO, no un `SELECT` previo.
+  - **Las becas NO se cuentan aquí.** Tienen su propio presupuesto desde la
+    entrega de patrocinadores; contarlas sería el mismo dinero dos veces — y
+    además una beca es ingreso que se deja de cobrar, no dinero que sale de la
+    cuenta.
+  - **El tablero saca TODOS los cruces con presupuesto O con gasto.** Uno con
+    gasto y sin presupuesto es exactamente lo que hay que ver —se está gastando
+    en algo que nadie autorizó—; listando sólo los presupuestados, ese gasto
+    sería invisible. Su disponible va en NULL y no en cero: «ya no queda» es
+    distinto de «nadie ha dicho cuánto hay».
+  - **Pasarse no bloquea: se avisa**, como en el presupuesto de becas. Un tope
+    duro impediría pagar una reparación urgente por unos pesos, y eso es una
+    decisión de la dirección.
+  - **`centros_costo.campus_id` es nullable** a propósito: hay gasto que no es de
+    ningún plantel —licencias, dirección general— y obligarlo a elegir uno
+    repartiría a ojo lo que no se reparte.
+  - **Un egreso capturado SÍ se corrige y se retira**, al revés que un CFDI o un
+    acta: es la CAPTURA de algo que pasó en otro lado, y los errores de captura
+    son la norma. Lo que le da autoridad al renglón es su comprobante y su
+    auditoría, no que no se pueda tocar. **Los de NÓMINA no**: su importe es el
+    neto de un periodo cerrado, y cambiarlo aquí dejaría el presupuesto diciendo
+    una cosa y la nómina otra.
+  - **Dos permisos porque son dos oficios**: quien captura una factura de
+    mantenimiento no tiene por qué poder subirse su propio techo. Y
+    `ver-presupuesto` es puerta DERIVADA —los dos entran— porque capturar un
+    gasto sin ver contra qué va es capturar a ciegas.
+  - Pruebas: `scripts/prueba-presupuesto-egresos.php`, 55 verificaciones,
+    comprobadas mutando **23 reglas**. En la primera pasada sobrevivieron cuatro,
+    y las cuatro por lo de siempre —el escenario no tenía el caso—: un solo
+    presupuesto y en un solo ciclo; ningún periodo de nómina ABIERTO; el periodo
+    huérfano sin recibos, así que quitarle el filtro por campus SEGUÍA dando un
+    rechazo por otra razón; y el listado sin llegar al tope.
+  - **El tamaño de página es constante PÚBLICA**, por lo mismo que el tope de la
+    descarga masiva de CFDI: con el número escondido, comprobar que el total
+    suma lo filtrado y no la página exigiría inventar trescientos egresos a
+    ciegas y esa regla se quedaría sin probar.
+  - **Y una comprobación que escribí vacua**: `X < X + 777` es cierta pase lo
+    que pase. Es el patrón que esta bitácora tiene documentado desde hace
+    meses, y lo escribí igual.
+
 - **Recordatorios de cobranza** (2026-09-02, segunda parte de 3.4).
   `/finanzas/cobranza` para la escalera; `finanzas:recordar-cobranza`, diario a
   las 7:00.
