@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, useForm, router } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
@@ -149,6 +149,44 @@ function emitirNota(): void {
         preserveScroll: true,
     });
 }
+
+/*
+ * Al cambiar de factura hay que CERRAR los tres formularios y volver a
+ * sembrarlos.
+ *
+ * Inertia reutiliza el componente cuando la pantalla siguiente es la misma, y
+ * sólo intercambia las props: los `ref` y los `useForm` sobreviven a la
+ * navegación. Se vio emitiendo una nota de crédito —la pantalla salta al
+ * comprobante nuevo— y ahí seguía abierto el formulario de acreditar,
+ * ofreciendo acreditar la nota de crédito recién emitida y con los renglones
+ * de la factura anterior. Lo mismo le pasaba a los de refacturar y cancelar,
+ * que arrastraban el RFC del receptor de la factura de antes.
+ */
+watch(
+    () => props.factura.id,
+    () => {
+        acreditando.value = false;
+        refacturando.value = false;
+        cancelando.value = false;
+
+        nota.defaults({
+            motivo: '',
+            renglones: props.conceptos.map((c) => ({ concepto_id: c.id, importe: 0 })),
+        });
+        nota.reset();
+
+        refactura.defaults({
+            rfc: props.factura.receptor_rfc,
+            razon_social: props.factura.receptor_razon_social,
+            uso_cfdi: props.factura.receptor_uso_cfdi,
+            regimen_fiscal: props.factura.receptor_regimen_fiscal,
+            cp: props.factura.receptor_cp,
+        });
+        refactura.reset();
+
+        cancelacion.reset();
+    },
+);
 
 
 </script>
@@ -359,7 +397,7 @@ function emitirNota(): void {
                 negativo que nunca existió.
             -->
             <form
-                v-if="acreditando"
+                v-if="acreditando && factura.acreditable"
                 class="mt-4 border-t pt-4"
                 :style="{ borderColor: 'var(--color-borde)' }"
                 @submit.prevent="emitirNota"
