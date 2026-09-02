@@ -247,6 +247,23 @@ class AppServiceProvider extends ServiceProvider
          * «puede subir imágenes» que hubiera que palomear aparte produciría el
          * clásico 403 sin explicación al primero que arme un rol nuevo.
          */
+        /*
+         * Mirar el presupuesto.
+         *
+         * Dos oficios por la misma puerta: quien lo administra —dirección, que
+         * decide de cuánto dispone cada área— y quien captura los egresos, que
+         * necesita ver contra qué presupuesto va lo que está registrando.
+         * Capturar un gasto sin ver el techo es capturar a ciegas.
+         *
+         * Derivado y no asignable: pedir un tercer permiso «puede ver el
+         * presupuesto» produciría el 403 sin explicación al primero que arme un
+         * rol de administración.
+         */
+        Gate::define(
+            'ver-presupuesto',
+            fn ($usuario) => $usuario->can('gestionar-presupuesto') || $usuario->can('registrar-egresos')
+        );
+
         Gate::define(
             'subir-material',
             fn ($usuario) => $usuario->can('capturar-calificaciones') || $usuario->can('editar-catalogo-academico')

@@ -64,6 +64,7 @@ use App\Http\Controllers\DocenciaController;
 use App\Http\Controllers\DocenteController;
 use App\Http\Controllers\DocumentoRequeridoController;
 use App\Http\Controllers\DocumentosDelHijoController;
+use App\Http\Controllers\EgresoController;
 use App\Http\Controllers\Emision\DatosTituloController;
 use App\Http\Controllers\Emision\LoteCertificacionController;
 use App\Http\Controllers\Emision\LoteTitulacionController;
@@ -122,6 +123,7 @@ use App\Http\Controllers\Plataforma\ModuloController;
 use App\Http\Controllers\PortafolioController;
 use App\Http\Controllers\PortalAspiranteController;
 use App\Http\Controllers\PresentacionExamenController;
+use App\Http\Controllers\PresupuestoController;
 use App\Http\Controllers\ProgramaAcademicoController;
 use App\Http\Controllers\RecuperacionController;
 use App\Http\Controllers\RecursosDigitalesController;
@@ -1712,6 +1714,43 @@ Route::middleware([
                  * avisos no los manda nadie desde una pantalla, los manda el
                  * comando de las siete.
                  */
+                /*
+                 * Presupuesto de egresos y sus dimensiones. DOS permisos porque
+                 * son dos oficios: administrar el presupuesto dice de cuánto
+                 * dispone cada área —eso es dirección— y registrar egresos
+                 * captura el gasto del día. Quien captura una factura de
+                 * mantenimiento no tiene por qué poder subirse su propio techo.
+                 */
+                Route::controller(PresupuestoController::class)
+                    ->prefix('presupuesto')->name('presupuesto.')
+                    ->group(function () {
+                        // Mirarlo lo puede quien registra: capturar un gasto sin
+                        // ver contra qué presupuesto va es capturar a ciegas.
+                        Route::get('/', 'index')
+                            ->middleware('can:ver-presupuesto')->name('index');
+
+                        Route::middleware('can:gestionar-presupuesto')->group(function () {
+                            Route::post('/centros', 'guardarCentro')->name('centros.store');
+                            Route::put('/centros/{centro}', 'guardarCentro')->whereNumber('centro')->name('centros.update');
+                            Route::delete('/centros/{centro}', 'apagarCentro')->whereNumber('centro')->name('centros.destroy');
+                            Route::post('/partidas', 'guardarPartida')->name('partidas.store');
+                            Route::put('/partidas/{partida}', 'guardarPartida')->whereNumber('partida')->name('partidas.update');
+                            Route::post('/asignar', 'guardarPresupuesto')->name('asignar');
+                            Route::post('/nomina', 'traerNomina')->name('nomina');
+                        });
+                    });
+
+                Route::controller(EgresoController::class)
+                    ->prefix('egresos')->name('egresos.')
+                    ->middleware('can:registrar-egresos')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::post('/', 'guardar')->name('store');
+                        Route::post('/{egreso}', 'guardar')->whereNumber('egreso')->name('update');
+                        Route::get('/{egreso}/comprobante', 'descargar')->whereNumber('egreso')->name('comprobante');
+                        Route::delete('/{egreso}', 'eliminar')->whereNumber('egreso')->name('destroy');
+                    });
+
                 Route::controller(CobranzaController::class)
                     ->prefix('cobranza')->name('cobranza.')
                     ->middleware('can:gestionar-planes-cobro')
