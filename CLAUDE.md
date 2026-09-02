@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**114 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**115 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -58,7 +58,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 114 están en verde**, barridas el 2026-09-01. Catorce son del módulo de
+   **Las 115 están en verde**, barridas el 2026-09-01. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -596,6 +596,66 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     regresión y eran restos míos.
   - Pruebas: `scripts/prueba-complemento-iedu.php`, 39 verificaciones,
     comprobadas mutando **doce** reglas. El escenario se CONSTRUYE entero.
+- **La nota de crédito: corregir sin cancelar** (2026-09-01, segunda rebanada
+  del ciclo fiscal). Hasta hoy la ÚNICA corrección era cancelar y refacturar, y
+  no sirve para el caso más frecuente: el importe estaba BIEN el día que se
+  emitió y cambió después —una beca autorizada tarde, un descuento pactado
+  luego, un cobro de más que se descubre en la conciliación—. Peor: cancelar
+  deja de ser opción en cuanto vence el plazo del SAT o cuando el receptor se
+  niega a aceptar, y ahí la escuela se queda sin instrumento y lo declarado
+  nunca se corrige.
+  - **`factura_origen_id` es OTRA cosa que `factura_sustituye_id`, y fundirlas
+    rompería el cobro.** La sustitución significa «ésta reemplaza a aquélla», y
+    de eso vive `EmisorFactura::pagosOcupados`: una factura con sustituta viva
+    DEJA DE AMPARAR sus pagos para que la nueva los tome. Una nota de crédito no
+    reemplaza nada —la original sigue vigente y sigue amparando su dinero—, así
+    que con una sola columna emitir una nota liberaría los pagos y **el mismo
+    dinero se podría facturar dos veces**. Lo vigila una comprobación de la
+    suite.
+  - **Se acredita RENGLÓN POR RENGLÓN, no por un importe total.** Es la razón
+    por la que la factura desglosa el IVA por concepto: en un comprobante
+    conviven la colegiatura exenta y la constancia gravada, y un importe global
+    no diría cuánto impuesto se reversa. De ahí
+    `factura_conceptos.concepto_origen_id`: sin él, «cuánto queda por acreditar»
+    sólo se puede contestar del total, y alguien acreditaría 500 contra una
+    constancia de 200 reversando un IVA que no se causó.
+  - **El IVA se reversa con la tasa del RENGLÓN TIMBRADO**, no con la del
+    catálogo de hoy: corregir la tasa de un concepto no puede cambiar lo que
+    reversa una nota sobre una factura vieja.
+  - **Emisor y receptor se COPIAN del original.** Re-resolviendo el emisor, una
+    escuela que cambiara sus asignaciones acreditaría desde una persona moral
+    que nunca cobró ese dinero; y acreditar a otro RFC sería regalarle una
+    deducción a quien no pagó.
+  - **Una nota CANCELADA deja de reducir.** Si contara, seguiría restando de una
+    factura que volvió a valer por completo, y ese renglón no se podría
+    acreditar nunca más.
+  - **El motivo es obligatorio**: reduce lo declarado al SAT, y sin la razón
+    escrita nadie puede explicar dentro de un año por qué la escuela declaró
+    menos ingreso.
+  - **NO toca la cartera, a propósito.** Que una nota se vuelva devolución o
+    saldo a favor es una decisión de cobranza con su propio movimiento y su
+    propia autorización; escribirlo aquí crearía una segunda verdad sobre lo que
+    el alumno debe, a partir de un documento que sólo habla de lo declarado al
+    SAT.
+  - **En el listado el importe va con signo negativo y su etiqueta**: sin eso,
+    quien suma la columna a ojo cuenta como ingreso un documento que lo resta.
+  - **La traducción al PAC —tipo 'E' y relación 01— está escrita contra la forma
+    DOCUMENTADA de la API y no se ha visto responder a un Facturapi real.** Queda
+    dicho en su docblock, igual que en la consulta de grabaciones de Meet.
+  - **Defecto que sólo se vio MIRANDO**: Inertia reutiliza el componente cuando
+    la pantalla siguiente es la misma y sólo intercambia las props, así que los
+    `ref` y los `useForm` sobreviven a la navegación. Al emitir la nota —que
+    salta al comprobante nuevo— el formulario de acreditar seguía abierto, ahora
+    sobre la propia nota, ofreciendo acreditarla y con los renglones de la
+    factura anterior; refacturar y cancelar arrastraban el RFC del receptor de
+    antes. Se cierran y se re-siembran al cambiar de factura. **Vale para
+    cualquier pantalla de detalle con formularios desplegables.**
+  - Pruebas: `scripts/prueba-nota-credito.php`, 38 verificaciones, comprobadas
+    mutando **dieciséis** reglas.
+  - **Y una trampa del entorno**: emitir desde el navegador NO timbra solo, la
+    cola es `database`. La factura se queda en `timbrando`, que no es
+    acreditable, y parece que el botón no existe. Se procesa con
+    `php artisan queue:work --stop-when-empty`.
   - **Y una lección del propio barrido de mutaciones**: revertía con
     `git checkout`, que en los archivos todavía NO versionados falla en silencio
     —las mutaciones se van acumulando— y en los versionados se lleva por delante
