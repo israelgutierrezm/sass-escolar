@@ -297,8 +297,11 @@ try {
     // el RVOE del plan no puede cambiar lo que dice un comprobante timbrado.
     $plan->update(['rvoe' => 'RVOE-CORREGIDO-2027']);
 
+    // Con `?->` y no a secas: sin complemento esto reventaría y MATARÍA el
+    // script en vez de reportar la falla, que es como una regresión real se
+    // convierte en un rastro de pila ilegible.
     verificar('Corregir el RVOE del plan NO toca lo ya timbrado',
-        $factura->iedu()->first()->aut_rvoe === 'RVOE-BACH-9999');
+        $factura->iedu()->first()?->aut_rvoe === 'RVOE-BACH-9999');
 
     $plan->update(['rvoe' => 'RVOE-BACH-9999']);
 
