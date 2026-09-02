@@ -13,6 +13,8 @@ interface PagoFacturable {
     metodo: string | null;
     referencia: string | null;
     momento: string | null;
+    concepto: string | null;
+    deducible: boolean;
 }
 
 const props = defineProps<{
@@ -26,6 +28,7 @@ const props = defineProps<{
         cp: string;
     } | null;
     usoDefault: string;
+    iedu: { impedimentos: string[] };
 }>();
 
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
@@ -43,6 +46,48 @@ const form = useForm({
 
 const total = computed(() =>
     props.pagos.filter((p) => form.pago_ids.includes(p.id)).reduce((s, p) => s + p.monto, 0),
+);
+
+/*
+ * El aviso del complemento educativo, y por qué se arma AQUÍ y no en el
+ * servidor.
+ *
+ * La decisión de verdad la toma `ComplementoEducativo` al emitir; esto es sólo
+ * la advertencia previa, y depende de qué pagos lleve uno palomeados, o sea de
+ * algo que el servidor todavía no sabe. Lo que se evita duplicar es el
+ * CRITERIO: qué concepto es enseñanza lo dice el servidor por pago
+ * (`deducible`), y qué le falta a la matrícula lo dice también él
+ * (`iedu.impedimentos`). Aquí sólo se mira la selección.
+ *
+ * Y se avisa antes porque después no hay marcha atrás barata: una factura
+ * timbrada sin complemento se corrige cancelando ante el SAT y volviendo a
+ * emitir.
+ */
+const elegidos = computed(() => props.pagos.filter((p) => form.pago_ids.includes(p.id)));
+
+const avisoIedu = computed<string | null>(() => {
+    const conEnsenanza = elegidos.value.filter((p) => p.deducible);
+
+    if (conEnsenanza.length === 0) return null;
+
+    const otros = elegidos.value.filter((p) => !p.deducible);
+
+    if (otros.length > 0) {
+        const nombres = [...new Set(otros.map((p) => p.concepto ?? 'un pago sin aplicar'))];
+
+        return `Esta factura mezcla enseñanza con otros cobros (${nombres.join(', ')}). El complemento educativo ampara el comprobante entero, así que saldría sin él y nadie podría deducirla. Factúralos por separado.`;
+    }
+
+    if (props.iedu.impedimentos.length > 0) {
+        return `Saldría sin complemento educativo: ${props.iedu.impedimentos.join('; ')}.`;
+    }
+
+    return null;
+});
+
+/** Que sí lo va a llevar también se dice: es la mitad tranquilizadora. */
+const llevaIedu = computed(
+    () => elegidos.value.length > 0 && elegidos.value.every((p) => p.deducible) && avisoIedu.value === null,
 );
 
 function emitir(): void {
@@ -93,6 +138,7 @@ const regimenes = [
                             <tr>
                                 <th class="px-6 py-3"></th>
                                 <th class="px-4 py-3 font-medium">Fecha</th>
+                                <th class="px-4 py-3 font-medium">Concepto</th>
                                 <th class="px-4 py-3 font-medium">Método</th>
                                 <th class="px-4 py-3 font-medium">Referencia</th>
                                 <th class="px-6 py-3 text-right font-medium">Monto</th>
@@ -104,6 +150,22 @@ const regimenes = [
                                     <input v-model="form.pago_ids" type="checkbox" :value="p.id" />
                                 </td>
                                 <td class="px-4 py-3">{{ p.momento ?? '—' }}</td>
+                                <td class="px-4 py-3">
+                                    {{ p.concepto ?? '—' }}
+                                    <!--
+                                        La insignia sólo aparece en lo que SÍ es
+                                        enseñanza: marcar también lo que no lo es
+                                        llenaría la columna de etiquetas y dejaría
+                                        de señalar nada.
+                                    -->
+                                    <span
+                                        v-if="p.deducible"
+                                        class="ml-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium"
+                                        :style="{ color: '#15803d', backgroundColor: 'color-mix(in srgb, #16a34a 14%, transparent)' }"
+                                    >
+                                        Deducible
+                                    </span>
+                                </td>
                                 <td class="px-4 py-3">{{ p.metodo ?? '—' }}</td>
                                 <td class="px-4 py-3 font-mono text-xs">{{ p.referencia ?? '—' }}</td>
                                 <td class="px-6 py-3 text-right font-medium tabular-nums">{{ pesos.format(p.monto) }}</td>
@@ -111,7 +173,7 @@ const regimenes = [
                         </tbody>
                         <tfoot>
                             <tr class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
-                                <td colspan="4" class="px-6 py-3 text-right font-medium">Seleccionado</td>
+                                <td colspan="5" class="px-6 py-3 text-right font-medium">Seleccionado</td>
                                 <td class="px-6 py-3 text-right text-base font-semibold tabular-nums">
                                     {{ pesos.format(total) }}
                                 </td>
@@ -124,6 +186,26 @@ const regimenes = [
                     No hay pagos cobrados pendientes de facturar.
                 </p>
             </TarjetaSeccion>
+
+            <div
+                v-if="avisoIedu"
+                class="tarjeta mt-4 border-l-4 p-4 text-sm"
+                :style="{ borderLeftColor: '#f59e0b', backgroundColor: 'color-mix(in srgb, #f59e0b 8%, transparent)' }"
+            >
+                <p class="font-medium">Sin complemento educativo</p>
+                <p class="mt-1" :style="{ color: 'var(--color-suave)' }">{{ avisoIedu }}</p>
+            </div>
+
+            <div
+                v-else-if="llevaIedu"
+                class="tarjeta mt-4 border-l-4 p-4 text-sm"
+                :style="{ borderLeftColor: '#16a34a', backgroundColor: 'color-mix(in srgb, #16a34a 8%, transparent)' }"
+            >
+                <p class="font-medium">Llevará complemento educativo (IEDU)</p>
+                <p class="mt-1" :style="{ color: 'var(--color-suave)' }">
+                    Con él, quien recibe la factura puede deducir la colegiatura.
+                </p>
+            </div>
 
             <TarjetaSeccion v-if="pagos.length" titulo="Datos fiscales del receptor" descripcion="Se copian a la factura y ahí se congelan: si el receptor cambia de régimen el año que entra, este comprobante debe seguir diciendo lo que decía." :icono="ICONOS.documento">
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

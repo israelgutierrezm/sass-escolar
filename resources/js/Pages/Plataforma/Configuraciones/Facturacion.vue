@@ -35,7 +35,31 @@ interface Config {
 const props = defineProps<{
     config: Config;
     catalogos: Record<string, { clave: string; texto: string }[]>;
+    nivelesIedu: { id: number; nombre: string; nivel_iedu: string | null }[];
+    catalogoIedu: { clave: string; texto: string }[];
+    conceptosDeducibles: string[];
 }>();
+
+/*
+ * El complemento educativo (IEDU) es lo que hace deducible una colegiatura.
+ * Sin él la factura es válida, se timbra sin un solo error, y el padre no puede
+ * deducirla — un defecto que no falla, no avisa y se descubre en abril.
+ *
+ * Hacen falta DOS cosas y por eso se revisan juntas: que el nivel esté mapeado
+ * a uno de los cinco que el SAT reconoce, y que algún concepto de cobro esté
+ * marcado como enseñanza. Con una sola, no sale ni un complemento.
+ */
+const iedu = useForm({
+    niveles: props.nivelesIedu.map((n) => ({ id: n.id, nivel_iedu: n.nivel_iedu })),
+});
+
+const nombreDe = (id: number) => props.nivelesIedu.find((n) => n.id === id)?.nombre ?? '';
+
+const nivelesMapeados = computed(() => iedu.niveles.filter((n) => n.nivel_iedu).length);
+
+function guardarIedu(): void {
+    iedu.put('/plataforma/configuraciones/facturacion/niveles-iedu', { preserveScroll: true });
+}
 
 const form = useForm({
     activo: props.config.activo,
@@ -226,6 +250,79 @@ function probar(): void {
                 <CampoTexto v-model.number="form.folio_inicial" etiqueta="Folio inicial" tipo="number" :error="form.errors.folio_inicial" />
                 <CampoTexto v-model="form.version_factura" etiqueta="Versión de CFDI" mono :error="form.errors.version_factura" ayuda="4.0" />
             </div>
+        </TarjetaSeccion>
+
+        <TarjetaSeccion
+            titulo="Complemento educativo (IEDU)"
+            descripcion="Lo que hace deducible una colegiatura. Sin él la factura es válida y se timbra sin errores, pero quien la recibe no puede deducirla."
+            :icono="ICONOS.documento"
+        >
+            <p class="text-sm" :style="{ color: 'var(--color-suave)' }">
+                Di a qué nivel del SAT corresponde cada nivel de la escuela. Deja en blanco los que
+                <strong>no</strong> son deducibles: la deducción de colegiaturas no alcanza a la educación
+                superior, así que licenciatura, maestría y doctorado se quedan sin complemento.
+            </p>
+
+            <div class="mt-4 overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="text-left text-xs uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">
+                        <tr>
+                            <th class="py-2 pr-4 font-medium">Nivel de la escuela</th>
+                            <th class="py-2 font-medium">Nivel del complemento</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr
+                            v-for="n in iedu.niveles"
+                            :key="n.id"
+                            class="border-t"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                        >
+                            <td class="py-2 pr-4">{{ nombreDe(n.id) }}</td>
+                            <td class="py-2">
+                                <select
+                                    v-model="n.nivel_iedu"
+                                    class="w-full max-w-xs rounded-lg border px-3 py-2 text-sm"
+                                    :style="{ borderColor: 'var(--color-borde)' }"
+                                >
+                                    <option :value="null">No deducible</option>
+                                    <option v-for="c in catalogoIedu" :key="c.clave" :value="c.clave">{{ c.texto }}</option>
+                                </select>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!--
+                La otra mitad. Se enseña aquí y no en el catálogo de conceptos
+                porque el aviso sólo tiene sentido junto al mapeo: con niveles
+                deducibles y ningún concepto marcado, la escuela cree que ya
+                quedó configurada y no sale un solo complemento.
+            -->
+            <p
+                v-if="nivelesMapeados > 0 && conceptosDeducibles.length === 0"
+                class="mt-4 rounded-lg border-l-4 px-4 py-3 text-sm"
+                :style="{ borderLeftColor: '#f59e0b', backgroundColor: 'color-mix(in srgb, #f59e0b 8%, transparent)' }"
+            >
+                Falta la otra mitad: ningún concepto de cobro está marcado como enseñanza deducible, así que
+                todavía no saldrá ningún complemento. Se marca en
+                <a href="/finanzas/conceptos" :style="{ color: 'var(--color-acento)' }">Finanzas › Conceptos de pago</a>.
+            </p>
+
+            <p v-else-if="conceptosDeducibles.length" class="mt-4 text-sm" :style="{ color: 'var(--color-suave)' }">
+                Conceptos marcados como enseñanza: <strong>{{ conceptosDeducibles.join(', ') }}</strong>.
+            </p>
+
+            <button
+                type="button"
+                :disabled="iedu.processing"
+                class="mt-4 rounded-lg px-5 py-2.5 text-sm font-medium disabled:opacity-50"
+                :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+                @click="guardarIedu"
+            >
+                {{ iedu.processing ? 'Guardando…' : 'Guardar mapeo' }}
+            </button>
         </TarjetaSeccion>
 
         <div class="flex justify-end">

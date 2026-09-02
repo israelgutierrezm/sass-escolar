@@ -10,6 +10,7 @@ use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Finanzas\Factura;
 use App\Models\Finanzas\FacturaConcepto;
 use App\Models\Finanzas\Pago;
+use App\Services\Cfdi\ComplementoEducativo;
 use App\Services\EmisorFactura;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -32,7 +33,10 @@ class FacturaController extends Controller
 {
     use AcotaPorCampus;
 
-    public function __construct(private readonly EmisorFactura $emisor) {}
+    public function __construct(
+        private readonly EmisorFactura $emisor,
+        private readonly ComplementoEducativo $complemento,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -71,6 +75,7 @@ class FacturaController extends Controller
             'matriculaOferta.persona:id,nombre,primer_apellido,segundo_apellido',
             'sustituye:id,uuid,fecha_timbrado',
             'sustituida:id,uuid,factura_sustituye_id',
+            'iedu',
         ]);
 
         return Inertia::render('Finanzas/Facturas/Detalle', [
@@ -92,6 +97,17 @@ class FacturaController extends Controller
                 'ultimo_error' => $factura->ultimo_error,
                 'cancelada_en' => $factura->cancelada_en?->toDateTimeString(),
                 'motivo_cancelacion' => $factura->motivo_cancelacion,
+                // El complemento que la hace deducible, o la razón por la que
+                // salió sin él. Lo segundo sólo se escribe cuando la factura sí
+                // amparaba enseñanza: en las demás la pregunta no venía al caso
+                // y un aviso ahí enseñaría a ignorarlo.
+                'iedu' => $factura->iedu === null ? null : [
+                    'nombre_alumno' => $factura->iedu->nombre_alumno,
+                    'curp' => $factura->iedu->curp,
+                    'nivel_educativo' => $factura->iedu->nivel_educativo,
+                    'aut_rvoe' => $factura->iedu->aut_rvoe,
+                ],
+                'iedu_motivo' => $factura->iedu_motivo,
                 'editable' => $factura->esEditable(),
                 'fiscal' => $factura->esFiscal(),
                 'tiene_xml' => $factura->xml_ruta !== null,
@@ -140,7 +156,16 @@ class FacturaController extends Controller
                 'metodo' => $p->metodoPago?->nombre,
                 'referencia' => $p->referencia,
                 'momento' => $p->momento?->toDateTimeString(),
+                'concepto' => $p->adeudos->first()?->concepto?->nombre,
+                // Marca cuáles son enseñanza: el complemento educativo ampara
+                // el comprobante ENTERO, así que mezclar en una sola factura una
+                // colegiatura con una credencial deja a las dos sin deducción.
+                'deducible' => (bool) $p->adeudos->first()?->concepto?->deducible_iedu,
             ])->values(),
+            // Lo que le falta a ESTA matrícula para que sus colegiaturas puedan
+            // llevar complemento. Se avisa antes de emitir porque después el
+            // arreglo es cancelar ante el SAT y volver a facturar.
+            'iedu' => ['impedimentos' => $this->complemento->impedimentos($matricula)],
             // Se precargan los datos fiscales de su última factura: quien
             // factura cada mes no debería recapturar su RFC cada vez.
             'ultimoReceptor' => $this->ultimoReceptor($matricula),

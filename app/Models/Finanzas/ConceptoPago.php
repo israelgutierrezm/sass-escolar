@@ -30,6 +30,10 @@ class ConceptoPago extends Model
         'gravado',
         'tasa_iva',
         'objeto_impuesto',
+        // ¿Es enseñanza deducible? Lo que decide si la factura puede llevar el
+        // complemento IEDU. Nace apagado: una credencial de reposición o un
+        // examen extraordinario no son colegiatura.
+        'deducible_iedu',
         'cuenta_contable',
     ];
 
@@ -37,6 +41,7 @@ class ConceptoPago extends Model
     {
         return [
             'gravado' => 'boolean',
+            'deducible_iedu' => 'boolean',
             'tasa_iva' => 'decimal:4',
         ];
     }

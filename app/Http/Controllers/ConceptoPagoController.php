@@ -59,6 +59,7 @@ class ConceptoPagoController extends Controller
                     'clave_unidad_sat' => $c->clave_unidad_sat,
                     'objeto_impuesto' => $c->objeto_impuesto,
                     'gravado' => $c->gravado,
+                    'deducible_iedu' => $c->deducible_iedu,
                     'tasa_iva' => $c->tasa_iva,
                     'cuenta_contable' => $c->cuenta_contable,
                     'en_uso' => ($c->adeudos_count + $c->lineas_de_plan_count) > 0,
@@ -111,6 +112,9 @@ class ConceptoPagoController extends Controller
             'clave_unidad_sat' => ['nullable', 'string', 'max:10'],
             'objeto_impuesto' => ['required', 'string', 'max:2'],
             'gravado' => ['boolean'],
+            // ¿Es enseñanza? Lo que decide si la factura que lo ampara puede
+            // llevar el complemento educativo, sin el cual nadie deduce.
+            'deducible_iedu' => ['boolean'],
             // Solo aplica cuando causa IVA; 0.16 = 16%, 0 = tasa cero.
             'tasa_iva' => ['nullable', 'numeric', 'min:0', 'max:1'],
             'cuenta_contable' => ['nullable', 'string', 'max:50'],

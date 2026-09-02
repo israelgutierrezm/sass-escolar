@@ -10,6 +10,7 @@ use App\Models\Finanzas\ConceptoPago;
 use App\Models\Finanzas\Factura;
 use App\Models\Finanzas\FacturaConcepto;
 use App\Models\Finanzas\Pago;
+use App\Services\Cfdi\ComplementoEducativo;
 use App\Services\Cfdi\Pac;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -32,6 +33,7 @@ class EmisorFactura
     public function __construct(
         private readonly Pac $pac,
         private readonly ResolutorEmisorFiscal $resolutorEmisor,
+        private readonly ComplementoEducativo $complemento,
     ) {}
 
     /**
@@ -50,12 +52,20 @@ class EmisorFactura
         // escuela con varias personas morales factura bachillerato con una y
         // posgrado con otra, y emitir a nombre equivocado no se corrige con un
         // UPDATE sino cancelando ante el SAT.
-        $emisor = $this->resolutorEmisor->datosPara(
-            MatriculaOferta::findOrFail($matriculaOfertaId)
-        );
+        $matricula = MatriculaOferta::findOrFail($matriculaOfertaId);
+        $emisor = $this->resolutorEmisor->datosPara($matricula);
 
-        return DB::transaction(function () use ($matriculaOfertaId, $pagos, $receptor, $sustituyeA, $emisor) {
-            $renglones = $pagos->map(fn (Pago $pago) => $this->renglonDe($pago));
+        // El concepto de cada pago se resuelve UNA vez: lo necesitan el renglón
+        // (clave del SAT, IVA) y la decisión del complemento educativo, y
+        // preguntarlo dos veces es una consulta por pago repetida.
+        $conceptos = $pagos->mapWithKeys(fn (Pago $p) => [$p->id => $this->conceptoDe($p)]);
+
+        // Se decide ANTES de crear nada, para que el motivo quede escrito en la
+        // misma fila y no en un UPDATE posterior que podría no llegar.
+        $iedu = $this->complemento->decidir($matricula, $conceptos->values());
+
+        return DB::transaction(function () use ($matriculaOfertaId, $pagos, $conceptos, $iedu, $receptor, $sustituyeA, $emisor) {
+            $renglones = $pagos->map(fn (Pago $pago) => $this->renglonDe($pago, $conceptos[$pago->id]));
 
             $subtotal = round($renglones->sum('importe'), 2);
             $iva = round($renglones->sum('iva'), 2);
@@ -82,10 +92,18 @@ class EmisorFactura
                 'pac' => $this->pac->nombre(),
                 'estatus' => Factura::ESTATUS_BORRADOR,
                 'factura_sustituye_id' => $sustituyeA?->id,
+                // Sólo cuando la factura ampara enseñanza deducible y aun así
+                // el complemento no pudo armarse. Null significa las otras dos
+                // cosas: que viaja, o que la pregunta no venía al caso.
+                'iedu_motivo' => $iedu->incompleto() ? $iedu->motivo : null,
             ]);
 
             foreach ($renglones as $renglon) {
                 $factura->conceptos()->create($renglon);
+            }
+
+            if ($iedu->datos !== null) {
+                $factura->iedu()->create($iedu->datos);
             }
 
             // El despacho va DENTRO de la transacción a propósito: la cola es
@@ -192,7 +210,9 @@ class EmisorFactura
     public function facturables(int $matriculaOfertaId): Collection
     {
         return Pago::query()
-            ->with('metodoPago')
+            // El concepto viaja para que la pantalla pueda marcar cuáles son
+            // enseñanza deducible; sin precargarlo sería una consulta por pago.
+            ->with(['metodoPago', 'adeudos.concepto'])
             ->where('matricula_oferta_id', $matriculaOfertaId)
             ->cobrados()
             ->whereNotIn('id', $this->pagosYaFacturados())
@@ -300,9 +320,8 @@ class EmisorFactura
      *
      * @return array<string, mixed>
      */
-    private function renglonDe(Pago $pago): array
+    private function renglonDe(Pago $pago, ?ConceptoPago $concepto): array
     {
-        $concepto = $this->conceptoDe($pago);
         $monto = (float) $pago->monto;
 
         $tasa = ($concepto?->gravado && $concepto->tasa_iva !== null)

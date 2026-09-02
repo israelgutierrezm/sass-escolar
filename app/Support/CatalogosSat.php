@@ -24,6 +24,7 @@ final class CatalogosSat
             'objeto_impuesto' => self::objetoImpuesto(),
             'monedas' => self::monedas(),
             'regimenes_fiscales' => self::regimenesFiscales(),
+            'niveles_iedu' => self::nivelesEducativosIedu(),
         ];
     }
 
@@ -81,6 +82,28 @@ final class CatalogosSat
         return [
             ['clave' => 'MXN', 'texto' => 'MXN · Peso mexicano'],
             ['clave' => 'USD', 'texto' => 'USD · Dólar estadounidense'],
+        ];
+    }
+
+    /**
+     * Los cinco niveles que el complemento IEDU admite.
+     *
+     * Es un catálogo del SAT y no de la escuela: son literales que viajan en el
+     * XML y no se traducen ni se renombran. Que llegue hasta bachillerato NO es
+     * un recorte nuestro — la deducción de colegiaturas no alcanza a la
+     * educación superior, así que licenciatura, maestría y doctorado no tienen
+     * a qué mapearse y quedan sin complemento.
+     *
+     * @return array<int, array{clave: string, texto: string}>
+     */
+    public static function nivelesEducativosIedu(): array
+    {
+        return [
+            ['clave' => 'Preescolar', 'texto' => 'Preescolar'],
+            ['clave' => 'Primaria', 'texto' => 'Primaria'],
+            ['clave' => 'Secundaria', 'texto' => 'Secundaria'],
+            ['clave' => 'Profesional técnico', 'texto' => 'Profesional técnico'],
+            ['clave' => 'Bachillerato o su equivalente', 'texto' => 'Bachillerato o su equivalente'],
         ];
     }
 

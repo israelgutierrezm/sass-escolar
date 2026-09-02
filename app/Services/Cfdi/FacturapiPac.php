@@ -107,10 +107,19 @@ class FacturapiPac implements Pac
     }
 
     /**
+     * Traduce la factura al cuerpo que espera Facturapi.
+     *
+     * Público a propósito, y no por comodidad: es una traducción pura, sin red
+     * ni efectos, y es lo único de este driver que se puede comprobar sin
+     * credenciales. Dejarla privada obligaría a probar el complemento educativo
+     * contra el PAC real, o sea a no probarlo.
+     *
      * @return array<string, mixed>
      */
-    private function cuerpoDe(Factura $factura): array
+    public function cuerpoDe(Factura $factura): array
     {
+        $factura->loadMissing('conceptos', 'iedu');
+
         $items = $factura->conceptos->map(function ($c) {
             $importe = (float) $c->importe;
             $iva = (float) $c->iva;
@@ -144,7 +153,36 @@ class FacturapiPac implements Pac
             'payment_form' => $factura->forma_pago_sat,
             'payment_method' => $factura->metodo_pago_sat,
             'currency' => 'MXN',
-        ];
+        ] + $this->complementos($factura);
+    }
+
+    /**
+     * Los complementos del comprobante. Hoy sólo el educativo (IEDU).
+     *
+     * Va como arreglo aparte y se SUMA al cuerpo en vez de escribir siempre la
+     * clave: mandar `complements: []` en una factura que no lo lleva es
+     * distinto de no mandarla, y no hay motivo para averiguar cómo lo
+     * interpreta el PAC.
+     *
+     * @return array<string, mixed>
+     */
+    private function complementos(Factura $factura): array
+    {
+        $iedu = $factura->iedu;
+
+        if ($iedu === null) {
+            return [];
+        }
+
+        return ['complements' => [[
+            'type' => 'iedu',
+            'data' => [
+                'student_name' => $iedu->nombre_alumno,
+                'student_curp' => $iedu->curp,
+                'school_level' => $iedu->nivel_educativo,
+                'school_code' => $iedu->aut_rvoe,
+            ],
+        ]]];
     }
 
     private function descargarSilencioso(FacturapiService $servicio, string $facturapiId, string $tipo): ?string

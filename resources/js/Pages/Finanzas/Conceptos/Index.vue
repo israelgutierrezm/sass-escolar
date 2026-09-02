@@ -18,6 +18,7 @@ interface Concepto {
     objeto_impuesto: string | null;
     gravado: boolean;
     tasa_iva: string | null;
+    deducible_iedu: boolean;
     cuenta_contable: string | null;
     en_uso: boolean;
 }
@@ -40,7 +41,8 @@ const definicionFiltros = [
 function vacio() {
     return {
         clave: '', nombre: '', clave_sat: '86121600', clave_unidad_sat: 'E48',
-        objeto_impuesto: '02', gravado: false, tasa_iva: null as number | null, cuenta_contable: '',
+        objeto_impuesto: '02', gravado: false, tasa_iva: null as number | null,
+        deducible_iedu: false, cuenta_contable: '',
     };
 }
 
@@ -132,6 +134,16 @@ const objImp = (clave: string | null) =>
                         <input v-model="alta.gravado" type="checkbox" />
                         Causa IVA
                     </label>
+                    <label class="flex items-start gap-2 text-sm">
+                        <input v-model="alta.deducible_iedu" type="checkbox" class="mt-0.5" />
+                        <span>
+                            Es enseñanza deducible
+                            <span class="block text-xs" :style="{ color: 'var(--color-suave)' }">
+                                Deja que la factura lleve complemento educativo (IEDU). No lo marques en
+                                credenciales, exámenes ni trámites.
+                            </span>
+                        </span>
+                    </label>
                     <label class="text-sm">
                         <span class="mb-1 block font-medium">Tasa de IVA</span>
                         <input v-model.number="alta.tasa_iva" type="number" step="0.01" min="0" max="1" placeholder="0.16" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
@@ -177,6 +189,11 @@ const objImp = (clave: string | null) =>
                                             ? { backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }
                                             : { backgroundColor: 'color-mix(in srgb, var(--color-suave) 10%, transparent)', color: 'var(--color-suave)' }"
                                     >{{ c.gravado ? `IVA ${Math.round(Number(c.tasa_iva ?? 0) * 100)}%` : 'Exento' }}</span>
+                                    <span
+                                        v-if="c.deducible_iedu"
+                                        class="ml-1 inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-medium"
+                                        :style="{ color: '#15803d', backgroundColor: 'color-mix(in srgb, #16a34a 14%, transparent)' }"
+                                    >Deducible</span>
                                 </td>
                                 <td class="px-6 py-4">
                                     <div class="flex items-center justify-end gap-1">
@@ -206,6 +223,15 @@ const objImp = (clave: string | null) =>
                                         <label class="flex items-center gap-2 text-sm">
                                             <input v-model="datos.gravado" type="checkbox" />
                                             Causa IVA
+                                        </label>
+                                        <label class="flex items-start gap-2 text-sm">
+                                            <input v-model="datos.deducible_iedu" type="checkbox" class="mt-0.5" />
+                                            <span>
+                                                Es enseñanza deducible
+                                                <span class="block text-xs" :style="{ color: 'var(--color-suave)' }">
+                                                    Permite el complemento educativo (IEDU).
+                                                </span>
+                                            </span>
                                         </label>
                                         <label class="text-sm">
                                             <span class="mb-1 block font-medium">Tasa de IVA</span>

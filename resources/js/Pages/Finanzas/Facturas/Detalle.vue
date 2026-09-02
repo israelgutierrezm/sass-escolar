@@ -47,6 +47,13 @@ const props = defineProps<{
         fecha_timbrado: string | null;
         cancelada_en: string | null;
         motivo_cancelacion: string | null;
+        iedu: {
+            nombre_alumno: string;
+            curp: string;
+            nivel_educativo: string;
+            aut_rvoe: string;
+        } | null;
+        iedu_motivo: string | null;
         editable: boolean;
         fiscal: boolean;
         tiene_xml: boolean;
@@ -134,6 +141,44 @@ function eliminar(): void {
             >
                 Cancelada el {{ factura.cancelada_en }} con motivo {{ factura.motivo_cancelacion }}.
                 Sus pagos volvieron a poderse facturar.
+            </div>
+
+            <!--
+                El complemento educativo. Se enseña con sus cuatro datos y no
+                como un «sí»: son los que viajaron al SAT y los que un padre
+                necesita para deducir, así que si alguno salió mal se ve aquí y
+                no en abril.
+            -->
+            <div
+                v-if="factura.iedu"
+                class="mt-4 rounded-lg border-l-4 px-4 py-3 text-sm"
+                :style="{ borderLeftColor: '#16a34a', backgroundColor: 'color-mix(in srgb, #16a34a 8%, transparent)' }"
+            >
+                <p class="font-medium">Con complemento educativo (IEDU) — deducible</p>
+                <dl class="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2" :style="{ color: 'var(--color-suave)' }">
+                    <div><dt class="inline">Alumno: </dt><dd class="inline">{{ factura.iedu.nombre_alumno }}</dd></div>
+                    <div><dt class="inline">CURP: </dt><dd class="inline font-mono">{{ factura.iedu.curp }}</dd></div>
+                    <div><dt class="inline">Nivel: </dt><dd class="inline">{{ factura.iedu.nivel_educativo }}</dd></div>
+                    <div><dt class="inline">RVOE: </dt><dd class="inline font-mono">{{ factura.iedu.aut_rvoe }}</dd></div>
+                </dl>
+            </div>
+
+            <!--
+                Y cuando NO lo lleva habiéndole tocado. El motivo se guardó al
+                emitir y no se recalcula: derivarlo ahora diría «no le falta
+                nada» sobre una factura que salió sin complemento, en cuanto
+                alguien capture el dato que faltaba.
+            -->
+            <div
+                v-else-if="factura.iedu_motivo"
+                class="mt-4 rounded-lg border-l-4 px-4 py-3 text-sm"
+                :style="{ borderLeftColor: '#f59e0b', backgroundColor: 'color-mix(in srgb, #f59e0b 8%, transparent)' }"
+            >
+                <p class="font-medium">Salió sin complemento educativo</p>
+                <p class="mt-1" :style="{ color: 'var(--color-suave)' }">{{ factura.iedu_motivo }}</p>
+                <p class="mt-1" :style="{ color: 'var(--color-suave)' }">
+                    Quien la recibió no puede deducirla. Para corregirlo hay que cancelarla y refacturar.
+                </p>
             </div>
 
             <p v-if="factura.sustituye" class="mt-3 text-sm" :style="{ color: 'var(--color-suave)' }">

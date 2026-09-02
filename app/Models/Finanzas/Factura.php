@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * facturas (TENANT) — el CFDI 4.0 de lo cobrado.
@@ -90,6 +91,7 @@ class Factura extends Model
         'cancelada_en',
         'motivo_cancelacion',
         'factura_sustituye_id',
+        'iedu_motivo',
     ];
 
     protected function casts(): array
@@ -122,6 +124,19 @@ class Factura extends Model
     public function emisor(): BelongsTo
     {
         return $this->belongsTo(EmisorFiscal::class, 'emisor_id');
+    }
+
+    /**
+     * El complemento educativo, cuando lo lleva.
+     *
+     * `hasOne` y no columnas en esta tabla: que NO exista es un hecho con
+     * significado —esta factura no ampara enseñanza deducible—, y como fila
+     * ausente se lee de un vistazo en vez de como cuatro nulos entre treinta y
+     * cinco columnas.
+     */
+    public function iedu(): HasOne
+    {
+        return $this->hasOne(FacturaIedu::class, 'factura_id');
     }
 
     /** La factura que ésta vino a sustituir (cancelación con relación 01). */

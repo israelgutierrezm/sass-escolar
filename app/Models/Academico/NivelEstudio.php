@@ -30,6 +30,13 @@ class NivelEstudio extends Model
         // ClaveProdServ del SAT para el CFDI de colegiaturas: la asigna el SAT
         // por nivel, no por programa académico.
         'clave_sat',
+        // A cuál de los cinco niveles del complemento educativo corresponde
+        // éste. Null = no deducible, que es el caso de todo lo superior a
+        // bachillerato. Se captura en Plataforma › Facturación y no en el
+        // catálogo académico: los niveles oficiales van con `protegido` y ahí
+        // no se editan, y de todos modos quien conoce esta regla es quien
+        // factura, no quien administra la oferta.
+        'nivel_iedu',
     ];
 
     protected function casts(): array

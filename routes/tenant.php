@@ -2636,6 +2636,12 @@ Route::middleware([
                     Route::get('facturacion', 'facturacion')->name('facturacion');
                     Route::put('facturacion', 'guardar')->name('facturacion.guardar');
                     Route::post('facturacion/probar', 'probar')->name('facturacion.probar');
+                    // El mapeo de niveles al complemento educativo. Va aquí y
+                    // no en el catálogo académico porque los niveles oficiales
+                    // están `protegido` y ahí no se editan — y porque quien
+                    // conoce esta regla es quien factura.
+                    Route::put('facturacion/niveles-iedu', 'guardarNivelesIedu')
+                        ->name('facturacion.niveles_iedu');
                 });
             });
 

@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\Academico\NivelEstudio;
 use App\Models\Facturacion\FacturacionConfig;
 use App\Models\Facturacion\FacturacionEvento;
+use App\Models\Finanzas\ConceptoPago;
 use App\Services\Facturacion\FacturapiService;
 use App\Support\CatalogosSat;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -30,6 +33,15 @@ class FacturacionConfigController extends Controller
         return Inertia::render('Plataforma/Configuraciones/Facturacion', [
             'config' => $this->paraElFrente($config),
             'catalogos' => $this->catalogos(),
+            'nivelesIedu' => $this->nivelesIedu(),
+            'catalogoIedu' => CatalogosSat::nivelesEducativosIedu(),
+            // El otro interruptor del complemento, que vive en el catálogo de
+            // conceptos. Se enseña aquí porque es donde se revisa si la escuela
+            // puede emitir recibos deducibles: con el mapeo puesto y ningún
+            // concepto marcado, no sale ni uno, y de otro modo no hay pantalla
+            // desde la que verlo.
+            'conceptosDeducibles' => ConceptoPago::query()
+                ->where('deducible_iedu', true)->orderBy('nombre')->pluck('nombre')->all(),
         ]);
     }
 
@@ -97,6 +109,45 @@ class FacturacionConfigController extends Controller
         return back()->with('exito', 'Configuración guardada.');
     }
 
+    /**
+     * Guarda a qué nivel del complemento educativo corresponde cada nivel de la
+     * escuela.
+     *
+     * Es lo que decide si un padre puede deducir la colegiatura de su hijo. Sin
+     * el mapeo, la factura sale sin complemento: válida ante el SAT, timbrada
+     * sin un solo error, y no deducible.
+     *
+     * Se guarda como un conjunto y no uno por uno: es una tabla de decisiones
+     * que se revisa entera —«¿cuáles de mis niveles son deducibles?»— y
+     * guardarla por renglón dejaría media configuración aplicada.
+     */
+    public function guardarNivelesIedu(Request $request): RedirectResponse
+    {
+        $permitidos = collect(CatalogosSat::nivelesEducativosIedu())->pluck('clave')->all();
+
+        $datos = $request->validate([
+            'niveles' => ['present', 'array'],
+            'niveles.*.id' => ['required', 'integer', Rule::exists('niveles_estudio', 'id')],
+            // Null es una respuesta legítima y la más común: «este nivel no es
+            // deducible». Lo que no se admite es un valor fuera del catálogo
+            // del SAT, que produciría un XML rechazado al timbrar.
+            'niveles.*.nivel_iedu' => ['nullable', Rule::in($permitidos)],
+        ]);
+
+        DB::transaction(function () use ($datos) {
+            foreach ($datos['niveles'] as $fila) {
+                NivelEstudio::query()->whereKey($fila['id'])->update([
+                    'nivel_iedu' => blank($fila['nivel_iedu']) ? null : $fila['nivel_iedu'],
+                ]);
+            }
+        });
+
+        $this->registrar($request, FacturacionEvento::CONFIG_GUARDADA, FacturacionConfig::actual()->ambiente, 'ok',
+            'Se guardó el mapeo de niveles al complemento educativo.');
+
+        return back()->with('exito', 'Mapeo del complemento educativo guardado.');
+    }
+
     public function probar(Request $request, FacturapiService $facturapi): RedirectResponse
     {
         $resultado = $facturapi->probarConexion();
@@ -113,6 +164,30 @@ class FacturacionConfigController extends Controller
             $resultado['ok'] ? 'ok' : 'error', $resultado['mensaje']);
 
         return back()->with($resultado['ok'] ? 'exito' : 'error', $resultado['mensaje']);
+    }
+
+    /**
+     * Los niveles de la escuela con su mapeo al complemento educativo.
+     *
+     * Se listan TODOS los encendidos, incluidos los que no llevan complemento:
+     * la pregunta que esta tabla contesta es «¿cuáles de mis niveles son
+     * deducibles?», y enseñar sólo los mapeados escondería justo el que alguien
+     * olvidó configurar.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function nivelesIedu(): array
+    {
+        return NivelEstudio::query()
+            ->activos()
+            ->orderBy('orden')
+            ->get(['id', 'nombre', 'nivel_iedu'])
+            ->map(fn (NivelEstudio $n) => [
+                'id' => $n->id,
+                'nombre' => $n->nombre,
+                'nivel_iedu' => $n->nivel_iedu,
+            ])
+            ->all();
     }
 
     /**
