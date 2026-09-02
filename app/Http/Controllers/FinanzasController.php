@@ -406,6 +406,21 @@ class FinanzasController extends Controller
             return back()->with('error', 'Un adeudo ya pagado no se condona ni se cancela.');
         }
 
+        /*
+         * Un cargo que está DENTRO de un convenio no se resuelve por su
+         * renglón. Condonarlo no perdonaría nada: sus parcialidades seguirían
+         * cobrándose y el alumno acabaría pagando lo que se le acaba de
+         * regalar. Lo que hay que hacer es cancelar el convenio —o condonar la
+         * PARCIALIDAD, que sí es lo que se cobra—.
+         */
+        if ($adeudo->estatus === Adeudo::ESTATUS_EN_CONVENIO) {
+            return back()->with(
+                'error',
+                'Ese cargo está dentro de un convenio de pago: lo que se cobra son sus parcialidades. '
+                .'Cancela el convenio, o condona la parcialidad.',
+            );
+        }
+
         $adeudo->update([
             'estatus' => $datos['estatus'],
             // El motivo viaja en la bitácora de la matrícula, que es donde se

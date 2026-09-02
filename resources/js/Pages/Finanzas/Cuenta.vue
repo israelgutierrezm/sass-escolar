@@ -33,6 +33,8 @@ interface Adeudo {
     generacion: string | null;
     vencimiento: string | null;
     estatus: string;
+    /** Puesto cuando este cargo es una PARCIALIDAD de un convenio. */
+    convenio_id: number | null;
     vencido: boolean;
     dias_vencido: number;
     ajustes: Ajuste[];
@@ -438,8 +440,8 @@ function firmarConvenio(): void {
                 <BotonPrincipal
                     v-if="permisos.convenios && !convenioVigente"
                     tipo="button"
-                    texto="Acordar parcialidades"
-                    icono="crear"
+                    :texto="acordando ? 'Cerrar' : 'Acordar parcialidades'"
+                    :icono="acordando ? 'ninguno' : 'crear'"
                     @click="abrirConvenio"
                 />
             </header>
@@ -495,7 +497,7 @@ function firmarConvenio(): void {
                     Este alumno no tiene cargos por cobrar que acordar.
                 </div>
 
-                <template v-else>
+                <form v-else @submit.prevent="firmarConvenio">
                     <ul class="mt-4 space-y-1">
                         <li v-for="c in cargosElegibles" :key="c.id" class="flex flex-wrap items-center gap-x-3 text-sm">
                             <label class="flex items-center gap-2">
@@ -568,7 +570,7 @@ function firmarConvenio(): void {
                             @click="acordando = false"
                         >Cancelar</button>
                     </div>
-                </template>
+                </form>
             </template>
 
             <p v-else class="mt-2 text-sm" :style="{ color: 'var(--color-suave)' }">
@@ -738,11 +740,22 @@ function firmarConvenio(): void {
                                 {{ adeudo.saldo > 0 ? pesos.format(adeudo.saldo) : '—' }}
                             </td>
                             <td class="px-4 py-3">
-                                <PildoraEstado :texto="adeudo.estatus" />
+                                <PildoraEstado :texto="adeudo.estatus.replace('_', ' ')" />
+                                <!--
+                                    De qué convenio es esta parcialidad. Sin
+                                    decirlo, en la tabla aparece un cargo con una
+                                    fecha que no cuadra con ninguna del plan y
+                                    nadie sabe de dónde salió.
+                                -->
+                                <span
+                                    v-if="adeudo.convenio_id"
+                                    class="mt-0.5 block text-[11px]"
+                                    :style="{ color: 'var(--color-suave)' }"
+                                >Convenio #{{ adeudo.convenio_id }}</span>
                             </td>
                             <td class="px-6 py-3 text-right">
                                 <button
-                                    v-if="permisos.condonar && adeudo.estatus !== 'pagado' && adeudo.estatus !== 'condonado' && adeudo.estatus !== 'cancelado'"
+                                    v-if="permisos.condonar && !['pagado', 'condonado', 'cancelado', 'en_convenio'].includes(adeudo.estatus)"
                                     type="button"
                                     class="text-xs font-medium"
                                     :style="{ color: 'var(--color-acento)' }"

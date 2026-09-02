@@ -355,6 +355,47 @@ try {
 
     $unaMas->update(['estatus' => Adeudo::ESTATUS_PENDIENTE]);
 
+    echo PHP_EOL.'6.c Un cargo dentro de un convenio no se resuelve por su renglón'.PHP_EOL;
+
+    /*
+     * Condonarlo no perdonaría nada: sus parcialidades seguirían cobrándose y
+     * el alumno acabaría pagando lo que se le acaba de regalar. Salió al mirar
+     * la pantalla, donde el botón de condonar seguía ofreciéndose sobre los
+     * cargos cubiertos.
+     */
+    $finanzas = app(App\Http\Controllers\FinanzasController::class);
+    $peticionResolver = Request::create('/', 'PUT', [
+        'estatus' => Adeudo::ESTATUS_CONDONADO,
+        'motivo' => 'Intentando condonar uno que está en convenio.',
+    ]);
+    $peticionResolver->setUserResolver(fn () => $usuario);
+    app()->instance('request', $peticionResolver);
+
+    $respuesta = $finanzas->resolverAdeudo($peticionResolver, $a1->fresh());
+    $errores = $respuesta->getSession()?->get('error');
+
+    verificar('Se rehúsa', is_string($errores) && str_contains($errores, 'convenio'), (string) $errores);
+    verificar('Y el cargo sigue en convenio', $a1->fresh()->estatus === Adeudo::ESTATUS_EN_CONVENIO);
+    // Y la contraparte, que es la salida que el mensaje ofrece: la PARCIALIDAD
+    // sí se resuelve, porque es lo que de verdad se cobra.
+    $paraCondonar = $convenio->parcialidades()->orderByDesc('fecha_vencimiento')->first();
+    $peticionParcial = Request::create('/', 'PUT', [
+        'estatus' => Adeudo::ESTATUS_CONDONADO,
+        'motivo' => 'Se le perdona la última parcialidad por su situación.',
+    ]);
+    $peticionParcial->setUserResolver(fn () => $usuario);
+    app()->instance('request', $peticionParcial);
+
+    $finanzas->resolverAdeudo($peticionParcial, $paraCondonar->fresh());
+
+    verificar(
+        'Mientras que una PARCIALIDAD sí se resuelve',
+        $paraCondonar->fresh()->estatus === Adeudo::ESTATUS_CONDONADO,
+        $paraCondonar->fresh()->estatus
+    );
+
+    $paraCondonar->update(['estatus' => Adeudo::ESTATUS_PENDIENTE]);
+
     echo PHP_EOL.'7. No se acuerda dos veces el mismo cargo'.PHP_EOL;
 
     $repetido = motivoDe(fn () => $servicio->crear(
