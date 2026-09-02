@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**124 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**125 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -764,6 +764,77 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
   CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
   adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
+- **Recordatorios de cobranza** (2026-09-02, segunda parte de 3.4).
+  `/finanzas/cobranza` para la escalera; `finanzas:recordar-cobranza`, diario a
+  las 7:00.
+  - **Lo que no pasaba.** La deuda existe, el estatus de moroso existe y el
+    bloqueo existe — pero nadie se ENTERA: el adeudo sólo asoma si la familia
+    entra al portal a mirarlo, y nadie entra «por si acaso». La escuela descubre
+    el atraso el día que el alumno choca contra el bloqueo, que es el peor
+    momento para los dos.
+  - **`dias` va CON SIGNO**: negativo antes de vencer, cero el día mismo,
+    positivo después. Es el mismo eje; con dos columnas —tipo y días— habría
+    estados imposibles («antes» con −5) y el orden de la escalera dejaría de ser
+    un `ORDER BY`.
+  - **Un peldaño alcanza la fecha EXACTA**, no «de ahí en adelante»: si no, el
+    de ocho días alcanzaría también a los de treinta y todos recibirían el texto
+    suave.
+  - **UN aviso por alumno y corrida, no uno por cargo.** Es la decisión que hace
+    que esto sirva: quien debe tres colegiaturas recibiría tres avisos idénticos
+    el mismo día y a la tercera nadie los lee. Se agrupa, con el texto del
+    peldaño **más severo** —«llevas 8 días» ya incluye a «vence hoy», y decir
+    las dos cosas suena a máquina—. El RASTRO, en cambio, se anota cargo por
+    cargo y peldaño por peldaño: es lo que impide que mañana se vuelva a empezar
+    la escalera.
+  - **Los tres peldaños sembrados nacen APAGADOS.** Encendidos, una escuela
+    recién migrada empieza a avisarle de su deuda a las familias el primer día,
+    con la cartera a medio cargar. Mismo criterio que la publicación automática
+    de grabaciones. Y la pantalla lo dice arriba, porque tres peldaños escritos
+    se leen como tres peldaños funcionando.
+  - **Se recuerda lo que la escuela persigue**: `afecta_estatus_deudor` es su
+    respuesta declarada a «¿esta deuda se cobra?». Pero un cargo **SIN plan
+    también entra** —una parcialidad de convenio, un trámite suelto—: la bandera
+    es un opt-out de los planes que la llevan, no un requisito. Sin eso, la
+    parcialidad de un convenio, que es justo lo que hay que cobrar, no se
+    recordaría nunca.
+  - **Comando APARTE de `finanzas:evaluar` y DESPUÉS de él.** Después porque el
+    aviso dice un importe y los recargos y las becas lo cambian de madrugada;
+    aparte porque esto le HABLA A LA GENTE, y esconderlo dentro de un comando
+    llamado «evaluar» es como se llega a que nadie sepa de dónde salió un
+    mensaje. **A las 7:00 y no a las 3:00 porque la hora la ve quien lo
+    recibe.**
+  - **Sin permiso nuevo**: va con `gestionar-planes-cobro`, porque esto es
+    CONFIGURAR el cobro y los avisos no los manda nadie desde una pantalla. Un
+    permiso más sin un acto que proteger es una llave que la escuela tiene que
+    repartir sin saber para qué.
+  - **Lo que NO hace: correo.** Necesita el remitente de la escuela, una
+    política de bajas y poder comprobar el envío contra algo — y aquí el driver
+    es `log`. Media implementación de eso son correos de cobranza saliendo a
+    direcciones que nadie verificó.
+  - **Y un defecto propio, con su migración de reparación**: el único sobre
+    `dias` no distinguía una fila dada de baja. Un peldaño se RETIRA en baja
+    lógica —sus recordatorios lo nombran— y con el único pelado la escuela no
+    podría volver a crear uno para ese día NUNCA; peor, la validación sí miraba
+    `deleted_at`, así que dejaba pasar el alta y la base reventaba con un 1062 en
+    la cara de quien captura. Se resuelve como en `sesiones_caja`: una COLUMNA
+    GENERADA que vale `dias` mientras la fila vive y NULL al retirarla. Un
+    `unique(dias, deleted_at)` NO sirve — dos filas vivas tienen las dos
+    `deleted_at` en NULL y MySQL las da por distintas.
+  - Pruebas: `scripts/prueba-recordatorios-cobranza.php`, 50 verificaciones,
+    comprobadas mutando **20 reglas**. El plan del escenario se CONSTRUYE: los
+    del demo apuntan a un plan que ya no existe, así que la consulta los
+    descartaba con razón y la suite habría medido «no le toca a nadie» creyendo
+    que probaba algo.
+  - **Dos cosas que salieron MIRÁNDOLO**: el aviso salía fechado «12:00 a.m.»
+    —`publicado_desde` era `startOfDay`—, que se lee como si la escuela cobrara
+    de madrugada, justo lo que programarlo a las 7:00 venía a evitar; y la suite
+    contaba los rastros contra CERO en vez de por diferencia, así que se cayó en
+    cuanto corrí el comando de verdad contra el demo. **Sexta vez.**
+  - **Y una trampa de la propia prueba**: `json_encode` escapa la eñe a
+    `\u00f1`, así que buscar «peldaño» dentro de los errores de validación no
+    encontraba nada — la comprobación fallaba por su codificación, no por el
+    código. Va con `JSON_UNESCAPED_UNICODE`.
+
 - **Convenios de pago** (2026-09-02, primera parte de 3.4). `/finanzas/convenios`
   para supervisarlos; se firman desde el estado de cuenta del alumno, que es
   donde se ve lo que debe. Permiso propio `autorizar-convenios`.
