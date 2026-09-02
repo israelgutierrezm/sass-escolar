@@ -174,7 +174,7 @@ class AutorizacionBecaController extends Controller
          * becas esperándolo: se quedarían colgadas de una firma que ya no se le
          * va a pedir a nadie, y no hay pantalla desde donde destrabarlas.
          */
-        if (! $datos['activo'] && $nivel->activo) {
+        if ($datos['activo'] === false && $nivel->activo) {
             $motivo = $this->autorizacion->motivoParaNoApagar($nivel);
 
             if ($motivo !== null) {
@@ -201,10 +201,16 @@ class AutorizacionBecaController extends Controller
             'rol_id.exists' => 'Ese rol ya no existe.',
         ]);
 
-        // Validar no convierte: `numeric` deja «0.4» como cadena y `boolean`
-        // devuelve «0», que en PHP es verdadero.
-        $datos['desde'] = (float) $datos['desde'];
-        $datos['orden'] = (int) $datos['orden'];
+        /*
+         * Validar no convierte: medido, `numeric` devuelve «0.75» y `boolean`
+         * devuelve «0», los dos como CADENA.
+         *
+         * De `desde` y `orden` se encarga el `casts()` del modelo antes de
+         * escribir, así que convertirlos aquí sería una segunda conversión que
+         * no cambia nada. `activo` no: lo lee el guard de apagado ANTES de que
+         * el modelo lo toque, y ahí «0» sólo funciona por ser falso en PHP.
+         * Convertirlo permite compararlo en serio.
+         */
         $datos['activo'] = $peticion->boolean('activo');
 
         return $datos;

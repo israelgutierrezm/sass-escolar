@@ -200,6 +200,20 @@ try {
 
     $nivelPesos->delete();
 
+    // Un nivel apagado no dispara: si lo hiciera, apagarlo no serviría de nada
+    // y las becas seguirían esperando una firma que la escuela ya retiró.
+    $nivelApagado = NivelAutorizacionBeca::create([
+        'nombre' => 'Nivel retirado', 'rol_id' => $rolA->id,
+        'modo' => Beca::MODO_PORCENTAJE, 'desde' => 0.1, 'orden' => 9, 'activo' => false,
+    ]);
+
+    verificar(
+        'Un nivel apagado no dispara',
+        ! $servicio->nivelesPara($beca)->contains('id', $nivelApagado->id),
+        'su umbral (10 %) lo alcanzaría de sobra'
+    );
+    verificar('Y la beca sigue con sus dos niveles', $servicio->nivelesPara($beca)->count() === 2);
+
     echo PHP_EOL.'2. Otorgar deja la beca en espera, y NO descuenta'.PHP_EOL;
 
     $peticion = Request::create('/', 'POST', [
@@ -236,6 +250,15 @@ try {
     $delA = $otorgada->autorizaciones()->where('nivel_id', $nivel1->id)->firstOrFail();
     $delB = $otorgada->autorizaciones()->where('nivel_id', $nivel2->id)->firstOrFail();
 
+    /*
+     * Una copia LEÍDA AHORA, antes de que nadie firme. Es la carrera de
+     * verdad: dos personas abren la cola a la vez, una firma, y la otra pulsa
+     * con la pantalla vieja. El guard de «ya está firmada» mira el objeto en
+     * memoria y en ese instante decía que no lo estaba, así que lo único que
+     * puede detenerla es la escritura condicionada.
+     */
+    $copiaVieja = BecaAlumnoAutorizacion::findOrFail($delA->id);
+
     verificar(
         'Quien no tiene el rol del nivel no puede firmarlo',
         $servicio->motivoParaNoFirmar($firmanteB, $delA) !== null,
@@ -260,6 +283,51 @@ try {
 
     verificar('Firmar dos veces el mismo nivel no se puede', $servicio->motivoParaNoFirmar($firmanteA, $delA) !== null);
 
+    /*
+     * Y tampoco se le ofrece a OTRA persona con el mismo rol. Hace falta un
+     * tercero limpio: sobre quien ya firmó, el «no se firma dos veces» queda
+     * tapado por el «no firmas dos niveles», y la comprobación pasaría por la
+     * razón equivocada.
+     */
+    DB::table('persona_rol')->insert([
+        'persona_id' => $otorgante->persona_id, 'rol_id' => $rolA->id, 'campus_id' => null,
+        'activo' => 1, 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    $otorgante->refresh();
+    $otorgante->load('persona');
+
+    verificar('Tiene el rol de ese nivel y no ha firmado nada', $otorgante->rolesDisponibles()->contains('id', $rolA->id));
+    verificar(
+        'Y aun así no puede firmar lo ya firmado',
+        $servicio->motivoParaNoFirmar($otorgante, $delA) !== null,
+        (string) $servicio->motivoParaNoFirmar($otorgante, $delA)
+    );
+
+    // La escritura va condicionada a que la firma siga vacía: dos personas
+    // pulsando a la vez firmarían las dos, y la segunda borraría del acta a
+    // quien de verdad cerró el nivel.
+    $peticion = Request::create('/', 'POST', []);
+    entrarComo($otorgante, $peticion);
+    $control->firmar($peticion, $delA);
+    $delA->refresh();
+
+    verificar('La firma sigue siendo de quien la dio', (int) $delA->usuario_id === (int) $firmanteA->getKey());
+
+    // Y con la pantalla vieja —el caso que el guard no ve— tampoco la pisa.
+    $peticion = Request::create('/', 'POST', []);
+    entrarComo($otorgante, $peticion);
+
+    verificar('La copia vieja todavía se cree sin firmar', ! $copiaVieja->estaFirmada());
+
+    $control->firmar($peticion, $copiaVieja);
+    $delA->refresh();
+
+    verificar(
+        'La carrera no reescribe la firma',
+        (int) $delA->usuario_id === (int) $firmanteA->getKey(),
+        'usuario_id: '.$delA->usuario_id
+    );
+
     echo PHP_EOL.'5. Dos niveles firmados por la misma persona son UN nivel'.PHP_EOL;
 
     // Se le da también el rol del segundo nivel: aun así no puede cerrarla
@@ -277,6 +345,20 @@ try {
         $servicio->motivoParaNoFirmar($firmanteA, $delB) !== null,
         (string) $servicio->motivoParaNoFirmar($firmanteA, $delB)
     );
+
+    /*
+     * Y el impedimento lo honra `firmar`, no sólo quien pregunta antes: la
+     * pantalla no es la defensa, y sin esta comprobación una petición armada a
+     * mano cerraría la escala. El candado del `update` condicionado no lo
+     * cubre —ese nivel está sin firmar—.
+     */
+    $peticion = Request::create('/', 'POST', []);
+    entrarComo($firmanteA, $peticion);
+    $control->firmar($peticion, $delB);
+    $delB->refresh();
+
+    verificar('Y `firmar` tampoco se lo permite', ! $delB->estaFirmada());
+    verificar('La beca sigue en espera tras el intento', BecaAlumno::find($otorgada->id)->estatus === BecaAlumno::POR_AUTORIZAR);
 
     // Su cola tampoco se la ofrece: una cola con renglones que no se pueden
     // atender enseña a ignorar la cola.
@@ -344,8 +426,50 @@ try {
     entrarComo($otorgante, $peticion);
     $becas->otorgar($peticion, $tercera);
 
+    $delTerceraA = BecaAlumno::where('beca_id', $tercera->id)->firstOrFail()
+        ->autorizaciones()->where('nivel_id', $nivel1->id)->firstOrFail();
+
+    /*
+     * La cola filtra POR ROL y no sólo por lo que uno ya firmó. Aquí el
+     * firmante B no ha tocado esta beca —así que el filtro de «ya firmé» no lo
+     * excluye— y sencillamente no tiene el rol que la firma.
+     */
+    verificar(
+        'La cola no ofrece un nivel de un rol que no se tiene',
+        ! $servicio->pendientesDe($firmanteB)->contains('id', $delTerceraA->id)
+    );
+    verificar(
+        'Y sí a quien lo tiene',
+        $servicio->pendientesDe($firmanteA)->contains('id', $delTerceraA->id)
+    );
+
     verificar('Un nivel con becas esperándolo no se apaga', $servicio->motivoParaNoApagar($nivel1) !== null);
     verificar('Uno que nadie espera sí', $servicio->motivoParaNoApagar($nivel2) === null, 'sus firmas ya se dieron');
+
+    // Y la pantalla lo respeta, no sólo el servicio: se manda la casilla como
+    // «0», que es lo que manda un formulario de verdad.
+    $peticion = Request::create('/', 'PUT', [
+        'nombre' => $nivel1->nombre, 'rol_id' => $nivel1->rol_id, 'modo' => $nivel1->modo,
+        'desde' => (string) $nivel1->desde, 'orden' => (string) $nivel1->orden, 'activo' => '0',
+    ]);
+    entrarComo($otorgante, $peticion);
+    $control->actualizarNivel($peticion, $nivel1);
+    $nivel1->refresh();
+
+    verificar('Y apagarlo desde la pantalla se rechaza', $nivel1->activo === true, 'sigue encendido');
+
+    // El mismo camino, sobre el que nadie espera: ahí sí se apaga.
+    $peticion = Request::create('/', 'PUT', [
+        'nombre' => $nivel2->nombre, 'rol_id' => $nivel2->rol_id, 'modo' => $nivel2->modo,
+        'desde' => (string) $nivel2->desde, 'orden' => (string) $nivel2->orden, 'activo' => '0',
+    ]);
+    entrarComo($otorgante, $peticion);
+    $control->actualizarNivel($peticion, $nivel2);
+    $nivel2->refresh();
+
+    verificar('El que nadie espera sí se apaga desde la pantalla', $nivel2->activo === false);
+
+    $nivel2->update(['activo' => true]);
 
     echo PHP_EOL.'9. El alcance por campus se resuelve al FIRMAR'.PHP_EOL;
 
@@ -365,8 +489,7 @@ try {
     $firmanteB->refresh();
     $firmanteB->load('persona');
 
-    $delTercero = BecaAlumno::where('beca_id', $tercera->id)->firstOrFail()
-        ->autorizaciones()->where('nivel_id', $nivel1->id)->firstOrFail();
+    $delTercero = $delTerceraA;
 
     verificar('Tiene el rol que firma ese nivel', $servicio->motivoParaNoFirmar($firmanteB, $delTercero) === null);
     verificar('Y su alcance es otro campus', $firmanteB->campusVisibles() === [$otroCampus->id]);
