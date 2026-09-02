@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**123 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**124 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -764,6 +764,88 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
   CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
   adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
+- **Convenios de pago** (2026-09-02, primera parte de 3.4). `/finanzas/convenios`
+  para supervisarlos; se firman desde el estado de cuenta del alumno, que es
+  donde se ve lo que debe. Permiso propio `autorizar-convenios`.
+  - **Cierra una promesa que llevaba desde la entrega 7.1.**
+    `situaciones_pago` trae «Con convenio de pago» y NADA la escribía:
+    `EvaluadorDeudor` sólo sabía poner «moroso» o «al corriente». A quien
+    firmaba un convenio el barrido nocturno lo marcaba moroso igual, y con la
+    situación equivocada puesta en `bloquea` se le podía cerrar la inscripción
+    por una deuda ya acordada. Mismo defecto que `etapas_crm` sembrada sin usar
+    y que `cierra_el_embudo`, que sólo se dibujaba.
+  - **Un convenio NO perdona: REPROGRAMA.** La suma de las parcialidades tiene
+    que ser exactamente el saldo cubierto, **en las dos direcciones**. De menos,
+    esta pantalla sería una segunda puerta para condonar —sin el permiso de
+    condonar ni su bitácora—; de más, serían intereses escondidos dentro de unas
+    parcialidades que dicen «colegiatura», sin concepto propio que el CFDI
+    pudiera nombrar. Cobrar por diferir se puede: como cargo, con su concepto.
+  - **Y lo que se acuerda es el SALDO, no el monto.** Sobre un cargo con abono
+    parcial, acordar el importe completo volvería a cobrar lo que ya entró — y
+    no se notaría, porque las dos cifras se parecen.
+  - **Los cargos originales no se cancelan: pasan a `en_convenio`.**
+    Cancelarlos borraría qué se debía y desde cuándo. Y el estatus nuevo salió
+    BARATO porque todo el motor de cartera filtra por la **lista blanca**
+    `[pendiente, parcial]` —el estado de cuenta, la mora, el evaluador de
+    deudores, el registrador de pagos—: no se cuenta dos veces, no acumula mora
+    y no se puede pagar por la puerta de atrás. Con una lista negra («todo menos
+    pagado») el valor nuevo se habría colado en los seis sitios. **Vale como
+    regla general: una lista blanca es lo que hace barato agregar un estado.**
+  - **La mora se para de verdad, y no por una bandera**: una parcialidad no
+    tiene línea de plan, y `CalculadorRecargos` devuelve cero sin ella. Es lo
+    que hace que firmar valga la pena.
+  - **Un convenio cubre cargos de UN SOLO concepto**, porque el CFDI y el
+    complemento educativo se emiten contra el concepto: mezclar haría que un
+    comprobante dijera «enseñanza» sobre dinero que no lo es, o que una
+    colegiatura pagada en parcialidades dejara de ser deducible. Si hay que
+    acordar dos, son dos convenios.
+  - **CANCELAR e INCUMPLIR son distintos, y la diferencia es lo que impide
+    cobrar dos veces.** Cancelar es «lo capturé mal» y sólo cabe sin un peso
+    cobrado: deshace, y los cargos originales vuelven. Incumplir **acelera** lo
+    que falta —la cláusula de vencimiento anticipado— y no devuelve nada: con
+    abonos de por medio, devolver los originales completos cobraría dos veces el
+    mismo dinero, y repartir lo abonado entre ellos sería inventar un reparto
+    que nadie acordó.
+  - **Cancelar BORRA el pivote de verdad**, no en baja lógica: su único es sobre
+    `adeudo_id` a secas y MySQL no distingue una fila dada de baja, así que ese
+    cargo no podría entrar nunca a otro convenio — y capturar mal uno y rehacerlo
+    es exactamente lo que va a pasar. Misma lección que las colocaciones de la
+    bolsa.
+  - **Cumplirse se reconoce solo** en el barrido nocturno: que esté pagado es
+    aritmética, no una decisión. Al revés que incumplir, que sí lo es — el
+    sistema lo REPORTA poniendo al alumno en moroso cuando una parcialidad
+    vence, y declararlo lo hace una persona. Y un convenio **incumplido no pasa
+    a cumplido** aunque después se termine de pagar: se rompió, y eso ya es
+    historia.
+  - **Un cargo dentro de un convenio no se resuelve por su renglón.**
+    Condonarlo no perdonaría nada: sus parcialidades seguirían cobrándose y el
+    alumno acabaría pagando lo que se le acaba de regalar. Se rehúsa y el
+    mensaje nombra las dos salidas — cancelar el convenio, o condonar la
+    PARCIALIDAD, que es lo que de verdad se cobra—.
+  - Pruebas: `scripts/prueba-convenios-pago.php`, 69 verificaciones,
+    comprobadas mutando **31 reglas**. En la primera pasada sobrevivieron seis,
+    y las seis nombraban un caso que el escenario no tenía: ningún cargo con
+    abono parcial (así que acordar el monto en vez del saldo no cambiaba nada),
+    ninguno con línea de plan (así que heredarla tampoco), ninguno de otro
+    alumno, y el concepto del escenario era el PRIMERO de la tabla —de modo que
+    una mutación que tomara «un concepto cualquiera» daba el mismo—.
+    - **Y dos guardas que parecían repetir al estatus**: el pivote en
+      `elegibles` y en `crear`. El caso que las hace falta se construye: un
+      cargo devuelto a «pendiente» a mano, con su fila del pivote todavía
+      puesta. Sin ellas el mismo dinero entraría a dos convenios y sólo lo
+      detendría el índice único, con un error de SQL en la cara de quien captura.
+    - **La sexta enseñó algo distinto**: el `porCobrar()` de
+      `ConvenioPago::saldo()` parecía redundante —un cargo pagado suma cero
+      igual— hasta construir el caso real, una parcialidad CONDONADA: nadie le
+      aplicó dinero, así que su saldo crudo sigue siendo su importe, y sin el
+      filtro el convenio nunca se daría por cumplido.
+  - **Tres defectos que sólo se vieron USÁNDOLO**: el botón «Firmar el
+    convenio» estaba MUERTO —`BotonPrincipal` es `submit` por omisión y el
+    bloque no tenía `<form>`, así que se veía activo, se pulsaba y no pasaba
+    nada—; la píldora decía «En_convenio» con el guión bajo de la base; y las
+    parcialidades no decían de qué convenio son, así que en la tabla de cargos
+    aparecía una colegiatura con una fecha que no cuadra con ninguna del plan.
+
 - **Conciliación bancaria, CERRADA** (2026-09-02, rebanada 3.1).
   `/finanzas/conciliacion`, permiso propio `conciliar-banco`. Cuadrar lo que
   dice el banco contra lo que dice el sistema.
