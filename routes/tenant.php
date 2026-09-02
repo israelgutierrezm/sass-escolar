@@ -37,6 +37,7 @@ use App\Http\Controllers\CicloController;
 use App\Http\Controllers\CierreFiscalController;
 use App\Http\Controllers\ClaseEnVivoController;
 use App\Http\Controllers\ClasesEnLineaController;
+use App\Http\Controllers\CobranzaController;
 use App\Http\Controllers\CobroAspiranteController;
 use App\Http\Controllers\CobroEnLineaController;
 use App\Http\Controllers\ComprobantePagoController;
@@ -1704,6 +1705,23 @@ Route::middleware([
                  * Va ANTES del grupo de `FinanzasController` porque comparte el
                  * prefijo `/finanzas` y ahí hay comodines.
                  */
+                /*
+                 * La escalera de recordatorios de cobranza. Con el permiso de
+                 * configurar el cobro y sin uno propio: esto es configuración
+                 * —del mismo orden que ponerle monto a una colegiatura— y los
+                 * avisos no los manda nadie desde una pantalla, los manda el
+                 * comando de las siete.
+                 */
+                Route::controller(CobranzaController::class)
+                    ->prefix('cobranza')->name('cobranza.')
+                    ->middleware('can:gestionar-planes-cobro')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::post('/reglas', 'guardar')->name('reglas.store');
+                        Route::put('/reglas/{regla}', 'guardar')->whereNumber('regla')->name('reglas.update');
+                        Route::delete('/reglas/{regla}', 'eliminar')->whereNumber('regla')->name('reglas.destroy');
+                    });
+
                 Route::controller(ConvenioPagoController::class)
                     ->prefix('convenios')->name('convenios.')
                     ->middleware('can:autorizar-convenios')

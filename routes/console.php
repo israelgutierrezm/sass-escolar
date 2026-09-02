@@ -45,6 +45,27 @@ Schedule::command('finanzas:evaluar')
     ->runInBackground();
 
 /*
+ * El recordatorio de cobranza, a las 7:00.
+ *
+ * DESPUÉS del barrido porque el aviso dice un importe, y los recargos y las
+ * becas lo cambian de madrugada: mandarlo antes daría una cifra que esa misma
+ * noche deja de ser cierta.
+ *
+ * Y a las 7:00 y no a las 3:00 porque esto le habla a la GENTE: un aviso que
+ * aparece con marca de las tres de la mañana se lee como si la escuela cobrara
+ * de madrugada. La hora la ve quien lo recibe.
+ *
+ * Sin peldaños encendidos no manda nada, así que el comando corre todos los
+ * días desde el primero sin que nadie se entere hasta que la escuela configure
+ * su escalera.
+ */
+Schedule::command('finanzas:recordar-cobranza')
+    ->dailyAt('07:00')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->runInBackground();
+
+/*
  * Conciliación de los CFDI con el SAT.
  *
  * Se pregunta sola porque los desajustes que caza aparecen SIN un acto nuestro:
