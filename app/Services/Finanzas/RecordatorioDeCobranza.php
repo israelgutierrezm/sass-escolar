@@ -200,7 +200,14 @@ class RecordatorioDeCobranza
                 'cuerpo' => ReglaRecordatorioCobranza::rellenar($regla->cuerpo, $valores),
                 'prioridad' => $regla->prioridadAviso(),
                 'publicado' => true,
-                'publicado_desde' => $hoy->startOfDay(),
+                /*
+                 * La hora REAL del envío, no la medianoche del día. Con
+                 * `startOfDay` el aviso salía fechado «12:00 a.m.» y se lee
+                 * como si la escuela cobrara de madrugada — que es justo lo que
+                 * programarlo a las 7:00 venía a evitar. Se vio en el portal
+                 * del alumno, no en ninguna prueba.
+                 */
+                'publicado_desde' => now(),
                 /*
                  * Caduca. Pasado el plazo el aviso diría algo que quizá ya no es
                  * cierto —lo normal es que hayan pagado— y la verdad sigue

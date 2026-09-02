@@ -80,6 +80,14 @@ try {
     $sembradas = ReglaRecordatorioCobranza::query()->count();
     ReglaRecordatorioCobranza::query()->update(['activo' => false]);
 
+    /*
+     * La LÍNEA BASE de rastros. La escuela puede llevar meses mandando
+     * recordatorios, así que contra cero esta suite pasaría sola y se caería en
+     * el barrido — que es exactamente lo que pasó en cuanto se corrió el comando
+     * de verdad contra el demo para mirar la pantalla. Se mide por diferencia.
+     */
+    $rastrosBase = RecordatorioCobranza::query()->count();
+
     verificar('Se parte sin ningún peldaño encendido', ReglaRecordatorioCobranza::query()->activas()->count() === 0, "la escuela tenía {$sembradas}");
     verificar('Y las sembradas nacen apagadas', $sembradas >= 3);
 
@@ -141,7 +149,7 @@ try {
     $r = $servicio->correr($hoy);
 
     verificar('Cero avisos', $r['avisos'] === 0, 'avisos: '.$r['avisos']);
-    verificar('Y cero rastros', RecordatorioCobranza::query()->count() === 0);
+    verificar('Y ningún rastro nuevo', RecordatorioCobranza::query()->count() === $rastrosBase);
 
     echo PHP_EOL.'2. Un peldaño alcanza la fecha EXACTA'.PHP_EOL;
 
@@ -197,7 +205,7 @@ try {
     $r = $servicio->correr($hoy->addDay());
 
     verificar('Ni al día siguiente', $r['avisos'] === 0, 'avisos: '.$r['avisos']);
-    verificar('Los rastros siguen siendo dos', RecordatorioCobranza::query()->count() === 2);
+    verificar('Los rastros nuevos siguen siendo dos', RecordatorioCobranza::query()->count() === $rastrosBase + 2);
 
     echo PHP_EOL.'4. Otro peldaño sí vuelve a avisar'.PHP_EOL;
 
@@ -214,7 +222,7 @@ try {
     $r = $servicio->correr(CarbonImmutable::parse('2026-07-07'));
 
     verificar('Al peldaño siguiente vuelve a tocarle', $r['avisos'] === 1, 'avisos: '.$r['avisos']);
-    verificar('Y son dos rastros más', RecordatorioCobranza::query()->count() === 4);
+    verificar('Y son dos rastros más', RecordatorioCobranza::query()->count() === $rastrosBase + 4);
 
     $ultimo = Aviso::query()->latest('id')->firstOrFail();
 

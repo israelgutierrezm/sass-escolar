@@ -87,10 +87,14 @@ class CobranzaController extends Controller
             'dias.unique' => 'Ya hay un peldaño para ese día. Dos el mismo día se pisarían y uno no se mandaría nunca.',
         ]);
 
-        // Validar no convierte: la casilla llega como cadena.
-        $datos['activo'] = $peticion->boolean('activo');
-        $datos['dias'] = (int) $datos['dias'];
-        $datos['dias_vigente'] = (int) $datos['dias_vigente'];
+        /*
+         * Sin convertir a mano, y medido: `validate` devuelve «0» y «9» como
+         * CADENAS, pero aquí nadie las lee antes del modelo y su `casts()` las
+         * convierte al escribir. Una segunda conversión que no cambia nada es
+         * código que hay que sostener sin poder explicar qué salva — la de
+         * `activo` en los niveles de beca sí se quedó porque allá el guard de
+         * apagado la lee antes.
+         */
 
         if ($regla === null) {
             ReglaRecordatorioCobranza::create($datos);
