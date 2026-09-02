@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**122 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**123 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -764,6 +764,125 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
   CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
   adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
+- **Conciliación bancaria, CERRADA** (2026-09-02, rebanada 3.1).
+  `/finanzas/conciliacion`, permiso propio `conciliar-banco`. Cuadrar lo que
+  dice el banco contra lo que dice el sistema.
+  - **Las dos fallas que sólo esto encuentra.** Ninguna revienta, ninguna avisa,
+    y las dos cuestan dinero: (1) **entró dinero que nadie registró** —una
+    familia transfiere y jamás sube su comprobante, así que el banco lo tiene,
+    la cartera dice que debe, y se le cobra un adeudo que ya pagó—; y (2) **se
+    registró un cobro cuyo dinero nunca llegó** —un comprobante aprobado sobre
+    una imagen repetida, o un depósito de caja capturado que no se hizo—. Así es
+    como desaparece el efectivo.
+  - **LA REGLA: no escribe en los pagos ni en la cartera.** Mismo criterio que
+    `ConciliadorCfdi` y `acadion:auditar-datos`. El insumo es un CSV que
+    cualquiera edita en su máquina; si de él dependiera el estatus de un cobro,
+    un archivo retocado movería lo que un alumno debe. Se guarda el VÍNCULO
+    (`conciliacion_partidas`) y se reporta lo que no casa.
+  - **El renglón importado es INMUTABLE**: es lo que dijo el banco, y si se
+    pudiera corregir, la conciliación cuadraría editando la evidencia. Lo que sí
+    se le anota son cosas NUESTRAS: con qué casó y —cuando no es un cobro— qué
+    es.
+  - **El cuadre del saldo es lo que prueba que el archivo está COMPLETO.**
+    `saldo_inicial + Σ movimientos = saldo_final`, con los dos saldos capturados
+    a mano leyéndolos del estado de cuenta: son una comprobación INDEPENDIENTE,
+    y derivándolos del propio CSV no comprobarían nada. **No cuadrar RECHAZA la
+    importación**, no la marca: a un archivo al que le faltan renglones no le
+    reclama nada lo que falta, así que concilia impecable y se entrega como
+    revisado. Mismo criterio que el paquete mensual de CFDI, que se rehúsa antes
+    que recortarse.
+  - **Reimportar no duplica, y dos idénticos legítimos siguen siendo DOS.** Los
+    bancos no dan identificador de renglón, así que la llave es una HUELLA de lo
+    que el renglón dice — pero un ÚNICO sobre ella sería un error: dos familias
+    transfiriendo $2,500 el mismo día con la referencia en blanco son dos
+    movimientos reales, y el único se comería el segundo en silencio. Se cuentan
+    OCURRENCIAS: de cada huella se insertan las del archivo menos las que ya
+    están.
+  - **El mapeo de columnas es un dato de la CUENTA**
+    (`cuentas_bancarias.mapeo_estado_cuenta`), no un `match ($banco)`: la escuela
+    abre cuenta en otro banco y concilia sin que nadie programe. **Y las
+    columnas se nombran por su TÍTULO, no por su posición**: si el banco agrega
+    una columna al principio, por posición se leerían los importes de otra sin
+    que nada fallara. Se comparan sin acentos ni mayúsculas —la misma columna
+    sale de tres formas— y quitando el BOM, que se pega al primer encabezado y
+    lo vuelve irreconocible sin que se vea nada raro.
+  - **Cargo y abono en columnas separadas es lo NORMAL en México**, así que se
+    admiten las dos formas y se guarda siempre CON SIGNO: dos columnas son la
+    forma del archivo, no la del hecho, y con una sola la suma de la columna es
+    el neto del periodo.
+  - **La codificación no es un detalle**: los bancos exportan en Windows-1252.
+    Leído como UTF-8, «Depósito» llega roto y —peor— la huella cambia según cómo
+    se guardó el archivo, así que reimportarlo duplicaría todo.
+  - **Y lo que hay que soportar de un archivo real**: `$1,234.56`,
+    `(1,234.56)` —notación contable de negativo: sin tratarla, un cargo se
+    importa en positivo y el saldo falla por el doble—, un preámbulo con los
+    datos de la cuenta antes del encabezado, y renglones de totales y leyendas
+    al final, que se saltan por no traer fecha en vez de reventar.
+  - **El efectivo NO se busca en el banco cobro por cobro**: llega junto, en el
+    DEPÓSITO del turno de caja. Los pagos con `afecta_caja` quedan fuera de los
+    candidatos y en su lugar se busca su depósito. Es lo que cierra el rastro
+    que abrió 3.2.
+  - **El pareo automático sólo actúa cuando UN único candidato coincide en
+    importe Y referencia.** Con dos posibles propone y decide una persona: un
+    pareo automático equivocado deja la pantalla en verde y esconde dinero real,
+    que es peor que dejar el renglón sin casar. Y una referencia de menos de
+    cuatro caracteres no cuenta: «123» aparece por casualidad en cualquier
+    concepto largo.
+  - **El importe aplicado se DERIVA del movimiento del sistema, no se teclea.**
+    Tecleado, cualquier diferencia se tapa escribiendo el número que cuadra. A
+    cambio, un pago que el banco partiera en dos renglones no se puede
+    conciliar: se prefiere no poder a poder mentir.
+  - **Un renglón casa con VARIOS movimientos**, porque una liquidación de
+    pasarela son doce cobros en una línea y llega NETA de comisión —doce por
+    12,000 contra un renglón de 11,700—. Lo que sobra o falta se CLASIFICA con
+    su razón (comisión, intereses, traspaso propio, devolución, otro con nota):
+    sin eso la lista de pendientes nunca llega a cero, y una cola que nunca baja
+    enseña a no mirarla.
+  - **Un movimiento del sistema se concilia UNA sola vez** (único en la base):
+    si no, el mismo pago cuadraría dos renglones y el faltante se escondería. Y
+    deshacer usa `forceDelete`, por lo mismo que las colocaciones de la bolsa: el
+    único es sobre `pago_id` a secas y MySQL no distingue una fila dada de baja,
+    así que con borrado lógico ese pago no se podría casar nunca más.
+  - **No se acota por campus**: una cuenta bancaria es de la persona moral, y
+    «conciliar el campus norte» no significa nada frente al banco. Mismo
+    criterio que el cierre fiscal.
+  - **Sólo CSV, y a propósito**: todos los bancos lo ofrecen, y a diferencia del
+    XLS no trae celdas combinadas ni encabezados a dos pisos. Con XLS el mapeo
+    de columnas no bastaría: harían falta reglas por banco, que es lo que este
+    diseño evita.
+  - **Un defecto propio que la suite cazó en su primera corrida**: el guard de
+    «movimientos fuera del periodo» armaba su mensaje con
+    `reset($fuera)['fecha']` COMO ARGUMENTO, y PHP evalúa los argumentos antes
+    de llamar — así que reventaba en TODAS las importaciones buenas. Vale para
+    cualquier `AvisoParaElUsuario::si()` cuyo mensaje se calcule del caso malo.
+  - Pruebas: `scripts/prueba-conciliacion-bancaria.php`, 86 verificaciones,
+    comprobadas mutando **32 reglas**. En la primera pasada sobrevivieron ONCE,
+    y las once eran la misma clase: el escenario no tenía el caso.
+    - **El más grande estaba en tres docblocks y en ninguna línea de prueba: la
+      liquidación de pasarela.** Es el caso que obliga a que un renglón case con
+      varios y a que el importe salga del cobro; sin él, las dos reglas eran
+      afirmaciones sin comprobar.
+    - «Un cargo no ofrece candidatos» pasaba porque ningún cobro caía en su
+      ventana de fechas; «una salida no se concilia contra un cobro» se probaba
+      con un pago YA conciliado, así que el rechazo lo producía el único.
+    - **Y la HUELLA enseñó algo del método**: dentro de un mismo archivo las
+      ocurrencias TAPAN una huella floja, así que quitarle el concepto o el
+      importe no cambiaba nada. Donde muerde es en la importación siguiente,
+      cuando un movimiento distinto choca con el que ya está.
+  - **La suite es DUEÑA de sus referencias**, con prefijo propio. Una escuela
+    real tiene otros cobros, y con una referencia que ya exista el automático
+    encuentra dos candidatos igual de buenos y no decide: la suite se caería por
+    hacer bien su trabajo. Pasaba corriéndola sola y se cayó en cuanto se sembró
+    una cuenta para mirar la pantalla. Quinta vez.
+  - **Dos defectos que sólo se vieron MIRÁNDOLA**: el encabezado decía «3
+    renglón(es) sin explicar» con cuatro importes en rojo debajo —contaba sólo
+    entradas y la comisión es una salida—, y el título «Cobrado aquí que el
+    banco no vio» afirmaba de más: recién importado el archivo ahí sale TODO,
+    porque nada se ha casado todavía.
+  - **Lo que NO se hizo**: no hay consulta automática al banco. No hay API
+    abierta ni credenciales, y el estado de cuenta se descarga a mano — lo que
+    existe es el archivo, y de ahí parte todo esto.
+
 - **Patrocinadores y presupuesto de becas** (2026-09-02, parte de 3.3). De qué
   bolsa sale cada beca, y cuánto llevamos. `/finanzas/becas/presupuesto`.
   - **El ejercido se MIDE, no se estima.** Sale de `adeudo_ajustes` —un renglón
