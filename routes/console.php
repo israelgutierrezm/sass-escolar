@@ -45,6 +45,27 @@ Schedule::command('finanzas:evaluar')
     ->runInBackground();
 
 /*
+ * Conciliación de los CFDI con el SAT.
+ *
+ * Se pregunta sola porque los desajustes que caza aparecen SIN un acto nuestro:
+ * alguien cancela un comprobante desde el portal del PAC, o una cancelación
+ * pedida aquí se queda esperando que el receptor la acepte. No hay ningún botón
+ * de esta aplicación que dispare la revisión.
+ *
+ * Diaria y no por hora: el SAT le da 72 horas al receptor para aceptar una
+ * cancelación, así que preguntar cada hora sería gastar llamadas al PAC —que se
+ * cobran— para ver el mismo «pendiente» veinticuatro veces al día.
+ *
+ * A las 4:00, después de que el cobro haya terminado su trabajo: esto sólo lee,
+ * y competir con la generación de cargos por la base no le aporta nada a nadie.
+ */
+Schedule::command('finanzas:conciliar-cfdi')
+    ->dailyAt('04:00')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->runInBackground();
+
+/*
  * Purga de los accesos a bitácoras de tutoría.
  *
  * Semanal y no diaria: no hay prisa por borrar algo de hace dos años, y una

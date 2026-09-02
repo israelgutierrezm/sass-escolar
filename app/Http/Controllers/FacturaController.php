@@ -43,10 +43,15 @@ class FacturaController extends Controller
     public function index(Request $request): Response
     {
         $estatus = (string) $request->query('estatus', '');
+        // `boolean` y no el valor crudo: la cadena «0» que manda una casilla es
+        // VERDADERA en PHP, así que el filtro no se podría apagar. Es la trampa
+        // que este proyecto ya se cobró en reportes y en el panorama documental.
+        $soloDiscrepancias = $request->boolean('discrepancia');
 
         $consulta = Factura::query()
             ->with(['matriculaOferta.persona:id,nombre,primer_apellido,segundo_apellido'])
-            ->when($estatus !== '', fn ($q) => $q->where('estatus', $estatus));
+            ->when($estatus !== '', fn ($q) => $q->where('estatus', $estatus))
+            ->when($soloDiscrepancias, fn ($q) => $q->conDiscrepanciaSat());
 
         // Las facturas cuelgan de una matrícula: se acotan al campus del rol.
         $this->acotarMatriculas($consulta, $request, 'matriculaOferta');
@@ -59,7 +64,11 @@ class FacturaController extends Controller
 
         return Inertia::render('Finanzas/Facturas/Index', [
             'facturas' => $facturas,
-            'filtros' => ['estatus' => $estatus],
+            'filtros' => ['estatus' => $estatus, 'discrepancia' => $soloDiscrepancias],
+            // Cuántas hay en total, no sólo en esta página: es el número que
+            // decide si hay que ir a mirar, y con la cuenta de la página una
+            // discrepancia en la página 4 sería invisible.
+            'discrepancias' => Factura::query()->conDiscrepanciaSat()->count(),
             'estatus' => [
                 Factura::ESTATUS_BORRADOR,
                 Factura::ESTATUS_TIMBRANDO,
@@ -140,6 +149,15 @@ class FacturaController extends Controller
                 ])->values(),
                 // La pantalla no es la defensa: el servicio lo vuelve a
                 // comprobar. Esto sólo decide si se dibuja el botón.
+                'sat_estado' => $factura->sat_estado,
+                'sat_estado_cancelacion' => $factura->sat_estado_cancelacion,
+                'sat_error' => $factura->sat_error,
+                'sat_consultado_en' => $factura->sat_consultado_en?->toDateTimeString(),
+                // La discrepancia la calcula el MODELO: la misma definición que
+                // usan el comando y el filtro del listado. Escrita aquí otra
+                // vez, los tres acabarían contando cosas distintas del mismo
+                // comprobante.
+                'discrepancia_sat' => $factura->discrepanciaSat(),
                 'acreditable' => ! $factura->esNotaCredito()
                     && $factura->estaVigente()
                     && $factura->totalEfectivo() > 0,
@@ -401,6 +419,7 @@ class FacturaController extends Controller
             'receptor_razon_social' => $factura->receptor_razon_social,
             'emisor' => $factura->emisor_razon_social,
             'total' => (float) $factura->total,
+            'discrepancia_sat' => $factura->discrepanciaSat(),
             'fecha_timbrado' => $factura->fecha_timbrado?->toDateTimeString(),
             'matricula_id' => $factura->matricula_oferta_id,
             'matricula' => $factura->matriculaOferta?->matricula,

@@ -55,4 +55,29 @@ interface Pac
      * motivo 01, que exige decir qué comprobante lo reemplaza.
      */
     public function cancelar(Factura $factura, string $motivo, ?string $uuidSustituta = null): ResultadoTimbrado;
+
+    /**
+     * ¿Este proveedor puede decir qué opina el SAT de un comprobante?
+     *
+     * Se declara aparte en vez de deducirlo de la respuesta, porque las dos
+     * cosas se parecen y significan lo contrario: «este PAC no consulta» es una
+     * propiedad del driver que se dice UNA vez, y «el PAC no contestó» es un
+     * fallo que hay que reportar factura por factura. Sin separarlas, correr la
+     * conciliación en modo de prueba llenaría el informe de errores que no lo
+     * son.
+     */
+    public function puedeConciliar(): bool;
+
+    /**
+     * Qué dice el SAT de este comprobante.
+     *
+     * Un comprobante vive en dos sitios y se separan solos: alguien cancela
+     * desde el portal del PAC, o una cancelación pedida aquí se queda esperando
+     * que el receptor la acepte. Ninguna de las dos falla ni avisa.
+     *
+     * Mismas reglas que el resto: que el SAT diga «cancelada» es una respuesta
+     * legítima y va en el resultado; una falla de comunicación se devuelve como
+     * `desconocido` y NO como si estuviera vigente.
+     */
+    public function consultarEstado(Factura $factura): EstadoEnElPac;
 }

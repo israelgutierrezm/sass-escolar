@@ -6,6 +6,7 @@ namespace App\Models\Finanzas;
 
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Concerns\TieneAuditoria;
+use App\Services\Cfdi\EstadoEnElPac;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -116,6 +117,10 @@ class Factura extends Model
         'tipo',
         'factura_origen_id',
         'motivo_egreso',
+        'sat_estado',
+        'sat_estado_cancelacion',
+        'sat_error',
+        'sat_consultado_en',
     ];
 
     protected function casts(): array
@@ -126,6 +131,7 @@ class Factura extends Model
             'total' => 'decimal:2',
             'fecha_timbrado' => 'datetime',
             'cancelada_en' => 'datetime',
+            'sat_consultado_en' => 'datetime',
         ];
     }
 
@@ -251,6 +257,58 @@ class Factura extends Model
     public function scopeDeIngreso(Builder $query): Builder
     {
         return $query->where('tipo', self::TIPO_INGRESO);
+    }
+
+    /**
+     * En qué se contradicen la base y el SAT, o null si no se contradicen.
+     *
+     * La definición vive AQUÍ y no en el comando ni en la pantalla porque la
+     * usan los tres —la conciliación para reportar, el detalle para avisar y el
+     * listado para filtrar—, y escrita tres veces acabarían contando cosas
+     * distintas del mismo comprobante.
+     *
+     * Sin consultar todavía no hay discrepancia, y «el PAC no supo» tampoco es
+     * una: convertir una caída del proveedor en una alarma de contabilidad
+     * enseñaría a ignorar las alarmas.
+     */
+    public function discrepanciaSat(): ?string
+    {
+        if ($this->sat_estado === null) {
+            return null;
+        }
+
+        $aquiCancelada = $this->estatus === self::ESTATUS_CANCELADA;
+        $satCancelada = $this->sat_estado === EstadoEnElPac::CANCELADA;
+
+        if ($aquiCancelada === $satCancelada) {
+            return null;
+        }
+
+        return $satCancelada
+            ? 'El SAT la tiene CANCELADA y aquí figura vigente. Alguien la canceló desde fuera del '
+                .'sistema, así que la escuela está contando como ingreso un comprobante que ya no existe.'
+            : 'Aquí figura cancelada y el SAT la tiene VIGENTE. La cancelación no se completó '
+                .'—suele ser que el receptor todavía no la acepta—, así que el CFDI sigue vivo.';
+    }
+
+    /**
+     * Las que se contradicen con el SAT.
+     *
+     * Las dos condiciones van dentro de closures para que queden entre
+     * paréntesis: un `or` suelto junto al resto de los filtros del listado se
+     * los llevaría por delante y devolvería facturas que no discrepan. Es la
+     * trampa que este proyecto ya se cobró.
+     */
+    public function scopeConDiscrepanciaSat(Builder $query): Builder
+    {
+        return $query->whereNotNull('sat_estado')->where(function (Builder $q) {
+            $q->where(fn (Builder $c) => $c
+                ->where('sat_estado', EstadoEnElPac::CANCELADA)
+                ->where('estatus', '!=', self::ESTATUS_CANCELADA))
+                ->orWhere(fn (Builder $c) => $c
+                    ->where('sat_estado', EstadoEnElPac::VIGENTE)
+                    ->where('estatus', self::ESTATUS_CANCELADA));
+        });
     }
 
     public function scopeTimbradas(Builder $query): Builder

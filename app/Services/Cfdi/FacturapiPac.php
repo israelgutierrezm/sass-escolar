@@ -81,6 +81,60 @@ class FacturapiPac implements Pac
         );
     }
 
+    public function puedeConciliar(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Le pregunta a Facturapi por el comprobante.
+     *
+     * Se pregunta por el id de Facturapi y no por el UUID: es el identificador
+     * con el que ese proveedor conoce el documento. Una factura timbrada por
+     * otro PAC —o una vieja a la que nunca se le guardó el id— no se puede
+     * consultar aquí, y eso se dice en vez de darla por vigente.
+     *
+     * La traducción de los estados está escrita contra la forma DOCUMENTADA de
+     * la API y no se ha visto responder a un Facturapi real. Un estado que no
+     * se reconozca se devuelve como desconocido con su texto crudo: suponer
+     * «vigente» ante una palabra nueva es como se llega a dar por buena una
+     * factura cancelada.
+     */
+    public function consultarEstado(Factura $factura): EstadoEnElPac
+    {
+        if ($factura->facturapi_id === null) {
+            return EstadoEnElPac::desconocido(
+                'Esta factura no tiene id de Facturapi: no se puede consultar allá.',
+            );
+        }
+
+        $factura->loadMissing('emisor');
+
+        try {
+            $respuesta = FacturapiService::paraEmisor($factura->emisor)
+                ->consultarEstado($factura->facturapi_id);
+        } catch (FacturapiRechazo $e) {
+            return EstadoEnElPac::desconocido($e->getMessage());
+        }
+
+        $cancelacion = match ($respuesta['cancellation_status'] ?? null) {
+            'pending' => EstadoEnElPac::CANCELACION_PENDIENTE,
+            'accepted' => EstadoEnElPac::CANCELACION_ACEPTADA,
+            'rejected' => EstadoEnElPac::CANCELACION_RECHAZADA,
+            'expired' => EstadoEnElPac::CANCELACION_VENCIDA,
+            default => null,
+        };
+
+        return match ($respuesta['status'] ?? null) {
+            'valid' => EstadoEnElPac::vigente($cancelacion),
+            'canceled', 'cancelled' => EstadoEnElPac::cancelada($cancelacion),
+            default => EstadoEnElPac::desconocido(
+                'Facturapi devolvió un estado que no se reconoce: '
+                .json_encode($respuesta['status'] ?? null),
+            ),
+        };
+    }
+
     public function cancelar(Factura $factura, string $motivo, ?string $uuidSustituta = null): ResultadoTimbrado
     {
         if ($factura->facturapi_id === null) {

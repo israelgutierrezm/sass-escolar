@@ -69,6 +69,11 @@ const props = defineProps<{
             fecha: string | null;
         }[];
         acreditable: boolean;
+        sat_estado: string | null;
+        sat_estado_cancelacion: string | null;
+        sat_error: string | null;
+        sat_consultado_en: string | null;
+        discrepancia_sat: string | null;
         editable: boolean;
         fiscal: boolean;
         tiene_xml: boolean;
@@ -265,6 +270,58 @@ watch(
                     Quien la recibió no puede deducirla. Para corregirlo hay que cancelarla y refacturar.
                 </p>
             </div>
+
+            <!--
+                Lo que el SAT dice de este comprobante, cuando no es lo que
+                decimos nosotros. Va en rojo y arriba porque significa que la
+                contabilidad de la escuela está diciendo algo que el SAT no
+                sostiene, y eso se descubre en la declaración si nadie lo mira.
+            -->
+            <div
+                v-if="factura.discrepancia_sat"
+                class="mt-4 rounded-lg border-l-4 px-4 py-3 text-sm"
+                :style="{ borderLeftColor: '#dc2626', backgroundColor: 'color-mix(in srgb, #dc2626 8%, transparent)' }"
+            >
+                <p class="font-medium">No coincide con el SAT</p>
+                <p class="mt-1" :style="{ color: 'var(--color-suave)' }">{{ factura.discrepancia_sat }}</p>
+                <p class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">
+                    Consultado el {{ factura.sat_consultado_en }}. Resolverlo es un acto deliberado: la
+                    conciliación sólo anota lo que encuentra.
+                </p>
+            </div>
+
+            <!--
+                Y cuando SÍ coinciden, la información que aun así hay que ver: una
+                cancelación pedida y todavía sin aceptar. No es una discrepancia
+                —el trámite va en camino— pero mientras el receptor no acepte, el
+                CFDI sigue vivo y la escuela no puede darlo por corregido.
+            -->
+            <div
+                v-else-if="factura.sat_estado_cancelacion === 'pendiente'"
+                class="mt-4 rounded-lg border-l-4 px-4 py-3 text-sm"
+                :style="{ borderLeftColor: '#f59e0b', backgroundColor: 'color-mix(in srgb, #f59e0b 8%, transparent)' }"
+            >
+                <p class="font-medium">Cancelación en espera de que el receptor la acepte</p>
+                <p class="mt-1" :style="{ color: 'var(--color-suave)' }">
+                    Hasta que la acepte —o pasen las 72 horas— el comprobante sigue vivo ante el SAT.
+                </p>
+            </div>
+
+            <p
+                v-else-if="factura.sat_error"
+                class="mt-4 text-sm"
+                :style="{ color: 'var(--color-suave)' }"
+            >
+                No se pudo consultar al SAT el {{ factura.sat_consultado_en }}: {{ factura.sat_error }}
+            </p>
+
+            <p
+                v-else-if="factura.sat_estado"
+                class="mt-4 text-sm"
+                :style="{ color: 'var(--color-suave)' }"
+            >
+                Coincide con el SAT ({{ factura.sat_estado }}), consultado el {{ factura.sat_consultado_en }}.
+            </p>
 
             <!--
                 Una nota de crédito no se lee sola: sin decir a qué factura

@@ -83,6 +83,26 @@ class PacFalso implements Pac
         );
     }
 
+    /**
+     * No consulta nada, y por eso lo dice.
+     *
+     * Aquí no hay un SAT contra el que contrastar: la única verdad es la fila
+     * de la base. Un PAC de mentiras que contestara «vigente» convertiría la
+     * conciliación en un espejo —siempre cuadraría— y esa pantalla en verde
+     * sería justo lo contrario de lo que se viene a comprobar.
+     */
+    public function puedeConciliar(): bool
+    {
+        return false;
+    }
+
+    public function consultarEstado(Factura $factura): EstadoEnElPac
+    {
+        return EstadoEnElPac::desconocido(
+            'El PAC de prueba no consulta al SAT: no hay contra qué conciliar.',
+        );
+    }
+
     public function cancelar(Factura $factura, string $motivo, ?string $uuidSustituta = null): ResultadoTimbrado
     {
         if ($factura->uuid === null) {

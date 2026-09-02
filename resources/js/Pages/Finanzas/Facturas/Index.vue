@@ -13,6 +13,7 @@ interface Fila {
     uuid: string | null;
     tipo: string;
     estatus: string;
+    discrepancia_sat: string | null;
     receptor_rfc: string;
     receptor_razon_social: string;
     total: number;
@@ -29,14 +30,18 @@ const props = defineProps<{
         from: number | null;
         to: number | null;
     };
-    filtros: { estatus: string };
+    filtros: { estatus: string; discrepancia: boolean };
     estatus: string[];
+    discrepancias: number;
 }>();
 
 const vista = ref<'lista' | 'cuadricula'>('lista');
 
 const definicionFiltros = [
     { clave: 'estatus', etiqueta: 'Estatus', opciones: props.estatus.map((e) => ({ valor: e, texto: e })) },
+    // Booleano y no una opción más de «estatus»: no es un estado nuestro, es que
+    // el nuestro y el del SAT no coinciden.
+    { clave: 'discrepancia', etiqueta: 'Solo las que no coinciden con el SAT', tipo: 'booleano' as const },
 ];
 
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
@@ -87,6 +92,20 @@ const ICONO_FACTURA =
                 <span class="rounded-full px-3 py-1 text-xs font-medium" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 12%, transparent)', color: 'var(--color-acento)' }">
                     {{ facturas.total }} en total
                 </span>
+                <!--
+                    El cero se calla: una cifra en cero ocupa el sitio de un dato
+                    útil y entrena a ignorar la que sí importa. Y el conteo es de
+                    TODAS, no de esta página: una discrepancia en la página 4
+                    sería invisible.
+                -->
+                <a
+                    v-if="discrepancias > 0"
+                    href="/finanzas/facturas?discrepancia=1"
+                    class="rounded-full px-3 py-1 text-xs font-medium"
+                    :style="{ backgroundColor: 'color-mix(in srgb, #dc2626 12%, transparent)', color: '#dc2626' }"
+                >
+                    {{ discrepancias }} no coinciden con el SAT
+                </a>
             </template>
         </BarraListado>
 
@@ -173,6 +192,17 @@ const ICONO_FACTURA =
                             </td>
                             <td class="px-4 py-4">
                                 <PildoraEstado :texto="f.estatus" :color="colorEstatusSolido[f.estatus] ?? 'var(--color-suave)'" />
+                                <!--
+                                    La píldora dice lo que creemos nosotros. Si el
+                                    SAT dice otra cosa, sin esta marca el renglón
+                                    se lee como si estuviera en orden.
+                                -->
+                                <span
+                                    v-if="f.discrepancia_sat"
+                                    class="mt-1 block whitespace-nowrap text-[11px] font-medium"
+                                    :style="{ color: '#dc2626' }"
+                                    :title="f.discrepancia_sat"
+                                >No coincide con el SAT</span>
                             </td>
                             <td class="px-6 py-4">
                                 <div class="flex justify-end">
