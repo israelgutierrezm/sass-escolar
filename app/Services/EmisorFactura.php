@@ -34,6 +34,7 @@ class EmisorFactura
         private readonly Pac $pac,
         private readonly ResolutorEmisorFiscal $resolutorEmisor,
         private readonly ComplementoEducativo $complemento,
+        private readonly CierreFiscal $cierreFiscal,
     ) {}
 
     /**
@@ -127,6 +128,20 @@ class EmisorFactura
     {
         if (! $factura->estaVigente()) {
             throw new RuntimeException('Solo se cancela una factura timbrada.');
+        }
+
+        // Cancelar cambia hacia atrás un número que la escuela YA declaró. Con
+        // el mes cerrado se niega y se nombra la salida que existe: la nota de
+        // crédito, que se emite con fecha de hoy y corrige el mes cerrado sin
+        // tocarlo. Es lo que hace un contador cuando el mes ya se presentó.
+        $cerrado = $this->cierreFiscal->periodoCerradoDe($factura);
+
+        if ($cerrado !== null) {
+            throw new RuntimeException(
+                'No se cancela: '.$cerrado->etiqueta().' es un periodo fiscal cerrado, y cancelar '
+                .'cambiaría un mes que la escuela ya declaró. Para corregirlo, emite una nota de '
+                .'crédito — se fecha hoy y no toca el mes cerrado.'
+            );
         }
 
         if ($motivo === Factura::MOTIVO_CON_RELACION) {

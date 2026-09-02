@@ -442,6 +442,7 @@ export const CATALOGO_MENU: GrupoMenu[] = [
             { clave: 'cuentas-bancarias', etiqueta: 'Cuentas bancarias', url: '/finanzas/cuentas-bancarias', permiso: 'ver-cuentas-bancarias', y: 'ver-adeudos' },
             { clave: 'comprobantes', etiqueta: 'Comprobantes', url: '/finanzas/comprobantes', permiso: 'registrar-pagos', y: 'ver-adeudos' },
             { clave: 'emisores', etiqueta: 'Razones sociales', url: '/finanzas/emisores', permiso: 'gestionar-emisores', y: 'ver-adeudos' },
+            { clave: 'cierre-fiscal', etiqueta: 'Cierre fiscal', url: '/finanzas/cierre', permiso: 'cerrar-periodo-fiscal', y: 'ver-adeudos' },
         ],
     },
     {

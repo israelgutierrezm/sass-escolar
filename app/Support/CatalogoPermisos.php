@@ -361,6 +361,7 @@ final class CatalogoPermisos
             'facturar' => ['Emitir CFDI', 'Facturar, cancelar y refacturar. Es un acto fiscal a nombre de la escuela.', [self::ADMINISTRATIVO]],
             'gestionar-planes-cobro' => ['Configurar el cobro', 'Definir montos, periodicidades y reglas de generación de cargos.', [self::ADMINISTRATIVO]],
             'gestionar-emisores' => ['Administrar razones sociales', 'Dar de alta personas morales y cargar sus certificados de sello digital.', [self::ADMINISTRATIVO]],
+            'cerrar-periodo-fiscal' => ['Cerrar el periodo fiscal', 'Declarar un mes cerrado, con lo que deja de poderse cancelar un comprobante suyo. Es un acto de supervisión, aparte de emitir CFDI todos los días.', [self::ADMINISTRATIVO]],
         ],
 
         'Certificación y titulación' => [

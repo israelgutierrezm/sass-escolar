@@ -32,6 +32,7 @@ use App\Http\Controllers\CapturaCalificacionesController;
 use App\Http\Controllers\CatalogoAcademicoController;
 use App\Http\Controllers\ChatMateriaController;
 use App\Http\Controllers\CicloController;
+use App\Http\Controllers\CierreFiscalController;
 use App\Http\Controllers\ClaseEnVivoController;
 use App\Http\Controllers\ClasesEnLineaController;
 use App\Http\Controllers\CobroAspiranteController;
@@ -1513,6 +1514,20 @@ Route::middleware([
                  * No hay ruta de edición. Un comprobante timbrado no se
                  * corrige: se cancela y se emite otro.
                  */
+                /*
+                 * Cierre fiscal. Va con permiso PROPIO y no con `facturar`:
+                 * declarar cerrado un mes es un acto de supervisión, y quien
+                 * emite CFDI todos los días no tiene por qué poder hacerlo.
+                 */
+                Route::controller(CierreFiscalController::class)
+                    ->prefix('cierre')->name('cierre.')
+                    ->middleware('can:cerrar-periodo-fiscal')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::post('/cerrar', 'cerrar')->name('cerrar');
+                        Route::post('/reabrir', 'reabrir')->name('reabrir');
+                    });
+
                 Route::controller(FacturaController::class)
                     ->prefix('facturas')->name('facturas.')
                     ->middleware('can:facturar')
