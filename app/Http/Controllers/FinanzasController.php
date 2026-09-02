@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Documentos\ReciboDeCaja;
 use App\Http\Controllers\Concerns\AcotaPorCampus;
 use App\Http\Controllers\Concerns\VeLaCarteraDelAlumno;
 use App\Models\Admisiones\MatriculaOferta;
@@ -30,6 +31,7 @@ use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 /**
  * La cartera de la escuela y el estado de cuenta de cada alumno.
@@ -327,6 +329,21 @@ class FinanzasController extends Controller
         $this->registrador->confirmar($pago);
 
         return back()->with('exito', 'Pago confirmado. Los adeudos que cubre quedaron liquidados.');
+    }
+
+    /**
+     * El recibo que se le entrega a quien pagó.
+     *
+     * Sólo de dinero que de verdad entró: imprimir el de un pago PENDIENTE le
+     * daría al alumno un papel con el logo de la escuela por una transferencia
+     * que todavía no llegó. Responde 404 y no 403 — ese recibo no existe aún,
+     * no es que no le toque a quien lo pide.
+     */
+    public function recibo(Pago $pago, ReciboDeCaja $recibo): SymfonyResponse
+    {
+        abort_unless($pago->estaCobrado(), 404);
+
+        return $recibo->responder($pago);
     }
 
     public function revertirPago(Request $request, Pago $pago): RedirectResponse

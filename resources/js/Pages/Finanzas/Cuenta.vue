@@ -591,6 +591,21 @@ function guardarSituacion(): void {
                             </td>
                             <td class="px-6 py-3 text-right">
                                 <div v-if="permisos.registrarPagos" class="flex justify-end gap-3">
+                                    <!--
+                                        Sólo de lo que de verdad entró: el recibo
+                                        de un pago PENDIENTE sería un papel con el
+                                        logo de la escuela por dinero que todavía
+                                        no llegó.
+                                    -->
+                                    <a
+                                        v-if="p.estatus === 'completado'"
+                                        :href="`/finanzas/pagos/${p.id}/recibo`"
+                                        target="_blank"
+                                        class="text-xs font-medium"
+                                        :style="{ color: 'var(--color-acento)' }"
+                                    >
+                                        Recibo
+                                    </a>
                                     <button
                                         v-if="p.estatus === 'pendiente'"
                                         type="button"

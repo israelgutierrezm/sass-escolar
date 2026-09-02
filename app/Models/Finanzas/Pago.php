@@ -75,6 +75,17 @@ class Pago extends Model
         return $this->belongsTo(Aspirante::class, 'aspirante_id');
     }
 
+    /**
+     * El turno de caja en el que se recibió, cuando lo hubo.
+     *
+     * Nulo en lo que entra sin persona detrás —una pasarela, un comando—: ese
+     * dinero no pasa por ningún cajón.
+     */
+    public function sesionCaja(): BelongsTo
+    {
+        return $this->belongsTo(SesionCaja::class, 'sesion_caja_id');
+    }
+
     public function metodoPago(): BelongsTo
     {
         return $this->belongsTo(MetodoPago::class, 'metodo_pago_id');

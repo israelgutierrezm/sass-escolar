@@ -155,6 +155,9 @@ class DocumentoPdf
         $base = match ($papel) {
             'a4' => 'A4',
             'oficio' => 'Legal',
+            // Media carta, para el recibo de ventanilla: una hoja entera para
+            // seis renglones se tira a la basura al salir del mostrador.
+            'a5' => 'A5',
             default => 'Letter',
         };
 
