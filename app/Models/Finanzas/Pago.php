@@ -45,6 +45,10 @@ class Pago extends Model
         'matricula_oferta_id',
         'aspirante_id',
         'metodo_pago_id',
+        // El turno de caja en el que se recibió, cuando lo hubo. Nulo en
+        // lo que entra sin persona detrás —una pasarela, un comando—:
+        // ese dinero no pasa por ningún cajón.
+        'sesion_caja_id',
         'monto',
         'referencia',
         'pasarela',

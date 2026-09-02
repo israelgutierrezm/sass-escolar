@@ -25,6 +25,7 @@ use App\Http\Controllers\Bolsa\PostulacionController;
 use App\Http\Controllers\Bolsa\VacanteController;
 use App\Http\Controllers\BuscadorAlumnosController;
 use App\Http\Controllers\BuscadorMatriculasController;
+use App\Http\Controllers\CajaController;
 use App\Http\Controllers\CampoFormularioController;
 use App\Http\Controllers\CampusController;
 use App\Http\Controllers\CaptacionController;
@@ -1514,6 +1515,36 @@ Route::middleware([
                  * No hay ruta de edición. Un comprobante timbrado no se
                  * corrige: se cancela y se emite otro.
                  */
+                /*
+                 * Caja y cortes.
+                 *
+                 * El catálogo va aparte de la operación: decidir qué cajas
+                 * existen lo hace la dirección una vez, y abrir el turno lo hace
+                 * quien cobra todos los días.
+                 */
+                Route::controller(CajaController::class)
+                    ->prefix('cajas')->name('cajas.')
+                    ->middleware('can:gestionar-cajas')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::post('/', 'store')->name('store');
+                        Route::put('/{caja}', 'update')->name('update');
+                    });
+
+                Route::controller(CajaController::class)
+                    ->prefix('caja')->name('caja.')
+                    ->middleware('can:operar-caja')
+                    ->group(function () {
+                        Route::get('/', 'operacion')->name('index');
+                        Route::post('/abrir', 'abrir')->name('abrir');
+                        Route::post('/cerrar', 'cerrar')->name('cerrar');
+                        // La autorización lleva su propio permiso DENTRO del
+                        // controlador y no aquí: por esta pantalla entran el
+                        // cajero y el supervisor, y un middleware con el permiso
+                        // del segundo rebotaría al primero.
+                        Route::post('/cortes/{sesion}/autorizar', 'autorizar')->name('autorizar');
+                    });
+
                 /*
                  * Cierre fiscal. Va con permiso PROPIO y no con `facturar`:
                  * declarar cerrado un mes es un acto de supervisión, y quien

@@ -56,6 +56,11 @@ final class CatalogoAjustes
 
     public const TIMBRADO_NOMINA = 'nomina.timbrado_cfdi';
 
+    // Caja.
+    public const CAJA_EXIGE_SESION = 'caja.exige_sesion_para_efectivo';
+
+    public const CAJA_TOLERANCIA = 'caja.tolerancia_diferencia';
+
     // Admisiones.
     public const EXIGE_DOCUMENTOS = 'aspirante.exige_documentos_para_convertir';
 
@@ -264,6 +269,44 @@ final class CatalogoAjustes
                  * validador dice exactamente qué falta ANTES de intentarlo.
                  */
                 porDefecto: false,
+            ),
+
+            new Ajuste(
+                clave: self::CAJA_EXIGE_SESION,
+                grupo: 'Caja',
+                etiqueta: 'Exigir un turno de caja abierto para cobrar en efectivo',
+                descripcion: 'Encendido, no se registra un cobro en efectivo sin turno abierto: ese '
+                    .'dinero no aparecería en ningún corte. Apagado, se cobra como hasta ahora y el '
+                    .'efectivo queda fuera del arqueo.',
+                tipo: Ajuste::BOOLEANO,
+                /*
+                 * Apagado por omisión, y aquí el lado seguro no es el obvio.
+                 *
+                 * Encendido en una escuela que todavía no dio de alta sus cajas
+                 * BLOQUEA todo el cobro en efectivo desde el primer minuto. Se
+                 * enciende cuando ya hay cajas y gente con el permiso de
+                 * operarlas, que es lo que la propia pantalla de caja dice.
+                 */
+                porDefecto: false,
+                consecuencia: 'Sin un turno abierto, la ventanilla dejará de poder cobrar en efectivo.',
+            ),
+
+            new Ajuste(
+                clave: self::CAJA_TOLERANCIA,
+                grupo: 'Caja',
+                etiqueta: 'Diferencia que se acepta sin autorizar (pesos)',
+                descripcion: 'Por debajo de esto el corte cierra solo. Por encima queda esperando que '
+                    .'un supervisor explique la diferencia.',
+                tipo: Ajuste::ENTERO,
+                /*
+                 * Cero: en una escuela los importes son exactos y no hay
+                 * redondeo de caja, así que cualquier diferencia debería tener
+                 * explicación. Quien cobre con redondeo lo sube.
+                 */
+                porDefecto: 0,
+                min: 0,
+                max: 1000,
+                consecuencia: 'Subirlo deja pasar sin explicación las diferencias por debajo del tope.',
             ),
 
             new Ajuste(

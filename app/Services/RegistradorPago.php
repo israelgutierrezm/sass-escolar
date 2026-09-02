@@ -9,7 +9,10 @@ use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Finanzas\Adeudo;
 use App\Models\Finanzas\MetodoPago;
 use App\Models\Finanzas\Pago;
+use App\Models\Identidad\Usuario;
+use App\Services\Caja\OperacionDeCaja;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -33,6 +36,8 @@ use RuntimeException;
  */
 class RegistradorPago
 {
+    public function __construct(private readonly OperacionDeCaja $caja) {}
+
     /**
      * Registra un pago y lo reparte.
      *
@@ -53,12 +58,34 @@ class RegistradorPago
             throw new RuntimeException('El monto del pago debe ser mayor que cero.');
         }
 
+        /*
+         * El turno se RESUELVE, no se pide como parámetro.
+         *
+         * Pedirlo habría bastado con que un solo camino lo olvidara —el cobro
+         * del portal, un reintento, una pantalla nueva— para dejar efectivo
+         * fuera del arqueo, en silencio y para siempre. Resolviéndolo aquí, lo
+         * que cobra la ventanilla cae en su corte y lo que entra sin persona
+         * detrás (una pasarela, un comando) no cae en ninguno, que es lo
+         * correcto: ese dinero no pasa por el cajón.
+         */
+        $quienCobra = Auth::user() instanceof Usuario ? Auth::user() : null;
+        $sesion = $this->caja->sesionDe($quienCobra);
+
+        $impedimento = $this->caja->motivoParaNoCobrar($metodo, $quienCobra);
+
+        if ($impedimento !== null) {
+            throw new RuntimeException($impedimento);
+        }
+
         return DB::transaction(function () use (
-            $titular, $metodo, $monto, $adeudoIds, $referencia, $pasarela, $pasarelaTxnId
+            $titular, $metodo, $monto, $adeudoIds, $referencia, $pasarela, $pasarelaTxnId, $sesion
         ) {
             $pago = Pago::create([
                 ...$this->columnaTitular($titular),
                 'metodo_pago_id' => $metodo->id,
+                // Nulo cuando no hay turno: es lo que distingue el dinero del
+                // cajón del que entra por otro lado. Ver arriba.
+                'sesion_caja_id' => $sesion?->id,
                 'monto' => $monto,
                 'referencia' => $referencia,
                 'pasarela' => $pasarela,

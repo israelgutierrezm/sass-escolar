@@ -27,6 +27,10 @@ class MetodoPago extends Model
         'nombre',
         'clave_sat',
         'requiere_confirmacion',
+        // ¿Este dinero entra al CAJÓN? Es lo que el arqueo cuenta. Una tarjeta
+        // cobrada en la misma ventanilla pertenece al corte pero no al conteo
+        // de billetes.
+        'afecta_caja',
         'activo',
     ];
 
@@ -34,6 +38,7 @@ class MetodoPago extends Model
     {
         return [
             'requiere_confirmacion' => 'boolean',
+            'afecta_caja' => 'boolean',
             'activo' => 'boolean',
         ];
     }
