@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**113 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**114 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -58,7 +58,7 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 113 están en verde**, barridas el 2026-08-31. Catorce son del módulo de
+   **Las 114 están en verde**, barridas el 2026-09-01. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -522,6 +522,86 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   de sello digital (disco privado) y sus credenciales del PAC (cifradas). El
   emisor se congela en la factura igual que el receptor. Pantalla
   `/finanzas/emisores`, permiso `gestionar-emisores`.
+- **El complemento educativo (IEDU), sin el cual nadie deduce** (2026-09-01,
+  primera rebanada del ciclo fiscal que pidió el cliente). Un CFDI de
+  colegiatura sin complemento es VÁLIDO: el SAT lo acepta, el PAC lo timbra sin
+  un solo error y la pantalla dice «timbrada». Lo que no se puede es deducirlo, y
+  eso se descubre en abril, ante un tercero, cuando arreglarlo cuesta cancelar
+  ante el SAT y volver a emitir.
+  - **Casi todo el dato ya estaba capturado** —la CURP en `personas`, el RVOE en
+    `planes_estudio`, el nivel en `niveles_estudio`—. Lo que faltaba era el
+    MAPEO: cuál de los niveles de esta escuela corresponde a cuál de los cinco
+    que el SAT reconoce. No se puede adivinar (una escuela llama «Media
+    superior» a lo que otra llama «Preparatoria») ni cablear.
+  - **`niveles_estudio.nivel_iedu`, y NULL significa NO deducible.** Ése es el
+    valor por omisión a propósito: el catálogo del SAT llega hasta bachillerato
+    y la mayoría de lo que ofertan estas escuelas es educación superior, así que
+    un default al revés produciría complementos falsos en masa. **El TSU NO se
+    mapea a «Profesional técnico»** aunque se parezcan: aquél es superior y éste
+    medio superior, y confundirlos es declararle al SAT un nivel que no es.
+  - **Se edita en `/plataforma/configuraciones/facturacion`, NO en el catálogo
+    académico**, y no por gusto: los niveles oficiales van con `protegido` y el
+    controlador genérico se niega a actualizarlos — justo los tres que hay que
+    mapear. Y quien conoce esta regla es quien factura, no quien administra la
+    oferta.
+  - **`conceptos_pago.deducible_iedu`, apagado al nacer.** Una credencial de
+    reposición o un examen extraordinario no son enseñanza. Son DOS
+    interruptores y hacen falta los dos, así que la pantalla de facturación
+    avisa cuando hay niveles mapeados y ningún concepto marcado: con la mitad
+    puesta no sale un solo complemento y la escuela se cree configurada.
+  - **El complemento es TODO O NADA**, porque ampara el comprobante entero y no
+    renglones: una factura que mezcle colegiatura con una constancia declararía
+    como enseñanza algo que no lo es. Se niega y se nombra la salida
+    —facturarlos por separado— en vez de mandarlo con un importe inflado. Un
+    pago SIN concepto tampoco pasa: `EmisorFactura` lo factura como «servicios
+    educativos» genéricos, pero ese texto es un respaldo para que el renglón
+    tenga descripción, no una afirmación de que sea deducible.
+  - **`ComplementoEducativo` decide, y lo preguntan DOS caminos**: la pantalla
+    ANTES de emitir y el emisor al crear la factura. Escrito dos veces, la
+    pantalla prometería una cosa y el comprobante diría otra — y aquí eso se
+    paga cancelando ante el SAT. Por eso `impedimentos()` se expone: es un
+    estado de la MATRÍCULA (le falta CURP, RVOE o mapeo) y no de la selección de
+    pagos, que es lo único que la pantalla no puede saber. Los tres faltantes
+    salen JUNTOS: de uno en uno se arregla la CURP, se reintenta y aparece el
+    RVOE.
+  - **`factura_iedu` es tabla aparte y CONGELA sus cuatro datos**, como el
+    emisor y el receptor: corregir mañana el RVOE del plan no puede cambiar lo
+    que dice un comprobante timbrado. Que no exista la fila es un hecho con
+    significado, no cuatro nulos entre treinta y cinco columnas.
+  - **`facturas.iedu_motivo` se escribe SÓLO cuando la factura sí amparaba
+    enseñanza** y aun así el complemento no pudo viajar. Guardado y no derivado
+    al mirarlo: recalculándolo, en cuanto alguien capture el dato que faltaba la
+    pantalla diría «no le falta nada» sobre una factura que salió sin
+    complemento. Y una factura que nunca amparó enseñanza no lleva motivo:
+    avisar ahí entrenaría a ignorar los avisos.
+  - **`FacturapiPac::cuerpoDe` se volvió público**, y no por comodidad: es una
+    traducción pura, sin red, y es lo único de ese driver comprobable sin
+    credenciales. Privada, el complemento sólo se podría probar contra el PAC
+    real, o sea no probarlo.
+  - **PPD y complemento de pagos NO son un hueco de implementación.** Este
+    sistema factura contra PAGOS y no contra adeudos —«el comprobante ampara
+    dinero que entró»—, así que todo CFDI es PUE **por construcción** y no hay
+    nada que complementar. Facturar el adeudo es otro flujo de negocio que
+    cambia esa invariante; no se hizo por descuido.
+  - **Trampas del demo que valen para la próxima**: sus tres niveles deducibles
+    están dados de BAJA LÓGICA —sólo oferta educación superior—, así que la
+    semilla de la migración escribe con el query builder y la suite los mide con
+    `withTrashed()`; `planes_estudio.rvoe` es NOT NULL, o sea que el hueco real
+    es la cadena vacía (misma lección que el certificado SEP); y no hay UN SOLO
+    pago facturable, así que la pantalla de emisión se miró sembrando y
+    retirando después.
+  - **Emitir desde el navegador encola en la tabla `jobs` CENTRAL**, que una
+    limpieza del tenant no alcanza. Dos `TimbrarFactura` huérfanos quedaron ahí
+    y los cazó `prueba-cola-de-trabajos` con tres fallas — que parecían una
+    regresión y eran restos míos.
+  - Pruebas: `scripts/prueba-complemento-iedu.php`, 39 verificaciones,
+    comprobadas mutando **doce** reglas. El escenario se CONSTRUYE entero.
+  - **Y una lección del propio barrido de mutaciones**: revertía con
+    `git checkout`, que en los archivos todavía NO versionados falla en silencio
+    —las mutaciones se van acumulando— y en los versionados se lleva por delante
+    el trabajo sin commitear. Las dos cosas pasaron a la vez y los resultados de
+    esa corrida fueron basura. Se revierte desde la copia en MEMORIA, y se
+    commitea antes de mutar.
 - **Roles y permisos configurables** (`/plataforma/roles`): la escuela crea sus
   propios roles y decide qué lleva cada uno. Los PERMISOS no se crean desde
   pantalla —son llaves que el código consulta— y viven en
