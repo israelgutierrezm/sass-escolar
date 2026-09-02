@@ -9,6 +9,7 @@ import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import PanelPagoEnLinea from '@/Components/PanelPagoEnLinea.vue';
+import { hoyLocal } from '@/utils/fechas';
 
 /** Un ajuste que movió el monto: beca, descuento o recargo. Monto CON signo. */
 interface Ajuste {
@@ -83,7 +84,22 @@ const props = defineProps<{
     planCobro: { id: number; nombre: string; ciclo: string | null; conceptos: number; total_planes: number } | null;
     metodosPago: { id: number; clave: string; nombre: string; requiere_confirmacion: boolean }[];
     situacionesPago: { id: number; clave: string; nombre: string; bloquea: boolean }[];
-    permisos: { registrarPagos: boolean; condonar: boolean; facturar: boolean };
+    permisos: { registrarPagos: boolean; condonar: boolean; facturar: boolean; convenios: boolean };
+    /**
+     * El convenio vigente de este alumno, si tiene. Llega aunque no se pueda
+     * autorizar ninguno: quien cobra en el mostrador necesita ver que hay un
+     * acuerdo antes de reclamarle un cargo que ya está reprogramado.
+     */
+    convenioVigente: {
+        id: number;
+        motivo: string;
+        concepto: string | null;
+        firmado_en: string | null;
+        monto_cubierto: number;
+        saldo: number;
+        con_atraso: boolean;
+        parcialidades: { id: number; vencimiento: string | null; monto: number; saldo: number; estatus: string }[];
+    } | null;
     /*
      * Con qué se puede pagar en línea. Llega vacío cuando la escuela no tiene
      * ninguna encendida, y entonces el botón ni aparece: ofrecer un pago que no
@@ -205,6 +221,85 @@ function guardarSituacion(): void {
     });
 }
 
+
+// --- convenio de pago
+const acordando = ref(false);
+const cargosElegibles = ref<{ id: number; concepto_id: number; concepto: string | null; periodo: string | null; vencimiento: string | null; saldo: number; vencido: boolean }[]>([]);
+const elegidos = ref<number[]>([]);
+const convenio = useForm<{
+    adeudo_ids: number[];
+    parcialidades: { fecha: string; monto: number | string }[];
+    motivo: string;
+    firmado_en: string;
+}>({ adeudo_ids: [], parcialidades: [], motivo: '', firmado_en: hoyLocal() });
+
+const totalElegido = computed(() =>
+    cargosElegibles.value.filter((c) => elegidos.value.includes(c.id)).reduce((t, c) => t + c.saldo, 0),
+);
+
+const totalParcialidades = computed(() =>
+    convenio.parcialidades.reduce((t, p) => t + (Number(p.monto) || 0), 0),
+);
+
+// Lo que falta para que cuadre, redondeado al centavo: un convenio reprograma
+// y no perdona, así que el servidor lo va a exigir exacto. Decirlo aquí evita
+// que se envíe para descubrirlo.
+const diferencia = computed(() => Math.round((totalParcialidades.value - totalElegido.value) * 100) / 100);
+
+async function abrirConvenio(): Promise<void> {
+    acordando.value = !acordando.value;
+    if (!acordando.value) return;
+
+    elegidos.value = [];
+    convenio.reset();
+    convenio.firmado_en = hoyLocal();
+
+    const r = await fetch(`/finanzas/convenios/elegibles/${props.matricula.id}`, {
+        headers: { Accept: 'application/json' },
+    });
+    if (r.ok) cargosElegibles.value = (await r.json()).cargos ?? [];
+}
+
+function alternarCargo(id: number): void {
+    elegidos.value = elegidos.value.includes(id)
+        ? elegidos.value.filter((x) => x !== id)
+        : [...elegidos.value, id];
+}
+
+function agregarParcialidad(): void {
+    convenio.parcialidades = [...convenio.parcialidades, { fecha: convenio.firmado_en, monto: '' }];
+}
+
+function quitarParcialidad(i: number): void {
+    convenio.parcialidades = convenio.parcialidades.filter((_, j) => j !== i);
+}
+
+/** Reparte lo elegido en N partes, dejando el sobrante del redondeo en la última. */
+function repartir(n: number): void {
+    const total = Math.round(totalElegido.value * 100);
+    const base = Math.floor(total / n);
+    const partes: { fecha: string; monto: number | string }[] = [];
+    const inicio = new Date(convenio.firmado_en + 'T00:00:00');
+
+    for (let i = 0; i < n; i++) {
+        const f = new Date(inicio);
+        f.setMonth(f.getMonth() + i + 1);
+        partes.push({
+            fecha: f.toISOString().slice(0, 10),
+            monto: ((i === n - 1 ? total - base * (n - 1) : base) / 100).toFixed(2),
+        });
+    }
+
+    convenio.parcialidades = partes;
+}
+
+function firmarConvenio(): void {
+    convenio.adeudo_ids = elegidos.value;
+    convenio.post(`/finanzas/convenios/${props.matricula.id}`, {
+        preserveScroll: true,
+        onSuccess: () => (acordando.value = false),
+    });
+}
 </script>
 
 <template>
@@ -334,6 +429,151 @@ function guardarSituacion(): void {
                 <p class="mt-1 text-xl font-semibold">{{ pesos.format(cuenta.resumen.a_favor) }}</p>
                 <p class="text-xs" :style="{ color: 'var(--color-suave)' }">pagos sin aplicar</p>
             </div>
+        </section>
+
+        <!-- Convenio de pago -->
+        <section v-if="convenioVigente || permisos.convenios" class="tarjeta p-6">
+            <header class="flex flex-wrap items-center justify-between gap-3">
+                <h2 class="text-base font-semibold">Convenio de pago</h2>
+                <BotonPrincipal
+                    v-if="permisos.convenios && !convenioVigente"
+                    tipo="button"
+                    texto="Acordar parcialidades"
+                    icono="crear"
+                    @click="abrirConvenio"
+                />
+            </header>
+
+            <template v-if="convenioVigente">
+                <p class="mt-2 text-sm" :style="{ color: 'var(--color-suave)' }">
+                    Convenio #{{ convenioVigente.id }} sobre <strong>{{ convenioVigente.concepto }}</strong>,
+                    firmado el {{ convenioVigente.firmado_en }}.
+                    Acordado {{ pesos.format(convenioVigente.monto_cubierto) }}, saldo
+                    {{ pesos.format(convenioVigente.saldo) }}.
+                    <span v-if="convenioVigente.con_atraso" :style="{ color: 'var(--color-peligro)' }">
+                        Tiene una parcialidad vencida.
+                    </span>
+                </p>
+                <p class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">
+                    {{ convenioVigente.motivo }}
+                </p>
+                <!--
+                    Lo que hay que saber al mirar los cargos de abajo: los que el
+                    convenio cubre siguen ahí con estatus «en convenio», y no se
+                    cobran por su renglón sino por estas parcialidades.
+                -->
+                <p class="mt-2 text-xs" :style="{ color: 'var(--color-suave)' }">
+                    Mientras esté vigente, los cargos acordados no generan mora y aparecen abajo como
+                    «en convenio»: se cobran por estas parcialidades, no por su renglón.
+                </p>
+
+                <ul class="mt-3 space-y-1">
+                    <li v-for="(p, i) in convenioVigente.parcialidades" :key="p.id" class="flex flex-wrap items-center gap-x-3 text-sm">
+                        <span>Parcialidad {{ i + 1 }}</span>
+                        <span :style="{ color: 'var(--color-suave)' }">vence {{ p.vencimiento }}</span>
+                        <span class="tabular-nums">{{ pesos.format(p.monto) }}</span>
+                        <span class="tabular-nums" :style="{ color: p.saldo > 0 ? 'var(--color-peligro)' : 'var(--color-exito)' }">
+                            {{ p.saldo > 0 ? `saldo ${pesos.format(p.saldo)}` : 'pagada' }}
+                        </span>
+                    </li>
+                </ul>
+
+                <p class="mt-3 text-xs" :style="{ color: 'var(--color-suave)' }">
+                    Se cancela o se declara incumplido desde
+                    <a class="underline" href="/finanzas/convenios">Convenios de pago</a>.
+                </p>
+            </template>
+
+            <template v-else-if="acordando">
+                <p class="mt-2 text-sm" :style="{ color: 'var(--color-suave)' }">
+                    Un convenio <strong>reprograma</strong> la deuda: las parcialidades tienen que sumar
+                    exactamente el saldo elegido. Para perdonar parte, condónala primero y acuerda lo que quede.
+                    Todos los cargos elegidos tienen que ser del <strong>mismo concepto</strong>.
+                </p>
+
+                <div v-if="!cargosElegibles.length" class="mt-4 text-sm" :style="{ color: 'var(--color-suave)' }">
+                    Este alumno no tiene cargos por cobrar que acordar.
+                </div>
+
+                <template v-else>
+                    <ul class="mt-4 space-y-1">
+                        <li v-for="c in cargosElegibles" :key="c.id" class="flex flex-wrap items-center gap-x-3 text-sm">
+                            <label class="flex items-center gap-2">
+                                <input type="checkbox" :checked="elegidos.includes(c.id)" @change="alternarCargo(c.id)" />
+                                <span>{{ c.concepto }}</span>
+                            </label>
+                            <span :style="{ color: 'var(--color-suave)' }">{{ c.periodo }}</span>
+                            <span :style="{ color: c.vencido ? 'var(--color-peligro)' : 'var(--color-suave)' }">
+                                vence {{ c.vencimiento }}
+                            </span>
+                            <span class="tabular-nums">{{ pesos.format(c.saldo) }}</span>
+                        </li>
+                    </ul>
+
+                    <p class="mt-3 text-sm">
+                        Saldo elegido: <strong class="tabular-nums">{{ pesos.format(totalElegido) }}</strong>
+                    </p>
+
+                    <div class="mt-4 flex flex-wrap items-end gap-3">
+                        <div class="w-44">
+                            <CampoTexto v-model="convenio.firmado_en" tipo="date" etiqueta="Firmado el" requerido :error="convenio.errors.firmado_en" />
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <BotonAccion v-for="n in [2, 3, 4, 6, 12]" :key="n" variante="agregar" :texto="`${n} pagos`" @click="repartir(n)" />
+                        </div>
+                    </div>
+
+                    <div class="mt-4 space-y-2">
+                        <div v-for="(p, i) in convenio.parcialidades" :key="i" class="flex flex-wrap items-end gap-2">
+                            <div class="w-44">
+                                <CampoTexto v-model="p.fecha" tipo="date" :etiqueta="`Parcialidad ${i + 1}`" />
+                            </div>
+                            <div class="w-36">
+                                <CampoTexto v-model="p.monto" tipo="number" paso="0.01" min="0" etiqueta="Importe" />
+                            </div>
+                            <BotonAccion variante="eliminar" @click="quitarParcialidad(i)" />
+                        </div>
+                        <BotonAccion variante="agregar" texto="Agregar parcialidad" @click="agregarParcialidad" />
+                    </div>
+
+                    <p class="mt-3 text-sm" :style="{ color: Math.abs(diferencia) < 0.005 ? 'var(--color-exito)' : 'var(--color-peligro)' }">
+                        Parcialidades: <span class="tabular-nums">{{ pesos.format(totalParcialidades) }}</span>
+                        <template v-if="Math.abs(diferencia) >= 0.005">
+                            · {{ diferencia > 0 ? 'sobran' : 'faltan' }}
+                            <span class="tabular-nums">{{ pesos.format(Math.abs(diferencia)) }}</span>
+                        </template>
+                        <template v-else> · cuadra</template>
+                    </p>
+
+                    <div class="mt-4">
+                        <CampoTexto
+                            v-model="convenio.motivo"
+                            etiqueta="Motivo"
+                            requerido
+                            :error="convenio.errors.motivo"
+                            ayuda="Por qué se acuerda. Sin la razón escrita, dentro de un año nadie podrá explicar estos plazos."
+                        />
+                    </div>
+
+                    <div class="mt-4 flex gap-2">
+                        <BotonPrincipal
+                            :procesando="convenio.processing"
+                            :deshabilitado="!elegidos.length || !convenio.parcialidades.length || Math.abs(diferencia) >= 0.005 || !convenio.motivo.trim()"
+                            texto="Firmar el convenio"
+                        />
+                        <button
+                            type="button"
+                            class="rounded-lg border px-4 py-2 text-sm"
+                            :style="{ borderColor: 'var(--color-borde)' }"
+                            @click="acordando = false"
+                        >Cancelar</button>
+                    </div>
+                </template>
+            </template>
+
+            <p v-else class="mt-2 text-sm" :style="{ color: 'var(--color-suave)' }">
+                Este alumno no tiene ningún convenio vigente.
+            </p>
         </section>
 
         <section class="tarjeta overflow-hidden">

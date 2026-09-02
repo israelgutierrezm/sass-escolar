@@ -17,6 +17,7 @@ use App\Models\Finanzas\MetodoPago;
 use App\Models\Finanzas\Pago;
 use App\Models\Finanzas\SituacionPago;
 use App\Services\CalculadorRecargos;
+use App\Services\ConvenioDePago;
 use App\Services\EstadoCuenta;
 use App\Services\Finanzas\SaldosDeCartera;
 use App\Services\GeneradorAdeudos;
@@ -235,6 +236,29 @@ class FinanzasController extends Controller
                 'registrarPagos' => $request->user()->can('registrar-pagos'),
                 'condonar' => $request->user()->can('condonar-adeudos'),
                 'facturar' => $request->user()->can('facturar'),
+                'convenios' => $request->user()->can('autorizar-convenios'),
+            ],
+            /*
+             * El convenio VIGENTE de este alumno, si tiene. Se manda aunque no
+             * se pueda autorizar: quien cobra en el mostrador necesita ver que
+             * hay un acuerdo antes de reclamarle un cargo que ya está
+             * reprogramado.
+             */
+            'convenioVigente' => ($cv = app(ConvenioDePago::class)->vigenteDe($matricula)) === null ? null : [
+                'id' => $cv->id,
+                'motivo' => $cv->motivo,
+                'concepto' => $cv->concepto?->nombre,
+                'firmado_en' => $cv->firmado_en?->toDateString(),
+                'monto_cubierto' => (float) $cv->monto_cubierto,
+                'saldo' => $cv->saldo(),
+                'con_atraso' => $cv->tieneAtraso(),
+                'parcialidades' => $cv->parcialidades->map(fn (Adeudo $p) => [
+                    'id' => $p->id,
+                    'vencimiento' => $p->fecha_vencimiento?->toDateString(),
+                    'monto' => (float) $p->monto_total,
+                    'saldo' => $p->saldo(),
+                    'estatus' => $p->estatus,
+                ])->values(),
             ],
             'facturas' => Factura::query()
                 ->where('matricula_oferta_id', $matricula->id)

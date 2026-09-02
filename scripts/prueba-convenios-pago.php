@@ -92,15 +92,28 @@ try {
     $usuario = Usuario::findOrFail(1);
     Auth::login($usuario);
 
-    $matricula = MatriculaOferta::query()->firstOrFail();
-    $colegiatura = ConceptoPago::query()->firstOrFail();
-    $otroConcepto = ConceptoPago::query()->where('id', '!=', $colegiatura->id)->firstOrFail();
+    $matricula = MatriculaOferta::query()->orderBy('id')->firstOrFail();
+    $otraMatricula = MatriculaOferta::query()->where('id', '!=', $matricula->id)->orderBy('id')->firstOrFail();
+
+    /*
+     * A propósito NO se usa el primer concepto de la tabla: si el escenario
+     * usara el que cualquier consulta devuelve primero, una mutación que
+     * tomara «un concepto cualquiera» daría el mismo y pasaría inadvertida.
+     */
+    $colegiatura = ConceptoPago::query()->where('clave', 'colegiatura')->firstOrFail();
+    $otroConcepto = ConceptoPago::query()->where('clave', 'inscripcion')->firstOrFail();
+
+    // Y los cargos acordados llevan LÍNEA DE PLAN, que es como llegan los de
+    // verdad: sin ella, copiarla a la parcialidad no cambiaría nada y la regla
+    // de «la parcialidad no hereda plan» quedaría sin comprobar.
+    $linea = App\Models\Finanzas\ConceptoPlan::query()->where('concepto_id', $colegiatura->id)->firstOrFail();
 
     /** Un cargo vencido, del concepto que se le pida. */
-    $cargo = function (float $monto, string $vence, ?ConceptoPago $concepto = null) use ($matricula, $colegiatura) {
+    $cargo = function (float $monto, string $vence, ?ConceptoPago $concepto = null, ?int $lineaId = null) use ($matricula, $colegiatura) {
         return Adeudo::create([
             'matricula_oferta_id' => $matricula->id,
             'concepto_id' => ($concepto ?? $colegiatura)->id,
+            'concepto_plan_id' => $lineaId,
             'periodo_etiqueta' => 'PRUEBA-CONV-'.uniqid(),
             'monto' => $monto,
             'monto_total' => $monto,
@@ -110,15 +123,76 @@ try {
         ]);
     };
 
-    $a1 = $cargo(2500.00, '2026-02-15');
-    $a2 = $cargo(2500.00, '2026-03-15');
+    $a1 = $cargo(2500.00, '2026-02-15', null, $linea->id);
+    $a2 = $cargo(2500.00, '2026-03-15', null, $linea->id);
     $a3 = $cargo(1000.00, '2026-04-15', $otroConcepto);
+
+    verificar('Los cargos acordados llevan línea de plan', $a1->concepto_plan_id !== null);
 
     verificar('Tres cargos por cobrar', Adeudo::whereIn('id', [$a1->id, $a2->id, $a3->id])->porCobrar()->count() === 3);
 
     $elegibles = $servicio->elegibles($matricula);
 
     verificar('Los tres son elegibles', $elegibles->pluck('id')->intersect([$a1->id, $a2->id, $a3->id])->count() === 3);
+
+    echo PHP_EOL.'0.b Lo que se acuerda es el SALDO, no el monto'.PHP_EOL;
+
+    /*
+     * A un cargo con abono parcial se le acuerda lo que FALTA. Acordar el monto
+     * completo volvería a cobrar lo que ya entró — y no se notaría, porque las
+     * dos cifras se parecen.
+     */
+    $registrador = app(RegistradorPago::class);
+    $metodo = MetodoPago::where('clave', 'transferencia')->firstOrFail();
+
+    $conAbono = $cargo(3000.00, '2026-02-20', null, $linea->id);
+    $abono = $registrador->registrar($matricula, $metodo, 1200.00, [$conAbono->id], referencia: 'ABONO-PARCIAL');
+    $registrador->confirmar($abono);
+    $conAbono->refresh();
+
+    verificar('El cargo quedó parcial', $conAbono->estatus === Adeudo::ESTATUS_PARCIAL, $conAbono->estatus);
+    verificar('Su saldo es 1,800 y su monto 3,000', abs($conAbono->saldo() - 1800.0) < 0.005 && abs((float) $conAbono->monto_total - 3000.0) < 0.005);
+
+    $porElMonto = motivoDe(fn () => $servicio->crear(
+        $matricula, [$conAbono->id],
+        [['fecha' => '2026-05-15', 'monto' => 3000.00]],
+        'Acordando el monto completo.', '2026-04-01', $usuario,
+    ));
+
+    verificar('Acordar el MONTO y no el saldo se rechaza', $porElMonto !== null, (string) $porElMonto);
+
+    $porElSaldo = $servicio->crear(
+        $matricula, [$conAbono->id],
+        [['fecha' => '2026-05-15', 'monto' => 1800.00]],
+        'Acordando lo que falta.', '2026-04-01', $usuario,
+    );
+
+    verificar('Y acordar el saldo sí pasa', abs((float) $porElSaldo->monto_cubierto - 1800.0) < 0.005, (string) $porElSaldo->monto_cubierto);
+
+    // Se retira para no estorbar lo que sigue.
+    $servicio->cancelar($porElSaldo, 'Sólo era para comprobar el saldo.');
+
+    echo PHP_EOL.'0.c El alcance: los cargos son del alumno que se dice'.PHP_EOL;
+
+    $ajeno = Adeudo::create([
+        'matricula_oferta_id' => $otraMatricula->id,
+        'concepto_id' => $colegiatura->id,
+        'periodo_etiqueta' => 'PRUEBA-CONV-AJENO',
+        'monto' => 500.00,
+        'monto_total' => 500.00,
+        'fecha_generacion' => '2026-01-01',
+        'fecha_vencimiento' => '2026-02-01',
+        'estatus' => Adeudo::ESTATUS_PENDIENTE,
+    ]);
+
+    $deOtro = motivoDe(fn () => $servicio->crear(
+        $matricula, [$ajeno->id],
+        [['fecha' => '2026-05-15', 'monto' => 500.00]],
+        'Cargo de otra persona.', '2026-04-01', $usuario,
+    ));
+
+    verificar('Un cargo de otro alumno no se acuerda', $deOtro !== null, (string) $deOtro);
+    verificar('Y no se le ofrece como elegible', ! $servicio->elegibles($matricula)->pluck('id')->contains($ajeno->id));
 
     echo PHP_EOL.'1. Un convenio no perdona: la suma tiene que cuadrar'.PHP_EOL;
 
@@ -199,7 +273,8 @@ try {
     verificar('Y son del mismo concepto', $convenio->parcialidades()->where('concepto_id', '!=', $colegiatura->id)->count() === 0);
     verificar(
         'Sin línea de plan: es lo que para la mora',
-        $convenio->parcialidades()->whereNotNull('concepto_plan_id')->count() === 0
+        $convenio->parcialidades()->whereNotNull('concepto_plan_id')->count() === 0,
+        'los cargos cubiertos sí la tienen, así que heredarla se notaría'
     );
 
     // La comprobación de fondo: la mora deja de correr de verdad.
@@ -259,6 +334,27 @@ try {
         collect($cuenta['adeudos'])->where('convenio_id', $convenio->id)->count() === 3
     );
 
+    echo PHP_EOL.'6.b Lo condonado no sigue contando como saldo'.PHP_EOL;
+
+    /*
+     * Condonar una parcialidad es un acto legítimo, con su propio permiso. Un
+     * cargo condonado no está pagado —nadie aplicó dinero— así que su «saldo»
+     * crudo sigue siendo su importe: si el convenio lo sumara, diría que se
+     * debe algo que ya nadie debe, y nunca se daría por cumplido.
+     */
+    $antesDeCondonar = $convenio->fresh()->saldo();
+    $unaMas = $convenio->parcialidades()->orderByDesc('fecha_vencimiento')->first();
+    $unaMas->update(['estatus' => Adeudo::ESTATUS_CONDONADO]);
+
+    verificar('Una parcialidad condonada no tiene pagos aplicados', abs($unaMas->montoAplicado()) < 0.005);
+    verificar(
+        'Y deja de sumar al saldo del convenio',
+        abs($convenio->fresh()->saldo() - ($antesDeCondonar - (float) $unaMas->monto_total)) < 0.005,
+        'antes '.$antesDeCondonar.', ahora '.$convenio->fresh()->saldo()
+    );
+
+    $unaMas->update(['estatus' => Adeudo::ESTATUS_PENDIENTE]);
+
     echo PHP_EOL.'7. No se acuerda dos veces el mismo cargo'.PHP_EOL;
 
     $repetido = motivoDe(fn () => $servicio->crear(
@@ -272,6 +368,32 @@ try {
         'Y deja de ofrecerse como elegible',
         ! $servicio->elegibles($matricula->fresh())->pluck('id')->contains($a1->id)
     );
+
+    /*
+     * Y el pivote es la ÚLTIMA defensa, no una repetición del estatus. Se
+     * construye el caso que la hace falta: un cargo que alguien devolvió a
+     * «pendiente» a mano —una reparación de datos, una migración torcida—
+     * mientras su fila del pivote sigue ahí. Sin esta comprobación, el mismo
+     * dinero entraría a dos convenios y sólo lo detendría el índice único, con
+     * un error de base en la cara de quien captura.
+     */
+    $a1->update(['estatus' => Adeudo::ESTATUS_PENDIENTE]);
+
+    verificar(
+        'Un cargo devuelto a mano tampoco se ofrece: manda el pivote',
+        ! $servicio->elegibles($matricula->fresh())->pluck('id')->contains($a1->id)
+    );
+
+    $porElPivote = motivoDe(fn () => $servicio->crear(
+        $matricula, [$a1->id],
+        [['fecha' => '2026-08-15', 'monto' => 2500.00]],
+        'Con los datos torcidos.', '2026-04-01', $usuario,
+    ));
+
+    verificar('Y crear se niega nombrando el otro convenio', $porElPivote !== null, (string) $porElPivote);
+    verificar('Con su mensaje, no con un error de base', str_contains((string) $porElPivote, 'otro convenio'));
+
+    $a1->update(['estatus' => Adeudo::ESTATUS_EN_CONVENIO]);
 
     echo PHP_EOL.'8. Cancelar: sólo mientras no haya entrado un peso'.PHP_EOL;
 
@@ -307,8 +429,6 @@ try {
 
     // Entra dinero a la primera parcialidad.
     $primera = $segundo->parcialidades()->orderBy('fecha_vencimiento')->first();
-    $registrador = app(RegistradorPago::class);
-    $metodo = MetodoPago::where('clave', 'transferencia')->firstOrFail();
     $pago = $registrador->registrar($matricula->fresh(), $metodo, 2500.00, [$primera->id], referencia: 'CONVENIO-1');
     $registrador->confirmar($pago);
 
