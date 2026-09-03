@@ -250,13 +250,18 @@ try {
         rehusaCon(422, fn () => $transiciones->mover($expediente, EstadoExpediente::Concluido, $global)));
 
     /*
-     * Y a «liberado» ni siquiera se llega al guard del origen: su permiso
-     * —`liberar-expedientes-formativos`— todavía no existe, porque llega con la
-     * fase que lo construya. El permiso se comprueba ANTES, así que sale 403.
-     * Es el orden correcto: sin la llave no importa desde dónde se pida.
+     * Y a «liberado» tampoco, ahora por el ORIGEN.
+     *
+     * Esta comprobación esperaba un 403 mientras
+     * `liberar-expedientes-formativos` no existía —el permiso se mira ANTES que
+     * el origen—. La fase 6 lo creó y dirección general lo tiene, así que quien
+     * lo detiene pasó a ser la tabla de transiciones. El cambio de código es
+     * esperado; lo que la suite sigue afirmando es que NO se llega ahí desde
+     * borrador.
      */
-    verificar('Y a liberado se le niega el permiso antes que el origen',
-        rehusaCon(403, fn () => $transiciones->mover($expediente, EstadoExpediente::Liberado, $global)));
+    verificar('Y a liberado tampoco: no cuelga de borrador',
+        rehusaCon(422, fn () => $transiciones->mover($expediente, EstadoExpediente::Liberado, $global),
+            'está en «Borrador»'));
 
     verificar('Y el mensaje enumera a dónde SÍ se puede',
         rehusaCon(422, fn () => $transiciones->mover($expediente, EstadoExpediente::Aprobado, $global),

@@ -841,8 +841,15 @@ try {
         count($props['expediente']['horas']['jornadas'])
             === BitacoraHoras::query()->where('expediente_id', $expediente->id)->count());
 
-    verificar('Con lo que falta de papeleo',
-        $props['expediente']['papeleo_pendiente'] === $papeleo->impedimentosDePapeleo($expediente));
+    /*
+     * Y lo que falta PARA LIBERARSE, que desde la fase 6 sale del liberador:
+     * incluye el papeleo y además las horas y los documentos del final. La
+     * pantalla y el acto de emitir preguntan al mismo sitio, que es lo que
+     * impide que una prometa lo que el otro rehúsa.
+     */
+    verificar('Con lo que falta para liberarse, del mismo servicio que decide',
+        $props['expediente']['papeleo_pendiente']
+            === app(App\Services\ProcesosFormativos\LiberadorDeExpediente::class)->impedimentos($expediente));
 
 } catch (Throwable $falla) {
     $verificaciones++;

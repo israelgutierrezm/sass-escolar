@@ -22,6 +22,7 @@ use App\Models\ProcesosFormativos\TipoProcesoFormativo;
 use App\Services\ProcesosFormativos\AlcanceDeExpedientes;
 use App\Services\ProcesosFormativos\AsignadorDePlaza;
 use App\Services\ProcesosFormativos\InformesYEvaluaciones;
+use App\Services\ProcesosFormativos\LiberadorDeExpediente;
 use App\Services\ProcesosFormativos\RegistradorDeHoras;
 use App\Services\ProcesosFormativos\TransicionDeExpediente;
 use Illuminate\Http\RedirectResponse;
@@ -55,6 +56,7 @@ class ExpedienteFormativoController extends Controller
         private readonly AlcanceDeExpedientes $alcance,
         private readonly RegistradorDeHoras $horas,
         private readonly InformesYEvaluaciones $papeleo,
+        private readonly LiberadorDeExpediente $liberador,
     ) {}
 
     public function index(Request $peticion): Response
@@ -141,6 +143,8 @@ class ExpedienteFormativoController extends Controller
             'documentos.documento:id,nombre',
             'documentos.estado:id,clave,nombre',
             'excepciones.autorizadaPor.persona:id,nombre,primer_apellido,segundo_apellido',
+            'liberaciones.corrige:id,folio',
+            'liberaciones.liberadoPor.persona:id,nombre,primer_apellido,segundo_apellido',
             'horas.modalidad:id,nombre',
             'horas.capturadaPor.persona:id,nombre,primer_apellido,segundo_apellido',
             'informes.tipo:id,nombre,es_final',
@@ -230,6 +234,8 @@ class ExpedienteFormativoController extends Controller
             'puedeExcepcionar' => $quien?->can('aprobar-excepciones-formativas') ?? false,
             'puedeAprobarHoras' => $quien?->can('aprobar-horas-formativas') ?? false,
             'puedeRevisarInformes' => $quien?->can('revisar-informes-formativos') ?? false,
+            'puedeLiberar' => $quien?->can('liberar-expedientes-formativos') ?? false,
+            'puedeCorregirLiberacion' => $quien?->can('corregir-liberacion-formativa') ?? false,
         ]);
     }
 
@@ -512,9 +518,25 @@ class ExpedienteFormativoController extends Controller
                 'comentarios' => $ev->comentarios,
                 'firmada_en' => $ev->firmada_en?->format('d/m/Y H:i'),
             ])->values(),
-            // Lo que le falta de papeleo, con su razón. La fase 6 preguntará
-            // aquí para decidir si se puede liberar.
-            'papeleo_pendiente' => $this->papeleo->impedimentosDePapeleo($e),
+            /*
+             * Lo que le falta PARA LIBERARSE, preguntado al mismo servicio que
+             * decide al emitir. Escrito dos veces, la pantalla prometería una
+             * cosa y el documento diría otra — y aquí eso se paga corrigiendo un
+             * folio que ya circula.
+             */
+            'papeleo_pendiente' => $this->liberador->impedimentos($e),
+            'se_puede_liberar' => $this->liberador->sePuedeLiberar($e),
+            'liberaciones' => $e->liberaciones->sortByDesc('id')->values()->map(fn ($l) => [
+                'id' => $l->id,
+                'folio' => $l->folio,
+                'liberado_en' => $l->liberado_en?->toDateString(),
+                'liberado_por' => $l->liberadoPor?->persona?->nombreCompleto(),
+                'horas' => $l->horas_acreditadas,
+                'vigente' => $l->estaVigente(),
+                'corregida_en' => $l->corregida_en?->format('d/m/Y H:i'),
+                'corrige_folio' => $l->corrige?->folio,
+                'motivo_correccion' => $l->motivo_correccion,
+            ]),
             'historia' => $e->transiciones->map(fn ($t) => [
                 'origen' => $t->estado_origen?->etiqueta(),
                 'destino' => $t->estado_destino->etiqueta(),

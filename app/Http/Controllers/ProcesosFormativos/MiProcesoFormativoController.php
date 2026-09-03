@@ -15,6 +15,7 @@ use App\Models\ProcesosFormativos\ExpedienteProceso;
 use App\Models\ProcesosFormativos\ReglaProceso;
 use App\Models\ProcesosFormativos\TipoProcesoFormativo;
 use App\Services\ProcesosFormativos\ElegibilidadFormativa;
+use App\Services\ProcesosFormativos\LiberadorDeExpediente;
 use App\Services\ProcesosFormativos\RegistradorDeHoras;
 use App\Services\ProcesosFormativos\SolicitudDelAlumno;
 use Illuminate\Http\RedirectResponse;
@@ -52,6 +53,7 @@ class MiProcesoFormativoController extends Controller
         private readonly ElegibilidadFormativa $elegibilidad,
         private readonly SolicitudDelAlumno $solicitudes,
         private readonly RegistradorDeHoras $horas,
+        private readonly LiberadorDeExpediente $liberador,
         private readonly Ajustes $ajustes,
     ) {}
 
@@ -365,6 +367,22 @@ class MiProcesoFormativoController extends Controller
             // Si la escuela pide la ubicación. Apagado, la pantalla ni la
             // menciona: preguntarla y luego descartarla sería teatro.
             'pide_ubicacion' => $this->ajustes->bool(CatalogoAjustes::PROCESOS_PEDIR_UBICACION),
+
+            /*
+             * Su constancia, cuando ya está liberado. Sólo la VIGENTE: el alumno
+             * no tiene por qué elegir entre dos folios, y el corregido ya no
+             * ampara nada — quien necesite ver el viejo lo pide en ventanilla.
+             */
+            'liberacion' => (function () use ($expediente) {
+                $vigente = $this->liberador->vigenteDe($expediente);
+
+                return $vigente === null ? null : [
+                    'id' => $vigente->id,
+                    'folio' => $vigente->folio,
+                    'liberado_en' => $vigente->liberado_en?->toDateString(),
+                    'horas' => $vigente->horas_acreditadas,
+                ];
+            })(),
         ];
     }
 

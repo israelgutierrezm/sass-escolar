@@ -142,6 +142,18 @@ class ExpedienteProceso extends Model
     }
 
     /**
+     * Todas sus liberaciones: la vigente y las que se corrigieron.
+     *
+     * En plural porque corregir EMITE otra y las dos se conservan — el folio de
+     * la primera circula en un papel firmado. La que vale hoy la contesta
+     * `LiberadorDeExpediente::vigenteDe()`.
+     */
+    public function liberaciones(): HasMany
+    {
+        return $this->hasMany(LiberacionProceso::class, 'expediente_id');
+    }
+
+    /**
      * ¿Se le pueden registrar horas?
      *
      * Sólo mientras el proceso corre. Antes de iniciar no hay nada que

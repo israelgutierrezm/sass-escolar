@@ -374,6 +374,29 @@ const MOMENTOS: Record<string, string> = {
             </div>
 
             <!--
+                Su CONSTANCIA, arriba de todo cuando ya está liberado: es lo
+                único que le interesa a partir de ese momento, y enterrarla
+                debajo de la bitácora la haría buscar.
+            -->
+            <div
+                v-if="p.expediente?.liberacion"
+                class="mt-4 rounded-lg px-4 py-3"
+                :style="{ backgroundColor: 'color-mix(in srgb, #16a34a 10%, transparent)' }"
+            >
+                <p class="text-sm font-medium" :style="{ color: '#15803d' }">
+                    Ya está liberado · folio {{ p.expediente.liberacion.folio }}
+                </p>
+                <p class="mt-0.5 text-xs" :style="{ color: 'var(--color-suave)' }">
+                    {{ p.expediente.liberacion.liberado_en }}<span v-if="p.expediente.liberacion.horas"> · {{ p.expediente.liberacion.horas }} horas acreditadas</span>
+                </p>
+                <a
+                    class="mt-2 inline-block text-sm underline"
+                    :href="`/procesos/expedientes/${p.expediente.id}/liberaciones/${p.expediente.liberacion.id}/constancia`"
+                    target="_blank"
+                >Descargar mi constancia</a>
+            </div>
+
+            <!--
                 Sus HORAS y sus INFORMES, dentro de la misma tarjeta: «¿cuánto
                 llevo?» y «¿qué me falta entregar?» son la misma pregunta, y
                 separarlas obligaría a cruzarlas de memoria.

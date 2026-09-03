@@ -51,6 +51,8 @@ const props = defineProps<{
     puedeExcepcionar: boolean;
     puedeAprobarHoras: boolean;
     puedeRevisarInformes: boolean;
+    puedeLiberar: boolean;
+    puedeCorregirLiberacion: boolean;
 }>();
 
 const errores = ref<Record<string, string>>({});
@@ -63,6 +65,8 @@ const excepcionando = ref(false);
 const asignacion = ref<Record<string, unknown>>({});
 const excepcion = ref<Record<string, unknown>>({ requisito: null, motivo: '' });
 const revisandoInforme = ref<any | null>(null);
+const corrigiendo = ref<any | null>(null);
+const motivoCorreccion = ref('');
 const evaluando = ref(false);
 const evaluacion = ref<Record<string, any>>({});
 const retro = ref('');
@@ -83,6 +87,8 @@ function sembrar(): void {
     };
     excepcion.value = { requisito: null, motivo: '' };
     revisandoInforme.value = null;
+    corrigiendo.value = null;
+    motivoCorreccion.value = '';
     evaluando.value = false;
     retro.value = '';
     evaluacion.value = { origen: null, rubrica_id: null, niveles: {}, comentarios: '' };
@@ -190,6 +196,34 @@ function guardarEvaluacion(): void {
         onSuccess: () => sembrar(),
         onFinish: () => (procesando.value = false),
     });
+}
+
+function liberar(): void {
+    procesando.value = true;
+
+    router.post(`/procesos/expedientes/${props.expediente.id}/liberar`, {}, {
+        preserveScroll: true,
+        onError: (e) => (errores.value = e),
+        onSuccess: () => sembrar(),
+        onFinish: () => (procesando.value = false),
+    });
+}
+
+function corregirLiberacion(): void {
+    if (corrigiendo.value === null) return;
+
+    procesando.value = true;
+
+    router.post(
+        `/procesos/expedientes/${props.expediente.id}/liberaciones/${corrigiendo.value.id}/corregir`,
+        { motivo: motivoCorreccion.value },
+        {
+            preserveScroll: true,
+            onError: (e) => (errores.value = e),
+            onSuccess: () => sembrar(),
+            onFinish: () => (procesando.value = false),
+        },
+    );
 }
 
 function quitarExcepcion(id: number): void {
@@ -495,6 +529,76 @@ const MOMENTOS: Record<string, string> = {
             </ul>
         </TarjetaSeccion>
 
+        <TarjetaSeccion v-if="expediente.liberaciones.length || puedeLiberar" titulo="Liberación" class="mt-4">
+            <template #insignia>
+                <!--
+                    El botón sólo si de verdad se puede. Ofrecerlo y que el
+                    servidor lo rehúse hace que la gente lo pulse hasta
+                    cansarse; lo que falta ya está listado arriba.
+                -->
+                <BotonPrincipal
+                    v-if="puedeLiberar && expediente.se_puede_liberar"
+                    :procesando="procesando"
+                    texto="Liberar y emitir constancia"
+                    icono="crear"
+                    @click="liberar"
+                />
+            </template>
+
+            <ul v-if="expediente.liberaciones.length" class="space-y-3">
+                <li
+                    v-for="l in expediente.liberaciones"
+                    :key="l.id"
+                    class="border-b pb-3 text-sm last:border-0"
+                    :style="{ borderColor: 'var(--color-borde)' }"
+                >
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <span class="font-semibold">{{ l.folio }}</span>
+                        <PildoraEstado
+                            :texto="l.vigente ? 'Vigente' : 'Sin efecto'"
+                            :color="l.vigente ? '#16a34a' : '#b91c1c'"
+                            sin-capitalizar
+                        />
+                    </div>
+
+                    <p class="mt-0.5 text-xs" :style="{ color: 'var(--color-suave)' }">
+                        {{ l.liberado_en }}<span v-if="l.horas"> · {{ l.horas }} horas</span>
+                        <span v-if="l.liberado_por"> · {{ l.liberado_por }}</span>
+                    </p>
+
+                    <p v-if="l.corrige_folio" class="mt-0.5 text-xs" :style="{ color: 'var(--color-suave)' }">
+                        Sustituye al folio {{ l.corrige_folio }}<span v-if="l.motivo_correccion">: {{ l.motivo_correccion }}</span>
+                    </p>
+
+                    <p v-if="!l.vigente" class="mt-0.5 text-xs" :style="{ color: '#b91c1c' }">
+                        Quedó sin efecto el {{ l.corregida_en }}.
+                    </p>
+
+                    <div class="mt-2 flex flex-wrap items-center gap-3 text-xs">
+                        <a class="underline" :href="`/procesos/expedientes/${expediente.id}/liberaciones/${l.id}/constancia`" target="_blank">
+                            Ver constancia
+                        </a>
+                        <button
+                            v-if="puedeCorregirLiberacion && l.vigente"
+                            type="button"
+                            class="underline"
+                            :style="{ color: '#b45309' }"
+                            @click="corrigiendo = l"
+                        >Corregir</button>
+                    </div>
+                </li>
+            </ul>
+
+            <p v-else class="text-sm" :style="{ color: 'var(--color-suave)' }">
+                <template v-if="expediente.se_puede_liberar">
+                    Ya cumple todo: se puede liberar.
+                </template>
+                <template v-else>
+                    Todavía no se puede liberar. Arriba está lo que le falta.
+                </template>
+            </p>
+        </TarjetaSeccion>
+
         <TarjetaSeccion titulo="Qué le ha pasado" class="mt-4">
             <ol class="space-y-3">
                 <li v-for="(t, i) in expediente.historia" :key="i" class="flex gap-3 text-sm">
@@ -679,6 +783,38 @@ const MOMENTOS: Record<string, string> = {
 
                     <div class="flex items-center gap-3 pt-2">
                         <BotonPrincipal :procesando="procesando" texto="Guardar" icono="crear" :deshabilitado="!evaluacion.origen" />
+                        <button type="button" class="rounded-lg border border-borde px-4 py-2 text-sm" @click="cerrar">Cancelar</button>
+                    </div>
+                </form>
+            </template>
+        </Modal>
+
+        <Modal v-if="corrigiendo" etiqueta="Corregir la liberación" ancho="max-w-lg" @cerrar="corrigiendo = null">
+            <template #default="{ cerrar }">
+                <form class="space-y-4 p-6" @submit.prevent="corregirLiberacion">
+                    <h2 class="text-base font-semibold">Corregir el folio {{ corrigiendo.folio }}</h2>
+
+                    <p class="rounded-lg px-4 py-3 text-xs" :style="{ backgroundColor: 'color-mix(in srgb, #b45309 10%, transparent)', color: '#b45309' }">
+                        El folio actual queda <strong>sin efecto</strong> y se emite otro en su lugar.
+                        Los dos se conservan: el primero circula en un papel firmado y no se puede borrar.
+                    </p>
+
+                    <CampoTextarea
+                        v-model="motivoCorreccion"
+                        etiqueta="¿Por qué se corrige?"
+                        requerido
+                        :filas="3"
+                        ayuda="Es lo único que va a explicar dentro de un año por qué existen dos folios del mismo expediente."
+                        :error="errores.motivo"
+                    />
+
+                    <div class="flex items-center gap-3 pt-2">
+                        <BotonPrincipal
+                            :procesando="procesando"
+                            texto="Emitir la corrección"
+                            icono="crear"
+                            :deshabilitado="motivoCorreccion.trim().length < 10"
+                        />
                         <button type="button" class="rounded-lg border border-borde px-4 py-2 text-sm" @click="cerrar">Cancelar</button>
                     </div>
                 </form>

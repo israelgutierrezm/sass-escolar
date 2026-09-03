@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**134 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**135 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -65,7 +65,7 @@ Los otros dos documentos vivos:
    un rol con disposición guardada. Si node no puede correrlo, la suite FALLA
    en vez de saltarse.
 
-   **Las 134 están en verde**, barridas el 2026-09-03. Catorce son del módulo de
+   **Las 135 están en verde**, barridas el 2026-09-03. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -771,6 +771,122 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
   CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
   adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
+- **Servicio social y prácticas · FASE 6: liberación, constancia e integración
+  SIN CABLEAR** (2026-09-03). El documento que dice que alguien terminó.
+  Permisos nuevos `liberar-expedientes-formativos` y
+  `corregir-liberacion-formativa`.
+  - **La liberación es una TABLA y no una columna del expediente**, porque es un
+    hecho fechado con folio y porque se puede CORREGIR sin borrarse. Con una
+    columna, enmendar una mal emitida obligaría a sobrescribirla —y con ella el
+    folio que ya circula en un papel firmado—.
+  - **Y NO es «una transición más»**: vive en `LiberadorDeExpediente` y no en
+    `TransicionDeExpediente` porque hay que numerar de forma atómica, congelar
+    un snapshot y garantizar que no salgan dos. Metida entre las demás,
+    cualquiera de esas tres cosas se perdería el día que alguien agregue un
+    estado. Aun así el expediente pasa a «liberado» por la puerta de siempre,
+    que es la que anota la bitácora — si no, el movimiento más importante del
+    trámite sería el único sin rastro de quién lo hizo.
+  - **NUNCA se libera por horas.** Instrucción explícita del cliente, y la razón
+    importa: alcanzarlas quita UN impedimento de la lista. Automatizarlo
+    emitiría constancias de gente que todavía debe su informe final, con el
+    folio ya circulando.
+  - **Se rehúsa con la LISTA de lo que falta**, no con un «no se puede»: horas
+    con sus números, informes, evaluaciones y los documentos del momento
+    «liberación». Y la PANTALLA pregunta al mismo servicio que decide al emitir
+    —escrito dos veces, prometería una cosa y el documento diría otra, y aquí
+    eso se paga corrigiendo un folio que ya circula—.
+  - **El FOLIO sale de un contador con incremento ATÓMICO**, nunca de un
+    `MAX(folio)+1` que colisiona bajo concurrencia, y su tabla va **sin `id`
+    autoincremental** —la trampa documentada de `contadores_matricula`: un
+    INSERT sobre una tabla que lo tenga pisa `LAST_INSERT_ID()`—. El contador es
+    **por tipo y año**, así que un proceso de otro tipo arranca en 1 aunque ya
+    existan liberaciones: eso es justo lo que lo separa de un `count()+1`, y sin
+    ese caso las dos fórmulas daban el mismo número.
+  - **El SNAPSHOT es la mitad del documento.** Congela alumno, organización,
+    regla y su versión, horas, informes, evaluaciones y EXCEPCIONES. Comprobado
+    renombrando la organización y subiéndole las horas a la regla DESPUÉS de
+    liberar: el documento sigue diciendo lo mismo. Sin él, una constancia
+    reimpresa dentro de tres años se reconstruiría con los datos de hoy y el
+    mismo folio ampararía dos textos distintos.
+  - **Las excepciones VIAJAN en el snapshot y se dicen en el papel.** Callarlas
+    haría que una constancia emitida perdonando un requisito se viera idéntica a
+    otra que cumplió todo, y quien la recibe tiene derecho a saberlo.
+  - **Corregir NO edita: emite otra y jubila la anterior**, que se conserva con
+    su `corregida_en`. Es el molde del acta de corrección y de la nota de
+    crédito. **Y la corrección REHACE su snapshot**, no copia el viejo: se
+    corrige justamente porque algo estaba mal, así que copiarlo repetiría el
+    error y el documento nuevo no serviría de nada.
+  - **El ÚNICO va sobre una columna generada** (`expediente_si_vigente`), que
+    vale el id del expediente mientras la liberación vale y NULL cuando se
+    corrigió. Con un único pelado sobre `expediente_id`, emitir la corrección
+    sería imposible; con uno que incluyera `deleted_at`, MySQL da dos NULL por
+    distintos y pasarían dos vigentes.
+  - **La constancia CORREGIDA se sigue pudiendo reimprimir** —hay que poder ver
+    qué decía el papel que circuló— pero sale con marca de agua «SIN EFECTO» y
+    un aviso arriba. Las dos cosas: quien recibe una hoja en blanco y negro
+    puede no distinguir la marca. Y el pie lleva el folio y «hoja N de M» en
+    todas, que es la lección del historial impreso.
+  - **`RequisitoFormativo` es el lado que PREGUNTA, y nadie lo llama.** El
+    pedido decía «integra con titulación» y «NO modifiques esos procesos» a la
+    vez; se resuelve construyendo el que contesta y dejando el que consume sin
+    cablear. **No se tocó `ValidadorTitulo`, `EstadoCertificacion` ni
+    `titulo_servicio_social`**, y una prueba lo vigila: engancharlo es una línea
+    el día que la escuela lo pida, y hacerlo antes cambiaría el criterio con el
+    que hoy se timbran títulos ante la SEP sobre expedientes que ninguna escuela
+    ha llenado todavía.
+  - **`exigeElPlan` cruza DOS banderas**: `obligatorio` —le toca hacerlo— y
+    `cuenta_para_titulacion` —su falta impide el título—. Son cosas distintas: un
+    servicio social puede ser obligatorio y no ser lo que detiene un trámite, si
+    la escuela lo lleva por fuera.
+  - **Y responde por CLAVE de tipo, no por id**: `titulacion` no puede conocer
+    los ids de los tipos de proceso de cada escuela.
+  - Pruebas: `scripts/prueba-procesos-liberacion.php`, 84 verificaciones,
+    comprobadas mutando **41 reglas**. En la primera pasada sobrevivieron once, y
+    dos enseñaron algo del método:
+    - **Ocho eran huecos de escenario**, lo de siempre: no había documento del
+      momento «liberación», ni excepción que congelar, ni un segundo TIPO con el
+      que ver reiniciar el contador, ni usuario acotado a otro campus, ni el caso
+      de `obligatorio` apagado, ni un expediente vivo sin liberar, ni una
+      matrícula sin expediente.
+    - **Una sobrevivía por una COINCIDENCIA DE RELOJ**, y se midió antes de
+      escribir nada: quitarle el `whereNull('corregida_en')` al update de
+      corregir no cambiaba nada porque **`update()` de MySQL cuenta filas
+      CAMBIADAS, no coincidentes** — dentro del mismo segundo, reescribir
+      `corregida_en` y `updated_at` con los mismos valores devuelve cero y el
+      guard de «ya la corrigió alguien» saltaba igual. El caso va con el reloj
+      adelantado un minuto, y entonces la única defensa es el filtro.
+    - **Y otra pedía un estado que el flujo normal no produce**: `vigenteDe`
+      filtrando contra devolver «la más reciente» dan lo mismo, porque corregir
+      siempre crea la nueva al final. El caso se construye jubilando la última
+      sin emitir otra —lo que dejaría una limpieza o una corrección a mano—.
+    - **La marca de agua y el folio del pie** se miden con un motor ESPÍA sobre
+      el HTML que recibe mpdf: comparar los dos PDF a secas no bastaba —difieren
+      por el folio de todos modos— y dentro del PDF el texto va como índices de
+      glifo de una fuente subconjuntada. Es la lección de `HistorialPdfTest`.
+  - **Y una mutación que ninguna suite mataba, movida de sitio**: la tabla
+    `TransicionDeExpediente::PERMISOS` podía apuntar `liberado` a
+    `revisar-solicitudes` sin que nadie lo notara, porque el permiso real ya se
+    comprueba en el liberador. Es la última defensa si algún día alguien llama
+    `mover()` sin pasar por ahí, así que su caso vive ahora en la suite de esta
+    fase.
+  - **Dos comprobaciones de fases anteriores se actualizaron**, y las dos por un
+    cambio esperado: la de la fase 4 esperaba un 403 al mover a «liberado»
+    porque su permiso todavía no existía —lo decía su propio comentario—, y la
+    de la fase 5 comparaba contra `impedimentosDePapeleo` cuando la pantalla ya
+    pregunta al liberador.
+  - **Dos defectos que sólo se vieron MIRANDO el documento**: las fechas salían
+    en ISO dentro de un párrafo formal («del 2026-08-17 al 2027-01-03», que se
+    lee como un volcado de base de datos) y la evaluación sin puntaje imprimía
+    «Del supervisor: sin puntaje», una línea que no informa de nada y ensucia un
+    papel oficial — es la regla de vacíos del proyecto llevada al papel.
+  - Verificado en el navegador el recorrido entero: el botón apareciendo sólo
+    con todo cumplido, la emisión con folio `SERV-2026-00001` y 16 horas, la
+    constancia leyéndose como un documento, la corrección dejando las dos
+    conviviendo —vigente `00002` y jubilada `00001` «Sin efecto»—, la reimpresión
+    de la jubilada con su aviso y su marca de agua, y el alumno viendo su folio
+    VIGENTE con descarga 200 y la ajena en 404. **Los datos se retiraron**,
+    incluidos los archivos del disco privado.
+
 - **Servicio social y prácticas · FASE 5: horas, informes y evaluaciones**
   (2026-09-03). La bitácora, lo que el alumno entrega y lo que opinan de él.
   Permisos nuevos `aprobar-horas-formativas` y `revisar-informes-formativos`;

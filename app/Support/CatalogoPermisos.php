@@ -298,6 +298,19 @@ final class CatalogoPermisos
              */
             'aprobar-horas-formativas' => ['Aprobar horas', 'Dar por buenas las jornadas que el alumno registra, o rechazarlas con su motivo. Sólo las aprobadas cuentan.', [self::ADMINISTRATIVO]],
             'revisar-informes-formativos' => ['Revisar informes y evaluaciones', 'Aceptar o devolver los informes del alumno, y capturar la evaluación del supervisor o del coordinador.', [self::ADMINISTRATIVO]],
+            /*
+             * LIBERAR emite un documento con folio. No se automatiza por horas
+             * —alcanzar las horas sólo quita un impedimento de la lista— y es lo
+             * último que pasa en el trámite: por eso su propia llave.
+             */
+            'liberar-expedientes-formativos' => ['Liberar expedientes', 'Emitir la constancia con folio que dice que el alumno terminó su servicio social o sus prácticas.', [self::ADMINISTRATIVO]],
+            /*
+             * Y CORREGIR una liberación va aparte, por lo mismo que en los
+             * movimientos escolares: emitir es rutina y enmendar lo ya emitido
+             * es excepción — deja sin efecto un folio que circula en un papel
+             * firmado.
+             */
+            'corregir-liberacion-formativa' => ['Corregir una liberación', 'Dejar sin efecto una constancia ya emitida y expedir otra en su lugar, con el motivo escrito.', [self::ADMINISTRATIVO]],
         ],
 
         'Disciplina' => [

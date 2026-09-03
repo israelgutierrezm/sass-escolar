@@ -128,6 +128,7 @@ use App\Http\Controllers\PresupuestoController;
 use App\Http\Controllers\ProcesosFormativos\CatalogoProcesosController;
 use App\Http\Controllers\ProcesosFormativos\ConvenioFormativoController;
 use App\Http\Controllers\ProcesosFormativos\ExpedienteFormativoController;
+use App\Http\Controllers\ProcesosFormativos\LiberacionFormativaController;
 use App\Http\Controllers\ProcesosFormativos\MiProcesoFormativoController;
 use App\Http\Controllers\ProcesosFormativos\OrganizacionReceptoraController;
 use App\Http\Controllers\ProcesosFormativos\PlazaProcesoController;
@@ -2571,6 +2572,33 @@ Route::middleware([
                 Route::get('informes/{informe}/archivo', 'verInforme')->whereNumber('informe')->name('informes.archivo');
 
                 Route::post('evaluaciones', 'evaluar')->name('evaluaciones.guardar');
+            });
+
+        /*
+         * La LIBERACION: emitir, corregir y consultar la constancia.
+         *
+         * Tres actos y tres puertas. La constancia la abre TAMBIEN el alumno
+         * --es su documento--, asi que el grupo no lleva `can:`: con el permiso
+         * de emitir encima, el dueño se quedaria sin poder ver lo suyo.
+         */
+        Route::middleware('modulo:procesos_formativos')
+            ->controller(LiberacionFormativaController::class)
+            ->prefix('procesos/expedientes/{expediente}')
+            ->name('tenant.procesos.liberacion.')
+            ->whereNumber('expediente')
+            ->group(function () {
+                Route::post('liberar', 'liberar')
+                    ->middleware('can:liberar-expedientes-formativos')
+                    ->name('emitir');
+
+                Route::post('liberaciones/{liberacion}/corregir', 'corregir')
+                    ->middleware('can:corregir-liberacion-formativa')
+                    ->whereNumber('liberacion')
+                    ->name('corregir');
+
+                Route::get('liberaciones/{liberacion}/constancia', 'constancia')
+                    ->whereNumber('liberacion')
+                    ->name('constancia');
             });
 
         /*
