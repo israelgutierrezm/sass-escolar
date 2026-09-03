@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**131 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**132 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -65,7 +65,7 @@ Los otros dos documentos vivos:
    un rol con disposición guardada. Si node no puede correrlo, la suite FALLA
    en vez de saltarse.
 
-   **Las 131 están en verde**, barridas el 2026-09-03. Catorce son del módulo de
+   **Las 132 están en verde**, barridas el 2026-09-03. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -771,6 +771,118 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
   CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
   adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
+- **Servicio social y prácticas · FASE 3: reglas versionadas y elegibilidad**
+  (2026-09-03). `/procesos/reglas` para configurarlas y `/mi-servicio-social`
+  para que el alumno sepa **qué le falta**. Permiso nuevo
+  `ver-mi-proceso-formativo` (faceta ALUMNO).
+  - **Una regla dice A QUIÉN aplica; sus VERSIONES dicen qué exige.** Son dos
+    preguntas con vidas distintas: el alcance de «servicio social de Enfermería»
+    no cambia nunca y sus requisitos cambian cada reforma. En una sola tabla,
+    cambiar las horas exigidas obligaría a duplicar el alcance, y dos filas
+    diciendo a quién aplica lo mismo acabarían divergiendo.
+  - **Gana la MÁS específica, y la jerarquía es LEXICOGRÁFICA**: cada peso vale
+    más que la suma de todos los de abajo (plan 32, programa 16, nivel 8, campus
+    4, generación 2, modalidad 1). Es lo que hace que «este plan» le gane a
+    «campus + modalidad + generación» juntos. Con pesos planos ganaría el montón
+    y nadie podría explicar por qué su excepción no se aplicó. **La generación
+    cuenta como UN eje aunque sean dos columnas**: «de 2020 a 2024» es una sola
+    condición.
+  - **Y el desempate es por id, no por lo que devuelva la base.** Dos reglas
+    igual de específicas existen —las escribió gente distinta— y sin desempate
+    la misma pregunta daría dos respuestas en dos días. Gana la más reciente.
+  - **Lo que se deja en null NO acota.** Una regla sin ningún eje es la general
+    de la escuela; una con `campus_id` sólo alcanza a ese campus. Es lo que
+    permite que la general y la excepción convivan sin escribir la general dos
+    veces.
+  - **Sin generación capturada, una regla que la acote NO alcanza.** Darla por
+    buena dejaría entrar a quien no sabemos de qué generación es, que es justo
+    lo que el rango existe para separar.
+  - **La elegibilidad se CALCULA, no se guarda.** Depende de créditos, materias
+    y adeudos, que cambian solos: guardada, quien aprueba una materia seguiría
+    marcado «no elegible» hasta que algo la recalculara — el error del promedio
+    que este proyecto ya corrigió tres veces. Y existe ANTES de que haya
+    expediente, así que no cabe en una columna suya.
+  - **Falla CERRADO: sin regla nadie es elegible**, y el motivo lo dice con esas
+    palabras. Al revés, una escuela que todavía no configura nada dejaría a todo
+    el mundo solicitar y el primer expediente se abriría sin saber qué exige.
+    Son DOS estados distintos y los dos se nombran: «tu programa no tiene
+    configurado esto» y «la regla existe pero todavía no tiene requisitos
+    publicados».
+  - **Devuelve la LISTA de lo que falta, no un sí o un no.** «No eres elegible»
+    manda a la gente a ventanilla; «llevas el 44 % de los créditos y se pide el
+    70 %» se puede resolver. De uno en uno alguien arreglaría los créditos,
+    reintentaría y se enteraría del periodo. Mismo criterio que
+    `ComplementoEducativo::impedimentos()` y `ValidadorDec`.
+  - **Y también lo que YA cumple.** A quien sólo se le dice lo que le falta no
+    le consta que el sistema haya mirado lo demás, y la primera reacción es ir a
+    ventanilla — que es lo que la pantalla viene a evitar.
+  - **Cada requisito se lee de donde YA vive**: los créditos de
+    `HistorialDelAlumno` (mejor intento por materia, con la precisión del plan),
+    las materias previas de `Historial::aprobadas()` —cursada no es aprobada—, y
+    el no adeudo de `BitacoraSituacionFinanciera` con la bandera `bloquea`, que
+    es exactamente lo que pregunta `ValidadorInscripcion`. Recalcular cualquiera
+    daría una segunda verdad sobre el mismo número.
+  - **La tolerancia se resta en UN solo sitio** (`horasMinimas()`), y sin horas
+    exigidas devuelve **null y no cero**: «no se mide por horas» es distinto de
+    «se libera con cero».
+  - **Cuatro guardas contra una regla que no alcanzaría a NADIE**, y ninguna
+    falla sola —la regla se guarda, no sirve, y quien la escribió cree que sí—:
+    el rango de generaciones al revés, un plan que no es del programa declarado,
+    una tolerancia mayor o igual que las horas (cualquiera quedaría liberado con
+    cero) y unos informes parciales sin decir cada cuántos días.
+  - **`periodo_actual` está VACÍO en las 32 matrículas del demo**, así que
+    `periodo_minimo` es hoy un requisito que nadie puede cumplir ahí. No es un
+    defecto —el impedimento dice «no tienes capturado el periodo», que es
+    accionable y culpa al DATO y no al alumno—, pero hay que saberlo: la suite
+    lo construye dentro de la transacción, porque sin eso media comprobación de
+    elegibilidad pasaba por la razón equivocada.
+  - **En el portal, la matrícula se elige de entre las SUYAS**: la de otro cae
+    en la propia, sin 403 —un 403 confirmaría que ese id existe—. La ruta no
+    lleva id.
+  - Pruebas: `scripts/prueba-procesos-reglas.php`, 64 verificaciones,
+    comprobadas mutando **34 reglas**. En la primera pasada sobrevivieron once, y
+    la mayoría enseñó algo del método:
+    - **Cinco eran mutaciones MAL ESCRITAS**: cambiaban el TEXTO del mensaje de
+      una guarda en vez de su condición, así que el 422 salía igual y la prueba
+      seguía pasando. **Mutar el mensaje no es mutar la regla.**
+    - **Tres eran huecos de escenario**, lo de siempre: no había materia
+      REPROBADA con la que separar «cursada» de «aprobada», ni matrícula sin
+      periodo capturado (¡después de que yo mismo se lo pusiera!), ni un caso
+      donde la generación decidiera.
+    - **Y una enseñó algo más fino**: el caso de la generación lo escribí con la
+      regla que la acota creada al final, así que ganaba por el desempate de id
+      y su peso no se ejercitaba. Se crea PRIMERO, para que sólo pueda ganar por
+      lo que se está probando.
+    - **Otra, sobre la lista inventada en la URL**: con un id inexistente el 404
+      salía por el camino de «ese renglón no es de esta versión», así que la
+      guarda del `default` no se comprobaba. El caso se construye con un renglón
+      que SÍ existe, para que una guarda floja tenga algo que borrar.
+  - **La suite parte de CERO reglas dentro de la transacción**, y no es
+    cosmético: lo que prueba es CUÁL GANA, y eso sólo se puede afirmar sabiendo
+    cuáles existen. Pasaba corriéndola sola y se cayó en cuanto configuré la
+    primera regla desde la pantalla —una de Derecho, el programa del
+    protagonista—. **Sexta vez que este proyecto se cobra lo mismo.**
+  - **Cuatro defectos que sólo se vieron MIRÁNDOLO:**
+    1. **El desplegable de planes eran veinte «Plan 2016» indistinguibles.** Los
+       planes se llaman por su año, no por su carrera, así que mientras no se
+       elige programa elegir bien era suerte. Ahora cada uno se rotula con su
+       programa; con el programa ya elegido el sufijo se quita, porque todos
+       serían el mismo.
+    2. **La píldora decía «Todavía No».** `PildoraEstado` capitaliza CADA palabra
+       y el componente ya traía `sin-capitalizar` para textos ya escritos.
+    3. **El alumno veía OCHO tarjetas y siete decían lo mismo**: «tu programa no
+       tiene configurado esto», ahogando la única que habla de su servicio
+       social. Ahora se nombran juntos en una línea al final —callarlos
+       parecería que el sistema los perdió—, con un texto distinto cuando NINGUNO
+       está configurado.
+    4. **Un botón muerto**: sin plan que acote, «Agregar materia» se veía activo
+       y sólo podía devolver un error de validación. Se esconde y queda
+       «Cerrar».
+  - **Y una mejora que salió de mirar**: con varias versiones publicadas, cuál
+    RIGE hoy es la pregunta, y había que compararlo de cabeza. La insignia «Es
+    la que rige hoy» se la pregunta al RESOLUTOR y no deduce fechas en el
+    navegador: dos versiones pueden estar «en vigor» a la vez y sólo una manda.
+
 - **Servicio social y prácticas · FASE 2: organizaciones, convenios y plazas**
   (2026-09-03). `/procesos/organizaciones`, `/procesos/convenios` y
   `/procesos/plazas`, con tres permisos propios.
@@ -4746,7 +4858,10 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
         resolver no puede ser visible sólo para el global— la comprobación se
         vino abajo, bien caída. Ahora se siembra un cargo en otro campus.
 
-  - **NO pasar `pint` sobre `scripts/`** (mordió el 2026-08-26). Su fixer de
+  - **NO pasar `pint` sobre `scripts/`** (mordió el 2026-08-26; y **`pint --dirty`
+    lo hace solo**, sin que se lo pidas: alcanzó una suite nueva el 2026-09-03,
+    así que después de formatear hay que devolverla con `git checkout --` y
+    volver a correrla). Su fixer de
     nombres cualificados convierte los FQN en alias y **añade los `use` al bloque
     de importaciones, que en estas suites está DESPUÉS del arranque** —primero
     `require`, luego `$app->make(Kernel::class)->bootstrap()`, y los `use` más

@@ -117,10 +117,6 @@ use App\Http\Controllers\PlanCobroController;
 use App\Http\Controllers\PlanEstudioController;
 use App\Http\Controllers\PlanMateriaController;
 use App\Http\Controllers\PlantillaEvaluacionController;
-use App\Http\Controllers\ProcesosFormativos\CatalogoProcesosController;
-use App\Http\Controllers\ProcesosFormativos\ConvenioFormativoController;
-use App\Http\Controllers\ProcesosFormativos\OrganizacionReceptoraController;
-use App\Http\Controllers\ProcesosFormativos\PlazaProcesoController;
 use App\Http\Controllers\Plataforma\AvisoController;
 use App\Http\Controllers\Plataforma\CalendarioController;
 use App\Http\Controllers\Plataforma\ClimaController;
@@ -129,6 +125,12 @@ use App\Http\Controllers\PortafolioController;
 use App\Http\Controllers\PortalAspiranteController;
 use App\Http\Controllers\PresentacionExamenController;
 use App\Http\Controllers\PresupuestoController;
+use App\Http\Controllers\ProcesosFormativos\CatalogoProcesosController;
+use App\Http\Controllers\ProcesosFormativos\ConvenioFormativoController;
+use App\Http\Controllers\ProcesosFormativos\MiProcesoFormativoController;
+use App\Http\Controllers\ProcesosFormativos\OrganizacionReceptoraController;
+use App\Http\Controllers\ProcesosFormativos\PlazaProcesoController;
+use App\Http\Controllers\ProcesosFormativos\ReglaProcesoController;
 use App\Http\Controllers\ProgramaAcademicoController;
 use App\Http\Controllers\RecuperacionController;
 use App\Http\Controllers\RecursosDigitalesController;
@@ -2467,6 +2469,38 @@ Route::middleware([
                         });
                     });
 
+                /*
+                 * Las REGLAS: que exige cada programa, con version historica.
+                 *
+                 * Se leen con el permiso de la seccion y se tocan con el de
+                 * configurar, que es el mismo que gobierna los catalogos: son
+                 * la misma decision --que pide la escuela-- tomada en dos
+                 * niveles de detalle.
+                 */
+                Route::controller(ReglaProcesoController::class)
+                    ->prefix('reglas')->name('reglas.')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::get('{regla}', 'show')->whereNumber('regla')->name('ver');
+
+                        Route::middleware('can:configurar-procesos-formativos')->group(function () {
+                            Route::post('/', 'guardar')->name('crear');
+                            Route::put('{regla}', 'guardar')->whereNumber('regla')->name('guardar');
+
+                            Route::post('{regla}/versiones', 'crearVersion')->whereNumber('regla')->name('versiones.crear');
+                            Route::put('{regla}/versiones/{version}', 'guardarVersion')->whereNumber(['regla', 'version'])->name('versiones.guardar');
+
+                            Route::post('{regla}/versiones/{version}/documentos', 'agregarDocumento')->whereNumber(['regla', 'version'])->name('versiones.documentos');
+                            Route::post('{regla}/versiones/{version}/materias', 'agregarMateria')->whereNumber(['regla', 'version'])->name('versiones.materias');
+                            Route::post('{regla}/versiones/{version}/situaciones', 'agregarSituacion')->whereNumber(['regla', 'version'])->name('versiones.situaciones');
+
+                            Route::delete('{regla}/versiones/{version}/{lista}/{renglon}', 'quitarRenglon')
+                                ->whereNumber(['regla', 'version', 'renglon'])
+                                ->whereIn('lista', ['documentos', 'materias', 'situaciones'])
+                                ->name('versiones.quitar');
+                        });
+                    });
+
                 Route::controller(PlazaProcesoController::class)
                     ->prefix('plazas')->name('plazas.')
                     ->group(function () {
@@ -2480,6 +2514,15 @@ Route::middleware([
                         });
                     });
             });
+
+        /*
+         * El portal del ALUMNO. Fuera de `/procesos`, que es faceta
+         * administrativa: un estudiante no entra ahi. Mismo patron que
+         * «Mis vacantes» de la bolsa.
+         */
+        Route::middleware(['modulo:procesos_formativos', 'can:ver-mi-proceso-formativo'])
+            ->get('mi-servicio-social', [MiProcesoFormativoController::class, 'index'])
+            ->name('tenant.mi-proceso-formativo');
 
         Route::middleware('modulo:disciplina')->group(function () {
             Route::controller(IncidenciaController::class)

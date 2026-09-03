@@ -266,6 +266,12 @@ final class CatalogoPermisos
              */
             'gestionar-convenios-formativos' => ['Administrar convenios', 'Los convenios con las organizaciones, su vigencia, su documento firmado y su renovación.', [self::ADMINISTRATIVO]],
             'gestionar-plazas-formativas' => ['Administrar plazas y proyectos', 'Lo que cada organización ofrece, con su cupo, sus requisitos y a qué programas se dirige.', [self::ADMINISTRATIVO]],
+            /*
+             * El portal del alumno. Su alcance son SUS matrículas y lo
+             * resuelve el controlador —la ruta no lleva id—, igual que el
+             * resto de los portales.
+             */
+            'ver-mi-proceso-formativo' => ['Ver mi servicio social o prácticas', 'Portal del alumno: si ya puede empezar, qué le falta exactamente y qué exige su programa.', [self::ALUMNO]],
         ],
 
         'Disciplina' => [

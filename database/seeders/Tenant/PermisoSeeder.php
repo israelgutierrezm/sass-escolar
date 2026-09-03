@@ -76,6 +76,7 @@ class PermisoSeeder extends Seeder
         'alumno' => [
             'ver-mis-cursos', 'editar-mi-expediente-alumno', 'ver-historial-academico', 'ver-adeudos',
             'ver-recursos-digitales', 'solicitar-servicios', 'ver-vacantes',
+            'ver-mi-proceso-formativo',
         ],
         // El interesado llena lo suyo desde `/mi-solicitud`. No ve nada más:
         // su alcance es su propia persona, no un permiso amplio.
