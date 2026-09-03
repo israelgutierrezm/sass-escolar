@@ -232,6 +232,33 @@ final class CatalogoPermisos
             'auditar-reportes' => ['Auditar el uso de los reportes', 'Ver quien corrio cada reporte, con que filtros y cuantas filas se llevo. NO concede ver los datos de ningun reporte: la bitacora guarda lo que se pidio, no lo que salio.', [self::ADMINISTRATIVO]],
         ],
 
+        /*
+         * Servicio social, prácticas y demás procesos formativos.
+         *
+         * ── Sólo se declara lo que YA tiene lector ────────────────────────
+         * El módulo se construye por fases y su matriz completa de permisos
+         * está en `docs/plan-procesos-formativos.md` §4. Aquí llega cada uno
+         * el día que existe la ruta que lo comprueba: un permiso declarado sin
+         * puerta se palomea en `/plataforma/roles` creyendo que concede algo, y
+         * este proyecto ya tuvo que retirar dos así —`ver-personas` y
+         * `crear-personas`—.
+         *
+         * ── Y las separaciones que vienen, para que no se fundan ──────────
+         * Cuando lleguen: REVISAR horas ≠ APROBARLAS (quien captura en
+         * ventanilla no es quien valida que ese tiempo cuente); aprobar
+         * SOLICITUDES ≠ aprobar EXCEPCIONES (saltarse un requisito configurado
+         * es un acto de dirección); y LIBERAR ≠ CORREGIR una liberación
+         * (emitir es rutina, enmendar lo emitido es excepción, como en los
+         * movimientos escolares).
+         *
+         * Ninguno ignora el ALCANCE: el permiso dice QUÉ, y el campus y la
+         * asignación dicen SOBRE QUIÉN.
+         */
+        'Servicio social y prácticas' => [
+            'configurar-procesos-formativos' => ['Configurar los procesos', 'Los tipos de proceso —servicio social, prácticas, residencia…— y sus catálogos: qué exige cada uno y si lleva bitácora de horas.', [self::ADMINISTRATIVO]],
+            'ver-procesos-formativos' => ['Consultar servicio social y prácticas', 'Sólo lectura del módulo, para dirección y auditoría.', [self::ADMINISTRATIVO]],
+        ],
+
         'Disciplina' => [
             'gestionar-incidencias' => ['Gestionar incidencias', 'Registrar y editar las incidencias de conducta de los alumnos.', [self::ADMINISTRATIVO]],
             'levantar-incidencia' => ['Levantar una incidencia', 'Que el docente registre una incidencia de un alumno de sus grupos.', [self::DOCENTE]],

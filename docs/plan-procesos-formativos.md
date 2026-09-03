@@ -1,8 +1,11 @@
 # Servicio social, prácticas y estancias profesionales
 
-Plan de diseño e implementación. **Nada de esto está construido todavía**: este
-documento es el paso previo que el pedido exige —recorrer el repositorio,
-documentar qué se reutiliza y presentar el diseño antes de tocar una tabla—.
+Plan de diseño e implementación. Se escribió ANTES de tocar una tabla, que es
+el paso que el pedido exige: recorrer el repositorio, documentar qué se
+reutiliza y presentar el diseño.
+
+**Avance: fase 1 hecha** (2026-09-03) — el módulo, sus siete catálogos y su
+pantalla. Las fases 2 a 8 están por construir; §9 lleva el detalle.
 
 ---
 
@@ -413,6 +416,12 @@ se purgan a los N días por un comando. Nunca obligatoria.
 
 Dominio `Servicio social y prácticas` en `CatalogoPermisos`.
 
+> **Se declaran POR FASE, no de golpe.** Un permiso sin una ruta que lo
+> compruebe se palomea en `/plataforma/roles` creyendo que concede algo, y este
+> proyecto ya tuvo que retirar dos así (`ver-personas`, `crear-personas`). La
+> fase 1 dejó los dos primeros —`configurar-procesos-formativos` y
+> `ver-procesos-formativos`—; el resto llega con la ruta que los lee.
+
 | Permiso | Faceta | Qué abre |
 |---|---|---|
 | `configurar-procesos-formativos` | administrativo | Tipos, reglas y sus versiones. |
@@ -595,7 +604,7 @@ Cada fase es entregable y verificable sola. Ninguna es andamio de la siguiente.
 
 | # | Fase | Qué entrega |
 |---|---|---|
-| **1** | **Cimientos y catálogos** | Módulo, permisos, menú, los siete catálogos con seeder y su pantalla. Verificable: apagar el módulo da 404; una escuela agrega un tipo y aparece. |
+| ~~**1**~~ | ~~**Cimientos y catálogos**~~ **HECHA** | Módulo `procesos_formativos` encendido, sección propia en el menú, los siete catálogos con seeder y su pantalla. Comprobado: apagar el módulo lo apaga de verdad; un tipo inventado desde pantalla funciona igual que los de fábrica; lo que algo usa no se borra ni se apaga. `scripts/prueba-procesos-catalogos.php`, 31 verificaciones. |
 | **2** | **Organizaciones, convenios y plazas** | El padrón completo, convenios versionados con alerta de vencimiento, plazas con cupo protegido. |
 | **3** | **Reglas versionadas + elegibilidad** | El resolutor, el congelamiento y `/mi-servicio-social` contestando **qué falta y por qué**. Sin expediente todavía: ya se puede configurar y ya se puede saber si uno es elegible. |
 | **4** | **Solicitud, revisión y asignación** | La máquina de estados de `borrador` a `asignado`, con documentos y excepciones auditadas. |

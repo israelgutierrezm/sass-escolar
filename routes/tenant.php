@@ -117,6 +117,7 @@ use App\Http\Controllers\PlanCobroController;
 use App\Http\Controllers\PlanEstudioController;
 use App\Http\Controllers\PlanMateriaController;
 use App\Http\Controllers\PlantillaEvaluacionController;
+use App\Http\Controllers\ProcesosFormativos\CatalogoProcesosController;
 use App\Http\Controllers\Plataforma\AvisoController;
 use App\Http\Controllers\Plataforma\CalendarioController;
 use App\Http\Controllers\Plataforma\ClimaController;
@@ -2393,6 +2394,36 @@ Route::middleware([
                 Route::get('{clave}', 'ver')->name('ver');
                 Route::get('{clave}/descargar/{formato}', 'descargar')
                     ->whereIn('formato', ['xlsx', 'csv'])->name('descargar');
+            });
+
+        /*
+         * Servicio social, practicas y demas procesos formativos.
+         *
+         * Seccion propia y NO dentro de «Alumnos»: tiene tres oficios con
+         * facetas distintas --el administrativo, el alumno y, mas adelante, el
+         * supervisor externo-- y nueve pantallas administrativas. Es lo que
+         * obligo a sacar «Mis vacantes» de esa misma seccion cuando se
+         * reorganizo la bolsa.
+         *
+         * Se ENTRA con `ver-procesos-formativos` --direccion y auditoria leen--
+         * y se TOCA con `configurar-procesos-formativos`, que cada accion
+         * comprueba encima. El listado no es una defensa.
+         */
+        Route::middleware(['modulo:procesos_formativos', 'can:ver-procesos-formativos'])
+            ->prefix('procesos')->name('tenant.procesos.')
+            ->group(function () {
+                Route::controller(CatalogoProcesosController::class)
+                    ->prefix('catalogos')->name('catalogos.')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+
+                        Route::middleware('can:configurar-procesos-formativos')->group(function () {
+                            Route::post('{catalogo}', 'store')->name('crear');
+                            Route::put('{catalogo}/{item}', 'update')->whereNumber('item')->name('guardar');
+                            Route::patch('{catalogo}/{item}/activo', 'alternar')->whereNumber('item')->name('activo');
+                            Route::delete('{catalogo}/{item}', 'destroy')->whereNumber('item')->name('eliminar');
+                        });
+                    });
             });
 
         Route::middleware('modulo:disciplina')->group(function () {

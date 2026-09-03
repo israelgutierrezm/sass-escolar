@@ -35,7 +35,20 @@ for (const g of CATALOGO_MENU) {
     for (const h of g.hijos) recoger(h);
 }
 
-const MODULOS = ['reportes', 'servicios', 'recursos_digitales', 'bolsa_trabajo', 'nomina', 'movilidad', 'disciplina'];
+// Todos los modulos que el catalogo menciona, DERIVADOS y no escritos a mano:
+// con una lista fija, agregar un modulo nuevo dejaba su seccion fuera de la
+// revision y la suite lo reportaba como una hoja perdida. Lo que aqui se
+// comprueba es la forma del arbol, no el apagado por modulo --eso lo vigila
+// `filtrar` y se mira en el navegador--.
+const MODULOS: string[] = [];
+for (const g of CATALOGO_MENU) {
+    const recoger = (o: any): void => {
+        if (o.modulo) MODULOS.push(o.modulo);
+        for (const h of o.hijos ?? []) recoger(h);
+    };
+    if (g.modulo) MODULOS.push(g.modulo);
+    for (const h of g.hijos) recoger(h);
+}
 
 console.log('== Sin disposición guardada (el caso de una escuela nueva)');
 const limpio = construirNavegacion(null, TODOS, 'administrativo', [], MODULOS);

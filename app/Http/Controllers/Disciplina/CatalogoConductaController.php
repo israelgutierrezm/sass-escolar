@@ -52,7 +52,7 @@ class CatalogoConductaController extends Controller
      *     etiqueta: string,
      *     singular: string,
      *     enUso: callable(int): bool,
-     *     extra: array{campo: string, tipo: string, etiqueta: string, ayuda: string, max?: int}
+     *     extras: array<int, array{campo: string, tipo: string, etiqueta: string, ayuda: string, insignia?: string, max?: int}>
      * }>
      */
     private function registro(): array
@@ -63,58 +63,63 @@ class CatalogoConductaController extends Controller
                 'etiqueta' => 'Tipos de incidencia',
                 'singular' => 'tipo de incidencia',
                 'enUso' => fn (int $id) => DB::table('incidencias')->whereNull('deleted_at')->where('tipo_incidencia_id', $id)->exists(),
-                'extra' => [
+                'extras' => [[
                     'campo' => 'nivel',
                     'tipo' => 'entero',
                     'etiqueta' => 'Nivel de gravedad',
                     'ayuda' => '1 es leve; un número mayor es más grave. El listado lo pinta por color.',
+                    'insignia' => 'Nivel',
                     'max' => 9,
-                ],
+                ]],
             ],
             'sancion' => [
                 'modelo' => TipoSancion::class,
                 'etiqueta' => 'Tipos de sanción',
                 'singular' => 'tipo de sanción',
                 'enUso' => fn (int $id) => DB::table('sanciones')->whereNull('deleted_at')->where('tipo_sancion_id', $id)->exists(),
-                'extra' => [
+                'extras' => [[
                     'campo' => 'tiene_vigencia',
                     'tipo' => 'bandera',
                     'etiqueta' => 'Tiene vigencia',
                     'ayuda' => 'Encendido, el formulario pide fecha de inicio y fin (una suspensión); apagado, es puntual (una amonestación).',
-                ],
+                    'insignia' => 'Con vigencia',
+                ]],
             ],
         ];
     }
 
     public function index(): Response
     {
+        /*
+         * `extras` es una LISTA aunque aquí sólo haya una por catálogo.
+         *
+         * `CatalogoEditable` la comparte con los catálogos de servicio social,
+         * que traen cuatro banderas en el mismo tipo. Con una forma distinta
+         * para cada consumidor volveríamos a tener dos pantallas que hacen lo
+         * mismo, que es de lo que se salió.
+         */
         $catalogos = collect($this->registro())->map(function (array $def, string $clave) {
             $modelo = $def['modelo'];
-            $extra = $def['extra'];
+            $extras = $def['extras'];
+            $campos = array_column($extras, 'campo');
 
             return [
                 'clave' => $clave,
                 'etiqueta' => $def['etiqueta'],
                 'singular' => $def['singular'],
-                'extra' => [
-                    'campo' => $extra['campo'],
-                    'tipo' => $extra['tipo'],
-                    'etiqueta' => $extra['etiqueta'],
-                    'ayuda' => $extra['ayuda'],
-                ],
+                'extras' => $extras,
                 'items' => $modelo::query()
                     ->orderBy('orden')
                     ->orderBy('nombre')
-                    ->get(['id', 'clave', 'nombre', 'descripcion', 'orden', 'activo', $extra['campo']])
-                    ->map(fn (Model $m) => [
+                    ->get(array_merge(['id', 'clave', 'nombre', 'descripcion', 'orden', 'activo'], $campos))
+                    ->map(fn (Model $m) => array_merge([
                         'id' => $m->id,
                         'clave' => $m->clave,
                         'nombre' => $m->nombre,
                         'descripcion' => $m->descripcion,
                         'activo' => (bool) $m->activo,
                         'en_uso' => ($def['enUso'])($m->id),
-                        $extra['campo'] => $m->{$extra['campo']},
-                    ]),
+                    ], collect($campos)->mapWithKeys(fn (string $c) => [$c => $m->{$c}])->all())),
             ];
         })->values();
 
@@ -195,13 +200,12 @@ class CatalogoConductaController extends Controller
     }
 
     /**
-     * @param  array{modelo: class-string<Model>, extra: array<string, mixed>}  $def
+     * @param  array{modelo: class-string<Model>, extras: array<int, array<string, mixed>>}  $def
      * @return array<string, mixed>
      */
     private function validar(Request $request, array $def, ?int $id = null): array
     {
         $tabla = (new $def['modelo'])->getTable();
-        $extra = $def['extra'];
 
         $reglas = [
             'clave' => ['required', 'string', 'max:50', Rule::unique($tabla, 'clave')->ignore($id)->whereNull('deleted_at')],
@@ -209,19 +213,35 @@ class CatalogoConductaController extends Controller
             'descripcion' => ['nullable', 'string', 'max:1000'],
         ];
 
-        $reglas[$extra['campo']] = match ($extra['tipo']) {
-            'entero' => ['required', 'integer', 'min:1', 'max:'.($extra['max'] ?? 9)],
-            'bandera' => ['required', 'boolean'],
-            default => ['nullable'],
-        };
+        foreach ($def['extras'] as $extra) {
+            $reglas[$extra['campo']] = match ($extra['tipo']) {
+                'entero' => ['required', 'integer', 'min:1', 'max:'.($extra['max'] ?? 9)],
+                'bandera' => ['required', 'boolean'],
+                default => ['nullable'],
+            };
+        }
 
-        return $request->validate($reglas, [
+        $datos = $request->validate($reglas, [
             'clave.unique' => 'Ya existe un registro con esa clave en este catálogo.',
         ]);
+
+        /*
+         * Validar NO es convertir: la regla `boolean` ACEPTA la cadena «1» —lo
+         * que manda una casilla— y devuelve el valor tal cual. Aquí lo salva el
+         * `casts()` del modelo, pero se convierte igual para que lo que se pasa
+         * a `create()`/`update()` sea del tipo que dice ser.
+         */
+        foreach ($def['extras'] as $extra) {
+            if ($extra['tipo'] === 'bandera') {
+                $datos[$extra['campo']] = filter_var($datos[$extra['campo']], FILTER_VALIDATE_BOOLEAN);
+            }
+        }
+
+        return $datos;
     }
 
     /**
-     * @return array{modelo: class-string<Model>, etiqueta: string, singular: string, enUso: callable, extra: array<string, mixed>}
+     * @return array{modelo: class-string<Model>, etiqueta: string, singular: string, enUso: callable, extras: array<int, array<string, mixed>>}
      */
     private function definicion(string $catalogo): array
     {

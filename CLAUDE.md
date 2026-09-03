@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**129 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**130 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -65,7 +65,7 @@ Los otros dos documentos vivos:
    un rol con disposición guardada. Si node no puede correrlo, la suite FALLA
    en vez de saltarse.
 
-   **Las 129 están en verde**, barridas el 2026-09-03. Catorce son del módulo de
+   **Las 130 están en verde**, barridas el 2026-09-03. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -771,6 +771,79 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
   CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
   adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
+- **Servicio social, prácticas y estancias profesionales · FASE 1** (2026-09-03,
+  pedido del cliente). Módulo `procesos_formativos`, sección propia
+  «Servicio social y prácticas», `/procesos/catalogos`. **El diseño completo
+  —modelo funcional, máquina de estados, modelo de datos, matriz de permisos,
+  integraciones, migraciones, casos límite, pruebas y las ocho fases— vive en
+  `docs/plan-procesos-formativos.md`**, escrito ANTES de tocar una tabla porque
+  el pedido lo exigía así.
+  - **Lo que el reconocimiento encontró, y cambia el diseño:**
+    - La spec **SÍ** trae una tabla `servicio_social` (Módulo 9) y es la mínima:
+      cumplimiento, fundamento legal, horas y fechas. Es la que se implementó
+      como `titulo_servicio_social`, dos columnas que alimentan el XML del
+      título. **La spec nunca diseñó un módulo de gestión**, así que esto es
+      dominio nuevo —como Disciplina y Movimientos escolares— y no una relectura
+      de la spec. Y **no se toca**, por instrucción del cliente.
+    - **`empresas` (bolsa) e `instituciones_aliadas` (movilidad) NO sirven de
+      padrón.** La primera es de EMPLEADORES y vive detrás de un módulo
+      apagable: una escuela que apague la bolsa se quedaría sin sus
+      organizaciones receptoras, y su situación «vetada» es un concepto de
+      contratación. La segunda es de instituciones académicas aliadas. Es el
+      mismo argumento que este proyecto ya escribió para los convenios de
+      descuento. Lo que sí se copia es la FORMA de `convenios`: fechas,
+      situación, documento, y vencido ≠ suspendido.
+    - **`estancias` ya existe** en Movilidad y es otra cosa —el periodo de un
+      intercambio académico, del que cuelga la revalidación—, así que el tipo se
+      llama «estancia profesional» y su tabla no se llamará así.
+  - **Dos decisiones que se apartan de la letra del pedido**, con su razón
+    escrita en el plan: **doce estados y no diecisiete**
+    —`elegible`/`no_elegible` se CALCULAN, y `pendiente_informe_final`,
+    `pendiente_evaluacion` y `pendiente_liberacion` son un solo `concluido` con
+    la lista de impedimentos—; y **sección propia y no dentro de «Alumnos»**,
+    porque tiene tres oficios con facetas distintas. La integración con
+    titulación se construirá por el lado que PREGUNTA y se dejará SIN CABLEAR,
+    que es lo único compatible con «no modifiques titulación ni certificación».
+  - **De la fase 1, lo que hay que saber:**
+    - Siete catálogos TENANT-CONFIG, y lo que el código consulta son sus
+      BANDERAS —`exige_organizacion`, `cuenta_horas`, `acepta_asignaciones`,
+      `es_final`—, nunca la clave. Comprobado con el caso que separa las dos
+      formas: un tipo que la escuela inventa, con un nombre que ningún `match`
+      conoce, se comporta como los de fábrica.
+    - **Los permisos se declaran POR FASE.** La matriz completa está en el plan;
+      en `CatalogoPermisos` llegan los dos que ya tienen ruta que los compruebe.
+      Un permiso sin puerta se palomea creyendo que concede algo, y este
+      proyecto ya retiró dos así.
+    - **`enUso` comprueba que la tabla EXISTA** antes de consultarla: las que
+      consumirán estos catálogos llegan en las fases 2 a 5, y sin la guarda la
+      pantalla reventaría con «table doesn't exist».
+  - **`CatalogoEditable.vue`**: la lista, el alta y el apagado de un catálogo
+    salieron de `CatalogosConducta.vue` a un componente compartido al aparecer
+    el tercer consumidor. Se generalizó lo justo: `base` (el prefijo de rutas) y
+    `extras` (N banderas en vez de una — el tipo de proceso trae cuatro).
+  - **Y un defecto que sólo se vio USÁNDOLO, de la peor familia:**
+    **`useForm` de Inertia FIJA sus campos al construirse.** Los que se agregan
+    después existen en el objeto y **no viajan en `data()`**. Como aquí los
+    campos dependen del catálogo —cuatro banderas en uno, ninguna en otro— y
+    sólo se saben al abrir el diálogo, el formulario quedó MUDO: se pulsaba
+    «Agregar» y no salía ni una petición, sin un solo error en la consola y con
+    el botón habilitado. Ni la suite lo veía —invoca al controlador— ni la
+    revisión de código. Se cambió por un `ref` llano con `router.post`.
+    Es el mismo síntoma que el «Firmar el convenio» que era un `submit` fuera de
+    un `<form>`.
+  - Pruebas: `scripts/prueba-procesos-catalogos.php`, 31 verificaciones.
+  - **Y una trampa del método, nueva y cara**: **`CREATE TABLE` hace COMMIT
+    IMPLÍCITO en MySQL.** Ejecutado dentro de la transacción de una suite,
+    confirma TODO lo escrito hasta ese punto y el `rollBack()` final ya no
+    alcanza nada. Dejó cuatro personas y un tipo de proceso en el demo. El DDL
+    va fuera, y sólo si la tabla no existe ya —el día que la fase 4 la
+    construya, la suite no debe ni crearla ni tirarla—. Es la misma familia que
+    `tenancy()->end()` dentro de una transacción, descubierta el mismo día.
+  - Verificado en el navegador: la sección en la barra, los siete catálogos con
+    sus insignias de bandera, agregar un tipo con dos banderas encendidas,
+    editarlo quitándole una, apagarlo, borrarlo — y la pantalla de conducta
+    intacta tras el refactor. **Los datos se retiraron.**
+
 - **Reportes · rebanada 10, el CONSTRUCTOR** (2026-09-03). `/reportes/constructor`,
   con `gestionar-areas-reporte`. Con esto el módulo de Reportes queda cerrado.
   - **El criterio de entrada de §7 seguía SIN cumplirse y se dice**: cero
