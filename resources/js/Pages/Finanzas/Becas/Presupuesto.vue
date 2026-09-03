@@ -215,7 +215,7 @@ function guardarPatrocinador(p: Patrocinador): void {
 
                             <tr v-if="editando === b.patrocinador_id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
                                 <td colspan="6" class="px-6 py-4" style="background-color: color-mix(in srgb, var(--color-acento) 4%, transparent)">
-                                    <form class="flex flex-wrap items-end gap-3" @submit.prevent="guardarBolsa">
+                                    <form class="flex flex-wrap items-start gap-3" @submit.prevent="guardarBolsa">
                                         <CampoTexto
                                             v-model.number="bolsa.monto"
                                             etiqueta="Monto asignado"
@@ -226,7 +226,7 @@ function guardarPatrocinador(p: Patrocinador): void {
                                         <div class="min-w-0 flex-1">
                                             <CampoTexto v-model="bolsa.notas" etiqueta="Notas" :error="bolsa.errors.notas" />
                                         </div>
-                                        <BotonPrincipal :procesando="bolsa.processing" texto="Guardar" icono="ninguno" />
+                                        <BotonPrincipal class="alinea-con-campo" :procesando="bolsa.processing" texto="Guardar" icono="ninguno" />
                                     </form>
                                 </td>
                             </tr>

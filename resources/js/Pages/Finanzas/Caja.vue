@@ -115,7 +115,7 @@ function autorizar(c: Corte): void {
             :icono="ICONOS.dinero"
         >
             <!-- Sin turno -->
-            <form v-if="!sesion" class="flex flex-wrap items-end gap-3" @submit.prevent="abrir">
+            <form v-if="!sesion" class="flex flex-wrap items-start gap-3" @submit.prevent="abrir">
                 <div v-if="disponibles.length" class="min-w-[14rem]">
                     <CampoSelect
                         v-model="apertura.caja_id"
@@ -135,6 +135,7 @@ function autorizar(c: Corte): void {
                     />
                 </div>
                 <BotonPrincipal
+                    class="alinea-con-campo"
                     v-if="disponibles.length"
                     :procesando="apertura.processing"
                     texto="Abrir turno"
@@ -214,7 +215,7 @@ function autorizar(c: Corte): void {
 
                 <form class="mt-5 border-t pt-4" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="cerrar">
                     <p class="text-sm font-medium">Cerrar el turno</p>
-                    <div class="mt-3 flex flex-wrap items-end gap-3">
+                    <div class="mt-3 flex flex-wrap items-start gap-3">
                         <CampoTexto
                             v-model.number="cierre.efectivo_contado"
                             etiqueta="Efectivo contado"
@@ -230,7 +231,7 @@ function autorizar(c: Corte): void {
                                 ayuda="Opcional. Lo que haya que explicar del turno."
                             />
                         </div>
-                        <BotonPrincipal :procesando="cierre.processing" texto="Cerrar turno" icono="ninguno" />
+                        <BotonPrincipal class="alinea-con-campo" :procesando="cierre.processing" texto="Cerrar turno" icono="ninguno" />
                     </div>
 
                     <!--
@@ -340,7 +341,7 @@ function autorizar(c: Corte): void {
 
                             <tr v-if="autorizando === c.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
                                 <td colspan="7" class="px-6 py-4">
-                                    <form class="flex flex-wrap items-end gap-3" @submit.prevent="autorizar(c)">
+                                    <form class="flex flex-wrap items-start gap-3" @submit.prevent="autorizar(c)">
                                         <div class="min-w-0 flex-1">
                                             <CampoTexto
                                                 v-model="autorizacion.motivo"
@@ -351,6 +352,7 @@ function autorizar(c: Corte): void {
                                             />
                                         </div>
                                         <BotonPrincipal
+                                            class="alinea-con-campo"
                                             :procesando="autorizacion.processing"
                                             :deshabilitado="autorizacion.motivo.trim() === ''"
                                             texto="Autorizar"

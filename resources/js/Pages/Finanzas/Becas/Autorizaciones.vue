@@ -117,7 +117,7 @@ function firmar(p: Pendiente): void {
                             </tr>
                             <tr v-if="firmando === p.id" class="border-t" :style="{ borderColor: 'var(--color-borde)' }">
                                 <td colspan="5" class="px-6 py-4">
-                                    <form class="flex flex-col gap-3 sm:flex-row sm:items-end" @submit.prevent="firmar(p)">
+                                    <form class="flex flex-col gap-3 sm:flex-row sm:items-start" @submit.prevent="firmar(p)">
                                         <div class="flex-1 min-w-0">
                                             <CampoTexto
                                                 v-model="motivo"
@@ -126,6 +126,7 @@ function firmar(p: Pendiente): void {
                                             />
                                         </div>
                                         <BotonPrincipal
+                                            class="alinea-con-campo"
                                             :procesando="enviando"
                                             cargando="Firmando…"
                                             :texto="p.faltan > 1 ? 'Firmar mi nivel' : 'Firmar y activar la beca'"

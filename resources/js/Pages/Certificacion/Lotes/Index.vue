@@ -109,7 +109,7 @@ const colorEstadoSolido: Record<string, string> = {
         <SaldoDeEmision :saldo="saldo" class="mb-4" />
 
         <form v-if="creando" class="tarjeta mb-6 p-5" @submit.prevent="crear">
-            <div class="flex flex-wrap items-end gap-3">
+            <div class="flex flex-wrap items-start gap-3">
                 <div class="min-w-64 flex-1">
                     <CampoTexto
                         v-model="form.nombre"
@@ -135,7 +135,7 @@ const colorEstadoSolido: Record<string, string> = {
                         </button>
                     </div>
                 </div>
-                <BotonPrincipal :procesando="form.processing" texto="Crear lote" />
+                <BotonPrincipal class="alinea-con-campo" :procesando="form.processing" texto="Crear lote" />
                 <button
                     type="button"
                     class="rounded-lg border px-4 py-2 text-sm"

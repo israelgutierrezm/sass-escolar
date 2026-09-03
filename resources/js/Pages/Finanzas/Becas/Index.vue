@@ -183,7 +183,7 @@ const etiquetaPromedio: Record<string, string> = {
                 </span>
             </template>
 
-            <div class="grid items-end gap-4 sm:grid-cols-3">
+            <div class="grid items-start gap-4 sm:grid-cols-3">
                 <div class="sm:col-span-2">
                     <CampoSelect
                         v-model="renovacion.ciclo_id"
@@ -195,6 +195,7 @@ const etiquetaPromedio: Record<string, string> = {
                     />
                 </div>
                 <BotonPrincipal
+                    class="alinea-con-campo"
                     :procesando="renovacion.processing"
                     texto="Evaluar renovación"
                     :deshabilitado="!renovacion.ciclo_id"

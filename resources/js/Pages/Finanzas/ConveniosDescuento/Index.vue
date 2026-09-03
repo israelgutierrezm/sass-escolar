@@ -152,11 +152,11 @@ function terminar(c: Convenio): void {
                     que nadie lo decidiera.
                 </p>
 
-                <div class="mt-4 flex flex-wrap items-end gap-4">
+                <div class="mt-4 flex flex-wrap items-start gap-4">
                     <div class="w-48">
                         <CampoSelect v-model="estatus" etiqueta="Estatus" :opciones="estatuses" vacio="Todos" @update:model-value="filtrar" />
                     </div>
-                    <BotonPrincipal v-if="!creando" tipo="button" texto="Nuevo convenio" icono="crear" @click="creando = true; editando = null; datos.reset()" />
+                    <BotonPrincipal class="alinea-con-campo" v-if="!creando" tipo="button" texto="Nuevo convenio" icono="crear" @click="creando = true; editando = null; datos.reset()" />
                 </div>
 
                 <form v-if="creando" class="mt-4 grid gap-4 rounded-lg border p-4 sm:grid-cols-2 lg:grid-cols-3" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="guardar()">
@@ -258,17 +258,17 @@ function terminar(c: Convenio): void {
                                         Este convenio todavía no tiene términos: sin una beca atada no descuenta nada.
                                     </p>
 
-                                    <form v-if="c.estatus === 'vigente' && becasLibres.length" class="mt-3 flex flex-wrap items-end gap-2" @submit.prevent="atarBeca(c)">
+                                    <form v-if="c.estatus === 'vigente' && becasLibres.length" class="mt-3 flex flex-wrap items-start gap-2" @submit.prevent="atarBeca(c)">
                                         <div class="w-64">
                                             <CampoSelect v-model="atar.beca_id" etiqueta="Atar una beca" :opciones="becasLibres" vacio="Elige…" :error="atar.errors.beca_id" />
                                         </div>
-                                        <BotonPrincipal :procesando="atar.processing" :deshabilitado="!atar.beca_id" texto="Atar" icono="ninguno" />
+                                        <BotonPrincipal class="alinea-con-campo" :procesando="atar.processing" :deshabilitado="!atar.beca_id" texto="Atar" icono="ninguno" />
                                     </form>
 
                                     <div v-if="c.estatus === 'vigente'" class="mt-4">
                                         <BotonPrincipal tipo="button" texto="Terminar el convenio" icono="ninguno" @click="terminando = terminando === c.id ? null : c.id; termino.motivo = ''" />
 
-                                        <form v-if="terminando === c.id" class="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end" @submit.prevent="terminar(c)">
+                                        <form v-if="terminando === c.id" class="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start" @submit.prevent="terminar(c)">
                                             <div class="min-w-0 flex-1">
                                                 <CampoTexto
                                                     v-model="termino.motivo"
@@ -278,7 +278,7 @@ function terminar(c: Convenio): void {
                                                     ayuda="Se le va a quitar el descuento a las familias que lo tenían, y sus cargos pendientes se recompondrán."
                                                 />
                                             </div>
-                                            <BotonPrincipal :procesando="termino.processing" :deshabilitado="!termino.motivo.trim()" texto="Terminar" />
+                                            <BotonPrincipal class="alinea-con-campo" :procesando="termino.processing" :deshabilitado="!termino.motivo.trim()" texto="Terminar" />
                                         </form>
                                     </div>
                                 </td>

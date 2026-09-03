@@ -217,7 +217,7 @@ function quitar(a: AlumnoFila): void {
             desplazarse porque la lista es larga y el botón vive aquí.
         -->
         <section class="tarjeta mb-4 p-5 lg:sticky lg:top-4 lg:z-10">
-            <div class="flex flex-wrap items-end gap-4">
+            <div class="flex flex-wrap items-start gap-4">
                 <div class="w-72">
                     <CampoSelect
                         v-model="form.tutor_persona_id"
@@ -232,6 +232,7 @@ function quitar(a: AlumnoFila): void {
                 </div>
 
                 <BotonPrincipal
+                    class="alinea-con-campo"
                     :procesando="form.processing"
                     :deshabilitado="elegidos.length === 0 || form.tutor_persona_id === null"
                     :texto="elegidos.length === 0 ? 'Asignar' : `Asignar a ${elegidos.length}`"

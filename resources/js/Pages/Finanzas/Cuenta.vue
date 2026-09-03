@@ -516,7 +516,7 @@ function firmarConvenio(): void {
                         Saldo elegido: <strong class="tabular-nums">{{ pesos.format(totalElegido) }}</strong>
                     </p>
 
-                    <div class="mt-4 flex flex-wrap items-end gap-3">
+                    <div class="mt-4 flex flex-wrap items-start gap-3">
                         <div class="w-44">
                             <CampoTexto v-model="convenio.firmado_en" tipo="date" etiqueta="Firmado el" requerido :error="convenio.errors.firmado_en" />
                         </div>
@@ -526,14 +526,14 @@ function firmarConvenio(): void {
                     </div>
 
                     <div class="mt-4 space-y-2">
-                        <div v-for="(p, i) in convenio.parcialidades" :key="i" class="flex flex-wrap items-end gap-2">
+                        <div v-for="(p, i) in convenio.parcialidades" :key="i" class="flex flex-wrap items-start gap-2">
                             <div class="w-44">
                                 <CampoTexto v-model="p.fecha" tipo="date" :etiqueta="`Parcialidad ${i + 1}`" />
                             </div>
                             <div class="w-36">
                                 <CampoTexto v-model="p.monto" tipo="number" paso="0.01" min="0" etiqueta="Importe" />
                             </div>
-                            <BotonAccion variante="eliminar" @click="quitarParcialidad(i)" />
+                            <BotonAccion class="alinea-con-campo" variante="eliminar" @click="quitarParcialidad(i)" />
                         </div>
                         <BotonAccion variante="agregar" texto="Agregar parcialidad" @click="agregarParcialidad" />
                     </div>

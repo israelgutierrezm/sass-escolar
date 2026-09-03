@@ -185,7 +185,7 @@ function cambio(p: Periodo): boolean {
                                 :style="{ borderColor: 'var(--color-borde)' }"
                             >
                                 <td colspan="6" class="px-6 py-4">
-                                    <form class="flex flex-wrap items-end gap-3" @submit.prevent="reabrir">
+                                    <form class="flex flex-wrap items-start gap-3" @submit.prevent="reabrir">
                                         <div class="min-w-0 flex-1">
                                             <CampoTexto
                                                 v-model="reabriendo.motivo"
@@ -196,6 +196,7 @@ function cambio(p: Periodo): boolean {
                                             />
                                         </div>
                                         <BotonPrincipal
+                                            class="alinea-con-campo"
                                             :procesando="reabriendo.processing"
                                             :deshabilitado="reabriendo.motivo.trim() === ''"
                                             texto="Reabrir el periodo"

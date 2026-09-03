@@ -283,7 +283,7 @@ function automatico(): void {
                                         Es una salida del banco: no puede ser un cobro. Di qué es.
                                     </p>
 
-                                    <form class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end" @submit.prevent="guardarClasificacion(m)">
+                                    <form class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start" @submit.prevent="guardarClasificacion(m)">
                                         <div class="w-full sm:w-64">
                                             <CampoSelect
                                                 v-model="clasificar.clasificacion"
@@ -296,7 +296,7 @@ function automatico(): void {
                                         <div class="min-w-0 flex-1">
                                             <CampoTexto v-model="clasificar.nota" etiqueta="Nota" :error="clasificar.errors.nota" />
                                         </div>
-                                        <BotonPrincipal :procesando="clasificar.processing" texto="Guardar" />
+                                        <BotonPrincipal class="alinea-con-campo" :procesando="clasificar.processing" texto="Guardar" />
                                     </form>
                                 </td>
                             </tr>

@@ -585,6 +585,25 @@
     .fondo-acento {
         background-color: var(--color-acento);
     }
+
+    /*
+     * Un botón que acompaña a un campo con etiqueta, en la misma fila.
+     *
+     * ── Por qué no basta con `items-end` ──────────────────────────────────
+     * Un `Campo*` es un BLOQUE: etiqueta, caja y —debajo— su ayuda o su error.
+     * `items-end` alinea el botón con el borde inferior de todo eso, así que
+     * queda POR DEBAJO de la caja y la fila se ve chueca; medido en la
+     * renovación de becas, 21 px de desfase entre centros. Y con `items-center`
+     * pasa lo mismo por el otro lado.
+     *
+     * Aquí el contenedor va con `items-start` y el botón baja lo que mide la
+     * etiqueta: `text-sm` (1.25rem de interlínea) + su `mb-1` (0.25rem). Así se
+     * alinea con la CAJA del campo y —lo importante— no se mueve cuando aparece
+     * un mensaje de error debajo.
+     */
+    .alinea-con-campo {
+        margin-top: 1.5rem;
+    }
 }
 
 @layer utilities {

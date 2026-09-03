@@ -292,7 +292,7 @@ const etiquetaAccion: Record<string, string> = {
                                         </li>
                                     </ul>
 
-                                    <form class="mb-4 flex flex-wrap items-end gap-2" @submit.prevent="subirEvidencia(o)">
+                                    <form class="mb-4 flex flex-wrap items-start gap-2" @submit.prevent="subirEvidencia(o)">
                                         <div class="w-56"><CampoTexto v-model="evidencia.nombre" etiqueta="Nombre" :error="evidencia.errors.nombre" /></div>
                                         <div class="w-56"><CampoTexto v-model="evidencia.notas" etiqueta="Notas" :error="evidencia.errors.notas" /></div>
                                         <div class="w-64">
@@ -300,7 +300,7 @@ const etiquetaAccion: Record<string, string> = {
                                             <input type="file" accept=".pdf,.jpg,.jpeg,.png" class="mt-1 text-xs" @change="tomarArchivo" />
                                             <p v-if="evidencia.errors.archivo" class="mt-1 text-xs" :style="{ color: 'var(--color-peligro)' }">{{ evidencia.errors.archivo }}</p>
                                         </div>
-                                        <BotonPrincipal type="submit" :disabled="evidencia.processing">Subir</BotonPrincipal>
+                                        <BotonPrincipal class="alinea-con-campo" type="submit" :disabled="evidencia.processing">Subir</BotonPrincipal>
                                     </form>
 
                                     <p class="mb-2 text-xs font-medium" :style="{ color: 'var(--color-suave)' }">Movimientos</p>

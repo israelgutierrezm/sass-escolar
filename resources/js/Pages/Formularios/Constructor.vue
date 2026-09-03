@@ -357,7 +357,7 @@ const etiquetaAmbito = (tipo: string | null) =>
                                 </ul>
 
                                 <div v-if="editable" class="mt-2">
-                                    <div v-if="agregandoOpcionEn === campo.id" class="flex flex-wrap items-end gap-2">
+                                    <div v-if="agregandoOpcionEn === campo.id" class="flex flex-wrap items-start gap-2">
                                         <div class="w-48">
                                             <CampoTexto v-model="formOpcion.etiqueta" etiqueta="Etiqueta" :error="formOpcion.errors.etiqueta" />
                                         </div>
@@ -365,6 +365,7 @@ const etiquetaAmbito = (tipo: string | null) =>
                                             <CampoTexto v-model="formOpcion.valor" etiqueta="Valor" mono ayuda="Opcional." />
                                         </div>
                                         <BotonPrincipal
+                                            class="alinea-con-campo"
                                             tipo="button"
                                             texto="Agregar"
                                             icono="crear"
