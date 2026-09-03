@@ -7,6 +7,7 @@ namespace App\Http\Controllers\ProcesosFormativos;
 use App\Http\Controllers\Controller;
 use App\Models\ProcesosFormativos\ModalidadProceso;
 use App\Models\ProcesosFormativos\SectorOrganizacion;
+use App\Models\ProcesosFormativos\SituacionConvenioFormativo;
 use App\Models\ProcesosFormativos\SituacionOrganizacion;
 use App\Models\ProcesosFormativos\TipoConvenioFormativo;
 use App\Models\ProcesosFormativos\TipoInformeProceso;
@@ -130,6 +131,20 @@ class CatalogoProcesosController extends Controller
                     'etiqueta' => 'Puede recibir alumnos',
                     'ayuda' => 'Es la bandera que decide si se le manda a alguien. Una organización «en revisión» existe en el padrón y todavía no recibe.',
                     'insignia' => 'Recibe alumnos',
+                ]],
+            ],
+
+            'situacion-convenio' => [
+                'modelo' => SituacionConvenioFormativo::class,
+                'etiqueta' => 'Situaciones del convenio',
+                'singular' => 'situación del convenio',
+                'enUso' => fn (int $id) => $this->usadoEn('convenios_formativos', 'situacion_id', $id),
+                'extras' => [[
+                    'campo' => 'ampara_asignaciones',
+                    'tipo' => 'bandera',
+                    'etiqueta' => 'Ampara asignaciones',
+                    'ayuda' => 'Es la bandera que decide si bajo ese convenio se le puede seguir mandando gente. Un convenio «en trámite» existe y todavía no ampara nada.',
+                    'insignia' => 'Ampara',
                 ]],
             ],
 

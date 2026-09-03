@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**130 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**131 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -65,7 +65,7 @@ Los otros dos documentos vivos:
    un rol con disposición guardada. Si node no puede correrlo, la suite FALLA
    en vez de saltarse.
 
-   **Las 130 están en verde**, barridas el 2026-09-03. Catorce son del módulo de
+   **Las 131 están en verde**, barridas el 2026-09-03. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -771,6 +771,65 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
   CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
   adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
+- **Servicio social y prácticas · FASE 2: organizaciones, convenios y plazas**
+  (2026-09-03). `/procesos/organizaciones`, `/procesos/convenios` y
+  `/procesos/plazas`, con tres permisos propios.
+  - **El padrón es INSTITUCIONAL y no se acota por campus**, a propósito: una
+    dependencia de gobierno no pertenece a un plantel, y un coordinador que no
+    la viera la daría de alta otra vez —el duplicado que reparte los
+    expedientes entre dos filas y hace que ningún reporte cuadre—. Mismo
+    criterio que las cuentas bancarias y el cierre fiscal. **Lo que sí se acota
+    es a quién se le puede mandar**, y eso vive en `organizacion_alcances`; la
+    comprobación va en la ASIGNACIÓN, que es donde tiene consecuencias.
+  - **Sin alcances declarados, la organización alcanza a TODO.** Exigir al
+    menos uno obligaría a palomear veinte programas cada vez. Cada fila es un
+    permiso independiente —basta que UNA case— y dentro de una fila lo que está
+    en null no acota. La pantalla lo dice con palabras: una lista vacía se lee
+    como captura incompleta, y alguien acabaría agregando filas «para no
+    dejarlo vacío», acotándola sin querer.
+  - **VENCIDO no es SUSPENDIDO, y hacen falta las dos.** La fecha dice lo
+    primero y la situación lo segundo; `estaVigente()` las cruza, y el scope
+    también. Un convenio con la situación «vigente» y la fecha pasada se ve bien
+    en cualquier pantalla que mire una sola, y seguiría amparando asignaciones.
+  - **Renovar CREA otra fila; la anterior no se toca.** Cambiarle las fechas
+    borraría bajo qué acuerdo estuvo cada alumno que ya pasó por ahí — el molde
+    del acta de corrección y de la nota de crédito. `version` se escribe UNA vez
+    al crear: la cadena es inmutable, así que no diverge, y sin ella pintar «v3»
+    en un listado exigiría recorrerla por cada renglón.
+  - **El CUPO lo protege la BASE**: CHECK `cupo_ocupado <= cupo`, y
+    `cupo_ocupado` NO es asignable en masa —por un formulario, el cupo dejaría
+    de significar nada—. Bajar el cupo por debajo de lo ocupado se rehúsa ANTES,
+    con su motivo: el CHECK lo impediría igual, pero con un error de SQL en la
+    cara de quien captura.
+  - **Una plaza admite por TRES condiciones** —abierta, con lugar y dentro de
+    fecha—: una «abierta» con la fecha pasada se ve bien y no recibe a nadie.
+  - **Y `situaciones_convenio_formativo` no estaba en el diseño**: hizo falta al
+    construir. Su bandera `ampara_asignaciones` es lo que decide si bajo ese
+    convenio se puede seguir mandando gente, y con «en trámite» el catálogo ya
+    distingue el que existe del que vale.
+  - Pruebas: `scripts/prueba-procesos-organizaciones.php`, 52 verificaciones,
+    comprobadas mutando **27 reglas**. Tres sobrevivieron la primera vez:
+    - Dos por lo de siempre —**el escenario no tenía el caso**—: leer «recibe»
+      por la clave daba lo mismo porque la única situación que recibe se llama
+      «activa» (se construye una que recibe con OTRO nombre), y el scope de
+      plazas disponibles no ejercitaba su condición de cupo porque la plaza del
+      escenario estaba vacía (se construye una LLENA, abierta y en fecha).
+    - La tercera era un **mutante EQUIVALENTE**, medido: el
+      `whereNotNull('vigente_hasta')` de la alerta de vencimiento no hacía nada
+      —una comparación de fecha contra NULL da NULL en MySQL y la fila se
+      descarta igual—. Se retiró en vez de dejarlo como una segunda forma de
+      decir lo mismo; es la lección de `$diseno->exists`.
+  - **Dos defectos que la suite destapó**, los dos de la misma familia —lo que
+    no es `fillable` se descarta EN SILENCIO—: la suite escribía `cupo_ocupado`
+    con `update()` y no pasaba nada, y `ConvenioFormativo` no traía su `version`
+    por omisión EN MEMORIA, así que una renovación calculada como «anterior + 1»
+    nacía con versión 1 sobre un modelo recién creado. Se resuelve con
+    `protected $attributes`, como en `ReporteEscuela`.
+  - **Y uno que sólo se vio MIRÁNDOLO**: una renovación firmada por adelantado
+    —lo normal— salía marcada en ámbar con «No ampara: mira la fecha», como si
+    algo estuviera mal. Ahora «empieza más adelante» y «todavía no ampara» van
+    en tono neutro, y el ámbar se reserva para lo que sí venció.
+
 - **Servicio social, prácticas y estancias profesionales · FASE 1** (2026-09-03,
   pedido del cliente). Módulo `procesos_formativos`, sección propia
   «Servicio social y prácticas», `/procesos/catalogos`. **El diseño completo

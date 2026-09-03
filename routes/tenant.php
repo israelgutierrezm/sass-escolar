@@ -118,6 +118,9 @@ use App\Http\Controllers\PlanEstudioController;
 use App\Http\Controllers\PlanMateriaController;
 use App\Http\Controllers\PlantillaEvaluacionController;
 use App\Http\Controllers\ProcesosFormativos\CatalogoProcesosController;
+use App\Http\Controllers\ProcesosFormativos\ConvenioFormativoController;
+use App\Http\Controllers\ProcesosFormativos\OrganizacionReceptoraController;
+use App\Http\Controllers\ProcesosFormativos\PlazaProcesoController;
 use App\Http\Controllers\Plataforma\AvisoController;
 use App\Http\Controllers\Plataforma\CalendarioController;
 use App\Http\Controllers\Plataforma\ClimaController;
@@ -2422,6 +2425,58 @@ Route::middleware([
                             Route::put('{catalogo}/{item}', 'update')->whereNumber('item')->name('guardar');
                             Route::patch('{catalogo}/{item}/activo', 'alternar')->whereNumber('item')->name('activo');
                             Route::delete('{catalogo}/{item}', 'destroy')->whereNumber('item')->name('eliminar');
+                        });
+                    });
+
+                /*
+                 * El padron de organizaciones receptoras.
+                 *
+                 * Se LEE con el permiso de la seccion --direccion y auditoria
+                 * entran-- y se TOCA con el suyo. El listado no es la defensa:
+                 * cada accion lo vuelve a comprobar.
+                 */
+                Route::controller(OrganizacionReceptoraController::class)
+                    ->prefix('organizaciones')->name('organizaciones.')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::get('{organizacion}', 'show')->whereNumber('organizacion')->name('ver');
+
+                        Route::middleware('can:gestionar-organizaciones-receptoras')->group(function () {
+                            Route::post('/', 'guardar')->name('crear');
+                            Route::put('{organizacion}', 'guardar')->whereNumber('organizacion')->name('guardar');
+
+                            Route::post('{organizacion}/contactos', 'guardarContacto')->whereNumber('organizacion')->name('contactos.crear');
+                            Route::put('{organizacion}/contactos/{contacto}', 'guardarContacto')->whereNumber(['organizacion', 'contacto'])->name('contactos.guardar');
+                            Route::delete('{organizacion}/contactos/{contacto}', 'eliminarContacto')->whereNumber(['organizacion', 'contacto'])->name('contactos.eliminar');
+
+                            Route::post('{organizacion}/alcances', 'agregarAlcance')->whereNumber('organizacion')->name('alcances.crear');
+                            Route::delete('{organizacion}/alcances/{alcance}', 'eliminarAlcance')->whereNumber(['organizacion', 'alcance'])->name('alcances.eliminar');
+                        });
+                    });
+
+                Route::controller(ConvenioFormativoController::class)
+                    ->prefix('convenios')->name('convenios.')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::get('{convenio}/documento', 'descargar')->whereNumber('convenio')->name('documento');
+
+                        Route::middleware('can:gestionar-convenios-formativos')->group(function () {
+                            Route::post('/', 'guardar')->name('crear');
+                            Route::post('{convenio}', 'guardar')->whereNumber('convenio')->name('guardar');
+                            Route::post('{convenio}/renovar', 'renovar')->whereNumber('convenio')->name('renovar');
+                        });
+                    });
+
+                Route::controller(PlazaProcesoController::class)
+                    ->prefix('plazas')->name('plazas.')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+
+                        Route::middleware('can:gestionar-plazas-formativas')->group(function () {
+                            Route::post('/', 'guardar')->name('crear');
+                            Route::put('{plaza}', 'guardar')->whereNumber('plaza')->name('guardar');
+                            Route::patch('{plaza}/abierta', 'alternar')->whereNumber('plaza')->name('abierta');
+                            Route::delete('{plaza}', 'eliminar')->whereNumber('plaza')->name('eliminar');
                         });
                     });
             });

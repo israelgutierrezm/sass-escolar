@@ -4,8 +4,9 @@ Plan de diseño e implementación. Se escribió ANTES de tocar una tabla, que es
 el paso que el pedido exige: recorrer el repositorio, documentar qué se
 reutiliza y presentar el diseño.
 
-**Avance: fase 1 hecha** (2026-09-03) — el módulo, sus siete catálogos y su
-pantalla. Las fases 2 a 8 están por construir; §9 lleva el detalle.
+**Avance: fases 1 y 2 hechas** (2026-09-03) — el módulo con sus ocho catálogos,
+y el padrón de organizaciones con sus contactos, alcances, convenios versionados
+y plazas. Las fases 3 a 8 están por construir; §9 lleva el detalle.
 
 ---
 
@@ -236,8 +237,10 @@ experiencia profesional, otro. Ocho sembrados, **borrables y ampliables**.
 > hoy y deja de funcionar en silencio el día que la escuela edite su catálogo.
 
 Además: `sectores_organizacion`, `tipos_organizacion`, `situaciones_organizacion`,
-`tipos_convenio_formativo`, `modalidades_proceso` (presencial/mixta/remota),
-`tipos_informe`.
+`tipos_convenio_formativo`, **`situaciones_convenio_formativo`** (que este
+esbozo no tenía y hizo falta en la fase 2: la bandera `ampara_asignaciones` es
+lo que decide si bajo ese convenio se le puede seguir mandando gente),
+`modalidades_proceso` (presencial/mixta/remota) y `tipos_informe`.
 
 ### 3.2 La configuración VERSIONADA — el corazón del módulo
 
@@ -605,7 +608,7 @@ Cada fase es entregable y verificable sola. Ninguna es andamio de la siguiente.
 | # | Fase | Qué entrega |
 |---|---|---|
 | ~~**1**~~ | ~~**Cimientos y catálogos**~~ **HECHA** | Módulo `procesos_formativos` encendido, sección propia en el menú, los siete catálogos con seeder y su pantalla. Comprobado: apagar el módulo lo apaga de verdad; un tipo inventado desde pantalla funciona igual que los de fábrica; lo que algo usa no se borra ni se apaga. `scripts/prueba-procesos-catalogos.php`, 31 verificaciones. |
-| **2** | **Organizaciones, convenios y plazas** | El padrón completo, convenios versionados con alerta de vencimiento, plazas con cupo protegido. |
+| ~~**2**~~ | ~~**Organizaciones, convenios y plazas**~~ **HECHA** | Padrón institucional con contactos y alcances, convenios versionados que distinguen vencido de suspendido, plazas con el cupo protegido por CHECK. `scripts/prueba-procesos-organizaciones.php`, 52 verificaciones, 27 mutaciones. |
 | **3** | **Reglas versionadas + elegibilidad** | El resolutor, el congelamiento y `/mi-servicio-social` contestando **qué falta y por qué**. Sin expediente todavía: ya se puede configurar y ya se puede saber si uno es elegible. |
 | **4** | **Solicitud, revisión y asignación** | La máquina de estados de `borrador` a `asignado`, con documentos y excepciones auditadas. |
 | **5** | **Horas, informes y evaluaciones** | La bitácora con todas sus reglas, informes con fecha límite, evaluaciones sobre rúbricas. |

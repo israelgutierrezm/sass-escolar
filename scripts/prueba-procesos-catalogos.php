@@ -169,7 +169,22 @@ try {
     $props = props($controlador, 'index', $global);
     $catalogos = collect($props['catalogos']);
 
-    verificar('Salen los siete', $catalogos->count() === 7, (string) $catalogos->count());
+    /*
+     * Por CLAVE y no por un número.
+     *
+     * «Salen los siete» se cayó en cuanto la fase 2 agregó el octavo, y el
+     * mensaje —«8»— no decía cuál sobraba ni cuál faltaba. Con la lista
+     * escrita, agregar un catálogo es un acto deliberado: hay que venir aquí a
+     * nombrarlo.
+     */
+    $esperados = [
+        'tipo-proceso', 'sector', 'tipo-organizacion', 'situacion-organizacion',
+        'situacion-convenio', 'tipo-convenio', 'modalidad', 'tipo-informe',
+    ];
+
+    verificar('Salen exactamente los catálogos declarados',
+        $catalogos->pluck('clave')->sort()->values()->all() === collect($esperados)->sort()->values()->all(),
+        $catalogos->pluck('clave')->join(', '));
 
     $tipos = $catalogos->firstWhere('clave', 'tipo-proceso');
 
@@ -280,7 +295,7 @@ try {
         verificar('Con la tabla de expedientes aún sin crear, nada figura en uso',
             collect($tipos['items'])->every(fn (array $i) => $i['en_uso'] === false));
 
-        verificar('Y la pantalla abre igual', $catalogos->count() === 7);
+        verificar('Y la pantalla abre igual', $catalogos->count() === count($esperados));
     } else {
         /*
          * Guardia RUIDOSA, no un salto silencioso: el día que la fase 4 exista,

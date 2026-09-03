@@ -6,6 +6,7 @@ namespace Database\Seeders\Tenant;
 
 use App\Models\ProcesosFormativos\ModalidadProceso;
 use App\Models\ProcesosFormativos\SectorOrganizacion;
+use App\Models\ProcesosFormativos\SituacionConvenioFormativo;
 use App\Models\ProcesosFormativos\SituacionOrganizacion;
 use App\Models\ProcesosFormativos\TipoConvenioFormativo;
 use App\Models\ProcesosFormativos\TipoInformeProceso;
@@ -132,8 +133,29 @@ class CatalogosProcesosFormativosSeeder extends Seeder
         }
     }
 
+    /**
+     * Los convenios: sus tipos y sus situaciones.
+     *
+     * De las cuatro situaciones sólo UNA ampara asignaciones. «En trámite» es
+     * donde nace el que todavía no se firma: existe, se ve, y no se le puede
+     * mandar gente debajo.
+     */
     private function convenios(): void
     {
+        $situaciones = [
+            ['vigente', 'Vigente', true, 1],
+            ['en_tramite', 'En trámite', false, 2],
+            ['suspendido', 'Suspendido', false, 3],
+            ['terminado', 'Terminado', false, 4],
+        ];
+
+        foreach ($situaciones as [$clave, $nombre, $ampara, $orden]) {
+            SituacionConvenioFormativo::query()->updateOrCreate(
+                ['clave' => $clave],
+                ['nombre' => $nombre, 'ampara_asignaciones' => $ampara, 'orden' => $orden],
+            );
+        }
+
         $tipos = [
             ['marco', 'Convenio marco', 1],
             ['especifico', 'Convenio específico', 2],

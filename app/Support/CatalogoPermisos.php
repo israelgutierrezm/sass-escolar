@@ -257,6 +257,15 @@ final class CatalogoPermisos
         'Servicio social y prácticas' => [
             'configurar-procesos-formativos' => ['Configurar los procesos', 'Los tipos de proceso —servicio social, prácticas, residencia…— y sus catálogos: qué exige cada uno y si lleva bitácora de horas.', [self::ADMINISTRATIVO]],
             'ver-procesos-formativos' => ['Consultar servicio social y prácticas', 'Sólo lectura del módulo, para dirección y auditoría.', [self::ADMINISTRATIVO]],
+            'gestionar-organizaciones-receptoras' => ['Administrar organizaciones', 'El padrón de dependencias, asociaciones y empresas que reciben alumnos, con sus contactos y hasta dónde alcanza cada una.', [self::ADMINISTRATIVO]],
+            /*
+             * APARTE del padrón, y no por gusto: un convenio es un papel
+             * firmado por la dirección, y quien captura receptoras todo el día
+             * no tiene por qué poder declarar que existe un acuerdo —ni
+             * levantarle la suspensión a uno—.
+             */
+            'gestionar-convenios-formativos' => ['Administrar convenios', 'Los convenios con las organizaciones, su vigencia, su documento firmado y su renovación.', [self::ADMINISTRATIVO]],
+            'gestionar-plazas-formativas' => ['Administrar plazas y proyectos', 'Lo que cada organización ofrece, con su cupo, sus requisitos y a qué programas se dirige.', [self::ADMINISTRATIVO]],
         ],
 
         'Disciplina' => [
