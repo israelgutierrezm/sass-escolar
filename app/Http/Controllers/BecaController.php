@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\AvisoParaElUsuario;
 use App\Http\Controllers\Concerns\AcotaPorCampus;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\Ciclo;
@@ -17,6 +18,7 @@ use App\Models\Finanzas\Patrocinador;
 use App\Models\Finanzas\PresupuestoBeca;
 use App\Services\AutorizacionDeBecas;
 use App\Services\EvaluadorBecas;
+use App\Services\Finanzas\ConvenioDeDescuento;
 use App\Services\GeneradorAdeudos;
 use App\Services\PresupuestoDeBecas;
 use Illuminate\Http\JsonResponse;
@@ -46,6 +48,7 @@ class BecaController extends Controller
         private readonly GeneradorAdeudos $generador,
         private readonly EvaluadorBecas $evaluador,
         private readonly AutorizacionDeBecas $autorizacion,
+        private readonly ConvenioDeDescuento $convenios,
     ) {}
 
     public function index(Request $request): Response
@@ -440,7 +443,36 @@ class BecaController extends Controller
             'vigente_hasta' => ['nullable', 'date', 'after_or_equal:vigente_desde'],
             'promedio_evaluado' => ['nullable', 'numeric', 'min:0', 'max:10'],
             'motivo' => ['nullable', 'string', 'max:255'],
+            'justificacion' => ['nullable', 'string', 'max:255'],
         ]);
+
+        /*
+         * Una beca de CONVENIO pide dos cosas más.
+         *
+         * La justificación es obligatoria: sin ella, dentro de un año nadie
+         * puede explicar por qué esta familia tiene el descuento de esa empresa
+         * — y es lo primero que se pregunta cuando el convenio se renueva.
+         *
+         * Y la vigencia se capa al fin del acuerdo: una beca que durara más
+         * seguiría descontando después de que la relación terminó, y el cierre
+         * nocturno tendría que perseguirla. Capándola, `aplicaEn()` la apaga
+         * solo.
+         */
+        $convenio = $beca->convenioDescuento;
+
+        if ($convenio !== null) {
+            $impedimento = $this->convenios->motivoParaNoOtorgar($convenio);
+
+            AvisoParaElUsuario::si($impedimento !== null, 422, (string) $impedimento);
+
+            AvisoParaElUsuario::si(
+                trim((string) ($datos['justificacion'] ?? '')) === '',
+                422,
+                'Escribe por qué esta persona califica bajo el convenio: «empleado 4471, María Pérez, madre». Sin eso, nadie podrá explicarlo cuando el convenio se renueve.',
+            );
+
+            $datos['vigente_hasta'] = $this->convenios->topeDeVigencia($convenio, $datos['vigente_hasta'] ?? null);
+        }
 
         // El id viaja en el POST: filtrar el buscador no basta.
         $destino = MatriculaOferta::with('oferta:id,campus_id')->findOrFail($datos['matricula_oferta_id']);

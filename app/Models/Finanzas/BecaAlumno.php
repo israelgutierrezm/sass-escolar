@@ -55,6 +55,9 @@ class BecaAlumno extends Model
         'promedio_evaluado',
         'autorizado_por',
         'motivo',
+        // Por qué ESTA persona califica bajo el convenio: «empleado 4471,
+        // María Pérez, madre». Obligatoria en las becas de convenio.
+        'justificacion',
     ];
 
     protected function casts(): array

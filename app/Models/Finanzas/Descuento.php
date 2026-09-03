@@ -26,8 +26,18 @@ class Descuento extends Model
     /** Vigente en una ventana de fechas. */
     public const TIPO_CAMPANA = 'campana';
 
-    /** Lo aplica un administrador a mano. */
-    public const TIPO_MANUAL = 'manual';
+    /*
+     * Hubo un tercer tipo, `manual`, y se RETIRÓ.
+     *
+     * La pantalla lo ofrecía y la validación lo aceptaba, pero
+     * `CalculadorCargo` sólo lee estos dos: un descuento «manual» se creaba, se
+     * guardaba, se veía en la lista y no descontaba NADA. Es la misma familia
+     * que `ver-personas` y `crear-personas` — una opción que se elige creyendo
+     * que hace algo.
+     *
+     * Lo que de verdad hacía falta —un descuento acotado a ciertas familias— lo
+     * resuelven las becas y los convenios de descuento, que sí se aplican.
+     */
 
     public const MODO_PORCENTAJE = 'porcentaje';
 

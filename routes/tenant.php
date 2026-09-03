@@ -45,6 +45,7 @@ use App\Http\Controllers\ConceptoPagoController;
 use App\Http\Controllers\ConciliacionBancariaController;
 use App\Http\Controllers\ConfiguracionController;
 use App\Http\Controllers\ConfiguracionEscolarController;
+use App\Http\Controllers\ConvenioDescuentoController;
 use App\Http\Controllers\ConvenioPagoController;
 use App\Http\Controllers\CorreoConfigController;
 use App\Http\Controllers\CredencialConfiguracionController;
@@ -1721,6 +1722,27 @@ Route::middleware([
                  * captura el gasto del día. Quien captura una factura de
                  * mantenimiento no tiene por qué poder subirse su propio techo.
                  */
+                /*
+                 * Convenios de DESCUENTO con terceros. Ojo: no son los
+                 * `/finanzas/convenios`, que reprograman la deuda de un alumno.
+                 * Uno mueve fechas y el otro mueve importes; el prefijo lo dice.
+                 *
+                 * Con el permiso de configurar el cobro, el mismo con el que se
+                 * definen las becas — y los términos de un convenio SON una
+                 * beca.
+                 */
+                Route::controller(ConvenioDescuentoController::class)
+                    ->prefix('convenios-descuento')->name('convenios-descuento.')
+                    ->middleware('can:gestionar-planes-cobro')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::post('/', 'guardar')->name('store');
+                        Route::post('/{convenio}', 'guardar')->whereNumber('convenio')->name('update');
+                        Route::post('/{convenio}/becas', 'atarBeca')->whereNumber('convenio')->name('becas');
+                        Route::put('/{convenio}/terminar', 'terminar')->whereNumber('convenio')->name('terminar');
+                        Route::get('/{convenio}/documento', 'descargar')->whereNumber('convenio')->name('documento');
+                    });
+
                 Route::controller(PresupuestoController::class)
                     ->prefix('presupuesto')->name('presupuesto.')
                     ->group(function () {

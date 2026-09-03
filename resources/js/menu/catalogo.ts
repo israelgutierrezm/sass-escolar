@@ -449,6 +449,7 @@ export const CATALOGO_MENU: GrupoMenu[] = [
             { clave: 'comprobantes', etiqueta: 'Comprobantes', url: '/finanzas/comprobantes', permiso: 'registrar-pagos', y: 'ver-adeudos' },
             { clave: 'conciliacion', etiqueta: 'Conciliación bancaria', url: '/finanzas/conciliacion', permiso: 'conciliar-banco', y: 'ver-adeudos' },
             { clave: 'convenios', etiqueta: 'Convenios de pago', url: '/finanzas/convenios', permiso: 'autorizar-convenios', y: 'ver-adeudos' },
+            { clave: 'convenios-descuento', etiqueta: 'Convenios de descuento', url: '/finanzas/convenios-descuento', permiso: 'gestionar-planes-cobro', y: 'ver-adeudos' },
             { clave: 'cobranza', etiqueta: 'Recordatorios de cobranza', url: '/finanzas/cobranza', permiso: 'gestionar-planes-cobro', y: 'ver-adeudos' },
             { clave: 'presupuesto', etiqueta: 'Presupuesto', url: '/finanzas/presupuesto', permiso: 'gestionar-presupuesto', o: 'registrar-egresos', y: 'ver-adeudos' },
             { clave: 'egresos', etiqueta: 'Egresos', url: '/finanzas/egresos', permiso: 'registrar-egresos', y: 'ver-adeudos' },

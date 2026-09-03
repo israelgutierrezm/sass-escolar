@@ -64,7 +64,6 @@ class DescuentoController extends Controller
             'tipos' => [
                 ['valor' => Descuento::TIPO_PAGO_ANTICIPADO, 'etiqueta' => 'Por pago anticipado'],
                 ['valor' => Descuento::TIPO_CAMPANA, 'etiqueta' => 'Campaña por tiempo limitado'],
-                ['valor' => Descuento::TIPO_MANUAL, 'etiqueta' => 'Manual'],
             ],
         ]);
     }
@@ -103,7 +102,7 @@ class DescuentoController extends Controller
             'clave' => ['required', 'string', 'max:50', Rule::unique('descuentos', 'clave')->ignore($descuento?->id)],
             'nombre' => ['required', 'string', 'max:150'],
             'descripcion' => ['nullable', 'string', 'max:255'],
-            'tipo' => ['required', Rule::in([Descuento::TIPO_PAGO_ANTICIPADO, Descuento::TIPO_CAMPANA, Descuento::TIPO_MANUAL])],
+            'tipo' => ['required', Rule::in([Descuento::TIPO_PAGO_ANTICIPADO, Descuento::TIPO_CAMPANA])],
             'modo' => ['required', Rule::in([Descuento::MODO_PORCENTAJE, Descuento::MODO_MONTO_FIJO])],
             'valor' => ['required', 'numeric', 'min:0'],
             'tope_monto' => ['nullable', 'numeric', 'min:0'],

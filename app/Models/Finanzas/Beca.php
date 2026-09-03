@@ -53,6 +53,9 @@ class Beca extends Model
         // De qué bolsa sale. Ver `Patrocinador`: dice quién la financia, no a
         // quién se le factura.
         'patrocinador_id',
+        // Puesto: esta beca son los TÉRMINOS de un convenio con un tercero.
+        // Nulo en las becas normales, que son la mayoría.
+        'convenio_descuento_id',
         'modo',
         'valor',
         'tope_monto',
@@ -88,6 +91,17 @@ class Beca extends Model
     public function patrocinador(): BelongsTo
     {
         return $this->belongsTo(Patrocinador::class, 'patrocinador_id');
+    }
+
+    /** El convenio del que esta beca son los términos, si lo es. */
+    public function convenioDescuento(): BelongsTo
+    {
+        return $this->belongsTo(ConvenioDescuento::class, 'convenio_descuento_id');
+    }
+
+    public function esDeConvenio(): bool
+    {
+        return $this->convenio_descuento_id !== null;
     }
 
     public function otorgadas(): HasMany
