@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**127 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**128 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -58,7 +58,14 @@ Los otros dos documentos vivos:
    `TODO EN VERDE — N verificaciones`—, así que un barrido que sólo busque
    «Resultado:» las reporta como rotas sin estarlo.
 
-   **Las 120 están en verde**, barridas el 2026-09-02. Catorce son del módulo de
+   **Y una necesita NODE**: `prueba-menu-lateral` corre el TypeScript real del
+   menú (`--experimental-strip-types`, Node 22.6+) sobre una copia en un
+   temporal, porque los defectos del árbol de la barra —entradas duplicadas,
+   una hoja nueva que nunca aparece— no fallan: sólo se ven mirando la barra de
+   un rol con disposición guardada. Si node no puede correrlo, la suite FALLA
+   en vez de saltarse.
+
+   **Las 128 están en verde**, barridas el 2026-09-02. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -764,6 +771,87 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
   CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
   adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
+- **La barra lateral, agrupada por oficio; y las acciones de cada renglón,
+  plegadas** (2026-09-02, dos pedidos del cliente). Los dos destaparon un
+  defecto que llevaba tiempo ahí sin fallar.
+
+  **1. El menú de tres puntos** (`MenuAcciones.vue`), en la columna «Acciones»
+  de los seis listados de Académico.
+  - Con el lápiz y el bote de basura a la vista, «Eliminar» estaba a UN clic en
+    cada renglón, al lado de una acción inocua y del mismo tamaño. En una lista
+    de veinte campus son veinte botes de basura pidiendo que se les dé sin
+    querer.
+  - **El permiso lo sigue poniendo quien lo usa**: el componente recibe la lista
+    ya filtrada —igual que antes se escribía `v-if="puedeEditar"` en cada
+    botón— y con la lista vacía no dibuja NADA, ni el botón. No sabe de permisos
+    y no debe saber.
+  - **Lo que NO se pliega**, y por qué: «Malla» en Planes y «Ver» en la malla de
+    quien no edita —son la acción a la que se entra desde esa pantalla, y
+    esconderlas para proteger a «Eliminar» castiga la que más se usa—; el
+    interruptor de los catálogos —no es destructivo—; y las TARJETAS de la vista
+    de cuadrícula, cuyo pie de botones redondos está homologado en todo el
+    sistema.
+  - **El panel se TELETRANSPORTA al `body`** con posición fija: estas tablas
+    viven dentro de un `overflow-x-auto` —hace falta, una tabla no encoge por
+    debajo de su contenido— y un panel en absoluto ahí dentro se RECORTA, justo
+    en la última columna, que es donde está. Y se abre hacia arriba cuando abajo
+    no cabe, porque en el último renglón se salía de la ventana.
+  - De paso, la tabla de etiquetas, colores e iconos salió de `BotonAccion.vue`
+    a `@/utils/acciones`: con dos consumidores, copiarla es como se llega a que
+    el «Eliminar» del menú sea de otro rojo que el del botón.
+  - Y el «Eliminar» apagado de los catálogos por fin dice POR QUÉ no se puede.
+
+  **2. Finanzas tenía VEINTIDÓS entradas de primer nivel** —más que ninguna
+  sección y más que todo el menú de un alumno—, porque cada rebanada fue
+  agregando la suya al final. Ahora son siete: «Cartera» arriba —lo que se abre
+  todos los días— y seis subgrupos por oficio: Caja y banco, Cobranza, Becas y
+  descuentos, Facturación, Egresos y Configuración del cobro. Admisiones pasó de
+  ocho a tres (Aspirantes + Captación + Configuración).
+  - **Las CLAVES de las hojas no cambian**: son lo que guarda la disposición de
+    menú de cada rol.
+  - Se revisaron TODAS las secciones: Control escolar (10) y Plataforma (10) ya
+    estaban parcialmente agrupadas y Académico (6) también, así que no se
+    tocaron. La regla no es «menos de N», es que lo diario esté arriba.
+
+  **3. El defecto que esto destapó: `fusionarFaltantes` DUPLICABA.** Es la
+  función que mete en una disposición vieja lo que el catálogo agregó después.
+  Miraba sólo el primer nivel, así que al plegar veintidós hojas en subgrupos,
+  una escuela que ya hubiera ordenado su menú las tenía guardadas sueltas: el
+  subgrupo nuevo no estaba en su disposición, entraba entero —y `resolver` le
+  cuelga los hijos del catálogo—, y cada hoja quedaba REPETIDA. No falla; sólo
+  sale el menú duplicado.
+  - Y al revés: una hoja nueva dentro de un subgrupo que la disposición YA tenía
+    no se agregaba nunca, porque no se bajaba de nivel. Quedaba inaccesible para
+    ese rol, que es justo lo que esa función existe para impedir.
+  - Ahora se poda contra lo ya presente y se baja a los subgrupos existentes. Un
+    subgrupo que se queda sin hijos no se agrega: si la escuela colocó sus hojas
+    a mano, esa decisión es suya.
+  - **En el demo no había ninguna disposición con hojas de Finanzas**, así que
+    esto no se habría visto aquí nunca; el caso se CONSTRUYE en la prueba.
+
+  **4. Y una entrada de menú que no se le dibujaba a NADIE.** «Cuentas
+  bancarias» declaraba `permiso: 'ver-cuentas-bancarias'`, que es un gate
+  DERIVADO (`Gate::define`) y no una fila de `permissions`. A la barra le llegan
+  los permisos EFECTIVOS del rol activo, así que esa entrada era invisible
+  incluso para dirección general desde que se blindó la ruta el 2026-08-28: la
+  pantalla existía y no tenía puerta. Es el tercer caso de esa familia. Se
+  escribe el par que abre la puerta (`permiso` + `o`), como ya hacía
+  «Presupuesto».
+  - `prueba-pantallas-con-puerta` no lo veía: comprueba que el menú no ofrezca
+    lo que la ruta niega, no que lo que ofrece se le pueda dibujar a alguien.
+
+  - Pruebas: `scripts/prueba-menu-lateral.php`, 41 verificaciones —40 del árbol,
+    corridas por node sobre el TypeScript real, y una en PHP que cruza los
+    permisos del menú contra los ASIGNABLES—, comprobadas mutando cinco reglas
+    (la fusión vieja entera, cada una de sus dos mitades, un prefijo de subgrupo
+    demasiado ancho y el permiso derivado).
+  - Verificado en el navegador: Finanzas con sus siete entradas, cada pantalla
+    abriendo su subgrupo y marcándose activa, «Cuentas bancarias» por fin
+    visible, el alumno con una sola entrada, ninguna etiqueta nueva cortada, y
+    el menú de acciones abriendo, cerrándose con Esc, con clic fuera y al
+    desplazar, sin dos abiertos a la vez y sin salirse de la ventana en el
+    último renglón.
+
 - **Convenios de descuento con empresas** (2026-09-02, lo que faltaba de 3.3).
   `/finanzas/convenios-descuento`, con el permiso de configurar el cobro.
   - **Lo que no se podía decir.** Un descuento de CAMPAÑA aplica a toda la

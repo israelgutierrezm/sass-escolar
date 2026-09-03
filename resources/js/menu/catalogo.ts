@@ -215,17 +215,33 @@ export const CATALOGO_MENU: GrupoMenu[] = [
         prefijo: '/aspirantes',
         facetas: ['administrativo'],
         icono: 'M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
+        /*
+         * Arriba el padrón, que es a lo que se entra; plegado, el equipo que
+         * trae prospectos y lo que se arma una vez al año.
+         */
         hijos: [
             { clave: 'aspirantes', etiqueta: 'Aspirantes', url: '/aspirantes', permiso: 'ver-aspirantes' },
-            { clave: 'captacion', etiqueta: 'Captación', url: '/captacion', permiso: 'ver-mis-prospectos', o: 'gestionar-captacion' },
-            { clave: 'comisiones', etiqueta: 'Comisiones', url: '/captacion/comisiones', permiso: 'ver-mis-prospectos', o: 'gestionar-captacion' },
-            // Quién atiende prospectos. Va junto al CRM y no en Plataforma:
-            // es una decisión de captación, no de administración del sistema.
-            { clave: 'asesores', etiqueta: 'Asesores', url: '/captacion/asesores', permiso: 'gestionar-captacion' },
-            { clave: 'formularios-web', etiqueta: 'Formularios web', url: '/captacion/publicaciones', permiso: 'gestionar-captacion' },
-            { clave: 'documentos', etiqueta: 'Documentos', url: '/documentos', permiso: 'gestionar-documentos' },
-            { clave: 'formularios', etiqueta: 'Formularios', url: '/formularios', permiso: 'gestionar-formularios' },
-            { clave: 'reglas-matricula', etiqueta: 'Formato de matrícula', url: '/admisiones/reglas-matricula', permiso: 'configurar-matriculas' },
+            {
+                clave: 'admisiones-captacion',
+                etiqueta: 'Captación',
+                prefijo: '/captacion',
+                hijos: [
+                    { clave: 'captacion', etiqueta: 'Embudo', url: '/captacion', permiso: 'ver-mis-prospectos', o: 'gestionar-captacion' },
+                    { clave: 'comisiones', etiqueta: 'Comisiones', url: '/captacion/comisiones', permiso: 'ver-mis-prospectos', o: 'gestionar-captacion' },
+                    { clave: 'asesores', etiqueta: 'Asesores', url: '/captacion/asesores', permiso: 'gestionar-captacion' },
+                    { clave: 'formularios-web', etiqueta: 'Formularios web', url: '/captacion/publicaciones', permiso: 'gestionar-captacion' },
+                ],
+            },
+            {
+                clave: 'admisiones-configuracion',
+                etiqueta: 'Configuración',
+                prefijo: '/admisiones',
+                hijos: [
+                    { clave: 'documentos', etiqueta: 'Documentos', url: '/documentos', permiso: 'gestionar-documentos' },
+                    { clave: 'formularios', etiqueta: 'Formularios', url: '/formularios', permiso: 'gestionar-formularios' },
+                    { clave: 'reglas-matricula', etiqueta: 'Formato de matrícula', url: '/admisiones/reglas-matricula', permiso: 'configurar-matriculas' },
+                ],
+            },
         ],
     },
     {
@@ -424,40 +440,111 @@ export const CATALOGO_MENU: GrupoMenu[] = [
         prefijo: '/finanzas',
         facetas: ['administrativo', 'alumno', 'padre_familia', 'tutor_educativo'],
         icono: 'M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
+        /*
+         * Agrupada por OFICIO, como el resto del menú.
+         *
+         * Llegó a tener VEINTIDÓS entradas de primer nivel —más que ninguna
+         * otra sección, y más que todo el menú de un alumno— porque cada
+         * rebanada de finanzas fue agregando la suya al final. A esa altura la
+         * barra deja de ser una lista y se vuelve un índice que hay que leer
+         * entero para encontrar «Cajas» entre «Caja» y «Cierre fiscal».
+         *
+         * Arriba se queda lo que se abre TODOS LOS DÍAS —la cartera— y lo
+         * demás se pliega por el trabajo al que pertenece. Las CLAVES de las
+         * hojas no cambian: son lo que guarda la disposición de menú de cada
+         * rol, y renombrarlas dejaría a las escuelas que ya organizaron el suyo
+         * con entradas huérfanas.
+         *
+         * Para el ALUMNO y el PADRE esta sección sigue teniendo una sola
+         * entrada: «Cartera» es lo único cuyo permiso alcanzan, y un subgrupo
+         * sin hijos visibles no se dibuja.
+         */
         hijos: [
             { clave: 'cartera', etiqueta: 'Cartera', url: '/finanzas', permiso: 'ver-adeudos' },
-            { clave: 'facturas', etiqueta: 'Facturas', url: '/finanzas/facturas', permiso: 'facturar', y: 'ver-adeudos' },
-            { clave: 'planes-cobro', etiqueta: 'Planes de cobro', url: '/finanzas/planes', permiso: 'gestionar-planes-cobro', y: 'ver-adeudos' },
-            { clave: 'becas', etiqueta: 'Becas', url: '/finanzas/becas', permiso: 'gestionar-planes-cobro', y: 'ver-adeudos' },
-            { clave: 'presupuesto-becas', etiqueta: 'Presupuesto de becas', url: '/finanzas/becas/presupuesto', permiso: 'gestionar-planes-cobro', y: 'ver-adeudos' },
-            // Dos entradas y no una: configurar la escala es del oficio del
-            // cobro, y firmarla es de quien aprueba el gasto. Sin la
-            // segunda, `autorizar-becas` sería un permiso sin puerta.
-            { clave: 'niveles-beca', etiqueta: 'Niveles de autorización', url: '/finanzas/becas/niveles', permiso: 'gestionar-planes-cobro', y: 'ver-adeudos' },
-            { clave: 'autorizaciones-beca', etiqueta: 'Becas por autorizar', url: '/finanzas/becas/autorizaciones', permiso: 'autorizar-becas', y: 'ver-adeudos' },
-            { clave: 'descuentos', etiqueta: 'Descuentos', url: '/finanzas/descuentos', permiso: 'gestionar-planes-cobro', y: 'ver-adeudos' },
-            { clave: 'conceptos', etiqueta: 'Conceptos de pago', url: '/finanzas/conceptos', permiso: 'gestionar-planes-cobro', y: 'ver-adeudos' },
-            /*
-             * Transferencias directas: dónde se reciben y qué falta por validar.
-             *
-             * Con `ver-adeudos` —que es de tres facetas, y por eso lo lleva
-             * «Cartera»— estas dos entradas le salían al ALUMNO y al PADRE, y la
-             * ruta se las abría. Van con lo que exige cada ruta, que es lo que
-             * las demás hijas de esta sección ya hacían.
-             */
-            { clave: 'cuentas-bancarias', etiqueta: 'Cuentas bancarias', url: '/finanzas/cuentas-bancarias', permiso: 'ver-cuentas-bancarias', y: 'ver-adeudos' },
-            { clave: 'comprobantes', etiqueta: 'Comprobantes', url: '/finanzas/comprobantes', permiso: 'registrar-pagos', y: 'ver-adeudos' },
-            { clave: 'conciliacion', etiqueta: 'Conciliación bancaria', url: '/finanzas/conciliacion', permiso: 'conciliar-banco', y: 'ver-adeudos' },
-            { clave: 'convenios', etiqueta: 'Convenios de pago', url: '/finanzas/convenios', permiso: 'autorizar-convenios', y: 'ver-adeudos' },
-            { clave: 'convenios-descuento', etiqueta: 'Convenios de descuento', url: '/finanzas/convenios-descuento', permiso: 'gestionar-planes-cobro', y: 'ver-adeudos' },
-            { clave: 'cobranza', etiqueta: 'Recordatorios de cobranza', url: '/finanzas/cobranza', permiso: 'gestionar-planes-cobro', y: 'ver-adeudos' },
-            { clave: 'presupuesto', etiqueta: 'Presupuesto', url: '/finanzas/presupuesto', permiso: 'gestionar-presupuesto', o: 'registrar-egresos', y: 'ver-adeudos' },
-            { clave: 'egresos', etiqueta: 'Egresos', url: '/finanzas/egresos', permiso: 'registrar-egresos', y: 'ver-adeudos' },
-            { clave: 'emisores', etiqueta: 'Razones sociales', url: '/finanzas/emisores', permiso: 'gestionar-emisores', y: 'ver-adeudos' },
-            { clave: 'caja', etiqueta: 'Caja', url: '/finanzas/caja', permiso: 'operar-caja', y: 'ver-adeudos' },
-            { clave: 'depositos', etiqueta: 'Depósitos', url: '/finanzas/caja/depositos', permiso: 'operar-caja', y: 'ver-adeudos' },
-            { clave: 'cajas', etiqueta: 'Cajas', url: '/finanzas/cajas', permiso: 'gestionar-cajas', y: 'ver-adeudos' },
-            { clave: 'cierre-fiscal', etiqueta: 'Cierre fiscal', url: '/finanzas/cierre', permiso: 'cerrar-periodo-fiscal', y: 'ver-adeudos' },
+            {
+                clave: 'finanzas-caja',
+                etiqueta: 'Caja y banco',
+                prefijo: '/finanzas/caja',
+                hijos: [
+                    { clave: 'caja', etiqueta: 'Caja', url: '/finanzas/caja', permiso: 'operar-caja', y: 'ver-adeudos' },
+                    { clave: 'depositos', etiqueta: 'Depósitos', url: '/finanzas/caja/depositos', permiso: 'operar-caja', y: 'ver-adeudos' },
+                    { clave: 'cajas', etiqueta: 'Cajas', url: '/finanzas/cajas', permiso: 'gestionar-cajas', y: 'ver-adeudos' },
+                    /*
+                     * Con `ver-adeudos` —que es de tres facetas, y por eso lo
+                     * lleva «Cartera»— estas dos le salían al ALUMNO y al
+                     * PADRE, y la ruta se las abría. Van con lo que exige cada
+                     * ruta.
+                     */
+                    /*
+                     * El par que ABRE la puerta, no el nombre de la puerta.
+                     *
+                     * `ver-cuentas-bancarias` es un gate DERIVADO
+                     * (`AppServiceProvider`): no existe como fila en
+                     * `permissions`, y al front solo le llegan los permisos
+                     * efectivos del rol activo. Declarado asi, esta entrada no
+                     * se le dibujaba a NADIE --ni a direccion general-- y la
+                     * pantalla llevaba desde que se blindo la ruta sin puerta
+                     * por donde entrar. Aqui se repite la condicion del gate,
+                     * como ya hace «Presupuesto».
+                     */
+                    { clave: 'cuentas-bancarias', etiqueta: 'Cuentas bancarias', url: '/finanzas/cuentas-bancarias', permiso: 'gestionar-planes-cobro', o: 'registrar-pagos', y: 'ver-adeudos' },
+                    { clave: 'conciliacion', etiqueta: 'Conciliación bancaria', url: '/finanzas/conciliacion', permiso: 'conciliar-banco', y: 'ver-adeudos' },
+                ],
+            },
+            {
+                clave: 'finanzas-cobranza',
+                etiqueta: 'Cobranza',
+                prefijo: '/finanzas/cobranza',
+                hijos: [
+                    { clave: 'comprobantes', etiqueta: 'Comprobantes', url: '/finanzas/comprobantes', permiso: 'registrar-pagos', y: 'ver-adeudos' },
+                    { clave: 'convenios', etiqueta: 'Convenios de pago', url: '/finanzas/convenios', permiso: 'autorizar-convenios', y: 'ver-adeudos' },
+                    { clave: 'cobranza', etiqueta: 'Recordatorios', url: '/finanzas/cobranza', permiso: 'gestionar-planes-cobro', y: 'ver-adeudos' },
+                ],
+            },
+            {
+                clave: 'finanzas-becas',
+                etiqueta: 'Becas y descuentos',
+                prefijo: '/finanzas/becas',
+                hijos: [
+                    { clave: 'becas', etiqueta: 'Becas', url: '/finanzas/becas', permiso: 'gestionar-planes-cobro', y: 'ver-adeudos' },
+                    { clave: 'presupuesto-becas', etiqueta: 'Presupuesto de becas', url: '/finanzas/becas/presupuesto', permiso: 'gestionar-planes-cobro', y: 'ver-adeudos' },
+                    // Dos entradas y no una: configurar la escala es del oficio
+                    // del cobro, y firmarla es de quien aprueba el gasto. Sin la
+                    // segunda, `autorizar-becas` sería un permiso sin puerta.
+                    { clave: 'niveles-beca', etiqueta: 'Niveles de autorización', url: '/finanzas/becas/niveles', permiso: 'gestionar-planes-cobro', y: 'ver-adeudos' },
+                    { clave: 'autorizaciones-beca', etiqueta: 'Becas por autorizar', url: '/finanzas/becas/autorizaciones', permiso: 'autorizar-becas', y: 'ver-adeudos' },
+                    { clave: 'descuentos', etiqueta: 'Descuentos', url: '/finanzas/descuentos', permiso: 'gestionar-planes-cobro', y: 'ver-adeudos' },
+                    { clave: 'convenios-descuento', etiqueta: 'Convenios de descuento', url: '/finanzas/convenios-descuento', permiso: 'gestionar-planes-cobro', y: 'ver-adeudos' },
+                ],
+            },
+            {
+                clave: 'finanzas-facturacion',
+                etiqueta: 'Facturación',
+                prefijo: '/finanzas/facturas',
+                hijos: [
+                    { clave: 'facturas', etiqueta: 'Facturas', url: '/finanzas/facturas', permiso: 'facturar', y: 'ver-adeudos' },
+                    { clave: 'emisores', etiqueta: 'Razones sociales', url: '/finanzas/emisores', permiso: 'gestionar-emisores', y: 'ver-adeudos' },
+                    { clave: 'cierre-fiscal', etiqueta: 'Cierre fiscal', url: '/finanzas/cierre', permiso: 'cerrar-periodo-fiscal', y: 'ver-adeudos' },
+                ],
+            },
+            {
+                clave: 'finanzas-egresos',
+                etiqueta: 'Egresos',
+                prefijo: '/finanzas/egresos',
+                hijos: [
+                    { clave: 'presupuesto', etiqueta: 'Presupuesto', url: '/finanzas/presupuesto', permiso: 'gestionar-presupuesto', o: 'registrar-egresos', y: 'ver-adeudos' },
+                    { clave: 'egresos', etiqueta: 'Egresos', url: '/finanzas/egresos', permiso: 'registrar-egresos', y: 'ver-adeudos' },
+                ],
+            },
+            {
+                clave: 'finanzas-configuracion',
+                etiqueta: 'Configuración del cobro',
+                prefijo: '/finanzas/planes',
+                hijos: [
+                    { clave: 'planes-cobro', etiqueta: 'Planes de cobro', url: '/finanzas/planes', permiso: 'gestionar-planes-cobro', y: 'ver-adeudos' },
+                    { clave: 'conceptos', etiqueta: 'Conceptos de pago', url: '/finanzas/conceptos', permiso: 'gestionar-planes-cobro', y: 'ver-adeudos' },
+                ],
+            },
         ],
     },
     {

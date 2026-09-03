@@ -121,30 +121,95 @@ function buscar(nodos: NodoNav[], clave: string): NodoNav | null {
     return null;
 }
 
-/** Agrega grupos/opciones del catálogo que falten en una disposición vieja,
- *  salvo las claves ocultas por el editor. */
+/**
+ * Agrega grupos/opciones del catálogo que falten en una disposición vieja,
+ * salvo las claves ocultas por el editor.
+ *
+ * ── Dos reglas que el primer intento no tenía, y las dos mordieron al
+ *    agrupar Finanzas ────────────────────────────────────────────────────
+ *
+ * 1. **Nada se agrega DOS veces.** Al plegar veintidós entradas sueltas en
+ *    seis subgrupos, una escuela que ya hubiera ordenado su menú tenía esas
+ *    hojas guardadas al primer nivel. El subgrupo nuevo no estaba en su
+ *    disposición, así que entraba entero —y `resolver` le cuelga los hijos del
+ *    catálogo—, dejando cada hoja repetida: una donde la escuela la puso y
+ *    otra dentro del subgrupo. No falla; sólo sale el menú duplicado.
+ *    Se poda contra lo ya presente, y un subgrupo que se queda sin hijos no se
+ *    agrega: si la escuela ya colocó todas sus hojas a mano, esa decisión es
+ *    suya y se respeta.
+ *
+ * 2. **Se BAJA a los subgrupos que ya existen.** Antes sólo se miraba el
+ *    primer nivel, así que una hoja nueva dentro de un subgrupo que la
+ *    disposición ya tenía no se agregaba NUNCA: quedaba inaccesible para ese
+ *    rol, que es justo lo que esta función existe para impedir.
+ */
 function fusionarFaltantes(base: NodoNav[], ocultos: Set<string>): NodoNav[] {
     const presentes = new Set<string>();
     recorrer(base, presentes);
+
+    /** El nodo sin lo que ya está colocado en otra parte; null si no queda nada. */
+    function sinRepetir(nodo: NodoNav): NodoNav | null {
+        if (ocultos.has(nodo.clave) || presentes.has(nodo.clave)) {
+            return null;
+        }
+
+        const hijos = nodo.hijos
+            .map(sinRepetir)
+            .filter((n): n is NodoNav => n !== null);
+
+        // Un subgrupo al que no le quedó ningún hijo no aporta nada: sus hojas
+        // ya están donde la escuela decidió ponerlas.
+        if (nodo.hijos.length > 0 && hijos.length === 0) {
+            return null;
+        }
+
+        presentes.add(nodo.clave);
+
+        return { ...nodo, hijos };
+    }
+
+    function agregarFaltantes(catalogo: OpcionMenu[], destino: NodoNav): void {
+        for (const h of catalogo) {
+            if (ocultos.has(h.clave)) {
+                continue; // opción oculta: ni se agrega
+            }
+
+            const existente = buscar(base, h.clave);
+
+            if (existente) {
+                // Ya está en la disposición: se respeta dónde, y se baja a ver
+                // si le falta algo dentro.
+                if (h.hijos && h.hijos.length > 0) {
+                    agregarFaltantes(h.hijos, existente);
+                }
+
+                continue;
+            }
+
+            const nodo = sinRepetir(resolver(h.clave, []) as NodoNav);
+
+            if (nodo) {
+                destino.hijos.push(nodo);
+            }
+        }
+    }
 
     for (const g of CATALOGO_MENU) {
         if (ocultos.has(g.clave)) {
             continue; // grupo oculto: ni se agrega
         }
+
         let grupo = buscar(base, g.clave);
+
         if (!grupo) {
             grupo = resolver(g.clave, []) as NodoNav;
             base.push(grupo);
             presentes.add(g.clave);
         }
-        for (const h of g.hijos) {
-            if (ocultos.has(h.clave) || presentes.has(h.clave)) {
-                continue; // opción oculta o ya presente
-            }
-            grupo.hijos.push(resolver(h.clave, []) as NodoNav);
-            presentes.add(h.clave);
-        }
+
+        agregarFaltantes(g.hijos, grupo);
     }
+
     return base;
 }
 
