@@ -31,6 +31,7 @@ use App\Models\Identidad\Usuario;
 use App\Models\ProcesosFormativos\ModalidadProceso;
 use App\Models\ProcesosFormativos\SituacionOrganizacion;
 use App\Models\ProcesosFormativos\TipoInformeProceso;
+use App\Models\ProcesosFormativos\ReglaProceso;
 use App\Models\ProcesosFormativos\TipoProcesoFormativo;
 use App\Models\Tenant;
 use App\Services\Plataforma\ModulosDeLaEscuela;
@@ -120,21 +121,16 @@ function usuarioConRol(string $rol): Usuario
 }
 
 /*
- * ── El DDL va FUERA de la transacción, y no por gusto ──────────────────────
+ * ── Esta suite ya no fabrica ninguna tabla ─────────────────────────────────
  *
- * `CREATE TABLE` hace COMMIT IMPLÍCITO en MySQL: ejecutado dentro, confirma
- * TODO lo escrito hasta ese punto y el `rollBack()` final ya no alcanza nada.
- * Se descubrió dejando cuatro personas y un tipo de proceso en el demo. Misma
- * familia que `tenancy()->end()` dentro de una transacción.
- *
- * Sirve para ejercitar `usadoEn` por sus DOS caminos: `expedientes_proceso`
- * llega en la fase 4, y hasta entonces la pantalla de catálogos tiene que abrir
- * igual.
- *
- * Y sólo se crea si NO existe: el día que la fase 4 la construya de verdad,
- * esta suite no debe tocarla —ni crearla, ni tirarla—.
+ * Antes simulaba `expedientes_proceso` con un `CREATE TABLE` para ejercitar
+ * `usadoEn` mientras la fase 4 no existía, y eso costó una lección: **`CREATE
+ * TABLE` hace COMMIT IMPLÍCITO en MySQL**, así que confirmaba todo lo escrito
+ * hasta ese punto y el `rollBack()` final ya no alcanzaba nada —dejó cuatro
+ * personas y un tipo de proceso en el demo—. Con la tabla real, el DDL sobra y
+ * la transacción vuelve a servir para lo que sirve. Queda escrito por si a
+ * alguien le tienta volver a simular una tabla aquí dentro.
  */
-$simulada = ! $db->getSchemaBuilder()->hasTable('expedientes_proceso');
 
 $db->beginTransaction();
 
@@ -287,39 +283,56 @@ try {
     echo PHP_EOL.'6. Lo que algo usa no se borra ni se apaga'.PHP_EOL;
 
     /*
-     * `enUso` mira las tablas que consumirán estos catálogos, y HOY NO EXISTEN
-     * —llegan en las fases 2 a 5—. Que la pantalla abra igual es justo lo que
-     * hay que comprobar: sin la guarda, reventaría con «table doesn't exist».
+     * `enUso` mira las tablas que consumen estos catálogos, y llegan por FASES.
+     *
+     * Su guarda comprobaba sólo que la TABLA existiera, y eso se quedó corto:
+     * la fase 4 creó `expedientes_proceso` sin `modalidad_id` —que llegó en una
+     * migración aparte— y la pantalla reventaba con «Unknown column». Ahora
+     * mira la COLUMNA, y esto lo vigila: se pregunta por una que NO existe y la
+     * respuesta tiene que ser «no está en uso», nunca una excepción.
      */
-    if ($simulada) {
-        verificar('Con la tabla de expedientes aún sin crear, nada figura en uso',
-            collect($tipos['items'])->every(fn (array $i) => $i['en_uso'] === false));
+    verificar('Preguntar por una columna que aún no existe no revienta: contesta que no',
+        (function () use ($controlador) {
+            $metodo = new ReflectionMethod($controlador, 'usadoEn');
+            $metodo->setAccessible(true);
 
-        verificar('Y la pantalla abre igual', $catalogos->count() === count($esperados));
-    } else {
-        /*
-         * Guardia RUIDOSA, no un salto silencioso: el día que la fase 4 exista,
-         * esta comprobación deja de tener caso y hay que retirarla a mano en vez
-         * de que se apague sola. Una prueba que se salta lo que ya no puede
-         * medir es una prueba que un día no mide nada.
-         */
-        verificar('«expedientes_proceso» ya existe: retira esta comprobación de la suite', false);
-    }
+            return $metodo->invoke($controlador, 'expedientes_proceso', 'columna_de_una_fase_futura', 1) === false;
+        })());
+
+    verificar('Y la pantalla abre igual', $catalogos->count() === count($esperados));
 
     /*
-     * Y ahora el caso contrario, con la tabla creada.
+     * Y el caso de verdad: un tipo de proceso EN USO por un expediente.
      *
-     * Se cierra la transacción a mano ANTES del DDL: crear la tabla aquí dentro
-     * confirmaría todo igualmente, sólo que sin decirlo. Lo escrito hasta aquí
-     * se retira en el `finally`.
+     * El expediente se construye entero —ya no basta con una fila suelta:
+     * `matricula_oferta_id` y `regla_version_id` son NOT NULL desde la fase 4—.
+     * Antes esta suite fabricaba una tabla de mentiras con `CREATE TABLE`, que
+     * además hace COMMIT IMPLÍCITO en MySQL; con la tabla real, el DDL sobra y
+     * la transacción vuelve a servir para lo que sirve.
      */
-    if ($simulada) {
-        $db->commit();
-        $db->statement('CREATE TABLE expedientes_proceso (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, tipo_proceso_id BIGINT UNSIGNED NULL, modalidad_id BIGINT UNSIGNED NULL, deleted_at TIMESTAMP NULL)');
-        $db->beginTransaction();
-    }
+    $matricula = DB::table('matricula_oferta')->whereNull('deleted_at')->first();
 
-    DB::table('expedientes_proceso')->insert(['tipo_proceso_id' => $servicio['id']]);
+    verificar('Hay una matrícula con la que construir el expediente', $matricula !== null);
+
+    $reglaEnUso = ReglaProceso::create([
+        'nombre' => 'ZZCAT '.random_int(1000, 9999),
+        'tipo_proceso_id' => $servicio['id'],
+    ]);
+
+    $versionEnUso = $reglaEnUso->versiones()->create([
+        'version' => 1,
+        'vigente_desde' => now()->subYear()->toDateString(),
+        'obligatorio' => true,
+    ]);
+
+    DB::table('expedientes_proceso')->insert([
+        'matricula_oferta_id' => $matricula->id,
+        'tipo_proceso_id' => $servicio['id'],
+        'regla_version_id' => $versionEnUso->id,
+        'estado' => 'borrador',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
 
     $conUso = props($controlador, 'index', $global);
     $tiposConUso = collect($conUso['catalogos'])->firstWhere('clave', 'tipo-proceso');
@@ -401,13 +414,6 @@ try {
         .' ('.basename($falla->getFile()).':'.$falla->getLine().')'.PHP_EOL;
 } finally {
     $db->transactionLevel() > 0 && $db->rollBack();
-
-    /*
-     * Y lo que el `commit()` de la sección 6 dejó escrito se retira a mano: es
-     * lo único que el rollback no alcanza. Una suite crea sólo lo que puede
-     * deshacer — y no toca la tabla si no la creó ella.
-     */
-    $simulada && $db->statement('DROP TABLE IF EXISTS expedientes_proceso');
 
     DB::table('tipos_proceso_formativo')->where('clave', 'brigada_rural')->delete();
 

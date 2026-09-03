@@ -298,9 +298,20 @@ class CatalogoProcesosController extends Controller
      * pantalla de catálogos reventaría con «table doesn't exist» hasta que
      * llegara la fase que crea esa tabla.
      */
+    /**
+     * ¿Alguien usa esta fila del catálogo?
+     *
+     * Se comprueba la COLUMNA y no sólo la tabla. La primera versión miraba
+     * `hasTable` —las tablas que consumen estos catálogos llegan por fases— y
+     * eso se quedó corto: la fase 4 creó `expedientes_proceso` sin
+     * `modalidad_id`, así que la tabla existía, la columna no, y la consulta
+     * reventaba con «Unknown column» al abrir el catálogo. Lo cazó la suite.
+     *
+     * `hasColumn` implica `hasTable`, así que la comprobación es una sola.
+     */
     private function usadoEn(string $tabla, string $columna, int $id): bool
     {
-        if (! DB::getSchemaBuilder()->hasTable($tabla)) {
+        if (! DB::getSchemaBuilder()->hasColumn($tabla, $columna)) {
             return false;
         }
 

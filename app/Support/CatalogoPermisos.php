@@ -272,6 +272,23 @@ final class CatalogoPermisos
              * resto de los portales.
              */
             'ver-mi-proceso-formativo' => ['Ver mi servicio social o prácticas', 'Portal del alumno: si ya puede empezar, qué le falta exactamente y qué exige su programa.', [self::ALUMNO]],
+            /*
+             * La bandeja: tomar una solicitud, pedirle correcciones,
+             * aprobarla, rechazarla y asignarle organización. Es el trabajo
+             * DIARIO de quien coordina, y por eso va todo junto: partirlo en
+             * cuatro obligaría a la escuela a repartir cuatro llaves para un
+             * solo oficio.
+             */
+            'revisar-solicitudes-formativas' => ['Revisar solicitudes', 'Tomar una solicitud de servicio social o prácticas, pedir correcciones, aprobarla o rechazarla, y asignarle organización y fechas.', [self::ADMINISTRATIVO]],
+            /*
+             * APARTE del anterior, y ésta es la separación que más importa:
+             * saltarse un requisito configurado —los créditos, el convenio, un
+             * documento— es un acto de dirección. Con un solo permiso, quien
+             * revisa a diario podría perdonar cualquier cosa, y la excepción
+             * dejaría de ser excepcional. Mismo criterio que liberar contra
+             * corregir una liberación.
+             */
+            'aprobar-excepciones-formativas' => ['Autorizar excepciones', 'Perdonarle a un alumno concreto un requisito de su regla, dejando escrito cuál y por qué.', [self::ADMINISTRATIVO]],
         ],
 
         'Disciplina' => [

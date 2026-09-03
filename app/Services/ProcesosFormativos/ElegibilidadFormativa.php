@@ -42,6 +42,27 @@ use App\Services\HistorialDelAlumno;
  */
 class ElegibilidadFormativa
 {
+    /**
+     * Cómo se nombra cada requisito al decir que se excepcionó.
+     *
+     * Se repite a propósito de {@see ExcepcionExpediente::REQUISITOS}: aquél
+     * es el catálogo de lo que se puede perdonar y éste el texto que lee el
+     * alumno. Una prueba cruza las dos listas, para que agregar un requisito
+     * allá no deje aquí una clave cruda en la pantalla.
+     *
+     * @var array<string, string>
+     */
+    private array $etiquetas = [
+        'creditos' => 'Créditos',
+        'periodo' => 'Periodo',
+        'situacion' => 'Situación académica',
+        'materias' => 'Materias previas',
+        'adeudo' => 'Estar al corriente',
+        'ventana' => 'Ventana de solicitud',
+        'documentos' => 'Documentos',
+        'convenio' => 'Convenio',
+    ];
+
     public function __construct(
         private readonly ResolutorDeRegla $resolutor,
         private readonly HistorialDelAlumno $historial,
@@ -77,20 +98,92 @@ class ElegibilidadFormativa
             );
         }
 
+        return array_merge(
+            $this->paraVersion($matricula, $version, [], $dia),
+            ['regla' => $regla],
+        );
+    }
+
+    /**
+     * El mismo dictamen, pero contra una versión CONCRETA y con excepciones.
+     *
+     * Lo usa el expediente ya abierto: se le comprueba con la regla que se le
+     * CONGELÓ, no con la que rija hoy —cambiar la configuración a mitad no
+     * puede tumbar una solicitud en curso—, y saltándose los requisitos que
+     * alguien le perdonó por escrito.
+     *
+     * `$excepciones` son claves de {@see ExcepcionExpediente::REQUISITOS}. Se
+     * pasan como lista y no se leen del expediente aquí para que este servicio
+     * siga sirviendo ANTES de que exista expediente, que es la mitad de su
+     * trabajo.
+     *
+     * @param  array<int, string>  $excepciones
+     * @return array{
+     *     elegible: bool,
+     *     regla: ReglaProceso|null,
+     *     version: ReglaProcesoVersion|null,
+     *     obligatorio: bool|null,
+     *     impedimentos: array<int, string>,
+     *     cumplidos: array<int, string>,
+     *     avance: array<string, mixed>
+     * }
+     */
+    public function paraVersion(
+        MatriculaOferta $matricula,
+        ?ReglaProcesoVersion $version,
+        array $excepciones = [],
+        ?string $dia = null,
+    ): array {
+        if ($version === null) {
+            return $this->sinRegla('Este expediente no tiene requisitos publicados.');
+        }
+
         $impedimentos = [];
         $cumplidos = [];
         $avance = $this->avance($matricula, $version);
 
-        $this->revisarCreditos($version, $avance, $impedimentos, $cumplidos);
-        $this->revisarPeriodo($matricula, $version, $impedimentos, $cumplidos);
-        $this->revisarSituacion($matricula, $version, $impedimentos, $cumplidos);
-        $this->revisarMaterias($matricula, $version, $impedimentos, $cumplidos);
-        $this->revisarAdeudo($matricula, $version, $impedimentos, $cumplidos);
-        $this->revisarVentana($version, $dia, $impedimentos, $cumplidos);
+        /*
+         * Cada revisión se salta si su requisito está excepcionado, y lo dice:
+         * un expediente perdonado se vería idéntico a uno que sí cumple, y
+         * dentro de un año nadie sabría cuál era cuál.
+         */
+        $perdonado = function (string $requisito) use ($excepciones, &$cumplidos): bool {
+            if (! in_array($requisito, $excepciones, true)) {
+                return false;
+            }
+
+            $cumplidos[] = ($this->etiquetas[$requisito] ?? $requisito).': excepción autorizada.';
+
+            return true;
+        };
+
+        if (! $perdonado('creditos')) {
+            $this->revisarCreditos($version, $avance, $impedimentos, $cumplidos);
+        }
+
+        if (! $perdonado('periodo')) {
+            $this->revisarPeriodo($matricula, $version, $impedimentos, $cumplidos);
+        }
+
+        if (! $perdonado('situacion')) {
+            $this->revisarSituacion($matricula, $version, $impedimentos, $cumplidos);
+        }
+
+        if (! $perdonado('materias')) {
+            $this->revisarMaterias($matricula, $version, $impedimentos, $cumplidos);
+        }
+
+        if (! $perdonado('adeudo')) {
+            $this->revisarAdeudo($matricula, $version, $impedimentos, $cumplidos);
+        }
+
+        if (! $perdonado('ventana')) {
+            $this->revisarVentana($version, $dia, $impedimentos, $cumplidos);
+        }
 
         return [
             'elegible' => $impedimentos === [],
-            'regla' => $regla,
+            'regla' => $version->regla,
             'version' => $version,
             'obligatorio' => $version->obligatorio,
             'impedimentos' => $impedimentos,

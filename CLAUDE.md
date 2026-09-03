@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**132 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**133 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -65,7 +65,7 @@ Los otros dos documentos vivos:
    un rol con disposición guardada. Si node no puede correrlo, la suite FALLA
    en vez de saltarse.
 
-   **Las 132 están en verde**, barridas el 2026-09-03. Catorce son del módulo de
+   **Las 133 están en verde**, barridas el 2026-09-03. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -771,6 +771,155 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
   CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
   adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
+- **Servicio social y prácticas · FASE 4: solicitud, revisión y asignación**
+  (2026-09-03). El expediente, de `borrador` a `asignado`. `/procesos/expedientes`
+  para la bandeja y `/mi-servicio-social` para que el alumno arme la suya.
+  Permisos nuevos `revisar-solicitudes-formativas` y
+  `aprobar-excepciones-formativas`.
+  - **Toda transición pasa por UN servicio**, `TransicionDeExpediente`. Mover un
+    expediente son cinco cosas a la vez —validar el origen, el permiso y el
+    alcance, anotar la bitácora y bloquear la fila— y un `update(['estado'=>…])`
+    suelto se las salta todas. Repartidas por los controladores, el que se
+    olvide de una no falla: deja un expediente movido sin rastro, o dos
+    aprobaciones simultáneas. Es el molde de `Postulador::mover` y
+    `RegistradorMovimientos`.
+  - **DOCE estados y no los diecisiete del pedido**, con su razón escrita:
+    `elegible`/`no_elegible` se CALCULAN, y `pendiente_informe_final`,
+    `pendiente_evaluacion` y `pendiente_liberacion` son un solo `concluido` con
+    su lista de impedimentos —los tres significan «terminó el campo y le falta
+    papeleo» y son mutuamente dependientes—.
+  - **El ORIGEN manda, y el destino que no cuelga se REHÚSA** enumerando a dónde
+    sí se puede. Nunca se «corrige» al estado más cercano: eso convierte un
+    error de programación en un movimiento silencioso del expediente de alguien.
+  - **La tabla de transiciones está COMPLETA aunque la fase entregue medio
+    camino.** Partirla obligaría a la fase 5 a reescribirla, y una máquina de
+    estados escrita dos veces diverge. Una arista que ninguna ruta dispara no
+    engaña a nadie —no aparece en ninguna pantalla—, al revés que un permiso sin
+    puerta.
+  - **La idempotencia tiene DOS guardas y las dos hacen falta.** La de fuera
+    evita un 403 confuso al re-pulsar un botón; la de dentro, con la fila ya
+    releída y bloqueada, es la única que detiene la CARRERA de dos revisores con
+    la pantalla abierta. En una petición suelta hacen lo mismo, así que la
+    segunda sólo se puede comprobar reproduciendo la carrera —con una copia del
+    modelo leída antes de mover—.
+  - **El motivo obligatorio se comprueba en el SERVICIO**, no en cada
+    FormRequest: con la regla repartida, la pantalla que alguien agregue el mes
+    que viene dejará rechazar sin explicación.
+  - **El único va sobre una COLUMNA GENERADA** (`tipo_si_cuenta`), que vale el
+    tipo mientras el expediente cuenta y NULL cuando se canceló o rechazó. Uno
+    pelado sobre `(matrícula, tipo)` cerraría la puerta para siempre, y
+    equivocarse y volver a intentarlo es exactamente lo que va a pasar. Incluir
+    `deleted_at` NO sirve: MySQL da dos NULL por distintos. Misma solución que
+    `sesiones_caja` y `reglas_recordatorio_cobranza`.
+    - **La lista de estados vivos está escrita DOS VECES** —en PHP y en el SQL
+      de la columna generada, que la evalúa MySQL— y una prueba las cruza. Sin
+      quien las compare se separan el día que se agregue un estado, y el único
+      empezaría a permitir o impedir lo que no debe, sin fallar.
+  - **La elegibilidad se comprueba DOS veces**, al abrir y al enviar. Entre las
+    dos pueden pasar semanas: el alumno pudo reprobar, caer en adeudo o
+    cerrársele la ventana. Comprobando sólo al abrir, la bandeja se llena de
+    solicitudes que ya no cumplen y el rechazo llega después de que alguien
+    perdiera el tiempo revisándolas. Al enviar se mide contra la versión
+    CONGELADA (`paraVersion`), no contra la que rija hoy.
+  - **Las horas se COPIAN al abrir**, no se leen de la regla: un alumno puede
+    tener una excepción autorizada que le baje el requisito, y leyéndolas de la
+    versión esa excepción no cabría en ningún lado.
+  - **El CUPO lo protege la base**: `lockForUpdate()` sobre la plaza, la
+    comprobación con la fila ya bloqueada, y el CHECK debajo. Y el incremento va
+    DESPUÉS de mover y dentro de la misma transacción: si la transición se
+    rehúsa, el lugar no se ocupa. **Cancelar lo devuelve; concluir NO** —quien
+    terminó ocupó esa plaza, y devolverlo haría que una de cinco recibiera a
+    treinta al año sin que nadie lo decidiera—.
+  - **La EXCEPCIÓN es un acto con dueño, no una casilla.** Guardada como bandera
+    —«sin_seguro = 1»— nadie podría explicar dentro de un año quién la autorizó.
+    Aquí cada una lleva su requisito, su motivo y su firma, y el impedimento
+    desaparece NOMBRANDO a quien la concedió: sin eso, un expediente
+    excepcionado se ve idéntico a uno que sí cumple. Su permiso va APARTE del de
+    revisar, como liberar contra corregir una liberación.
+  - **Sus requisitos son CLAVES DE CÓDIGO y no catálogo**: cada una es una rama
+    de `ElegibilidadFormativa`, así que una fila nueva no haría nada. La escuela
+    no puede inventar un requisito, sólo perdonar uno de los que el motor
+    comprueba. Mismo argumento que `tipos_actividad`.
+  - **La tabla se llama `documentos_expediente_formativo`** porque
+    `expediente_documentos` YA EXISTE y es de admisiones. Es la cuarta con la
+    misma forma tras las de alumno, docente y tutor, y se repite a propósito:
+    con una sola, los papeles de un servicio social asomarían en el expediente
+    de admisión de quien es las dos cosas. El CATÁLOGO sí se reusa, con el
+    ámbito `proceso_formativo`.
+  - **Los papeles se piden POR MOMENTO** (solicitud / durante / liberación): la
+    carta de aceptación no existe hasta que hay organización, y pedirlo todo al
+    principio frenaría el trámite por algo que todavía no puede existir. Y la
+    papelería enseña lo PEDIDO con lo subido encima — sólo lo subido deja el
+    desplegable vacío el primer día, y sólo lo pedido esconde lo entregado.
+  - **Re-subir REEMPLAZA y devuelve el estado a «sin revisar»**: un documento
+    reemplazado después de haber sido aceptado no puede seguir diciendo
+    «aceptado» sobre un archivo que nadie miró.
+  - **El alumno sólo toca lo suyo, y lo ajeno da 404 y no 403** —un 403
+    confirmaría que ese expediente existe—. Abrir sobre una matrícula ajena
+    también: al listar se cae a la propia, pero abrir es un acto con
+    consecuencias y hacerlo «sobre la primera que tenga» le abriría un trámite
+    que no pidió.
+  - **`AlcanceDeExpedientes` vive fuera del controlador** porque lo preguntan
+    dos caminos —la pantalla para listar y el servicio para mover—. Con la regla
+    sólo en el controlador, el servicio movería expedientes que la pantalla no
+    enseña: el id viaja por la URL. El campus sale de la MATRÍCULA; copiarlo al
+    expediente crearía un segundo dato que se separaría al cambiar de plantel.
+  - **Tres defectos que la suite cazó, ninguno visible sin ella:**
+    1. **`organizaciones_receptoras` NO tiene columna `activa`.** El asignador
+       exigía `$organizacion->activa && …`, o sea `null && …`: siempre falso.
+       **Se negaba TODA asignación** con un mensaje que parecía de captura. Que
+       recibe lo dice la bandera de su situación, que es lo que
+       `scopeQueReciben` ya consulta.
+    2. **El disco privado NO se llama `privado`**, se llama `local` —los 120
+       usos del sistema van ahí—. La subida reventaba con «Disk [privado] does
+       not have a configured driver». El nombre de un disco se pregunta, no se
+       adivina; misma familia que el nombre de una tabla.
+    3. **`usadoEn` del catálogo comprobaba la TABLA y no la COLUMNA.** La fase 4
+       creó `expedientes_proceso` sin `modalidad_id`, así que la tabla existía,
+       la columna no, y la pantalla de catálogos reventaba con «Unknown column».
+       Ahora mira `hasColumn`, que implica `hasTable`.
+  - **Y de ahí salió que el catálogo de MODALIDADES no lo leía nadie.** Se le
+    agregó `expedientes_proceso.modalidad_id` —propia y no derivada de la plaza:
+    un expediente puede no tener plaza, y derivándola la mitad se quedaría sin
+    modalidad—, que se hereda de la plaza cuando no se captura.
+  - **La guarda RUIDOSA de la fase 1 hizo su trabajo.** Aquella suite simulaba
+    `expedientes_proceso` con un `CREATE TABLE` y dejaba escrito «el día que la
+    fase 4 exista, retira esta comprobación», fallando en ROJO en vez de
+    apagarse sola. Se cayó en el barrido y dijo exactamente qué hacer. Ya no
+    fabrica ninguna tabla: con la real, el DDL sobra —y con él se va el COMMIT
+    IMPLÍCITO que aquella vez dejó basura en el demo—.
+  - Pruebas: `scripts/prueba-procesos-expedientes.php`, 80 verificaciones,
+    comprobadas mutando **42 reglas**. En la primera pasada sobrevivieron nueve:
+    - **Siete eran huecos de escenario**, lo de siempre: no había organización
+      suspendida, ni plaza de otra organización, ni alumno no elegible, ni
+      documento opcional, ni plaza con modalidad puesta —la comprobación pasaba
+      comparando null contra null—, ni el caso de liberar el lugar dos veces.
+    - **Dos eran mutaciones MAL ESCRITAS**: una cambiaba una cadena que aparece
+      dos veces en el archivo, y otra era idéntica al original.
+  - **Cuatro defectos que sólo se vieron MIRÁNDOLO:**
+    1. **«El expediente pasa a "Aprobar"»** mezclaba el verbo del botón con el
+       nombre del estado. Ahora el destino viaja con las dos palabras.
+    2. **La píldora decía «Ya puedes empezar»** encima de una solicitud ya
+       enviada. Con expediente abierto manda SU estado; la elegibilidad sólo
+       informa mientras no haya empezado.
+    3. **Y el estado salía DOS VECES** en la misma tarjeta del alumno.
+    4. **La lista de «lo que falta» de la elegibilidad seguía visible** con la
+       solicitud ya abierta, cuando lo que importa es lo que le falta a ella.
+  - **Trampa de la medición, dos veces**: medir la pantalla 1.8 s después de
+    pulsar da «no pasó nada» sobre algo que sí pasó. Los avisos flash y la
+    navegación de Inertia tardan más; con un `MutationObserver` se ve el aviso
+    —«No se puede enviar todavía: Falta subir «Acta de nacimiento»»— que un
+    vistazo tardío se pierde.
+  - Verificado en el navegador el recorrido entero: el alumno abre su borrador,
+    intenta enviarlo sin papeles y lee por qué, sube un PDF, lo descarga (200,
+    `application/pdf`) mientras el de otro da 404, envía; y del lado
+    administrativo la bandeja, tomar, aprobar —con los botones cambiando en cada
+    estado—, el rechazo por plazo máximo, la asignación con su plaza y sus
+    fechas, la excepción con su motivo y su firma, y la historia completa.
+    **Los datos se retiraron**, incluidos los archivos del disco privado y el
+    periodo que se le capturó a la matrícula; `acadion:auditar-datos` sigue
+    reportando las mismas 69 filas rotas de siempre.
+
 - **Servicio social y prácticas · FASE 3: reglas versionadas y elegibilidad**
   (2026-09-03). `/procesos/reglas` para configurarlas y `/mi-servicio-social`
   para que el alumno sepa **qué le falta**. Permiso nuevo
@@ -4859,9 +5008,15 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
         vino abajo, bien caída. Ahora se siembra un cargo en otro campus.
 
   - **NO pasar `pint` sobre `scripts/`** (mordió el 2026-08-26; y **`pint --dirty`
-    lo hace solo**, sin que se lo pidas: alcanzó una suite nueva el 2026-09-03,
-    así que después de formatear hay que devolverla con `git checkout --` y
-    volver a correrla). Su fixer de
+    lo hace solo**, sin que se lo pidas: alcanzó suites nuevas dos veces el
+    2026-09-03).
+    - **Y el arreglo tiene su propia trampa: COMMITEAR ANTES de formatear.** La
+      segunda vez devolví las suites con `git checkout --` y me llevé por
+      delante media hora de trabajo sin commitear —una volvió a la versión del
+      último commit y otra a la del índice—. Es la misma lección que dejó
+      escrita el barrido de mutaciones el 2026-09-02, ahora por otra puerta: el
+      orden es commit → `pint --dirty` → `git checkout -- scripts/` → volver a
+      correr la suite. Su fixer de
     nombres cualificados convierte los FQN en alias y **añade los `use` al bloque
     de importaciones, que en estas suites está DESPUÉS del arranque** —primero
     `require`, luego `$app->make(Kernel::class)->bootstrap()`, y los `use` más

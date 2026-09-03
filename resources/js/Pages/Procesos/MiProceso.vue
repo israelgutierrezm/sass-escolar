@@ -12,10 +12,13 @@
  * Enfermería, generación 2022 en adelante» sí.
  */
 import { Head, router } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
+import CampoTextarea from '@/Components/CampoTextarea.vue';
+import Modal from '@/Components/Modal.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
 
@@ -30,6 +33,7 @@ interface Proceso {
     regla: { nombre: string; alcance: string } | null;
     version: number | null;
     horas_requeridas: number | null;
+    expediente: Record<string, any> | null;
 }
 
 const props = defineProps<{
@@ -56,6 +60,93 @@ const sinConfigurar = computed(() => props.procesos.filter((p) => p.regla === nu
 function cambiarMatricula(id: number | string | null): void {
     router.get('/mi-servicio-social', { matricula: id ?? undefined }, { preserveState: false });
 }
+
+const procesando = ref(false);
+const errores = ref<Record<string, string>>({});
+const subiendo = ref<{ expediente: number; documento: number | null; momento: string } | null>(null);
+const cancelando = ref<number | null>(null);
+const motivo = ref('');
+const archivo = ref<File | null>(null);
+
+/*
+ * Al cambiar de programa se cierran los paneles y se vacía lo escrito: Inertia
+ * reutiliza el componente y sólo intercambia las props, así que sin esto el
+ * formulario de subir quedaría abierto sobre el expediente del otro programa.
+ */
+watch(() => props.elegida, () => {
+    subiendo.value = null;
+    cancelando.value = null;
+    motivo.value = '';
+    archivo.value = null;
+    errores.value = {};
+});
+
+function abrir(tipoId: number): void {
+    procesando.value = true;
+
+    router.post('/mi-servicio-social/abrir', { matricula: props.elegida, tipo_proceso_id: tipoId }, {
+        preserveScroll: true,
+        onError: (e) => (errores.value = e),
+        onFinish: () => (procesando.value = false),
+    });
+}
+
+function enviar(id: number): void {
+    procesando.value = true;
+
+    router.post(`/mi-servicio-social/${id}/enviar`, {}, {
+        preserveScroll: true,
+        onError: (e) => (errores.value = e),
+        onFinish: () => (procesando.value = false),
+    });
+}
+
+function cancelar(): void {
+    if (cancelando.value === null) return;
+
+    procesando.value = true;
+
+    router.post(`/mi-servicio-social/${cancelando.value}/cancelar`, { motivo: motivo.value }, {
+        preserveScroll: true,
+        onError: (e) => (errores.value = e),
+        onSuccess: () => {
+            cancelando.value = null;
+            motivo.value = '';
+        },
+        onFinish: () => (procesando.value = false),
+    });
+}
+
+function subir(): void {
+    if (subiendo.value === null || archivo.value === null) return;
+
+    procesando.value = true;
+
+    router.post(
+        `/mi-servicio-social/${subiendo.value.expediente}/documentos`,
+        {
+            documento_id: subiendo.value.documento,
+            momento: subiendo.value.momento,
+            archivo: archivo.value,
+        },
+        {
+            preserveScroll: true,
+            forceFormData: true,
+            onError: (e) => (errores.value = e),
+            onSuccess: () => {
+                subiendo.value = null;
+                archivo.value = null;
+            },
+            onFinish: () => (procesando.value = false),
+        },
+    );
+}
+
+const MOMENTOS: Record<string, string> = {
+    solicitud: 'Al solicitar',
+    durante: 'Durante el proceso',
+    liberacion: 'Para liberar',
+};
 </script>
 
 <template>
@@ -93,11 +184,19 @@ function cambiarMatricula(id: number | string | null): void {
                         class="rounded-full px-2 py-0.5 text-[11px]"
                         :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 14%, transparent)', color: 'var(--color-suave)' }"
                     >Optativo</span>
-                    <!-- `sin-capitalizar` porque el texto ya viene escrito: la
-                         píldora capitaliza CADA palabra y salía «Todavía No». -->
+                    <!--
+                        Con solicitud abierta manda SU ESTADO, no la
+                        elegibilidad: «Ya puedes empezar» encima de una
+                        solicitud ya enviada se contradice consigo mismo, y el
+                        alumno acaba sin saber en qué punto está. La
+                        elegibilidad sólo informa mientras no haya empezado.
+
+                        `sin-capitalizar` porque el texto ya viene escrito: la
+                        píldora capitaliza CADA palabra y salía «Todavía No».
+                    -->
                     <PildoraEstado
-                        :texto="p.elegible ? 'Ya puedes empezar' : 'Todavía no'"
-                        :color="p.elegible ? '#16a34a' : '#b45309'"
+                        :texto="p.expediente ? p.expediente.estado_texto : (p.elegible ? 'Ya puedes empezar' : 'Todavía no')"
+                        :color="p.expediente ? p.expediente.estado_color : (p.elegible ? '#16a34a' : '#b45309')"
                         sin-capitalizar
                     />
                 </div>
@@ -110,7 +209,7 @@ function cambiarMatricula(id: number | string | null): void {
                 <span v-if="p.horas_requeridas"> Son {{ p.horas_requeridas }} horas.</span>
             </p>
 
-            <div class="grid gap-4 sm:grid-cols-2">
+            <div v-if="!p.expediente" class="grid gap-4 sm:grid-cols-2">
                 <div v-if="p.impedimentos.length">
                     <p class="mb-2 text-sm font-medium" :style="{ color: '#b45309' }">Lo que falta</p>
                     <ul class="space-y-1.5">
@@ -142,6 +241,109 @@ function cambiarMatricula(id: number | string | null): void {
                     :style="{ color: 'var(--color-suave)' }"
                 >
                     Tu programa no pone requisitos previos para empezar.
+                </p>
+            </div>
+
+            <!--
+                Su solicitud, cuando ya la abrió. Va DENTRO de la tarjeta de su
+                proceso y no en una sección aparte: «¿puedo?» y «¿cómo voy?» son
+                la misma pregunta, y separarlas obligaría a cruzarlas de memoria.
+            -->
+            <div
+                v-if="p.expediente"
+                class="mt-4 rounded-lg px-4 py-3"
+                :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 8%, transparent)' }"
+            >
+                <!-- Sin repetir la píldora: la de la cabecera ya dice el
+                     estado, y decirlo dos veces en la misma tarjeta no informa
+                     de nada nuevo. -->
+                <p class="text-sm font-medium">Tu solicitud</p>
+
+                <p
+                    v-if="p.expediente.motivo_estado"
+                    class="mt-2 text-sm"
+                    :style="{ color: '#b45309' }"
+                >{{ p.expediente.motivo_estado }}</p>
+
+                <p v-if="p.expediente.organizacion" class="mt-2 text-sm">
+                    En <strong>{{ p.expediente.organizacion }}</strong>,
+                    del {{ p.expediente.fecha_inicio }} al {{ p.expediente.fecha_fin_programada }}.
+                </p>
+
+                <!-- Los papeles: los suyos y los que le faltan, juntos. -->
+                <ul v-if="p.expediente.documentos.length" class="mt-3 space-y-1.5">
+                    <li
+                        v-for="d in p.expediente.documentos"
+                        :key="`${d.documento_id}-${d.momento}`"
+                        class="flex flex-wrap items-center justify-between gap-2 text-sm"
+                    >
+                        <span class="min-w-0">
+                            {{ d.nombre }}
+                            <span class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                                · {{ MOMENTOS[d.momento] ?? d.momento }}<span v-if="!d.obligatorio"> · opcional</span>
+                            </span>
+                            <span v-if="d.observaciones" class="mt-0.5 block text-xs" :style="{ color: '#b45309' }">
+                                {{ d.observaciones }}
+                            </span>
+                        </span>
+
+                        <a
+                            v-if="d.entregado"
+                            class="text-xs underline"
+                            :href="`/mi-servicio-social/${p.expediente.id}/documentos/${d.id}`"
+                        >{{ d.estado ?? 'Sin revisar' }} · ver</a>
+
+                        <span v-else class="text-xs" :style="{ color: '#b45309' }">Falta</span>
+                    </li>
+                </ul>
+
+                <p
+                    v-if="p.expediente.faltantes.length"
+                    class="mt-3 text-sm"
+                    :style="{ color: '#b45309' }"
+                >
+                    Te falta subir: {{ p.expediente.faltantes.join(', ') }}.
+                </p>
+
+                <div v-if="p.expediente.puede_editar" class="mt-3 flex flex-wrap gap-2">
+                    <button
+                        type="button"
+                        class="rounded-lg border border-borde px-3 py-1.5 text-sm"
+                        @click="subiendo = { expediente: p.expediente.id, documento: null, momento: 'solicitud' }"
+                    >Subir un documento</button>
+
+                    <button
+                        type="button"
+                        class="rounded-lg px-3 py-1.5 text-sm font-medium text-white"
+                        :style="{ backgroundColor: 'var(--color-acento)' }"
+                        :disabled="procesando"
+                        @click="enviar(p.expediente.id)"
+                    >Enviar la solicitud</button>
+
+                    <button
+                        type="button"
+                        class="rounded-lg border px-3 py-1.5 text-sm"
+                        :style="{ borderColor: '#b91c1c', color: '#b91c1c' }"
+                        @click="cancelando = p.expediente.id"
+                    >Cancelar</button>
+                </div>
+            </div>
+
+            <!--
+                Todavía no la ha abierto y ya puede: el botón. Sin él, un alumno
+                elegible no tendría por dónde empezar y acabaría en ventanilla,
+                que es lo que esta pantalla viene a evitar.
+            -->
+            <div v-else-if="p.elegible" class="mt-4">
+                <button
+                    type="button"
+                    class="rounded-lg px-4 py-2 text-sm font-medium text-white"
+                    :style="{ backgroundColor: 'var(--color-acento)' }"
+                    :disabled="procesando"
+                    @click="abrir(p.tipo_id)"
+                >Empezar mi {{ p.tipo.toLowerCase() }}</button>
+                <p class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">
+                    Se abre como borrador: puedes juntar tus papeles con calma y enviarla después.
                 </p>
             </div>
 
@@ -184,5 +386,74 @@ function cambiarMatricula(id: number | string | null): void {
         <p v-if="matriculas.length && !procesos.length" class="tarjeta px-6 py-12 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
             Tu escuela todavía no ha encendido ningún proceso.
         </p>
+
+        <Modal v-if="subiendo" etiqueta="Subir un documento" ancho="max-w-lg" @cerrar="subiendo = null">
+            <template #default="{ cerrar }">
+                <form class="space-y-4 p-6" @submit.prevent="subir">
+                    <h2 class="text-base font-semibold">Subir un documento</h2>
+
+                    <CampoSelect
+                        v-model="subiendo.momento"
+                        etiqueta="¿Para qué momento?"
+                        :opciones="Object.entries(MOMENTOS).map(([valor, texto]) => ({ valor, texto }))"
+                        :error="errores.momento"
+                    />
+
+                    <CampoSelect
+                        v-model="subiendo.documento"
+                        etiqueta="Documento"
+                        requerido
+                        :opciones="(procesos.find((x) => x.expediente?.id === subiendo?.expediente)?.expediente?.documentos ?? [])
+                            .filter((d: any) => d.momento === subiendo?.momento)
+                            .map((d: any) => ({ valor: d.documento_id, texto: d.nombre }))"
+                        vacio="Elige cuál…"
+                        :error="errores.documento_id"
+                    />
+
+                    <label class="block text-sm">
+                        <span class="mb-1 block">Archivo</span>
+                        <input
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            class="w-full text-sm"
+                            @change="archivo = ($event.target as HTMLInputElement).files?.[0] ?? null"
+                        />
+                        <span class="mt-1 block text-xs" :style="{ color: 'var(--color-suave)' }">
+                            PDF o imagen, hasta 10 MB.
+                        </span>
+                        <span v-if="errores.archivo" class="mt-1 block text-xs" :style="{ color: '#b91c1c' }">
+                            {{ errores.archivo }}
+                        </span>
+                    </label>
+
+                    <div class="flex items-center gap-3 pt-2">
+                        <BotonPrincipal :procesando="procesando" texto="Subir" icono="crear" :deshabilitado="!archivo || !subiendo.documento" />
+                        <button type="button" class="rounded-lg border border-borde px-4 py-2 text-sm" @click="cerrar">Cancelar</button>
+                    </div>
+                </form>
+            </template>
+        </Modal>
+
+        <Modal v-if="cancelando" etiqueta="Cancelar la solicitud" ancho="max-w-lg" @cerrar="cancelando = null">
+            <template #default="{ cerrar }">
+                <form class="space-y-4 p-6" @submit.prevent="cancelar">
+                    <h2 class="text-base font-semibold">Cancelar tu solicitud</h2>
+
+                    <CampoTextarea
+                        v-model="motivo"
+                        etiqueta="¿Por qué la cancelas?"
+                        requerido
+                        :filas="3"
+                        ayuda="Queda anotado. Después puedes abrir otra cuando quieras."
+                        :error="errores.motivo"
+                    />
+
+                    <div class="flex items-center gap-3 pt-2">
+                        <BotonPrincipal :procesando="procesando" texto="Cancelar la solicitud" icono="eliminar" :deshabilitado="motivo.trim().length < 5" />
+                        <button type="button" class="rounded-lg border border-borde px-4 py-2 text-sm" @click="cerrar">Mejor no</button>
+                    </div>
+                </form>
+            </template>
+        </Modal>
     </AppLayout>
 </template>

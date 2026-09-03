@@ -30,12 +30,21 @@ class DocumentoRequerido extends Model
 
     public const AMBITO_TUTOR = 'tutor';
 
+    /*
+     * Los papeles de un servicio social o unas prácticas. No se clona el
+     * catálogo: «comprobante de seguro facultativo» es el mismo documento que
+     * ya sabe tener vigencia y estados, y sólo hace falta poder marcarlo como
+     * de este proceso.
+     */
+    public const AMBITO_PROCESO_FORMATIVO = 'proceso_formativo';
+
     /** @var array<string, string> */
     public const AMBITOS = [
         self::AMBITO_ASPIRANTE => 'Aspirantes',
         self::AMBITO_ALUMNO => 'Alumnos',
         self::AMBITO_DOCENTE => 'Docentes',
         self::AMBITO_TUTOR => 'Tutores',
+        self::AMBITO_PROCESO_FORMATIVO => 'Servicio social y prácticas',
     ];
 
     protected $table = 'documentos_requeridos';

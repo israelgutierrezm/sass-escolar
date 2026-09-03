@@ -127,6 +127,7 @@ use App\Http\Controllers\PresentacionExamenController;
 use App\Http\Controllers\PresupuestoController;
 use App\Http\Controllers\ProcesosFormativos\CatalogoProcesosController;
 use App\Http\Controllers\ProcesosFormativos\ConvenioFormativoController;
+use App\Http\Controllers\ProcesosFormativos\ExpedienteFormativoController;
 use App\Http\Controllers\ProcesosFormativos\MiProcesoFormativoController;
 use App\Http\Controllers\ProcesosFormativos\OrganizacionReceptoraController;
 use App\Http\Controllers\ProcesosFormativos\PlazaProcesoController;
@@ -2501,6 +2502,34 @@ Route::middleware([
                         });
                     });
 
+                /*
+                 * Los EXPEDIENTES: la bandeja y el trámite de cada alumno.
+                 *
+                 * Se LEEN con el permiso de la sección --dirección y auditoría
+                 * miran sin tocar-- y se MUEVEN con `revisar-solicitudes`. La
+                 * excepción va aparte, con su propio permiso: perdonarle un
+                 * requisito a alguien es un acto de dirección, y con una sola
+                 * llave quien revisa a diario podría saltarse cualquier cosa.
+                 */
+                Route::controller(ExpedienteFormativoController::class)
+                    ->prefix('expedientes')->name('expedientes.')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::get('{expediente}', 'show')->whereNumber('expediente')->name('ver');
+
+                        Route::middleware('can:revisar-solicitudes-formativas')->group(function () {
+                            Route::post('{expediente}/mover', 'mover')->whereNumber('expediente')->name('mover');
+                            Route::post('{expediente}/asignar', 'asignar')->whereNumber('expediente')->name('asignar');
+                        });
+
+                        Route::middleware('can:aprobar-excepciones-formativas')->group(function () {
+                            Route::post('{expediente}/excepciones', 'excepcionar')->whereNumber('expediente')->name('excepciones.crear');
+                            Route::delete('{expediente}/excepciones/{excepcion}', 'quitarExcepcion')
+                                ->whereNumber(['expediente', 'excepcion'])
+                                ->name('excepciones.quitar');
+                        });
+                    });
+
                 Route::controller(PlazaProcesoController::class)
                     ->prefix('plazas')->name('plazas.')
                     ->group(function () {
@@ -2521,8 +2550,25 @@ Route::middleware([
          * «Mis vacantes» de la bolsa.
          */
         Route::middleware(['modulo:procesos_formativos', 'can:ver-mi-proceso-formativo'])
-            ->get('mi-servicio-social', [MiProcesoFormativoController::class, 'index'])
-            ->name('tenant.mi-proceso-formativo');
+            ->controller(MiProcesoFormativoController::class)
+            ->prefix('mi-servicio-social')->name('tenant.mi-proceso-formativo')
+            ->group(function () {
+                Route::get('/', 'index')->name('');
+
+                /*
+                 * Los actos del alumno sobre SU expediente. El id viaja por la
+                 * URL, asi que el controlador comprueba que cuelgue de una de
+                 * sus matriculas y devuelve 404 --no 403-- con el de otro: un
+                 * 403 confirmaria que ese expediente existe.
+                 */
+                Route::post('abrir', 'abrir')->name('.abrir');
+                Route::post('{expediente}/enviar', 'enviar')->whereNumber('expediente')->name('.enviar');
+                Route::post('{expediente}/cancelar', 'cancelar')->whereNumber('expediente')->name('.cancelar');
+                Route::post('{expediente}/documentos', 'subirDocumento')->whereNumber('expediente')->name('.documentos');
+                Route::get('{expediente}/documentos/{documento}', 'verDocumento')
+                    ->whereNumber(['expediente', 'documento'])
+                    ->name('.documentos.ver');
+            });
 
         Route::middleware('modulo:disciplina')->group(function () {
             Route::controller(IncidenciaController::class)

@@ -369,6 +369,9 @@ export const CATALOGO_MENU: GrupoMenu[] = [
              * que en Finanzas: no es «menos de N», es que lo diario esté
              * arriba.
              */
+            // La bandeja va PRIMERA: es lo que se abre todos los días, y lo
+            // demás se configura una vez.
+            { clave: 'procesos-expedientes', etiqueta: 'Solicitudes', url: '/procesos/expedientes', permiso: 'ver-procesos-formativos' },
             { clave: 'procesos-organizaciones', etiqueta: 'Organizaciones', url: '/procesos/organizaciones', permiso: 'ver-procesos-formativos' },
             { clave: 'procesos-convenios', etiqueta: 'Convenios', url: '/procesos/convenios', permiso: 'ver-procesos-formativos' },
             { clave: 'procesos-plazas', etiqueta: 'Plazas y proyectos', url: '/procesos/plazas', permiso: 'ver-procesos-formativos' },
