@@ -240,6 +240,19 @@ try {
     verificar('El cargo trae su ajuste de beca', $cargo->ajustes()->where('tipo', AdeudoAjuste::TIPO_BECA)->exists());
     verificar('Por el 25 %', abs((float) $cargo->monto_descuentos - 1000.0) < 0.005, (string) $cargo->monto_descuentos);
 
+    /*
+     * Un ajuste de OTRO tipo con el MISMO `origen_id`: sin el, filtrar por
+     * `tipo = beca` no se ejercita —ningun otro ajuste comparte ese id— y
+     * quitarle el filtro no cambiaria el numero. Colisiona a proposito.
+     */
+    AdeudoAjuste::create([
+        'adeudo_id' => $cargo->id,
+        'tipo' => AdeudoAjuste::TIPO_RECARGO,
+        'origen_id' => $otorgada->id,
+        'etiqueta' => 'Recargo que NO es de este convenio',
+        'monto' => 333.00,
+    ]);
+
     $panorama = $servicio->panorama($convenio);
 
     verificar('El panorama cuenta su beneficiario', $panorama['beneficiarios'] === 1);
@@ -332,7 +345,21 @@ try {
     verificar('Pero vencido de fecha', $vencido->estaVencido('2026-06-01'), 'son dos preguntas distintas');
     verificar('Y el barrido lo ve', ConvenioDescuento::query()->porVencer('2026-06-01')->count() >= 1);
 
+    // Y uno vigente que TODAVIA no vence: el barrido no puede llevarselo.
+    $alDia = ConvenioDescuento::create([
+        'nombre' => 'Convenio que sigue vivo',
+        'contraparte' => 'Empresa al dia',
+        'vigente_desde' => '2026-01-01',
+        'vigente_hasta' => '2027-12-31',
+    ]);
+
     $r = $servicio->cerrarVencidos('2026-06-01');
+
+    verificar(
+        'El que todavia no vence sigue vigente',
+        $alDia->fresh()->estaVigente(),
+        'el barrido cierra por FECHA, no todo lo vigente'
+    );
 
     verificar('El barrido lo cierra', $r['convenios'] >= 1, 'convenios: '.$r['convenios']);
     verificar('Con su beca', $r['becas'] >= 1, 'becas: '.$r['becas']);
@@ -341,6 +368,24 @@ try {
     verificar(
         'Y ya no lo vuelve a tomar',
         ConvenioDescuento::query()->porVencer('2026-06-01')->where('id', $vencido->id)->count() === 0
+    );
+
+    // Y por el CONTROLADOR, que es por donde entra de verdad: comprobar solo
+    // `motivoParaNoOtorgar` dejaba sin probar que alguien lo consulte.
+    $peticionMuerta = Request::create('/', 'POST', [
+        'matricula_oferta_id' => $otraMatricula->id,
+        'vigente_desde' => '2026-06-01',
+        'justificacion' => 'Empleado 1234.',
+    ]);
+    $peticionMuerta->setUserResolver(fn () => $usuario);
+    app()->instance('request', $peticionMuerta);
+
+    $bajoTerminado = motivoDe(fn () => $becas->otorgar($peticionMuerta, $beca->fresh()));
+
+    verificar('No se otorga bajo un convenio terminado', $bajoTerminado !== null, (string) $bajoTerminado);
+    verificar(
+        'Y no quedo ningun otorgamiento nuevo',
+        BecaAlumno::where('beca_id', $beca->id)->count() === 1
     );
 
     echo PHP_EOL.'6. El tipo «manual» de descuento se retiró'.PHP_EOL;
