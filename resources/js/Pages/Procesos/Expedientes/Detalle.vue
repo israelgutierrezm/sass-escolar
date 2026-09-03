@@ -18,6 +18,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BitacoraDeHoras from '@/Components/BitacoraDeHoras.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
@@ -42,10 +43,14 @@ const props = defineProps<{
         documentos: { id: number; nombre: string }[];
         estadosDocumento: { id: number; clave: string; nombre: string }[];
         modalidades: { id: number; nombre: string }[];
+        rubricas: { id: number; nombre: string; total: number; criterios: any[] }[];
+        origenesEvaluacion: { valor: string; texto: string }[];
         requisitos: { valor: string; texto: string }[];
     };
     puedeRevisar: boolean;
     puedeExcepcionar: boolean;
+    puedeAprobarHoras: boolean;
+    puedeRevisarInformes: boolean;
 }>();
 
 const errores = ref<Record<string, string>>({});
@@ -57,6 +62,10 @@ const excepcionando = ref(false);
 
 const asignacion = ref<Record<string, unknown>>({});
 const excepcion = ref<Record<string, unknown>>({ requisito: null, motivo: '' });
+const revisandoInforme = ref<any | null>(null);
+const evaluando = ref(false);
+const evaluacion = ref<Record<string, any>>({});
+const retro = ref('');
 
 function sembrar(): void {
     errores.value = {};
@@ -73,6 +82,10 @@ function sembrar(): void {
         responsable_interno_id: null,
     };
     excepcion.value = { requisito: null, motivo: '' };
+    revisandoInforme.value = null;
+    evaluando.value = false;
+    retro.value = '';
+    evaluacion.value = { origen: null, rubrica_id: null, niveles: {}, comentarios: '' };
 }
 
 sembrar();
@@ -133,6 +146,45 @@ function autorizarExcepcion(): void {
     procesando.value = true;
 
     router.post(`/procesos/expedientes/${props.expediente.id}/excepciones`, { ...excepcion.value }, {
+        preserveScroll: true,
+        onError: (e) => (errores.value = e),
+        onSuccess: () => sembrar(),
+        onFinish: () => (procesando.value = false),
+    });
+}
+
+const rubricaElegida = computed(
+    () => props.catalogos.rubricas.find((r) => r.id === evaluacion.value.rubrica_id) ?? null,
+);
+
+/* Los orígenes que todavía nadie capturó: una evaluación por origen. */
+const origenesLibres = computed(() => {
+    const puestos = props.expediente.evaluaciones.map((e: any) => e.origen);
+
+    return props.catalogos.origenesEvaluacion.filter((o) => !puestos.includes(o.valor));
+});
+
+function revisarInforme(aceptado: boolean): void {
+    if (revisandoInforme.value === null) return;
+
+    procesando.value = true;
+
+    router.post(
+        `/procesos/expedientes/${props.expediente.id}/informes/${revisandoInforme.value.id}/revisar`,
+        { aceptado, retroalimentacion: retro.value || null },
+        {
+            preserveScroll: true,
+            onError: (e) => (errores.value = e),
+            onSuccess: () => sembrar(),
+            onFinish: () => (procesando.value = false),
+        },
+    );
+}
+
+function guardarEvaluacion(): void {
+    procesando.value = true;
+
+    router.post(`/procesos/expedientes/${props.expediente.id}/evaluaciones`, { ...evaluacion.value }, {
         preserveScroll: true,
         onError: (e) => (errores.value = e),
         onSuccess: () => sembrar(),
@@ -334,6 +386,115 @@ const MOMENTOS: Record<string, string> = {
             </p>
         </TarjetaSeccion>
 
+        <TarjetaSeccion titulo="Bitácora de horas" class="mt-4">
+            <template #insignia>
+                <span v-if="expediente.horas.por_revisar" class="rounded-full px-2 py-0.5 text-[11px]" :style="{ backgroundColor: 'color-mix(in srgb, #0284c7 16%, transparent)', color: '#0284c7' }">
+                    {{ expediente.horas.por_revisar }} por revisar
+                </span>
+            </template>
+
+            <BitacoraDeHoras
+                :expediente-id="expediente.id"
+                :horas="expediente.horas"
+                :modalidades="catalogos.modalidades"
+                :puede-capturar="puedeRevisar"
+                :puede-revisar="puedeAprobarHoras"
+            />
+        </TarjetaSeccion>
+
+        <div class="mt-4 grid gap-4 lg:grid-cols-2">
+            <TarjetaSeccion titulo="Informes">
+                <ul v-if="expediente.informes.length" class="space-y-2">
+                    <li
+                        v-for="i in expediente.informes"
+                        :key="i.id"
+                        class="flex flex-wrap items-start justify-between gap-2 border-b pb-2 text-sm last:border-0"
+                        :style="{ borderColor: 'var(--color-borde)' }"
+                    >
+                        <div class="min-w-0">
+                            <span class="font-medium">{{ i.tipo }}<span v-if="i.numero > 1"> n.º {{ i.numero }}</span></span>
+                            <span class="mt-0.5 block text-xs" :style="{ color: 'var(--color-suave)' }">
+                                <template v-if="i.fecha_limite">Para el {{ i.fecha_limite }}</template>
+                                <template v-else>Sin fecha límite</template>
+                                <span v-if="i.entregado_en"> · entregado el {{ i.entregado_en }}</span>
+                                <span v-if="i.tarde" :style="{ color: '#b45309' }"> · tarde</span>
+                                <span v-else-if="i.vencido" :style="{ color: '#b91c1c' }"> · vencido</span>
+                            </span>
+                            <span v-if="i.retroalimentacion" class="mt-0.5 block text-xs" :style="{ color: '#b45309' }">
+                                {{ i.retroalimentacion }}
+                            </span>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-2 text-xs">
+                            <a v-if="i.nombre_original" class="underline" :href="`/procesos/expedientes/${expediente.id}/informes/${i.id}/archivo`">Ver</a>
+                            <button
+                                v-if="puedeRevisarInformes && i.entregado_en"
+                                type="button"
+                                class="underline"
+                                @click="revisandoInforme = i; retro = i.retroalimentacion ?? ''"
+                            >Revisar</button>
+                            <PildoraEstado :texto="i.estado_texto" :color="i.estado === 'aceptado' ? '#16a34a' : (i.estado === 'rechazado' ? '#b91c1c' : (i.estado === 'entregado' ? '#0284c7' : '#64748b'))" sin-capitalizar />
+                        </div>
+                    </li>
+                </ul>
+
+                <p v-else class="text-sm" :style="{ color: 'var(--color-suave)' }">
+                    Su regla no pide informes, o todavía no se le ha asignado organización.
+                </p>
+            </TarjetaSeccion>
+
+            <TarjetaSeccion titulo="Evaluaciones">
+                <template #insignia>
+                    <button
+                        v-if="puedeRevisarInformes && origenesLibres.length"
+                        type="button"
+                        class="rounded-lg border border-borde px-3 py-1 text-xs"
+                        @click="evaluando = true"
+                    >Capturar una</button>
+                </template>
+
+                <ul v-if="expediente.evaluaciones.length" class="space-y-3">
+                    <li v-for="ev in expediente.evaluaciones" :key="ev.id" class="border-b pb-2 text-sm last:border-0" :style="{ borderColor: 'var(--color-borde)' }">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <span class="font-medium">{{ ev.origen_texto }}</span>
+                            <span v-if="ev.puntaje !== null" class="tabular-nums">
+                                {{ ev.puntaje }}<span v-if="ev.total"> de {{ ev.total }}</span>
+                            </span>
+                        </div>
+                        <p v-if="ev.rubrica" class="mt-0.5 text-xs" :style="{ color: 'var(--color-suave)' }">
+                            Con «{{ ev.rubrica }}» · {{ ev.firmada_en }}
+                        </p>
+                        <!-- Lo respondido, congelado: es lo que el supervisor
+                             firmó, no lo que la rúbrica diga hoy. -->
+                        <ul v-if="ev.respuestas?.length" class="mt-1 space-y-0.5">
+                            <li v-for="(r, i) in ev.respuestas" :key="i" class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                                {{ r.criterio }}: <strong>{{ r.nivel }}</strong> ({{ r.puntos }} de {{ r.maximo }})
+                            </li>
+                        </ul>
+                        <p v-if="ev.comentarios" class="mt-1 text-xs">{{ ev.comentarios }}</p>
+                    </li>
+                </ul>
+
+                <p v-else class="text-sm" :style="{ color: 'var(--color-suave)' }">
+                    Todavía ninguna.
+                </p>
+            </TarjetaSeccion>
+        </div>
+
+        <!--
+            Lo que le falta de papeleo, junto. Es lo que la liberación va a
+            preguntar, así que enseñarlo aquí evita que alguien lo descubra al
+            pulsar «Liberar».
+        -->
+        <TarjetaSeccion v-if="expediente.papeleo_pendiente.length" titulo="Le falta para poder liberarse" class="mt-4">
+            <ul class="space-y-1.5">
+                <li v-for="(m, i) in expediente.papeleo_pendiente" :key="i" class="flex gap-2 text-sm">
+                    <span :style="{ color: '#b45309' }">•</span>
+                    <span>{{ m }}</span>
+                </li>
+            </ul>
+        </TarjetaSeccion>
+
         <TarjetaSeccion titulo="Qué le ha pasado" class="mt-4">
             <ol class="space-y-3">
                 <li v-for="(t, i) in expediente.historia" :key="i" class="flex gap-3 text-sm">
@@ -428,6 +589,96 @@ const MOMENTOS: Record<string, string> = {
 
                     <div class="flex items-center gap-3 pt-2">
                         <BotonPrincipal :procesando="procesando" texto="Asignar" icono="crear" />
+                        <button type="button" class="rounded-lg border border-borde px-4 py-2 text-sm" @click="cerrar">Cancelar</button>
+                    </div>
+                </form>
+            </template>
+        </Modal>
+
+        <Modal v-if="revisandoInforme" etiqueta="Revisar informe" ancho="max-w-lg" @cerrar="revisandoInforme = null">
+            <template #default="{ cerrar }">
+                <form class="space-y-4 p-6" @submit.prevent>
+                    <h2 class="text-base font-semibold">{{ revisandoInforme.tipo }}</h2>
+
+                    <a class="text-sm underline" :href="`/procesos/expedientes/${expediente.id}/informes/${revisandoInforme.id}/archivo`">
+                        Descargar lo que entregó
+                    </a>
+
+                    <CampoTextarea
+                        v-model="retro"
+                        etiqueta="Retroalimentación"
+                        :filas="4"
+                        ayuda="Obligatoria para devolverlo: sin ella el alumno vuelve a mandar lo mismo."
+                        :error="errores.retroalimentacion"
+                    />
+
+                    <div class="flex flex-wrap items-center gap-3 pt-2">
+                        <button
+                            type="button"
+                            class="rounded-lg px-4 py-2 text-sm font-medium text-white"
+                            :style="{ backgroundColor: '#16a34a' }"
+                            :disabled="procesando"
+                            @click="revisarInforme(true)"
+                        >Aceptar</button>
+                        <button
+                            type="button"
+                            class="rounded-lg border px-4 py-2 text-sm"
+                            :style="{ borderColor: '#b91c1c', color: '#b91c1c' }"
+                            :disabled="procesando || retro.trim().length < 5"
+                            @click="revisarInforme(false)"
+                        >Devolver</button>
+                        <button type="button" class="rounded-lg border border-borde px-4 py-2 text-sm" @click="cerrar">Cancelar</button>
+                    </div>
+                </form>
+            </template>
+        </Modal>
+
+        <Modal v-if="evaluando" etiqueta="Capturar evaluación" ancho="max-w-2xl" @cerrar="evaluando = false">
+            <template #default="{ cerrar }">
+                <form class="space-y-4 p-6" @submit.prevent="guardarEvaluacion">
+                    <h2 class="text-base font-semibold">Capturar una evaluación</h2>
+
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <CampoSelect
+                            v-model="evaluacion.origen"
+                            etiqueta="¿De quién?"
+                            requerido
+                            :opciones="origenesLibres.map((o) => ({ valor: o.valor, texto: o.texto }))"
+                            vacio="Elige…"
+                            :error="errores.origen"
+                        />
+                        <CampoSelect
+                            v-model="evaluacion.rubrica_id"
+                            etiqueta="Rúbrica"
+                            :opciones="catalogos.rubricas.map((r) => ({ valor: r.id, texto: `${r.nombre} (${r.total} pts)` }))"
+                            vacio="Sin rúbrica: sólo comentarios"
+                            ayuda="Sólo las de la escuela."
+                            :error="errores.rubrica_id"
+                            @update:model-value="evaluacion.niveles = {}"
+                        />
+                    </div>
+
+                    <div v-if="rubricaElegida" class="space-y-3">
+                        <div v-for="c in rubricaElegida.criterios" :key="c.id">
+                            <p class="mb-1 text-sm font-medium">{{ c.titulo }}</p>
+                            <div class="flex flex-wrap gap-2">
+                                <button
+                                    v-for="n in c.niveles"
+                                    :key="n.id"
+                                    type="button"
+                                    class="rounded-lg border px-3 py-1.5 text-xs"
+                                    :class="evaluacion.niveles[c.id] === n.id ? 'elegido-acento' : ''"
+                                    :style="{ borderColor: 'var(--color-borde)' }"
+                                    @click="evaluacion.niveles = { ...evaluacion.niveles, [c.id]: n.id }"
+                                >{{ n.titulo }} · {{ n.puntos }}</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <CampoTextarea v-model="evaluacion.comentarios" etiqueta="Comentarios" :filas="3" :error="errores.comentarios" />
+
+                    <div class="flex items-center gap-3 pt-2">
+                        <BotonPrincipal :procesando="procesando" texto="Guardar" icono="crear" :deshabilitado="!evaluacion.origen" />
                         <button type="button" class="rounded-lg border border-borde px-4 py-2 text-sm" @click="cerrar">Cancelar</button>
                     </div>
                 </form>

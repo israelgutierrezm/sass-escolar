@@ -132,6 +132,7 @@ use App\Http\Controllers\ProcesosFormativos\MiProcesoFormativoController;
 use App\Http\Controllers\ProcesosFormativos\OrganizacionReceptoraController;
 use App\Http\Controllers\ProcesosFormativos\PlazaProcesoController;
 use App\Http\Controllers\ProcesosFormativos\ReglaProcesoController;
+use App\Http\Controllers\ProcesosFormativos\SeguimientoFormativoController;
 use App\Http\Controllers\ProgramaAcademicoController;
 use App\Http\Controllers\RecuperacionController;
 use App\Http\Controllers\RecursosDigitalesController;
@@ -2542,6 +2543,34 @@ Route::middleware([
                             Route::delete('{plaza}', 'eliminar')->whereNumber('plaza')->name('eliminar');
                         });
                     });
+            });
+
+        /*
+         * El SEGUIMIENTO: horas, informes y evaluaciones.
+         *
+         * Cuelga de la RAIZ y va SIN `can:` de grupo, como `/captura`: por aqui
+         * entran DOS oficios --el alumno registrando lo suyo y la escuela
+         * aprobandolo-- y un middleware con el permiso de uno rebotaria al
+         * otro. Lo resuelve cada metodo, con el par de siempre: el permiso dice
+         * QUE, la propiedad dice SOBRE QUIEN. Es la leccion de la descarga de
+         * adjuntos de entrega.
+         */
+        Route::middleware('modulo:procesos_formativos')
+            ->controller(SeguimientoFormativoController::class)
+            ->prefix('procesos/expedientes/{expediente}')
+            ->name('tenant.procesos.seguimiento.')
+            ->whereNumber('expediente')
+            ->group(function () {
+                Route::post('horas', 'capturarHoras')->name('horas.capturar');
+                Route::put('horas/{jornada}', 'corregirHoras')->whereNumber('jornada')->name('horas.corregir');
+                Route::post('horas/{jornada}/revisar', 'revisarHoras')->whereNumber('jornada')->name('horas.revisar');
+                Route::get('horas/{jornada}/evidencia', 'verEvidencia')->whereNumber('jornada')->name('horas.evidencia');
+
+                Route::post('informes/{informe}', 'entregarInforme')->whereNumber('informe')->name('informes.entregar');
+                Route::post('informes/{informe}/revisar', 'revisarInforme')->whereNumber('informe')->name('informes.revisar');
+                Route::get('informes/{informe}/archivo', 'verInforme')->whereNumber('informe')->name('informes.archivo');
+
+                Route::post('evaluaciones', 'evaluar')->name('evaluaciones.guardar');
             });
 
         /*

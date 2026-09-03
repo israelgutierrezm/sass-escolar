@@ -10,7 +10,9 @@ use App\Models\Academico\Campus;
 use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\Admisiones\EstadoDocumento;
 use App\Models\Identidad\Usuario;
+use App\Models\Lms\Rubrica;
 use App\Models\ProcesosFormativos\EstadoExpediente;
+use App\Models\ProcesosFormativos\EvaluacionProceso;
 use App\Models\ProcesosFormativos\ExcepcionExpediente;
 use App\Models\ProcesosFormativos\ExpedienteProceso;
 use App\Models\ProcesosFormativos\ModalidadProceso;
@@ -19,6 +21,8 @@ use App\Models\ProcesosFormativos\PlazaProceso;
 use App\Models\ProcesosFormativos\TipoProcesoFormativo;
 use App\Services\ProcesosFormativos\AlcanceDeExpedientes;
 use App\Services\ProcesosFormativos\AsignadorDePlaza;
+use App\Services\ProcesosFormativos\InformesYEvaluaciones;
+use App\Services\ProcesosFormativos\RegistradorDeHoras;
 use App\Services\ProcesosFormativos\TransicionDeExpediente;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -49,6 +53,8 @@ class ExpedienteFormativoController extends Controller
         private readonly TransicionDeExpediente $transiciones,
         private readonly AsignadorDePlaza $asignador,
         private readonly AlcanceDeExpedientes $alcance,
+        private readonly RegistradorDeHoras $horas,
+        private readonly InformesYEvaluaciones $papeleo,
     ) {}
 
     public function index(Request $peticion): Response
@@ -135,6 +141,10 @@ class ExpedienteFormativoController extends Controller
             'documentos.documento:id,nombre',
             'documentos.estado:id,clave,nombre',
             'excepciones.autorizadaPor.persona:id,nombre,primer_apellido,segundo_apellido',
+            'horas.modalidad:id,nombre',
+            'horas.capturadaPor.persona:id,nombre,primer_apellido,segundo_apellido',
+            'informes.tipo:id,nombre,es_final',
+            'evaluaciones.rubrica:id,nombre',
             'transiciones.usuario.persona:id,nombre,primer_apellido,segundo_apellido',
         ]);
 
@@ -182,12 +192,44 @@ class ExpedienteFormativoController extends Controller
                     ->get(['id', 'nombre']),
                 'estadosDocumento' => EstadoDocumento::query()->get(['id', 'clave', 'nombre']),
                 'modalidades' => ModalidadProceso::query()->activos()->get(['id', 'nombre']),
+                /*
+                 * Sólo las de la ESCUELA. Una rúbrica propia de un docente es su
+                 * borrador de trabajo, y evaluar con ella dejaría la evaluación
+                 * colgando de algo que su dueño puede borrar.
+                 */
+                'rubricas' => Rubrica::query()
+                    ->where('ambito', Rubrica::PLATAFORMA)
+                    ->where('activa', true)
+                    ->with('criterios.niveles')
+                    ->orderBy('nombre')
+                    ->get()
+                    ->filter(fn (Rubrica $r) => $r->calificable())
+                    ->map(fn (Rubrica $r) => [
+                        'id' => $r->id,
+                        'nombre' => $r->nombre,
+                        'total' => $r->total(),
+                        'criterios' => $r->criterios->map(fn ($c) => [
+                            'id' => $c->id,
+                            'titulo' => $c->titulo,
+                            'niveles' => $c->niveles->map(fn ($n) => [
+                                'id' => $n->id,
+                                'titulo' => $n->titulo,
+                                'puntos' => (float) $n->puntos,
+                            ])->values(),
+                        ])->values(),
+                    ])
+                    ->values(),
+                'origenesEvaluacion' => collect(EvaluacionProceso::ORIGENES)
+                    ->map(fn ($texto, $valor) => ['valor' => $valor, 'texto' => $texto])
+                    ->values(),
                 'requisitos' => collect(ExcepcionExpediente::REQUISITOS)
                     ->map(fn ($texto, $clave) => ['valor' => $clave, 'texto' => $texto])
                     ->values(),
             ],
             'puedeRevisar' => $quien?->can('revisar-solicitudes-formativas') ?? false,
             'puedeExcepcionar' => $quien?->can('aprobar-excepciones-formativas') ?? false,
+            'puedeAprobarHoras' => $quien?->can('aprobar-horas-formativas') ?? false,
+            'puedeRevisarInformes' => $quien?->can('revisar-informes-formativos') ?? false,
         ]);
     }
 
@@ -410,6 +452,69 @@ class ExpedienteFormativoController extends Controller
                 'autorizada_por' => $x->autorizadaPor?->persona?->nombreCompleto(),
                 'autorizada_en' => $x->autorizada_en?->format('d/m/Y H:i'),
             ])->values(),
+            /*
+             * Las HORAS con su total ya sumado. La suma sale del servicio y no
+             * de la colección cargada: es la única definición de «cuántas horas
+             * lleva», y repetirla aquí daría una segunda respuesta el día que
+             * una de las dos filtre distinto.
+             */
+            'horas' => [
+                'aprobadas' => $this->horas->horasAprobadas($e),
+                'faltan' => $this->horas->horasQueFaltan($e),
+                /*
+                 * Y CUÁNTAS le piden, que es lo que dibuja la barra. Sin este
+                 * dato, la pantalla del coordinador enseñaba la lista de
+                 * jornadas y ninguna cifra de avance — que es justo lo primero
+                 * que se mira al abrir un expediente.
+                 */
+                'requeridas' => $e->reglaVersion?->horasMinimas(),
+                'max_dia' => $e->reglaVersion?->max_horas_dia,
+                'max_semana' => $e->reglaVersion?->max_horas_semana,
+                'por_revisar' => $e->horas->where('estado', 'capturada')->count(),
+                'admite' => $e->admiteHoras(),
+                'jornadas' => $e->horas->sortByDesc('fecha')->values()->map(fn ($h) => [
+                    'id' => $h->id,
+                    'fecha' => $h->fecha?->toDateString(),
+                    'inicio' => substr((string) $h->hora_inicio, 0, 5),
+                    'fin' => substr((string) $h->hora_fin, 0, 5),
+                    'descanso' => $h->minutos_descanso,
+                    'horas' => $h->horas(),
+                    'actividad' => $h->actividad,
+                    'modalidad' => $h->modalidad?->nombre,
+                    'estado' => $h->estado,
+                    'motivo_rechazo' => $h->motivo_rechazo,
+                    'tiene_evidencia' => $h->evidencia_ruta !== null,
+                    'capturada_por' => $h->capturadaPor?->persona?->nombreCompleto(),
+                ]),
+            ],
+            'informes' => $e->informes->map(fn ($i) => [
+                'id' => $i->id,
+                'tipo' => $i->tipo?->nombre,
+                'numero' => $i->numero,
+                'es_final' => $i->esFinal(),
+                'fecha_limite' => $i->fecha_limite?->toDateString(),
+                'entregado_en' => $i->entregado_en?->format('d/m/Y H:i'),
+                'estado' => $i->estado,
+                'estado_texto' => $i->etiquetaEstado(),
+                'tarde' => $i->llegoTarde(),
+                'vencido' => $i->estaVencido(),
+                'retroalimentacion' => $i->retroalimentacion,
+                'nombre_original' => $i->nombre_original,
+            ])->values(),
+            'evaluaciones' => $e->evaluaciones->map(fn ($ev) => [
+                'id' => $ev->id,
+                'origen' => $ev->origen,
+                'origen_texto' => $ev->etiquetaOrigen(),
+                'rubrica' => $ev->rubrica?->nombre,
+                'puntaje' => $ev->puntaje === null ? null : (float) $ev->puntaje,
+                'total' => $ev->total(),
+                'respuestas' => $ev->respuestas,
+                'comentarios' => $ev->comentarios,
+                'firmada_en' => $ev->firmada_en?->format('d/m/Y H:i'),
+            ])->values(),
+            // Lo que le falta de papeleo, con su razón. La fase 6 preguntará
+            // aquí para decidir si se puede liberar.
+            'papeleo_pendiente' => $this->papeleo->impedimentosDePapeleo($e),
             'historia' => $e->transiciones->map(fn ($t) => [
                 'origen' => $t->estado_origen?->etiqueta(),
                 'destino' => $t->estado_destino->etiqueta(),

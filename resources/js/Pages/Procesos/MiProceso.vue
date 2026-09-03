@@ -15,6 +15,7 @@ import { Head, router } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 
 import AppLayout from '@/Layouts/AppLayout.vue';
+import BitacoraDeHoras from '@/Components/BitacoraDeHoras.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoTextarea from '@/Components/CampoTextarea.vue';
@@ -67,6 +68,8 @@ const subiendo = ref<{ expediente: number; documento: number | null; momento: st
 const cancelando = ref<number | null>(null);
 const motivo = ref('');
 const archivo = ref<File | null>(null);
+const entregando = ref<{ expediente: number; informe: any } | null>(null);
+const archivoInforme = ref<File | null>(null);
 
 /*
  * Al cambiar de programa se cierran los paneles y se vacía lo escrito: Inertia
@@ -78,6 +81,8 @@ watch(() => props.elegida, () => {
     cancelando.value = null;
     motivo.value = '';
     archivo.value = null;
+    entregando.value = null;
+    archivoInforme.value = null;
     errores.value = {};
 });
 
@@ -136,6 +141,27 @@ function subir(): void {
             onSuccess: () => {
                 subiendo.value = null;
                 archivo.value = null;
+            },
+            onFinish: () => (procesando.value = false),
+        },
+    );
+}
+
+function entregarInforme(): void {
+    if (entregando.value === null || archivoInforme.value === null) return;
+
+    procesando.value = true;
+
+    router.post(
+        `/procesos/expedientes/${entregando.value.expediente}/informes/${entregando.value.informe.id}`,
+        { archivo: archivoInforme.value },
+        {
+            preserveScroll: true,
+            forceFormData: true,
+            onError: (e) => (errores.value = e),
+            onSuccess: () => {
+                entregando.value = null;
+                archivoInforme.value = null;
             },
             onFinish: () => (procesando.value = false),
         },
@@ -347,6 +373,64 @@ const MOMENTOS: Record<string, string> = {
                 </p>
             </div>
 
+            <!--
+                Sus HORAS y sus INFORMES, dentro de la misma tarjeta: «¿cuánto
+                llevo?» y «¿qué me falta entregar?» son la misma pregunta, y
+                separarlas obligaría a cruzarlas de memoria.
+            -->
+            <div v-if="p.expediente && p.expediente.horas.requeridas" class="mt-4">
+                <BitacoraDeHoras
+                    :expediente-id="p.expediente.id"
+                    :horas="p.expediente.horas"
+                    :puede-capturar="true"
+                    :puede-revisar="false"
+                    :pide-ubicacion="p.expediente.pide_ubicacion"
+                />
+            </div>
+
+            <div v-if="p.expediente?.informes.length" class="mt-4">
+                <p class="mb-2 text-sm font-medium">Tus informes</p>
+                <ul class="space-y-2">
+                    <li
+                        v-for="i in p.expediente.informes"
+                        :key="i.id"
+                        class="flex flex-wrap items-start justify-between gap-2 border-b pb-2 text-sm last:border-0"
+                        :style="{ borderColor: 'var(--color-borde)' }"
+                    >
+                        <div class="min-w-0">
+                            <span class="font-medium">{{ i.tipo }}<span v-if="i.numero > 1"> n.º {{ i.numero }}</span></span>
+                            <span class="mt-0.5 block text-xs" :style="{ color: 'var(--color-suave)' }">
+                                <template v-if="i.fecha_limite">Para el {{ i.fecha_limite }}</template>
+                                <template v-else>Sin fecha límite</template>
+                                <span v-if="i.entregado_en"> · lo entregaste el {{ i.entregado_en }}</span>
+                                <span v-if="i.tarde" :style="{ color: '#b45309' }"> · fuera de plazo</span>
+                                <span v-else-if="i.vencido" :style="{ color: '#b91c1c' }"> · se te pasó la fecha</span>
+                            </span>
+                            <!-- Lo que le dijeron que corrija: es lo único que
+                                 puede usar para no mandar lo mismo otra vez. -->
+                            <span v-if="i.retroalimentacion" class="mt-0.5 block text-xs" :style="{ color: '#b45309' }">
+                                {{ i.retroalimentacion }}
+                            </span>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-2 text-xs">
+                            <a v-if="i.nombre_original" class="underline" :href="`/procesos/expedientes/${p.expediente.id}/informes/${i.id}/archivo`">Ver</a>
+                            <button
+                                v-if="i.entregable"
+                                type="button"
+                                class="underline"
+                                @click="entregando = { expediente: p.expediente.id, informe: i }"
+                            >{{ i.entregado_en ? 'Reemplazar' : 'Entregar' }}</button>
+                            <PildoraEstado
+                                :texto="i.estado_texto"
+                                :color="i.estado === 'aceptado' ? '#16a34a' : (i.estado === 'rechazado' ? '#b91c1c' : (i.estado === 'entregado' ? '#0284c7' : '#64748b'))"
+                                sin-capitalizar
+                            />
+                        </div>
+                    </li>
+                </ul>
+            </div>
+
             <!-- El avance de créditos, cuando la regla lo pide. -->
             <div v-if="p.avance?.porcentaje_creditos != null" class="mt-4">
                 <div class="mb-1 flex items-center justify-between text-xs" :style="{ color: 'var(--color-suave)' }">
@@ -428,6 +512,35 @@ const MOMENTOS: Record<string, string> = {
 
                     <div class="flex items-center gap-3 pt-2">
                         <BotonPrincipal :procesando="procesando" texto="Subir" icono="crear" :deshabilitado="!archivo || !subiendo.documento" />
+                        <button type="button" class="rounded-lg border border-borde px-4 py-2 text-sm" @click="cerrar">Cancelar</button>
+                    </div>
+                </form>
+            </template>
+        </Modal>
+
+        <Modal v-if="entregando" etiqueta="Entregar informe" ancho="max-w-lg" @cerrar="entregando = null">
+            <template #default="{ cerrar }">
+                <form class="space-y-4 p-6" @submit.prevent="entregarInforme">
+                    <h2 class="text-base font-semibold">{{ entregando.informe.tipo }}</h2>
+
+                    <p v-if="entregando.informe.retroalimentacion" class="rounded-lg px-4 py-3 text-sm" :style="{ backgroundColor: 'color-mix(in srgb, #b45309 10%, transparent)', color: '#b45309' }">
+                        {{ entregando.informe.retroalimentacion }}
+                    </p>
+
+                    <label class="block text-sm">
+                        <span class="mb-1 block">Archivo</span>
+                        <input
+                            type="file"
+                            accept=".pdf,.doc,.docx"
+                            class="w-full text-sm"
+                            @change="archivoInforme = ($event.target as HTMLInputElement).files?.[0] ?? null"
+                        />
+                        <span class="mt-1 block text-xs" :style="{ color: 'var(--color-suave)' }">PDF o Word, hasta 20 MB.</span>
+                        <span v-if="errores.archivo" class="mt-1 block text-xs" :style="{ color: '#b91c1c' }">{{ errores.archivo }}</span>
+                    </label>
+
+                    <div class="flex items-center gap-3 pt-2">
+                        <BotonPrincipal :procesando="procesando" texto="Entregar" icono="crear" :deshabilitado="!archivoInforme" />
                         <button type="button" class="rounded-lg border border-borde px-4 py-2 text-sm" @click="cerrar">Cancelar</button>
                     </div>
                 </form>

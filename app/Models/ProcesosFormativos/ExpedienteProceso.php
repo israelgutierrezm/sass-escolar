@@ -124,6 +124,42 @@ class ExpedienteProceso extends Model
         return $this->hasMany(ExcepcionExpediente::class, 'expediente_id');
     }
 
+    public function horas(): HasMany
+    {
+        return $this->hasMany(BitacoraHoras::class, 'expediente_id');
+    }
+
+    public function informes(): HasMany
+    {
+        return $this->hasMany(InformeProceso::class, 'expediente_id')
+            ->orderBy('fecha_limite')
+            ->orderBy('numero');
+    }
+
+    public function evaluaciones(): HasMany
+    {
+        return $this->hasMany(EvaluacionProceso::class, 'expediente_id');
+    }
+
+    /**
+     * ¿Se le pueden registrar horas?
+     *
+     * Sólo mientras el proceso corre. Antes de iniciar no hay nada que
+     * registrar, y después de concluir las horas nuevas moverían un total que
+     * ya se dio por bueno — con el expediente liberado, además, cambiarían lo
+     * que dice una constancia emitida.
+     *
+     * SUSPENDIDO sí admite: una suspensión se levanta, y mientras tanto puede
+     * hacer falta capturar lo que quedó pendiente de los días anteriores.
+     */
+    public function admiteHoras(): bool
+    {
+        return in_array($this->estado, [
+            EstadoExpediente::EnCurso,
+            EstadoExpediente::Suspendido,
+        ], true);
+    }
+
     /** Los que todavía cuentan: ni rechazados ni cancelados. */
     public function scopeVivos(Builder $q): Builder
     {

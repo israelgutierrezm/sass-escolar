@@ -35,7 +35,10 @@ use Illuminate\Support\Facades\DB;
  */
 class AsignadorDePlaza
 {
-    public function __construct(private readonly TransicionDeExpediente $transiciones) {}
+    public function __construct(
+        private readonly TransicionDeExpediente $transiciones,
+        private readonly InformesYEvaluaciones $papeleo,
+    ) {}
 
     /**
      * Asigna y pasa el expediente a `asignado`, todo en una transacción.
@@ -91,6 +94,17 @@ class AsignadorDePlaza
              * escribe un número leído hace un momento.
              */
             $plaza?->increment('cupo_ocupado');
+
+            /*
+             * Los informes se PROGRAMAN aquí, con las fechas ya conocidas.
+             *
+             * Es el único momento en que existen el periodo y la regla juntos.
+             * Creándolos al entregar, «te falta el segundo parcial» no se podría
+             * decir —no habría fila que nombrar— y la fecha límite no existiría
+             * hasta después de vencer. Reasignar con otras fechas los
+             * reprograma, salvo los ya entregados.
+             */
+            $this->papeleo->programar($movido);
 
             return $movido;
         });

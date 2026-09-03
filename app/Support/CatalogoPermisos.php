@@ -289,6 +289,15 @@ final class CatalogoPermisos
              * corregir una liberación.
              */
             'aprobar-excepciones-formativas' => ['Autorizar excepciones', 'Perdonarle a un alumno concreto un requisito de su regla, dejando escrito cuál y por qué.', [self::ADMINISTRATIVO]],
+            /*
+             * APROBAR horas es lo que las hace CONTAR, así que es la llave que
+             * de verdad acerca a alguien a liberarse. Va aparte de revisar
+             * solicitudes: quien coordina el trámite no es necesariamente quien
+             * da fe de que ese tiempo se trabajó. Y de aquí depende un dato que
+             * después se imprime en una constancia.
+             */
+            'aprobar-horas-formativas' => ['Aprobar horas', 'Dar por buenas las jornadas que el alumno registra, o rechazarlas con su motivo. Sólo las aprobadas cuentan.', [self::ADMINISTRATIVO]],
+            'revisar-informes-formativos' => ['Revisar informes y evaluaciones', 'Aceptar o devolver los informes del alumno, y capturar la evaluación del supervisor o del coordinador.', [self::ADMINISTRATIVO]],
         ],
 
         'Disciplina' => [

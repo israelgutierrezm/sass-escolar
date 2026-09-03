@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**133 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**134 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -65,7 +65,7 @@ Los otros dos documentos vivos:
    un rol con disposición guardada. Si node no puede correrlo, la suite FALLA
    en vez de saltarse.
 
-   **Las 133 están en verde**, barridas el 2026-09-03. Catorce son del módulo de
+   **Las 134 están en verde**, barridas el 2026-09-03. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -771,6 +771,141 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
   CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
   adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
+- **Servicio social y prácticas · FASE 5: horas, informes y evaluaciones**
+  (2026-09-03). La bitácora, lo que el alumno entrega y lo que opinan de él.
+  Permisos nuevos `aprobar-horas-formativas` y `revisar-informes-formativos`;
+  ajuste `procesos.pedir_ubicacion`, apagado por omisión.
+  - **Los MINUTOS se guardan, no las horas, y los calcula MySQL.** Una jornada
+    de 9:00 a 13:30 son 4.5 h y en decimal eso se redondea; con minutos enteros
+    la suma es exacta. `minutos_totales` es una COLUMNA GENERADA a partir de las
+    horas y el descanso de su propia fila, así que no puede decir algo distinto
+    de sus datos — escrita por PHP, bastaría con que un camino la olvidara (una
+    corrección, una carga masiva) para que un expediente sumara horas que nadie
+    trabajó.
+  - **Sólo lo APROBADO cuenta.** `capturada` es una afirmación del alumno.
+    Contando lo capturado, quien escribe diez jornadas se acerca a su meta sin
+    que nadie las mire, y la pantalla le dice que ya casi termina.
+  - **`horas_aprobadas` se RECALCULA entero, nunca se incrementa.** Un contador
+    que se suma se desincroniza con la primera corrección: se rechaza una
+    jornada ya aprobada y el total se queda diciendo lo de antes. Es el criterio
+    de `RegistradorPago` con el estatus del adeudo, derivado de lo aplicado. Se
+    guarda en el expediente porque la bandeja lo lista —sumarlo por fila sería
+    la N+1 de siempre—, pero es una copia derivada.
+  - **`minutosAprobados()` es la ÚNICA definición** de «cuántas horas lleva». La
+    pantalla del alumno, la del coordinador y la liberación preguntan ahí; con
+    la suma escrita tres veces, el día que una filtre distinto habría tres
+    respuestas y ninguna forma de saber cuál vale.
+  - **El TRASLAPE compara las DOS condiciones** —empieza antes de que la otra
+    acabe Y acaba después de que empiece—: una de 9 a 13 y otra de 10 a 11 no
+    comparten hora de arranque y chocan igual. Con una sola, el doble conteo
+    entra por la jornada contenida dentro de otra.
+  - **Una jornada RECHAZADA no ocupa su franja**, y se CONSERVA con su motivo.
+    Si ocupara, corregir una mal capturada exigiría borrarla —y con ella la
+    razón por la que no contó—.
+  - **Los topes salen de la regla CONGELADA** y cuentan lo capturado además de
+    lo aprobado: si sólo miraran lo aprobado, el alumno rebasaría el límite
+    escribiendo jornadas que nadie ha revisado. **Y la semana va de LUNES a
+    domingo**, fijado explícitamente: `startOfWeek()` devuelve DOMINGO en esta
+    aplicación —lección de `prueba-reportes-programados`—, y con él la jornada
+    del domingo caería en la semana siguiente y el tope se podría rebasar
+    partiendo el fin de semana.
+  - **Doble revisión imposible**: el `update` va condicionado a
+    `where('estado', 'capturada')` y el número de filas afectadas es lo que dice
+    si esta petición ganó. El guard en memoria lo pasan dos peticiones
+    simultáneas, y la segunda borraría del acta a quien revisó primero. Misma
+    defensa que la firma de las becas.
+  - **Una jornada APROBADA no se edita**: ya sumó, y cambiarle las horas movería
+    el total sin que nadie la volviera a revisar. Para enmendarla se rechaza y
+    se captura de nuevo, que deja rastro de las dos. Y corregir una RECHAZADA
+    borra su motivo: ya no es cierto.
+  - **Las horas sólo se registran EN CURSO o SUSPENDIDO.** Antes de iniciar no
+    hay nada que registrar, y después de concluir moverían un total que ya se
+    dio por bueno — con el expediente liberado, además, cambiarían lo que dice
+    una constancia emitida. Suspendido sí admite: la suspensión se levanta, y
+    mientras tanto puede hacer falta capturar lo de los días anteriores.
+  - **Los INFORMES se programan al ASIGNAR, no al entregarse.** Sus filas nacen
+    con las fechas ya calculadas del periodo y la periodicidad de la regla, así
+    que el alumno ve desde el primer día cuántos le tocan y para cuándo.
+    Creándolas al entregar, «te falta el segundo parcial» no se podría decir —no
+    habría fila que nombrar— y la fecha límite no existiría hasta después de
+    vencer.
+  - **Y se REPROGRAMAN al mover las fechas, salvo los ya entregados**: cambiar
+    la de uno entregado cambiaría si llegó tarde, que es un hecho fechado y no
+    una configuración.
+  - **Devolver un informe EXIGE decir por qué**; aceptarlo no. Sin la razón el
+    alumno vuelve a mandar lo mismo, que es lo que la pantalla viene a evitar. Y
+    **re-entregarlo lo devuelve a «sin revisar»**: uno reemplazado después de
+    haber sido devuelto no puede seguir diciendo «rechazado» sobre un archivo
+    que nadie miró.
+  - **Las RÚBRICAS se reusan del LMS** (`/rubricas`, ámbito plataforma).
+    Estrenar un segundo motor de criterios y niveles daría dos sitios donde
+    definir lo mismo, y el día que uno gane una función el otro se quedaría
+    atrás — es lo que le pasó a `vinculos_familiares` frente a `tutores_alumno`.
+    Sólo las de la ESCUELA: una propia de un docente es su borrador de trabajo, y
+    evaluar con ella dejaría la evaluación colgando de algo que su dueño puede
+    borrar.
+  - **El PUNTAJE lo pone el servidor**, sumando los niveles elegidos, y se
+    comprueba que cada nivel sea de SU criterio: sin eso, mandar el id del nivel
+    más alto de otro daría puntos que esa rúbrica no concede en ese renglón.
+  - **Y lo respondido se CONGELA con su texto**: la rúbrica se puede editar
+    después, y releyendo la evaluación contra la de hoy diría algo que el
+    supervisor nunca firmó. Por eso el total sale del snapshot y no de la
+    rúbrica actual — si no, editarla convertiría un 45 de 50 en un 45 de 60 sin
+    que nadie tocara nada.
+  - **Una evaluación por ORIGEN**, con su único: el supervisor evalúa una vez, y
+    corregirla es editarla. Con dos, habría que elegir a cuál creerle. Los tres
+    orígenes no se sustituyen: el supervisor mide desempeño, el coordinador
+    cumplimiento institucional y el estudiante su propia experiencia.
+  - **La AUTOEVALUACIÓN la captura el alumno; las otras dos, la escuela.** Sin
+    separarlas, un estudiante capturaría la evaluación de su propio supervisor —
+    que es justo la que decide si se libera.
+  - **La GEOLOCALIZACIÓN nunca es obligatoria**, instrucción explícita del
+    cliente. El ajuste nace apagado —pedirle la ubicación a un estudiante cada
+    vez que registra una jornada es rastrearlo—, quien no dé el permiso del
+    navegador registra igual, y **el servidor DESCARTA las coordenadas cuando la
+    escuela no las pide**: sin eso, una petición a mano las guardaría y apagar
+    el interruptor no protegería de nada.
+  - **Un componente para los DOS oficios** (`BitacoraDeHoras.vue`): la lista es
+    la misma y sólo cambian los botones. Escrita dos veces, una acabaría sin
+    decir por qué se rechazó una jornada — lo único que el alumno puede usar
+    para corregirla. El permiso llega resuelto, como en `MenuAcciones`.
+  - **Y las rutas del seguimiento van SIN `can:` de grupo**, como `/captura`:
+    por ahí entran dos oficios y un middleware con el permiso de uno rebotaría
+    al otro. Lo resuelve cada método con el par de siempre.
+  - Pruebas: `scripts/prueba-procesos-horas.php`, 77 verificaciones,
+    comprobadas mutando **47 reglas**. En la primera pasada sobrevivieron cinco,
+    y las cinco eran huecos de escenario:
+    - el traslape se probaba corrigiendo una jornada a OTRO día, así que
+      excluirse a sí misma no se ejercitaba —y en producción significaría que
+      una jornada choca consigo misma y no se puede corregir ni una errata—;
+    - el tope diario se medía en un día con jornadas ya aprobadas;
+    - el alcance por campus no tenía usuario acotado;
+    - la periodicidad se comprobaba sólo en el PRIMER parcial, donde
+      «días × número» y «días» dan lo mismo;
+    - y «el aceptado no aparece» buscaba su número, y con el guard quitado el
+      aceptado entraba por la otra rama con otro texto.
+  - **Tres defectos que sólo se vieron MIRÁNDOLO:**
+    1. **La pantalla del coordinador no enseñaba el avance.** El detalle mandaba
+       las horas aprobadas sin las REQUERIDAS, así que la barra no se dibujaba y
+       lo primero que se mira al abrir un expediente no estaba.
+    2. **«Como mucho 8 h al día y30 h a la semana»** — encadenar `<span v-if>`
+       deja el HTML sin el espacio entre ellos. El texto se arma en una sola
+       expresión.
+    3. **Un informe DEVUELTO decía «está entregado y todavía sin aceptar».**
+       Conserva su `entregado_en` de la entrega anterior, así que con dos ramas
+       caía ahí — y quien lo lee cree que sólo falta que alguien lo revise,
+       cuando la pelota está del lado contrario y el trámite se queda parado
+       esperando a la persona equivocada. Son TRES ramas.
+  - Verificado en el navegador el recorrido entero: registrar una jornada de
+    9:00 a 14:00 con media hora de descanso (4.5 h bien calculadas), aprobarla y
+    ver la barra moverse; el traslape, el tope diario y la fecha fuera de rango
+    rehusados con 422; entregar un informe como alumno, devolverlo con
+    retroalimentación —con «Devolver» deshabilitado hasta escribirla— y verla en
+    el portal; y capturar la evaluación del supervisor con la rúbrica «Trabajo
+    escrito», que dio **8 de 10** calculado por el servidor con su desglose
+    congelado. **Los datos se retiraron**, incluidos los archivos del disco
+    privado y el ajuste de ubicación.
+
 - **Servicio social y prácticas · FASE 4: solicitud, revisión y asignación**
   (2026-09-03). El expediente, de `borrador` a `asignado`. `/procesos/expedientes`
   para la bandeja y `/mi-servicio-social` para que el alumno arme la suya.

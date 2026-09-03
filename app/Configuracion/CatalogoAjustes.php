@@ -56,6 +56,9 @@ final class CatalogoAjustes
 
     public const TIMBRADO_NOMINA = 'nomina.timbrado_cfdi';
 
+    // Servicio social y prácticas.
+    public const PROCESOS_PEDIR_UBICACION = 'procesos.pedir_ubicacion';
+
     // Caja.
     public const CAJA_EXIGE_SESION = 'caja.exige_sesion_para_efectivo';
 
@@ -228,6 +231,25 @@ final class CatalogoAjustes
                  * lo pida. Quien quiera lo contrario lo enciende aquí — que es
                  * justo lo que pidió el cliente— y queda dicho que fue una
                  * decisión suya, no un efecto de haber configurado el archivado.
+                 */
+                porDefecto: false,
+            ),
+            new Ajuste(
+                clave: self::PROCESOS_PEDIR_UBICACION,
+                grupo: 'Servicio social y prácticas',
+                etiqueta: 'Pedir la ubicación al registrar una jornada',
+                descripcion: 'Encendido, la pantalla le pide al alumno permiso del navegador y guarda dónde '
+                    .'estaba al capturar sus horas. Apagado —lo normal—, no se guarda ninguna coordenada. '
+                    .'NUNCA es obligatoria: quien no dé el permiso registra sus horas igual, así que esto no '
+                    .'sirve para exigir presencia, sólo para dejar constancia cuando el alumno quiere darla.',
+                tipo: Ajuste::BOOLEANO,
+                /*
+                 * Apagado por omisión, y por instrucción del cliente.
+                 *
+                 * Pedirle la ubicación a un estudiante cada vez que registra una
+                 * jornada es rastrearlo, y esa decisión no puede ser un efecto
+                 * secundario de haber configurado el módulo. Mismo criterio que
+                 * la publicación automática de grabaciones.
                  */
                 porDefecto: false,
             ),

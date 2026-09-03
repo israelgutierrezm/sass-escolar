@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\ProcesosFormativos;
 
+use App\Configuracion\Ajustes;
+use App\Configuracion\CatalogoAjustes;
 use App\Exceptions\AvisoParaElUsuario;
 use App\Http\Controllers\Controller;
 use App\Models\Admisiones\DocumentoRequerido;
@@ -13,6 +15,7 @@ use App\Models\ProcesosFormativos\ExpedienteProceso;
 use App\Models\ProcesosFormativos\ReglaProceso;
 use App\Models\ProcesosFormativos\TipoProcesoFormativo;
 use App\Services\ProcesosFormativos\ElegibilidadFormativa;
+use App\Services\ProcesosFormativos\RegistradorDeHoras;
 use App\Services\ProcesosFormativos\SolicitudDelAlumno;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -48,6 +51,8 @@ class MiProcesoFormativoController extends Controller
     public function __construct(
         private readonly ElegibilidadFormativa $elegibilidad,
         private readonly SolicitudDelAlumno $solicitudes,
+        private readonly RegistradorDeHoras $horas,
+        private readonly Ajustes $ajustes,
     ) {}
 
     public function index(Request $peticion): Response
@@ -267,7 +272,14 @@ class MiProcesoFormativoController extends Controller
             ->vivos()
             ->where('matricula_oferta_id', $matricula->id)
             ->where('tipo_proceso_id', $tipo->id)
-            ->with(['documentos.documento:id,nombre', 'documentos.estado:id,clave,nombre', 'organizacion:id,razon_social,nombre_comercial'])
+            ->with([
+                'documentos.documento:id,nombre',
+                'documentos.estado:id,clave,nombre',
+                'organizacion:id,razon_social,nombre_comercial',
+                'reglaVersion',
+                'horas',
+                'informes.tipo:id,nombre,es_final',
+            ])
             ->first();
 
         if ($expediente === null) {
@@ -299,6 +311,60 @@ class MiProcesoFormativoController extends Controller
              */
             'documentos' => $this->solicitudes->papeleria($expediente),
             'faltantes' => $this->solicitudes->documentosQueFaltan($expediente),
+
+            /*
+             * Sus horas, con el total ya sumado por el servicio: es la única
+             * definición de «cuántas lleva», y repetirla aquí daría una segunda
+             * respuesta el día que una de las dos filtre distinto.
+             *
+             * `admite` es lo que decide si se le dibuja el formulario. Sólo
+             * mientras el proceso corre: antes no hay nada que registrar, y
+             * después las horas nuevas moverían un total que ya se dio por
+             * bueno.
+             */
+            'horas' => [
+                'aprobadas' => $this->horas->horasAprobadas($expediente),
+                'faltan' => $this->horas->horasQueFaltan($expediente),
+                'requeridas' => $expediente->reglaVersion?->horasMinimas(),
+                'admite' => $expediente->admiteHoras(),
+                'max_dia' => $expediente->reglaVersion?->max_horas_dia,
+                'max_semana' => $expediente->reglaVersion?->max_horas_semana,
+                'jornadas' => $expediente->horas->sortByDesc('fecha')->values()->map(fn ($h) => [
+                    'id' => $h->id,
+                    'fecha' => $h->fecha?->toDateString(),
+                    'inicio' => substr((string) $h->hora_inicio, 0, 5),
+                    'fin' => substr((string) $h->hora_fin, 0, 5),
+                    'horas' => $h->horas(),
+                    'actividad' => $h->actividad,
+                    'estado' => $h->estado,
+                    'motivo_rechazo' => $h->motivo_rechazo,
+                    // Sólo se corrige lo que todavía no cuenta: una aprobada ya
+                    // sumó, y cambiarla movería el total sin que nadie la
+                    // volviera a revisar.
+                    'editable' => $h->estado !== 'aprobada',
+                ]),
+            ],
+
+            'informes' => $expediente->informes->map(fn ($i) => [
+                'id' => $i->id,
+                'tipo' => $i->tipo?->nombre,
+                'numero' => $i->numero,
+                'fecha_limite' => $i->fecha_limite?->toDateString(),
+                'entregado_en' => $i->entregado_en?->format('d/m/Y'),
+                'estado' => $i->estado,
+                'estado_texto' => $i->etiquetaEstado(),
+                'tarde' => $i->llegoTarde(),
+                'vencido' => $i->estaVencido(),
+                // Lo que le dijeron que corrija: es lo único que puede usar
+                // para no volver a mandar lo mismo.
+                'retroalimentacion' => $i->retroalimentacion,
+                'nombre_original' => $i->nombre_original,
+                'entregable' => $i->estado !== 'aceptado',
+            ])->values(),
+
+            // Si la escuela pide la ubicación. Apagado, la pantalla ni la
+            // menciona: preguntarla y luego descartarla sería teatro.
+            'pide_ubicacion' => $this->ajustes->bool(CatalogoAjustes::PROCESOS_PEDIR_UBICACION),
         ];
     }
 
