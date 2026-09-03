@@ -9,8 +9,6 @@ use App\Models\Identidad\Usuario;
 use App\Models\Reportes\EjecucionReporte;
 use App\Services\Plataforma\ModulosDeLaEscuela;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -1038,54 +1036,15 @@ class Ejecutor
     /**
      * Valida el valor de un filtro POR SU TIPO.
      *
-     * El desplegable no es una defensa: el valor llega del navegador. Un filtro
-     * de lista se comprueba contra las opciones VIVAS —que ya vienen acotadas al
-     * alcance del usuario—, así que escribir a mano el id de otro campus no
-     * ensancha la consulta: la rechaza.
+     * Vive en `ValorDeFiltro` desde que lo pregunta un segundo camino: el
+     * CONSTRUCTOR de reportes, al guardar un filtro fijo que escribió una
+     * persona. Escrito dos veces, el reporte armado desde pantalla aceptaría lo
+     * que el motor luego rechaza — y quien lo armó ya no está delante cuando
+     * eso pasa.
      */
     private function valorValidado(Usuario $usuario, FiltroReporte $filtro, mixed $valor): mixed
     {
-        $regla = match ($filtro->tipo) {
-            TipoFiltro::Numero => ['numeric'],
-            TipoFiltro::Fecha => ['date'],
-            TipoFiltro::Booleano => ['boolean'],
-            TipoFiltro::Lista => ['required', Rule::in(array_keys($filtro->opcionesPara($usuario)))],
-            TipoFiltro::ListaMultiple => ['array', 'max:500'],
-            TipoFiltro::RangoNumero, TipoFiltro::RangoFecha => ['array', 'size:2'],
-            default => ['string', 'max:255'],
-        };
-
-        $datos = Validator::make(['v' => $valor], ['v' => $regla])->validate();
-
-        /*
-         * Validar NO es convertir, y esa diferencia daba un 500.
-         *
-         * La regla `boolean` de Laravel ACEPTA la cadena «1» —es lo que manda
-         * una casilla marcada desde la pantalla— pero el validador devuelve el
-         * valor tal cual, así que a la closure del filtro, tipada `bool $v`, le
-         * llegaba un string y reventaba con TypeError. En pantalla: 500 al
-         * pulsar «Aplicar» con cualquier casilla marcada.
-         *
-         * No lo vio ninguna suite porque todas pasaban booleanos de PHP —el
-         * valor que escribe un `filtrosFijos()`— y no el que escribe el
-         * navegador. Lo cazó la primera prueba que mandó «1» como lo manda la
-         * pantalla.
-         */
-        if ($filtro->tipo === TipoFiltro::Booleano) {
-            return filter_var($datos['v'], FILTER_VALIDATE_BOOLEAN);
-        }
-
-        if ($filtro->tipo === TipoFiltro::ListaMultiple) {
-            $permitidas = array_keys($filtro->opcionesPara($usuario));
-
-            // Cada elemento contra el catálogo vivo, no sólo la forma del array.
-            return array_values(array_filter(
-                $datos['v'],
-                fn ($v) => in_array($v, $permitidas, false),
-            ));
-        }
-
-        return $datos['v'];
+        return ValorDeFiltro::validado($usuario, $filtro, $valor);
     }
 
     /** @param  array<string, mixed>  $filtros */

@@ -6,8 +6,10 @@ namespace App\Reportes;
 
 use App\Models\Identidad\Usuario;
 use App\Models\Reportes\AreaReporte;
+use App\Models\Reportes\ReporteEscuela;
 use App\Models\Reportes\UbicacionReporte;
 use App\Services\Plataforma\ModulosDeLaEscuela;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -24,6 +26,38 @@ class RegistroReportes
 
     /** @var array<string, DefinicionReporte> */
     private array $reportes = [];
+
+    /**
+     * Los que armó la escuela, leídos de `reportes_escuela`.
+     *
+     * @var array<string, ReporteDeLaEscuela>
+     */
+    private array $deLaEscuela = [];
+
+    /**
+     * Los suyos que hoy NO se pueden servir, con su razón.
+     *
+     * Se guardan en vez de tirarse: es lo que la pantalla del constructor
+     * enseña para que alguien los arregle. Un reporte que desaparece sin decir
+     * por qué se vuelve a armar igual de roto.
+     *
+     * @var array<string, string>
+     */
+    private array $retirados = [];
+
+    /**
+     * La escuela cuyos reportes de tabla ya se leyeron. Null = ninguna.
+     *
+     * ── Por qué se recuerda, y no basta con un booleano ────────────────────
+     * Este registro es un SINGLETON, y `reportes:enviar-programados` recorre
+     * todas las escuelas en UN proceso. Con un «ya está cargado» a secas, los
+     * reportes de la primera escuela se le servirían a la segunda: sus
+     * programaciones correrían una definición que no es suya, contra su base.
+     * Lo que se recuerda es de QUIÉN son, y al cambiar de escuela se releen.
+     */
+    private ?string $escuelaLeida = null;
+
+    private bool $leido = false;
 
     /** @param  class-string<FuenteDeReporte>  $clase */
     public function registrarFuente(string $clase): void
@@ -84,15 +118,129 @@ class RegistroReportes
         return $this->fuentes[$clave] ?? throw new NotFoundHttpException("Fuente de reporte desconocida: {$clave}");
     }
 
+    /**
+     * La fuente, o null si esa clave ya no existe.
+     *
+     * `fuente()` lanza 404, que es lo correcto cuando alguien PIDE un reporte.
+     * El constructor pregunta otra cosa —«¿este reporte de tabla todavía tiene
+     * fuente?»— y ahí la ausencia es un dato que hay que enseñar con su razón,
+     * no un error.
+     */
+    public function fuenteONull(string $clave): ?FuenteDeReporte
+    {
+        return $this->fuentes[$clave] ?? null;
+    }
+
     public function definicion(string $clave): DefinicionReporte
     {
-        return $this->reportes[$clave] ?? throw new NotFoundHttpException("Reporte desconocido: {$clave}");
+        return $this->catalogo()[$clave] ?? throw new NotFoundHttpException("Reporte desconocido: {$clave}");
     }
 
     /** @return array<string, DefinicionReporte> */
     public function todos(): array
     {
-        return $this->reportes;
+        return $this->catalogo();
+    }
+
+    /**
+     * Los reportes del CÓDIGO y los de la escuela, en un solo mapa.
+     *
+     * Los del código van primero y ganan: uno de la escuela con una clave
+     * repetida no puede sombrear al de siempre —y además no puede tenerla,
+     * porque nacen con prefijo—. Es cinturón y tirantes sobre lo mismo, y el
+     * barato es éste.
+     *
+     * @return array<string, DefinicionReporte>
+     */
+    private function catalogo(): array
+    {
+        $this->sincronizarConLaEscuela();
+
+        return $this->reportes + $this->deLaEscuela;
+    }
+
+    /**
+     * Relee `reportes_escuela` si cambió la escuela desde la última vez.
+     *
+     * Perezoso porque al construirse el singleton todavía no hay escuela: se
+     * puebla en `AppServiceProvider`, que corre antes de que el middleware la
+     * resuelva por dominio.
+     */
+    private function sincronizarConLaEscuela(): void
+    {
+        $escuela = tenant()?->getTenantKey();
+        $escuela = $escuela === null ? null : (string) $escuela;
+
+        if ($this->leido && $this->escuelaLeida === $escuela) {
+            return;
+        }
+
+        $this->deLaEscuela = [];
+        $this->retirados = [];
+        $this->escuelaLeida = $escuela;
+        $this->leido = true;
+
+        // Sin escuela no hay tabla que leer, y una recién dada de alta puede no
+        // haber migrado todavía.
+        if ($escuela === null || ! Schema::hasTable('reportes_escuela')) {
+            return;
+        }
+
+        foreach (ReporteEscuela::query()->publicados()->orderBy('nombre')->get() as $fila) {
+            $problema = RevisionDelReporte::problema($fila, $this->fuentes[$fila->fuente] ?? null);
+
+            if ($problema !== null) {
+                $this->retirados[$fila->clave] = $problema;
+
+                continue;
+            }
+
+            $this->deLaEscuela[$fila->clave] = new ReporteDeLaEscuela($fila);
+        }
+    }
+
+    /**
+     * Los reportes de la escuela que hoy no se sirven, con su razón.
+     *
+     * @return array<string, string>
+     */
+    public function retirados(): array
+    {
+        $this->sincronizarConLaEscuela();
+
+        return $this->retirados;
+    }
+
+    /**
+     * Las fuentes sobre las que ESTE usuario puede armar un reporte.
+     *
+     * Las mismas tres condiciones que `para()`, y por el mismo motivo: sólo se
+     * arma encima de lo que ya se puede correr. Si no, alguien sin
+     * `ver-adeudos` publicaría el padrón de la cartera sin haberlo visto nunca
+     * — no se lo lleva él, pero decide qué se llevan los demás, y no puede
+     * mirar lo que publica.
+     *
+     * @return array<string, FuenteDeReporte>
+     */
+    public function fuentesPara(Usuario $usuario): array
+    {
+        $modulos = app(ModulosDeLaEscuela::class);
+        $faceta = $usuario->rolActivo?->faceta()?->name;
+
+        return array_filter(
+            $this->fuentes,
+            function (FuenteDeReporte $fuente) use ($usuario, $modulos, $faceta) {
+                if (! $usuario->can($fuente->permiso())) {
+                    return false;
+                }
+
+                if ($fuente->modulo() !== null && ! $modulos->activo($fuente->modulo())) {
+                    return false;
+                }
+
+                return $faceta === null || in_array($faceta, $fuente->facetas(), true);
+            },
+        );
     }
 
     /**
@@ -113,7 +261,7 @@ class RegistroReportes
 
         $visibles = [];
 
-        foreach ($this->reportes as $reporte) {
+        foreach ($this->catalogo() as $reporte) {
             $fuente = $this->fuentes[$reporte->fuente()] ?? null;
 
             // Un reporte que apunta a una fuente que ya no existe se calla en

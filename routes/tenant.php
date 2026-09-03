@@ -132,6 +132,7 @@ use App\Http\Controllers\ReglaHorarioController;
 use App\Http\Controllers\ReglaMatriculaController;
 use App\Http\Controllers\Reportes\BitacoraReportesController;
 use App\Http\Controllers\Reportes\ConfiguracionReportesController;
+use App\Http\Controllers\Reportes\ConstructorReportesController;
 use App\Http\Controllers\Reportes\ProgramacionReporteController;
 use App\Http\Controllers\Reportes\ReporteController;
 use App\Http\Controllers\Reportes\VistaReporteController;
@@ -2322,6 +2323,27 @@ Route::middleware([
                         Route::patch('areas/{area}/activo', 'alternarArea')->whereNumber('area')->name('areas.activo');
                         Route::delete('areas/{area}', 'eliminarArea')->whereNumber('area')->name('areas.eliminar');
                         Route::put('reportes/{clave}', 'ubicarReporte')->name('reportes.ubicar');
+                    });
+
+                /*
+                 * El CONSTRUCTOR de reportes. Antes del comodin, como todo lo
+                 * demas de esta seccion.
+                 *
+                 * Con `gestionar-areas-reporte` y no con un permiso nuevo: es
+                 * el mismo acto que ese permiso ya protege --decidir que ofrece
+                 * el indice de reportes de la escuela--. Y NO hay campo de SQL:
+                 * un reporte de aqui es un preset sobre una fuente que escribio
+                 * un programador.
+                 */
+                Route::middleware('can:gestionar-areas-reporte')
+                    ->controller(ConstructorReportesController::class)
+                    ->prefix('constructor')->name('constructor.')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::post('/', 'guardar')->name('crear');
+                        Route::put('{reporte}', 'guardar')->whereNumber('reporte')->name('guardar');
+                        Route::patch('{reporte}/publicado', 'alternarPublicado')->whereNumber('reporte')->name('publicado');
+                        Route::delete('{reporte}', 'eliminar')->whereNumber('reporte')->name('eliminar');
                     });
 
                 /*

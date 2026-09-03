@@ -207,6 +207,12 @@ export const CATALOGO_MENU: GrupoMenu[] = [
         modulo: 'reportes',
         hijos: [
             { clave: 'reportes-listado', etiqueta: 'Reportes', url: '/reportes', permiso: 'ver-reportes' },
+            /*
+             * El constructor. Va en el menú y no escondido dentro de la
+             * configuración: una pantalla con permiso y sin puerta por donde
+             * entrar es un defecto que este proyecto ya se cobró tres veces.
+             */
+            { clave: 'reportes-constructor', etiqueta: 'Constructor', url: '/reportes/constructor', permiso: 'gestionar-areas-reporte', y: 'ver-reportes' },
         ],
     },
     {

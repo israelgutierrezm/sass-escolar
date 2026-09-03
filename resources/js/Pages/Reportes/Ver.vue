@@ -4,6 +4,7 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { celdaReporte, type TipoDato } from '@/utils/celdaReporte';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import CampoFiltroReporte from '@/Components/CampoFiltroReporte.vue';
 import Paginacion from '@/Components/Paginacion.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
@@ -141,23 +142,6 @@ const primeraSinTotal = computed(() => {
 
 function sumaDeMedida(clave: string): number {
     return (props.agrupado?.grupos ?? []).reduce((s, g) => s + Number(g.valores[clave] ?? 0), 0);
-}
-
-/** Si este valor esta entre los elegidos de un filtro de lista multiple. */
-function estaElegido(clave: string, valor: string | number): boolean {
-    const puesto = valores.value[clave];
-
-    return Array.isArray(puesto) && puesto.map(String).includes(String(valor));
-}
-
-/**
- * Si un filtro booleano esta puesto.
- *
- * El motor acepta '1', 1, true y 'true' segun de donde venga --de la URL llega
- * como cadena y de una vista guardada como booleano--, asi que se miran todos.
- */
-function esVerdadero(valor: unknown): boolean {
-    return valor === true || valor === 1 || valor === '1' || valor === 'true';
 }
 
 const ordenPor = ref<string | null>(props.orden.por);
@@ -405,60 +389,20 @@ function claseAlineacion(a: string): string {
                         </span>
                     </p>
 
-                    <select
-                        v-if="f.tipo === 'lista_multiple'"
-                        multiple
-                        class="h-20 w-full rounded-lg border border-borde px-2 py-1 text-xs"
-                        :disabled="filtrosFijos.includes(f.clave)"
-                        @change="valores[f.clave] = Array.from(($event.target as HTMLSelectElement).selectedOptions).map((o) => o.value)"
-                    >
-                        <!--
-                            `:selected` con lo APLICADO. Sin esto, abrir un
-                            reporte con filtros en la URL --o una vista
-                            guardada-- pintaba el panel VACIO: la tabla salia
-                            filtrada y los controles decian que no habia ningun
-                            filtro puesto. Y como «Aplicar» reenvia lo que hay en
-                            pantalla, tocarlo los perdia.
-                        -->
-                        <option
-                            v-for="(etiqueta, valor) in f.opciones"
-                            :key="valor"
-                            :value="valor"
-                            :selected="estaElegido(f.clave, valor)"
-                        >{{ etiqueta }}</option>
-                    </select>
-
                     <!--
-                        Un si/no es una CASILLA, no una caja de texto.
-                        Se dibujaba con `type="text"` porque hasta la fuente de
-                        cartera no habia ningun filtro booleano: quien lo viera
-                        tendria que adivinar que se escribe «1» dentro. Y va
-                        `false` explicito y no vacio, porque el motor solo salta
-                        null, cadena vacia y arreglo vacio -- un `false` SI llega
-                        a la closure del filtro.
-                    -->
-                    <label
-                        v-else-if="f.tipo === 'booleano'"
-                        class="flex items-center gap-2 py-1.5 text-sm"
-                        :class="filtrosFijos.includes(f.clave) ? 'opacity-60' : 'cursor-pointer'"
-                    >
-                        <input
-                            type="checkbox"
-                            class="h-4 w-4 rounded border-borde"
-                            :disabled="filtrosFijos.includes(f.clave)"
-                            :checked="filtrosFijos.includes(f.clave) || esVerdadero(valores[f.clave])"
-                            @change="valores[f.clave] = ($event.target as HTMLInputElement).checked ? '1' : ''"
-                        />
-                        <span>Sí</span>
-                    </label>
+                        El control lo dibuja `CampoFiltroReporte`, que comparte
+                        con el CONSTRUCTOR de reportes: con el `v-if` por tipo
+                        copiado en las dos pantallas, la segunda nace divergida
+                        y un tipo nuevo se atiende sólo en una.
 
-                    <input
-                        v-else
-                        :type="f.tipo === 'fecha' ? 'date' : 'text'"
-                        class="w-full rounded-lg border border-borde px-2 py-1.5 text-sm"
-                        :disabled="filtrosFijos.includes(f.clave)"
-                        :value="valores[f.clave] ?? ''"
-                        @input="valores[f.clave] = ($event.target as HTMLInputElement).value"
+                        Al extraerlo salió que `lista` no tenía rama: caía a
+                        caja de TEXTO y había que teclear a mano el valor exacto.
+                    -->
+                    <CampoFiltroReporte
+                        v-model="valores[f.clave]"
+                        :tipo="f.tipo"
+                        :opciones="f.opciones"
+                        :deshabilitado="filtrosFijos.includes(f.clave)"
                     />
 
                     <p v-if="f.ayuda" class="mt-0.5 text-xs" :style="{ color: 'var(--color-suave)' }">{{ f.ayuda }}</p>
