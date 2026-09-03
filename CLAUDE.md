@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**126 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**127 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -764,6 +764,72 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
   CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
   adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
+- **Convenios de descuento con empresas** (2026-09-02, lo que faltaba de 3.3).
+  `/finanzas/convenios-descuento`, con el permiso de configurar el cobro.
+  - **Lo que no se podía decir.** Un descuento de CAMPAÑA aplica a toda la
+    escuela: `CalculadorCargo` los consulta sin acotar a nadie. Así que «20 %
+    para los hijos de los empleados de la empresa X» no se podía expresar — o se
+    le daba a todo el mundo, o no se daba.
+  - **Y esto NO es una tabla de descuentos nueva.** El motor de BECAS ya hace
+    exactamente lo que hace falta: un porcentaje o un monto, sobre ciertos
+    conceptos, otorgado A UNA MATRÍCULA, con su bitácora, su autorización, su
+    renovación y su presupuesto. Un segundo motor con las mismas reglas
+    divergiría —es lo que le pasó a `vinculos_familiares` frente a
+    `tutores_alumno`— y obligaría a preguntar en dos sitios cuánto descuenta
+    alguien.
+  - **Lo que el convenio agrega** es lo que la beca no sabe decir: quién es la
+    contraparte, hasta cuándo vale el acuerdo, dónde está el papel firmado, y
+    —lo importante— que al TERMINARLO se cierran **todas sus becas a la vez**.
+    Hoy cada otorgamiento tiene sus propias fechas y nada las cierra juntas, así
+    que un acuerdo terminado seguiría descontando hasta que alguien recorriera
+    los otorgamientos uno por uno.
+  - **Se cierra con un ACTO, no con una condición escondida.** La alternativa
+    era que `aplicaEn()` preguntara además por el convenio: metería una
+    condición en el camino caliente del cálculo de cada cargo y —peor— dejaría
+    las becas ACTIVAS mientras no descuentan, un estado que nadie puede explicar
+    mirando la ficha del alumno. Aquí quedan PERDIDAS, con su bitácora,
+    reusando `EvaluadorBecas::perder` para no escribir por segunda vez «quitar
+    una beca».
+  - **La vigencia de cada otorgamiento se capa al fin del acuerdo**, y con eso
+    el mecanismo que ya existe —`aplicaEn()` mira `vigente_hasta`— apaga la beca
+    solo, sin que el cierre nocturno tenga que perseguirla.
+  - **La justificación es obligatoria** en las becas de convenio: sin ella,
+    dentro de un año nadie puede explicar por qué esa familia tiene el descuento
+    de esa empresa — y es lo primero que se pregunta al renovar. En las becas
+    normales NO se pide: la regla es del convenio.
+  - **Vencer y estar terminado son cosas distintas**: un convenio puede tener la
+    fecha pasada y seguir vigente hasta que el barrido nocturno lo cierre.
+    `finanzas:evaluar` lo hace, DESPUÉS de las becas y los recargos, porque
+    cerrar recompone los cargos de sus beneficiarios y ese recálculo tiene que
+    ser el último que los toque.
+  - **La contraparte NO se toma del padrón de `empresas`**: ése es de
+    EMPLEADORES de la bolsa de trabajo, con su propia situación —«vetada»— que
+    no debe apagar un convenio de descuento, y vive detrás de un módulo que se
+    puede apagar. Además una contraparte puede ser un sindicato o una
+    dependencia, que no son empleadores de ese padrón.
+  - **Se RETIRÓ `descuentos.tipo = 'manual'`.** La pantalla lo ofrecía y la
+    validación lo aceptaba, pero `CalculadorCargo` sólo lee `campana` y
+    `pago_anticipado`: un descuento «manual» se creaba, se guardaba, se veía en
+    la lista y **no descontaba nada**. Misma familia que `ver-personas` y
+    `crear-personas`. Los que hubiera se convierten a `campana` en vez de
+    borrarse — la escuela los capturó a propósito, y como campaña por fin
+    descuentan.
+  - Pruebas: `scripts/prueba-convenios-descuento.php`, 53 verificaciones,
+    comprobadas mutando **19 reglas**. En la primera pasada sobrevivieron tres:
+    todos los convenios del escenario estaban vencidos o terminados cuando
+    corría el barrido —así que quitarle su filtro POR FECHA no cambiaba nada—;
+    «no se otorga bajo un convenio terminado» se comprobaba preguntándole al
+    servicio y no otorgando; y ningún ajuste compartía `origen_id` con la beca
+    del convenio, de modo que filtrar por `tipo = beca` no se ejercitaba.
+  - **Dos comprobaciones se corrigieron al escribirlas**: una medía contra cero
+    cuando el descuento se aplica también a los cargos que la alumna ya tenía
+    —que es lo correcto—, y otra comparaba cero contra cero sobre un convenio
+    ya terminado.
+  - **Y un defecto que sólo se vio MIRÁNDOLO**: terminar un convenio sin
+    beneficiarios decía «Se cerraron 0 otorgamiento(s) y sus cargos pendientes
+    se recompusieron sin el descuento». La segunda mitad es falsa, y ésa es la
+    clase de frase que enseña a no creerle a los avisos.
+
 - **Presupuesto de egresos y centros de costo, CERRADO** (2026-09-02, rebanada
   3.6). `/finanzas/presupuesto` y `/finanzas/egresos`. Permisos
   `gestionar-presupuesto` y `registrar-egresos`, con `ver-presupuesto`
