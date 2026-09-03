@@ -119,9 +119,17 @@ class ConvenioDescuentoController extends Controller
 
         $cerrados = $this->convenios->terminar($convenio, $datos['motivo']);
 
+        /*
+         * Con cero otorgamientos el mensaje NO puede decir que se recompusieron
+         * cargos: afirmaría un trabajo que no se hizo, y ésa es la clase de
+         * frase que enseña a no creerle a los avisos. Salió al terminar uno
+         * vacío en el navegador.
+         */
         return back(303)->with(
             'exito',
-            "Convenio terminado. Se cerraron {$cerrados} otorgamiento(s) y sus cargos pendientes se recompusieron sin el descuento."
+            $cerrados === 0
+                ? 'Convenio terminado. No tenía ningún otorgamiento vigente.'
+                : "Convenio terminado. Se cerraron {$cerrados} otorgamiento(s) y sus cargos pendientes se recompusieron sin el descuento."
         );
     }
 

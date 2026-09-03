@@ -308,6 +308,26 @@ try {
     );
 
     verificar('Un convenio terminado no se vuelve a terminar', motivoDe(fn () => $servicio->terminar($convenio->fresh(), 'Otra vez.')) !== null);
+
+    /*
+     * Y terminar uno SIN otorgamientos no puede decir que recompuso cargos:
+     * afirmaría un trabajo que no se hizo. Salió al mirarlo en el navegador.
+     */
+    $vacio = ConvenioDescuento::create([
+        'nombre' => 'Convenio sin beneficiarios',
+        'contraparte' => 'Nadie lo usó',
+        'vigente_desde' => '2026-01-01',
+        'vigente_hasta' => '2026-12-31',
+    ]);
+
+    $peticionVacio = Request::create('/', 'PUT', ['motivo' => 'No se usó nunca.']);
+    $peticionVacio->setUserResolver(fn () => $usuario);
+    app()->instance('request', $peticionVacio);
+
+    $mensaje = $control->terminar($peticionVacio, $vacio)->getSession()?->get('exito');
+
+    verificar('Terminar uno vacío lo dice sin inventar trabajo', str_contains((string) $mensaje, 'No tenía'), (string) $mensaje);
+    verificar('Y no afirma haber recompuesto cargos', ! str_contains((string) $mensaje, 'recompusieron'));
     verificar(
         'Y no se puede otorgar bajo él',
         $servicio->motivoParaNoOtorgar($convenio->fresh()) !== null,
