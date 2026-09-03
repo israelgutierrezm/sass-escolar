@@ -5,6 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import PestanasSeccion from '@/Components/PestanasSeccion.vue';
 import BarraListado from '@/Components/BarraListado.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import MenuAcciones from '@/Components/MenuAcciones.vue';
 import TarjetaListado from '@/Components/TarjetaListado.vue';
 import Paginacion from '@/Components/Paginacion.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
@@ -169,9 +170,14 @@ function eliminar(id: number): void {
                                 <PildoraEstado :texto="oferta.estatus" :color="oferta.estatus === 'abierta' ? '#16a34a' : 'var(--color-suave)'" />
                             </td>
                             <td class="px-6 py-4">
-                                <div v-if="puedeEditar" class="flex justify-end gap-1">
-                                    <BotonAccion variante="editar" solo-icono :href="`/academico/ofertas/${oferta.id}/edit`" />
-                                    <BotonAccion variante="eliminar" solo-icono @click="eliminar(oferta.id)" />
+                                <div class="flex justify-end">
+                                    <MenuAcciones
+                                        :opciones="puedeEditar ? [
+                                            { variante: 'editar', href: `/academico/ofertas/${oferta.id}/edit` },
+                                            { variante: 'eliminar', clave: 'eliminar' },
+                                        ] : []"
+                                        @elegir="eliminar(oferta.id)"
+                                    />
                                 </div>
                             </td>
                         </tr>

@@ -5,6 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import PestanasSeccion from '@/Components/PestanasSeccion.vue';
 import BarraListado from '@/Components/BarraListado.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import MenuAcciones from '@/Components/MenuAcciones.vue';
 import TarjetaListado from '@/Components/TarjetaListado.vue';
 import Paginacion from '@/Components/Paginacion.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
@@ -166,10 +167,15 @@ function eliminar(id: number, nombre: string): void {
                                 <PildoraEstado :texto="plan.vigente ? 'Vigente' : 'No vigente'" :color="plan.vigente ? '#16a34a' : 'var(--color-suave)'" />
                             </td>
                             <td class="px-6 py-4">
-                                <div class="flex justify-end gap-1">
+                                <div class="flex items-center justify-end gap-1">
                                     <BotonAccion variante="ver" texto="Malla" :href="`/academico/planes/${plan.id}/materias`" />
-                                    <BotonAccion v-if="puedeEditar" variante="editar" solo-icono :href="`/academico/planes/${plan.id}/edit`" />
-                                    <BotonAccion v-if="puedeEditar" variante="eliminar" solo-icono @click="eliminar(plan.id, plan.nombre)" />
+                                    <MenuAcciones
+                                        :opciones="puedeEditar ? [
+                                            { variante: 'editar', href: `/academico/planes/${plan.id}/edit` },
+                                            { variante: 'eliminar', clave: 'eliminar' },
+                                        ] : []"
+                                        @elegir="eliminar(plan.id, plan.nombre)"
+                                    />
                                 </div>
                             </td>
                         </tr>

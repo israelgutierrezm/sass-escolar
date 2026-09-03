@@ -5,6 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import PestanasSeccion from '@/Components/PestanasSeccion.vue';
 import BarraListado from '@/Components/BarraListado.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import MenuAcciones from '@/Components/MenuAcciones.vue';
 import TarjetaListado from '@/Components/TarjetaListado.vue';
 import Paginacion from '@/Components/Paginacion.vue';
 
@@ -160,9 +161,14 @@ function eliminar(id: number, nombre: string): void {
                                 <span class="inline-grid h-7 min-w-7 place-items-center rounded-full px-2 text-xs font-semibold" :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 12%, transparent)' }">{{ sede.ofertas_count }}</span>
                             </td>
                             <td class="px-6 py-4">
-                                <div v-if="puedeEditar" class="flex justify-end gap-1">
-                                    <BotonAccion variante="editar" solo-icono :href="`/academico/campus/${sede.id}/edit`" />
-                                    <BotonAccion variante="eliminar" solo-icono @click="eliminar(sede.id, sede.nombre)" />
+                                <div class="flex justify-end">
+                                    <MenuAcciones
+                                        :opciones="puedeEditar ? [
+                                            { variante: 'editar', href: `/academico/campus/${sede.id}/edit` },
+                                            { variante: 'eliminar', clave: 'eliminar' },
+                                        ] : []"
+                                        @elegir="eliminar(sede.id, sede.nombre)"
+                                    />
                                 </div>
                             </td>
                         </tr>

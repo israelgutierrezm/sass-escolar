@@ -4,6 +4,7 @@ import { computed, nextTick, reactive, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PestanasSeccion from '@/Components/PestanasSeccion.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import MenuAcciones from '@/Components/MenuAcciones.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 
 interface Item {
@@ -374,14 +375,19 @@ function esEditando(catalogo: string, id: number): boolean {
                                     >
                                         Oficial
                                     </span>
-                                    <template v-else>
-                                        <BotonAccion variante="editar" @click="abrirEdicion(catalogo, item)" />
-                                        <BotonAccion
-                                            variante="eliminar"
-                                            :disabled="item.en_uso"
-                                            @click="eliminar(catalogo.clave, item)"
-                                        />
-                                    </template>
+                                    <MenuAcciones
+                                        v-else
+                                        :opciones="[
+                                            { variante: 'editar', clave: 'editar' },
+                                            {
+                                                variante: 'eliminar',
+                                                clave: 'eliminar',
+                                                deshabilitado: item.en_uso,
+                                                motivo: item.en_uso ? 'Hay información que lo usa; no se puede eliminar' : undefined,
+                                            },
+                                        ]"
+                                        @elegir="(que) => que === 'editar' ? abrirEdicion(catalogo, item) : eliminar(catalogo.clave, item)"
+                                    />
                                 </span>
                             </template>
                         </li>

@@ -2,6 +2,8 @@
 import { Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
+import { ACCIONES, type VarianteAccion } from '@/utils/acciones';
+
 /**
  * Botón de acción con icono y color propio por tipo.
  *
@@ -21,7 +23,7 @@ import { computed } from 'vue';
  */
 const props = withDefaults(
     defineProps<{
-        variante: 'nuevo' | 'agregar' | 'editar' | 'eliminar' | 'ver' | 'cerrar';
+        variante: VarianteAccion;
         href?: string;
         texto?: string;
         soloIcono?: boolean;
@@ -54,51 +56,13 @@ const props = withDefaults(
 
 const emit = defineEmits<{ click: [] }>();
 
-// Cada variante: su etiqueta por defecto, el color y el trazo del icono.
-//  - «nuevo» sigue el ACENTO del tema (var), para que combine si se cambia de
-//    tema; el resto llevan colores fijos porque su significado no cambia:
-//    editar es un ámbar discreto, ver un azul, eliminar un rojo.
-const CONFIG = {
-    nuevo: {
-        etiqueta: 'Nuevo',
-        color: 'var(--color-acento)',
-        icono: 'M12 4.5v15m7.5-7.5h-15',
-    },
-    // «agregar» es sumar algo a un registro que ya existe (un docente a una
-    // materia), no crear un registro nuevo: por eso no va relleno como «nuevo»,
-    // pero sí lleva texto —el icono de persona-con-más no basta para saber QUÉ
-    // se agrega— y el acento del tema, porque es la acción que se espera ahí.
-    agregar: {
-        etiqueta: 'Agregar',
-        color: 'var(--color-acento)',
-        icono: 'M18 7.5v3m0 3v-3m0 0h-3m3 0h3M13.5 10.5a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z',
-    },
-    editar: {
-        etiqueta: 'Editar',
-        color: '#B7791F',
-        icono: 'm16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125',
-    },
-    eliminar: {
-        etiqueta: 'Eliminar',
-        color: '#dc2626',
-        icono: 'm14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0',
-    },
-    ver: {
-        etiqueta: 'Ver',
-        color: '#0077B6',
-        icono: 'M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178ZM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
-    },
-    // «cerrar» es el reverso de «editar» en las tablas con edición en línea: el
-    // lápiz se vuelve una X para plegar la fila. Color neutro del tema porque no
-    // es una acción con carga (crear/editar/borrar) sino un simple «ocultar».
-    cerrar: {
-        etiqueta: 'Cerrar',
-        color: 'var(--color-suave)',
-        icono: 'M6 18 18 6M6 6l12 12',
-    },
-} as const;
-
-const cfg = computed(() => CONFIG[props.variante]);
+/*
+ * La etiqueta, el color y el icono de cada variante viven en `@/utils/acciones`
+ * desde que hay un segundo consumidor: `MenuAcciones.vue`, el menu de tres
+ * puntos de los listados. Con la tabla copiada, el «Eliminar» del menu acabaria
+ * siendo de otro rojo que el de este boton.
+ */
+const cfg = computed(() => ACCIONES[props.variante]);
 const etiqueta = computed(() => props.texto ?? cfg.value.etiqueta);
 const esPrimario = computed(() => props.variante === 'nuevo');
 

@@ -9,6 +9,7 @@ import CampoSelect from '@/Components/CampoSelect.vue';
 import FormularioAsignatura from '@/Components/FormularioAsignatura.vue';
 import CargaHoraria from '@/Components/CargaHoraria.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
+import MenuAcciones from '@/Components/MenuAcciones.vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import ZonaArchivo from '@/Components/ZonaArchivo.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
@@ -765,20 +766,21 @@ function textoSobre(color: string | null): string {
                                     </td>
                                     <td class="px-6 py-3">
                                         <div class="flex items-center justify-end gap-1">
-                                            <!-- «Editar» abre la ficha completa: datos, descriptores, imágenes,
-                                                 requisitos y evaluación en un solo lugar. -->
                                             <BotonAccion
-                                                v-if="puedeEditar"
-                                                variante="editar"
-                                                :href="`/academico/planes/${plan.id}/materias/${materia.id}`"
-                                            />
-                                            <BotonAccion
-                                                v-else
+                                                v-if="!puedeEditar"
                                                 variante="ver"
                                                 texto="Ver"
                                                 :href="`/academico/planes/${plan.id}/materias/${materia.id}`"
                                             />
-                                            <BotonAccion v-if="puedeEditar" variante="eliminar" @click="quitar(materia)" />
+                                            <!-- «Editar» abre la ficha completa: datos, descriptores, imágenes,
+                                                 requisitos y evaluación en un solo lugar. -->
+                                            <MenuAcciones
+                                                :opciones="puedeEditar ? [
+                                                    { variante: 'editar', href: `/academico/planes/${plan.id}/materias/${materia.id}` },
+                                                    { variante: 'eliminar', clave: 'quitar', texto: 'Quitar del plan' },
+                                                ] : []"
+                                                @elegir="quitar(materia)"
+                                            />
                                         </div>
                                     </td>
                                 </tr>
