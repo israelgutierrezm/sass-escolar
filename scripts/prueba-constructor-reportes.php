@@ -454,17 +454,30 @@ try {
 
     echo PHP_EOL.'13. La fuente no se cambia en una edición'.PHP_EOL;
 
+    /*
+     * Con columnas que SÍ existen en la otra fuente, y mirando el MENSAJE.
+     *
+     * La primera versión mandaba una columna inventada y se conformaba con un
+     * 422 cualquiera: quitando el guard, el rechazo lo producía «esa columna no
+     * existe» y la mutación sobrevivía. Es la trampa que este proyecto ya tiene
+     * anotada —no basta con que falle, tiene que fallar POR ESO—.
+     */
     verificar('Se rehúsa y se nombra la salida',
         (function () use ($constructor, $molde, $global, $conFijoBueno) {
             try {
                 $constructor->guardar(
-                    peticionCon(array_merge($molde, ['fuente' => 'grupos', 'columnas' => ['grupo']]), $global, 'PUT'),
+                    peticionCon(
+                        array_merge($molde, ['fuente' => 'grupos', 'columnas' => ['clave', 'nombre'], 'orden_por' => '']),
+                        $global,
+                        'PUT',
+                    ),
                     $conFijoBueno,
                 );
 
                 return false;
             } catch (AvisoParaElUsuario $e) {
-                return $e->getStatusCode() === 422;
+                return $e->getStatusCode() === 422
+                    && str_contains($e->getMessage(), 'Crea uno nuevo sobre la otra fuente');
             }
         })());
 

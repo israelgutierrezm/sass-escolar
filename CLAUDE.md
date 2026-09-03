@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**128 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**129 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -65,7 +65,7 @@ Los otros dos documentos vivos:
    un rol con disposición guardada. Si node no puede correrlo, la suite FALLA
    en vez de saltarse.
 
-   **Las 128 están en verde**, barridas el 2026-09-02. Catorce son del módulo de
+   **Las 129 están en verde**, barridas el 2026-09-03. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -771,6 +771,86 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
   CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
   adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
+- **Reportes · rebanada 10, el CONSTRUCTOR** (2026-09-03). `/reportes/constructor`,
+  con `gestionar-areas-reporte`. Con esto el módulo de Reportes queda cerrado.
+  - **El criterio de entrada de §7 seguía SIN cumplirse y se dice**: cero
+    vistas guardadas y 749 ejecuciones de una sola persona probando. Se
+    construyó por pedido explícito del cliente, no porque la medición lo
+    pidiera; queda anotado para que nadie lea el criterio como cumplido.
+  - **Qué es: un PRESET sobre una fuente que escribió un programador** —nombre,
+    columnas y su orden, filtros fijos y filtros obligatorios—. Eso es
+    exactamente lo que ya es un reporte del código, sólo que en una tabla en vez
+    de en una clase, así que `ReporteDeLaEscuela` hereda de `DefinicionReporte`
+    y el motor, la bitácora, las vistas guardadas y las programaciones por
+    correo no se enteran. Con una jerarquía aparte, esos seis sitios tendrían
+    que preguntar «¿y si es de la escuela?» y el que se olvidara dejaría un
+    hueco.
+  - **NO hay campo de SQL, y lo dice la PANTALLA**, no sólo un docblock: es lo
+    primero que se pide en la primera demo. `stancl` aísla por base de datos y
+    NO por permisos de MySQL, así que esa caja convierte cualquier cuenta con
+    ese permiso en lectura completa del tenant —`usuarios`, `personas`, los
+    certificados de sello digital— y ninguna lista negra de palabras la cierra.
+  - **El permiso, el módulo y la faceta los pone la FUENTE.** Es lo único que
+    hace segura la rebanada entera: quien no puede correr «Matrículas» tampoco
+    puede correr lo que alguien armó encima. No se guarda un permiso propio.
+  - **Y sólo se arma sobre una fuente que uno ALCANZA** (`fuentesPara`): si no,
+    alguien sin `ver-adeudos` publicaría el padrón de la cartera sin haberlo
+    visto nunca. No se lo lleva él, pero decide qué se llevan los demás.
+  - **El valor de un filtro FIJO se valida AL GUARDARLO**, con la misma función
+    que usa el motor —`ValorDeFiltro`, que salió de dentro del `Ejecutor` al
+    aparecer el segundo camino—. El motor aplica los fijos SIN validar, porque
+    los de un reporte del código los escribió un programador; los de aquí los
+    escribe una persona, y sin comprobarlos el reporte revienta la primera vez
+    que alguien lo corra, con quien lo armó ya lejos.
+  - **Un filtro de LISTA no rechaza lo que no reconoce: lo DESCARTA.** En el
+    motor está bien —escribir a mano el id de otro campus no ensancha la
+    consulta—, pero al FIJARLO sería el peor final: el valor se vaciaría, el
+    filtro dejaría de acotar y el reporte contestaría una pregunta MÁS ANCHA con
+    el mismo nombre y sin un solo error. Se rehúsa al guardar. **Lo encontró la
+    suite**, no la revisión de código.
+  - **Lo que dejó de casar con su fuente se RETIRA con su razón escrita**
+    (`RevisionDelReporte`), no desaparece ni tumba la pantalla. Un filtro fijo
+    que ya no existe es FATAL por lo mismo de arriba; una columna retirada sólo
+    se descarta, como en una vista guardada. Y **es la misma regla que
+    `registrarReporte` le aplica a un reporte del código** —que ahí LANZA—: la
+    única diferencia es el modo de fallar.
+  - **La clave lleva PREFIJO** (`esc-`): sin él, una escuela que llamara al suyo
+    «alumnos-inscritos» sombrearía al de verdad y nadie sabría por qué cambió.
+  - **Se borra de verdad, no en baja lógica**: un reporte no es un hecho fechado
+    sino una pregunta guardada. Lo que sí es historia son sus EJECUCIONES, y la
+    bitácora guarda la CLAVE y no una foránea, así que sobreviven al borrado.
+  - **De paso, `CampoFiltroReporte.vue`**, compartido con la pantalla de correr
+    un reporte. Y al extraerlo salió un defecto de aquélla: **`lista` —un
+    catálogo de UN valor— no tenía rama** y caía a caja de TEXTO, así que había
+    que teclear a mano el valor exacto («el id del ciclo») y equivocarse daba un
+    error de validación en vez de una lista. Son tres filtros del sistema.
+  - Pruebas: `scripts/prueba-constructor-reportes.php`, 51 verificaciones,
+    comprobadas mutando **24 reglas**. Una sobrevivió y por lo de siempre: el
+    caso se rechazaba por OTRA razón —«esa columna no existe en la otra
+    fuente»— y la comprobación se conformaba con un 422 cualquiera. Ahora mira
+    el mensaje.
+  - **Dos trampas del MÉTODO, y la segunda es cara:**
+    1. **`tenancy()->end()` dentro de una transacción la mata.** Purga la
+       conexión del tenant —después de eso `DB::connection('tenant')` ni
+       siquiera está configurada— y al volver a entrar se construye otra; lo que
+       queda son referencias viejas repartidas (la del guard de sesión, entre
+       otras) que al usarse RECONECTAN, y una reconexión se lleva la transacción
+       dejando el nivel en CERO. No falla: la suite siguió corriendo, sus filas
+       se escribieron de verdad y el `rollBack()` final no alcanzó nada. Dejó
+       dieciséis reportes y siete personas en el demo. La comprobación del
+       aislamiento por escuela va ahora DESPUÉS del rollback, con su centinela
+       creado y retirado a mano.
+    2. **Y su borrado de «partir de cero» se llevó por delante los reportes que
+       la escuela sí tenía.** Se retiró: lo que la suite afirma es que SU clave
+       aparece o no, nunca cuántos hay, así que vaciar la tabla no hacía falta y
+       sólo podía hacer daño. La suite es dueña de sus claves y de nada más.
+  - Verificado en el navegador el recorrido entero: armar un reporte eligiendo
+    columnas y reordenándolas, fijar «Situación = Egresado», pedir el campus
+    como obligatorio —con su casilla deshabilitada en el filtro que ya está
+    fijo—, publicarlo, verlo aparecer en el índice, correrlo (rehusándose sin el
+    filtro obligatorio, y con las 14 filas todas «Egresado» al ponerlo), y
+    borrarlo. **Los datos se retiraron.**
+
 - **La barra lateral, agrupada por oficio; y las acciones de cada renglón,
   plegadas** (2026-09-02, dos pedidos del cliente). Los dos destaparon un
   defecto que llevaba tiempo ahí sin fallar.
@@ -4737,11 +4817,9 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
 
 **Pendiente inmediato — aquí se retoma:**
 
-**5. Reportes, rebanadas 7 a 10** — es lo que está en curso. El detalle y el
-orden están en `docs/plan-reportes.md`; la 10 es el **constructor de reportes**
-que pidió el cliente («la SEP en ocasiones los solicita de formas
-personalizadas»), aplazado a propósito hasta tener varias fuentes reales, que es
-su criterio de entrada.
+~~**5. Reportes, rebanadas 7 a 10**~~ — **CERRADO el 2026-09-03** con el
+constructor. Ver «Reportes · rebanada 10» en el estado. El módulo de Reportes no
+tiene rebanadas pendientes.
 
 *(Antes de tomar algo de esta lista, COMPROBARLO en el código. **Ya van cinco**
 que mandaba a construir cosas hechas: la titulación SEP, el estado de cuenta del

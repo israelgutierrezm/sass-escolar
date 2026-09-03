@@ -829,9 +829,20 @@ Modo agrupado con `GROUP BY` y agregaciones por subconsulta correlacionada; tota
 
 ---
 
-### Rebanada 10 · PENDIENTE — el constructor (pedido 5)
+### ~~Rebanada 10 · el constructor (pedido 5)~~ HECHA (2026-09-03)
 
-No se empieza hasta que se cumpla el criterio de §7. Sólo queda escrito en `docs/decisiones.md`, con la tabla dibujada y el "no" a los formularios argumentado.
+`/reportes/constructor`, con `gestionar-areas-reporte`. El detalle vive en `CLAUDE.md`; aqui lo que le toca a este plan:
+
+> **El criterio de entrada de §7 NO se cumplia, y se construyo igual por pedido explicito del cliente.** Medido el mismo dia: **cero** vistas guardadas y 749 ejecuciones de una sola persona probando, o sea ninguna de las dos senales que §7 pedia. Queda escrito para que nadie lea el criterio como cumplido: lo que decidio fue el cliente, no la medicion.
+
+Lo que se construyo es exactamente lo que §7.1 dibujo —un `DefinicionReporte` guardado en tabla: una FUENTE ya declarada + nombre + area + columnas + `filtrosFijos`— con dos cosas que aquel esbozo no tenia y que hicieron falta:
+
+- **`filtros_obligatorios`**, porque un reporte sobre una fuente grande sin acotar barre la escuela entera y los del codigo que lo necesitan lo declaran; sin esta columna, el armado desde pantalla seria el unico que no puede pedirlo.
+- **`RevisionDelReporte`**, que decide si una fila todavia casa con su fuente. Un filtro fijo que desaparecio es FATAL —el reporte contestaria una pregunta mas ancha con el mismo nombre— y una columna retirada solo se descarta, como en una vista guardada.
+
+`plantilla_id` NO se construyo: no hay todavia ninguna plantilla que aplicar, y una columna sin lector es lo que este proyecto ya tuvo que retirar cinco veces.
+
+Y las diez prohibiciones de §10 siguen en pie: **no hay campo de SQL** —lo dice la pantalla, no solo un docblock—, `fuente` es una cadena sin llave foranea, no hay catalogos de tipos, y los filtros siguen siendo AND sin parentesis.
 
 ---
 
