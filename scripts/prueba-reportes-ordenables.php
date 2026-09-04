@@ -29,6 +29,7 @@
  */
 
 use App\Models\Identidad\Persona;
+use App\Models\Academico\Campus;
 use App\Models\Identidad\Rol;
 use App\Models\Identidad\Usuario;
 use App\Models\Tenant;
@@ -39,6 +40,7 @@ use App\Reportes\Ejecutor;
 use App\Reportes\Fuentes\Grupos;
 use App\Reportes\Fuentes\Matriculas;
 use App\Reportes\RegistroReportes;
+use App\Exceptions\AvisoParaElUsuario;
 use App\Reportes\TipoFiltro;
 use App\Services\Plataforma\ModulosDeLaEscuela;
 use Illuminate\Contracts\Console\Kernel;
@@ -546,6 +548,98 @@ try {
             echo '  (el reporte tiene una sola fila; se omite el caso de las dos direcciones)'.PHP_EOL;
         }
     }
+
+    echo PHP_EOL.'6. TODO reporte se puede correr ACOTADO A UN CAMPUS'.PHP_EOL;
+
+    /*
+     * La sección que faltaba, y costó un defecto encontrarlo.
+     *
+     * Todo lo de arriba corre con alcance GLOBAL, y con alcance global
+     * `Recorte::aplicar()` devuelve la consulta sin tocarla: el recorte de las
+     * 42 definiciones no se ejecutaba ni una vez. Un recorte mal escrito no
+     * falla al arrancar, ni al registrar el reporte, ni en pantalla para quien
+     * lo escribió —que suele ver toda la escuela—: falla la primera vez que
+     * abre el reporte un coordinador de plantel.
+     *
+     * Pasó de verdad: dos fuentes declaraban `porRelacion('matricula.oferta')`
+     * cuando la cadena tiene que TERMINAR en la relación del campus, porque el
+     * recorte escribe `campus.id` dentro del `whereHas`. Reventaban con «Unknown
+     * column 'campus.id'» y las 406 combinaciones de arriba seguían en verde.
+     *
+     * Lo que se comprueba es que la consulta CORRA, no cuántas filas devuelva:
+     * con qué campus se siembre el demo no es asunto de esta prueba.
+     */
+    $acotado = Usuario::create([
+        'persona_id' => Persona::create([
+            'nombre' => 'Prueba',
+            'primer_apellido' => 'Acotada',
+            'segundo_apellido' => (string) random_int(1000, 9999),
+            'sexo_id' => 1,
+        ])->id,
+        'usuario' => 'prueba_ord_ac_'.random_int(100000, 999999),
+        'email' => 'prueba_ord_ac_'.random_int(100000, 999999).'@ejemplo.mx',
+        'password' => Hash::make('secreto12345'),
+        'rol_activo_id' => $usuario->rol_activo_id,
+    ]);
+
+    $acotado->persona->asignacionesRol()->create([
+        'rol_id' => $acotado->rol_activo_id,
+        'activo' => true,
+        'campus_id' => Campus::query()->orderBy('id')->firstOrFail()->id,
+    ]);
+
+    $acotado = $acotado->fresh(['persona.asignacionesRol', 'rolActivo']);
+
+    verificar('El usuario de prueba está de verdad acotado',
+        is_array($acotado->campusVisibles()) && $acotado->campusVisibles() !== [],
+        json_encode($acotado->campusVisibles()));
+
+    $rotos = [];
+    $negados = [];
+    $corridos = 0;
+
+    foreach ($registro->todos() as $clave => $definicion) {
+        $fuente = $registro->fuente($definicion->fuente());
+
+        try {
+            $ejecutor->ejecutar($acotado, $clave, ['filtros' => $obligatorios($fuente, $definicion)]);
+            $corridos++;
+        } catch (AvisoParaElUsuario $negado) {
+            /*
+             * Un 403 de `sinCampus()` NO es un fallo: es la decisión escrita de
+             * esa fuente —no hay campus por el que acotarla, así que sólo la
+             * ejecuta quien ve la escuela entera—. Se cuenta aparte para que se
+             * vea cuántas son y no se confundan con las que corrieron.
+             */
+            if ($negado->getStatusCode() === 403) {
+                $negados[] = $clave;
+
+                continue;
+            }
+
+            $rotos[] = $clave.': '.$negado->getMessage();
+        } catch (Throwable $e) {
+            $rotos[] = $clave.': '.mb_substr($e->getMessage(), 0, 120);
+        }
+    }
+
+    verificar('Ninguno revienta con el recorte aplicado',
+        $rotos === [],
+        $rotos === []
+            ? $corridos.' corridos, '.count($negados).' que se niegan a acotarse'
+            : implode(' | ', array_slice($rotos, 0, 4)));
+
+    verificar('Y el global los corre TODOS: los negados lo son por su recorte, no por otra cosa',
+        (function () use ($negados, $ejecutor, $registro, $usuario, $obligatorios) {
+            foreach ($negados as $clave) {
+                $definicion = $registro->definicion($clave);
+                $ejecutor->ejecutar($usuario, $clave, [
+                    'filtros' => $obligatorios($registro->fuente($definicion->fuente()), $definicion),
+                ]);
+            }
+
+            return true;
+        })(), implode(', ', $negados));
 
     echo PHP_EOL.'Resultado: '.($verificaciones - $fallidas)." correctas, {$fallidas} fallidas".PHP_EOL;
 

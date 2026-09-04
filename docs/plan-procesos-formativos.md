@@ -613,8 +613,46 @@ Cada fase es entregable y verificable sola. Ninguna es andamio de la siguiente.
 | ~~**4**~~ | ~~**Solicitud, revisión y asignación**~~ **HECHA** | La máquina de estados completa en un solo servicio —origen, permiso, alcance, bitácora y bloqueo—, el portal del alumno con sus papeles, la bandeja de revisión, la asignación con el cupo protegido por bloqueo y CHECK, y las excepciones con su motivo y su firma. `scripts/prueba-procesos-expedientes.php`, 80 verificaciones, 42 mutaciones. |
 | ~~**5**~~ | ~~**Horas, informes y evaluaciones**~~ **HECHA** | La bitácora con sus siete reglas —traslape, rango, topes diario y semanal, doble revisión imposible— y los minutos calculados por MySQL; informes programados al asignar, con su fecha límite y su retroalimentación; evaluaciones sobre las rúbricas del LMS, con el puntaje calculado por el servidor y lo respondido congelado. `scripts/prueba-procesos-horas.php`, 77 verificaciones, 47 mutaciones. |
 | ~~**6**~~ | ~~**Liberación e integración**~~ **HECHA** | Folio atómico por tipo y año, snapshot congelado, constancia PDF con `DocumentoPdf` —marca de agua en la jubilada—, corrección que EMITE otra sin borrar la anterior, y `RequisitoFormativo` como el lado que pregunta, **sin cablear**: `ValidadorTitulo` y `EstadoCertificacion` siguen sin conocerlo, y una prueba lo vigila. `scripts/prueba-procesos-liberacion.php`, 84 verificaciones, 41 mutaciones. |
-| **7** | **Alertas y reportes** | El comando programado con claves idempotentes y las tres fuentes de reportes. |
+| ~~**7**~~ | ~~**Alertas y reportes**~~ **HECHA** | `procesos:avisar` a las 7:30, con el RASTRO como llave de idempotencia —escrito ANTES del aviso, y su único es lo que decide: un `SELECT` previo lo pasan dos corridas simultáneas—, modo `--seco` que no escribe, y el «listo para liberar» dirigido al ROL que puede liberar y no al alumno. Tres fuentes de reportes (expedientes, bitácora de horas, convenios) con ocho reportes en un área propia. `scripts/prueba-procesos-alertas.php`, 50 verificaciones, 16 mutaciones. |
 | **8** | **Supervisor externo** *(opcional)* | La faceta nueva y su portal mínimo. Se deja al final porque toca `CatalogoPermisos::FACETAS`, `Rol::ambitoDePermisos`, el menú y dos seeders — seis sitios que `FacetasConsistentesTest` vigila—, y porque hasta aquí el supervisor puede aprobar por ventanilla. |
+
+---
+
+### Lo que la fase 7 destapó, y que no era suyo
+
+Cuatro defectos del MOTOR de reportes, ninguno con error visible al escribirlo y
+los cuatro ahora con red de clase que los caza en los 42 reportes:
+
+1. **El recorte por campus no se ejercitaba NUNCA.** Las 406 combinaciones de
+   `prueba-reportes-ordenables` corren con alcance global, y ahí
+   `Recorte::aplicar()` devuelve la consulta sin tocarla. Dos fuentes declaraban
+   `porRelacion('matricula.oferta')` cuando la cadena tiene que TERMINAR en la
+   relación del campus —el recorte escribe `campus.id` dentro del `whereHas`—:
+   reventaban con «Unknown column 'campus.id'», pero sólo para un coordinador de
+   plantel. Hoy la red corre los 42 también con un usuario acotado.
+
+2. **`dimensiones()` sólo la llama la pantalla.** Equivocar un parámetro con
+   nombre de `DimensionReporte` —`columna:` por `sqlAgrupacion:`— es un 500 que
+   ninguna suite veía. Hoy `prueba-reportes-agrupados` recorre las 104
+   combinaciones de dimensión × reporte × (global, acotado).
+
+3. **Un filtro sin calificar se vuelve AMBIGUO al agrupar.**
+   `whereIn('estado', …)` funciona en la tabla y revienta en cuanto el `GROUP BY`
+   une otra que también tiene `estado`. Con los filtros FIJOS de un reporte se
+   dispara solo, sin que nadie escriba nada. Lo caza la misma red.
+
+4. **El pie sumaba MINUTOS bajo una columna que pinta horas.** `columnaSql` es
+   `minutos_totales` —el keyset necesita una columna real— y la celda divide
+   entre 60, así que seis renglones de 6.00 daban un total de 2,160.00. No lanza
+   nada: da otro número. Se vio MIRANDO la pantalla. `prueba-reportes-totales`
+   comprueba ahora que, cuando la página trae todas las filas, el pie sea la suma
+   de las celdas.
+
+Y una mejora de método: `prueba-reportes-agrupados` no tenía
+`catch (Throwable)`, así que una mutación que rompía `dimensiones()` mataba el
+script sin imprimir resumen — y un barrido que busca «Resultado:» la habría
+contado como suite rota en vez de como prueba que detectó algo. Es la lección
+del cierre fiscal, aplicada donde faltaba.
 
 ---
 

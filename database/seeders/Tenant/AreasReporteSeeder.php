@@ -34,6 +34,7 @@ class AreasReporteSeeder extends Seeder
             ['rh', 'Recursos humanos', 'Expedientes laborales, nómina y asistencia del personal.'],
             ['bolsa', 'Bolsa de trabajo', 'Vacantes, postulaciones y empleabilidad.'],
             ['movilidad', 'Movilidad', 'Convenios, convocatorias y estancias.'],
+            ['procesos-formativos', 'Servicio social y prácticas', 'Expedientes, horas, convenios y liberaciones.'],
             ['general', 'General', 'Lo que no encaja en las demás.'],
         ];
 

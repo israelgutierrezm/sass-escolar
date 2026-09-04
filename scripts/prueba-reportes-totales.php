@@ -805,6 +805,108 @@ try {
         echo '  (el filtro no dejó el reporte vacío; se omite el caso del cero)'.PHP_EOL;
     }
 
+    echo PHP_EOL.'6. El pie SUMA LO QUE SE VE'.PHP_EOL;
+
+    /*
+     * La red que faltaba, y la escribió un defecto.
+     *
+     * El pie se agrega en SQL sobre `sqlTotal ?? columnaSql`, y la celda la
+     * pinta un `valor` en PHP. Cuando las dos expresiones no son la misma
+     * magnitud, el pie sale correcto para SQL y equivocado para quien lo lee:
+     * `HorasFormativas` ordena por `minutos_totales` —tiene que hacerlo, el
+     * keyset necesita una columna real— y pinta horas, así que sumaba minutos y
+     * el pie decía **2,160.00 sobre seis renglones de 6.00**. No lanza nada. Lo
+     * cazó mirar la pantalla.
+     *
+     * El invariante es barato: cuando la página trae TODAS las filas, el pie
+     * tiene que ser la suma de las celdas. Con más filas que la página no se
+     * puede afirmar y se dice cuántos reportes quedaron fuera, en vez de dar por
+     * cubierto lo que no se ejercitó.
+     */
+    $desajustados = [];
+    $comprobados = 0;
+    $muyGrandes = [];
+    $sinFilas = [];
+
+    foreach ($registro->todos() as $clave => $definicion) {
+        $fuente = $registro->fuente($definicion->fuente());
+
+        $sumables = array_keys(array_filter(
+            $fuente->columnas(),
+            fn ($c) => $c->total === Agregacion::Suma,
+        ));
+
+        if ($sumables === []) {
+            continue;
+        }
+
+        $r = $ejecutor->ejecutar($global, $clave, [
+            'filtros' => $obligatorios($fuente, $definicion),
+            'columnas' => $sumables,
+            'por_pagina' => 200,
+        ]);
+
+        if ($r->total() === 0) {
+            $sinFilas[] = $clave;
+
+            continue;
+        }
+
+        if ($r->total() > count($r->filas)) {
+            $muyGrandes[] = $clave;
+
+            continue;
+        }
+
+        if (($r->totales['cuadra'] ?? false) !== true) {
+            continue;
+        }
+
+        $comprobados++;
+
+        foreach ($sumables as $columna) {
+            $delPie = $r->totales['valores'][$columna] ?? null;
+
+            if ($delPie === null) {
+                continue;
+            }
+
+            $deLasCeldas = array_sum(array_map(
+                fn (array $fila) => (float) ($fila[$columna] ?? 0),
+                $r->filas,
+            ));
+
+            // Con tolerancia: la celda puede venir redondeada a dos decimales y
+            // el pie no, así que exigir igualdad exacta daría falsos rojos.
+            $margen = max(0.02 * count($r->filas), abs($deLasCeldas) * 0.001);
+
+            if (abs((float) $delPie - $deLasCeldas) > $margen) {
+                $desajustados[] = "{$clave}/{$columna}: pie ".round((float) $delPie, 2)
+                    .' contra '.round($deLasCeldas, 2).' en '.count($r->filas).' filas';
+            }
+        }
+    }
+
+    verificar('Ningún pie dice una cifra distinta de la suma de sus celdas',
+        $desajustados === [],
+        $desajustados === []
+            ? $comprobados.' reportes comprobados'
+            : implode(' | ', array_slice($desajustados, 0, 3)));
+
+    verificar('Y se comprobaron de verdad', $comprobados >= 5, (string) $comprobados);
+
+    /*
+     * Lo que NO se pudo comprobar se dice, en vez de dejar creer que la red
+     * cubre los 42: un reporte con más filas que la página, o vacío en el demo,
+     * no ejercita nada.
+     */
+    echo '  (fuera del alcance: '.count($muyGrandes).' con más filas que la página, '
+        .count($sinFilas).' sin filas en el demo)'.PHP_EOL;
+
+    if ($sinFilas !== []) {
+        echo '  sin filas: '.implode(', ', $sinFilas).PHP_EOL;
+    }
+
     echo PHP_EOL.'Resultado: '.($verificaciones - $fallidas)." correctas, {$fallidas} fallidas".PHP_EOL;
 } finally {
     DB::rollBack();

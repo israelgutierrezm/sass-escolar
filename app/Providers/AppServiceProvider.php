@@ -55,6 +55,8 @@ use App\Reportes\Definiciones\CargaAcademicaDelCiclo;
 use App\Reportes\Definiciones\CargosEmitidos;
 use App\Reportes\Definiciones\CarteraVencida;
 use App\Reportes\Definiciones\Condonaciones;
+use App\Reportes\Definiciones\ConveniosPorVencer;
+use App\Reportes\Definiciones\ConveniosVigentes;
 use App\Reportes\Definiciones\CorteDeCaja;
 use App\Reportes\Definiciones\DirectorioDeFamilias;
 use App\Reportes\Definiciones\DocentesSinCarga;
@@ -65,6 +67,8 @@ use App\Reportes\Definiciones\EmpleabilidadDeEgresados;
 use App\Reportes\Definiciones\EstadoDeCartera;
 use App\Reportes\Definiciones\EstanciasConcluidas;
 use App\Reportes\Definiciones\FamiliaresSinCuenta;
+use App\Reportes\Definiciones\HorasAcreditadas;
+use App\Reportes\Definiciones\HorasPorRevisar;
 use App\Reportes\Definiciones\ListosParaCertificar;
 use App\Reportes\Definiciones\MateriasSinListaPasada;
 use App\Reportes\Definiciones\MateriasSinTitular;
@@ -73,20 +77,27 @@ use App\Reportes\Definiciones\OcupacionDeGrupos as ReporteOcupacionDeGrupos;
 use App\Reportes\Definiciones\PagosPorConfirmar;
 use App\Reportes\Definiciones\PlantillaDocente;
 use App\Reportes\Definiciones\PlantillaVigente;
+use App\Reportes\Definiciones\ProcesosLiberados;
+use App\Reportes\Definiciones\ProcesosPorLiberar;
+use App\Reportes\Definiciones\ProcesosVencidos;
 use App\Reportes\Definiciones\ProspectosAbiertos;
 use App\Reportes\Definiciones\ProspectosConvertidos;
 use App\Reportes\Definiciones\ProspectosDescartados;
 use App\Reportes\Definiciones\ProspectosSinContactar;
 use App\Reportes\Definiciones\QuienEntraANomina;
+use App\Reportes\Definiciones\ServicioSocialEnCurso;
 use App\Reportes\Fuentes\AsistenciaPorMateria;
 use App\Reportes\Fuentes\Aspirantes;
 use App\Reportes\Fuentes\CargaAcademica;
 use App\Reportes\Fuentes\Cargos;
 use App\Reportes\Fuentes\Cartera;
 use App\Reportes\Fuentes\Certificables;
+use App\Reportes\Fuentes\ConveniosFormativos;
 use App\Reportes\Fuentes\Docentes;
 use App\Reportes\Fuentes\EgresadosYColocacion;
+use App\Reportes\Fuentes\ExpedientesFormativos;
 use App\Reportes\Fuentes\Grupos;
+use App\Reportes\Fuentes\HorasFormativas;
 use App\Reportes\Fuentes\Ingresos;
 use App\Reportes\Fuentes\Matriculas;
 use App\Reportes\Fuentes\MovilidadSaliente;
@@ -421,6 +432,9 @@ class AppServiceProvider extends ServiceProvider
                 MovilidadSaliente::class,
                 AsistenciaPorMateria::class,
                 VinculosFamiliares::class,
+                ExpedientesFormativos::class,
+                HorasFormativas::class,
+                ConveniosFormativos::class,
             ] as $fuente) {
                 $registro->registrarFuente($fuente);
             }
@@ -465,6 +479,14 @@ class AppServiceProvider extends ServiceProvider
                 MateriasSinListaPasada::class,
                 DirectorioDeFamilias::class,
                 FamiliaresSinCuenta::class,
+                ServicioSocialEnCurso::class,
+                ProcesosPorLiberar::class,
+                ProcesosLiberados::class,
+                ProcesosVencidos::class,
+                HorasPorRevisar::class,
+                HorasAcreditadas::class,
+                ConveniosVigentes::class,
+                ConveniosPorVencer::class,
             ] as $reporte) {
                 $registro->registrarReporte($reporte);
             }

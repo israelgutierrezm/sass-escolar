@@ -146,8 +146,9 @@ class ConvenioFormativo extends Model
         $dia = $hoy ?? now()->toDateString();
 
         return $c->whereHas('situacion', fn (Builder $s) => $s->where('ampara_asignaciones', true))
-            ->whereDate('vigente_desde', '<=', $dia)
-            ->where(fn (Builder $q) => $q->whereNull('vigente_hasta')->orWhereDate('vigente_hasta', '>=', $dia));
+            ->whereDate('convenios_formativos.vigente_desde', '<=', $dia)
+            ->where(fn (Builder $q) => $q->whereNull('convenios_formativos.vigente_hasta')
+                ->orWhereDate('convenios_formativos.vigente_hasta', '>=', $dia));
     }
 
     /**
@@ -169,6 +170,6 @@ class ConvenioFormativo extends Model
         $dia = $hoy ?? now()->toDateString();
 
         return $c->vigentes($dia)
-            ->whereDate('vigente_hasta', '<=', now()->parse($dia)->addDays($dias)->toDateString());
+            ->whereDate('convenios_formativos.vigente_hasta', '<=', now()->parse($dia)->addDays($dias)->toDateString());
     }
 }

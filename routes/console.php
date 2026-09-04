@@ -66,6 +66,23 @@ Schedule::command('finanzas:recordar-cobranza')
     ->runInBackground();
 
 /*
+ * Los avisos del servicio social y las prácticas.
+ *
+ * A las 7:30 y no de madrugada, por lo mismo que la cobranza: la hora la ve
+ * quien lo recibe. Y DESPUÉS de ella, para que dos avisos del mismo sistema no
+ * lleguen en el mismo minuto.
+ *
+ * Lo que caza aparece SIN un acto de nadie —un informe se vence porque llegó su
+ * fecha—, así que no hay ningún punto de la aplicación desde el que dispararlo.
+ * El rastro de `alertas_proceso` impide que gotee cada mañana.
+ */
+Schedule::command('procesos:avisar')
+    ->dailyAt('07:30')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->runInBackground();
+
+/*
  * Conciliación de los CFDI con el SAT.
  *
  * Se pregunta sola porque los desajustes que caza aparecen SIN un acto nuestro:

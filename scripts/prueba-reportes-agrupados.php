@@ -674,7 +674,83 @@ try {
         $rechazo !== null && str_contains($rechazo, 'CatalogoPermisos'),
         $rechazo === null ? 'la aceptó' : mb_substr($rechazo, 0, 60).'…');
 
-    echo PHP_EOL.'Resultado: '.($verificaciones - $fallidas)." correctas, {$fallidas} fallidas".PHP_EOL;
+    echo PHP_EOL.'9. TODA dimensión de TODO reporte agrupa de verdad'.PHP_EOL;
+
+    /*
+     * La red que faltaba, y costó dos defectos escribirla.
+     *
+     * Todo lo de arriba prueba el MECANISMO sobre una fuente o dos. Lo que
+     * ninguna prueba recorría es cada dimensión de cada reporte, y ahí es donde
+     * viven los defectos que sólo se ven agrupando:
+     *
+     *  1. **La dimensión ni se construye.** `DimensionReporte` es un objeto con
+     *     parámetros con nombre, así que equivocarse en uno —`columna:` en vez
+     *     de `sqlAgrupacion:`— lanza «Unknown named parameter». No falla al
+     *     arrancar: `dimensiones()` sólo se ejecuta cuando alguien abre ese
+     *     reporte, así que es un 500 en la pantalla del cliente.
+     *
+     *  2. **Un filtro sin calificar se vuelve AMBIGUO al unir la dimensión.**
+     *     `whereIn('estado', …)` funciona perfectamente en la tabla y revienta
+     *     en cuanto el `GROUP BY` une otra tabla que también tiene `estado`
+     *     —«Column 'estado' in where clause is ambiguous»—. Y con los filtros
+     *     FIJOS de un reporte se dispara solo, sin que nadie escriba nada.
+     *
+     * Se corre con el usuario GLOBAL y con uno ACOTADO, porque el recorte
+     * también une tablas y puede volver ambiguo lo que sin él no lo era.
+     */
+    $acotadoDim = usuarioConRol('director_general', $campusDelCoordinador);
+
+    $rotos = [];
+    $pares = 0;
+
+    foreach ($registro->todos() as $clave => $definicion) {
+        $fuente = $registro->fuente($definicion->fuente());
+
+        if (! $fuente instanceof App\Reportes\FuenteAgrupable) {
+            continue;
+        }
+
+        foreach (array_keys($fuente->dimensiones()) as $dimension) {
+            foreach (['global' => $global, 'acotado' => $acotadoDim] as $quien => $usuario) {
+                $pares++;
+
+                try {
+                    $ejecutor->agrupar($usuario, $clave, $dimension);
+                } catch (AvisoParaElUsuario $negado) {
+                    // 403 de `sinCampus()` al acotado: es su decisión escrita.
+                    if ($negado->getStatusCode() === 403 && $quien === 'acotado') {
+                        continue;
+                    }
+
+                    $rotos[] = "{$clave}/{$dimension} ({$quien}): ".$negado->getMessage();
+                } catch (Throwable $e) {
+                    $rotos[] = "{$clave}/{$dimension} ({$quien}): ".mb_substr($e->getMessage(), 0, 110);
+                }
+            }
+        }
+    }
+
+    verificar('Ninguna revienta', $rotos === [],
+        $rotos === []
+            ? $pares.' combinaciones'
+            : count($rotos).' rotas: '.implode(' | ', array_slice($rotos, 0, 3)));
+
+    verificar('Y se ejercitaron de verdad', $pares > 40, (string) $pares);
+
+} catch (Throwable $falla) {
+    /*
+     * Sin este `catch`, lo que mata al script se lleva por delante el resumen y
+     * un barrido que busca «Resultado:» lo reporta como SUITE ROTA en vez de
+     * como prueba que detecto algo. Es la lección del cierre fiscal, y esta
+     * suite se quedó sin ella: una mutación que rompe `dimensiones()` no
+     * imprimía una sola línea.
+     */
+    $verificaciones++;
+    $fallidas++;
+    echo "  [31mFALLA[0m la suite murió antes de terminar: ".$falla->getMessage()
+        .' ('.basename($falla->getFile()).':'.$falla->getLine().')'.PHP_EOL;
 } finally {
     DB::rollBack();
+
+    echo PHP_EOL.'Resultado: '.($verificaciones - $fallidas)." correctas, {$fallidas} fallidas".PHP_EOL;
 }

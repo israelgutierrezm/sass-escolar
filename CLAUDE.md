@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**135 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**136 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -65,7 +65,7 @@ Los otros dos documentos vivos:
    un rol con disposición guardada. Si node no puede correrlo, la suite FALLA
    en vez de saltarse.
 
-   **Las 135 están en verde**, barridas el 2026-09-03. Catorce son del módulo de
+   **Las 136 están en verde**, barridas el 2026-09-03. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -771,6 +771,90 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
   CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
   adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
+- **Servicio social y prácticas · FASE 7: alertas y reportes** (2026-09-03).
+  Con esto el módulo formativo queda entregado salvo la fase 8, que es opcional.
+  `procesos:avisar`, diario a las 7:30, y ocho reportes en un área propia.
+  - **Los cuatro casos que caza aparecen SIN un acto de nadie**: pasa el tiempo.
+    Un informe se vence porque llegó su fecha, no porque alguien pulsara algo,
+    así que no hay ningún punto de la aplicación desde el que dispararlo. Mismo
+    argumento que `finanzas:conciliar-cfdi` y que los recordatorios de cobranza.
+  - **El RASTRO es lo que impide el goteo, y se escribe PRIMERO.**
+    `alertas_proceso` guarda (expediente, evento, referencia) con índice ÚNICO, y
+    ese único es lo que DECIDE: si ya existe, revienta ahí y no se levanta ningún
+    aviso. Al revés —crear el aviso y luego intentar el rastro— dos corridas
+    simultáneas dejarían dos avisos y un solo rastro. Y **no basta un `SELECT`
+    previo**: lo pasan las dos. Lo fija una mutación que lo cambia por
+    `firstOrCreate`.
+  - **Borrar el aviso NO resucita la alerta**: el rastro sobrevive con
+    `aviso_id` en null. Sin eso, borrar un aviso haría que el comando volviera a
+    avisar a la mañana siguiente.
+  - **El «listo para liberar» va a la ESCUELA y por ROL.** El alumno ya hizo lo
+    suyo y liberar no está en sus manos: decírselo sólo lo manda a ventanilla. Y
+    por rol y no a una persona, porque el responsable se va de vacaciones o deja
+    la escuela y un aviso dirigido a él se queda sin leer. Los roles se eligen
+    con `concede('liberar-expedientes-formativos')`, no con un `whereHas`: un rol
+    funcional HEREDA los permisos de su faceta.
+  - **A las 7:30 y no de madrugada, porque la hora la ve quien lo recibe**, y con
+    `publicado_desde => now()` y no `startOfDay`: fechado «12:00 a.m.» se lee
+    como si la escuela trabajara de noche. Es el defecto que ya se vio en
+    cobranza.
+  - **El aviso CADUCA a los 30 días.** Pasado el plazo diría algo que
+    probablemente ya no es cierto, y la verdad sigue estando en el expediente.
+  - **`--seco` no escribe NADA.** Existe para poder encenderlo con calma; si
+    dejara rastro, la primera prueba en seco mataría el aviso de verdad.
+  - **Y NO escribe en el expediente**: avisar de que un plazo venció no lo
+    suspende ni lo cancela. Mismo criterio que `ConciliadorCfdi` y
+    `acadion:auditar-datos`, que reportan y no corrigen.
+  - **Un defecto propio que la suite cazó: `diffInDays` devuelve un número CON
+    SIGNO.** `$limite->diffInDays($dia)` sobre una fecha que todavía no llega da
+    un NEGATIVO, y cualquier negativo es menor que cinco: escrito al revés, la
+    ventana previa no acotaba nada y se avisaba de un informe que vence dentro de
+    tres meses. Estaba en los DOS sitios —informes y plazo—. Con un caso cercano
+    las dos formas dan lo mismo; sólo el caso lejano lo separa.
+  - Pruebas: `scripts/prueba-procesos-alertas.php`, 50 verificaciones,
+    comprobadas mutando **16 reglas**. Tres sobrevivieron la primera vez: dos por
+    lo de siempre —el escenario no tenía el caso: ningún periodo terminando en el
+    FUTURO, y ningún concluido que todavía NO cumpliera— y la tercera estaba mal
+    escrita: caía en código muerto dentro del `catch`.
+
+- **Reportes: cuatro defectos del MOTOR que destapó la fase formativa**
+  (2026-09-03). Ninguno daba error al escribirlo, y los cuatro tienen ya red de
+  clase que los caza en los 42 reportes. **Vale para cualquier fuente nueva.**
+  - **El RECORTE por campus no se ejercitaba NUNCA.** Las 406 combinaciones de
+    `prueba-reportes-ordenables` corrían con alcance GLOBAL, y ahí
+    `Recorte::aplicar()` devuelve la consulta sin tocarla: el recorte de las 42
+    definiciones no se ejecutaba una sola vez. Dos fuentes declaraban
+    `porRelacion('matricula.oferta')` cuando **la cadena tiene que TERMINAR en la
+    relación del campus** —el recorte escribe `campus.id` dentro del `whereHas`—:
+    reventaban con «Unknown column 'campus.id'» y sólo para un coordinador de
+    plantel, o sea en la escuela del cliente y no aquí. Hoy la red corre los 42
+    también con un usuario acotado (38 corren, 4 se niegan por `sinCampus`).
+  - **`dimensiones()` sólo la llama la PANTALLA.** `DimensionReporte` se
+    construye con parámetros con nombre, así que equivocar uno —`columna:` por
+    `sqlAgrupacion:`— lanza «Unknown named parameter» y es un 500 que ninguna
+    suite veía. Hoy `prueba-reportes-agrupados` recorre las **104 combinaciones**
+    de dimensión × reporte × (global, acotado).
+  - **Un filtro sin CALIFICAR se vuelve ambiguo al agrupar.**
+    `whereIn('estado', …)` funciona en la tabla y revienta en cuanto el
+    `GROUP BY` une otra que también tiene `estado` —«Column 'estado' in where
+    clause is ambiguous»—. Con los filtros FIJOS de un reporte se dispara solo,
+    sin que nadie escriba nada. **Los filtros de una fuente van siempre con su
+    tabla delante.**
+  - **El pie sumaba MINUTOS bajo una columna que pinta HORAS.** El total se
+    agrega en SQL sobre `sqlTotal ?? columnaSql` y la celda la calcula un `valor`
+    en PHP; cuando no son la misma magnitud, el pie sale correcto para SQL y
+    equivocado para quien lo lee: seis renglones de 6.00 con un total de
+    **2,160.00**. Para eso existe `sqlTotal`, y no lo usé. No lanza nada: **da
+    otro número**, y se vio MIRANDO la pantalla. `prueba-reportes-totales`
+    comprueba ahora que, cuando la página trae todas las filas, el pie sea la
+    suma de las celdas — con su tolerancia, y diciendo cuántos reportes quedaron
+    fuera del alcance en vez de darlos por cubiertos.
+  - **Y `prueba-reportes-agrupados` no tenía `catch (Throwable)`**, así que una
+    mutación que rompía `dimensiones()` mataba el script sin imprimir resumen — y
+    un barrido que busca «Resultado:» la habría contado como suite ROTA en vez de
+    como prueba que detectó algo. Es la lección del cierre fiscal, aplicada donde
+    faltaba.
+
 - **Servicio social y prácticas · FASE 6: liberación, constancia e integración
   SIN CABLEAR** (2026-09-03). El documento que dice que alguien terminó.
   Permisos nuevos `liberar-expedientes-formativos` y
