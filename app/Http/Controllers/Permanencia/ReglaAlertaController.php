@@ -19,6 +19,7 @@ use App\Models\Permanencia\ReglaAlerta;
 use App\Models\Permanencia\ReglaAlertaVersion;
 use App\Permanencia\CatalogoMetricas;
 use App\Services\Permanencia\IndicadoresDePermanencia;
+use App\Services\Permanencia\PlantillaDeAviso;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -398,6 +399,24 @@ class ReglaAlertaController extends Controller
             'plantilla_aviso' => ['nullable', 'string', 'max:500'],
             'notas' => ['nullable', 'string', 'max:2000'],
         ]);
+
+        /*
+         * La UNIDAD la pone el sistema, así que escribirla en la plantilla la
+         * duplica: «{valor} %» sale como «63 % %». Y peor, invita a escribir la
+         * que no es —«va en {valor} %» sobre una regla que cuenta días—, que es
+         * como el aviso acaba diciendo «llevas 15 % de atraso». Se rehúsa aquí,
+         * con quien la redacta delante.
+         */
+        $deMas = app(PlantillaDeAviso::class)->unidadDeMas((string) ($datos['plantilla_aviso'] ?? ''));
+
+        AvisoParaElUsuario::si(
+            $deMas !== null,
+            422,
+            'La plantilla escribe «'.$deMas.'» detrás de la marca, y esa unidad la pone el sistema '
+            .'a partir de lo que la regla mide: quítala y deja sólo {valor} o {umbral}. Así el aviso '
+            .'dice «63 %» en una regla de porcentaje y «15 días» en una de atraso, sin que haya que '
+            .'acordarse de cambiarlo al cambiar la métrica.',
+        );
 
         /*
          * ── Las cuatro guardas contra una regla que no mediría nada ────────

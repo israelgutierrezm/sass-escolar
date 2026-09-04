@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**145 archivos `prueba-*.php`**,
+   Las suites versionadas viven en `scripts/` (**147 archivos `prueba-*.php`**,
    más tres `apoyo-*.php` que NO son suites: son piezas que varias comparten
    —roles de ejemplo, FormRequests y la limpieza ordenada de permanencia—;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
@@ -67,7 +67,7 @@ Los otros dos documentos vivos:
    un rol con disposición guardada. Si node no puede correrlo, la suite FALLA
    en vez de saltarse.
 
-   **Las 145 están en verde**, barridas el 2026-09-04. Catorce son del módulo de
+   **Las 147 están en verde**, barridas el 2026-09-04. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -773,6 +773,94 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
   CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
   adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
+- **Tres CARRERAS de concurrencia, y la red que no existe** (2026-09-04, tres
+  hallazgos que el cliente pasó a revisar; los tres ciertos). Las tres tienen la
+  misma forma —leer un estado, decidir con él, escribir después— y **ninguna
+  deja error**: producen un número que nadie puede explicar.
+  1. **Sobreaplicación de adeudos.** `aplicar()` leía el saldo y escribía sin
+     bloquear la fila: dos cajeros cobrando a la vez el mismo adeudo de $1,000
+     leen los dos «saldo 1,000» y aplican los dos $1,000. La llave primaria de
+     `pago_adeudo` es `(pago_id, adeudo_id)`, así que impide repetir la MISMA
+     pareja y **no** impide que pagos distintos se pasen del total.
+  2. **Un pago en DOS facturas.** La comprobación de «ya está facturado» corría
+     ANTES de abrir la transacción, así que dos peticiones la pasaban las dos y
+     timbraban las dos: el mismo ingreso declarado dos veces al SAT.
+  3. **Horas.** El traslape y los topes se validaban fuera de la transacción; y
+     **`corregir()` guardaba con un `save()` pelado mientras `revisar()` sí
+     condicionaba**, así que una corrección que llegara después de una
+     aprobación escribía `estado = capturada` ENCIMA de ella con horas que nadie
+     revisó — la jornada se des-aprobaba sola y el expediente seguía contándola.
+  - **Y el diagnóstico que las reportó pedía «respaldarlo con la base». NO SE
+    PUEDE, y es lo que más vale saber**: «la suma de lo aplicado no pasa del
+    total», «este pago no está en otra factura VIVA» y «esta jornada no se
+    encima con otra» son condiciones **entre filas**, y MySQL no tiene
+    restricciones de exclusión. Un único en `factura_conceptos.pago_id` sería
+    además incorrecto —un pago sí aparece en la cancelada y en la vigente, y
+    «viva» depende de `facturas.estatus`, o sea de OTRA tabla—. **El bloqueo
+    pesimista ES la defensa, no un refuerzo de otra**, y queda comprobado en la
+    suite para que nadie lo lea como un descuido.
+  - **El bloqueo de adeudos va ORDENADO por id**, y no en el orden que eligió
+    quien cobra: dos cobros que tomaran los mismos adeudos en orden distinto se
+    bloquearían en cruz y MySQL mataría a uno por interbloqueo —un 500 en la
+    cara del cajero—. El orden de APLICACIÓN sigue siendo el suyo.
+  - **En las facturas se bloquean los PAGOS**, no las filas de
+    `factura_conceptos`: ésas todavía no existen, y a lo que no existe no se le
+    pone candado.
+  - **En las horas se bloquea el EXPEDIENTE**, por lo mismo: lo que hay que
+    impedir es que nazca una jornada nueva. Serializa a los dos capturadores del
+    mismo alumno y no estorba a los demás.
+  - Pruebas: `scripts/prueba-carreras-de-concurrencia.php`, 19 verificaciones
+    —con la carrera de corregir contra aprobar **reproducida de verdad** y el
+    candado comprobado con una SEGUNDA CONEXIÓN— y seis mutaciones, todas
+    mueren.
+  - **Y la lección de método, que costó dos vueltas: la primera versión de la
+    suite tenía CUATRO comprobaciones vacuas.** Buscaban una palabra en el
+    código fuente y esa palabra estaba **en mis propios comentarios** —el
+    docblock que explica el bloqueo dice «lockForUpdate»—, o casaba dentro de
+    otra (`fresh()` dentro de `refresh()`), o `strpos` devolvía `false` y PHP lo
+    comparó como 0. Se reescribieron para medir **el SQL que de verdad se
+    emite**, con `DB::listen`. Una quinta pasaba con la excepción equivocada: el
+    expediente ni siquiera admitía horas.
+  - **Y se retiró una línea propia**: el `fresh()` antes de leer el saldo
+    resultó EQUIVALENTE al medirlo —`montoAplicado()` consulta el pivote en cada
+    llamada, no usa una relación cargada—, o sea una consulta por adeudo a
+    cambio de nada. Es la lección de `$diseno->exists`.
+
+- **La PLANTILLA de un aviso no cuadraba con su métrica** (2026-09-04). `{valor}`
+  y `{umbral}` son números cuyo significado depende de lo que la regla mide —15
+  puede ser 15 %, 15 días o 15 sesiones— y **la unidad la escribía quien
+  redactaba la plantilla**, sin que nada comprobara que casara. Una regla que
+  cuenta días de atraso con «va en {valor} %» le decía al alumno «llevas 15 % y
+  se pide 15 %». No falla, no avisa: **dice otra cosa**.
+  - **Y no era un descuido de quien redactara: el MARCADOR de la propia pantalla
+    lo enseñaba así**, con el «%» dentro del ejemplo. Ahí nacía. La validación
+    sola no habría bastado — habría rechazado el ejemplo que el formulario
+    ofrece.
+  - **La unidad es una propiedad de la MÉTRICA y ya vivía en
+    `CatalogoMetricas`**, así que se toma de ahí: quien redacta escribe la frase
+    y el sistema pone «63 %» o «15 días» según la regla. Cambiar la métrica de
+    una regla ya no deja el texto diciendo lo que no es.
+  - **Concuerda en número**: «1 día» y no «1 días», «1 sesión» y no
+    «1 sesiones». Es la familia de «2 intervenciónes», y esto lo lee un alumno
+    sobre sí mismo: una frase mal armada le quita autoridad a lo que dice.
+  - **`calificación` NO se pega detrás.** Está en el catálogo para explicar qué
+    es el número; «tu promedio va en 7.93» se lee bien y «7.93 calificación» no
+    se dice.
+  - **Una unidad que el vocabulario no conozca REVIENTA** en vez de salir mal
+    escrita, y una comprobación barre las doce del catálogo: si una faltara, el
+    aviso de esa regla reventaría en producción y no aquí.
+  - **Escribirla a mano se rehúsa AL GUARDAR**, con quien redacta delante y
+    diciendo qué quitar; descubrirlo en el aviso de un alumno es tarde. Pero una
+    unidad LEJOS de la marca no estorba: «se pide el 80 % de asistencia» es una
+    frase legítima, y rechazarla obligaría a escribir avisos peores para
+    contentar a la validación.
+  - Pruebas: `scripts/prueba-plantilla-de-aviso.php`, 19 verificaciones, nueve
+    mutaciones, todas mueren.
+  - **Y por tercera vez en el día una comprobación mía midió mi propia prosa**:
+    barría el componente entero buscando la unidad, y el comentario que explica
+    por qué se quitó **cita el ejemplo malo**. Se mide el `marcador`, que es lo
+    que de verdad enseña.
+
 - **El «recuérdame» dejaba un agujero en el registro de accesos** (2026-09-04,
   pedido del cliente). La casilla siempre funcionó para autenticar —la cookie
   sale, dura 400 días, va `httpOnly` y sola devuelve la sesión—. Lo que no

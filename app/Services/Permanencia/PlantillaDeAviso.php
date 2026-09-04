@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Permanencia;
 
 use App\Models\Permanencia\Alerta;
+use App\Permanencia\CatalogoMetricas;
+use InvalidArgumentException;
 
 /**
  * El texto que la escuela redacta para sus reglas.
@@ -44,13 +46,10 @@ class PlantillaDeAviso
      */
     public function rellenar(string $plantilla, Alerta $alerta, bool $conElDato = true): string
     {
-        $valor = $alerta->valor_observado === null
-            ? '—'
-            : rtrim(rtrim(number_format((float) $alerta->valor_observado, 2, '.', ''), '0'), '.');
+        $unidad = CatalogoMetricas::de((string) $alerta->version?->metrica)['unidad'] ?? null;
 
-        $umbral = $alerta->umbral === null
-            ? '—'
-            : rtrim(rtrim(number_format((float) $alerta->umbral, 2, '.', ''), '0'), '.');
+        $valor = $this->conSuUnidad($alerta->valor_observado, $unidad);
+        $umbral = $this->conSuUnidad($alerta->umbral, $unidad);
 
         return str_replace(
             self::MARCAS,
@@ -81,6 +80,113 @@ class PlantillaDeAviso
      * —qué regla y sobre qué materia— y remite a la pantalla, que es donde el
      * dato está completo y con su explicación.
      */
+    /**
+     * Un número con la unidad que le corresponde a SU métrica.
+     *
+     * ── Por qué la unidad no la escribe quien redacta ─────────────────────
+     * `{valor}` y `{umbral}` son números cuyo significado depende de lo que la
+     * regla mide: 15 puede ser 15 %, 15 días o 15 sesiones. Antes la unidad
+     * salía de la prosa —«va en {valor} %»— y nada comprobaba que casara con la
+     * métrica, así que una regla que cuenta días de atraso con esa plantilla le
+     * decía al alumno «va en 15 % y se pide 15 %». No falla, no avisa: dice otra
+     * cosa. Se descubrió escribiendo una plantilla a mano para mirar la
+     * pantalla.
+     *
+     * La unidad es una propiedad de la MÉTRICA y ahí vive ya
+     * (`CatalogoMetricas`), así que se toma de ahí y quien redacta escribe sólo
+     * la frase.
+     */
+    private function conSuUnidad(int|float|string|null $numero, ?string $unidad): string
+    {
+        if ($numero === null) {
+            return '—';
+        }
+
+        // Sin decimales de relleno: «63» y no «63.00», pero «7.93» entero.
+        $texto = rtrim(rtrim(number_format((float) $numero, 2, '.', ''), '0'), '.');
+
+        if ($unidad === null) {
+            return $texto;
+        }
+
+        $sufijo = $this->sufijoDe($unidad, (float) $numero);
+
+        return $sufijo === '' ? $texto : $texto.' '.$sufijo;
+    }
+
+    /**
+     * Cómo se dice esa unidad detrás del número, en singular o en plural.
+     *
+     * ── El conjunto es CERRADO, y si aparece uno nuevo REVIENTA ───────────
+     * Es la guarda ruidosa de siempre: una métrica que declare una unidad que
+     * esta tabla no conoce tiene que detenerse aquí, no salir en el aviso con
+     * la palabra en plural pegada a un 1 —«1 sesiones»— ni sin unidad. El aviso
+     * lo lee un alumno sobre sí mismo, y una frase mal armada es lo que le
+     * quita autoridad a lo que dice.
+     */
+    private function sufijoDe(string $unidad, float $numero): string
+    {
+        /*
+         * `calificación` no lleva sufijo: «tu promedio va en 7.93» se lee bien y
+         * «7.93 calificación» no se dice. La unidad existe en el catálogo para
+         * explicar QUÉ es el número, no para pegarse detrás.
+         */
+        $sinSufijo = ['calificación'];
+
+        if (in_array($unidad, $sinSufijo, true)) {
+            return '';
+        }
+
+        // El porcentaje va con espacio antes del signo, como manda el español.
+        if ($unidad === '%') {
+            return '%';
+        }
+
+        $singulares = [
+            'sesiones' => 'sesión',
+            'materias' => 'materia',
+            'actividades' => 'actividad',
+            'documentos' => 'documento',
+            'cargos' => 'cargo',
+            'días' => 'día',
+        ];
+
+        if (! array_key_exists($unidad, $singulares)) {
+            throw new InvalidArgumentException(
+                'La unidad «'.$unidad.'» no está en el vocabulario de los avisos. '
+                .'Agrégala en PlantillaDeAviso::sufijoDe con su singular: sin eso el aviso '
+                .'saldría diciendo «1 '.$unidad.'».',
+            );
+        }
+
+        return abs($numero - 1.0) < 0.0001 ? $singulares[$unidad] : $unidad;
+    }
+
+    /**
+     * Lo que le sobra a una plantilla, o null si está bien.
+     *
+     * La unidad la pone el sistema, así que escribirla otra vez produce «63 %
+     * %» o «15 días días». Se rehúsa al GUARDAR y no al mostrar: quien la
+     * redacta está delante y puede corregirla; descubrirlo en el aviso de un
+     * alumno es descubrirlo tarde.
+     */
+    public function unidadDeMas(string $plantilla): ?string
+    {
+        $unidades = ['%', 'días', 'dias', 'sesiones', 'materias', 'actividades',
+            'documentos', 'cargos'];
+
+        foreach (['{valor}', '{umbral}'] as $marca) {
+            foreach ($unidades as $unidad) {
+                if (str_contains($plantilla, $marca.' '.$unidad)
+                    || str_contains($plantilla, $marca.$unidad)) {
+                    return $unidad;
+                }
+            }
+        }
+
+        return null;
+    }
+
     public function respaldo(Alerta $alerta): string
     {
         $materia = $alerta->asignaturaGrupo?->planMateria?->asignatura?->nombre;

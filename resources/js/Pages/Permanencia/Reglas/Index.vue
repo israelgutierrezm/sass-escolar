@@ -665,7 +665,7 @@ const textos = (clave: string) => (props.catalogos[clave] ?? []) as string[];
                             etiqueta="Qué dice el aviso al alumno"
                             :filas="2"
                             :maximo="500"
-                            marcador="Tu asistencia en {materia} va en {valor} % y se pide {umbral} %."
+                            marcador="Tu asistencia en {materia} va en {valor} y se pide {umbral}."
                             :error="errores.plantilla_aviso"
                         />
 
@@ -674,6 +674,21 @@ const textos = (clave: string) => (props.catalogos[clave] ?? []) as string[];
                             <code>{regla}</code>, <code>{valor}</code> y <code>{umbral}</code>.
                             Cualquier otra cosa entre llaves se deja tal cual, para que se note.
                             Sin texto sale uno de respaldo que nombra la regla y remite al portal.
+                        </p>
+
+                        <!--
+                            El ejemplo de arriba decía «va en {valor} % y se pide
+                            {umbral} %», y ahí nacía el defecto: quien lo copiaba
+                            en una regla que cuenta DÍAS obtenía «llevas 15 % de
+                            atraso». La unidad la pone ahora la métrica, y se
+                            dice aquí para que nadie la vuelva a teclear.
+                        -->
+                        <p class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">
+                            <strong>No escribas la unidad</strong> (%, días, sesiones…): la pone el
+                            sistema según lo que la regla mide, así que
+                            <code>{valor}</code> sale como «63 %» en una regla de porcentaje y como
+                            «15 días» en una de atraso. Escribirla otra vez la duplicaría, y copiar
+                            un «%» a una regla que cuenta días diría algo que no es.
                         </p>
                     </fieldset>
 
