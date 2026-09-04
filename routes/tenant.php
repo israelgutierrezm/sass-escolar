@@ -117,6 +117,7 @@ use App\Http\Controllers\Permanencia\AlertaController;
 use App\Http\Controllers\Permanencia\CasoController;
 use App\Http\Controllers\Permanencia\CatalogoPermanenciaController;
 use App\Http\Controllers\Permanencia\ReglaAlertaController;
+use App\Http\Controllers\Permanencia\TableroPermanenciaController;
 use App\Http\Controllers\PlanCobroController;
 use App\Http\Controllers\PlanEstudioController;
 use App\Http\Controllers\PlanMateriaController;
@@ -2461,6 +2462,21 @@ Route::middleware([
             ->controller(CasoController::class)
             ->group(function () {
                 Route::post('{alerta}/caso', 'abrir')->whereNumber('alerta')->name('caso');
+            });
+
+        /*
+         * El TABLERO, con su permiso PROPIO.
+         *
+         * Quien mira indicadores no atiende a nadie --direccion, planeacion,
+         * quien prepara un informe-- y quien acompana casos todos los dias no
+         * tiene por que ver las cifras agregadas de la escuela. Con el permiso
+         * de la bandeja, dar acceso al tablero obligaria a dar acceso a los
+         * expedientes.
+         */
+        Route::middleware(['modulo:permanencia', 'can:ver-indicadores-permanencia'])
+            ->prefix('permanencia')->name('tenant.permanencia.')
+            ->group(function () {
+                Route::get('tablero', [TableroPermanenciaController::class, 'index'])->name('tablero');
             });
 
         /*

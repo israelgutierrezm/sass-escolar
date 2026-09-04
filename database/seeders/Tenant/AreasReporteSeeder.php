@@ -35,6 +35,7 @@ class AreasReporteSeeder extends Seeder
             ['bolsa', 'Bolsa de trabajo', 'Vacantes, postulaciones y empleabilidad.'],
             ['movilidad', 'Movilidad', 'Convenios, convocatorias y estancias.'],
             ['procesos-formativos', 'Servicio social y prácticas', 'Expedientes, horas, convenios y liberaciones.'],
+            ['permanencia', 'Permanencia', 'Señales de seguimiento, acompañamiento, desenlaces y recurrencia.'],
             ['general', 'General', 'Lo que no encaja en las demás.'],
         ];
 

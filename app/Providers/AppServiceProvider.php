@@ -34,6 +34,7 @@ use App\Panel\Tarjetas\MiEstadoDeCuenta;
 use App\Panel\Tarjetas\MiExpedienteDocente;
 use App\Panel\Tarjetas\MiHorarioDeHoy;
 use App\Panel\Tarjetas\MisCalificacionesRecientes;
+use App\Panel\Tarjetas\MisCasosDeSeguimiento;
 use App\Panel\Tarjetas\MisHijos;
 use App\Panel\Tarjetas\MisMateriasDocente;
 use App\Panel\Tarjetas\MiSolicitudEnCurso;
@@ -44,6 +45,14 @@ use App\Panel\Tarjetas\OcupacionDeGrupos;
 use App\Panel\Tarjetas\PostulantesEnProceso;
 use App\Panel\Tarjetas\ProspectosPorContactar;
 use App\Panel\Tarjetas\RecursosDigitales;
+use App\Panel\Tarjetas\SenalesPorRevisar;
+use App\Permanencia\Proveedores\ProveedorAcademico;
+use App\Permanencia\Proveedores\ProveedorAsistencia;
+use App\Permanencia\Proveedores\ProveedorExpediente;
+use App\Permanencia\Proveedores\ProveedorFinanzas;
+use App\Permanencia\Proveedores\ProveedorFormativo;
+use App\Permanencia\Proveedores\ProveedorLms;
+use App\Permanencia\RegistroProveedores;
 use App\Reportes\Definiciones\AlumnosInscritos;
 use App\Reportes\Definiciones\AsistenciaEnRiesgo;
 use App\Reportes\Definiciones\AvanceDeCertificacion;
@@ -54,6 +63,8 @@ use App\Reportes\Definiciones\BloqueadosPorAdeudo;
 use App\Reportes\Definiciones\CargaAcademicaDelCiclo;
 use App\Reportes\Definiciones\CargosEmitidos;
 use App\Reportes\Definiciones\CarteraVencida;
+use App\Reportes\Definiciones\CasosAbiertos;
+use App\Reportes\Definiciones\CasosSinPrimerContacto;
 use App\Reportes\Definiciones\Condonaciones;
 use App\Reportes\Definiciones\ConveniosPorVencer;
 use App\Reportes\Definiciones\ConveniosVigentes;
@@ -61,6 +72,7 @@ use App\Reportes\Definiciones\CorteDeCaja;
 use App\Reportes\Definiciones\DirectorioDeFamilias;
 use App\Reportes\Definiciones\DocentesSinCarga;
 use App\Reportes\Definiciones\DocentesSinCedula;
+use App\Reportes\Definiciones\EfectividadDelAcompanamiento;
 use App\Reportes\Definiciones\EgresadosPorGeneracion;
 use App\Reportes\Definiciones\EgresadosSinColocar;
 use App\Reportes\Definiciones\EmpleabilidadDeEgresados;
@@ -85,12 +97,16 @@ use App\Reportes\Definiciones\ProspectosConvertidos;
 use App\Reportes\Definiciones\ProspectosDescartados;
 use App\Reportes\Definiciones\ProspectosSinContactar;
 use App\Reportes\Definiciones\QuienEntraANomina;
+use App\Reportes\Definiciones\RecurrenciaDeCasos;
+use App\Reportes\Definiciones\SenalesDescartadas;
+use App\Reportes\Definiciones\SenalesPorRevisar as ReporteSenalesPorRevisar;
 use App\Reportes\Definiciones\ServicioSocialEnCurso;
 use App\Reportes\Fuentes\AsistenciaPorMateria;
 use App\Reportes\Fuentes\Aspirantes;
 use App\Reportes\Fuentes\CargaAcademica;
 use App\Reportes\Fuentes\Cargos;
 use App\Reportes\Fuentes\Cartera;
+use App\Reportes\Fuentes\CasosDePermanencia;
 use App\Reportes\Fuentes\Certificables;
 use App\Reportes\Fuentes\ConveniosFormativos;
 use App\Reportes\Fuentes\Docentes;
@@ -102,14 +118,8 @@ use App\Reportes\Fuentes\Ingresos;
 use App\Reportes\Fuentes\Matriculas;
 use App\Reportes\Fuentes\MovilidadSaliente;
 use App\Reportes\Fuentes\Plantilla;
+use App\Reportes\Fuentes\SenalesDePermanencia;
 use App\Reportes\Fuentes\VinculosFamiliares;
-use App\Permanencia\Proveedores\ProveedorAcademico;
-use App\Permanencia\Proveedores\ProveedorAsistencia;
-use App\Permanencia\Proveedores\ProveedorExpediente;
-use App\Permanencia\Proveedores\ProveedorFinanzas;
-use App\Permanencia\Proveedores\ProveedorFormativo;
-use App\Permanencia\Proveedores\ProveedorLms;
-use App\Permanencia\RegistroProveedores;
 use App\Reportes\RegistroReportes;
 use App\Services\Cfdi\FacturapiPac;
 use App\Services\Cfdi\Pac;
@@ -474,6 +484,8 @@ class AppServiceProvider extends ServiceProvider
                 ExpedientesFormativos::class,
                 HorasFormativas::class,
                 ConveniosFormativos::class,
+                SenalesDePermanencia::class,
+                CasosDePermanencia::class,
             ] as $fuente) {
                 $registro->registrarFuente($fuente);
             }
@@ -526,6 +538,18 @@ class AppServiceProvider extends ServiceProvider
                 HorasAcreditadas::class,
                 ConveniosVigentes::class,
                 ConveniosPorVencer::class,
+                // Con alias: la TARJETA del panel se llama igual. Las dos
+                // contestan lo mismo —qué espera en la bandeja— y filtran por
+                // el mismo scope `abiertas()` y el mismo estado de triage, así
+                // que no divergen; lo que cambia es que la tarjeta cuenta por
+                // categoría y el reporte enumera las filas. Es el precedente
+                // que ya dejó la ocupación de grupos.
+                ReporteSenalesPorRevisar::class,
+                SenalesDescartadas::class,
+                CasosAbiertos::class,
+                CasosSinPrimerContacto::class,
+                EfectividadDelAcompanamiento::class,
+                RecurrenciaDeCasos::class,
             ] as $reporte) {
                 $registro->registrarReporte($reporte);
             }
@@ -568,6 +592,9 @@ class AppServiceProvider extends ServiceProvider
                 RecursosDigitales::class,
                 MisSolicitudes::class,
                 MisMateriasDocente::class,
+                // Los casos que uno lleva son «lo suyo», no una cola de la
+                // escuela: la cifra agregada vive en el tablero, con su permiso.
+                MisCasosDeSeguimiento::class,
                 // Los reportes de cada quien. Va con lo PROPIO y no con las
                 // colas: no es trabajo que espera a nadie, es llegar en un clic
                 // a las dos o tres preguntas que esta persona hace de las 34.
@@ -582,6 +609,7 @@ class AppServiceProvider extends ServiceProvider
                 ListasSinPasar::class,
                 MateriasSinDocente::class,
                 ExpedientesPorValidar::class,
+                SenalesPorRevisar::class,
                 ListosParaConvertir::class,
                 ProspectosPorContactar::class,
                 PostulantesEnProceso::class,

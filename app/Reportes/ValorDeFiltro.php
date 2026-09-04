@@ -7,6 +7,7 @@ namespace App\Reportes;
 use App\Models\Identidad\Usuario;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 /**
  * El valor de un filtro, validado POR SU TIPO.
@@ -30,7 +31,7 @@ use Illuminate\Validation\Rule;
 final class ValorDeFiltro
 {
     /**
-     * @throws \Illuminate\Validation\ValidationException
+     * @throws ValidationException
      */
     public static function validado(Usuario $usuario, FiltroReporte $filtro, mixed $valor): mixed
     {

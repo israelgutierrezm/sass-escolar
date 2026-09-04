@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**142 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**143 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -65,7 +65,7 @@ Los otros dos documentos vivos:
    un rol con disposición guardada. Si node no puede correrlo, la suite FALLA
    en vez de saltarse.
 
-   **Las 142 están en verde**, barridas el 2026-09-04. Catorce son del módulo de
+   **Las 143 están en verde**, barridas el 2026-09-04. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -771,6 +771,72 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
   CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
   adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
+- **Alertas tempranas y permanencia · FASE 7: tableros e indicadores**
+  (2026-09-04). `/permanencia/tablero`, con permiso propio
+  `ver-indicadores-permanencia`; dos fuentes de reporte con seis reportes en un
+  área nueva, y dos tarjetas de panel.
+  - **La COBERTURA va PRIMERO en la pantalla**, no al final, y es la decisión que
+    hace útil el tablero: el sesgo dominante de este módulo es de CAPTURA, así
+    que un plantel que no pasa lista produce cero señales de asistencia y leído
+    sin cuidado parece el que mejor va. La proporción de mediciones «sin datos»
+    va en **null y no en cero** cuando no hubo corrida — un 0 % ahí afirmaría que
+    todo se midió.
+  - **La tasa de descarte se ve SOBRE LA REGLA**, en la misma pantalla donde se
+    cambia el umbral. En un reporte aparte no la mira nadie hasta que ya nadie
+    cree en la bandeja, y para entonces las señales buenas se pierden con las
+    malas.
+  - **El tamaño mínimo de grupo es una CONSTANTE y no un ajuste**, apartándose de
+    la regla 4 a propósito: es un piso de privacidad, no una preferencia de
+    operación, y un ajuste invita a bajarlo para ver el dato — que es justo lo
+    que existe para impedir. Es la línea de
+    `ResultadosDeEncuesta::MINIMO_PARA_MOSTRAR`. Bajo el mínimo **la cifra ni
+    siquiera viaja**; pero SÍ se dice cuántas se revisaron, porque callarlo
+    escondería que la regla existe.
+  - **La EFECTIVIDAD son DOS cifras**: «contó como éxito» sale de la bandera del
+    motivo del cierre —lo DECLARADO— y «la señal dejó de cumplirse» del estado de
+    las alertas —lo MEDIDO—. La diferencia es información, no un error: la mejora
+    puede tardar en reflejarse, y con una sola columna nadie puede saber si el
+    indicador dice algo. Y la bandera en NULL **no cuenta como fracaso**.
+  - **La RECURRENCIA sólo se puede medir porque reabrir crea un caso NUEVO.** Con
+    un estado `reabierto`, el cierre y su motivo se habrían reescrito y la cifra
+    no existiría. Es la justificación retroactiva de aquella decisión.
+  - **NO se construyó una tercera fuente «permanencia por cohorte»**, y se dice
+    por qué: «de la generación X, cuántos siguen» ya lo contesta la fuente
+    `Matriculas`. Una fuente nueva sería una SEGUNDA VERDAD sobre el mismo
+    número. Lo que la de casos agrega es lo que allá no se puede preguntar: **de
+    los acompañados**, cuántos siguen (`situacion_actual`, agrupable por
+    generación).
+  - **El tablero no devuelve NI UN nombre.** Son conteos; los nombres viven en la
+    bandeja y en los casos, cada uno con su permiso y su alcance. Una prueba lo
+    barre contra los nombres y las matrículas del escenario.
+  - **`valor_observado` y `umbral` van con `permisoExtra` en la fuente de
+    reporte**: una exportación sale de la escuela en un archivo y se reenvía más
+    fácil que una pantalla.
+  - **La tarjeta de señales se muestra AUNQUE la cola esté vacía si el motor
+    lleva días parado.** Es la excepción a la regla de vacíos del proyecto: ahí
+    el cero no significa que no haya riesgo, significa que nadie está mirando.
+  - **Y el motor de reportes cazó dos cosas al registrar las fuentes**, con sus
+    redes de clase:
+    - Una columna que **sólo existe en PHP no se puede totalizar**: el
+      constructor de `ColumnaReporte` lo prohíbe y pide `sqlTotal`. Y la
+      expresión SQL tiene que dar LO MISMO que la celda —`datediff` contra
+      `diffInDays`—, que es el defecto del pie que sumaba minutos bajo una
+      columna de horas.
+    - **`withCount` genera un alias**, y un alias vale en el `ORDER BY` pero no
+      en el `WHERE` por donde avanza el recorrido por lotes: ordenaría bien en
+      pantalla y reventaría al exportar. La columna va sin `ordenable` y su total
+      con una subconsulta correlacionada.
+  - **Colisión de nombres con la tarjeta del panel**, resuelta con alias como ya
+    hacía la ocupación de grupos: `SenalesPorRevisar` es a la vez una tarjeta y
+    un reporte, y las dos contestan lo mismo con el mismo scope.
+  - Pruebas: `scripts/prueba-permanencia-indicadores.php`, 60 verificaciones,
+    comprobadas mutando **30 reglas**. Tres sobrevivieron la primera vez, y las
+    tres eran comprobaciones flojas: `sin_datos` se medía por su PROPORCIÓN
+    —que se calcula de la corrida y no de la clave que viaja—, la tarjeta se
+    probaba sólo con el usuario global, y la del permiso era **vacua**: un `||`
+    que se cumple por cualquiera de sus dos lados, sobre un reporte que ni
+    siquiera pedía esa columna.
+
 - **Alertas tempranas y permanencia · FASE 6: plazos y notificaciones**
   (2026-09-04). Lo único de este módulo que le habla a una persona.
   `permanencia:avisar`, diario a las 07:45.

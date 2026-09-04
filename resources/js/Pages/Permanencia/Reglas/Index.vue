@@ -68,6 +68,14 @@ interface Regla {
     alcance: string;
     ejes: Record<string, number | string | null>;
     versiones: Version[];
+    /** Cuánto de lo suyo se descarta. Null si hay muy pocas revisadas. */
+    calibracion: {
+        revisadas: number;
+        descartadas: number | null;
+        proporcion: number | null;
+        suficientes: boolean;
+        preocupa: boolean;
+    } | null;
     sin_version_vigente: boolean;
 }
 
@@ -319,6 +327,19 @@ const textos = (clave: string) => (props.catalogos[clave] ?? []) as string[];
                                 :color="colorPermanencia(regla.categoria.color)"
                             />
                             <PildoraEstado v-if="regla.categoria?.sensible" texto="Reservada" :color="colorPermanencia('rosa')" />
+                            <!--
+                                La tasa de descarte va AQUÍ y no en un reporte
+                                aparte: quien calibra el umbral tiene que verla
+                                en la misma pantalla donde lo cambia. Escondida,
+                                no la mira nadie hasta que ya nadie cree en la
+                                bandeja.
+                            -->
+                            <PildoraEstado
+                                v-if="regla.calibracion?.suficientes"
+                                :texto="`${regla.calibracion.proporcion} % se descarta`"
+                                :color="colorPermanencia(regla.calibracion.preocupa ? 'ambar' : 'gris')"
+                                sin-capitalizar
+                            />
                             <PildoraEstado
                                 :texto="regla.activa ? 'Encendida' : 'Apagada'"
                                 :color="colorPermanencia(regla.activa ? 'verde' : 'gris')"

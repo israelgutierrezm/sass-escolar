@@ -315,6 +315,17 @@ final class CatalogoPermisos
 
             'escalar-casos' => ['Escalar casos', 'Subir un caso a quien tenga más alcance. Exige decir por qué: quien lo reciba empieza a ciegas sin eso.', [self::ADMINISTRATIVO]],
             'cerrar-casos' => ['Cerrar y reabrir casos', 'Dar por terminado un seguimiento con su motivo y su resultado, y volver a abrirlo si la situación reaparece. Reabrir crea un caso nuevo: el cerrado se conserva.', [self::ADMINISTRATIVO]],
+
+            /*
+             * Los INDICADORES, aparte de la bandeja y de los casos.
+             *
+             * Quien mira el tablero no atiende a nadie: dirección, planeación,
+             * quien prepara un informe. Y al revés, quien acompaña casos todos
+             * los días no tiene por qué ver las cifras agregadas de la escuela.
+             * Con el mismo permiso, dar acceso al tablero obligaría a dar
+             * acceso a los expedientes.
+             */
+            'ver-indicadores-permanencia' => ['Ver los indicadores de permanencia', 'El tablero agregado: cuántas señales, con qué cobertura, cuánto se descarta, qué tan efectivo es el acompañamiento y cuánto reaparece. Nunca datos de una persona: los desgloses con muy pocos alumnos se suprimen.', [self::ADMINISTRATIVO]],
         ],
 
         'Servicio social y prácticas' => [

@@ -18,6 +18,7 @@ use App\Models\Permanencia\CategoriaSenal;
 use App\Models\Permanencia\ReglaAlerta;
 use App\Models\Permanencia\ReglaAlertaVersion;
 use App\Permanencia\CatalogoMetricas;
+use App\Services\Permanencia\IndicadoresDePermanencia;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -52,12 +53,21 @@ class ReglaAlertaController extends Controller
 
     public function index(Request $peticion): Response
     {
+        /*
+         * La CALIBRACIÓN de cada regla, en UNA consulta agregada y no una por
+         * fila: con cuarenta reglas, contar señales por regla dentro del bucle
+         * es la N+1 de siempre.
+         */
+        $calibracion = collect(app(IndicadoresDePermanencia::class)
+            ->tablero($peticion->user())['calibracion'] ?? [])
+            ->keyBy('regla');
+
         $reglas = ReglaAlerta::query()
             ->with(['categoria:id,clave,nombre,color,sensible', 'versiones', 'campus:id,nombre',
                 'programaAcademico:id,nombre', 'plan:id,nombre', 'ciclo:id,clave'])
             ->orderBy('nombre')
             ->get()
-            ->map(fn (ReglaAlerta $r) => $this->paraLaLista($r));
+            ->map(fn (ReglaAlerta $r) => $this->paraLaLista($r, $calibracion->get($r->nombre)));
 
         return Inertia::render('Permanencia/Reglas/Index', [
             'reglas' => $reglas,
@@ -69,6 +79,12 @@ class ReglaAlertaController extends Controller
              */
             'encendidas' => $reglas->where('activa', true)->count(),
             'metricas' => $this->metricasParaLaPantalla(),
+            /*
+             * La ventana de la calibración se dice: «60 % de descartes» sin
+             * saber sobre cuánto tiempo no significa nada.
+             */
+            'ventanaCalibracion' => IndicadoresDePermanencia::DIAS,
+            'minimoParaCalibrar' => IndicadoresDePermanencia::MINIMO_POR_GRUPO,
             'catalogos' => $this->catalogos(),
             'puedeEditar' => $peticion->user()?->can('configurar-reglas-alerta') === true,
         ]);
@@ -218,7 +234,10 @@ class ReglaAlertaController extends Controller
     }
 
     /** @return array<string, mixed> */
-    private function paraLaLista(ReglaAlerta $regla): array
+    /**
+     * @param  array<string, mixed>|null  $calibracion  cuánto se descarta de esta regla
+     */
+    private function paraLaLista(ReglaAlerta $regla, ?array $calibracion = null): array
     {
         $vigente = $regla->versionVigente();
 
@@ -267,6 +286,15 @@ class ReglaAlertaController extends Controller
              * que funciona, y no levanta nada nunca.
              */
             'sin_version_vigente' => $vigente === null,
+            /*
+             * ── Y cuánto de lo suyo se descarta, AQUÍ ─────────────────────
+             * En un reporte aparte no lo mira nadie hasta que ya nadie cree en
+             * la bandeja. Quien calibra el umbral tiene que verlo en la misma
+             * pantalla donde lo cambia. En null cuando no hay suficientes
+             * revisadas: un porcentaje sobre tres casos parece un dato y no lo
+             * es.
+             */
+            'calibracion' => $calibracion,
         ];
     }
 

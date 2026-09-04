@@ -416,6 +416,12 @@ export const CATALOGO_MENU: GrupoMenu[] = [
              * sólo interviene o sólo cierra.
              */
             { clave: 'permanencia-casos', etiqueta: 'Casos', url: '/permanencia/casos', permiso: 'ver-alertas' },
+            /*
+             * El tablero va con SU permiso, que es otro: quien mira indicadores
+             * no atiende casos. Ofrecerlo con `ver-alertas` sería un botón que
+             * lleva a un 403.
+             */
+            { clave: 'permanencia-tablero', etiqueta: 'Indicadores', url: '/permanencia/tablero', permiso: 'ver-indicadores-permanencia' },
             { clave: 'permanencia-reglas', etiqueta: 'Reglas de alerta', url: '/permanencia/reglas', permiso: 'configurar-reglas-alerta' },
             { clave: 'permanencia-catalogos', etiqueta: 'Catálogos', url: '/permanencia/catalogos', permiso: 'configurar-reglas-alerta' },
         ],

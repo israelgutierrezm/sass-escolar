@@ -654,7 +654,7 @@ Cada fase es entregable y verificable sola.
 | ~~**4**~~ | ~~**Riesgo compuesto**~~ **HECHA** | El cálculo agrupando por **(categoría, materia)** —que es lo que evita el doble conteo sin igualar «falta en una materia» con «falta en seis»—, niveles configurables con su umbral, desglose que dice qué NO contó y por qué, decaimiento por recálculo, y el ajuste humano que CONSERVA el cálculo. `scripts/prueba-permanencia-riesgo.php`, 49 verificaciones, 25 mutaciones. |
 | ~~**5**~~ | ~~**Casos e intervenciones**~~ **HECHA** | La máquina de estados de **ocho** estados en una sola puerta, folio atómico por año, **UNO abierto por matrícula** sostenido por la base, responsable y equipo, intervenciones con **tres niveles de visibilidad filtrados en el servidor**, tareas, plan, cierre con motivo del catálogo, reapertura que crea un caso nuevo, y la bitácora de consulta **enseñada a quien mira**. `scripts/prueba-permanencia-casos.php`, 96 verificaciones, 48 mutaciones. |
 | ~~**6**~~ | ~~**Plazos y notificaciones**~~ **HECHA** | `permanencia:avisar` a las 07:45 —**no** `vigilar-sla`, y **no escala nada**: ver abajo—, el rastro con único sobre columna generada, **un aviso y N rastros**, la franja horaria configurable, las plantillas de la regla con su conjunto cerrado de marcas, y la sección de permanencia en `scheduler:estado`. `scripts/prueba-permanencia-avisos.php`, 69 verificaciones, 36 mutaciones. |
-| **7** | **Tableros e indicadores** | Panel de coordinación, tarjetas del panel, y las fuentes de reporte con efectividad, recurrencia y permanencia por cohorte, con tamaño mínimo de grupo. |
+| ~~**7**~~ | ~~**Tableros e indicadores**~~ **HECHA** | `/permanencia/tablero` con su permiso propio, la **cobertura primero**, la tasa de descarte **sobre la regla**, efectividad declarada y **medida**, recurrencia, dos fuentes de reporte con seis reportes, dos tarjetas de panel y el **tamaño mínimo de grupo** aplicado a todo desglose. `scripts/prueba-permanencia-indicadores.php`, 60 verificaciones, 30 mutaciones. |
 | **8** | **Portales** | El docente (sus grupos, tras el interruptor) y el alumno (pendientes concretos, sin puntaje). |
 
 ---
@@ -1093,6 +1093,72 @@ tiene:
     ignorar la alarma, que es exactamente cómo se pierde. Y una escuela **sin
     reglas encendidas** que no ha evaluado nunca no está rota: todavía no
     configura el módulo.
+
+---
+
+### Lo que la fase 7 dejó decidido, y no estaba en este plan
+
+1. **La COBERTURA va PRIMERO en la pantalla, no al final.** Es la decisión que
+   hace útil el tablero: el sesgo dominante de este módulo es de CAPTURA, así que
+   un plantel que no pasa lista produce cero señales de asistencia y leído sin
+   cuidado parece el que mejor va. Poner las cifras arriba y la cobertura abajo
+   invierte el orden en que hay que leerlas. Y la proporción de mediciones «sin
+   datos» va en **null y no en cero** cuando no hubo corrida: un 0 % ahí
+   afirmaría que todo se midió.
+
+2. **La tasa de descarte se ve SOBRE LA REGLA**, en la misma pantalla donde se
+   cambia el umbral. En un reporte aparte no la mira nadie hasta que ya nadie
+   cree en la bandeja — y para entonces las señales buenas se pierden con las
+   malas.
+
+3. **El tamaño mínimo de grupo es una CONSTANTE, no un ajuste**, y eso se aparta
+   de la regla 4 del proyecto a propósito: es un piso de privacidad, no una
+   preferencia de operación, y un ajuste invita a bajarlo para ver el dato — que
+   es justo lo que existe para impedir. Es la línea de
+   `ResultadosDeEncuesta::MINIMO_PARA_MOSTRAR`. Bajo el mínimo la cifra **ni
+   siquiera viaja**: esconderla con un `v-if` la dejaría en la respuesta.
+   - Y **se dice cuántas se revisaron aunque no se opine**: callarlo escondería
+     que la regla existe.
+
+4. **La EFECTIVIDAD son DOS cifras y no una.** «Contó como éxito» sale de la
+   bandera del motivo del cierre —lo DECLARADO— y «la señal dejó de cumplirse»
+   sale del estado de las alertas —lo MEDIDO—. La diferencia entre las dos es
+   información, no un error: la mejora puede tardar en reflejarse. Con una sola
+   columna nadie puede saber si el indicador dice algo.
+   - Y la bandera en NULL **no cuenta como fracaso**: un traslado o un caso
+     abierto por error no son un fallo de quien atendió.
+
+5. **NO se construyó una tercera fuente «permanencia por cohorte».** «De la
+   generación X, cuántos siguen activos» ya lo contesta la fuente `Matriculas`
+   con su filtro de situación y su dimensión de generación; una fuente nueva
+   sería una SEGUNDA VERDAD sobre el mismo número, y este proyecto ya pagó tener
+   tres definiciones del promedio. Lo que la fuente de casos agrega es lo que
+   allá no se puede preguntar: **de los que fueron acompañados**, cuántos siguen
+   —columna `situacion_actual`, agrupable por generación—.
+
+6. **La RECURRENCIA sólo se puede medir porque reabrir crea un caso nuevo.** Si
+   reabrir devolviera el cerrado a «abierto», el cierre y su motivo se habrían
+   reescrito y esta cifra no existiría. Es la justificación retroactiva de que
+   `reabierto` no sea un estado.
+
+7. **El tablero tiene permiso PROPIO** (`ver-indicadores-permanencia`). Quien
+   mira indicadores no atiende a nadie, y quien acompaña casos no necesita las
+   cifras agregadas de la escuela. Con un permiso compartido, dar acceso al
+   tablero obligaría a dar acceso a los expedientes.
+
+8. **Y no devuelve NI UN NOMBRE.** Son conteos; los nombres viven en la bandeja y
+   en los casos, cada uno con su permiso y su alcance. Una prueba lo barre contra
+   los nombres y las matrículas del escenario.
+
+9. **`valor_observado` y `umbral` son SENSIBLES en la fuente de reporte**, con
+   `permisoExtra`. Una exportación sale de la escuela en un archivo y se reenvía
+   más fácil que una pantalla: quien no puede validar señales tampoco se lleva el
+   dato en un Excel.
+
+10. **La tarjeta de señales se muestra AUNQUE la cola esté vacía si el motor está
+    parado.** Es la excepción a la regla de vacíos del proyecto, y hace falta:
+    ahí el cero no significa que no haya riesgo, significa que nadie está
+    mirando.
 
 ---
 
