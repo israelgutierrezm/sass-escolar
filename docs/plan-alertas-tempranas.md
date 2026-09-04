@@ -643,7 +643,7 @@ Cada fase es entregable y verificable sola.
 | # | Fase | Qué entrega |
 |---|---|---|
 | ~~**1**~~ | ~~**Cimientos, catálogos y reglas**~~ **HECHA** | Módulo `permanencia` encendido con sección propia, **cuatro** catálogos con seeder —la categoría lleva su bandera `sensible` y el permiso que abre su detalle—, `reglas_alerta` + versiones + exclusiones, `CatalogoMetricas` con doce métricas declaradas, y las ocho reglas de ejemplo **apagadas y sin avisar a nadie**. `scripts/prueba-permanencia-reglas.php`, 63 verificaciones, 28 mutaciones. |
-| **2** | **Proveedores y motor** | Los ocho proveedores de señales con su contrato (datos, periodo, calidad, evidencia, última actualización), `AsistenciaDelAlumno` extraído, el motor con evidencia/cobertura/dedup/enfriamiento, `permanencia:evaluar` y el cierre automático de señales. |
+| ~~**2**~~ | ~~**Proveedores y motor**~~ **HECHA** | **Seis** proveedores —no ocho: inscripciones y expedientes se resolvieron dentro de los otros— con su contrato completo, `AsistenciaDelAlumno` extraído con su definición explícita, `alertas` con deduplicación por columna generada, el motor con sus tres resultados y el cierre automático distinguiendo RESUELTA de OBSOLETA, y `permanencia:evaluar` a las 05:00. `scripts/prueba-permanencia-motor.php`, 73 verificaciones, 37 mutaciones. |
 | **3** | **Bandeja y triage** | La bandeja de alertas con su alcance por categoría y campus, validar/descartar con motivo, y la ficha de alerta que explica su evidencia. |
 | **4** | **Riesgo compuesto** | El cálculo por categorías sin doble conteo, su desglose, su decaimiento, el ajuste con justificación y el histórico. |
 | **5** | **Casos e intervenciones** | La máquina de estados en una sola puerta, folio atómico, responsable y equipo, intervenciones con visibilidad, tareas, acuerdos y la bitácora de consulta. |
@@ -745,6 +745,54 @@ tiene:
    estaba en la base: cambiar el seeder para que las reglas nazcan encendidas no
    tumbaba nada, y el defecto habría aparecido en la siguiente escuela migrada,
    con las alertas ya saliendo.
+
+---
+
+### Lo que la fase 2 dejó decidido, y no estaba en este plan
+
+1. **El porcentaje de asistencia ya se calculaba de DOS maneras distintas**, y
+   dan números distintos: el reporte suma las justificadas y no los retardos; la
+   pantalla del docente suma los retardos y no las justificadas. Para un alumno
+   con 6 presentes, 3 justificadas y 1 retardo, el reporte dice 90 % y la
+   pantalla 70 %. `AsistenciaDelAlumno` fija la tercera —**todo lo que no es
+   falta**, que es la que corresponde a «el derecho se pierde por faltas»— y
+   **NO cambia ninguna de las dos existentes**: cambiar un número que una
+   escuela ya lee es una decisión suya, no un refactor. Queda anotado para que
+   se decida a la vista de las tres cifras.
+
+2. **Los módulos NÚCLEO figuran como apagados**, y eso silenció dos proveedores
+   enteros sin un solo error. `asistencia`, `lms`, `finanzas` y
+   `control_escolar` están en el catálogo de módulos y **no tienen fila en
+   `modulos_activos`**, así que `ModulosDeLaEscuela` —que falla cerrado— dice
+   que están apagados; ninguna ruta los gatea con `modulo:`. Declararlos en un
+   proveedor lo dejaba sin evaluar y la corrida decía «0 reglas». **Un proveedor
+   sólo declara el módulo que alguna ruta gatea de verdad**; lo demás se
+   comprueba con los datos, que además es más fino: una escuela puede usar el
+   LMS en tres materias y en las demás no.
+
+3. **Los 1016 renglones de historial del demo NO tienen `acta_folio`.** La
+   primera versión del proveedor académico filtraba por él —«sólo lo que salió
+   de un acta»— y eso dejaba ciega la señal en cualquier escuela que llegue
+   migrada de otro sistema, que son casi todas. Se filtra por ESTATUS: lo que
+   sigue «en curso» no es un intento fallido, y las revalidaciones y
+   equivalencias ya quedan fuera porque ninguna se asienta como reprobada.
+
+4. **Una métrica que un proveedor no conoce REVIENTA.** La primera versión la
+   medía como si fuera otra: `ProveedorAsistencia` caía en la rama del
+   porcentaje para cualquier clave que no fuera la de las faltas, así que una
+   regla mal configurada habría comparado el porcentaje de asistencia contra un
+   umbral de promedio y levantado alertas que parecen buenas. Reventar es lo
+   correcto porque el motor aísla cada regla y reporta el fallo con su nombre.
+
+5. **No se persiste la evaluación negativa** (ya estaba decidido) **pero sí el
+   contador por corrida**, y ahí va también el error POR REGLA con su nombre.
+   Con un id habría que cruzarlo contra una tabla, y esto lo lee quien
+   administra a las siete de la mañana.
+
+6. **`replicate()` sobre una tabla con columna generada revienta.** Copia
+   también la columna, y MySQL responde «The value specified for generated
+   column is not allowed». Vale para las cinco tablas de este proyecto que
+   tienen una.
 
 ---
 

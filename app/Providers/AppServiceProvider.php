@@ -103,6 +103,13 @@ use App\Reportes\Fuentes\Matriculas;
 use App\Reportes\Fuentes\MovilidadSaliente;
 use App\Reportes\Fuentes\Plantilla;
 use App\Reportes\Fuentes\VinculosFamiliares;
+use App\Permanencia\Proveedores\ProveedorAcademico;
+use App\Permanencia\Proveedores\ProveedorAsistencia;
+use App\Permanencia\Proveedores\ProveedorExpediente;
+use App\Permanencia\Proveedores\ProveedorFinanzas;
+use App\Permanencia\Proveedores\ProveedorFormativo;
+use App\Permanencia\Proveedores\ProveedorLms;
+use App\Permanencia\RegistroProveedores;
 use App\Reportes\RegistroReportes;
 use App\Services\Cfdi\FacturapiPac;
 use App\Services\Cfdi\Pac;
@@ -179,6 +186,7 @@ class AppServiceProvider extends ServiceProvider
         $this->registrarResolucionDePermisos();
         $this->registrarPermisosDerivados();
         $this->registrarTarjetasDelPanel();
+        $this->registrarProveedoresDeSenales();
         $this->registrarReportes();
         $this->registrarObservadoresDeAcceso();
     }
@@ -412,6 +420,37 @@ class AppServiceProvider extends ServiceProvider
      * area. Las FUENTES van aparte de los REPORTES porque varios reportes se
      * montan sobre la misma fuente cambiando solo sus filtros fijos.
      */
+    /**
+     * Los proveedores de señales del módulo de permanencia.
+     *
+     * Singleton por lo mismo que el registro de reportes: se arma una vez y lo
+     * consultan el motor, la pantalla de reglas y la de calidad de las fuentes.
+     *
+     * `registrar()` comprueba al ARRANCAR que cada métrica que un proveedor dice
+     * calcular esté declarada en `CatalogoMetricas` y apunte a él. Es la guarda
+     * ruidosa: una métrica declarada que nadie calcula produce una regla que se
+     * guarda, se enciende y no levanta nada — sin un solo error.
+     */
+    protected function registrarProveedoresDeSenales(): void
+    {
+        $this->app->singleton(RegistroProveedores::class, function () {
+            $registro = new RegistroProveedores;
+
+            foreach ([
+                ProveedorAsistencia::class,
+                ProveedorAcademico::class,
+                ProveedorLms::class,
+                ProveedorExpediente::class,
+                ProveedorFinanzas::class,
+                ProveedorFormativo::class,
+            ] as $proveedor) {
+                $registro->registrar($this->app->make($proveedor));
+            }
+
+            return $registro;
+        });
+    }
+
     protected function registrarReportes(): void
     {
         $this->app->singleton(RegistroReportes::class, function () {

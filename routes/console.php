@@ -97,6 +97,25 @@ Schedule::command('procesos:avisar')
  * A las 4:00, después de que el cobro haya terminado su trabajo: esto sólo lee,
  * y competir con la generación de cargos por la base no le aporta nada a nadie.
  */
+/*
+ * El motor de alertas tempranas.
+ *
+ * A las 05:00, y el orden importa: DESPUES de generar cargos (02:45) y de
+ * evaluar deudores (03:00), porque una regla de adeudo leida antes veria una
+ * cartera a medio generar y levantaria alertas sobre cargos que aun no existen.
+ * Y ANTES de los avisos de las 07:00-07:45, para que lo que se notifique sea de
+ * hoy.
+ *
+ * Lo que mide se vuelve cierto sin que nadie haga nada -pasa el tiempo-, asi
+ * que no hay ningun punto de la aplicacion desde el que dispararlo. Mismo
+ * argumento que la conciliacion de CFDI y los avisos formativos.
+ */
+Schedule::command('permanencia:evaluar')
+    ->dailyAt('05:00')
+    ->withoutOverlapping(10)
+    ->onOneServer()
+    ->runInBackground();
+
 Schedule::command('finanzas:conciliar-cfdi')
     ->dailyAt('04:00')
     ->withoutOverlapping()

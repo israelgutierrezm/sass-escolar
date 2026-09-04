@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**137 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**138 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -65,7 +65,7 @@ Los otros dos documentos vivos:
    un rol con disposición guardada. Si node no puede correrlo, la suite FALLA
    en vez de saltarse.
 
-   **Las 137 están en verde**, barridas el 2026-09-04. Catorce son del módulo de
+   **Las 138 están en verde**, barridas el 2026-09-04. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -771,6 +771,77 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
   CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
   adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
+- **Alertas tempranas y permanencia · FASE 2: proveedores y motor** (2026-09-04).
+  Seis proveedores de señales, el motor y `permanencia:evaluar` a las 05:00.
+  - **LA PROHIBICIÓN DURA, y va a prueba**: el motor corre entero y **no cambia
+    una sola fila** de `matricula_oferta`, `inscripcion`, `historial`,
+    `asistencia_clase`, `adeudos` ni de las situaciones. La suite le saca una
+    huella (conteo **y `max(updated_at)`**, porque una fila modificada no cambia
+    el conteo) antes y después. La tentación es real: la situación
+    `condicionado` existe en el catálogo y nadie la usa.
+  - **TRES resultados y no dos**: `dispara`, `no_dispara` y **`sin_datos`**.
+    Toda regla declara una **cobertura mínima** y bajo ella no se opina. Sin eso,
+    a quien tiene una sola falta registrada se le calcula «0 % de asistencia».
+  - **Y `sin_datos` NO cierra lo que hubiera abierto**: que hoy no haya con qué
+    medir no significa que lo de ayer se resolviera. Un docente que deja de pasar
+    lista no cura la inasistencia.
+  - **RESUELTA ≠ OBSOLETA.** La primera dice que la situación mejoró —con la
+    evidencia de la mejora, que es lo que permite decir «tu asistencia subió del
+    68 al 84 %»—; la segunda, que se dejó de vigilar porque la regla se apagó o
+    el alumno salió de su alcance. Llamarlas igual haría que apagar una regla se
+    leyera como que doscientos alumnos se recuperaron, y ese número acabaría en
+    un informe.
+  - **La deduplicación la sostiene un ÚNICO sobre columna generada**
+    (`clave_dedup`), no un `SELECT` previo: dos corridas simultáneas lo pasan las
+    dos. Y la lista de estados vivos está escrita en PHP y en el SQL de la
+    columna; **una prueba los cruza**.
+  - **El enfriamiento se cuenta desde que se CERRÓ**, no desde que nació: desde
+    el nacimiento, una alerta abierta dos meses volvería a nacer al día
+    siguiente. Y **una descartada también enfría**: descartar es una afirmación
+    humana y volver a levantarla mañana la contradice.
+  - **La alerta CONGELA su categoría y su versión.** De la categoría depende
+    quién ve el detalle: leyéndola por relación, cambiar la categoría de una
+    regla haría que las alertas ya levantadas cambiaran de visibilidad de golpe
+    —una señal financiera pasaría a verse en abierto—.
+  - **El proveedor financiero NO devuelve importes**, ni en el valor ni en la
+    evidencia. Mide días y número de cargos; el monto se consulta en la cartera,
+    con su permiso. Y un **convenio de pago vigente saca al alumno**: quien ya
+    acordó con la escuela no es una señal.
+
+  - **Cinco hallazgos del reconocimiento y de la construcción, todos medidos:**
+    1. **El porcentaje de asistencia ya se calculaba de DOS maneras**, y dan
+       números distintos: `AsistenciaPorMateria` suma justificadas y no retardos;
+       `DocenciaController` suma retardos y no justificadas. Con 6 presentes, 3
+       justificadas y 1 retardo, uno dice 90 % y el otro 70 %.
+       **`App\Services\Asistencia\AsistenciaDelAlumno`** fija la tercera —todo
+       lo que no es falta— y **no cambia las dos existentes**: cambiar un número
+       que una escuela ya lee es decisión suya. Queda para decidir a la vista de
+       las tres cifras.
+    2. **Los módulos NÚCLEO figuran APAGADOS**, y eso silenció dos proveedores
+       enteros **sin un solo error**. `asistencia`, `lms`, `finanzas` y
+       `control_escolar` no tienen fila en `modulos_activos` y ninguna ruta los
+       gatea. **Un proveedor sólo declara el módulo que alguna ruta gatea de
+       verdad**; lo demás se comprueba con los datos, que además es más fino.
+    3. **Los 1016 renglones de historial del demo no tienen `acta_folio`**: son
+       carga migrada. Filtrar por él dejaba ciega la señal académica en cualquier
+       escuela que venga de otro sistema. Se filtra por ESTATUS.
+    4. **Una métrica desconocida se medía como si fuera otra.** `medir()` caía en
+       la rama del porcentaje para cualquier clave que no fuera la de las faltas:
+       una regla mal configurada habría comparado asistencia contra un umbral de
+       promedio y levantado alertas que parecen buenas. Ahora revienta, y el
+       motor la aísla y reporta su nombre.
+    5. **`replicate()` sobre una tabla con columna generada revienta**: copia la
+       columna y MySQL la rechaza. Vale para las cinco que hay.
+
+  - Pruebas: `scripts/prueba-permanencia-motor.php`, 73 verificaciones,
+    comprobadas mutando **37 reglas**. En la primera pasada sobrevivieron
+    **diecisiete**, y las diecisiete eran lo de siempre —el escenario no tenía el
+    caso—: la suite probaba el motor de punta a punta y no tocaba una sola
+    decisión de los proveedores. Dos comprobaciones estaban además mal escritas:
+    la de la cobertura mínima usaba un valor que **tampoco cruzaba el umbral**
+    (así que las dos formas daban lo mismo), y la del umbral del plan comparaba
+    la alerta de un alumno contra el plan de **otro**.
+
 - **Alertas tempranas, intervención y permanencia · FASE 1** (2026-09-04,
   pedido del cliente). Módulo `permanencia`, sección propia, `/permanencia/reglas`
   y `/permanencia/catalogos`. **El diseño completo —inventario de fuentes,

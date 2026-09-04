@@ -98,10 +98,11 @@ final class CatalogoMetricas
                 'proveedor' => 'academico',
                 'etiqueta' => 'Materias no aprobadas en el ciclo',
                 'descripcion' => 'Cuántas materias del ciclo quedaron por debajo del mínimo aprobatorio del plan, '
-                    .'contadas sobre ACTAS CERRADAS. Lo que todavía se está capturando no cuenta.',
+                    .'contadas sobre lo YA RESUELTO en el historial. Lo que sigue en curso no cuenta: '
+                    .'no es un intento fallido, es uno que no ha terminado.',
                 'unidad' => 'materias',
                 'direccion' => self::SUBE,
-                'cobertura' => 'actas cerradas del ciclo',
+                'cobertura' => 'materias ya resueltas del ciclo',
                 'por_materia' => false,
             ],
             'academico.avance_creditos' => [
