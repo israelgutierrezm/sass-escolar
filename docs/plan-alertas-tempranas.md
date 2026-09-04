@@ -480,14 +480,20 @@ impedir que vuelva a nacer al día siguiente.
 ```
                       ┌──────────► escalado ──┐
                       │                       ▼
- abierto → asignado → contacto_pendiente → en_intervencion → en_seguimiento
+ abierto → asignado → contacto_pendiente → en_intervencion ⇄ en_seguimiento
                                                     │              │
                                                     └──────► resuelto → cerrado
-                                                                          │
-                                                                     reabierto
-                                                                          │
-                                                                    (→ asignado)
+                                                                          ┆
+                                            (reabrir ⇒ OTRO caso «abierto» ┘
+                                             con `caso_origen_id` puesto)
 ```
+
+**`reabierto` NO es un estado**, y la flecha punteada es a propósito: reabrir no
+mueve el caso cerrado, crea uno nuevo. Desde CUALQUIER estado se puede cerrar —un
+caso puede terminar en cualquier punto— y desde «contacto pendiente» también: si
+no se logra localizar a nadie tras intentarlo, ése es un desenlace real y el
+catálogo tiene su motivo. Sin esa arista, esos casos quedarían abiertos para
+siempre.
 
 Cada transición pasa por **`TransicionDeCaso`**, una sola puerta, con el molde de
 `TransicionDeExpediente`: valida el origen, el permiso y el alcance por campus,
@@ -646,7 +652,7 @@ Cada fase es entregable y verificable sola.
 | ~~**2**~~ | ~~**Proveedores y motor**~~ **HECHA** | **Seis** proveedores —no ocho: inscripciones y expedientes se resolvieron dentro de los otros— con su contrato completo, `AsistenciaDelAlumno` extraído con su definición explícita, `alertas` con deduplicación por columna generada, el motor con sus tres resultados y el cierre automático distinguiendo RESUELTA de OBSOLETA, y `permanencia:evaluar` a las 05:00. `scripts/prueba-permanencia-motor.php`, 73 verificaciones, 37 mutaciones. |
 | ~~**3**~~ | ~~**Bandeja y triage**~~ **HECHA** | La bandeja con sus cuatro capas de visibilidad —módulo, permiso, campus y categoría—, validar y descartar con motivo del catálogo, descarte en masa que respeta el campus y lo DICE, y la ficha que explica la evidencia, la condición en palabras y **cómo hay que leer el número**. `scripts/prueba-permanencia-bandeja.php`, 52 verificaciones, 23 mutaciones. |
 | ~~**4**~~ | ~~**Riesgo compuesto**~~ **HECHA** | El cálculo agrupando por **(categoría, materia)** —que es lo que evita el doble conteo sin igualar «falta en una materia» con «falta en seis»—, niveles configurables con su umbral, desglose que dice qué NO contó y por qué, decaimiento por recálculo, y el ajuste humano que CONSERVA el cálculo. `scripts/prueba-permanencia-riesgo.php`, 49 verificaciones, 25 mutaciones. |
-| **5** | **Casos e intervenciones** | La máquina de estados en una sola puerta, folio atómico, responsable y equipo, intervenciones con visibilidad, tareas, acuerdos y la bitácora de consulta. |
+| ~~**5**~~ | ~~**Casos e intervenciones**~~ **HECHA** | La máquina de estados de **ocho** estados en una sola puerta, folio atómico por año, **UNO abierto por matrícula** sostenido por la base, responsable y equipo, intervenciones con **tres niveles de visibilidad filtrados en el servidor**, tareas, plan, cierre con motivo del catálogo, reapertura que crea un caso nuevo, y la bitácora de consulta **enseñada a quien mira**. `scripts/prueba-permanencia-casos.php`, 96 verificaciones, 48 mutaciones. |
 | **6** | **SLA, escalamiento y notificaciones** | `permanencia:vigilar-sla`, las plantillas, la deduplicación de avisos, los horarios permitidos y el registro de envío. |
 | **7** | **Tableros e indicadores** | Panel de coordinación, tarjetas del panel, y las fuentes de reporte con efectividad, recurrencia y permanencia por cohorte, con tamaño mínimo de grupo. |
 | **8** | **Portales** | El docente (sus grupos, tras el interruptor) y el alumno (pendientes concretos, sin puntaje). |
@@ -874,6 +880,131 @@ tiene:
    `orderByDesc` produce `ORDER BY x ASC, x DESC` —donde gana el primero— y TODO
    puntaje caía en el nivel más bajo, **sin un solo error**. Se usa `reorder()` o
    no se usa el scope.
+
+---
+
+### Lo que la fase 5 dejó decidido, y no estaba en este plan
+
+1. **`AbridorDeCaso` vive APARTE de `TransicionDeCaso`.** Abrir son cuatro cosas
+   que las demás transiciones no hacen: numerar de forma atómica, congelar el
+   riesgo del momento, atar la señal que lo originó y garantizar que no salgan
+   dos. Metidas entre las demás, cualquiera se perdería el día que alguien
+   agregue un estado. Es la separación de `LiberadorDeExpediente` frente a
+   `TransicionDeExpediente`. Aun así el caso **nace por la puerta de siempre**:
+   la apertura anota su renglón en `transiciones_caso` con el origen en NULL —
+   sin él, «cuánto tarda un caso en asignarse» no tendría desde cuándo contar.
+
+2. **Abrir sobre quien YA tiene caso NO crea un segundo: le SUMA la señal.**
+   Alguien acompañado por su asistencia al que además le sale una señal
+   académica no necesita dos expedientes: con dos, las intervenciones se
+   reparten y acaban dos personas llamando al mismo alumno. Lo sostiene un
+   ÚNICO sobre columna generada (`matricula_si_abierto`), no un `SELECT` previo
+   —que dos coordinadores mirando la misma señal pasan los dos—.
+   - La lista de estados que ocupan la matrícula está escrita **dos veces**: en
+     `EstadoCaso::ocupaLaMatricula()` y en el `CASE` de la columna generada, que
+     evalúa MySQL. Una comprobación las cruza: sin quien las compare se separan
+     el día que se agregue un estado, y el único empezaría a permitir o impedir
+     lo que no debe, **sin fallar**.
+
+3. **OCHO estados y no los doce del pedido.** `nueva`, `pendiente_revision`,
+   `validada` y `descartada` son el triage de una SEÑAL y viven en `alertas`.
+   Fundir las dos máquinas pondría a una señal en «en intervención» —y una señal
+   no interviene: es cierta o dejó de serlo—, y cerrar el caso obligaría a
+   mentir sobre la señal o a dejarlo abierto para no mentir.
+   - **`reabierto` tampoco es un estado**: reabrir es un caso NUEVO que apunta al
+     anterior (`caso_origen_id`). El cierre es un hecho fechado con su resultado,
+     y reescribirlo borraría la medición de RECURRENCIA — que es justo lo que
+     este módulo existe para medir. Molde del acta de corrección, de la nota de
+     crédito y de la liberación formativa.
+   - Desde «contacto pendiente» **se puede cerrar**: si no se logra localizar a
+     nadie tras intentarlo, ése es un desenlace real y el catálogo tiene su
+     motivo. Sin esa arista esos casos quedarían abiertos para siempre y la cola
+     dejaría de significar algo.
+
+4. **CINCO permisos y ninguno sobra**, porque son cinco oficios: `abrir-casos`,
+   `asignar-casos`, `registrar-intervenciones`, `ver-notas-reservadas`,
+   `escalar-casos` y `cerrar-casos`. Con un permiso único, quien captura una
+   llamada podría cerrar el caso — y cerrar es la afirmación de que la situación
+   se atendió, que es lo que después se cuenta como éxito.
+
+5. **`ver-notas-reservadas` es la pieza de privacidad del módulo, y va aparte de
+   registrar.** Lo que hay en una nota reservada son situaciones personales del
+   alumno o de su familia; quien captura contactos todos los días no necesita
+   leerlas. **Lo que no se alcanza NO VIAJA**: se filtra en el servidor, porque
+   esconderlo con un `v-if` deja el dato en la respuesta y basta abrir la
+   consola.
+   - **Y no toda intervención admite reserva**: lo dice su TIPO
+     (`permite_reservada`). Un «seguimiento de asistencia» reservado esconde de
+     su propio equipo el dato que el equipo necesita y a cambio no protege nada.
+     Ofrecer la casilla en todas la convierte en algo que se palomea por
+     costumbre.
+   - **Se DICE cuántas quedaron ocultas.** Callarlas haría creer que el caso
+     está vacío, y quien lo atiende tiene derecho a saber que hay algo que no ve
+     —aunque no pueda leerlo—.
+   - **Quien alcanza lo reservado alcanza lo del equipo.** Sin esa segunda rama,
+     el rol con el permiso más alto vería las notas reservadas y NO las del
+     equipo, que es al revés de lo que espera cualquiera.
+
+6. **Estar en el equipo NO concede acceso.** Eso lo siguen decidiendo el permiso
+   y el campus. `caso_equipo` dice quién PARTICIPA; confundirlo convertiría una
+   lista de trabajo en un mecanismo de autorización paralelo, y agregar a alguien
+   al equipo sería una forma de darle permisos sin pasar por los roles. Lo que sí
+   decide es la visibilidad `equipo` de una intervención, que es otra pregunta:
+   no «¿puede entrar?» sino «¿esto es suyo?».
+   - **El responsable cuenta como equipo aunque no esté en la tabla**: es quien
+     lleva el caso, y dejarlo fuera haría que no viera sus propias notas.
+   - **Sacar a alguien le pone fecha de SALIDA, no lo borra**: sus notas de
+     equipo siguen explicándose por su participación.
+
+7. **El PRIMER CONTACTO se anota desde la intervención, no desde el estado.** Es
+   un hecho —«se habló con alguien»— y no un punto del recorrido: escrito dentro
+   de `mover()`, pasar a «en intervención» lo marcaría aunque no se haya hablado
+   con nadie, y el indicador de «cuánto tardamos» mediría otra cosa. Y **una
+   intervención PROGRAMADA no cuenta**: agendar una cita no es haber hablado.
+
+8. **El SLA marca y ordena; no bloquea nada.** `scopeSlaVencido` exige las tres
+   condiciones —abierto, con plazo, y SIN contacto—: uno atendido a tiempo no
+   está vencido aunque siga abierto, y contarlo llenaría la cola de casos ya
+   atendidos. Y el plazo se fija al ASIGNAR **sólo si no lo había**: reescribirlo
+   al reasignar movería la meta de sitio y un caso vencido dejaría de estarlo con
+   cambiarle el responsable.
+
+9. **El campus se COPIA al abrir, no se lee por relación.** Un alumno que cambia
+   de plantel no puede hacer que un caso cerrado desaparezca del reporte del
+   plantel donde de verdad se atendió. Y **un caso sin campus lo alcanza
+   cualquiera**: esconderlo de todo el mundo lo convertiría en un caso que nadie
+   atiende.
+
+10. **La bitácora de consulta se ENSEÑA a quien mira.** Escondida en una tabla
+    que sólo consulta un administrador es un trámite forense; a la vista, es lo
+    que de verdad disuade. Guarda cuántas intervenciones se mostraron y cuántas
+    quedaron reservadas, **nunca su contenido**: una auditoría que copie lo
+    vigilado multiplica el problema que intenta resolver.
+
+11. **El motivo del cierre sale del CATÁLOGO, no de un texto.** De su bandera
+    `cuenta_como_exito` —con sus tres valores, incluido el NULL de «ni una cosa
+    ni otra»— sale si el acompañamiento sirvió. Con texto libre habría que leer
+    trescientas frases para saberlo. El texto también se pide, y es otra cosa: la
+    explicación.
+
+12. **Lo que sólo se vio MIRANDO**, y ninguna prueba veía: «2 intervenciónes»
+    (el plural pierde el acento), «a las 192 h de abrirse» (el indicador se lee
+    de un vistazo o no se lee), los SEGUNDOS en cada sello de tiempo, la ficha
+    de la señal diciendo «se está atendiendo» sobre un caso CERRADO mientras
+    escondía el vivo, «CASO-2026-00001· Cerrado» sin el espacio que Vue condensó,
+    «Falta Elige el tipo de intervención» como una sola frase, el desplegable de
+    prioridad arrancando en «media» mientras el texto prometía derivarla, y —el
+    más caro— **los errores de validación del servidor sin pintar**: se pulsaba,
+    la ventana seguía abierta y no pasaba nada.
+
+13. **Un defecto de las fases 1 a 4 que sólo se vio MIRANDO:** las píldoras del
+    módulo salían **sin color**. `categorias_senal.color`, `niveles_riesgo.color`
+    y `EstadoCaso::color()` guardan un NOMBRE («ambar», «naranja»), y se pasaba
+    directo a `PildoraEstado`, que espera un color de CSS. `color: ambar` no es
+    válido, así que el navegador lo DESCARTA sin error y la píldora sale con el
+    color heredado y sin fondo. Se resolvió con `@/utils/coloresPermanencia`, una
+    tabla compartida — copiada en cada pantalla es como se llega a que el «alto»
+    de la bandeja sea de otro naranja que el de la ficha.
 
 ---
 

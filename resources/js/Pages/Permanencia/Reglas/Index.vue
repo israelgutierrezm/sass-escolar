@@ -30,6 +30,7 @@ import MenuAcciones, { type OpcionAccion } from '@/Components/MenuAcciones.vue';
 import Modal from '@/Components/Modal.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { COLOR_SEVERIDAD, colorPermanencia } from '@/utils/coloresPermanencia';
 import { hoyLocal } from '@/utils/fechas';
 
 interface Version {
@@ -94,14 +95,6 @@ const versionando = ref<Regla | null>(null);
 const datos = ref<Record<string, unknown>>({});
 const errores = ref<Record<string, string>>({});
 const procesando = ref(false);
-
-const severidades: Record<string, string> = {
-    informativo: 'gris',
-    bajo: 'azul',
-    medio: 'ambar',
-    alto: 'naranja',
-    critico: 'rojo',
-};
 
 const metricaElegida = computed(() =>
     props.metricas.find((m) => m.clave === datos.value.metrica) ?? null,
@@ -320,12 +313,12 @@ const textos = (clave: string) => (props.catalogos[clave] ?? []) as string[];
                             <PildoraEstado
                                 v-if="regla.categoria"
                                 :texto="regla.categoria.nombre"
-                                :color="regla.categoria.color"
+                                :color="colorPermanencia(regla.categoria.color)"
                             />
-                            <PildoraEstado v-if="regla.categoria?.sensible" texto="Reservada" color="rosa" />
+                            <PildoraEstado v-if="regla.categoria?.sensible" texto="Reservada" :color="colorPermanencia('rosa')" />
                             <PildoraEstado
                                 :texto="regla.activa ? 'Encendida' : 'Apagada'"
-                                :color="regla.activa ? 'verde' : 'gris'"
+                                :color="colorPermanencia(regla.activa ? 'verde' : 'gris')"
                             />
                         </div>
 
@@ -398,7 +391,7 @@ const textos = (clave: string) => (props.catalogos[clave] ?? []) as string[];
                                 <td class="py-1 pr-3"><code class="text-xs">{{ v.condicion }}</code></td>
                                 <td class="py-1 pr-3">{{ v.cobertura_minima }}</td>
                                 <td class="py-1 pr-3">
-                                    <PildoraEstado :texto="v.severidad" :color="severidades[v.severidad] ?? 'gris'" />
+                                    <PildoraEstado :texto="v.severidad" :color="colorPermanencia(COLOR_SEVERIDAD[v.severidad])" />
                                 </td>
                                 <td class="py-1 pr-3">{{ v.cooldown_dias }} d</td>
                                 <td class="py-1">

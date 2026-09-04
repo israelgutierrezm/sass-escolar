@@ -290,7 +290,31 @@ final class CatalogoPermisos
              */
             'ver-alertas-financieras' => ['Ver el detalle de las señales financieras', 'Abre la evidencia de la categoría reservada: días de atraso y número de cargos. El importe NO sale de aquí — se consulta en la cartera.', [self::ADMINISTRATIVO]],
 
-            'validar-alertas' => ['Validar o descartar alertas', 'Decidir si una señal amerita seguimiento. Descartar exige motivo, y el motivo alimenta la calibración de la regla.', [self::ADMINISTRATIVO]],
+            'validar-alertas' => ['Validar o descartar alertas', 'Decidir si una señal amerita seguimiento. Descartar exige motivo, y el motivo alimenta la calibración de la regla. También permite ajustar a mano el nivel de riesgo, con justificación.', [self::ADMINISTRATIVO]],
+
+            /*
+             * ── Los casos: CINCO permisos, y ninguno sobra ──────────────────
+             * Son cinco oficios distintos y el pedido los enumera aparte. Con
+             * un permiso único, quien captura una llamada podría cerrar el caso
+             * — y cerrar es la afirmación de que la situación se atendió, que es
+             * lo que después se cuenta como éxito.
+             */
+            'abrir-casos' => ['Abrir casos de seguimiento', 'Convertir una señal validada en un caso con folio. Sólo desde señales ya revisadas.', [self::ADMINISTRATIVO]],
+            'asignar-casos' => ['Asignar casos', 'Decir a quién le toca y quién más participa. Es lo que arranca el compromiso de primer contacto.', [self::ADMINISTRATIVO]],
+            'registrar-intervenciones' => ['Registrar intervenciones', 'Anotar contactos, tutorías, acuerdos y tareas, y mover el caso mientras se atiende.', [self::ADMINISTRATIVO]],
+
+            /*
+             * APARTE de registrar, y es la pieza de privacidad del módulo.
+             *
+             * Lo que hay en una nota reservada son situaciones personales del
+             * alumno o de su familia. Quien captura contactos todos los días no
+             * necesita leerlas, y cada consulta queda firmada en la bitácora del
+             * caso — que se enseña a quien mira, como en tutorías.
+             */
+            'ver-notas-reservadas' => ['Leer las notas reservadas', 'Abrir las intervenciones marcadas como reservadas. Pueden incluir situaciones personales del alumno o de su familia; cada consulta queda registrada.', [self::ADMINISTRATIVO]],
+
+            'escalar-casos' => ['Escalar casos', 'Subir un caso a quien tenga más alcance. Exige decir por qué: quien lo reciba empieza a ciegas sin eso.', [self::ADMINISTRATIVO]],
+            'cerrar-casos' => ['Cerrar y reabrir casos', 'Dar por terminado un seguimiento con su motivo y su resultado, y volver a abrirlo si la situación reaparece. Reabrir crea un caso nuevo: el cerrado se conserva.', [self::ADMINISTRATIVO]],
         ],
 
         'Servicio social y prácticas' => [

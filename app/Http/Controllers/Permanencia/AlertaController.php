@@ -9,19 +9,20 @@ use App\Http\Controllers\Concerns\AcotaPorCampus;
 use App\Http\Controllers\Controller;
 use App\Models\Academico\Campus;
 use App\Models\Permanencia\Alerta;
+use App\Models\Permanencia\CasoPermanencia;
 use App\Models\Permanencia\CategoriaSenal;
 use App\Models\Permanencia\CorridaEvaluacion;
 use App\Models\Permanencia\MotivoDescarte;
 use App\Models\Permanencia\NivelRiesgo;
-use App\Models\Permanencia\RiesgoMatricula;
 use App\Models\Permanencia\ReglaAlerta;
 use App\Models\Permanencia\ReglaAlertaVersion;
-use App\Services\Permanencia\CalculadoraDeRiesgo;
+use App\Models\Permanencia\RiesgoMatricula;
 use App\Permanencia\RegistroProveedores;
+use App\Services\Permanencia\AbridorDeCaso;
+use App\Services\Permanencia\CalculadoraDeRiesgo;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -147,7 +148,41 @@ class AlertaController extends Controller
              * que volver a la bandeja y filtrar a mano.
              */
             'otras' => $this->otrasDelAlumno($peticion, $modelo, $usuario),
+            /*
+             * DOS datos y no uno: el caso de esta SEÑAL y el que la persona
+             * tiene ABIERTO hoy. Pueden no ser el mismo —la señal se atendió,
+             * el caso se cerró, y meses después se abrió otro—, y con un solo
+             * dato la pantalla decía «se está atendiendo» sobre un caso cerrado
+             * mientras escondía el que sí está vivo. Se vio MIRÁNDOLO.
+             *
+             * Hacen falta los dos porque abrir sobre quien ya tiene caso no crea
+             * un segundo: le SUMA la señal. Prometer «se abrirá un caso» sería
+             * mentir sobre lo que va a pasar.
+             */
+            'casoDeLaSenal' => $this->comoSeLee(
+                CasoPermanencia::query()
+                    ->whereHas('alertas', fn (Builder $a) => $a->whereKey($modelo->id))
+                    ->first()
+            ),
+            'casoAbierto' => $this->comoSeLee(
+                CasoPermanencia::query()->abiertos()
+                    ->where('matricula_oferta_id', $modelo->matricula_oferta_id)
+                    ->first()
+            ),
+            'puedeAbrirCaso' => $usuario?->can('abrir-casos') === true,
+            'prioridadSugerida' => app(AbridorDeCaso::class)->prioridadPara($modelo),
         ]);
+    }
+
+    /** @return array<string, mixed>|null */
+    private function comoSeLee(?CasoPermanencia $caso): ?array
+    {
+        return $caso === null ? null : [
+            'id' => $caso->id,
+            'folio' => $caso->folio,
+            'estado' => $caso->estado->etiqueta(),
+            'abierto' => ! $caso->estado->esTerminal(),
+        ];
     }
 
     /**

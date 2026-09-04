@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**140 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**141 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -65,7 +65,7 @@ Los otros dos documentos vivos:
    un rol con disposición guardada. Si node no puede correrlo, la suite FALLA
    en vez de saltarse.
 
-   **Las 140 están en verde**, barridas el 2026-09-04. Catorce son del módulo de
+   **Las 141 están en verde**, barridas el 2026-09-04. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -771,6 +771,170 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
   CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
   adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
+- **Alertas tempranas y permanencia · FASE 5: casos e intervenciones**
+  (2026-09-04). El seguimiento humano de una señal validada.
+  `/permanencia/casos`; permisos nuevos `abrir-casos`, `asignar-casos`,
+  `registrar-intervenciones`, `ver-notas-reservadas`, `escalar-casos` y
+  `cerrar-casos`.
+  - **`AbridorDeCaso` vive APARTE de `TransicionDeCaso`**, como
+    `LiberadorDeExpediente` frente a `TransicionDeExpediente`: abrir son cuatro
+    cosas que las demás transiciones no hacen —numerar de forma atómica,
+    congelar el riesgo del momento, atar la señal que lo originó y garantizar
+    que no salgan dos—, y metidas entre las demás cualquiera se pierde el día
+    que alguien agregue un estado. Aun así el caso **nace por la puerta de
+    siempre**: la apertura anota su renglón con el origen en NULL, sin el cual
+    «cuánto tarda un caso en asignarse» no tendría desde cuándo contar.
+  - **Abrir sobre quien YA tiene caso NO crea otro: le SUMA la señal.** Con dos,
+    las intervenciones se reparten y acaban dos personas llamando al mismo
+    alumno. Lo sostiene un ÚNICO sobre **columna generada**
+    (`matricula_si_abierto`), no un `SELECT` previo —que dos coordinadores
+    mirando la misma señal pasan los dos—. Un `unique(matricula, deleted_at)` no
+    serviría: MySQL da dos NULL por distintos.
+    - **La lista de estados que ocupan la matrícula está escrita DOS veces** —en
+      `EstadoCaso::ocupaLaMatricula()` y en el `CASE` de la columna generada, que
+      evalúa MySQL— y una comprobación las cruza. Sin quien las compare se
+      separan el día que se agregue un estado, y el único empieza a permitir o
+      impedir lo que no debe, **sin fallar**. Misma defensa que `tipo_si_cuenta`
+      en los expedientes formativos.
+  - **OCHO estados y no los doce del pedido**, con su razón: `nueva`,
+    `validada` y `descartada` son el triage de una SEÑAL y viven en `alertas`.
+    Fundir las dos máquinas pondría a una señal en «en intervención» —y una
+    señal no interviene: es cierta o dejó de serlo—, y cerrar el caso obligaría
+    a mentir sobre la señal o a dejarlo abierto para no mentir.
+  - **`reabierto` tampoco es un estado**: reabrir crea un caso NUEVO que apunta
+    al anterior. El cierre es un hecho fechado con su resultado, y reescribirlo
+    borraría la medición de RECURRENCIA — que es justo lo que este módulo existe
+    para medir. Molde del acta de corrección y de la nota de crédito.
+  - **Desde «contacto pendiente» SE PUEDE cerrar.** Si no se logra localizar a
+    nadie tras intentarlo, ése es un desenlace real y el catálogo tiene su
+    motivo; sin esa arista, esos casos quedarían abiertos para siempre y la cola
+    dejaría de significar algo.
+  - **CINCO permisos porque son cinco oficios.** Con uno solo, quien captura una
+    llamada podría cerrar el caso — y cerrar es la afirmación de que la
+    situación se atendió, que es lo que después se cuenta como éxito.
+  - **`ver-notas-reservadas` es la pieza de privacidad, y va APARTE de
+    registrar.** Lo que hay en una nota reservada son situaciones personales del
+    alumno o de su familia. **Lo que no se alcanza NO VIAJA**: se filtra en el
+    servidor, porque esconderlo con un `v-if` deja el dato en la respuesta y
+    basta abrir la consola. Es la lección de las notas de tutoría.
+    - **Y no toda intervención admite reserva**: lo dice su TIPO
+      (`permite_reservada`). Un «seguimiento de asistencia» reservado esconde de
+      su propio equipo el dato que el equipo necesita y a cambio no protege
+      nada; ofrecer la casilla en todas la vuelve algo que se palomea por
+      costumbre.
+    - **Se DICE cuántas quedaron ocultas.** Callarlas haría creer que el caso
+      está vacío, y quien lo atiende tiene derecho a saber que hay algo que no ve
+      aunque no pueda leerlo.
+    - **Quien alcanza lo reservado alcanza lo del equipo.** Sin esa segunda rama,
+      el rol con el permiso más alto vería lo reservado y NO lo del equipo, que
+      es al revés de lo que espera cualquiera.
+  - **Estar en el EQUIPO no concede acceso.** Eso lo siguen decidiendo el
+    permiso y el campus; `caso_equipo` dice quién PARTICIPA. Confundirlo
+    convertiría una lista de trabajo en un mecanismo de autorización paralelo, y
+    agregar a alguien al equipo sería darle permisos sin pasar por los roles. El
+    responsable cuenta como equipo aunque no esté en la tabla —si no, no vería
+    sus propias notas—, y sacar a alguien le pone fecha de SALIDA, no lo borra.
+  - **El PRIMER CONTACTO se anota desde la intervención, no desde el estado.**
+    Es un hecho —«se habló con alguien»— y no un punto del recorrido: dentro de
+    `mover()`, pasar a «en intervención» lo marcaría sin que nadie hubiera
+    hablado, y el indicador de «cuánto tardamos» mediría otra cosa. Y una
+    intervención **PROGRAMADA no cuenta**: agendar una cita no es haber hablado.
+  - **El SLA marca y ordena; no bloquea nada.** `scopeSlaVencido` exige las tres
+    condiciones —abierto, con plazo y SIN contacto—: uno atendido a tiempo no
+    está vencido aunque siga abierto. Y el plazo se fija al ASIGNAR **sólo si no
+    lo había**: reescribirlo al reasignar movería la meta de sitio y un caso
+    vencido dejaría de estarlo con cambiarle el responsable.
+  - **El campus se COPIA al abrir.** Leerlo por relación haría que mover a
+    alguien de plantel sacara un caso cerrado del reporte del plantel donde de
+    verdad se atendió. Y un caso SIN campus lo alcanza cualquiera: esconderlo de
+    todos lo convertiría en un caso que nadie atiende.
+  - **La bitácora de consulta se ENSEÑA a quien mira.** Escondida en una tabla
+    que sólo consulta un administrador es un trámite forense; a la vista es lo
+    que de verdad disuade. Guarda cuántas intervenciones se mostraron y cuántas
+    quedaron reservadas, **nunca su contenido** — una auditoría que copie lo
+    vigilado multiplica el problema que intenta resolver.
+  - **El motivo del cierre sale del CATÁLOGO**, no de un texto: de su bandera
+    `cuenta_como_exito` —tri-estado, con NULL para «ni una cosa ni otra»— sale si
+    el acompañamiento sirvió. El texto también se pide y es otra cosa: la
+    explicación.
+  - **Un defecto de las fases 1 a 4 que sólo se vio MIRANDO: las píldoras del
+    módulo salían SIN COLOR.** `categorias_senal.color`, `niveles_riesgo.color` y
+    `EstadoCaso::color()` guardan un NOMBRE («ambar», «naranja», «morado») y se
+    pasaba directo a `PildoraEstado`, que espera un color de CSS. `color: ambar`
+    no es válido: el navegador lo DESCARTA sin error y la píldora sale con el
+    color heredado y sin fondo. Está bien que el catálogo guarde palabras —una
+    escuela elige de una lista, no teclea `#d97706`—; lo que faltaba era la
+    traducción, que ahora vive en `@/utils/coloresPermanencia`. Copiada en cada
+    pantalla es como se llega a que el «alto» de la bandeja sea de otro naranja
+    que el de la ficha; mismo argumento que `@/utils/acciones`.
+  - **Y lo que salió de MIRARLO en el navegador**, que ninguna prueba veía:
+    - **«2 intervenciónes»**: el plural de «intervención» pierde el acento, y
+      encadenar `«es»` al singular produce una palabra que no existe. Va la
+      palabra entera en cada rama.
+    - **«a las 192 h de abrirse»**: el indicador existe para leerse de un
+      vistazo, y pasadas dos jornadas lo que se piensa son días. Se arma en el
+      servidor —lo leen la lista y la ficha— y sale «a los 8 días».
+    - **Los SEGUNDOS en cada sello de tiempo** («Cerrado 2026-09-04 04:21:59»),
+      que se leen como un volcado de base de datos. Es la lección del examen y
+      el foro, aplicada a la pantalla entera desde el principio.
+    - **La ficha de la señal decía «se está atendiendo» sobre un caso CERRADO**,
+      y escondía el que la persona SÍ tiene abierto — de modo que desde ahí no
+      había forma de llegar a él. Son CUATRO situaciones y no dos: la señal
+      atada a un caso vivo, a uno cerrado, o a ninguno, cruzado con que la
+      persona tenga o no otro abierto.
+    - **«CASO-2026-00001· Cerrado»**, sin el espacio: entre `</Link>` y `<span>`
+      sólo había un salto de línea y Vue condensa el nodo en blanco. El
+      separador va DENTRO del span. Es el defecto de «y30 h a la semana».
+    - **«Falta Elige el tipo de intervención.»**: la lista de lo que falta y el
+      aviso de que aún no se ha elegido tipo son dos frases distintas, y
+      encadenarlas produce una que no está escrita en ningún idioma.
+    - **El desplegable de prioridad arrancaba siempre en «media»** mientras el
+      texto de al lado prometía «sale de la severidad de la señal». Se resolvió
+      haciendo pública `AbridorDeCaso::prioridadPara` y preguntándosela — no
+      recalculándola en el Vue, que serían dos definiciones.
+    - **Y los errores de validación del servidor no se veían.** Estas ventanas
+      envían con `router.post` sobre refs llanos, así que los errores por campo
+      llegan en la prop compartida `errors` y **nadie los pintaba**: se pulsaba,
+      la ventana seguía abierta y no pasaba nada. Es el «botón muerto» de
+      siempre. Ahora las seis ventanas los enumeran.
+  - **Dos suites viejas se cayeron en cuanto la escuela tuvo casos**, y las dos
+    eran defectos suyos:
+    - **`caso_alerta` tiene foránea contra `alertas`**, así que el
+      `Alerta::query()->forceDelete()` de la bandeja y del motor revienta con
+      1451. Una tabla nueva rompe la limpieza de las suites viejas, y lo hace
+      sólo donde HAY datos de esa tabla —o sea, no aquí y sí en la escuela del
+      cliente—. Misma lección que dejó `riesgo_matricula`.
+    - **`casos_permanencia.caso_origen_id` apunta a su propia tabla**, así que un
+      `DELETE` pelado revienta contra sí mismo: hay que soltar la columna antes.
+  - Pruebas: `scripts/prueba-permanencia-casos.php`, 96 verificaciones,
+    comprobadas mutando **48 reglas**. En la primera pasada sobrevivieron cuatro,
+    y las cuatro enseñaron algo:
+    - **Dos eran huecos de escenario**: la matrícula no tenía riesgo calculado
+      —así que congelarlo comparaba null contra null—, y el motivo de cierre del
+      catálogo lo exige el CONTROLADOR, no el servicio, así que llamando al
+      servicio no se ejercitaba.
+    - **Una era una COINCIDENCIA DE RELOJ**: las dos intervenciones caían en el
+      mismo `now()`, así que reescribir el primer contacto daba el MISMO valor y
+      la guarda no se comprobaba. El caso va con la marca puesta seis horas
+      atrás. Misma trampa que la corrección de una liberación formativa.
+    - **Y una era una comprobación VACUA**: el resumen acotado se comparaba con
+      el global usando `<=`, que se cumple también cuando son iguales —o sea con
+      el recorte quitado—. Ahora se compara con la LISTA que ese mismo
+      controlador devolvió.
+    - **Y la suite tuvo que hacerse dueña de su escenario**: elegía «la primera
+      matrícula con campus», y sobre una que ya tiene caso abierto `abrir()`
+      devuelve el existente —que es lo correcto— y media suite medía entonces el
+      caso de otro. Pasaba corriéndola sola y se cayó en cuanto la escuela tuvo
+      un caso sembrado. **Séptima vez que este proyecto se cobra lo mismo.**
+  - Verificado en el navegador el recorrido entero: abrir el caso desde una señal
+    validada, asignarlo, registrar una intervención —con el tipo pidiendo sus
+    acuerdos y la reserva ofreciéndose sólo donde su tipo la admite—, ver el
+    rechazo del servidor por una fecha futura, cerrarlo con su motivo del
+    catálogo, reabrirlo con su motivo llegando al caso nuevo con «Reapertura de
+    CASO-2026-00001», y la señal diciendo dónde se atendió y dónde está hoy. Sin
+    desbordes a 375 px. **Los datos se retiraron**, y `acadion:auditar-datos`
+    sigue reportando las mismas 69 filas rotas de siempre.
+
 - **Alertas tempranas y permanencia · FASE 4: riesgo compuesto** (2026-09-04).
   El nivel por matrícula, fechado y explicable.
   - **LA DECISIÓN CENTRAL: el grupo de deduplicación es (categoría, MATERIA).**

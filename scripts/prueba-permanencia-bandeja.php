@@ -151,6 +151,24 @@ try {
     echo '1. El escenario: dos alertas en dos campus distintos'.PHP_EOL;
 
     // Se parte de cero: lo que se prueba es aritmética de bandeja.
+    /*
+     * El ORDEN importa: desde la fase 5 hay casos colgando de las señales, y
+     * `caso_alerta` tiene foránea contra `alertas`. Borrar las señales primero
+     * revienta con 1451. Es la misma lección que dejó `riesgo_matricula` en la
+     * suite del motor: una tabla nueva rompe la limpieza de las suites viejas, y
+     * lo hace sólo cuando la escuela TIENE datos de esa tabla —o sea, no aquí y
+     * sí en la del cliente—.
+     */
+    DB::table('accesos_caso')->delete();
+    DB::table('transiciones_caso')->delete();
+    DB::table('tareas_caso')->delete();
+    DB::table('intervenciones')->delete();
+    DB::table('caso_equipo')->delete();
+    DB::table('caso_alerta')->delete();
+    // La foránea de `caso_origen_id` apunta a la MISMA tabla, así que un
+    // `DELETE` pelado revienta contra sí mismo: se suelta primero.
+    DB::table('casos_permanencia')->update(['caso_origen_id' => null]);
+    DB::table('casos_permanencia')->delete();
     Alerta::query()->forceDelete();
     ReglaAlertaVersion::query()->forceDelete();
     ReglaAlerta::query()->forceDelete();

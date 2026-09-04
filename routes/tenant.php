@@ -113,6 +113,10 @@ use App\Http\Controllers\PanoramaDocumentalController;
 use App\Http\Controllers\PasarelaPagoController;
 use App\Http\Controllers\PaseListaController;
 use App\Http\Controllers\PerfilController;
+use App\Http\Controllers\Permanencia\AlertaController;
+use App\Http\Controllers\Permanencia\CasoController;
+use App\Http\Controllers\Permanencia\CatalogoPermanenciaController;
+use App\Http\Controllers\Permanencia\ReglaAlertaController;
 use App\Http\Controllers\PlanCobroController;
 use App\Http\Controllers\PlanEstudioController;
 use App\Http\Controllers\PlanMateriaController;
@@ -125,9 +129,6 @@ use App\Http\Controllers\PortafolioController;
 use App\Http\Controllers\PortalAspiranteController;
 use App\Http\Controllers\PresentacionExamenController;
 use App\Http\Controllers\PresupuestoController;
-use App\Http\Controllers\Permanencia\AlertaController;
-use App\Http\Controllers\Permanencia\CatalogoPermanenciaController;
-use App\Http\Controllers\Permanencia\ReglaAlertaController;
 use App\Http\Controllers\ProcesosFormativos\CatalogoProcesosController;
 use App\Http\Controllers\ProcesosFormativos\ConvenioFormativoController;
 use App\Http\Controllers\ProcesosFormativos\ExpedienteFormativoController;
@@ -2444,6 +2445,55 @@ Route::middleware([
                 Route::post('{alerta}/validar', 'validar')->whereNumber('alerta')->name('validar');
                 Route::post('{alerta}/descartar', 'descartar')->whereNumber('alerta')->name('descartar');
                 Route::post('{alerta}/riesgo', 'ajustarRiesgo')->whereNumber('alerta')->name('riesgo');
+            });
+
+        /*
+         * Abrir un caso desde una senal. Cuelga de la ALERTA y no de los casos
+         * a proposito: un caso nace de una senal que alguien reviso, y una ruta
+         * «abrir sobre este alumno» saltaria el triage entero.
+         *
+         * Se entra con `ver-alertas` --es la bandeja-- y el acto lo comprueba el
+         * abridor con `abrir-casos`: son dos oficios y el grupo no puede exigir
+         * el segundo, o quien solo lee la cola no podria ni entrar.
+         */
+        Route::middleware(['modulo:permanencia', 'can:ver-alertas'])
+            ->prefix('permanencia/alertas')->name('tenant.permanencia.alertas.')
+            ->controller(CasoController::class)
+            ->group(function () {
+                Route::post('{alerta}/caso', 'abrir')->whereNumber('alerta')->name('caso');
+            });
+
+        /*
+         * Los CASOS. Fuera del grupo de configuracion y con su propia puerta de
+         * lectura: quien atiende la cola no calibra umbrales.
+         *
+         * El grupo exige `ver-alertas` y NO uno de los cinco permisos de caso,
+         * por lo de siempre: por aqui entran varios oficios --quien asigna, quien
+         * interviene, quien cierra-- y un middleware con el permiso de uno
+         * rebotaria a los demas. Cada metodo comprueba el suyo.
+         */
+        Route::middleware(['modulo:permanencia', 'can:ver-alertas'])
+            ->prefix('permanencia/casos')->name('tenant.permanencia.casos.')
+            ->controller(CasoController::class)
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+
+                // ANTES del comodin numerico: sin eso «personal» casaria contra
+                // `{caso}` y devolveria 404 -el boton muerto que no da error-.
+                Route::get('personal', 'buscarPersonal')->name('personal');
+
+                Route::get('{caso}', 'show')->whereNumber('caso')->name('detalle');
+                Route::post('{caso}/mover', 'mover')->whereNumber('caso')->name('mover');
+                Route::post('{caso}/asignar', 'asignar')->whereNumber('caso')->name('asignar');
+                Route::post('{caso}/equipo', 'equipo')->whereNumber('caso')->name('equipo');
+                Route::delete('{caso}/equipo/{miembro}', 'sacarDelEquipo')
+                    ->whereNumber(['caso', 'miembro'])->name('equipo.retirar');
+                Route::post('{caso}/intervenciones', 'intervenir')->whereNumber('caso')->name('intervenir');
+                Route::post('{caso}/tareas', 'tarea')->whereNumber('caso')->name('tarea');
+                Route::patch('{caso}/tareas/{tarea}', 'completarTarea')
+                    ->whereNumber(['caso', 'tarea'])->name('tarea.completar');
+                Route::put('{caso}/plan', 'plan')->whereNumber('caso')->name('plan');
+                Route::post('{caso}/reabrir', 'reabrir')->whereNumber('caso')->name('reabrir');
             });
 
         Route::middleware(['modulo:permanencia', 'can:configurar-reglas-alerta'])

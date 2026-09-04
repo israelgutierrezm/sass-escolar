@@ -23,26 +23,27 @@ import { ref } from 'vue';
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
+import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoTextarea from '@/Components/CampoTextarea.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { COLOR_SEVERIDAD, colorPermanencia } from '@/utils/coloresPermanencia';
 
 const props = defineProps<{
     alerta: Record<string, any>;
     motivos: Array<{ id: number; nombre: string; descripcion: string | null }>;
     puedeValidar: boolean;
+    puedeAbrirCaso: boolean;
+    /** La que el servicio derivaría de la severidad. Se puede cambiar. */
+    prioridadSugerida: string;
+    /** El caso al que esta señal está atada, esté abierto o cerrado. */
+    casoDeLaSenal: { id: number; folio: string; estado: string; abierto: boolean } | null;
+    /** El que la persona tiene abierto HOY. Puede no ser el mismo. */
+    casoAbierto: { id: number; folio: string; estado: string; abierto: boolean } | null;
     otras: Array<Record<string, any>>;
     riesgo: Record<string, any> | null;
     niveles: Array<{ id: number; clave: string; nombre: string; color: string; descripcion: string | null }>;
 }>();
-
-const severidades: Record<string, string> = {
-    informativo: 'gris',
-    bajo: 'azul',
-    medio: 'ambar',
-    alto: 'naranja',
-    critico: 'rojo',
-};
 
 const descartando = ref(false);
 const motivo = ref<number | null>(null);
@@ -71,6 +72,20 @@ function ajustarRiesgo(): void {
             },
             onFinish: () => (procesando.value = false),
         },
+    );
+}
+
+const abriendoCaso = ref(false);
+const prioridadCaso = ref(props.prioridadSugerida);
+const slaCaso = ref<number | null>(48);
+
+function abrirCaso(): void {
+    procesando.value = true;
+
+    router.post(
+        `/permanencia/alertas/${props.alerta.id}/caso`,
+        { prioridad: prioridadCaso.value, sla_horas: slaCaso.value },
+        { onFinish: () => (procesando.value = false) },
     );
 }
 
@@ -166,23 +181,23 @@ function renglones(evidencia: Record<string, unknown> | null): Array<[string, st
                     <PildoraEstado
                         v-if="alerta.categoria"
                         :texto="alerta.categoria.nombre"
-                        :color="alerta.categoria.color"
+                        :color="colorPermanencia(alerta.categoria.color)"
                     />
-                    <PildoraEstado :texto="alerta.severidad" :color="severidades[alerta.severidad] ?? 'gris'" />
+                    <PildoraEstado :texto="alerta.severidad" :color="colorPermanencia(COLOR_SEVERIDAD[alerta.severidad])" />
                     <PildoraEstado
                         v-if="alerta.estado_triage !== 'nueva'"
                         :texto="alerta.estado_triage === 'validada' ? 'Validada' : 'Descartada'"
-                        :color="alerta.estado_triage === 'validada' ? 'verde' : 'gris'"
+                        :color="colorPermanencia(alerta.estado_triage === 'validada' ? 'verde' : 'gris')"
                     />
                     <PildoraEstado
                         v-if="alerta.estado_senal === 'resuelta'"
                         texto="La situación mejoró"
-                        color="verde"
+                        :color="colorPermanencia('verde')"
                     />
                     <PildoraEstado
                         v-if="alerta.estado_senal === 'obsoleta'"
                         texto="Se dejó de vigilar"
-                        color="gris"
+                        :color="colorPermanencia('gris')"
                     />
                 </div>
             </div>
@@ -295,7 +310,7 @@ function renglones(evidencia: Record<string, unknown> | null): Array<[string, st
                         <PildoraEstado
                             v-if="riesgo.nivel"
                             :texto="riesgo.nivel.nombre"
-                            :color="riesgo.nivel.color"
+                            :color="colorPermanencia(riesgo.nivel.color)"
                         />
                     </div>
 
@@ -459,6 +474,117 @@ function renglones(evidencia: Record<string, unknown> | null): Array<[string, st
                         <p v-if="alerta.nota_triage" class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
                             «{{ alerta.nota_triage }}»
                         </p>
+
+                        <!-- ── El seguimiento ───────────────────────────── -->
+                        <template v-if="alerta.estado_triage === 'validada'">
+                            <!--
+                                CUATRO situaciones, no dos. La señal puede estar
+                                atada a un caso vivo, a uno ya cerrado, o a
+                                ninguno; y la persona puede tener otro abierto
+                                aunque el de esta señal se haya cerrado. Con dos
+                                ramas la pantalla decía «se está atendiendo»
+                                sobre un caso CERRADO y escondía el que sí está
+                                vivo, de modo que desde aquí no había forma de
+                                llegar a él. Se vio MIRÁNDOLO.
+                            -->
+                            <div
+                                v-if="casoDeLaSenal"
+                                class="mt-3 rounded-lg border border-borde p-3 text-sm"
+                            >
+                                <p>
+                                    {{ casoDeLaSenal.abierto ? 'Se está atendiendo en el caso' : 'Se atendió en el caso' }}
+                                    <Link :href="`/permanencia/casos/${casoDeLaSenal.id}`" class="font-medium underline">
+                                        {{ casoDeLaSenal.folio }}
+                                    </Link>
+                                    <span :style="{ color: 'var(--color-suave)' }"> · {{ casoDeLaSenal.estado }}</span>
+                                </p>
+
+                                <p
+                                    v-if="!casoDeLaSenal.abierto && casoAbierto"
+                                    class="mt-2"
+                                    :style="{ color: 'var(--color-suave)' }"
+                                >
+                                    Hoy tiene abierto el
+                                    <Link :href="`/permanencia/casos/${casoAbierto.id}`" class="underline">
+                                        {{ casoAbierto.folio }}
+                                    </Link>.
+                                </p>
+                            </div>
+
+                            <div
+                                v-else-if="casoAbierto"
+                                class="mt-3 rounded-lg border border-borde p-3 text-sm"
+                            >
+                                <p>
+                                    Esta persona ya tiene el caso
+                                    <Link :href="`/permanencia/casos/${casoAbierto.id}`" class="font-medium underline">
+                                        {{ casoAbierto.folio }}
+                                    </Link>
+                                    abierto.
+                                    <span :style="{ color: 'var(--color-suave)' }">
+                                        Abrir seguimiento desde aquí NO crea otro: le suma esta señal,
+                                        para que todo lo que se haga quede en un solo sitio.
+                                    </span>
+                                </p>
+                                <BotonPrincipal
+                                    v-if="puedeAbrirCaso"
+                                    class="mt-3"
+                                    :procesando="procesando"
+                                    texto="Sumarla a ese caso"
+                                    icono="ninguno"
+                                    tipo="button"
+                                    @click="abrirCaso"
+                                />
+                            </div>
+
+                            <div v-else class="mt-3">
+                                <p class="text-sm" :style="{ color: 'var(--color-suave)' }">
+                                    Todavía no hay un caso de seguimiento. Abrirlo es lo que le pone
+                                    responsable y plazo de primer contacto.
+                                </p>
+
+                                <template v-if="puedeAbrirCaso">
+                                    <button
+                                        type="button"
+                                        class="mt-2 text-xs underline"
+                                        :style="{ color: 'var(--color-suave)' }"
+                                        @click="abriendoCaso = !abriendoCaso"
+                                    >
+                                        {{ abriendoCaso ? 'Cancelar' : 'Abrir un caso de seguimiento' }}
+                                    </button>
+
+                                    <div v-if="abriendoCaso" class="mt-3 space-y-3 rounded-lg border border-borde p-3">
+                                        <CampoSelect
+                                            v-model="prioridadCaso"
+                                            etiqueta="Prioridad"
+                                            :opciones="[
+                                                { valor: 'alta', texto: 'Alta' },
+                                                { valor: 'media', texto: 'Media' },
+                                                { valor: 'baja', texto: 'Baja' },
+                                            ]"
+                                            ayuda="Sale de la severidad de la señal; puedes cambiarla."
+                                        />
+                                        <CampoTexto
+                                            v-model.number="slaCaso"
+                                            etiqueta="Horas para el primer contacto"
+                                            tipo="number"
+                                            paso="1"
+                                            ayuda="Es un compromiso, no un bloqueo: pasado el plazo el caso sube en la cola."
+                                        />
+                                        <BotonPrincipal
+                                            :procesando="procesando"
+                                            texto="Abrir el caso"
+                                            icono="crear"
+                                            tipo="button"
+                                            @click="abrirCaso"
+                                        />
+                                    </div>
+                                </template>
+                                <p v-else class="mt-2 text-xs" :style="{ color: 'var(--color-suave)' }">
+                                    Tu rol no puede abrir casos de seguimiento.
+                                </p>
+                            </div>
+                        </template>
                     </template>
                 </div>
 
@@ -476,7 +602,7 @@ function renglones(evidencia: Record<string, unknown> | null): Array<[string, st
                             <PildoraEstado
                                 v-if="o.categoria"
                                 :texto="o.categoria.nombre"
-                                :color="o.categoria.color"
+                                :color="colorPermanencia(o.categoria.color)"
                                 class="ml-1"
                             />
                         </li>

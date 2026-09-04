@@ -18,9 +18,11 @@ use App\Models\Permanencia\CategoriaSenal;
 use App\Models\Permanencia\ReglaAlerta;
 use App\Models\Permanencia\ReglaAlertaVersion;
 use App\Permanencia\CatalogoMetricas;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -146,7 +148,7 @@ class ReglaAlertaController extends Controller
              */
             if ($vigente !== null && $vigente->id !== null) {
                 $vigente->update([
-                    'vigente_hasta' => \Carbon\CarbonImmutable::parse($datos['vigente_desde'])
+                    'vigente_hasta' => CarbonImmutable::parse($datos['vigente_desde'])
                         ->subDay()->toDateString(),
                 ]);
             }
@@ -411,7 +413,7 @@ class ReglaAlertaController extends Controller
 
     private function tieneAlertas(ReglaAlerta $regla): bool
     {
-        if (! \Illuminate\Support\Facades\Schema::hasTable('alertas')) {
+        if (! Schema::hasTable('alertas')) {
             return false;
         }
 

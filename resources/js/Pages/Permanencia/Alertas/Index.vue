@@ -29,6 +29,7 @@ import Modal from '@/Components/Modal.vue';
 import Paginacion from '@/Components/Paginacion.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { COLOR_SEVERIDAD, colorPermanencia } from '@/utils/coloresPermanencia';
 
 interface Alerta {
     id: number;
@@ -79,14 +80,6 @@ const props = defineProps<{
     } | null;
     puedeValidar: boolean;
 }>();
-
-const severidades: Record<string, string> = {
-    informativo: 'gris',
-    bajo: 'azul',
-    medio: 'ambar',
-    alto: 'naranja',
-    critico: 'rojo',
-};
 
 const filtros = ref({ ...props.filtros });
 const elegidas = ref<number[]>([]);
@@ -325,9 +318,9 @@ function descartarVarias(): void {
                                 <PildoraEstado
                                     v-if="a.categoria"
                                     :texto="a.categoria.nombre"
-                                    :color="a.categoria.color"
+                                    :color="colorPermanencia(a.categoria.color)"
                                 />
-                                <PildoraEstado :texto="a.severidad" :color="severidades[a.severidad] ?? 'gris'" />
+                                <PildoraEstado :texto="a.severidad" :color="colorPermanencia(COLOR_SEVERIDAD[a.severidad])" />
                                 <PildoraEstado
                                     v-if="a.estado_triage === 'validada'"
                                     texto="Validada"
@@ -341,7 +334,7 @@ function descartarVarias(): void {
                                 <PildoraEstado
                                     v-if="a.estado_senal === 'obsoleta'"
                                     texto="Se dejó de vigilar"
-                                    color="gris"
+                                    :color="colorPermanencia('gris')"
                                 />
                             </div>
                             <p class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">

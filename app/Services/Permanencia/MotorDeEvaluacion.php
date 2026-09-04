@@ -15,7 +15,6 @@ use App\Permanencia\RegistroProveedores;
 use App\Services\Plataforma\ModulosDeLaEscuela;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
-use Illuminate\Support\Facades\DB;
 use Throwable;
 
 /**

@@ -408,6 +408,14 @@ export const CATALOGO_MENU: GrupoMenu[] = [
              * arriba— y la que ya siguen Servicio social y Admisiones.
              */
             { clave: 'permanencia-alertas', etiqueta: 'Alertas', url: '/permanencia/alertas', permiso: 'ver-alertas' },
+            /*
+             * Los casos van con `ver-alertas` y no con uno de los cinco permisos
+             * propios, porque es lo que la RUTA exige para entrar: una entrada
+             * de menú que ofrezca lo que la ruta niega es un botón muerto, y el
+             * caso contrario —pedir aquí `abrir-casos`— la escondería de quien
+             * sólo interviene o sólo cierra.
+             */
+            { clave: 'permanencia-casos', etiqueta: 'Casos', url: '/permanencia/casos', permiso: 'ver-alertas' },
             { clave: 'permanencia-reglas', etiqueta: 'Reglas de alerta', url: '/permanencia/reglas', permiso: 'configurar-reglas-alerta' },
             { clave: 'permanencia-catalogos', etiqueta: 'Catálogos', url: '/permanencia/catalogos', permiso: 'configurar-reglas-alerta' },
         ],
