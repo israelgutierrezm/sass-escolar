@@ -36,6 +36,21 @@ export interface ExtraCatalogo {
     ayuda: string;
     /** Sólo `bandera`: qué decir en la insignia cuando está encendida. */
     insignia?: string;
+    /**
+     * Si se puede TOCAR desde aquí. Por omisión sí.
+     *
+     * En falso se sigue viendo en la lista —su insignia dice cómo está— pero no
+     * aparece en el formulario. Hace falta para las banderas que son una
+     * decisión de SEGURIDAD y no de captura: qué categoría de señal es
+     * reservada, por ejemplo. Ofrecerlas para editar sería poner a un
+     * administrativo a decidir, desde una casilla y sin contexto, quién puede
+     * ver los adeudos de un alumno.
+     *
+     * Es la misma línea que `niveles_estudio.protegido`: se ve, se ordena y se
+     * apaga; lo que no se toca es lo que otras partes del sistema dan por
+     * cierto.
+     */
+    editable?: boolean;
 }
 
 export interface ItemCatalogo {
@@ -85,6 +100,15 @@ const errores = ref<Record<string, string>>({});
 const procesando = ref(false);
 
 const catalogoActivo = computed(() => editando.value?.catalogo ?? null);
+
+/*
+ * Lo que el formulario ofrece. Una bandera con `editable: false` se sigue
+ * VIENDO en la lista —su insignia dice cómo está— y no se puede tocar desde
+ * * aquí: son las que otras partes del sistema dan por ciertas.
+ */
+const extrasEditables = computed(
+    () => (catalogoActivo.value?.extras ?? []).filter((e) => e.editable !== false),
+);
 
 const rejilla = computed(() => (props.columnas === 1 ? '' : 'lg:grid-cols-2'));
 
@@ -272,7 +296,7 @@ function colorNivel(n: number): string {
                     :error="errores.descripcion"
                 />
 
-                <template v-for="extra in catalogoActivo?.extras ?? []" :key="extra.campo">
+                <template v-for="extra in extrasEditables" :key="extra.campo">
                     <CampoTexto
                         v-if="extra.tipo === 'entero'"
                         v-model.number="datos[extra.campo]"

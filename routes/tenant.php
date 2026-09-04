@@ -125,6 +125,8 @@ use App\Http\Controllers\PortafolioController;
 use App\Http\Controllers\PortalAspiranteController;
 use App\Http\Controllers\PresentacionExamenController;
 use App\Http\Controllers\PresupuestoController;
+use App\Http\Controllers\Permanencia\CatalogoPermanenciaController;
+use App\Http\Controllers\Permanencia\ReglaAlertaController;
 use App\Http\Controllers\ProcesosFormativos\CatalogoProcesosController;
 use App\Http\Controllers\ProcesosFormativos\ConvenioFormativoController;
 use App\Http\Controllers\ProcesosFormativos\ExpedienteFormativoController;
@@ -2402,6 +2404,43 @@ Route::middleware([
                 Route::get('{clave}', 'ver')->name('ver');
                 Route::get('{clave}/descargar/{formato}', 'descargar')
                     ->whereIn('formato', ['xlsx', 'csv'])->name('descargar');
+            });
+
+        /*
+         * Alertas tempranas, intervencion y permanencia escolar.
+         *
+         * Seccion propia. La fase 1 entrega SOLO la configuracion --las reglas,
+         * sus versiones y los catalogos--, asi que todo el grupo va detras de
+         * `configurar-reglas-alerta`. La bandeja de alertas y los casos llegan
+         * en las fases 3 y 5 con sus permisos, que son otros: quien calibra las
+         * reglas no es necesariamente quien atiende la cola.
+         *
+         * Un permiso sin puerta se palomea creyendo que concede algo, asi que
+         * los otros doce de la matriz todavia no estan declarados.
+         */
+        Route::middleware(['modulo:permanencia', 'can:configurar-reglas-alerta'])
+            ->prefix('permanencia')->name('tenant.permanencia.')
+            ->group(function () {
+                Route::controller(ReglaAlertaController::class)
+                    ->prefix('reglas')->name('reglas.')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::post('/', 'store')->name('crear');
+                        Route::put('{regla}', 'update')->whereNumber('regla')->name('guardar');
+                        Route::post('{regla}/versiones', 'versionar')->whereNumber('regla')->name('versionar');
+                        Route::patch('{regla}/activa', 'alternar')->whereNumber('regla')->name('activa');
+                        Route::delete('{regla}', 'destroy')->whereNumber('regla')->name('eliminar');
+                    });
+
+                Route::controller(CatalogoPermanenciaController::class)
+                    ->prefix('catalogos')->name('catalogos.')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::post('{catalogo}', 'store')->name('crear');
+                        Route::put('{catalogo}/{item}', 'update')->whereNumber('item')->name('guardar');
+                        Route::patch('{catalogo}/{item}/activo', 'alternar')->whereNumber('item')->name('activo');
+                        Route::delete('{catalogo}/{item}', 'destroy')->whereNumber('item')->name('eliminar');
+                    });
             });
 
         /*

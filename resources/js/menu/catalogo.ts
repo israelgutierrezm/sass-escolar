@@ -381,6 +381,38 @@ export const CATALOGO_MENU: GrupoMenu[] = [
     },
     {
         /*
+         * Alertas tempranas y permanencia.
+         *
+         * Sección propia y no dentro de «Alumnos»: la operan varias áreas
+         * —tutoría, orientación, control escolar, coordinación— y su ciclo llega
+         * hasta el cierre de un caso. Bajo «Alumnos» quedaría detrás de
+         * `ver-alumnos`, que es el permiso de quien lleva el padrón y no tiene
+         * nada que ver con acompañar a alguien.
+         *
+         * La etiqueta dice PERMANENCIA y no «alertas»: las alertas son el
+         * principio de esto, no lo que es. Y la palabra que se elige aquí es la
+         * que después aparece en los reportes y en las conversaciones — se
+         * persigue que el alumno se quede, no clasificar a quien se va.
+         */
+        clave: 'permanencia',
+        etiqueta: 'Permanencia',
+        prefijo: '/permanencia',
+        facetas: ['administrativo'],
+        icono: 'M4.5 12.75l6 6 9-13.5',
+        modulo: 'permanencia',
+        hijos: [
+            /*
+             * De momento sólo la configuración: es lo único que la fase 1
+             * entrega. La bandeja de alertas y los casos entran ARRIBA de éstas
+             * cuando lleguen —lo diario primero, lo que se arma una vez
+             * después—, que es la regla de Finanzas.
+             */
+            { clave: 'permanencia-reglas', etiqueta: 'Reglas de alerta', url: '/permanencia/reglas', permiso: 'configurar-reglas-alerta' },
+            { clave: 'permanencia-catalogos', etiqueta: 'Catálogos', url: '/permanencia/catalogos', permiso: 'configurar-reglas-alerta' },
+        ],
+    },
+    {
+        /*
          * El lado del ALUMNO. Sección propia y no dentro de la administrativa,
          * por lo mismo que «Mis vacantes» salió de «Alumnos»: un estudiante no
          * ve secciones de faceta administrativa.

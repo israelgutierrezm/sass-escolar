@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**136 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**137 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -65,7 +65,7 @@ Los otros dos documentos vivos:
    un rol con disposición guardada. Si node no puede correrlo, la suite FALLA
    en vez de saltarse.
 
-   **Las 136 están en verde**, barridas el 2026-09-03. Catorce son del módulo de
+   **Las 137 están en verde**, barridas el 2026-09-04. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -771,6 +771,111 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
   CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
   adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
+- **Alertas tempranas, intervención y permanencia · FASE 1** (2026-09-04,
+  pedido del cliente). Módulo `permanencia`, sección propia, `/permanencia/reglas`
+  y `/permanencia/catalogos`. **El diseño completo —inventario de fuentes,
+  modelo funcional, riesgos de privacidad y sesgo, modelo de datos, reglas, dos
+  máquinas de estados, matriz de permisos, jobs y las ocho fases— vive en
+  `docs/plan-alertas-tempranas.md`**, escrito ANTES de tocar una tabla porque el
+  pedido lo exigía así.
+  - **Qué es y qué NO es**: detección explicable de señales de riesgo y apoyo a
+    la intervención humana. **No predice deserción**: aplica reglas que una
+    persona escribió con umbrales que una persona eligió. Cualquier pantalla que
+    salga de aquí tiene que poder decirse con esas palabras.
+  - **Lo que el reconocimiento encontró, y cambia el diseño:**
+    - **Ya existe un módulo de TUTORÍAS** —`tutorias`, `sesiones_tutoria` con su
+      bandera `confidencial`, y `accesos_bitacora_tutoria`, una bitácora de
+      consulta que registra cuántas se mostraron y cuántas quedaron reservadas y
+      **se enseña a quien mira**—. Cero filas, pero construido. **No sirve de
+      caso**: cuelga de un tutor asignado por ciclo —una intervención de
+      permanencia la hace orientación o finanzas, que no son tutores de nadie—,
+      es por PERSONA y no por matrícula, y no tiene responsable, SLA ni estado.
+      Lo que sí se hereda entero es su privacidad.
+    - **El porcentaje de asistencia NO es un servicio**: vive en el SQL de
+      `AsistenciaPorMateria`, en `DocenciaController` y en `PaseListaController`.
+      Este módulo sería el cuarto consumidor, así que la fase 2 lo extrae a
+      `AsistenciaDelAlumno`.
+    - **El reloj checador está VACÍO** (`checadas`, 0 filas): la señal «no entró
+      al plantel» NO está disponible, y prometerla sería inventar un dato.
+  - **Lo CONFIABLE frente a lo APROXIMADO, medido**: `historial` tiene 1016
+    filas asentadas con acta; `asistencia_clase` tiene **8 para 17
+    inscripciones**, `calificaciones_componente` **1**, `intentos` **0** y
+    `bitacora_accesos` sólo **3 personas distintas**. De ahí sale la regla que
+    gobierna el motor: **el resultado de una evaluación tiene TRES valores**
+    —`dispara`, `no_dispara` y `sin_datos`—, y toda regla declara una
+    **cobertura mínima**. Sin ella, a quien tiene una sola sesión con falta se
+    le calcula «0 % de asistencia».
+  - **Y la cobertura viaja al tablero**: un coordinador que ve «0 alertas de
+    asistencia» tiene que poder distinguir «ahí nadie falta» de «ahí nadie pasa
+    lista». **El sesgo dominante de este módulo no es demográfico: es de
+    CAPTURA.**
+  - **Se EXCLUYE `becas_alumno` como fuente**, y se dice por qué: es un proxy
+    socioeconómico, y usarlo subiría el riesgo de quien recibe apoyo por el
+    hecho de recibirlo. Tampoco sexo, nacionalidad ni estado civil. **La lista de
+    ejes de alcance es cerrada y una prueba barre las COLUMNAS de la tabla**, no
+    una lista escrita en el código: el día que alguien agregue la columna, se
+    cae.
+  - **Dos decisiones que se apartan de la letra del pedido**, con su razón:
+    - **DOS máquinas de estados y no una de doce.** Los primeros cuatro estados
+      son el triage de una SEÑAL; los ocho restantes son el trabajo de una
+      persona sobre un CASO. Fundidos, una señal estaría «en intervención» —y
+      una señal no interviene: es cierta o dejó de serlo—, y cerrar el caso
+      obligaría a mentir sobre la señal o a dejarlo abierto para no mentir.
+    - **NO se persiste la evaluación negativa**: 5000 alumnos × 20 reglas × 365
+      días son 36 millones de filas al año para guardar «hoy tampoco». Es
+      reproducible con la regla, su versión y la ventana.
+  - **Tres prohibiciones duras, y van a PRUEBAS y no sólo a la prosa**: el motor
+    no escribe en matrículas, historial, asistencia ni adeudos; ningún atributo
+    sensible entra a una condición; y **ninguna etiqueta punitiva sobrevive a un
+    barrido de cadenas** —«moroso», «desertor», «problemático»— sobre lo
+    sembrado.
+  - **`categorias_senal.sensible` es la capa de privacidad, y vive en el
+    CATÁLOGO.** Repartida por cada pantalla, la que se olvide filtra el monto de
+    una deuda a un docente — y no falla ruidosamente. Y **sensible no es
+    invisible**: quien no la alcanza ve QUE HAY una señal administrativa, lo que
+    le permite llamar a quien corresponde, y no ve el valor ni la evidencia.
+  - **El alcance de una regla NO es `ResolutorDeRegla`.** Allá gana UNA regla, la
+    más específica; **aquí evalúan TODAS las que alcanzan al alumno**, porque
+    «tres faltas seguidas» y «promedio bajo» son dos preguntas distintas. Alguien
+    va a querer reusar aquel resolutor por parecido: con él, un alumno recibiría
+    una sola alerta y las demás señales desaparecerían **sin un solo error**.
+  - **No hay campo de condición libre.** Una regla es
+    `(métrica, comparador, umbral, ventana)`. Una caja de texto sería la misma
+    superficie de ejecución que el constructor de reportes rechazó, y sobre todo
+    **no se podría EXPLICAR**: de una expresión arbitraria sólo se puede repetir
+    el texto, y una alerta tiene que decir por qué se generó.
+  - **Las ocho reglas de ejemplo nacen APAGADAS y sin avisar a nadie**, y la
+    pantalla lo dice arriba. Mismo criterio que la escalera de cobranza. Los
+    umbrales que traen son un punto de partida y su nota dice de dónde salió cada
+    número: **el 80 % de asistencia es el más común en México pero NO hay norma**,
+    y hay que copiarlo del reglamento de cada escuela.
+  - **Cuatro defectos propios que la fase cazó**, tres de ellos por el barrido de
+    mutaciones y uno por la propia suite:
+    1. **El proveedor no se derivaba de la métrica.** El docblock lo prometía y
+       ninguna línea lo hacía.
+    2. **La guarda de encender iba DESPUÉS de escribir**: la regla quedaba
+       encendida y quien la pulsó leía «no se puede encender». Un rechazo que no
+       rechaza enseña a no creerle a los avisos.
+    3. **El modelo nacía `activa => true`** —copiado de `ReglaProceso`, donde no
+       hace daño—. Aquí una regla activa pone gente en la cola de alguien en la
+       siguiente corrida.
+    4. **El barrido de etiquetas punitivas medía CERO textos**:
+       `->get(['nombre','descripcion'])->flatten()` sobre modelos devuelve
+       modelos, no atributos. Lo cazó la guarda de «el barrido no pasó por
+       vacío», que existe justo para eso.
+  - **Y una lección de método que vale para cualquier suite**: **una suite que
+    afirma sobre lo SEMBRADO tiene que correr el seeder.** Tres mutaciones del
+    seeder sobrevivieron porque la suite leía lo que ya estaba en la base:
+    cambiarlo para que las reglas nacieran encendidas no tumbaba nada, y el
+    defecto habría aparecido en la siguiente escuela migrada con las alertas ya
+    saliendo. Ahora las borra y re-siembra dentro de la transacción.
+  - **`CatalogoEditable` gana `editable: false`**: una bandera que es decisión de
+    seguridad se ve en la lista y no aparece en el formulario, y el servidor la
+    descarta aunque llegue en la petición — la pantalla que no la ofrece no es
+    una defensa. Es la línea de `niveles_estudio.protegido`.
+  - Pruebas: `scripts/prueba-permanencia-reglas.php`, 63 verificaciones,
+    comprobadas mutando **28 reglas**.
+
 - **Servicio social y prácticas · FASE 7: alertas y reportes** (2026-09-03).
   Con esto el módulo formativo queda entregado salvo la fase 8, que es opcional.
   `procesos:avisar`, diario a las 7:30, y ocho reportes en un área propia.

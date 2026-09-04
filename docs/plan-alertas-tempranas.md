@@ -642,7 +642,7 @@ Cada fase es entregable y verificable sola.
 
 | # | Fase | Qué entrega |
 |---|---|---|
-| **1** | **Cimientos, catálogos y reglas** | Módulo `permanencia`, sección propia, tres catálogos con seeder, `reglas_alerta` + versiones + exclusiones, pantalla de configuración con las ocho reglas de ejemplo **apagadas**, y los permisos que ya tengan puerta. |
+| ~~**1**~~ | ~~**Cimientos, catálogos y reglas**~~ **HECHA** | Módulo `permanencia` encendido con sección propia, **cuatro** catálogos con seeder —la categoría lleva su bandera `sensible` y el permiso que abre su detalle—, `reglas_alerta` + versiones + exclusiones, `CatalogoMetricas` con doce métricas declaradas, y las ocho reglas de ejemplo **apagadas y sin avisar a nadie**. `scripts/prueba-permanencia-reglas.php`, 63 verificaciones, 28 mutaciones. |
 | **2** | **Proveedores y motor** | Los ocho proveedores de señales con su contrato (datos, periodo, calidad, evidencia, última actualización), `AsistenciaDelAlumno` extraído, el motor con evidencia/cobertura/dedup/enfriamiento, `permanencia:evaluar` y el cierre automático de señales. |
 | **3** | **Bandeja y triage** | La bandeja de alertas con su alcance por categoría y campus, validar/descartar con motivo, y la ficha de alerta que explica su evidencia. |
 | **4** | **Riesgo compuesto** | El cálculo por categorías sin doble conteo, su desglose, su decaimiento, el ajuste con justificación y el histórico. |
@@ -705,6 +705,46 @@ tiene:
 | Pago pendiente de confirmar | No es un pago: el adeudo sigue vencido, y la evidencia lo dice |
 | Usuario de otro campus | 404 en el detalle (no 403: confirmaría que existe) |
 | La regla cambia con alertas abiertas | Las abiertas conservan su versión |
+
+---
+
+### Lo que la fase 1 dejó decidido, y no estaba en este plan
+
+1. **`CatalogoMetricas` se declara ANTES que los proveedores.** El plan decía
+   que la fase 1 entregaba las reglas de ejemplo, y una regla necesita una
+   métrica que exista: sin la declaración, la pantalla ofrecería texto libre y
+   guardar una regla con una métrica inventada la dejaría sin poderse calcular
+   jamás. Las métricas se declaran ya, los proveedores que las calculan llegan
+   en la fase 2, y **una prueba tiene que cruzar las dos listas** —guarda
+   ruidosa— para que una métrica sin proveedor falle en rojo en vez de quedarse
+   muda.
+
+2. **El proveedor se DERIVA de la métrica.** No se captura: capturado, alguien
+   elegiría «asistencia» con una métrica académica y la regla se guardaría sin
+   poderse calcular. Lo cazó el barrido de mutaciones —el docblock lo prometía y
+   ninguna línea lo hacía—.
+
+3. **La regla nace apagada TAMBIÉN en el modelo**, no sólo en el controlador. Es
+   lo contrario de `ReglaProceso`, y la razón es que una regla de alerta activa
+   empieza a poner gente en la cola de alguien en la siguiente corrida. El
+   default importa el día que otro camino cree una regla.
+
+4. **`CatalogoEditable` gana `editable: false`.** Una bandera que es una
+   decisión de SEGURIDAD —qué categoría es reservada— se ve en la lista y no
+   aparece en el formulario, y el servidor la descarta aunque llegue en la
+   petición: la pantalla que no la ofrece no es una defensa. Es la línea de
+   `niveles_estudio.protegido`.
+
+5. **La guarda va ANTES de escribir.** Encender una regla sin versión vigente
+   escribía primero y se quejaba después: la regla quedaba encendida y quien la
+   pulsó leía «no se puede encender». Un rechazo que no rechaza enseña a no
+   creerle a los avisos.
+
+6. **Una suite que afirma sobre lo SEMBRADO tiene que correr el seeder.** Las
+   tres mutaciones del seeder sobrevivieron porque la suite leía lo que ya
+   estaba en la base: cambiar el seeder para que las reglas nazcan encendidas no
+   tumbaba nada, y el defecto habría aparecido en la siguiente escuela migrada,
+   con las alertas ya saliendo.
 
 ---
 

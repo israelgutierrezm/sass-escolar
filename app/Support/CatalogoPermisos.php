@@ -254,6 +254,21 @@ final class CatalogoPermisos
          * Ninguno ignora el ALCANCE: el permiso dice QUÉ, y el campus y la
          * asignación dicen SOBRE QUIÉN.
          */
+        /*
+         * ── Alertas tempranas y permanencia ────────────────────────────────
+         *
+         * Los permisos se declaran POR FASE, como en el módulo formativo: aquí
+         * llegan sólo los que YA tienen una ruta que los compruebe. Un permiso
+         * sin puerta se palomea creyendo que concede algo, y este proyecto ya
+         * retiró dos así (`ver-personas`, `crear-personas`).
+         *
+         * La matriz completa —trece permisos— está en
+         * `docs/plan-alertas-tempranas.md`; el resto llega con su pantalla.
+         */
+        'Alertas y permanencia' => [
+            'configurar-reglas-alerta' => ['Configurar las reglas de alerta', 'Qué señales vigila la escuela, con qué umbral y sobre quién: las reglas, sus versiones, los catálogos y las exclusiones. NO abre la bandeja de alertas ni los casos.', [self::ADMINISTRATIVO]],
+        ],
+
         'Servicio social y prácticas' => [
             'configurar-procesos-formativos' => ['Configurar los procesos', 'Los tipos de proceso —servicio social, prácticas, residencia…— y sus catálogos: qué exige cada uno y si lleva bitácora de horas.', [self::ADMINISTRATIVO]],
             'ver-procesos-formativos' => ['Consultar servicio social y prácticas', 'Sólo lectura del módulo, para dirección y auditoría.', [self::ADMINISTRATIVO]],
