@@ -124,6 +124,73 @@ function puedeDesplazarse(array $lineas, int $i): bool
     return false;
 }
 
+/**
+ * Las columnas DIRECTAS de la rejilla de la línea `$i`.
+ *
+ * Se identifican por sangría, igual que `puedeDesplazarse`: un hijo directo es
+ * la primera línea que abre un elemento con exactamente un nivel más de
+ * sangría, y su etiqueta se lee ENTERA porque con varios atributos la clase
+ * baja a su propio renglón.
+ *
+ * @param  array<int, string>  $lineas
+ * @return array<int, string>  la etiqueta completa de cada columna
+ */
+function columnasDeLaRejilla(array $lineas, int $i): array
+{
+    $sangria = strlen($lineas[$i]) - strlen(ltrim($lineas[$i]));
+    $columnas = [];
+
+    for ($j = $i + 1; $j < count($lineas); $j++) {
+        $linea = $lineas[$j];
+
+        if (trim($linea) === '') {
+            continue;
+        }
+
+        $suya = strlen($linea) - strlen(ltrim($linea));
+
+        // Se acabó la rejilla.
+        if ($suya <= $sangria) {
+            break;
+        }
+
+        // Sólo los hijos DIRECTOS, y sólo los que abren un elemento.
+        if ($suya !== $sangria + 4 || ! preg_match('/^\s*<[a-zA-Z]/', $linea)) {
+            continue;
+        }
+
+        $etiqueta = '';
+        for ($k = $j; $k < count($lineas); $k++) {
+            $etiqueta .= $lineas[$k];
+            if (str_contains($lineas[$k], '>')) {
+                break;
+            }
+        }
+
+        /*
+         * Y hasta dónde llega esa columna: se necesita para saber si ALGO de
+         * dentro tiene ancho mínimo. Sin acotarlo, la comprobación le exigiría
+         * `min-w-0` a columnas que no contienen nada que pueda estirar, y un
+         * detector que marca lo bueno enseña a ignorar sus avisos.
+         */
+        $hasta = $j;
+        for ($k = $j + 1; $k < count($lineas); $k++) {
+            if (trim($lineas[$k]) === '') {
+                continue;
+            }
+            $sub = strlen($lineas[$k]) - strlen(ltrim($lineas[$k]));
+            if ($sub <= $suya) {
+                break;
+            }
+            $hasta = $k;
+        }
+
+        $columnas[] = ['etiqueta' => $etiqueta, 'desde' => $j, 'hasta' => $hasta];
+    }
+
+    return $columnas;
+}
+
 echo PHP_EOL."\033[1mNinguna tabla se queda sin salida\033[0m".PHP_EOL;
 
 $raiz = __DIR__.'/../resources/js';
@@ -176,6 +243,105 @@ $sin = [
 
 verificar('reconoce una tabla que SÍ puede desplazarse', puedeDesplazarse($conSalida, 1));
 verificar('y delata a la que NO', ! puedeDesplazarse($sin, 1));
+
+/*
+ * ── Segunda red: la COLUMNA que no puede encoger ──────────────────────────
+ *
+ * Una tabla dentro de `overflow-x-auto` está bien resuelta… hasta que su
+ * columna de la rejilla no encoge. Un hijo de grid o de flex nace con
+ * `min-width: auto`, así que no baja del ancho mínimo de su contenido: estira a
+ * su padre, y con él la PÁGINA entera. El desplazamiento de la tabla nunca
+ * llega a hacer falta porque nadie la aprieta.
+ *
+ * Medido en la ficha de una señal a 375 px antes de corregirlo: desbordaba a
+ * 506 y dejaba 24 elementos fuera de la pantalla —la columna de validar o
+ * descartar entera—. La primera red no lo veía: la tabla SÍ estaba dentro de
+ * algo que desplaza. El defecto estaba un nivel más arriba.
+ *
+ * Sólo se exige donde de verdad hace falta: una rejilla cuyo componente
+ * contenga algo con ancho mínimo declarado (`min-w-[…]`). Pedírselo a todas
+ * llenaría de ruido componentes donde ningún hijo puede estirar.
+ */
+echo PHP_EOL."\033[1mNinguna columna de rejilla estira la página\033[0m".PHP_EOL;
+
+$rejillasMiradas = 0;
+$columnasRigidas = [];
+
+foreach (componentes(__DIR__.'/../resources/js') as $archivo) {
+    $texto = (string) file_get_contents($archivo);
+
+    // Sin nada de ancho mínimo, ninguna columna puede estirar.
+    if (! str_contains($texto, 'min-w-[')) {
+        continue;
+    }
+
+    $lineas = explode("\n", $texto);
+
+    foreach ($lineas as $i => $linea) {
+        if (! preg_match('/class="[^"]*\bgrid\b[^"]*grid-cols-/', $linea)) {
+            continue;
+        }
+
+        $rejillasMiradas++;
+
+        foreach (columnasDeLaRejilla($lineas, $i) as $columna) {
+            $dentro = implode("
+", array_slice(
+                $lineas, $columna['desde'], $columna['hasta'] - $columna['desde'] + 1));
+
+            // Sólo pesa si de verdad lleva algo que no puede encoger.
+            if (! str_contains($dentro, 'min-w-[')) {
+                continue;
+            }
+
+            if (! str_contains($columna['etiqueta'], 'min-w-0')) {
+                $columnasRigidas[] = basename($archivo).':'.($i + 1);
+                break;
+            }
+        }
+    }
+}
+
+verificar('El barrido encontró rejillas con contenido de ancho mínimo',
+    $rejillasMiradas > 0, $rejillasMiradas.' rejillas');
+
+verificar(
+    'Toda columna de una rejilla con contenido ancho lleva `min-w-0`',
+    $columnasRigidas === [],
+    $columnasRigidas === [] ? '' : implode(' · ', array_slice(array_unique($columnasRigidas), 0, 8)),
+);
+
+/* Y la red de la red, otra vez: el detector tiene que distinguir. */
+$conMinW0 = [
+    '        <div class="grid gap-4 lg:grid-cols-3">',
+    '            <section class="tarjeta min-w-0 p-5 lg:col-span-2">',
+    '                <table class="w-full min-w-[28rem]">',
+    '            </section>',
+    '        </div>',
+];
+$sinMinW0 = [
+    '        <div class="grid gap-4 lg:grid-cols-3">',
+    '            <section class="tarjeta p-5 lg:col-span-2">',
+    '                <table class="w-full min-w-[28rem]">',
+    '            </section>',
+    '        </div>',
+];
+
+$rigida = function (array $l): bool {
+    foreach (columnasDeLaRejilla($l, 0) as $c) {
+        $dentro = implode("
+", array_slice($l, $c['desde'], $c['hasta'] - $c['desde'] + 1));
+
+        if (str_contains($dentro, 'min-w-[') && ! str_contains($c['etiqueta'], 'min-w-0')) {
+            return true;
+        }
+    }
+
+    return false;
+};
+
+verificar('reconoce la columna que SÍ puede encoger', ! $rigida($conMinW0));
+verificar('y delata a la que NO', $rigida($sinMinW0));
 
 echo PHP_EOL.'Resultado: '.($verificaciones - $fallidas)." correctas, {$fallidas} fallidas".PHP_EOL;
 

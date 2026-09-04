@@ -31,7 +31,7 @@ import MenuAcciones, { type OpcionAccion } from '@/Components/MenuAcciones.vue';
 import Modal from '@/Components/Modal.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { COLOR_SEVERIDAD, colorPermanencia } from '@/utils/coloresPermanencia';
+import { COLOR_SEVERIDAD, colorPermanencia, etiquetaPermanencia } from '@/utils/coloresPermanencia';
 import { hoyLocal } from '@/utils/fechas';
 
 interface Version {
@@ -388,8 +388,16 @@ const textos = (clave: string) => (props.catalogos[clave] ?? []) as string[];
                     :style="{ color: 'var(--color-suave)' }"
                     @click="abierta = abierta === regla.id ? null : regla.id"
                 >
-                    {{ abierta === regla.id ? 'Ocultar' : 'Ver' }} las
-                    {{ regla.versiones.length }} versión{{ regla.versiones.length === 1 ? '' : 'es' }}
+                    <!--
+                        El artículo también concuerda: «Ver las 1 versión» delata
+                        una frase armada a pedazos. Va entera en cada rama.
+                    -->
+                    {{ abierta === regla.id ? 'Ocultar' : 'Ver' }}
+                    {{
+                        regla.versiones.length === 1
+                            ? 'la versión'
+                            : `las ${regla.versiones.length} versiones`
+                    }}
                 </button>
 
                 <div v-if="abierta === regla.id" class="mt-3 overflow-x-auto">
@@ -537,7 +545,7 @@ const textos = (clave: string) => (props.catalogos[clave] ?? []) as string[];
                             <CampoSelect
                                 v-model="datos.ventana_tipo"
                                 etiqueta="Ventana"
-                                :opciones="textos('ventanas').map((v) => ({ valor: v, texto: v }))"
+                                :opciones="textos('ventanas').map((v) => ({ valor: v, texto: etiquetaPermanencia(v) }))"
                                 :error="errores.ventana_tipo"
                                 requerido
                             />
@@ -552,7 +560,7 @@ const textos = (clave: string) => (props.catalogos[clave] ?? []) as string[];
                             <CampoSelect
                                 v-model="datos.severidad"
                                 etiqueta="Severidad"
-                                :opciones="textos('severidades').map((s) => ({ valor: s, texto: s }))"
+                                :opciones="textos('severidades').map((s) => ({ valor: s, texto: etiquetaPermanencia(s) }))"
                                 :error="errores.severidad"
                                 requerido
                             />
@@ -614,7 +622,7 @@ const textos = (clave: string) => (props.catalogos[clave] ?? []) as string[];
                         <CampoSelect
                             v-model="datos.severidad"
                             etiqueta="Severidad"
-                            :opciones="textos('severidades').map((s) => ({ valor: s, texto: s }))"
+                            :opciones="textos('severidades').map((s) => ({ valor: s, texto: etiquetaPermanencia(s) }))"
                             :error="errores.severidad"
                             requerido
                         />

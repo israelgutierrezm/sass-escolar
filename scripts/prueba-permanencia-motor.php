@@ -49,6 +49,8 @@ $app->make(Kernel::class)->bootstrap();
 
 tenancy()->initialize(Tenant::find('demo'));
 
+require __DIR__.'/apoyo-permanencia.php';
+
 $db = DB::connection('tenant');
 
 $verificaciones = 0;
@@ -259,23 +261,7 @@ try {
      * lo hace sólo cuando la escuela TIENE datos de esa tabla —o sea, no aquí y
      * sí en la del cliente—.
      */
-    DB::table('accesos_caso')->delete();
-    DB::table('transiciones_caso')->delete();
-    DB::table('tareas_caso')->delete();
-    DB::table('intervenciones')->delete();
-    DB::table('caso_equipo')->delete();
-    DB::table('caso_alerta')->delete();
-    // La foránea de `caso_origen_id` apunta a la MISMA tabla, así que un
-    // `DELETE` pelado revienta contra sí mismo: se suelta primero.
-    DB::table('casos_permanencia')->update(['caso_origen_id' => null]);
-    DB::table('casos_permanencia')->delete();
-    Alerta::query()->forceDelete();
-    // El riesgo compuesto apunta a la corrida, así que va primero: la fase 4
-    // agregó esa foránea y sin este orden el borrado revienta con un 1451.
-    DB::table('riesgo_matricula')->delete();
-    DB::table('corridas_evaluacion')->delete();
-    ReglaAlertaVersion::query()->forceDelete();
-    ReglaAlerta::query()->forceDelete();
+    limpiarPermanencia();
 
     $inscripcion = DB::table('inscripcion')
         ->whereNull('deleted_at')
@@ -285,6 +271,18 @@ try {
     verificar('Hay una inscripción con la que construir el escenario', $inscripcion !== null);
 
     $matricula = MatriculaOferta::query()->with('oferta')->findOrFail($inscripcion->matricula_oferta_id);
+
+    /*
+     * La suite es DUEÑA de la asistencia de esa inscripción: se le retira la
+     * que tuviera antes de sembrar la suya.
+     *
+     * Sin esto la suite afirma «cuatro faltas seguidas» sobre una inscripción
+     * que puede traer las suyas, y entonces mide OTRO número. En un demo recién
+     * migrado da igual —hay 8 filas para 17 inscripciones— y en una escuela que
+     * pasa lista se cae. Se vio en cuanto se sembró asistencia para mirar el
+     * módulo en el navegador: la regla midió 12 faltas en vez de 4.
+     */
+    AsistenciaClase::query()->where('inscripcion_id', $inscripcion->id)->forceDelete();
 
     // Diez sesiones: seis presentes y cuatro faltas seguidas al final.
     // Se construye porque el demo tiene 8 filas para 17 inscripciones: sin
@@ -345,7 +343,7 @@ try {
 
     echo PHP_EOL.'5. La alerta se levantó, y EXPLICA por qué'.PHP_EOL;
 
-    $alerta = Alerta::query()->where('regla_id', $faltas->id)->first();
+    $alerta = Alerta::query()->where('regla_id', $faltas->id)->where('matricula_oferta_id', $matricula->id)->first();
 
     verificar('Se levantó una alerta', $alerta !== null,
         (string) Alerta::query()->count().' alertas en total');
@@ -376,8 +374,8 @@ try {
     $motor->correr();
 
     verificar('Sigue habiendo UNA sola alerta de esta regla',
-        Alerta::query()->where('regla_id', $faltas->id)->count() === 1,
-        (string) Alerta::query()->where('regla_id', $faltas->id)->count());
+        Alerta::query()->where('regla_id', $faltas->id)->where('matricula_oferta_id', $matricula->id)->count() === 1,
+        (string) Alerta::query()->where('regla_id', $faltas->id)->where('matricula_oferta_id', $matricula->id)->count());
 
     $recargada = $alerta->fresh();
 
@@ -403,7 +401,7 @@ try {
 
     verificar('A quien no tiene lista pasada NO se le levanta alerta',
         ! Alerta::query()->where('matricula_oferta_id', $sinLista->id)
-            ->where('regla_id', $faltas->id)->exists());
+            ->where('regla_id', $faltas->id)->where('matricula_oferta_id', $matricula->id)->exists());
 
     verificar('Y la corrida lo cuenta como «sin datos», no como «no dispara»',
         $corrida->sin_datos > 0, (string) $corrida->sin_datos);
@@ -511,8 +509,8 @@ try {
     $motor->correr();
 
     verificar('Dentro del enfriamiento NO se levanta otra',
-        Alerta::query()->where('regla_id', $faltas->id)->abiertas()->count() === 0,
-        (string) Alerta::query()->where('regla_id', $faltas->id)->abiertas()->count());
+        Alerta::query()->where('regla_id', $faltas->id)->where('matricula_oferta_id', $matricula->id)->abiertas()->count() === 0,
+        (string) Alerta::query()->where('regla_id', $faltas->id)->where('matricula_oferta_id', $matricula->id)->abiertas()->count());
 
     // Pasado el enfriamiento, sí: la situación sigue ahí y hay que volver a
     // decirlo. Se mueve el reloj en vez de la fecha de cierre, para ejercitar la
@@ -520,15 +518,15 @@ try {
     $motor->correr(hoy: CarbonImmutable::now()->addDays(20));
 
     verificar('Pasado el enfriamiento, vuelve a levantarse',
-        Alerta::query()->where('regla_id', $faltas->id)->abiertas()->count() === 1,
-        (string) Alerta::query()->where('regla_id', $faltas->id)->abiertas()->count());
+        Alerta::query()->where('regla_id', $faltas->id)->where('matricula_oferta_id', $matricula->id)->abiertas()->count() === 1,
+        (string) Alerta::query()->where('regla_id', $faltas->id)->where('matricula_oferta_id', $matricula->id)->abiertas()->count());
 
     echo PHP_EOL.'10. Apagar la regla deja las alertas OBSOLETAS, no resueltas'.PHP_EOL;
 
     $faltas->update(['activa' => false]);
     $motor->correr();
 
-    $jubilada = Alerta::query()->where('regla_id', $faltas->id)
+    $jubilada = Alerta::query()->where('regla_id', $faltas->id)->where('matricula_oferta_id', $matricula->id)
         ->orderByDesc('id')->first();
 
     verificar('Pasa a OBSOLETA', $jubilada->estado_senal === Alerta::OBSOLETA,
@@ -544,7 +542,7 @@ try {
     $motor->correr(hoy: CarbonImmutable::now()->addDays(40));
 
     verificar('Con la regla encendida vuelve a haber alerta',
-        Alerta::query()->where('regla_id', $faltas->id)->abiertas()->count() === 1);
+        Alerta::query()->where('regla_id', $faltas->id)->where('matricula_oferta_id', $matricula->id)->abiertas()->count() === 1);
 
     ExclusionReglaAlerta::create([
         'matricula_oferta_id' => $matricula->id,
@@ -554,11 +552,11 @@ try {
     $motor->correr(hoy: CarbonImmutable::now()->addDays(41));
 
     verificar('La exclusión cierra lo que había abierto',
-        Alerta::query()->where('regla_id', $faltas->id)
+        Alerta::query()->where('regla_id', $faltas->id)->where('matricula_oferta_id', $matricula->id)
             ->where('matricula_oferta_id', $matricula->id)->abiertas()->count() === 0);
 
     verificar('Y no se levanta ninguna nueva mientras dure',
-        Alerta::query()->where('regla_id', $faltas->id)
+        Alerta::query()->where('regla_id', $faltas->id)->where('matricula_oferta_id', $matricula->id)
             ->where('matricula_oferta_id', $matricula->id)
             ->where('estado_senal', Alerta::OBSOLETA)->exists());
 
@@ -602,8 +600,8 @@ try {
         collect($conRota->errores)->contains(fn (array $e) => ($e['regla'] ?? null) === PREFIJO.'Rota'));
 
     verificar('Las demás SÍ se evaluaron',
-        Alerta::query()->where('regla_id', $faltas->id)->abiertas()->count() === 1,
-        (string) Alerta::query()->where('regla_id', $faltas->id)->abiertas()->count());
+        Alerta::query()->where('regla_id', $faltas->id)->where('matricula_oferta_id', $matricula->id)->abiertas()->count() === 1,
+        (string) Alerta::query()->where('regla_id', $faltas->id)->where('matricula_oferta_id', $matricula->id)->abiertas()->count());
 
     // Se limpia en orden: las alertas apuntan a la version.
     Alerta::query()->where('regla_id', $rota->id)->forceDelete();
@@ -1191,7 +1189,7 @@ try {
     Alerta::query()->forceDelete();
     $motor->correr(hoy: CarbonImmutable::now()->addDays(120));
 
-    $congelada = Alerta::query()->where('regla_id', $faltas->id)->firstOrFail();
+    $congelada = Alerta::query()->where('regla_id', $faltas->id)->where('matricula_oferta_id', $matricula->id)->firstOrFail();
     $versionOriginal = $congelada->regla_version_id;
     $categoriaOriginal = $congelada->categoria_id;
 
@@ -1339,12 +1337,12 @@ try {
     $motor->correr(hoy: CarbonImmutable::now()->addDays(123));
 
     verificar('Tres corridas sin enfriamiento dejan UNA sola alerta abierta',
-        Alerta::query()->where('regla_id', $sinEnfriamiento->id)->abiertas()->count() === 1,
-        (string) Alerta::query()->where('regla_id', $sinEnfriamiento->id)->abiertas()->count());
+        Alerta::query()->where('regla_id', $sinEnfriamiento->id)->where('matricula_oferta_id', $matricula->id)->abiertas()->count() === 1,
+        (string) Alerta::query()->where('regla_id', $sinEnfriamiento->id)->where('matricula_oferta_id', $matricula->id)->abiertas()->count());
 
     verificar('Y el único de la base lo sostiene, no sólo el SELECT previo',
-        Alerta::query()->where('regla_id', $sinEnfriamiento->id)->count() === 1,
-        (string) Alerta::query()->where('regla_id', $sinEnfriamiento->id)->count());
+        Alerta::query()->where('regla_id', $sinEnfriamiento->id)->where('matricula_oferta_id', $matricula->id)->count() === 1,
+        (string) Alerta::query()->where('regla_id', $sinEnfriamiento->id)->where('matricula_oferta_id', $matricula->id)->count());
 
     /*
      * Y la que sigue abierta se ACTUALIZA con el valor nuevo.
@@ -1354,7 +1352,7 @@ try {
      * que cambia es que la alerta se queda diciendo el valor de hace días—. Es
      * lo que dejó viva esa mutación, y lo que un coordinador leería como cierto.
      */
-    $abiertaAntes = Alerta::query()->where('regla_id', $sinEnfriamiento->id)->abiertas()->firstOrFail();
+    $abiertaAntes = Alerta::query()->where('regla_id', $sinEnfriamiento->id)->where('matricula_oferta_id', $matricula->id)->abiertas()->firstOrFail();
     $valorAntes = (float) $abiertaAntes->valor_observado;
 
     // Una falta más: el valor observado sube.

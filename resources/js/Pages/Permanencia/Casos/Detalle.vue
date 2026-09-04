@@ -29,7 +29,7 @@ import CampoTextarea from '@/Components/CampoTextarea.vue';
 import Modal from '@/Components/Modal.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { COLOR_PRIORIDAD, colorPermanencia } from '@/utils/coloresPermanencia';
+import { COLOR_PRIORIDAD, colorPermanencia, etiquetaPermanencia } from '@/utils/coloresPermanencia';
 import { hoyLocal } from '@/utils/fechas';
 
 interface Destino {
@@ -385,7 +385,14 @@ function reabrir(): void {
 
         <div class="grid gap-4 lg:grid-cols-3">
             <!-- ═══ Columna principal ═══════════════════════════════════════ -->
-            <div class="space-y-4 lg:col-span-2">
+            <!--
+                `min-w-0`: un hijo de rejilla nace con `min-width:auto` y no
+                encoge por debajo del ancho mínimo de su contenido, así que en
+                cuanto algo de dentro no quepa estira la PÁGINA y lo de la
+                columna de al lado queda fuera de la pantalla. Le pasó a la ficha
+                de la señal.
+            -->
+            <div class="min-w-0 space-y-4 lg:col-span-2">
                 <!-- ── Qué se ha hecho ───────────────────────────────────── -->
                 <section class="tarjeta p-5">
                     <div class="flex flex-wrap items-center justify-between gap-2">
@@ -631,6 +638,13 @@ function reabrir(): void {
                         >
                             {{ caso.responsable ? 'Cambiar responsable' : 'Asignar' }}
                         </button>
+                        <!--
+                            «Asignar» no está entre estos: lo quita el
+                            controlador, porque tiene su propia puerta —la de
+                            arriba, que pide responsable—. Con las dos, salían
+                            dos botones idénticos y el de aquí dejaba el caso
+                            «Asignado» sin nadie asignado.
+                        -->
                         <button
                             v-for="d in destinos"
                             :key="d.estado"
@@ -835,7 +849,7 @@ function reabrir(): void {
                 v-model="prioridad"
                 class="mt-3"
                 etiqueta="Prioridad"
-                :opciones="catalogos.prioridades.map((p) => ({ valor: p, texto: p }))"
+                :opciones="catalogos.prioridades.map((p) => ({ valor: p, texto: etiquetaPermanencia(p) }))"
             />
 
             <ul
@@ -909,7 +923,7 @@ function reabrir(): void {
                 <CampoSelect
                     v-model="intervencion.estado"
                     etiqueta="Estado"
-                    :opciones="catalogos.estados_intervencion.map((e) => ({ valor: e, texto: e }))"
+                    :opciones="catalogos.estados_intervencion.map((e) => ({ valor: e, texto: etiquetaPermanencia(e) }))"
                 />
             </div>
 

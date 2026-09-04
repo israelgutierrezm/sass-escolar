@@ -100,9 +100,17 @@ const elegido = computed({
                         class="mt-2 text-sm"
                         :style="{ color: 'var(--color-suave)' }"
                     >
-                        Hay {{ datos.categorias_ocultas }}
-                        categoría{{ datos.categorias_ocultas === 1 ? '' : 's' }} que no se muestran
-                        aquí —lo financiero y lo personal— porque tienen su propio permiso. Si algo
+                        <!--
+                            La frase entera en cada rama: el verbo también
+                            concuerda, y «1 categoría que no se muestran» delata
+                            que está armada a pedazos.
+                        -->
+                        {{
+                            datos.categorias_ocultas === 1
+                                ? 'Hay 1 categoría que no se muestra aquí'
+                                : `Hay ${datos.categorias_ocultas} categorías que no se muestran aquí`
+                        }}
+                        —lo financiero y lo personal— porque tienen su propio permiso. Si algo
                         te preocupa y no lo ves, coméntalo con quien lleva el seguimiento.
                     </p>
                 </div>

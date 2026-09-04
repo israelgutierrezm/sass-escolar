@@ -24,7 +24,7 @@ import CampoTexto from '@/Components/CampoTexto.vue';
 import Paginacion from '@/Components/Paginacion.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { COLOR_PRIORIDAD, colorPermanencia } from '@/utils/coloresPermanencia';
+import { COLOR_PRIORIDAD, colorPermanencia, etiquetaPermanencia } from '@/utils/coloresPermanencia';
 
 interface Caso {
     id: number;
@@ -176,7 +176,7 @@ function soloSinAsignar(): void {
                 <CampoSelect
                     v-model="filtros.prioridad"
                     etiqueta="Prioridad"
-                    :opciones="catalogos.prioridades.map((p) => ({ valor: p, texto: p }))"
+                    :opciones="catalogos.prioridades.map((p) => ({ valor: p, texto: etiquetaPermanencia(p) }))"
                     vacio="Todas"
                 />
                 <CampoSelect

@@ -43,6 +43,8 @@ $app->make(Kernel::class)->bootstrap();
 
 tenancy()->initialize(Tenant::find('demo'));
 
+require __DIR__.'/apoyo-permanencia.php';
+
 $db = DB::connection('tenant');
 
 $verificaciones = 0;
@@ -145,10 +147,7 @@ try {
 
     echo PHP_EOL.'2. El escenario'.PHP_EOL;
 
-    Alerta::query()->forceDelete();
-    RiesgoMatricula::query()->delete();
-    ReglaAlertaVersion::query()->forceDelete();
-    ReglaAlerta::query()->forceDelete();
+    limpiarPermanencia();
 
     $matricula = MatriculaOferta::query()->whereHas('oferta')->with('oferta')->firstOrFail();
 

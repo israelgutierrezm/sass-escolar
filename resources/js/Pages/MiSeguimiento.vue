@@ -121,7 +121,18 @@ const elegida = computed({
 
                 <p class="mt-2">{{ s.texto }}</p>
 
-                <p v-if="s.materia" class="mt-1 text-sm" :style="{ color: 'var(--color-suave)' }">
+                <!--
+                    Sólo si el texto NO la nombra ya. La plantilla de la regla
+                    puede llevar {materia} dentro —«Tu asistencia en Sistemas
+                    Operativos va en…»— y entonces esta línea la repetía:
+                    «En Sistemas Operativos.» debajo de la frase que acaba de
+                    decirlo. Se vio mirándolo.
+                -->
+                <p
+                    v-if="s.materia && !s.texto.includes(s.materia)"
+                    class="mt-1 text-sm"
+                    :style="{ color: 'var(--color-suave)' }"
+                >
                     En {{ s.materia }}.
                 </p>
 
@@ -145,10 +156,14 @@ const elegida = computed({
                 <template v-if="matriculas.length === 0">
                     Todavía no tienes una inscripción activa, así que no hay nada que seguir.
                 </template>
+                <template v-else-if="acompanamiento">
+                    Tu escuela está acompañándote, y por ahora no hay nada más que compartir por
+                    aquí. Lo que se esté revisando lo verás con quien lleva tu seguimiento.
+                </template>
                 <template v-else>
-                    Eso quiere decir que ninguna de las cosas que tu escuela vigila se está
-                    cumpliendo en tu caso. Si aun así necesitas ayuda con algo, no esperes a que
-                    aparezca aquí: acude con tu escuela.
+                    Eso quiere decir que ninguna de las cosas que tu escuela comparte por esta
+                    pantalla se está cumpliendo en tu caso. Si aun así necesitas ayuda con algo, no
+                    esperes a que aparezca aquí: acude con tu escuela.
                 </template>
             </p>
         </section>

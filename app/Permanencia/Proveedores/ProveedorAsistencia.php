@@ -116,7 +116,14 @@ class ProveedorAsistencia implements ProveedorDeSenales
             $base = [
                 'inscripcion' => $i->id,
                 'asignatura_grupo' => $i->asignatura_grupo_id,
-                'periodo' => trim(($desde ?? 'inicio').'/'.($hasta ?? 'hoy')),
+                /*
+                 * En palabras, no como un slug: «inicio/hoy» se lee como un
+                 * volcado de base de datos, y esta fila la mira quien decide si
+                 * creerle al número.
+                 */
+                'periodo' => $desde === null && $hasta === null
+                    ? 'Desde que ingresó y hasta hoy'
+                    : 'Del '.($desde ?? 'ingreso').' al '.($hasta ?? 'día de hoy'),
                 'sesiones_registradas' => $c['sesiones'],
                 'presentes' => $c['presentes'],
                 'faltas' => $c['faltas'],
@@ -161,7 +168,6 @@ class ProveedorAsistencia implements ProveedorDeSenales
             );
         })->all();
     }
-
 
     /**
      * Una métrica que no es suya REVIENTA, no se mide como otra cosa.

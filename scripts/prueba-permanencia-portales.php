@@ -47,6 +47,8 @@ $app->make(Kernel::class)->bootstrap();
 
 tenancy()->initialize(Tenant::find('demo'));
 
+require __DIR__.'/apoyo-permanencia.php';
+
 $db = DB::connection('tenant');
 
 $verificaciones = 0;
@@ -150,7 +152,12 @@ try {
 
     echo PHP_EOL.'2. El escenario: un docente con UNA materia'.PHP_EOL;
 
-    Alerta::query()->forceDelete();
+    /*
+     * Se parte de cero: lo que se prueba es QUÉ VE cada quien, y eso sólo se
+     * puede afirmar sabiendo qué hay. El orden lo pone el apoyo compartido —un
+     * `forceDelete` pelado revienta con 1451 en cuanto la escuela tiene un caso.
+     */
+    limpiarPermanencia(conReglas: false);
 
     /*
      * Se construye entero. El demo tiene UNA fila en

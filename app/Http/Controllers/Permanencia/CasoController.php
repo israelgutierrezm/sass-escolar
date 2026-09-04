@@ -184,7 +184,26 @@ class CasoController extends Controller
                     'vistas' => $a->intervenciones_vistas,
                     'ocultas' => $a->reservadas_ocultas,
                 ]),
-            'destinos' => $modelo->estado->paraPantalla(),
+            /*
+             * Los destinos que se dibujan como botón suelto, SIN «asignado».
+             *
+             * Asignar tiene su propia puerta —la que pide responsable y arranca
+             * el compromiso de primer contacto— y ofrecerlo además como
+             * transición suelta dibujaba DOS botones «Asignar» idénticos uno al
+             * lado del otro. Pulsando el de la máquina de estados, el caso
+             * quedaba en «Asignado» con «Responsable: sin asignar»: un renglón
+             * que se contradice a sí mismo, y justo el estado que este módulo
+             * dice que no debe existir. Se vio mirándolo.
+             *
+             * La ARISTA se conserva en la máquina —`AbridorDeCaso` y `asignar()`
+             * la usan—: lo que se retira es el botón. Y se retira aquí y no en
+             * la pantalla, porque `destinos` significa «qué se le ofrece a quien
+             * mira» y esa decisión no se toma en el Vue.
+             */
+            'destinos' => array_values(array_filter(
+                $modelo->estado->paraPantalla(),
+                fn (array $d) => $d['estado'] !== EstadoCaso::Asignado->value,
+            )),
             'catalogos' => [
                 'tipos' => TipoIntervencion::query()->activos()->get(['id', 'nombre', 'descripcion',
                     'exige_evidencia', 'exige_acuerdos', 'exige_proxima_fecha', 'permite_reservada']),

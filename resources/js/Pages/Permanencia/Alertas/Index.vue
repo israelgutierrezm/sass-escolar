@@ -29,7 +29,7 @@ import Modal from '@/Components/Modal.vue';
 import Paginacion from '@/Components/Paginacion.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { COLOR_SEVERIDAD, colorPermanencia } from '@/utils/coloresPermanencia';
+import { COLOR_SEVERIDAD, colorPermanencia, etiquetaPermanencia } from '@/utils/coloresPermanencia';
 
 interface Alerta {
     id: number;
@@ -222,7 +222,7 @@ function descartarVarias(): void {
                 <CampoSelect
                     v-model="filtros.severidad"
                     etiqueta="Severidad"
-                    :opciones="textos('severidades').map((x) => ({ valor: x, texto: x }))"
+                    :opciones="textos('severidades').map((x) => ({ valor: x, texto: etiquetaPermanencia(x) }))"
                     vacio="Todas"
                 />
                 <CampoSelect
@@ -241,7 +241,6 @@ function descartarVarias(): void {
                     v-model="filtros.estado_triage"
                     etiqueta="Revisión"
                     :opciones="[
-                        { valor: 'nueva', texto: 'Requieren revisión' },
                         { valor: 'validada', texto: 'Validadas' },
                         { valor: 'descartada', texto: 'Descartadas' },
                     ]"

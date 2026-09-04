@@ -964,6 +964,36 @@ try {
         array_key_exists('reservadas_ocultas', $ficha));
 
     /*
+     * ASIGNAR NO ES UNA TRANSICIÓN SUELTA, y la pantalla no la ofrece como tal.
+     *
+     * Se vio mirándolo: la ficha de un caso abierto dibujaba DOS botones
+     * «Asignar» idénticos uno al lado del otro —el que abre el panel de
+     * responsable, y el de la máquina de estados—. Pulsando el segundo, el caso
+     * quedaba en «Asignado» con «Responsable: sin asignar»: un renglón que se
+     * contradice a sí mismo, y justo el estado que este módulo dice que no debe
+     * existir, porque asignar es lo que ARRANCA el compromiso de primer
+     * contacto. La máquina de estados conserva la arista —`AbridorDeCaso` y
+     * `asignar()` la usan— y lo que se retira es el botón.
+     */
+    $abierto = App\Models\Permanencia\CasoPermanencia::query()
+        ->where('estado', App\Models\Permanencia\EstadoCaso::Abierto->value)
+        ->first();
+
+    if ($abierto === null) {
+        verificar('Hay un caso ABIERTO con el que comprobar sus destinos', false);
+    } else {
+        $suyos = $controlador->show($peticionDe($conReservadas), $abierto->id)->toResponse(
+            $peticionDe($conReservadas))->getOriginalContent()['page']['props']['destinos'];
+
+        verificar('La ficha de un caso abierto NO ofrece «asignado» como botón suelto',
+            ! in_array('asignado', array_column($suyos, 'estado'), true),
+            implode(', ', array_column($suyos, 'estado')));
+
+        verificar('Y sigue ofreciendo las demás salidas, que no se llevó por delante',
+            count($suyos) >= 1, implode(', ', array_column($suyos, 'verbo')));
+    }
+
+    /*
      * Abrir la ficha DEJA CONSTANCIA. Es lo único que la suite puede comprobar
      * del camino de verdad: el servicio se puede llamar sin registrar nada.
      */

@@ -44,6 +44,8 @@ $app->make(Kernel::class)->bootstrap();
 
 tenancy()->initialize(Tenant::find('demo'));
 
+require __DIR__.'/apoyo-permanencia.php';
+
 $db = DB::connection('tenant');
 
 $verificaciones = 0;
@@ -159,19 +161,7 @@ try {
      * lo hace sólo cuando la escuela TIENE datos de esa tabla —o sea, no aquí y
      * sí en la del cliente—.
      */
-    DB::table('accesos_caso')->delete();
-    DB::table('transiciones_caso')->delete();
-    DB::table('tareas_caso')->delete();
-    DB::table('intervenciones')->delete();
-    DB::table('caso_equipo')->delete();
-    DB::table('caso_alerta')->delete();
-    // La foránea de `caso_origen_id` apunta a la MISMA tabla, así que un
-    // `DELETE` pelado revienta contra sí mismo: se suelta primero.
-    DB::table('casos_permanencia')->update(['caso_origen_id' => null]);
-    DB::table('casos_permanencia')->delete();
-    Alerta::query()->forceDelete();
-    ReglaAlertaVersion::query()->forceDelete();
-    ReglaAlerta::query()->forceDelete();
+    limpiarPermanencia();
 
     $academica = CategoriaSenal::query()->where('clave', 'academica')->firstOrFail();
     $financiera = CategoriaSenal::query()->where('clave', 'financiera')->firstOrFail();

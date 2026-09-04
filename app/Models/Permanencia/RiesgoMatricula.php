@@ -129,7 +129,7 @@ class RiesgoMatricula extends Model
             'id' => $this->id,
             'nivel' => $manda?->only(['id', 'clave', 'nombre', 'color', 'pide_seguimiento']),
             'puntaje' => $this->puntaje,
-            'calculado_en' => $this->calculado_en?->toDateTimeString(),
+            'calculado_en' => $this->calculado_en?->format('Y-m-d H:i'),
             'desglose' => $this->desglose,
             'anterior' => $this->nivel_anterior_id === null ? null : [
                 'nivel' => $this->nivelAnterior?->only(['id', 'clave', 'nombre', 'color']),
@@ -141,7 +141,7 @@ class RiesgoMatricula extends Model
                 'nivel_calculado' => $this->nivel?->only(['id', 'clave', 'nombre', 'color']),
                 'motivo' => $this->ajuste_motivo,
                 'quien' => $this->ajustadoPor?->persona?->nombreCompleto(),
-                'cuando' => $this->ajustado_en?->toDateTimeString(),
+                'cuando' => $this->ajustado_en?->format('Y-m-d H:i'),
             ],
         ];
     }

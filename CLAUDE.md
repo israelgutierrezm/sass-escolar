@@ -48,7 +48,9 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**144 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**144 archivos `prueba-*.php`**,
+   más tres `apoyo-*.php` que NO son suites: son piezas que varias comparten
+   —roles de ejemplo, FormRequests y la limpieza ordenada de permanencia—;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -771,6 +773,120 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
   CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
   adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
+- **Alertas tempranas y permanencia · la revisión EN EL NAVEGADOR**
+  (2026-09-04, pedido del cliente). Se recorrió el módulo entero con datos
+  sembrados —cinco reglas encendidas, ocho señales, dos casos— y **se retiró
+  todo al terminar**; `acadion:auditar-datos` sigue reportando las mismas 69
+  filas rotas de siempre.
+  - **Lo grande: la ficha de la señal no se podía usar en un teléfono.** A
+    375 px desbordaba a **506** y dejaba **24 elementos inalcanzables**, entre
+    ellos la columna de decidir entera —validar, descartar, «otras señales», el
+    enlace al expediente—. Es el defecto de `min-w-0` que este proyecto ya tiene
+    documentado: la tabla de evidencia pide 28rem, su columna de la rejilla nace
+    con `min-width:auto` y no encoge, así que estira la PÁGINA. Se blindaron las
+    dos rejillas del módulo (la de la señal y la del caso).
+  - **DOS botones «Asignar» idénticos, lado a lado**, en un caso abierto: uno
+    abría el panel de responsable y el otro era la transición suelta de la
+    máquina de estados. Pulsando el segundo, el caso quedaba en «**Asignado**»
+    con «**Responsable: sin asignar**» — una ficha que se contradice a sí misma,
+    y justo el estado que la fase 5 dice que no debe existir («asignar es lo que
+    ARRANCA el compromiso»). El destino `asignado` se retiró de los botones
+    sueltos: asignar es UN acto y tiene su puerta. **Se retira en el
+    CONTROLADOR y no en el Vue**, porque `destinos` significa «qué se le ofrece
+    a quien mira» y esa decisión no se toma en la pantalla — la ARISTA de la
+    máquina se conserva, que es lo que usan `AbridorDeCaso` y `asignar()`. Lo
+    vigila una comprobación de la suite de casos.
+  - **La píldora del desglose de riesgo salía SIN COLOR.** Es el defecto que la
+    fase 5 documentó haber corregido con `coloresPermanencia`, con una instancia
+    que se escapó: `:color="cat.color"` pasa el NOMBRE («ambar») y
+    `color-mix(in srgb, ambar 14%, transparent)` no es válido, así que el
+    navegador lo descarta sin error.
+  - **Sellos de tiempo con SEGUNDOS** en la bandeja, la ficha de la señal y el
+    panorama de riesgo —«Última evaluación: 2026-09-04 13:02:00»—. La fase 5 los
+    quitó de los casos y las fases 3 y 4 se quedaron con los suyos.
+  - **Nombres crudos de tabla en pantalla**: la evidencia enseñaba
+    «De dónde sale · `asistencia_clase`» y «Periodo medido · `inicio/hoy`». Lo
+    primero es traza para quien programa —en otra fuente dice
+    `HistorialDelAlumno::promedio`— y quien valida no puede hacer nada con eso;
+    se ocultó, porque lo que sí necesita (si creerle al número) ya lo dicen la
+    definición y el aviso de «cómo leer este número». Lo segundo se escribe
+    ahora en palabras, desde el proveedor.
+  - **Y la CONDICIÓN salía dos veces** en la misma pantalla: arriba junto a la
+    regla y otra vez dentro de la tabla de evidencia.
+  - **Concordancia rota en tres sitios**, la familia de «2 intervenciónes»:
+    «No se contaron 1 señal», «Ver las 1 versión» y «Hay 1 categoría que no se
+    muestran aquí». La frase va entera en cada rama, no armada a pedazos.
+  - **Desplegables con los valores CRUDOS** al lado de otros con etiqueta:
+    severidad («critico», sin acento), prioridad y estado de intervención en
+    minúscula, y la ventana de la regla como `ultimos_dias`. Se resolvió con
+    `etiquetaPermanencia` en `@/utils/coloresPermanencia` —el vocabulario
+    compartido del módulo—, no capitalizando en cada pantalla.
+  - **Un desplegable ofrecía la misma opción dos veces**: «Revisión» tenía
+    «Requieren revisión» como vacío Y como primera opción. El vacío SÍ significa
+    eso —lo aplica el controlador cuando no se pide nada—, así que lo que sobraba
+    era la explícita.
+  - **En el portal del alumno, la materia salía DOS veces** —la plantilla de la
+    regla puede nombrarla y la línea de abajo la repetía— y **el vacío afirmaba
+    algo falso**: «ninguna de las cosas que tu escuela vigila se está cumpliendo
+    en tu caso», debajo de «Hay alguien acompañándote», sobre alguien con dos
+    señales validadas cuyas reglas no marcan `avisa_al_alumno`. Ahora ese caso
+    tiene su propio texto.
+  - **Y lo que NO era un defecto, comprobado antes de reportarlo**: el botón de
+    validar parecía muerto y era mi clic —las coordenadas de un `ref` no
+    corresponden al DOM, que es la trampa que este proyecto ya tiene anotada
+    sobre las capturas—; las píldoras del tablero parecían sin fondo y era mi
+    detector cazando el envoltorio; y «Israel Gutierrez Morenodemo@escuela.mx»
+    era artefacto de `innerText`, con 158 px de separación real.
+
+- **Y una trampa del MÉTODO, cara y nueva: no se edita `scripts/` mientras el
+  barrido corre** (2026-09-04). Cuatro suites salieron «0 correctas, 1 fallidas»
+  —el patrón de morir antes de la primera comprobación— y las cuatro pasaban
+  sueltas: el barrido las leyó a medio guardar. Es indistinguible de una
+  regresión de verdad y cuesta media hora de diagnóstico. El barrido se lanza
+  cuando `scripts/` ya está quieto, y **si se editó durante, se repite**.
+  - De la misma familia: correr el barrido y un barrido de MUTACIONES a la vez
+    sobre la misma base da **deadlocks de MySQL** (1213 en
+    `role_has_permissions`) que se leen como fallas del código. Una suite salió
+    «SIN RESUMEN» por eso y pasaba sola con 23 de 23.
+
+- **`prueba-responsive` gana una SEGUNDA red, y es la que faltaba** (2026-09-04).
+  La primera comprueba que toda tabla viva dentro de algo que desplace, y por
+  eso no vio el desborde de la ficha de la señal: la tabla **sí** estaba dentro
+  de un `overflow-x-auto`. El defecto estaba **un nivel más arriba** — la
+  COLUMNA de la rejilla, que nace con `min-width: auto` y no encoge, estira a su
+  padre y con él la página entera, así que el desplazamiento de la tabla nunca
+  llega a hacer falta porque nadie la aprieta.
+  - Ahora se exige `min-w-0` a **toda columna de rejilla que contenga algo con
+    `min-w-[…]`**, y sólo a ésas: pedírselo a las 49 rejillas del proyecto
+    marcaba ocho componentes donde ningún hijo puede estirar, y un detector que
+    marca lo bueno enseña a ignorar sus avisos.
+  - Comprobada mutando: quitarle el `min-w-0` a la ficha de la señal la pone en
+    rojo señalando el renglón.
+
+- **Y la revisión destapó que CUATRO suites del módulo sólo pasaban con la
+  escuela vacía** (2026-09-04). Es la novena vez que este proyecto se cobra lo
+  mismo, ahora en bloque:
+  - **`caso_alerta` y `riesgo_matricula` rompen la limpieza**: un
+    `Alerta::query()->forceDelete()` pelado revienta con **1451** en cuanto la
+    escuela tiene un caso abierto o un riesgo calculado. La bandeja ya lo tenía
+    resuelto desde la fase 5; el motor, riesgo, portales y reglas no. Y revienta
+    **sólo donde HAY datos** de esas tablas: no en un demo recién migrado y sí en
+    la del cliente.
+  - El orden vive ahora UNA vez en **`scripts/apoyo-permanencia.php`**
+    (`limpiarPermanencia()`), como `apoyo-roles.php`. Repetido en cada suite es
+    como se llega a que una se quede sin la tabla que la fase siguiente agregue
+    — que es exactamente lo que había pasado.
+  - **La del motor medía a la persona equivocada.** Buscaba sus alertas con
+    `where('regla_id', …)` sin acotar a SU matrícula, y esa regla se evalúa
+    sobre la escuela entera: en cuanto otro alumno la cumple —lo normal— la
+    suite afirmaba «cuatro faltas seguidas» sobre el alumno de al lado. Veinte
+    consultas acotadas.
+  - **Y no era dueña de su asistencia**: sembraba diez sesiones sobre una
+    inscripción que podía traer las suyas, así que medía otro número. Ahora la
+    retira antes.
+  - **La de reglas borraba versiones con alertas apuntándolas** (1451 por
+    `alertas.regla_version_id`), otra vez sólo donde la escuela ya evaluó.
+
 - **Alertas tempranas y permanencia · FASE 8: los portales** (2026-09-04).
   Con esto el módulo queda entregado. El docente en `/docencia/permanencia`
   (`ver-alertas-de-mis-grupos`, faceta DOCENTE) y el alumno en `/mi-seguimiento`

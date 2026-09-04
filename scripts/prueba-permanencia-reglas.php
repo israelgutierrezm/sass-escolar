@@ -46,6 +46,8 @@ $app->make(Kernel::class)->bootstrap();
 
 tenancy()->initialize(Tenant::find('demo'));
 
+require __DIR__.'/apoyo-permanencia.php';
+
 $db = DB::connection('tenant');
 
 $verificaciones = 0;
@@ -320,6 +322,15 @@ try {
      * defecto aparecia en la SIGUIENTE que se migrara, con las alertas ya
      * saliendo. Lo destapo el barrido de mutaciones.
      */
+    /*
+     * Antes de tirar las reglas hay que tirar lo que cuelga de ellas: una
+     * ALERTA apunta a la versión con la que se levantó, así que borrar las
+     * versiones revienta con 1451 en cuanto la escuela ha evaluado alguna vez.
+     * Sólo se nota donde HAY alertas —o sea, no en un demo recién migrado y sí
+     * en la del cliente—. El orden lo pone el apoyo compartido.
+     */
+    limpiarPermanencia(conReglas: false);
+
     ReglaAlertaVersion::query()->whereIn(
         'regla_id',
         ReglaAlerta::query()->whereNotLike('nombre', PREFIJO.'%')->pluck('id'),

@@ -1278,6 +1278,47 @@ tiene:
 
 ---
 
+### Lo que salió de MIRARLO en el navegador
+
+Se recorrió el módulo entero con datos sembrados y se retiró todo al terminar.
+Ninguno de estos defectos lanza una excepción; ninguna suite los veía.
+
+1. **La ficha de la señal no se podía usar en un teléfono.** A 375 px desbordaba
+   a 506 y dejaba la columna de decidir —validar, descartar, el enlace al
+   expediente— fuera de la pantalla. La tabla de evidencia pide 28rem y su
+   columna de la rejilla nace con `min-width:auto`: sin `min-w-0` no encoge y
+   estira la página entera.
+
+2. **Dos botones «Asignar» idénticos**, y el de la máquina de estados dejaba el
+   caso en «Asignado» con «Responsable: sin asignar» — el estado que §5 dice que
+   no debe existir. Asignar es UN acto y tiene su puerta.
+
+3. **Una píldora del desglose de riesgo sin color**, con el nombre del catálogo
+   pasado directo a `PildoraEstado`. Es el defecto que la fase 5 corrigió, con
+   una instancia que se escapó.
+
+4. **Sellos de tiempo con segundos** en la bandeja, la ficha y el panorama de
+   riesgo; **nombres crudos de tabla** en la evidencia; y la **condición
+   repetida** dos veces en la misma pantalla.
+
+5. **Concordancia rota en tres frases** armadas a pedazos, y **desplegables con
+   los valores crudos** al lado de otros con etiqueta. El vocabulario vive ahora
+   en `etiquetaPermanencia`.
+
+6. **El vacío del portal del alumno afirmaba algo falso**: «ninguna de las cosas
+   que tu escuela vigila se está cumpliendo en tu caso», debajo de «hay alguien
+   acompañándote», sobre alguien con dos señales validadas cuyas reglas no
+   marcan `avisa_al_alumno`.
+
+7. **Y CUATRO suites del módulo sólo pasaban con la escuela vacía.**
+   `caso_alerta` y `riesgo_matricula` hacen reventar con 1451 la limpieza de las
+   suites viejas, y sólo donde HAY datos de esas tablas. El orden vive ahora una
+   sola vez en `scripts/apoyo-permanencia.php`. La del motor, además, buscaba sus
+   alertas sin acotar a su matrícula: en cuanto otro alumno cumplía la misma
+   regla, medía a la persona equivocada.
+
+---
+
 ---
 
 ## 12. LIMITACIONES Y SUPUESTOS

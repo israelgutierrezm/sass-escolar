@@ -113,12 +113,12 @@ class AlertaController extends Controller
                         'desde' => $modelo->ventana_desde?->toDateString(),
                         'hasta' => $modelo->ventana_hasta?->toDateString(),
                     ],
-                    'ultima_evaluacion_en' => $modelo->ultima_evaluacion_en?->toDateTimeString(),
-                    'cerrada_en' => $modelo->cerrada_en?->toDateTimeString(),
+                    'ultima_evaluacion_en' => $modelo->ultima_evaluacion_en?->format('Y-m-d H:i'),
+                    'cerrada_en' => $modelo->cerrada_en?->format('Y-m-d H:i'),
                     'nota_triage' => $modelo->nota_triage,
                     'motivo_descarte' => $modelo->motivoDescarte?->nombre,
                     'revisada_por' => $modelo->revisadaPor?->persona?->nombreCompleto(),
-                    'revisada_en' => $modelo->revisada_en?->toDateTimeString(),
+                    'revisada_en' => $modelo->revisada_en?->format('Y-m-d H:i'),
                     /*
                      * La CALIDAD de la fuente viaja con la alerta, y no es
                      * adorno: «se calcula sobre las sesiones registradas, no
@@ -507,7 +507,7 @@ class AlertaController extends Controller
         }
 
         return [
-            'cuando' => $corrida->iniciada_en?->toDateTimeString(),
+            'cuando' => $corrida->iniciada_en?->format('Y-m-d H:i'),
             'hace_dias' => (int) now()->startOfDay()->diffInDays($corrida->iniciada_en?->startOfDay(), absolute: true),
             'alumnos' => $corrida->matriculas_evaluadas,
             'reglas' => $corrida->reglas_evaluadas,
@@ -564,7 +564,7 @@ class AlertaController extends Controller
             'campus' => $alerta->matricula?->oferta?->campus?->nombre,
             'programa' => $alerta->matricula?->oferta?->programaAcademico?->nombre,
             'materia' => $materia,
-            'ultima_evaluacion_en' => $alerta->ultima_evaluacion_en?->toDateTimeString(),
+            'ultima_evaluacion_en' => $alerta->ultima_evaluacion_en?->format('Y-m-d H:i'),
         ];
     }
 }

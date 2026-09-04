@@ -59,3 +59,47 @@ export const COLOR_PRIORIDAD: Record<string, string> = {
     media: 'ambar',
     baja: 'gris',
 };
+
+/**
+ * Las claves del módulo, escritas como se le dicen a una persona.
+ *
+ * Los desplegables las pintaban CRUDAS —«critico» sin acento, «ultimos_dias»
+ * con guión bajo, «alta» en minúscula— al lado de otros que sí traían etiqueta,
+ * así que dos filtros vecinos parecían de dos sistemas distintos. Se vio
+ * mirándolo, y vive aquí por lo mismo que los colores: copiada en cada pantalla
+ * es como se llega a que la misma clave se lea distinta en dos sitios.
+ */
+const ETIQUETAS: Record<string, string> = {
+    // Severidad de una regla.
+    informativo: 'Informativo',
+    bajo: 'Bajo',
+    medio: 'Medio',
+    alto: 'Alto',
+    critico: 'Crítico',
+    // Prioridad de un caso y estado de una intervención.
+    baja: 'Baja',
+    media: 'Media',
+    alta: 'Alta',
+    programada: 'Programada',
+    realizada: 'Realizada',
+    cancelada: 'Cancelada',
+    // Ventana de medición de una regla.
+    ciclo: 'El ciclo en curso',
+    ultimos_dias: 'Los últimos N días',
+    desde_inicio: 'Desde que ingresó',
+};
+
+/**
+ * Cómo se le dice a una persona.
+ *
+ * Lo que no reconoce se devuelve con la primera en mayúscula y sin guiones
+ * bajos: una clave nueva sale legible en vez de cruda, y no hay que acordarse
+ * de venir aquí para que la pantalla no se vea rota.
+ */
+export function etiquetaPermanencia(clave?: string | null): string {
+    const c = (clave ?? '').trim();
+
+    if (c === '') return '';
+
+    return ETIQUETAS[c.toLowerCase()] ?? c.replace(/_/g, ' ').replace(/^./, (l) => l.toUpperCase());
+}

@@ -185,7 +185,7 @@ class Alerta extends Model
             'severidad' => $this->severidad,
             'estado_senal' => $this->estado_senal,
             'estado_triage' => $this->estado_triage,
-            'primera_vez_en' => $this->primera_vez_en?->toDateTimeString(),
+            'primera_vez_en' => $this->primera_vez_en?->format('Y-m-d H:i'),
             'regla' => $this->regla?->nombre,
         ];
 

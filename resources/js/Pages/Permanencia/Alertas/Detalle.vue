@@ -141,16 +141,28 @@ function renglones(evidencia: Record<string, unknown> | null): Array<[string, st
         faltantes: 'Faltantes',
         vence_el: 'Vence el',
         motivo: 'Por qué no se midió',
-        fuente: 'De dónde sale',
         nota: 'Nota',
         definicion: 'Cómo se define',
         condicion: 'Condición de la regla',
     };
 
-    // Se ocultan las claves internas: no le dicen nada a quien valida y ensucian
-    // lo que sí importa.
+    /*
+     * Se ocultan las claves internas: no le dicen nada a quien valida y ensucian
+     * lo que sí importa.
+     *
+     * `fuente` entra aquí, y se vio MIRÁNDOLO: su valor es traza para quien
+     * programa —un nombre de tabla («asistencia_clase») o de clase
+     * («HistorialDelAlumno::promedio»)—, y quien valida no puede hacer nada con
+     * eso. Lo que sí necesita —si creerle al número— ya lo dicen `definicion` y
+     * el aviso de «cómo leer este número», en su idioma.
+     *
+     * `condicion` también sale: se pinta ya arriba, junto a la regla, y
+     * repetirla en la tabla hace que la misma frase salga dos veces en la misma
+     * pantalla.
+     */
     const ocultas = ['inscripcion', 'asignatura_grupo', 'curso', 'expediente', 'regla',
-        'version', 'umbral_aplicado', 'valor_observado', 'matricula', 'ciclo'];
+        'version', 'umbral_aplicado', 'valor_observado', 'matricula', 'ciclo',
+        'fuente', 'condicion'];
 
     return Object.entries(evidencia)
         .filter(([k, v]) => !ocultas.includes(k) && v !== null && v !== '')
@@ -205,7 +217,13 @@ function renglones(evidencia: Record<string, unknown> | null): Array<[string, st
 
         <div class="grid gap-4 lg:grid-cols-3">
             <!-- ── Por qué se generó ─────────────────────────────────────── -->
-            <section class="tarjeta p-5 lg:col-span-2">
+            <!--
+                `min-w-0`: sin él la columna nace con `min-width:auto` y no
+                encoge por debajo del ancho de la tabla de evidencia (28rem),
+                así que a 375 px estiraba la PÁGINA entera y la columna de
+                decidir quedaba fuera de la pantalla, inalcanzable.
+            -->
+            <section class="tarjeta min-w-0 p-5 lg:col-span-2">
                 <h3 class="font-semibold">Por qué se generó</h3>
 
                 <p class="mt-2 text-sm">
@@ -330,7 +348,7 @@ function renglones(evidencia: Record<string, unknown> | null): Array<[string, st
                             class="text-sm"
                         >
                             <div class="flex items-center justify-between gap-2">
-                                <PildoraEstado :texto="cat.nombre" :color="cat.color" />
+                                <PildoraEstado :texto="cat.nombre" :color="colorPermanencia(cat.color)" />
                                 <span class="font-medium">{{ cat.aporte }}</span>
                             </div>
                             <p class="mt-0.5 text-xs" :style="{ color: 'var(--color-suave)' }">
@@ -349,9 +367,16 @@ function renglones(evidencia: Record<string, unknown> | null): Array<[string, st
                         class="mt-3 text-xs"
                         :style="{ color: 'var(--color-suave)' }"
                     >
-                        No se contaron
-                        {{ riesgo.desglose.no_contadas_por_duplicado.length }} señal{{
-                            riesgo.desglose.no_contadas_por_duplicado.length === 1 ? '' : 'es'
+                        <!--
+                            La frase entera en cada rama: encadenar el sufijo al
+                            singular deja «No se contaron 1 señal», que no está
+                            escrito en ningún idioma. Misma lección que
+                            «2 intervenciónes».
+                        -->
+                        {{
+                            riesgo.desglose.no_contadas_por_duplicado.length === 1
+                                ? 'No se contó 1 señal'
+                                : `No se contaron ${riesgo.desglose.no_contadas_por_duplicado.length} señales`
                         }}
                         por hablar de lo mismo que otra ya contada.
                     </p>
