@@ -104,6 +104,7 @@ use App\Http\Controllers\MiCredencialController;
 use App\Http\Controllers\MiHistorialController;
 use App\Http\Controllers\MisAvisosController;
 use App\Http\Controllers\MisCursosController;
+use App\Http\Controllers\MiSeguimientoController;
 use App\Http\Controllers\Movilidad\MovilidadController;
 use App\Http\Controllers\Movilidad\RevalidacionController;
 use App\Http\Controllers\MovimientoEscolarController;
@@ -117,6 +118,7 @@ use App\Http\Controllers\Permanencia\AlertaController;
 use App\Http\Controllers\Permanencia\CasoController;
 use App\Http\Controllers\Permanencia\CatalogoPermanenciaController;
 use App\Http\Controllers\Permanencia\ReglaAlertaController;
+use App\Http\Controllers\Permanencia\SenalesDelDocenteController;
 use App\Http\Controllers\Permanencia\TableroPermanenciaController;
 use App\Http\Controllers\PlanCobroController;
 use App\Http\Controllers\PlanEstudioController;
@@ -511,6 +513,26 @@ Route::middleware([
                 Route::get('/', 'index')->name('index');
                 Route::get('materias/{asignaturaGrupo}', 'materia')
                     ->whereNumber('asignaturaGrupo')->name('materia');
+            });
+
+        /*
+         * Las senales de SUS grupos.
+         *
+         * TRES capas: el modulo, el permiso propio de la faceta docente, y --la
+         * que de verdad acota-- la ASIGNACION, que resuelve el servicio. El
+         * permiso dice QUE puede hacer; `docente_asignatura_grupo` dice sobre
+         * quien.
+         *
+         * Y encima el interruptor de la escuela, que comprueba el controlador y
+         * NO el middleware: con el interruptor apagado la pagina no existe en
+         * esta escuela, y eso es un 404, no un 403. Va en el controlador porque
+         * es un ajuste del tenant y no un permiso.
+         */
+        Route::middleware(['modulo:permanencia', 'can:ver-alertas-de-mis-grupos'])
+            ->prefix('docencia')->name('tenant.docencia.')
+            ->group(function () {
+                Route::get('permanencia', [SenalesDelDocenteController::class, 'index'])
+                    ->name('permanencia');
             });
 
         /*
@@ -2204,6 +2226,17 @@ Route::middleware([
         Route::get('mi-historial', MiHistorialController::class)
             ->middleware('can:ver-historial-academico')
             ->name('tenant.mihistorial');
+
+        /*
+         * Su propio seguimiento: que le senalo la escuela y que puede hacer.
+         *
+         * NUNCA un puntaje ni un nivel de riesgo -- es la instruccion explicita
+         * del pedido--. Y la ruta no lleva id: la persona sale de la sesion, asi
+         * que no hay donde escribir la de otro.
+         */
+        Route::get('mi-seguimiento', MiSeguimientoController::class)
+            ->middleware(['modulo:permanencia', 'can:ver-mi-seguimiento'])
+            ->name('tenant.miseguimiento');
 
         /*
          * Su historial impreso.

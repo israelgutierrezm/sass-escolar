@@ -66,6 +66,8 @@ final class CatalogoAjustes
 
     public const PERMANENCIA_DIAS_SIN_ASIGNAR = 'permanencia.dias_para_avisar_sin_asignar';
 
+    public const PERMANENCIA_DOCENTE_VE_ALERTAS = 'permanencia.docente_ve_alertas';
+
     // Caja.
     public const CAJA_EXIGE_SESION = 'caja.exige_sesion_para_efectivo';
 
@@ -431,6 +433,31 @@ final class CatalogoAjustes
                 max: 30,
                 consecuencia: 'Se avisa UNA vez por caso, no todos los días: un recordatorio que llega '
                     .'cada mañana deja de leerse al tercero.',
+            ),
+            /*
+             * ── Que el docente vea las señales de sus grupos ───────────────
+             *
+             * APAGADO por omisión, y es lo que el pedido pide: la información se
+             * comparte «cuando la política institucional lo permita», y eso lo
+             * decide la escuela. Encendido por omisión, una escuela recién
+             * migrada le estaría enseñando a cada docente lo que el sistema
+             * observó de sus alumnos sin que nadie lo hubiera decidido.
+             *
+             * Apagado, la ruta responde **404** y la entrada no sale en su
+             * barra: mismo criterio que la postulación autogestiva de la bolsa.
+             */
+            new Ajuste(
+                clave: self::PERMANENCIA_DOCENTE_VE_ALERTAS,
+                grupo: 'Permanencia',
+                etiqueta: 'El docente ve las señales de sus grupos',
+                descripcion: 'Abre en «Mis materias» una vista con las señales de seguimiento de '
+                    .'los alumnos a los que da clase. Sólo las categorías NO sensibles —nunca un '
+                    .'adeudo ni una nota reservada— y sólo de sus propias materias.',
+                tipo: Ajuste::BOOLEANO,
+                porDefecto: false,
+                consecuencia: 'Apagarlo esconde la vista de inmediato. El docente necesita además el '
+                    .'permiso «Ver las señales de sus grupos», así que encenderlo aquí no se lo da a '
+                    .'nadie por sí solo.',
             ),
             new Ajuste(
                 clave: self::MAYORIA_DE_EDAD,

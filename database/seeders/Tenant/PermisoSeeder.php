@@ -57,6 +57,9 @@ class PermisoSeeder extends Seeder
             'ver-mis-materias', 'editar-mi-expediente', 'editar-mi-disponibilidad',
             'ver-historial-academico', 'pasar-lista', 'capturar-calificaciones', 'asentar-acta',
             'levantar-incidencia',
+            // Detrás del interruptor de la escuela, que nace APAGADO: tener el
+            // permiso no basta.
+            'ver-alertas-de-mis-grupos',
         ],
 
         // Facetas no administrativas: su alcance se resuelve además por
@@ -77,6 +80,7 @@ class PermisoSeeder extends Seeder
             'ver-mis-cursos', 'editar-mi-expediente-alumno', 'ver-historial-academico', 'ver-adeudos',
             'ver-recursos-digitales', 'solicitar-servicios', 'ver-vacantes',
             'ver-mi-proceso-formativo',
+            'ver-mi-seguimiento',
         ],
         // El interesado llena lo suyo desde `/mi-solicitud`. No ve nada más:
         // su alcance es su propia persona, no un permiso amplio.

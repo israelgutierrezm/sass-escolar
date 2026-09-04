@@ -326,6 +326,36 @@ final class CatalogoPermisos
              * acceso a los expedientes.
              */
             'ver-indicadores-permanencia' => ['Ver los indicadores de permanencia', 'El tablero agregado: cuántas señales, con qué cobertura, cuánto se descarta, qué tan efectivo es el acompañamiento y cuánto reaparece. Nunca datos de una persona: los desgloses con muy pocos alumnos se suprimen.', [self::ADMINISTRATIVO]],
+
+            /*
+             * ── El DOCENTE, y su alcance NO lo da este permiso ─────────────
+             * Lo da la ASIGNACIÓN (`docente_asignatura_grupo`), igual que la
+             * captura de calificaciones: el permiso dice QUÉ puede hacer, la
+             * asignación dice SOBRE QUIÉN. Y sólo ve las categorías no
+             * sensibles: de un adeudo se entera quien tiene su permiso, no quien
+             * le da clase.
+             *
+             * Además va detrás de un interruptor de la escuela
+             * (`permanencia.docente_ve_alertas`, apagado por omisión), porque el
+             * pedido lo condiciona a «cuando la política institucional lo
+             * permita» y eso lo decide la escuela, no el código.
+             */
+            'ver-alertas-de-mis-grupos' => ['Ver las señales de sus grupos', 'Deja que un docente vea las señales de seguimiento de los alumnos a los que da clase, sin las categorías sensibles. Su alcance sale de las materias que imparte, no de este permiso, y la escuela tiene que encenderlo además en la configuración.', [self::DOCENTE]],
+
+            /*
+             * ── Y el ALUMNO, sobre sí mismo ───────────────────────────────
+             * El plan decía reusar el permiso del portal de cursos y no crear
+             * uno. Se crea, y por una razón que aquel argumento no cubría: el de
+             * los cursos responde a «qué alcanza dentro del aula» y hay alumnos
+             * sin un solo curso publicado que sí tienen señales; y una escuela
+             * que decida no exponer esto necesita poder apagarlo de una vez, no
+             * regla por regla.
+             *
+             * Lo que el alumno ve de cada señal lo sigue decidiendo
+             * `avisa_al_alumno` de su regla — el mismo interruptor que manda el
+             * aviso, para que la pantalla y el aviso no puedan contradecirse.
+             */
+            'ver-mi-seguimiento' => ['Ver su propio seguimiento', 'Deja que el alumno vea, en su portal, lo que la escuela le ha señalado y qué puede hacer al respecto. Nunca un puntaje ni un nivel de riesgo: un número opaco no sirve para actuar y sí para desanimar.', [self::ALUMNO]],
         ],
 
         'Servicio social y prácticas' => [

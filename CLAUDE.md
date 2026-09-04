@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**143 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**144 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -65,7 +65,7 @@ Los otros dos documentos vivos:
    un rol con disposición guardada. Si node no puede correrlo, la suite FALLA
    en vez de saltarse.
 
-   **Las 143 están en verde**, barridas el 2026-09-04. Catorce son del módulo de
+   **Las 144 están en verde**, barridas el 2026-09-04. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -771,6 +771,105 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
   CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
   adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
+- **Alertas tempranas y permanencia · FASE 8: los portales** (2026-09-04).
+  Con esto el módulo queda entregado. El docente en `/docencia/permanencia`
+  (`ver-alertas-de-mis-grupos`, faceta DOCENTE) y el alumno en `/mi-seguimiento`
+  (`ver-mi-seguimiento`, faceta ALUMNO); ajuste nuevo
+  `permanencia.docente_ve_alertas`, **apagado por omisión**.
+  - **TRES capas sobre el docente y ninguna sobra**: el módulo, el permiso y el
+    **interruptor de la escuela**. El pedido lo condicionaba a «cuando la
+    política institucional lo permita», y eso lo decide la dirección, no el
+    código. Apagado responde **404 y no 403**: la página no existe en esta
+    escuela, y un 403 diría «existe pero no es para ti» sobre algo que nadie
+    ofrece. Mismo criterio que la postulación autogestiva de la bolsa.
+    - **Se comprueba en el SERVICIO y en el CONTROLADOR.** Sólo en el servicio,
+      la puerta se queda abierta el día que alguien agregue otra ruta.
+  - **El alcance lo da la ASIGNACIÓN, no el permiso.** Sale de
+    `docente_asignatura_grupo` —con el filtro por `docentes.persona_id`, que es
+    la trampa que este proyecto ya documentó—, igual que la captura de
+    calificaciones: el permiso dice QUÉ puede hacer, la asignación SOBRE QUIÉN.
+  - **Las categorías SENSIBLES no le llegan, ni para decir que existen.** En la
+    ficha de un CASO sí tiene sentido decir «hay una señal financiera pendiente»
+    sin el monto —quien atiende a la persona necesita saber que hay otro
+    frente—; en un LISTADO de sus alumnos, decirle a un docente que tal alumno
+    tiene una señal financiera **ya es decirle que tiene problemas de dinero**,
+    que es lo que el pedido prohíbe. Se excluyen de la CONSULTA, no se esconden
+    en la pantalla.
+  - **Pero SÍ se le dice CUÁNTAS no ve.** Callarlas haría que quien abre una
+    lista vacía concluyera que a sus alumnos no les pasa nada. Es la lección de
+    las notas reservadas de un caso.
+  - **Y sólo lo VALIDADO, y sólo de SU materia.** Lo primero porque una señal
+    sin revisar puede ser un dato mal capturado —una lista que nadie pasó—; lo
+    segundo porque la inasistencia en la clase de al lado no es asunto suyo:
+    enseñársela sería contarle cómo le va a su alumno con otro profesor. Las que
+    no cuelgan de ninguna materia sí entran: hablan del alumno, no de una clase.
+  - **Al alumno, NUNCA un puntaje ni un nivel de riesgo.** Instrucción explícita
+    del pedido, comprobada con el riesgo ya calculado: un número opaco no le
+    sirve para actuar y sí para desanimarse. Lo que sirve es «tu asistencia va
+    en 63 % y se pide 80 %» **con el enlace a dónde ir**, que es la otra mitad
+    de lo que hace útil la pantalla.
+  - **Y sólo lo que su regla decidió contarle.** `avisa_al_alumno` es **el mismo
+    interruptor** que manda el aviso de la fase 6: con dos controles, la
+    pantalla y el aviso podrían decir cosas distintas sobre la misma señal. El
+    texto sale de la plantilla de la regla y nunca de la definición técnica —
+    «asistencia.porcentaje < 80 en el ciclo» es lo que lee quien configura, no
+    algo que se le diga a una persona—.
+  - **Sabe QUIÉN lo acompaña, y nada más**: el nombre del responsable y desde
+    cuándo. Ni el folio, ni el estado, ni cuántas intervenciones lleva. Un
+    expediente secreto sobre alguien es la versión vigilancia de esto; saber a
+    quién acudir es la versión acompañamiento, que es lo que el módulo dice ser.
+  - **La ruta del alumno no lleva id.** La persona sale de la sesión y quien
+    estudia dos programas elige entre los SUYOS: un id ajeno no encuentra pareja
+    y cae en el propio, **sin 403** —un 403 confirmaría que ese id existe—. Es
+    el molde de `/mi-historial`.
+  - **`ver-mi-seguimiento` se crea, y el plan decía no crearlo.** Aquel
+    argumento —reusar el permiso del portal de cursos— no cubría dos casos: hay
+    alumnos sin un solo curso publicado que sí tienen señales, y una escuela que
+    decida no exponer esto necesita poder apagarlo de una vez, no regla por
+    regla. Y el del docente es de la faceta DOCENTE y no administrativa: es la
+    salvaguarda de verdad, porque sin ella un administrativo podría
+    concedérselo y —el día que le den una materia— llevarse señales por una
+    puerta que no es la suya.
+  - **LA FAMILIA NO LAS VE, y el plan decía que sí.** Es la decisión grande de
+    la fase:
+    - Una señal **no es un hecho** del alumno: es una AFIRMACIÓN de la escuela
+      de que algo amerita atención. Los hechos de debajo —promedio, reprobadas,
+      asistencia, adeudos— la familia YA los ve en `/mis-hijos`, cada uno tras
+      su bandera del vínculo. Lo que agregaría la pantalla es el JUICIO, y
+      comunicar un juicio sobre un menor es lo que una INTERVENCIÓN existe para
+      hacer, con alguien que se hace responsable de cómo se dice.
+    - **La fase 6 ya se había negado a mandárselo por aviso** con ese mismo
+      argumento. Una pantalla pasiva lo reabriría por la puerta de enfrente:
+      nadie habría decidido contárselo y se le contaría igual. Y sería PEOR,
+      porque un aviso caduca a los 30 días y una pantalla es permanente.
+    - Y una señal **se descarta**: la que hoy dice «promedio bajo» puede
+      retirarse la semana que viene, y quien la leyó no tendría cómo enterarse.
+    - **Una comprobación lo vigila**: el portal de la familia no importa ni una
+      clase del módulo y sus props no nombran ninguna señal ni ningún caso. Sin
+      la guarda, alguien la agrega sin leer por qué no está.
+  - Pruebas: `scripts/prueba-permanencia-portales.php`, 64 verificaciones,
+    comprobadas mutando **14 reglas**. Dos sobrevivieron la primera vez y las
+    dos eran huecos del escenario —lo de siempre—:
+    - En el demo `docente_asignatura_grupo` está prácticamente vacía, así que
+      quitarle a la consulta el filtro por `persona_id` **devolvía exactamente
+      lo mismo**: el alcance pasaba por la razón equivocada. Hizo falta plantarle
+      SU PROPIO docente a la materia de al lado.
+    - Y la señal sin revisar del escenario venía de una regla que además no
+      avisa al alumno, así que el filtro por triage no se ejercitaba: lo excluía
+      ya el otro. Se construye una NUEVA de una regla que sí querría contárselo.
+  - **Y un defecto que sólo se vio MIRANDO el componente**: la pantalla del
+    docente **tiraba el número**. `comoLaVe` le manda `valor_observado` y
+    `umbral` —lo único accionable— y el Vue sólo pintaba el nombre de la regla:
+    «Asistencia por debajo del 80 %» dice QUÉ se mide, no qué le pasa a esta
+    persona. Y la comprobación pasaba igual, porque medía lo que VIAJA y no lo
+    que se ve. Ahora sale «va en 63 y se pide 80», y la prueba mira también el
+    componente.
+  - **Y dos trampas del esquema, por si vuelven**: `docentes` cuelga de la
+    PERSONA —su llave primaria es `persona_id` y su clave se llama
+    `clave_profesor`, no `clave`—, y `usuarios.persona_id` es ÚNICO, así que
+    casi todo alumno del demo ya tiene cuenta: la suite reusa la suya y le pone
+    el rol de la prueba como ACTIVO, que es contra el que resuelve `Gate::before`.
+
 - **Alertas tempranas y permanencia · FASE 7: tableros e indicadores**
   (2026-09-04). `/permanencia/tablero`, con permiso propio
   `ver-indicadores-permanencia`; dos fuentes de reporte con seis reportes en un

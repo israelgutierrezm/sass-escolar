@@ -515,7 +515,7 @@ de recurrencia, que es justo lo que este módulo existe para medir.
 
 ## 8. MATRIZ DE PERMISOS Y VISIBILIDAD
 
-Trece permisos nuevos, dominio **«Alertas y permanencia»**.
+Catorce permisos nuevos, dominio **«Alertas y permanencia»**.
 
 | Permiso | Faceta | Qué abre |
 |---|---|---|
@@ -531,11 +531,15 @@ Trece permisos nuevos, dominio **«Alertas y permanencia»**.
 | `escalar-casos` | administrativo | Subir de nivel |
 | `cerrar-casos` | administrativo | Cerrar y reabrir |
 | `ver-indicadores-permanencia` | administrativo | Tableros e indicadores |
-| `ver-alertas-de-mis-grupos` | **docente** | Sólo sus grupos, sólo lo académico |
+| `ver-alertas-de-mis-grupos` | **docente** | Sólo sus grupos, sólo lo académico, y **tras el interruptor de la escuela** |
+| `ver-mi-seguimiento` | **alumno** | Lo suyo, sin puntaje |
 
-Y del lado del alumno se **reusa** `ver-mis-cursos`/portal: no se crea un permiso
-para que vea sus propios pendientes, porque no hay nada que un alumno tenga que
-poder ver de sí mismo y otro alumno no.
+~~Y del lado del alumno se reusa `ver-mis-cursos`: no se crea un permiso.~~
+**Cambiado en la fase 8**, y por dos casos que aquel argumento no cubría: hay
+alumnos sin un solo curso publicado que sí tienen señales —colgarlo de
+`ver-mis-cursos` los dejaría fuera—, y una escuela que decida no exponer esto
+necesita poder apagarlo **de una vez**, no regla por regla marcando
+`avisa_al_alumno` en cada una.
 
 ### 8.1 Las cuatro capas de visibilidad, y ninguna sobra
 
@@ -568,10 +572,15 @@ del tipo «Te faltan dos entregas en Cálculo I» y «Tienes una cita el jueves�
 los canales de ayuda. **No ve su nivel de riesgo compuesto**, y eso es una
 decisión: un número opaco no le sirve para actuar y sí para desanimarse.
 
-La familia ve lo que ya puede ver por `tutores_alumno.puede_ver_academico` —y lo
-financiero sólo con `puede_ver_finanzas`—. **No se inventa un destino nuevo**:
-`AlcanceDeDestinos` ya sabe extender a las familias con el modificador
-`familiares`.
+**La familia NO ve las señales.** Esto se escribió al revés y la fase 8 lo
+cambió, con su razón: una señal no es un hecho del alumno —esos la familia ya los
+ve en `/mis-hijos`, cada uno tras su bandera del vínculo— sino una AFIRMACIÓN de
+la escuela de que algo amerita atención, y comunicar eso sobre un menor es lo que
+una INTERVENCIÓN existe para hacer, con alguien que se hace responsable de cómo
+se dice. La fase 6 ya se había negado a mandárselo por aviso con ese mismo
+argumento; una pantalla pasiva lo reabriría por la puerta de enfrente, y sería
+peor, porque el aviso caduca a los 30 días y la pantalla es permanente. El
+razonamiento completo está en «Lo que la fase 8 dejó decidido».
 
 ---
 
@@ -655,7 +664,7 @@ Cada fase es entregable y verificable sola.
 | ~~**5**~~ | ~~**Casos e intervenciones**~~ **HECHA** | La máquina de estados de **ocho** estados en una sola puerta, folio atómico por año, **UNO abierto por matrícula** sostenido por la base, responsable y equipo, intervenciones con **tres niveles de visibilidad filtrados en el servidor**, tareas, plan, cierre con motivo del catálogo, reapertura que crea un caso nuevo, y la bitácora de consulta **enseñada a quien mira**. `scripts/prueba-permanencia-casos.php`, 96 verificaciones, 48 mutaciones. |
 | ~~**6**~~ | ~~**Plazos y notificaciones**~~ **HECHA** | `permanencia:avisar` a las 07:45 —**no** `vigilar-sla`, y **no escala nada**: ver abajo—, el rastro con único sobre columna generada, **un aviso y N rastros**, la franja horaria configurable, las plantillas de la regla con su conjunto cerrado de marcas, y la sección de permanencia en `scheduler:estado`. `scripts/prueba-permanencia-avisos.php`, 69 verificaciones, 36 mutaciones. |
 | ~~**7**~~ | ~~**Tableros e indicadores**~~ **HECHA** | `/permanencia/tablero` con su permiso propio, la **cobertura primero**, la tasa de descarte **sobre la regla**, efectividad declarada y **medida**, recurrencia, dos fuentes de reporte con seis reportes, dos tarjetas de panel y el **tamaño mínimo de grupo** aplicado a todo desglose. `scripts/prueba-permanencia-indicadores.php`, 60 verificaciones, 30 mutaciones. |
-| **8** | **Portales** | El docente (sus grupos, tras el interruptor) y el alumno (pendientes concretos, sin puntaje). |
+| ~~**8**~~ | ~~**Portales**~~ **HECHA** | El docente tras el **interruptor institucional**, con su alcance por ASIGNACIÓN y sin una sola categoría sensible —diciéndole cuántas no ve—; y el alumno con lo que su regla decidió contarle, **nunca un puntaje**, cada señal con a dónde ir y con el NOMBRE de quien lo acompaña. La **familia NO** las ve, y se dice por qué. `scripts/prueba-permanencia-portales.php`, 64 verificaciones, 14 mutaciones. |
 
 ---
 
@@ -1159,6 +1168,115 @@ tiene:
     parado.** Es la excepción a la regla de vacíos del proyecto, y hace falta:
     ahí el cero no significa que no haya riesgo, significa que nadie está
     mirando.
+
+### Lo que la fase 8 dejó decidido, y se aparta del plan
+
+1. **Se crea `ver-mi-seguimiento`, y el plan decía no crearlo.** Aquel argumento
+   —reusar el permiso del portal de cursos— no cubría dos casos: hay alumnos sin
+   un solo curso publicado que sí tienen señales, así que colgar esto de
+   `ver-mis-cursos` los dejaría fuera; y una escuela que decida no exponerlo
+   necesita poder apagarlo **de una vez**, no regla por regla marcando
+   `avisa_al_alumno` en cada una.
+
+2. **Y `ver-alertas-de-mis-grupos` es de la faceta DOCENTE, no administrativa.**
+   Es la salvaguarda de verdad: sin ella un administrativo podría concedérselo y
+   —el día que le den una materia— llevarse señales por una puerta que no es la
+   suya. El alcance por asignación no lo detendría, sólo lo retrasaría.
+
+3. **TRES capas sobre el docente, y ninguna sobra.** El módulo, el permiso y el
+   **interruptor de la escuela** (`permanencia.docente_ve_alertas`, apagado por
+   omisión), que responde **404 y no 403**: con él apagado la página no existe en
+   esta escuela, y un 403 diría «existe pero no es para ti» sobre algo que la
+   dirección decidió no ofrecer. Se comprueba en el SERVICIO y en el
+   CONTROLADOR: sólo en el servicio, la puerta se quedaría abierta el día que
+   alguien agregue otra ruta.
+
+4. **Y el alcance lo da la ASIGNACIÓN, no el permiso.** Sale de
+   `docente_asignatura_grupo`, igual que la captura de calificaciones. El
+   permiso dice QUÉ puede hacer; la asignación dice SOBRE QUIÉN.
+
+5. **Las categorías sensibles no llegan al docente, ni para decir que existen.**
+   El plan dejaba en la ficha de un CASO el «hay una señal financiera
+   pendiente», sin el monto, y ahí tiene sentido: quien atiende a la persona
+   necesita saber que hay otro frente. Aquí no: esto es un LISTADO de sus
+   alumnos, y decirle a un docente que tal alumno tiene una señal financiera ya
+   es decirle que tiene problemas de dinero. Se excluyen de la CONSULTA, no se
+   esconden en la pantalla.
+
+6. **Pero SÍ se le dice cuántas categorías no ve.** Callarlas haría creer que ve
+   todo, y un docente que abre una lista vacía concluiría que a sus alumnos no
+   les pasa nada. Es la lección de las notas reservadas de un caso.
+
+7. **Al docente sólo lo VALIDADO, y sólo de SU materia.** Lo primero porque una
+   señal sin revisar puede ser un dato mal capturado —una lista que nadie pasó—.
+   Lo segundo porque la inasistencia en la clase de al lado no es asunto suyo:
+   enseñársela sería contarle cómo le va a su alumno con otro profesor. Las que
+   no cuelgan de ninguna materia sí entran: hablan del alumno, no de una clase.
+
+8. **Al alumno, NUNCA un puntaje ni un nivel de riesgo.** Instrucción explícita
+   del pedido, y se comprueba con el riesgo ya calculado: un número opaco no le
+   sirve para actuar y sí para desanimarse. Lo que sirve es «tu asistencia va en
+   63 % y se pide 80 %» **con el enlace a dónde ir**, que es la otra mitad de lo
+   que hace útil la pantalla.
+
+9. **Y sólo lo que su regla decidió contarle.** `avisa_al_alumno` es **el mismo
+   interruptor** que manda el aviso de la fase 6: con dos controles, la pantalla
+   y el aviso podrían decir cosas distintas sobre la misma señal. El texto sale
+   de la plantilla de la regla, nunca de la definición técnica —
+   «asistencia.porcentaje < 80 en el ciclo» es lo que lee quien configura—.
+
+10. **Sabe QUIÉN lo acompaña, y nada más.** Si su caso tiene responsable se le
+    dice su nombre y desde cuándo. Ni el folio, ni el estado, ni cuántas
+    intervenciones lleva. Un expediente secreto sobre alguien es la versión
+    vigilancia de esto; saber a quién acudir es la versión acompañamiento, que
+    es lo que el módulo dice ser.
+
+11. **La ruta del alumno no lleva id.** La persona sale de la sesión, y quien
+    estudia dos programas elige entre los SUYOS: un id ajeno no encuentra pareja
+    y cae en el propio, **sin 403** —un 403 confirmaría que ese id existe—. Es el
+    molde de `/mi-historial`.
+
+12. **La FAMILIA no las ve, y el plan decía que sí.** Es la decisión grande de
+    esta fase, y se aparta de §8.3 a propósito:
+
+    - Una señal **no es un hecho** del alumno: es una AFIRMACIÓN de la escuela de
+      que algo amerita atención. Los hechos de debajo —promedio, materias
+      reprobadas, asistencia, adeudos— la familia YA los ve en `/mis-hijos`, cada
+      uno tras su propia bandera del vínculo. Lo que agregaría esta pantalla es
+      el JUICIO, y comunicar un juicio sobre un menor es exactamente lo que una
+      INTERVENCIÓN existe para hacer, con alguien que se hace responsable de cómo
+      se dice.
+    - **La fase 6 ya se negó a mandárselo por aviso**, con ese mismo argumento.
+      Una pantalla pasiva reabriría por la puerta de enfrente lo que el aviso
+      cerró por detrás: nadie habría decidido contárselo y se le contaría igual.
+      Y sería PEOR que el aviso, porque un aviso caduca a los 30 días y una
+      pantalla es permanente.
+    - Y una señal **se descarta**: la que hoy dice «promedio bajo» puede
+      retirarse la semana que viene, y quien la leyó no tendría cómo enterarse.
+    - Lo que sí existe, desde la fase 5, es el camino correcto: una intervención
+      de tipo «contacto con la familia», con su responsable, su fecha y su
+      registro.
+
+    **Una comprobación lo vigila**: el portal de la familia no importa ni una
+    clase del módulo, y sus props no nombran ninguna señal ni ningún caso. Es la
+    guarda para que nadie agregue la pantalla sin leer antes por qué no está.
+
+13. **Un defecto que sólo se vio mirando el componente**: la pantalla del
+    docente **tiraba el número**. `Alerta::comoLaVe` le manda `valor_observado`
+    y `umbral` —lo único accionable— y el Vue sólo pintaba el nombre de la
+    regla: «Asistencia por debajo del 80 %» dice QUÉ se mide, no qué le pasa a
+    esta persona. Y la comprobación pasaba igual, porque medía lo que VIAJA y no
+    lo que se ve.
+
+14. **Dos mutaciones sobrevivieron la primera vez, y las dos eran huecos del
+    escenario** —lo de siempre—: en el demo `docente_asignatura_grupo` está
+    prácticamente vacía, así que quitarle a la consulta el filtro por
+    `persona_id` devolvía lo mismo (hizo falta plantarle SU PROPIO docente a la
+    materia de al lado); y la señal sin revisar del escenario venía de una regla
+    que además no avisa al alumno, de modo que el filtro por triage no se
+    ejercitaba —la excluía ya el otro—.
+
+---
 
 ---
 

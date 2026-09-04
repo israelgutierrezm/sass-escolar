@@ -156,6 +156,12 @@ export const CATALOGO_MENU: GrupoMenu[] = [
             // escolar, que exige un permiso de personal administrativo.
             { clave: 'mi-historial', etiqueta: 'Mi historial académico', url: '/mi-historial', permiso: 'ver-historial-academico' },
             { clave: 'mi-expediente-alumno', etiqueta: 'Mi expediente', url: '/mi-expediente', permiso: 'editar-mi-expediente-alumno' },
+            /*
+             * Lo que la escuela le ha señalado y qué puede hacer. Bajo el módulo
+             * `permanencia`: si la escuela lo apaga, la entrada se va con la
+             * sección administrativa y la ruta responde 404.
+             */
+            { clave: 'mi-seguimiento', etiqueta: 'Mi seguimiento', url: '/mi-seguimiento', permiso: 'ver-mi-seguimiento', modulo: 'permanencia' },
         ],
     },
     /*
@@ -671,6 +677,15 @@ export const CATALOGO_MENU: GrupoMenu[] = [
             // `modulo` porque sus otras opciones no dependen de él, así que el
             // gate va en la hoja.
             { clave: 'incidencias-docente', etiqueta: 'Incidencias', url: '/docencia/incidencias', permiso: 'levantar-incidencia', modulo: 'disciplina' },
+            /*
+             * Las señales de sus grupos. Bajo `permanencia`, y ADEMÁS detrás
+             * del interruptor de la escuela, que el controlador comprueba: la
+             * entrada puede estar y la página responder 404 mientras la
+             * dirección no lo encienda. Es lo que el pedido pide —«cuando la
+             * política institucional lo permita»— y no se puede expresar en el
+             * menú, que sólo sabe de permisos y módulos.
+             */
+            { clave: 'permanencia-docente', etiqueta: 'Señales de mis grupos', url: '/docencia/permanencia', permiso: 'ver-alertas-de-mis-grupos', modulo: 'permanencia' },
             { clave: 'mi-expediente', etiqueta: 'Mi expediente', url: '/docencia/expediente', permiso: 'editar-mi-expediente' },
         ],
     },
