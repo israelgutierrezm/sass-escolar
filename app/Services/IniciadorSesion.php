@@ -21,14 +21,19 @@ class IniciadorSesion
 
     /**
      * Cierra el acceso de un usuario YA autenticado (Auth::login ya ocurrió).
+     *
+     * @param  array<string, mixed>  $detalle  cómo entró, cuando no fue por la
+     *                                         puerta de siempre. Lo usa el
+     *                                         regreso con «recuérdame», que no
+     *                                         cruza el controlador de login.
      */
-    public function finalizar(Usuario $usuario, Request $request): void
+    public function finalizar(Usuario $usuario, Request $request, array $detalle = []): void
     {
         $this->asegurarRolActivo($usuario);
 
         $usuario->forceFill(['conectado' => true])->save();
 
-        $this->bitacora->entrada($usuario, $request);
+        $this->bitacora->entrada($usuario, $request, $detalle);
     }
 
     /**

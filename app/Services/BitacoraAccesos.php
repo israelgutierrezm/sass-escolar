@@ -19,9 +19,12 @@ use Illuminate\Http\Request;
  */
 class BitacoraAccesos
 {
-    public function entrada(Usuario $usuario, Request $request): void
+    /**
+     * @param  array<string, mixed>  $detalle  cómo entró, si no fue tecleando.
+     */
+    public function entrada(Usuario $usuario, Request $request, array $detalle = []): void
     {
-        $this->registrar(BitacoraAcceso::ENTRADA, $request, $usuario);
+        $this->registrar(BitacoraAcceso::ENTRADA, $request, $usuario, detalle: $detalle);
     }
 
     public function salida(Usuario $usuario, Request $request): void

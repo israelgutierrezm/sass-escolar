@@ -10,6 +10,8 @@ interface Fila {
     id: number;
     persona: string;
     tipo: string;
+    /** Cómo entró, si no fue tecleando. Hoy sólo «recordado». */
+    via?: string | null;
     ip: string | null;
     navegador: string | null;
     equipo: string | null;
@@ -151,6 +153,21 @@ const ICONO_ACCESOS =
                             <td class="px-6 py-4 font-medium text-contenido">{{ f.persona }}</td>
                             <td class="px-4 py-4">
                                 <PildoraEstado :texto="etiquetaTipo[f.tipo] ?? f.tipo" :color="colorTipo(f.tipo)" sin-capitalizar />
+                                <!--
+                                    Que la sesión se recuperó con la cookie y no
+                                    tecleando. Es lo que distingue una máquina
+                                    que alguien dejó abierta de alguien que
+                                    demostró saber su contraseña, y sin decirlo
+                                    las dos filas se leen igual.
+                                -->
+                                <span
+                                    v-if="f.via === 'recordado'"
+                                    class="ml-1.5 text-xs"
+                                    :style="{ color: 'var(--color-suave)' }"
+                                    title="La sesión se recuperó con la cookie de «recuérdame»: no se tecleó la contraseña."
+                                >
+                                    con «recuérdame»
+                                </span>
                             </td>
                             <td class="px-4 py-4 tabular-nums" :style="{ color: 'var(--color-suave)' }">{{ f.momento ?? '—' }}</td>
                             <td class="px-4 py-4">{{ f.equipo ?? '—' }}</td>

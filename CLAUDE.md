@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**144 archivos `prueba-*.php`**,
+   Las suites versionadas viven en `scripts/` (**145 archivos `prueba-*.php`**,
    más tres `apoyo-*.php` que NO son suites: son piezas que varias comparten
    —roles de ejemplo, FormRequests y la limpieza ordenada de permanencia—;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
@@ -67,7 +67,7 @@ Los otros dos documentos vivos:
    un rol con disposición guardada. Si node no puede correrlo, la suite FALLA
    en vez de saltarse.
 
-   **Las 144 están en verde**, barridas el 2026-09-04. Catorce son del módulo de
+   **Las 145 están en verde**, barridas el 2026-09-04. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -773,6 +773,67 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
   CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
   adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
+- **El «recuérdame» dejaba un agujero en el registro de accesos** (2026-09-04,
+  pedido del cliente). La casilla siempre funcionó para autenticar —la cookie
+  sale, dura 400 días, va `httpOnly` y sola devuelve la sesión—. Lo que no
+  pasaba es que **el regreso por la cookie no cruza el controlador de login**:
+  lo resuelve el guard al pedir `Auth::user()`, así que
+  `IniciadorSesion::finalizar()` no corría y con él se perdían dos cosas —la
+  cuenta no quedaba marcada como conectada, y **la entrada no se asentaba en
+  `bitacora_accesos`**—.
+  - **Ése es el grave, y es de los que no avisan**: el registro que existe para
+    saber quién entró mentía POR OMISIÓN. No faltaba una pantalla ni fallaba
+    nada; simplemente quien tuviera la casilla marcada dejaba de aparecer — y es
+    justo la sesión que alguien puede haber dejado abierta en una máquina
+    prestada.
+  - **Lo cierra un oyente de `Login`** (`App\Listeners\AsentarRegresoRecordado`)
+    que llama a `finalizar()`. Con eso el arreglo vive en UN sitio y no hay que
+    acordarse de repetirlo en cada camino de entrada.
+  - **LA TRAMPA: `Login` se dispara en los DOS caminos con `remember = true`** —
+    el login normal con la casilla marcada y el regreso por la cookie—, así que
+    un oyente que mire la bandera del EVENTO asienta **dos** filas por cada
+    acceso con «recuérdame»: la del controlador y la suya. Lo que sí los separa
+    es **`viaRemember()`**, que el guard pone sólo al resolver desde el
+    recaller. **Medido antes de escribir el arreglo**: en el login normal sale
+    `false` y en el regreso, `true`.
+  - **Y NO se asienta para todo `Auth::login()`**, que sería lo más limpio en
+    abstracto: lo llaman también `Suplantador::iniciar` y `::terminar`, que no
+    son entradas y ya tienen su propio rastro. Un oyente sin discriminar
+    escribiría que esa persona inició sesión cuando no lo hizo.
+  - **Se anota CÓMO volvió** (`detalle.via = 'recordado'`) y **se enseña en la
+    pantalla** —«Entrada con «recuérdame»»—: es la misma entrada, y las cifras
+    del panel tienen que contarla, pero no el mismo hecho, porque ahí nadie
+    tecleó una contraseña. Guardado y no mostrado sería otra columna que nadie
+    lee, que es el defecto que este proyecto ya retiró varias veces.
+  - **La comprobación se acota por el MODELO y no por el nombre del guard.**
+    Medido sobre `config('auth')`: `web` es el único respaldado por `Usuario`,
+    así que las dos condiciones no pueden discrepar y dos formas de una misma
+    regla es como se llega a que una se quede vieja. Es la lección de
+    `$diseno->exists`. El `viaRemember` sí se le pregunta al guard DEL EVENTO:
+    preguntar siempre por `web` leería el estado de otra sesión el día que haya
+    un segundo guard de escuela.
+  - **DOS TRAMPAS nuevas que costaron, y las dos son silenciosas:**
+    1. **Laravel DESCUBRE SOLO los oyentes de `app/Listeners`.** Registrarlo
+       además con `Event::listen` lo deja **dos veces** —medido con
+       `Event::getRawListeners()`: `AsentarRegresoRecordado` y
+       `AsentarRegresoRecordado@handle`— y el oyente corre dos veces, así que la
+       bitácora asienta el doble. Un registro de auditoría que cuenta doble es
+       peor que uno que no cuenta.
+    2. **Una guarda de `runningInConsole()` dejó el arreglo INTESTABLE.** Se
+       puso para evitar filas nacidas de un comando o de la cola; pero para
+       llegar ahí hace falta una petición con la cookie del recuerdo, que ni un
+       comando ni un job producen — no protegía de ningún caso real y a cambio
+       apagaba la prueba, porque las suites de este proyecto corren por consola.
+       Se retiró.
+  - Pruebas: `scripts/prueba-recuerdame.php`, 21 verificaciones, comprobadas
+    mutando **nueve reglas**. Una sobrevivió la primera vez y por lo de siempre
+    —el escenario no tenía el caso—: ninguna entrada de la CENTRAL, así que la
+    guarda del modelo no se ejercitaba. Se construye entera, con su cookie y su
+    regreso… y al construirla salió otra: **`logout()` CICLA el token del
+    recuerdo**, de modo que la cookie capturada apunta a uno que ya no existe y
+    el regreso no ocurre. Sin devolverlo, la comprobación pasaba por no haber
+    entrado nadie, que es la razón equivocada.
+
 - **Alertas tempranas y permanencia · la revisión EN EL NAVEGADOR**
   (2026-09-04, pedido del cliente). Se recorrió el módulo entero con datos
   sembrados —cinco reglas encendidas, ocho señales, dos casos— y **se retiró

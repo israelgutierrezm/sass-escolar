@@ -127,6 +127,7 @@ use App\Services\Emision\ClienteTitulosSep;
 use App\Services\Facturacion\FacturapiService;
 use App\Services\Plataforma\ModulosDeLaEscuela;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -199,6 +200,7 @@ class AppServiceProvider extends ServiceProvider
         $this->registrarProveedoresDeSenales();
         $this->registrarReportes();
         $this->registrarObservadoresDeAcceso();
+        $this->registrarOyentesDeSesion();
     }
 
     /**
@@ -214,6 +216,29 @@ class AppServiceProvider extends ServiceProvider
         Docente::observe(DocenteObserver::class);
         Alumno::observe(AlumnoObserver::class);
         Aspirante::observe(AspiranteObserver::class);
+    }
+
+    /**
+     * Lo que pasa al ENTRAR y no cruza el controlador de login.
+     *
+     * Hoy sólo el regreso con «recuérdame» (`AsentarRegresoRecordado`): lo
+     * resuelve el guard al pedir `Auth::user()`, así que sin él ni la cuenta
+     * quedaba marcada como conectada ni la entrada se asentaba en la bitácora
+     * — y la bitácora existe justo para saber quién entró.
+     *
+     * ── Y NO se registra aquí, a propósito ────────────────────────────────
+     * Laravel DESCUBRE SOLO los oyentes de `app/Listeners`, así que un
+     * `Event::listen` además los deja registrados DOS veces. El síntoma es
+     * silencioso y caro: el oyente corre dos veces y la bitácora de accesos
+     * asienta dos filas por cada entrada, o sea que el registro que existe para
+     * auditar empieza a contar doble. Se midió —`Event::getRawListeners()`
+     * devolvía `AsentarRegresoRecordado` y `AsentarRegresoRecordado@handle`— y
+     * se quitó la línea. Este método se queda como el MAPA: quien lea el
+     * arranque tiene que poder enterarse de que hay un oyente que escribe ahí.
+     */
+    protected function registrarOyentesDeSesion(): void
+    {
+        // Vacío a propósito: ver el docblock. Los oyentes viven en app/Listeners.
     }
 
     /**

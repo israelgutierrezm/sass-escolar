@@ -38,6 +38,15 @@ class AccesosController extends Controller
                 'ip' => $b->ip,
                 'navegador' => $b->navegador,
                 'equipo' => $b->equipo,
+                /*
+                 * Cómo entró, cuando no fue tecleando. Hoy sólo «recordado»: la
+                 * vuelta por la cookie de «recuérdame», que es la misma entrada
+                 * —y las cifras de arriba la cuentan— pero no el mismo hecho,
+                 * porque ahí nadie escribió una contraseña. Viaja a la pantalla
+                 * en vez de quedarse en la columna: un dato que sólo se guarda
+                 * es un dato que nadie mira.
+                 */
+                'via' => $b->detalle['via'] ?? null,
                 'momento' => $b->creado_en?->toDateTimeString(),
             ]);
 
