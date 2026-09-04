@@ -8,6 +8,8 @@ use App\Exceptions\AvisoParaElUsuario;
 use App\Models\Identidad\Usuario;
 use App\Models\ProcesosFormativos\BitacoraHoras;
 use App\Models\ProcesosFormativos\ExpedienteProceso;
+use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -46,9 +48,30 @@ class RegistradorDeHoras
     public function capturar(ExpedienteProceso $expediente, array $datos, ?Usuario $quien): BitacoraHoras
     {
         $this->exigirQueSePuedaCapturar($expediente);
-        $this->exigirQueLaJornadaValga($expediente, $datos);
 
         return DB::transaction(function () use ($expediente, $datos, $quien) {
+            /*
+             * ── El traslape y los topes se comprueban CON EL CANDADO PUESTO ─
+             *
+             * Estaban antes de la transacción: dos capturas simultáneas de la
+             * misma jornada veían las dos que no había traslape, y las dos
+             * insertaban. Resultado: horas duplicadas, topes rebasados y —si
+             * alguien las aprueba— una liberación con tiempo que no se trabajó.
+             *
+             * Y la base no lo detiene: `bitacora_horas` sólo tiene un índice NO
+             * único en `(expediente_id, fecha)`. Tampoco puede: «esta jornada no
+             * se encima con ninguna otra» es una condición entre FILAS, y MySQL
+             * no tiene restricciones de exclusión. Un único sobre la hora exacta
+             * atraparía la copia idéntica y no el traslape, que es el caso.
+             *
+             * Así que el punto de serialización es el EXPEDIENTE: se bloquea su
+             * fila y se valida después. Dos capturas del mismo alumno se
+             * ordenan; las de alumnos distintos no se estorban.
+             */
+            $this->bloquear($expediente);
+
+            $this->exigirQueLaJornadaValga($expediente, $datos);
+
             $fila = $expediente->horas()->create([
                 'fecha' => $datos['fecha'],
                 'hora_inicio' => $datos['hora_inicio'],
@@ -85,28 +108,69 @@ class RegistradorDeHoras
         $expediente = $fila->expediente;
 
         $this->exigirQueSePuedaCapturar($expediente);
-        $this->exigirQueLaJornadaValga($expediente, $datos, $fila->id);
 
-        $fila->fill([
-            'fecha' => $datos['fecha'],
-            'hora_inicio' => $datos['hora_inicio'],
-            'hora_fin' => $datos['hora_fin'],
-            'minutos_descanso' => (int) ($datos['minutos_descanso'] ?? 0),
-            'actividad' => $datos['actividad'],
-            'modalidad_id' => $datos['modalidad_id'] ?? $fila->modalidad_id,
-        ]);
+        return DB::transaction(function () use ($fila, $datos, $expediente) {
+            $this->bloquear($expediente);
 
-        /*
-         * Una jornada RECHAZADA que se corrige vuelve a la cola, y su motivo se
-         * borra: ya no es cierto. Dejarlo diría que sigue rechazada por algo que
-         * el alumno acaba de arreglar.
-         */
-        $fila->forceFill([
-            'estado' => BitacoraHoras::CAPTURADA,
-            'motivo_rechazo' => null,
-        ])->save();
+            $this->exigirQueLaJornadaValga($expediente, $datos, $fila->id);
 
-        return $fila->refresh();
+            /*
+             * ── El update va CONDICIONADO a que NO esté aprobada ────────────
+             *
+             * El guard de arriba mira `$fila->estaAprobada()` sobre el objeto EN
+             * MEMORIA. Entre esa lectura y este guardado, otra petición puede
+             * aprobarla —la pantalla del coordinador está abierta al mismo
+             * tiempo que la del alumno— y entonces el `save()` escribía
+             * `estado = capturada` ENCIMA de la aprobación, con horas nuevas que
+             * nadie revisó: la jornada se des-aprobaba sola y
+             * `expedientes_proceso.horas_aprobadas` seguía contándola.
+             *
+             * Es la misma defensa que ya usaba `revisar()` para aprobar y
+             * rechazar; que aquí faltara era la asimetría. `afectadas` es lo que
+             * dice si de verdad ganó esta petición.
+             */
+            $afectadas = BitacoraHoras::query()
+                ->whereKey($fila->id)
+                ->where('estado', '!=', BitacoraHoras::APROBADA)
+                ->update([
+                    'fecha' => $datos['fecha'],
+                    'hora_inicio' => $datos['hora_inicio'],
+                    'hora_fin' => $datos['hora_fin'],
+                    'minutos_descanso' => (int) ($datos['minutos_descanso'] ?? 0),
+                    'actividad' => $datos['actividad'],
+                    'modalidad_id' => $datos['modalidad_id'] ?? $fila->modalidad_id,
+                    /*
+                     * Una jornada RECHAZADA que se corrige vuelve a la cola, y
+                     * su motivo se borra: ya no es cierto. Dejarlo diría que
+                     * sigue rechazada por algo que el alumno acaba de arreglar.
+                     */
+                    'estado' => BitacoraHoras::CAPTURADA,
+                    'motivo_rechazo' => null,
+                    'updated_at' => now(),
+                ]);
+
+            AvisoParaElUsuario::si(
+                $afectadas === 0,
+                422,
+                'Esa jornada acaba de aprobarse mientras la corregías, así que ya cuenta para sus '
+                .'horas. Para cambiarla, recházala con su motivo y captúrala otra vez.',
+            );
+
+            return $fila->refresh();
+        });
+    }
+
+    /**
+     * Bloquea el expediente: es el punto donde se ordenan las capturas.
+     *
+     * Se bloquea el PADRE y no las jornadas del día porque lo que hay que
+     * impedir es que nazca una fila nueva, y a una fila que todavía no existe
+     * no se le puede poner candado. Bloquear el expediente serializa a los dos
+     * capturadores del MISMO alumno y no estorba a los demás.
+     */
+    private function bloquear(ExpedienteProceso $expediente): void
+    {
+        ExpedienteProceso::query()->whereKey($expediente->id)->lockForUpdate()->first();
     }
 
     /**
@@ -358,8 +422,8 @@ class RegistradorDeHoras
          * domingo contaría en la semana siguiente y el tope se podría rebasar
          * partiendo el fin de semana.
          */
-        $dia = \Carbon\CarbonImmutable::parse($datos['fecha']);
-        $lunes = $dia->startOfWeek(\Carbon\CarbonInterface::MONDAY);
+        $dia = CarbonImmutable::parse($datos['fecha']);
+        $lunes = $dia->startOfWeek(CarbonInterface::MONDAY);
 
         $yaEsaSemana = (int) $expediente->horas()
             ->queOcupanFranja()

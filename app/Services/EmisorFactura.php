@@ -47,25 +47,50 @@ class EmisorFactura
      */
     public function emitir(int $matriculaOfertaId, array $pagoIds, array $receptor, ?Factura $sustituyeA = null): Factura
     {
-        $pagos = $this->pagosFacturables($matriculaOfertaId, $pagoIds, $sustituyeA);
+        return DB::transaction(function () use ($matriculaOfertaId, $pagoIds, $receptor, $sustituyeA) {
+            /*
+             * ── La comprobación va DENTRO, y con los pagos bloqueados ──────
+             *
+             * Estaba fuera de la transacción: dos peticiones de factura sobre
+             * los mismos pagos veían las dos que estaban libres, creaban las dos
+             * su factura y encolaban los dos timbrados. El mismo ingreso
+             * declarado dos veces al SAT, y corregirlo cuesta cancelar un CFDI.
+             *
+             * Se bloquean las filas de `pagos` —no las de `factura_conceptos`,
+             * que todavía no existen— y ése es el punto de serialización: la
+             * segunda petición espera, y al volver a preguntar
+             * `pagosYaFacturados` ve la factura que acaba de nacer.
+             *
+             * ── Y no hay red declarativa que lo respalde ───────────────────
+             * Tentador poner un único en `factura_conceptos.pago_id`, y sería
+             * incorrecto: un pago SÍ puede aparecer en varias filas —la
+             * cancelada, la sustituida y la vigente—. Lo que no puede es estar
+             * en dos VIVAS a la vez, y «viva» depende de `facturas.estatus` y de
+             * la sustituta, o sea de OTRA tabla: ni un único ni una columna
+             * generada pueden mirar eso. El bloqueo ES la defensa.
+             */
+            Pago::query()->whereIn('id', $pagoIds)->lockForUpdate()->get();
 
-        // Con qué razón social se emite. Se resuelve ANTES de crear nada: una
-        // escuela con varias personas morales factura bachillerato con una y
-        // posgrado con otra, y emitir a nombre equivocado no se corrige con un
-        // UPDATE sino cancelando ante el SAT.
-        $matricula = MatriculaOferta::findOrFail($matriculaOfertaId);
-        $emisor = $this->resolutorEmisor->datosPara($matricula);
+            $pagos = $this->pagosFacturables($matriculaOfertaId, $pagoIds, $sustituyeA);
 
-        // El concepto de cada pago se resuelve UNA vez: lo necesitan el renglón
-        // (clave del SAT, IVA) y la decisión del complemento educativo, y
-        // preguntarlo dos veces es una consulta por pago repetida.
-        $conceptos = $pagos->mapWithKeys(fn (Pago $p) => [$p->id => $this->conceptoDe($p)]);
+            // Con qué razón social se emite. Una escuela con varias personas
+            // morales factura bachillerato con una y posgrado con otra, y
+            // emitir a nombre equivocado no se corrige con un UPDATE sino
+            // cancelando ante el SAT.
+            $matricula = MatriculaOferta::findOrFail($matriculaOfertaId);
+            $emisor = $this->resolutorEmisor->datosPara($matricula);
 
-        // Se decide ANTES de crear nada, para que el motivo quede escrito en la
-        // misma fila y no en un UPDATE posterior que podría no llegar.
-        $iedu = $this->complemento->decidir($matricula, $conceptos->values());
+            // El concepto de cada pago se resuelve UNA vez: lo necesitan el
+            // renglón (clave del SAT, IVA) y la decisión del complemento
+            // educativo, y preguntarlo dos veces es una consulta por pago
+            // repetida.
+            $conceptos = $pagos->mapWithKeys(fn (Pago $p) => [$p->id => $this->conceptoDe($p)]);
 
-        return DB::transaction(function () use ($matriculaOfertaId, $pagos, $conceptos, $iedu, $receptor, $sustituyeA, $emisor) {
+            // Se decide antes de crear la factura, para que el motivo quede
+            // escrito en la misma fila y no en un UPDATE posterior que podría
+            // no llegar.
+            $iedu = $this->complemento->decidir($matricula, $conceptos->values());
+
             $renglones = $pagos->map(fn (Pago $pago) => $this->renglonDe($pago, $conceptos[$pago->id]));
 
             $subtotal = round($renglones->sum('importe'), 2);

@@ -197,6 +197,20 @@ class RegistradorPago
                 break;
             }
 
+            /*
+             * El saldo se lee con la fila YA BLOQUEADA por `adeudosACubrir`, así
+             * que aquí no puede haber cambiado por debajo. Antes del bloqueo,
+             * dos cobros simultáneos leían el mismo y aplicaban los dos el total.
+             *
+             * Se probó a releer el modelo con `fresh()` y se RETIRÓ al medirlo:
+             * `montoAplicado()` consulta `pago_adeudo` en cada llamada —no usa
+             * una relación cargada—, así que el saldo ya es el de ahora y lo
+             * único que `fresh()` volvía a traer era `monto_total`, que no
+             * cambia dentro de la transacción. Era una consulta por adeudo a
+             * cambio de nada, y una segunda forma de decir lo mismo es como se
+             * llega a que una se quede vieja. Es la lección de
+             * `$diseno->exists`.
+             */
             $saldo = $adeudo->saldo();
 
             if ($saldo <= 0) {
@@ -223,13 +237,39 @@ class RegistradorPago
                 fn ($q) => $q->deAspirante($titular->id),
                 fn ($q) => $q->deMatricula($titular->id),
             )
-            ->porCobrar();
+            ->porCobrar()
+            /*
+             * ── El BLOQUEO, y por qué no basta con la transacción ──────────
+             *
+             * `aplicar()` lee el saldo de cada adeudo y luego escribe cuánto le
+             * aplica. Sin bloquear la fila, dos cajeros cobrando a la vez el
+             * mismo adeudo de $1,000 leen los dos «saldo 1,000» y aplican los
+             * dos $1,000: queda con $2,000 aplicados sobre un total de $1,000.
+             *
+             * La llave primaria de `pago_adeudo` es `(pago_id, adeudo_id)`, así
+             * que impide repetir la MISMA pareja y no impide que pagos
+             * DISTINTOS se pasen del total — que es justo el caso.
+             *
+             * Y no hay red declarativa que lo cubra: «la suma de lo aplicado no
+             * pasa del total» es una condición sobre varias filas de otra
+             * tabla, y MySQL no tiene restricciones de ese tipo. Así que el
+             * bloqueo pesimista ES la defensa, no un refuerzo de otra.
+             *
+             * `lockForUpdate` serializa a las dos transacciones sobre estas
+             * filas: la segunda espera, y al leer ve el saldo ya reducido.
+             */
+            ->lockForUpdate();
 
         if ($adeudoIds !== null) {
             // Se respeta el orden que eligió quien cobra: si el alumno viene a
             // pagar su titulación, no se le aplica a la colegiatura de marzo
             // porque esté más vencida.
-            $adeudos = $consulta->whereIn('id', $adeudoIds)->get()->keyBy('id');
+            //
+            // El BLOQUEO se toma por id ascendente y no en el orden de captura:
+            // dos cobros que eligieran los mismos adeudos en orden distinto se
+            // bloquearían en cruz y MySQL mataría a uno por interbloqueo. El
+            // orden de APLICACIÓN sigue siendo el que eligió quien cobra.
+            $adeudos = $consulta->whereIn('id', $adeudoIds)->orderBy('id')->get()->keyBy('id');
 
             return collect($adeudoIds)
                 ->map(fn (int $id) => $adeudos->get($id))
