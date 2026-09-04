@@ -644,7 +644,7 @@ Cada fase es entregable y verificable sola.
 |---|---|---|
 | ~~**1**~~ | ~~**Cimientos, catálogos y reglas**~~ **HECHA** | Módulo `permanencia` encendido con sección propia, **cuatro** catálogos con seeder —la categoría lleva su bandera `sensible` y el permiso que abre su detalle—, `reglas_alerta` + versiones + exclusiones, `CatalogoMetricas` con doce métricas declaradas, y las ocho reglas de ejemplo **apagadas y sin avisar a nadie**. `scripts/prueba-permanencia-reglas.php`, 63 verificaciones, 28 mutaciones. |
 | ~~**2**~~ | ~~**Proveedores y motor**~~ **HECHA** | **Seis** proveedores —no ocho: inscripciones y expedientes se resolvieron dentro de los otros— con su contrato completo, `AsistenciaDelAlumno` extraído con su definición explícita, `alertas` con deduplicación por columna generada, el motor con sus tres resultados y el cierre automático distinguiendo RESUELTA de OBSOLETA, y `permanencia:evaluar` a las 05:00. `scripts/prueba-permanencia-motor.php`, 73 verificaciones, 37 mutaciones. |
-| **3** | **Bandeja y triage** | La bandeja de alertas con su alcance por categoría y campus, validar/descartar con motivo, y la ficha de alerta que explica su evidencia. |
+| ~~**3**~~ | ~~**Bandeja y triage**~~ **HECHA** | La bandeja con sus cuatro capas de visibilidad —módulo, permiso, campus y categoría—, validar y descartar con motivo del catálogo, descarte en masa que respeta el campus y lo DICE, y la ficha que explica la evidencia, la condición en palabras y **cómo hay que leer el número**. `scripts/prueba-permanencia-bandeja.php`, 52 verificaciones, 23 mutaciones. |
 | **4** | **Riesgo compuesto** | El cálculo por categorías sin doble conteo, su desglose, su decaimiento, el ajuste con justificación y el histórico. |
 | **5** | **Casos e intervenciones** | La máquina de estados en una sola puerta, folio atómico, responsable y equipo, intervenciones con visibilidad, tareas, acuerdos y la bitácora de consulta. |
 | **6** | **SLA, escalamiento y notificaciones** | `permanencia:vigilar-sla`, las plantillas, la deduplicación de avisos, los horarios permitidos y el registro de envío. |
@@ -793,6 +793,47 @@ tiene:
    también la columna, y MySQL responde «The value specified for generated
    column is not allowed». Vale para las cinco tablas de este proyecto que
    tienen una.
+
+---
+
+### Lo que la fase 3 dejó decidido, y no estaba en este plan
+
+1. **La bandeja dice CUÁNDO corrió el motor**, y con un aviso en ámbar si lleva
+   más de dos días. Sin ese dato, una cola vacía se lee como ausencia de riesgo,
+   que es la peor lectura que este módulo puede inducir. Es el mismo criterio con
+   el que la cobertura viaja al lado de la cifra.
+
+2. **La tasa de descarte de 30 días va ARRIBA**, junto a las demás cifras. Una
+   cola que se descarta entera no es una cola: es ruido, y quien la mira todos
+   los días tiene que verlo antes de acostumbrarse a ignorarla.
+
+3. **Descartar NO mueve el estado de la señal.** Una señal descartada sigue
+   siendo cierta —lo que se descartó es que amerite seguimiento—, y moverla a
+   «resuelta» diría que la situación mejoró. Son dos ejes y por eso son dos
+   columnas.
+
+4. **El descarte en masa hacía falta y dice lo que no pudo.** Una regla mal
+   calibrada levanta cuarenta alertas la misma madrugada; descartarlas de una en
+   una es cómo se llega a que nadie las descarte. El alcance se comprueba una por
+   una contra la misma consulta base, y las que quedan fuera **se cuentan en el
+   aviso**: en silencio, quien pulsa creería que descartó las cuarenta.
+
+5. **«Otras señales de esta persona» mira a la PERSONA, no a la matrícula.** La
+   primera versión decía una cosa y hacía otra; y como una matrícula tiene un
+   solo campus, el recorte ahí no hacía nada —lo enseñó el barrido de mutaciones,
+   sobreviviendo—. Mirando a la persona, sus dos programas pueden estar en
+   planteles distintos y el recorte pasa a ser necesario.
+
+6. **La CALIDAD de la fuente viaja con la alerta.** «Se lee del historial
+   asentado» o «se calcula sobre las sesiones registradas» es lo que impide leer
+   un 60 % como si fuera del semestre entero. Sin ese renglón, quien valida
+   decide sobre un número que cree entender.
+
+7. **Una comprobación atada a un estado temporal tiene que fallar RUIDOSAMENTE.**
+   La suite de la fase 1 afirmaba «ese permiso todavía no existe, así que nadie
+   alcanza esta categoría»; la fase 3 lo declaró y la suite se cayó en rojo. Eso
+   es lo correcto: la alternativa —una comprobación que se apaga sola— es cómo se
+   llega a una suite que no prueba nada.
 
 ---
 

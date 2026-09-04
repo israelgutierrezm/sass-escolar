@@ -125,6 +125,7 @@ use App\Http\Controllers\PortafolioController;
 use App\Http\Controllers\PortalAspiranteController;
 use App\Http\Controllers\PresentacionExamenController;
 use App\Http\Controllers\PresupuestoController;
+use App\Http\Controllers\Permanencia\AlertaController;
 use App\Http\Controllers\Permanencia\CatalogoPermanenciaController;
 use App\Http\Controllers\Permanencia\ReglaAlertaController;
 use App\Http\Controllers\ProcesosFormativos\CatalogoProcesosController;
@@ -2418,6 +2419,32 @@ Route::middleware([
          * Un permiso sin puerta se palomea creyendo que concede algo, asi que
          * los otros doce de la matriz todavia no estan declarados.
          */
+        /*
+         * La BANDEJA de alertas, con su propio permiso.
+         *
+         * Fuera del grupo de configuracion a proposito: quien lee la cola todos
+         * los dias no tiene por que poder cambiar los umbrales, y quien calibra
+         * las reglas no necesariamente atiende alumnos. Son dos oficios.
+         *
+         * Se ENTRA con `ver-alertas` y se TOCA con `validar-alertas`, que cada
+         * accion vuelve a comprobar: el listado no es una defensa.
+         */
+        Route::middleware(['modulo:permanencia', 'can:ver-alertas'])
+            ->prefix('permanencia/alertas')->name('tenant.permanencia.alertas.')
+            ->controller(AlertaController::class)
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+
+                // La accion masiva va ANTES del comodin numerico: sin eso,
+                // «descartar-varias» casaria contra `{alerta}` y respondaria 404
+                // -el defecto de boton muerto que no da error-.
+                Route::post('descartar-varias', 'descartarVarias')->name('descartar-varias');
+
+                Route::get('{alerta}', 'show')->whereNumber('alerta')->name('detalle');
+                Route::post('{alerta}/validar', 'validar')->whereNumber('alerta')->name('validar');
+                Route::post('{alerta}/descartar', 'descartar')->whereNumber('alerta')->name('descartar');
+            });
+
         Route::middleware(['modulo:permanencia', 'can:configurar-reglas-alerta'])
             ->prefix('permanencia')->name('tenant.permanencia.')
             ->group(function () {

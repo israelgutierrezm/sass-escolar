@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**138 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**139 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -65,7 +65,7 @@ Los otros dos documentos vivos:
    un rol con disposición guardada. Si node no puede correrlo, la suite FALLA
    en vez de saltarse.
 
-   **Las 138 están en verde**, barridas el 2026-09-04. Catorce son del módulo de
+   **Las 139 están en verde**, barridas el 2026-09-04. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -771,6 +771,54 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
   CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
   adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
+- **Alertas tempranas y permanencia · FASE 3: bandeja y triage** (2026-09-04).
+  `/permanencia/alertas`, con `ver-alertas`, `ver-alertas-financieras` y
+  `validar-alertas`.
+  - **CUATRO capas de visibilidad y ninguna sobra**: el módulo, el permiso, el
+    CAMPUS —sobre el campus de la oferta de la matrícula, aplicado en listado,
+    detalle, cada acción, el resumen y la acción masiva— y la CATEGORÍA, que
+    decide si el detalle viaja. Las cuatro se comprueban.
+  - **Lo ajeno responde 404 y no 403.** Un 403 confirmaría que esa alerta existe,
+    y con ids consecutivos eso deja enumerar quién tiene señales en los demás
+    planteles.
+  - **El RESUMEN también se acota.** Un total sin recortar filtraría la cifra de
+    la escuela entera encima de una lista de un plantel — el defecto que el motor
+    de reportes ya documentó, y aquí sería el número más visible de la pantalla.
+  - **La bandeja dice CUÁNDO corrió el motor**, con aviso en ámbar pasados dos
+    días. Sin ese dato, una cola vacía se lee como ausencia de riesgo.
+  - **Y cuántas se DESCARTAN en 30 días**, arriba con las demás cifras: una cola
+    que se descarta entera es ruido, y hay que verlo antes de acostumbrarse a
+    ignorarla. Por eso el motivo sale del CATÁLOGO y no de un texto libre — es lo
+    que permite medir la tasa de falsos positivos por regla.
+  - **Descartar NO mueve el estado de la SEÑAL.** Una descartada sigue siendo
+    cierta: lo que se descartó es que amerite seguimiento. Moverla a «resuelta»
+    diría que la situación mejoró.
+  - **El descarte en MASA hacía falta**: una regla mal calibrada levanta cuarenta
+    alertas la misma madrugada. Su alcance se comprueba una por una contra la
+    misma consulta base, y **las que quedan fuera se cuentan en el aviso**: en
+    silencio, quien pulsa creería que descartó las cuarenta.
+  - **La carrera de dos revisores**: el segundo se rehúsa con 422 y su razón, en
+    vez de borrar del acta al que decidió primero. Mismo criterio que la firma de
+    las becas.
+  - **La CALIDAD de la fuente viaja con la alerta**: «se lee del historial
+    asentado», «se calcula sobre las sesiones registradas». Es lo que impide leer
+    un 60 % como si fuera del semestre entero.
+  - **Y un defecto propio que el barrido destapó**: «Otras señales de esta
+    persona» miraba la MATRÍCULA. Como una matrícula tiene un solo campus, el
+    recorte ahí no hacía nada y la mutación sobrevivía; y el encabezado prometía
+    otra cosa. Mirando a la persona, sus dos programas pueden estar en planteles
+    distintos y el recorte pasa a ser necesario.
+  - Pruebas: `scripts/prueba-permanencia-bandeja.php`, 52 verificaciones,
+    comprobadas mutando **23 reglas**. Tres sobrevivieron: un hueco de la suite
+    —la acción masiva sin permiso—, una **lista negra demasiado estrecha**
+    («alumno en riesgo» no casaba con «alumnos en riesgo») y el defecto de arriba.
+  - **Y una lección de método**: la suite de la fase 1 afirmaba «ese permiso
+    todavía no existe, así que nadie alcanza esta categoría». La fase 3 lo
+    declaró y **la suite se cayó en rojo**, que es lo correcto: una comprobación
+    atada a un estado temporal tiene que fallar ruidosamente, no apagarse sola.
+  - **El barrido de lenguaje se cazó a sí mismo**: los docblocks que explicaban
+    «no se dice ‹alumno en riesgo›» contenían la frase. Se reescribieron.
+
 - **Alertas tempranas y permanencia · FASE 2: proveedores y motor** (2026-09-04).
   Seis proveedores de señales, el motor y `permanencia:evaluar` a las 05:00.
   - **LA PROHIBICIÓN DURA, y va a prueba**: el motor corre entero y **no cambia

@@ -267,6 +267,30 @@ final class CatalogoPermisos
          */
         'Alertas y permanencia' => [
             'configurar-reglas-alerta' => ['Configurar las reglas de alerta', 'Qué señales vigila la escuela, con qué umbral y sobre quién: las reglas, sus versiones, los catálogos y las exclusiones. NO abre la bandeja de alertas ni los casos.', [self::ADMINISTRATIVO]],
+
+            /*
+             * ENTRAR a la bandeja, que es distinto de poder VALIDAR.
+             *
+             * Quien coordina lee la cola todos los días y quien decide si una
+             * señal amerita seguimiento puede ser otra persona. Separarlos
+             * permite que dirección mire sin tocar y que un auxiliar triage sin
+             * poder configurar las reglas.
+             */
+            'ver-alertas' => ['Ver la bandeja de alertas', 'Las señales que el sistema levantó, con su evidencia. Las categorías reservadas se ven pero SIN su detalle: para eso hace falta el permiso de cada una.', [self::ADMINISTRATIVO]],
+
+            /*
+             * El detalle de la categoría financiera, APARTE.
+             *
+             * Es la exigencia explícita del cliente: «un docente ordinario no
+             * debería conocer montos o detalles de deuda». Con `ver-alertas` se
+             * ve QUE hay una señal financiera —lo que permite llamar a quien
+             * corresponde— y con esto se ve cuánto tiempo lleva el atraso.
+             *
+             * Nunca el monto: eso vive en la cartera, con su propio permiso.
+             */
+            'ver-alertas-financieras' => ['Ver el detalle de las señales financieras', 'Abre la evidencia de la categoría reservada: días de atraso y número de cargos. El importe NO sale de aquí — se consulta en la cartera.', [self::ADMINISTRATIVO]],
+
+            'validar-alertas' => ['Validar o descartar alertas', 'Decidir si una señal amerita seguimiento. Descartar exige motivo, y el motivo alimenta la calibración de la regla.', [self::ADMINISTRATIVO]],
         ],
 
         'Servicio social y prácticas' => [

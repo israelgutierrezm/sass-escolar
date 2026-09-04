@@ -234,10 +234,22 @@ try {
 
     $sinPermiso = usuarioConRol('docente');
 
-    verificar('Una categoría inventada y reservada se comporta como las de fábrica',
-        $inventada->alcanzaElDetalle($global) === false
-        && $inventada->alcanzaElDetalle($sinPermiso) === false,
-        'el permiso todavía no existe, así que NADIE la alcanza');
+    /*
+     * Una categoria inventada por la escuela se comporta EXACTAMENTE como las de
+     * fabrica: quien tiene su permiso la alcanza y quien no, no.
+     *
+     * Esta comprobacion decia antes «el permiso todavia no existe, asi que nadie
+     * la alcanza» —cierto en la fase 1— y se cayo EN ROJO en cuanto la fase 3
+     * declaro `ver-alertas-financieras`. Eso es lo correcto: una afirmacion
+     * atada a un estado temporal tiene que fallar ruidosamente cuando el estado
+     * cambia, no apagarse sola.
+     */
+    verificar('Una categoría inventada y reservada la alcanza quien tiene su permiso',
+        $inventada->alcanzaElDetalle($global) === true,
+        'dirección general tiene ver-alertas-financieras');
+
+    verificar('Y NO quien no lo tiene',
+        $inventada->alcanzaElDetalle($sinPermiso) === false);
 
     $noSensible = CategoriaSenal::create([
         'clave' => 'zzperm_abierta',

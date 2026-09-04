@@ -402,11 +402,12 @@ export const CATALOGO_MENU: GrupoMenu[] = [
         modulo: 'permanencia',
         hijos: [
             /*
-             * De momento sólo la configuración: es lo único que la fase 1
-             * entrega. La bandeja de alertas y los casos entran ARRIBA de éstas
-             * cuando lleguen —lo diario primero, lo que se arma una vez
-             * después—, que es la regla de Finanzas.
+             * La BANDEJA arriba: es lo que se abre todos los días. Las reglas y
+             * los catálogos se arman una vez y se tocan cada semestre. Misma
+             * regla que en Finanzas —no es «menos de N», es que lo diario esté
+             * arriba— y la que ya siguen Servicio social y Admisiones.
              */
+            { clave: 'permanencia-alertas', etiqueta: 'Alertas', url: '/permanencia/alertas', permiso: 'ver-alertas' },
             { clave: 'permanencia-reglas', etiqueta: 'Reglas de alerta', url: '/permanencia/reglas', permiso: 'configurar-reglas-alerta' },
             { clave: 'permanencia-catalogos', etiqueta: 'Catálogos', url: '/permanencia/catalogos', permiso: 'configurar-reglas-alerta' },
         ],
