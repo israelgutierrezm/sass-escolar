@@ -59,6 +59,13 @@ final class CatalogoAjustes
     // Servicio social y prácticas.
     public const PROCESOS_PEDIR_UBICACION = 'procesos.pedir_ubicacion';
 
+    // Permanencia.
+    public const PERMANENCIA_AVISOS_DESDE = 'permanencia.avisos_desde_hora';
+
+    public const PERMANENCIA_AVISOS_HASTA = 'permanencia.avisos_hasta_hora';
+
+    public const PERMANENCIA_DIAS_SIN_ASIGNAR = 'permanencia.dias_para_avisar_sin_asignar';
+
     // Caja.
     public const CAJA_EXIGE_SESION = 'caja.exige_sesion_para_efectivo';
 
@@ -370,6 +377,61 @@ final class CatalogoAjustes
                 consecuencia: 'Aplica a los que se registren de ahora en adelante: no reparte los que ya existen.',
             ),
 
+            /*
+             * ── La FRANJA en que se entregan los avisos ────────────────────
+             *
+             * No es cosmético. Un aviso sobre la situación de una persona
+             * fechado a las 3 de la mañana se lee como si la escuela trabajara
+             * de noche, y a un alumno le llega un recordatorio sobre su
+             * asistencia a una hora en la que no puede hacer nada al respecto.
+             * Es el defecto que ya se vio en cobranza con `publicado_desde` en
+             * `startOfDay`.
+             *
+             * El comando está programado a las 07:45, así que en la operación
+             * normal la franja no hace nada. Donde muerde es en lo que NO está
+             * programado: una corrida manual de madrugada al configurar el
+             * módulo, o un recálculo a mano. Ahí el aviso no se descarta —la
+             * situación es cierta— sino que se publica al abrir la franja.
+             */
+            new Ajuste(
+                clave: self::PERMANENCIA_AVISOS_DESDE,
+                grupo: 'Permanencia',
+                etiqueta: 'Hora a partir de la cual se entregan los avisos',
+                descripcion: 'Los avisos de este módulo no se publican antes de esta hora. Lo que se '
+                    .'levante fuera de la franja espera a que abra, en vez de llegar de madrugada.',
+                tipo: Ajuste::ENTERO,
+                porDefecto: 7,
+                min: 0,
+                max: 23,
+                consecuencia: 'Sólo afecta a la HORA en que el aviso aparece, nunca a si se levanta: '
+                    .'una situación que hoy es cierta se avisa hoy.',
+            ),
+            new Ajuste(
+                clave: self::PERMANENCIA_AVISOS_HASTA,
+                grupo: 'Permanencia',
+                etiqueta: 'Hora a partir de la cual ya no se entregan',
+                descripcion: 'Pasada esta hora, lo que se levante se publica a la mañana siguiente.',
+                tipo: Ajuste::ENTERO,
+                porDefecto: 21,
+                min: 1,
+                max: 23,
+                consecuencia: 'Si queda por debajo de la hora de apertura, la franja se toma como '
+                    .'abierta todo el día: una franja imposible dejaría de avisar para siempre, y eso '
+                    .'no se descubre hasta que alguien pregunta por qué nadie se enteró.',
+            ),
+            new Ajuste(
+                clave: self::PERMANENCIA_DIAS_SIN_ASIGNAR,
+                grupo: 'Permanencia',
+                etiqueta: 'Días que un caso puede estar sin responsable antes de avisar',
+                descripcion: 'Un caso abierto que nadie ha tomado en este plazo se le avisa a quien '
+                    .'asigna. Es lo único que impide que se quede esperando a que alguien lo mire.',
+                tipo: Ajuste::ENTERO,
+                porDefecto: 2,
+                min: 1,
+                max: 30,
+                consecuencia: 'Se avisa UNA vez por caso, no todos los días: un recordatorio que llega '
+                    .'cada mañana deja de leerse al tercero.',
+            ),
             new Ajuste(
                 clave: self::MAYORIA_DE_EDAD,
                 grupo: 'Familia',

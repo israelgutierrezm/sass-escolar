@@ -116,6 +116,24 @@ Schedule::command('permanencia:evaluar')
     ->onOneServer()
     ->runInBackground();
 
+/*
+ * Y los avisos, DESPUES del motor y a una hora en que se puedan leer.
+ *
+ * A las 07:45 porque la hora la ve quien lo recibe: un aviso sobre la situacion
+ * de alguien fechado a las tres de la manana se lee como si la escuela trabajara
+ * de noche. Aparte del motor porque esto NOTIFICA, y esconderlo dentro de un
+ * comando llamado «evaluar» es como se llega a que nadie sepa de donde salio un
+ * mensaje -- el argumento con el que los recordatorios de cobranza se separaron
+ * de `finanzas:evaluar`.
+ *
+ * NO escala ningun caso: eso lo decide una persona y exige decir por que.
+ */
+Schedule::command('permanencia:avisar')
+    ->dailyAt('07:45')
+    ->withoutOverlapping(10)
+    ->onOneServer()
+    ->runInBackground();
+
 Schedule::command('finanzas:conciliar-cfdi')
     ->dailyAt('04:00')
     ->withoutOverlapping()

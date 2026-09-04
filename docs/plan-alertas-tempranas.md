@@ -653,7 +653,7 @@ Cada fase es entregable y verificable sola.
 | ~~**3**~~ | ~~**Bandeja y triage**~~ **HECHA** | La bandeja con sus cuatro capas de visibilidad —módulo, permiso, campus y categoría—, validar y descartar con motivo del catálogo, descarte en masa que respeta el campus y lo DICE, y la ficha que explica la evidencia, la condición en palabras y **cómo hay que leer el número**. `scripts/prueba-permanencia-bandeja.php`, 52 verificaciones, 23 mutaciones. |
 | ~~**4**~~ | ~~**Riesgo compuesto**~~ **HECHA** | El cálculo agrupando por **(categoría, materia)** —que es lo que evita el doble conteo sin igualar «falta en una materia» con «falta en seis»—, niveles configurables con su umbral, desglose que dice qué NO contó y por qué, decaimiento por recálculo, y el ajuste humano que CONSERVA el cálculo. `scripts/prueba-permanencia-riesgo.php`, 49 verificaciones, 25 mutaciones. |
 | ~~**5**~~ | ~~**Casos e intervenciones**~~ **HECHA** | La máquina de estados de **ocho** estados en una sola puerta, folio atómico por año, **UNO abierto por matrícula** sostenido por la base, responsable y equipo, intervenciones con **tres niveles de visibilidad filtrados en el servidor**, tareas, plan, cierre con motivo del catálogo, reapertura que crea un caso nuevo, y la bitácora de consulta **enseñada a quien mira**. `scripts/prueba-permanencia-casos.php`, 96 verificaciones, 48 mutaciones. |
-| **6** | **SLA, escalamiento y notificaciones** | `permanencia:vigilar-sla`, las plantillas, la deduplicación de avisos, los horarios permitidos y el registro de envío. |
+| ~~**6**~~ | ~~**Plazos y notificaciones**~~ **HECHA** | `permanencia:avisar` a las 07:45 —**no** `vigilar-sla`, y **no escala nada**: ver abajo—, el rastro con único sobre columna generada, **un aviso y N rastros**, la franja horaria configurable, las plantillas de la regla con su conjunto cerrado de marcas, y la sección de permanencia en `scheduler:estado`. `scripts/prueba-permanencia-avisos.php`, 69 verificaciones, 36 mutaciones. |
 | **7** | **Tableros e indicadores** | Panel de coordinación, tarjetas del panel, y las fuentes de reporte con efectividad, recurrencia y permanencia por cohorte, con tamaño mínimo de grupo. |
 | **8** | **Portales** | El docente (sus grupos, tras el interruptor) y el alumno (pendientes concretos, sin puntaje). |
 
@@ -1005,6 +1005,94 @@ tiene:
     color heredado y sin fondo. Se resolvió con `@/utils/coloresPermanencia`, una
     tabla compartida — copiada en cada pantalla es como se llega a que el «alto»
     de la bandeja sea de otro naranja que el de la ficha.
+
+---
+
+### Lo que la fase 6 dejó decidido, y se aparta del plan
+
+1. **NO hay escalamiento automático, y el comando se llama `avisar`.** El plan
+   decía `permanencia:vigilar-sla` y «casos con SLA vencido → escalamiento».
+   Moverlo desde un comando rompería dos cosas: `escalado` es un estado que una
+   PERSONA elige y que **exige decir por qué** —«quien lo reciba empieza a
+   ciegas sin eso»—, y si un comando lo moviera, ese estado pasaría a significar
+   dos hechos distintos: «alguien pidió ayuda» y «nadie contestó a tiempo». Es
+   el mismo error que este módulo evitó separando las dos máquinas de estados.
+   Y es el criterio del proyecto entero: `ConciliadorCfdi` no escribe el estatus,
+   `acadion:auditar-datos` no repara solo, `AlertasFormativas` no toca el
+   expediente. **Reportan.** Una prueba mide que el comando no cambia una sola
+   fila de casos, intervenciones ni transiciones.
+
+2. **AL ALUMNO sólo se le avisa de señales VALIDADAS; a la ESCUELA, de las
+   nuevas.** Una señal sin revisar puede ser un dato mal capturado —una lista que
+   nadie pasó, un acta que llegó tarde— y avisarle a alguien de algo que mañana
+   se descarta es exactamente el daño que este módulo existe para no hacer. La
+   cola sin revisar es trabajo de la escuela, y para eso está el triage.
+
+3. **UN aviso, N rastros.** Quien dispara tres reglas la misma madrugada
+   recibiría tres avisos idénticos en forma, y a la tercera nadie los lee. El
+   rastro va uno por hecho: es lo que impide volver a avisar mañana. Forma de
+   `RecordatorioDeCobranza`, tal cual.
+
+4. **El aviso a la ESCUELA nunca lleva el dato.** Va dirigido a un ROL, o sea a
+   varias personas, y algunas no tienen `ver-alertas-financieras`. Dice cuántas
+   señales hay y a dónde entrar. El del ALUMNO sí puede llevar el hecho —es
+   suyo, y el pedido pide «pendientes concretos»— porque el aviso es del portal
+   y se lee con la sesión abierta; lo que el pedido prohíbe es mandarlo por un
+   canal sin sesión.
+
+5. **Y NO se le avisa a la familia**, al revés que cobranza. Allá la familia
+   entra siempre porque quien paga es la familia; aquí lo que se avisa es una
+   situación del alumno, y decírselo a su casa es una decisión de la escuela
+   sobre un dato sensible — se toma en una INTERVENCIÓN, que es un acto humano
+   con su registro y su visibilidad, no como efecto secundario de una regla que
+   corre de madrugada.
+
+6. **La FRANJA horaria aplaza, no descarta.** Un aviso sobre la situación de
+   alguien fechado a las tres de la mañana se lee como si la escuela trabajara
+   de noche. Lo que cae fuera se publica al abrir la franja: descartarlo haría
+   que la primera corrida manual —la que hace quien está configurando el
+   módulo— dejara sin avisar de todo y nadie sabría por qué. Y una franja
+   imposible falla **ABIERTO**: al revés dejaría de avisar para siempre, y aquí
+   el daño lo hace el silencio.
+
+7. **Las PLANTILLAS tienen un conjunto CERRADO de marcas**, y lo que no
+   reconocen se deja literal. Es el argumento que rechazó el SQL del constructor
+   de reportes y la condición libre de las reglas: una expresión arbitraria no se
+   puede explicar. Y borrar la marca desconocida dejaría un hueco en medio de la
+   frase, con quien la escribió creyendo que funcionó.
+
+8. **`avisa_al_alumno`, `avisa_a_la_escuela` y `plantilla_aviso` por fin tienen
+   lector.** Estaban declarados desde la fase 1 y sólo se capturaban. Sin ninguno
+   encendido no sale nada — que es lo correcto en una escuela recién migrada,
+   porque sus reglas también nacen apagadas.
+
+9. **El rastro cuelga de un CASO o de una MATRÍCULA, y su único va sobre una
+   columna GENERADA.** Con un único sobre las dos foráneas nullable, MySQL daría
+   por distintas dos filas con NULL en cualquiera de ellas y el duplicado
+   pasaría. Misma defensa que `alertas.clave_dedup`.
+
+10. **TRAMPA de MySQL que costó encontrar: una columna generada PROHÍBE las
+    acciones referenciales de las columnas de las que depende.** `ON DELETE
+    CASCADE` sobre `caso_id` —del que depende `sujeto`— revienta con «1215 Cannot
+    add foreign key constraint», un mensaje que no menciona columnas generadas y
+    manda a buscar tipos, índices y motores. Se midió probando las cuatro
+    combinaciones. Van `constrained()` a secas, y la generada se declara DENTRO
+    del `CREATE TABLE`: agregarla después obliga a reconstruir la tabla y se topa
+    con lo mismo.
+
+11. **Un defecto de la fase 5 que esta fase destapó:** `before_or_equal:today`
+    valía para TODAS las intervenciones, así que el estado `programada` existía y
+    **no se podía fechar** — se podía marcar «agendada» algo de la semana
+    pasada, que es lo contrario de agendar. Ahora son dos reglas y viven en el
+    servicio: una realizada no puede ser futura, una programada no puede ser
+    pasada.
+
+12. **`scheduler:estado` gana su sección, y sólo las REGLAS ROTAS lo hacen
+    fallar.** Un caso con el plazo vencido es un asunto de la escuela y sale en
+    su bandeja; poner la vigilancia del servidor en rojo por eso enseñaría a
+    ignorar la alarma, que es exactamente cómo se pierde. Y una escuela **sin
+    reglas encendidas** que no ha evaluado nunca no está rota: todavía no
+    configura el módulo.
 
 ---
 

@@ -400,7 +400,13 @@ class CasoController extends Controller
         $datos = $peticion->validate([
             'tipo_intervencion_id' => ['required', 'integer',
                 Rule::exists('tipos_intervencion', 'id')->whereNull('deleted_at')],
-            'fecha' => ['required', 'date', 'before_or_equal:today'],
+            /*
+             * Sin `before_or_equal:today`: si la fecha cuadra depende de si la
+             * intervención se hizo o se agendó, y eso lo decide el SERVICIO. La
+             * regla aquí impedía agendar nada, que es lo único para lo que el
+             * estado `programada` sirve.
+             */
+            'fecha' => ['required', 'date'],
             'objetivo' => ['nullable', 'string', 'max:2000'],
             'canal' => ['nullable', 'string', 'max:40'],
             'participantes' => ['nullable', 'array', 'max:20'],
@@ -410,9 +416,7 @@ class CasoController extends Controller
             'resultado' => ['nullable', 'string', 'max:4000'],
             'estado' => ['nullable', Rule::in(Intervencion::ESTADOS)],
             'visibilidad' => ['nullable', Rule::in(Intervencion::VISIBILIDADES)],
-        ], [
-            'fecha.before_or_equal' => 'Una intervención se registra después de hacerla, no antes.',
-        ], ['tipo_intervencion_id' => 'tipo']);
+        ], [], ['tipo_intervencion_id' => 'tipo']);
 
         $this->intervenciones->registrar($modelo, $datos, $peticion->user());
 

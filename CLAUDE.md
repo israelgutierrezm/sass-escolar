@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**141 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**142 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -65,7 +65,7 @@ Los otros dos documentos vivos:
    un rol con disposición guardada. Si node no puede correrlo, la suite FALLA
    en vez de saltarse.
 
-   **Las 141 están en verde**, barridas el 2026-09-04. Catorce son del módulo de
+   **Las 142 están en verde**, barridas el 2026-09-04. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -771,6 +771,118 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
   CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
   adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
+- **Alertas tempranas y permanencia · FASE 6: plazos y notificaciones**
+  (2026-09-04). Lo único de este módulo que le habla a una persona.
+  `permanencia:avisar`, diario a las 07:45.
+  - **NO escala nada, y por eso NO se llama `vigilar-sla` como decía el plan.**
+    `escalado` es un estado que una PERSONA elige y que exige decir por qué
+    —«quien lo reciba empieza a ciegas sin eso»—; moverlo desde un comando haría
+    que significara dos hechos distintos a la vez: «alguien pidió ayuda» y
+    «nadie contestó a tiempo». Es el error que este módulo evitó separando las
+    dos máquinas de estados. Y es el criterio del proyecto: `ConciliadorCfdi` no
+    escribe el estatus y `acadion:auditar-datos` no repara solo. **Una prueba
+    mide que el comando no cambia una sola fila** de casos, intervenciones ni
+    transiciones.
+  - **AL ALUMNO sólo lo VALIDADO; a la ESCUELA, lo nuevo.** Una señal sin
+    revisar puede ser un dato mal capturado, y avisarle a alguien de algo que
+    mañana se descarta es el daño que este módulo existe para no hacer. La cola
+    sin revisar es trabajo de la escuela, y para eso está el triage.
+  - **UN aviso, N rastros.** Quien dispara tres reglas la misma madrugada
+    recibiría tres avisos idénticos en forma y a la tercera nadie los lee. El
+    rastro va uno por hecho — es lo que impide volver a avisar mañana. Forma de
+    `RecordatorioDeCobranza`.
+  - **El aviso a la ESCUELA nunca lleva el dato**: va a un ROL, o sea a varias
+    personas, y algunas no tienen `ver-alertas-financieras`. Dice cuántas señales
+    hay y a dónde entrar. El del ALUMNO sí lleva el hecho —es suyo, y el pedido
+    pide «pendientes concretos»—: el aviso es del portal y se lee con la sesión
+    abierta; lo que el pedido prohíbe es mandarlo por un canal sin sesión.
+  - **Y NO se le avisa a la familia**, al revés que cobranza. Allá la familia
+    entra siempre porque quien paga es la familia; aquí es una situación del
+    alumno, y decírselo a su casa es una decisión de la escuela sobre un dato
+    sensible — se toma en una INTERVENCIÓN, con su registro y su visibilidad.
+  - **La FRANJA horaria APLAZA, no descarta**
+    (`permanencia.avisos_desde_hora` / `_hasta_hora`, 7 y 21 por omisión). Un
+    aviso fechado a las tres de la mañana se lee como si la escuela trabajara de
+    noche. Descartarlo haría que la primera corrida manual —la que hace quien
+    está configurando el módulo— dejara sin avisar de todo. Y **una franja
+    imposible falla ABIERTO**: al revés dejaría de avisar para siempre, y aquí lo
+    el daño lo hace el silencio.
+  - **Las PLANTILLAS tienen un conjunto CERRADO de marcas** y lo que no
+    reconocen se deja literal. Mismo argumento que rechazó el SQL del constructor
+    de reportes: una expresión arbitraria no se puede explicar. Y borrar la marca
+    desconocida dejaría un hueco en medio de la frase con quien la escribió
+    creyendo que funcionó.
+  - **`avisa_al_alumno`, `avisa_a_la_escuela` y `plantilla_aviso` por fin tienen
+    lector.** Estaban declarados desde la fase 1 y sólo se capturaban.
+  - **TRAMPA de MySQL, y es la grande de esta fase: una columna generada PROHÍBE
+    las acciones referenciales de las columnas de las que DEPENDE.** Poner
+    `ON DELETE CASCADE` sobre `caso_id` —del que depende la columna `sujeto`—
+    revienta con **«1215 Cannot add foreign key constraint»**, un mensaje que no
+    menciona columnas generadas y manda a buscar tipos, índices y motores, que
+    estaban todos bien. Se midió probando las cuatro combinaciones sobre la misma
+    tabla: `CASCADE` y `SET NULL` fallan sobre las columnas de las que depende, y
+    pasan sobre las que no. Van `constrained()` a secas.
+    - **Y por eso la generada se declara DENTRO del `CREATE TABLE`**: agregarla
+      con `ALTER` obliga a MySQL a reconstruir la tabla y se topa con lo mismo.
+      Las otras dos del módulo —`alertas` y `casos_permanencia`— sí se agregaron
+      con `ALTER` porque sus foráneas no llevan acción referencial.
+    - **Y destapó la otra trampa**: la primera versión envolvía todo el `up()` en
+      un `if (! hasTable)`, así que al reintentar tras el fallo la tabla ya
+      existía, se saltó el bloque entero y la migración quedó marcada como
+      aplicada **SIN su único**. *Comprobar antes de actuar es por PIEZA, no por
+      bloque* — la lección que ya había dejado el CHECK de movilidad.
+  - **Un defecto de la FASE 5 que esta fase destapó**: `before_or_equal:today`
+    valía para TODAS las intervenciones, así que el estado `programada` existía y
+    **no se podía fechar** —se podía marcar «agendada» algo de la semana pasada,
+    que es lo contrario de agendar—. No fallaba: simplemente no dejaba hacer lo
+    único para lo que ese estado sirve. Ahora son dos reglas y viven en el
+    SERVICIO: una realizada no puede ser futura, una programada no puede ser
+    pasada.
+  - **`scheduler:estado` gana su sección**, y **sólo las REGLAS ROTAS lo hacen
+    fallar**: un caso con el plazo vencido es un asunto de la escuela y sale en
+    su bandeja, y poner la vigilancia del servidor en rojo por eso enseñaría a
+    ignorar la alarma. Una escuela **sin reglas encendidas** que no ha evaluado
+    nunca no está rota: todavía no configura el módulo.
+  - **Dos suites viejas se cayeron otra vez, y las dos eran defectos suyos:**
+    - **`riesgo_matricula.corrida_id` apunta a `corridas_evaluacion`**, así que
+      el `DELETE` de la bandeja revienta con 1451 en cuanto la escuela ha
+      evaluado alguna vez. Misma lección que dejó `caso_alerta`: una tabla nueva
+      rompe la limpieza de las suites viejas, y lo hace sólo donde HAY datos
+      suyos — o sea no el día que se escribe.
+    - **Y el barrido de lenguaje se cazó a sí mismo por segunda vez**: un
+      docblock mío decía «aquí lo peligroso es el silencio» y «peligros» está en
+      la lista negra. Es el comportamiento correcto de una lista negra —no puede
+      saber que hablaba de la franja horaria y no de un alumno— y lo que se
+      reescribe es la prosa.
+  - **Y un defecto de la fase 1 que esta fase destapó: el formulario de la
+    versión NUNCA ofreció los tres campos de aviso.** Se validaban en el
+    controlador, se guardaban en la base y se PINTABAN en la tabla de versiones
+    —«avisa: a nadie»— y no había dónde ponerlos: estaban apagados para siempre y
+    la tabla lo decía sin que nadie pudiera cambiarlo. Ahora el formulario los
+    lleva, con las cinco marcas de la plantilla enumeradas: un campo de plantilla
+    sin decir qué se sustituye no lo usa nadie.
+  - Pruebas: `scripts/prueba-permanencia-avisos.php`, 69 verificaciones,
+    comprobadas mutando **36 reglas**. En la primera pasada sobrevivieron
+    **CATORCE**, y las catorce eran comprobaciones flojas, no código malo:
+    - **Ocho eran huecos de escenario**, lo de siempre: ninguna señal NUEVA de
+      una regla que sí pide avisar y ninguna VALIDADA de una que no —así que
+      quitar cualquiera de los dos filtros dejaba las alertas fuera por la otra
+      razón—, ningún rol que HEREDARA el permiso en vez de tenerlo propio, ningún
+      caso abierto DENTRO del plazo, ninguna intervención ya realizada del día
+      que se mira, y el modo seco de la vigilancia sin ejercitar.
+    - **Dos medían la cosa equivocada**: el goteo se contaba en RASTROS y no en
+      AVISOS —sin la guarda se creaba un aviso nuevo cada corrida con cero
+      rastros detrás, o sea el recordatorio diario que esto existe para
+      impedir— y la franja se comprobaba llamando al cálculo pero no sobre el
+      aviso emitido.
+    - **Dos comparaban con la MISMA consulta**, que es escribir dos veces la
+      implementación en vez de comprobarla; y una pasaba por la rama equivocada
+      —el motor figuraba caído, así que quitar la guarda de las reglas rotas no
+      la tumbaba—.
+    - **Y una mutación estaba MAL ESCRITA**: concatenaba el resultado mutado con
+      el bueno, así que la marca inventada seguía apareciendo. Es la tercera vez
+      que este proyecto anota lo mismo: **mutar el texto no es mutar la regla**.
+
 - **Alertas tempranas y permanencia · FASE 5: casos e intervenciones**
   (2026-09-04). El seguimiento humano de una señal validada.
   `/permanencia/casos`; permisos nuevos `abrir-casos`, `asignar-casos`,

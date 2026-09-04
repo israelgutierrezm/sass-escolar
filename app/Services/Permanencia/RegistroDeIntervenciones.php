@@ -10,6 +10,7 @@ use App\Models\Permanencia\AccesoCaso;
 use App\Models\Permanencia\CasoPermanencia;
 use App\Models\Permanencia\Intervencion;
 use App\Models\Permanencia\TipoIntervencion;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -56,6 +57,11 @@ class RegistroDeIntervenciones
 
         $this->exigirLoQueElTipoPide($tipo, $datos);
 
+        $this->exigirQueLaFechaCuadre(
+            (string) $datos['fecha'],
+            $datos['estado'] ?? Intervencion::REALIZADA,
+        );
+
         /*
          * La reserva sólo donde el tipo la permite. Sin esta guarda, la pantalla
          * sería la única defensa — y una petición a mano la rodea.
@@ -99,6 +105,43 @@ class RegistroDeIntervenciones
 
             return $intervencion;
         });
+    }
+
+    /**
+     * La fecha, según lo que la intervención SEA.
+     *
+     * ── Dos reglas y no una, y la fase 5 sólo tenía la primera ─────────────
+     * Una REALIZADA no puede ser futura: se registra después de hacerla. Una
+     * PROGRAMADA no puede ser pasada: agendar algo para ayer no significa nada.
+     *
+     * La fase 5 validaba `before_or_equal:today` para todas, así que el estado
+     * `programada` **existía y no se podía fechar** — se podía marcar «agendada»
+     * una intervención de hoy o de la semana pasada, que es lo contrario de
+     * agendar. No fallaba: simplemente no dejaba hacer lo único para lo que ese
+     * estado sirve, y por eso nadie lo notó hasta que hizo falta recordar lo
+     * agendado.
+     *
+     * Va en el SERVICIO y no en el FormRequest por lo de siempre: con la regla
+     * repartida, la pantalla que alguien agregue el mes que viene la olvidará.
+     */
+    private function exigirQueLaFechaCuadre(string $fecha, string $estado): void
+    {
+        $dia = CarbonImmutable::parse($fecha)->startOfDay();
+        $hoy = CarbonImmutable::now()->startOfDay();
+
+        AvisoParaElUsuario::si(
+            $estado === Intervencion::REALIZADA && $dia->greaterThan($hoy),
+            422,
+            'Una intervención se registra después de hacerla, no antes. Si todavía no ocurre, '
+            .'agéndala como programada.',
+        );
+
+        AvisoParaElUsuario::si(
+            $estado === Intervencion::PROGRAMADA && $dia->lessThan($hoy),
+            422,
+            'Lo que se agenda va hacia adelante: para anotar algo que ya pasó, márcalo como '
+            .'realizada.',
+        );
     }
 
     /**

@@ -528,6 +528,14 @@ try {
      * Sin ese dato, una cola vacía se lee como ausencia de riesgo. Es la peor
      * lectura que este módulo puede inducir, así que el dato viaja siempre.
      */
+    /*
+     * `riesgo_matricula.corrida_id` apunta aquí, así que el ORDEN importa:
+     * borrar las corridas primero revienta con 1451 en cuanto la escuela ha
+     * evaluado alguna vez. Es la misma lección que dejó `caso_alerta` con las
+     * señales — una tabla nueva rompe la limpieza de las suites viejas, y lo
+     * hace sólo donde HAY datos suyos, o sea no el día que se escribe.
+     */
+    DB::table('riesgo_matricula')->delete();
     DB::table('corridas_evaluacion')->delete();
 
     $sinCorrida = props($controlador, 'index', $global);

@@ -23,6 +23,7 @@ import { Head, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
+import CampoCheckbox from '@/Components/CampoCheckbox.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoTextarea from '@/Components/CampoTextarea.vue';
@@ -53,6 +54,7 @@ interface Version {
     sla_horas: number | null;
     avisa_al_alumno: boolean;
     avisa_a_la_escuela: boolean;
+    plantilla_aviso: string | null;
     notas: string | null;
 }
 
@@ -190,6 +192,7 @@ function emitirVersion(regla: Regla): void {
         sla_horas: v?.sla_horas ?? null,
         avisa_al_alumno: v?.avisa_al_alumno ?? false,
         avisa_a_la_escuela: v?.avisa_a_la_escuela ?? false,
+        plantilla_aviso: v?.plantilla_aviso ?? '',
         notas: '',
         metrica: v?.metrica ?? null,
     };
@@ -596,6 +599,54 @@ const textos = (clave: string) => (props.catalogos[clave] ?? []) as string[];
                         />
                         <CampoTexto v-model.number="datos.cooldown_dias" etiqueta="Enfriamiento (días)" tipo="number" paso="1" :error="errores.cooldown_dias" requerido />
                     </div>
+
+                    <!--
+                        A quién se avisa. Iba en la tabla de versiones y no había
+                        dónde ponerlo: los tres campos se validaban, se guardaban
+                        y el formulario nunca los ofreció, así que estaban
+                        apagados para siempre.
+                    -->
+                    <fieldset class="rounded-lg border border-borde p-4">
+                        <legend class="px-1 text-sm font-medium">A quién se le avisa</legend>
+
+                        <p class="mb-3 text-xs" :style="{ color: 'var(--color-suave)' }">
+                            Los avisos salen una vez al día, a la hora que la escuela fije en su
+                            configuración. Al <strong>alumno</strong> sólo se le avisa de señales ya
+                            validadas: de una sin revisar podría descartarse mañana. A la
+                            <strong>escuela</strong> se le avisa de lo que espera en la bandeja, sin
+                            el dato — ese aviso va a un rol entero.
+                        </p>
+
+                        <div class="grid gap-3 sm:grid-cols-2">
+                            <CampoCheckbox
+                                v-model="datos.avisa_al_alumno"
+                                etiqueta="Avisarle al alumno"
+                                ayuda="Cuando la señal se valide."
+                            />
+                            <CampoCheckbox
+                                v-model="datos.avisa_a_la_escuela"
+                                etiqueta="Avisarle a la escuela"
+                                ayuda="A quien puede validar señales."
+                            />
+                        </div>
+
+                        <CampoTextarea
+                            v-model="datos.plantilla_aviso"
+                            class="mt-3"
+                            etiqueta="Qué dice el aviso al alumno"
+                            :filas="2"
+                            :maximo="500"
+                            marcador="Tu asistencia en {materia} va en {valor} % y se pide {umbral} %."
+                            :error="errores.plantilla_aviso"
+                        />
+
+                        <p class="mt-1 text-xs" :style="{ color: 'var(--color-suave)' }">
+                            Se sustituyen <code>{alumno}</code>, <code>{materia}</code>,
+                            <code>{regla}</code>, <code>{valor}</code> y <code>{umbral}</code>.
+                            Cualquier otra cosa entre llaves se deja tal cual, para que se note.
+                            Sin texto sale uno de respaldo que nombra la regla y remite al portal.
+                        </p>
+                    </fieldset>
 
                     <div class="flex items-center gap-3 pt-2">
                         <BotonPrincipal :procesando="procesando" texto="Emitir la versión" icono="crear" />

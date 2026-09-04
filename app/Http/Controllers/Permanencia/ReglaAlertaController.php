@@ -258,6 +258,7 @@ class ReglaAlertaController extends Controller
                     'sla_horas' => $v->sla_horas,
                     'avisa_al_alumno' => $v->avisa_al_alumno,
                     'avisa_a_la_escuela' => $v->avisa_a_la_escuela,
+                    'plantilla_aviso' => $v->plantilla_aviso,
                     'notas' => $v->notas,
                 ])->all(),
             /*
