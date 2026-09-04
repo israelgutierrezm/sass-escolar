@@ -32,6 +32,8 @@ const props = defineProps<{
     motivos: Array<{ id: number; nombre: string; descripcion: string | null }>;
     puedeValidar: boolean;
     otras: Array<Record<string, any>>;
+    riesgo: Record<string, any> | null;
+    niveles: Array<{ id: number; clave: string; nombre: string; color: string; descripcion: string | null }>;
 }>();
 
 const severidades: Record<string, string> = {
@@ -46,6 +48,31 @@ const descartando = ref(false);
 const motivo = ref<number | null>(null);
 const nota = ref('');
 const procesando = ref(false);
+
+const ajustando = ref(false);
+const nivelNuevo = ref<number | null>(null);
+const motivoAjuste = ref('');
+const errorAjuste = ref('');
+
+function ajustarRiesgo(): void {
+    procesando.value = true;
+    errorAjuste.value = '';
+
+    router.post(
+        `/permanencia/alertas/${props.alerta.id}/riesgo`,
+        { nivel_id: nivelNuevo.value, motivo: motivoAjuste.value },
+        {
+            preserveScroll: true,
+            onError: (e) => (errorAjuste.value = e.motivo ?? e.nivel_id ?? 'No se pudo ajustar.'),
+            onSuccess: () => {
+                ajustando.value = false;
+                nivelNuevo.value = null;
+                motivoAjuste.value = '';
+            },
+            onFinish: () => (procesando.value = false),
+        },
+    );
+}
 
 function validar(): void {
     procesando.value = true;
@@ -253,6 +280,120 @@ function renglones(evidencia: Record<string, unknown> | null): Array<[string, st
 
             <!-- ── Qué hacer ─────────────────────────────────────────────── -->
             <section class="space-y-4">
+                <!--
+                    El riesgo COMPUESTO, con su desglose.
+
+                    Va aquí y no sólo en un tablero porque es donde se decide:
+                    validar una señal de asistencia sabiendo que además arrastra
+                    dos frentes más no es la misma decisión que validarla a
+                    secas. Y NUNCA se enseña un puntaje sin explicación — el
+                    desglose dice qué lo forma y qué se descontó por duplicado.
+                -->
+                <div v-if="riesgo" class="tarjeta p-5">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <h3 class="font-semibold">Panorama de esta persona</h3>
+                        <PildoraEstado
+                            v-if="riesgo.nivel"
+                            :texto="riesgo.nivel.nombre"
+                            :color="riesgo.nivel.color"
+                        />
+                    </div>
+
+                    <p class="mt-2 text-sm" :style="{ color: 'var(--color-suave)' }">
+                        Suma {{ riesgo.puntaje }} punto{{ riesgo.puntaje === 1 ? '' : 's' }} ·
+                        calculado el {{ riesgo.calculado_en }}
+                        <span v-if="riesgo.anterior">
+                            · venía de {{ riesgo.anterior.nivel?.nombre }} ({{ riesgo.anterior.puntaje }})
+                        </span>
+                    </p>
+
+                    <!-- Qué lo forma, categoría por categoría. -->
+                    <ul class="mt-3 space-y-2">
+                        <li
+                            v-for="(cat, clave) in riesgo.desglose?.por_categoria ?? {}"
+                            :key="clave"
+                            class="text-sm"
+                        >
+                            <div class="flex items-center justify-between gap-2">
+                                <PildoraEstado :texto="cat.nombre" :color="cat.color" />
+                                <span class="font-medium">{{ cat.aporte }}</span>
+                            </div>
+                            <p class="mt-0.5 text-xs" :style="{ color: 'var(--color-suave)' }">
+                                {{ cat.senales.map((x) => x.regla).join(' · ') }}
+                            </p>
+                        </li>
+                    </ul>
+
+                    <!--
+                        Lo que NO se contó por duplicado. Sin decirlo, quien mire
+                        verá tres señales y un aporte que sólo explica una, y no
+                        sabrá si faltó algo o si se descontó a propósito.
+                    -->
+                    <p
+                        v-if="(riesgo.desglose?.no_contadas_por_duplicado ?? []).length > 0"
+                        class="mt-3 text-xs"
+                        :style="{ color: 'var(--color-suave)' }"
+                    >
+                        No se contaron
+                        {{ riesgo.desglose.no_contadas_por_duplicado.length }} señal{{
+                            riesgo.desglose.no_contadas_por_duplicado.length === 1 ? '' : 'es'
+                        }}
+                        por hablar de lo mismo que otra ya contada.
+                    </p>
+
+                    <p class="mt-2 text-xs" :style="{ color: 'var(--color-suave)' }">
+                        {{ riesgo.desglose?.como_se_calcula }}
+                    </p>
+
+                    <!-- Si alguien lo ajustó, las DOS cifras. -->
+                    <div v-if="riesgo.ajuste" class="mt-3 rounded-lg border border-borde p-3 text-sm">
+                        <p class="font-medium">Este nivel lo ajustó una persona</p>
+                        <p class="mt-1" :style="{ color: 'var(--color-suave)' }">
+                            El cálculo daba <strong>{{ riesgo.ajuste.nivel_calculado?.nombre }}</strong>.
+                            {{ riesgo.ajuste.quien }} lo cambió el {{ riesgo.ajuste.cuando }}:
+                            «{{ riesgo.ajuste.motivo }}»
+                        </p>
+                    </div>
+
+                    <div v-if="puedeValidar" class="mt-4">
+                        <button
+                            type="button"
+                            class="text-xs underline"
+                            :style="{ color: 'var(--color-suave)' }"
+                            @click="ajustando = !ajustando"
+                        >
+                            {{ ajustando ? 'Cancelar el ajuste' : 'Ajustar el nivel a mano' }}
+                        </button>
+
+                        <div v-if="ajustando" class="mt-3 space-y-3 rounded-lg border border-borde p-3">
+                            <CampoSelect
+                                v-model="nivelNuevo"
+                                etiqueta="Nivel"
+                                :opciones="niveles.map((n) => ({ valor: n.id, texto: n.nombre }))"
+                                requerido
+                            />
+                            <CampoTextarea
+                                v-model="motivoAjuste"
+                                etiqueta="Por qué"
+                                :filas="2"
+                                ayuda="Obligatorio. Dentro de un año nadie recordará el contexto."
+                                :error="errorAjuste"
+                            />
+                            <BotonPrincipal
+                                :procesando="procesando"
+                                :deshabilitado="!nivelNuevo || motivoAjuste.trim().length < 10"
+                                texto="Ajustar"
+                                icono="guardar"
+                                tipo="button"
+                                @click="ajustarRiesgo"
+                            />
+                            <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
+                                El nivel calculado se conserva al lado del tuyo: no se sobrescribe.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="tarjeta p-5">
                     <h3 class="font-semibold">Qué falta decidir</h3>
 

@@ -645,7 +645,7 @@ Cada fase es entregable y verificable sola.
 | ~~**1**~~ | ~~**Cimientos, catálogos y reglas**~~ **HECHA** | Módulo `permanencia` encendido con sección propia, **cuatro** catálogos con seeder —la categoría lleva su bandera `sensible` y el permiso que abre su detalle—, `reglas_alerta` + versiones + exclusiones, `CatalogoMetricas` con doce métricas declaradas, y las ocho reglas de ejemplo **apagadas y sin avisar a nadie**. `scripts/prueba-permanencia-reglas.php`, 63 verificaciones, 28 mutaciones. |
 | ~~**2**~~ | ~~**Proveedores y motor**~~ **HECHA** | **Seis** proveedores —no ocho: inscripciones y expedientes se resolvieron dentro de los otros— con su contrato completo, `AsistenciaDelAlumno` extraído con su definición explícita, `alertas` con deduplicación por columna generada, el motor con sus tres resultados y el cierre automático distinguiendo RESUELTA de OBSOLETA, y `permanencia:evaluar` a las 05:00. `scripts/prueba-permanencia-motor.php`, 73 verificaciones, 37 mutaciones. |
 | ~~**3**~~ | ~~**Bandeja y triage**~~ **HECHA** | La bandeja con sus cuatro capas de visibilidad —módulo, permiso, campus y categoría—, validar y descartar con motivo del catálogo, descarte en masa que respeta el campus y lo DICE, y la ficha que explica la evidencia, la condición en palabras y **cómo hay que leer el número**. `scripts/prueba-permanencia-bandeja.php`, 52 verificaciones, 23 mutaciones. |
-| **4** | **Riesgo compuesto** | El cálculo por categorías sin doble conteo, su desglose, su decaimiento, el ajuste con justificación y el histórico. |
+| ~~**4**~~ | ~~**Riesgo compuesto**~~ **HECHA** | El cálculo agrupando por **(categoría, materia)** —que es lo que evita el doble conteo sin igualar «falta en una materia» con «falta en seis»—, niveles configurables con su umbral, desglose que dice qué NO contó y por qué, decaimiento por recálculo, y el ajuste humano que CONSERVA el cálculo. `scripts/prueba-permanencia-riesgo.php`, 49 verificaciones, 25 mutaciones. |
 | **5** | **Casos e intervenciones** | La máquina de estados en una sola puerta, folio atómico, responsable y equipo, intervenciones con visibilidad, tareas, acuerdos y la bitácora de consulta. |
 | **6** | **SLA, escalamiento y notificaciones** | `permanencia:vigilar-sla`, las plantillas, la deduplicación de avisos, los horarios permitidos y el registro de envío. |
 | **7** | **Tableros e indicadores** | Panel de coordinación, tarjetas del panel, y las fuentes de reporte con efectividad, recurrencia y permanencia por cohorte, con tamaño mínimo de grupo. |
@@ -834,6 +834,46 @@ tiene:
    alcanza esta categoría»; la fase 3 lo declaró y la suite se cayó en rojo. Eso
    es lo correcto: la alternativa —una comprobación que se apaga sola— es cómo se
    llega a una suite que no prueba nada.
+
+---
+
+### Lo que la fase 4 dejó decidido, y no estaba en este plan
+
+1. **El grupo de deduplicación es (categoría, MATERIA), no la categoría sola.**
+   El plan decía «máximo dentro de una categoría» y eso está mal: perder
+   asistencia en seis materias es peor que perderla en una, y el máximo por
+   categoría las hace iguales. Dentro de cada (categoría, materia) gana la más
+   grave y los grupos se suman, así que dos señales de asistencia de la MISMA
+   materia cuentan una vez y de materias distintas cuentan dos.
+
+2. **Los niveles son un CATÁLOGO con umbral configurable**, no un enum. Qué
+   puntaje es «alto» depende del tamaño de la matrícula: lo que en mil alumnos es
+   una cola manejable, en ciento veinte es media escuela.
+
+3. **El desglose dice lo que NO contó.** Sin eso, quien mire verá tres señales y
+   un aporte que sólo explica una, y no habrá forma de saber si faltó algo o si
+   se descontó a propósito.
+
+4. **El decaimiento no es una fórmula: es recalcular.** El puntaje sale de las
+   alertas abiertas, así que baja solo cuando una se resuelve. Una curva de
+   olvido haría que el número cambiara sin que nada hubiera pasado, que es lo
+   contrario de explicable. Y **una alerta DESCARTADA tampoco suma**: una persona
+   dijo que no amerita, y contarla enseñaría que descartar no sirve de nada.
+
+5. **Se escribe una fila SÓLO cuando algo cambia.** Un renglón por matrícula por
+   corrida serían 1.8 millones al año diciendo «sigue igual», y así la tabla es
+   la historia de los cambios — que es lo que alguien va a querer leer.
+
+6. **El ajuste no tiene permiso propio**, va con `validar-alertas`: quien puede
+   descartar todas las señales de alguien ya puede, de hecho, bajarle el riesgo.
+   Un permiso más sin un acto que proteger es una llave que la escuela reparte
+   sin saber para qué.
+
+7. **Y un defecto que costó encontrar: un scope con `ORDER BY` envenena la
+   consulta que lo use.** `scopeActivos` ordena ascendente; encadenarle un
+   `orderByDesc` produce `ORDER BY x ASC, x DESC` —donde gana el primero— y TODO
+   puntaje caía en el nivel más bajo, **sin un solo error**. Se usa `reorder()` o
+   no se usa el scope.
 
 ---
 

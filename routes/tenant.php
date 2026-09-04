@@ -2443,6 +2443,7 @@ Route::middleware([
                 Route::get('{alerta}', 'show')->whereNumber('alerta')->name('detalle');
                 Route::post('{alerta}/validar', 'validar')->whereNumber('alerta')->name('validar');
                 Route::post('{alerta}/descartar', 'descartar')->whereNumber('alerta')->name('descartar');
+                Route::post('{alerta}/riesgo', 'ajustarRiesgo')->whereNumber('alerta')->name('riesgo');
             });
 
         Route::middleware(['modulo:permanencia', 'can:configurar-reglas-alerta'])

@@ -60,9 +60,13 @@ class MotorDeEvaluacion
     /** Por lotes: esto corre de madrugada sobre la escuela entera. */
     private const LOTE = 200;
 
+    /** La corrida en curso, para que las filas de riesgo la apunten. */
+    private ?int $corridaActual = null;
+
     public function __construct(
         private readonly RegistroProveedores $proveedores,
         private readonly ModulosDeLaEscuela $modulos,
+        private readonly CalculadoraDeRiesgo $riesgo,
     ) {}
 
     /**
@@ -86,6 +90,18 @@ class MotorDeEvaluacion
             'corrida_por' => auth()->id(),
         ]);
 
+        /*
+         * La corrida se guarda ANTES del recorrido, en cuanto sabe que va a
+         * escribir: cada fila de riesgo la apunta, y con la corrida guardada al
+         * final habría que rellenar esa columna después —o dejarla en null, y
+         * entonces no se podría contestar «de qué corrida salió este número»—.
+         *
+         * En modo seco no se guarda nada, así que las filas de riesgo tampoco
+         * llegan a existir.
+         */
+        $seco || $corrida->save();
+        $this->corridaActual = $seco ? null : $corrida->id;
+
         $reglas = $this->reglasQueRigen($dia);
 
         $contadores = [
@@ -96,6 +112,7 @@ class MotorDeEvaluacion
             'alertas_resueltas' => 0,
             'alertas_obsoletas' => 0,
             'sin_datos' => 0,
+            'riesgos_recalculados' => 0,
         ];
 
         $errores = [];
@@ -137,6 +154,27 @@ class MotorDeEvaluacion
                     $errores[$regla->id]['veces']++;
                 }
             }
+
+            /*
+             * El riesgo compuesto, DESPUÉS de evaluar todas sus reglas.
+             *
+             * Antes mediría con las alertas de ayer; a mitad del bucle, con la
+             * mitad de las de hoy. Y va aislado por su cuenta: un fallo
+             * calculando el riesgo de un alumno no puede dejar sin evaluar a los
+             * que faltan — el mismo criterio que las reglas.
+             */
+            try {
+                $resultado = $this->riesgo->recalcular($matricula, $this->corridaActual, $seco);
+                ($resultado['guardado'] ?? false) && $contadores['riesgos_recalculados']++;
+            } catch (Throwable $e) {
+                $errores['riesgo'] ??= [
+                    'regla' => 'Cálculo del riesgo compuesto',
+                    'regla_id' => null,
+                    'error' => mb_substr($e->getMessage(), 0, 300),
+                    'veces' => 0,
+                ];
+                $errores['riesgo']['veces']++;
+            }
         });
 
         $corrida->fill($contadores + [
@@ -146,6 +184,8 @@ class MotorDeEvaluacion
         ]);
 
         $seco || $corrida->save();
+
+        $this->corridaActual = null;
 
         return $corrida;
     }

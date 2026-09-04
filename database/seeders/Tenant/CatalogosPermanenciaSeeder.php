@@ -7,6 +7,7 @@ namespace Database\Seeders\Tenant;
 use App\Models\Permanencia\CategoriaSenal;
 use App\Models\Permanencia\MotivoCierreCaso;
 use App\Models\Permanencia\MotivoDescarte;
+use App\Models\Permanencia\NivelRiesgo;
 use App\Models\Permanencia\TipoIntervencion;
 use Illuminate\Database\Seeder;
 
@@ -35,6 +36,52 @@ class CatalogosPermanenciaSeeder extends Seeder
         $this->tiposDeIntervencion();
         $this->motivosDeCierre();
         $this->motivosDeDescarte();
+        $this->nivelesDeRiesgo();
+    }
+
+    /**
+     * Los cinco niveles del pedido, con umbrales de PARTIDA.
+     *
+     * ── Los números son un punto de partida, no una recomendación ──────────
+     * Salen de la aritmética del cálculo: una señal media de peso 2 aporta 6, y
+     * una alta de peso 3 aporta 18. Con estos cortes, una sola señal alta pone a
+     * alguien en «medio» y dos lo ponen en «alto», que es la conversación con la
+     * que casi cualquier escuela empieza. **Cada una tiene que revisarlos contra
+     * el tamaño de su matrícula**: lo que en mil alumnos es una cola manejable,
+     * en ciento veinte es media escuela.
+     *
+     * ── El primero va en CERO ──────────────────────────────────────────────
+     * Es el que atrapa a quien no tiene ninguna señal. Sin él, una matrícula sin
+     * alertas no tendría nivel y habría que inventarle uno al mirarla.
+     *
+     * ── Y `pide_seguimiento` no dispara nada ───────────────────────────────
+     * Es lo que la pantalla usa para separar lo que se atiende de lo que se
+     * anota. Ninguna parte del módulo ejecuta una acción por llegar a un nivel.
+     */
+    private function nivelesDeRiesgo(): void
+    {
+        $niveles = [
+            ['sin_senales', 'Sin señales', 'No tiene ninguna señal abierta.', 0, false, 'verde', 10],
+            ['informativo', 'Informativo', 'Hay algo anotado que no pide acción.', 1, false, 'gris', 20],
+            ['bajo', 'Bajo', 'Una señal menor. Conviene tenerlo a la vista.', 4, false, 'azul', 30],
+            ['medio', 'Medio', 'Requiere revisión: alguien tiene que mirarlo.', 10, true, 'ambar', 40],
+            ['alto', 'Alto', 'Requiere acompañamiento. Varias señales o una grave.', 20, true, 'naranja', 50],
+            ['critico', 'Crítico', 'Requiere atención inmediata y de varios frentes.', 40, true, 'rojo', 60],
+        ];
+
+        foreach ($niveles as [$clave, $nombre, $descripcion, $desde, $pide, $color, $orden]) {
+            NivelRiesgo::query()->firstOrCreate(
+                ['clave' => $clave],
+                [
+                    'nombre' => $nombre,
+                    'descripcion' => $descripcion,
+                    'desde_puntaje' => $desde,
+                    'pide_seguimiento' => $pide,
+                    'color' => $color,
+                    'orden' => $orden,
+                ],
+            );
+        }
     }
 
     /**

@@ -48,7 +48,7 @@ Los otros dos documentos vivos:
 5. **Probar contra la base real** antes de dar algo por hecho. Las pruebas de
    integración se hacen con script + `DB::rollBack()`, y la UI con el
    navegador. Reportar los resultados tal cual, incluidos los fallos.
-   Las suites versionadas viven en `scripts/` (**139 archivos `prueba-*.php`**;
+   Las suites versionadas viven en `scripts/` (**140 archivos `prueba-*.php`**;
    este número ya estuvo desactualizado dos veces —decía 23, y luego 86—, así que
    se cuenta con `ls scripts/prueba-*.php | wc -l` y no de memoria). Se corren todas de una
    vez con `for f in scripts/prueba-*.php; do php "$f"; done` y casi todas
@@ -65,7 +65,7 @@ Los otros dos documentos vivos:
    un rol con disposición guardada. Si node no puede correrlo, la suite FALLA
    en vez de saltarse.
 
-   **Las 139 están en verde**, barridas el 2026-09-04. Catorce son del módulo de
+   **Las 140 están en verde**, barridas el 2026-09-04. Catorce son del módulo de
    Reportes (`prueba-reportes-*`), y una —`prueba-reportes-ordenables`— no prueba
    una fuente sino una CLASE de defecto sobre todas: recorre el registro y
    exporta por cada columna ordenable de cada reporte, así que un reporte nuevo
@@ -771,6 +771,57 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
   CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
   adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
+- **Alertas tempranas y permanencia · FASE 4: riesgo compuesto** (2026-09-04).
+  El nivel por matrícula, fechado y explicable.
+  - **LA DECISIÓN CENTRAL: el grupo de deduplicación es (categoría, MATERIA).**
+    Sumar todo cuenta dos veces a quien dispara «tres faltas seguidas» Y
+    «asistencia bajo el 80 %» en la misma materia —son dos formas de mirar la
+    misma ausencia—. Y quedarse con el máximo de la categoría entera iguala a
+    quien falta en una materia con quien falta en seis. Dentro de cada
+    (categoría, materia) gana la más grave; los grupos se suman.
+  - **El desglose dice lo que NO contó, y por qué.** Sin eso, quien mire verá
+    tres señales y un aporte que sólo explica una, y no sabrá si faltó algo o si
+    se descontó a propósito.
+  - **El aporte es `peso` × factor de severidad**, y las dos cosas las configura
+    la escuela al escribir y versionar la regla. Lo único cableado son los cinco
+    factores, a la vista en una constante: son el orden de magnitud entre lo que
+    se anota y lo que se atiende hoy. Una severidad desconocida aporta CERO — el
+    lado que no sube el riesgo de nadie por algo que no se sabe leer.
+  - **Los NIVELES son catálogo con umbral configurable.** Qué puntaje es «alto»
+    depende del tamaño de la matrícula. El primero va en 0 y atrapa a quien no
+    tiene señales: sin él habría que inventarle un nivel al mirarlo. Y
+    `pide_seguimiento` **no dispara nada**: es lo que la pantalla usa para
+    separar lo que se atiende de lo que se anota.
+  - **El decaimiento NO es una fórmula: es recalcular.** El puntaje sale de las
+    alertas abiertas, así que baja solo cuando una se resuelve. Una curva de
+    olvido haría que el número cambiara sin que nada hubiera pasado. Y **una
+    DESCARTADA tampoco suma**: una persona dijo que no amerita, y contarla
+    enseñaría que descartar no sirve de nada.
+  - **Se escribe una fila SÓLO cuando algo cambia.** Un renglón por matrícula por
+    corrida serían 1.8 millones al año diciendo «sigue igual».
+  - **El riesgo NO es una columna de `matricula_oferta`**, y eso es deliberado:
+    una columna ahí sería un atributo de la persona que se arrastra para siempre.
+    Aquí es una fila fechada con su desglose — es la forma de cumplir «el alumno
+    no debe quedar permanentemente etiquetado».
+  - **El AJUSTE humano conserva el cálculo.** Es una fila nueva con las DOS
+    cifras: sobrescribir haría imposible saber que hubo un ajuste, y con eso se
+    pierde lo único que lo hace legítimo — que alguien se hizo responsable. El
+    motivo es obligatorio y va con `validar-alertas`, sin permiso propio: quien
+    puede descartar todas las señales de alguien ya puede bajarle el riesgo.
+  - **Y nada de esto EJECUTA una acción.** Se comprueba poniendo a un alumno en
+    el nivel más alto y verificando que su situación no se movió: aquí es donde
+    más tienta, porque el catálogo tiene una situación `condicionado` que nadie
+    usa.
+  - **Un defecto que costó encontrar: un scope con `ORDER BY` envenena la
+    consulta que lo use.** `scopeActivos` ordena ascendente, y encadenarle un
+    `orderByDesc` produce `ORDER BY x ASC, x DESC` —donde gana el primero—: TODO
+    puntaje caía en el nivel más bajo, **sin un solo error**. Se usa `reorder()`
+    o no se usa el scope.
+  - Pruebas: `scripts/prueba-permanencia-riesgo.php`, 49 verificaciones,
+    comprobadas mutando **25 reglas**. Tres sobrevivieron y las tres eran huecos
+    del escenario: sin catálogo de niveles, con un nivel apagado, y nada que
+    comprobara que el desglose viaja al leerlo.
+
 - **Alertas tempranas y permanencia · FASE 3: bandeja y triage** (2026-09-04).
   `/permanencia/alertas`, con `ver-alertas`, `ver-alertas-financieras` y
   `validar-alertas`.

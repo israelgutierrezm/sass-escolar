@@ -252,6 +252,9 @@ try {
     // Se parte de cero: lo que se prueba es aritmética de alertas, y eso sólo se
     // puede afirmar sabiendo qué hay. Novena vez que este proyecto lo paga.
     Alerta::query()->forceDelete();
+    // El riesgo compuesto apunta a la corrida, así que va primero: la fase 4
+    // agregó esa foránea y sin este orden el borrado revienta con un 1451.
+    DB::table('riesgo_matricula')->delete();
     DB::table('corridas_evaluacion')->delete();
     ReglaAlertaVersion::query()->forceDelete();
     ReglaAlerta::query()->forceDelete();
@@ -774,6 +777,7 @@ try {
     echo PHP_EOL.'16. El modo SECO no escribe nada'.PHP_EOL;
 
     Alerta::query()->forceDelete();
+    DB::table('riesgo_matricula')->delete();
     DB::table('corridas_evaluacion')->delete();
 
     $seca = $motor->correr(hoy: CarbonImmutable::now()->addDays(80), seco: true);

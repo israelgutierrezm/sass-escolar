@@ -12,8 +12,11 @@ use App\Models\Permanencia\Alerta;
 use App\Models\Permanencia\CategoriaSenal;
 use App\Models\Permanencia\CorridaEvaluacion;
 use App\Models\Permanencia\MotivoDescarte;
+use App\Models\Permanencia\NivelRiesgo;
+use App\Models\Permanencia\RiesgoMatricula;
 use App\Models\Permanencia\ReglaAlerta;
 use App\Models\Permanencia\ReglaAlertaVersion;
+use App\Services\Permanencia\CalculadoraDeRiesgo;
 use App\Permanencia\RegistroProveedores;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -126,6 +129,16 @@ class AlertaController extends Controller
                 ],
             ),
             'motivos' => MotivoDescarte::query()->activos()->get(['id', 'nombre', 'descripcion']),
+            /*
+             * El riesgo COMPUESTO de esta persona, con su desglose.
+             *
+             * Va en la ficha de la señal y no sólo en un tablero, porque es
+             * donde se decide: validar una alerta de asistencia sabiendo que
+             * además arrastra dos frentes más no es la misma decisión que
+             * validarla a secas.
+             */
+            'riesgo' => $this->riesgoDe($modelo),
+            'niveles' => NivelRiesgo::query()->activos()->get(['id', 'clave', 'nombre', 'color', 'descripcion']),
             'puedeValidar' => $usuario?->can('validar-alertas') === true,
             /*
              * Las OTRAS señales abiertas del mismo alumno. Es lo que convierte
@@ -238,6 +251,58 @@ class AlertaController extends Controller
             ? 'Se descartaron '.$descartadas.'.'
             : 'Se descartaron '.$descartadas.'. Las otras '.$fuera.' no se pudieron: '
                 .'o ya las había revisado alguien, o son de un campus que no alcanzas.');
+    }
+
+    /**
+     * Ajustar el nivel de riesgo a mano, con justificación.
+     *
+     * ── Sin permiso propio, y con su razón ─────────────────────────────────
+     * Va con `validar-alertas` porque es el mismo oficio: decidir sobre las
+     * señales de un alumno. Un permiso más sin un acto que proteger es una llave
+     * que la escuela tiene que repartir sin saber para qué —este proyecto ya
+     * retiró dos así— y quien puede descartar todas las señales de alguien ya
+     * puede, de hecho, bajarle el riesgo.
+     *
+     * El alcance por campus se comprueba abriendo la ALERTA, que es de donde se
+     * llega: sin eso, el id de una matrícula de otro plantel entraría por aquí.
+     */
+    public function ajustarRiesgo(Request $peticion, int $alerta): RedirectResponse
+    {
+        $modelo = $this->alcanzable($peticion, $alerta);
+
+        $datos = $peticion->validate([
+            'nivel_id' => ['required', 'integer',
+                Rule::exists('niveles_riesgo', 'id')->whereNull('deleted_at')],
+            'motivo' => ['required', 'string', 'min:10', 'max:1000'],
+        ], [
+            'motivo.required' => 'Ajustar el nivel exige decir por qué.',
+            'motivo.min' => 'El motivo tiene que explicar algo: dentro de un año nadie recordará el contexto.',
+        ]);
+
+        app(CalculadoraDeRiesgo::class)->ajustar(
+            $modelo->matricula,
+            NivelRiesgo::findOrFail($datos['nivel_id']),
+            $datos['motivo'],
+            $peticion->user(),
+        );
+
+        return back(303)->with('exito',
+            'Se ajustó el nivel. El calculado se conserva al lado, con tu motivo.');
+    }
+
+    /**
+     * El riesgo vigente de la persona de esta alerta.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function riesgoDe(Alerta $alerta): ?array
+    {
+        $riesgo = RiesgoMatricula::query()
+            ->vigenteDe($alerta->matricula_oferta_id)
+            ->with('nivel', 'nivelAnterior', 'nivelAjustado', 'ajustadoPor.persona')
+            ->first();
+
+        return $riesgo?->comoSeLee();
     }
 
     /**
