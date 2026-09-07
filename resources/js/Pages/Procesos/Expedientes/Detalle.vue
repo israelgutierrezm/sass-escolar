@@ -472,8 +472,19 @@ const MOMENTOS: Record<string, string> = {
                     </li>
                 </ul>
 
+                <!--
+                    Se dice CUÁL de las dos razones, no las dos con un «o»: la
+                    organización está tres bloques más arriba, así que ofrecer
+                    «todavía no se le ha asignado» sobre un expediente que sí la
+                    tiene es contradecir la propia página. El componente lo sabe.
+                -->
                 <p v-else class="text-sm" :style="{ color: 'var(--color-suave)' }">
-                    Su regla no pide informes, o todavía no se le ha asignado organización.
+                    <template v-if="expediente.organizacion">
+                        Su regla no pide informes, así que no hay ninguno que entregar.
+                    </template>
+                    <template v-else>
+                        Los informes se programan al asignarle organización: todavía no la tiene.
+                    </template>
                 </p>
             </TarjetaSeccion>
 

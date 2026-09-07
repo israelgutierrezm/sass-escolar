@@ -333,9 +333,16 @@ function firmarConvenio(): void {
                 :class="cuenta.situacion.bloquea ? 'border-red-300 bg-red-50 text-red-800' : ''"
                 :style="cuenta.situacion.bloquea ? {} : { borderColor: 'var(--color-borde)' }"
             >
+                <!--
+                    La separación va por MARGEN y no por un espacio dentro del
+                    span: Vue condensa el espacio que abre un nodo de texto, así
+                    que salía «MorosoCargos vencidos de un plan…» pegado. Es el
+                    defecto de «CASO-2026-00001· Cerrado», y con margen no
+                    depende de cómo se traten los blancos.
+                -->
                 <strong>{{ cuenta.situacion.nombre }}</strong>
-                <span v-if="cuenta.situacion.bloquea"> — bloquea reinscripción y trámites.</span>
-                <span v-if="cuenta.situacion.motivo"> {{ cuenta.situacion.motivo }}</span>
+                <span v-if="cuenta.situacion.bloquea" class="ml-1">— bloquea reinscripción y trámites.</span>
+                <span v-if="cuenta.situacion.motivo" class="ml-1">{{ cuenta.situacion.motivo }}</span>
             </div>
             <p v-else class="mt-4 text-sm" :style="{ color: 'var(--color-suave)' }">
                 Sin situación financiera registrada.

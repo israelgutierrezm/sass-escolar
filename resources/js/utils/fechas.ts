@@ -21,3 +21,26 @@ export function hoyLocal(): string {
 
     return `${ahora.getFullYear()}-${mes}-${dia}`;
 }
+
+/**
+ * Una fecha ISO, escrita como se dice.
+ *
+ * `2026-07-07` dentro de una frase —«del 2026-07-07 al 2027-01-07»— se lee como
+ * un volcado de base de datos, y esto lo lee un alumno sobre su propio
+ * expediente. En una CELDA de tabla el ISO está bien: ahí es un dato en una
+ * columna y además ordena. Lo que no puede es ir dentro de un párrafo.
+ *
+ * Devuelve la cadena tal cual si no reconoce el formato: una fecha rara sale
+ * legible en vez de «Invalid Date».
+ */
+export function fechaEnPalabras(iso?: string | null): string {
+    const t = (iso ?? '').trim();
+
+    if (!/^\d{4}-\d{2}-\d{2}/.test(t)) return t;
+
+    const [a, m, d] = t.slice(0, 10).split('-').map(Number);
+    const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+        'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+    return `${d} de ${meses[m - 1]} de ${a}`;
+}

@@ -71,12 +71,25 @@ const props = defineProps<{
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
 
 const apertura = useForm({ caja_id: props.disponibles[0]?.id ?? null, fondo_inicial: 0 });
-const cierre = useForm({ efectivo_contado: 0, notas: '' });
+/*
+ * El conteo nace VACÍO y no en cero.
+ *
+ * Con cero, la pantalla avisaba «el corte quedaría con un faltante de $4,300»
+ * en cuanto se abría —sobre un campo que nadie había tocado—, así que quien
+ * cierra su turno leía una alarma por no haber contado todavía. Un aviso que
+ * sale antes de que haya nada que avisar es como se llega a que no se lean los
+ * avisos. Y cero es además una cifra legítima: un cajón vacío se cuenta.
+ */
+const cierre = useForm<{ efectivo_contado: number | null; notas: string }>({
+    efectivo_contado: null,
+    notas: '',
+});
 const autorizacion = useForm({ motivo: '' });
 const autorizando = ref<number | null>(null);
 
-const diferenciaPrevista = computed(() => {
-    if (props.sesion === null) return 0;
+/** La diferencia del conteo, o null mientras no se haya contado. */
+const diferenciaPrevista = computed<number | null>(() => {
+    if (props.sesion === null || cierre.efectivo_contado === null) return null;
 
     return Number((Number(cierre.efectivo_contado) - props.sesion.efectivo_esperado).toFixed(2));
 });
@@ -241,7 +254,7 @@ function autorizar(c: Corte): void {
                         pendiente y pueda volver a contar antes de firmarlo.
                     -->
                     <p
-                        v-if="diferenciaPrevista !== 0"
+                        v-if="diferenciaPrevista !== null && diferenciaPrevista !== 0"
                         class="mt-2 text-sm"
                         :style="{ color: '#b45309' }"
                     >

@@ -773,6 +773,49 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
   CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
   adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
+- **Cobro, facturación y horas, revisados EN EL NAVEGADOR** (2026-09-07). Son
+  los tres módulos que la tanda de concurrencia tocó y que hasta hoy sólo se
+  habían verificado por suites. Se sembró el escenario entero —caja con turno,
+  dos cargos, un cobro parcial y otro que liquida, una factura timbrada con el
+  PAC falso, y un expediente formativo con cuatro jornadas en sus cuatro
+  estados— y **se retiró todo al terminar**; `acadion:auditar-datos` sigue en
+  las mismas 69 filas.
+  - **Lo primero que confirmó la siembra**: la aritmética del cobro cuadra de
+    punta a punta. 1,200 + 1,600 sobre un cargo de 2,800 lo dejó en «pagado», y
+    el mismo pago metido en una segunda factura se rehúsa nombrando el folio.
+  - **Tres defectos, y ninguno da error:**
+    1. **La caja alarmaba antes de contar.** El formulario de cierre nacía con
+       `efectivo_contado: 0`, así que al abrir la pantalla ya decía «el corte
+       quedaría con un faltante de $4,300.00» sobre un campo que nadie había
+       tocado. Un aviso que sale antes de que haya nada que avisar es como se
+       llega a que no se lean los avisos. Ahora el conteo nace VACÍO —y cero
+       sigue siendo una cifra legítima: un cajón vacío se cuenta y sí avisa—.
+    2. **«MorosoCargos vencidos de un plan…»** en el estado de cuenta: el
+       separador era un espacio al principio de un nodo de texto y **Vue lo
+       condensa**. Es el defecto de «CASO-2026-00001· Cerrado». Va por MARGEN,
+       que no depende de cómo se traten los blancos.
+    3. **Un aviso que la propia página contradecía**: el expediente formativo
+       decía «Su regla no pide informes, **o** todavía no se le ha asignado
+       organización» sobre uno que tiene la organización tres bloques más
+       arriba. El componente sabe cuál de las dos es; ahora lo dice.
+  - **Y una fecha ISO dentro de una frase** en el portal del alumno —«del
+    2026-07-07 al 2027-01-07»—, que es lo que la fase 6 corrigió en la
+    constancia y aquí había quedado vivo. Sale de `fechaEnPalabras`, en
+    `@/utils/fechas`: **en una CELDA de tabla el ISO está bien** —ahí es un dato
+    en una columna y además ordena—, lo que no puede es ir dentro de un párrafo.
+  - **Lo que se miró y NO era defecto**, comprobado antes de tocarlo: «Leonardo
+    Díaz Garcíaegresado» y «Colegiatura2026-2» llevan `ml-2` y se ven separados
+    —artefacto de `innerText`—; y el «PAC: falso» de la ficha de una factura es
+    correcto, porque avisa de que ese comprobante no fue al SAT.
+  - **Trampa de la medición, nueva**: `getBoundingClientRect()` de un elemento
+    en línea que ENVUELVE devuelve la caja de todos sus renglones, así que el
+    hueco entre dos salía negativo y la comprobación decía que se pisaban. Se
+    mide con `getClientRects()[0]`, que es el primer renglón.
+  - **El recibo no se pudo MIRAR**: se descarga como PDF y aquí no hay con qué
+    rasterizarlo (`pdftoppm` no está). Se leyó su HTML, que dice lo que debe
+    —folio sin segundos, el aviso de que no es comprobante fiscal, quién cobró y
+    en qué caja—, y que quepa en una hoja lo sostiene su suite.
+
 - **Tres CARRERAS de concurrencia, y la red que no existe** (2026-09-04, tres
   hallazgos que el cliente pasó a revisar; los tres ciertos). Las tres tienen la
   misma forma —leer un estado, decidir con él, escribir después— y **ninguna

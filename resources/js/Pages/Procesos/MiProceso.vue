@@ -22,6 +22,7 @@ import CampoTextarea from '@/Components/CampoTextarea.vue';
 import Modal from '@/Components/Modal.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import TarjetaSeccion from '@/Components/TarjetaSeccion.vue';
+import { fechaEnPalabras } from '@/utils/fechas';
 
 interface Proceso {
     tipo: string;
@@ -293,7 +294,8 @@ const MOMENTOS: Record<string, string> = {
 
                 <p v-if="p.expediente.organizacion" class="mt-2 text-sm">
                     En <strong>{{ p.expediente.organizacion }}</strong>,
-                    del {{ p.expediente.fecha_inicio }} al {{ p.expediente.fecha_fin_programada }}.
+                    del {{ fechaEnPalabras(p.expediente.fecha_inicio) }}
+                    al {{ fechaEnPalabras(p.expediente.fecha_fin_programada) }}.
                 </p>
 
                 <!-- Los papeles: los suyos y los que le faltan, juntos. -->
