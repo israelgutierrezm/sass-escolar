@@ -773,6 +773,45 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   no contra adeudos —«el comprobante ampara dinero que entró»—, así que todo
   CFDI es PUE **por construcción** y no hay nada que complementar. Facturar el
   adeudo es otro flujo de negocio que cambia esa invariante, no un arreglo.
+- **NO HAY API, y eso es lo que bloquea una app móvil** (2026-09-07, medido
+  antes de empezar el cliente en Flutter que pidió el cliente).
+  - **948 rutas y CERO bajo `api/`.** No existe `routes/api.php`. No hay
+    Sanctum, ni Passport, ni JWT —ni en `composer.json` ni en `config/`—, los
+    dos guards (`web` y `central`) son de SESIÓN, `Usuario` no usa
+    `HasApiTokens` y no hay tabla de tokens.
+  - Todo es **Inertia**: lo que devuelven los controladores son páginas
+    acopladas al nombre de un componente Vue, detrás de cookie de sesión y
+    CSRF. Hay **57 endpoints que ya devuelven JSON** —`/buscar/alumnos`,
+    `/panel/clima`, los de conciliación— pero son auxiliares de la SPA y viven
+    tras la misma sesión.
+  - **Y la escuela se resuelve por DOMINIO** (`InitializeTenancyByDomain`), así
+    que un cliente móvil tiene que saber a qué subdominio hablarle ANTES de
+    poder autenticar: hace falta un paso de «código de escuela» o un endpoint
+    central que lo traduzca. No es un detalle de implementación, es la primera
+    pantalla de la app.
+  - **El tamaño del trabajo móvil es mucho menor que el sistema**, y conviene
+    saberlo antes de dimensionar: repartiendo las 947 rutas de tenant por la
+    faceta de su permiso salen **administrativo 727, alumno 174, padre 147,
+    docente 41, aspirante 7, tutor educativo 6** (se solapan: un permiso puede
+    ser de varias facetas). El back office no es una app móvil; lo que sí lo es
+    —alumno, familia y docente— ya está construido y revisado.
+
+- **Recorrido COMPLETO de las 947 rutas de tenant** (2026-09-07). Se invoca el
+  kernel HTTP con la sesión de cada oficio, así que pasa por el middleware de
+  verdad —tenant, auth, rol activo, módulo y `can:`— y no por el controlador a
+  secas.
+  - **Ninguna pantalla rota.** Sin parámetro: 141 responden como dirección
+    general y **0 fallan**; y repetido como alumno, docente, tutor familiar,
+    aspirante y un administrativo acotado a campus, **0 fallan** en los cinco.
+  - Con parámetro rellenado con datos reales: 29 responden, **0 fallan**.
+  - **Lo que NO se pudo ejercitar, y se dice**: 45 rutas cuya tabla está vacía
+    en el demo y 52 que no toman un id sino un archivo, un token o un uuid. Un
+    id inventado sólo produce 404 y eso no comprueba nada, así que se cuentan
+    aparte en vez de darlas por probadas.
+  - Los 403 del recorrido son portales de OTRA faceta —lo correcto—, y
+    `/creditos` y `/escuelas` dan 404 desde el tenant porque son de la central:
+    `PreventAccessFromCentralDomains` haciendo su trabajo.
+
 - **Cobro, facturación y horas, revisados EN EL NAVEGADOR** (2026-09-07). Son
   los tres módulos que la tanda de concurrencia tocó y que hasta hoy sólo se
   habían verificado por suites. Se sembró el escenario entero —caja con turno,
