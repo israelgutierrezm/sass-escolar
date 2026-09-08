@@ -97,9 +97,40 @@ lección de `estaEnVigor` de las autorizaciones y de `AlcanceDeExpedientes`.
 
 | # | Rebanada | Qué entrega |
 |---|---|---|
-| 1 | **Registro y reglas** | `autorizados_recoger`; `PuedeRecoger` (bloqueo > tutor > autorización); pantalla de la familia (agregar/retirar terceros con vigencia y foto); pantalla del administrador (bloqueos de custodia + lista efectiva por alumno); permiso `gestionar-salida-segura`. **Completa y verificable sin hardware.** |
-| 2 | **La puerta** | `token` (QR) por autorizado; pantalla del guardia (escanea alumno + persona, el servidor valida); `salidas_alumno` (registro de entrega con quién, cuándo, cómo); aviso a los responsables. El QR reusado sobre un estado que cambió se rechaza. |
+| 1 ✅ | **Registro y reglas** | `autorizados_recoger`; `PuedeRecoger` (bloqueo > tutor > autorización); pantalla de la familia (agregar/retirar terceros con vigencia y foto); pantalla del administrador (bloqueos de custodia + lista efectiva por alumno); permiso `gestionar-salida-segura`. **Completa y verificable sin hardware.** |
+| 2 ✅ | **La puerta** | `token` (QR) por autorizado; pantalla del guardia (`/plataforma/puerta`, escanea/pega el token O elige de la lista, el servidor valida); `salidas_alumno` (registro de entrega con quién, cuándo, cómo); aviso a los responsables; permiso propio `registrar-salida-alumno`. El QR reusado sobre un estado que cambió se rechaza. **Hecha 2026-09-08.** |
 | 3 | **App / autoservicio** | El QR en la app de la familia; un código de un solo uso «mando hoy a la abuela» time-bounded, para lo no recurrente. |
+
+### Rebanada 2 — lo que quedó, y por qué
+
+- **El token lo pone el SERVIDOR, y sólo en las autorizaciones.** `token` no es
+  `fillable`: lo genera `AutorizadoRecoger::booted()` al crear una fila
+  `permitido=true`. Dejar que llegara en la petición sería dejar elegir el código
+  de otra; y un bloqueo no lleva token porque un bloqueo no recoge a nadie.
+- **`registrar-salida-alumno` es un permiso APARTE de `gestionar-salida-segura`.**
+  Quien está en la caseta valida y anota; no decide quién puede recoger. Dos
+  oficios, dos permisos: el guardia no configura la custodia y quien la configura
+  no tiene por qué estar en la puerta.
+- **`RegistradorDeSalida` valida contra el estado ACTUAL** preguntando a
+  `PuedeRecoger` —la misma regla de la rebanada 1, no una segunda escrita en la
+  puerta—. Un QR emitido antes de un bloqueo de custodia se rechaza; uno vencido,
+  también; y el token de un alumno no sirve para otro (la consulta acota por
+  alumno Y por token). El QR vigente SÍ se reusa: no es de un solo uso —un padre
+  recoge cada día con el mismo código—.
+- **Dos caminos, un solo servidor decide**: por QR (un tercero, con o sin cuenta)
+  o de la lista (un tutor o un autorizado CON cuenta, por `persona_id`). Un
+  tercero sin cuenta sólo entra por su QR: no hay `persona_id` que elegir.
+- **`salidas_alumno` guarda `como`** (`qr` / `tutor` / `manual`), quién recogió
+  (`recogido_por_persona_id` cuando tiene cuenta, y siempre el `recogido_nombre`)
+  y la fila usada (`autorizado_id`), para poder explicar una entrega después.
+- **El aviso va por el canal de AVISOS** (destino `Alumno` + el modificador
+  `Familiares`), Importante, y caduca a los 3 días: le llega a quien responde por
+  el alumno sin exponer nada a nadie más. No es correo, por el criterio de
+  siempre.
+- Pruebas: `scripts/prueba-salida-segura-puerta.php`, 26 verificaciones,
+  comprobadas mutando seis reglas —el block-overrides-token, la vigencia del QR,
+  el acotado por alumno, el `como` del tutor, el token para bloqueos y el destino
+  Familiares—.
 
 Cada rebanada para y pide validación.
 

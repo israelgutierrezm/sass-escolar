@@ -9,8 +9,10 @@ use App\Models\Identidad\AutorizadoRecoger;
 use App\Models\Identidad\Parentesco;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\TutorAlumno;
+use App\Models\Identidad\SalidaAlumno;
 use App\Models\Identidad\Usuario;
 use App\Services\Familia\PuedeRecoger;
+use App\Services\Familia\RegistradorDeSalida;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -157,6 +159,56 @@ class SalidaSeguraController extends Controller
         $bloqueo->delete();
 
         return back(303)->with('exito', 'Se retiró el bloqueo.');
+    }
+
+    // ── La PUERTA (caseta) ──────────────────────────────────────────────────
+
+    /** La pantalla del guardia: busca al alumno que va a salir. */
+    public function puerta(): Response
+    {
+        return Inertia::render('Plataforma/Puerta');
+    }
+
+    /** El alumno en la puerta: quién puede recogerlo y las salidas de hoy. */
+    public function enPuerta(Persona $alumno): Response
+    {
+        return Inertia::render('Plataforma/Puerta', [
+            'alumno' => ['id' => $alumno->id, 'nombre' => $alumno->nombreCompleto()],
+            'efectiva' => $this->reglas->listaEfectiva($alumno->id),
+            'tutores' => TutorAlumno::query()
+                ->where('alumno_persona_id', $alumno->id)
+                ->with('tutor:id,nombre,primer_apellido,segundo_apellido')->get()
+                ->map(fn (TutorAlumno $v) => [
+                    'persona_id' => $v->tutor_persona_id,
+                    'nombre' => $v->tutor?->nombreCompleto(),
+                ])->values(),
+            'terceros' => AutorizadoRecoger::query()
+                ->where('alumno_persona_id', $alumno->id)->autoriza()->vigentes()
+                ->get()->map(fn (AutorizadoRecoger $a) => [
+                    'persona_id' => $a->persona_id, 'nombre' => $a->nombre,
+                ])->values(),
+            'salidas' => SalidaAlumno::query()
+                ->where('alumno_persona_id', $alumno->id)
+                ->latest()->limit(10)->get()
+                ->map(fn (SalidaAlumno $s) => [
+                    'recogido' => $s->recogido_nombre,
+                    'como' => $s->como,
+                    'momento' => $s->created_at?->format('d/m/Y H:i'),
+                ])->values(),
+        ]);
+    }
+
+    /** Registra la entrega: el servidor valida (por QR o de la lista) y anota. */
+    public function registrar(Request $peticion, Persona $alumno, RegistradorDeSalida $registrador): RedirectResponse
+    {
+        $datos = $peticion->validate([
+            'token' => ['nullable', 'string', 'max:64'],
+            'persona_id' => ['nullable', 'integer'],
+        ]);
+
+        $registrador->registrar($alumno, $datos, $peticion->user());
+
+        return redirect("/plataforma/puerta/{$alumno->id}")->with('exito', 'Salida registrada. Se avisó a la familia.');
     }
 
     /**

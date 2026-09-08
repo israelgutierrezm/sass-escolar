@@ -8,6 +8,7 @@ use App\Models\Concerns\TieneAuditoria;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Str;
 
 /**
  * autorizados_recoger (TENANT) — quién puede o NO puede recoger a un alumno.
@@ -42,6 +43,20 @@ class AutorizadoRecoger extends Model
             'vigencia_desde' => 'date',
             'vigencia_hasta' => 'date',
         ];
+    }
+
+    /**
+     * El token del QR lo pone el SERVIDOR al crear una AUTORIZACIÓN —no el
+     * cliente, y no un bloqueo—: es la llave con la que la puerta la resuelve, y
+     * dejar que llegue en la petición sería dejar elegir el código de otra.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (self $fila): void {
+            if ($fila->permitido && $fila->token === null) {
+                $fila->token = (string) Str::uuid();
+            }
+        });
     }
 
     public function alumno(): BelongsTo

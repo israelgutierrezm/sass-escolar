@@ -74,6 +74,35 @@ class PuedeRecoger
     }
 
     /**
+     * Validar por el TOKEN del QR de un tercero. Resuelve la fila y comprueba su
+     * vigencia y —si ese tercero tiene cuenta— que no lo haya bloqueado una
+     * custodia después: el QR se valida contra el estado ACTUAL, no contra el
+     * papel. Devuelve además la fila usada, para el registro de salida.
+     *
+     * @return array{permitido: bool, razon: string, motivo: ?string, autorizado: ?AutorizadoRecoger}
+     */
+    public function validarPorToken(int $alumnoPersonaId, string $token): array
+    {
+        $fila = AutorizadoRecoger::query()
+            ->where('alumno_persona_id', $alumnoPersonaId)
+            ->where('token', $token)
+            ->autoriza()
+            ->first();
+
+        if ($fila === null || ! $fila->vigente()) {
+            return ['permitido' => false, 'razon' => self::NO_ESTA, 'motivo' => null, 'autorizado' => null];
+        }
+
+        // Si el tercero tiene cuenta, un bloqueo de custodia sobre ella gana
+        // sobre su propia autorización: se reusa la regla de arriba.
+        if ($fila->persona_id !== null) {
+            return array_merge($this->validar($alumnoPersonaId, $fila->persona_id), ['autorizado' => $fila]);
+        }
+
+        return ['permitido' => true, 'razon' => self::AUTORIZADO, 'motivo' => null, 'autorizado' => $fila];
+    }
+
+    /**
      * La lista EFECTIVA de quién puede recoger a un alumno hoy: los tutores no
      * bloqueados y los terceros autorizados vigentes. Es lo que la familia
      * revisa y, en la rebanada 2, lo que el guardia coteja.

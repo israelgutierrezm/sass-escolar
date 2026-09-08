@@ -1876,11 +1876,45 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     mutando **6 reglas** (el bloqueo que no gana sobre el tutor, la vigencia
     ignorada, la familia tocando un bloqueo, la pertenencia sin comprobar, el
     motivo no obligatorio y la lista efectiva sin excluir bloqueados).
-  - **Rebanada 2, PENDIENTE**: el token/QR por autorizado, la pantalla del
-    guardia (escanea alumno + persona, el servidor valida contra el estado
-    ACTUAL —un QR de alguien ya bloqueado se rechaza aunque el papel circule—),
-    `salidas_alumno` (registro de entrega con quién/cuándo/cómo) y el aviso a los
-    responsables por el canal de avisos.
+  - **Rebanada 2 · la PUERTA** (2026-09-08). El guardia valida y registra la
+    entrega. `/plataforma/puerta`, permiso propio `registrar-salida-alumno`.
+    - **El TOKEN del QR lo pone el SERVIDOR, y sólo en las autorizaciones.**
+      `token` NO es `fillable`: lo genera `AutorizadoRecoger::booted()` al crear
+      una fila `permitido=true`. Dejar que llegara en la petición sería dejar
+      elegir el código de otra; y un bloqueo no recibe token porque un bloqueo no
+      recoge a nadie. Lo fija una mutación que lo genera también para bloqueos.
+    - **`registrar-salida-alumno` es un permiso APARTE de
+      `gestionar-salida-segura`.** Quien está en la caseta valida y anota; NO
+      decide quién puede recoger. Dos oficios, dos permisos: el guardia no
+      configura la custodia y quien la configura no tiene por qué estar en la
+      puerta.
+    - **`RegistradorDeSalida` valida contra el estado ACTUAL** preguntando a
+      `PuedeRecoger` —la misma regla de la rebanada 1, no una segunda escrita en
+      la puerta—. Un QR emitido ANTES de un bloqueo de custodia se rechaza; uno
+      vencido, también; y el token de un alumno no sirve para otro (la consulta
+      acota por alumno Y por token, no sólo por el token único). El QR vigente SÍ
+      se reusa: no es de un solo uso —un padre recoge cada día con el mismo
+      código—.
+    - **Dos caminos, un solo servidor decide**: por QR (un tercero, con o sin
+      cuenta) o de la LISTA (un tutor o un autorizado CON cuenta, por
+      `persona_id`). Un tercero sin cuenta sólo entra por su QR: no hay
+      `persona_id` que elegir, y por eso la pantalla no le ofrece botón.
+    - **`salidas_alumno` guarda `como`** (`qr` / `tutor` / `manual`), quién
+      recogió (`recogido_por_persona_id` cuando tiene cuenta, y SIEMPRE el
+      `recogido_nombre`) y la fila usada (`autorizado_id`), para poder explicar
+      una entrega después.
+    - **El aviso va por el canal de AVISOS** (destino `Alumno` + el modificador
+      `Familiares`, `AlMenosUnDestinoReal` no deja que Familiares vaya solo),
+      prioridad Importante, caduca a los 3 días. Le llega a quien responde por el
+      alumno sin exponer nada a nadie más. No es correo, por el criterio de
+      siempre.
+    - Pruebas: `scripts/prueba-salida-segura-puerta.php`, 26 verificaciones,
+      comprobadas mutando **seis reglas** —el block-overrides-token, la vigencia
+      del QR, el acotado por alumno, el `como` del tutor, el token para bloqueos
+      y el destino Familiares—. Verificado además por HTTP (el controlador de la
+      puerta registra y redirige) y con `npm run build`; **los datos de prueba se
+      deshacen con `DB::rollBack()`** y el aviso sólo se crea dentro de la
+      transacción de la suite.
 
 - **Familia · VIGENCIA y REVOCACIÓN de autorizaciones** (2026-09-07, cuarto
   flujo de la revisión de cinco módulos). Una autorización concedida ya puede

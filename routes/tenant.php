@@ -2175,6 +2175,20 @@ Route::middleware([
                 Route::delete('bloqueos/{bloqueo}', 'desbloquear')->whereNumber('bloqueo')->name('desbloquear');
             });
 
+        /*
+         * La PUERTA (caseta): valida y registra la entrega. Permiso propio del
+         * guardia, distinto de configurar la custodia: quien está en la caseta
+         * no decide quién puede recoger, sólo comprueba y anota.
+         */
+        Route::controller(SalidaSeguraController::class)
+            ->prefix('plataforma/puerta')->name('tenant.plataforma.puerta.')
+            ->middleware('can:registrar-salida-alumno')
+            ->group(function () {
+                Route::get('/', 'puerta')->name('index');
+                Route::get('{alumno}', 'enPuerta')->whereNumber('alumno')->name('alumno');
+                Route::post('{alumno}/registrar', 'registrar')->whereNumber('alumno')->name('registrar');
+            });
+
         Route::put('mis-hijos/autorizaciones/{autorizacion}', [AutorizacionController::class, 'responder'])
             ->whereNumber('autorizacion')
             ->middleware('can:ver-mis-hijos')
