@@ -127,6 +127,10 @@ class PadreController extends Controller
                 'academico' => $vinculo->puede_ver_academico,
                 'finanzas' => $vinculo->puede_ver_finanzas,
             ],
+            // Si esta escuela le deja pedir citas con los docentes. La página de
+            // citas cuelga de su propio permiso de faceta; aquí sólo se decide si
+            // mostrar el enlace.
+            'puede_citas' => $request->user()->can('solicitar-citas'),
             /*
              * Qué estudia, aparte del detalle de cada cosa.
              *

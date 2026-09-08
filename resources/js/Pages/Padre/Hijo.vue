@@ -50,6 +50,8 @@ interface Finanza {
 const props = defineProps<{
     hijo: { id: number; nombre: string; foto: string | null; curp: string | null; parentesco: string };
     permisos: { academico: boolean; finanzas: boolean };
+    /** Si la escuela le deja pedir citas con los docentes de su hijo. */
+    puede_citas: boolean;
     /** Lo que estudia, aunque no se le deje ver el detalle de ninguna. */
     programas_academicos: { matricula: string; programa_academico: string | null; campus: string | null }[];
     academico: Academico[] | null;
@@ -179,13 +181,19 @@ function colorCalif(estatusClave: string | null): string {
                 class="grid h-16 w-16 shrink-0 place-items-center rounded-full text-lg font-semibold ring-1 ring-black/5"
                 :style="{ backgroundColor: 'color-mix(in srgb, var(--color-acento) 15%, transparent)', color: 'var(--color-acento)' }"
             >{{ iniciales(hijo.nombre) }}</span>
-                <div>
+                <div class="min-w-0">
                     <h2 class="text-lg font-semibold">{{ hijo.nombre }}</h2>
                     <p class="text-sm capitalize" :style="{ color: 'var(--color-suave)' }">
                         {{ hijo.parentesco }}
                         <span v-if="hijo.curp" class="font-mono"> · {{ hijo.curp }}</span>
                     </p>
                 </div>
+                <a
+                    v-if="puede_citas"
+                    :href="`/mis-hijos/${hijo.id}/citas`"
+                    class="ml-auto rounded-lg border px-3 py-1.5 text-sm"
+                    :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
+                >Citas con docentes</a>
             </div>
 
             <!--

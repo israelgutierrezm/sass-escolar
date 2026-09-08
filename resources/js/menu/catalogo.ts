@@ -706,6 +706,7 @@ export const CATALOGO_MENU: GrupoMenu[] = [
              * menú, que sólo sabe de permisos y módulos.
              */
             { clave: 'permanencia-docente', etiqueta: 'Señales de mis grupos', url: '/docencia/permanencia', permiso: 'ver-alertas-de-mis-grupos', modulo: 'permanencia' },
+            { clave: 'citas-docente', etiqueta: 'Citas con familias', url: '/docencia/citas', permiso: 'gestionar-mis-citas' },
             { clave: 'mi-expediente', etiqueta: 'Mi expediente', url: '/docencia/expediente', permiso: 'editar-mi-expediente' },
         ],
     },

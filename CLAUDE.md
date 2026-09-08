@@ -1834,6 +1834,68 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   - Pruebas: `scripts/prueba-permanencia-reglas.php`, 63 verificaciones,
     comprobadas mutando **28 reglas**.
 
+- **Familia · CITAS familia–docente** (2026-09-08, sexto flujo de la revisión de
+  cinco módulos). Que una familia pida reunión con el docente de su hijo, el
+  docente confirme o rechace, y no se encimen dos. **El diseño vive en
+  `docs/plan-citas-familia-docente.md`**. Era **E**: no había `Cita`/`Reunion`,
+  y `DisponibilidadDocente` es para GENERAR HORARIOS de clase, no para reunirse
+  con padres.
+  - **La disponibilidad de CITAS es SEPARADA de la de clases**, a propósito:
+    `disponibilidad_docente` dice cuándo el docente puede DAR CLASE; una cita con
+    un padre ocurre justo cuando NO está en aula. Reusar esa tabla dejaría
+    reservar a las 9:00 con un docente que a esa hora está frente a un grupo. Dos
+    preguntas distintas, dos tablas (`disponibilidad_cita_docente`).
+  - **El vínculo familia↔docente se DERIVA, no se guarda.** Quién puede pedirle
+    cita a quién sale de `tutores_alumno` (hijo↔familia) cruzado con
+    `docente_asignatura_grupo` vía las inscripciones del hijo. Una tabla de
+    «familias de un docente» sería un segundo padrón que se separaría del
+    vínculo. Lo comprueba `GestorDeCitas::esHijoDe` y `::daClaseA`.
+  - **`GestorDeCitas` es la regla en UN sitio**, la usan los dos portales. Al
+    SOLICITAR valida cinco cosas —el hijo es suyo, el docente le da clase, la
+    hora cae en un hueco válido de una ventana (día, rango y múltiplo de la
+    duración), no es en el pasado, no se encima con una confirmada—. Al
+    CONFIRMAR, **bajo bloqueo del docente** (`lockForUpdate` de sus citas
+    activas) revalida el traslape: dos confirmaciones de horas encimadas no
+    pasan las dos. Es el molde del bloqueo del expediente en las horas
+    formativas. El `fin` lo calcula el servidor de la duración de la ventana,
+    nunca se cree del cliente.
+  - **NO hay estado «reprogramada», a propósito.** Reprogramar = rechazar
+    sugiriendo otra hora (en `respuesta`) + volver a pedir. Un estado de
+    negociación de dos partes duplicaría la máquina y dejaría citas colgando de
+    quién contesta; así siempre hay UN dueño claro de la siguiente acción.
+    Estados: `solicitada` → `confirmada`/`rechazada`/`cancelada`; `confirmada` →
+    `realizada`/`no_asistio`/`cancelada`.
+  - **El traslape se mide con la regla de dos condiciones** (`inicio < otroFin &&
+    fin > otroInicio`) que ya usan las clases en línea, y las horas en minutos
+    como `DisponibilidadDocente::aMinutos`. **Dos familias distintas SÍ pueden
+    solicitar el mismo hueco** (aún nadie lo confirmó); al confirmar uno, el otro
+    ya no se confirma ni se vuelve a pedir.
+  - **Avisa por el canal de AVISOS** (`DestinoEvento::Alumno` casa contra
+    `persona_id`, así que sirve igual para un docente o un familiar): la
+    solicitud al docente, la confirmación/rechazo/cancelación a la otra parte.
+    No es correo, por el criterio de siempre.
+  - **Dos permisos, dos oficios**: `gestionar-mis-citas` (faceta docente,
+    `/docencia/citas`) y `solicitar-citas` (faceta padre,
+    `/mis-hijos/{hijo}/citas`). El alcance del docente sale de sus materias, no
+    del permiso. La página de la familia se alcanza desde la ficha del hijo
+    (enlace gateado por `puede_citas`); lo ajeno da 404 —un id ajeno no confirma
+    que exista—.
+  - Pruebas: `scripts/prueba-citas-familia-docente.php`, 37 verificaciones,
+    comprobadas mutando **diez reglas** (todas mueren). **Trampa del método,
+    reanotada**: dos mutaciones mataban por ERROR DE SINTAXIS (el patrón dejaba
+    una consulta colgando) en vez de por comportamiento —«0 correctas»—; se
+    reescribieron para reemplazar la EXPRESIÓN entera de la condición por `false`,
+    que parsea, y así el kill es real. Mutar tiene que dejar el código
+    parseable, o no prueba nada.
+  - **Trampa reconfirmada**: el nombre de la materia en `AsignaturaGrupo` NO es
+    `asignatura`, es `planMateria.asignatura` —lo cazó la suite con
+    `RelationNotFoundException`—. El nombre de una relación se pregunta, no se
+    adivina.
+  - **Verificado sin navegador**, por el criterio de siempre (el login es de
+    personas y no tecleo contraseñas): suite contra la BD real con
+    `DB::rollBack()`, los controladores por HTTP (props de Inertia con la
+    cabecera `X-Inertia`), `npm run build`, y la auditoría del demo sin cambios.
+
 - **Familia · SALIDA SEGURA, rebanada 1** (2026-09-07, quinto flujo de la
   revisión de cinco módulos; pedido del cliente, con sus decisiones). Quién puede
   recoger a un alumno. **El diseño completo de las tres rebanadas vive en

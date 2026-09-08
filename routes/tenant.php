@@ -35,6 +35,7 @@ use App\Http\Controllers\CatalogoAcademicoController;
 use App\Http\Controllers\ChatMateriaController;
 use App\Http\Controllers\CicloController;
 use App\Http\Controllers\CierreFiscalController;
+use App\Http\Controllers\CitaFamiliaController;
 use App\Http\Controllers\ClaseEnVivoController;
 use App\Http\Controllers\ClasesEnLineaController;
 use App\Http\Controllers\CobranzaController;
@@ -61,6 +62,7 @@ use App\Http\Controllers\Disciplina\SancionController;
 use App\Http\Controllers\DisenoHistorialController;
 use App\Http\Controllers\DisponibilidadDocenteController;
 use App\Http\Controllers\DisposicionPanelController;
+use App\Http\Controllers\DocenciaCitasController;
 use App\Http\Controllers\DocenciaController;
 use App\Http\Controllers\DocenteController;
 use App\Http\Controllers\DocumentoRequeridoController;
@@ -2212,6 +2214,19 @@ Route::middleware([
         });
 
         /*
+         * Citas con los docentes del hijo. Permiso propio `solicitar-citas`
+         * (faceta padre); la pertenencia y que el docente le dé clase al hijo se
+         * comprueban en el servidor —el id del hijo viaja por la URL—.
+         */
+        Route::controller(CitaFamiliaController::class)
+            ->middleware('can:solicitar-citas')->name('tenant.padre.citas.')
+            ->group(function () {
+                Route::get('mis-hijos/{hijo}/citas', 'index')->whereNumber('hijo')->name('index');
+                Route::post('mis-hijos/{hijo}/citas', 'solicitar')->whereNumber('hijo')->name('solicitar');
+                Route::post('mis-hijos/citas/{cita}/cancelar', 'cancelar')->whereNumber('cita')->name('cancelar');
+            });
+
+        /*
          * Y el expediente del propio TUTOR: lo que la escuela le pide A ÉL.
          *
          * Permiso aparte de `ver-mis-hijos` por lo mismo que el del alumno va
@@ -2903,6 +2918,22 @@ Route::middleware([
                 ->group(function () {
                     Route::get('/', 'index')->name('index');
                     Route::post('/', 'guardar')->name('guardar');
+                });
+
+            // Las citas del docente con las familias: sus horarios de atención y
+            // las solicitudes de sus alumnos. El alcance (que la cita sea suya) lo
+            // pone el servicio, no el permiso.
+            Route::controller(DocenciaCitasController::class)
+                ->prefix('docencia/citas')->name('tenant.docencia.citas.')
+                ->middleware('can:gestionar-mis-citas')
+                ->group(function () {
+                    Route::get('/', 'index')->name('index');
+                    Route::post('disponibilidad', 'guardarDisponibilidad')->name('disponibilidad.guardar');
+                    Route::delete('disponibilidad/{disponibilidad}', 'eliminarDisponibilidad')->whereNumber('disponibilidad')->name('disponibilidad.eliminar');
+                    Route::post('{cita}/confirmar', 'confirmar')->whereNumber('cita')->name('confirmar');
+                    Route::post('{cita}/rechazar', 'rechazar')->whereNumber('cita')->name('rechazar');
+                    Route::post('{cita}/cancelar', 'cancelar')->whereNumber('cita')->name('cancelar');
+                    Route::post('{cita}/marcar', 'marcar')->whereNumber('cita')->name('marcar');
                 });
 
             // Los catálogos de conducta (tipos de incidencia y de sanción).

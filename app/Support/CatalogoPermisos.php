@@ -442,6 +442,8 @@ final class CatalogoPermisos
 
         'Familia' => [
             'ver-mis-hijos' => ['Ver a mis hijos', 'Portal del padre o tutor familiar: la información de los alumnos que tiene vinculados.', [self::PADRE]],
+            'solicitar-citas' => ['Solicitar citas con los docentes', 'Portal del padre o tutor familiar: pedir y cancelar reuniones con los docentes que le dan clase a su hijo.', [self::PADRE]],
+            'gestionar-mis-citas' => ['Gestionar mis citas con familias', 'El docente declara sus horarios de atención a padres y responde (confirma o rechaza) las solicitudes de reunión de sus alumnos. El alcance sale de las materias que imparte, no de este permiso.', [self::DOCENTE]],
             // El alcance NO lo da este permiso sino el vínculo en `tutorias`:
             // deja entrar al portal, y a quiénes ve lo decide a quién acompaña.
             'ver-mis-tutorados' => ['Ver a mis tutorados', 'Portal del tutor educativo: los alumnos que acompaña académicamente.', [self::TUTOR]],

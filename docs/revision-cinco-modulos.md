@@ -79,7 +79,7 @@ exige así), y se deja fuera del build hasta esa decisión.
 | 7.3 Consentimientos (texto, versión, estados, historial) | **A** | `autorizaciones`, `AutorizacionController`; `concedida` en NULL ≠ negado; una fila por vínculo | — | conservar | — |
 | 7.3 Vigencia / caducidad / revocación del consentimiento | **✅ HECHO** (era B) | `autorizaciones.vigencia_hasta` + `revocada_en`; `Autorizacion::estaEnVigor/caducada/revocada/estado`; acción `revocar` (familia); conteo del admin por estado real | — | implementado: una concedida caduca al pasar su vigencia y deja de contar; revocar (no atado al plazo de respuesta) queda distinto de negar; sólo se revoca lo que está en vigor | `prueba-autorizaciones-vigencia.php` (34 verif, 7 mutaciones) |
 | 7.4 Salud y emergencias | **E** | sólo la bandera `es_contacto_emergencia`; no hay alergias, medicamentos, ficha médica, incidentes | no existe la ficha de salud | ficha con permiso restringido y auditoría de acceso; **sin diagnósticos automáticos** | acceso a ficha queda auditado |
-| 7.5 Citas familia–docente | **E** | nada | no hay agenda de citas | subsistema: disponibilidad del docente, solicitud, confirmación, prevención de traslapes | dos citas no se enciman |
+| 7.5 Citas familia–docente | **✅ HECHO** (era E) | `disponibilidad_cita_docente` (ventanas de atención, aparte de las de dar clase) y `citas_familia_docente`; `GestorDeCitas` (solicitar/confirmar/rechazar/cancelar/marcar, con traslape bajo bloqueo); portal del docente `/docencia/citas` y de la familia `/mis-hijos/{hijo}/citas`; permisos `gestionar-mis-citas` (docente) y `solicitar-citas` (padre). Diseño en `docs/plan-citas-familia-docente.md` | — | implementado: la familia pide con los docentes de su hijo, el docente confirma o rechaza, no se enciman dos confirmadas; el vínculo se DERIVA (`tutores_alumno` + `docente_asignatura_grupo`), avisos por el canal de avisos | `prueba-citas-familia-docente.php` (37 verif, 10 mutaciones) |
 | 7.5 Avisos por canal/preferencia, con acuse | **B** | avisos de pantalla existen (`Aviso`, `avisos_destinos`); no hay preferencia de canal ni acuse de lectura por canal externo | falta preferencia y acuse externo | se apoya en el motor de avisos existente; canal externo necesita proveedor | dedup con varios roles |
 
 ---
@@ -95,18 +95,28 @@ exige así), y se deja fuera del build hasta esa decisión.
 ## Flujos DECISIÓN-FREE, completos y de alto valor (candidatos a construir)
 
 Ordenados por relación valor/aislamiento, todos reutilizan mecanismos que ya
-existen y ninguno necesita servicio de pago:
+existen y ninguno necesita servicio de pago. **Los seis decisión-free ya están
+HECHOS**; lo que queda tiene una puerta (decisión, servicio de pago o app móvil):
 
-1. **Supervisor externo de servicio social (4.1)** — cierra un flujo que hoy no
-   se puede operar: el supervisor no valida nada. Reusa expediente, permisos,
-   auditoría y el patrón de invitación por token.
-2. **Salida segura / recoger alumno (7.2)** — subsistema autocontenido, reusa
-   QR/PIN + auditoría, alto valor en básica/media.
-3. **Prerrequisitos entre actividades del LMS (3.4)** — pedagógico, reusa
-   actividades/entregas, con prevención de ciclos.
-4. **Simulador de reglas de permanencia (5.1)** — calibrar sin generar señales;
-   reusa el motor.
-5. **Compras / cuentas por pagar (6.3)** — el más grande; módulo opcional.
+1. ✅ **Supervisor externo de servicio social (4.1)** — hecho. Reusa expediente,
+   permisos, auditoría y el patrón de invitación por token.
+2. ✅ **Salida segura / recoger alumno (7.2)** — hecho (rebanadas 1 y 2). Reusa
+   QR + auditoría + avisos; la rebanada 3 (app) depende del cliente móvil.
+3. ✅ **Prerrequisitos entre actividades del LMS (3.4)** — hecho.
+4. ✅ **Simulador de reglas de permanencia (5.1)** — hecho.
+5. ✅ **Vigencia/revocación de autorizaciones (7.3)** — hecho.
+6. ✅ **Citas familia–docente (7.5)** — hecho. `GestorDeCitas`, dos portales,
+   traslape bajo bloqueo; reusa `tutores_alumno`, `docente_asignatura_grupo` y
+   los avisos.
+
+**Lo que queda, con su puerta:**
+
+- **Salud y emergencias (7.4)** — ficha médica del menor: necesita decisión de
+  qué campos guarda y quién la ve (dato sensible).
+- **Compras / cuentas por pagar (6.3)** — módulo opcional grande; necesita
+  acordar el alcance (control de compras vs. contabilidad, que este sistema NO
+  es).
+- **Salida segura rebanada 3** — depende de la app móvil, que aún no existe.
 
 ## Regla que se respeta en todos
 
