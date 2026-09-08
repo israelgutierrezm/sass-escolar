@@ -47,6 +47,8 @@ interface ActividadDocente {
     permite_tarde: boolean;
     /** Si el alumno puede reemplazar lo entregado. */
     permite_reentrega: boolean;
+    /** Otra actividad del curso que hay que completar antes de abrir ésta. */
+    prerequisito_id: number | null;
     publicada: boolean;
     entregadas: number;
 }
@@ -142,8 +144,20 @@ const formActividad = useForm({
     // Se puede corregir salvo que el docente diga lo contrario: es lo que menos
     // sorprende, y lo que el sistema hacía antes de que esto fuera opción.
     permite_reentrega: true,
+    prerequisito_id: null as number | null,
     publicada: true,
 });
+
+/*
+ * El prerrequisito se elige entre las OTRAS actividades del curso; la que se
+ * está editando no puede ser su propio candado. El servidor vuelve a comprobar
+ * que no haya ciclo.
+ */
+const prerequisitosPosibles = computed(() =>
+    props.actividades
+        .filter((a) => a.id !== formActividad.id)
+        .map((a) => ({ valor: a.id, texto: a.titulo })),
+);
 
 const editorAbierto = ref(false);
 
@@ -167,6 +181,7 @@ function editarActividad(a: ActividadDocente): void {
     formActividad.cierra_en = a.cierra_en ?? '';
     formActividad.permite_tarde = a.permite_tarde;
     formActividad.permite_reentrega = a.permite_reentrega;
+    formActividad.prerequisito_id = a.prerequisito_id;
     formActividad.publicada = a.publicada;
     editorAbierto.value = true;
 }
@@ -587,6 +602,19 @@ const cortesCerrados = computed(() =>
                     <CampoTexto v-model="formActividad.abre_en" etiqueta="Abre" tipo="datetime-local" :error="formActividad.errors.abre_en" />
                     <CampoTexto v-model="formActividad.cierra_en" etiqueta="Cierra" tipo="datetime-local" :error="formActividad.errors.cierra_en" />
 
+                    <!-- El candado de avance: la actividad no se abre hasta que
+                         el alumno completa la que se elija aquí. -->
+                    <CampoSelect
+                        v-if="prerequisitosPosibles.length"
+                        v-model="formActividad.prerequisito_id"
+                        etiqueta="Se abre al completar"
+                        :opciones="prerequisitosPosibles"
+                        vacio="Sin candado: abierta desde el inicio"
+                        :error="formActividad.errors.prerequisito_id"
+                        ayuda="El alumno no la ve hasta terminar la que elijas."
+                        class="sm:col-span-2"
+                    />
+
                     <div class="sm:col-span-2 lg:col-span-3">
                         <label class="mb-1 block text-sm font-medium">Instrucciones</label>
                         <textarea
@@ -667,6 +695,7 @@ const cortesCerrados = computed(() =>
                                  desde aquí sin abrir una por una. -->
                             <template v-if="a.tiene_contenido"> · con material</template>
                             <span v-else-if="a.tipo === 'lectura'" :style="{ color: '#d97706' }"> · sin material</span>
+                            <span v-if="a.prerequisito_id" :style="{ color: 'var(--color-acento)' }"> · 🔒 tras «{{ tituloActividad(a.prerequisito_id) }}»</span>
                         </span>
                     </span>
                     <span v-if="a.se_entrega" class="shrink-0 text-xs" :style="{ color: 'var(--color-suave)' }">

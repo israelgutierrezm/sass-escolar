@@ -15,6 +15,7 @@ use App\Models\Lms\Actividad;
 use App\Models\Lms\Curso;
 use App\Models\Lms\Reactivo;
 use App\Services\Lms\CopiadorDeCurso;
+use App\Services\Lms\Prerequisitos;
 use App\Support\HtmlSeguro;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -39,7 +40,10 @@ class CursoPlantillaController extends Controller
     use ArmaExamenes;
     use EligeRubrica;
 
-    public function __construct(private readonly CopiadorDeCurso $copiador) {}
+    public function __construct(
+        private readonly CopiadorDeCurso $copiador,
+        private readonly Prerequisitos $prerequisitos,
+    ) {}
 
     /** El armado de la plantilla: presentación, permisos del docente y actividades. */
     public function show(PlanEstudio $plan, PlanMateria $materia): Response
@@ -75,6 +79,7 @@ class CursoPlantillaController extends Controller
                 'puntos' => (float) $a->puntos,
                 'permite_tarde' => (bool) $a->permite_tarde,
                 'permite_reentrega' => (bool) $a->permite_reentrega,
+                'prerequisito_id' => $a->prerequisito_id,
                 'publicada' => (bool) $a->publicada,
                 'esquema_evaluacion_id' => $a->esquema_evaluacion_id,
                 'componente' => $a->componente?->etiquetaCompleta(),
@@ -152,11 +157,21 @@ class CursoPlantillaController extends Controller
             'puntos' => ['required', 'numeric', 'min:1', 'max:1000'],
             'permite_tarde' => ['boolean'],
             'permite_reentrega' => ['boolean'],
+            'prerequisito_id' => ['nullable', 'integer'],
             'publicada' => ['boolean'],
         ], [], [
             'esquema_evaluacion_id' => 'componente de evaluación',
             'rubrica_id' => 'rúbrica',
+            'prerequisito_id' => 'prerrequisito',
         ]);
+
+        // Mismo servicio que el editor del docente: otra actividad del curso, sin
+        // ciclos.
+        $datos['prerequisito_id'] = $this->prerequisitos->validarAlGuardar(
+            $datos['prerequisito_id'] ?? null,
+            $curso,
+            $actividad,
+        );
 
         // El material se pinta como HTML en la pantalla del alumno: entra por la
         // lista blanca antes de guardarse. La validación de arriba comprueba que

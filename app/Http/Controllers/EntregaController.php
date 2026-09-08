@@ -12,6 +12,7 @@ use App\Models\Lms\Actividad;
 use App\Models\Lms\Entrega;
 use App\Models\Lms\EntregaArchivo;
 use App\Services\Lms\CalificadorPorRubrica;
+use App\Services\Lms\Prerequisitos;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -28,6 +29,8 @@ class EntregaController extends Controller
 {
     use AlcanceDelAlumno;
 
+    public function __construct(private readonly Prerequisitos $prerequisitos) {}
+
     public function guardar(Request $request, Actividad $actividad): RedirectResponse
     {
         $inscripcion = $this->miInscripcionEn($request, $actividad);
@@ -41,6 +44,10 @@ class EntregaController extends Controller
         if (! $actividad->abierta()) {
             return back()->with('error', 'La entrega de esta actividad está cerrada.');
         }
+
+        // El candado de avance: no se entrega una actividad que su prerrequisito
+        // mantiene cerrada. Esconder el botón no basta —el POST llega igual—.
+        $this->prerequisitos->exigirDesbloqueada($actividad, $inscripcion->id);
 
         /*
          * Hay trabajos de una sola oportunidad y así lo configuró el docente.

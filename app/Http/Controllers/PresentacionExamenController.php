@@ -12,6 +12,7 @@ use App\Models\Lms\Examen;
 use App\Models\Lms\Intento;
 use App\Models\Lms\Reactivo;
 use App\Services\Lms\AplicadorExamen;
+use App\Services\Lms\Prerequisitos;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -36,7 +37,10 @@ class PresentacionExamenController extends Controller
 {
     use AlcanceDelAlumno;
 
-    public function __construct(private readonly AplicadorExamen $aplicador) {}
+    public function __construct(
+        private readonly AplicadorExamen $aplicador,
+        private readonly Prerequisitos $prerequisitos,
+    ) {}
 
     /** La portada: qué es, cuánto vale, qué intentos lleva. */
     public function show(Request $request, Actividad $actividad): Response
@@ -51,6 +55,8 @@ class PresentacionExamenController extends Controller
 
         $enCurso = $intentos->firstWhere('entregado_en', null);
 
+        $bloqueo = $this->prerequisitos->bloqueoPara($actividad, $inscripcion->id);
+
         return Inertia::render('MisCursos/Examen', [
             'actividad' => [
                 'id' => $actividad->id,
@@ -62,6 +68,7 @@ class PresentacionExamenController extends Controller
                 // formato que no usa ninguna otra pantalla.
                 'cierra_en' => $actividad->cierra_en?->format('d/m/Y H:i'),
                 'abierta' => $actividad->abierta(),
+                'bloqueada_por' => $bloqueo?->titulo,
             ],
             'materia' => [
                 'id' => $actividad->curso->asignatura_grupo_id,
@@ -82,6 +89,7 @@ class PresentacionExamenController extends Controller
                 'resultado' => $this->resultadoVisible($examen, $actividad, $i),
             ])->values(),
             'puede_iniciar' => $actividad->abierta()
+                && $bloqueo === null
                 && $enCurso === null
                 && $examen->permiteOtroIntento($intentos->count()),
             'intento_en_curso' => $enCurso?->id,
@@ -96,6 +104,9 @@ class PresentacionExamenController extends Controller
         if (! $actividad->abierta()) {
             return back()->with('error', 'Este examen ya está cerrado.');
         }
+
+        // No se inicia un examen que su prerrequisito mantiene cerrado.
+        $this->prerequisitos->exigirDesbloqueada($actividad, $inscripcion->id);
 
         try {
             $intento = $this->aplicador->iniciar($examen, $inscripcion);

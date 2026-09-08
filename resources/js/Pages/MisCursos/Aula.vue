@@ -76,6 +76,9 @@ interface Leccion {
     /** Con qué se califica. Se enseña ANTES de entregar, no sólo con la nota. */
     rubrica: RubricaDeActividad | null;
     completada: boolean;
+    /** El candado: cerrada hasta completar su prerrequisito. */
+    bloqueada: boolean;
+    bloqueada_por: string | null;
     visitada: boolean;
     entrega: Entrega | null;
 }
@@ -213,6 +216,7 @@ const estado = computed(() => {
     const l = props.leccion;
 
     if (l === null) return null;
+    if (l.bloqueada) return { texto: 'Bloqueada', color: 'var(--color-suave)' };
     if (l.completada && !l.se_entrega) return { texto: 'Completada', color: '#16a34a' };
     if (l.entrega?.calificacion != null) return { texto: 'Calificada', color: '#16a34a' };
     if (l.entrega?.entregada_en) {
@@ -376,12 +380,26 @@ const estado = computed(() => {
                             </div>
                         </header>
 
+                        <!-- El candado: cerrada hasta completar su prerrequisito.
+                             El contenido y las acciones se esconden; el servidor
+                             lo comprueba igual en cada envío. -->
+                        <div v-if="leccion.bloqueada" class="px-5 py-12 text-center sm:px-8">
+                            <svg class="mx-auto h-9 w-9 text-suave" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                            </svg>
+                            <h2 class="mt-3 text-base font-semibold text-contenido">Esta lección está bloqueada</h2>
+                            <p class="mx-auto mt-1.5 max-w-md text-sm text-suave">
+                                Primero completa <strong class="text-contenido">«{{ leccion.bloqueada_por }}»</strong>.
+                                En cuanto la termines, ésta se abre sola.
+                            </p>
+                        </div>
+
                         <!-- El material -->
-                        <div v-if="leccion.tiene_contenido" class="prosa px-5 py-6 sm:px-8 sm:py-8" v-html="leccion.contenido" />
+                        <div v-if="leccion.tiene_contenido && !leccion.bloqueada" class="prosa px-5 py-6 sm:px-8 sm:py-8" v-html="leccion.contenido" />
 
                         <!-- Qué hay que hacer con él -->
                         <div
-                            v-if="leccion.instrucciones"
+                            v-if="leccion.instrucciones && !leccion.bloqueada"
                             class="border-t border-borde px-5 py-5 sm:px-8"
                             :style="{ backgroundColor: 'color-mix(in srgb, var(--color-suave) 5%, transparent)' }"
                         >
@@ -400,7 +418,7 @@ const estado = computed(() => {
                              Cuando ya está calificada no se repite aquí: se
                              muestra abajo, con los niveles obtenidos. -->
                         <div
-                            v-if="leccion.rubrica && !leccion.entrega?.por_rubrica.length"
+                            v-if="leccion.rubrica && !leccion.entrega?.por_rubrica.length && !leccion.bloqueada"
                             class="border-t border-borde px-5 py-5 sm:px-8"
                         >
                             <RubricaDelAlumno
@@ -410,7 +428,7 @@ const estado = computed(() => {
                         </div>
 
                         <p
-                            v-if="!leccion.tiene_contenido && !leccion.instrucciones && !leccion.rubrica"
+                            v-if="!leccion.tiene_contenido && !leccion.instrucciones && !leccion.rubrica && !leccion.bloqueada"
                             class="px-5 py-10 text-center text-sm text-suave sm:px-8"
                         >
                             Esta lección no trae material cargado.
@@ -418,6 +436,10 @@ const estado = computed(() => {
                     </article>
 
                     <!-- ── Lo que toca hacer ───────────────────────────── -->
+
+                    <!-- Las acciones sólo si la lección está abierta: bloqueada,
+                         no hay nada que entregar ni completar. -->
+                    <template v-if="!leccion.bloqueada">
 
                     <!-- Lectura: la completa el alumno -->
                     <section v-if="!leccion.se_entrega" class="tarjeta px-5 py-5 sm:px-8">
@@ -682,6 +704,7 @@ const estado = computed(() => {
                             <BotonPrincipal :procesando="formEntrega.processing" texto="Entregar" icono="crear" />
                         </form>
                     </section>
+                    </template>
 
                     <!-- ── Avanzar ─────────────────────────────────────── -->
                     <nav class="flex items-stretch gap-3">

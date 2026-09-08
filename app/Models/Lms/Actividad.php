@@ -46,6 +46,7 @@ class Actividad extends Model
         'permite_tarde',
         'permite_reentrega',
         'orden',
+        'prerequisito_id',
         'publicada',
         'config',
     ];
@@ -72,6 +73,17 @@ class Actividad extends Model
     public function componente(): BelongsTo
     {
         return $this->belongsTo(EsquemaEvaluacion::class, 'esquema_evaluacion_id');
+    }
+
+    /**
+     * La actividad que hay que completar antes de que ésta se abra. Se lee
+     * `withTrashed()` a propósito: si el prerrequisito se dio de baja lógica, el
+     * servicio lo trata como candado inexistente (abre), pero necesita poder
+     * verlo para decidirlo — no reventar porque la relación devuelve null.
+     */
+    public function prerequisito(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'prerequisito_id')->withTrashed();
     }
 
     /**

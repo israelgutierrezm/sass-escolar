@@ -13,6 +13,7 @@ use App\Models\Lms\Actividad;
 use App\Models\Lms\Entrega;
 use App\Models\Lms\PortafolioArchivo;
 use App\Models\Lms\PortafolioEvidencia;
+use App\Services\Lms\Prerequisitos;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -35,6 +36,8 @@ use Illuminate\Support\Facades\Storage;
 class PortafolioController extends Controller
 {
     use AlcanceDelAlumno;
+
+    public function __construct(private readonly Prerequisitos $prerequisitos) {}
 
     /** Agrega una pieza al portafolio. */
     public function agregar(Request $request, Actividad $actividad): RedirectResponse
@@ -232,6 +235,11 @@ class PortafolioController extends Controller
         AvisoParaElUsuario::si($inscripcion === null, 403, 'Esa actividad no es de una materia que curses.');
 
         AvisoParaElUsuario::si(! $actividad->abierta(), 403, 'Este portafolio ya está cerrado.');
+
+        // El candado de avance, en el resolutor que comparten agregar y entregar:
+        // ni se suman piezas ni se cierra un portafolio que su prerrequisito
+        // mantiene cerrado.
+        $this->prerequisitos->exigirDesbloqueada($actividad, $inscripcion->id);
 
         /*
          * `primeraOReviver` y NO `actualizarOReviver`: el estado sólo se pone

@@ -10,6 +10,7 @@ use App\Models\Lms\Actividad;
 use App\Models\Lms\ActividadVista;
 use App\Models\Lms\Curso;
 use App\Models\Lms\Entrega;
+use App\Services\Lms\Prerequisitos;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -43,6 +44,8 @@ use Inertia\Response;
 class AulaController extends Controller
 {
     use AlcanceDelAlumno;
+
+    public function __construct(private readonly Prerequisitos $prerequisitos) {}
 
     /**
      * Una lección, con el índice completo del curso al lado.
@@ -108,6 +111,10 @@ class AulaController extends Controller
 
         abort_if($actividad->tipo->seEntrega(), 422, 'Esta actividad se completa entregándola.');
 
+        // No se marca como leída una lección que su prerrequisito mantiene
+        // cerrada: la pantalla la esconde, pero el POST llega igual.
+        $this->prerequisitos->exigirDesbloqueada($actividad, $inscripcion->id);
+
         ActividadVista::actualizarOReviver(
             ['actividad_id' => $actividad->id, 'inscripcion_id' => $inscripcion->id],
             ['vista_en' => now(), 'completada_en' => now()],
@@ -165,19 +172,37 @@ class AulaController extends Controller
             ->get()
             ->keyBy('actividad_id');
 
-        return $actividades->values()->map(function (Actividad $a, int $i) use ($entregas, $vistas) {
+        // Para resolver el prerrequisito sin otra consulta: sólo alcanza a las
+        // VISIBLES, que es justo lo que el candado usa —un prerrequisito oculto
+        // o cerrado no bloquea—.
+        $porId = $actividades->keyBy('id');
+
+        return $actividades->values()->map(function (Actividad $a, int $i) use ($entregas, $vistas, $porId) {
             $entrega = $entregas->get($a->id);
             $vista = $vistas->get($a->id);
 
             /*
              * Completada según lo que la actividad DEJA como rastro: la entrega
-             * si se entrega, el botón del alumno si no. Un solo criterio por
-             * tipo, para que la barra de progreso y el palomeado del índice no
-             * puedan contradecirse.
+             * si se entrega, el botón del alumno si no. La definición vive UNA
+             * vez en Prerequisitos, así que la barra de progreso, el palomeado
+             * del índice y el candado no pueden contradecirse.
              */
-            $completada = $a->tipo->seEntrega()
-                ? $entrega?->entregada_en !== null
-                : $vista?->completada_en !== null;
+            $completada = $this->prerequisitos->estaCompletada($a, $entrega, $vista);
+
+            /*
+             * Bloqueada mientras su prerrequisito —publicado y abierto— siga sin
+             * completarse. Se calcula con los mapas ya cargados: el prerrequisito
+             * es del mismo curso, así que su entrega/vista ya están aquí.
+             */
+            $prereq = $a->prerequisito_id === null ? null : $porId->get($a->prerequisito_id);
+            $bloqueada = false;
+            $bloqueadaPor = null;
+
+            if ($prereq !== null && $prereq->abierta()
+                && ! $this->prerequisitos->estaCompletada($prereq, $entregas->get($prereq->id), $vistas->get($prereq->id))) {
+                $bloqueada = true;
+                $bloqueadaPor = $prereq->titulo;
+            }
 
             return [
                 'id' => $a->id,
@@ -229,6 +254,11 @@ class AulaController extends Controller
                     ])->values(),
                 ],
                 'completada' => $completada,
+                // El candado: la lección no se abre hasta completar su
+                // prerrequisito. El contenido y el envío se ocultan en la
+                // pantalla, y el servidor lo comprueba igual en cada acción.
+                'bloqueada' => $bloqueada,
+                'bloqueada_por' => $bloqueadaPor,
                 'visitada' => $vista !== null,
                 'entrega' => $entrega === null ? null : [
                     'id' => $entrega->id,

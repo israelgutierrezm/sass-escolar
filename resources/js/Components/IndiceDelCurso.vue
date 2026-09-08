@@ -22,6 +22,7 @@ interface Leccion {
     puntos: number;
     dias: number | null;
     completada: boolean;
+    bloqueada: boolean;
     visitada: boolean;
     abierta: boolean;
     se_entrega: boolean;
@@ -153,14 +154,17 @@ const avanceTrazo = computed(() => (props.progreso.porcentaje / 100) * perimetro
                                 : 'hover:bg-[color-mix(in_srgb,var(--color-suave)_7%,transparent)]'"
                             :style="{ borderColor: l.id === activaId ? 'var(--color-acento)' : 'transparent' }"
                         >
-                            <!-- Círculo de estado: hecho, empezado o sin tocar -->
+                            <!-- Círculo de estado: bloqueada, hecha, empezada o sin tocar -->
                             <span
                                 class="mt-0.5 grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border-2 text-[10px]"
                                 :style="l.completada
                                     ? { backgroundColor: '#16a34a', borderColor: '#16a34a', color: '#fff' }
-                                    : { borderColor: l.visitada ? 'var(--color-acento)' : 'color-mix(in srgb, var(--color-suave) 45%, transparent)' }"
+                                    : { borderColor: l.bloqueada ? 'color-mix(in srgb, var(--color-suave) 45%, transparent)' : (l.visitada ? 'var(--color-acento)' : 'color-mix(in srgb, var(--color-suave) 45%, transparent)') }"
                             >
-                                <svg v-if="l.completada" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5">
+                                <svg v-if="l.bloqueada" class="h-2.5 w-2.5 text-suave" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                                </svg>
+                                <svg v-else-if="l.completada" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                                 </svg>
                                 <span

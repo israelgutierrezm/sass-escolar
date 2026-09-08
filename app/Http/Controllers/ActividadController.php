@@ -15,6 +15,7 @@ use App\Models\Lms\Curso;
 use App\Models\Lms\Entrega;
 use App\Services\Lms\CalculadorComponente;
 use App\Services\Lms\CalificadorPorRubrica;
+use App\Services\Lms\Prerequisitos;
 use App\Support\HtmlSeguro;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -37,6 +38,7 @@ class ActividadController extends Controller
     public function __construct(
         private readonly CalculadorComponente $calculador,
         private readonly CalificadorPorRubrica $porRubrica,
+        private readonly Prerequisitos $prerequisitos,
     ) {}
 
     public function store(Request $request, AsignaturaGrupo $asignaturaGrupo): RedirectResponse
@@ -260,13 +262,24 @@ class ActividadController extends Controller
             'cierra_en' => ['nullable', 'date', 'after_or_equal:abre_en'],
             'permite_tarde' => ['boolean'],
             'permite_reentrega' => ['boolean'],
+            'prerequisito_id' => ['nullable', 'integer'],
             'publicada' => ['boolean'],
         ], [], [
             'esquema_evaluacion_id' => 'componente de evaluación',
             'rubrica_id' => 'rúbrica',
             'cierra_en' => 'fecha de cierre',
             'abre_en' => 'fecha de apertura',
+            'prerequisito_id' => 'prerrequisito',
         ]);
+
+        // El prerrequisito tiene que ser OTRA actividad del mismo curso y no
+        // cerrar un ciclo. La comprobación vive en el servicio, que la comparten
+        // este editor y el de la plantilla.
+        $datos['prerequisito_id'] = $this->prerequisitos->validarAlGuardar(
+            $datos['prerequisito_id'] ?? null,
+            $curso,
+            $actividad,
+        );
 
         // El material se pinta como HTML en la pantalla del alumno: entra por la
         // lista blanca antes de guardarse. La validación de arriba comprueba que

@@ -33,6 +33,7 @@ const props = defineProps<{
         puntos: number;
         cierra_en: string | null;
         abierta: boolean;
+        bloqueada_por: string | null;
     };
     materia: { id: number; nombre: string };
     examen: {
@@ -130,7 +131,9 @@ function iniciar(): void {
                     {{ intentos.length ? 'Presentar otro intento' : 'Comenzar examen' }}
                 </button>
                 <p v-else class="text-sm text-suave">
-                    {{ actividad.abierta ? 'Ya usaste todos tus intentos.' : 'Este examen ya cerró.' }}
+                    <template v-if="actividad.bloqueada_por">🔒 Primero completa «{{ actividad.bloqueada_por }}» para poder presentar este examen.</template>
+                    <template v-else-if="actividad.abierta">Ya usaste todos tus intentos.</template>
+                    <template v-else>Este examen ya cerró.</template>
                 </p>
             </div>
         </section>

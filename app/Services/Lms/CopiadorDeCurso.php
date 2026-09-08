@@ -79,8 +79,30 @@ class CopiadorDeCurso
             // querer armar otro examen con lo que la escuela ya redactó.
             $reactivos = $this->copiarBanco($plantilla, $curso);
 
+            // Se copia en DOS pasadas por el prerrequisito: primero todas las
+            // actividades (armando el mapa viejo→nuevo id), luego se re-ata cada
+            // candado al id COPIADO. En una sola pasada, una actividad podría
+            // apuntar a un prerrequisito que aún no se ha copiado; y sin remapear,
+            // el grupo quedaría con candados apuntando a la actividad de la
+            // plantilla —el mismo defecto que copiar el examen venía a evitar—.
+            $mapa = [];
+            $prereqs = [];
+
             foreach ($plantilla->actividades as $actividad) {
-                $this->copiarActividad($actividad, $curso, $reactivos);
+                $copia = $this->copiarActividad($actividad, $curso, $reactivos);
+                $mapa[$actividad->id] = $copia->id;
+
+                if ($actividad->prerequisito_id !== null) {
+                    $prereqs[$copia->id] = $actividad->prerequisito_id;
+                }
+            }
+
+            foreach ($prereqs as $copiaId => $prereqOriginalId) {
+                $nuevoPrereq = $mapa[$prereqOriginalId] ?? null;
+
+                if ($nuevoPrereq !== null) {
+                    Actividad::whereKey($copiaId)->update(['prerequisito_id' => $nuevoPrereq]);
+                }
             }
 
             return $curso;
@@ -126,7 +148,7 @@ class CopiadorDeCurso
     /**
      * @param  array<int, int>  $reactivos
      */
-    private function copiarActividad(Actividad $original, Curso $curso, array $reactivos): void
+    private function copiarActividad(Actividad $original, Curso $curso, array $reactivos): Actividad
     {
         $copia = Actividad::create([
             'curso_id' => $curso->id,
@@ -160,7 +182,7 @@ class CopiadorDeCurso
         $examen = $original->examen;
 
         if ($examen === null) {
-            return;
+            return $copia;
         }
 
         $nuevo = Examen::create([
@@ -197,5 +219,7 @@ class CopiadorDeCurso
         }
 
         $nuevo->reactivos()->sync($armado);
+
+        return $copia;
     }
 }

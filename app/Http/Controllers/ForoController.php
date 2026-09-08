@@ -13,6 +13,7 @@ use App\Models\Lms\Actividad;
 use App\Models\Lms\Entrega;
 use App\Models\Lms\ForoRespuesta;
 use App\Models\Lms\ForoTema;
+use App\Services\Lms\Prerequisitos;
 use App\Services\Lms\SalaDeMateria;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -36,7 +37,10 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  */
 class ForoController extends Controller
 {
-    public function __construct(private readonly SalaDeMateria $sala) {}
+    public function __construct(
+        private readonly SalaDeMateria $sala,
+        private readonly Prerequisitos $prerequisitos,
+    ) {}
 
     public function show(Request $request, AsignaturaGrupo $materia, Actividad $actividad): Response
     {
@@ -106,6 +110,10 @@ class ForoController extends Controller
             return back()->with('error', 'Este foro ya está cerrado.');
         }
 
+        // El candado de avance, sólo para el alumno: el docente no tiene
+        // inscripción, así que la puerta por persona lo deja pasar.
+        $this->prerequisitos->exigirDesbloqueadaParaPersona($actividad, $yo);
+
         $datos = $request->validate([
             'titulo' => ['required', 'string', 'max:200'],
             'cuerpo' => ['required', 'string', 'max:20000'],
@@ -136,6 +144,8 @@ class ForoController extends Controller
         if (! $actividad->abierta()) {
             return back()->with('error', 'Este foro ya está cerrado.');
         }
+
+        $this->prerequisitos->exigirDesbloqueadaParaPersona($actividad, $yo);
 
         $datos = $request->validate([
             'cuerpo' => ['required', 'string', 'max:20000'],

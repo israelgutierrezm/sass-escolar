@@ -33,6 +33,8 @@ interface ActividadPlantilla {
     permite_tarde: boolean;
     /** Si el alumno puede reemplazar lo entregado. */
     permite_reentrega: boolean;
+    /** Otra actividad del curso que hay que completar antes de abrir ésta. */
+    prerequisito_id: number | null;
     publicada: boolean;
     esquema_evaluacion_id: number | null;
     rubrica_id: number | null;
@@ -99,10 +101,18 @@ const formActividad = useForm({
     puntos: 10,
     permite_tarde: false,
     permite_reentrega: true,
+    prerequisito_id: null as number | null,
     publicada: true,
 });
 
 const tipoActual = computed(() => props.tiposActividad.find((t) => t.valor === formActividad.tipo));
+
+/* El candado se elige entre las OTRAS actividades de la plantilla. */
+const prerequisitosPosibles = computed(() =>
+    props.actividades
+        .filter((a) => a.id !== formActividad.id)
+        .map((a) => ({ valor: a.id, texto: a.titulo })),
+);
 
 function nuevaActividad(): void {
     formActividad.reset();
@@ -122,6 +132,7 @@ function editarActividad(a: ActividadPlantilla): void {
     formActividad.puntos = a.puntos;
     formActividad.permite_tarde = a.permite_tarde;
     formActividad.permite_reentrega = a.permite_reentrega;
+    formActividad.prerequisito_id = a.prerequisito_id;
     formActividad.publicada = a.publicada;
     editorAbierto.value = true;
 }
@@ -412,6 +423,24 @@ const totalPonderado = computed(() =>
                         todos los grupos que abran esta materia.
                     </p>
                 </div>
+
+                <!-- El candado de avance: no se abre hasta completar otra. Viaja
+                     con la copia y se re-ata al id del grupo, así que apunta a la
+                     actividad copiada, no a la de la plantilla. -->
+                <label v-if="prerequisitosPosibles.length" class="block">
+                    <span class="mb-1 block text-sm font-medium">Se abre al completar</span>
+                    <select
+                        v-model="formActividad.prerequisito_id"
+                        class="w-full rounded-lg border px-3 py-2 text-sm"
+                        :style="{ borderColor: 'var(--color-borde)' }"
+                    >
+                        <option :value="null">Sin candado: abierta desde el inicio</option>
+                        <option v-for="p in prerequisitosPosibles" :key="p.valor" :value="p.valor">{{ p.texto }}</option>
+                    </select>
+                    <span v-if="formActividad.errors.prerequisito_id" class="mt-1 block text-xs text-red-600">
+                        {{ formActividad.errors.prerequisito_id }}
+                    </span>
+                </label>
 
                 <div class="space-y-2">
                     <label v-if="tipoActual?.se_entrega" class="flex items-center gap-2 text-sm">
